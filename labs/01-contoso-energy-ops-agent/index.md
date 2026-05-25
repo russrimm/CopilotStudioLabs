@@ -14,7 +14,7 @@
 
 ## Overview
 
-Contoso Energy's mission is to deliver energy with purpose — connecting approximately 40 million consumers through innovation, reliability, and a commitment to the communities we serve. Across subsidiaries including **SDG&E**, **SoCalGas**, and **Oncor**, nearly 20,000 employees manage natural gas pipelines, electrical substations, and smart grid infrastructure. The IT Operations team plays a critical role in keeping those field crews productive, connected, and safe.
+Contoso Energy's mission is to deliver energy with purpose — connecting approximately 40 million consumers through innovation, reliability, and a commitment to the communities we serve. Across subsidiaries including **Pacific Coast Electric**, **Western Gas & Energy**, and **LoneStar Grid**, nearly 20,000 employees manage natural gas pipelines, electrical substations, and smart grid infrastructure. The IT Operations team plays a critical role in keeping those field crews productive, connected, and safe.
 
 In this lab, you will use Microsoft Copilot Studio to build a knowledge-powered IT Operations agent grounded in real Contoso enterprise data. The agent will be able to reason, respond, and reference internal IT guides, policy documents, and industry compliance standards — helping field technicians resolve issues faster without calling the helpdesk.
 
