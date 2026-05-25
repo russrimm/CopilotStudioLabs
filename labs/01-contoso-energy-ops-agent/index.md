@@ -1,4 +1,4 @@
-# ⚡ Lab 01: Build a Custom IT Operations Agent for Sempra Energy
+# ⚡ Lab 01: Build a Custom IT Operations Agent for Contoso Energy
 
 *Delivering energy with purpose — powered by AI*
 
@@ -14,11 +14,11 @@
 
 ## Overview
 
-Sempra Energy's mission is to deliver energy with purpose — connecting approximately 40 million consumers through innovation, reliability, and a commitment to the communities we serve. Across subsidiaries including **SDG&E**, **SoCalGas**, and **Oncor**, nearly 20,000 employees manage natural gas pipelines, electrical substations, and smart grid infrastructure. The IT Operations team plays a critical role in keeping those field crews productive, connected, and safe.
+Contoso Energy's mission is to deliver energy with purpose — connecting approximately 40 million consumers through innovation, reliability, and a commitment to the communities we serve. Across subsidiaries including **SDG&E**, **SoCalGas**, and **Oncor**, nearly 20,000 employees manage natural gas pipelines, electrical substations, and smart grid infrastructure. The IT Operations team plays a critical role in keeping those field crews productive, connected, and safe.
 
-In this lab, you will use Microsoft Copilot Studio to build a knowledge-powered IT Operations agent grounded in real Sempra enterprise data. The agent will be able to reason, respond, and reference internal IT guides, policy documents, and industry compliance standards — helping field technicians resolve issues faster without calling the helpdesk.
+In this lab, you will use Microsoft Copilot Studio to build a knowledge-powered IT Operations agent grounded in real Contoso enterprise data. The agent will be able to reason, respond, and reference internal IT guides, policy documents, and industry compliance standards — helping field technicians resolve issues faster without calling the helpdesk.
 
-You will design, configure, and test a fully customized **Sempra Energy IT Operations Agent** that answers questions using SharePoint, uploaded internal guides, and public knowledge sources — including the NERC CIP standards that govern critical energy infrastructure.
+You will design, configure, and test a fully customized **Contoso Energy IT Operations Agent** that answers questions using SharePoint, uploaded internal guides, and public knowledge sources — including the NERC CIP standards that govern critical energy infrastructure.
 
 Let's build your agent from the ground up.
 
@@ -32,7 +32,7 @@ In this mission, you'll learn:
 2. Creating agents using natural language prompts with AI
 3. Grounding agents with enterprise knowledge sources including SharePoint, documents, and public websites
 4. Learning about generative orchestration and how agents dynamically search and respond using multiple data sources
-5. Building and testing a fully functional **Sempra Energy IT Operations agent** that answers questions from your own data
+5. Building and testing a fully functional **Contoso Energy IT Operations agent** that answers questions from your own data
 
 ---
 
@@ -59,15 +59,15 @@ A custom agent can fulfill the following:
 
 ### 👩🏻‍💻 Why use a custom agent?
 
-- Saves time by automating repetitive helpdesk tasks.
+- Saves time by automating repetitive tasks.
 - Gives field technicians a friendly, guided experience — even from a ruggedized tablet in the field.
-- Tailored to Sempra's unique operational environment: SCADA systems, smart meters, NERC CIP requirements, and utility-specific workflows.
+- Tailored to Contoso's unique operational environment: SCADA systems, smart meters, NERC CIP requirements, and utility-specific workflows.
 
 ### ✨ Example
 
 You build a custom agent that helps a field technician report a SCADA login failure from a remote substation.
 
-It asks for their employee ID, the name of the SCADA system they are trying to reach, the error message displayed, and the device type they are using. Once the technician provides this information, the agent logs the incident to Sempra's IT ticketing system and posts a notification in the **#it-field-ops** Microsoft Teams channel.
+It asks for their employee ID, the name of the SCADA system they are trying to reach, the error message displayed, and the device type they are using. Once the technician provides this information, the agent logs the incident to Contoso's IT ticketing system and posts a notification in the **#it-field-ops** Microsoft Teams channel.
 
 Now, instead of a field crew member calling the IT helpdesk and waiting on hold while standing in a substation, they simply chat with the agent instead.
 
@@ -106,7 +106,7 @@ Let's say the IT Operations team needs an agent to help field technicians report
 The prompt could be:
 
 ```
-I want to build an agent that helps Sempra Energy field technicians report SCADA system login failures. When a technician says they cannot log in to a SCADA system, the agent should ask for their employee ID, the name of the SCADA system they are trying to access, the error message displayed on screen, and the type of device they are using. Once the technician provides this information, the agent should save it to a SharePoint list called 'IT Field Incidents' and post a notification in the Microsoft Teams channel '#it-field-ops'.
+I want to build an agent that helps Contoso Energy field technicians report SCADA system login failures. When a technician says they cannot log in to a SCADA system, the agent should ask for their employee ID, the name of the SCADA system they are trying to access, the error message displayed on screen, and the type of device they are using. Once the technician provides this information, the agent should save it to a SharePoint list called 'IT Field Incidents' and post a notification in the Microsoft Teams channel '#it-field-ops'.
 ```
 
 **Why this prompt works:**
@@ -147,7 +147,7 @@ When a user asks a question, the agent:
 
 #### ✨ Example
 
-Imagine you build an agent to help Sempra Energy field technicians with IT questions. You add the Sempra IT Operations SharePoint site and a Field Remote Access Guide as knowledge sources.
+Imagine you build an agent to help Contoso Energy field technicians with IT questions. You add the Contoso IT Operations SharePoint site and a Field Remote Access Guide as knowledge sources.
 
 When a technician asks, *"How do I connect to the corporate VPN from a remote substation?"*, the agent uses generative orchestration to search those sources and reply with the correct steps — without you having to write that answer manually. This saves you time in having to account for every possible question a field crew member may ask about remote access procedures.
 
@@ -161,7 +161,7 @@ When a technician asks, *"How do I connect to the corporate VPN from a remote su
 
 2. **Documents**
    - *What it does:* Uses documents that you upload directly to your agent, such as PDFs or Word files. These uploaded files are stored securely in Dataverse.
-   - *Why it's useful:* Enables your agent to answer questions based on internal guides, field manuals, or IT policies — such as the Sempra Field Operations Remote Access Guide.
+   - *Why it's useful:* Enables your agent to answer questions based on internal guides, field manuals, or IT policies — such as the Contoso Field Operations Remote Access Guide.
 
 3. **SharePoint**
    - *What it does:* Connects to SharePoint folders or files powered by Work IQ.
@@ -189,7 +189,7 @@ Some sources such as SharePoint and Dataverse require **user authentication**. T
 
 ### ⚠️ Important for energy infrastructure
 
-Because Sempra Energy operates critical infrastructure, IT systems supporting SCADA and OT networks are subject to **NERC CIP (North American Electric Reliability Corporation Critical Infrastructure Protection)** standards. When building agents that may touch OT-adjacent data:
+Because Contoso Energy operates critical infrastructure, IT systems supporting SCADA and OT networks are subject to **NERC CIP (North American Electric Reliability Corporation Critical Infrastructure Protection)** standards. When building agents that may touch OT-adjacent data:
 
 - Ensure knowledge sources do not expose sensitive OT configuration data publicly.
 - Always follow your organization's information classification policy.
@@ -205,7 +205,7 @@ After your agent is provisioned from the conversational authoring experience, yo
 
    For example:
 
-   ✅ *"Act like a knowledgeable Sempra Energy IT Operations specialist who explains technical steps clearly and always asks for the technician's location and device type before troubleshooting."*
+   ✅ *"Act like a knowledgeable Contoso Energy IT Operations specialist who explains technical steps clearly and always asks for the technician's location and device type before troubleshooting."*
 
    ❌ *"Be helpful."* (Too vague)
 
@@ -245,7 +245,7 @@ We're now going to learn how to create a custom agent that can chat over your da
 
 ### ✨ Use case
 
-**As a Sempra Energy field technician or IT operations staff member**
+**As a Contoso Energy field technician or IT operations staff member**
 
 I want to get quick and accurate help from the IT Operations agent for issues like SCADA login failures, VPN connectivity problems, remote device access, and NERC CIP compliance questions
 
@@ -259,13 +259,13 @@ Let's begin!
 
 #### SharePoint site
 
-We'll be using the **Sempra IT Operations** SharePoint site. This site should contain IT policy documents, VPN setup guides, SCADA onboarding materials, and NERC CIP IT procedures.
+We'll be using the **Contoso IT Operations** SharePoint site. This site should contain IT policy documents, VPN setup guides, SCADA onboarding materials, and NERC CIP IT procedures.
 
-If you have not yet created the SharePoint site, create a new SharePoint Communication Site named **Sempra IT Operations** and add a few sample IT policy documents before continuing.
+If you have not yet created the SharePoint site, create a new SharePoint Communication Site named **Contoso IT Operations** and add a few sample IT policy documents before continuing.
 
 #### Power Platform Solution
 
-We'll be creating our agent inside a solution. If you have not yet set up a solution for this lab series, create a new solution named **Sempra Energy Agent Solution** with a publisher prefix of your choosing before continuing.
+We'll be creating our agent inside a solution. If you have not yet set up a solution for this lab series, create a new solution named **Contoso Energy Agent Solution** with a publisher prefix of your choosing before continuing.
 
 ---
 
@@ -275,10 +275,10 @@ We'll be creating our agent inside a solution. If you have not yet set up a solu
 >
 > When you start by describing your agent in natural language, the AI generated name, description, and instructions can vary in each session. This also applies to the proposed triggers, channels, knowledge sources, and tools.
 
-1. Navigate to the **Home** page of Copilot Studio and in the description field, enter the following prompt which describes the Sempra Energy IT Operations agent.
+1. Navigate to the **Home** page of Copilot Studio and in the description field, enter the following prompt which describes the Contoso Energy IT Operations agent.
 
 ```
-You are a Sempra Energy IT Operations assistant that helps employees and field technicians resolve IT issues related to utility operations. Be professional, concise, and safety-aware. Use the Sempra IT knowledge base and company resources as primary sources. Do not invent troubleshooting steps — if guidance cannot be verified, say so and escalate appropriately.
+You are a Contoso Energy IT Operations assistant that helps employees and field technicians resolve IT issues related to utility operations. Be professional, concise, and safety-aware. Use the Contoso IT knowledge base and company resources as primary sources. Do not invent troubleshooting steps — if guidance cannot be verified, say so and escalate appropriately.
 
 For troubleshooting:
 1) Ask ONE focused question if details are missing (system name, error message, substation or location, device type).
@@ -298,8 +298,8 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
 
    The prompt covers:
 
-   - **Role and goal:** Sempra Energy IT Operations assistant for field technicians and office staff
-   - **Primary knowledge sources:** Sempra IT knowledge base, Microsoft Support, NERC CIP standards
+   - **Role and goal:** Contoso Energy IT Operations assistant for field technicians and office staff
+   - **Primary knowledge sources:** Contoso IT knowledge base, Microsoft Support, NERC CIP standards
    - **Response style:** Professional, concise, safety-aware
    - **Troubleshooting flow:** Question → Quick fixes → Steps → Alternative branches → Escalation
    - **Escalation artifact:** Ticket summary with location, system, error, device, and steps tried
@@ -307,7 +307,7 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
    - **Security boundaries:** No passwords, no bypassing security controls, operational safety first
    - **Link handling:** Preserve source URLs, cite Microsoft Support and NERC CIP references
 
-2. We'll double check the solution that our agent will be created in is the **Sempra Energy Agent Solution**. Select the wheel cog icon and the Agent Settings modal will appear. Confirm the correct solution is selected, then select **Cancel**.
+2. We'll double check the solution that our agent will be created in is the **Contoso Energy Agent Solution**. Select the wheel cog icon and the Agent Settings modal will appear. Confirm the correct solution is selected, then select **Cancel**.
 
 3. Submit the prompt description and Copilot Studio will begin provisioning our agent.
 
@@ -315,20 +315,29 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
 
    > **Reminder:** AI generated instructions may differ across sessions. The name, description, instructions, proposed triggers, channels, knowledge sources, and tools can vary in each session.
 
+   > **Note — Issues banner in non-premium environments**
+   >
+   > If you're working in an environment that does not have a premium Copilot Studio license, you'll see a yellow **"... has 2 issues"** banner near the top of the agent overview, similar to the screenshot below. These are warnings — not blockers — and you can safely continue with the lab.
+   >
+   > ![Contoso Energy IT Ops Assistant issues banner showing Premium Features and No evaluation warnings](./assets/images/issues-banner.png)
+   >
+   > - **Premium features** — The agent uses capabilities that require an upgraded license to *publish*. For lab testing in the test pane, this is fine.
+   > - **No evaluation** — Copilot Studio recommends running an evaluation before publishing. We're not publishing in this lab, so this warning can be ignored.
+
 5. Scroll down to review the AI suggestions for knowledge sources, tools, and triggers.
 
 6. Scroll down some more to review the Connected Agents, Topics, and Suggested Prompts sections.
 
-7. We'll next double check our agent has correctly been created in the **Sempra Energy Agent Solution**. Select **Settings** on the upper right.
+7. We'll next double check our agent has correctly been created in the **Contoso Energy Agent Solution**. Select **Settings** on the upper right.
 
-8. We can see under **Advanced** that the agent has been created in the **Sempra Energy Agent Solution**. Exit from settings.
+8. We can see under **Advanced** that the agent has been created in the **Contoso Energy Agent Solution**. Exit from settings.
 
 9. Now let's update the name of our agent. Select **Edit** in the Details section.
 
 10. Enter the following as the name of the agent and **Save** the updated details.
 
     ```
-    Sempra Energy IT Operations Agent
+    Contoso Energy IT Operations Agent
     ```
 
 11. We'll now add the suggested knowledge sources. In the Knowledge section, select **+ Add** for the website URL `https://support.microsoft.com`
@@ -341,7 +350,7 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
     https://www.nerc.com/pa/Stand/Pages/CIPStandards.aspx
     ```
 
-    > **Why NERC CIP?** Sempra Energy's electrical operations are subject to North American Electric Reliability Corporation (NERC) Critical Infrastructure Protection standards. Adding this as a knowledge source allows the agent to answer questions about cybersecurity requirements for critical energy infrastructure — something a generic IT helpdesk agent would not include.
+    > **Why NERC CIP?** Contoso Energy's electrical operations are subject to North American Electric Reliability Corporation (NERC) Critical Infrastructure Protection standards. Adding this as a knowledge source allows the agent to answer questions about cybersecurity requirements for critical energy infrastructure — something a generic IT helpdesk agent would not include.
 
 14. The two website URLs have now been added as knowledge sources for our agent. Select **X Dismiss** to remove any remaining AI suggestions you do not want to add at this time.
 
@@ -352,30 +361,30 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
 17. Enter the following question in the Testing pane:
 
     ```
-    How do I enable multi-factor authentication on my Sempra Microsoft account?
+    How do I enable multi-factor authentication on my Contoso Microsoft account?
     ```
 
 18. The Activity map will then load, showing in real-time what path the agent is processing. In this scenario, our agent has understood the question and searches the knowledge sources using the two website URLs.
 
     Our agent responds with step-by-step instructions, as defined in the instructions. The response has references to the `https://support.microsoft.com` website that the agent formed its answer from. This enables users to verify the source of the answer.
 
-> **Congratulations!** You've built your first Sempra Energy custom agent by starting with a description in Copilot Studio 🙌
+> **Congratulations!** You've built your first Contoso Energy custom agent by starting with a description in Copilot Studio 🙌
 
 ---
 
 ### 1.2 Add an internal knowledge source using a SharePoint site
 
-Previously, we added public websites as external knowledge sources for our agent during the conversational creation experience. We're now going to add an internal knowledge source using a **SharePoint site**. This will be the **Sempra IT Operations** SharePoint site containing your IT policies and field guides.
+Previously, we added public websites as external knowledge sources for our agent during the conversational creation experience. We're now going to add an internal knowledge source using a **SharePoint site**. This will be the **Contoso IT Operations** SharePoint site containing your IT policies and field guides.
 
 1. In the **Knowledge** section, select **+ Add knowledge** and select **SharePoint**.
 
-2. Paste in the address of the **Sempra IT Operations** SharePoint site in the SharePoint URL field and select **Add**.
+2. Paste in the address of the **Contoso IT Operations** SharePoint site in the SharePoint URL field and select **Add**.
 
-3. Update the name of the SharePoint site to **`Sempra IT Operations`** and select **Add to agent**.
+3. Update the name of the SharePoint site to **`Contoso IT Operations`** and select **Add to agent**.
 
 4. The SharePoint site has now been added as a knowledge source. The **Status** column will show whether the knowledge source has been loaded/connected successfully, or if there is an issue. Wait until the status shows **Ready** before continuing.
 
-   > **What's in the Sempra IT Operations SharePoint site?** This site should contain documents such as VPN setup procedures, SCADA system onboarding guides, remote access policies, device enrollment instructions, and NERC CIP IT compliance procedures. The agent will search these documents when answering questions from field technicians.
+   > **What's in the Contoso IT Operations SharePoint site?** This site should contain documents such as VPN setup procedures, SCADA system onboarding guides, remote access policies, device enrollment instructions, and NERC CIP IT compliance procedures. The agent will search these documents when answering questions from field technicians.
 
 ---
 
@@ -385,9 +394,9 @@ We'll now add another internal knowledge source by uploading a document directly
 
 1. In the **Knowledge** section, select **+ Add knowledge** and select **Upload file** or select to browse.
 
-2. Download the **[Sempra Field Operations Remote Access Guide](./assets/Sempra_Field_Operations_Remote_Access_Guide.md)** from the lab assets folder, save it as a `.docx` or `.pdf` file, and select it in your File Explorer. Select **Open**.
+2. Download the **[Contoso Field Operations Remote Access Guide](./assets/Contoso_Field_Operations_Remote_Access_Guide.md)** from the lab assets folder, save it as a `.docx` or `.pdf` file, and select it in your File Explorer. Select **Open**.
 
-   > **About this document:** This guide covers how Sempra Energy field technicians remotely access corporate systems — including VPN connection steps from remote substations, SCADA system remote login procedures, Outage Management System (OMS) mobile access, and the escalation path when remote access fails. This is the kind of document that would otherwise only be accessible by calling the IT helpdesk.
+   > **About this document:** This guide covers how Contoso Energy field technicians remotely access corporate systems — including VPN connection steps from remote substations, SCADA system remote login procedures, Outage Management System (OMS) mobile access, and the escalation path when remote access fails. This is the kind of document that would otherwise only be accessible by calling the IT helpdesk.
 
 3. The file has been selected for upload. Select **Add to agent**.
 
@@ -401,14 +410,14 @@ Let's now test our agent!
 
 ### 1.4 Test agent
 
-We'll test our four knowledge sources by asking questions to our **Sempra Energy IT Operations Agent**.
+We'll test our four knowledge sources by asking questions to our **Contoso Energy IT Operations Agent**.
 
 1. Select the **new test session** icon in the test pane.
 
    Enter the following question to test our public website (external) knowledge source — Microsoft Support:
 
    ```
-   How do I find the serial number on a Microsoft Surface device issued by Sempra?
+   How do I find the serial number on a Microsoft Surface device issued by Contoso?
    ```
 
 2. You'll next see the agent reviewing the knowledge sources and providing a response using the Microsoft Support website knowledge source.
@@ -420,7 +429,7 @@ We'll test our four knowledge sources by asking questions to our **Sempra Energy
 4. Let's now test both our **SharePoint site** knowledge source and **document** knowledge source in a single message. Enter the following two questions together:
 
    ```
-   How do I connect to the Sempra corporate VPN from a remote substation? How do field technicians access grid operations systems from a remote site?
+   How do I connect to the Contoso corporate VPN from a remote substation? How do field technicians access grid operations systems from a remote site?
    ```
 
 5. Once again you'll see the agent reviewing all four knowledge sources to generate a response to the two questions submitted in a single message. The agent responds to both questions in a single message and provides **separate references** for where it generated each response from.
@@ -447,12 +456,12 @@ We'll test our four knowledge sources by asking questions to our **Sempra Energy
 
 ## ✅ Lab Complete
 
-Congratulations! 👏 You've built a custom Sempra Energy IT Operations agent grounded in real enterprise data. Your agent can now draw on four distinct knowledge sources to support field technicians and operations staff:
+Congratulations! 👏 You've built a custom Contoso Energy IT Operations agent grounded in real enterprise data. Your agent can now draw on four distinct knowledge sources to support field technicians and operations staff:
 
 - ✅ **Microsoft Support** — for Microsoft product and device questions
 - ✅ **NERC CIP Standards** — for energy industry compliance and cybersecurity questions
-- ✅ **Sempra IT Operations SharePoint** — for internal VPN, SCADA, and IT policy questions
-- ✅ **Sempra Field Operations Remote Access Guide** — for field technician remote access procedures
+- ✅ **Contoso IT Operations SharePoint** — for internal VPN, SCADA, and IT policy questions
+- ✅ **Contoso Field Operations Remote Access Guide** — for field technician remote access procedures
 
 This is the end of Lab 06. Your custom agent will be used in the next lesson's lab, where you'll add specific Topics and triggers for common field technician scenarios.
 
@@ -460,7 +469,7 @@ This is the end of Lab 06. Your custom agent will be used in the next lesson's l
 
 ---
 
-> By building this IT Operations agent, you are directly supporting Sempra's mission to deliver energy with purpose — equipping field technicians with instant, reliable access to the information they need to stay safe and productive, whether they're at headquarters in San Diego or at a remote substation in West Texas.
+> By building this IT Operations agent, you are directly supporting Contoso's mission to deliver energy with purpose — equipping field technicians with instant, reliable access to the information they need to stay safe and productive, whether they're at headquarters in San Diego or at a remote substation in West Texas.
 
 ---
 
