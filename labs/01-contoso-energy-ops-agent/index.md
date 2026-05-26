@@ -172,7 +172,7 @@ When a technician asks, *"How do I connect to the corporate VPN from a remote su
    - *Why it's useful:* When you need to look up enterprise data stored in Dataverse such as employee information or IT asset inventory.
 
 5. **Real-time knowledge with connectors**
-   - *What it does:* Lets your agent access live data from other enterprise systems such as ServiceNow, Dynamics 365, AzureSQL, and more during a conversation, using the user's own permissions.
+   - *What it does:* Lets your agent access live data from other enterprise systems during a conversation, using the user's own permissions. Common connectors include: SharePoint, Dataverse, Outlook (Email & Calendar), Microsoft Teams, OneDrive, Power Automate (flows to call connectors), Azure DevOps (ADO), Power BI (via Power Automate/API), ServiceNow, and Custom Connectors / APIs.
    - *Why it's useful:* Provides up-to-date, secure, and accurate responses without storing or duplicating data — for example, looking up the current status of an open IT incident in ServiceNow.
 
 ---
