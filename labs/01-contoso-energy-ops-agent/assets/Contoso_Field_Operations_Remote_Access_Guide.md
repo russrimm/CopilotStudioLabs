@@ -16,7 +16,7 @@ This guide covers the following systems:
 
 - **Contoso Corporate VPN** (GlobalProtect)
 - **Outage Management System (OMS)** — mobile and remote access
-- **SCADA System Remote Login** — for authorized personnel only
+- **Energy Support App Remote Login** — for authorized personnel only
 - **Microsoft 365 Applications** — Outlook, Teams, SharePoint from the field
 - **IT Ticketing and Escalation**
 
@@ -44,7 +44,7 @@ Before attempting to connect remotely from a field site, confirm the following p
 | Requirement | Details |
 |---|---|
 | **Cellular data** | A Contoso-issued mobile hotspot (Cradlepoint IBR900 or equivalent) or a carrier SIM with data enabled |
-| **Minimum bandwidth** | 5 Mbps download / 2 Mbps upload for standard remote access; 10 Mbps for OMS and SCADA sessions |
+| **Minimum bandwidth** | 5 Mbps download / 2 Mbps upload for standard remote access; 10 Mbps for OMS and Energy Support App sessions |
 | **Satellite connectivity** | At remote sites without cellular coverage, Starlink Enterprise terminals are deployed. Contact your site supervisor for terminal credentials. |
 | **Firewall exceptions** | Outbound TCP ports 443 and 4767 must be open for GlobalProtect. Do not attempt to manually configure firewall settings — contact IT if blocked. |
 
@@ -52,7 +52,7 @@ Before attempting to connect remotely from a field site, confirm the following p
 
 ## 3. Connecting to the Contoso Corporate VPN from a Remote Site
 
-Contoso Energy uses **Palo Alto Networks GlobalProtect** as its corporate VPN solution. All access to internal applications, SharePoint, SCADA interfaces, and the OMS from outside a Contoso facility requires an active GlobalProtect VPN connection.
+Contoso Energy uses **Palo Alto Networks GlobalProtect** as its corporate VPN solution. All access to internal applications, SharePoint, Energy Support App interfaces, and the OMS from outside a Contoso facility requires an active GlobalProtect VPN connection.
 
 ### 3.1 Step-by-Step: Connecting via GlobalProtect (Windows)
 
@@ -127,20 +127,20 @@ If you lose connectivity in the field:
 
 ---
 
-## 5. SCADA System Remote Login Procedure
+## 5. Energy Support App Remote Login Procedure
 
-> ⚠️ **IMPORTANT — NERC CIP Notice:** SCADA systems at Contoso Energy operate within **NERC CIP-regulated Electronic Security Perimeters (ESPs)**. Remote access to SCADA systems is strictly controlled and audited. Only personnel with a current **CIP-005 Remote Access Authorization** on file with the Cyber Security team may connect remotely to SCADA systems.
+> ⚠️ **IMPORTANT — NERC CIP Notice:** The Energy Support App at Contoso Energy operates within **NERC CIP-regulated Electronic Security Perimeters (ESPs)**. Remote access to the Energy Support App is strictly controlled and audited. Only personnel with a current **CIP-005 Remote Access Authorization** on file with the Cyber Security team may connect remotely to the Energy Support App.
 
 ### 5.1 Authorized Remote Access Methods
 
-Contoso Energy field personnel with active CIP-005 authorization may access SCADA systems remotely via:
+Contoso Energy field personnel with active CIP-005 authorization may access the Energy Support App remotely via:
 
 1. **Contoso Secure OT VPN** — a separate VPN tunnel from the standard corporate VPN, used exclusively for OT network access.
-2. **Jump Server (Bastion Host)** — a dedicated intermediary server that provides controlled access to SCADA HMI interfaces.
+2. **Jump Server (Bastion Host)** — a dedicated intermediary server that provides controlled access to Energy Support App interfaces.
 
-**Standard corporate GlobalProtect VPN does NOT provide access to SCADA systems.** SCADA access requires the dedicated OT VPN.
+**Standard corporate GlobalProtect VPN does NOT provide access to the Energy Support App.** Energy Support App access requires the dedicated OT VPN.
 
-### 5.2 Step-by-Step: SCADA Remote Login
+### 5.2 Step-by-Step: Energy Support App Remote Login
 
 > **Prerequisites:** CIP-005 authorization on file, OT VPN client installed, hardware token issued by Cyber Security.
 
@@ -152,11 +152,11 @@ Contoso Energy field personnel with active CIP-005 authorization may access SCAD
 6. Once connected, open the **Remote Desktop Connection** application (`mstsc`).
 7. Connect to the assigned **Jump Server** address provided by the Cyber Security team (e.g., `jumpserver-west.ot.contoso.com`).
 8. Log in with your OT credentials.
-9. From the Jump Server, open the SCADA HMI application assigned to your role.
+9. From the Jump Server, open the Energy Support App assigned to your role.
 
-### 5.3 Ending a SCADA Remote Session
+### 5.3 Ending an Energy Support App Remote Session
 
-- Always log out of the SCADA HMI application before closing the Remote Desktop session.
+- Always log out of the Energy Support App before closing the Remote Desktop session.
 - Disconnect the Remote Desktop session (do not simply close the window, as the session remains active).
 - Disconnect the OT VPN tunnel from the system tray.
 - Log the session end time in the **OT Access Log** SharePoint list if required by your site's CIP procedures.
@@ -211,9 +211,9 @@ If you cannot resolve a remote access issue using this guide, follow the escalat
 - **Email:** `it-helpdesk@contoso.com` (response within 4 hours during business hours)
 - **Provide the following when you call:** Employee ID, device type, location/site name, system you are trying to access, exact error message displayed, and steps already tried.
 
-### 7.3 Level 3 — Cyber Security (SCADA/OT Issues Only)
+### 7.3 Level 3 — Cyber Security (Energy Support App/OT Issues Only)
 
-For issues specifically related to **OT VPN, SCADA access, or CIP-005 authorization**:
+For issues specifically related to **OT VPN, Energy Support App access, or CIP-005 authorization**:
 
 - **Phone:** 1-866-CONTOSO-OT (available 24/7 for OT-related security incidents)
 - **Email:** `ot-security@contoso.com`
@@ -240,7 +240,7 @@ If you observe or suspect a **cybersecurity incident** involving critical infras
 | Connect to Corporate VPN | Open GlobalProtect → Connect → `vpn.contoso.com` → MFA approve |
 | Access OMS (browser) | VPN connected → `https://oms.internal.contoso.com` |
 | Access OMS (mobile) | Company Portal → Contoso Field OMS app |
-| SCADA remote access | OT VPN → Jump Server → HMI (authorized personnel only) |
+| Energy Support App remote access | OT VPN → Jump Server → Energy Support App (authorized personnel only) |
 | Reset network password | `https://myaccount.contoso.com` |
 | IT Helpdesk (24/7) | 1-800-CONTOSO-IT |
 | OT Security (24/7) | 1-866-CONTOSO-OT |
@@ -250,7 +250,7 @@ If you observe or suspect a **cybersecurity incident** involving critical infras
 
 ## Appendix B — Approved Remote Access Devices
 
-| Device | Type | VPN Support | OMS Mobile | SCADA OT VPN |
+| Device | Type | VPN Support | OMS Mobile | Energy Support App OT VPN |
 |---|---|---|---|---|
 | Panasonic Toughbook CF-54 | Rugged Laptop | ✅ | ✅ (browser) | ✅ (authorized only) |
 | Panasonic Toughbook CF-33 | Rugged Tablet/Laptop | ✅ | ✅ | ✅ (authorized only) |

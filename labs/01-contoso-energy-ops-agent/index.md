@@ -40,7 +40,7 @@ In this mission, you'll learn:
 
 A custom agent is a chatbot or virtual assistant that you create and design in Copilot Studio to help users with specific tasks or questions. It's called **custom** because:
 
-- **You decide the purpose** — help users request access to a SCADA system, troubleshoot a field device, look up NERC CIP compliance procedures.
+- **You decide the purpose** — help users request access to the Energy Support App, troubleshoot a field device, look up NERC CIP compliance procedures.
 - **You define the conversation** — what the agent says and how it should respond.
 - **You ground it with your own data** — connect to your enterprise data through the built-in supported knowledge resources.
 - **You connect it to your own systems or applications** — choose from connectors, flows, REST APIs, and model context protocol servers.
@@ -61,13 +61,13 @@ A custom agent can fulfill the following:
 
 - Saves time by automating repetitive tasks.
 - Gives field technicians a friendly, guided experience — even from a ruggedized tablet in the field.
-- Tailored to Contoso's unique operational environment: SCADA systems, smart meters, NERC CIP requirements, and utility-specific workflows.
+- Tailored to Contoso's unique operational environment: the Energy Support App, smart meters, NERC CIP requirements, and utility-specific workflows.
 
 ### ✨ Example
 
-You build a custom agent that helps a field technician report a SCADA login failure from a remote substation.
+You build a custom agent that helps a field technician report an Energy Support App login failure from a remote substation.
 
-It asks for their employee ID, the name of the SCADA system they are trying to reach, the error message displayed, and the device type they are using. Once the technician provides this information, the agent logs the incident to Contoso's IT ticketing system and posts a notification in the **#it-field-ops** Microsoft Teams channel.
+It asks for their employee ID, the name of the Energy Support App they are trying to reach, the error message displayed, and the device type they are using. Once the technician provides this information, the agent logs the incident to Contoso's IT ticketing system and posts a notification in the **#it-field-ops** Microsoft Teams channel.
 
 Now, instead of a field crew member calling the IT helpdesk and waiting on hold while standing in a substation, they simply chat with the agent instead.
 
@@ -101,19 +101,19 @@ A prompt is the message or instruction you give to an AI agent to tell it what y
 
 #### ✨ Example
 
-Let's say the IT Operations team needs an agent to help field technicians report SCADA login issues.
+Let's say the IT Operations team needs an agent to help field technicians report Energy Support App login issues.
 
 The prompt could be:
 
 ```
-I want to build an agent that helps Contoso Energy field technicians report SCADA system login failures. When a technician says they cannot log in to a SCADA system, the agent should ask for their employee ID, the name of the SCADA system they are trying to access, the error message displayed on screen, and the type of device they are using. Once the technician provides this information, the agent should save it to a SharePoint list called 'IT Field Incidents' and post a notification in the Microsoft Teams channel '#it-field-ops'.
+I want to build an agent that helps Contoso Energy field technicians report Energy Support App login failures. When a technician says they cannot log in to the Energy Support App, the agent should ask for their employee ID, the name of the Energy Support App they are trying to access, the error message displayed on screen, and the type of device they are using. Once the technician provides this information, the agent should save it to a SharePoint list called 'IT Field Incidents' and post a notification in the Microsoft Teams channel '#it-field-ops'.
 ```
 
 **Why this prompt works:**
 
-- **Clearly states the goal** — report a SCADA login failure
+- **Clearly states the goal** — report an Energy Support App login failure
 - **Describes the user interaction** — what the technician says and what the agent should ask
-- **Lists the required data** — employee ID, SCADA system name, error message, device type
+- **Lists the required data** — employee ID, Energy Support App name, error message, device type
 - **Mentions where the data goes** — a SharePoint list called 'IT Field Incidents'
 - **Defines the notification action** — post to a Teams channel
 
@@ -175,10 +175,6 @@ When a technician asks, *"How do I connect to the corporate VPN from a remote su
    - *What it does:* Lets your agent access live data from other enterprise systems such as ServiceNow, Dynamics 365, AzureSQL, and more during a conversation, using the user's own permissions.
    - *Why it's useful:* Provides up-to-date, secure, and accurate responses without storing or duplicating data — for example, looking up the current status of an open IT incident in ServiceNow.
 
-6. **Azure AI Search**
-   - *What it does:* Allows your agent to search through large sets of documents stored in Azure using semantic and vector search to understand user questions.
-   - *Why it's useful:* Delivers accurate, trustworthy answers from complex data sources, supports citations, and scales well for large document collections with secure access controls.
-
 ---
 
 ## 🔒 Note on security
@@ -189,7 +185,7 @@ Some sources such as SharePoint and Dataverse require **user authentication**. T
 
 ### ⚠️ Important for energy infrastructure
 
-Because Contoso Energy operates critical infrastructure, IT systems supporting SCADA and OT networks are subject to **NERC CIP (North American Electric Reliability Corporation Critical Infrastructure Protection)** standards. When building agents that may touch OT-adjacent data:
+Because Contoso Energy operates critical infrastructure, IT systems supporting Energy Support App and OT networks are subject to **NERC CIP (North American Electric Reliability Corporation Critical Infrastructure Protection)** standards. When building agents that may touch OT-adjacent data:
 
 - Ensure knowledge sources do not expose sensitive OT configuration data publicly.
 - Always follow your organization's information classification policy.
@@ -247,7 +243,7 @@ We're now going to learn how to create a custom agent that can chat over your da
 
 **As a Contoso Energy field technician or IT operations staff member**
 
-I want to get quick and accurate help from the IT Operations agent for issues like SCADA login failures, VPN connectivity problems, remote device access, and NERC CIP compliance questions
+I want to get quick and accurate help from the IT Operations agent for issues like Energy Support App login failures, VPN connectivity problems, remote device access, and NERC CIP compliance questions
 
 **So that** I can stay productive and resolve technical issues without delays — whether I'm at headquarters or working at a remote substation
 
@@ -259,7 +255,7 @@ Let's begin!
 
 #### SharePoint site
 
-We'll be using the **Contoso IT Operations** SharePoint site. This site should contain IT policy documents, VPN setup guides, SCADA onboarding materials, and NERC CIP IT procedures.
+We'll be using the **Contoso IT Operations** SharePoint site. This site should contain IT policy documents, VPN setup guides, Energy Support App onboarding materials, and NERC CIP IT procedures.
 
 If you have not yet created the SharePoint site, create a new SharePoint Communication Site named **Contoso IT Operations** and add a few sample IT policy documents before continuing.
 
@@ -287,7 +283,7 @@ For troubleshooting:
 4) If the issue is not resolved, offer 1-2 alternative approaches.
 5) After 2-3 troubleshooting branches, recommend escalation and provide a ticket summary including: location, system affected, error message, device or app, and steps already tried.
 
-For SCADA and OT systems:
+For Energy Support App and OT systems:
 1) Confirm the user is following OT network access protocols before providing guidance.
 2) Only provide guidance that is aligned with NERC CIP security requirements.
 
@@ -303,7 +299,7 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
    - **Response style:** Professional, concise, safety-aware
    - **Troubleshooting flow:** Question → Quick fixes → Steps → Alternative branches → Escalation
    - **Escalation artifact:** Ticket summary with location, system, error, device, and steps tried
-   - **SCADA/OT guidance:** OT protocol confirmation and NERC CIP alignment
+   - **Energy Support App/OT guidance:** OT protocol confirmation and NERC CIP alignment
    - **Security boundaries:** No passwords, no bypassing security controls, operational safety first
    - **Link handling:** Preserve source URLs, cite Microsoft Support and NERC CIP references
 
@@ -384,7 +380,7 @@ Previously, we added public websites as external knowledge sources for our agent
 
 4. The SharePoint site has now been added as a knowledge source. The **Status** column will show whether the knowledge source has been loaded/connected successfully, or if there is an issue. Wait until the status shows **Ready** before continuing.
 
-   > **What's in the Contoso IT Operations SharePoint site?** This site should contain documents such as VPN setup procedures, SCADA system onboarding guides, remote access policies, device enrollment instructions, and NERC CIP IT compliance procedures. The agent will search these documents when answering questions from field technicians.
+   > **What's in the Contoso IT Operations SharePoint site?** This site should contain documents such as VPN setup procedures, Energy Support App onboarding guides, remote access policies, device enrollment instructions, and NERC CIP IT compliance procedures. The agent will search these documents when answering questions from field technicians.
 
 ---
 
@@ -396,7 +392,7 @@ We'll now add another internal knowledge source by uploading a document directly
 
 2. Download the **[Contoso Field Operations Remote Access Guide](./assets/Contoso_Field_Operations_Remote_Access_Guide.md)** from the lab assets folder, save it as a `.docx` or `.pdf` file, and select it in your File Explorer. Select **Open**.
 
-   > **About this document:** This guide covers how Contoso Energy field technicians remotely access corporate systems — including VPN connection steps from remote substations, SCADA system remote login procedures, Outage Management System (OMS) mobile access, and the escalation path when remote access fails. This is the kind of document that would otherwise only be accessible by calling the IT helpdesk.
+   > **About this document:** This guide covers how Contoso Energy field technicians remotely access corporate systems — including VPN connection steps from remote substations, Energy Support App remote login procedures, Outage Management System (OMS) mobile access, and the escalation path when remote access fails. This is the kind of document that would otherwise only be accessible by calling the IT helpdesk.
 
 3. The file has been selected for upload. Select **Add to agent**.
 
@@ -460,7 +456,7 @@ Congratulations! 👏 You've built a custom Contoso Energy IT Operations agent g
 
 - ✅ **Microsoft Support** — for Microsoft product and device questions
 - ✅ **NERC CIP Standards** — for energy industry compliance and cybersecurity questions
-- ✅ **Contoso IT Operations SharePoint** — for internal VPN, SCADA, and IT policy questions
+- ✅ **Contoso IT Operations SharePoint** — for internal VPN, Energy Support App, and IT policy questions
 - ✅ **Contoso Field Operations Remote Access Guide** — for field technician remote access procedures
 
 This is the end of Lab 06. Your custom agent will be used in the next lesson's lab, where you'll add specific Topics and triggers for common field technician scenarios.

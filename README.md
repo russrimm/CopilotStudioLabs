@@ -16,7 +16,7 @@ These labs are designed for a wide range of learners: IT professionals, business
 
 These labs are designed for anyone working in or alongside industries where operational complexity, field-based workforces, and compliance requirements create real demand for faster, smarter information access — including:
 
-- **Energy & Utilities** — SCADA operations, NERC CIP compliance, field crew support
+- **Energy & Utilities** — Energy Support App operations, NERC CIP compliance, field crew support
 - **Manufacturing** — plant floor IT, equipment maintenance, safety procedures
 - **Healthcare** — clinical IT support, policy lookup, device troubleshooting
 - **Financial Services** — compliance Q&A, internal helpdesk, onboarding assistance
@@ -56,13 +56,13 @@ This isn't just about saving developer time. It's about unlocking the ability to
 ## Lab 01 — Build a Custom IT Operations Agent
 
 **Industry:** Energy & Utilities  
-**Scenario:** Contoso Energy, a large multi-subsidiary energy company, needs a way to help field technicians resolve IT issues — VPN connectivity, SCADA login failures, remote device access, and NERC CIP compliance questions — without waiting on hold with the helpdesk.
+**Scenario:** Contoso Energy, a large multi-subsidiary energy company, needs a way to help field technicians resolve IT issues — VPN connectivity, Energy Support App login failures, remote device access, and NERC CIP compliance questions — without waiting on hold with the helpdesk.
 
 **What you'll build:** A fully functional **Contoso Energy IT Operations Agent** in Microsoft Copilot Studio, grounded in four real knowledge sources:
 
 - 🌐 **Microsoft Support** — for Microsoft product and device troubleshooting
 - 📋 **NERC CIP Standards** — for energy industry cybersecurity compliance questions
-- 🗂️ **SharePoint** — for internal VPN guides, SCADA onboarding, and IT policies
+- 🗂️ **SharePoint** — for internal VPN guides, Energy Support App onboarding, and IT policies
 - 📄 **Uploaded document** — the Contoso Field Operations Remote Access Guide
 
 **How it can be adapted:** The same lab structure applies to virtually any support or knowledge-access scenario. Replace the SharePoint site and uploaded document with content from your own organization. Update the agent's instructions to reflect your domain. Change the knowledge sources to match your compliance standards or internal systems. The result is an agent tailored entirely to your context — built in an afternoon.
