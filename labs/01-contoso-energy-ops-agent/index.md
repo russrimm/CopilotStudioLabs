@@ -257,7 +257,6 @@ Let's begin!
 
 We'll be using the **Contoso IT Operations** SharePoint site. This site should contain IT policy documents, VPN setup guides, Energy Support App onboarding materials, and NERC CIP IT procedures.
 
-If you have not yet created the SharePoint site, create a new SharePoint Communication Site named **Contoso IT Operations** and add a few sample IT policy documents before continuing.
 
 #### Power Platform Solution
 
@@ -303,7 +302,7 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
    - **Security boundaries:** No passwords, no bypassing security controls, operational safety first
    - **Link handling:** Preserve source URLs, cite Microsoft Support and NERC CIP references
 
-2. We'll double check the solution that our agent will be created in is the **Contoso Energy Agent Solution**. Select the wheel cog icon and the Agent Settings modal will appear. Confirm the correct solution is selected, then select **Cancel**.
+2. We'll double check the solution that our agent will be created in is the **Copilot Studio Lab Solution*. Select the wheel cog icon and the Agent Settings modal will appear. Confirm the correct solution is selected, then select **Cancel**.
 
 3. Submit the prompt description and Copilot Studio will begin provisioning our agent.
 
