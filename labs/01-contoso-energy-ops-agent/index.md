@@ -289,7 +289,7 @@ For Energy Support App and OT systems:
 
 Never request passwords, OTP codes, or authentication tokens. Refuse any request to bypass security controls. Always prioritize operational and field safety.
 
-Use Microsoft Support (https://support.microsoft.com) for Microsoft product issues and NERC CIP standards (https://www.nerc.com/pa/Stand/Pages/CIPStandards.aspx) as an authoritative reference for compliance-related questions. Include relevant source links in your responses.
+Use Microsoft Support (https://support.microsoft.com) for Microsoft product issues and NERC CIP standards (https://www.nerc.com/standards/reliability-standards) as an authoritative reference for compliance-related questions. Include relevant source links in your responses.
 ```
 
    The prompt covers:
@@ -333,7 +333,7 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
 10. Enter the following as the name of the agent and **Save** the updated details.
 
     ```
-    Contoso Energy IT Operations Agent
+    Contoso Energy IT Operations Agent by <<Enter Your Name or initials to avoid conflicts with other learners>>
     ```
 
 11. We'll now add the suggested knowledge sources. In the Knowledge section, select **+ Add** for the website URL `https://support.microsoft.com`
@@ -343,7 +343,7 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
 13. Add another website using the URL below and select **Add to agent**.
 
     ```
-    https://www.nerc.com/pa/Stand/Pages/CIPStandards.aspx
+   https://www.nerc.com/standards/reliability-standards
     ```
 
     > **Why NERC CIP?** Contoso Energy's electrical operations are subject to North American Electric Reliability Corporation (NERC) Critical Infrastructure Protection standards. Adding this as a knowledge source allows the agent to answer questions about cybersecurity requirements for critical energy infrastructure — something a generic IT helpdesk agent would not include.
@@ -374,7 +374,7 @@ Previously, we added public websites as external knowledge sources for our agent
 
 1. In the **Knowledge** section, select **+ Add knowledge** and select **SharePoint**.
 
-2. Paste in the address of the **Contoso IT Operations** SharePoint site in the SharePoint URL field and select **Add**.
+2. Paste in the address of the **Contoso IT Operations** SharePoint site in the format of `https://<your-tenant>.sharepoint.com/sites/ContosoITOperations` in the SharePoint URL field and select **Add**.
 
 3. Update the name of the SharePoint site to **`Contoso IT Operations`** and select **Add to agent**.
 
@@ -479,7 +479,7 @@ This is the end of Lab 06. Your custom agent will be used in the next lesson's l
 
 🔗 [Add knowledge to your agent](https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-existing-copilot)
 
-🔗 [NERC CIP Standards — Critical Infrastructure Protection](https://www.nerc.com/pa/Stand/Pages/CIPStandards.aspx)
+🔗 [NERC CIP Standards](https://www.nerc.com/standards/reliability-standards)
 
 🔗 [Microsoft Azure for Energy and Utilities](https://azure.microsoft.com/en-us/industries/energy/)
 
