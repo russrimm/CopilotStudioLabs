@@ -389,7 +389,7 @@ We'll now add another internal knowledge source by uploading a document directly
 
 1. In the **Knowledge** section, select **+ Add knowledge** and select **Upload file** or select to browse.
 
-2. Download the **[Contoso Field Operations Remote Access Guide](./assets/Contoso_Field_Operations_Remote_Access_Guide.md)** from the lab assets folder, save it as a `.docx` or `.pdf` file, and select it in your File Explorer. Select **Open**.
+2. Download the **[Contoso Field Operations Remote Access Guide]** from the lab assets folder, save it as a `.docx` or `.pdf` file, and select it in your File Explorer. Select **Open**.
 
    > **About this document:** This guide covers how Contoso Energy field technicians remotely access corporate systems — including VPN connection steps from remote substations, Energy Support App remote login procedures, Outage Management System (OMS) mobile access, and the escalation path when remote access fails. This is the kind of document that would otherwise only be accessible by calling the IT helpdesk.
 
