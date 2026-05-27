@@ -106,7 +106,7 @@ Let's say the IT Operations team needs an agent to help field technicians report
 The prompt could be:
 
 ```
-I want to build an agent that helps Contoso Energy field technicians report Energy Support App login failures. When a technician says they cannot log in to the Energy Support App, the agent should ask for their employee ID, the name of the Energy Support App they are trying to access, the error message displayed on screen, and the type of device they are using. Once the technician provides this information, the agent should save it to a SharePoint list called 'IT Field Incidents' and post a notification in the Microsoft Teams channel '#it-field-ops'.
+I want to build an agent that helps Contoso Energy field technicians report Energy Support App login failures. When a technician says they cannot log in to the Energy Support App, the agent should ask for their employee ID, the name of the Energy Support App they are trying to access, the error message displayed on screen, and the type of device they are using. Once the technician provides this information, the agent should save it to a SharePoint list called 'IT Field Incidents'.
 ```
 
 **Why this prompt works:**
@@ -115,7 +115,7 @@ I want to build an agent that helps Contoso Energy field technicians report Ener
 - **Describes the user interaction** — what the technician says and what the agent should ask
 - **Lists the required data** — employee ID, Energy Support App name, error message, device type
 - **Mentions where the data goes** — a SharePoint list called 'IT Field Incidents'
-- **Defines the notification action** — post to a Teams channel
+
 
 ---
 
