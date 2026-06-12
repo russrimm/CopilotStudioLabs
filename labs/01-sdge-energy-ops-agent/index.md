@@ -1,4 +1,4 @@
-# ⚡ Lab 01: Build a Custom IT Operations Agent for Contoso Energy
+# ⚡ Lab 01: Build a Custom IT Operations Agent for SDG&E
 
 *Delivering energy with purpose — powered by AI*
 
@@ -14,11 +14,11 @@
 
 ## Overview
 
-Contoso Energy's mission is to deliver energy with purpose — connecting approximately 40 million consumers through innovation, reliability, and a commitment to the communities we serve. Across subsidiaries including **Pacific Coast Electric**, **Western Gas & Energy**, and **LoneStar Grid**, nearly 20,000 employees manage natural gas pipelines, electrical substations, and smart grid infrastructure. The IT Operations team plays a critical role in keeping those field crews productive, connected, and safe.
+SDG&E's mission is to deliver energy with purpose — connecting approximately 40 million consumers through innovation, reliability, and a commitment to the communities we serve. Across subsidiaries including **Pacific Coast Electric**, **Western Gas & Energy**, and **LoneStar Grid**, nearly 20,000 employees manage natural gas pipelines, electrical substations, and smart grid infrastructure. The IT Operations team plays a critical role in keeping those field crews productive, connected, and safe.
 
-In this lab, you will use Microsoft Copilot Studio to build a knowledge-powered IT Operations agent grounded in real Contoso enterprise data. The agent will be able to reason, respond, and reference internal IT guides, policy documents, and industry compliance standards — helping field technicians resolve issues faster without calling the helpdesk.
+In this lab, you will use Microsoft Copilot Studio to build a knowledge-powered IT Operations agent grounded in real SDG&E enterprise data. The agent will be able to reason, respond, and reference internal IT guides, policy documents, and industry compliance standards — helping users resolve issues faster without calling the helpdesk.
 
-You will design, configure, and test a fully customized **Contoso Energy IT Operations Agent** that answers questions using SharePoint, uploaded internal guides, and public knowledge sources — including the NERC CIP standards that govern critical energy infrastructure.
+You will design, configure, and test a fully customized **SDG&E IT Operations Agent** that answers questions using SharePoint, and public knowledge sources — including the NERC CIP standards that govern critical energy infrastructure.
 
 Let's build your agent from the ground up.
 
@@ -32,7 +32,7 @@ In this mission, you'll learn:
 2. Creating agents using natural language prompts with AI
 3. Grounding agents with enterprise knowledge sources including SharePoint, documents, and public websites
 4. Learning about generative orchestration and how agents dynamically search and respond using multiple data sources
-5. Building and testing a fully functional **Contoso Energy IT Operations agent** that answers questions from your own data
+5. Building and testing a fully functional **SDG&E IT Operations agent** that answers questions from your own data
 
 ---
 
@@ -61,13 +61,13 @@ A custom agent can fulfill the following:
 
 - Saves time by automating repetitive tasks.
 - Gives field technicians a friendly, guided experience — even from a ruggedized tablet in the field.
-- Tailored to Contoso's unique operational environment: the Energy Support App, smart meters, NERC CIP requirements, and utility-specific workflows.
+- Tailored to SDG&E's unique operational environment: the Energy Support App, smart meters, NERC CIP requirements, and utility-specific workflows.
 
 ### ✨ Example
 
 You build a custom agent that helps a field technician report an Energy Support App login failure from a remote substation.
 
-It asks for their employee ID, the name of the Energy Support App they are trying to reach, the error message displayed, and the device type they are using. Once the technician provides this information, the agent logs the incident to Contoso's IT ticketing system and posts a notification in the **#it-field-ops** Microsoft Teams channel.
+It asks for their employee ID, the name of the Energy Support App they are trying to reach, the error message displayed, and the device type they are using. Once the technician provides this information, the agent logs the incident to SDG&E's IT ticketing system and posts a notification in the **#it-field-ops** Microsoft Teams channel.
 
 Now, instead of a field crew member calling the IT helpdesk and waiting on hold while standing in a substation, they simply chat with the agent instead.
 
@@ -106,7 +106,7 @@ Let's say the IT Operations team needs an agent to help field technicians report
 The prompt could be:
 
 ```
-I want to build an agent that helps Contoso Energy field technicians report Energy Support App login failures. When a technician says they cannot log in to the Energy Support App, the agent should ask for their employee ID, the name of the Energy Support App they are trying to access, the error message displayed on screen, and the type of device they are using. Once the technician provides this information, the agent should save it to a SharePoint list called 'IT Field Incidents'.
+I want to build an agent that helps SDG&E field technicians report Energy Support App login failures. When a technician says they cannot log in to the Energy Support App, the agent should ask for their employee ID, the name of the Energy Support App they are trying to access, the error message displayed on screen, and the type of device they are using. Once the technician provides this information, the agent should save it to a SharePoint list called 'IT Field Incidents'.
 ```
 
 **Why this prompt works:**
@@ -114,7 +114,7 @@ I want to build an agent that helps Contoso Energy field technicians report Ener
 - **Clearly states the goal** — report an Energy Support App login failure
 - **Describes the user interaction** — what the technician says and what the agent should ask
 - **Lists the required data** — employee ID, Energy Support App name, error message, device type
-- **Mentions where the data goes** — a SharePoint list called 'IT Field Incidents'
+- **Mentions where the data goes** — a SharePoint document library
 
 
 ---
@@ -147,7 +147,7 @@ When a user asks a question, the agent:
 
 #### ✨ Example
 
-Imagine you build an agent to help Contoso Energy field technicians with IT questions. You add the Contoso IT Operations SharePoint site and a Field Remote Access Guide as knowledge sources.
+Imagine you build an agent to help SDG&E field technicians with IT questions. You add the SDG&E Technology - AI & Digital Enablement SharePoint site and a Field Remote Access Guide as knowledge sources.
 
 When a technician asks, *"How do I connect to the corporate VPN from a remote substation?"*, the agent uses generative orchestration to search those sources and reply with the correct steps — without you having to write that answer manually. This saves you time in having to account for every possible question a field crew member may ask about remote access procedures.
 
@@ -161,11 +161,11 @@ When a technician asks, *"How do I connect to the corporate VPN from a remote su
 
 2. **Documents**
    - *What it does:* Uses documents that you upload directly to your agent, such as PDFs or Word files. These uploaded files are stored securely in Dataverse.
-   - *Why it's useful:* Enables your agent to answer questions based on internal guides, field manuals, or IT policies — such as the Contoso Field Operations Remote Access Guide.
+   - *Why it's useful:* Enables your agent to answer questions based on internal guides, field manuals, or IT policies.
 
 3. **SharePoint**
    - *What it does:* Connects to SharePoint folders or files powered by Work IQ.
-   - *Why it's useful:* Ideal for accessing team documents, IT policies, VPN guides, or NERC CIP procedures stored in SharePoint.
+   - *Why it's useful:* Ideal for accessing team documents, IT policies, and internal knowledge bases that are already maintained in SharePoint.
 
 4. **Dataverse**
    - *What it does:* Uses structured data from your Dataverse environment tables and rows.
@@ -183,14 +183,6 @@ When a technician asks, *"How do I connect to the corporate VPN from a remote su
 
 Some sources such as SharePoint and Dataverse require **user authentication**. This means the agent will only reference data in its response that the user is allowed to see. Whereas other sources may have additional configuration required for the agent to connect to them.
 
-### ⚠️ Important for energy infrastructure
-
-Because Contoso Energy operates critical infrastructure, IT systems supporting Energy Support App and OT networks are subject to **NERC CIP (North American Electric Reliability Corporation Critical Infrastructure Protection)** standards. When building agents that may touch OT-adjacent data:
-
-- Ensure knowledge sources do not expose sensitive OT configuration data publicly.
-- Always follow your organization's information classification policy.
-- Agents should never request or store passwords, OTP codes, or authentication tokens.
-
 ---
 
 ## Improving your agent's responses in Copilot Studio
@@ -201,7 +193,7 @@ After your agent is provisioned from the conversational authoring experience, yo
 
    For example:
 
-   ✅ *"Act like a knowledgeable Contoso Energy IT Operations specialist who explains technical steps clearly and always asks for the technician's location and device type before troubleshooting."*
+   ✅ *"Act like a knowledgeable SDG&E IT Operations specialist who explains technical steps clearly and always asks for the technician's location and device type before troubleshooting."*
 
    ❌ *"Be helpful."* (Too vague)
 
@@ -241,11 +233,9 @@ We're now going to learn how to create a custom agent that can chat over your da
 
 ### ✨ Use case
 
-**As a Contoso Energy field technician or IT operations staff member**
+**As a SDG&E field technician or IT operations staff member**
 
-I want to get quick and accurate help from the IT Operations agent for issues like Energy Support App login failures, VPN connectivity problems, remote device access, and NERC CIP compliance questions
-
-**So that** I can stay productive and resolve technical issues without delays — whether I'm at headquarters or working at a remote substation
+I want to get quick and accurate help from the IT Operations agent for questions setting up a Copilot Studio agent, and NERC CIP compliance questions.
 
 Let's begin!
 
@@ -255,12 +245,12 @@ Let's begin!
 
 #### SharePoint site
 
-We'll be using the **Contoso IT Operations** SharePoint site. This site should contain IT policy documents, VPN setup guides, Energy Support App onboarding materials, and NERC CIP IT procedures.
+We'll be using the **SDG&E Technology - AI & Digital Enablement SharePoint** site. This site contains IT support documents.
 
 
 #### Power Platform Solution
 
-We'll be creating our agent inside a solution. If you have not yet set up a solution for this lab series, create a new solution named **Contoso Energy Agent Solution** with a publisher prefix of your choosing before continuing.
+We'll be creating our agent inside a solution. If you have not yet set up a solution for this lab series, create a new solution named **SDG&E Agent Solution** with a publisher prefix of your choosing before continuing.
 
 ---
 
@@ -270,17 +260,16 @@ We'll be creating our agent inside a solution. If you have not yet set up a solu
 >
 > When you start by describing your agent in natural language, the AI generated name, description, and instructions can vary in each session. This also applies to the proposed triggers, channels, knowledge sources, and tools.
 
-1. Navigate to the **Home** page of Copilot Studio and in the description field, enter the following prompt which describes the Contoso Energy IT Operations agent.
+1. Navigate to https://copilotstudio.microsoft.com and in the description field, enter the following prompt which describes the SDG&E IT Operations agent.
 
 ```
-You are a Contoso Energy IT Operations assistant that helps employees and field technicians resolve IT issues related to utility operations. Be professional, concise, and safety-aware. Use the Contoso IT knowledge base and company resources as primary sources. Do not invent troubleshooting steps — if guidance cannot be verified, say so and escalate appropriately.
+You are a SDG&E IT Operations assistant that helps employees and field technicians resolve IT issues related to utility operations. Be professional, concise, and safety-aware. Use the SDG&E IT knowledge base and company resources as primary sources. Do not invent troubleshooting steps — if guidance cannot be verified, say so and escalate appropriately.
 
 For troubleshooting:
 1) Ask ONE focused question if details are missing (system name, error message, substation or location, device type).
-2) Try quick fixes first (VPN status, network connectivity, authentication, system availability checks).
-3) Provide numbered step-by-step instructions (short and actionable).
-4) If the issue is not resolved, offer 1-2 alternative approaches.
-5) After 2-3 troubleshooting branches, recommend escalation and provide a ticket summary including: location, system affected, error message, device or app, and steps already tried.
+2) Provide numbered step-by-step instructions (short and actionable).
+3) If the issue is not resolved, offer 1-2 alternative approaches.
+4) After 2-3 troubleshooting branches, recommend escalation and provide a ticket summary including: location, system affected, error message, device or app, and steps already tried.
 
 For Energy Support App and OT systems:
 1) Confirm the user is following OT network access protocols before providing guidance.
@@ -293,8 +282,8 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
 
    The prompt covers:
 
-   - **Role and goal:** Contoso Energy IT Operations assistant for field technicians and office staff
-   - **Primary knowledge sources:** Contoso IT knowledge base, Microsoft Support, NERC CIP standards
+   - **Role and goal:** SDG&E IT Operations assistant for field technicians and office staff
+   - **Primary knowledge sources:** SDG&E IT knowledge base, Microsoft Support, NERC CIP standards
    - **Response style:** Professional, concise, safety-aware
    - **Troubleshooting flow:** Question → Quick fixes → Steps → Alternative branches → Escalation
    - **Escalation artifact:** Ticket summary with location, system, error, device, and steps tried
@@ -308,31 +297,20 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
 
 4. Once the agent has been provisioned, you'll see a confirmation appear. Notice how AI automatically generated the name, description, and instructions for your agent. The orchestration mode is enabled by default (found in Settings) and the default model is used for the response model of the agent.
 
-   > **Reminder:** AI generated instructions may differ across sessions. The name, description, instructions, proposed triggers, channels, knowledge sources, and tools can vary in each session.
-
-   > **Note — Issues banner in non-premium environments**
-   >
-   > If you're working in an environment that does not have a premium Copilot Studio license, you'll see a yellow **"... has 2 issues"** banner near the top of the agent overview, similar to the screenshot below. These are warnings — not blockers — and you can safely continue with the lab.
-   >
-   > ![Contoso Energy IT Ops Assistant issues banner showing Premium Features and No evaluation warnings](./assets/images/issues-banner.png)
-   >
-   > - **Premium features** — The agent uses capabilities that require an upgraded license to *publish*. For lab testing in the test pane, this is fine.
-   > - **No evaluation** — Copilot Studio recommends running an evaluation before publishing. We're not publishing in this lab, so this warning can be ignored.
-
 5. Scroll down to review the AI suggestions for knowledge sources, tools, and triggers.
 
 6. Scroll down some more to review the Connected Agents, Topics, and Suggested Prompts sections.
 
-7. We'll next double check our agent has correctly been created in the **Contoso Energy Agent Solution**. Select **Settings** on the upper right.
+7. We'll next double check our agent has correctly been created in the **Copilot Studio LabSolution**. Select **Settings** on the upper right.
 
-8. We can see under **Advanced** that the agent has been created in the **Contoso Energy Agent Solution**. Exit from settings.
+8. We can see under **Advanced** that the agent has been created in the **Copilot**. Exit from settings.
 
 9. Now let's update the name of our agent. Select **Edit** in the Details section.
 
 10. Enter the following as the name of the agent and **Save** the updated details.
 
     ```
-    Contoso Energy IT Operations Agent by <<Enter Your Name or initials to avoid conflicts with other learners>>
+    SDG&E IT Operations Agent by <<Enter Your Name or initials to avoid conflicts with other learners>>
     ```
 
 11. We'll now add the suggested knowledge sources. In the Knowledge section, select **+ Add** for the website URL `https://support.microsoft.com`
@@ -345,7 +323,7 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
    https://www.nerc.com/standards/reliability-standards
     ```
 
-    > **Why NERC CIP?** Contoso Energy's electrical operations are subject to North American Electric Reliability Corporation (NERC) Critical Infrastructure Protection standards. Adding this as a knowledge source allows the agent to answer questions about cybersecurity requirements for critical energy infrastructure — something a generic IT helpdesk agent would not include.
+    > **Why NERC CIP?** SDG&E's electrical operations are subject to North American Electric Reliability Corporation (NERC) Critical Infrastructure Protection standards. Adding this as a knowledge source allows the agent to answer questions about cybersecurity requirements for critical energy infrastructure — something a generic IT helpdesk agent would not include.
 
 14. The two website URLs have now been added as knowledge sources for our agent. Select **X Dismiss** to remove any remaining AI suggestions you do not want to add at this time.
 
@@ -356,30 +334,30 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
 17. Enter the following question in the Testing pane:
 
     ```
-    How do I enable multi-factor authentication on my Contoso Microsoft account?
+    How do I enable multi-factor authentication on my Microsoft account?
     ```
 
 18. The Activity map will then load, showing in real-time what path the agent is processing. In this scenario, our agent has understood the question and searches the knowledge sources using the two website URLs.
 
     Our agent responds with step-by-step instructions, as defined in the instructions. The response has references to the `https://support.microsoft.com` website that the agent formed its answer from. This enables users to verify the source of the answer.
 
-> **Congratulations!** You've built your first Contoso Energy custom agent by starting with a description in Copilot Studio 🙌
+> **Congratulations!** You've built your first SDG&E custom agent by starting with a description in Copilot Studio 🙌
 
 ---
 
 ### 1.2 Add an internal knowledge source using a SharePoint site
 
-Previously, we added public websites as external knowledge sources for our agent during the conversational creation experience. We're now going to add an internal knowledge source using a **SharePoint site**. This will be the **Contoso IT Operations** SharePoint site containing your IT policies and field guides.
+Previously, we added public websites as external knowledge sources for our agent during the conversational creation experience. We're now going to add an internal knowledge source using a **SharePoint site**. This will be the **SDG&E Technology - AI & Digital Enablement SharePoint** site containing your IT policies and field guides.
 
 1. In the **Knowledge** section, select **+ Add knowledge** and select **SharePoint**.
 
-2. Paste in the address of the **Contoso IT Operations** SharePoint site in the format of `https://<your-tenant>.sharepoint.com/sites/ContosoITOperations` in the SharePoint URL field and select **Add**.
+2. Paste in the address of the **SDG&E Technology - AI & Digital Enablement SharePoint** site `https://sempra.sharepoint.com/sites/digitalinnovation` in the SharePoint URL field and select **Add**.
 
-3. Update the name of the SharePoint site to **`Contoso IT Operations`** and select **Add to agent**.
+3. Update the name of the SharePoint site to **`SDG&E Technology - AI & Digital Enablement`** and select **Add to agent**.
 
 4. The SharePoint site has now been added as a knowledge source. The **Status** column will show whether the knowledge source has been loaded/connected successfully, or if there is an issue. Wait until the status shows **Ready** before continuing.
 
-   > **What's in the Contoso IT Operations SharePoint site?** This site should contain documents such as VPN setup procedures, Energy Support App onboarding guides, remote access policies, device enrollment instructions, and NERC CIP IT compliance procedures. The agent will search these documents when answering questions from field technicians.
+   > **What's in the SDG&E Technology - AI & Digital Enablement SharePoint site?** This folder contains documentation on setting up a Copilot Studio agent.
 
 ---
 
@@ -389,9 +367,9 @@ We'll now add another internal knowledge source by uploading a document directly
 
 1. In the **Knowledge** section, select **+ Add knowledge** and select **Upload file** or select to browse.
 
-2. Download the **[Contoso Field Operations Remote Access Guide]** from the lab assets folder, save it as a `.docx` or `.pdf` file, and select it in your File Explorer. Select **Open**.
+2. Download the **[SDG&E Field Operations Remote Access Guide]** from the **Copilot Studio Lab Materials** document library, save it as a `.docx` or `.pdf` file, and select it in your File Explorer. Select **Open**.
 
-   > **About this document:** This guide covers how Contoso Energy field technicians remotely access corporate systems — including VPN connection steps from remote substations, Energy Support App remote login procedures, Outage Management System (OMS) mobile access, and the escalation path when remote access fails. This is the kind of document that would otherwise only be accessible by calling the IT helpdesk.
+   > **About this document:** This guide helps SDG&E employees understand how to create Copilot Studio agents.
 
 3. The file has been selected for upload. Select **Add to agent**.
 
@@ -405,45 +383,43 @@ Let's now test our agent!
 
 ### 1.4 Test agent
 
-We'll test our four knowledge sources by asking questions to our **Contoso Energy IT Operations Agent**.
+We'll test our four knowledge sources by asking questions to our **SDG&E IT Operations Agent**.
 
 1. Select the **new test session** icon in the test pane.
 
    Enter the following question to test our public website (external) knowledge source — Microsoft Support:
 
    ```
-   How do I find the serial number on a Microsoft Surface device issued by Contoso?
+   How do I reset my Microsoft MFA settings to set up multi-factor authentication again?
    ```
 
 2. You'll next see the agent reviewing the knowledge sources and providing a response using the Microsoft Support website knowledge source.
 
    A response will be returned. Notice how there are **references** to the web page it formed its answer from.
 
-3. If you scroll down the knowledge modal in the activity map, you'll see the other knowledge sources the agent searched — the NERC CIP website, the SharePoint site, and the uploaded document. However, these were not used for this answer, as the Microsoft Support website was the relevant source for device serial number information.
+3. If you scroll down the knowledge modal in the activity map, you'll see the other knowledge sources the agent searched — the NERC CIP website, and the SharePoint site. However, these were not used for this answer, as the Microsoft Support website was the relevant source for device serial number information.
 
-4. Let's now test both our **SharePoint site** knowledge source and **document** knowledge source in a single message. Enter the following two questions together:
+4. Let's now test both our **SharePoint site** knowledge source. Enter the following question:
 
    ```
-   How do I connect to the Contoso corporate VPN from a remote substation? How do field technicians access grid operations systems from a remote site?
+   How do I create a new Copilot Studio agent for my team?
    ```
 
 5. Once again you'll see the agent reviewing all four knowledge sources to generate a response to the two questions submitted in a single message. The agent responds to both questions in a single message and provides **separate references** for where it generated each response from.
 
-   In the knowledge modal in the activity map, you'll see the **SharePoint site** referenced for the VPN question, and the **uploaded Field Operations Remote Access Guide** referenced for the grid operations access question. You have full visibility of what knowledge sources were used to answer both questions in the activity modal.
+   In the knowledge modal in the activity map, you'll see the **SharePoint site** referenced for the Copilot Studio creation question. You have full visibility of what knowledge sources were used to answer both questions in the activity modal.
 
-6. Scroll down to review the response for the grid operations question. You'll see a response that's grounded using the uploaded document, with specific references to the relevant sections.
+6. Scroll down to review the response for creating the Copilot Studio agent. You'll see a response that's grounded using the uploaded document, with specific references to the relevant sections.
 
-7. In the activity modal, notice how the NERC CIP website was also searched but not necessarily referenced for this particular question — it will come into play for compliance-related queries.
-
-8. Let's test the NERC CIP knowledge source. Enter the following question:
+7. Let's test the NERC CIP knowledge source. Enter the following question:
 
    ```
    What are the NERC CIP requirements for cybersecurity incident reporting in the energy sector?
    ```
 
-9. The agent will reference the NERC CIP standards website in its response. This demonstrates how an energy-specific knowledge source enables the agent to answer industry-compliance questions that a generic IT helpdesk agent could not.
+8. The agent will reference the NERC CIP standards website in its response. This demonstrates how an energy-specific knowledge source enables the agent to answer industry-compliance questions that a generic IT helpdesk agent could not.
 
-10. It's always good to verify the generated response is correct. Select a **document reference** and a modal will appear with the text from the source that reflects the answer.
+9. It's always good to verify the generated response is correct. Select a **document reference** and a modal will appear with the text from the source that reflects the answer.
 
 > The agent can answer multiple questions in a single message and search the knowledge sources, referencing the most relevant source in its response. Make sure to always verify the response is correct by reviewing the references.
 
@@ -451,20 +427,11 @@ We'll test our four knowledge sources by asking questions to our **Contoso Energ
 
 ## ✅ Lab Complete
 
-Congratulations! 👏 You've built a custom Contoso Energy IT Operations agent grounded in real enterprise data. Your agent can now draw on four distinct knowledge sources to support field technicians and operations staff:
+Congratulations! 👏 You've built a custom SDG&E IT Operations agent grounded in real enterprise data. Your agent can now draw on three distinct knowledge sources:
 
 - ✅ **Microsoft Support** — for Microsoft product and device questions
 - ✅ **NERC CIP Standards** — for energy industry compliance and cybersecurity questions
-- ✅ **Contoso IT Operations SharePoint** — for internal VPN, Energy Support App, and IT policy questions
-- ✅ **Contoso Field Operations Remote Access Guide** — for field technician remote access procedures
-
-This is the end of Lab 06. Your custom agent will be used in the next lesson's lab, where you'll add specific Topics and triggers for common field technician scenarios.
-
-⏭️ Move to the **Add a new Topic with trigger** lesson.
-
----
-
-> By building this IT Operations agent, you are directly supporting Contoso's mission to deliver energy with purpose — equipping field technicians with instant, reliable access to the information they need to stay safe and productive, whether they're at headquarters in San Diego or at a remote substation in West Texas.
+- ✅ **SDG&E Technology - AI & Digital Enablement SharePoint** — for Copilot Studio Agent setup documentation
 
 ---
 

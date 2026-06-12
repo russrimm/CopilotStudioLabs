@@ -49,7 +49,8 @@ This isn't just about saving developer time. It's about unlocking the ability to
 
 | # | Lab | Industry | Scenario | Difficulty | Time |
 |---|-----|----------|----------|------------|------|
-| 01 | [Build a Custom IT Operations Agent](./labs/01-contoso-energy-ops-agent/index.md) | Energy & Utilities | Build a knowledge-powered IT support agent for field technicians — grounded in SharePoint, internal documents, Microsoft Support, and NERC CIP compliance standards | Intermediate | 75 min |
+| 01 | [Build a Custom IT Operations Agent](./labs/01-sdge-energy-ops-agent/index.md) | Energy & Utilities (SDG&E) | Build a knowledge-powered IT support agent for field technicians — grounded in SharePoint, internal documents, Microsoft Support, and NERC CIP compliance standards | Intermediate | 75 min |
+| 02 | [Orchestration with Copilot Studio for Sempra](./labs/02-sempra-account-orchestration-agent/index.md) | Energy & Utilities (Sempra) | Stand up a Sempra Customer Account Lookup connected agent, tune the planner with Instructions and Descriptions, then build a new-type Customer Operations Assistant that uses the New Orchestrator (Agentic Reasoning Loop) and a reusable Skill to chain Dataverse MCP, custom MCP servers, internal vs. customer-facing knowledge, and live weather across a single turn | Advanced (300) | 60 min |
 
 ---
 
