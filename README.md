@@ -51,7 +51,7 @@ This isn't just about saving developer time. It's about unlocking the ability to
 
 | # | Lab | Industry | Scenario | Difficulty | Time |
 |---|-----|----------|----------|------------|------|
-| 04 | [**Build an Advanced Energy Intelligence Agent with US Census Bureau Data**](./labs/04-energy-census-advanced-agent/index.md) | Energy / Utilities | Build a full-stack agent integrating US Census Bureau APIs for service territory planning — covering topics, variables, tools, connected agents, agent flows, model selection, MCP servers, and agent evaluations. Includes 15 min intro and 15 min Q&A wrap-up. Optional: VS Code extension for agent management. | Advanced (200–300) | **3 hours** (+20 min optional) |
+| 04 | [**Build an Advanced Energy Intelligence Agent with US Census Bureau Data**](./labs/04-energy-census-advanced-agent/index.md) | Energy / Utilities | Build a full-stack agent integrating US Census Bureau APIs for service territory planning — covering topics, variables, tools, connected agents, agent flows, model selection, and agent evaluations. Includes 15 min intro and 15 min Q&A wrap-up. Optional: MCP servers and VS Code extension. | Advanced (200–300) | **3 hours** (+40 min optional) |
 
 This is the primary lab for customers wanting a comprehensive, hands-on Copilot Studio experience. It covers all major platform capabilities in a single cohesive energy-industry scenario.
 

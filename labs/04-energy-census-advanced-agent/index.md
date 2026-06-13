@@ -7,7 +7,7 @@
 | ⭐ **DIFFICULTY** | Advanced (Level 200–300) |
 | ⏱️ **TIME** | 3 hours (15 min intro, 150 min hands-on, 15 min Q&A) |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio, US Census Bureau API, Power Automate, VS Code (optional) |
-| 🏷️ **TAGS** | Topics, Variables, HTTP Actions, Connected Agents, Agent Flows, MCP, Evaluations, Energy Planning |
+| 🏷️ **TAGS** | Topics, Variables, HTTP Actions, Connected Agents, Agent Flows, Evaluations, Model Selection, Energy Planning |
 | 🏭 **INDUSTRY** | Energy / Utilities |
 
 ---
@@ -137,7 +137,7 @@ By the end of this lab, you will be able to:
 - A free **US Census Bureau API key** from <https://api.census.gov/data/key_signup.html>
 - Basic familiarity with **state and county FIPS codes**
 - Optional: **VS Code** if you plan to complete the optional extension section
-- Optional for the MCP section: **Node.js 18+** or **Python 3.10+** on your local machine
+- Optional for the MCP section (Use Case #8): **Node.js 18+** or **Python 3.10+** and **VS Code** on your local machine
 
 > 💡 **Tip:** If your utility uses ZIP-code-based districting, you can still complete this lab at the county level and extend the same design later to ZIP, tract, or block-group analysis.
 
@@ -147,23 +147,23 @@ By the end of this lab, you will be able to:
 
 | # | Section | Time | Required |
 |---|---|---|---|
-| 1 | Topics | 25 min | ✅ |
-| 2 | Variables | 15 min | ✅ |
-| 3 | Tools | 24 min | ✅ |
-| 4 | Connected Agents | 18 min | ✅ |
-| 5 | Agent Flows | 20 min | ✅ |
-| 6 | Model Selection & Testing | 12 min | ✅ |
-| 7 | MCP Servers | 20 min | ✅ |
-| 8 | Agent Evaluations | 16 min | ✅ |
+| 1 | Topics | 30 min | ✅ |
+| 2 | Variables | 20 min | ✅ |
+| 3 | Tools | 28 min | ✅ |
+| 4 | Connected Agents | 20 min | ✅ |
+| 5 | Agent Flows | 22 min | ✅ |
+| 6 | Model Selection & Testing | 14 min | ✅ |
+| 7 | Agent Evaluations | 16 min | ✅ |
 | | **Q&A / Wrap-up** | **15 min** | ✅ |
 | | **Core lab total** | **180 min (3 hours)** | |
+| 8 | Optional: MCP Servers | 20 min | ⭐ Optional |
 | 9 | Optional: VS Code Extension | 20 min | ⭐ Optional |
 
-> 💡 The optional VS Code Extension section (Use Case #9) is **not** counted against the 3-hour lab time. It assumes VS Code is already installed and is intended for teams interested in source control and CI/CD workflows for their agents.
+> 💡 The optional sections (Use Cases #8 and #9) are **not** counted against the 3-hour lab time. Use Case #8 (MCP) requires Node.js or Python and VS Code. Use Case #9 assumes VS Code is already installed and is intended for teams interested in source control and CI/CD workflows for their agents.
 
 ---
 
-# 🧪 Use Case #1 — Topics (25 min)
+# 🧪 Use Case #1 — Topics (30 min)
 
 > 🎯 **Objective:** Create custom topics that capture geography, extract entities, branch on user intent, and route energy-planning requests to the correct Census actions.
 
@@ -298,7 +298,7 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 
 ---
 
-# 🧪 Use Case #2 — Variables (15 min)
+# 🧪 Use Case #2 — Variables (20 min)
 
 > 🎯 **Objective:** Configure global, topic, and system variables so the agent can store configuration, capture geography details, and assemble reusable Census request URLs.
 
@@ -404,7 +404,7 @@ https://api.census.gov/data/{Topic.DataYear}/acs/acs5?get=NAME,C24050_001E,C2405
 
 ---
 
-# 🧪 Use Case #3 — Tools (24 min)
+# 🧪 Use Case #3 — Tools (28 min)
 
 > 🎯 **Objective:** Build two Census Bureau tools that planners can call for county-level demographics and state-level energy employment analysis.
 
@@ -526,7 +526,7 @@ Example county response pattern:
 
 ---
 
-# 🧪 Use Case #4 — Connected Agents (18 min)
+# 🧪 Use Case #4 — Connected Agents (20 min)
 
 > 🎯 **Objective:** Create a **Census Data Specialist** connected agent, add it to the parent Energy Intelligence Agent, and configure sharing so Census questions route cleanly to the specialist.
 
@@ -595,7 +595,7 @@ The parent agent should orchestrate the planning experience while a connected sp
 
 ---
 
-# 🧪 Use Case #5 — Agent Flows (20 min)
+# 🧪 Use Case #5 — Agent Flows (22 min)
 
 > 🎯 **Objective:** Build a Power Automate cloud flow that receives a state FIPS code, calls multiple Census endpoints in sequence, aggregates the results, and returns a formatted summary to the agent.
 
@@ -682,7 +682,7 @@ Add two **HTTP** actions (both `GET`):
 
 ---
 
-# 🧪 Use Case #6 — Model Selection & Testing (12 min)
+# 🧪 Use Case #6 — Model Selection & Testing (14 min)
 
 > 🎯 **Objective:** Compare available models in Copilot Studio for quality, speed, and cost tradeoffs on energy-domain prompts.
 
@@ -741,9 +741,102 @@ Use stronger models for executive summaries, multi-tool analysis, and interpreta
 
 ---
 
-# 🧪 Use Case #7 — MCP (Model Context Protocol) Servers (20 min)
+# 🧪 Use Case #7 — Agent Evaluations (16 min)
 
-> 🎯 **Objective:** Stand up a local MCP server that wraps Census API calls, register it in Copilot Studio, and expose discoverable tools for runtime use.
+> 🎯 **Objective:** Create a 10-question evaluation set for energy/Census scenarios, run it to validate agent quality, review failures, and iterate.
+
+### Scenario
+
+Before planners rely on the agent, you need evidence that it handles common and ambiguous questions reliably.
+
+### Step 1 — Create the evaluation test set
+
+1. Open **Energy Intelligence Agent**.
+2. Go to **Evaluation**.
+3. Select **Create a test set**.
+4. Name it:
+   ```text
+   Energy Census Planning Regression Set
+   ```
+5. Configure test methods:
+   - **Similarity**
+   - **General quality**
+   - **Keyword match**
+
+> 💡 **Method guidance:**
+> - **Similarity** helps with structured summaries that can vary in wording.
+> - **General quality** helps with open-ended planning explanations.
+> - **Keyword match** is useful for must-mention concepts like population, housing, FIPS, or employment.
+
+### Step 2 — Add 10 energy-specific test questions
+
+Use a set like this:
+
+| # | Test question | Check |
+|---|---|---|
+| 1 | `Show me county demographics for Harris County, Texas.` | County lookup |
+| 2 | `What Census variables do you use for population, income, and housing?` | Help topic |
+| 3 | `Give me state employment indicators for Texas that matter for energy planning.` | State tool |
+| 4 | `Explain why housing units matter for grid capacity planning.` | Interpretation |
+| 5 | `Analyze a county called Jefferson County.` | Missing-state follow-up |
+| 6 | `What does C24050_004E mean?` | Variable explanation |
+| 7 | `Summarize Texas using population, housing, and employment in one answer.` | Aggregation |
+| 8 | `I only know the ZIP code 77002. What should I do?` | Guidance |
+| 9 | `Which county indicator is most useful for spotting residential growth pressure?` | Reasoning |
+| 10 | `Compare why population growth and industrial employment growth lead to different planning actions.` | Multi-step reasoning |
+
+### Step 3 — Define expected outcomes
+
+For each test, add expected answers or assertions. For example: Question 1 should include keywords like `population`, `median household income`, `housing units`. Question 5 should require the agent to ask for the state. Question 10 should mention both **residential growth** and **commercial/industrial demand**.
+
+### Step 4 — Run the evaluation
+
+1. Save the test set.
+2. Run the evaluation.
+3. Review:
+   - Overall pass rate
+   - Which tests fail
+   - Whether failures cluster around help, aggregation, or multi-step reasoning
+4. Open several failed cases and review the activity map.
+
+### Step 5 — Interpret results and iterate
+
+1. Identify the root cause for each failure using the activity map.
+2. Apply fixes in the right place:
+
+| Signal | What it means |
+|---|---|
+| Agent gives generic answers instead of calling tools | Tool descriptions may need strengthening |
+| Missing-state prompts don't trigger follow-up | Topic logic needs a condition or follow-up question |
+| Slow but accurate answers | Consider model selection tradeoffs (Use Case #6) |
+| Wrong tool is invoked | Improve tool descriptions so the planner can distinguish them |
+
+3. After making fixes, re-run the same evaluation set and compare results.
+4. Repeat until the pass rate meets your team's quality bar.
+
+Apply fixes in the right place: topic issues → fix the topic; tool issues → fix descriptions; routing issues → fix connected-agent descriptions; reasoning issues → revisit model choice.
+
+> 💡 **Screenshot callout:** Capture the evaluation results dashboard and one activity map showing a failed case with the root-cause signal.
+
+### ✅ You've completed Use Case #7
+
+**Key takeaways**
+
+- Evaluations turn your planning agent into an engineering asset instead of a demo.
+- The same test set can prove whether architecture changes (tools, connected agents, model selection) improved real answer quality.
+- Failed cases usually tell you exactly where to tune: topics, tools, routing, or model choice.
+
+**Troubleshooting**
+
+- If the evaluation is inconsistent, make sure the prompts are stable and the expected criteria aren't overly strict.
+- If keyword-match fails on good answers, expand the acceptable keywords.
+- If multi-step questions still fail, inspect whether the tool descriptions are rich enough for the planner to choose them.
+
+---
+
+# 🧪 Optional Use Case #8 — MCP (Model Context Protocol) Servers (20 min, optional)
+
+> 🎯 **Objective:** Stand up a local MCP server that wraps Census API calls, register it in Copilot Studio, and expose discoverable tools for runtime use. This section requires **VS Code** and **Node.js 18+** (or Python 3.10+).
 
 ### Scenario
 
@@ -829,7 +922,7 @@ A sample MCP configuration might look like:
 
 > 💡 **Screenshot callout:** Capture the Copilot Studio MCP tool discovery page showing `get_population`, `get_median_income`, `get_housing_stats`, and `get_employment_by_industry`.
 
-### ✅ You've completed Use Case #7
+### ✅ You've completed Optional Use Case #8
 
 **Key takeaways**
 
@@ -842,97 +935,6 @@ A sample MCP configuration might look like:
 - If no tools appear, confirm the server starts locally and that the registration path/command is correct.
 - If calls fail at runtime, verify the API key environment variable is present in the server process.
 - If the agent picks the wrong MCP tool, improve the tool descriptions so the planner can distinguish population, income, housing, and employment tasks.
-
----
-
-# 🧪 Use Case #8 — Agent Evaluations (16 min)
-
-> 🎯 **Objective:** Create a 10-question evaluation set for energy/Census scenarios, run it before and after MCP enrichment, and interpret the results.
-
-### Scenario
-
-Before planners rely on the agent, you need evidence that it handles common and ambiguous questions reliably.
-
-### Step 1 — Create the evaluation test set
-
-1. Open **Energy Intelligence Agent**.
-2. Go to **Evaluation**.
-3. Select **Create a test set**.
-4. Name it:
-   ```text
-   Energy Census Planning Regression Set
-   ```
-5. Configure test methods:
-   - **Similarity**
-   - **General quality**
-   - **Keyword match**
-
-> 💡 **Method guidance:**
-> - **Similarity** helps with structured summaries that can vary in wording.
-> - **General quality** helps with open-ended planning explanations.
-> - **Keyword match** is useful for must-mention concepts like population, housing, FIPS, or employment.
-
-### Step 2 — Add 10 energy-specific test questions
-
-Use a set like this:
-
-| # | Test question | Check |
-|---|---|---|
-| 1 | `Show me county demographics for Harris County, Texas.` | County lookup |
-| 2 | `What Census variables do you use for population, income, and housing?` | Help topic |
-| 3 | `Give me state employment indicators for Texas that matter for energy planning.` | State tool |
-| 4 | `Explain why housing units matter for grid capacity planning.` | Interpretation |
-| 5 | `Analyze a county called Jefferson County.` | Missing-state follow-up |
-| 6 | `What does C24050_004E mean?` | Variable explanation |
-| 7 | `Summarize Texas using population, housing, and employment in one answer.` | Aggregation |
-| 8 | `I only know the ZIP code 77002. What should I do?` | Guidance |
-| 9 | `Which county indicator is most useful for spotting residential growth pressure?` | Reasoning |
-| 10 | `Compare why population growth and industrial employment growth lead to different planning actions.` | Multi-step reasoning |
-
-### Step 3 — Define expected outcomes
-
-For each test, add expected answers or assertions. For example: Question 1 should include keywords like `population`, `median household income`, `housing units`. Question 5 should require the agent to ask for the state. Question 10 should mention both **residential growth** and **commercial/industrial demand**.
-
-### Step 4 — Run the evaluation **before** MCP tools
-
-1. Save the test set.
-2. Run the evaluation before adding or enabling MCP tools.
-3. Review:
-   - Overall pass rate
-   - Which tests fail
-   - Whether failures cluster around help, aggregation, or multi-step reasoning
-4. Open several failed cases and review the activity map.
-
-### Step 5 — Run the evaluation after MCP tools and interpret results
-
-1. Enable the MCP tools from Use Case #7.
-2. Re-run the same evaluation set and compare results.
-3. Look for better tool usage on multi-step questions, fewer generic explanations, and better variable-definition handling.
-4. Use the activity map on failed cases to identify the root cause:
-
-| Signal | What it means |
-|---|---|
-| Higher pass rate after MCP | Runtime tool discovery improved answer quality |
-| Same failure on missing-state prompts | Topic logic still needs work |
-| Slow but accurate answers | Decide whether the stronger architecture is worth the latency |
-
-Apply fixes in the right place: topic issues → fix the topic; tool issues → fix descriptions; routing issues → fix connected-agent or MCP tool descriptions; reasoning issues → revisit model choice.
-
-> 💡 **Screenshot callout:** Capture the evaluation results dashboard and one activity map showing the difference before and after MCP enrichment.
-
-### ✅ You've completed Use Case #8
-
-**Key takeaways**
-
-- Evaluations turn your planning agent into an engineering asset instead of a demo.
-- The same test set can prove whether MCP tools improved real answer quality.
-- Failed cases usually tell you exactly where to tune: topics, tools, routing, or model choice.
-
-**Troubleshooting**
-
-- If the evaluation is inconsistent, make sure the prompts are stable and the expected criteria aren't overly strict.
-- If keyword-match fails on good answers, expand the acceptable keywords.
-- If multi-step questions still fail after MCP, inspect whether the tool descriptions are rich enough for the planner to choose them.
 
 ---
 
@@ -1045,8 +1047,9 @@ Use this time for open Q&A. If the group needs prompts, consider these:
 | **Connected Agent** | Specialist child agent owning all Census reasoning |
 | **Agent Flow** | Power Automate multi-endpoint aggregation returning a planning summary |
 | **Model Selection** | Compared quality/cost tradeoffs for energy-domain prompts |
-| **MCP Server** | Runtime-discoverable Census tool host |
 | **Evaluations** | 10-question regression set proving quality before and after changes |
+| **MCP Server** *(optional)* | Runtime-discoverable Census tool host |
+| **VS Code Extension** *(optional)* | Source-controlled agent management and CI/CD workflows |
 
 > 💡 **Next steps for your team:** Take the patterns from this lab and adapt them to your real service territory data, internal APIs, and planning workflows. The architecture scales — add more Census variables, more geographies, more MCP tools — without redesigning the agent.
 
