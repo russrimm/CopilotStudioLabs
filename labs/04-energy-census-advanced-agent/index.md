@@ -32,7 +32,7 @@ By the end of the lab, you will have a working solution with these components:
 | **Tools / actions** | Census HTTP actions |
 | **Connected agent** | **Census Data Specialist** |
 | **Agent flow** | Power Automate state summary flow |
-| **MCP server** | Local Census MCP server |
+| **MCP server** | Local Census MCP server *(optional)* |
 | **Evaluation suite** | 10-question regression set |
 
 ### Architecture summary
@@ -44,7 +44,7 @@ User
       -> Direct HTTP tools for simple ACS lookups
       -> Connected Agent: Census Data Specialist
       -> Power Automate flow for multi-endpoint summaries
-      -> MCP server tools for richer planner-driven discovery
+      -> MCP server tools for richer planner-driven discovery (optional)
       -> Final response grounded in Census data
 ```
 
@@ -62,9 +62,9 @@ By the end of this lab, you will be able to:
 4. ✅ Add a connected **Census Data Specialist** agent
 5. ✅ Build a Power Automate state summary flow
 6. ✅ Compare models for quality, latency, and cost
-7. ✅ Expose Census capabilities through an MCP server
-8. ✅ Evaluate the agent with a 10-question regression set
-9. ✅ Optionally manage the agent through VS Code
+7. ✅ Evaluate the agent with a 10-question regression set
+8. ⭐ *(Optional)* Expose Census capabilities through an MCP server
+9. ⭐ *(Optional)* Manage the agent through VS Code
 
 ---
 
@@ -81,7 +81,7 @@ By the end of this lab, you will be able to:
 | **Tools / actions** | API-backed functions the agent can call |
 | **Connected agents** | Child agents for specialized work |
 | **Agent flows** | Multi-step Power Automate actions |
-| **MCP server** | A discoverable tool host |
+| **MCP server** *(optional)* | A discoverable tool host |
 | **Evaluations** | Repeatable quality tests |
 
 ### US Census Bureau API details used in this lab
@@ -1057,7 +1057,7 @@ Use this time for open Q&A. If the group needs prompts, consider these:
 
 ## 🏁 Congratulations
 
-You've built an **Energy Intelligence Agent** that combines topics, variables, Census API tools, a connected specialist agent, a Power Automate flow, model testing, MCP-based tool discovery, and an evaluation suite.
+You've built an **Energy Intelligence Agent** that combines topics, variables, Census API tools, a connected specialist agent, a Power Automate flow, model testing, and an evaluation suite. If you completed the optional sections, you also explored MCP-based tool discovery and VS Code agent management.
 
 This pattern gives an energy company a strong foundation for service-territory demographics, capacity planning, commercial corridor analysis, and regulatory-ready planning summaries.
 
