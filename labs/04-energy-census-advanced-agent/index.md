@@ -183,15 +183,19 @@ A planner needs either a guided service-territory lookup or a quick explanation 
    ```text
    You are an energy planning assistant for analysts, distribution planners, field operations, and regulatory teams. Help users analyze service-territory demographics and economic indicators using US Census Bureau data. Ask for missing geography details when needed. Prefer county and state analysis when the user is unclear. Keep responses concise, data-driven, and useful for grid planning, load forecasting, customer program targeting, and capacity expansion.
    ```
-5. Save the agent.
+5. In **Select your agent's model** select one of the available models (you can change this later).
+6. Save the agent.
 
 > 💡 **Tip:** Keep the agent instructions broad and cross-cutting. The detailed collection logic belongs in topics and tool descriptions, not in a massive system prompt.
 
 ### Step 2 — Create the **Service Territory Lookup** topic
 
 1. Open the agent and select **Topics**.
-2. Select **+ New topic**.
-3. Name it:
+2. Select **+ Add a topic** and **From blank**.
+
+> 💡 **Tip:** The **Add from description with Copilot** can save significant time up front in creating your agent. Since this lab is designed to be more advanced, we are selecting the more manual option of starting with a blank slate.
+
+3. Click on the word **Untitled** at the top left, and rename it to:
    ```text
    Service Territory Lookup
    ```
@@ -203,7 +207,7 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 
 ### Step 3 — Add an opening message and clarify the geography
 
-1. In the authoring canvas, add a **Send a message** node:
+1. In the authoring canvas, click on the **+** below the trigger and select **Send a message** node:
    ```text
    I can look up Census-based demographics and employment indicators for a service territory. Tell me the geography you want to analyze: state, county + state, or ZIP code.
    ```
@@ -212,14 +216,15 @@ A planner needs either a guided service-territory lookup or a quick explanation 
    ```text
    What location should I use?
    ```
-4. Store the answer in a topic variable such as `Topic.LocationInput`.
-5. Under **Identify**, select **User's entire response** for now. The condition nodes in the next step will parse the location type. Alternatively, you can create custom entities for state, county, and ZIP to let the agent extract structured values automatically.
+4. Under **Identify**, select **User's entire response** for now. The condition nodes in the next step will parse the location type. Alternatively, you can create custom entities for state, county, and ZIP to let the agent extract structured values automatically.
+5. Under **Save user response as** select the Var1 string variable.
+6. In the **Variable proerties** pane, rename the Variable name to `varLocation`. 
 
-> 💡 **Screenshot callout:** Capture the authoring canvas showing the topic description, opening message, and the **Ask a question** node storing the answer in `Topic.LocationInput`.
+![alt text](image.png)
 
 ### Step 4 — Extract state and county details through follow-up questions
 
-1. Add a **Condition** node after the location question.
+1. Add a **Condition** node after the location question by selecting the **+** and choosing **Add a condition**.
 2. Branch based on what the user supplied:
    - **If ZIP is present** → route to a ZIP-handling branch or explain that county/state is the default in this lab
    - **If county is present but state is missing** → ask for the state
@@ -229,7 +234,7 @@ A planner needs either a guided service-territory lookup or a quick explanation 
    ```text
    Which state is that county in?
    ```
-   Save to `Topic.StateInput`.
+   Save to `varState`.
 4. For the **ZIP** branch, add a message such as:
    ```text
    I can work with ZIP codes, but this lab's core tools are optimized for county and state geographies. I'll try to map your ZIP to the surrounding county, or you can provide the county directly for the most reliable result.
