@@ -47,11 +47,11 @@ This isn't just about saving developer time. It's about unlocking the ability to
 
 ## 🧪 Labs
 
-### ⭐ Featured: 2.5-Hour End-to-End Advanced Lab
+### ⭐ Featured: 3-Hour End-to-End Advanced Lab
 
 | # | Lab | Industry | Scenario | Difficulty | Time |
 |---|-----|----------|----------|------------|------|
-| 04 | [**Build an Advanced Energy Intelligence Agent with US Census Bureau Data**](./labs/04-energy-census-advanced-agent/index.md) | Energy / Utilities | Build a full-stack agent integrating US Census Bureau APIs for service territory planning — covering topics, variables, tools, connected agents, agent flows, model selection, MCP servers, and agent evaluations. Includes 15 min intro and 15 min Q&A wrap-up. Optional: VS Code extension for agent management. | Advanced (200–300) | **2.5 hours** (+20 min optional) |
+| 04 | [**Build an Advanced Energy Intelligence Agent with US Census Bureau Data**](./labs/04-energy-census-advanced-agent/index.md) | Energy / Utilities | Build a full-stack agent integrating US Census Bureau APIs for service territory planning — covering topics, variables, tools, connected agents, agent flows, model selection, MCP servers, and agent evaluations. Includes 15 min intro and 15 min Q&A wrap-up. Optional: VS Code extension for agent management. | Advanced (200–300) | **3 hours** (+20 min optional) |
 
 This is the primary lab for customers wanting a comprehensive, hands-on Copilot Studio experience. It covers all major platform capabilities in a single cohesive energy-industry scenario.
 
@@ -98,7 +98,7 @@ These shorter labs cover individual concepts and can be used as standalone refer
 
 ### How to use these labs
 
-- **For the full hands-on experience**, start with **Lab 04** — it is self-contained and covers all major Copilot Studio capabilities in 2.5 hours.
+- **For the full hands-on experience**, start with **Lab 04** — it is self-contained and covers all major Copilot Studio capabilities in 3 hours.
 - **For a shorter introduction**, start with **Lab 01** to build a knowledge-grounded agent, then continue with Labs 02 and 03 for analytics, evaluations, and orchestration.
 - **Lab 05** is an optional add-on for teams interested in managing agents as code through VS Code.
 

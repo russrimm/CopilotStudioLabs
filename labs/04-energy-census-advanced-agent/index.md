@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 200–300) |
-| ⏱️ **TIME** | 2.5 hours (15 min intro, 120 min hands-on, 15 min Q&A) |
+| ⏱️ **TIME** | 3 hours (15 min intro, 150 min hands-on, 15 min Q&A) |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio, US Census Bureau API, Power Automate, VS Code (optional) |
 | 🏷️ **TAGS** | Topics, Variables, HTTP Actions, Connected Agents, Agent Flows, MCP, Evaluations, Energy Planning |
 | 🏭 **INDUSTRY** | Energy / Utilities |
@@ -147,23 +147,23 @@ By the end of this lab, you will be able to:
 
 | # | Section | Time | Required |
 |---|---|---|---|
-| 1 | Topics | 20 min | ✅ |
-| 2 | Variables | 10 min | ✅ |
-| 3 | Tools | 20 min | ✅ |
-| 4 | Connected Agents | 20 min | ✅ |
-| 5 | Agent Flows | 15 min | ✅ |
-| 6 | Model Selection & Testing | 10 min | ✅ |
-| 7 | MCP Servers | 15 min | ✅ |
-| 8 | Agent Evaluations | 10 min | ✅ |
+| 1 | Topics | 25 min | ✅ |
+| 2 | Variables | 15 min | ✅ |
+| 3 | Tools | 24 min | ✅ |
+| 4 | Connected Agents | 18 min | ✅ |
+| 5 | Agent Flows | 20 min | ✅ |
+| 6 | Model Selection & Testing | 12 min | ✅ |
+| 7 | MCP Servers | 20 min | ✅ |
+| 8 | Agent Evaluations | 16 min | ✅ |
 | | **Q&A / Wrap-up** | **15 min** | ✅ |
-| | **Core lab total** | **135 min (2 hours 15 min)** | |
+| | **Core lab total** | **180 min (3 hours)** | |
 | 9 | Optional: VS Code Extension | 20 min | ⭐ Optional |
 
-> 💡 The optional VS Code Extension section (Use Case #9) is **not** counted against the 2.5-hour lab time. It assumes VS Code is already installed and is intended for teams interested in source control and CI/CD workflows for their agents.
+> 💡 The optional VS Code Extension section (Use Case #9) is **not** counted against the 3-hour lab time. It assumes VS Code is already installed and is intended for teams interested in source control and CI/CD workflows for their agents.
 
 ---
 
-# 🧪 Use Case #1 — Topics (20 min)
+# 🧪 Use Case #1 — Topics (25 min)
 
 > 🎯 **Objective:** Create custom topics that capture geography, extract entities, branch on user intent, and route energy-planning requests to the correct Census actions.
 
@@ -301,7 +301,7 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 
 ---
 
-# 🧪 Use Case #2 — Variables (10 min)
+# 🧪 Use Case #2 — Variables (15 min)
 
 > 🎯 **Objective:** Configure global, topic, and system variables so the agent can store configuration, capture geography details, and assemble reusable Census request URLs.
 
@@ -407,7 +407,7 @@ https://api.census.gov/data/{Topic.DataYear}/acs/acs5?get=NAME,C24050_001E,C2405
 
 ---
 
-# 🧪 Use Case #3 — Tools (20 min)
+# 🧪 Use Case #3 — Tools (24 min)
 
 > 🎯 **Objective:** Build two Census Bureau tools that planners can call for county-level demographics and state-level energy employment analysis.
 
@@ -529,7 +529,7 @@ Example county response pattern:
 
 ---
 
-# 🧪 Use Case #4 — Connected Agents (20 min)
+# 🧪 Use Case #4 — Connected Agents (18 min)
 
 > 🎯 **Objective:** Create a **Census Data Specialist** connected agent, add it to the parent Energy Intelligence Agent, and configure sharing so Census questions route cleanly to the specialist.
 
@@ -598,7 +598,7 @@ The parent agent should orchestrate the planning experience while a connected sp
 
 ---
 
-# 🧪 Use Case #5 — Agent Flows (15 min)
+# 🧪 Use Case #5 — Agent Flows (20 min)
 
 > 🎯 **Objective:** Build a Power Automate cloud flow that receives a state FIPS code, calls multiple Census endpoints in sequence, aggregates the results, and returns a formatted summary to the agent.
 
@@ -685,7 +685,7 @@ Add two **HTTP** actions (both `GET`):
 
 ---
 
-# 🧪 Use Case #6 — Model Selection & Testing (10 min)
+# 🧪 Use Case #6 — Model Selection & Testing (12 min)
 
 > 🎯 **Objective:** Compare available models in Copilot Studio for quality, speed, and cost tradeoffs on energy-domain prompts.
 
@@ -744,7 +744,7 @@ Use stronger models for executive summaries, multi-tool analysis, and interpreta
 
 ---
 
-# 🧪 Use Case #7 — MCP (Model Context Protocol) Servers (15 min)
+# 🧪 Use Case #7 — MCP (Model Context Protocol) Servers (20 min)
 
 > 🎯 **Objective:** Stand up a local MCP server that wraps Census API calls, register it in Copilot Studio, and expose discoverable tools for runtime use.
 
@@ -848,7 +848,7 @@ A sample MCP configuration might look like:
 
 ---
 
-# 🧪 Use Case #8 — Agent Evaluations (10 min)
+# 🧪 Use Case #8 — Agent Evaluations (16 min)
 
 > 🎯 **Objective:** Create a 10-question evaluation set for energy/Census scenarios, run it before and after MCP enrichment, and interpret the results.
 
