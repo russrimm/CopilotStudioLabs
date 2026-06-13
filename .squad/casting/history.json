@@ -1,4 +1,15 @@
-{
-  "universe_usage_history": [],
-  "assignment_cast_snapshots": {}
-}
+[
+  {
+    "snapshot_at": "2026-06-12T23:54:28-05:00",
+    "active_universe": "alien-1979",
+    "assignments": [
+      { "name": "ripley", "role": "Lead" },
+      { "name": "lambert", "role": "Content Dev" },
+      { "name": "dallas", "role": "Backend Dev" },
+      { "name": "kane", "role": "Tester" },
+      { "name": "scribe", "role": "Scribe" },
+      { "name": "ralph", "role": "Monitor" },
+      { "name": "rai", "role": "RAI Reviewer" }
+    ]
+  }
+]

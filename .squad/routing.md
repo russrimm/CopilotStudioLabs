@@ -1,40 +1,24 @@
 # Work Routing
 
-How to decide who handles what.
+## Member Routing
 
-## Routing Table
+| Member | Route When | Typical Work |
+|--------|------------|--------------|
+| Ripley | Scope, architecture, sequencing, or cross-agent decisions are needed | Lab structure, technical trade-offs, final content review |
+| Lambert | The task is primarily about lab authoring or documentation flow | Step-by-step labs, instructional copy, learner guidance |
+| Dallas | The task touches code, APIs, Power Automate, or MCP server behavior | Node.js MCP servers, API integration, flow implementation |
+| Kane | The task needs validation, test design, or edge-case coverage | Evaluation sets, QA passes, defect reproduction |
+| Scribe | Decisions, status, or cross-agent context need to be recorded | Decision log updates, orchestration notes, session summaries |
+| Ralph | Work needs monitoring, backlog hygiene, or queue visibility | Work queue checks, follow-up reminders, keep-alive monitoring |
+| Rai | The task needs content safety, privacy, or responsible AI review | Lab safety review, risky prompt checks, policy alignment |
 
-| Work Type | Route To | Examples |
-|-----------|----------|----------|
-| {domain 1} | {Name} | {example tasks} |
-| {domain 2} | {Name} | {example tasks} |
-| {domain 3} | {Name} | {example tasks} |
-| Code review | {Name} | Review PRs, check quality, suggest improvements |
-| Testing | {Name} | Write tests, find edge cases, verify fixes |
-| Scope & priorities | {Name} | What to build next, trade-offs, decisions |
-| Session logging | Scribe | Automatic — never needs routing |
-| RAI review | Rai | Content safety, bias checks, credential detection, ethical review |
+## Routing Rules
 
-## Issue Routing
-
-| Label | Action | Who |
-|-------|--------|-----|
-| `squad` | Triage: analyze issue, assign `squad:{member}` label | Lead |
-| `squad:{name}` | Pick up issue and complete the work | Named member |
-
-### How Issue Assignment Works
-
-1. When a GitHub issue gets the `squad` label, the **Lead** triages it — analyzing content, assigning the right `squad:{member}` label, and commenting with triage notes.
-2. When a `squad:{member}` label is applied, that member picks up the issue in their next session.
-3. Members can reassign by removing their label and adding another member's label.
-4. The `squad` label is the "inbox" — untriaged issues waiting for Lead review.
-
-## Rules
-
-1. **Eager by default** — spawn all agents who could usefully start work, including anticipatory downstream work.
-2. **Scribe always runs** after substantial work, always as `mode: "background"`. Never blocks.
-3. **Quick facts → coordinator answers directly.** Don't spawn an agent for "what port does the server run on?"
-4. **When two agents could handle it**, pick the one whose domain is the primary concern.
-5. **"Team, ..." → fan-out.** Spawn all relevant agents in parallel as `mode: "background"`.
-6. **Anticipate downstream work.** If a feature is being built, spawn the tester to write test cases from requirements simultaneously.
-7. **Issue-labeled work** — when a `squad:{member}` label is applied to an issue, route to that member. The Lead handles all `squad` (base label) triage.
+1. Start with **Ripley** for new multi-step efforts, ambiguous scope, or cross-cutting changes.
+2. Route lab content and learner-facing markdown to **Lambert**.
+3. Route integrations, flows, scripts, and MCP server work to **Dallas**.
+4. Route acceptance checks, regression passes, and edge-case coverage to **Kane**.
+5. Route decision capture and durable project memory to **Scribe**.
+6. Route backlog/watch duties and coordination follow-through to **Ralph**.
+7. Route safety, privacy, and inclusive-content review to **Rai**.
+8. For multi-agent work, run a design review first and send outcomes to Scribe for logging.

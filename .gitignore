@@ -1,7 +1,10 @@
 # Squad: ignore runtime state (logs, inbox, sessions)
-.squad/orchestration-log/
-.squad/log/
-.squad/decisions/inbox/
+.squad/orchestration-log/*
+!.squad/orchestration-log/.gitkeep
+.squad/log/*
+!.squad/log/.gitkeep
+.squad/decisions/inbox/*
+!.squad/decisions/inbox/.gitkeep
 .squad/sessions/
 .squad/.scratch/
 .squad/.cache/
