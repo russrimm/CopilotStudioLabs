@@ -213,10 +213,7 @@ A planner needs either a guided service-territory lookup or a quick explanation 
    What location should I use?
    ```
 4. Store the answer in a topic variable such as `Topic.LocationInput`.
-5. If your environment supports entity recognition, map the response to built-in or custom entities for:
-   - State name / abbreviation
-   - County name
-   - ZIP code
+5. Under **Identify**, select **User's entire response** for now. The condition nodes in the next step will parse the location type. Alternatively, you can create custom entities for state, county, and ZIP to let the agent extract structured values automatically.
 
 > 💡 **Screenshot callout:** Capture the authoring canvas showing the topic description, opening message, and the **Ask a question** node storing the answer in `Topic.LocationInput`.
 
