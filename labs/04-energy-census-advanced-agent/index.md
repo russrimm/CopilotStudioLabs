@@ -195,10 +195,10 @@ A planner needs either a guided service-territory lookup or a quick explanation 
    ```text
    Service Territory Lookup
    ```
-4. Add trigger phrases such as:
-   - `Analyze a service territory`
-   - `Population and housing for my area`
-   - `Energy planning data for a state or county`
+4. In the topic **Description** field, write a clear prompt so the generative AI orchestrator knows when to trigger this topic automatically:
+   ```text
+   Use this topic when the user wants to look up or analyze Census-based demographics, population, housing, or employment data for a service territory — including requests by state, county, or ZIP code. Examples: "Analyze a service territory", "Population and housing for my area", "Energy planning data for a state or county".
+   ```
 5. Save the topic.
 
 ### Step 3 — Add an opening message and clarify the geography
@@ -218,7 +218,7 @@ A planner needs either a guided service-territory lookup or a quick explanation 
    - County name
    - ZIP code
 
-> 💡 **Screenshot callout:** Capture the authoring canvas showing the trigger phrases, opening message, and the **Ask a question** node storing the answer in `Topic.LocationInput`.
+> 💡 **Screenshot callout:** Capture the authoring canvas showing the topic description, opening message, and the **Ask a question** node storing the answer in `Topic.LocationInput`.
 
 ### Step 4 — Extract state and county details through follow-up questions
 
@@ -246,12 +246,10 @@ A planner needs either a guided service-territory lookup or a quick explanation 
    ```text
    Census Data Help
    ```
-2. Add trigger phrases such as:
-   - `What Census data can you access?`
-   - `What data is available for planning?`
-   - `Explain your demographic data`
-   - `What do the Census variables mean?`
-   - `Help me with Census datasets`
+2. In the topic **Description** field, write a clear prompt so the orchestrator routes informational questions here instead of to the lookup topic:
+   ```text
+   Use this topic when the user asks what Census data is available, what variables or datasets the agent can access, or wants an explanation of demographic data concepts — not when they want to run an actual lookup. Examples: "What Census data can you access?", "Explain your demographic data", "What do the Census variables mean?"
+   ```
 3. Add a **Send a message** node with content like:
    ```text
    I can use US Census Bureau datasets such as ACS 5-Year for population, income, housing, and employment indicators. I can also be extended with Economic Census data for business patterns by industry. Common geographies are state and county, using FIPS codes under the hood.
@@ -304,7 +302,7 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 
 **Troubleshooting**
 
-- If the wrong topic triggers, tighten the trigger phrases so **Census Data Help** sounds explanatory and **Service Territory Lookup** sounds action-oriented.
+- If the wrong topic triggers, refine the topic descriptions so the orchestrator can clearly distinguish them — make **Census Data Help** sound explanatory and **Service Territory Lookup** sound action-oriented.
 - If the user says only a county name, always force a state follow-up question.
 - If ZIP-based prompts behave inconsistently, explicitly message that county/state is the primary geography path in this lab.
 
@@ -1172,7 +1170,7 @@ Reference:
 
 ### Step 5 — Make a safe change in VS Code
 
-1. Update a topic description, trigger phrase, or tool description.
+1. Update a topic description or tool description.
 2. Validate the YAML.
 3. Sync the change back to Copilot Studio.
 4. Re-test the affected prompt in the browser.

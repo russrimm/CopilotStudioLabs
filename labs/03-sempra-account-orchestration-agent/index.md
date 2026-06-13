@@ -613,7 +613,7 @@ Hi, this is James Rivera. Can you check on my recent order?
 
 **Challenge — apply to a Sempra workflow**
 
-- Take a multi-step Sempra process — outage response, gas-leak triage, commercial onboarding, large-customer quoting — and sketch it as a Skill: the *when to use me* trigger phrases, the tools it would call, and a numbered procedure with **explicit guardrails for when not to act**. Decide what belongs in the Skill vs. the agent's base instructions.
+- Take a multi-step Sempra process — outage response, gas-leak triage, commercial onboarding, large-customer quoting — and sketch it as a Skill: a clear *when to use me* description that the generative AI orchestrator can read, the tools it would call, and a numbered procedure with **explicit guardrails for when not to act**. Decide what belongs in the Skill vs. the agent's base instructions.
 
 ---
 

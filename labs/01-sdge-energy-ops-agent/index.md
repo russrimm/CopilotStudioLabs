@@ -209,7 +209,7 @@ After your agent is provisioned from the conversational authoring experience, yo
    - Keep the content up to date, especially NERC CIP procedures.
    - Use clear, well-structured information.
 
-4. **Use Topics and Triggers** — if your agent needs to handle specific tasks or conversations, you can create topics with trigger phrases. This helps guide the conversation more precisely. We'll learn more about this in the following lesson.
+4. **Use Topics with clear descriptions** — if your agent needs to handle specific tasks or conversations, create topics with accurate, thorough descriptions that explain the topic's purpose and when it should be used. The generative AI orchestrator reads these descriptions to decide which topic to trigger automatically — no manual trigger phrases needed. We'll learn more about this in the following lesson.
 
 5. **Test with real questions** — try asking your agent the kinds of questions a field technician or helpdesk user might ask.
 
