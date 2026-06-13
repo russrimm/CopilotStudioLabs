@@ -205,42 +205,103 @@ A planner needs either a guided service-territory lookup or a quick explanation 
    ```
 5. Save the topic.
 
-### Step 3 — Add an opening message and clarify the geography
+### Step 3 — Add an opening message and collect location with an Adaptive Card
+
+Instead of asking a freeform location question and then parsing the answer with condition branches, we'll collect **city**, **state**, and **zip code** at once using an Adaptive Card. This gives the planner a structured form, validates required fields client-side, and produces clean, named values your downstream nodes can use directly — no entity extraction or string parsing required.
 
 1. In the authoring canvas, click on the **+** below the trigger and select **Send a message** node:
    ```text
-   I can look up Census-based demographics and employment indicators for a service territory. Tell me the geography you want to analyze: state, county + state, or ZIP code.
+   I can look help you look up Census-based demographics and employment indicators for a service territory.
    ```
-2. Add an **Ask a question** node.
-3. Prompt:
-   ```text
-   What location should I use?
+2. Click **+** and add a **Ask with adaptive card** node 
+3. In the Adaptive Card editor, switch to the **JSON** view and paste the following payload:
+   ```json
+   {
+     "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+     "type": "AdaptiveCard",
+     "version": "1.5",
+     "body": [
+       {
+         "type": "TextBlock",
+         "text": "Enter the location information",
+         "weight": "Bolder",
+         "size": "Medium",
+         "wrap": true
+       },
+       {
+         "type": "Input.Text",
+         "id": "city",
+         "label": "City",
+         "placeholder": "Example: Cypress",
+         "isRequired": true,
+         "errorMessage": "Please enter a city."
+       },
+       {
+         "type": "Input.Text",
+         "id": "state",
+         "label": "State",
+         "placeholder": "Example: TX",
+         "maxLength": 2,
+         "isRequired": true,
+         "errorMessage": "Please enter a 2-letter state abbreviation."
+       },
+       {
+         "type": "Input.Text",
+         "id": "zipCode",
+         "label": "Zip Code",
+         "placeholder": "Example: 77433",
+         "maxLength": 10,
+         "isRequired": true,
+         "errorMessage": "Please enter a zip code."
+       }
+     ],
+     "actions": [
+       {
+         "type": "Action.Submit",
+         "title": "Submit",
+         "data": {
+           "action": "submitLocation"
+         }
+       }
+     ]
+   }
    ```
-4. Under **Identify**, select **User's entire response** for now. The condition nodes in the next step will parse the location type. Alternatively, you can create custom entities for state, county, and ZIP to let the agent extract structured values automatically.
-5. Under **Save user response as** select the Var1 string variable.
-6. In the **Variable proerties** pane, rename the Variable name to `varLocation`. 
+4. Save the card and click **Close**. Copilot Studio will surface each `Input.Text` as a separately addressable output you can map to topic variables.
+5. Under **Save user response as**, map the card outputs into three new topic variables:
+   - `city` → `Topic.City`
+   - `state` → `Topic.StateInput` (2-letter abbreviation, e.g. `TX`)
+   - `zipCode` → `Topic.ZipCode`
 
-![alt text](image.png)
+> 💡 **Why an Adaptive Card here?** With a freeform question you'd need entity extraction or condition branches to figure out whether the user typed a city, a state, or a ZIP. The card guarantees you receive all three values as named, validated inputs — and the `isRequired` + `errorMessage` properties handle empty-input cases for you.
 
-### Step 4 — Extract state and county details through follow-up questions
+### Step 4 — Convert the user's location into FIPS codes
 
-1. Add a **Condition** node after the location question by selecting the **+** and choosing **Add a condition**.
-2. Branch based on what the user supplied:
-   - **If ZIP is present** → route to a ZIP-handling branch or explain that county/state is the default in this lab
-   - **If county is present but state is missing** → ask for the state
-   - **If state is present and county is absent** → route to state-level employment analysis
-   - **If both state and county are present** → route to county demographics
-3. For the **county without state** branch, add an **Ask a question** node:
-   ```text
-   Which state is that county in?
+The Census API needs **FIPS codes**, not free-text city/state strings. Now that the card has given you clean inputs, convert them into the FIPS codes the tools in Use Case #3 will consume.
+
+1. After the Adaptive Card node, add a **Set variable value** node.
+2. Under **To value** select the **...** and select **Formula**.
+3.  We want to map the 2-letter state abbreviation to its FIPS code. The simplest approach for the lab is a Power Fx expression using `Switch`:
+   ```powerfx
+   Switch(
+     Upper(Topic.state),
+     "TX", "48",
+     "CA", "06",
+     "NY", "36",
+     "FL", "12",
+     "IL", "17",
+     ""
+   )
    ```
-   Save to `varState`.
-4. For the **ZIP** branch, add a message such as:
-   ```text
-   I can work with ZIP codes, but this lab's core tools are optimized for county and state geographies. I'll try to map your ZIP to the surrounding county, or you can provide the county directly for the most reliable result.
-   ```
+   Notice the variable automatically renames to Global.varFIPS`. Add more state mappings as needed for your demo footprint, or replace this node with a connector/HTTP call to a ZIP→FIPS lookup service if you want full national coverage.
 
-> ⚠️ **Important:** County names are not unique across the US. "Jefferson County" exists in multiple states. Always capture or infer the state before building the Census URL.
+2. Add a **Condition** node to confirm we successfully resolved a state FIPS:
+   - **If `Topic.state` is blank** → add a **Send a message** node explaining the state isn't yet supported by the demo lookup.
+3. Add a Topic managegement node of **Go to step** then slect the Adaptive Card action to send the user back to the adaptive card.
+   - **All other actions** → continue to the next step.
+
+3. (Optional) If your environment includes a county-resolution tool or flow, add a **Call an action** node that takes `Topic.city`, `Topic.state`, and `Topic.zipCode` and returns a 3-digit county FIPS. If you don't have one, you can demo with a hardcoded county for the city you're testing (for example Cypress, TX → Harris County → `201`).
+
+> ⚠️ **Important:** County names are not unique across the US. "Jefferson County" exists in multiple states. The Adaptive Card's required `state` field guarantees you always have a state alongside the city, so any county lookup you run downstream will resolve unambiguously.
 
 ### Step 5 — Add the **Census Data Help** topic
 
@@ -265,11 +326,11 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 ### Step 6 — Route to actions from the topic
 
 1. Return to **Service Territory Lookup**.
-2. In the **state-only** branch, add a placeholder **Call an action** node for the state employment tool you will build in Use Case #3.
-3. In the **state + county** branch, add a placeholder **Call an action** node for the county demographics tool.
+2. After the FIPS resolution from Step 4, add a placeholder **Call an action** node for the county demographics tool you will build in Use Case #3 (this will use `Topic.StateFIPS` and `Topic.CountyFIPS`).
+3. If you didn't resolve a county FIPS in Step 4, add a parallel placeholder **Call an action** node for the state employment tool, which only needs `Topic.StateFIPS`.
 4. Add a **Send a message** node after each action branch to summarize what will happen, for example:
    ```text
-   I'll look up Census demographics for your county and return population, median household income, and housing units.
+   I'll look up Census demographics for {Topic.City}, {Topic.StateInput} and return population, median household income, and housing units.
    ```
 5. Save the topic.
 
@@ -277,29 +338,31 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 
 1. Open the **Test** panel.
 2. Run prompts such as:
-   - `Analyze Harris County Texas for grid expansion`
+   - `Analyze a service territory for grid expansion`
    - `What Census data can you use?`
 3. Confirm:
    - The correct topic triggers
-   - The agent asks for missing geography only when needed
-   - State-only prompts route differently than county prompts
-   - Help questions trigger the information topic rather than the lookup topic
+   - The Adaptive Card appears and blocks submission until **City**, **State**, and **Zip Code** are all filled in
+   - Submitting with the example values (`Cypress`, `TX`, `77433`) populates `Topic.City`, `Topic.StateInput`, and `Topic.ZipCode`
+   - `Topic.StateFIPS` resolves to `48` for `TX` and the topic continues to the action call
+   - Help questions trigger the **Census Data Help** topic rather than the lookup topic
 
-> 💡 **Tip:** A good energy-planning topic should reduce ambiguity early. Every clarifying question you ask before the tool runs saves you from invalid geography calls later.
+> 💡 **Tip:** A good energy-planning topic should reduce ambiguity early. Collecting structured location inputs through an Adaptive Card removes a whole class of "did the user mean a city or a county?" parsing problems before the tool runs.
 
 ### ✅ You've completed Use Case #1
 
 **Key takeaways**
 
 - Topic design is how you convert vague territory questions into structured, tool-ready requests.
-- Geography collection is the critical control point for Census accuracy.
+- Adaptive Cards are the cleanest way to collect multi-field structured input (city + state + zip) in one turn — no entity extraction, no condition-tree to disambiguate input types.
 - Separate "help/explanation" behavior from "run data lookup" behavior so the planner doesn't confuse information requests with execution requests.
 
 **Troubleshooting**
 
 - If the wrong topic triggers, refine the topic descriptions so the orchestrator can clearly distinguish them — make **Census Data Help** sound explanatory and **Service Territory Lookup** sound action-oriented.
-- If the user says only a county name, always force a state follow-up question.
-- If ZIP-based prompts behave inconsistently, explicitly message that county/state is the primary geography path in this lab.
+- If the Adaptive Card doesn't render in the test panel, confirm you used the **Ask with adaptive card** node (not a plain message with embedded JSON) and that the JSON validates against Adaptive Cards 1.5.
+- If the card outputs aren't available as variables, re-open the card node and verify each `Input.Text` `id` (`city`, `state`, `zipCode`) is mapped under **Save user response as**.
+- If `Topic.StateFIPS` is empty after the `Switch`, the user likely entered a state not yet listed in the Power Fx mapping — extend the `Switch` or add an HTTP/connector-based ZIP→FIPS lookup.
 
 ---
 
@@ -320,10 +383,12 @@ Use the following variable design:
 | `Global.DefaultState` | Global | Default state when the lab is run for one utility footprint |
 | `Global.APIKey` | Global | Stores the Census API key |
 | `Global.DefaultYear` | Global | Default dataset year, such as `2023` |
-| `Topic.CountyFIPS` | Topic | County code gathered or derived during the conversation |
-| `Topic.StateFIPS` | Topic | State code gathered or derived during the conversation |
+| `Topic.City` | Topic | City entered by the user via the Adaptive Card |
+| `Topic.StateInput` | Topic | 2-letter state abbreviation from the Adaptive Card (e.g. `TX`) |
+| `Topic.ZipCode` | Topic | ZIP code entered by the user via the Adaptive Card |
+| `Topic.StateFIPS` | Topic | 2-digit state FIPS resolved from `Topic.StateInput` |
+| `Topic.CountyFIPS` | Topic | 3-digit county FIPS gathered or derived during the conversation |
 | `Topic.DataYear` | Topic | Year chosen for this specific request |
-| `Topic.LocationInput` | Topic | Raw geography text entered by the user |
 | `System.Activity.Text` | System | Raw incoming user message |
 | `System.Conversation.Id` | System | Useful for diagnostics and flow tracing |
 
@@ -346,24 +411,20 @@ Use the following variable design:
 ### Step 3 — Initialize topic variables in **Service Territory Lookup**
 
 1. Return to the **Service Territory Lookup** topic.
-2. Near the start of the topic, add **Set variable value** nodes.
+2. Near the start of the topic (before the Adaptive Card), add **Set variable value** nodes.
 3. Initialize:
    - `Topic.DataYear = Global.DefaultYear`
    - `Topic.StateFIPS = ""`
    - `Topic.CountyFIPS = ""`
-4. If your utility works mostly in one state, add logic such as:
-   - If the user did not specify a state but the default operating territory is known, set `Topic.StateInput = Global.DefaultState`
+4. If your utility works mostly in one state, you can pre-fill the Adaptive Card state field. The simplest pattern is to keep the card as-is and let the user confirm or override the value; alternatively, set `Topic.StateInput = Global.DefaultState` before the card and document the trade-off.
 
 > 💡 **Tip:** Initialization makes your topic easier to debug. Empty strings are easier to reason about than partially populated values from a previous test run.
 
-### Step 4 — Capture user-provided geography into topic variables
+### Step 4 — Capture Adaptive Card outputs and resolve year selection
 
-1. After the location question, map extracted answers into separate topic variables:
-   - `Topic.StateName`
-   - `Topic.CountyName`
-   - `Topic.ZipCode`
-2. If your entity setup returns the state abbreviation directly, copy it into `Topic.StateCode`.
-3. If the user specifies a year, create a follow-up **Ask a question** node:
+1. The Adaptive Card from Use Case #1 already populates `Topic.City`, `Topic.StateInput`, and `Topic.ZipCode` for you — no extra parsing or entity extraction is required.
+2. The `Switch`-based **Set variable value** node from Use Case #1 maps `Topic.StateInput` to `Topic.StateFIPS`.
+3. If you want the user to override the default Census year, add a follow-up **Ask a question** node after the card:
    ```text
    Which Census year should I use? Press Enter to use the default year.
    ```
