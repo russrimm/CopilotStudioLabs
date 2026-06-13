@@ -29,7 +29,7 @@ That decision is what **generative orchestration** does on every turn. The quali
 - Whether you use the **New Orchestrator (Agentic Reasoning Loop)** for multi-step tasks
 - Whether you package recurring playbooks as **Skills**
 
-Common Sempra-flavored challenges this lab solves:
+Common challenges this lab solves:
 
 - *"The agent pulled the wrong account when I said 'the Texas customer'."*
 - *"It quoted an internal escalation policy to the customer — that should never have happened."*

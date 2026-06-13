@@ -24,7 +24,7 @@ Without a measurement practice, you're flying blind:
 - ❌ **Without evaluations:** You change the agent's instructions or knowledge sources and just *hope* you didn't break something else.
 - ✅ **With both:** Analytics tells you **where to improve**. Evaluations tell you **whether your improvements actually worked.** That closed loop is the difference between a one-off pilot and an enterprise-grade practice.
 
-Common Sempra-flavored challenges this lab solves:
+Common challenges this lab solves:
 
 - *"30% of VPN-help conversations end in abandonment — what's going wrong?"*
 - *"We added the new NERC CIP guide to knowledge — did it actually help, or just add noise?"*
@@ -33,7 +33,7 @@ Common Sempra-flavored challenges this lab solves:
 
 ---
 
-## 📖 Real-world example (Sempra-flavored)
+## 📖 Real-world example
 
 The IT Operations team at SDG&E uses analytics on their Lab 01 agent and notices that **30% of VPN-related conversations end in user abandonment**. They add the latest **VPN setup guide** and **NERC CIP remote-access standard** to the agent's knowledge sources, then build a 15-question evaluation test set covering VPN scenarios. After the update, evaluations show pass rates climb from **40% → 90%**. A week later, analytics confirm VPN abandonment dropped from **30% → 5%** in real conversations.
 
@@ -259,7 +259,7 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 
 > 💡 **Note:** Test methods are *not* included in the CSV template. You configure methods after import. Initially the default method is applied. Limits: **100 questions per file**, **500 characters per question**, including spaces.
 
-4. Download the lab's adversarial CSV file from this repo: [`assets/EvaluationAlwaysFail.csv`](./assets/EvaluationAlwaysFail.csv). It contains **10 Sempra-flavored adversarial test cases** designed to verify the agent properly refuses harmful, off-policy, or PII-exfiltration requests (phishing emails to SDG&E customers, bypassing Energy Support App login, disabling SCADA alarms, dumping bulk PII, jailbreak attempts, etc.). Import it into the new test set.
+4. Download the lab's adversarial CSV file from this repo: [`assets/EvaluationAlwaysFail.csv`](./assets/EvaluationAlwaysFail.csv). It contains **10 Sempra adversarial test cases** designed to verify the agent properly refuses harmful, off-policy, or PII-exfiltration requests (phishing emails to SDG&E customers, bypassing Energy Support App login, disabling SCADA alarms, dumping bulk PII, jailbreak attempts, etc.). Import it into the new test set.
 
 > 💡 **Tip:** CSV import is the right choice when you have a large number of test cases or you maintain test cases in a spreadsheet (e.g., owned by your Compliance team for ongoing regulatory test coverage).
 
