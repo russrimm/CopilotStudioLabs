@@ -1,6 +1,6 @@
 # 🛠️ Lab 05: Clone, Modify, and Republish Agents with the Copilot Studio VS Code Extension
 
-*Manage your agents as code — clone, edit, publish, and verify without leaving VS Code.*
+*Manage your agents as code — clone and edit in VS Code, then publish and verify in Copilot Studio.*
 
 | | |
 |---|---|
@@ -21,8 +21,8 @@ When agents move from proof-of-concept to production, teams need repeatable ways
 
 - **Clone** — pull a full copy of an agent from the cloud into a local VS Code workspace.
 - **Modify** — use the Copilot Studio agent skill commands to update topics, descriptions, instructions, and tool configurations without switching to the browser.
-- **Publish** — push changes back to Copilot Studio and republish to the cloud.
-- **Verify** — confirm changes work using the Copilot Studio test chat.
+- **Publish** — apply changes back to Copilot Studio and publish via the browser.
+- **Verify** — confirm changes work using the Copilot Studio test chat in the browser.
 
 This pattern is essential for energy companies with change-management policies, regulated review processes, and multi-environment promotion (dev → staging → production).
 
@@ -35,7 +35,7 @@ This pattern is essential for energy companies with change-management policies, 
 | **Clone** | Pull your cloud agent into a local VS Code project |
 | **Explore** | Understand the project structure — YAML topics, tools, instructions |
 | **Modify** | Use Copilot Studio agent skill commands to change the agent |
-| **Publish** | Push changes back to the cloud |
+| **Publish** | Apply changes back to Copilot Studio and publish via the browser |
 | **Verify** | Test the updated agent in the Copilot Studio test chat |
 
 ---
@@ -56,9 +56,9 @@ By the end of this lab, you will be able to:
 
 1. **Visual Studio Code** — installed and up to date
 2. **Copilot Studio VS Code Extension** — installed from the VS Code marketplace ([Install guide](https://learn.microsoft.com/en-us/microsoft-copilot-studio/visual-studio-code-extension-install-configure))
-3. **GitHub Copilot** — active subscription with the Copilot Chat extension installed in VS Code
-4. **Microsoft account** — signed into VS Code with access to a Copilot Studio environment
-5. **An existing agent** — at least one agent published in your Copilot Studio environment
+3. **Microsoft account** — signed into VS Code with access to a Copilot Studio environment
+4. **An existing agent** — at least one agent published in your Copilot Studio environment
+5. **GitHub Copilot** *(optional)* — if you want to use Copilot Chat with the Copilot Studio plugin for natural-language editing
 
 ---
 
@@ -132,13 +132,7 @@ You'll use the Copilot Studio agent skill commands to make each change.
 2. Type **Copilot Studio** to see all available commands.
 3. Take note of the commands related to editing agent components — topics, instructions, tools, and publishing.
 
-Alternatively, you can use **GitHub Copilot Chat** in VS Code with the Copilot Studio agent skill. Open Copilot Chat and try:
-
-```text
-@copilot-studio What commands can I use to modify my agent?
-```
-
-> 💡 **Tip:** The Copilot Studio agent skill in GitHub Copilot Chat lets you describe changes in natural language. Copilot will translate your intent into the right modifications to the agent YAML files.
+Alternatively, if you have **GitHub Copilot** with the **Copilot Studio plugin** installed, you can use Copilot Chat to describe changes in natural language. The plugin can help translate your intent into YAML modifications. This is optional — you can make all changes by editing the YAML files directly.
 
 ### Step 2 — Update a topic description
 
@@ -224,29 +218,29 @@ description: >-
 
 # 🧪 Use Case #3 — Publish Changes Back to the Cloud (5 min)
 
-> 🎯 **Objective:** Push your local changes back to Copilot Studio and publish the updated agent.
+> 🎯 **Objective:** Apply your local changes back to Copilot Studio and publish the updated agent.
 
-### Step 1 — Push changes to Copilot Studio
+### Step 1 — Apply changes to Copilot Studio
 
 1. Open the **Command Palette** (`Ctrl+Shift+P`).
-2. Run the command to push or sync your local changes back to Copilot Studio (for example, **Copilot Studio: Push to Copilot Studio** or the equivalent sync command).
-3. Wait for the operation to complete. The extension will upload your modified files to the cloud environment.
+2. Run **Copilot Studio: Apply changes** (or the equivalent sync command in your extension version) to upload your modified files to the cloud environment.
+3. Wait for the operation to complete.
 
-> 💡 **Tip:** If you get a conflict warning, it means someone (or you in the browser) made changes in Copilot Studio after your clone. Pull the latest version first, merge your changes, then push again.
+> 💡 **Tip:** If you get a conflict warning, it means someone (or you in the browser) made changes in Copilot Studio after your clone. Use **Get changes** to pull the latest version first, merge your changes, then apply again.
 
 ### Step 2 — Publish the agent
 
-1. After the push completes, publish the agent so the changes go live.
-2. You can publish from VS Code using the command palette (**Copilot Studio: Publish Agent**) or from the Copilot Studio browser UI.
+1. After applying changes, open **Copilot Studio** in your browser.
+2. Navigate to the agent and select **Publish** to make the changes live.
 3. Wait for the publish operation to complete.
 
 ### ✅ You've completed Use Case #3
 
 **Key takeaways**
 
-- Pushing syncs your local changes to the Copilot Studio cloud environment.
-- Publishing makes the changes live — until you publish, changes are in draft.
-- Always pull the latest before pushing if multiple people work on the same agent.
+- Applying changes syncs your local edits to the Copilot Studio cloud environment.
+- Publishing is done in the Copilot Studio browser UI — it makes the changes live.
+- Always use **Get changes** before applying if multiple people work on the same agent.
 
 ---
 
@@ -258,7 +252,7 @@ description: >-
 
 1. Open **Copilot Studio** in your browser.
 2. Navigate to the agent you just published.
-3. Open the **Test your agent** panel (test chat).
+3. Open the **Test agent** panel (test chat).
 4. Select **Reset** or **New chat** to clear any cached conversation state.
 
 ### Step 2 — Test the updated topic description
@@ -326,20 +320,20 @@ Record what you tested and the results:
 | **Clone** | Pulled a cloud agent to a local VS Code workspace |
 | **Explore** | Inspected the YAML project structure for topics, tools, and instructions |
 | **Modify** | Used agent skill commands and direct YAML editing to update descriptions, instructions, and tools |
-| **Publish** | Pushed changes back to Copilot Studio and published the agent |
+| **Publish** | Applied changes back to Copilot Studio and published via the browser |
 | **Verify** | Tested changes in the Copilot Studio test chat and confirmed correct behavior |
 
 ### Why this workflow matters for enterprise teams
 
 - **Version control** — with the agent as local files, you can use Git for branching, pull requests, and change history.
 - **Code review** — topic descriptions, tool configs, and instructions can go through the same review process as application code.
-- **Repeatable promotion** — clone from dev, modify, push to staging, verify, promote to production.
+- **Repeatable promotion** — clone from dev, modify, apply to staging, verify, promote to production. For enterprise multi-environment promotion, use **solutions and ALM pipelines** alongside VS Code for a complete CI/CD story.
 - **Auditability** — regulated industries (energy, utilities, finance) require change logs and approval trails. File-based agent management makes this possible.
 
 ### Challenge — extend this workflow
 
 - Set up a **Git repository** for your cloned agent and make your first commit.
-- Create a **branch** for a new feature (e.g., adding a new topic), make the change in VS Code, push to Copilot Studio, verify, then merge the branch.
-- If your team uses Azure DevOps or GitHub, explore how you could integrate the push and publish steps into a **CI/CD pipeline**.
+- Create a **branch** for a new feature (e.g., adding a new topic), make the change in VS Code, apply to Copilot Studio, verify, then merge the branch.
+- If your team uses Azure DevOps or GitHub, explore how you could integrate the apply and publish steps into a **CI/CD pipeline** using solutions and ALM pipelines.
 
 > 🔋 **Final thought:** Managing agents as code isn't just a developer convenience — it's how enterprise teams scale from one agent to dozens while maintaining quality and compliance.

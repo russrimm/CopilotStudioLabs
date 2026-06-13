@@ -60,7 +60,7 @@ By the end of this lab you will be able to:
 | Concept | What it means at Sempra |
 |---|---|
 | **Conversation Analytics** | Volume, topic usage, and session duration — reveals how field crews and account managers actually use the agent and which capabilities they value most. |
-| **User Satisfaction Scores** | The thumbs up/down feedback from real users. Low scores on high-volume topics are your top priority. |
+| **User Satisfaction Scores** | Thumbs up/down reactions from real users. Low scores on high-volume topics are your top priority. For formal CSAT, configure end-of-session surveys. |
 | **Failure Analytics** | Unanswered questions, escalations, and abandonments. Direct signals of where to add knowledge or rewrite a topic flow. |
 | **Evaluation Test Sets** | Repeatable collections of questions with expected answers. Run them before and after every change to catch regressions. |
 | **Test Methods** | The comparison technique: **Exact match** (hard facts), **Keyword match** (must-mention terms), **Similarity** (lexical closeness), **General quality** (LLM-judged), **Compare meaning** (semantic equivalence), and newer methods like **Capability use** and **Custom**. See [Choose evaluation methods](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview) — methods are added as the preview matures; older docs may call them "evaluation methods" (same thing). |
@@ -129,8 +129,8 @@ Your **SDG&E IT Operations Agent** has been deployed for several days. Field tec
 ### Step 2 — Understand summary metrics
 
 1. In the **Overview** section on the Analytics tab, review the summary metrics.
-2. **Conversation sessions** — how many sessions occurred. A session typically starts at the user's first message and ends after a period of inactivity.
-3. **Engagement** — the percentage of sessions where the user interacted with your agent at least one time. High engagement is good news.
+2. **Conversation sessions** — how many sessions occurred. A session starts when a user or agent initiates an interaction; a single conversation can contain multiple sessions.
+3. **Engagement** — the percentage of sessions where the agent triggered a topic, plan, knowledge source, or tool. High engagement is good news.
 
 > 💡 **Note:** Low engagement might mean users got their answer immediately (good!) or gave up after the first response (bad). **Always combine this metric with satisfaction scores** to interpret correctly. At Sempra, a 90% engagement + 90% satisfaction is a healthy IT-ops agent; 90% engagement + 40% satisfaction means the agent is *talking* but not *helping*.
 
@@ -159,7 +159,7 @@ Your **SDG&E IT Operations Agent** has been deployed for several days. Field tec
 
 > 💡 This section requires a minimum of **10 answers per day** in conversation sessions before it populates.
 
-1. Go to the **Generated answer rate and quality** section. This tracks answer quality across **completeness**, **relevance**, and **use of knowledge sources**.
+1. Go to the **Generated answer rate and quality** section. This tracks answer quality across **completeness**, **relevance**, and **groundedness**.
 2. Review your **Answered** vs. **Unanswered** percentages.
 3. Select **See details** to drill into the answer rate and source analytics. The panel opens on the right.
 4. Filter by **Main agent** vs. **Child agent** at the top — observe how the data shifts.
@@ -237,17 +237,16 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 > 💡 **Tip:** A test set can have multiple test methods, but **all test cases in the set must follow all of the configured methods.** Choose methods that match the *overall* nature of the test set. **General quality** works well as a baseline; **Compare meaning** can be added when you're providing exact expected responses.
 
 5. Select **Save** at the bottom of the panel.
-6. Still in the panel, scroll to **User profile** and select **Manage**.
-7. In the user-profile management surface that opens, select **your user account**, confirm, and return to the **Configure test set** panel.
-8. Select **Evaluate** to start the run.
+6. Still in the panel, scroll to **User profile** and select or add a user account to run the evaluation as, then return to the **Configure test set** panel.
+7. Select **Evaluate** to start the run.
 
 > 💡 **Note:** Evaluation time depends on the number of test cases and agent response time. ~10 cases typically completes in **3–5 minutes**.
 
-9. After the run finishes, review the overall result and select the evaluation row to drill into per-question detail.
-10. Review the list of questions to see which (if any) failed.
-11. Select a failed row to see *why* it failed.
-12. Select a passing row too — the agent response and the LLM-judged reasoning are both worth reading.
-13. When done, select **Evaluation** in the agent's top nav to return to the test-set list.
+8. After the run finishes, review the overall result and select the evaluation row to drill into per-question detail.
+9. Review the list of questions to see which (if any) failed.
+10. Select a failed row to see *why* it failed.
+11. Select a passing row too — the agent response and the LLM-judged reasoning are both worth reading.
+12. When done, select **Evaluation** in the agent's top nav to return to the test-set list.
 
 ### Step 2 — Import test cases (CSV — adversarial "Always Fail" set)
 
@@ -255,9 +254,9 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 2. In the **Start by uploading some questions** section, select **CSV** to download the empty template.
 3. Open the template and review the required columns:
    - **`question`** — the user question the agent will answer
-   - **`expectedResponse`** — used for **Match**, **Similarity**, and **Compare meaning** test methods
+   - **`expectedResponse`** — used for **Exact match**, **Text similarity**, and **Compare meaning** test methods
 
-> 💡 **Note:** Test methods are *not* included in the CSV template. You configure methods after import. Initially the default method is applied. Limits: **100 questions per file**, **500 characters per question**, including spaces.
+> 💡 **Note:** Test methods are *not* included in the CSV template. You configure methods after import. Initially the default method is applied. Limits: **100 questions per file**, **1,000 characters per question**, including spaces.
 
 4. Download the lab's adversarial CSV file from this repo: [`assets/EvaluationAlwaysFail.csv`](./assets/EvaluationAlwaysFail.csv). It contains **10 Sempra adversarial test cases** designed to verify the agent properly refuses harmful, off-policy, or PII-exfiltration requests (phishing emails to SDG&E customers, bypassing Energy Support App login, disabling SCADA alarms, dumping bulk PII, jailbreak attempts, etc.). Import it into the new test set.
 
@@ -325,7 +324,7 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 **Key takeaways**
 
 - 🛠️ **Four creation methods, four use cases.** **Auto-generation** for quick baseline coverage; **CSV import** for bulk-managed regulatory or adversarial sets; **test-canvas capture** for real-conversation regression sets; **manual entry** for targeted edge cases.
-- 🎯 **Test methods matter.** Factual questions need **Exact** or **Keyword Match**. Open-ended questions benefit from **General Quality** or **Similarity** or **Compare meaning**.
+- 🎯 **Test methods matter.** Factual questions need **Exact match** or **Keyword match**. Open-ended questions benefit from **General quality**, **Text similarity**, or **Compare meaning**.
 - 🧪 **Test set strategy.** Build sets that are *intentionally* designed to pass or fail — it teaches you how the platform scores answers before you trust it on real quality measurement.
 
 **Troubleshooting**

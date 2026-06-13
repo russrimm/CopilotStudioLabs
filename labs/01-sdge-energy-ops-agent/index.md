@@ -114,7 +114,7 @@ I want to build an agent that helps SDG&E field technicians report Energy Suppor
 - **Clearly states the goal** — report an Energy Support App login failure
 - **Describes the user interaction** — what the technician says and what the agent should ask
 - **Lists the required data** — employee ID, Energy Support App name, error message, device type
-- **Mentions where the data goes** — a SharePoint document library
+- **Mentions where the data goes** — a SharePoint list
 
 
 ---
@@ -127,14 +127,14 @@ These sources work together with AI to help your agent respond more accurately t
 
 ### 🌿 What is generative orchestration in the context of agents?
 
-Generative orchestration means the agent uses AI to dynamically decide how to answer a question by combining its built-in language skills with information from your added knowledge sources.
+Generative orchestration means the agent uses AI to dynamically decide how to respond by combining its built-in language skills with your knowledge sources, topics, tools, and connected agents.
 
 When a user asks a question, the agent:
 
 - **Understands** the question using AI.
 - **Can ask users for missing information** by generating questions on the fly.
-- **Selects the most relevant knowledge sources** from those you have configured.
-- **Searches those sources** for answers.
+- **Selects the most relevant resources** — knowledge sources, topics, tools, or connected agents — from those you have configured.
+- **Searches and executes** to find the best answer.
 - **Generates a natural, helpful response** using the information it found.
 
 ### Why knowledge sources matter
@@ -164,15 +164,15 @@ When a technician asks, *"How do I connect to the corporate VPN from a remote su
    - *Why it's useful:* Enables your agent to answer questions based on internal guides, field manuals, or IT policies.
 
 3. **SharePoint**
-   - *What it does:* Connects to SharePoint folders or files powered by Work IQ.
+   - *What it does:* Connects to SharePoint sites using Graph Search to access team documents and knowledge bases.
    - *Why it's useful:* Ideal for accessing team documents, IT policies, and internal knowledge bases that are already maintained in SharePoint.
 
 4. **Dataverse**
    - *What it does:* Uses structured data from your Dataverse environment tables and rows.
    - *Why it's useful:* When you need to look up enterprise data stored in Dataverse such as employee information or IT asset inventory.
 
-5. **Real-time knowledge with connectors**
-   - *What it does:* Lets your agent access live data from other enterprise systems during a conversation, using the user's own permissions. Common connectors include: SharePoint, Dataverse, Outlook (Email & Calendar), Microsoft Teams, OneDrive, Power Automate (flows to call connectors), Azure DevOps (ADO), Power BI (via Power Automate/API), ServiceNow, and Custom Connectors / APIs.
+5. **Enterprise data with connectors**
+   - *What it does:* Lets your agent access data from other enterprise systems during a conversation, using the user's own permissions. Common connectors include: SharePoint, Dataverse, Outlook (Email & Calendar), Microsoft Teams, OneDrive, Power Automate (flows to call connectors), Azure DevOps (ADO), Power BI (via Power Automate/API), ServiceNow, and Custom Connectors / APIs.
    - *Why it's useful:* Provides up-to-date, secure, and accurate responses without storing or duplicating data — for example, looking up the current status of an open IT incident in ServiceNow.
 
 ---
@@ -295,7 +295,7 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
 
 3. Submit the prompt description and Copilot Studio will begin provisioning our agent.
 
-4. Once the agent has been provisioned, you'll see a confirmation appear. Notice how AI automatically generated the name, description, and instructions for your agent. The orchestration mode is enabled by default (found in Settings) and the default model is used for the response model of the agent.
+4. Once the agent has been provisioned, you'll see a confirmation appear. Notice how AI automatically generated the name, description, and instructions for your agent. The orchestration mode is enabled by default (found in Settings) and the default primary AI model is used for the agent.
 
 5. Scroll down to review the AI suggestions for knowledge sources, tools, and triggers.
 
@@ -365,7 +365,7 @@ Previously, we added public websites as external knowledge sources for our agent
 
 We'll now add another internal knowledge source by uploading a document directly to our agent.
 
-1. In the **Knowledge** section, select **+ Add knowledge** and select **Upload file** or select to browse.
+1. In the **Knowledge** section, select **+ Add knowledge** and select **Upload files** or select to browse.
 
 2. Download the **[SDG&E Field Operations Remote Access Guide]** from the **Copilot Studio Lab Materials** document library, save it as a `.docx` or `.pdf` file, and select it in your File Explorer. Select **Open**.
 
@@ -397,7 +397,7 @@ We'll test our four knowledge sources by asking questions to our **SDG&E IT Oper
 
    A response will be returned. Notice how there are **references** to the web page it formed its answer from.
 
-3. If you scroll down the knowledge modal in the activity map, you'll see the other knowledge sources the agent searched — the NERC CIP website, and the SharePoint site. However, these were not used for this answer, as the Microsoft Support website was the relevant source for device serial number information.
+3. If you scroll down the knowledge modal in the activity map, you'll see the other knowledge sources the agent searched — the NERC CIP website, and the SharePoint site. However, these were not used for this answer, as the Microsoft Support website was the relevant source for the MFA question.
 
 4. Let's now test both our **SharePoint site** knowledge source. Enter the following question:
 
@@ -405,9 +405,9 @@ We'll test our four knowledge sources by asking questions to our **SDG&E IT Oper
    How do I create a new Copilot Studio agent for my team?
    ```
 
-5. Once again you'll see the agent reviewing all four knowledge sources to generate a response to the two questions submitted in a single message. The agent responds to both questions in a single message and provides **separate references** for where it generated each response from.
+5. The agent reviews the knowledge sources to generate a response. The agent provides **references** for where it generated the response from.
 
-   In the knowledge modal in the activity map, you'll see the **SharePoint site** referenced for the Copilot Studio creation question. You have full visibility of what knowledge sources were used to answer both questions in the activity modal.
+   In the knowledge modal in the activity map, you'll see the **SharePoint site** referenced for the Copilot Studio creation question.
 
 6. Scroll down to review the response for creating the Copilot Studio agent. You'll see a response that's grounded using the uploaded document, with specific references to the relevant sections.
 
@@ -427,11 +427,12 @@ We'll test our four knowledge sources by asking questions to our **SDG&E IT Oper
 
 ## ✅ Lab Complete
 
-Congratulations! 👏 You've built a custom SDG&E IT Operations agent grounded in real enterprise data. Your agent can now draw on three distinct knowledge sources:
+Congratulations! 👏 You've built a custom SDG&E IT Operations agent grounded in real enterprise data. Your agent can now draw on four distinct knowledge sources:
 
 - ✅ **Microsoft Support** — for Microsoft product and device questions
 - ✅ **NERC CIP Standards** — for energy industry compliance and cybersecurity questions
 - ✅ **SDG&E Technology - AI & Digital Enablement SharePoint** — for Copilot Studio Agent setup documentation
+- ✅ **SDG&E Field Operations Remote Access Guide** — for field remote access procedures
 
 ---
 

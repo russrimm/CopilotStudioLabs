@@ -1,4 +1,4 @@
-# 🧭 Lab 02: Orchestration with Copilot Studio for Sempra
+# 🧭 Lab 03: Orchestration with Copilot Studio for Sempra
 
 *Routing the right tool, the right data, and the right policy — every turn.*
 
@@ -56,8 +56,8 @@ By the end of this lab you will:
 |---|---|
 | **Generative Orchestration** | The planner that decides — on every turn — which tool, knowledge source, child agent, or connected agent answers the user. |
 | **Instructions** | Top-level rules that always apply (e.g., *"Always include account number when handing off to billing."*). Run on every turn — use sparingly. |
-| **Descriptions** | Per-tool, per-agent, per-input metadata the planner reads when it's deciding *whether* to use that thing. Names route first, descriptions tiebreak. |
-| **New Orchestrator (Agentic Reasoning Loop)** | The default orchestrator in new-type agents. Plans → acts → observes → iterates within **one turn** until the task is done — previewed on classic agents as *Enhanced Task Completion*. |
+| **Descriptions** | Per-tool, per-agent, per-input metadata the planner reads when it's deciding *whether* to use that thing. Descriptions are the most important routing signal; names and parameter metadata help refine selection. |
+| **New Orchestrator (Agentic Reasoning Loop)** | The default orchestrator in newly created agents using generative orchestration. Plans → acts → observes → iterates within **one turn** until the task is done. |
 | **Skill** | A reusable, named playbook the orchestrator loads on demand. Bundles *when to use me + the tools I rely on + the procedure to follow* — keeps base instructions short and behavior consistent. |
 | **MCP Tool** | A Model Context Protocol server attached to the agent. In this lab you'll use the **Microsoft Dataverse MCP Server** plus two sample servers (Order Management, Warehouse) that simulate a Sempra field-service backend. |
 
@@ -159,7 +159,7 @@ Before exploring how Instructions and Descriptions shape orchestration, the agen
 
 **Key takeaways**
 
-- Dataverse Search must be enabled at the environment level for connected agents that look up Dataverse data.
+- Dataverse Search must be enabled at the environment level for the prebuilt Account Data Lookup Agent used in this lab to return Dataverse results.
 - Quick Find indexes determine which fields the planner can filter on at runtime.
 - An agent must be both **published** *and* have **"Let other agents connect to and use this one"** enabled before peers can connect.
 
@@ -186,7 +186,7 @@ Open the **Account Data Lookup Agent** and walk each location below. Each one is
    > 💡 Instructions are expensive — they cost context on every turn. Use them only for rules that genuinely apply everywhere.
 2. **Child Agents** — open the **Agents** tab. The two children here are **Account Agent** and **Contact Agent**, each with a **Child** relationship. The planner picks one per step.
 3. **Descriptions in Child Agents** — open each child and review **Name** + **Description** in Details.
-   > 💡 **Names route first**, descriptions tiebreak. A clear name ("Account Agent") does most of the work; the description carries handling rules and disambiguation.
+   > 💡 **Descriptions are the primary routing signal.** A clear name helps, but the description carries the handling rules and disambiguation that the planner relies on most.
 4. **Instructions in Child Agents** — these only run when *that* child runs. Right place for tool-selection rules scoped to that child (e.g., "Use **Find Account** to look up; use **Get Account Details** to expand details on an account already in context").
    > 💡 Reach for child Instructions only when name + description tuning isn't enough.
 5. **Descriptions in Tools** — open **Tools** → **Find Account**. The Description names the operation in plain English and hints at acceptable inputs ("city, account name, primary contact, state…"). That natural-language hint is what lets the planner recognize "accounts in Texas" maps to this tool.
@@ -285,11 +285,11 @@ No **Account Agent** in the trace this time — the planner recognized the subje
 
 # 🧪 Use Case #3 — New Orchestrator: Agentic Reasoning Loop
 
-> 🎯 **Objective:** Stand up a **new-type** Sempra Customer Operations Assistant and validate how the **New Orchestrator's Agentic Reasoning Loop** drives multi-tool task completion in a single turn.
+> 🎯 **Objective:** Stand up a newly created Sempra Customer Operations Assistant using generative orchestration and validate how the **Agentic Reasoning Loop** drives multi-tool task completion in a single turn.
 
 ### Scenario
 
-A Sempra customer operations specialist wants one assistant that can — without stopping to confirm at every step — pull a commercial customer's primary contact, check the weather at that customer's site (storm risk! gift planning! site visit planning!), look up internal policy, and synthesize an answer. A *new-type* agent uses the New Orchestrator by default, so this is what you get out of the box.
+A Sempra customer operations specialist wants one assistant that can — without stopping to confirm at every step — pull a commercial customer's primary contact, check the weather at that customer's site (storm risk! gift planning! site visit planning!), look up internal policy, and synthesize an answer. A newly created agent uses generative orchestration with the Agentic Reasoning Loop by default, so this is what you get out of the box.
 
 ### Step 1 — Enable Dataverse Intelligence (Work IQ) and Dataverse MCP servers
 
@@ -297,14 +297,13 @@ A Sempra customer operations specialist wants one assistant that can — without
 
 1. Navigate to the **Power Platform admin center** as in Use Case #1 → **Manage** → **Environments** → your environment → **Settings** (top nav) → **Product** group → **Features**.
 2. Under **Dataverse intelligence**, verify *"Turn on Dataverse intelligence (Work IQ) for agents and AI experiences"* is checked.
-3. Under **Dataverse Model Context Protocol**, verify **both** MCP client options are checked (GA and Preview).
+3. Under **Dataverse Model Context Protocol**, verify the GA MCP client option is checked. Enable the Preview option only if you plan to use preview MCP tools.
 4. **Save** if you made changes.
 
-### Step 2 — Create the new-type *Sempra Customer Operations Assistant*
+### Step 2 — Create the *Sempra Customer Operations Assistant*
 
-1. In Copilot Studio, confirm the **New experience** toggle (top-right) is **on**.
-2. Select **Agents** in the left navigation → **New Agent** in the upper-right (the **New Agent** button itself — *not* the dropdown's *New classic agent* item).
-   > 💡 Doing it this way creates a **new-type agent** that runs on the **New Orchestration engine** with the **Agentic Reasoning Loop** enabled by default. No toggle.
+1. In Copilot Studio, select **Agents** in the left navigation → **New Agent** in the upper-right.
+   > 💡 Creating a new agent this way uses generative orchestration with the **Agentic Reasoning Loop** enabled by default.
 3. Name it:
    ```text
    Sempra Customer Operations Assistant
@@ -343,7 +342,7 @@ A Sempra customer operations specialist wants one assistant that can — without
 
 ### Step 5 — Test the Agentic Reasoning Loop
 
-Open the **Preview** tab. You'll see a brief *"Working on it…"* then a **train of thought** that names each tool call before the final answer.
+Open the **Preview** tab. You'll see a brief *"Working on it…"* then an **activity trace** that names each tool call before the final answer. The level of detail shown depends on the model — some models show a chain of thought inline, while others show only the tool steps.
 
 #### Test 1 — A single tool call
 
@@ -390,8 +389,8 @@ Any tool step in the trace is expandable. Open a **read_query** step and you'll 
 
 **Key takeaways**
 
-- A **new-type agent** uses the **New Orchestrator (Agentic Reasoning Loop)** by default — it plans → acts → observes → iterates within **one turn** until the task is done. (This is what *Enhanced Task Completion* previewed on classic agents.)
-- The trade-off is **visibility**. The classic Activity Tracker and *Get rationale* aren't the surface here — the **Preview pane** shows the train of thought inline, and you expand a step to see its parameters and result.
+- A newly created agent uses generative orchestration with the **Agentic Reasoning Loop** by default — it plans → acts → observes → iterates within **one turn** until the task is done.
+- The trade-off is **visibility**. The classic Activity Tracker and *Get rationale* aren't the surface here — the **Preview pane** shows the activity trace, and you expand a step to see its parameters and result.
 - Match credentials to tool intent: shared-credential connectors → **Maker**; user-context connectors → **User**.
 - The Reasoning Loop **chains** tools across knowledge, Dataverse, and weather in one turn — no per-step prompting.
 
@@ -533,7 +532,7 @@ Replace the Use Case #3 instructions with a shorter, Skill-aware version that po
 
 ### Step 6 — Demonstration
 
-Open the **Preview** pane. Watch the train of thought: on service problems you'll see **`Loaded Skill: …service-resolution-conc…`** followed by MCP tool calls, a knowledge search, and a synthesized answer.
+Open the **Preview** pane. Watch the activity trace: on service problems you'll see the Skill load followed by MCP tool calls, a knowledge search, and a synthesized answer.
 
 > ⚠️ **Reset between prompts that state a customer name.** When a prompt opens with *"I'm Sarah Mitchell"* or *"this is James Rivera,"* the orchestrator keeps that person in context. Select **New chat** at the top of the Preview pane to start clean.
 
@@ -621,19 +620,19 @@ Hi, this is James Rivera. Can you check on my recent order?
 
 You've seen Copilot Studio's orchestration engine from three distinct angles:
 
-- **Standard generative orchestration (Use Case #2)** — single-pass planner, highly inspectable via the Activity Tracker and *Get rationale*. Tunable through agent Instructions, child-agent and tool Names + Descriptions, and input-parameter Descriptions.
-- **New Orchestrator — Agentic Reasoning Loop (Use Case #3)** — the default in new-type agents. Plans, acts, observes, iterates within **one turn** until the task is complete. Better when users want finished outcomes; worse when authors need step-by-step transparency.
+- **Generative orchestration (Use Case #2)** — the planner can select multiple topics, tools, and agents and execute multistep plans. Highly inspectable via the Activity Tracker and *Get rationale*. Tunable through agent Instructions, child-agent and tool Names + Descriptions, and input-parameter Descriptions.
+- **Agentic Reasoning Loop (Use Case #3)** — the default in newly created agents. Plans, acts, observes, iterates within **one turn** until the task is complete. Better when users want finished outcomes; provides activity traces for inspection.
 - **Skills (Use Case #4)** — reusable, named playbooks the New Orchestrator loads on demand. Bundles when to use it, the tools it relies on, and a numbered procedure with guardrails — so base instructions stay short and behavior stays consistent.
 
 > The single most important shift between the two orchestrators: **standard orchestration optimizes for the next correct step; the New Orchestrator optimizes for the user's end goal.** Pick the orchestrator based on which behavior your users actually want — and use Skills to give that orchestrator consistent, reusable playbooks for the workflows it handles most.
 
 ### 🪙 Orchestration golden rules
 
-1. **Names route, Descriptions explain, Instructions force.** Tune the cheapest signal first (a tool's name), then the description, then escalate to child or parent Instructions when name + description tuning isn't enough.
+1. **Descriptions are the primary routing signal; names and input metadata refine selection.** Tune descriptions first, then escalate to child or parent Instructions when description tuning isn't enough.
 2. **Input descriptions are the foundation of dynamic chaining.** Without clear input descriptions, the planner has to guess how to reshape one tool's output into another tool's input.
 3. **Use *Get rationale* as a debugger trace for your descriptions.** When the planner makes the wrong decision, the rationale points you at exactly which description needs sharper wording.
 4. **Match credential pattern to tool intent.** Anonymous / API-key / service-account tools → **Maker** credentials. Tools that act as the user → **User** credentials.
-5. **Choose your orchestrator deliberately.** Standard orchestration where transparency matters; the New Orchestrator where finished outcomes matter.
+5. **Choose your orchestration approach deliberately.** Use classic orchestration where manual topic control matters; use generative orchestration with the Agentic Reasoning Loop where finished outcomes matter.
 6. **At Sempra: never blur internal and customer-facing policy.** Two knowledge sources, two audiences. Instructions and Skills draw the line.
 
 ---

@@ -47,11 +47,11 @@ This isn't just about saving developer time. It's about unlocking the ability to
 
 ## 🧪 Labs
 
-### ⭐ Featured: 3-Hour End-to-End Advanced Lab
+### ⭐ Featured: 2.5-Hour End-to-End Advanced Lab
 
 | # | Lab | Industry | Scenario | Difficulty | Time |
 |---|-----|----------|----------|------------|------|
-| 04 | [**Build an Advanced Energy Intelligence Agent with US Census Bureau Data**](./labs/04-energy-census-advanced-agent/index.md) | Energy / Utilities | Build a full-stack agent integrating US Census Bureau APIs for service territory planning — covering topics, variables, tools, connected agents, agent flows, model selection, MCP servers, and agent evaluations. Includes 15 min Q&A wrap-up. Optional: VS Code extension for agent management. | Advanced (200–300) | **3 hours** (+20 min optional) |
+| 04 | [**Build an Advanced Energy Intelligence Agent with US Census Bureau Data**](./labs/04-energy-census-advanced-agent/index.md) | Energy / Utilities | Build a full-stack agent integrating US Census Bureau APIs for service territory planning — covering topics, variables, tools, connected agents, agent flows, model selection, MCP servers, and agent evaluations. Includes 15 min intro and 15 min Q&A wrap-up. Optional: VS Code extension for agent management. | Advanced (200–300) | **2.5 hours** (+20 min optional) |
 
 This is the primary lab for customers wanting a comprehensive, hands-on Copilot Studio experience. It covers all major platform capabilities in a single cohesive energy-industry scenario.
 
@@ -73,18 +73,18 @@ These shorter labs cover individual concepts and can be used as standalone refer
 ## Lab 01 — Build a Custom IT Operations Agent
 
 **Industry:** Energy & Utilities  
-**Scenario:** Contoso Energy, a large multi-subsidiary energy company, needs a way to help field technicians resolve IT issues — VPN connectivity, Energy Support App login failures, remote device access, and NERC CIP compliance questions — without waiting on hold with the helpdesk.
+**Scenario:** SDG&E, a large multi-subsidiary energy company, needs a way to help field technicians resolve IT issues — VPN connectivity, Energy Support App login failures, remote device access, and NERC CIP compliance questions — without waiting on hold with the helpdesk.
 
-**What you'll build:** A fully functional **Contoso Energy IT Operations Agent** in Microsoft Copilot Studio, grounded in four real knowledge sources:
+**What you'll build:** A fully functional **SDG&E IT Operations Agent** in Microsoft Copilot Studio, grounded in four real knowledge sources:
 
 - 🌐 **Microsoft Support** — for Microsoft product and device troubleshooting
 - 📋 **NERC CIP Standards** — for energy industry cybersecurity compliance questions
 - 🗂️ **SharePoint** — for internal VPN guides, Energy Support App onboarding, and IT policies
-- 📄 **Uploaded document** — the Contoso Field Operations Remote Access Guide
+- 📄 **Uploaded document** — the SDG&E Field Operations Remote Access Guide
 
 **How it can be adapted:** The same lab structure applies to virtually any support or knowledge-access scenario. Replace the SharePoint site and uploaded document with content from your own organization. Update the agent's instructions to reflect your domain. Change the knowledge sources to match your compliance standards or internal systems. The result is an agent tailored entirely to your context — built in an afternoon.
 
-➡️ [Start Lab 01](./labs/01-contoso-energy-ops-agent/index.md)
+➡️ [Start Lab 01](./labs/01-sdge-energy-ops-agent/index.md)
 
 ---
 
@@ -98,9 +98,9 @@ These shorter labs cover individual concepts and can be used as standalone refer
 
 ### How to use these labs
 
-1. Start with **Lab 01** and follow the step-by-step instructions in the lab document.
-2. Each lab builds on the concepts introduced in the previous one.
-3. The agents you create carry forward — your Lab 01 agent is used and extended in subsequent labs.
+- **For the full hands-on experience**, start with **Lab 04** — it is self-contained and covers all major Copilot Studio capabilities in 2.5 hours.
+- **For a shorter introduction**, start with **Lab 01** to build a knowledge-grounded agent, then continue with Labs 02 and 03 for analytics, evaluations, and orchestration.
+- **Lab 05** is an optional add-on for teams interested in managing agents as code through VS Code.
 
 ---
 

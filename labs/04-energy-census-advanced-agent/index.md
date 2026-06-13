@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 200–300) |
-| ⏱️ **TIME** | 3 hours (180 minutes) |
+| ⏱️ **TIME** | 2.5 hours (15 min intro, 120 min hands-on, 15 min Q&A) |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio, US Census Bureau API, Power Automate, VS Code (optional) |
 | 🏷️ **TAGS** | Topics, Variables, HTTP Actions, Connected Agents, Agent Flows, MCP, Evaluations, Energy Planning |
 | 🏭 **INDUSTRY** | Energy / Utilities |
@@ -95,19 +95,19 @@ By the end of this lab, you will be able to:
 | **Population** | `B01003_001E` |
 | **Median household income** | `B19013_001E` |
 | **Housing units** | `B25001_001E` |
-| **Units in structure / housing density** | `B25024_001E` |
+| **Units in structure** | `B25024_001E` |
 | **Total civilian employed population** | `C24050_001E` |
-| **Mining / oil-gas / utilities / construction employment** | `C24050_004E` |
+| **Manufacturing employment** | `C24050_004E` |
 | **Commute patterns** | `B08301_001E` |
 
 ### Example energy-relevant queries
 
 - **Population in Harris County, Texas** (county `201`, state `48`):
-  `https://api.census.gov/data/2023/acs/acs5?get=NAME,B01003_001E&for=county:201&in=state:48`
+  `https://api.census.gov/data/2023/acs/acs5?get=NAME,B01003_001E&for=county:201&in=state:48&key={API_KEY}`
 - **Median household income in an energy corridor county**:
-  `https://api.census.gov/data/2023/acs/acs5?get=NAME,B19013_001E&for=county:113&in=state:06`
+  `https://api.census.gov/data/2023/acs/acs5?get=NAME,B19013_001E&for=county:113&in=state:06&key={API_KEY}`
 - **County housing units for grid capacity planning**:
-  `https://api.census.gov/data/2023/acs/acs5?get=NAME,B25001_001E&for=county:085&in=state:48`
+  `https://api.census.gov/data/2023/acs/acs5?get=NAME,B25001_001E&for=county:085&in=state:48&key={API_KEY}`
 
 > ⚠️ **Important:** Census responses are returned as arrays, usually with a header row followed by one or more data rows. Your tools and flows must parse the second row, not just dump the raw payload to the user.
 
@@ -147,23 +147,23 @@ By the end of this lab, you will be able to:
 
 | # | Section | Time | Required |
 |---|---|---|---|
-| 1 | Topics | 25 min | ✅ |
-| 2 | Variables | 15 min | ✅ |
-| 3 | Tools | 30 min | ✅ |
-| 4 | Connected Agents | 25 min | ✅ |
-| 5 | Agent Flows | 20 min | ✅ |
-| 6 | Model Selection & Testing | 15 min | ✅ |
-| 7 | MCP Servers | 20 min | ✅ |
-| 8 | Agent Evaluations | 15 min | ✅ |
+| 1 | Topics | 20 min | ✅ |
+| 2 | Variables | 10 min | ✅ |
+| 3 | Tools | 20 min | ✅ |
+| 4 | Connected Agents | 20 min | ✅ |
+| 5 | Agent Flows | 15 min | ✅ |
+| 6 | Model Selection & Testing | 10 min | ✅ |
+| 7 | MCP Servers | 15 min | ✅ |
+| 8 | Agent Evaluations | 10 min | ✅ |
 | | **Q&A / Wrap-up** | **15 min** | ✅ |
-| | **Core lab total** | **180 min (3 hours)** | |
+| | **Core lab total** | **135 min (2 hours 15 min)** | |
 | 9 | Optional: VS Code Extension | 20 min | ⭐ Optional |
 
-> 💡 The optional VS Code Extension section (Use Case #9) is **not** counted against the 3-hour lab time. It assumes VS Code is already installed and is intended for teams interested in source control and CI/CD workflows for their agents.
+> 💡 The optional VS Code Extension section (Use Case #9) is **not** counted against the 2.5-hour lab time. It assumes VS Code is already installed and is intended for teams interested in source control and CI/CD workflows for their agents.
 
 ---
 
-# 🧪 Use Case #1 — Topics (25 min)
+# 🧪 Use Case #1 — Topics (20 min)
 
 > 🎯 **Objective:** Create custom topics that capture geography, extract entities, branch on user intent, and route energy-planning requests to the correct Census actions.
 
@@ -254,14 +254,7 @@ A planner needs either a guided service-territory lookup or a quick explanation 
    ```text
    I can use US Census Bureau datasets such as ACS 5-Year for population, income, housing, and employment indicators. I can also be extended with Economic Census data for business patterns by industry. Common geographies are state and county, using FIPS codes under the hood.
    ```
-4. Add a second message or a rich text block listing key variables:
-   - `B01003_001E` — total population
-   - `B19013_001E` — median household income
-   - `B25001_001E` — total housing units
-   - `B25024_001E` — units in structure / housing density
-   - `C24050_001E` — total employed population
-   - `C24050_004E` — mining / oil-gas / utilities / construction employment
-   - `B08301_001E` — commute patterns
+4. Optionally add a second message listing key variables (`B01003_001E` — population, `B19013_001E` — income, `B25001_001E` — housing, `C24050_001E` / `C24050_004E` — employment, `B08301_001E` — commute).
 5. End the topic with a prompt:
    ```text
    If you want, I can run a service territory lookup now. Which state or county should we analyze?
@@ -308,7 +301,7 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 
 ---
 
-# 🧪 Use Case #2 — Variables (15 min)
+# 🧪 Use Case #2 — Variables (10 min)
 
 > 🎯 **Objective:** Configure global, topic, and system variables so the agent can store configuration, capture geography details, and assemble reusable Census request URLs.
 
@@ -391,24 +384,10 @@ https://api.census.gov/data/{Topic.DataYear}/acs/acs5?get=NAME,C24050_001E,C2405
 
 > 💡 **Screenshot callout:** Capture the variable picker showing a URL field that inserts `Topic.DataYear`, `Topic.StateFIPS`, and `Global.APIKey` dynamically.
 
-### Step 6 — Pass variables between topics
+### Step 6 — Pass variables between topics and use system variables
 
-1. In **Census Data Help**, when the user says they want to run a lookup, transition to **Service Territory Lookup**.
-2. Pass along any already-known context:
-   - If the help topic already captured a state name, set `Topic.StateName`
-   - If you collected a preferred dataset year, set `Topic.DataYear`
-3. Add a message such as:
-   ```text
-   I'll carry over the state and year you already provided so you don't need to repeat them.
-   ```
-
-### Step 7 — Use system variables for context and diagnostics
-
-1. Add an internal comment or debugging message during testing to inspect:
-   - `System.Activity.Text`
-   - `System.Conversation.Id`
-2. Use this only in test/debug mode.
-3. Remove or hide verbose diagnostic output before publishing.
+1. In **Census Data Help**, when the user says they want to run a lookup, transition to **Service Territory Lookup** and pass along any already-known context (state name, preferred year).
+2. For debugging during development, inspect `System.Activity.Text` and `System.Conversation.Id` to trace conversation flow. Remove or hide diagnostic output before publishing.
 
 > ⚠️ **Do not** leave internal identifiers or raw troubleshooting output exposed in a production response to business users.
 
@@ -428,7 +407,7 @@ https://api.census.gov/data/{Topic.DataYear}/acs/acs5?get=NAME,C24050_001E,C2405
 
 ---
 
-# 🧪 Use Case #3 — Tools (30 min)
+# 🧪 Use Case #3 — Tools (20 min)
 
 > 🎯 **Objective:** Build two Census Bureau tools that planners can call for county-level demographics and state-level energy employment analysis.
 
@@ -502,77 +481,31 @@ If your action surface cannot reshape arrays automatically, document that row 0 
 
 ### Step 5 — Build Tool 2: **Get State Energy Employment**
 
-1. Add another tool.
-2. Name it:
+Follow the same pattern as Tool 1:
+
+1. Add another tool named **Get State Energy Employment**.
+2. Description:
    ```text
-   Get State Energy Employment
+   Use when the user asks for state-level employment indicators relevant to energy infrastructure planning, especially total employment and manufacturing employment. Requires a 2-digit state FIPS code and a Census data year.
    ```
-3. Description:
+3. Inputs: `year`, `state`, `apiKey` (same types and descriptions as Tool 1, without `county`).
+4. Request URL:
    ```text
-   Use when the user asks for state-level employment indicators relevant to energy infrastructure planning, especially total employment and mining, oil-gas, utilities, and construction related employment. Requires a 2-digit state FIPS code and a Census data year.
+   https://api.census.gov/data/{year}/acs/acs5?get=NAME,C24050_001E,C24050_004E&for=state:{state}&key={apiKey}
    ```
+   This returns `C24050_001E` (total civilian employed population) and `C24050_004E` (manufacturing employment).
 
-### Step 6 — Configure Tool 2 inputs and request
+### Step 6 — Test both tools and wire them into topics
 
-Use inputs:
-
-| Input | Type | Description |
-|---|---|---|
-| `year` | Text or number | ACS year |
-| `state` | Text | 2-digit state FIPS code |
-| `apiKey` | Text | Census API key |
-
-Request URL:
-
-```text
-https://api.census.gov/data/{year}/acs/acs5?get=NAME,C24050_001E,C24050_004E&for=state:{state}&key={apiKey}
-```
-
-This returns:
-
-- `NAME` — state name
-- `C24050_001E` — total civilian employed population
-- `C24050_004E` — mining, quarrying, oil/gas extraction, utilities, and construction employment category
-
-### Step 7 — Add planner guidance and test both tools
-
-1. In each tool, review the **Description** and **Input descriptions** from the planner's perspective.
-2. Make sure the descriptions explain:
-   - When to use county vs state analysis
-   - That FIPS codes are required
-   - That the outputs are planning indicators, not official load forecasts
-3. Run manual tests.
-
-Suggested tests:
-
-**County demographics**
-- `year = 2023`
-- `state = 48`
-- `county = 201`
-- `apiKey = <your key>`
-
-**State employment**
-- `year = 2023`
-- `state = 48`
-- `apiKey = <your key>`
-
-4. Verify that the tool returns data and that the fields are readable.
-
-> 💡 **Screenshot callout:** Capture the tool configuration page with the description, inputs, and successful test response for **Get County Demographics**.
-
-### Step 8 — Wire the tools into the topic branches
-
-1. Return to **Service Territory Lookup**.
-2. In the **county branch**, call **Get County Demographics** using:
-   - `year = Topic.DataYear`
-   - `state = Topic.StateFIPS`
-   - `county = Topic.CountyFIPS`
-   - `apiKey = Global.APIKey`
-3. In the **state branch**, call **Get State Energy Employment** using:
-   - `year = Topic.DataYear`
-   - `state = Topic.StateFIPS`
-   - `apiKey = Global.APIKey`
-4. After each action, add a concise summary message.
+1. Review the **Description** and **Input descriptions** for both tools from the planner's perspective — make sure they explain when to use county vs state analysis, that FIPS codes are required, and that outputs are planning indicators.
+2. Run manual tests:
+   - County: `year = 2023`, `state = 48`, `county = 201`, `apiKey = <your key>`
+   - State: `year = 2023`, `state = 48`, `apiKey = <your key>`
+3. Verify that both tools return readable data.
+4. Return to **Service Territory Lookup** and wire the tools into the topic branches:
+   - **County branch** → call **Get County Demographics** with `Topic.DataYear`, `Topic.StateFIPS`, `Topic.CountyFIPS`, `Global.APIKey`
+   - **State branch** → call **Get State Energy Employment** with `Topic.DataYear`, `Topic.StateFIPS`, `Global.APIKey`
+5. After each action, add a concise summary message.
 
 Example county response pattern:
 
@@ -596,15 +529,15 @@ Example county response pattern:
 
 ---
 
-# 🧪 Use Case #4 — Connected Agents (25 min)
+# 🧪 Use Case #4 — Connected Agents (20 min)
 
-> 🎯 **Objective:** Create a child **Census Data Specialist** agent, connect it to the parent Energy Intelligence Agent, and use peer-to-peer publishing so Census questions route cleanly to the specialist.
+> 🎯 **Objective:** Create a **Census Data Specialist** connected agent, add it to the parent Energy Intelligence Agent, and configure sharing so Census questions route cleanly to the specialist.
 
 ### Scenario
 
-The parent agent should orchestrate the planning experience while a child specialist owns Census-specific reasoning and tool usage.
+The parent agent should orchestrate the planning experience while a connected specialist agent owns Census-specific reasoning and tool usage.
 
-### Step 1 — Create the child agent
+### Step 1 — Create the connected agent
 
 1. In Copilot Studio, create a new agent named:
    ```text
@@ -616,49 +549,30 @@ The parent agent should orchestrate the planning experience while a child specia
    ```
 3. Save the agent.
 
-### Step 2 — Add the Census tools to the child agent
+### Step 2 — Add tools, enable sharing, and publish the connected agent
 
-1. Add **Get County Demographics**.
-2. Add **Get State Energy Employment**.
-3. Optionally add the **Census Data Help** topic or equivalent help content here as well if you want the child to explain variables directly.
-4. Test the child agent independently with prompts such as:
+1. Add **Get County Demographics** and **Get State Energy Employment** to the connected agent.
+2. Optionally add the **Census Data Help** topic or equivalent help content if you want the child to explain variables directly.
+3. Test the connected agent independently with prompts such as:
    - `What is B19013_001E?`
    - `Show me county demographics for Harris County Texas`
-   - `Give me state energy employment for Texas`
+4. Open **Settings** for the connected agent. Enable the setting that allows other agents to connect to and use this agent.
+5. Publish the connected agent.
 
-### Step 3 — Configure connected-agent sharing
+> ⚠️ **Important:** A connected agent cannot be selected by a parent until it is published and sharing is enabled. Both agents must be in the same environment.
 
-1. Open **Settings** for the **Census Data Specialist**.
-2. Enable the setting that allows other agents to connect to and use this agent.
-3. Publish the child agent.
-4. If your environment uses peer-to-peer or published-version requirements, confirm the latest version is available.
-
-> ⚠️ **Important:** A connected agent usually cannot be selected by a parent until it is published and sharing/connection is enabled.
-
-### Step 4 — Add the child agent to the parent
+### Step 3 — Add the connected agent to the parent
 
 1. Open **Energy Intelligence Agent**.
-2. Go to the **Agents** or **Connected agents** area.
-3. Add the **Census Data Specialist** as a child/connected agent.
+2. Go to the **Agents** page.
+3. Add the **Census Data Specialist** as a connected agent.
 4. Give it a strong description for the parent planner, for example:
    ```text
    Use for US Census Bureau questions, FIPS guidance, ACS demographic summaries, county population and housing lookups, and state employment indicators relevant to energy planning.
    ```
 5. Save the parent agent.
 
-### Step 5 — Guide the parent on when to route
-
-1. Update the parent instructions or child description so routing is obvious.
-2. Good examples of when to route:
-   - Requests for Census variable explanations
-   - Geography/FIPS clarification
-   - County demographic summaries
-   - State employment analysis
-3. Good examples of when **not** to route:
-   - Generic agent-help questions
-   - Non-Census planning workflows already handled by the parent
-
-### Step 6 — Validate handoff behavior
+### Step 4 — Validate handoff behavior
 
 1. In the parent agent test chat, try prompts such as:
    - `Analyze Harris County demographics for grid expansion`
@@ -678,13 +592,13 @@ The parent agent should orchestrate the planning experience while a child specia
 
 **Troubleshooting**
 
-- If the child agent doesn't appear, verify it is published and sharing is enabled.
-- If the parent doesn't route correctly, sharpen the child agent's **name** and **description** before changing broader instructions.
+- If the child agent doesn't appear, verify it is published and sharing is enabled in the same environment.
+- If the parent doesn't route correctly, sharpen the connected agent's **description** — descriptions are the primary routing signal.
 - If the child answers generically, confirm the Census tools are attached directly to the child, not only to the parent.
 
 ---
 
-# 🧪 Use Case #5 — Agent Flows (20 min)
+# 🧪 Use Case #5 — Agent Flows (15 min)
 
 > 🎯 **Objective:** Build a Power Automate cloud flow that receives a state FIPS code, calls multiple Census endpoints in sequence, aggregates the results, and returns a formatted summary to the agent.
 
@@ -696,7 +610,7 @@ A planning manager wants one state briefing instead of several separate tool res
 
 1. Open **Power Automate**.
 2. Select **Create**.
-3. Choose the trigger used for Copilot Studio agent flows, such as **When an agent calls the flow** / **When a Copilot Studio topic triggers a flow**.
+3. Choose the trigger **When an agent calls the flow**.
 4. Name the flow:
    ```text
    Census State Planning Summary
@@ -706,65 +620,39 @@ A planning manager wants one state briefing instead of several separate tool res
    - `dataYear` (Text)
    - `apiKey` (Text)
 
-### Step 2 — Add the first HTTP action (population + housing)
+### Step 2 — Add the HTTP actions for population, housing, and employment
 
-1. Add an **HTTP** action.
-2. Method: `GET`
-3. URI:
+Add two **HTTP** actions (both `GET`):
+
+1. **Get State Population Housing:**
    ```text
    https://api.census.gov/data/@{triggerBody()['dataYear']}/acs/acs5?get=NAME,B01003_001E,B25001_001E&for=state:@{triggerBody()['stateFips']}&key=@{triggerBody()['apiKey']}
    ```
-4. Rename the action to something clear such as **Get State Population Housing**.
 
-### Step 3 — Add the second HTTP action (employment)
-
-1. Add another **HTTP** action.
-2. Method: `GET`
-3. URI:
+2. **Get State Employment:**
    ```text
    https://api.census.gov/data/@{triggerBody()['dataYear']}/acs/acs5?get=NAME,C24050_001E,C24050_004E&for=state:@{triggerBody()['stateFips']}&key=@{triggerBody()['apiKey']}
    ```
-4. Rename it **Get State Employment**.
 
-### Step 4 — Parse the response arrays
+### Step 3 — Parse responses and compose a planning summary
 
-1. Add **Parse JSON** or **Compose** actions after each HTTP action.
-2. Remember that Census returns a two-row array structure.
-3. Use expressions to pull values from index `[1]`, not `[0]`.
-
-Typical mapping from the first response:
-
-- `[1][0]` → state name
-- `[1][1]` → population
-- `[1][2]` → housing units
-- `[1][3]` → state FIPS
-
-Typical mapping from the second response:
-
-- `[1][1]` → total employment
-- `[1][2]` → mining/utilities/construction employment
-
-> ⚠️ **Common mistake:** Many builders parse the header row and wonder why the output says `B01003_001E` instead of a number. Always use row 1 for data.
-
-### Step 5 — Compose a formatted planning summary
-
-1. Add a **Compose** action or build an object variable.
-2. Format a response like:
+1. Add **Parse JSON** or **Compose** actions after each HTTP action. Census returns a two-row array — use expressions to pull values from index `[1]`, not `[0]`.
+2. Add a **Compose** action to format a planning summary:
    ```text
    State planning summary for {StateName}:
    - Population: {Population}
    - Housing units: {HousingUnits}
    - Total employed population: {EmploymentTotal}
-   - Mining / oil-gas / utilities / construction employment: {EnergySectorEmployment}
+   - Manufacturing employment: {ManufacturingEmployment}
 
    Planning interpretation:
    Use population and housing as a proxy for residential growth pressure, and use the sector employment indicator as a proxy for industrial and infrastructure-related demand concentration.
    ```
 3. If your environment supports cards, create a structured card payload with sections for **Population**, **Housing**, **Employment**, and **Planning interpretation**.
 
-### Step 6 — Return the flow output to Copilot Studio
+### Step 4 — Return output and add the flow to the agent
 
-1. Add the response step required by the Copilot Studio flow trigger.
+1. Add the **Respond to the agent** action as the final step.
 2. Return fields such as:
    - `summaryText`
    - `stateName`
@@ -773,23 +661,13 @@ Typical mapping from the second response:
    - `employmentTotal`
    - `energySectorEmployment`
 3. Save the flow.
-
-### Step 7 — Add the flow as an action in the agent
-
-1. Return to **Energy Intelligence Agent**.
-2. Add the flow as a tool/action.
-3. Name it something planner-friendly, such as:
-   ```text
-   Get State Planning Summary
-   ```
-4. Description:
+4. Return to **Energy Intelligence Agent** and add the flow as a tool/action named **Get State Planning Summary**.
+5. Description:
    ```text
    Use when the user wants a combined state-level summary for energy planning, including population, housing, and employment indicators in a single response.
    ```
 5. Test it with a prompt like:
    - `Give me a planning summary for Texas`
-
-> 💡 **Screenshot callout:** Capture the flow showing the trigger, two HTTP actions, parsing step, compose step, and final response action.
 
 ### ✅ You've completed Use Case #5
 
@@ -807,9 +685,9 @@ Typical mapping from the second response:
 
 ---
 
-# 🧪 Use Case #6 — Model Selection & Testing (15 min)
+# 🧪 Use Case #6 — Model Selection & Testing (10 min)
 
-> 🎯 **Objective:** Compare GPT-4o, GPT-4o-mini, and other available models in Copilot Studio for quality, speed, and cost tradeoffs on energy-domain prompts.
+> 🎯 **Objective:** Compare available models in Copilot Studio for quality, speed, and cost tradeoffs on energy-domain prompts.
 
 ### Scenario
 
@@ -822,7 +700,7 @@ You want to verify which model is best for simple lookups versus multi-step plan
 3. Open the **primary model** selector.
 4. Note which models are available in your environment.
 
-> 💡 **Important:** Model availability changes over time and varies by region or tenant. If you don't see GPT-4o, use the closest available high-capability and low-cost variants in your environment.
+> 💡 **Important:** Model availability changes over time and varies by region or tenant. Use the highest-capability and lowest-cost models available in your environment for comparison.
 
 ### Step 2 — Create a repeatable prompt set
 
@@ -834,44 +712,19 @@ Suggested prompt set:
 2. `Explain the difference between total population, housing units, and energy-sector employment for service territory planning.`
 3. `Summarize Texas using population, housing, and employment as if you were briefing a distribution planning manager.`
 
-### Step 3 — Test GPT-4o or your highest-capability model
+### Step 3 — Test and compare models
 
-1. Select **GPT-4o** or the strongest model available.
-2. Run the prompt set.
-3. Observe:
-   - Response quality
-   - Ability to synthesize multiple data points
-   - Follow-through across tools or connected agents
-   - Latency
-
-### Step 4 — Test GPT-4o-mini or a lighter-cost model
-
-1. Switch to **GPT-4o-mini** or the lowest-cost model available.
-2. Re-run the same prompts.
-3. Compare the responses side-by-side.
-
-### Step 5 — Record the comparison
-
-Use a simple matrix like this:
+1. Select the strongest model available in your environment. Run the prompt set and observe response quality, synthesis ability, tool follow-through, and latency.
+2. Switch to the lowest-cost model available. Re-run the same prompts.
+3. Compare and record your results:
 
 | Model | Best for | Watchouts |
 |---|---|---|
-| GPT-4o / high-capability model | Multi-step reasoning, stronger summarization, tool-rich planning questions | Higher latency or cost |
-| GPT-4o-mini / lighter model | Quick lookups, help topics, simple structured responses | May be weaker on synthesis or nuance |
+| High-capability model | Multi-step reasoning, stronger summarization, tool-rich planning questions | Higher latency or cost |
+| Lighter / lower-cost model | Quick lookups, help topics, simple structured responses | May be weaker on synthesis or nuance |
 | Other available model | Environment-specific | Validate before production |
 
-### Step 6 — Decide which model fits which energy scenario
-
-Example guidance:
-
-- **Use a stronger model** for:
-  - Executive planning summaries
-  - Multi-tool territory analysis
-  - Questions that need explanation plus interpretation
-- **Use a lighter model** for:
-  - Simple county lookups
-  - Help topics
-  - Deterministic tool wrappers
+Use stronger models for executive summaries, multi-tool analysis, and interpretation-heavy questions. Use lighter models for simple lookups, help topics, and deterministic tool wrappers.
 
 > 💡 **Screenshot callout:** Capture the model selection UI and one side-by-side comparison of the same energy prompt under two different models.
 
@@ -891,7 +744,7 @@ Example guidance:
 
 ---
 
-# 🧪 Use Case #7 — MCP (Model Context Protocol) Servers (20 min)
+# 🧪 Use Case #7 — MCP (Model Context Protocol) Servers (15 min)
 
 > 🎯 **Objective:** Stand up a local MCP server that wraps Census API calls, register it in Copilot Studio, and expose discoverable tools for runtime use.
 
@@ -910,40 +763,38 @@ You will expose these tools:
 - `get_housing_stats`
 - `get_employment_by_industry`
 
-### Step 2 — Create the local MCP server project
+### Step 2 — Create the MCP server project and add tool logic
 
 1. Create a local folder such as `energy-census-mcp`.
-2. Initialize a Node.js project.
-3. Install the MCP SDK and any HTTP library you prefer.
-4. Create a file named `server.js`.
-
-### Step 3 — Add sample MCP server logic
-
-Use a pattern like the following:
+2. Initialize a Node.js project and install the MCP SDK.
+3. Create a file named `server.js` with a pattern like:
 
 ```javascript
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
-const server = new Server({ name: "energy-census-mcp", version: "1.0.0" }, { capabilities: { tools: {} } });
+const server = new McpServer({ name: "energy-census-mcp", version: "1.0.0" });
 const apiKey = process.env.CENSUS_API_KEY;
 const census = (path) => fetch(`https://api.census.gov/data/${path}&key=${apiKey}`).then(r => r.json());
 
 // Register tools: get_population, get_median_income, get_housing_stats, get_employment_by_industry
 // Each tool accepts year + FIPS inputs, calls the matching ACS endpoint, and returns parsed values.
 
-await server.connect(new StdioServerTransport());
+const transport = new StdioServerTransport();
+await server.connect(transport);
 ```
 
-The full implementation pattern is simple: register the four tools, map each one to the correct Census URL, and return named fields rather than raw variable codes whenever possible.
+> 💡 **Note:** This file uses ESM imports. Add `"type": "module"` to your `package.json` or use a `.mjs` extension.
 
-### Step 4 — Set the API key and run locally
+The full implementation pattern is simple: register the four tools, map each one to the correct Census URL, and return named fields rather than raw variable codes.
+
+### Step 3 — Set the API key and run locally
 
 1. Set an environment variable named `CENSUS_API_KEY`.
 2. Start the server locally.
 3. Confirm it launches without errors.
 
-### Step 5 — Register the MCP server in Copilot Studio
+### Step 4 — Register the MCP server in Copilot Studio
 
 1. In Copilot Studio, open your agent.
 2. Go to **Add tool** and choose the **Model Context Protocol** option.
@@ -968,7 +819,7 @@ A sample MCP configuration might look like:
 }
 ```
 
-### Step 6 — Test discovery and runtime usage
+### Step 5 — Test discovery and runtime usage
 
 1. In the agent test surface, ask:
    - `Get population for Harris County Texas`
@@ -977,14 +828,7 @@ A sample MCP configuration might look like:
 2. Inspect the trace to confirm the agent discovered and invoked the MCP tools.
 3. Compare the behavior with your earlier direct HTTP tools.
 
-### Step 7 — Explain why MCP is useful here
-
-Use these talking points in your lab delivery or internal briefing:
-
-- One MCP server can expose many related Census tools
-- Tool names and schemas become discoverable at runtime
-- You can extend from ACS to Economic Census, commute data, and tract-level data without rebuilding every topic
-- MCP helps centralize API key handling and tool logic outside the agent canvas
+> 💡 **Why MCP?** One server exposes many related Census tools, schemas become discoverable at runtime, and you can extend to Economic Census, commute data, or tract-level analysis without rebuilding topics. MCP also centralizes API key handling outside the agent canvas.
 
 > 💡 **Screenshot callout:** Capture the Copilot Studio MCP tool discovery page showing `get_population`, `get_median_income`, `get_housing_stats`, and `get_employment_by_industry`.
 
@@ -1004,7 +848,7 @@ Use these talking points in your lab delivery or internal briefing:
 
 ---
 
-# 🧪 Use Case #8 — Agent Evaluations (15 min)
+# 🧪 Use Case #8 — Agent Evaluations (10 min)
 
 > 🎯 **Objective:** Create a 10-question evaluation set for energy/Census scenarios, run it before and after MCP enrichment, and interpret the results.
 
@@ -1050,17 +894,7 @@ Use a set like this:
 
 ### Step 3 — Define expected outcomes
 
-For each test, add the expected answer or assertions.
-
-Examples:
-
-- For Question 1, require keywords such as:
-  - `population`
-  - `median household income`
-  - `housing units`
-- For Question 5, require the agent to ask for the state rather than guessing.
-- For Question 8, require the agent to explain the county/state preference and suggest a next step.
-- For Question 10, require mention of both **residential growth** and **commercial/industrial demand**.
+For each test, add expected answers or assertions. For example: Question 1 should include keywords like `population`, `median household income`, `housing units`. Question 5 should require the agent to ask for the state. Question 10 should mention both **residential growth** and **commercial/industrial demand**.
 
 ### Step 4 — Run the evaluation **before** MCP tools
 
@@ -1072,19 +906,12 @@ Examples:
    - Whether failures cluster around help, aggregation, or multi-step reasoning
 4. Open several failed cases and review the activity map.
 
-### Step 5 — Run the evaluation **after** MCP tools
+### Step 5 — Run the evaluation after MCP tools and interpret results
 
 1. Enable the MCP tools from Use Case #7.
-2. Re-run the same evaluation set.
-3. Compare the results.
-4. Look for:
-   - Better tool usage on multi-step questions
-   - Fewer generic explanations
-   - Better handling of variable-definition questions
-
-### Step 6 — Interpret the results for an energy audience
-
-Use a summary pattern like this:
+2. Re-run the same evaluation set and compare results.
+3. Look for better tool usage on multi-step questions, fewer generic explanations, and better variable-definition handling.
+4. Use the activity map on failed cases to identify the root cause:
 
 | Signal | What it means |
 |---|---|
@@ -1092,20 +919,7 @@ Use a summary pattern like this:
 | Same failure on missing-state prompts | Topic logic still needs work |
 | Slow but accurate answers | Decide whether the stronger architecture is worth the latency |
 
-### Step 7 — Use the activity map to improve the design
-
-1. Open a failed case.
-2. Check whether the agent:
-   - Picked the wrong topic
-   - Failed to ask for the state
-   - Skipped the connected agent
-   - Ignored the MCP tool
-   - Used a generic response instead of data
-3. Apply the fix in the right place:
-   - Topic issue → fix the topic
-   - Tool issue → fix descriptions or outputs
-   - Routing issue → fix connected-agent or MCP tool descriptions
-   - Reasoning issue → revisit model choice or instructions
+Apply fixes in the right place: topic issues → fix the topic; tool issues → fix descriptions; routing issues → fix connected-agent or MCP tool descriptions; reasoning issues → revisit model choice.
 
 > 💡 **Screenshot callout:** Capture the evaluation results dashboard and one activity map showing the difference before and after MCP enrichment.
 
