@@ -19,6 +19,167 @@ let lastProvisionTerminalState = "";
 const ACTIVE_PROVISION_JOB_STORAGE_KEY = "copilot-studio-labs.activeProvisionJob";
 const PROVISION_POLL_INTERVAL_MS = 5000;
 
+const CONFIG_FIELD_IDS = {
+  AZURE_KEYVAULT_URL: "cfg-keyvault-url",
+  AZURE_TENANT_ID: "cfg-tenant",
+  AZURE_CLIENT_ID: "cfg-client-id",
+  AZURE_CLIENT_SECRET: "cfg-client-secret",
+  AZURE_SUBSCRIPTION_ID: "cfg-subscription",
+  SMTP_HOST: "cfg-smtp-host",
+  SMTP_PORT: "cfg-smtp-port",
+  SMTP_USER: "cfg-smtp-user",
+  SMTP_PASS: "cfg-smtp-pass",
+  MAIL_FROM: "cfg-mail-from",
+  AZURE_WEBAPP_NAME: "cfg-webapp",
+  AZURE_RESOURCE_GROUP: "cfg-rg",
+  MCP_SERVER_URL: "cfg-mcp",
+  POWER_PLATFORM_ENV: "cfg-pp-env",
+  AZURE_ACR_NAME: "cfg-acr",
+  AZURE_ACR_IMAGE: "cfg-image-tag",
+};
+
+const CONFIG_PROVENANCE = {
+  EMAIL_TRANSPORT: {
+    title: "Email Transport",
+    configuredAt: "portal/.env → SMTP_HOST or AZURE_TENANT_ID + AZURE_CLIENT_ID + AZURE_CLIENT_SECRET",
+    configuredUrl: "#cfg-smtp-host",
+    monitoredAt: "/api/config → email.transport",
+    monitoredUrl: "/api/config",
+    notes: "SMTP takes priority when SMTP_HOST is set; otherwise Graph email uses the Entra app settings.",
+  },
+  SECRET_SOURCE: {
+    title: "Secret Source",
+    configuredAt: "portal/.env → AZURE_KEYVAULT_URL; otherwise local .env file only",
+    configuredUrl: "#cfg-keyvault-url",
+    monitoredAt: "/api/config → secretSource and /api/keyvault/status",
+    monitoredUrl: "/api/keyvault/status",
+    notes: "When Key Vault is not configured, secrets are file-based and there is no external configuration URL.",
+  },
+  AZURE_KEYVAULT_URL: {
+    title: "Key Vault",
+    configuredAt: "portal/.env → AZURE_KEYVAULT_URL or provisioned by Bicep",
+    configuredUrl: "#cfg-keyvault-url",
+    monitoredAt: "/api/keyvault/status and Azure Portal → Key Vaults",
+    monitoredUrl: () => azurePortalBrowseUrl("Microsoft.KeyVault%2Fvaults"),
+    notes: "The status endpoint verifies whether Key Vault is configured and which secrets map to env vars.",
+  },
+  KEY_VAULT_AUTH: {
+    title: "Key Vault Authentication",
+    configuredAt: "Azure Portal → App Service → Identity, or local az CLI session",
+    configuredUrl: () => azurePortalBrowseUrl("Microsoft.Web%2Fsites"),
+    monitoredAt: "/api/keyvault/status and Azure Portal → Key Vault → Access policies / RBAC",
+    monitoredUrl: "/api/keyvault/status",
+    notes: "Managed Identity is preferred in App Service; local development falls back to az CLI credentials.",
+  },
+  AZURE_TENANT_ID: {
+    title: "Azure Tenant",
+    configuredAt: "portal/.env → AZURE_TENANT_ID",
+    configuredUrl: "#cfg-tenant",
+    monitoredAt: "/api/config → azure.tenantId and Microsoft Entra admin center → Tenant overview",
+    monitoredUrl: "https://entra.microsoft.com/#view/Microsoft_AAD_IAM/TenantOverview.ReactView",
+  },
+  AZURE_CLIENT_ID: {
+    title: "Client (App) ID",
+    configuredAt: "portal/.env → AZURE_CLIENT_ID; Azure Portal → App registrations → application (client) ID",
+    configuredUrl: "#cfg-client-id",
+    monitoredAt: "/api/config → azure.clientId and Azure Portal → App registrations → API permissions",
+    monitoredUrl: "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
+  },
+  AZURE_CLIENT_SECRET: {
+    title: "Client Secret",
+    configuredAt: "portal/.env → AZURE_CLIENT_SECRET or Azure Key Vault secret azure-client-secret",
+    configuredUrl: "#cfg-client-secret",
+    monitoredAt: "/api/config → azure.clientSecret and Azure Portal → App registrations → Certificates & secrets",
+    monitoredUrl: "https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade",
+    notes: "The portal only reports configured/not set and never displays the secret value.",
+  },
+  AZURE_SUBSCRIPTION_ID: {
+    title: "Subscription ID",
+    configuredAt: "portal/.env → AZURE_SUBSCRIPTION_ID",
+    configuredUrl: "#cfg-subscription",
+    monitoredAt: "/api/provision/prerequisites and Azure Portal → Subscriptions",
+    monitoredUrl: "https://portal.azure.com/#view/Microsoft_Azure_Billing/SubscriptionsBlade",
+  },
+  SMTP_HOST: {
+    title: "SMTP Host",
+    configuredAt: "portal/.env → SMTP_HOST",
+    configuredUrl: "#cfg-smtp-host",
+    monitoredAt: "/api/config → email.smtpHost and Send Labs via Email status",
+    monitoredUrl: "/api/config",
+  },
+  SMTP_PORT: {
+    title: "SMTP Port",
+    configuredAt: "portal/.env → SMTP_PORT",
+    configuredUrl: "#cfg-smtp-port",
+    monitoredAt: "Send Labs via Email status and mail provider SMTP logs",
+    monitoredUrl: "#panel-email",
+  },
+  SMTP_USER: {
+    title: "SMTP User",
+    configuredAt: "portal/.env → SMTP_USER",
+    configuredUrl: "#cfg-smtp-user",
+    monitoredAt: "Send Labs via Email status and mail provider SMTP logs",
+    monitoredUrl: "#panel-email",
+  },
+  SMTP_PASS: {
+    title: "SMTP Password",
+    configuredAt: "portal/.env → SMTP_PASS or Azure Key Vault secret smtp-password",
+    configuredUrl: "#cfg-smtp-pass",
+    monitoredAt: "Send Labs via Email status and /api/keyvault/status when Key Vault is enabled",
+    monitoredUrl: "/api/keyvault/status",
+    notes: "The password is file-based unless synced to Key Vault; it is never displayed by the portal.",
+  },
+  MAIL_FROM: {
+    title: "From Address",
+    configuredAt: "portal/.env → MAIL_FROM",
+    configuredUrl: "#cfg-mail-from",
+    monitoredAt: "/api/config → email.from and Send Labs via Email status",
+    monitoredUrl: "/api/config",
+  },
+  AZURE_WEBAPP_NAME: {
+    title: "Azure Web App Name",
+    configuredAt: "portal/.env → AZURE_WEBAPP_NAME or provisioned by Bicep",
+    configuredUrl: "#cfg-webapp",
+    monitoredAt: "/api/config → deployment.webAppName and Azure Portal → App Services",
+    monitoredUrl: () => azurePortalBrowseUrl("Microsoft.Web%2Fsites"),
+  },
+  AZURE_RESOURCE_GROUP: {
+    title: "Resource Group",
+    configuredAt: "portal/.env → AZURE_RESOURCE_GROUP or provisioned by Bicep",
+    configuredUrl: "#cfg-rg",
+    monitoredAt: "/api/provision/prerequisites, deployment logs, and Azure Portal → Resource groups",
+    monitoredUrl: "https://portal.azure.com/#view/HubsExtension/BrowseResourceGroups",
+  },
+  MCP_SERVER_URL: {
+    title: "MCP Server URL",
+    configuredAt: "portal/.env → MCP_SERVER_URL",
+    configuredUrl: "#cfg-mcp",
+    monitoredAt: "/api/config → deployment.mcpEndpoint and the MCP endpoint itself when reachable",
+    monitoredUrl: () => fieldUrl("MCP_SERVER_URL") || "/api/config",
+  },
+  POWER_PLATFORM_ENV: {
+    title: "Power Platform Environment",
+    configuredAt: "portal/.env → POWER_PLATFORM_ENV",
+    configuredUrl: "#cfg-pp-env",
+    monitoredAt: "Power Platform tab and Power Platform admin center → Environments",
+    monitoredUrl: "https://admin.powerplatform.microsoft.com/environments",
+  },
+  AZURE_ACR_NAME: {
+    title: "Container Registry",
+    configuredAt: "portal/.env → AZURE_ACR_NAME or provisioned by Bicep",
+    configuredUrl: "#cfg-acr",
+    monitoredAt: "Azure Portal → Container registries and deployment logs",
+    monitoredUrl: () => azurePortalBrowseUrl("Microsoft.ContainerRegistry%2Fregistries"),
+  },
+  AZURE_ACR_IMAGE: {
+    title: "Container Image Tag",
+    configuredAt: "portal/.env → AZURE_ACR_IMAGE",
+    configuredUrl: "#cfg-image-tag",
+    monitoredAt: "Azure Portal → Container Registry → Repositories and App Service deployment logs",
+    monitoredUrl: () => azurePortalBrowseUrl("Microsoft.ContainerRegistry%2Fregistries"),
+  },
+};
+
 const SCENARIO_LAB_MAP = {
   "lab-1": "01-sdge-energy-ops-agent",
   "lab-2": "02-sempra-agent-analytics-evaluations",
@@ -30,6 +191,7 @@ const SCENARIO_LAB_MAP = {
 // ── Init ──────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
+  initConfigProvenanceTooltips();
   refreshLabs();
   loadScenarios();
   loadConfig();
@@ -295,16 +457,22 @@ function renderIndustryCards() {
   const container = document.getElementById("scenario-industry-grid");
   container.innerHTML = scenarios.industries
     .map((industry) => `
-      <div class="scenario-card ${industry.id === selectedIndustryId ? "active" : ""}"
-           onclick="selectIndustry('${industry.id}')">
+      <button type="button"
+              class="scenario-card ${industry.id === selectedIndustryId ? "active" : ""}"
+              data-industry-id="${escapeHtml(industry.id)}"
+              aria-pressed="${industry.id === selectedIndustryId}">
         <div class="scenario-card-title">
-          <span style="font-size: 22px;">${industry.icon}</span>
-          <span>${industry.name}</span>
+          <span style="font-size: 22px;">${escapeHtml(industry.icon)}</span>
+          <span>${escapeHtml(industry.name)}</span>
         </div>
-        <div class="scenario-card-desc">${industry.description}</div>
-      </div>
+        <div class="scenario-card-desc">${escapeHtml(industry.description)}</div>
+      </button>
     `)
     .join("");
+
+  container.querySelectorAll("[data-industry-id]").forEach((card) => {
+    card.addEventListener("click", () => selectIndustry(card.dataset.industryId));
+  });
 }
 
 function renderRoleOptions() {
@@ -312,14 +480,18 @@ function renderRoleOptions() {
   container.innerHTML = scenarios.roles
     .map((role) => `
       <label class="scenario-role">
-        <input type="checkbox" ${selectedRoleIds.has(role.id) ? "checked" : ""} onchange="toggleRole('${role.id}')" />
+        <input type="checkbox" data-role-id="${escapeHtml(role.id)}" ${selectedRoleIds.has(role.id) ? "checked" : ""} />
         <div>
-          <div style="font-weight: 600;">${role.icon} ${role.name}</div>
-          <div style="font-size: 12px; color: var(--text-muted);">${role.description}</div>
+          <div style="font-weight: 600;">${escapeHtml(role.icon)} ${escapeHtml(role.name)}</div>
+          <div style="font-size: 12px; color: var(--text-muted);">${escapeHtml(role.description)}</div>
         </div>
       </label>
     `)
     .join("");
+
+  container.querySelectorAll("input[data-role-id]").forEach((input) => {
+    input.addEventListener("change", () => toggleRole(input.dataset.roleId));
+  });
 }
 
 function getSelectedIndustry() {
@@ -355,13 +527,13 @@ function renderScenarioDetails() {
 
   document.getElementById("scenario-categories").innerHTML = industry
     ? [...industry.categories, ...roles.flatMap((role) => role.categories || [])]
-        .map((category) => `<span class="scenario-pill">${category.name}</span>`)
+        .map((category) => `<span class="scenario-pill">${escapeHtml(category.name)}</span>`)
         .join("")
     : "";
 
   document.getElementById("scenario-kpis").innerHTML = industry
     ? [...new Set([...industry.kpis, ...roles.flatMap((role) => role.kpis || [])])]
-        .map((kpi) => `<span class="scenario-pill">${kpi}</span>`)
+        .map((kpi) => `<span class="scenario-pill">${escapeHtml(kpi)}</span>`)
         .join("")
     : "";
 }
@@ -379,7 +551,7 @@ function renderScenarioLabPreview() {
   container.innerHTML = suggestedLabIds
     .map((labId) => {
       const lab = labs.find((item) => item.id === labId);
-      return `<div class="scenario-lab-chip">${lab?.title || labId}</div>`;
+      return `<div class="scenario-lab-chip">${escapeHtml(lab?.title || labId)}</div>`;
     })
     .join("");
 }
@@ -889,6 +1061,155 @@ async function sendEmail() {
   }
 }
 
+// ── Config provenance tooltips ────────────────────────────────────────────
+let configTooltipEl = null;
+let configTooltipTarget = null;
+let configTooltipHideTimer = null;
+
+function initConfigProvenanceTooltips(root = document) {
+  ensureConfigTooltip();
+  root.querySelectorAll("[data-config-key]").forEach((target) => {
+    const key = target.dataset.configKey;
+    if (!CONFIG_PROVENANCE[key] || target.dataset.configTooltipReady) return;
+
+    target.dataset.configTooltipReady = "true";
+    target.classList.add("config-provenance-target");
+    if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "0");
+    addConfigInfoIcon(target);
+
+    target.addEventListener("mouseenter", () => showConfigTooltip(target));
+    target.addEventListener("focusin", () => showConfigTooltip(target));
+    target.addEventListener("mouseleave", scheduleConfigTooltipHide);
+    target.addEventListener("focusout", scheduleConfigTooltipHide);
+    target.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") hideConfigTooltip();
+    });
+  });
+}
+
+function ensureConfigTooltip() {
+  if (configTooltipEl) return configTooltipEl;
+
+  configTooltipEl = document.createElement("div");
+  configTooltipEl.className = "config-provenance-tooltip";
+  configTooltipEl.hidden = true;
+  configTooltipEl.setAttribute("role", "tooltip");
+  configTooltipEl.addEventListener("mouseenter", () => clearTimeout(configTooltipHideTimer));
+  configTooltipEl.addEventListener("mouseleave", scheduleConfigTooltipHide);
+  configTooltipEl.addEventListener("click", (event) => {
+    const link = event.target.closest("a[href^='#']");
+    if (!link) return;
+
+    const target = document.querySelector(link.getAttribute("href"));
+    if (!target) return;
+    event.preventDefault();
+    const panel = target.id?.startsWith("panel-") ? target.id.slice("panel-".length) : target.closest(".tab-panel")?.id?.slice("panel-".length);
+    setActiveTab(panel || "config");
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.focus?.();
+    hideConfigTooltip();
+  });
+  document.body.appendChild(configTooltipEl);
+  return configTooltipEl;
+}
+
+function addConfigInfoIcon(target) {
+  if (target.querySelector(".config-info-icon")) return;
+
+  const label = target.querySelector("label, .label");
+  if (!label) return;
+
+  const icon = document.createElement("span");
+  icon.className = "config-info-icon";
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "i";
+  label.appendChild(icon);
+}
+
+function showConfigTooltip(target) {
+  const key = target.dataset.configKey;
+  const item = CONFIG_PROVENANCE[key];
+  if (!item) return;
+
+  clearTimeout(configTooltipHideTimer);
+  configTooltipTarget = target;
+  configTooltipEl.innerHTML = renderConfigTooltip(item);
+  configTooltipEl.hidden = false;
+  positionConfigTooltip(target);
+}
+
+function scheduleConfigTooltipHide() {
+  clearTimeout(configTooltipHideTimer);
+  configTooltipHideTimer = setTimeout(() => {
+    if (!configTooltipEl?.matches(":hover") && !configTooltipTarget?.matches(":hover, :focus, :focus-within")) {
+      hideConfigTooltip();
+    }
+  }, 180);
+}
+
+function hideConfigTooltip() {
+  clearTimeout(configTooltipHideTimer);
+  if (configTooltipEl) configTooltipEl.hidden = true;
+  configTooltipTarget = null;
+}
+
+function positionConfigTooltip(target) {
+  const rect = target.getBoundingClientRect();
+  const tooltipRect = configTooltipEl.getBoundingClientRect();
+  const margin = 10;
+  const top = Math.min(window.innerHeight - tooltipRect.height - margin, Math.max(margin, rect.bottom + margin));
+  const left = Math.min(window.innerWidth - tooltipRect.width - margin, Math.max(margin, rect.left));
+
+  configTooltipEl.style.top = `${top}px`;
+  configTooltipEl.style.left = `${left}px`;
+}
+
+function renderConfigTooltip(item) {
+  const configuredUrl = resolveConfigValue(item.configuredUrl);
+  const monitoredUrl = resolveConfigValue(item.monitoredUrl);
+  return `
+    <div class="tooltip-title">${escapeHtml(item.title)}</div>
+    <div class="tooltip-row">
+      <div class="tooltip-label">Configured at</div>
+      <div>${escapeHtml(item.configuredAt)}${renderTooltipLink(configuredUrl, "Open configuration")}</div>
+    </div>
+    <div class="tooltip-row">
+      <div class="tooltip-label">Monitored / verified at</div>
+      <div>${escapeHtml(item.monitoredAt)}${renderTooltipLink(monitoredUrl, "Open monitor")}</div>
+    </div>
+    ${item.notes ? `<div class="tooltip-note">${escapeHtml(item.notes)}</div>` : ""}
+  `;
+}
+
+function renderTooltipLink(url, label) {
+  if (!url) return "";
+  const target = url.startsWith("#") || url.startsWith("/") ? "" : ' target="_blank" rel="noopener"';
+  return ` <a href="${escapeHtml(url)}"${target}>${escapeHtml(label)} →</a>`;
+}
+
+function resolveConfigValue(value) {
+  return typeof value === "function" ? value() : value;
+}
+
+function fieldUrl(key) {
+  const raw = document.getElementById(CONFIG_FIELD_IDS[key])?.value?.trim();
+  if (!raw || !/^https?:\/\//i.test(raw)) return "";
+  return raw;
+}
+
+function azurePortalBrowseUrl(resourceType) {
+  return `https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/${resourceType}`;
+}
+
+function configStatusCard(key, label, valueHtml) {
+  return `
+    <div class="config-status-item" data-config-key="${escapeHtml(key)}">
+      <div class="label">${escapeHtml(label)}</div>
+      <div class="value">${valueHtml}</div>
+    </div>
+  `;
+}
+
 // ── Config ────────────────────────────────────────────────────────────────
 async function loadConfig() {
   try {
@@ -901,40 +1222,25 @@ async function loadConfig() {
     const kvConfigured = cfg.keyVault?.configured;
     const secretSource = cfg.secretSource || "env";
 
-    container.innerHTML = `
-      <div class="config-status-item">
-        <div class="label">Email Transport</div>
-        <div class="value">${dot(cfg.email.transport !== "none")} ${cfg.email.transport === "none" ? "Not configured" : cfg.email.transport.toUpperCase()}</div>
-      </div>
-      <div class="config-status-item">
-        <div class="label">Azure Tenant</div>
-        <div class="value">${dot(cfg.azure.tenantId === "configured")} ${cfg.azure.tenantId}</div>
-      </div>
-      <div class="config-status-item">
-        <div class="label">Client ID</div>
-        <div class="value">${dot(cfg.azure.clientId === "configured")} ${cfg.azure.clientId}</div>
-      </div>
-      <div class="config-status-item">
-        <div class="label">Client Secret</div>
-        <div class="value">${dot(cfg.azure.clientSecret === "configured")} ${cfg.azure.clientSecret}</div>
-      </div>
-      <div class="config-status-item">
-        <div class="label">Secret Source</div>
-        <div class="value">${dot(secretSource === "keyvault")} ${secretSource === "keyvault" ? "🔐 Key Vault" : "📄 .env file"}</div>
-      </div>
-      <div class="config-status-item">
-        <div class="label">Key Vault</div>
-        <div class="value">${dot(kvConfigured)} ${kvConfigured ? cfg.keyVault.vaultName : "Not configured"}</div>
-      </div>
-      <div class="config-status-item">
-        <div class="label">Web App</div>
-        <div class="value">${dot(cfg.deployment.webAppName)} ${cfg.deployment.webAppName || "Not set"}</div>
-      </div>
-      <div class="config-status-item">
-        <div class="label">MCP Server</div>
-        <div class="value">${dot(cfg.deployment.mcpEndpoint)} ${cfg.deployment.mcpEndpoint || "Not set"}</div>
-      </div>
-    `;
+    container.innerHTML = [
+      configStatusCard(
+        "EMAIL_TRANSPORT",
+        "Email Transport",
+        `${dot(cfg.email.transport !== "none")} ${cfg.email.transport === "none" ? "Not configured" : cfg.email.transport.toUpperCase()}`,
+      ),
+      configStatusCard("AZURE_TENANT_ID", "Azure Tenant", `${dot(cfg.azure.tenantId === "configured")} ${cfg.azure.tenantId}`),
+      configStatusCard("AZURE_CLIENT_ID", "Client ID", `${dot(cfg.azure.clientId === "configured")} ${cfg.azure.clientId}`),
+      configStatusCard("AZURE_CLIENT_SECRET", "Client Secret", `${dot(cfg.azure.clientSecret === "configured")} ${cfg.azure.clientSecret}`),
+      configStatusCard(
+        "SECRET_SOURCE",
+        "Secret Source",
+        `${dot(secretSource === "keyvault")} ${secretSource === "keyvault" ? "🔐 Key Vault" : "📄 .env file"}`,
+      ),
+      configStatusCard("AZURE_KEYVAULT_URL", "Key Vault", `${dot(kvConfigured)} ${kvConfigured ? escapeHtml(cfg.keyVault.vaultName) : "Not configured"}`),
+      configStatusCard("AZURE_WEBAPP_NAME", "Web App", `${dot(cfg.deployment.webAppName)} ${cfg.deployment.webAppName ? escapeHtml(cfg.deployment.webAppName) : "Not set"}`),
+      configStatusCard("MCP_SERVER_URL", "MCP Server", `${dot(cfg.deployment.mcpEndpoint)} ${cfg.deployment.mcpEndpoint ? escapeHtml(cfg.deployment.mcpEndpoint) : "Not set"}`),
+    ].join("");
+    initConfigProvenanceTooltips(container);
   } catch {
     // Config endpoint unavailable — skip
   }

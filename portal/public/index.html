@@ -309,6 +309,10 @@
       gap: 12px;
     }
     .scenario-card {
+      width: 100%;
+      text-align: left;
+      color: var(--text);
+      font: inherit;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -340,6 +344,7 @@
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 8px;
+      cursor: pointer;
     }
     .scenario-role input { margin-top: 3px; accent-color: var(--accent); }
     .scenario-metrics {
@@ -657,6 +662,64 @@
     }
     .config-status-item .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
     .config-status-item .value { font-size: 14px; font-weight: 500; margin-top: 4px; }
+    .config-provenance-target {
+      position: relative;
+      outline: none;
+    }
+    .config-provenance-target:hover,
+    .config-provenance-target:focus,
+    .config-provenance-target:focus-within {
+      border-color: rgba(79, 143, 247, 0.55);
+      box-shadow: 0 0 0 1px rgba(79, 143, 247, 0.12);
+    }
+    .form-group.config-provenance-target {
+      border: 1px dashed transparent;
+      border-radius: 8px;
+      padding: 6px;
+      margin: -6px;
+    }
+    .config-info-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      margin-left: 6px;
+      border-radius: 999px;
+      background: rgba(79, 143, 247, 0.12);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1;
+      cursor: help;
+      vertical-align: text-bottom;
+    }
+    .config-provenance-tooltip {
+      position: fixed;
+      z-index: 1200;
+      max-width: 360px;
+      padding: 12px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .config-provenance-tooltip[hidden] { display: none; }
+    .config-provenance-tooltip .tooltip-title { font-weight: 700; margin-bottom: 8px; }
+    .config-provenance-tooltip .tooltip-row { margin-top: 8px; }
+    .config-provenance-tooltip .tooltip-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .config-provenance-tooltip a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .config-provenance-tooltip a:hover { text-decoration: underline; }
+    .config-provenance-tooltip .tooltip-note { margin-top: 8px; color: var(--text-muted); }
 
     /* ── Loading ────────────────────────── */
     .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
@@ -1217,12 +1280,12 @@
               </p>
               <div id="keyvault-status" style="margin-bottom: 16px;"></div>
               <div class="form-grid">
-                <div class="form-group">
+                <div class="form-group" data-config-key="AZURE_KEYVAULT_URL">
                   <label>Key Vault URL</label>
                   <input type="text" id="cfg-keyvault-url" placeholder="https://copilot-labs-kv.vault.azure.net" />
                   <span class="hint">Set via AZURE_KEYVAULT_URL env var</span>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="KEY_VAULT_AUTH">
                   <label>Authentication</label>
                   <select id="cfg-kv-auth" disabled>
                     <option value="managed-identity">Managed Identity (Recommended)</option>
@@ -1241,22 +1304,22 @@
             <div class="panel">
               <h3>🔐 Azure / Entra ID</h3>
               <div class="form-grid">
-                <div class="form-group">
+                <div class="form-group" data-config-key="AZURE_TENANT_ID">
                   <label>Tenant ID</label>
                   <input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
                   <span class="hint">Azure AD / Entra ID tenant</span>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="AZURE_CLIENT_ID">
                   <label>Client (App) ID</label>
                   <input type="text" id="cfg-client-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
                   <span class="hint">App registration for Graph API / deployment</span>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="AZURE_CLIENT_SECRET">
                   <label>Client Secret</label>
                   <input type="password" id="cfg-client-secret" placeholder="••••••••" />
                   <span class="hint">⚠️ Stored in .env only — never committed</span>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="AZURE_SUBSCRIPTION_ID">
                   <label>Subscription ID</label>
                   <input type="text" id="cfg-subscription" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
                   <span class="hint">Azure subscription for resource deployment</span>
@@ -1267,23 +1330,23 @@
             <div class="panel">
               <h3>📧 Email (SMTP)</h3>
               <div class="form-grid">
-                <div class="form-group">
+                <div class="form-group" data-config-key="SMTP_HOST">
                   <label>SMTP Host</label>
                   <input type="text" id="cfg-smtp-host" placeholder="smtp.office365.com" />
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="SMTP_PORT">
                   <label>SMTP Port</label>
                   <input type="number" id="cfg-smtp-port" placeholder="587" />
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="SMTP_USER">
                   <label>SMTP User</label>
                   <input type="text" id="cfg-smtp-user" placeholder="labs@contoso.com" />
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="SMTP_PASS">
                   <label>SMTP Password</label>
                   <input type="password" id="cfg-smtp-pass" placeholder="••••••••" />
                 </div>
-                <div class="form-group full">
+                <div class="form-group full" data-config-key="MAIL_FROM">
                   <label>From Address</label>
                   <input type="email" id="cfg-mail-from" placeholder="labs@contoso.com" />
                   <span class="hint">Used for both SMTP and Graph transports</span>
@@ -1294,31 +1357,31 @@
             <div class="panel">
               <h3>🚀 Deployment Targets</h3>
               <div class="form-grid">
-                <div class="form-group">
+                <div class="form-group" data-config-key="AZURE_WEBAPP_NAME">
                   <label>Azure Web App Name</label>
                   <input type="text" id="cfg-webapp" placeholder="copilot-labs-portal" />
                   <span class="hint">App Service name for portal hosting</span>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="AZURE_RESOURCE_GROUP">
                   <label>Resource Group</label>
                   <input type="text" id="cfg-rg" placeholder="rg-copilot-labs" />
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="MCP_SERVER_URL">
                   <label>MCP Server URL</label>
                   <input type="text" id="cfg-mcp" placeholder="https://mcp.contoso.com" />
                   <span class="hint">Model Context Protocol server endpoint</span>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="POWER_PLATFORM_ENV">
                   <label>Power Platform Environment</label>
                   <input type="text" id="cfg-pp-env" placeholder="org12345.crm.dynamics.com" />
                   <span class="hint">Target environment for Copilot Studio agents</span>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="AZURE_ACR_NAME">
                   <label>Container Registry</label>
                   <input type="text" id="cfg-acr" placeholder="contosoacr.azurecr.io" />
                   <span class="hint">ACR for Docker image hosting</span>
                 </div>
-                <div class="form-group">
+                <div class="form-group" data-config-key="AZURE_ACR_IMAGE">
                   <label>Container Image Tag</label>
                   <input type="text" id="cfg-image-tag" placeholder="copilot-labs-portal:latest" />
                 </div>

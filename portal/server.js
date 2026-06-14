@@ -30,7 +30,53 @@ import { getCurrentUser, clearTokens } from "./lib/auth.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const PROVISION_JOB_RETENTION_MS = 60 * 60 * 1000;
+const LABS_ROUTE = "/labs";
+const labsRoot = resolve(import.meta.dirname, "..", "labs");
 const provisionJobs = new Map();
+
+function encodeUrlPath(path) {
+  return path.split("/").map(encodeURIComponent).join("/");
+}
+
+function rewriteLabAssetUrl(url, labId) {
+  if (!url || /^(?:[a-z][a-z\d+.-]*:|\/\/|\/|#)/i.test(url)) {
+    return url;
+  }
+
+  const [, path = "", suffix = ""] = url.match(/^([^?#]*)([?#].*)?$/) || [];
+  const normalizedPath = path.replace(/\\/g, "/");
+  const resolvedSegments = [];
+
+  for (const segment of normalizedPath.split("/")) {
+    if (!segment || segment === ".") continue;
+    if (segment === "..") {
+      if (resolvedSegments.length === 0) return url;
+      resolvedSegments.pop();
+      continue;
+    }
+    resolvedSegments.push(segment);
+  }
+
+  if (resolvedSegments.length === 0) return url;
+
+  return `${LABS_ROUTE}/${encodeURIComponent(labId)}/${encodeUrlPath(resolvedSegments.join("/"))}${suffix}`;
+}
+
+function rewriteLabHtmlAssetUrls(html, labId) {
+  return html.replace(
+    /<(img|a)\b([^>]*?)\s(src|href)=(["'])(.*?)\4([^>]*)>/gi,
+    (match, tag, before, attribute, quote, url, after) => {
+      const tagName = tag.toLowerCase();
+      const attributeName = attribute.toLowerCase();
+      if ((tagName === "img" && attributeName !== "src") || (tagName === "a" && attributeName !== "href")) {
+        return match;
+      }
+
+      const rewrittenUrl = rewriteLabAssetUrl(url, labId);
+      return `<${tag}${before} ${attribute}=${quote}${rewrittenUrl}${quote}${after}>`;
+    },
+  );
+}
 
 function estimateProvisionSteps(labIds, subscriptionId) {
   let totalSteps = subscriptionId ? 1 : 0;
@@ -145,6 +191,7 @@ const kvResult = await loadSecretsFromKeyVault();
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.static(resolve(import.meta.dirname, "public")));
+app.use(LABS_ROUTE, express.static(labsRoot));
 
 // ── API Routes ──────────────────────────────────────────────────────────────
 
@@ -202,7 +249,7 @@ app.get("/api/labs", (_req, res) => {
 app.get("/api/labs/:id", (req, res) => {
   const content = getLabContent(req.params.id);
   if (!content) return res.status(404).json({ error: "Lab not found" });
-  const html = marked.parse(content);
+  const html = rewriteLabHtmlAssetUrls(marked.parse(content), req.params.id);
   res.json({ id: req.params.id, html, markdown: content });
 });
 

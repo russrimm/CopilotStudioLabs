@@ -20,7 +20,8 @@
       "instructions": [
         "Open your Energy Intelligence Agent and go to the Topics page.",
         "Click '+ Add a topic' so the dropdown menu is open.",
-        "Make sure 'From blank' is visible and highlighted in the menu."
+        "Make sure 'From blank' is visible and highlighted in the menu.",
+        "Do not capture the Overview page; the Topics page and open menu must be visible."
       ]
     },
     {
@@ -29,8 +30,9 @@
       "section": "Use Case #1, Step 3",
       "instructions": [
         "Open the Service Territory Lookup topic and add an 'Ask with adaptive card' node.",
-        "Open the card editor and switch to the JSON view.",
-        "Paste the city/state/zipCode payload from the lab so the JSON is fully visible."
+        "Open the real Copilot Studio card editor and switch to the JSON view.",
+        "Paste the city/state/zipCode payload from the lab so the JSON is fully visible enough to identify the three inputs and Submit action.",
+        "Do not use the Lab 04 Reference/mock placeholder image; the live Copilot Studio editor chrome must be visible."
       ]
     },
     {
@@ -38,8 +40,9 @@
       "filename": "adaptive-card-preview.png",
       "section": "Use Case #1, Step 3",
       "instructions": [
-        "Switch the Adaptive Card editor to the Preview/Designer view.",
-        "Make sure City, State, Zip Code inputs and the Submit button are all visible."
+        "Switch the real Adaptive Card editor to the Preview/Designer view.",
+        "Make sure City, State, Zip Code inputs and the Submit button are all visible.",
+        "Do not use the Lab 04 Reference/mock placeholder image; the live Copilot Studio editor chrome must be visible."
       ]
     },
     {
@@ -49,7 +52,8 @@
       "instructions": [
         "Close the card editor and click on the 'Ask with adaptive card' node so its properties pane is open.",
         "Scroll the properties pane to 'Save user response as'.",
-        "Show the three card outputs (city, state, zipCode) mapped to topic variables."
+        "Show the three card outputs mapped exactly as city -> Topic.City, state -> Topic.StateInput, and zipCode -> Topic.ZipCode.",
+        "Do not use the Lab 04 Reference/mock placeholder image."
       ]
     },
     {
@@ -58,8 +62,9 @@
       "section": "Use Case #1, Step 4",
       "instructions": [
         "Add a 'Set variable value' node after the Adaptive Card node.",
-        "Open the formula editor and paste the Switch(Upper(Topic.state), 'TX', '48', ...) expression.",
-        "Make sure the full Power Fx expression is readable in the screenshot."
+        "Open the formula editor and paste the Switch(Upper(Topic.StateInput), 'TX', '48', ...) expression that sets Topic.StateFIPS.",
+        "Make sure the full Power Fx expression is readable in the screenshot.",
+        "Do not capture a mock/reference page or a mismatched Global.varFIPS variable."
       ]
     },
     {
@@ -67,9 +72,10 @@
       "filename": "global-variables-list.png",
       "section": "Use Case #2, Step 2",
       "instructions": [
-        "Open the agent's variables / global variables panel.",
+        "Open the agent's variables / global variables panel and wait for it to finish loading.",
         "Make sure Global.DefaultState, Global.DefaultYear, and Global.APIKey are all visible.",
-        "Mask or blur the API key value if you don't want to commit it."
+        "Mask or blur the API key value if you don't want to commit it.",
+        "Do not capture the Overview page or a loading/skeleton state."
       ]
     },
     {
@@ -77,9 +83,10 @@
       "filename": "variable-picker-in-url.png",
       "section": "Use Case #2, Step 5",
       "instructions": [
-        "Open one of your HTTP tools and edit the URL field.",
+        "Open one of your HTTP tools and edit the URL field in the real tool editor.",
         "Open the variable picker so Topic.DataYear, Topic.StateFIPS, and Global.APIKey are visible as insertable values.",
-        "Position the URL field so the inserted variables are also visible in the URL."
+        "Position the URL field so the inserted variables are also visible in the URL.",
+        "Do not use the Lab 04 Reference/mock placeholder image."
       ]
     },
     {
@@ -87,8 +94,9 @@
       "filename": "tool-county-demographics-inputs.png",
       "section": "Use Case #3, Step 2",
       "instructions": [
-        "Open the 'Get County Demographics' tool's Inputs configuration.",
-        "Show all four inputs: year, state, county, apiKey, with their descriptions."
+        "Open the Tools tab, then open the 'Get County Demographics' tool's Inputs configuration.",
+        "Show all four inputs: year, state, county, apiKey, with their descriptions.",
+        "Do not capture the Topics page; the tool input configuration must be visible."
       ]
     },
     {
@@ -97,7 +105,8 @@
       "section": "Use Case #3, Step 6",
       "instructions": [
         "Run a manual test of the 'Get County Demographics' tool with year=2023, state=48, county=201, apiKey=<your key>.",
-        "Capture the test panel showing a successful response (NAME, population, income, housing units)."
+        "Capture the real test panel showing a successful response (NAME, population, income, housing units).",
+        "Mask the API key and do not use the Lab 04 Reference/mock placeholder image."
       ]
     },
     {
@@ -105,9 +114,10 @@
       "filename": "connected-agent-sharing-enabled.png",
       "section": "Use Case #4, Step 2",
       "instructions": [
-        "Open the Census Data Specialist agent's Settings page.",
+        "Open the real Census Data Specialist agent's Settings page.",
         "Find the 'allow other agents to use this agent' (or equivalent) toggle and make sure it's enabled.",
-        "Capture the toggle in the ON state."
+        "Capture the toggle in the ON state with enough surrounding settings context to identify the agent.",
+        "Do not use the Lab 04 Reference/mock placeholder image."
       ]
     },
     {
@@ -115,8 +125,9 @@
       "filename": "connected-agent-config.png",
       "section": "Use Case #4, Step 4",
       "instructions": [
-        "Open Energy Intelligence Agent and navigate to the Agents page.",
-        "Show Census Data Specialist added as a connected agent with its description visible."
+        "Open Energy Intelligence Agent and navigate to the Agents page after adding Census Data Specialist.",
+        "Show Census Data Specialist added as a connected agent with its description visible.",
+        "Do not capture the empty 'Add an agent' state."
       ]
     },
     {
@@ -125,7 +136,8 @@
       "section": "Use Case #5, Step 1",
       "instructions": [
         "Open Power Automate and start creating a new flow.",
-        "Open the trigger picker and select / highlight 'When an agent calls the flow'."
+        "Open the real trigger picker and select / highlight 'When an agent calls the flow'.",
+        "Do not use the Lab 04 Reference/mock placeholder image."
       ]
     },
     {
@@ -133,8 +145,9 @@
       "filename": "flow-state-summary-canvas.png",
       "section": "Use Case #5, Step 4",
       "instructions": [
-        "Open the completed 'Census State Planning Summary' flow.",
-        "Zoom out so the trigger, both HTTP actions, the Compose action, and the 'Respond to the agent' step are all visible in one view."
+        "Open the completed 'Census State Planning Summary' flow in Power Automate.",
+        "Zoom out so the trigger, both HTTP actions, the Compose action, and the 'Respond to the agent' step are all visible in one view.",
+        "Do not use the Lab 04 Reference/mock placeholder image; the real Power Automate canvas must be visible."
       ]
     },
     {
@@ -142,9 +155,10 @@
       "filename": "model-selection-comparison.png",
       "section": "Use Case #6, Step 3",
       "instructions": [
-        "Open the agent's primary model selector in Settings.",
-        "Have two browser windows / tabs side-by-side showing the same prompt's response under two different models, plus the model selector.",
-        "Use the OS screenshot tool if you need to compose multiple windows in one shot."
+        "Open the agent's primary model selector in Settings with the selector/dropdown visible.",
+        "Have two browser windows / tabs side-by-side showing the same prompt's completed response under two different models, plus the model selector.",
+        "Use the OS screenshot tool if you need to compose multiple windows in one shot.",
+        "Do not capture only the Overview page or an empty Test pane; two model responses must be visible."
       ]
     },
     {
@@ -153,7 +167,8 @@
       "section": "Use Case #7, Step 1",
       "instructions": [
         "Open the Evaluation tab and click 'Create a test set'.",
-        "On the dialog, check Similarity, General quality, and Keyword match so all three are visible."
+        "Wait for the dialog to load, then check Similarity, General quality, and Keyword match so all three are visible.",
+        "Do not capture the Overview page, a loading state, or the Evaluation tab without the dialog."
       ]
     },
     {
@@ -161,9 +176,10 @@
       "filename": "evaluation-results.png",
       "section": "Use Case #7, Step 4",
       "instructions": [
-        "After running the evaluation, open the results dashboard.",
+        "After running the evaluation, open the real results dashboard.",
         "Capture the overall pass rate and per-test results.",
-        "If possible, also show an activity map for one failed case in the same view."
+        "If possible, also show an activity map or failure detail for one failed case in the same view.",
+        "Do not use the Lab 04 Reference/mock placeholder image."
       ]
     },
     {
@@ -172,7 +188,8 @@
       "section": "Optional Use Case #8, Step 5",
       "instructions": [
         "After registering the MCP server in Copilot Studio, open the discovered tools list.",
-        "Make sure get_population, get_median_income, get_housing_stats, and get_employment_by_industry are all visible."
+        "Make sure get_population, get_median_income, get_housing_stats, and get_employment_by_industry are all visible.",
+        "Do not capture the Topics page; the MCP discovered tools list and tool names must be visible."
       ]
     }
   ]

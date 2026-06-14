@@ -4,14 +4,12 @@ Interactive Playwright script that helps you capture every screenshot referenced
 
 ## What it does
 
-1. Launches a real Chromium window (not headless) so you can sign in to Copilot Studio normally.
-2. Walks you through each shot in [`shots.json`](./shots.json) one at a time:
-   - Prints the section it belongs to
-   - Prints the setup steps you need to perform in the Copilot Studio UI
-   - Waits for you to press **Enter**, then snaps the active tab and saves to `labs/<lab>/assets/<filename>.png`
-3. Persists your sign-in state in `./.auth` so you only log in once.
+1. Launches headed Chromium so you can sign in normally, then persists auth in `./.auth`.
+2. Walks [`shots.json`](./shots.json) one shot at a time, printing the section and setup steps.
+3. Optionally navigates, sets viewport/zoom, and best-effort dismisses cookie banners, teaching tips, popovers, and toasts before prompting.
+4. Waits for your keystroke, captures the active tab, saves to `labs/<lab>/assets/<filename>.png`, and verifies the PNG.
 
-The script never types anything into Copilot Studio — you drive the UI, it just snaps and files screenshots correctly.
+The script never types into Copilot Studio or configures the agent — you drive sign-in, UI setup, and final shot approval.
 
 ## One-time setup
 
@@ -24,61 +22,60 @@ npx playwright install chromium
 ## Usage
 
 ```powershell
-# Capture every shot that doesn't exist on disk yet
-npm run capture
-
-# See which shots already exist and which are missing
-npm run list
-
-# Re-capture even shots that already exist
-node capture.js --all
-
-# Only capture specific shot IDs
-node capture.js --only=3,7,12
-
-# Capture an inclusive range of IDs
-node capture.js --range=5-10
+npm run capture              # capture shots missing on disk
+npm run list                 # show existing/missing shots
+node capture.js --help       # show all flags and keystrokes
+node capture.js --dry-run --missing  # validate catalog without launching Playwright
+node capture.js --all        # re-capture everything
+node capture.js --only=3,7   # capture specific shot IDs
+node capture.js --range=5-10 # capture an inclusive ID range
+node capture.js --from=5     # start at shot ID 5
 ```
+
+Selection precedence is `--only` > `--range` > `--from` > `--missing` default; conflicting selection flags are rejected.
+
+### Verify screenshot consistency
+
+```powershell
+npm run verify
+node verify-shots.js --lab=04-energy-census-advanced-agent
+node verify-shots.js --json
+node verify-shots.js --strict
+```
+
+`verify-shots.js` scans lab markdown, `shots.json`, and lab assets for schema drift, missing or invalid image files, markdown/catalog mismatches, tiny placeholder-like PNGs, and orphan PNG/JPEG assets. It exits `0` when there are no critical findings, `1` when critical findings exist; `--strict` also fails on warnings.
 
 > ⚠️ **Heads up:** npm 11 strips unknown flags like `--all` from `npm run capture -- --all`. Use the direct `node capture.js …` form when passing flags. `npm run capture` and `npm run list` are wired in `package.json` so they work as-is.
 
 ## During a capture session
 
-For each shot the script prints something like:
+Get the browser into the right state, then use the terminal keystrokes shown in the one-line prompt:
 
-```
-────────────────────────────────────────────────────────────────────────
-Shot #2  →  adaptive-card-json-editor.png
-Section: Use Case #1, Step 3
+- `Space` — snap, verify, save, and advance
+- `r` — retry/re-snap the current shot after you tweak the UI
+- `n` — skip this shot without saving
+- `q` — quit gracefully, close Chromium, and persist auth
+- `?` — re-print the current instructions
 
-Setup steps:
-  • Open the Service Territory Lookup topic and add an 'Ask with adaptive card' node.
-  • Open the card editor and switch to the JSON view.
-  • Paste the city/state/zipCode payload from the lab so the JSON is fully visible.
+Each exit path prints snapped/skipped/retried/failed-verify counts and the remaining missing filenames.
 
-Press [Enter] to capture, [s] to skip, [f] for fullscreen+capture, [q] to quit:
-```
+## Optional `shots.json` fields
 
-Get the Copilot Studio UI into the right state in the browser window the script opened, then press Enter back in the terminal. The script captures the **active tab** (the one in front), so feel free to use multiple tabs.
+Each shot still requires `id`, `filename`, `section`, and `instructions`. Optional fields are:
 
-- `Enter` — capture the visible viewport of the active tab
-- `s` — skip this shot, move to the next
-- `f` — try to make the active tab fullscreen first, capture, then exit fullscreen
-- `q` — quit the run, leave the browser open
-
-## What gets saved
-
-PNGs land directly in:
-
-```
-labs/04-energy-census-advanced-agent/assets/
+```json
+{
+  "url": "https://copilotstudio.microsoft.com/...",
+  "viewport": { "width": 1440, "height": 900 },
+  "zoom": 1.0,
+  "highlight": { "selector": "[data-id='target']", "label": "Future callout" }
+}
 ```
 
-with the exact filename declared in `shots.json` — those filenames are the ones already referenced in the lab's `index.md`, so the images render automatically as soon as they exist.
+`url` navigates before prompting when the active page is elsewhere. `viewport` and `zoom` reset to 1440x900 / 1.0 between shots before applying shot overrides. `highlight` is reserved for future callout-arrow work and is not implemented yet.
 
 ## Notes
 
 - Login state is stored in `tools/screenshot-capture/.auth/`. That directory is git-ignored — never commit it.
-- The browser stays open after the run finishes so any in-progress lab work isn't lost. Close it manually when you're done.
-- If you want to add or change shots, edit [`shots.json`](./shots.json) — `id`, `filename`, `section`, and `instructions` are all the script needs.
-- This tool is currently configured for Lab 04 only. To use it for another lab, change the `lab`, `assetsDir`, and `shots` keys in `shots.json` (or copy the folder to a per-lab path).
+- PNGs land directly in `labs/04-energy-census-advanced-agent/assets/` with filenames declared in `shots.json`.
+- This tool is currently configured for Lab 04 only. To use another lab, change `lab`, `assetsDir`, and `shots` in `shots.json`.
