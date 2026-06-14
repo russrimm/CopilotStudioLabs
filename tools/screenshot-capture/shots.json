@@ -1,0 +1,179 @@
+{
+  "lab": "04-energy-census-advanced-agent",
+  "assetsDir": "labs/04-energy-census-advanced-agent/assets",
+  "startUrl": "https://copilotstudio.microsoft.com/",
+  "shots": [
+    {
+      "id": 0,
+      "filename": "copilot-studio-home.png",
+      "section": "Use Case #1, Step 1",
+      "instructions": [
+        "Navigate to the Copilot Studio home page (copilotstudio.microsoft.com).",
+        "Make sure the 'Agent' option is selected and the 'Start building from scratch' tiles are visible.",
+        "Close any teaching tips, banners, or popovers."
+      ]
+    },
+    {
+      "id": 1,
+      "filename": "topic-add-from-blank.png",
+      "section": "Use Case #1, Step 2",
+      "instructions": [
+        "Open your Energy Intelligence Agent and go to the Topics page.",
+        "Click '+ Add a topic' so the dropdown menu is open.",
+        "Make sure 'From blank' is visible and highlighted in the menu."
+      ]
+    },
+    {
+      "id": 2,
+      "filename": "adaptive-card-json-editor.png",
+      "section": "Use Case #1, Step 3",
+      "instructions": [
+        "Open the Service Territory Lookup topic and add an 'Ask with adaptive card' node.",
+        "Open the card editor and switch to the JSON view.",
+        "Paste the city/state/zipCode payload from the lab so the JSON is fully visible."
+      ]
+    },
+    {
+      "id": 3,
+      "filename": "adaptive-card-preview.png",
+      "section": "Use Case #1, Step 3",
+      "instructions": [
+        "Switch the Adaptive Card editor to the Preview/Designer view.",
+        "Make sure City, State, Zip Code inputs and the Submit button are all visible."
+      ]
+    },
+    {
+      "id": 4,
+      "filename": "adaptive-card-output-mapping.png",
+      "section": "Use Case #1, Step 3",
+      "instructions": [
+        "Close the card editor and click on the 'Ask with adaptive card' node so its properties pane is open.",
+        "Scroll the properties pane to 'Save user response as'.",
+        "Show the three card outputs (city, state, zipCode) mapped to topic variables."
+      ]
+    },
+    {
+      "id": 5,
+      "filename": "state-fips-switch-powerfx.png",
+      "section": "Use Case #1, Step 4",
+      "instructions": [
+        "Add a 'Set variable value' node after the Adaptive Card node.",
+        "Open the formula editor and paste the Switch(Upper(Topic.state), 'TX', '48', ...) expression.",
+        "Make sure the full Power Fx expression is readable in the screenshot."
+      ]
+    },
+    {
+      "id": 6,
+      "filename": "global-variables-list.png",
+      "section": "Use Case #2, Step 2",
+      "instructions": [
+        "Open the agent's variables / global variables panel.",
+        "Make sure Global.DefaultState, Global.DefaultYear, and Global.APIKey are all visible.",
+        "Mask or blur the API key value if you don't want to commit it."
+      ]
+    },
+    {
+      "id": 7,
+      "filename": "variable-picker-in-url.png",
+      "section": "Use Case #2, Step 5",
+      "instructions": [
+        "Open one of your HTTP tools and edit the URL field.",
+        "Open the variable picker so Topic.DataYear, Topic.StateFIPS, and Global.APIKey are visible as insertable values.",
+        "Position the URL field so the inserted variables are also visible in the URL."
+      ]
+    },
+    {
+      "id": 8,
+      "filename": "tool-county-demographics-inputs.png",
+      "section": "Use Case #3, Step 2",
+      "instructions": [
+        "Open the 'Get County Demographics' tool's Inputs configuration.",
+        "Show all four inputs: year, state, county, apiKey, with their descriptions."
+      ]
+    },
+    {
+      "id": 9,
+      "filename": "tool-county-demographics-test.png",
+      "section": "Use Case #3, Step 6",
+      "instructions": [
+        "Run a manual test of the 'Get County Demographics' tool with year=2023, state=48, county=201, apiKey=<your key>.",
+        "Capture the test panel showing a successful response (NAME, population, income, housing units)."
+      ]
+    },
+    {
+      "id": 10,
+      "filename": "connected-agent-sharing-enabled.png",
+      "section": "Use Case #4, Step 2",
+      "instructions": [
+        "Open the Census Data Specialist agent's Settings page.",
+        "Find the 'allow other agents to use this agent' (or equivalent) toggle and make sure it's enabled.",
+        "Capture the toggle in the ON state."
+      ]
+    },
+    {
+      "id": 11,
+      "filename": "connected-agent-config.png",
+      "section": "Use Case #4, Step 4",
+      "instructions": [
+        "Open Energy Intelligence Agent and navigate to the Agents page.",
+        "Show Census Data Specialist added as a connected agent with its description visible."
+      ]
+    },
+    {
+      "id": 12,
+      "filename": "flow-agent-trigger.png",
+      "section": "Use Case #5, Step 1",
+      "instructions": [
+        "Open Power Automate and start creating a new flow.",
+        "Open the trigger picker and select / highlight 'When an agent calls the flow'."
+      ]
+    },
+    {
+      "id": 13,
+      "filename": "flow-state-summary-canvas.png",
+      "section": "Use Case #5, Step 4",
+      "instructions": [
+        "Open the completed 'Census State Planning Summary' flow.",
+        "Zoom out so the trigger, both HTTP actions, the Compose action, and the 'Respond to the agent' step are all visible in one view."
+      ]
+    },
+    {
+      "id": 14,
+      "filename": "model-selection-comparison.png",
+      "section": "Use Case #6, Step 3",
+      "instructions": [
+        "Open the agent's primary model selector in Settings.",
+        "Have two browser windows / tabs side-by-side showing the same prompt's response under two different models, plus the model selector.",
+        "Use the OS screenshot tool if you need to compose multiple windows in one shot."
+      ]
+    },
+    {
+      "id": 15,
+      "filename": "eval-test-methods.png",
+      "section": "Use Case #7, Step 1",
+      "instructions": [
+        "Open the Evaluation tab and click 'Create a test set'.",
+        "On the dialog, check Similarity, General quality, and Keyword match so all three are visible."
+      ]
+    },
+    {
+      "id": 16,
+      "filename": "evaluation-results.png",
+      "section": "Use Case #7, Step 4",
+      "instructions": [
+        "After running the evaluation, open the results dashboard.",
+        "Capture the overall pass rate and per-test results.",
+        "If possible, also show an activity map for one failed case in the same view."
+      ]
+    },
+    {
+      "id": 17,
+      "filename": "mcp-tool-discovery.png",
+      "section": "Optional Use Case #8, Step 5",
+      "instructions": [
+        "After registering the MCP server in Copilot Studio, open the discovered tools list.",
+        "Make sure get_population, get_median_income, get_housing_stats, and get_employment_by_industry are all visible."
+      ]
+    }
+  ]
+}

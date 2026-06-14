@@ -173,8 +173,11 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 
 ### Step 1 — Create the Energy Intelligence Agent
 
-1. In Copilot Studio, select **Agents**.
-2. Select **New agent**.
+1. Open [Copilot Studio](https://copilotstudio.microsoft.com/). You should land on the **What would you like to build?** home page shown below.
+
+   ![Copilot Studio home page with the Agent option selected and the "Start building from scratch" tiles for Agent, Computer-using agent, and Create workflow.](./assets/copilot-studio-home.png)
+
+2. Make sure **Agent** is selected (not **Workflow**), then under **Start building from scratch** select the **Agent** tile.
 3. Name the agent:
    ```text
    Energy Intelligence Agent
@@ -192,6 +195,8 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 
 1. Open the agent and select **Topics**.
 2. Select **+ Add a topic** and **From blank**.
+
+   ![Topics page in Copilot Studio with the "+ Add a topic" menu open and "From blank" highlighted.](./assets/topic-add-from-blank.png)
 
 > 💡 **Tip:** The **Add from description with Copilot** can save significant time up front in creating your agent. Since this lab is designed to be more advanced, we are selecting the more manual option of starting with a blank slate.
 
@@ -266,11 +271,18 @@ Instead of asking a freeform location question and then parsing the answer with 
      ]
    }
    ```
+   ![Adaptive Card editor in JSON view with the city/state/zipCode payload pasted in.](./assets/adaptive-card-json-editor.png)
+
 4. Save the card and click **Close**. Copilot Studio will surface each `Input.Text` as a separately addressable output you can map to topic variables.
+
+   ![Adaptive Card preview rendering the City, State, and Zip Code input fields with a Submit button.](./assets/adaptive-card-preview.png)
+
 5. Under **Save user response as**, map the card outputs into three new topic variables:
    - `city` → `Topic.City`
    - `state` → `Topic.StateInput` (2-letter abbreviation, e.g. `TX`)
    - `zipCode` → `Topic.ZipCode`
+
+   ![Save user response as panel showing card outputs city, state, and zipCode mapped to topic variables.](./assets/adaptive-card-output-mapping.png)
 
 > 💡 **Why an Adaptive Card here?** With a freeform question you'd need entity extraction or condition branches to figure out whether the user typed a city, a state, or a ZIP. The card guarantees you receive all three values as named, validated inputs — and the `isRequired` + `errorMessage` properties handle empty-input cases for you.
 
@@ -293,6 +305,8 @@ The Census API needs **FIPS codes**, not free-text city/state strings. Now that 
    )
    ```
    Notice the variable automatically renames to Global.varFIPS`. Add more state mappings as needed for your demo footprint, or replace this node with a connector/HTTP call to a ZIP→FIPS lookup service if you want full national coverage.
+
+   ![Set variable value node containing a Power Fx Switch expression mapping state abbreviations to FIPS codes.](./assets/state-fips-switch-powerfx.png)
 
 2. Add a **Condition** node to confirm we successfully resolved a state FIPS:
    - **If `Topic.state` is blank** → add a **Send a message** node explaining the state isn't yet supported by the demo lookup.
@@ -406,6 +420,8 @@ Use the following variable design:
    ```
 5. Create `Global.APIKey` and paste your Census API key.
 
+   ![Global variables panel listing DefaultState, DefaultYear, and APIKey with their values.](./assets/global-variables-list.png)
+
 > ⚠️ **Security reminder:** Treat the API key like a secret. In production, prefer managed connections, Azure Key Vault, environment variables, or a protected flow/custom connector pattern instead of broadly exposing the key in multiple editable places.
 
 ### Step 3 — Initialize topic variables in **Service Territory Lookup**
@@ -445,7 +461,7 @@ Your state employment call should conceptually resolve to:
 https://api.census.gov/data/{Topic.DataYear}/acs/acs5?get=NAME,C24050_001E,C24050_004E&for=state:{Topic.StateFIPS}&key={Global.APIKey}
 ```
 
-> 💡 **Screenshot callout:** Capture the variable picker showing a URL field that inserts `Topic.DataYear`, `Topic.StateFIPS`, and `Global.APIKey` dynamically.
+![Variable picker open over an HTTP URL field, inserting Topic.DataYear, Topic.StateFIPS, and Global.APIKey.](./assets/variable-picker-in-url.png)
 
 ### Step 6 — Pass variables between topics and use system variables
 
@@ -508,6 +524,8 @@ Give the planner-friendly input descriptions, especially for FIPS formatting:
 - `state`: *Two-digit state FIPS code. Use leading zeros when needed.*
 - `county`: *Three-digit county FIPS code within the state. Use leading zeros when needed.*
 
+![Tool input configuration for Get County Demographics showing year, state, county, and apiKey inputs.](./assets/tool-county-demographics-inputs.png)
+
 ### Step 3 — Configure the Tool 1 request
 
 Use this real endpoint pattern:
@@ -565,6 +583,8 @@ Follow the same pattern as Tool 1:
    - County: `year = 2023`, `state = 48`, `county = 201`, `apiKey = <your key>`
    - State: `year = 2023`, `state = 48`, `apiKey = <your key>`
 3. Verify that both tools return readable data.
+
+   ![Tool test panel showing a successful Get County Demographics response for Harris County, Texas.](./assets/tool-county-demographics-test.png)
 4. Return to **Service Territory Lookup** and wire the tools into the topic branches:
    - **County branch** → call **Get County Demographics** with `Topic.DataYear`, `Topic.StateFIPS`, `Topic.CountyFIPS`, `Global.APIKey`
    - **State branch** → call **Get State Energy Employment** with `Topic.DataYear`, `Topic.StateFIPS`, `Global.APIKey`
@@ -620,6 +640,9 @@ The parent agent should orchestrate the planning experience while a connected sp
    - `What is B19013_001E?`
    - `Show me county demographics for Harris County Texas`
 4. Open **Settings** for the connected agent. Enable the setting that allows other agents to connect to and use this agent.
+
+   ![Census Data Specialist Settings page with the "allow other agents to use this agent" toggle enabled.](./assets/connected-agent-sharing-enabled.png)
+
 5. Publish the connected agent.
 
 > ⚠️ **Important:** A connected agent cannot be selected by a parent until it is published and sharing is enabled. Both agents must be in the same environment.
@@ -643,7 +666,7 @@ The parent agent should orchestrate the planning experience while a connected sp
 2. Open the activity trace and confirm the parent routed the work to the child agent.
 3. Refine the child description if the parent fails to route consistently.
 
-> 💡 **Screenshot callout:** Capture the connected-agent configuration showing **Census Data Specialist** added to the parent with its description visible.
+![Energy Intelligence Agent's Agents page showing Census Data Specialist added as a connected agent with its description visible.](./assets/connected-agent-config.png)
 
 ### ✅ You've completed Use Case #4
 
@@ -674,6 +697,9 @@ A planning manager wants one state briefing instead of several separate tool res
 1. Open **Power Automate**.
 2. Select **Create**.
 3. Choose the trigger **When an agent calls the flow**.
+
+   ![Power Automate trigger picker with "When an agent calls the flow" selected.](./assets/flow-agent-trigger.png)
+
 4. Name the flow:
    ```text
    Census State Planning Summary
@@ -724,6 +750,9 @@ Add two **HTTP** actions (both `GET`):
    - `employmentTotal`
    - `energySectorEmployment`
 3. Save the flow.
+
+   ![Power Automate flow canvas showing the trigger, two HTTP actions, Compose, and Respond to the agent steps.](./assets/flow-state-summary-canvas.png)
+
 4. Return to **Energy Intelligence Agent** and add the flow as a tool/action named **Get State Planning Summary**.
 5. Description:
    ```text
@@ -789,7 +818,7 @@ Suggested prompt set:
 
 Use stronger models for executive summaries, multi-tool analysis, and interpretation-heavy questions. Use lighter models for simple lookups, help topics, and deterministic tool wrappers.
 
-> 💡 **Screenshot callout:** Capture the model selection UI and one side-by-side comparison of the same energy prompt under two different models.
+![Primary model selector in Copilot Studio settings alongside two side-by-side test responses for the same energy planning prompt.](./assets/model-selection-comparison.png)
 
 ### ✅ You've completed Use Case #6
 
@@ -828,6 +857,8 @@ Before planners rely on the agent, you need evidence that it handles common and 
    - **Similarity**
    - **General quality**
    - **Keyword match**
+
+   ![Create a test set dialog with Similarity, General quality, and Keyword match selected as test methods.](./assets/eval-test-methods.png)
 
 > 💡 **Method guidance:**
 > - **Similarity** helps with structured summaries that can vary in wording.
@@ -882,7 +913,7 @@ For each test, add expected answers or assertions. For example: Question 1 shoul
 
 Apply fixes in the right place: topic issues → fix the topic; tool issues → fix descriptions; routing issues → fix connected-agent descriptions; reasoning issues → revisit model choice.
 
-> 💡 **Screenshot callout:** Capture the evaluation results dashboard and one activity map showing a failed case with the root-cause signal.
+![Evaluation results dashboard with overall pass rate, per-test results, and an activity map for a failed case.](./assets/evaluation-results.png)
 
 ### ✅ You've completed Use Case #7
 
@@ -986,7 +1017,7 @@ A sample MCP configuration might look like:
 
 > 💡 **Why MCP?** One server exposes many related Census tools, schemas become discoverable at runtime, and you can extend to Economic Census, commute data, or tract-level analysis without rebuilding topics. MCP also centralizes API key handling outside the agent canvas.
 
-> 💡 **Screenshot callout:** Capture the Copilot Studio MCP tool discovery page showing `get_population`, `get_median_income`, `get_housing_stats`, and `get_employment_by_industry`.
+![Copilot Studio MCP tool discovery page listing get_population, get_median_income, get_housing_stats, and get_employment_by_industry.](./assets/mcp-tool-discovery.png)
 
 ### ✅ You've completed Optional Use Case #8
 

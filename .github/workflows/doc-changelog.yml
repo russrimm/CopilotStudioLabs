@@ -1,0 +1,140 @@
+name: 📝 Documentation Changelog
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  doc-changelog:
+    name: Generate doc changelog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gather changed files
+        id: changes
+        run: |
+          BASE_SHA=${{ github.event.pull_request.base.sha }}
+          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+
+          # All changed files
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" || true)
+          echo "all<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CHANGED" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          # Markdown doc changes
+          DOCS=$(echo "$CHANGED" | grep -E '\.(md|markdown)$' || true)
+          echo "docs<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$DOCS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          # Screenshot / image changes
+          IMAGES=$(echo "$CHANGED" | grep -iE '\.(png|jpg|jpeg|gif|svg|webp)$' || true)
+          echo "images<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$IMAGES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          # Lab content changes (anything under labs/)
+          LABS=$(echo "$CHANGED" | grep -E '^labs/' || true)
+          echo "labs<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$LABS" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          # Template / config changes
+          CONFIG=$(echo "$CHANGED" | grep -E '(template\.config\.json|setup\.js|package\.json|\.github/workflows/)' || true)
+          echo "config<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$CONFIG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          # Set flags
+          [ -n "$DOCS" ]   && echo "has_docs=true"   >> "$GITHUB_OUTPUT" || echo "has_docs=false"   >> "$GITHUB_OUTPUT"
+          [ -n "$IMAGES" ] && echo "has_images=true"  >> "$GITHUB_OUTPUT" || echo "has_images=false"  >> "$GITHUB_OUTPUT"
+          [ -n "$LABS" ]   && echo "has_labs=true"    >> "$GITHUB_OUTPUT" || echo "has_labs=false"    >> "$GITHUB_OUTPUT"
+          [ -n "$CONFIG" ] && echo "has_config=true"  >> "$GITHUB_OUTPUT" || echo "has_config=false"  >> "$GITHUB_OUTPUT"
+
+      - name: Build changelog comment
+        id: comment
+        run: |
+          {
+            echo "body<<CHANGELOG_EOF"
+            echo "## 📝 Documentation Change Summary"
+            echo ""
+            echo "This PR modifies documentation and/or lab content. Here's what changed:"
+            echo ""
+
+            # --- Documentation files ---
+            if [ "${{ steps.changes.outputs.has_docs }}" = "true" ]; then
+              echo "### 📄 Documentation files modified"
+              echo ""
+              echo '${{ steps.changes.outputs.docs }}' | while IFS= read -r f; do
+                [ -z "$f" ] && continue
+                echo "- \`$f\`"
+              done
+              echo ""
+            fi
+
+            # --- Screenshot / image files ---
+            if [ "${{ steps.changes.outputs.has_images }}" = "true" ]; then
+              echo "### 🖼️ Screenshots / images modified"
+              echo ""
+              echo "> ⚠️ **Screenshot changes detected.** Please verify these match the current Copilot Studio UI."
+              echo ""
+              echo '${{ steps.changes.outputs.images }}' | while IFS= read -r f; do
+                [ -z "$f" ] && continue
+                echo "- \`$f\`"
+              done
+              echo ""
+            fi
+
+            # --- Lab content ---
+            if [ "${{ steps.changes.outputs.has_labs }}" = "true" ]; then
+              echo "### 🧪 Lab content affected"
+              echo ""
+              # Extract unique lab folders
+              echo '${{ steps.changes.outputs.labs }}' | sed 's|labs/\([^/]*\)/.*|\1|' | sort -u | while IFS= read -r lab; do
+                [ -z "$lab" ] && continue
+                echo "- **$lab**"
+              done
+              echo ""
+            fi
+
+            # --- Config / infra changes ---
+            if [ "${{ steps.changes.outputs.has_config }}" = "true" ]; then
+              echo "### ⚙️ Template / infrastructure changes"
+              echo ""
+              echo '${{ steps.changes.outputs.config }}' | while IFS= read -r f; do
+                [ -z "$f" ] && continue
+                echo "- \`$f\`"
+              done
+              echo ""
+            fi
+
+            # --- Checklist ---
+            echo "### ✅ Reviewer checklist"
+            echo ""
+            echo "- [ ] Documentation accurately reflects the current Copilot Studio UI"
+            if [ "${{ steps.changes.outputs.has_images }}" = "true" ]; then
+              echo "- [ ] Modified screenshots are up-to-date and match the described steps"
+            fi
+            echo "- [ ] Lab instructions are clear and can be followed end-to-end"
+            echo "- [ ] No sensitive data (API keys, credentials) committed in lab content"
+            echo ""
+            echo "---"
+            echo "*Auto-generated by the Documentation Changelog workflow.*"
+
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post or update PR comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: doc-changelog
+          message: ${{ steps.comment.outputs.body }}

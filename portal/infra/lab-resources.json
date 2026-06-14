@@ -1,0 +1,223 @@
+{
+  "$schema": "./lab-resources.schema.json",
+  "_comment": "Resource manifest for each lab. Used by the provisioner to deploy Azure resources.",
+
+  "defaults": {
+    "location": "eastus",
+    "resourceGroupPrefix": "rg-copilot-labs",
+    "tags": {
+      "project": "CopilotStudioLabs",
+      "managedBy": "labs-portal"
+    }
+  },
+
+  "labs": {
+    "01-sdge-energy-ops-agent": {
+      "name": "IT Operations Agent",
+      "resources": [
+        {
+          "type": "resource-group",
+          "id": "lab01-rg",
+          "name": "rg-copilot-labs-01",
+          "description": "Resource group for Lab 01 resources"
+        },
+        {
+          "type": "sharepoint-site",
+          "id": "lab01-sharepoint",
+          "name": "AI & Digital Enablement",
+          "description": "SharePoint site for IT support docs, VPN guides, and policies",
+          "config": {
+            "template": "TeamSite",
+            "lists": ["IT Field Incidents"],
+            "uploadDocs": ["assets/Contoso_Field_Operations_Remote_Access_Guide.md"]
+          }
+        },
+        {
+          "type": "copilot-studio-agent",
+          "id": "lab01-agent",
+          "name": "IT Operations Agent",
+          "description": "Knowledge-powered IT support agent",
+          "config": {
+            "solutionName": "Agent Solution",
+            "knowledgeSources": ["sharepoint", "microsoft-support", "uploaded-doc"]
+          }
+        }
+      ]
+    },
+
+    "02-sempra-agent-analytics-evaluations": {
+      "name": "Analytics & Evaluations",
+      "resources": [
+        {
+          "type": "copilot-studio-agent",
+          "id": "lab02-agent",
+          "name": "Published Agent (from Lab 01)",
+          "description": "Requires a published agent with channel traffic for analytics",
+          "config": {
+            "dependsOnLab": "01-sdge-energy-ops-agent",
+            "requiresPublish": true,
+            "requiresChannel": true
+          }
+        }
+      ]
+    },
+
+    "03-sempra-account-orchestration-agent": {
+      "name": "Orchestration Agent",
+      "resources": [
+        {
+          "type": "dataverse-data",
+          "id": "lab03-dataverse",
+          "name": "Sample Dataverse Data",
+          "description": "Account and Contact tables with sample records",
+          "config": {
+            "tables": ["Account", "Contact"],
+            "sampleRecords": true,
+            "enableSearch": true
+          }
+        },
+        {
+          "type": "copilot-studio-agent",
+          "id": "lab03-lookup-agent",
+          "name": "Account Data Lookup Agent",
+          "description": "Connected agent for account data lookup",
+          "config": {
+            "enableSharing": true,
+            "requiresPublish": true
+          }
+        },
+        {
+          "type": "copilot-studio-agent",
+          "id": "lab03-main-agent",
+          "name": "Customer Operations Assistant",
+          "description": "Orchestrator agent using Agentic Reasoning Loop",
+          "config": {
+            "orchestrationType": "new-orchestrator",
+            "connectedAgents": ["lab03-lookup-agent"]
+          }
+        },
+        {
+          "type": "mcp-server",
+          "id": "lab03-mcp",
+          "name": "Dataverse MCP Server",
+          "description": "MCP server for Dataverse + Weather access",
+          "config": {
+            "runtime": "node",
+            "tools": ["dataverse-query", "msn-weather"]
+          }
+        }
+      ]
+    },
+
+    "04-energy-census-advanced-agent": {
+      "name": "Energy Intelligence Agent",
+      "resources": [
+        {
+          "type": "resource-group",
+          "id": "lab04-rg",
+          "name": "rg-copilot-labs-04",
+          "description": "Resource group for Lab 04 resources"
+        },
+        {
+          "type": "api-key",
+          "id": "lab04-census-key",
+          "name": "US Census Bureau API Key",
+          "description": "Free API key from api.census.gov",
+          "config": {
+            "registrationUrl": "https://api.census.gov/data/key_signup.html",
+            "envVar": "CENSUS_API_KEY",
+            "manual": true
+          }
+        },
+        {
+          "type": "copilot-studio-agent",
+          "id": "lab04-main-agent",
+          "name": "Energy Intelligence Agent",
+          "description": "Parent agent with topics, variables, and HTTP tools",
+          "config": {
+            "globalVariables": {
+              "DefaultState": "TX",
+              "DefaultYear": "2023",
+              "APIKey": "${CENSUS_API_KEY}"
+            }
+          }
+        },
+        {
+          "type": "copilot-studio-agent",
+          "id": "lab04-census-agent",
+          "name": "Census Data Specialist",
+          "description": "Connected agent for Census data lookups",
+          "config": {
+            "enableSharing": true,
+            "requiresPublish": true
+          }
+        },
+        {
+          "type": "power-automate-flow",
+          "id": "lab04-flow",
+          "name": "Census State Planning Summary",
+          "description": "Flow triggered by agent for multi-endpoint Census queries",
+          "config": {
+            "trigger": "when-agent-calls-flow",
+            "actions": ["http-census-population", "http-census-income", "compose-summary", "respond-to-agent"]
+          }
+        },
+        {
+          "type": "mcp-server",
+          "id": "lab04-mcp",
+          "name": "Census MCP Server",
+          "description": "Local MCP server for Census API (optional)",
+          "config": {
+            "runtime": "node",
+            "optional": true,
+            "tools": ["get_population", "get_median_income", "get_housing_stats", "get_employment_by_industry"],
+            "deployTo": "container-app"
+          }
+        },
+        {
+          "type": "container-app",
+          "id": "lab04-mcp-host",
+          "name": "Census MCP Container App",
+          "description": "Azure Container Apps hosting for MCP server (optional)",
+          "config": {
+            "optional": true,
+            "image": "copilot-labs-mcp-census:latest",
+            "cpu": 0.5,
+            "memory": "1Gi",
+            "minReplicas": 0,
+            "maxReplicas": 1,
+            "envVars": {
+              "CENSUS_API_KEY": "${CENSUS_API_KEY}"
+            }
+          }
+        }
+      ]
+    },
+
+    "05-copilot-studio-vscode-agent-management": {
+      "name": "VS Code Agent Management",
+      "resources": [
+        {
+          "type": "copilot-studio-agent",
+          "id": "lab05-agent",
+          "name": "Existing Published Agent",
+          "description": "Any published agent to clone and modify",
+          "config": {
+            "dependsOnLab": "01-sdge-energy-ops-agent",
+            "requiresPublish": true
+          }
+        },
+        {
+          "type": "local-tool",
+          "id": "lab05-vscode",
+          "name": "VS Code + Copilot Studio Extension",
+          "description": "VS Code with the Copilot Studio extension installed",
+          "config": {
+            "extensionId": "microsoft.copilot-studio",
+            "manual": true
+          }
+        }
+      ]
+    }
+  }
+}

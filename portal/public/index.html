@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>⚡ Copilot Studio Labs — Provisioning Portal</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface-hover: #22263a;
+      --border: #2d3148;
+      --text: #e4e6f0;
+      --text-muted: #8b8fa8;
+      --accent: #4f8ff7;
+      --accent-hover: #6ba1ff;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --danger: #f87171;
+      --radius: 10px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ── Layout ─────────────────────────── */
+    .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header h1 span { color: var(--accent); }
+
+    .main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ────────────────────────── */
+    .sidebar {
+      width: 340px;
+      min-width: 340px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sidebar-header h2 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .sidebar-actions { display: flex; gap: 8px; }
+
+    .lab-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .lab-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .lab-card:hover { background: var(--surface-hover); border-color: var(--accent); }
+    .lab-card.selected { border-color: var(--accent); background: rgba(79, 143, 247, 0.08); }
+    .lab-card.included { border-left: 3px solid var(--success); }
+    .lab-card.excluded { border-left: 3px solid var(--danger); opacity: 0.5; }
+
+    .lab-card-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; padding-right: 40px; }
+    .lab-card-meta { font-size: 12px; color: var(--text-muted); display: flex; gap: 12px; flex-wrap: wrap; }
+    .lab-card-meta span { display: flex; align-items: center; gap: 4px; }
+
+    .lab-toggle {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 36px;
+      height: 20px;
+      border-radius: 10px;
+      background: var(--border);
+      border: none;
+      cursor: pointer;
+      transition: background 0.2s;
+      padding: 0;
+    }
+    .lab-toggle.on { background: var(--success); }
+    .lab-toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.2s;
+    }
+    .lab-toggle.on::after { transform: translateX(16px); }
+
+    /* ── Content area ───────────────────── */
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+    }
+    .tab {
+      padding: 12px 20px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Cards / Panels ─────────────────── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .panel h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+    /* ── Forms ──────────────────────────── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label { font-size: 13px; font-weight: 500; color: var(--text-muted); }
+    .form-group input, .form-group textarea, .form-group select {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .form-group textarea { resize: vertical; min-height: 80px; }
+    .form-group .hint { font-size: 11px; color: var(--text-muted); }
+
+    /* ── Buttons ────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+    .btn:hover { background: var(--surface-hover); }
+    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-success { background: var(--success); border-color: var(--success); color: #0f1117; }
+    .btn-danger { background: var(--danger); border-color: var(--danger); color: white; }
+    .btn-sm { padding: 5px 10px; font-size: 12px; }
+
+    /* ── Tags ───────────────────────────── */
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      background: rgba(79, 143, 247, 0.15);
+      color: var(--accent);
+    }
+    .tag-success { background: rgba(52, 211, 153, 0.15); color: var(--success); }
+    .tag-warning { background: rgba(251, 191, 36, 0.15); color: var(--warning); }
+    .tag-danger { background: rgba(248, 113, 113, 0.15); color: var(--danger); }
+
+    .validation-summary, .preflight-status {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      margin-top: 12px;
+    }
+    .validation-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .validation-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      padding: 16px;
+    }
+    .validation-card-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .validation-card-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .validation-card details summary {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    .validation-test-list {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .validation-test {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      font-size: 13px;
+    }
+    .validation-test-name {
+      font-weight: 600;
+      margin-right: 6px;
+    }
+    .status-stack {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    /* ── Scenario planner ─────────────────── */
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .scenario-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .scenario-card:hover { border-color: var(--accent); background: var(--surface-hover); }
+    .scenario-card.active { border-color: var(--accent); background: rgba(79, 143, 247, 0.1); }
+    .scenario-card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .scenario-card-desc { color: var(--text-muted); font-size: 12px; }
+    .scenario-role-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .scenario-role {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .scenario-role input { margin-top: 3px; accent-color: var(--accent); }
+    .scenario-metrics {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+    }
+    .scenario-detail-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 120px;
+    }
+    .scenario-pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .scenario-pill {
+      background: rgba(79, 143, 247, 0.12);
+      color: var(--text);
+      border: 1px solid rgba(79, 143, 247, 0.25);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    .scenario-lab-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .scenario-lab-chip {
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(52, 211, 153, 0.12);
+      border: 1px solid rgba(52, 211, 153, 0.28);
+      font-size: 12px;
+    }
+    .scenario-empty { color: var(--text-muted); font-size: 13px; }
+
+    /* ── Email recipients ───────────────── */
+    .recipients-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+    .recipient-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(79, 143, 247, 0.15);
+      color: var(--accent);
+      padding: 4px 10px;
+      border-radius: 16px;
+      font-size: 13px;
+    }
+    .recipient-chip button {
+      background: none;
+      border: none;
+      color: var(--accent);
+      cursor: pointer;
+      font-size: 14px;
+      padding: 0 2px;
+      line-height: 1;
+    }
+
+    /* ── Preview ────────────────────────── */
+    .preview-wrapper {
+      display: flex;
+      gap: 0;
+      max-height: 70vh;
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .preview-toc {
+      width: 220px;
+      min-width: 180px;
+      background: #f8f8fc;
+      border-right: 1px solid #e0e0e8;
+      padding: 16px 12px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      flex-shrink: 0;
+    }
+    .preview-toc h4 {
+      margin: 0 0 10px 0;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #888;
+    }
+    .preview-toc .toc-node { margin-bottom: 2px; }
+    .preview-toc .toc-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      padding: 1px 0;
+    }
+    .preview-toc .toc-row-h2 { padding-left: 14px; }
+    .preview-toc .toc-row-h3 { padding-left: 26px; }
+    .preview-toc .toc-link {
+      display: block;
+      min-width: 0;
+      flex: 1;
+      color: #444;
+      text-decoration: none;
+      padding: 3px 6px;
+      border-radius: 4px;
+      margin-bottom: 2px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .preview-toc .toc-link:hover {
+      background: #e8e8f0;
+      color: var(--accent);
+    }
+    .preview-toc .toc-h1 { font-weight: 600; }
+    .preview-toc .toc-h3 { font-size: 12px; color: #666; }
+    .preview-toc .toc-toggle,
+    .preview-toc .toc-toggle-spacer {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .preview-toc .toc-toggle {
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: #999;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 9px;
+      transition: transform 0.2s ease, color 0.15s ease, background 0.15s ease;
+    }
+    .preview-toc .toc-toggle:hover {
+      color: var(--accent);
+      background: #e8e8f0;
+    }
+    .preview-toc .toc-toggle.expanded { transform: rotate(90deg); }
+    .preview-toc .toc-children {
+      overflow: hidden;
+      max-height: 2000px;
+      opacity: 1;
+      transition: max-height 0.25s ease, opacity 0.2s ease;
+    }
+    .preview-toc .toc-children.collapsed {
+      max-height: 0;
+      opacity: 0;
+    }
+    .preview-frame {
+      background: white;
+      color: #1a1a2e;
+      padding: 32px;
+      overflow-y: auto;
+      font-size: 15px;
+      line-height: 1.7;
+      flex: 1;
+    }
+    .preview-frame h1 { font-size: 24px; margin-bottom: 16px; color: #1a1a2e; }
+    .preview-frame h2 { font-size: 20px; margin-top: 24px; margin-bottom: 12px; color: #1a1a2e; }
+    .preview-frame h3 { font-size: 17px; margin-top: 20px; margin-bottom: 8px; color: #1a1a2e; }
+    .preview-frame code { background: #f0f0f5; padding: 2px 6px; border-radius: 4px; font-size: 13px; }
+    .preview-frame pre { background: #f0f0f5; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }
+    .preview-frame table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+    .preview-frame th, .preview-frame td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
+    .preview-frame th { background: #f0f0f5; }
+    .preview-frame blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: #555; margin: 12px 0; }
+
+    /* ── Status bar ─────────────────────── */
+    .status-bar {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 8px 24px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .status-dot.green { background: var(--success); }
+    .status-dot.yellow { background: var(--warning); }
+    .status-dot.red { background: var(--danger); }
+
+    .provision-status-host[hidden] { display: none !important; }
+    .provision-status-bar {
+      position: sticky;
+      bottom: 0;
+      margin-top: 16px;
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(79, 143, 247, 0.08), rgba(26, 29, 39, 0.98));
+      box-shadow: var(--shadow);
+      z-index: 5;
+    }
+    .provision-status-bar.failed {
+      background: linear-gradient(180deg, rgba(248, 113, 113, 0.12), rgba(26, 29, 39, 0.98));
+    }
+    .provision-status-bar.done {
+      background: linear-gradient(180deg, rgba(52, 211, 153, 0.12), rgba(26, 29, 39, 0.98));
+    }
+    .provision-status-header,
+    .provision-summary-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .provision-status-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .provision-status-job,
+    .provision-status-summary,
+    .provision-current-title,
+    .provision-step-title {
+      font-weight: 600;
+    }
+    .provision-status-summary,
+    .provision-summary-row,
+    .provision-step-detail,
+    .provision-current-detail,
+    .provision-empty {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+    .provision-status-current {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin: 14px 0 12px;
+      padding: 12px;
+      background: rgba(15, 17, 23, 0.48);
+      border: 1px solid rgba(79, 143, 247, 0.18);
+      border-radius: 8px;
+    }
+    .provision-current-icon,
+    .provision-step-icon {
+      width: 20px;
+      min-width: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    .provision-progress-track {
+      width: 100%;
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      margin-bottom: 12px;
+    }
+    .provision-progress-fill {
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), var(--success));
+      transition: width 0.3s ease;
+    }
+    .provision-completed-list {
+      margin-top: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .provision-completed-item {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(15, 17, 23, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 13px;
+    }
+    .provision-spinner {
+      width: 14px;
+      height: 14px;
+      border-width: 2px;
+    }
+
+    /* ── Toast ──────────────────────────── */
+    .toast-container { position: fixed; bottom: 60px; right: 24px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; }
+    .toast {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 20px;
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      animation: slideIn 0.3s ease;
+      max-width: 400px;
+    }
+    .toast.success { border-left: 3px solid var(--success); }
+    .toast.error { border-left: 3px solid var(--danger); }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* ── Config status grid ─────────────── */
+    .config-status { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .config-status-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+    .config-status-item .label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .config-status-item .value { font-size: 14px; font-weight: 500; margin-top: 4px; }
+
+    /* ── Loading ────────────────────────── */
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ─────────────────────── */
+    @media (max-width: 900px) {
+      .main-content { flex-direction: column; }
+      .sidebar { width: 100%; min-width: 100%; max-height: 40vh; }
+      .form-grid { grid-template-columns: 1fr; }
+      .provision-status-header, .provision-summary-row { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header>
+      <h1><span>⚡</span> Copilot Studio Labs — Provisioning Portal</h1>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span id="lab-count" class="tag tag-success">0 labs</span>
+        <button class="btn btn-sm" onclick="refreshLabs()">↻ Refresh</button>
+      </div>
+    </header>
+
+    <div class="main-content">
+      <!-- Sidebar: Lab chapters -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <h2>Lab Chapters</h2>
+          <div class="sidebar-actions">
+            <button class="btn btn-sm" onclick="selectAll(true)" title="Include all">✓ All</button>
+            <button class="btn btn-sm" onclick="selectAll(false)" title="Exclude all">✗ None</button>
+          </div>
+        </div>
+        <div class="lab-list" id="lab-list">
+          <div style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
+            <div class="spinner" style="margin: 0 auto 12px;"></div>
+            <div>Loading labs...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content area -->
+      <div class="content">
+        <div class="tabs">
+          <button class="tab active" data-tab="provision">🚀 Provision</button>
+          <button class="tab" data-tab="scenarios">🏢 Industry Scenarios</button>
+          <button class="tab" data-tab="preview">👁️ Preview</button>
+          <button class="tab" data-tab="azure">☁️ Azure Resources</button>
+          <button class="tab" data-tab="powerplatform">⚡ Power Platform</button>
+          <button class="tab" data-tab="validate">🧪 Validation</button>
+          <button class="tab" data-tab="email">📧 Email</button>
+          <button class="tab" data-tab="config">⚙️ Configuration</button>
+        </div>
+
+        <div class="tab-content">
+          <!-- Provision tab -->
+          <div class="tab-panel active" id="panel-provision">
+            <div class="panel">
+              <h3>📦 Customization</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                Customize the lab content for your organization before exporting or emailing.
+              </p>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Organization Name</label>
+                  <input type="text" id="cfg-org-name" placeholder="Contoso" />
+                  <span class="hint">Short organization name. Defaults to <code>Contoso</code> if blank.</span>
+                </div>
+                <div class="form-group">
+                  <label>Full Organization Name</label>
+                  <input type="text" id="cfg-org-full" placeholder="Contoso Energy" />
+                  <span class="hint">Full legal or display name. Defaults to <code>Contoso Energy</code>.</span>
+                </div>
+                <div class="form-group">
+                  <label>Parent Company</label>
+                  <input type="text" id="cfg-parent" placeholder="Contoso Energy Holdings" />
+                  <span class="hint">Parent or holding company. Defaults to <code>Contoso Energy Holdings</code>.</span>
+                </div>
+                <div class="form-group">
+                  <label>Industry</label>
+                  <select id="cfg-industry">
+                    <option value="">Keep default (Energy / Utilities)</option>
+                    <option value="Manufacturing">Manufacturing</option>
+                    <option value="Energy & Resources">Energy &amp; Resources</option>
+                    <option value="Healthcare">Healthcare</option>
+                    <option value="Financial Services">Financial Services</option>
+                    <option value="Retail">Retail</option>
+                    <option value="Education">Education</option>
+                    <option value="Nonprofit">Nonprofit</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Agent Name</label>
+                  <input type="text" id="cfg-agent" placeholder="e.g., Plant Floor Support Agent" />
+                  <span class="hint">Replaces "IT Operations Agent"</span>
+                </div>
+                <div class="form-group">
+                  <label>End Users</label>
+                  <input type="text" id="cfg-users" placeholder="e.g., plant operators" />
+                  <span class="hint">Replaces "field technicians"</span>
+                </div>
+                <div class="form-group">
+                  <label>Compliance Standard</label>
+                  <select id="cfg-compliance" multiple size="10">
+                    <option value="__NONE__">None — no specific compliance standard</option>
+                    <optgroup label="Energy & Utilities">
+                      <option value="NERC CIP">NERC CIP</option>
+                      <option value="FERC Order 706">FERC Order 706</option>
+                      <option value="IEC 62443">IEC 62443 (ICS / OT security)</option>
+                    </optgroup>
+                    <optgroup label="Healthcare">
+                      <option value="HIPAA">HIPAA</option>
+                      <option value="HITECH">HITECH</option>
+                      <option value="HITRUST CSF">HITRUST CSF</option>
+                      <option value="FDA 21 CFR Part 11">FDA 21 CFR Part 11</option>
+                    </optgroup>
+                    <optgroup label="Financial Services">
+                      <option value="SOX">SOX (Sarbanes-Oxley)</option>
+                      <option value="PCI DSS">PCI DSS</option>
+                      <option value="GLBA">GLBA</option>
+                      <option value="FFIEC">FFIEC</option>
+                      <option value="FINRA">FINRA</option>
+                      <option value="MiFID II">MiFID II</option>
+                      <option value="PSD2">PSD2</option>
+                      <option value="Basel III">Basel III</option>
+                    </optgroup>
+                    <optgroup label="Government & Defense">
+                      <option value="FedRAMP">FedRAMP</option>
+                      <option value="FISMA">FISMA</option>
+                      <option value="NIST SP 800-53">NIST SP 800-53</option>
+                      <option value="NIST SP 800-171">NIST SP 800-171</option>
+                      <option value="CMMC">CMMC</option>
+                      <option value="ITAR">ITAR</option>
+                      <option value="EAR">EAR</option>
+                      <option value="CJIS">CJIS</option>
+                      <option value="StateRAMP">StateRAMP</option>
+                    </optgroup>
+                    <optgroup label="Privacy">
+                      <option value="GDPR">GDPR (EU)</option>
+                      <option value="CCPA / CPRA">CCPA / CPRA (California)</option>
+                      <option value="PIPEDA">PIPEDA (Canada)</option>
+                      <option value="LGPD">LGPD (Brazil)</option>
+                      <option value="POPIA">POPIA (South Africa)</option>
+                      <option value="APPI">APPI (Japan)</option>
+                    </optgroup>
+                    <optgroup label="General Security & IT">
+                      <option value="ISO/IEC 27001">ISO/IEC 27001</option>
+                      <option value="ISO/IEC 27002">ISO/IEC 27002</option>
+                      <option value="ISO/IEC 27017">ISO/IEC 27017 (cloud)</option>
+                      <option value="ISO/IEC 27018">ISO/IEC 27018 (PII in cloud)</option>
+                      <option value="ISO/IEC 27701">ISO/IEC 27701 (privacy)</option>
+                      <option value="SOC 1">SOC 1</option>
+                      <option value="SOC 2">SOC 2</option>
+                      <option value="SOC 3">SOC 3</option>
+                      <option value="NIST CSF">NIST Cybersecurity Framework</option>
+                      <option value="CIS Controls">CIS Controls</option>
+                      <option value="COBIT">COBIT</option>
+                      <option value="OWASP ASVS">OWASP ASVS</option>
+                    </optgroup>
+                    <optgroup label="Quality & Operations">
+                      <option value="ISO 9001">ISO 9001 (quality)</option>
+                      <option value="ISO 14001">ISO 14001 (environmental)</option>
+                      <option value="ISO 45001">ISO 45001 (OH&S)</option>
+                      <option value="ISO 22301">ISO 22301 (business continuity)</option>
+                      <option value="ISO 31000">ISO 31000 (risk)</option>
+                    </optgroup>
+                    <optgroup label="Education">
+                      <option value="FERPA">FERPA</option>
+                    </optgroup>
+                    <optgroup label="Regional / Sector">
+                      <option value="APRA CPS 234">APRA CPS 234 (Australia)</option>
+                      <option value="MAS TRM">MAS TRM (Singapore)</option>
+                      <option value="DORA">DORA (EU financial)</option>
+                      <option value="EU AI Act">EU AI Act</option>
+                    </optgroup>
+                  </select>
+                  <span class="hint">Hold Ctrl (⌘ on Mac) to select multiple. Replaces "NERC CIP".</span>
+                </div>
+                <div class="form-group">
+                  <label>Tagline</label>
+                  <input type="text" id="cfg-tagline" placeholder="e.g., Building the future — powered by AI" />
+                  <span class="hint">Replaces default tagline in lab headers</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>🧪 Pre-flight Check</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                The portal runs documentation smoke tests before export or Azure provisioning. Review the latest status for your selected labs here.
+              </p>
+              <div id="preflight-validation-status" class="preflight-status">
+                <span class="tag">No validation run yet</span>
+                <span style="font-size: 13px; color: var(--text-muted);">Run validation from this page or the Validation tab.</span>
+              </div>
+              <div style="margin-top: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <button class="btn" onclick="runValidation()">🧪 Run All Tests</button>
+                <span style="font-size: 13px; color: var(--text-muted);">Export and deploy actions automatically refresh validation.</span>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>📥 Export</h3>
+              <div style="display: flex; gap: 12px; align-items: center;">
+                <button class="btn btn-primary" onclick="exportZip()">
+                  📦 Download ZIP
+                </button>
+                <span id="export-status" style="font-size: 13px; color: var(--text-muted);"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Industry Scenarios tab -->
+          <div class="tab-panel" id="panel-scenarios">
+            <div class="panel">
+              <h3>🏢 Industry Scenario Planner</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                Choose an industry and supporting roles to preconfigure recommended labs and scenario defaults.
+              </p>
+              <div id="scenario-industry-grid" class="scenario-grid">
+                <div class="scenario-empty">Loading scenarios...</div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>👥 Role Focus Areas</h3>
+              <div id="scenario-role-list" class="scenario-role-list">
+                <div class="scenario-empty">Loading roles...</div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>📊 Scenario Details</h3>
+              <div class="scenario-metrics">
+                <div class="scenario-detail-box">
+                  <div id="scenario-selected-title" style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Select an industry</div>
+                  <div id="scenario-description" class="scenario-empty">Scenario guidance will appear here.</div>
+                  <div id="scenario-categories" class="scenario-pill-list"></div>
+                </div>
+                <div class="scenario-detail-box">
+                  <div style="font-size: 14px; font-weight: 600;">Key KPIs</div>
+                  <div id="scenario-kpis" class="scenario-pill-list"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>🧪 Recommended Labs</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Labs are suggested from the selected industry plus any checked roles.
+              </p>
+              <div id="scenario-labs-preview" class="scenario-lab-preview"></div>
+              <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="applyScenarioConfig()">✨ Apply to Lab Config</button>
+                <span id="scenario-apply-status" style="font-size: 13px; color: var(--text-muted);"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preview tab -->
+          <div class="tab-panel" id="panel-preview">
+            <div class="panel">
+              <h3>👁️ Lab Preview</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                Select a lab from the sidebar to preview its content.
+              </p>
+              <div id="preview-wrapper" class="preview-wrapper" style="display: none;">
+                <nav id="preview-toc" class="preview-toc"></nav>
+                <div id="preview-area" class="preview-frame"></div>
+              </div>
+              <div id="preview-empty" style="text-align: center; padding: 60px; color: var(--text-muted);">
+                ← Click a lab in the sidebar to preview
+              </div>
+            </div>
+          </div>
+
+          <!-- Azure Resources tab -->
+          <div class="tab-panel" id="panel-azure">
+            <div class="panel">
+              <h3>🔍 Prerequisites Check</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                Verify your environment is ready for Azure resource provisioning.
+              </p>
+              <div id="prereq-results" style="margin-bottom: 16px;"></div>
+              <button class="btn" onclick="checkPrereqs()">🔍 Run Prerequisites Check</button>
+            </div>
+
+            <div class="panel">
+              <h3>☁️ Azure Resource Provisioning</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                Auto-deploy the Azure resources each lab needs — resource groups, Container Apps for MCP servers, App Service for the portal, SharePoint sites, and more.
+              </p>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Resource Name Prefix</label>
+                  <input type="text" id="az-base-name" value="copilot-labs" />
+                  <span class="hint">Used as prefix for all resource names</span>
+                </div>
+                <div class="form-group">
+                  <label>Azure Region</label>
+                  <select id="az-location">
+                    <option value="eastus">East US</option>
+                    <option value="eastus2">East US 2</option>
+                    <option value="westus">West US</option>
+                    <option value="westus2">West US 2</option>
+                    <option value="westus3">West US 3</option>
+                    <option value="centralus">Central US</option>
+                    <option value="northeurope">North Europe</option>
+                    <option value="westeurope">West Europe</option>
+                    <option value="uksouth">UK South</option>
+                    <option value="southeastasia">Southeast Asia</option>
+                    <option value="australiaeast">Australia East</option>
+                    <option value="japaneast">Japan East</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Subscription ID (optional)</label>
+                  <input type="text" id="az-subscription" placeholder="Uses current az CLI subscription if empty" />
+                </div>
+                <div class="form-group">
+                  <label>Census API Key (Lab 04)</label>
+                  <input type="text" id="az-census-key" placeholder="From api.census.gov" />
+                  <span class="hint"><a href="https://api.census.gov/data/key_signup.html" target="_blank" style="color: var(--accent);">Get a free key →</a></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>📋 Resource Manifest</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                Resources that will be provisioned for the selected labs. Toggle labs in the sidebar to change.
+              </p>
+              <div id="resource-manifest" style="margin-bottom: 16px;">
+                <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+                  <div class="spinner"></div> Loading resource manifest...
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>🚀 Deploy / Destroy</h3>
+              <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-primary" id="deploy-button" onclick="deployResources()">☁️ Deploy Resources</button>
+                <button class="btn btn-danger" onclick="destroyResources()">🗑️ Destroy Resources</button>
+                <button class="btn" onclick="checkDeployStatus()">📊 Check Status</button>
+                <span id="deploy-status" style="font-size: 13px; color: var(--text-muted);"></span>
+              </div>
+              <div id="deploy-log" style="margin-top: 16px; display: none;">
+                <h4 style="font-size: 14px; margin-bottom: 8px;">Deployment Log</h4>
+                <div id="deploy-log-entries" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; max-height: 300px; overflow-y: auto;"></div>
+              </div>
+              <div id="deploy-progress-bar" class="provision-status-host" hidden></div>
+            </div>
+          </div>
+
+          <!-- Power Platform tab -->
+          <div class="tab-panel" id="panel-powerplatform">
+            <div class="panel">
+              <h3>🔐 Authentication</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Sign in with your Microsoft account using delegated (user) permissions to manage Power Platform resources.
+              </p>
+              <div id="pp-auth-status" style="margin-bottom: 12px;"></div>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-primary" onclick="ppSignIn()">🔑 Sign In (Device Code)</button>
+                <button class="btn btn-sm" onclick="ppSignOut()">Sign Out</button>
+              </div>
+              <div id="pp-device-code" style="display: none; margin-top: 12px; padding: 16px; background: rgba(79,143,247,0.08); border: 1px solid var(--accent); border-radius: 8px;">
+                <div style="font-size: 14px; margin-bottom: 8px;">📱 <strong>Device Code Authentication</strong></div>
+                <div id="pp-device-code-msg" style="font-size: 13px;"></div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>🏢 Environments</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                All Power Platform environments in your tenant. Provision new environments for lab deployments or clean up unused ones.
+              </p>
+              <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button class="btn" onclick="ppLoadEnvironments()">↻ Refresh</button>
+                <button class="btn btn-primary" onclick="ppShowCreateEnv()">+ New Environment</button>
+              </div>
+              <div id="pp-env-list">
+                <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+                  Sign in to view environments
+                </div>
+              </div>
+            </div>
+
+            <div class="panel" id="pp-create-env-panel" style="display: none;">
+              <h3>➕ Create New Environment</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Display Name</label>
+                  <input type="text" id="pp-env-name" placeholder="e.g., Copilot Labs - Training" />
+                </div>
+                <div class="form-group">
+                  <label>Type</label>
+                  <select id="pp-env-type">
+                    <option value="Sandbox">Sandbox (Recommended for labs)</option>
+                    <option value="Production">Production</option>
+                    <option value="Trial">Trial</option>
+                    <option value="Developer">Developer</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Region</label>
+                  <select id="pp-env-region">
+                    <option value="unitedstates">United States</option>
+                    <option value="europe">Europe</option>
+                    <option value="asia">Asia</option>
+                    <option value="australia">Australia</option>
+                    <option value="japan">Japan</option>
+                    <option value="unitedkingdom">United Kingdom</option>
+                    <option value="canada">Canada</option>
+                    <option value="india">India</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Language</label>
+                  <select id="pp-env-lang">
+                    <option value="1033">English</option>
+                    <option value="1036">French</option>
+                    <option value="1031">German</option>
+                    <option value="1034">Spanish</option>
+                    <option value="1041">Japanese</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Security Group ID (optional)</label>
+                  <input type="text" id="pp-env-sg" placeholder="Azure AD security group GUID" />
+                  <span class="hint">Restricts access to members of this group</span>
+                </div>
+              </div>
+              <div style="margin-top: 16px; display: flex; gap: 8px;">
+                <button class="btn btn-primary" onclick="ppCreateEnvironment()">🚀 Create Environment</button>
+                <button class="btn" onclick="document.getElementById('pp-create-env-panel').style.display='none'">Cancel</button>
+                <span id="pp-create-status" style="font-size: 13px; color: var(--text-muted);"></span>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>🛡️ Secure Score & Recommendations</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Security posture assessment with actionable remediation for your Power Platform tenant.
+              </p>
+              <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button class="btn" onclick="ppLoadSecureScore()">🛡️ Load Secure Score</button>
+                <button class="btn" onclick="ppLoadRecommendations()">📋 Load Recommendations</button>
+              </div>
+              <div id="pp-secure-score" style="margin-bottom: 16px;"></div>
+              <div id="pp-recommendations"></div>
+            </div>
+
+            <div class="panel">
+              <h3>📅 Scheduled Administration</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Schedule recurring admin activities for your Power Platform tenant.
+              </p>
+              <div id="pp-schedules">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label>Task</label>
+                    <select id="pp-sched-task">
+                      <option value="env-audit">Environment audit (list all environments)</option>
+                      <option value="security-scan">Security recommendations scan</option>
+                      <option value="capacity-check">Capacity usage check</option>
+                      <option value="cleanup-unused">Flag unused environments (>30 days inactive)</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Frequency</label>
+                    <select id="pp-sched-freq">
+                      <option value="daily">Daily</option>
+                      <option value="weekly" selected>Weekly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label>Notify via Email</label>
+                    <input type="email" id="pp-sched-email" placeholder="admin@contoso.com" />
+                  </div>
+                </div>
+                <button class="btn btn-primary" style="margin-top: 12px;" onclick="ppScheduleTask()">📅 Schedule Task</button>
+                <div id="pp-sched-list" style="margin-top: 16px;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Validation tab -->
+          <div class="tab-panel" id="panel-validate">
+            <div class="panel">
+              <div style="display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
+                <div>
+                  <h3>🧪 Lab Documentation Validation</h3>
+                  <p style="color: var(--text-muted); margin-top: 6px; font-size: 14px;">
+                    Run smoke tests against each lab's documentation, metadata, and referenced assets.
+                  </p>
+                </div>
+                <button class="btn btn-primary" onclick="runValidation()">🧪 Run All Tests</button>
+              </div>
+              <div id="validation-summary" class="validation-summary">
+                <span class="tag">No validation run yet</span>
+                <span style="font-size: 13px; color: var(--text-muted);">Run the full validation suite to populate results.</span>
+              </div>
+              <div id="validation-results" class="validation-grid">
+                <div class="scenario-empty">Run validation to see lab smoke test results.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Email tab -->
+          <div class="tab-panel" id="panel-email">
+            <div class="panel">
+              <h3>📧 Send Labs via Email</h3>
+              <div class="form-grid">
+                <div class="form-group full">
+                  <label>Recipients</label>
+                  <div class="recipients-list" id="recipients-list"></div>
+                  <div style="display: flex; gap: 8px;">
+                    <input type="email" id="email-input" placeholder="Enter email address..." style="flex: 1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addRecipient()}" />
+                    <button class="btn btn-sm" onclick="addRecipient()">+ Add</button>
+                  </div>
+                </div>
+                <div class="form-group full">
+                  <label>Subject</label>
+                  <input type="text" id="email-subject" value="Your Copilot Studio Labs Package" />
+                </div>
+              </div>
+              <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
+                <button class="btn btn-primary" onclick="sendEmail()">📨 Send Email</button>
+                <span id="email-status" style="font-size: 13px; color: var(--text-muted);"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Config tab -->
+          <div class="tab-panel" id="panel-config">
+            <div class="panel">
+              <h3>⚙️ Deployment Configuration</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                Configure Azure and infrastructure settings. These are set via environment variables or <code>.env</code> file.
+              </p>
+              <div class="config-status" id="config-status">
+                <div style="padding: 20px; text-align: center; color: var(--text-muted);">
+                  <div class="spinner"></div> Loading configuration...
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>🔐 Azure Key Vault (Recommended for Production)</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                In production, secrets should be stored in Azure Key Vault — not in <code>.env</code> files.
+                The portal loads secrets from Key Vault at startup when <code>AZURE_KEYVAULT_URL</code> is set.
+              </p>
+              <div id="keyvault-status" style="margin-bottom: 16px;"></div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Key Vault URL</label>
+                  <input type="text" id="cfg-keyvault-url" placeholder="https://copilot-labs-kv.vault.azure.net" />
+                  <span class="hint">Set via AZURE_KEYVAULT_URL env var</span>
+                </div>
+                <div class="form-group">
+                  <label>Authentication</label>
+                  <select id="cfg-kv-auth" disabled>
+                    <option value="managed-identity">Managed Identity (Recommended)</option>
+                    <option value="az-cli" selected>az CLI (Development)</option>
+                    <option value="client-secret">Client Secret (Fallback)</option>
+                  </select>
+                  <span class="hint">Managed Identity requires no secrets — configure on App Service</span>
+                </div>
+              </div>
+              <div style="margin-top: 12px; display: flex; gap: 8px;">
+                <button class="btn btn-sm" onclick="checkKeyVault()">🔍 Check Status</button>
+                <button class="btn btn-sm btn-primary" onclick="syncToKeyVault()">🔄 Sync Secrets to Key Vault</button>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>🔐 Azure / Entra ID</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Tenant ID</label>
+                  <input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                  <span class="hint">Azure AD / Entra ID tenant</span>
+                </div>
+                <div class="form-group">
+                  <label>Client (App) ID</label>
+                  <input type="text" id="cfg-client-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                  <span class="hint">App registration for Graph API / deployment</span>
+                </div>
+                <div class="form-group">
+                  <label>Client Secret</label>
+                  <input type="password" id="cfg-client-secret" placeholder="••••••••" />
+                  <span class="hint">⚠️ Stored in .env only — never committed</span>
+                </div>
+                <div class="form-group">
+                  <label>Subscription ID</label>
+                  <input type="text" id="cfg-subscription" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+                  <span class="hint">Azure subscription for resource deployment</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>📧 Email (SMTP)</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>SMTP Host</label>
+                  <input type="text" id="cfg-smtp-host" placeholder="smtp.office365.com" />
+                </div>
+                <div class="form-group">
+                  <label>SMTP Port</label>
+                  <input type="number" id="cfg-smtp-port" placeholder="587" />
+                </div>
+                <div class="form-group">
+                  <label>SMTP User</label>
+                  <input type="text" id="cfg-smtp-user" placeholder="labs@contoso.com" />
+                </div>
+                <div class="form-group">
+                  <label>SMTP Password</label>
+                  <input type="password" id="cfg-smtp-pass" placeholder="••••••••" />
+                </div>
+                <div class="form-group full">
+                  <label>From Address</label>
+                  <input type="email" id="cfg-mail-from" placeholder="labs@contoso.com" />
+                  <span class="hint">Used for both SMTP and Graph transports</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>🚀 Deployment Targets</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>Azure Web App Name</label>
+                  <input type="text" id="cfg-webapp" placeholder="copilot-labs-portal" />
+                  <span class="hint">App Service name for portal hosting</span>
+                </div>
+                <div class="form-group">
+                  <label>Resource Group</label>
+                  <input type="text" id="cfg-rg" placeholder="rg-copilot-labs" />
+                </div>
+                <div class="form-group">
+                  <label>MCP Server URL</label>
+                  <input type="text" id="cfg-mcp" placeholder="https://mcp.contoso.com" />
+                  <span class="hint">Model Context Protocol server endpoint</span>
+                </div>
+                <div class="form-group">
+                  <label>Power Platform Environment</label>
+                  <input type="text" id="cfg-pp-env" placeholder="org12345.crm.dynamics.com" />
+                  <span class="hint">Target environment for Copilot Studio agents</span>
+                </div>
+                <div class="form-group">
+                  <label>Container Registry</label>
+                  <input type="text" id="cfg-acr" placeholder="contosoacr.azurecr.io" />
+                  <span class="hint">ACR for Docker image hosting</span>
+                </div>
+                <div class="form-group">
+                  <label>Container Image Tag</label>
+                  <input type="text" id="cfg-image-tag" placeholder="copilot-labs-portal:latest" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <div>
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text">Connecting...</span>
+      </div>
+      <div id="selected-summary">0 labs selected</div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+{
+  "$schema": "./template.config.schema.json",
+  "_comment": "Customize this file, then run 'npm run setup' to generate your lab instance.",
+
+  "organization": {
+    "name": "SDG&E",
+    "fullName": "San Diego Gas & Electric",
+    "parent": "Sempra",
+    "industry": "Energy / Utilities",
+    "description": "A large multi-subsidiary energy company delivering energy with purpose.",
+    "subsidiaries": [
+      "Pacific Coast Electric",
+      "Western Gas & Energy",
+      "LoneStar Grid"
+    ]
+  },
+
+  "branding": {
+    "logoPath": null,
+    "primaryColor": "#0078D4",
+    "tagline": "Delivering energy with purpose — powered by AI"
+  },
+
+  "scenario": {
+    "industry": "",
+    "roles": [],
+    "kpis": [],
+    "domain": "IT Operations",
+    "agentName": "IT Operations Agent",
+    "endUsers": "field technicians",
+    "useCases": [
+      "VPN connectivity troubleshooting",
+      "Energy Support App login failures",
+      "Remote device access",
+      "NERC CIP compliance questions"
+    ]
+  },
+
+  "knowledgeSources": {
+    "sharePointUrl": null,
+    "publicWebsites": [
+      "https://support.microsoft.com"
+    ],
+    "complianceStandard": "NERC CIP",
+    "uploadedDocuments": [
+      "Contoso_Field_Operations_Remote_Access_Guide.md"
+    ]
+  },
+
+  "labs": {
+    "include": [
+      "01-sdge-energy-ops-agent",
+      "02-sempra-agent-analytics-evaluations",
+      "03-sempra-account-orchestration-agent",
+      "04-energy-census-advanced-agent",
+      "05-copilot-studio-vscode-agent-management"
+    ]
+  },
+
+  "deployment": {
+    "repoName": "CopilotStudioLabs",
+    "repoDescription": "Hands-on labs for building AI-powered agents with Microsoft Copilot Studio",
+    "powerPlatformEnvironment": null
+  }
+}
