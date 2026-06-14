@@ -1,0 +1,22 @@
+{
+  "name": "copilot-studio-labs-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lab provisioning and de-provisioning portal for Copilot Studio Labs.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@azure/msal-node": "^5.2.4",
+    "archiver": "^7.0.1",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "marked": "^15.0.6",
+    "nodemailer": "^6.10.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

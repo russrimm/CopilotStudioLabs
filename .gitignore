@@ -10,3 +10,17 @@
 .squad/.cache/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+# Node
+node_modules/
+
+# Template setup
+*.config.local.json
+
+# Secrets
+portal/.env
+.env
+.env.local
+.env.*.local
+portal/.env.local
+portal/.env.*.local

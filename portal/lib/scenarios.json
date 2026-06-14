@@ -1,0 +1,254 @@
+{
+  "industries": [
+    {
+      "id": "manufacturing",
+      "name": "Manufacturing",
+      "icon": "🏭",
+      "description": "AI use cases for manufacturing organizations",
+      "categories": [
+        { "name": "Design", "description": "Product development and engineering" },
+        { "name": "Build", "description": "Factory and service operations" },
+        { "name": "Operate", "description": "Resource optimization" }
+      ],
+      "kpis": ["Production downtime", "Materials costs", "Customer satisfaction", "Employee turnover", "Product time to market"],
+      "suggestedLabs": ["lab-1", "lab-3", "lab-5"]
+    },
+    {
+      "id": "retail",
+      "name": "Retail",
+      "icon": "🛍️",
+      "description": "AI use cases for retail organizations",
+      "categories": [
+        { "name": "Personalized Marketing", "description": "Deliver personalized marketing and promotions" },
+        { "name": "Merchandising & Supply Chain", "description": "Improve merchandising and supply chain decisions" },
+        { "name": "Store Associate Efficiency", "description": "Drive efficiency through AI-assisted store associates" }
+      ],
+      "kpis": ["Revenue per store", "Customer satisfaction", "Sales conversion rate", "Employee turnover", "Marketing spend", "Retail margin"],
+      "suggestedLabs": ["lab-1", "lab-3"]
+    },
+    {
+      "id": "financial-services",
+      "name": "Financial Services",
+      "icon": "🏦",
+      "description": "AI use cases for financial services organizations",
+      "categories": [
+        { "name": "Customer Experience", "description": "Transform customer and advisor experiences" },
+        { "name": "Operations & Compliance", "description": "Modernize operations, controls, and compliance" },
+        { "name": "Data Analysis", "description": "Improve data analysis and usage" }
+      ],
+      "kpis": ["Client retention", "Assets under management", "Opex % of revenue", "Risk and compliance"],
+      "suggestedLabs": ["lab-1", "lab-2"]
+    },
+    {
+      "id": "healthcare",
+      "name": "Healthcare",
+      "icon": "🏥",
+      "description": "AI use cases for healthcare organizations",
+      "categories": [
+        { "name": "Operations Efficiency", "description": "Improve operational efficiency across care delivery" },
+        { "name": "Research & Trials", "description": "Accelerate research, development, and trials" },
+        { "name": "Patient & Member Service", "description": "Improve patient and member service" }
+      ],
+      "kpis": ["Patient/Customer retention", "Readmission rate", "Wait times", "Claims processing time", "Product time to market"],
+      "suggestedLabs": ["lab-1", "lab-2"]
+    },
+    {
+      "id": "energy-resources",
+      "name": "Energy & Resources",
+      "icon": "⚡",
+      "description": "AI use cases for energy and resources organizations",
+      "categories": [
+        { "name": "Critical Infrastructure", "description": "Protect critical infrastructure" },
+        { "name": "Frontline Productivity", "description": "Improve frontline worker productivity" },
+        { "name": "Resilience & Forecasting", "description": "Enhance resilience with AI forecasting" },
+        { "name": "Exploration", "description": "Accelerate exploration and development" }
+      ],
+      "kpis": ["Operational efficiency", "Safety and compliance", "Revenue generation", "Employee satisfaction", "Market development"],
+      "suggestedLabs": ["lab-1", "lab-5"]
+    },
+    {
+      "id": "education",
+      "name": "Education",
+      "icon": "🎓",
+      "description": "AI use cases for education organizations",
+      "categories": [
+        { "name": "Student Success", "description": "Improve student success and experience" },
+        { "name": "Teaching & Research", "description": "Support teaching and research" },
+        { "name": "Operational Efficiency", "description": "Improve operational efficiency" }
+      ],
+      "kpis": ["Staff/educator/student satisfaction", "Student outcomes", "Operational efficiency", "Time savings"],
+      "suggestedLabs": ["lab-1", "lab-2"]
+    },
+    {
+      "id": "nonprofit",
+      "name": "Nonprofit",
+      "icon": "🤝",
+      "description": "AI use cases for nonprofit organizations",
+      "categories": [
+        { "name": "Fundraising", "description": "Improve fundraising outcomes and donor engagement" },
+        { "name": "Program Impact", "description": "Measure and improve program impact" },
+        { "name": "Volunteer Engagement", "description": "Strengthen volunteer engagement" },
+        { "name": "Administrative Efficiency", "description": "Reduce administrative overhead" }
+      ],
+      "kpis": ["Fundraising ROI", "Program impact", "Volunteer retention", "Administrative expense ratio"],
+      "suggestedLabs": ["lab-1", "lab-4"]
+    }
+  ],
+  "roles": [
+    {
+      "id": "executives",
+      "name": "Executives",
+      "icon": "📈",
+      "description": "AI use cases for executives",
+      "categories": [
+        { "name": "Strategic Planning", "description": "Accelerate strategic planning" },
+        { "name": "Decision Support", "description": "Improve executive decision support" }
+      ],
+      "kpis": [],
+      "suggestedLabs": ["lab-1", "lab-2"]
+    },
+    {
+      "id": "sales",
+      "name": "Sales",
+      "icon": "💼",
+      "description": "AI use cases for sales professionals",
+      "categories": [
+        { "name": "Pipeline Management", "description": "Opportunity pursuit and tracking" },
+        { "name": "Customer Engagement", "description": "Improving close rates and deal sizes" }
+      ],
+      "kpis": ["Opportunities pursued", "Close rate", "Deal size"],
+      "suggestedLabs": ["lab-1", "lab-4"]
+    },
+    {
+      "id": "marketing",
+      "name": "Marketing",
+      "icon": "📣",
+      "description": "AI use cases for marketing teams",
+      "categories": [
+        { "name": "Content Creation", "description": "Scale campaign and content creation" },
+        { "name": "Demand Generation", "description": "Improve demand generation and targeting" },
+        { "name": "Brand Value", "description": "Protect and grow brand value" }
+      ],
+      "kpis": ["Agency spend", "Leads generated", "Brand value"],
+      "suggestedLabs": ["lab-1", "lab-2"]
+    },
+    {
+      "id": "customer-service",
+      "name": "Customer Service",
+      "icon": "🎧",
+      "description": "AI use cases for customer service teams",
+      "categories": [
+        { "name": "Self-Service", "description": "Expand customer self-service options" },
+        { "name": "Resolution", "description": "Improve issue resolution quality and speed" },
+        { "name": "Agent Productivity", "description": "Increase support agent productivity" }
+      ],
+      "kpis": ["Calls handled", "Issue resolution time", "First call resolution", "Service quality"],
+      "suggestedLabs": ["lab-1", "lab-3"]
+    },
+    {
+      "id": "legal",
+      "name": "Legal",
+      "icon": "⚖️",
+      "description": "AI use cases for legal teams",
+      "categories": [
+        { "name": "Contract Management", "description": "Improve contract management and review" },
+        { "name": "Compliance", "description": "Strengthen compliance workflows" },
+        { "name": "Advisory", "description": "Scale legal advisory support" }
+      ],
+      "kpis": ["Outside counsel spend", "Cost per review", "Legal advisory", "Transactional processes"],
+      "suggestedLabs": ["lab-1", "lab-2"]
+    },
+    {
+      "id": "finance",
+      "name": "Finance",
+      "icon": "💰",
+      "description": "AI use cases for finance teams",
+      "categories": [
+        { "name": "Analysis", "description": "Improve financial analysis" },
+        { "name": "Collections", "description": "Accelerate collections workflows" },
+        { "name": "Reporting & Risk", "description": "Improve reporting and risk management" }
+      ],
+      "kpis": ["Outsourcing spend", "Cost per analysis", "Days sales outstanding", "Risk management"],
+      "suggestedLabs": ["lab-1", "lab-4"]
+    },
+    {
+      "id": "hr",
+      "name": "HR",
+      "icon": "🧑‍🤝‍🧑",
+      "description": "AI use cases for HR teams",
+      "categories": [
+        { "name": "Onboarding", "description": "Improve employee onboarding" },
+        { "name": "Retention", "description": "Support retention and development" },
+        { "name": "Benefits & Compensation", "description": "Streamline benefits and compensation support" }
+      ],
+      "kpis": ["Onboarding time", "Employee retention", "Calls handled", "Issue resolution time"],
+      "suggestedLabs": ["lab-1", "lab-4"]
+    },
+    {
+      "id": "it",
+      "name": "IT",
+      "icon": "🖥️",
+      "description": "AI use cases for IT teams",
+      "categories": [
+        { "name": "Service Desk", "description": "Improve service desk support" },
+        { "name": "Infrastructure", "description": "Modernize infrastructure operations" },
+        { "name": "Security", "description": "Strengthen security operations" },
+        { "name": "App Development", "description": "Accelerate application development" }
+      ],
+      "kpis": ["Ticket resolution", "Application downtime", "IT outsourcing costs", "User satisfaction"],
+      "suggestedLabs": ["lab-1", "lab-2", "lab-3", "lab-5"]
+    },
+    {
+      "id": "communications",
+      "name": "Communications",
+      "icon": "📢",
+      "description": "AI use cases for communications teams",
+      "categories": [
+        { "name": "Planning", "description": "Speed up communications planning" },
+        { "name": "Audience Reach", "description": "Increase audience reach" },
+        { "name": "Content Creation", "description": "Create more engaging content" }
+      ],
+      "kpis": ["Time to plan", "Audience reach", "Engaging content"],
+      "suggestedLabs": ["lab-1", "lab-2"]
+    },
+    {
+      "id": "operations",
+      "name": "Operations",
+      "icon": "⚙️",
+      "description": "AI use cases for operations teams",
+      "categories": [
+        { "name": "Efficiency", "description": "Improve operational efficiency" },
+        { "name": "Risk Management", "description": "Manage operational risk" },
+        { "name": "Process Excellence", "description": "Drive process excellence" }
+      ],
+      "kpis": ["Employee satisfaction", "Risk management", "Operational efficiency"],
+      "suggestedLabs": ["lab-1", "lab-3", "lab-4"]
+    },
+    {
+      "id": "sustainability",
+      "name": "Sustainability",
+      "icon": "🌱",
+      "description": "AI use cases for sustainability teams",
+      "categories": [
+        { "name": "Carbon", "description": "Reduce carbon footprint" },
+        { "name": "Energy", "description": "Optimize energy consumption" },
+        { "name": "Circularity", "description": "Improve recycling and sourcing" }
+      ],
+      "kpis": ["Carbon footprint", "Energy consumption", "Recycling rates", "Sustainable sourcing"],
+      "suggestedLabs": ["lab-1", "lab-2"]
+    },
+    {
+      "id": "accessibility",
+      "name": "Accessibility",
+      "icon": "♿",
+      "description": "AI use cases for accessibility leaders",
+      "categories": [
+        { "name": "Productivity", "description": "Improve accessibility-focused productivity" },
+        { "name": "Market Reach", "description": "Expand market reach through inclusive experiences" },
+        { "name": "Compliance", "description": "Support accessibility compliance" }
+      ],
+      "kpis": ["Productivity", "Market reach", "Compliance"],
+      "suggestedLabs": ["lab-1", "lab-2"]
+    }
+  ]
+}

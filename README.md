@@ -95,12 +95,100 @@ These shorter labs cover individual concepts and can be used as standalone refer
 - Access to [Microsoft Copilot Studio](https://copilotstudio.microsoft.com)
 - A Power Platform environment (trial or licensed)
 - A SharePoint site for lab 01 (instructions included in the lab)
+- Node.js 18+ (for the template setup script)
 
 ### How to use these labs
 
 - **For the full hands-on experience**, start with **Lab 04** — it is self-contained and covers all major Copilot Studio capabilities in 3 hours.
 - **For a shorter introduction**, start with **Lab 01** to build a knowledge-grounded agent, then continue with Labs 02 and 03 for analytics, evaluations, and orchestration.
 - **Lab 05** is an optional add-on for teams interested in managing agents as code through VS Code.
+
+---
+
+## 🎨 Deploy as a customizable template
+
+This repository is designed as a **GitHub Template** — you can create your own copy and customize it for any organization, industry, or scenario.
+
+### Quick start
+
+1. Click **"Use this template"** on GitHub (or fork the repo)
+2. Edit `template.config.json` to match your organization:
+
+```json
+{
+  "organization": {
+    "name": "Contoso",
+    "fullName": "Contoso Energy Corp",
+    "parent": "Contoso Holdings",
+    "industry": "Manufacturing"
+  },
+  "scenario": {
+    "agentName": "Plant Floor Support Agent",
+    "endUsers": "plant operators"
+  },
+  "labs": {
+    "include": [
+      "01-sdge-energy-ops-agent",
+      "04-energy-census-advanced-agent"
+    ]
+  }
+}
+```
+
+3. Run the setup script:
+
+```bash
+npm run setup             # interactive — confirms before writing
+npm run setup -- --dry-run  # preview changes without modifying files
+```
+
+### What gets customized
+
+| Area | What changes |
+|------|-------------|
+| **Organization** | Company name, parent company, and subsidiary references across all lab content |
+| **Industry** | Industry labels in metadata tables and scenario descriptions |
+| **Branding** | Tagline and color references |
+| **Scenario** | Agent name, end-user role, and compliance standard references |
+| **Lab selection** | Labs not listed in `labs.include` are removed from the filesystem and README |
+
+### Configuration reference
+
+See [`template.config.json`](./template.config.json) for the full schema. Key sections:
+
+- **`organization`** — name, fullName, parent, industry, subsidiaries
+- **`branding`** — logoPath, primaryColor, tagline
+- **`scenario`** — domain, agentName, endUsers, useCases
+- **`knowledgeSources`** — sharePointUrl, publicWebsites, complianceStandard, uploadedDocuments
+- **`labs.include`** — array of lab folder names to keep (others are removed)
+- **`deployment`** — repoName, repoDescription, powerPlatformEnvironment
+
+---
+
+## 📝 Automated documentation changelog
+
+Every pull request automatically generates a **Documentation Change Summary** comment that includes:
+
+- 📄 **Documentation files** modified (`.md` files)
+- 🖼️ **Screenshots / images** modified — with a reviewer warning to verify they match the current UI
+- 🧪 **Lab content** affected — grouped by lab folder
+- ⚙️ **Template / infrastructure** changes
+- ✅ **Reviewer checklist** — auto-generated with screenshot verification if images changed
+
+This is powered by the [`doc-changelog.yml`](./.github/workflows/doc-changelog.yml) workflow and runs on every PR.
+
+### Screenshot management
+
+Screenshots are managed via the [screenshot capture tool](./tools/screenshot-capture/):
+
+```bash
+cd tools/screenshot-capture
+npm install
+npm run capture    # interactive — walks through each shot
+npm run list       # list all configured shots
+```
+
+The tool uses Playwright to capture screenshots from the live Copilot Studio UI. Shot definitions live in `shots.json` and map to specific lab steps. When lab content changes, update the relevant shots and re-run the capture tool — the changelog workflow will flag screenshot changes in the PR for reviewer verification.
 
 ---
 

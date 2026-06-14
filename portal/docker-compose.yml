@@ -1,0 +1,15 @@
+services:
+  portal:
+    build:
+      context: ..
+      dockerfile: portal/Dockerfile
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    volumes:
+      # Mount labs for live updates (optional — remove for production)
+      - ../labs:/app/labs:ro

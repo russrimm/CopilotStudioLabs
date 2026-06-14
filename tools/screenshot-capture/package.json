@@ -1,0 +1,14 @@
+{
+  "name": "copilot-studio-lab-screenshot-capture",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive Playwright capture tool for the Copilot Studio Labs screenshots.",
+  "type": "module",
+  "scripts": {
+    "capture": "node capture.js",
+    "list": "node capture.js --list"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}
