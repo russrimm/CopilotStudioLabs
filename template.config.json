@@ -1,7 +1,6 @@
 {
   "$schema": "./template.config.schema.json",
   "_comment": "Customize this file, then run 'npm run setup' to generate your lab instance.",
-
   "organization": {
     "name": "SDG&E",
     "fullName": "San Diego Gas & Electric",
@@ -14,13 +13,11 @@
       "LoneStar Grid"
     ]
   },
-
   "branding": {
     "logoPath": null,
     "primaryColor": "#0078D4",
-    "tagline": "Delivering energy with purpose — powered by AI"
+    "tagline": "Delivering energy with purpose \u2014 powered by AI"
   },
-
   "scenario": {
     "industry": "",
     "roles": [],
@@ -35,7 +32,6 @@
       "NERC CIP compliance questions"
     ]
   },
-
   "knowledgeSources": {
     "sharePointUrl": null,
     "publicWebsites": [
@@ -46,17 +42,20 @@
       "Contoso_Field_Operations_Remote_Access_Guide.md"
     ]
   },
-
   "labs": {
     "include": [
       "01-sdge-energy-ops-agent",
       "02-sempra-agent-analytics-evaluations",
       "03-sempra-account-orchestration-agent",
       "04-energy-census-advanced-agent",
-      "05-copilot-studio-vscode-agent-management"
+      "05-copilot-studio-vscode-agent-management",
+      "06-computer-use-agents",
+      "07-agent-to-agent-protocol",
+      "08-work-iq-m365-intelligence",
+      "09-prompt-builder-agent-flows",
+      "10-realtime-voice-agents"
     ]
   },
-
   "deployment": {
     "repoName": "CopilotStudioLabs",
     "repoDescription": "Hands-on labs for building AI-powered agents with Microsoft Copilot Studio",

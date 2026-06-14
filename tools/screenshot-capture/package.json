@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "capture": "node capture.js",
-    "list": "node capture.js --list"
+    "list": "node capture.js --list",
+    "verify": "node verify-shots.js"
   },
   "dependencies": {
     "playwright": "^1.49.0"
