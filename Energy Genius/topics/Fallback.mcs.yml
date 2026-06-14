@@ -1,0 +1,34 @@
+mcs.metadata:
+  componentName: Fallback
+  description: This system topic triggers when the user's utterance does not match any existing topics.
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnUnknownIntent
+  id: main
+  actions:
+    - kind: ConditionGroup
+      id: conditionGroup_LktzXw
+      conditions:
+        - id: conditionItem_tlGIVo
+          condition: =System.FallbackCount < 3
+          actions:
+            - kind: SendActivity
+              id: sendMessage_QZreqo
+              activity: |-
+                I'm not sure I understood that. Here's what I can help with:
+
+                - **Browse labs** — "Show me available labs" or "What labs are there?"
+                - **Provision environments** — "Provision a new lab environment"
+                - **Validate documentation** — "Run validation tests"
+                - **Industry scenarios** — "What industry scenarios are available?"
+                - **Azure resources** — "Help me configure Azure resources"
+                - **Power Platform** — "Show my Power Platform environments"
+                - **Email materials** — "Send lab materials to my team"
+                - **App Insights** — "Help me set up Application Insights"
+
+                Could you try rephrasing, or pick one of the options above?
+
+      elseActions:
+        - kind: BeginDialog
+          id: 5aXj5M
+          dialog: auto_agent_6eaTB.topic.Escalate

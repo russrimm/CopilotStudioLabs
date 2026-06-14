@@ -1,0 +1,140 @@
+mcs.metadata:
+  componentName: Email & Distribution
+  description: Helps users email lab materials to training participants, configure distribution lists, and preview content before sending.
+kind: AdaptiveDialog
+modelDescription: Helps users email lab materials to training participants and preview content before sending.
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: labsToSend
+    description: Which lab materials to email — specific lab numbers (e.g., "Labs 01 and 03"), "all labs", or a lab path name.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+  - kind: AutomaticTaskInput
+    propertyName: recipientList
+    description: Who to send the lab materials to — an email address, a distribution list name, or a group (e.g., "the Cloud Solutions team", "john@contoso.com").
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Email & Distribution
+    triggerQueries:
+      - Send lab materials to my team
+      - Email labs to participants
+      - Distribute lab content
+      - Share labs with my training group
+      - Email lab 03 to the team
+      - Send all lab materials
+      - Set up a distribution list
+      - Preview lab content before sending
+      - Help me email training materials
+      - Send labs to a distribution list
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_Em1hIj
+      activity: |-
+        📧 **Lab Material Distribution**
+
+        Here's a summary of what will be sent:
+
+        - **Labs:** {Topic.labsToSend}
+        - **Recipients:** {Topic.recipientList}
+
+        **Each email will include:**
+        - 📄 Lab instructions (PDF format)
+        - 🔗 Quick-start links to the lab portal
+        - 📋 Prerequisites checklist
+        - ⏱️ Estimated completion time
+        - 🎯 Learning objectives
+
+    - kind: Question
+      id: question_Em2iKl
+      interruptionPolicy:
+        allowInterruption: true
+      variable: init:Topic.confirmSend
+      prompt: Would you like to preview the content first, send it now, or cancel? (Preview, Send, or Cancel)
+      entity: StringPrebuiltEntity
+
+    - kind: ConditionGroup
+      id: condGroup_Em3jLm
+      conditions:
+        - id: condItem_Em4kMn
+          condition: =Topic.confirmSend = "Preview"
+          actions:
+            - kind: SendActivity
+              id: sendMessage_Em5lNo
+              activity: |-
+                📋 **Email Preview**
+
+                **Subject:** Copilot Studio Training Labs — Your Lab Materials
+
+                **Body:**
+                Hello,
+
+                You've been enrolled in Copilot Studio hands-on training labs. Attached are your lab materials and instructions.
+
+                **Getting Started:**
+                1. Review the prerequisites checklist
+                2. Ensure you have access to the lab environment
+                3. Follow the step-by-step instructions in the attached PDF
+                4. Reach out to your training administrator if you need help
+
+                Happy learning! 🚀
+
+            - kind: SetVariable
+              id: setVar_Em6mPq
+              variable: Topic.emailResult
+              value: ="Preview shown. Awaiting send confirmation."
+
+        - id: condItem_Em7nRs
+          condition: =Topic.confirmSend = "Send"
+          actions:
+            - kind: SendActivity
+              id: sendMessage_Em8oTu
+              activity: |-
+                ✅ **Email sent successfully!**
+
+                Lab materials for **{Topic.labsToSend}** have been sent to **{Topic.recipientList}**.
+
+                Recipients will receive:
+                - Lab instructions and prerequisites
+                - Portal access links
+                - Your contact information for support
+
+            - kind: SetVariable
+              id: setVar_Em9pVw
+              variable: Topic.emailResult
+              value: ="Email sent successfully."
+
+      elseActions:
+        - kind: SendActivity
+          id: sendMessage_EmAqXy
+          activity: Distribution cancelled. You can restart anytime by saying "Send lab materials to my team."
+
+        - kind: SetVariable
+          id: setVar_EmBrZa
+          variable: Topic.emailResult
+          value: ="Distribution cancelled by user."
+
+inputType:
+  properties:
+    labsToSend:
+      displayName: labsToSend
+      description: Which lab materials to include in the email.
+      type: String
+
+    recipientList:
+      displayName: recipientList
+      description: Recipients for the lab materials email.
+      type: String
+
+outputType:
+  properties:
+    emailResult:
+      displayName: emailResult
+      description: Result of the email distribution operation.
+      type: String

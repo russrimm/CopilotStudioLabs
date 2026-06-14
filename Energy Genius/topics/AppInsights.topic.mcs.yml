@@ -1,0 +1,114 @@
+mcs.metadata:
+  componentName: Application Insights Integration
+  description: Guides users through connecting Application Insights to Copilot Studio agents, writing KQL queries for diagnostics, and understanding telemetry data.
+kind: AdaptiveDialog
+modelDescription: Guides users through connecting Application Insights to Copilot Studio agents and writing KQL queries.
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: appInsightsQuery
+    description: What the user needs help with — setting up Application Insights for a Copilot Studio agent, writing a KQL query for agent diagnostics, understanding telemetry events, or troubleshooting monitoring issues.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Application Insights Integration
+    triggerQueries:
+      - Help me set up Application Insights
+      - Connect App Insights to my agent
+      - Write a KQL query for my agent
+      - How do I monitor my Copilot Studio agent
+      - Show me agent telemetry
+      - Application Insights setup
+      - KQL query for agent diagnostics
+      - What telemetry does Copilot Studio send
+      - Help with agent monitoring
+      - Troubleshoot agent with App Insights
+      - How do I track agent performance
+      - Set up diagnostics for my agent
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_Ai1sCd
+      activity: |-
+        📊 **Application Insights Integration for Copilot Studio**
+
+        **Setup Steps:**
+        1. **Create** an Application Insights resource in your Azure subscription
+        2. **Copy** the Connection String from the App Insights overview page
+        3. **Navigate** to Copilot Studio → Settings → Agent details → Advanced
+        4. **Paste** the Connection String in the Application Insights field
+        5. **Publish** your agent to start sending telemetry
+
+    - kind: SendActivity
+      id: sendMessage_Ai2tEf
+      activity: |-
+        **📋 Useful KQL Queries for Agent Diagnostics:**
+
+        **Session overview (last 24 hours):**
+        ```
+        customEvents
+        | where timestamp > ago(24h)
+        | where name == "BotMessageReceived" or name == "BotMessageSend"
+        | summarize Messages = count() by bin(timestamp, 1h)
+        | render timechart
+        ```
+
+        **Topic trigger analysis:**
+        ```
+        customEvents
+        | where timestamp > ago(7d)
+        | where name == "TopicTriggered"
+        | extend TopicName = tostring(customDimensions["TopicName"])
+        | summarize Count = count() by TopicName
+        | order by Count desc
+        ```
+
+        **Error tracking:**
+        ```
+        exceptions
+        | where timestamp > ago(24h)
+        | project timestamp, problemId, outerMessage, innermostMessage
+        | order by timestamp desc
+        ```
+
+    - kind: SendActivity
+      id: sendMessage_Ai3uGh
+      activity: |-
+        **🔍 Key Telemetry Events to Monitor:**
+
+        | Event | What It Tells You |
+        |-------|------------------|
+        | `BotMessageReceived` | User messages sent to the agent |
+        | `BotMessageSend` | Agent responses sent back |
+        | `TopicTriggered` | Which topics are being activated |
+        | `TopicRedirected` | Topic-to-topic redirects |
+        | `GenerativeAnswerGenerated` | AI-generated responses from knowledge |
+        | `Escalated` | Conversations escalated to humans |
+
+        **Best Practices:**
+        - Set up **alerts** for error spikes and response latency
+        - Create a **dashboard** combining session counts, topic usage, and error rates
+        - Review **failed conversations** weekly to identify improvement areas
+        - Monitor **generative answer quality** by sampling AI-generated responses
+
+    - kind: SetVariable
+      id: setVar_Ai4vIj
+      variable: Topic.appInsightsResult
+      value: ="Application Insights guidance provided."
+
+inputType:
+  properties:
+    appInsightsQuery:
+      displayName: appInsightsQuery
+      description: The user's Application Insights question or request.
+      type: String
+
+outputType:
+  properties:
+    appInsightsResult:
+      displayName: appInsightsResult
+      description: Summary of Application Insights setup guidance or KQL query assistance provided.
+      type: String

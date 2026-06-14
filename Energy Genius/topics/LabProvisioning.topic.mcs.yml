@@ -1,0 +1,136 @@
+mcs.metadata:
+  componentName: Lab Provisioning
+  description: Walks users through provisioning a lab environment including configuration collection, pre-flight validation, and provisioning execution.
+kind: AdaptiveDialog
+modelDescription: Walks users through provisioning a lab environment including configuration collection, pre-flight validation, and provisioning execution.
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: labSelection
+    description: Which labs to include in the provisioned environment (e.g., "Labs 01 through 05", "all labs", "Lab 07 and Lab 10").
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+  - kind: AutomaticTaskInput
+    propertyName: tenantId
+    description: The Microsoft 365 tenant ID (GUID) where the lab environment will be provisioned.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+  - kind: AutomaticTaskInput
+    propertyName: azureSubscription
+    description: The Azure subscription ID (GUID) to use for provisioning lab resources.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+  - kind: AutomaticTaskInput
+    propertyName: resourceGroup
+    description: The Azure resource group name where lab resources will be created (e.g., "rg-copilot-labs-prod").
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Lab Provisioning
+    triggerQueries:
+      - Provision a new lab environment
+      - Set up labs for my team
+      - I need to provision labs
+      - Create a lab environment
+      - Deploy lab resources
+      - Provision labs 01 through 05
+      - Set up a training environment
+      - I want to provision all labs
+      - Help me set up a lab
+      - Start provisioning
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_Pv1aRw
+      activity: |-
+        Great! Let me confirm your provisioning configuration:
+
+        - **Labs:** {Topic.labSelection}
+        - **Tenant ID:** {Topic.tenantId}
+        - **Azure Subscription:** {Topic.azureSubscription}
+        - **Resource Group:** {Topic.resourceGroup}
+
+    - kind: Question
+      id: question_Pv2bSx
+      interruptionPolicy:
+        allowInterruption: true
+      variable: init:Topic.confirmProvision
+      prompt: |-
+        **⚠️ Pre-flight checks will validate:**
+        1. Azure subscription access and quota availability
+        2. Power Platform environment capacity
+        3. Required permissions (Global Admin or Power Platform Admin)
+        4. Resource group existence and naming compliance
+
+        Would you like to proceed with provisioning? (Yes or No)
+      entity: StringPrebuiltEntity
+
+    - kind: ConditionGroup
+      id: condGroup_Pv3cTy
+      conditions:
+        - id: condItem_Pv4dUz
+          condition: =Topic.confirmProvision = "Yes"
+          actions:
+            - kind: SendActivity
+              id: sendMessage_Pv5eVa
+              activity: |-
+                ✅ **Provisioning initiated!**
+
+                I'm running pre-flight validation checks now. This typically takes 2-3 minutes. Here's what's happening:
+
+                1. 🔍 Validating Azure subscription access...
+                2. 🔍 Checking Power Platform environment capacity...
+                3. 🔍 Verifying required permissions...
+                4. 🔍 Confirming resource group configuration...
+
+                I'll notify you once provisioning is complete with a summary of all created resources.
+
+            - kind: SetVariable
+              id: setVar_Pv6fWb
+              variable: Topic.provisioningResult
+              value: ="Provisioning initiated successfully."
+
+      elseActions:
+        - kind: SendActivity
+          id: sendMessage_Pv7gXc
+          activity: No problem — provisioning has been cancelled. You can restart anytime by saying "Provision a new lab environment."
+
+        - kind: SetVariable
+          id: setVar_Pv8hYd
+          variable: Topic.provisioningResult
+          value: ="Provisioning cancelled by user."
+
+inputType:
+  properties:
+    azureSubscription:
+      displayName: azureSubscription
+      description: The Azure subscription ID (GUID).
+      type: String
+
+    labSelection:
+      displayName: labSelection
+      description: Which labs to include in the provisioned environment.
+      type: String
+
+    resourceGroup:
+      displayName: resourceGroup
+      description: The Azure resource group name for lab resources.
+      type: String
+
+    tenantId:
+      displayName: tenantId
+      description: The Microsoft 365 tenant ID (GUID).
+      type: String
+
+outputType:
+  properties:
+    provisioningResult:
+      displayName: provisioningResult
+      description: The result of the provisioning operation — either confirmation of initiation or cancellation.
+      type: String

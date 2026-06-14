@@ -1,0 +1,71 @@
+mcs.metadata:
+  componentName: Power Platform Administration
+  description: Helps users manage Power Platform environments, review security posture, and provision new environments for lab use.
+kind: AdaptiveDialog
+modelDescription: Helps users manage Power Platform environments, review security, and provision new environments for labs.
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: ppQuery
+    description: What the user needs help with — listing Power Platform environments, checking environment details, viewing Secure Score, reviewing security recommendations, or provisioning a new environment for labs.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Power Platform Administration
+    triggerQueries:
+      - Show my Power Platform environments
+      - List environments in my tenant
+      - What environments do I have
+      - Check environment security
+      - Show Secure Score
+      - Security recommendations for my environment
+      - Create a new environment for labs
+      - Provision a Power Platform environment
+      - Environment details
+      - Power Platform admin help
+      - Show environment health
+      - What is my Secure Score
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_Pp1rSt
+      activity: |-
+        I can help you manage your **Power Platform environments** for lab use. Here's what I can assist with:
+
+        **🏢 Environment Management**
+        - List all environments in your tenant
+        - Show environment details (type, region, database, capacity)
+        - Provision a new developer or sandbox environment for labs
+
+        **🔒 Security & Compliance**
+        - Display your tenant's **Secure Score** with breakdown by category
+        - Show remediation recommendations to improve your security posture
+        - Review DLP policies and access controls
+
+        **📋 Best Practices for Lab Environments**
+        - Use **sandbox** environments for training (isolated, easy to reset)
+        - Enable **Managed Environments** for governance features
+        - Apply **DLP policies** to restrict connector usage during labs
+        - Set **environment routing rules** to direct lab traffic appropriately
+
+    - kind: SetVariable
+      id: setVar_Pp2sUv
+      variable: Topic.ppResult
+      value: ="Power Platform administration overview provided."
+
+inputType:
+  properties:
+    ppQuery:
+      displayName: ppQuery
+      description: The user's Power Platform administration question or request.
+      type: String
+
+outputType:
+  properties:
+    ppResult:
+      displayName: ppResult
+      description: Summary of Power Platform environment information or action taken.
+      type: String

@@ -1,0 +1,79 @@
+mcs.metadata:
+  componentName: Industry Scenarios
+  description: Presents industry-specific scenarios and maps them to relevant labs with role-based learning paths.
+kind: AdaptiveDialog
+modelDescription: Presents industry-specific scenarios and maps them to relevant labs with role-based learning paths.
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: industryOrRole
+    description: The user's industry (Energy, Healthcare, Financial Services, Retail, Manufacturing, Public Sector, Technology) or role (IT Admin, Developer, Business Analyst, Citizen Developer, Training Manager) to get tailored lab recommendations.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Industry Scenarios
+    triggerQueries:
+      - What industry scenarios are available
+      - Show me industry-specific labs
+      - Labs for healthcare
+      - Labs for financial services
+      - Energy industry scenarios
+      - What labs should a developer take
+      - Recommend labs for an IT admin
+      - Labs for the public sector
+      - Manufacturing scenarios
+      - Retail industry labs
+      - Role-based lab recommendations
+      - Labs for a business analyst
+      - Technology industry scenarios
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_Is1aBc
+      activity: |-
+        Here are the **industry scenarios** available, each mapped to recommended labs:
+
+        | Industry | Key Scenarios | Recommended Labs |
+        |----------|--------------|-----------------|
+        | ⚡ **Energy/Utilities** | IT operations agents, energy intelligence, grid monitoring | Labs 01, 03, 04 |
+        | 🏥 **Healthcare/Life Sciences** | Patient intake, clinical decision support, compliance | Labs 01, 02, 08 |
+        | 🏦 **Financial Services/Banking** | Risk assessment, customer onboarding, regulatory compliance | Labs 01, 02, 09 |
+        | 🛒 **Retail/Consumer Goods** | Customer service, inventory queries, personalized shopping | Labs 01, 08, 09 |
+        | 🏭 **Manufacturing/Supply Chain** | Predictive maintenance, supply chain visibility, quality control | Labs 01, 04, 06 |
+        | 🏛️ **Public Sector/Government** | Citizen services, permit processing, inter-agency coordination | Labs 01, 07, 08 |
+        | 💻 **Technology/Professional Services** | DevOps automation, multi-agent systems, prompt engineering | Labs 05, 06, 07, 09 |
+
+    - kind: SendActivity
+      id: sendMessage_Is2bDe
+      activity: |-
+        **Role-based learning paths:**
+
+        | Role | Suggested Path | Labs |
+        |------|---------------|------|
+        | 🛠️ **IT Admin** | Agent operations → monitoring → orchestration | 01 → 02 → 03 |
+        | 👩‍💻 **Developer** | VS Code tooling → A2A protocol → computer use → voice | 05 → 07 → 06 → 10 |
+        | 📊 **Business Analyst** | Prompt engineering → M365 intelligence → monitoring | 09 → 08 → 02 |
+        | 🧑‍💼 **Citizen Developer** | IT operations agent → orchestration → prompt builder | 01 → 03 → 09 |
+        | 📋 **Training Manager** | Start with Lab 01, then choose by audience need | All labs |
+
+    - kind: SetVariable
+      id: setVar_Is3cFg
+      variable: Topic.scenarioResult
+      value: ="Industry and role-based scenario guidance provided."
+
+inputType:
+  properties:
+    industryOrRole:
+      displayName: industryOrRole
+      description: The user's industry or role for tailored lab recommendations.
+      type: String
+
+outputType:
+  properties:
+    scenarioResult:
+      displayName: scenarioResult
+      description: Industry-specific scenario recommendations and role-based lab paths.
+      type: String
