@@ -1,0 +1,69 @@
+mcs.metadata:
+  componentName: Azure Resource Management
+  description: Helps users understand, configure, and manage Azure resources needed for Copilot Studio training labs.
+kind: AdaptiveDialog
+modelDescription: Helps users configure and manage Azure resources needed for Copilot Studio training labs.
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: azureQuery
+    description: What the user needs help with regarding Azure resources — configuring App Service, Key Vault, Application Insights, understanding costs, managing secrets, or setting up specific resources for labs.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Azure Resource Management
+    triggerQueries:
+      - Help me configure Azure resources
+      - What Azure resources do the labs need
+      - Set up Key Vault for my labs
+      - What will the labs cost in Azure
+      - Help me with Azure resource management
+      - Configure Application Insights
+      - Set up App Service for labs
+      - Manage Key Vault secrets
+      - Store API keys in Key Vault
+      - What Azure resources will be created
+      - Estimate Azure costs for labs
+      - Help with Azure setup
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_Az1kMn
+      activity: |-
+        The Copilot Studio training labs use the following **Azure resources**:
+
+        | Resource | Purpose | Estimated Cost |
+        |----------|---------|----------------|
+        | **App Service (B1)** | Hosts lab web portal and API endpoints | ~$13/month |
+        | **Key Vault** | Stores API keys, connection strings, and secrets | ~$0.03/10K operations |
+        | **Application Insights** | Monitors agent telemetry and diagnostics | ~$2.30/GB ingested |
+        | **Storage Account** | Stores lab content, templates, and exports | ~$0.02/GB/month |
+        | **App Service Plan** | Compute plan for the App Service | Included with App Service |
+
+        **Common tasks I can help with:**
+        - 🔑 **Key Vault** — Store or retrieve API keys and connection strings
+        - 📊 **Application Insights** — Connect telemetry to your Copilot Studio agents
+        - 💰 **Cost estimation** — Get detailed cost projections for your lab configuration
+        - ⚙️ **Resource configuration** — Set up or modify Azure resources
+
+    - kind: SetVariable
+      id: setVar_Az2lNo
+      variable: Topic.azureResult
+      value: ="Azure resource overview provided."
+
+inputType:
+  properties:
+    azureQuery:
+      displayName: azureQuery
+      description: The user's Azure resource management question or request.
+      type: String
+
+outputType:
+  properties:
+    azureResult:
+      displayName: azureResult
+      description: Summary of Azure resource information or action taken based on user's query.
+      type: String

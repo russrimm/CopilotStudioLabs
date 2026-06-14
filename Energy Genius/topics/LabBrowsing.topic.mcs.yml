@@ -1,0 +1,73 @@
+mcs.metadata:
+  componentName: Lab Browsing & Discovery
+  description: Helps users browse, search, and get recommendations for available Copilot Studio training labs.
+kind: AdaptiveDialog
+modelDescription: Helps users browse, search, and get recommendations for available Copilot Studio training labs.
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: labQuery
+    description: What the user is looking for — a specific lab number, topic keyword, difficulty level (Intermediate, Advanced), tag (Analytics, Voice, A2A, Computer Use), or a request for recommendations based on role or industry.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Lab Browsing & Discovery
+    triggerQueries:
+      - Show me available labs
+      - What labs are there
+      - List all labs
+      - Tell me about the labs
+      - What training labs do you have
+      - Show me labs about voice
+      - Are there any advanced labs
+      - Which labs should I take
+      - Recommend labs for a developer
+      - What labs cover A2A
+      - Filter labs by intermediate level
+      - Describe lab 04
+      - What does lab 6 cover
+      - How long is lab 07
+      - What are the prerequisites for lab 10
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_Lb1kQ9
+      activity: |-
+        Here are all **10 available Copilot Studio training labs**:
+
+        | Lab | Title | Level | Time |
+        |-----|-------|-------|------|
+        | 01 | Build a Custom IT Operations Agent for SDG&E | Intermediate | 45 min |
+        | 02 | Monitor Performance and Evaluate Agent Quality | Intermediate | 45 min |
+        | 03 | Orchestration with Copilot Studio for Sempra | Intermediate | 45 min |
+        | 04 | Build an Advanced Energy Intelligence Agent with Census Bureau Data | Advanced | 60 min |
+        | 05 | Clone, Modify, and Republish Agents with VS Code Extension | Intermediate | 30 min |
+        | 06 | Build a Computer-Using Agent for Desktop Automation | Advanced | 2 hrs |
+        | 07 | Connect Agents with Agent-to-Agent (A2A) Protocol | Advanced | 90 min |
+        | 08 | Supercharge Agents with Work IQ and M365 Intelligence | Intermediate | 60 min |
+        | 09 | Master Prompt Engineering with Prompt Builder | Intermediate-Advanced | 90 min |
+        | 10 | Build Real-Time Voice Agents for Telephony | Advanced | 2 hrs |
+
+        **Tags:** Analytics (Lab 02), Voice (Lab 10), A2A (Lab 07), Computer Use (Lab 06), Orchestration (Lab 03), Prompt Engineering (Lab 09), VS Code (Lab 05), M365 (Lab 08)
+
+    - kind: SetVariable
+      id: setVar_Lb2mNx
+      variable: Topic.labListResult
+      value: ="Lab catalog displayed. Ask about a specific lab number for details, or request a recommendation by role, industry, or skill level."
+
+inputType:
+  properties:
+    labQuery:
+      displayName: labQuery
+      description: What the user is looking for — a specific lab number, topic keyword, difficulty level, tag, or recommendation request.
+      type: String
+
+outputType:
+  properties:
+    labListResult:
+      displayName: labListResult
+      description: Summary of lab catalog or specific lab details based on the user's query.
+      type: String

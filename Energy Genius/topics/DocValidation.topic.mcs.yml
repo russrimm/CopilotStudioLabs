@@ -1,0 +1,76 @@
+mcs.metadata:
+  componentName: Documentation Validation
+  description: Runs validation smoke tests on lab documentation and reports pass/fail results with guidance on fixing issues.
+kind: AdaptiveDialog
+modelDescription: Runs validation smoke tests on lab documentation and reports pass/fail results with fix guidance.
+inputs:
+  - kind: AutomaticTaskInput
+    propertyName: validationTarget
+    description: Which labs to validate — a specific lab number (e.g., "Lab 03"), a range (e.g., "Labs 01-05"), or "all labs". If not specified, all labs will be validated.
+    entity: StringPrebuiltEntity
+    shouldPromptUser: true
+
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent:
+    displayName: Documentation Validation
+    triggerQueries:
+      - Run validation tests
+      - Check lab validation status
+      - Validate lab documentation
+      - Run smoke tests on the labs
+      - Are the labs passing validation
+      - Test lab 03 documentation
+      - Validate all labs
+      - Check if labs are ready
+      - Run documentation checks
+      - What validation tests are there
+      - Show validation results
+      - Help me fix validation errors
+
+  actions:
+    - kind: SendActivity
+      id: sendMessage_Dv1wXy
+      activity: |-
+        Running **documentation validation** for: **{Topic.validationTarget}**
+
+        The validation suite checks each lab for:
+
+        | Test | What It Checks |
+        |------|---------------|
+        | 📄 **Structure** | Required files exist (README, instructions, screenshots) |
+        | 🔗 **Links** | All hyperlinks resolve (no broken URLs) |
+        | 🖼️ **Images** | Referenced images exist and are accessible |
+        | 📝 **Metadata** | Title, description, difficulty, and time are present |
+        | ⚙️ **Prerequisites** | Prerequisites section is complete and accurate |
+        | 🔢 **Step Numbering** | Steps are sequentially numbered with no gaps |
+        | 📋 **Code Blocks** | Code samples have language tags and are syntactically valid |
+
+    - kind: SendActivity
+      id: sendMessage_Dv2xYz
+      activity: |-
+        **💡 Common validation fixes:**
+        - **Missing images** — Ensure screenshots are in the `/assets/` folder and paths are relative
+        - **Broken links** — Update URLs to current Microsoft Learn documentation
+        - **Missing metadata** — Add a YAML front matter block with title, level, and duration
+        - **Step gaps** — Renumber steps sequentially after any additions or deletions
+
+    - kind: SetVariable
+      id: setVar_Dv3yZa
+      variable: Topic.validationResult
+      value: ="Validation tests executed."
+
+inputType:
+  properties:
+    validationTarget:
+      displayName: validationTarget
+      description: Which labs to run validation tests on.
+      type: String
+
+outputType:
+  properties:
+    validationResult:
+      displayName: validationResult
+      description: Summary of validation test results for the specified labs.
+      type: String

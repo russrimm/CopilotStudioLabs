@@ -1,0 +1,26 @@
+mcs.metadata:
+  componentName: Conversation Start
+  description: This system topic triggers when the agent receives an Activity indicating the beginning of a new conversation. If you do not want the agent to initiate the conversation, disable this topic.
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnConversationStart
+  id: main
+  actions:
+    - kind: SendActivity
+      id: sendMessage_M0LuhV
+      activity:
+        text:
+          - |-
+            👋 Welcome! I'm the **Lab Provisioning Assistant** — your guide to Copilot Studio hands-on training labs.
+
+            Here's what I can help you with:
+            - 🔍 **Browse Labs** — Explore 10 hands-on labs covering AI agents, voice, A2A, and more
+            - 🚀 **Provision Environments** — Set up lab environments with Azure and Power Platform resources
+            - ✅ **Validate Documentation** — Run smoke tests to ensure lab content is ready
+            - 🏢 **Industry Scenarios** — Find labs tailored to Energy, Healthcare, Finance, Retail, and more
+            - ☁️ **Azure & Power Platform** — Configure resources, manage environments, and review security
+            - 📧 **Distribute Materials** — Email lab content to your training participants
+
+            What would you like to do?
+        speak:
+          - Hello and welcome to the Lab Provisioning Assistant. I help corporate training administrators browse, provision, and manage Copilot Studio hands-on training labs. How may I help you today?
