@@ -123,7 +123,34 @@ function resolvedZoom(shot) {
   return Number(shot.zoom ?? DEFAULT_ZOOM);
 }
 
-function resolvedUrl(shot) {
+function isAbsoluteUrl(value) {
+  return /^https?:\/\//i.test(value ?? "");
+}
+
+function shotNavSection(shot) {
+  return typeof shot.section === "string" && shot.section.trim() ? shot.section.trim().replace(/^\/+/, "") : null;
+}
+
+function resolveBotSectionUrl(currentUrl, section) {
+  const navSection = section?.trim().replace(/^\/+/, "");
+  if (!navSection) return null;
+  const match = currentUrl.match(/^(https:\/\/(?:copilotstudio\.microsoft\.com|[^/]+\.copilotstudio\.[^/]+)\/environments\/[^/]+\/bots\/[^/]+\/)(?:.*)?$/i);
+  return match ? `${match[1]}${navSection}` : null;
+}
+
+function urlMatchesTarget(currentUrl, targetUrl) {
+  if (currentUrl === targetUrl || currentUrl.startsWith(`${targetUrl}?`) || currentUrl.startsWith(`${targetUrl}#`)) return true;
+  const prefix = targetUrl.endsWith("/") ? targetUrl : `${targetUrl}/`;
+  return currentUrl.startsWith(prefix);
+}
+
+function resolvedUrl(shot, currentUrl = null) {
+  if (shot.url && isAbsoluteUrl(shot.url)) return shot.url;
+  const navSection = shotNavSection(shot);
+  if (navSection) {
+    const resolved = currentUrl ? resolveBotSectionUrl(currentUrl, navSection) : null;
+    return resolved ?? `(current bot → ${navSection})`;
+  }
   return shot.url ?? "(stay on current page)";
 }
 
@@ -163,7 +190,8 @@ function listAll() {
   for (const s of manifest.shots) {
     const have = shotExists(s.filename) ? "✓" : " ";
     console.log(`  [${have}] #${String(s.id).padStart(2, "0")}  ${s.filename}`);
-    console.log(`        ${s.section}`);
+    console.log(`        ${s.labSection ?? s.section}`);
+    console.log(`        target: ${resolvedUrl(s)}`);
   }
   console.log(`\nAssets dir: ${assetsDir}`);
   console.log(`✓ = already on disk, blank = missing\n`);
@@ -179,6 +207,7 @@ function printDryRun(shots) {
     console.log(`  url: ${resolvedUrl(shot)}`);
     console.log(`  viewport: ${viewport.width}x${viewport.height}`);
     console.log(`  zoom: ${resolvedZoom(shot)}`);
+    console.log(`  lab section: ${shot.labSection ?? "(not set)"}`);
     console.log(`  section: ${shot.section}`);
     console.log("  instructions:");
     for (const line of shot.instructions) console.log(`    - ${line}`);
@@ -190,8 +219,8 @@ function printDryRun(shots) {
 function printInstructions(shot) {
   console.log("─".repeat(72));
   console.log(`Shot #${shot.id}  →  ${shot.filename}`);
-  console.log(`Section: ${shot.section}`);
-  console.log(`URL: ${resolvedUrl(shot)}`);
+  console.log(`Section: ${shot.labSection ?? shot.section}`);
+  console.log(`Target: ${resolvedUrl(shot)}`);
   const viewport = resolvedViewport(shot);
   console.log(`Viewport: ${viewport.width}x${viewport.height}; zoom: ${resolvedZoom(shot)}`);
   console.log("");
@@ -283,9 +312,24 @@ async function applyShotSetup(page, shot) {
     document.body.style.zoom = String(zoom);
   }, DEFAULT_ZOOM).catch(() => {});
 
-  if (shot.url && !page.url().startsWith(shot.url)) {
-    console.log(`Navigating to ${shot.url}`);
-    await page.goto(shot.url).catch((err) => console.warn(`Navigation warning: ${err.message}`));
+  const currentUrl = page.url();
+  if (shot.url && isAbsoluteUrl(shot.url)) {
+    if (!urlMatchesTarget(currentUrl, shot.url)) {
+      console.log(`Navigating to ${shot.url}`);
+      await page.goto(shot.url).catch((err) => console.warn(`Navigation warning: ${err.message}`));
+    }
+  } else {
+    const navSection = shotNavSection(shot);
+    const targetUrl = navSection ? resolveBotSectionUrl(currentUrl, navSection) : null;
+    if (targetUrl && !urlMatchesTarget(currentUrl, targetUrl)) {
+      console.log(`Navigating to ${targetUrl}`);
+      await page.goto(targetUrl).catch((err) => console.warn(`Navigation warning: ${err.message}`));
+    } else if (navSection && !targetUrl) {
+      console.log(`💡 Open any agent first, then this shot can auto-jump to the ${navSection} page.`);
+    } else if (shot.url && !urlMatchesTarget(currentUrl, shot.url)) {
+      console.log(`Navigating to ${shot.url}`);
+      await page.goto(shot.url).catch((err) => console.warn(`Navigation warning: ${err.message}`));
+    }
   }
 
   const viewport = resolvedViewport(shot);

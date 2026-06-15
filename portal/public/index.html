@@ -20,6 +20,10 @@
       --danger: #f87171;
       --radius: 10px;
       --shadow: 0 4px 24px rgba(0,0,0,0.3);
+      --accent-glow: rgba(79, 143, 247, 0.15);
+      --surface-glass: rgba(26, 29, 39, 0.85);
+      --gradient-start: #0f1117;
+      --gradient-end: #141728;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -27,9 +31,21 @@
     body {
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       background: var(--bg);
+      background-image:
+        radial-gradient(circle at top left, rgba(79, 143, 247, 0.08), transparent 35%),
+        radial-gradient(circle at top right, rgba(139, 92, 246, 0.1), transparent 30%),
+        linear-gradient(135deg, var(--gradient-start), var(--gradient-end), var(--gradient-start));
+      background-size: 140% 140%, 160% 160%, 220% 220%;
+      animation: ambient-shimmer 40s ease-in-out infinite;
       color: var(--text);
       min-height: 100vh;
       line-height: 1.6;
+    }
+
+    @keyframes ambient-shimmer {
+      0% { background-position: 0% 0%, 100% 0%, 0% 50%; }
+      50% { background-position: 10% 8%, 92% 10%, 100% 50%; }
+      100% { background-position: 0% 0%, 100% 0%, 0% 50%; }
     }
 
     /* ── Layout ─────────────────────────── */
@@ -45,6 +61,18 @@
       position: sticky;
       top: 0;
       z-index: 100;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+    }
+    header::after {
+      content: "";
+      position: absolute;
+      left: 32px;
+      right: 32px;
+      bottom: -1px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-glow), rgba(139, 92, 246, 0.18), transparent);
+      pointer-events: none;
     }
     .portal-branding {
       display: flex;
@@ -109,6 +137,26 @@
       overflow-y: auto;
       padding: 8px;
     }
+    .lab-list::-webkit-scrollbar,
+    .tab-content::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    .lab-list::-webkit-scrollbar-track,
+    .tab-content::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 999px;
+    }
+    .lab-list::-webkit-scrollbar-thumb,
+    .tab-content::-webkit-scrollbar-thumb {
+      background: rgba(139, 143, 168, 0.35);
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .lab-list::-webkit-scrollbar-thumb:hover,
+    .tab-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(79, 143, 247, 0.45);
+    }
 
     .lab-card {
       background: var(--bg);
@@ -119,10 +167,13 @@
       cursor: pointer;
       transition: all 0.15s;
       position: relative;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)), var(--surface-glass);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
     }
-    .lab-card:hover { background: var(--surface-hover); border-color: var(--accent); }
+    .lab-card:hover { background: var(--surface-hover); border-color: var(--accent); transform: scale(1.01) translateY(-1px); box-shadow: 0 18px 34px rgba(0, 0, 0, 0.24), 0 0 0 1px var(--accent-glow); }
     .lab-card.selected { border-color: var(--accent); background: rgba(79, 143, 247, 0.08); }
-    .lab-card.included { border-left: 3px solid var(--success); }
+    .lab-card.included { border-left: 3px solid var(--success); background-image: linear-gradient(90deg, rgba(52, 211, 153, 0.22), rgba(52, 211, 153, 0) 14%), linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)); }
     .lab-card.excluded { border-left: 3px solid var(--danger); opacity: 0.5; }
 
     .lab-card-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; padding-right: 40px; }
@@ -182,9 +233,25 @@
       border-top: none;
       border-left: none;
       border-right: none;
+      position: relative;
+    }
+    .tab::after {
+      content: "";
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: -1px;
+      height: 2px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(79, 143, 247, 0), var(--accent), rgba(79, 143, 247, 0));
+      transform: scaleX(0.35);
+      opacity: 0;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      transform-origin: center;
     }
     .tab:hover { color: var(--text); }
     .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab.active::after { transform: scaleX(1); opacity: 1; }
 
     .tab-content {
       flex: 1;
@@ -201,8 +268,11 @@
       border-radius: var(--radius);
       padding: 24px;
       margin-bottom: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015)), var(--surface-glass);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
     }
-    .panel h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .panel h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-left: 3px solid var(--accent); padding-left: 10px; }
 
     /* ── Forms ──────────────────────────── */
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -222,6 +292,7 @@
     .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
       outline: none;
       border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow), 0 0 18px rgba(79, 143, 247, 0.12);
     }
     .form-group textarea { resize: vertical; min-height: 80px; }
     .form-group .hint { font-size: 11px; color: var(--text-muted); }
@@ -337,7 +408,7 @@
     .btn:hover { background: var(--surface-hover); }
     .btn:disabled { opacity: 0.65; cursor: not-allowed; }
     .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
-    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:hover { background: var(--accent-hover); box-shadow: 0 0 20px rgba(79, 143, 247, 0.3); transform: translateY(-1px); }
     .btn-success { background: var(--success); border-color: var(--success); color: #0f1117; }
     .btn-danger { background: var(--danger); border-color: var(--danger); color: white; }
     .btn-sm { padding: 5px 10px; font-size: 12px; }
@@ -643,6 +714,78 @@
     .preview-frame th, .preview-frame td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
     .preview-frame th { background: #f0f0f5; }
     .preview-frame blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: #555; margin: 12px 0; }
+    .preview-frame .mermaid { margin: 20px 0; text-align: center; background: #fafafe; border: 1px solid #e0e0e8; border-radius: 8px; padding: 16px; }
+    .feedback-widget { display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; vertical-align: middle; }
+    .feedback-btn { background: none; border: 1px solid #ddd; border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 16px; transition: all 0.15s; opacity: 0.5; }
+    .feedback-btn:hover { opacity: 1; border-color: var(--accent); background: rgba(79,143,247,0.08); }
+    .feedback-btn.voted { opacity: 1; border-color: var(--accent); background: rgba(79,143,247,0.15); }
+    .feedback-btn:disabled { cursor: default; }
+    .feedback-status { font-size: 11px; color: #888; }
+    .report-issue-float { position: sticky; bottom: 16px; float: right; margin-top: 24px; z-index: 10; }
+    .preview-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .preview-download-status { color: var(--text-muted); font-size: 13px; }
+    .preview-frame img.lab-zoomable-image { cursor: zoom-in; transition: box-shadow 0.15s, transform 0.15s; }
+    .preview-frame img.lab-zoomable-image:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.25); transform: translateY(-1px); }
+    .image-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0,0,0,0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .image-lightbox[hidden] { display: none; }
+    .lightbox-stage {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      outline: none;
+      cursor: grab;
+      touch-action: none;
+    }
+    .lightbox-stage.dragging { cursor: grabbing; }
+    .lightbox-image {
+      max-width: 92vw;
+      max-height: 88vh;
+      transform-origin: center center;
+      user-select: none;
+      will-change: transform;
+      outline: 2px solid transparent;
+    }
+    .lightbox-image:focus { outline-color: var(--accent); }
+    .lightbox-close {
+      position: fixed;
+      top: 18px;
+      right: 22px;
+      z-index: 1001;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.12);
+      color: white;
+      cursor: pointer;
+      font-size: 30px;
+      line-height: 1;
+    }
+    .lightbox-close:hover { background: rgba(255,255,255,0.22); }
+    .lightbox-help {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.78);
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 12px;
+    }
 
     /* ── Status bar ─────────────────────── */
     .status-bar {
@@ -860,6 +1003,93 @@
       .form-grid { grid-template-columns: 1fr; }
       .provision-status-header, .provision-summary-row { flex-direction: column; align-items: flex-start; }
     }
+
+    @media print {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        filter: none !important;
+      }
+
+      html, body {
+        background: #fff !important;
+        color: #000 !important;
+      }
+
+      body {
+        min-height: auto;
+      }
+
+      header,
+      .sidebar,
+      .tabs,
+      .status-bar,
+      .btn,
+      .toast-container,
+      .image-lightbox,
+      .preview-actions,
+      .preview-toc,
+      nav,
+      .report-issue-float,
+      .feedback-widget {
+        display: none !important;
+      }
+
+      .app,
+      .main-content,
+      .content,
+      .tab-content,
+      .tab-panel,
+      #panel-preview,
+      #preview-wrapper {
+        display: block !important;
+        width: 100% !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: #fff !important;
+      }
+
+      .tab-panel:not(#panel-preview),
+      #preview-empty {
+        display: none !important;
+      }
+
+      .panel,
+      .preview-frame {
+        background: #fff !important;
+        color: #000 !important;
+        border: none !important;
+        backdrop-filter: none !important;
+      }
+
+      .preview-frame {
+        width: 100% !important;
+        padding: 0 !important;
+      }
+
+      .preview-frame h1,
+      .preview-frame h2,
+      .preview-frame h3,
+      .preview-frame p,
+      .preview-frame li,
+      .preview-frame td,
+      .preview-frame th,
+      .preview-frame code,
+      .preview-frame pre,
+      .preview-frame blockquote {
+        color: #000 !important;
+      }
+
+      .preview-frame h2 { page-break-before: auto; }
+      .preview-frame table,
+      .preview-frame pre,
+      .preview-frame code,
+      .preview-frame .mermaid { page-break-inside: avoid; }
+      .preview-frame a[href]::after { content: " (" attr(href) ")"; font-size: 10px; color: #666; }
+    }
   </style>
 </head>
 <body>
@@ -875,6 +1105,7 @@
       </div>
       <div style="display: flex; align-items: center; gap: 12px;">
         <span id="lab-count" class="tag tag-success">0 labs</span>
+        <button class="btn btn-sm" onclick="reportIssue()" title="Report an issue with the labs">🐛 Report Issue</button>
         <button class="btn btn-sm" onclick="refreshLabs()">↻ Refresh</button>
       </div>
     </header>
@@ -913,6 +1144,27 @@
         <div class="tab-content">
           <!-- Provision tab -->
           <div class="tab-panel active" id="panel-provision">
+            <div class="panel">
+              <h3>🗺️ Lab Dependency &amp; Sequence Map</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                Use this sequence map to understand which labs build on earlier setup, which labs branch into specialized tracks, and where your team can safely jump ahead.
+              </p>
+              <div class="mermaid" id="lab-dependency-graph">
+flowchart TD
+  L01["Lab 01: IT Operations Agent"] --> L02["Lab 02: Analytics & Evaluations"]
+  L01 --> L03["Lab 03: Account Orchestration"]
+  L01 --> L05["Lab 05: VS Code Agent Mgmt"]
+  L03 --> L07["Lab 07: Agent-to-Agent Protocol"]
+  L04["Lab 04: Energy Intelligence Agent ★"] --> L05
+  L04 --> L07
+  L01 --> L08["Lab 08: Work IQ & M365"]
+  L01 --> L09["Lab 09: Prompt Builder & Flows"]
+  L01 --> L10["Lab 10: Real-Time Voice"]
+  L06["Lab 06: Computer Use Agents"]
+  L11["Lab 11: Power Apps Code Apps"]
+  style L04 fill:#2563eb,color:#fff,stroke:#1d4ed8
+              </div>
+            </div>
             <div class="panel">
               <h3>📦 Customization</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
@@ -1122,6 +1374,10 @@
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Select a lab from the sidebar to preview its content.
               </p>
+              <div class="preview-actions">
+                <button id="pdf-download-button" class="btn btn-primary" type="button" onclick="downloadCurrentPdf()" style="display: none;">📄 Download walkthrough PDF</button>
+                <span id="pdf-download-status" class="preview-download-status" aria-live="polite"></span>
+              </div>
               <div id="preview-wrapper" class="preview-wrapper" style="display: none;">
                 <nav id="preview-toc" class="preview-toc"></nav>
                 <div id="preview-area" class="preview-frame"></div>
@@ -1597,6 +1853,19 @@
   <!-- Toasts -->
   <div class="toast-container" id="toast-container"></div>
 
+  <!-- Lab screenshot lightbox -->
+  <div id="image-lightbox" class="image-lightbox" role="dialog" aria-modal="true" aria-label="Expanded screenshot" hidden>
+    <button type="button" class="lightbox-close" data-lightbox-close aria-label="Close expanded screenshot">×</button>
+    <div class="lightbox-stage" tabindex="-1">
+      <img id="lightbox-image" class="lightbox-image" alt="" tabindex="0" />
+    </div>
+    <div class="lightbox-help">Esc closes • +/- zoom • arrows pan • 0 resets</div>
+  </div>
+
+  <script src="vendor/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default" });
+  </script>
   <script src="app.js"></script>
 </body>
 </html>

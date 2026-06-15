@@ -1,5 +1,62 @@
 # Squad Decisions
 
+## 2026-06-14 — Lab PDF generator and screenshot zoom
+
+Owner: Dallas
+Merged by: Scribe
+Source: `.squad/decisions/inbox/dallas-lab-pdf-generator.md`
+
+### Decision summary
+
+Implement lab walkthrough PDFs as a build-time tool under `tools/lab-pdf/`, serve only pre-generated PDFs from the portal, and provide interactive screenshot zoom in the portal HTML viewer.
+
+Architecture summary:
+
+1. `tools/lab-pdf/` reads each lab `index.md`, renders Markdown to print-friendly HTML with `marked`, rewrites local images to `file://` URIs, scales inline screenshots to at most 720px, replaces missing screenshots with clear placeholders, and prints PDFs through Playwright headless Chromium with cover, TOC, header, and footer.
+2. Generated PDFs embed screenshots inline and add a "Screenshots — Full Size" appendix. Inline thumbnails link to appendix anchors, and appendix pages link back to their inline reference.
+3. The portal serves `GET /api/labs/:id/pdf` only when the generated PDF is fresh relative to the lab markdown and PNG assets. It returns `503` if the PDF is missing or stale instead of launching Playwright from an HTTP request.
+4. The portal HTML preview owns true interactive zoom: a reusable vanilla-JS lightbox supports mouse-wheel zoom, panning, keyboard controls, focus trapping, and Escape-to-close.
+
+Rationale: PDF readers do not reliably support JavaScript-driven image zoom across browsers, Adobe Reader, Preview, Edge, and mobile viewers. The portable PDF answer is high-quality embedded images plus clickable thumbnail-to-full-page anchors. Native, rich zoom belongs in the in-browser portal experience where JavaScript interaction is predictable.
+
+## 2026-06-14 — Lab 04 screenshot section deeplinks
+
+Owner: Dallas
+Merged by: Scribe
+Source: `.squad/decisions/inbox/dallas-shots-section-deeplinks.md`
+
+### Decision summary
+
+Added current-agent section navigation for Lab 04 screenshot capture. `section` now carries the Copilot Studio navigation target (`topics`, `actions`, `agents`, `settings`, `evaluations`, or `home`/`powerautomate` when an absolute URL wins), while `labSection` preserves the former use-case step label for operator prompts.
+
+Mapping summary:
+- Home: shot 0 uses `url: https://copilotstudio.microsoft.com/`.
+- Topics/editor modal shots: 1-5 use `section: topics`.
+- Variables/settings/model/sharing shots: 6, 10, 14 use `section: settings`.
+- HTTP tools, variable picker, and MCP discovery: 7-9 and 17 use `section: actions`.
+- Connected agents list: 11 uses `section: agents`.
+- Power Automate flow shots: 12-13 use `url: https://make.powerautomate.com/`.
+- Evaluations/test results: 15-16 use `section: evaluations`.
+
+Capture behavior: absolute `url` wins. Otherwise, if the current page is a Copilot Studio `/environments/{envId}/bots/{botId}/...` URL, capture replaces the suffix with `section`; if not, it prints a hint asking the operator to open any agent first.
+
+## 2026-06-14 — Lab 04 placeholder restoration guardrail
+
+Owner: Dallas
+Merged by: Scribe
+Source: `.squad/decisions/inbox/dallas-placeholder-guardrail.md`
+
+### Decision summary
+
+Regression pattern: the 16 Lab 04 placeholder PNGs are committed in repository history, so `git restore`, VS Code `Discard Changes`, or `Discard All Changes` can re-materialize them until the deletions and replacement captures are committed together.
+
+Guardrails added:
+
+1. README warning: `tools/screenshot-capture/README.md` now has `## Heads-up: commit deletions promptly`, explaining that placeholder deletions should be staged with good captures and committed promptly.
+2. Verification flag: `tools/screenshot-capture/verify-shots.js --check-state` now checks Lab 04 PNG byte sizes against Kane's known-placeholder denylist and emits CRITICAL `restored-placeholder` findings for exact matches.
+
+Limits: the `--check-state` fingerprint is a byte-size heuristic. A real capture could theoretically have an identical size, but that should be extremely unlikely and should trigger manual inspection/re-capture.
+
 ## 2026-06-14 — Screenshot capture workflow enhancements
 
 Owner: Dallas

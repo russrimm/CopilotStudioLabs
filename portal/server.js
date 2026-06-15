@@ -5,9 +5,9 @@
 import "dotenv/config";
 import express from "express";
 import { randomUUID } from "crypto";
-import { writeFileSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import multer from "multer";
-import { extname, resolve } from "path";
+import { extname, join, resolve } from "path";
 import { discoverLabs, getLabContent } from "./lib/labs.js";
 import { validateLab, validateAllLabs } from "./lib/validator.js";
 import { exportLabs } from "./lib/exporter.js";
@@ -23,6 +23,28 @@ import {
 } from "./lib/branding.js";
 import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/scenarios.js";
 import { marked } from "marked";
+
+/* ── Mermaid extension for marked ───────────────────────────────────────────
+ * Converts ```mermaid fenced code blocks into <div class="mermaid"> elements
+ * so the client-side Mermaid library renders them as SVG diagrams.
+ * GitHub also renders these blocks natively in markdown previews.           */
+const mermaidExtension = {
+  name: "mermaid",
+  renderer: {
+    code({ text, lang }) {
+      if (lang === "mermaid") {
+        const escaped = text
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+        return `<div class="mermaid">${escaped}</div>`;
+      }
+      return false; // fall through to default renderer
+    },
+  },
+};
+marked.use(mermaidExtension);
 import {
   getAllLabResources, getLabResources, checkPrerequisites,
   provision, deprovision, getProvisioningStatus,
@@ -43,6 +65,9 @@ const PORT = process.env.PORT || 3000;
 const PROVISION_JOB_RETENTION_MS = 60 * 60 * 1000;
 const LABS_ROUTE = "/labs";
 const labsRoot = resolve(import.meta.dirname, "..", "labs");
+const pdfRoot = resolve(import.meta.dirname, "..", "dist", "lab-pdfs");
+const dataRoot = resolve(import.meta.dirname, "data");
+const feedbackFilePath = resolve(dataRoot, "feedback.json");
 const provisionJobs = new Map();
 const BRANDING_MAX_FILE_SIZE = 2 * 1024 * 1024;
 
@@ -105,6 +130,28 @@ function rewriteLabHtmlAssetUrls(html, labId) {
   );
 }
 
+function collectPngFiles(dir) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const entryPath = join(dir, entry.name);
+    if (entry.isDirectory()) return collectPngFiles(entryPath);
+    return entry.isFile() && entry.name.toLowerCase().endsWith(".png") ? [entryPath] : [];
+  });
+}
+
+function isLabPdfFresh(labId, pdfPath) {
+  if (!existsSync(pdfPath)) return false;
+
+  const indexPath = join(labsRoot, labId, "index.md");
+  if (!existsSync(indexPath)) return false;
+
+  const pdfMtime = statSync(pdfPath).mtimeMs;
+  if (statSync(indexPath).mtimeMs > pdfMtime) return false;
+
+  return collectPngFiles(join(labsRoot, labId, "assets"))
+    .every((assetPath) => statSync(assetPath).mtimeMs <= pdfMtime);
+}
+
 function getBrandingLogoExtension(file) {
   if (file.mimetype === "image/png") return ".png";
   if (file.mimetype === "image/jpeg") return ".jpg";
@@ -118,6 +165,23 @@ function sanitizeBrandingPayload(payload = {}) {
     primaryColor: String(payload.primaryColor ?? "").trim(),
     tagline: String(payload.tagline ?? "").trim(),
   };
+}
+
+function loadFeedbackEntries() {
+  try {
+    if (!existsSync(feedbackFilePath)) return [];
+    const raw = readFileSync(feedbackFilePath, "utf8").trim();
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveFeedbackEntries(entries) {
+  mkdirSync(dataRoot, { recursive: true });
+  writeFileSync(feedbackFilePath, JSON.stringify(entries, null, 2));
 }
 
 function estimateProvisionSteps(labIds, subscriptionId) {
@@ -287,6 +351,24 @@ app.get("/api/labs", (_req, res) => {
   }
 });
 
+/** GET /api/labs/:id/pdf — Download a pre-generated lab walkthrough PDF */
+app.get("/api/labs/:id/pdf", (req, res) => {
+  const { id } = req.params;
+  const content = getLabContent(id);
+  if (!content) return res.status(404).json({ error: "Lab not found" });
+
+  const pdfPath = join(pdfRoot, `${id}-walkthrough.pdf`);
+  if (!isLabPdfFresh(id, pdfPath)) {
+    return res.status(503).json({
+      error: `PDF not generated yet. Run \`npm run generate -- --lab=${id}\` in tools/lab-pdf/.`,
+    });
+  }
+
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${id}-walkthrough.pdf"`);
+  res.sendFile(pdfPath);
+});
+
 /** GET /api/labs/:id — Get a single lab's full content as HTML */
 app.get("/api/labs/:id", (req, res) => {
   const content = getLabContent(req.params.id);
@@ -295,6 +377,46 @@ app.get("/api/labs/:id", (req, res) => {
   const brandedMarkdown = prependBrandingBanner(content, branding);
   const html = rewriteLabHtmlAssetUrls(marked.parse(brandedMarkdown), req.params.id);
   res.json({ id: req.params.id, html, markdown: brandedMarkdown });
+});
+
+/** POST /api/feedback — Store lab section feedback */
+app.post("/api/feedback", (req, res) => {
+  const labId = String(req.body?.labId ?? "").trim();
+  const section = String(req.body?.section ?? "").trim();
+  const rating = String(req.body?.rating ?? "").trim().toLowerCase();
+  const comment = String(req.body?.comment ?? "").trim();
+
+  if (!labId) return res.status(400).json({ error: "labId is required" });
+  if (!section) return res.status(400).json({ error: "section is required" });
+  if (!["up", "down"].includes(rating)) {
+    return res.status(400).json({ error: "rating must be 'up' or 'down'" });
+  }
+
+  try {
+    const entries = loadFeedbackEntries();
+    const entry = {
+      labId,
+      section,
+      rating,
+      comment,
+      timestamp: new Date().toISOString(),
+    };
+    entries.push(entry);
+    saveFeedbackEntries(entries);
+    res.status(201).json({ success: true, entry });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/feedback/:labId — Return feedback for a single lab */
+app.get("/api/feedback/:labId", (req, res) => {
+  try {
+    const feedback = loadFeedbackEntries().filter((entry) => entry.labId === req.params.labId);
+    res.json({ labId: req.params.labId, feedback });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /** GET /api/branding — Return current branding configuration */

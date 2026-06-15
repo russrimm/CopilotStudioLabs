@@ -12,6 +12,21 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Build Parent Orchestrator"] --> B["Create Internal Agent"]
+  A --> C["Connect Fabric Agent"]
+  C --> D["A2A Protocol"]
+  B --> E["Configure Routing Descriptions"]
+  D --> E
+  E --> F["Test Cross-platform Routing"]
+  F --> G["Review Analytics"]
+```
+
+---
+
 ## Overview
 
 Modern utility scenarios rarely live inside one agent boundary. An account-support agent might understand customer history, while a Fabric Data Agent understands meter telemetry, rate analysis, or load forecasting. Rather than force one agent to own every tool and dataset, you can connect specialists and let an orchestrator route work intelligently.

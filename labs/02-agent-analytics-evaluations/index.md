@@ -14,6 +14,22 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Copilot Studio Analytics"] --> B["Identify Gaps"]
+  B --> C["Build Test Sets"]
+  C --> D["Run Evaluations"]
+  D --> E["Compare Results"]
+  E --> F["Connect App Insights"]
+  F --> G["Azure Monitor"]
+  G --> H["Write KQL"]
+  H --> I["Build Dashboards"]
+```
+
+---
+
 ## ⚡ Why Contoso cares about analytics and evaluations
 
 The Contoso IT Operations Agent (Lab 01) and the Contoso Customer Operations Assistant (Lab 03) only deliver value if they **work** — turn after turn, day after day, for thousands of field crew, account managers, and dispatchers across Contoso Energy, Contoso Gas, Contoso Infrastructure, and Contoso Power.

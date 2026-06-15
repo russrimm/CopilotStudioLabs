@@ -45,6 +45,12 @@ node verify-shots.js --strict
 
 `verify-shots.js` scans lab markdown, `shots.json`, and lab assets for schema drift, missing or invalid image files, markdown/catalog mismatches, tiny placeholder-like PNGs, and orphan PNG/JPEG assets. It exits `0` when there are no critical findings, `1` when critical findings exist; `--strict` also fails on warnings.
 
+Use `node verify-shots.js --check-state` before committing Lab 04 screenshot work to add a byte-size denylist check for Kane's known placeholder PNG fingerprints. The heuristic reports CRITICAL `restored-placeholder` findings for Lab 04 PNGs whose file size exactly matches one of the known-bad placeholders. A false positive is possible if a real capture lands on the exact same byte size, but that is extremely unlikely; inspect and re-capture if it happens.
+
+## Heads-up: commit deletions promptly
+
+The deleted Lab 04 placeholder PNGs still exist in git history. Until both the deletions and the replacement captures are committed, `git restore`, VS Code **Discard Changes**, or **Discard All Changes** can restore those placeholder files into the working tree. Stage the placeholder deletions and good captures together, commit them promptly, and then continue capturing the remaining screenshots.
+
 > ⚠️ **Heads up:** npm 11 strips unknown flags like `--all` from `npm run capture -- --all`. Use the direct `node capture.js …` form when passing flags. `npm run capture` and `npm run list` are wired in `package.json` so they work as-is.
 
 ## During a capture session
@@ -65,14 +71,16 @@ Each shot still requires `id`, `filename`, `section`, and `instructions`. Option
 
 ```json
 {
+  "section": "topics",
   "url": "https://copilotstudio.microsoft.com/...",
+  "labSection": "Use Case #1, Step 2",
   "viewport": { "width": 1440, "height": 900 },
   "zoom": 1.0,
   "highlight": { "selector": "[data-id='target']", "label": "Future callout" }
 }
 ```
 
-`url` navigates before prompting when the active page is elsewhere. `viewport` and `zoom` reset to 1440x900 / 1.0 between shots before applying shot overrides. `highlight` is reserved for future callout-arrow work and is not implemented yet.
+`url` navigates before prompting when the active page is elsewhere. When `url` is absent, `section` is treated as a current-agent section such as `topics`, `actions`, `agents`, `settings`, or `evaluations`; if the browser is already under `/environments/.../bots/.../`, the tool keeps the current environment/agent and replaces only the trailing section. Absolute `url` values win over `section`. If no current agent is open, the tool prints a hint and waits for manual navigation. `labSection` keeps the human lab step label for prompts. `viewport` and `zoom` reset to 1440x900 / 1.0 between shots before applying shot overrides. `highlight` is reserved for future callout-arrow work and is not implemented yet.
 
 ## Notes
 

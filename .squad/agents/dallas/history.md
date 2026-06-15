@@ -31,3 +31,11 @@
 ## 2026-06-14T10:55:00-05:00
 
 - Enhanced `tools/screenshot-capture/capture.js` and its README with per-shot optional `url`/`viewport`/`zoom` fields, reserved future `highlight` support, overlay auto-dismissal, single-key human-in-the-loop controls, PNG verification after capture, dry-run/missing/from/help flags, and session summaries. Also re-deleted the 17 Lab 04 placeholder/wrong PNGs that had reappeared so only `copilot-studio-home.png` remains; `npm run verify` now correctly reports 17 critical missing-image-file findings and `node capture.js --dry-run --missing` queues all 17. The reappearance is a state-regression signal for a future workflow guardrail such as `.gitignore` or pre-commit/pre-restore reminders.
+
+## 2026-06-14T20:16:00-05:00
+
+- Shipped Lab 04 screenshot deeplinks by adding per-shot `section` navigation for all 18 shots, absolute `url` targets for Copilot Studio home and Power Automate, and `capture.js` support that rewrites the current agent URL to the requested section with an operator hint fallback. Observed the third placeholder-restoration regression in 24 hours, re-deleted the 16 restored placeholder PNGs while preserving Russ's real `topic-add-from-blank.png` and good `copilot-studio-home.png`, and installed the guardrail: README warning plus `verify-shots.js --check-state` CRITICAL `restored-placeholder` detection. Scribe merged both decisions and logged the session in `.squad/log/2026-06-14T20-16-00-05-00-dallas-deeplinks-placeholder-guardrail.md`.
+
+## 2026-06-14T20:50:00-05:00
+
+- Shipped lab walkthrough PDF generation under `tools/lab-pdf/`, including Markdown rendering through `marked`, Playwright Chromium PDF printing, inline screenshots scaled to 720px, missing-image placeholders, and a full-size screenshot appendix with thumbnail/back-link navigation. The portal now exposes `GET /api/labs/:id/pdf` for fresh pre-generated PDFs and adds a download button plus a vanilla-JS screenshot lightbox with wheel zoom, pan, keyboard controls, and focus trapping. Lab 04 PDF generation and endpoint headers were verified; Scribe merged the decision and logged the session in `.squad/log/2026-06-14T20-50-00-05-00-dallas-lab-pdf-generator.md`.

@@ -14,6 +14,20 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Clone Starter Template"] --> B["Authenticate PAC CLI"]
+  B --> C["Initialize Code App"]
+  C --> D["Test Locally in VS Code"]
+  D --> E["Add Dataverse Data Source"]
+  E --> F["Use GitHub Copilot"]
+  F --> G["Build and Deploy to Power Apps"]
+```
+
+---
+
 ## ⚡ Why this lab matters
 
 Energy companies like Contoso Energy manage hundreds of supplier relationships — from equipment vendors and field service contractors to fuel providers and environmental consultants. Onboarding these suppliers requires tracking submissions, approvals, and compliance documentation across multiple teams.
