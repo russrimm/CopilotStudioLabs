@@ -1554,6 +1554,87 @@ flowchart TD
             </div>
 
             <div class="panel">
+              <h3>🔐 Approval &amp; Notification Settings</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Choose whether environment requests are provisioned immediately or routed through an approval workflow.
+              </p>
+
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label>Approval Method</label>
+                <div style="display: grid; gap: 8px; margin-top: 8px;">
+                  <label><input type="radio" name="pp-approval-method" value="none" onchange="ppRefreshApprovalSettingsVisibility()" /> Direct provisioning (no approval)</label>
+                  <label><input type="radio" name="pp-approval-method" value="portal" onchange="ppRefreshApprovalSettingsVisibility()" /> Portal-based approval</label>
+                  <label><input type="radio" name="pp-approval-method" value="power-automate" onchange="ppRefreshApprovalSettingsVisibility()" /> Power Automate Approvals</label>
+                  <label><input type="radio" name="pp-approval-method" value="logic-apps" onchange="ppRefreshApprovalSettingsVisibility()" /> Azure Logic Apps approval</label>
+                  <label><input type="radio" name="pp-approval-method" value="copilot-studio" onchange="ppRefreshApprovalSettingsVisibility()" /> Copilot Studio human-in-the-loop</label>
+                  <label><input type="radio" name="pp-approval-method" value="teams-adaptive-card" onchange="ppRefreshApprovalSettingsVisibility()" /> Teams Adaptive Card approval</label>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label>Notification Channels</label>
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px;">
+                  <label><input type="checkbox" id="pp-notify-teams" onchange="ppRefreshApprovalSettingsVisibility()" /> Teams</label>
+                  <label><input type="checkbox" id="pp-notify-email" onchange="ppRefreshApprovalSettingsVisibility()" /> Email</label>
+                </div>
+              </div>
+
+              <div class="form-grid">
+                <div class="form-group pp-approval-field" data-approval-method="power-automate" style="display: none;">
+                  <label>Power Automate Webhook URL</label>
+                  <input type="url" id="pp-power-automate-webhook" placeholder="https://prod-00.westus.logic.azure.com/..." />
+                </div>
+                <div class="form-group pp-approval-field" data-approval-method="logic-apps" style="display: none;">
+                  <label>Logic App HTTP Trigger URL</label>
+                  <input type="url" id="pp-logic-apps-webhook" placeholder="https://prod-00.westus.logic.azure.com/..." />
+                </div>
+                <div class="form-group pp-approval-field" data-approval-method="copilot-studio" style="display: none;">
+                  <label>Copilot Studio Agent Webhook URL</label>
+                  <input type="url" id="pp-copilot-studio-webhook" placeholder="https://.../api/messages" />
+                </div>
+                <div class="form-group pp-approval-field" data-approval-method="teams-adaptive-card" style="display: none;">
+                  <label>Teams Approval Webhook URL</label>
+                  <input type="url" id="pp-teams-approval-webhook" placeholder="https://outlook.office.com/webhook/..." />
+                </div>
+                <div class="form-group pp-notification-field" data-notification-channel="teams" style="display: none;">
+                  <label>Teams Notification Webhook URL</label>
+                  <input type="url" id="pp-teams-notification-webhook" placeholder="https://outlook.office.com/webhook/..." />
+                  <span class="hint">Use for channel notifications. Leave blank if you want to rely on approval cards only.</span>
+                </div>
+                <div class="form-group pp-notification-field" data-notification-channel="teams" style="display: none;">
+                  <label>Teams User Email (optional)</label>
+                  <input type="email" id="pp-teams-user-email" placeholder="approver@contoso.com" />
+                  <span class="hint">Optional metadata for 1:1 approval scenarios.</span>
+                </div>
+                <div class="form-group pp-notification-field" data-notification-channel="email" style="display: none;">
+                  <label>Approver Email Address(es)</label>
+                  <input type="text" id="pp-approver-emails" placeholder="approver1@contoso.com; approver2@contoso.com" />
+                </div>
+              </div>
+
+              <div style="margin-top: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="ppSaveApprovalConfig()">💾 Save Settings</button>
+                <button class="btn" onclick="ppLoadApprovalConfig()">↻ Reload</button>
+                <span id="pp-approval-config-status" style="font-size: 13px; color: var(--text-muted);"></span>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h3>📋 Pending Approval Requests</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Review requests waiting for approval and inspect completed request history.
+              </p>
+              <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+                <button class="btn" onclick="ppLoadApprovalRequests()">↻ Refresh Queue</button>
+              </div>
+              <div id="pp-approval-queue">
+                <div style="text-align: center; padding: 20px; color: var(--text-muted);">
+                  Loading approval requests...
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
               <h3>🛡️ Secure Score & Recommendations</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 Security posture assessment with actionable remediation for your Power Platform tenant.

@@ -58,6 +58,15 @@ import {
   getSecureScore, getRecommendations, applyRemediation, getTenantSettings,
   getPendingDeviceCode,
 } from "./lib/powerplatform.js";
+import {
+  approveRequest,
+  getRequest,
+  listRequests,
+  loadApprovalConfig,
+  rejectRequest,
+  saveApprovalConfig,
+  submitRequest,
+} from "./lib/approvals.js";
 import { getCurrentUser, clearTokens } from "./lib/auth.js";
 
 const app = express();
@@ -794,6 +803,176 @@ app.post("/api/pp/environments", async (req, res) => {
     const pending = getPendingDeviceCode();
     if (pending) return res.status(401).json({ authRequired: true, deviceCode: pending });
     res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/pp/approval-config — Return current approval workflow configuration */
+app.get("/api/pp/approval-config", (_req, res) => {
+  try {
+    res.json(loadApprovalConfig());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/pp/approval-config — Save approval workflow configuration */
+app.post("/api/pp/approval-config", (req, res) => {
+  try {
+    const config = saveApprovalConfig(req.body || {});
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/pp/approval-requests — Submit an environment request for approval */
+app.post("/api/pp/approval-requests", async (req, res) => {
+  const { displayName, location, environmentType, currency, language, securityGroupId } = req.body || {};
+  if (!displayName) return res.status(400).json({ error: "displayName is required" });
+
+  try {
+    const user = await getCurrentUser();
+    const portalUrl = `${req.protocol}://${req.get("host")}`;
+    const requestRecord = await submitRequest({
+      displayName,
+      location,
+      environmentType,
+      currency,
+      language,
+      securityGroupId,
+      portalUrl,
+      requestedBy: user?.username || "unknown",
+      requestedByName: user?.name || user?.username || "",
+    });
+
+    res.json({
+      success: true,
+      request: requestRecord,
+      environment: requestRecord.environment || null,
+    });
+  } catch (err) {
+    const pending = getPendingDeviceCode();
+    if (pending) return res.status(401).json({ authRequired: true, deviceCode: pending });
+    res.status(/required/i.test(err.message) ? 400 : 500).json({ error: err.message });
+  }
+});
+
+/** GET /api/pp/approval-requests — List approval requests */
+app.get("/api/pp/approval-requests", (req, res) => {
+  try {
+    const requests = listRequests({ status: req.query.status });
+    res.json({ requests });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/pp/approval-requests/:id — Get a single approval request */
+app.get("/api/pp/approval-requests/:id", (req, res) => {
+  try {
+    const requestRecord = getRequest(req.params.id);
+    if (!requestRecord) return res.status(404).json({ error: "Approval request not found" });
+    res.json({ request: requestRecord });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/pp/approval-requests/:id/approve — Approve and provision */
+app.post("/api/pp/approval-requests/:id/approve", async (req, res) => {
+  try {
+    const user = await getCurrentUser();
+    const requestRecord = await approveRequest(
+      req.params.id,
+      user?.username || req.body?.decidedBy || "portal-approver",
+      req.body?.reason || "",
+    );
+    res.json({ success: true, request: requestRecord, environment: requestRecord.environment || null });
+  } catch (err) {
+    const pending = getPendingDeviceCode();
+    if (pending) return res.status(401).json({ authRequired: true, deviceCode: pending });
+    const status = err.message.includes("not found") ? 404 : err.message.includes("Only pending") ? 409 : 500;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+/** POST /api/pp/approval-requests/:id/reject — Reject request */
+app.post("/api/pp/approval-requests/:id/reject", async (req, res) => {
+  try {
+    const user = await getCurrentUser();
+    const requestRecord = await rejectRequest(
+      req.params.id,
+      user?.username || req.body?.decidedBy || "portal-approver",
+      req.body?.reason || "",
+    );
+    res.json({ success: true, request: requestRecord });
+  } catch (err) {
+    const status = err.message.includes("not found") ? 404 : err.message.includes("Only pending") ? 409 : 500;
+    res.status(status).json({ error: err.message });
+  }
+});
+
+/** GET /api/pp/approval-callback — Convenience callback for actionable links */
+app.get("/api/pp/approval-callback", async (req, res) => {
+  const { requestId, callbackToken, decision, decidedBy, reason } = req.query;
+  const normalizedDecision = String(decision || "").toLowerCase();
+
+  if (!["approved", "rejected"].includes(normalizedDecision)) {
+    return res.status(400).send("decision must be approved or rejected.");
+  }
+
+  try {
+    const requestRecord = getRequest(String(requestId || ""));
+    if (!requestRecord) return res.status(404).send("Approval request not found.");
+    if (requestRecord.callbackToken !== callbackToken) return res.status(401).send("Invalid callback token.");
+
+    const result = normalizedDecision === "rejected"
+      ? await rejectRequest(requestRecord.id, String(decidedBy || "callback"), String(reason || ""))
+      : await approveRequest(requestRecord.id, String(decidedBy || "callback"), String(reason || ""));
+
+    res.type("html").send(`
+      <html><body style="font-family: Segoe UI, Arial, sans-serif; padding: 24px;">
+        <h2>${result.status === "rejected" ? "Request rejected" : "Request processed"}</h2>
+        <p><strong>${result.displayName}</strong> is now <strong>${result.status}</strong>.</p>
+        <p>You can close this window and return to the portal.</p>
+      </body></html>
+    `);
+  } catch (err) {
+    const pending = getPendingDeviceCode();
+    if (pending) return res.status(401).send("Authentication required in the portal before approving this request.");
+    res.status(500).send(err.message);
+  }
+});
+
+/** POST /api/pp/approval-callback — Receive external approval decisions */
+app.post("/api/pp/approval-callback", async (req, res) => {
+  const { requestId, callbackToken, decision, decidedBy, reason } = req.body || {};
+  const normalizedDecision = String(decision || "").toLowerCase();
+
+  if (!requestId || !callbackToken || !normalizedDecision) {
+    return res.status(400).json({ error: "requestId, callbackToken, and decision are required" });
+  }
+  if (!["approved", "rejected"].includes(normalizedDecision)) {
+    return res.status(400).json({ error: "decision must be approved or rejected" });
+  }
+
+  try {
+    const requestRecord = getRequest(requestId);
+    if (!requestRecord) return res.status(404).json({ error: "Approval request not found" });
+    if (requestRecord.callbackToken !== callbackToken) {
+      return res.status(401).json({ error: "Invalid callback token" });
+    }
+
+    const result = normalizedDecision === "rejected"
+      ? await rejectRequest(requestId, decidedBy || "callback", reason || "")
+      : await approveRequest(requestId, decidedBy || "callback", reason || "");
+
+    res.json({ success: true, request: result, environment: result.environment || null });
+  } catch (err) {
+    const pending = getPendingDeviceCode();
+    if (pending) return res.status(401).json({ authRequired: true, deviceCode: pending });
+    const status = err.message.includes("not found") ? 404 : err.message.includes("Invalid callback token") ? 401 : 500;
+    res.status(status).json({ error: err.message });
   }
 });
 

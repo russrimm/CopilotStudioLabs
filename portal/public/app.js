@@ -19,6 +19,7 @@ let branding = getDefaultBranding();
 let savedBranding = getDefaultBranding();
 let brandingLogoFile = null;
 let brandingLogoPreviewUrl = "";
+let ppApprovalConfig = null;
 const feedbackVotes = new Set();
 let lightboxState = {
   active: false,
@@ -227,6 +228,8 @@ document.addEventListener("DOMContentLoaded", () => {
   loadBranding();
   loadResourceManifest();
   restoreActiveProvisionJob();
+  ppLoadApprovalConfig().catch(() => {});
+  ppLoadApprovalRequests().catch(() => {});
 });
 
 // ── Tabs ──────────────────────────────────────────────────────────────────
@@ -244,6 +247,11 @@ function setActiveTab(tabName) {
 
   if (tabName === "validate" && !validationResults.size) {
     runValidation().catch(() => {});
+  }
+
+  if (tabName === "powerplatform") {
+    ppLoadApprovalConfig().catch(() => {});
+    ppLoadApprovalRequests().catch(() => {});
   }
 }
 
@@ -2635,15 +2643,247 @@ function ppShowCreateEnv() {
   document.getElementById("pp-create-env-panel").style.display = "block";
 }
 
+function ppGetSelectedApprovalMethod() {
+  return document.querySelector('input[name="pp-approval-method"]:checked')?.value || "none";
+}
+
+function ppGetApprovalConfigPayload() {
+  const notificationChannels = [];
+  if (document.getElementById("pp-notify-teams")?.checked) notificationChannels.push("teams");
+  if (document.getElementById("pp-notify-email")?.checked) notificationChannels.push("email");
+
+  return {
+    approvalMethod: ppGetSelectedApprovalMethod(),
+    notificationChannels,
+    powerAutomateWebhookUrl: document.getElementById("pp-power-automate-webhook")?.value.trim() || "",
+    logicAppsWebhookUrl: document.getElementById("pp-logic-apps-webhook")?.value.trim() || "",
+    copilotStudioWebhookUrl: document.getElementById("pp-copilot-studio-webhook")?.value.trim() || "",
+    teamsAdaptiveCardWebhookUrl: document.getElementById("pp-teams-approval-webhook")?.value.trim() || "",
+    teamsNotificationWebhookUrl: document.getElementById("pp-teams-notification-webhook")?.value.trim() || "",
+    teamsNotificationUserEmail: document.getElementById("pp-teams-user-email")?.value.trim() || "",
+    approverEmails: (document.getElementById("pp-approver-emails")?.value || "")
+      .split(/[;,]/)
+      .map((value) => value.trim())
+      .filter(Boolean),
+  };
+}
+
+function ppApplyApprovalConfig(config = {}) {
+  ppApprovalConfig = config;
+
+  document.querySelectorAll('input[name="pp-approval-method"]').forEach((input) => {
+    input.checked = input.value === (config.approvalMethod || "none");
+  });
+  document.getElementById("pp-notify-teams").checked = (config.notificationChannels || []).includes("teams");
+  document.getElementById("pp-notify-email").checked = (config.notificationChannels || []).includes("email");
+  document.getElementById("pp-power-automate-webhook").value = config.powerAutomateWebhookUrl || "";
+  document.getElementById("pp-logic-apps-webhook").value = config.logicAppsWebhookUrl || "";
+  document.getElementById("pp-copilot-studio-webhook").value = config.copilotStudioWebhookUrl || "";
+  document.getElementById("pp-teams-approval-webhook").value = config.teamsAdaptiveCardWebhookUrl || "";
+  document.getElementById("pp-teams-notification-webhook").value = config.teamsNotificationWebhookUrl || "";
+  document.getElementById("pp-teams-user-email").value = config.teamsNotificationUserEmail || "";
+  document.getElementById("pp-approver-emails").value = (config.approverEmails || []).join("; ");
+  ppRefreshApprovalSettingsVisibility();
+}
+
+function ppRefreshApprovalSettingsVisibility() {
+  const method = ppGetSelectedApprovalMethod();
+  const teamsEnabled = document.getElementById("pp-notify-teams")?.checked;
+  const emailEnabled = document.getElementById("pp-notify-email")?.checked;
+
+  document.querySelectorAll(".pp-approval-field").forEach((field) => {
+    field.style.display = field.dataset.approvalMethod === method ? "" : "none";
+  });
+
+  document.querySelectorAll(".pp-notification-field").forEach((field) => {
+    const channel = field.dataset.notificationChannel;
+    const visible = (channel === "teams" && teamsEnabled) || (channel === "email" && emailEnabled);
+    field.style.display = visible ? "" : "none";
+  });
+}
+
+async function ppLoadApprovalConfig() {
+  try {
+    const res = await fetch("/api/pp/approval-config");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load approval settings");
+    ppApplyApprovalConfig(data);
+    const status = document.getElementById("pp-approval-config-status");
+    if (status) status.textContent = "Settings loaded";
+  } catch (err) {
+    const status = document.getElementById("pp-approval-config-status");
+    if (status) status.textContent = `❌ ${err.message}`;
+  }
+}
+
+async function ppSaveApprovalConfig() {
+  const status = document.getElementById("pp-approval-config-status");
+  status.innerHTML = '<span class="spinner"></span> Saving settings...';
+
+  try {
+    const res = await fetch("/api/pp/approval-config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(ppGetApprovalConfigPayload()),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to save approval settings");
+    ppApplyApprovalConfig(data);
+    status.textContent = "✅ Settings saved";
+    toast("Approval settings saved", "success");
+    ppLoadApprovalRequests();
+  } catch (err) {
+    status.textContent = `❌ ${err.message}`;
+    toast("Save failed: " + err.message, "error");
+  }
+}
+
+function ppRenderApprovalRequests(requests = []) {
+  const container = document.getElementById("pp-approval-queue");
+  if (!container) return;
+
+  const pending = requests.filter((request) => request.status === "pending");
+  const history = requests.filter((request) => request.status !== "pending");
+
+  const renderRows = (items, includeActions) => items.map((request) => `
+    <tr style="border-bottom: 1px solid var(--border);">
+      <td style="padding: 8px; font-weight: 500;">${escapeHtml(request.requestedByName || request.requestedBy || "unknown")}</td>
+      <td style="padding: 8px;">${escapeHtml(request.displayName)}</td>
+      <td style="padding: 8px;"><span class="tag">${escapeHtml(request.environmentType || "Sandbox")}</span></td>
+      <td style="padding: 8px;">${new Date(request.requestedAt).toLocaleString()}</td>
+      <td style="padding: 8px;"><span class="tag">${escapeHtml(request.status)}</span></td>
+      <td style="padding: 8px;">
+        ${includeActions && request.approvalMethod === "portal" ? `
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-sm btn-primary" onclick="ppApproveRequest('${escapeHtml(request.id)}')">✅ Approve</button>
+            <button class="btn btn-sm btn-danger" onclick="ppRejectRequest('${escapeHtml(request.id)}')">❌ Reject</button>
+          </div>
+        ` : `
+          <div style="font-size: 12px; color: var(--text-muted);">
+            ${includeActions ? `Awaiting ${escapeHtml(request.approvalMethod || "external")} approver` : (request.decidedBy ? `By ${escapeHtml(request.decidedBy)}` : "—")}
+            ${request.environmentId ? `<br />Env ID: ${escapeHtml(request.environmentId)}` : ""}
+          </div>
+        `}
+      </td>
+    </tr>
+  `).join("");
+
+  container.innerHTML = `
+    ${pending.length ? `
+      <div style="overflow-x: auto; margin-bottom: 16px;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--border);">
+              <th style="padding: 8px; text-align: left; color: var(--text-muted);">Requester</th>
+              <th style="padding: 8px; text-align: left; color: var(--text-muted);">Environment</th>
+              <th style="padding: 8px; text-align: left; color: var(--text-muted);">Type</th>
+              <th style="padding: 8px; text-align: left; color: var(--text-muted);">Requested</th>
+              <th style="padding: 8px; text-align: left; color: var(--text-muted);">Status</th>
+              <th style="padding: 8px; text-align: left; color: var(--text-muted);">Actions</th>
+            </tr>
+          </thead>
+          <tbody>${renderRows(pending, true)}</tbody>
+        </table>
+      </div>
+    ` : `
+      <div style="padding: 16px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); margin-bottom: 16px;">
+        No pending approval requests.
+      </div>
+    `}
+
+    <details ${history.length ? "" : "open"} style="margin-top: 8px;">
+      <summary style="cursor: pointer; font-weight: 600;">History (${history.length})</summary>
+      <div style="margin-top: 12px;">
+        ${history.length ? `
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border);">
+                  <th style="padding: 8px; text-align: left; color: var(--text-muted);">Requester</th>
+                  <th style="padding: 8px; text-align: left; color: var(--text-muted);">Environment</th>
+                  <th style="padding: 8px; text-align: left; color: var(--text-muted);">Type</th>
+                  <th style="padding: 8px; text-align: left; color: var(--text-muted);">Requested</th>
+                  <th style="padding: 8px; text-align: left; color: var(--text-muted);">Status</th>
+                  <th style="padding: 8px; text-align: left; color: var(--text-muted);">Outcome</th>
+                </tr>
+              </thead>
+              <tbody>${renderRows(history, false)}</tbody>
+            </table>
+          </div>
+        ` : `<div style="color: var(--text-muted);">No request history yet.</div>`}
+      </div>
+    </details>
+  `;
+}
+
+async function ppLoadApprovalRequests() {
+  const container = document.getElementById("pp-approval-queue");
+  if (!container) return;
+
+  container.innerHTML = '<div style="text-align: center; padding: 20px;"><span class="spinner"></span> Loading approval requests...</div>';
+
+  try {
+    const res = await fetch("/api/pp/approval-requests");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load approval requests");
+    ppRenderApprovalRequests(data.requests || []);
+  } catch (err) {
+    container.innerHTML = `<div style="color: var(--danger); padding: 12px;">Error: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function ppApproveRequest(requestId) {
+  const reason = prompt("Approval reason (optional):", "") || "";
+
+  try {
+    const res = await fetch(`/api/pp/approval-requests/${encodeURIComponent(requestId)}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    const handled = await handlePPAuthResponse(res);
+    if (!handled) {
+      toast("Complete device code auth first", "error");
+      return;
+    }
+    const data = await handled.json();
+    if (!handled.ok) throw new Error(data.error || "Approval failed");
+    toast(`Request approved for "${data.request.displayName}"`, "success");
+    ppLoadApprovalRequests();
+    ppLoadEnvironments();
+  } catch (err) {
+    toast("Approval failed: " + err.message, "error");
+  }
+}
+
+async function ppRejectRequest(requestId) {
+  const reason = prompt("Rejection reason:", "");
+  if (reason === null) return;
+
+  try {
+    const res = await fetch(`/api/pp/approval-requests/${encodeURIComponent(requestId)}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Rejection failed");
+    toast(`Request rejected for "${data.request.displayName}"`, "success");
+    ppLoadApprovalRequests();
+  } catch (err) {
+    toast("Rejection failed: " + err.message, "error");
+  }
+}
+
 async function ppCreateEnvironment() {
   const name = document.getElementById("pp-env-name").value.trim();
   if (!name) { toast("Environment name is required", "error"); return; }
 
   const status = document.getElementById("pp-create-status");
-  status.innerHTML = '<span class="spinner"></span> Creating environment...';
+  status.innerHTML = '<span class="spinner"></span> Submitting request...';
 
   try {
-    const res = await fetch("/api/pp/environments", {
+    const res = await fetch("/api/pp/approval-requests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2660,10 +2900,17 @@ async function ppCreateEnvironment() {
     const data = await handled.json();
     if (!handled.ok) throw new Error(data.error);
 
-    status.textContent = "✅ Environment created!";
-    toast(`Environment "${name}" created successfully!`, "success");
+    const request = data.request || {};
+    if (request.status === "provisioned") {
+      status.textContent = "✅ Environment created!";
+      toast(`Environment "${name}" created successfully!`, "success");
+      ppLoadEnvironments();
+    } else {
+      status.textContent = "🕒 Request submitted — awaiting approval";
+      toast(`Request submitted for "${name}"`, "success");
+    }
     document.getElementById("pp-create-env-panel").style.display = "none";
-    ppLoadEnvironments();
+    ppLoadApprovalRequests();
   } catch (err) {
     status.textContent = `❌ ${err.message}`;
     toast("Create failed: " + err.message, "error");

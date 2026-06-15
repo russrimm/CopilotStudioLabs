@@ -19,3 +19,7 @@
 - Resumed and completed the earlier interrupted Lab 2 analytics/evaluations task by incorporating Microsoft Learn "Monitor Performance and Evaluate Agent Quality" practices into `labs/02-agent-analytics-evaluations/index.md`.
 - Added guidance for transcript/session review, citation-gap remediation, score/citation interpretation, severity triage, governance/export handling, and citation/transcript golden rules.
 - Verification reported: `git diff --check` passed and Markdown fences are balanced; `assets/EvaluationAlwaysFail.csv` remained unchanged because upstream still uses `question`/`expectedResponse`.
+
+## 2026-06-15T00:55:00-05:00
+
+- Completed the Lab 04 smoothness pass under Russ's standing directive: added Census API key signup/activation expectations, reinforced activated-key paste into `Global.APIKey`, fixed a first-message typo, clarified Adaptive Card node labeling, repaired StateInput/City/ZipCode to StateFIPS flow guidance, added global-variable fallback instructions, and noted Power Automate trigger-location variance. Lambert also had a pre-existing Lab 2 Microsoft Learn incorporation decision merged from inbox in this Scribe pass.
