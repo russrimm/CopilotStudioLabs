@@ -54,7 +54,13 @@
       "08-work-iq-m365-intelligence",
       "09-prompt-builder-agent-flows",
       "10-realtime-voice-agents",
-      "11-power-apps-code-apps"
+      "11-power-apps-code-apps",
+      "12-servicenow-integration",
+      "13-snowflake-data-integration",
+      "14-onprem-data-gateway",
+      "15-vnet-private-connectivity",
+      "16-custom-connectors-oauth",
+      "17-industry-integrations"
     ]
   },
   "deployment": {
