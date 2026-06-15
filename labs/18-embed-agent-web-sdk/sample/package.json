@@ -1,0 +1,20 @@
+{
+  "name": "copilot-studio-embed-sample",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Starter sample for Lab 18 — embed a Copilot Studio agent in a web page with the Client SDK and MSAL.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@azure/msal-browser": "^3.20.0",
+    "@microsoft/agents-copilotstudio-client": "^0.5.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0"
+  }
+}

@@ -79,6 +79,7 @@ These shorter labs cover individual concepts and can be used as standalone refer
 | 15 | [Azure VNet & Private Connectivity for Power Platform](./labs/15-vnet-private-connectivity/index.md) | Financial Services, Healthcare | Configure Azure VNet subnet delegation for Power Platform to enable private, no-public-internet connectivity for Copilot Studio connectors | Advanced (300) | 90 min |
 | 16 | [Custom Connectors & OAuth for Copilot Studio](./labs/16-custom-connectors-oauth/index.md) | Technology, Cross-industry | Build custom Power Platform connectors from OpenAPI specs with OAuth 2.0 and SSO, and connect them to Copilot Studio agents | Intermediate-Advanced (250) | 75 min |
 | 17 | [Industry-Specific 3rd Party Integrations](./labs/17-industry-integrations/index.md) | Multi-industry | Industry roundup covering Epic FHIR (Healthcare), SAP (Financial), Shopify (Retail), IoT (Manufacturing), Salesforce Gov (Public Sector), and Jira/GitHub (Technology) integrations | Advanced (300) | 2 hrs |
+| 18 | [Embed a Copilot Studio Agent in a Web Page with the Client SDK](./labs/18-embed-agent-web-sdk/index.md) | Cross-industry | Embed your published agent in a custom-branded web chat using the Copilot Studio Client SDK (`@microsoft/agents-copilotstudio-client`) with MSAL.js + Entra ID authentication — covers Entra app registration, delegated auth, conversation lifecycle, suggested actions, adaptive card fallback, and full UI branding | Intermediate–Advanced (250) | 75 min |
 
 ---
 

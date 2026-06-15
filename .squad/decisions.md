@@ -1,5 +1,273 @@
 # Squad Decisions
 
+## 2026-06-15 — 2026-06-15T00:15:18-05:00: User directive
+
+Owner: Russ Rimmerman
+Merged by: Scribe
+Source: .squad/decisions/inbox/copilot-directive-2026-06-15T00-15-18.md
+
+### Preserved inbox entry
+
+### 2026-06-15T00:15:18-05:00: User directive
+**By:** Russ Rimmerman (via Copilot)
+**What:** Maximize end-user smoothness across all labs — eliminate sticking points, surface every prerequisite/gotcha up front. Every claim in every lab must be verified to 100% accuracy before shipping.
+**Why:** User request — captured for team memory. Applies to ALL labs (01-05) and any future lab content. Lambert (content) and Kane (verification) should default to "would a first-timer get stuck here?" as the bar.
+
+## 2026-06-15 — Lambert Lab 04 smoothness pass
+
+Owner: Lambert
+Merged by: Scribe
+Source: .squad/decisions/inbox/lambert-lab04-smoothness-pass.md
+
+### Preserved inbox entry
+
+# Lambert Lab 04 smoothness pass
+
+Requested by: Russ Rimmerman
+Timestamp: 2026-06-15T00:15:18-05:00
+
+## Summary
+
+- Added a `What to expect when requesting a Census API key` callout in `labs/04-energy-census-advanced-agent/index.md` lines 120-125.
+- The callout explains the signup form fields, no credit-card/payment step, email delivery, activation link requirement, expected wait guidance, and URL-encoding caution for reserved URL characters.
+- Reinforced the activated-key handoff at line 445 so users paste only the activated key value into `Global.APIKey`, not the activation URL.
+
+## Other sticking-point fixes
+
+- Line 243: fixed the opening message typo (`I can help you look up...`).
+- Line 245: added guidance for tenants that label the Adaptive Card node differently.
+- Lines 322-340: corrected variable references and routing instructions from inconsistent `Topic.state`/`Topic.city`/`Topic.zipCode` usage to `Topic.StateInput`/`Topic.City`/`Topic.ZipCode`, and clarified `Topic.StateFIPS` as the target variable.
+- Line 435: added fallback guidance for creating global variables from a **Set variable value** node if the variable management surface is not obvious.
+- Line 723: added a Power Automate trigger-location hint for tenants that group triggers by connector.
+
+## Verification
+
+- Final diff stat for lab file: `labs/04-energy-census-advanced-agent/index.md | 31 ++++++++++++++++-----------` (`19 insertions(+), 12 deletions(-)`).
+- Markdown fence count checked: 72 fences, even/closed.
+- Image references checked: 18 image references, 0 missing. Confirmed key assets still exist, including `copilot-studio-home.png`, `topic-add-from-blank.png`, `adaptive-card-json-editor.png`, `adaptive-card-preview.png`, `adaptive-card-output-mapping.png`, and `state-fips-switch-powerfx.png`.
+
+## Follow-up notes
+
+- I did not add an exact Census email delivery time because the signup page does not publish an SLA; the lab now uses cautious guidance instead.
+- I did not restructure the optional MCP section or Power Automate parsing section; those could benefit from a deeper pass, but would exceed a surgical smoothness edit.
+
+## 2026-06-15 — Kane Lab 04 Accuracy Audit Summary
+
+Owner: Kane
+Merged by: Scribe
+Source: .squad/decisions/inbox/kane-lab04-accuracy-audit.md
+
+### Preserved inbox entry
+
+# Kane Lab 04 Accuracy Audit Summary
+Date: 2026-06-15T00:18:00-05:00
+Author: Kane
+
+Audit written: `C:\repos\CopilotStudioLabs\.squad\files\lab-04-accuracy-audit.md`
+
+Severity counts:
+- ✅ Verified accurate: 66
+- 🟡 Drift / minor: 8
+- 🔴 Wrong / broken: 3
+- ❓ Could not verify: 4
+
+Top 3 critical findings:
+1. **[MCP / Copilot Studio]** [Lines 958-960, 1008-1014]: claim says to stand up a local MCP server and register it in Copilot Studio → current Microsoft Learn says Copilot Studio connects to MCP servers through the MCP onboarding wizard using a **Server URL** and currently supports **Streamable** transport; it does not document local stdio command registration for Copilot Studio → recommended fix: change the optional section to a reachable Streamable HTTP MCP server (or custom connector) and cite the wizard fields.
+2. **[MCP / Configuration]** [Lines 1017-1031]: sample `mcpServers` JSON uses `command`, `args`, and `env` for a local `node` process → that is a desktop/VS Code-style stdio client configuration, not the Copilot Studio MCP wizard shape documented by Microsoft Learn → recommended fix: remove it from Copilot Studio instructions or explicitly label it as non-Copilot-Studio local-client config, then add Copilot Studio fields: server name, description, server URL, auth type.
+3. **[MCP / Runtime validation]** [Lines 1033-1039]: test steps assume Copilot Studio can discover and invoke tools from the local stdio server as written → because Copilot Studio docs require a connected MCP server/connector over supported transport, these runtime steps will not work from the provided local config → recommended fix: test after registering a Streamable HTTP MCP server/connector and adding its tools/resources to the agent.
+
+Corrections inbox written: `C:\repos\CopilotStudioLabs\.squad\decisions\inbox\kane-lab04-critical-corrections.md`
+
+## 2026-06-15 — Kane Lab 04 Critical Corrections
+
+Owner: Kane
+Merged by: Scribe
+Source: .squad/decisions/inbox/kane-lab04-critical-corrections.md
+
+### Preserved inbox entry
+
+# Kane Lab 04 Critical Corrections
+Date: 2026-06-15T00:18:00-05:00
+Author: Kane
+Audited file: labs/04-energy-census-advanced-agent/index.md
+
+- **[MCP / Copilot Studio]** [Lines 958-960, 1008-1014]: claim says to stand up a local MCP server and register it in Copilot Studio → current Microsoft Learn says Copilot Studio connects to MCP servers through the MCP onboarding wizard using a **Server URL** and currently supports **Streamable** transport; it does not document local stdio command registration for Copilot Studio → recommended fix: change the optional section to a reachable Streamable HTTP MCP server (or custom connector) and cite the wizard fields.
+- **[MCP / Configuration]** [Lines 1017-1031]: sample `mcpServers` JSON uses `command`, `args`, and `env` for a local `node` process → that is a desktop/VS Code-style stdio client configuration, not the Copilot Studio MCP wizard shape documented by Microsoft Learn → recommended fix: remove it from Copilot Studio instructions or explicitly label it as non-Copilot-Studio local-client config, then add Copilot Studio fields: server name, description, server URL, auth type.
+- **[MCP / Runtime validation]** [Lines 1033-1039]: test steps assume Copilot Studio can discover and invoke tools from the local stdio server as written → because Copilot Studio docs require a connected MCP server/connector over supported transport, these runtime steps will not work from the provided local config → recommended fix: test after registering a Streamable HTTP MCP server/connector and adding its tools/resources to the agent.
+
+## 2026-06-15 — Dallas Lab 04 MCP Rewrite
+
+Owner: Dallas
+Merged by: Scribe
+Source: .squad/decisions/inbox/dallas-lab04-mcp-rewrite.md
+
+### Preserved inbox entry
+
+# Dallas Lab 04 MCP Rewrite
+Date: 2026-06-15T00:25:00-05:00
+Author: Dallas
+File: labs/04-energy-census-advanced-agent/index.md
+
+## Correction summary
+
+Use Case #8 was rewritten to remove the incorrect local stdio MCP pattern for Copilot Studio. Copilot Studio does not register a local `node` process through `command` / `args` / `env` JSON. Current Microsoft Learn documents connecting MCP servers through Copilot Studio's MCP onboarding wizard with a reachable **Server URL** and **Streamable** transport.
+
+## Changes made
+
+- Replaced `StdioServerTransport` with `StreamableHTTPServerTransport` from `@modelcontextprotocol/sdk/server/streamableHttp.js`.
+- Added explicit `npm i @modelcontextprotocol/sdk zod` setup and `node server.js` run steps.
+- Kept the four Census MCP tools: `get_population`, `get_median_income`, `get_housing_stats`, and `get_employment_by_industry`.
+- Removed the desktop-client `mcpServers` JSON config block entirely to avoid reintroducing the known-wrong Copilot Studio pattern.
+- Added cloud-to-local reachability guidance: ngrok, VS Code port forwarding, Azure Dev Tunnels, or Azure deployment.
+- Updated Copilot Studio registration steps to match Learn: **Tools** > **Add a tool** > **New tool** > **Model Context Protocol**, then **Server name**, **Server description**, **Server URL**, and auth type (**None**, **API key**, or **OAuth 2.0**).
+- Updated runtime test and troubleshooting to validate the reachable Streamable HTTP endpoint rather than a local stdio process.
+
+## Sources verified
+
+- Microsoft Learn: `agent-extend-action-mcp`, `mcp-add-existing-server-to-agent`, `mcp-add-components-to-agent`, and `mcp-create-new-server`.
+- MCP SDK package metadata: `@modelcontextprotocol/sdk@1.29.0`; `StreamableHTTPServerTransport` constructor accepts options and request handling is via `handleRequest(req, res, parsedBody?)`.
+
+## 2026-06-15 — Kane: Lab 04 MCP section still broken after Dallas rewrite
+
+Owner: Kane
+Merged by: Scribe
+Source: .squad/decisions/inbox/kane-lab04-mcp-still-broken.md
+
+### Preserved inbox entry
+
+# Kane: Lab 04 MCP section still broken after Dallas rewrite
+
+Use Case #8's architecture and Copilot Studio wizard guidance are materially improved, but the Node.js Streamable HTTP sample is still a blocker.
+
+## Critical issue
+
+The sample creates a singleton `StreamableHTTPServerTransport`:
+
+```js
+const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+await server.connect(transport);
+
+http.createServer(async (req, res) => {
+  if (req.url?.startsWith("/mcp")) {
+    await transport.handleRequest(req, res);
+  }
+}).listen(3000);
+```
+
+With `@modelcontextprotocol/sdk@1.29.0`, a smoke test showed the initial `initialize` POST returns `200`, but subsequent `notifications/initialized` and `tools/list` POSTs return `500`, so Copilot Studio discovery/invocation will fail.
+
+## Recommended correction
+
+Use the SDK v1.x official pattern:
+
+- **Stateless:** create a fresh `McpServer` and `StreamableHTTPServerTransport({ sessionIdGenerator: undefined })` per POST and pass the parsed request body to `handleRequest(req, res, req.body)`; or
+- **Stateful:** create transports on initialize, store them by `mcp-session-id`, and route subsequent GET/POST/DELETE requests to the stored transport.
+
+Also tighten dev-tunnel wording: `devtunnel host -p 3000` and VS Code forwarded ports are private by default; Copilot Studio needs a public/anonymous URL or an auth mechanism it can supply.
+
+## 2026-06-15 — Ripley: Lab 04 MCP Streamable HTTP fix
+
+Owner: Ripley
+Merged by: Scribe
+Source: .squad/decisions/inbox/ripley-lab04-mcp-streamable-http-fix.md
+
+### Preserved inbox entry
+
+# Ripley: Lab 04 MCP Streamable HTTP fix
+
+Updated `labs/04-energy-census-advanced-agent/index.md` Use Case #8 to replace the singleton `StreamableHTTPServerTransport` sample with the SDK v1.x stateless Streamable HTTP pattern.
+
+## Fix summary
+
+- Chose stateless Streamable HTTP: each POST creates a fresh `McpServer` and `StreamableHTTPServerTransport({ sessionIdGenerator: undefined })`, then calls `transport.handleRequest(req, res, req.body)`.
+- Used Express with `express.json()` so the JSON-RPC request body is parsed before it is passed to the SDK transport.
+- Added the requested inline comment to prevent future maintainers from changing the sample back to a singleton transport.
+- Updated install guidance to include `express`.
+- Tightened tunnel guidance:
+  - `devtunnel host -p 3000` is private by default.
+  - short lab use should use `devtunnel host -p 3000 --allow-anonymous`, unless configuring an auth mechanism Copilot Studio can supply.
+  - VS Code forwarded ports are private by default and must be made public for Copilot Studio.
+  - ngrok `ngrok http 3000` provides a public HTTPS forwarding URL once the agent is connected; if traffic policy/OAuth is added, Copilot Studio must be configured with compatible auth.
+
+## Source mirrored
+
+Mirrored the official MCP TypeScript SDK v1.x stateless example: `src/examples/server/simpleStatelessStreamableHttp.ts` in the `modelcontextprotocol/typescript-sdk` repository. That example uses Express, creates a server and `StreamableHTTPServerTransport` per POST, disables session IDs with `sessionIdGenerator: undefined`, and passes `req.body` to `handleRequest`.
+
+Also checked Microsoft Learn dev tunnels CLI reference, which documents `devtunnel host -p 3000` for a temporary tunnel and `devtunnel host -p 3000 --allow-anonymous` to enable anonymous client access.
+
+## 2026-06-14 — Lambert decision: Lab 2 incorporation from Microsoft Copilot Studio analytics/evaluations lab
+
+Owner: Lambert
+Merged by: Scribe
+Source: .squad/decisions/inbox/lambert-lab2-mslearn-incorporation.md
+
+### Preserved inbox entry
+
+# Lambert decision: Lab 2 incorporation from Microsoft Copilot Studio analytics/evaluations lab
+
+Requested by: Russ Rimmerman
+Source reviewed: https://microsoft.github.io/mcs-labs/labs/core-concepts-analytics-evaluations/
+Target reviewed: `labs\02-agent-analytics-evaluations\index.md`
+
+## Side-by-side diff
+
+| Practice / concept in Microsoft lab | What Lab 2 already covered | Gap / decision |
+|---|---|---|
+| Analytics dashboard access after publishing; 24-48 hour data delay; deployed-channel requirement | Covered with Contoso-specific prerequisite, empty dashboard warning, and troubleshooting | No content change needed |
+| Summary metrics: sessions, engagement, date ranges, conversation outcomes | Covered with Contoso examples for field crews, outage cycles, and weekly 7-day review cadence | No content change needed |
+| Topic / agent performance, child and connected agent success rate | Covered; tied to Lab 03 child/connected agent routing | No content change needed |
+| Generated answer rate and quality: answered/unanswered, source use trend, source errors | Covered in detail with NERC CIP and Field Operations Remote Access Guide examples | No content change needed |
+| Escalation and abandonment analysis | Covered with Contoso helpdesk/flow-design framing | No content change needed |
+| Prioritized improvement list: high-volume/low-satisfaction, unrecognized phrases, abandonment | Covered with a Contoso table and before/after measurement guidance | No content change needed |
+| Evaluation is preview and may not appear in all tenants/regions | Covered in prerequisites and Use Case #2 | No content change needed; retained Preview warning |
+| Four test-set creation methods: quick question set, CSV import, test-canvas capture, manual entry | Covered, but Use Cases table inaccurately said “four test sets” even though the flow creates three sets plus one manual case | Incorporated: corrected table wording |
+| Test-method selection: General quality baseline; Compare meaning when expected responses exist; strict methods for factual checks | Covered but could be more explicit about quality objective to method mapping | Incorporated: added Contoso test-set design checkpoint table |
+| CSV import format and limits; methods configured after import | Covered; retained our Contoso `EvaluationAlwaysFail.csv` unchanged | No asset change needed |
+| Always Fail adversarial set teaches guardrail assessment | Covered and differentiated with Contoso/Contoso Energy phishing, ESA bypass, SCADA, PII, NERC CIP examples | Keep as differentiation; no asset change |
+| Test-canvas capture creates an Always Pass set from real conversation responses | Covered and Contoso-framed with VPN, NERC CIP, ESA password, field guide questions | No content change needed |
+| Manual DLP policy test case | Covered and Contoso-scoped | No content change needed |
+| Results review: pass rate, actual response, result, activity map | Covered | No content change needed |
+| Evaluation reasoning and feedback buttons help identify false positive/negative judgments | Covered, but more shallowly than the Microsoft lab’s results feedback workflow | Incorporated: added “Judge sanity check” guidance for AI-judged methods |
+| Compare runs: green improvements, red regressions, no-change indicators | Covered, but release decision criteria were implicit | Incorporated: added Contoso regression decision rule table |
+| Export results for stakeholder reporting and documentation | Covered with Contoso Energy leadership, Contoso Cybersecurity, NERC CIP audit framing | No content change needed |
+| Golden rules: review cadence, prioritize impact, build test sets, compare runs, close loop | Covered with Contoso-specific rules | Incorporated one additional rule: strict methods for strict facts |
+
+## Practices Lab 2 covers beyond Microsoft lab
+
+- Contoso/Contoso Energy IT Operations scenario and cross-lab continuity with Labs 01 and 03.
+- Contoso-specific analytics examples: storm season, wildfire response, regulatory filing deadlines, NERC CIP remote-access questions.
+- Contoso `EvaluationAlwaysFail.csv` adversarial set covering phishing, authentication bypass, SCADA alarms, credentials, PII exfiltration, discriminatory content, jailbreak attempts, and NERC CIP noncompliance.
+- Stronger compliance/audit framing for NERC CIP, Contoso Cybersecurity, data governance, and stakeholder reporting.
+- Lab-specific guidance for analytics not appearing until published real conversations exist.
+
+## Incorporated
+
+1. Clarified that Use Case #2 builds three test sets plus one targeted manual case, not four separate test sets.
+2. Added AI/judge-assisted scoring as a core concept and learning objective.
+3. Added a Contoso test-set design checkpoint mapping quality questions to set patterns and evaluation methods.
+4. Added a judge sanity-check section for General quality / Compare meaning results, including false positives, false negatives, and human review for audit-sensitive cases.
+5. Added a Contoso regression decision rule table for publish/no-publish decisions after comparing runs.
+6. Added a golden rule about strict methods for strict facts.
+
+## Deferred
+
+- No new MS Learn example agent or tenant names were introduced; that would dilute the Contoso scenario.
+- No changes to `assets\EvaluationAlwaysFail.csv`; Microsoft’s source CSV purpose is already represented by our stronger Contoso adversarial rows.
+- No separate “MS Learn section” was added; additions were woven into the existing flow.
+- No extra screenshots or docs were added.
+
+## Edited target areas
+
+Approximate final line ranges in `index.md`:
+
+- Lines 48-55: learning objectives.
+- Lines 67-69: core concepts table.
+- Line 99: Use Cases table correction.
+- Lines 239-250: test-set design checkpoint and Microsoft source callout.
+- Lines 378-384: judge sanity-check guidance.
+- Lines 420-429: regression decision rule table.
+- Lines 473-477: golden rules update.
+
 ## 2026-06-14 — Lab PDF generator and screenshot zoom
 
 Owner: Dallas
@@ -99,6 +367,35 @@ Source: `.squad/decisions/inbox/kane-shots-verify-tool.md`
 Owner: Kane / Dallas
 Merged by: Scribe
 Source: `.squad/decisions/inbox/kane-lab04-screenshot-audit.md`
+
+## 2026-06-15 — 2026-06-15T01:32:53-05:00: Competitive feature gap analysis — hands-on lab platforms
+
+Owner: Ripley (Lead)
+Merged by: Scribe
+Source: .squad/decisions/inbox/ripley-competitive-scan.md
+
+### Preserved inbox entry
+
+### 2026-06-15T01:32:53-05:00: Competitive feature gap analysis — hands-on lab platforms
+**By:** Ripley (Lead), requested by Russ Rimmerman
+**What:** Surveyed 13 lab provisioning platforms (Skillable, CloudShare, Instruqt, Strigo, Appsembler, Whizlabs, KodeKloud, Hyperskill, Microsoft Learn, AWS Skill Builder, Google Skills Boost, GitHub Codespaces, Gitpod, Educative). Identified table-stakes features, unmet demand, and gaps vs. CopilotStudioLabs.
+
+**Key decisions / strategy conclusions:**
+
+- **D1 — Copilot Studio labs are a genuine white space.** Zero competitors offer provisioned Microsoft Copilot Studio or Power Platform sandbox environments. CopilotStudioLabs is the only hands-on lab platform purpose-built for this surface. Protect and extend this niche aggressively.
+- **D2 — Immediate priority: AI agent output validation rubric.** The #2 industry unmet need (after native sandboxes) is automated validation of AI agent behavior. Build a structured "Lab Validation Rubric" system using Copilot Studio's own evaluation tooling (Lab 02) applied to learner-built agents. First-in-market.
+- **D3 — GitHub Codespaces integration for MCP labs.** Labs 03, 05, 07 require Node.js/MCP servers. Add `.devcontainer` config to eliminate setup friction. 1–2 days of work; addresses the industry's #1 lab pain point (setup time).
+- **D4 — Publish the Scenario Matrix as a marketing asset.** Industry scenario coverage (18 labs across Energy, Manufacturing, Healthcare, Financial Services, Government) is unique. Map labs to industries and compliance frameworks (NERC CIP, HIPAA, CMMC, ISO 55001) and publish as a product page.
+- **D5 — Monitor Microsoft for Applied Skills Copilot Studio credential.** Skillable powers Microsoft's Applied Skills labs. When/if Microsoft adds Copilot Studio credentials, position CopilotStudioLabs to complement (not compete) by going deeper and more industry-specific.
+- **D6 — Tenant provisioning is the long game.** "Clean Copilot Studio tenant per learner" is the holy grail. Monitor Microsoft Build / Ignite 2026 for Power Platform trial tenant provisioning APIs. Would unlock event-scale delivery.
+
+**Top 10 table-stakes features (must-haves, 3+ platforms):** browser-based delivery; auto provision/teardown; progress analytics; LMS/LTI; automated task validation; SSO; VILT + self-paced; cost controls / idle timeout; embeddable labs; audit/compliance reporting. *CopilotStudioLabs currently has 0 of 10 natively.*
+
+**Top 10 unmet-demand features (gaps in the market):** native Power Platform / Copilot Studio sandbox; AI agent output validation; AI-assisted lab authoring; branching/adaptive paths; per-learner cloud budget caps; mobile-first experience; offline mode; industry-specific scenario libraries; cross-tenant multi-learner agent collaboration; persistent state with retake/branching.
+
+**Research sources:** Vendor sites (instruqt.com, cloudshare.com, skillable.com, strigo.io, kodekloud.com, learn.microsoft.com, cloudskillsboost.google, aws.amazon.com/training, github.com/features/codespaces, gitpod.io, educative.io, hyperskill.org); SlashData 2026 State of Developer Adoption (424 practitioners, March 2026); G2 Fall 2025 Virtual IT Labs category. Full citation list in session report.
+
+**Why:** Inform feature investment priorities for CopilotStudioLabs based on competitive landscape and unmet customer demand.
 
 ### Decision summary
 
@@ -268,4 +565,3 @@ Make the scenario planner bind selection behavior with JavaScript event listener
 ## Rationale
 
 The provisioning portal showed scenario details, but the selectable controls depended on fragile dynamic inline handlers and under-bound checkbox behavior. Real buttons plus explicit post-render listeners make scenario and role selection reliable and keyboard-accessible, while escaping scenario text preserves correct rendering and avoids markup injection.
-

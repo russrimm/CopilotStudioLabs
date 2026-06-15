@@ -39,3 +39,7 @@
 ## 2026-06-14T20:50:00-05:00
 
 - Shipped lab walkthrough PDF generation under `tools/lab-pdf/`, including Markdown rendering through `marked`, Playwright Chromium PDF printing, inline screenshots scaled to 720px, missing-image placeholders, and a full-size screenshot appendix with thumbnail/back-link navigation. The portal now exposes `GET /api/labs/:id/pdf` for fresh pre-generated PDFs and adds a download button plus a vanilla-JS screenshot lightbox with wheel zoom, pan, keyboard controls, and focus trapping. Lab 04 PDF generation and endpoint headers were verified; Scribe merged the decision and logged the session in `.squad/log/2026-06-14T20-50-00-05-00-dallas-lab-pdf-generator.md`.
+
+## 2026-06-15T00:55:00-05:00
+
+- Authored the first Lab 04 MCP rewrite after Kane's critical audit: removed the incorrect local stdio Copilot Studio pattern and desktop-client `mcpServers` JSON, reframed Use Case #8 around a reachable Streamable HTTP server and the Copilot Studio MCP onboarding wizard fields, added dependency/run/reachability guidance, and verified relevant Microsoft Learn pages plus MCP SDK package metadata. Dallas was then locked out after Kane rejected the singleton transport sample.

@@ -19,3 +19,7 @@
 ## 2026-06-14T03:54:00-05:00
 
 - Shipped `tools\screenshot-capture\verify-shots.js`, a dependency-free Node verifier for lab screenshot drift, and wired it as `npm run verify` with README documentation. Current verification reports 16 critical missing Lab 04 screenshots awaiting re-capture plus one Lab 01 orphan warning for `issues-banner.png`; Scribe merged the decision entry and removed the inbox file.
+
+## 2026-06-15T00:55:00-05:00
+
+- Ran the Lab 04 accuracy sequence across multiple sessions: initial audit recorded 66 verified, 8 minor, 3 critical, and 4 unverifiable findings; critical-corrections isolated the MCP local-stdio/Copilot Studio mismatch; re-audit rejected Dallas's singleton Streamable HTTP transport because `tools/list` failed after initialize; final re-audit verified Ripley's stateless SDK pattern and dev-tunnel guidance green, smoke-tested `initialize` 200, `notifications/initialized` 202, and `tools/list` 200, and marked Use Case #8 ready to ship.

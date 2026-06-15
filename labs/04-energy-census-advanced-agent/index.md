@@ -117,13 +117,30 @@ By the end of this lab, you will be able to:
 | **Manufacturing employment** | `C24050_004E` |
 | **Commute patterns** | `B08301_001E` |
 
+> 💡 **What to expect when requesting a Census API key:**
+
+> - The signup form asks for an **Organization Name**, **Email Address**, and terms-of-service acknowledgement; it has no payment fields or credit-card step.
+
+> - The API key is delivered by **email**, not shown on the signup page.
+
+> - The Census developer page describes the flow as requesting a key, activating it, and then using it in API queries, so open the email and click the activation link before pasting the key into `Global.APIKey`.
+
+> - Census does not publish an exact delivery SLA on the signup page. For the lab, plan for the email to take a few minutes; if it does not arrive, check junk mail and wait a little longer before requesting another key.
+
+> - The signup page does not document a guaranteed key character set. Paste the key exactly as sent, use only the key value (not the activation URL), and if you ever hand-build a URL with a key that contains reserved URL characters such as `+`, `/`, `=`, `&`, or `%`, URL-encode the key value.
+
 ### Example energy-relevant queries
 
 - **Population in Harris County, Texas** (county `201`, state `48`):
+
   `https://api.census.gov/data/2023/acs/acs5?get=NAME,B01003_001E&for=county:201&in=state:48&key={API_KEY}`
+
 - **Median household income in an energy corridor county**:
+
   `https://api.census.gov/data/2023/acs/acs5?get=NAME,B19013_001E&for=county:113&in=state:06&key={API_KEY}`
+
 - **County housing units for grid capacity planning**:
+
   `https://api.census.gov/data/2023/acs/acs5?get=NAME,B25001_001E&for=county:085&in=state:48&key={API_KEY}`
 
 > ⚠️ **Important:** Census responses are returned as arrays, usually with a header row followed by one or more data rows. Your tools and flows must parse the second row, not just dump the raw payload to the user.
@@ -196,13 +213,17 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 
 2. Make sure **Agent** is selected (not **Workflow**), then under **Start building from scratch** select the **Agent** tile.
 3. Name the agent:
+
    ```text
    Energy Intelligence Agent
    ```
+
 4. In **Instructions**, enter:
+
    ```text
    You are an energy planning assistant for analysts, distribution planners, field operations, and regulatory teams. Help users analyze service-territory demographics and economic indicators using US Census Bureau data. Ask for missing geography details when needed. Prefer county and state analysis when the user is unclear. Keep responses concise, data-driven, and useful for grid planning, load forecasting, customer program targeting, and capacity expansion.
    ```
+
 5. In **Select your agent's model** select one of the available models (you can change this later).
 6. Save the agent.
 
@@ -218,13 +239,17 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 > 💡 **Tip:** The **Add from description with Copilot** can save significant time up front in creating your agent. Since this lab is designed to be more advanced, we are selecting the more manual option of starting with a blank slate.
 
 3. Click on the word **Untitled** at the top left, and rename it to:
+
    ```text
    Service Territory Lookup
    ```
+
 4. In the topic **Description** field, write a clear prompt so the generative AI orchestrator knows when to trigger this topic automatically:
+
    ```text
    Use this topic when the user wants to look up or analyze Census-based demographics, population, housing, or employment data for a service territory — including requests by state, county, or ZIP code. Examples: "Analyze a service territory", "Population and housing for my area", "Energy planning data for a state or county".
    ```
+
 5. Save the topic.
 
 ### Step 3 — Add an opening message and collect location with an Adaptive Card
@@ -232,11 +257,14 @@ A planner needs either a guided service-territory lookup or a quick explanation 
 Instead of asking a freeform location question and then parsing the answer with condition branches, we'll collect **city**, **state**, and **zip code** at once using an Adaptive Card. This gives the planner a structured form, validates required fields client-side, and produces clean, named values your downstream nodes can use directly — no entity extraction or string parsing required.
 
 1. In the authoring canvas, click on the **+** below the trigger and select **Send a message** node:
+
    ```text
-   I can look help you look up Census-based demographics and employment indicators for a service territory.
+   I can help you look up Census-based demographics and employment indicators for a service territory.
    ```
-2. Click **+** and add a **Ask with adaptive card** node 
+
+2. Click **+** and add an **Ask with adaptive card** node. If your tenant labels the option slightly differently, choose the Adaptive Card question/action that opens the card editor.
 3. In the Adaptive Card editor, switch to the **JSON** view and paste the following payload:
+
    ```json
    {
      "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
@@ -288,6 +316,7 @@ Instead of asking a freeform location question and then parsing the answer with 
      ]
    }
    ```
+
    ![Adaptive Card editor in JSON view with the city/state/zipCode payload pasted in.](./assets/adaptive-card-json-editor.png)
 
 4. Save the card and click **Close**. Copilot Studio will surface each `Input.Text` as a separately addressable output you can map to topic variables.
@@ -310,9 +339,10 @@ The Census API needs **FIPS codes**, not free-text city/state strings. Now that 
 1. After the Adaptive Card node, add a **Set variable value** node.
 2. Under **To value** select the **...** and select **Formula**.
 3.  We want to map the 2-letter state abbreviation to its FIPS code. The simplest approach for the lab is a Power Fx expression using `Switch`:
+
    ```powerfx
    Switch(
-     Upper(Topic.state),
+     Upper(Topic.StateInput),
      "TX", "48",
      "CA", "06",
      "NY", "36",
@@ -321,35 +351,42 @@ The Census API needs **FIPS codes**, not free-text city/state strings. Now that 
      ""
    )
    ```
-   Notice the variable automatically renames to Global.varFIPS`. Add more state mappings as needed for your demo footprint, or replace this node with a connector/HTTP call to a ZIP→FIPS lookup service if you want full national coverage.
+
+   Set the **To** variable to `Topic.StateFIPS`. Add more state mappings as needed for your demo footprint, or replace this node with a connector/HTTP call to a ZIP→FIPS lookup service if you want full national coverage.
 
    ![Set variable value node containing a Power Fx Switch expression mapping state abbreviations to FIPS codes.](./assets/state-fips-switch-powerfx.png)
 
-2. Add a **Condition** node to confirm we successfully resolved a state FIPS:
-   - **If `Topic.state` is blank** → add a **Send a message** node explaining the state isn't yet supported by the demo lookup.
-3. Add a Topic managegement node of **Go to step** then slect the Adaptive Card action to send the user back to the adaptive card.
-   - **All other actions** → continue to the next step.
-
-3. (Optional) If your environment includes a county-resolution tool or flow, add a **Call an action** node that takes `Topic.city`, `Topic.state`, and `Topic.zipCode` and returns a 3-digit county FIPS. If you don't have one, you can demo with a hardcoded county for the city you're testing (for example Cypress, TX → Harris County → `201`).
+4. Add a **Condition** node to confirm we successfully resolved a state FIPS:
+   - **If `Topic.StateFIPS` is blank** → add a **Send a message** node explaining the state isn't yet supported by the demo lookup.
+5. Add a topic management node of **Go to step**, then select the Adaptive Card action to send the user back to the adaptive card.
+   - **All other conditions** → continue to the next step.
+6. (Optional) If your environment includes a county-resolution tool or flow, add a **Call an action** node that takes `Topic.City`, `Topic.StateInput`, and `Topic.ZipCode` and returns a 3-digit county FIPS. If you don't have one, you can demo with a hardcoded county for the city you're testing (for example Cypress, TX → Harris County → `201`).
 
 > ⚠️ **Important:** County names are not unique across the US. "Jefferson County" exists in multiple states. The Adaptive Card's required `state` field guarantees you always have a state alongside the city, so any county lookup you run downstream will resolve unambiguously.
 
 ### Step 5 — Add the **Census Data Help** topic
 
 1. Create another new topic named:
+
    ```text
    Census Data Help
    ```
+
 2. In the topic **Description** field, write a clear prompt so the orchestrator routes informational questions here instead of to the lookup topic:
+
    ```text
    Use this topic when the user asks what Census data is available, what variables or datasets the agent can access, or wants an explanation of demographic data concepts — not when they want to run an actual lookup. Examples: "What Census data can you access?", "Explain your demographic data", "What do the Census variables mean?"
    ```
+
 3. Add a **Send a message** node with content like:
+
    ```text
    I can use US Census Bureau datasets such as ACS 5-Year for population, income, housing, and employment indicators. I can also be extended with Economic Census data for business patterns by industry. Common geographies are state and county, using FIPS codes under the hood.
    ```
+
 4. Optionally add a second message listing key variables (`B01003_001E` — population, `B19013_001E` — income, `B25001_001E` — housing, `C24050_001E` / `C24050_004E` — employment, `B08301_001E` — commute).
 5. End the topic with a prompt:
+
    ```text
    If you want, I can run a service territory lookup now. Which state or county should we analyze?
    ```
@@ -360,9 +397,11 @@ The Census API needs **FIPS codes**, not free-text city/state strings. Now that 
 2. After the FIPS resolution from Step 4, add a placeholder **Call an action** node for the county demographics tool you will build in Use Case #3 (this will use `Topic.StateFIPS` and `Topic.CountyFIPS`).
 3. If you didn't resolve a county FIPS in Step 4, add a parallel placeholder **Call an action** node for the state employment tool, which only needs `Topic.StateFIPS`.
 4. Add a **Send a message** node after each action branch to summarize what will happen, for example:
+
    ```text
    I'll look up Census demographics for {Topic.City}, {Topic.StateInput} and return population, median household income, and housing units.
    ```
+
 5. Save the topic.
 
 ### Step 7 — Test both topics
@@ -425,17 +464,21 @@ Use the following variable design:
 
 ### Step 2 — Create global variables
 
-1. Open the agent and go to the variable management experience.
+1. Open the agent and go to the variable management experience. If you don't see a dedicated variables page in your environment, create the variables from a **Set variable value** node and set their scope to **Global**.
 2. Create a global variable named `Global.DefaultState`.
 3. Set a sample value such as:
+
    ```text
    TX
    ```
+
 4. Create `Global.DefaultYear` and set it to:
+
    ```text
    2023
    ```
-5. Create `Global.APIKey` and paste your Census API key.
+
+5. Create `Global.APIKey` and paste your activated Census API key exactly as it appears in the email; paste only the key value, not the activation URL.
 
    ![Global variables panel listing DefaultState, DefaultYear, and APIKey with their values.](./assets/global-variables-list.png)
 
@@ -458,9 +501,11 @@ Use the following variable design:
 1. The Adaptive Card from Use Case #1 already populates `Topic.City`, `Topic.StateInput`, and `Topic.ZipCode` for you — no extra parsing or entity extraction is required.
 2. The `Switch`-based **Set variable value** node from Use Case #1 maps `Topic.StateInput` to `Topic.StateFIPS`.
 3. If you want the user to override the default Census year, add a follow-up **Ask a question** node after the card:
+
    ```text
    Which Census year should I use? Press Enter to use the default year.
    ```
+
 4. If the answer is blank, keep `Topic.DataYear = Global.DefaultYear`.
 5. Otherwise, set `Topic.DataYear` to the user-supplied value.
 
@@ -517,10 +562,13 @@ Planners need two capabilities: county demographics for territory growth analysi
 2. Select **Add tool**.
 3. Choose the option for an **HTTP action**, **custom connector**, or equivalent API-backed action in your environment.
 4. Name the tool:
+
    ```text
    Get County Demographics
    ```
+
 5. Add this description:
+
    ```text
    Use when the user asks for county-level service territory demographics such as population, median household income, or housing units. Requires a 2-digit state FIPS code, 3-digit county FIPS code, and a Census data year.
    ```
@@ -583,14 +631,18 @@ Follow the same pattern as Tool 1:
 
 1. Add another tool named **Get State Energy Employment**.
 2. Description:
+
    ```text
    Use when the user asks for state-level employment indicators relevant to energy infrastructure planning, especially total employment and manufacturing employment. Requires a 2-digit state FIPS code and a Census data year.
    ```
+
 3. Inputs: `year`, `state`, `apiKey` (same types and descriptions as Tool 1, without `county`).
 4. Request URL:
+
    ```text
    https://api.census.gov/data/{year}/acs/acs5?get=NAME,C24050_001E,C24050_004E&for=state:{state}&key={apiKey}
    ```
+
    This returns `C24050_001E` (total civilian employed population) and `C24050_004E` (manufacturing employment).
 
 ### Step 6 — Test both tools and wire them into topics
@@ -602,6 +654,7 @@ Follow the same pattern as Tool 1:
 3. Verify that both tools return readable data.
 
    ![Tool test panel showing a successful Get County Demographics response for Harris County, Texas.](./assets/tool-county-demographics-test.png)
+
 4. Return to **Service Territory Lookup** and wire the tools into the topic branches:
    - **County branch** → call **Get County Demographics** with `Topic.DataYear`, `Topic.StateFIPS`, `Topic.CountyFIPS`, `Global.APIKey`
    - **State branch** → call **Get State Energy Employment** with `Topic.DataYear`, `Topic.StateFIPS`, `Global.APIKey`
@@ -640,13 +693,17 @@ The parent agent should orchestrate the planning experience while a connected sp
 ### Step 1 — Create the connected agent
 
 1. In Copilot Studio, create a new agent named:
+
    ```text
    Census Data Specialist
    ```
+
 2. Use instructions such as:
+
    ```text
    You are a Census data specialist supporting an energy company. Answer questions about ACS and related Census datasets, geographies, FIPS codes, and planning indicators. Use Census API tools to retrieve public demographic, housing, and employment data. Explain what the data means for service territory planning, but do not make engineering decisions or claim to replace a load forecast.
    ```
+
 3. Save the agent.
 
 ### Step 2 — Add tools, enable sharing, and publish the connected agent
@@ -670,9 +727,11 @@ The parent agent should orchestrate the planning experience while a connected sp
 2. Go to the **Agents** page.
 3. Add the **Census Data Specialist** as a connected agent.
 4. Give it a strong description for the parent planner, for example:
+
    ```text
    Use for US Census Bureau questions, FIPS guidance, ACS demographic summaries, county population and housing lookups, and state employment indicators relevant to energy planning.
    ```
+
 5. Save the parent agent.
 
 ### Step 4 — Validate handoff behavior
@@ -713,14 +772,16 @@ A planning manager wants one state briefing instead of several separate tool res
 
 1. Open **Power Automate**.
 2. Select **Create**.
-3. Choose the trigger **When an agent calls the flow**.
+3. Choose the trigger **When an agent calls the flow**. If the trigger list is grouped by connector, look under the Copilot Studio or agent-related connector names used in your tenant.
 
    ![Power Automate trigger picker with "When an agent calls the flow" selected.](./assets/flow-agent-trigger.png)
 
 4. Name the flow:
+
    ```text
    Census State Planning Summary
    ```
+
 5. Add inputs:
    - `stateFips` (Text)
    - `dataYear` (Text)
@@ -731,11 +792,13 @@ A planning manager wants one state briefing instead of several separate tool res
 Add two **HTTP** actions (both `GET`):
 
 1. **Get State Population Housing:**
+
    ```text
    https://api.census.gov/data/@{triggerBody()['dataYear']}/acs/acs5?get=NAME,B01003_001E,B25001_001E&for=state:@{triggerBody()['stateFips']}&key=@{triggerBody()['apiKey']}
    ```
 
 2. **Get State Employment:**
+
    ```text
    https://api.census.gov/data/@{triggerBody()['dataYear']}/acs/acs5?get=NAME,C24050_001E,C24050_004E&for=state:@{triggerBody()['stateFips']}&key=@{triggerBody()['apiKey']}
    ```
@@ -744,16 +807,17 @@ Add two **HTTP** actions (both `GET`):
 
 1. Add **Parse JSON** or **Compose** actions after each HTTP action. Census returns a two-row array — use expressions to pull values from index `[1]`, not `[0]`.
 2. Add a **Compose** action to format a planning summary:
+
    ```text
    State planning summary for {StateName}:
    - Population: {Population}
    - Housing units: {HousingUnits}
    - Total employed population: {EmploymentTotal}
    - Manufacturing employment: {ManufacturingEmployment}
-
    Planning interpretation:
    Use population and housing as a proxy for residential growth pressure, and use the sector employment indicator as a proxy for industrial and infrastructure-related demand concentration.
    ```
+
 3. If your environment supports cards, create a structured card payload with sections for **Population**, **Housing**, **Employment**, and **Planning interpretation**.
 
 ### Step 4 — Return output and add the flow to the agent
@@ -772,9 +836,11 @@ Add two **HTTP** actions (both `GET`):
 
 4. Return to **Energy Intelligence Agent** and add the flow as a tool/action named **Get State Planning Summary**.
 5. Description:
+
    ```text
    Use when the user wants a combined state-level summary for energy planning, including population, housing, and employment indicators in a single response.
    ```
+
 5. Test it with a prompt like:
    - `Give me a planning summary for Texas`
 
@@ -867,9 +933,11 @@ Before planners rely on the agent, you need evidence that it handles common and 
 2. Go to **Evaluation**.
 3. Select **Create a test set**.
 4. Name it:
+
    ```text
    Energy Census Planning Regression Set
    ```
+
 5. Configure test methods:
    - **Similarity**
    - **General quality**
@@ -878,8 +946,11 @@ Before planners rely on the agent, you need evidence that it handles common and 
    ![Create a test set dialog with Similarity, General quality, and Keyword match selected as test methods.](./assets/eval-test-methods.png)
 
 > 💡 **Method guidance:**
+
 > - **Similarity** helps with structured summaries that can vary in wording.
+
 > - **General quality** helps with open-ended planning explanations.
+
 > - **Keyword match** is useful for must-mention concepts like population, housing, FIPS, or employment.
 
 ### Step 2 — Add 10 energy-specific test questions
@@ -950,15 +1021,25 @@ Apply fixes in the right place: topic issues → fix the topic; tool issues → 
 
 # 🧪 Optional Use Case #8 — MCP (Model Context Protocol) Servers (20 min, optional)
 
-> 🎯 **Objective:** Stand up a local MCP server that wraps Census API calls, register it in Copilot Studio, and expose discoverable tools for runtime use. This section requires **VS Code** and **Node.js 18+** (or Python 3.10+).
+> 🎯 **Objective:** Stand up an MCP server that wraps Census API calls, expose it over **Streamable HTTP**, connect it to Copilot Studio with the MCP onboarding wizard, and add discoverable tools for runtime use. This section requires **VS Code** and **Node.js 18+** (or Python 3.10+).
 
 ### Scenario
 
-You need a reusable tool host that can expose several Census capabilities in one place.
+You need a reusable tool host that can expose several Census capabilities in one place. Copilot Studio runs in the cloud, so it must connect to an MCP server by URL; it can't start a local `node server.js` process on your laptop.
 
 ### Step 1 — Decide on Node.js or Python
 
-Either platform works. In this lab, we'll show a **Node.js** example because it maps cleanly to local development and tool registration.
+Either platform works. In this lab, we'll show a **Node.js** example because it maps cleanly to local development and the MCP TypeScript SDK.
+
+Create a local project and install the SDK:
+
+```powershell
+mkdir energy-census-mcp
+cd energy-census-mcp
+npm init -y
+npm i @modelcontextprotocol/sdk zod express
+npm pkg set type=module
+```
 
 You will expose these tools:
 
@@ -969,59 +1050,136 @@ You will expose these tools:
 
 ### Step 2 — Create the MCP server project and add tool logic
 
-1. Create a local folder such as `energy-census-mcp`.
-2. Initialize a Node.js project and install the MCP SDK.
-3. Create a file named `server.js` with a pattern like:
+Create a file named `server.js` with a Streamable HTTP pattern like this:
 
 ```javascript
+import express from "express";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-
-const server = new McpServer({ name: "energy-census-mcp", version: "1.0.0" });
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { z } from "zod";
 const apiKey = process.env.CENSUS_API_KEY;
-const census = (path) => fetch(`https://api.census.gov/data/${path}&key=${apiKey}`).then(r => r.json());
-
-// Register tools: get_population, get_median_income, get_housing_stats, get_employment_by_industry
-// Each tool accepts year + FIPS inputs, calls the matching ACS endpoint, and returns parsed values.
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
+function getServer() {
+  const server = new McpServer({ name: "energy-census-mcp", version: "1.0.0" });
+  async function census(year, variables, { stateFips, countyFips }) {
+    const params = new URLSearchParams({ get: variables.join(",") });
+    if (countyFips) {
+      params.set("for", `county:${countyFips}`);
+      params.set("in", `state:${stateFips}`);
+    } else {
+      params.set("for", `state:${stateFips}`);
+    }
+    if (apiKey) params.set("key", apiKey);
+    const response = await fetch(`https://api.census.gov/data/${year}/acs/acs5?${params}`);
+    if (!response.ok) throw new Error(`Census API returned ${response.status}`);
+    return response.json();
+  }
+  const countyInput = {
+    year: z.string().default("2023"),
+    stateFips: z.string().describe("Two-digit state FIPS code, such as 48 for Texas"),
+    countyFips: z.string().describe("Three-digit county FIPS code, such as 201 for Harris County")
+  };
+  server.registerTool("get_population", {
+    title: "Get county population",
+    description: "Returns ACS total population for a county.",
+    inputSchema: countyInput
+  }, async (input) => {
+    const rows = await census(input.year, ["NAME", "B01003_001E"], input);
+    return { content: [{ type: "text", text: `${rows[1][0]} population: ${rows[1][1]}` }] };
+  });
+  server.registerTool("get_median_income", {
+    title: "Get county median household income",
+    description: "Returns ACS median household income for a county.",
+    inputSchema: countyInput
+  }, async (input) => {
+    const rows = await census(input.year, ["NAME", "B19013_001E"], input);
+    return { content: [{ type: "text", text: `${rows[1][0]} median household income: $${rows[1][1]}` }] };
+  });
+  server.registerTool("get_housing_stats", {
+    title: "Get county housing stats",
+    description: "Returns ACS housing units and units-in-structure totals for a county.",
+    inputSchema: countyInput
+  }, async (input) => {
+    const rows = await census(input.year, ["NAME", "B25001_001E", "B25024_001E"], input);
+    return { content: [{ type: "text", text: `${rows[1][0]} housing units: ${rows[1][1]}; units in structure total: ${rows[1][2]}` }] };
+  });
+  server.registerTool("get_employment_by_industry", {
+    title: "Get employment by industry",
+    description: "Returns ACS civilian employment totals and manufacturing employment for a state or county.",
+    inputSchema: {
+      year: z.string().default("2023"),
+      stateFips: z.string().describe("Two-digit state FIPS code"),
+      countyFips: z.string().optional().describe("Optional three-digit county FIPS code")
+    }
+  }, async (input) => {
+    const rows = await census(input.year, ["NAME", "C24050_001E", "C24050_004E"], input);
+    return { content: [{ type: "text", text: `${rows[1][0]} employed total: ${rows[1][1]}; manufacturing: ${rows[1][2]}` }] };
+  });
+  return server;
+}
+const app = express();
+app.use(express.json());
+app.post("/mcp", async (req, res) => {
+  const server = getServer();
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined // stateless: fresh transport per request — simpler for workshops
+  });
+  try {
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (error) {
+    console.error("Error handling MCP request:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ jsonrpc: "2.0", error: { code: -32603, message: "Internal server error" }, id: null });
+    }
+  } finally {
+    transport.close();
+    server.close();
+  }
+});
+app.get("/mcp", (_req, res) => res.status(405).json({ error: "Stateless MCP only accepts POST requests." }));
+app.delete("/mcp", (_req, res) => res.status(405).json({ error: "Stateless MCP has no server-side session to delete." }));
+app.listen(3000, () => console.log("MCP server listening at http://localhost:3000/mcp"));
 ```
 
-> 💡 **Note:** This file uses ESM imports. Add `"type": "module"` to your `package.json` or use a `.mjs` extension.
+The SDK's `StreamableHTTPServerTransport` handles the MCP protocol messages; your HTTP server only routes requests to `/mcp`. `express.json()` parses the JSON body for `handleRequest(req, res, req.body)`, so hand-test clients must send `Content-Type: application/json`.
 
-The full implementation pattern is simple: register the four tools, map each one to the correct Census URL, and return named fields rather than raw variable codes.
-
-### Step 3 — Set the API key and run locally
+### Step 3 — Set the API key, run locally, and make it reachable
 
 1. Set an environment variable named `CENSUS_API_KEY`.
-2. Start the server locally.
-3. Confirm it launches without errors.
+2. Start the server locally:
+
+   ```powershell
+   node server.js
+   ```
+
+3. Confirm it launches without errors and logs `http://localhost:3000/mcp`.
+4. Expose the local HTTP endpoint so Copilot Studio can reach it from the cloud. Common options:
+   - **ngrok** (`ngrok http 3000`) — quick public HTTPS forwarding URL for short lab sessions after you connect the ngrok agent to your account. If you add an ngrok traffic policy or OAuth protection, choose a Copilot Studio authentication option that can satisfy it. See [ngrok Agent CLI Quickstart](https://ngrok.com/docs/getting-started/).
+   - **VS Code port forwarding** — built into VS Code and backed by Microsoft dev tunnels. Forwarded ports are private by default, so change the port visibility to public before using it as a Copilot Studio MCP URL. See [VS Code port forwarding](https://code.visualstudio.com/docs/debugtest/port-forwarding).
+   - **Azure Dev Tunnels or deploy to Azure** — `devtunnel host -p 3000` creates a private tunnel by default. For a short lab endpoint Copilot Studio can reach without interactive sign-in, use `devtunnel host -p 3000 --allow-anonymous`; otherwise configure an auth mechanism Copilot Studio can supply. Deploy to Azure Container Apps/App Service for a durable team endpoint. See [Create and host a tunnel](https://learn.microsoft.com/azure/developer/dev-tunnels/get-started).
+
+Use the public HTTPS URL plus `/mcp` as the MCP **Server URL**, for example `https://your-tunnel.example/mcp`.
 
 ### Step 4 — Register the MCP server in Copilot Studio
 
-1. In Copilot Studio, open your agent.
-2. Go to **Add tool** and choose the **Model Context Protocol** option.
-3. Choose to connect to an existing or local MCP server, depending on your environment.
-4. Point Copilot Studio to the server registration details.
-5. Review the discovered tools.
-6. Add all four tools to the agent.
+Copilot Studio's documented path is the MCP onboarding wizard, not a desktop-client `command` / `args` JSON file.
 
-A sample MCP configuration might look like:
+1. In Copilot Studio, open your agent and go to the **Tools** page.
+2. Select **Add a tool**.
+3. Select **New tool**.
+4. Select **Model Context Protocol** to open the MCP onboarding wizard.
+5. Fill in:
+   - **Server name:** `energy-census-mcp`
+   - **Server description:** brief purpose, such as `Provides Census ACS population, income, housing, and employment tools by FIPS code.`
+   - **Server URL:** the reachable Streamable HTTP endpoint, such as `https://your-tunnel.example/mcp`
+6. Choose the authentication type for your MCP server:
+   - **None** for a short local lab endpoint with no auth.
+   - **API key** if your MCP server validates a header or query key.
+   - **OAuth 2.0** for a production server that authenticates users through an identity provider.
+7. Select **Create**. On **Add tool**, create or select the connection, then select **Add to agent**.
+8. Review the discovered tools and keep all four enabled, or turn off any tools you don't want the agent to use.
 
-```json
-{
-  "mcpServers": {
-    "energy-census": {
-      "command": "node",
-      "args": ["C:\\path\\to\\energy-census-mcp\\server.js"],
-      "env": {
-        "CENSUS_API_KEY": "your-api-key-here"
-      }
-    }
-  }
-}
-```
+Reference: [Connect your agent to an existing MCP server](https://learn.microsoft.com/microsoft-copilot-studio/mcp-add-existing-server-to-agent) and [Add MCP server tools and resources to an agent](https://learn.microsoft.com/microsoft-copilot-studio/mcp-add-components-to-agent).
 
 ### Step 5 — Test discovery and runtime usage
 
@@ -1029,10 +1187,11 @@ A sample MCP configuration might look like:
    - `Get population for Harris County Texas`
    - `Get housing stats for Tarrant County Texas`
    - `Get employment by industry for Texas`
-2. Inspect the trace to confirm the agent discovered and invoked the MCP tools.
-3. Compare the behavior with your earlier direct HTTP tools.
+2. Inspect the trace to confirm the agent invoked the MCP server tool and that the request reached your tunnel or deployed endpoint.
+3. If needed, open the MCP server's settings on the agent **Tools** tab to review the discovered tool names, descriptions, inputs, and outputs.
+4. Compare the behavior with your earlier direct HTTP tools.
 
-> 💡 **Why MCP?** One server exposes many related Census tools, schemas become discoverable at runtime, and you can extend to Economic Census, commute data, or tract-level analysis without rebuilding topics. MCP also centralizes API key handling outside the agent canvas.
+> 💡 **Why MCP?** One server exposes many related Census tools, tool/resource metadata and input/output schemas become discoverable at runtime, and you can extend to Economic Census, commute data, or tract-level analysis without rebuilding topics. MCP also centralizes API key handling outside the agent canvas.
 
 ![Copilot Studio MCP tool discovery page listing get_population, get_median_income, get_housing_stats, and get_employment_by_industry.](./assets/mcp-tool-discovery.png)
 
@@ -1041,13 +1200,15 @@ A sample MCP configuration might look like:
 **Key takeaways**
 
 - MCP is a scalable pattern when your Census integration grows beyond a couple of static HTTP tools.
+- Copilot Studio connects to MCP servers by reachable Streamable HTTP URL through the MCP onboarding wizard.
 - Runtime tool discovery helps the agent adapt without manually wiring every capability into every topic.
 - Centralizing Census logic in an MCP server is a strong design for advanced utility analytics agents.
 
 **Troubleshooting**
 
-- If no tools appear, confirm the server starts locally and that the registration path/command is correct.
-- If calls fail at runtime, verify the API key environment variable is present in the server process.
+- If no tools appear, confirm the public **Server URL** ends in `/mcp`, is HTTPS, and reaches your Streamable HTTP server from outside your machine.
+- If calls fail at runtime, verify the MCP server process is still running, the tunnel or deployed endpoint is still active, and `CENSUS_API_KEY` is present in the server process.
+- If Copilot Studio can't connect, check whether your tunnel requires interactive sign-in; use an auth mode Copilot Studio can supply, or deploy the server to a reachable Azure endpoint.
 - If the agent picks the wrong MCP tool, improve the tool descriptions so the planner can distinguish population, income, housing, and employment tasks.
 
 ---
@@ -1075,6 +1236,7 @@ Your team wants source control, review, and repeatable promotion between environ
 5. Sign in if prompted.
 
 Reference:
+
 - [Install the Microsoft Copilot Studio extension for Visual Studio Code](https://learn.microsoft.com/en-us/microsoft-copilot-studio/visual-studio-code-extension-install-configure)
 
 ### Step 3 — Connect to your environment
@@ -1093,6 +1255,7 @@ Reference:
 2. Locate the YAML or component files for **Service Territory Lookup** and **Census Data Help**.
 
 Reference:
+
 - [Edit your Microsoft Copilot Studio agent in Visual Studio Code](https://learn.microsoft.com/en-us/microsoft-copilot-studio/visual-studio-code-extension-edit-agent-components)
 
 ### Step 5 — Make a safe change in VS Code
