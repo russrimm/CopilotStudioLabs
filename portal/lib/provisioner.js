@@ -122,7 +122,7 @@ async function checkAzLogin() {
  * @param {string}   opts.location         - Azure region
  * @param {string}   opts.baseName         - Resource name prefix
  * @param {string}   [opts.subscriptionId] - Azure subscription
- * @param {Object}   [opts.envVars]        - Extra env vars (e.g., CENSUS_API_KEY)
+ * @param {Object}   [opts.envVars]        - Extra env vars (currently unused; reserved for future labs)
  * @param {Function} [opts.onProgress]     - Progress callback(step)
  * @returns {Promise<Object>} Deployment result
  */

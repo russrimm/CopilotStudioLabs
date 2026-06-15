@@ -7,7 +7,8 @@
   "scripts": {
     "setup": "node setup.js",
     "setup:dry-run": "node setup.js --dry-run",
-    "capture": "cd tools/screenshot-capture && npm run capture"
+    "capture": "cd tools/screenshot-capture && npm run capture",
+    "verify:appreg": "node scripts/verify-app-reg.js"
   },
   "engines": {
     "node": ">=18.0.0"

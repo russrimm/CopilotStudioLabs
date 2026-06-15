@@ -1,5 +1,90 @@
 # Squad Decisions
 
+## 2026-06-15 — 2026-06-15T12:34:51-05:00: Dallas portal port change
+
+Owner: Dallas
+Merged by: Scribe
+Source: .squad/decisions/inbox/dallas-port-change.md
+Requested by: Russ Rimmerman
+
+### Decision summary
+
+Changed CopilotStudioLabs portal defaults and deployment config from port 3000 to 3005.
+
+Key decisions:
+
+- Portal runtime, Docker, devcontainer, Codespaces docs, approval link fallbacks, and portal Azure IaC defaults were updated.
+- Lab 04 MCP sample instructions still use port 3000 because those references are for a separate sample MCP server, not the portal.
+- Lab 06 account number 30001234 was left unchanged.
+
+### Follow-up
+
+If any Entra/Azure AD app registration redirect/reply URL points to http://localhost:3000, Russ should update it externally to http://localhost:3005.
+
+### Validation
+
+- `git diff --check` passed
+- `node --check` passed
+- JSON parse validation passed
+
+---
+
+## 2026-06-15 — 2026-06-15T12:21:41-05:00: Dallas verify-app-reg script
+
+Owner: Dallas
+Merged by: Scribe
+Source: .squad/decisions/inbox/dallas-verify-script.md
+Requested by: Russ Rimmerman
+
+### Decision summary
+
+Built `scripts/verify-app-reg.js` (Node, no new deps, uses native fetch). Tests AAD token acquisition + Dataverse WhoAmI; surfaces AADSTS error codes with fixes.
+
+Key decisions:
+
+- Used native Node 18 `fetch` for OAuth token acquisition instead of adding `@azure/identity`, because the root package does not depend on `@azure/identity` and the task asked to stay dependency-light.
+- The script tries to load `.env.local` with `dotenv` when available, including the existing portal dependency if installed, then falls back to a small built-in parser so `npm run verify:appreg` can run from the repo root without adding a new root dependency.
+- Default token-only validation uses `https://service.flow.microsoft.com/.default`; Dataverse validation switches to `{envUrl}/.default` and calls `WhoAmI` only when `--env-url` is provided.
+
+### Files modified
+
+- `scripts/verify-app-reg.js` — new script
+- `package.json` — added `verify:appreg` script
+- `docs/app-registration-setup.md` — updated Section 5 with script usage
+
+---
+
+## 2026-06-15 — 2026-06-15T10:48:18-05:00: Dallas app registration audit — Labs 03, 05, 07
+
+Owner: Dallas
+Merged by: Scribe
+Source: .squad/decisions/inbox/dallas-app-reg-audit.md
+Requested by: Russ Rimmerman
+
+### Decision summary
+
+Created `docs\app-registration-setup.md` after auditing Labs 03, 05, and 07 plus root-level auth clues.
+
+Key decisions recorded in the doc:
+
+- Lab 03 is the only audited lab with Dataverse/MCP runtime relevance. Client credentials can help only for custom backend/MCP Dataverse calls after creating a Dataverse application user and assigning environment security roles.
+- Lab 05 requires delegated VS Code extension sign-in; client credentials alone cannot clone/apply/publish agents.
+- Lab 07 requires delegated Copilot Studio/Fabric authoring access; client credentials may only be part of a separate external A2A OAuth endpoint configuration.
+- Do not tell Russ to rely on `Dynamics CRM / user_impersonation` for app-only Dataverse access; it is delegated. For app-only Dataverse, the environment application user and security roles are the controlling access path.
+- Microsoft Graph `Mail.Send` Application is needed only for the root portal Graph email path, not directly for Labs 03/05/07.
+- Power Platform API service-principal access uses Power Platform RBAC roles rather than application permissions.
+
+### Evidence highlights
+
+- Lab 03: `labs\03-account-orchestration-agent\index.md` lines 314-353 enable Dataverse Intelligence/MCP and add Microsoft Dataverse MCP Server; lines 459-479 add sample Order/Warehouse MCP connections with no credentials required.
+- Lab 05: `labs\05-copilot-studio-vscode-agent-management\index.md` lines 69-75 and 83-93 require Microsoft account/VS Code sign-in and environment access.
+- Lab 07: `labs\07-agent-to-agent-protocol\index.md` lines 95-100 require Copilot Studio/Fabric access; lines 238-245 explicitly call out possible additional consent or delegated authorization.
+- Root: `.env.local.example` notes Power Platform uses delegated auth/device code; `portal\lib\auth.js` uses MSAL device code; `portal\lib\mailer.js` uses Graph client credentials; `portal\lib\provisioner.js` comments on Graph SharePoint permissions.
+
+---
+
+## 2026-06-15 — 2026-06-15T00:15:18-05:00: User directive
+
 ## 2026-06-15 — 2026-06-15T00:15:18-05:00: User directive
 
 Owner: Russ Rimmerman

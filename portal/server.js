@@ -71,7 +71,7 @@ import { getCurrentUser, clearTokens } from "./lib/auth.js";
 import { loadAgentChatConfig, saveAgentChatConfig } from "./lib/agent-chat.js";
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3005;
 const PROVISION_JOB_RETENTION_MS = 60 * 60 * 1000;
 const LABS_ROUTE = "/labs";
 const labsRoot = resolve(import.meta.dirname, "..", "labs");

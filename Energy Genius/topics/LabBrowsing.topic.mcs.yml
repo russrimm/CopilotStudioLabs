@@ -43,8 +43,8 @@ beginDialog:
         | 01 | Build a Custom IT Operations Agent for Contoso Energy | Intermediate | 45 min |
         | 02 | Monitor Performance and Evaluate Agent Quality | Intermediate | 45 min |
         | 03 | Orchestration with Copilot Studio for Contoso | Intermediate | 45 min |
-        | 04 | Build an Advanced Energy Intelligence Agent with Census Bureau Data | Advanced | 60 min |
-        | 05 | Clone, Modify, and Republish Agents with VS Code Extension | Intermediate | 30 min |
+        | 04 | Build an Energy Operations Weather Intelligence Agent with MSN Weather | Intermediate | 60 min |
+        | 05 | Clone, Modify, and Republish Agents with VS Code Extension | Advanced | 30 min |
         | 06 | Build a Computer-Using Agent for Desktop Automation | Advanced | 2 hrs |
         | 07 | Connect Agents with Agent-to-Agent (A2A) Protocol | Advanced | 90 min |
         | 08 | Supercharge Agents with Work IQ and M365 Intelligence | Intermediate | 60 min |

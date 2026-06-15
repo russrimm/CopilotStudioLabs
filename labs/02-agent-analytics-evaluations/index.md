@@ -547,7 +547,7 @@ As the Contoso Energy IT Operations team scales their agent to thousands of fiel
 3. If your Contoso environment already has an Application Insights resource for Copilot Studio, use that. Otherwise, select **+ Create**:
    - **Subscription:** Your lab or Contoso Azure subscription
    - **Resource group:** Use an existing resource group or create one (e.g., `rg-contoso-copilot-studio`)
-   - **Name:** `appi-sdge-it-ops-agent` (or a name that follows your Contoso naming convention)
+   - **Name:** `appi-contoso-it-ops-agent` (or a name that follows your Contoso naming convention)
    - **Region:** Same region as your Copilot Studio environment for lowest latency
    - **Workspace:** Select an existing Log Analytics workspace or let Azure create one
 4. Select **Review + create**, then **Create**.

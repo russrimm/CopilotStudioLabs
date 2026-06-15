@@ -35,7 +35,7 @@ cp .env.template .env
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3005](http://localhost:3005)
 
 ### Docker deployment
 
@@ -45,7 +45,7 @@ docker compose up --build
 
 # Or build/run directly
 docker build -t copilot-labs-portal -f portal/Dockerfile .
-docker run -p 3000:3000 --env-file portal/.env copilot-labs-portal
+docker run -p 3005:3005 --env-file portal/.env copilot-labs-portal
 ```
 
 ### Azure Web App deployment
@@ -66,7 +66,7 @@ All configuration is provided through environment variables (see `.env.template`
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `PORT` | No | Portal port (default: `3000`) |
+| `PORT` | No | Portal port (default: `3005`) |
 | `PORTAL_BASE_URL` | For approval links | Public portal URL used for approval callback and review links |
 | **Azure / Entra ID** | | |
 | `AZURE_TENANT_ID` | For Graph email / delegated auth | Entra tenant ID |
@@ -96,8 +96,6 @@ All configuration is provided through environment variables (see `.env.template`
 | **Feature Flags** | | |
 | `ENABLE_GRAPH_EMAIL` | Optional | Force/enable Graph email usage |
 | `ENABLE_AZURE_DEPLOY` | Optional | Enable Azure deployment workflows |
-| **Lab-specific** | | |
-| `CENSUS_API_KEY` | Lab 04 only | Census API key for the advanced energy lab |
 
 ## API Endpoints
 

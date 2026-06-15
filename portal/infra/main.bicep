@@ -31,7 +31,7 @@ module mcpServer './modules/container-app.bicep' = if (contains(enabledLabs, '04
   name: 'mcp-server-deploy'
   scope: rg
   params: {
-    name: '${baseName}-mcp-census'
+    name: '${baseName}-mcp-weather'
     location: location
     tags: tags
   }

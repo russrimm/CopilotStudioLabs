@@ -13,10 +13,10 @@
   },
   "remoteUser": "node",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-  "forwardPorts": [3000, 3001, 5173, 8080],
+  "forwardPorts": [3005, 3001, 5173, 8080],
   "portsAttributes": {
-    "3000": {
-      "label": "MCP server or portal",
+    "3005": {
+      "label": "Portal",
       "onAutoForward": "notify"
     },
     "3001": {

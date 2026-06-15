@@ -47,3 +47,15 @@
 ## 2026-06-15T01:59:09-05:00
 
 - Implemented R1 (Codespaces devcontainer for MCP labs): Created `.devcontainer/devcontainer.json` with Node.js 20 LTS baseline and port forwarding for 3000, 3001, 5173, 8080. Added `.devcontainer/Dockerfile` with jq, Python 3, zip/unzip utilities. Updated `README.md` with Codespaces quickstart and authored `docs/codespaces.md`. Post-create commands install root, portal, lab PDF tooling, and screenshot tooling dependencies. Verified labs 03, 04, 05, 07; Lab 18 flagged for `@microsoft/agents-copilotstudio-client@^0.5.0` dependency follow-up. Decision merged to `.squad/decisions.md`; orchestration log written.
+
+## 2026-06-15T10:48:18-05:00
+
+- Audited app registration permission requirements for Labs 03, 05, 07. Authored `docs/app-registration-setup.md` documenting auth patterns: Lab 03 viable with app-only Dataverse (application user + security roles) for MCP custom calls; Labs 05 and 07 require delegated auth (VS Code extension sign-in and Copilot Studio/Fabric authoring access respectively). Key finding: `Dynamics CRM / user_impersonation` is delegated-only, not app-only; Power Platform API uses RBAC roles; Microsoft Graph `Mail.Send` is portal-only. Decision merged to `.squad/decisions.md`; session logged in `.squad/log/2026-06-15T10-48-18Z-app-reg-audit.md` and orchestration log written.
+
+## 2026-06-15T12:21:41-05:00
+
+- Built `scripts/verify-app-reg.js`: Node script (native `fetch`, no new root deps) that validates app registration setup by testing AAD token acquisition and Dataverse WhoAmI calls. Script supports optional `.env.local` loading via `dotenv` (portal dep) with fallback built-in parser; token-only validation mode (default) and Dataverse mode (with `--env-url`); surfaces AADSTS error codes with remediation guidance. Updated `package.json` with `verify:appreg` script; updated `docs/app-registration-setup.md` Section 5 with usage. Decision merged to `.squad/decisions.md`; logs written to `.squad/log/` and `.squad/orchestration-log/`.
+
+## 2026-06-15T12:34:51-05:00
+
+- Changed portal default port from 3000 to 3005 across server, Docker, devcontainer, Codespaces docs, approval link fallbacks, and portal Azure Bicep IaC. Left Lab 04 MCP sample instructions on port 3000 (correct for sample server, not portal) and Lab 06 account 30001234 unchanged. Validated: git diff --check, node --check, JSON parse all PASSED. Flagged for follow-up: Entra app registration redirect/reply URLs if pointing to localhost:3000 require external update to localhost:3005. Decision merged to `.squad/decisions.md`; orchestration and brief logs written.

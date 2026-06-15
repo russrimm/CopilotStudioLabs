@@ -10,7 +10,7 @@ Loads environment variables from .env files using a secure precedence chain:
 Usage:
     from scripts.config import env
 
-    api_key = env("CENSUS_API_KEY")
+    api_key = env("AZURE_CLIENT_ID")
     tenant = env("AZURE_TENANT_ID", default="")
 """
 
@@ -62,10 +62,10 @@ if __name__ == "__main__":
     print(f"  Loaded: {_loaded or '(none found)'}")
     print()
     print("Key variables:")
-    sensitive = ["AZURE_CLIENT_SECRET", "SMTP_PASS", "CENSUS_API_KEY"]
+    sensitive = ["AZURE_CLIENT_SECRET", "SMTP_PASS"]
     for key in [
         "AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET",
-        "AZURE_KEYVAULT_URL", "CENSUS_API_KEY", "SMTP_HOST", "SMTP_PASS",
+        "AZURE_KEYVAULT_URL", "SMTP_HOST", "SMTP_PASS",
         "MAIL_FROM", "MCP_SERVER_URL",
     ]:
         val = os.environ.get(key, "")

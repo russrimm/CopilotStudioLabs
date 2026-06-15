@@ -4,7 +4,7 @@ services:
       context: ..
       dockerfile: portal/Dockerfile
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-3005}:3005"
     env_file:
       - .env
     environment:
