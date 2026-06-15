@@ -388,6 +388,66 @@
       font-size: 12px;
       color: var(--text-muted);
     }
+    .agent-chat-container {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      height: 65vh;
+      min-height: 400px;
+      background: white;
+    }
+    .agent-chat-container iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    .agent-chat-config {
+      max-width: 600px;
+    }
+    .agent-chat-config-details summary {
+      cursor: pointer;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .agent-chat-starters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+      margin-bottom: 16px;
+    }
+    .agent-chat-starter {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.15s;
+    }
+    .agent-chat-starter:hover {
+      border-color: var(--accent);
+      background: rgba(79, 143, 247, 0.1);
+    }
+    .agent-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .agent-status-badge.connected {
+      background: rgba(52, 211, 153, 0.15);
+      color: var(--success);
+    }
+    .agent-status-badge.disconnected {
+      background: rgba(248, 113, 113, 0.15);
+      color: var(--danger);
+    }
 
     /* ── Buttons ────────────────────────── */
     .btn {
@@ -1088,6 +1148,7 @@
       .preview-frame pre,
       .preview-frame code,
       .preview-frame .mermaid { page-break-inside: avoid; }
+      .agent-chat-container { display: none !important; }
       .preview-frame a[href]::after { content: " (" attr(href) ")"; font-size: 10px; color: #666; }
     }
   </style>
@@ -1138,6 +1199,7 @@
           <button class="tab" data-tab="powerplatform">⚡ Power Platform</button>
           <button class="tab" data-tab="validate">🧪 Validation</button>
           <button class="tab" data-tab="email">📧 Email</button>
+          <button class="tab" data-tab="agent">🤖 Agent Chat</button>
           <button class="tab" data-tab="config">⚙️ Configuration</button>
         </div>
 
@@ -1725,6 +1787,57 @@ flowchart TD
               <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
                 <button class="btn btn-primary" onclick="sendEmail()">📨 Send Email</button>
                 <span id="email-status" style="font-size: 13px; color: var(--text-muted);"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Agent Chat tab -->
+          <div class="tab-panel" id="panel-agent">
+            <div class="panel">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h3>🤖 Agent Chat</h3>
+                <span id="agent-status-badge" class="agent-status-badge disconnected">Not configured</span>
+              </div>
+
+              <details id="agent-config-section" class="agent-chat-config-details" open>
+                <summary>🤖 Agent Chat Configuration</summary>
+                <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                  Connect a Copilot Studio agent to assist lab users and provisioners with questions, troubleshooting, and lab guidance. The agent can answer questions about lab content, help with provisioning steps, and provide real-time support.
+                </p>
+                <div class="agent-chat-config">
+                  <div class="form-grid">
+                    <div class="form-group full">
+                      <label for="agent-token-endpoint">Token Endpoint URL</label>
+                      <input type="text" id="agent-token-endpoint" placeholder="https://defaultXXXXXX.XX.environment.api.powerplatform.com/powervirtualagents/botsbyschema/..." />
+                      <span class="hint">Found in Copilot Studio → Settings → Channels → Mobile app → Token Endpoint</span>
+                    </div>
+                    <div class="form-group">
+                      <label for="agent-display-name">Agent Display Name</label>
+                      <input type="text" id="agent-display-name" placeholder="Lab Assistant" value="Lab Assistant" />
+                    </div>
+                  </div>
+                  <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
+                    <button class="btn btn-primary" onclick="saveAgentChatConfig()">🔌 Connect Agent</button>
+                    <span id="agent-config-status" style="font-size: 13px; color: var(--text-muted);"></span>
+                  </div>
+                </div>
+              </details>
+
+              <div id="agent-chat-section" style="display: none;">
+                <p style="color: var(--text-muted); margin-bottom: 8px; font-size: 14px;">
+                  Ask the agent questions about labs, provisioning, troubleshooting, or anything else it has been trained on.
+                </p>
+                <div class="agent-chat-starters">
+                  <button class="agent-chat-starter" onclick="sendStarterPrompt('What labs should I start with?')">💡 What labs should I start with?</button>
+                  <button class="agent-chat-starter" onclick="sendStarterPrompt('How do I provision a new environment?')">🚀 How do I provision a new environment?</button>
+                  <button class="agent-chat-starter" onclick="sendStarterPrompt('Help me troubleshoot my agent')">🔧 Help me troubleshoot my agent</button>
+                  <button class="agent-chat-starter" onclick="sendStarterPrompt('What prerequisites do I need?')">📋 What prerequisites do I need?</button>
+                </div>
+                <div id="agent-chat-container" class="agent-chat-container"></div>
+                <div style="margin-top: 12px; display: flex; gap: 8px;">
+                  <button class="btn btn-sm" onclick="loadAgentChatConfig()">↻ Reconnect</button>
+                  <button class="btn btn-sm btn-danger" onclick="disconnectAgentChat()">🔌 Disconnect Agent</button>
+                </div>
               </div>
             </div>
           </div>

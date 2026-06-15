@@ -23,3 +23,7 @@
 ## 2026-06-15T00:55:00-05:00
 
 - Completed the Lab 04 smoothness pass under Russ's standing directive: added Census API key signup/activation expectations, reinforced activated-key paste into `Global.APIKey`, fixed a first-message typo, clarified Adaptive Card node labeling, repaired StateInput/City/ZipCode to StateFIPS flow guidance, added global-variable fallback instructions, and noted Power Automate trigger-location variance. Lambert also had a pre-existing Lab 2 Microsoft Learn incorporation decision merged from inbox in this Scribe pass.
+
+## 2026-06-15T01:59:09-05:00
+
+- Implemented R2 (Validation Rubric framework): Created `docs/validation-rubrics/` with reusable lab-validation ecosystem including `README.md`, `schema.md`, `authoring-guide.md`, and `learner-guide.md`. Designed four evaluator types (`llm-as-judge`, `regex`, `contains-string`, `tool-call-check`) mapped to Copilot Studio native methods. Authored Lab 01 worked example: `lab-01-energy-ops-agent.rubric.yaml` (YAML for author readability) and `lab-01-energy-ops-agent.testset.csv` (CSV native import format). Framework addresses competitive scan finding on automated agent-behavior validation using Copilot Studio's native Agent Evaluation tooling. Decision merged to `.squad/decisions.md`; orchestration log written.

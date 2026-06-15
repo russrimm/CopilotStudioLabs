@@ -81,6 +81,22 @@ These shorter labs cover individual concepts and can be used as standalone refer
 | 17 | [Industry-Specific 3rd Party Integrations](./labs/17-industry-integrations/index.md) | Multi-industry | Industry roundup covering Epic FHIR (Healthcare), SAP (Financial), Shopify (Retail), IoT (Manufacturing), Salesforce Gov (Public Sector), and Jira/GitHub (Technology) integrations | Advanced (300) | 2 hrs |
 | 18 | [Embed a Copilot Studio Agent in a Web Page with the Client SDK](./labs/18-embed-agent-web-sdk/index.md) | Cross-industry | Embed your published agent in a custom-branded web chat using the Copilot Studio Client SDK (`@microsoft/agents-copilotstudio-client`) with MSAL.js + Entra ID authentication — covers Entra app registration, delegated auth, conversation lifecycle, suggested actions, adaptive card fallback, and full UI branding | Intermediate–Advanced (250) | 75 min |
 
+> **Lab 11 note:** This lab complements the no-code agent labs with a pro-code Power Apps + Dataverse build path, making it a strong bridge for teams pairing Copilot Studio agents with custom web or business applications.
+
+---
+
+## ⚡ Portal Features
+
+The repository also includes a full **Copilot Studio Labs portal** for delivering and operating the labs:
+
+- 🤖 Embedded Copilot Studio **Agent Chat** for real-time learner support
+- 🔐 **Approval workflows** for Power Platform environment provisioning
+- 👍 **Inline feedback** capture and 🐛 one-click issue reporting
+- 👁️ Rendered **lab preview** with Mermaid diagrams, TOC, and image lightbox
+- 🧪 **Validation** smoke tests for lab documentation quality
+- ☁️ **Azure provisioning** plus ⚡ **Power Platform** environment management
+- 📥 **ZIP export**, 📧 **email delivery**, and 🎨 **branding/customization**
+
 ---
 
 ## Lab 01 — Build a Custom IT Operations Agent
@@ -109,6 +125,7 @@ These shorter labs cover individual concepts and can be used as standalone refer
 - A Power Platform environment (trial or licensed)
 - A SharePoint site for lab 01 (instructions included in the lab)
 - Node.js 18+ (for the template setup script)
+- Prefer zero local setup for Node.js/MCP labs? See [Open in GitHub Codespaces](./docs/codespaces.md).
 
 ### How to use these labs
 
@@ -117,6 +134,7 @@ These shorter labs cover individual concepts and can be used as standalone refer
 - **Lab 05** is an optional add-on for teams interested in managing agents as code through VS Code.
 - **Labs 06-10** extend the series into computer use, cross-platform orchestration, Microsoft 365 intelligence, prompt engineering, and real-time voice scenarios.
 - **Lab 11** introduces **Power Apps Code Apps (BYOC)** — a code-first approach to building custom web apps connected to Dataverse, complementing the no-code agent building in earlier labs.
+- Use the **portal** to preview labs, apply branding, validate content, export ZIP bundles, email packages, manage approval workflows, provision environments, and connect an embedded Copilot Studio support agent for learners and provisioners.
 
 ---
 

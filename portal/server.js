@@ -68,6 +68,7 @@ import {
   submitRequest,
 } from "./lib/approvals.js";
 import { getCurrentUser, clearTokens } from "./lib/auth.js";
+import { loadAgentChatConfig, saveAgentChatConfig } from "./lib/agent-chat.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -606,6 +607,23 @@ app.get("/api/config", (_req, res) => {
       mcpEndpoint: process.env.MCP_SERVER_URL || null,
     },
   });
+});
+
+/** GET /api/agent-chat/config */
+app.get("/api/agent-chat/config", (_req, res) => {
+  res.json(loadAgentChatConfig());
+});
+
+/** POST /api/agent-chat/config */
+app.post("/api/agent-chat/config", (req, res) => {
+  const config = saveAgentChatConfig(req.body);
+  res.json(config);
+});
+
+/** DELETE /api/agent-chat/config */
+app.delete("/api/agent-chat/config", (_req, res) => {
+  saveAgentChatConfig({ tokenEndpoint: "", agentName: "" });
+  res.json({ success: true });
 });
 
 // ── Provisioning API Routes ─────────────────────────────────────────────────
