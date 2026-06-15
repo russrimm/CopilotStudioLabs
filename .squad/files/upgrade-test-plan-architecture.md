@@ -25,9 +25,9 @@ Current behavior: `npm run setup` reads `template.config.json`, builds replaceme
 When setup is run against a fork with a valid config:
 
 - Template default values in template-owned lab Markdown and README must be replaced with configured values:
-  - `SDG&E` → `organization.name`
-  - `San Diego Gas & Electric` → `organization.fullName`
-  - `Sempra` → `organization.parent`
+  - `Contoso Energy` → `organization.name`
+  - `Contoso Energy` → `organization.fullName`
+  - `Contoso` → `organization.parent`
   - `Energy / Utilities` → `organization.industry`
   - default tagline → `branding.tagline`
   - `IT Operations Agent` → `scenario.agentName`
@@ -176,12 +176,12 @@ Purpose: discover states the team did not imagine. Read-only GitHub interaction 
 Recommended GitHub code search queries:
 
 ```text
-filename:template.config.json "Copilot Studio Labs" "SDG&E"
-filename:template.config.json "San Diego Gas & Electric" "IT Operations Agent"
+filename:template.config.json "Copilot Studio Labs" "Contoso Energy"
+filename:template.config.json "Contoso Energy" "IT Operations Agent"
 filename:setup.js "Copilot Studio Labs — Template Setup Script"
 filename:package.json "copilot-studio-labs" "npm run setup"
 path:tools/screenshot-capture filename:shots.json "04-energy-census-advanced-agent"
-filename:README.md "01-sdge-energy-ops-agent" "05-copilot-studio-vscode-agent-management"
+filename:README.md "01-energy-ops-agent" "05-copilot-studio-vscode-agent-management"
 "Delivering energy with purpose — powered by AI" "template.config.json"
 ```
 

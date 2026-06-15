@@ -51,7 +51,7 @@ Running `npm run setup` twice with the same config is mostly filesystem-idempote
 
 ### Non-idempotent or fragile behavior
 
-- Replacement chaining can happen within a single run. Replacements are applied sequentially at lines 172-174. If a replacement target contains another replacement source, the newly inserted text can be replaced again. Example: setting `organization.name` to `San Diego Gas & Electric` while also changing `organization.fullName` can cause the org-name replacement to be transformed by the full-name replacement.
+- Replacement chaining can happen within a single run. Replacements are applied sequentially at lines 172-174. If a replacement target contains another replacement source, the newly inserted text can be replaced again. Example: setting `organization.name` to `Contoso Energy` while also changing `organization.fullName` can cause the org-name replacement to be transformed by the full-name replacement.
 - The script cannot distinguish template defaults from user-authored text. Any matching default string in user edits is replaced on every run where it exists.
 - README cleanup is not a true table regeneration. It removes excluded references but cannot restore or normalize the table.
 - If all lab folders are manually removed or `labs/` disappears, `walkFiles(join(ROOT, "labs"), [".md"])` at line 154 can throw because the call is not guarded by `existsSync`.
@@ -83,7 +83,7 @@ The script does not generally double-replace A to B because it does not search f
 
 ## 3. Fork-pull-then-setup audit
 
-Scenario: user customized `SDG&E` to `Contoso`, then pulls upstream template updates that add new files containing `SDG&E`.
+Scenario: user customized `Contoso Energy` to `Contoso`, then pulls upstream template updates that add new files containing `Contoso Energy`.
 
 ### What works
 

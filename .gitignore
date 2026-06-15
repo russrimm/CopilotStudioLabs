@@ -24,3 +24,5 @@ portal/.env
 .env.*.local
 portal/.env.local
 portal/.env.*.local
+portal/data/
+portal/public/uploads/

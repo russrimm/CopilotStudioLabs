@@ -12,7 +12,7 @@
   },
 
   "labs": {
-    "01-sdge-energy-ops-agent": {
+    "01-energy-ops-agent": {
       "name": "IT Operations Agent",
       "resources": [
         {
@@ -45,7 +45,7 @@
       ]
     },
 
-    "02-sempra-agent-analytics-evaluations": {
+    "02-agent-analytics-evaluations": {
       "name": "Analytics & Evaluations",
       "resources": [
         {
@@ -54,7 +54,7 @@
           "name": "Published Agent (from Lab 01)",
           "description": "Requires a published agent with channel traffic for analytics",
           "config": {
-            "dependsOnLab": "01-sdge-energy-ops-agent",
+            "dependsOnLab": "01-energy-ops-agent",
             "requiresPublish": true,
             "requiresChannel": true
           }
@@ -62,7 +62,7 @@
       ]
     },
 
-    "03-sempra-account-orchestration-agent": {
+    "03-account-orchestration-agent": {
       "name": "Orchestration Agent",
       "resources": [
         {
@@ -203,7 +203,7 @@
           "name": "Existing Published Agent",
           "description": "Any published agent to clone and modify",
           "config": {
-            "dependsOnLab": "01-sdge-energy-ops-agent",
+            "dependsOnLab": "01-energy-ops-agent",
             "requiresPublish": true
           }
         },

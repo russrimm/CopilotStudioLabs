@@ -81,8 +81,8 @@ GlobalProtect automatically selects the optimal VPN gateway based on your locati
 
 | Gateway | Primary Region |
 |---|---|
-| `ca-vpn.contoso.com` | California (SDG&E / SoCalGas sites) |
-| `tx-vpn.contoso.com` | Texas (Oncor / Contoso Texas sites) |
+| `ca-vpn.contoso.com` | California (Contoso Energy / Contoso Gas sites) |
+| `tx-vpn.contoso.com` | Texas (Contoso Power / Contoso Texas sites) |
 | `az-vpn.contoso.com` | Arizona and Southwest |
 
 If you experience slow performance, you may manually select your regional gateway in GlobalProtect settings under **Gateway**.

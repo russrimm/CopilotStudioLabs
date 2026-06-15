@@ -16,7 +16,7 @@
 
 Utility teams constantly translate, summarize, classify, and draft content: outage updates, regulator-facing summaries, field report extractions, meeting recaps, and customer communications. Prompt Builder and agent flows let you turn those repeatable language tasks into governed automation.
 In this lab, you will create reusable prompts, add them to **agent flows**, use the **Microsoft 365 Copilot node** for grounded research or drafting, and tune controls such as **model selection**, **content moderation**, **asynchronous response**, and **express mode**.
-The scenario uses SDG&E and Contoso Energy operations, where prompt quality affects both productivity and compliance.
+The scenario uses Contoso Energy and Contoso Energy operations, where prompt quality affects both productivity and compliance.
 
 ---
 

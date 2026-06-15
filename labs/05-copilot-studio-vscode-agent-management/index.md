@@ -11,7 +11,7 @@
 | 🏭 **INDUSTRY** | Energy / Utilities |
 | 📋 **STATUS** | Optional |
 
-> **Prerequisite:** You should have a working agent in Copilot Studio — either the SDG&E IT Operations Agent from [Lab 01](../01-sdge-energy-ops-agent/index.md), the Energy Intelligence Agent from [Lab 04](../04-energy-census-advanced-agent/index.md), or any agent in your environment.
+> **Prerequisite:** You should have a working agent in Copilot Studio — either the Contoso IT Operations Agent from [Lab 01](../01-energy-ops-agent/index.md), the Energy Intelligence Agent from [Lab 04](../04-energy-census-advanced-agent/index.md), or any agent in your environment.
 
 ---
 
@@ -80,7 +80,7 @@ By the end of this lab, you will be able to:
 
 ### Step 3 — Clone the agent
 
-1. In the Copilot Studio panel, find the agent you want to clone (for example, **SDG&E IT Operations Agent** or **Energy Intelligence Agent**).
+1. In the Copilot Studio panel, find the agent you want to clone (for example, **Contoso IT Operations Agent** or **Energy Intelligence Agent**).
 2. Right-click the agent and select **Clone agent** (or use the command palette: `Ctrl+Shift+P` → **Copilot Studio: Clone Agent**).
 3. Choose a local folder to save the project.
 4. Wait for the clone operation to complete — VS Code will open the agent project.

@@ -1,4 +1,4 @@
-# 🧭 Lab 03: Orchestration with Copilot Studio for Sempra
+# 🧭 Lab 03: Orchestration with Copilot Studio for Contoso
 
 *Routing the right tool, the right data, and the right policy — every turn.*
 
@@ -8,17 +8,17 @@
 | ⏱️ **TIME** | 60 minutes |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio, Microsoft Dataverse, Microsoft 365 (SharePoint / Work IQ), Model Context Protocol (MCP), MSN Weather |
 | 🏷️ **TAGS** | Generative Orchestration, New Orchestrator, Agentic Reasoning Loop, Skills, MCP, Connected Agents |
-| 🏭 **INDUSTRY** | Energy / Utilities (Sempra family of companies) |
+| 🏭 **INDUSTRY** | Energy / Utilities (Contoso family of companies) |
 
-> **Adapted from:** [Orchestration with Copilot Studio — Microsoft Copilot Agents Labs](https://microsoft.github.io/mcs-labs/labs/mcs-orchestration/). Reframed for **Sempra** — the North American energy infrastructure company and parent of SDG&E, SoCalGas, Sempra Infrastructure, and Oncor. Technical steps remain compatible with the upstream Microsoft sample data and connectors.
+> **Adapted from:** [Orchestration with Copilot Studio — Microsoft Copilot Agents Labs](https://microsoft.github.io/mcs-labs/labs/mcs-orchestration/). Reframed for **Contoso** — the North American energy infrastructure company and parent of Contoso Energy, Contoso Gas, Contoso Infrastructure, and Contoso Power. Technical steps remain compatible with the upstream Microsoft sample data and connectors.
 
 ---
 
-## 🏢 Why Sempra cares about orchestration
+## 🏢 Why Contoso cares about orchestration
 
-Sempra serves nearly 40 million consumers across regulated utilities and infrastructure projects. Customer Operations, Field Dispatch, Account Management, and Outage Response teams all work across **dozens of source systems** — customer records in Dataverse, work-order systems, weather services for storm response, partner portals, and policy libraries that differ between **internal handling** and **what we say to a customer**.
+Contoso serves nearly 40 million consumers across regulated utilities and infrastructure projects. Customer Operations, Field Dispatch, Account Management, and Outage Response teams all work across **dozens of source systems** — customer records in Dataverse, work-order systems, weather services for storm response, partner portals, and policy libraries that differ between **internal handling** and **what we say to a customer**.
 
-A Copilot Studio agent that "feels smart" to a Sempra account manager has to make the same choice a seasoned employee makes every day:
+A Copilot Studio agent that "feels smart" to a Contoso account manager has to make the same choice a seasoned employee makes every day:
 
 > *Which system holds the answer, which policy applies, what do I share with the customer, and what do I keep internal?*
 
@@ -42,24 +42,24 @@ Common challenges this lab solves:
 
 By the end of this lab you will:
 
-1. ✅ Verify and publish a **Sempra Customer Account Lookup** connected agent backed by Dataverse
+1. ✅ Verify and publish a **Contoso Customer Account Lookup** connected agent backed by Dataverse
 2. ✅ See — turn by turn — how **Instructions** and **Descriptions** at four different levels shape the planner's routing decisions
 3. ✅ Use the **Activity Tracker** and **Get rationale** as debugger traces for your descriptions
-4. ✅ Build a new-type **Sempra Customer Operations Assistant** that uses the **New Orchestrator (Agentic Reasoning Loop)** to complete multi-step tasks end to end
+4. ✅ Build a new-type **Contoso Customer Operations Assistant** that uses the **New Orchestrator (Agentic Reasoning Loop)** to complete multi-step tasks end to end
 5. ✅ Package a **Service Resolution Concierge Skill** that chains custom MCP servers, two knowledge sources (customer-facing vs. internal), and live weather across a single turn
 
 ---
 
 ## 🧠 Core concepts overview
 
-| Concept | What it means at Sempra |
+| Concept | What it means at Contoso |
 |---|---|
 | **Generative Orchestration** | The planner that decides — on every turn — which tool, knowledge source, child agent, or connected agent answers the user. |
 | **Instructions** | Top-level rules that always apply (e.g., *"Always include account number when handing off to billing."*). Run on every turn — use sparingly. |
 | **Descriptions** | Per-tool, per-agent, per-input metadata the planner reads when it's deciding *whether* to use that thing. Descriptions are the most important routing signal; names and parameter metadata help refine selection. |
 | **New Orchestrator (Agentic Reasoning Loop)** | The default orchestrator in newly created agents using generative orchestration. Plans → acts → observes → iterates within **one turn** until the task is done. |
 | **Skill** | A reusable, named playbook the orchestrator loads on demand. Bundles *when to use me + the tools I rely on + the procedure to follow* — keeps base instructions short and behavior consistent. |
-| **MCP Tool** | A Model Context Protocol server attached to the agent. In this lab you'll use the **Microsoft Dataverse MCP Server** plus two sample servers (Order Management, Warehouse) that simulate a Sempra field-service backend. |
+| **MCP Tool** | A Model Context Protocol server attached to the agent. In this lab you'll use the **Microsoft Dataverse MCP Server** plus two sample servers (Order Management, Warehouse) that simulate a Contoso field-service backend. |
 
 ---
 
@@ -77,25 +77,25 @@ By the end of this lab you will:
 - Access to **Microsoft Copilot Studio**
 - A Power Platform environment where you can edit Dataverse table views and toggle environment settings (**System Administrator** or **System Customizer**)
 - Sample data loaded into the Dataverse **Account** and **Contact** tables (the `(sample)` records used throughout Use Cases #1 and #2)
-- The pre-loaded **Account Data Lookup Agent** available in your environment (Use Case #1 verifies and publishes it — this becomes your *Sempra Customer Account Lookup Agent*)
+- The pre-loaded **Account Data Lookup Agent** available in your environment (Use Case #1 verifies and publishes it — this becomes your *Contoso Customer Account Lookup Agent*)
 - For **Use Cases #3 and #4** only: an environment where **new-type agents** (the New Orchestrator), **Dataverse Intelligence (Work IQ)**, and **Dataverse MCP servers** can be used
 
-> 💡 The `(sample)` Account and Contact records ship with Dataverse and are reused here so the lab works in any tenant. Treat them as stand-ins for Sempra commercial customer accounts (large industrial gas customers, transmission partners, energy infrastructure counterparties, etc.) as you walk through the scenarios.
+> 💡 The `(sample)` Account and Contact records ship with Dataverse and are reused here so the lab works in any tenant. Treat them as stand-ins for Contoso commercial customer accounts (large industrial gas customers, transmission partners, energy infrastructure counterparties, etc.) as you walk through the scenarios.
 
 ---
 
 ## 🗺️ Use cases covered
 
-| # | Use Case | Sempra Framing | Time |
+| # | Use Case | Contoso Framing | Time |
 |---|---|---|---|
-| 1 | Get the sample connected agent working | Stand up the **Sempra Customer Account Lookup Agent** | 10 min |
+| 1 | Get the sample connected agent working | Stand up the **Contoso Customer Account Lookup Agent** | 10 min |
 | 2 | See the impact of Instructions and Descriptions on the planner | Watch the planner pick the right account, contact, tool, and input | 20 min |
-| 3 | New Orchestrator — Agentic Reasoning Loop | Build a **Sempra Customer Operations Assistant** that completes multi-step asks in one turn | 30 min |
+| 3 | New Orchestrator — Agentic Reasoning Loop | Build a **Contoso Customer Operations Assistant** that completes multi-step asks in one turn | 30 min |
 | 4 | Leveraging Skills | Package a **Service Resolution Concierge** Skill that chains MCP, knowledge, and weather | 30 min |
 
 ---
 
-# 🧪 Use Case #1 — Get the Sempra Customer Account Lookup Agent working
+# 🧪 Use Case #1 — Get the Contoso Customer Account Lookup Agent working
 
 > 🎯 **Objective:** Confirm the environment is ready and the prebuilt connected agent is published. If you've already done this in another lab (e.g., the Multi-Agent lab), skip to Use Case #2.
 
@@ -144,7 +144,7 @@ Before exploring how Instructions and Descriptions shape orchestration, the agen
 
 ### Step 3 — Test and publish the Account Data Lookup Agent
 
-1. Back in Copilot Studio, open the **Account Data Lookup Agent** (your Sempra Customer Account Lookup Agent).
+1. Back in Copilot Studio, open the **Account Data Lookup Agent** (your Contoso Customer Account Lookup Agent).
 2. Open the **Test** chat (top-right).
 3. Enter: `What are the accounts in Texas?`
 4. Verify the agent returns results — that confirms data + indexing are working.
@@ -176,7 +176,7 @@ Before exploring how Instructions and Descriptions shape orchestration, the agen
 
 ### Scenario
 
-A Sempra account manager opens the agent and asks a string of follow-up questions about customers in Texas — accounts, primary contacts, derived facts like age, then pivots to a contact by name. Every turn is a planner decision: which child agent, which tool, which arguments.
+A Contoso account manager opens the agent and asks a string of follow-up questions about customers in Texas — accounts, primary contacts, derived facts like age, then pivots to a contact by name. Every turn is a planner decision: which child agent, which tool, which arguments.
 
 ### Part A — Where Instructions and Descriptions live
 
@@ -285,11 +285,11 @@ No **Account Agent** in the trace this time — the planner recognized the subje
 
 # 🧪 Use Case #3 — New Orchestrator: Agentic Reasoning Loop
 
-> 🎯 **Objective:** Stand up a newly created Sempra Customer Operations Assistant using generative orchestration and validate how the **Agentic Reasoning Loop** drives multi-tool task completion in a single turn.
+> 🎯 **Objective:** Stand up a newly created Contoso Customer Operations Assistant using generative orchestration and validate how the **Agentic Reasoning Loop** drives multi-tool task completion in a single turn.
 
 ### Scenario
 
-A Sempra customer operations specialist wants one assistant that can — without stopping to confirm at every step — pull a commercial customer's primary contact, check the weather at that customer's site (storm risk! gift planning! site visit planning!), look up internal policy, and synthesize an answer. A newly created agent uses generative orchestration with the Agentic Reasoning Loop by default, so this is what you get out of the box.
+A Contoso customer operations specialist wants one assistant that can — without stopping to confirm at every step — pull a commercial customer's primary contact, check the weather at that customer's site (storm risk! gift planning! site visit planning!), look up internal policy, and synthesize an answer. A newly created agent uses generative orchestration with the Agentic Reasoning Loop by default, so this is what you get out of the box.
 
 ### Step 1 — Enable Dataverse Intelligence (Work IQ) and Dataverse MCP servers
 
@@ -300,17 +300,17 @@ A Sempra customer operations specialist wants one assistant that can — without
 3. Under **Dataverse Model Context Protocol**, verify the GA MCP client option is checked. Enable the Preview option only if you plan to use preview MCP tools.
 4. **Save** if you made changes.
 
-### Step 2 — Create the *Sempra Customer Operations Assistant*
+### Step 2 — Create the *Contoso Customer Operations Assistant*
 
 1. In Copilot Studio, select **Agents** in the left navigation → **New Agent** in the upper-right.
    > 💡 Creating a new agent this way uses generative orchestration with the **Agentic Reasoning Loop** enabled by default.
 3. Name it:
    ```text
-   Sempra Customer Operations Assistant
+   Contoso Customer Operations Assistant
    ```
 4. In the **Instructions** box, paste:
    ```text
-   You are a Customer Operations Assistant for Sempra account managers and customer-care specialists. Help users complete multi-step tasks end to end. Use your Dataverse tools to look up commercial customer (account) and contact data, and the weather tool for current conditions at a customer's site. When a request touches gifts or spending on customers or partners, follow the company gifting policy in your knowledge. Complete the whole task before responding rather than stopping to ask at each step.
+   You are a Customer Operations Assistant for Contoso account managers and customer-care specialists. Help users complete multi-step tasks end to end. Use your Dataverse tools to look up commercial customer (account) and contact data, and the weather tool for current conditions at a customer's site. When a request touches gifts or spending on customers or partners, follow the company gifting policy in your knowledge. Complete the whole task before responding rather than stopping to ask at each step.
    ```
 5. Leave the **Model** at its default and select **Save**.
 
@@ -338,7 +338,7 @@ A Sempra customer operations specialist wants one assistant that can — without
 2. Choose the **SharePoint** card (Powered by Work IQ), select **Browse items**, navigate **OnePlace → Documents → HR → company_policies_sample.pdf** → **Confirm selection** → **Add to agent**.
 3. Confirm the file appears under **Knowledge**.
 
-> 💡 At Sempra, this stand-in `company_policies_sample.pdf` would be your internal Field Operations / Customer Engagement / Procurement & Gifting policy. The mechanic is identical — Work IQ queries SharePoint live, so the source is *Ready* almost immediately.
+> 💡 At Contoso, this stand-in `company_policies_sample.pdf` would be your internal Field Operations / Customer Engagement / Procurement & Gifting policy. The mechanic is identical — Work IQ queries SharePoint live, so the source is *Ready* almost immediately.
 
 ### Step 5 — Test the Agentic Reasoning Loop
 
@@ -400,20 +400,20 @@ Any tool step in the trace is expandable. Open a **read_query** step and you'll 
 - Can't query Dataverse? Confirm the Dataverse MCP environment feature is **on** and the Entra connection for **Microsoft Dataverse MCP Server** is complete.
 - Policy-dependent answer is generic? Confirm `company_policies_sample.pdf` is listed under **Knowledge**.
 
-**Challenge — apply to a Sempra workflow**
+**Challenge — apply to a Contoso workflow**
 
 - Pick a workflow that gathers info from multiple systems and then takes an action (compose a customer email, draft a field-dispatch note, file an outage ticket).
 - Sketch the tools it would need. For **each one**, decide: **Maker** or **User** authentication — and why?
 
 ---
 
-# 🧪 Use Case #4 — Leveraging Skills: a Sempra Service Resolution Concierge
+# 🧪 Use Case #4 — Leveraging Skills: a Contoso Service Resolution Concierge
 
 > 🎯 **Objective:** Extend your Use Case #3 agent so it can diagnose and resolve service problems end to end — then watch the New Orchestrator **load the Skill** and chain MCP tools, two knowledge sources, and weather across a single turn.
 
 ### Scenario
 
-In a Sempra customer-care context, the equivalent of an "order problem" is a **service request**: a work order that's delayed, a part that's out of stock for a field repair, a return/exchange on equipment, or a delivery that may be impacted by weather. The technical building blocks below use the Microsoft *Enhanced Task Completion* sample MCP servers — frame them as analogs to your service-ticketing / parts-inventory / dispatch systems.
+In a Contoso customer-care context, the equivalent of an "order problem" is a **service request**: a work order that's delayed, a part that's out of stock for a field repair, a return/exchange on equipment, or a delivery that may be impacted by weather. The technical building blocks below use the Microsoft *Enhanced Task Completion* sample MCP servers — frame them as analogs to your service-ticketing / parts-inventory / dispatch systems.
 
 By the end you will have:
 
@@ -423,22 +423,22 @@ By the end you will have:
 - ✅ Updated the agent's Instructions to **use the Skill** and to enforce the **internal vs. customer-facing** policy line
 - ✅ Run prompts that show the Skill load, then the orchestrator chaining everything together
 
-> ⚠️ **Important:** This Use Case builds directly on Use Case #3. Make sure the Sempra Customer Operations Assistant exists with **Get current weather**, **Microsoft Dataverse MCP Server**, and the **internal `company_policies_sample.pdf`** knowledge already attached.
+> ⚠️ **Important:** This Use Case builds directly on Use Case #3. Make sure the Contoso Customer Operations Assistant exists with **Get current weather**, **Microsoft Dataverse MCP Server**, and the **internal `company_policies_sample.pdf`** knowledge already attached.
 
 ### Step 1 — Add the customer-facing knowledge source
 
 In Use Case #3 you added the **internal** policy from the HR folder. Now add a **customer-facing** policy so the agent can tell the difference between *what we say to a customer* and *what we use internally to decide*.
 
-1. Open the Sempra Customer Operations Assistant on the **Build** tab.
+1. Open the Contoso Customer Operations Assistant on the **Build** tab.
 2. In the right rail → **Add knowledge** → **SharePoint**.
 3. **Browse items** → **OnePlace → Documents → Customer** → select **`Contoso-Customer-Care-Policies.pdf`** → **Confirm selection**.
 4. **Add to agent.** Knowledge should now list **both** sources — internal (HR folder) and customer-facing (Customer folder).
 
-> 💡 At Sempra this two-source pattern is critical. The customer-facing document is what an account manager *quotes* to a customer (returns, refunds, SLA windows, outage credits). The internal document is *handling/escalation* guidance the agent uses to decide — but never reads back to a customer. The Skill below enforces that line explicitly.
+> 💡 At Contoso this two-source pattern is critical. The customer-facing document is what an account manager *quotes* to a customer (returns, refunds, SLA windows, outage credits). The internal document is *handling/escalation* guidance the agent uses to decide — but never reads back to a customer. The Skill below enforces that line explicitly.
 
 ### Step 2 — Create the MCP server connections (temporary workaround)
 
-This lab uses two prebuilt sample MCP connectors — **Order Management MCP** and **Warehouse MCP** — that simulate an e-commerce / fulfillment backend ([Enhanced Task Completion sample](https://microsoft.github.io/enhanced-task-completion/)). For Sempra purposes, treat them as analogs to a field-service ticketing system and a parts-inventory system.
+This lab uses two prebuilt sample MCP connectors — **Order Management MCP** and **Warehouse MCP** — that simulate an e-commerce / fulfillment backend ([Enhanced Task Completion sample](https://microsoft.github.io/enhanced-task-completion/)). For Contoso purposes, treat them as analogs to a field-service ticketing system and a parts-inventory system.
 
 > ⚠️ **Preview limitation:** At time of writing, the **new-type agent's** inline *Add tool → connection* step cannot create a brand-new connection for these custom MCP connectors. Workaround: mint the connections via a throwaway **classic** agent, then reuse them in the new-type agent. This step will go away as the preview matures.
 
@@ -449,9 +449,9 @@ This lab uses two prebuilt sample MCP connectors — **Order Management MCP** an
 
 Both connections now exist in the environment and are reusable. Leave the classic agent as-is.
 
-### Step 3 — Attach the MCP servers to the Sempra agent
+### Step 3 — Attach the MCP servers to the Contoso agent
 
-1. Return to **Sempra Customer Operations Assistant** (Build tab) → right rail → **Add tool**.
+1. Return to **Contoso Customer Operations Assistant** (Build tab) → right rail → **Add tool**.
 2. Filter to **Model Context Protocol (MCP)** → search **Order Management** → pick **Order Management MCP Server**. The **Connection** step now resolves to the connection you created → **Next**.
 3. On **Review capabilities**, the server's actions load (no *"Couldn't load MCP tools"* error) → **Confirm**.
 4. Repeat for **Warehouse MCP Server**.
@@ -470,7 +470,7 @@ Your Tools list should now show **four** tools: Get current weather, Microsoft D
 
    **Description**
    ```text
-   Use when a Sempra customer or account manager asks about a service request, work order, or shipped item that is delayed, stuck, missing, damaged, out of stock, that they want to return or exchange, or whose delivery might be affected by weather. Diagnoses where the request is in the fulfillment pipeline and reports the options (wait for restock, exchange for an alternative, or start a return) grounded in customer-facing company policy. Only takes action when the user explicitly asks.
+   Use when a Contoso customer or account manager asks about a service request, work order, or shipped item that is delayed, stuck, missing, damaged, out of stock, that they want to return or exchange, or whose delivery might be affected by weather. Diagnoses where the request is in the fulfillment pipeline and reports the options (wait for restock, exchange for an alternative, or start a return) grounded in customer-facing company policy. Only takes action when the user explicitly asks.
    ```
 
    **Instructions**
@@ -517,7 +517,7 @@ Replace the Use Case #3 instructions with a shorter, Skill-aware version that po
 1. In the **Instructions** box, select all of the existing text and replace it with:
 
    ```text
-   You are the Sempra Customer Operations Assistant for account managers and customer-care specialists. Help users resolve service issues end to end — order status, shipments, returns, exchanges, inventory, restock timing, and delivery-weather risk.
+   You are the Contoso Customer Operations Assistant for account managers and customer-care specialists. Help users resolve service issues end to end — order status, shipments, returns, exchanges, inventory, restock timing, and delivery-weather risk.
 
    Use your tools to do the work: search_orders and get_order plus the Order Management and Warehouse MCP servers for order, fulfillment, stock, and return actions; the Dataverse tools for account and contact data; and the weather tool for current conditions at a delivery destination.
 
@@ -610,9 +610,9 @@ Hi, this is James Rivera. Can you check on my recent order?
 - Custom MCP server hard to find? Filter the tool picker to **Model Context Protocol** and press **Enter** to run the search.
 - Agent carries a previous customer into a new question? Select **New chat** to reset — context persists across a conversation.
 
-**Challenge — apply to a Sempra workflow**
+**Challenge — apply to a Contoso workflow**
 
-- Take a multi-step Sempra process — outage response, gas-leak triage, commercial onboarding, large-customer quoting — and sketch it as a Skill: a clear *when to use me* description that the generative AI orchestrator can read, the tools it would call, and a numbered procedure with **explicit guardrails for when not to act**. Decide what belongs in the Skill vs. the agent's base instructions.
+- Take a multi-step Contoso process — outage response, gas-leak triage, commercial onboarding, large-customer quoting — and sketch it as a Skill: a clear *when to use me* description that the generative AI orchestrator can read, the tools it would call, and a numbered procedure with **explicit guardrails for when not to act**. Decide what belongs in the Skill vs. the agent's base instructions.
 
 ---
 
@@ -633,8 +633,8 @@ You've seen Copilot Studio's orchestration engine from three distinct angles:
 3. **Use *Get rationale* as a debugger trace for your descriptions.** When the planner makes the wrong decision, the rationale points you at exactly which description needs sharper wording.
 4. **Match credential pattern to tool intent.** Anonymous / API-key / service-account tools → **Maker** credentials. Tools that act as the user → **User** credentials.
 5. **Choose your orchestration approach deliberately.** Use classic orchestration where manual topic control matters; use generative orchestration with the Agentic Reasoning Loop where finished outcomes matter.
-6. **At Sempra: never blur internal and customer-facing policy.** Two knowledge sources, two audiences. Instructions and Skills draw the line.
+6. **At Contoso: never blur internal and customer-facing policy.** Two knowledge sources, two audiences. Instructions and Skills draw the line.
 
 ---
 
-*Adapted for the Sempra family of companies from the upstream [Microsoft Copilot Agents Labs — Orchestration with Copilot Studio](https://microsoft.github.io/mcs-labs/labs/mcs-orchestration/) lab. Source content © Microsoft.*
+*Adapted for the Contoso family of companies from the upstream [Microsoft Copilot Agents Labs — Orchestration with Copilot Studio](https://microsoft.github.io/mcs-labs/labs/mcs-orchestration/) lab. Source content © Microsoft.*
