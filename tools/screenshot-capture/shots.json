@@ -1,6 +1,6 @@
 {
-  "lab": "04-energy-census-advanced-agent",
-  "assetsDir": "labs/04-energy-census-advanced-agent/assets",
+  "lab": "04-energy-weather-agent",
+  "assetsDir": "labs/04-energy-weather-agent/assets",
   "startUrl": "https://copilotstudio.microsoft.com/",
   "shots": [
     {
@@ -20,7 +20,7 @@
       "filename": "topic-add-from-blank.png",
       "section": "topics",
       "instructions": [
-        "Open your Energy Intelligence Agent and go to the Topics page.",
+        "Open your Energy Operations Weather Agent and go to the Topics page.",
         "Click '+ Add a topic' so the dropdown menu is open.",
         "Make sure 'From blank' is visible and highlighted in the menu.",
         "Do not capture the Overview page; the Topics page and open menu must be visible."
@@ -125,7 +125,7 @@
       "filename": "connected-agent-sharing-enabled.png",
       "section": "settings",
       "instructions": [
-        "Open the real Census Data Specialist agent's Settings page.",
+        "Open the real Weather Operations Specialist agent's Settings page.",
         "Find the 'allow other agents to use this agent' (or equivalent) toggle and make sure it's enabled.",
         "Capture the toggle in the ON state with enough surrounding settings context to identify the agent.",
         "Do not use the Lab 04 Reference/mock placeholder image."
@@ -137,8 +137,8 @@
       "filename": "connected-agent-config.png",
       "section": "agents",
       "instructions": [
-        "Open Energy Intelligence Agent and navigate to the Agents page after adding Census Data Specialist.",
-        "Show Census Data Specialist added as a connected agent with its description visible.",
+        "Open Energy Operations Weather Agent and navigate to the Agents page after adding Weather Operations Specialist.",
+        "Show Weather Operations Specialist added as a connected agent with its description visible.",
         "Do not capture the empty 'Add an agent' state."
       ],
       "labSection": "Use Case #4, Step 4"

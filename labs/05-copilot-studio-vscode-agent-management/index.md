@@ -4,14 +4,14 @@
 
 | | |
 |---|---|
-| ⭐ **DIFFICULTY** | Intermediate (Level 200) |
+| ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 45 minutes |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio, Visual Studio Code, Copilot Studio VS Code Extension |
 | 🏷️ **TAGS** | VS Code, Agent Management, Clone Agent, Publish, Agent Skills, Source Control |
 | 🏭 **INDUSTRY** | Energy / Utilities |
 | 📋 **STATUS** | Optional |
 
-> **Prerequisite:** You should have a working agent in Copilot Studio — either the Contoso IT Operations Agent from [Lab 01](../01-energy-ops-agent/index.md), the Energy Intelligence Agent from [Lab 04](../04-energy-census-advanced-agent/index.md), or any agent in your environment.
+> **Prerequisite:** You should have a working agent in Copilot Studio — either the Contoso IT Operations Agent from [Lab 01](../01-energy-ops-agent/index.md), the Energy Operations Weather Agent from [Lab 04](../04-energy-weather-agent/index.md), or any agent in your environment.
 
 ---
 
@@ -94,7 +94,7 @@ By the end of this lab, you will be able to:
 
 ### Step 3 — Clone the agent
 
-1. In the Copilot Studio panel, find the agent you want to clone (for example, **Contoso IT Operations Agent** or **Energy Intelligence Agent**).
+1. In the Copilot Studio panel, find the agent you want to clone (for example, **Contoso IT Operations Agent** or **Energy Operations Weather Agent**).
 2. Right-click the agent and select **Clone agent** (or use the command palette: `Ctrl+Shift+P` → **Copilot Studio: Clone Agent**).
 3. Choose a local folder to save the project.
 4. Wait for the clone operation to complete — VS Code will open the agent project.
@@ -194,17 +194,18 @@ Tool descriptions help the orchestrator's planner decide **which tool to call** 
 
 **Before:**
 ```yaml
-description: Gets data from the Census API.
+description: Gets the weather.
 ```
 
 **After:**
 ```yaml
 description: >-
-  Retrieves population, housing, and income data from the US Census
-  Bureau ACS 5-Year API for a specific state and county using FIPS
-  codes. Use this tool when the user wants demographic data for energy
-  service territory planning. Requires state FIPS code and optionally
-  county FIPS code as inputs.
+  Retrieves the current MSN Weather conditions (temperature, wind,
+  conditions, and "feels like") for a specific location and units.
+  Use this tool when the user asks about current conditions in a
+  service-territory location for grid-load awareness, outage prep, or
+  field-crew safety. Requires `Location` (city + state or ZIP) and
+  `Units` (Imperial or Metric) as inputs.
 ```
 
 ### Step 5 — Validate your changes

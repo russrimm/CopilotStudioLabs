@@ -1217,7 +1217,7 @@ flowchart TD
   L01 --> L03["Lab 03: Account Orchestration"]
   L01 --> L05["Lab 05: VS Code Agent Mgmt"]
   L03 --> L07["Lab 07: Agent-to-Agent Protocol"]
-  L04["Lab 04: Energy Intelligence Agent ★"] --> L05
+  L04["Lab 04: Energy Operations Weather Agent ★"] --> L05
   L04 --> L07
   L01 --> L08["Lab 08: Work IQ & M365"]
   L01 --> L09["Lab 09: Prompt Builder & Flows"]
@@ -1492,11 +1492,6 @@ flowchart TD
                 <div class="form-group">
                   <label>Subscription ID (optional)</label>
                   <input type="text" id="az-subscription" placeholder="Uses current az CLI subscription if empty" />
-                </div>
-                <div class="form-group">
-                  <label>Census API Key (Lab 04)</label>
-                  <input type="text" id="az-census-key" placeholder="From api.census.gov" />
-                  <span class="hint"><a href="https://api.census.gov/data/key_signup.html" target="_blank" style="color: var(--accent);">Get a free key →</a></span>
                 </div>
               </div>
             </div>
@@ -2058,7 +2053,19 @@ flowchart TD
 
   <script src="vendor/mermaid.min.js"></script>
   <script>
-    mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "default" });
+    mermaid.initialize({ 
+      startOnLoad: false, 
+      securityLevel: "strict", 
+      theme: "base",
+      themeVariables: {
+        primaryColor: "#f3f4f8",
+        primaryTextColor: "#1f2937",
+        primaryBorderColor: "#cbd5e1",
+        lineColor: "#94a3b8",
+        mainBkg: "#f3f4f8",
+        edgeLabelBackground: { fill: "transparent" }
+      }
+    });
   </script>
   <script src="app.js"></script>
 </body>

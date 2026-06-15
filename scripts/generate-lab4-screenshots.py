@@ -13,7 +13,7 @@ loaded = get_loaded_files()
 if loaded:
     print(f"  Env loaded from: {', '.join(loaded)}")
 
-os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "labs", "04-energy-census-advanced-agent", "assets"))
+os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "labs", "04-energy-weather-agent", "assets"))
 
 # Dark theme colors matching Copilot Studio
 BG = (25, 28, 36)
@@ -281,10 +281,10 @@ create_screenshot(
 
 create_screenshot(
     "connected-agent-sharing-enabled.png",
-    "Census Data Specialist > Settings",
+    "Weather Operations Specialist > Settings",
     "Agent sharing toggle enabled to allow other agents to use this agent.",
     [
-        "## Census Data Specialist - Settings",
+        "## Weather Operations Specialist - Settings",
         "--",
         "",
         "Allow other agents to use this agent",
@@ -294,27 +294,28 @@ create_screenshot(
         "When enabled, other agents in your environment",
         "can connect to this agent and use it as a skill.",
         "",
-        "!!Required for the parent Energy Intelligence Agent",
+        "!!Required for the parent Energy Operations Weather Agent",
         "!!to invoke this agent as a connected agent.",
     ],
 )
 
 create_screenshot(
     "connected-agent-config.png",
-    "Energy Intelligence Agent > Agents",
-    "Census Data Specialist added as a connected agent.",
+    "Energy Operations Weather Agent > Agents",
+    "Weather Operations Specialist added as a connected agent.",
     [
         "## Connected Agents",
         "--",
         "",
-        ">>Census Data Specialist                    Connected",
+        ">>Weather Operations Specialist             Connected",
         "",
-        "  Description: Retrieves population, income, housing,",
-        "  and employment data from the US Census Bureau ACS",
-        "  endpoints for any geography (state, county, tract).",
+        "  Description: Retrieves current conditions and",
+        "  forecasts via the MSN Weather connector for any",
+        "  service-territory location and interprets impact",
+        "  on grid load, outage prep, and field operations.",
         "",
-        "  Trigger phrases: census data, demographics,",
-        "  population lookup, income statistics",
+        "  Trigger phrases: weather, forecast, heat advisory,",
+        "  storm prep, demand spike, grid load",
     ],
 )
 

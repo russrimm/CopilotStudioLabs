@@ -273,7 +273,7 @@ export async function sendEmailNotification(to, subject, html) {
 
 async function sendConfiguredNotifications(request, eventType) {
   const config = loadApprovalConfig();
-  const portalUrl = request.portalUrl || process.env.PORTAL_BASE_URL || "http://localhost:3000";
+  const portalUrl = request.portalUrl || process.env.PORTAL_BASE_URL || "http://localhost:3005";
   const teamsWebhookUrl = config.teamsNotificationWebhookUrl || config.teamsAdaptiveCardWebhookUrl;
 
   const eventTitles = {
@@ -353,7 +353,7 @@ function validateApprovalChannelConfig(config) {
 }
 
 async function triggerApprovalChannel(request, config) {
-  const portalUrl = request.portalUrl || process.env.PORTAL_BASE_URL || "http://localhost:3000";
+  const portalUrl = request.portalUrl || process.env.PORTAL_BASE_URL || "http://localhost:3005";
   const callbackUrl = getCallbackPostUrl(portalUrl);
   const payload = {
     requestId: request.id,

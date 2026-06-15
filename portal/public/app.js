@@ -203,7 +203,7 @@ const SCENARIO_LAB_MAP = {
   "lab-1": "01-energy-ops-agent",
   "lab-2": "02-agent-analytics-evaluations",
   "lab-3": "03-account-orchestration-agent",
-  "lab-4": "04-energy-census-advanced-agent",
+  "lab-4": "04-energy-weather-agent",
   "lab-5": "05-copilot-studio-vscode-agent-management",
 };
 
@@ -2576,7 +2576,6 @@ async function deployResources() {
   const baseName = document.getElementById("az-base-name").value || "copilot-labs";
   const location = document.getElementById("az-location").value;
   const subscriptionId = document.getElementById("az-subscription").value || undefined;
-  const censusKey = document.getElementById("az-census-key").value || undefined;
 
   logContainer.style.display = "block";
   logEntries.innerHTML = "";
@@ -2601,7 +2600,7 @@ async function deployResources() {
         location,
         baseName,
         subscriptionId,
-        envVars: censusKey ? { CENSUS_API_KEY: censusKey } : {},
+        envVars: {},
       }),
     });
 

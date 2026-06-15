@@ -10,7 +10,7 @@ Use Codespaces when you want to run the Node.js-based lab tooling without instal
 - GitHub CLI (`gh`), `jq`, Python 3, zip/unzip, and common Linux utilities
 - VS Code extensions for GitHub Copilot, Copilot Chat, Power Platform Tools, Markdown, and Node.js
 - Forwarded ports for common lab servers:
-  - `3000` — Lab 04 MCP server examples and the provisioning portal
+  - `3005` — provisioning portal
   - `3001` — alternate/secondary Node service
   - `5173` — Lab 18 Vite web SDK sample
   - `8080` — alternate web service

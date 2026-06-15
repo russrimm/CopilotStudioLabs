@@ -58,7 +58,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = {
     configuration: {
       ingress: {
         external: true
-        targetPort: 3000
+        targetPort: 3005
         transport: 'auto'
       }
     }

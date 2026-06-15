@@ -47,11 +47,11 @@ This isn't just about saving developer time. It's about unlocking the ability to
 
 ## 🧪 Labs
 
-### ⭐ Featured: 3-Hour End-to-End Advanced Lab
+### ⭐ Featured: 3-Hour End-to-End Lab
 
 | # | Lab | Industry | Scenario | Difficulty | Time |
 |---|-----|----------|----------|------------|------|
-| 04 | [**Build an Advanced Energy Intelligence Agent with US Census Bureau Data**](./labs/04-energy-census-advanced-agent/index.md) | Energy / Utilities | Build a full-stack agent integrating US Census Bureau APIs for service territory planning — covering topics, variables, tools, connected agents, agent flows, model selection, and agent evaluations. Includes 15 min intro and 15 min Q&A wrap-up. Optional: MCP servers and VS Code extension. | Advanced (200–300) | **3 hours** (+40 min optional) |
+| 04 | [**Build an Energy Operations Weather Intelligence Agent with MSN Weather**](./labs/04-energy-weather-agent/index.md) | Energy / Utilities | Build a full-stack agent integrating the MSN Weather connector for grid-operations weather awareness — covering topics, variables (with Adaptive Cards), connector tools, custom prompt tools, connected agents, agent flows, model selection, and agent evaluations. Includes 15 min intro and 15 min Q&A wrap-up. Optional: MCP servers and a pointer to **Lab 05 (Advanced)** for VS Code-based agent management. | Intermediate (200) | **3 hours** (+25 min optional) |
 
 This is the primary lab for customers wanting a comprehensive, hands-on Copilot Studio experience. It covers all major platform capabilities in a single cohesive energy-industry scenario.
 
@@ -66,7 +66,7 @@ These shorter labs cover individual concepts and can be used as standalone refer
 | 01 | [Build a Custom IT Operations Agent for Contoso Energy](./labs/01-energy-ops-agent/index.md) | Energy & Utilities (Contoso Energy) | Build a knowledge-powered IT support agent for field technicians — grounded in SharePoint, internal documents, Microsoft Support, and NERC CIP compliance standards | Intermediate | 75 min |
 | 02 | [Monitor Performance and Evaluate Contoso Agent Quality](./labs/02-agent-analytics-evaluations/index.md) | Energy & Utilities (Contoso) | Use analytics on the Lab 01 agent to find improvement opportunities, then build evaluation test sets (auto-generated, CSV import, test-canvas capture, manual) to systematically verify quality and catch regressions | Intermediate (200) | 30 min |
 | 03 | [Orchestration with Copilot Studio for Contoso](./labs/03-account-orchestration-agent/index.md) | Energy & Utilities (Contoso) | Stand up a Contoso Customer Account Lookup connected agent, tune the planner with Instructions and Descriptions, then build a new-type Customer Operations Assistant that uses the New Orchestrator (Agentic Reasoning Loop) and a reusable Skill to chain Dataverse MCP, custom MCP servers, internal vs. customer-facing knowledge, and live weather across a single turn | Advanced (300) | 60 min |
-| 05 | [Clone, Modify, and Republish Agents with VS Code](./labs/05-copilot-studio-vscode-agent-management/index.md) | Energy & Utilities | Clone a Copilot Studio agent to VS Code, modify topics, instructions, and tools using agent skill commands, republish to the cloud, and verify changes in the test chat | Intermediate (200) | 45 min |
+| 05 | [Clone, Modify, and Republish Agents with VS Code](./labs/05-copilot-studio-vscode-agent-management/index.md) | Energy & Utilities | Clone a Copilot Studio agent to VS Code, modify topics, instructions, and tools using agent skill commands, republish to the cloud, and verify changes in the test chat | Advanced (300) | 45 min |
 | 06 | [Build a Computer-Using Agent for Desktop Automation](./labs/06-computer-use-agents/index.md) | Energy & Utilities | Build a Computer-Using Agent that automates a utility billing portal, scale execution with Cloud PC pools, package reusable computer-use tools, and monitor governed UI automation | Advanced (300) | 2 hours |
 | 07 | [Connect Agents Across Platforms with the Agent-to-Agent (A2A) Protocol](./labs/07-agent-to-agent-protocol/index.md) | Energy & Utilities | Connect Copilot Studio and Fabric specialists through A2A, then build and validate a cross-platform orchestration pattern for utility analytics and operations | Advanced (300) | 90 min |
 | 08 | [Supercharge Agents with Work IQ and Microsoft 365 Intelligence](./labs/08-work-iq-m365-intelligence/index.md) | Energy & Utilities | Ground an operations briefing agent in Microsoft 365 signals, SharePoint knowledge, and curated external energy sources | Intermediate (200) | 60 min |
@@ -131,7 +131,7 @@ The repository also includes a full **Copilot Studio Labs portal** for deliverin
 
 - **For the full hands-on experience**, start with **Lab 04** — it is self-contained and covers all major Copilot Studio capabilities in 3 hours.
 - **For a shorter introduction**, start with **Lab 01** to build a knowledge-grounded agent, then continue with Labs 02 and 03 for analytics, evaluations, and orchestration.
-- **Lab 05** is an optional add-on for teams interested in managing agents as code through VS Code.
+- **Lab 05** is the **Advanced** follow-on for Lab 04 — it takes the agent you built and walks teams through managing it as code through the Copilot Studio extension for VS Code (clone, modify, validate, republish).
 - **Labs 06-10** extend the series into computer use, cross-platform orchestration, Microsoft 365 intelligence, prompt engineering, and real-time voice scenarios.
 - **Lab 11** introduces **Power Apps Code Apps (BYOC)** — a code-first approach to building custom web apps connected to Dataverse, complementing the no-code agent building in earlier labs.
 - Use the **portal** to preview labs, apply branding, validate content, export ZIP bundles, email packages, manage approval workflows, provision environments, and connect an embedded Copilot Studio support agent for learners and provisioners.
@@ -162,7 +162,7 @@ This repository is designed as a **GitHub Template** — you can create your own
   "labs": {
     "include": [
       "01-energy-ops-agent",
-      "04-energy-census-advanced-agent"
+      "04-energy-weather-agent"
     ]
   }
 }

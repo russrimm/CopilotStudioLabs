@@ -1191,4 +1191,4 @@ This lab gives you a working foundation. Here's what to add for production:
 
 You now have everything you need to put a Copilot Studio agent inside your own product — branded the way you want, authenticated the way Microsoft recommends.
 
-> ➡️ Pair this with [Lab 01](../01-energy-ops-agent/index.md) for an agent to embed, or [Lab 04](../04-energy-census-advanced-agent/index.md) for the full end-to-end advanced experience.
+> ➡️ Pair this with [Lab 01](../01-energy-ops-agent/index.md) for an agent to embed, or [Lab 04](../04-energy-weather-agent/index.md) for the full end-to-end experience.

@@ -22,7 +22,6 @@ const VAULT_URL = process.env.AZURE_KEYVAULT_URL;
 const SECRET_MAP = {
   AZURE_CLIENT_SECRET: "azure-client-secret",
   SMTP_PASS: "smtp-password",
-  CENSUS_API_KEY: "census-api-key",
 };
 
 /**

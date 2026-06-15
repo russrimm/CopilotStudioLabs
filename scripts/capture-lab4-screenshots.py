@@ -30,7 +30,7 @@ from playwright.async_api import async_playwright
 # ── Configuration ──────────────────────────────────────────────────────────
 ASSETS_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "..", "labs", "04-energy-census-advanced-agent", "assets"
+    "..", "labs", "04-energy-weather-agent", "assets"
 )
 os.makedirs(ASSETS_DIR, exist_ok=True)
 
@@ -103,12 +103,12 @@ SCREENSHOTS = [
     },
     {
         "file": "tool-county-demographics-test.png",
-        "desc": "Tool test panel with a successful Census API response",
+        "desc": "Tool test panel with a successful MSN Weather response",
         "manual": True,
     },
     {
         "file": "connected-agent-sharing-enabled.png",
-        "desc": "Census Data Specialist Settings — sharing toggle ON",
+        "desc": "Weather Operations Specialist Settings — sharing toggle ON",
         "manual": True,
     },
     {

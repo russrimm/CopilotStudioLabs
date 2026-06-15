@@ -40,7 +40,7 @@ resource app 'Microsoft.Web/sites@2023-12-01' = {
       linuxFxVersion: 'NODE|${nodeVersion}'
       appSettings: [
         { name: 'NODE_ENV', value: 'production' }
-        { name: 'PORT', value: '3000' }
+        { name: 'PORT', value: '3005' }
         { name: 'WEBSITE_NODE_DEFAULT_VERSION', value: '~20' }
       ]
       alwaysOn: skuName != 'F1'

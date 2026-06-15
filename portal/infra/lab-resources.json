@@ -109,8 +109,8 @@
       ]
     },
 
-    "04-energy-census-advanced-agent": {
-      "name": "Energy Intelligence Agent",
+    "04-energy-weather-agent": {
+      "name": "Energy Operations Weather Agent",
       "resources": [
         {
           "type": "resource-group",
@@ -119,34 +119,23 @@
           "description": "Resource group for Lab 04 resources"
         },
         {
-          "type": "api-key",
-          "id": "lab04-census-key",
-          "name": "US Census Bureau API Key",
-          "description": "Free API key from api.census.gov",
-          "config": {
-            "registrationUrl": "https://api.census.gov/data/key_signup.html",
-            "envVar": "CENSUS_API_KEY",
-            "manual": true
-          }
-        },
-        {
           "type": "copilot-studio-agent",
           "id": "lab04-main-agent",
-          "name": "Energy Intelligence Agent",
-          "description": "Parent agent with topics, variables, and HTTP tools",
+          "name": "Energy Operations Weather Agent",
+          "description": "Parent agent with topics, variables, and MSN Weather connector tools",
           "config": {
             "globalVariables": {
-              "DefaultState": "TX",
-              "DefaultYear": "2023",
-              "APIKey": "${CENSUS_API_KEY}"
+              "DefaultLocation": "Cypress, TX",
+              "DefaultUnits": "Imperial",
+              "HeatAdvisoryF": "95"
             }
           }
         },
         {
           "type": "copilot-studio-agent",
-          "id": "lab04-census-agent",
-          "name": "Census Data Specialist",
-          "description": "Connected agent for Census data lookups",
+          "id": "lab04-weather-agent",
+          "name": "Weather Operations Specialist",
+          "description": "Connected agent for MSN Weather lookups and operations interpretation",
           "config": {
             "enableSharing": true,
             "requiresPublish": true
@@ -155,40 +144,38 @@
         {
           "type": "power-automate-flow",
           "id": "lab04-flow",
-          "name": "Census State Planning Summary",
-          "description": "Flow triggered by agent for multi-endpoint Census queries",
+          "name": "Service Territory Weather Briefing",
+          "description": "Flow triggered by agent for multi-location MSN Weather queries",
           "config": {
             "trigger": "when-agent-calls-flow",
-            "actions": ["http-census-population", "http-census-income", "compose-summary", "respond-to-agent"]
+            "actions": ["msnweather-current", "msnweather-forecast", "compose-briefing", "respond-to-agent"]
           }
         },
         {
           "type": "mcp-server",
           "id": "lab04-mcp",
-          "name": "Census MCP Server",
-          "description": "Local MCP server for Census API (optional)",
+          "name": "Weather MCP Server",
+          "description": "Local MCP server backed by Open-Meteo (optional)",
           "config": {
             "runtime": "node",
             "optional": true,
-            "tools": ["get_population", "get_median_income", "get_housing_stats", "get_employment_by_industry"],
+            "tools": ["get_current_weather", "get_hourly_forecast", "get_daily_forecast", "get_demand_spike_indicator"],
             "deployTo": "container-app"
           }
         },
         {
           "type": "container-app",
           "id": "lab04-mcp-host",
-          "name": "Census MCP Container App",
+          "name": "Weather MCP Container App",
           "description": "Azure Container Apps hosting for MCP server (optional)",
           "config": {
             "optional": true,
-            "image": "copilot-labs-mcp-census:latest",
+            "image": "copilot-labs-mcp-weather:latest",
             "cpu": 0.5,
             "memory": "1Gi",
             "minReplicas": 0,
             "maxReplicas": 1,
-            "envVars": {
-              "CENSUS_API_KEY": "${CENSUS_API_KEY}"
-            }
+            "envVars": {}
           }
         }
       ]
