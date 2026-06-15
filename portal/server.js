@@ -5,11 +5,22 @@
 import "dotenv/config";
 import express from "express";
 import { randomUUID } from "crypto";
-import { resolve } from "path";
+import { writeFileSync } from "fs";
+import multer from "multer";
+import { extname, resolve } from "path";
 import { discoverLabs, getLabContent } from "./lib/labs.js";
 import { validateLab, validateAllLabs } from "./lib/validator.js";
 import { exportLabs } from "./lib/exporter.js";
 import { sendMail } from "./lib/mailer.js";
+import {
+  BRANDING_UPLOADS_DIR,
+  deleteBrandingLogo,
+  ensureBrandingStorage,
+  loadBranding,
+  prependBrandingBanner,
+  saveBranding,
+  updateBrandingLogo,
+} from "./lib/branding.js";
 import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/scenarios.js";
 import { marked } from "marked";
 import {
@@ -33,6 +44,22 @@ const PROVISION_JOB_RETENTION_MS = 60 * 60 * 1000;
 const LABS_ROUTE = "/labs";
 const labsRoot = resolve(import.meta.dirname, "..", "labs");
 const provisionJobs = new Map();
+const BRANDING_MAX_FILE_SIZE = 2 * 1024 * 1024;
+
+ensureBrandingStorage();
+
+const brandingUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: BRANDING_MAX_FILE_SIZE },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimeTypes = new Set(["image/png", "image/jpeg", "image/svg+xml"]);
+    if (allowedMimeTypes.has(file.mimetype)) {
+      cb(null, true);
+      return;
+    }
+    cb(new Error("Only PNG, JPG, and SVG logos are supported."));
+  },
+});
 
 function encodeUrlPath(path) {
   return path.split("/").map(encodeURIComponent).join("/");
@@ -76,6 +103,21 @@ function rewriteLabHtmlAssetUrls(html, labId) {
       return `<${tag}${before} ${attribute}=${quote}${rewrittenUrl}${quote}${after}>`;
     },
   );
+}
+
+function getBrandingLogoExtension(file) {
+  if (file.mimetype === "image/png") return ".png";
+  if (file.mimetype === "image/jpeg") return ".jpg";
+  if (file.mimetype === "image/svg+xml") return ".svg";
+  return extname(file.originalname || "").toLowerCase() || ".png";
+}
+
+function sanitizeBrandingPayload(payload = {}) {
+  return {
+    companyName: String(payload.companyName ?? "").trim(),
+    primaryColor: String(payload.primaryColor ?? "").trim(),
+    tagline: String(payload.tagline ?? "").trim(),
+  };
 }
 
 function estimateProvisionSteps(labIds, subscriptionId) {
@@ -249,8 +291,77 @@ app.get("/api/labs", (_req, res) => {
 app.get("/api/labs/:id", (req, res) => {
   const content = getLabContent(req.params.id);
   if (!content) return res.status(404).json({ error: "Lab not found" });
-  const html = rewriteLabHtmlAssetUrls(marked.parse(content), req.params.id);
-  res.json({ id: req.params.id, html, markdown: content });
+  const branding = loadBranding();
+  const brandedMarkdown = prependBrandingBanner(content, branding);
+  const html = rewriteLabHtmlAssetUrls(marked.parse(brandedMarkdown), req.params.id);
+  res.json({ id: req.params.id, html, markdown: brandedMarkdown });
+});
+
+/** GET /api/branding — Return current branding configuration */
+app.get("/api/branding", (_req, res) => {
+  res.json(loadBranding());
+});
+
+/** POST /api/branding — Save branding configuration */
+app.post("/api/branding", (req, res) => {
+  try {
+    const payload = sanitizeBrandingPayload(req.body);
+    if (!payload.companyName) {
+      return res.status(400).json({ error: "companyName is required" });
+    }
+
+    const current = loadBranding();
+    const branding = saveBranding({
+      ...current,
+      ...payload,
+    });
+    res.json(branding);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/branding/logo — Upload a branding logo */
+app.post("/api/branding/logo", (req, res) => {
+  brandingUpload.single("logo")(req, res, (err) => {
+    if (err) {
+      const isSizeError = err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE";
+      const status = isSizeError || err.message.includes("Only PNG") ? 400 : 500;
+      res.status(status).json({
+        error: isSizeError
+          ? "Logo must be 2 MB or smaller."
+          : err.message,
+      });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ error: "Logo file is required." });
+      return;
+    }
+
+    try {
+      const nextFileName = `logo-${Date.now()}${getBrandingLogoExtension(req.file)}`;
+      const targetPath = resolve(BRANDING_UPLOADS_DIR, nextFileName);
+
+      writeFileSync(targetPath, req.file.buffer);
+      const branding = updateBrandingLogo(nextFileName);
+
+      res.json(branding);
+    } catch (uploadErr) {
+      res.status(500).json({ error: uploadErr.message });
+    }
+  });
+});
+
+/** DELETE /api/branding/logo — Remove the uploaded branding logo */
+app.delete("/api/branding/logo", (_req, res) => {
+  try {
+    const branding = deleteBrandingLogo();
+    res.json(branding);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /** GET /api/validate — Run validation against all labs */

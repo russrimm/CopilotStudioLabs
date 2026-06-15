@@ -15,9 +15,14 @@ let validationTimestamp = "";
 let activeProvisionJob = null;
 let provisionPollHandle = null;
 let lastProvisionTerminalState = "";
+let branding = getDefaultBranding();
+let savedBranding = getDefaultBranding();
+let brandingLogoFile = null;
+let brandingLogoPreviewUrl = "";
 
 const ACTIVE_PROVISION_JOB_STORAGE_KEY = "copilot-studio-labs.activeProvisionJob";
 const PROVISION_POLL_INTERVAL_MS = 5000;
+const DEFAULT_FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='50'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E";
 
 const CONFIG_FIELD_IDS = {
   AZURE_KEYVAULT_URL: "cfg-keyvault-url",
@@ -181,20 +186,32 @@ const CONFIG_PROVENANCE = {
 };
 
 const SCENARIO_LAB_MAP = {
-  "lab-1": "01-sdge-energy-ops-agent",
-  "lab-2": "02-sempra-agent-analytics-evaluations",
-  "lab-3": "03-sempra-account-orchestration-agent",
+  "lab-1": "01-energy-ops-agent",
+  "lab-2": "02-agent-analytics-evaluations",
+  "lab-3": "03-account-orchestration-agent",
   "lab-4": "04-energy-census-advanced-agent",
   "lab-5": "05-copilot-studio-vscode-agent-management",
 };
 
+function getDefaultBranding() {
+  return {
+    companyName: "Copilot Studio Labs",
+    logo: null,
+    primaryColor: "#4f8ff7",
+    tagline: "Provisioning Portal",
+  };
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
   setupTabs();
+  initBrandingControls();
+  applyBranding(getDefaultBranding());
   initConfigProvenanceTooltips();
   refreshLabs();
   loadScenarios();
   loadConfig();
+  loadBranding();
   loadResourceManifest();
   restoreActiveProvisionJob();
 });
@@ -214,6 +231,328 @@ function setActiveTab(tabName) {
 
   if (tabName === "validate" && !validationResults.size) {
     runValidation().catch(() => {});
+  }
+}
+
+// ── Branding ────────────────────────────────────────────────────────────────
+function normalizeBranding(input = {}) {
+  const defaults = getDefaultBranding();
+  const primaryColor = String(input.primaryColor || defaults.primaryColor).trim();
+  return {
+    companyName: String(input.companyName || defaults.companyName).trim() || defaults.companyName,
+    logo: input.logo || null,
+    primaryColor: /^#([0-9a-f]{6})$/i.test(primaryColor) ? primaryColor.toLowerCase() : defaults.primaryColor,
+    tagline: String(input.tagline || defaults.tagline).trim() || defaults.tagline,
+  };
+}
+
+function initBrandingControls() {
+  const upload = document.getElementById("branding-upload");
+  const fileInput = document.getElementById("branding-logo-file");
+  const brandInputs = ["branding-company-name", "branding-primary-color", "branding-tagline"];
+
+  brandInputs.forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", updateBrandingPreview);
+  });
+
+  fileInput?.addEventListener("change", (event) => {
+    const [file] = event.target.files || [];
+    if (file) handleBrandingLogoFile(file);
+  });
+
+  ["dragenter", "dragover"].forEach((eventName) => {
+    upload?.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      upload.classList.add("dragover");
+    });
+  });
+
+  ["dragleave", "drop"].forEach((eventName) => {
+    upload?.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      upload.classList.remove("dragover");
+    });
+  });
+
+  upload?.addEventListener("drop", (event) => {
+    const [file] = event.dataTransfer?.files || [];
+    if (!file) return;
+    handleBrandingLogoFile(file);
+  });
+}
+
+function getBrandingDraft() {
+  const draft = normalizeBranding({
+    companyName: document.getElementById("branding-company-name")?.value,
+    primaryColor: document.getElementById("branding-primary-color")?.value,
+    tagline: document.getElementById("branding-tagline")?.value,
+    logo: brandingLogoPreviewUrl || savedBranding.logo || null,
+  });
+  return draft;
+}
+
+function setBrandingFormValues(nextBranding) {
+  document.getElementById("branding-company-name").value = nextBranding.companyName;
+  document.getElementById("branding-primary-color").value = nextBranding.primaryColor;
+  document.getElementById("branding-tagline").value = nextBranding.tagline;
+  renderBrandingLogoPreview(nextBranding.logo);
+  updateBrandingPreview();
+}
+
+function renderBrandingLogoPreview(logoPath) {
+  const preview = document.getElementById("branding-logo-preview");
+  const previewLogo = document.getElementById("branding-preview-logo");
+  const removeButton = document.getElementById("branding-remove-logo");
+  const nextLogo = logoPath || brandingLogoPreviewUrl || savedBranding.logo || null;
+
+  if (nextLogo) {
+    preview.innerHTML = `<img src="${escapeHtml(nextLogo)}" alt="Logo preview" />`;
+    previewLogo.src = nextLogo;
+    previewLogo.style.display = "block";
+  } else {
+    preview.innerHTML = '<span style="color: var(--text-muted); font-size: 12px;">No logo uploaded</span>';
+    previewLogo.removeAttribute("src");
+    previewLogo.style.display = "none";
+  }
+
+  removeButton.disabled = !nextLogo;
+}
+
+function computeAccentHover(hex) {
+  const normalized = hex.replace("#", "");
+  const amount = 26;
+  const next = [0, 2, 4]
+    .map((index) => {
+      const channel = parseInt(normalized.slice(index, index + 2), 16);
+      return Math.min(255, channel + amount).toString(16).padStart(2, "0");
+    })
+    .join("");
+  return `#${next}`;
+}
+
+function setThemeAccent(color) {
+  const root = document.documentElement;
+  root.style.setProperty("--accent", color);
+  root.style.setProperty("--accent-hover", computeAccentHover(color));
+}
+
+function updateFavicon(logoPath) {
+  const favicon = document.getElementById("app-favicon");
+  if (!favicon) return;
+  favicon.href = logoPath || DEFAULT_FAVICON;
+}
+
+function applyBranding(nextBranding) {
+  const normalized = normalizeBranding(nextBranding);
+  branding = normalized;
+
+  setThemeAccent(normalized.primaryColor);
+
+  const titleEl = document.getElementById("portal-title");
+  const taglineEl = document.getElementById("portal-tagline");
+  const logoEl = document.getElementById("portal-logo");
+  const previewTitle = document.getElementById("branding-preview-title");
+  const previewTagline = document.getElementById("branding-preview-tagline");
+
+  if (titleEl) titleEl.innerHTML = normalized.logo ? escapeHtml(normalized.companyName) : `<span class="accent">⚡</span> ${escapeHtml(normalized.companyName)}`;
+  if (taglineEl) taglineEl.textContent = normalized.tagline;
+  if (previewTitle) previewTitle.textContent = normalized.companyName;
+  if (previewTagline) previewTagline.textContent = normalized.tagline;
+
+  if (logoEl) {
+    if (normalized.logo) {
+      logoEl.src = normalized.logo;
+      logoEl.style.display = "block";
+    } else {
+      logoEl.removeAttribute("src");
+      logoEl.style.display = "none";
+    }
+  }
+
+  renderBrandingLogoPreview(normalized.logo);
+  updateFavicon(normalized.logo);
+}
+
+function syncBrandingIntoCustomizationFields(nextBranding, force = false) {
+  const companyTargets = ["cfg-org-name", "cfg-org-full"];
+  companyTargets.forEach((id) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    if (force || !input.value.trim()) input.value = nextBranding.companyName;
+  });
+
+  const taglineInput = document.getElementById("cfg-tagline");
+  if (taglineInput && (force || !taglineInput.value.trim())) {
+    taglineInput.value = nextBranding.tagline;
+  }
+}
+
+async function loadBranding() {
+  try {
+    const res = await fetch("/api/branding");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load branding");
+
+    savedBranding = normalizeBranding(data);
+    brandingLogoFile = null;
+    brandingLogoPreviewUrl = "";
+    setBrandingFormValues(savedBranding);
+    applyBranding(savedBranding);
+    syncBrandingIntoCustomizationFields(savedBranding);
+  } catch (err) {
+    toast(`Branding unavailable: ${err.message}`, "error");
+  }
+}
+
+function updateBrandingPreview() {
+  const draft = getBrandingDraft();
+  applyBranding(draft);
+}
+
+function clearBrandingPreviewUrl() {
+  if (brandingLogoPreviewUrl?.startsWith("blob:")) {
+    URL.revokeObjectURL(brandingLogoPreviewUrl);
+  }
+  brandingLogoPreviewUrl = "";
+}
+
+function handleBrandingLogoFile(file) {
+  const allowed = ["image/png", "image/jpeg", "image/svg+xml"];
+  if (!allowed.includes(file.type)) {
+    toast("Logo must be a PNG, JPG, or SVG image.", "error");
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    toast("Logo must be 2 MB or smaller.", "error");
+    return;
+  }
+
+  clearBrandingPreviewUrl();
+  brandingLogoFile = file;
+  brandingLogoPreviewUrl = URL.createObjectURL(file);
+  renderBrandingLogoPreview(brandingLogoPreviewUrl);
+  updateBrandingPreview();
+}
+
+async function saveBranding() {
+  const status = document.getElementById("branding-status");
+  const draft = getBrandingDraft();
+  if (!draft.companyName) {
+    toast("Company name is required.", "error");
+    return;
+  }
+
+  status.innerHTML = '<span class="spinner"></span> Saving branding...';
+
+  try {
+    let res = await fetch("/api/branding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyName: draft.companyName,
+        primaryColor: draft.primaryColor,
+        tagline: draft.tagline,
+      }),
+    });
+    let data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to save branding");
+
+    if (brandingLogoFile) {
+      const formData = new FormData();
+      formData.append("logo", brandingLogoFile);
+      res = await fetch("/api/branding/logo", { method: "POST", body: formData });
+      data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to upload logo");
+    }
+
+    savedBranding = normalizeBranding(data);
+    brandingLogoFile = null;
+    clearBrandingPreviewUrl();
+    setBrandingFormValues(savedBranding);
+    applyBranding(savedBranding);
+    syncBrandingIntoCustomizationFields(savedBranding, true);
+    status.textContent = "✅ Branding saved";
+    toast("Branding saved.", "success");
+
+    if (selectedLabId) {
+      selectLab(selectedLabId).catch(() => {});
+    }
+  } catch (err) {
+    status.textContent = `❌ ${err.message}`;
+    toast(`Branding save failed: ${err.message}`, "error");
+  }
+}
+
+async function removeBrandingLogo() {
+  if (!savedBranding.logo && !brandingLogoFile && !brandingLogoPreviewUrl) {
+    return;
+  }
+
+  const status = document.getElementById("branding-status");
+  status.innerHTML = '<span class="spinner"></span> Removing logo...';
+
+  try {
+    if (savedBranding.logo) {
+      const res = await fetch("/api/branding/logo", { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to remove logo");
+      savedBranding = normalizeBranding(data);
+    } else {
+      savedBranding = normalizeBranding({ ...savedBranding, logo: null });
+    }
+
+    brandingLogoFile = null;
+    clearBrandingPreviewUrl();
+    savedBranding.logo = null;
+    setBrandingFormValues(savedBranding);
+    applyBranding(savedBranding);
+    status.textContent = "✅ Logo removed";
+    toast("Logo removed.", "success");
+
+    if (selectedLabId) {
+      selectLab(selectedLabId).catch(() => {});
+    }
+  } catch (err) {
+    status.textContent = `❌ ${err.message}`;
+    toast(`Logo removal failed: ${err.message}`, "error");
+  }
+}
+
+async function resetBranding() {
+  const status = document.getElementById("branding-status");
+  status.innerHTML = '<span class="spinner"></span> Resetting branding...';
+
+  try {
+    if (savedBranding.logo) {
+      const deleteRes = await fetch("/api/branding/logo", { method: "DELETE" });
+      const deleteData = await deleteRes.json();
+      if (!deleteRes.ok) throw new Error(deleteData.error || "Failed to remove logo");
+    }
+
+    const defaults = getDefaultBranding();
+    const res = await fetch("/api/branding", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(defaults),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to reset branding");
+
+    brandingLogoFile = null;
+    clearBrandingPreviewUrl();
+    savedBranding = normalizeBranding(data);
+    setBrandingFormValues(savedBranding);
+    applyBranding(savedBranding);
+    syncBrandingIntoCustomizationFields(savedBranding, true);
+    status.textContent = "✅ Branding reset";
+    toast("Branding reset to default.", "success");
+
+    if (selectedLabId) {
+      selectLab(selectedLabId).catch(() => {});
+    }
+  } catch (err) {
+    status.textContent = `❌ ${err.message}`;
+    toast(`Branding reset failed: ${err.message}`, "error");
   }
 }
 
@@ -633,19 +972,19 @@ async function applyScenarioConfig() {
 const CUSTOMIZATION_TOKENS = [
   {
     fieldId: "cfg-org-name",
-    legacy: "SDG&E",
+    legacy: "Contoso Energy",
     placeholder: "{{ORG_NAME}}",
     fallback: "Contoso",
   },
   {
     fieldId: "cfg-org-full",
-    legacy: "San Diego Gas & Electric",
+    legacy: "Contoso Energy",
     placeholder: "{{ORG_FULL}}",
     fallback: "Contoso Energy",
   },
   {
     fieldId: "cfg-parent",
-    legacy: "Sempra",
+    legacy: "Contoso",
     placeholder: "{{PARENT_COMPANY}}",
     fallback: "Contoso Energy Holdings",
   },
@@ -671,10 +1010,16 @@ const CUSTOMIZATION_TOKENS = [
 
 function getReplacements() {
   const r = {};
+  const activeBranding = branding || getDefaultBranding();
 
   for (const t of CUSTOMIZATION_TOKENS) {
     const userInput = document.getElementById(t.fieldId)?.value?.trim();
-    const value = userInput || t.fallback;
+    const dynamicFallback = t.fieldId === "cfg-org-name" || t.fieldId === "cfg-org-full"
+      ? activeBranding.companyName
+      : t.fieldId === "cfg-tagline"
+        ? activeBranding.tagline
+        : t.fallback;
+    const value = userInput || dynamicFallback;
     // Skip true no-ops (user blank AND fallback matches legacy).
     if (value !== t.legacy) r[t.legacy] = value;
     // Always wire the placeholder so migrated lab prose renders cleanly.
@@ -708,6 +1053,9 @@ function getReplacements() {
   const industryValue = industry || "Energy / Utilities";
   if (industryValue !== "Energy / Utilities") r["Energy / Utilities"] = industryValue;
   r["{{INDUSTRY}}"] = industryValue;
+  r["{{COMPANY_NAME}}"] = activeBranding.companyName;
+  r["{{PRIMARY_COLOR}}"] = activeBranding.primaryColor;
+  r["{{COMPANY_LOGO}}"] = activeBranding.logo || "";
 
   return r;
 }

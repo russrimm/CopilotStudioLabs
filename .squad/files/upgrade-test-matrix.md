@@ -40,14 +40,14 @@ node setup.js --dry-run
 |---|---|---|---|---|---|
 | S01 | Fresh fork, default config, first setup run | Clean checkout; default `template.config.json`; labs 01-05 present; no local edits. | `"y" | node setup.js` | Exit 0. Since config equals defaults, no markdown replacements. `git status --porcelain` should remain clean, unless setup normalizes README excluded-lab text unexpectedly. No lab directories removed. | Baseline / first run |
 | S02 | Re-run with identical config | Start from S01 after first run; commit or snapshot after first run. | `"y" | node setup.js` twice | Second run produces zero file changes and no additional README whitespace/table drift. Console reports 0 replacements and 0 excluded labs. | Idempotency |
-| S03 | Re-run with changed `organization.name` only | First run already applied config A with `organization.name = Contoso Energy`; then edit config to `organization.name = Fabrikam Grid` only. | `"y" | node setup.js` | Current implementation likely leaves `Contoso Energy` in existing markdown because replacements search only default `SDG&E`. Record as expected current limitation unless upgrade logic is added. Must not mix default and B values in newly untouched files. | Prior-config drift |
-| S04 | Re-run with subset of labs excluded | Clean checkout; config `labs.include` contains only `01-sdge-energy-ops-agent` and `05-copilot-studio-vscode-agent-management`. | `"y" | node setup.js` | `labs\02-*`, `labs\03-*`, `labs\04-*` absent. `README.md` no longer links to excluded labs. Included labs remain. Second run is clean. | Destructive lab exclusion |
-| S05 | Re-run after user manually edited lab markdown | Clean checkout; edit `labs\01-sdge-energy-ops-agent\index.md` adding a customer paragraph containing both ordinary text and the default string `SDG&E`. Config changes `organization.name` to `Contoso Energy`. | `"y" | node setup.js` | Template placeholders in lab markdown change to `Contoso Energy`. User paragraph with literal default string is also changed by current implementation; flag as 🟡 or 🔴 depending intended ownership. No unrelated lines change. | User markdown preservation |
-| S06 | Re-run after custom file in included lab | Add `labs\01-sdge-energy-ops-agent\custom-notes.md` with customer notes, including one default token and one unique sentinel. Config changes org to `Contoso Energy`; lab 01 included. | `"y" | node setup.js` | File must still exist. Unique sentinel survives. Current implementation scans all `labs/**/*.md`, so default token inside `custom-notes.md` changes; flag as user-owned-content risk. | Custom file survival |
+| S03 | Re-run with changed `organization.name` only | First run already applied config A with `organization.name = Contoso Energy`; then edit config to `organization.name = Fabrikam Grid` only. | `"y" | node setup.js` | Current implementation likely leaves `Contoso Energy` in existing markdown because replacements search only default `Contoso Energy`. Record as expected current limitation unless upgrade logic is added. Must not mix default and B values in newly untouched files. | Prior-config drift |
+| S04 | Re-run with subset of labs excluded | Clean checkout; config `labs.include` contains only `01-energy-ops-agent` and `05-copilot-studio-vscode-agent-management`. | `"y" | node setup.js` | `labs\02-*`, `labs\03-*`, `labs\04-*` absent. `README.md` no longer links to excluded labs. Included labs remain. Second run is clean. | Destructive lab exclusion |
+| S05 | Re-run after user manually edited lab markdown | Clean checkout; edit `labs\01-energy-ops-agent\index.md` adding a customer paragraph containing both ordinary text and the default string `Contoso Energy`. Config changes `organization.name` to `Contoso Energy`. | `"y" | node setup.js` | Template placeholders in lab markdown change to `Contoso Energy`. User paragraph with literal default string is also changed by current implementation; flag as 🟡 or 🔴 depending intended ownership. No unrelated lines change. | User markdown preservation |
+| S06 | Re-run after custom file in included lab | Add `labs\01-energy-ops-agent\custom-notes.md` with customer notes, including one default token and one unique sentinel. Config changes org to `Contoso Energy`; lab 01 included. | `"y" | node setup.js` | File must still exist. Unique sentinel survives. Current implementation scans all `labs/**/*.md`, so default token inside `custom-notes.md` changes; flag as user-owned-content risk. | Custom file survival |
 | S07 | Re-run after user added whole new lab dir | Add `labs\06-my-lab\index.md`, `labs\06-my-lab\assets\diagram.png`, and `labs\06-my-lab\custom-notes.md`; config includes only official labs 01-05. | `"y" | node setup.js` | Current implementation deletes `labs\06-my-lab\` because it is not in `labs.include`; flag as 🔴 if custom labs must be preserved/quarantined. README should not mention lab 06 unless user added it. | Custom lab deletion |
-| S08 | Unicode/emoji orgName | Clean checkout; config `organization.name = "Société Générale 株式会社 ⚡"`; other fields default. | `"y" | node setup.js` | Markdown and README occurrences of `SDG&E` become exact Unicode string; UTF-8 preserved; no mojibake; second run zero diff. | Unicode / encoding |
+| S08 | Unicode/emoji orgName | Clean checkout; config `organization.name = "Société Générale 株式会社 ⚡"`; other fields default. | `"y" | node setup.js` | Markdown and README occurrences of `Contoso Energy` become exact Unicode string; UTF-8 preserved; no mojibake; second run zero diff. | Unicode / encoding |
 | S09 | Special chars in orgName | Clean checkout; config `organization.name = "R&D \"Grid/AI\" & Co."`; optionally include apostrophe/backslash variants in a separate run. | `"y" | node setup.js` | Literal replacement succeeds without regex escaping issues. Markdown remains valid enough to render. No path creation from orgName. Second run zero diff. | Punctuation / escaping |
-| S10 | Read-only file in labs, Windows + Unix | Set read-only on `labs\01-sdge-energy-ops-agent\index.md` (`attrib +R`) and, on Unix agent, `chmod a-w labs/01-sdge-energy-ops-agent/index.md`. Config changes org. | `"y" | node setup.js` | Either friendly non-zero failure before partial corruption or successful write only if platform permits owner override. Verify snapshot for partial changes. Cleanup resets permissions (`attrib -R`, `chmod u+w`). | Permission / locked file |
+| S10 | Read-only file in labs, Windows + Unix | Set read-only on `labs\01-energy-ops-agent\index.md` (`attrib +R`) and, on Unix agent, `chmod a-w labs/01-energy-ops-agent/index.md`. Config changes org. | `"y" | node setup.js` | Either friendly non-zero failure before partial corruption or successful write only if platform permits owner override. Verify snapshot for partial changes. Cleanup resets permissions (`attrib -R`, `chmod u+w`). | Permission / locked file |
 | S11 | Missing `template.config.json` | Rename `template.config.json` to `template.config.json.bak`; otherwise clean checkout. | `node setup.js` | Exit 1. Console says config file not found. Zero file changes. Restore config during cleanup. | Missing config |
 | S12 | Corrupted/invalid JSON config | Replace `template.config.json` with invalid JSON such as `{ "organization": `. | `node setup.js` | Exit 1. Console reports setup failed / JSON parse error. Zero file changes. Restore config during cleanup. | Invalid config |
 | S13 | `--dry-run` produces zero file changes | Config changes org, parent, tagline, and excludes labs 02-04. Snapshot before. | `node setup.js --dry-run` | Exit 0. Console lists intended replacements/exclusions. `git status` and hash manifest exactly match before snapshot. Labs 02-04 still exist. | Dry-run safety |
@@ -65,15 +65,15 @@ node setup.js --dry-run
   - Default organization tokens are replaced when config changes values.
   - Lab links/rows for excluded labs are removed.
   - No links remain to deleted lab directories.
-- `labs\01-sdge-energy-ops-agent\index.md`
-- `labs\02-sempra-agent-analytics-evaluations\index.md`
-- `labs\03-sempra-account-orchestration-agent\index.md`
+- `labs\01-energy-ops-agent\index.md`
+- `labs\02-agent-analytics-evaluations\index.md`
+- `labs\03-account-orchestration-agent\index.md`
 - `labs\04-energy-census-advanced-agent\index.md`
 - `labs\05-copilot-studio-vscode-agent-management\index.md`
   - Configured replacements appear exactly where default placeholders existed.
 - Excluded directories such as:
-  - `labs\02-sempra-agent-analytics-evaluations\`
-  - `labs\03-sempra-account-orchestration-agent\`
+  - `labs\02-agent-analytics-evaluations\`
+  - `labs\03-account-orchestration-agent\`
   - `labs\04-energy-census-advanced-agent\`
   are absent only when explicitly excluded.
 
@@ -86,8 +86,8 @@ node setup.js --dry-run
 - `tools\screenshot-capture\.auth\**` must not change or become tracked.
 - `.squad\**`, `.github\**`, `.gitignore`, `.gitattributes`, `portal\**`, `scripts\**` must not change during setup.
 - Custom files in retained labs must still exist, especially:
-  - `labs\01-sdge-energy-ops-agent\custom-notes.md`
-  - `labs\01-sdge-energy-ops-agent\assets\customer-screenshot.png`
+  - `labs\01-energy-ops-agent\custom-notes.md`
+  - `labs\01-energy-ops-agent\assets\customer-screenshot.png`
 - Custom lab directories such as `labs\06-my-lab\` must survive unless the current destructive deletion behavior is explicitly accepted and documented.
 - Invalid/missing config and dry-run scenarios must leave the entire hash manifest unchanged.
 
@@ -185,7 +185,7 @@ filename:template.config.json "sdge-energy-ops-agent"
 ```
 
 ```text
-filename:template.config.json "San Diego Gas & Electric" "IT Operations Agent"
+filename:template.config.json "Contoso Energy" "IT Operations Agent"
 ```
 
 ```text
@@ -201,7 +201,7 @@ path:tools/screenshot-capture filename:shots.json "04-energy-census-advanced-age
 ```
 
 ```text
-filename:README.md "01-sdge-energy-ops-agent" "05-copilot-studio-vscode-agent-management"
+filename:README.md "01-energy-ops-agent" "05-copilot-studio-vscode-agent-management"
 ```
 
 ```text
@@ -307,7 +307,7 @@ If public pool is zero, reassign A6-A9 to duplicate Tier 1 with randomized confi
      "checksFailed": 0,
      "classification": "green",
      "failures": [],
-     "changedPaths": ["README.md", "labs\\01-sdge-energy-ops-agent\\index.md"],
+     "changedPaths": ["README.md", "labs\\01-energy-ops-agent\\index.md"],
      "durationSeconds": 18
    }
    ```
@@ -334,7 +334,7 @@ Manifest entry format:
 
 ```json
 {
-  "path": "labs\\01-sdge-energy-ops-agent\\index.md",
+  "path": "labs\\01-energy-ops-agent\\index.md",
   "sha256": "...",
   "bytes": 12345,
   "readonly": false

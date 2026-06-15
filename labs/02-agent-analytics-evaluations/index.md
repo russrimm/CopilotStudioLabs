@@ -1,4 +1,4 @@
-# 📊 Lab 02: Monitor Performance and Evaluate Sempra Agent Quality
+# 📊 Lab 02: Monitor Performance and Evaluate Contoso Agent Quality
 
 *If you can't measure it, you can't improve it.*
 
@@ -8,15 +8,15 @@
 | ⏱️ **TIME** | 45 minutes |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio (Analytics + Agent Evaluation preview), Azure Application Insights, Azure Monitor |
 | 🏷️ **TAGS** | Analytics, Agent Evaluation, Test Sets, Quality Management, Continuous Improvement, Application Insights, KQL, Azure Monitor |
-| 🏭 **INDUSTRY** | Energy / Utilities (Sempra family of companies) |
+| 🏭 **INDUSTRY** | Energy / Utilities (Contoso family of companies) |
 
-> **Adapted from:** [Monitor Performance and Evaluate Agent Quality — Microsoft Copilot Agents Labs](https://microsoft.github.io/mcs-labs/labs/core-concepts-analytics-evaluations/). Reframed for **Sempra** so you can measure and continuously improve the IT Operations agent you built in [Lab 01](../01-sdge-energy-ops-agent/index.md) — and any other Sempra agent that follows.
+> **Adapted from:** [Monitor Performance and Evaluate Agent Quality — Microsoft Copilot Agents Labs](https://microsoft.github.io/mcs-labs/labs/core-concepts-analytics-evaluations/). Reframed for **Contoso** so you can measure and continuously improve the IT Operations agent you built in [Lab 01](../01-energy-ops-agent/index.md) — and any other Contoso agent that follows.
 
 ---
 
-## ⚡ Why Sempra cares about analytics and evaluations
+## ⚡ Why Contoso cares about analytics and evaluations
 
-The SDG&E IT Operations Agent (Lab 01) and the Sempra Customer Operations Assistant (Lab 03) only deliver value if they **work** — turn after turn, day after day, for thousands of field crew, account managers, and dispatchers across SDG&E, SoCalGas, Sempra Infrastructure, and Oncor.
+The Contoso IT Operations Agent (Lab 01) and the Contoso Customer Operations Assistant (Lab 03) only deliver value if they **work** — turn after turn, day after day, for thousands of field crew, account managers, and dispatchers across Contoso Energy, Contoso Gas, Contoso Infrastructure, and Contoso Power.
 
 Without a measurement practice, you're flying blind:
 
@@ -35,7 +35,7 @@ Common challenges this lab solves:
 
 ## 📖 Real-world example
 
-The IT Operations team at SDG&E uses analytics on their Lab 01 agent and notices that **30% of VPN-related conversations end in user abandonment**. They add the latest **VPN setup guide** and **NERC CIP remote-access standard** to the agent's knowledge sources, then build a 15-question evaluation test set covering VPN scenarios. After the update, evaluations show pass rates climb from **40% → 90%**. A week later, analytics confirm VPN abandonment dropped from **30% → 5%** in real conversations.
+The IT Operations team at Contoso Energy uses analytics on their Lab 01 agent and notices that **30% of VPN-related conversations end in user abandonment**. They add the latest **VPN setup guide** and **NERC CIP remote-access standard** to the agent's knowledge sources, then build a 15-question evaluation test set covering VPN scenarios. After the update, evaluations show pass rates climb from **40% → 90%**. A week later, analytics confirm VPN abandonment dropped from **30% → 5%** in real conversations.
 
 That's the cycle: analytics finds the problem, evaluations verify the fix, analytics confirms the impact.
 
@@ -62,14 +62,14 @@ By the end of this lab you will be able to:
 
 ## 🧠 Core concepts overview
 
-| Concept | What it means at Sempra |
+| Concept | What it means at Contoso |
 |---|---|
 | **Conversation Analytics** | Volume, topic usage, and session duration — reveals how field crews and account managers actually use the agent and which capabilities they value most. |
 | **User Satisfaction Scores** | Thumbs up/down reactions from real users. Low scores on high-volume topics are your top priority. For formal CSAT, configure end-of-session surveys. |
 | **Failure Analytics** | Unanswered questions, escalations, and abandonments. Direct signals of where to add knowledge or rewrite a topic flow. |
 | **Evaluation Test Sets** | Repeatable collections of questions with expected answers. Run them before and after every change to catch regressions. |
 | **Test Methods** | The comparison technique: **Exact match** (hard facts), **Keyword match** (must-mention terms), **Similarity** (lexical closeness), **General quality** (LLM-judged), **Compare meaning** (semantic equivalence), and newer methods like **Capability use** and **Custom**. See [Choose evaluation methods](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview) — methods are added as the preview matures; older docs may call them "evaluation methods" (same thing). |
-| **Judge-assisted scoring** | Methods such as **General quality** and **Compare meaning** use AI-assisted judgment rather than a literal string comparison. That is powerful for open-ended Sempra answers, but for audit-sensitive facts — NERC CIP dates, required approval steps, security boundaries — pair them with stricter methods or manual review. |
+| **Judge-assisted scoring** | Methods such as **General quality** and **Compare meaning** use AI-assisted judgment rather than a literal string comparison. That is powerful for open-ended Contoso answers, but for audit-sensitive facts — NERC CIP dates, required approval steps, security boundaries — pair them with stricter methods or manual review. |
 | **Evaluation Results** | Pass/fail outcomes plus reasoning, knowledge citations, and an **activity map** that shows step-by-step which knowledge sources, tools, and topics the agent used. |
 
 ---
@@ -86,7 +86,7 @@ By the end of this lab you will be able to:
 
 ## ✅ Prerequisites
 
-- Completed [Lab 01: Build a Custom IT Operations Agent for SDG&E](../01-sdge-energy-ops-agent/index.md). You'll use that agent throughout this lab. (If you skipped Lab 01, any published Copilot Studio agent in your environment will work — the steps are agent-agnostic.)
+- Completed [Lab 01: Build a Custom IT Operations Agent for Contoso Energy](../01-energy-ops-agent/index.md). You'll use that agent throughout this lab. (If you skipped Lab 01, any published Copilot Studio agent in your environment will work — the steps are agent-agnostic.)
 - Access to **Microsoft Copilot Studio** with **Analytics** and **Agent Evaluation (preview)** permissions
 - Your agent has been **published** and used through a **deployed channel** (Microsoft Teams, a website, or another Copilot Studio channel) — only those conversations contribute to analytics data
 
@@ -98,9 +98,9 @@ By the end of this lab you will be able to:
 
 ## 🗺️ Use cases covered
 
-| # | Use Case | Sempra Framing | Time |
+| # | Use Case | Contoso Framing | Time |
 |---|---|---|---|
-| 1 | Monitor agent performance with analytics | Read your SDG&E IT Ops agent's real-world behavior — volume, satisfaction, knowledge-source usage, escalations | 10 min |
+| 1 | Monitor agent performance with analytics | Read your Contoso Energy IT Ops agent's real-world behavior — volume, satisfaction, knowledge-source usage, escalations | 10 min |
 | 2 | Create and configure evaluation test sets | Build three test sets plus one targeted manual case that exercise auto-generation, CSV import, test-canvas capture, and manual entry | 10 min |
 | 3 | Review evaluation results | Compare pass rates, drill into activity maps, identify regressions, export for stakeholders | 10 min |
 | 4 | Application Insights integration for Copilot Studio | Connect App Insights, write KQL queries, build dashboards, set up alerts for deep agent diagnostics | 15 min |
@@ -109,18 +109,18 @@ By the end of this lab you will be able to:
 
 # 🧪 Use Case #1 — Monitor Agent Performance with Analytics
 
-> 🎯 **Objective:** Access and interpret your SDG&E IT Operations Agent's analytics to identify the highest-impact optimization opportunities.
+> 🎯 **Objective:** Access and interpret your Contoso IT Operations Agent's analytics to identify the highest-impact optimization opportunities.
 
 ### Scenario
 
-Your **SDG&E IT Operations Agent** has been deployed for several days. Field technicians and the IT helpdesk team have been using it. You need to understand how they're interacting with it, which knowledge sources are getting hit, where conversations are failing, and whether users find it helpful — so you can prioritize the next round of improvements.
+Your **Contoso IT Operations Agent** has been deployed for several days. Field technicians and the IT helpdesk team have been using it. You need to understand how they're interacting with it, which knowledge sources are getting hit, where conversations are failing, and whether users find it helpful — so you can prioritize the next round of improvements.
 
 > ⚠️ **Important — empty dashboard until publish.** If your Analytics page shows a *"Publish your agent to track performance"* empty-state with a single **Publish** button, none of the dashboard sections below will be visible. Publish your agent and have at least one real conversation through a deployed channel; analytics data takes **24–48 hours** to populate. The Product Group is working on a way to visualize what populated analytics will look like for lab scenarios — until then, skim the descriptions to know what to expect.
 
 ### Step 1 — Navigate to Analytics
 
 1. In Copilot Studio, select **Agents** in the left navigation.
-2. Open your **SDG&E IT Operations Agent** (from Lab 01) and select **Analytics** in the top navigation bar.
+2. Open your **Contoso IT Operations Agent** (from Lab 01) and select **Analytics** in the top navigation bar.
 3. Review the analytics dashboard overview, which typically includes:
    - **Summary metrics:** total conversations, engaged conversations, resolution rate
    - **Trend charts:** conversation volume over time
@@ -131,7 +131,7 @@ Your **SDG&E IT Operations Agent** has been deployed for several days. Field tec
    - Last 30 days
    - Custom date range
 
-> 💡 **Tip:** Use consistent date ranges when comparing performance over time. **Weekly reviews with 7-day ranges** work well for ongoing monitoring of a Sempra production agent.
+> 💡 **Tip:** Use consistent date ranges when comparing performance over time. **Weekly reviews with 7-day ranges** work well for ongoing monitoring of a Contoso production agent.
 
 ### Step 2 — Understand summary metrics
 
@@ -139,7 +139,7 @@ Your **SDG&E IT Operations Agent** has been deployed for several days. Field tec
 2. **Conversation sessions** — how many sessions occurred. A session starts when a user or agent initiates an interaction; a single conversation can contain multiple sessions.
 3. **Engagement** — the percentage of sessions where the agent triggered a topic, plan, knowledge source, or tool. High engagement is good news.
 
-> 💡 **Note:** Low engagement might mean users got their answer immediately (good!) or gave up after the first response (bad). **Always combine this metric with satisfaction scores** to interpret correctly. At Sempra, a 90% engagement + 90% satisfaction is a healthy IT-ops agent; 90% engagement + 40% satisfaction means the agent is *talking* but not *helping*.
+> 💡 **Note:** Low engagement might mean users got their answer immediately (good!) or gave up after the first response (bad). **Always combine this metric with satisfaction scores** to interpret correctly. At Contoso, a 90% engagement + 90% satisfaction is a healthy IT-ops agent; 90% engagement + 40% satisfaction means the agent is *talking* but not *helping*.
 
 ### Step 3 — Analyze conversation volume trends
 
@@ -149,7 +149,7 @@ Your **SDG&E IT Operations Agent** has been deployed for several days. Field tec
    - **Valleys** — when is usage lowest? Schedule maintenance / content updates here
    - **Trends** — is usage growing? Flat lines may indicate awareness issues — your field crews don't know the agent exists yet
 3. Consider external factors that might influence trends:
-   - **Business cycles** at Sempra (storm season, winter peak demand, regulatory filing deadlines)
+   - **Business cycles** at Contoso (storm season, winter peak demand, regulatory filing deadlines)
    - **Seasonal patterns** (wildfire response, heat-wave outages)
    - **Recent communications** — was there a kickoff announcement or training that drove a usage spike?
 
@@ -160,7 +160,7 @@ Your **SDG&E IT Operations Agent** has been deployed for several days. Field tec
 1. Go to the **Agents** section in analytics.
 2. Review the metrics for each **child** and **connected** agent your agent uses:
    - Which agents are being called and what type are they?
-   - **Number of calls** and **success rate** — a low success rate may indicate the agent needs improvement, or that the planner is routing to it incorrectly (re-read [Lab 03](../03-sempra-account-orchestration-agent/index.md) Use Case #2 if you see this).
+   - **Number of calls** and **success rate** — a low success rate may indicate the agent needs improvement, or that the planner is routing to it incorrectly (re-read [Lab 03](../03-account-orchestration-agent/index.md) Use Case #2 if you see this).
 
 ### Step 5 — Review generated answer rate and quality
 
@@ -180,12 +180,12 @@ Your **SDG&E IT Operations Agent** has been deployed for several days. Field tec
 1. Go to the **Conversation outcomes** section on the Analytics tab.
 2. Upper-right corner of the section, select **See details**.
 3. **Resolved** — how often user requests were resolved. Your headline number for *"the agent is working."*
-4. **Escalated** — how often users requested human assistance. **High escalation rates** mean the agent can't handle common scenarios — and at Sempra those drop on the helpdesk queue. Watch this number.
+4. **Escalated** — how often users requested human assistance. **High escalation rates** mean the agent can't handle common scenarios — and at Contoso those drop on the helpdesk queue. Watch this number.
 5. **Abandoned** — conversations where users left without resolution. Pay attention to **where** in the conversation they drop off — that's a flow design problem, not a knowledge problem.
 
 ### Step 7 — Review sessions and transcripts
 
-Use aggregate metrics to choose *where* to look, then use session detail to understand *why* the pattern happened. For the SDG&E IT Operations Agent, review a small sample of real conversations before changing topics or knowledge sources.
+Use aggregate metrics to choose *where* to look, then use session detail to understand *why* the pattern happened. For the Contoso IT Operations Agent, review a small sample of real conversations before changing topics or knowledge sources.
 
 1. In **Analytics**, open the detailed view for the metric that needs investigation — for example **Unanswered questions**, **Escalated**, or **Abandoned** conversations.
 2. Select a representative conversation/session where the user asked about VPN, Energy Support App access, field guide lookup, or NERC CIP remote access.
@@ -202,7 +202,7 @@ Use aggregate metrics to choose *where* to look, then use session detail to unde
 
 Based on your analytics and transcript review, build a **prioritized list of improvements**. Use this template:
 
-| Pattern | What it means | Sempra example fix |
+| Pattern | What it means | Contoso example fix |
 |---|---|---|
 | High-volume + low-satisfaction | Improve knowledge or instructions | "Add the updated VPN setup guide" — addresses 15% of unanswered questions |
 | Unrecognized phrases | Add missing knowledge or new topics | "Add 'Energy Support App' as a synonym for 'ESA' in the troubleshooting topic" |
@@ -216,7 +216,7 @@ Based on your analytics and transcript review, build a **prioritized list of imp
 
 **Key takeaways**
 
-- 📈 **Analytics reveal user behavior.** Conversation volume, engagement, and topic performance show how Sempra users actually interact with the agent.
+- 📈 **Analytics reveal user behavior.** Conversation volume, engagement, and topic performance show how Contoso users actually interact with the agent.
 - 😀 **Satisfaction scores guide priorities.** Low satisfaction on high-volume topics should be your top improvement priority — not the rarely-asked edge cases.
 - 🔍 **Failure data drives improvements.** Unrecognized phrases and abandoned conversations directly indicate where to add knowledge or rewrite a flow.
 
@@ -226,11 +226,11 @@ Based on your analytics and transcript review, build a **prioritized list of imp
 - Combine multiple metrics for accurate interpretation: low engagement + high satisfaction = users getting quick answers (good); low engagement + low satisfaction = users giving up (bad).
 - Set a **regular review cadence**: weekly for new agents, bi-weekly for mature agents.
 
-**Challenge — apply to a Sempra workflow**
+**Challenge — apply to a Contoso workflow**
 
-- What satisfaction score would indicate success for the SDG&E IT Operations Agent? (Hint: benchmark against helpdesk CSAT.)
+- What satisfaction score would indicate success for the Contoso IT Operations Agent? (Hint: benchmark against helpdesk CSAT.)
 - How often will you review analytics, given your conversation volume?
-- What three metrics would you put on a one-page exec dashboard for SDG&E IT leadership?
+- What three metrics would you put on a one-page exec dashboard for Contoso Energy IT leadership?
 
 ---
 
@@ -240,20 +240,20 @@ Based on your analytics and transcript review, build a **prioritized list of imp
 
 ### Scenario
 
-You want to systematically test your SDG&E IT Operations Agent. You'll create **three** distinct test sets — one auto-generated, one imported from CSV that's intentionally designed to **fail** (so you can see how the platform reports refusals), and one captured from real agent conversations that should **pass**. Together they form a complete picture of how different creation methods and outcomes work.
+You want to systematically test your Contoso IT Operations Agent. You'll create **three** distinct test sets — one auto-generated, one imported from CSV that's intentionally designed to **fail** (so you can see how the platform reports refusals), and one captured from real agent conversations that should **pass**. Together they form a complete picture of how different creation methods and outcomes work.
 
-> 💡 **Note — preview feature.** Agent evaluation is currently a **preview** feature. UI and capabilities may change. Don't rely on it as your only quality gate for a production Sempra agent — pair with manual review.
+> 💡 **Note — preview feature.** Agent evaluation is currently a **preview** feature. UI and capabilities may change. Don't rely on it as your only quality gate for a production Contoso agent — pair with manual review.
 
 ### Step 1 — Generate test cases (Quick question set)
 
-1. In your **SDG&E IT Operations Agent**, select **Evaluation** in the top navigation bar.
+1. In your **Contoso IT Operations Agent**, select **Evaluation** in the top navigation bar.
 
 > 💡 If you don't see **Evaluation**, the feature may need to be enabled in your environment settings or may not yet be available in your region. See the [Agent Evaluation overview](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview).
 
 2. Select **Create a test set** to open the **New evaluation** page. Confirm **Single response** is selected under **Data type**, then choose **Quick question set** under **More ways to start** to generate ~10 test cases automatically. Copilot Studio uses AI to generate test cases based on your agent's knowledge sources and configuration.
 3. In the **Configure test set** panel on the right, change the test set name to:
    ```text
-   Sempra IT Ops — Non-Critical Set
+   Contoso IT Ops — Non-Critical Set
    ```
 4. In the **Test method** section, **General quality** is configured by default. Leave it for this set.
 
@@ -261,7 +261,7 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 
 > 📎 **Microsoft guidance:** The upstream Microsoft lab teaches four creation methods — Quick question set, CSV import, test-canvas capture, and manual entry — as a toolkit for building coverage, not as four separate checkboxes to complete. Source: [Monitor Performance and Evaluate Agent Quality](https://microsoft.github.io/mcs-labs/labs/core-concepts-analytics-evaluations/).
 
-**Sempra test-set design checkpoint**
+**Contoso test-set design checkpoint**
 
 | If the quality question is... | Use this set pattern | Start with this method |
 |---|---|---|
@@ -292,13 +292,13 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 
 > 💡 **Note:** Test methods are *not* included in the CSV template. You configure methods after import. Initially the default method is applied. Limits: **100 questions per file**, **1,000 characters per question**, including spaces.
 
-4. Download the lab's adversarial CSV file from this repo: [`assets/EvaluationAlwaysFail.csv`](./assets/EvaluationAlwaysFail.csv). It contains **10 Sempra adversarial test cases** designed to verify the agent properly refuses harmful, off-policy, or PII-exfiltration requests (phishing emails to SDG&E customers, bypassing Energy Support App login, disabling SCADA alarms, dumping bulk PII, jailbreak attempts, etc.). Import it into the new test set.
+4. Download the lab's adversarial CSV file from this repo: [`assets/EvaluationAlwaysFail.csv`](./assets/EvaluationAlwaysFail.csv). It contains **10 Contoso adversarial test cases** designed to verify the agent properly refuses harmful, off-policy, or PII-exfiltration requests (phishing emails to Contoso Energy customers, bypassing Energy Support App login, disabling SCADA alarms, dumping bulk PII, jailbreak attempts, etc.). Import it into the new test set.
 
 > 💡 **Tip:** CSV import is the right choice when you have a large number of test cases or you maintain test cases in a spreadsheet (e.g., owned by your Compliance team for ongoing regulatory test coverage).
 
 5. Change the test set name to:
    ```text
-   Sempra IT Ops — Adversarial / Always Fail Set
+   Contoso IT Ops — Adversarial / Always Fail Set
    ```
 6. Select **Save**.
 7. Select **Evaluate** to run. These adversarial cases use the **General quality** method to assess how the agent handles harmful requests. A "pass" on this set means **the agent appropriately refused or redirected** — not that it answered the harmful question.
@@ -317,7 +317,7 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 4. Provide your first name and last name when prompted.
 5. Now send the following questions one at a time, waiting for a response between each:
    ```text
-   How do I connect to the SDG&E corporate VPN from a remote substation?
+   How do I connect to the Contoso Energy corporate VPN from a remote substation?
    ```
    ```text
    What does NERC CIP require for remote interactive access to BES Cyber Systems?
@@ -334,7 +334,7 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 
 7. Change the test set name to:
    ```text
-   Sempra IT Ops — Always Pass Set
+   Contoso IT Ops — Always Pass Set
    ```
 
 > 💡 **Note:** Since the expected responses were captured directly from the agent's own answers, this set should pass when re-evaluated — the agent should give the same (or very similar) answers when asked again. If it doesn't, you've discovered a *non-deterministic* response where you may want to tighten the agent's instructions.
@@ -344,7 +344,7 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 1. Select **+ Add Question** → **Write**.
 2. Enter:
    ```text
-   Where can I set DLP policies for Copilot Studio agents in our Sempra environment?
+   Where can I set DLP policies for Copilot Studio agents in our Contoso environment?
    ```
 3. Select **Apply**, then **Save** to save the set.
 4. Select **Evaluate** to run the evaluation on the updated set.
@@ -363,15 +363,15 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 
 **Troubleshooting**
 
-- Start with auto-generated test cases for baseline coverage; then add manual cases for the scenarios that matter most to Sempra (NERC CIP compliance, after-hours outage triage, etc.).
+- Start with auto-generated test cases for baseline coverage; then add manual cases for the scenarios that matter most to Contoso (NERC CIP compliance, after-hours outage triage, etc.).
 - Use the test-canvas approach to **capture real conversations** — the agent's own responses make reliable expected answers.
-- **Review auto-generated cases** before relying on them. They may include irrelevant or poorly worded questions that don't reflect real Sempra users.
+- **Review auto-generated cases** before relying on them. They may include irrelevant or poorly worded questions that don't reflect real Contoso users.
 
-**Challenge — apply to a Sempra workflow**
+**Challenge — apply to a Contoso workflow**
 
-- What are the **10 most important questions** the SDG&E IT Operations Agent must answer correctly? (These become your *Always Pass* regression set.)
+- What are the **10 most important questions** the Contoso IT Operations Agent must answer correctly? (These become your *Always Pass* regression set.)
 - Which method would you use for ongoing regression testing as the agent changes weekly?
-- How would you organize test sets across SDG&E, SoCalGas, and Sempra Infrastructure if they share a tenant but have different policies?
+- How would you organize test sets across Contoso Energy, Contoso Gas, and Contoso Infrastructure if they share a tenant but have different policies?
 
 ---
 
@@ -381,12 +381,12 @@ You want to systematically test your SDG&E IT Operations Agent. You'll create **
 
 ### Scenario
 
-You created and ran three test sets in Use Case #2. Now read the results — pass rates, individual reasoning, activity maps, and run-over-run comparisons — and turn them into a backlog of concrete improvements for the SDG&E IT Operations Agent.
+You created and ran three test sets in Use Case #2. Now read the results — pass rates, individual reasoning, activity maps, and run-over-run comparisons — and turn them into a backlog of concrete improvements for the Contoso IT Operations Agent.
 
 ### Step 1 — Review the auto-generated test set results
 
-1. Go to the **Evaluation** page in your **SDG&E IT Operations Agent**.
-2. Select the **Sempra IT Ops — Non-Critical Set** to open its results.
+1. Go to the **Evaluation** page in your **Contoso IT Operations Agent**.
+2. Select the **Contoso IT Ops — Non-Critical Set** to open its results.
 3. Review the **pass rate** (e.g., *"7/10 passed — 70%"*).
 4. Select an individual test case to view detail:
    - **Question** — the original test question
@@ -401,18 +401,18 @@ You created and ran three test sets in Use Case #2. Now read the results — pas
 For any result scored by **General quality** or **Compare meaning**, read the evaluator reasoning before you accept the pass/fail result. Treat the score as a strong signal, not an audit verdict:
 
 - If the agent answer is good but the evaluator failed it, use the feedback buttons in Step 6 and consider a less brittle method.
-- If the evaluator passed an answer that omits a Sempra-required approval, citation, or safety caveat, tighten the expected response or add **Keyword match** for the required phrase.
+- If the evaluator passed an answer that omits a Contoso-required approval, citation, or safety caveat, tighten the expected response or add **Keyword match** for the required phrase.
 - For NERC CIP, PII, safety, and access-control cases, keep a human reviewer in the loop before using the result as a production gate.
 
 ### Step 2 — Interpret scores, citations, and evaluator reasoning
 
 Before you move between test sets, calibrate how you read individual results. The pass/fail label is the headline, but the detail pane is where you learn what to fix.
 
-1. Open one passing and one failing row from the **Sempra IT Ops — Non-Critical Set**.
+1. Open one passing and one failing row from the **Contoso IT Ops — Non-Critical Set**.
 2. Review the evaluator **reasoning** and any score or confidence detail shown by the selected test method. For AI-judged methods such as **General quality** or **Compare meaning**, look for whether the evaluator rewarded the answer for being complete, relevant, grounded, and safe.
-3. Inspect the **knowledge citations** and source evidence. For Sempra IT Ops scenarios, ask:
+3. Inspect the **knowledge citations** and source evidence. For Contoso IT Ops scenarios, ask:
    - Did the answer cite the expected source, such as the Field Operations Remote Access Guide or NERC CIP remote-access material?
-   - Did the agent cite an outdated or generic source when an approved Sempra source should have been used?
+   - Did the agent cite an outdated or generic source when an approved Contoso source should have been used?
    - Did the answer make a claim with no citation at all?
 4. Use this severity model when turning failures into backlog items:
 
@@ -427,7 +427,7 @@ Before you move between test sets, calibrate how you read individual results. Th
 
 ### Step 3 — Review the "Always Fail" / Adversarial set results
 
-1. Select the **Sempra IT Ops — Adversarial / Always Fail Set**.
+1. Select the **Contoso IT Ops — Adversarial / Always Fail Set**.
 2. Review the test-case results. These adversarial questions test whether your agent properly **refuses harmful or off-policy requests** using the **General quality** method.
 3. Select a test case and review:
    - The **actual response** (how the agent handled the adversarial question)
@@ -438,12 +438,12 @@ Before you move between test sets, calibrate how you read individual results. Th
 
 ### Step 4 — Review the "Always Pass" set results
 
-1. Select **Sempra IT Ops — Always Pass Set**.
+1. Select **Contoso IT Ops — Always Pass Set**.
 2. Review the pass rate. Since expected responses came from the agent's own answers, most cases should pass.
 3. Check the first test case (the mailing-list flow). Verify the evaluation passed.
 4. Check the **DLP policies** test case you added manually. Did the agent answer? What was the result?
 
-> 💡 **Tip:** If the **DLP test case failed**, that's a **knowledge gap** — the agent doesn't have the Sempra DLP policy in its knowledge sources. This is exactly how evaluations help you discover where to expand knowledge or improve instructions. Add the gap to the backlog you started in Use Case #1, Step 8.
+> 💡 **Tip:** If the **DLP test case failed**, that's a **knowledge gap** — the agent doesn't have the Contoso DLP policy in its knowledge sources. This is exactly how evaluations help you discover where to expand knowledge or improve instructions. Add the gap to the backlog you started in Use Case #1, Step 8.
 
 ### Step 5 — Filter and compare results
 
@@ -459,7 +459,7 @@ Before you move between test sets, calibrate how you read individual results. Th
 
 > 💡 **Tip:** The **comparison feature is the single most powerful aspect of Agent Evaluation**. It turns *"I think this change helped"* into *"this change moved 4 cases from fail to pass with no regressions."* That's the difference between guesswork and engineering.
 
-**Regression decision rule for Sempra changes**
+**Regression decision rule for Contoso changes**
 
 Before you publish an agent update, compare the latest run against the last known-good run and make an explicit release decision:
 
@@ -478,27 +478,27 @@ Before you publish an agent update, compare the latest run against the last know
 2. Select **Export test results** to download as CSV for stakeholder reporting or compliance documentation.
 3. Save or share results according to your team's governance practice:
    - **IT leadership:** summary pass rate, regressions fixed, and user-impact metrics
-   - **Sempra Cybersecurity / Compliance:** adversarial results, P0/P1 findings, citations for NERC CIP and access-control cases
+   - **Contoso Cybersecurity / Compliance:** adversarial results, P0/P1 findings, citations for NERC CIP and access-control cases
    - **Agent owners:** failed cases, evaluator reasoning, activity-map notes, and backlog actions
 4. When exporting, include context in the file name or change record: agent name, test-set name, run date, and the change being validated.
 
-> 💡 **Tip:** Exported results are valuable for **stakeholder reporting** (SDG&E IT leadership, Sempra Cybersecurity), **compliance documentation** (NERC CIP audit trail), and **trend tracking over time**. Export after every major agent update and store alongside your change log.
+> 💡 **Tip:** Exported results are valuable for **stakeholder reporting** (Contoso Energy IT leadership, Contoso Cybersecurity), **compliance documentation** (NERC CIP audit trail), and **trend tracking over time**. Export after every major agent update and store alongside your change log.
 
-> ⚠️ **Governance reminder:** Evaluation exports and transcripts can contain user prompts, generated answers, and potentially sensitive operational details. Store them in an approved Sempra location, redact personal data before broad distribution, and keep retention aligned with your compliance team's guidance.
+> ⚠️ **Governance reminder:** Evaluation exports and transcripts can contain user prompts, generated answers, and potentially sensitive operational details. Store them in an approved Contoso location, redact personal data before broad distribution, and keep retention aligned with your compliance team's guidance.
 
 ### ✅ You've completed Use Case #3
 
 **Test your understanding**
 
 - Why is creating an *Always Fail / Adversarial* test set a useful exercise?
-- How does the activity map help you debug a failed case in the SDG&E IT Operations Agent?
+- How does the activity map help you debug a failed case in the Contoso IT Operations Agent?
 - What does it mean when a test in the *Always Pass* set unexpectedly fails?
 
-**Challenge — apply to a Sempra workflow**
+**Challenge — apply to a Contoso workflow**
 
 - What **pass rate** would you set as a quality gate before deploying agent updates to production?
 - How would you integrate evaluation runs into your agent **change-management** workflow? (Hint: ALM pipelines.)
-- What stakeholders inside Sempra would benefit from seeing exported results — IT leadership, Compliance, the data-governance team, the helpdesk manager?
+- What stakeholders inside Contoso would benefit from seeing exported results — IT leadership, Compliance, the data-governance team, the helpdesk manager?
 
 ---
 
@@ -508,7 +508,7 @@ Before you publish an agent update, compare the latest run against the last know
 
 ### Scenario
 
-As the SDG&E IT Operations team scales their agent to thousands of field technicians across substations, dispatch centers, and remote sites, the in-product analytics dashboard from Use Case #1 covers daily operational checks — but it can't answer deeper questions. *"Why did response latency spike at 2 AM during last Tuesday's storm?"* *"Which knowledge source is causing timeouts?"* *"How does conversation volume correlate with our ServiceNow ticket deflection?"* For that level of diagnostics, you need **Azure Application Insights** — the same telemetry platform that backs mission-critical Azure services across Sempra Infrastructure and Oncor.
+As the Contoso Energy IT Operations team scales their agent to thousands of field technicians across substations, dispatch centers, and remote sites, the in-product analytics dashboard from Use Case #1 covers daily operational checks — but it can't answer deeper questions. *"Why did response latency spike at 2 AM during last Tuesday's storm?"* *"Which knowledge source is causing timeouts?"* *"How does conversation volume correlate with our ServiceNow ticket deflection?"* For that level of diagnostics, you need **Azure Application Insights** — the same telemetry platform that backs mission-critical Azure services across Contoso Infrastructure and Contoso Power.
 
 > 💡 **In-product analytics vs. Application Insights — when to use each:**
 >
@@ -521,17 +521,17 @@ As the SDG&E IT Operations team scales their agent to thousands of field technic
 ### Prerequisites
 
 - An **Azure subscription** with permissions to create or access an Application Insights resource
-- Your **SDG&E IT Operations Agent** from Lab 01 (or any published Copilot Studio agent)
+- Your **Contoso IT Operations Agent** from Lab 01 (or any published Copilot Studio agent)
 - Basic familiarity with the **Azure portal** ([portal.azure.com](https://portal.azure.com))
 
 ### Step 1 — Create or identify an Application Insights resource
 
 1. Sign in to the [Azure portal](https://portal.azure.com).
 2. Search for **Application Insights** in the top search bar and select it.
-3. If your Sempra environment already has an Application Insights resource for Copilot Studio, use that. Otherwise, select **+ Create**:
-   - **Subscription:** Your lab or Sempra Azure subscription
-   - **Resource group:** Use an existing resource group or create one (e.g., `rg-sempra-copilot-studio`)
-   - **Name:** `appi-sdge-it-ops-agent` (or a name that follows your Sempra naming convention)
+3. If your Contoso environment already has an Application Insights resource for Copilot Studio, use that. Otherwise, select **+ Create**:
+   - **Subscription:** Your lab or Contoso Azure subscription
+   - **Resource group:** Use an existing resource group or create one (e.g., `rg-contoso-copilot-studio`)
+   - **Name:** `appi-sdge-it-ops-agent` (or a name that follows your Contoso naming convention)
    - **Region:** Same region as your Copilot Studio environment for lowest latency
    - **Workspace:** Select an existing Log Analytics workspace or let Azure create one
 4. Select **Review + create**, then **Create**.
@@ -541,7 +541,7 @@ As the SDG&E IT Operations team scales their agent to thousands of field technic
 
 ### Step 2 — Connect Application Insights to Copilot Studio
 
-1. In **Copilot Studio**, open your **SDG&E IT Operations Agent**.
+1. In **Copilot Studio**, open your **Contoso IT Operations Agent**.
 2. Select **Settings** (gear icon) in the top-right corner.
 3. In the left panel, select **Agent details** → **Advanced**.
 4. Locate the **Application Insights** section.
@@ -550,13 +550,13 @@ As the SDG&E IT Operations team scales their agent to thousands of field technic
 
 > 💡 **Tip:** Telemetry typically starts flowing within **5–10 minutes** after saving the connection string. You don't need to republish the agent — the setting takes effect immediately for new conversations. However, **existing active conversations** won't retroactively send telemetry; only new conversations will appear.
 
-> ⚠️ **Important — environment-level vs. agent-level.** Depending on your Copilot Studio version and environment configuration, Application Insights may be configured at the **environment level** (applies to all agents) or the **agent level**. Check with your Sempra platform admin if you don't see the setting at the agent level. See [Configure Application Insights for your agent](https://learn.microsoft.com/microsoft-copilot-studio/advanced-bot-framework-composer-capture-telemetry).
+> ⚠️ **Important — environment-level vs. agent-level.** Depending on your Copilot Studio version and environment configuration, Application Insights may be configured at the **environment level** (applies to all agents) or the **agent level**. Check with your Contoso platform admin if you don't see the setting at the agent level. See [Configure Application Insights for your agent](https://learn.microsoft.com/microsoft-copilot-studio/advanced-bot-framework-composer-capture-telemetry).
 
 ### Step 3 — Understand what telemetry Copilot Studio sends
 
 Once connected, Copilot Studio emits telemetry to Application Insights across several tables. Familiarize yourself with the key tables before writing queries:
 
-| Application Insights table | What Copilot Studio logs here | Sempra use case |
+| Application Insights table | What Copilot Studio logs here | Contoso use case |
 |---|---|---|
 | **customEvents** | Conversation lifecycle events — conversation started, topic triggered, action executed, knowledge source queried, conversation ended | Track which topics field techs trigger most, which knowledge sources are being hit |
 | **traces** | Detailed diagnostic trace messages from the agent runtime — reasoning steps, plugin invocations, orchestrator decisions | Debug why the agent chose the wrong topic or skipped a knowledge source |
@@ -592,7 +592,7 @@ customEvents
 | render timechart
 ```
 
-> 💡 **Sempra context:** Look for spikes during storm events, planned outages, or after training rollouts. A sudden drop might mean the agent's channel (e.g., Teams app) was uninstalled or the bot endpoint is down — not that users stopped needing help.
+> 💡 **Contoso context:** Look for spikes during storm events, planned outages, or after training rollouts. A sudden drop might mean the agent's channel (e.g., Teams app) was uninstalled or the bot endpoint is down — not that users stopped needing help.
 
 #### 4b — Most triggered topics and success/failure rates
 
@@ -624,7 +624,7 @@ requests
 | order by AvgDurationMs desc
 ```
 
-> ⚠️ **Important — latency thresholds for field crews.** SDG&E field technicians often interact with the agent from mobile devices at remote substations with limited connectivity. A P95 latency above **10 seconds** likely means abandonment. Set your latency SLA accordingly and investigate any topic consistently above that threshold.
+> ⚠️ **Important — latency thresholds for field crews.** Contoso Energy field technicians often interact with the agent from mobile devices at remote substations with limited connectivity. A P95 latency above **10 seconds** likely means abandonment. Set your latency SLA accordingly and investigate any topic consistently above that threshold.
 
 #### 4d — Error and exception analysis
 
@@ -667,7 +667,7 @@ customEvents
 | order by TotalQueries desc
 ```
 
-> 💡 **Sempra context:** If the **NERC CIP Remote Access Standard** knowledge source shows a low hit rate but you know field crews are asking those questions, the issue is likely in how the knowledge source is described — the orchestrator isn't routing to it. Revisit the description and keywords in the knowledge source configuration.
+> 💡 **Contoso context:** If the **NERC CIP Remote Access Standard** knowledge source shows a low hit rate but you know field crews are asking those questions, the issue is likely in how the knowledge source is described — the orchestrator isn't routing to it. Revisit the description and keywords in the knowledge source configuration.
 
 #### 4f — User session duration and engagement patterns
 
@@ -699,7 +699,7 @@ customEvents
 | render columnchart
 ```
 
-> 💡 **Tip:** At SDG&E, field crews typically start shifts at 6 AM Pacific. Expect a usage peak between 6–8 AM as technicians check procedures for the day's work orders. If you see significant usage outside business hours, that's likely after-hours outage response — make sure the agent handles those scenarios well.
+> 💡 **Tip:** At Contoso Energy, field crews typically start shifts at 6 AM Pacific. Expect a usage peak between 6–8 AM as technicians check procedures for the day's work orders. If you see significant usage outside business hours, that's likely after-hours outage response — make sure the agent handles those scenarios well.
 
 ### Step 5 — Create an Azure Monitor workbook for ongoing monitoring
 
@@ -709,7 +709,7 @@ Individual KQL queries are powerful for investigation, but for daily monitoring 
 2. Select **+ New**.
 3. Add a **Text** block with the title:
    ```text
-   SDG&E IT Operations Agent — Monitoring Dashboard
+   Contoso IT Operations Agent — Monitoring Dashboard
    ```
 4. Add a **Parameters** block:
    - Add a **Time Range** parameter (default: Last 7 days) so stakeholders can adjust the window.
@@ -739,11 +739,11 @@ Individual KQL queries are powerful for investigation, but for daily monitoring 
 
 6. Select **Save** (💾 icon), give the workbook a name:
    ```text
-   SDG&E IT Ops Agent - App Insights Dashboard
+   Contoso Energy IT Ops Agent - App Insights Dashboard
    ```
 7. Save to your resource group so team members can access it.
 
-> 💡 **Tip:** Pin workbook tiles to an **Azure Dashboard** for a single-pane-of-glass view that combines this agent's health with other Sempra Azure services. Share the dashboard URL with SDG&E IT leadership for self-service monitoring.
+> 💡 **Tip:** Pin workbook tiles to an **Azure Dashboard** for a single-pane-of-glass view that combines this agent's health with other Contoso Azure services. Share the dashboard URL with Contoso Energy IT leadership for self-service monitoring.
 
 > 📎 **Microsoft guidance:** For workbook authoring patterns, see [Azure Monitor Workbooks](https://learn.microsoft.com/azure/azure-monitor/visualize/workbooks-overview).
 
@@ -764,8 +764,8 @@ Don't wait for users to report problems — let Azure Monitor tell you first.
 | **Condition** | Greater than **10** (adjust based on your baseline) |
 | **Evaluation period** | Every 5 minutes, lookback 15 minutes |
 | **Severity** | Sev 2 (Warning) |
-| **Action group** | Email to `sdge-it-ops-agents@sempra.com` (or your team's distribution list) |
-| **Alert rule name** | `SDG&E IT Ops Agent — Error Rate Spike` |
+| **Action group** | Email to `it-ops-agents@contoso.com` (or your team's distribution list) |
+| **Alert rule name** | `Contoso Energy IT Ops Agent — Error Rate Spike` |
 
 **Alert 2 — Latency degradation**
 
@@ -777,7 +777,7 @@ Don't wait for users to report problems — let Azure Monitor tell you first.
 | **Evaluation period** | Every 5 minutes, lookback 15 minutes |
 | **Severity** | Sev 2 (Warning) |
 | **Action group** | Same as above |
-| **Alert rule name** | `SDG&E IT Ops Agent — P95 Latency > 10s` |
+| **Alert rule name** | `Contoso Energy IT Ops Agent — P95 Latency > 10s` |
 
 **Alert 3 — Conversation volume drop**
 
@@ -789,13 +789,13 @@ Don't wait for users to report problems — let Azure Monitor tell you first.
 | **Evaluation period** | Every 15 minutes, lookback 1 hour |
 | **Severity** | Sev 3 (Informational) |
 | **Action group** | Same as above |
-| **Alert rule name** | `SDG&E IT Ops Agent — Low Conversation Volume` |
+| **Alert rule name** | `Contoso Energy IT Ops Agent — Low Conversation Volume` |
 
 4. For each alert, select **Review + create**, then **Create**.
 
 > ⚠️ **Important — alert fatigue.** Start with conservative thresholds and adjust after a week of baseline data. Too many false-positive alerts will train your team to ignore them — which defeats the purpose. Review and tune thresholds monthly.
 
-> 💡 **Tip:** For critical production agents (e.g., the SDG&E outage-response agent during fire season), consider adding a **Sev 1** alert with an action group that pages the on-call engineer via PagerDuty, ServiceNow, or Microsoft Teams webhook.
+> 💡 **Tip:** For critical production agents (e.g., the Contoso Energy outage-response agent during fire season), consider adding a **Sev 1** alert with an action group that pages the on-call engineer via PagerDuty, ServiceNow, or Microsoft Teams webhook.
 
 > 📎 **Microsoft guidance:** See [Create or edit an alert rule](https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-create-new-alert-rule) for the full configuration reference.
 
@@ -822,7 +822,7 @@ Now that you have both in-product analytics (Use Case #1) and Application Insigh
    - **Scope** — test-canvas conversations may or may not appear depending on the channel
 4. Document the delta and its cause for your team so everyone interprets the numbers consistently.
 
-> 💡 **Tip:** For Sempra's quarterly business reviews, use **in-product analytics** for the executive summary (clean charts, built-in) and **Application Insights workbooks** for the appendix (deep dives, custom analysis, correlation with Azure service health).
+> 💡 **Tip:** For Contoso's quarterly business reviews, use **in-product analytics** for the executive summary (clean charts, built-in) and **Application Insights workbooks** for the appendix (deep dives, custom analysis, correlation with Azure service health).
 
 ### ✅ You've completed Use Case #4
 
@@ -830,7 +830,7 @@ Now that you have both in-product analytics (Use Case #1) and Application Insigh
 
 - 🔍 **Application Insights gives you query power.** In-product analytics answers "what happened" — App Insights lets you ask "why" with full KQL flexibility, cross-table joins, and custom aggregations.
 - 📊 **Workbooks make monitoring sustainable.** A one-time KQL query is useful for investigation; a workbook makes that investigation repeatable for your entire team.
-- 🔔 **Alerts catch problems before users do.** Proactive alerting on errors, latency, and volume drops means your Sempra agents stay reliable even during storm season and off-hours outages.
+- 🔔 **Alerts catch problems before users do.** Proactive alerting on errors, latency, and volume drops means your Contoso agents stay reliable even during storm season and off-hours outages.
 - 🔗 **Use the right tool for the right question.** In-product analytics for daily operational checks. Application Insights for deep diagnostics, long-term trends, and cross-service correlation. Evaluations for quality testing.
 
 **Troubleshooting**
@@ -840,12 +840,12 @@ Now that you have both in-product analytics (Use Case #1) and Application Insigh
 - **Sampling** can cause discrepancies between in-product analytics and App Insights at high volume. Check your Application Insights resource's [sampling configuration](https://learn.microsoft.com/azure/azure-monitor/app/sampling-classic-api) if numbers diverge significantly.
 - KQL event names and custom dimensions may change as Microsoft updates Copilot Studio telemetry. Use `customEvents | distinct name` and `customEvents | take 10` to discover the current schema in your environment.
 
-**Challenge — apply to a Sempra workflow**
+**Challenge — apply to a Contoso workflow**
 
-- What **three KQL queries** would you add to the SDG&E IT Ops workbook for an executive dashboard? (Hint: think about what SDG&E IT leadership cares about — ticket deflection, NERC CIP compliance question accuracy, and field-crew adoption.)
+- What **three KQL queries** would you add to the Contoso Energy IT Ops workbook for an executive dashboard? (Hint: think about what Contoso Energy IT leadership cares about — ticket deflection, NERC CIP compliance question accuracy, and field-crew adoption.)
 - How would you correlate Copilot Studio conversation data with **ServiceNow incident data** in Log Analytics to measure ticket-deflection impact?
-- What alert thresholds would you set for a production Sempra agent during **wildfire season** vs. normal operations? How would you automate the threshold adjustment?
-- If you manage agents across SDG&E, SoCalGas, and Sempra Infrastructure, how would you organize Application Insights resources — one per agent, one per business unit, or one shared workspace? What are the tradeoffs?
+- What alert thresholds would you set for a production Contoso agent during **wildfire season** vs. normal operations? How would you automate the threshold adjustment?
+- If you manage agents across Contoso Energy, Contoso Gas, and Contoso Infrastructure, how would you organize Application Insights resources — one per agent, one per business unit, or one shared workspace? What are the tradeoffs?
 
 > 📎 **Further reading:**
 > - [Configure Application Insights for Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/advanced-bot-framework-composer-capture-telemetry)
@@ -864,13 +864,13 @@ You've put together the three pillars of an agent quality practice:
 - **Evaluations** tells you **whether** your improvements actually worked — repeatable, objective, comparable across runs.
 - **Application Insights** tells you **why** things happen — deep diagnostics, custom KQL queries, long-term retention, cross-service correlation, and proactive alerting.
 
-### 🪙 Analytics & evaluation golden rules for Sempra
+### 🪙 Analytics & evaluation golden rules for Contoso
 
 1. **Review analytics weekly for new agents, bi-weekly for mature agents.** Set a calendar reminder — drift happens silently.
 2. **Prioritize improvements by volume × satisfaction-impact.** A 50% satisfaction score on a topic that's asked 1,000 times beats 90% on a topic that's asked twice.
 3. **Track unrecognized phrases, unanswered questions, and transcript patterns.** They are *direct signals* of knowledge gaps. Add them to your backlog.
-4. **Treat citations and source usage as evidence quality.** A correct-sounding answer that ignores the approved Sempra source still needs follow-up.
-5. **Build evaluation test sets covering your agent's most critical capabilities.** A healthy Sempra agent typically has multiple sets running:
+4. **Treat citations and source usage as evidence quality.** A correct-sounding answer that ignores the approved Contoso source still needs follow-up.
+5. **Build evaluation test sets covering your agent's most critical capabilities.** A healthy Contoso agent typically has multiple sets running:
    - **Always Pass** — verifies core functionality (the questions field crews ask every day)
    - **Adversarial / Always Fail** — validates safety and policy guardrails (refusals, PII protection, NERC CIP boundaries)
    - **Non-Critical / General Quality** — tracks general quality drift over time
@@ -883,8 +883,8 @@ You've put together the three pillars of an agent quality practice:
 11. **Connect Application Insights** to your production agents. In-product analytics answers *"how is the agent doing?"* — App Insights answers *"why is it doing that?"* with full query power, long-term retention, and cross-service correlation.
 12. **Set up alerts and dashboards in Azure Monitor** so you learn about problems before your users do. A latency spike at 2 AM during storm season is something you want to catch automatically.
 
-> 🔁 **The closed loop:** Analytics finds the problem → evaluations verify the fix → App Insights gives you the deep diagnostics → analytics confirms the impact in real conversations. That's how an agent gets better month after month at Sempra — not by hoping, but by measuring.
+> 🔁 **The closed loop:** Analytics finds the problem → evaluations verify the fix → App Insights gives you the deep diagnostics → analytics confirms the impact in real conversations. That's how an agent gets better month after month at Contoso — not by hoping, but by measuring.
 
 ---
 
-*Adapted for the Sempra family of companies from the upstream [Microsoft Copilot Agents Labs — Monitor Performance and Evaluate Agent Quality](https://microsoft.github.io/mcs-labs/labs/core-concepts-analytics-evaluations/) lab. Source content © Microsoft.*
+*Adapted for the Contoso family of companies from the upstream [Microsoft Copilot Agents Labs — Monitor Performance and Evaluate Agent Quality](https://microsoft.github.io/mcs-labs/labs/core-concepts-analytics-evaluations/) lab. Source content © Microsoft.*

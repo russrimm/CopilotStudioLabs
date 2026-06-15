@@ -111,7 +111,7 @@ Source: `.squad/decisions/inbox/lambert-lab2-analytics-evals.md`
 
 ### Lab 2 Analytics/Evaluations Alignment
 
-- Adapted the upstream Microsoft Copilot Agents Labs analytics/evaluations practices into the Sempra Lab 2 voice rather than copying generic content.
+- Adapted the upstream Microsoft Copilot Agents Labs analytics/evaluations practices into the Contoso Lab 2 voice rather than copying generic content.
 - Preserved the existing `assets/EvaluationAlwaysFail.csv` reference and did not change the CSV; the current upstream lab still uses only `question` and `expectedResponse` for import, with methods configured after import.
 - Added missing operational practices around session/transcript review, citation/source evidence, severity-based triage, run comparison, export/sharing, and governance handling for transcripts/results.
 

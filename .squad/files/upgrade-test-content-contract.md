@@ -2,21 +2,21 @@
 
 Requested by: Russ Rimmerman  
 Date: 2026-06-13  
-Scope: `labs\01-sdge-energy-ops-agent` through `labs\05-copilot-studio-vscode-agent-management`, root `README.md`, and `template.config.json` as content-state context.
+Scope: `labs\01-energy-ops-agent` through `labs\05-copilot-studio-vscode-agent-management`, root `README.md`, and `template.config.json` as content-state context.
 
 ## Labs surveyed
 
 I sampled the lab tree just enough to characterize the content surface:
 
 - Overall inventory under `labs\`: 5 lab folders, 6 Markdown files, 1 CSV sample data file, 19 PNG assets, and nested asset directories.
-- `labs\01-sdge-energy-ops-agent\`
-  - `index.md`: long step-by-step Copilot Studio lab with scenario prose, agent prompts, knowledge-source instructions, SharePoint/public-link guidance, Markdown links, and SDG&E/Sempra/subsidiary names embedded throughout.
+- `labs\01-energy-ops-agent\`
+  - `index.md`: long step-by-step Copilot Studio lab with scenario prose, agent prompts, knowledge-source instructions, SharePoint/public-link guidance, Markdown links, and Contoso Energy/Contoso/subsidiary names embedded throughout.
   - `assets\Contoso_Field_Operations_Remote_Access_Guide.md`: sample internal policy/runbook content with VPN steps, device requirements, portal URLs, regional gateway names, and org-specific references.
   - `assets\images\issues-banner.png`: screenshot/image asset.
-- `labs\02-sempra-agent-analytics-evaluations\`
+- `labs\02-agent-analytics-evaluations\`
   - `index.md`: analytics/evaluation lab tied to Lab 01, with cross-lab links, preview warnings, evaluation methods, and step-by-step UI prose.
-  - `assets\EvaluationAlwaysFail.csv`: sample evaluation/test-set CSV with harmful/request-denial expected responses containing SDG&E/Sempra references.
-- `labs\03-sempra-account-orchestration-agent\`
+  - `assets\EvaluationAlwaysFail.csv`: sample evaluation/test-set CSV with harmful/request-denial expected responses containing Contoso Energy/Contoso references.
+- `labs\03-account-orchestration-agent\`
   - `index.md`: orchestration lab adapted from Microsoft sample content, with Dataverse/sample-data setup, tool/child-agent/Skill descriptions, internal-vs-customer policy framing, and many step-by-step UI instructions.
 - `labs\04-energy-census-advanced-agent\`
   - `index.md`: largest advanced lab with API URLs, Census variable names, architecture text diagrams, topics, variables, HTTP tools, connected agents, flows, model selection, evaluations, optional MCP/VS Code sections.
@@ -29,7 +29,7 @@ I sampled the lab tree just enough to characterize the content surface:
 Typical fork owners will edit or add content in these categories:
 
 1. Prose and scenario framing
-   - Change SDG&E/Sempra/energy language to their organization, industry, customer personas, internal systems, escalation policy, and compliance regime.
+   - Change Contoso Energy/Contoso/energy language to their organization, industry, customer personas, internal systems, escalation policy, and compliance regime.
    - Rewrite opening scenarios, objectives, examples, callouts, and executive/value statements.
 
 2. Step-by-step operational instructions
@@ -66,11 +66,11 @@ Typical fork owners will edit or add content in these categories:
 Upgrade tooling and tests should treat these as preserved user state:
 
 1. Any file path under `labs\` manually edited since `setup.js` ran.
-   - Examples: edited `labs\01-sdge-energy-ops-agent\index.md`, translated `labs\02-sempra-agent-analytics-evaluations\index.md`, customized `labs\01-sdge-energy-ops-agent\assets\Contoso_Field_Operations_Remote_Access_Guide.md`, changed `labs\02-sempra-agent-analytics-evaluations\assets\EvaluationAlwaysFail.csv`.
+   - Examples: edited `labs\01-energy-ops-agent\index.md`, translated `labs\02-agent-analytics-evaluations\index.md`, customized `labs\01-energy-ops-agent\assets\Contoso_Field_Operations_Remote_Access_Guide.md`, changed `labs\02-agent-analytics-evaluations\assets\EvaluationAlwaysFail.csv`.
    - Content should not be overwritten by upstream prose/screenshot refresh unless the merge strategy can prove the user did not change the same file or hunk.
 
 2. Any user-added files inside template-managed directories.
-   - Examples: `labs\01-sdge-energy-ops-agent\custom-notes.md`, `labs\01-sdge-energy-ops-agent\screenshots\my-screenshot.png`, `labs\04-energy-census-advanced-agent\assets\customer-territory-map.png`, `labs\02-sempra-agent-analytics-evaluations\assets\PartnerEvalSet.csv`.
+   - Examples: `labs\01-energy-ops-agent\custom-notes.md`, `labs\01-energy-ops-agent\screenshots\my-screenshot.png`, `labs\04-energy-census-advanced-agent\assets\customer-territory-map.png`, `labs\02-agent-analytics-evaluations\assets\PartnerEvalSet.csv`.
    - `setup.js` currently walks all Markdown files under `labs\`, so user-added `.md` files are at risk from broad replacement.
 
 3. Any user-added lab folder.
@@ -117,27 +117,27 @@ These changes should flow to forks when safe:
    - `setup.js` uses simple `content.split(searchValue).join(replaceValue)` across every `.md` file under `labs\` plus `README.md`.
    - There is no boundary awareness for code fences, URLs, image alt text, CSV content, file names, or user-added Markdown files.
 
-2. `SDG&E` appears in many semantic roles.
-   - It appears in prose, prompt examples, expected safety responses, links/paths, screenshot alt text, and lab directory names like `01-sdge-energy-ops-agent`.
+2. `Contoso Energy` appears in many semantic roles.
+   - It appears in prose, prompt examples, expected safety responses, links/paths, screenshot alt text, and lab directory names like `01-energy-ops-agent`.
    - Replacing visible text without renaming directories creates mixed branding: content may say Contoso while paths still say `sdge`.
    - Renaming directories without updating links/config creates broken navigation.
 
 3. Lab directory names contain org slugs.
    - `template.config.json` `labs.include` lists exact folder names.
-   - If a user renames `labs\01-sdge-energy-ops-agent\` to `labs\01-contoso-energy-ops-agent\`, a setup re-run sees it as a lab directory. Unless included exactly, it can be deleted as an excluded lab. The original upstream name may also be missing, so cross-lab links can break.
+   - If a user renames `labs\01-energy-ops-agent\` to `labs\01-contoso-energy-ops-agent\`, a setup re-run sees it as a lab directory. Unless included exactly, it can be deleted as an excluded lab. The original upstream name may also be missing, so cross-lab links can break.
    - Current `setup.js` does not rename lab folders; it only removes excluded folders and text-replaces Markdown.
 
 4. Multi-word names risk partial-match corruption.
-   - Names such as `Sempra`, `Pacific Coast Electric`, `Western Gas & Energy`, `LoneStar Grid`, and `San Diego Gas & Electric` can occur in examples, legal/company descriptions, URLs, or file content where replacement might not be intended.
+   - Names such as `Contoso`, `Pacific Coast Electric`, `Western Gas & Energy`, `LoneStar Grid`, and `Contoso Energy` can occur in examples, legal/company descriptions, URLs, or file content where replacement might not be intended.
    - Short replacements can produce awkward grammar or broken possessives. Long replacements can break Markdown table width/readability but not syntax.
 
 5. Markdown link integrity is fragile.
-   - Cross-lab links use relative paths such as `../01-sdge-energy-ops-agent/index.md` and root README uses `./labs/01-sdge-energy-ops-agent/index.md`.
+   - Cross-lab links use relative paths such as `../01-energy-ops-agent/index.md` and root README uses `./labs/01-energy-ops-agent/index.md`.
    - If folder names, file names, or headings change, links and anchors can break.
    - Tests should scan Markdown links after setup and after upgrade.
 
 6. Non-Markdown content is not consistently customized.
-   - Current replacement touches `.md` and root `README.md`, not `.csv` or images. The Lab 02 CSV still contains SDG&E/Sempra strings and may remain stale after setup.
+   - Current replacement touches `.md` and root `README.md`, not `.csv` or images. The Lab 02 CSV still contains Contoso Energy/Contoso strings and may remain stale after setup.
    - Screenshots can contain embedded old org/UI text that string replacement cannot update.
 
 7. Exclusion is destructive.
@@ -146,15 +146,15 @@ These changes should flow to forks when safe:
 ## 5. Content survival test scenarios for Kane
 
 1. Partner edits Lab 01 VPN steps in place
-   - Setup: After initial setup, edit `labs\01-sdge-energy-ops-agent\index.md` Step 3 to add the partner's VPN tool, portal URL, and helpdesk escalation.
+   - Setup: After initial setup, edit `labs\01-energy-ops-agent\index.md` Step 3 to add the partner's VPN tool, portal URL, and helpdesk escalation.
    - Expected survival: Re-running setup or pulling upstream typo fixes must not overwrite the edited step. If upstream also changed that step, report a conflict.
 
 2. Partner adds screenshots under a new screenshots folder
-   - Setup: Add `labs\01-sdge-energy-ops-agent\screenshots\my-vpn-login.png` and link it from Lab 01 Markdown.
+   - Setup: Add `labs\01-energy-ops-agent\screenshots\my-vpn-login.png` and link it from Lab 01 Markdown.
    - Expected survival: File and link remain after setup re-run and template pull. No broad delete of unknown asset folders.
 
 3. Partner translates Lab 02 in place
-   - Setup: Translate `labs\02-sempra-agent-analytics-evaluations\index.md` to Spanish while preserving relative links.
+   - Setup: Translate `labs\02-agent-analytics-evaluations\index.md` to Spanish while preserving relative links.
    - Expected survival: Setup re-run must not re-English the file or inject new org replacements into translated text. Upstream changes to Lab 02 should be conflict/suggestion, not overwrite.
 
 4. Partner adds proprietary Lab 06
@@ -162,15 +162,15 @@ These changes should flow to forks when safe:
    - Expected survival: Setup re-run must not delete the folder even if absent from original `labs.include`. Upgrade should not treat it as an excluded template lab.
 
 5. Partner customizes Lab 02 evaluation CSV
-   - Setup: Replace rows in `labs\02-sempra-agent-analytics-evaluations\assets\EvaluationAlwaysFail.csv` with partner policy examples and expected refusal messages.
+   - Setup: Replace rows in `labs\02-agent-analytics-evaluations\assets\EvaluationAlwaysFail.csv` with partner policy examples and expected refusal messages.
    - Expected survival: Upstream CSV changes should not overwrite partner test data. If setup supports replacements in CSV later, it must respect user-modified file hashes.
 
 6. Partner changes root README after the generated lab table
    - Setup: Add workshop dates, Teams channel, facilitator roster, and internal prerequisite links below the lab table.
    - Expected survival: README lab-table regeneration should preserve all custom sections outside the generated block.
 
-7. Partner renames Lab 01 folder to remove SDG&E slug
-   - Setup: Rename `labs\01-sdge-energy-ops-agent\` to `labs\01-contoso-energy-ops-agent\`, update README and cross-lab links, and update `template.config.json` include list.
+7. Partner renames Lab 01 folder to remove Contoso Energy slug
+   - Setup: Rename `labs\01-energy-ops-agent\` to `labs\01-contoso-energy-ops-agent\`, update README and cross-lab links, and update `template.config.json` include list.
    - Expected survival: Setup re-run must not delete the renamed folder or recreate conflicting paths. If folder renames are unsupported, tooling should detect and warn before touching `labs\`.
 
 8. Partner replaces Lab 04 screenshots but keeps same filenames

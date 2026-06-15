@@ -16,6 +16,6 @@
 
 ## 2026-06-14T02:36:00-05:00
 
-- Resumed and completed the earlier interrupted Lab 2 analytics/evaluations task by incorporating Microsoft Learn "Monitor Performance and Evaluate Agent Quality" practices into `labs/02-sempra-agent-analytics-evaluations/index.md`.
+- Resumed and completed the earlier interrupted Lab 2 analytics/evaluations task by incorporating Microsoft Learn "Monitor Performance and Evaluate Agent Quality" practices into `labs/02-agent-analytics-evaluations/index.md`.
 - Added guidance for transcript/session review, citation-gap remediation, score/citation interpretation, severity triage, governance/export handling, and citation/transcript golden rules.
 - Verification reported: `git diff --check` passed and Markdown fences are balanced; `assets/EvaluationAlwaysFail.csv` remained unchanged because upstream still uses `question`/`expectedResponse`.

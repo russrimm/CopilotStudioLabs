@@ -15,7 +15,7 @@
 ## Overview
 
 Modern utility scenarios rarely live inside one agent boundary. An account-support agent might understand customer history, while a Fabric Data Agent understands meter telemetry, rate analysis, or load forecasting. Rather than force one agent to own every tool and dataset, you can connect specialists and let an orchestrator route work intelligently.
-In this lab, you will use the **Agent-to-Agent (A2A) protocol** to connect **Copilot Studio** with external agents such as **Microsoft Fabric Data Agents**. The lab continues the Sempra / SDG&E energy context by building a parent agent that decides whether to answer directly, hand work to an internal Copilot Studio specialist, or delegate to an external analytics agent over A2A.
+In this lab, you will use the **Agent-to-Agent (A2A) protocol** to connect **Copilot Studio** with external agents such as **Microsoft Fabric Data Agents**. The lab continues the Contoso / Contoso Energy energy context by building a parent agent that decides whether to answer directly, hand work to an internal Copilot Studio specialist, or delegate to an external analytics agent over A2A.
 You will also compare A2A with the connected-agent pattern from Lab 03 so you know when to keep everything inside Copilot Studio and when to open the architecture to cross-platform orchestration.
 
 ---
@@ -80,7 +80,7 @@ User
 ## Prerequisites
 
 - An environment with access to **Microsoft Copilot Studio** and the ability to connect other agents.
-- A working Copilot Studio specialist agent from a previous lab, such as the Sempra account or operations pattern from **Lab 03**.
+- A working Copilot Studio specialist agent from a previous lab, such as the Contoso account or operations pattern from **Lab 03**.
 - Access to **Microsoft Fabric** and a **Fabric Data Agent** or equivalent A2A-capable analytics endpoint.
 - A small set of sample utility analytics questions, such as feeder peak-load analysis, outage trends, or billing-segment comparisons.
 
@@ -272,7 +272,7 @@ Use this external analytics agent for utility planning and operational analysis 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
 ```text
-Which feeders in the SDG&E South Bay district had the highest year-over-year evening peak growth?
+Which feeders in the Contoso Energy South Bay district had the highest year-over-year evening peak growth?
 Compare outage counts by district for the last 12 months and highlight the top drivers.
 ```
 
@@ -359,7 +359,7 @@ The parent agent should feel like one front door for grid planners, customer ope
 #### Sample prompt for this step
 
 ```text
-You are the Grid Insights Orchestrator for SDG&E and Sempra planning teams.
+You are the Grid Insights Orchestrator for Contoso Energy and Contoso planning teams.
 Use the internal Copilot Studio specialist for customer operations, process guidance, and internal support questions.
 Use the external Fabric analytics agent for questions that require trend analysis, feeder or district comparisons, semantic-model reasoning, or numerical summaries over time.
 If a request mixes operations and analytics, ask one clarifying question or handle the operational part first and then the analytics part if both are needed.
@@ -467,7 +467,7 @@ A beautiful architecture is not enough. You need proof that analytical questions
 1. Create a simple table with three columns: prompt, expected specialist, and actual specialist.
 2. Add at least three analytics-heavy prompts, three operational prompts, and two intentionally mixed prompts.
 3. Include a fallback or ambiguous prompt that should trigger a clarifying question.
-4. Use SDG&E or Contoso Energy scenarios so the prompts feel realistic to planners and operations teams.
+4. Use Contoso Energy or Contoso Energy scenarios so the prompts feel realistic to planners and operations teams.
 5. Save the matrix where other testers can reuse it.
 6. Reset the test chat before starting so prior conversation state does not bias routing.
 
@@ -726,7 +726,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 
 - Should this question go to an internal operational specialist or an external analytics specialist: Which feeders in the South Bay district showed the highest evening peak growth this quarter?
 - Should this question stay inside Copilot Studio: How do I explain paperless billing enrollment rules to a customer operations rep?
-- Which feeders in the SDG&E South Bay district had the highest year-over-year evening peak growth?
+- Which feeders in the Contoso Energy South Bay district had the highest year-over-year evening peak growth?
 - Compare outage counts by district for the last 12 months and highlight the top drivers.
 - Summarize the top outage trend in the North County district during the last 90 days.
 - How should a customer operations rep explain delayed paperless billing activation?

@@ -16,7 +16,7 @@
 
 A utility operations answer is only as good as the context behind it. Static documents help, but they rarely capture the latest email thread about a substation outage, the current meeting cadence for a rate-case workstream, or the newest operating procedure draft living in SharePoint.
 In this lab, you will connect an agent to **Work IQ** so it can reason over **Microsoft 365** signals such as emails, meetings, chats, and files. You will then enrich the solution with **SharePoint** knowledge sources and **Bing Custom Search** for curated public energy content.
-The result is an agent that can brief SDG&E or Contoso Energy teams with far more situational awareness than a document-only assistant.
+The result is an agent that can brief Contoso Energy or Contoso Energy teams with far more situational awareness than a document-only assistant.
 
 ---
 
@@ -134,7 +134,7 @@ A utility operations manager wants a morning briefing agent that understands cur
 #### Sample prompt for this step
 
 ```text
-You are an operations briefing assistant for SDG&E leaders. Use available Microsoft 365 and enterprise knowledge to summarize current work, recent decisions, key meetings, action items, and relevant files. Keep answers concise, traceable, and useful for outage operations, field readiness, and planning reviews.
+You are an operations briefing assistant for Contoso Energy leaders. Use available Microsoft 365 and enterprise knowledge to summarize current work, recent decisions, key meetings, action items, and relevant files. Keep answers concise, traceable, and useful for outage operations, field readiness, and planning reviews.
 ```
 
 ### Step 3 — Enable Work IQ MCP tools
@@ -220,7 +220,7 @@ You now have the foundation to move from **a static knowledge agent** to **an ag
 
 ### Scenario
 
-A Sempra program manager wants to know what happened this week across a wildfire-readiness workstream without digging through Outlook, Teams, and SharePoint manually.
+A Contoso program manager wants to know what happened this week across a wildfire-readiness workstream without digging through Outlook, Teams, and SharePoint manually.
 
 ### Step 1 — Define the briefing shape
 

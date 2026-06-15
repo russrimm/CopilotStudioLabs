@@ -3,9 +3,14 @@
  */
 
 import { readFileSync, readdirSync, existsSync } from "fs";
-import { join } from "path";
+import { dirname, extname, join, posix, relative } from "path";
 import archiver from "archiver";
 import { getLabPath } from "./labs.js";
+import {
+  getBrandingLogoAbsolutePath,
+  loadBranding,
+  prependBrandingBanner,
+} from "./branding.js";
 
 /**
  * Find all .md files recursively in a directory.
@@ -35,6 +40,11 @@ function findMdFiles(dir) {
 export function exportLabs(labIds, replacements = {}, outputStream) {
   return new Promise((resolve, reject) => {
     const archive = archiver("zip", { zlib: { level: 9 } });
+    const branding = loadBranding();
+    const logoSourcePath = getBrandingLogoAbsolutePath(branding.logo);
+    const logoArchivePath = logoSourcePath
+      ? posix.join("_branding", `logo${extname(logoSourcePath).toLowerCase()}`)
+      : null;
 
     archive.on("error", reject);
     archive.on("end", () => resolve({ bytes: archive.pointer(), labCount: labIds.length }));
@@ -43,27 +53,32 @@ export function exportLabs(labIds, replacements = {}, outputStream) {
 
     const replacementEntries = Object.entries(replacements).filter(([k, v]) => k && v && k !== v);
 
+    if (logoSourcePath && existsSync(logoSourcePath) && logoArchivePath) {
+      archive.file(logoSourcePath, { name: logoArchivePath });
+    }
+
     for (const labId of labIds) {
       const labDir = getLabPath(labId);
       if (!existsSync(labDir)) continue;
 
-      if (replacementEntries.length > 0) {
-        // Add non-.md files as-is
-        archive.directory(labDir, labId, (entry) => {
-          return entry.name.endsWith(".md") ? false : entry;
-        });
+      archive.directory(labDir, labId, (entry) => {
+        return entry.name.endsWith(".md") ? false : entry;
+      });
 
-        // Process .md files with text replacements
-        for (const mdFile of findMdFiles(labDir)) {
-          let content = readFileSync(mdFile, "utf-8");
-          for (const [search, replace] of replacementEntries) {
-            content = content.split(search).join(replace);
-          }
-          const relativePath = mdFile.replace(labDir, "").replace(/^[/\\]/, "");
-          archive.append(content, { name: join(labId, relativePath) });
+      for (const mdFile of findMdFiles(labDir)) {
+        let content = readFileSync(mdFile, "utf-8");
+        for (const [search, replace] of replacementEntries) {
+          content = content.split(search).join(replace);
         }
-      } else {
-        archive.directory(labDir, labId);
+
+        const relativePath = relative(labDir, mdFile).replace(/\\/g, "/");
+        const archiveName = posix.join(labId, relativePath);
+        const logoRelativePath = logoArchivePath
+          ? relative(dirname(archiveName), logoArchivePath).replace(/\\/g, "/")
+          : null;
+
+        content = prependBrandingBanner(content, branding, logoRelativePath);
+        archive.append(content, { name: archiveName });
       }
     }
 
@@ -71,7 +86,13 @@ export function exportLabs(labIds, replacements = {}, outputStream) {
     const manifest = {
       exportedAt: new Date().toISOString(),
       labs: labIds,
-      customized: replacementEntries.length > 0,
+      customized: replacementEntries.length > 0 || !!branding.logo || branding.companyName !== "Copilot Studio Labs" || branding.tagline !== "Provisioning Portal",
+      branding: {
+        companyName: branding.companyName,
+        logo: logoArchivePath,
+        primaryColor: branding.primaryColor,
+        tagline: branding.tagline,
+      },
     };
     archive.append(JSON.stringify(manifest, null, 2), { name: "export-manifest.json" });
 

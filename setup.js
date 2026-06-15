@@ -23,9 +23,9 @@ const DEFAULT_CONFIG = join(ROOT, "template.config.json");
 
 // ── Defaults (the "original" values baked into the template) ────────────────
 const DEFAULTS = {
-  orgName: "SDG&E",
-  orgFullName: "San Diego Gas & Electric",
-  parent: "Sempra",
+  orgName: "Contoso Energy",
+  orgFullName: "Contoso Energy",
+  parent: "Contoso",
   industry: "Energy / Utilities",
   tagline: "Delivering energy with purpose — powered by AI",
   agentName: "IT Operations Agent",

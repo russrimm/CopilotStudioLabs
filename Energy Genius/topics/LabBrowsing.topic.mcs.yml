@@ -40,9 +40,9 @@ beginDialog:
 
         | Lab | Title | Level | Time |
         |-----|-------|-------|------|
-        | 01 | Build a Custom IT Operations Agent for SDG&E | Intermediate | 45 min |
+        | 01 | Build a Custom IT Operations Agent for Contoso Energy | Intermediate | 45 min |
         | 02 | Monitor Performance and Evaluate Agent Quality | Intermediate | 45 min |
-        | 03 | Orchestration with Copilot Studio for Sempra | Intermediate | 45 min |
+        | 03 | Orchestration with Copilot Studio for Contoso | Intermediate | 45 min |
         | 04 | Build an Advanced Energy Intelligence Agent with Census Bureau Data | Advanced | 60 min |
         | 05 | Clone, Modify, and Republish Agents with VS Code Extension | Intermediate | 30 min |
         | 06 | Build a Computer-Using Agent for Desktop Automation | Advanced | 2 hrs |

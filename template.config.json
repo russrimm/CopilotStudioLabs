@@ -2,9 +2,9 @@
   "$schema": "./template.config.schema.json",
   "_comment": "Customize this file, then run 'npm run setup' to generate your lab instance.",
   "organization": {
-    "name": "SDG&E",
-    "fullName": "San Diego Gas & Electric",
-    "parent": "Sempra",
+    "name": "Contoso Energy",
+    "fullName": "Contoso Energy",
+    "parent": "Contoso",
     "industry": "Energy / Utilities",
     "description": "A large multi-subsidiary energy company delivering energy with purpose.",
     "subsidiaries": [
@@ -44,16 +44,17 @@
   },
   "labs": {
     "include": [
-      "01-sdge-energy-ops-agent",
-      "02-sempra-agent-analytics-evaluations",
-      "03-sempra-account-orchestration-agent",
+      "01-energy-ops-agent",
+      "02-agent-analytics-evaluations",
+      "03-account-orchestration-agent",
       "04-energy-census-advanced-agent",
       "05-copilot-studio-vscode-agent-management",
       "06-computer-use-agents",
       "07-agent-to-agent-protocol",
       "08-work-iq-m365-intelligence",
       "09-prompt-builder-agent-flows",
-      "10-realtime-voice-agents"
+      "10-realtime-voice-agents",
+      "11-power-apps-code-apps"
     ]
   },
   "deployment": {

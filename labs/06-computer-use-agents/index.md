@@ -15,7 +15,7 @@
 ## Overview
 
 Utilities still depend on a long tail of systems that were never designed for modern API-first automation. Billing portals, outage consoles, GIS viewers, field scheduling apps, and regulatory websites often require a person to sign in, click through menus, and copy information from one screen to another.
-In this lab, you will build a **Computer-Using Agent (CUA)** in **Microsoft Copilot Studio** that automates those screen-based tasks using **vision, reasoning, and a virtual mouse and keyboard**. The scenario uses SDG&E and Sempra-style operations work such as checking a utility billing portal, capturing account details, and escalating anomalies to operations analysts.
+In this lab, you will build a **Computer-Using Agent (CUA)** in **Microsoft Copilot Studio** that automates those screen-based tasks using **vision, reasoning, and a virtual mouse and keyboard**. The scenario uses Contoso Energy and Contoso-style operations work such as checking a utility billing portal, capturing account details, and escalating anomalies to operations analysts.
 You will also go beyond a simple demo. You will provision execution capacity with **Cloud PC pools**, package repeatable UI automations as **standalone computer-use tools**, and put governance guardrails around the entire solution so it is secure enough for regulated enterprise operations.
 
 ---
@@ -114,7 +114,7 @@ User or scheduled trigger
 
 ### Scenario
 
-An SDG&E billing analyst receives frequent requests to confirm whether a customer account is enrolled in paperless billing, autopay, and peak-pricing programs. The billing portal has no easy API for the analyst team, so they want an agent that can open the portal, search for the account, and report the answer.
+An Contoso Energy billing analyst receives frequent requests to confirm whether a customer account is enrolled in paperless billing, autopay, and peak-pricing programs. The billing portal has no easy API for the analyst team, so they want an agent that can open the portal, search for the account, and report the answer.
 Your goal is to build the first version of that automation directly inside an agent, using a computer use tool bound to the agent.
 
 ### Architecture snapshot
@@ -145,7 +145,7 @@ Start with a standard Copilot Studio agent and then attach computer use as a too
 #### Sample prompt for this step
 
 ```text
-You are a billing operations assistant for SDG&E analysts. Help users verify account status in the utility billing portal. Ask for the account number if it is missing. Use the computer use tool only for read-only lookup tasks such as opening the billing portal, searching for an account, and reporting current billing program enrollment. Do not submit changes, update preferences, or confirm transactions unless a separate approved tool exists for that task.
+You are a billing operations assistant for Contoso Energy analysts. Help users verify account status in the utility billing portal. Ask for the account number if it is missing. Use the computer use tool only for read-only lookup tasks such as opening the billing portal, searching for an account, and reporting current billing program enrollment. Do not submit changes, update preferences, or confirm transactions unless a separate approved tool exists for that task.
 ```
 
 ### Step 2 — Add the computer use tool
@@ -864,7 +864,7 @@ You now have the foundation to move from **a built and governed automation** to 
 
 Use these prompts to guide discussion during a live workshop, customer briefing, or internal enablement session.
 
-- Where in our current SDG&E or Sempra workflow are analysts retyping or rechecking information in a browser or desktop app?
+- Where in our current Contoso Energy or Contoso workflow are analysts retyping or rechecking information in a browser or desktop app?
 - Which of those steps are safe for read-only automation today, and which require human supervision?
 - If the portal owner gave us one API next quarter, which screen-automation step would we replace first?
 - What evidence would our audit team need to be comfortable with session replay and screenshot retention?
