@@ -12,6 +12,23 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Create Agent"] --> B["SharePoint Knowledge"]
+  A --> C["NERC CIP Site"]
+  A --> D["Microsoft Support"]
+  A --> E["Uploaded Document"]
+  B --> F["Configure Instructions"]
+  C --> F
+  D --> F
+  E --> F
+  F --> G["Test Agent"]
+```
+
+---
+
 ## Overview
 
 Contoso Energy's mission is to deliver energy with purpose — connecting approximately 40 million consumers through innovation, reliability, and a commitment to the communities we serve. Across subsidiaries including **Pacific Coast Electric**, **Western Gas & Energy**, and **LoneStar Grid**, nearly 20,000 employees manage natural gas pipelines, electrical substations, and smart grid infrastructure. The IT Operations team plays a critical role in keeping those field crews productive, connected, and safe.

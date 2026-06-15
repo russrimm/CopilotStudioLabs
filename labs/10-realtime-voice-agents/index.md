@@ -12,6 +12,20 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Create Voice Agent"] --> B["Configure Speech Settings"]
+  B --> C["Test in Voice Panel"]
+  C --> D["Add Hold and Resume"]
+  D --> E["Configure Post-call Actions"]
+  E --> F["Set Recording Consent"]
+  F --> G["Publish to Telephony"]
+```
+
+---
+
 ## Overview
 
 During storms, outages, and billing spikes, customers often need immediate voice support. Traditional IVR trees frustrate callers when the situation is urgent or emotionally charged. Real-time voice agents offer a more natural experience: callers speak normally, the agent responds in real time, and the conversation can still follow deterministic business rules when compliance matters.

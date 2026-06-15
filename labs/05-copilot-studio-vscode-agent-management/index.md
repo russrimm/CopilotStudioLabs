@@ -15,6 +15,20 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Install VS Code Extension"] --> B["Clone Agent"]
+  B --> C["Explore YAML Structure"]
+  C --> D["Modify with Agent Skills"]
+  D --> E["Push Changes"]
+  E --> F["Publish in Copilot Studio"]
+  F --> G["Verify in Test Chat"]
+```
+
+---
+
 ## ⚡ Why this lab matters
 
 When agents move from proof-of-concept to production, teams need repeatable ways to modify, review, and promote changes. The Copilot Studio extension for VS Code gives you a developer-first workflow:

@@ -12,6 +12,20 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Create Prompts in Prompt Builder"] --> B["Add Prompt Nodes"]
+  B --> C["Power Automate Agent Flow"]
+  C --> D["Add M365 Copilot Node"]
+  D --> E["Tune Moderation"]
+  E --> F["Test with Prompt Advisor"]
+  F --> G["Configure Async or Express Mode"]
+```
+
+---
+
 ## Overview
 
 Utility teams constantly translate, summarize, classify, and draft content: outage updates, regulator-facing summaries, field report extractions, meeting recaps, and customer communications. Prompt Builder and agent flows let you turn those repeatable language tasks into governed automation.

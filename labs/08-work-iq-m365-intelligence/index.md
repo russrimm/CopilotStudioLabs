@@ -12,6 +12,23 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Create Briefing Agent"] --> B["Enable Work IQ MCP"]
+  B --> C["Microsoft 365 Signals"]
+  A --> D["Add SharePoint Knowledge"]
+  D --> E["Configure Metadata Filters"]
+  A --> F["Add Bing Custom Search"]
+  C --> G["Briefing Responses"]
+  E --> G
+  F --> G
+  G --> H["Compare With and Without Work IQ"]
+```
+
+---
+
 ## Overview
 
 A utility operations answer is only as good as the context behind it. Static documents help, but they rarely capture the latest email thread about a substation outage, the current meeting cadence for a rate-case workstream, or the newest operating procedure draft living in SharePoint.

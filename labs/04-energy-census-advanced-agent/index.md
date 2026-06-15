@@ -12,6 +12,23 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Create Agent"] --> B["Build Topics"]
+  B --> C["Set Variables"]
+  C --> D["Create Census HTTP Tools"]
+  D --> E["US Census Bureau API"]
+  C --> F["Add Connected Agent"]
+  F --> G["Build Power Automate Flow"]
+  G --> H["Compare Models"]
+  H --> I["Run Evaluations"]
+  I --> J["Optional MCP or VS Code"]
+```
+
+---
+
 ## ⚡ Why this lab matters for energy and utilities
 
 Energy companies make infrastructure decisions years before the load shows up on the grid. Planners and operations teams need fast answers to questions about population growth, housing expansion, and industrial concentration inside the service territory.

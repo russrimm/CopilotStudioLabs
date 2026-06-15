@@ -19,6 +19,17 @@ let branding = getDefaultBranding();
 let savedBranding = getDefaultBranding();
 let brandingLogoFile = null;
 let brandingLogoPreviewUrl = "";
+const feedbackVotes = new Set();
+let lightboxState = {
+  active: false,
+  origin: null,
+  scale: 1,
+  translateX: 0,
+  translateY: 0,
+  dragging: false,
+  pointerX: 0,
+  pointerY: 0,
+};
 
 const ACTIVE_PROVISION_JOB_STORAGE_KEY = "copilot-studio-labs.activeProvisionJob";
 const PROVISION_POLL_INTERVAL_MS = 5000;
@@ -208,6 +219,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initBrandingControls();
   applyBranding(getDefaultBranding());
   initConfigProvenanceTooltips();
+  initImageLightbox();
+  renderDependencyGraph();
   refreshLabs();
   loadScenarios();
   loadConfig();
@@ -649,13 +662,330 @@ async function selectLab(labId) {
   empty.style.display = "none";
 
   try {
+    const pdfButton = document.getElementById("pdf-download-button");
+    const pdfStatus = document.getElementById("pdf-download-status");
+    if (pdfButton) pdfButton.style.display = "inline-flex";
+    if (pdfStatus) pdfStatus.textContent = "";
+
     const res = await fetch(`/api/labs/${labId}`);
     const data = await res.json();
     preview.innerHTML = data.html;
     buildPreviewToc(preview, toc);
+    enhanceLabImages(preview);
+
+    // Render any Mermaid diagrams injected into the preview
+    const mermaidNodes = preview.querySelectorAll(".mermaid");
+    if (mermaidNodes.length && typeof mermaid !== "undefined") {
+      try { await mermaid.run({ nodes: mermaidNodes }); } catch (_) { /* graceful fallback — raw text stays visible */ }
+    }
+
+    injectFeedbackButtons(preview);
+    injectReportIssueButton(preview);
   } catch (err) {
     preview.innerHTML = `<p style="color: var(--danger);">Failed to load: ${err.message}</p>`;
   }
+}
+
+async function renderDependencyGraph() {
+  const graph = document.getElementById("lab-dependency-graph");
+  if (!graph || typeof mermaid === "undefined" || graph.dataset.rendered === "true") return;
+
+  try {
+    await mermaid.run({ nodes: [graph] });
+    graph.dataset.rendered = "true";
+  } catch (_) {
+    // Leave Mermaid source visible if rendering fails.
+  }
+}
+
+function reportIssue(context) {
+  const labContext = selectedLabId ? `Lab: ${selectedLabId}` : "General";
+  const title = encodeURIComponent(`[Lab Feedback] Issue with ${labContext}`);
+  const body = encodeURIComponent(`## Issue Report\n\n**Lab:** ${selectedLabId || "General"}\n**Section:** ${context || "Not specified"}\n**Browser:** ${navigator.userAgent}\n\n### Description\n\n_Describe the issue you encountered..._\n\n### Steps to Reproduce\n\n1. \n2. \n3. \n\n### Expected Behavior\n\n### Actual Behavior\n`);
+  window.open(`https://github.com/russrimm/CopilotStudioLabs/issues/new?title=${title}&body=${body}`, "_blank");
+}
+
+function injectFeedbackButtons(preview) {
+  if (!preview || !selectedLabId) return;
+
+  preview.querySelectorAll(".feedback-widget").forEach((widget) => widget.remove());
+
+  const targets = [];
+  const seen = new Set();
+  preview.querySelectorAll("h2, h3, .checkpoint").forEach((element) => {
+    if (!seen.has(element)) {
+      seen.add(element);
+      targets.push(element);
+    }
+  });
+
+  preview.querySelectorAll("p, li, blockquote, td, strong").forEach((element) => {
+    const target = element.closest("p, li, blockquote, td, .checkpoint") || element;
+    if (seen.has(target)) return;
+    const text = target.textContent?.replace(/\s+/g, " ").trim() || "";
+    if (text.includes("✅ Checkpoint")) {
+      seen.add(target);
+      targets.push(target);
+    }
+  });
+
+  targets.forEach((element) => {
+    const section = (element.textContent || "").replace(/\s+/g, " ").trim();
+    if (!section) return;
+
+    const widget = document.createElement("div");
+    widget.className = "feedback-widget";
+    widget.dataset.section = section;
+    widget.innerHTML = `<button class="feedback-btn thumbs-up" title="This section was helpful">👍</button><button class="feedback-btn thumbs-down" title="This section needs improvement">👎</button><span class="feedback-status"></span>`;
+
+    const voteKey = `${selectedLabId}::${section}`;
+    const status = widget.querySelector(".feedback-status");
+    const buttons = [...widget.querySelectorAll(".feedback-btn")];
+    const priorVote = feedbackVotes.has(voteKey);
+
+    if (priorVote) {
+      status.textContent = "Thanks!";
+      buttons.forEach((button) => {
+        button.disabled = true;
+        button.classList.add("voted");
+      });
+    } else {
+      buttons.forEach((button) => {
+        button.addEventListener("click", async () => {
+          if (feedbackVotes.has(voteKey)) return;
+          const rating = button.classList.contains("thumbs-up") ? "up" : "down";
+          status.textContent = "Saving...";
+          buttons.forEach((item) => { item.disabled = true; });
+
+          try {
+            await submitFeedback({ labId: selectedLabId, section, rating, comment: "" });
+            feedbackVotes.add(voteKey);
+            button.classList.add("voted");
+            status.textContent = "Thanks!";
+          } catch (err) {
+            buttons.forEach((item) => { item.disabled = false; });
+            status.textContent = "Try again";
+            toast(`Feedback failed: ${err.message}`, "error");
+          }
+        });
+      });
+    }
+
+    element.appendChild(widget);
+  });
+}
+
+function injectReportIssueButton(preview) {
+  if (!preview) return;
+
+  preview.querySelector(".report-issue-float")?.remove();
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "btn btn-sm report-issue-float";
+  button.textContent = "🐛 Report Issue";
+  button.title = "Report an issue with this lab";
+  button.addEventListener("click", () => reportIssue(preview.querySelector("h1, h2, h3")?.textContent?.trim() || ""));
+  preview.appendChild(button);
+}
+
+async function submitFeedback(payload) {
+  const response = await fetch("/api/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(body.error || `Feedback request failed (${response.status})`);
+  }
+
+  return body;
+}
+
+async function downloadCurrentPdf() {
+  if (!selectedLabId) return;
+
+  const status = document.getElementById("pdf-download-status");
+  const button = document.getElementById("pdf-download-button");
+  if (status) status.textContent = "Preparing PDF...";
+  if (button) button.disabled = true;
+
+  try {
+    const res = await fetch(`/api/labs/${encodeURIComponent(selectedLabId)}/pdf`);
+    if (!res.ok) {
+      let message = `PDF download failed (${res.status}).`;
+      try {
+        const body = await res.json();
+        if (body.error) message = body.error;
+      } catch {
+        // Keep the status-code message when the response is not JSON.
+      }
+      throw new Error(message);
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${selectedLabId}-walkthrough.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    if (status) status.textContent = "PDF download started.";
+  } catch (err) {
+    if (status) status.textContent = err.message;
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function enhanceLabImages(container) {
+  container.querySelectorAll("img").forEach((image) => {
+    image.classList.add("lab-zoomable-image");
+    image.tabIndex = 0;
+    image.setAttribute("role", "button");
+    image.setAttribute("aria-label", `${image.alt || "Lab screenshot"}. Open larger view`);
+    image.addEventListener("click", () => openImageLightbox(image));
+    image.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openImageLightbox(image);
+      }
+    });
+  });
+}
+
+function getLightboxElements() {
+  return {
+    overlay: document.getElementById("image-lightbox"),
+    image: document.getElementById("lightbox-image"),
+    stage: document.querySelector("#image-lightbox .lightbox-stage"),
+    closeButton: document.querySelector("#image-lightbox [data-lightbox-close]"),
+  };
+}
+
+function openImageLightbox(sourceImage) {
+  const { overlay, image, stage } = getLightboxElements();
+  if (!overlay || !image || !stage) return;
+
+  lightboxState = {
+    active: true,
+    origin: sourceImage,
+    scale: 1,
+    translateX: 0,
+    translateY: 0,
+    dragging: false,
+    pointerX: 0,
+    pointerY: 0,
+  };
+
+  image.src = sourceImage.currentSrc || sourceImage.src;
+  image.alt = sourceImage.alt || "Expanded lab screenshot";
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  updateLightboxTransform();
+  stage.focus();
+}
+
+function closeImageLightbox() {
+  const { overlay, image } = getLightboxElements();
+  if (!overlay || overlay.hidden) return;
+
+  overlay.hidden = true;
+  image.removeAttribute("src");
+  document.body.style.overflow = "";
+  const origin = lightboxState.origin;
+  lightboxState.active = false;
+  if (origin && typeof origin.focus === "function") origin.focus();
+}
+
+function updateLightboxTransform() {
+  const { image } = getLightboxElements();
+  if (!image) return;
+  image.style.transform = `translate(${lightboxState.translateX}px, ${lightboxState.translateY}px) scale(${lightboxState.scale})`;
+}
+
+function zoomLightbox(delta) {
+  lightboxState.scale = Math.min(6, Math.max(0.5, lightboxState.scale + delta));
+  updateLightboxTransform();
+}
+
+function panLightbox(deltaX, deltaY) {
+  lightboxState.translateX += deltaX;
+  lightboxState.translateY += deltaY;
+  updateLightboxTransform();
+}
+
+function resetLightbox() {
+  lightboxState.scale = 1;
+  lightboxState.translateX = 0;
+  lightboxState.translateY = 0;
+  updateLightboxTransform();
+}
+
+function handleLightboxKeydown(event) {
+  if (!lightboxState.active) return;
+
+  const { overlay, closeButton, stage } = getLightboxElements();
+  if (event.key === "Tab" && overlay && closeButton && stage) {
+    event.preventDefault();
+    (document.activeElement === closeButton ? stage : closeButton).focus();
+    return;
+  }
+
+  const handledKeys = new Set(["Escape", "+", "=", "-", "_", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "0"]);
+  if (!handledKeys.has(event.key)) return;
+  event.preventDefault();
+
+  if (event.key === "Escape") closeImageLightbox();
+  if (event.key === "+" || event.key === "=") zoomLightbox(0.25);
+  if (event.key === "-" || event.key === "_") zoomLightbox(-0.25);
+  if (event.key === "0") resetLightbox();
+  if (event.key === "ArrowLeft") panLightbox(-40, 0);
+  if (event.key === "ArrowRight") panLightbox(40, 0);
+  if (event.key === "ArrowUp") panLightbox(0, -40);
+  if (event.key === "ArrowDown") panLightbox(0, 40);
+}
+
+function initImageLightbox() {
+  const { overlay, stage, closeButton } = getLightboxElements();
+  if (!overlay || !stage || !closeButton) return;
+
+  closeButton.addEventListener("click", closeImageLightbox);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) closeImageLightbox();
+  });
+  stage.addEventListener("wheel", (event) => {
+    if (!lightboxState.active) return;
+    event.preventDefault();
+    zoomLightbox(event.deltaY < 0 ? 0.2 : -0.2);
+  }, { passive: false });
+  stage.addEventListener("pointerdown", (event) => {
+    if (!lightboxState.active) return;
+    lightboxState.dragging = true;
+    lightboxState.pointerX = event.clientX;
+    lightboxState.pointerY = event.clientY;
+    stage.classList.add("dragging");
+    stage.setPointerCapture(event.pointerId);
+  });
+  stage.addEventListener("pointermove", (event) => {
+    if (!lightboxState.dragging) return;
+    panLightbox(event.clientX - lightboxState.pointerX, event.clientY - lightboxState.pointerY);
+    lightboxState.pointerX = event.clientX;
+    lightboxState.pointerY = event.clientY;
+  });
+  stage.addEventListener("pointerup", (event) => {
+    lightboxState.dragging = false;
+    stage.classList.remove("dragging");
+    if (stage.hasPointerCapture(event.pointerId)) stage.releasePointerCapture(event.pointerId);
+  });
+  stage.addEventListener("pointercancel", () => {
+    lightboxState.dragging = false;
+    stage.classList.remove("dragging");
+  });
+  document.addEventListener("keydown", handleLightboxKeydown);
 }
 
 /** Generate a collapsible multi-level table of contents from headings in the preview */

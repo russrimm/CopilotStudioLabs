@@ -1,0 +1,17 @@
+{
+  "name": "copilot-studio-lab-pdf",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Generate printable PDF walkthroughs for Copilot Studio Labs.",
+  "type": "module",
+  "scripts": {
+    "generate": "node generate.js",
+    "generate:lab": "node generate.js --lab"
+  },
+  "dependencies": {
+    "marked": "^15.0.6"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

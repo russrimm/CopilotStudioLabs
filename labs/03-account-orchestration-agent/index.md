@@ -14,6 +14,26 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Dataverse Account Data"] --> B["Publish Account Lookup Agent"]
+  B --> C["Tune Instructions"]
+  C --> D["Tune Descriptions"]
+  D --> E["Debug Activity Tracker"]
+  E --> F["Build Operations Assistant"]
+  F --> G["Create Service Resolution Skill"]
+  G --> H["MCP Servers"]
+  G --> I["SharePoint Knowledge"]
+  G --> J["MSN Weather"]
+  H --> K["Multi-step Answers"]
+  I --> K
+  J --> K
+```
+
+---
+
 ## 🏢 Why Contoso cares about orchestration
 
 Contoso serves nearly 40 million consumers across regulated utilities and infrastructure projects. Customer Operations, Field Dispatch, Account Management, and Outage Response teams all work across **dozens of source systems** — customer records in Dataverse, work-order systems, weather services for storm response, partner portals, and policy libraries that differ between **internal handling** and **what we say to a customer**.

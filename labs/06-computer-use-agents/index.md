@@ -12,6 +12,20 @@
 
 ---
 
+## 🗺️ Lab Flow
+
+```mermaid
+flowchart LR
+  A["Create CUA Agent"] --> B["Configure Computer Use Tool"]
+  B --> C["Provision Cloud PC Pool"]
+  C --> D["Build Standalone Tool"]
+  D --> E["Run Dataverse Tasks"]
+  E --> F["Set Governance Controls"]
+  F --> G["Monitor and Review"]
+```
+
+---
+
 ## Overview
 
 Utilities still depend on a long tail of systems that were never designed for modern API-first automation. Billing portals, outage consoles, GIS viewers, field scheduling apps, and regulatory websites often require a person to sign in, click through menus, and copy information from one screen to another.

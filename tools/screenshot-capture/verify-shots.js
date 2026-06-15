@@ -13,8 +13,15 @@ const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.squad', '.auth']);
 const args = process.argv.slice(2);
 const emitJson = args.includes('--json');
 const strict = args.includes('--strict');
+const checkState = args.includes('--check-state');
 const labArg = args.find((arg) => arg.startsWith('--lab='));
 const scopedLab = labArg ? labArg.slice('--lab='.length) : null;
+
+const LAB04_PLACEHOLDER_LAB = '04-energy-census-advanced-agent';
+const LAB04_PLACEHOLDER_SIZE_DENYLIST = new Set([
+  30509, 20495, 19610, 24211, 23585, 28320, 30367, 23023,
+  31037, 21878, 30825, 28113, 23863, 32905, 26663, 27784
+]);
 
 const report = {
   ok: true,
@@ -246,6 +253,17 @@ function listAssetImages(lab) {
     .sort();
 }
 
+function checkRestoredPlaceholder(lab, assetPath) {
+  if (!checkState || lab !== LAB04_PLACEHOLDER_LAB || path.extname(assetPath).toLowerCase() !== '.png') return;
+  const bytes = fs.statSync(assetPath).size;
+  if (!LAB04_PLACEHOLDER_SIZE_DENYLIST.has(bytes)) return;
+  addFinding(lab, 'critical', 'restored-placeholder', `${relativeToRoot(assetPath)} is ${bytes} bytes, matching a known Lab 04 placeholder fingerprint.`, {
+    path: relativeToRoot(assetPath),
+    bytes,
+    heuristic: 'lab04-placeholder-byte-size'
+  });
+}
+
 const shotFiles = findShotFiles().filter((file) => {
   if (!scopedLab) return true;
   try {
@@ -274,6 +292,7 @@ for (const lab of listLabs()) {
   const referencedPaths = new Set(images.map((image) => image.relativeFromLab));
   for (const assetPath of listAssetImages(lab)) {
     const relativeFromLab = toPosix(path.relative(path.join(repoRoot, 'labs', lab), assetPath));
+    checkRestoredPlaceholder(lab, assetPath);
     if (!referencedPaths.has(relativeFromLab)) {
       addFinding(lab, 'warning', 'orphan-asset', `${relativeToRoot(assetPath)} is under the lab assets folder but is not referenced by index.md.`, { path: relativeToRoot(assetPath) });
     }
@@ -322,7 +341,7 @@ process.exit(report.ok ? 0 : 1);
 function printHumanReport() {
   console.log('Screenshot consistency report');
   console.log(`Root: ${repoRoot}`);
-  console.log(`Mode: ${strict ? 'strict' : 'default'}${scopedLab ? `, lab=${scopedLab}` : ''}`);
+  console.log(`Mode: ${strict ? 'strict' : 'default'}${checkState ? ', check-state' : ''}${scopedLab ? `, lab=${scopedLab}` : ''}`);
   console.log(`Summary: ${report.summary.critical} critical, ${report.summary.warning} warnings, ${report.summary.shotFiles} shots.json file(s)`);
   const labs = Object.keys(report.labs).sort();
   if (labs.length === 0) {
