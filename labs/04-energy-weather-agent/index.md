@@ -81,7 +81,6 @@ By the end of this lab, you will be able to:
 6. ✅ Compare models for quality, latency, and cost
 7. ✅ Evaluate the agent with a 10-question regression set
 8. ⭐ *(Optional)* Expose richer weather capabilities through an MCP server backed by Open-Meteo
-9. ⭐ *(Optional)* Manage the agent through VS Code (see **Lab 05** for the Advanced VS Code extension walk-through)
 
 ---
 
@@ -158,7 +157,6 @@ By the end of this lab, you will be able to:
 - Access to **Microsoft Copilot Studio** in an environment where you can create or edit agents
 - Permission to create **Power Automate cloud flows**
 - Permission to create connections to the **MSN Weather** connector in your environment (a one-time consent on first use)
-- Optional: **VS Code** if you plan to complete the optional extension section
 - Optional for the MCP section (Use Case #8): **Node.js 18+** or **Python 3.10+** and **VS Code** on your local machine
 
 > 💡 **Tip:** The MSN Weather connector requires no API key. The optional MCP section uses **Open-Meteo**, which is also free and key-free, so you can complete the entire lab without provisioning any external credentials.
@@ -179,9 +177,8 @@ By the end of this lab, you will be able to:
 | | **Q&A / Wrap-up** | **15 min** | ✅ |
 | | **Core lab total** | **180 min (3 hours, includes 15 min intro)** | |
 | 8 | Optional: MCP Servers | 20 min | ⭐ Optional |
-| 9 | Optional: VS Code Extension preview | 5 min | ⭐ Optional |
 
-> 💡 The optional sections (Use Cases #8 and #9) are **not** counted against the 3-hour lab time. Use Case #8 (MCP) requires Node.js or Python and VS Code. Use Case #9 is a short pointer to **Lab 05 (Advanced)**, which covers the full VS Code agent-management workflow including source control and CI/CD.
+> 💡 The optional section (Use Case #8) is **not** counted against the 3-hour lab time. It requires Node.js or Python and VS Code, and stands up an MCP server backed by Open-Meteo for runtime tool discovery.
 
 ---
 
@@ -1336,44 +1333,6 @@ Reference: [Connect your agent to an existing MCP server](https://learn.microsof
 
 ---
 
-# 🧪 Optional Use Case #9 — Manage this agent in VS Code (5 min, optional)
-
-> 🎯 **Objective:** Pointer to **Lab 05 (Advanced)** for teams who want to take the agent you just built and manage it as code through the Copilot Studio extension for VS Code.
-
-### Why this is now its own (Advanced) lab
-
-Source-controlled agent management is a real workflow with its own depth — installing the extension, authenticating against the right environment, cloning the agent, modifying YAML, validating, republishing, handling diffs, and integrating with CI/CD. We pulled it out of this lab so it can be taught properly at an Advanced (Level 300) pace.
-
-If your team is interested in:
-
-- **Version control** for topics, tools, and instructions
-- **Code review** of prompt and connector changes
-- **Repeatable promotion** between dev / test / prod environments
-- **CI/CD** of agent assets
-
-…then continue to **[Lab 05 — Clone, Modify, and Republish Agents with VS Code](../05-copilot-studio-vscode-agent-management/index.md)**. It picks up exactly where this lab leaves off and uses the same **Energy Operations Weather Agent** as the source of truth.
-
-### What you'll do in Lab 05
-
-1. Install the **Microsoft Copilot Studio** extension for VS Code.
-2. Sign in and connect to your Copilot Studio environment.
-3. Clone **Energy Operations Weather Agent** (or your custom agent) locally.
-4. Modify topics, instructions, and tools using agent skill commands.
-5. Validate and republish to the cloud.
-6. Verify the change in the test chat.
-
-### ✅ You've completed Optional Use Case #9
-
-**Key takeaway**
-
-- Once an agent is more than a prototype, treating it as code unlocks the same review, promotion, and rollback discipline you expect from any other production system. Lab 05 walks you through that workflow end to end.
-
-**Reference**
-
-- [Lab 05 — Clone, Modify, and Republish Agents with VS Code (Advanced)](../05-copilot-studio-vscode-agent-management/index.md)
-
----
-
 # 🙋 Q&A and Wrap-Up (15 min)
 
 > 🎯 **Objective:** Consolidate learning, answer outstanding questions, and discuss next steps for production deployment.
@@ -1413,15 +1372,14 @@ Use this time for open Q&A. If the group needs prompts, consider these:
 | **Model Selection** | Compared quality/cost tradeoffs for grid-operations prompts |
 | **Evaluations** | 10-question regression set proving quality before and after changes |
 | **MCP Server** *(optional)* | Runtime-discoverable weather tool host backed by Open-Meteo |
-| **VS Code in Lab 05** *(advanced follow-on)* | Source-controlled agent management, modify-and-republish workflow, and CI/CD foundations |
 
-> 💡 **Next steps for your team:** Take the patterns from this lab and adapt them to your real service-territory locations, internal operations systems, and storm-response workflows. The architecture scales — add more locations, more weather signals, more MCP tools — without redesigning the agent. When you're ready to manage the agent as code, continue to **[Lab 05](../05-copilot-studio-vscode-agent-management/index.md)**.
+> 💡 **Next steps for your team:** Take the patterns from this lab and adapt them to your real service-territory locations, internal operations systems, and storm-response workflows. The architecture scales — add more locations, more weather signals, more MCP tools — without redesigning the agent.
 
 ---
 
 ## 🏁 Congratulations
 
-You've built an **Energy Operations Weather Agent** that combines topics, variables (populated by an Adaptive Card), two MSN Weather connector tools plus a custom prompt tool, a connected specialist agent, a Power Automate flow, model testing, and an evaluation suite. If you completed the optional sections, you also explored MCP-based tool discovery and saw how Lab 05 (Advanced) takes the same agent into a source-controlled VS Code workflow.
+You've built an **Energy Operations Weather Agent** that combines topics, variables (populated by an Adaptive Card), two MSN Weather connector tools plus a custom prompt tool, a connected specialist agent, a Power Automate flow, model testing, and an evaluation suite. If you completed the optional MCP section, you also explored runtime tool discovery against the Open-Meteo API.
 
 This pattern gives an energy company a strong foundation for grid-operations weather awareness, demand-spike anticipation, storm staging, and crew-safety planning.
 
