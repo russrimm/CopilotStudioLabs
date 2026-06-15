@@ -21,6 +21,8 @@ let brandingLogoFile = null;
 let brandingLogoPreviewUrl = "";
 let ppApprovalConfig = null;
 const feedbackVotes = new Set();
+let agentWebChatDirectLine = null;
+let agentWebChatInitToken = 0;
 let lightboxState = {
   active: false,
   origin: null,
@@ -230,6 +232,7 @@ document.addEventListener("DOMContentLoaded", () => {
   restoreActiveProvisionJob();
   ppLoadApprovalConfig().catch(() => {});
   ppLoadApprovalRequests().catch(() => {});
+  loadAgentChatConfig();
 });
 
 // ── Tabs ──────────────────────────────────────────────────────────────────
@@ -1405,6 +1408,206 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+// ── Agent Chat ──────────────────────────────────────────────────────────────
+
+async function loadAgentChatConfig() {
+  try {
+    const res = await fetch("/api/agent-chat/config");
+    const config = await res.json();
+    renderAgentChatPanel(config);
+  } catch {
+    renderAgentChatPanel({ tokenEndpoint: "", agentName: "Lab Assistant", configured: false });
+  }
+}
+
+function renderAgentChatPanel(config = {}) {
+  const tokenEndpoint = String(config.tokenEndpoint || "").trim();
+  const agentName = String(config.agentName || "Lab Assistant").trim() || "Lab Assistant";
+  const configured = Boolean(tokenEndpoint);
+  const configSection = document.getElementById("agent-config-section");
+  const chatSection = document.getElementById("agent-chat-section");
+  const statusBadge = document.getElementById("agent-status-badge");
+  const tokenInput = document.getElementById("agent-token-endpoint");
+  const nameInput = document.getElementById("agent-display-name");
+  const status = document.getElementById("agent-config-status");
+
+  if (tokenInput) tokenInput.value = tokenEndpoint;
+  if (nameInput) nameInput.value = agentName;
+  if (status) status.textContent = "";
+
+  if (statusBadge) {
+    statusBadge.className = `agent-status-badge ${configured ? "connected" : "disconnected"}`;
+    statusBadge.textContent = configured ? `✓ Connected: ${agentName}` : "Not configured";
+  }
+
+  if (configured) {
+    if (configSection) configSection.style.display = "none";
+    if (chatSection) chatSection.style.display = "block";
+    initAgentChat(tokenEndpoint, agentName);
+  } else {
+    agentWebChatDirectLine?.end?.();
+    agentWebChatDirectLine = null;
+    agentWebChatInitToken += 1;
+    if (configSection) {
+      configSection.style.display = "block";
+      if ("open" in configSection) configSection.open = true;
+    }
+    if (chatSection) chatSection.style.display = "none";
+    const container = document.getElementById("agent-chat-container");
+    if (container) container.innerHTML = "";
+  }
+}
+
+function initAgentChat(tokenEndpoint, agentName) {
+  const container = document.getElementById("agent-chat-container");
+  if (!container) return;
+
+  container.innerHTML = `
+    <div style="display: flex; flex-direction: column; height: 100%; background: white;">
+      <div style="padding: 12px 16px; background: #f8f8fc; border-bottom: 1px solid #e0e0e8; display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 20px;">🤖</span>
+        <div>
+          <div style="font-weight: 600; color: #1a1a2e; font-size: 15px;">${escapeHtml(agentName)}</div>
+          <div style="font-size: 11px; color: #888;">Powered by Copilot Studio</div>
+        </div>
+      </div>
+      <div id="agent-webchat-host" style="flex: 1; overflow: hidden;"></div>
+    </div>
+  `;
+
+  loadWebChatScript(tokenEndpoint);
+}
+
+async function loadWebChatScript(tokenEndpoint) {
+  const host = document.getElementById("agent-webchat-host");
+  if (!host) return;
+
+  const initToken = ++agentWebChatInitToken;
+
+  try {
+    host.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #888;"><span class="spinner" style="margin-right: 8px;"></span> Connecting to agent...</div>';
+
+    const tokenRes = await fetch(tokenEndpoint);
+    if (!tokenRes.ok) throw new Error(`Token endpoint returned ${tokenRes.status}`);
+    const tokenData = await tokenRes.json();
+    const token = tokenData.token;
+
+    if (!token) throw new Error("No token returned from endpoint");
+
+    if (!window.WebChat) {
+      await new Promise((resolve, reject) => {
+        const existing = document.querySelector("script[data-agent-webchat-sdk='true']");
+        if (existing) {
+          existing.addEventListener("load", resolve, { once: true });
+          existing.addEventListener("error", reject, { once: true });
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.src = "https://cdn.botframework.com/botframework-webchat/latest/webchat.js";
+        script.dataset.agentWebchatSdk = "true";
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("Failed to load Bot Framework Web Chat SDK"));
+        document.head.appendChild(script);
+      });
+    }
+
+    if (initToken !== agentWebChatInitToken) return;
+
+    host.innerHTML = "";
+    agentWebChatDirectLine?.end?.();
+    agentWebChatDirectLine = window.WebChat.createDirectLine({ token });
+
+    window.WebChat.renderWebChat(
+      {
+        directLine: agentWebChatDirectLine,
+        styleOptions: {
+          backgroundColor: "#ffffff",
+          bubbleBackground: "#f0f0f5",
+          bubbleFromUserBackground: "#4f8ff7",
+          bubbleFromUserTextColor: "#ffffff",
+          sendBoxBackground: "#ffffff",
+          sendBoxTextColor: "#1a1a2e",
+          rootHeight: "100%",
+          rootWidth: "100%",
+          hideUploadButton: true,
+        },
+      },
+      host,
+    );
+  } catch (err) {
+    if (initToken !== agentWebChatInitToken) return;
+    host.innerHTML = `<div style="padding: 24px; text-align: center; color: #d32f2f;">
+      <div style="font-size: 24px; margin-bottom: 8px;">⚠️</div>
+      <div style="font-weight: 600; margin-bottom: 8px;">Connection Failed</div>
+      <div style="font-size: 13px; color: #666;">${escapeHtml(err.message)}</div>
+      <div style="margin-top: 12px; font-size: 12px; color: #888;">Check that your Token Endpoint URL is correct and the agent is published.</div>
+    </div>`;
+  }
+}
+
+async function saveAgentChatConfig() {
+  const tokenEndpoint = document.getElementById("agent-token-endpoint")?.value.trim();
+  const agentName = document.getElementById("agent-display-name")?.value.trim() || "Lab Assistant";
+  const status = document.getElementById("agent-config-status");
+
+  if (!tokenEndpoint) {
+    toast("Token Endpoint URL is required", "error");
+    return;
+  }
+
+  if (status) status.innerHTML = '<span class="spinner"></span> Saving...';
+
+  try {
+    const res = await fetch("/api/agent-chat/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tokenEndpoint, agentName }),
+    });
+    const config = await res.json();
+    if (!res.ok) throw new Error(config.error || "Save failed");
+    if (status) status.textContent = "✅ Connected!";
+    toast(`Agent "${agentName}" connected successfully`, "success");
+    renderAgentChatPanel(config);
+  } catch (err) {
+    if (status) status.textContent = `❌ ${err.message}`;
+    toast(`Agent connection failed: ${err.message}`, "error");
+  }
+}
+
+async function disconnectAgentChat() {
+  if (!confirm("Disconnect the agent? The chat history will be lost.")) return;
+
+  try {
+    const res = await fetch("/api/agent-chat/config", { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Disconnect failed");
+    toast("Agent disconnected", "success");
+    loadAgentChatConfig();
+  } catch (err) {
+    toast(`Failed to disconnect: ${err.message}`, "error");
+  }
+}
+
+function sendStarterPrompt(text) {
+  const sendBox = document.querySelector("#agent-webchat-host textarea, #agent-webchat-host input[type='text']");
+  if (!sendBox) return;
+
+  const prototype = sendBox instanceof HTMLTextAreaElement
+    ? window.HTMLTextAreaElement.prototype
+    : window.HTMLInputElement.prototype;
+  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+
+  if (nativeInputValueSetter) {
+    nativeInputValueSetter.call(sendBox, text);
+    sendBox.dispatchEvent(new Event("input", { bubbles: true }));
+  } else {
+    sendBox.value = text;
+  }
+
+  sendBox.focus();
 }
 
 function applyValidationSnapshot(data) {

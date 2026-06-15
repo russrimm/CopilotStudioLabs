@@ -43,3 +43,7 @@
 ## 2026-06-15T00:55:00-05:00
 
 - Authored the first Lab 04 MCP rewrite after Kane's critical audit: removed the incorrect local stdio Copilot Studio pattern and desktop-client `mcpServers` JSON, reframed Use Case #8 around a reachable Streamable HTTP server and the Copilot Studio MCP onboarding wizard fields, added dependency/run/reachability guidance, and verified relevant Microsoft Learn pages plus MCP SDK package metadata. Dallas was then locked out after Kane rejected the singleton transport sample.
+
+## 2026-06-15T01:59:09-05:00
+
+- Implemented R1 (Codespaces devcontainer for MCP labs): Created `.devcontainer/devcontainer.json` with Node.js 20 LTS baseline and port forwarding for 3000, 3001, 5173, 8080. Added `.devcontainer/Dockerfile` with jq, Python 3, zip/unzip utilities. Updated `README.md` with Codespaces quickstart and authored `docs/codespaces.md`. Post-create commands install root, portal, lab PDF tooling, and screenshot tooling dependencies. Verified labs 03, 04, 05, 07; Lab 18 flagged for `@microsoft/agents-copilotstudio-client@^0.5.0` dependency follow-up. Decision merged to `.squad/decisions.md`; orchestration log written.

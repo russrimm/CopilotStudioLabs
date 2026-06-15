@@ -1,0 +1,56 @@
+{
+  "name": "Copilot Studio Labs",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "upgradePackages": true
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "remoteUser": "node",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [3000, 3001, 5173, 8080],
+  "portsAttributes": {
+    "3000": {
+      "label": "MCP server or portal",
+      "onAutoForward": "notify"
+    },
+    "3001": {
+      "label": "Secondary Node service",
+      "onAutoForward": "notify"
+    },
+    "5173": {
+      "label": "Lab 18 Vite sample",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "Alternate web service",
+      "onAutoForward": "notify"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "microsoft-IsvExpTools.powerplatform-vscode",
+        "yzhang.markdown-all-in-one",
+        "waderyan.nodejs-extension-pack"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "markdown.validate.enabled": true
+      }
+    }
+  },
+  "postCreateCommand": {
+    "root": "npm install --package-lock=false",
+    "portal": "cd portal && npm ci",
+    "labPdf": "cd tools/lab-pdf && npm ci",
+    "screenshots": "cd tools/screenshot-capture && npm ci"
+  }
+}

@@ -565,3 +565,73 @@ Make the scenario planner bind selection behavior with JavaScript event listener
 ## Rationale
 
 The provisioning portal showed scenario details, but the selectable controls depended on fragile dynamic inline handlers and under-bound checkbox behavior. Real buttons plus explicit post-render listeners make scenario and role selection reliable and keyboard-accessible, while escaping scenario text preserves correct rendering and avoids markup injection.
+
+
+## 2026-06-15 — Dallas Codespaces devcontainer
+
+Owner: Dallas
+Merged by: Scribe
+Source: .squad/decisions/inbox/dallas-devcontainer.md
+
+### Preserved inbox entry
+
+# Dallas — Codespaces devcontainer for MCP labs
+
+Date: 2026-06-15T01:59:09-05:00
+Requested by: Russ Rimmerman
+
+## Decision
+
+Added a root `.devcontainer` configuration for GitHub Codespaces using Node.js 20 LTS, not Node.js 22.
+
+## Rationale
+
+- The root project, portal, and lab PDF tooling declare `node >=18.0.0`; no inspected `package.json` requires Node 22.
+- Lab 04's optional MCP server section calls for Node.js 18+ and uses a Streamable HTTP server on port 3000.
+- Lab 18's Vite sample targets a standard Vite workflow on port 5173, but dependency resolution needs follow-up before it can be considered Codespaces-ready.
+- Node 20 is an LTS baseline and satisfies all discovered Node requirements while minimizing version churn for learners.
+
+## Implementation notes
+
+- Created `.devcontainer/devcontainer.json` with Codespaces-friendly port forwarding for 3000, 3001, 5173, and 8080.
+- Created `.devcontainer/Dockerfile` to add `jq`, Python 3, and zip/unzip beyond the Node 20 devcontainer base image.
+- Used the GitHub CLI and common-utils devcontainer features for `gh` and standard learner utilities.
+- Post-create commands install dependencies for root, portal, lab PDF tooling, and screenshot tooling.
+- Lab 18 was inspected because it has Node/Vite tooling, but its current `@microsoft/agents-copilotstudio-client@^0.5.0` dependency was unavailable from npm during validation, so it is documented as follow-up rather than included in post-create setup.
+
+
+## 2026-06-15 — Lambert validation rubric framework
+
+Owner: Lambert
+Merged by: Scribe
+Source: .squad/decisions/inbox/lambert-validation-rubric.md
+
+### Preserved inbox entry
+
+# Lambert validation rubric framework
+
+Requested by: Russ Rimmerman
+Timestamp: 2026-06-15T01:59:09-05:00
+
+## Structural decisions
+
+- Created a new top-level documentation area at `docs/validation-rubrics/` for a reusable Lab Validation Rubric framework.
+- Chose YAML for rubric files because lab authors and instructors can read, comment, and review YAML more easily than JSON, while preserving a structure that can be converted to JSON later if automation is added.
+- Kept Copilot Studio's native CSV import shape (`question,expectedResponse`) for learner-facing test sets so learners can import directly into the Evaluation feature taught in Lab 02.
+- Supported four rubric evaluator types: `llm-as-judge`, `regex`, `contains-string`, and `tool-call-check`.
+- Mapped those evaluator types to Copilot Studio methods: General quality, Compare meaning, Similarity, Keyword match, Exact match, Capability use, Custom, and activity-map/knowledge-source review.
+- Used Lab 01 as the first worked example because Lab 02 already evaluates the Lab 01 agent and because Lab 01 produces a knowledge-grounded Contoso IT Operations agent with clear source, safety, and troubleshooting outcomes.
+
+## Files added
+
+- `docs/validation-rubrics/README.md`
+- `docs/validation-rubrics/schema.md`
+- `docs/validation-rubrics/authoring-guide.md`
+- `docs/validation-rubrics/learner-guide.md`
+- `docs/validation-rubrics/lab-01-energy-ops-agent.rubric.yaml`
+- `docs/validation-rubrics/lab-01-energy-ops-agent.testset.csv`
+
+## Rationale
+
+The competitive scan identified automated AI-agent behavior validation as a first-in-market opportunity. This framework uses Copilot Studio's own Agent Evaluation tooling as the execution engine rather than adding code or scripts. Rubrics define the quality bar; Copilot Studio provides test sets, evaluator methods, scoring, activity maps, run comparison, and exportable completion evidence.
+
