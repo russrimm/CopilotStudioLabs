@@ -10,22 +10,7 @@
 | 🏷️ **TAGS** | Topics, Variables, Adaptive Cards, Connector Tools, Custom Prompt Tools, Connected Agents, Agent Flows, Evaluations, Model Selection, Grid Operations |
 | 🏭 **INDUSTRY** | Energy / Utilities |
 
----
 
-## 🗺️ Lab Flow
-
-```mermaid
-flowchart LR
-  A["Create Agent"] --> B["Build Topics"]
-  B --> C["Set Variables<br/>+ Adaptive Card"]
-  C --> D["Add Tools<br/>(connector + custom prompt)"]
-  D --> E["MSN Weather Connector"]
-  C --> F["Add Connected Agent"]
-  F --> G["Build Power Automate Flow"]
-  G --> H["Compare Models"]
-  H --> I["Run Evaluations"]
-  I --> J["Optional MCP"]
-```
 
 ---
 
