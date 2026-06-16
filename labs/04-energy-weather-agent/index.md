@@ -235,58 +235,7 @@ A grid operator needs either a guided service-territory weather lookup or a quic
 
 5. Save the topic.
 
-### Step 3 — Ask the user for a City and State with an adaptive card.
-
-1. Click the **+** below the trigger and add a **Ask with Adaptive Card** node:
-
-   ```text
-{
-  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-  "type": "AdaptiveCard",
-  "version": "1.5",
-  "body": [
-    {
-      "type": "TextBlock",
-      "text": "Please enter your location",
-      "weight": "Bolder",
-      "size": "Medium",
-      "wrap": true
-    },
-    {
-      "type": "TextBlock",
-      "text": "Enter the city and state you want to use.",
-      "wrap": true,
-      "spacing": "Small"
-    },
-    {
-      "type": "Input.Text",
-      "id": "city",
-      "label": "City",
-      "placeholder": "Example: Houston",
-      "isRequired": true,
-      "errorMessage": "Please enter a city."
-    },
-    {
-      "type": "Input.Text",
-      "id": "state",
-      "label": "State",
-      "placeholder": "Example: TX",
-      "maxLength": 2,
-      "isRequired": true,
-      "errorMessage": "Please enter a two-letter state abbreviation."
-    }
-  ],
-  "actions": [
-    {
-      "type": "Action.Submit",
-      "title": "Submit",
-      "data": {
-        "action": "submitLocation"
-      }
-    }
-  ]
-}
-   ```
+### Step 3 — Ask the user for a City and State
 
 1. In the authoring canvas, click the **+** below the trigger and add a **Send a message** node:
 
@@ -294,19 +243,31 @@ A grid operator needs either a guided service-territory weather lookup or a quic
    I can pull current weather and short-range forecasts for any service-territory location.
    ```
 
-2. Click **+** and add a **Send a message** node as a placeholder for location collection:
+2. Click **+** and add a **Ask a question** node to collect the **city**:
 
    ```text
-   [Placeholder — we'll replace this with an Adaptive Card location form in Use Case #2.]
+   Which city is the service territory location in?
    ```
 
-3. Below the placeholder, add a second **Send a message** node that previews what will happen once the variables are populated:
+   - Set **Identify** to **User's entire response**.
+   - Under **Save user response as**, save to a topic variable named `Topic.City`.
+
+3. Click **+** and add another **Ask a question** node to collect the **state**:
+
+   ```text
+   What is the 2-letter state abbreviation (for example, TX)?
+   ```
+
+   - Set **Identify** to **User's entire response**.
+   - Under **Save user response as**, save to a topic variable named `Topic.State`.
+
+4. Below the questions, add a **Send a message** node that previews what will happen once the variables are populated:
 
    ```text
    Once we have a location, I'll pull current conditions and today's forecast and explain what they mean for grid operations.
    ```
 
-> 💡 **Why defer the collection node?** Adaptive Cards are how we turn a topic from "guess what the user typed" into "receive structured, validated inputs." That makes them really a **variables** topic, not a topic-shape topic, so we'll build the card and wire it to topic variables in the next use case.
+> 💡 **Why two simple questions?** Asking for city and state as separate, named questions gives the orchestrator clean, validated values it can write straight into topic variables — no entity-extraction guesswork and no need to parse a freeform "what's the location?" reply. In Use Case #2 we'll layer in the rest of the variable strategy (defaults, units, forecast horizon) and compose `Topic.Location` from these inputs.
 
 ### Step 4 — Add the **Weather Operations Help** topic
 
