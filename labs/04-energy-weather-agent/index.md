@@ -178,8 +178,6 @@ By the end of this lab, you will be able to:
 | | **Core lab total** | **180 min (3 hours, includes 15 min intro)** | |
 | 8 | Optional: MCP Servers | 20 min | ⭐ Optional |
 
-> 💡 The optional section (Use Case #8) is **not** counted against the 3-hour lab time. It requires Node.js or Python and VS Code, and stands up an MCP server backed by Open-Meteo for runtime tool discovery.
-
 ---
 
 # 🧪 Use Case #1 — Topics (25 min)
@@ -192,7 +190,7 @@ A grid operator needs either a guided service-territory weather lookup or a quic
 
 ### Step 1 — Create the Energy Operations Weather Agent
 
-1. Open [Copilot Studio](https://copilotstudio.microsoft.com/). You should land on the **What would you like to build?** home page shown below.
+1. Open [Copilot Studio](https://copilotstudio.microsoft.com/). You should land on the **What would you like to build?** home page shown below. Make sure you select the correct Power Platform Environment for your lab work. If you don't see the environment you expect, check with your administrator to ensure you have access. If you are prompted with any "Welcome to Copilot Studio" or "What's new" pop-ups, close them to see the home page.
 
    ![Copilot Studio home page with the Agent option selected and the "Start building from scratch" tiles for Agent, Computer-using agent, and Create workflow.](./assets/copilot-studio-home.png)
 
@@ -229,7 +227,7 @@ A grid operator needs either a guided service-territory weather lookup or a quic
    Service Territory Weather Lookup
    ```
 
-4. In the topic **Description** field, write a clear prompt so the generative AI orchestrator knows when to trigger this topic automatically:
+4. In the **Describe what this topic does*** field, past the following prompt so the generative AI orchestrator knows when to trigger this topic automatically:
 
    ```text
    Use this topic when the user wants the current weather, today's forecast, or tomorrow's forecast for a specific service territory location — typically a city and state, ZIP code, or substation area. Examples: "What's the weather at the Cypress substation?", "Forecast for Tarrant County tomorrow", "Will it rain in Houston this afternoon?".
@@ -237,9 +235,58 @@ A grid operator needs either a guided service-territory weather lookup or a quic
 
 5. Save the topic.
 
-### Step 3 — Add an opening message and a location-collection placeholder
+### Step 3 — Ask the user for a City and State with an adaptive card.
 
-In this step you'll lay out the topic skeleton. The actual location-collection mechanism — an Adaptive Card that returns named, validated values — is built in **Use Case #2 (Variables)**, where it naturally pairs with the variables it populates. For now, we just stub out where collection will happen.
+1. Click the **+** below the trigger and add a **Ask with Adaptive Card** node:
+
+   ```text
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "Please enter your location",
+      "weight": "Bolder",
+      "size": "Medium",
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "Enter the city and state you want to use.",
+      "wrap": true,
+      "spacing": "Small"
+    },
+    {
+      "type": "Input.Text",
+      "id": "city",
+      "label": "City",
+      "placeholder": "Example: Houston",
+      "isRequired": true,
+      "errorMessage": "Please enter a city."
+    },
+    {
+      "type": "Input.Text",
+      "id": "state",
+      "label": "State",
+      "placeholder": "Example: TX",
+      "maxLength": 2,
+      "isRequired": true,
+      "errorMessage": "Please enter a two-letter state abbreviation."
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Submit",
+      "title": "Submit",
+      "data": {
+        "action": "submitLocation"
+      }
+    }
+  ]
+}
+   ```
 
 1. In the authoring canvas, click the **+** below the trigger and add a **Send a message** node:
 
