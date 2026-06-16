@@ -296,14 +296,13 @@ Now that the topic collects a city and state, wire it to a real connector so the
 1. In the agent's left navigation, open **Tools**.
 2. Select **+ Add a tool**, choose **Connector**, and search for **MSN Weather**.
 3. From the MSN Weather connector, pick the **Get current weather** action.
-4. When prompted, create (or select) a connection to MSN Weather. The connector uses your Power Platform connection — no API key is required, but the first use will ask you to consent.
-5. Name the tool:
+4. **Create a new connection to MSN Weather.** This is your first time using the connector in this agent, so there won't be an existing connection to pick from:
+   - When the connection picker appears, select **+ Create new connection** (or **Add new connection**, depending on tenant labeling).
+   - Sign in with your Microsoft 365 account when prompted, and accept the consent dialog.
+   - Wait for the new connection to show a green **Connected** status, then select it and continue.
+   - No API key or secret is required — MSN Weather uses your Power Platform connection.
 
-   ```text
-   Get Current Weather
-   ```
-
-6. Add this description so the orchestrator knows when to use it:
+5. Add this description so the orchestrator knows when to use it:
 
    ```text
    Use when the operator needs live conditions — temperature, feels-like, humidity, wind, and a short text description — for a specific city and state. Useful for AC-peak risk, crew heat exposure, and right-now situational awareness.
@@ -311,10 +310,10 @@ Now that the topic collects a city and state, wire it to a real connector so the
 
 7. Configure the tool's inputs:
 
-   | Connector input | Value |
-   |---|---|
-   | `Location` | Formula: `Topic.City & ", " & Topic.State` |
-   | `Units` | `Imperial` |
+   | Connector input | Fill behavior | Value |
+   |---|---|---|
+   | `Location` | Leave as-is (default) | Formula: `Topic.City & ", " & Topic.State` |
+   | `Units` | Set to **Custom Value** | `Imperial` |
 
 8. Save the tool.
 
