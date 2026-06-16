@@ -301,8 +301,7 @@ Now that the topic collects a city and state, wire it to a real connector so the
    2. Click **Create new connection**.
    3. In the connection dialog, click **Create**.
    4. When the action returns to the tool, click **Add and configure**.
-   5. In the tool configuration panel, locate **Credentials to use** and change it to **Maker-provided credentials**.
-   6. No API key or secret is required — MSN Weather uses your Power Platform connection.
+   5. In the tool configuration panel, locate **Credentials to use** and change it to **Maker-provided credentials**. This ensures the tool uses your connection and not a shared one that might have different permissions or data access.
 
 5. Add this description so the orchestrator knows when to use it:
 
@@ -312,9 +311,9 @@ Now that the topic collects a city and state, wire it to a real connector so the
 
 7. Configure the tool's inputs:
 
-   | Connector input | Fill behavior | Value |
-   |---|---|---|
-   | `Location` | Leave as-is (default) | Formula: `Topic.City & ", " & Topic.State` |
+   | Connector input | Fill behavior
+   |---|---|
+   | `Location` | Leave as-is (default) |
    | `Units` | Set to **Custom Value** | `Imperial` |
 
 8. Save the tool.
