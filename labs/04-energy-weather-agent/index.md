@@ -296,11 +296,13 @@ Now that the topic collects a city and state, wire it to a real connector so the
 1. In the agent's left navigation, open **Tools**.
 2. Select **+ Add a tool**, choose **Connector**, and search for **MSN Weather**.
 3. From the MSN Weather connector, pick the **Get current weather** action.
-4. **Create a new connection to MSN Weather.** This is your first time using the connector in this agent, so there won't be an existing connection to pick from:
-   - When the connection picker appears, select **+ Create new connection** (or **Add new connection**, depending on tenant labeling).
-   - Sign in with your Microsoft 365 account when prompted, and accept the consent dialog.
-   - Wait for the new connection to show a green **Connected** status, then select it and continue.
-   - No API key or secret is required — MSN Weather uses your Power Platform connection.
+4. **Create a new connection to MSN Weather.** This is your first time using the connector in this agent, so there won't be an existing connection to pick from. Follow these clicks in order:
+   1. Next to the MSN Weather connector, click **Not connected**.
+   2. Click **Create new connection**.
+   3. In the connection dialog, click **Create**.
+   4. When the action returns to the tool, click **Add and configure**.
+   5. In the tool configuration panel, locate **Credentials to use** and change it to **Maker-provided credentials**.
+   6. No API key or secret is required — MSN Weather uses your Power Platform connection.
 
 5. Add this description so the orchestrator knows when to use it:
 
