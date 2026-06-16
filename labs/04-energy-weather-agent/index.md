@@ -41,7 +41,7 @@ By the end of the lab, you will have a working solution with these components:
 
 ```text
 User
-  -> Energy Operations Weather Agent (parent)
+  -> Energy Operations Weather Agent
       -> Topics collect location + intent
       -> MSN Weather connector tools for current weather and forecast
       -> Connected Agent: Weather Operations Specialist
@@ -215,7 +215,7 @@ A grid operator needs either a guided service-territory weather lookup or a quic
 4. In the **Describe what this topic does*** field, past the following prompt so the generative AI orchestrator knows when to trigger this topic automatically:
 
    ```text
-   Use this topic when the user wants the current weather, today's forecast, or tomorrow's forecast for a specific service territory location — typically a city and state, ZIP code, or substation area. Examples: "What's the weather at the Cypress substation?", "Forecast for Tarrant County tomorrow", "Will it rain in Houston this afternoon?".
+   Use this topic when the user wants the current weather, today's forecast, or tomorrow's forecast for a specific service territory location — typically a city and state. Examples: "What's the weather at the Cypress substation?", "Forecast for Tarrant County tomorrow", "Will it rain in Houston this afternoon?".
    ```
 
 5. Save the topic.
@@ -271,7 +271,7 @@ A grid operator needs either a guided service-territory weather lookup or a quic
 3. Add a **Send a message** node with content like:
 
    ```text
-   I use the MSN Weather connector to pull current conditions and short-range forecasts for any city, state, or ZIP. I can return temperature, feels-like, humidity, wind, and chance of precipitation in Imperial or Metric units.
+   I use the MSN Weather connector to pull current conditions and short-range forecasts for any city and state. I can return temperature, feels-like, humidity, wind, and chance of precipitation in Imperial or Metric units.
    ```
 
 4. Optionally add a second message explaining how operators use these signals:
@@ -350,8 +350,7 @@ Use the following variable design:
 | `Global.HeatAdvisoryF` | Global | Temperature in °F above which the agent flags an AC-peak risk, e.g. `95` |
 | `Topic.City` | Topic | City entered by the user via the Adaptive Card |
 | `Topic.State` | Topic | 2-letter state abbreviation from the Adaptive Card (e.g. `TX`) |
-| `Topic.ZipCode` | Topic | ZIP code entered by the user via the Adaptive Card |
-| `Topic.Location` | Topic | Composed `City, ST` (or ZIP) string passed to the MSN Weather connector |
+| `Topic.Location` | Topic | Composed `City, ST` string passed to the MSN Weather connector |
 | `Topic.Units` | Topic | Units selected for this specific request |
 | `Topic.ForecastHorizon` | Topic | `today` or `tomorrow` |
 | `System.Activity.Text` | System | Raw incoming user message |
@@ -397,7 +396,7 @@ Use the following variable design:
 
 > 🎴 **New topic introduced: Adaptive Cards.** Adaptive Cards are JSON-defined, host-agnostic UI blocks that render natively inside Copilot Studio chat. We use them here as a **variable-collection mechanism** — instead of asking a freeform location question and parsing the answer with conditions or entity extraction, the card returns named, validated values straight into topic variables. That makes Adaptive Cards the cleanest bridge between a conversational prompt and the structured data your tools need.
 
-In this step, you'll replace the location-collection placeholder from Use Case #1 with an Adaptive Card that captures **city**, **state**, and **zip code** in a single turn and writes each field into a named topic variable.
+In this step, you'll replace the location-collection placeholder from Use Case #1 with an Adaptive Card that captures **city** and **state** in a single turn and writes each field into a named topic variable.
 
 1. Open **Service Territory Weather Lookup**.
 2. Delete the location-collection placeholder **Send a message** node from Use Case #1.
@@ -419,7 +418,7 @@ In this step, you'll replace the location-collection placeholder from Use Case #
        },
        {
          "type": "TextBlock",
-         "text": "Enter the city and state of the service territory you want a weather briefing for. Zip code is optional.",
+         "text": "Enter the city and state of the service territory you want a weather briefing for.",
          "isSubtle": true,
          "wrap": true,
          "spacing": "Small"
@@ -440,13 +439,6 @@ In this step, you'll replace the location-collection placeholder from Use Case #
          "maxLength": 2,
          "isRequired": true,
          "errorMessage": "Please enter a 2-letter state abbreviation."
-       },
-       {
-         "type": "Input.Text",
-         "id": "zipCode",
-         "label": "Zip Code (optional)",
-         "placeholder": "Example: 77433",
-         "maxLength": 10
        }
      ],
      "actions": [
@@ -461,11 +453,11 @@ In this step, you'll replace the location-collection placeholder from Use Case #
    }
    ```
 
-   ![Adaptive Card editor in JSON view with the city/state/zipCode payload pasted in.](./assets/adaptive-card-json-editor.png)
+   ![Adaptive Card editor in JSON view with the city/state payload pasted in.](./assets/adaptive-card-json-editor.png)
 
 5. Save the card and click **Close**. Copilot Studio will surface each `Input.Text` as a separately addressable output you can map to topic variables.
 
-   ![Adaptive Card preview rendering the City, State, and Zip Code input fields with a Submit button.](./assets/adaptive-card-preview.png)
+   ![Adaptive Card preview rendering the City and State input fields with a Submit button.](./assets/adaptive-card-preview.png)
 
 6. Under **Save user response as**, map each card output to its corresponding topic variable from Step 1's variable strategy:
 
@@ -473,46 +465,44 @@ In this step, you'll replace the location-collection placeholder from Use Case #
    |---|---|
    | `city` | `Topic.City` |
    | `state` | `Topic.State` |
-   | `zipCode` | `Topic.ZipCode` |
 
-   ![Save user response as panel showing card outputs city, state, and zipCode mapped to topic variables.](./assets/adaptive-card-output-mapping.png)
+   ![Save user response as panel showing card outputs city and state mapped to topic variables.](./assets/adaptive-card-output-mapping.png)
 
 > 💡 **Why an Adaptive Card here?** The card guarantees you receive named, validated inputs. The `isRequired` + `errorMessage` properties handle empty-input cases for you — there is no condition tree, no entity extractor, and no \"did the user mean a city, a county, or a substation name?\" guesswork. For an energy-operations agent where dispatchers may be one-handed during a storm event, a structured card is also faster than typing a sentence.
 
 #### Adaptive Card design tips for energy operations
 
 - **Pre-populate the dominant state.** Add `\"value\": \"TX\"` to the `state` input so an operator working a single-state footprint just confirms the value. Override is one tap.
-- **Use the optional ZIP for non-incorporated areas.** Some service-territory points (a remote substation, a feeder midspan) don't have a clean city name; ZIP gives the operator a fallback.
 - **Add a units toggle as a second card later.** If your operations team mixes Imperial and Metric across regions, an `Input.ChoiceSet` with `Imperial` / `Metric` is a natural follow-up card that writes to `Topic.Units`.
 - **Validate at the edge.** Card validation (`isRequired`, `maxLength`, `errorMessage`) keeps invalid input out of `Topic.Location` entirely — preferable to catching it after the connector returns *Location not found*.
 
 ### Step 5 — Compose `Topic.Location` from card outputs with Power Fx
 
-The MSN Weather connector accepts a single free-text `Location` such as `Cypress, TX` or `77433`. Now that the card has given you clean inputs, compose them into the single string the connector expects.
+The MSN Weather connector accepts a single free-text `Location` such as `Cypress, TX`. Now that the card has given you clean inputs, compose them into the single string the connector expects.
 
 1. After the Adaptive Card node, add a **Set variable value** node.
 2. Under **To value** select the **...** and select **Formula**.
-3. Use a Power Fx expression that prefers `City, State` and falls back to ZIP if the city is missing:
+3. Use a Power Fx expression that builds `City, ST` from the card inputs:
 
    ```powerfx
    If(
      !IsBlank(Topic.City) && !IsBlank(Topic.State),
      Concatenate(Topic.City, ", ", Upper(Topic.State)),
-     Topic.ZipCode
+     ""
    )
    ```
 
    Set the **To** variable to `Topic.Location`.
 
 4. Add a **Condition** node to confirm we have a usable location:
-   - **If `Topic.Location` is blank** → add a **Send a message** node explaining we need at least a city and state or a ZIP, then add a **Go to step** node that returns to the Adaptive Card.
+   - **If `Topic.Location` is blank** → add a **Send a message** node explaining we need a city and state, then add a **Go to step** node that returns to the Adaptive Card.
    - **All other conditions** → continue to the next step.
 
 > 💡 **Tip:** Keeping location parsing in one place (`Topic.Location`) means every weather tool, the connected agent, and the Power Automate flow all share the same input and behave consistently.
 
 ### Step 6 — Resolve units and forecast horizon
 
-1. The Adaptive Card from Step 4 already populates `Topic.City`, `Topic.State`, and `Topic.ZipCode` — no extra parsing or entity extraction is required.
+1. The Adaptive Card from Step 4 already populates `Topic.City` and `Topic.State` — no extra parsing or entity extraction is required.
 2. The Power Fx step from Step 5 composes `Topic.Location`.
 3. If you want the operator to override units, add a follow-up **Ask a question** node after the card with options `Imperial` and `Metric`, and set `Topic.Units` accordingly. Otherwise keep `Topic.Units = Global.DefaultUnits`.
 4. If the operator's wording mentions *"tomorrow"* (you can detect this with a simple condition on `System.Activity.Text` or with an entity), set `Topic.ForecastHorizon = "tomorrow"`. Otherwise leave it as `today`.
@@ -547,9 +537,9 @@ The connected agent and the Power Automate flow will reuse the same variables, s
 **Troubleshooting**
 
 - If the Adaptive Card doesn't render in the test panel, confirm you used the **Ask with adaptive card** node (not a plain message with embedded JSON) and that the JSON validates against Adaptive Cards 1.5.
-- If the card outputs aren't available as variables, re-open the card node and verify each `Input.Text` `id` (`city`, `state`, `zipCode`) is mapped under **Save user response as**.
-- If `Topic.Location` is empty after the Power Fx step, the user likely submitted only a ZIP — check that the fallback branch in the `If(...)` expression returns `Topic.ZipCode`.
-- If the connector returns *Location not found*, check `Topic.Location` — composing `City, ST` is more reliable than ZIP-only for ambiguous suburbs.
+- If the card outputs aren't available as variables, re-open the card node and verify each `Input.Text` `id` (`city`, `state`) is mapped under **Save user response as**.
+- If `Topic.Location` is empty after the Power Fx step, confirm both `Topic.City` and `Topic.State` are populated — the `If(...)` expression returns an empty string if either is blank.
+- If the connector returns *Location not found*, check `Topic.Location` — confirm `City, ST` is composed correctly and the state is a valid 2-letter abbreviation.
 - If forecast units are wrong, verify that `Topic.Units` is being passed through and not silently overridden.
 - If a help topic hands off to the lookup topic but loses context, explicitly set the variables before the transition.
 
@@ -590,7 +580,7 @@ This is also a chance to see two distinct **tool types** in Copilot Studio side 
 7. Add this description:
 
    ```text
-   Use when the operator needs live conditions — temperature, feels-like, humidity, wind, and a short text description — for a specific city, state, or ZIP. Useful for AC-peak risk, crew heat exposure, and right-now situational awareness.
+   Use when the operator needs live conditions — temperature, feels-like, humidity, wind, and a short text description — for a specific city and state. Useful for AC-peak risk, crew heat exposure, and right-now situational awareness.
    ```
 
 ### Step 2 — Configure Tool 1 inputs
@@ -599,12 +589,12 @@ The MSN Weather *Get current weather* action exposes two inputs:
 
 | Input | Type | Description |
 |---|---|---|
-| `Location` | Text | Free-text place such as `Cypress, TX` or `77433` |
+| `Location` | Text | Free-text place such as `Cypress, TX` |
 | `Units` | Text (enum) | `Imperial` or `Metric` |
 
 Give the operator-friendly input descriptions:
 
-- `Location`: *City and 2-letter state, or 5-digit ZIP. Use `City, ST` whenever possible for reliable resolution.*
+- `Location`: *City and 2-letter state, e.g. `Cypress, TX`.*
 - `Units`: *Imperial returns °F and mph. Metric returns °C and km/h.*
 
 Wire the inputs to the topic variables:
@@ -637,7 +627,7 @@ Follow the same pattern as Tool 1:
 2. Description:
 
    ```text
-   Use when the operator needs today's forecast — high, low, daytime description, and chance of precipitation — for a specific city, state, or ZIP. Useful for end-of-shift load planning, storm staging, and crew dispatch.
+   Use when the operator needs today's forecast — high, low, daytime description, and chance of precipitation — for a specific city and state. Useful for end-of-shift load planning, storm staging, and crew dispatch.
    ```
 
 3. Pick the connector action **Get forecast for today**.
@@ -766,7 +756,7 @@ This is your first non-connector tool, and it's a useful pattern any time you wa
 
 **Troubleshooting**
 
-- If you get *Location not found*, prefer `City, ST` over ZIP-only — ambiguous suburbs sometimes fail with a ZIP.
+- If you get *Location not found*, double-check the `City, ST` spelling and that the state is a valid 2-letter abbreviation.
 - If results look off by a factor (e.g., 30 vs. 86), confirm the `Units` input is `Imperial` or `Metric` exactly.
 - If connector outputs come back nested, expand the **Outputs** panel in the tool editor and select the specific fields you want surfaced to the agent.
 - If the custom prompt returns prose paragraphs instead of three bullets, tighten the formatting block in the template ("in EXACTLY this format and nothing else") and re-run the prompt's isolated test.
@@ -943,7 +933,7 @@ For each of the three locations, add an MSN Weather **Get current weather** acti
 
 **Troubleshooting**
 
-- If a location returns *not found*, prefer `City, ST` over ZIP for ambiguous suburbs.
+- If a location returns *not found*, double-check the `City, ST` spelling and that the state is a valid 2-letter abbreviation.
 - If the action isn't available in Copilot Studio, confirm the flow trigger is the Copilot/agent trigger and that the flow was saved.
 - If the briefing text is too technical, simplify the compose output and let the agent rephrase it for business users.
 
@@ -1055,7 +1045,7 @@ Use a set like this:
 | 5 | `What's the weather at the substation?` | Missing-location follow-up |
 | 6 | `What does chance of rain tell me operationally?` | Field explanation |
 | 7 | `Give me a weather briefing for Cypress TX, Houston TX, and Tarrant County TX.` | Multi-location flow |
-| 8 | `I only know the ZIP code 77002. What's the forecast?` | ZIP-only handling |
+| 8 | `What's the forecast?` | Missing-location follow-up |
 | 9 | `Will today's heat raise residential AC load above normal?` | Reasoning |
 | 10 | `Compare why heat waves and cold snaps both raise grid load.` | Multi-step reasoning |
 
@@ -1357,7 +1347,7 @@ Use this time for open Q&A. If the group needs prompts, consider these:
 | Component | What it does |
 |---|---|
 | **Topics** | Route intent and stage location collection |
-| **Variables (with Adaptive Card)** | Store location, units, and forecast-horizon selections across the conversation; collect structured `City`, `State`, and `ZipCode` inputs in one turn |
+| **Variables (with Adaptive Card)** | Store location, units, and forecast-horizon selections across the conversation; collect structured `City` and `State` inputs in one turn |
 | **Tools — connector** | MSN Weather actions for current weather and today's forecast |
 | **Tools — custom prompt** | `Generate Operations Briefing` — turns raw weather data into a 3-bullet operations briefing |
 | **Connected Agent** | Specialist child agent owning all weather reasoning |
