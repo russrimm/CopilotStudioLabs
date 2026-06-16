@@ -289,31 +289,70 @@ A grid operator needs either a guided service-territory weather lookup or a quic
    If you want, I can run a weather lookup now. Which city and state should we check?
    ```
 
-### Step 5 — Route to actions from the topic
+### Step 5 — Add the MSN Weather connector as a tool and call it from the topic
 
-1. Return to **Service Territory Weather Lookup**.
-2. After the location-collection placeholder, add a placeholder **Call an action** node for the current-weather tool you will build in Use Case #3 (this will use `Topic.Location` and `Topic.Units`).
-3. Add a parallel placeholder **Call an action** node for the today's-forecast tool, also using `Topic.Location` and `Topic.Units`.
-4. Add a **Send a message** node after each action branch to summarize what will happen, for example:
+Now that the topic collects a city and state, wire it to a real connector so the operator gets actual weather back instead of a placeholder message.
+
+1. In the agent's left navigation, open **Tools**.
+2. Select **+ Add a tool**, choose **Connector**, and search for **MSN Weather**.
+3. From the MSN Weather connector, pick the **Get current weather** action.
+4. When prompted, create (or select) a connection to MSN Weather. The connector uses your Power Platform connection — no API key is required, but the first use will ask you to consent.
+5. Name the tool:
 
    ```text
-   I'll pull current conditions and today's forecast for the requested location so we can see whether load and crew planning need adjustments.
+   Get Current Weather
    ```
 
-5. Save the topic.
+6. Add this description so the orchestrator knows when to use it:
 
-### Step 6 — Test both topics
+   ```text
+   Use when the operator needs live conditions — temperature, feels-like, humidity, wind, and a short text description — for a specific city and state. Useful for AC-peak risk, crew heat exposure, and right-now situational awareness.
+   ```
+
+7. Configure the tool's inputs:
+
+   | Connector input | Value |
+   |---|---|
+   | `Location` | Formula: `Topic.City & ", " & Topic.State` |
+   | `Units` | `Imperial` |
+
+8. Save the tool.
+
+### Step 6 — Use the tool inside **Service Territory Weather Lookup**
+
+1. Return to **Service Territory Weather Lookup**.
+2. After the **Ask a question** node that captures `Topic.State`, click **+** and add a **Call an action** node.
+3. Select the **Get Current Weather** tool you just created.
+4. Confirm the inputs are wired as in Step 5 (`Location` → `Topic.City & ", " & Topic.State`, `Units` → `Imperial`).
+5. Capture the tool's response into a topic variable named `Topic.WeatherResponse`.
+6. Replace the earlier "Once we have a location…" preview message with a **Send a message** node that reads the response back to the operator. Use Power Fx to format the key fields, for example:
+
+   ```powerfx
+   "Current conditions for " & Topic.City & ", " & Upper(Topic.State) & ": " &
+   Topic.WeatherResponse.responses.weather.current.cap & ", " &
+   Text(Topic.WeatherResponse.responses.weather.current.temperature) & "° (feels like " &
+   Text(Topic.WeatherResponse.responses.weather.current.feels) & "°), humidity " &
+   Text(Topic.WeatherResponse.responses.weather.current.humidity) & "%, wind " &
+   Text(Topic.WeatherResponse.responses.weather.current.windSpeed) & "."
+   ```
+
+   > 💡 The exact JSON path may render slightly differently in your tenant — if the formula bar shows the response under `responses[0]`, adjust the dot path to match what IntelliSense suggests.
+
+7. Save the topic.
+
+### Step 7 — Test the end-to-end flow
 
 1. Open the **Test** panel.
 2. Run prompts such as:
-   - `Pull weather for a service territory`
-   - `What weather data can you pull?`
+   - `Pull weather for a service territory` → answer `Houston` for city and `TX` for state.
+   - `What weather data can you pull?` → should hit the **Weather Operations Help** topic.
 3. Confirm:
-   - The correct topic triggers based on the user's intent
-   - The lookup topic reaches the location-collection placeholder before attempting to call any action
-   - Help questions trigger the **Weather Operations Help** topic rather than the lookup topic
+   - The correct topic triggers based on the user's intent.
+   - The lookup topic asks for city, then state, then calls **Get Current Weather**.
+   - The final message contains real values returned by the connector (temperature, humidity, wind, description).
+   - Help questions still trigger the **Weather Operations Help** topic rather than the lookup topic.
 
-> 💡 **Tip:** A good operations topic should reduce ambiguity early. We'll close the location-collection gap with an Adaptive Card in Use Case #2 — for now, the focus is making sure the orchestrator routes intent correctly.
+> 💡 **Tip:** A good operations topic should reduce ambiguity early. In Use Case #2 we'll replace the two questions with an Adaptive Card and add a `Topic.Units` variable so the operator can switch between Imperial and Metric. In Use Case #3 we'll add a second connector tool (today's forecast) and a custom prompt that interprets the raw numbers as an operations briefing.
 
 ### ✅ You've completed Use Case #1
 
@@ -322,12 +361,14 @@ A grid operator needs either a guided service-territory weather lookup or a quic
 - Topic design is how you convert vague operator questions into structured, tool-ready requests.
 - Separate "help/explanation" behavior from "run weather lookup" behavior so the operator doesn't confuse information requests with execution requests.
 - Strong topic descriptions are the orchestrator's primary signal for routing — invest in them early.
+- The MSN Weather connector is a built-in Power Platform connector, so you can stand up a working weather tool with no API key and no HTTP-payload parsing.
 
 **Troubleshooting**
 
 - If the wrong topic triggers, refine the topic descriptions so the orchestrator can clearly distinguish them — make **Weather Operations Help** sound explanatory and **Service Territory Weather Lookup** sound action-oriented.
 - If your help topic accidentally calls a tool, confirm the **Weather Operations Help** topic does not contain any **Call an action** nodes.
-- If the placeholder location step is reached but no follow-up runs, that's expected for now — we'll wire collection in Use Case #2 and tools in Use Case #3.
+- If the connector returns *Location not found*, confirm the formula composes `City, ST` correctly and the state is a valid 2-letter abbreviation.
+- If the response message shows blank values, expand the response in the variable inspector and adjust the dot path in the Power Fx formula to match the actual shape returned in your tenant.
 
 ---
 
