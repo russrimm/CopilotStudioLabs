@@ -6,8 +6,8 @@
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
 | ⏱️ **TIME** | 1 hour 45 min (15 min intro, 75 min hands-on, 15 min Q&A) |
-| 🧩 **PRODUCTS** | Microsoft Copilot Studio, MSN Weather connector, Adaptive Cards, Custom Prompts, Power Automate |
-| 🏷️ **TAGS** | Topics, Variables, Adaptive Cards, Connector Tools, Custom Prompt Tools, Connected Agents, Agent Flows, Evaluations, Model Selection, Grid Operations |
+| 🧩 **PRODUCTS** | Microsoft Copilot Studio, MSN Weather connector, Custom Prompts, Power Automate |
+| 🏷️ **TAGS** | Topics, Variables, Connector Tools, Custom Prompt Tools, Connected Agents, Agent Flows, Evaluations, Model Selection, Grid Operations |
 | 🏭 **INDUSTRY** | Energy / Utilities |
 
 
@@ -30,7 +30,7 @@ By the end of the lab, you will have a working solution with these components:
 |---|---|
 | **Parent agent** | **Energy Operations Weather Agent** |
 | **Topics** | **Service Territory Weather Lookup** and **Weather Operations Help** |
-| **Variables** | Global, topic, and system variables — populated via an **Adaptive Card** for structured location input |
+| **Variables** | Global, topic, and system variables — city and state collected via **Question nodes** and composed into the location string used by tools |
 | **Tools / actions** | Two MSN Weather **connector tools** plus one **custom prompt tool** that produces an operations briefing |
 | **Connected agent** | **Weather Operations Specialist** |
 | **Agent flow** | Power Automate multi-location weather briefing |
@@ -59,7 +59,7 @@ User
 By the end of this lab, you will be able to:
 
 1. ✅ Build topics for service-territory weather lookups and operator help
-2. ✅ Use variables for default location, units, and forecast horizon, and collect structured location inputs with an **Adaptive Card**
+2. ✅ Use variables for default location, units, and forecast horizon, and collect city and state with **Question nodes**
 3. ✅ Add MSN Weather connector actions as agent tools, and build a **custom prompt tool** that turns the connector outputs into an operations briefing
 4. ⭐ *(Optional)* Add a connected **Weather Operations Specialist** agent
 5. ⭐ *(Optional)* Build a Power Automate multi-location briefing flow
@@ -79,7 +79,6 @@ By the end of this lab, you will be able to:
 | **Units** | `Imperial` (°F, mph) or `Metric` (°C, km/h) |
 | **Topics** | Guided conversation flows |
 | **Variables** | Reusable values during a conversation |
-| **Adaptive Cards** | JSON-defined input forms that populate named topic variables in one turn |
 | **Tools / actions** | Connector- or HTTP-backed functions the agent can call |
 | **Custom prompt tool** | A reusable AI prompt template, packaged as a tool, that returns model-generated text from named inputs |
 | **Connected agents** | Child agents for specialized work |
@@ -153,7 +152,7 @@ By the end of this lab, you will be able to:
 | # | Section | Time | Required |
 |---|---|---|---|
 | 1 | Topics | 25 min | ✅ |
-| 2 | Variables (with Adaptive Card) | 25 min | ✅ |
+| 2 | Variables (with Question nodes) | 25 min | ✅ |
 | 3 | Tools (connector + custom prompt) | 25 min | ✅ |
 | 4 | Connected Agents | 18 min | ⭐ Optional |
 | 5 | Agent Flows | 20 min | ⭐ Optional |
@@ -167,7 +166,7 @@ By the end of this lab, you will be able to:
 
 # 🧪 Use Case #1 — Topics (25 min)
 
-> 🎯 **Objective:** Create custom topics that capture user intent, route grid-operations questions to the correct branches, and stub out where structured location collection will happen — the Adaptive Card itself is built in Use Case #2 alongside the variables it populates.
+> 🎯 **Objective:** Create custom topics that capture user intent and route grid-operations questions to the correct branches. Location collection is handled in Use Case #2.
 
 ### Scenario
 
@@ -353,7 +352,7 @@ Now that the topic collects a city and state, wire it to a real connector so the
    - The final message contains real values returned by the connector (temperature, humidity, wind, description).
    - Help questions still trigger the **Weather Operations Help** topic rather than the lookup topic.
 
-> 💡 **Tip:** A good operations topic should reduce ambiguity early. In Use Case #2 we'll replace the two questions with an Adaptive Card and add a `Topic.Units` variable so the operator can switch between Imperial and Metric. In Use Case #3 we'll add a second connector tool (today's forecast) and a custom prompt that interprets the raw numbers as an operations briefing.
+> 💡 **Tip:** A good operations topic should reduce ambiguity early. In Use Case #2 we'll replace these placeholders with dedicated Question nodes that save city and state to topic variables. In Use Case #3 we'll add a second connector tool (today's forecast) and a custom prompt that interprets the raw numbers as an operations briefing.
 
 ### ✅ You've completed Use Case #1
 
@@ -375,7 +374,7 @@ Now that the topic collects a city and state, wire it to a real connector so the
 
 # 🧪 Use Case #2 — Variables (25 min)
 
-> 🎯 **Objective:** Configure global, topic, and system variables so the agent can store default location, units, forecast horizon, and the resolved location string used by every weather tool — and use an **Adaptive Card** to populate those variables with structured, validated inputs in a single turn.
+> 🎯 **Objective:** Configure global, topic, and system variables so the agent can store default location, units, forecast horizon, and the resolved location string used by every weather tool — and collect city and state from the user with simple **Question nodes**.
 
 ### Scenario
 
@@ -390,8 +389,8 @@ Use the following variable design:
 | `Global.DefaultLocation` | Global | Default location when the agent is run for one utility footprint, e.g. `Cypress, TX` |
 | `Global.DefaultUnits` | Global | Default units, `Imperial` or `Metric` |
 | `Global.HeatAdvisoryF` | Global | Temperature in °F above which the agent flags an AC-peak risk, e.g. `95` |
-| `Topic.City` | Topic | City entered by the user via the Adaptive Card |
-| `Topic.State` | Topic | 2-letter state abbreviation from the Adaptive Card (e.g. `TX`) |
+| `Topic.City` | Topic | City entered by the user via a Question node |
+| `Topic.State` | Topic | 2-letter state abbreviation entered by the user via a Question node (e.g. `TX`) |
 | `Topic.Location` | Topic | Composed `City, ST` string passed to the MSN Weather connector |
 | `Topic.Units` | Topic | Units selected for this specific request |
 | `Topic.ForecastHorizon` | Topic | `today` or `tomorrow` |
@@ -430,99 +429,39 @@ Use the following variable design:
    - `Topic.Units = Global.DefaultUnits`
    - `Topic.Location = ""`
    - `Topic.ForecastHorizon = "today"`
-4. If your operations team works mostly in one footprint, you can pre-fill `Topic.State` with the dominant value (e.g., `"TX"`) so the Adaptive Card you add next opens with that value already populated.
+4. Optionally pre-fill `Topic.City` and `Topic.State` with default values if your team works a fixed footprint (e.g., `"Cypress"` and `"TX"`). Users can override them by answering the Question nodes in Step 4.
 
 > 💡 **Tip:** Initialization makes your topic easier to debug. Empty strings are easier to reason about than partially populated values from a previous test run.
 
-### Step 4 — Collect structured location inputs with an Adaptive Card
+### Step 4 — Ask for city and state with Question nodes
 
-> 🎴 **New topic introduced: Adaptive Cards.** Adaptive Cards are JSON-defined, host-agnostic UI blocks that render natively inside Copilot Studio chat. We use them here as a **variable-collection mechanism** — instead of asking a freeform location question and parsing the answer with conditions or entity extraction, the card returns named, validated values straight into topic variables. That makes Adaptive Cards the cleanest bridge between a conversational prompt and the structured data your tools need.
-
-In this step, you'll replace the location-collection placeholder from Use Case #1 with an Adaptive Card that captures **city** and **state** in a single turn and writes each field into a named topic variable.
+In this step, you'll replace the location-collection placeholder from Use Case #1 with two **Ask a question** nodes that collect city and state, saving each answer directly to a topic variable.
 
 1. Open **Service Territory Weather Lookup**.
 2. Delete the location-collection placeholder **Send a message** node from Use Case #1.
-3. In its place, add an **Ask with adaptive card** node. (If your tenant labels the option slightly differently, choose the Adaptive Card question/action that opens the card editor.)
-4. In the Adaptive Card editor, switch to the **JSON** view and paste the following payload:
+3. Add an **Ask a question** node. Set the message to:
 
-   ```json
-   {
-     "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
-     "type": "AdaptiveCard",
-     "version": "1.5",
-     "body": [
-       {
-         "type": "TextBlock",
-         "text": "Service territory location",
-         "weight": "Bolder",
-         "size": "Medium",
-         "wrap": true
-       },
-       {
-         "type": "TextBlock",
-         "text": "Enter the city and state of the service territory you want a weather briefing for.",
-         "isSubtle": true,
-         "wrap": true,
-         "spacing": "Small"
-       },
-       {
-         "type": "Input.Text",
-         "id": "city",
-         "label": "City",
-         "placeholder": "Example: Cypress",
-         "isRequired": true,
-         "errorMessage": "Please enter a city."
-       },
-       {
-         "type": "Input.Text",
-         "id": "state",
-         "label": "State (2-letter abbreviation)",
-         "placeholder": "Example: TX",
-         "maxLength": 2,
-         "isRequired": true,
-         "errorMessage": "Please enter a 2-letter state abbreviation."
-       }
-     ],
-     "actions": [
-       {
-         "type": "Action.Submit",
-         "title": "Submit",
-         "data": {
-           "action": "submitLocation"
-         }
-       }
-     ]
-   }
+   ```text
+   What city would you like the weather for?
    ```
 
-   ![Adaptive Card editor in JSON view with the city/state payload pasted in.](./assets/adaptive-card-json-editor.png)
+   Under **Identify**, choose **User's entire response**. Under **Save response as**, select `Topic.City`.
 
-5. Save the card and click **Close**. Copilot Studio will surface each `Input.Text` as a separately addressable output you can map to topic variables.
+4. Add a second **Ask a question** node immediately after. Set the message to:
 
-   ![Adaptive Card preview rendering the City and State input fields with a Submit button.](./assets/adaptive-card-preview.png)
+   ```text
+   What state is that in? (Please enter the 2-letter abbreviation, for example TX)
+   ```
 
-6. Under **Save user response as**, map each card output to its corresponding topic variable from Step 1's variable strategy:
+   Under **Identify**, choose **User's entire response**. Under **Save response as**, select `Topic.State`.
 
-   | Card output (`Input.Text` id) | Topic variable |
-   |---|---|
-   | `city` | `Topic.City` |
-   | `state` | `Topic.State` |
+> 💡 **Tip:** Two focused Question nodes keep the flow simple and easy to debug. Each node’s answer lands directly in the named variable — no JSON parsing, no card editor, no entity extraction required.
 
-   ![Save user response as panel showing card outputs city and state mapped to topic variables.](./assets/adaptive-card-output-mapping.png)
+### Step 5 — Compose `Topic.Location` from Question node outputs with Power Fx
 
-> 💡 **Why an Adaptive Card here?** The card guarantees you receive named, validated inputs. The `isRequired` + `errorMessage` properties handle empty-input cases for you — there is no condition tree, no entity extractor, and no \"did the user mean a city, a county, or a substation name?\" guesswork. For an energy-operations agent where dispatchers may be one-handed during a storm event, a structured card is also faster than typing a sentence.
+The MSN Weather connector accepts a single free-text `Location` such as `Cypress, TX`. Now that you have clean inputs from the Question nodes, compose them into the single string the connector expects.
 
-#### Adaptive Card design tips for energy operations
-
-- **Pre-populate the dominant state.** Add `\"value\": \"TX\"` to the `state` input so an operator working a single-state footprint just confirms the value. Override is one tap.
-- **Add a units toggle as a second card later.** If your operations team mixes Imperial and Metric across regions, an `Input.ChoiceSet` with `Imperial` / `Metric` is a natural follow-up card that writes to `Topic.Units`.
-- **Validate at the edge.** Card validation (`isRequired`, `maxLength`, `errorMessage`) keeps invalid input out of `Topic.Location` entirely — preferable to catching it after the connector returns *Location not found*.
-
-### Step 5 — Compose `Topic.Location` from card outputs with Power Fx
-
-The MSN Weather connector accepts a single free-text `Location` such as `Cypress, TX`. Now that the card has given you clean inputs, compose them into the single string the connector expects.
-
-1. After the Adaptive Card node, add a **Set variable value** node.
+1. After the two Question nodes, add a **Set variable value** node.
 2. Under **To value** select the **...** and select **Formula**.
 3. Use a Power Fx expression that builds `City, ST` from the card inputs:
 
@@ -537,16 +476,16 @@ The MSN Weather connector accepts a single free-text `Location` such as `Cypress
    Set the **To** variable to `Topic.Location`.
 
 4. Add a **Condition** node to confirm we have a usable location:
-   - **If `Topic.Location` is blank** → add a **Send a message** node explaining we need a city and state, then add a **Go to step** node that returns to the Adaptive Card.
+   - **If `Topic.Location` is blank** → add a **Send a message** node explaining we need a city and state, then add a **Go to step** node that returns to the first Question node.
    - **All other conditions** → continue to the next step.
 
 > 💡 **Tip:** Keeping location parsing in one place (`Topic.Location`) means every weather tool, the connected agent, and the Power Automate flow all share the same input and behave consistently.
 
 ### Step 6 — Resolve units and forecast horizon
 
-1. The Adaptive Card from Step 4 already populates `Topic.City` and `Topic.State` — no extra parsing or entity extraction is required.
+1. The Question nodes from Step 4 populate `Topic.City` and `Topic.State` — each answer is saved directly to its variable with no extra parsing required.
 2. The Power Fx step from Step 5 composes `Topic.Location`.
-3. If you want the operator to override units, add a follow-up **Ask a question** node after the card with options `Imperial` and `Metric`, and set `Topic.Units` accordingly. Otherwise keep `Topic.Units = Global.DefaultUnits`.
+3. If you want the operator to choose units, add a follow-up **Ask a question** node with choices `Imperial` and `Metric`, and set `Topic.Units` accordingly. Otherwise keep `Topic.Units = Global.DefaultUnits`.
 4. If the operator's wording mentions *"tomorrow"* (you can detect this with a simple condition on `System.Activity.Text` or with an entity), set `Topic.ForecastHorizon = "tomorrow"`. Otherwise leave it as `today`.
 
 ### Step 7 — Use variables in connector calls
@@ -573,13 +512,12 @@ The connected agent and the Power Automate flow will reuse the same variables, s
 
 - Global variables are best for reusable configuration such as default location, default units, and operational thresholds.
 - Topic variables hold the location and request-specific values for one run of the conversation.
-- **Adaptive Cards** are the cleanest way to populate multi-field topic variables in one turn — JSON-defined inputs map directly to named variables, with built-in validation and zero entity extraction.
+- **Question nodes** are the simplest way to collect named values from a user — each answer saves directly to a topic variable with no parsing or mapping step required.
 - Variables are what make your connector tools, connected agents, and flows reusable instead of hard-coded.
 
 **Troubleshooting**
 
-- If the Adaptive Card doesn't render in the test panel, confirm you used the **Ask with adaptive card** node (not a plain message with embedded JSON) and that the JSON validates against Adaptive Cards 1.5.
-- If the card outputs aren't available as variables, re-open the card node and verify each `Input.Text` `id` (`city`, `state`) is mapped under **Save user response as**.
+- If `Topic.City` or `Topic.State` are empty after the Question nodes, confirm the nodes have **Save response as** set to the correct variable and that the conversation actually reached those nodes.
 - If `Topic.Location` is empty after the Power Fx step, confirm both `Topic.City` and `Topic.State` are populated — the `If(...)` expression returns an empty string if either is blank.
 - If the connector returns *Location not found*, check `Topic.Location` — confirm `City, ST` is composed correctly and the state is a valid 2-letter abbreviation.
 - If forecast units are wrong, verify that `Topic.Units` is being passed through and not silently overridden.
@@ -1389,7 +1327,7 @@ Use this time for open Q&A. If the group needs prompts, consider these:
 | Component | What it does |
 |---|---|
 | **Topics** | Route intent and stage location collection |
-| **Variables (with Adaptive Card)** | Store location, units, and forecast-horizon selections across the conversation; collect structured `City` and `State` inputs in one turn |
+| **Variables (with Question nodes)** | Store location, units, and forecast-horizon selections across the conversation; collect `City` and `State` inputs via simple Question nodes |
 | **Tools — connector** | MSN Weather actions for current weather and today's forecast |
 | **Tools — custom prompt** | `Generate Operations Briefing` — turns raw weather data into a 3-bullet operations briefing |
 | **Connected Agent** | Specialist child agent owning all weather reasoning |
@@ -1404,7 +1342,7 @@ Use this time for open Q&A. If the group needs prompts, consider these:
 
 ## 🏁 Congratulations
 
-You've built an **Energy Operations Weather Agent** that combines topics, variables (populated by an Adaptive Card), two MSN Weather connector tools plus a custom prompt tool, a connected specialist agent, a Power Automate flow, model testing, and an evaluation suite. If you completed the optional MCP section, you also explored runtime tool discovery against the Open-Meteo API.
+You've built an **Energy Operations Weather Agent** that combines topics, variables (collected via Question nodes), two MSN Weather connector tools plus a custom prompt tool, a connected specialist agent, a Power Automate flow, model testing, and an evaluation suite. If you completed the optional MCP section, you also explored runtime tool discovery against the Open-Meteo API.
 
 This pattern gives an energy company a strong foundation for grid-operations weather awareness, demand-spike anticipation, storm staging, and crew-safety planning.
 
