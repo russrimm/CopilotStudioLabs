@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
-| ⏱️ **TIME** | 3 hours (15 min intro, 150 min hands-on, 15 min Q&A) |
+| ⏱️ **TIME** | 1 hour 45 min (15 min intro, 75 min hands-on, 15 min Q&A) |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio, MSN Weather connector, Adaptive Cards, Custom Prompts, Power Automate |
 | 🏷️ **TAGS** | Topics, Variables, Adaptive Cards, Connector Tools, Custom Prompt Tools, Connected Agents, Agent Flows, Evaluations, Model Selection, Grid Operations |
 | 🏭 **INDUSTRY** | Energy / Utilities |
@@ -61,10 +61,10 @@ By the end of this lab, you will be able to:
 1. ✅ Build topics for service-territory weather lookups and operator help
 2. ✅ Use variables for default location, units, and forecast horizon, and collect structured location inputs with an **Adaptive Card**
 3. ✅ Add MSN Weather connector actions as agent tools, and build a **custom prompt tool** that turns the connector outputs into an operations briefing
-4. ✅ Add a connected **Weather Operations Specialist** agent
-5. ✅ Build a Power Automate multi-location briefing flow
-6. ✅ Compare models for quality, latency, and cost
-7. ✅ Evaluate the agent with a 10-question regression set
+4. ⭐ *(Optional)* Add a connected **Weather Operations Specialist** agent
+5. ⭐ *(Optional)* Build a Power Automate multi-location briefing flow
+6. ⭐ *(Optional)* Compare models for quality, latency, and cost
+7. ⭐ *(Optional)* Evaluate the agent with a 10-question regression set
 8. ⭐ *(Optional)* Expose richer weather capabilities through an MCP server backed by Open-Meteo
 
 ---
@@ -154,13 +154,13 @@ By the end of this lab, you will be able to:
 |---|---|---|---|
 | 1 | Topics | 25 min | ✅ |
 | 2 | Variables (with Adaptive Card) | 25 min | ✅ |
-| 3 | Tools (connector + custom prompt) | 35 min | ✅ |
-| 4 | Connected Agents | 18 min | ✅ |
-| 5 | Agent Flows | 20 min | ✅ |
-| 6 | Model Selection & Testing | 12 min | ✅ |
-| 7 | Agent Evaluations | 15 min | ✅ |
+| 3 | Tools (connector + custom prompt) | 25 min | ✅ |
+| 4 | Connected Agents | 18 min | ⭐ Optional |
+| 5 | Agent Flows | 20 min | ⭐ Optional |
+| 6 | Model Selection & Testing | 12 min | ⭐ Optional |
+| 7 | Agent Evaluations | 15 min | ⭐ Optional |
 | | **Q&A / Wrap-up** | **15 min** | ✅ |
-| | **Core lab total** | **180 min (3 hours, includes 15 min intro)** | |
+| | **Core lab total** | **105 min (1 hour 45 min, includes 15 min intro)** | |
 | 8 | Optional: MCP Servers | 20 min | ⭐ Optional |
 
 ---
@@ -587,7 +587,7 @@ The connected agent and the Power Automate flow will reuse the same variables, s
 
 ---
 
-# 🧪 Use Case #3 — Tools (35 min)
+# 🧪 Use Case #3 — Tools (25 min)
 
 > 🎯 **Objective:** Build three agent tools that together turn raw weather data into an operations briefing — two **connector tools** (MSN Weather actions) and one **custom prompt tool** that interprets the connector outputs in energy-operations language.
 
@@ -806,7 +806,7 @@ This is your first non-connector tool, and it's a useful pattern any time you wa
 
 ---
 
-# 🧪 Use Case #4 — Connected Agents (18 min)
+# 🧪 Optional: Use Case #4 — Connected Agents (18 min)
 
 > 🎯 **Objective:** Create a **Weather Operations Specialist** connected agent, add it to the parent Energy Operations Weather Agent, and configure sharing so weather questions route cleanly to the specialist.
 
@@ -882,7 +882,7 @@ The parent agent should orchestrate the operations experience while a connected 
 
 ---
 
-# 🧪 Use Case #5 — Agent Flows (20 min)
+# 🧪 Optional: Use Case #5 — Agent Flows (20 min)
 
 > 🎯 **Objective:** Build a Power Automate cloud flow that takes a list of locations, calls the MSN Weather connector for each, aggregates the results, and returns a service-territory weather briefing to the agent.
 
@@ -981,7 +981,7 @@ For each of the three locations, add an MSN Weather **Get current weather** acti
 
 ---
 
-# 🧪 Use Case #6 — Model Selection & Testing (12 min)
+# 🧪 Optional: Use Case #6 — Model Selection & Testing (12 min)
 
 > 🎯 **Objective:** Compare available models in Copilot Studio for quality, speed, and cost tradeoffs on grid-operations prompts.
 
@@ -1040,7 +1040,7 @@ Use stronger models for shift-handoff briefings, multi-location analysis, and in
 
 ---
 
-# 🧪 Use Case #7 — Agent Evaluations (15 min)
+# 🧪 Optional: Use Case #7 — Agent Evaluations (15 min)
 
 > 🎯 **Objective:** Create a 10-question evaluation set for grid-operations weather scenarios, run it to validate agent quality, review failures, and iterate.
 
