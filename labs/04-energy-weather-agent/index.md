@@ -311,34 +311,32 @@ Now that the topic collects a city and state, wire it to a real connector so the
    Use when the operator needs live conditions — temperature, feels-like, humidity, wind, and a short text description — for a specific city and state. Useful for AC-peak risk, crew heat exposure, and right-now situational awareness.
    ```
 
-7. Configure the tool's inputs:
+6. Click **Save** in the tool configuration panel to finish the connector setup.
 
-   | Connector input | Fill behavior | Value |
+7. Configure the tool’s inputs:
+
+   | Connector input | Fill behavior | Notes |
    |---|---|---|
-   | `Location` | Leave as-is (default) | Formula: `Topic.City & ", " & Topic.State` |
-   | `Units` | Set to **Custom Value** | `Imperial` |
+   | `Location` | **Dynamically fill with AI** (leave default) | In generative orchestration mode the AI extracts city and state from the conversation and composes the location string. When you call this tool explicitly from a topic (Step 6), you will wire it to `Topic.Location` at the topic level. |
+   | `Units` | Set to **Custom Value** | Enter `Imperial` |
 
 8. Save the tool.
 
 ### Step 6 — Use the tool inside **Service Territory Weather Lookup**
 
 1. Return to **Service Territory Weather Lookup**.
-2. After the **Ask a question** node that captures `Topic.State`, click **+** and add a **Call an action** node.
-3. Select the **Get Current Weather** tool you just created.
-4. Confirm the inputs are wired as in Step 5 (`Location` → `Topic.City & ", " & Topic.State`, `Units` → `Imperial`).
-5. Capture the tool's response into a topic variable named `Topic.WeatherResponse`.
-6. Replace the earlier "Once we have a location…" preview message with a **Send a message** node that reads the response back to the operator. Use Power Fx to format the key fields, for example:
+2. After the **Ask a question** node that captures `Topic.State`, click **+**, select **Add a tool**, and pick the **Get Current Weather** tool you created in Step 5.
+3. Wire the tool’s inputs in the node configuration panel:
+   - **Location**: select **Formula** and enter `Topic.City & ", " & Topic.State` (this is where topic-scoped variables are available).
+   - **Units**: select **Custom value** and enter `Imperial`.
+5. In the tool node configuration panel, set an **output variable** name for the result (for example, `Topic.CurrentWeather`). Copilot Studio makes the connector’s output fields accessible as properties of this variable.
+6. Replace the earlier placeholder message with a **Send a message** node. Use the **variable picker** (`{x}` button in the message editor) to insert the output fields. A simple starting template:
 
-   ```powerfx
-   "Current conditions for " & Topic.City & ", " & Upper(Topic.State) & ": " &
-   Topic.WeatherResponse.responses.weather.current.cap & ", " &
-   Text(Topic.WeatherResponse.responses.weather.current.temperature) & "° (feels like " &
-   Text(Topic.WeatherResponse.responses.weather.current.feels) & "°), humidity " &
-   Text(Topic.WeatherResponse.responses.weather.current.humidity) & "%, wind " &
-   Text(Topic.WeatherResponse.responses.weather.current.windSpeed) & "."
+   ```text
+   Current conditions for {Topic.City}, {Topic.State}: {Topic.CurrentWeather.temperature}° (feels like {Topic.CurrentWeather.feelsLike}°), humidity {Topic.CurrentWeather.humidity}%, wind {Topic.CurrentWeather.windSpeed} — {Topic.CurrentWeather.description}
    ```
 
-   > 💡 The exact JSON path may render slightly differently in your tenant — if the formula bar shows the response under `responses[0]`, adjust the dot path to match what IntelliSense suggests.
+   > 💡 **Tip:** Use the variable picker rather than typing field paths manually. After the tool call node, the picker lists all available output fields. If the connector returns data nested under `responses[0].weather.current`, the picker inserts the correct dot-path for you.
 
 7. Save the topic.
 
@@ -401,7 +399,13 @@ Use the following variable design:
 
 ### Step 2 — Create global variables
 
-1. Open the agent and go to the variable management experience. If you don't see a dedicated variables page in your environment, create the variables from a **Set variable value** node and set their scope to **Global**.
+> 💡 **How global variables work in Copilot Studio.** There is no standalone variable management page. Create global variables from within any topic: add a **Set variable value** node, create a new variable, then open the variable’s **Properties** panel and change **Scope** to **Global**. Once promoted, the variable is accessible in all topics.
+
+1. Open the **Service Territory Weather Lookup** topic.
+2. At the very top of the canvas (before any other nodes), add three **Set variable value** nodes in sequence. For each one:
+   - Click the variable field and select **Create a new variable**, then type the variable name shown below.
+   - Click the variable name to open its **Properties** pane and set **Scope** to **Global**.
+   - Set the value shown below.
 2. Create a global variable named `Global.DefaultLocation`.
 3. Set a sample value such as:
 
@@ -465,7 +469,7 @@ The MSN Weather connector accepts a single free-text `Location` such as `Cypress
 
 1. After the two Question nodes, add a **Set variable value** node.
 2. Under **To value** select the **...** and select **Formula**.
-3. Use a Power Fx expression that builds `City, ST` from the card inputs:
+3. Use a Power Fx expression that builds `City, ST` from the Question node inputs:
 
    ```powerfx
    If(
@@ -579,6 +583,8 @@ Give the operator-friendly input descriptions:
 - `Location`: *City and 2-letter state, e.g. `Cypress, TX`.*
 - `Units`: *Imperial returns °F and mph. Metric returns °C and km/h.*
 
+> 💡 **Agent-level vs. topic-level input wiring.** When configuring this tool at the agent level, leave `Location` set to **Dynamically fill with AI** — generative orchestration will extract the city and state from the conversation context and compose the location string. When you explicitly call this tool from within a topic (Step 6), you wire `Location` to `Topic.Location` directly in the topic’s tool-call node configuration. Set `Units` to **Custom value = `Imperial`** at the agent level so it is always fixed.
+
 Wire the inputs to the topic variables:
 
 - `Location` ← `Topic.Location`
@@ -613,7 +619,7 @@ Follow the same pattern as Tool 1:
    ```
 
 3. Pick the connector action **Get forecast for today**.
-4. Inputs (same as Tool 1): `Location` ← `Topic.Location`, `Units` ← `Topic.Units`.
+4. Inputs: leave `Location` as **Dynamically fill with AI** (same as Tool 1). Set `Units` to **Custom value = `Imperial`**. (When called explicitly from a topic in Step 6, wire `Location` to `Topic.Location` and `Units` to `Topic.Units` in the topic’s tool-call node.)
 5. Recommended outputs:
 
    | Output | Source field | Meaning |
@@ -632,8 +638,8 @@ The two connector tools return raw numbers — temperature, humidity, wind, prec
 
 This is your first non-connector tool, and it's a useful pattern any time you want a model to interpret structured data into a domain-specific narrative.
 
-1. In **Tools**, select **Add tool**.
-2. Choose **Prompt** (also labeled **Create a prompt** or **Custom prompt** depending on tenant).
+1. In **Tools**, select **+ Add a tool**.
+2. In the **Add tool** pane, select **New tool**, then choose **Prompt**. (Depending on your tenant build, you may also see this labeled **Custom prompt**.)
 3. Name the tool:
 
    ```text
@@ -709,9 +715,9 @@ This is your first non-connector tool, and it's a useful pattern any time you wa
 
 1. Return to **Service Territory Weather Lookup**.
 2. After the location resolution step, replace the Use Case #1 placeholders with real **Call an action** nodes:
-   - **Current branch** → call **Get Current Weather** with `Topic.Location` and `Topic.Units`
-   - **Today's forecast branch** → call **Get Today's Forecast** with `Topic.Location` and `Topic.Units`
-3. After both connector actions complete, add a third **Call an action** node that runs **Generate Operations Briefing** with all the inputs from Step 5's table.
+   - **Current weather**: click **+**, select **Add a tool**, pick **Get Current Weather**. In the node’s input panel, wire `Location` to `Topic.Location` and `Units` to `Topic.Units`.
+   - **Today’s forecast**: click **+**, select **Add a tool**, pick **Get Today’s Forecast**. Wire inputs the same way.
+3. After both tool nodes complete, click **+**, select **Add a tool**, pick **Generate Operations Briefing**, and wire all inputs from Step 5’s table.
 4. Add a **Send a message** node that returns the prompt output to the operator:
 
    ```text
