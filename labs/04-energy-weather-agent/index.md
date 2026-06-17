@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
-| ⏱️ **TIME** | 1 hour 45 min (15 min intro, 75 min hands-on, 15 min Q&A) |
+| ⏱️ **TIME** | 2 hours (15 min intro, 90 min hands-on, 15 min Q&A) |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio, MSN Weather connector, Custom Prompts, Power Automate |
 | 🏷️ **TAGS** | Topics, Variables, Connector Tools, Custom Prompt Tools, Connected Agents, Agent Flows, Evaluations, Model Selection, Grid Operations |
 | 🏭 **INDUSTRY** | Energy / Utilities |
@@ -64,8 +64,9 @@ By the end of this lab, you will be able to:
 4. ⭐ *(Optional)* Add a connected **Weather Operations Specialist** agent
 5. ⭐ *(Optional)* Build a Power Automate multi-location briefing flow
 6. ⭐ *(Optional)* Compare models for quality, latency, and cost
-7. ⭐ *(Optional)* Evaluate the agent with a 10-question regression set
+7. ✅ Evaluate the agent with a 10-question regression set
 8. ⭐ *(Optional)* Expose richer weather capabilities through an MCP server backed by Open-Meteo
+9. ⭐ *(Optional)* Replace the city/state Question nodes with an **Adaptive Card** for single-turn structured location input
 
 ---
 
@@ -157,10 +158,11 @@ By the end of this lab, you will be able to:
 | 4 | Connected Agents | 18 min | ⭐ Optional |
 | 5 | Agent Flows | 20 min | ⭐ Optional |
 | 6 | Model Selection & Testing | 12 min | ⭐ Optional |
-| 7 | Agent Evaluations | 15 min | ⭐ Optional |
+| 7 | Agent Evaluations | 15 min | ✅ |
 | | **Q&A / Wrap-up** | **15 min** | ✅ |
-| | **Core lab total** | **105 min (1 hour 45 min, includes 15 min intro)** | |
+| | **Core lab total** | **120 min (2 hours, includes 15 min intro)** | |
 | 8 | Optional: MCP Servers | 20 min | ⭐ Optional |
+| 9 | Optional: Adaptive Card Location Input | 15 min | ⭐ Optional |
 
 ---
 
@@ -978,7 +980,7 @@ Use stronger models for shift-handoff briefings, multi-location analysis, and in
 
 ---
 
-# 🧪 Optional: Use Case #7 — Agent Evaluations (15 min)
+# 🧪 Use Case #7 — Agent Evaluations (15 min)
 
 > 🎯 **Objective:** Create a 10-question evaluation set for grid-operations weather scenarios, run it to validate agent quality, review failures, and iterate.
 
@@ -1340,6 +1342,96 @@ Use this time for open Q&A. If the group needs prompts, consider these:
 
 ---
 
+# 🧪 Optional: Use Case #9 — Adaptive Card Location Input (15 min)
+
+> 🎯 **Objective:** Replace the two **Ask a question** nodes from Use Case #2 with a single **Adaptive Card** node that collects city and state in one structured turn with built-in field validation.
+
+### When to use this enhancement
+
+An Adaptive Card is worth adding when:
+- Dispatchers need fewer conversational turns during high-pressure operational events
+- You want built-in field-level validation (`isRequired`, `maxLength`, `errorMessage`) without building condition branches
+- Your deployment channel (Teams, custom website) renders Adaptive Cards natively
+
+### Step 1 — Replace the Question nodes with an Adaptive Card node
+
+1. Open **Service Territory Weather Lookup**.
+2. Delete the two **Ask a question** nodes added in Use Case #2 (city question and state question).
+3. In their place, add an **Ask with adaptive card** node. (If your tenant labels it slightly differently, look for the Adaptive Card question or action that opens the card editor.)
+4. In the Adaptive Card editor, switch to the **JSON** view and paste the following payload:
+
+   ```json
+   {
+     "$schema": "https://adaptivecards.io/schemas/adaptive-card.json",
+     "type": "AdaptiveCard",
+     "version": "1.5",
+     "body": [
+       {
+         "type": "TextBlock",
+         "text": "Service territory location",
+         "weight": "Bolder",
+         "size": "Medium",
+         "wrap": true
+       },
+       {
+         "type": "TextBlock",
+         "text": "Enter the city and state of the service territory you want a weather briefing for.",
+         "isSubtle": true,
+         "wrap": true,
+         "spacing": "Small"
+       },
+       {
+         "type": "Input.Text",
+         "id": "city",
+         "label": "City",
+         "placeholder": "Example: Cypress",
+         "isRequired": true,
+         "errorMessage": "Please enter a city."
+       },
+       {
+         "type": "Input.Text",
+         "id": "state",
+         "label": "State (2-letter abbreviation)",
+         "placeholder": "Example: TX",
+         "maxLength": 2,
+         "isRequired": true,
+         "errorMessage": "Please enter a 2-letter state abbreviation."
+       }
+     ],
+     "actions": [
+       {
+         "type": "Action.Submit",
+         "title": "Submit",
+         "data": {
+           "action": "submitLocation"
+         }
+       }
+     ]
+   }
+   ```
+
+5. Save the card and click **Close**. Copilot Studio surfaces each `Input.Text` field as a separately addressable output you can map to a topic variable.
+
+### Step 2 — Map card outputs to topic variables
+
+Under **Save user response as**, map each card output to its topic variable:
+
+| Card output (`Input.Text` id) | Topic variable |
+|---|---|
+| `city` | `Topic.City` |
+| `state` | `Topic.State` |
+
+The `Topic.Location` Power Fx composition from Use Case #2 Step 5 works unchanged — `Topic.City` and `Topic.State` are now populated by the card instead of the Question nodes. No changes to tools, connected agents, or flows are needed.
+
+> 💡 **Tip:** The card’s `isRequired` and `errorMessage` properties handle empty-input validation automatically, replacing the condition branch that checks whether the user entered a value.
+
+> 💡 **Advanced:** Pre-populate the dominant state by adding `"value": "TX"` to the `state` Input.Text object. Operators working a single-state footprint just confirm the default instead of typing it.
+
+### ✅ You’ve completed the optional Adaptive Card enhancement
+
+The agent now collects location in one structured card turn instead of two sequential questions. All downstream tools, the connected agent, and the Power Automate flow continue to use `Topic.Location` — no further changes required.
+
+---
 ## 🏁 Congratulations
 
 You've built an **Energy Operations Weather Agent** that combines topics, variables (collected via Question nodes), two MSN Weather connector tools plus a custom prompt tool, a connected specialist agent, a Power Automate flow, model testing, and an evaluation suite. If you completed the optional MCP section, you also explored runtime tool discovery against the Open-Meteo API.
