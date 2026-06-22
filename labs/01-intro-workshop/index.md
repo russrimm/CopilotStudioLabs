@@ -81,12 +81,12 @@ Congratulations! 👏 You now have a working Copilot Studio agent and the core s
 
 **Suggested next labs:**
 
-- **[Lab 04: Energy Operations Weather Agent](../04-energy-weather-agent/)** — go deeper with custom prompt tools, connected child agents, and evaluation test suites.
-- **[Lab 02: Monitor Performance and Evaluate Agent Quality](../02-agent-analytics-evaluations/index.md)** — measure and continuously improve the agents you build.
+- **[Lab 06: Energy Operations Weather Agent](../06-energy-weather-agent/)** — go deeper with custom prompt tools, connected child agents, and evaluation test suites.
+- **[Lab 07: Monitor Performance and Evaluate Agent Quality](../07-agent-analytics-evaluations/index.md)** — measure and continuously improve the agents you build.
 
 ## Related Labs
 
-- **[Lab 04: Energy Operations Weather Agent](../04-energy-weather-agent/)** — Advanced lab building a complete agent with custom prompt tools, connected child agents, and evaluation test suites.
+- **[Lab 06: Energy Operations Weather Agent](../06-energy-weather-agent/)** — Advanced lab building a complete agent with custom prompt tools, connected child agents, and evaluation test suites.
 
 ---
 

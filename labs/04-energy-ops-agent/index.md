@@ -1,4 +1,4 @@
-# ⚡ Lab 01: Build a Custom IT Operations Agent for Contoso Energy
+# ⚡ Lab 04: Build a Custom IT Operations Agent for Contoso Energy
 
 *Delivering energy with purpose — powered by AI*
 
@@ -244,7 +244,7 @@ After your agent is provisioned from the conversational authoring experience, yo
 
 ---
 
-## 🧪 Lab 01: Create a custom agent in Copilot Studio
+## 🧪 Lab 04: Create a custom agent in Copilot Studio
 
 We're now going to learn how to create a custom agent that can chat over your data.
 

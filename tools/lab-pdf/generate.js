@@ -13,7 +13,7 @@ const labsRoot = join(repoRoot, "labs");
 const defaultOutDir = join(repoRoot, "dist", "lab-pdfs");
 
 function usage() {
-  console.log(`Usage: node generate.js [options]\n\nOptions:\n  --lab=<lab-id>    Generate one lab only\n  --out=<dir>       Output directory (default: dist/lab-pdfs/)\n  --help            Show this help\n\nExamples:\n  node generate.js\n  node generate.js --lab=04-energy-weather-agent\n  node generate.js --out=dist/custom-pdfs`);
+  console.log(`Usage: node generate.js [options]\n\nOptions:\n  --lab=<lab-id>    Generate one lab only\n  --out=<dir>       Output directory (default: dist/lab-pdfs/)\n  --help            Show this help\n\nExamples:\n  node generate.js\n  node generate.js --lab=06-energy-weather-agent\n  node generate.js --out=dist/custom-pdfs`);
 }
 
 function parseArgs(argv) {

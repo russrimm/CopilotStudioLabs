@@ -1,4 +1,4 @@
-# ⚡ Lab 04: Build an Energy Operations Weather Intelligence Agent with MSN Weather
+# ⚡ Lab 06: Build an Energy Operations Weather Intelligence Agent with MSN Weather
 
 *Turn live weather signals into grid-operations intelligence.*
 

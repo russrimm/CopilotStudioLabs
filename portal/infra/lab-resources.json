@@ -12,7 +12,7 @@
   },
 
   "labs": {
-    "01-energy-ops-agent": {
+    "04-energy-ops-agent": {
       "name": "IT Operations Agent",
       "resources": [
         {
@@ -45,7 +45,7 @@
       ]
     },
 
-    "02-agent-analytics-evaluations": {
+    "07-agent-analytics-evaluations": {
       "name": "Analytics & Evaluations",
       "resources": [
         {
@@ -54,7 +54,7 @@
           "name": "Published Agent (from Lab 01)",
           "description": "Requires a published agent with channel traffic for analytics",
           "config": {
-            "dependsOnLab": "01-energy-ops-agent",
+            "dependsOnLab": "04-energy-ops-agent",
             "requiresPublish": true,
             "requiresChannel": true
           }
@@ -62,7 +62,7 @@
       ]
     },
 
-    "03-account-orchestration-agent": {
+    "18-account-orchestration-agent": {
       "name": "Orchestration Agent",
       "resources": [
         {
@@ -109,7 +109,7 @@
       ]
     },
 
-    "04-energy-weather-agent": {
+    "06-energy-weather-agent": {
       "name": "Energy Operations Weather Agent",
       "resources": [
         {
@@ -181,7 +181,7 @@
       ]
     },
 
-    "05-copilot-studio-vscode-agent-management": {
+    "36-copilot-studio-vscode-agent-management": {
       "name": "VS Code Agent Management",
       "resources": [
         {
@@ -190,7 +190,7 @@
           "name": "Existing Published Agent",
           "description": "Any published agent to clone and modify",
           "config": {
-            "dependsOnLab": "01-energy-ops-agent",
+            "dependsOnLab": "04-energy-ops-agent",
             "requiresPublish": true
           }
         },

@@ -1,0 +1,41 @@
+{
+  "lab": "02-conversational-design-fundamentals",
+  "assetsDir": "labs/02-conversational-design-fundamentals/assets",
+  "startUrl": "https://copilotstudio.microsoft.com/",
+  "shots": [
+    {
+      "id": 1,
+      "filename": "topics-overview.png",
+      "section": "topics",
+      "instructions": [
+        "Open an agent and select Topics in the left navigation.",
+        "Make sure the system topics and at least one custom topic are visible.",
+        "Open the '+ Add a topic' menu so 'From blank' is visible.",
+        "Close any teaching tips, banners, or popovers."
+      ],
+      "labSection": "Step 1"
+    },
+    {
+      "id": 2,
+      "filename": "trigger-phrases.png",
+      "section": "topics",
+      "instructions": [
+        "Open a custom topic and select the Trigger node.",
+        "Show 5-8 trigger phrases entered in the node.",
+        "The authoring canvas chrome must be visible."
+      ],
+      "labSection": "Step 2"
+    },
+    {
+      "id": 3,
+      "filename": "question-entity-node.png",
+      "section": "topics",
+      "instructions": [
+        "Add a Question node and open its properties pane.",
+        "Set Identify to a prebuilt entity (for example City and country).",
+        "Show the 'Save user response as' variable mapping."
+      ],
+      "labSection": "Step 3"
+    }
+  ]
+}

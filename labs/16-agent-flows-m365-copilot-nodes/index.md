@@ -1,4 +1,4 @@
-# Lab 28: Agent Flows - M365 Copilot Nodes
+# Lab 16: Agent Flows - M365 Copilot Nodes
 
 *Integrate Microsoft 365 Copilot capabilities into Copilot Studio agent flows using M365 Copilot nodes.*
 
@@ -86,5 +86,5 @@ You built an enterprise-ready **M365 Copilot node** pattern for Copilot Studio a
 
 Suggested next labs:
 
-- [Lab 08: Supercharge Agents with Work IQ and Microsoft 365 Intelligence](../08-work-iq-m365-intelligence/index.md)
-- [Lab 29: Agent Flows - Async Responses](../29-agent-flows-async-responses/index.md)
+- [Lab 05: Supercharge Agents with Work IQ and Microsoft 365 Intelligence](../05-work-iq-m365-intelligence/index.md)
+- [Lab 17: Agent Flows - Async Responses](../17-agent-flows-async-responses/index.md)

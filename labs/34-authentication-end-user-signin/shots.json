@@ -1,0 +1,38 @@
+{
+  "lab": "34-authentication-end-user-signin",
+  "assetsDir": "labs/34-authentication-end-user-signin/assets",
+  "startUrl": "https://copilotstudio.microsoft.com/",
+  "shots": [
+    {
+      "id": 1,
+      "filename": "security-authentication-page.png",
+      "section": "security",
+      "instructions": [
+        "Open an agent and go to Settings then Security then Authentication.",
+        "Make sure the authentication options are visible.",
+        "Close any teaching tips, banners, or popovers."
+      ],
+      "labSection": "Step 1"
+    },
+    {
+      "id": 2,
+      "filename": "entra-auth-config.png",
+      "section": "security",
+      "instructions": [
+        "Select 'Authenticate manually'.",
+        "Show the client ID, token URLs, and scopes fields (do not capture real secrets)."
+      ],
+      "labSection": "Step 3"
+    },
+    {
+      "id": 3,
+      "filename": "test-signin-prompt.png",
+      "section": "test",
+      "instructions": [
+        "Open the Test pane and start a conversation.",
+        "Capture the agent's sign-in prompt to the end user."
+      ],
+      "labSection": "Step 4"
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-# 🌉 Lab 14: On-Premises Data Gateway for Copilot Studio
+# 🌉 Lab 24: On-Premises Data Gateway for Copilot Studio
 
 *Bridge Copilot Studio to on-premises systems with secure outbound-only hybrid connectivity and reusable agent flows.*
 

@@ -1,4 +1,4 @@
-# 📊 Lab 02: Monitor Performance and Evaluate Contoso Agent Quality
+# 📊 Lab 07: Monitor Performance and Evaluate Contoso Agent Quality
 
 *If you can't measure it, you can't improve it.*
 
@@ -12,9 +12,9 @@
 | 🏷️ **TAGS** | Analytics, Agent Evaluation, Test Sets, Quality Management, Continuous Improvement, Application Insights, KQL, Azure Monitor |
 | 🏭 **INDUSTRY** | Energy / Utilities (Contoso family of companies) |
 
-> **Adapted from:** [Monitor Performance and Evaluate Agent Quality — Microsoft Copilot Agents Labs](https://microsoft.github.io/mcs-labs/labs/core-concepts-analytics-evaluations/). Reframed for **Contoso** so you can measure and continuously improve the IT Operations agent you built in [Lab 01](../01-energy-ops-agent/index.md) — and any other Contoso agent that follows.
+> **Adapted from:** [Monitor Performance and Evaluate Agent Quality — Microsoft Copilot Agents Labs](https://microsoft.github.io/mcs-labs/labs/core-concepts-analytics-evaluations/). Reframed for **Contoso** so you can measure and continuously improve the IT Operations agent you built in [Lab 04](../04-energy-ops-agent/index.md) — and any other Contoso agent that follows.
 
-> 🔗 **Related feature labs:** This is the end-to-end analytics-and-evaluation **scenario**. For focused capability deep-dives, see [Lab 19: Agent Evaluations (GA)](../19-agent-evaluations-ga/index.md), [Lab 21: Question & Reaction Exports](../21-question-reaction-exports/index.md), and [Lab 31: Custom Analytics Metrics](../31-custom-analytics-metrics/index.md).
+> 🔗 **Related feature labs:** This is the end-to-end analytics-and-evaluation **scenario**. For focused capability deep-dives, see [Lab 08: Agent Evaluations (GA)](../08-agent-evaluations-ga/index.md), [Lab 10: Question & Reaction Exports](../10-question-reaction-exports/index.md), and [Lab 11: Custom Analytics Metrics](../11-custom-analytics-metrics/index.md).
 
 ---
 
@@ -36,7 +36,7 @@ flowchart LR
 
 ## ⚡ Why Contoso cares about analytics and evaluations
 
-The Contoso IT Operations Agent (Lab 01) and the Contoso Customer Operations Assistant (Lab 03) only deliver value if they **work** — turn after turn, day after day, for thousands of field crew, account managers, and dispatchers across Contoso Energy, Contoso Gas, Contoso Infrastructure, and Contoso Power.
+The Contoso IT Operations Agent (Lab 04) and the Contoso Customer Operations Assistant (Lab 18) only deliver value if they **work** — turn after turn, day after day, for thousands of field crew, account managers, and dispatchers across Contoso Energy, Contoso Gas, Contoso Infrastructure, and Contoso Power.
 
 Without a measurement practice, you're flying blind:
 
@@ -55,7 +55,7 @@ Common challenges this lab solves:
 
 ## 📖 Real-world example
 
-The IT Operations team at Contoso Energy uses analytics on their Lab 01 agent and notices that **30% of VPN-related conversations end in user abandonment**. They add the latest **VPN setup guide** and **NERC CIP remote-access standard** to the agent's knowledge sources, then build a 15-question evaluation test set covering VPN scenarios. After the update, evaluations show pass rates climb from **40% → 90%**. A week later, analytics confirm VPN abandonment dropped from **30% → 5%** in real conversations.
+The IT Operations team at Contoso Energy uses analytics on their Lab 04 agent and notices that **30% of VPN-related conversations end in user abandonment**. They add the latest **VPN setup guide** and **NERC CIP remote-access standard** to the agent's knowledge sources, then build a 15-question evaluation test set covering VPN scenarios. After the update, evaluations show pass rates climb from **40% → 90%**. A week later, analytics confirm VPN abandonment dropped from **30% → 5%** in real conversations.
 
 That's the cycle: analytics finds the problem, evaluations verify the fix, analytics confirms the impact.
 
@@ -106,7 +106,7 @@ By the end of this lab you will be able to:
 
 ## ✅ Prerequisites
 
-- Completed [Lab 01: Build a Custom IT Operations Agent for Contoso Energy](../01-energy-ops-agent/index.md). You'll use that agent throughout this lab. (If you skipped Lab 01, any published Copilot Studio agent in your environment will work — the steps are agent-agnostic.)
+- Completed [Lab 04: Build a Custom IT Operations Agent for Contoso Energy](../04-energy-ops-agent/index.md). You'll use that agent throughout this lab. (If you skipped Lab 04, any published Copilot Studio agent in your environment will work — the steps are agent-agnostic.)
 - Access to **Microsoft Copilot Studio** with **Analytics** and **Agent Evaluation (preview)** permissions
 - Your agent has been **published** and used through a **deployed channel** (Microsoft Teams, a website, or another Copilot Studio channel) — only those conversations contribute to analytics data
 
@@ -140,7 +140,7 @@ Your **Contoso IT Operations Agent** has been deployed for several days. Field t
 ### Step 1 — Navigate to Analytics
 
 1. In Copilot Studio, select **Agents** in the left navigation.
-2. Open your **Contoso IT Operations Agent** (from Lab 01) and select **Analytics** in the top navigation bar.
+2. Open your **Contoso IT Operations Agent** (from Lab 04) and select **Analytics** in the top navigation bar.
 3. Review the analytics dashboard overview, which typically includes:
    - **Summary metrics:** total conversations, engaged conversations, resolution rate
    - **Trend charts:** conversation volume over time
@@ -180,7 +180,7 @@ Your **Contoso IT Operations Agent** has been deployed for several days. Field t
 1. Go to the **Agents** section in analytics.
 2. Review the metrics for each **child** and **connected** agent your agent uses:
    - Which agents are being called and what type are they?
-   - **Number of calls** and **success rate** — a low success rate may indicate the agent needs improvement, or that the planner is routing to it incorrectly (re-read [Lab 03](../03-account-orchestration-agent/index.md) Use Case #2 if you see this).
+   - **Number of calls** and **success rate** — a low success rate may indicate the agent needs improvement, or that the planner is routing to it incorrectly (re-read [Lab 18](../18-account-orchestration-agent/index.md) Use Case #2 if you see this).
 
 ### Step 5 — Review generated answer rate and quality
 
@@ -541,7 +541,7 @@ As the Contoso Energy IT Operations team scales their agent to thousands of fiel
 ### Prerequisites
 
 - An **Azure subscription** with permissions to create or access an Application Insights resource
-- Your **Contoso IT Operations Agent** from Lab 01 (or any published Copilot Studio agent)
+- Your **Contoso IT Operations Agent** from Lab 04 (or any published Copilot Studio agent)
 - Basic familiarity with the **Azure portal** ([portal.azure.com](https://portal.azure.com))
 
 ### Step 1 — Create or identify an Application Insights resource

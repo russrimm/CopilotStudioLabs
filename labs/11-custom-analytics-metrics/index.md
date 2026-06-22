@@ -1,4 +1,4 @@
-# Lab 31: Custom Analytics Metrics
+# Lab 11: Custom Analytics Metrics
 
 *Define and operationalize custom metrics that reflect real business outcomes for your Copilot Studio agents.*
 
@@ -86,5 +86,5 @@ You created an actionable **custom analytics metrics** model tied to real busine
 
 Suggested next labs:
 
-- [Lab 21: Question/Reaction Exports](../21-question-reaction-exports/index.md)
-- [Lab 33: Agent Readiness / Issue Status](../33-agent-readiness-issue-status/index.md)
+- [Lab 10: Question/Reaction Exports](../10-question-reaction-exports/index.md)
+- [Lab 39: Agent Readiness / Issue Status](../39-agent-readiness-issue-status/index.md)

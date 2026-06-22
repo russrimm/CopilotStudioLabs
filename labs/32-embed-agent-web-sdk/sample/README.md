@@ -5,7 +5,7 @@ This folder is the starter scaffold for [Lab 18](../index.md). It mirrors the st
 ## Quick start
 
 ```bash
-cd labs/18-embed-agent-web-sdk/sample
+cd labs/32-embed-agent-web-sdk/sample
 npm install
 # Edit src/config.ts with your tenant, client, environment, and agent IDs
 npm run dev

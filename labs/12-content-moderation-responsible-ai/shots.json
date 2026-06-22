@@ -1,0 +1,38 @@
+{
+  "lab": "12-content-moderation-responsible-ai",
+  "assetsDir": "labs/12-content-moderation-responsible-ai/assets",
+  "startUrl": "https://copilotstudio.microsoft.com/",
+  "shots": [
+    {
+      "id": 1,
+      "filename": "generative-ai-settings.png",
+      "section": "settings",
+      "instructions": [
+        "Open an agent and go to Settings then Generative AI.",
+        "Make sure the content moderation and response controls are visible.",
+        "Close any teaching tips, banners, or popovers."
+      ],
+      "labSection": "Step 1"
+    },
+    {
+      "id": 2,
+      "filename": "content-moderation-level.png",
+      "section": "settings",
+      "instructions": [
+        "Open the content moderation level control.",
+        "Show the available moderation levels in the selector."
+      ],
+      "labSection": "Step 2"
+    },
+    {
+      "id": 3,
+      "filename": "test-guardrail-response.png",
+      "section": "test",
+      "instructions": [
+        "Open the Test pane and submit an out-of-scope or adversarial prompt.",
+        "Capture the agent's safe refusal or redirect response."
+      ],
+      "labSection": "Step 5"
+    }
+  ]
+}

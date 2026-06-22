@@ -1,4 +1,4 @@
-# ✨ Lab 09: Master Prompt Engineering with Prompt Builder and Agent Flow Nodes
+# ✨ Lab 13: Master Prompt Engineering with Prompt Builder and Agent Flow Nodes
 
 *Design reusable prompts, wire them into flows, and control how AI content is generated for utility operations scenarios.*
 
@@ -23,7 +23,7 @@ By the end of this lab, you will be able to:
 
 ---
 
-> 🔗 **Related feature labs:** [Lab 22: Prompt Assistant](../22-prompt-assistant/index.md) and [Lab 27: Agent Flows - Prompt Nodes](../27-agent-flows-prompt-nodes/index.md) — focused deep-dives on prompt authoring and prompt nodes. This lab is the end-to-end prompt-engineering-and-flows scenario.
+> 🔗 **Related feature labs:** [Lab 03: Prompt Assistant](../03-prompt-assistant/index.md) and [Lab 14: Agent Flows - Prompt Nodes](../14-agent-flows-prompt-nodes/index.md) — focused deep-dives on prompt authoring and prompt nodes. This lab is the end-to-end prompt-engineering-and-flows scenario.
 
 ## 🗺️ Lab Flow
 

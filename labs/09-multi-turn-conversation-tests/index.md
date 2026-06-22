@@ -1,4 +1,4 @@
-# Lab 20: Multi-turn Conversation Tests
+# Lab 09: Multi-turn Conversation Tests
 
 *Validate how your Copilot Studio agent behaves over full conversations, not just single prompts.*
 
@@ -86,5 +86,5 @@ You created a repeatable method for validating conversation quality across full 
 
 Suggested next labs:
 
-- [Lab 21: Question/Reaction Exports](../21-question-reaction-exports/index.md)
-- [Lab 29: Agent Flows - Async Responses](../29-agent-flows-async-responses/index.md)
+- [Lab 10: Question/Reaction Exports](../10-question-reaction-exports/index.md)
+- [Lab 17: Agent Flows - Async Responses](../17-agent-flows-async-responses/index.md)

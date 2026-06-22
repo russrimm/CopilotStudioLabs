@@ -1,4 +1,4 @@
-# Lab 26: Agent Flows - Agent Nodes
+# Lab 15: Agent Flows - Agent Nodes
 
 *Orchestrate Copilot Studio workflows that call specialized agents through agent nodes.*
 
@@ -86,5 +86,5 @@ You implemented a robust **agent-flow agent node** pattern for modular orchestra
 
 Suggested next labs:
 
-- [Lab 27: Agent Flows - Prompt Nodes](../27-agent-flows-prompt-nodes/index.md)
-- [Lab 29: Agent Flows - Async Responses](../29-agent-flows-async-responses/index.md)
+- [Lab 14: Agent Flows - Prompt Nodes](../14-agent-flows-prompt-nodes/index.md)
+- [Lab 17: Agent Flows - Async Responses](../17-agent-flows-async-responses/index.md)

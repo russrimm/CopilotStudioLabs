@@ -1,4 +1,4 @@
-# Lab 32: Agent Inventory Schema
+# Lab 38: Agent Inventory Schema
 
 *Create a structured inventory schema to track agent capabilities, ownership, risk, and lifecycle status.*
 
@@ -86,5 +86,5 @@ You created a practical **agent inventory schema** for portfolio governance and 
 
 Suggested next labs:
 
-- [Lab 33: Agent Readiness / Issue Status](../33-agent-readiness-issue-status/index.md)
-- [Lab 34: Entra Agent Identities (Preview)](../34-entra-agent-identities-preview/index.md)
+- [Lab 39: Agent Readiness / Issue Status](../39-agent-readiness-issue-status/index.md)
+- [Lab 40: Entra Agent Identities (Preview)](../40-entra-agent-identities-preview/index.md)

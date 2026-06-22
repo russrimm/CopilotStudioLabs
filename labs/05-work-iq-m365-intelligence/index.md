@@ -1,4 +1,4 @@
-# 🧠 Lab 08: Supercharge Agents with Work IQ and Microsoft 365 Intelligence
+# 🧠 Lab 05: Supercharge Agents with Work IQ and Microsoft 365 Intelligence
 
 *Ground utility agents in the living context of meetings, mail, files, chats, and curated knowledge sources.*
 
@@ -23,7 +23,7 @@ By the end of this lab, you will be able to:
 
 ---
 
-> 🔗 **Related lab:** [Lab 23: Work IQ MCP (Preview)](../23-work-iq-mcp-preview/index.md) — a focused deep-dive on Work IQ context over MCP. This lab is the end-to-end Work IQ + Microsoft 365 grounding scenario.
+> 🔗 **Related lab:** [Lab 27: Work IQ MCP (Preview)](../27-work-iq-mcp-preview/index.md) — a focused deep-dive on Work IQ context over MCP. This lab is the end-to-end Work IQ + Microsoft 365 grounding scenario.
 
 ## 🗺️ Lab Flow
 

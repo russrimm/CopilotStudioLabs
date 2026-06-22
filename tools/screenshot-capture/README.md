@@ -38,7 +38,7 @@ Selection precedence is `--only` > `--range` > `--from` > `--missing` default; c
 
 ```powershell
 npm run verify
-node verify-shots.js --lab=04-energy-weather-agent
+node verify-shots.js --lab=06-energy-weather-agent
 node verify-shots.js --json
 node verify-shots.js --strict
 ```
@@ -85,5 +85,5 @@ Each shot still requires `id`, `filename`, `section`, and `instructions`. Option
 ## Notes
 
 - Login state is stored in `tools/screenshot-capture/.auth/`. That directory is git-ignored — never commit it.
-- PNGs land directly in `labs/04-energy-weather-agent/assets/` with filenames declared in `shots.json`.
+- PNGs land directly in `labs/06-energy-weather-agent/assets/` with filenames declared in `shots.json`.
 - This tool is currently configured for Lab 04 only. To use another lab, change `lab`, `assetsDir`, and `shots` in `shots.json`.

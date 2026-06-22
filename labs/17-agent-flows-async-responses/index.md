@@ -1,4 +1,4 @@
-# Lab 29: Agent Flows - Async Responses
+# Lab 17: Agent Flows - Async Responses
 
 *Design resilient asynchronous response patterns in Copilot Studio agent flows for long-running work.*
 
@@ -86,5 +86,5 @@ You implemented a practical **async response** flow pattern in Copilot Studio fo
 
 Suggested next labs:
 
-- [Lab 26: Agent Flows - Agent Nodes](../26-agent-flows-agent-nodes/index.md)
-- [Lab 33: Agent Readiness / Issue Status](../33-agent-readiness-issue-status/index.md)
+- [Lab 15: Agent Flows - Agent Nodes](../15-agent-flows-agent-nodes/index.md)
+- [Lab 39: Agent Readiness / Issue Status](../39-agent-readiness-issue-status/index.md)

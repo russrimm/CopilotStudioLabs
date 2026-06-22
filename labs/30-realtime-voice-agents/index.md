@@ -1,4 +1,4 @@
-# 🎙️ Lab 10: Build Real-Time Voice Agents for Telephony and Contact Center
+# 🎙️ Lab 30: Build Real-Time Voice Agents for Telephony and Contact Center
 
 *Design a natural, compliant voice experience for utility callers who need fast help during high-stress moments.*
 
@@ -23,7 +23,7 @@ By the end of this lab, you will be able to:
 
 ---
 
-> 🔗 **Related lab:** [Lab 35: Real-time Voice Agents (Preview)](../35-realtime-voice-agents-preview/index.md) — a focused deep-dive on the preview real-time voice capability. This lab is the end-to-end telephony/contact-center voice scenario.
+> 🔗 **Related lab:** [Lab 31: Real-time Voice Agents (Preview)](../31-realtime-voice-agents-preview/index.md) — a focused deep-dive on the preview real-time voice capability. This lab is the end-to-end telephony/contact-center voice scenario.
 
 ## 🗺️ Lab Flow
 

@@ -30,7 +30,7 @@ from playwright.async_api import async_playwright
 # ── Configuration ──────────────────────────────────────────────────────────
 ASSETS_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
-    "..", "labs", "04-energy-weather-agent", "assets"
+    "..", "labs", "06-energy-weather-agent", "assets"
 )
 os.makedirs(ASSETS_DIR, exist_ok=True)
 

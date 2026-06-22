@@ -1,4 +1,4 @@
-# Lab 30: Usage Estimator & Copilot Credits
+# Lab 37: Usage Estimator & Copilot Credits
 
 *Estimate workload cost and capacity using usage estimator patterns and Copilot Credits planning.*
 
@@ -86,5 +86,5 @@ You established a practical planning model for **usage estimator and Copilot Cre
 
 Suggested next labs:
 
-- [Lab 31: Custom Analytics Metrics](../31-custom-analytics-metrics/index.md)
-- [Lab 33: Agent Readiness / Issue Status](../33-agent-readiness-issue-status/index.md)
+- [Lab 11: Custom Analytics Metrics](../11-custom-analytics-metrics/index.md)
+- [Lab 39: Agent Readiness / Issue Status](../39-agent-readiness-issue-status/index.md)

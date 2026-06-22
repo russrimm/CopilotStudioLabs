@@ -1,4 +1,4 @@
-# Lab 35: Real-time Voice Agents (Preview)
+# Lab 31: Real-time Voice Agents (Preview)
 
 *Prototype preview real-time voice experiences in Copilot Studio and validate operational readiness risks.*
 
@@ -84,9 +84,9 @@ This lab focuses on **real-time voice agents (preview)** in Copilot Studio. You 
 
 You completed a practical **real-time voice agents (preview)** pilot setup with explicit risk controls.
 
-> 🔗 **Related scenario lab:** [Lab 10: Build Real-Time Voice Agents for Telephony and Contact Center](../10-realtime-voice-agents/index.md) — the end-to-end telephony/contact-center voice scenario.
+> 🔗 **Related scenario lab:** [Lab 30: Build Real-Time Voice Agents for Telephony and Contact Center](../30-realtime-voice-agents/index.md) — the end-to-end telephony/contact-center voice scenario.
 
 Suggested next labs:
 
-- [Lab 10: Build Real-Time Voice Agents for Telephony and Contact Center](../10-realtime-voice-agents/index.md)
-- [Lab 33: Agent Readiness / Issue Status](../33-agent-readiness-issue-status/index.md)
+- [Lab 30: Build Real-Time Voice Agents for Telephony and Contact Center](../30-realtime-voice-agents/index.md)
+- [Lab 39: Agent Readiness / Issue Status](../39-agent-readiness-issue-status/index.md)

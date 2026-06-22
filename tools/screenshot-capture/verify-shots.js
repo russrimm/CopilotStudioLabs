@@ -17,7 +17,7 @@ const checkState = args.includes('--check-state');
 const labArg = args.find((arg) => arg.startsWith('--lab='));
 const scopedLab = labArg ? labArg.slice('--lab='.length) : null;
 
-const LAB04_PLACEHOLDER_LAB = '04-energy-weather-agent';
+const LAB04_PLACEHOLDER_LAB = '06-energy-weather-agent';
 const LAB04_PLACEHOLDER_SIZE_DENYLIST = new Set([
   30509, 20495, 19610, 24211, 23585, 28320, 30367, 23023,
   31037, 21878, 30825, 28113, 23863, 32905, 26663, 27784

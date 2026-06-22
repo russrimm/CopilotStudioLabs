@@ -1,4 +1,4 @@
-# 🛠️ Lab 05: Clone, Modify, and Republish Agents with the Copilot Studio VS Code Extension
+# 🛠️ Lab 36: Clone, Modify, and Republish Agents with the Copilot Studio VS Code Extension
 
 *Manage your agents as code — clone and edit in VS Code, then publish and verify in Copilot Studio.*
 
@@ -13,7 +13,7 @@
 | 🏭 **INDUSTRY** | Energy / Utilities |
 | 📋 **STATUS** | Optional |
 
-> **Prerequisite:** You should have a working agent in Copilot Studio — either the Contoso IT Operations Agent from [Lab 01](../01-energy-ops-agent/index.md), the Energy Operations Weather Agent from [Lab 04](../04-energy-weather-agent/index.md), or any agent in your environment.
+> **Prerequisite:** You should have a working agent in Copilot Studio — either the Contoso IT Operations Agent from [Lab 04](../04-energy-ops-agent/index.md), the Energy Operations Weather Agent from [Lab 06](../06-energy-weather-agent/index.md), or any agent in your environment.
 
 ---
 

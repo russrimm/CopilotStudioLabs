@@ -34,7 +34,7 @@ If you use this repo as a template or fork, update the badge URL to your reposit
 - **Lab 04 optional MCP section** can be built directly in Codespaces. Run the sample MCP server on port `3000`, then make the forwarded port public before using the HTTPS URL plus `/mcp` in Copilot Studio.
 - **Lab 05** benefits from the Power Platform VS Code extension in the container. Cloud authentication and publishing still happen against your Copilot Studio environment.
 - **Lab 07** is primarily an A2A/Copilot Studio + Fabric walkthrough. No local MCP server code was found, but the Codespace is ready for any supporting Node experiments.
-- **Lab 18** has a Vite sample under `labs/18-embed-agent-web-sdk/sample` and uses forwarded port `5173`, but its current `@microsoft/agents-copilotstudio-client@^0.5.0` dependency was not available from npm during validation. Update that package version before relying on the sample in Codespaces.
+- **Lab 18** has a Vite sample under `labs/32-embed-agent-web-sdk/sample` and uses forwarded port `5173`, but its current `@microsoft/agents-copilotstudio-client@^0.5.0` dependency was not available from npm during validation. Update that package version before relying on the sample in Codespaces.
 
 ## Follow-up items
 

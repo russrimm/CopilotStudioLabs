@@ -1,4 +1,4 @@
-# 🔌 Lab 16: Custom Connectors & OAuth for Copilot Studio
+# 🔌 Lab 21: Custom Connectors & OAuth for Copilot Studio
 
 *Turn any well-described REST API into a Copilot Studio tool, secure it with OAuth, and deliver a smoother sign-in experience with SSO.*
 

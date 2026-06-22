@@ -1,4 +1,4 @@
-# Lab 22: Prompt Assistant
+# Lab 03: Prompt Assistant
 
 *Use Prompt Assistant to draft, refine, and test higher-quality instructions and prompts in Copilot Studio.*
 
@@ -84,9 +84,9 @@ Prompt quality strongly influences reliability, tone, and task completion. In th
 
 You used Prompt Assistant to create clearer, more reliable instruction patterns for Copilot Studio agents.
 
-> 🔗 **Related scenario lab:** [Lab 09: Master Prompt Engineering with Prompt Builder and Agent Flow Nodes](../09-prompt-builder-agent-flows/index.md) — the end-to-end prompt-and-flows scenario. See also [Lab 27: Agent Flows - Prompt Nodes](../27-agent-flows-prompt-nodes/index.md) for the prompt-node deep-dive.
+> 🔗 **Related scenario lab:** [Lab 13: Master Prompt Engineering with Prompt Builder and Agent Flow Nodes](../13-prompt-builder-agent-flows/index.md) — the end-to-end prompt-and-flows scenario. See also [Lab 14: Agent Flows - Prompt Nodes](../14-agent-flows-prompt-nodes/index.md) for the prompt-node deep-dive.
 
 Suggested next labs:
 
-- [Lab 09: Master Prompt Engineering with Prompt Builder and Agent Flow Nodes](../09-prompt-builder-agent-flows/index.md)
-- [Lab 27: Agent Flows - Prompt Nodes](../27-agent-flows-prompt-nodes/index.md)
+- [Lab 13: Master Prompt Engineering with Prompt Builder and Agent Flow Nodes](../13-prompt-builder-agent-flows/index.md)
+- [Lab 14: Agent Flows - Prompt Nodes](../14-agent-flows-prompt-nodes/index.md)

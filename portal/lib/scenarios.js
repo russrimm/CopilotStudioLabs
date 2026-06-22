@@ -3,11 +3,11 @@ import { readFileSync } from "fs";
 const SCENARIOS_PATH = new URL("./scenarios.json", import.meta.url);
 
 const LAB_ALIAS_MAP = {
-  "lab-1": "01-energy-ops-agent",
-  "lab-2": "02-agent-analytics-evaluations",
-  "lab-3": "03-account-orchestration-agent",
-  "lab-4": "04-energy-weather-agent",
-  "lab-5": "05-copilot-studio-vscode-agent-management",
+  "lab-1": "04-energy-ops-agent",
+  "lab-2": "07-agent-analytics-evaluations",
+  "lab-3": "18-account-orchestration-agent",
+  "lab-4": "06-energy-weather-agent",
+  "lab-5": "36-copilot-studio-vscode-agent-management",
 };
 
 const INDUSTRY_COLORS = {

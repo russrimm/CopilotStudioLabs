@@ -1,4 +1,4 @@
-# 🧭 Lab 03: Orchestration with Copilot Studio for Contoso
+# 🧭 Lab 18: Orchestration with Copilot Studio for Contoso
 
 *Routing the right tool, the right data, and the right policy — every turn.*
 

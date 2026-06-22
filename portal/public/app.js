@@ -200,11 +200,11 @@ const CONFIG_PROVENANCE = {
 };
 
 const SCENARIO_LAB_MAP = {
-  "lab-1": "01-energy-ops-agent",
-  "lab-2": "02-agent-analytics-evaluations",
-  "lab-3": "03-account-orchestration-agent",
-  "lab-4": "04-energy-weather-agent",
-  "lab-5": "05-copilot-studio-vscode-agent-management",
+  "lab-1": "04-energy-ops-agent",
+  "lab-2": "07-agent-analytics-evaluations",
+  "lab-3": "18-account-orchestration-agent",
+  "lab-4": "06-energy-weather-agent",
+  "lab-5": "36-copilot-studio-vscode-agent-management",
 };
 
 function getDefaultBranding() {
@@ -610,13 +610,14 @@ function renderLabs() {
       const selected = lab.id === selectedLabId;
       const number = lab.id.match(/^(\d+)/)?.[1] || "?";
       const sizeKB = lab.sizeBytes ? Math.round(lab.sizeBytes / 1024) : 0;
+      const cleanTitle = (lab.title || lab.id).replace(/^Lab\s+\d+\s*[:.\-–—]\s*/i, "").trim();
       return `
         <div class="lab-card ${included ? "included" : "excluded"} ${selected ? "selected" : ""}"
              data-id="${lab.id}" onclick="selectLab('${lab.id}')">
           <button class="lab-toggle ${included ? "on" : ""}"
                   onclick="event.stopPropagation(); toggleLab('${lab.id}')"
                   title="${included ? "Click to exclude" : "Click to include"}"></button>
-          <div class="lab-card-title">Lab ${number}: ${lab.title || lab.id}</div>
+          <div class="lab-card-title">Lab ${number}: ${cleanTitle || lab.id}</div>
           <div class="lab-card-meta">
             <span>⭐ ${lab.difficulty || "?"}</span>
             <span>⏱️ ${lab.time || "?"}</span>

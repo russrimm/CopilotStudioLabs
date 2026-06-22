@@ -1,4 +1,4 @@
-# 💻 Lab 11: Build a Power Apps Code App with Dataverse
+# 💻 Lab 33: Build a Power Apps Code App with Dataverse
 
 *Bring your own code to Power Apps — build a supplier onboarding dashboard connected to Dataverse.*
 
@@ -369,4 +369,4 @@ Now that you've built a supplier onboarding dashboard, consider how this pattern
 
 ## ✅ Completion
 
-You have completed Lab 11 when your code app is deployed, connected to Dataverse, and the supplier onboarding workflow runs end-to-end in both local and hosted experiences.
+You have completed Lab 33 when your code app is deployed, connected to Dataverse, and the supplier onboarding workflow runs end-to-end in both local and hosted experiences.

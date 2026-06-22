@@ -1,4 +1,4 @@
-# Lab 34: Entra Agent Identities (Preview)
+# Lab 40: Entra Agent Identities (Preview)
 
 *Configure preview Entra-based identity patterns for Copilot Studio agents with least-privilege principles.*
 
@@ -86,5 +86,5 @@ You completed a controlled **Entra agent identities (preview)** implementation p
 
 Suggested next labs:
 
-- [Lab 16: Custom Connectors & OAuth for Copilot Studio](../16-custom-connectors-oauth/index.md)
-- [Lab 32: Agent Inventory Schema](../32-agent-inventory-schema/index.md)
+- [Lab 21: Custom Connectors & OAuth for Copilot Studio](../21-custom-connectors-oauth/index.md)
+- [Lab 38: Agent Inventory Schema](../38-agent-inventory-schema/index.md)

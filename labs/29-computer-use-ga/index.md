@@ -1,4 +1,4 @@
-# Lab 25: Computer Use (GA)
+# Lab 29: Computer Use (GA)
 
 *Build and validate generally available computer-use automations for repetitive desktop workflows.*
 
@@ -84,9 +84,9 @@ This lab focuses on **computer use (GA)** for practical desktop task automation 
 
 You built a production-oriented **computer use (GA)** pattern with measurable reliability and governance.
 
-> 🔗 **Related scenario lab:** [Lab 06: Build a Computer-Using Agent for Desktop Automation](../06-computer-use-agents/index.md) — the end-to-end desktop-automation scenario this GA feature fits into.
+> 🔗 **Related scenario lab:** [Lab 28: Build a Computer-Using Agent for Desktop Automation](../28-computer-use-agents/index.md) — the end-to-end desktop-automation scenario this GA feature fits into.
 
 Suggested next labs:
 
-- [Lab 06: Build a Computer-Using Agent for Desktop Automation](../06-computer-use-agents/index.md)
-- [Lab 33: Agent Readiness / Issue Status](../33-agent-readiness-issue-status/index.md)
+- [Lab 28: Build a Computer-Using Agent for Desktop Automation](../28-computer-use-agents/index.md)
+- [Lab 39: Agent Readiness / Issue Status](../39-agent-readiness-issue-status/index.md)

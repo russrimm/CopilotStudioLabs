@@ -1,6 +1,6 @@
 {
-  "lab": "04-energy-weather-agent",
-  "assetsDir": "labs/04-energy-weather-agent/assets",
+  "lab": "06-energy-weather-agent",
+  "assetsDir": "labs/06-energy-weather-agent/assets",
   "startUrl": "https://copilotstudio.microsoft.com/",
   "shots": [
     {

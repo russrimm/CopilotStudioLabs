@@ -14,9 +14,9 @@ Those values enable **client-credentials / service-principal** authentication. T
 
 This audit covers only:
 
-- `labs\03-account-orchestration-agent\index.md`
-- `labs\05-copilot-studio-vscode-agent-management\index.md`
-- `labs\07-agent-to-agent-protocol\index.md`
+- `labs\18-account-orchestration-agent\index.md`
+- `labs\36-copilot-studio-vscode-agent-management\index.md`
+- `labs\19-agent-to-agent-protocol\index.md`
 
 No Node.js, TypeScript, `manifest.json`, or lab-local `.mcp` configuration files were found under those three lab folders; each folder currently contains `index.md` only. Root-level clues were also checked: `.env.local.example`, `.mcp.json`, `setup.js`, `docs\codespaces.md`, and portal auth/provisioning helpers.
 
@@ -28,7 +28,7 @@ High-level finding: **Lab 03 has Dataverse/MCP pieces that can use service-princ
 
 Evidence found:
 
-- Products include Copilot Studio, Dataverse, Microsoft 365 / SharePoint Work IQ, MCP, and MSN Weather (`labs\03-account-orchestration-agent\index.md`, lines 7-10).
+- Products include Copilot Studio, Dataverse, Microsoft 365 / SharePoint Work IQ, MCP, and MSN Weather (`labs\18-account-orchestration-agent\index.md`, lines 7-10).
 - The lab requires a Power Platform environment where the maker can edit Dataverse views and settings as **System Administrator** or **System Customizer** (`index.md`, lines 95-102).
 - Use Case 3 enables **Dataverse intelligence / Work IQ** and **Dataverse Model Context Protocol** features (`index.md`, lines 314-321).
 - The lab adds **Microsoft Dataverse MCP Server** and exercises `read_query` and `search` (`index.md`, lines 347-353, 375-406).
@@ -52,7 +52,7 @@ Evidence found:
 
 Evidence found:
 
-- The lab installs the Copilot Studio VS Code extension and requires a **Microsoft account signed into VS Code** with access to a Copilot Studio environment (`labs\05-copilot-studio-vscode-agent-management\index.md`, lines 69-75, 83-93).
+- The lab installs the Copilot Studio VS Code extension and requires a **Microsoft account signed into VS Code** with access to a Copilot Studio environment (`labs\36-copilot-studio-vscode-agent-management\index.md`, lines 69-75, 83-93).
 - It clones, edits, applies changes, and publishes through the VS Code extension and Copilot Studio browser UI (`index.md`, lines 95-115, 237-249).
 - Microsoft Learn for the extension says first launch prompts **Sign In** in the browser and requests permissions to read/write Copilot Studio agents, access environment information, and sync files to cloud.
 
@@ -67,7 +67,7 @@ Evidence found:
 
 Evidence found:
 
-- Products are Copilot Studio, Microsoft Fabric, and A2A (`labs\07-agent-to-agent-protocol\index.md`, lines 7-10).
+- Products are Copilot Studio, Microsoft Fabric, and A2A (`labs\19-agent-to-agent-protocol\index.md`, lines 7-10).
 - Prerequisites require Copilot Studio access and the ability to connect other agents, plus access to Microsoft Fabric and a Fabric Data Agent or equivalent A2A endpoint (`index.md`, lines 95-100).
 - The lab says to check whether **additional consent or delegated authorization** is needed for the connection (`index.md`, lines 238-245).
 - Copilot Studio A2A setup supports authentication methods **None**, **API key**, and **OAuth 2.0** for the external endpoint.

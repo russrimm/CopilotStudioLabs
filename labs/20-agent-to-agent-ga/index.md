@@ -1,4 +1,4 @@
-# Lab 24: Agent-to-agent (GA)
+# Lab 20: Agent-to-agent (GA)
 
 *Implement production-ready multi-agent collaboration using generally available agent-to-agent capabilities.*
 
@@ -84,9 +84,9 @@ In this lab, you will implement **agent-to-agent (GA)** collaboration patterns i
 
 You implemented a practical **agent-to-agent (GA)** operating pattern with testable delegation behavior in Copilot Studio.
 
-> 🔗 **Related scenario lab:** [Lab 07: Connect Agents Across Platforms with the Agent-to-Agent (A2A) Protocol](../07-agent-to-agent-protocol/index.md) — the end-to-end cross-platform A2A orchestration scenario.
+> 🔗 **Related scenario lab:** [Lab 19: Connect Agents Across Platforms with the Agent-to-Agent (A2A) Protocol](../19-agent-to-agent-protocol/index.md) — the end-to-end cross-platform A2A orchestration scenario.
 
 Suggested next labs:
 
-- [Lab 07: Connect Agents Across Platforms with the Agent-to-Agent (A2A) Protocol](../07-agent-to-agent-protocol/index.md)
-- [Lab 33: Agent Readiness / Issue Status](../33-agent-readiness-issue-status/index.md)
+- [Lab 19: Connect Agents Across Platforms with the Agent-to-Agent (A2A) Protocol](../19-agent-to-agent-protocol/index.md)
+- [Lab 39: Agent Readiness / Issue Status](../39-agent-readiness-issue-status/index.md)

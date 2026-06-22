@@ -1,4 +1,4 @@
-# 🔒 Lab 15: Azure VNet & Private Connectivity for Power Platform
+# 🔒 Lab 25: Azure VNet & Private Connectivity for Power Platform
 
 *Route Power Platform traffic through your private network so Copilot Studio can reach regulated enterprise systems without opening them to the public internet.*
 

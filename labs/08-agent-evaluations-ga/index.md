@@ -1,4 +1,4 @@
-# Lab 19: Agent Evaluations (GA)
+# Lab 08: Agent Evaluations (GA)
 
 *Use generally available evaluation tooling to measure quality, catch regressions, and improve Copilot Studio agent responses.*
 
@@ -84,9 +84,9 @@ In this lab, you will operationalize **Agent Evaluations (GA)** in Copilot Studi
 
 You implemented a practical **Agent Evaluations (GA)** workflow in Copilot Studio. Your team can now improve agent quality based on measurable outcomes instead of intuition.
 
-> 🔗 **Related scenario lab:** [Lab 02: Monitor Performance and Evaluate Contoso Agent Quality](../02-agent-analytics-evaluations/index.md) — the end-to-end analytics-and-evaluation scenario this feature plugs into. Related analytics feature labs: [Lab 21: Question & Reaction Exports](../21-question-reaction-exports/index.md) and [Lab 31: Custom Analytics Metrics](../31-custom-analytics-metrics/index.md).
+> 🔗 **Related scenario lab:** [Lab 07: Monitor Performance and Evaluate Contoso Agent Quality](../07-agent-analytics-evaluations/index.md) — the end-to-end analytics-and-evaluation scenario this feature plugs into. Related analytics feature labs: [Lab 10: Question & Reaction Exports](../10-question-reaction-exports/index.md) and [Lab 11: Custom Analytics Metrics](../11-custom-analytics-metrics/index.md).
 
 Suggested next labs:
 
-- [Lab 20: Multi-turn Conversation Tests](../20-multi-turn-conversation-tests/index.md)
-- [Lab 31: Custom Analytics Metrics](../31-custom-analytics-metrics/index.md)
+- [Lab 09: Multi-turn Conversation Tests](../09-multi-turn-conversation-tests/index.md)
+- [Lab 11: Custom Analytics Metrics](../11-custom-analytics-metrics/index.md)

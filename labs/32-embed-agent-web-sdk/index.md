@@ -1,4 +1,4 @@
-# 💬 Lab 18: Embed a Copilot Studio Agent in a Web Page with the Client SDK
+# 💬 Lab 32: Embed a Copilot Studio Agent in a Web Page with the Client SDK
 
 *Build a fully branded, custom chat experience in your own web app — powered by the Copilot Studio Client SDK and Entra ID authentication.*
 
@@ -13,7 +13,7 @@
 | 🏭 **INDUSTRY** | Cross-industry |
 | 📋 **STATUS** | Optional |
 
-> **Prerequisite:** You should have a working, published agent in Copilot Studio — for example the **Contoso IT Operations Agent** from [Lab 01](../01-energy-ops-agent/index.md) or any other agent in your environment.
+> **Prerequisite:** You should have a working, published agent in Copilot Studio — for example the **Contoso IT Operations Agent** from [Lab 04](../04-energy-ops-agent/index.md) or any other agent in your environment.
 
 ---
 
@@ -95,7 +95,7 @@ By the end of this lab, you will be able to:
 5. **VS Code** (recommended) for editing
 6. **Basic familiarity with HTML/CSS/JavaScript** — you don't need to be a frontend expert, but you should be comfortable reading a `.ts` file
 
-> 💡 If you don't already have an agent, complete [Lab 01](../01-energy-ops-agent/index.md) first — it gives you a Contoso IT Operations Agent you can use throughout this lab.
+> 💡 If you don't already have an agent, complete [Lab 04](../04-energy-ops-agent/index.md) first — it gives you a Contoso IT Operations Agent you can use throughout this lab.
 
 ---
 
@@ -189,7 +189,7 @@ The Copilot Studio Client SDK uses **delegated** authentication — the user sig
 2. In the left nav, go to **Applications** → **App registrations**.
 3. Click **+ New registration**.
 4. Fill in:
-   - **Name:** `Copilot Studio Web Embed (Lab 18)` (or whatever you prefer)
+   - **Name:** `Copilot Studio Web Embed (Lab 32)` (or whatever you prefer)
    - **Supported account types:** *Accounts in this organizational directory only (Single tenant)* — recommended for the lab
    - **Redirect URI:**
      - Platform: **Single-page application (SPA)**
@@ -1197,8 +1197,8 @@ This lab gives you a working foundation. Here's what to add for production:
 
 You now have everything you need to put a Copilot Studio agent inside your own product — branded the way you want, authenticated the way Microsoft recommends.
 
-> ➡️ Pair this with [Lab 01](../01-energy-ops-agent/index.md) for an agent to embed, or [Lab 04](../04-energy-weather-agent/index.md) for the full end-to-end experience.
+> ➡️ Pair this with [Lab 04](../04-energy-ops-agent/index.md) for an agent to embed, or [Lab 06](../06-energy-weather-agent/index.md) for the full end-to-end experience.
 
 ## ✅ Completion
 
-Lab 18 is complete when sign-in, token acquisition, conversation start, and branded message rendering all work end-to-end in your web app.
+Lab 32 is complete when sign-in, token acquisition, conversation start, and branded message rendering all work end-to-end in your web app.

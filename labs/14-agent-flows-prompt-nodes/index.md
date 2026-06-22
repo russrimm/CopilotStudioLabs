@@ -1,4 +1,4 @@
-# Lab 27: Agent Flows - Prompt Nodes
+# Lab 14: Agent Flows - Prompt Nodes
 
 *Use prompt nodes to generate structured, context-aware outputs inside Copilot Studio agent flows.*
 
@@ -86,5 +86,5 @@ You created a reliable **prompt-node** implementation pattern for Copilot Studio
 
 Suggested next labs:
 
-- [Lab 22: Prompt Assistant](../22-prompt-assistant/index.md)
-- [Lab 28: Agent Flows - M365 Copilot Nodes](../28-agent-flows-m365-copilot-nodes/index.md)
+- [Lab 03: Prompt Assistant](../03-prompt-assistant/index.md)
+- [Lab 16: Agent Flows - M365 Copilot Nodes](../16-agent-flows-m365-copilot-nodes/index.md)

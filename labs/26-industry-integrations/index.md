@@ -1,4 +1,4 @@
-# 🏭 Lab 17: Industry-Specific 3rd Party Integrations
+# 🏭 Lab 26: Industry-Specific 3rd Party Integrations
 
 *Design Copilot Studio integrations that respect the realities of healthcare, finance, retail, manufacturing, public sector, and technology ecosystems.*
 

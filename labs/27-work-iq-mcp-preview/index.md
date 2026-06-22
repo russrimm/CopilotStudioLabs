@@ -1,4 +1,4 @@
-# Lab 23: Work IQ MCP (Preview)
+# Lab 27: Work IQ MCP (Preview)
 
 *Connect Work IQ context through MCP in a preview workflow to enrich Copilot Studio agent grounding.*
 
@@ -84,9 +84,9 @@ This lab explores **Work IQ MCP (preview)** patterns for contextual grounding in
 
 You implemented and validated a **Work IQ MCP (preview)** pilot pattern for Copilot Studio.
 
-> 🔗 **Related scenario lab:** [Lab 08: Supercharge Agents with Work IQ and Microsoft 365 Intelligence](../08-work-iq-m365-intelligence/index.md) — the end-to-end Work IQ + Microsoft 365 grounding scenario this preview feature fits into.
+> 🔗 **Related scenario lab:** [Lab 05: Supercharge Agents with Work IQ and Microsoft 365 Intelligence](../05-work-iq-m365-intelligence/index.md) — the end-to-end Work IQ + Microsoft 365 grounding scenario this preview feature fits into.
 
 Suggested next labs:
 
-- [Lab 08: Supercharge Agents with Work IQ and Microsoft 365 Intelligence](../08-work-iq-m365-intelligence/index.md)
-- [Lab 31: Custom Analytics Metrics](../31-custom-analytics-metrics/index.md)
+- [Lab 05: Supercharge Agents with Work IQ and Microsoft 365 Intelligence](../05-work-iq-m365-intelligence/index.md)
+- [Lab 11: Custom Analytics Metrics](../11-custom-analytics-metrics/index.md)

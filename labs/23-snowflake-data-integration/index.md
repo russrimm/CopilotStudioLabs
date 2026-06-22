@@ -1,4 +1,4 @@
-# ❄️ Lab 13: Snowflake Data Integration with Copilot Studio
+# ❄️ Lab 23: Snowflake Data Integration with Copilot Studio
 
 *Bring governed warehouse data into Copilot Studio with OAuth, premium connectivity, and private-network design.*
 

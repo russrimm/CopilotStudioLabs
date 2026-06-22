@@ -1,0 +1,38 @@
+{
+  "lab": "35-dlp-governance-policies",
+  "assetsDir": "labs/35-dlp-governance-policies/assets",
+  "startUrl": "https://admin.powerplatform.microsoft.com/",
+  "shots": [
+    {
+      "id": 1,
+      "filename": "ppac-dlp-policies.png",
+      "section": "ppac",
+      "instructions": [
+        "Open the Power Platform Admin Center, then Policies then Data policies.",
+        "Make sure the list of data policies is visible.",
+        "Close any teaching tips, banners, or popovers."
+      ],
+      "labSection": "Step 1"
+    },
+    {
+      "id": 2,
+      "filename": "connector-classification.png",
+      "section": "ppac",
+      "instructions": [
+        "Open a policy's connector configuration.",
+        "Show connectors grouped into Business, Non-business, and Blocked."
+      ],
+      "labSection": "Step 2"
+    },
+    {
+      "id": 3,
+      "filename": "policy-applied-environment.png",
+      "section": "ppac",
+      "instructions": [
+        "Open the policy scope settings.",
+        "Show the policy scoped to a specific environment."
+      ],
+      "labSection": "Step 3"
+    }
+  ]
+}

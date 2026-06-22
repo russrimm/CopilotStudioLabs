@@ -13,17 +13,17 @@ docs/validation-rubrics/<lab-id>.rubric.yaml
 Example:
 
 ```text
-docs/validation-rubrics/lab-01-energy-ops-agent.rubric.yaml
+docs/validation-rubrics/lab-04-energy-ops-agent.rubric.yaml
 ```
 
 ## Top-level structure
 
 ```yaml
 schemaVersion: 1
-rubricId: lab-01-energy-ops-agent
+rubricId: lab-04-energy-ops-agent
 lab:
   id: "01"
-  slug: 01-energy-ops-agent
+  slug: 04-energy-ops-agent
   title: "Lab 01: Build a Custom IT Operations Agent for Contoso Energy"
   agentNamePattern: "Contoso IT Operations Agent"
 validation:
@@ -31,7 +31,7 @@ validation:
   overallPassingScore: 0.80
   criticalCriteriaMustPass: true
   recommendedTestSetName: "Lab 01 — Energy Ops Validation"
-  testSetCsv: "lab-01-energy-ops-agent.testset.csv"
+  testSetCsv: "lab-04-energy-ops-agent.testset.csv"
 learningObjectives:
   - id: objective-id
     description: "Objective from the lab README"

@@ -8,7 +8,7 @@ Generates print-ready PDF walkthroughs from each lab's `index.md` without requir
 cd tools\lab-pdf
 npm install
 npm run generate
-npm run generate -- --lab=04-energy-weather-agent
+npm run generate -- --lab=06-energy-weather-agent
 npm run generate -- --out=..\..\dist\custom-lab-pdfs
 ```
 

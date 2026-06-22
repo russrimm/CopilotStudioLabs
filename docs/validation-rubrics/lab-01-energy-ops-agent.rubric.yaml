@@ -1,17 +1,17 @@
 schemaVersion: 1
-rubricId: lab-01-energy-ops-agent
+rubricId: lab-04-energy-ops-agent
 lab:
   id: "01"
-  slug: 01-energy-ops-agent
+  slug: 04-energy-ops-agent
   title: "Lab 01: Build a Custom IT Operations Agent for Contoso Energy"
   agentNamePattern: "Contoso IT Operations Agent"
-  sourceLabPath: "labs/01-energy-ops-agent/index.md"
+  sourceLabPath: "labs/04-energy-ops-agent/index.md"
 validation:
   mode: copilot-studio-agent-evaluation
   overallPassingScore: 0.80
   criticalCriteriaMustPass: true
   recommendedTestSetName: "Lab 01 — Energy Ops Validation"
-  testSetCsv: "lab-01-energy-ops-agent.testset.csv"
+  testSetCsv: "lab-04-energy-ops-agent.testset.csv"
   copilotStudioSetup:
     dataType: Single response
     creationMethod: CSV import

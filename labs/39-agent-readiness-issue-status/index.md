@@ -1,4 +1,4 @@
-# Lab 33: Agent Readiness / Issue Status
+# Lab 39: Agent Readiness / Issue Status
 
 *Build a readiness model that combines quality signals, open issues, and release gates for Copilot Studio agents.*
 
@@ -86,5 +86,5 @@ You established a clear **agent readiness / issue status** process for release d
 
 Suggested next labs:
 
-- [Lab 19: Agent Evaluations (GA)](../19-agent-evaluations-ga/index.md)
-- [Lab 32: Agent Inventory Schema](../32-agent-inventory-schema/index.md)
+- [Lab 08: Agent Evaluations (GA)](../08-agent-evaluations-ga/index.md)
+- [Lab 38: Agent Inventory Schema](../38-agent-inventory-schema/index.md)

@@ -15,8 +15,8 @@ The competitive scan in `.squad/decisions.md` identified AI agent output validat
 | `schema.md` | Rubric structure specification and field definitions |
 | `authoring-guide.md` | Step-by-step instructions for lab authors |
 | `learner-guide.md` | Step-by-step instructions for learners running a rubric |
-| `lab-01-energy-ops-agent.rubric.yaml` | Worked rubric example for Lab 01 |
-| `lab-01-energy-ops-agent.testset.csv` | Importable Copilot Studio test set for Lab 01 |
+| `lab-04-energy-ops-agent.rubric.yaml` | Worked rubric example for Lab 01 |
+| `lab-04-energy-ops-agent.testset.csv` | Importable Copilot Studio test set for Lab 01 |
 
 ## What a rubric contains
 

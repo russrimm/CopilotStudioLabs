@@ -13,7 +13,7 @@ loaded = get_loaded_files()
 if loaded:
     print(f"  Env loaded from: {', '.join(loaded)}")
 
-os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "labs", "04-energy-weather-agent", "assets"))
+os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "labs", "06-energy-weather-agent", "assets"))
 
 # Dark theme colors matching Copilot Studio
 BG = (25, 28, 36)

@@ -1,4 +1,4 @@
-# 🖥️ Lab 06: Build a Computer-Using Agent for Desktop Automation
+# 🖥️ Lab 28: Build a Computer-Using Agent for Desktop Automation
 
 *Teach an energy-operations agent to see, click, type, and recover across web and desktop workflows.*
 
@@ -23,7 +23,7 @@ By the end of this lab, you will be able to:
 
 ---
 
-> 🔗 **Related lab:** [Lab 25: Computer Use (GA)](../25-computer-use-ga/index.md) — a focused deep-dive on the generally available computer-use feature. This lab is the end-to-end desktop-automation scenario.
+> 🔗 **Related lab:** [Lab 29: Computer Use (GA)](../29-computer-use-ga/index.md) — a focused deep-dive on the generally available computer-use feature. This lab is the end-to-end desktop-automation scenario.
 
 ## 🗺️ Lab Flow
 

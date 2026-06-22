@@ -1,4 +1,4 @@
-# Lab 21: Question/Reaction Exports
+# Lab 10: Question/Reaction Exports
 
 *Export and analyze user questions and reactions to prioritize high-impact improvements in Copilot Studio.*
 
@@ -86,5 +86,5 @@ You established a practical analytics loop that turns agent interaction data int
 
 Suggested next labs:
 
-- [Lab 19: Agent Evaluations (GA)](../19-agent-evaluations-ga/index.md)
-- [Lab 31: Custom Analytics Metrics](../31-custom-analytics-metrics/index.md)
+- [Lab 08: Agent Evaluations (GA)](../08-agent-evaluations-ga/index.md)
+- [Lab 11: Custom Analytics Metrics](../11-custom-analytics-metrics/index.md)

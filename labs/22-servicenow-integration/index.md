@@ -1,4 +1,4 @@
-# 🧰 Lab 12: ServiceNow Integration with Copilot Studio
+# 🧰 Lab 22: ServiceNow Integration with Copilot Studio
 
 *Connect Copilot Studio to enterprise ITSM workflows with secure OAuth, premium connectors, and single sign-on.*
 
