@@ -30,7 +30,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const repoRoot = resolve(__dirname, "..", "..");
 
-const manifestPath = join(__dirname, "shots.json");
+// --manifest=<path> lets callers point at any lab's shots.json (paths are
+// resolved relative to the current working directory, then the repo root).
+const manifestArg = process.argv
+  .slice(2)
+  .find((a) => a.startsWith("--manifest="));
+const manifestOverride = manifestArg ? manifestArg.slice("--manifest=".length) : null;
+const manifestPath = manifestOverride
+  ? (existsSync(resolve(process.cwd(), manifestOverride))
+      ? resolve(process.cwd(), manifestOverride)
+      : resolve(repoRoot, manifestOverride))
+  : join(__dirname, "shots.json");
+if (!existsSync(manifestPath)) {
+  console.error(`Error: shots manifest not found at ${manifestPath}`);
+  process.exit(1);
+}
 const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
 const assetsDir = resolve(repoRoot, manifest.assetsDir);
 const userDataDir = join(__dirname, ".auth");
@@ -60,7 +74,7 @@ const rangeRaw = value("--range");
 const fromRaw = value("--from");
 
 function printHelp() {
-  console.log(`\nCopilot Studio Labs screenshot capture\n\nUsage:\n  node capture.js [flags]\n\nSelection flags (mutually exclusive):\n  --all             Capture every shot, even if the file exists.\n  --only=<csv>      Capture only specific shot IDs, e.g. --only=2,4,7.\n  --range=A-B       Capture an inclusive shot ID range.\n  --from=<id>       Capture from the matching shot ID through the end.\n  --missing         Capture only shots missing on disk (also the default).\n\nOther flags:\n  --list            List shots and whether each file exists.\n  --dry-run         Print resolved shot setup without launching Playwright.\n  --help, -h        Show this help.\n\nKeystrokes during capture:\n  SPACE             Snap the current shot and advance.\n  r                 Retry/re-snap the current shot.\n  n                 Skip this shot without saving.\n  q                 Quit gracefully and persist auth.\n  ?                 Re-print the current shot instructions.\n\nPrecedence: --only beats --range beats --from beats --missing default.\nConflicting selection flags are rejected so intent stays explicit.\n`);
+  console.log(`\nCopilot Studio Labs screenshot capture\n\nUsage:\n  node capture.js [flags]\n\nSelection flags (mutually exclusive):\n  --all             Capture every shot, even if the file exists.\n  --only=<csv>      Capture only specific shot IDs, e.g. --only=2,4,7.\n  --range=A-B       Capture an inclusive shot ID range.\n  --from=<id>       Capture from the matching shot ID through the end.\n  --missing         Capture only shots missing on disk (also the default).\n\nOther flags:\n  --manifest=<path> Use a specific shots.json (e.g. a lab's own manifest).\n  --list            List shots and whether each file exists.\n  --dry-run         Print resolved shot setup without launching Playwright.\n  --help, -h        Show this help.\n\nKeystrokes during capture:\n  SPACE             Snap the current shot and advance.\n  r                 Retry/re-snap the current shot.\n  n                 Skip this shot without saving.\n  q                 Quit gracefully and persist auth.\n  ?                 Re-print the current shot instructions.\n\nPrecedence: --only beats --range beats --from beats --missing default.\nConflicting selection flags are rejected so intent stays explicit.\n`);
 }
 
 function failArg(message) {

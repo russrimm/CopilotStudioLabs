@@ -158,6 +158,49 @@
       background: rgba(79, 143, 247, 0.45);
     }
 
+    .lab-level {
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .lab-level[open] { border-color: rgba(79, 143, 247, 0.4); }
+    .lab-level-summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      user-select: none;
+      transition: background 0.15s;
+    }
+    .lab-level-summary::-webkit-details-marker { display: none; }
+    .lab-level-summary:hover { background: var(--surface-hover); }
+    .lab-level-name { flex: 1; display: flex; align-items: center; gap: 8px; }
+    .lab-level-count {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 1px 9px;
+    }
+    .lab-level-summary::after {
+      content: "▸";
+      color: var(--text-muted);
+      font-size: 11px;
+      transition: transform 0.15s;
+    }
+    .lab-level[open] .lab-level-summary::after { transform: rotate(90deg); }
+    .lab-level-body { padding: 10px 10px 2px; }
+    .lab-level-body .lab-card:last-child { margin-bottom: 8px; }
+
     .lab-card {
       background: var(--bg);
       border: 1px solid var(--border);
@@ -493,7 +536,7 @@
     .tag-warning { background: rgba(251, 191, 36, 0.15); color: var(--warning); }
     .tag-danger { background: rgba(248, 113, 113, 0.15); color: var(--danger); }
 
-    .validation-summary, .preflight-status {
+    .validation-summary {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
@@ -504,6 +547,100 @@
       background: var(--bg);
       margin-top: 12px;
     }
+    .preflight-status {
+      padding: 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      margin-top: 12px;
+    }
+    .preflight-inline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    /* ── Pre-flight check ─────────────────── */
+    .preflight-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .preflight-stat {
+      flex: 1 1 110px;
+      min-width: 104px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 11px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .preflight-stat .num { font-size: 22px; font-weight: 700; line-height: 1; }
+    .preflight-stat .label { font-size: 10.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; }
+    .preflight-stat.is-total { border-color: rgba(79, 143, 247, 0.4); }
+    .preflight-stat.is-total .num { color: var(--accent); }
+    .preflight-stat.is-pass .num { color: var(--success); }
+    .preflight-stat.is-fail .num { color: var(--danger); }
+    .preflight-stat.is-warn .num { color: var(--warning); }
+    .preflight-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+    .preflight-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(244px, 1fr));
+      gap: 10px;
+    }
+    .preflight-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-left-width: 3px;
+      border-radius: 8px;
+      background: var(--surface);
+      transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+    }
+    .preflight-card:hover { background: var(--surface-hover); transform: translateY(-1px); box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22); }
+    .preflight-card.is-pass { border-left-color: var(--success); }
+    .preflight-card.is-fail { border-left-color: var(--danger); }
+    .preflight-card.is-warn { border-left-color: var(--warning); }
+    .preflight-card.is-missing { border-left-color: var(--text-muted); }
+    .preflight-card .pf-icon {
+      flex: 0 0 26px;
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-size: 13px;
+    }
+    .preflight-card.is-pass .pf-icon { background: rgba(52, 211, 153, 0.15); }
+    .preflight-card.is-fail .pf-icon { background: rgba(248, 113, 113, 0.15); }
+    .preflight-card.is-warn .pf-icon { background: rgba(251, 191, 36, 0.15); }
+    .preflight-card.is-missing .pf-icon { background: rgba(139, 143, 168, 0.15); }
+    .pf-body { flex: 1; min-width: 0; }
+    .pf-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pf-state { font-size: 11px; color: var(--text-muted); }
+    .preflight-card.is-pass .pf-state { color: var(--success); }
+    .preflight-card.is-fail .pf-state { color: var(--danger); }
+    .preflight-card.is-warn .pf-state { color: var(--warning); }
     .validation-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -1217,14 +1354,13 @@ flowchart TD
   L01 --> L03["Lab 03: Account Orchestration"]
   L01 --> L05["Lab 05: VS Code Agent Mgmt"]
   L03 --> L07["Lab 07: Agent-to-Agent Protocol"]
-  L04["Lab 04: Energy Operations Weather Agent ★"] --> L05
+  L04["Lab 04: Energy Operations Weather Agent"] --> L05
   L04 --> L07
   L01 --> L08["Lab 08: Work IQ & M365"]
   L01 --> L09["Lab 09: Prompt Builder & Flows"]
   L01 --> L10["Lab 10: Real-Time Voice"]
   L06["Lab 06: Computer Use Agents"]
   L11["Lab 11: Power Apps Code Apps"]
-  style L04 fill:#2563eb,color:#fff,stroke:#1d4ed8
               </div>
             </div>
             <div class="panel">
@@ -1249,9 +1385,10 @@ flowchart TD
                   <span class="hint">Parent or holding company. Defaults to <code>Contoso Energy Holdings</code>.</span>
                 </div>
                 <div class="form-group">
-                  <label>Industry</label>
-                  <select id="cfg-industry">
-                    <option value="">Keep default (Energy / Utilities)</option>
+                  <label>Industry <span style="color: var(--danger);">*</span></label>
+                  <select id="cfg-industry" required>
+                    <option value="" disabled selected hidden>Select an industry…</option>
+                    <option value="Energy / Utilities">Energy / Utilities</option>
                     <option value="Manufacturing">Manufacturing</option>
                     <option value="Energy & Resources">Energy &amp; Resources</option>
                     <option value="Healthcare">Healthcare</option>
@@ -1260,6 +1397,7 @@ flowchart TD
                     <option value="Education">Education</option>
                     <option value="Nonprofit">Nonprofit</option>
                   </select>
+                  <span class="hint">Required — choose the industry to tailor lab content.</span>
                 </div>
                 <div class="form-group">
                   <label>Agent Name</label>
@@ -1362,8 +1500,10 @@ flowchart TD
                 The portal runs documentation smoke tests before export or Azure provisioning. Review the latest status for your selected labs here.
               </p>
               <div id="preflight-validation-status" class="preflight-status">
-                <span class="tag">No validation run yet</span>
-                <span style="font-size: 13px; color: var(--text-muted);">Run validation from this page or the Validation tab.</span>
+                <div class="preflight-inline">
+                  <span class="tag">No validation run yet</span>
+                  <span style="font-size: 13px; color: var(--text-muted);">Run validation from this page or the Validation tab.</span>
+                </div>
               </div>
               <div style="margin-top: 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                 <button class="btn" onclick="runValidation()">🧪 Run All Tests</button>

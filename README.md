@@ -45,27 +45,14 @@ This isn't just about saving developer time. It's about unlocking the ability to
 
 ---
 
-## 🧪 Labs
-
-### ⭐ Featured: 3-Hour End-to-End Lab
-
-| # | Lab | Industry | Scenario | Difficulty | Time |
-|---|-----|----------|----------|------------|------|
-| 04 | [**Build an Energy Operations Weather Intelligence Agent with MSN Weather**](./labs/06-energy-weather-agent/index.md) | Energy / Utilities | Build a full-stack agent integrating the MSN Weather connector for grid-operations weather awareness — covering topics, variables (with Adaptive Cards), connector tools, custom prompt tools, connected agents, agent flows, model selection, and agent evaluations. Includes 15 min intro and 15 min Q&A wrap-up. Optional: MCP servers and a pointer to **Lab 05 (Advanced)** for VS Code-based agent management. | Intermediate (200) | **3 hours** (+25 min optional) |
-
-This is the primary lab for customers wanting a comprehensive, hands-on Copilot Studio experience. It covers all major platform capabilities in a single cohesive energy-industry scenario.
-
----
-
-### 📚 Supplementary Labs
-
-These shorter labs cover individual concepts and can be used as standalone references or warm-up exercises.
+## 🧪 Copilot Studio Labs
 
 | # | Lab | Industry | Scenario | Difficulty | Time |
 |---|-----|----------|----------|------------|------|
 | 01 | [Build a Custom IT Operations Agent for Contoso Energy](./labs/04-energy-ops-agent/index.md) | Energy & Utilities (Contoso Energy) | Build a knowledge-powered IT support agent for field technicians — grounded in SharePoint, internal documents, Microsoft Support, and NERC CIP compliance standards | Intermediate | 75 min |
 | 02 | [Monitor Performance and Evaluate Contoso Agent Quality](./labs/07-agent-analytics-evaluations/index.md) | Energy & Utilities (Contoso) | Use analytics on the Lab 01 agent to find improvement opportunities, then build evaluation test sets (auto-generated, CSV import, test-canvas capture, manual) to systematically verify quality and catch regressions | Intermediate (200) | 30 min |
 | 03 | [Orchestration with Copilot Studio for Contoso](./labs/18-account-orchestration-agent/index.md) | Energy & Utilities (Contoso) | Stand up a Contoso Customer Account Lookup connected agent, tune the planner with Instructions and Descriptions, then build a new-type Customer Operations Assistant that uses the New Orchestrator (Agentic Reasoning Loop) and a reusable Skill to chain Dataverse MCP, custom MCP servers, internal vs. customer-facing knowledge, and live weather across a single turn | Advanced (300) | 60 min |
+| 04 | [**Build an Energy Operations Weather Intelligence Agent with MSN Weather**](./labs/06-energy-weather-agent/index.md) | Energy / Utilities | Build a full-stack agent integrating the MSN Weather connector for grid-operations weather awareness — covering topics, variables (with Adaptive Cards), connector tools, custom prompt tools, connected agents, agent flows, model selection, and agent evaluations. Includes 15 min intro and 15 min Q&A wrap-up. Optional: MCP servers and a pointer to **Lab 05 (Advanced)** for VS Code-based agent management. | Intermediate (200) | **3 hours** (+25 min optional) |
 | 05 | [Clone, Modify, and Republish Agents with VS Code](./labs/36-copilot-studio-vscode-agent-management/index.md) | Energy & Utilities | Clone a Copilot Studio agent to VS Code, modify topics, instructions, and tools using agent skill commands, republish to the cloud, and verify changes in the test chat | Advanced (300) | 45 min |
 | 06 | [Build a Computer-Using Agent for Desktop Automation](./labs/28-computer-use-agents/index.md) | Energy & Utilities | Build a Computer-Using Agent that automates a utility billing portal, scale execution with Cloud PC pools, package reusable computer-use tools, and monitor governed UI automation | Advanced (300) | 2 hours |
 | 07 | [Connect Agents Across Platforms with the Agent-to-Agent (A2A) Protocol](./labs/19-agent-to-agent-protocol/index.md) | Energy & Utilities | Connect Copilot Studio and Fabric specialists through A2A, then build and validate a cross-platform orchestration pattern for utility analytics and operations | Advanced (300) | 90 min |

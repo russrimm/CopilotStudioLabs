@@ -1,0 +1,121 @@
+name: 🔁 Monthly Lab Accuracy
+
+on:
+  schedule:
+    # 06:00 UTC on the 1st of every month
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+    inputs:
+      stale_days:
+        description: "Flag screenshots older than this many days"
+        required: false
+        default: "180"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: monthly-lab-accuracy
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit labs, links, screenshots & URLs
+    runs-on: ubuntu-latest
+    env:
+      STALE_DAYS: ${{ github.event.inputs.stale_days || '180' }}
+    steps:
+      - name: Checkout (full history for screenshot staleness)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install lab-accuracy dependencies
+        working-directory: tools/lab-accuracy
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Microsoft Learn accuracy + reference-link check
+        working-directory: tools/lab-accuracy
+        continue-on-error: true
+        run: node check-accuracy.mjs
+
+      - name: Screenshot integrity + staleness audit
+        working-directory: tools/lab-accuracy
+        continue-on-error: true
+        run: node screenshot-audit.mjs --max-age-days=$STALE_DAYS
+
+      - name: Start-URL Playwright smoke test
+        working-directory: tools/lab-accuracy
+        continue-on-error: true
+        run: node smoke-urls.mjs
+
+      - name: Build tracking issue body
+        id: report
+        working-directory: tools/lab-accuracy
+        run: node build-issue.mjs
+
+      - name: Upload audit artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lab-accuracy-reports
+          path: tools/lab-accuracy/out/
+          if-no-files-found: warn
+
+      - name: Open or update tracking issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('tools/lab-accuracy/out/issue.md', 'utf8');
+            const needsAction = '${{ steps.report.outputs.needs_action }}' === 'true';
+            const label = 'monthly-accuracy';
+            const month = new Date().toISOString().slice(0, 7);
+            const title = `🔁 Monthly lab accuracy audit — ${month}`;
+
+            // Ensure the label exists.
+            try {
+              await github.rest.issues.getLabel({ ...context.repo, name: label });
+            } catch {
+              await github.rest.issues.createLabel({
+                ...context.repo, name: label, color: '1f6feb',
+                description: 'Automated monthly lab accuracy & screenshot audit',
+              });
+            }
+
+            // Find an existing open issue for this label.
+            const existing = await github.rest.issues.listForRepo({
+              ...context.repo, state: 'open', labels: label, per_page: 100,
+            });
+            const current = existing.data.find((i) => i.title.startsWith('🔁 Monthly lab accuracy audit'));
+
+            if (!needsAction) {
+              core.info('All checks passed; no maintainer action required.');
+              if (current) {
+                await github.rest.issues.createComment({
+                  ...context.repo, issue_number: current.number,
+                  body: `✅ ${month} audit: all checks passed.\n\n${body}`,
+                });
+                await github.rest.issues.update({ ...context.repo, issue_number: current.number, state: 'closed' });
+              }
+              return;
+            }
+
+            if (current) {
+              await github.rest.issues.update({
+                ...context.repo, issue_number: current.number, title, body,
+              });
+              core.info(`Updated issue #${current.number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                ...context.repo, title, body, labels: [label],
+              });
+              core.info(`Created issue #${created.data.number}`);
+            }

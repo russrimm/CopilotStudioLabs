@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| ⭐ **DIFFICULTY** | Intermediate (Level 200) |
+| ⭐ **DIFFICULTY** | Beginner to Intermediate (Level 100-200) |
 | ⏱️ **TIME** | 1.5 hours |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio, Microsoft 365, Microsoft Teams, SharePoint, MSN Weather |
 | 🏷️ **TAGS** | Agent Creation, Connectors, Tool Use, Model Selection, Publishing, Channels |

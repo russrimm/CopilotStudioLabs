@@ -1,0 +1,16 @@
+{
+  "name": "copilot-studio-lab-accuracy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monthly accuracy automation for Copilot Studio Labs: MS Learn MCP doc validation, reference-link checks, screenshot integrity/staleness audit, and Playwright URL smoke tests.",
+  "type": "module",
+  "scripts": {
+    "accuracy": "node check-accuracy.mjs",
+    "screenshots": "node screenshot-audit.mjs",
+    "smoke": "node smoke-urls.mjs",
+    "report": "node build-issue.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

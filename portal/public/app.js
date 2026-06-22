@@ -6,6 +6,7 @@
 let labs = [];
 let includedLabs = new Set();
 let selectedLabId = null;
+let openLabLevels = new Set(); // which difficulty groups are expanded (collapsed by default)
 let recipients = [];
 let scenarios = { industries: [], roles: [] };
 let selectedIndustryId = "";
@@ -604,29 +605,30 @@ function renderLabs() {
     return;
   }
 
-  list.innerHTML = labs
-    .map((lab) => {
-      const included = includedLabs.has(lab.id);
-      const selected = lab.id === selectedLabId;
-      const number = lab.id.match(/^(\d+)/)?.[1] || "?";
-      const sizeKB = lab.sizeBytes ? Math.round(lab.sizeBytes / 1024) : 0;
-      const cleanTitle = (lab.title || lab.id).replace(/^Lab\s+\d+\s*[:.\-–—]\s*/i, "").trim();
+  // Bucket each lab by its entry difficulty so chapters group into levels.
+  const groups = new Map(LAB_LEVEL_ORDER.map((key) => [key, []]));
+  for (const lab of labs) {
+    groups.get(classifyLabLevel(lab.difficulty)).push(lab);
+  }
+
+  list.innerHTML = LAB_LEVEL_ORDER
+    .filter((level) => groups.get(level).length)
+    .map((level) => {
+      const meta = LAB_LEVEL_META[level];
+      const groupLabs = groups.get(level);
+      const includedCount = groupLabs.filter((lab) => includedLabs.has(lab.id)).length;
+      const isOpen = openLabLevels.has(level);
       return `
-        <div class="lab-card ${included ? "included" : "excluded"} ${selected ? "selected" : ""}"
-             data-id="${lab.id}" onclick="selectLab('${lab.id}')">
-          <button class="lab-toggle ${included ? "on" : ""}"
-                  onclick="event.stopPropagation(); toggleLab('${lab.id}')"
-                  title="${included ? "Click to exclude" : "Click to include"}"></button>
-          <div class="lab-card-title">Lab ${number}: ${cleanTitle || lab.id}</div>
-          <div class="lab-card-meta">
-            <span>⭐ ${lab.difficulty || "?"}</span>
-            <span>⏱️ ${lab.time || "?"}</span>
-            <span>📁 ${sizeKB} KB</span>
+        <details class="lab-level" data-level="${level}" ${isOpen ? "open" : ""}
+                 ontoggle="setLabLevelOpen('${level}', this.open)">
+          <summary class="lab-level-summary">
+            <span class="lab-level-name">${meta.icon} ${meta.label}</span>
+            <span class="lab-level-count">${includedCount}/${groupLabs.length}</span>
+          </summary>
+          <div class="lab-level-body">
+            ${groupLabs.map(labCardHtml).join("")}
           </div>
-          <div style="margin-top: 6px;">
-            ${(lab.tags || []).slice(0, 3).map((t) => `<span class="tag">${t}</span>`).join(" ")}
-          </div>
-        </div>
+        </details>
       `;
     })
     .join("");
@@ -634,6 +636,54 @@ function renderLabs() {
   updateSummary();
   renderScenarioLabPreview();
   renderPreflightStatus();
+}
+
+// Difficulty level grouping for the Lab Chapters sidebar.
+const LAB_LEVEL_ORDER = ["beginner", "intermediate", "advanced", "other"];
+const LAB_LEVEL_META = {
+  beginner: { label: "Beginner", icon: "🟢" },
+  intermediate: { label: "Intermediate", icon: "🟡" },
+  advanced: { label: "Advanced", icon: "🔴" },
+  other: { label: "Other", icon: "⚪" },
+};
+
+// Classify by the lowest level a lab spans so mixed labs sit at their entry point.
+function classifyLabLevel(difficulty) {
+  const value = String(difficulty || "").toLowerCase();
+  if (/beginner|\b1\d0\b/.test(value)) return "beginner";
+  if (/intermediate|\b2\d0\b/.test(value)) return "intermediate";
+  if (/advanced|\b3\d0\b/.test(value)) return "advanced";
+  return "other";
+}
+
+function setLabLevelOpen(level, isOpen) {
+  if (isOpen) openLabLevels.add(level);
+  else openLabLevels.delete(level);
+}
+
+function labCardHtml(lab) {
+  const included = includedLabs.has(lab.id);
+  const selected = lab.id === selectedLabId;
+  const number = lab.id.match(/^(\d+)/)?.[1] || "?";
+  const sizeKB = lab.sizeBytes ? Math.round(lab.sizeBytes / 1024) : 0;
+  const cleanTitle = (lab.title || lab.id).replace(/^Lab\s+\d+\s*[:.\-–—]\s*/i, "").trim();
+  return `
+    <div class="lab-card ${included ? "included" : "excluded"} ${selected ? "selected" : ""}"
+         data-id="${lab.id}" onclick="selectLab('${lab.id}')">
+      <button class="lab-toggle ${included ? "on" : ""}"
+              onclick="event.stopPropagation(); toggleLab('${lab.id}')"
+              title="${included ? "Click to exclude" : "Click to include"}"></button>
+      <div class="lab-card-title">Lab ${number}: ${cleanTitle || lab.id}</div>
+      <div class="lab-card-meta">
+        <span>⭐ ${lab.difficulty || "?"}</span>
+        <span>⏱️ ${lab.time || "?"}</span>
+        <span>📁 ${sizeKB} KB</span>
+      </div>
+      <div style="margin-top: 6px;">
+        ${(lab.tags || []).slice(0, 3).map((t) => `<span class="tag">${t}</span>`).join(" ")}
+      </div>
+    </div>
+  `;
 }
 
 function toggleLab(labId) {
@@ -658,6 +708,9 @@ function selectAll(include) {
 
 async function selectLab(labId) {
   selectedLabId = labId;
+  // Make sure the selected lab's level group is expanded so its card stays visible.
+  const selectedLab = labs.find((lab) => lab.id === labId);
+  if (selectedLab) openLabLevels.add(classifyLabLevel(selectedLab.difficulty));
   renderLabs();
 
   // Switch to preview tab and load content
@@ -1350,6 +1403,19 @@ const CUSTOMIZATION_TOKENS = [
   },
 ];
 
+// Industry is required: block export/send actions until the user picks one.
+function requireIndustrySelected() {
+  const select = document.getElementById("cfg-industry");
+  if (select && !select.value) {
+    toast("Select an industry before continuing.", "error");
+    if (typeof setActiveTab === "function") setActiveTab("provision");
+    select.focus();
+    select.scrollIntoView({ behavior: "smooth", block: "center" });
+    return false;
+  }
+  return true;
+}
+
 function getReplacements() {
   const r = {};
   const activeBranding = branding || getDefaultBranding();
@@ -1390,7 +1456,7 @@ function getReplacements() {
   if (complianceValue !== "NERC CIP") r["NERC CIP"] = complianceValue;
   r["{{COMPLIANCE}}"] = complianceValue;
 
-  // Industry.
+  // Industry (required — the user must pick one; see requireIndustrySelected()).
   const industry = document.getElementById("cfg-industry")?.value;
   const industryValue = industry || "Energy / Utilities";
   if (industryValue !== "Energy / Utilities") r["Energy / Utilities"] = industryValue;
@@ -1646,12 +1712,12 @@ function renderPreflightStatus() {
 
   const selectedIds = [...includedLabs];
   if (!selectedIds.length) {
-    container.innerHTML = '<span class="tag">No labs selected</span><span style="font-size: 13px; color: var(--text-muted);">Choose one or more labs to show pre-flight status.</span>';
+    container.innerHTML = '<div class="preflight-inline"><span class="tag">No labs selected</span><span style="font-size: 13px; color: var(--text-muted);">Choose one or more labs to show pre-flight status.</span></div>';
     return;
   }
 
   if (!validationResults.size) {
-    container.innerHTML = `<span class="tag">${selectedIds.length} selected</span><span style="font-size: 13px; color: var(--text-muted);">No validation run yet for the selected labs.</span>`;
+    container.innerHTML = `<div class="preflight-inline"><span class="tag">${selectedIds.length} selected</span><span style="font-size: 13px; color: var(--text-muted);">No validation run yet for the selected labs.</span></div>`;
     return;
   }
 
@@ -1659,25 +1725,54 @@ function renderPreflightStatus() {
   const missing = selectedIds.filter((labId) => !validationResults.has(labId));
   const failing = selectedResults.filter((lab) => lab.failed > 0);
   const warningOnly = selectedResults.filter((lab) => lab.failed === 0 && lab.warnings > 0);
-  const passing = selectedResults.filter((lab) => lab.failed === 0);
+  const passing = selectedResults.filter((lab) => lab.failed === 0 && lab.warnings === 0);
+
+  // Severity rank so the most urgent labs surface first: fail → missing → warn → pass.
+  const rank = (labId) => {
+    const result = validationResults.get(labId);
+    if (!result) return 1; // missing / not run
+    if (result.failed > 0) return 0;
+    if (result.warnings > 0) return 2;
+    return 3;
+  };
+  const orderedIds = [...selectedIds].sort((a, b) => {
+    const diff = rank(a) - rank(b);
+    return diff !== 0 ? diff : selectedIds.indexOf(a) - selectedIds.indexOf(b);
+  });
+
+  const stat = (num, label, modifier) =>
+    `<div class="preflight-stat ${modifier}"><span class="num">${num}</span><span class="label">${label}</span></div>`;
+
+  const cards = orderedIds.map((labId) => {
+    const result = validationResults.get(labId);
+    const title = labs.find((lab) => lab.id === labId)?.title || labId;
+    let state;
+    if (!result) state = { cls: "is-missing", icon: "•", label: "Not run" };
+    else if (result.failed > 0) state = { cls: "is-fail", icon: "✕", label: `${result.failed} failing` };
+    else if (result.warnings > 0) state = { cls: "is-warn", icon: "!", label: `${result.warnings} warning${result.warnings === 1 ? "" : "s"}` };
+    else state = { cls: "is-pass", icon: "✓", label: "Passing" };
+    return `
+      <div class="preflight-card ${state.cls}" title="${escapeHtml(title)}">
+        <span class="pf-icon">${state.icon}</span>
+        <div class="pf-body">
+          <div class="pf-title">${escapeHtml(title)}</div>
+          <div class="pf-state">${state.label}</div>
+        </div>
+      </div>`;
+  }).join("");
 
   container.innerHTML = `
-    <span class="tag">${selectedIds.length} selected</span>
-    <span class="tag tag-success">${passing.length} passing</span>
-    <span class="tag tag-danger">${failing.length} failing</span>
-    <span class="tag tag-warning">${warningOnly.length + missing.length} warning/missing</span>
-    <span style="font-size: 13px; color: var(--text-muted);">
-      ${validationTimestamp ? `Last run ${new Date(validationTimestamp).toLocaleString()}` : "No timestamp available"}
-    </span>
-    <div class="status-stack">
-      ${selectedIds.map((labId) => {
-        const result = validationResults.get(labId);
-        const title = labs.find((lab) => lab.id === labId)?.title || labId;
-        if (!result) return `<span class="tag tag-warning">${escapeHtml(title)}: not run</span>`;
-        const badge = getValidationBadge(result);
-        return `<span class="tag ${badge.className}">${badge.icon} ${escapeHtml(title)}</span>`;
-      }).join("")}
+    <div class="preflight-summary">
+      ${stat(selectedIds.length, "Selected", "is-total")}
+      ${stat(passing.length, "Passing", "is-pass")}
+      ${stat(failing.length, "Failing", "is-fail")}
+      ${stat(warningOnly.length + missing.length, "Warn / Missing", "is-warn")}
     </div>
+    <div class="preflight-meta">
+      <span>🕒</span>
+      <span>${validationTimestamp ? `Last run ${new Date(validationTimestamp).toLocaleString()}` : "No validation timestamp available"}</span>
+    </div>
+    <div class="preflight-grid">${cards}</div>
   `;
 }
 
@@ -1852,6 +1947,7 @@ async function exportZip() {
     toast("No labs selected for export.", "error");
     return;
   }
+  if (!requireIndustrySelected()) return;
 
   const status = document.getElementById("export-status");
   await ensureValidationBeforeAction("export", "export-status");
@@ -1924,6 +2020,7 @@ async function sendEmail() {
     toast("No labs selected to send.", "error");
     return;
   }
+  if (!requireIndustrySelected()) return;
 
   const status = document.getElementById("email-status");
   status.innerHTML = '<span class="spinner"></span> Sending...';
