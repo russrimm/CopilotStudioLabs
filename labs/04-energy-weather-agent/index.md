@@ -2,6 +2,8 @@
 
 *Turn live weather signals into grid-operations intelligence.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |

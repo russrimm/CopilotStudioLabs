@@ -2,6 +2,8 @@
 
 *Build a fully branded, custom chat experience in your own web app — powered by the Copilot Studio Client SDK and Entra ID authentication.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate–Advanced (Level 250) |
@@ -14,6 +16,10 @@
 > **Prerequisite:** You should have a working, published agent in Copilot Studio — for example the **Contoso IT Operations Agent** from [Lab 01](../01-energy-ops-agent/index.md) or any other agent in your environment.
 
 ---
+
+## Overview
+
+This lab walks through building a custom, authenticated web chat experience that embeds a Copilot Studio agent using the Client SDK and Entra ID.
 
 ## 🗺️ Lab Flow
 
@@ -1192,3 +1198,7 @@ This lab gives you a working foundation. Here's what to add for production:
 You now have everything you need to put a Copilot Studio agent inside your own product — branded the way you want, authenticated the way Microsoft recommends.
 
 > ➡️ Pair this with [Lab 01](../01-energy-ops-agent/index.md) for an agent to embed, or [Lab 04](../04-energy-weather-agent/index.md) for the full end-to-end experience.
+
+## ✅ Completion
+
+Lab 18 is complete when sign-in, token acquisition, conversation start, and branded message rendering all work end-to-end in your web app.

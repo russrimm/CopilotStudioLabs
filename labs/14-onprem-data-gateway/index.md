@@ -2,6 +2,8 @@
 
 *Bridge Copilot Studio to on-premises systems with secure outbound-only hybrid connectivity and reusable agent flows.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
@@ -57,7 +59,7 @@ The gateway provides that bridge through outbound Azure Relay communication and 
 
 ---
 
-## 🎯 What you will learn
+## 🎯 Objectives
 
 1. Install and register the on-premises data gateway on a suitable always-on Windows host.
 2. Create a gateway-backed SQL Server connection and understand the performance and payload considerations.

@@ -720,3 +720,41 @@ Timestamp: 2026-06-15T01:59:09-05:00
 
 The competitive scan identified automated AI-agent behavior validation as a first-in-market opportunity. This framework uses Copilot Studio's own Agent Evaluation tooling as the execution engine rather than adding code or scripts. Rubrics define the quality bar; Copilot Studio provides test sets, evaluator methods, scoring, activity maps, run comparison, and exportable completion evidence.
 
+## 2026-06-22 — 2026-06-22T00:00:00Z: Lab helper scripts generalized to 01-35 and validators consolidated
+
+Owner: Dallas (Backend Dev)
+Merged by: Scribe
+Source: .squad/decisions/inbox/dallas-lab-scripts.md
+Requested by: Russ Rimmerman [MSFT]
+
+### Decision summary
+
+- `edit_labs.py` now discovers `labs/NN-*` folders by scanning (covers 01-35 incl. both `01-*`) instead of `range(2,19)`. Normalization is idempotent/safe: it inserts `## Metadata` ONLY when neither a Metadata heading nor an emoji metadata table exists, and renames a "What you will/'ll learn" heading to `## 🎯 Objectives` ONLY when no canonical Objectives heading exists. Existing well-formed labs (emoji metadata table convention) and `> 🔗 **Related lab:**` callouts are never touched.
+- Consolidated both validators into a single `validate_labs.py` (union of section checks: title, metadata, overview, objectives, prerequisites, steps, validation, completion). Metadata passes on either a `## Metadata` heading OR an emoji metadata table. README `labs/...` links are resolved against disk. Numbering collisions are flagged EXCEPT the intentional duplicate `01` (ALLOWED_DUPLICATE_NUMBERS = {1}), which is reported as "expected".
+- Deleted `validate_labs_new.py`.
+
+**Why:** Repo grew from 18 to 35 labs; hardcoded ranges no longer covered new content, and two near-duplicate validators were a maintenance hazard. Treating the normalized structure as intentional across all labs.
+
+**Decision note:** Duplicate lab number `01` is treated as expected (not a failure). Running the normalizer renamed `labs/01-intro-workshop` "What You'll Learn" -> "## 🎯 Objectives" (only edit made).
+
+## 2026-06-22 — 2026-06-22T00:00:00Z: Lab content-quality stub replacement
+
+Owner: Lambert (Content Dev)
+Merged by: Scribe
+Source: .squad/decisions/inbox/lambert-content-quality.md
+Requested by: Russ Rimmerman [MSFT]
+
+### Decision summary
+
+Replaced all low-quality placeholder stubs in `labs/` with real, lab-specific content and filled the two validator-flagged gaps in the two Lab 01 variants. Validator (`validate_labs.py`) now reports 36/36 PASS.
+
+**Why:** Russ chose "Standardize all labs (keep + improve)" — keep the standardized `labs/NN-slug/index.md` structure but replace placeholder/stub bodies with genuine content.
+
+### Key decisions
+
+- For labs 06-10, the empty `## Metadata` heading and the placeholder `## 🎯 Objectives` ("Learner objective 1/2") were fixed by *relocating* each lab's existing metadata table directly under `## Metadata` (matching the convention in labs 02/03/04/11) and writing 4 real, lab-specific objectives under Objectives. Chose to move the table rather than delete the heading, to keep structure consistent across labs.
+- For labs 05/12/13, replaced "Verify that the agent works as expected." with concrete, checkable success criteria specific to each lab (VS Code agent-as-code, ServiceNow integration, Snowflake analytics).
+- Lab 01-energy-ops-agent: added a `## ✅ Validation — Success Criteria` section before Lab Complete with checks tied to the four knowledge sources, grounding/citations, web-search-off, and safety boundaries.
+- Lab 01-intro-workshop: replaced the inline `**Duration:** ... **Level:** ...` line with a proper emoji-prefixed Metadata table; added `## ✅ Validation` and `## ✅ Lab Complete` (summary + suggested next labs).
+- Preserved all six `> 🔗 **Related lab:** / **Related feature labs:**` cross-link callouts exactly. No README, Python script, or folder/file structure changes.
+

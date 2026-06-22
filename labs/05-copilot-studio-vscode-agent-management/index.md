@@ -2,6 +2,8 @@
 
 *Manage your agents as code — clone and edit in VS Code, then publish and verify in Copilot Studio.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
@@ -28,6 +30,10 @@ flowchart LR
 ```
 
 ---
+
+## Overview
+
+This lab shows how to manage Copilot Studio agents as local files in VS Code, then push and publish those changes back to the cloud.
 
 ## ⚡ Why this lab matters
 
@@ -351,4 +357,12 @@ Record what you tested and the results:
 - Create a **branch** for a new feature (e.g., adding a new topic), make the change in VS Code, apply to Copilot Studio, verify, then merge the branch.
 - If your team uses Azure DevOps or GitHub, explore how you could integrate the apply and publish steps into a **CI/CD pipeline** using solutions and ALM pipelines.
 
-> 🔋 **Final thought:** Managing agents as code isn't just a developer convenience — it's how enterprise teams scale from one agent to dozens while maintaining quality and compliance.
+## ✅ Validation
+
+You have successfully completed this lab when you can confirm all of the following:
+
+- The Copilot Studio extension (or PAC CLI) is authenticated, and `pac auth list` shows your target environment.
+- You cloned an existing agent locally and the agent's files (topics, settings, instructions) are present in your VS Code workspace.
+- You made an edit in VS Code — for example, modifying a topic description or instruction — and applied it back to Copilot Studio.
+- After applying and publishing, the change is visible and behaves as expected in the Copilot Studio test canvas.
+- The agent's files are under source control (an initial Git commit exists), demonstrating the agent-as-code workflow end to end.

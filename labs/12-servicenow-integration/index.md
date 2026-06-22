@@ -2,6 +2,8 @@
 
 *Connect Copilot Studio to enterprise ITSM workflows with secure OAuth, premium connectors, and single sign-on.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
@@ -57,7 +59,7 @@ That experience only works if identity, connector setup, and ServiceNow records 
 
 ---
 
-## 🎯 What you will learn
+## 🎯 Objectives
 
 1. Provision and baseline a free ServiceNow developer instance for safe experimentation.
 2. Explain the four ServiceNow connector authentication methods and implement an Entra-based path.
@@ -672,5 +674,12 @@ You now have a practical SSO plan that makes the ServiceNow-enabled agent feel l
 - Add post-ticket notifications to Teams or email once incident creation works reliably.
 - Expand from incidents to change requests, catalog items, or knowledge workflows only after the core pattern is stable.
 
-> 🔐 **Final thought:** The best ServiceNow copilot is not the one with the most actions; it is the one your security team trusts and your employees actually use.
+## ✅ Validation
 
+You have successfully completed this lab when you can confirm all of the following:
+
+- The ServiceNow connection is configured and the agent authenticates against your ServiceNow instance without errors.
+- A read-only action works: the agent can look up an existing incident or record and return its details to the user.
+- A write action works: the agent can create a ServiceNow incident from a conversation, and the new record appears in ServiceNow with the captured details.
+- Authentication failure, authorization failure, and record-not-found each produce distinct, user-appropriate responses rather than a generic error.
+- SSO behavior is verified in a supported host channel (not only the test canvas), confirming sign-in works for end users.

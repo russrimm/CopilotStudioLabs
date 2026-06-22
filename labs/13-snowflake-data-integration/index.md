@@ -2,6 +2,8 @@
 
 *Bring governed warehouse data into Copilot Studio with OAuth, premium connectivity, and private-network design.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
@@ -57,7 +59,7 @@ That outcome depends on careful work across trial setup, OAuth, role design, and
 
 ---
 
-## 🎯 What you will learn
+## 🎯 Objectives
 
 1. Provision a Snowflake trial and create sample tables that map to real business questions.
 2. Configure delegated or service-principal OAuth with Entra ID and Snowflake external OAuth integration.
@@ -675,5 +677,12 @@ You now have the security and networking blueprint needed to move Snowflake-powe
 - Add a Power Automate wrapper if you need extra validation, approvals, or output shaping before the agent responds.
 - Create an evaluation set that checks both answer correctness and role-based access boundaries over time.
 
-> 📊 **Final thought:** The most useful analytics copilot is not the one that can answer every question; it is the one that answers the right governed questions with confidence and traceability.
+## ✅ Validation
 
+You have successfully completed this lab when you can confirm all of the following:
+
+- The Snowflake connection is configured and the agent can run a governed query against your Snowflake warehouse.
+- The agent answers a natural-language analytics question by returning data sourced from Snowflake, formatted as a clear summary rather than raw warehouse output.
+- Role-based access boundaries hold: the agent only returns data the connected identity is permitted to see, and restricted queries are denied gracefully.
+- Error and empty-result cases produce helpful, user-appropriate responses instead of raw connector errors.
+- You have verified any sovereign-cloud or private-networking constraints relevant to your environment before relying on the connector in production.

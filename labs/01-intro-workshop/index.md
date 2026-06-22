@@ -1,12 +1,20 @@
 # Lab 01: Copilot Studio Introductory Workshop
 
-**Duration:** 1.5 Hours | **Level:** Intermediate
+## Metadata
+
+| | |
+|---|---|
+| ⭐ **DIFFICULTY** | Intermediate (Level 200) |
+| ⏱️ **TIME** | 1.5 hours |
+| 🧩 **PRODUCTS** | Microsoft Copilot Studio, Microsoft 365, Microsoft Teams, SharePoint, MSN Weather |
+| 🏷️ **TAGS** | Agent Creation, Connectors, Tool Use, Model Selection, Publishing, Channels |
+| 🏭 **INDUSTRY** | Energy / Utilities |
 
 ## Overview
 
 This hands-on lab covers the essential skills for building, configuring, and publishing AI agents in Microsoft Copilot Studio. Participants will learn multiple approaches to agent creation, integrate external tools using connectors, understand model selection tradeoffs, and publish agents across Microsoft 365 channels.
 
-## What You'll Learn
+## 🎯 Objectives
 
 | Section | Topic | Duration |
 |---------|-------|----------|
@@ -54,6 +62,27 @@ This hands-on lab covers the essential skills for building, configuring, and pub
 - SharePoint (web part embedding)
 - Authentication considerations
 - Other channels overview
+
+## ✅ Validation
+
+You have successfully completed this workshop when you can confirm all of the following:
+
+- **Built an agent** — you created a Copilot Studio agent using at least one of the approaches covered (describe-to-build or build-from-scratch) and it responds in the test canvas.
+- **Tool use works** — you added the MSN Weather connector as a tool, wired it with a question node and Power Fx, and the agent returns live weather data for a location you supply.
+- **Model choice understood** — you can explain when to choose an OpenAI (GPT) model versus an Anthropic (Claude) model, and you changed the agent's model in the Generative AI settings.
+- **Published successfully** — you published the agent and made it available in at least one Microsoft 365 channel (Microsoft 365 Copilot, Teams, or SharePoint).
+- **Sharing verified** — another user (or a second test session) can reach the published agent through the channel you configured.
+
+If any check fails, revisit the matching section: confirm the connector tool is configured correctly, that the model is set in Generative AI settings, and that the agent has been published before testing the channel.
+
+## ✅ Lab Complete
+
+Congratulations! 👏 You now have a working Copilot Studio agent and the core skills to build, extend, and ship agents across Microsoft 365. In this workshop you learned multiple ways to create an agent, added a connector tool with the MSN Weather example, compared model options and their tradeoffs, and published your agent to Microsoft 365 channels.
+
+**Suggested next labs:**
+
+- **[Lab 04: Energy Operations Weather Agent](../04-energy-weather-agent/)** — go deeper with custom prompt tools, connected child agents, and evaluation test suites.
+- **[Lab 02: Monitor Performance and Evaluate Agent Quality](../02-agent-analytics-evaluations/index.md)** — measure and continuously improve the agents you build.
 
 ## Related Labs
 

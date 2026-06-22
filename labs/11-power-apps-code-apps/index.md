@@ -2,6 +2,8 @@
 
 *Bring your own code to Power Apps — build a supplier onboarding dashboard connected to Dataverse.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
@@ -13,6 +15,10 @@
 | 📋 **STATUS** | Supplementary |
 
 ---
+
+## Overview
+
+This lab introduces a code-first Power Apps workflow where you scaffold a BYOC app, connect Dataverse data, and ship a supplier onboarding dashboard.
 
 ## 🗺️ Lab Flow
 
@@ -273,6 +279,16 @@ Your supplier onboarding dashboard is now published to Power Apps. You can:
 
 ---
 
+## ✅ Validation
+
+Confirm all of the following before considering the lab complete:
+
+- Local run (`npm run dev`) loads supplier records from Dataverse.
+- Status filter cards update the visible grid as expected.
+- Selecting a supplier opens the details modal with editable fields.
+- Approve/Decline actions persist correctly after refresh.
+- Build and push complete successfully (`npm run build && pac code push`).
+
 ## 🧠 What you learned
 
 | Concept | Why it matters |
@@ -350,3 +366,7 @@ Now that you've built a supplier onboarding dashboard, consider how this pattern
 - 🔗 [Microsoft Dataverse developer guide](https://learn.microsoft.com/power-apps/developer/data-platform/)
 - 🔗 [GitHub Copilot in VS Code](https://docs.github.com/copilot/using-github-copilot/getting-code-suggestions-in-your-ide)
 - 🔗 [Reference lab from apps-agents-workshop](https://github.com/microsoft/apps-agents-workshop/blob/main/labs/byoc-powerapps/byoc-powerapps.md)
+
+## ✅ Completion
+
+You have completed Lab 11 when your code app is deployed, connected to Dataverse, and the supplier onboarding workflow runs end-to-end in both local and hosted experiences.

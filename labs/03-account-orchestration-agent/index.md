@@ -2,6 +2,8 @@
 
 *Routing the right tool, the right data, and the right policy — every turn.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
@@ -58,7 +60,7 @@ Common challenges this lab solves:
 
 ---
 
-## 🎯 What you will learn
+## 🎯 Objectives
 
 By the end of this lab you will:
 
@@ -635,6 +637,15 @@ Hi, this is James Rivera. Can you check on my recent order?
 - Take a multi-step Contoso process — outage response, gas-leak triage, commercial onboarding, large-customer quoting — and sketch it as a Skill: a clear *when to use me* description that the generative AI orchestrator can read, the tools it would call, and a numbered procedure with **explicit guardrails for when not to act**. Decide what belongs in the Skill vs. the agent's base instructions.
 
 ---
+
+## ✅ Validation
+
+Use this quick checklist to validate that your orchestration design is working as intended:
+
+- The planner selects the correct child agent and tool for each prompt in Use Case #2.
+- Activity Tracker and Get rationale show decisions that align to your updated descriptions.
+- The new-type agent in Use Case #3 completes multi-step requests in a single turn where appropriate.
+- The Skill in Use Case #4 loads when triggered and enforces customer-facing vs internal policy boundaries.
 
 # 🧠 Summary of learnings
 

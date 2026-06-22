@@ -80,6 +80,47 @@ These shorter labs cover individual concepts and can be used as standalone refer
 | 16 | [Custom Connectors & OAuth for Copilot Studio](./labs/16-custom-connectors-oauth/index.md) | Technology, Cross-industry | Build custom Power Platform connectors from OpenAPI specs with OAuth 2.0 and SSO, and connect them to Copilot Studio agents | Intermediate-Advanced (250) | 75 min |
 | 17 | [Industry-Specific 3rd Party Integrations](./labs/17-industry-integrations/index.md) | Multi-industry | Industry roundup covering Epic FHIR (Healthcare), SAP (Financial), Shopify (Retail), IoT (Manufacturing), Salesforce Gov (Public Sector), and Jira/GitHub (Technology) integrations | Advanced (300) | 2 hrs |
 | 18 | [Embed a Copilot Studio Agent in a Web Page with the Client SDK](./labs/18-embed-agent-web-sdk/index.md) | Cross-industry | Embed your published agent in a custom-branded web chat using the Copilot Studio Client SDK (`@microsoft/agents-copilotstudio-client`) with MSAL.js + Entra ID authentication — covers Entra app registration, delegated auth, conversation lifecycle, suggested actions, adaptive card fallback, and full UI branding | Intermediate–Advanced (250) | 75 min |
+| 19 | [Agent Evaluations (GA)](./labs/19-agent-evaluations-ga/index.md) | Cross-industry | Use generally available evaluations to baseline quality, detect regressions, and validate prompt or flow improvements before release | Intermediate (200) | 60 min |
+| 20 | [Multi-turn Conversation Tests](./labs/20-multi-turn-conversation-tests/index.md) | Cross-industry | Design and run multi-turn conversation regression scripts to validate context retention, branching behavior, and completion quality | Intermediate (200) | 60 min |
+| 21 | [Question/Reaction Exports](./labs/21-question-reaction-exports/index.md) | Cross-industry | Export question and reaction analytics, identify recurring issues, and turn findings into prioritized improvement backlog items | Intermediate (200) | 45 min |
+| 22 | [Prompt Assistant](./labs/22-prompt-assistant/index.md) | Cross-industry | Use Prompt Assistant to generate, refine, and compare prompt drafts with practical guardrails and measurable output quality gains | Beginner-Intermediate (100-200) | 45 min |
+| 23 | [Work IQ MCP (Preview)](./labs/23-work-iq-mcp-preview/index.md) | Cross-industry | Pilot Work IQ MCP preview integration for contextual grounding, compare before/after response quality, and document preview risk controls | Advanced (300) | 75 min |
+| 24 | [Agent-to-agent (GA)](./labs/24-agent-to-agent-ga/index.md) | Cross-industry | Implement generally available multi-agent delegation patterns with clear role boundaries, routing hints, and handoff validation | Advanced (300) | 75 min |
+| 25 | [Computer Use (GA)](./labs/25-computer-use-ga/index.md) | Cross-industry | Build generally available desktop automation patterns, improve reliability through retries and checkpoints, and define operational governance | Advanced (300) | 90 min |
+| 26 | [Agent Flows: Agent Nodes](./labs/26-agent-flows-agent-nodes/index.md) | Cross-industry | Create agent flows that invoke specialist agent nodes with explicit input/output contracts and fallback paths | Intermediate-Advanced (200-300) | 75 min |
+| 27 | [Agent Flows: Prompt Nodes](./labs/27-agent-flows-prompt-nodes/index.md) | Cross-industry | Build prompt-node patterns for classification and synthesis with structured outputs and validation branches | Intermediate (200) | 60 min |
+| 28 | [Agent Flows: M365 Copilot Nodes](./labs/28-agent-flows-m365-copilot-nodes/index.md) | Cross-industry | Integrate M365 Copilot nodes into agent flows for research and summarization with permission-safe branching | Advanced (300) | 75 min |
+| 29 | [Agent Flows: Async Responses](./labs/29-agent-flows-async-responses/index.md) | Cross-industry | Design async response patterns for long-running workflows with acknowledgement, completion, timeout, and failure handling | Advanced (300) | 75 min |
+| 30 | [Usage Estimator & Copilot Credits](./labs/30-usage-estimator-copilot-credits/index.md) | Cross-industry | Estimate demand and Copilot Credits usage, identify cost drivers, and establish rollout guardrails and monitoring cadence | Intermediate (200) | 45 min |
+| 31 | [Custom Analytics Metrics](./labs/31-custom-analytics-metrics/index.md) | Cross-industry | Define custom KPI metrics, map them to observable events, and operationalize threshold-based performance reviews | Intermediate-Advanced (200-300) | 60 min |
+| 32 | [Agent Inventory Schema](./labs/32-agent-inventory-schema/index.md) | Cross-industry | Build an inventory schema for agent ownership, lifecycle, dependencies, risk tiers, and governance recertification | Intermediate (200) | 50 min |
+| 33 | [Agent Readiness / Issue Status](./labs/33-agent-readiness-issue-status/index.md) | Cross-industry | Combine evaluation outcomes and issue-tracker status into a readiness scorecard with release gate decisions | Intermediate (200) | 60 min |
+| 34 | [Entra Agent Identities (Preview)](./labs/34-entra-agent-identities-preview/index.md) | Cross-industry | Configure preview Entra identity patterns with least-privilege controls, access-boundary validation, and governance notes | Advanced (300) | 75 min |
+| 35 | [Real-time Voice Agents (Preview)](./labs/35-realtime-voice-agents-preview/index.md) | Cross-industry | Prototype preview real-time voice call flows, tune turn-taking behavior, and validate fallback and pilot-readiness constraints | Advanced (300) | 75 min |
+
+### 🧭 Planned Labs (Backlog: 19-35)
+
+Planned topics are numbered and reserved for future authoring. See `.squad/files/labs-topic-expansion-plan.md` for the full numbering and naming map.
+
+| # | Planned topic |
+|---|---|
+| 19 | Agent evaluations (GA) |
+| 20 | Multi-turn conversation tests |
+| 21 | Question/reaction exports |
+| 22 | Prompt assistant |
+| 23 | Work IQ MCP (Preview) |
+| 24 | Agent-to-agent (GA) |
+| 25 | Computer use (GA) |
+| 26 | Agent flows: agent nodes |
+| 27 | Agent flows: prompt nodes |
+| 28 | Agent flows: M365 Copilot nodes |
+| 29 | Agent flows: async responses |
+| 30 | Usage estimator and Copilot Credits |
+| 31 | Custom analytics metrics |
+| 32 | Agent inventory schema |
+| 33 | Agent readiness and issue status |
+| 34 | Entra agent identities (Preview) |
+| 35 | Real-time voice agents (Preview) |
 
 > **Lab 11 note:** This lab complements the no-code agent labs with a pro-code Power Apps + Dataverse build path, making it a strong bridge for teams pairing Copilot Studio agents with custom web or business applications.
 

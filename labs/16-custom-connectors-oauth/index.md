@@ -2,6 +2,8 @@
 
 *Turn any well-described REST API into a Copilot Studio tool, secure it with OAuth, and deliver a smoother sign-in experience with SSO.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate-Advanced (Level 250) |
@@ -66,7 +68,7 @@ and regulated line-of-business platforms.
 
 ---
 
-## 🎯 What you will learn
+## 🎯 Objectives
 
 By the end of this lab you will be able to:
 

@@ -2,6 +2,8 @@
 
 *Teach an energy-operations agent to see, click, type, and recover across web and desktop workflows.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
@@ -10,7 +12,18 @@
 | 🏷️ **TAGS** | Computer Use, Desktop Automation, Vision AI, RPA, Process Automation |
 | 🏭 **INDUSTRIES** | Energy / Utilities |
 
+## 🎯 Objectives
+
+By the end of this lab, you will be able to:
+
+- Create a computer-using agent (CUA) in Copilot Studio and configure the Computer Use tool against a Cloud PC pool so the agent can drive legacy utility apps that have no APIs.
+- Build a standalone computer-use tool that signs in, navigates menus, and reads or enters data across both web and desktop screens.
+- Run Dataverse-driven tasks where the agent recovers from unexpected UI states and records each step for review.
+- Apply governance controls, monitoring, and human-in-the-loop review so automated desktop actions stay safe, bounded, and auditable.
+
 ---
+
+> 🔗 **Related lab:** [Lab 25: Computer Use (GA)](../25-computer-use-ga/index.md) — a focused deep-dive on the generally available computer-use feature. This lab is the end-to-end desktop-automation scenario.
 
 ## 🗺️ Lab Flow
 

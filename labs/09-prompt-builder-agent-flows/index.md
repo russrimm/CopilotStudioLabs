@@ -2,6 +2,8 @@
 
 *Design reusable prompts, wire them into flows, and control how AI content is generated for utility operations scenarios.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate to Advanced (Level 200-300) |
@@ -10,7 +12,18 @@
 | 🏷️ **TAGS** | Prompt Builder, Prompt Nodes, Agent Flows, AI Orchestration, Model Selection, Content Moderation |
 | 🏭 **INDUSTRIES** | Energy / Utilities |
 
+## 🎯 Objectives
+
+By the end of this lab, you will be able to:
+
+- Create reusable prompts in Prompt Builder for common utility language tasks such as summarizing outage updates, classifying field reports, and drafting customer communications.
+- Add prompt nodes to a Power Automate agent flow and wire in the Microsoft 365 Copilot node for grounded research and drafting.
+- Tune governance controls including model selection, content moderation, asynchronous response, and express mode.
+- Test and refine prompts with Prompt Advisor before promoting them into production agent flows.
+
 ---
+
+> 🔗 **Related feature labs:** [Lab 22: Prompt Assistant](../22-prompt-assistant/index.md) and [Lab 27: Agent Flows - Prompt Nodes](../27-agent-flows-prompt-nodes/index.md) — focused deep-dives on prompt authoring and prompt nodes. This lab is the end-to-end prompt-engineering-and-flows scenario.
 
 ## 🗺️ Lab Flow
 

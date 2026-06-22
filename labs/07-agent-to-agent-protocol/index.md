@@ -2,6 +2,8 @@
 
 *Coordinate Copilot Studio agents with external analytics agents so the right specialist handles the right utility question.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
@@ -10,7 +12,18 @@
 | 🏷️ **TAGS** | A2A, Multi-Agent, Orchestration, Cross-Platform, Fabric Data Agents |
 | 🏭 **INDUSTRIES** | Energy / Utilities |
 
+## 🎯 Objectives
+
+By the end of this lab, you will be able to:
+
+- Build a parent orchestrator agent that decides whether to answer directly, hand work to an internal Copilot Studio specialist, or delegate to an external agent.
+- Connect Copilot Studio to an external Microsoft Fabric Data Agent over the Agent-to-Agent (A2A) protocol.
+- Write clear routing descriptions so the orchestrator selects the right specialist for each utility question.
+- Compare the A2A pattern with the connected-agent pattern from Lab 03 to decide when to stay in-platform and when to open the architecture to cross-platform orchestration.
+
 ---
+
+> 🔗 **Related lab:** [Lab 24: Agent-to-agent (GA)](../24-agent-to-agent-ga/index.md) — a focused deep-dive on generally available agent-to-agent collaboration. This lab is the end-to-end cross-platform orchestration scenario.
 
 ## 🗺️ Lab Flow
 

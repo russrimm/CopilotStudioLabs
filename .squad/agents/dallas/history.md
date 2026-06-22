@@ -59,3 +59,7 @@
 ## 2026-06-15T12:34:51-05:00
 
 - Changed portal default port from 3000 to 3005 across server, Docker, devcontainer, Codespaces docs, approval link fallbacks, and portal Azure Bicep IaC. Left Lab 04 MCP sample instructions on port 3000 (correct for sample server, not portal) and Lab 06 account 30001234 unchanged. Validated: git diff --check, node --check, JSON parse all PASSED. Flagged for follow-up: Entra app registration redirect/reply URLs if pointing to localhost:3000 require external update to localhost:3005. Decision merged to `.squad/decisions.md`; orchestration and brief logs written.
+
+## 2026-06-22T00:00:00Z
+
+- Generalized the lab helper scripts to cover labs 01-35. `edit_labs.py` now discovers `labs/NN-*` folders by scanning instead of `range(2,19)`, and normalization is idempotent/safe (inserts `## Metadata` only when neither a Metadata heading nor emoji metadata table exists; renames "What you'll learn" to `## 🎯 Objectives` only when no canonical Objectives heading exists; never touches well-formed labs or `> 🔗 Related lab:` callouts). Consolidated both validators into a single `validate_labs.py` (union of section checks; metadata passes on either a `## Metadata` heading or emoji metadata table; README `labs/...` links resolved against disk; intentional duplicate lab `01` reported as expected via ALLOWED_DUPLICATE_NUMBERS={1}). Deleted `validate_labs_new.py`. Ran both scripts; final state 36/36 PASS. Decision merged to `.squad/decisions.md`; orchestration and session logs written.

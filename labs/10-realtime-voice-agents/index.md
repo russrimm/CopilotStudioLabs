@@ -2,6 +2,8 @@
 
 *Design a natural, compliant voice experience for utility callers who need fast help during high-stress moments.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
@@ -10,7 +12,18 @@
 | 🏷️ **TAGS** | Voice Agents, Telephony, NLU, Multilingual, Speech, Contact Center |
 | 🏭 **INDUSTRIES** | Energy / Utilities |
 
+## 🎯 Objectives
+
+By the end of this lab, you will be able to:
+
+- Build a real-time voice agent in Copilot Studio for an energy contact-center scenario that handles outage and billing-style calls.
+- Configure speech settings for natural turn-taking and validate the experience in the built-in voice test panel.
+- Add hold-and-resume behavior and trigger post-call actions after the conversation ends.
+- Set recording-consent prompts and publish the agent to a telephony channel.
+
 ---
+
+> 🔗 **Related lab:** [Lab 35: Real-time Voice Agents (Preview)](../35-realtime-voice-agents-preview/index.md) — a focused deep-dive on the preview real-time voice capability. This lab is the end-to-end telephony/contact-center voice scenario.
 
 ## 🗺️ Lab Flow
 

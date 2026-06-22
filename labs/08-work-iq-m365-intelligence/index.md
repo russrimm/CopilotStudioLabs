@@ -2,6 +2,8 @@
 
 *Ground utility agents in the living context of meetings, mail, files, chats, and curated knowledge sources.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
@@ -10,7 +12,18 @@
 | 🏷️ **TAGS** | Work IQ, Microsoft 365, Knowledge Sources, SharePoint, Contextual Intelligence |
 | 🏭 **INDUSTRIES** | Energy / Utilities |
 
+## 🎯 Objectives
+
+By the end of this lab, you will be able to:
+
+- Connect an agent to Work IQ so it can reason over live Microsoft 365 signals such as emails, meetings, chats, and files.
+- Enrich the agent with SharePoint knowledge sources and apply metadata filters to scope what it can retrieve.
+- Add Bing Custom Search for curated public energy content alongside internal knowledge.
+- Build a briefing agent and compare its responses with and without Work IQ to measure the contextual-intelligence uplift.
+
 ---
+
+> 🔗 **Related lab:** [Lab 23: Work IQ MCP (Preview)](../23-work-iq-mcp-preview/index.md) — a focused deep-dive on Work IQ context over MCP. This lab is the end-to-end Work IQ + Microsoft 365 grounding scenario.
 
 ## 🗺️ Lab Flow
 

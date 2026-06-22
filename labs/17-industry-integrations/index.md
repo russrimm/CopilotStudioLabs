@@ -2,6 +2,8 @@
 
 *Design Copilot Studio integrations that respect the realities of healthcare, finance, retail, manufacturing, public sector, and technology ecosystems.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
@@ -71,7 +73,7 @@ This lab walks through one scenario per industry so you can see those difference
 
 ---
 
-## 🎯 What you will learn
+## 🎯 Objectives
 
 By the end of this lab you will be able to:
 
@@ -662,6 +664,16 @@ or an external service.
 You now have a technology-industry pattern that balances licensing, auth, and developer workflow reality.
 
 ---
+
+## ✅ Validation
+
+Use this checklist to validate your cross-industry integration design outputs:
+
+- Each industry use case has a documented connector pattern (prebuilt, custom, or intermediary).
+- Authentication model is defined per scenario (for example SMART on FHIR OAuth, SAP OAuth/client credentials, Jira token).
+- Licensing assumptions are captured (premium vs standard where applicable).
+- Compliance constraints and safe-data boundaries are explicitly stated for each design.
+- Topic prompt starter exists and is scoped to least-privilege, read-first behavior.
 
 # 🙋 Summary
 

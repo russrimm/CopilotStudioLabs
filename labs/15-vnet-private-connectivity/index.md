@@ -2,6 +2,8 @@
 
 *Route Power Platform traffic through your private network so Copilot Studio can reach regulated enterprise systems without opening them to the public internet.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
@@ -65,7 +67,7 @@ That is the pattern you will practice in this lab.
 
 ---
 
-## 🎯 What you will learn
+## 🎯 Objectives
 
 By the end of this lab you will be able to:
 

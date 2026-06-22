@@ -442,6 +442,23 @@ We'll test our four knowledge sources by asking questions to our **Contoso IT Op
 
 ---
 
+## ✅ Validation — Success Criteria
+
+You have successfully completed this lab when you can confirm all of the following for your **Contoso IT Operations Agent**:
+
+- **Agent created from natural language** — the agent was provisioned from your prompt and lives in the correct Copilot Studio solution, with a unique name that includes your name or initials.
+- **Four knowledge sources connected and Ready** — Microsoft Support, NERC CIP Standards, the *Contoso Energy Technology – AI & Digital Enablement* SharePoint site, and the uploaded *Field Operations Remote Access Guide* all show a **Ready** status.
+- **Web Search disabled** — the agent answers only from your defined knowledge sources, not general web search.
+- **Microsoft Support grounding** — asking an MFA / Microsoft account question returns step-by-step guidance with a citation back to `support.microsoft.com`.
+- **SharePoint grounding** — asking *"How do I create a new Copilot Studio agent for my team?"* returns an answer with references to the SharePoint knowledge source.
+- **NERC CIP grounding** — asking about NERC CIP cybersecurity incident-reporting requirements returns an answer that cites the NERC CIP standards source — something a generic IT helpdesk agent could not do.
+- **Verifiable references** — every grounded response includes clickable references, and selecting one opens the supporting text from the source.
+- **Safety boundaries hold** — the agent declines to request passwords/OTP codes and refuses requests to bypass security controls, consistent with its instructions.
+
+If any check fails, revisit the relevant step: confirm the knowledge source status is **Ready**, that Web Search is disabled, and that your test question matches the source you expect the agent to use.
+
+---
+
 ## ✅ Lab Complete
 
 Congratulations! 👏 You've built a custom Contoso Energy IT Operations agent grounded in real enterprise data. Your agent can now draw on four distinct knowledge sources:

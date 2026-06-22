@@ -2,6 +2,8 @@
 
 *If you can't measure it, you can't improve it.*
 
+## Metadata
+
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
@@ -11,6 +13,8 @@
 | 🏭 **INDUSTRY** | Energy / Utilities (Contoso family of companies) |
 
 > **Adapted from:** [Monitor Performance and Evaluate Agent Quality — Microsoft Copilot Agents Labs](https://microsoft.github.io/mcs-labs/labs/core-concepts-analytics-evaluations/). Reframed for **Contoso** so you can measure and continuously improve the IT Operations agent you built in [Lab 01](../01-energy-ops-agent/index.md) — and any other Contoso agent that follows.
+
+> 🔗 **Related feature labs:** This is the end-to-end analytics-and-evaluation **scenario**. For focused capability deep-dives, see [Lab 19: Agent Evaluations (GA)](../19-agent-evaluations-ga/index.md), [Lab 21: Question & Reaction Exports](../21-question-reaction-exports/index.md), and [Lab 31: Custom Analytics Metrics](../31-custom-analytics-metrics/index.md).
 
 ---
 
@@ -57,7 +61,7 @@ That's the cycle: analytics finds the problem, evaluations verify the fix, analy
 
 ---
 
-## 🎯 What you will learn
+## 🎯 Objectives
 
 By the end of this lab you will be able to:
 
