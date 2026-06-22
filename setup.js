@@ -84,9 +84,36 @@ async function main() {
   const knowledge = config.knowledgeSources || {};
   const labConfig = config.labs || {};
 
+  // ── Load the selected industry preset (if any) ────────────────────────────
+  // The labs are authored in the Energy / Utilities scenario, so "energy" is the
+  // identity preset (no scenario-language changes). Any other preset rewrites
+  // energy-specific terms across every lab to match the chosen industry.
+  const presetId = String(config.industryPreset || "energy").toLowerCase().trim();
+  let preset = null;
+  if (presetId && presetId !== "energy") {
+    const presetsPath = join(ROOT, "industry-presets.json");
+    if (!existsSync(presetsPath)) {
+      console.error(`❌ industryPreset "${presetId}" requested but industry-presets.json was not found.`);
+      process.exit(1);
+    }
+    const presets = JSON.parse(readFileSync(presetsPath, "utf-8")).presets || {};
+    preset = presets[presetId];
+    if (!preset) {
+      console.error(`❌ Unknown industryPreset "${presetId}". Available: ${Object.keys(presets).join(", ")}`);
+      process.exit(1);
+    }
+    // Preset values fill in scenario fields ONLY where the user is still on the
+    // baked-in energy default (or left it blank). Explicit overrides always win.
+    const fromDefault = (value, def) => !value || value === def;
+    if (fromDefault(org.industry, DEFAULTS.industry)) org.industry = preset.industry;
+    if (fromDefault(branding.tagline, DEFAULTS.tagline)) branding.tagline = preset.tagline;
+    if (fromDefault(scenario.endUsers, DEFAULTS.endUsers)) scenario.endUsers = preset.endUsers;
+    if (fromDefault(knowledge.complianceStandard, DEFAULTS.compliance)) knowledge.complianceStandard = preset.complianceStandard;
+  }
+
   console.log(`📄 Config file:  ${relative(ROOT, configPath)}`);
   console.log(`🏢 Organization: ${org.name || DEFAULTS.orgName}`);
-  console.log(`🏭 Industry:     ${org.industry || DEFAULTS.industry}`);
+  console.log(`🏭 Industry:     ${org.industry || DEFAULTS.industry}${preset ? `  (preset: ${presetId})` : ""}`);
   console.log(`🤖 Agent:        ${scenario.agentName || DEFAULTS.agentName}`);
   console.log(`🧪 Labs:         ${(labConfig.include || []).length} included\n`);
 
@@ -125,6 +152,21 @@ async function main() {
   if (knowledge.complianceStandard && knowledge.complianceStandard !== DEFAULTS.compliance) {
     replacements.push([DEFAULTS.compliance, knowledge.complianceStandard]);
   }
+
+  // ── 1b. Add industry-preset scenario term mappings ────────────────────────
+  // These rewrite energy-specific scenario language (e.g. "grid operations",
+  // "outage", "Energy Operations") to the chosen industry's analog.
+  if (preset && Array.isArray(preset.terms)) {
+    for (const pair of preset.terms) {
+      if (Array.isArray(pair) && pair.length === 2 && pair[0] && pair[0] !== pair[1]) {
+        replacements.push([pair[0], pair[1]]);
+      }
+    }
+  }
+
+  // Apply the longest source strings first so specific phrases (e.g.
+  // "Outage Management System") win over general ones (e.g. "outage").
+  replacements.sort((a, b) => b[0].length - a[0].length);
 
   // ── 2. Determine which labs to keep / remove ──────────────────────────────
   const labsDir = join(ROOT, "labs");

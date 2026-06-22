@@ -177,6 +177,7 @@ This repository is designed as a **GitHub Template** — you can create your own
 
 ```json
 {
+  "industryPreset": "manufacturing",
   "organization": {
     "name": "Contoso",
     "fullName": "Contoso Energy Corp",
@@ -196,6 +197,8 @@ This repository is designed as a **GitHub Template** — you can create your own
 }
 ```
 
+> **`industryPreset`** is the easiest way to re-theme every lab. Pick one of `energy`, `manufacturing`, `healthcare`, `financial`, `government`, `retail`, `logistics`, `legal`, `education`, `realestate`, `travel`, `automotive`, `media`, `agriculture`, `publicsafety`, `sports`, `research`, or `insurance` and `setup.js` rewrites energy-specific scenario language (e.g. "Energy Operations", "grid operations", "outage management", "field technicians", "NERC CIP") to the chosen industry's equivalents across **all** labs. Anything you set explicitly under `organization`/`scenario`/`knowledgeSources` overrides the preset. The presets live in [`industry-presets.json`](./industry-presets.json) — add or tune term mappings there.
+
 3. Run the setup script:
 
 ```bash
@@ -207,6 +210,7 @@ npm run setup -- --dry-run  # preview changes without modifying files
 
 | Area | What changes |
 |------|-------------|
+| **Industry preset** | `industryPreset` rewrites energy-specific scenario language (Energy Operations, grid operations, outages, field crews, compliance, etc.) to the selected industry across every lab |
 | **Organization** | Company name, parent company, and subsidiary references across all lab content |
 | **Industry** | Industry labels in metadata tables and scenario descriptions |
 | **Branding** | Tagline and color references |
@@ -217,6 +221,7 @@ npm run setup -- --dry-run  # preview changes without modifying files
 
 See [`template.config.json`](./template.config.json) for the full schema. Key sections:
 
+- **`industryPreset`** — one of `energy`, `manufacturing`, `healthcare`, `financial`, `government`, `retail`, `logistics`, `legal`, `education`, `realestate`, `travel`, `automotive`, `media`, `agriculture`, `publicsafety`, `sports`, `research`, `insurance` (see [`industry-presets.json`](./industry-presets.json))
 - **`organization`** — name, fullName, parent, industry, subsidiaries
 - **`branding`** — logoPath, primaryColor, tagline
 - **`scenario`** — domain, agentName, endUsers, useCases

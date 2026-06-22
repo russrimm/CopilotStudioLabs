@@ -1,6 +1,8 @@
 {
   "$schema": "./template.config.schema.json",
   "_comment": "Customize this file, then run 'npm run setup' to generate your lab instance.",
+  "_industryPresetComment": "Pick one of: energy, manufacturing, healthcare, financial, government, retail, logistics, legal, education, realestate, travel, automotive, media, agriculture, publicsafety, sports, research, insurance (see industry-presets.json). setup.js rewrites energy-specific scenario language across ALL labs to match the chosen industry. Any field you set explicitly below overrides the preset.",
+  "industryPreset": "energy",
   "organization": {
     "name": "Contoso Energy",
     "fullName": "Contoso Energy",

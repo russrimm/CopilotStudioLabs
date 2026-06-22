@@ -1378,12 +1378,6 @@ const CUSTOMIZATION_TOKENS = [
     fallback: "Contoso Energy",
   },
   {
-    fieldId: "cfg-parent",
-    legacy: "Contoso",
-    placeholder: "{{PARENT_COMPANY}}",
-    fallback: "Contoso Energy Holdings",
-  },
-  {
     fieldId: "cfg-agent",
     legacy: "IT Operations Agent",
     placeholder: "{{AGENT_NAME}}",
