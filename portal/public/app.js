@@ -442,9 +442,9 @@ function clearBrandingPreviewUrl() {
 }
 
 function handleBrandingLogoFile(file) {
-  const allowed = ["image/png", "image/jpeg", "image/svg+xml"];
+  const allowed = ["image/png", "image/jpeg"];
   if (!allowed.includes(file.type)) {
-    toast("Logo must be a PNG, JPG, or SVG image.", "error");
+    toast("Logo must be a PNG or JPG image.", "error");
     return;
   }
   if (file.size > 2 * 1024 * 1024) {
