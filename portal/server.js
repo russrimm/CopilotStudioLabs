@@ -68,10 +68,12 @@ import {
   submitRequest,
 } from "./lib/approvals.js";
 import { getCurrentUser, clearTokens } from "./lib/auth.js";
+import { requireAuth, authConfigSummary } from "./lib/require-auth.js";
 import { loadAgentChatConfig, saveAgentChatConfig } from "./lib/agent-chat.js";
 
 const app = express();
 const PORT = process.env.PORT || 3005;
+const HOST = process.env.HOST || "127.0.0.1";
 const PROVISION_JOB_RETENTION_MS = 60 * 60 * 1000;
 const LABS_ROUTE = "/labs";
 const labsRoot = resolve(import.meta.dirname, "..", "labs");
@@ -316,6 +318,11 @@ app.use("/uploads", (_req, res, next) => {
 });
 app.use(express.static(resolve(import.meta.dirname, "public")));
 app.use(LABS_ROUTE, express.static(labsRoot));
+
+// All /api/* routes require an Entra ID bearer token. The middleware
+// internally exempts capability-token callback paths (e.g. approval links
+// delivered by email) that authenticate themselves.
+app.use("/api", requireAuth());
 
 // ── API Routes ──────────────────────────────────────────────────────────────
 
@@ -1065,6 +1072,19 @@ app.get("*", (_req, res) => {
 });
 
 // ── Start ───────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n⚡ Copilot Studio Labs Portal running at http://localhost:${PORT}\n`);
+app.listen(PORT, HOST, () => {
+  const auth = authConfigSummary();
+  console.log(`\n⚡ Copilot Studio Labs Portal running at http://${HOST}:${PORT}`);
+  console.log(
+    `   Auth: ${auth.enabled ? "enabled" : "DISABLED"} ` +
+    `(tenant: ${auth.tenantConfigured ? "set" : "MISSING"}, ` +
+    `audience: ${auth.audienceConfigured ? "set" : "MISSING"})`,
+  );
+  if (HOST === "0.0.0.0" && !auth.enabled) {
+    console.warn(
+      "⚠️  Listener bound to 0.0.0.0 with auth DISABLED. " +
+      "This exposes an unauthenticated Azure CLI to the network.",
+    );
+  }
+  console.log("");
 });

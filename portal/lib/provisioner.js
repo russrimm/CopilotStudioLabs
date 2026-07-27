@@ -7,9 +7,31 @@
 
 import { readFileSync, existsSync } from "fs";
 import { resolve, join } from "path";
-import { execSync, exec } from "child_process";
+import { execFileSync } from "child_process";
+import { assertId, assertRegion, assertLabNumbers } from "./validate-id.js";
 
 const INFRA_DIR = resolve(import.meta.dirname, "..", "infra");
+
+const AZ_BIN = process.platform === "win32" ? "az.cmd" : "az";
+
+/**
+ * Run the `az` CLI safely. Arguments are passed as an array — NEVER as a
+ * shell-interpolated string — so untrusted values in `args` cannot inject
+ * additional commands or flags. On Windows we invoke `az.cmd` explicitly so
+ * Node's execFile can resolve the batch wrapper without falling back to a
+ * shell (CVE-2024-27980).
+ */
+function az(args, { timeout = 30000, parseJson = false } = {}) {
+  const stdout = execFileSync(AZ_BIN, args, {
+    encoding: "utf-8",
+    timeout,
+    shell: false,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  return parseJson ? JSON.parse(stdout) : stdout;
+}
 const MANIFEST_PATH = join(INFRA_DIR, "lab-resources.json");
 
 // ── Manifest access ─────────────────────────────────────────────────────────
@@ -73,17 +95,10 @@ function isProvisionable(type) {
 export async function checkPrerequisites() {
   const checks = [];
 
-  // Check az CLI
-  checks.push(checkCommand("az", "az --version", "Azure CLI"));
-
-  // Check az login
+  checks.push(runAzCheck("az", ["--version"], "Azure CLI"));
   checks.push(await checkAzLogin());
-
-  // Check subscription
-  checks.push(checkCommand("subscription", "az account show --query id -o tsv", "Azure Subscription"));
-
-  // Check Bicep
-  checks.push(checkCommand("bicep", "az bicep version", "Bicep CLI"));
+  checks.push(runAzCheck("subscription", ["account", "show", "--query", "id", "-o", "tsv"], "Azure Subscription"));
+  checks.push(runAzCheck("bicep", ["bicep", "version"], "Bicep CLI"));
 
   return {
     ready: checks.every((c) => c.ok),
@@ -91,9 +106,9 @@ export async function checkPrerequisites() {
   };
 }
 
-function checkCommand(id, cmd, label) {
+function runAzCheck(id, args, label) {
   try {
-    const result = execSync(cmd, { encoding: "utf-8", timeout: 15000, stdio: ["pipe", "pipe", "pipe"] }).trim();
+    const result = az(args, { timeout: 15000 }).trim();
     return { id, label, ok: true, detail: result.split("\n")[0] };
   } catch {
     return { id, label, ok: false, detail: "Not found or not configured" };
@@ -102,12 +117,10 @@ function checkCommand(id, cmd, label) {
 
 async function checkAzLogin() {
   try {
-    const result = execSync('az account show --query "{name:name, id:id}" -o json', {
-      encoding: "utf-8",
-      timeout: 15000,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    const account = JSON.parse(result);
+    const account = az(
+      ["account", "show", "--query", "{name:name, id:id}", "-o", "json"],
+      { timeout: 15000, parseJson: true },
+    );
     return { id: "az-login", label: "Azure Login", ok: true, detail: `${account.name} (${account.id})` };
   } catch {
     return { id: "az-login", label: "Azure Login", ok: false, detail: "Not logged in — run 'az login'" };
@@ -130,11 +143,25 @@ export async function provision({ labIds, location, baseName, subscriptionId, en
   const log = onProgress || (() => {});
   const results = { success: [], failed: [], skipped: [], outputs: {} };
 
+  // Validate every value that will be handed to the az CLI.
+  let safeLocation, safeBaseName, safeSubscriptionId, safeLabNumbers;
+  try {
+    safeLocation = assertRegion(location, "location");
+    safeBaseName = assertId(baseName, "baseName");
+    if (subscriptionId) safeSubscriptionId = assertId(subscriptionId, "subscriptionId");
+    const labNumbersRaw = labIds.map((id) => String(id).match(/^(\d+)/)?.[1]).filter(Boolean).join(",");
+    safeLabNumbers = assertLabNumbers(labNumbersRaw, "enabledLabs");
+  } catch (err) {
+    log({ step: "validate-input", status: "failed", detail: err.message });
+    results.failed.push({ step: "validate-input", error: err.message });
+    return results;
+  }
+
   // Set subscription if provided
-  if (subscriptionId) {
-    log({ step: "set-subscription", status: "running", detail: `Setting subscription ${subscriptionId}` });
+  if (safeSubscriptionId) {
+    log({ step: "set-subscription", status: "running", detail: `Setting subscription ${safeSubscriptionId}` });
     try {
-      execSync(`az account set --subscription "${subscriptionId}"`, { encoding: "utf-8", stdio: "pipe" });
+      az(["account", "set", "--subscription", safeSubscriptionId], { timeout: 15000 });
       log({ step: "set-subscription", status: "done" });
     } catch (err) {
       log({ step: "set-subscription", status: "failed", detail: err.message });
@@ -143,30 +170,28 @@ export async function provision({ labIds, location, baseName, subscriptionId, en
     }
   }
 
-  // Determine which lab numbers are enabled
-  const labNumbers = labIds.map((id) => id.match(/^(\d+)/)?.[1]).filter(Boolean).join(",");
-
   // Run Bicep deployment
   log({ step: "bicep-deploy", status: "running", detail: "Deploying Azure resources via Bicep..." });
   try {
     const bicepPath = join(INFRA_DIR, "main.bicep");
-    const cmd = [
-      "az deployment sub create",
-      `--location "${location}"`,
-      `--template-file "${bicepPath}"`,
-      `--parameters baseName="${baseName}"`,
-      `--parameters location="${location}"`,
-      `--parameters enabledLabs="${labNumbers}"`,
-      "--output json",
-    ].join(" ");
-
-    const output = execSync(cmd, { encoding: "utf-8", timeout: 300000, stdio: ["pipe", "pipe", "pipe"] });
-    const deployment = JSON.parse(output);
+    const deployment = az(
+      [
+        "deployment", "sub", "create",
+        "--location", safeLocation,
+        "--template-file", bicepPath,
+        "--parameters", `baseName=${safeBaseName}`,
+        "--parameters", `location=${safeLocation}`,
+        "--parameters", `enabledLabs=${safeLabNumbers}`,
+        "--output", "json",
+      ],
+      { timeout: 300000, parseJson: true },
+    );
 
     results.outputs = deployment.properties?.outputs || {};
     results.success.push("bicep-deploy");
     log({ step: "bicep-deploy", status: "done", detail: "Infrastructure deployed" });
   } catch (err) {
+    err.stderr = err.stderr?.toString?.() ?? err.stderr;
     const errMsg = err.stderr || err.message;
     results.failed.push({ step: "bicep-deploy", error: errMsg });
     log({ step: "bicep-deploy", status: "failed", detail: errMsg.substring(0, 200) });
@@ -198,15 +223,17 @@ export async function provision({ labIds, location, baseName, subscriptionId, en
  */
 export async function deprovision({ baseName, onProgress }) {
   const log = onProgress || (() => {});
-  const rgName = `rg-${baseName}`;
+  let rgName;
+  try {
+    rgName = `rg-${assertId(baseName, "baseName")}`;
+  } catch (err) {
+    log({ step: "delete-rg", status: "failed", detail: err.message });
+    return { success: false, error: err.message };
+  }
 
   log({ step: "delete-rg", status: "running", detail: `Deleting resource group ${rgName}...` });
   try {
-    execSync(`az group delete --name "${rgName}" --yes --no-wait`, {
-      encoding: "utf-8",
-      timeout: 30000,
-      stdio: "pipe",
-    });
+    az(["group", "delete", "--name", rgName, "--yes", "--no-wait"], { timeout: 30000 });
     log({ step: "delete-rg", status: "done", detail: `Resource group ${rgName} deletion initiated` });
     return { success: true, detail: `Resource group ${rgName} deletion initiated (async)` };
   } catch (err) {
@@ -219,24 +246,37 @@ export async function deprovision({ baseName, onProgress }) {
  * Get provisioning status for a resource group.
  */
 export function getProvisioningStatus(baseName) {
-  const rgName = `rg-${baseName}`;
+  let rgName;
   try {
-    const result = execSync(
-      `az group show --name "${rgName}" --query "{name:name, state:properties.provisioningState, location:location}" -o json`,
-      { encoding: "utf-8", timeout: 15000, stdio: ["pipe", "pipe", "pipe"] }
+    rgName = `rg-${assertId(baseName, "baseName")}`;
+  } catch {
+    return { exists: false };
+  }
+  try {
+    const rg = az(
+      [
+        "group", "show",
+        "--name", rgName,
+        "--query", "{name:name, state:properties.provisioningState, location:location}",
+        "-o", "json",
+      ],
+      { timeout: 15000, parseJson: true },
     );
-    const rg = JSON.parse(result);
 
-    // List resources in the group
-    const resources = execSync(
-      `az resource list --resource-group "${rgName}" --query "[].{name:name, type:type, state:provisioningState}" -o json`,
-      { encoding: "utf-8", timeout: 15000, stdio: ["pipe", "pipe", "pipe"] }
+    const resources = az(
+      [
+        "resource", "list",
+        "--resource-group", rgName,
+        "--query", "[].{name:name, type:type, state:provisioningState}",
+        "-o", "json",
+      ],
+      { timeout: 15000, parseJson: true },
     );
 
     return {
       exists: true,
       resourceGroup: rg,
-      resources: JSON.parse(resources),
+      resources,
     };
   } catch {
     return { exists: false };
