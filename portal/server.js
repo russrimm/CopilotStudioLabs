@@ -16,6 +16,7 @@ import {
   BRANDING_UPLOADS_DIR,
   deleteBrandingLogo,
   ensureBrandingStorage,
+  escapeHtml,
   loadBranding,
   prependBrandingBanner,
   saveBranding,
@@ -1099,10 +1100,24 @@ app.get("/api/pp/approval-callback", async (req, res) => {
       ? await rejectRequest(requestRecord.id, String(decidedBy || "callback"), String(reason || ""))
       : await approveRequest(requestRecord.id, String(decidedBy || "callback"), String(reason || ""));
 
+    // Harden the callback HTML response:
+    //   * Every interpolated value is HTML-escaped even though `displayName`
+    //     is already validated at write time — defense in depth.
+    //   * CSP blocks script execution, inline event handlers, frames, and
+    //     network fetches; `style-src 'unsafe-inline'` is scoped narrowly so
+    //     the small inline `style=` attributes below still render.
+    //   * `X-Content-Type-Options: nosniff` prevents MIME-sniffing this
+    //     response into anything but text/html.
+    const safeDisplayName = escapeHtml(result.displayName);
+    const safeStatus = escapeHtml(result.status);
+    const heading = result.status === "rejected" ? "Request rejected" : "Request processed";
+    res.set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
+    res.set("X-Content-Type-Options", "nosniff");
+    res.set("Referrer-Policy", "no-referrer");
     res.type("html").send(`
       <html><body style="font-family: Segoe UI, Arial, sans-serif; padding: 24px;">
-        <h2>${result.status === "rejected" ? "Request rejected" : "Request processed"}</h2>
-        <p><strong>${result.displayName}</strong> is now <strong>${result.status}</strong>.</p>
+        <h2>${escapeHtml(heading)}</h2>
+        <p><strong>${safeDisplayName}</strong> is now <strong>${safeStatus}</strong>.</p>
         <p>You can close this window and return to the portal.</p>
       </body></html>
     `);

@@ -34,7 +34,7 @@ function isUploadPath(value) {
   return typeof value === "string" && /^\/uploads\/[^/]+$/i.test(value);
 }
 
-function escapeHtml(value) {
+export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
