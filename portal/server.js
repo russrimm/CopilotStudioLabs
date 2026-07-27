@@ -87,12 +87,14 @@ const brandingUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: BRANDING_MAX_FILE_SIZE },
   fileFilter: (_req, file, cb) => {
-    const allowedMimeTypes = new Set(["image/png", "image/jpeg", "image/svg+xml"]);
+    // SVG is intentionally excluded: SVG uploads can embed <script> that would
+    // execute same-origin when the file is served back from /uploads.
+    const allowedMimeTypes = new Set(["image/png", "image/jpeg"]);
     if (allowedMimeTypes.has(file.mimetype)) {
       cb(null, true);
       return;
     }
-    cb(new Error("Only PNG, JPG, and SVG logos are supported."));
+    cb(new Error("Only PNG and JPG logos are supported."));
   },
 });
 
@@ -165,7 +167,6 @@ function isLabPdfFresh(labId, pdfPath) {
 function getBrandingLogoExtension(file) {
   if (file.mimetype === "image/png") return ".png";
   if (file.mimetype === "image/jpeg") return ".jpg";
-  if (file.mimetype === "image/svg+xml") return ".svg";
   return extname(file.originalname || "").toLowerCase() || ".png";
 }
 
@@ -306,6 +307,13 @@ function serializeProvisionJob(job) {
 const kvResult = await loadSecretsFromKeyVault();
 
 app.use(express.json({ limit: "10mb" }));
+// Harden user-uploaded content: block MIME sniffing so a file can't be
+// re-interpreted as HTML/SVG by the browser. Registered before the general
+// public static handler so it wins for /uploads/*.
+app.use("/uploads", (_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  next();
+});
 app.use(express.static(resolve(import.meta.dirname, "public")));
 app.use(LABS_ROUTE, express.static(labsRoot));
 
