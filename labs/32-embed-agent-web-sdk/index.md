@@ -90,7 +90,7 @@ By the end of this lab, you will be able to:
 
 1. **A published Copilot Studio agent** — in an environment you have admin or maker access to
 2. **An Entra ID tenant** where you can create (or request) an app registration — your work tenant typically works
-3. **Node.js 18+** and **npm** installed locally
+3. **Node.js 24+** and **npm** installed locally
 4. **A modern browser** (Edge, Chrome, Firefox)
 5. **VS Code** (recommended) for editing
 6. **Basic familiarity with HTML/CSS/JavaScript** — you don't need to be a frontend expert, but you should be comfortable reading a `.ts` file
