@@ -84,6 +84,13 @@ This isn't just about saving developer time. It's about unlocking the ability to
 | 33 | [Agent Readiness / Issue Status](./labs/39-agent-readiness-issue-status/index.md) | Cross-industry | Combine evaluation outcomes and issue-tracker status into a readiness scorecard with release gate decisions | Intermediate (200) | 60 min |
 | 34 | [Entra Agent Identities (Preview)](./labs/40-entra-agent-identities-preview/index.md) | Cross-industry | Configure preview Entra identity patterns with least-privilege controls, access-boundary validation, and governance notes | Advanced (300) | 75 min |
 | 35 | [Real-time Voice Agents (Preview)](./labs/31-realtime-voice-agents-preview/index.md) | Cross-industry | Prototype preview real-time voice call flows, tune turn-taking behavior, and validate fallback and pilot-readiness constraints | Advanced (300) | 75 min |
+| 36 | [Copilot Studio Introductory Workshop](./labs/01-intro-workshop/index.md) | Energy & Utilities | Cover the essentials of building, configuring, and publishing Copilot Studio agents — creation approaches, MSN Weather connector tool use, model selection tradeoffs, and publishing to M365, Teams, and SharePoint | Beginner–Intermediate (100–200) | 90 min |
+| 37 | [Topics, Triggers, Entities & Variables — Conversational Design Fundamentals](./labs/02-conversational-design-fundamentals/index.md) | Cross-industry | Learn the conversational building blocks — custom vs. system topics, trigger phrases and orchestrator routing, prebuilt and custom entities, and topic vs. global variables — before layering knowledge and tools | Beginner–Intermediate (100–200) | 45 min |
+| 38 | [Content Moderation, Guardrails & Responsible AI](./labs/12-content-moderation-responsible-ai/index.md) | Cross-industry | Configure moderation levels, tighten grounding to approved knowledge, author explicit safety and scope boundaries, and validate refusal behavior with adversarial prompts | Intermediate (200) | 45 min |
+| 39 | [Authentication & End-User Sign-In Configuration](./labs/34-authentication-end-user-signin/index.md) | Cross-industry | Compare authentication options, register or reuse an Entra ID app, configure manual Entra ID sign-in with correct scopes and redirect URLs, and validate SSO flow into connectors and tools | Advanced (300) | 60 min |
+| 40 | [Data Loss Prevention (DLP) & Governance Policies](./labs/35-dlp-governance-policies/index.md) | Cross-industry | Create tenant-level DLP policies in Power Platform Admin Center, classify connectors into Business / Non-business / Blocked, scope policies to environments, and document a governance baseline | Advanced (300) | 60 min |
+
+> **Note on lab numbering:** Folder names under `./labs/` use an internal numbering scheme (e.g. `04-`, `06-`, `34-`) that does not match the sequential `#` column in the table above. Always follow the link in the table for the correct path.
 
 ### 🧭 Planned Labs (Backlog: 19-35)
 
@@ -169,6 +176,8 @@ The repository also includes a full **Copilot Studio Labs portal** for deliverin
 ## 🎨 Deploy as a customizable template
 
 This repository is designed as a **GitHub Template** — you can create your own copy and customize it for any organization, industry, or scenario.
+
+> **Curated lab set:** The default `template.config.json` ships **17 curated labs** in `labs.include` that map to the most common Copilot Studio scenarios. The full **35+ lab set** stays available in the `./labs/` folder of the repo — to enable additional labs in your generated template, add their folder names (for example `01-intro-workshop`, `12-content-moderation-responsible-ai`, `35-dlp-governance-policies`) to the `labs.include` array before running `npm run setup`. Labs not listed in `labs.include` are removed from the generated instance.
 
 ### Quick start
 
