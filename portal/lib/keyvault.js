@@ -14,9 +14,25 @@
  *   Authentication — Managed Identity (preferred) or AZURE_CLIENT_ID + AZURE_CLIENT_SECRET
  */
 
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
+import { assertId, assertRegion, assertSecretName, assertSecretValue } from "./validate-id.js";
 
 const VAULT_URL = process.env.AZURE_KEYVAULT_URL;
+
+const AZ_BIN = process.platform === "win32" ? "az.cmd" : "az";
+
+/** Safely run the `az` CLI. Args are passed as an array, never shell-interpolated. */
+function az(args, { timeout = 15000, parseJson = false } = {}) {
+  const stdout = execFileSync(AZ_BIN, args, {
+    encoding: "utf-8",
+    timeout,
+    shell: false,
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  return parseJson ? JSON.parse(stdout) : stdout;
+}
 
 // Map of env var names to Key Vault secret names
 const SECRET_MAP = {
@@ -64,9 +80,13 @@ export async function loadSecretsFromKeyVault() {
  */
 async function getSecret(secretName) {
   try {
-    const result = execSync(
-      `az keyvault secret show --vault-name "${extractVaultName()}" --name "${secretName}" --query value -o tsv`,
-      { encoding: "utf-8", timeout: 15000, stdio: ["pipe", "pipe", "pipe"] }
+    const safeSecret = assertSecretName(secretName);
+    const vaultName = extractVaultName();
+    if (!vaultName) return null;
+    const safeVault = assertId(vaultName, "vaultName");
+    const result = az(
+      ["keyvault", "secret", "show", "--vault-name", safeVault, "--name", safeSecret, "--query", "value", "-o", "tsv"],
+      { timeout: 15000 },
     );
     return result.trim();
   } catch {
@@ -80,14 +100,25 @@ async function getSecret(secretName) {
 export async function setSecret(secretName, value) {
   if (!VAULT_URL) throw new Error("AZURE_KEYVAULT_URL not configured");
 
+  const safeSecret = assertSecretName(secretName);
+  const safeValue = assertSecretValue(value);
+  const vaultName = extractVaultName();
+  const safeVault = assertId(vaultName || "", "vaultName");
+
   try {
-    execSync(
-      `az keyvault secret set --vault-name "${extractVaultName()}" --name "${secretName}" --value "${value}" --output none`,
-      { encoding: "utf-8", timeout: 15000, stdio: ["pipe", "pipe", "pipe"] }
+    az(
+      [
+        "keyvault", "secret", "set",
+        "--vault-name", safeVault,
+        "--name", safeSecret,
+        "--value", safeValue,
+        "--output", "none",
+      ],
+      { timeout: 15000 },
     );
-    return { success: true, secretName };
+    return { success: true, secretName: safeSecret };
   } catch (err) {
-    throw new Error(`Failed to store secret '${secretName}': ${err.message}`);
+    throw new Error(`Failed to store secret '${safeSecret}': ${err.message}`);
   }
 }
 
@@ -95,13 +126,24 @@ export async function setSecret(secretName, value) {
  * Provision a Key Vault for the lab portal.
  */
 export async function provisionKeyVault({ baseName, resourceGroup, location }) {
-  const vaultName = `${baseName}-kv`;
+  const safeBase = assertId(baseName, "baseName");
+  const safeRg = assertId(resourceGroup, "resourceGroup");
+  const safeLoc = assertRegion(location, "location");
+  const vaultName = `${safeBase}-kv`;
+  // Re-validate the composed name so a bad baseName can't sneak past.
+  assertId(vaultName, "vaultName");
 
   try {
-    // Create Key Vault
-    execSync(
-      `az keyvault create --name "${vaultName}" --resource-group "${resourceGroup}" --location "${location}" --enable-rbac-authorization true --output none`,
-      { encoding: "utf-8", timeout: 60000, stdio: ["pipe", "pipe", "pipe"] }
+    az(
+      [
+        "keyvault", "create",
+        "--name", vaultName,
+        "--resource-group", safeRg,
+        "--location", safeLoc,
+        "--enable-rbac-authorization", "true",
+        "--output", "none",
+      ],
+      { timeout: 60000 },
     );
 
     const vaultUrl = `https://${vaultName}.vault.azure.net`;
