@@ -152,7 +152,7 @@ The repository also includes a full **Copilot Studio Labs portal** for deliverin
 - Access to [Microsoft Copilot Studio](https://copilotstudio.microsoft.com)
 - A Power Platform environment (trial or licensed)
 - A SharePoint site for lab 01 (instructions included in the lab)
-- Node.js 18+ (for the template setup script)
+- Node.js 24+ (for the template setup script)
 - Prefer zero local setup for Node.js/MCP labs? See [Open in GitHub Codespaces](./docs/codespaces.md).
 
 ### How to use these labs

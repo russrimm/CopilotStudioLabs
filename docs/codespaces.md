@@ -6,7 +6,7 @@ Use Codespaces when you want to run the Node.js-based lab tooling without instal
 
 ## What the Codespace includes
 
-- Node.js 20 LTS
+- Node.js 24 LTS
 - GitHub CLI (`gh`), `jq`, Python 3, zip/unzip, and common Linux utilities
 - VS Code extensions for GitHub Copilot, Copilot Chat, Power Platform Tools, Markdown, and Node.js
 - Forwarded ports for common lab servers:

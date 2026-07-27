@@ -144,7 +144,7 @@ By the end of this lab, you will be able to:
 - Access to **Microsoft Copilot Studio** in an environment where you can create or edit agents
 - Permission to create **Power Automate cloud flows**
 - Permission to create connections to the **MSN Weather** connector in your environment (a one-time consent on first use)
-- Optional for the MCP section (Use Case #8): **Node.js 18+** or **Python 3.10+** and **VS Code** on your local machine
+- Optional for the MCP section (Use Case #8): **Node.js 24+** or **Python 3.10+** and **VS Code** on your local machine
 
 > 💡 **Tip:** The MSN Weather connector requires no API key. The optional MCP section uses **Open-Meteo**, which is also free and key-free, so you can complete the entire lab without provisioning any external credentials.
 
@@ -1090,7 +1090,7 @@ Apply fixes in the right place: topic issues → fix the topic; tool issues → 
 
 # 🧪 Optional Use Case #8 — MCP (Model Context Protocol) Servers (20 min, optional)
 
-> 🎯 **Objective:** Stand up an MCP server that wraps **Open-Meteo** weather APIs (free and key-free), expose it over **Streamable HTTP**, connect it to Copilot Studio with the MCP onboarding wizard, and add discoverable tools for runtime use. This section requires **VS Code** and **Node.js 18+** (or Python 3.10+).
+> 🎯 **Objective:** Stand up an MCP server that wraps **Open-Meteo** weather APIs (free and key-free), expose it over **Streamable HTTP**, connect it to Copilot Studio with the MCP onboarding wizard, and add discoverable tools for runtime use. This section requires **VS Code** and **Node.js 24+** (or Python 3.10+).
 
 ### Scenario
 
