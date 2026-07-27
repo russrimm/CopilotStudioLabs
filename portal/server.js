@@ -549,11 +549,144 @@ app.post("/api/export", async (req, res) => {
   }
 });
 
-/** POST /api/email — Email lab package to recipients */
+// ── Email recipient allowlist ───────────────────────────────────────────────
+// Signed-in users may always email themselves. Admins can optionally allow
+// additional recipients via EMAIL_RECIPIENT_ALLOWLIST (comma-separated), where
+// each entry is either an exact address (`alice@contoso.com`) or a domain
+// suffix (`@contoso.com`). This prevents /api/email from being abused as a
+// tenant-authenticated phishing relay.
+function parseRecipientAllowlist() {
+  return String(process.env.EMAIL_RECIPIENT_ALLOWLIST || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function isRecipientAllowed(addr, selfAddress, allowlist) {
+  if (typeof addr !== "string") return false;
+  const normalized = addr.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) return false;
+  if (selfAddress && normalized === selfAddress.trim().toLowerCase()) return true;
+  return allowlist.some((entry) =>
+    entry.startsWith("@") ? normalized.endsWith(entry) : normalized === entry,
+  );
+}
+
+// ── Replacement sanitization ────────────────────────────────────────────────
+// `replacements` is applied to every markdown file in the exported ZIP as a
+// literal search/replace. Because that ZIP is delivered via tenant-authenticated
+// email, an unbounded or URL-bearing replacement value would let an authenticated
+// caller inject phishing links or blow up the attachment size. We cap counts and
+// lengths and reject values containing URL schemes or bare domains.
+const REPLACEMENT_MAX_ENTRIES = 32;
+const REPLACEMENT_MAX_KEY_LEN = 128;
+const REPLACEMENT_MAX_VALUE_LEN = 256;
+const REPLACEMENT_URLISH_RE = /(?:\bhttps?:\/\/|\bwww\.|\b[a-z0-9-]+\.[a-z]{2,}(?:\/|\b))/i;
+
+function sanitizeReplacements(raw) {
+  if (raw == null) return {};
+  if (typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("replacements must be an object of string key/value pairs.");
+  }
+  const entries = Object.entries(raw);
+  if (entries.length > REPLACEMENT_MAX_ENTRIES) {
+    throw new Error(`replacements may contain at most ${REPLACEMENT_MAX_ENTRIES} entries.`);
+  }
+  const clean = {};
+  for (const [key, value] of entries) {
+    if (typeof key !== "string" || typeof value !== "string") {
+      throw new Error("replacements keys and values must both be strings.");
+    }
+    if (key.length === 0 || key.length > REPLACEMENT_MAX_KEY_LEN) {
+      throw new Error(`replacements keys must be 1–${REPLACEMENT_MAX_KEY_LEN} characters.`);
+    }
+    if (value.length > REPLACEMENT_MAX_VALUE_LEN) {
+      throw new Error(`replacements values must be at most ${REPLACEMENT_MAX_VALUE_LEN} characters.`);
+    }
+    if (REPLACEMENT_URLISH_RE.test(value)) {
+      throw new Error("replacements values may not contain URLs or bare domains.");
+    }
+    clean[key] = value;
+  }
+  return clean;
+}
+
+// ── Per-user rate limiter for /api/email ────────────────────────────────────
+// Small in-memory sliding window. Matches the single-instance model used by the
+// in-memory MSAL token cache in lib/auth.js. Configurable via env.
+const EMAIL_RATE_WINDOW_MS = Math.max(
+  1000,
+  parseInt(process.env.EMAIL_RATE_WINDOW_MS || "3600000", 10),
+);
+const EMAIL_RATE_MAX = Math.max(
+  1,
+  parseInt(process.env.EMAIL_RATE_MAX || "10", 10),
+);
+const emailRateHits = new Map();
+
+function checkEmailRateLimit(userKey) {
+  const now = Date.now();
+  const cutoff = now - EMAIL_RATE_WINDOW_MS;
+  const timestamps = (emailRateHits.get(userKey) || []).filter((t) => t > cutoff);
+  if (timestamps.length >= EMAIL_RATE_MAX) {
+    const retryAfterMs = timestamps[0] + EMAIL_RATE_WINDOW_MS - now;
+    return { allowed: false, retryAfterSec: Math.max(1, Math.ceil(retryAfterMs / 1000)) };
+  }
+  timestamps.push(now);
+  emailRateHits.set(userKey, timestamps);
+  // Opportunistic cleanup so the map doesn't grow unbounded.
+  if (emailRateHits.size > 1024) {
+    for (const [k, v] of emailRateHits) {
+      const kept = v.filter((t) => t > cutoff);
+      if (kept.length === 0) emailRateHits.delete(k);
+      else emailRateHits.set(k, kept);
+    }
+  }
+  return { allowed: true };
+}
+
+/** POST /api/email — Email lab package to allowlisted recipients */
 app.post("/api/email", async (req, res) => {
-  const { to = [], labs: labIds = [], subject, replacements = {} } = req.body;
-  if (!to.length) return res.status(400).json({ error: "No recipients specified" });
+  // Require an authenticated caller — tenant SMTP/Graph credentials must never
+  // be reachable by anonymous clients.
+  const user = await getCurrentUser();
+  if (!user?.username) {
+    return res.status(401).json({ error: "Authentication required." });
+  }
+
+  const rate = checkEmailRateLimit(user.username.toLowerCase());
+  if (!rate.allowed) {
+    res.setHeader("Retry-After", String(rate.retryAfterSec));
+    return res.status(429).json({
+      error: `Email send rate limit exceeded. Try again in ${rate.retryAfterSec}s.`,
+    });
+  }
+
+  const { labs: labIds = [] } = req.body;
   if (!labIds.length) return res.status(400).json({ error: "No labs selected" });
+
+  let replacements;
+  try {
+    replacements = sanitizeReplacements(req.body.replacements);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  const requestedTo = Array.isArray(req.body.to)
+    ? req.body.to
+    : req.body.to
+      ? [req.body.to]
+      : [];
+  const allowlist = parseRecipientAllowlist();
+  const recipients = (requestedTo.length ? requestedTo : [user.username])
+    .filter((addr) => isRecipientAllowed(addr, user.username, allowlist));
+
+  if (!recipients.length) {
+    return res.status(403).json({
+      error:
+        "Recipients are restricted. You may only email yourself or addresses on the configured allowlist.",
+    });
+  }
 
   try {
     // Build ZIP buffer in memory
@@ -569,9 +702,12 @@ app.post("/api/email", async (req, res) => {
     const selectedLabs = allLabs.filter((l) => labIds.includes(l.id));
     const labList = selectedLabs.map((l) => `<li><strong>${l.title}</strong> — ${l.difficulty}, ${l.time}</li>`).join("\n");
 
+    // Subject and body are templated server-side; the client cannot influence
+    // them (only the lab selection and replacements, which flow through the
+    // existing lab export pipeline).
     const result = await sendMail({
-      to,
-      subject: subject || "Your Copilot Studio Labs Package",
+      to: recipients,
+      subject: "Your Copilot Studio Labs Package",
       html: `
         <div style="font-family: Segoe UI, Arial, sans-serif; max-width: 600px;">
           <h2>⚡ Your Copilot Studio Labs</h2>
