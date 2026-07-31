@@ -22,7 +22,7 @@
 
 import { chromium } from "playwright";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve, join } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { existsSync, readFileSync, mkdirSync, statSync } from "node:fs";
 import readline from "node:readline";
 
@@ -46,7 +46,29 @@ if (!existsSync(manifestPath)) {
   process.exit(1);
 }
 const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
-const assetsDir = resolve(repoRoot, manifest.assetsDir);
+if (!/^[a-z0-9-]+$/i.test(manifest.lab || "")) {
+  console.error("Error: manifest lab must contain only letters, digits, and hyphens.");
+  process.exit(1);
+}
+const manifestDir = dirname(manifestPath);
+const assetsDir = manifest.assetsDir === "assets"
+  ? resolve(manifestDir, manifest.assetsDir)
+  : resolve(repoRoot, manifest.assetsDir);
+const expectedLabAssets = resolve(repoRoot, "labs", manifest.lab || "", "assets");
+const repoRelativeAssets = relative(repoRoot, assetsDir);
+const usesLocalGeneratedAssets =
+  manifest.assetsDir === "assets" && basename(manifestDir) === manifest.lab;
+if (
+  !manifest.assetsDir ||
+  repoRelativeAssets.startsWith(`..${sep}`) ||
+  isAbsolute(repoRelativeAssets) ||
+  (assetsDir !== expectedLabAssets && !usesLocalGeneratedAssets)
+) {
+  console.error(
+    `Error: assetsDir must resolve to labs/${manifest.lab}/assets or to an assets folder beside a generated lab manifest.`,
+  );
+  process.exit(1);
+}
 const userDataDir = join(__dirname, ".auth");
 
 const DEFAULT_VIEWPORT = { width: 1440, height: 900 };
@@ -119,7 +141,17 @@ if (fromRaw !== null && !Number.isFinite(fromId)) {
 
 // ---------- helpers ----------
 function shotPath(filename) {
-  return join(assetsDir, filename);
+  const outputPath = resolve(assetsDir, filename);
+  const relativeOutput = relative(assetsDir, outputPath);
+  if (
+    !filename ||
+    relativeOutput.startsWith(`..${sep}`) ||
+    isAbsolute(relativeOutput) ||
+    basename(filename) !== filename
+  ) {
+    failArg(`invalid screenshot filename: ${String(filename)}`);
+  }
+  return outputPath;
 }
 
 function shotExists(filename) {

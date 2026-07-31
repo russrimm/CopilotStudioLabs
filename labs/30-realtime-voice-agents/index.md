@@ -93,7 +93,7 @@ Caller
 | **Hold and resume** | A topic-level or agent-level capability that pauses the conversation while the caller retrieves information. |
 | **Post-call action topic** | A topic triggered by **End of conversation** so backend updates happen after the call ends. |
 | **Consent-based recording** | An approach where callers explicitly approve recording and transcription before it begins. |
-| **Regional limitation** | As of June 2026, real-time voice uses models hosted in North America or Australia, with cross-geo implications. |
+| **Regional limitation** | Availability and cross-geo processing depend on the selected model. As of July 2026, GPT-Realtime is hosted in North America, GPT-Realtime-Mini (preview) in Australia, and GPT-5-Chat (preview) supports in-region processing in the US, EU, UK, and Australia. |
 
 ---
 
@@ -115,7 +115,7 @@ Caller
 - A lab tenant or test workstream where **No authentication** can be used for testing in the browser voice panel.
 - Awareness of the regional limitation noted in Microsoft Learn: real-time voice processing uses supported hosted model geographies.
 
-> ⚠️ **Warning:** Microsoft Learn notes that EU Data Boundary customers currently cannot use real-time voice because of cross-geo processing restrictions. Confirm regional and compliance fit before promising the feature.
+> ⚠️ **Warning:** EU Data Boundary customers can use GPT-5-Chat (preview) with in-region processing but can't use GPT-Realtime or GPT-Realtime-Mini when cross-geo processing is disallowed. Confirm the selected model's regional and compliance fit before promising the feature.
 
 ---
 

@@ -26,7 +26,7 @@ Analytics exports help you move from anecdotal feedback to evidence-based priori
 
 ## Prerequisites
 
-- Access to Copilot Studio analytics for a deployed or tested agent.
+- Access to analytics for a **published** agent with conversations in a supported channel. Test-pane activity does not appear in Analytics.
 - Enough recent interaction volume to analyze patterns.
 - A spreadsheet or BI tool for filtering and grouping.
 - A team backlog where actions can be tracked.

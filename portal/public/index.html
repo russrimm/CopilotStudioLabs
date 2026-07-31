@@ -48,6 +48,10 @@
       100% { background-position: 0% 0%, 100% 0%, 0% 50%; }
     }
 
+    @media (prefers-reduced-motion: reduce) {
+      body { animation: none; }
+    }
+
     /* ── Layout ─────────────────────────── */
     .app { display: flex; flex-direction: column; min-height: 100vh; }
 
@@ -1420,22 +1424,22 @@
 
       <!-- Content area -->
       <div class="content">
-        <div class="tabs">
-          <button class="tab active" data-tab="provision">🚀 Provision</button>
-          <button class="tab" data-tab="scenarios">🏢 Industry Scenarios</button>
-          <button class="tab" data-tab="labbuilder">🧬 Build a Lab</button>
-          <button class="tab" data-tab="preview">👁️ Preview</button>
-          <button class="tab" data-tab="azure">☁️ Azure Resources</button>
-          <button class="tab" data-tab="powerplatform">⚡ Power Platform</button>
-          <button class="tab" data-tab="validate">🧪 Validation</button>
-          <button class="tab" data-tab="email">📧 Email</button>
-          <button class="tab" data-tab="agent">🤖 Agent Chat</button>
-          <button class="tab" data-tab="config">⚙️ Configuration</button>
+        <div class="tabs" role="tablist" aria-label="Portal sections">
+          <button class="tab active" id="tab-provision" role="tab" aria-selected="true" aria-controls="panel-provision" data-tab="provision">🚀 Provision</button>
+          <button class="tab" id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1" data-tab="scenarios">🏢 Industry Scenarios</button>
+          <button class="tab" id="tab-labbuilder" role="tab" aria-selected="false" aria-controls="panel-labbuilder" tabindex="-1" data-tab="labbuilder">🧬 Build a Lab</button>
+          <button class="tab" id="tab-preview" role="tab" aria-selected="false" aria-controls="panel-preview" tabindex="-1" data-tab="preview">👁️ Preview</button>
+          <button class="tab" id="tab-azure" role="tab" aria-selected="false" aria-controls="panel-azure" tabindex="-1" data-tab="azure">☁️ Azure Resources</button>
+          <button class="tab" id="tab-powerplatform" role="tab" aria-selected="false" aria-controls="panel-powerplatform" tabindex="-1" data-tab="powerplatform">⚡ Power Platform</button>
+          <button class="tab" id="tab-validate" role="tab" aria-selected="false" aria-controls="panel-validate" tabindex="-1" data-tab="validate">🧪 Validation</button>
+          <button class="tab" id="tab-email" role="tab" aria-selected="false" aria-controls="panel-email" tabindex="-1" data-tab="email">📧 Email</button>
+          <button class="tab" id="tab-agent" role="tab" aria-selected="false" aria-controls="panel-agent" tabindex="-1" data-tab="agent">🤖 Agent Chat</button>
+          <button class="tab" id="tab-config" role="tab" aria-selected="false" aria-controls="panel-config" tabindex="-1" data-tab="config">⚙️ Configuration</button>
         </div>
 
         <div class="tab-content">
           <!-- Provision tab -->
-          <div class="tab-panel active" id="panel-provision">
+          <div class="tab-panel active" id="panel-provision" role="tabpanel" aria-labelledby="tab-provision" aria-hidden="false">
             <div class="panel">
               <h3>🗺️ Lab Dependency &amp; Sequence Map</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
@@ -1611,7 +1615,7 @@ flowchart TD
           </div>
 
           <!-- Industry Scenarios tab -->
-          <div class="tab-panel" id="panel-scenarios">
+          <div class="tab-panel" id="panel-scenarios" role="tabpanel" aria-labelledby="tab-scenarios" aria-hidden="true">
             <div class="panel">
               <h3>🏢 Industry Scenario Planner</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
@@ -1658,7 +1662,7 @@ flowchart TD
           </div>
 
           <!-- Lab Builder tab -->
-          <div class="tab-panel" id="panel-labbuilder">
+          <div class="tab-panel" id="panel-labbuilder" role="tabpanel" aria-labelledby="tab-labbuilder" aria-hidden="true">
             <div class="panel">
               <h3>🧬 Build a Custom Lab</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
@@ -1787,7 +1791,7 @@ flowchart TD
           </div>
 
           <!-- Preview tab -->
-          <div class="tab-panel" id="panel-preview">
+          <div class="tab-panel" id="panel-preview" role="tabpanel" aria-labelledby="tab-preview" aria-hidden="true">
             <div class="panel">
               <h3>👁️ Lab Preview</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
@@ -1808,7 +1812,7 @@ flowchart TD
           </div>
 
           <!-- Azure Resources tab -->
-          <div class="tab-panel" id="panel-azure">
+          <div class="tab-panel" id="panel-azure" role="tabpanel" aria-labelledby="tab-azure" aria-hidden="true">
             <div class="panel">
               <h3>🔍 Prerequisites Check</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
@@ -1882,7 +1886,7 @@ flowchart TD
           </div>
 
           <!-- Power Platform tab -->
-          <div class="tab-panel" id="panel-powerplatform">
+          <div class="tab-panel" id="panel-powerplatform" role="tabpanel" aria-labelledby="tab-powerplatform" aria-hidden="true">
             <div class="panel">
               <h3>🔐 Authentication</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
@@ -2097,7 +2101,7 @@ flowchart TD
           </div>
 
           <!-- Validation tab -->
-          <div class="tab-panel" id="panel-validate">
+          <div class="tab-panel" id="panel-validate" role="tabpanel" aria-labelledby="tab-validate" aria-hidden="true">
             <div class="panel">
               <div style="display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
                 <div>
@@ -2119,7 +2123,7 @@ flowchart TD
           </div>
 
           <!-- Email tab -->
-          <div class="tab-panel" id="panel-email">
+          <div class="tab-panel" id="panel-email" role="tabpanel" aria-labelledby="tab-email" aria-hidden="true">
             <div class="panel">
               <h3>📧 Send Labs via Email</h3>
               <div class="form-grid">
@@ -2144,7 +2148,7 @@ flowchart TD
           </div>
 
           <!-- Agent Chat tab -->
-          <div class="tab-panel" id="panel-agent">
+          <div class="tab-panel" id="panel-agent" role="tabpanel" aria-labelledby="tab-agent" aria-hidden="true">
             <div class="panel">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <h3>🤖 Agent Chat</h3>
@@ -2195,7 +2199,7 @@ flowchart TD
           </div>
 
           <!-- Config tab -->
-          <div class="tab-panel" id="panel-config">
+          <div class="tab-panel" id="panel-config" role="tabpanel" aria-labelledby="tab-config" aria-hidden="true">
             <div class="panel">
               <h3>🎨 Branding</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
@@ -2408,22 +2412,24 @@ flowchart TD
     <div class="lightbox-help">Esc closes • +/- zoom • arrows pan • 0 resets</div>
   </div>
 
-  <script src="vendor/mermaid.min.js"></script>
+  <script src="vendor/mermaid.min.js" defer></script>
   <script>
-    mermaid.initialize({ 
-      startOnLoad: false, 
-      securityLevel: "strict", 
-      theme: "base",
-      themeVariables: {
-        primaryColor: "#f3f4f8",
-        primaryTextColor: "#1f2937",
-        primaryBorderColor: "#cbd5e1",
-        lineColor: "#94a3b8",
-        mainBkg: "#f3f4f8",
-        edgeLabelBackground: { fill: "transparent" }
-      }
+    document.addEventListener("DOMContentLoaded", () => {
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        theme: "base",
+        themeVariables: {
+          primaryColor: "#f3f4f8",
+          primaryTextColor: "#1f2937",
+          primaryBorderColor: "#cbd5e1",
+          lineColor: "#94a3b8",
+          mainBkg: "#f3f4f8",
+          edgeLabelBackground: { fill: "transparent" }
+        }
+      });
     });
   </script>
-  <script src="app.js"></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

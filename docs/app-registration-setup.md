@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-An app registration is the Microsoft Entra ID identity used by code or automation to request OAuth tokens. Russ is storing this identity in `.env.local` as:
+An app registration is the Microsoft Entra ID identity used by code or automation to request OAuth tokens. Store local values in an untracked `.env.local` file:
 
 ```text
 AZURE_TENANT_ID=
@@ -12,19 +12,19 @@ AZURE_CLIENT_SECRET=
 
 Those values enable **client-credentials / service-principal** authentication. That flow never falls back to device-code or browser sign-in, so anything that needs a user context must be authenticated separately.
 
-This audit covers only:
+This guide covers the authentication boundaries for:
 
 - `labs\18-account-orchestration-agent\index.md`
 - `labs\36-copilot-studio-vscode-agent-management\index.md`
 - `labs\19-agent-to-agent-protocol\index.md`
 
-No Node.js, TypeScript, `manifest.json`, or lab-local `.mcp` configuration files were found under those three lab folders; each folder currently contains `index.md` only. Root-level clues were also checked: `.env.local.example`, `.mcp.json`, `setup.js`, `docs\codespaces.md`, and portal auth/provisioning helpers.
+These lab folders contain walkthrough documentation rather than a local authentication service. The repository-level `.env.local.example`, `.mcp.json`, `setup.js`, `docs\codespaces.md`, and portal authentication/provisioning helpers are separate support surfaces.
 
-High-level finding: **Lab 03 has Dataverse/MCP pieces that can use service-principal-style access only when the app is also created as a Dataverse application user in the target environment. Lab 05 and most Lab 07 authoring steps require delegated user sign-in and can't be completed with client credentials alone.**
+High-level guidance: **Lab 18 has Dataverse/MCP pieces that can use service-principal-style access only when the app is also created as a Dataverse application user in the target environment. Lab 36 and most Lab 19 authoring steps require delegated user sign-in and can't be completed with client credentials alone.**
 
 ## 2. Required API permissions per lab
 
-### Lab 03 — Account orchestration agent
+### Lab 18 — Account orchestration agent
 
 Evidence found:
 
@@ -37,18 +37,18 @@ Evidence found:
 
 | API / resource | Permission or access needed | Application vs delegated | Admin consent required? | Notes |
 |---|---|---:|---:|---|
-| Dataverse / Common Data Service | **No useful Dataverse application permission to add for client credentials.** Instead create a Dataverse **application user** for the app registration and assign environment security roles. | Application identity, enforced by Dataverse application user | Not an API-permission consent item; environment role assignment is required | Needed only if Russ's custom backend/MCP server calls Dataverse Web API directly. The Copilot Studio-hosted Dataverse MCP tool uses the connection selected in the maker UI. |
+| Dataverse / Common Data Service | **No useful Dataverse application permission to add for client credentials.** Instead create a Dataverse **application user** for the app registration and assign environment security roles. | Application identity, enforced by Dataverse application user | Not an API-permission consent item; environment role assignment is required | Needed only if a custom backend/MCP server calls Dataverse Web API directly. The Copilot Studio-hosted Dataverse MCP tool uses the connection selected in the maker UI. |
 | Dataverse environment roles | Minimum for the lab's reads: read access to Account, Contact, and metadata/search. Practical lab setup: **System Customizer**; broad fallback: **System Administrator**. | Environment application user or signed-in maker | N/A | The lab prerequisites explicitly call for System Administrator or System Customizer maker access. For app-only Dataverse Web API, assign roles to the application user in PPAC. |
-| Power Platform API (`https://api.powerplatform.com`) | For service principals, Microsoft documents RBAC role assignment instead of application permissions. Use **Power Platform reader** for validation/listing, **Power Platform contributor** only if automation manages resources. | Application identity with Power Platform RBAC | N/A for application permissions; RBAC assignment required | Lab 03 itself doesn't call this API from repo code. Root `portal\lib\auth.js` has delegated `https://api.powerplatform.com/.default`; portal provisioning is separate from the lab. |
-| Microsoft Graph | None for the Lab 03 walkthrough itself. | N/A | N/A | SharePoint knowledge is configured through Copilot Studio/Work IQ UI. If using the root portal's Graph email, add Graph **Mail.Send** Application; if automating SharePoint provisioning, `portal\lib\provisioner.js` comments mention **Sites.FullControl.All**. |
+| Power Platform API (`https://api.powerplatform.com`) | For service principals, Microsoft documents RBAC role assignment instead of application permissions. Use **Power Platform reader** for validation/listing, **Power Platform contributor** only if automation manages resources. | Application identity with Power Platform RBAC | N/A for application permissions; RBAC assignment required | Lab 18 itself doesn't call this API from repo code. Root `portal\lib\auth.js` has delegated `https://api.powerplatform.com/.default`; portal provisioning is separate from the lab. |
+| Microsoft Graph | None for the Lab 18 walkthrough itself. | N/A | N/A | SharePoint knowledge is configured through Copilot Studio/Work IQ UI. If using the root portal's Graph email, add Graph **Mail.Send** Application; if automating SharePoint provisioning, `portal\lib\provisioner.js` comments mention **Sites.FullControl.All**. |
 | Copilot Studio APIs | No separate app permission found in this lab. | Maker delegated UI | N/A | Creating/publishing agents and adding tools happen in Copilot Studio as the signed-in maker. |
 | MSN Weather connector | Connector connection in Copilot Studio; anonymous/Maker auth. | Maker connection | No | No Entra app permission. |
 | Order Management / Warehouse sample MCP | No credentials required in the lab. | Connection created by maker | No | Lab says create the connections; no secret/API key is requested. |
-| Third-party APIs | None found for Lab 03. | N/A | N/A | ServiceNow/Snowflake are in other labs, not this audit. |
+| Third-party APIs | None found for Lab 18. | N/A | N/A | ServiceNow/Snowflake are covered by other labs. |
 
-**Can Lab 03 work with client credentials alone?** Partially. A custom backend or MCP server can use client credentials for Dataverse only after the app is added as a Dataverse application user with security roles. The Copilot Studio authoring steps, connector creation, SharePoint knowledge selection, and publishing still require a maker/user session in the UI.
+**Can Lab 18 work with client credentials alone?** Partially. A custom backend or MCP server can use client credentials for Dataverse only after the app is added as a Dataverse application user with security roles. The Copilot Studio authoring steps, connector creation, SharePoint knowledge selection, and publishing still require a maker/user session in the UI.
 
-### Lab 05 — Copilot Studio VS Code agent management
+### Lab 36 — Copilot Studio VS Code agent management
 
 Evidence found:
 
@@ -58,12 +58,12 @@ Evidence found:
 
 | API / resource | Permission or access needed | Application vs delegated | Admin consent required? | Notes |
 |---|---|---:|---:|---|
-| Copilot Studio extension / Power Platform | Signed-in user with read/write access to target agents and environment. | Delegated | Tenant policy may require admin consent for the extension, but Russ's client secret is not used | This is interactive/browser sign-in from VS Code. |
-| Dataverse / Graph / ARM / third-party APIs | None found in the lab content. | N/A | N/A | The lab edits YAML/tool metadata for an existing agent; specific tool APIs depend on whatever existing agent Russ clones. |
+| Copilot Studio extension / Power Platform | Signed-in user with read/write access to target agents and environment. | Delegated | Tenant policy may require admin consent for the extension, but the local client secret is not used | This is interactive/browser sign-in from VS Code. |
+| Dataverse / Graph / ARM / third-party APIs | None found in the lab content. | N/A | N/A | The lab edits YAML/tool metadata for an existing agent; specific tool APIs depend on the agent being managed. |
 
-**Can Lab 05 work with client credentials alone?** No. The documented workflow is delegated user authentication through the VS Code extension plus browser-based Copilot Studio publishing.
+**Can Lab 36 work with client credentials alone?** No. The documented workflow is delegated user authentication through the VS Code extension plus browser-based Copilot Studio publishing.
 
-### Lab 07 — Agent-to-Agent protocol
+### Lab 19 — Agent-to-Agent protocol
 
 Evidence found:
 
@@ -77,9 +77,9 @@ Evidence found:
 | Copilot Studio authoring | Signed-in maker with permission to add/connect agents. | Delegated | Depends on tenant policy | Adding the external agent is done in the Copilot Studio UI. |
 | Microsoft Fabric / Fabric Data Agent | Access to the Fabric workspace/Data Agent and any semantic models/datasets it exposes. | Usually delegated user access; exact model depends on the Fabric/A2A endpoint | Depends on Fabric/Entra policy | The lab doesn't define exact Fabric API scopes. Do not invent them; coordinate with the Fabric owner. |
 | A2A external endpoint | Depends on endpoint auth: **None**, **API key**, or **OAuth 2.0**. | Depends on endpoint | Depends on endpoint | If OAuth 2.0 is selected, the external agent owner must provide client ID, client secret, auth URL, token URL, and refresh URL. |
-| Dataverse / Graph / ARM / third-party APIs | None directly found in the lab content. | N/A | N/A | The internal specialist reused from Lab 03 may have its own Dataverse/connector requirements. |
+| Dataverse / Graph / ARM / third-party APIs | None directly found in the lab content. | N/A | N/A | The internal specialist reused from Lab 18 may have its own Dataverse/connector requirements. |
 
-**Can Lab 07 work with client credentials alone?** No for the Copilot Studio/Fabric authoring flow. A client secret might be part of an external A2A OAuth configuration, but the lab still requires a signed-in user to create the connection and a Fabric user/owner context to prepare the Fabric Data Agent.
+**Can Lab 19 work with client credentials alone?** No for the Copilot Studio/Fabric authoring flow. A client secret might be part of an external A2A OAuth configuration, but the lab still requires a signed-in user to create the connection and a Fabric user/owner context to prepare the Fabric Data Agent.
 
 ### Root-level files and non-lab clues
 
@@ -88,10 +88,10 @@ Evidence found:
 | `.env.local.example` | Defines Azure tenant/client/secret, subscription ID, SMTP settings, and `MCP_SERVER_URL`; notes Power Platform uses delegated auth/device code. | The repo already distinguishes app secrets from Power Platform delegated auth. |
 | `.mcp.json` | Configures only `squad_state` using `@bradygaster/squad-cli`; no lab MCP server credentials. | No Azure/Graph/Dataverse permissions. |
 | `setup.js` | Template customization only. | No API permissions. |
-| `docs\codespaces.md` | Notes Lab 03 requires Power Platform tenant features/connectors; Lab 05 cloud auth/publishing happen against Copilot Studio; Lab 07 has no local MCP server code found. | Confirms labs are primarily UI/cloud-authoring flows. |
+| `docs\codespaces.md` | Notes Lab 18 requires Power Platform tenant features/connectors; Lab 36 cloud auth/publishing happen against Copilot Studio; Lab 19 has no local A2A service. | Confirms labs are primarily UI/cloud-authoring flows. |
 | `portal\lib\auth.js` | Uses MSAL device-code delegated auth with scopes for Power Platform, BAP, Graph, and Dynamics. | Not compatible with client secret alone for those delegated portal flows. |
 | `portal\lib\mailer.js` | Uses client credentials for Graph token with `https://graph.microsoft.com/.default` and calls `/users/{MAIL_FROM}/sendMail`. | Requires Microsoft Graph **Mail.Send** Application if Graph email transport is used. |
-| `portal\lib\provisioner.js` | Uses `az` CLI for Azure deployment; comment says SharePoint creation requires Graph **Sites.FullControl.All**; code gets Graph token with client credentials and reads `/sites/root`. | Portal automation is separate from labs 03/05/07, but Graph permissions may be needed if Russ uses the portal. |
+| `portal\lib\provisioner.js` | Uses `az` CLI for Azure deployment; comment says SharePoint creation requires Graph **Sites.FullControl.All**; code gets Graph token with client credentials and reads `/sites/root`. | Portal automation is separate from Labs 18/36/19, but Graph permissions may be needed when using the portal. |
 
 ## 3. App Registration Setup Steps
 
@@ -109,14 +109,14 @@ Evidence found:
 
 ### B. Add API permissions only where they are actually used
 
-For the three audited labs, there is no single app-permission bundle that makes all authoring work app-only. Add only the permissions matching the automation Russ will run:
+For these three labs, there is no single app-permission bundle that makes all authoring work app-only. Add only the permissions matching the automation you will run:
 
-1. **Microsoft Graph email from the root portal** (not required by Labs 03/05/07 walkthroughs):
+1. **Microsoft Graph email from the root portal** (not required by Labs 18/36/19 walkthroughs):
    - **API permissions** → **Add a permission** → **Microsoft Graph** → **Application permissions**.
    - Search: `Mail.Send`.
    - Add **Mail.Send**.
    - Select **Grant admin consent**.
-2. **SharePoint provisioning through root portal automation** (not directly used by Labs 03/05/07):
+2. **SharePoint provisioning through root portal automation** (not directly used by Labs 18/36/19):
    - **Microsoft Graph** → **Application permissions**.
    - Search: `Sites.FullControl.All`.
    - Add only if you will automate SharePoint site/file provisioning.
@@ -152,7 +152,7 @@ AZURE_CLIENT_ID=<application client id>
 AZURE_CLIENT_SECRET=<client secret value>
 ```
 
-Optional, depending on what Russ runs:
+Optional, depending on the automation you run:
 
 ```text
 AZURE_SUBSCRIPTION_ID=<subscription id for Azure provisioning>
@@ -176,9 +176,9 @@ For Dataverse app-only access, the app registration is not enough. Create an app
    - For production: create a custom least-privilege role with table-level read/search privileges for Account, Contact, relevant activity/metadata, and any MCP write actions you intentionally expose.
 9. Select **Create**.
 
-Environment settings required by Lab 03:
+Environment settings required by Lab 18:
 
-1. **Dataverse Search** enabled (`labs\03...\index.md`, lines 126-137).
+1. **Dataverse Search** enabled as described in `labs\18-account-orchestration-agent\index.md`.
 2. Correct Quick Find columns for Account and Contact (`index.md`, lines 139-163).
 3. **Dataverse intelligence (Work IQ)** enabled (`index.md`, lines 314-320).
 4. **Dataverse Model Context Protocol** GA client enabled (`index.md`, lines 314-321).
@@ -250,20 +250,20 @@ The script masks secrets and truncates token display. It exits `0` on successful
 | Token succeeds but Graph `sendMail` returns 403 | Missing Graph **Mail.Send** Application or admin consent; mailbox restrictions may also apply. | Add **Mail.Send** Application, grant admin consent, and verify `MAIL_FROM` mailbox exists. |
 | Power Platform API token succeeds but API returns 401/403 | Service principal has no Power Platform RBAC role. | Assign **Power Platform reader** or **contributor** at tenant/environment scope. |
 | Dataverse Web API returns unauthorized / principal not found | App registration isn't configured as a Dataverse application user in the environment. | PPAC → Environment → Settings → Users + permissions → Application users → New app user. |
-| Dataverse query returns empty or schema/search issues in Lab 03 | Dataverse Search, Quick Find views, Work IQ, or Dataverse MCP feature not configured. | Follow Lab 03 environment setup lines 126-163 and 314-321. |
+| Dataverse query returns empty or schema/search issues in Lab 18 | Dataverse Search, Quick Find views, Work IQ, or Dataverse MCP feature not configured. | Follow the Lab 18 environment setup and Dataverse feature steps. |
 | Copilot Studio says `Connection Required` at runtime | Tool connection not created or wrong auth mode. | Reopen tool details; for Weather use **Maker** + connection; for Dataverse MCP pick/create a Dataverse connection. |
-| VS Code extension sign-in loops or cannot list environments | Lab 05 uses delegated extension sign-in, not client secret. | Sign into VS Code/browser with a licensed user who has environment and agent permissions. |
+| VS Code extension sign-in loops or cannot list environments | Lab 36 uses delegated extension sign-in, not client secret. | Sign into VS Code/browser with a licensed user who has environment and agent permissions. |
 | A2A external agent does not appear or validate | Endpoint/agent card/auth details wrong, or user lacks permission. | Verify endpoint, `/.well-known/agent.json`, selected auth method, and Fabric/A2A owner permissions. |
 
 ## 7. Labs That Need Delegated Auth Instead
 
-- **Lab 05 definitely requires delegated auth.** The Copilot Studio VS Code extension signs in through the browser and operates as the user. Client credentials in `.env.local` won't clone, apply, or publish agents.
-- **Lab 07 requires delegated authoring access.** Creating a Copilot Studio A2A connection and preparing a Fabric Data Agent require signed-in user permissions. Client credentials might be used only as part of a separate OAuth setup for an external A2A endpoint, if that endpoint owner requires it.
-- **Lab 03 requires delegated maker access for the Copilot Studio UI steps.** Client credentials can help only for custom backend/MCP Dataverse calls after application-user setup. The built-in Copilot Studio tool/connection workflow is still maker/user-driven.
+- **Lab 36 requires delegated auth.** The Copilot Studio VS Code extension signs in through the browser and operates as the user. Client credentials in `.env.local` won't clone, apply, or publish agents.
+- **Lab 19 requires delegated authoring access.** Creating a Copilot Studio A2A connection and preparing a Fabric Data Agent require signed-in user permissions. Client credentials might be used only as part of a separate OAuth setup for an external A2A endpoint, if that endpoint owner requires it.
+- **Lab 18 requires delegated maker access for the Copilot Studio UI steps.** Client credentials can help only for custom backend/MCP Dataverse calls after application-user setup. The built-in Copilot Studio tool/connection workflow is still maker/user-driven.
 
 ## Immediate app registration cheat sheet
 
-If Russ wants the broadest useful app registration for local automation around these labs:
+For the broadest useful app registration for local automation around these labs:
 
 1. Create a single-tenant Entra app registration and client secret; store tenant ID, client ID, and **secret value** in `.env.local`.
 2. For Dataverse app-only calls, create a PPAC **application user** for the app in the target environment and assign **System Customizer** or a least-privilege custom role. Use **System Administrator** only as a lab fallback.

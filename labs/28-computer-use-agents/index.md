@@ -210,7 +210,8 @@ Computer use works best when you state the app name, URL, expected checkpoints, 
 #### Sample computer use instruction set for this step
 
 ```text
-Open https://utilitybilling.contoso-energy.test in Microsoft Edge.
+Open <YOUR-APPROVED-NONPRODUCTION-BILLING-PORTAL-URL> in Microsoft Edge.
+Do not continue until an approved test URL and test account are supplied.
 Use the existing signed-in session if one is available.
 If the login page appears, stop and report that interactive sign-in is required.
 Find the Account Search field.
@@ -319,6 +320,8 @@ You now have the foundation to move from **a generic agent shell** to **a workin
 # 🧪 Use Case #2 — Configure Cloud PC pooling (25 min)
 
 > 🎯 **Objective:** Set up Cloud PC infrastructure for secure, scalable CUA execution.
+
+> ⚠️ **Preview:** Cloud PC pools are preview and aren't for production use. Complete this section only in an approved non-production environment.
 
 ### Scenario
 
@@ -461,6 +464,8 @@ You now have the foundation to move from **a maker-owned execution pattern** to 
 # 🧪 Use Case #3 — Add standalone computer-use tools (25 min)
 
 > 🎯 **Objective:** Create modular UI automation tools that can be reused by other agents and agent flows.
+
+> ⚠️ **Preview:** Standalone computer-use tools are preview, may be regionally unavailable, and aren't for production use.
 
 ### Scenario
 

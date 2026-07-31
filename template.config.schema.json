@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/russrimm/CopilotStudioLabs/blob/main/template.config.schema.json",
+  "title": "Copilot Studio Labs template configuration",
+  "type": "object",
+  "required": [
+    "industryPreset",
+    "organization",
+    "branding",
+    "scenario",
+    "knowledgeSources",
+    "labs",
+    "deployment"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "_comment": {
+      "type": "string"
+    },
+    "_industryPresetComment": {
+      "type": "string"
+    },
+    "industryPreset": {
+      "type": "string",
+      "enum": [
+        "energy",
+        "manufacturing",
+        "healthcare",
+        "financial",
+        "government",
+        "retail",
+        "logistics",
+        "legal",
+        "education",
+        "realestate",
+        "travel",
+        "automotive",
+        "media",
+        "agriculture",
+        "publicsafety",
+        "sports",
+        "research",
+        "insurance"
+      ]
+    },
+    "organization": {
+      "type": "object",
+      "required": ["name", "fullName", "industry"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "fullName": { "type": "string", "minLength": 1 },
+        "parent": { "type": "string" },
+        "industry": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "subsidiaries": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "branding": {
+      "type": "object",
+      "properties": {
+        "logoPath": { "type": ["string", "null"] },
+        "primaryColor": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$"
+        },
+        "tagline": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "scenario": {
+      "type": "object",
+      "properties": {
+        "industry": { "type": "string" },
+        "roles": { "type": "array", "items": { "type": "string" } },
+        "kpis": { "type": "array", "items": { "type": "string" } },
+        "domain": { "type": "string" },
+        "agentName": { "type": "string", "minLength": 1 },
+        "endUsers": { "type": "string" },
+        "useCases": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "knowledgeSources": {
+      "type": "object",
+      "properties": {
+        "sharePointUrl": {
+          "type": ["string", "null"],
+          "format": "uri"
+        },
+        "publicWebsites": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" }
+        },
+        "complianceStandard": { "type": "string" },
+        "uploadedDocuments": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "labs": {
+      "type": "object",
+      "required": ["include"],
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\d{2}-[a-z0-9-]+$"
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "repoName": { "type": "string", "minLength": 1 },
+        "repoDescription": { "type": "string" },
+        "powerPlatformEnvironment": {
+          "type": ["string", "null"],
+          "format": "uri"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

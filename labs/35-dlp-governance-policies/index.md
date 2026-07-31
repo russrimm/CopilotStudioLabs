@@ -38,16 +38,16 @@ As agent building scales across an organization, **governance** keeps it safe. *
 2. Review any existing policies and their scopes.
 3. Select **+ New Policy**.
 
-![Power Platform Admin Center — DLP policies list](assets/ppac-dlp-policies.png)
+> Screenshot intentionally omitted until a current, sanitized capture is available. Follow the numbered PPAC navigation in your tenant.
 
 ### Step 2 — Classify connectors
 
 1. Place sensitive/business connectors in the **Business** group.
 2. Place general connectors in **Non-business**.
 3. Move connectors that must never be used into the **Blocked** group.
-4. Remember: connectors in different groups cannot be combined in the same agent/flow.
+4. Remember: DLP governs how connector data can be combined. Validate the specific Copilot Studio tool and agent behavior in the scoped environment before relying on it.
 
-![Connector grouping: Business / Non-business / Blocked](assets/connector-classification.png)
+> Screenshot intentionally omitted until a current, sanitized capture is available. Verify the connector groups directly in the policy editor.
 
 ### Step 3 — Scope the policy
 
@@ -55,7 +55,7 @@ As agent building scales across an organization, **governance** keeps it safe. *
 2. Scope this test policy to your **non-production** environment.
 3. Save and publish the policy.
 
-![DLP policy scoped to an environment](assets/policy-applied-environment.png)
+> Screenshot intentionally omitted until a current, sanitized capture is available. Verify the saved environment scope directly in PPAC.
 
 ### Step 4 — Observe the effect on agents
 

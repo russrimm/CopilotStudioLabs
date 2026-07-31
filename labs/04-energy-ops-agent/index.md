@@ -252,7 +252,7 @@ We're now going to learn how to create a custom agent that can chat over your da
 
 **As a Contoso Energy field technician or IT operations staff member**
 
-I want to get quick and accurate help from the IT Operations agent for questions setting up a Copilot Studio agent, and NERC CIP compliance questions.
+I want quick, accurate help with approved field-access, IT troubleshooting, and NERC CIP compliance questions.
 
 Let's begin!
 
@@ -308,7 +308,7 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
    - **Security boundaries:** No passwords, no bypassing security controls, operational safety first
    - **Link handling:** Preserve source URLs, cite Microsoft Support and NERC CIP references
 
-2. We'll double check the solution that our agent will be created in is the **Copilot Studio Lab Solution*. Select the wheel cog icon and the Agent Settings modal will appear. Confirm the correct solution is selected, then select **Cancel**.
+2. Confirm that the agent is being created in the **Contoso Energy Agent Solution** from the prerequisites. If a different solution is selected, cancel and switch environments or solutions before continuing.
 
 3. Submit the prompt description and Copilot Studio will begin provisioning our agent.
 
@@ -318,9 +318,9 @@ Use Microsoft Support (https://support.microsoft.com) for Microsoft product issu
 
 6. Scroll down some more to review the Connected Agents, Topics, and Suggested Prompts sections.
 
-7. We'll next double check our agent has correctly been created in the **Copilot Studio LabSolution**. Select **Settings** on the upper right.
+7. Confirm again that the agent was created in the **Contoso Energy Agent Solution**. Select **Settings** on the upper right.
 
-8. We can see under **Advanced** that the agent has been created in the **Copilot**. Exit from settings.
+8. Under **Advanced**, verify the selected solution is **Contoso Energy Agent Solution**, then exit settings.
 
 9. Now let's update the name of our agent. Select **Edit** in the Details section.
 
@@ -368,13 +368,13 @@ Previously, we added public websites as external knowledge sources for our agent
 
 1. In the **Knowledge** section, select **+ Add knowledge** and select **SharePoint**.
 
-2. Paste in the address of the **Contoso Energy Technology - AI & Digital Enablement SharePoint** site `https://contoso.sharepoint.com/sites/digitalinnovation` in the SharePoint URL field and select **Add**.
+2. Enter the URL of a SharePoint site in **your tenant** that contains non-sensitive lab content, then select **Add**. If an instructor-provisioned Contoso sample site is available, use the URL supplied by the instructor. Confirm that learners have at least read access before continuing.
 
 3. Update the name of the SharePoint site to **`Contoso Energy Technology - AI & Digital Enablement`** and select **Add to agent**.
 
 4. The SharePoint site has now been added as a knowledge source. The **Status** column will show whether the knowledge source has been loaded/connected successfully, or if there is an issue. Wait until the status shows **Ready** before continuing.
 
-   > **What's in the Contoso Energy Technology - AI & Digital Enablement SharePoint site?** This folder contains documentation on setting up a Copilot Studio agent.
+   > **What's in the SharePoint site?** Use a non-sensitive training library containing IT policies or field-support guides that are appropriate for every learner who can access the agent.
 
 ---
 
@@ -386,7 +386,7 @@ We'll now add another internal knowledge source by uploading a document directly
 
 2. Download the **[Contoso Energy Field Operations Remote Access Guide]** from the **Copilot Studio Lab Materials** document library, save it as a `.docx` or `.pdf` file, and select it in your File Explorer. Select **Open**.
 
-   > **About this document:** This guide helps Contoso Energy employees understand how to create Copilot Studio agents.
+   > **About this document:** This synthetic guide contains field remote-access, VPN, OMS, and OT-access procedures used only for grounding and safety testing in this lab. It is not an operational runbook.
 
 3. The file has been selected for upload. Select **Add to agent**.
 

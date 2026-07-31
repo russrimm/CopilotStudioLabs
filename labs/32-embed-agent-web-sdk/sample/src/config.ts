@@ -22,7 +22,7 @@ export const branding = {
   primaryColorHover: "#0957cc",
   surfaceColor: "#ffffff",
   textColor: "#1c1c1c",
-  agentAvatarUrl: "/agent-avatar.png",
+  agentAvatarUrl: "/agent-avatar.svg",
   userAvatarInitials: "U",
   welcomeMessage:
     "Hi! I'm the Contoso Assist agent. Ask me about IT, policies, or your account.",

@@ -238,16 +238,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // ── Tabs ──────────────────────────────────────────────────────────────────
 function setupTabs() {
-  document.querySelectorAll(".tab").forEach((tab) => {
+  const tabs = [...document.querySelectorAll(".tab")];
+  tabs.forEach((tab, index) => {
     tab.addEventListener("click", () => setActiveTab(tab.dataset.tab));
+    tab.addEventListener("keydown", (event) => {
+      let nextIndex = null;
+      if (event.key === "ArrowRight" || event.key === "ArrowDown") nextIndex = (index + 1) % tabs.length;
+      if (event.key === "ArrowLeft" || event.key === "ArrowUp") nextIndex = (index - 1 + tabs.length) % tabs.length;
+      if (event.key === "Home") nextIndex = 0;
+      if (event.key === "End") nextIndex = tabs.length - 1;
+      if (nextIndex === null) return;
+      event.preventDefault();
+      const nextTab = tabs[nextIndex];
+      setActiveTab(nextTab.dataset.tab);
+      nextTab.focus();
+    });
   });
 }
 
 function setActiveTab(tabName) {
-  document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
-  document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-  document.querySelector(`.tab[data-tab="${tabName}"]`)?.classList.add("active");
-  document.getElementById(`panel-${tabName}`)?.classList.add("active");
+  document.querySelectorAll(".tab").forEach((tab) => {
+    const active = tab.dataset.tab === tabName;
+    tab.classList.toggle("active", active);
+    tab.setAttribute("aria-selected", String(active));
+    tab.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll(".tab-panel").forEach((panel) => {
+    const active = panel.id === `panel-${tabName}`;
+    panel.classList.toggle("active", active);
+    panel.setAttribute("aria-hidden", String(!active));
+  });
 
   if (tabName === "validate" && !validationResults.size) {
     runValidation().catch(() => {});

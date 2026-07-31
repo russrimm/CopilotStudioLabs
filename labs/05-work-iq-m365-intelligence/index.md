@@ -115,7 +115,7 @@ User
 - At least one SharePoint site that contains internal utility content such as outage playbooks, planning memos, or field guidance.
 - Optional but recommended: a curated list of public energy-industry sites you want to include in a Bing Custom Search instance.
 
-> ⚠️ **Warning:** Work IQ guidance in Microsoft Learn is currently preview-oriented. Confirm the feature availability, region support, and governance stance in your tenant before relying on it for production scenarios.
+> ⚠️ **Preview:** Work IQ in Copilot Studio is preview. Do not use it for production workloads without tenant approval, confirmed regional availability, and a supported fallback.
 
 ---
 

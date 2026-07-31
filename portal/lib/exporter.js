@@ -4,8 +4,8 @@
 
 import { readFileSync, readdirSync, existsSync } from "fs";
 import { dirname, extname, join, posix, relative } from "path";
-import archiver from "archiver";
-import { getLabPath } from "./labs.js";
+import { ZipArchive } from "archiver";
+import { getLabPath, isValidLabId } from "./labs.js";
 import {
   getBrandingLogoAbsolutePath,
   loadBranding,
@@ -38,8 +38,20 @@ function findMdFiles(dir) {
  * @returns {Promise<{ bytes: number, labCount: number }>}
  */
 export function exportLabs(labIds, replacements = {}, outputStream) {
+  if (!Array.isArray(labIds) || labIds.length === 0) {
+    throw new Error("At least one lab id is required.");
+  }
+
+  const labDirectories = labIds.map((labId) => {
+    const labDir = getLabPath(labId);
+    if (!isValidLabId(labId) || !labDir || !existsSync(labDir)) {
+      throw new Error(`Invalid or unknown lab id: ${labId}`);
+    }
+    return { labId, labDir };
+  });
+
   return new Promise((resolve, reject) => {
-    const archive = archiver("zip", { zlib: { level: 9 } });
+    const archive = new ZipArchive({ zlib: { level: 9 } });
     const branding = loadBranding();
     const logoSourcePath = getBrandingLogoAbsolutePath(branding.logo);
     const logoArchivePath = logoSourcePath
@@ -57,10 +69,7 @@ export function exportLabs(labIds, replacements = {}, outputStream) {
       archive.file(logoSourcePath, { name: logoArchivePath });
     }
 
-    for (const labId of labIds) {
-      const labDir = getLabPath(labId);
-      if (!existsSync(labDir)) continue;
-
+    for (const { labId, labDir } of labDirectories) {
       archive.directory(labDir, labId, (entry) => {
         return entry.name.endsWith(".md") ? false : entry;
       });

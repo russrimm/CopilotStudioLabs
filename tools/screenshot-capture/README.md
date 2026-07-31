@@ -45,11 +45,11 @@ node verify-shots.js --strict
 
 `verify-shots.js` scans lab markdown, `shots.json`, and lab assets for schema drift, missing or invalid image files, markdown/catalog mismatches, tiny placeholder-like PNGs, and orphan PNG/JPEG assets. It exits `0` when there are no critical findings, `1` when critical findings exist; `--strict` also fails on warnings.
 
-Use `node verify-shots.js --check-state` before committing Lab 04 screenshot work to add a byte-size denylist check for Kane's known placeholder PNG fingerprints. The heuristic reports CRITICAL `restored-placeholder` findings for Lab 04 PNGs whose file size exactly matches one of the known-bad placeholders. A false positive is possible if a real capture lands on the exact same byte size, but that is extremely unlikely; inspect and re-capture if it happens.
+Use `node verify-shots.js --check-state` before committing Lab 06 screenshot work to add a byte-size denylist check for known placeholder PNG fingerprints. The heuristic reports CRITICAL `restored-placeholder` findings for Lab 06 PNGs whose file size exactly matches one of the known-bad placeholders. A false positive is possible if a real capture lands on the exact same byte size, but that is extremely unlikely; inspect and re-capture if it happens.
 
 ## Heads-up: commit deletions promptly
 
-The deleted Lab 04 placeholder PNGs still exist in git history. Until both the deletions and the replacement captures are committed, `git restore`, VS Code **Discard Changes**, or **Discard All Changes** can restore those placeholder files into the working tree. Stage the placeholder deletions and good captures together, commit them promptly, and then continue capturing the remaining screenshots.
+Deleted Lab 06 placeholder PNGs still exist in git history. `git restore`, VS Code **Discard Changes**, or **Discard All Changes** can restore them into the working tree; run the state check before committing screenshot changes.
 
 > ⚠️ **Heads up:** npm 11 strips unknown flags like `--all` from `npm run capture -- --all`. Use the direct `node capture.js …` form when passing flags. `npm run capture` and `npm run list` are wired in `package.json` so they work as-is.
 
@@ -86,4 +86,4 @@ Each shot still requires `id`, `filename`, `section`, and `instructions`. Option
 
 - Login state is stored in `tools/screenshot-capture/.auth/`. That directory is git-ignored — never commit it.
 - PNGs land directly in `labs/06-energy-weather-agent/assets/` with filenames declared in `shots.json`.
-- This tool is currently configured for Lab 04 only. To use another lab, change `lab`, `assetsDir`, and `shots` in `shots.json`.
+- The default manifest is currently configured for Lab 06. Use `--manifest=<path>` for another lab instead of rewriting the default catalog.

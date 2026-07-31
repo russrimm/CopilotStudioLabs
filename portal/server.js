@@ -8,7 +8,7 @@ import { randomUUID } from "crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "fs";
 import multer from "multer";
 import { extname, join, resolve } from "path";
-import { discoverLabs, getLabContent } from "./lib/labs.js";
+import { discoverLabs, getLabContent, isValidLabId } from "./lib/labs.js";
 import { validateLab, validateAllLabs } from "./lib/validator.js";
 import { exportLabs } from "./lib/exporter.js";
 import { sendMail } from "./lib/mailer.js";
@@ -76,6 +76,7 @@ import { requireAuth, authConfigSummary } from "./lib/require-auth.js";
 import { loadAgentChatConfig, saveAgentChatConfig } from "./lib/agent-chat.js";
 
 const app = express();
+app.set("trust proxy", 1);
 const PORT = process.env.PORT || 3005;
 const HOST = process.env.HOST || "127.0.0.1";
 const PROVISION_JOB_RETENTION_MS = 60 * 60 * 1000;
@@ -106,6 +107,20 @@ const brandingUpload = multer({
 
 function encodeUrlPath(path) {
   return path.split("/").map(encodeURIComponent).join("/");
+}
+
+function validateRequestedLabIds(value) {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error("No labs selected");
+  }
+
+  const requested = [...new Set(value)];
+  const knownLabIds = new Set(discoverLabs().filter((lab) => lab.available).map((lab) => lab.id));
+  const invalid = requested.find((labId) => !isValidLabId(labId) || !knownLabIds.has(labId));
+  if (invalid) {
+    throw new Error(`Invalid or unknown lab id: ${String(invalid)}`);
+  }
+  return requested;
 }
 
 function rewriteLabAssetUrl(url, labId) {
@@ -322,6 +337,9 @@ app.use("/uploads", (_req, res, next) => {
 });
 app.use(express.static(resolve(import.meta.dirname, "public")));
 app.use(LABS_ROUTE, express.static(labsRoot));
+app.use(["/uploads", LABS_ROUTE], (_req, res) => {
+  res.status(404).json({ error: "Asset not found" });
+});
 
 // All /api/* routes require an Entra ID bearer token. The middleware
 // internally exempts capability-token callback paths (e.g. approval links
@@ -513,6 +531,7 @@ app.get("/api/labs", (_req, res) => {
 /** GET /api/labs/:id/pdf — Download a pre-generated lab walkthrough PDF */
 app.get("/api/labs/:id/pdf", (req, res) => {
   const { id } = req.params;
+  if (!isValidLabId(id)) return res.status(400).json({ error: "Invalid lab id" });
   const content = getLabContent(id);
   if (!content) return res.status(404).json({ error: "Lab not found" });
 
@@ -530,6 +549,9 @@ app.get("/api/labs/:id/pdf", (req, res) => {
 
 /** GET /api/labs/:id — Get a single lab's full content as HTML */
 app.get("/api/labs/:id", (req, res) => {
+  if (!isValidLabId(req.params.id)) {
+    return res.status(400).json({ error: "Invalid lab id" });
+  }
   const content = getLabContent(req.params.id);
   if (!content) return res.status(404).json({ error: "Lab not found" });
   const branding = loadBranding();
@@ -546,6 +568,8 @@ app.post("/api/feedback", (req, res) => {
   const comment = String(req.body?.comment ?? "").trim();
 
   if (!labId) return res.status(400).json({ error: "labId is required" });
+  if (!isValidLabId(labId)) return res.status(400).json({ error: "Invalid lab id" });
+  if (!getLabContent(labId)) return res.status(404).json({ error: "Lab not found" });
   if (!section) return res.status(400).json({ error: "section is required" });
   if (!["up", "down"].includes(rating)) {
     return res.status(400).json({ error: "rating must be 'up' or 'down'" });
@@ -570,6 +594,12 @@ app.post("/api/feedback", (req, res) => {
 
 /** GET /api/feedback/:labId — Return feedback for a single lab */
 app.get("/api/feedback/:labId", (req, res) => {
+  if (!isValidLabId(req.params.labId)) {
+    return res.status(400).json({ error: "Invalid lab id" });
+  }
+  if (!getLabContent(req.params.labId)) {
+    return res.status(404).json({ error: "Lab not found" });
+  }
   try {
     const feedback = loadFeedbackEntries().filter((entry) => entry.labId === req.params.labId);
     res.json({ labId: req.params.labId, feedback });
@@ -659,6 +689,9 @@ app.get("/api/validate/:labId", (req, res) => {
   try {
     res.json(validateLab(req.params.labId));
   } catch (err) {
+    if (err.message.startsWith("Invalid lab id:")) {
+      return res.status(400).json({ error: "Invalid lab id" });
+    }
     if (err.message.startsWith("Lab not found:")) {
       return res.status(404).json({ error: "Lab not found" });
     }
@@ -668,8 +701,14 @@ app.get("/api/validate/:labId", (req, res) => {
 
 /** POST /api/export — Download a ZIP of selected labs */
 app.post("/api/export", async (req, res) => {
-  const { labs: labIds = [], replacements = {} } = req.body;
-  if (!labIds.length) return res.status(400).json({ error: "No labs selected" });
+  let labIds;
+  let replacements;
+  try {
+    labIds = validateRequestedLabIds(req.body?.labs);
+    replacements = sanitizeReplacements(req.body?.replacements);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
 
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", "attachment; filename=copilot-studio-labs.zip");
@@ -796,11 +835,10 @@ app.post("/api/email", async (req, res) => {
     });
   }
 
-  const { labs: labIds = [] } = req.body;
-  if (!labIds.length) return res.status(400).json({ error: "No labs selected" });
-
+  let labIds;
   let replacements;
   try {
+    labIds = validateRequestedLabIds(req.body?.labs);
     replacements = sanitizeReplacements(req.body.replacements);
   } catch (err) {
     return res.status(400).json({ error: err.message });
@@ -1135,7 +1173,7 @@ app.post("/api/pp/approval-requests", async (req, res) => {
 
   try {
     const user = await getCurrentUser();
-    const portalUrl = `${req.protocol}://${req.get("host")}`;
+    const portalUrl = process.env.PORTAL_BASE_URL || `${req.protocol}://${req.get("host")}`;
     const requestRecord = await submitRequest({
       displayName,
       location,

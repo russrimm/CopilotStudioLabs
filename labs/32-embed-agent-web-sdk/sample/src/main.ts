@@ -19,7 +19,7 @@ root.innerHTML = `
     --text:${branding.textColor};
   ">
     <header class="chat-header">
-      <img src="${branding.agentAvatarUrl}" alt="" class="brand-avatar" />
+      <img src="${branding.agentAvatarUrl}" alt="${branding.productName}" class="brand-avatar" />
       <div>
         <h1>${branding.productName}</h1>
         <p>${branding.tagline}</p>
@@ -31,6 +31,7 @@ root.innerHTML = `
       <input
         id="composer-input"
         type="text"
+        aria-label="Message to agent"
         placeholder="Ask me anything…"
         autocomplete="off"
         disabled
@@ -67,11 +68,12 @@ async function handleSendMessage(text: string) {
     }
   } catch (err) {
     showTyping(false);
+    console.error("Failed to send message", err);
     renderActivity(
       messagesEl,
       {
         type: "message",
-        text: `Sorry — something went wrong: ${(err as Error).message}`,
+        text: "Sorry — something went wrong. Try again or contact support if the problem continues.",
         from: { role: "bot" },
       } as any,
       () => {}

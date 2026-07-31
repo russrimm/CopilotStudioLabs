@@ -10,6 +10,10 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 const ORPHAN_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
 const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.squad', '.auth']);
+const INTENTIONAL_ORPHANS = new Set([
+  // Preserved by the repository's upgrade-test content contract.
+  'labs/04-energy-ops-agent/assets/images/issues-banner.png'
+]);
 const args = process.argv.slice(2);
 const emitJson = args.includes('--json');
 const strict = args.includes('--strict');
@@ -101,15 +105,37 @@ function validateShotFile(filePath) {
   report.shotFiles.push(fileRecord);
   ensureLab(lab).shotFiles.push(relPath);
 
-  if (!isNonEmptyString(parsed.lab)) {
+  if (!isNonEmptyString(parsed.lab) || !/^[a-z0-9-]+$/i.test(parsed.lab)) {
     fileRecord.valid = false;
-    addFinding(lab, 'critical', 'shots-json-schema', `${relPath} must have top-level string key "lab".`, { file: relPath, key: 'lab' });
+    addFinding(lab, 'critical', 'shots-json-schema', `${relPath} must have a top-level "lab" id containing only letters, digits, and hyphens.`, { file: relPath, key: 'lab' });
   }
   if (!isNonEmptyString(parsed.assetsDir) || path.isAbsolute(parsed.assetsDir)) {
     fileRecord.valid = false;
     addFinding(lab, 'critical', 'shots-json-schema', `${relPath} must have top-level relative string key "assetsDir".`, { file: relPath, key: 'assetsDir' });
   } else {
     ensureLab(lab).assetsDir = parsed.assetsDir;
+    const manifestDir = path.dirname(filePath);
+    const assetsDir = parsed.assetsDir === 'assets'
+      ? path.resolve(manifestDir, parsed.assetsDir)
+      : path.resolve(repoRoot, parsed.assetsDir);
+    const expectedLabAssets = path.resolve(repoRoot, 'labs', lab, 'assets');
+    const repoRelativeAssets = path.relative(repoRoot, assetsDir);
+    const usesLocalGeneratedAssets =
+      parsed.assetsDir === 'assets' && path.basename(manifestDir) === lab;
+    if (
+      repoRelativeAssets.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(repoRelativeAssets) ||
+      (assetsDir !== expectedLabAssets && !usesLocalGeneratedAssets)
+    ) {
+      fileRecord.valid = false;
+      addFinding(
+        lab,
+        'critical',
+        'shots-json-assets-path',
+        `${relPath} assetsDir must resolve to labs/${lab}/assets or to an assets folder beside a generated lab manifest.`,
+        { file: relPath, assetsDir: parsed.assetsDir },
+      );
+    }
   }
   if (!Array.isArray(parsed.shots)) {
     fileRecord.valid = false;
@@ -144,6 +170,10 @@ function validateShotFile(filePath) {
       fileRecord.valid = false;
       addFinding(lab, 'critical', 'shots-json-duplicate-filename', `${relPath} has duplicate filename ${shot.filename}.`, { file: relPath, filename: shot.filename });
     } else {
+      if (path.basename(shot.filename) !== shot.filename) {
+        fileRecord.valid = false;
+        addFinding(lab, 'critical', 'shots-json-filename-path', `${shotLabel} filename must not contain path segments.`, { file: relPath, index, filename: shot.filename });
+      }
       filenames.add(shot.filename);
     }
 
@@ -292,9 +322,10 @@ for (const lab of listLabs()) {
   const referencedPaths = new Set(images.map((image) => image.relativeFromLab));
   for (const assetPath of listAssetImages(lab)) {
     const relativeFromLab = toPosix(path.relative(path.join(repoRoot, 'labs', lab), assetPath));
+    const relativeFromRoot = relativeToRoot(assetPath);
     checkRestoredPlaceholder(lab, assetPath);
-    if (!referencedPaths.has(relativeFromLab)) {
-      addFinding(lab, 'warning', 'orphan-asset', `${relativeToRoot(assetPath)} is under the lab assets folder but is not referenced by index.md.`, { path: relativeToRoot(assetPath) });
+    if (!referencedPaths.has(relativeFromLab) && !INTENTIONAL_ORPHANS.has(relativeFromRoot)) {
+      addFinding(lab, 'warning', 'orphan-asset', `${relativeFromRoot} is under the lab assets folder but is not referenced by index.md.`, { path: relativeFromRoot });
     }
   }
 }

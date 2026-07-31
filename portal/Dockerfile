@@ -17,5 +17,6 @@ EXPOSE 3005
 
 ENV NODE_ENV=production
 ENV PORT=3005
+ENV HOST=0.0.0.0
 
 CMD ["node", "server.js"]

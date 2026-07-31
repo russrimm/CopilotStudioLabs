@@ -92,34 +92,6 @@ This isn't just about saving developer time. It's about unlocking the ability to
 
 > **Note on lab numbering:** Folder names under `./labs/` use an internal numbering scheme (e.g. `04-`, `06-`, `34-`) that does not match the sequential `#` column in the table above. Always follow the link in the table for the correct path.
 
-### 🧭 Planned Labs (Backlog: 19-35)
-
-Planned topics are numbered and reserved for future authoring. See `.squad/files/labs-topic-expansion-plan.md` for the full numbering and naming map.
-
-| # | Planned topic |
-|---|---|
-| 19 | Agent evaluations (GA) |
-| 20 | Multi-turn conversation tests |
-| 21 | Question/reaction exports |
-| 22 | Prompt assistant |
-| 23 | Work IQ MCP (Preview) |
-| 24 | Agent-to-agent (GA) |
-| 25 | Computer use (GA) |
-| 26 | Agent flows: agent nodes |
-| 27 | Agent flows: prompt nodes |
-| 28 | Agent flows: M365 Copilot nodes |
-| 29 | Agent flows: async responses |
-| 30 | Usage estimator and Copilot Credits |
-| 31 | Custom analytics metrics |
-| 32 | Agent inventory schema |
-| 33 | Agent readiness and issue status |
-| 34 | Entra agent identities (Preview) |
-| 35 | Real-time voice agents (Preview) |
-
-> **Lab 11 note:** This lab complements the no-code agent labs with a pro-code Power Apps + Dataverse build path, making it a strong bridge for teams pairing Copilot Studio agents with custom web or business applications.
-
----
-
 ## 🧬 Build your own lab
 
 The 40 labs above are fixed walkthroughs. The **lab builder** writes a new one for
@@ -205,11 +177,10 @@ The repository also includes a full **Copilot Studio Labs portal** for deliverin
 
 ### How to use these labs
 
-- **For the full hands-on experience**, start with **Lab 04** — it is self-contained and covers all major Copilot Studio capabilities in 3 hours.
-- **For a shorter introduction**, start with **Lab 01** to build a knowledge-grounded agent, then continue with Labs 02 and 03 for analytics, evaluations, and orchestration.
-- **Lab 05** is the **Advanced** follow-on for Lab 04 — it takes the agent you built and walks teams through managing it as code through the Copilot Studio extension for VS Code (clone, modify, validate, republish).
-- **Labs 06-10** extend the series into computer use, cross-platform orchestration, Microsoft 365 intelligence, prompt engineering, and real-time voice scenarios.
-- **Lab 11** introduces **Power Apps Code Apps (BYOC)** — a code-first approach to building custom web apps connected to Dataverse, complementing the no-code agent building in earlier labs.
+- **For a shorter introduction**, begin with [Lab 01](./labs/01-intro-workshop/index.md), then complete [Lab 02](./labs/02-conversational-design-fundamentals/index.md) before moving into specialized topics.
+- **For an end-to-end agent build**, use [Lab 04](./labs/04-energy-ops-agent/index.md), followed by [Lab 06](./labs/06-energy-weather-agent/index.md) for a deeper multi-tool scenario.
+- **For source-controlled agent management**, use [Lab 36](./labs/36-copilot-studio-vscode-agent-management/index.md) after an agent already exists in an approved development environment.
+- **For pro-code web integration**, use [Lab 32](./labs/32-embed-agent-web-sdk/index.md) or [Lab 33](./labs/33-power-apps-code-apps/index.md).
 - Use the **portal** to preview labs, apply branding, validate content, export ZIP bundles, email packages, manage approval workflows, provision environments, and connect an embedded Copilot Studio support agent for learners and provisioners.
 
 ---
@@ -218,7 +189,7 @@ The repository also includes a full **Copilot Studio Labs portal** for deliverin
 
 This repository is designed as a **GitHub Template** — you can create your own copy and customize it for any organization, industry, or scenario.
 
-> **Curated lab set:** The default `template.config.json` ships **17 curated labs** in `labs.include` that map to the most common Copilot Studio scenarios. The full **35+ lab set** stays available in the `./labs/` folder of the repo — to enable additional labs in your generated template, add their folder names (for example `01-intro-workshop`, `12-content-moderation-responsible-ai`, `35-dlp-governance-policies`) to the `labs.include` array before running `npm run setup`. Labs not listed in `labs.include` are removed from the generated instance.
+> **Curated lab set:** The default `template.config.json` ships **17 curated labs** in `labs.include` that map to common Copilot Studio scenarios. All **40 labs** stay available in the `./labs/` folder — to enable additional labs in your generated template, add their folder names (for example `01-intro-workshop`, `12-content-moderation-responsible-ai`, `35-dlp-governance-policies`) to the `labs.include` array before running `npm run setup`. Labs not listed in `labs.include` are removed from the generated instance.
 
 ### Quick start
 

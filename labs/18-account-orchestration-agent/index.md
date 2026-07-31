@@ -364,7 +364,7 @@ A Contoso customer operations specialist wants one assistant that can — withou
 
 ### Step 5 — Test the Agentic Reasoning Loop
 
-Open the **Preview** tab. You'll see a brief *"Working on it…"* then an **activity trace** that names each tool call before the final answer. The level of detail shown depends on the model — some models show a chain of thought inline, while others show only the tool steps.
+Open the **Preview** tab. You'll see a brief *"Working on it…"* then an **activity trace** that can show tool steps, parameters, and results before the final answer. Do not expect or rely on private model chain-of-thought.
 
 #### Test 1 — A single tool call
 

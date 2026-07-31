@@ -5,6 +5,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { readReport } from "./lib/labs.mjs";
 
 const accuracy = readReport("accuracy.json");
@@ -28,6 +29,7 @@ lines.push("");
 // ---- Reference links + Learn drift ----
 lines.push("### 📚 Microsoft Learn accuracy");
 if (!accuracy) {
+  needsAction = true;
   lines.push("- ⚠️ No accuracy report was produced.");
 } else {
   const broken = accuracy.labs.filter((l) => l.brokenLinks.length > 0);
@@ -36,6 +38,7 @@ if (!accuracy) {
   lines.push(`- Broken reference links: **${accuracy.summary.brokenLinks}**`);
   lines.push(`- Learn drift warnings: **${accuracy.summary.mcpDriftWarnings}**` +
     (accuracy.summary.mcpUnavailable ? " _(MCP server was unavailable this run)_" : ""));
+  if (accuracy.summary.mcpUnavailable) needsAction = true;
   if (broken.length) {
     needsAction = true;
     lines.push("");
@@ -66,11 +69,13 @@ lines.push("");
 // ---- Screenshots ----
 lines.push("### 🖼️ Screenshot audit");
 if (!screenshots) {
+  needsAction = true;
   lines.push("- ⚠️ No screenshot report was produced.");
 } else {
   lines.push(`- Labs needing re-capture: **${screenshots.summary.labsNeedingRecapture}**`);
   lines.push(`- Missing images: **${screenshots.summary.missingImages}** · Stale (> ${screenshots.staleThresholdDays}d): **${screenshots.summary.staleImages}**`);
   lines.push(`- verify-shots critical: **${screenshots.verifyShots.critical}** · warnings: **${screenshots.verifyShots.warning}**`);
+  if (!screenshots.verifyShots.available) needsAction = true;
   const todo = screenshots.labs.filter((l) => l.needsRecapture);
   if (todo.length) {
     needsAction = true;
@@ -98,6 +103,7 @@ lines.push("");
 // ---- Smoke test ----
 lines.push("### 🌐 Start-URL smoke test");
 if (!smoke) {
+  needsAction = true;
   lines.push("- ⚠️ No smoke report was produced.");
 } else {
   lines.push(`- URLs tested: **${smoke.summary.urls}** · reachable: **${smoke.summary.reachable}** · unreachable: **${smoke.summary.unreachable}**`);
@@ -118,7 +124,7 @@ lines.push(needsAction
 lines.push("");
 
 const body = lines.join("\n");
-const outDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), "out");
+const outDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "out");
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, "issue.md"), body);
 

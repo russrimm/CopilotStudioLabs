@@ -1,0 +1,65 @@
+name: Validate content and tooling
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            portal/package-lock.json
+            tools/lab-accuracy/package-lock.json
+            tools/lab-pdf/package-lock.json
+            tools/screenshot-capture/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.13"
+
+      - name: Validate lab structure and links
+        run: python validate_labs.py
+
+      - name: Validate template setup
+        run: node setup.js --dry-run
+
+      - name: Validate offline lab builder
+        run: node tools/lab-builder/build.mjs --features create-agent --no-learn --no-llm --dry-run
+
+      - name: Validate screenshot manifests and assets
+        run: node tools/screenshot-capture/verify-shots.js
+
+      - name: Test portal
+        working-directory: portal
+        run: |
+          npm ci
+          npm test
+          npm audit --omit=dev --audit-level=high
+
+      - name: Check tooling syntax
+        run: |
+          node --check tools/lab-accuracy/build-issue.mjs
+          node --check tools/lab-accuracy/screenshot-audit.mjs
+          node --check tools/lab-pdf/generate.js
+          node --check tools/screenshot-capture/capture.js
+          node --check tools/screenshot-capture/verify-shots.js
+
+      - name: Test lab accuracy tooling
+        working-directory: tools/lab-accuracy
+        run: |
+          npm ci
+          npm test

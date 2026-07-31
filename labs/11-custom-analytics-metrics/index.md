@@ -1,88 +1,103 @@
-# Lab 11: Custom Analytics Metrics
+# Lab 11: Custom Analytics Metrics (Preview)
 
-*Define and operationalize custom metrics that reflect real business outcomes for your Copilot Studio agents.*
+*Define transcript-based custom metrics that reflect real business outcomes for your Copilot Studio agent.*
 
 | | |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate to Advanced (200-300) |
-| ⏱️ **TIME** | 60 minutes |
-| 🧩 **PRODUCTS** | Microsoft Copilot Studio, Power BI |
-| 🏷️ **TAGS** | Analytics, Custom Metrics, KPI |
+| ⏱️ **TIME** | 45 minutes plus metric-processing time |
+| 🧩 **PRODUCTS** | Microsoft Copilot Studio |
+| 🏷️ **TAGS** | Analytics, Custom Metrics, KPI, Preview |
 | 🏭 **INDUSTRIES** | Cross-industry |
 
 ---
 
 ## Overview
 
-Default metrics are useful, but teams often need business-specific signals. In this lab, you will define **custom analytics metrics**, map them to observable events, and build a reporting view that supports operational decisions.
+Copilot Studio custom metrics are a preview analytics capability. You can define up to three natural-language metrics that Copilot Studio evaluates against a sample of conversation transcripts. In this lab, you will define measurable criteria, generate the metrics, review sampled evidence, and decide how the results should influence agent improvements.
+
+> [!IMPORTANT]
+> Custom metrics are preview, transcript-sampled signals. They aren't a complete audit of every conversation and must not be the only production quality or compliance gate.
 
 ## Learning Objectives
 
-1. Define business-outcome metrics beyond default dashboards.
-2. Map metrics to trackable conversation events.
-3. Build a dashboard view for custom KPI monitoring.
-4. Set thresholds and alerting for metric drift.
-5. Link metric trends to improvement actions.
+1. Define up to three clear natural-language metrics.
+2. Generate custom metrics from eligible conversation transcripts.
+3. Review sampled evidence and challenge false positives or negatives.
+4. Compare the custom signal with standard analytics and manual review.
+5. Establish ownership and a review cadence.
 
 ## Prerequisites
 
-- Access to Copilot Studio analytics and export capabilities.
-- A target scenario with clear business outcomes.
-- A reporting tool such as Power BI.
-- Stakeholders aligned on KPI definitions.
+- Access to a published Copilot Studio agent and its **Analytics** page.
+- Eligible conversations from supported published channels; test-pane conversations don't appear in Analytics.
+- Permission to use the custom metrics preview in your environment.
+- A non-sensitive scenario with clear success and failure criteria.
 
 ## Step-by-Step
 
-### Step 1 - Define your KPI framework
+### Step 1 - Define measurable outcomes
 
-1. Identify three business outcomes your agent should improve.
-2. Define one metric per outcome with clear formulas.
-3. Document data sources needed for each metric.
-4. Define baseline values or starting assumptions.
-5. Agree on KPI owners and review audience.
+1. Select one to three outcomes that can be judged from a conversation transcript.
+2. Write each metric as a concise natural-language criterion.
+3. Avoid criteria that require data the transcript can't show, such as a downstream business outcome that isn't returned to the conversation.
+4. Identify an owner who will review the metric and its evidence.
 
-### Step 2 - Map events to metric calculations
+Example criteria:
 
-1. List agent events needed to compute each KPI.
-2. Verify each event is available in analytics exports.
-3. Create transformation logic for clean aggregation.
-4. Handle missing or null event cases explicitly.
-5. Validate calculations using sample data.
+- `The agent gave a grounded answer and cited an approved source.`
+- `The agent escalated when the request required account changes or privileged access.`
+- `The user received a clear next step when the agent couldn't complete the request.`
 
-### Step 3 - Build the dashboard view
+### Step 2 - Create the metrics
 
-1. Create a KPI dashboard in your reporting tool.
-2. Add trend lines by week and by intent.
-3. Add segmentation by channel or user type.
-4. Add filters for release version comparisons.
-5. Publish dashboard access for stakeholders.
+1. Open the agent's **Analytics** page and locate **Custom metrics**.
+2. Create each metric using the approved criterion.
+3. Review the generated interpretation before saving.
+4. Keep the set to three or fewer metrics and avoid overlapping definitions.
+5. Start metric generation and record when processing began.
 
-### Step 4 - Define thresholds and responses
+### Step 3 - Review sampled evidence
 
-1. Set warning and critical thresholds per KPI.
-2. Define response playbooks for threshold breaches.
-3. Assign owners for triage and remediation.
-4. Add links from dashboard to backlog actions.
-5. Validate one simulated breach workflow.
+1. When results are available, review the reported rate for each metric.
+2. Open representative supporting transcripts where your permissions allow.
+3. Check several positive and negative classifications manually.
+4. Record ambiguous examples, false positives, and false negatives.
+5. Refine the metric wording if reviewers interpret it inconsistently.
 
-### Step 5 - Run your first KPI review cycle
+> [!NOTE]
+> Results are based on sampled transcripts and can change as the conversation population changes. Treat small movements cautiously.
 
-1. Hold a review with product and operations teams.
-2. Highlight top positive and negative KPI deltas.
-3. Agree on two targeted improvement actions.
-4. Record decisions and accountable owners.
-5. Schedule the next review checkpoint.
+### Step 4 - Triangulate the result
+
+1. Compare the custom metric with standard analytics such as resolution, escalation, or abandonment.
+2. Compare it with a manually reviewed evaluation set.
+3. Investigate material disagreement rather than choosing the more favorable number.
+4. Document the sample window, metric wording, and known limitations with every decision.
+
+### Step 5 - Establish a review cadence
+
+1. Assign an owner for each metric.
+2. Define when wording changes require a new baseline.
+3. Set a recurring review that includes transcript sampling and standard analytics.
+4. Link findings to specific knowledge, instruction, topic, or tool improvements.
+5. Retire metrics that no longer support a decision.
 
 ## Validation / Success Criteria
 
-- At least three custom KPIs are defined and calculated.
-- KPI dashboard is published and review-ready.
-- Thresholds and response actions are documented.
-- KPI findings produced actionable backlog decisions.
+- One to three custom metrics are defined with observable criteria.
+- Results were generated from eligible published-channel conversations.
+- A reviewer checked supporting transcript samples for classification quality.
+- Findings were compared with standard analytics or a manual evaluation set.
+- Owners, limitations, and the next review date are documented.
+
+## Documentation
+
+- [Analyze your agent with custom metrics (preview)](https://learn.microsoft.com/microsoft-copilot-studio/analytics-custom-metrics)
 
 ## Lab Complete
 
-You created an actionable **custom analytics metrics** model tied to real business outcomes.
+You created a reviewable custom-metrics pilot without treating sampled preview analytics as a complete production audit.
 
 Suggested next labs:
 

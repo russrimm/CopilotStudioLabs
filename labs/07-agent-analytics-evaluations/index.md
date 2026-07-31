@@ -8,7 +8,7 @@
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
 | ⏱️ **TIME** | 45 minutes |
-| 🧩 **PRODUCTS** | Microsoft Copilot Studio (Analytics + Agent Evaluation preview), Azure Application Insights, Azure Monitor |
+| 🧩 **PRODUCTS** | Microsoft Copilot Studio (Analytics + Agent Evaluation), Azure Application Insights, Azure Monitor |
 | 🏷️ **TAGS** | Analytics, Agent Evaluation, Test Sets, Quality Management, Continuous Improvement, Application Insights, KQL, Azure Monitor |
 | 🏭 **INDUSTRY** | Energy / Utilities (Contoso family of companies) |
 
@@ -69,7 +69,7 @@ By the end of this lab you will be able to:
 2. ✅ Read user-satisfaction scores and identify the high-impact improvement opportunities
 3. ✅ Use failure analytics — unanswered questions, escalations, abandonments — to find knowledge gaps
 4. ✅ Generate evaluation test sets four different ways (auto-generated, CSV import, test-canvas capture, manual entry)
-5. ✅ Configure the right **test method** (Exact match, Keyword match, Similarity, General quality, Compare meaning, Capability use, Custom) for each kind of question
+5. ✅ Configure the right **test method** (Exact match, Keyword match, Text similarity, General quality, Compare meaning, Tool use, Custom) for each kind of question
 6. ✅ Understand where AI-judged methods help — and where strict matching is safer for compliance or regression gates
 7. ✅ Review evaluation results — pass rates, reasoning, knowledge citations, activity maps
 8. ✅ Compare runs to verify improvements without regressions, and export results for stakeholders
@@ -88,7 +88,7 @@ By the end of this lab you will be able to:
 | **User Satisfaction Scores** | Thumbs up/down reactions from real users. Low scores on high-volume topics are your top priority. For formal CSAT, configure end-of-session surveys. |
 | **Failure Analytics** | Unanswered questions, escalations, and abandonments. Direct signals of where to add knowledge or rewrite a topic flow. |
 | **Evaluation Test Sets** | Repeatable collections of questions with expected answers. Run them before and after every change to catch regressions. |
-| **Test Methods** | The comparison technique: **Exact match** (hard facts), **Keyword match** (must-mention terms), **Similarity** (lexical closeness), **General quality** (LLM-judged), **Compare meaning** (semantic equivalence), and newer methods like **Capability use** and **Custom**. See [Choose evaluation methods](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview) — methods are added as the preview matures; older docs may call them "evaluation methods" (same thing). |
+| **Test Methods** | The comparison technique: **Exact match** (hard facts), **Keyword match** (must-mention terms), **Text similarity** (lexical closeness), **General quality** (LLM-judged), **Compare meaning** (semantic equivalence), **Tool use**, and **Custom**. See [Choose evaluation methods](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview). |
 | **Judge-assisted scoring** | Methods such as **General quality** and **Compare meaning** use AI-assisted judgment rather than a literal string comparison. That is powerful for open-ended Contoso answers, but for audit-sensitive facts — NERC CIP dates, required approval steps, security boundaries — pair them with stricter methods or manual review. |
 | **Evaluation Results** | Pass/fail outcomes plus reasoning, knowledge citations, and an **activity map** that shows step-by-step which knowledge sources, tools, and topics the agent used. |
 
@@ -107,12 +107,12 @@ By the end of this lab you will be able to:
 ## ✅ Prerequisites
 
 - Completed [Lab 04: Build a Custom IT Operations Agent for Contoso Energy](../04-energy-ops-agent/index.md). You'll use that agent throughout this lab. (If you skipped Lab 04, any published Copilot Studio agent in your environment will work — the steps are agent-agnostic.)
-- Access to **Microsoft Copilot Studio** with **Analytics** and **Agent Evaluation (preview)** permissions
+- Access to **Microsoft Copilot Studio** with **Analytics** and **Agent Evaluation** permissions
 - Your agent has been **published** and used through a **deployed channel** (Microsoft Teams, a website, or another Copilot Studio channel) — only those conversations contribute to analytics data
 
 > ⚠️ **Important — analytics needs published, real conversations.** Test-canvas conversations may *not* appear in the Analytics view. Before starting Use Case #1, publish your agent and have at least one real conversation through a deployed channel. Even then, analytics data takes **24–48 hours to populate**. There's no way to pre-provision or simulate analytics data — for now, if your environment is brand new, skim the descriptions in Use Case #1 to know what to expect, then move to Use Case #2 (which works immediately).
 
-> 💡 **Preview feature.** Agent Evaluation is currently in **preview** in Copilot Studio. UI and capabilities may shift as Microsoft iterates. Don't use it as your only quality gate for production — pair it with manual review and analytics.
+> 💡 **Quality gate.** Do not use one evaluation method as the only production quality gate. Pair repeatable test sets with manual review, analytics, and stricter checks for compliance-sensitive facts.
 
 ---
 
@@ -262,7 +262,7 @@ Based on your analytics and transcript review, build a **prioritized list of imp
 
 You want to systematically test your Contoso IT Operations Agent. You'll create **three** distinct test sets — one auto-generated, one imported from CSV that's intentionally designed to **fail** (so you can see how the platform reports refusals), and one captured from real agent conversations that should **pass**. Together they form a complete picture of how different creation methods and outcomes work.
 
-> 💡 **Note — preview feature.** Agent evaluation is currently a **preview** feature. UI and capabilities may change. Don't rely on it as your only quality gate for a production Contoso agent — pair with manual review.
+> 💡 **Note:** Evaluation results are one quality signal. Pair them with manual review before promoting a production Contoso agent.
 
 ### Step 1 — Generate test cases (Quick question set)
 
@@ -596,7 +596,7 @@ Once connected, Copilot Studio emits telemetry to Application Insights across se
    ```
 4. You should see event names related to conversation activities. If the result is empty, start a new conversation with your agent and wait 5–10 minutes.
 
-> 💡 **Tip:** The exact event names and schema may vary by Copilot Studio version. Use `customEvents | distinct name` to discover what's available in your environment. Microsoft is actively enriching the telemetry — check the [release notes](https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-whats-new) periodically.
+> 💡 **Tip:** The exact event names and schema may vary by Copilot Studio version. Use `customEvents | distinct name` to discover what's available in your environment. Microsoft is actively enriching the telemetry — check [What's new in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/whats-new) periodically.
 
 ### Step 4 — Write KQL queries to analyze agent behavior
 

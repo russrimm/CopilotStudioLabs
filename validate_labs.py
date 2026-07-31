@@ -1,14 +1,13 @@
-"""Validate lab index.md structure across ALL labs (01-35).
+"""Validate index.md structure across all numbered lab directories.
 
 Single canonical validator (the former ``validate_labs_new.py`` has been merged
 in and deleted). It scans every ``labs/NN-*`` folder — including the two
-intentional ``01-*`` folders — and reports, per lab:
+and reports, per lab:
 
   * Required section checks (union of the historical validators): title,
     metadata, overview, objectives, prerequisites, steps, validation, completion.
   * README link integrity: every ``labs/...`` link in README.md must resolve.
-  * Numbering collisions: duplicate lab numbers are flagged, EXCEPT the known
-    intentional duplicate ``01`` (two folders), which is reported as expected.
+  * Numbering collisions: duplicate lab numbers are flagged.
 
 Exit code is 0 when every lab passes all section checks, README links resolve,
 and there are no unexpected collisions; otherwise 1.
@@ -21,8 +20,7 @@ import sys
 LABS_DIR = "labs"
 README = "README.md"
 
-# Lab numbers that are intentionally used by more than one folder.
-ALLOWED_DUPLICATE_NUMBERS = {1}
+ALLOWED_DUPLICATE_NUMBERS = set()
 
 # Union of the section/keyword checks from the two historical validators.
 # A metadata section is satisfied by either a "## Metadata" heading OR an
@@ -63,7 +61,7 @@ SECTION_CHECKS = {
 
 
 def discover_labs():
-    """Return sorted ``labs/NN-*`` directory names (covers 01-35, both 01s)."""
+    """Return sorted ``labs/NN-*`` directory names."""
     found = []
     if os.path.isdir(LABS_DIR):
         for name in sorted(os.listdir(LABS_DIR)):
@@ -111,7 +109,7 @@ def main():
         print(f"No labs found under {LABS_DIR}/")
         return 1
 
-    print("=== Lab Structure Validation (labs 01-35) ===\n")
+    print("=== Lab Structure Validation ===\n")
 
     failed_labs = 0
     print("Per-lab section checks:")

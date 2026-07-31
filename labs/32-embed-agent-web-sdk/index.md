@@ -312,7 +312,7 @@ export const branding = {
   primaryColorHover: "#0957cc",
   surfaceColor: "#ffffff",
   textColor: "#1c1c1c",
-  agentAvatarUrl: "/agent-avatar.png", // drop a 64x64 PNG into /public
+  agentAvatarUrl: "/agent-avatar.svg", // the starter sample includes a default SVG
   userAvatarInitials: "U",
   welcomeMessage:
     "Hi! I'm the Contoso Assist agent. Ask me about IT, policies, or your account.",
@@ -321,9 +321,9 @@ export const branding = {
 
 > 🔒 **Security note:** `clientId` and `tenantId` are **not secrets** — they're identifiers that end up in the browser regardless. But never put a client *secret* in a frontend app. The SPA flow uses PKCE specifically so no secret is needed.
 
-### Step 4 — Drop in an avatar (optional but nice)
+### Step 4 — Customize the avatar (optional)
 
-Place a 64×64 PNG named `agent-avatar.png` into the `public/` folder. Any image works for now.
+The starter sample includes `public/agent-avatar.svg`. Replace it with an approved brand asset if needed, then update `agentAvatarUrl` and the favicon reference to match.
 
 > ✅ Project scaffolded. Time to wire up auth.
 
@@ -512,10 +512,8 @@ export async function ensureClient(): Promise<CopilotStudioClient> {
 
 export async function startConversation() {
   const c = await ensureClient();
-  // Start a new conversation and yield the agent's greeting activities.
-  const activities = [];
-  for await (const activity of c.startConversationAsync(true)) {
-    activities.push(activity);
+  const activities = await c.startConversationAsync(true);
+  for (const activity of activities) {
     if (activity.conversation?.id) {
       conversationId = activity.conversation.id;
     }
@@ -528,11 +526,7 @@ export async function sendMessage(text: string) {
   if (!conversationId) {
     throw new Error("Conversation not started");
   }
-  const activities = [];
-  for await (const activity of c.askQuestionAsync(text, conversationId)) {
-    activities.push(activity);
-  }
-  return activities;
+  return c.askQuestionAsync(text, conversationId);
 }
 
 export function getConversationId() {
@@ -547,7 +541,7 @@ export function resetClient() {
 
 ### Step 2 — What's happening
 
-- **`startConversationAsync(true)`** opens a new conversation and asks the agent to send its greeting (topic: `Conversation Start`). It returns an **async iterable** of activities — Copilot Studio streams them back as it produces them.
+- **`startConversationAsync(true)`** opens a new conversation and asks the agent to send its greeting (topic: `Conversation Start`). It resolves to the initial activity array.
 - **`askQuestionAsync(text, conversationId)`** sends a user message and streams the agent's response activities (text, typing indicators, suggested actions, adaptive cards).
 - **Activities** follow the Bot Framework activity schema. The most common types you'll render: `message` (with optional `attachments` and `suggestedActions`) and `typing`.
 
@@ -586,7 +580,7 @@ Open `index.html` at the project root and replace its contents with:
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/agent-avatar.png" />
+    <link rel="icon" type="image/svg+xml" href="/agent-avatar.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Contoso Assist</title>
   </head>
@@ -621,7 +615,7 @@ root.innerHTML = `
     --text:${branding.textColor};
   ">
     <header class="chat-header">
-      <img src="${branding.agentAvatarUrl}" alt="" class="brand-avatar" />
+      <img src="${branding.agentAvatarUrl}" alt="${branding.productName}" class="brand-avatar" />
       <div>
         <h1>${branding.productName}</h1>
         <p>${branding.tagline}</p>
@@ -633,6 +627,7 @@ root.innerHTML = `
       <input
         id="composer-input"
         type="text"
+        aria-label="Message to agent"
         placeholder="Ask me anything…"
         autocomplete="off"
         disabled
@@ -669,11 +664,12 @@ async function handleSendMessage(text: string) {
     }
   } catch (err) {
     showTyping(false);
+    console.error("Failed to send message", err);
     renderActivity(
       messagesEl,
       {
         type: "message",
-        text: `Sorry — something went wrong: ${(err as Error).message}`,
+        text: "Sorry — something went wrong. Try again or contact support if the problem continues.",
         from: { role: "bot" },
       } as any,
       () => {}
@@ -764,8 +760,8 @@ type Activity = {
   type: string;
   text?: string;
   from?: { role?: string };
-  suggestedActions?: { actions: { title: string; value: string }[] };
-  attachments?: { contentType: string; content: any }[];
+  suggestedActions?: { actions: { title: string; value?: unknown }[] };
+  attachments?: { contentType: string; content?: unknown }[];
 };
 
 export function renderUserMessage(parent: HTMLElement, text: string) {
@@ -789,7 +785,7 @@ export function renderActivity(
   const row = document.createElement("div");
   row.className = "msg-row bot";
   row.innerHTML = `
-    <img src="${branding.agentAvatarUrl}" alt="" class="avatar" />
+    <img src="${branding.agentAvatarUrl}" alt="${escapeHtml(branding.productName)}" class="avatar" />
     <div class="bot-content"></div>
   `;
   const content = row.querySelector(".bot-content") as HTMLElement;
@@ -822,7 +818,10 @@ export function renderActivity(
       const btn = document.createElement("button");
       btn.className = "suggestion";
       btn.textContent = action.title;
-      btn.addEventListener("click", () => onSuggestion(action.value ?? action.title));
+      btn.addEventListener("click", () => {
+        const value = typeof action.value === "string" ? action.value : action.title;
+        onSuggestion(value);
+      });
       wrap.appendChild(btn);
     }
     content.appendChild(wrap);

@@ -30,6 +30,10 @@ Some workflows cannot complete within a single turn. In this lab, you will build
 - A workflow known to require delayed processing.
 - A test scenario with simulated slow dependencies.
 - Permission to edit flow status and callback logic.
+- A flow that uses **When an agent calls the flow** and **Respond to the agent**.
+- A Power Automate environment running on the [new infrastructure](https://learn.microsoft.com/power-automate/environment-architecture).
+
+> ⚠️ **Channel limitation:** Callback support is fully supported in Teams, isn't formally tested in other channels, and isn't supported in Microsoft 365 Copilot or telephony. Validate the target channel before selecting this pattern. See [Asynchronous response support for agent flows](https://learn.microsoft.com/microsoft-copilot-studio/flow-asynchronous-response).
 
 ## Step-by-Step
 
