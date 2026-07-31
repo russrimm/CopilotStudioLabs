@@ -17,6 +17,9 @@ node_modules/
 # Generated lab walkthroughs (regenerate via tools/lab-pdf/)
 dist/
 
+# Custom labs produced by the lab builder (tools/lab-builder/)
+generated-labs/
+
 # Template setup
 *.config.local.json
 

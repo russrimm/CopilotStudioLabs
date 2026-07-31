@@ -120,10 +120,51 @@ Planned topics are numbered and reserved for future authoring. See `.squad/files
 
 ---
 
+## 🧬 Build your own lab
+
+The 40 labs above are fixed walkthroughs. The **lab builder** writes a new one for
+whatever combination you actually need: pick an industry, the roles you are
+teaching, and the Copilot Studio capabilities to cover, and it generates a
+complete step-by-step lab — with the reasoning behind each configuration, live
+Microsoft Learn citations, and screenshots.
+
+Every module is grounded against the public
+[Microsoft Learn MCP server](https://learn.microsoft.com/api/mcp), so the content
+tracks the current product rather than a snapshot. No sign-in or API key is
+required for grounding.
+
+```bash
+# See what you can pick
+node tools/lab-builder/build.mjs --list
+
+# Build a lab
+node tools/lab-builder/build.mjs \
+  --industry healthcare \
+  --roles customer-service \
+  --features knowledge-sharepoint,authentication,content-moderation \
+  --time 240
+```
+
+Or use the **🧬 Build a Lab** tab in the portal for a guided wizard.
+
+Labs land in `generated-labs/<slug>/` with `index.md`, a `manifest.json` of the
+Learn sources used, a `shots.json` screenshot capture manifest, and any
+screenshots reusable from existing labs. Generated labs are validated against the
+same rules as the handwritten ones before the builder reports success.
+
+Optionally set `AZURE_OPENAI_*` or `GITHUB_TOKEN` to add LLM-drafted,
+scenario-specific narrative on top of the grounded content. Without them the
+builder composes deterministically and still produces a complete lab.
+
+📖 Full documentation: [`docs/lab-builder.md`](docs/lab-builder.md)
+
+---
+
 ## ⚡ Portal Features
 
 The repository also includes a full **Copilot Studio Labs portal** for delivering and operating the labs:
 
+- 🧬 **Lab builder** wizard that generates custom labs grounded on Microsoft Learn
 - 🤖 Embedded Copilot Studio **Agent Chat** for real-time learner support
 - 🔐 **Approval workflows** for Power Platform environment provisioning
 - 👍 **Inline feedback** capture and 🐛 one-click issue reporting
