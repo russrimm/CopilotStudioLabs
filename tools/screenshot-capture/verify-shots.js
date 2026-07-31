@@ -10,6 +10,10 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 const ORPHAN_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
 const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.squad', '.auth']);
+const INTENTIONAL_ORPHANS = new Set([
+  // Preserved by the repository's upgrade-test content contract.
+  'labs/04-energy-ops-agent/assets/images/issues-banner.png'
+]);
 const args = process.argv.slice(2);
 const emitJson = args.includes('--json');
 const strict = args.includes('--strict');
@@ -318,9 +322,10 @@ for (const lab of listLabs()) {
   const referencedPaths = new Set(images.map((image) => image.relativeFromLab));
   for (const assetPath of listAssetImages(lab)) {
     const relativeFromLab = toPosix(path.relative(path.join(repoRoot, 'labs', lab), assetPath));
+    const relativeFromRoot = relativeToRoot(assetPath);
     checkRestoredPlaceholder(lab, assetPath);
-    if (!referencedPaths.has(relativeFromLab)) {
-      addFinding(lab, 'warning', 'orphan-asset', `${relativeToRoot(assetPath)} is under the lab assets folder but is not referenced by index.md.`, { path: relativeToRoot(assetPath) });
+    if (!referencedPaths.has(relativeFromLab) && !INTENTIONAL_ORPHANS.has(relativeFromRoot)) {
+      addFinding(lab, 'warning', 'orphan-asset', `${relativeFromRoot} is under the lab assets folder but is not referenced by index.md.`, { path: relativeFromRoot });
     }
   }
 }

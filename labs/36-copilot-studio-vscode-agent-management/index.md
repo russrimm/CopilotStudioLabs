@@ -80,6 +80,11 @@ By the end of this lab, you will be able to:
 4. **An existing agent** — at least one agent published in your Copilot Studio environment
 5. **GitHub Copilot** *(optional)* — if you want to use Copilot Chat with the Copilot Studio plugin for natural-language editing
 
+Official references:
+
+- [Copilot Studio extension for Visual Studio Code overview](https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-overview)
+- [Clone your Copilot Studio agent in Visual Studio Code](https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-clone-agent)
+
 ---
 
 # 🧪 Use Case #1 — Clone an Agent to VS Code (10 min)

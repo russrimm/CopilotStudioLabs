@@ -11,6 +11,7 @@
 
 import { loadAllLabs, writeReport } from "./lib/labs.mjs";
 import { LearnMcpClient } from "./lib/mcp-client.mjs";
+import { pathToFileURL } from "node:url";
 
 const args = process.argv.slice(2);
 const strict = args.includes("--strict");
@@ -112,7 +113,7 @@ async function main() {
           labRecord.mcp.coversReferencedDocs = overlap;
           if (!overlap) {
             labRecord.mcp.note =
-              "None of this lab's cited Learn pages appeared in current top search results — verify the docs have not moved or been deprecated.";
+              "No exact cited Learn page appeared in the current top search results. The links still resolve; review search ranking and product relevance before changing documentation.";
             report.summary.mcpDriftWarnings += 1;
           }
         }
@@ -136,16 +137,19 @@ async function main() {
   if (strict && report.summary.brokenLinks > 0) process.exit(1);
 }
 
-function safePath(url) {
+export function safePath(url) {
   try {
     const u = new URL(url);
-    return (u.host + u.pathname).replace(/\/+$/, "").toLowerCase();
+    const pathname = u.pathname.replace(/^\/[a-z]{2}-[a-z]{2}(?=\/)/i, "");
+    return (u.host + pathname).replace(/\/+$/, "").toLowerCase();
   } catch {
     return null;
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}

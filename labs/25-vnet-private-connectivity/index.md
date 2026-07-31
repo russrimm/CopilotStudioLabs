@@ -103,6 +103,7 @@ By the end of this lab you will be able to:
 
 ## 📚 Documentation
 
+- [Configure Virtual Network support for outbound connections from agents](https://learn.microsoft.com/microsoft-copilot-studio/admin-network-isolation-vnet)
 - [Virtual Network support overview for Power Platform](https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-overview)
 - [Set up virtual network support for Power Platform](https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-setup-configure)
 - [What is a virtual network (VNet) data gateway](https://learn.microsoft.com/en-us/data-integration/vnet/overview)

@@ -107,7 +107,7 @@ export class LearnMcpClient {
 }
 
 /** Flatten MCP tool content blocks into an array of { title, url, snippet }. */
-function normalizeContent(result) {
+export function normalizeContent(result) {
   const blocks = Array.isArray(result?.content) ? result.content : [];
   const entries = [];
   for (const block of blocks) {
@@ -115,7 +115,11 @@ function normalizeContent(result) {
     // The Learn MCP returns JSON-encoded arrays of results inside text blocks.
     try {
       const parsed = JSON.parse(block.text);
-      const items = Array.isArray(parsed) ? parsed : [parsed];
+      const items = Array.isArray(parsed)
+        ? parsed
+        : Array.isArray(parsed?.results)
+          ? parsed.results
+          : [parsed];
       for (const item of items) {
         entries.push({
           title: item.title ?? item.name ?? null,
