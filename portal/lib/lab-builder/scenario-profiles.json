@@ -1,0 +1,196 @@
+{
+  "$comment": "Industry and role framing used to give generated labs a concrete scenario. Industry ids match portal/lib/scenarios.json.",
+  "version": "1.0.0",
+  "industries": {
+    "manufacturing": {
+      "agentName": "Plant Operations Assistant",
+      "domain": "plant operations and maintenance",
+      "audience": "plant supervisors, maintenance technicians, and production planners",
+      "problem": "Line supervisors lose hours every shift chasing maintenance history, standard operating procedures, and parts availability across SharePoint, a CMMS, and a stack of PDF manuals.",
+      "outcome": "a single agent that answers equipment and procedure questions, looks up work orders, and files a maintenance request without leaving Teams",
+      "knowledgeSources": [
+        "A SharePoint library of standard operating procedures and equipment manuals",
+        "A public product safety and compliance site",
+        "A Dataverse table of assets, work orders, and downtime events"
+      ],
+      "sampleQuestions": [
+        "What is the lockout/tagout procedure for line 3?",
+        "Show me open work orders for the packaging conveyor.",
+        "Why did line 2 stop last night?"
+      ],
+      "entities": ["asset tag", "work order number", "shift"],
+      "terms": ["OEE", "downtime", "work order", "preventive maintenance", "line"],
+      "kpi": "unplanned downtime minutes per line"
+    },
+    "retail": {
+      "agentName": "Store Support Assistant",
+      "domain": "store operations and customer service",
+      "audience": "store associates, store managers, and contact-center agents",
+      "problem": "Associates answer the same product, returns, and promotion questions dozens of times a day, and the answers live in three different systems that change weekly.",
+      "outcome": "a single agent that answers policy and product questions, checks order status, and starts a return with the right approvals",
+      "knowledgeSources": [
+        "A SharePoint site holding returns, pricing, and promotion policies",
+        "The public product catalog and support site",
+        "A Dataverse table of orders, returns, and store inventory"
+      ],
+      "sampleQuestions": [
+        "What is our return policy for opened electronics?",
+        "Where is order 10428?",
+        "Is the spring promotion still running this weekend?"
+      ],
+      "entities": ["order number", "store number", "product SKU"],
+      "terms": ["SKU", "return authorization", "promotion", "planogram", "shrink"],
+      "kpi": "average handle time per customer question"
+    },
+    "financial-services": {
+      "agentName": "Client Service Assistant",
+      "domain": "client servicing and back-office operations",
+      "audience": "relationship managers, client service representatives, and operations analysts",
+      "problem": "Client service reps switch between a policy portal, a case system, and email to answer routine account questions, and every answer must be traceable to an approved source.",
+      "outcome": "a single, auditable agent that answers policy questions with citations, retrieves case status, and escalates to a human with full context",
+      "knowledgeSources": [
+        "A SharePoint library of approved product disclosures and servicing policies",
+        "The public regulatory guidance site for your market",
+        "A Dataverse table of clients, cases, and service requests"
+      ],
+      "sampleQuestions": [
+        "What documents do we need to add a beneficiary?",
+        "What is the status of case CS-4471?",
+        "What are the fees on the premium account tier?"
+      ],
+      "entities": ["case number", "account type", "client id"],
+      "terms": ["KYC", "case", "disclosure", "servicing request", "audit trail"],
+      "kpi": "first-contact resolution rate"
+    },
+    "healthcare": {
+      "agentName": "Care Team Assistant",
+      "domain": "clinical and administrative support",
+      "audience": "care coordinators, front-desk staff, and clinical operations teams",
+      "problem": "Care coordinators spend their day answering scheduling, coverage, and protocol questions that are documented but scattered, and every answer has to stay inside compliance boundaries.",
+      "outcome": "a governed agent that answers protocol and administrative questions with citations, looks up appointment details, and hands off to a human when the question becomes clinical",
+      "knowledgeSources": [
+        "A SharePoint library of administrative protocols and patient intake guides",
+        "A public clinical guidance site",
+        "A Dataverse table of appointments, referrals, and coverage rules"
+      ],
+      "sampleQuestions": [
+        "What do patients need to bring to a first appointment?",
+        "What is the referral process for cardiology?",
+        "When is the next available follow-up slot?"
+      ],
+      "entities": ["appointment id", "department", "referral type"],
+      "terms": ["referral", "intake", "care plan", "coverage", "protocol"],
+      "kpi": "coordinator time spent searching for answers"
+    },
+    "energy-resources": {
+      "agentName": "Field Operations Assistant",
+      "domain": "field and grid operations",
+      "audience": "field technicians, dispatchers, and operations managers",
+      "problem": "Field technicians need site history, safety procedures, and weather conditions before they roll a truck, and today that means three logins and a phone call to dispatch.",
+      "outcome": "a mobile-friendly agent that answers site and safety questions, pulls live conditions, and logs a field report",
+      "knowledgeSources": [
+        "A SharePoint library of safety procedures and site records",
+        "A public weather or grid-status service",
+        "A Dataverse table of sites, outages, and field reports"
+      ],
+      "sampleQuestions": [
+        "What is the safe approach distance for substation 12?",
+        "What is the weather at the Willow Creek site right now?",
+        "Show me the last three outages for feeder 8."
+      ],
+      "entities": ["site id", "feeder", "outage number"],
+      "terms": ["outage", "feeder", "substation", "field report", "switching order"],
+      "kpi": "truck rolls avoided per week"
+    },
+    "education": {
+      "agentName": "Student Success Assistant",
+      "domain": "student services and academic administration",
+      "audience": "advisors, registrar staff, and student support teams",
+      "problem": "Advising and registrar teams answer the same enrollment, financial aid, and deadline questions every term, and the authoritative answers live across a handbook, a policy site, and a student system.",
+      "outcome": "an always-on agent that answers policy and deadline questions with citations, looks up course and enrollment details, and routes complex cases to an advisor",
+      "knowledgeSources": [
+        "A SharePoint library holding the student handbook and academic policies",
+        "The public course catalog and financial aid site",
+        "A Dataverse table of students, enrollments, and advising cases"
+      ],
+      "sampleQuestions": [
+        "What is the deadline to drop a course without a W?",
+        "What are the prerequisites for the data science certificate?",
+        "How do I appeal a financial aid decision?"
+      ],
+      "entities": ["course code", "term", "student id"],
+      "terms": ["term", "prerequisite", "registrar", "advising hold", "financial aid"],
+      "kpi": "advisor questions deflected per term"
+    },
+    "nonprofit": {
+      "agentName": "Program Support Assistant",
+      "domain": "program delivery and donor support",
+      "audience": "program staff, volunteer coordinators, and development teams",
+      "problem": "A small team supports volunteers, donors, and program participants at once, and the answers are spread across grant documents, a volunteer handbook, and a donor database.",
+      "outcome": "a low-cost agent that answers program and donation questions, looks up volunteer shifts, and captures new volunteer sign-ups",
+      "knowledgeSources": [
+        "A SharePoint library of program guides and the volunteer handbook",
+        "The public donation and program information site",
+        "A Dataverse table of volunteers, shifts, and donations"
+      ],
+      "sampleQuestions": [
+        "How do I sign up for a weekend shift?",
+        "Is my donation tax deductible?",
+        "What training do new volunteers need?"
+      ],
+      "entities": ["program name", "shift date", "donor id"],
+      "terms": ["program", "shift", "grant", "donor", "impact report"],
+      "kpi": "staff hours returned to program delivery"
+    }
+  },
+  "roles": {
+    "executives": {
+      "emphasis": "Executive users want short, decisive answers with the number first and the source second.",
+      "designNote": "Keep responses to three sentences or fewer and always surface the underlying metric and its date."
+    },
+    "sales": {
+      "emphasis": "Sellers want account context and next-best-action, fast, from their phone or Teams.",
+      "designNote": "Optimize for account lookup, objection handling, and drafting follow-up messages."
+    },
+    "marketing": {
+      "emphasis": "Marketers want on-brand copy and campaign facts pulled from approved sources.",
+      "designNote": "Constrain tone in the agent instructions and always cite the approved source for any claim."
+    },
+    "customer-service": {
+      "emphasis": "Service agents want a correct, citable answer and a clean handoff path when the answer is not enough.",
+      "designNote": "Model the escalation path explicitly and test it as carefully as the happy path."
+    },
+    "legal": {
+      "emphasis": "Legal users want traceability far more than they want speed.",
+      "designNote": "Require citations on every generative answer and disable answers from sources outside the approved library."
+    },
+    "finance": {
+      "emphasis": "Finance users want the exact figure, its period, and where it came from.",
+      "designNote": "Prefer structured data lookups over generative summaries for anything numeric."
+    },
+    "hr": {
+      "emphasis": "HR users need answers that are consistent, private, and policy-aligned.",
+      "designNote": "Pay close attention to authentication so answers can be scoped to the signed-in employee."
+    },
+    "it": {
+      "emphasis": "IT users want the agent to resolve tickets and to be governable, monitorable, and reversible.",
+      "designNote": "Wire analytics and solution-based deployment early rather than as an afterthought."
+    },
+    "communications": {
+      "emphasis": "Communications teams want reusable, on-message content grounded in approved announcements.",
+      "designNote": "Use prompt tools with fixed formats so output is consistent across authors."
+    },
+    "operations": {
+      "emphasis": "Operations users want the agent embedded in the flow of work, not in another browser tab.",
+      "designNote": "Prioritize the Teams channel and short, mobile-friendly responses."
+    },
+    "sustainability": {
+      "emphasis": "Sustainability users need auditable numbers tied to a reporting period and methodology.",
+      "designNote": "Always return the source document and the reporting period alongside any figure."
+    },
+    "accessibility": {
+      "emphasis": "Accessibility-focused users need responses that work with screen readers and simple language.",
+      "designNote": "Avoid dense adaptive cards for primary answers and keep plain-text alternatives."
+    }
+  }
+}

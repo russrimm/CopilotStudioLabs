@@ -58,9 +58,9 @@ function parseImageRefs(content) {
   return refs;
 }
 
-function resolveLabPath(labId, relativePath) {
+function resolveLabPath(labDir, relativePath) {
   const normalized = relativePath.replace(/\//g, "\\");
-  return resolve(join(LABS_DIR, labId), normalized);
+  return resolve(labDir, normalized);
 }
 
 function collectAssetFiles(labDir) {
@@ -104,7 +104,7 @@ function buildResult(labId, title, tests) {
   };
 }
 
-function missingIndexResult(labId, title) {
+function missingIndexResult(labId, title, labDir) {
   const tests = [
     { name: "index-exists", status: "fail", message: "index.md is missing." },
     { name: "has-title", status: "fail", message: "Cannot inspect title because index.md is missing." },
@@ -124,7 +124,7 @@ function missingIndexResult(labId, title) {
     { name: "screenshots-exist", status: "fail", message: "Cannot inspect screenshots because index.md is missing." },
   ];
 
-  const assets = collectAssetFiles(join(LABS_DIR, labId));
+  const assets = collectAssetFiles(labDir);
   tests.push({
     name: "assets-dir-clean",
     status: assets.length ? "warn" : "pass",
@@ -145,9 +145,17 @@ export function validateLab(labId) {
     throw new Error(`Lab not found: ${labId}`);
   }
 
+  return validateLabDir(labDir, { labId, title });
+}
+
+/**
+ * Run the full lab rule set against any directory containing an `index.md`.
+ * Used by validateLab() and by the dynamic lab builder for generated labs.
+ */
+export function validateLabDir(labDir, { labId = labDir, title = labId } = {}) {
   const indexPath = join(labDir, "index.md");
   if (!existsSync(indexPath)) {
-    return missingIndexResult(labId, title);
+    return missingIndexResult(labId, title, labDir);
   }
 
   const content = readFileSync(indexPath, "utf-8");
@@ -161,7 +169,7 @@ export function validateLab(labId) {
   const tags = extractMeta(content, "TAGS");
   const industry = extractMeta(content, "INDUSTRIES") || extractMeta(content, "INDUSTRY");
   const imageRefs = parseImageRefs(content);
-  const brokenImageRefs = imageRefs.filter((ref) => !existsSync(resolveLabPath(labId, ref)));
+  const brokenImageRefs = imageRefs.filter((ref) => !existsSync(resolveLabPath(labDir, ref)));
   const assetFiles = collectAssetFiles(labDir);
   const referencedAssets = new Set(
     imageRefs

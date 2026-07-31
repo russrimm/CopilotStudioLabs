@@ -257,6 +257,10 @@ function setActiveTab(tabName) {
     ppLoadApprovalConfig().catch(() => {});
     ppLoadApprovalRequests().catch(() => {});
   }
+
+  if (tabName === "labbuilder") {
+    lbLoadCatalog();
+  }
 }
 
 // ── Branding ────────────────────────────────────────────────────────────────
@@ -3352,4 +3356,324 @@ function ppScheduleTask() {
     </div>
   `;
   toast(`Scheduled "${taskNames[task]}" (${freq})`, "success");
+}
+
+// ── Lab Builder ─────────────────────────────────────────────────────────────
+const labBuilder = {
+  loaded: false,
+  industries: [],
+  roles: [],
+  categories: [],
+  industry: null,
+  selectedRoles: new Set(),
+  selectedFeatures: new Set(),
+  step: 1,
+  busy: false,
+};
+
+async function lbLoadCatalog() {
+  if (labBuilder.loaded) return;
+  try {
+    const res = await fetch("/api/lab-builder/features");
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    const data = await res.json();
+    labBuilder.industries = data.industries || [];
+    labBuilder.roles = data.roles || [];
+    labBuilder.categories = data.categories || [];
+    labBuilder.loaded = true;
+    if (!labBuilder.industry && labBuilder.industries.length) {
+      labBuilder.industry = labBuilder.industries[0].id;
+    }
+    lbRenderIndustries();
+    lbRenderRoles();
+    lbRenderFeatures();
+    lbLoadGenerated();
+  } catch (err) {
+    document.getElementById("lb-industry-grid").innerHTML =
+      `<div class="scenario-empty">Could not load the feature catalog: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function lbRenderIndustries() {
+  const el = document.getElementById("lb-industry-grid");
+  if (!el) return;
+  el.innerHTML = labBuilder.industries
+    .map(
+      (i) => `
+      <button type="button" class="scenario-card ${i.id === labBuilder.industry ? "active" : ""}"
+              onclick="lbSelectIndustry('${escapeHtml(i.id)}')" aria-pressed="${i.id === labBuilder.industry}">
+        <div class="scenario-card-title">
+          <span style="font-size: 22px;">${escapeHtml(i.icon || "")}</span>
+          <span>${escapeHtml(i.name)}</span>
+        </div>
+        <div class="scenario-card-desc">${escapeHtml(i.description || "")}</div>
+      </button>`
+    )
+    .join("");
+}
+
+function lbSelectIndustry(id) {
+  labBuilder.industry = id;
+  lbRenderIndustries();
+}
+
+function lbRenderRoles() {
+  const el = document.getElementById("lb-role-list");
+  if (!el) return;
+  el.innerHTML = labBuilder.roles
+    .map(
+      (r) => `
+      <label class="scenario-role">
+        <input type="checkbox" value="${escapeHtml(r.id)}" ${labBuilder.selectedRoles.has(r.id) ? "checked" : ""}
+               onchange="lbToggleRole('${escapeHtml(r.id)}', this.checked)">
+        <span>
+          <span style="font-weight: 600;">${escapeHtml(r.icon || "")} ${escapeHtml(r.name)}</span>
+          <div class="scenario-card-desc">${escapeHtml(r.description || "")}</div>
+        </span>
+      </label>`
+    )
+    .join("");
+}
+
+function lbToggleRole(id, checked) {
+  if (checked) labBuilder.selectedRoles.add(id);
+  else labBuilder.selectedRoles.delete(id);
+}
+
+function lbRenderFeatures() {
+  const el = document.getElementById("lb-feature-groups");
+  if (!el) return;
+  const query = (document.getElementById("lb-feature-search")?.value || "").trim().toLowerCase();
+
+  const html = labBuilder.categories
+    .map((cat) => {
+      const features = cat.features.filter(
+        (f) => !query || f.name.toLowerCase().includes(query) || f.summary.toLowerCase().includes(query) || f.id.includes(query)
+      );
+      if (!features.length) return "";
+      return `
+        <div class="lb-category">
+          <div class="lb-category-title">${escapeHtml(cat.icon || "")} ${escapeHtml(cat.name)}</div>
+          <div class="lb-category-desc">${escapeHtml(cat.description || "")}</div>
+          <div class="lb-feature-grid">
+            ${features
+              .map(
+                (f) => `
+              <label class="lb-feature ${labBuilder.selectedFeatures.has(f.id) ? "checked" : ""}">
+                <input type="checkbox" value="${escapeHtml(f.id)}" ${labBuilder.selectedFeatures.has(f.id) ? "checked" : ""}
+                       onchange="lbToggleFeature('${escapeHtml(f.id)}', this.checked)">
+                <span>
+                  <span class="lb-feature-name">${escapeHtml(f.name)}<span class="lb-badge">L${f.level}</span><span class="lb-badge">${f.minutes}m</span></span>
+                  <div class="lb-feature-summary">${escapeHtml(f.summary)}</div>
+                </span>
+              </label>`
+              )
+              .join("")}
+          </div>
+        </div>`;
+    })
+    .join("");
+
+  el.innerHTML = html || '<div class="scenario-empty">No features match that search.</div>';
+  lbUpdateFeatureCount();
+}
+
+function lbUpdateFeatureCount() {
+  const el = document.getElementById("lb-feature-count");
+  if (!el) return;
+  const n = labBuilder.selectedFeatures.size;
+  el.textContent = n ? `${n} feature${n === 1 ? "" : "s"} selected` : "No features selected yet";
+}
+
+function lbToggleFeature(id, checked) {
+  if (checked) labBuilder.selectedFeatures.add(id);
+  else labBuilder.selectedFeatures.delete(id);
+  lbRenderFeatures();
+}
+
+function lbClearFeatures() {
+  labBuilder.selectedFeatures.clear();
+  lbRenderFeatures();
+}
+
+function lbRequest() {
+  const time = Number(document.getElementById("lb-time")?.value || 0);
+  return {
+    industry: labBuilder.industry || undefined,
+    roles: [...labBuilder.selectedRoles],
+    features: [...labBuilder.selectedFeatures],
+    timeBudget: time > 0 ? time : undefined,
+    title: document.getElementById("lb-title")?.value.trim() || undefined,
+    agentName: document.getElementById("lb-agent-name")?.value.trim() || undefined,
+    includeCore: document.getElementById("lb-include-core")?.checked !== false,
+    useLearnMcp: document.getElementById("lb-use-learn")?.checked !== false,
+    useLlm: document.getElementById("lb-use-llm")?.checked !== false,
+  };
+}
+
+function lbGoToStep(step) {
+  if (step > 3 && !labBuilder.selectedFeatures.size) {
+    toast("Select at least one Copilot Studio feature first.", "error");
+    step = 3;
+  }
+  labBuilder.step = step;
+  for (let i = 1; i <= 5; i += 1) {
+    const pane = document.getElementById(`lb-pane-${i}`);
+    if (pane) pane.style.display = i === step ? "" : "none";
+    const chip = document.querySelector(`.lb-step[data-lb-step="${i}"]`);
+    if (chip) {
+      chip.classList.toggle("active", i === step);
+      chip.classList.toggle("done", i < step);
+    }
+  }
+  if (step === 5) lbPreview();
+}
+
+async function lbPreview() {
+  const el = document.getElementById("lb-preview");
+  if (!el) return;
+  el.innerHTML = '<div class="scenario-empty">Planning your lab...</div>';
+  try {
+    const res = await fetch("/api/lab-builder/preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(lbRequest()),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+
+    el.innerHTML = `
+      <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">${escapeHtml(data.title)}</div>
+      <div class="scenario-pill-list">
+        <span class="scenario-pill">${escapeHtml(data.difficulty)}</span>
+        <span class="scenario-pill">${escapeHtml(data.duration)}</span>
+        <span class="scenario-pill">${data.modules.length} modules</span>
+        <span class="scenario-pill">Agent: ${escapeHtml(data.agentName)}</span>
+      </div>
+      <div style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">${escapeHtml(data.scenario.problem)}</div>
+      <div class="lb-module-list">
+        ${data.modules
+          .map(
+            (m) => `<div class="lb-module"><strong>${m.order}.</strong>
+              <span><strong>${escapeHtml(m.name)}</strong> <span class="lb-badge">L${m.level}</span> <span class="lb-badge">${m.minutes}m</span>
+              <div class="lb-feature-summary">${escapeHtml(m.summary)}</div></span></div>`
+          )
+          .join("")}
+      </div>
+      ${data.warnings.map((w) => `<div class="lb-warning">${escapeHtml(w)}</div>`).join("")}
+    `;
+  } catch (err) {
+    el.innerHTML = `<div class="scenario-empty">Could not plan the lab: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+async function lbGenerate() {
+  if (labBuilder.busy) return;
+  const btn = document.getElementById("lb-generate-btn");
+  const status = document.getElementById("lb-status");
+  labBuilder.busy = true;
+  if (btn) btn.disabled = true;
+  if (status) status.textContent = "Researching Microsoft Learn and composing your lab. This can take a minute...";
+
+  try {
+    const res = await fetch("/api/lab-builder/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(lbRequest()),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+
+    lbShowResult(data);
+    lbLoadGenerated();
+    if (status) status.textContent = "";
+    toast(`Built "${data.title}"`, "success");
+  } catch (err) {
+    if (status) status.textContent = "";
+    toast(`Lab build failed: ${err.message}`, "error");
+  } finally {
+    labBuilder.busy = false;
+    if (btn) btn.disabled = false;
+  }
+}
+
+function lbShowResult(data) {
+  const panel = document.getElementById("lb-result-panel");
+  const meta = document.getElementById("lb-result-meta");
+  const body = document.getElementById("lb-result-body");
+  if (!panel || !meta || !body) return;
+
+  const g = data.manifest.grounding;
+  const v = data.validation;
+  meta.innerHTML = `
+    <div style="font-size: 16px; font-weight: 600;">${escapeHtml(data.title)}</div>
+    <div class="scenario-pill-list">
+      <span class="scenario-pill">${escapeHtml(data.difficulty)}</span>
+      <span class="scenario-pill">${escapeHtml(data.duration)}</span>
+      <span class="scenario-pill">${g.groundedModules}/${g.totalModules} modules grounded on Microsoft Learn</span>
+      <span class="scenario-pill">${v.passed} checks passed${v.failed ? `, ${v.failed} failed` : ""}</span>
+      <span class="scenario-pill">${data.manifest.screenshots.reused} screenshots reused</span>
+      <span class="scenario-pill">${data.manifest.screenshots.toCapture} to capture</span>
+    </div>
+    <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
+      Saved to <code>generated-labs/${escapeHtml(data.labId)}</code> on the portal host.
+    </div>
+    <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+      <button class="btn btn-sm" onclick="lbDownload('${escapeHtml(data.labId)}')">⬇️ Download index.md</button>
+    </div>
+    ${(data.warnings || []).map((w) => `<div class="lb-warning">${escapeHtml(w)}</div>`).join("")}
+  `;
+
+  body.innerHTML = `<pre style="white-space: pre-wrap; font-size: 12px; line-height: 1.6;">${escapeHtml(data.markdown)}</pre>`;
+  panel.style.display = "";
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  labBuilder.lastMarkdown = data.markdown;
+}
+
+function lbDownload(labId) {
+  const markdown = labBuilder.lastMarkdown || "";
+  if (!markdown) return;
+  const blob = new Blob([markdown], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${labId}.md`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function lbLoadGenerated() {
+  const el = document.getElementById("lb-generated-list");
+  if (!el) return;
+  try {
+    const res = await fetch("/api/lab-builder/generated");
+    const data = await res.json();
+    const labs = data.labs || [];
+    if (!labs.length) {
+      el.className = "scenario-empty";
+      el.textContent = "None yet. Build one above.";
+      return;
+    }
+    el.className = "lb-module-list";
+    el.innerHTML = labs
+      .map(
+        (l) => `<div class="lb-module">
+          <span>
+            <strong>${escapeHtml(l.title)}</strong>
+            <span class="lb-badge">${escapeHtml(l.difficulty)}</span>
+            <span class="lb-badge">${l.totalMinutes}m</span>
+            <span class="lb-badge">${l.moduleCount} modules</span>
+            <div class="lb-feature-summary">generated-labs/${escapeHtml(l.labId)} — ${escapeHtml(
+              new Date(l.generatedAt).toLocaleString()
+            )}</div>
+          </span>
+        </div>`
+      )
+      .join("");
+  } catch {
+    el.className = "scenario-empty";
+    el.textContent = "Could not list generated labs.";
+  }
 }

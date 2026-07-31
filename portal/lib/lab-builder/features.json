@@ -1,0 +1,2124 @@
+{
+  "$comment": "Copilot Studio feature catalog. Drives the Lab Builder wizard. Each selected feature becomes one lab chapter. learnQueries feed the Microsoft Learn MCP server; docUrls are deterministic fallbacks used when MCP is unreachable.",
+  "version": 1,
+  "product": "Microsoft Copilot Studio",
+  "categories": [
+    {
+      "id": "foundations",
+      "name": "Agent Foundations",
+      "icon": "🧱",
+      "description": "Create the agent, write instructions, choose orchestration and models, publish."
+    },
+    {
+      "id": "conversation",
+      "name": "Conversation Design",
+      "icon": "💬",
+      "description": "Topics, triggers, entities, variables, and rich responses."
+    },
+    {
+      "id": "knowledge",
+      "name": "Knowledge & Grounding",
+      "icon": "📚",
+      "description": "Ground the agent in SharePoint, files, websites, Dataverse, and enterprise data."
+    },
+    {
+      "id": "tools",
+      "name": "Tools & Integrations",
+      "icon": "🔌",
+      "description": "Connectors, custom connectors, prompts, MCP servers, and REST APIs."
+    },
+    {
+      "id": "orchestration",
+      "name": "Multi-Agent Orchestration",
+      "icon": "🧩",
+      "description": "Connected agents, agent-to-agent protocol, and reusable skills."
+    },
+    {
+      "id": "automation",
+      "name": "Agent Flows & Automation",
+      "icon": "⚡",
+      "description": "Deterministic automation with agent flows and Power Automate."
+    },
+    {
+      "id": "analytics",
+      "name": "Analytics & Evaluation",
+      "icon": "📊",
+      "description": "Measure quality, run evaluations, and catch regressions."
+    },
+    {
+      "id": "governance",
+      "name": "Security & Governance",
+      "icon": "🔐",
+      "description": "Authentication, DLP, moderation, responsible AI, and admin controls."
+    },
+    {
+      "id": "channels",
+      "name": "Channels & Deployment",
+      "icon": "📡",
+      "description": "Publish to Teams, M365 Copilot, websites, and voice channels."
+    },
+    {
+      "id": "advanced",
+      "name": "Advanced & Pro-Dev",
+      "icon": "🚀",
+      "description": "Computer use, Work IQ, VS Code authoring, ALM, and cost planning."
+    }
+  ],
+  "features": [
+    {
+      "id": "create-agent",
+      "name": "Create an agent",
+      "category": "foundations",
+      "level": 100,
+      "minutes": 15,
+      "core": true,
+      "summary": "Create a new Copilot Studio agent from a natural-language description or from a blank template.",
+      "whyItMatters": "Everything else in Copilot Studio hangs off the agent object. Describing the agent in natural language lets the platform pre-write the name, description, and instructions, which is the fastest path from idea to working prototype.",
+      "concepts": [
+        "Agents are environment-scoped: the environment you pick decides which connectors, Dataverse tables, and DLP policies apply.",
+        "The 'describe it to create it' flow generates a starting name, description, and instructions that you then refine by hand.",
+        "An unpublished agent is still fully testable in the authoring canvas, so you can iterate before anyone else sees it."
+      ],
+      "steps": [
+        "Sign in to Copilot Studio and confirm the environment picker in the top-right shows your lab environment.",
+        "Select **Create**, then choose **New agent**.",
+        "Describe the agent in one or two sentences covering who it helps and what it does.",
+        "Review the generated name, description, and instructions, then refine them for your scenario.",
+        "Select **Create** to provision the agent and land on its **Overview** page."
+      ],
+      "validation": [
+        "The agent appears under **Agents** in your lab environment.",
+        "The Overview page shows a name, description, and non-empty instructions."
+      ],
+      "screenshots": [
+        {
+          "filename": "create-agent-describe.png",
+          "section": "home",
+          "instructions": [
+            "Open the Create > New agent experience.",
+            "Show the natural-language description box with your scenario text typed in."
+          ]
+        },
+        {
+          "filename": "agent-overview.png",
+          "section": "overview",
+          "instructions": [
+            "Open the new agent's Overview page.",
+            "Show name, description, and instructions."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio create a new agent quickstart",
+        "Copilot Studio describe it to create it agent"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-get-started",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-first-bot"
+      ],
+      "prereqs": [],
+      "relatedLabs": [
+        "01-intro-workshop"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "copilot-studio-home.png",
+          "caption": "Copilot Studio home — agent list for the current environment"
+        }
+      ]
+    },
+    {
+      "id": "agent-instructions",
+      "name": "Agent instructions & persona",
+      "category": "foundations",
+      "level": 100,
+      "minutes": 20,
+      "core": true,
+      "summary": "Write the system instructions that define the agent's role, scope, tone, and refusal behavior.",
+      "whyItMatters": "With generative orchestration the instructions are the primary control surface. Vague instructions produce vague agents; explicit scope and escalation rules are what make an agent safe to hand to real users.",
+      "concepts": [
+        "Instructions are read on every turn, so they cost tokens — be specific but not sprawling.",
+        "Say what the agent must NOT do as clearly as what it must do; out-of-scope handling is where most pilots fail.",
+        "Name the tools and knowledge sources you expect the agent to prefer, so the orchestrator has routing hints."
+      ],
+      "steps": [
+        "Open the agent and go to **Overview**, then edit **Instructions**.",
+        "State the agent's role and audience in the first line.",
+        "Add the tasks it should handle, referencing the knowledge sources or tools by name.",
+        "Add explicit out-of-scope rules and an escalation path.",
+        "Add tone and formatting guidance, then save and test in the **Test** pane."
+      ],
+      "validation": [
+        "Asking an in-scope question returns a grounded, on-tone answer.",
+        "Asking an out-of-scope question produces the documented refusal or escalation, not a guess."
+      ],
+      "screenshots": [
+        {
+          "filename": "agent-instructions.png",
+          "section": "overview",
+          "instructions": [
+            "Show the Instructions editor with your finished instruction text."
+          ]
+        },
+        {
+          "filename": "test-pane-in-scope.png",
+          "section": "test",
+          "instructions": [
+            "Open the Test pane and ask an in-scope question.",
+            "Capture the grounded response."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio agent instructions best practices",
+        "Copilot Studio write effective agent instructions generative orchestration"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-generative-actions",
+        "https://learn.microsoft.com/microsoft-copilot-studio/guidance/instructions-overview"
+      ],
+      "prereqs": [
+        "create-agent"
+      ],
+      "relatedLabs": [
+        "03-prompt-assistant",
+        "13-prompt-builder-agent-flows"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "generative-orchestration",
+      "name": "Generative orchestration",
+      "category": "foundations",
+      "level": 200,
+      "minutes": 20,
+      "summary": "Turn on generative orchestration so the agent plans across topics, knowledge, and tools instead of matching one trigger phrase.",
+      "whyItMatters": "Classic orchestration picks a single topic per turn. Generative orchestration lets the agent chain several knowledge lookups and tool calls in one turn, which is what makes multi-step business questions answerable.",
+      "concepts": [
+        "Generative orchestration uses tool and topic **descriptions** for routing — descriptions are effectively prompts.",
+        "The activity map in the Test pane shows the plan the orchestrator chose, which is your primary debugging tool.",
+        "Classic orchestration is still the right choice when you need strictly deterministic, compliance-fixed dialog paths."
+      ],
+      "steps": [
+        "Open **Settings** > **Generative AI** for the agent.",
+        "Set orchestration to **Generative** and save.",
+        "Ask a question that needs two sources to answer.",
+        "Open the activity map in the **Test** pane and read the plan the orchestrator produced.",
+        "Tighten any tool or topic description that was skipped or wrongly selected, then retest."
+      ],
+      "validation": [
+        "A single question produces a plan that touches more than one knowledge source or tool.",
+        "The activity map shows the expected tools in the expected order."
+      ],
+      "screenshots": [
+        {
+          "filename": "generative-orchestration-setting.png",
+          "section": "settings",
+          "instructions": [
+            "Open Settings > Generative AI.",
+            "Show the orchestration selection."
+          ]
+        },
+        {
+          "filename": "activity-map-plan.png",
+          "section": "test",
+          "instructions": [
+            "Ask a multi-source question in the Test pane.",
+            "Expand the activity map so the plan steps are visible."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio generative orchestration",
+        "Copilot Studio orchestration activity map debugging"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-generative-actions",
+        "https://learn.microsoft.com/microsoft-copilot-studio/nlu-gpt-overview"
+      ],
+      "prereqs": [
+        "agent-instructions"
+      ],
+      "relatedLabs": [
+        "18-account-orchestration-agent"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "model-selection",
+      "name": "Model selection",
+      "category": "foundations",
+      "level": 200,
+      "minutes": 15,
+      "summary": "Choose the underlying model for the agent and compare quality, latency, and cost tradeoffs.",
+      "whyItMatters": "Model choice is a per-agent lever on response quality, latency, and Copilot Credit burn. Picking the largest model for a simple FAQ agent wastes budget; picking the smallest for multi-step reasoning breaks orchestration.",
+      "concepts": [
+        "Reasoning-heavy orchestration benefits from stronger models; short retrieval answers usually do not.",
+        "Latency is user-visible in voice and Teams channels, so measure it, do not assume it.",
+        "Always re-run your evaluation set after changing models — model swaps are regressions until proven otherwise."
+      ],
+      "steps": [
+        "Open **Settings** > **Generative AI** and locate the model selection control.",
+        "Record the current model and run three representative prompts, noting quality and response time.",
+        "Switch to an alternate model and save.",
+        "Re-run the same three prompts and record the same measurements.",
+        "Choose the model that meets your quality bar at the lowest latency and cost, and document the decision."
+      ],
+      "validation": [
+        "You have a side-by-side comparison table for at least two models.",
+        "The selected model is saved and the agent still answers all three prompts correctly."
+      ],
+      "screenshots": [
+        {
+          "filename": "model-selection.png",
+          "section": "settings",
+          "instructions": [
+            "Show the model selection control in Settings > Generative AI."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio model selection agent",
+        "Copilot Studio choose AI model for agent"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/generative-ai-model-selection"
+      ],
+      "prereqs": [
+        "generative-orchestration"
+      ],
+      "relatedLabs": [
+        "01-intro-workshop"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "model-selection-comparison.png",
+          "caption": "Model selection — comparing available models"
+        }
+      ]
+    },
+    {
+      "id": "publish-agent",
+      "name": "Publish the agent",
+      "category": "foundations",
+      "level": 100,
+      "minutes": 10,
+      "core": true,
+      "summary": "Publish the agent so channel changes take effect for real users.",
+      "whyItMatters": "Authoring changes are invisible to published channels until you publish. Almost every 'my change didn't work' support case starts here.",
+      "concepts": [
+        "Publishing is per-agent and pushes the current authoring state to every connected channel at once.",
+        "The Test pane always runs the latest authoring state, which is why it can disagree with Teams.",
+        "In managed environments, publishing may be gated by solution and pipeline policy."
+      ],
+      "steps": [
+        "Select **Publish** in the agent command bar.",
+        "Review the summary of what will be published and confirm.",
+        "Wait for the publish confirmation banner.",
+        "Open a published channel and confirm your latest change is live."
+      ],
+      "validation": [
+        "The agent shows a recent successful publish time.",
+        "The change you made is visible in a published channel, not just the Test pane."
+      ],
+      "screenshots": [
+        {
+          "filename": "publish-confirmation.png",
+          "section": "overview",
+          "instructions": [
+            "Publish the agent.",
+            "Capture the publish confirmation banner or dialog."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio publish agent",
+        "Copilot Studio publish channels overview"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels"
+      ],
+      "prereqs": [
+        "create-agent"
+      ],
+      "relatedLabs": [
+        "01-intro-workshop"
+      ],
+      "reuseScreenshots": [],
+      "phase": "deploy"
+    },
+    {
+      "id": "topics",
+      "name": "Topics & trigger phrases",
+      "category": "conversation",
+      "level": 100,
+      "minutes": 25,
+      "summary": "Author custom topics with trigger phrases and understand the system topics you inherit.",
+      "whyItMatters": "Topics are how you pin down conversations that must follow an exact script — compliance disclosures, intake forms, escalation paths — where a generative answer is not acceptable.",
+      "concepts": [
+        "System topics (Greeting, Fallback, Escalate, On Error) already exist; customize them before authoring new ones.",
+        "Trigger phrases are training examples, not keyword matches — 5 to 10 varied phrasings beat 30 near-duplicates.",
+        "Under generative orchestration the topic **description** matters as much as its trigger phrases."
+      ],
+      "steps": [
+        "Open the **Topics** tab and review the system topics.",
+        "Select **Add a topic** > **From blank**.",
+        "Name the topic and add 5 to 10 varied trigger phrases from real user language.",
+        "Add a **Message** node with the response, then branch with a **Question** node if you need input.",
+        "Save, then use the **Test** pane to trigger the topic with a phrase you did not train on."
+      ],
+      "validation": [
+        "The topic triggers from an untrained but semantically similar phrase.",
+        "System topics still handle greeting and fallback correctly."
+      ],
+      "screenshots": [
+        {
+          "filename": "topics-list.png",
+          "section": "topics",
+          "instructions": [
+            "Open the Topics tab.",
+            "Show both custom and system topics."
+          ]
+        },
+        {
+          "filename": "trigger-phrases.png",
+          "section": "topics",
+          "instructions": [
+            "Open your new topic's trigger node.",
+            "Show the list of trigger phrases."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio topics trigger phrases",
+        "Copilot Studio system topics customize"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-create-edit-topics",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-system-topics"
+      ],
+      "prereqs": [
+        "create-agent"
+      ],
+      "relatedLabs": [
+        "02-conversational-design-fundamentals"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "02-conversational-design-fundamentals",
+          "file": "topics-overview.png",
+          "caption": "Topics tab — custom and system topics"
+        },
+        {
+          "lab": "02-conversational-design-fundamentals",
+          "file": "trigger-phrases.png",
+          "caption": "Trigger phrases for a custom topic"
+        }
+      ]
+    },
+    {
+      "id": "entities-variables",
+      "name": "Entities & variables",
+      "category": "conversation",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Capture user input with prebuilt and custom entities, and pass it around with topic and global variables.",
+      "whyItMatters": "Entities turn free text into structured values your tools can actually use, and variables are how a value captured in one topic survives into the next. Without them, every topic starts from zero.",
+      "concepts": [
+        "Prebuilt entities cover common types (date, number, email, city); build custom entities only for domain vocabulary.",
+        "Topic variables die at the end of the topic; global variables persist for the conversation.",
+        "Slot filling lets the orchestrator fill a variable from something the user already said, skipping the question entirely."
+      ],
+      "steps": [
+        "Open your topic and add a **Question** node.",
+        "Set **Identify** to a prebuilt entity that matches the value you need.",
+        "Create a custom entity under **Settings** > **Entities** for your domain-specific terms and use it in a second Question node.",
+        "Save the answer to a variable, then change its scope to **Global**.",
+        "Reference the global variable from a different topic and confirm the value carries over."
+      ],
+      "validation": [
+        "The prebuilt entity extracts the value from a natural sentence, not just a bare answer.",
+        "The custom entity recognizes at least one synonym you defined.",
+        "The global variable is readable from a second topic."
+      ],
+      "screenshots": [
+        {
+          "filename": "question-entity-node.png",
+          "section": "topics",
+          "instructions": [
+            "Show a Question node with an entity selected in the Identify dropdown."
+          ]
+        },
+        {
+          "filename": "global-variables.png",
+          "section": "topics",
+          "instructions": [
+            "Open the variables pane.",
+            "Show a variable scoped to Global."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio entities slot filling",
+        "Copilot Studio variables global topic scope"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-entities-slot-filling",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-variables"
+      ],
+      "prereqs": [
+        "topics"
+      ],
+      "relatedLabs": [
+        "02-conversational-design-fundamentals"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "02-conversational-design-fundamentals",
+          "file": "question-entity-node.png",
+          "caption": "Question node using a prebuilt entity"
+        },
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "global-variables-list.png",
+          "caption": "Global variables available across topics"
+        }
+      ]
+    },
+    {
+      "id": "adaptive-cards",
+      "name": "Adaptive Cards & rich responses",
+      "category": "conversation",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Return structured, scannable responses using Adaptive Cards bound to variables.",
+      "whyItMatters": "A wall of prose is unusable on a phone in the field. Adaptive Cards let you show a status, a value, and an action in a layout users can read at a glance — and they render natively in Teams.",
+      "concepts": [
+        "Cards are JSON; bind data with Power Fx expressions rather than string concatenation.",
+        "Test card rendering in every channel you publish to — web chat and Teams do not render identically.",
+        "Keep cards small: one decision, one or two actions."
+      ],
+      "steps": [
+        "In a topic, add a **Send a message** node and switch it to an **Adaptive Card**.",
+        "Open the card's JSON editor and lay out the fields you want to show.",
+        "Bind each field to a variable using a Power Fx expression.",
+        "Preview the card in the authoring canvas.",
+        "Test in the **Test** pane, then verify rendering in your target channel."
+      ],
+      "validation": [
+        "The card renders with live values, not placeholder text.",
+        "Card actions behave correctly in the target channel."
+      ],
+      "screenshots": [
+        {
+          "filename": "adaptive-card-json.png",
+          "section": "topics",
+          "instructions": [
+            "Show the Adaptive Card JSON editor with your card definition."
+          ]
+        },
+        {
+          "filename": "adaptive-card-rendered.png",
+          "section": "test",
+          "instructions": [
+            "Trigger the topic in the Test pane.",
+            "Capture the rendered card with real values."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio adaptive cards",
+        "Copilot Studio rich response cards Power Fx variables"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-send-message"
+      ],
+      "prereqs": [
+        "entities-variables"
+      ],
+      "relatedLabs": [
+        "06-energy-weather-agent"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "adaptive-card-json-editor.png",
+          "caption": "Adaptive Card JSON editor"
+        },
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "adaptive-card-preview.png",
+          "caption": "Adaptive Card preview with bound values"
+        }
+      ]
+    },
+    {
+      "id": "power-fx",
+      "name": "Power Fx in topics",
+      "category": "conversation",
+      "level": 300,
+      "minutes": 20,
+      "summary": "Use Power Fx formulas for conditions, transformations, and lookups inside topic logic.",
+      "whyItMatters": "Power Fx is the deterministic escape hatch. When a value has to be exact — a mapped code, a rounded number, a formatted date — you compute it rather than ask a model to produce it.",
+      "concepts": [
+        "Power Fx runs server-side inside the topic; it is deterministic and cheap compared to a model call.",
+        "Use Switch() and record lookups for mapping tables instead of long condition chains.",
+        "Formula errors surface at runtime, so exercise every branch in the Test pane."
+      ],
+      "steps": [
+        "Add a **Set a variable value** node to a topic.",
+        "Switch the value editor to formula mode.",
+        "Write a Power Fx expression that transforms or maps an existing variable.",
+        "Add a **Condition** node that branches on the computed value.",
+        "Test each branch and confirm the computed values are exact."
+      ],
+      "validation": [
+        "The computed variable holds the exact expected value for at least three inputs.",
+        "Every condition branch has been exercised at least once."
+      ],
+      "screenshots": [
+        {
+          "filename": "power-fx-formula.png",
+          "section": "topics",
+          "instructions": [
+            "Show a Set variable node in formula mode with your Power Fx expression."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio Power Fx formulas topics",
+        "Copilot Studio use Power Fx variables condition"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-power-fx"
+      ],
+      "prereqs": [
+        "entities-variables"
+      ],
+      "relatedLabs": [
+        "06-energy-weather-agent"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "state-fips-switch-powerfx.png",
+          "caption": "Power Fx Switch() mapping inside a topic"
+        }
+      ]
+    },
+    {
+      "id": "knowledge-sharepoint",
+      "name": "SharePoint knowledge",
+      "category": "knowledge",
+      "level": 100,
+      "minutes": 20,
+      "core": true,
+      "summary": "Ground the agent in a SharePoint site so it answers from your own documents.",
+      "whyItMatters": "SharePoint is where most organizations already keep policies and procedures. Grounding there gives immediate, permission-trimmed value without moving any content.",
+      "concepts": [
+        "SharePoint knowledge honors the signed-in user's permissions — results are security-trimmed per user.",
+        "Indexing is not instant; allow time before judging answer quality.",
+        "Narrow the site or document library rather than pointing at an entire tenant — precision beats recall."
+      ],
+      "steps": [
+        "Open the **Knowledge** tab and select **Add knowledge**.",
+        "Choose **SharePoint** and paste the site or document library URL.",
+        "Give the source a clear description so the orchestrator knows when to use it.",
+        "Save and wait for indexing to complete.",
+        "Ask a question that can only be answered from that site and check the citation."
+      ],
+      "validation": [
+        "The answer cites a document from your SharePoint site.",
+        "A user without access to the site does not receive the content."
+      ],
+      "screenshots": [
+        {
+          "filename": "knowledge-sharepoint-add.png",
+          "section": "knowledge",
+          "instructions": [
+            "Show the Add knowledge dialog with SharePoint selected and a URL entered."
+          ]
+        },
+        {
+          "filename": "knowledge-answer-citation.png",
+          "section": "test",
+          "instructions": [
+            "Ask a SharePoint-grounded question in the Test pane.",
+            "Capture the answer including its citation."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio SharePoint knowledge source",
+        "Copilot Studio add knowledge SharePoint permissions"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-sharepoint",
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio"
+      ],
+      "prereqs": [
+        "create-agent"
+      ],
+      "relatedLabs": [
+        "04-energy-ops-agent"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "knowledge-files-web",
+      "name": "File uploads & public websites",
+      "category": "knowledge",
+      "level": 100,
+      "minutes": 15,
+      "summary": "Add uploaded documents and public web sources as additional grounding.",
+      "whyItMatters": "Uploaded files cover the one-off PDF that never made it into SharePoint, and public sites cover authoritative external standards you must not paraphrase from memory.",
+      "concepts": [
+        "Uploaded files are copied into the environment — they follow environment DLP and data residency, not the original file's.",
+        "Public website sources are crawled, so deep or JavaScript-heavy pages may not be reachable.",
+        "Every source you add competes for orchestrator attention; descriptions are how you break ties."
+      ],
+      "steps": [
+        "Open **Knowledge** > **Add knowledge** and choose **Files**.",
+        "Upload the document and add a description of what it covers.",
+        "Add a second source of type **Public website** and enter the site URL.",
+        "Wait for both to finish processing.",
+        "Ask one question per source and confirm the citations point to the right source."
+      ],
+      "validation": [
+        "A file-grounded question cites the uploaded document.",
+        "A web-grounded question cites the public site."
+      ],
+      "screenshots": [
+        {
+          "filename": "knowledge-sources-list.png",
+          "section": "knowledge",
+          "instructions": [
+            "Show the Knowledge tab listing all configured sources with their status."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio upload files knowledge",
+        "Copilot Studio public website knowledge source"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-file-upload",
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-public-website"
+      ],
+      "prereqs": [
+        "knowledge-sharepoint"
+      ],
+      "relatedLabs": [
+        "04-energy-ops-agent"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "knowledge-dataverse",
+      "name": "Dataverse knowledge",
+      "category": "knowledge",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Let the agent answer from structured Dataverse tables in natural language.",
+      "whyItMatters": "Documents answer 'what is the policy'. Dataverse answers 'what is the status of this specific record'. Most real business questions need the second kind.",
+      "concepts": [
+        "Table and column display names are what the model reasons over — cryptic schema names produce bad queries.",
+        "Dataverse access is enforced by the caller's security role, so results are trimmed per user.",
+        "Restrict the agent to the specific tables and columns it needs rather than the whole environment."
+      ],
+      "steps": [
+        "Open **Knowledge** > **Add knowledge** and choose **Dataverse**.",
+        "Select the tables the agent should reason over.",
+        "Restrict the column list to the fields that matter and confirm the display names are human-readable.",
+        "Save and wait for the source to become available.",
+        "Ask a record-level question and verify the returned values against the table."
+      ],
+      "validation": [
+        "A record-level question returns values that match the Dataverse row.",
+        "A user without the security role does not receive the data."
+      ],
+      "screenshots": [
+        {
+          "filename": "knowledge-dataverse-tables.png",
+          "section": "knowledge",
+          "instructions": [
+            "Show the Dataverse table picker with your selected tables."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio Dataverse knowledge source",
+        "Copilot Studio add Dataverse tables agent knowledge"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-dataverse"
+      ],
+      "prereqs": [
+        "knowledge-sharepoint"
+      ],
+      "relatedLabs": [
+        "18-account-orchestration-agent"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "knowledge-tuning",
+      "name": "Grounding & citation tuning",
+      "category": "knowledge",
+      "level": 200,
+      "minutes": 20,
+      "summary": "Constrain the agent to approved knowledge, control general-knowledge fallback, and verify citations.",
+      "whyItMatters": "An agent that quietly falls back to general model knowledge will eventually invent a policy. Locking grounding to approved sources is the difference between a demo and something legal will sign off on.",
+      "concepts": [
+        "Disabling general knowledge makes the agent say 'I don't know' instead of guessing — that is usually the correct behavior.",
+        "Citations are the audit trail; if an answer has no citation, treat it as ungrounded.",
+        "Source descriptions steer retrieval more than you expect — rewrite them when routing is wrong."
+      ],
+      "steps": [
+        "Open **Settings** > **Generative AI**.",
+        "Turn off the option that allows the agent to use its own general knowledge.",
+        "Save and ask a question your sources cannot answer.",
+        "Confirm the agent declines rather than answering from general knowledge.",
+        "Ask three in-scope questions and confirm each answer carries a citation."
+      ],
+      "validation": [
+        "An unanswerable question produces a decline, not an invented answer.",
+        "Every in-scope answer includes at least one citation."
+      ],
+      "screenshots": [
+        {
+          "filename": "grounding-general-knowledge-off.png",
+          "section": "settings",
+          "instructions": [
+            "Show the Generative AI settings with general knowledge disabled."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio disable general knowledge grounding",
+        "Copilot Studio citations knowledge answers"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/nlu-boost-conversations"
+      ],
+      "prereqs": [
+        "knowledge-sharepoint"
+      ],
+      "relatedLabs": [
+        "12-content-moderation-responsible-ai"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "12-content-moderation-responsible-ai",
+          "file": "generative-ai-settings.png",
+          "caption": "Generative AI settings — grounding controls"
+        }
+      ]
+    },
+    {
+      "id": "connector-tools",
+      "name": "Connector tools",
+      "category": "tools",
+      "level": 200,
+      "minutes": 25,
+      "core": true,
+      "summary": "Add a prebuilt Power Platform connector as an agent tool and wire its inputs and outputs.",
+      "whyItMatters": "Connectors are how the agent stops talking and starts doing. Adding one turns a Q&A bot into something that can read live systems of record.",
+      "concepts": [
+        "The tool **description** is what the orchestrator reads to decide when to call it — write it for the model, not for a developer.",
+        "Input mapping can be a fixed value, a variable, or a value the model fills at runtime; pick deliberately.",
+        "Test the tool in isolation before testing it through conversation, so failures are attributable."
+      ],
+      "steps": [
+        "Open the **Tools** tab and select **Add a tool**.",
+        "Choose **Connector**, find the connector you need, and pick the specific action.",
+        "Create or select the connection and confirm it authenticates.",
+        "Write a description that says exactly when the agent should call this tool, then map each input.",
+        "Use the tool's built-in test to verify it returns data, then ask a question in the **Test** pane that should invoke it."
+      ],
+      "validation": [
+        "The isolated tool test returns real data.",
+        "A natural-language question causes the orchestrator to call the tool, visible in the activity map."
+      ],
+      "screenshots": [
+        {
+          "filename": "tool-add-connector.png",
+          "section": "tools",
+          "instructions": [
+            "Show the Add a tool flow with a connector action selected."
+          ]
+        },
+        {
+          "filename": "tool-inputs-mapping.png",
+          "section": "tools",
+          "instructions": [
+            "Show the tool's input mapping configuration."
+          ]
+        },
+        {
+          "filename": "tool-test-result.png",
+          "section": "tools",
+          "instructions": [
+            "Run the tool's built-in test.",
+            "Capture the returned data."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio connector tool add agent",
+        "Copilot Studio tools actions connectors configure inputs"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-plugin-actions",
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors"
+      ],
+      "prereqs": [
+        "generative-orchestration"
+      ],
+      "relatedLabs": [
+        "06-energy-weather-agent"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "tool-county-demographics-inputs.png",
+          "caption": "Connector tool — input mapping"
+        },
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "tool-county-demographics-test.png",
+          "caption": "Connector tool — isolated test result"
+        }
+      ]
+    },
+    {
+      "id": "prompt-tools",
+      "name": "Custom prompt tools",
+      "category": "tools",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Build a reusable AI prompt in Prompt Builder and expose it to the agent as a tool.",
+      "whyItMatters": "Prompt tools give you a versioned, testable unit of AI behavior — classification, extraction, summarization — that you can reuse across agents and flows instead of burying it in instructions.",
+      "concepts": [
+        "Prompts take typed inputs and can return structured JSON output, which downstream nodes can branch on.",
+        "Test with the sample-data panel before wiring the prompt into an agent.",
+        "A focused prompt tool usually outperforms adding another paragraph to the agent instructions."
+      ],
+      "steps": [
+        "Open **Tools** > **Add a tool** > **Prompt**, or start in Prompt Builder.",
+        "Define the prompt's inputs and write the instruction text.",
+        "Set the output format — use structured output if a later step needs specific fields.",
+        "Test with sample data until the output is stable across several inputs.",
+        "Save the prompt as a tool, describe when it should be used, and invoke it from the **Test** pane."
+      ],
+      "validation": [
+        "The prompt returns the expected shape for at least three different inputs.",
+        "The agent calls the prompt tool for the intended question type."
+      ],
+      "screenshots": [
+        {
+          "filename": "prompt-builder-inputs.png",
+          "section": "tools",
+          "instructions": [
+            "Show Prompt Builder with inputs defined and instruction text visible."
+          ]
+        },
+        {
+          "filename": "prompt-test-output.png",
+          "section": "tools",
+          "instructions": [
+            "Run the prompt test with sample data.",
+            "Capture the structured output."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio prompt tool Prompt Builder",
+        "Power Platform AI Builder custom prompt structured output"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-prompt-actions"
+      ],
+      "prereqs": [
+        "generative-orchestration"
+      ],
+      "relatedLabs": [
+        "13-prompt-builder-agent-flows",
+        "14-agent-flows-prompt-nodes"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "custom-connectors",
+      "name": "Custom connectors & OAuth",
+      "category": "tools",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Build a custom Power Platform connector from an OpenAPI spec with OAuth 2.0, then use it as an agent tool.",
+      "whyItMatters": "Line-of-business APIs rarely have a prebuilt connector. A custom connector with OAuth is how you reach them without leaking credentials into the agent.",
+      "concepts": [
+        "Importing an OpenAPI spec generates operations, schemas, and parameters automatically — hand-authoring is a last resort.",
+        "OAuth 2.0 with Entra ID lets the connector act as the signed-in user, preserving downstream authorization.",
+        "Operation summaries and descriptions become the agent's tool descriptions — write them for the model."
+      ],
+      "steps": [
+        "In Power Apps, open **Custom connectors** and create a new connector from an OpenAPI definition.",
+        "Configure **Security** for OAuth 2.0 with your Entra ID app registration, scopes, and redirect URL.",
+        "Review each operation's summary and description on the **Definition** tab.",
+        "Create the connector, then test an operation with a live connection.",
+        "Add the connector operation as a tool on your agent and invoke it from the **Test** pane."
+      ],
+      "validation": [
+        "The connector test returns a successful response from the live API.",
+        "The agent calls the custom connector tool and returns real API data."
+      ],
+      "screenshots": [
+        {
+          "filename": "custom-connector-security.png",
+          "section": "custom",
+          "url": "https://make.powerapps.com",
+          "instructions": [
+            "Show the custom connector Security tab configured for OAuth 2.0.",
+            "Do not reveal the client secret."
+          ]
+        },
+        {
+          "filename": "custom-connector-test.png",
+          "section": "custom",
+          "url": "https://make.powerapps.com",
+          "instructions": [
+            "Run an operation on the Test tab.",
+            "Capture a successful response."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Power Platform custom connector OpenAPI OAuth Entra ID",
+        "Copilot Studio custom connector agent tool"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/connectors/custom-connectors/define-openapi-definition",
+        "https://learn.microsoft.com/connectors/custom-connectors/"
+      ],
+      "prereqs": [
+        "connector-tools"
+      ],
+      "relatedLabs": [
+        "21-custom-connectors-oauth"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mcp-servers",
+      "name": "MCP servers as tools",
+      "category": "tools",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Connect a Model Context Protocol server so its tools appear to the agent automatically.",
+      "whyItMatters": "MCP moves tool definitions out of the agent and into the server. When the server adds a tool, every connected agent gets it — no per-agent rework.",
+      "concepts": [
+        "MCP tools are discovered at connection time, so the agent's tool list changes when the server changes.",
+        "The MCP server owns authentication and authorization for the systems behind it.",
+        "Tool descriptions come from the server — you inherit their quality, good or bad."
+      ],
+      "steps": [
+        "Open **Tools** > **Add a tool** and choose the **Model Context Protocol** option.",
+        "Provide the MCP server endpoint and create the connection.",
+        "Review the tools the server advertises after discovery completes.",
+        "Enable the tools the agent should use and describe when to use them.",
+        "Ask a question that requires an MCP tool and confirm the call in the activity map."
+      ],
+      "validation": [
+        "Discovered MCP tools are listed on the agent.",
+        "The activity map shows an MCP tool call producing the answer."
+      ],
+      "screenshots": [
+        {
+          "filename": "mcp-tool-discovery.png",
+          "section": "tools",
+          "instructions": [
+            "Show the discovered MCP tool list after connecting the server."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio Model Context Protocol MCP server tool",
+        "Copilot Studio add MCP server agent"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agent-extend-action-mcp"
+      ],
+      "prereqs": [
+        "connector-tools"
+      ],
+      "relatedLabs": [
+        "18-account-orchestration-agent",
+        "27-work-iq-mcp-preview"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "mcp-tool-discovery.png",
+          "caption": "Tools discovered from a connected MCP server"
+        }
+      ]
+    },
+    {
+      "id": "connected-agents",
+      "name": "Connected agents",
+      "category": "orchestration",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Delegate specialized work from a primary agent to child agents with clear role boundaries.",
+      "whyItMatters": "One agent with forty tools routes badly. Splitting by domain keeps each agent's instructions short and its tool list decisive, which measurably improves routing accuracy.",
+      "concepts": [
+        "The parent routes on the child's **description** — overlapping descriptions cause misrouting.",
+        "Each child keeps its own instructions, knowledge, and tools; the parent stays thin.",
+        "Sharing must be enabled for an agent to be connectable by another agent."
+      ],
+      "steps": [
+        "Build or identify a specialist agent and confirm its instructions cover one domain only.",
+        "Enable sharing on the specialist so it can be used by other agents.",
+        "In the primary agent, open **Agents** and add the specialist as a connected agent.",
+        "Write a description that draws a sharp boundary against the primary agent's own scope.",
+        "Ask a specialist question and confirm the delegation in the activity map."
+      ],
+      "validation": [
+        "A specialist question is delegated to the child agent.",
+        "A primary-scope question is NOT delegated."
+      ],
+      "screenshots": [
+        {
+          "filename": "connected-agent-config.png",
+          "section": "agents",
+          "instructions": [
+            "Show the connected agent configuration with its description."
+          ]
+        },
+        {
+          "filename": "connected-agent-delegation.png",
+          "section": "test",
+          "instructions": [
+            "Ask a specialist question in the Test pane.",
+            "Expand the activity map showing delegation to the child agent."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio connected agents multi-agent",
+        "Copilot Studio add agent as tool delegation"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-connected-agents"
+      ],
+      "prereqs": [
+        "generative-orchestration"
+      ],
+      "relatedLabs": [
+        "18-account-orchestration-agent",
+        "20-agent-to-agent-ga"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "connected-agent-config.png",
+          "caption": "Connected agent configuration"
+        },
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "connected-agent-sharing-enabled.png",
+          "caption": "Sharing enabled so the agent can be connected"
+        }
+      ]
+    },
+    {
+      "id": "agent-to-agent",
+      "name": "Agent-to-agent (A2A) protocol",
+      "category": "orchestration",
+      "level": 300,
+      "minutes": 35,
+      "summary": "Connect agents across platforms using the A2A protocol and validate the cross-platform handoff.",
+      "whyItMatters": "A2A is how a Copilot Studio agent reaches a specialist that does not live in Copilot Studio, without either side rewriting its logic as a connector.",
+      "concepts": [
+        "The agent card advertises the remote agent's skills; routing quality depends on it.",
+        "Endpoint authentication varies (none, API key, OAuth 2.0) — confirm the mode before wiring.",
+        "Cross-platform hops add latency; measure end-to-end, not just the local turn."
+      ],
+      "steps": [
+        "Obtain the remote agent's A2A endpoint and its authentication requirements.",
+        "In the primary agent, add the remote agent as an A2A connection.",
+        "Supply the credentials for the endpoint's authentication mode.",
+        "Describe when the primary agent should hand off to the remote agent.",
+        "Run a cross-platform question and inspect the request and response in the activity map."
+      ],
+      "validation": [
+        "A cross-platform question returns a response produced by the remote agent.",
+        "Authentication failures produce a clear, handled error rather than a hang."
+      ],
+      "screenshots": [
+        {
+          "filename": "a2a-connection-config.png",
+          "section": "agents",
+          "instructions": [
+            "Show the A2A connection configuration.",
+            "Mask any secret values."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio agent-to-agent A2A protocol",
+        "Copilot Studio connect external agent A2A endpoint"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-a2a-agents"
+      ],
+      "prereqs": [
+        "connected-agents"
+      ],
+      "relatedLabs": [
+        "19-agent-to-agent-protocol",
+        "20-agent-to-agent-ga"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "agent-flows",
+      "name": "Agent flows",
+      "category": "automation",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Build a deterministic agent flow and call it from the agent as a tool.",
+      "whyItMatters": "Some work must happen the same way every time — create the ticket, write the row, send the notification. Agent flows give you that determinism while the agent keeps the conversation.",
+      "concepts": [
+        "Flows are triggered by the agent and can return values back into the conversation.",
+        "Inputs and outputs form a contract; changing it silently breaks the calling agent.",
+        "Flow run history is your audit trail when a user reports a wrong result."
+      ],
+      "steps": [
+        "Open **Tools** > **Add a tool** > **New agent flow**.",
+        "Define the flow inputs the agent will supply.",
+        "Add the action steps that do the work.",
+        "Return the outputs the conversation needs, then save and test the flow directly.",
+        "Describe the flow tool on the agent and trigger it from the **Test** pane."
+      ],
+      "validation": [
+        "A direct flow test succeeds with representative inputs.",
+        "The agent triggers the flow and surfaces its output in the conversation."
+      ],
+      "screenshots": [
+        {
+          "filename": "agent-flow-canvas.png",
+          "section": "tools",
+          "instructions": [
+            "Show the agent flow canvas with trigger, actions, and response."
+          ]
+        },
+        {
+          "filename": "agent-flow-run-history.png",
+          "section": "tools",
+          "instructions": [
+            "Show a successful flow run with its inputs and outputs."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio agent flows",
+        "Copilot Studio create agent flow tool inputs outputs"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview"
+      ],
+      "prereqs": [
+        "connector-tools"
+      ],
+      "relatedLabs": [
+        "13-prompt-builder-agent-flows",
+        "15-agent-flows-agent-nodes"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "flow-agent-trigger.png",
+          "caption": "Agent flow trigger with declared inputs"
+        },
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "flow-state-summary-canvas.png",
+          "caption": "Agent flow canvas"
+        }
+      ]
+    },
+    {
+      "id": "flow-prompt-nodes",
+      "name": "Agent flows: prompt nodes",
+      "category": "automation",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Embed AI prompt nodes inside a flow for classification and synthesis with structured outputs.",
+      "whyItMatters": "A prompt node inside a flow lets you branch deterministically on an AI judgement — classify first, then take an exact action — instead of hoping the conversation lands correctly.",
+      "concepts": [
+        "Structured output turns a model response into named fields the next node can branch on.",
+        "Always add a fallback branch for unparseable or low-confidence output.",
+        "Keep prompt nodes single-purpose so failures are easy to localize."
+      ],
+      "steps": [
+        "Open an agent flow and add a **Prompt** node.",
+        "Bind the flow input to the prompt's input.",
+        "Configure structured output with the fields the next steps need.",
+        "Add a **Condition** node that branches on one of those fields.",
+        "Add a fallback branch, then test every path."
+      ],
+      "validation": [
+        "The prompt node returns parseable structured output.",
+        "Each branch, including the fallback, has been exercised."
+      ],
+      "screenshots": [
+        {
+          "filename": "flow-prompt-node.png",
+          "section": "tools",
+          "instructions": [
+            "Show a prompt node in a flow with structured output configured."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio agent flow prompt node structured output",
+        "Power Automate AI prompt action structured output"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview"
+      ],
+      "prereqs": [
+        "agent-flows",
+        "prompt-tools"
+      ],
+      "relatedLabs": [
+        "14-agent-flows-prompt-nodes"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "flow-async",
+      "name": "Agent flows: async responses",
+      "category": "automation",
+      "level": 300,
+      "minutes": 25,
+      "summary": "Handle long-running work with acknowledgement, completion, timeout, and failure paths.",
+      "whyItMatters": "Users abandon a chat that goes silent for thirty seconds. Async patterns let the agent acknowledge immediately and deliver the result when it is ready.",
+      "concepts": [
+        "Acknowledge the request in the same turn the work starts — silence reads as failure.",
+        "Every async path needs an explicit timeout branch, not just a happy path.",
+        "Correlate the async result back to the right conversation with an identifier."
+      ],
+      "steps": [
+        "Identify the long-running step in your flow and measure its typical duration.",
+        "Add an immediate acknowledgement response in the agent before the long step.",
+        "Implement the completion path that returns the result to the user.",
+        "Add explicit timeout and failure branches with user-visible messaging.",
+        "Test the happy path, a timeout, and a hard failure."
+      ],
+      "validation": [
+        "The user receives an acknowledgement within a couple of seconds.",
+        "Timeout and failure both produce clear messages rather than silence."
+      ],
+      "screenshots": [
+        {
+          "filename": "flow-async-branches.png",
+          "section": "tools",
+          "instructions": [
+            "Show the flow with completion, timeout, and failure branches visible."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio agent flow asynchronous long running response",
+        "Copilot Studio flow timeout handling agent"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview"
+      ],
+      "prereqs": [
+        "agent-flows"
+      ],
+      "relatedLabs": [
+        "17-agent-flows-async-responses"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "analytics",
+      "name": "Analytics dashboard",
+      "category": "analytics",
+      "level": 200,
+      "minutes": 20,
+      "summary": "Read engagement, resolution, and escalation metrics to find what to fix next.",
+      "whyItMatters": "Analytics is how you replace opinions about agent quality with evidence. The unresolved and escalated buckets are a prioritized backlog you did not have to write.",
+      "concepts": [
+        "Resolution rate without volume context is misleading — always read them together.",
+        "Escalation reasons point at missing knowledge or missing tools, not at the model.",
+        "Analytics data lags; do not judge a change on the same day you ship it."
+      ],
+      "steps": [
+        "Open the **Analytics** tab for the agent.",
+        "Set the date range to a period with representative traffic.",
+        "Record engagement, resolution, escalation, and abandon rates.",
+        "Open the sessions behind the worst-performing bucket and read the transcripts.",
+        "Write down the top three concrete improvements the data supports."
+      ],
+      "validation": [
+        "You have baseline numbers for the core metrics.",
+        "You have three specific, evidence-backed improvements."
+      ],
+      "screenshots": [
+        {
+          "filename": "analytics-dashboard.png",
+          "section": "analytics",
+          "instructions": [
+            "Show the Analytics summary with the date range visible."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio analytics dashboard resolution rate",
+        "Copilot Studio analytics overview sessions"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-overview"
+      ],
+      "prereqs": [
+        "publish-agent"
+      ],
+      "relatedLabs": [
+        "07-agent-analytics-evaluations",
+        "11-custom-analytics-metrics"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "evaluations",
+      "name": "Agent evaluations",
+      "category": "analytics",
+      "level": 200,
+      "minutes": 30,
+      "core": true,
+      "summary": "Build an evaluation test set and run it to baseline quality and catch regressions.",
+      "whyItMatters": "Without an evaluation set, every change is a guess. With one, you can prove a change helped before it reaches users — and prove it did not break anything else.",
+      "concepts": [
+        "Test sets can be auto-generated, imported from CSV, captured from the test canvas, or hand-written; mix all four.",
+        "Include adversarial and out-of-scope cases, not just the happy path.",
+        "The first run is a baseline, not a grade — its value is comparison over time."
+      ],
+      "steps": [
+        "Open the **Evaluations** area for the agent.",
+        "Create a test set and add cases using at least two of the available methods.",
+        "Include out-of-scope and adversarial cases with their expected refusals.",
+        "Run the evaluation and record the baseline results.",
+        "Make one improvement, re-run, and compare the two runs."
+      ],
+      "validation": [
+        "A baseline evaluation run is saved.",
+        "A second run after a change shows a measurable comparison."
+      ],
+      "screenshots": [
+        {
+          "filename": "eval-test-set.png",
+          "section": "evaluations",
+          "instructions": [
+            "Show the evaluation test set with several cases."
+          ]
+        },
+        {
+          "filename": "eval-results.png",
+          "section": "evaluations",
+          "instructions": [
+            "Show the evaluation results with per-case outcomes."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio agent evaluations test set",
+        "Copilot Studio evaluate agent quality regression"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-evaluations"
+      ],
+      "prereqs": [
+        "agent-instructions"
+      ],
+      "relatedLabs": [
+        "07-agent-analytics-evaluations",
+        "08-agent-evaluations-ga"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "eval-test-methods.png",
+          "caption": "Evaluation test set creation methods"
+        },
+        {
+          "lab": "06-energy-weather-agent",
+          "file": "evaluation-results.png",
+          "caption": "Evaluation run results"
+        }
+      ]
+    },
+    {
+      "id": "multiturn-tests",
+      "name": "Multi-turn conversation tests",
+      "category": "analytics",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Script multi-turn regression tests that validate context retention and branching.",
+      "whyItMatters": "Single-turn tests miss the failures users actually hit: the agent forgetting what they said two turns ago, or losing the thread after a clarifying question.",
+      "concepts": [
+        "Test context carryover explicitly — refer back to an earlier answer without repeating it.",
+        "Include a topic switch and a switch back to prove state is preserved.",
+        "Assert on completion of the task, not just on individual message text."
+      ],
+      "steps": [
+        "Write a realistic multi-turn script including a clarifying question.",
+        "Add a turn that refers to an earlier answer using a pronoun.",
+        "Add a topic switch followed by a return to the original task.",
+        "Run the script and record where context was lost.",
+        "Fix the causes and re-run the same script."
+      ],
+      "validation": [
+        "The agent completes the task across all turns.",
+        "The pronoun reference resolves to the right earlier answer."
+      ],
+      "screenshots": [
+        {
+          "filename": "multiturn-test-run.png",
+          "section": "evaluations",
+          "instructions": [
+            "Show a multi-turn test script and its run result."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio multi-turn conversation test",
+        "Copilot Studio test agent conversation context"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-evaluations"
+      ],
+      "prereqs": [
+        "evaluations"
+      ],
+      "relatedLabs": [
+        "09-multi-turn-conversation-tests"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "authentication",
+      "name": "End-user authentication & SSO",
+      "category": "governance",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Configure Entra ID sign-in so the agent acts on behalf of the signed-in user.",
+      "whyItMatters": "Without user authentication, every user sees the same data. With it, SharePoint, Dataverse, and connector results are trimmed to what that specific person is allowed to see.",
+      "concepts": [
+        "Manual Entra ID authentication gives you control over scopes and redirect URLs; Microsoft-managed auth is faster but less flexible.",
+        "Scopes decide what downstream systems the agent can reach on the user's behalf — request the minimum.",
+        "Changing the authentication mode resets existing connections; plan for re-consent."
+      ],
+      "steps": [
+        "Open **Settings** > **Security** > **Authentication**.",
+        "Compare the available authentication options and choose the one your scenario requires.",
+        "For manual Entra ID, register or reuse an app registration and enter client ID, token URLs, and scopes.",
+        "Add the required redirect URL to the app registration.",
+        "Save, publish, and validate the sign-in prompt and post-sign-in behavior in a channel."
+      ],
+      "validation": [
+        "An unauthenticated user is prompted to sign in.",
+        "After sign-in, results are trimmed to that user's permissions."
+      ],
+      "screenshots": [
+        {
+          "filename": "security-authentication-page.png",
+          "section": "settings",
+          "instructions": [
+            "Open Settings > Security > Authentication.",
+            "Show the authentication options."
+          ]
+        },
+        {
+          "filename": "entra-auth-config.png",
+          "section": "settings",
+          "instructions": [
+            "Show the manual Entra ID configuration fields.",
+            "Do not capture real secrets."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio end user authentication Entra ID",
+        "Copilot Studio configure user authentication SSO scopes"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/configuration-end-user-authentication"
+      ],
+      "prereqs": [
+        "create-agent"
+      ],
+      "relatedLabs": [
+        "34-authentication-end-user-signin"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "34-authentication-end-user-signin",
+          "file": "security-authentication-page.png",
+          "caption": "Settings — Security — Authentication"
+        },
+        {
+          "lab": "34-authentication-end-user-signin",
+          "file": "entra-auth-config.png",
+          "caption": "Manual Entra ID authentication configuration"
+        },
+        {
+          "lab": "34-authentication-end-user-signin",
+          "file": "test-signin-prompt.png",
+          "caption": "End-user sign-in prompt in the Test pane"
+        }
+      ]
+    },
+    {
+      "id": "content-moderation",
+      "name": "Content moderation & guardrails",
+      "category": "governance",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Set moderation levels, tighten grounding, and validate refusal behavior against adversarial prompts.",
+      "whyItMatters": "Moderation and explicit scope boundaries are what keep an agent from confidently answering a question it has no business answering. This is usually the gate to production approval.",
+      "concepts": [
+        "Higher moderation reduces risky output but increases false refusals — tune, then measure.",
+        "Moderation settings and instruction-level boundaries are complementary, not redundant.",
+        "Adversarial testing belongs in your evaluation set so refusals cannot silently regress."
+      ],
+      "steps": [
+        "Open **Settings** > **Generative AI** and review the content moderation level.",
+        "Set the level appropriate for your audience and save.",
+        "Add explicit scope and safety boundaries to the agent instructions.",
+        "Run a set of adversarial and out-of-scope prompts.",
+        "Record which prompts were refused and add the gaps to your evaluation set."
+      ],
+      "validation": [
+        "Adversarial prompts are refused with the documented message.",
+        "In-scope prompts still succeed at the chosen moderation level."
+      ],
+      "screenshots": [
+        {
+          "filename": "content-moderation-level.png",
+          "section": "settings",
+          "instructions": [
+            "Show the content moderation level control."
+          ]
+        },
+        {
+          "filename": "guardrail-refusal.png",
+          "section": "test",
+          "instructions": [
+            "Send an adversarial prompt in the Test pane.",
+            "Capture the refusal response."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio content moderation level",
+        "Copilot Studio responsible AI guardrails agent"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/nlu-boost-conversations",
+        "https://learn.microsoft.com/microsoft-copilot-studio/security-and-governance"
+      ],
+      "prereqs": [
+        "agent-instructions"
+      ],
+      "relatedLabs": [
+        "12-content-moderation-responsible-ai"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "12-content-moderation-responsible-ai",
+          "file": "content-moderation-level.png",
+          "caption": "Content moderation level setting"
+        },
+        {
+          "lab": "12-content-moderation-responsible-ai",
+          "file": "test-guardrail-response.png",
+          "caption": "Guardrail refusal in the Test pane"
+        }
+      ]
+    },
+    {
+      "id": "dlp-governance",
+      "name": "DLP & environment governance",
+      "category": "governance",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Create tenant DLP policies that classify connectors and scope them to environments.",
+      "whyItMatters": "DLP is the control that stops a maker from wiring a corporate data connector to a public one. It is enforced at the platform, so it survives agents you have never seen.",
+      "concepts": [
+        "Connectors in Business and Non-business groups cannot be combined in the same agent or flow.",
+        "Blocked connectors cannot be used at all in the scoped environments.",
+        "Policy changes can break existing agents — inventory before you enforce."
+      ],
+      "steps": [
+        "Open the Power Platform admin center and go to **Policies** > **Data policies**.",
+        "Create a policy and name it for its intent.",
+        "Classify connectors into Business, Non-business, and Blocked.",
+        "Scope the policy to your target environments.",
+        "Save, then confirm a blocked connector is unavailable to a new agent in that environment."
+      ],
+      "validation": [
+        "The policy appears in the data policies list scoped to the right environments.",
+        "A blocked connector is genuinely unavailable in the scoped environment."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppac-dlp-policies.png",
+          "section": "admin",
+          "url": "https://admin.powerplatform.microsoft.com",
+          "instructions": [
+            "Show the Data policies list in the Power Platform admin center."
+          ]
+        },
+        {
+          "filename": "connector-classification.png",
+          "section": "admin",
+          "url": "https://admin.powerplatform.microsoft.com",
+          "instructions": [
+            "Show connectors grouped into Business, Non-business, and Blocked."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Power Platform DLP policy connector classification",
+        "Power Platform admin center data policies environments"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention"
+      ],
+      "prereqs": [],
+      "relatedLabs": [
+        "35-dlp-governance-policies"
+      ],
+      "reuseScreenshots": [
+        {
+          "lab": "35-dlp-governance-policies",
+          "file": "ppac-dlp-policies.png",
+          "caption": "Power Platform admin center — data policies"
+        },
+        {
+          "lab": "35-dlp-governance-policies",
+          "file": "connector-classification.png",
+          "caption": "Connector classification groups"
+        },
+        {
+          "lab": "35-dlp-governance-policies",
+          "file": "policy-applied-environment.png",
+          "caption": "DLP policy scoped to an environment"
+        }
+      ]
+    },
+    {
+      "id": "alm-solutions",
+      "name": "Solutions & ALM",
+      "category": "governance",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Package the agent into a solution and move it between environments predictably.",
+      "whyItMatters": "Agents built directly in production cannot be reviewed, rolled back, or reproduced. Solutions make an agent a versioned artifact you can promote like any other software.",
+      "concepts": [
+        "Create the agent inside a solution from the start; retrofitting is painful.",
+        "Environment variables and connection references keep environment-specific values out of the package.",
+        "Managed solutions in downstream environments prevent drift from direct edits."
+      ],
+      "steps": [
+        "Create an unmanaged solution in your development environment.",
+        "Create or add the agent and its dependencies to that solution.",
+        "Replace environment-specific values with environment variables and connection references.",
+        "Export the solution as managed.",
+        "Import into a test environment, supply the variable values, and validate the agent works."
+      ],
+      "validation": [
+        "The managed solution imports without missing-dependency errors.",
+        "The imported agent works using the target environment's own values."
+      ],
+      "screenshots": [
+        {
+          "filename": "solution-contents.png",
+          "section": "solutions",
+          "url": "https://make.powerapps.com",
+          "instructions": [
+            "Show the solution contents including the agent and its dependencies."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Power Platform ALM solutions managed unmanaged Copilot Studio agent",
+        "Copilot Studio agent solution environment variables connection references"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions"
+      ],
+      "prereqs": [
+        "publish-agent"
+      ],
+      "relatedLabs": [
+        "36-copilot-studio-vscode-agent-management"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "channel-teams",
+      "name": "Publish to Teams & Microsoft 365",
+      "category": "channels",
+      "level": 100,
+      "minutes": 20,
+      "summary": "Publish the agent to Microsoft Teams and Microsoft 365 Copilot and validate the end-user experience.",
+      "whyItMatters": "Adoption follows the tools people already have open. Publishing into Teams removes the 'where do I find it' problem that kills most internal agents.",
+      "concepts": [
+        "Teams availability may require admin approval before users can install it.",
+        "Rendering differs between Teams and web chat — validate cards in Teams specifically.",
+        "The Microsoft 365 Copilot channel surfaces the agent inside Copilot chat rather than as a standalone app."
+      ],
+      "steps": [
+        "Open **Channels** and select **Microsoft Teams and Microsoft 365 Copilot**.",
+        "Turn the channel on and configure availability.",
+        "Publish the agent.",
+        "Install the agent for yourself and start a conversation in Teams.",
+        "Verify text, cards, and any sign-in prompt behave correctly."
+      ],
+      "validation": [
+        "The agent is reachable in Teams and answers correctly.",
+        "Cards and sign-in prompts render properly in Teams."
+      ],
+      "screenshots": [
+        {
+          "filename": "channel-teams-config.png",
+          "section": "channels",
+          "instructions": [
+            "Show the Teams channel configuration with availability options."
+          ]
+        },
+        {
+          "filename": "teams-conversation.png",
+          "section": "channels",
+          "instructions": [
+            "Capture a working conversation with the agent inside Teams."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio publish agent Microsoft Teams channel",
+        "Copilot Studio Microsoft 365 Copilot channel publish"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams"
+      ],
+      "prereqs": [
+        "publish-agent"
+      ],
+      "relatedLabs": [
+        "01-intro-workshop"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "channel-web-sdk",
+      "name": "Embed in a web app (Client SDK)",
+      "category": "channels",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Embed the agent in a custom-branded web page using the Copilot Studio Client SDK with MSAL authentication.",
+      "whyItMatters": "The default web chat is fine for a pilot. A custom embed lets you own branding, layout, and the authentication story — which is what customer-facing deployments actually require.",
+      "concepts": [
+        "The SDK handles the conversation lifecycle; you own rendering and state.",
+        "Delegated auth through MSAL.js means the agent runs as the signed-in user.",
+        "You must handle adaptive card fallback yourself — the SDK does not render cards for you."
+      ],
+      "steps": [
+        "Register an Entra ID application for a single-page application and add your redirect URI.",
+        "Install the Copilot Studio client SDK and MSAL.js in your web project.",
+        "Acquire a token with MSAL and initialize the client with your agent's connection settings.",
+        "Start a conversation, render incoming activities, and handle suggested actions.",
+        "Add adaptive card fallback rendering, then style the chat to your brand."
+      ],
+      "validation": [
+        "The embedded chat authenticates and exchanges messages with the published agent.",
+        "Suggested actions work and cards degrade gracefully."
+      ],
+      "screenshots": [
+        {
+          "filename": "web-embed-chat.png",
+          "section": "custom",
+          "instructions": [
+            "Show the branded embedded chat with a live conversation."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio client SDK embed web app",
+        "microsoft agents copilotstudio client MSAL authentication"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/publication-connect-bot-to-custom-application"
+      ],
+      "prereqs": [
+        "authentication",
+        "publish-agent"
+      ],
+      "relatedLabs": [
+        "32-embed-agent-web-sdk"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "voice-agents",
+      "name": "Real-time voice agents",
+      "category": "channels",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Build a real-time voice agent for telephony with turn-taking, hold/resume, and post-call actions.",
+      "whyItMatters": "Voice is where field and customer-facing users actually are. It also punishes latency and ambiguity far more than chat, which forces genuinely better design.",
+      "concepts": [
+        "Voice responses must be short — what reads fine on screen is unbearable spoken.",
+        "Barge-in and turn-taking behavior determine whether the call feels natural.",
+        "Recording and consent requirements are jurisdictional; confirm before enabling."
+      ],
+      "steps": [
+        "Enable the voice channel for the agent.",
+        "Rewrite the key responses for spoken delivery and test them aloud.",
+        "Configure turn-taking, silence handling, and hold/resume behavior.",
+        "Configure post-call actions such as transcript or summary delivery.",
+        "Place test calls covering the happy path, a misheard input, and a transfer."
+      ],
+      "validation": [
+        "A test call completes the primary task end to end.",
+        "Misheard input recovers gracefully instead of looping."
+      ],
+      "screenshots": [
+        {
+          "filename": "voice-channel-config.png",
+          "section": "channels",
+          "instructions": [
+            "Show the voice channel configuration with turn-taking settings."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio voice agent telephony channel",
+        "Copilot Studio real-time voice configure"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/voice-overview"
+      ],
+      "prereqs": [
+        "publish-agent"
+      ],
+      "relatedLabs": [
+        "30-realtime-voice-agents",
+        "31-realtime-voice-agents-preview"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "computer-use",
+      "name": "Computer-using agents",
+      "category": "advanced",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Automate a UI-only application with a computer-using agent and govern its execution.",
+      "whyItMatters": "Some systems have no API and never will. Computer use lets an agent drive them the way a person would, which is often the only path to automating legacy workflows.",
+      "concepts": [
+        "Computer use is slower and more brittle than an API — use it when there is no alternative.",
+        "Every action needs a verification checkpoint or failures cascade silently.",
+        "Run under a dedicated, least-privilege identity and log every session."
+      ],
+      "steps": [
+        "Identify a UI-only task and write out each step a person performs.",
+        "Create a computer-use tool and describe the task and its success condition.",
+        "Add verification checkpoints between steps.",
+        "Run the automation and watch the session recording for drift.",
+        "Add retries and failure handling, then document the governance model."
+      ],
+      "validation": [
+        "The automation completes the task without human intervention.",
+        "An injected failure is detected at a checkpoint rather than silently ignored."
+      ],
+      "screenshots": [
+        {
+          "filename": "computer-use-tool.png",
+          "section": "tools",
+          "instructions": [
+            "Show the computer-use tool configuration with the task description."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio computer use agent",
+        "Copilot Studio computer use tool configure governance"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/computer-use"
+      ],
+      "prereqs": [
+        "connector-tools"
+      ],
+      "relatedLabs": [
+        "28-computer-use-agents",
+        "29-computer-use-ga"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "work-iq",
+      "name": "Work IQ & Microsoft 365 grounding",
+      "category": "advanced",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Ground the agent in Microsoft 365 work signals for context-aware answers.",
+      "whyItMatters": "Work IQ brings the user's own working context — files, meetings, communications — into the answer, which is what makes a briefing agent feel personal rather than generic.",
+      "concepts": [
+        "Everything is permission-trimmed to the signed-in user, so end-user authentication is a hard prerequisite.",
+        "Answers vary per user by design — evaluate with several personas, not one.",
+        "Combine work signals with curated external sources so answers are both personal and authoritative."
+      ],
+      "steps": [
+        "Confirm end-user authentication is configured and working.",
+        "Add the Microsoft 365 / Work IQ grounding source to the agent.",
+        "Describe when the agent should use work context versus curated knowledge.",
+        "Test as two different users and compare the answers.",
+        "Document what each persona is and is not able to see."
+      ],
+      "validation": [
+        "Two different users receive appropriately different, permission-trimmed answers.",
+        "No user sees content they cannot access directly in Microsoft 365."
+      ],
+      "screenshots": [
+        {
+          "filename": "work-iq-knowledge.png",
+          "section": "knowledge",
+          "instructions": [
+            "Show the Microsoft 365 / Work IQ grounding source configured on the agent."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio Work IQ Microsoft 365 grounding",
+        "Copilot Studio Microsoft 365 knowledge source permissions"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio"
+      ],
+      "prereqs": [
+        "authentication"
+      ],
+      "relatedLabs": [
+        "05-work-iq-m365-intelligence",
+        "27-work-iq-mcp-preview"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "vscode-authoring",
+      "name": "VS Code agent authoring",
+      "category": "advanced",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Clone an agent to VS Code, edit it as source, and republish to the cloud.",
+      "whyItMatters": "Source-based authoring gives you diffs, code review, and branching for agents — the engineering practices that the web canvas cannot provide.",
+      "concepts": [
+        "The cloned agent is YAML on disk; topics, instructions, and tools are all reviewable text.",
+        "Publishing from VS Code overwrites the cloud version — coordinate with anyone editing in the browser.",
+        "Source authoring pairs naturally with solutions and pipelines for full ALM."
+      ],
+      "steps": [
+        "Install the Copilot Studio extension in VS Code and sign in to your environment.",
+        "Clone the target agent to a local folder.",
+        "Inspect the generated YAML for the agent, its topics, and its tools.",
+        "Make a change to instructions or a topic in source.",
+        "Publish back to the cloud and verify the change in the Test pane."
+      ],
+      "validation": [
+        "The cloned agent's YAML is present locally and readable.",
+        "A source-side change appears in the cloud agent after publishing."
+      ],
+      "screenshots": [
+        {
+          "filename": "vscode-agent-yaml.png",
+          "section": "custom",
+          "instructions": [
+            "Show the cloned agent YAML open in VS Code."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio VS Code extension agent authoring",
+        "Copilot Studio clone agent VS Code publish"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/vs-code-extension"
+      ],
+      "prereqs": [
+        "publish-agent"
+      ],
+      "relatedLabs": [
+        "36-copilot-studio-vscode-agent-management"
+      ],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "usage-credits",
+      "name": "Usage estimation & Copilot Credits",
+      "category": "advanced",
+      "level": 200,
+      "minutes": 20,
+      "summary": "Estimate consumption, identify cost drivers, and set rollout guardrails.",
+      "whyItMatters": "Copilot Credits are consumed per interaction and per capability. Knowing your cost curve before rollout is what keeps a successful pilot from becoming an unbudgeted surprise.",
+      "concepts": [
+        "Generative orchestration, tool calls, and larger models each add to per-conversation cost.",
+        "Estimate from expected conversations per user per day, not from total headcount.",
+        "Set monitoring thresholds before rollout so you notice a spike in hours, not at month end."
+      ],
+      "steps": [
+        "Estimate daily active users and conversations per user for your scenario.",
+        "Use the usage estimator to model consumption for that volume.",
+        "Identify which capabilities dominate the estimate.",
+        "Model a lower-cost variant and compare.",
+        "Define alert thresholds and a review cadence."
+      ],
+      "validation": [
+        "You have a documented estimate with stated assumptions.",
+        "You have alert thresholds and an owner for the review cadence."
+      ],
+      "screenshots": [
+        {
+          "filename": "usage-estimator.png",
+          "section": "admin",
+          "url": "https://admin.powerplatform.microsoft.com",
+          "instructions": [
+            "Show the usage estimation view with your modeled inputs."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot Studio Copilot Credits usage estimator",
+        "Copilot Studio licensing messages consumption"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing"
+      ],
+      "prereqs": [],
+      "relatedLabs": [
+        "37-usage-estimator-copilot-credits"
+      ],
+      "reuseScreenshots": []
+    }
+  ]
+}

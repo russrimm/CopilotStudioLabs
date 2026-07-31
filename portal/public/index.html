@@ -784,6 +784,98 @@
     }
     .scenario-empty { color: var(--text-muted); font-size: 13px; }
 
+    /* ── Lab builder wizard ─────────────── */
+    .lb-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .lb-step {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .lb-step span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .lb-step.active {
+      border-color: var(--accent);
+      background: rgba(79, 143, 247, 0.12);
+      color: var(--text);
+    }
+    .lb-step.active span { background: var(--accent); color: #fff; }
+    .lb-step.done span { background: var(--success, #34d399); color: #06281d; }
+    .lb-category { margin-bottom: 20px; }
+    .lb-category-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .lb-category-desc { color: var(--text-muted); font-size: 12px; margin-bottom: 10px; }
+    .lb-feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 8px;
+    }
+    .lb-feature {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .lb-feature:hover { border-color: var(--accent); }
+    .lb-feature.checked { border-color: var(--accent); background: rgba(79, 143, 247, 0.1); }
+    .lb-feature input { margin-top: 3px; accent-color: var(--accent); }
+    .lb-feature-name { font-size: 13px; font-weight: 600; }
+    .lb-feature-meta { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+    .lb-feature-summary { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+    .lb-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 10px;
+      margin-left: 6px;
+    }
+    .lb-module-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+    .lb-module {
+      display: flex;
+      gap: 10px;
+      padding: 8px 12px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .lb-warning {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(251, 191, 36, 0.12);
+      border: 1px solid rgba(251, 191, 36, 0.3);
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
     /* ── Email recipients ───────────────── */
     .recipients-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
     .recipient-chip {
@@ -1331,6 +1423,7 @@
         <div class="tabs">
           <button class="tab active" data-tab="provision">🚀 Provision</button>
           <button class="tab" data-tab="scenarios">🏢 Industry Scenarios</button>
+          <button class="tab" data-tab="labbuilder">🧬 Build a Lab</button>
           <button class="tab" data-tab="preview">👁️ Preview</button>
           <button class="tab" data-tab="azure">☁️ Azure Resources</button>
           <button class="tab" data-tab="powerplatform">⚡ Power Platform</button>
@@ -1561,6 +1654,135 @@ flowchart TD
                 <button class="btn btn-primary" onclick="applyScenarioConfig()">✨ Apply to Lab Config</button>
                 <span id="scenario-apply-status" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>
+            </div>
+          </div>
+
+          <!-- Lab Builder tab -->
+          <div class="tab-panel" id="panel-labbuilder">
+            <div class="panel">
+              <h3>🧬 Build a Custom Lab</h3>
+              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+                Pick your industry, the roles you are teaching, and the Copilot Studio features you want to cover.
+                Every module is grounded against live Microsoft Learn documentation through the Microsoft Learn MCP
+                server, so the steps and citations reflect the current product.
+              </p>
+
+              <div class="lb-steps" id="lb-steps">
+                <div class="lb-step active" data-lb-step="1"><span>1</span> Industry</div>
+                <div class="lb-step" data-lb-step="2"><span>2</span> Roles</div>
+                <div class="lb-step" data-lb-step="3"><span>3</span> Features</div>
+                <div class="lb-step" data-lb-step="4"><span>4</span> Options</div>
+                <div class="lb-step" data-lb-step="5"><span>5</span> Build</div>
+              </div>
+            </div>
+
+            <!-- Step 1: industry -->
+            <div class="panel lb-pane" id="lb-pane-1">
+              <h3>1. Who is this lab for?</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                The industry sets the agent scenario, sample questions, knowledge sources, and vocabulary used throughout the lab.
+              </p>
+              <div id="lb-industry-grid" class="scenario-grid">
+                <div class="scenario-empty">Loading industries...</div>
+              </div>
+              <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <button class="btn btn-primary" onclick="lbGoToStep(2)">Next: Roles →</button>
+              </div>
+            </div>
+
+            <!-- Step 2: roles -->
+            <div class="panel lb-pane" id="lb-pane-2" style="display: none;">
+              <h3>2. Which roles are you teaching?</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Roles shape the design guidance in each module. Optional — you can skip this.
+              </p>
+              <div id="lb-role-list" class="scenario-role-list">
+                <div class="scenario-empty">Loading roles...</div>
+              </div>
+              <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <button class="btn" onclick="lbGoToStep(1)">← Back</button>
+                <button class="btn btn-primary" onclick="lbGoToStep(3)">Next: Features →</button>
+              </div>
+            </div>
+
+            <!-- Step 3: features -->
+            <div class="panel lb-pane" id="lb-pane-3" style="display: none;">
+              <h3>3. What should they learn?</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Select the Copilot Studio capabilities to cover. Prerequisites are added automatically, so you can
+                pick just the advanced feature you care about.
+              </p>
+              <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;">
+                <input type="text" id="lb-feature-search" placeholder="Search features..."
+                  oninput="lbRenderFeatures()" style="max-width: 320px;">
+                <button class="btn" type="button" onclick="lbClearFeatures()">Clear selection</button>
+                <span id="lb-feature-count" style="font-size: 13px; color: var(--text-muted);"></span>
+              </div>
+              <div id="lb-feature-groups"></div>
+              <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <button class="btn" onclick="lbGoToStep(2)">← Back</button>
+                <button class="btn btn-primary" onclick="lbGoToStep(4)">Next: Options →</button>
+              </div>
+            </div>
+
+            <!-- Step 4: options -->
+            <div class="panel lb-pane" id="lb-pane-4" style="display: none;">
+              <h3>4. Shape the lab</h3>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label for="lb-time">Time budget (minutes)</label>
+                  <input type="number" id="lb-time" min="30" step="15" placeholder="No limit">
+                  <small style="color: var(--text-muted);">Modules that do not fit become "where to go next".</small>
+                </div>
+                <div class="form-group">
+                  <label for="lb-agent-name">Agent name (optional)</label>
+                  <input type="text" id="lb-agent-name" placeholder="Uses an industry default">
+                </div>
+                <div class="form-group">
+                  <label for="lb-title">Lab title (optional)</label>
+                  <input type="text" id="lb-title" placeholder="Generated from your selections">
+                </div>
+              </div>
+              <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+                <label style="display: flex; gap: 8px; align-items: center;">
+                  <input type="checkbox" id="lb-use-learn" checked>
+                  Ground every module against Microsoft Learn (recommended)
+                </label>
+                <label style="display: flex; gap: 8px; align-items: center;">
+                  <input type="checkbox" id="lb-use-llm" checked>
+                  Use a language model for scenario narrative when one is configured
+                </label>
+                <label style="display: flex; gap: 8px; align-items: center;">
+                  <input type="checkbox" id="lb-include-core" checked>
+                  Include the level 100 foundation modules so the lab stands alone
+                </label>
+              </div>
+              <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <button class="btn" onclick="lbGoToStep(3)">← Back</button>
+                <button class="btn btn-primary" onclick="lbGoToStep(5)">Next: Build →</button>
+              </div>
+            </div>
+
+            <!-- Step 5: build -->
+            <div class="panel lb-pane" id="lb-pane-5" style="display: none;">
+              <h3>5. Review and build</h3>
+              <div id="lb-preview" class="scenario-empty">Select features to see the outline.</div>
+              <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <button class="btn" onclick="lbGoToStep(4)">← Back</button>
+                <button class="btn btn-primary" id="lb-generate-btn" onclick="lbGenerate()">🧬 Build my lab</button>
+                <span id="lb-status" style="font-size: 13px; color: var(--text-muted);"></span>
+              </div>
+            </div>
+
+            <div class="panel" id="lb-result-panel" style="display: none;">
+              <h3>📘 Your lab</h3>
+              <div id="lb-result-meta" style="margin-bottom: 16px;"></div>
+              <div id="lb-result-body" class="preview-frame"></div>
+            </div>
+
+            <div class="panel">
+              <h3>🗂️ Previously generated labs</h3>
+              <div id="lb-generated-list" class="scenario-empty">None yet.</div>
             </div>
           </div>
 

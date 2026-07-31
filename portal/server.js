@@ -23,6 +23,9 @@ import {
   updateBrandingLogo,
 } from "./lib/branding.js";
 import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/scenarios.js";
+import { getFeaturesByCategory, getFeatures, validateCatalog } from "./lib/lab-builder/catalog.js";
+import { planLab } from "./lib/lab-builder/planner.js";
+import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
 import { marked } from "marked";
 
 /* ── Mermaid extension for marked ───────────────────────────────────────────
@@ -362,6 +365,136 @@ app.post("/api/scenarios/configure", (req, res) => {
     const config = getSuggestedConfig(industry, roles);
     if (!config) return res.status(404).json({ error: "Industry scenario not found" });
     res.json(config);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Lab Builder: generate a custom, Microsoft Learn-grounded lab ────────────
+
+/** GET /api/lab-builder/features — Catalog that drives the wizard */
+app.get("/api/lab-builder/features", (_req, res) => {
+  try {
+    res.json({
+      industries: getIndustries(),
+      roles: getRoles(),
+      categories: getFeaturesByCategory(),
+      totalFeatures: getFeatures().length,
+      catalogIssues: validateCatalog(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** POST /api/lab-builder/preview — Plan a lab without generating or writing it */
+app.post("/api/lab-builder/preview", (req, res) => {
+  try {
+    const plan = planLab(req.body || {});
+    res.json({
+      title: plan.title,
+      slug: plan.slug,
+      difficulty: plan.difficulty,
+      duration: plan.duration,
+      totalMinutes: plan.totalMinutes,
+      agentName: plan.profile.agentName,
+      scenario: {
+        problem: plan.profile.problem,
+        outcome: plan.profile.outcome,
+        sampleQuestions: plan.profile.sampleQuestions,
+      },
+      modules: plan.features.map((f) => ({
+        id: f.id,
+        order: f.order,
+        name: f.name,
+        category: f.category,
+        level: f.level,
+        minutes: f.minutes,
+        summary: f.summary,
+      })),
+      deferred: plan.deferred,
+      relatedLabs: plan.relatedLabs,
+      warnings: plan.warnings,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/** POST /api/lab-builder/generate — Build the lab and write it to generated-labs/ */
+app.post("/api/lab-builder/generate", async (req, res) => {
+  try {
+    const body = req.body || {};
+    const result = await generateLab(body, {
+      useLearnMcp: body.useLearnMcp !== false,
+      useLlm: body.useLlm !== false,
+    });
+
+    res.json({
+      labId: result.labId,
+      outputDir: result.outputDir,
+      title: result.plan.title,
+      difficulty: result.plan.difficulty,
+      duration: result.plan.duration,
+      markdown: result.markdown,
+      manifest: result.manifest,
+      validation: result.validation,
+      warnings: result.plan.warnings,
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/** GET /api/lab-builder/generated — List previously generated labs */
+app.get("/api/lab-builder/generated", (_req, res) => {
+  try {
+    if (!existsSync(GENERATED_LABS_DIR)) return res.json({ labs: [] });
+
+    const labs = readdirSync(GENERATED_LABS_DIR, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => {
+        const manifestPath = join(GENERATED_LABS_DIR, entry.name, "manifest.json");
+        if (!existsSync(manifestPath)) return null;
+        try {
+          const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+          return {
+            labId: entry.name,
+            title: manifest.title,
+            difficulty: manifest.difficulty,
+            totalMinutes: manifest.totalMinutes,
+            generatedAt: manifest.generatedAt,
+            moduleCount: manifest.modules?.length || 0,
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => String(b.generatedAt).localeCompare(String(a.generatedAt)));
+
+    res.json({ labs });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/lab-builder/generated/:labId — Read a generated lab's markdown */
+app.get("/api/lab-builder/generated/:labId", (req, res) => {
+  const labId = String(req.params.labId);
+  if (!/^[a-z0-9-]+$/i.test(labId)) return res.status(400).json({ error: "Invalid lab id" });
+
+  const labDir = join(GENERATED_LABS_DIR, labId);
+  const indexPath = join(labDir, "index.md");
+  if (!resolve(labDir).startsWith(resolve(GENERATED_LABS_DIR)) || !existsSync(indexPath)) {
+    return res.status(404).json({ error: "Generated lab not found" });
+  }
+
+  try {
+    const markdown = readFileSync(indexPath, "utf-8");
+    const manifestPath = join(labDir, "manifest.json");
+    const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf-8")) : null;
+    res.json({ labId, markdown, html: marked.parse(markdown), manifest });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
