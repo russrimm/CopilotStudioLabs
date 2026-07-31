@@ -103,13 +103,15 @@ User or agent
 
 - [Prompts overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/prompts-overview)
 - [Add a prompt node to an agent flow or workflow](https://learn.microsoft.com/en-us/microsoft-copilot-studio/prompt-node-workflow)
-- [Add a Microsoft 365 Copilot node to a workflow](https://learn.microsoft.com/en-us/microsoft-copilot-studio/microsoft-365-copilot-node-workflow)
+- [Add a Microsoft 365 Copilot node to a workflow (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow)
 - [Asynchronous response support for agent flows](https://learn.microsoft.com/en-us/microsoft-copilot-studio/flow-asynchronous-response)
 - [Speed up agent flow execution with express mode](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-flow-express-mode)
 
 ---
 
 ## Prerequisites
+
+> ⚠️ **Preview:** The Microsoft 365 Copilot node and the new workflow experience are preview capabilities. Do not use them for production workloads without tenant approval and a supported fallback. See [Add a Microsoft 365 Copilot node to a workflow (preview)](https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow).
 
 - Access to **Copilot Studio** and permission to create or edit **agent flows**.
 - Dataverse installed in the environment because prompt features depend on it.

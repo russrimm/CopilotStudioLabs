@@ -8,6 +8,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { sendMail } from "./mailer.js";
 import { createEnvironment } from "./powerplatform.js";
+import { escapeHtml } from "./branding.js";
 
 const dataRoot = resolve(import.meta.dirname, "..", "data");
 const approvalConfigPath = resolve(dataRoot, "approval-config.json");
@@ -299,6 +300,27 @@ export async function sendEmailNotification(to, subject, html) {
   });
 }
 
+export function buildApprovalNotificationHtml({ request, title, intro, portalUrl }) {
+  const reviewUrl = getPortalReviewUrl(portalUrl);
+  return `
+    <div style="font-family: Segoe UI, Arial, sans-serif; max-width: 640px;">
+      <h2>${escapeHtml(title)}</h2>
+      <p>${escapeHtml(intro)}</p>
+      <ul>
+        <li><strong>Environment:</strong> ${escapeHtml(request.displayName)}</li>
+        <li><strong>Type:</strong> ${escapeHtml(request.environmentType)}</li>
+        <li><strong>Region:</strong> ${escapeHtml(request.location)}</li>
+        <li><strong>Requested by:</strong> ${escapeHtml(request.requestedBy)}</li>
+        <li><strong>Requested at:</strong> ${escapeHtml(new Date(request.requestedAt).toLocaleString())}</li>
+        ${request.decidedBy ? `<li><strong>Decided by:</strong> ${escapeHtml(request.decidedBy)}</li>` : ""}
+        ${request.reason ? `<li><strong>Reason:</strong> ${escapeHtml(request.reason)}</li>` : ""}
+        ${request.environmentId ? `<li><strong>Environment ID:</strong> ${escapeHtml(request.environmentId)}</li>` : ""}
+      </ul>
+      <p><a href="${escapeHtml(reviewUrl)}">Open the Copilot Studio Labs Portal</a></p>
+    </div>
+  `;
+}
+
 async function sendConfiguredNotifications(request, eventType) {
   const config = loadApprovalConfig();
   const portalUrl = request.portalUrl || process.env.PORTAL_BASE_URL || "http://localhost:3005";
@@ -338,23 +360,12 @@ async function sendConfiguredNotifications(request, eventType) {
   }
 
   if (config.notificationChannels.includes("email") && notificationEmails.length) {
-    const html = `
-      <div style="font-family: Segoe UI, Arial, sans-serif; max-width: 640px;">
-        <h2>${eventTitles[eventType] || eventTitles.submitted}</h2>
-        <p>${introText[eventType] || introText.submitted}</p>
-        <ul>
-          <li><strong>Environment:</strong> ${request.displayName}</li>
-          <li><strong>Type:</strong> ${request.environmentType}</li>
-          <li><strong>Region:</strong> ${request.location}</li>
-          <li><strong>Requested by:</strong> ${request.requestedBy}</li>
-          <li><strong>Requested at:</strong> ${new Date(request.requestedAt).toLocaleString()}</li>
-          ${request.decidedBy ? `<li><strong>Decided by:</strong> ${request.decidedBy}</li>` : ""}
-          ${request.reason ? `<li><strong>Reason:</strong> ${request.reason}</li>` : ""}
-          ${request.environmentId ? `<li><strong>Environment ID:</strong> ${request.environmentId}</li>` : ""}
-        </ul>
-        <p><a href="${getPortalReviewUrl(portalUrl)}">Open the Copilot Studio Labs Portal</a></p>
-      </div>
-    `;
+    const html = buildApprovalNotificationHtml({
+      request,
+      title: eventTitles[eventType] || eventTitles.submitted,
+      intro: introText[eventType] || introText.submitted,
+      portalUrl,
+    });
 
     try {
       await sendEmailNotification(

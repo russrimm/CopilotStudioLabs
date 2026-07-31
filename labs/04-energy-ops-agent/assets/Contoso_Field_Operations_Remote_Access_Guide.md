@@ -6,6 +6,9 @@
 **Last Updated:** May 2026
 **Owner:** Contoso Enterprise IT — Field Connectivity Team
 
+> [!IMPORTANT]
+> This is a synthetic training artifact. Hostnames, systems, accounts, and procedures are fictional. Never enter or share a password, one-time passcode, MFA approval, recovery code, or hardware-token value in chat or with another person. Authenticate only in the organization's approved sign-in experience.
+
 ---
 
 ## 1. Overview and Purpose
@@ -60,19 +63,19 @@ Contoso Energy uses **Palo Alto Networks GlobalProtect** as its corporate VPN so
 2. Open the **GlobalProtect** application from the system tray (orange globe icon near the clock).
 3. If prompted for a **Portal Address**, enter: `vpn.contoso.com`
 4. Click **Connect**.
-5. The **Sign In** screen will appear. Enter your **Contoso email address** (e.g., `jsmith@contoso.com`) and your **network password**.
-6. You will receive a push notification on your **Microsoft Authenticator** app. Approve the sign-in request. Do not approve requests you did not initiate.
+5. Complete the approved organizational sign-in experience directly in the GlobalProtect client.
+6. Complete MFA only for a sign-in you initiated. Never share a password, approval, one-time passcode, or recovery code.
 7. GlobalProtect will show **Connected** with a green checkmark once the tunnel is established.
 8. You can now access internal Contoso resources.
 
-> **Tip:** If you do not receive an MFA push notification within 30 seconds, open the Authenticator app manually and approve the pending request. If no request appears, select **Sign in another way** and choose **Use verification code**.
+> **Tip:** If the expected MFA request does not appear, stop and use the approved account-recovery process or contact IT. Do not repeatedly approve prompts or provide a code to another person.
 
 ### 3.2 Step-by-Step: Connecting via GlobalProtect (Mobile — iOS/Android)
 
 1. Open the **GlobalProtect** app (available from the Company Portal).
 2. Tap **Connect**.
 3. If prompted for a portal address, enter: `vpn.contoso.com`
-4. Sign in with your Contoso credentials and approve the MFA prompt.
+4. Complete the approved sign-in and MFA experience directly in the app.
 5. The app will display **VPN Connected** once the tunnel is active.
 
 ### 3.3 VPN Gateway Selection
@@ -100,8 +103,8 @@ The **Contoso Outage Management System (OMS)** is used by field crews and contro
 1. Ensure GlobalProtect VPN is connected (see Section 3).
 2. Open a supported browser (Microsoft Edge or Chrome).
 3. Navigate to: `https://oms.internal.contoso.com`
-4. Sign in with your **Contoso network credentials** (same as your email login).
-5. MFA will be required. Approve the push notification on Microsoft Authenticator.
+4. Complete the approved organizational sign-in experience.
+5. Complete MFA only for the sign-in you initiated; never disclose authentication values.
 6. The OMS dashboard will load. Field technicians will see only outage tickets within their assigned territory or crew.
 
 ### 4.2 OMS Mobile App (iOS/Android)
@@ -110,8 +113,8 @@ The **Contoso Field OMS** mobile app is available for authorized field technicia
 
 1. Open **Microsoft Company Portal** on your device.
 2. Locate and install **Contoso Field OMS**.
-3. Launch the app and sign in with your Contoso credentials.
-4. Approve the MFA prompt.
+3. Launch the app and complete the approved organizational sign-in experience.
+4. Complete MFA only for the sign-in you initiated.
 5. The app will synchronize your assigned outage tickets automatically.
 
 > **Note:** The OMS mobile app requires an active internet connection but does **not** require GlobalProtect VPN — it uses the Contoso Cloud Gateway (Azure AD Application Proxy) for secure access without a full VPN tunnel.
@@ -147,11 +150,11 @@ Contoso Energy field personnel with active CIP-005 authorization may access the 
 1. Disconnect from the standard GlobalProtect VPN if connected.
 2. Open the **Contoso OT VPN** client (a separate application from GlobalProtect, labeled "Contoso OT Access").
 3. Enter the OT VPN portal address: `ot-vpn.contoso.com`
-4. Enter your **OT credentials** (note: these are different from your standard Contoso network credentials).
-5. When prompted, enter the 6-digit code from your **RSA hardware token**.
+4. Complete the approved OT sign-in experience directly in the client.
+5. Complete the hardware-token challenge without disclosing the token value to another person or system.
 6. Once connected, open the **Remote Desktop Connection** application (`mstsc`).
 7. Connect to the assigned **Jump Server** address provided by the Cyber Security team (e.g., `jumpserver-west.ot.contoso.com`).
-8. Log in with your OT credentials.
+8. Complete the approved OT sign-in experience on the assigned jump server.
 9. From the Jump Server, open the Energy Support App assigned to your role.
 
 ### 5.3 Ending an Energy Support App Remote Session
@@ -171,7 +174,7 @@ Contoso Energy field personnel with active CIP-005 authorization may access the 
 |---|---|
 | "Portal not reachable" or "Cannot connect to server" | Check internet connectivity. Try loading `https://www.google.com` in a browser. If no internet, troubleshoot your hotspot or satellite terminal. |
 | "Invalid username or password" | Verify you are using your Contoso email address and current network password. If your password has expired, use a phone or a site with internet to reset at `https://myaccount.contoso.com`. |
-| MFA push notification not received | Open Microsoft Authenticator manually and check for a pending approval. If no request exists, wait 60 seconds and try again. Alternatively, use a one-time code from Authenticator. |
+| MFA push notification not received | Stop and use the approved account-recovery process or contact IT. Never approve an unexpected prompt or provide a one-time code to another person. |
 | VPN connects but cannot reach internal sites | Your device may have a stale certificate. Disconnect VPN, restart GlobalProtect, and reconnect. If the issue persists, call IT Operations. |
 | GlobalProtect shows "Connected" but OMS or SharePoint will not load | Force-close and reopen the target application or browser. Clear the browser cache. Disconnect and reconnect VPN. |
 

@@ -40,9 +40,8 @@ export async function ensureClient(): Promise<CopilotStudioClient> {
 
 export async function startConversation() {
   const c = await ensureClient();
-  const activities: any[] = [];
-  for await (const activity of c.startConversationAsync(true)) {
-    activities.push(activity);
+  const activities = await c.startConversationAsync(true);
+  for (const activity of activities) {
     if (activity.conversation?.id) {
       conversationId = activity.conversation.id;
     }
@@ -55,11 +54,7 @@ export async function sendMessage(text: string) {
   if (!conversationId) {
     throw new Error("Conversation not started");
   }
-  const activities: any[] = [];
-  for await (const activity of c.askQuestionAsync(text, conversationId)) {
-    activities.push(activity);
-  }
-  return activities;
+  return c.askQuestionAsync(text, conversationId);
 }
 
 export function getConversationId() {

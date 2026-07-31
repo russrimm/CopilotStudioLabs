@@ -41,12 +41,7 @@ function parseArgs(argv) {
 }
 
 function loadPlaywright() {
-  const siblingPlaywright = join(repoRoot, "tools", "screenshot-capture", "node_modules", "playwright");
-  try {
-    return require(siblingPlaywright);
-  } catch {
-    return require("playwright");
-  }
+  return require("playwright");
 }
 
 function escapeHtml(value = "") {
@@ -140,7 +135,7 @@ function resolveImagePath(src, labRoot) {
     return null;
   }
   const { pathPart, suffix } = splitUrlSuffix(decodeAttribute(src));
-  const diskPath = resolve(labRoot, pathPart.replace(/\//g, "\\"));
+  const diskPath = resolve(labRoot, pathPart);
   const relativeToLab = relative(labRoot, diskPath);
   if (relativeToLab.startsWith("..") || isAbsolute(relativeToLab)) return null;
   return { diskPath, relativePath: pathPart, suffix };

@@ -39,7 +39,10 @@ function runVerifyShots() {
   const script = path.join(repoRoot, "tools", "screenshot-capture", "verify-shots.js");
   if (!fs.existsSync(script)) return { ok: true, summary: {}, labs: {}, unavailable: true };
   try {
-    const out = execFileSync("node", [script, "--json"], { cwd: repoRoot, encoding: "utf8" });
+    const out = execFileSync("node", [script, "--json", "--check-state"], {
+      cwd: repoRoot,
+      encoding: "utf8",
+    });
     return JSON.parse(out);
   } catch (error) {
     // verify-shots exits 1 when it finds critical issues but still prints JSON.

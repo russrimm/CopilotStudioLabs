@@ -62,6 +62,15 @@ jobs:
 
       - name: Build changelog comment
         id: comment
+        env:
+          DOCS: ${{ steps.changes.outputs.docs }}
+          IMAGES: ${{ steps.changes.outputs.images }}
+          LABS: ${{ steps.changes.outputs.labs }}
+          CONFIG: ${{ steps.changes.outputs.config }}
+          HAS_DOCS: ${{ steps.changes.outputs.has_docs }}
+          HAS_IMAGES: ${{ steps.changes.outputs.has_images }}
+          HAS_LABS: ${{ steps.changes.outputs.has_labs }}
+          HAS_CONFIG: ${{ steps.changes.outputs.has_config }}
         run: |
           {
             echo "body<<CHANGELOG_EOF"
@@ -71,10 +80,10 @@ jobs:
             echo ""
 
             # --- Documentation files ---
-            if [ "${{ steps.changes.outputs.has_docs }}" = "true" ]; then
+            if [ "$HAS_DOCS" = "true" ]; then
               echo "### 📄 Documentation files modified"
               echo ""
-              echo '${{ steps.changes.outputs.docs }}' | while IFS= read -r f; do
+              printf '%s\n' "$DOCS" | while IFS= read -r f; do
                 [ -z "$f" ] && continue
                 echo "- \`$f\`"
               done
@@ -82,12 +91,12 @@ jobs:
             fi
 
             # --- Screenshot / image files ---
-            if [ "${{ steps.changes.outputs.has_images }}" = "true" ]; then
+            if [ "$HAS_IMAGES" = "true" ]; then
               echo "### 🖼️ Screenshots / images modified"
               echo ""
               echo "> ⚠️ **Screenshot changes detected.** Please verify these match the current Copilot Studio UI."
               echo ""
-              echo '${{ steps.changes.outputs.images }}' | while IFS= read -r f; do
+              printf '%s\n' "$IMAGES" | while IFS= read -r f; do
                 [ -z "$f" ] && continue
                 echo "- \`$f\`"
               done
@@ -95,11 +104,11 @@ jobs:
             fi
 
             # --- Lab content ---
-            if [ "${{ steps.changes.outputs.has_labs }}" = "true" ]; then
+            if [ "$HAS_LABS" = "true" ]; then
               echo "### 🧪 Lab content affected"
               echo ""
               # Extract unique lab folders
-              echo '${{ steps.changes.outputs.labs }}' | sed 's|labs/\([^/]*\)/.*|\1|' | sort -u | while IFS= read -r lab; do
+              printf '%s\n' "$LABS" | sed 's|labs/\([^/]*\)/.*|\1|' | sort -u | while IFS= read -r lab; do
                 [ -z "$lab" ] && continue
                 echo "- **$lab**"
               done
@@ -107,10 +116,10 @@ jobs:
             fi
 
             # --- Config / infra changes ---
-            if [ "${{ steps.changes.outputs.has_config }}" = "true" ]; then
+            if [ "$HAS_CONFIG" = "true" ]; then
               echo "### ⚙️ Template / infrastructure changes"
               echo ""
-              echo '${{ steps.changes.outputs.config }}' | while IFS= read -r f; do
+              printf '%s\n' "$CONFIG" | while IFS= read -r f; do
                 [ -z "$f" ] && continue
                 echo "- \`$f\`"
               done
@@ -121,7 +130,7 @@ jobs:
             echo "### ✅ Reviewer checklist"
             echo ""
             echo "- [ ] Documentation accurately reflects the current Copilot Studio UI"
-            if [ "${{ steps.changes.outputs.has_images }}" = "true" ]; then
+            if [ "$HAS_IMAGES" = "true" ]; then
               echo "- [ ] Modified screenshots are up-to-date and match the described steps"
             fi
             echo "- [ ] Lab instructions are clear and can be followed end-to-end"

@@ -16,6 +16,9 @@
 
 Operational readiness requires cost and capacity clarity. In this lab, you will use **usage estimator** practices and **Copilot Credits** assumptions to model expected demand, identify budget risks, and define rollout guardrails.
 
+> [!IMPORTANT]
+> Estimator outputs are informational planning aids, not price quotes or guarantees. Include a variance buffer and compare estimates with actual usage after the pilot.
+
 ## Learning Objectives
 
 1. Build a demand model for your Copilot Studio agent.
@@ -43,10 +46,10 @@ Operational readiness requires cost and capacity clarity. In this lab, you will 
 
 ### Step 2 - Estimate Copilot Credits consumption
 
-1. Translate demand assumptions into estimated usage volume.
+1. Open the [Microsoft agent usage estimator](https://microsoft.github.io/copilot-studio-estimator/) and review its assumptions and disclaimer.
 2. Apply your organization's Copilot Credits assumptions.
 3. Calculate best-case, expected, and peak scenarios.
-4. Identify margin required for unexpected demand.
+4. Record a variance buffer for unexpected demand and estimator uncertainty.
 5. Document confidence level for each assumption.
 
 ### Step 3 - Identify optimization opportunities
@@ -77,6 +80,7 @@ Operational readiness requires cost and capacity clarity. In this lab, you will 
 
 - A baseline usage and credits model exists.
 - Peak and expected scenarios are quantified.
+- The estimator disclaimer and a variance buffer are recorded with the forecast.
 - Optimization and governance actions are assigned.
 - A recurring review cadence is documented.
 

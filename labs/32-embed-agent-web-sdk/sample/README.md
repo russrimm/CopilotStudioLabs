@@ -1,6 +1,6 @@
-# Lab 18 — Starter Sample
+# Lab 32 — Starter Sample
 
-This folder is the starter scaffold for [Lab 18](../index.md). It mirrors the structure the lab walks you through so you can either follow along step-by-step in the lab, or jump straight in.
+This folder is the starter scaffold for [Lab 32](../index.md). It mirrors the structure the lab walks you through so you can either follow along step-by-step in the lab, or jump straight in.
 
 ## Quick start
 

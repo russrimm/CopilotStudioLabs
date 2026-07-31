@@ -80,7 +80,7 @@ By the end of this lab you will be able to:
 1. ✅ Choose between prebuilt connectors, custom connectors, and flow-based integration patterns per industry.
 2. ✅ Explain why Epic and Cerner/Oracle Health typically require custom connectors against FHIR APIs.
 3. ✅ Design a SAP integration strategy for financial or manufacturing scenarios without assuming the Logic Apps SAP connector is available in Power Apps or Copilot Studio.
-4. ✅ Use the Shopify connector for common retail operations.
+4. ✅ Design a governed Shopify Admin API integration without assuming a certified Power Platform connector is available.
 5. ✅ Design custom API patterns for industrial and IoT systems.
 6. ✅ Recognize GCC and government-cloud limitations that affect public sector integrations.
 7. ✅ Combine Jira and GitHub into practical developer-support scenarios.
@@ -94,7 +94,7 @@ By the end of this lab you will be able to:
 |---|---|
 | **FHIR R4** | The healthcare interoperability standard commonly used for patient, encounter, and observation APIs. |
 | **SMART on FHIR** | OAuth-based authorization pattern used by many healthcare APIs such as Epic and Cerner/Oracle Health. |
-| **Premium connector** | A connector that generally requires premium licensing, important for Salesforce, Jira, Shopify, and many custom connectors. |
+| **Premium connector** | A connector that generally requires premium licensing, important for Salesforce, Jira, and custom connector scenarios. |
 | **Custom connector** | The default answer when a critical industry platform has an API but no usable certified connector. |
 | **API token auth** | Common in developer tools such as Jira, where an API token often replaces a password. |
 | **Government cloud boundary** | The cloud environment limitations that determine whether a connector or SaaS service is appropriate for public sector tenants. |
@@ -108,7 +108,7 @@ By the end of this lab you will be able to:
 - [Custom connectors overview](https://learn.microsoft.com/en-us/connectors/custom-connectors/)
 - [Authenticate your API and connector with Microsoft Entra ID](https://learn.microsoft.com/en-us/connectors/custom-connectors/azure-active-directory-authentication)
 - [Create a custom connector from an OpenAPI definition](https://learn.microsoft.com/en-us/connectors/custom-connectors/define-openapi-definition)
-- [Shopify connector reference](https://learn.microsoft.com/en-us/connectors/shopify/)
+- [Shopify Admin GraphQL API reference](https://shopify.dev/docs/api/admin-graphql)
 - [Jira connector reference](https://learn.microsoft.com/en-us/connectors/jira/)
 - [GitHub connector reference](https://learn.microsoft.com/en-us/connectors/github/)
 - [Configure single sign-on with Microsoft Entra ID in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-sso)
@@ -135,7 +135,7 @@ Use synthetic or masked data for labs.
 | Salesforce-based connectors | Often premium |
 | Jira connector | Premium |
 | GitHub connector | Standard / included in many Microsoft 365 contexts |
-| Shopify connector | Premium |
+| Shopify custom connector or flow wrapper | Power Platform premium licensing can apply |
 | SAP enterprise connector paths | Often enterprise-tier or custom integration work |
 
 ---
@@ -146,7 +146,7 @@ Use synthetic or masked data for labs.
 |---|---|---|---|
 | 1 | Healthcare: Epic / FHIR | Design a SMART on FHIR custom connector and patient lookup topic | 20 min |
 | 2 | Financial Services: SAP | Use SAP BTP or S/4HANA APIs through a custom connector | 20 min |
-| 3 | Retail: Shopify | Use the certified connector for order and inventory scenarios | 20 min |
+| 3 | Retail: Shopify | Design a custom connector or flow wrapper for order and inventory scenarios | 20 min |
 | 4 | Manufacturing: IoT data | Connect to PTC ThingWorx or Azure-hosted operational APIs with custom connectors | 20 min |
 | 5 | Public Sector: Citizen services | Evaluate Salesforce Government Cloud and Tyler patterns with GCC considerations | 20 min |
 | 6 | Technology: Jira and GitHub | Combine premium and standard developer-tool connectors in one support scenario | 20 min |
@@ -324,15 +324,14 @@ You now have a more realistic SAP integration approach for finance-focused Copil
 
 ---
 
-# 🧪 Use Case #3 — Retail: Shopify Integration
+# 🧪 Use Case #3 — Retail: Shopify API Integration
 
-> 🎯 **Objective:** Use a certified retail connector to create fast value for order lookup and inventory support scenarios.
+> 🎯 **Objective:** Design a least-privilege custom connector or flow wrapper for Shopify order lookup and inventory support.
 
 ### Scenario
 
 A retailer wants a customer-service assistant that checks order status and product inventory.
-Unlike some other industries, retail often has strong SaaS APIs and usable certified connectors.
-Shopify is a good example.
+Unlike some other industries, retail often has strong SaaS APIs. The former Microsoft Shopify connector reference is no longer available, so this lab uses Shopify's supported Admin API through a governed custom connector or flow wrapper instead of assuming a certified connector exists.
 
 ### Step 1 — Set up a trial or sandbox path
 
@@ -342,15 +341,15 @@ Shopify is a good example.
 
 ### Step 2 — Configure authentication
 
-1. Use the **Shopify connector** and complete the OAuth setup required by the connector.
+1. Register an approved Shopify custom app and choose the authentication pattern required by your organization's connector or flow wrapper.
 2. Decide whether each support user authenticates individually or whether a shared service connection is acceptable for the support desk model.
-3. Document rate limits and app scopes.
+3. Document rate limits and least-privilege app scopes. Keep tokens and client secrets in the connection or approved secret store, never in lab content.
 
 ### Step 3 — Build the connector configuration
 
-1. Add the certified Shopify connector to the environment.
-2. Create or reuse a connection.
-3. Expose actions such as:
+1. Create a Power Platform custom connector from an approved API definition, or use a governed flow with HTTP actions if that pattern is already approved.
+2. Create the connection in the non-production environment.
+3. Expose only the required operations, such as:
    - Get order.
    - List products.
    - Check inventory.
@@ -378,7 +377,7 @@ When a retail support user asks about an order or inventory, collect the order n
 
 | Item | Guidance |
 |---|---|
-| Shopify connector | Premium connector licensing applies |
+| Shopify custom connector or flow wrapper | Power Platform premium licensing can apply |
 | Shopify dev store | Use Shopify partner or development-store options |
 | Copilot Studio | Tenant and user licensing apply |
 | Optional flow wrapper | Premium flow licensing may also apply depending on design |
@@ -683,7 +682,7 @@ Use this checklist to validate your cross-industry integration design outputs:
 |---|---|
 | **Healthcare** | Designed a SMART on FHIR custom connector pattern |
 | **Financial Services** | Built a realistic SAP API strategy for Copilot Studio |
-| **Retail** | Applied a certified Shopify connector for support operations |
+| **Retail** | Designed a governed Shopify Admin API integration for support operations |
 | **Manufacturing** | Exposed IoT telemetry through custom APIs safely |
 | **Public Sector** | Evaluated citizen-services integrations with cloud-boundary awareness |
 | **Technology** | Combined Jira and GitHub into a practical DevOps support scenario |

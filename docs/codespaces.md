@@ -12,7 +12,7 @@ Use Codespaces when you want to run the Node.js-based lab tooling without instal
 - Forwarded ports for common lab servers:
   - `3005` — provisioning portal
   - `3001` — alternate/secondary Node service
-  - `5173` — Lab 18 Vite web SDK sample
+  - `5173` — Lab 32 Vite web SDK sample
   - `8080` — alternate web service
 - Post-create dependency install for the root template, portal, PDF tool, and screenshot tool
 
@@ -30,11 +30,11 @@ If you use this repo as a template or fork, update the badge URL to your reposit
 
 ## Lab notes
 
-- **Lab 03** uses Copilot Studio-hosted Dataverse and sample MCP connectors. Codespaces supplies the Node/VS Code environment, but the lab still requires the Power Platform tenant features and connector availability described in the lab.
+- **Lab 18** uses Copilot Studio-hosted Dataverse and sample MCP connectors. Codespaces supplies the Node/VS Code environment, but the lab still requires the Power Platform tenant features and connector availability described in the lab.
 - **Lab 04 optional MCP section** can be built directly in Codespaces. Run the sample MCP server on port `3000`, then make the forwarded port public before using the HTTPS URL plus `/mcp` in Copilot Studio.
-- **Lab 05** benefits from the Power Platform VS Code extension in the container. Cloud authentication and publishing still happen against your Copilot Studio environment.
-- **Lab 07** is primarily an A2A/Copilot Studio + Fabric walkthrough. No local MCP server code was found, but the Codespace is ready for any supporting Node experiments.
-- **Lab 18** has a Vite sample under `labs/32-embed-agent-web-sdk/sample` and uses forwarded port `5173`. The `@microsoft/agents-copilotstudio-client` SDK is available on npm (latest stable **1.7.1** as of 2026-07-27, superseding the older `^0.5.0` pin the sample was originally scaffolded against). If you hit resolution errors, bump the dependency to `^1.7.0` in the sample's `package.json` and re-run `npm install`.
+- **Lab 36** benefits from the Power Platform VS Code extension in the container. Cloud authentication and publishing still happen against your Copilot Studio environment.
+- **Lab 19** is primarily an A2A/Copilot Studio + Fabric walkthrough. No local A2A service is provisioned by the Codespace.
+- **Lab 32** has a Vite sample under `labs/32-embed-agent-web-sdk/sample` and uses forwarded port `5173`. Install the locked dependencies in that directory before starting the sample.
 
 ## Follow-up items
 

@@ -26,6 +26,8 @@ This lab teaches you how to use **M365 Copilot nodes** inside Copilot Studio age
 
 ## Prerequisites
 
+> ⚠️ **Preview:** The Microsoft 365 Copilot node and the new workflow experience are preview capabilities. Do not use them for production workloads without tenant approval and a supported fallback. See [Add a Microsoft 365 Copilot node to a workflow (preview)](https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow).
+
 - Access to Copilot Studio with agent flows.
 - Access to Microsoft 365 data relevant to your scenario.
 - Appropriate permissions for M365 Copilot-connected tasks.
@@ -82,7 +84,7 @@ This lab teaches you how to use **M365 Copilot nodes** inside Copilot Studio age
 
 ## Lab Complete
 
-You built an enterprise-ready **M365 Copilot node** pattern for Copilot Studio agent flows.
+You built a governed **M365 Copilot node** pilot pattern for Copilot Studio agent flows.
 
 Suggested next labs:
 

@@ -39,7 +39,7 @@ jobs:
       - name: Install lab-accuracy dependencies
         working-directory: tools/lab-accuracy
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
 
       - name: Microsoft Learn accuracy + reference-link check

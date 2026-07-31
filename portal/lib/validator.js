@@ -1,8 +1,6 @@
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join, resolve } from "path";
-import { discoverLabs } from "./labs.js";
-
-const LABS_DIR = resolve(import.meta.dirname, "..", "..", "labs");
+import { discoverLabs, getLabPath } from "./labs.js";
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|svg|webp|bmp|avif)$/i;
 const TODO_RE = /\b(?:TODO|FIXME|TBD|XXX)\b/i;
 
@@ -52,15 +50,14 @@ function parseImageRefs(content) {
     ref = ref.split("#")[0].split("?")[0].trim();
 
     if (!ref || /^(?:https?:|data:|mailto:)/i.test(ref)) continue;
-    refs.push(ref.replace(/\//g, "\\"));
+    refs.push(ref.replace(/\\/g, "/"));
   }
 
   return refs;
 }
 
 function resolveLabPath(labDir, relativePath) {
-  const normalized = relativePath.replace(/\//g, "\\");
-  return resolve(labDir, normalized);
+  return resolve(labDir, relativePath);
 }
 
 function collectAssetFiles(labDir) {
@@ -139,7 +136,11 @@ function missingIndexResult(labId, title, labDir) {
 export function validateLab(labId) {
   const knownLab = discoverLabs().find((lab) => lab.id === labId);
   const title = knownLab?.title || labId;
-  const labDir = join(LABS_DIR, labId);
+  const labDir = getLabPath(labId);
+
+  if (!labDir) {
+    throw new Error(`Invalid lab id: ${labId}`);
+  }
 
   if (!existsSync(labDir)) {
     throw new Error(`Lab not found: ${labId}`);

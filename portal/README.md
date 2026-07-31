@@ -32,6 +32,8 @@ A web-based lab operations portal for customizing, validating, previewing, provi
 cd portal
 npm install
 cp .env.template .env
+# For loopback-only local development, set PORTAL_AUTH_DISABLED=true in .env.
+# Never disable authentication on a deployed or network-accessible listener.
 npm run dev
 ```
 
@@ -64,10 +66,18 @@ az webapp create \
 
 All configuration is provided through environment variables (see `.env.template`).
 
+> [!IMPORTANT]
+> The current browser client does not acquire or attach Microsoft Entra bearer tokens. An auth-enabled shared deployment therefore requires an authenticated reverse-proxy/BFF integration or a browser MSAL implementation. Do not work around this by setting `PORTAL_AUTH_DISABLED=true` outside loopback-only local development.
+
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `PORT` | No | Portal port (default: `3005`) |
+| `HOST` | No | Listener address (default: `127.0.0.1`; container image uses `0.0.0.0`) |
 | `PORTAL_BASE_URL` | For approval links | Public portal URL used for approval callback and review links |
+| `PORTAL_AUTH_DISABLED` | Local development only | Disables API authentication; never enable on a deployed listener |
+| `PORTAL_API_AUDIENCE` | For authenticated deployment | Expected Entra access-token audience |
+| `PORTAL_ALLOWED_USERS` | Optional | Comma-separated user allowlist |
+| `PORTAL_ALLOWED_GROUPS` | Optional | Comma-separated Entra group object-ID allowlist |
 | **Azure / Entra ID** | | |
 | `AZURE_TENANT_ID` | For Graph email / delegated auth | Entra tenant ID |
 | `AZURE_CLIENT_ID` | For Graph email / delegated auth | App registration client ID |

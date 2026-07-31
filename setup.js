@@ -83,6 +83,27 @@ async function main() {
   const scenario = config.scenario || {};
   const knowledge = config.knowledgeSources || {};
   const labConfig = config.labs || {};
+  const labsDir = join(ROOT, "labs");
+  const allLabs = existsSync(labsDir)
+    ? readdirSync(labsDir, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && /^\d{2}-/.test(d.name))
+        .map((d) => d.name)
+    : [];
+
+  if (labConfig.include !== undefined && !Array.isArray(labConfig.include)) {
+    console.error('❌ "labs.include" must be an array of lab folder names.');
+    process.exit(1);
+  }
+  const configuredLabs = labConfig.include || allLabs;
+  const unknownLabs = configuredLabs.filter((lab) => !allLabs.includes(lab));
+  if (unknownLabs.length > 0) {
+    console.error(`❌ Unknown labs.include value(s): ${unknownLabs.join(", ")}`);
+    process.exit(1);
+  }
+  if (new Set(configuredLabs).size !== configuredLabs.length) {
+    console.error('❌ "labs.include" must not contain duplicate lab folder names.');
+    process.exit(1);
+  }
 
   // ── Load the selected industry preset (if any) ────────────────────────────
   // The labs are authored in the Energy / Utilities scenario, so "energy" is the
@@ -169,14 +190,7 @@ async function main() {
   replacements.sort((a, b) => b[0].length - a[0].length);
 
   // ── 2. Determine which labs to keep / remove ──────────────────────────────
-  const labsDir = join(ROOT, "labs");
-  const allLabs = existsSync(labsDir)
-    ? readdirSync(labsDir, { withFileTypes: true })
-        .filter((d) => d.isDirectory())
-        .map((d) => d.name)
-    : [];
-
-  const includedLabs = labConfig.include || allLabs;
+  const includedLabs = configuredLabs;
   const excludedLabs = allLabs.filter((l) => !includedLabs.includes(l));
 
   // ── 3. Remove excluded labs ───────────────────────────────────────────────

@@ -6,9 +6,15 @@
  */
 
 import { readFileSync, readdirSync, existsSync, statSync } from "fs";
-import { join, resolve } from "path";
+import { join, resolve, sep } from "path";
 
 const LABS_DIR = resolve(import.meta.dirname, "..", "..", "labs");
+const LABS_DIR_PREFIX = `${LABS_DIR}${sep}`;
+const LAB_ID_RE = /^[a-z0-9-]+$/i;
+
+export function isValidLabId(labId) {
+  return typeof labId === "string" && LAB_ID_RE.test(labId);
+}
 
 /** Extract the value from a Markdown metadata‐table row like `| ⭐ **DIFFICULTY** | Intermediate |` */
 function extractMeta(content, label) {
@@ -64,7 +70,7 @@ export function discoverLabs() {
   if (!existsSync(LABS_DIR)) return [];
 
   const labs = readdirSync(LABS_DIR, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
+    .filter((d) => d.isDirectory() && isValidLabId(d.name))
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((d) => {
       const labDir = join(LABS_DIR, d.name);
@@ -123,7 +129,9 @@ export function discoverLabs() {
  * @returns {string|null} The index.md content or null
  */
 export function getLabContent(labId) {
-  const indexPath = join(LABS_DIR, labId, "index.md");
+  const labPath = getLabPath(labId);
+  if (!labPath) return null;
+  const indexPath = join(labPath, "index.md");
   if (!existsSync(indexPath)) return null;
   return readFileSync(indexPath, "utf-8");
 }
@@ -131,8 +139,10 @@ export function getLabContent(labId) {
 /**
  * Get the absolute path to a lab directory.
  * @param {string} labId - The lab folder name
- * @returns {string} Absolute path
+ * @returns {string|null} Absolute path, or null for an invalid id
  */
 export function getLabPath(labId) {
-  return join(LABS_DIR, labId);
+  if (!isValidLabId(labId)) return null;
+  const labPath = resolve(LABS_DIR, labId);
+  return labPath.startsWith(LABS_DIR_PREFIX) ? labPath : null;
 }

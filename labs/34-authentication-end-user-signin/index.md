@@ -38,21 +38,22 @@ Production agents almost always need to know **who** the user is — to honor da
 2. Review the three options and their implications for SSO and connectors.
 3. Decide whether the scenario needs user identity (most production agents do).
 
-![Settings → Security → Authentication page](assets/security-authentication-page.png)
+> Screenshot intentionally omitted until a current, sanitized capture is available. Follow the numbered UI path and verify the option names in your tenant.
 
 ### Step 2 — Prepare an Entra ID app registration
 
 1. In the **Entra admin center**, create (or reuse) an **app registration** for the agent.
-2. Add the Copilot Studio **redirect URI**.
-3. Configure the required **API permissions** and a client secret if needed.
+2. In Copilot Studio, open **Authenticate manually** and copy the redirect URI and federated-credential values shown for your agent.
+3. Configure **federated credentials (recommended)** by following the official Microsoft Learn procedure. Use a client secret only as a documented fallback when federated credentials aren't supported or approved.
+4. Configure only the API permissions and consent required by the target scenario.
 
 ### Step 3 — Configure manual Entra ID authentication
 
 1. Back in Copilot Studio, select **Authenticate manually**.
-2. Enter the **client ID**, **client secret**, **token URLs**, and **scopes**.
+2. Enter the client ID, token URLs, and scopes required by the official procedure. Complete the federated-credential configuration instead of storing a client secret when supported.
 3. Save the configuration.
 
-![Manual Microsoft Entra ID authentication fields](assets/entra-auth-config.png)
+> Screenshot intentionally omitted until a current, sanitized capture is available. Do not infer field names or values from an outdated placeholder.
 
 ### Step 4 — Test the sign-in experience
 
@@ -60,7 +61,7 @@ Production agents almost always need to know **who** the user is — to honor da
 2. Confirm the agent prompts the user to **sign in** and completes the flow.
 3. Verify the agent can read the authenticated user's identity (for example, greet by name).
 
-![Agent prompting the end user to sign in](assets/test-signin-prompt.png)
+> Screenshot intentionally omitted until a current, sanitized capture is available. Validate the real sign-in prompt in your test tenant.
 
 ### Step 5 — Validate SSO into tools
 
@@ -74,6 +75,11 @@ Production agents almost always need to know **who** the user is — to honor da
 - End users are prompted to sign in and the flow completes successfully.
 - The agent can reference the authenticated user's identity.
 - You documented channel-specific authentication considerations.
+- Federated credentials are used, or the approved reason for a client-secret fallback is documented.
+
+## Documentation
+
+- [Configure user authentication with Microsoft Entra ID](https://learn.microsoft.com/microsoft-copilot-studio/configuration-authentication-azure-ad)
 
 ## ✅ Lab Complete
 

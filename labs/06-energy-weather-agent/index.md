@@ -215,7 +215,7 @@ A grid operator needs either a guided service-territory weather lookup or a quic
    Service Territory Weather Lookup
    ```
 
-4. In the **Describe what this topic does*** field, past the following prompt so the generative AI orchestrator knows when to trigger this topic automatically:
+4. In the **Describe what this topic does*** field, paste the following prompt so the generative AI orchestrator knows when to trigger this topic automatically:
 
    ```text
    Use this topic when the user wants the current weather, today's forecast, or tomorrow's forecast for a specific service territory location — typically a city and state. Examples: "What's the weather at the Cypress substation?", "Forecast for Tarrant County tomorrow", "Will it rain in Houston this afternoon?".
@@ -332,13 +332,9 @@ Now that the topic collects a city and state, wire it to a real connector so the
    - **Location**: select **Formula** and enter `Topic.City & ", " & Topic.State` (this is where topic-scoped variables are available).
    - **Units**: select **Custom value** and enter `Imperial`.
 5. In the tool node configuration panel, set an **output variable** name for the result (for example, `Topic.CurrentWeather`). Copilot Studio makes the connector’s output fields accessible as properties of this variable.
-6. Replace the earlier placeholder message with a **Send a message** node. Use the **variable picker** (`{x}` button in the message editor) to insert the output fields. A simple starting template:
+6. Replace the earlier placeholder message with a **Send a message** node. Use the **variable picker** (`{x}` button in the message editor) to insert current temperature, apparent temperature, relative humidity, wind speed, and conditions from the connector result.
 
-   ```text
-   Current conditions for {Topic.City}, {Topic.State}: {Topic.CurrentWeather.temperature}° (feels like {Topic.CurrentWeather.feelsLike}°), humidity {Topic.CurrentWeather.humidity}%, wind {Topic.CurrentWeather.windSpeed} — {Topic.CurrentWeather.description}
-   ```
-
-   > 💡 **Tip:** Use the variable picker rather than typing field paths manually. After the tool call node, the picker lists all available output fields. If the connector returns data nested under `responses[0].weather.current`, the picker inserts the correct dot-path for you.
+   > 💡 **Tip:** Do not type response paths manually. Connector schemas can differ by designer surface and version; select fields from the output picker so Copilot Studio inserts the available path.
 
 7. Save the topic.
 
@@ -432,7 +428,7 @@ Use the following variable design:
 ### Step 3 — Initialize topic variables in **Service Territory Weather Lookup**
 
 1. Return to the **Service Territory Weather Lookup** topic.
-2. Near the start of the topic (before the location-collection placeholder you added in Use Case #1), add **Set variable value** nodes.
+2. Near the start of the topic, before the City and State Question nodes created in Use Case #1, add **Set variable value** nodes.
 3. Initialize:
    - `Topic.Units = Global.DefaultUnits`
    - `Topic.Location = ""`
@@ -443,10 +439,10 @@ Use the following variable design:
 
 ### Step 4 — Ask for city and state with Question nodes
 
-In this step, you'll replace the location-collection placeholder from Use Case #1 with two **Ask a question** nodes that collect city and state, saving each answer directly to a topic variable.
+Review the City and State Question nodes created in Use Case #1. If you created only a placeholder message instead, delete it and add the two **Ask a question** nodes below.
 
 1. Open **Service Territory Weather Lookup**.
-2. Delete the location-collection placeholder **Send a message** node from Use Case #1.
+2. Keep the existing City and State Question nodes. If they are missing, remove any location placeholder and continue with the next steps.
 3. Add an **Ask a question** node. Set the message to:
 
    ```text
@@ -596,14 +592,13 @@ Wire the inputs to the topic variables:
 
 The MSN Weather connector returns a structured response. Surface the most useful fields to the agent so the operator sees clean names:
 
-| Output | Source field | Meaning |
+| Output | Select from the connector output picker | Meaning |
 |---|---|---|
-| `temperature` | `responses[0].weather.current.temperature` | Current temperature in the requested units |
-| `feelsLike` | `responses[0].weather.current.feels` | Feels-like temperature |
-| `humidity` | `responses[0].weather.current.humidity` | Relative humidity (%) |
-| `windSpeed` | `responses[0].weather.current.windSpeed` | Wind speed in the requested units |
-| `description` | `responses[0].weather.current.cap` | Short text description, e.g. *Mostly sunny* |
-| `dayOrNight` | `responses[0].weather.current.dayOrNight` | `d` or `n` |
+| `temperature` | Current temperature (`temp` in the documented current-weather object) | Current temperature in the requested units |
+| `feelsLike` | Apparent temperature (`feels`) | Feels-like temperature |
+| `humidity` | Relative humidity (`rh`) | Relative humidity (%) |
+| `windSpeed` | Wind speed (`windSpd`) | Wind speed in the requested units |
+| `description` | Conditions caption (`cap`) | Short text description, e.g. *Mostly sunny* |
 
 If your connector surface returns these as nested objects instead of flat outputs, expand the **Outputs** panel and select the fields you want exposed to the agent.
 
@@ -622,15 +617,15 @@ Follow the same pattern as Tool 1:
 
 3. Pick the connector action **Get forecast for today**.
 4. Inputs: leave `Location` as **Dynamically fill with AI** (same as Tool 1). Set `Units` to **Custom value = `Imperial`**. (When called explicitly from a topic in Step 6, wire `Location` to `Topic.Location` and `Units` to `Topic.Units` in the topic’s tool-call node.)
-5. Recommended outputs:
+5. Recommended outputs: choose the matching high, low, daytime description, precipitation probability, and wind fields from the connector output picker. Do not type a nested response path manually.
 
-   | Output | Source field | Meaning |
-   |---|---|---|
-   | `dayHigh` | `responses[0].weather.forecast.days[0].daily.tempHi` | Day high temperature |
-   | `dayLow` | `responses[0].weather.forecast.days[0].daily.tempLo` | Day low temperature |
-   | `daytimeDescription` | `responses[0].weather.forecast.days[0].day.shortCap` | Short description for the daytime period |
-   | `chanceOfRain` | `responses[0].weather.forecast.days[0].daily.pricip` | Daily precipitation probability |
-   | `windSummary` | `responses[0].weather.forecast.days[0].daily.windDesc` | Wind summary for the day |
+   | Output | Meaning |
+   |---|---|
+   | `dayHigh` | Day high temperature |
+   | `dayLow` | Day low temperature |
+   | `daytimeDescription` | Short description for the daytime period |
+   | `chanceOfRain` | Daily precipitation probability |
+   | `windSummary` | Wind summary for the day |
 
 > 💡 **Optional:** If you want a tomorrow-aware experience, add a fourth connector tool named **Get Tomorrow's Forecast** that wraps the *Get forecast for tomorrow* action with the same input shape. The lab evaluation set assumes today and current only, so the extra tool is purely upside.
 
@@ -787,7 +782,7 @@ The parent agent should orchestrate the operations experience while a connected 
    - `Give me the current weather in Cypress, TX`
 4. Open **Settings** for the connected agent. Enable the setting that allows other agents to connect to and use this agent.
 
-   ![Weather Operations Specialist Settings page with the "allow other agents to use this agent" toggle enabled.](./assets/connected-agent-sharing-enabled.png)
+   > Screenshot intentionally omitted until a current, sanitized capture is available. Verify the sharing setting directly in your tenant.
 
 5. Publish the connected agent.
 
@@ -844,7 +839,7 @@ A dispatcher wants one briefing covering several substation areas instead of sep
 2. Select **Create**.
 3. Choose the trigger **When an agent calls the flow**. If the trigger list is grouped by connector, look under the Copilot Studio or agent-related connector names used in your tenant.
 
-   ![Power Automate trigger picker with "When an agent calls the flow" selected.](./assets/flow-agent-trigger.png)
+   > Screenshot intentionally omitted until a current, sanitized capture is available. Verify the selected trigger directly in Power Automate.
 
 4. Name the flow:
 
@@ -970,7 +965,7 @@ Suggested prompt set:
 
 Use stronger models for shift-handoff briefings, multi-location analysis, and interpretation-heavy questions. Use lighter models for simple lookups, help topics, and deterministic tool wrappers.
 
-![Primary model selector in Copilot Studio settings alongside two side-by-side test responses for the same operations prompt.](./assets/model-selection-comparison.png)
+> Screenshot intentionally omitted until a current, sanitized capture is available. Record the selected models and test results in your own evidence.
 
 ### ✅ You've completed Use Case #6
 
@@ -1012,7 +1007,7 @@ Before operators rely on the agent, you need evidence that it handles common and
    - **General quality**
    - **Keyword match**
 
-   ![Create a test set dialog with Similarity, General quality, and Keyword match selected as test methods.](./assets/eval-test-methods.png)
+   > Screenshot intentionally omitted until a current, sanitized capture is available. Select the methods shown in your tenant and use current Microsoft Learn terminology.
 
 > 💡 **Method guidance:**
 
@@ -1070,7 +1065,7 @@ For each test, add expected answers or assertions. For example: Question 1 shoul
 
 Apply fixes in the right place: topic issues → fix the topic; tool issues → fix descriptions; routing issues → fix connected-agent descriptions; reasoning issues → revisit model choice.
 
-![Evaluation results dashboard with overall pass rate, per-test results, and an activity map for a failed case.](./assets/evaluation-results.png)
+> Screenshot intentionally omitted until a current, sanitized capture is available. Capture your own pass rate, per-test results, and failure evidence.
 
 ### ✅ You've completed Use Case #7
 

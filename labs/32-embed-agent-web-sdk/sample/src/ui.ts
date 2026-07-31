@@ -5,8 +5,8 @@ type Activity = {
   type: string;
   text?: string;
   from?: { role?: string };
-  suggestedActions?: { actions: { title: string; value: string }[] };
-  attachments?: { contentType: string; content: any }[];
+  suggestedActions?: { actions: { title: string; value?: unknown }[] };
+  attachments?: { contentType: string; content?: unknown }[];
 };
 
 export function renderUserMessage(parent: HTMLElement, text: string) {
@@ -30,7 +30,7 @@ export function renderActivity(
   const row = document.createElement("div");
   row.className = "msg-row bot";
   row.innerHTML = `
-    <img src="${branding.agentAvatarUrl}" alt="" class="avatar" />
+    <img src="${branding.agentAvatarUrl}" alt="${escapeHtml(branding.productName)}" class="avatar" />
     <div class="bot-content"></div>
   `;
   const content = row.querySelector(".bot-content") as HTMLElement;
@@ -60,9 +60,10 @@ export function renderActivity(
       const btn = document.createElement("button");
       btn.className = "suggestion";
       btn.textContent = action.title;
-      btn.addEventListener("click", () =>
-        onSuggestion(action.value ?? action.title)
-      );
+      btn.addEventListener("click", () => {
+        const value = typeof action.value === "string" ? action.value : action.title;
+        onSuggestion(value);
+      });
       wrap.appendChild(btn);
     }
     content.appendChild(wrap);

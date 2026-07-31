@@ -114,7 +114,7 @@ That outcome depends on careful work across trial setup, OAuth, role design, and
 | **Power Platform premium** | Required because the Snowflake connector is premium. |
 | **Copilot Studio** | Agent licensing still applies; separate environment governance may also affect connector availability. |
 | **Managed Environment** | Typically required to realize Power Platform VNet support policies cleanly. |
-| **Cloud limitations** | The connector is not available in GCC, GCC High, or DoD, so validate sovereign-cloud constraints early. |
+| **Cloud limitations** | The connector is not available in GCC, GCC High, China Cloud operated by 21Vianet, or DoD, so validate sovereign-cloud constraints early. |
 
 ---
 
@@ -369,7 +369,7 @@ DESCRIBE INTEGRATION EXTERNAL_OAUTH_COPILOT;
 ### Step 6 — Prepare the connector test
 
 1. Gather the account URL, warehouse, database, schema, and OAuth app details.
-2. Note that the Snowflake connector is **not available in GCC, GCC High, or DoD**.
+2. Note that the Snowflake connector is **not available in GCC, GCC High, China Cloud operated by 21Vianet, or DoD**.
 3. Create a simple test query you can execute later through a tool or flow, such as asking for low-stock products in the West region.
 
 ### Verification checklist
@@ -558,7 +558,7 @@ This use case helps you frame the implementation and validation checklist.
 ### Step 1 — Confirm your environment is eligible
 
 1. Verify that the target Power Platform environment is a **Managed Environment** if your VNet policy model requires it.
-2. Confirm that the Snowflake connector is supported in your region and remember that it is not available in GCC, GCC High, or DoD.
+2. Confirm that the Snowflake connector is supported in your region and remember that it is not available in GCC, GCC High, China Cloud operated by 21Vianet, or DoD.
 3. Review the Power Platform VNet support overview with your platform admin before attempting technical changes.
 
 > 💡 **Tip:** Treat VNet enablement as an environment decision, not a per-agent toggle.

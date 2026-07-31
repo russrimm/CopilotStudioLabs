@@ -1,0 +1,59 @@
+name: Validate content and tooling
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            portal/package-lock.json
+            tools/lab-accuracy/package-lock.json
+            tools/lab-pdf/package-lock.json
+            tools/screenshot-capture/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Validate lab structure and links
+        run: python validate_labs.py
+
+      - name: Validate template setup
+        run: node setup.js --dry-run
+
+      - name: Validate offline lab builder
+        run: node tools/lab-builder/build.mjs --features create-agent --no-learn --no-llm --dry-run
+
+      - name: Validate screenshot manifests and assets
+        run: node tools/screenshot-capture/verify-shots.js
+
+      - name: Test portal
+        working-directory: portal
+        run: |
+          npm ci
+          npm test
+          npm audit --omit=dev --audit-level=high
+
+      - name: Check tooling syntax
+        run: |
+          node --check tools/lab-accuracy/build-issue.mjs
+          node --check tools/lab-accuracy/screenshot-audit.mjs
+          node --check tools/lab-pdf/generate.js
+          node --check tools/screenshot-capture/capture.js
+          node --check tools/screenshot-capture/verify-shots.js

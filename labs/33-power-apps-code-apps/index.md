@@ -324,13 +324,7 @@ Set-ExecutionPolicy -Scope LocalMachine -ExecutionPolicy RemoteSigned
 
 ### Running scripts in VS Code or during tool setup
 
-If script errors persist, allow scripts for the current session only as a last resort:
-
-```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-```
-
-> ⚠️ **Warning:** `Bypass` removes all warnings and prompts. Use only for temporary troubleshooting — it resets when the terminal closes.
+If script errors persist on a managed device, do not bypass execution policy. Stop and ask IT to approve the required tool or script. Use a temporary process-scoped exception only on an organization-approved, non-production device after verifying the script source.
 
 ### Downloaded scripts are blocked
 
@@ -361,7 +355,7 @@ Now that you've built a supplier onboarding dashboard, consider how this pattern
 
 ## 📚 Resources
 
-- 🔗 [Power Apps Code Apps documentation](https://learn.microsoft.com/power-apps/maker/code-apps/)
+- 🔗 [Power Apps code apps overview](https://learn.microsoft.com/power-apps/developer/code-apps/overview)
 - 🔗 [Power Platform CLI reference](https://learn.microsoft.com/power-platform/developer/cli/introduction)
 - 🔗 [Microsoft Dataverse developer guide](https://learn.microsoft.com/power-apps/developer/data-platform/)
 - 🔗 [GitHub Copilot in VS Code](https://docs.github.com/copilot/using-github-copilot/getting-code-suggestions-in-your-ide)

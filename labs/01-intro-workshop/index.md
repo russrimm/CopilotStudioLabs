@@ -51,8 +51,9 @@ This hands-on lab covers the essential skills for building, configuring, and pub
 - Testing end-to-end tool invocation
 
 ### Section 3: Model Selection
-- OpenAI models: GPT-5 Chat, GPT-5 Auto, GPT-5 Reasoning, GPT-4.1
-- Anthropic models: Claude Sonnet 4.5/4.6, Claude Opus 4.6/4.7/4.8
+- Available models vary by environment, region, licensing, and release status
+- Review the model picker and [Microsoft Learn](https://learn.microsoft.com/microsoft-copilot-studio/authoring-select-agent-model) before selecting a production model
+- Do not use experimental or preview models for production without organizational approval
 - Decision guide: when to use which model
 - Advanced Generative AI settings
 
@@ -81,6 +82,7 @@ Congratulations! 👏 You now have a working Copilot Studio agent and the core s
 
 **Suggested next labs:**
 
+- **[Lab 02: Topics, Triggers, Entities & Variables](../02-conversational-design-fundamentals/index.md)** — establish conversational-authoring fundamentals before moving into advanced tools and evaluation.
 - **[Lab 06: Energy Operations Weather Agent](../06-energy-weather-agent/)** — go deeper with custom prompt tools, connected child agents, and evaluation test suites.
 - **[Lab 07: Monitor Performance and Evaluate Agent Quality](../07-agent-analytics-evaluations/index.md)** — measure and continuously improve the agents you build.
 

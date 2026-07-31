@@ -51,6 +51,6 @@
     "root": "npm install --package-lock=false",
     "portal": "cd portal && npm ci",
     "labPdf": "cd tools/lab-pdf && npm ci",
-    "screenshots": "cd tools/screenshot-capture && npm ci"
+    "screenshots": "cd tools/screenshot-capture && npm ci && npx playwright install chromium"
   }
 }

@@ -112,6 +112,8 @@ User
 - Access to **Microsoft Fabric** and a **Fabric Data Agent** or equivalent A2A-capable analytics endpoint.
 - A small set of sample utility analytics questions, such as feeder peak-load analysis, outage trends, or billing-segment comparisons.
 
+> ⚠️ **Preview:** Fabric Data Agent connectivity is preview. Use non-production data for this pilot and confirm that the external agent exposes a supported A2A endpoint.
+
 > ⚠️ **Warning:** Because connected agents expand your solution surface area, align naming, ownership, and test responsibilities before you connect them.
 
 ---
@@ -250,10 +252,10 @@ Your operations team has a Fabric Data Agent that can answer questions about fee
 
 ### Step 1 — Prepare the external agent endpoint
 
-1. Confirm that the Fabric Data Agent or other external analytics agent is available and that you know the endpoint or connection details required by Copilot Studio.
+1. Confirm that the Fabric Data Agent or other external analytics agent is available and exposes a supported A2A endpoint. Record the **message endpoint**, not the agent-card URL.
 2. Verify the agent has a clear name and description that emphasize analytics, semantic-model access, and utility planning use cases.
 3. Coordinate with the Fabric owner so the connected agent exposes only the datasets or semantic models you want the pilot to use.
-4. Check whether additional consent or delegated authorization is needed for the connection.
+4. Confirm whether the endpoint requires **None**, **API key**, or **OAuth 2.0** authentication, and obtain approval for that method without placing credentials in the lab document.
 5. Prepare two or three example prompts the Fabric agent can already answer successfully before you connect it to the parent.
 6. Record the ownership contact for the external agent because support will cross team boundaries once you connect it.
 
