@@ -26,6 +26,7 @@ import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/
 import { getFeaturesByCategory, getFeatures, validateCatalog } from "./lib/lab-builder/catalog.js";
 import { planLab } from "./lib/lab-builder/planner.js";
 import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
+import { sanitizeLabHtml } from "./lib/markdown.js";
 import { marked } from "marked";
 
 /* ── Mermaid extension for marked ───────────────────────────────────────────
@@ -592,7 +593,8 @@ app.get("/api/labs/:id", (req, res) => {
   if (!content) return res.status(404).json({ error: "Lab not found" });
   const branding = loadBranding();
   const brandedMarkdown = prependBrandingBanner(content, branding);
-  const html = rewriteLabHtmlAssetUrls(marked.parse(brandedMarkdown), req.params.id);
+  const rewrittenHtml = rewriteLabHtmlAssetUrls(marked.parse(brandedMarkdown), req.params.id);
+  const html = sanitizeLabHtml(rewrittenHtml);
   res.json({ id: req.params.id, html, markdown: brandedMarkdown });
 });
 

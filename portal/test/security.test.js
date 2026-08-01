@@ -14,6 +14,7 @@ import { escapeHtml } from "../lib/branding.js";
 import { buildApprovalNotificationHtml } from "../lib/approvals.js";
 import { exportLabs } from "../lib/exporter.js";
 import { getLabContent, getLabPath, isValidLabId } from "../lib/labs.js";
+import { sanitizeLabHtml } from "../lib/markdown.js";
 import { assertDisplayName } from "../lib/powerplatform.js";
 import { validateLab } from "../lib/validator.js";
 
@@ -137,4 +138,37 @@ test("recipient chips use DOM text and listeners instead of executable HTML", ()
   assert.doesNotMatch(renderRecipients, /innerHTML|onclick\s*=/);
   assert.match(renderRecipients, /createTextNode/);
   assert.match(renderRecipients, /addEventListener\("click"/);
+});
+
+test("lab preview sanitization removes executable markup and unsafe URLs", () => {
+  const html = sanitizeLabHtml(`
+    <h1 onclick="alert(1)">Unsafe lab</h1>
+    <script>alert(2)</script>
+    <img src="x" onerror="alert(3)">
+    <a href="javascript:alert(4)">bad link</a>
+    <svg><a href="javascript:alert(5)">svg link</a></svg>
+    <a href="https://learn.microsoft.com/" target="_blank">safe link</a>
+    <a class="image-lightbox" href="https://example.com/" target="report-window">spoof</a>
+    <div class="mermaid">graph TD; A--&gt;B</div>
+  `);
+
+  assert.doesNotMatch(html, /onclick|onerror|<script|<svg|javascript:|image-lightbox|report-window/i);
+  assert.match(html, /href="https:\/\/learn\.microsoft\.com\/"/);
+  assert.match(html, /rel="noopener noreferrer"/);
+  assert.match(html, /class="mermaid"/);
+});
+
+test("lab cards escape metadata and use listeners instead of inline handlers", () => {
+  const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  const labCard = appSource.match(
+    /function labCardHtml\(lab\) \{(?<body>[\s\S]*?)\n\}/,
+  )?.groups?.body;
+
+  assert.ok(labCard, "labCardHtml function must exist");
+  assert.doesNotMatch(labCard, /onclick\s*=/);
+  assert.match(labCard, /escapeHtml\(lab\.id\)/);
+  assert.match(labCard, /escapeHtml\(lab\.difficulty/);
+  assert.match(labCard, /escapeHtml\(lab\.time/);
+  assert.match(labCard, /escapeHtml\(tag\)/);
+  assert.match(appSource, /card\.addEventListener\("click"/);
 });

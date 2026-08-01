@@ -684,6 +684,14 @@ function renderLabs() {
     })
     .join("");
 
+  list.querySelectorAll(".lab-card[data-id]").forEach((card) => {
+    card.addEventListener("click", () => selectLab(card.dataset.id));
+    card.querySelector(".lab-toggle")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleLab(card.dataset.id);
+    });
+  });
+
   updateSummary();
   renderScenarioLabPreview();
   renderPreflightStatus();
@@ -717,21 +725,23 @@ function labCardHtml(lab) {
   const selected = lab.id === selectedLabId;
   const number = lab.id.match(/^(\d+)/)?.[1] || "?";
   const sizeKB = lab.sizeBytes ? Math.round(lab.sizeBytes / 1024) : 0;
-  const cleanTitle = (lab.title || lab.id).replace(/^Lab\s+\d+\s*[:.\-–—]\s*/i, "").trim();
+  const labId = escapeHtml(lab.id);
+  const cleanTitle = escapeHtml(
+    (lab.title || lab.id).replace(/^Lab\s+\d+\s*[:.\-–—]\s*/i, "").trim() || lab.id,
+  );
   return `
     <div class="lab-card ${included ? "included" : "excluded"} ${selected ? "selected" : ""}"
-         data-id="${lab.id}" onclick="selectLab('${lab.id}')">
+         data-id="${labId}">
       <button class="lab-toggle ${included ? "on" : ""}"
-              onclick="event.stopPropagation(); toggleLab('${lab.id}')"
               title="${included ? "Click to exclude" : "Click to include"}"></button>
-      <div class="lab-card-title">Lab ${number}: ${cleanTitle || lab.id}</div>
+      <div class="lab-card-title">Lab ${escapeHtml(number)}: ${cleanTitle}</div>
       <div class="lab-card-meta">
-        <span>⭐ ${lab.difficulty || "?"}</span>
-        <span>⏱️ ${lab.time || "?"}</span>
+        <span>⭐ ${escapeHtml(lab.difficulty || "?")}</span>
+        <span>⏱️ ${escapeHtml(lab.time || "?")}</span>
         <span>📁 ${sizeKB} KB</span>
       </div>
       <div style="margin-top: 6px;">
-        ${(lab.tags || []).slice(0, 3).map((t) => `<span class="tag">${t}</span>`).join(" ")}
+        ${(lab.tags || []).slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join(" ")}
       </div>
     </div>
   `;
@@ -803,7 +813,10 @@ async function selectLab(labId) {
     injectFeedbackButtons(preview);
     injectReportIssueButton(preview);
   } catch (err) {
-    preview.innerHTML = `<p style="color: var(--danger);">Failed to load: ${err.message}</p>`;
+    const message = document.createElement("p");
+    message.style.color = "var(--danger)";
+    message.textContent = `Failed to load: ${err.message}`;
+    preview.replaceChildren(message);
   }
 }
 
