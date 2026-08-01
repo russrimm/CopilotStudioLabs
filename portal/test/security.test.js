@@ -7,6 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 
 import { escapeHtml } from "../lib/branding.js";
@@ -124,4 +125,16 @@ test("lab export creates a ZIP for a known lab", async () => {
   assert.equal(result.labCount, 1);
   assert.ok(result.bytes > 0);
   assert.equal(zip.subarray(0, 2).toString("ascii"), "PK");
+});
+
+test("recipient chips use DOM text and listeners instead of executable HTML", () => {
+  const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  const renderRecipients = appSource.match(
+    /function renderRecipients\(\) \{(?<body>[\s\S]*?)\n\}/,
+  )?.groups?.body;
+
+  assert.ok(renderRecipients, "renderRecipients function must exist");
+  assert.doesNotMatch(renderRecipients, /innerHTML|onclick\s*=/);
+  assert.match(renderRecipients, /createTextNode/);
+  assert.match(renderRecipients, /addEventListener\("click"/);
 });

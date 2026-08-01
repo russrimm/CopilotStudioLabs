@@ -327,6 +327,18 @@ function serializeProvisionJob(job) {
 // Load secrets from Key Vault before starting (falls back to .env)
 const kvResult = await loadSecretsFromKeyVault();
 
+app.use((_req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "base-uri 'self'; object-src 'none'; frame-ancestors 'none'",
+  );
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Permissions-Policy", "camera=(), geolocation=(), microphone=(), payment=(), usb=()");
+  next();
+});
+
 app.use(express.json({ limit: "10mb" }));
 // Harden user-uploaded content: block MIME sniffing so a file can't be
 // re-interpreted as HTML/SVG by the browser. Registered before the general

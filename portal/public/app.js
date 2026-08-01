@@ -11,6 +11,8 @@ let recipients = [];
 let scenarios = { industries: [], roles: [] };
 let selectedIndustryId = "";
 let selectedRoleIds = new Set();
+let mermaidLoadPromise = null;
+let agentChatConfigLoaded = false;
 let validationResults = new Map();
 let validationTimestamp = "";
 let activeProvisionJob = null;
@@ -224,16 +226,9 @@ document.addEventListener("DOMContentLoaded", () => {
   applyBranding(getDefaultBranding());
   initConfigProvenanceTooltips();
   initImageLightbox();
-  renderDependencyGraph();
   refreshLabs();
-  loadScenarios();
-  loadConfig();
   loadBranding();
-  loadResourceManifest();
   restoreActiveProvisionJob();
-  ppLoadApprovalConfig().catch(() => {});
-  ppLoadApprovalRequests().catch(() => {});
-  loadAgentChatConfig();
 });
 
 // ── Tabs ──────────────────────────────────────────────────────────────────
@@ -276,6 +271,22 @@ function setActiveTab(tabName) {
   if (tabName === "powerplatform") {
     ppLoadApprovalConfig().catch(() => {});
     ppLoadApprovalRequests().catch(() => {});
+  }
+
+  if (tabName === "scenarios" && !scenarios.industries.length) {
+    loadScenarios();
+  }
+
+  if (tabName === "azure" && !resourceManifest.length) {
+    loadResourceManifest();
+  }
+
+  if (tabName === "agent" && !agentChatConfigLoaded) {
+    loadAgentChatConfig();
+  }
+
+  if (tabName === "config") {
+    loadConfig();
   }
 
   if (tabName === "labbuilder") {
@@ -379,10 +390,26 @@ function computeAccentHover(hex) {
   return `#${next}`;
 }
 
+function computeContrastText(hex) {
+  const normalized = hex.replace("#", "");
+  const channels = [0, 2, 4].map((index) => {
+    const channel = parseInt(normalized.slice(index, index + 2), 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  const whiteContrast = 1.05 / (luminance + 0.05);
+  const darkLuminance = 0.0057;
+  const darkContrast = (luminance + 0.05) / (darkLuminance + 0.05);
+  return whiteContrast >= darkContrast ? "#ffffff" : "#0f1117";
+}
+
 function setThemeAccent(color) {
   const root = document.documentElement;
+  const hoverColor = computeAccentHover(color);
   root.style.setProperty("--accent", color);
-  root.style.setProperty("--accent-hover", computeAccentHover(color));
+  root.style.setProperty("--accent-hover", hoverColor);
+  root.style.setProperty("--accent-contrast", computeContrastText(color));
+  root.style.setProperty("--accent-hover-contrast", computeContrastText(hoverColor));
 }
 
 function updateFavicon(logoPath) {
@@ -764,8 +791,13 @@ async function selectLab(labId) {
 
     // Render any Mermaid diagrams injected into the preview
     const mermaidNodes = preview.querySelectorAll(".mermaid");
-    if (mermaidNodes.length && typeof mermaid !== "undefined") {
-      try { await mermaid.run({ nodes: mermaidNodes }); } catch (_) { /* graceful fallback — raw text stays visible */ }
+    if (mermaidNodes.length) {
+      try {
+        const mermaid = await loadMermaid();
+        await mermaid.run({ nodes: mermaidNodes });
+      } catch (_) {
+        // Graceful fallback: the source remains visible if the optional renderer fails.
+      }
     }
 
     injectFeedbackButtons(preview);
@@ -775,16 +807,37 @@ async function selectLab(labId) {
   }
 }
 
-async function renderDependencyGraph() {
-  const graph = document.getElementById("lab-dependency-graph");
-  if (!graph || typeof mermaid === "undefined" || graph.dataset.rendered === "true") return;
+function loadMermaid() {
+  if (window.mermaid) return Promise.resolve(window.mermaid);
+  if (mermaidLoadPromise) return mermaidLoadPromise;
 
-  try {
-    await mermaid.run({ nodes: [graph] });
-    graph.dataset.rendered = "true";
-  } catch (_) {
-    // Leave Mermaid source visible if rendering fails.
-  }
+  mermaidLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "vendor/mermaid.min.js";
+    script.onload = () => {
+      window.mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        theme: "base",
+        themeVariables: {
+          primaryColor: "#f3f4f8",
+          primaryTextColor: "#1f2937",
+          primaryBorderColor: "#cbd5e1",
+          lineColor: "#94a3b8",
+          mainBkg: "#f3f4f8",
+          edgeLabelBackground: { fill: "transparent" },
+        },
+      });
+      resolve(window.mermaid);
+    };
+    script.onerror = () => {
+      mermaidLoadPromise = null;
+      reject(new Error("Failed to load the diagram renderer."));
+    };
+    document.head.append(script);
+  });
+
+  return mermaidLoadPromise;
 }
 
 function reportIssue(context) {
@@ -1507,6 +1560,7 @@ function safeExternalHttpUrl(value) {
 // ── Agent Chat ──────────────────────────────────────────────────────────────
 
 async function loadAgentChatConfig() {
+  agentChatConfigLoaded = true;
   try {
     const res = await fetch("/api/agent-chat/config");
     const config = await res.json();
@@ -2032,9 +2086,21 @@ function removeRecipient(email) {
 
 function renderRecipients() {
   const list = document.getElementById("recipients-list");
-  list.innerHTML = recipients
-    .map((r) => `<span class="recipient-chip">${r} <button onclick="removeRecipient('${r}')">×</button></span>`)
-    .join("");
+  list.replaceChildren();
+  for (const recipient of recipients) {
+    const chip = document.createElement("span");
+    chip.className = "recipient-chip";
+    chip.append(document.createTextNode(`${recipient} `));
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.textContent = "×";
+    removeButton.setAttribute("aria-label", `Remove ${recipient}`);
+    removeButton.addEventListener("click", () => removeRecipient(recipient));
+
+    chip.append(removeButton);
+    list.append(chip);
+  }
 }
 
 async function sendEmail() {
