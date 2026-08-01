@@ -2,7 +2,7 @@
 
 *Build and validate generally available computer-use automations for repetitive desktop workflows.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (300) |
 | ⏱️ **TIME** | 90 minutes |

@@ -21,6 +21,9 @@ import { loadAllLabs, repoRoot, writeReport, relativeToRoot } from "./lib/labs.m
 const args = process.argv.slice(2);
 const thresholdArg = args.find((a) => a.startsWith("--max-age-days="));
 const STALE_DAYS = thresholdArg ? Number(thresholdArg.split("=")[1]) : 180;
+if (!Number.isInteger(STALE_DAYS) || STALE_DAYS < 1 || STALE_DAYS > 3650) {
+  throw new Error("--max-age-days must be a whole number from 1 to 3650.");
+}
 const STALE_MS = STALE_DAYS * 24 * 60 * 60 * 1000;
 
 function gitLastModified(relPath) {
@@ -74,7 +77,7 @@ function main() {
     generatedAt: new Date().toISOString(),
     staleThresholdDays: STALE_DAYS,
     verifyShots: {
-      available: !verify.unavailable,
+      available: !verify.unavailable && verify.ok !== false,
       critical: verify.summary?.critical ?? 0,
       warning: verify.summary?.warning ?? 0,
     },

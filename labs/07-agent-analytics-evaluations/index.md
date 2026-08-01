@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
 | ⏱️ **TIME** | 45 minutes |
@@ -131,7 +131,7 @@ By the end of this lab you will be able to:
 
 > 🎯 **Objective:** Access and interpret your Contoso IT Operations Agent's analytics to identify the highest-impact optimization opportunities.
 
-### Scenario
+## Scenario
 
 Your **Contoso IT Operations Agent** has been deployed for several days. Field technicians and the IT helpdesk team have been using it. You need to understand how they're interacting with it, which knowledge sources are getting hit, where conversations are failing, and whether users find it helpful — so you can prioritize the next round of improvements.
 
@@ -258,7 +258,7 @@ Based on your analytics and transcript review, build a **prioritized list of imp
 
 > 🎯 **Objective:** Create evaluation test sets four different ways and understand which approach to use when.
 
-### Scenario
+## Scenario
 
 You want to systematically test your Contoso IT Operations Agent. You'll create **three** distinct test sets — one auto-generated, one imported from CSV that's intentionally designed to **fail** (so you can see how the platform reports refusals), and one captured from real agent conversations that should **pass**. Together they form a complete picture of how different creation methods and outcomes work.
 
@@ -399,7 +399,7 @@ You want to systematically test your Contoso IT Operations Agent. You'll create 
 
 > 🎯 **Objective:** Interpret evaluation outcomes, compare runs, and turn the results into measurable agent improvements.
 
-### Scenario
+## Scenario
 
 You created and ran three test sets in Use Case #2. Now read the results — pass rates, individual reasoning, activity maps, and run-over-run comparisons — and turn them into a backlog of concrete improvements for the Contoso IT Operations Agent.
 
@@ -526,7 +526,7 @@ Before you publish an agent update, compare the latest run against the last know
 
 > 🎯 **Objective:** Connect Azure Application Insights to your Copilot Studio agent, write KQL queries to analyze conversation telemetry, build monitoring dashboards, and set up proactive alerts for production observability.
 
-### Scenario
+## Scenario
 
 As the Contoso Energy IT Operations team scales their agent to thousands of field technicians across substations, dispatch centers, and remote sites, the in-product analytics dashboard from Use Case #1 covers daily operational checks — but it can't answer deeper questions. *"Why did response latency spike at 2 AM during last Tuesday's storm?"* *"Which knowledge source is causing timeouts?"* *"How does conversation volume correlate with our ServiceNow ticket deflection?"* For that level of diagnostics, you need **Azure Application Insights** — the same telemetry platform that backs mission-critical Azure services across Contoso Infrastructure and Contoso Power.
 
@@ -884,7 +884,7 @@ You've put together the three pillars of an agent quality practice:
 - **Evaluations** tells you **whether** your improvements actually worked — repeatable, objective, comparable across runs.
 - **Application Insights** tells you **why** things happen — deep diagnostics, custom KQL queries, long-term retention, cross-service correlation, and proactive alerting.
 
-### 🪙 Analytics & evaluation golden rules for Contoso
+## 🪙 Analytics & evaluation golden rules for Contoso
 
 1. **Review analytics weekly for new agents, bi-weekly for mature agents.** Set a calendar reminder — drift happens silently.
 2. **Prioritize improvements by volume × satisfaction-impact.** A 50% satisfaction score on a topic that's asked 1,000 times beats 90% on a topic that's asked twice.

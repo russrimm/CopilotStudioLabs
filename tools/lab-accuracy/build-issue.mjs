@@ -5,15 +5,20 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { readReport } from "./lib/labs.mjs";
+import { getReportsDir, readReport } from "./lib/labs.mjs";
+import {
+  isAccuracyReport,
+  isScreenshotReport,
+  isSmokeReport,
+  reportsNeedAction,
+} from "./lib/report-status.mjs";
 
 const accuracy = readReport("accuracy.json");
 const screenshots = readReport("screenshots.json");
 const smoke = readReport("smoke.json");
 
 const lines = [];
-let needsAction = false;
+let needsAction = reportsNeedAction({ accuracy, screenshots, smoke });
 
 lines.push("## 🔁 Monthly Lab Accuracy & Screenshot Audit");
 lines.push("");
@@ -28,14 +33,15 @@ lines.push("");
 
 // ---- Reference links + Learn drift ----
 lines.push("### 📚 Microsoft Learn accuracy");
-if (!accuracy) {
-  needsAction = true;
-  lines.push("- ⚠️ No accuracy report was produced.");
+if (!isAccuracyReport(accuracy)) {
+  lines.push("- ⚠️ No valid accuracy report was produced.");
 } else {
   const broken = accuracy.labs.filter((l) => l.brokenLinks.length > 0);
+  const unreachable = accuracy.labs.filter((l) => l.unreachableLinks?.length > 0);
   const drift = accuracy.labs.filter((l) => l.mcp?.note);
   lines.push(`- Labs scanned: **${accuracy.summary.labs}**`);
   lines.push(`- Broken reference links: **${accuracy.summary.brokenLinks}**`);
+  lines.push(`- Temporarily unreachable links: **${accuracy.summary.unreachableLinks || 0}**`);
   lines.push(`- Learn drift warnings: **${accuracy.summary.mcpDriftWarnings}**` +
     (accuracy.summary.mcpUnavailable ? " _(MCP server was unavailable this run)_" : ""));
   if (accuracy.summary.mcpUnavailable) needsAction = true;
@@ -47,6 +53,18 @@ if (!accuracy) {
     for (const lab of broken) {
       for (const link of lab.brokenLinks) {
         lines.push(`- \`${lab.name}\` → ${link.url} (HTTP ${link.status})`);
+      }
+    }
+    lines.push("");
+    lines.push("</details>");
+  }
+  if (unreachable.length) {
+    lines.push("");
+    lines.push("<details><summary>Reference links that could not be checked</summary>");
+    lines.push("");
+    for (const lab of unreachable) {
+      for (const link of lab.unreachableLinks) {
+        lines.push(`- \`${lab.name}\` → ${link.url} (${link.error || "network error"})`);
       }
     }
     lines.push("");
@@ -68,14 +86,12 @@ lines.push("");
 
 // ---- Screenshots ----
 lines.push("### 🖼️ Screenshot audit");
-if (!screenshots) {
-  needsAction = true;
-  lines.push("- ⚠️ No screenshot report was produced.");
+if (!isScreenshotReport(screenshots)) {
+  lines.push("- ⚠️ No valid screenshot report was produced.");
 } else {
   lines.push(`- Labs needing re-capture: **${screenshots.summary.labsNeedingRecapture}**`);
   lines.push(`- Missing images: **${screenshots.summary.missingImages}** · Stale (> ${screenshots.staleThresholdDays}d): **${screenshots.summary.staleImages}**`);
   lines.push(`- verify-shots critical: **${screenshots.verifyShots.critical}** · warnings: **${screenshots.verifyShots.warning}**`);
-  if (!screenshots.verifyShots.available) needsAction = true;
   const todo = screenshots.labs.filter((l) => l.needsRecapture);
   if (todo.length) {
     needsAction = true;
@@ -102,9 +118,8 @@ lines.push("");
 
 // ---- Smoke test ----
 lines.push("### 🌐 Start-URL smoke test");
-if (!smoke) {
-  needsAction = true;
-  lines.push("- ⚠️ No smoke report was produced.");
+if (!isSmokeReport(smoke)) {
+  lines.push("- ⚠️ No valid smoke report was produced.");
 } else {
   lines.push(`- URLs tested: **${smoke.summary.urls}** · reachable: **${smoke.summary.reachable}** · unreachable: **${smoke.summary.unreachable}**`);
   const dead = smoke.urls.filter((u) => !u.reachable);
@@ -124,7 +139,7 @@ lines.push(needsAction
 lines.push("");
 
 const body = lines.join("\n");
-const outDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "out");
+const outDir = getReportsDir();
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, "issue.md"), body);
 

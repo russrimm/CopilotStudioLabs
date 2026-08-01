@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 90 minutes |
@@ -136,7 +136,7 @@ User
 
 > 🎯 **Objective:** Compare internal Copilot Studio connected agents with external A2A specialists so you choose the right pattern.
 
-### Scenario
+## Scenario
 
 A utility architecture team already used connected agents in Lab 18. Now they want to know when to keep that model and when to use A2A for an external analytics specialist.
 You will create a simple design matrix before building anything.
@@ -246,7 +246,7 @@ You now have the foundation to move from **a rough multi-agent idea** to **an ex
 
 > 🎯 **Objective:** Attach a Copilot Studio agent to an external Fabric analytics specialist over A2A.
 
-### Scenario
+## Scenario
 
 Your operations team has a Fabric Data Agent that can answer questions about feeder performance, outage history, and rate-segment analytics. You want your parent agent to use that specialist instead of trying to answer analytical questions itself.
 
@@ -362,7 +362,7 @@ You now have the foundation to move from **an isolated external analytics agent*
 
 > 🎯 **Objective:** Create a parent agent that coordinates between an internal Copilot Studio specialist and an external A2A specialist.
 
-### Scenario
+## Scenario
 
 The parent agent should feel like one front door for grid planners, customer operations analysts, and territory managers. Behind the scenes, it should decide which specialist deserves the question.
 
@@ -488,7 +488,7 @@ You now have the foundation to move from **connected specialists** to **a purpos
 
 > 🎯 **Objective:** Verify that the orchestrator sends utility questions to the right specialist.
 
-### Scenario
+## Scenario
 
 A beautiful architecture is not enough. You need proof that analytical questions go to Fabric, operational questions stay in the Copilot Studio domain, and mixed questions are handled predictably.
 
@@ -596,7 +596,7 @@ You now have the foundation to move from **an orchestrator configuration** to **
 
 > 🎯 **Objective:** Review analytics for multi-agent conversations and understand performance tradeoffs.
 
-### Scenario
+## Scenario
 
 Every agent hop introduces a little more latency and operational complexity. You need a practical way to monitor whether the user experience still justifies the architecture.
 
@@ -699,7 +699,7 @@ You now have the foundation to move from **a working multi-agent demo** to **a m
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|

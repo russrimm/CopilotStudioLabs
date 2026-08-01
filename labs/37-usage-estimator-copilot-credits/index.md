@@ -2,7 +2,7 @@
 
 *Estimate workload cost and capacity using usage estimator patterns and Copilot Credits planning.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (200) |
 | ⏱️ **TIME** | 45 minutes |

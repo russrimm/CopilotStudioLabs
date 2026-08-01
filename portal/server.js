@@ -26,6 +26,7 @@ import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/
 import { getFeaturesByCategory, getFeatures, validateCatalog } from "./lib/lab-builder/catalog.js";
 import { planLab } from "./lib/lab-builder/planner.js";
 import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
+import { renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
 /* ── Mermaid extension for marked ───────────────────────────────────────────
@@ -327,6 +328,18 @@ function serializeProvisionJob(job) {
 // Load secrets from Key Vault before starting (falls back to .env)
 const kvResult = await loadSecretsFromKeyVault();
 
+app.use((_req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "base-uri 'self'; object-src 'none'; frame-ancestors 'none'",
+  );
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Permissions-Policy", "camera=(), geolocation=(), microphone=(), payment=(), usb=()");
+  next();
+});
+
 app.use(express.json({ limit: "10mb" }));
 // Harden user-uploaded content: block MIME sniffing so a file can't be
 // re-interpreted as HTML/SVG by the browser. Registered before the general
@@ -389,6 +402,11 @@ app.post("/api/scenarios/configure", (req, res) => {
 });
 
 // ── Lab Builder: generate a custom, Microsoft Learn-grounded lab ────────────
+const configuredLabBuilderConcurrency = Number(process.env.LAB_BUILDER_MAX_ACTIVE || 2);
+const LAB_BUILDER_MAX_ACTIVE = Number.isInteger(configuredLabBuilderConcurrency)
+  ? Math.min(8, Math.max(1, configuredLabBuilderConcurrency))
+  : 2;
+let activeLabGenerations = 0;
 
 /** GET /api/lab-builder/features — Catalog that drives the wizard */
 app.get("/api/lab-builder/features", (_req, res) => {
@@ -441,11 +459,24 @@ app.post("/api/lab-builder/preview", (req, res) => {
 
 /** POST /api/lab-builder/generate — Build the lab and write it to generated-labs/ */
 app.post("/api/lab-builder/generate", async (req, res) => {
+  if (activeLabGenerations >= LAB_BUILDER_MAX_ACTIVE) {
+    res.setHeader("Retry-After", "10");
+    return res.status(429).json({ error: "The lab builder is busy. Try again shortly." });
+  }
+
+  activeLabGenerations += 1;
+  const controller = new AbortController();
+  const cancel = () => {
+    if (!res.writableEnded) controller.abort("Client disconnected");
+  };
+  req.once("aborted", cancel);
+  res.once("close", cancel);
   try {
     const body = req.body || {};
     const result = await generateLab(body, {
       useLearnMcp: body.useLearnMcp !== false,
       useLlm: body.useLlm !== false,
+      signal: controller.signal,
     });
 
     res.json({
@@ -460,7 +491,13 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       warnings: result.plan.warnings,
     });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    if (!res.writableEnded && !controller.signal.aborted) {
+      res.status(400).json({ error: err.message });
+    }
+  } finally {
+    activeLabGenerations -= 1;
+    req.off("aborted", cancel);
+    res.off("close", cancel);
   }
 });
 
@@ -512,7 +549,7 @@ app.get("/api/lab-builder/generated/:labId", (req, res) => {
     const markdown = readFileSync(indexPath, "utf-8");
     const manifestPath = join(labDir, "manifest.json");
     const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf-8")) : null;
-    res.json({ labId, markdown, html: marked.parse(markdown), manifest });
+    res.json({ labId, markdown, html: renderLabMarkdown(markdown), manifest });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -556,7 +593,10 @@ app.get("/api/labs/:id", (req, res) => {
   if (!content) return res.status(404).json({ error: "Lab not found" });
   const branding = loadBranding();
   const brandedMarkdown = prependBrandingBanner(content, branding);
-  const html = rewriteLabHtmlAssetUrls(marked.parse(brandedMarkdown), req.params.id);
+  const html = renderLabMarkdown(
+    brandedMarkdown,
+    (renderedHtml) => rewriteLabHtmlAssetUrls(renderedHtml, req.params.id),
+  );
   res.json({ id: req.params.id, html, markdown: brandedMarkdown });
 });
 

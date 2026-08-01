@@ -1,0 +1,13 @@
+{
+  "verifiedAt": "2026-08-01",
+  "knownLabWarnings": [
+    "01-intro-workshop",
+    "04-energy-ops-agent",
+    "16-agent-flows-m365-copilot-nodes",
+    "22-servicenow-integration",
+    "23-snowflake-data-integration",
+    "26-industry-integrations",
+    "30-realtime-voice-agents",
+    "32-embed-agent-web-sdk"
+  ]
+}

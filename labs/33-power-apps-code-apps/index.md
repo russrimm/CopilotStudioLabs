@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
 | ⏱️ **TIME** | 45 minutes |
@@ -102,7 +102,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 ## 🔨 Use case 1: Create a code app from scratch
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Clone the starter template, connect to your environment, build and deploy |
 | **Time** | 15 minutes |
@@ -178,7 +178,7 @@ If successful, the command returns a Power Apps URL to run the app.
 
 ## 🔗 Use case 2: Add a Dataverse table to the app
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Connect the Suppliers table as a data source |
 | **Time** | 5 minutes |
@@ -214,7 +214,7 @@ Your app is still working and now has the Dataverse Suppliers table connected. Y
 
 ## 🤖 Use case 3: Use GitHub Copilot to add business logic
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Build the supplier onboarding dashboard with AI-assisted coding |
 | **Time** | 20 minutes |

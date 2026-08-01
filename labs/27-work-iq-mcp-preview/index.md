@@ -2,7 +2,7 @@
 
 *Connect Work IQ context through MCP in a preview workflow to enrich Copilot Studio agent grounding.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (300) |
 | ⏱️ **TIME** | 75 minutes |

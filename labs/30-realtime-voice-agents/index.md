@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 2 hours |
@@ -139,7 +139,7 @@ Caller
 
 > 🎯 **Objective:** Set up a real-time voice agent with NLU and speech recognition for a utility call scenario.
 
-### Scenario
+## Scenario
 
 You are building a voice experience for callers who need outage status, service-restoration updates, or billing guidance without navigating a rigid keypad tree.
 
@@ -250,7 +250,7 @@ You now have the foundation to move from **a generic text agent** to **a voice-r
 
 > 🎯 **Objective:** Adjust speech sensitivity, silence detection, and voice selection for a natural calling experience.
 
-### Scenario
+## Scenario
 
 Outage callers may speak quickly, interrupt the agent, or pause while looking up an account number. Voice tuning helps the agent feel patient rather than brittle.
 
@@ -355,7 +355,7 @@ You now have the foundation to move from **default voice settings** to **a tuned
 
 > 🎯 **Objective:** Use the built-in voice test panel to validate the experience with microphone input.
 
-### Scenario
+## Scenario
 
 Before publishing to a real phone number, you want to hear the conversation, interrupt it, and verify how it behaves with actual speech.
 
@@ -461,7 +461,7 @@ You now have the foundation to move from **a tuned configuration** to **a tested
 
 > 🎯 **Objective:** Configure pause and resume so callers can retrieve information without frustration.
 
-### Scenario
+## Scenario
 
 A caller needs time to find an account number, outage text, or meter location. Instead of timing out or escalating prematurely, the agent should wait gracefully.
 
@@ -573,7 +573,7 @@ You now have the foundation to move from **a continuous but rigid call flow** to
 
 > 🎯 **Objective:** Set up automatic backend triggers after a call ends.
 
-### Scenario
+## Scenario
 
 When a call ends, the utility may need to log the outcome, update a case, or trigger a follow-up workflow. Doing that reliably requires a dedicated post-call action pattern.
 
@@ -671,7 +671,7 @@ You now have the foundation to move from **a voice call with no backend closure*
 
 > 🎯 **Objective:** Add compliant recording with caller consent.
 
-### Scenario
+## Scenario
 
 Customer calls can contain sensitive information. The utility wants explicit caller consent before recording or transcription begins.
 
@@ -782,7 +782,7 @@ You now have the foundation to move from **a voice flow without explicit recordi
 
 > 🎯 **Objective:** Deploy the voice agent to a phone number with a realistic rollout checklist.
 
-### Scenario
+## Scenario
 
 The pilot has passed browser testing and design review. The final step is preparing a controlled telephony rollout for a real phone number or test workstream.
 
@@ -897,7 +897,7 @@ You now have the foundation to move from **a tested browser voice pilot** to **a
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|

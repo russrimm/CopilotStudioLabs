@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 60 minutes |
@@ -90,6 +90,7 @@ By the end of this lab you will:
 - [Generative Orchestration FAQ](https://learn.microsoft.com/en-us/microsoft-copilot-studio/faqs-generative-orchestration)
 - [Configure generative actions](https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-generative-actions)
 - [Multi-Agent in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-add-other-agents)
+- [Create a skill for an agent (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-create)
 - [Enhanced Task Completion sample (Order Management / Warehouse MCP)](https://microsoft.github.io/enhanced-task-completion/)
 
 ---
@@ -98,11 +99,13 @@ By the end of this lab you will:
 
 - Access to **Microsoft Copilot Studio**
 - A Power Platform environment where you can edit Dataverse table views and toggle environment settings (**System Administrator** or **System Customizer**)
-- Sample data loaded into the Dataverse **Account** and **Contact** tables (the `(sample)` records used throughout Use Cases #1 and #2)
-- The pre-loaded **Account Data Lookup Agent** available in your environment (Use Case #1 verifies and publishes it — this becomes your *Contoso Customer Account Lookup Agent*)
+- Sample data installed in the Dataverse **Account** and **Contact** tables by an instructor or administrator (the `(sample)` records used throughout Use Cases #1 and #2)
+- The instructor-provisioned **Account Data Lookup Agent** available in your environment (Use Case #1 verifies and publishes it — this becomes your *Contoso Customer Account Lookup Agent*)
 - For **Use Cases #3 and #4** only: an environment where **new-type agents** (the New Orchestrator), **Dataverse Intelligence (Work IQ)**, and **Dataverse MCP servers** can be used
 
-> 💡 The `(sample)` Account and Contact records ship with Dataverse and are reused here so the lab works in any tenant. Treat them as stand-ins for Contoso commercial customer accounts (large industrial gas customers, transmission partners, energy infrastructure counterparties, etc.) as you walk through the scenarios.
+> 💡 Sample records aren't guaranteed to be present in every environment. Before the lab, an administrator should verify or install them by following [Add or remove sample data](https://learn.microsoft.com/en-us/power-platform/admin/add-remove-sample-data). Treat the records as stand-ins for Contoso commercial customer accounts as you walk through the scenarios.
+>
+> ⚠️ **Preview and tenant dependency (verified July 31, 2026):** The new agent experience and Skills used in Use Cases #3 and #4 remain preview experiences, and connected-agent availability varies by agent type and tenant. Confirm that the required experiences are enabled before delivering the lab. See [Classic vs. new agent experience](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/classic-vs-new), [Create a skill for an agent (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-create), and [Add other agents overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-add-other-agents).
 
 ---
 
@@ -121,7 +124,7 @@ By the end of this lab you will:
 
 > 🎯 **Objective:** Confirm the environment is ready and the prebuilt connected agent is published. If you've already done this in another lab (e.g., the Multi-Agent lab), skip to Use Case #2.
 
-### Scenario
+## Scenario
 
 Before exploring how Instructions and Descriptions shape orchestration, the agent and its underlying Dataverse data have to be properly configured — Dataverse Search must be on, the Account and Contact **Quick Find** views must be correctly indexed, and the agent must be published with peer-to-peer connection enabled.
 
@@ -196,7 +199,7 @@ Before exploring how Instructions and Descriptions shape orchestration, the agen
 
 > 🎯 **Objective:** Build intuition for how the planner reads Instructions and Descriptions at **four different levels** to assemble a correct plan — and how to debug it when it doesn't.
 
-### Scenario
+## Scenario
 
 A Contoso account manager opens the agent and asks a string of follow-up questions about customers in Texas — accounts, primary contacts, derived facts like age, then pivots to a contact by name. Every turn is a planner decision: which child agent, which tool, which arguments.
 
@@ -309,7 +312,7 @@ No **Account Agent** in the trace this time — the planner recognized the subje
 
 > 🎯 **Objective:** Stand up a newly created Contoso Customer Operations Assistant using generative orchestration and validate how the **Agentic Reasoning Loop** drives multi-tool task completion in a single turn.
 
-### Scenario
+## Scenario
 
 A Contoso customer operations specialist wants one assistant that can — without stopping to confirm at every step — pull a commercial customer's primary contact, check the weather at that customer's site (storm risk! gift planning! site visit planning!), look up internal policy, and synthesize an answer. A newly created agent uses generative orchestration with the Agentic Reasoning Loop by default, so this is what you get out of the box.
 
@@ -433,7 +436,7 @@ Any tool step in the trace is expandable. Open a **read_query** step and you'll 
 
 > 🎯 **Objective:** Extend your Use Case #3 agent so it can diagnose and resolve service problems end to end — then watch the New Orchestrator **load the Skill** and chain MCP tools, two knowledge sources, and weather across a single turn.
 
-### Scenario
+## Scenario
 
 In a Contoso customer-care context, the equivalent of an "order problem" is a **service request**: a work order that's delayed, a part that's out of stock for a field repair, a return/exchange on equipment, or a delivery that may be impacted by weather. The technical building blocks below use the Microsoft *Enhanced Task Completion* sample MCP servers — frame them as analogs to your service-ticketing / parts-inventory / dispatch systems.
 
@@ -657,7 +660,7 @@ You've seen Copilot Studio's orchestration engine from three distinct angles:
 
 > The single most important shift between the two orchestrators: **standard orchestration optimizes for the next correct step; the New Orchestrator optimizes for the user's end goal.** Pick the orchestrator based on which behavior your users actually want — and use Skills to give that orchestrator consistent, reusable playbooks for the workflows it handles most.
 
-### 🪙 Orchestration golden rules
+## 🪙 Orchestration golden rules
 
 1. **Descriptions are the primary routing signal; names and input metadata refine selection.** Tune descriptions first, then escalate to child or parent Instructions when description tuning isn't enough.
 2. **Input descriptions are the foundation of dynamic chaining.** Without clear input descriptions, the planner has to guess how to reshape one tool's output into another tool's input.

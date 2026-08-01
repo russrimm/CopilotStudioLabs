@@ -11,6 +11,8 @@ let recipients = [];
 let scenarios = { industries: [], roles: [] };
 let selectedIndustryId = "";
 let selectedRoleIds = new Set();
+let mermaidLoadPromise = null;
+let agentChatConfigLoaded = false;
 let validationResults = new Map();
 let validationTimestamp = "";
 let activeProvisionJob = null;
@@ -224,16 +226,9 @@ document.addEventListener("DOMContentLoaded", () => {
   applyBranding(getDefaultBranding());
   initConfigProvenanceTooltips();
   initImageLightbox();
-  renderDependencyGraph();
   refreshLabs();
-  loadScenarios();
-  loadConfig();
   loadBranding();
-  loadResourceManifest();
   restoreActiveProvisionJob();
-  ppLoadApprovalConfig().catch(() => {});
-  ppLoadApprovalRequests().catch(() => {});
-  loadAgentChatConfig();
 });
 
 // ── Tabs ──────────────────────────────────────────────────────────────────
@@ -276,6 +271,22 @@ function setActiveTab(tabName) {
   if (tabName === "powerplatform") {
     ppLoadApprovalConfig().catch(() => {});
     ppLoadApprovalRequests().catch(() => {});
+  }
+
+  if (tabName === "scenarios" && !scenarios.industries.length) {
+    loadScenarios();
+  }
+
+  if (tabName === "azure" && !resourceManifest.length) {
+    loadResourceManifest();
+  }
+
+  if (tabName === "agent" && !agentChatConfigLoaded) {
+    loadAgentChatConfig();
+  }
+
+  if (tabName === "config") {
+    loadConfig();
   }
 
   if (tabName === "labbuilder") {
@@ -379,10 +390,26 @@ function computeAccentHover(hex) {
   return `#${next}`;
 }
 
+function computeContrastText(hex) {
+  const normalized = hex.replace("#", "");
+  const channels = [0, 2, 4].map((index) => {
+    const channel = parseInt(normalized.slice(index, index + 2), 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  const whiteContrast = 1.05 / (luminance + 0.05);
+  const darkLuminance = 0.0057;
+  const darkContrast = (luminance + 0.05) / (darkLuminance + 0.05);
+  return whiteContrast >= darkContrast ? "#ffffff" : "#0f1117";
+}
+
 function setThemeAccent(color) {
   const root = document.documentElement;
+  const hoverColor = computeAccentHover(color);
   root.style.setProperty("--accent", color);
-  root.style.setProperty("--accent-hover", computeAccentHover(color));
+  root.style.setProperty("--accent-hover", hoverColor);
+  root.style.setProperty("--accent-contrast", computeContrastText(color));
+  root.style.setProperty("--accent-hover-contrast", computeContrastText(hoverColor));
 }
 
 function updateFavicon(logoPath) {
@@ -657,6 +684,14 @@ function renderLabs() {
     })
     .join("");
 
+  list.querySelectorAll(".lab-card[data-id]").forEach((card) => {
+    card.addEventListener("click", () => selectLab(card.dataset.id));
+    card.querySelector(".lab-toggle")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      toggleLab(card.dataset.id);
+    });
+  });
+
   updateSummary();
   renderScenarioLabPreview();
   renderPreflightStatus();
@@ -690,21 +725,23 @@ function labCardHtml(lab) {
   const selected = lab.id === selectedLabId;
   const number = lab.id.match(/^(\d+)/)?.[1] || "?";
   const sizeKB = lab.sizeBytes ? Math.round(lab.sizeBytes / 1024) : 0;
-  const cleanTitle = (lab.title || lab.id).replace(/^Lab\s+\d+\s*[:.\-–—]\s*/i, "").trim();
+  const labId = escapeHtml(lab.id);
+  const cleanTitle = escapeHtml(
+    (lab.title || lab.id).replace(/^Lab\s+\d+\s*[:.\-–—]\s*/i, "").trim() || lab.id,
+  );
   return `
     <div class="lab-card ${included ? "included" : "excluded"} ${selected ? "selected" : ""}"
-         data-id="${lab.id}" onclick="selectLab('${lab.id}')">
+         data-id="${labId}">
       <button class="lab-toggle ${included ? "on" : ""}"
-              onclick="event.stopPropagation(); toggleLab('${lab.id}')"
               title="${included ? "Click to exclude" : "Click to include"}"></button>
-      <div class="lab-card-title">Lab ${number}: ${cleanTitle || lab.id}</div>
+      <div class="lab-card-title">Lab ${escapeHtml(number)}: ${cleanTitle}</div>
       <div class="lab-card-meta">
-        <span>⭐ ${lab.difficulty || "?"}</span>
-        <span>⏱️ ${lab.time || "?"}</span>
+        <span>⭐ ${escapeHtml(lab.difficulty || "?")}</span>
+        <span>⏱️ ${escapeHtml(lab.time || "?")}</span>
         <span>📁 ${sizeKB} KB</span>
       </div>
       <div style="margin-top: 6px;">
-        ${(lab.tags || []).slice(0, 3).map((t) => `<span class="tag">${t}</span>`).join(" ")}
+        ${(lab.tags || []).slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join(" ")}
       </div>
     </div>
   `;
@@ -764,27 +801,56 @@ async function selectLab(labId) {
 
     // Render any Mermaid diagrams injected into the preview
     const mermaidNodes = preview.querySelectorAll(".mermaid");
-    if (mermaidNodes.length && typeof mermaid !== "undefined") {
-      try { await mermaid.run({ nodes: mermaidNodes }); } catch (_) { /* graceful fallback — raw text stays visible */ }
+    if (mermaidNodes.length) {
+      try {
+        const mermaid = await loadMermaid();
+        await mermaid.run({ nodes: mermaidNodes });
+      } catch (_) {
+        // Graceful fallback: the source remains visible if the optional renderer fails.
+      }
     }
 
     injectFeedbackButtons(preview);
     injectReportIssueButton(preview);
   } catch (err) {
-    preview.innerHTML = `<p style="color: var(--danger);">Failed to load: ${err.message}</p>`;
+    const message = document.createElement("p");
+    message.style.color = "var(--danger)";
+    message.textContent = `Failed to load: ${err.message}`;
+    preview.replaceChildren(message);
   }
 }
 
-async function renderDependencyGraph() {
-  const graph = document.getElementById("lab-dependency-graph");
-  if (!graph || typeof mermaid === "undefined" || graph.dataset.rendered === "true") return;
+function loadMermaid() {
+  if (window.mermaid) return Promise.resolve(window.mermaid);
+  if (mermaidLoadPromise) return mermaidLoadPromise;
 
-  try {
-    await mermaid.run({ nodes: [graph] });
-    graph.dataset.rendered = "true";
-  } catch (_) {
-    // Leave Mermaid source visible if rendering fails.
-  }
+  mermaidLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "vendor/mermaid.min.js";
+    script.onload = () => {
+      window.mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        theme: "base",
+        themeVariables: {
+          primaryColor: "#f3f4f8",
+          primaryTextColor: "#1f2937",
+          primaryBorderColor: "#cbd5e1",
+          lineColor: "#94a3b8",
+          mainBkg: "#f3f4f8",
+          edgeLabelBackground: { fill: "transparent" },
+        },
+      });
+      resolve(window.mermaid);
+    };
+    script.onerror = () => {
+      mermaidLoadPromise = null;
+      reject(new Error("Failed to load the diagram renderer."));
+    };
+    document.head.append(script);
+  });
+
+  return mermaidLoadPromise;
 }
 
 function reportIssue(context) {
@@ -1495,9 +1561,19 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function safeExternalHttpUrl(value) {
+  try {
+    const url = new URL(String(value ?? ""));
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
 // ── Agent Chat ──────────────────────────────────────────────────────────────
 
 async function loadAgentChatConfig() {
+  agentChatConfigLoaded = true;
   try {
     const res = await fetch("/api/agent-chat/config");
     const config = await res.json();
@@ -2023,9 +2099,21 @@ function removeRecipient(email) {
 
 function renderRecipients() {
   const list = document.getElementById("recipients-list");
-  list.innerHTML = recipients
-    .map((r) => `<span class="recipient-chip">${r} <button onclick="removeRecipient('${r}')">×</button></span>`)
-    .join("");
+  list.replaceChildren();
+  for (const recipient of recipients) {
+    const chip = document.createElement("span");
+    chip.className = "recipient-chip";
+    chip.append(document.createTextNode(`${recipient} `));
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.textContent = "×";
+    removeButton.setAttribute("aria-label", `Remove ${recipient}`);
+    removeButton.addEventListener("click", () => removeRecipient(recipient));
+
+    chip.append(removeButton);
+    list.append(chip);
+  }
 }
 
 async function sendEmail() {
@@ -2912,7 +3000,7 @@ async function ppLoadEnvironments() {
     const authRes = await fetch("/api/pp/auth/status");
     const authData = await authRes.json();
     if (authData.authenticated) {
-      document.getElementById("pp-auth-status").innerHTML = `<span class="tag tag-success">✅ Signed in as ${authData.user.username}</span>`;
+      document.getElementById("pp-auth-status").innerHTML = `<span class="tag tag-success">✅ Signed in as ${escapeHtml(authData.user.username)}</span>`;
       document.getElementById("pp-device-code").style.display = "none";
     }
 
@@ -2935,26 +3023,36 @@ async function ppLoadEnvironments() {
             </tr>
           </thead>
           <tbody>
-            ${envs.map((e) => `
+            ${envs.map((e) => {
+              const environmentUrl = safeExternalHttpUrl(e.url);
+              return `
               <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px; font-weight: 500;">${e.displayName}</td>
-                <td style="padding: 8px;"><span class="tag">${e.type}</span></td>
-                <td style="padding: 8px;">${e.state === "Ready" ? "🟢" : "🟡"} ${e.state}</td>
-                <td style="padding: 8px;">${e.region}</td>
-                <td style="padding: 8px;">${e.url ? `<a href="${e.url}" target="_blank" style="color: var(--accent); font-size: 12px;">${e.domainName || "Open"}</a>` : "—"}</td>
+                <td style="padding: 8px; font-weight: 500;">${escapeHtml(e.displayName)}</td>
+                <td style="padding: 8px;"><span class="tag">${escapeHtml(e.type)}</span></td>
+                <td style="padding: 8px;">${e.state === "Ready" ? "🟢" : "🟡"} ${escapeHtml(e.state)}</td>
+                <td style="padding: 8px;">${escapeHtml(e.region)}</td>
+                <td style="padding: 8px;">${environmentUrl ? `<a href="${escapeHtml(environmentUrl)}" target="_blank" rel="noopener noreferrer" style="color: var(--accent); font-size: 12px;">${escapeHtml(e.domainName || "Open")}</a>` : "—"}</td>
                 <td style="padding: 8px;">
-                  <button class="btn btn-sm btn-danger" onclick="ppDeleteEnvironment('${e.id}', '${e.displayName.replace(/'/g, "\\'")}')">🗑️</button>
+                  <button class="btn btn-sm btn-danger"
+                          data-environment-id="${escapeHtml(e.id)}"
+                          data-environment-name="${escapeHtml(e.displayName)}"
+                          onclick="ppDeleteEnvironmentFromButton(this)">🗑️</button>
                 </td>
               </tr>
-            `).join("")}
+            `;
+            }).join("")}
           </tbody>
         </table>
       </div>
       <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">${envs.length} environment(s) found</div>
     `;
   } catch (err) {
-    container.innerHTML = `<div style="color: var(--danger); padding: 12px;">Error: ${err.message}</div>`;
+    container.innerHTML = `<div style="color: var(--danger); padding: 12px;">Error: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+function ppDeleteEnvironmentFromButton(button) {
+  return ppDeleteEnvironment(button.dataset.environmentId || "", button.dataset.environmentName || "");
 }
 
 function ppShowCreateEnv() {
@@ -3389,6 +3487,7 @@ const labBuilder = {
   selectedFeatures: new Set(),
   step: 1,
   busy: false,
+  controller: null,
 };
 
 async function lbLoadCatalog() {
@@ -3592,7 +3691,10 @@ async function lbGenerate() {
   const btn = document.getElementById("lb-generate-btn");
   const status = document.getElementById("lb-status");
   labBuilder.busy = true;
+  labBuilder.controller = new AbortController();
   if (btn) btn.disabled = true;
+  const cancelBtn = document.getElementById("lb-cancel-btn");
+  if (cancelBtn) cancelBtn.hidden = false;
   if (status) status.textContent = "Researching Microsoft Learn and composing your lab. This can take a minute...";
 
   try {
@@ -3600,6 +3702,7 @@ async function lbGenerate() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(lbRequest()),
+      signal: labBuilder.controller.signal,
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
@@ -3610,11 +3713,17 @@ async function lbGenerate() {
     toast(`Built "${data.title}"`, "success");
   } catch (err) {
     if (status) status.textContent = "";
-    toast(`Lab build failed: ${err.message}`, "error");
+    toast(err.name === "AbortError" ? "Lab build cancelled." : `Lab build failed: ${err.message}`, err.name === "AbortError" ? "info" : "error");
   } finally {
     labBuilder.busy = false;
+    labBuilder.controller = null;
     if (btn) btn.disabled = false;
+    if (cancelBtn) cancelBtn.hidden = true;
   }
+}
+
+function lbCancelGenerate() {
+  labBuilder.controller?.abort();
 }
 
 function lbShowResult(data) {

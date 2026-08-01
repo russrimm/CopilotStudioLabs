@@ -11,13 +11,17 @@
 
 import { loadAllLabs, writeReport } from "./lib/labs.mjs";
 import { LearnMcpClient } from "./lib/mcp-client.mjs";
+import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
 const args = process.argv.slice(2);
 const strict = args.includes("--strict");
 const skipMcp = args.includes("--no-mcp");
+const driftBaselinePath = args.find((arg) => arg.startsWith("--drift-baseline="))?.split("=", 2)[1];
 const LINK_TIMEOUT_MS = 15000;
 const LINK_CONCURRENCY = 6;
+const RANKING_DRIFT_NOTE =
+  "No exact cited Learn page appeared in the current top search results. The links still resolve; review search ranking and product relevance before changing documentation.";
 
 async function checkLink(url) {
   const controller = new AbortController();
@@ -57,12 +61,42 @@ function buildSearchQuery(lab) {
   return focus ? `${product}: ${focus}` : `${product}: ${lab.title}`;
 }
 
+export function unexpectedDriftLabs(report, baseline) {
+  const known = new Set(baseline?.knownLabWarnings || []);
+  return report.labs
+    .filter((lab) => {
+      if (!lab.mcp?.note) return false;
+      return lab.mcp.note !== RANKING_DRIFT_NOTE || !known.has(lab.name);
+    })
+    .map((lab) => lab.name);
+}
+
 async function main() {
+  const driftBaseline = driftBaselinePath
+    ? JSON.parse(readFileSync(driftBaselinePath, "utf8"))
+    : null;
+  if (
+    driftBaseline
+    && (
+      !Array.isArray(driftBaseline.knownLabWarnings)
+      || driftBaseline.knownLabWarnings.some((name) => typeof name !== "string")
+    )
+  ) {
+    throw new Error("Drift baseline must contain a knownLabWarnings string array");
+  }
+
   const labs = loadAllLabs();
   const report = {
     generatedAt: new Date().toISOString(),
     mcpEndpoint: process.env.MS_LEARN_MCP_URL || "https://learn.microsoft.com/api/mcp",
-    summary: { labs: labs.length, brokenLinks: 0, mcpDriftWarnings: 0, mcpUnavailable: false },
+    summary: {
+      labs: labs.length,
+      brokenLinks: 0,
+      unreachableLinks: 0,
+      mcpDriftWarnings: 0,
+      unexpectedDriftWarnings: 0,
+      mcpUnavailable: false,
+    },
     labs: [],
   };
 
@@ -85,6 +119,7 @@ async function main() {
     const broken = linkResults.filter((r) => r.status >= 400);
     const unreachable = linkResults.filter((r) => r.status === 0);
     report.summary.brokenLinks += broken.length;
+    report.summary.unreachableLinks += unreachable.length;
 
     const labRecord = {
       name: lab.name,
@@ -112,8 +147,7 @@ async function main() {
           const overlap = results.some((r) => r.url && referenced.has(safePath(r.url)));
           labRecord.mcp.coversReferencedDocs = overlap;
           if (!overlap) {
-            labRecord.mcp.note =
-              "No exact cited Learn page appeared in the current top search results. The links still resolve; review search ranking and product relevance before changing documentation.";
+            labRecord.mcp.note = RANKING_DRIFT_NOTE;
             report.summary.mcpDriftWarnings += 1;
           }
         }
@@ -127,14 +161,23 @@ async function main() {
     console.log(`• ${lab.name}: ${status}${labRecord.mcp.note ? " | drift: yes" : ""}`);
   }
 
+  const unexpectedDrift = unexpectedDriftLabs(report, driftBaseline);
+  report.summary.unexpectedDriftWarnings = unexpectedDrift.length;
   const target = writeReport("accuracy.json", report);
   console.log(`\nAccuracy report written to ${target}`);
   console.log(
-    `Summary: ${report.summary.brokenLinks} broken link(s), ${report.summary.mcpDriftWarnings} drift warning(s)` +
+    `Summary: ${report.summary.brokenLinks} broken link(s), ${report.summary.unreachableLinks} unreachable, ` +
+      `${report.summary.mcpDriftWarnings} drift warning(s)` +
+      (driftBaseline ? `, ${unexpectedDrift.length} new versus baseline` : "") +
       (report.summary.mcpUnavailable ? " (MCP unavailable)" : ""),
   );
 
-  if (strict && report.summary.brokenLinks > 0) process.exit(1);
+  if (
+    (strict && report.summary.brokenLinks > 0)
+    || (driftBaseline && (report.summary.mcpUnavailable || unexpectedDrift.length > 0))
+  ) {
+    process.exit(1);
+  }
 }
 
 export function safePath(url) {

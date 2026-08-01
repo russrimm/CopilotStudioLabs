@@ -2,7 +2,7 @@
 
 *Use Prompt Assistant to draft, refine, and test higher-quality instructions and prompts in Copilot Studio.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Beginner to Intermediate (100-200) |
 | ⏱️ **TIME** | 45 minutes |

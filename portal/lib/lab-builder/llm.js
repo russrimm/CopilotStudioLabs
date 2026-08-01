@@ -10,7 +10,8 @@
  * adds scenario-specific narrative on top of grounded content.
  */
 
-const DEFAULT_TIMEOUT_MS = Number(process.env.LAB_BUILDER_LLM_TIMEOUT_MS || 60000);
+const configuredTimeout = Number(process.env.LAB_BUILDER_LLM_TIMEOUT_MS || 60000);
+const DEFAULT_TIMEOUT_MS = Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 60000;
 
 export function detectProvider(env = process.env) {
   if (String(env.LAB_BUILDER_LLM || "").toLowerCase() === "off") {
@@ -45,9 +46,11 @@ export function detectProvider(env = process.env) {
   };
 }
 
-async function postJson(url, headers, body, timeoutMs) {
+async function postJson(url, headers, body, timeoutMs, signal) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort("Language model request timed out"), timeoutMs);
+  const cancel = () => controller.abort(signal.reason || "Operation cancelled");
+  signal?.addEventListener("abort", cancel, { once: true });
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -60,6 +63,7 @@ async function postJson(url, headers, body, timeoutMs) {
     return JSON.parse(text);
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
   }
 }
 
@@ -88,16 +92,19 @@ export function createLlm(env = process.env) {
     return {
       provider,
       available: false,
+      failures: [],
       async complete() {
         return "";
       },
     };
   }
 
+  const failures = [];
   return {
     provider,
     available: true,
-    async complete(system, user, { maxTokens = 1600, temperature = 0.4 } = {}) {
+    failures,
+    async complete(system, user, { maxTokens = 1600, temperature = 0.4, signal } = {}) {
       const messages = [
         { role: "system", content: system },
         { role: "user", content: user },
@@ -113,6 +120,7 @@ export function createLlm(env = process.env) {
             { "api-key": provider.apiKey },
             { messages, max_tokens: maxTokens, temperature },
             timeoutMs,
+            signal,
           );
           return extractMessage(payload);
         }
@@ -122,9 +130,12 @@ export function createLlm(env = process.env) {
           { authorization: `Bearer ${provider.apiKey}` },
           { model: provider.model, messages, max_tokens: maxTokens, temperature },
           timeoutMs,
+          signal,
         );
         return extractMessage(payload);
-      } catch {
+      } catch (err) {
+        if (signal?.aborted) throw err;
+        failures.push(err);
         return "";
       }
     },

@@ -2,7 +2,7 @@
 
 *Validate how your Copilot Studio agent behaves over full conversations, not just single prompts.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (200) |
 | ⏱️ **TIME** | 60 minutes |

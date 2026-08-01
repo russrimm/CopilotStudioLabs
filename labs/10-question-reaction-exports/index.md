@@ -2,7 +2,7 @@
 
 *Export and analyze user questions and reactions to prioritize high-impact improvements in Copilot Studio.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (200) |
 | ⏱️ **TIME** | 45 minutes |

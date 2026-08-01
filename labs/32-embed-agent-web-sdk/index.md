@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate–Advanced (Level 250) |
 | ⏱️ **TIME** | 75 minutes |
@@ -127,7 +127,7 @@ The Copilot Studio Client SDK connects to your agent using three values:
 - **Agent (Schema) Name** — the immutable schema name of the agent
 - **Cloud / Region** — usually `Prod` (commercial cloud); some tenants use sovereign clouds
 
-### Step 1 — Publish your agent
+## Step 1 — Publish your agent
 
 1. Open [Microsoft Copilot Studio](https://copilotstudio.microsoft.com).
 2. Select the **environment** that contains your agent (top-right environment picker).
@@ -183,7 +183,7 @@ flowchart LR
 
 The Copilot Studio Client SDK uses **delegated** authentication — the user signs in, the app gets a token on their behalf, and Copilot Studio runs the conversation as that user. This is what enables identity-aware scenarios (the agent can know who you are, look up your tickets, your orders, etc.).
 
-### Step 1 — Create the app registration
+## Step 1 — Create the app registration
 
 1. Open the [Microsoft Entra admin center](https://entra.microsoft.com).
 2. In the left nav, go to **Applications** → **App registrations**.
@@ -226,7 +226,7 @@ This is the step most people miss — without it, MSAL will return a token but C
 8. Click **Add permissions**.
 
 > ⚠️ **Don't see "Power Platform API" in the list?** It's not registered in your tenant yet. An admin needs to run one of these once:
-> - **PowerShell:** `New-AzureADServicePrincipal -AppId 8578e004-a5c6-46e7-913e-12f58912df43` (the well-known Power Platform API app ID), or
+> - **Microsoft Graph PowerShell:** connect with `Connect-MgGraph -Scopes Application.ReadWrite.All`, then run `New-MgServicePrincipal -AppId 8578e004-a5c6-46e7-913e-12f58912df43` (the well-known Power Platform API app ID), or
 > - **Azure CLI:** `az ad sp create --id 8578e004-a5c6-46e7-913e-12f58912df43`
 
 ### Step 5 — (Optional) Grant admin consent
@@ -261,12 +261,12 @@ flowchart LR
 
 We're using **Vite** because it gives us a near-zero-config dev server with TypeScript and ES modules — perfect for a lab. The same code works inside React, Vue, Angular, or any other framework — only the rendering layer changes.
 
-### Step 1 — Create the project
+## Step 1 — Create the project
 
 Open a terminal and run:
 
 ```bash
-npm create vite@latest copilot-studio-embed -- --template vanilla-ts
+npm create vite@9.1.1 copilot-studio-embed -- --template vanilla-ts
 cd copilot-studio-embed
 npm install
 ```
@@ -351,7 +351,7 @@ flowchart LR
 
 > 🎯 **Objective:** Sign the user in, get a token, refresh it silently.
 
-### Step 1 — Create an auth helper
+## Step 1 — Create an auth helper
 
 Create `src/auth.ts`:
 
@@ -465,7 +465,7 @@ flowchart LR
 
 > 🎯 **Objective:** Instantiate the `CopilotStudioClient`, start a conversation, send and receive messages.
 
-### Step 1 — Create the chat client wrapper
+## Step 1 — Create the chat client wrapper
 
 Create `src/chatClient.ts`:
 
@@ -571,7 +571,7 @@ flowchart LR
 
 > 🎯 **Objective:** Replace the default Vite template with a custom-branded chat experience.
 
-### Step 1 — Replace `index.html`
+## Step 1 — Replace `index.html`
 
 Open `index.html` at the project root and replace its contents with:
 
@@ -1097,7 +1097,7 @@ flowchart LR
 
 > 🎯 **Objective:** Verify the full sign-in → conversation → reply loop.
 
-### Step 1 — Start the dev server
+## Step 1 — Start the dev server
 
 ```bash
 npm run dev
@@ -1134,7 +1134,7 @@ Ask: *"What's my name?"* If your agent uses the system variable `User.DisplayNam
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| MSAL popup says "AADSTS650053: The application 'X' asked for scope 'CopilotStudio.Copilots.Invoke' that doesn't exist on the resource" | Power Platform API not in your tenant | Have an admin run `New-AzureADServicePrincipal -AppId 8578e004-a5c6-46e7-913e-12f58912df43` (see Use Case 2, Step 4) |
+| MSAL popup says "AADSTS650053: The application 'X' asked for scope 'CopilotStudio.Copilots.Invoke' that doesn't exist on the resource" | Power Platform API not in your tenant | Have an admin connect with `Connect-MgGraph -Scopes Application.ReadWrite.All`, then run `New-MgServicePrincipal -AppId 8578e004-a5c6-46e7-913e-12f58912df43` (see Use Case 2, Step 4) |
 | MSAL popup says "AADSTS65001: The user or administrator has not consented" | Admin consent required for the scope | Click **Grant admin consent** in the app registration, or have the user accept the consent prompt |
 | SDK throws `401 Unauthorized` | Wrong scope or wrong audience | Confirm the scope is exactly `https://api.powerplatform.com/CopilotStudio.Copilots.Invoke` |
 | SDK throws `404 Not Found` | Wrong environment ID or schema name | Double-check both in Copilot Studio settings; schema names are case-sensitive |

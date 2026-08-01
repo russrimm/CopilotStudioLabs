@@ -2,7 +2,7 @@
 
 *Build a readiness model that combines quality signals, open issues, and release gates for Copilot Studio agents.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (200) |
 | ⏱️ **TIME** | 60 minutes |
@@ -15,6 +15,8 @@
 ## Overview
 
 Teams need a simple answer to: "Is this agent ready to ship?" In this lab, you will build an **agent readiness / issue status** model that blends evaluations, open defects, and governance checks into a clear release decision.
+
+> **Facilitated workshop:** This lab is a governance design exercise, not a deployable scorecard or automation template. A facilitator should provide the issue-tracker view and scorecard workspace, then guide participants to define thresholds and release gates that match their organization's policies.
 
 ## Learning Objectives
 

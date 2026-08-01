@@ -61,9 +61,45 @@ function parseRpcBody(body) {
   return messages;
 }
 
-async function rpc(endpoint, sessionId, body, timeoutMs) {
+function abortError(reason = "Operation cancelled") {
+  return new DOMException(String(reason), "AbortError");
+}
+
+function wait(ms, signal) {
+  if (signal?.aborted) return Promise.reject(abortError(signal.reason));
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(abortError(signal.reason));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+async function rpc(endpoint, sessionId, body, timeoutMs, signal) {
+  let lastError;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    if (signal?.aborted) throw abortError(signal.reason);
+    try {
+      return await rpcOnce(endpoint, sessionId, body, timeoutMs, signal);
+    } catch (err) {
+      lastError = err;
+      if (signal?.aborted || (!err.retryable && err.name !== "AbortError") || attempt === 2) throw err;
+      await wait(250, signal);
+    }
+  }
+  throw lastError;
+}
+
+async function rpcOnce(endpoint, sessionId, body, timeoutMs, signal) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort("Microsoft Learn request timed out"), timeoutMs);
+  const cancel = () => controller.abort(signal.reason || "Operation cancelled");
+  signal?.addEventListener("abort", cancel, { once: true });
   try {
     const headers = {
       "content-type": "application/json",
@@ -81,14 +117,26 @@ async function rpc(endpoint, sessionId, body, timeoutMs) {
 
     const text = await res.text();
     if (!res.ok) {
-      throw new Error(`Learn MCP responded ${res.status}: ${text.slice(0, 200)}`);
+      const error = new Error(`Learn MCP responded ${res.status}: ${text.slice(0, 200)}`);
+      error.retryable = res.status === 429 || res.status >= 500;
+      throw error;
     }
     return {
       sessionId: res.headers.get("mcp-session-id") || sessionId || null,
       messages: parseRpcBody(text),
     };
+  } catch (err) {
+    if (signal?.aborted) throw abortError(signal.reason);
+    if (controller.signal.aborted) {
+      const timeoutError = new Error(String(controller.signal.reason || "Microsoft Learn request timed out"));
+      timeoutError.retryable = true;
+      throw timeoutError;
+    }
+    if (err instanceof TypeError) err.retryable = true;
+    throw err;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
   }
 }
 
@@ -103,7 +151,7 @@ function firstResult(messages, id) {
  * Open an MCP session and return a `call(toolName, args)` helper.
  * Returns null when the handshake fails.
  */
-export async function connect({ endpoint = DEFAULT_ENDPOINT, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+export async function connect({ endpoint = DEFAULT_ENDPOINT, timeoutMs = DEFAULT_TIMEOUT_MS, signal } = {}) {
   let sessionId = null;
   let nextId = 1;
 
@@ -122,10 +170,14 @@ export async function connect({ endpoint = DEFAULT_ENDPOINT, timeoutMs = DEFAULT
         },
       },
       timeoutMs,
+      signal,
     );
     sessionId = init.sessionId;
-    firstResult(init.messages, 1);
+    if (!firstResult(init.messages, 1)) {
+      throw new Error("Learn MCP returned a malformed initialize response");
+    }
   } catch (err) {
+    if (signal?.aborted) throw err;
     return { ok: false, error: err.message, endpoint, call: async () => null };
   }
 
@@ -140,6 +192,7 @@ export async function connect({ endpoint = DEFAULT_ENDPOINT, timeoutMs = DEFAULT
         sessionId,
         { jsonrpc: "2.0", id, method: "tools/call", params: { name, arguments: args } },
         timeoutMs,
+        signal,
       );
       return firstResult(res.messages, id);
     },
@@ -217,7 +270,7 @@ function dedupeByUrl(items) {
 export async function searchDocs(session, query, { limit = 6 } = {}) {
   if (!session?.ok) return [];
 
-  const cacheKey = `search:${query}`;
+  const cacheKey = `search:${session.endpoint}:${query}`;
   const cached = cacheGet(cacheKey);
   if (cached) return cached.slice(0, limit);
 
@@ -227,7 +280,8 @@ export async function searchDocs(session, query, { limit = 6 } = {}) {
       .filter((item) => item.excerpt && item.excerpt.length > 40);
     cacheSet(cacheKey, items);
     return items.slice(0, limit);
-  } catch {
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
     return [];
   }
 }
@@ -239,7 +293,7 @@ export async function searchDocs(session, query, { limit = 6 } = {}) {
 export async function fetchDoc(session, url) {
   if (!session?.ok || !url) return "";
 
-  const cacheKey = `fetch:${url}`;
+  const cacheKey = `fetch:${session.endpoint}:${url}`;
   const cached = cacheGet(cacheKey);
   if (cached !== undefined) return cached;
 
@@ -248,7 +302,8 @@ export async function fetchDoc(session, url) {
     const markdown = toTextChunks(result).join("\n\n");
     cacheSet(cacheKey, markdown);
     return markdown;
-  } catch {
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
     cacheSet(cacheKey, "");
     return "";
   }

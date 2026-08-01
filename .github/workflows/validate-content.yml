@@ -3,7 +3,6 @@ name: Validate content and tooling
 on:
   pull_request:
   push:
-    branches: [main]
 
 permissions:
   contents: read
@@ -11,6 +10,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -32,7 +32,9 @@ jobs:
           python-version: "3.13"
 
       - name: Validate lab structure and links
-        run: python validate_labs.py
+        run: |
+          python -m unittest scripts/test_validate_labs.py
+          python validate_labs.py
 
       - name: Validate template setup
         run: node setup.js --dry-run
@@ -63,3 +65,7 @@ jobs:
         run: |
           npm ci
           npm test
+
+      - name: Validate external Microsoft Learn links
+        working-directory: tools/lab-accuracy
+        run: node check-accuracy.mjs --strict --drift-baseline=drift-baseline.json

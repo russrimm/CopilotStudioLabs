@@ -9,6 +9,22 @@ import { acquireTokenDeviceCode, SCOPES } from "./auth.js";
 
 const BAP_BASE = "https://api.bap.microsoft.com";
 const PP_BASE = "https://api.powerplatform.com";
+const DISPLAY_NAME_MAX_LEN = 128;
+const DISPLAY_NAME_RE = /^[A-Za-z0-9 _.,'()\-]+$/;
+
+export function assertDisplayName(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) {
+    throw new Error("displayName is required");
+  }
+  if (trimmed.length > DISPLAY_NAME_MAX_LEN) {
+    throw new Error(`displayName must be at most ${DISPLAY_NAME_MAX_LEN} characters.`);
+  }
+  if (!DISPLAY_NAME_RE.test(trimmed)) {
+    throw new Error("displayName contains unsupported characters. Allowed: letters, digits, spaces, and _.,'()-");
+  }
+  return trimmed;
+}
 
 // ── Auth state for SSE progress ─────────────────────────────────────────────
 let pendingDeviceCode = null;
@@ -88,15 +104,16 @@ export async function getEnvironment(envId) {
  * Provision a new Power Platform environment.
  */
 export async function createEnvironment({ displayName, location = "unitedstates", environmentType = "Sandbox", currency = "USD", language = "1033", securityGroupId = null }) {
+  const validatedDisplayName = assertDisplayName(displayName);
   const body = {
     location,
     properties: {
-      displayName,
+      displayName: validatedDisplayName,
       environmentSku: environmentType,
       linkedEnvironmentMetadata: {
         baseLanguage: parseInt(language, 10),
         currency: { code: currency },
-        domainName: displayName.toLowerCase().replace(/[^a-z0-9]/g, ""),
+        domainName: validatedDisplayName.toLowerCase().replace(/[^a-z0-9]/g, ""),
         ...(securityGroupId && { securityGroupId }),
       },
     },

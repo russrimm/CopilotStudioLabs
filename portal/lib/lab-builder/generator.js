@@ -31,17 +31,38 @@ const SYSTEM_PROMPT = [
   "- Never use the words TODO, FIXME, TBD, or XXX.",
 ].join("\n");
 
-function uniqueDir(root, slug) {
-  let dir = path.join(root, slug);
-  let n = 2;
-  while (fs.existsSync(dir)) {
-    dir = path.join(root, `${slug}-${n}`);
-    n += 1;
+function reserveUniqueDir(root, slug) {
+  for (let n = 1; ; n += 1) {
+    const dir = path.join(root, n === 1 ? slug : `${slug}-${n}`);
+    try {
+      fs.mkdirSync(dir);
+      return dir;
+    } catch (err) {
+      if (err.code !== "EEXIST") throw err;
+    }
   }
-  return dir;
 }
 
-async function enrich(llm, plan, groundingByFeature, { onProgress }) {
+function concurrency(value, fallback) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= 8 ? parsed : fallback;
+}
+
+async function mapLimit(items, limit, fn, signal) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < items.length) {
+      if (signal?.aborted) throw new DOMException(String(signal.reason || "Operation cancelled"), "AbortError");
+      const index = nextIndex++;
+      results[index] = await fn(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
+}
+
+async function enrich(llm, plan, groundingByFeature, { onProgress, signal, maxConcurrency }) {
   const enrichment = { byFeature: new Map() };
   if (!llm.available) return enrichment;
 
@@ -58,11 +79,11 @@ async function enrich(llm, plan, groundingByFeature, { onProgress }) {
   const overview = await llm.complete(
     SYSTEM_PROMPT,
     `${context}\n\nModules in this lab: ${plan.features.map((f) => f.name).join(", ")}.\n\nWrite two short paragraphs introducing this lab. Paragraph one: the business problem in this industry and why an agent helps. Paragraph two: what the learner ends up with and how the modules connect. Do not list the modules verbatim.`,
-    { maxTokens: 500 },
+    { maxTokens: 500, signal },
   );
   if (overview) enrichment.overview = overview;
 
-  for (const feature of plan.features) {
+  const appliedByFeature = await mapLimit(plan.features, maxConcurrency, async (feature) => {
     onProgress?.({ stage: "enrich", message: `Applying ${feature.name} to the scenario` });
     const grounding = groundingByFeature.get(feature.id);
     const docs = (grounding?.results || [])
@@ -83,10 +104,13 @@ async function enrich(llm, plan, groundingByFeature, { onProgress }) {
         "",
         "Write one paragraph (3-5 sentences) telling the learner exactly how to apply this module to the agent scenario above: what to name things, what content or records to use, and what the agent should be able to do afterwards. Use the industry's vocabulary.",
       ].join("\n"),
-      { maxTokens: 400 },
+      { maxTokens: 400, signal },
     );
 
-    if (applied) enrichment.byFeature.set(feature.id, { applied });
+    return { featureId: feature.id, applied };
+  }, signal);
+  for (const { featureId, applied } of appliedByFeature) {
+    if (applied) enrichment.byFeature.set(featureId, { applied });
   }
 
   return enrichment;
@@ -101,6 +125,7 @@ async function enrich(llm, plan, groundingByFeature, { onProgress }) {
  * @param {boolean} [opts.write=true] set false for a dry-run preview
  * @param {boolean} [opts.useLearnMcp=true]
  * @param {boolean} [opts.useLlm=true]
+ * @param {AbortSignal} [opts.signal]
  * @param {(e:{stage:string,message:string})=>void} [opts.onProgress]
  */
 export async function generateLab(request, opts = {}) {
@@ -109,8 +134,10 @@ export async function generateLab(request, opts = {}) {
     write = true,
     useLearnMcp = true,
     useLlm = true,
+    signal,
     onProgress,
   } = opts;
+  const maxConcurrency = concurrency(opts.maxConcurrency || process.env.LAB_BUILDER_CONCURRENCY, 4);
 
   const startedAt = Date.now();
   const plan = planLab(request);
@@ -121,7 +148,7 @@ export async function generateLab(request, opts = {}) {
   let session = { ok: false };
   if (useLearnMcp) {
     onProgress?.({ stage: "learn", message: "Connecting to the Microsoft Learn MCP server" });
-    session = await connect();
+    session = await (opts.connect || connect)({ signal });
     if (!session.ok) {
       plan.warnings.push(`Microsoft Learn MCP unavailable (${session.error}) — using the curated documentation links instead.`);
     }
@@ -129,15 +156,25 @@ export async function generateLab(request, opts = {}) {
     plan.warnings.push("Microsoft Learn grounding was skipped — using the curated documentation links instead.");
   }
 
-  for (const feature of plan.features) {
+  const grounding = await mapLimit(plan.features, maxConcurrency, async (feature) => {
     onProgress?.({ stage: "learn", message: `Researching ${feature.name}` });
-    groundingByFeature.set(feature.id, await groundFeature(session, feature));
+    return [feature.id, await groundFeature(session, feature)];
+  }, signal);
+  for (const [featureId, result] of grounding) {
+    groundingByFeature.set(featureId, result);
   }
   const groundedFeatures = [...groundingByFeature.values()].filter((g) => g.grounded).length;
 
   // 2. Optional LLM narrative.
-  const llm = useLlm ? createLlm() : { available: false, provider: { kind: "none", reason: "Disabled for this run" } };
-  const enrichment = await enrich(llm, plan, groundingByFeature, { onProgress });
+  const llm = useLlm
+    ? opts.llm || createLlm()
+    : { available: false, failures: [], provider: { kind: "none", reason: "Disabled for this run" } };
+  const enrichment = await enrich(llm, plan, groundingByFeature, { onProgress, signal, maxConcurrency });
+  if (llm.failures?.length) {
+    plan.warnings.push(
+      `${llm.failures.length} language model request(s) failed — affected narrative used deterministic catalog content instead.`,
+    );
+  }
 
   // 3. Screenshots.
   const screenshots = planScreenshots(plan, { labsDir: LABS_DIR });
@@ -198,21 +235,29 @@ export async function generateLab(request, opts = {}) {
 
   // 5. Write.
   fs.mkdirSync(outputRoot, { recursive: true });
-  const outputDir = uniqueDir(outputRoot, plan.slug);
-  fs.mkdirSync(outputDir, { recursive: true });
+  const outputDir = reserveUniqueDir(outputRoot, plan.slug);
+  try {
+    copyScreenshots(screenshots.copies, path.join(outputDir, "assets"));
+    fs.writeFileSync(path.join(outputDir, "index.md"), markdown, "utf8");
+    fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
+    if (screenshots.shots.length) {
+      fs.writeFileSync(path.join(outputDir, "shots.json"), JSON.stringify(result.shots, null, 2) + "\n", "utf8");
+    }
 
-  copyScreenshots(screenshots.copies, path.join(outputDir, "assets"));
-  fs.writeFileSync(path.join(outputDir, "index.md"), markdown, "utf8");
-  fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
-  if (screenshots.shots.length) {
-    fs.writeFileSync(path.join(outputDir, "shots.json"), JSON.stringify(result.shots, null, 2) + "\n", "utf8");
+    result.outputDir = outputDir;
+    result.labId = path.basename(outputDir);
+
+    onProgress?.({ stage: "validate", message: "Validating the generated lab" });
+    result.validation = validateLabDir(outputDir, { labId: result.labId, title: plan.title });
+    if (result.validation.failed) {
+      throw new Error(`Generated lab failed ${result.validation.failed} validation check(s).`);
+    }
+  } catch (err) {
+    fs.rmSync(outputDir, { recursive: true, force: true });
+    result.outputDir = null;
+    result.labId = null;
+    throw err;
   }
-
-  result.outputDir = outputDir;
-  result.labId = path.basename(outputDir);
-
-  onProgress?.({ stage: "validate", message: "Validating the generated lab" });
-  result.validation = validateLabDir(outputDir, { labId: result.labId, title: plan.title });
 
   return result;
 }

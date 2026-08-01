@@ -2,7 +2,7 @@
 
 *Design resilient asynchronous response patterns in Copilot Studio agent flows for long-running work.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (300) |
 | ⏱️ **TIME** | 75 minutes |

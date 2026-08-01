@@ -7,12 +7,20 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 
 import { escapeHtml } from "../lib/branding.js";
-import { assertDisplayName, buildApprovalNotificationHtml } from "../lib/approvals.js";
+import { buildApprovalNotificationHtml } from "../lib/approvals.js";
 import { exportLabs } from "../lib/exporter.js";
-import { getLabContent, getLabPath, isValidLabId } from "../lib/labs.js";
+import {
+  getLabContent,
+  getLabPath,
+  isValidLabId,
+  shouldSkipLabDirectory,
+} from "../lib/labs.js";
+import { renderLabMarkdown, sanitizeLabHtml } from "../lib/markdown.js";
+import { assertDisplayName } from "../lib/powerplatform.js";
 import { validateLab } from "../lib/validator.js";
 
 test("escapeHtml escapes every char used in the approval-callback response", () => {
@@ -75,6 +83,13 @@ test("lab path helpers reject traversal and malformed ids", () => {
   assert.match(getLabPath("01-intro-workshop"), /labs[\\/]01-intro-workshop$/);
 });
 
+test("lab discovery ignores generated and dependency directories", () => {
+  assert.equal(shouldSkipLabDirectory("node_modules"), true);
+  assert.equal(shouldSkipLabDirectory("dist"), true);
+  assert.equal(shouldSkipLabDirectory(".cache"), true);
+  assert.equal(shouldSkipLabDirectory("assets"), false);
+});
+
 test("lab validation resolves forward-slash Markdown image paths", () => {
   const result = validateLab("02-conversational-design-fundamentals");
   const imageCheck = result.tests.find((entry) => entry.name === "no-broken-image-refs");
@@ -123,4 +138,60 @@ test("lab export creates a ZIP for a known lab", async () => {
   assert.equal(result.labCount, 1);
   assert.ok(result.bytes > 0);
   assert.equal(zip.subarray(0, 2).toString("ascii"), "PK");
+});
+
+test("recipient chips use DOM text and listeners instead of executable HTML", () => {
+  const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  const renderRecipients = appSource.match(
+    /function renderRecipients\(\) \{(?<body>[\s\S]*?)\n\}/,
+  )?.groups?.body;
+
+  assert.ok(renderRecipients, "renderRecipients function must exist");
+  assert.doesNotMatch(renderRecipients, /innerHTML|onclick\s*=/);
+  assert.match(renderRecipients, /createTextNode/);
+  assert.match(renderRecipients, /addEventListener\("click"/);
+});
+
+test("lab preview sanitization removes executable markup and unsafe URLs", () => {
+  const html = sanitizeLabHtml(`
+    <h1 onclick="alert(1)">Unsafe lab</h1>
+    <script>alert(2)</script>
+    <img src="x" onerror="alert(3)">
+    <a href="javascript:alert(4)">bad link</a>
+    <svg><a href="javascript:alert(5)">svg link</a></svg>
+    <a href="https://learn.microsoft.com/" target="_blank">safe link</a>
+    <a class="image-lightbox" href="https://example.com/" target="report-window">spoof</a>
+    <div class="mermaid">graph TD; A--&gt;B</div>
+  `);
+
+  assert.doesNotMatch(html, /onclick|onerror|<script|<svg|javascript:|image-lightbox|report-window/i);
+  assert.match(html, /href="https:\/\/learn\.microsoft\.com\/"/);
+  assert.match(html, /rel="noopener noreferrer"/);
+  assert.match(html, /class="mermaid"/);
+});
+
+test("all server Markdown previews use the centralized sanitized renderer", () => {
+  const html = renderLabMarkdown(
+    '# Preview\n<script>alert(1)</script><a href="javascript:alert(2)">bad</a>',
+  );
+  const serverSource = readFileSync(new URL("../server.js", import.meta.url), "utf8");
+
+  assert.match(html, /<h1>Preview<\/h1>/);
+  assert.doesNotMatch(html, /<script|javascript:/i);
+  assert.doesNotMatch(serverSource, /marked\.parse/);
+});
+
+test("lab cards escape metadata and use listeners instead of inline handlers", () => {
+  const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  const labCard = appSource.match(
+    /function labCardHtml\(lab\) \{(?<body>[\s\S]*?)\n\}/,
+  )?.groups?.body;
+
+  assert.ok(labCard, "labCardHtml function must exist");
+  assert.doesNotMatch(labCard, /onclick\s*=/);
+  assert.match(labCard, /escapeHtml\(lab\.id\)/);
+  assert.match(labCard, /escapeHtml\(lab\.difficulty/);
+  assert.match(labCard, /escapeHtml\(lab\.time/);
+  assert.match(labCard, /escapeHtml\(tag\)/);
+  assert.match(appSource, /card\.addEventListener\("click"/);
 });

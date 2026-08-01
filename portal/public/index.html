@@ -15,6 +15,8 @@
       --text-muted: #8b8fa8;
       --accent: #4f8ff7;
       --accent-hover: #6ba1ff;
+      --accent-contrast: #0f1117;
+      --accent-hover-contrast: #0f1117;
       --success: #34d399;
       --warning: #fbbf24;
       --danger: #f87171;
@@ -320,6 +322,21 @@
       box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
     }
     .panel h3 { font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-left: 3px solid var(--accent); padding-left: 10px; }
+    .dependency-map {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .dependency-map li {
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text-muted);
+    }
+    .dependency-map strong { color: var(--text); }
 
     /* ── Forms ──────────────────────────── */
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -514,10 +531,10 @@
     }
     .btn:hover { background: var(--surface-hover); }
     .btn:disabled { opacity: 0.65; cursor: not-allowed; }
-    .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
-    .btn-primary:hover { background: var(--accent-hover); box-shadow: 0 0 20px rgba(79, 143, 247, 0.3); transform: translateY(-1px); }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+    .btn-primary:hover { background: var(--accent-hover); color: var(--accent-hover-contrast); box-shadow: 0 0 20px rgba(79, 143, 247, 0.3); transform: translateY(-1px); }
     .btn-success { background: var(--success); border-color: var(--success); color: #0f1117; }
-    .btn-danger { background: var(--danger); border-color: var(--danger); color: white; }
+    .btn-danger { background: var(--danger); border-color: var(--danger); color: #0f1117; }
     .btn-sm { padding: 5px 10px; font-size: 12px; }
 
     @media (max-width: 1080px) {
@@ -823,7 +840,7 @@
       background: rgba(79, 143, 247, 0.12);
       color: var(--text);
     }
-    .lb-step.active span { background: var(--accent); color: #fff; }
+    .lb-step.active span { background: var(--accent); color: var(--accent-contrast); }
     .lb-step.done span { background: var(--success, #34d399); color: #06281d; }
     .lb-category { margin-bottom: 20px; }
     .lb-category-title {
@@ -1445,20 +1462,12 @@
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Use this sequence map to understand which labs build on earlier setup, which labs branch into specialized tracks, and where your team can safely jump ahead.
               </p>
-              <div class="mermaid" id="lab-dependency-graph">
-flowchart TD
-  L01["Lab 01: IT Operations Agent"] --> L02["Lab 02: Analytics & Evaluations"]
-  L01 --> L03["Lab 03: Account Orchestration"]
-  L01 --> L05["Lab 05: VS Code Agent Mgmt"]
-  L03 --> L07["Lab 07: Agent-to-Agent Protocol"]
-  L04["Lab 04: Energy Operations Weather Agent"] --> L05
-  L04 --> L07
-  L01 --> L08["Lab 08: Work IQ & M365"]
-  L01 --> L09["Lab 09: Prompt Builder & Flows"]
-  L01 --> L10["Lab 10: Real-Time Voice"]
-  L06["Lab 06: Computer Use Agents"]
-  L11["Lab 11: Power Apps Code Apps"]
-              </div>
+              <ul class="dependency-map">
+                <li><strong>Lab 01: IT Operations Agent</strong> → Labs 02, 03, 05, 08, 09, and 10</li>
+                <li><strong>Lab 03: Account Orchestration</strong> → Lab 07: Agent-to-Agent Protocol</li>
+                <li><strong>Lab 04: Energy Operations Weather Agent</strong> → Labs 05 and 07</li>
+                <li><strong>Independent tracks:</strong> Lab 06: Computer Use Agents and Lab 11: Power Apps Code Apps</li>
+              </ul>
             </div>
             <div class="panel">
               <h3>📦 Customization</h3>
@@ -1467,17 +1476,17 @@ flowchart TD
               </p>
               <div class="form-grid">
                 <div class="form-group">
-                  <label>Organization Name</label>
+                  <label for="cfg-org-name">Organization Name</label>
                   <input type="text" id="cfg-org-name" placeholder="Contoso" />
                   <span class="hint">Short organization name. Defaults to <code>Contoso</code> if blank.</span>
                 </div>
                 <div class="form-group">
-                  <label>Full Organization Name</label>
+                  <label for="cfg-org-full">Full Organization Name</label>
                   <input type="text" id="cfg-org-full" placeholder="Contoso Energy" />
                   <span class="hint">Full legal or display name. Defaults to <code>Contoso Energy</code>.</span>
                 </div>
                 <div class="form-group">
-                  <label>Industry <span style="color: var(--danger);">*</span></label>
+                  <label for="cfg-industry">Industry <span style="color: var(--danger);">*</span></label>
                   <select id="cfg-industry" required>
                     <option value="" disabled selected hidden>Select an industry…</option>
                     <option value="Energy / Utilities">Energy / Utilities</option>
@@ -1492,17 +1501,17 @@ flowchart TD
                   <span class="hint">Required — choose the industry to tailor lab content.</span>
                 </div>
                 <div class="form-group">
-                  <label>Agent Name</label>
+                  <label for="cfg-agent">Agent Name</label>
                   <input type="text" id="cfg-agent" placeholder="e.g., Plant Floor Support Agent" />
                   <span class="hint">Replaces "IT Operations Agent"</span>
                 </div>
                 <div class="form-group">
-                  <label>End Users</label>
+                  <label for="cfg-users">End Users</label>
                   <input type="text" id="cfg-users" placeholder="e.g., plant operators" />
                   <span class="hint">Replaces "field technicians"</span>
                 </div>
                 <div class="form-group">
-                  <label>Compliance Standard</label>
+                  <label for="cfg-compliance">Compliance Standard</label>
                   <select id="cfg-compliance" multiple size="10">
                     <option value="__NONE__">None — no specific compliance standard</option>
                     <optgroup label="Energy & Utilities">
@@ -1579,7 +1588,7 @@ flowchart TD
                   <span class="hint">Hold Ctrl (⌘ on Mac) to select multiple. Replaces "NERC CIP".</span>
                 </div>
                 <div class="form-group">
-                  <label>Tagline</label>
+                  <label for="cfg-tagline">Tagline</label>
                   <input type="text" id="cfg-tagline" placeholder="e.g., Building the future — powered by AI" />
                   <span class="hint">Replaces default tagline in lab headers</span>
                 </div>
@@ -1717,7 +1726,7 @@ flowchart TD
                 pick just the advanced feature you care about.
               </p>
               <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;">
-                <input type="text" id="lb-feature-search" placeholder="Search features..."
+                <input type="text" id="lb-feature-search" aria-label="Search lab features" placeholder="Search features..."
                   oninput="lbRenderFeatures()" style="max-width: 320px;">
                 <button class="btn" type="button" onclick="lbClearFeatures()">Clear selection</button>
                 <span id="lb-feature-count" style="font-size: 13px; color: var(--text-muted);"></span>
@@ -1774,6 +1783,7 @@ flowchart TD
               <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
                 <button class="btn" onclick="lbGoToStep(4)">← Back</button>
                 <button class="btn btn-primary" id="lb-generate-btn" onclick="lbGenerate()">🧬 Build my lab</button>
+                <button class="btn" id="lb-cancel-btn" onclick="lbCancelGenerate()" hidden>Cancel</button>
                 <span id="lb-status" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>
             </div>
@@ -1829,12 +1839,12 @@ flowchart TD
               </p>
               <div class="form-grid">
                 <div class="form-group">
-                  <label>Resource Name Prefix</label>
+                  <label for="az-base-name">Resource Name Prefix</label>
                   <input type="text" id="az-base-name" value="copilot-labs" />
                   <span class="hint">Used as prefix for all resource names</span>
                 </div>
                 <div class="form-group">
-                  <label>Azure Region</label>
+                  <label for="az-location">Azure Region</label>
                   <select id="az-location">
                     <option value="eastus">East US</option>
                     <option value="eastus2">East US 2</option>
@@ -1851,7 +1861,7 @@ flowchart TD
                   </select>
                 </div>
                 <div class="form-group">
-                  <label>Subscription ID (optional)</label>
+                  <label for="az-subscription">Subscription ID (optional)</label>
                   <input type="text" id="az-subscription" placeholder="Uses current az CLI subscription if empty" />
                 </div>
               </div>
@@ -1923,11 +1933,11 @@ flowchart TD
               <h3>➕ Create New Environment</h3>
               <div class="form-grid">
                 <div class="form-group">
-                  <label>Display Name</label>
+                  <label for="pp-env-name">Display Name</label>
                   <input type="text" id="pp-env-name" placeholder="e.g., Copilot Labs - Training" />
                 </div>
                 <div class="form-group">
-                  <label>Type</label>
+                  <label for="pp-env-type">Type</label>
                   <select id="pp-env-type">
                     <option value="Sandbox">Sandbox (Recommended for labs)</option>
                     <option value="Production">Production</option>
@@ -1936,7 +1946,7 @@ flowchart TD
                   </select>
                 </div>
                 <div class="form-group">
-                  <label>Region</label>
+                  <label for="pp-env-region">Region</label>
                   <select id="pp-env-region">
                     <option value="unitedstates">United States</option>
                     <option value="europe">Europe</option>
@@ -1949,7 +1959,7 @@ flowchart TD
                   </select>
                 </div>
                 <div class="form-group">
-                  <label>Language</label>
+                  <label for="pp-env-lang">Language</label>
                   <select id="pp-env-lang">
                     <option value="1033">English</option>
                     <option value="1036">French</option>
@@ -1959,7 +1969,7 @@ flowchart TD
                   </select>
                 </div>
                 <div class="form-group">
-                  <label>Security Group ID (optional)</label>
+                  <label for="pp-env-sg">Security Group ID (optional)</label>
                   <input type="text" id="pp-env-sg" placeholder="Azure AD security group GUID" />
                   <span class="hint">Restricts access to members of this group</span>
                 </div>
@@ -1999,33 +2009,33 @@ flowchart TD
 
               <div class="form-grid">
                 <div class="form-group pp-approval-field" data-approval-method="power-automate" style="display: none;">
-                  <label>Power Automate Webhook URL</label>
+                  <label for="pp-power-automate-webhook">Power Automate Webhook URL</label>
                   <input type="url" id="pp-power-automate-webhook" placeholder="https://prod-00.westus.logic.azure.com/..." />
                 </div>
                 <div class="form-group pp-approval-field" data-approval-method="logic-apps" style="display: none;">
-                  <label>Logic App HTTP Trigger URL</label>
+                  <label for="pp-logic-apps-webhook">Logic App HTTP Trigger URL</label>
                   <input type="url" id="pp-logic-apps-webhook" placeholder="https://prod-00.westus.logic.azure.com/..." />
                 </div>
                 <div class="form-group pp-approval-field" data-approval-method="copilot-studio" style="display: none;">
-                  <label>Copilot Studio Agent Webhook URL</label>
+                  <label for="pp-copilot-studio-webhook">Copilot Studio Agent Webhook URL</label>
                   <input type="url" id="pp-copilot-studio-webhook" placeholder="https://.../api/messages" />
                 </div>
                 <div class="form-group pp-approval-field" data-approval-method="teams-adaptive-card" style="display: none;">
-                  <label>Teams Approval Webhook URL</label>
+                  <label for="pp-teams-approval-webhook">Teams Approval Webhook URL</label>
                   <input type="url" id="pp-teams-approval-webhook" placeholder="https://outlook.office.com/webhook/..." />
                 </div>
                 <div class="form-group pp-notification-field" data-notification-channel="teams" style="display: none;">
-                  <label>Teams Notification Webhook URL</label>
+                  <label for="pp-teams-notification-webhook">Teams Notification Webhook URL</label>
                   <input type="url" id="pp-teams-notification-webhook" placeholder="https://outlook.office.com/webhook/..." />
                   <span class="hint">Use for channel notifications. Leave blank if you want to rely on approval cards only.</span>
                 </div>
                 <div class="form-group pp-notification-field" data-notification-channel="teams" style="display: none;">
-                  <label>Teams User Email (optional)</label>
+                  <label for="pp-teams-user-email">Teams User Email (optional)</label>
                   <input type="email" id="pp-teams-user-email" placeholder="approver@contoso.com" />
                   <span class="hint">Optional metadata for 1:1 approval scenarios.</span>
                 </div>
                 <div class="form-group pp-notification-field" data-notification-channel="email" style="display: none;">
-                  <label>Approver Email Address(es)</label>
+                  <label for="pp-approver-emails">Approver Email Address(es)</label>
                   <input type="text" id="pp-approver-emails" placeholder="approver1@contoso.com; approver2@contoso.com" />
                 </div>
               </div>
@@ -2073,7 +2083,7 @@ flowchart TD
               <div id="pp-schedules">
                 <div class="form-grid">
                   <div class="form-group">
-                    <label>Task</label>
+                    <label for="pp-sched-task">Task</label>
                     <select id="pp-sched-task">
                       <option value="env-audit">Environment audit (list all environments)</option>
                       <option value="security-scan">Security recommendations scan</option>
@@ -2082,7 +2092,7 @@ flowchart TD
                     </select>
                   </div>
                   <div class="form-group">
-                    <label>Frequency</label>
+                    <label for="pp-sched-freq">Frequency</label>
                     <select id="pp-sched-freq">
                       <option value="daily">Daily</option>
                       <option value="weekly" selected>Weekly</option>
@@ -2090,7 +2100,7 @@ flowchart TD
                     </select>
                   </div>
                   <div class="form-group">
-                    <label>Notify via Email</label>
+                    <label for="pp-sched-email">Notify via Email</label>
                     <input type="email" id="pp-sched-email" placeholder="admin@contoso.com" />
                   </div>
                 </div>
@@ -2128,7 +2138,7 @@ flowchart TD
               <h3>📧 Send Labs via Email</h3>
               <div class="form-grid">
                 <div class="form-group full">
-                  <label>Recipients</label>
+                  <label for="email-input">Recipients</label>
                   <div class="recipients-list" id="recipients-list"></div>
                   <div style="display: flex; gap: 8px;">
                     <input type="email" id="email-input" placeholder="Enter email address..." style="flex: 1;" onkeydown="if(event.key==='Enter'){event.preventDefault();addRecipient()}" />
@@ -2136,7 +2146,7 @@ flowchart TD
                   </div>
                 </div>
                 <div class="form-group full">
-                  <label>Subject</label>
+                  <label for="email-subject">Subject</label>
                   <input type="text" id="email-subject" value="Your Copilot Studio Labs Package" />
                 </div>
               </div>
@@ -2279,12 +2289,12 @@ flowchart TD
               <div id="keyvault-status" style="margin-bottom: 16px;"></div>
               <div class="form-grid">
                 <div class="form-group" data-config-key="AZURE_KEYVAULT_URL">
-                  <label>Key Vault URL</label>
+                  <label for="cfg-keyvault-url">Key Vault URL</label>
                   <input type="text" id="cfg-keyvault-url" placeholder="https://copilot-labs-kv.vault.azure.net" />
                   <span class="hint">Set via AZURE_KEYVAULT_URL env var</span>
                 </div>
                 <div class="form-group" data-config-key="KEY_VAULT_AUTH">
-                  <label>Authentication</label>
+                  <label for="cfg-kv-auth">Authentication</label>
                   <select id="cfg-kv-auth" disabled>
                     <option value="managed-identity">Managed Identity (Recommended)</option>
                     <option value="az-cli" selected>az CLI (Development)</option>
@@ -2303,22 +2313,22 @@ flowchart TD
               <h3>🔐 Azure / Entra ID</h3>
               <div class="form-grid">
                 <div class="form-group" data-config-key="AZURE_TENANT_ID">
-                  <label>Tenant ID</label>
+                  <label for="cfg-tenant">Tenant ID</label>
                   <input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
                   <span class="hint">Azure AD / Entra ID tenant</span>
                 </div>
                 <div class="form-group" data-config-key="AZURE_CLIENT_ID">
-                  <label>Client (App) ID</label>
+                  <label for="cfg-client-id">Client (App) ID</label>
                   <input type="text" id="cfg-client-id" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
                   <span class="hint">App registration for Graph API / deployment</span>
                 </div>
                 <div class="form-group" data-config-key="AZURE_CLIENT_SECRET">
-                  <label>Client Secret</label>
+                  <label for="cfg-client-secret">Client Secret</label>
                   <input type="password" id="cfg-client-secret" placeholder="••••••••" />
                   <span class="hint">⚠️ Stored in .env only — never committed</span>
                 </div>
                 <div class="form-group" data-config-key="AZURE_SUBSCRIPTION_ID">
-                  <label>Subscription ID</label>
+                  <label for="cfg-subscription">Subscription ID</label>
                   <input type="text" id="cfg-subscription" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
                   <span class="hint">Azure subscription for resource deployment</span>
                 </div>
@@ -2329,23 +2339,23 @@ flowchart TD
               <h3>📧 Email (SMTP)</h3>
               <div class="form-grid">
                 <div class="form-group" data-config-key="SMTP_HOST">
-                  <label>SMTP Host</label>
+                  <label for="cfg-smtp-host">SMTP Host</label>
                   <input type="text" id="cfg-smtp-host" placeholder="smtp.office365.com" />
                 </div>
                 <div class="form-group" data-config-key="SMTP_PORT">
-                  <label>SMTP Port</label>
+                  <label for="cfg-smtp-port">SMTP Port</label>
                   <input type="number" id="cfg-smtp-port" placeholder="587" />
                 </div>
                 <div class="form-group" data-config-key="SMTP_USER">
-                  <label>SMTP User</label>
+                  <label for="cfg-smtp-user">SMTP User</label>
                   <input type="text" id="cfg-smtp-user" placeholder="labs@contoso.com" />
                 </div>
                 <div class="form-group" data-config-key="SMTP_PASS">
-                  <label>SMTP Password</label>
+                  <label for="cfg-smtp-pass">SMTP Password</label>
                   <input type="password" id="cfg-smtp-pass" placeholder="••••••••" />
                 </div>
                 <div class="form-group full" data-config-key="MAIL_FROM">
-                  <label>From Address</label>
+                  <label for="cfg-mail-from">From Address</label>
                   <input type="email" id="cfg-mail-from" placeholder="labs@contoso.com" />
                   <span class="hint">Used for both SMTP and Graph transports</span>
                 </div>
@@ -2356,31 +2366,31 @@ flowchart TD
               <h3>🚀 Deployment Targets</h3>
               <div class="form-grid">
                 <div class="form-group" data-config-key="AZURE_WEBAPP_NAME">
-                  <label>Azure Web App Name</label>
+                  <label for="cfg-webapp">Azure Web App Name</label>
                   <input type="text" id="cfg-webapp" placeholder="copilot-labs-portal" />
                   <span class="hint">App Service name for portal hosting</span>
                 </div>
                 <div class="form-group" data-config-key="AZURE_RESOURCE_GROUP">
-                  <label>Resource Group</label>
+                  <label for="cfg-rg">Resource Group</label>
                   <input type="text" id="cfg-rg" placeholder="rg-copilot-labs" />
                 </div>
                 <div class="form-group" data-config-key="MCP_SERVER_URL">
-                  <label>MCP Server URL</label>
+                  <label for="cfg-mcp">MCP Server URL</label>
                   <input type="text" id="cfg-mcp" placeholder="https://mcp.contoso.com" />
                   <span class="hint">Model Context Protocol server endpoint</span>
                 </div>
                 <div class="form-group" data-config-key="POWER_PLATFORM_ENV">
-                  <label>Power Platform Environment</label>
+                  <label for="cfg-pp-env">Power Platform Environment</label>
                   <input type="text" id="cfg-pp-env" placeholder="org12345.crm.dynamics.com" />
                   <span class="hint">Target environment for Copilot Studio agents</span>
                 </div>
                 <div class="form-group" data-config-key="AZURE_ACR_NAME">
-                  <label>Container Registry</label>
+                  <label for="cfg-acr">Container Registry</label>
                   <input type="text" id="cfg-acr" placeholder="contosoacr.azurecr.io" />
                   <span class="hint">ACR for Docker image hosting</span>
                 </div>
                 <div class="form-group" data-config-key="AZURE_ACR_IMAGE">
-                  <label>Container Image Tag</label>
+                  <label for="cfg-image-tag">Container Image Tag</label>
                   <input type="text" id="cfg-image-tag" placeholder="copilot-labs-portal:latest" />
                 </div>
               </div>
@@ -2412,24 +2422,6 @@ flowchart TD
     <div class="lightbox-help">Esc closes • +/- zoom • arrows pan • 0 resets</div>
   </div>
 
-  <script src="vendor/mermaid.min.js" defer></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", () => {
-      mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: "strict",
-        theme: "base",
-        themeVariables: {
-          primaryColor: "#f3f4f8",
-          primaryTextColor: "#1f2937",
-          primaryBorderColor: "#cbd5e1",
-          lineColor: "#94a3b8",
-          mainBkg: "#f3f4f8",
-          edgeLabelBackground: { fill: "transparent" }
-        }
-      });
-    });
-  </script>
   <script src="app.js" defer></script>
 </body>
 </html>

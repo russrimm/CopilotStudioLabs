@@ -2,7 +2,7 @@
 
 *Configure how end users authenticate to your agent so it can act on their behalf and respect their permissions.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (300) |
 | ⏱️ **TIME** | 60 minutes |

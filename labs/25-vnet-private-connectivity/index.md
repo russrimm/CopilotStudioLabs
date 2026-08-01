@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 90 minutes |
@@ -172,7 +172,7 @@ By the end of this lab you will be able to:
 
 > 🎯 **Objective:** Compare the three most common private connectivity patterns so you choose the right one for each Copilot Studio and Power Platform scenario.
 
-### Scenario
+## Scenario
 
 Your architecture team keeps hearing three terms:
 **on-premises data gateway**,
@@ -281,7 +281,7 @@ You now have a decision model for private connectivity instead of a vague “use
 
 > 🎯 **Objective:** Build the core delegated-network configuration by using paired Azure VNets, delegated subnets, an enterprise policy, and environment enablement.
 
-### Scenario
+## Scenario
 
 You are enabling a United States Power Platform environment for private outbound connectivity.
 Because United States uses paired regions, you must prepare Azure networking in **eastus** and **westus**.
@@ -433,7 +433,7 @@ You now have the foundational network and policy configuration required for priv
 
 > 🎯 **Objective:** Use the delegated environment to power private data access from Copilot Studio through supported connectors and custom connectors.
 
-### Scenario
+## Scenario
 
 Your agent needs to perform three tasks:
 retrieve customer records from **Azure SQL**,
@@ -546,7 +546,7 @@ You now have Copilot Studio reaching private resources through supported Power P
 
 > 🎯 **Objective:** Turn a working delegated-network demo into an operable enterprise pattern with sizing, monitoring, troubleshooting, and review controls.
 
-### Scenario
+## Scenario
 
 Private connectivity is now enabled.
 The demo works.
@@ -664,7 +664,7 @@ You now have the operating model required to support private Power Platform conn
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|

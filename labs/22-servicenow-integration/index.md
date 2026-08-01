@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 90 minutes |
@@ -133,13 +133,13 @@ That experience only works if identity, connector setup, and ServiceNow records 
 
 > 🎯 **Objective:** Provision a free Personal Developer Instance (PDI), load realistic test data, and enable the APIs you need before you touch Copilot Studio.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Create a working ServiceNow sandbox that behaves like a lightweight ITSM tenant. |
 | **Outcome** | You have a running instance URL, admin access, sample incidents, and the knowledge API plugin enabled. |
 | **Why it matters** | A clean sandbox lets you validate connector actions, authentication, and topic prompts without waiting on a production admin. |
 
-### Scenario
+## Scenario
 
 Your service desk wants a Copilot that can look up incidents, create requests, and search knowledge articles.
 Before you wire up OAuth or author topics, you need a ServiceNow instance that you control end to end.
@@ -252,13 +252,13 @@ You now have the sandbox foundation required to configure a trustworthy ServiceN
 
 > 🎯 **Objective:** Choose the right ServiceNow authentication pattern, register the required Entra ID apps, and validate a Power Platform connection.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Stand up a secure connector path that can be reused by Copilot Studio and Power Automate. |
 | **Outcome** | You understand all four ServiceNow connector auth methods and have one working connection strategy implemented. |
 | **Why it matters** | Authentication is the most common integration blocker; solving it once with a repeatable pattern saves hours later. |
 
-### Scenario
+## Scenario
 
 Your security team wants modern authentication and traceability instead of a shared admin password.
 The ServiceNow connector supports multiple patterns, but the Entra ID-based options are the most reusable for enterprise design.
@@ -393,13 +393,13 @@ You now have a secure, tested ServiceNow connection pattern that can be reused b
 
 > 🎯 **Objective:** Add the ServiceNow connector as a tool, create lookup and creation behaviors, and shape the user experience for authenticated actions.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Deliver an agent that can answer incident questions and create new tickets without leaving the Copilot experience. |
 | **Outcome** | You have a Copilot Studio agent wired to ServiceNow actions and tested with realistic prompts. |
 | **Why it matters** | This is the step where connector plumbing becomes business value. |
 
-### Scenario
+## Scenario
 
 Your frontline users do not care how elegant the OAuth setup was.
 They care whether the agent can find their ticket, create a new incident, and explain what happened next.
@@ -525,13 +525,13 @@ You now have a functioning ITSM copilot pattern that can read and write real Ser
 
 > 🎯 **Objective:** Configure Copilot Studio single sign-on so users authenticate once, understand supported channels, and reduce repeated sign-in friction.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Move from a manually authenticated demo to an enterprise-ready sign-in story. |
 | **Outcome** | You know the five-step SSO pattern for Copilot Studio and how it intersects with downstream ServiceNow access. |
 | **Why it matters** | A good integration still fails adoption if users are repeatedly prompted to sign in. |
 
-### Scenario
+## Scenario
 
 Your pilot works, but testers complain that they already signed in to Teams or the custom website and still get extra prompts.
 Copilot Studio SSO solves that at the agent layer when you follow the documented pattern and use a supported channel.
@@ -644,7 +644,7 @@ You now have a practical SSO plan that makes the ServiceNow-enabled agent feel l
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|

@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 2 hours |
@@ -157,7 +157,7 @@ Use synthetic or masked data for labs.
 
 > 🎯 **Objective:** Design a healthcare-safe patient lookup pattern by using a custom connector against FHIR R4 APIs and SMART on FHIR OAuth.
 
-### Scenario
+## Scenario
 
 A hospital wants a Copilot Studio assistant for care coordinators.
 There is no certified Epic or Cerner connector for this use case.
@@ -241,7 +241,7 @@ You now have a realistic pattern for healthcare interoperability without assumin
 
 > 🎯 **Objective:** Build a finance-friendly SAP pattern by using SAP BTP or S/4HANA APIs through a custom connector rather than assuming the Logic Apps SAP connector is available everywhere.
 
-### Scenario
+## Scenario
 
 A bank wants a Copilot Studio agent that can answer questions about payment status, general ledger exceptions, or customer onboarding tasks.
 The source system is SAP.
@@ -328,7 +328,7 @@ You now have a more realistic SAP integration approach for finance-focused Copil
 
 > 🎯 **Objective:** Design a least-privilege custom connector or flow wrapper for Shopify order lookup and inventory support.
 
-### Scenario
+## Scenario
 
 A retailer wants a customer-service assistant that checks order status and product inventory.
 Unlike some other industries, retail often has strong SaaS APIs. The former Microsoft Shopify connector reference is no longer available, so this lab uses Shopify's supported Admin API through a governed custom connector or flow wrapper instead of assuming a certified connector exists.
@@ -409,7 +409,7 @@ You now have a practical retail integration pattern that delivers quick operatio
 
 > 🎯 **Objective:** Surface industrial telemetry safely by using custom connectors against IoT or machine-data APIs such as PTC ThingWorx or Azure-hosted operational APIs.
 
-### Scenario
+## Scenario
 
 A manufacturer wants supervisors to ask an agent for machine temperature, downtime, or alert summaries.
 The source platform might be **PTC ThingWorx**,
@@ -495,7 +495,7 @@ You now have a manufacturing integration pattern that respects both operational 
 
 > 🎯 **Objective:** Design a public-sector-safe pattern using Salesforce Government Cloud or Tyler Technologies APIs while accounting for GCC limitations and compliance review.
 
-### Scenario
+## Scenario
 
 A county agency wants a citizen-services assistant.
 Some cases live in **Salesforce Government Cloud**.
@@ -582,7 +582,7 @@ You now have a public-sector integration pattern that surfaces cloud-boundary an
 
 > 🎯 **Objective:** Combine a premium developer-tool connector and a standard connector into a practical DevOps support experience.
 
-### Scenario
+## Scenario
 
 A software company wants an engineering support agent.
 It should check **Jira** incident work items and **GitHub** pull request status.
@@ -676,7 +676,7 @@ Use this checklist to validate your cross-industry integration design outputs:
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|

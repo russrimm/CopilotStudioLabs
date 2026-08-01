@@ -2,7 +2,7 @@
 
 *Define transcript-based custom metrics that reflect real business outcomes for your Copilot Studio agent.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate to Advanced (200-300) |
 | ⏱️ **TIME** | 45 minutes plus metric-processing time |

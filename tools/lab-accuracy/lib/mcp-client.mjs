@@ -8,6 +8,7 @@
 const DEFAULT_ENDPOINT =
   process.env.MS_LEARN_MCP_URL || "https://learn.microsoft.com/api/mcp";
 const PROTOCOL_VERSION = "2025-06-18";
+const REQUEST_TIMEOUT_MS = 15000;
 
 function parseSsePayload(text) {
   // Concatenate all `data:` lines and return the last valid JSON-RPC object.
@@ -45,6 +46,7 @@ export class LearnMcpClient {
       method: "POST",
       headers,
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     const sid = res.headers.get("mcp-session-id");

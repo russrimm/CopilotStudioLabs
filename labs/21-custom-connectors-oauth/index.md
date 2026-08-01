@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate-Advanced (Level 250) |
 | ⏱️ **TIME** | 75 minutes |
@@ -177,7 +177,7 @@ and UI automation only when there is no better contract.
 
 > 🎯 **Objective:** Import an API definition, review the generated connector metadata, and test a working operation before involving Copilot Studio.
 
-### Scenario
+## Scenario
 
 You want a Copilot Studio agent to call a REST API that is not available as a prebuilt connector.
 The API is documented with Swagger or OpenAPI.
@@ -268,7 +268,7 @@ You now have a reusable API wrapper and a baseline for secure authentication.
 
 > 🎯 **Objective:** Secure the connector with Microsoft Entra ID OAuth 2.0 and avoid the most common redirect-URI mistakes.
 
-### Scenario
+## Scenario
 
 Your API should not be anonymous.
 You need delegated user access, central app governance, and a repeatable sign-in experience.
@@ -375,7 +375,7 @@ You now have an authenticated connector and a documented OAuth pattern your team
 
 > 🎯 **Objective:** Add the custom connector as a tool, decide how credentials will be supplied, and build a topic that uses the operation safely.
 
-### Scenario
+## Scenario
 
 The connector works in the Test tab.
 Now you want the agent to call it during real conversations.
@@ -463,7 +463,7 @@ You now have an authenticated API surface available to your Copilot Studio agent
 
 > 🎯 **Objective:** Configure SSO so users already signed in to a supported channel can authenticate with less friction when using your Copilot Studio agent.
 
-### Scenario
+## Scenario
 
 Your agent is published to an internal website.
 Employees are already signed in to the site with Entra ID.
@@ -563,7 +563,7 @@ You now have the pieces required for secure connector-based actions and a smooth
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|

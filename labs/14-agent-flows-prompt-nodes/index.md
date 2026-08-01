@@ -2,7 +2,7 @@
 
 *Use prompt nodes to generate structured, context-aware outputs inside Copilot Studio agent flows.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (200) |
 | ⏱️ **TIME** | 60 minutes |
@@ -87,4 +87,4 @@ You created a reliable **prompt-node** implementation pattern for Copilot Studio
 Suggested next labs:
 
 - [Lab 03: Prompt Assistant](../03-prompt-assistant/index.md)
-- [Lab 16: Agent Flows - M365 Copilot Nodes](../16-agent-flows-m365-copilot-nodes/index.md)
+- [Lab 16: Agent Flows - Microsoft 365 Copilot Nodes](../16-agent-flows-m365-copilot-nodes/index.md)

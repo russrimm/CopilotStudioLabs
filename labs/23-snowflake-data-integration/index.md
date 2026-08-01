@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 90 minutes |
@@ -133,13 +133,13 @@ That outcome depends on careful work across trial setup, OAuth, role design, and
 
 > 🎯 **Objective:** Create a no-cost Snowflake trial account, load a small analytics dataset, and understand the role model before you wire up Copilot Studio.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Provision a warehouse-backed sandbox with enough structured data to test meaningful prompts. |
 | **Outcome** | You have a trial environment, a running virtual warehouse, and three sample tables for agent questions. |
 | **Why it matters** | Connector demos are weak without clean data and role awareness. |
 
-### Scenario
+## Scenario
 
 Your analytics team wants Copilot Studio to answer business questions over trusted Snowflake data rather than CSV uploads.
 The fastest way to learn the pattern is a self-service trial that includes compute credits and admin control.
@@ -281,13 +281,13 @@ You now have a warehouse-backed sandbox with enough realism to validate prompts,
 
 > 🎯 **Objective:** Register the Snowflake OAuth resource and client applications, create the external OAuth integration in Snowflake, and validate claim mapping choices.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Establish a modern auth pattern that the Snowflake connector can use reliably. |
 | **Outcome** | You have a documented delegated or service-principal design plus a working connector-ready integration. |
 | **Why it matters** | OAuth is where identity architecture, Snowflake security, and Power Platform meet. |
 
-### Scenario
+## Scenario
 
 Your team wants to avoid hard-coded passwords and use Entra ID as the trust anchor.
 The Snowflake connector supports both delegated and service principal patterns, but the claims and role mapping differ.
@@ -420,13 +420,13 @@ You now have the identity architecture needed for a governed Snowflake integrati
 
 > 🎯 **Objective:** Add the Snowflake connector as a tool, shape agent instructions for safe analytics questions, and return readable results.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Expose warehouse insights through a conversational front end without overwhelming the user with raw SQL. |
 | **Outcome** | You have a Copilot Studio agent that can answer inventory, risk, and energy consumption questions from Snowflake data. |
 | **Why it matters** | The business value appears when raw warehouse data turns into grounded decisions. |
 
-### Scenario
+## Scenario
 
 Your operations director wants quick answers about inventory risk, portfolio exposure, and plant consumption trends.
 Analysts can write SQL, but frontline managers often just want the answer and a short explanation.
@@ -543,13 +543,13 @@ You now have a conversational analytics pattern that turns Snowflake warehouse c
 
 > 🎯 **Objective:** Plan and validate a private network path for the Snowflake connector using Power Platform VNet support and Snowflake private connectivity.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Reduce public network exposure for sensitive analytics workloads. |
 | **Outcome** | You can describe the target-state network architecture and the key dependencies for a managed-environment rollout. |
 | **Why it matters** | Private connectivity is often the condition for moving a data integration from pilot to production. |
 
-### Scenario
+## Scenario
 
 Your data platform team approves the pilot only if the connection path stays on private networking where possible.
 Snowflake connector VNet support is generally available, but it depends on Power Platform environment policy and your Snowflake network design.
@@ -647,7 +647,7 @@ You now have the security and networking blueprint needed to move Snowflake-powe
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|

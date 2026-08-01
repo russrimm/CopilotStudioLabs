@@ -2,7 +2,7 @@
 
 *Orchestrate Copilot Studio workflows that call specialized agents through agent nodes.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate to Advanced (200-300) |
 | ⏱️ **TIME** | 75 minutes |
