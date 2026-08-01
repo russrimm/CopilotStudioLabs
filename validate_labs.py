@@ -127,6 +127,7 @@ def markdown_targets(markdown):
         markdown,
         flags=re.MULTILINE | re.DOTALL,
     )
+    without_fences = re.sub(r"`[^`\n]*`", "", without_fences)
     patterns = [
         re.compile(r"!?\[[^\]]*]\(\s*(?:<([^>]+)>|([^\s)]+))(?:\s+[\"'][^)]*[\"'])?\s*\)"),
         re.compile(r"\b(?:href|src)=[\"']([^\"']+)[\"']", re.IGNORECASE),

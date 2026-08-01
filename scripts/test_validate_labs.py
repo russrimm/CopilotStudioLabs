@@ -36,6 +36,17 @@ class MarkdownLinkValidationTests(unittest.TestCase):
             self.assertIn("target does not exist", {finding[3] for finding in findings})
             self.assertIn('anchor "#not-there" does not exist', {finding[3] for finding in findings})
 
+    def test_inline_code_is_not_treated_as_a_link(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "README.md"
+            source.write_text(
+                'Use `<img src="...">` and `<a href="...">` in the renderer.\n',
+                encoding="utf-8",
+            )
+
+            self.assertEqual(check_markdown_links([source], root), [])
+
     def test_duration_minutes_normalizes_common_lab_formats(self):
         self.assertEqual(duration_minutes("**90 min**"), 90)
         self.assertEqual(duration_minutes("1 hour 30 minutes (including Q&A)"), 90)

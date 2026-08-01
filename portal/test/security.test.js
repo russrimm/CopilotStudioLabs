@@ -13,7 +13,12 @@ import { PassThrough } from "node:stream";
 import { escapeHtml } from "../lib/branding.js";
 import { buildApprovalNotificationHtml } from "../lib/approvals.js";
 import { exportLabs } from "../lib/exporter.js";
-import { getLabContent, getLabPath, isValidLabId } from "../lib/labs.js";
+import {
+  getLabContent,
+  getLabPath,
+  isValidLabId,
+  shouldSkipLabDirectory,
+} from "../lib/labs.js";
 import { sanitizeLabHtml } from "../lib/markdown.js";
 import { assertDisplayName } from "../lib/powerplatform.js";
 import { validateLab } from "../lib/validator.js";
@@ -76,6 +81,13 @@ test("lab path helpers reject traversal and malformed ids", () => {
   }
   assert.equal(isValidLabId("01-intro-workshop"), true);
   assert.match(getLabPath("01-intro-workshop"), /labs[\\/]01-intro-workshop$/);
+});
+
+test("lab discovery ignores generated and dependency directories", () => {
+  assert.equal(shouldSkipLabDirectory("node_modules"), true);
+  assert.equal(shouldSkipLabDirectory("dist"), true);
+  assert.equal(shouldSkipLabDirectory(".cache"), true);
+  assert.equal(shouldSkipLabDirectory("assets"), false);
 });
 
 test("lab validation resolves forward-slash Markdown image paths", () => {

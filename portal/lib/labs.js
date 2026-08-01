@@ -11,9 +11,14 @@ import { join, resolve, sep } from "path";
 const LABS_DIR = resolve(import.meta.dirname, "..", "..", "labs");
 const LABS_DIR_PREFIX = `${LABS_DIR}${sep}`;
 const LAB_ID_RE = /^[a-z0-9-]+$/i;
+const IGNORED_LAB_DIRECTORIES = new Set(["dist", "node_modules"]);
 
 export function isValidLabId(labId) {
   return typeof labId === "string" && LAB_ID_RE.test(labId);
+}
+
+export function shouldSkipLabDirectory(name) {
+  return name.startsWith(".") || IGNORED_LAB_DIRECTORIES.has(name);
 }
 
 /** Extract the value from a Markdown metadata‐table row like `| ⭐ **DIFFICULTY** | Intermediate |` */
@@ -52,7 +57,7 @@ function listDocs(labDir) {
   const results = [];
   function walk(dir) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name.startsWith(".")) continue;
+      if (shouldSkipLabDirectory(entry.name)) continue;
       const full = join(dir, entry.name);
       if (entry.isDirectory()) walk(full);
       else if (entry.name.endsWith(".md")) results.push(full);
@@ -96,6 +101,7 @@ export function discoverLabs() {
       let sizeBytes = 0;
       function walkSize(dir) {
         for (const entry of readdirSync(dir, { withFileTypes: true })) {
+          if (shouldSkipLabDirectory(entry.name)) continue;
           const full = join(dir, entry.name);
           if (entry.isDirectory()) walkSize(full);
           else sizeBytes += statSync(full).size;
