@@ -9,7 +9,7 @@
     "generate:lab": "node generate.js --lab"
   },
   "dependencies": {
-    "marked": "^15.0.6",
+    "marked": "^18.0.7",
     "playwright": "^1.49.0"
   },
   "engines": {
