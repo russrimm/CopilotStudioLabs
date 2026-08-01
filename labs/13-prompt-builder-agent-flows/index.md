@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate to Advanced (Level 200-300) |
 | ⏱️ **TIME** | 90 minutes |
@@ -31,7 +31,7 @@ By the end of this lab, you will be able to:
 flowchart LR
   A["Create Prompts in Prompt Builder"] --> B["Add Prompt Nodes"]
   B --> C["Power Automate Agent Flow"]
-  C --> D["Add M365 Copilot Node"]
+  C --> D["Add Microsoft 365 Copilot Node"]
   D --> E["Tune Moderation"]
   E --> F["Test with Prompt Advisor"]
   F --> G["Configure Async or Express Mode"]
@@ -53,7 +53,7 @@ The scenario uses Contoso Energy and Contoso Energy operations, where prompt qua
 |---|---|
 | **Prompt library** | Reusable prompts for outage summaries, field-report extraction, and leadership updates |
 | **Agent flow** | A flow that calls prompt nodes for structured extraction or translation |
-| **M365 Copilot node** | A research or drafting step grounded in the user's Microsoft 365 context |
+| **Microsoft 365 Copilot node** | A research or drafting step grounded in the user's Microsoft 365 context |
 | **Moderation policy** | Per-prompt content safety tuning for sensitive categories |
 | **Performance model** | Express mode and asynchronous response for time-sensitive or long-running flows |
 | **Quality loop** | Prompt Advisor testing and optimization guidance |
@@ -64,7 +64,7 @@ The scenario uses Contoso Energy and Contoso Energy operations, where prompt qua
 User or agent
   -> Agent flow
       -> Prompt node for extraction / transformation
-      -> M365 Copilot node for research / drafting
+      -> Microsoft 365 Copilot node for research / drafting
       -> Respond to agent (sync, async, or express mode pattern)
       -> Agent or downstream system consumes structured result
 ```
@@ -91,7 +91,7 @@ User or agent
 | **Prompt Builder** | The authoring surface for reusable prompt assets with instructions, inputs, outputs, and testing. |
 | **Prompt node** | An AI step inside a workflow or agent flow that performs a single model call. |
 | **Structured output** | A typed response shape that downstream flow steps can consume deterministically. |
-| **M365 Copilot node** | A flow step that asks Microsoft 365 Copilot or a targeted M365 agent to research or draft content. |
+| **Microsoft 365 Copilot node** | A flow step that asks Microsoft 365 Copilot or a targeted M365 agent to research or draft content. |
 | **Content moderation** | Per-prompt filtering choices for hate/fairness, sexual, violence, and self-harm categories. |
 | **Asynchronous response** | A mode that allows long-running agent flows to continue beyond the traditional two-minute limit. |
 | **Express mode** | A performance option for logic-heavy agent flows that improves the chance of finishing within two minutes. |
@@ -116,7 +116,7 @@ User or agent
 - Access to **Copilot Studio** and permission to create or edit **agent flows**.
 - Dataverse installed in the environment because prompt features depend on it.
 - Copilot Credits and regional availability for prompt models.
-- Optional: Microsoft 365 access if you plan to fully test the **M365 Copilot** node with real user context.
+- Optional: Microsoft 365 access if you plan to fully test the **Microsoft 365 Copilot** node with real user context.
 - A set of realistic utility examples such as outage narratives, field notes, bilingual customer messages, or meeting prep requests.
 
 > ⚠️ **Warning:** Generative features can produce plausible but wrong content. Always include human review when prompt output affects customer communication, safety decisions, or regulated reporting.
@@ -142,7 +142,7 @@ User or agent
 
 > 🎯 **Objective:** Design a reusable prompt with inputs, output structure, model selection, and moderation awareness.
 
-### Scenario
+## Scenario
 
 Field supervisors send freeform outage notes after restoration events. Operations leadership wants a prompt that turns those notes into a structured summary with risks, customer impact, and next actions.
 
@@ -261,7 +261,7 @@ You now have the foundation to move from **an idea for summarization** to **a re
 
 > 🎯 **Objective:** Insert a prompt node into a flow to do AI-powered extraction or translation.
 
-### Scenario
+## Scenario
 
 A field-operations team wants an agent flow that receives a freeform note and returns structured data that can be written into a case record or a shift-handoff summary.
 
@@ -371,16 +371,16 @@ You now have the foundation to move from **a standalone prompt** to **a flow-emb
 
 # 🧪 Use Case #3 — Use the Microsoft 365 Copilot node (15 min)
 
-> 🎯 **Objective:** Add an M365 Copilot node for research and document drafting.
+> 🎯 **Objective:** Add an Microsoft 365 Copilot node for research and document drafting.
 
-### Scenario
+## Scenario
 
 A district manager wants a flow that prepares a briefing draft by researching recent emails, files, and meetings about an initiative before a weekly review.
 
-### Step 1 — Add the M365 Copilot node
+### Step 1 — Add the Microsoft 365 Copilot node
 
 1. Open an existing workflow or agent flow where a user-specific research or drafting step makes sense.
-2. Add the **M365 Copilot** node from the action picker.
+2. Add the **Microsoft 365 Copilot** node from the action picker.
 3. Sign in with a Microsoft 365 account that has the appropriate access to the relevant mail, files, and meetings.
 4. Choose whether to call general Microsoft 365 Copilot or a specific M365 agent such as **Researcher**, **Analyst**, or a tenant-specific Agent Builder agent.
 5. Set the time zone if relative dates like 'this week' or 'yesterday' matter for the request.
@@ -410,8 +410,8 @@ Summarize all recent emails, meetings, chats, and files related to the South Reg
 ### Step 3 — Use the output downstream
 
 1. Add a downstream action such as **Send an email**, **Post a Teams message**, or **Respond to agent**.
-2. Insert the M365 Copilot output into the chosen action.
-3. If the output needs transformation, add a prompt node after M365 Copilot to rewrite or compress it.
+2. Insert the Microsoft 365 Copilot output into the chosen action.
+3. If the output needs transformation, add a prompt node after Microsoft 365 Copilot to rewrite or compress it.
 4. Test the complete workflow and confirm the result feels grounded in current M365 work rather than generic background knowledge.
 5. Decide whether the workflow should save the output in a SharePoint list, OneNote page, or document for future reference.
 6. Record which M365 target—general Copilot, Researcher, Analyst, or custom agent—worked best for the scenario.
@@ -419,7 +419,7 @@ Summarize all recent emails, meetings, chats, and files related to the South Reg
 
 #### Quick verification
 
-- The M365 Copilot node runs with a valid user context.
+- The Microsoft 365 Copilot node runs with a valid user context.
 - The message is explicit about task and output format.
 - The downstream step successfully consumes the node output.
 
@@ -434,7 +434,7 @@ Research the current status of the EV charging deployment workstream and draft a
 
 ### Validation checklist
 
-- The M365 Copilot node is configured and tested.
+- The Microsoft 365 Copilot node is configured and tested.
 - The output is grounded in user context.
 - A downstream action consumes the result.
 
@@ -448,7 +448,7 @@ Research the current status of the EV charging deployment workstream and draft a
 
 ### Key takeaways
 
-- The M365 Copilot node is strongest when user context matters materially.
+- The Microsoft 365 Copilot node is strongest when user context matters materially.
 - Message specificity strongly influences output usefulness.
 - Grounded drafting works well as one step inside a broader deterministic workflow.
 
@@ -488,7 +488,7 @@ You now have the foundation to move from **a generic flow** to **a Microsoft 365
 
 > 🎯 **Objective:** Set sensitivity levels for content filtering on a per-prompt basis.
 
-### Scenario
+## Scenario
 
 Some utility prompts touch stressful outage situations or customer complaints. You want prompt-level safety controls without over-restricting every scenario.
 
@@ -581,7 +581,7 @@ You now have the foundation to move from **an ungoverned prompt** to **a prompt 
 
 > 🎯 **Objective:** Score and optimize prompts using Prompt Advisor.
 
-### Scenario
+## Scenario
 
 You have a working prompt, but you want evidence-backed advice on clarity, structure, and potential improvements before scaling it across flows.
 
@@ -675,7 +675,7 @@ You now have the foundation to move from **a functioning prompt** to **a measure
 
 > 🎯 **Objective:** Configure long-running flows to use asynchronous response and decide when express mode is the better fit.
 
-### Scenario
+## Scenario
 
 Some utility workflows finish quickly and just need faster execution. Others involve longer research, drafting, or downstream processing that can exceed the traditional two-minute response window.
 
@@ -790,7 +790,7 @@ You now have the foundation to move from **a functionally correct flow** to **a 
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|
@@ -873,7 +873,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Prompt Builder: The authoring surface for reusable prompt assets with instructions, inputs, outputs, and testing.
 - Prompt node: An AI step inside a workflow or agent flow that performs a single model call.
 - Structured output: A typed response shape that downstream flow steps can consume deterministically.
-- M365 Copilot node: A flow step that asks Microsoft 365 Copilot or a targeted M365 agent to research or draft content.
+- Microsoft 365 Copilot node: A flow step that asks Microsoft 365 Copilot or a targeted M365 agent to research or draft content.
 - Content moderation: Per-prompt filtering choices for hate/fairness, sexual, violence, and self-harm categories.
 - Asynchronous response: A mode that allows long-running agent flows to continue beyond the traditional two-minute limit.
 
@@ -897,9 +897,9 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 
 ### Use Case #3 — Use the Microsoft 365 Copilot node
 
-- Objective review: Add an M365 Copilot node for research and document drafting.
-- Success evidence to collect: The M365 Copilot node is configured and tested.
-- Most important takeaway: The M365 Copilot node is strongest when user context matters materially.
+- Objective review: Add an Microsoft 365 Copilot node for research and document drafting.
+- Success evidence to collect: The Microsoft 365 Copilot node is configured and tested.
+- Most important takeaway: The Microsoft 365 Copilot node is strongest when user context matters materially.
 - Most likely support issue: If the output is vague, clarify the scope, timeframe, and format in the message.
 - Suggested next enhancement: Grounded drafting works well as one step inside a broader deterministic workflow.
 

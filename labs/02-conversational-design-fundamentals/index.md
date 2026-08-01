@@ -2,7 +2,7 @@
 
 *Learn the building blocks of Copilot Studio conversations before you add knowledge, tools, and orchestration.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Beginner to Intermediate (100-200) |
 | ⏱️ **TIME** | 45 minutes |

@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 45 minutes |
@@ -91,7 +91,7 @@ Official references:
 
 > 🎯 **Objective:** Pull a full copy of your cloud agent into a local VS Code workspace so you can inspect and modify it as files.
 
-### Step 1 — Open VS Code and sign in
+## Step 1 — Open VS Code and sign in
 
 1. Open **Visual Studio Code**.
 2. If you are not already signed in, sign in with your Microsoft account using the Accounts button in the bottom-left corner.
@@ -141,7 +141,7 @@ Take a moment to open a few files and understand how the browser-based authoring
 
 > 🎯 **Objective:** Use the Copilot Studio agent skill commands in VS Code to make targeted changes to your agent — update topic descriptions, edit instructions, and modify tool configurations.
 
-### Scenario
+## Scenario
 
 Your team has decided to:
 
@@ -246,7 +246,7 @@ description: >-
 
 > 🎯 **Objective:** Apply your local changes back to Copilot Studio and publish the updated agent.
 
-### Step 1 — Apply changes to Copilot Studio
+## Step 1 — Apply changes to Copilot Studio
 
 1. Open the **Command Palette** (`Ctrl+Shift+P`).
 2. Run **Copilot Studio: Apply changes** (or the equivalent sync command in your extension version) to upload your modified files to the cloud environment.
@@ -274,7 +274,7 @@ description: >-
 
 > 🎯 **Objective:** Confirm that your published changes work correctly by testing the agent in the Copilot Studio test chat.
 
-### Step 1 — Open the test chat
+## Step 1 — Open the test chat
 
 1. Open **Copilot Studio** in your browser.
 2. Navigate to the agent you just published.
@@ -339,7 +339,7 @@ Record what you tested and the results:
 
 # 🙋 Summary and Next Steps
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|

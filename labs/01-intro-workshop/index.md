@@ -2,7 +2,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Beginner to Intermediate (Level 100-200) |
 | ⏱️ **TIME** | 1.5 hours |

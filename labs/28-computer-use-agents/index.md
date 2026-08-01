@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 2 hours |
@@ -139,7 +139,7 @@ User or scheduled trigger
 
 > 🎯 **Objective:** Set up a CUA that can navigate a utility billing portal and return account details.
 
-### Scenario
+## Scenario
 
 An Contoso Energy billing analyst receives frequent requests to confirm whether a customer account is enrolled in paperless billing, autopay, and peak-pricing programs. The billing portal has no easy API for the analyst team, so they want an agent that can open the portal, search for the account, and report the answer.
 Your goal is to build the first version of that automation directly inside an agent, using a computer use tool bound to the agent.
@@ -323,7 +323,7 @@ You now have the foundation to move from **a generic agent shell** to **a workin
 
 > ⚠️ **Preview:** Cloud PC pools are preview and aren't for production use. Complete this section only in an approved non-production environment.
 
-### Scenario
+## Scenario
 
 A maker's laptop is not the right execution surface for production-grade utility automation. The operations team needs centrally managed, Entra-joined, Intune-enrolled capacity that security can govern and operations can scale.
 You will provision a Cloud PC pool and bind the computer use tool to that pool.
@@ -467,7 +467,7 @@ You now have the foundation to move from **a maker-owned execution pattern** to 
 
 > ⚠️ **Preview:** Standalone computer-use tools are preview, may be regionally unavailable, and aren't for production use.
 
-### Scenario
+## Scenario
 
 The billing lookup you created is valuable beyond a single agent. Operations wants the same account lookup tool available in a collections agent, a field-service exception flow, and a supervisor dashboard workflow.
 You will build a standalone computer-use tool so the logic can be published once and consumed many times.
@@ -623,7 +623,7 @@ You now have the foundation to move from **a single-agent automation** to **a re
 
 > 🎯 **Objective:** Configure audit logging, session replay, and governance policies for CUA.
 
-### Scenario
+## Scenario
 
 Before security signs off on the pilot, they want to know what the automation can open, what logs are retained, how screenshots are stored, and how auditors can review runs after the fact.
 You will harden the solution with logging, retention, and access decisions that fit an energy-industry governance model.
@@ -743,7 +743,7 @@ You now have the foundation to move from **a functional automation** to **a gove
 
 > 🎯 **Objective:** Review activity maps, transcript details, and failure patterns so you can run CUA reliably.
 
-### Scenario
+## Scenario
 
 Your pilot is live for a small billing operations team. The next question is not whether the automation can work once, but whether you can operate it day after day as screens, data, and network conditions change.
 You will use Copilot Studio and Dataverse-backed activity details to monitor success and troubleshoot failures.
@@ -866,7 +866,7 @@ You now have the foundation to move from **a built and governed automation** to 
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|

@@ -2,7 +2,7 @@
 
 *Configure moderation, grounding, and safety boundaries so your agent answers responsibly and predictably.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (200) |
 | ⏱️ **TIME** | 45 minutes |

@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 75 minutes |
@@ -133,13 +133,13 @@ The gateway provides that bridge through outbound Azure Relay communication and 
 
 > 🎯 **Objective:** Install the standard on-premises data gateway, register it to your tenant, and prepare a cluster design for high availability.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Create a reliable bridge between cloud automation and on-premises systems. |
 | **Outcome** | You have a registered gateway, a recovery key, and a clear hosting design. |
 | **Why it matters** | Everything else in the lab depends on the gateway being stable and supportable. |
 
-### Scenario
+## Scenario
 
 Your organization still runs critical SQL Server and line-of-business systems inside the datacenter.
 Copilot Studio cannot talk to those systems directly, so you need a trusted bridge.
@@ -234,13 +234,13 @@ You now have the hybrid bridge required to connect Copilot-driven automation to 
 
 > 🎯 **Objective:** Add an on-premises SQL Server data source through the gateway, test connectivity, and understand payload constraints.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Expose a governed SQL data source that flows and agents can use safely. |
 | **Outcome** | You have a working SQL Server connection backed by the gateway and a clear understanding of gateway limits. |
 | **Why it matters** | Most hybrid Copilot patterns start with SQL because it is structured, familiar, and still heavily on-premises in many organizations. |
 
-### Scenario
+## Scenario
 
 Your manufacturing or public-sector team stores the source-of-truth data in an on-prem SQL Server instance.
 The gateway lets cloud services reach it securely without direct inbound access.
@@ -343,13 +343,13 @@ You now have a governed SQL data path that the next use case can call from Power
 
 > 🎯 **Objective:** Create a Power Automate flow that uses the gateway-backed SQL connection and call it from a Copilot Studio agent.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Bridge Copilot Studio to on-premises data without exposing the database directly to the agent. |
 | **Outcome** | You have a reusable agent flow that returns filtered on-premises records to the conversation. |
 | **Why it matters** | Agent flows are the most practical way to use gateway-backed data from Copilot Studio today. |
 
-### Scenario
+## Scenario
 
 Your users want a chatbot, but your data lives inside the plant or datacenter.
 Copilot Studio can reach that data through a cloud flow that uses the gateway-backed SQL connector.
@@ -461,13 +461,13 @@ You now have the core hybrid pattern for Copilot Studio: cloud conversation, gat
 
 > 🎯 **Objective:** Understand when to use Standard gateway, Personal gateway, or VNet Data Gateway, and plan a migration path where appropriate.
 
-| | |
+| Field | Details |
 |---|---|
 | **Goal** | Choose the right connectivity model for your workload instead of defaulting to whatever was installed first. |
 | **Outcome** | You have a decision framework for hybrid connectivity patterns in Copilot Studio and Power Platform. |
 | **Why it matters** | The wrong gateway choice creates avoidable support debt and redesign later. |
 
-### Scenario
+## Scenario
 
 Your pilot works, but architecture reviewers want to know whether the gateway model you chose is the long-term answer.
 Power Platform offers multiple connectivity patterns, and each fits different governance and ownership models.
@@ -569,7 +569,7 @@ You now have a practical framework for choosing the right hybrid connectivity mo
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|

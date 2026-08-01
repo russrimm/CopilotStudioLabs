@@ -2,7 +2,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from validate_labs import check_markdown_links, duration_minutes, github_anchors
+from validate_labs import (
+    check_markdown_accessibility,
+    check_markdown_links,
+    duration_minutes,
+    github_anchors,
+)
 
 
 class MarkdownLinkValidationTests(unittest.TestCase):
@@ -35,6 +40,41 @@ class MarkdownLinkValidationTests(unittest.TestCase):
         self.assertEqual(duration_minutes("**90 min**"), 90)
         self.assertEqual(duration_minutes("1 hour 30 minutes (including Q&A)"), 90)
         self.assertEqual(duration_minutes("2 hrs (+25 min optional)"), 120)
+
+    def test_rendered_markdown_accessibility_is_checked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "lab.md"
+            source.write_text(
+                "# Lab\n\n"
+                "   ### Skipped heading\n\n"
+                "Field |  | Details\n"
+                "---|---|---\n"
+                "A | B | C\n\n"
+                "![screenshot]\n"
+                "[click here]\n"
+                "<img\n src=\"other.png\"\n alt=image>\n"
+                "\n[screenshot]: shot.png\n"
+                "[click here]: guide.md\n",
+                encoding="utf-8",
+            )
+
+            findings = check_markdown_accessibility([source], root)
+            reasons = {finding[2] for finding in findings}
+            self.assertIn("heading level skips from H1 to H3", reasons)
+            self.assertIn("Markdown table has an empty header cell", reasons)
+            self.assertIn("image has missing or generic alt text", reasons)
+            self.assertIn("link text is not meaningful out of context", reasons)
+            self.assertIn("HTML image has no meaningful alt text", reasons)
+
+            clean = root / "clean.md"
+            clean.write_text(
+                "# Lab\n\n"
+                "## Architecture\n\n"
+                "<img\n src=\"architecture.png\"\n alt=Architecture-diagram>\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(check_markdown_accessibility([clean], root), [])
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@
 
 *Implement production-ready multi-agent collaboration using generally available agent-to-agent capabilities.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (300) |
 | ⏱️ **TIME** | 75 minutes |

@@ -2,7 +2,7 @@
 
 *Configure preview Entra-based identity patterns for Copilot Studio agents with least-privilege principles.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (300) |
 | ⏱️ **TIME** | 75 minutes |

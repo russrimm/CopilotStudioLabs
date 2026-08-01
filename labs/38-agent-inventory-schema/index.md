@@ -2,7 +2,7 @@
 
 *Create a structured inventory schema to track agent capabilities, ownership, risk, and lifecycle status.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (200) |
 | ⏱️ **TIME** | 50 minutes |

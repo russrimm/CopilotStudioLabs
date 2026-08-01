@@ -2,7 +2,7 @@
 
 *Delivering energy with purpose — powered by AI*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate |
 | ⏱️ **TIME** | 75 minutes |

@@ -2,7 +2,7 @@
 
 *Use generally available evaluation tooling to measure quality, catch regressions, and improve Copilot Studio agent responses.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (200) |
 | ⏱️ **TIME** | 60 minutes |

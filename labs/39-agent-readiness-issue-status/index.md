@@ -2,7 +2,7 @@
 
 *Build a readiness model that combines quality signals, open issues, and release gates for Copilot Studio agents.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (200) |
 | ⏱️ **TIME** | 60 minutes |

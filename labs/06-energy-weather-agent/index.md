@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
 | ⏱️ **TIME** | 2 hours (15 min intro, 90 min hands-on, 15 min Q&A) |
@@ -172,7 +172,7 @@ By the end of this lab, you will be able to:
 
 > 🎯 **Objective:** Create custom topics that capture user intent and route grid-operations questions to the correct branches. Location collection is handled in Use Case #2.
 
-### Scenario
+## Scenario
 
 A grid operator needs either a guided service-territory weather lookup or a quick explanation of what weather data the agent supports.
 
@@ -374,7 +374,7 @@ Now that the topic collects a city and state, wire it to a real connector so the
 
 > 🎯 **Objective:** Configure global, topic, and system variables so the agent can store default location, units, forecast horizon, and the resolved location string used by every weather tool — and collect city and state from the user with simple **Question nodes**.
 
-### Scenario
+## Scenario
 
 Your agent needs reusable state for default location, units, and forecast horizon.
 
@@ -533,7 +533,7 @@ The connected agent and the Power Automate flow will reuse the same variables, s
 
 > 🎯 **Objective:** Build three agent tools that together turn raw weather data into an operations briefing — two **connector tools** (MSN Weather actions) and one **custom prompt tool** that interprets the connector outputs in energy-operations language.
 
-### Scenario
+## Scenario
 
 Operators need three capabilities:
 
@@ -753,7 +753,7 @@ This is your first non-connector tool, and it's a useful pattern any time you wa
 
 > 🎯 **Objective:** Create a **Weather Operations Specialist** connected agent, add it to the parent Energy Operations Weather Agent, and configure sharing so weather questions route cleanly to the specialist.
 
-### Scenario
+## Scenario
 
 The parent agent should orchestrate the operations experience while a connected specialist agent owns weather-specific reasoning and tool usage.
 
@@ -829,7 +829,7 @@ The parent agent should orchestrate the operations experience while a connected 
 
 > 🎯 **Objective:** Build a Power Automate cloud flow that takes a list of locations, calls the MSN Weather connector for each, aggregates the results, and returns a service-territory weather briefing to the agent.
 
-### Scenario
+## Scenario
 
 A dispatcher wants one briefing covering several substation areas instead of separate per-location lookups.
 
@@ -928,7 +928,7 @@ For each of the three locations, add an MSN Weather **Get current weather** acti
 
 > 🎯 **Objective:** Compare available models in Copilot Studio for quality, speed, and cost tradeoffs on grid-operations prompts.
 
-### Scenario
+## Scenario
 
 You want to verify which model is best for simple lookups versus multi-step operations questions.
 
@@ -987,7 +987,7 @@ Use stronger models for shift-handoff briefings, multi-location analysis, and in
 
 > 🎯 **Objective:** Create a 10-question evaluation set for grid-operations weather scenarios, run it to validate agent quality, review failures, and iterate.
 
-### Scenario
+## Scenario
 
 Before operators rely on the agent, you need evidence that it handles common and ambiguous questions reliably.
 
@@ -1087,7 +1087,7 @@ Apply fixes in the right place: topic issues → fix the topic; tool issues → 
 
 > 🎯 **Objective:** Stand up an MCP server that wraps **Open-Meteo** weather APIs (free and key-free), expose it over **Streamable HTTP**, connect it to Copilot Studio with the MCP onboarding wizard, and add discoverable tools for runtime use. This section requires **VS Code** and **Node.js 24+** (or Python 3.10+).
 
-### Scenario
+## Scenario
 
 The MSN Weather connector covers most operator needs, but you want a richer set of weather signals (hourly forecast, multi-day forecast, derived peak-risk indicator) exposed through a single discoverable tool host. Open-Meteo is a free, key-free weather API that pairs well with MCP for this purpose.
 
@@ -1305,7 +1305,7 @@ Reference: [Connect your agent to an existing MCP server](https://learn.microsof
 
 > 🎯 **Objective:** Consolidate learning, answer outstanding questions, and discuss next steps for production deployment.
 
-### Suggested discussion topics
+## Suggested discussion topics
 
 Use this time for open Q&A. If the group needs prompts, consider these:
 
@@ -1349,7 +1349,7 @@ Use this time for open Q&A. If the group needs prompts, consider these:
 
 > 🎯 **Objective:** Replace the two **Ask a question** nodes from Use Case #2 with a single **Adaptive Card** node that collects city and state in one structured turn with built-in field validation.
 
-### When to use this enhancement
+## When to use this enhancement
 
 An Adaptive Card is worth adding when:
 - Dispatchers need fewer conversational turns during high-pressure operational events

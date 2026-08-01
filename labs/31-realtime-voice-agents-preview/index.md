@@ -2,7 +2,7 @@
 
 *Prototype preview real-time voice experiences in Copilot Studio and validate operational readiness risks.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (300) |
 | ⏱️ **TIME** | 75 minutes |

@@ -188,6 +188,131 @@ def check_markdown_links(files=None, root=REPO_ROOT):
     return findings
 
 
+def check_markdown_accessibility(files=None, root=REPO_ROOT):
+    """Return structural accessibility findings for rendered lab Markdown."""
+    findings = []
+    files = files or [
+        path
+        for path in tracked_markdown_files(root)
+        if path.relative_to(root).parts[0].lower() == LABS_DIR
+    ]
+    generic_text = {
+        "click here",
+        "here",
+        "image",
+        "img",
+        "learn more",
+        "link",
+        "more",
+        "photo",
+        "picture",
+        "read more",
+        "screenshot",
+        "source",
+        "this",
+    }
+
+    for source in files:
+        lines = source.read_text(encoding="utf-8", errors="ignore").splitlines()
+        previous_heading = 0
+        in_fence = False
+        visible_lines = []
+        references = {
+            match.group(1).strip().lower()
+            for line in lines
+            if (match := re.match(r"^ {0,3}\[([^\]]+)]\s*:", line))
+        }
+
+        for line_number, line in enumerate(lines, 1):
+            if re.match(r"^\s*(```|~~~)", line):
+                in_fence = not in_fence
+                visible_lines.append("")
+                continue
+            if in_fence:
+                visible_lines.append("")
+                continue
+
+            visible_line = re.sub(r"`[^`]*`", "", line)
+            visible_lines.append(visible_line)
+            heading = re.match(r"^ {0,3}(#{1,6})\s+", visible_line)
+            if heading:
+                level = len(heading.group(1))
+                if previous_heading and level > previous_heading + 1:
+                    findings.append(
+                        (
+                            source,
+                            line_number,
+                            f"heading level skips from H{previous_heading} to H{level}",
+                        )
+                    )
+                previous_heading = level
+
+            for match in re.finditer(r"!\[([^\]]*)]\([^)]+\)", visible_line):
+                alt = re.sub(r"[*_~]", "", match.group(1)).strip().lower()
+                if not alt or alt in generic_text:
+                    findings.append((source, line_number, "image has missing or generic alt text"))
+
+            for match in re.finditer(r"!\[([^\]]*)]\s*\[[^\]]*]", visible_line):
+                alt = re.sub(r"[*_~]", "", match.group(1)).strip().lower()
+                if not alt or alt in generic_text:
+                    findings.append((source, line_number, "image has missing or generic alt text"))
+
+            for match in re.finditer(r"(?<!!)\[([^\]]*)]\([^)]+\)", visible_line):
+                label = re.sub(r"[*_~]", "", match.group(1)).strip().lower()
+                if label in generic_text or re.fullmatch(r"https?://\S+", label):
+                    findings.append((source, line_number, "link text is not meaningful out of context"))
+
+            for match in re.finditer(r"(?<!!)\[([^\]]*)]\s*\[[^\]]*]", visible_line):
+                label = re.sub(r"[*_~]", "", match.group(1)).strip().lower()
+                if label in generic_text or re.fullmatch(r"https?://\S+", label):
+                    findings.append((source, line_number, "link text is not meaningful out of context"))
+
+            for match in re.finditer(r"!\[([^\]]*)](?![\[(]|\s*:)", visible_line):
+                alt = re.sub(r"[*_~]", "", match.group(1)).strip().lower()
+                if alt in references and (not alt or alt in generic_text):
+                    findings.append((source, line_number, "image has missing or generic alt text"))
+
+            for match in re.finditer(r"(?<!!)\[([^\]]*)](?![\[(]|\s*:)", visible_line):
+                label = re.sub(r"[*_~]", "", match.group(1)).strip().lower()
+                if label in references and (
+                    label in generic_text or re.fullmatch(r"https?://\S+", label)
+                ):
+                    findings.append((source, line_number, "link text is not meaningful out of context"))
+
+        for index in range(len(visible_lines) - 1):
+            header = visible_lines[index]
+            delimiter = visible_lines[index + 1]
+            if "|" not in header or not re.match(r"^\s*\|?\s*:?-{3,}", delimiter):
+                continue
+            cells = [cell.strip() for cell in header.strip().strip("|").split("|")]
+            if any(not cell for cell in cells):
+                findings.append(
+                    (source, index + 1, "Markdown table has an empty header cell")
+                )
+
+        visible_markdown = "\n".join(visible_lines)
+        for match in re.finditer(r"<img\b[\s\S]*?>", visible_markdown, re.IGNORECASE):
+            alt = re.search(
+                r"\balt\s*=\s*(?:\"([^\"]*)\"|'([^']*)'|([^\s\"'=<>`]+))",
+                match.group(0),
+                re.IGNORECASE,
+            )
+            alt_value = next((group for group in alt.groups() if group is not None), "") if alt else ""
+            normalized_alt = alt_value.strip().lower()
+            if not normalized_alt or normalized_alt in generic_text:
+                line_number = visible_markdown.count("\n", 0, match.start()) + 1
+                findings.append((source, line_number, "HTML image has no meaningful alt text"))
+
+        for match in re.finditer(r"<table\b", visible_markdown, re.IGNORECASE):
+            closing = visible_markdown.find("</table>", match.end())
+            table = visible_markdown[match.start() : closing if closing >= 0 else len(visible_markdown)]
+            if not re.search(r"<th\b", table, re.IGNORECASE):
+                line_number = visible_markdown.count("\n", 0, match.start()) + 1
+                findings.append((source, line_number, "HTML table has no header cells"))
+
+    return findings
+
+
 def duration_minutes(value):
     """Normalize the primary duration in strings such as '1 hour 30 minutes'."""
     text = re.sub(r"[*_`]", "", str(value)).split("(", 1)[0].split("+", 1)[0].lower()
@@ -287,6 +412,14 @@ def main():
     else:
         print(f"  PASS  all local links and anchors resolve in {len(tracked_markdown_files())} tracked Markdown files")
 
+    print("\nRendered lab content accessibility:")
+    accessibility_issues = check_markdown_accessibility()
+    if accessibility_issues:
+        for source, line, reason in accessibility_issues:
+            print(f"  FAIL  {source.relative_to(REPO_ROOT)}:{line}: {reason}")
+    else:
+        print("  PASS  headings, image alternatives, tables, and link text are structurally accessible")
+
     print("\nREADME catalog consistency:")
     catalog_issues = check_readme_catalog()
     if catalog_issues:
@@ -309,10 +442,17 @@ def main():
     print(f"  Labs passing:        {len(folders) - failed_labs}")
     print(f"  Labs failing:        {failed_labs}")
     print(f"  Broken internal links: {len(broken)}")
+    print(f"  Accessibility issues: {len(accessibility_issues)}")
     print(f"  Catalog inconsistencies: {len(catalog_issues)}")
     print(f"  Unexpected collisions: {len(unexpected)}")
 
-    ok = failed_labs == 0 and not broken and not catalog_issues and not unexpected
+    ok = (
+        failed_labs == 0
+        and not broken
+        and not accessibility_issues
+        and not catalog_issues
+        and not unexpected
+    )
     print(f"\nRESULT: {'PASS' if ok else 'FAIL'}")
     return 0 if ok else 1
 

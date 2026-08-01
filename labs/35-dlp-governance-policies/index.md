@@ -2,11 +2,11 @@
 
 *Apply tenant-level governance so agents and makers can only use approved connectors and data flows.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (300) |
 | ⏱️ **TIME** | 60 minutes |
-| 🧩 **PRODUCTS** | Microsoft Copilot Studio, Power Platform Admin Center |
+| 🧩 **PRODUCTS** | Microsoft Copilot Studio, Power Platform admin center |
 | 🏷️ **TAGS** | Governance, DLP, Data Loss Prevention, Connectors, Compliance |
 | 🏭 **INDUSTRIES** | Cross-industry |
 
@@ -14,11 +14,11 @@
 
 ## Overview
 
-As agent building scales across an organization, **governance** keeps it safe. **Data Loss Prevention (DLP)** policies in the Power Platform Admin Center control which connectors makers and agents may combine, preventing sensitive data from flowing to unapproved destinations. In this lab you create a DLP policy, classify connectors, scope the policy to an environment, and verify its effect on agents.
+As agent building scales across an organization, **governance** keeps it safe. **Data Loss Prevention (DLP)** policies in the Power Platform admin center control which connectors makers and agents may combine, preventing sensitive data from flowing to unapproved destinations. In this lab you create a DLP policy, classify connectors, scope the policy to an environment, and verify its effect on agents.
 
 ## 🎯 Learning Objectives
 
-1. Navigate **DLP policies** in the Power Platform Admin Center (PPAC).
+1. Navigate **DLP policies** in the Power Platform admin center (PPAC).
 2. Classify connectors into **Business**, **Non-business**, and **Blocked** groups.
 3. Scope a policy to specific **environments**.
 4. Understand how DLP affects **agent tools and flows** at design and run time.
@@ -34,7 +34,7 @@ As agent building scales across an organization, **governance** keeps it safe. *
 
 ### Step 1 — Open DLP policies in PPAC
 
-1. Go to the **Power Platform Admin Center → Policies → Data policies**.
+1. Go to the **Power Platform admin center → Policies → Data policies**.
 2. Review any existing policies and their scopes.
 3. Select **+ New Policy**.
 

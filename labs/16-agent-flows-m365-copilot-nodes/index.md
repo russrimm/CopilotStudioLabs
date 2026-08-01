@@ -1,24 +1,24 @@
-# Lab 16: Agent Flows - M365 Copilot Nodes
+# Lab 16: Agent Flows - Microsoft 365 Copilot Nodes
 
-*Integrate Microsoft 365 Copilot capabilities into Copilot Studio agent flows using M365 Copilot nodes.*
+*Integrate Microsoft 365 Copilot capabilities into Copilot Studio agent flows using Microsoft 365 Copilot nodes.*
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Advanced (300) |
 | ⏱️ **TIME** | 75 minutes |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio, Microsoft 365 |
-| 🏷️ **TAGS** | Agent Flows, M365 Copilot, Knowledge Work |
+| 🏷️ **TAGS** | Agent Flows, Microsoft 365 Copilot, Knowledge Work |
 | 🏭 **INDUSTRIES** | Cross-industry |
 
 ---
 
 ## Overview
 
-This lab teaches you how to use **M365 Copilot nodes** inside Copilot Studio agent flows for research, summarization, and productivity-centric workflows. You will add node orchestration, pass context cleanly, and validate enterprise-ready output quality.
+This lab teaches you how to use **Microsoft 365 Copilot nodes** inside Copilot Studio agent flows for research, summarization, and productivity-centric workflows. You will add node orchestration, pass context cleanly, and validate enterprise-ready output quality.
 
 ## Learning Objectives
 
-1. Add M365 Copilot nodes to an agent flow.
+1. Add Microsoft 365 Copilot nodes to an agent flow.
 2. Pass business context and task intent into nodes.
 3. Validate output quality for decision-support scenarios.
 4. Handle missing data and permission-related constraints.
@@ -30,7 +30,7 @@ This lab teaches you how to use **M365 Copilot nodes** inside Copilot Studio age
 
 - Access to Copilot Studio with agent flows.
 - Access to Microsoft 365 data relevant to your scenario.
-- Appropriate permissions for M365 Copilot-connected tasks.
+- Appropriate permissions for Microsoft 365 Copilot-connected tasks.
 - A workflow requiring research or summary synthesis.
 
 ## Step-by-Step
@@ -43,9 +43,9 @@ This lab teaches you how to use **M365 Copilot nodes** inside Copilot Studio age
 4. Capture sensitivity constraints for enterprise data.
 5. Set acceptance criteria for response usefulness.
 
-### Step 2 - Add and configure M365 Copilot nodes
+### Step 2 - Add and configure Microsoft 365 Copilot nodes
 
-1. Open your flow and add an M365 Copilot node.
+1. Open your flow and add an Microsoft 365 Copilot node.
 2. Configure node objective and output expectations.
 3. Bind incoming context variables to the node.
 4. Add a concise instruction for response format.
@@ -77,14 +77,14 @@ This lab teaches you how to use **M365 Copilot nodes** inside Copilot Studio age
 
 ## Validation / Success Criteria
 
-- M365 Copilot node executes with correct context mapping.
+- Microsoft 365 Copilot node executes with correct context mapping.
 - Permission-related edge cases are handled gracefully.
 - Output quality is validated against your acceptance criteria.
 - A reusable integration template is documented.
 
 ## Lab Complete
 
-You built a governed **M365 Copilot node** pilot pattern for Copilot Studio agent flows.
+You built a governed **Microsoft 365 Copilot node** pilot pattern for Copilot Studio agent flows.
 
 Suggested next labs:
 

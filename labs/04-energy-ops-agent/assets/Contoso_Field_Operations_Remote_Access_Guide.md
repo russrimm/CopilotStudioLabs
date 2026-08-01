@@ -117,7 +117,7 @@ The **Contoso Field OMS** mobile app is available for authorized field technicia
 4. Complete MFA only for the sign-in you initiated.
 5. The app will synchronize your assigned outage tickets automatically.
 
-> **Note:** The OMS mobile app requires an active internet connection but does **not** require GlobalProtect VPN — it uses the Contoso Cloud Gateway (Azure AD Application Proxy) for secure access without a full VPN tunnel.
+> **Note:** The OMS mobile app requires an active internet connection but does **not** require GlobalProtect VPN — it uses the Contoso Cloud Gateway (Microsoft Entra application proxy) for secure access without a full VPN tunnel.
 
 ### 4.3 Offline Mode
 

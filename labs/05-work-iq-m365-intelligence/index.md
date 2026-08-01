@@ -4,7 +4,7 @@
 
 ## Metadata
 
-| | |
+| Field | Details |
 |---|---|
 | ⭐ **DIFFICULTY** | Intermediate (Level 200) |
 | ⏱️ **TIME** | 60 minutes |
@@ -137,7 +137,7 @@ User
 
 > 🎯 **Objective:** Turn on Work IQ so the agent can use Microsoft 365 signals.
 
-### Scenario
+## Scenario
 
 A utility operations manager wants a morning briefing agent that understands current work in progress rather than only static documents.
 
@@ -248,7 +248,7 @@ You now have the foundation to move from **a static knowledge agent** to **an ag
 
 > 🎯 **Objective:** Use Work IQ to pull context from emails, meetings, files, and chats.
 
-### Scenario
+## Scenario
 
 A Contoso program manager wants to know what happened this week across a wildfire-readiness workstream without digging through Outlook, Teams, and SharePoint manually.
 
@@ -354,7 +354,7 @@ You now have the foundation to move from **enabled tooling** to **a working M365
 
 > 🎯 **Objective:** Use SharePoint knowledge retrieval with metadata-aware filtering for more precise answers.
 
-### Scenario
+## Scenario
 
 The operations team stores outage procedures, restoration playbooks, and planning memos in SharePoint. They want the agent to search recent, authoritative files rather than the entire site every time.
 
@@ -460,7 +460,7 @@ You now have the foundation to move from **live M365 context only** to **a blend
 
 > 🎯 **Objective:** Create a scoped web index for industry-specific public content.
 
-### Scenario
+## Scenario
 
 The utility wants the agent to reference only trusted external industry sites, such as NERC, FERC, DOE, CAISO, or selected utility-regulatory resources, rather than the open web.
 
@@ -560,7 +560,7 @@ You now have the foundation to move from **internal-only grounding** to **a blen
 
 > 🎯 **Objective:** Run the same prompts and observe the quality improvement when Work IQ is enabled.
 
-### Scenario
+## Scenario
 
 Stakeholders often ask whether Work IQ is worth the added governance and licensing complexity. The clearest answer is a side-by-side comparison using the same operational prompts.
 
@@ -664,7 +664,7 @@ You now have the foundation to move from **a configured contextual agent** to **
 
 # 🙋 Summary
 
-### What you accomplished
+## What you accomplished
 
 | Step | What you did |
 |---|---|
