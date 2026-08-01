@@ -1495,6 +1495,15 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function safeExternalHttpUrl(value) {
+  try {
+    const url = new URL(String(value ?? ""));
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : "";
+  } catch {
+    return "";
+  }
+}
+
 // ── Agent Chat ──────────────────────────────────────────────────────────────
 
 async function loadAgentChatConfig() {
@@ -2912,7 +2921,7 @@ async function ppLoadEnvironments() {
     const authRes = await fetch("/api/pp/auth/status");
     const authData = await authRes.json();
     if (authData.authenticated) {
-      document.getElementById("pp-auth-status").innerHTML = `<span class="tag tag-success">✅ Signed in as ${authData.user.username}</span>`;
+      document.getElementById("pp-auth-status").innerHTML = `<span class="tag tag-success">✅ Signed in as ${escapeHtml(authData.user.username)}</span>`;
       document.getElementById("pp-device-code").style.display = "none";
     }
 
@@ -2935,26 +2944,36 @@ async function ppLoadEnvironments() {
             </tr>
           </thead>
           <tbody>
-            ${envs.map((e) => `
+            ${envs.map((e) => {
+              const environmentUrl = safeExternalHttpUrl(e.url);
+              return `
               <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 8px; font-weight: 500;">${e.displayName}</td>
-                <td style="padding: 8px;"><span class="tag">${e.type}</span></td>
-                <td style="padding: 8px;">${e.state === "Ready" ? "🟢" : "🟡"} ${e.state}</td>
-                <td style="padding: 8px;">${e.region}</td>
-                <td style="padding: 8px;">${e.url ? `<a href="${e.url}" target="_blank" style="color: var(--accent); font-size: 12px;">${e.domainName || "Open"}</a>` : "—"}</td>
+                <td style="padding: 8px; font-weight: 500;">${escapeHtml(e.displayName)}</td>
+                <td style="padding: 8px;"><span class="tag">${escapeHtml(e.type)}</span></td>
+                <td style="padding: 8px;">${e.state === "Ready" ? "🟢" : "🟡"} ${escapeHtml(e.state)}</td>
+                <td style="padding: 8px;">${escapeHtml(e.region)}</td>
+                <td style="padding: 8px;">${environmentUrl ? `<a href="${escapeHtml(environmentUrl)}" target="_blank" rel="noopener noreferrer" style="color: var(--accent); font-size: 12px;">${escapeHtml(e.domainName || "Open")}</a>` : "—"}</td>
                 <td style="padding: 8px;">
-                  <button class="btn btn-sm btn-danger" onclick="ppDeleteEnvironment('${e.id}', '${e.displayName.replace(/'/g, "\\'")}')">🗑️</button>
+                  <button class="btn btn-sm btn-danger"
+                          data-environment-id="${escapeHtml(e.id)}"
+                          data-environment-name="${escapeHtml(e.displayName)}"
+                          onclick="ppDeleteEnvironmentFromButton(this)">🗑️</button>
                 </td>
               </tr>
-            `).join("")}
+            `;
+            }).join("")}
           </tbody>
         </table>
       </div>
       <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted);">${envs.length} environment(s) found</div>
     `;
   } catch (err) {
-    container.innerHTML = `<div style="color: var(--danger); padding: 12px;">Error: ${err.message}</div>`;
+    container.innerHTML = `<div style="color: var(--danger); padding: 12px;">Error: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+function ppDeleteEnvironmentFromButton(button) {
+  return ppDeleteEnvironment(button.dataset.environmentId || "", button.dataset.environmentName || "");
 }
 
 function ppShowCreateEnv() {

@@ -7,7 +7,7 @@ import { randomBytes, randomUUID } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { sendMail } from "./mailer.js";
-import { createEnvironment } from "./powerplatform.js";
+import { assertDisplayName, createEnvironment } from "./powerplatform.js";
 import { escapeHtml } from "./branding.js";
 
 const dataRoot = resolve(import.meta.dirname, "..", "data");
@@ -60,34 +60,6 @@ function writeJson(path, data) {
 function sanitizeString(value) {
   return String(value ?? "").trim();
 }
-
-// `displayName` ends up in HTML (approval callback, notification emails),
-// Teams Adaptive Cards, Power Automate / Logic Apps payloads, and eventually
-// the Azure Power Platform Admin API. We restrict it to a conservative
-// printable-ASCII subset (letters, digits, spaces, and a small set of common
-// punctuation) so a control char or `<script>`-style payload can't be stored
-// and then interpolated somewhere we didn't audit. The regex also rejects
-// stray whitespace like tabs / newlines that shouldn't appear in a display
-// name.
-const DISPLAY_NAME_MAX_LEN = 128;
-const DISPLAY_NAME_RE = /^[A-Za-z0-9 _.,'()\-]+$/;
-
-function assertDisplayName(value) {
-  const trimmed = sanitizeString(value);
-  if (!trimmed) {
-    throw new Error("displayName is required");
-  }
-  if (trimmed.length > DISPLAY_NAME_MAX_LEN) {
-    throw new Error(`displayName must be at most ${DISPLAY_NAME_MAX_LEN} characters.`);
-  }
-  if (!DISPLAY_NAME_RE.test(trimmed)) {
-    throw new Error("displayName contains unsupported characters. Allowed: letters, digits, spaces, and _.,'()-");
-  }
-  return trimmed;
-}
-
-// Exported for tests; also useful for callers that want to pre-validate.
-export { assertDisplayName };
 
 function sanitizeUrl(value) {
   return sanitizeString(value);

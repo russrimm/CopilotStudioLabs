@@ -10,9 +10,10 @@ import assert from "node:assert/strict";
 import { PassThrough } from "node:stream";
 
 import { escapeHtml } from "../lib/branding.js";
-import { assertDisplayName, buildApprovalNotificationHtml } from "../lib/approvals.js";
+import { buildApprovalNotificationHtml } from "../lib/approvals.js";
 import { exportLabs } from "../lib/exporter.js";
 import { getLabContent, getLabPath, isValidLabId } from "../lib/labs.js";
+import { assertDisplayName } from "../lib/powerplatform.js";
 import { validateLab } from "../lib/validator.js";
 
 test("escapeHtml escapes every char used in the approval-callback response", () => {
