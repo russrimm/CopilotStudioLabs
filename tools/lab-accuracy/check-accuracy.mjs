@@ -62,7 +62,13 @@ async function main() {
   const report = {
     generatedAt: new Date().toISOString(),
     mcpEndpoint: process.env.MS_LEARN_MCP_URL || "https://learn.microsoft.com/api/mcp",
-    summary: { labs: labs.length, brokenLinks: 0, mcpDriftWarnings: 0, mcpUnavailable: false },
+    summary: {
+      labs: labs.length,
+      brokenLinks: 0,
+      unreachableLinks: 0,
+      mcpDriftWarnings: 0,
+      mcpUnavailable: false,
+    },
     labs: [],
   };
 
@@ -85,6 +91,7 @@ async function main() {
     const broken = linkResults.filter((r) => r.status >= 400);
     const unreachable = linkResults.filter((r) => r.status === 0);
     report.summary.brokenLinks += broken.length;
+    report.summary.unreachableLinks += unreachable.length;
 
     const labRecord = {
       name: lab.name,
@@ -130,7 +137,8 @@ async function main() {
   const target = writeReport("accuracy.json", report);
   console.log(`\nAccuracy report written to ${target}`);
   console.log(
-    `Summary: ${report.summary.brokenLinks} broken link(s), ${report.summary.mcpDriftWarnings} drift warning(s)` +
+    `Summary: ${report.summary.brokenLinks} broken link(s), ${report.summary.unreachableLinks} unreachable, ` +
+      `${report.summary.mcpDriftWarnings} drift warning(s)` +
       (report.summary.mcpUnavailable ? " (MCP unavailable)" : ""),
   );
 

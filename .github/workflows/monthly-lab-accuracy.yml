@@ -119,3 +119,9 @@ jobs:
               });
               core.info(`Created issue #${created.data.number}`);
             }
+
+      - name: Fail when maintainer action is required
+        if: steps.report.outputs.needs_action == 'true'
+        run: |
+          echo "::error::The monthly lab accuracy audit found issues that require maintainer action."
+          exit 1

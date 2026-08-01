@@ -12,6 +12,12 @@ const __dirname = path.dirname(__filename);
 export const repoRoot = path.resolve(__dirname, "..", "..", "..");
 export const labsDir = path.join(repoRoot, "labs");
 
+export function getReportsDir() {
+  return process.env.LAB_ACCURACY_OUT_DIR
+    ? path.resolve(process.env.LAB_ACCURACY_OUT_DIR)
+    : path.join(__dirname, "..", "out");
+}
+
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
 
 export function toPosix(value) {
@@ -138,7 +144,7 @@ export function loadAllLabs() {
 
 /** Write a JSON artifact to the lab-accuracy output dir. */
 export function writeReport(filename, data) {
-  const outDir = path.join(__dirname, "..", "out");
+  const outDir = getReportsDir();
   fs.mkdirSync(outDir, { recursive: true });
   const target = path.join(outDir, filename);
   fs.writeFileSync(target, JSON.stringify(data, null, 2));
@@ -147,7 +153,7 @@ export function writeReport(filename, data) {
 
 /** Read a previously written JSON artifact, or null if missing. */
 export function readReport(filename) {
-  const target = path.join(__dirname, "..", "out", filename);
+  const target = path.join(getReportsDir(), filename);
   if (!fs.existsSync(target)) return null;
   try {
     return JSON.parse(fs.readFileSync(target, "utf8"));
