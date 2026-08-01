@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { normalizeContent } from "../lib/mcp-client.mjs";
-import { safePath } from "../check-accuracy.mjs";
+import { safePath, unexpectedDriftLabs } from "../check-accuracy.mjs";
 
 test("normalizeContent unwraps the current Learn MCP results envelope", () => {
   const result = {
@@ -44,5 +44,23 @@ test("safePath treats localized and canonical Learn URLs as the same page", () =
   assert.equal(
     safePath("https://learn.microsoft.com/en-us/microsoft-copilot-studio/computer-use"),
     safePath("https://learn.microsoft.com/microsoft-copilot-studio/computer-use#overview"),
+  );
+});
+
+test("drift baseline permits known warnings and rejects new lab drift", () => {
+  const rankingWarning =
+    "No exact cited Learn page appeared in the current top search results. The links still resolve; review search ranking and product relevance before changing documentation.";
+  const report = {
+    labs: [
+      { name: "known-lab", mcp: { note: rankingWarning } },
+      { name: "clean-lab", mcp: { note: null } },
+      { name: "new-drift", mcp: { note: rankingWarning } },
+      { name: "known-query-failure", mcp: { note: "MCP query failed: timed out" } },
+    ],
+  };
+
+  assert.deepEqual(
+    unexpectedDriftLabs(report, { knownLabWarnings: ["known-lab", "known-query-failure"] }),
+    ["new-drift", "known-query-failure"],
   );
 });
