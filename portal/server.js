@@ -389,6 +389,11 @@ app.post("/api/scenarios/configure", (req, res) => {
 });
 
 // ── Lab Builder: generate a custom, Microsoft Learn-grounded lab ────────────
+const configuredLabBuilderConcurrency = Number(process.env.LAB_BUILDER_MAX_ACTIVE || 2);
+const LAB_BUILDER_MAX_ACTIVE = Number.isInteger(configuredLabBuilderConcurrency)
+  ? Math.min(8, Math.max(1, configuredLabBuilderConcurrency))
+  : 2;
+let activeLabGenerations = 0;
 
 /** GET /api/lab-builder/features — Catalog that drives the wizard */
 app.get("/api/lab-builder/features", (_req, res) => {
@@ -441,11 +446,24 @@ app.post("/api/lab-builder/preview", (req, res) => {
 
 /** POST /api/lab-builder/generate — Build the lab and write it to generated-labs/ */
 app.post("/api/lab-builder/generate", async (req, res) => {
+  if (activeLabGenerations >= LAB_BUILDER_MAX_ACTIVE) {
+    res.setHeader("Retry-After", "10");
+    return res.status(429).json({ error: "The lab builder is busy. Try again shortly." });
+  }
+
+  activeLabGenerations += 1;
+  const controller = new AbortController();
+  const cancel = () => {
+    if (!res.writableEnded) controller.abort("Client disconnected");
+  };
+  req.once("aborted", cancel);
+  res.once("close", cancel);
   try {
     const body = req.body || {};
     const result = await generateLab(body, {
       useLearnMcp: body.useLearnMcp !== false,
       useLlm: body.useLlm !== false,
+      signal: controller.signal,
     });
 
     res.json({
@@ -460,7 +478,13 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       warnings: result.plan.warnings,
     });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    if (!res.writableEnded && !controller.signal.aborted) {
+      res.status(400).json({ error: err.message });
+    }
+  } finally {
+    activeLabGenerations -= 1;
+    req.off("aborted", cancel);
+    res.off("close", cancel);
   }
 });
 

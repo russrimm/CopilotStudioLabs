@@ -3408,6 +3408,7 @@ const labBuilder = {
   selectedFeatures: new Set(),
   step: 1,
   busy: false,
+  controller: null,
 };
 
 async function lbLoadCatalog() {
@@ -3611,7 +3612,10 @@ async function lbGenerate() {
   const btn = document.getElementById("lb-generate-btn");
   const status = document.getElementById("lb-status");
   labBuilder.busy = true;
+  labBuilder.controller = new AbortController();
   if (btn) btn.disabled = true;
+  const cancelBtn = document.getElementById("lb-cancel-btn");
+  if (cancelBtn) cancelBtn.hidden = false;
   if (status) status.textContent = "Researching Microsoft Learn and composing your lab. This can take a minute...";
 
   try {
@@ -3619,6 +3623,7 @@ async function lbGenerate() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(lbRequest()),
+      signal: labBuilder.controller.signal,
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
@@ -3629,11 +3634,17 @@ async function lbGenerate() {
     toast(`Built "${data.title}"`, "success");
   } catch (err) {
     if (status) status.textContent = "";
-    toast(`Lab build failed: ${err.message}`, "error");
+    toast(err.name === "AbortError" ? "Lab build cancelled." : `Lab build failed: ${err.message}`, err.name === "AbortError" ? "info" : "error");
   } finally {
     labBuilder.busy = false;
+    labBuilder.controller = null;
     if (btn) btn.disabled = false;
+    if (cancelBtn) cancelBtn.hidden = true;
   }
+}
+
+function lbCancelGenerate() {
+  labBuilder.controller?.abort();
 }
 
 function lbShowResult(data) {

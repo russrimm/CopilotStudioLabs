@@ -105,6 +105,7 @@ function missingIndexResult(labId, title, labDir) {
   const tests = [
     { name: "index-exists", status: "fail", message: "index.md is missing." },
     { name: "has-title", status: "fail", message: "Cannot inspect title because index.md is missing." },
+    { name: "single-title", status: "fail", message: "Cannot inspect title count because index.md is missing." },
     { name: "has-metadata-table", status: "fail", message: "Cannot inspect metadata because index.md is missing." },
     { name: "has-difficulty", status: "fail", message: "Cannot inspect DIFFICULTY because index.md is missing." },
     { name: "has-time", status: "fail", message: "Cannot inspect TIME because index.md is missing." },
@@ -201,6 +202,12 @@ export function validateLabDir(labDir, { labId = labDir, title = labId } = {}) {
     message: headings.some((heading) => heading.level === 1)
       ? `Found H1 title: ${finalTitle}.`
       : "Missing H1 title heading.",
+  });
+  const h1Count = headings.filter((heading) => heading.level === 1).length;
+  tests.push({
+    name: "single-title",
+    status: h1Count === 1 ? "pass" : "fail",
+    message: h1Count === 1 ? "Found exactly one H1 title." : `Expected exactly one H1 title; found ${h1Count}.`,
   });
   tests.push({
     name: "has-metadata-table",

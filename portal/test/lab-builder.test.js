@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { createServer } from "node:http";
+import { once } from "node:events";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -15,6 +17,7 @@ import {
 } from "../lib/lab-builder/catalog.js";
 import { planLab, slugify } from "../lib/lab-builder/planner.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
+import { connect, searchDocs } from "../lib/lab-builder/learn-mcp.js";
 import { detectProvider } from "../lib/lab-builder/llm.js";
 import { scrubForbidden } from "../lib/lab-builder/composer.js";
 
@@ -87,6 +90,15 @@ test("planLab warns about unknown industries and roles", () => {
   const plan = planLab({ industry: "nope", roles: ["nope"], features: ["topics"] });
   assert.ok(plan.warnings.some((w) => /Unknown industry/i.test(w)));
   assert.ok(plan.warnings.some((w) => /Unknown role/i.test(w)));
+});
+
+test("planLab rejects malformed and unknown selections", () => {
+  assert.throws(() => planLab({ features: "topics" }), /features must be an array/i);
+  assert.throws(() => planLab({ features: ["topics"], roles: "operations" }), /roles must be an array/i);
+  assert.throws(() => planLab({ features: ["not-a-feature"] }), /unknown feature/i);
+  assert.throws(() => planLab({ features: ["topics"], timeBudget: "NaN" }), /timeBudget/i);
+  assert.throws(() => planLab({ features: ["topics"], timeBudget: 29 }), /30 to 1440/i);
+  assert.throws(() => planLab({ features: ["topics"], title: "Bad\n# title" }), /control characters/i);
 });
 
 test("slugify produces filesystem-safe names", () => {
@@ -164,4 +176,152 @@ test("generateLab records offline grounding as a warning, not a failure", async 
   );
   assert.equal(result.manifest.grounding.groundedModules, 0);
   assert.ok(result.plan.warnings.some((w) => /Learn/i.test(w)));
+  assert.equal(Number.isNaN(Date.parse(result.manifest.generatedAt)), false);
+});
+
+test("generateLab reserves unique output directories for concurrent builds", async (t) => {
+  const outputRoot = mkdtempSync(join(tmpdir(), "lab-builder-concurrent-"));
+  t.after(() => rmSync(outputRoot, { recursive: true, force: true }));
+
+  const options = { outputRoot, useLearnMcp: false, useLlm: false };
+  const [first, second] = await Promise.all([
+    generateLab({ features: ["topics"] }, options),
+    generateLab({ features: ["topics"] }, options),
+  ]);
+
+  assert.notEqual(first.outputDir, second.outputDir);
+  assert.ok(existsSync(join(first.outputDir, "index.md")));
+  assert.ok(existsSync(join(second.outputDir, "index.md")));
+});
+
+test("generateLab removes invalid partial output", async (t) => {
+  const outputRoot = mkdtempSync(join(tmpdir(), "lab-builder-invalid-"));
+  t.after(() => rmSync(outputRoot, { recursive: true, force: true }));
+  const llm = {
+    available: true,
+    failures: [],
+    provider: { kind: "test", label: "Test provider" },
+    async complete() {
+      return "# injected second title";
+    },
+  };
+
+  await assert.rejects(
+    generateLab(
+      { features: ["topics"] },
+      { outputRoot, useLearnMcp: false, useLlm: true, llm },
+    ),
+    /failed \d+ validation check/i,
+  );
+  assert.deepEqual(readdirSync(outputRoot), []);
+});
+
+test("generateLab bounds concurrent Microsoft Learn work", async () => {
+  let active = 0;
+  let peak = 0;
+  const session = {
+    ok: true,
+    endpoint: "https://learn.example.test",
+    async call() {
+      active += 1;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      active -= 1;
+      return { content: [{ type: "text", text: "Malformed but harmless upstream content" }] };
+    },
+  };
+
+  await generateLab(
+    { features: ["topics", "analytics", "adaptive-cards", "authentication"] },
+    {
+      write: false,
+      useLearnMcp: true,
+      useLlm: false,
+      maxConcurrency: 3,
+      connect: async () => session,
+    },
+  );
+  assert.equal(peak, 3);
+});
+
+test("generateLab honors cancellation before upstream work completes", async () => {
+  const controller = new AbortController();
+  const generation = generateLab(
+    { features: ["topics"] },
+    {
+      write: false,
+      useLearnMcp: true,
+      useLlm: false,
+      signal: controller.signal,
+      connect: ({ signal }) => new Promise((_resolve, reject) => {
+        signal.addEventListener(
+          "abort",
+          () => reject(new DOMException("cancelled", "AbortError")),
+          { once: true },
+        );
+      }),
+    },
+  );
+  controller.abort();
+  await assert.rejects(generation, { name: "AbortError" });
+});
+
+test("Learn MCP retries a transient failure and tolerates malformed tool data", async (t) => {
+  let requests = 0;
+  const server = createServer(async (req, res) => {
+    requests += 1;
+    const body = JSON.parse(Buffer.concat(await Array.fromAsync(req)).toString("utf8"));
+    if (requests === 1) {
+      res.writeHead(503).end("try again");
+      return;
+    }
+    res.setHeader("content-type", "application/json");
+    if (body.method === "initialize") {
+      res.end(JSON.stringify({ jsonrpc: "2.0", id: body.id, result: { protocolVersion: "2025-06-18" } }));
+      return;
+    }
+    res.end("not-json");
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+
+  const endpoint = `http://127.0.0.1:${server.address().port}`;
+  const session = await connect({ endpoint, timeoutMs: 2000 });
+  assert.equal(session.ok, true);
+  assert.equal(requests, 2);
+  assert.deepEqual(await searchDocs(session, "malformed response test"), []);
+});
+
+test("Learn MCP rejects a malformed initialize response", async (t) => {
+  const server = createServer((_req, res) => res.end("not-json"));
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+
+  const endpoint = `http://127.0.0.1:${server.address().port}`;
+  const session = await connect({ endpoint, timeoutMs: 2000 });
+  assert.equal(session.ok, false);
+  assert.match(session.error, /malformed initialize/i);
+});
+
+test("Learn MCP query timeout degrades to an empty result", async (t) => {
+  const server = createServer(async (req, res) => {
+    const body = JSON.parse(Buffer.concat(await Array.fromAsync(req)).toString("utf8"));
+    if (body.method === "initialize") {
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ jsonrpc: "2.0", id: body.id, result: { protocolVersion: "2025-06-18" } }));
+    }
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => {
+    server.closeAllConnections();
+    server.close();
+  });
+
+  const endpoint = `http://127.0.0.1:${server.address().port}`;
+  const session = await connect({ endpoint, timeoutMs: 40 });
+  assert.equal(session.ok, true);
+  assert.deepEqual(await searchDocs(session, "timeout fallback test"), []);
 });

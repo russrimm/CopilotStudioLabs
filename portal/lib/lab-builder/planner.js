@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getFeature, expandPrereqs, orderFeatures, getCoreFeatures } from "./catalog.js";
+import { getFeature, getFeatures, expandPrereqs, orderFeatures, getCoreFeatures } from "./catalog.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -40,6 +40,74 @@ const DEFAULT_PROFILE = {
 };
 
 export const DIFFICULTY_BY_LEVEL = { 100: "Beginner", 200: "Intermediate", 300: "Advanced" };
+const MAX_TEXT_LENGTHS = {
+  industry: 100,
+  title: 160,
+  agentName: 128,
+  audience: 300,
+};
+
+function optionalText(value, name) {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string") throw new Error(`${name} must be a string.`);
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  if (trimmed.length > MAX_TEXT_LENGTHS[name]) {
+    throw new Error(`${name} must be at most ${MAX_TEXT_LENGTHS[name]} characters.`);
+  }
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) {
+    throw new Error(`${name} must not contain control characters or newlines.`);
+  }
+  return trimmed;
+}
+
+function stringList(value, name, maxItems) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new Error(`${name} must be an array.`);
+  if (value.length > maxItems) throw new Error(`${name} may contain at most ${maxItems} items.`);
+  if (value.some((item) => typeof item !== "string" || !item.trim())) {
+    throw new Error(`${name} must contain only non-empty strings.`);
+  }
+  return [...new Set(value.map((item) => item.trim()))];
+}
+
+export function normalizeLabRequest(request = {}) {
+  if (!request || typeof request !== "object" || Array.isArray(request)) {
+    throw new Error("Lab request must be a JSON object.");
+  }
+
+  const features = stringList(request.features, "features", getFeatures().length);
+  if (!features.length) {
+    throw new Error("Select at least one Copilot Studio feature to build a lab.");
+  }
+  const unknownFeatures = features.filter((id) => !getFeature(id));
+  if (unknownFeatures.length) {
+    throw new Error(`Unknown feature id(s): ${unknownFeatures.join(", ")}.`);
+  }
+
+  let timeBudget;
+  if (request.timeBudget !== undefined && request.timeBudget !== null && request.timeBudget !== "") {
+    timeBudget = Number(request.timeBudget);
+    if (!Number.isInteger(timeBudget) || timeBudget < 30 || timeBudget > 1440) {
+      throw new Error("timeBudget must be a whole number from 30 to 1440 minutes.");
+    }
+  }
+
+  if (request.includeCore !== undefined && typeof request.includeCore !== "boolean") {
+    throw new Error("includeCore must be a boolean.");
+  }
+
+  return {
+    industry: optionalText(request.industry, "industry"),
+    roles: stringList(request.roles, "roles", getRoles().length),
+    features,
+    timeBudget,
+    title: optionalText(request.title, "title"),
+    agentName: optionalText(request.agentName, "agentName"),
+    audience: optionalText(request.audience, "audience"),
+    includeCore: request.includeCore,
+  };
+}
 
 export function slugify(value) {
   return String(value)
@@ -77,6 +145,7 @@ function formatDuration(minutes) {
  * @param {string} [request.audience]        override the audience line
  */
 export function planLab(request = {}) {
+  request = normalizeLabRequest(request);
   const warnings = [];
 
   const industries = getIndustries();
@@ -93,17 +162,11 @@ export function planLab(request = {}) {
     })
     .filter(Boolean);
 
-  const requested = (request.features || []).filter(Boolean);
-  if (!requested.length) {
-    throw new Error("Select at least one Copilot Studio feature to build a lab.");
-  }
+  const requested = request.features;
 
   const seedIds = request.includeCore === false
     ? requested
     : [...new Set([...getCoreFeatures().filter((f) => f.level === 100).map((f) => f.id), ...requested])];
-
-  const unknown = requested.filter((id) => !getFeature(id));
-  for (const id of unknown) warnings.push(`Unknown feature "${id}" — ignored.`);
 
   const expanded = expandPrereqs(seedIds);
   const addedPrereqs = expanded.filter((id) => !seedIds.includes(id));
@@ -136,6 +199,9 @@ export function planLab(request = {}) {
   const keptSet = new Set(kept);
   const finalIds = kept.filter((id) => (getFeature(id).prereqs || []).every((p) => !ordered.includes(p) || keptSet.has(p)));
   const finalDeferred = [...deferred, ...kept.filter((id) => !finalIds.includes(id))];
+  if (!finalIds.length) {
+    throw new Error("The time budget is too small for the selected modules. Increase it or include core modules.");
+  }
 
   if (finalDeferred.length) {
     warnings.push(
