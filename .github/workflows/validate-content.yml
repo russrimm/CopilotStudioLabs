@@ -3,7 +3,6 @@ name: Validate content and tooling
 on:
   pull_request:
   push:
-    branches: [main]
 
 permissions:
   contents: read
@@ -65,3 +64,7 @@ jobs:
         run: |
           npm ci
           npm test
+
+      - name: Validate external Microsoft Learn links
+        working-directory: tools/lab-accuracy
+        run: node check-accuracy.mjs --strict --no-mcp
