@@ -266,7 +266,7 @@ We're using **Vite** because it gives us a near-zero-config dev server with Type
 Open a terminal and run:
 
 ```bash
-npm create vite@latest copilot-studio-embed -- --template vanilla-ts
+npm create vite@9.1.1 copilot-studio-embed -- --template vanilla-ts
 cd copilot-studio-embed
 npm install
 ```
