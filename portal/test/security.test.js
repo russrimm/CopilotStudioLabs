@@ -19,7 +19,7 @@ import {
   isValidLabId,
   shouldSkipLabDirectory,
 } from "../lib/labs.js";
-import { sanitizeLabHtml } from "../lib/markdown.js";
+import { renderLabMarkdown, sanitizeLabHtml } from "../lib/markdown.js";
 import { assertDisplayName } from "../lib/powerplatform.js";
 import { validateLab } from "../lib/validator.js";
 
@@ -168,6 +168,17 @@ test("lab preview sanitization removes executable markup and unsafe URLs", () =>
   assert.match(html, /href="https:\/\/learn\.microsoft\.com\/"/);
   assert.match(html, /rel="noopener noreferrer"/);
   assert.match(html, /class="mermaid"/);
+});
+
+test("all server Markdown previews use the centralized sanitized renderer", () => {
+  const html = renderLabMarkdown(
+    '# Preview\n<script>alert(1)</script><a href="javascript:alert(2)">bad</a>',
+  );
+  const serverSource = readFileSync(new URL("../server.js", import.meta.url), "utf8");
+
+  assert.match(html, /<h1>Preview<\/h1>/);
+  assert.doesNotMatch(html, /<script|javascript:/i);
+  assert.doesNotMatch(serverSource, /marked\.parse/);
 });
 
 test("lab cards escape metadata and use listeners instead of inline handlers", () => {

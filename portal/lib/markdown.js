@@ -1,4 +1,5 @@
 import sanitizeHtml from "sanitize-html";
+import { marked } from "marked";
 
 const SAFE_STYLE_PROPERTIES = {
   "align-items": [/^(?:baseline|center|flex-(?:end|start)|stretch)$/],
@@ -51,4 +52,8 @@ export function sanitizeLabHtml(html) {
       },
     },
   });
+}
+
+export function renderLabMarkdown(markdown, transformHtml = (html) => html) {
+  return sanitizeLabHtml(transformHtml(marked.parse(String(markdown ?? ""))));
 }

@@ -26,7 +26,7 @@ import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/
 import { getFeaturesByCategory, getFeatures, validateCatalog } from "./lib/lab-builder/catalog.js";
 import { planLab } from "./lib/lab-builder/planner.js";
 import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
-import { sanitizeLabHtml } from "./lib/markdown.js";
+import { renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
 /* ── Mermaid extension for marked ───────────────────────────────────────────
@@ -549,7 +549,7 @@ app.get("/api/lab-builder/generated/:labId", (req, res) => {
     const markdown = readFileSync(indexPath, "utf-8");
     const manifestPath = join(labDir, "manifest.json");
     const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf-8")) : null;
-    res.json({ labId, markdown, html: marked.parse(markdown), manifest });
+    res.json({ labId, markdown, html: renderLabMarkdown(markdown), manifest });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -593,8 +593,10 @@ app.get("/api/labs/:id", (req, res) => {
   if (!content) return res.status(404).json({ error: "Lab not found" });
   const branding = loadBranding();
   const brandedMarkdown = prependBrandingBanner(content, branding);
-  const rewrittenHtml = rewriteLabHtmlAssetUrls(marked.parse(brandedMarkdown), req.params.id);
-  const html = sanitizeLabHtml(rewrittenHtml);
+  const html = renderLabMarkdown(
+    brandedMarkdown,
+    (renderedHtml) => rewriteLabHtmlAssetUrls(renderedHtml, req.params.id),
+  );
   res.json({ id: req.params.id, html, markdown: brandedMarkdown });
 });
 
