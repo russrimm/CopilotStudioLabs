@@ -32,7 +32,9 @@ jobs:
           python-version: "3.13"
 
       - name: Validate lab structure and links
-        run: python validate_labs.py
+        run: |
+          python -m unittest scripts/test_validate_labs.py
+          python validate_labs.py
 
       - name: Validate template setup
         run: node setup.js --dry-run

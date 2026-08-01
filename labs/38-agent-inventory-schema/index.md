@@ -16,6 +16,8 @@
 
 As agent portfolios grow, teams need a consistent way to answer basic governance questions quickly. In this lab, you will build an **agent inventory schema** that captures ownership, purpose, integrations, release state, and operational risk.
 
+> **Facilitated workshop:** This lab is a governance design exercise, not a deployable template. A facilitator should provide the chosen Dataverse table or SharePoint list and guide participants to adapt the field definitions, approval states, and ownership model to their organization's policies.
+
 ## Learning Objectives
 
 1. Define a minimum viable inventory schema for agents.

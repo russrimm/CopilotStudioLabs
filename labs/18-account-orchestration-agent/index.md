@@ -90,6 +90,7 @@ By the end of this lab you will:
 - [Generative Orchestration FAQ](https://learn.microsoft.com/en-us/microsoft-copilot-studio/faqs-generative-orchestration)
 - [Configure generative actions](https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-generative-actions)
 - [Multi-Agent in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-add-other-agents)
+- [Create a skill for an agent (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-create)
 - [Enhanced Task Completion sample (Order Management / Warehouse MCP)](https://microsoft.github.io/enhanced-task-completion/)
 
 ---
@@ -98,11 +99,13 @@ By the end of this lab you will:
 
 - Access to **Microsoft Copilot Studio**
 - A Power Platform environment where you can edit Dataverse table views and toggle environment settings (**System Administrator** or **System Customizer**)
-- Sample data loaded into the Dataverse **Account** and **Contact** tables (the `(sample)` records used throughout Use Cases #1 and #2)
-- The pre-loaded **Account Data Lookup Agent** available in your environment (Use Case #1 verifies and publishes it — this becomes your *Contoso Customer Account Lookup Agent*)
+- Sample data installed in the Dataverse **Account** and **Contact** tables by an instructor or administrator (the `(sample)` records used throughout Use Cases #1 and #2)
+- The instructor-provisioned **Account Data Lookup Agent** available in your environment (Use Case #1 verifies and publishes it — this becomes your *Contoso Customer Account Lookup Agent*)
 - For **Use Cases #3 and #4** only: an environment where **new-type agents** (the New Orchestrator), **Dataverse Intelligence (Work IQ)**, and **Dataverse MCP servers** can be used
 
-> 💡 The `(sample)` Account and Contact records ship with Dataverse and are reused here so the lab works in any tenant. Treat them as stand-ins for Contoso commercial customer accounts (large industrial gas customers, transmission partners, energy infrastructure counterparties, etc.) as you walk through the scenarios.
+> 💡 Sample records aren't guaranteed to be present in every environment. Before the lab, an administrator should verify or install them by following [Add or remove sample data](https://learn.microsoft.com/en-us/power-platform/admin/add-remove-sample-data). Treat the records as stand-ins for Contoso commercial customer accounts as you walk through the scenarios.
+>
+> ⚠️ **Preview and tenant dependency (verified July 31, 2026):** The new agent experience and Skills used in Use Cases #3 and #4 remain preview experiences, and connected-agent availability varies by agent type and tenant. Confirm that the required experiences are enabled before delivering the lab. See [Classic vs. new agent experience](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/classic-vs-new), [Create a skill for an agent (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-create), and [Add other agents overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-add-other-agents).
 
 ---
 
