@@ -11,7 +11,7 @@ import { readFileSync } from "node:fs";
 import { PassThrough } from "node:stream";
 
 import { escapeHtml } from "../lib/branding.js";
-import { buildApprovalNotificationHtml } from "../lib/approvals.js";
+import { buildApprovalNotificationHtml, toPublicApprovalRequest } from "../lib/approvals.js";
 import { exportLabs } from "../lib/exporter.js";
 import {
   getLabContent,
@@ -118,6 +118,27 @@ test("approval email HTML escapes stored request fields", () => {
   assert.match(html, /&lt;b&gt;test&lt;\/b&gt;/);
   assert.match(html, /A &amp; B/);
   assert.match(html, /id-&quot;quoted&quot;/);
+});
+
+test("approval API records omit callback capabilities and internal workflow data", () => {
+  const publicRequest = toPublicApprovalRequest({
+    id: "request-1",
+    displayName: "Contoso Sandbox",
+    status: "pending",
+    requestedAt: "2026-08-02T00:00:00.000Z",
+    callbackToken: "secret-capability-token",
+    portalUrl: "https://portal.example.com",
+    workflowEvents: [{ type: "submitted", message: "internal detail" }],
+    securityGroupId: "internal-object-id",
+  });
+
+  assert.deepEqual(publicRequest, {
+    id: "request-1",
+    displayName: "Contoso Sandbox",
+    status: "pending",
+    requestedAt: "2026-08-02T00:00:00.000Z",
+  });
+  assert.doesNotMatch(JSON.stringify(publicRequest), /secret-capability-token|internal detail/);
 });
 
 test("lab export rejects traversal before opening an archive", () => {
