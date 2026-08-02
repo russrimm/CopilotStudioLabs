@@ -71,6 +71,7 @@ import {
   rejectRequest,
   saveApprovalConfig,
   submitRequest,
+  toPublicApprovalRequest,
 } from "./lib/approvals.js";
 import { getCurrentUser, clearTokens } from "./lib/auth.js";
 import { requireAuth, authConfigSummary } from "./lib/require-auth.js";
@@ -1228,7 +1229,7 @@ app.post("/api/pp/approval-requests", async (req, res) => {
 
     res.json({
       success: true,
-      request: requestRecord,
+      request: toPublicApprovalRequest(requestRecord),
       environment: requestRecord.environment || null,
     });
   } catch (err) {
@@ -1242,7 +1243,7 @@ app.post("/api/pp/approval-requests", async (req, res) => {
 app.get("/api/pp/approval-requests", (req, res) => {
   try {
     const requests = listRequests({ status: req.query.status });
-    res.json({ requests });
+    res.json({ requests: requests.map(toPublicApprovalRequest) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1253,7 +1254,7 @@ app.get("/api/pp/approval-requests/:id", (req, res) => {
   try {
     const requestRecord = getRequest(req.params.id);
     if (!requestRecord) return res.status(404).json({ error: "Approval request not found" });
-    res.json({ request: requestRecord });
+    res.json({ request: toPublicApprovalRequest(requestRecord) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1268,7 +1269,11 @@ app.post("/api/pp/approval-requests/:id/approve", async (req, res) => {
       user?.username || req.body?.decidedBy || "portal-approver",
       req.body?.reason || "",
     );
-    res.json({ success: true, request: requestRecord, environment: requestRecord.environment || null });
+    res.json({
+      success: true,
+      request: toPublicApprovalRequest(requestRecord),
+      environment: requestRecord.environment || null,
+    });
   } catch (err) {
     const pending = getPendingDeviceCode();
     if (pending) return res.status(401).json({ authRequired: true, deviceCode: pending });
@@ -1286,7 +1291,7 @@ app.post("/api/pp/approval-requests/:id/reject", async (req, res) => {
       user?.username || req.body?.decidedBy || "portal-approver",
       req.body?.reason || "",
     );
-    res.json({ success: true, request: requestRecord });
+    res.json({ success: true, request: toPublicApprovalRequest(requestRecord) });
   } catch (err) {
     const status = err.message.includes("not found") ? 404 : err.message.includes("Only pending") ? 409 : 500;
     res.status(status).json({ error: err.message });

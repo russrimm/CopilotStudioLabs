@@ -256,6 +256,34 @@ export function getRequest(requestId) {
   return loadRequestsInternal().find((request) => request.id === requestId) || null;
 }
 
+export function toPublicApprovalRequest(request) {
+  if (!request) return null;
+  const publicFields = [
+    "id",
+    "requestedBy",
+    "requestedByName",
+    "displayName",
+    "environmentType",
+    "location",
+    "language",
+    "currency",
+    "status",
+    "requestedAt",
+    "decidedAt",
+    "decidedBy",
+    "reason",
+    "environmentId",
+    "approvalMethod",
+    "provisionedAt",
+    "failedAt",
+  ];
+  return Object.fromEntries(
+    publicFields
+      .filter((field) => request[field] !== undefined)
+      .map((field) => [field, request[field]]),
+  );
+}
+
 export async function sendTeamsNotification(webhookUrl, message) {
   if (!webhookUrl) return null;
   return postJson(webhookUrl, message);

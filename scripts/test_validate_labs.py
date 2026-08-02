@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from validate_labs import (
+    check_authoring_markers,
     check_markdown_accessibility,
     check_markdown_links,
     duration_minutes,
@@ -86,6 +87,25 @@ class MarkdownLinkValidationTests(unittest.TestCase):
                 encoding="utf-8",
             )
             self.assertEqual(check_markdown_accessibility([clean], root), [])
+
+    def test_unfinished_authoring_markers_are_reported_with_line_numbers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "lab.md"
+            source.write_text(
+                "# Lab\n\n"
+                "TODO: replace this draft instruction.\n\n"
+                "`TODO` is allowed in inline code.\n\n"
+                "```text\nFIXME is allowed in a code sample.\n```\n",
+                encoding="utf-8",
+            )
+
+            findings = check_authoring_markers([source], root)
+
+            self.assertEqual(len(findings), 1)
+            self.assertEqual(findings[0][1], 3)
+            self.assertEqual(findings[0][2], "TODO")
+            self.assertIn("replace the marker", findings[0][3])
 
 
 if __name__ == "__main__":
