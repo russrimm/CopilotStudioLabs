@@ -75,10 +75,20 @@ def discover_labs():
     return found
 
 
-def check_sections(file_path):
+def read_markdown(file_path, cache=None):
+    """Read Markdown once when a caller supplies a per-run cache."""
+    path = Path(file_path)
+    if cache is not None and path in cache:
+        return cache[path]
+    content = path.read_text(encoding="utf-8", errors="ignore")
+    if cache is not None:
+        cache[path] = content
+    return content
+
+
+def check_sections(file_path, cache=None):
     """Return the list of missing section keys for a lab index.md."""
-    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-        content = f.read()
+    content = read_markdown(file_path, cache)
     return [key for key, rx in SECTION_CHECKS.items() if not rx.search(content)]
 
 
@@ -138,14 +148,14 @@ def markdown_targets(markdown):
             yield without_fences.count("\n", 0, match.start()) + 1, target
 
 
-def check_markdown_links(files=None, root=REPO_ROOT):
+def check_markdown_links(files=None, root=REPO_ROOT, cache=None):
     """Return broken local Markdown file, asset, and anchor references."""
     findings = []
     files = files or tracked_markdown_files(root)
     anchor_cache = {}
 
     for source in files:
-        markdown = source.read_text(encoding="utf-8", errors="ignore")
+        markdown = read_markdown(source, cache)
         for line, raw_target in markdown_targets(markdown):
             target = raw_target.strip()
             if target.lower() in {"url", "link", "path"}:
@@ -181,7 +191,7 @@ def check_markdown_links(files=None, root=REPO_ROOT):
             if fragment and destination.is_file() and destination.suffix.lower() in {".md", ".markdown"}:
                 anchors = anchor_cache.get(destination)
                 if anchors is None:
-                    anchors = github_anchors(destination.read_text(encoding="utf-8", errors="ignore"))
+                    anchors = github_anchors(read_markdown(destination, cache))
                     anchor_cache[destination] = anchors
                 if fragment.lower() not in anchors:
                     findings.append((source, line, target, f'anchor "#{fragment}" does not exist'))
@@ -189,7 +199,7 @@ def check_markdown_links(files=None, root=REPO_ROOT):
     return findings
 
 
-def check_markdown_accessibility(files=None, root=REPO_ROOT):
+def check_markdown_accessibility(files=None, root=REPO_ROOT, cache=None):
     """Return structural accessibility findings for rendered lab Markdown."""
     findings = []
     files = files or [
@@ -214,7 +224,7 @@ def check_markdown_accessibility(files=None, root=REPO_ROOT):
     }
 
     for source in files:
-        lines = source.read_text(encoding="utf-8", errors="ignore").splitlines()
+        lines = read_markdown(source, cache).splitlines()
         previous_heading = 0
         in_fence = False
         visible_lines = []
@@ -324,7 +334,7 @@ def duration_minutes(value):
     return total or None
 
 
-def check_readme_catalog(root=REPO_ROOT):
+def check_readme_catalog(root=REPO_ROOT, cache=None):
     """Check that the README table covers every lab once with matching duration."""
     issues = []
     readme_path = root / README
@@ -332,7 +342,7 @@ def check_readme_catalog(root=REPO_ROOT):
         return ["README.md not found"]
 
     table_targets = []
-    for line_number, line in enumerate(readme_path.read_text(encoding="utf-8").splitlines(), 1):
+    for line_number, line in enumerate(read_markdown(readme_path, cache).splitlines(), 1):
         if not re.match(r"^\|\s*\d+\s*\|", line):
             continue
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
@@ -350,7 +360,7 @@ def check_readme_catalog(root=REPO_ROOT):
             continue
         metadata = re.search(
             r"\*\*TIME\*\*\s*\|\s*([^|]+)",
-            lab_path.read_text(encoding="utf-8", errors="ignore"),
+            read_markdown(lab_path, cache),
             re.IGNORECASE,
         )
         readme_minutes = duration_minutes(cells[5])
@@ -367,8 +377,13 @@ def check_readme_catalog(root=REPO_ROOT):
         issues.append(f"README catalog is missing {target}")
     for target in sorted(represented - expected):
         issues.append(f"README catalog references unexpected lab {target}")
-    duplicates = sorted({target for target in table_targets if table_targets.count(target) > 1})
-    for target in duplicates:
+    seen = set()
+    duplicates = set()
+    for target in table_targets:
+        if target in seen:
+            duplicates.add(target)
+        seen.add(target)
+    for target in sorted(duplicates):
         issues.append(f"README catalog lists {target} more than once")
     return issues
 
@@ -390,6 +405,8 @@ def main():
 
     print("=== Lab Structure Validation ===\n")
 
+    markdown_cache = {}
+    markdown_files = tracked_markdown_files()
     failed_labs = 0
     print("Per-lab section checks:")
     for folder in folders:
@@ -398,7 +415,7 @@ def main():
             print(f"  FAIL  {folder} — index.md missing")
             failed_labs += 1
             continue
-        missing = check_sections(index_path)
+        missing = check_sections(index_path, markdown_cache)
         if missing:
             print(f"  FAIL  {folder} — missing: {', '.join(missing)}")
             failed_labs += 1
@@ -406,15 +423,22 @@ def main():
             print(f"  PASS  {folder}")
 
     print("\nRepository Markdown link integrity:")
-    broken = check_markdown_links()
+    broken = check_markdown_links(markdown_files, cache=markdown_cache)
     if broken:
         for source, line, target, reason in broken:
             print(f"  FAIL  {source.relative_to(REPO_ROOT)}:{line}: {target} — {reason}")
     else:
-        print(f"  PASS  all local links and anchors resolve in {len(tracked_markdown_files())} tracked Markdown files")
+        print(f"  PASS  all local links and anchors resolve in {len(markdown_files)} tracked Markdown files")
 
     print("\nRendered lab content accessibility:")
-    accessibility_issues = check_markdown_accessibility()
+    lab_markdown_files = [
+        path
+        for path in markdown_files
+        if path.relative_to(REPO_ROOT).parts[0].lower() == LABS_DIR
+    ]
+    accessibility_issues = check_markdown_accessibility(
+        lab_markdown_files, cache=markdown_cache
+    )
     if accessibility_issues:
         for source, line, reason in accessibility_issues:
             print(f"  FAIL  {source.relative_to(REPO_ROOT)}:{line}: {reason}")
@@ -422,7 +446,7 @@ def main():
         print("  PASS  headings, image alternatives, tables, and link text are structurally accessible")
 
     print("\nREADME catalog consistency:")
-    catalog_issues = check_readme_catalog()
+    catalog_issues = check_readme_catalog(cache=markdown_cache)
     if catalog_issues:
         for issue in catalog_issues:
             print(f"  FAIL  {issue}")
