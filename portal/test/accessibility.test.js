@@ -44,6 +44,17 @@ test("tabs and tab panels reference each other", () => {
   }
 });
 
+test("keyboard users can skip navigation and see focus", () => {
+  assert.match(html, /<a\b[^>]*class=["']skip-link["'][^>]*href=["']#portal-main["']/i);
+  assert.match(html, /<main\b[^>]*id=["']portal-main["'][^>]*tabindex=["']-1["']/i);
+  assert.match(html, /:focus-visible\s*\{/);
+});
+
+test("small screens keep portal tabs reachable", () => {
+  assert.match(html, /@media \(max-width: 900px\)[\s\S]*?\.tabs\s*\{[\s\S]*?overflow-x:\s*auto/);
+  assert.match(html, /@media \(max-width: 560px\)/);
+});
+
 test("initialization defers hidden-tab API requests", () => {
   const initBody = appSource.match(
     /document\.addEventListener\("DOMContentLoaded", \(\) => \{(?<body>[\s\S]*?)\n\}\);/,

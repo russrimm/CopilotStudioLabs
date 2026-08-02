@@ -51,11 +51,34 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      body { animation: none; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+      }
     }
 
     /* ── Layout ─────────────────────────── */
     .app { display: flex; flex-direction: column; min-height: 100vh; }
+    .skip-link {
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      z-index: 2000;
+      padding: 10px 14px;
+      border-radius: 6px;
+      background: var(--accent);
+      color: var(--accent-contrast);
+      font-weight: 700;
+      transform: translateY(-150%);
+    }
+    .skip-link:focus { transform: translateY(0); }
+
+    :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+      outline: 3px solid var(--accent-hover);
+      outline-offset: 3px;
+    }
 
     header {
       background: var(--surface);
@@ -110,6 +133,11 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
     }
 
     .main-content {
@@ -1308,10 +1336,33 @@
 
     /* ── Responsive ─────────────────────── */
     @media (max-width: 900px) {
+      header {
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px 16px;
+      }
+      header::after { left: 16px; right: 16px; }
+      .header-actions { flex-wrap: wrap; justify-content: flex-end; }
       .main-content { flex-direction: column; }
-      .sidebar { width: 100%; min-width: 100%; max-height: 40vh; }
+      .sidebar { width: 100%; min-width: 100%; max-height: 35vh; }
+      .tabs {
+        overflow-x: auto;
+        padding: 0 8px;
+        scrollbar-width: thin;
+      }
+      .tab { flex: 0 0 auto; padding: 12px 14px; }
+      .tab-content { padding: 20px 16px; }
       .form-grid { grid-template-columns: 1fr; }
       .provision-status-header, .provision-summary-row { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (max-width: 560px) {
+      .portal-branding-tagline, #lab-count { display: none; }
+      .header-actions { gap: 6px; }
+      .header-actions .btn { padding: 7px 9px; }
+      .sidebar { max-height: 30vh; }
+      .sidebar-header { padding: 12px; }
+      .panel { padding: 18px 16px; }
     }
 
     @media print {
@@ -1404,6 +1455,7 @@
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#portal-main">Skip to portal content</a>
   <div class="app">
     <!-- Header -->
     <header>
@@ -1414,7 +1466,7 @@
           <div id="portal-tagline" class="portal-branding-tagline">Provisioning Portal</div>
         </div>
       </div>
-      <div style="display: flex; align-items: center; gap: 12px;">
+      <div class="header-actions">
         <span id="lab-count" class="tag tag-success">0 labs</span>
         <button class="btn btn-sm" onclick="reportIssue()" title="Report an issue with the labs">🐛 Report Issue</button>
         <button class="btn btn-sm" onclick="refreshLabs()">↻ Refresh</button>
@@ -1440,7 +1492,7 @@
       </div>
 
       <!-- Content area -->
-      <div class="content">
+      <main class="content" id="portal-main" tabindex="-1">
         <div class="tabs" role="tablist" aria-label="Portal sections">
           <button class="tab active" id="tab-provision" role="tab" aria-selected="true" aria-controls="panel-provision" data-tab="provision">🚀 Provision</button>
           <button class="tab" id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1" data-tab="scenarios">🏢 Industry Scenarios</button>
@@ -2397,7 +2449,7 @@
             </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
 
     <!-- Status bar -->
