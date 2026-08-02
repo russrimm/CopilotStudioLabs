@@ -220,12 +220,25 @@ This repository is designed as a **GitHub Template** — you can create your own
 
 > **`industryPreset`** is the easiest way to re-theme every lab. Pick one of `energy`, `manufacturing`, `healthcare`, `financial`, `government`, `retail`, `logistics`, `legal`, `education`, `realestate`, `travel`, `automotive`, `media`, `agriculture`, `publicsafety`, `sports`, `research`, or `insurance` and `setup.js` rewrites energy-specific scenario language (e.g. "Energy Operations", "grid operations", "outage management", "field technicians", "NERC CIP") to the chosen industry's equivalents across **all** labs. Anything you set explicitly under `organization`/`scenario`/`knowledgeSources` overrides the preset. The presets live in [`industry-presets.json`](./industry-presets.json) — add or tune term mappings there.
 
-3. Run the setup script:
+3. Preview the exact lab set and confirm the repository is healthy:
 
 ```bash
-npm run setup             # interactive — confirms before writing
 npm run setup -- --dry-run  # preview changes without modifying files
+python validate_labs.py      # verify lab structure, links, and authoring quality
 ```
+
+Review the dry-run's excluded-lab list before continuing. The real setup
+intentionally deletes every lab folder that is not listed in `labs.include`.
+
+4. Run the setup on a clean branch, then review the diff:
+
+```bash
+npm run setup
+git diff --stat
+```
+
+Commit or stash unrelated work first. Re-running setup is safe for text
+replacement, but deleted labs can only be restored from source control.
 
 ### What gets customized
 
