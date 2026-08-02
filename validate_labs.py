@@ -324,6 +324,39 @@ def check_markdown_accessibility(files=None, root=REPO_ROOT, cache=None):
     return findings
 
 
+def check_authoring_markers(files=None, root=REPO_ROOT, cache=None):
+    """Return unfinished authoring markers that escaped into rendered lab content."""
+    findings = []
+    files = files or [
+        path
+        for path in tracked_markdown_files(root)
+        if path.relative_to(root).parts[0].lower() == LABS_DIR
+    ]
+    marker_pattern = re.compile(r"\b(?:FIXME|TBD|TODO|XXX)\b", re.IGNORECASE)
+
+    for source in files:
+        markdown = read_markdown(source, cache)
+        visible = re.sub(
+            r"^(```|~~~).*?^\1\s*$",
+            lambda match: "\n" * match.group(0).count("\n"),
+            markdown,
+            flags=re.MULTILINE | re.DOTALL,
+        )
+        visible = re.sub(r"`[^`\n]*`", "", visible)
+        for line_number, line in enumerate(visible.splitlines(), 1):
+            for match in marker_pattern.finditer(line):
+                findings.append(
+                    (
+                        source,
+                        line_number,
+                        match.group(0),
+                        "replace the marker with final learner-facing guidance or remove it",
+                    )
+                )
+
+    return findings
+
+
 def duration_minutes(value):
     """Normalize the primary duration in strings such as '1 hour 30 minutes'."""
     text = re.sub(r"[*_`]", "", str(value)).split("(", 1)[0].split("+", 1)[0].lower()
@@ -445,6 +478,19 @@ def main():
     else:
         print("  PASS  headings, image alternatives, tables, and link text are structurally accessible")
 
+    print("\nUnfinished authoring markers:")
+    authoring_issues = check_authoring_markers(
+        lab_markdown_files, cache=markdown_cache
+    )
+    if authoring_issues:
+        for source, line, marker, fix in authoring_issues:
+            print(
+                f"  FAIL  {source.relative_to(REPO_ROOT)}:{line}: "
+                f"{marker!r} is unfinished authoring text; {fix}"
+            )
+    else:
+        print("  PASS  no TODO, FIXME, TBD, or XXX markers appear in rendered lab content")
+
     print("\nREADME catalog consistency:")
     catalog_issues = check_readme_catalog(cache=markdown_cache)
     if catalog_issues:
@@ -468,6 +514,7 @@ def main():
     print(f"  Labs failing:        {failed_labs}")
     print(f"  Broken internal links: {len(broken)}")
     print(f"  Accessibility issues: {len(accessibility_issues)}")
+    print(f"  Authoring markers:    {len(authoring_issues)}")
     print(f"  Catalog inconsistencies: {len(catalog_issues)}")
     print(f"  Unexpected collisions: {len(unexpected)}")
 
@@ -475,6 +522,7 @@ def main():
         failed_labs == 0
         and not broken
         and not accessibility_issues
+        and not authoring_issues
         and not catalog_issues
         and not unexpected
     )
