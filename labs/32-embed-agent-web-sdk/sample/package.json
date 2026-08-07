@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^3.20.0",
-    "@microsoft/agents-copilotstudio-client": "^1.7.1"
+    "@microsoft/agents-copilotstudio-client": "^1.7.2"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
