@@ -12,6 +12,6 @@
     "report": "node build-issue.mjs"
   },
   "dependencies": {
-    "playwright": "^1.49.0"
+    "playwright": "^1.62.1"
   }
 }
