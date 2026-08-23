@@ -19,6 +19,7 @@ import { getCatalog } from "./catalog.js";
 export const BLOCKER_CODES = Object.freeze({
   LEARN_MCP_UNAVAILABLE: "learn-mcp-unavailable",
   MODULES_UNGROUNDED: "modules-ungrounded",
+  SOURCES_DEAD: "sources-dead",
   STEPS_FETCH_FAILED: "steps-fetch-failed",
   STEPS_NOT_DERIVED: "steps-not-derived",
   LLM_PARTIAL_FAILURE: "llm-partial-failure",
@@ -75,6 +76,37 @@ const OPTIONS = Object.freeze({
       label: "Build those modules with whatever the catalog has",
       tradeoff:
         "Those chapters ship with no Microsoft Learn reference of their own, so a learner who gets stuck in one has nothing authoritative to check. Every other chapter is still grounded on Microsoft Learn.",
+      recommended: true,
+    },
+    {
+      id: "drop-modules",
+      label: "Remove those modules from the lab",
+      tradeoff:
+        "The lab gets shorter. Any module that depends on a removed one is removed too, and all of them move to Where to Go Next.",
+    },
+    CANCEL_OPTION,
+  ],
+
+  // Fires only when link checking left a module with *no* citation at all —
+  // every URL it had returned 4xx/5xx. A single dead link among several is not
+  // here on purpose: dropping it and keeping the rest is the obviously correct
+  // action, and prompting for it would fire on most builds, which is the
+  // click-through habit this file was created to avoid.
+  //
+  // Deliberately no retry, for the reason `modules-ungrounded` has none: the
+  // search that produced these URLs is cached for 15 minutes, so re-searching
+  // returns the same list, and re-requesting a URL the origin just called gone
+  // returns the same 404. An option that cannot change the outcome wastes the
+  // human's time and misrepresents the failure as transient.
+  //
+  // A citation we merely could not *reach* never arrives here at all — it keeps
+  // its place in the lab and is reported as a warning instead.
+  [BLOCKER_CODES.SOURCES_DEAD]: [
+    {
+      id: "proceed-flagged",
+      label: "Build those modules without a reference",
+      tradeoff:
+        "Those chapters ship with no Microsoft Learn link, and the lab says so per module, so a learner who gets stuck in one has nothing authoritative to check. Every other chapter keeps citations that were confirmed to resolve during this build.",
       recommended: true,
     },
     {
@@ -159,6 +191,7 @@ const OPTIONS = Object.freeze({
 const TITLES = Object.freeze({
   [BLOCKER_CODES.LEARN_MCP_UNAVAILABLE]: "Microsoft Learn is unreachable",
   [BLOCKER_CODES.MODULES_UNGROUNDED]: "Some modules have no documentation to cite",
+  [BLOCKER_CODES.SOURCES_DEAD]: "Some modules' documentation links no longer resolve",
   [BLOCKER_CODES.STEPS_FETCH_FAILED]: "Some documentation pages could not be read",
   [BLOCKER_CODES.STEPS_NOT_DERIVED]: "Some modules' steps could not be read from the documentation",
   [BLOCKER_CODES.LLM_PARTIAL_FAILURE]: "Some model-written passages failed",

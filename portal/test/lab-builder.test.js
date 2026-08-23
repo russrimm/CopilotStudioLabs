@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, rmSync, existsSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { once } from "node:events";
 import { tmpdir } from "node:os";
@@ -23,6 +23,14 @@ import { curatedDocsAge, normalizeDecisions } from "../lib/lab-builder/blockers.
 import { scrubForbidden } from "../lib/lab-builder/composer.js";
 import { docPathPrefixes, pathAffinity } from "../lib/lab-builder/relevance.js";
 import { deriveSteps, diffSteps, extractProcedures } from "../lib/lab-builder/steps.js";
+import { classify, createLinkChecker, partitionSources, verifyUrls } from "../lib/lab-builder/linkcheck.js";
+import { validateLabDir, validateAllLabs } from "../lib/validator.js";
+
+// Link checking is on by default in a real build — that is the point of issue
+// #41. It is switched off for the suite as a whole so these tests stay hermetic
+// and never put a request to learn.microsoft.com; the tests that exercise the
+// checker turn it back on explicitly and inject a fake `checkLink`.
+process.env.LAB_BUILDER_LINK_CHECK = "off";
 
 // ── Catalog ─────────────────────────────────────────────────────────────────
 
@@ -1349,4 +1357,304 @@ test("a written lab with derived steps still passes every structural check", asy
 
   const manifest = JSON.parse(readFileSync(join(result.outputDir, "manifest.json"), "utf8"));
   assert.equal(manifest.modules[0].steps.source, "doc-derived");
+});
+
+// ── Link checking: never embed a URL nobody asked for a response from ───────
+// Issue #41. These tests re-enable the checker that the top of this file
+// switches off, and inject `checkLink` so no request leaves the machine.
+
+/** A checker that answers from a map of url -> status, defaulting to 200. */
+function fakeChecker(statuses = {}, fallback = 200) {
+  const calls = [];
+  const check = async (url) => {
+    calls.push(url);
+    const status = statuses[url] ?? fallback;
+    return status === 0
+      ? { url, status: 0, ok: false, error: "timeout", checkedAt: new Date().toISOString() }
+      : { url, status, ok: status < 400, finalUrl: url, checkedAt: new Date().toISOString() };
+  };
+  check.calls = calls;
+  return check;
+}
+
+/** Run a real generation with link checking on and the network stubbed out. */
+async function buildWithChecker(t, checkLink, request = TOPICS_ONLY, extra = {}) {
+  process.env.LAB_BUILDER_LINK_CHECK = "on";
+  // Restored to the suite default rather than to whatever was captured on the
+  // way in: a test may call this helper more than once, and nested restores
+  // would run in registration order and leave checking switched on for the
+  // tests that follow — which would then quietly make real network calls.
+  t.after(() => {
+    process.env.LAB_BUILDER_LINK_CHECK = "off";
+  });
+
+  return generateLab(request, {
+    useLearnMcp: true,
+    useLlm: false,
+    connect: async () => groundedSession(),
+    checkLink,
+    ...extra,
+  });
+}
+
+test("classify separates a page that is gone from a network that failed", () => {
+  assert.equal(classify({ status: 200, ok: true }), "ok");
+  assert.equal(classify({ status: 301, ok: true }), "ok");
+  assert.equal(classify({ status: 404, ok: false }), "broken");
+  assert.equal(classify({ status: 500, ok: false }), "broken");
+  // A timeout is evidence about this machine, not about the page.
+  assert.equal(classify({ status: 0, ok: false, error: "timeout" }), "unreachable");
+});
+
+test("a citation is dropped only when the origin says it is gone", () => {
+  const records = new Map([
+    ["https://learn.microsoft.com/live", { url: "https://learn.microsoft.com/live", status: 200, ok: true }],
+    ["https://learn.microsoft.com/gone", { url: "https://learn.microsoft.com/gone", status: 404, ok: false }],
+    ["https://learn.microsoft.com/slow", { url: "https://learn.microsoft.com/slow", status: 0, ok: false, error: "timeout" }],
+  ]);
+
+  const { kept, dropped, unreachable } = partitionSources(
+    [
+      { title: "Live", url: "https://learn.microsoft.com/live" },
+      { title: "Gone", url: "https://learn.microsoft.com/gone" },
+      { title: "Slow", url: "https://learn.microsoft.com/slow" },
+    ],
+    records,
+  );
+
+  assert.deepEqual(dropped.map((s) => s.url), ["https://learn.microsoft.com/gone"]);
+  assert.deepEqual(unreachable.map((s) => s.url), ["https://learn.microsoft.com/slow"]);
+  // The unreachable one keeps its place in the lab.
+  assert.deepEqual(kept.map((s) => s.url), [
+    "https://learn.microsoft.com/live",
+    "https://learn.microsoft.com/slow",
+  ]);
+  assert.equal(kept[0].linkStatus, 200);
+});
+
+test("each URL is requested once however many modules cite it", async () => {
+  const check = fakeChecker();
+  const urls = ["https://learn.microsoft.com/a", "https://learn.microsoft.com/a", "https://learn.microsoft.com/b"];
+  const records = await verifyUrls(urls, { checkLink: check });
+
+  assert.equal(check.calls.length, 2);
+  assert.equal(records.size, 2);
+});
+
+test("a URL that is not http(s) is never requested", async () => {
+  let requested = 0;
+  const checker = createLinkChecker({
+    fetchImpl: async () => {
+      requested += 1;
+      return { status: 200, ok: true, url: "" };
+    },
+  });
+
+  const record = await checker("javascript:alert(1)");
+  assert.equal(requested, 0, "a non-http scheme must never reach fetch");
+  assert.equal(classify(record), "unreachable");
+  assert.match(record.error, /unsupported URL scheme/);
+});
+
+test("one dead citation among several is dropped without stopping the build", async (t) => {
+  // Which URLs a module cites depends on the catalog and on #47's relevance
+  // filter, so the target is discovered rather than hardcoded: build once to
+  // see the real citations, then kill exactly one of a module that has spares.
+  const probe = await buildWithChecker(t, fakeChecker(), TOPICS_ONLY, { write: false });
+  const spare = probe.manifest.modules.find((m) => m.sources.length > 1);
+  assert.ok(spare, "fixture must produce a module with more than one citation");
+  const victim = spare.sources[1].url;
+
+  const result = await buildWithChecker(t, fakeChecker({ [victim]: 404 }), TOPICS_ONLY, { write: false });
+
+  assert.equal(result.status, "complete", "losing one of several citations needs no human");
+  const module = result.manifest.modules.find((m) => m.id === spare.id);
+  assert.ok(module.sources.length > 0, "the module keeps the citations that resolved");
+  assert.ok(!module.sources.some((s) => s.url === victim), "the dead citation is gone");
+  assert.deepEqual(module.links.dead, [{ url: victim, status: 404 }]);
+  assert.ok(result.warnings.some((w) => /returned an error when checked/i.test(w)));
+});
+
+test("a module left with no citation at all stops and asks a human", async (t) => {
+  const result = await buildWithChecker(t, fakeChecker({}, 404), TOPICS_ONLY, { write: false });
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.blockers[0].code, "sources-dead");
+  assert.equal(result.blockers[0].options.filter((o) => o.recommended).length, 1);
+  // No no-op retry: re-requesting a URL the origin just called gone is not a
+  // decision, and #44's vocabulary refuses options that cannot change anything.
+  assert.ok(!result.blockers[0].options.some((o) => o.id === "retry"));
+  assert.equal(result.outputDir, null);
+});
+
+test("deciding the dead-source blocker resumes the build and the lab still validates", async (t) => {
+  const outputRoot = mkdtempSync(join(tmpdir(), "lab-builder-dead-"));
+  t.after(() => rmSync(outputRoot, { recursive: true, force: true }));
+
+  const result = await buildWithChecker(t, fakeChecker({}, 404), TOPICS_ONLY, {
+    outputRoot,
+    decisions: { "sources-dead": "proceed-flagged" },
+  });
+
+  assert.equal(result.status, "complete");
+  assert.equal(result.validation.failed, 0, JSON.stringify(result.validation.tests.filter((x) => x.status === "fail")));
+  // Every structural rule still runs, including the new relative-link guard.
+  assert.equal(result.validation.total, 19);
+  assert.equal(result.decisionLog[0].code, "sources-dead");
+});
+
+test("an unreachable citation is kept and never blocks the build", async (t) => {
+  const result = await buildWithChecker(t, fakeChecker({}, 0), TOPICS_ONLY, { write: false });
+
+  assert.equal(result.status, "complete", "a network failure is not a dead page");
+  assert.ok(result.manifest.modules[0].sources.length > 0);
+  assert.equal(result.manifest.linkCheck.broken, 0);
+  assert.ok(result.manifest.linkCheck.unreachable > 0);
+  assert.ok(result.warnings.some((w) => /could not be reached/i.test(w)));
+});
+
+test("the manifest records when links were verified and what each one returned", async (t) => {
+  const result = await buildWithChecker(t, fakeChecker(), TOPICS_ONLY, { write: false });
+
+  assert.match(result.manifest.verifiedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(result.manifest.linkCheck.enabled, true);
+  assert.ok(result.manifest.linkCheck.checked > 0);
+  for (const source of result.manifest.modules[0].sources) {
+    assert.equal(source.linkStatus, 200);
+    assert.equal(source.linkChecked, "ok");
+  }
+});
+
+test("a lab with link checking off never claims a verification it did not do", async (t) => {
+  const result = await generateLab(TOPICS_ONLY, {
+    write: false,
+    useLearnMcp: true,
+    useLlm: false,
+    connect: async () => groundedSession(),
+  });
+
+  assert.equal(result.manifest.verifiedAt, null);
+  assert.equal(result.manifest.linkCheck.enabled, false);
+  assert.match(result.markdown, /Not link-checked/);
+});
+
+test("every generated lab carries a visible freshness stamp and its shelf life", async (t) => {
+  const result = await buildWithChecker(t, fakeChecker(), TOPICS_ONLY, { write: false });
+  const day = result.manifest.verifiedAt.slice(0, 10);
+
+  // At the top, where someone opening the lab actually looks.
+  assert.match(result.markdown, new RegExp(`\\*\\*VERIFIED\\*\\*.*${day}`));
+  assert.match(result.markdown, /grounded against learn\.microsoft\.com/);
+  // And the statement that it is not covered by the monthly audit.
+  assert.match(result.markdown, /point-in-time artifact/i);
+  assert.match(result.markdown, /regenerate it rather than trusting it/i);
+});
+
+test("link checking leaves step provenance and citation ranking untouched", async (t) => {
+  // The strongest available statement that #46 and #47 are undisturbed: build
+  // the same lab with the checker on and off and compare what each PR owns.
+  const withCheck = await buildWithChecker(t, fakeChecker(), TOPICS_ONLY, { write: false });
+  const withoutCheck = await generateLab(TOPICS_ONLY, {
+    write: false,
+    useLearnMcp: true,
+    useLlm: false,
+    connect: async () => groundedSession(),
+  });
+
+  const shape = (result) =>
+    result.manifest.modules.map((m) => ({
+      id: m.id,
+      stepsSource: m.steps.source, // #46
+      stepsCount: m.steps.count,
+      learnVerified: m.learnVerified, // #47
+      relevanceFloor: m.relevance?.floor,
+      sources: m.sources.map((s) => s.url),
+    }));
+
+  assert.deepEqual(shape(withCheck), shape(withoutCheck));
+  assert.equal(withCheck.manifest.modules[0].steps.source, "doc-derived");
+});
+
+// ── Validator: a relative link that points nowhere ──────────────────────────
+// Preventive, not a repair. Measured across all 40 hand-written labs before
+// this rule was added: 86 relative links, every one resolving on disk, none
+// shaped like a bare documentation slug. The rule is therefore "does not
+// resolve", not "is relative" — the latter would fail 86 correct links.
+
+function labWith(body) {
+  const dir = mkdtempSync(join(tmpdir(), "validator-links-"));
+  const markdown = [
+    "# Relative Link Fixture",
+    "",
+    "| | |",
+    "|---|---|",
+    "| ⭐ **DIFFICULTY** | Intermediate |",
+    "| ⏱️ **TIME** | 45 minutes |",
+    "| 🧩 **PRODUCTS** | Microsoft Copilot Studio |",
+    "| 🏷️ **TAGS** | topics |",
+    "| 🏭 **INDUSTRIES** | Retail |",
+    "",
+    "## Overview",
+    "",
+    "This fixture exists to exercise the relative-link rule in the validator, and it is padded out so that it comfortably clears the minimum content length the rule set requires of every lab in this repository.",
+    "",
+    "## Objectives",
+    "",
+    "- Prove that a relative link which resolves on disk is accepted without complaint.",
+    "- Prove that a bare documentation slug is reported rather than shipped to a learner.",
+    "",
+    "## Step 1: Configure",
+    "",
+    body,
+    "",
+  ].join("\n");
+  return { dir, markdown };
+}
+
+test("a relative link that resolves on disk is accepted", async (t) => {
+  const { dir, markdown } = labWith("See the [next lab](sibling.md) for more.");
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, "index.md"), markdown, "utf8");
+  writeFileSync(join(dir, "sibling.md"), "# Sibling\n", "utf8");
+
+  const result = validateLabDir(dir, { labId: "fixture", title: "fixture" });
+  const check = result.tests.find((x) => x.name === "no-broken-relative-links");
+  assert.equal(check.status, "pass");
+});
+
+test("a bare documentation slug is reported instead of shipped", async (t) => {
+  // Exactly the shape a fetched Learn page emits when it links to a sibling.
+  const { dir, markdown } = labWith("Turn on [generative mode](nlu-boost-node) before you continue.");
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, "index.md"), markdown, "utf8");
+
+  const result = validateLabDir(dir, { labId: "fixture", title: "fixture" });
+  const check = result.tests.find((x) => x.name === "no-broken-relative-links");
+  assert.equal(check.status, "fail");
+  assert.match(check.message, /nlu-boost-node/);
+});
+
+test("absolute, anchor, and site-rooted links are left to other rules", async (t) => {
+  const { dir, markdown } = labWith(
+    [
+      "Read [the docs](https://learn.microsoft.com/microsoft-copilot-studio/) first.",
+      "Jump to [the overview](#overview).",
+      "Mail [the team](mailto:someone@example.com).",
+      "Open [the portal](/labs/01-intro-workshop/).",
+    ].join(" "),
+  );
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, "index.md"), markdown, "utf8");
+
+  const result = validateLabDir(dir, { labId: "fixture", title: "fixture" });
+  assert.equal(result.tests.find((x) => x.name === "no-broken-relative-links").status, "pass");
+});
+
+test("every hand-written lab already satisfies the relative-link rule", () => {
+  // The measurement that set the rule's shape, kept as a regression test.
+  const report = validateAllLabs();
+  const offenders = report.labs.filter(
+    (lab) => lab.tests.find((x) => x.name === "no-broken-relative-links").status !== "pass",
+  );
+  assert.deepEqual(offenders.map((lab) => lab.labId), []);
 });

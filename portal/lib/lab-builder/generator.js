@@ -16,6 +16,15 @@ import { planScreenshots, copyScreenshots, buildShotsManifest } from "./screensh
 import { composeLab } from "./composer.js";
 import { deriveSteps, diffSteps } from "./steps.js";
 import {
+  DEFAULT_CONCURRENCY as LINK_CONCURRENCY,
+  DEFAULT_TIMEOUT_MS as LINK_TIMEOUT_MS,
+  createLinkChecker,
+  linkCheckEnabled,
+  partitionSources,
+  summarize as summarizeLinkCheck,
+  verifyUrls,
+} from "./linkcheck.js";
+import {
   BLOCKER_CODES,
   buildBlocker,
   curatedDocsAge,
@@ -434,7 +443,9 @@ export async function generateLab(request, opts = {}) {
   // relevance floor. `grounded` is broader — it includes modules citing only the
   // curated links — and using it here would let the lab's header claim those
   // were "checked against live Microsoft Learn documentation" when they were not.
-  const groundedFeatures = plan.features.filter((feature) => groundingByFeature.get(feature.id)?.learnVerified).length;
+  //
+  // Recomputed after the link check below, because that step can drop a module.
+  let groundedFeatures = plan.features.filter((feature) => groundingByFeature.get(feature.id)?.learnVerified).length;
 
   // ── 2. Read each module's steps from the live documentation ───────────────
   let stepsByFeature = await deriveAllSteps(session, plan, { onProgress, signal, maxConcurrency });
@@ -510,7 +521,156 @@ export async function generateLab(request, opts = {}) {
     }
   }
 
-  const docDerivedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "doc-derived").length;
+  // Recomputed after the link check below, for the same reason as `groundedFeatures`.
+  let docDerivedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "doc-derived").length;
+
+  // ── 2b. Check that every URL about to be embedded actually resolves ────────
+  //
+  // Issue #41: until now nothing did. `validateLabDir()` is structural and skips
+  // anything with an `http:` scheme, so a build could report "18 passed, 0
+  // failed" while shipping citations harvested from a live search that were
+  // never requested once.
+  //
+  // Two rules govern what happens to a dead link, and they follow #44's
+  // principle that an explicit human choice is not a silent degradation — and
+  // its corollary, that a prompt which fires constantly is worse than no prompt:
+  //
+  //   * A citation the origin says is gone (4xx/5xx) is dropped. When the module
+  //     still has other citations, that needs no human: keeping five good links
+  //     instead of six is not a degradation anyone would choose differently.
+  //   * A citation we merely could not reach (timeout, DNS, proxy) is kept. That
+  //     is evidence about this machine's network, not about the page, and
+  //     stripping references because a proxy hiccuped would make labs worse.
+  //
+  // Only the case where a module ends up with *nothing* left to cite reaches a
+  // human, below.
+  const linkCheck = { enabled: linkCheckEnabled(), records: new Map(), deadByFeature: new Map() };
+  if (linkCheck.enabled) {
+    onProgress?.({ stage: "verify", message: "Checking that the documentation links resolve" });
+
+    // Everything the lab will actually render as a link: the citation list, the
+    // pages behind the "From the docs" quote, and each module's step source.
+    const embedded = [];
+    for (const feature of plan.features) {
+      const grounding = groundingByFeature.get(feature.id);
+      for (const source of grounding?.sources || []) embedded.push(source.url);
+      for (const result of grounding?.results || []) embedded.push(result.url);
+      const stepUrl = stepsByFeature.get(feature.id)?.url;
+      if (stepUrl) embedded.push(stepUrl);
+    }
+
+    linkCheck.records = await verifyUrls(embedded, {
+      concurrency: LINK_CONCURRENCY,
+      checkLink: opts.checkLink || createLinkChecker(),
+      signal,
+    });
+
+    for (const feature of plan.features) {
+      const grounding = groundingByFeature.get(feature.id);
+      if (!grounding) continue;
+
+      const { kept, dropped, unreachable } = partitionSources(grounding.sources, linkCheck.records);
+      if (dropped.length) linkCheck.deadByFeature.set(feature.id, dropped);
+
+      // A dead page must not survive as the "From the docs" pull quote either —
+      // that quote reads as the most authoritative line in the module.
+      const liveResults = (grounding.results || []).filter((result) => {
+        const record = linkCheck.records.get(result.url);
+        return !record || record.status < 400;
+      });
+
+      groundingByFeature.set(feature.id, {
+        ...grounding,
+        sources: kept,
+        results: liveResults,
+        // Recomputed, because it means "this module has citations at all" and
+        // that is no longer true once the last one is dropped. `learnVerified`
+        // is deliberately left alone: it records where a citation came from,
+        // not whether it still resolves, and #47 owns that claim.
+        grounded: kept.length > 0,
+        linkCheck: {
+          checked: kept.length + dropped.length,
+          dead: dropped.map((s) => ({ url: s.url, status: s.linkStatus })),
+          unreachable: unreachable.map((s) => ({ url: s.url, error: s.linkError || null })),
+        },
+      });
+    }
+
+    const deadCount = [...linkCheck.deadByFeature.values()].reduce((sum, list) => sum + list.length, 0);
+    const unreachableCount = plan.features.reduce(
+      (sum, f) => sum + (groundingByFeature.get(f.id)?.linkCheck?.unreachable?.length || 0),
+      0,
+    );
+
+    // ── Gate 6: link checking left a module with nothing to cite ─────────────
+    const emptied = plan.features.filter(
+      (f) => linkCheck.deadByFeature.has(f.id) && !groundingByFeature.get(f.id)?.sources?.length,
+    );
+    if (emptied.length) {
+      const names = emptied.map((f) => f.name).join(", ");
+      const freshness = curatedDocsAge(emptied);
+      const outcome = gate(
+        buildBlocker(BLOCKER_CODES.SOURCES_DEAD, {
+          consequence:
+            `Every documentation link for ${emptied.length} of ${plan.features.length} module(s) returned an error and ` +
+            `was removed: ${names}. Those chapters would ship with no Microsoft Learn reference at all — the pages the ` +
+            `search returned no longer exist, and the curated links for them, ${freshness.phrase}, are gone too.`,
+          detail: {
+            modules: emptied.map((f) => ({
+              id: f.id,
+              name: f.name,
+              dead: (linkCheck.deadByFeature.get(f.id) || []).map((s) => ({ url: s.url, status: s.linkStatus })),
+            })),
+            totalModules: plan.features.length,
+            curatedDocsReviewed: freshness.reviewed,
+          },
+        }),
+      );
+      if (outcome.halt) return outcome.halt;
+
+      if (outcome.applied === "drop-modules") {
+        const before = plan.features.length;
+        plan = dropModules(plan, emptied.map((f) => f.id), "sources-dead");
+        for (const key of [...groundingByFeature.keys()]) {
+          if (!plan.features.some((feature) => feature.id === key)) groundingByFeature.delete(key);
+        }
+        plan.warnings.push(
+          `${before - plan.features.length} module(s) whose documentation links all returned errors were removed and listed under Where to Go Next.`,
+        );
+      } else {
+        plan.warnings.push(
+          `${emptied.length} module(s) ship without a Microsoft Learn reference because every link for them returned an error: ${names}.`,
+        );
+      }
+    }
+
+    if (deadCount) {
+      plan.warnings.push(
+        `${deadCount} documentation link(s) returned an error when checked and were removed from the lab, so nothing cites a page that no longer exists.`,
+      );
+    }
+    if (unreachableCount) {
+      plan.warnings.push(
+        `${unreachableCount} documentation link(s) could not be reached from this machine within ${LINK_TIMEOUT_MS}ms. They were kept, because a timeout says something about this network rather than about the page — verify them if the lab is being published.`,
+      );
+    }
+  } else {
+    plan.warnings.push(
+      "Link checking was switched off for this build, so no citation in this lab has been confirmed to resolve.",
+    );
+  }
+
+  // Both counts are re-derived here because the gate above can drop modules,
+  // and a stale count would have the lab's header claim more grounded modules
+  // than it now contains.
+  groundedFeatures = plan.features.filter((f) => groundingByFeature.get(f.id)?.learnVerified).length;
+  docDerivedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "doc-derived").length;
+
+  const linkCheckSummary = summarizeLinkCheck(linkCheck.records, {
+    enabled: linkCheck.enabled,
+    timeoutMs: LINK_TIMEOUT_MS,
+    concurrency: LINK_CONCURRENCY,
+  });
 
   // Drift is reported, never acted on — the doc-derived path already resolved it
   // by following the live page. The value is telling a human the catalog is
@@ -530,7 +690,7 @@ export async function generateLab(request, opts = {}) {
     : { available: false, failures: [], provider: { kind: "none", reason: "Disabled for this run" } };
   let enrichment = await enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgress, signal, maxConcurrency });
 
-  // ── Gate 6: a configured model wrote some passages but not others ─────────
+  // ── Gate 7: a configured model wrote some passages but not others ─────────
   if (llm.available && llm.failures?.length) {
     const attempted = plan.features.length + 1; // one per module, plus the overview
     const outcome = gate(
@@ -571,6 +731,9 @@ export async function generateLab(request, opts = {}) {
     docDerivedFeatures,
     llmProvider: llm.available ? llm.provider.label : "none",
     generatedAt: new Date().toISOString(),
+    endpoint: LEARN_MCP_ENDPOINT,
+    learnConnected: Boolean(session.ok),
+    linkCheck: linkCheckSummary,
   };
   const markdown = composeLab(plan, groundingByFeature, screenshots.byFeature, enrichment, generation, stepsByFeature);
 
@@ -578,6 +741,9 @@ export async function generateLab(request, opts = {}) {
     slug: plan.slug,
     title: plan.title,
     generatedAt: generation.generatedAt,
+    // When every embedded URL was last confirmed to resolve. Null when checking
+    // was switched off — an unearned timestamp reads as assurance.
+    verifiedAt: linkCheckSummary.verifiedAt,
     durationMs: Date.now() - startedAt,
     request: plan.request,
     industry: plan.industry?.id || null,
@@ -597,7 +763,14 @@ export async function generateLab(request, opts = {}) {
         // Learn search that cleared the relevance floor, not from the catalog's
         // curated links. Only this claim supports "checked against live docs".
         learnVerified: Boolean(groundingByFeature.get(f.id)?.learnVerified),
+        // Each source carries the HTTP status it returned when checked, so a
+        // reviewer can tell a confirmed citation from an unverified one without
+        // re-running the build.
         sources: groundingByFeature.get(f.id)?.sources || [],
+        // What the link check removed, and what it could not reach. Dead links
+        // are gone from the lab but recorded here, because "this module used to
+        // cite a page that is now a 404" is the signal worth keeping.
+        links: groundingByFeature.get(f.id)?.linkCheck || null,
         // What the relevance filter considered and what it refused, so an
         // off-topic citation can be diagnosed without re-running the build.
         relevance: groundingByFeature.get(f.id)?.relevance || null,
@@ -623,6 +796,10 @@ export async function generateLab(request, opts = {}) {
       docDerivedModules: docDerivedFeatures,
       totalModules: plan.features.length,
     },
+    // Liveness of every URL the lab embeds, as of `verifiedAt`. `broken` links
+    // were removed; `unreachable` ones were kept, because a timeout is evidence
+    // about this network and not about the page.
+    linkCheck: linkCheckSummary,
     llm: { provider: llm.provider.kind, label: llm.provider.label || null, reason: llm.provider.reason || null },
     screenshots: {
       reused: screenshots.copies.length,
