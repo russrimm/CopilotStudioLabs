@@ -344,6 +344,9 @@ console.log(
     result.manifest.grounding.connected ? "MCP connected" : "MCP unavailable"
   })`,
 );
+console.log(
+  `Steps       ${result.manifest.grounding.docDerivedModules}/${result.manifest.grounding.totalModules} modules had their steps read from a live documentation page`,
+);
 console.log(`Narrative   ${result.manifest.llm.label || result.manifest.llm.reason}`);
 console.log(
   `Screenshots ${result.manifest.screenshots.reused} reused from existing labs, ${result.manifest.screenshots.toCapture} listed in shots.json for capture`,

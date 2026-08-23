@@ -18,7 +18,8 @@ Output lands in `generated-labs/<slug>/` (git-ignored) as:
 generated-labs/<slug>/
   index.md        the lab, in this repo's standard lab format
   manifest.json   what was selected, what was grounded, the Learn sources used,
-                  and any decisions a human made about a blocked build
+                  where each module's steps came from, and any decisions a
+                  human made about a blocked build
   shots.json      capture manifest for the screenshots that could not be reused
   assets/         screenshots copied from existing labs in this repo
 ```
@@ -81,6 +82,8 @@ each stating its tradeoff.
 |---|---|---|
 | `learn-mcp-unavailable` | The Learn MCP handshake fails. | `retry` *(recommended)*, `proceed-curated`, `cancel` |
 | `modules-ungrounded` | Learn connected, but a module found no results. | `proceed-curated` *(recommended)*, `drop-modules`, `cancel` |
+| `steps-fetch-failed` | A module's documentation page could not be read. | `retry` *(recommended)*, `proceed-catalog`, `cancel` |
+| `steps-not-derived` | The page was read, but no procedure on it matched the module. | `proceed-catalog` *(recommended)*, `cancel` |
 | `llm-partial-failure` | A configured model wrote some passages but not others. | `retry` *(recommended)*, `proceed-deterministic`, `proceed-mixed`, `cancel` |
 | `modules-deferred` | The time budget dropped a module you explicitly selected. | `accept-deferred` *(recommended)*, `ignore-budget`, `cancel` |
 
@@ -143,7 +146,8 @@ finished markdown appears with a download button and a record of any decisions.
 flowchart LR
   A[Wizard selections] --> B[Planner]
   B -->|expand prereqs, order,<br/>fit time budget| C[Learn MCP grounding]
-  C -->|microsoft_docs_search<br/>per module| D[LLM enrichment<br/>optional]
+  C -->|microsoft_docs_search<br/>per module| S[Step derivation<br/>microsoft_docs_fetch]
+  S --> D[LLM enrichment<br/>optional]
   D --> E[Composer]
   E --> F[index.md + assets + shots.json]
   F --> G[Validator<br/>same 17 rules as labs/]
@@ -151,15 +155,19 @@ flowchart LR
 
 ### 1. Feature catalog
 
-`portal/lib/lab-builder/features.json` is the source of truth: 36 Copilot Studio
-capabilities across 10 categories. Each entry carries the level, time estimate,
-prerequisites, concepts, click-by-click steps, validation checks, Microsoft Learn
-search queries, fallback doc URLs, related labs in this repo, and any existing
-screenshots that can be reused.
+`portal/lib/lab-builder/features.json` is the source of truth for *structure*: 36
+Copilot Studio capabilities across 10 categories. Each entry carries the level,
+time estimate, prerequisites, concepts, fallback click-by-click steps, validation
+checks, Microsoft Learn search queries, doc URLs, related labs in this repo, and
+any existing screenshots that can be reused.
 
-This is the file to edit when the product changes or you want to add a feature.
-`validateCatalog()` (and a test) enforces its integrity, including prerequisite
-cycles.
+The steps in this file are a fallback, not what the learner normally reads. When
+the documentation page can be read and a procedure on it matches the module, the
+lab uses that instead — see [Step derivation](#4-step-derivation).
+
+This is the file to edit to add a feature, change a module's structure, or fix
+the fallback used when a page cannot be read. `validateCatalog()` (and a test)
+enforces its integrity, including prerequisite cycles.
 
 ### 2. Planner
 
@@ -186,14 +194,57 @@ quietly ship a lab built on that emptiness — an unreachable server raises the
 `learn-mcp-unavailable` blocker and a module with no results raises
 `modules-ungrounded`, and the build stops until a human decides.
 
-The catalog's `docUrls` are the fallback. `features.json` carries an optional
-top-level `docsReviewed` date for when those links were last checked against
-live documentation; it is `null` until someone actually checks, because a wrong
-freshness date is worse than none. Per-feature `lastVerified` dates (issue #42)
-override that fallback when present, and the blocker text quotes whichever it
-can support.
+The catalog's `docUrls` serve two purposes: they are the pages the step deriver
+reads (below), and they are the citation fallback when a search returns nothing.
+`features.json` carries an optional top-level `docsReviewed` date for when those
+links were last checked against live documentation; it is `null` until someone
+actually checks, because a wrong freshness date is worse than none. Per-feature
+`lastVerified` dates (issue #42) override that fallback when present, and the
+blocker text quotes whichever it can support.
 
-### 4. LLM enrichment (optional)
+### 4. Step derivation
+
+Grounding contributes citations. It does not, on its own, make the *instructions*
+current — and the instructions are the substance of a walk-through. `steps.js`
+closes that gap: for each module it fetches the catalog's `docUrls` with
+`microsoft_docs_fetch`, finds the numbered procedures on the page, scores them
+against the module, and renders the best match as the module's **Do this** list.
+
+Selection is the hard part, not extraction. One Learn article routinely carries
+several unrelated procedures — `knowledge-add-sharepoint` has six — so a
+candidate must clear a confidence threshold and two structural gates before it is
+used:
+
+- **Label coverage.** It has to reproduce a share of the curated steps' bolded UI
+  labels. The curated wording is not trusted, but it is a fair statement of which
+  screens the module is about, and a candidate that never mentions them is
+  describing something else.
+- **Completeness.** It is never allowed to be materially shorter than the curated
+  procedure. A shorter candidate is a fragment, not the procedure.
+
+When nothing clears the gates, the curated steps are used and the module says so
+in the lab. That path raises `steps-not-derived` first, so it is a decision rather
+than a silent substitution.
+
+**No language model is involved.** Every derived step is a cleaned substring of a
+page that was fetched, which is a structural guarantee that the builder cannot
+invent product UI — stronger than asking a model not to. It also means the steps
+are identical with and without credentials configured.
+
+Fetched pages are untrusted input. They are never executed. Steps are stripped of
+HTML, images, and control characters; relative Learn links are resolved to
+absolute `https:` URLs and unsafe schemes dropped; TODO-style markers are scrubbed
+because `validateLabDir()` rejects them anywhere in a lab file. When a model *is*
+configured, fetched text reaches it inside `<untrusted-documentation>` markers
+that the system prompt defines as quoted material, never instructions.
+
+Each module records in `manifest.json` whether its steps were `doc-derived` or
+`catalog-fallback`, the source URL and section heading, the fetch timestamp, and a
+`drift` record comparing the curated steps against the live page. Drift is
+reported rather than acted on — the derived path already resolved it — and it is
+the signal that a catalog entry has gone stale.
+
+### 5. LLM enrichment (optional)
 
 `llm.js` auto-detects a provider:
 
@@ -204,11 +255,12 @@ can support.
 With a provider configured, the builder drafts the lab overview and a
 scenario-specific "In your scenario" paragraph per module, constrained by a
 system prompt that forbids inventing product UI. Without one, the lab is still
-complete — it just uses the curated narrative instead.
+complete — it just uses the curated narrative instead. Either way the model plays
+no part in producing the walk-through steps.
 
 Set `LAB_BUILDER_LLM=off` to force deterministic mode.
 
-### 5. Screenshots
+### 6. Screenshots
 
 Copilot Studio is behind an interactive sign-in, so the builder cannot capture
 fresh screenshots on demand. It does two things instead:
@@ -224,7 +276,7 @@ Fill the gaps against your own tenant with the existing capture tool:
 node tools/screenshot-capture/capture.js --manifest="generated-labs/<slug>/shots.json"
 ```
 
-### 6. Composition and validation
+### 7. Composition and validation
 
 `composer.js` writes markdown in this repo's standard lab format, so generated
 labs look and validate exactly like the handwritten ones. Every generated lab is

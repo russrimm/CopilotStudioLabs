@@ -19,6 +19,8 @@ import { getCatalog } from "./catalog.js";
 export const BLOCKER_CODES = Object.freeze({
   LEARN_MCP_UNAVAILABLE: "learn-mcp-unavailable",
   MODULES_UNGROUNDED: "modules-ungrounded",
+  STEPS_FETCH_FAILED: "steps-fetch-failed",
+  STEPS_NOT_DERIVED: "steps-not-derived",
   LLM_PARTIAL_FAILURE: "llm-partial-failure",
   MODULES_DEFERRED: "modules-deferred",
 });
@@ -57,7 +59,7 @@ const OPTIONS = Object.freeze({
       id: "proceed-curated",
       label: "Build on the curated documentation links instead",
       tradeoff:
-        "The lab is complete and passes validation, but no citation is checked against live documentation, so anything Microsoft has changed will be wrong.",
+        "The lab is complete and passes validation, but nothing is checked against live documentation — neither the citations nor the click-by-click steps, which are read from the live pages when Learn is reachable. Anything Microsoft has changed will be wrong.",
     },
     CANCEL_OPTION,
   ],
@@ -75,6 +77,37 @@ const OPTIONS = Object.freeze({
       label: "Remove those modules from the lab",
       tradeoff:
         "The lab gets shorter. Any module that depends on a removed one is removed too, and all of them move to Where to Go Next.",
+    },
+    CANCEL_OPTION,
+  ],
+
+  [BLOCKER_CODES.STEPS_FETCH_FAILED]: [
+    {
+      id: RETRY,
+      label: "Retry reading those documentation pages",
+      tradeoff: "Costs another request per module. Fetch failures here are usually timeouts and clear on a second try.",
+      recommended: true,
+    },
+    {
+      id: "proceed-catalog",
+      label: "Use this repository's curated steps for those modules",
+      tradeoff:
+        "Those modules get a complete, valid walk-through, but their clicks were never checked against a live page and the lab says so.",
+    },
+    CANCEL_OPTION,
+  ],
+
+  // Deliberately no retry, for the same reason `modules-ungrounded` has none:
+  // the page was read successfully and is cached for 15 minutes, and parsing it
+  // again is deterministic. Offering a retry that cannot change the outcome
+  // would waste the human's time and misrepresent the failure.
+  [BLOCKER_CODES.STEPS_NOT_DERIVED]: [
+    {
+      id: "proceed-catalog",
+      label: "Use this repository's curated steps for those modules",
+      tradeoff:
+        "Those modules get a complete, valid walk-through, but their clicks come from the catalog rather than the live page, and the lab says so per module.",
+      recommended: true,
     },
     CANCEL_OPTION,
   ],
@@ -121,6 +154,8 @@ const OPTIONS = Object.freeze({
 const TITLES = Object.freeze({
   [BLOCKER_CODES.LEARN_MCP_UNAVAILABLE]: "Microsoft Learn is unreachable",
   [BLOCKER_CODES.MODULES_UNGROUNDED]: "Some modules found no Microsoft Learn results",
+  [BLOCKER_CODES.STEPS_FETCH_FAILED]: "Some documentation pages could not be read",
+  [BLOCKER_CODES.STEPS_NOT_DERIVED]: "Some modules' steps could not be read from the documentation",
   [BLOCKER_CODES.LLM_PARTIAL_FAILURE]: "Some model-written passages failed",
   [BLOCKER_CODES.MODULES_DEFERRED]: "The time budget dropped a module you asked for",
 });

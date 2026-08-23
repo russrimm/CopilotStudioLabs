@@ -287,26 +287,45 @@ export async function searchDocs(session, query, { limit = 6 } = {}) {
 }
 
 /**
+ * Fetch a full Learn page as markdown, with enough context to tell the
+ * difference between "the page was empty" and "the fetch failed".
+ *
+ * `fetchDoc` cannot express that distinction — it returns "" for both — and the
+ * step-derivation path needs it, because a transient fetch failure is worth
+ * retrying and an unparseable page is not.
+ *
+ * Always resolves. Never throws except on caller cancellation.
+ *
+ * @returns {Promise<{markdown:string, url:string, fetchedAt:string|null, error:string|null}>}
+ */
+export async function fetchDocPage(session, url) {
+  if (!session?.ok) return { markdown: "", url, fetchedAt: null, error: "Microsoft Learn session is not connected" };
+  if (!url) return { markdown: "", url, fetchedAt: null, error: "No documentation URL was supplied" };
+
+  const cacheKey = `page:${session.endpoint}:${url}`;
+  const cached = cacheGet(cacheKey);
+  if (cached !== undefined) return cached;
+
+  let page;
+  try {
+    const result = await session.call("microsoft_docs_fetch", { url });
+    page = { markdown: toTextChunks(result).join("\n\n"), url, fetchedAt: new Date().toISOString(), error: null };
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
+    page = { markdown: "", url, fetchedAt: null, error: err.message || String(err) };
+  }
+
+  cacheSet(cacheKey, page);
+  return page;
+}
+
+/**
  * Fetch a full Learn page as markdown.
  * @returns {Promise<string>} markdown, or "" on failure
  */
 export async function fetchDoc(session, url) {
-  if (!session?.ok || !url) return "";
-
-  const cacheKey = `fetch:${session.endpoint}:${url}`;
-  const cached = cacheGet(cacheKey);
-  if (cached !== undefined) return cached;
-
-  try {
-    const result = await session.call("microsoft_docs_fetch", { url });
-    const markdown = toTextChunks(result).join("\n\n");
-    cacheSet(cacheKey, markdown);
-    return markdown;
-  } catch (err) {
-    if (err.name === "AbortError") throw err;
-    cacheSet(cacheKey, "");
-    return "";
-  }
+  const page = await fetchDocPage(session, url);
+  return page.markdown;
 }
 
 /**

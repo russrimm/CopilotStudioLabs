@@ -210,13 +210,50 @@ function groundedInsight(grounding) {
   return ["", "> **From the docs:** " + quote + attribution];
 }
 
-function featureSection(feature, plan, grounding, shots, enrichment) {
+/**
+ * Where this module's steps came from, stated in the lab itself.
+ *
+ * A learner following a click list deserves to know whether it was read off the
+ * current documentation or off a catalog that may have aged. Before issue #37
+ * the lab's header claimed every module was "grounded on Microsoft Learn" while
+ * the steps were always the catalog's — this line is what makes the claim honest
+ * per module.
+ */
+function stepProvenance(record) {
+  if (!record || record.source !== "doc-derived") {
+    const why =
+      record?.reason === "fetch-failed"
+        ? "its documentation page could not be read"
+        : record?.reason === "learn-unavailable"
+        ? "Microsoft Learn grounding was not used for this build"
+        : record?.reason === "no-doc-url"
+        ? "no documentation page is on file for it"
+        : "no procedure on its documentation page matched this module closely enough";
+    return [
+      "",
+      `*These steps come from this repository's curated catalog, because ${why}. ` +
+        `They were accurate when written, but they are not verified against the current product. ` +
+        `If a click does not match what you see, trust the Microsoft Learn link in this module.*`,
+    ];
+  }
+
+  const heading = record.sectionHeading ? scrubForbidden(record.sectionHeading) : "the current documentation";
+  const day = record.fetchedAt ? String(record.fetchedAt).slice(0, 10) : null;
+  const link = record.url ? `[${heading}](${record.url})` : heading;
+  return ["", `*Read from ${link}${day ? ` on ${day}` : ""}.*`];
+}
+
+function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord) {
   const profile = plan.profile;
   const applied =
     enrichment?.applied ||
     `Do this for **${profile.agentName}**: ${lowerFirst(feature.summary.replace(/\.$/, ""))}, using the ${profile.domain} content described in **The Scenario** above. Keep the wording consistent with the domain language for this lab (${profile.terms.slice(0, 3).join(", ")}) so answers sound like they came from your team.`;
 
-  const steps = feature.steps.map((step, index) => `${index + 1}. ${scrubForbidden(step)}`);
+  // Doc-derived steps when the live page could be read, curated steps otherwise.
+  // Both paths are scrubbed: derived steps are untrusted fetched content, and
+  // the validator rejects TODO-style markers anywhere in a lab file.
+  const source = stepsRecord?.steps?.length ? stepsRecord.steps : feature.steps;
+  const steps = source.map((step, index) => `${index + 1}. ${scrubForbidden(step)}`);
 
   return [
     `### Step ${feature.order} - ${feature.name}`,
@@ -233,6 +270,7 @@ function featureSection(feature, plan, grounding, shots, enrichment) {
     bullets(feature.concepts.map(scrubForbidden)),
     "",
     "**Do this**",
+    ...stepProvenance(stepsRecord),
     "",
     steps.join("\n"),
     "",
@@ -305,17 +343,25 @@ function completeSection(plan) {
 
 function howToUseSection(plan, generation) {
   const grounded = generation.groundedFeatures;
+  const derived = generation.docDerivedFeatures ?? 0;
   const total = plan.features.length;
   const provider = generation.llmProvider;
+  const plural = total === 1 ? "" : "s";
 
   const lines = [
     "## How This Lab Was Built",
     "",
-    `This lab was generated for your selections rather than written by hand. Content for ${grounded} of ${total} module${total === 1 ? "" : "s"} was grounded against live Microsoft Learn documentation through the Microsoft Learn MCP server, and every module links back to its sources so you can verify anything that looks out of date.`,
+    `This lab was generated for your selections rather than written by hand. Citations for ${grounded} of ${total} module${plural} were checked against live Microsoft Learn documentation through the Microsoft Learn MCP server.`,
+    "",
+    derived === total
+      ? `The click-by-click steps in every module were read from the current documentation page for that feature at build time, not copied from a stored list. Each module names the page and the date it was read.`
+      : derived > 0
+      ? `The click-by-click steps for ${derived} of ${total} module${plural} were read from the current documentation page at build time; the remaining ${total - derived} use this repository's curated steps. Every module says which of the two it used, and when.`
+      : `The click-by-click steps come from this repository's curated Copilot Studio feature catalog rather than from a live page — each module says so, and why.`,
     "",
     provider && provider !== "none"
-      ? `Narrative for your industry and role was drafted with ${provider} on top of that grounded content.`
-      : "No language model was configured, so the narrative comes from this repository's curated Copilot Studio feature catalog combined with the Microsoft Learn excerpts above.",
+      ? `Narrative for your industry and role was drafted with ${provider} on top of that grounded content. No language model was involved in producing the steps.`
+      : "No language model was configured, so the narrative comes from this repository's curated Copilot Studio feature catalog combined with the Microsoft Learn excerpts above. The steps do not depend on a language model either way.",
     "",
     "Product UI changes often. If a step does not match what you see, follow the Microsoft Learn link in that module — that link is the source of truth.",
   ];
@@ -330,9 +376,10 @@ function howToUseSection(plan, generation) {
  * @param {Map<string, object>} groundingByFeature featureId -> groundFeature() result
  * @param {Map<string, object>} shotsByFeature featureId -> { reused, capture }
  * @param {object} enrichment { overview?, byFeature?: Map<string, {applied}> }
- * @param {object} generation { groundedFeatures, llmProvider, generatedAt }
+ * @param {object} generation { groundedFeatures, docDerivedFeatures, llmProvider, generatedAt }
+ * @param {Map<string, object>} [stepsByFeature] featureId -> step provenance record
  */
-export function composeLab(plan, groundingByFeature, shotsByFeature, enrichment = {}, generation = {}) {
+export function composeLab(plan, groundingByFeature, shotsByFeature, enrichment = {}, generation = {}, stepsByFeature = new Map()) {
   const sections = [
     `# ${scrubForbidden(plan.title)}`,
     "",
@@ -364,6 +411,7 @@ export function composeLab(plan, groundingByFeature, shotsByFeature, enrichment 
         groundingByFeature.get(feature.id),
         shotsByFeature.get(feature.id) || { reused: [], capture: [] },
         enrichment.byFeature?.get(feature.id),
+        stepsByFeature.get(feature.id),
       ),
       "",
     );
