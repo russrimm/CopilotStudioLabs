@@ -97,13 +97,30 @@ This isn't just about saving developer time. It's about unlocking the ability to
 The 40 labs above are fixed walkthroughs. The **lab builder** writes a new one for
 whatever combination you actually need: pick an industry, the roles you are
 teaching, and the Copilot Studio capabilities to cover, and it generates a
-complete step-by-step lab — with the reasoning behind each configuration, live
+complete step-by-step lab — with the reasoning behind each configuration,
 Microsoft Learn citations, and screenshots.
 
-Every module is grounded against the public
-[Microsoft Learn MCP server](https://learn.microsoft.com/api/mcp), so the content
-tracks the current product rather than a snapshot. No sign-in or API key is
-required for grounding.
+At build time it queries the public
+[Microsoft Learn MCP server](https://learn.microsoft.com/api/mcp) — no sign-in or
+API key — and uses what comes back in two different ways:
+
+- **Citations** are searched live, then scored for relevance so a page about a
+  different Microsoft product is dropped rather than cited, and every surviving
+  link is requested once to confirm it still resolves before it is embedded.
+- **Walk-through steps** are read from the module's own documentation page when a
+  procedure on that page matches the module confidently enough. When none does,
+  the module falls back to the curated steps in this repository's feature
+  catalog — and says so in the lab, in that module, with the reason.
+
+Everything else — module structure, prerequisites, concepts, and the "check your
+work" tests — comes from that curated catalog
+(`portal/lib/lab-builder/features.json`), not from a live page.
+
+How many modules get live steps depends on what the documentation looks like on
+the day you build, so it changes from build to build — in the builds sampled so
+far it has been well under half. The builder prints the count when it finishes,
+records the source of every module's steps in `manifest.json`, and stops to ask
+you before falling back rather than degrading quietly.
 
 ```bash
 # See what you can pick
@@ -124,9 +141,16 @@ Learn sources used, a `shots.json` screenshot capture manifest, and any
 screenshots reusable from existing labs. Generated labs are validated against the
 same rules as the handwritten ones before the builder reports success.
 
+Each generated lab carries a **VERIFIED** row naming the date its links were
+checked, or saying plainly that they were not. Generated labs are point-in-time
+artifacts: they sit outside `labs/`, are git-ignored, and are not covered by the
+monthly accuracy audit, so the fix for an old one is to regenerate it rather than
+re-read it.
+
 Optionally set `AZURE_OPENAI_*` or `GITHUB_TOKEN` to add LLM-drafted,
 scenario-specific narrative on top of the grounded content. Without them the
-builder composes deterministically and still produces a complete lab.
+builder composes deterministically and still produces a complete lab. A language
+model never writes the walk-through steps either way.
 
 📖 Full documentation: [`docs/lab-builder.md`](docs/lab-builder.md)
 

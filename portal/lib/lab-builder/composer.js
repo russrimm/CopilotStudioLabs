@@ -410,28 +410,38 @@ function howToUseSection(plan, generation) {
   const lines = [
     "## How This Lab Was Built",
     "",
-    `This lab was generated for your selections rather than written by hand. Citations for ${grounded} of ${total} module${plural} were checked against live Microsoft Learn documentation through the Microsoft Learn MCP server.`,
+    "This lab was generated for your selections rather than written by hand. It draws on live Microsoft Learn documentation where it can and on this repository's curated Copilot Studio feature catalog where it cannot, and the two age differently — so here is which is which.",
+    "",
+    (grounded > 0
+      ? `**Citations.** The Microsoft Learn references in ${grounded} of ${total} module${plural} were found by searching the Microsoft Learn MCP server at build time and then scored for relevance, so a page about a different Microsoft product is dropped rather than quoted under a Copilot Studio heading.${
+          grounded < total ? ` The other ${total - grounded} rely on this repository's curated documentation links instead.` : ""
+        }`
+      : `**Citations.** No module's references came from a live search on this build. Every link below is a curated documentation link from this repository's feature catalog.`) +
+      " " +
+      (check?.enabled && check?.verifiedAt
+        ? `Every link this lab embeds was then requested once, on ${verifiedDay}, to confirm it still resolves: ${check.checked} checked, ${check.broken} removed for returning an error, ${check.unreachable} kept but unreachable from the machine that built this.`
+        : `Link checking was switched off for this build, so no link below has been confirmed to resolve. Treat every reference as unverified.`),
     "",
     derived === total
-      ? `The click-by-click steps in every module were read from the current documentation page for that feature at build time, not copied from a stored list. Each module names the page and the date it was read.`
+      ? `**Steps.** The click-by-click steps in every module were read from that feature's current documentation page at build time, not copied from a stored list. Each module names the page it came from and the date it was read.`
       : derived > 0
-      ? `The click-by-click steps for ${derived} of ${total} module${plural} were read from the current documentation page at build time; the remaining ${total - derived} use this repository's curated steps. Every module says which of the two it used, and when.`
-      : `The click-by-click steps come from this repository's curated Copilot Studio feature catalog rather than from a live page — each module says so, and why.`,
-    "",
-    check?.enabled && check?.verifiedAt
-      ? `Every link in this lab was requested on ${verifiedDay} to confirm it resolves: ${check.checked} checked, ${check.broken} removed for returning an error, ${check.unreachable} kept but unreachable from the machine that built this.`
-      : `Link checking was switched off for this build, so no link below has been confirmed to resolve. Treat every reference as unverified.`,
+      ? `**Steps.** The click-by-click steps in ${derived} of ${total} module${plural} were read from that feature's current documentation page at build time. The other ${total - derived} use this repository's curated steps, because no procedure on the page matched the module closely enough to trust. Every module names which of the two it used; the ones read from a page also name that page and the date.`
+      : `**Steps.** No module's steps could be read from a live documentation page on this build, so every module uses this repository's curated steps. Each one says so, and why. They were accurate when written, but they are not verified against the current product.`,
     "",
     provider && provider !== "none"
-      ? `Narrative for your industry and role was drafted with ${provider} on top of that grounded content. No language model was involved in producing the steps.`
-      : "No language model was configured, so the narrative comes from this repository's curated Copilot Studio feature catalog combined with the Microsoft Learn excerpts above. The steps do not depend on a language model either way.",
+      ? `**Narrative.** The overview and the per-module "In your scenario" passages were drafted with ${provider} on top of that grounded content. No language model wrote any of the steps.`
+      : `**Narrative.** No language model was configured, so the overview and the per-module "In your scenario" passages come from this repository's curated feature catalog combined with the Microsoft Learn excerpts above. No language model writes the steps either way.`,
     "",
     // Issue #41's second half. Generated labs live outside `labs/`, are
     // git-ignored, and are therefore never seen by the monthly accuracy audit
     // that re-checks the hand-written labs. Rather than imply a recurring check
     // that does not exist, the lab states its own shelf life and points at the
     // action that actually fixes staleness: build it again, which costs a minute.
-    `**This lab is a point-in-time artifact.** It was generated on ${generatedDay || "the date shown above"} and grounded against ${endpoint} as that documentation stood that day. It is not part of the monthly accuracy audit that re-checks this repository's hand-written labs, and nothing will re-verify it in place. If you are reading this well after the date above, regenerate it rather than trusting it — the builder will pick up whatever Microsoft has changed since.`,
+    `**This lab is a point-in-time artifact.** ${
+      grounded > 0
+        ? `It was generated on ${generatedDay || "the date shown above"} and grounded against ${endpoint} as that documentation stood that day.`
+        : `It was generated on ${generatedDay || "the date shown above"} from this repository's catalog as it stood that day, without reading Microsoft Learn.`
+    } It is not part of the monthly accuracy audit that re-checks this repository's hand-written labs, and nothing will re-verify it in place. If you are reading this well after the date above, regenerate it rather than trusting it — the builder will pick up whatever Microsoft has changed since.`,
     "",
     "Product UI changes often. If a step does not match what you see, follow the Microsoft Learn link in that module — that link is the source of truth.",
   ];

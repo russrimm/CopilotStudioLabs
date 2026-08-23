@@ -3,7 +3,24 @@
 The 40 labs in `labs/` are fixed walkthroughs. The lab builder is the opposite:
 you pick an industry, the roles you are teaching, and the Copilot Studio
 capabilities you want covered, and it writes a complete, step-by-step lab for
-that exact combination — grounded against live Microsoft Learn documentation.
+that exact combination, drawing on live Microsoft Learn documentation where it
+can and on a curated catalog where it cannot.
+
+Which is which matters, because the two age differently:
+
+| Part of the lab | Where it comes from |
+|---|---|
+| Microsoft Learn citations and the **From the docs** excerpt | Searched live at build time, scored for relevance, and link-checked before use. |
+| **Do this** walk-through steps | Read from the module's live documentation page **when a procedure on it matches the module confidently enough** — otherwise the curated catalog steps, labeled as such in that module. |
+| Module set, ordering, prerequisites, concepts, **Check your work** | The curated catalog, `portal/lib/lab-builder/features.json`. Never live. |
+| Overview and per-module "In your scenario" narrative | A language model, when one is configured; otherwise the curated catalog. A model never writes the steps. |
+| Screenshots | Reused from existing labs in this repo, or listed for you to capture. |
+
+The share of modules that get live steps is not a fixed property of the tool. It
+depends on what the documentation looks like on the day you build, and in the
+builds sampled so far it has been well under half. The builder prints the count
+at the end of every build and records the source per module in `manifest.json` —
+that is the only current answer.
 
 Two ways to use it:
 
@@ -163,13 +180,16 @@ time estimate, prerequisites, concepts, fallback click-by-click steps, validatio
 checks, Microsoft Learn search queries, doc URLs, related labs in this repo, and
 any existing screenshots that can be reused.
 
-The steps in this file are a fallback, not what the learner normally reads. When
-the documentation page can be read and a procedure on it matches the module, the
-lab uses that instead — see [Step derivation](#4-step-derivation).
+The steps in this file are the fallback for the **Do this** list, used whenever
+the module's documentation page cannot be read or carries no procedure that
+matches the module closely enough. That is not a rare path: the gates in
+[Step derivation](#4-step-derivation) are strict on purpose, and in sampled
+builds most modules have fallen back to these steps. Treat them as content a
+learner will read, and keep them accurate.
 
-This is the file to edit to add a feature, change a module's structure, or fix
-the fallback used when a page cannot be read. `validateCatalog()` (and a test)
-enforces its integrity, including prerequisite cycles.
+This is the file to edit to add a feature, change a module's structure, or
+correct those curated steps. `validateCatalog()` (and a test) enforces its
+integrity, including prerequisite cycles.
 
 ### 2. Planner
 
@@ -239,9 +259,10 @@ reads (below), and they are the citation fallback when a search returns nothing
 relevant.
 `features.json` carries an optional top-level `docsReviewed` date for when those
 links were last checked against live documentation; it is `null` until someone
-actually checks, because a wrong freshness date is worse than none. Per-feature
-`lastVerified` dates (issue #42) override that fallback when present, and the
-blocker text quotes whichever it can support.
+actually checks, because a wrong freshness date is worse than none. The blocker
+text reads a per-feature `lastVerified` date in preference to it, but no feature
+carries one yet (issue #42); today the text quotes the catalog-wide date or says
+it does not know.
 
 ### 4. Step derivation
 
@@ -266,6 +287,13 @@ used:
 When nothing clears the gates, the curated steps are used and the module says so
 in the lab. That path raises `steps-not-derived` first, so it is a decision rather
 than a silent substitution.
+
+Expect that to happen often. The gates reject any candidate that is a fragment or
+that never names the screens the module is about, and Learn articles frequently
+carry no procedure that matches a module at that standard. A five-module
+healthcare build derived one; an eight-module sample derived three. The ratio
+moves whenever Microsoft edits a page, so the count the builder prints at the end
+of a run is the only number worth quoting.
 
 **No language model is involved.** Every derived step is a cleaned substring of a
 page that was fetched, which is a structural guarantee that the builder cannot
@@ -361,12 +389,14 @@ Each module renders as:
 
 - **What you are doing** and **Why it matters**
 - **From the docs** — a quoted Microsoft Learn excerpt with a link
-- **Concepts before you click** — the mental model
-- **Do this** — numbered, click-level steps
+- **Concepts before you click** — the mental model, from the curated catalog
+- **Do this** — numbered, click-level steps, followed by a line naming where they
+  came from: the documentation page and the date it was read, or a note that the
+  curated catalog steps were used and why
 - **In your scenario** — the module applied to the chosen industry
 - Screenshots (reused) and capture callouts (to fill in)
-- **Check your work** — per-module validation
-- **Microsoft Learn references** — citations
+- **Check your work** — per-module validation, from the curated catalog
+- **Microsoft Learn references** — citations, relevance-scored and link-checked
 
 ---
 
@@ -461,6 +491,6 @@ cd portal && npm test
 
 `portal/test/lab-builder.test.js` covers catalog integrity, prerequisite
 expansion and ordering, planner behavior (time budgets, unknown inputs), blocker
-detection and resolution for all four codes, LLM provider detection, and a full
+detection and resolution for all seven codes, LLM provider detection, and a full
 offline generation that must pass every validator rule. No network access is
 required.
