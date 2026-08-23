@@ -56,6 +56,53 @@ function parseImageRefs(content) {
   return refs;
 }
 
+/**
+ * Relative link targets that point nowhere on disk.
+ *
+ * The lab builder reads walk-through steps out of live Microsoft Learn pages,
+ * and those pages link between themselves with bare slugs — `(nlu-boost-node)`
+ * rather than a full URL. Issue #46 absolutizes them when it derives steps; this
+ * is the guard that catches one that slips through any other path, since a bare
+ * slug renders as a link that silently goes nowhere.
+ *
+ * This is preventive, not a repair. Measured across all 40 hand-written labs
+ * before it was written: 86 relative links, every one of which resolves on disk,
+ * and none with the bare-slug shape. That measurement is also why the rule is
+ * "does not resolve" rather than "is relative" — the latter would fire 86 times
+ * on content that is perfectly correct.
+ *
+ * Deliberately conservative, because a false positive here blocks a build:
+ *   - anything with a scheme is somebody else's problem (link checking covers
+ *     http(s) at generation time)
+ *   - `#anchor` is in-page
+ *   - `/rooted` and `//host` are site-absolute and cannot be resolved from disk
+ */
+function parseRelativeLinkRefs(content) {
+  const refs = [];
+  // The leading group excludes `![...]`, which is an image and is checked above.
+  const re = /(^|[^!])\[[^\]]*]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g;
+  let match;
+
+  while ((match = re.exec(content))) {
+    let ref = match[2].trim().replace(/^<|>$/g, "");
+    ref = ref.split("#")[0].split("?")[0].trim();
+
+    if (!ref) continue;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(ref)) continue;
+    if (ref.startsWith("#") || ref.startsWith("/")) continue;
+
+    let decoded = ref;
+    try {
+      decoded = decodeURIComponent(ref);
+    } catch {
+      /* an undecodable target is still checked as written */
+    }
+    refs.push(decoded.replace(/\\/g, "/"));
+  }
+
+  return [...new Set(refs)];
+}
+
 function resolveLabPath(labDir, relativePath) {
   return resolve(labDir, relativePath);
 }
@@ -118,6 +165,7 @@ function missingIndexResult(labId, title, labDir) {
     { name: "min-length", status: "fail", message: "Cannot inspect content length because index.md is missing." },
     { name: "no-todo-markers", status: "fail", message: "Cannot inspect TODO markers because index.md is missing." },
     { name: "no-broken-image-refs", status: "fail", message: "Cannot inspect image references because index.md is missing." },
+    { name: "no-broken-relative-links", status: "fail", message: "Cannot inspect relative links because index.md is missing." },
     { name: "no-empty-sections", status: "fail", message: "Cannot inspect sections because index.md is missing." },
     { name: "screenshots-exist", status: "fail", message: "Cannot inspect screenshots because index.md is missing." },
   ];
@@ -172,6 +220,8 @@ export function validateLabDir(labDir, { labId = labDir, title = labId } = {}) {
   const industry = extractMeta(content, "INDUSTRIES") || extractMeta(content, "INDUSTRY");
   const imageRefs = parseImageRefs(content);
   const brokenImageRefs = imageRefs.filter((ref) => !existsSync(resolveLabPath(labDir, ref)));
+  const relativeLinkRefs = parseRelativeLinkRefs(content);
+  const brokenRelativeLinks = relativeLinkRefs.filter((ref) => !existsSync(resolveLabPath(labDir, ref)));
   const assetFiles = collectAssetFiles(labDir);
   const referencedAssets = new Set(
     imageRefs
@@ -286,6 +336,15 @@ export function validateLabDir(labDir, { labId = labDir, title = labId } = {}) {
       : imageRefs.length
       ? `Validated ${imageRefs.length} image reference(s).`
       : "No local image references found.",
+  });
+  tests.push({
+    name: "no-broken-relative-links",
+    status: brokenRelativeLinks.length ? "fail" : "pass",
+    message: brokenRelativeLinks.length
+      ? `Relative link(s) that resolve to nothing: ${brokenRelativeLinks.join(", ")}. A documentation slug such as (nlu-boost-node) must be an absolute URL.`
+      : relativeLinkRefs.length
+      ? `Validated ${relativeLinkRefs.length} relative link(s).`
+      : "No relative links found.",
   });
   tests.push({
     name: "no-empty-sections",

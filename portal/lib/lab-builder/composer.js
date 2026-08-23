@@ -58,7 +58,50 @@ function scrubForbidden(text) {
     .replace(/\bXXX\b/gi, "placeholder");
 }
 
-function metadataTable(plan) {
+/**
+ * The at-a-glance freshness stamp.
+ *
+ * A generated lab is a point-in-time artifact: its citations were harvested from
+ * a live search on one particular day and confirmed to resolve on that day.
+ * Someone opening it six months later needs to know that from the top of the
+ * page, not from a manifest they will never open — which is half of issue #41.
+ *
+ * The wording tracks what actually happened. When link checking was switched off
+ * the row says so instead of quoting a date, because a freshness date that was
+ * never earned is worse than none at all. For the same reason the row only names
+ * the Learn host when the build actually opened a Learn session — `--no-learn`
+ * reaches both branches below, and claiming the lab was generated against
+ * learn.microsoft.com there would contradict the body of the lab.
+ *
+ * The signal is `learnConnected`, not the grounded-module count: a build can read
+ * Learn pages to derive steps and still end up with no module whose citations
+ * cleared the relevance floor.
+ */
+function freshnessRow(generation) {
+  const check = generation.linkCheck;
+  const day = (check?.verifiedAt || generation.generatedAt || "").slice(0, 10);
+  if (!day) return null;
+
+  let host = "Microsoft Learn";
+  try {
+    host = new URL(generation.endpoint).host;
+  } catch {
+    /* keep the human-readable fallback */
+  }
+
+  const readLearn = generation.learnConnected !== false;
+
+  if (!check?.enabled || !check?.verifiedAt) {
+    return readLearn
+      ? `| 🔗 **VERIFIED** | Not link-checked — generated ${day} against ${host} |`
+      : `| 🔗 **VERIFIED** | Not link-checked — generated ${day} without reading Microsoft Learn |`;
+  }
+  return readLearn
+    ? `| 🔗 **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}, grounded against ${host} |`
+    : `| 🔗 **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}; Microsoft Learn was not read for this build |`;
+}
+
+function metadataTable(plan, generation = {}) {
   const industries = plan.industry ? plan.industry.name : "Cross-industry";
   const tags = plan.tags.slice(0, 8).join(", ");
   return [
@@ -69,7 +112,10 @@ function metadataTable(plan) {
     `| 🧩 **PRODUCTS** | ${PRODUCTS} |`,
     `| 🏷️ **TAGS** | ${tags} |`,
     `| 🏭 **INDUSTRIES** | ${industries} |`,
-  ].join("\n");
+    freshnessRow(generation),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function overviewSection(plan, enrichment) {
@@ -201,22 +247,75 @@ function citationBlock(grounding) {
   ];
 }
 
+/**
+ * The "From the docs" pull quote.
+ *
+ * It must come from the *best* source, not merely the first long one. Before
+ * issue #40 this took the first result whose excerpt cleared 120 characters,
+ * which on a "Create an agent" module could quote a Microsoft Fabric page under
+ * a Copilot Studio heading — a quote that reads as authoritative precisely
+ * because it is well written about the wrong product.
+ *
+ * `groundFeature` already ranks results by relevance and drops everything below
+ * the floor, so the highest-scoring usable excerpt is the honest choice. The
+ * sort is defensive: callers and fixtures may pass unranked results, and an
+ * unscored result sorts last rather than winning by accident.
+ */
 function groundedInsight(grounding) {
-  const best = (grounding?.results || []).find((r) => r.excerpt && r.excerpt.length > 120);
-  if (!best) return [];
+  const usable = (grounding?.results || []).filter((r) => r.excerpt && r.excerpt.length > 120);
+  if (!usable.length) return [];
+
+  const best = [...usable].sort((a, b) => (b.relevance ?? -1) - (a.relevance ?? -1))[0];
   const quote = scrubForbidden(condense(best.excerpt));
   if (!quote) return [];
   const attribution = best.url ? ` — [Microsoft Learn](${best.url})` : "";
   return ["", "> **From the docs:** " + quote + attribution];
 }
 
-function featureSection(feature, plan, grounding, shots, enrichment) {
+/**
+ * Where this module's steps came from, stated in the lab itself.
+ *
+ * A learner following a click list deserves to know whether it was read off the
+ * current documentation or off a catalog that may have aged. Before issue #37
+ * the lab's header claimed every module was "grounded on Microsoft Learn" while
+ * the steps were always the catalog's — this line is what makes the claim honest
+ * per module.
+ */
+function stepProvenance(record) {
+  if (!record || record.source !== "doc-derived") {
+    const why =
+      record?.reason === "fetch-failed"
+        ? "its documentation page could not be read"
+        : record?.reason === "learn-unavailable"
+        ? "Microsoft Learn grounding was not used for this build"
+        : record?.reason === "no-doc-url"
+        ? "no documentation page is on file for it"
+        : "no procedure on its documentation page matched this module closely enough";
+    return [
+      "",
+      `*These steps come from this repository's curated catalog, because ${why}. ` +
+        `They were accurate when written, but they are not verified against the current product. ` +
+        `If a click does not match what you see, trust the Microsoft Learn link in this module.*`,
+    ];
+  }
+
+  const heading = record.sectionHeading ? scrubForbidden(record.sectionHeading) : "the current documentation";
+  const day = record.fetchedAt ? String(record.fetchedAt).slice(0, 10) : null;
+  const link = record.url ? `[${heading}](${record.url})` : heading;
+  return ["", `*Read from ${link}${day ? ` on ${day}` : ""}.*`];
+}
+
+function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord) {
   const profile = plan.profile;
   const applied =
     enrichment?.applied ||
     `Do this for **${profile.agentName}**: ${lowerFirst(feature.summary.replace(/\.$/, ""))}, using the ${profile.domain} content described in **The Scenario** above. Keep the wording consistent with the domain language for this lab (${profile.terms.slice(0, 3).join(", ")}) so answers sound like they came from your team.`;
 
-  const steps = feature.steps.map((step, index) => `${index + 1}. ${scrubForbidden(step)}`);
+  // Doc-derived steps when the live page could be read, curated steps otherwise.
+  // Both paths are scrubbed: derived steps are untrusted fetched content, and
+  // the validator rejects TODO-style markers anywhere in a lab file.
+  const source = stepsRecord?.steps?.length ? stepsRecord.steps : feature.steps;
+  const steps = source.map((step, index) => `${index + 1}. ${scrubForbidden(step)}`);
 
   return [
     `### Step ${feature.order} - ${feature.name}`,
@@ -233,6 +332,7 @@ function featureSection(feature, plan, grounding, shots, enrichment) {
     bullets(feature.concepts.map(scrubForbidden)),
     "",
     "**Do this**",
+    ...stepProvenance(stepsRecord),
     "",
     steps.join("\n"),
     "",
@@ -305,17 +405,58 @@ function completeSection(plan) {
 
 function howToUseSection(plan, generation) {
   const grounded = generation.groundedFeatures;
+  const derived = generation.docDerivedFeatures ?? 0;
   const total = plan.features.length;
   const provider = generation.llmProvider;
+  const plural = total === 1 ? "" : "s";
+  const check = generation.linkCheck;
+  const verifiedDay = (check?.verifiedAt || "").slice(0, 10);
+  const generatedDay = (generation.generatedAt || "").slice(0, 10);
+
+  let endpoint = generation.endpoint || "the Microsoft Learn MCP server";
+  try {
+    endpoint = new URL(generation.endpoint).host;
+  } catch {
+    /* keep whatever was supplied */
+  }
 
   const lines = [
     "## How This Lab Was Built",
     "",
-    `This lab was generated for your selections rather than written by hand. Content for ${grounded} of ${total} module${total === 1 ? "" : "s"} was grounded against live Microsoft Learn documentation through the Microsoft Learn MCP server, and every module links back to its sources so you can verify anything that looks out of date.`,
+    "This lab was generated for your selections rather than written by hand. It draws on live Microsoft Learn documentation where it can and on this repository's curated Copilot Studio feature catalog where it cannot, and the two age differently — so here is which is which.",
+    "",
+    (grounded > 0
+      ? `**Citations.** The Microsoft Learn references in ${grounded} of ${total} module${plural} were found by searching the Microsoft Learn MCP server at build time and then scored for relevance, so a page about a different Microsoft product is dropped rather than quoted under a Copilot Studio heading.${
+          grounded < total ? ` The other ${total - grounded} rely on this repository's curated documentation links instead.` : ""
+        }`
+      : `**Citations.** No module's references came from a live search on this build. Every link below is a curated documentation link from this repository's feature catalog.`) +
+      " " +
+      (check?.enabled && check?.verifiedAt
+        ? `Every link this lab embeds was then requested once, on ${verifiedDay}, to confirm it still resolves: ${check.checked} checked, ${check.broken} removed for returning an error, ${check.unreachable} kept but unreachable from the machine that built this.`
+        : `Link checking was switched off for this build, so no link below has been confirmed to resolve. Treat every reference as unverified.`),
+    "",
+    derived === total
+      ? `**Steps.** The click-by-click steps in every module were read from that feature's current documentation page at build time, not copied from a stored list. Each module names the page it came from and the date it was read.`
+      : derived > 0
+      ? `**Steps.** The click-by-click steps in ${derived} of ${total} module${plural} were read from that feature's current documentation page at build time. The other ${total - derived} use this repository's curated steps, because no procedure on the page matched the module closely enough to trust. Every module names which of the two it used; the ones read from a page also name that page and the date.`
+      : `**Steps.** No module's steps could be read from a live documentation page on this build, so every module uses this repository's curated steps. Each one says so, and why. They were accurate when written, but they are not verified against the current product.`,
     "",
     provider && provider !== "none"
-      ? `Narrative for your industry and role was drafted with ${provider} on top of that grounded content.`
-      : "No language model was configured, so the narrative comes from this repository's curated Copilot Studio feature catalog combined with the Microsoft Learn excerpts above.",
+      ? `**Narrative.** The overview and the per-module "In your scenario" passages were drafted with ${provider} on top of that grounded content. No language model wrote any of the steps.`
+      : grounded > 0
+      ? `**Narrative.** No language model was configured, so the overview and the per-module "In your scenario" passages come from this repository's curated feature catalog combined with the Microsoft Learn excerpts above. No language model writes the steps either way.`
+      : `**Narrative.** No language model was configured, so the overview and the per-module "In your scenario" passages come from this repository's curated feature catalog. No language model writes the steps either way.`,
+    "",
+    // Issue #41's second half. Generated labs live outside `labs/`, are
+    // git-ignored, and are therefore never seen by the monthly accuracy audit
+    // that re-checks the hand-written labs. Rather than imply a recurring check
+    // that does not exist, the lab states its own shelf life and points at the
+    // action that actually fixes staleness: build it again, which costs a minute.
+    `**This lab is a point-in-time artifact.** ${
+      generation.learnConnected !== false
+        ? `It was generated on ${generatedDay || "the date shown above"} and grounded against ${endpoint} as that documentation stood that day.`
+        : `It was generated on ${generatedDay || "the date shown above"} from this repository's catalog as it stood that day, without reading Microsoft Learn.`
+    } It is not part of the monthly accuracy audit that re-checks this repository's hand-written labs, and nothing will re-verify it in place. If you are reading this well after the date above, regenerate it rather than trusting it — the builder will pick up whatever Microsoft has changed since.`,
     "",
     "Product UI changes often. If a step does not match what you see, follow the Microsoft Learn link in that module — that link is the source of truth.",
   ];
@@ -330,15 +471,16 @@ function howToUseSection(plan, generation) {
  * @param {Map<string, object>} groundingByFeature featureId -> groundFeature() result
  * @param {Map<string, object>} shotsByFeature featureId -> { reused, capture }
  * @param {object} enrichment { overview?, byFeature?: Map<string, {applied}> }
- * @param {object} generation { groundedFeatures, llmProvider, generatedAt }
+ * @param {object} generation { groundedFeatures, docDerivedFeatures, llmProvider, generatedAt }
+ * @param {Map<string, object>} [stepsByFeature] featureId -> step provenance record
  */
-export function composeLab(plan, groundingByFeature, shotsByFeature, enrichment = {}, generation = {}) {
+export function composeLab(plan, groundingByFeature, shotsByFeature, enrichment = {}, generation = {}, stepsByFeature = new Map()) {
   const sections = [
     `# ${scrubForbidden(plan.title)}`,
     "",
     `*Build ${plan.profile.agentName} in Microsoft Copilot Studio, one grounded module at a time.*`,
     "",
-    metadataTable(plan),
+    metadataTable(plan, generation),
     "",
     "---",
     "",
@@ -364,6 +506,7 @@ export function composeLab(plan, groundingByFeature, shotsByFeature, enrichment 
         groundingByFeature.get(feature.id),
         shotsByFeature.get(feature.id) || { reused: [], capture: [] },
         enrichment.byFeature?.get(feature.id),
+        stepsByFeature.get(feature.id),
       ),
       "",
     );

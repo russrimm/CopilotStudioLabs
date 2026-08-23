@@ -12,6 +12,8 @@
  * generator falls back to the curated `docUrls` in the feature catalog.
  */
 
+import { rankResults, DEFAULT_FLOOR, MAX_SOURCES } from "./relevance.js";
+
 const DEFAULT_ENDPOINT = process.env.LEARN_MCP_URL || "https://learn.microsoft.com/api/mcp";
 const DEFAULT_TIMEOUT_MS = Number(process.env.LEARN_MCP_TIMEOUT_MS || 30000);
 const PROTOCOL_VERSION = "2025-06-18";
@@ -287,36 +289,78 @@ export async function searchDocs(session, query, { limit = 6 } = {}) {
 }
 
 /**
+ * Fetch a full Learn page as markdown, with enough context to tell the
+ * difference between "the page was empty" and "the fetch failed".
+ *
+ * `fetchDoc` cannot express that distinction — it returns "" for both — and the
+ * step-derivation path needs it, because a transient fetch failure is worth
+ * retrying and an unparseable page is not.
+ *
+ * Always resolves. Never throws except on caller cancellation.
+ *
+ * @returns {Promise<{markdown:string, url:string, fetchedAt:string|null, error:string|null}>}
+ */
+export async function fetchDocPage(session, url) {
+  if (!session?.ok) return { markdown: "", url, fetchedAt: null, error: "Microsoft Learn session is not connected" };
+  if (!url) return { markdown: "", url, fetchedAt: null, error: "No documentation URL was supplied" };
+
+  const cacheKey = `page:${session.endpoint}:${url}`;
+  const cached = cacheGet(cacheKey);
+  if (cached !== undefined) return cached;
+
+  let page;
+  try {
+    const result = await session.call("microsoft_docs_fetch", { url });
+    page = { markdown: toTextChunks(result).join("\n\n"), url, fetchedAt: new Date().toISOString(), error: null };
+  } catch (err) {
+    if (err.name === "AbortError") throw err;
+    page = { markdown: "", url, fetchedAt: null, error: err.message || String(err) };
+  }
+
+  cacheSet(cacheKey, page);
+  return page;
+}
+
+/**
  * Fetch a full Learn page as markdown.
  * @returns {Promise<string>} markdown, or "" on failure
  */
 export async function fetchDoc(session, url) {
-  if (!session?.ok || !url) return "";
-
-  const cacheKey = `fetch:${session.endpoint}:${url}`;
-  const cached = cacheGet(cacheKey);
-  if (cached !== undefined) return cached;
-
-  try {
-    const result = await session.call("microsoft_docs_fetch", { url });
-    const markdown = toTextChunks(result).join("\n\n");
-    cacheSet(cacheKey, markdown);
-    return markdown;
-  } catch (err) {
-    if (err.name === "AbortError") throw err;
-    cacheSet(cacheKey, "");
-    return "";
-  }
+  const page = await fetchDocPage(session, url);
+  return page.markdown;
 }
 
 /**
  * Gather grounding material for one catalog feature.
  * Always resolves; falls back to the feature's curated docUrls.
  *
- * @returns {Promise<{featureId:string, results:Array, sources:Array, grounded:boolean}>}
+ * Search results are scored before they are cited (see `relevance.js`), because
+ * `microsoft_docs_search` spans every Microsoft product and its own ranking has
+ * no idea which one this lab is about. Results below the relevance floor are
+ * reported in `dropped` rather than discarded silently, so a reviewer can see
+ * what the filter refused.
+ *
+ * The empty case has a deliberate order:
+ *   1. cite the search results that clear the floor
+ *   2. if none do, cite the curated `docUrls`, which are on-target by construction
+ *   3. only if those are empty too is the module ungrounded
+ *
+ * Step 2 is the point. A noisy search is not a reason to stop and ask a human —
+ * raising `modules-ungrounded` every time Learn returned something off-topic
+ * would prompt constantly and teach people to click through the prompt, which
+ * costs more than it protects. `grounded` therefore means "this module has
+ * citations at all"; `learnVerified` is the narrower claim that they came from
+ * live search, and that is the one the lab's header is allowed to make.
+ *
+ * @returns {Promise<{featureId:string, results:Array, sources:Array, grounded:boolean,
+ *                    learnVerified:boolean, relevance:object}>}
  */
-export async function groundFeature(session, feature, { perQuery = 4 } = {}) {
-  const queries = feature.learnQueries?.length ? feature.learnQueries : [`Copilot Studio ${feature.name}`];
+export async function groundFeature(session, feature, { perQuery = 4, floor = DEFAULT_FLOOR } = {}) {
+  // The fallback names the product, because an unscoped "Copilot Studio X" is
+  // exactly the query shape that pulls in Fabric and Power Automate pages.
+  const queries = feature.learnQueries?.length
+    ? feature.learnQueries
+    : [`Microsoft Copilot Studio ${feature.name}`];
   const collected = [];
 
   for (const query of queries) {
@@ -324,19 +368,29 @@ export async function groundFeature(session, feature, { perQuery = 4 } = {}) {
     collected.push(...items);
   }
 
-  const results = dedupeByUrl(collected);
-  const learnSources = results
+  const { kept, dropped } = rankResults(dedupeByUrl(collected), feature, { floor });
+
+  const learnSources = kept
     .filter((item) => item.url)
     .map((item) => ({ title: item.title || item.url, url: item.url }));
 
+  // Curated links top up the list rather than replacing it: they are on-target
+  // by construction, and they are the same pages `steps.js` reads.
   const fallbackSources = (feature.docUrls || []).map((url) => ({ title: url, url }));
-  const sources = dedupeByUrl([...learnSources, ...fallbackSources]).slice(0, 6);
+  const sources = dedupeByUrl([...learnSources, ...fallbackSources]).slice(0, MAX_SOURCES);
 
   return {
     featureId: feature.id,
-    results: results.slice(0, 8),
+    results: kept.slice(0, 8),
     sources,
-    grounded: results.length > 0,
+    grounded: sources.length > 0,
+    learnVerified: learnSources.length > 0,
+    relevance: {
+      floor,
+      considered: kept.length + dropped.length,
+      kept: kept.length,
+      droppedAsIrrelevant: dropped.map((item) => ({ url: item.url, relevance: item.relevance })),
+    },
   };
 }
 
