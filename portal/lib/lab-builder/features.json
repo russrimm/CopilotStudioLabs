@@ -176,8 +176,8 @@
         "Copilot Studio write effective agent instructions generative orchestration"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-generative-actions",
-        "https://learn.microsoft.com/microsoft-copilot-studio/guidance/instructions-overview"
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-instructions",
+        "https://learn.microsoft.com/microsoft-copilot-studio/guidance/generative-mode-guidance"
       ],
       "prereqs": [
         "create-agent"
