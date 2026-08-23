@@ -58,7 +58,37 @@ function scrubForbidden(text) {
     .replace(/\bXXX\b/gi, "placeholder");
 }
 
-function metadataTable(plan) {
+/**
+ * The at-a-glance freshness stamp.
+ *
+ * A generated lab is a point-in-time artifact: its citations were harvested from
+ * a live search on one particular day and confirmed to resolve on that day.
+ * Someone opening it six months later needs to know that from the top of the
+ * page, not from a manifest they will never open — which is half of issue #41.
+ *
+ * The wording tracks what actually happened. When link checking was switched off
+ * the row says so instead of quoting a date, because a freshness date that was
+ * never earned is worse than none at all.
+ */
+function freshnessRow(generation) {
+  const check = generation.linkCheck;
+  const day = (check?.verifiedAt || generation.generatedAt || "").slice(0, 10);
+  if (!day) return null;
+
+  let host = "Microsoft Learn";
+  try {
+    host = new URL(generation.endpoint).host;
+  } catch {
+    /* keep the human-readable fallback */
+  }
+
+  if (!check?.enabled || !check?.verifiedAt) {
+    return `| 🔗 **VERIFIED** | Not link-checked — generated ${day} against ${host} |`;
+  }
+  return `| 🔗 **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}, grounded against ${host} |`;
+}
+
+function metadataTable(plan, generation = {}) {
   const industries = plan.industry ? plan.industry.name : "Cross-industry";
   const tags = plan.tags.slice(0, 8).join(", ");
   return [
@@ -69,7 +99,10 @@ function metadataTable(plan) {
     `| 🧩 **PRODUCTS** | ${PRODUCTS} |`,
     `| 🏷️ **TAGS** | ${tags} |`,
     `| 🏭 **INDUSTRIES** | ${industries} |`,
-  ].join("\n");
+    freshnessRow(generation),
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 function overviewSection(plan, enrichment) {
@@ -363,6 +396,16 @@ function howToUseSection(plan, generation) {
   const total = plan.features.length;
   const provider = generation.llmProvider;
   const plural = total === 1 ? "" : "s";
+  const check = generation.linkCheck;
+  const verifiedDay = (check?.verifiedAt || "").slice(0, 10);
+  const generatedDay = (generation.generatedAt || "").slice(0, 10);
+
+  let endpoint = generation.endpoint || "the Microsoft Learn MCP server";
+  try {
+    endpoint = new URL(generation.endpoint).host;
+  } catch {
+    /* keep whatever was supplied */
+  }
 
   const lines = [
     "## How This Lab Was Built",
@@ -375,9 +418,20 @@ function howToUseSection(plan, generation) {
       ? `The click-by-click steps for ${derived} of ${total} module${plural} were read from the current documentation page at build time; the remaining ${total - derived} use this repository's curated steps. Every module says which of the two it used, and when.`
       : `The click-by-click steps come from this repository's curated Copilot Studio feature catalog rather than from a live page — each module says so, and why.`,
     "",
+    check?.enabled && check?.verifiedAt
+      ? `Every link in this lab was requested on ${verifiedDay} to confirm it resolves: ${check.checked} checked, ${check.broken} removed for returning an error, ${check.unreachable} kept but unreachable from the machine that built this.`
+      : `Link checking was switched off for this build, so no link below has been confirmed to resolve. Treat every reference as unverified.`,
+    "",
     provider && provider !== "none"
       ? `Narrative for your industry and role was drafted with ${provider} on top of that grounded content. No language model was involved in producing the steps.`
       : "No language model was configured, so the narrative comes from this repository's curated Copilot Studio feature catalog combined with the Microsoft Learn excerpts above. The steps do not depend on a language model either way.",
+    "",
+    // Issue #41's second half. Generated labs live outside `labs/`, are
+    // git-ignored, and are therefore never seen by the monthly accuracy audit
+    // that re-checks the hand-written labs. Rather than imply a recurring check
+    // that does not exist, the lab states its own shelf life and points at the
+    // action that actually fixes staleness: build it again, which costs a minute.
+    `**This lab is a point-in-time artifact.** It was generated on ${generatedDay || "the date shown above"} and grounded against ${endpoint} as that documentation stood that day. It is not part of the monthly accuracy audit that re-checks this repository's hand-written labs, and nothing will re-verify it in place. If you are reading this well after the date above, regenerate it rather than trusting it — the builder will pick up whatever Microsoft has changed since.`,
     "",
     "Product UI changes often. If a step does not match what you see, follow the Microsoft Learn link in that module — that link is the source of truth.",
   ];
@@ -401,7 +455,7 @@ export function composeLab(plan, groundingByFeature, shotsByFeature, enrichment 
     "",
     `*Build ${plan.profile.agentName} in Microsoft Copilot Studio, one grounded module at a time.*`,
     "",
-    metadataTable(plan),
+    metadataTable(plan, generation),
     "",
     "---",
     "",

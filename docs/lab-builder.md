@@ -17,9 +17,10 @@ Output lands in `generated-labs/<slug>/` (git-ignored) as:
 ```
 generated-labs/<slug>/
   index.md        the lab, in this repo's standard lab format
-  manifest.json   what was selected, what was grounded, the Learn sources used,
-                  where each module's steps came from, and any decisions a
-                  human made about a blocked build
+  manifest.json   what was selected, what was grounded, the Learn sources used
+                  and the HTTP status each returned when checked, when they were
+                  verified, where each module's steps came from, and any
+                  decisions a human made about a blocked build
   shots.json      capture manifest for the screenshots that could not be reused
   assets/         screenshots copied from existing labs in this repo
 ```
@@ -82,6 +83,7 @@ each stating its tradeoff.
 |---|---|---|
 | `learn-mcp-unavailable` | The Learn MCP handshake fails. | `retry` *(recommended)*, `proceed-curated`, `cancel` |
 | `modules-ungrounded` | A module has nothing to cite: no relevant search result and no curated link. | `proceed-curated` *(recommended)*, `drop-modules`, `cancel` |
+| `sources-dead` | Link checking found that *every* URL a module cites returns an error, leaving it with no reference. | `proceed-flagged` *(recommended)*, `drop-modules`, `cancel` |
 | `steps-fetch-failed` | A module's documentation page could not be read. | `retry` *(recommended)*, `proceed-catalog`, `cancel` |
 | `steps-not-derived` | The page was read, but no procedure on it matched the module. | `proceed-catalog` *(recommended)*, `cancel` |
 | `llm-partial-failure` | A configured model wrote some passages but not others. | `retry` *(recommended)*, `proceed-deterministic`, `proceed-mixed`, `cancel` |
@@ -150,7 +152,7 @@ flowchart LR
   S --> D[LLM enrichment<br/>optional]
   D --> E[Composer]
   E --> F[index.md + assets + shots.json]
-  F --> G[Validator<br/>same 17 rules as labs/]
+  F --> G[Validator<br/>same 19 rules as labs/]
 ```
 
 ### 1. Feature catalog
@@ -321,6 +323,39 @@ node tools/screenshot-capture/capture.js --manifest="generated-labs/<slug>/shots
 labs look and validate exactly like the handwritten ones. Every generated lab is
 run through the same rule set as `labs/` (`validateLabDir()` in
 `portal/lib/validator.js`) before the builder reports success.
+
+Before composition, every URL the lab is about to embed is requested once
+(`linkcheck.js`). This is the liveness check `validateLabDir()` cannot do — it is
+structural, and `parseImageRefs` skips anything with an `http:` scheme, so until
+issue #41 a build could report all checks passing while citing a page that no
+longer exists.
+
+The check reuses the approach in `tools/lab-accuracy/check-accuracy.mjs`: GET
+rather than HEAD, because some Learn endpoints reject HEAD; redirects followed;
+and HTTP >= 400 kept distinct from status 0. That distinction decides what
+happens next:
+
+- **4xx/5xx** — the origin says the page is gone, so the citation is removed. If
+  the module still has others, that is a warning, not a blocker; keeping five
+  good links instead of six is not a decision anyone would make differently.
+- **Status 0** — a timeout, DNS failure, or proxy. That is evidence about the
+  machine running the build, not about the page, so the citation is kept and
+  reported as a warning.
+
+Only a module left with *no* citation at all raises `sources-dead`. URLs are
+deduplicated per run, checked with a bounded concurrency of 8 and an 8s timeout
+(`LAB_BUILDER_LINK_TIMEOUT_MS`). Measured on a five-module healthcare build with
+28 unique URLs, the check adds roughly 0.7s to a 3.5s build.
+
+Set `LAB_BUILDER_LINK_CHECK=off` to skip it — for an air-gapped build, or for
+tests. A lab built that way says so in place of a verification date rather than
+implying a check that never ran.
+
+`manifest.json` records `verifiedAt`, a `linkCheck` summary, and the HTTP status
+of each source. The lab itself carries a **VERIFIED** metadata row and states
+that it is a point-in-time artifact: generated labs live outside `labs/`, are
+git-ignored, and are therefore not covered by the monthly accuracy audit, so the
+remedy for an old one is to regenerate it rather than re-read it.
 
 Each module renders as:
 
