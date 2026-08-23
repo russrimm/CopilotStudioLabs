@@ -10,7 +10,7 @@
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "@azure/msal-node": "^5.2.4",
+    "@azure/msal-node": "^5.4.2",
     "archiver": "^8.0.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
