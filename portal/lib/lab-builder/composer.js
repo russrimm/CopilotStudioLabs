@@ -68,7 +68,14 @@ function scrubForbidden(text) {
  *
  * The wording tracks what actually happened. When link checking was switched off
  * the row says so instead of quoting a date, because a freshness date that was
- * never earned is worse than none at all.
+ * never earned is worse than none at all. For the same reason the row only names
+ * the Learn host when the build actually opened a Learn session — `--no-learn`
+ * reaches both branches below, and claiming the lab was generated against
+ * learn.microsoft.com there would contradict the body of the lab.
+ *
+ * The signal is `learnConnected`, not the grounded-module count: a build can read
+ * Learn pages to derive steps and still end up with no module whose citations
+ * cleared the relevance floor.
  */
 function freshnessRow(generation) {
   const check = generation.linkCheck;
@@ -82,10 +89,16 @@ function freshnessRow(generation) {
     /* keep the human-readable fallback */
   }
 
+  const readLearn = generation.learnConnected !== false;
+
   if (!check?.enabled || !check?.verifiedAt) {
-    return `| 🔗 **VERIFIED** | Not link-checked — generated ${day} against ${host} |`;
+    return readLearn
+      ? `| 🔗 **VERIFIED** | Not link-checked — generated ${day} against ${host} |`
+      : `| 🔗 **VERIFIED** | Not link-checked — generated ${day} without reading Microsoft Learn |`;
   }
-  return `| 🔗 **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}, grounded against ${host} |`;
+  return readLearn
+    ? `| 🔗 **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}, grounded against ${host} |`
+    : `| 🔗 **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}; Microsoft Learn was not read for this build |`;
 }
 
 function metadataTable(plan, generation = {}) {
@@ -430,7 +443,9 @@ function howToUseSection(plan, generation) {
     "",
     provider && provider !== "none"
       ? `**Narrative.** The overview and the per-module "In your scenario" passages were drafted with ${provider} on top of that grounded content. No language model wrote any of the steps.`
-      : `**Narrative.** No language model was configured, so the overview and the per-module "In your scenario" passages come from this repository's curated feature catalog combined with the Microsoft Learn excerpts above. No language model writes the steps either way.`,
+      : grounded > 0
+      ? `**Narrative.** No language model was configured, so the overview and the per-module "In your scenario" passages come from this repository's curated feature catalog combined with the Microsoft Learn excerpts above. No language model writes the steps either way.`
+      : `**Narrative.** No language model was configured, so the overview and the per-module "In your scenario" passages come from this repository's curated feature catalog. No language model writes the steps either way.`,
     "",
     // Issue #41's second half. Generated labs live outside `labs/`, are
     // git-ignored, and are therefore never seen by the monthly accuracy audit
@@ -438,7 +453,7 @@ function howToUseSection(plan, generation) {
     // that does not exist, the lab states its own shelf life and points at the
     // action that actually fixes staleness: build it again, which costs a minute.
     `**This lab is a point-in-time artifact.** ${
-      grounded > 0
+      generation.learnConnected !== false
         ? `It was generated on ${generatedDay || "the date shown above"} and grounded against ${endpoint} as that documentation stood that day.`
         : `It was generated on ${generatedDay || "the date shown above"} from this repository's catalog as it stood that day, without reading Microsoft Learn.`
     } It is not part of the monthly accuracy audit that re-checks this repository's hand-written labs, and nothing will re-verify it in place. If you are reading this well after the date above, regenerate it rather than trusting it — the builder will pick up whatever Microsoft has changed since.`,
