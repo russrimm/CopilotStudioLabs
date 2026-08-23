@@ -81,7 +81,7 @@ each stating its tradeoff.
 | Code | Raised when | Options |
 |---|---|---|
 | `learn-mcp-unavailable` | The Learn MCP handshake fails. | `retry` *(recommended)*, `proceed-curated`, `cancel` |
-| `modules-ungrounded` | Learn connected, but a module found no results. | `proceed-curated` *(recommended)*, `drop-modules`, `cancel` |
+| `modules-ungrounded` | A module has nothing to cite: no relevant search result and no curated link. | `proceed-curated` *(recommended)*, `drop-modules`, `cancel` |
 | `steps-fetch-failed` | A module's documentation page could not be read. | `retry` *(recommended)*, `proceed-catalog`, `cancel` |
 | `steps-not-derived` | The page was read, but no procedure on it matched the module. | `proceed-catalog` *(recommended)*, `cancel` |
 | `llm-partial-failure` | A configured model wrote some passages but not others. | `retry` *(recommended)*, `proceed-deterministic`, `proceed-mixed`, `cancel` |
@@ -186,16 +186,55 @@ vocabulary, and the KPI to watch — plus per-role design guidance.
 [Microsoft Learn MCP server](https://learn.microsoft.com/api/mcp). No sign-in is
 required. For each module it runs the catalog's `learnQueries` through
 `microsoft_docs_search`, parses the SSE-framed response, dedupes by URL, and
-returns excerpts plus citations.
+then **scores every result for relevance before citing any of it**.
+
+That scoring step (`relevance.js`) is not optional polish. Learn search spans
+every Microsoft product at once, so a module about creating a Copilot Studio
+agent was citing Microsoft Fabric IQ, Power Automate process mining, and a
+Power Platform release plan, with the page that actually answered it ranked
+fourth. Every one of those URLs returns HTTP 200, so link checking cannot see
+the problem.
+
+A result is scored on three things:
+
+- **Product affinity** — does the URL sit under a documentation area this module
+  is expected to live in? The expected prefixes are derived from the catalog's
+  existing `docUrls`, so no catalog entry needs hand editing; a feature can
+  override them with `docPaths`. Affinity *multiplies* the topical score rather
+  than adding to it, because an off-product page scores well on words precisely
+  when it describes the same task in the wrong product.
+- **Topical overlap** — the title against the module name, and the excerpt
+  against the module's vocabulary, using the same tokenizer and the same
+  `overlap`/`coverage` measures `steps.js` uses to pick a procedure.
+- **Page kind** — release plans, "what's new", and troubleshooting articles are
+  demoted, but only when an unpenalized how-to already clears the floor.
+
+Results below the relevance floor are dropped from the citation list and
+recorded in the manifest under `relevance.droppedAsIrrelevant`, so a reviewer
+can see what the filter refused and why. The **From the docs** pull quote is
+taken from the highest-scoring source rather than the first sufficiently long
+one, so a module cannot quote one product's page under another product's
+heading.
 
 Every call degrades gracefully at the transport level: a timeout or a malformed
 response returns an empty result rather than throwing. What it does *not* do is
 quietly ship a lab built on that emptiness — an unreachable server raises the
-`learn-mcp-unavailable` blocker and a module with no results raises
-`modules-ungrounded`, and the build stops until a human decides.
+`learn-mcp-unavailable` blocker and the build stops until a human decides.
+
+A search that returns nothing *relevant* is deliberately not a blocker. It falls
+back to the catalog's curated `docUrls`, which are on-target by construction;
+only a module with no curated link either raises `modules-ungrounded`. Blocking
+on a merely noisy search would prompt on almost every build and teach people to
+click straight through the prompt.
+
+The manifest distinguishes the two claims per module: `grounded` means the
+module has citations at all, and the narrower `learnVerified` means they came
+from a live search that cleared the floor. Only `learnVerified` modules are
+counted in the lab's "checked against live Microsoft Learn documentation" line.
 
 The catalog's `docUrls` serve two purposes: they are the pages the step deriver
-reads (below), and they are the citation fallback when a search returns nothing.
+reads (below), and they are the citation fallback when a search returns nothing
+relevant.
 `features.json` carries an optional top-level `docsReviewed` date for when those
 links were last checked against live documentation; it is `null` until someone
 actually checks, because a wrong freshness date is worse than none. Per-feature

@@ -382,9 +382,16 @@ export async function generateLab(request, opts = {}) {
     groundingByFeature.set(featureId, result);
   }
 
-  // ── Gate 3: connected, but some modules found nothing ─────────────────────
+  // ── Gate 3: connected, but some modules have nothing to cite ──────────────
   // Only when the handshake succeeded: if it failed, gate 2 already covered
   // the same root cause and must not prompt twice.
+  //
+  // Since issue #40 this fires only when a module has *no* citation left — no
+  // search result cleared the relevance floor and the catalog carries no
+  // curated links either. A merely noisy search is not a blocker: it resolves
+  // to the curated links, which are on-target by construction. Prompting for
+  // every noisy search would train people to click straight through the prompt,
+  // which is the failure mode PR #44 warned about when it created this code.
   if (session.ok) {
     const ungrounded = plan.features.filter((feature) => !groundingByFeature.get(feature.id)?.grounded);
     if (ungrounded.length) {
@@ -393,9 +400,10 @@ export async function generateLab(request, opts = {}) {
       const outcome = gate(
         buildBlocker(BLOCKER_CODES.MODULES_UNGROUNDED, {
           consequence:
-            `Microsoft Learn returned no results for ${ungrounded.length} of ${plan.features.length} module(s): ${names}. ` +
-            `Those chapters would cite the curated fallback links, ${freshness.phrase}, while the rest of the lab cites ` +
-            `live documentation — so their accuracy is unverified and inconsistent with the lab around them.`,
+            `${ungrounded.length} of ${plan.features.length} module(s) have no documentation to cite: ${names}. ` +
+            `Microsoft Learn returned nothing relevant to them and the catalog carries no fallback link either, ` +
+            `${freshness.phrase} — so those chapters would ship with no reference at all while the rest of the ` +
+            `lab cites live documentation.`,
           detail: {
             modules: ungrounded.map((feature) => ({ id: feature.id, name: feature.name })),
             groundedModules: plan.features.length - ungrounded.length,
@@ -413,16 +421,20 @@ export async function generateLab(request, opts = {}) {
           if (!plan.features.some((feature) => feature.id === key)) groundingByFeature.delete(key);
         }
         plan.warnings.push(
-          `${before - plan.features.length} module(s) with no Microsoft Learn results were removed and listed under Where to Go Next.`,
+          `${before - plan.features.length} module(s) with no documentation to cite were removed and listed under Where to Go Next.`,
         );
       } else {
         plan.warnings.push(
-          `${ungrounded.length} module(s) found no Microsoft Learn results and cite the curated documentation links instead: ${names}.`,
+          `${ungrounded.length} module(s) have no Microsoft Learn reference of their own and ship without one: ${names}.`,
         );
       }
     }
   }
-  const groundedFeatures = plan.features.filter((feature) => groundingByFeature.get(feature.id)?.grounded).length;
+  // Counts the modules whose citations came from a live search that cleared the
+  // relevance floor. `grounded` is broader — it includes modules citing only the
+  // curated links — and using it here would let the lab's header claim those
+  // were "checked against live Microsoft Learn documentation" when they were not.
+  const groundedFeatures = plan.features.filter((feature) => groundingByFeature.get(feature.id)?.learnVerified).length;
 
   // ── 2. Read each module's steps from the live documentation ───────────────
   let stepsByFeature = await deriveAllSteps(session, plan, { onProgress, signal, maxConcurrency });
@@ -581,7 +593,14 @@ export async function generateLab(request, opts = {}) {
         level: f.level,
         minutes: f.minutes,
         grounded: Boolean(groundingByFeature.get(f.id)?.grounded),
+        // Narrower than `grounded`: this module's citations came from a live
+        // Learn search that cleared the relevance floor, not from the catalog's
+        // curated links. Only this claim supports "checked against live docs".
+        learnVerified: Boolean(groundingByFeature.get(f.id)?.learnVerified),
         sources: groundingByFeature.get(f.id)?.sources || [],
+        // What the relevance filter considered and what it refused, so an
+        // off-topic citation can be diagnosed without re-running the build.
+        relevance: groundingByFeature.get(f.id)?.relevance || null,
         // Where this module's walk-through steps came from, so a reader can
         // tell a verified click list from a curated one without re-running.
         steps: {

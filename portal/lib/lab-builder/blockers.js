@@ -64,12 +64,17 @@ const OPTIONS = Object.freeze({
     CANCEL_OPTION,
   ],
 
+  // Since issue #40 this fires only when a module has no citation at all: no
+  // search result cleared the relevance floor *and* the catalog carries no
+  // curated link for it. A merely noisy search resolves to the curated links
+  // without asking anyone, so the wording here must not promise links that in
+  // this state do not exist.
   [BLOCKER_CODES.MODULES_UNGROUNDED]: [
     {
       id: "proceed-curated",
-      label: "Cite the curated documentation links for those modules",
+      label: "Build those modules with whatever the catalog has",
       tradeoff:
-        "Those chapters cite the catalog's fallback links rather than live documentation. Every other chapter is still grounded on Microsoft Learn.",
+        "Those chapters ship with no Microsoft Learn reference of their own, so a learner who gets stuck in one has nothing authoritative to check. Every other chapter is still grounded on Microsoft Learn.",
       recommended: true,
     },
     {
@@ -153,7 +158,7 @@ const OPTIONS = Object.freeze({
 
 const TITLES = Object.freeze({
   [BLOCKER_CODES.LEARN_MCP_UNAVAILABLE]: "Microsoft Learn is unreachable",
-  [BLOCKER_CODES.MODULES_UNGROUNDED]: "Some modules found no Microsoft Learn results",
+  [BLOCKER_CODES.MODULES_UNGROUNDED]: "Some modules have no documentation to cite",
   [BLOCKER_CODES.STEPS_FETCH_FAILED]: "Some documentation pages could not be read",
   [BLOCKER_CODES.STEPS_NOT_DERIVED]: "Some modules' steps could not be read from the documentation",
   [BLOCKER_CODES.LLM_PARTIAL_FAILURE]: "Some model-written passages failed",

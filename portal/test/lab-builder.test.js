@@ -17,10 +17,11 @@ import {
 } from "../lib/lab-builder/catalog.js";
 import { planLab, slugify, dropModules } from "../lib/lab-builder/planner.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
-import { connect, searchDocs } from "../lib/lab-builder/learn-mcp.js";
+import { connect, searchDocs, groundFeature } from "../lib/lab-builder/learn-mcp.js";
 import { detectProvider } from "../lib/lab-builder/llm.js";
 import { curatedDocsAge, normalizeDecisions } from "../lib/lab-builder/blockers.js";
 import { scrubForbidden } from "../lib/lab-builder/composer.js";
+import { docPathPrefixes, pathAffinity } from "../lib/lab-builder/relevance.js";
 import { deriveSteps, diffSteps, extractProcedures } from "../lib/lab-builder/steps.js";
 
 // ── Catalog ─────────────────────────────────────────────────────────────────
@@ -244,10 +245,12 @@ test("generateLab bounds concurrent Microsoft Learn work", async () => {
     },
   );
   assert.equal(peak, 3);
-  // The malformed upstream content grounds nothing, so this now stops for a
-  // decision rather than quietly composing an unverified lab.
+  // The malformed upstream content yields no citable search result, but each
+  // module still has the catalog's curated links, so grounding is not what
+  // stops this build — the steps cannot be read from a malformed page.
   assert.equal(result.status, "blocked");
-  assert.equal(result.blockers[0].code, "modules-ungrounded");
+  assert.equal(result.blockers[0].code, "steps-not-derived");
+  assert.ok(!result.blockers.some((b) => b.code === "modules-ungrounded"));
 });
 
 test("generateLab honors cancellation before upstream work completes", async () => {
@@ -548,16 +551,51 @@ test("retry is not a resolution — the gate is evaluated again", async () => {
   assert.equal(result.blockers[0].code, "learn-mcp-unavailable");
 });
 
-test("a connected server that finds nothing blocks on the ungrounded modules", async () => {
+test("a connected server that finds nothing falls back to the curated links instead of blocking", async () => {
   const session = emptySession();
   const result = await generateLab(
     { features: ["topics"] },
-    { write: false, useLearnMcp: true, useLlm: false, connect: async () => session },
+    {
+      write: false,
+      useLearnMcp: true,
+      useLlm: false,
+      connect: async () => session,
+      // A separate gate, and not what this test is about.
+      decisions: { "steps-not-derived": "proceed-catalog" },
+    },
   );
 
-  assert.equal(result.status, "blocked");
-  assert.equal(result.blockers[0].code, "modules-ungrounded");
-  assert.ok(result.blockers[0].detail.modules.length > 0);
+  // An empty or noisy search is not a reason to stop and ask a human: the
+  // catalog's curated links are on-target by construction, so the module keeps
+  // real citations. Blocking here would prompt on every noisy search and teach
+  // people to click straight through the prompt.
+  assert.equal(result.status, "complete");
+  assert.ok(!result.blockers?.some((b) => b.code === "modules-ungrounded"));
+
+  const topics = result.manifest.modules.find((m) => m.id === "topics");
+  assert.ok(topics.sources.length > 0);
+  assert.equal(topics.grounded, true);
+  // But the narrower claim is false, and the lab must not make it.
+  assert.equal(topics.learnVerified, false);
+  assert.equal(result.manifest.grounding.groundedModules, 0);
+});
+
+test("a module with nothing to cite at all is still ungrounded", async () => {
+  // The blocker survives the issue #40 reordering; only its trigger narrows.
+  // Every catalog feature carries docUrls, so this is exercised directly.
+  const session = emptySession();
+  const bare = {
+    id: "bare",
+    name: "Something with no documentation",
+    summary: "A feature the catalog has no links for.",
+    learnQueries: ["a query that finds nothing"],
+    docUrls: [],
+  };
+
+  const result = await groundFeature(session, bare);
+  assert.equal(result.grounded, false);
+  assert.equal(result.learnVerified, false);
+  assert.deepEqual(result.sources, []);
 });
 
 test("ungrounded modules do not prompt twice when the handshake already failed", async () => {
@@ -571,24 +609,30 @@ test("ungrounded modules do not prompt twice when the handshake already failed",
   assert.equal(result.blockers[0].code, "learn-mcp-unavailable");
 });
 
-test("dropping ungrounded modules shortens the lab and keeps it valid", async () => {
-  const ungroundedId = "analytics";
-  const bad = new Set(getFeature(ungroundedId).learnQueries || []);
+test("a module whose search finds nothing keeps curated citations and says so", async () => {
+  // Before issue #40 this module blocked the build and could be dropped from
+  // the lab. It now completes on the catalog's curated links, and the manifest
+  // records that its citations were never verified against a live search.
+  const quietId = "analytics";
+  const bad = new Set(getFeature(quietId).learnQueries || []);
   sessionCounter += 1;
   const session = {
     ok: true,
     endpoint: `https://learn.partial-${sessionCounter}.test`,
     async call(_name, args) {
       if (bad.has(args.query)) return { content: [{ type: "text", text: "[]" }] };
+      // Echo the query so the result is genuinely on-topic for the module that
+      // asked for it — a generic excerpt would now score below the relevance
+      // floor and every module would look unverified.
       return {
         content: [
           {
             type: "text",
             text: JSON.stringify([
               {
-                title: "Configure the feature",
+                title: args.query,
                 url: "https://learn.microsoft.com/microsoft-copilot-studio/example",
-                content: "A sufficiently long documentation excerpt to survive the minimum-length filter applied by searchDocs.",
+                content: `${args.query}. A sufficiently long documentation excerpt to survive the minimum-length filter applied by searchDocs.`,
               },
             ]),
           },
@@ -597,8 +641,8 @@ test("dropping ungrounded modules shortens the lab and keeps it valid", async ()
     },
   };
 
-  const kept = await generateLab(
-    { features: ["analytics"] },
+  const result = await generateLab(
+    { features: [quietId] },
     {
       write: false,
       useLearnMcp: true,
@@ -606,30 +650,144 @@ test("dropping ungrounded modules shortens the lab and keeps it valid", async ()
       connect: async () => session,
       // This stub serves search results for every tool, so no module's steps can
       // be read from a page. That is a separate gate; answer it so this test
-      // stays about dropping ungrounded modules.
-      decisions: { "modules-ungrounded": "proceed-curated", "steps-not-derived": "proceed-catalog" },
+      // stays about grounding.
+      decisions: { "steps-not-derived": "proceed-catalog" },
     },
   );
-  const dropped = await generateLab(
-    { features: ["analytics"] },
+
+  assert.equal(result.status, "complete");
+  const quiet = result.manifest.modules.find((m) => m.id === quietId);
+  assert.equal(quiet.learnVerified, false);
+  assert.ok(quiet.sources.length > 0, "it still cites the curated links");
+  assert.deepEqual(
+    quiet.sources.map((s) => s.url),
+    getFeature(quietId).docUrls,
+  );
+  // Modules whose search did work are still counted as verified.
+  assert.ok(result.manifest.grounding.groundedModules < result.plan.features.length);
+  assert.ok(result.manifest.grounding.groundedModules > 0);
+});
+
+/**
+ * The exact cross-product bleed issue #40 measured, as a fixture.
+ *
+ * Every one of these URLs is real and returns HTTP 200, which is why link
+ * checking never caught this. Only the first is about the product the lab is
+ * teaching; the rest describe the same *task* in a different product, which is
+ * precisely why they score well on words alone.
+ */
+const CROSS_PRODUCT_RESULTS = [
+  {
+    title: "Create and delete agents in Microsoft Copilot Studio",
+    url: "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent",
+    content:
+      "Select Create in the navigation pane, then select New agent to start building. Describe the agent you want in natural language, review the generated name and instructions, then select Create to provision it.",
+  },
+  {
+    title: "Create an agent in Copilot Studio for Fabric IQ",
+    url: "https://learn.microsoft.com/fabric/iq/ontology/how-to-create-agent-copilot-studio",
+    content:
+      "Learn how to create an agent in Copilot Studio that is grounded in a Fabric IQ ontology so that it can answer questions over your semantic model and its relationships.",
+  },
+  {
+    title: "Create a Copilot Studio agent from process mining",
+    url: "https://learn.microsoft.com/power-automate/process-mining-mcp-create-cps-agent",
+    content:
+      "Step 1: Create the agent. From the process mining workspace, create a Copilot Studio agent so that users can ask questions about the analysed process and its bottlenecks.",
+  },
+  {
+    title: "Create a Copilot Studio agent in the plan designer",
+    url: "https://learn.microsoft.com/power-platform/release-plan/2025wave1/power-apps/create-copilot-studio-agent-plan-designer",
+    content:
+      "Business value: makers can create a Copilot Studio agent directly from the plan designer. This feature is planned for general availability and describes what is coming rather than how to build an agent today.",
+  },
+];
+
+function fixtureSession(results) {
+  sessionCounter += 1;
+  return {
+    ok: true,
+    endpoint: `https://learn.fixture-${sessionCounter}.test`,
+    async call() {
+      return { content: [{ type: "text", text: JSON.stringify(results) }] };
+    },
+  };
+}
+
+test("an off-product search result is never cited", async () => {
+  const feature = getFeature("create-agent");
+  const result = await groundFeature(fixtureSession(CROSS_PRODUCT_RESULTS), feature);
+  const cited = result.sources.map((s) => s.url);
+
+  // The defect issue #40 recorded: Fabric IQ, Power Automate process mining and
+  // a Power Platform release plan cited under a Copilot Studio module.
+  for (const wrong of ["/fabric/", "/power-automate/", "/release-plan/"]) {
+    assert.ok(!cited.some((url) => url.includes(wrong)), `${wrong} must not be cited: ${cited.join(", ")}`);
+  }
+
+  // And the page that actually answers the module ranks first.
+  assert.equal(cited[0], "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent");
+  assert.equal(result.learnVerified, true);
+  assert.equal(result.relevance.kept, 1);
+  assert.equal(result.relevance.droppedAsIrrelevant.length, 3);
+});
+
+test("a feature's expected doc paths are derived from its curated links", () => {
+  // Derived, so the 36 catalog entries need no hand editing.
+  assert.deepEqual(docPathPrefixes(getFeature("create-agent")), [["microsoft-copilot-studio"]]);
+
+  // An umbrella root is not a product: a feature documented under
+  // /power-platform/admin/ must not treat /power-platform/release-plan/ as home.
+  const dlp = docPathPrefixes(getFeature("dlp-governance"));
+  assert.ok(dlp.some((prefix) => prefix.join("/") === "power-platform/admin"));
+  assert.equal(
+    pathAffinity("https://learn.microsoft.com/power-platform/release-plan/2025wave1/x", dlp),
+    0.45,
+    "same product, wrong area — demoted, not treated as in-area",
+  );
+
+  // An explicit override wins when the derivation is wrong for a feature.
+  assert.deepEqual(docPathPrefixes({ docPaths: ["connectors/custom-connectors"] }), [
+    ["connectors", "custom-connectors"],
+  ]);
+});
+
+test("the From the docs quote comes from the best source, not the first long one", async () => {
+  const feature = getFeature("create-agent");
+  const filler = "This paragraph exists only to clear the minimum excerpt length the pull quote requires, and it is comfortably longer than one hundred and twenty characters.";
+  const results = [
+    {
+      // Returned first, on-product, but barely about this module.
+      title: "Copilot Studio licensing and billing overview",
+      url: "https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing",
+      content: `Messages are consumed per session and billed against your capacity. ${filler}`,
+    },
+    {
+      title: "Create and delete agents in Microsoft Copilot Studio",
+      url: "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent",
+      content: `Select Create, then New agent, and describe the agent you want to create in natural language. ${filler}`,
+    },
+  ];
+
+  const result = await generateLab(
+    { features: ["create-agent"] },
     {
       write: false,
       useLearnMcp: true,
       useLlm: false,
-      connect: async () => session,
-      decisions: { "modules-ungrounded": "drop-modules", "steps-not-derived": "proceed-catalog" },
+      connect: async () => fixtureSession(results),
+      decisions: { "steps-not-derived": "proceed-catalog" },
     },
   );
 
-  assert.equal(kept.status, "complete");
-  assert.equal(dropped.status, "complete");
-  assert.ok(kept.plan.features.some((f) => f.id === ungroundedId));
-  assert.ok(!dropped.plan.features.some((f) => f.id === ungroundedId));
-  assert.ok(dropped.plan.features.length < kept.plan.features.length);
-  assert.deepEqual(
-    dropped.plan.features.map((f) => f.order),
-    dropped.plan.features.map((_, i) => i + 1),
+  assert.equal(result.status, "complete");
+  const quote = result.markdown.split("\n").find((line) => line.includes("**From the docs:**"));
+  assert.ok(quote, "the module should carry a pull quote");
+  assert.ok(
+    quote.includes("agents-experience/build-new-agent"),
+    `the quote should attribute the best source, got: ${quote}`,
   );
+  assert.ok(!quote.includes("billing-licensing"));
 });
 
 test("dropModules removes dependents, renumbers, and recomputes the plan", () => {

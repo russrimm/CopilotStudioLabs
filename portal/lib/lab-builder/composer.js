@@ -201,9 +201,25 @@ function citationBlock(grounding) {
   ];
 }
 
+/**
+ * The "From the docs" pull quote.
+ *
+ * It must come from the *best* source, not merely the first long one. Before
+ * issue #40 this took the first result whose excerpt cleared 120 characters,
+ * which on a "Create an agent" module could quote a Microsoft Fabric page under
+ * a Copilot Studio heading — a quote that reads as authoritative precisely
+ * because it is well written about the wrong product.
+ *
+ * `groundFeature` already ranks results by relevance and drops everything below
+ * the floor, so the highest-scoring usable excerpt is the honest choice. The
+ * sort is defensive: callers and fixtures may pass unranked results, and an
+ * unscored result sorts last rather than winning by accident.
+ */
 function groundedInsight(grounding) {
-  const best = (grounding?.results || []).find((r) => r.excerpt && r.excerpt.length > 120);
-  if (!best) return [];
+  const usable = (grounding?.results || []).filter((r) => r.excerpt && r.excerpt.length > 120);
+  if (!usable.length) return [];
+
+  const best = [...usable].sort((a, b) => (b.relevance ?? -1) - (a.relevance ?? -1))[0];
   const quote = scrubForbidden(condense(best.excerpt));
   if (!quote) return [];
   const attribution = best.url ? ` — [Microsoft Learn](${best.url})` : "";

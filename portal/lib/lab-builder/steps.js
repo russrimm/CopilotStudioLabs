@@ -57,8 +57,15 @@ function singular(word) {
   return word;
 }
 
-/** Content words of a string, lowercased, de-pluralized, stopwords removed. */
-function tokens(text) {
+/**
+ * Content words of a string, lowercased, de-pluralized, stopwords removed.
+ *
+ * Exported because `relevance.js` scores Learn *search results* with the same
+ * vocabulary this module uses to score *procedures*. Two tokenizers that
+ * disagree about what a content word is would make the two scores
+ * incomparable, and the numbers appear side by side in the manifest.
+ */
+export function tokens(text) {
   const out = new Set();
   for (const raw of String(text || "").toLowerCase().match(/[a-z][a-z0-9+#-]{1,}/g) || []) {
     const word = singular(raw);
@@ -86,7 +93,7 @@ function labels(text) {
  * wrong measure for "does this candidate cover the module", because a candidate
  * can score well merely by containing a few shared words — see `coverage`.
  */
-function overlap(a, b) {
+export function overlap(a, b) {
   const min = Math.min(a.size, b.size);
   if (min < 2) return 0;
   let shared = 0;
@@ -104,14 +111,14 @@ function overlap(a, b) {
  * clicks that create the agent — symmetric overlap rated it 0.647, directed
  * coverage of the catalog's UI labels rates it 0.0, which is the truth.
  */
-function coverage(wanted, candidate) {
+export function coverage(wanted, candidate) {
   if (wanted.size === 0) return 0;
   let shared = 0;
   for (const item of wanted) if (candidate.has(item)) shared += 1;
   return shared / wanted.size;
 }
 
-function clamp(value) {
+export function clamp(value) {
   return Math.max(0, Math.min(1, value));
 }
 
