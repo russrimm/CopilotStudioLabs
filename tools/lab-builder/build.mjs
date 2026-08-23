@@ -26,27 +26,55 @@ const { getFeaturesByCategory, getFeature, getFeatures } = await import(
 const { generateLab, OUTPUT_ROOT } = await import(
   pathToFileURL(path.join(LIB, "lab-builder", "generator.js")).href
 );
+const { normalizeDecisions } = await import(
+  pathToFileURL(path.join(LIB, "lab-builder", "blockers.js")).href
+);
 const { getIndustries, getRoles } = await import(pathToFileURL(path.join(LIB, "scenarios.js")).href);
+
+/** Exit codes, so CI can tell "needs a human" from "produced something broken". */
+const EXIT = { OK: 0, VALIDATION_FAILED: 1, DECISION_REQUIRED: 2, CANCELLED: 3 };
 
 function parseArgs(argv) {
   const args = {};
+  const set = (key, value) => {
+    // Repeatable flags (--decide) accumulate instead of overwriting.
+    if (key in args) args[key] = [].concat(args[key], value);
+    else args[key] = value;
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (!token.startsWith("--")) continue;
     const eq = token.indexOf("=");
     if (eq > -1) {
-      args[token.slice(2, eq)] = token.slice(eq + 1);
+      set(token.slice(2, eq), token.slice(eq + 1));
     } else {
       const next = argv[i + 1];
       if (next && !next.startsWith("--")) {
-        args[token.slice(2)] = next;
+        set(token.slice(2), next);
         i += 1;
       } else {
-        args[token.slice(2)] = true;
+        set(token.slice(2), true);
       }
     }
   }
   return args;
+}
+
+/** Wrap prose to a readable width so long consequences stay legible. */
+function wrap(text, indent = 0, width = 78) {
+  const pad = " ".repeat(indent);
+  const lines = [];
+  let line = "";
+  for (const word of String(text).split(/\s+/).filter(Boolean)) {
+    if (line && (line + " " + word).length > width - indent) {
+      lines.push(pad + line);
+      line = word;
+    } else {
+      line = line ? `${line} ${word}` : word;
+    }
+  }
+  if (line) lines.push(pad + line);
+  return lines.join("\n");
 }
 
 function list(csv) {
@@ -94,13 +122,95 @@ Flags:
   --no-learn                Skip Microsoft Learn grounding (offline mode).
   --no-llm                  Skip LLM enrichment even if credentials are present.
   --no-core                 Do not auto-add the level 100 foundation modules.
+  --decide <code>=<option>  Pre-answer a build blocker. Repeatable.
+  --non-interactive         Never prompt; report blockers and exit 2 instead.
   --dry-run                 Print the plan and exit without writing files.
   --help                    Show this message.
+
+Exit codes:
+  0  the lab was built and passed validation
+  1  bad input, or the generated lab failed validation
+  2  the build stopped for a decision and none was supplied (see --decide)
+  3  a decision cancelled the build
+
+When the builder hits something that would quietly degrade the lab — Microsoft
+Learn unreachable, a module with no documentation results, model passages that
+failed — it stops before writing anything and asks. On a terminal it prompts;
+piped or with --non-interactive it prints the exact --decide flag for each
+option and exits 2, so CI can never produce a degraded lab by accident.
 
 The lab builder grounds every module against the public Microsoft Learn MCP
 server (no sign-in required). If AZURE_OPENAI_* or GITHUB_TOKEN are set, it
 also drafts scenario-specific narrative; otherwise it composes deterministically.
 `);
+}
+
+/** Print every unresolved blocker with the flag that answers it, for CI. */
+function reportBlockers(blockers) {
+  console.error(`\n${"=".repeat(78)}`);
+  console.error(`BUILD STOPPED — ${blockers.length} decision(s) needed. Nothing was written.`);
+  console.error("=".repeat(78));
+
+  for (const blocker of blockers) {
+    console.error(`\n[${blocker.code}] ${blocker.title}\n`);
+    console.error(wrap(blocker.consequence, 2));
+    console.error("\n  Resolve it by re-running with one of:\n");
+    for (const option of blocker.options) {
+      console.error(`    ${option.cliFlag}${option.recommended ? "   (recommended)" : ""}`);
+      console.error(`${wrap(option.label + " — " + option.tradeoff, 8)}\n`);
+    }
+  }
+}
+
+/** Ask a human about each blocker. Nothing has been written at this point. */
+async function promptForBlockers(blockers) {
+  const rl = readline.createInterface({ input: stdin, output: stdout });
+  // If input closes mid-prompt (Ctrl+D, or a pipe that ran dry) rl.question
+  // would never settle and the process would hang, so treat it as a cancel.
+  const closed = new AbortController();
+  rl.once("close", () => closed.abort());
+
+  const chosen = {};
+  try {
+    for (const blocker of blockers) {
+      console.log(`\n${"=".repeat(78)}`);
+      console.log(`BUILD PAUSED — ${blocker.title}  [${blocker.code}]`);
+      console.log("=".repeat(78));
+      console.log(`\n${wrap(blocker.consequence)}\n`);
+      console.log("Your options:\n");
+
+      blocker.options.forEach((option, index) => {
+        console.log(`  ${index + 1}. ${option.label}${option.recommended ? "   (recommended)" : ""}`);
+        console.log(`${wrap(option.tradeoff, 5)}\n`);
+      });
+
+      const recommended = blocker.options.findIndex((option) => option.recommended) + 1;
+      const fallback = recommended > 0 ? recommended : 1;
+      for (;;) {
+        let answer;
+        try {
+          answer = (await rl.question(`Choose 1-${blocker.options.length} [${fallback}]: `, {
+            signal: closed.signal,
+          })).trim();
+        } catch {
+          console.log("\n  Input closed before a decision was made. Cancelling the build.");
+          chosen[blocker.code] = "cancel";
+          return chosen;
+        }
+
+        const option = blocker.options[(answer === "" ? fallback : Number(answer)) - 1];
+        if (option) {
+          chosen[blocker.code] = option.id;
+          console.log(`  → ${option.label}\n`);
+          break;
+        }
+        console.log("  Enter one of the numbers listed above.");
+      }
+    }
+  } finally {
+    rl.close();
+  }
+  return chosen;
 }
 
 async function interactive() {
@@ -176,13 +286,53 @@ if (args.interactive) {
   };
 }
 
-const result = await generateLab(request, {
-  outputRoot: typeof args.out === "string" ? path.resolve(args.out) : OUTPUT_ROOT,
-  write: !args["dry-run"],
-  useLearnMcp: !args["no-learn"],
-  useLlm: !args["no-llm"],
-  onProgress: (event) => process.stdout.write(`  [${event.stage}] ${event.message}\n`),
-});
+let decisions;
+try {
+  const entries = {};
+  for (const entry of [].concat(args.decide || [])) {
+    if (typeof entry !== "string") {
+      throw new Error("--decide expects <code>=<option>.");
+    }
+    const eq = entry.indexOf("=");
+    if (eq < 1) throw new Error(`--decide expects <code>=<option>, got "${entry}".`);
+    entries[entry.slice(0, eq).trim()] = entry.slice(eq + 1).trim();
+  }
+  decisions = normalizeDecisions(entries);
+} catch (err) {
+  console.error(`Error: ${err.message}`);
+  process.exit(EXIT.VALIDATION_FAILED);
+}
+
+const canPrompt = Boolean(stdin.isTTY && stdout.isTTY) && !args["non-interactive"];
+let prompted = false;
+let result;
+
+for (;;) {
+  result = await generateLab(request, {
+    outputRoot: typeof args.out === "string" ? path.resolve(args.out) : OUTPUT_ROOT,
+    write: !args["dry-run"],
+    useLearnMcp: !args["no-learn"],
+    useLlm: !args["no-llm"],
+    decisions,
+    decisionSource: prompted ? "cli-interactive" : "cli-flag",
+    onProgress: (event) => process.stdout.write(`  [${event.stage}] ${event.message}\n`),
+  });
+
+  if (result.status !== "blocked") break;
+
+  if (!canPrompt) {
+    reportBlockers(result.blockers);
+    process.exit(EXIT.DECISION_REQUIRED);
+  }
+
+  Object.assign(decisions, await promptForBlockers(result.blockers));
+  prompted = true;
+}
+
+if (result.status === "cancelled") {
+  console.log("\nBuild cancelled. Nothing was written.\n");
+  process.exit(EXIT.CANCELLED);
+}
 
 console.log("");
 console.log(`Title       ${result.plan.title}`);
@@ -199,11 +349,14 @@ console.log(
   `Screenshots ${result.manifest.screenshots.reused} reused from existing labs, ${result.manifest.screenshots.toCapture} listed in shots.json for capture`,
 );
 
+for (const decision of result.decisionLog) {
+  console.log(`Decision    ${decision.code} → ${decision.chosen.label}`);
+}
 for (const warning of result.plan.warnings) console.log(`Note        ${warning}`);
 
 if (args["dry-run"]) {
   console.log("\nDry run — nothing was written.\n");
-  process.exit(0);
+  process.exit(EXIT.OK);
 }
 
 const { validation } = result;
@@ -223,4 +376,4 @@ if (result.manifest.screenshots.toCapture) {
   );
 }
 
-process.exit(validation.failed ? 1 : 0);
+process.exit(validation.failed ? EXIT.VALIDATION_FAILED : EXIT.OK);

@@ -3686,31 +3686,174 @@ async function lbPreview() {
   }
 }
 
+/**
+ * Render a build-stopping decision and wait for an explicit human choice.
+ *
+ * Built entirely with DOM nodes and listeners rather than innerHTML: blocker
+ * text is server-composed prose that must never be parsed as markup.
+ *
+ * @param {Array} blockers from the generate endpoint
+ * @returns {Promise<Record<string,string>|null>} decisions, or null on cancel
+ */
+function lbRenderDecisions(blockers) {
+  const host = document.getElementById("lb-decisions");
+  if (!host) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    host.textContent = "";
+    host.hidden = false;
+
+    const alert = document.createElement("p");
+    alert.className = "lb-decision-alert";
+    alert.setAttribute("role", "alert");
+    alert.textContent =
+      `Build paused. ${blockers.length} decision${blockers.length === 1 ? "" : "s"} needed ` +
+      "before anything is written to disk.";
+    host.appendChild(alert);
+
+    const form = document.createElement("form");
+    const chosen = new Map();
+    let firstLegend = null;
+
+    blockers.forEach((blocker, blockerIndex) => {
+      const fieldset = document.createElement("fieldset");
+      fieldset.className = "lb-blocker";
+
+      const legend = document.createElement("legend");
+      legend.textContent = blocker.title;
+      legend.tabIndex = -1;
+      fieldset.appendChild(legend);
+      if (!firstLegend) firstLegend = legend;
+
+      const consequence = document.createElement("p");
+      consequence.className = "lb-blocker-consequence";
+      consequence.textContent = blocker.consequence;
+      fieldset.appendChild(consequence);
+
+      blocker.options.forEach((option, optionIndex) => {
+        const inputId = `lb-decision-${blockerIndex}-${optionIndex}`;
+        const tradeoffId = `${inputId}-tradeoff`;
+
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = `lb-decision-${blockerIndex}`;
+        input.id = inputId;
+        input.value = option.id;
+        input.setAttribute("aria-describedby", tradeoffId);
+        if (option.recommended) {
+          input.checked = true;
+          chosen.set(blocker.code, option.id);
+        }
+        input.addEventListener("change", () => chosen.set(blocker.code, option.id));
+
+        const name = document.createElement("span");
+        name.className = "lb-option-label";
+        // "(recommended)" is part of the accessible name, not colour alone.
+        name.textContent = option.recommended ? `${option.label} (recommended)` : option.label;
+
+        const tradeoff = document.createElement("span");
+        tradeoff.className = "lb-option-tradeoff";
+        tradeoff.id = tradeoffId;
+        tradeoff.textContent = option.tradeoff;
+
+        const text = document.createElement("span");
+        text.append(name, tradeoff);
+
+        const label = document.createElement("label");
+        label.className = "lb-option";
+        label.htmlFor = inputId;
+        label.append(input, text);
+        fieldset.appendChild(label);
+      });
+
+      form.appendChild(fieldset);
+    });
+
+    const finish = (value) => {
+      host.hidden = true;
+      host.textContent = "";
+      resolve(value);
+    };
+
+    const actions = document.createElement("div");
+    actions.className = "lb-decision-actions";
+
+    const submit = document.createElement("button");
+    submit.type = "submit";
+    submit.className = "btn btn-primary";
+    submit.textContent = "Continue with these choices";
+
+    const abandon = document.createElement("button");
+    abandon.type = "button";
+    abandon.className = "btn";
+    abandon.textContent = "Cancel the build";
+    abandon.addEventListener("click", () => finish(null));
+
+    actions.append(submit, abandon);
+    form.appendChild(actions);
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      finish(Object.fromEntries(chosen));
+    });
+
+    host.appendChild(form);
+    host.scrollIntoView({ behavior: "smooth", block: "start" });
+    firstLegend?.focus();
+  });
+}
+
 async function lbGenerate() {
   if (labBuilder.busy) return;
   const btn = document.getElementById("lb-generate-btn");
   const status = document.getElementById("lb-status");
-  labBuilder.busy = true;
-  labBuilder.controller = new AbortController();
-  if (btn) btn.disabled = true;
   const cancelBtn = document.getElementById("lb-cancel-btn");
-  if (cancelBtn) cancelBtn.hidden = false;
-  if (status) status.textContent = "Researching Microsoft Learn and composing your lab. This can take a minute...";
+  labBuilder.busy = true;
+  if (btn) btn.disabled = true;
+
+  // Accumulated across the pause/resume round-trips. The server holds no state
+  // between them: every resume replays the request with the answers so far.
+  const decisions = {};
 
   try {
-    const res = await fetch("/api/lab-builder/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(lbRequest()),
-      signal: labBuilder.controller.signal,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    for (;;) {
+      labBuilder.controller = new AbortController();
+      if (cancelBtn) cancelBtn.hidden = false;
+      if (status) status.textContent = "Researching Microsoft Learn and composing your lab. This can take a minute...";
 
-    lbShowResult(data);
-    lbLoadGenerated();
-    if (status) status.textContent = "";
-    toast(`Built "${data.title}"`, "success");
+      const res = await fetch("/api/lab-builder/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...lbRequest(), decisions }),
+        signal: labBuilder.controller.signal,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+
+      if (data.status === "cancelled") {
+        if (status) status.textContent = "";
+        toast("Lab build cancelled. Nothing was written.", "info");
+        return;
+      }
+
+      if (data.status === "blocked") {
+        if (cancelBtn) cancelBtn.hidden = true;
+        if (status) status.textContent = "Build paused — nothing has been written yet.";
+        const answers = await lbRenderDecisions(data.blockers);
+        if (!answers) {
+          if (status) status.textContent = "";
+          toast("Lab build cancelled. Nothing was written.", "info");
+          return;
+        }
+        Object.assign(decisions, answers);
+        continue;
+      }
+
+      lbShowResult(data);
+      lbLoadGenerated();
+      if (status) status.textContent = "";
+      toast(`Built "${data.title}"`, "success");
+      return;
+    }
   } catch (err) {
     if (status) status.textContent = "";
     toast(err.name === "AbortError" ? "Lab build cancelled." : `Lab build failed: ${err.message}`, err.name === "AbortError" ? "info" : "error");
@@ -3750,6 +3893,14 @@ function lbShowResult(data) {
     <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
       <button class="btn btn-sm" onclick="lbDownload('${escapeHtml(data.labId)}')">⬇️ Download index.md</button>
     </div>
+    ${(data.manifest?.decisions || [])
+      .map(
+        (d) =>
+          `<div class="lb-decision-record"><strong>Decision:</strong> ${escapeHtml(d.title)} — ${escapeHtml(
+            d.chosen?.label || d.chosen?.id || ""
+          )}</div>`
+      )
+      .join("")}
     ${(data.warnings || []).map((w) => `<div class="lb-warning">${escapeHtml(w)}</div>`).join("")}
   `;
 

@@ -15,10 +15,11 @@ import {
   orderFeatures,
   validateCatalog,
 } from "../lib/lab-builder/catalog.js";
-import { planLab, slugify } from "../lib/lab-builder/planner.js";
+import { planLab, slugify, dropModules } from "../lib/lab-builder/planner.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
 import { connect, searchDocs } from "../lib/lab-builder/learn-mcp.js";
 import { detectProvider } from "../lib/lab-builder/llm.js";
+import { curatedDocsAge, normalizeDecisions } from "../lib/lab-builder/blockers.js";
 import { scrubForbidden } from "../lib/lab-builder/composer.js";
 
 // ── Catalog ─────────────────────────────────────────────────────────────────
@@ -231,7 +232,7 @@ test("generateLab bounds concurrent Microsoft Learn work", async () => {
     },
   };
 
-  await generateLab(
+  const result = await generateLab(
     { features: ["topics", "analytics", "adaptive-cards", "authentication"] },
     {
       write: false,
@@ -242,6 +243,10 @@ test("generateLab bounds concurrent Microsoft Learn work", async () => {
     },
   );
   assert.equal(peak, 3);
+  // The malformed upstream content grounds nothing, so this now stops for a
+  // decision rather than quietly composing an unverified lab.
+  assert.equal(result.status, "blocked");
+  assert.equal(result.blockers[0].code, "modules-ungrounded");
 });
 
 test("generateLab honors cancellation before upstream work completes", async () => {
@@ -325,3 +330,410 @@ test("Learn MCP query timeout degrades to an empty result", async (t) => {
   assert.equal(session.ok, true);
   assert.deepEqual(await searchDocs(session, "timeout fallback test"), []);
 });
+
+// ── Blockers: stop and ask instead of degrading silently ────────────────────
+
+let sessionCounter = 0;
+
+/** A session whose searches always return usable documentation. */
+function groundedSession() {
+  sessionCounter += 1;
+  return {
+    ok: true,
+    endpoint: `https://learn.grounded-${sessionCounter}.test`,
+    async call() {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify([
+              {
+                title: "Configure the feature",
+                url: "https://learn.microsoft.com/microsoft-copilot-studio/example",
+                content: "A sufficiently long documentation excerpt to survive the minimum-length filter applied by searchDocs.",
+              },
+            ]),
+          },
+        ],
+      };
+    },
+  };
+}
+
+/** A session that connects but never finds anything. */
+function emptySession() {
+  sessionCounter += 1;
+  return {
+    ok: true,
+    endpoint: `https://learn.empty-${sessionCounter}.test`,
+    async call() {
+      return { content: [{ type: "text", text: "[]" }] };
+    },
+  };
+}
+
+const failedConnect = async () => ({
+  ok: false,
+  error: "connection refused",
+  endpoint: "https://learn.unreachable.test",
+  call: async () => null,
+});
+
+test("an unreachable Learn MCP blocks the build instead of quietly using curated links", async (t) => {
+  const outputRoot = mkdtempSync(join(tmpdir(), "lab-builder-blocked-"));
+  t.after(() => rmSync(outputRoot, { recursive: true, force: true }));
+
+  const result = await generateLab(
+    { features: ["topics"] },
+    { outputRoot, useLearnMcp: true, useLlm: false, connect: failedConnect },
+  );
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.blockers.length, 1);
+  assert.equal(result.blockers[0].code, "learn-mcp-unavailable");
+  assert.match(result.blockers[0].consequence, /connection refused/);
+  assert.equal(result.outputDir, null);
+  // A blocker halts before anything reaches disk.
+  assert.deepEqual(readdirSync(outputRoot), []);
+});
+
+test("every blocker offers ranked options with exactly one recommendation", async () => {
+  const result = await generateLab(
+    { features: ["topics"] },
+    { write: false, useLearnMcp: true, useLlm: false, connect: failedConnect },
+  );
+
+  for (const blocker of result.blockers) {
+    assert.ok(blocker.code && blocker.title && blocker.consequence);
+    assert.ok(blocker.options.length >= 2 && blocker.options.length <= 4);
+    assert.equal(blocker.options.filter((option) => option.recommended).length, 1);
+    for (const option of blocker.options) {
+      assert.ok(option.tradeoff, `${blocker.code}/${option.id} must state its tradeoff`);
+      assert.equal(option.cliFlag, `--decide ${blocker.code}=${option.id}`);
+    }
+  }
+});
+
+test("a decision resolves the blocker and is recorded in the manifest", async () => {
+  const result = await generateLab(
+    { features: ["topics"] },
+    {
+      write: false,
+      useLearnMcp: true,
+      useLlm: false,
+      connect: failedConnect,
+      decisions: { "learn-mcp-unavailable": "proceed-curated" },
+      decisionSource: "portal",
+    },
+  );
+
+  assert.equal(result.status, "complete");
+  assert.equal(result.manifest.decisions.length, 1);
+  const [decision] = result.manifest.decisions;
+  assert.equal(decision.code, "learn-mcp-unavailable");
+  assert.equal(decision.chosen.id, "proceed-curated");
+  assert.equal(decision.decidedVia, "portal");
+  assert.equal(Number.isNaN(Date.parse(decision.decidedAt)), false);
+});
+
+test("the manifest records no user identity", async () => {
+  const result = await generateLab(
+    { features: ["topics"] },
+    {
+      write: false,
+      useLearnMcp: true,
+      useLlm: false,
+      connect: failedConnect,
+      decisions: { "learn-mcp-unavailable": "proceed-curated" },
+      decisionSource: "portal",
+    },
+  );
+
+  // The manifest ships with the lab and can be exported and emailed, so it must
+  // never carry a UPN or any other caller identity.
+  const serialized = JSON.stringify(result.manifest);
+  assert.doesNotMatch(serialized, /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+  assert.doesNotMatch(serialized, /decidedBy/);
+});
+
+test("choosing cancel writes nothing", async (t) => {
+  const outputRoot = mkdtempSync(join(tmpdir(), "lab-builder-cancelled-"));
+  t.after(() => rmSync(outputRoot, { recursive: true, force: true }));
+
+  const result = await generateLab(
+    { features: ["topics"] },
+    {
+      outputRoot,
+      useLearnMcp: true,
+      useLlm: false,
+      connect: failedConnect,
+      decisions: { "learn-mcp-unavailable": "cancel" },
+    },
+  );
+
+  assert.equal(result.status, "cancelled");
+  assert.equal(result.outputDir, null);
+  assert.deepEqual(readdirSync(outputRoot), []);
+});
+
+test("retry is not a resolution — the gate is evaluated again", async () => {
+  const result = await generateLab(
+    { features: ["topics"] },
+    {
+      write: false,
+      useLearnMcp: true,
+      useLlm: false,
+      connect: failedConnect,
+      decisions: { "learn-mcp-unavailable": "retry" },
+    },
+  );
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.blockers[0].code, "learn-mcp-unavailable");
+});
+
+test("a connected server that finds nothing blocks on the ungrounded modules", async () => {
+  const session = emptySession();
+  const result = await generateLab(
+    { features: ["topics"] },
+    { write: false, useLearnMcp: true, useLlm: false, connect: async () => session },
+  );
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.blockers[0].code, "modules-ungrounded");
+  assert.ok(result.blockers[0].detail.modules.length > 0);
+});
+
+test("ungrounded modules do not prompt twice when the handshake already failed", async () => {
+  const result = await generateLab(
+    { features: ["topics"] },
+    { write: false, useLearnMcp: true, useLlm: false, connect: failedConnect },
+  );
+
+  // Both conditions are true, but they share one root cause.
+  assert.equal(result.blockers.length, 1);
+  assert.equal(result.blockers[0].code, "learn-mcp-unavailable");
+});
+
+test("dropping ungrounded modules shortens the lab and keeps it valid", async () => {
+  const ungroundedId = "analytics";
+  const bad = new Set(getFeature(ungroundedId).learnQueries || []);
+  sessionCounter += 1;
+  const session = {
+    ok: true,
+    endpoint: `https://learn.partial-${sessionCounter}.test`,
+    async call(_name, args) {
+      if (bad.has(args.query)) return { content: [{ type: "text", text: "[]" }] };
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify([
+              {
+                title: "Configure the feature",
+                url: "https://learn.microsoft.com/microsoft-copilot-studio/example",
+                content: "A sufficiently long documentation excerpt to survive the minimum-length filter applied by searchDocs.",
+              },
+            ]),
+          },
+        ],
+      };
+    },
+  };
+
+  const kept = await generateLab(
+    { features: ["analytics"] },
+    {
+      write: false,
+      useLearnMcp: true,
+      useLlm: false,
+      connect: async () => session,
+      decisions: { "modules-ungrounded": "proceed-curated" },
+    },
+  );
+  const dropped = await generateLab(
+    { features: ["analytics"] },
+    {
+      write: false,
+      useLearnMcp: true,
+      useLlm: false,
+      connect: async () => session,
+      decisions: { "modules-ungrounded": "drop-modules" },
+    },
+  );
+
+  assert.equal(kept.status, "complete");
+  assert.equal(dropped.status, "complete");
+  assert.ok(kept.plan.features.some((f) => f.id === ungroundedId));
+  assert.ok(!dropped.plan.features.some((f) => f.id === ungroundedId));
+  assert.ok(dropped.plan.features.length < kept.plan.features.length);
+  assert.deepEqual(
+    dropped.plan.features.map((f) => f.order),
+    dropped.plan.features.map((_, i) => i + 1),
+  );
+});
+
+test("dropModules removes dependents, renumbers, and recomputes the plan", () => {
+  const plan = planLab({ features: ["agent-to-agent"] });
+  const originalCount = plan.features.length;
+  assert.ok(plan.features.some((f) => f.id === "connected-agents"));
+
+  dropModules(plan, ["generative-orchestration"], "ungrounded");
+
+  for (const id of ["generative-orchestration", "connected-agents", "agent-to-agent"]) {
+    assert.ok(!plan.features.some((f) => f.id === id), `${id} should have been dropped`);
+    assert.ok(plan.deferred.some((d) => d.id === id), `${id} should be listed as deferred`);
+  }
+
+  assert.ok(plan.features.length < originalCount);
+  assert.deepEqual(plan.features.map((f) => f.order), plan.features.map((_, i) => i + 1));
+  assert.equal(plan.totalMinutes, plan.features.reduce((sum, f) => sum + f.minutes, 0));
+
+  const keptIds = new Set(plan.features.map((f) => f.id));
+  for (const feature of plan.features) {
+    for (const prereq of feature.prereqs || []) {
+      assert.ok(
+        !plan.deferred.some((d) => d.id === prereq) || !keptIds.has(feature.id),
+        `${feature.id} was kept but its prerequisite ${prereq} was dropped`,
+      );
+    }
+  }
+});
+
+test("dropModules refuses to empty the lab", () => {
+  const plan = planLab({ features: ["topics"] });
+  assert.throws(() => dropModules(plan, plan.features.map((f) => f.id)), /empty lab/i);
+});
+
+test("a partially failed language model blocks rather than mixing two voices", async () => {
+  const failures = [];
+  const llm = {
+    available: true,
+    failures,
+    provider: { kind: "test", label: "Test provider" },
+    async complete(_system, user) {
+      if (/^Module: /m.test(user)) {
+        failures.push(new Error("429 rate limited"));
+        return "";
+      }
+      return "An overview paragraph written for this scenario.";
+    },
+  };
+
+  const session = groundedSession();
+  const result = await generateLab(
+    { features: ["topics"] },
+    { write: false, useLearnMcp: true, useLlm: true, llm, connect: async () => session },
+  );
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.blockers[0].code, "llm-partial-failure");
+  assert.equal(result.blockers[0].detail.failed, failures.length);
+});
+
+test("choosing deterministic narrative resolves the language model blocker", async () => {
+  const failures = [];
+  const llm = {
+    available: true,
+    failures,
+    provider: { kind: "test", label: "Test provider" },
+    async complete(_system, user) {
+      if (/^Module: /m.test(user)) {
+        failures.push(new Error("429 rate limited"));
+        return "";
+      }
+      return "An overview paragraph written for this scenario.";
+    },
+  };
+
+  const session = groundedSession();
+  const result = await generateLab(
+    { features: ["topics"] },
+    {
+      write: false,
+      useLearnMcp: true,
+      useLlm: true,
+      llm,
+      connect: async () => session,
+      decisions: { "llm-partial-failure": "proceed-deterministic" },
+    },
+  );
+
+  assert.equal(result.status, "complete");
+  assert.equal(result.manifest.decisions[0].chosen.id, "proceed-deterministic");
+  assert.doesNotMatch(result.markdown, /An overview paragraph written for this scenario/);
+});
+
+test("no configured language model stays a warning, never a blocker", async () => {
+  const session = groundedSession();
+  const result = await generateLab(
+    { features: ["topics"] },
+    { write: false, useLearnMcp: true, useLlm: false, connect: async () => session },
+  );
+
+  assert.equal(result.status, "complete");
+  assert.deepEqual(result.manifest.decisions, []);
+});
+
+test("an explicitly requested module dropped by the time budget blocks", async () => {
+  const result = await generateLab(
+    { industry: "retail", features: ["agent-to-agent", "voice-agents"], timeBudget: 60 },
+    { write: false, useLearnMcp: false, useLlm: false },
+  );
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.blockers[0].code, "modules-deferred");
+  assert.ok(result.blockers[0].detail.modules.length > 0);
+});
+
+test("setting the budget aside builds every requested module", async () => {
+  const budgeted = await generateLab(
+    { industry: "retail", features: ["agent-to-agent", "voice-agents"], timeBudget: 60 },
+    { write: false, useLearnMcp: false, useLlm: false, decisions: { "modules-deferred": "accept-deferred" } },
+  );
+  const unbudgeted = await generateLab(
+    { industry: "retail", features: ["agent-to-agent", "voice-agents"], timeBudget: 60 },
+    { write: false, useLearnMcp: false, useLlm: false, decisions: { "modules-deferred": "ignore-budget" } },
+  );
+
+  assert.equal(budgeted.status, "complete");
+  assert.equal(unbudgeted.status, "complete");
+  assert.ok(unbudgeted.plan.features.length > budgeted.plan.features.length);
+  for (const id of ["agent-to-agent", "voice-agents"]) {
+    assert.ok(unbudgeted.plan.features.some((f) => f.id === id), `${id} should be a chapter`);
+  }
+});
+
+test("an auto-added module dropped by the budget stays a warning", async () => {
+  // At 60 minutes the requested module fits; only auto-added core modules are
+  // deferred, and the learner never asked for those.
+  const result = await generateLab(
+    { features: ["topics"], timeBudget: 60 },
+    { write: false, useLearnMcp: false, useLlm: false },
+  );
+
+  assert.ok(result.plan.deferred.length > 0);
+  assert.ok(result.plan.deferred.every((module) => module.requested === false));
+  assert.equal(result.status, "complete");
+  assert.deepEqual(result.manifest.decisions, []);
+});
+
+test("decisions from an untrusted caller are validated", () => {
+  assert.throws(() => normalizeDecisions({ "not-a-blocker": "retry" }), /Unknown blocker code/i);
+  assert.throws(() => normalizeDecisions({ "learn-mcp-unavailable": "nope" }), /Unknown option/i);
+  assert.throws(() => normalizeDecisions({ "learn-mcp-unavailable": 7 }), /option id string/i);
+  assert.throws(() => normalizeDecisions([]), /must be an object/i);
+  assert.deepEqual(normalizeDecisions(undefined), {});
+  assert.deepEqual(normalizeDecisions({ "learn-mcp-unavailable": "cancel" }), {
+    "learn-mcp-unavailable": "cancel",
+  });
+});
+
+test("curated documentation age makes no claim the catalog cannot support", () => {
+  assert.match(curatedDocsAge([]).phrase, /not verified against live documentation/);
+  const withDates = curatedDocsAge([{ lastVerified: "2026-08-01" }], Date.parse("2026-08-11T00:00:00Z"));
+  assert.equal(withDates.reviewed, "2026-08-01");
+  assert.equal(withDates.ageDays, 10);
+  assert.match(withDates.phrase, /last verified 2026-08-01 \(10 days ago\)/);
+});
+

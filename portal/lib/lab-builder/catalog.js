@@ -23,7 +23,15 @@ function load() {
   const byId = new Map(features.map((f) => [f.id, f]));
   const categoryIds = new Set(categories.map((c) => c.id));
 
-  cached = { version: raw.version, product: raw.product, categories, features, byId, categoryIds };
+  cached = {
+    version: raw.version,
+    product: raw.product,
+    docsReviewed: raw.docsReviewed || null,
+    categories,
+    features,
+    byId,
+    categoryIds,
+  };
   return cached;
 }
 

@@ -26,6 +26,7 @@ import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/
 import { getFeaturesByCategory, getFeatures, validateCatalog } from "./lib/lab-builder/catalog.js";
 import { planLab } from "./lib/lab-builder/planner.js";
 import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
+import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
@@ -465,6 +466,14 @@ app.post("/api/lab-builder/generate", async (req, res) => {
     return res.status(429).json({ error: "The lab builder is busy. Try again shortly." });
   }
 
+  const body = req.body || {};
+  let decisions;
+  try {
+    decisions = normalizeDecisions(body.decisions);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
   activeLabGenerations += 1;
   const controller = new AbortController();
   const cancel = () => {
@@ -473,14 +482,34 @@ app.post("/api/lab-builder/generate", async (req, res) => {
   req.once("aborted", cancel);
   res.once("close", cancel);
   try {
-    const body = req.body || {};
     const result = await generateLab(body, {
       useLearnMcp: body.useLearnMcp !== false,
       useLlm: body.useLlm !== false,
+      decisions,
+      decisionSource: "portal",
       signal: controller.signal,
     });
 
+    // Who decided what belongs in the server log, never in the lab artifact —
+    // the manifest travels with the lab and can be exported and emailed.
+    for (const record of result.decisionLog || []) {
+      console.info(
+        `[lab-builder] ${req.user?.upn || "anonymous"} resolved "${record.code}" as "${record.chosen.id}" at ${record.decidedAt}`,
+      );
+    }
+
+    if (result.status === "blocked" || result.status === "cancelled") {
+      return res.json({
+        status: result.status,
+        blockers: result.blockers,
+        decisions: result.decisions,
+        title: result.plan.title,
+        warnings: result.warnings,
+      });
+    }
+
     res.json({
+      status: "complete",
       labId: result.labId,
       outputDir: result.outputDir,
       title: result.plan.title,

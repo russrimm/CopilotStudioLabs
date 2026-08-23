@@ -251,7 +251,16 @@ export function planLab(request = {}) {
     features,
     deferred: finalDeferred.map((id) => {
       const f = getFeature(id);
-      return { id: f.id, name: f.name, minutes: f.minutes, summary: f.summary };
+      return {
+        id: f.id,
+        name: f.name,
+        minutes: f.minutes,
+        summary: f.summary,
+        // Dropping something the learner explicitly asked for is a decision;
+        // dropping a module we added on their behalf is only a note.
+        requested: requested.includes(id),
+        reason: "time-budget",
+      };
     }),
     categories,
     totalMinutes,
@@ -265,3 +274,68 @@ export function planLab(request = {}) {
 }
 
 export { formatDuration };
+
+/**
+ * Remove modules from an existing plan, cascading to anything that depends on
+ * them, and recompute every derived field.
+ *
+ * Used when a human resolves the `modules-ungrounded` blocker by dropping the
+ * modules that found no documentation. The title and slug are left alone: they
+ * describe what the learner asked for, not what survived.
+ *
+ * @param {object} plan   a plan from planLab()
+ * @param {string[]} ids  module ids to remove
+ * @param {string} [reason] recorded on each removed module
+ * @returns {object} the same plan object, updated in place
+ */
+export function dropModules(plan, ids, reason = "removed") {
+  const drop = new Set((ids || []).filter(Boolean));
+  if (!drop.size) return plan;
+
+  // Cascade: a module whose prerequisite is going must go too.
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const feature of plan.features) {
+      if (drop.has(feature.id)) continue;
+      if ((feature.prereqs || []).some((prereq) => drop.has(prereq))) {
+        drop.add(feature.id);
+        changed = true;
+      }
+    }
+  }
+
+  const kept = plan.features.filter((feature) => !drop.has(feature.id));
+  if (!kept.length) {
+    throw new Error("Removing those modules would leave an empty lab. Choose a different option.");
+  }
+
+  const removed = plan.features.filter((feature) => drop.has(feature.id));
+  plan.features = kept.map((feature, index) => ({ ...feature, order: index + 1 }));
+  plan.deferred = [
+    ...plan.deferred,
+    ...removed.map((feature) => ({
+      id: feature.id,
+      name: feature.name,
+      minutes: feature.minutes,
+      summary: feature.summary,
+      requested: (plan.request.features || []).includes(feature.id),
+      reason,
+    })),
+  ];
+
+  plan.totalMinutes = plan.features.reduce((sum, feature) => sum + feature.minutes, 0);
+  plan.duration = formatDuration(plan.totalMinutes);
+  plan.level = plan.features.reduce((max, feature) => Math.max(max, feature.level), 100);
+  plan.difficulty = DIFFICULTY_BY_LEVEL[plan.level] || "Intermediate";
+  plan.categories = [...new Set(plan.features.map((feature) => feature.category))];
+  plan.relatedLabs = [...new Set(plan.features.flatMap((feature) => feature.relatedLabs || []))];
+  plan.tags = [
+    ...new Set([
+      ...plan.categories,
+      ...(plan.industry ? [plan.industry.id] : []),
+      ...plan.roles.map((role) => role.id),
+    ]),
+  ];
+
+  return plan;
+}

@@ -925,6 +925,75 @@
       margin-top: 10px;
     }
 
+    /* ── Lab builder: blocked-build decisions ── */
+    /* The header is sticky, so scrolling this into view must leave room for it
+       or the announcement line lands underneath it. */
+    .lb-decisions { margin-top: 18px; scroll-margin-top: 96px; }
+    .lb-decision-alert {
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: rgba(248, 113, 113, 0.12);
+      border: 1px solid rgba(248, 113, 113, 0.45);
+      font-size: 13px;
+      font-weight: 600;
+      margin: 0 0 14px;
+    }
+    .lb-blocker {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px 6px;
+      margin: 0 0 14px;
+      background: var(--bg);
+      min-width: 0;
+      scroll-margin-top: 96px;
+    }
+    .lb-blocker legend {
+      font-size: 14px;
+      font-weight: 600;
+      padding: 0 6px;
+    }
+    .lb-blocker-consequence {
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+      margin: 0 0 12px;
+    }
+    .lb-option {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .lb-option:hover { border-color: var(--accent); }
+    .lb-option:focus-within { border-color: var(--accent); }
+    .lb-option input { margin-top: 3px; accent-color: var(--accent); flex: none; }
+    .lb-option-label { display: block; font-size: 13px; font-weight: 600; }
+    .lb-option-tradeoff {
+      display: block;
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.55;
+      margin-top: 3px;
+    }
+    .lb-decision-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .lb-decision-record {
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: rgba(79, 143, 247, 0.12);
+      border: 1px solid rgba(79, 143, 247, 0.35);
+      font-size: 12px;
+      margin-top: 10px;
+    }
+
     /* ── Email recipients ───────────────── */
     .recipients-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
     .recipient-chip {
@@ -1838,6 +1907,8 @@
                 <button class="btn" id="lb-cancel-btn" onclick="lbCancelGenerate()" hidden>Cancel</button>
                 <span id="lb-status" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>
+              <!-- Populated by lbRenderDecisions() when a build stops for a human decision. -->
+              <div id="lb-decisions" class="lb-decisions" hidden></div>
             </div>
 
             <div class="panel" id="lb-result-panel" style="display: none;">
