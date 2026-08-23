@@ -216,3 +216,48 @@ test("lab cards escape metadata and use listeners instead of inline handlers", (
   assert.match(labCard, /escapeHtml\(tag\)/);
   assert.match(appSource, /card\.addEventListener\("click"/);
 });
+
+test("build-blocker decisions render as DOM text, never as markup", () => {
+  const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+  const render = appSource.match(
+    /function lbRenderDecisions\(blockers\) \{(?<body>[\s\S]*?)\n\}/,
+  )?.groups?.body;
+
+  assert.ok(render, "lbRenderDecisions function must exist");
+  // Blocker text is server-composed prose. It must never be parsed as markup.
+  assert.doesNotMatch(render, /innerHTML|insertAdjacentHTML|onclick\s*=/);
+  assert.match(render, /createElement/);
+  assert.match(render, /\.textContent = blocker\.consequence/);
+  assert.match(render, /addEventListener\("(?:change|click|submit)"/);
+});
+
+test("the lab builder validates decisions server-side before generating", () => {
+  const serverSource = readFileSync(new URL("../server.js", import.meta.url), "utf8");
+  const route = serverSource.match(
+    /app\.post\("\/api\/lab-builder\/generate"[\s\S]*?\n\}\);/,
+  )?.[0];
+
+  assert.ok(route, "the generate route must exist");
+  assert.match(route, /normalizeDecisions\(body\.decisions\)/);
+  assert.match(route, /res\.status\(400\)/);
+  // The existing hardening must survive: concurrency cap and client-disconnect
+  // cancellation are what keep this route from being a denial-of-service lever.
+  assert.match(route, /activeLabGenerations >= LAB_BUILDER_MAX_ACTIVE/);
+  assert.match(route, /controller\.abort\("Client disconnected"\)/);
+});
+
+test("a lab manifest never carries the identity of whoever decided", () => {
+  const blockersSource = readFileSync(
+    new URL("../lib/lab-builder/blockers.js", import.meta.url),
+    "utf8",
+  );
+  const generatorSource = readFileSync(
+    new URL("../lib/lab-builder/generator.js", import.meta.url),
+    "utf8",
+  );
+
+  // The manifest ships inside the lab directory, and exporter.js archives every
+  // non-Markdown file in that directory verbatim into a downloadable ZIP.
+  assert.doesNotMatch(blockersSource, /decidedBy/);
+  assert.doesNotMatch(generatorSource, /decidedBy|req\.user|upn/i);
+});
