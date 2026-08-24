@@ -102,7 +102,7 @@ User
 
 ## 📚 Documentation
 
-- [Work IQ MCP overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/use-work-iq)
+- [Work IQ in Copilot Studio (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-work-iq)
 - [Add SharePoint as a knowledge source](https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-add-sharepoint)
 - [Add Bing Custom Search as a knowledge source](https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-bing-custom-search)
 
