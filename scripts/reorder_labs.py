@@ -85,7 +85,7 @@ def rename_folders(folders):
 
 
 TEXT_EXT = {".md", ".js", ".mjs", ".cjs", ".json", ".py", ".yaml", ".yml", ".txt"}
-SKIP_DIRS = {".git", "node_modules", ".auth", "dist", "__pycache__", ".squad"}
+SKIP_DIRS = {".git", "node_modules", ".auth", "dist", "__pycache__"}
 
 
 def iter_text_files():
