@@ -6,7 +6,7 @@ This is intentionally a content framework, not a new test runner. Rubrics define
 
 ## Why this matters
 
-The competitive scan in `.squad/decisions.md` identified AI agent output validation as an unmet market need. Most lab platforms can check infrastructure state or quiz answers, but they do not validate whether an AI agent behaves correctly after a learner builds it. Copilot Studio already has the evaluation engine; these rubrics give every lab a consistent assessment layer.
+An earlier competitive scan identified AI agent output validation as an unmet market need. Most lab platforms can check infrastructure state or quiz answers, but they do not validate whether an AI agent behaves correctly after a learner builds it. Copilot Studio already has the evaluation engine; these rubrics give every lab a consistent assessment layer.
 
 ## Files in this folder
 

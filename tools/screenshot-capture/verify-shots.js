@@ -9,7 +9,7 @@ const repoRoot = path.resolve(__dirname, '..', '..');
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 const ORPHAN_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
-const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.squad', '.auth']);
+const EXCLUDED_DIRS = new Set(['node_modules', '.git', '.auth']);
 const INTENTIONAL_ORPHANS = new Set([
   // Preserved by the repository's upgrade-test content contract.
   'labs/04-energy-ops-agent/assets/images/issues-banner.png'

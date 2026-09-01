@@ -86,7 +86,6 @@ Evidence found:
 | File | Finding | Permission implication |
 |---|---|---|
 | `.env.local.example` | Defines Azure tenant/client/secret, subscription ID, SMTP settings, and `MCP_SERVER_URL`; notes Power Platform uses delegated auth/device code. | The repo already distinguishes app secrets from Power Platform delegated auth. |
-| `.mcp.json` | Configures only `squad_state` using `@bradygaster/squad-cli`; no lab MCP server credentials. | No Azure/Graph/Dataverse permissions. |
 | `setup.js` | Template customization only. | No API permissions. |
 | `docs\codespaces.md` | Notes Lab 18 requires Power Platform tenant features/connectors; Lab 36 cloud auth/publishing happen against Copilot Studio; Lab 19 has no local A2A service. | Confirms labs are primarily UI/cloud-authoring flows. |
 | `portal\lib\auth.js` | Uses MSAL device-code delegated auth with scopes for Power Platform, BAP, Graph, and Dynamics. | Not compatible with client secret alone for those delegated portal flows. |
