@@ -133,7 +133,7 @@ export function clamp(value) {
  *
  * @returns {string|null} an absolute URL, or null if it must not be rendered
  */
-function absolutize(href, docUrl) {
+export function absolutize(href, docUrl) {
   const raw = String(href || "").trim().split(/\s+/)[0].replace(/^<|>$/g, "");
   if (!raw || raw.startsWith("#")) return null;
   try {
@@ -149,7 +149,7 @@ const HTML_ENTITIES = {
   "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": '"', "&#39;": "'", "&apos;": "'", "&nbsp;": " ",
 };
 
-function decodeEntities(text) {
+export function decodeEntities(text) {
   return String(text || "")
     .replace(/&(?:amp|lt|gt|quot|apos|nbsp|#39);/g, (entity) => HTML_ENTITIES[entity] ?? entity)
     .replace(/&#(\d{2,5});/g, (_match, code) => {

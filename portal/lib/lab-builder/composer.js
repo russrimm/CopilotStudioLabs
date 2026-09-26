@@ -282,6 +282,20 @@ function groundedInsight(grounding) {
  * per module.
  */
 function stepProvenance(record) {
+  if (record?.source === "llm-verified") {
+    const heading = record.sectionHeading ? scrubForbidden(record.sectionHeading) : "the current documentation";
+    const day = record.fetchedAt ? String(record.fetchedAt).slice(0, 10) : null;
+    const link = record.url ? `[${heading}](${record.url})` : heading;
+    const others = (record.sources || []).filter((url) => url !== record.url).length;
+    const model = record.synthesis?.model || "a language model";
+    return [
+      "",
+      `*Written by ${model} from ${link}${others ? ` and ${others} other documentation page${others === 1 ? "" : "s"}` : ""}` +
+        `${day ? ` on ${day}` : ""}. Each step was kept only after a check against those pages: every bolded label is one ` +
+        `the documentation bolds, and every step is tied to a word-for-word quote, recorded in \`manifest.json\`.*`,
+    ];
+  }
+
   if (!record || record.source !== "doc-derived") {
     const why =
       record?.reason === "fetch-failed"
@@ -403,9 +417,54 @@ function completeSection(plan) {
   ].join("\n");
 }
 
+/**
+ * The "Steps." paragraph when a model wrote some of them.
+ *
+ * The default builder's promise is that no model writes a step. Opting in to
+ * synthesis breaks that promise for the modules it covers, so the lab has to
+ * say which modules, and what check replaced the promise.
+ */
+function synthesizedStepsParagraph({ synthesized, derived, total, provider }) {
+  const plural = (n) => (n === 1 ? "" : "s");
+  const model = provider && provider !== "none" ? provider : "a language model";
+  const curated = total - synthesized - derived;
+  return [
+    `**Steps.** The click-by-click steps in ${synthesized} of ${total} module${plural(total)} were written by ${model} from that feature's current documentation at build time, and kept only because every step passed a mechanical check against the pages it was written from: each is tied to a word-for-word quote, each bolded label is one the documentation bolds, and each typed value uses only words from the scenario or the page.`,
+    derived > 0 ? `${derived} more were read directly off the documentation page, with no model involved.` : "",
+    curated > 0 ? `The other ${curated} use this repository's curated steps, and each of those modules says why.` : "",
+    "Every module names which of these it used.",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * The "Narrative." paragraph. The wording is unchanged from before step
+ * synthesis existed whenever no model wrote a step, so existing labs read the
+ * same; it only changes to name the modules whose steps a model did write.
+ */
+function narrativeParagraph({ provider, grounded, synthesized, total, plural, generation }) {
+  const drafted = provider && provider !== "none";
+  const stepModel = generation.synthesisModel || provider;
+  const steps =
+    synthesized > 0
+      ? `${drafted && stepModel === provider ? "The same model" : stepModel} wrote the steps in ${synthesized} of ${total} module${plural}, under the check described above; no model wrote the steps in the others.`
+      : drafted
+      ? "No language model wrote any of the steps."
+      : "No language model writes the steps either way.";
+
+  if (drafted) {
+    return `**Narrative.** The overview and the per-module "In your scenario" passages were drafted with ${provider} on top of that grounded content. ${steps}`;
+  }
+  const why = generation.llmAvailable ? "The model-written narrative was not used for this build" : "No language model was configured";
+  const source = grounded > 0 ? "this repository's curated feature catalog combined with the Microsoft Learn excerpts above" : "this repository's curated feature catalog";
+  return `**Narrative.** ${why}, so the overview and the per-module "In your scenario" passages come from ${source}. ${steps}`;
+}
+
 function howToUseSection(plan, generation) {
   const grounded = generation.groundedFeatures;
   const derived = generation.docDerivedFeatures ?? 0;
+  const synthesized = generation.synthesizedFeatures ?? 0;
   const total = plan.features.length;
   const provider = generation.llmProvider;
   const plural = total === 1 ? "" : "s";
@@ -435,17 +494,15 @@ function howToUseSection(plan, generation) {
         ? `Every link this lab embeds was then requested once, on ${verifiedDay}, to confirm it still resolves: ${check.checked} checked, ${check.broken} removed for returning an error, ${check.unreachable} kept but unreachable from the machine that built this.`
         : `Link checking was switched off for this build, so no link below has been confirmed to resolve. Treat every reference as unverified.`),
     "",
-    derived === total
+    synthesized > 0
+      ? synthesizedStepsParagraph({ synthesized, derived, total, provider: generation.synthesisModel || provider })
+      : derived === total
       ? `**Steps.** The click-by-click steps in every module were read from that feature's current documentation page at build time, not copied from a stored list. Each module names the page it came from and the date it was read.`
       : derived > 0
       ? `**Steps.** The click-by-click steps in ${derived} of ${total} module${plural} were read from that feature's current documentation page at build time. The other ${total - derived} use this repository's curated steps, because no procedure on the page matched the module closely enough to trust. Every module names which of the two it used; the ones read from a page also name that page and the date.`
       : `**Steps.** No module's steps could be read from a live documentation page on this build, so every module uses this repository's curated steps. Each one says so, and why. They were accurate when written, but they are not verified against the current product.`,
     "",
-    provider && provider !== "none"
-      ? `**Narrative.** The overview and the per-module "In your scenario" passages were drafted with ${provider} on top of that grounded content. No language model wrote any of the steps.`
-      : grounded > 0
-      ? `**Narrative.** No language model was configured, so the overview and the per-module "In your scenario" passages come from this repository's curated feature catalog combined with the Microsoft Learn excerpts above. No language model writes the steps either way.`
-      : `**Narrative.** No language model was configured, so the overview and the per-module "In your scenario" passages come from this repository's curated feature catalog. No language model writes the steps either way.`,
+    narrativeParagraph({ provider, grounded, synthesized, total, plural, generation }),
     "",
     // Issue #41's second half. Generated labs live outside `labs/`, are
     // git-ignored, and are therefore never seen by the monthly accuracy audit

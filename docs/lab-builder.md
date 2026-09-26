@@ -13,7 +13,7 @@ Which is which matters, because the two age differently:
 | Microsoft Learn citations and the **From the docs** excerpt | Searched live at build time, scored for relevance, and link-checked before use. |
 | **Do this** walk-through steps | Read from the module's live documentation page **when a procedure on it matches the module confidently enough** — otherwise the curated catalog steps, labeled as such in that module. |
 | Module set, ordering, prerequisites, concepts, **Check your work** | The curated catalog, `portal/lib/lab-builder/features.json`. Never live. |
-| Overview and per-module "In your scenario" narrative | A language model, when one is configured; otherwise the curated catalog. A model never writes the steps. |
+| Overview and per-module "In your scenario" narrative | A language model, when one is configured; otherwise the curated catalog. By default a model never writes the steps; see [step synthesis](#4b-opt-in-grounded-step-synthesis) for the opt-in exception. |
 | Screenshots | Reused from existing labs in this repo, or listed for you to capture. |
 
 The share of modules that get live steps is not a fixed property of the tool. It
@@ -69,6 +69,7 @@ Useful flags:
 | `--no-core` | Skip the level 100 foundation modules (assumes learners already have an agent). |
 | `--no-learn` | Offline mode. Skips Microsoft Learn and uses the curated doc links. |
 | `--no-llm` | Deterministic composition even if LLM credentials are configured. |
+| `--synthesize-steps <ids\|all>` | Opt in to [grounded step synthesis](#4b-opt-in-grounded-step-synthesis) for these modules. Needs a language model and Microsoft Learn. |
 | `--decide <code>=<option>` | Pre-answer a build blocker. Repeatable. See [Blocked builds](#blocked-builds). |
 | `--non-interactive` | Never prompt. Report blockers and exit 2 instead. |
 | `--dry-run` | Print the plan and exit without writing anything. |
@@ -295,10 +296,10 @@ healthcare build derived one; an eight-module sample derived three. The ratio
 moves whenever Microsoft edits a page, so the count the builder prints at the end
 of a run is the only number worth quoting.
 
-**No language model is involved.** Every derived step is a cleaned substring of a
-page that was fetched, which is a structural guarantee that the builder cannot
-invent product UI — stronger than asking a model not to. It also means the steps
-are identical with and without credentials configured.
+**No language model is involved** on this path. Every derived step is a cleaned
+substring of a page that was fetched, which is a structural guarantee that the
+builder cannot invent product UI — stronger than asking a model not to. It also
+means the steps are identical with and without credentials configured.
 
 Fetched pages are untrusted input. They are never executed. Steps are stripped of
 HTML, images, and control characters; relative Learn links are resolved to
@@ -313,19 +314,98 @@ Each module records in `manifest.json` whether its steps were `doc-derived` or
 reported rather than acted on — the derived path already resolved it — and it is
 the signal that a catalog entry has gone stale.
 
+### 4b. Opt-in: grounded step synthesis
+
+> **Prototype.** Off unless you pass `--synthesize-steps` (CLI) or
+> `synthesizeSteps` (`generateLab()` option). The portal wizard and the HTTP API
+> do not expose it yet.
+
+Extraction only ever copies one numbered list off one page. That makes it safe,
+but it also puts a ceiling on it. It rejects a module whenever no single list
+matches closely enough. It can pick the wrong list when a page has several. And
+it cannot tailor anything to the scenario. On the connector-tools module, for
+example, it reads the "create a new tool" procedure, which lists Prompt, Agent
+flow, and REST API but never prebuilt connectors. The procedure the module
+needs sits on the second catalog page.
+
+`synthesis.js` inverts the trust model. A language model writes the module's
+steps from the same fetched pages, which covers choosing the procedure, combining
+pages, and filling in scenario values. A deterministic verifier then decides
+whether anything it wrote reaches the learner. The model returns every step with
+an `evidence` quote, and each step must pass all of these checks:
+
+| Check | Rule |
+|---|---|
+| Evidence | The quote appears word for word on a supplied page, after both sides drop Markdown emphasis, list markers, table pipes, and link targets. A quote containing HTML or an image is refused, so nothing can hide where the match cannot see. Support is measured against the quote *as matched*, not the raw string. |
+| UI labels | Every label written as `**Label**` is bolded somewhere in the documentation *and* appears in the step's own quote. The model can neither invent a button nor move a real one to the wrong step. Bold in any other form (`__x__`, stray `**`) is refused rather than left unchecked. |
+| Support | At least 75% of the step's claims appear in its quote. Scenario words and a short list of instruction verbs are neutral, so padding a claim with scenario vocabulary cannot carry it over the line. |
+| Typed values | Every `` `code span` `` (a name or value the learner types) uses only words from the scenario or the pages. `Care Team Assistant` passes. A connector the documentation never names does not. |
+| Links | Every link target, including links with titles or padding, already appears on a supplied page; relative targets are made absolute. Bare URLs are refused, because renderers turn them into links too. |
+| Shape | 3–15 steps; no ellipses, HTML, headings, images, or repeats; and together they cover the module's own summary. |
+
+A failed check goes back to the model as a specific error. When a quote is a near
+miss, the error also shows where it stops matching the page. The model gets up to
+four attempts in all. If none passes, **nothing the model wrote is used**, and the
+module falls through to the extraction path above, with its gates and blockers
+unchanged. Failed checks are recorded in `manifest.json`.
+
+A request that never got a reply is kept apart from a reply that failed, for the
+same reason `linkcheck.js` keeps a 404 apart from a timeout. Rate limits,
+overload, and network errors are waited out, honouring any "retry after N
+seconds" hint, and they do not use up an attempt. A request that keeps failing,
+or is refused outright (for example by a content filter), is recorded as
+`request-failed` and warned about separately from `not-verified`.
+
+A verified module is recorded as `llm-verified`. Its `steps.synthesis` record in
+the manifest names the model, the number of attempts, and every step with the
+quote, page, and section that earned it a place. The lab's **Do this** line says
+which model wrote the steps and from which page, and **How This Lab Was Built**
+counts those modules separately rather than repeating the default claim that no
+model wrote a step.
+
+What this does and does not guarantee:
+
+- It guarantees that every bolded UI label and every quote exists in the fetched
+  documentation. The model cannot pass a step off as documented when it is not.
+- It does not guarantee that a quote came from the procedure the module needs
+  rather than a neighbouring one on the same page, or that steps stay in the
+  documentation's order. Read a synthesized module before you teach from it, the
+  same as a derived one.
+- Results vary from run to run, and depend on the model deployment's capacity.
+  In a sampled nine-module healthcare build with these checks, three modules
+  verified, three failed verification, and three never got a reply: the
+  deployment's rate limit or content filter refused the request. Extraction
+  covered some of the rest. As with extraction, the count the builder prints is
+  the only number worth quoting.
+
+```bash
+# One module
+node tools/lab-builder/build.mjs --industry healthcare \
+  --features connector-tools --synthesize-steps connector-tools
+
+# Every module in the plan
+node tools/lab-builder/build.mjs --features knowledge-sharepoint,mcp-servers \
+  --synthesize-steps all
+```
+
 ### 5. LLM enrichment (optional)
 
 `llm.js` auto-detects a provider:
 
-1. **Azure OpenAI** — `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_DEPLOYMENT`
+1. **Azure OpenAI** — `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_DEPLOYMENT`, plus
+   either `AZURE_OPENAI_API_KEY` or `AZURE_OPENAI_AD_TOKEN`. Use the token for a
+   resource with key authentication disabled, for example
+   `az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv`.
+   Entra tokens expire, typically after about an hour.
 2. **GitHub Models** — `GITHUB_TOKEN` (optionally `GITHUB_MODELS_MODEL`)
 3. **None** — deterministic composition from the catalog and Learn excerpts
 
 With a provider configured, the builder drafts the lab overview and a
 scenario-specific "In your scenario" paragraph per module, constrained by a
 system prompt that forbids inventing product UI. Without one, the lab is still
-complete — it just uses the curated narrative instead. Either way the model plays
-no part in producing the walk-through steps.
+complete — it just uses the curated narrative instead. The model plays no part in
+producing the walk-through steps unless you opt in to
+[step synthesis](#4b-opt-in-grounded-step-synthesis).
 
 Set `LAB_BUILDER_LLM=off` to force deterministic mode.
 
@@ -492,5 +572,8 @@ cd portal && npm test
 `portal/test/lab-builder.test.js` covers catalog integrity, prerequisite
 expansion and ordering, planner behavior (time budgets, unknown inputs), blocker
 detection and resolution for all seven codes, LLM provider detection, and a full
-offline generation that must pass every validator rule. No network access is
-required.
+offline generation that must pass every validator rule.
+`portal/test/lab-builder-synthesis.test.js` covers each verifier check with a
+passing and a failing case, the repair loop, the split between failed requests
+and failed verification, and an end-to-end build with a scripted model. No
+network access is required.

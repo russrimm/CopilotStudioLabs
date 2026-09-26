@@ -15,6 +15,7 @@ import { createLlm } from "./llm.js";
 import { planScreenshots, copyScreenshots, buildShotsManifest } from "./screenshots.js";
 import { composeLab } from "./composer.js";
 import { deriveSteps, diffSteps } from "./steps.js";
+import { synthesizeSteps } from "./synthesis.js";
 import {
   DEFAULT_CONCURRENCY as LINK_CONCURRENCY,
   DEFAULT_TIMEOUT_MS as LINK_TIMEOUT_MS,
@@ -63,19 +64,147 @@ function quoteUntrusted(label, text) {
 }
 
 /**
+ * Which modules the caller asked to have their steps synthesized.
+ *
+ * Accepts `true`, `"all"`, a comma-separated string, or an array of feature ids.
+ */
+export function synthesisTargets(value, features) {
+  if (!value) return new Set();
+  const list = Array.isArray(value) ? value : value === true ? ["all"] : String(value).split(",");
+  const ids = list.map((id) => String(id).trim()).filter(Boolean);
+  if (ids.includes("all")) return new Set(features.map((feature) => feature.id));
+  return new Set(ids);
+}
+
+/** The scenario a synthesized step may talk about, and nothing else. */
+function synthesisContext(plan) {
+  const profile = plan.profile || {};
+  return {
+    industry: plan.industry?.name || null,
+    audience: profile.audience,
+    agentName: profile.agentName,
+    domain: profile.domain,
+    problem: profile.problem,
+    outcome: profile.outcome,
+    knowledgeSources: profile.knowledgeSources || [],
+    sampleQuestions: profile.sampleQuestions || [],
+    entities: profile.entities || [],
+    terms: profile.terms || [],
+  };
+}
+
+/** The value that occurs most often, keeping first-seen order on ties. */
+function mostCommon(values) {
+  const counts = new Map();
+  for (const value of values) if (value) counts.set(value, (counts.get(value) || 0) + 1);
+  let best = null;
+  for (const [value, count] of counts) if (!best || count > best[1]) best = [value, count];
+  return best ? best[0] : null;
+}
+
+/**
+ * Opt-in: have a model write this module's steps from its documentation pages,
+ * and keep them only if every step verifies against those pages.
+ *
+ * @returns {Promise<{record:object|null, summary:object}>} `record` is null when
+ *   nothing the model wrote may be used
+ */
+async function synthesizeModule(session, feature, { llm, context, onProgress, signal }) {
+  onProgress?.({ stage: "steps", message: `Writing and verifying the steps for ${feature.name}` });
+
+  const pages = [];
+  for (const url of (feature.docUrls || []).slice(0, 3)) {
+    const page = await fetchDocPage(session, url);
+    if (!page.error && page.markdown) pages.push(page);
+  }
+
+  const result = await synthesizeSteps({
+    feature,
+    pages,
+    context,
+    llm,
+    signal,
+    onWait: ({ ms }) =>
+      onProgress?.({ stage: "steps", message: `Waiting ${Math.round(ms / 1000)}s for the model to accept requests (${feature.name})` }),
+  });
+  const model = llm.provider?.label || llm.provider?.kind || "a language model";
+
+  if (!result.ok) {
+    return {
+      record: null,
+      summary: {
+        requested: true,
+        verified: false,
+        model,
+        attempts: result.attempts,
+        retries: result.retries || 0,
+        reason: result.reason,
+        // The checks the final attempt failed, so a reviewer can see why the
+        // model's steps were refused without re-running the build.
+        errors: (result.errors || []).slice(0, 10),
+      },
+    };
+  }
+
+  const url = mostCommon(result.steps.map((step) => step.url));
+  const page = pages.find((p) => p.url === url);
+  const summary = {
+    requested: true,
+    verified: true,
+    model,
+    attempts: result.attempts,
+    retries: result.retries || 0,
+    reason: null,
+    errors: [],
+    // Every step with the quote that earned it a place in the lab.
+    evidence: result.steps.map((step) => ({
+      step: step.text,
+      quote: step.evidence,
+      url: step.url,
+      section: step.section,
+    })),
+  };
+
+  const steps = result.steps.map((step) => step.text);
+  return {
+    summary,
+    record: {
+      featureId: feature.id,
+      source: "llm-verified",
+      steps,
+      url,
+      sources: [...new Set(result.steps.map((step) => step.url).filter(Boolean))],
+      fetchedAt: page?.fetchedAt || null,
+      sectionHeading: mostCommon(result.steps.filter((step) => step.url === url).map((step) => step.section)),
+      confidence: null,
+      reason: null,
+      drift: diffSteps(feature.steps, steps),
+      attempts: [],
+      synthesis: summary,
+    },
+  };
+}
+
+/**
  * Read each module's walk-through steps from the live documentation.
  *
  * Curated `feature.steps` are the fallback, never the default: issue #37's whole
  * point is that a lab which renders the catalog verbatim goes stale exactly as
- * fast as a hand-written one. Nothing here writes prose — every derived step is
- * a cleaned substring of a page that was fetched — so this path is identical
- * with or without a language model configured.
+ * fast as a hand-written one. By default nothing here writes prose — every
+ * derived step is a cleaned substring of a page that was fetched — so this path
+ * is identical with or without a language model configured.
+ *
+ * The exception is opt-in: modules named in `synthesis.ids` are first offered
+ * to a model through `synthesis.js`, whose verifier decides whether anything it
+ * wrote is kept. A module whose synthesis fails verification falls through to
+ * the same deterministic path as every other module.
  *
  * Returns a record per feature so the caller can gate on the failures and record
  * provenance in the manifest.
  */
-async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrency }) {
+async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrency, synthesis }) {
   const byFeature = new Map();
+  const context = synthesis?.ids?.size ? synthesisContext(plan) : null;
 
   const derived = await mapLimit(plan.features, maxConcurrency, async (feature) => {
     const catalogEntry = {
@@ -88,11 +217,23 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
       reason: null,
       drift: null,
       attempts: [],
+      synthesis: null,
     };
 
     if (!session?.ok) {
       catalogEntry.reason = "learn-unavailable";
       return [feature.id, catalogEntry];
+    }
+
+    if (synthesis?.ids?.has(feature.id) && synthesis.llm?.available) {
+      const { record, summary } = await synthesizeModule(session, feature, {
+        llm: synthesis.llm,
+        context,
+        onProgress,
+        signal,
+      });
+      if (record) return [feature.id, record];
+      catalogEntry.synthesis = summary;
     }
 
     onProgress?.({ stage: "steps", message: `Reading the steps for ${feature.name}` });
@@ -127,6 +268,7 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
           reason: null,
           drift: diffSteps(feature.steps, result.steps),
           attempts: catalogEntry.attempts,
+          synthesis: catalogEntry.synthesis,
         },
       ];
     }
@@ -251,6 +393,9 @@ async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgres
  * @param {boolean} [opts.write=true] set false for a dry-run preview
  * @param {boolean} [opts.useLearnMcp=true]
  * @param {boolean} [opts.useLlm=true]
+ * @param {true|string|string[]} [opts.synthesizeSteps] feature ids (or "all")
+ *   whose steps a model should write from the documentation, kept only if they
+ *   pass `synthesis.js`'s verifier. Off by default.
  * @param {Record<string,string>} [opts.decisions] blocker code → chosen option id
  * @param {string} [opts.decisionSource] recorded in the manifest as `decidedVia`
  * @param {AbortSignal} [opts.signal]
@@ -448,7 +593,56 @@ export async function generateLab(request, opts = {}) {
   let groundedFeatures = plan.features.filter((feature) => groundingByFeature.get(feature.id)?.learnVerified).length;
 
   // ── 2. Read each module's steps from the live documentation ───────────────
-  let stepsByFeature = await deriveAllSteps(session, plan, { onProgress, signal, maxConcurrency });
+  // The model is created here rather than at the narrative stage because opt-in
+  // step synthesis needs it first. Synthesis records its own request failures,
+  // so they never count towards the narrative's partial-failure gate below.
+  const llm = useLlm
+    ? opts.llm || createLlm()
+    : { available: false, failures: [], provider: { kind: "none", reason: "Disabled for this run" } };
+
+  const synthesisIds = synthesisTargets(opts.synthesizeSteps, plan.features);
+  if (synthesisIds.size) {
+    const outside = [...synthesisIds].filter((id) => !plan.features.some((f) => f.id === id));
+    if (outside.length) {
+      plan.warnings.push(`Step synthesis was requested for module(s) that are not in this lab: ${outside.join(", ")}.`);
+    }
+    if (!llm.available) {
+      plan.warnings.push(
+        `Step synthesis was requested, but no language model is available (${llm.provider?.reason || "none configured"}), so every module uses the deterministic steps.`,
+      );
+    } else if (!session.ok) {
+      plan.warnings.push("Step synthesis was requested, but Microsoft Learn was not read for this build, so there was nothing to write the steps from.");
+    }
+  }
+
+  let stepsByFeature = await deriveAllSteps(session, plan, {
+    onProgress,
+    signal,
+    maxConcurrency,
+    synthesis: { ids: synthesisIds, llm },
+  });
+
+  // A module whose pages could not be read (`no-pages`) is left to the
+  // fetch-failure gate below, which already reports exactly that.
+  const synthesisFailed = (reason) =>
+    plan.features.filter((f) => stepsByFeature.get(f.id)?.synthesis?.reason === reason);
+  const refused = synthesisFailed("not-verified");
+  if (refused.length) {
+    plan.warnings.push(
+      `The model's steps for ${refused.length} module(s) failed verification against the documentation, so nothing it wrote is used there and they fall back to the deterministic steps: ${refused
+        .map((f) => f.name)
+        .join(", ")}. The failed checks are recorded in manifest.json.`,
+    );
+  }
+  const unanswered = synthesisFailed("request-failed");
+  if (unanswered.length) {
+    const cause = stepsByFeature.get(unanswered[0].id).synthesis.errors[0]?.message || "no reply";
+    plan.warnings.push(
+      `The model could not be reached for ${unanswered.length} module(s), so their steps were never written or checked and they use the deterministic steps: ${unanswered
+        .map((f) => f.name)
+        .join(", ")}. ${cause.slice(0, 200)}`,
+    );
+  }
 
   // ── Gate 4: a documentation page could not be read at all ─────────────────
   // Transient by nature — timeouts dominate — so retry is the recommendation.
@@ -523,6 +717,7 @@ export async function generateLab(request, opts = {}) {
 
   // Recomputed after the link check below, for the same reason as `groundedFeatures`.
   let docDerivedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "doc-derived").length;
+  let synthesizedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "llm-verified").length;
 
   // ── 2b. Check that every URL about to be embedded actually resolves ────────
   //
@@ -557,6 +752,7 @@ export async function generateLab(request, opts = {}) {
       for (const result of grounding?.results || []) embedded.push(result.url);
       const stepUrl = stepsByFeature.get(feature.id)?.url;
       if (stepUrl) embedded.push(stepUrl);
+      for (const url of stepsByFeature.get(feature.id)?.sources || []) embedded.push(url);
     }
 
     linkCheck.records = await verifyUrls(embedded, {
@@ -665,6 +861,7 @@ export async function generateLab(request, opts = {}) {
   // than it now contains.
   groundedFeatures = plan.features.filter((f) => groundingByFeature.get(f.id)?.learnVerified).length;
   docDerivedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "doc-derived").length;
+  synthesizedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "llm-verified").length;
 
   const linkCheckSummary = summarizeLinkCheck(linkCheck.records, {
     enabled: linkCheck.enabled,
@@ -685,9 +882,6 @@ export async function generateLab(request, opts = {}) {
   }
 
   // ── 3. Optional LLM narrative ─────────────────────────────────────────────
-  const llm = useLlm
-    ? opts.llm || createLlm()
-    : { available: false, failures: [], provider: { kind: "none", reason: "Disabled for this run" } };
   let enrichment = await enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgress, signal, maxConcurrency });
 
   // ── Gate 7: a configured model wrote some passages but not others ─────────
@@ -726,10 +920,17 @@ export async function generateLab(request, opts = {}) {
 
   // ── 5. Compose ────────────────────────────────────────────────────────────
   onProgress?.({ stage: "compose", message: "Composing the lab" });
+  // Credit the model with the narrative only if some of its narrative survived.
+  // Choosing the catalog narrative after a partial failure discards all of it,
+  // and the lab must not then claim the narrative was model-drafted.
+  const narrativeUsed = Boolean(enrichment.overview || enrichment.byFeature?.size);
   const generation = {
     groundedFeatures,
     docDerivedFeatures,
-    llmProvider: llm.available ? llm.provider.label : "none",
+    synthesizedFeatures,
+    llmProvider: llm.available && narrativeUsed ? llm.provider.label : "none",
+    llmAvailable: Boolean(llm.available),
+    synthesisModel: synthesizedFeatures ? llm.provider.label || llm.provider.kind : null,
     generatedAt: new Date().toISOString(),
     endpoint: LEARN_MCP_ENDPOINT,
     learnConnected: Boolean(session.ok),
@@ -785,6 +986,12 @@ export async function generateLab(request, opts = {}) {
           confidence: derived?.confidence ?? null,
           count: (derived?.steps || f.steps).length,
           drift: derived?.drift || null,
+          // Every page a synthesized module's steps quote, beyond `url`.
+          sources: derived?.sources || null,
+          // Present only when synthesis was requested for this module: which
+          // model, whether its steps verified, the quote behind each kept step,
+          // and the checks a refused attempt failed.
+          synthesis: derived?.synthesis || null,
         },
       };
     }),
@@ -794,6 +1001,7 @@ export async function generateLab(request, opts = {}) {
       connected: Boolean(session.ok),
       groundedModules: groundedFeatures,
       docDerivedModules: docDerivedFeatures,
+      synthesizedModules: synthesizedFeatures,
       totalModules: plan.features.length,
     },
     // Liveness of every URL the lab embeds, as of `verifiedAt`. `broken` links

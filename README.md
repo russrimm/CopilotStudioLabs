@@ -149,8 +149,12 @@ re-read it.
 
 Optionally set `AZURE_OPENAI_*` or `GITHUB_TOKEN` to add LLM-drafted,
 scenario-specific narrative on top of the grounded content. Without them the
-builder composes deterministically and still produces a complete lab. A language
-model never writes the walk-through steps either way.
+builder composes deterministically and still produces a complete lab. By default
+a language model never writes the walk-through steps. The exception is
+`--synthesize-steps <features|all>`, an opt-in prototype: the model writes a
+module's steps from its Learn pages, and they are kept only if every step passes a
+mechanical check against those pages. Anything that fails falls back to the
+default path.
 
 📖 Full documentation: [`docs/lab-builder.md`](docs/lab-builder.md)
 
