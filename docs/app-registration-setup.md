@@ -18,7 +18,7 @@ This guide covers the authentication boundaries for:
 - `labs\36-copilot-studio-vscode-agent-management\index.md`
 - `labs\19-agent-to-agent-protocol\index.md`
 
-These lab folders contain walkthrough documentation rather than a local authentication service. The repository-level `.env.local.example`, `.mcp.json`, `setup.js`, `docs\codespaces.md`, and portal authentication/provisioning helpers are separate support surfaces.
+These lab folders contain walkthrough documentation rather than a local authentication service. The repository-level `.env.local.example`, `.copilot\mcp-config.json`, `setup.js`, `docs\codespaces.md`, and portal authentication/provisioning helpers are separate support surfaces.
 
 High-level guidance: **Lab 18 has Dataverse/MCP pieces that can use service-principal-style access only when the app is also created as a Dataverse application user in the target environment. Lab 36 and most Lab 19 authoring steps require delegated user sign-in and can't be completed with client credentials alone.**
 

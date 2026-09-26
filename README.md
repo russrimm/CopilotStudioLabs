@@ -205,10 +205,12 @@ The repository also includes a full **Copilot Studio Labs portal** for deliverin
 
 ### How to use these labs
 
-- **For a shorter introduction**, begin with [Lab 01](./labs/01-intro-workshop/index.md), then complete [Lab 02](./labs/02-conversational-design-fundamentals/index.md) before moving into specialized topics.
-- **For an end-to-end agent build**, use [Lab 04](./labs/04-energy-ops-agent/index.md), followed by [Lab 06](./labs/06-energy-weather-agent/index.md) for a deeper multi-tool scenario.
-- **For source-controlled agent management**, use [Lab 36](./labs/36-copilot-studio-vscode-agent-management/index.md) after an agent already exists in an approved development environment.
-- **For pro-code web integration**, use [Lab 32](./labs/32-embed-agent-web-sdk/index.md) or [Lab 33](./labs/33-power-apps-code-apps/index.md).
+Lab numbers below are the `#` column in the table above, not folder numbers.
+
+- **For a shorter introduction**, begin with [Lab 36 — Copilot Studio Introductory Workshop](./labs/01-intro-workshop/index.md), then complete [Lab 37 — Conversational Design Fundamentals](./labs/02-conversational-design-fundamentals/index.md) before moving into specialized topics.
+- **For an end-to-end agent build**, use [Lab 01 — Build a Custom IT Operations Agent](./labs/04-energy-ops-agent/index.md), followed by [Lab 04 — Energy Operations Weather Intelligence Agent](./labs/06-energy-weather-agent/index.md) for a deeper multi-tool scenario.
+- **For source-controlled agent management**, use [Lab 05 — Clone, Modify, and Republish Agents with VS Code](./labs/36-copilot-studio-vscode-agent-management/index.md) after an agent already exists in an approved development environment.
+- **For pro-code web integration**, use [Lab 18 — Embed an Agent with the Client SDK](./labs/32-embed-agent-web-sdk/index.md) or [Lab 11 — Power Apps Code App](./labs/33-power-apps-code-apps/index.md).
 - Use the **portal** to preview labs, apply branding, validate content, export ZIP bundles, email packages, manage approval workflows, provision environments, and connect an embedded Copilot Studio support agent for learners and provisioners.
 
 ---
@@ -314,9 +316,12 @@ cd tools/screenshot-capture
 npm install
 npm run capture    # interactive — walks through each shot
 npm run list       # list all configured shots
+npm run verify     # check image references, shots.json, and orphaned assets
 ```
 
-The tool uses Playwright to capture screenshots from the live Copilot Studio UI. Shot definitions live in `shots.json` and map to specific lab steps. When lab content changes, update the relevant shots and re-run the capture tool — the changelog workflow will flag screenshot changes in the PR for reviewer verification.
+The tool uses Playwright to capture screenshots from the live Copilot Studio UI. Shot definitions live in `shots.json` and map to specific lab steps; captures are written to `labs/<lab>/assets/`. When lab content changes, update the relevant shots, re-run the capture tool, and run `npm run verify` — the changelog workflow will flag screenshot changes in the PR for reviewer verification.
+
+Labs 01 and 06 (folder numbers) also keep a `screenshots/` folder of light and dark captures used by their DOCX and PDF guides. Those folders are linked from each lab's **Lab Materials** section and are not checked by `verify`.
 
 ---
 
