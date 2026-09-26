@@ -29,6 +29,7 @@ const { generateLab, OUTPUT_ROOT } = await import(
 const { normalizeDecisions } = await import(
   pathToFileURL(path.join(LIB, "lab-builder", "blockers.js")).href
 );
+const { detectProvider } = await import(pathToFileURL(path.join(LIB, "lab-builder", "llm.js")).href);
 const { getIndustries, getRoles } = await import(pathToFileURL(path.join(LIB, "scenarios.js")).href);
 
 /** Exit codes, so CI can tell "needs a human" from "produced something broken". */
@@ -121,6 +122,10 @@ Flags:
   --out <dir>               Output directory (default: generated-labs/).
   --no-learn                Skip Microsoft Learn grounding (offline mode).
   --no-llm                  Skip LLM enrichment even if credentials are present.
+  --synthesize-steps <a,b>  Opt in: have the language model write these modules'
+                            steps from their Learn pages ("all" for every module).
+                            Steps are kept only if each one verifies against the
+                            page; anything that fails falls back to the default.
   --no-core                 Do not auto-add the level 100 foundation modules.
   --decide <code>=<option>  Pre-answer a build blocker. Repeatable.
   --non-interactive         Never prompt; report blockers and exit 2 instead.
@@ -142,6 +147,8 @@ option and exits 2, so CI can never produce a degraded lab by accident.
 The lab builder grounds every module against the public Microsoft Learn MCP
 server (no sign-in required). If AZURE_OPENAI_* or GITHUB_TOKEN are set, it
 also drafts scenario-specific narrative; otherwise it composes deterministically.
+For Azure OpenAI resources with key auth disabled, set AZURE_OPENAI_AD_TOKEN to a
+Microsoft Entra access token instead of AZURE_OPENAI_API_KEY.
 `);
 }
 
@@ -303,6 +310,35 @@ try {
   process.exit(EXIT.VALIDATION_FAILED);
 }
 
+// Step synthesis is an explicit request, so a build that cannot honour it is a
+// usage error rather than something to degrade around quietly.
+let synthesizeSteps;
+if (args["synthesize-steps"]) {
+  const ids = args["synthesize-steps"] === true ? ["all"] : list(args["synthesize-steps"]);
+  const unknown = ids.filter((id) => id !== "all" && !getFeature(id));
+  if (!ids.length || unknown.length) {
+    console.error(`Error: --synthesize-steps expects feature ids or "all"${unknown.length ? `; unknown: ${unknown.join(", ")}` : ""}.`);
+    process.exit(EXIT.VALIDATION_FAILED);
+  }
+  if (args["no-llm"]) {
+    console.error("Error: --synthesize-steps needs a language model, and --no-llm switches it off.");
+    process.exit(EXIT.VALIDATION_FAILED);
+  }
+  if (args["no-learn"]) {
+    console.error("Error: --synthesize-steps writes steps from Microsoft Learn pages, and --no-learn skips reading them.");
+    process.exit(EXIT.VALIDATION_FAILED);
+  }
+  const provider = detectProvider();
+  if (provider.kind === "none") {
+    console.error(
+      `Error: --synthesize-steps needs a language model. ${provider.reason}.\n` +
+        "Set AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT, and AZURE_OPENAI_API_KEY (or AZURE_OPENAI_AD_TOKEN), or GITHUB_TOKEN.",
+    );
+    process.exit(EXIT.VALIDATION_FAILED);
+  }
+  synthesizeSteps = ids;
+}
+
 const canPrompt = Boolean(stdin.isTTY && stdout.isTTY) && !args["non-interactive"];
 let prompted = false;
 let result;
@@ -313,6 +349,7 @@ for (;;) {
     write: !args["dry-run"],
     useLearnMcp: !args["no-learn"],
     useLlm: !args["no-llm"],
+    synthesizeSteps,
     decisions,
     decisionSource: prompted ? "cli-interactive" : "cli-flag",
     onProgress: (event) => process.stdout.write(`  [${event.stage}] ${event.message}\n`),
@@ -347,6 +384,16 @@ console.log(
 console.log(
   `Steps       ${result.manifest.grounding.docDerivedModules}/${result.manifest.grounding.totalModules} modules had their steps read from a live documentation page`,
 );
+if (synthesizeSteps) {
+  const requested = result.manifest.modules.filter((m) => m.steps.synthesis?.requested);
+  const verified = requested.filter((m) => m.steps.synthesis.verified);
+  const unreached = requested.filter((m) => m.steps.synthesis.reason === "request-failed");
+  console.log(
+    `Synthesis   ${verified.length}/${requested.length} requested module(s) written by ${result.manifest.llm.label} passed verification` +
+      (verified.length ? `: ${verified.map((m) => `${m.name} (attempt ${m.steps.synthesis.attempts})`).join(", ")}` : "") +
+      (unreached.length ? `; ${unreached.length} never got a reply from the model` : ""),
+  );
+}
 console.log(`Narrative   ${result.manifest.llm.label || result.manifest.llm.reason}`);
 console.log(
   `Screenshots ${result.manifest.screenshots.reused} reused from existing labs, ${result.manifest.screenshots.toCapture} listed in shots.json for capture`,

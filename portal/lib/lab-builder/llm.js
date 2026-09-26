@@ -2,12 +2,16 @@
  * Optional LLM enrichment for the lab builder.
  *
  * Provider auto-detection order:
- *   1. Azure OpenAI  — AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY + AZURE_OPENAI_DEPLOYMENT
+ *   1. Azure OpenAI  — AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_DEPLOYMENT, plus either
+ *                      AZURE_OPENAI_API_KEY or AZURE_OPENAI_AD_TOKEN (a Microsoft
+ *                      Entra access token, for resources with key auth disabled)
  *   2. GitHub Models — GITHUB_TOKEN (or GITHUB_MODELS_TOKEN)
  *   3. none          — deterministic composition from the catalog + Learn excerpts
  *
- * The lab builder works fully without any provider configured; the LLM only
- * adds scenario-specific narrative on top of grounded content.
+ * The lab builder works fully without any provider configured. By default the
+ * LLM only adds scenario-specific narrative on top of grounded content; it
+ * writes walk-through steps only when step synthesis is requested explicitly,
+ * and then only through the verifier in `synthesis.js`.
  */
 
 const configuredTimeout = Number(process.env.LAB_BUILDER_LLM_TIMEOUT_MS || 60000);
@@ -18,12 +22,14 @@ export function detectProvider(env = process.env) {
     return { kind: "none", reason: "Disabled via LAB_BUILDER_LLM=off" };
   }
 
-  if (env.AZURE_OPENAI_ENDPOINT && env.AZURE_OPENAI_API_KEY && env.AZURE_OPENAI_DEPLOYMENT) {
+  if (env.AZURE_OPENAI_ENDPOINT && env.AZURE_OPENAI_DEPLOYMENT && (env.AZURE_OPENAI_API_KEY || env.AZURE_OPENAI_AD_TOKEN)) {
     return {
       kind: "azure-openai",
       label: `Azure OpenAI (${env.AZURE_OPENAI_DEPLOYMENT})`,
       endpoint: env.AZURE_OPENAI_ENDPOINT.replace(/\/+$/, ""),
-      apiKey: env.AZURE_OPENAI_API_KEY,
+      // A key wins when both are set, matching the order the variables are documented in.
+      apiKey: env.AZURE_OPENAI_API_KEY || null,
+      adToken: env.AZURE_OPENAI_API_KEY ? null : env.AZURE_OPENAI_AD_TOKEN,
       deployment: env.AZURE_OPENAI_DEPLOYMENT,
       apiVersion: env.AZURE_OPENAI_API_VERSION || "2024-10-21",
     };
@@ -104,21 +110,30 @@ export function createLlm(env = process.env) {
     provider,
     available: true,
     failures,
-    async complete(system, user, { maxTokens = 1600, temperature = 0.4, signal } = {}) {
+    /**
+     * @param {object} [opts]
+     * @param {boolean} [opts.json] ask the provider for a JSON object response
+     * @param {Array} [opts.failures] where to record an error instead of the
+     *   shared `failures` list. Step synthesis passes its own, so its retries
+     *   never inflate the narrative's partial-failure count (Gate 7).
+     */
+    async complete(system, user, { maxTokens = 1600, temperature = 0.4, signal, json = false, failures: sink = failures } = {}) {
       const messages = [
         { role: "system", content: system },
         { role: "user", content: user },
       ];
+      const format = json ? { response_format: { type: "json_object" } } : {};
 
       try {
         if (provider.kind === "azure-openai") {
           const url = `${provider.endpoint}/openai/deployments/${encodeURIComponent(
             provider.deployment,
           )}/chat/completions?api-version=${encodeURIComponent(provider.apiVersion)}`;
+          const auth = provider.apiKey ? { "api-key": provider.apiKey } : { authorization: `Bearer ${provider.adToken}` };
           const payload = await postJson(
             url,
-            { "api-key": provider.apiKey },
-            { messages, max_tokens: maxTokens, temperature },
+            auth,
+            { messages, max_tokens: maxTokens, temperature, ...format },
             timeoutMs,
             signal,
           );
@@ -128,14 +143,14 @@ export function createLlm(env = process.env) {
         const payload = await postJson(
           `${provider.endpoint.replace(/\/+$/, "")}/chat/completions`,
           { authorization: `Bearer ${provider.apiKey}` },
-          { model: provider.model, messages, max_tokens: maxTokens, temperature },
+          { model: provider.model, messages, max_tokens: maxTokens, temperature, ...format },
           timeoutMs,
           signal,
         );
         return extractMessage(payload);
       } catch (err) {
         if (signal?.aborted) throw err;
-        failures.push(err);
+        sink.push(err);
         return "";
       }
     },
