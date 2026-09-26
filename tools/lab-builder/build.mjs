@@ -330,9 +330,21 @@ if (args["synthesize-steps"]) {
   }
   const provider = detectProvider();
   if (provider.kind === "none") {
+    // `provider.reason` describes the default build ("using deterministic
+    // composition"), which is not what happens here, so only name the cause.
+    const cause = /LAB_BUILDER_LLM=off/.test(provider.reason || "")
+      ? "LAB_BUILDER_LLM=off switches it off"
+      : "none is configured";
     console.error(
-      `Error: --synthesize-steps needs a language model. ${provider.reason}.\n` +
-        "Set AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT, and AZURE_OPENAI_API_KEY (or AZURE_OPENAI_AD_TOKEN), or GITHUB_TOKEN.",
+      `Error: --synthesize-steps needs a language model, and ${cause}. Nothing was built.\n\n` +
+        "Configure one of these, then run the command again:\n" +
+        "  Azure OpenAI   AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT, and AZURE_OPENAI_API_KEY\n" +
+        "                 (or AZURE_OPENAI_AD_TOKEN, for a resource with key auth disabled)\n" +
+        "  GitHub Models  GITHUB_TOKEN\n\n" +
+        "For example, in PowerShell with an Entra token:\n" +
+        '  $env:AZURE_OPENAI_ENDPOINT = "https://<resource>.cognitiveservices.azure.com"\n' +
+        '  $env:AZURE_OPENAI_DEPLOYMENT = "<deployment>"\n' +
+        "  $env:AZURE_OPENAI_AD_TOKEN = (az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv)",
     );
     process.exit(EXIT.VALIDATION_FAILED);
   }
