@@ -74,6 +74,8 @@ Useful flags:
 | `--non-interactive` | Never prompt. Report blockers and exit 2 instead. |
 | `--dry-run` | Print the plan and exit without writing anything. |
 | `--out <dir>` | Write somewhere other than `generated-labs/`. |
+| `--title "<text>"` | Override the generated lab title. |
+| `--agent-name "<text>"` | Override the scenario agent name. |
 
 Exit codes:
 
@@ -397,7 +399,9 @@ node tools/lab-builder/build.mjs --features knowledge-sharepoint,mcp-servers \
    resource with key authentication disabled, for example
    `az account get-access-token --resource https://cognitiveservices.azure.com --query accessToken -o tsv`.
    Entra tokens expire, typically after about an hour.
-2. **GitHub Models** — `GITHUB_TOKEN` (optionally `GITHUB_MODELS_MODEL`)
+   Set `AZURE_OPENAI_API_VERSION` to override the default API version (`2024-10-21`).
+2. **GitHub Models** — `GITHUB_TOKEN` or `GITHUB_MODELS_TOKEN` (optionally
+   `GITHUB_MODELS_MODEL` and `GITHUB_MODELS_ENDPOINT`)
 3. **None** — deterministic composition from the catalog and Learn excerpts
 
 With a provider configured, the builder drafts the lab overview and a
@@ -407,7 +411,8 @@ complete — it just uses the curated narrative instead. The model plays no part
 producing the walk-through steps unless you opt in to
 [step synthesis](#4b-opt-in-grounded-step-synthesis).
 
-Set `LAB_BUILDER_LLM=off` to force deterministic mode.
+Set `LAB_BUILDER_LLM=off` to force deterministic mode. Each model call times out
+after 60 seconds (`LAB_BUILDER_LLM_TIMEOUT_MS`).
 
 ### 6. Screenshots
 

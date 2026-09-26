@@ -4,6 +4,7 @@ A web-based lab operations portal for customizing, validating, previewing, provi
 
 ## Features
 
+- **🧬 Lab Builder** — Generate a custom lab from an industry, roles, and Copilot Studio features, grounded on Microsoft Learn (see [`docs/lab-builder.md`](../docs/lab-builder.md))
 - **📚 Chapter Management** — Include or exclude lab chapters from the package with one click
 - **🗺️ Lab Flow Diagrams** — Render Mermaid diagrams inside lab previews to visualize architecture and process flow
 - **🗺️ Lab Dependency Map** — View a top-level Mermaid sequence map showing recommended lab order
@@ -92,6 +93,9 @@ All configuration is provided through environment variables (see `.env.template`
 | `SMTP_USER` | For SMTP auth | SMTP username |
 | `SMTP_PASS` | For SMTP auth | SMTP password |
 | `MAIL_FROM` | Yes for email | Sender address for SMTP or Graph |
+| `EMAIL_RECIPIENT_ALLOWLIST` | Optional | Comma-separated extra recipients: exact addresses or `@domain` suffixes. Signed-in users can always email themselves |
+| `EMAIL_RATE_WINDOW_MS` | No | Email rate-limit window (default: `3600000`) |
+| `EMAIL_RATE_MAX` | No | Emails allowed per window (default: `10`) |
 | **Deployment / Hosting** | | |
 | `AZURE_WEBAPP_NAME` | Optional | Azure App Service name |
 | `AZURE_RESOURCE_GROUP` | Optional | Resource group used by deployment |
@@ -103,6 +107,20 @@ All configuration is provided through environment variables (see `.env.template`
 | `POWER_PLATFORM_TENANT_ID` | Optional | Tenant ID override for Power Platform admin operations |
 | `PP_CLIENT_ID` | Optional | Separate client ID for Power Platform device code auth |
 | `PP_TENANT_ID` | Optional | Separate tenant ID for Power Platform device code auth |
+| **Lab Builder** | | |
+| `LEARN_MCP_URL` | No | Microsoft Learn MCP endpoint (default: `https://learn.microsoft.com/api/mcp`) |
+| `LEARN_MCP_TIMEOUT_MS` | No | Learn MCP request timeout (default: `30000`) |
+| `LAB_BUILDER_MAX_ACTIVE` | No | Concurrent lab generations before the API returns HTTP 429 (default: `2`) |
+| `LAB_BUILDER_CONCURRENCY` | No | Modules grounded, derived, and enriched in parallel within one build (default: `4`) |
+| `LAB_BUILDER_LINK_CHECK` | No | Set to `off` to skip citation liveness checks |
+| `LAB_BUILDER_LINK_TIMEOUT_MS` | No | Citation liveness check timeout (default: `8000`) |
+| `LAB_BUILDER_LLM` | No | Set to `off` to force deterministic composition |
+| `LAB_BUILDER_LLM_TIMEOUT_MS` | No | Language model call timeout (default: `60000`) |
+| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT` | Optional | Azure OpenAI resource for LLM-drafted narrative |
+| `AZURE_OPENAI_API_KEY` or `AZURE_OPENAI_AD_TOKEN` | With Azure OpenAI | API key, or a Microsoft Entra access token for a resource with key auth disabled |
+| `AZURE_OPENAI_API_VERSION` | No | Azure OpenAI API version (default: `2024-10-21`) |
+| `GITHUB_TOKEN` or `GITHUB_MODELS_TOKEN` | Optional | GitHub Models token, used when Azure OpenAI is not configured |
+| `GITHUB_MODELS_MODEL`, `GITHUB_MODELS_ENDPOINT` | No | GitHub Models model and endpoint overrides |
 | **Feature Flags** | | |
 | `ENABLE_GRAPH_EMAIL` | Optional | Force/enable Graph email usage |
 | `ENABLE_AZURE_DEPLOY` | Optional | Enable Azure deployment workflows |
@@ -213,6 +231,18 @@ All configuration is provided through environment variables (see `.env.template`
 | `GET` | `/api/scenarios/:type/:id` | Get a single industry or role scenario |
 | `POST` | `/api/scenarios/configure` | Build a suggested configuration overlay |
 
+### Lab Builder
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/lab-builder/features` | Industries, roles, and the feature catalog |
+| `POST` | `/api/lab-builder/preview` | Plan a lab without generating it |
+| `POST` | `/api/lab-builder/generate` | Build a lab into `generated-labs/` (returns `complete`, `blocked`, or `cancelled`) |
+| `GET` | `/api/lab-builder/generated` | List generated labs |
+| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab |
+
+Request and response shapes are documented in [`docs/lab-builder.md`](../docs/lab-builder.md#api).
+
 ## Architecture
 
 ```
@@ -223,14 +253,19 @@ portal/
 │   ├── exporter.js        ZIP archive generation with text customization
 │   ├── mailer.js          SMTP and Microsoft Graph email transport
 │   ├── validator.js       Lab documentation smoke tests
+│   ├── markdown.js        Markdown rendering and HTML sanitization
 │   ├── branding.js        Company branding management
 │   ├── scenarios.js       Industry scenario templates
 │   ├── provisioner.js     Azure resource provisioning engine
 │   ├── keyvault.js        Azure Key Vault secret management
 │   ├── powerplatform.js   Power Platform API (environments, Secure Score)
 │   ├── auth.js            MSAL device code delegated auth
+│   ├── require-auth.js    Entra ID bearer-token API middleware
+│   ├── validate-id.js     Input validation for az CLI arguments
 │   ├── approvals.js       Environment approval workflow engine
-│   └── agent-chat.js      Copilot Studio agent chat config
+│   ├── agent-chat.js      Copilot Studio agent chat config
+│   └── lab-builder/       Lab builder: catalog, planner, Learn MCP grounding, composer
+├── test/                  Node test suites (npm test)
 ├── public/
 │   ├── index.html         Single-page app UI (tabs, forms, preview)
 │   ├── app.js             Frontend logic

@@ -11,6 +11,7 @@ Use Codespaces when you want to run the Node.js-based lab tooling without instal
 - VS Code extensions for GitHub Copilot, Copilot Chat, Power Platform Tools, Markdown, and Node.js
 - Forwarded ports for common lab servers:
   - `3005` — provisioning portal
+  - `3000` — Lab 06 sample MCP server
   - `3001` — alternate/secondary Node service
   - `5173` — Lab 32 Vite web SDK sample
   - `8080` — alternate web service
@@ -31,7 +32,7 @@ If you use this repo as a template or fork, update the badge URL to your reposit
 ## Lab notes
 
 - **Lab 18** uses Copilot Studio-hosted Dataverse and sample MCP connectors. Codespaces supplies the Node/VS Code environment, but the lab still requires the Power Platform tenant features and connector availability described in the lab.
-- **Lab 04 optional MCP section** can be built directly in Codespaces. Run the sample MCP server on port `3000`, then make the forwarded port public before using the HTTPS URL plus `/mcp` in Copilot Studio.
+- **Lab 06 optional MCP section** can be built directly in Codespaces. Run the sample MCP server on port `3000`, then make the forwarded port public before using the HTTPS URL plus `/mcp` in Copilot Studio.
 - **Lab 36** benefits from the Power Platform VS Code extension in the container. Cloud authentication and publishing still happen against your Copilot Studio environment.
 - **Lab 19** is primarily an A2A/Copilot Studio + Fabric walkthrough. No local A2A service is provisioned by the Codespace.
 - **Lab 32** has a Vite sample under `labs/32-embed-agent-web-sdk/sample` and uses forwarded port `5173`. Install the locked dependencies in that directory before starting the sample.

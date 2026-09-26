@@ -12,7 +12,14 @@
 | 🏷️ **TAGS** | Topics, Variables, Connector Tools, Custom Prompt Tools, Connected Agents, Agent Flows, Evaluations, Model Selection, Grid Operations |
 | 🏭 **INDUSTRY** | Energy / Utilities |
 
+## Lab Materials
 
+- **[Full Lab Guide (DOCX)](Lab-04-Energy-Operations-Weather-Agent.docx)** — Complete walkthrough with embedded screenshots
+- **[Full Lab Guide (PDF)](Lab-04-Energy-Operations-Weather-Agent.pdf)** — Print-ready version
+- **[Screenshots](screenshots/)** — Screenshots used in the DOCX and PDF guides (light mode)
+- **[Dark Mode Screenshots](screenshots/dark/)** — Dark mode variants
+
+> The DOCX and PDF guides use this lab's catalog number (Lab 04 in the [README](../../README.md#-copilot-studio-labs)). This page uses its folder number. If a guide and this page differ, follow this page.
 
 ---
 

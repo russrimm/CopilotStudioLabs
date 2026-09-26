@@ -13,10 +13,14 @@
   },
   "remoteUser": "node",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-  "forwardPorts": [3005, 3001, 5173, 8080],
+  "forwardPorts": [3005, 3000, 3001, 5173, 8080],
   "portsAttributes": {
     "3005": {
       "label": "Portal",
+      "onAutoForward": "notify"
+    },
+    "3000": {
+      "label": "Lab 06 MCP server",
       "onAutoForward": "notify"
     },
     "3001": {
@@ -24,7 +28,7 @@
       "onAutoForward": "notify"
     },
     "5173": {
-      "label": "Lab 18 Vite sample",
+      "label": "Lab 32 Vite sample",
       "onAutoForward": "notify"
     },
     "8080": {
