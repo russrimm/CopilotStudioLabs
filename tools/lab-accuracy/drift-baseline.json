@@ -1,8 +1,9 @@
 {
-  "verifiedAt": "2026-08-01",
+  "verifiedAt": "2026-09-26",
   "knownLabWarnings": [
     "01-intro-workshop",
     "04-energy-ops-agent",
+    "05-work-iq-m365-intelligence",
     "16-agent-flows-m365-copilot-nodes",
     "22-servicenow-integration",
     "23-snowflake-data-integration",
