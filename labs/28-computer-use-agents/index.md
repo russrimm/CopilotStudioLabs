@@ -135,16 +135,16 @@ User or scheduled trigger
 
 ---
 
-# 🧪 Use Case #1 — Create a basic Computer-Using Agent (25 min)
+## 🧪 Use Case #1 — Create a basic Computer-Using Agent (25 min)
 
 > 🎯 **Objective:** Set up a CUA that can navigate a utility billing portal and return account details.
 
-## Scenario
+### Scenario
 
 An Contoso Energy billing analyst receives frequent requests to confirm whether a customer account is enrolled in paperless billing, autopay, and peak-pricing programs. The billing portal has no easy API for the analyst team, so they want an agent that can open the portal, search for the account, and report the answer.
 Your goal is to build the first version of that automation directly inside an agent, using a computer use tool bound to the agent.
 
-### Architecture snapshot
+#### Architecture snapshot
 
 ```text
 Analyst prompt
@@ -156,7 +156,7 @@ Analyst prompt
       -> Agent response with captured findings
 ```
 
-### Step 1 — Create the agent shell
+#### Step 1 — Create the agent shell
 
 Start with a standard Copilot Studio agent and then attach computer use as a tool. This mirrors how many production solutions evolve: conversational shell first, automation second.
 
@@ -169,13 +169,13 @@ Start with a standard Copilot Studio agent and then attach computer use as a too
 
 > 💡 **Tip:** Keep the agent instructions focused on when to use the tool, not every click the tool will take. The click path belongs in the tool instructions.
 
-#### Sample prompt for this step
+##### Sample prompt for this step
 
 ```text
 You are a billing operations assistant for Contoso Energy analysts. Help users verify account status in the utility billing portal. Ask for the account number if it is missing. Use the computer use tool only for read-only lookup tasks such as opening the billing portal, searching for an account, and reporting current billing program enrollment. Do not submit changes, update preferences, or confirm transactions unless a separate approved tool exists for that task.
 ```
 
-### Step 2 — Add the computer use tool
+#### Step 2 — Add the computer use tool
 
 1. Open the agent's **Tools** page and select **Add tool**.
 2. Choose **New tool** and then select **Computer use**.
@@ -186,13 +186,13 @@ You are a billing operations assistant for Contoso Energy analysts. Help users v
 
 > 💡 **Tip:** Descriptions are routing hints. A vague description like 'help with portals' makes the planner choose poorly when the agent grows.
 
-#### Quick verification
+##### Quick verification
 
 - Tool type is **Computer use**.
 - The chosen model is visible on the designer page.
 - The tool name clearly reflects a read-only lookup action.
 
-### Step 3 — Write explicit UI instructions and inputs
+#### Step 3 — Write explicit UI instructions and inputs
 
 Computer use works best when you state the app name, URL, expected checkpoints, and what to do if the screen looks different than expected.
 
@@ -207,7 +207,7 @@ Computer use works best when you state the app name, URL, expected checkpoints, 
 
 > ⚠️ **Warning:** A tool instruction that says 'log in if needed' is risky unless you also define the credential strategy and the approved sign-in path.
 
-#### Sample computer use instruction set for this step
+##### Sample computer use instruction set for this step
 
 ```text
 Open <YOUR-APPROVED-NONPRODUCTION-BILLING-PORTAL-URL> in Microsoft Edge.
@@ -224,7 +224,7 @@ If the account is not found, report Account not found.
 If the page structure is different than expected, capture a screenshot and stop with a clear error summary.
 ```
 
-### Step 4 — Configure machine and credentials
+#### Step 4 — Configure machine and credentials
 
 1. In the tool configuration, review the **Machine** setting and temporarily use a nonproduction machine or the default test machine if your environment already provides one.
 2. Open the **Connection** section and confirm which identity the tool will use at run time.
@@ -235,7 +235,7 @@ If the page structure is different than expected, capture a screenshot and stop 
 
 > 💡 **Tip:** A narrow allow list is one of the easiest ways to reduce accidental navigation drift during testing.
 
-### Step 5 — Test the first account lookup
+#### Step 5 — Test the first account lookup
 
 1. Save the tool and return to the agent test chat.
 2. Ask the agent to look up a known training account and confirm that it requests the account number if you did not provide one.
@@ -245,14 +245,14 @@ If the page structure is different than expected, capture a screenshot and stop 
 6. If the tool landed on the wrong page, revise the instruction set so the page title, search field name, and stop conditions are more explicit.
 
 
-#### Quick verification
+##### Quick verification
 
 - The agent asked for missing input when needed.
 - The activity map shows the computer use tool call.
 - The final answer returned only read-only fields.
 - No settings were changed in the portal.
 
-### Test prompts
+#### Test prompts
 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
@@ -262,14 +262,14 @@ Check account 20001888 in the billing portal and summarize the rate plan and ser
 Use the portal to verify whether account 30001234 exists. If it does not, tell me clearly.
 ```
 
-### Validation checklist
+#### Validation checklist
 
 - The agent can invoke the tool without manually opening a topic.
 - The tool reaches the account summary page or produces a controlled error.
 - The final response uses captured portal values rather than guessed answers.
 - The instructions prevent write-back or confirmation clicks.
 
-### What you accomplished
+#### What you accomplished
 
 | Outcome | Why it matters |
 |---|---|
@@ -278,57 +278,57 @@ Use the portal to verify whether account 30001234 exists. If it does not, tell m
 | Constrained the tool behavior | Explicit do-not-click guidance reduces the chance of an unintended change. |
 | Ran the first end-to-end test | Early testing proves whether the tool routing, screen path, and response format are viable. |
 
-### Key takeaways
+#### Key takeaways
 
 - Computer use succeeds when the task is narrow, observable, and explicit.
 - Descriptions and instructions work together: one drives selection, the other drives execution.
 - Read-only scenarios are the safest place to start in a regulated utility environment.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If the tool opens the wrong site, add the exact URL and tighten the allowed website list.
 - If the search result grid changes layout, update the instructions to mention stable labels or headings rather than pixel positions.
 - If login interrupts the run, move to a better credential pattern before expanding scope.
 
-### Evidence to capture
+#### Evidence to capture
 
 - Save at least one successful run, screenshot, or transcript excerpt for future demos and regression checks.
 - Record the configuration choices that most influenced the result, such as descriptions, instructions, model selection, or access settings.
 - Note one failure mode or edge case discovered during this use case so the team can retest it later.
 - Capture which stakeholder would need to review this capability before broader rollout.
 
-### Improvement ideas
+#### Improvement ideas
 
 - Add one more regression prompt that stresses this use case from a different angle.
 - Decide whether any part of this pattern should become a reusable asset for other agents, flows, or teams.
 - Review whether logging, governance, or support ownership need to be tightened before production use.
 - Identify the next adjacent scenario you would automate or route now that this use case is working.
 
-### Stakeholder discussion prompts
+#### Stakeholder discussion prompts
 
 - What business outcome improves most if this use case becomes a standard operating capability?
 - What would make the result more trustworthy to operations, security, or compliance reviewers?
 - Which metric should be watched first after rollout to prove this use case is adding value?
 - What is the simplest rollback plan if this use case behaves unexpectedly after a change?
 
-### ✅ You've completed Use Case #1
+#### ✅ You've completed Use Case #1
 
 You now have the foundation to move from **a generic agent shell** to **a working read-only portal automation**.
 
 ---
 
-# 🧪 Use Case #2 — Configure Cloud PC pooling (25 min)
+## 🧪 Use Case #2 — Configure Cloud PC pooling (25 min)
 
 > 🎯 **Objective:** Set up Cloud PC infrastructure for secure, scalable CUA execution.
 
 > ⚠️ **Preview:** Cloud PC pools are preview and aren't for production use. Complete this section only in an approved non-production environment.
 
-## Scenario
+### Scenario
 
 A maker's laptop is not the right execution surface for production-grade utility automation. The operations team needs centrally managed, Entra-joined, Intune-enrolled capacity that security can govern and operations can scale.
 You will provision a Cloud PC pool and bind the computer use tool to that pool.
 
-### Architecture snapshot
+#### Architecture snapshot
 
 ```text
 Agent tool
@@ -338,7 +338,7 @@ Agent tool
       -> Shared governance and access control
 ```
 
-### Step 1 — Review Cloud PC pool prerequisites
+#### Step 1 — Review Cloud PC pool prerequisites
 
 1. Read the **Use Cloud PC pool for computer user runs** documentation and note that the feature is preview-oriented in current Microsoft Learn guidance.
 2. Confirm that your environment supports machine management and that the operations or platform team can provision machine groups.
@@ -349,7 +349,7 @@ Agent tool
 
 > **Note:** Microsoft Learn notes that a tenant can create up to two Cloud PC pools for evaluation without a billing plan and that published autonomous runs receive limited free hours for testing.
 
-### Step 2 — Create the Cloud PC pool
+#### Step 2 — Create the Cloud PC pool
 
 1. Return to the computer use tool and open the **Machine** dropdown.
 2. Under **Cloud PC pool**, select **Add new**.
@@ -360,7 +360,7 @@ Agent tool
 
 > 💡 **Tip:** Provisioning can take up to 30 minutes, so use that wait time to finish documentation, input design, or allow-list review.
 
-### Step 3 — Review the pool in Power Automate
+#### Step 3 — Review the pool in Power Automate
 
 1. Select **See machine details** from the computer use tool or open the Power Automate portal and navigate to **Monitor** > **Machines** > **Machine groups**.
 2. Inspect the Cloud PC pool details and confirm the description, owner, and environment match your intended lab.
@@ -371,7 +371,7 @@ Agent tool
 
 > ⚠️ **Warning:** Do not grant broad maker access to a pool that can reach production portals unless your security team has approved that access pattern.
 
-### Step 4 — Bind the billing automation to the pool
+#### Step 4 — Bind the billing automation to the pool
 
 1. Return to the **Lookup Billing Portal Account** tool configuration.
 2. In the **Machine** section, select the new Cloud PC pool instead of a personal or ad hoc machine.
@@ -381,13 +381,13 @@ Agent tool
 6. Save the tool and capture a screenshot or note showing the selected pool for governance review.
 
 
-#### Quick verification
+##### Quick verification
 
 - The correct Cloud PC pool is selected in the Machine field.
 - The required browser or application is available on the image.
 - Access to the necessary URL or desktop app is permitted from the pool.
 
-### Step 5 — Plan for scale and recovery
+#### Step 5 — Plan for scale and recovery
 
 1. Estimate the expected concurrency for your billing operations scenario, such as morning batch requests or post-storm customer billing reviews.
 2. Decide whether a single pool can serve all use cases or whether you need separate pools for billing, outage, and field scheduling automations.
@@ -397,7 +397,7 @@ Agent tool
 6. Add these decisions to the project's operating model so the agent is supported like a real enterprise service.
 
 
-### Test prompts
+#### Test prompts
 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
@@ -406,14 +406,14 @@ Run the billing account lookup using the managed Cloud PC pool and confirm the r
 Try the same lookup after refreshing the machine list so you know the selected pool is persistent.
 ```
 
-### Validation checklist
+#### Validation checklist
 
 - A Cloud PC pool exists and is selectable from the computer use tool.
 - The tool can run on the managed pool instead of a personal machine.
 - Access and administration are scoped intentionally.
 - The team has a documented monitoring and support path for the pool.
 
-### What you accomplished
+#### What you accomplished
 
 | Outcome | Why it matters |
 |---|---|
@@ -422,57 +422,57 @@ Try the same lookup after refreshing the machine list so you know the selected p
 | Bound the tool to the pool | The agent now knows where to execute the automation. |
 | Planned for scale | Operational readiness prevents the pilot from stalling when demand increases. |
 
-### Key takeaways
+#### Key takeaways
 
 - Cloud PC pools turn a single-user demo into a team-ready automation platform.
 - Machine governance is part of the solution design, not a post-go-live afterthought.
 - Infrastructure decisions shape both security posture and reliability.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If the pool does not appear, refresh the machine list and confirm provisioning completed successfully.
 - If the portal is unreachable from the pool, investigate network path, conditional access, or browser installation gaps.
 - If collaborators cannot test, review pool sharing permissions in Power Automate.
 
-### Evidence to capture
+#### Evidence to capture
 
 - Save at least one successful run, screenshot, or transcript excerpt for future demos and regression checks.
 - Record the configuration choices that most influenced the result, such as descriptions, instructions, model selection, or access settings.
 - Note one failure mode or edge case discovered during this use case so the team can retest it later.
 - Capture which stakeholder would need to review this capability before broader rollout.
 
-### Improvement ideas
+#### Improvement ideas
 
 - Add one more regression prompt that stresses this use case from a different angle.
 - Decide whether any part of this pattern should become a reusable asset for other agents, flows, or teams.
 - Review whether logging, governance, or support ownership need to be tightened before production use.
 - Identify the next adjacent scenario you would automate or route now that this use case is working.
 
-### Stakeholder discussion prompts
+#### Stakeholder discussion prompts
 
 - What business outcome improves most if this use case becomes a standard operating capability?
 - What would make the result more trustworthy to operations, security, or compliance reviewers?
 - Which metric should be watched first after rollout to prove this use case is adding value?
 - What is the simplest rollback plan if this use case behaves unexpectedly after a change?
 
-### ✅ You've completed Use Case #2
+#### ✅ You've completed Use Case #2
 
 You now have the foundation to move from **a maker-owned execution pattern** to **a managed, scalable execution platform**.
 
 ---
 
-# 🧪 Use Case #3 — Add standalone computer-use tools (25 min)
+## 🧪 Use Case #3 — Add standalone computer-use tools (25 min)
 
 > 🎯 **Objective:** Create modular UI automation tools that can be reused by other agents and agent flows.
 
 > ⚠️ **Preview:** Standalone computer-use tools are preview, may be regionally unavailable, and aren't for production use.
 
-## Scenario
+### Scenario
 
 The billing lookup you created is valuable beyond a single agent. Operations wants the same account lookup tool available in a collections agent, a field-service exception flow, and a supervisor dashboard workflow.
 You will build a standalone computer-use tool so the logic can be published once and consumed many times.
 
-### Architecture snapshot
+#### Architecture snapshot
 
 ```text
 Shared Tools library
@@ -482,7 +482,7 @@ Shared Tools library
       -> Centralized governance and recent run visibility
 ```
 
-### Step 1 — Create a standalone computer use tool from the Tools page
+#### Step 1 — Create a standalone computer use tool from the Tools page
 
 1. In Copilot Studio, open the global **Tools** page from the left navigation, not the local tool list inside a single agent.
 2. Select **New tool** and choose **Computer use**.
@@ -493,7 +493,7 @@ Shared Tools library
 
 > 💡 **Tip:** A shared tool description should be written for other makers, not just the orchestrator.
 
-### Step 2 — Configure model, parameters, and outputs
+#### Step 2 — Configure model, parameters, and outputs
 
 1. Select the same approved model you used for the local billing lookup, unless your team wants to compare results across models.
 2. Create input parameters such as **accountNumber**, **territory**, and **analystNotes** if the flow or agent needs to pass dynamic context into the run.
@@ -503,7 +503,7 @@ Shared Tools library
 6. Use the built-in test sandbox to validate that the outputs are populated consistently before you publish the tool.
 
 
-#### Sample shared tool instruction set for this step
+##### Sample shared tool instruction set for this step
 
 ```text
 Open the billing portal in Microsoft Edge.
@@ -518,7 +518,7 @@ Return each value through the matching output parameter.
 Do not update account settings or submit forms.
 ```
 
-### Step 3 — Set allow lists and human supervision
+#### Step 3 — Set allow lists and human supervision
 
 1. Open the configuration areas for **Allowed websites and desktop apps** and add only the billing portal hostnames and approved applications.
 2. If the tool ever leaves the approved site set during testing, treat that as a governance failure and refine the instructions before publishing.
@@ -529,7 +529,7 @@ Do not update account settings or submit forms.
 
 > ⚠️ **Warning:** Because standalone tools are reusable, weak governance settings get copied into many solutions quickly.
 
-### Step 4 — Publish and add the tool to an agent flow
+#### Step 4 — Publish and add the tool to an agent flow
 
 1. Select **Publish** to make the standalone tool available to agent flows.
 2. Open an existing **agent flow** or create a small flow triggered by **When an agent calls the flow**.
@@ -539,13 +539,13 @@ Do not update account settings or submit forms.
 6. If you also add the tool to a normal agent as a local tool, note the lifecycle difference: the agent receives a duplicated local copy, not a live reference.
 
 
-#### Quick verification
+##### Quick verification
 
 - The tool is published, not just saved as a draft.
 - The flow can see the tool in the picker.
 - Inputs and outputs map cleanly in the flow designer.
 
-### Step 5 — Compare local-copy versus referenced behavior
+#### Step 5 — Compare local-copy versus referenced behavior
 
 1. Add the same standalone tool to an agent as a local tool and observe that Copilot Studio duplicates it into the agent context.
 2. Update the original standalone tool description, publish again, and compare what changed in the flow versus what changed in the agent.
@@ -555,7 +555,7 @@ Do not update account settings or submit forms.
 6. Share that lifecycle note with your platform team because it affects release management and troubleshooting.
 
 
-### Test prompts
+#### Test prompts
 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
@@ -564,14 +564,14 @@ Call the account lookup flow for account 10004567 and return the output fields a
 Use the shared tool in the collections agent for account 20001888 and verify it still honors the read-only instructions.
 ```
 
-### Validation checklist
+#### Validation checklist
 
 - A published standalone tool exists on the global Tools page.
 - The tool exposes clear inputs and outputs.
 - An agent flow can consume the published tool.
 - The team understands the difference between referenced flow behavior and duplicated local agent behavior.
 
-### What you accomplished
+#### What you accomplished
 
 | Outcome | Why it matters |
 |---|---|
@@ -580,55 +580,55 @@ Use the shared tool in the collections agent for account 20001888 and verify it 
 | Applied centralized guardrails | Allow lists and supervision travel with the shared asset. |
 | Learned lifecycle differences | Understanding copy versus reference behavior prevents deployment surprises. |
 
-### Key takeaways
+#### Key takeaways
 
 - Standalone computer use tools are the bridge between one-off experiments and repeatable platform assets.
 - Publishing is not just a deployment action; it is a governance event.
 - Inputs and outputs are what make UI automation composable.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If the tool is missing in the flow picker, confirm it is published and not still in draft state.
 - If outputs are blank, strengthen the instructions so the tool captures named fields explicitly.
 - If a local agent copy behaves differently than the flow version, remember that local tools are duplicated, not linked.
 
-### Evidence to capture
+#### Evidence to capture
 
 - Save at least one successful run, screenshot, or transcript excerpt for future demos and regression checks.
 - Record the configuration choices that most influenced the result, such as descriptions, instructions, model selection, or access settings.
 - Note one failure mode or edge case discovered during this use case so the team can retest it later.
 - Capture which stakeholder would need to review this capability before broader rollout.
 
-### Improvement ideas
+#### Improvement ideas
 
 - Add one more regression prompt that stresses this use case from a different angle.
 - Decide whether any part of this pattern should become a reusable asset for other agents, flows, or teams.
 - Review whether logging, governance, or support ownership need to be tightened before production use.
 - Identify the next adjacent scenario you would automate or route now that this use case is working.
 
-### Stakeholder discussion prompts
+#### Stakeholder discussion prompts
 
 - What business outcome improves most if this use case becomes a standard operating capability?
 - What would make the result more trustworthy to operations, security, or compliance reviewers?
 - Which metric should be watched first after rollout to prove this use case is adding value?
 - What is the simplest rollback plan if this use case behaves unexpectedly after a change?
 
-### ✅ You've completed Use Case #3
+#### ✅ You've completed Use Case #3
 
 You now have the foundation to move from **a single-agent automation** to **a reusable automation asset**.
 
 ---
 
-# 🧪 Use Case #4 — Security and governance (20 min)
+## 🧪 Use Case #4 — Security and governance (20 min)
 
 > 🎯 **Objective:** Configure audit logging, session replay, and governance policies for CUA.
 
-## Scenario
+### Scenario
 
 Before security signs off on the pilot, they want to know what the automation can open, what logs are retained, how screenshots are stored, and how auditors can review runs after the fact.
 You will harden the solution with logging, retention, and access decisions that fit an energy-industry governance model.
 
-### Step 1 — Turn on advanced logging in the environment
+#### Step 1 — Turn on advanced logging in the environment
 
 1. Open the [Power Platform admin center](https://admin.powerplatform.microsoft.com/) and navigate to your environment settings.
 2. Go to **Products** > **Features** and confirm that **Allow conversation transcripts and their associated metadata to be saved in Dataverse** is enabled if your environment policy allows it.
@@ -639,7 +639,7 @@ You will harden the solution with logging, retention, and access decisions that 
 
 > ⚠️ **Warning:** Screenshots can contain sensitive customer or employee information. Retention decisions should involve compliance and privacy stakeholders.
 
-### Step 2 — Decide on screenshot, Purview, and audit posture
+#### Step 2 — Decide on screenshot, Purview, and audit posture
 
 1. If your organization uses Microsoft Purview, evaluate whether **Send audit logs to Microsoft Purview** should be enabled for this environment.
 2. Document that Purview records appear under the activity term **CUAOperation** when the setting is turned on.
@@ -649,7 +649,7 @@ You will harden the solution with logging, retention, and access decisions that 
 6. Capture the decision in a governance table or change record so the setting is auditable itself.
 
 
-### Step 3 — Constrain access and credentials
+#### Step 3 — Constrain access and credentials
 
 1. Review every stored credential used by the tool and make sure it follows a named service-account or approved delegated-account pattern.
 2. Remove any lingering personal test credentials from draft tools or maker-only experiments.
@@ -659,7 +659,7 @@ You will harden the solution with logging, retention, and access decisions that 
 6. Add a simple change-management step stating that any instruction update must be tested and reviewed before production publication.
 
 
-### Step 4 — Prepare an audit-ready runbook
+#### Step 4 — Prepare an audit-ready runbook
 
 1. Create a runbook section that explains what evidence exists for each computer use run: transcript, activity map, screenshots, timestamps, machine name, and credentials used.
 2. List who owns first-line triage, second-line platform support, and compliance review.
@@ -669,14 +669,14 @@ You will harden the solution with logging, retention, and access decisions that 
 6. Store the runbook where your utility operations team already keeps automation and support procedures.
 
 
-#### Quick verification
+##### Quick verification
 
 - Logging level selected intentionally.
 - Retention period documented.
 - Credential and access review completed.
 - Break-glass disable path recorded.
 
-### Test prompts
+#### Test prompts
 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
@@ -684,14 +684,14 @@ Use these prompts in Copilot Studio test chat, the flow test pane, or the voice 
 Run a billing lookup and then open the activity details to confirm that replay, screenshots, and timestamps are visible according to the selected logging level.
 ```
 
-### Validation checklist
+#### Validation checklist
 
 - Advanced computer use logging is configured intentionally.
 - Retention and screenshot posture align with policy.
 - Credentials, pool access, and allow lists were reviewed.
 - A support and audit runbook exists for the automation.
 
-### What you accomplished
+#### What you accomplished
 
 | Outcome | Why it matters |
 |---|---|
@@ -700,55 +700,55 @@ Run a billing lookup and then open the activity details to confirm that replay, 
 | Reduced attack surface | Tighter credentials and allow lists reduce risk materially. |
 | Prepared an audit story | A repeatable runbook makes pilot approval easier. |
 
-### Key takeaways
+#### Key takeaways
 
 - Governance decisions are part of the product, not paperwork around the product.
 - The safest automation is the one with narrow access and rich observability.
 - Privacy, security, and operations all need a seat at the table for computer use.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If session details are missing, confirm advanced logging is enabled at the environment level.
 - If storage concerns arise, lower verbosity or shorten retention before expanding usage.
 - If auditors cannot access evidence, revisit both the logging settings and the support runbook.
 
-### Evidence to capture
+#### Evidence to capture
 
 - Save at least one successful run, screenshot, or transcript excerpt for future demos and regression checks.
 - Record the configuration choices that most influenced the result, such as descriptions, instructions, model selection, or access settings.
 - Note one failure mode or edge case discovered during this use case so the team can retest it later.
 - Capture which stakeholder would need to review this capability before broader rollout.
 
-### Improvement ideas
+#### Improvement ideas
 
 - Add one more regression prompt that stresses this use case from a different angle.
 - Decide whether any part of this pattern should become a reusable asset for other agents, flows, or teams.
 - Review whether logging, governance, or support ownership need to be tightened before production use.
 - Identify the next adjacent scenario you would automate or route now that this use case is working.
 
-### Stakeholder discussion prompts
+#### Stakeholder discussion prompts
 
 - What business outcome improves most if this use case becomes a standard operating capability?
 - What would make the result more trustworthy to operations, security, or compliance reviewers?
 - Which metric should be watched first after rollout to prove this use case is adding value?
 - What is the simplest rollback plan if this use case behaves unexpectedly after a change?
 
-### ✅ You've completed Use Case #4
+#### ✅ You've completed Use Case #4
 
 You now have the foundation to move from **a functional automation** to **a governed automation service**.
 
 ---
 
-# 🧪 Use Case #5 — Test and monitor (25 min)
+## 🧪 Use Case #5 — Test and monitor (25 min)
 
 > 🎯 **Objective:** Review activity maps, transcript details, and failure patterns so you can run CUA reliably.
 
-## Scenario
+### Scenario
 
 Your pilot is live for a small billing operations team. The next question is not whether the automation can work once, but whether you can operate it day after day as screens, data, and network conditions change.
 You will use Copilot Studio and Dataverse-backed activity details to monitor success and troubleshoot failures.
 
-### Step 1 — Run a controlled success case
+#### Step 1 — Run a controlled success case
 
 1. Use a known-good training account and run the lookup from the agent test chat.
 2. Open the **Activity** page and select the run.
@@ -758,7 +758,7 @@ You will use Copilot Studio and Dataverse-backed activity details to monitor suc
 6. Open **Websites & applications** to confirm the run stayed inside the approved boundary.
 
 
-### Step 2 — Inspect session replay and timing
+#### Step 2 — Inspect session replay and timing
 
 1. Use the **Session replay** controls to step through the screenshots one action at a time.
 2. Look for slow pages, ambiguous click targets, or repeated recovery attempts that indicate instruction weakness.
@@ -769,7 +769,7 @@ You will use Copilot Studio and Dataverse-backed activity details to monitor suc
 
 > 💡 **Tip:** Session replay is especially useful for business stakeholders because it shows the automation visually instead of as abstract logs.
 
-### Step 3 — Simulate a failure and capture evidence
+#### Step 3 — Simulate a failure and capture evidence
 
 1. Test with an invalid or missing account number to trigger a controlled not-found path.
 2. If allowed in your lab tenant, temporarily point the search to a screen variant or a known edge case to observe how the tool behaves when the UI changes.
@@ -780,7 +780,7 @@ You will use Copilot Studio and Dataverse-backed activity details to monitor suc
 
 > ⚠️ **Warning:** Do not create destructive failures in production-like systems just to see what happens. Use harmless negative paths such as invalid IDs or unavailable pages.
 
-### Step 4 — Create a monitoring scorecard
+#### Step 4 — Create a monitoring scorecard
 
 1. Define three to five simple operational metrics for the pilot: success rate, average duration, retry count, human escalation count, and most common failure step.
 2. Review recent runs from the last several days and capture those metrics in a spreadsheet or dashboard.
@@ -790,7 +790,7 @@ You will use Copilot Studio and Dataverse-backed activity details to monitor suc
 6. Revisit the scorecard after every meaningful tool change so you can detect regressions quickly.
 
 
-### Step 5 — Build the support handoff pattern
+#### Step 5 — Build the support handoff pattern
 
 1. Document a standard incident template that includes run ID, machine name, tool version, input values used, and last successful screenshot.
 2. Define who should receive first contact when a failure occurs during working hours versus after hours.
@@ -800,7 +800,7 @@ You will use Copilot Studio and Dataverse-backed activity details to monitor suc
 6. Run one tabletop exercise where a colleague pretends to be the support analyst and follows your handoff process end to end.
 
 
-### Test prompts
+#### Test prompts
 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
@@ -809,14 +809,14 @@ Look up account 10004567 and then review the run details for timing and screensh
 Look up account INVALID-TEST and verify the agent reports a clean not-found path without guessing.
 ```
 
-### Validation checklist
+#### Validation checklist
 
 - You can interpret both Activity map and Transcript views.
 - You know how to find session replay, websites accessed, and credential references.
 - You captured at least one controlled failure and categorized it.
 - You created a basic monitoring scorecard and support handoff process.
 
-### What you accomplished
+#### What you accomplished
 
 | Outcome | Why it matters |
 |---|---|
@@ -825,48 +825,48 @@ Look up account INVALID-TEST and verify the agent reports a clean not-found path
 | Built a scorecard | Lightweight metrics help you decide whether the pilot is ready to scale. |
 | Defined support ownership | Operational clarity is what turns a demo into a service. |
 
-### Key takeaways
+#### Key takeaways
 
 - Every successful pilot needs both build-time and run-time discipline.
 - Activity evidence should drive changes, not anecdotes.
 - Supportability is a feature of the lab deliverable.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If activity details are too sparse, revisit logging verbosity before the next test run.
 - If failures cluster around a single page, simplify the instruction path or work with the app owner on UI stability.
 - If business reviewers distrust the automation, use session replay to make the behavior transparent.
 
-### Evidence to capture
+#### Evidence to capture
 
 - Save at least one successful run, screenshot, or transcript excerpt for future demos and regression checks.
 - Record the configuration choices that most influenced the result, such as descriptions, instructions, model selection, or access settings.
 - Note one failure mode or edge case discovered during this use case so the team can retest it later.
 - Capture which stakeholder would need to review this capability before broader rollout.
 
-### Improvement ideas
+#### Improvement ideas
 
 - Add one more regression prompt that stresses this use case from a different angle.
 - Decide whether any part of this pattern should become a reusable asset for other agents, flows, or teams.
 - Review whether logging, governance, or support ownership need to be tightened before production use.
 - Identify the next adjacent scenario you would automate or route now that this use case is working.
 
-### Stakeholder discussion prompts
+#### Stakeholder discussion prompts
 
 - What business outcome improves most if this use case becomes a standard operating capability?
 - What would make the result more trustworthy to operations, security, or compliance reviewers?
 - Which metric should be watched first after rollout to prove this use case is adding value?
 - What is the simplest rollback plan if this use case behaves unexpectedly after a change?
 
-### ✅ You've completed Use Case #5
+#### ✅ You've completed Use Case #5
 
 You now have the foundation to move from **a built and governed automation** to **an operable automation with monitoring discipline**.
 
 ---
 
-# 🙋 Summary
+## 🙋 Summary
 
-## What you accomplished
+### What you accomplished
 
 | Step | What you did |
 |---|---|
@@ -876,13 +876,13 @@ You now have the foundation to move from **a built and governed automation** to 
 | **Governance** | Configured logging, retention, allow lists, and credential controls |
 | **Operations** | Used session replay and activity maps to create a monitoring and support model |
 
-### Why this matters for energy and utilities
+#### Why this matters for energy and utilities
 
 - Utilities rely on many systems that are still screen-first rather than API-first.
 - Computer use extends automation into billing, outage, compliance, and field workflows that previously required swivel-chair work.
 - Governed UI automation can shorten cycle times without sacrificing auditability.
 
-### Recommended next steps
+#### Recommended next steps
 
 - Add a second tool that captures outage ticket information from a legacy desktop app.
 - Introduce human supervision for any step that reads or writes regulated customer data.
@@ -892,7 +892,7 @@ You now have the foundation to move from **a built and governed automation** to 
 
 ---
 
-## 📎 Appendix A — Suggested facilitation prompts
+### 📎 Appendix A — Suggested facilitation prompts
 
 Use these prompts to guide discussion during a live workshop, customer briefing, or internal enablement session.
 
@@ -902,7 +902,7 @@ Use these prompts to guide discussion during a live workshop, customer briefing,
 - What evidence would our audit team need to be comfortable with session replay and screenshot retention?
 - How would we pause this automation quickly during a billing release weekend?
 
-## 📎 Appendix B — Environment readiness checklist
+### 📎 Appendix B — Environment readiness checklist
 
 - Named nonproduction accounts are available for testing.
 - The billing portal or desktop app is reachable from the selected machine or Cloud PC pool.
@@ -912,14 +912,14 @@ Use these prompts to guide discussion during a live workshop, customer briefing,
 - Support contacts know how to retrieve the activity map and session replay.
 - A rollback or disable plan exists before broader rollout.
 
-## 📎 Appendix C — Extension ideas
+### 📎 Appendix C — Extension ideas
 
 - Build a second standalone tool that downloads a PDF bill and extracts key fields into structured outputs.
 - Add a flow that triggers the shared billing lookup asynchronously and posts the result to Teams.
 - Compare run quality across CUA and an approved Anthropic-based computer use model if your environment allows external models.
 - Create a compliance-focused scorecard that tracks screenshot retention and human-escalation counts by week.
 
-## 📎 Appendix D — Demo prompt bank
+### 📎 Appendix D — Demo prompt bank
 
 Use these copy-paste prompts when you want a quick demonstration set for the lab.
 
@@ -934,7 +934,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Look up account 10004567 and then review the run details for timing and screenshots.
 - Look up account INVALID-TEST and verify the agent reports a clean not-found path without guessing.
 
-## 📎 Appendix E — Change control checklist
+### 📎 Appendix E — Change control checklist
 
 - Record the feature, tool, or topic version before making edits.
 - Retest at least one known-good prompt after every significant change.
@@ -947,7 +947,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Store prompt or instruction changes in version control or change records where possible.
 - Schedule a follow-up review after the pilot to decide what should be hardened, simplified, or retired.
 
-## 📎 Appendix F — Vocabulary quick reference
+### 📎 Appendix F — Vocabulary quick reference
 
 - Computer use: An agent tool that interacts with graphical interfaces using a virtual mouse and keyboard.
 - CUA model: The model that interprets the screen, reasons over UI state, and performs actions.
@@ -956,9 +956,9 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Allowed websites and apps: An allow list that constrains where the automation can navigate.
 - Session replay: A screenshot-based replay of every action taken during a run.
 
-## 📎 Appendix G — Use-case review worksheet
+### 📎 Appendix G — Use-case review worksheet
 
-### Use Case #1 — Create a basic Computer-Using Agent
+#### Use Case #1 — Create a basic Computer-Using Agent
 
 - Objective review: Set up a CUA that can navigate a utility billing portal and return account details.
 - Success evidence to collect: The agent can invoke the tool without manually opening a topic.
@@ -966,7 +966,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Most likely support issue: If the tool opens the wrong site, add the exact URL and tighten the allowed website list.
 - Suggested next enhancement: Read-only scenarios are the safest place to start in a regulated utility environment.
 
-### Use Case #2 — Configure Cloud PC pooling
+#### Use Case #2 — Configure Cloud PC pooling
 
 - Objective review: Set up Cloud PC infrastructure for secure, scalable CUA execution.
 - Success evidence to collect: A Cloud PC pool exists and is selectable from the computer use tool.
@@ -974,7 +974,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Most likely support issue: If the pool does not appear, refresh the machine list and confirm provisioning completed successfully.
 - Suggested next enhancement: Infrastructure decisions shape both security posture and reliability.
 
-### Use Case #3 — Add standalone computer-use tools
+#### Use Case #3 — Add standalone computer-use tools
 
 - Objective review: Create modular UI automation tools that can be reused by other agents and agent flows.
 - Success evidence to collect: A published standalone tool exists on the global Tools page.
@@ -982,7 +982,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Most likely support issue: If the tool is missing in the flow picker, confirm it is published and not still in draft state.
 - Suggested next enhancement: Inputs and outputs are what make UI automation composable.
 
-### Use Case #4 — Security and governance
+#### Use Case #4 — Security and governance
 
 - Objective review: Configure audit logging, session replay, and governance policies for CUA.
 - Success evidence to collect: Advanced computer use logging is configured intentionally.
@@ -990,7 +990,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Most likely support issue: If session details are missing, confirm advanced logging is enabled at the environment level.
 - Suggested next enhancement: Privacy, security, and operations all need a seat at the table for computer use.
 
-### Use Case #5 — Test and monitor
+#### Use Case #5 — Test and monitor
 
 - Objective review: Review activity maps, transcript details, and failure patterns so you can run CUA reliably.
 - Success evidence to collect: You can interpret both Activity map and Transcript views.
@@ -998,7 +998,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Most likely support issue: If activity details are too sparse, revisit logging verbosity before the next test run.
 - Suggested next enhancement: Supportability is a feature of the lab deliverable.
 
-## 📎 Appendix H — Facilitator retrospective questions
+### 📎 Appendix H — Facilitator retrospective questions
 
 - Which part of the lab delivered the clearest business value signal?
 - Where did learners need the most clarification or setup help?
@@ -1009,7 +1009,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - What data, screenshot, or transcript artifact should be saved as a future teaching example?
 - What would you simplify if you had to teach this lab in half the time?
 
-## 📎 Appendix I — Role-based adaptation ideas
+### 📎 Appendix I — Role-based adaptation ideas
 
 - For utility executives: shorten outputs into briefing bullets and decision-oriented summaries.
 - For operations managers: emphasize current blockers, exceptions, and next actions.
@@ -1018,7 +1018,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - For compliance reviewers: elevate logging, retention, consent, and approval checkpoints.
 - For helpdesk or contact-center leads: prioritize repeatability, escalation clarity, and support runbooks.
 
-## 📎 Appendix J — Final quality gate
+### 📎 Appendix J — Final quality gate
 
 - At least one successful end-to-end scenario has been recorded.
 - At least one edge case or failure path has been tested deliberately.
@@ -1027,7 +1027,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - A rollback or disable path exists before broader rollout.
 - The pilot audience and feedback loop are defined.
 
-## 📎 Appendix K — Quick demo script
+### 📎 Appendix K — Quick demo script
 
 - Start with the business problem in one sentence.
 - Show the core happy-path scenario end to end.

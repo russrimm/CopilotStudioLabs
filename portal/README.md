@@ -165,6 +165,8 @@ All configuration is provided through environment variables (see `.env.template`
 | `GET` | `/api/validate` | Run smoke tests across all labs |
 | `GET` | `/api/validate/:labId` | Run smoke tests for a single lab |
 
+These run the `lib/validator.js` rule set, the same one every generated lab must pass. `npm test` holds every lab under `labs/` to it, so a failing lab on the dashboard is a regression, not a standing state. [`../scripts/lab-validation-rules.json`](../scripts/lab-validation-rules.json) lists each rule and whether `validate_labs.py` checks it too.
+
 ### Config / Key Vault
 
 | Method | Path | Description |

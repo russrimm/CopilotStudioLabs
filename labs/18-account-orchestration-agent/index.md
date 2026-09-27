@@ -120,15 +120,15 @@ By the end of this lab you will:
 
 ---
 
-# 🧪 Use Case #1 — Get the Contoso Customer Account Lookup Agent working
+## 🧪 Use Case #1 — Get the Contoso Customer Account Lookup Agent working
 
 > 🎯 **Objective:** Confirm the environment is ready and the prebuilt connected agent is published. If you've already done this in another lab (e.g., the Multi-Agent lab), skip to Use Case #2.
 
-## Scenario
+### Scenario
 
 Before exploring how Instructions and Descriptions shape orchestration, the agent and its underlying Dataverse data have to be properly configured — Dataverse Search must be on, the Account and Contact **Quick Find** views must be correctly indexed, and the agent must be published with peer-to-peer connection enabled.
 
-### Step 1 — Make sure Dataverse Search is on
+#### Step 1 — Make sure Dataverse Search is on
 
 1. In the upper-right corner of Copilot Studio, select the ⚙️ **Gear icon**.
 2. Select **Go to Power Platform admin center**.
@@ -141,7 +141,7 @@ Before exploring how Instructions and Descriptions shape orchestration, the agen
    - *Show global search bar in all model driven apps and turn on search indexing to support search-only experiences*
 8. Select **Save** if you made any changes.
 
-### Step 2 — Make sure the right columns are indexed
+#### Step 2 — Make sure the right columns are indexed
 
 > ⚠️ **Important:** Not strictly required for *any* connected agent to work — but required for the prebuilt one to return results in this lab.
 
@@ -167,7 +167,7 @@ Before exploring how Instructions and Descriptions shape orchestration, the agen
    - Marital Status
 9. **Save and publish.**
 
-### Step 3 — Test and publish the Account Data Lookup Agent
+#### Step 3 — Test and publish the Account Data Lookup Agent
 
 1. Back in Copilot Studio, open the **Account Data Lookup Agent** (your Contoso Customer Account Lookup Agent).
 2. Open the **Test** chat (top-right).
@@ -180,7 +180,7 @@ Before exploring how Instructions and Descriptions shape orchestration, the agen
 8. Select **Publish** → check **Force newest version** → **Publish** to confirm.
    > ⚠️ An agent can't be connected to unless it is **published**, and forcing the newest version makes sure downstream connections pick up your latest changes.
 
-### ✅ You've completed Use Case #1
+#### ✅ You've completed Use Case #1
 
 **Key takeaways**
 
@@ -195,15 +195,15 @@ Before exploring how Instructions and Descriptions shape orchestration, the agen
 
 ---
 
-# 🧪 Use Case #2 — See the impact of Instructions and Descriptions on the planner
+## 🧪 Use Case #2 — See the impact of Instructions and Descriptions on the planner
 
 > 🎯 **Objective:** Build intuition for how the planner reads Instructions and Descriptions at **four different levels** to assemble a correct plan — and how to debug it when it doesn't.
 
-## Scenario
+### Scenario
 
 A Contoso account manager opens the agent and asks a string of follow-up questions about customers in Texas — accounts, primary contacts, derived facts like age, then pivots to a contact by name. Every turn is a planner decision: which child agent, which tool, which arguments.
 
-### Part A — Where Instructions and Descriptions live
+#### Part A — Where Instructions and Descriptions live
 
 Open the **Account Data Lookup Agent** and walk each location below. Each one is a hook the planner reads.
 
@@ -218,7 +218,7 @@ Open the **Account Data Lookup Agent** and walk each location below. Each one is
 6. **Descriptions in Inputs** — still inside **Find Account**, open **Inputs** → expand `search`. Notice the description: *"Search query that includes state in the format of two digit state code in all caps, 5 digit zip code, city, the account name, and/or the primary contact name."* That single sentence is what translates the user's word *"Texas"* into the value `TX` that Dataverse Search actually needs.
    > ⚠️ Input descriptions are the **foundation of dynamic chaining**. When one tool's output becomes another tool's input, the description tells the planner how to reshape it. Skip this, and the planner has to guess.
 
-### Part B — Demonstration
+#### Part B — Demonstration
 
 1. Open the **Test** chat (top-right) and select **+** to start a fresh conversation.
 
@@ -226,7 +226,7 @@ Open the **Account Data Lookup Agent** and walk each location below. Each one is
 
 After each turn, expand the **Activity tracker** to see which child agent and which tool the planner chose, and what arguments it passed.
 
-#### Turn 1 — Find accounts by location
+##### Turn 1 — Find accounts by location
 
 ```text
 What are the accounts in Texas?
@@ -238,7 +238,7 @@ You should see:
 - ✅ Right tool picked: **Find Account**
 - ✅ Input optimized: `"search": "TX"` — *not* `"Texas"`. The input description forced the planner to format the value the way Dataverse Search expects.
 
-#### Turn 2 — Carry context across turns
+##### Turn 2 — Carry context across turns
 
 ```text
 What are all the details on them?
@@ -248,7 +248,7 @@ The planner does **not** re-run the search. It takes the four accounts from Turn
 
 > 💡 The **find → details** pattern matters: a single mega-tool that returns every field on every match would blow the LLM context budget. Splitting the work means only the data the user actually needs reaches the model.
 
-#### Turn 3 — Drill into a related entity (Account → Contact)
+##### Turn 3 — Drill into a related entity (Account → Contact)
 
 ```text
 What is the job title of the primary contact of the 2nd one?
@@ -258,7 +258,7 @@ The planner switches to **Contact Agent**. Look at the **Task** input it sent to
 
 > 💡 Child agents take a **natural-language Task**, not structured parameters. The parent translates context; the child picks its own tools.
 
-#### Turn 4 — Use a derived field that doesn't exist as a column
+##### Turn 4 — Use a derived field that doesn't exist as a column
 
 ```text
 How old are they?
@@ -268,7 +268,7 @@ Dataverse has `Birthdate`, not `age`. The agent calls **Get-Contact-Details**, r
 
 > 💡 You don't need a tool for every question. Expose raw fields and let the planner derive answers. Reach for a tool only when the calculation is unreliable for the LLM (large datasets, exact business rules, signed calls).
 
-#### Turn 5 — Use a status field, then ask the planner to explain itself
+##### Turn 5 — Use a status field, then ask the planner to explain itself
 
 ```text
 Are they married?
@@ -282,7 +282,7 @@ Confirm Nancy is married. Then scroll to the bottom of the Activity Tracker turn
 
 > 💡 **Get rationale is the most useful tuning lever in orchestration.** Read it side-by-side with your Instructions and Descriptions. If the rationale reflects what you *meant*, your descriptions are doing their job. If it reflects something subtly wrong, you have a precise pointer to which description needs sharper wording.
 
-#### Turn 6 — Pivot directly to a contact
+##### Turn 6 — Pivot directly to a contact
 
 ```text
 What is Susanna Stubberod's phone number?
@@ -292,7 +292,7 @@ No **Account Agent** in the trace this time — the planner recognized the subje
 
 > 💡 Because Account Agent and Contact Agent are **peer** children — neither calls the other — the planner can enter from whichever side the user starts on. *"Accounts in Texas"* → Account Agent. *"Susanna's phone number"* → Contact Agent. The same set of tools answers every direction of question. That's the difference between an agent you have to extend for every new question and one that flexes.
 
-### ✅ You've completed Use Case #2
+#### ✅ You've completed Use Case #2
 
 **Key takeaways**
 
@@ -308,15 +308,15 @@ No **Account Agent** in the trace this time — the planner recognized the subje
 
 ---
 
-# 🧪 Use Case #3 — New Orchestrator: Agentic Reasoning Loop
+## 🧪 Use Case #3 — New Orchestrator: Agentic Reasoning Loop
 
 > 🎯 **Objective:** Stand up a newly created Contoso Customer Operations Assistant using generative orchestration and validate how the **Agentic Reasoning Loop** drives multi-tool task completion in a single turn.
 
-## Scenario
+### Scenario
 
 A Contoso customer operations specialist wants one assistant that can — without stopping to confirm at every step — pull a commercial customer's primary contact, check the weather at that customer's site (storm risk! gift planning! site visit planning!), look up internal policy, and synthesize an answer. A newly created agent uses generative orchestration with the Agentic Reasoning Loop by default, so this is what you get out of the box.
 
-### Step 1 — Enable Dataverse Intelligence (Work IQ) and Dataverse MCP servers
+#### Step 1 — Enable Dataverse Intelligence (Work IQ) and Dataverse MCP servers
 
 > 💡 Required for the **Microsoft Dataverse MCP Server** tool you'll add below — not specific to the New Orchestrator.
 
@@ -325,7 +325,7 @@ A Contoso customer operations specialist wants one assistant that can — withou
 3. Under **Dataverse Model Context Protocol**, verify the GA MCP client option is checked. Enable the Preview option only if you plan to use preview MCP tools.
 4. **Save** if you made changes.
 
-### Step 2 — Create the *Contoso Customer Operations Assistant*
+#### Step 2 — Create the *Contoso Customer Operations Assistant*
 
 1. In Copilot Studio, select **Agents** in the left navigation → **New Agent** in the upper-right.
    > 💡 Creating a new agent this way uses generative orchestration with the **Agentic Reasoning Loop** enabled by default.
@@ -339,9 +339,9 @@ A Contoso customer operations specialist wants one assistant that can — withou
    ```
 5. Leave the **Model** at its default and select **Save**.
 
-### Step 3 — Add the tools the orchestrator will use
+#### Step 3 — Add the tools the orchestrator will use
 
-#### 3a — Add the Weather tool (Maker authentication)
+##### 3a — Add the Weather tool (Maker authentication)
 
 1. In the right rail, select **Add tool**. Search for `Weather` → select **Get current weather (MSN Weather)** → **Add**.
 2. In the Tools list, select **Get current weather** to open Tool details.
@@ -349,7 +349,7 @@ A Contoso customer operations specialist wants one assistant that can — withou
    > ⚠️ Use **Maker** for anonymous / API-key / service-account tools. The MSN Weather connector authenticates anonymously, so it runs as the maker. The same rule applies to any shared-credential connector. Tools that act *as the signed-in user* (mailbox, files) stay on **User** authentication.
 4. Still in Tool details → **Inputs**. Leave **Location** set to **AI** (the agent infers it from the conversation). For **Units**, change *How is this filled?* from **AI** to **Value**, then add a variable and pick **I** (Imperial °F) or **C** (Celsius). **Save**.
 
-#### 3b — Add the Microsoft Dataverse MCP Server tool
+##### 3b — Add the Microsoft Dataverse MCP Server tool
 
 1. Select **Add tool** again. Search **Dataverse**, apply the **Model Context Protocol** filter, and pick **Microsoft Dataverse MCP Server** — the **GA** card, *not* Preview.
 2. On **Select a connection**, pick your Dataverse connection (or create one if needed) → **Next**.
@@ -357,7 +357,7 @@ A Contoso customer operations specialist wants one assistant that can — withou
    > 💡 This lab only exercises `read_query` (reading accounts/contacts) and `search` (schema discovery). The orchestrator won't call write/delete actions unless a prompt explicitly asks.
 4. **Save**. Your Tools list should show **Get current weather** and **Microsoft Dataverse MCP Server**.
 
-### Step 4 — Add a knowledge source
+#### Step 4 — Add a knowledge source
 
 1. On the **Build** tab, select **Add knowledge** in the right rail.
 2. Choose the **SharePoint** card (Powered by Work IQ), select **Browse items**, navigate **OnePlace → Documents → HR → company_policies_sample.pdf** → **Confirm selection** → **Add to agent**.
@@ -365,11 +365,11 @@ A Contoso customer operations specialist wants one assistant that can — withou
 
 > 💡 At Contoso, this stand-in `company_policies_sample.pdf` would be your internal Field Operations / Customer Engagement / Procurement & Gifting policy. The mechanic is identical — Work IQ queries SharePoint live, so the source is *Ready* almost immediately.
 
-### Step 5 — Test the Agentic Reasoning Loop
+#### Step 5 — Test the Agentic Reasoning Loop
 
 Open the **Preview** tab. You'll see a brief *"Working on it…"* then an **activity trace** that can show tool steps, parameters, and results before the final answer. Do not expect or rely on private model chain-of-thought.
 
-#### Test 1 — A single tool call
+##### Test 1 — A single tool call
 
 ```text
 What is the current weather in San Diego?
@@ -377,7 +377,7 @@ What is the current weather in San Diego?
 
 The trace shows the agent deciding to call **Get current weather**, then returning conditions.
 
-#### Test 2 — Structured data via the Dataverse MCP server
+##### Test 2 — Structured data via the Dataverse MCP server
 
 ```text
 Give me a table with all the accounts that are in Texas
@@ -385,7 +385,7 @@ Give me a table with all the accounts that are in Texas
 
 The trace shows the agent reasoning *"I need to search the accounts table in Dataverse and query it,"* calling **read_query**, and rendering a Markdown table.
 
-#### Test 3 — Modify the previous result (carry context)
+##### Test 3 — Modify the previous result (carry context)
 
 ```text
 Add the account number to the list
@@ -393,7 +393,7 @@ Add the account number to the list
 
 The agent re-renders the table with an **Account Number** column, reusing the prior turn's context — you may see a second `read_query` in the trace.
 
-#### Test 4 — Multi-tool reasoning (knowledge + Dataverse + weather)
+##### Test 4 — Multi-tool reasoning (knowledge + Dataverse + weather)
 
 ```text
 I need to get a gift for the primary account contact for Litware. Can you propose an appropriate gift that takes into consideration our gifting policies and their weather to make some good recommendations for an appropriate gift.
@@ -406,11 +406,11 @@ Watch the loop drive through several steps in **one turn**:
 3. **Get current weather** for the contact's city
 4. Synthesize a policy-compliant, weather-appropriate recommendation — with a citation back to `company_policies_sample.pdf`
 
-#### Test 5 — Inspect a single step
+##### Test 5 — Inspect a single step
 
 Any tool step in the trace is expandable. Open a **read_query** step and you'll see the exact SQL generated (e.g., `SELECT name, address1_city, address1_stateorprovince, … FROM account WHERE address1_stateorprovince = 'Texas' OR address1_stateorprovince = 'TX'`) and the raw result the orchestrator reasoned over.
 
-### ✅ You've completed Use Case #3
+#### ✅ You've completed Use Case #3
 
 **Key takeaways**
 
@@ -432,11 +432,11 @@ Any tool step in the trace is expandable. Open a **read_query** step and you'll 
 
 ---
 
-# 🧪 Use Case #4 — Leveraging Skills: a Contoso Service Resolution Concierge
+## 🧪 Use Case #4 — Leveraging Skills: a Contoso Service Resolution Concierge
 
 > 🎯 **Objective:** Extend your Use Case #3 agent so it can diagnose and resolve service problems end to end — then watch the New Orchestrator **load the Skill** and chain MCP tools, two knowledge sources, and weather across a single turn.
 
-## Scenario
+### Scenario
 
 In a Contoso customer-care context, the equivalent of an "order problem" is a **service request**: a work order that's delayed, a part that's out of stock for a field repair, a return/exchange on equipment, or a delivery that may be impacted by weather. The technical building blocks below use the Microsoft *Enhanced Task Completion* sample MCP servers — frame them as analogs to your service-ticketing / parts-inventory / dispatch systems.
 
@@ -450,7 +450,7 @@ By the end you will have:
 
 > ⚠️ **Important:** This Use Case builds directly on Use Case #3. Make sure the Contoso Customer Operations Assistant exists with **Get current weather**, **Microsoft Dataverse MCP Server**, and the **internal `company_policies_sample.pdf`** knowledge already attached.
 
-### Step 1 — Add the customer-facing knowledge source
+#### Step 1 — Add the customer-facing knowledge source
 
 In Use Case #3 you added the **internal** policy from the HR folder. Now add a **customer-facing** policy so the agent can tell the difference between *what we say to a customer* and *what we use internally to decide*.
 
@@ -461,7 +461,7 @@ In Use Case #3 you added the **internal** policy from the HR folder. Now add a *
 
 > 💡 At Contoso this two-source pattern is critical. The customer-facing document is what an account manager *quotes* to a customer (returns, refunds, SLA windows, outage credits). The internal document is *handling/escalation* guidance the agent uses to decide — but never reads back to a customer. The Skill below enforces that line explicitly.
 
-### Step 2 — Create the MCP server connections (temporary workaround)
+#### Step 2 — Create the MCP server connections (temporary workaround)
 
 This lab uses two prebuilt sample MCP connectors — **Order Management MCP** and **Warehouse MCP** — that simulate an e-commerce / fulfillment backend ([Enhanced Task Completion sample](https://microsoft.github.io/enhanced-task-completion/)). For Contoso purposes, treat them as analogs to a field-service ticketing system and a parts-inventory system.
 
@@ -474,7 +474,7 @@ This lab uses two prebuilt sample MCP connectors — **Order Management MCP** an
 
 Both connections now exist in the environment and are reusable. Leave the classic agent as-is.
 
-### Step 3 — Attach the MCP servers to the Contoso agent
+#### Step 3 — Attach the MCP servers to the Contoso agent
 
 1. Return to **Contoso Customer Operations Assistant** (Build tab) → right rail → **Add tool**.
 2. Filter to **Model Context Protocol (MCP)** → search **Order Management** → pick **Order Management MCP Server**. The **Connection** step now resolves to the connection you created → **Next**.
@@ -483,7 +483,7 @@ Both connections now exist in the environment and are reusable. Leave the classi
 
 Your Tools list should now show **four** tools: Get current weather, Microsoft Dataverse MCP Server, Order Management MCP Server, Warehouse MCP Server.
 
-### Step 4 — Add the Service Resolution Concierge Skill
+#### Step 4 — Add the Service Resolution Concierge Skill
 
 1. In the right rail → **Add skill** (the **+** on the **Skills** section). The dialog offers **Upload a skill** (a `SKILL.md`) or **Create from blank**. Choose **Create from blank**.
 2. Fill in the three fields:
@@ -535,7 +535,7 @@ Your Tools list should now show **four** tools: Get current weather, Microsoft D
 
 > 💡 If you author a Skill as a `SKILL.md` file instead, it carries a small YAML front matter block with `name` and `description`. When filling the form fields here, you *don't* include front matter — the **Name** and **Description** fields capture it; **Instructions** holds the body only.
 
-### Step 5 — Update the agent Instructions
+#### Step 5 — Update the agent Instructions
 
 Replace the Use Case #3 instructions with a shorter, Skill-aware version that points the orchestrator at the Skill for service problems and draws the internal-vs-customer policy line.
 
@@ -555,13 +555,13 @@ Replace the Use Case #3 instructions with a shorter, Skill-aware version that po
 
 2. **Save.**
 
-### Step 6 — Demonstration
+#### Step 6 — Demonstration
 
 Open the **Preview** pane. Watch the activity trace: on service problems you'll see the Skill load followed by MCP tool calls, a knowledge search, and a synthesized answer.
 
 > ⚠️ **Reset between prompts that state a customer name.** When a prompt opens with *"I'm Sarah Mitchell"* or *"this is James Rivera,"* the orchestrator keeps that person in context. Select **New chat** at the top of the Preview pane to start clean.
 
-#### 1. Full account picture (identity + fan-out)
+##### 1. Full account picture (identity + fan-out)
 
 ```text
 Hi, I'm Sarah Mitchell. Can you pull up my orders and summarize where each one stands, flagging anything that's delayed or has a return in progress?
@@ -569,7 +569,7 @@ Hi, I'm Sarah Mitchell. Can you pull up my orders and summarize where each one s
 
 One request fans out across the whole account: `search_orders` finds Sarah's three orders, `get_order` pulls all three, then `get_shipment` and `get_fulfillment_status` fill in live state. **Reset** after.
 
-#### 2. The bundle dilemma (Skill loads; mixed availability)
+##### 2. The bundle dilemma (Skill loads; mixed availability)
 
 ```text
 Order ORD-10460 still hasn't arrived. What's holding it up, and what are my options?
@@ -577,7 +577,7 @@ Order ORD-10460 still hasn't arrived. What's holding it up, and what are my opti
 
 This is the centerpiece. Watch the Skill load, then `get_order` → `get_fulfillment_status` + `check_stock` (both items) → `get_restock_date` for the out-of-stock item → a policy search — and a mixed-availability picture (one item backordered, one picked).
 
-#### 3. Restock timing (the honest "wait")
+##### 3. Restock timing (the honest "wait")
 
 ```text
 When will the LumiRead e-reader in order ORD-10422 ship?
@@ -585,7 +585,7 @@ When will the LumiRead e-reader in order ORD-10422 ship?
 
 `get_order` → `get_fulfillment_status` → `get_restock_date`. The agent reports *"still awaiting restock"* rather than inventing a ship date.
 
-#### 4. Size/color exchange (where `find_alternatives` shines)
+##### 4. Size/color exchange (where `find_alternatives` shines)
 
 ```text
 The black TrailMark hoodie in order ORD-10455 — can I get it in XL or grey instead?
@@ -593,7 +593,7 @@ The black TrailMark hoodie in order ORD-10455 — can I get it in XL or grey ins
 
 `get_order` → `find_alternatives` surfaces the genuine same-product substitutes; the agent checks the Customer Care exchange rules before answering.
 
-#### 5. Weather and delivery risk (cross-domain synthesis)
+##### 5. Weather and delivery risk (cross-domain synthesis)
 
 ```text
 My order ORD-10421 is out for delivery — could the weather hold it up?
@@ -601,7 +601,7 @@ My order ORD-10421 is out for delivery — could the weather hold it up?
 
 The orchestrator bridges three domains: `get_order` + `get_shipment` to find the destination and confirm it's out for delivery, then **Get current weather** for that city, then the shipping-delay policy — and concludes whether weather is a concern. *Current conditions only* — not a forecast.
 
-#### 6. Policy-grounded eligibility (the guardrail in action)
+##### 6. Policy-grounded eligibility (the guardrail in action)
 
 ```text
 The PulseWave earbuds in order ORD-10318 are defective. Confirm I'm within policy, then go ahead and start the return for me.
@@ -611,7 +611,7 @@ Even though the user asks for an action, the agent checks the policy **first**: 
 
 > 💡 The sample orders are dated well before the current date, so this prompt demonstrates a **policy-grounded refusal** rather than an executed return. It's a clean illustration that the grounding is real — the agent does exactly what the policy says.
 
-#### 7. Won't guess (the clarifying-question guardrail)
+##### 7. Won't guess (the clarifying-question guardrail)
 
 ```text
 Hi, this is James Rivera. Can you check on my recent order?
@@ -619,7 +619,7 @@ Hi, this is James Rivera. Can you check on my recent order?
 
 `search_orders` finds two orders for James, so instead of guessing, the agent asks **one clarifying question** — which order, or both?
 
-### ✅ You've completed Use Case #4
+#### ✅ You've completed Use Case #4
 
 **Key takeaways**
 
@@ -641,7 +641,7 @@ Hi, this is James Rivera. Can you check on my recent order?
 
 ---
 
-## ✅ Validation
+### ✅ Validation
 
 Use this quick checklist to validate that your orchestration design is working as intended:
 
@@ -650,7 +650,7 @@ Use this quick checklist to validate that your orchestration design is working a
 - The new-type agent in Use Case #3 completes multi-step requests in a single turn where appropriate.
 - The Skill in Use Case #4 loads when triggered and enforces customer-facing vs internal policy boundaries.
 
-# 🧠 Summary of learnings
+## 🧠 Summary of learnings
 
 You've seen Copilot Studio's orchestration engine from three distinct angles:
 
@@ -660,7 +660,7 @@ You've seen Copilot Studio's orchestration engine from three distinct angles:
 
 > The single most important shift between the two orchestrators: **standard orchestration optimizes for the next correct step; the New Orchestrator optimizes for the user's end goal.** Pick the orchestrator based on which behavior your users actually want — and use Skills to give that orchestrator consistent, reusable playbooks for the workflows it handles most.
 
-## 🪙 Orchestration golden rules
+### 🪙 Orchestration golden rules
 
 1. **Descriptions are the primary routing signal; names and input metadata refine selection.** Tune descriptions first, then escalate to child or parent Instructions when description tuning isn't enough.
 2. **Input descriptions are the foundation of dynamic chaining.** Without clear input descriptions, the planner has to guess how to reshape one tool's output into another tool's input.

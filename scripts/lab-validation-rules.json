@@ -1,0 +1,195 @@
+{
+  "$comment": "Every lab validation rule, which validator owns it, and why any rule lives in only one of them. portal/test/validator.test.js and scripts/test_validate_labs.py each fail when their validator's rule ids and this list disagree, so a rule cannot be added to either validator without being recorded here.",
+  "validators": {
+    "js": "portal/lib/validator.js (validateLabDir, RULE_IDS). Runs on every generated lab inside generateLab(), on labs/ in portal/test/validator.test.js, and behind the portal's GET /api/validate.",
+    "python": "validate_labs.py (RULES_BY_CHECK, RULE_IDS). Runs on labs/ in CI, and on an offline lab-builder build through --lab-dir in the same CI job."
+  },
+  "rules": [
+    {
+      "id": "index-exists",
+      "validators": ["js", "python"],
+      "scope": "lab",
+      "checks": "The lab directory contains index.md."
+    },
+    {
+      "id": "has-title",
+      "validators": ["js", "python"],
+      "scope": "lab",
+      "checks": "index.md has an H1 outside fenced code."
+    },
+    {
+      "id": "single-title",
+      "validators": ["js", "python"],
+      "scope": "lab",
+      "checks": "index.md has exactly one H1 outside fenced code: the lab title. Every section heading starts at H2. A '# comment' inside a fenced code sample is code and is not counted."
+    },
+    {
+      "id": "has-overview",
+      "validators": ["js", "python"],
+      "scope": "lab",
+      "checks": "A heading introduces the lab.",
+      "notes": "JS accepts an H2-or-deeper heading naming Overview, Introduction, Why this lab, Why ... cares, or About this lab. Python accepts a heading at any level naming Overview or Introduction."
+    },
+    {
+      "id": "has-objectives",
+      "validators": ["js", "python"],
+      "scope": "lab",
+      "checks": "A heading lists what the learner will achieve.",
+      "notes": "JS accepts an H2-or-deeper heading naming Objective(s) or What you will/you'll learn, do, or build. Python accepts a heading at any level naming Objectives or What you will/you'll learn."
+    },
+    {
+      "id": "has-steps",
+      "validators": ["js", "python"],
+      "scope": "lab",
+      "checks": "The lab has step headings.",
+      "notes": "JS accepts any heading after the title that names a step, chapter, part, or use case, or carries a number. Python accepts a heading naming Use Cases, Lab Flow, Step-by-Step, Steps, Step N, Exercise, Walkthrough, Instructions, or Section N."
+    },
+    {
+      "id": "no-todo-markers",
+      "validators": ["js", "python"],
+      "scope": "lab",
+      "checks": "No TODO, FIXME, TBD, or XXX marker ships to a learner.",
+      "notes": "JS scans all of index.md, code included, because the composer must never emit one. Python scans every Markdown file in the lab but ignores fenced and inline code, where a marker can be legitimate sample content."
+    },
+    {
+      "id": "has-metadata-table",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "index.md has a pipe-separated metadata table with at least three rows.",
+      "asymmetry": "The portal catalog reads lab metadata from this table (portal/lib/labs.js), so JS requires the table and each field it reads. Python's has-metadata is a looser presence check kept from the historical validators."
+    },
+    {
+      "id": "has-difficulty",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "The metadata table has a **DIFFICULTY** value.",
+      "asymmetry": "Per-field metadata the portal catalog reads; see has-metadata-table."
+    },
+    {
+      "id": "has-time",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "The metadata table has a **TIME** value.",
+      "asymmetry": "Per-field metadata the portal catalog reads; see has-metadata-table. Python compares TIME with the README catalog under readme-catalog."
+    },
+    {
+      "id": "has-products",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "The metadata table has a **PRODUCTS** value.",
+      "asymmetry": "Per-field metadata the portal catalog reads; see has-metadata-table."
+    },
+    {
+      "id": "has-tags",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "The metadata table has a **TAGS** value.",
+      "asymmetry": "Per-field metadata the portal catalog reads; see has-metadata-table."
+    },
+    {
+      "id": "has-industry",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "The metadata table has an **INDUSTRY** or **INDUSTRIES** value.",
+      "asymmetry": "Per-field metadata the portal catalog reads; see has-metadata-table."
+    },
+    {
+      "id": "min-length",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "index.md has at least 500 characters of content.",
+      "asymmetry": "Guards against a degenerate composer output, such as a module list that rendered empty. Hand-written labs are far longer; the portal test holds labs/ to it all the same."
+    },
+    {
+      "id": "no-broken-image-refs",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "Every local image referenced from index.md exists.",
+      "asymmetry": "Python's no-broken-local-links resolves the same targets, plus anchors, in every Markdown file."
+    },
+    {
+      "id": "no-broken-relative-links",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "Every relative link in index.md resolves on disk, so a bare documentation slug such as (nlu-boost-node) cannot ship.",
+      "asymmetry": "Python's no-broken-local-links resolves the same targets, plus anchors, in every Markdown file."
+    },
+    {
+      "id": "no-empty-sections",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "Every heading has body content or a deeper child heading.",
+      "asymmetry": "Written to catch composer output with a heading and no body. Hand-written labs meet it too, and the portal test holds labs/ to it, so a Python copy would add nothing CI does not already enforce."
+    },
+    {
+      "id": "screenshots-exist",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "Every referenced screenshot or image file exists (reported separately for the portal dashboard).",
+      "asymmetry": "A dashboard-facing restatement of no-broken-image-refs; Python covers the targets under no-broken-local-links."
+    },
+    {
+      "id": "assets-dir-clean",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "Warns when assets/ holds images that index.md never references. Never fails.",
+      "asymmetry": "A warning for the portal dashboard, not a gate. Python only has pass or fail."
+    },
+    {
+      "id": "has-metadata",
+      "validators": ["python"],
+      "scope": "lab",
+      "checks": "The lab declares metadata: a Metadata heading, a bold DIFFICULTY/TIME/PRODUCTS/TAGS/INDUSTRIES field, or author front matter.",
+      "asymmetry": "The looser historical presence check. JS enforces the stricter has-metadata-table and per-field rules instead."
+    },
+    {
+      "id": "has-prerequisites",
+      "validators": ["python"],
+      "scope": "lab",
+      "checks": "A Prerequisites heading.",
+      "asymmetry": "Carried over from the historical Python validators. Generated labs are held to it by the CI step that runs validate_labs.py --lab-dir on an offline build."
+    },
+    {
+      "id": "has-validation",
+      "validators": ["python"],
+      "scope": "lab",
+      "checks": "A heading naming Validation, What You Built, Success Criteria, Review, or Verify.",
+      "asymmetry": "Carried over from the historical Python validators. Generated labs are held to it by the CI step that runs validate_labs.py --lab-dir on an offline build."
+    },
+    {
+      "id": "has-completion",
+      "validators": ["python"],
+      "scope": "lab",
+      "checks": "A heading naming Summary, Congratulations, Next Steps, Completion, Complete, Conclusion, Wrap-up, or Recap.",
+      "asymmetry": "Carried over from the historical Python validators. Generated labs are held to it by the CI step that runs validate_labs.py --lab-dir on an offline build."
+    },
+    {
+      "id": "no-broken-local-links",
+      "validators": ["python"],
+      "scope": "lab",
+      "checks": "Every local file, asset, and heading-anchor target in the lab's Markdown resolves. Over labs/ it runs on every tracked Markdown file in the repository.",
+      "asymmetry": "Python resolves heading anchors and scans every Markdown file. The JS rule set checks only index.md's file targets (no-broken-image-refs, no-broken-relative-links), which is what generateLab() needs before it reports success."
+    },
+    {
+      "id": "accessible-markdown",
+      "validators": ["python"],
+      "scope": "lab",
+      "checks": "Heading levels never skip, images have meaningful alt text, link text makes sense out of context, and tables have header cells.",
+      "asymmetry": "Not ported to JS. Generated labs are held to it by the CI step that runs validate_labs.py --lab-dir on an offline build."
+    },
+    {
+      "id": "readme-catalog",
+      "validators": ["python"],
+      "scope": "repository",
+      "checks": "README.md lists every lab under labs/ exactly once, with a duration that matches the lab's TIME.",
+      "asymmetry": "Describes the repository, not a lab. It has no meaning for a generated lab, so --lab-dir does not run it."
+    },
+    {
+      "id": "unique-lab-numbers",
+      "validators": ["python"],
+      "scope": "repository",
+      "checks": "No two labs/NN-* folders share a number.",
+      "asymmetry": "Describes the repository, not a lab. It has no meaning for a generated lab, so --lab-dir does not run it."
+    }
+  ]
+}

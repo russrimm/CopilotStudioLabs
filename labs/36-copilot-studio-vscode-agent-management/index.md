@@ -87,23 +87,23 @@ Official references:
 
 ---
 
-# 🧪 Use Case #1 — Clone an Agent to VS Code (10 min)
+## 🧪 Use Case #1 — Clone an Agent to VS Code (10 min)
 
 > 🎯 **Objective:** Pull a full copy of your cloud agent into a local VS Code workspace so you can inspect and modify it as files.
 
-## Step 1 — Open VS Code and sign in
+### Step 1 — Open VS Code and sign in
 
 1. Open **Visual Studio Code**.
 2. If you are not already signed in, sign in with your Microsoft account using the Accounts button in the bottom-left corner.
 3. Confirm you see the **Copilot Studio** icon in the Activity Bar (left sidebar). If you don't see it, verify the extension is installed.
 
-### Step 2 — Connect to your Copilot Studio environment
+#### Step 2 — Connect to your Copilot Studio environment
 
 1. Click the **Copilot Studio** icon in the Activity Bar.
 2. Select your **environment** from the list.
 3. You should see a list of agents available in that environment.
 
-### Step 3 — Clone the agent
+#### Step 3 — Clone the agent
 
 1. In the Copilot Studio panel, find the agent you want to clone (for example, **Contoso IT Operations Agent** or **Energy Operations Weather Agent**).
 2. Right-click the agent and select **Clone agent** (or use the command palette: `Ctrl+Shift+P` → **Copilot Studio: Clone Agent**).
@@ -112,7 +112,7 @@ Official references:
 
 > 💡 **Tip:** The clone operation pulls down the full agent definition including topics, tools, instructions, knowledge configuration, and metadata. Think of it like `git clone` for your agent.
 
-### Step 4 — Explore the project structure
+#### Step 4 — Explore the project structure
 
 Once the clone completes, explore the file tree. You should see files and folders for:
 
@@ -127,7 +127,7 @@ Take a moment to open a few files and understand how the browser-based authoring
 
 > 💡 **Screenshot callout:** Capture the VS Code Explorer showing the cloned agent project structure.
 
-### ✅ You've completed Use Case #1
+#### ✅ You've completed Use Case #1
 
 **Key takeaways**
 
@@ -137,11 +137,11 @@ Take a moment to open a few files and understand how the browser-based authoring
 
 ---
 
-# 🧪 Use Case #2 — Modify the Agent with Agent Skill Commands (20 min)
+## 🧪 Use Case #2 — Modify the Agent with Agent Skill Commands (20 min)
 
 > 🎯 **Objective:** Use the Copilot Studio agent skill commands in VS Code to make targeted changes to your agent — update topic descriptions, edit instructions, and modify tool configurations.
 
-## Scenario
+### Scenario
 
 Your team has decided to:
 
@@ -151,7 +151,7 @@ Your team has decided to:
 
 You'll use the Copilot Studio agent skill commands to make each change.
 
-### Step 1 — Discover available agent skill commands
+#### Step 1 — Discover available agent skill commands
 
 1. Open the **Command Palette** (`Ctrl+Shift+P`).
 2. Type **Copilot Studio** to see all available commands.
@@ -159,7 +159,7 @@ You'll use the Copilot Studio agent skill commands to make each change.
 
 Alternatively, if you have **GitHub Copilot** with the **Copilot Studio plugin** installed, you can use Copilot Chat to describe changes in natural language. The plugin can help translate your intent into YAML modifications. This is optional — you can make all changes by editing the YAML files directly.
 
-### Step 2 — Update a topic description
+#### Step 2 — Update a topic description
 
 The generative AI orchestrator uses topic descriptions to decide when to trigger each topic. A clear, specific description improves routing accuracy.
 
@@ -184,7 +184,7 @@ description: >-
 
 > 💡 **Tip:** Good topic descriptions tell the orchestrator both **when to use** the topic and **when not to use** it. Include example phrases and boundary conditions.
 
-### Step 3 — Edit the agent's system instructions
+#### Step 3 — Edit the agent's system instructions
 
 1. Locate the agent's instructions file in the project (often the main agent YAML or a dedicated instructions file).
 2. Add a new behavioral guideline. For example, if your agent serves energy field crews, you might add:
@@ -195,7 +195,7 @@ Always confirm the user's service territory before providing location-specific d
 
 3. Save the file.
 
-### Step 4 — Modify a tool description
+#### Step 4 — Modify a tool description
 
 Tool descriptions help the orchestrator's planner decide **which tool to call** and **when**. A well-written tool description leads to better tool selection.
 
@@ -219,7 +219,7 @@ description: >-
   `Units` (Imperial or Metric) as inputs.
 ```
 
-### Step 5 — Validate your changes
+#### Step 5 — Validate your changes
 
 1. Review the YAML files you edited for syntax errors (watch for indentation, missing colons, and unescaped special characters).
 2. If your project has validation built in, run it now.
@@ -227,7 +227,7 @@ description: >-
 
 > ⚠️ **Important:** YAML is whitespace-sensitive. A misplaced indent can break the entire topic definition. Use VS Code's YAML extension for syntax highlighting and validation.
 
-### ✅ You've completed Use Case #2
+#### ✅ You've completed Use Case #2
 
 **Key takeaways**
 
@@ -242,11 +242,11 @@ description: >-
 
 ---
 
-# 🧪 Use Case #3 — Publish Changes Back to the Cloud (5 min)
+## 🧪 Use Case #3 — Publish Changes Back to the Cloud (5 min)
 
 > 🎯 **Objective:** Apply your local changes back to Copilot Studio and publish the updated agent.
 
-## Step 1 — Apply changes to Copilot Studio
+### Step 1 — Apply changes to Copilot Studio
 
 1. Open the **Command Palette** (`Ctrl+Shift+P`).
 2. Run **Copilot Studio: Apply changes** (or the equivalent sync command in your extension version) to upload your modified files to the cloud environment.
@@ -254,13 +254,13 @@ description: >-
 
 > 💡 **Tip:** If you get a conflict warning, it means someone (or you in the browser) made changes in Copilot Studio after your clone. Use **Get changes** to pull the latest version first, merge your changes, then apply again.
 
-### Step 2 — Publish the agent
+#### Step 2 — Publish the agent
 
 1. After applying changes, open **Copilot Studio** in your browser.
 2. Navigate to the agent and select **Publish** to make the changes live.
 3. Wait for the publish operation to complete.
 
-### ✅ You've completed Use Case #3
+#### ✅ You've completed Use Case #3
 
 **Key takeaways**
 
@@ -270,18 +270,18 @@ description: >-
 
 ---
 
-# 🧪 Use Case #4 — Verify Changes in the Copilot Studio Test Chat (10 min)
+## 🧪 Use Case #4 — Verify Changes in the Copilot Studio Test Chat (10 min)
 
 > 🎯 **Objective:** Confirm that your published changes work correctly by testing the agent in the Copilot Studio test chat.
 
-## Step 1 — Open the test chat
+### Step 1 — Open the test chat
 
 1. Open **Copilot Studio** in your browser.
 2. Navigate to the agent you just published.
 3. Open the **Test agent** panel (test chat).
 4. Select **Reset** or **New chat** to clear any cached conversation state.
 
-### Step 2 — Test the updated topic description
+#### Step 2 — Test the updated topic description
 
 1. Type a message that should trigger the topic you updated.
 2. Verify the correct topic fires — check the activity map or conversation trace.
@@ -294,7 +294,7 @@ If you updated a topic for account information:
 - ✅ Should trigger: *"When is my next bill due?"*
 - ❌ Should not trigger: *"Report a power outage on my street"*
 
-### Step 3 — Test the updated system instructions
+#### Step 3 — Test the updated system instructions
 
 1. Ask a question that exercises the new behavioral guideline you added.
 2. Verify the agent follows the new instruction.
@@ -303,13 +303,13 @@ For example, if you added *"Always confirm the user's service territory"*:
 - Ask: *"What's the population in my area?"*
 - Expected: The agent should ask which service territory or geography you mean, rather than assuming.
 
-### Step 4 — Test the updated tool description
+#### Step 4 — Test the updated tool description
 
 1. Ask a question that should invoke the tool you updated.
 2. Verify the tool is selected correctly by checking the activity map.
 3. Confirm the tool returns the expected results.
 
-### Step 5 — Document your findings
+#### Step 5 — Document your findings
 
 Record what you tested and the results:
 
@@ -321,7 +321,7 @@ Record what you tested and the results:
 
 > 💡 **Tip:** If something doesn't work as expected, go back to VS Code, adjust the YAML, push, publish, and re-test. This edit → publish → verify loop is the core developer workflow for Copilot Studio agents.
 
-### ✅ You've completed Use Case #4
+#### ✅ You've completed Use Case #4
 
 **Key takeaways**
 
@@ -337,9 +337,9 @@ Record what you tested and the results:
 
 ---
 
-# 🙋 Summary and Next Steps
+## 🙋 Summary and Next Steps
 
-## What you accomplished
+### What you accomplished
 
 | Step | What you did |
 |---|---|
@@ -349,20 +349,20 @@ Record what you tested and the results:
 | **Publish** | Applied changes back to Copilot Studio and published via the browser |
 | **Verify** | Tested changes in the Copilot Studio test chat and confirmed correct behavior |
 
-### Why this workflow matters for enterprise teams
+#### Why this workflow matters for enterprise teams
 
 - **Version control** — with the agent as local files, you can use Git for branching, pull requests, and change history.
 - **Code review** — topic descriptions, tool configs, and instructions can go through the same review process as application code.
 - **Repeatable promotion** — clone from dev, modify, apply to staging, verify, promote to production. For enterprise multi-environment promotion, use **solutions and ALM pipelines** alongside VS Code for a complete CI/CD story.
 - **Auditability** — regulated industries (energy, utilities, finance) require change logs and approval trails. File-based agent management makes this possible.
 
-### Challenge — extend this workflow
+#### Challenge — extend this workflow
 
 - Set up a **Git repository** for your cloned agent and make your first commit.
 - Create a **branch** for a new feature (e.g., adding a new topic), make the change in VS Code, apply to Copilot Studio, verify, then merge the branch.
 - If your team uses Azure DevOps or GitHub, explore how you could integrate the apply and publish steps into a **CI/CD pipeline** using solutions and ALM pipelines.
 
-## ✅ Validation
+### ✅ Validation
 
 You have successfully completed this lab when you can confirm all of the following:
 

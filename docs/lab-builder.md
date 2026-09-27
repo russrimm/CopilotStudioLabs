@@ -33,7 +33,8 @@ Output lands in `generated-labs/<slug>/` (git-ignored) as:
 
 ```
 generated-labs/<slug>/
-  index.md        the lab, in this repo's standard lab format
+  index.md        the lab, in this repo's standard lab format (one H1 title,
+                  sections from H2; see README "Authoring a lab")
   manifest.json   what was selected, what was grounded, the Learn sources used
                   and the HTTP status each returned when checked, when they were
                   verified, where each module's steps came from, and any
@@ -432,10 +433,16 @@ node tools/screenshot-capture/capture.js --manifest="generated-labs/<slug>/shots
 
 ### 7. Composition and validation
 
-`composer.js` writes markdown in this repo's standard lab format, so generated
-labs look and validate exactly like the handwritten ones. Every generated lab is
-run through the same rule set as `labs/` (`validateLabDir()` in
-`portal/lib/validator.js`) before the builder reports success.
+`composer.js` writes markdown in this repo's standard lab format — exactly one H1
+for the title, every section from H2 down (see
+[Authoring a lab](../README.md#-authoring-a-lab)) — so generated labs look and
+validate exactly like the handwritten ones. Every generated lab is run through the
+same rule set as `labs/` (`validateLabDir()` in `portal/lib/validator.js`) before
+the builder reports success. CI also builds an offline lab and runs
+`python validate_labs.py --lab-dir <path>` on it, so the composer is held to the
+Python checks (heading order, link text, table headers, required sections) too.
+[`scripts/lab-validation-rules.json`](../scripts/lab-validation-rules.json) records
+which validator owns each rule.
 
 Before composition, every URL the lab is about to embed is requested once
 (`linkcheck.js`). This is the liveness check `validateLabDir()` cannot do — it is

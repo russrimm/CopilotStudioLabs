@@ -4,11 +4,15 @@
  * Turns a plan + Learn MCP grounding + optional LLM enrichment into a lab
  * `index.md` that matches this repo's lab format and passes `validator.js`.
  *
- * Hard rules enforced here (they mirror portal/lib/validator.js):
- *  - single H1, then a pipe metadata table with DIFFICULTY / TIME / PRODUCTS /
- *    TAGS / INDUSTRIES rows
+ * Hard rules enforced here (they mirror portal/lib/validator.js, and CI also
+ * runs `validate_labs.py --lab-dir` over an offline build):
+ *  - exactly one H1 (the title); every section heading is H2 or deeper, and
+ *    levels never skip
+ *  - a pipe metadata table with a `Field | Details` header and DIFFICULTY /
+ *    TIME / PRODUCTS / TAGS / INDUSTRIES rows
  *  - an Overview heading, an Objectives heading, and `### Step N - ...` headings
  *  - no heading may be left without body content
+ *  - link text names its destination; a bare URL is never the link text
  *  - the words TODO / FIXME / TBD / XXX must never appear
  */
 
@@ -105,7 +109,7 @@ function metadataTable(plan, generation = {}) {
   const industries = plan.industry ? plan.industry.name : "Cross-industry";
   const tags = plan.tags.slice(0, 8).join(", ");
   return [
-    "| | |",
+    "| Field | Details |",
     "|---|---|",
     `| ⭐ **DIFFICULTY** | ${plan.difficulty} |`,
     `| ⏱️ **TIME** | ${plan.duration} |`,
@@ -237,13 +241,38 @@ function screenshotBlock(shots) {
   return lines;
 }
 
+/**
+ * Link text for a citation.
+ *
+ * Curated catalog links carry no page title, so their `title` is the bare URL,
+ * and a URL read aloud tells a screen-reader user nothing about where the link
+ * goes (`validate_labs.py` rejects it under `accessible-markdown`). Name the page
+ * after the last segment of its path instead.
+ */
+function citationLabel(source) {
+  const title = String(source.title || "").trim();
+  if (title && title !== source.url && !/^https?:\/\//i.test(title)) return scrubForbidden(title);
+
+  let slug = "";
+  try {
+    const path = new URL(source.url).pathname.replace(/\/+$/, "");
+    slug = decodeURIComponent(path.slice(path.lastIndexOf("/") + 1));
+  } catch {
+    /* an unparseable URL still gets a readable label below */
+  }
+  const words = slug.replace(/\.[a-z]+$/i, "").replace(/[-_]+/g, " ").trim();
+  return scrubForbidden(
+    words ? `Microsoft Learn: ${words.charAt(0).toUpperCase()}${words.slice(1)}` : "Microsoft Learn page",
+  );
+}
+
 function citationBlock(grounding) {
   if (!grounding?.sources?.length) return [];
   return [
     "",
     "**Microsoft Learn references**",
     "",
-    bullets(grounding.sources.map((s) => `[${scrubForbidden(s.title || s.url)}](${s.url})`)),
+    bullets(grounding.sources.map((s) => `[${citationLabel(s)}](${s.url})`)),
   ];
 }
 

@@ -168,11 +168,11 @@ By the end of this lab you will be able to:
 
 ---
 
-# 🧪 Use Case #1 — Understand VNet Architecture
+## 🧪 Use Case #1 — Understand VNet Architecture
 
 > 🎯 **Objective:** Compare the three most common private connectivity patterns so you choose the right one for each Copilot Studio and Power Platform scenario.
 
-## Scenario
+### Scenario
 
 Your architecture team keeps hearing three terms:
 **on-premises data gateway**,
@@ -182,7 +182,7 @@ They sound related.
 They are not interchangeable.
 Before you build anything, you need a crisp decision framework.
 
-### Step 1 — Compare the patterns at a glance
+#### Step 1 — Compare the patterns at a glance
 
 1. Review the primary purpose of each pattern.
 2. Note that the **on-premises data gateway** is the classic bridge for on-premises data sources.
@@ -198,7 +198,7 @@ Before you build anything, you need a crisp decision framework.
 
 > 💡 **Tip:** If the scenario is a Copilot Studio agent calling a supported connector from a managed Power Platform environment, start by evaluating Azure VNet support before defaulting to a gateway.
 
-### Step 2 — Understand the runtime path
+#### Step 2 — Understand the runtime path
 
 1. Draw a simple architecture with four blocks:
    - User or channel.
@@ -214,7 +214,7 @@ Before you build anything, you need a crisp decision framework.
 User -> Copilot Studio agent -> Power Platform runtime -> Delegated subnet -> Private endpoint / peered network -> Target service
 ```
 
-### Step 3 — Match common scenarios to the right approach
+#### Step 3 — Match common scenarios to the right approach
 
 1. Map a **private Azure SQL** lookup for account records to Azure VNet support for Power Platform.
 2. Map a **Power BI semantic model refresh** inside a VNet to VNet data gateway.
@@ -222,7 +222,7 @@ User -> Copilot Studio agent -> Power Platform runtime -> Delegated subnet -> Pr
 4. Map a **Dataverse plug-in** that calls Key Vault privately to Azure VNet support.
 5. Map a **dataflow ingestion job** to VNet data gateway.
 
-### Step 4 — Review supported services and environment types
+#### Step 4 — Review supported services and environment types
 
 1. Confirm that Microsoft documents GA support for these runtime patterns in delegated environments:
    - Dataverse plug-ins.
@@ -242,7 +242,7 @@ User -> Copilot Studio agent -> Power Platform runtime -> Delegated subnet -> Pr
 
 > ⚠️ **Warning:** The support list is not the same as “every connector in the platform.” Always verify the connector or pattern you depend on before you promise a private networking design.
 
-### Step 5 — Identify architecture gotchas early
+#### Step 5 — Identify architecture gotchas early
 
 1. Write down every outbound endpoint your existing solution uses.
 2. Mark which of those endpoints are currently public.
@@ -251,19 +251,19 @@ User -> Copilot Studio agent -> Power Platform runtime -> Delegated subnet -> Pr
 5. Flag any flow, plug-in, or connector that hardcodes a public DNS name you plan to replace.
 6. Decide whether you need a NAT gateway for controlled internet-bound egress.
 
-### Validation checklist
+#### Validation checklist
 
 - You can explain the difference between the three private connectivity patterns.
 - You know why DNS and private endpoints matter as much as the delegated subnet itself.
 - You have a preliminary dependency list for the environment.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If your team keeps mixing up VNet data gateway and Azure VNet support, separate the decision by workload type: **data movement and BI** versus **Power Platform runtime outbound calls**.
 - If the architecture diagram ignores DNS, assume the first test run will fail.
 - If multiple teams own connectors, ask each team to inventory public endpoints before delegation.
 
-### Challenge
+#### Challenge
 
 Create a one-page decision matrix for your organization with three columns:
 **Pattern**,
@@ -271,23 +271,23 @@ Create a one-page decision matrix for your organization with three columns:
 and **Avoid it when**.
 Then classify five real integrations from your environment.
 
-### ✅ You've completed Use Case #1
+#### ✅ You've completed Use Case #1
 
 You now have a decision model for private connectivity instead of a vague “use a gateway somewhere” approach.
 
 ---
 
-# 🧪 Use Case #2 — Configure Azure VNet for Power Platform
+## 🧪 Use Case #2 — Configure Azure VNet for Power Platform
 
 > 🎯 **Objective:** Build the core delegated-network configuration by using paired Azure VNets, delegated subnets, an enterprise policy, and environment enablement.
 
-## Scenario
+### Scenario
 
 You are enabling a United States Power Platform environment for private outbound connectivity.
 Because United States uses paired regions, you must prepare Azure networking in **eastus** and **westus**.
 You also need subnet sizing that can handle the expected workload.
 
-### Step 1 — Plan address space and subnet size
+#### Step 1 — Plan address space and subnet size
 
 1. Identify whether the target environment is production or nonproduction.
 2. Use Microsoft guidance as your starting point:
@@ -304,7 +304,7 @@ You also need subnet sizing that can handle the expected workload.
 
 > 💡 **Tip:** Oversizing a delegated subnet is usually cheaper than emergency redesign after you onboard more environments.
 
-### Step 2 — Create paired virtual networks in the correct regions
+#### Step 2 — Create paired virtual networks in the correct regions
 
 1. Confirm the Power Platform geography.
 2. For a **United States** environment, plan Azure resources in **eastus** and **westus**.
@@ -314,7 +314,7 @@ You also need subnet sizing that can handle the expected workload.
 
 > ⚠️ **Warning:** The delegated VNet must align with the supported Azure region pair for the Power Platform environment geography.
 
-### Step 3 — Install and import the PowerShell module
+#### Step 3 — Install and import the PowerShell module
 
 1. Open **Windows PowerShell** or **PowerShell Core** with sufficient rights.
 2. Install the required module.
@@ -328,7 +328,7 @@ Import-Module Microsoft.PowerPlatform.EnterprisePolicies
 
 > 💡 **Note:** Older preview guidance and community posts might refer to cmdlets such as **New-EnterprisePolicy** or **Set-VnetSupportForEnvironment**. Current Microsoft Learn guidance uses **New-SubnetInjectionEnterprisePolicy** and **Enable-SubnetInjection**.
 
-### Step 4 — Delegate the subnets
+#### Step 4 — Delegate the subnets
 
 1. Use **New-VnetForSubnetDelegation** if you want the module to create or update the subnet for delegation.
 2. Run the command for each regional VNet.
@@ -357,7 +357,7 @@ New-VnetForSubnetDelegation `
   -Region "westus"
 ```
 
-### Step 5 — Create the enterprise policy
+#### Step 5 — Create the enterprise policy
 
 1. Use **New-SubnetInjectionEnterprisePolicy**.
 2. Provide the resource IDs of both VNets and their delegated subnet names.
@@ -376,7 +376,7 @@ New-SubnetInjectionEnterprisePolicy `
   -SubnetName2 "pp-delegated-subnet"
 ```
 
-### Step 6 — Link the enterprise policy to the environment
+#### Step 6 — Link the enterprise policy to the environment
 
 1. Confirm that the Power Platform environment is a **Managed Environment**.
 2. Gather the **EnvironmentId**.
@@ -389,7 +389,7 @@ Enable-SubnetInjection `
   -PolicyArmId "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-pp-network/providers/Microsoft.PowerPlatform/enterprisePolicies/pp-us-private-routing"
 ```
 
-### Step 7 — Prepare public egress intentionally
+#### Step 7 — Prepare public egress intentionally
 
 1. Review whether any supported connector still needs to reach a public endpoint.
 2. Decide whether to:
@@ -401,21 +401,21 @@ Enable-SubnetInjection `
 
 > ⚠️ **Warning:** Once enabled, supported outbound calls from the environment route through the delegated subnet and become subject to your network policies.
 
-### Validation checklist
+#### Validation checklist
 
 - Paired VNets exist in the right Azure regions.
 - Delegated subnets are correctly assigned to **Microsoft.PowerPlatform/enterprisePolicies**.
 - The enterprise policy exists and is associated with the right geography.
 - The environment is managed and linked successfully.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If policy creation fails, confirm you used the correct geography string and regional VNet pair.
 - If environment enablement fails, check role assignments for both Azure and Power Platform admin responsibilities.
 - If you need to change subnet IP ranges later, plan a remove-and-reconfigure path; direct subnet-range edits are not supported while the feature is active.
 - If you reused the same delegated subnet in another enterprise policy, redesign immediately because that is not supported.
 
-### Challenge
+#### Challenge
 
 Repeat the planning exercise for a **UK** geography.
 Identify the correct region pair.
@@ -423,17 +423,17 @@ Pick address ranges.
 Choose a production and nonproduction subnet size.
 Then explain whether those environments should share one policy or use separate policies.
 
-### ✅ You've completed Use Case #2
+#### ✅ You've completed Use Case #2
 
 You now have the foundational network and policy configuration required for private runtime connectivity.
 
 ---
 
-# 🧪 Use Case #3 — Connect Copilot Studio to Private Resources
+## 🧪 Use Case #3 — Connect Copilot Studio to Private Resources
 
 > 🎯 **Objective:** Use the delegated environment to power private data access from Copilot Studio through supported connectors and custom connectors.
 
-## Scenario
+### Scenario
 
 Your agent needs to perform three tasks:
 retrieve customer records from **Azure SQL**,
@@ -441,7 +441,7 @@ fetch secrets from **Azure Key Vault**,
 and query a **Snowflake** warehouse reachable through private networking.
 You want the agent to use private routing without exposing those systems publicly.
 
-### Step 1 — Prepare the target resources for private access
+#### Step 1 — Prepare the target resources for private access
 
 1. Ensure each target service is reachable privately.
 2. For Azure services, prefer **Private Link** and private endpoints.
@@ -449,7 +449,7 @@ You want the agent to use private routing without exposing those systems publicl
 4. For Snowflake or other SaaS platforms, confirm your chosen private connectivity pattern and DNS resolution method.
 5. Verify connectivity from inside the network architecture before you involve Copilot Studio.
 
-### Step 2 — Choose the connector pattern per resource
+#### Step 2 — Choose the connector pattern per resource
 
 1. Use the **SQL Server** connector or a relevant supported SQL pattern for Azure SQL or SQL Server scenarios.
 2. Use the **Azure Key Vault** connector for secret retrieval.
@@ -464,7 +464,7 @@ You want the agent to use private routing without exposing those systems publicl
 | Snowflake | Snowflake connector | Supported in delegated runtime and useful for analytics enrichment |
 | Private line-of-business API | Custom connector or HTTP with Entra ID | Best for private REST endpoints not covered by a prebuilt connector |
 
-### Step 3 — Build or update the connector connection
+#### Step 3 — Build or update the connector connection
 
 1. Open **Power Automate** or **Power Apps** and create or edit the connector connection in the same environment.
 2. For custom connectors, confirm the host resolves to the private endpoint.
@@ -476,7 +476,7 @@ You want the agent to use private routing without exposing those systems publicl
 Fix the network path first.
 Then test the conversational layer.
 
-### Step 4 — Add the connector as a tool in Copilot Studio
+#### Step 4 — Add the connector as a tool in Copilot Studio
 
 1. Open your Copilot Studio agent.
 2. Go to **Tools**.
@@ -485,7 +485,7 @@ Then test the conversational layer.
 5. If the tool uses user authentication, confirm the test user has access to the underlying resource.
 6. If the tool uses maker-provided credentials, confirm secret storage and connection ownership meet policy.
 
-### Step 5 — Build a simple private-data topic or prompt
+#### Step 5 — Build a simple private-data topic or prompt
 
 1. Create a topic such as **Get Private Payment Exception Details**.
 2. Add inputs such as **exception ID** or **account ID**.
@@ -493,13 +493,13 @@ Then test the conversational layer.
 4. Return only the data fields required by the scenario.
 5. Mask or omit fields that should never appear in chat.
 
-#### Sample topic starter
+##### Sample topic starter
 
 ```text
 When a user asks for a payment exception or high-risk account record, collect the exception ID, retrieve the record from the private data source, summarize the result in plain language, and never reveal connection details, raw secrets, or internal network addresses.
 ```
 
-### Step 6 — Test private routing end to end
+#### Step 6 — Test private routing end to end
 
 1. Run a connector call to **Azure SQL** and confirm the expected record returns.
 2. Run a **Key Vault** lookup for a non-sensitive metadata item or a secret alias allowed for the lab.
@@ -507,7 +507,7 @@ When a user asks for a payment exception or high-risk account record, collect th
 4. Review logs in your Azure networking stack to confirm the calls traverse the delegated networking path.
 5. Validate that no public allowlisting was required for the protected services.
 
-### Step 7 — Review identity and secret handling
+#### Step 7 — Review identity and secret handling
 
 1. Confirm whether each connector uses **user auth**, **service auth**, or **maker-provided credentials**.
 2. Avoid exposing secrets in topic variables or chat transcripts.
@@ -517,43 +517,43 @@ When a user asks for a payment exception or high-risk account record, collect th
 > ⚠️ **Warning:** Private networking protects the transport path.
 It does **not** automatically solve over-permissioned connectors, weak secret hygiene, or excessive data exposure in responses.
 
-### Validation checklist
+#### Validation checklist
 
 - The connector works in the delegated environment.
 - Copilot Studio can call the tool successfully.
 - Private DNS and endpoint resolution behave as expected.
 - Data returned to chat is minimized and policy-compliant.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If the connector test fails, validate the private endpoint and DNS before changing agent instructions.
 - If the connector works but the agent fails, inspect the tool description, operation mapping, and authentication mode.
 - If public endpoints suddenly break after enabling delegation, inventory all outbound dependencies and decide whether to allow internet-bound egress or replace those endpoints.
 - If a plug-in or custom connector expects a certificate chain signed by a nonstandard root CA, redesign the trust path because unsupported custom root injection is not available.
 
-### Challenge
+#### Challenge
 
 Add a second private tool that uses **HTTP with Microsoft Entra ID** to call a private web API.
 Document the identity flow, required DNS entries, and one prompt that proves the agent can route to the new tool correctly.
 
-### ✅ You've completed Use Case #3
+#### ✅ You've completed Use Case #3
 
 You now have Copilot Studio reaching private resources through supported Power Platform networking patterns.
 
 ---
 
-# 🧪 Use Case #4 — Governance and Operations
+## 🧪 Use Case #4 — Governance and Operations
 
 > 🎯 **Objective:** Turn a working delegated-network demo into an operable enterprise pattern with sizing, monitoring, troubleshooting, and review controls.
 
-## Scenario
+### Scenario
 
 Private connectivity is now enabled.
 The demo works.
 That is not enough.
 Your operations, platform, and security teams need to know how to size it, monitor it, support it, and review changes safely.
 
-### Step 1 — Build a subnet sizing worksheet
+#### Step 1 — Build a subnet sizing worksheet
 
 1. List every environment that might attach to the enterprise policy.
 2. Classify each one as production or nonproduction.
@@ -572,7 +572,7 @@ Your operations, platform, and security teams need to know how to size it, monit
 
 In this example, a **/24** subnet gives headroom.
 
-### Step 2 — Monitor delegated-network traffic
+#### Step 2 — Monitor delegated-network traffic
 
 1. Enable or review **NSG flow logs**, firewall logs, or equivalent Azure network telemetry for the delegated path.
 2. Monitor for denied outbound traffic.
@@ -583,7 +583,7 @@ In this example, a **/24** subnet gives headroom.
 > 💡 **Tip:** A connector timeout is often a network symptom, not a Copilot Studio symptom.
 Teach support teams where to look first.
 
-### Step 3 — Prepare a break-fix runbook
+#### Step 3 — Prepare a break-fix runbook
 
 1. Define symptoms for common incidents:
    - Private SQL connector returns timeouts.
@@ -598,7 +598,7 @@ Teach support teams where to look first.
    - Security admin.
 4. Document rollback criteria and escalation paths.
 
-### Step 4 — Use a security review checklist
+#### Step 4 — Use a security review checklist
 
 1. Confirm that each private target uses least privilege.
 2. Confirm that private DNS is governed and documented.
@@ -607,7 +607,7 @@ Teach support teams where to look first.
 5. Confirm that connector owners understand data handling and logging implications.
 6. Confirm that network changes follow change control and regression testing.
 
-#### Security review checklist starter
+##### Security review checklist starter
 
 - [ ] Managed Environment enabled.
 - [ ] Paired Azure regions configured correctly.
@@ -619,7 +619,7 @@ Teach support teams where to look first.
 - [ ] Monitoring and alerts configured.
 - [ ] Break-glass rollback documented.
 
-### Step 5 — Review the most common gotchas
+#### Step 5 — Review the most common gotchas
 
 1. **All supported outbound calls route through the VNet** once delegation is enabled.
 2. **Public endpoint assumptions break** if network policy blocks internet egress.
@@ -631,21 +631,21 @@ Teach support teams where to look first.
 > ⚠️ **Warning:** The biggest operational failure pattern is enabling delegation first and discovering public dependencies later.
 Do the dependency inventory before production cutover.
 
-### Validation checklist
+#### Validation checklist
 
 - You can estimate subnet size for multiple environments.
 - You know where to monitor routed traffic.
 - You have a first-pass incident runbook.
 - You have a governance checklist for approvals and change control.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If traffic appears to vanish, inspect firewall denies and DNS resolution before changing connector definitions.
 - If only one environment is affected, confirm it is attached to the expected enterprise policy and region pair.
 - If a previously working public API breaks, verify whether a NAT gateway or explicit egress rule is now required.
 - If security reviewers ask why a VNet data gateway was not used, explain the documented workload distinction.
 
-### Challenge
+#### Challenge
 
 Draft a production-readiness review for your own environment.
 Include:
@@ -656,15 +656,15 @@ public egress stance,
 and a rollback trigger.
 Then ask a network engineer to review it for realism.
 
-### ✅ You've completed Use Case #4
+#### ✅ You've completed Use Case #4
 
 You now have the operating model required to support private Power Platform connectivity beyond the initial setup.
 
 ---
 
-# 🙋 Summary
+## 🙋 Summary
 
-## What you accomplished
+### What you accomplished
 
 | Step | What you did |
 |---|---|
@@ -674,7 +674,7 @@ You now have the operating model required to support private Power Platform conn
 | **Connect** | Powered Copilot Studio tools against private resources |
 | **Operate** | Built monitoring, sizing, and governance practices |
 
-### Golden rules
+#### Golden rules
 
 1. **Start with dependency inventory.** Know every outbound endpoint before you delegate the environment.
 2. **Treat DNS as critical infrastructure.** Private routing fails fast when name resolution is wrong.
@@ -684,7 +684,7 @@ You now have the operating model required to support private Power Platform conn
 6. **Keep connector permissions least-privileged.** Private transport does not justify broad data access.
 7. **Document rollback and ownership.** Networking, platform, and maker teams all need clear boundaries.
 
-### Recommended next steps
+#### Recommended next steps
 
 - Add a second delegated-environment use case that calls a private REST API through a custom connector.
 - Build a regression test matrix for connector operations before and after networking changes.
@@ -696,7 +696,7 @@ It is an operating model for how your Copilot Studio and Power Platform workload
 
 ---
 
-## 📎 Appendix A — Architecture decision prompts
+### 📎 Appendix A — Architecture decision prompts
 
 - Which agent tools truly require private connectivity, and which can remain public?
 - Which dependencies belong to security-sensitive or regulated workloads?
@@ -704,7 +704,7 @@ It is an operating model for how your Copilot Studio and Power Platform workload
 - Which connector owners need to validate DNS names and endpoints before cutover?
 - Which workloads belong on VNet data gateway rather than Azure VNet support for Power Platform?
 
-## 📎 Appendix B — Region pair starter reference
+### 📎 Appendix B — Region pair starter reference
 
 | Power Platform geography | Azure region pair |
 |---|---|
@@ -717,7 +717,7 @@ It is an operating model for how your Copilot Studio and Power Platform workload
 
 Always verify the latest Microsoft Learn region mapping before production deployment.
 
-## 📎 Appendix C — Sample validation prompts
+### 📎 Appendix C — Sample validation prompts
 
 - Retrieve account 10025 from the private payments database.
 - Look up the approved metadata secret alias for the payments connector.
@@ -725,7 +725,7 @@ Always verify the latest Microsoft Learn region mapping before production deploy
 - Tell me whether this environment uses delegated networking and what that implies for outbound routing.
 - Which of our current dependencies still require controlled public egress?
 
-## 📎 Appendix D — Cutover checklist
+### 📎 Appendix D — Cutover checklist
 
 - [ ] Managed Environment confirmed.
 - [ ] Dependency inventory completed.

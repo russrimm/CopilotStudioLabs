@@ -133,15 +133,15 @@ User
 
 ---
 
-# 🧪 Use Case #1 — Enable Work IQ on your agent (10 min)
+## 🧪 Use Case #1 — Enable Work IQ on your agent (10 min)
 
 > 🎯 **Objective:** Turn on Work IQ so the agent can use Microsoft 365 signals.
 
-## Scenario
+### Scenario
 
 A utility operations manager wants a morning briefing agent that understands current work in progress rather than only static documents.
 
-### Step 1 — Review Work IQ prerequisites and governance
+#### Step 1 — Review Work IQ prerequisites and governance
 
 1. Open the Microsoft Learn **Work IQ MCP overview** and review the licensing note that a Microsoft 365 Copilot license is required.
 2. Read the sections on centralized governance and note that admins can allow or block Work IQ MCP servers in the Microsoft 365 admin center.
@@ -151,7 +151,7 @@ A utility operations manager wants a morning briefing agent that understands cur
 6. Move forward only after governance and licensing questions are resolved.
 
 
-### Step 2 — Create the Operations Briefing Agent
+#### Step 2 — Create the Operations Briefing Agent
 
 1. Create or open an agent named **Operations Briefing Agent**.
 2. In the overview instructions, describe the audience: utility managers, planners, outage coordinators, and program leads.
@@ -161,13 +161,13 @@ A utility operations manager wants a morning briefing agent that understands cur
 6. Note one or two realistic briefing prompts you plan to test later.
 
 
-#### Sample prompt for this step
+##### Sample prompt for this step
 
 ```text
 You are an operations briefing assistant for Contoso Energy leaders. Use available Microsoft 365 and enterprise knowledge to summarize current work, recent decisions, key meetings, action items, and relevant files. Keep answers concise, traceable, and useful for outage operations, field readiness, and planning reviews.
 ```
 
-### Step 3 — Enable Work IQ MCP tools
+#### Step 3 — Enable Work IQ MCP tools
 
 1. Open the agent's tool configuration surface where Work IQ MCP tools are exposed in your tenant.
 2. Add or enable the Work IQ toolset approved by your administrators.
@@ -177,13 +177,13 @@ You are an operations briefing assistant for Contoso Energy leaders. Use availab
 6. Save again so the instruction and tooling updates land together.
 
 
-#### Quick verification
+##### Quick verification
 
 - A Microsoft 365 Copilot license exists for the scenario.
 - The Work IQ MCP tooling is enabled or approved.
 - The agent instructions mention current-work context explicitly.
 
-### Test prompts
+#### Test prompts
 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
@@ -192,13 +192,13 @@ Give me a morning briefing on current substation modernization work for the Sout
 What recent files, meetings, and messages should I review before the rate-case planning meeting?
 ```
 
-### Validation checklist
+#### Validation checklist
 
 - Work IQ tooling is enabled or at least configured in principle for the agent.
 - The agent instructions are aligned to recent-work briefing scenarios.
 - Governance dependencies are documented.
 
-### What you accomplished
+#### What you accomplished
 
 | Outcome | Why it matters |
 |---|---|
@@ -206,53 +206,53 @@ What recent files, meetings, and messages should I review before the rate-case p
 | Aligned the briefing scenario | The instruction set now targets a realistic operational briefing use case. |
 | Captured governance requirements | Licensing and admin approval are explicit instead of hidden assumptions. |
 
-### Key takeaways
+#### Key takeaways
 
 - Work IQ is a capability and a governance model at the same time.
 - Current-work prompts are where Work IQ value becomes obvious fastest.
 - Licensing and admin readiness must be handled early.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If Work IQ tools do not appear, check admin-center allow/block settings and region availability.
 - If the agent ignores M365 context later, strengthen the instruction language around recent work and active collaboration artifacts.
 
-### Evidence to capture
+#### Evidence to capture
 
 - Save at least one successful run, screenshot, or transcript excerpt for future demos and regression checks.
 - Record the configuration choices that most influenced the result, such as descriptions, instructions, model selection, or access settings.
 - Note one failure mode or edge case discovered during this use case so the team can retest it later.
 - Capture which stakeholder would need to review this capability before broader rollout.
 
-### Improvement ideas
+#### Improvement ideas
 
 - Add one more regression prompt that stresses this use case from a different angle.
 - Decide whether any part of this pattern should become a reusable asset for other agents, flows, or teams.
 - Review whether logging, governance, or support ownership need to be tightened before production use.
 - Identify the next adjacent scenario you would automate or route now that this use case is working.
 
-### Stakeholder discussion prompts
+#### Stakeholder discussion prompts
 
 - What business outcome improves most if this use case becomes a standard operating capability?
 - What would make the result more trustworthy to operations, security, or compliance reviewers?
 - Which metric should be watched first after rollout to prove this use case is adding value?
 - What is the simplest rollback plan if this use case behaves unexpectedly after a change?
 
-### ✅ You've completed Use Case #1
+#### ✅ You've completed Use Case #1
 
 You now have the foundation to move from **a static knowledge agent** to **an agent prepared for live Microsoft 365 context**.
 
 ---
 
-# 🧪 Use Case #2 — Ground responses with real-time M365 context (15 min)
+## 🧪 Use Case #2 — Ground responses with real-time M365 context (15 min)
 
 > 🎯 **Objective:** Use Work IQ to pull context from emails, meetings, files, and chats.
 
-## Scenario
+### Scenario
 
 A Contoso program manager wants to know what happened this week across a wildfire-readiness workstream without digging through Outlook, Teams, and SharePoint manually.
 
-### Step 1 — Define the briefing shape
+#### Step 1 — Define the briefing shape
 
 1. Decide what a good operational briefing should include: recent meetings, active files, unresolved actions, and notable chat or email themes.
 2. Write a simple response format that the agent should follow, such as Executive summary, Recent signals, Risks, and Recommended next steps.
@@ -262,7 +262,7 @@ A Contoso program manager wants to know what happened this week across a wildfir
 6. Save the structure in your lab notes so you can test consistently.
 
 
-### Step 2 — Test Microsoft 365 context retrieval
+#### Step 2 — Test Microsoft 365 context retrieval
 
 1. Ask the agent for a briefing tied to a real project, meeting series, or operational initiative that has recent Microsoft 365 activity.
 2. Review whether the answer references emails, meeting context, files, or chats in a way that feels current and specific.
@@ -272,13 +272,13 @@ A Contoso program manager wants to know what happened this week across a wildfir
 6. Capture one high-quality answer for future demos or governance review.
 
 
-#### Sample prompt for this step
+##### Sample prompt for this step
 
 ```text
 Prepare a concise weekly briefing for the South Region wildfire-readiness program. Include recent meetings, notable emails or chat themes, important files updated this week, risks or blockers, and the top next actions.
 ```
 
-### Step 3 — Teach the agent to clarify missing business context
+#### Step 3 — Teach the agent to clarify missing business context
 
 1. If a user asks for 'a project update' without naming the program or team, tell the agent to ask which workstream, district, or meeting cadence they mean.
 2. Add one sentence to the instructions saying the agent should ask focused clarifying questions before it searches broadly.
@@ -288,7 +288,7 @@ Prepare a concise weekly briefing for the South Region wildfire-readiness progra
 6. Use that list to improve future prompts and starter phrases.
 
 
-### Test prompts
+#### Test prompts
 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
@@ -298,13 +298,13 @@ What are the current blockers and next actions for the EV charging deployment wo
 I need a briefing before the South Region outage review meeting tomorrow.
 ```
 
-### Validation checklist
+#### Validation checklist
 
 - The agent can produce a structured briefing tied to recent work.
 - The answer quality improves when you name a real initiative or meeting context.
 - The agent asks clarifying questions when the scope is too broad.
 
-### What you accomplished
+#### What you accomplished
 
 | Outcome | Why it matters |
 |---|---|
@@ -312,53 +312,53 @@ I need a briefing before the South Region outage review meeting tomorrow.
 | Shaped the briefing format | A repeatable response format makes the output more useful to leaders. |
 | Improved ambiguity handling | Clarification reduces shallow, generic summaries. |
 
-### Key takeaways
+#### Key takeaways
 
 - Work IQ shines when prompts name active teams, meetings, or initiatives.
 - Response format matters as much as retrieval quality.
 - Clarifying questions are a feature, not a failure, when the scope is broad.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If answers remain generic, ask narrower questions tied to named teams or timeframes.
 - If the user lacks access to the underlying content, the agent cannot reliably ground the response in it.
 
-### Evidence to capture
+#### Evidence to capture
 
 - Save at least one successful run, screenshot, or transcript excerpt for future demos and regression checks.
 - Record the configuration choices that most influenced the result, such as descriptions, instructions, model selection, or access settings.
 - Note one failure mode or edge case discovered during this use case so the team can retest it later.
 - Capture which stakeholder would need to review this capability before broader rollout.
 
-### Improvement ideas
+#### Improvement ideas
 
 - Add one more regression prompt that stresses this use case from a different angle.
 - Decide whether any part of this pattern should become a reusable asset for other agents, flows, or teams.
 - Review whether logging, governance, or support ownership need to be tightened before production use.
 - Identify the next adjacent scenario you would automate or route now that this use case is working.
 
-### Stakeholder discussion prompts
+#### Stakeholder discussion prompts
 
 - What business outcome improves most if this use case becomes a standard operating capability?
 - What would make the result more trustworthy to operations, security, or compliance reviewers?
 - Which metric should be watched first after rollout to prove this use case is adding value?
 - What is the simplest rollback plan if this use case behaves unexpectedly after a change?
 
-### ✅ You've completed Use Case #2
+#### ✅ You've completed Use Case #2
 
 You now have the foundation to move from **enabled tooling** to **a working M365-grounded briefing pattern**.
 
 ---
 
-# 🧪 Use Case #3 — Add SharePoint metadata filters (10 min)
+## 🧪 Use Case #3 — Add SharePoint metadata filters (10 min)
 
 > 🎯 **Objective:** Use SharePoint knowledge retrieval with metadata-aware filtering for more precise answers.
 
-## Scenario
+### Scenario
 
 The operations team stores outage procedures, restoration playbooks, and planning memos in SharePoint. They want the agent to search recent, authoritative files rather than the entire site every time.
 
-### Step 1 — Add the SharePoint site as knowledge
+#### Step 1 — Add the SharePoint site as knowledge
 
 1. Open the agent and select **Add knowledge** from the Overview or Knowledge page.
 2. Choose **SharePoint** from the featured knowledge options.
@@ -368,7 +368,7 @@ The operations team stores outage procedures, restoration playbooks, and plannin
 6. Document which content types the site contains, such as post-incident reviews, field procedures, and planning decks.
 
 
-### Step 2 — Design metadata-driven retrieval prompts
+#### Step 2 — Design metadata-driven retrieval prompts
 
 1. Decide which metadata is most useful for your utility scenario: filename, owner, modified date, or perhaps a naming convention used by operations teams.
 2. Write prompts that intentionally mention those filters, such as 'latest outage playbook updated this month by the restoration team.'
@@ -378,13 +378,13 @@ The operations team stores outage procedures, restoration playbooks, and plannin
 6. Capture examples of effective filter phrasing for your users.
 
 
-#### Sample prompt for this step
+##### Sample prompt for this step
 
 ```text
 Find the most recently modified outage restoration playbook owned by the South Region operations team and summarize the top three actions for field supervisors.
 ```
 
-### Step 3 — Combine SharePoint with Work IQ guidance
+#### Step 3 — Combine SharePoint with Work IQ guidance
 
 1. Update the agent instructions to prefer SharePoint documents for formal policy or procedure answers and Work IQ for current collaboration context.
 2. Test a question that needs both, such as a current briefing plus the latest formal procedure.
@@ -395,7 +395,7 @@ Find the most recently modified outage restoration playbook owned by the South R
 
 > **Note:** Microsoft Learn notes that turning on Work IQ can improve SharePoint retrieval precision, even if latency increases slightly in some cases.
 
-### Test prompts
+#### Test prompts
 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
@@ -404,13 +404,13 @@ Summarize the latest distribution outage playbook modified this quarter.
 What procedure document updated by the field operations owner should I review before tomorrow's storm drill?
 ```
 
-### Validation checklist
+#### Validation checklist
 
 - The SharePoint site is connected as a knowledge source.
 - Metadata-aware prompt phrasing improves answer precision.
 - The agent can distinguish formal SharePoint guidance from live Work IQ context.
 
-### What you accomplished
+#### What you accomplished
 
 | Outcome | Why it matters |
 |---|---|
@@ -418,53 +418,53 @@ What procedure document updated by the field operations owner should I review be
 | Improved retrieval precision | Metadata hints make it easier to target the right content. |
 | Balanced live and formal context | The agent can now separate current collaboration signals from official procedure. |
 
-### Key takeaways
+#### Key takeaways
 
 - Metadata language in prompts often matters more than people expect.
 - SharePoint is for authoritative artifacts; Work IQ is for living work context.
 - Combining both requires explicit instruction design.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If answers seem stale, add recency language such as modified this week or this month.
 - If the wrong files appear, improve the knowledge-source description and the prompt specificity.
 
-### Evidence to capture
+#### Evidence to capture
 
 - Save at least one successful run, screenshot, or transcript excerpt for future demos and regression checks.
 - Record the configuration choices that most influenced the result, such as descriptions, instructions, model selection, or access settings.
 - Note one failure mode or edge case discovered during this use case so the team can retest it later.
 - Capture which stakeholder would need to review this capability before broader rollout.
 
-### Improvement ideas
+#### Improvement ideas
 
 - Add one more regression prompt that stresses this use case from a different angle.
 - Decide whether any part of this pattern should become a reusable asset for other agents, flows, or teams.
 - Review whether logging, governance, or support ownership need to be tightened before production use.
 - Identify the next adjacent scenario you would automate or route now that this use case is working.
 
-### Stakeholder discussion prompts
+#### Stakeholder discussion prompts
 
 - What business outcome improves most if this use case becomes a standard operating capability?
 - What would make the result more trustworthy to operations, security, or compliance reviewers?
 - Which metric should be watched first after rollout to prove this use case is adding value?
 - What is the simplest rollback plan if this use case behaves unexpectedly after a change?
 
-### ✅ You've completed Use Case #3
+#### ✅ You've completed Use Case #3
 
 You now have the foundation to move from **live M365 context only** to **a blended live-plus-authoritative grounding model**.
 
 ---
 
-# 🧪 Use Case #4 — Add Bing Custom Search (10 min)
+## 🧪 Use Case #4 — Add Bing Custom Search (10 min)
 
 > 🎯 **Objective:** Create a scoped web index for industry-specific public content.
 
-## Scenario
+### Scenario
 
 The utility wants the agent to reference only trusted external industry sites, such as NERC, FERC, DOE, CAISO, or selected utility-regulatory resources, rather than the open web.
 
-### Step 1 — Prepare a custom search scope
+#### Step 1 — Prepare a custom search scope
 
 1. Decide which public websites belong in the curated search index for your scenario, such as grid reliability guidance, regulator announcements, or regional market information.
 2. Create or review the Bing Custom Search instance and obtain the **Custom Configuration ID** from the production endpoint view.
@@ -474,7 +474,7 @@ The utility wants the agent to reference only trusted external industry sites, s
 6. Share the planned scope with subject-matter experts if they care about source authority.
 
 
-### Step 2 — Add Bing Custom Search to the agent
+#### Step 2 — Add Bing Custom Search to the agent
 
 1. In Copilot Studio, open the agent and select **Add knowledge**.
 2. Choose **Advanced** and then select **Bing Custom Search**.
@@ -485,7 +485,7 @@ The utility wants the agent to reference only trusted external industry sites, s
 
 > ⚠️ **Warning:** Because Bing Custom Search replaces general public website knowledge, make sure you are comfortable with the curated source list before enabling it.
 
-### Step 3 — Test a utility-industry research prompt
+#### Step 3 — Test a utility-industry research prompt
 
 1. Ask a question that should benefit from curated external sources, such as a regulatory update, reliability standard interpretation, or market notice summary.
 2. Compare the answer with what you would expect from a broad public-web search and note whether the results feel more focused.
@@ -495,7 +495,7 @@ The utility wants the agent to reference only trusted external industry sites, s
 6. Save any instruction updates needed to keep external research clearly labeled.
 
 
-### Test prompts
+#### Test prompts
 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
@@ -504,13 +504,13 @@ Summarize the most relevant recent regulatory guidance our distribution planning
 What recent public reliability guidance is most applicable to utility outage readiness planning?
 ```
 
-### Validation checklist
+#### Validation checklist
 
 - Bing Custom Search is configured with a valid Custom Configuration ID.
 - The team understands that this overrides broad public website grounding.
 - The agent can answer industry questions using a curated public source scope.
 
-### What you accomplished
+#### What you accomplished
 
 | Outcome | Why it matters |
 |---|---|
@@ -518,53 +518,53 @@ What recent public reliability guidance is most applicable to utility outage rea
 | Scoped external trust boundaries | Governance is stronger because source authority is intentional. |
 | Documented override behavior | Future makers will understand why normal public websites are no longer active. |
 
-### Key takeaways
+#### Key takeaways
 
 - Curated external search is better than generic public search for regulated scenarios.
 - Source scope is a governance decision, not just a technical checkbox.
 - You should explain override behavior to anyone who edits the agent later.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If expected sites are missing, fix the Bing Custom Search configuration rather than stuffing more prompt text into the agent.
 - If answers feel too narrow, revisit the curated source list with subject-matter experts.
 
-### Evidence to capture
+#### Evidence to capture
 
 - Save at least one successful run, screenshot, or transcript excerpt for future demos and regression checks.
 - Record the configuration choices that most influenced the result, such as descriptions, instructions, model selection, or access settings.
 - Note one failure mode or edge case discovered during this use case so the team can retest it later.
 - Capture which stakeholder would need to review this capability before broader rollout.
 
-### Improvement ideas
+#### Improvement ideas
 
 - Add one more regression prompt that stresses this use case from a different angle.
 - Decide whether any part of this pattern should become a reusable asset for other agents, flows, or teams.
 - Review whether logging, governance, or support ownership need to be tightened before production use.
 - Identify the next adjacent scenario you would automate or route now that this use case is working.
 
-### Stakeholder discussion prompts
+#### Stakeholder discussion prompts
 
 - What business outcome improves most if this use case becomes a standard operating capability?
 - What would make the result more trustworthy to operations, security, or compliance reviewers?
 - Which metric should be watched first after rollout to prove this use case is adding value?
 - What is the simplest rollback plan if this use case behaves unexpectedly after a change?
 
-### ✅ You've completed Use Case #4
+#### ✅ You've completed Use Case #4
 
 You now have the foundation to move from **internal-only grounding** to **a blended internal-plus-curated external intelligence pattern**.
 
 ---
 
-# 🧪 Use Case #5 — Compare results with and without Work IQ (15 min)
+## 🧪 Use Case #5 — Compare results with and without Work IQ (15 min)
 
 > 🎯 **Objective:** Run the same prompts and observe the quality improvement when Work IQ is enabled.
 
-## Scenario
+### Scenario
 
 Stakeholders often ask whether Work IQ is worth the added governance and licensing complexity. The clearest answer is a side-by-side comparison using the same operational prompts.
 
-### Step 1 — Choose a representative test set
+#### Step 1 — Choose a representative test set
 
 1. Select three to five prompts that depend on current work context, such as weekly project briefings, upcoming meeting prep, or identifying the newest relevant file.
 2. Select one or two prompts that are mostly document-based so you can see where Work IQ adds less value.
@@ -574,7 +574,7 @@ Stakeholders often ask whether Work IQ is worth the added governance and licensi
 6. Use utility-specific scenarios rather than generic sample prompts.
 
 
-### Step 2 — Run the prompts with Work IQ enabled
+#### Step 2 — Run the prompts with Work IQ enabled
 
 1. Ask each prompt and capture the answer.
 2. Note whether the answer references current meetings, recent files, or collaboration signals that would be hard to infer from SharePoint alone.
@@ -584,7 +584,7 @@ Stakeholders often ask whether Work IQ is worth the added governance and licensi
 6. Store the results in a simple comparison table.
 
 
-### Step 3 — Run the same prompts with Work IQ disabled or ignored
+#### Step 3 — Run the same prompts with Work IQ disabled or ignored
 
 1. Temporarily disable the Work IQ tools if your environment allows, or use a comparable agent that lacks Work IQ but shares the same SharePoint knowledge configuration.
 2. Run the same prompts in the same order and capture the answers.
@@ -594,13 +594,13 @@ Stakeholders often ask whether Work IQ is worth the added governance and licensi
 6. Bring the two result sets together for review.
 
 
-#### Quick verification
+##### Quick verification
 
 - Same prompts used in both modes.
 - Same scoring rubric used in both modes.
 - Both stronger and weaker cases for Work IQ documented honestly.
 
-### Test prompts
+#### Test prompts
 
 Use these prompts in Copilot Studio test chat, the flow test pane, or the voice test panel as appropriate:
 
@@ -610,13 +610,13 @@ What is the latest field-restoration procedure I should review before the storm 
 Summarize the current status of the EV charging deployment workstream.
 ```
 
-### Validation checklist
+#### Validation checklist
 
 - The team has a side-by-side comparison set.
 - Work IQ value is visible on current-work prompts.
 - The team also understands where SharePoint-only knowledge is already sufficient.
 
-### What you accomplished
+#### What you accomplished
 
 | Outcome | Why it matters |
 |---|---|
@@ -624,47 +624,47 @@ Summarize the current status of the EV charging deployment workstream.
 | Scored quality systematically | A simple rubric prevents subjective debates from dominating the decision. |
 | Identified high-value scenarios | You now know which prompts benefit most from Work IQ. |
 
-### Key takeaways
+#### Key takeaways
 
 - Work IQ is not magic; it is most valuable when the question depends on current work reality.
 - Static knowledge still matters and often remains the best answer source for formal procedures.
 - Side-by-side evaluations create stronger stakeholder buy-in than feature descriptions alone.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If the answers look the same, your prompts may not depend enough on current collaboration context.
 - If Work IQ adds noise, narrow the prompt scope or clarify the briefing format.
 
-### Evidence to capture
+#### Evidence to capture
 
 - Save at least one successful run, screenshot, or transcript excerpt for future demos and regression checks.
 - Record the configuration choices that most influenced the result, such as descriptions, instructions, model selection, or access settings.
 - Note one failure mode or edge case discovered during this use case so the team can retest it later.
 - Capture which stakeholder would need to review this capability before broader rollout.
 
-### Improvement ideas
+#### Improvement ideas
 
 - Add one more regression prompt that stresses this use case from a different angle.
 - Decide whether any part of this pattern should become a reusable asset for other agents, flows, or teams.
 - Review whether logging, governance, or support ownership need to be tightened before production use.
 - Identify the next adjacent scenario you would automate or route now that this use case is working.
 
-### Stakeholder discussion prompts
+#### Stakeholder discussion prompts
 
 - What business outcome improves most if this use case becomes a standard operating capability?
 - What would make the result more trustworthy to operations, security, or compliance reviewers?
 - Which metric should be watched first after rollout to prove this use case is adding value?
 - What is the simplest rollback plan if this use case behaves unexpectedly after a change?
 
-### ✅ You've completed Use Case #5
+#### ✅ You've completed Use Case #5
 
 You now have the foundation to move from **a configured contextual agent** to **an evidence-backed contextual intelligence story**.
 
 ---
 
-# 🙋 Summary
+## 🙋 Summary
 
-## What you accomplished
+### What you accomplished
 
 | Step | What you did |
 |---|---|
@@ -674,13 +674,13 @@ You now have the foundation to move from **a configured contextual agent** to **
 | **Curate** | Configured Bing Custom Search for trusted external energy content |
 | **Prove value** | Compared answer quality with and without Work IQ context |
 
-### Why this matters for energy and utilities
+#### Why this matters for energy and utilities
 
 - Utility work changes daily; grounded answers must keep up with live collaboration, not just static documents.
 - Work IQ helps bridge the gap between enterprise knowledge and what teams are actively doing right now.
 - Curated internal and external grounding reduces both generic answers and unsafe open-web behavior.
 
-### Recommended next steps
+#### Recommended next steps
 
 - Create a reusable set of leadership-briefing prompts for storm readiness, wildfire response, and capital planning.
 - Partner with administrators to review Work IQ MCP allow/block settings in Microsoft 365 admin center.
@@ -690,7 +690,7 @@ You now have the foundation to move from **a configured contextual agent** to **
 
 ---
 
-## 📎 Appendix A — Suggested facilitation prompts
+### 📎 Appendix A — Suggested facilitation prompts
 
 Use these prompts to guide discussion during a live workshop, customer briefing, or internal enablement session.
 
@@ -700,7 +700,7 @@ Use these prompts to guide discussion during a live workshop, customer briefing,
 - Where do we need stronger user guidance so people know when to ask for live context versus formal policy?
 - What latency increase, if any, is acceptable for a richer briefing answer?
 
-## 📎 Appendix B — Environment readiness checklist
+### 📎 Appendix B — Environment readiness checklist
 
 - Microsoft 365 Copilot license is available.
 - Work IQ tools are allowed in the tenant or a request path exists.
@@ -709,13 +709,13 @@ Use these prompts to guide discussion during a live workshop, customer briefing,
 - Comparison prompts are ready before the stakeholder demo.
 - Privacy and permission expectations are documented for pilot users.
 
-## 📎 Appendix C — Extension ideas
+### 📎 Appendix C — Extension ideas
 
 - Create separate prompt packs for outage command, planning leadership, and field operations managers.
 - Add a flow that writes the morning briefing into Teams or Outlook automatically.
 - Measure how often Work IQ-based briefings reduce follow-up manual searching by pilot users.
 
-## 📎 Appendix D — Demo prompt bank
+### 📎 Appendix D — Demo prompt bank
 
 Use these copy-paste prompts when you want a quick demonstration set for the lab.
 
@@ -732,7 +732,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - What is the latest field-restoration procedure I should review before the storm drill?
 - Summarize the current status of the EV charging deployment workstream.
 
-## 📎 Appendix E — Change control checklist
+### 📎 Appendix E — Change control checklist
 
 - Record the feature, tool, or topic version before making edits.
 - Retest at least one known-good prompt after every significant change.
@@ -745,7 +745,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Store prompt or instruction changes in version control or change records where possible.
 - Schedule a follow-up review after the pilot to decide what should be hardened, simplified, or retired.
 
-## 📎 Appendix F — Vocabulary quick reference
+### 📎 Appendix F — Vocabulary quick reference
 
 - Work IQ: The Microsoft 365 intelligence layer that combines data, memory, and inference for more contextual agent behavior.
 - MCP tools: The tool interface Copilot Studio uses to reach Work IQ services.
@@ -754,9 +754,9 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Metadata filters: Query constraints such as file name, owner, or modified date for more precise answers.
 - Bing Custom Search: A scoped web index that replaces broad public website grounding with curated search coverage.
 
-## 📎 Appendix G — Use-case review worksheet
+### 📎 Appendix G — Use-case review worksheet
 
-### Use Case #1 — Enable Work IQ on your agent
+#### Use Case #1 — Enable Work IQ on your agent
 
 - Objective review: Turn on Work IQ so the agent can use Microsoft 365 signals.
 - Success evidence to collect: Work IQ tooling is enabled or at least configured in principle for the agent.
@@ -764,7 +764,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Most likely support issue: If Work IQ tools do not appear, check admin-center allow/block settings and region availability.
 - Suggested next enhancement: Licensing and admin readiness must be handled early.
 
-### Use Case #2 — Ground responses with real-time M365 context
+#### Use Case #2 — Ground responses with real-time M365 context
 
 - Objective review: Use Work IQ to pull context from emails, meetings, files, and chats.
 - Success evidence to collect: The agent can produce a structured briefing tied to recent work.
@@ -772,7 +772,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Most likely support issue: If answers remain generic, ask narrower questions tied to named teams or timeframes.
 - Suggested next enhancement: Clarifying questions are a feature, not a failure, when the scope is broad.
 
-### Use Case #3 — Add SharePoint metadata filters
+#### Use Case #3 — Add SharePoint metadata filters
 
 - Objective review: Use SharePoint knowledge retrieval with metadata-aware filtering for more precise answers.
 - Success evidence to collect: The SharePoint site is connected as a knowledge source.
@@ -780,7 +780,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Most likely support issue: If answers seem stale, add recency language such as modified this week or this month.
 - Suggested next enhancement: Combining both requires explicit instruction design.
 
-### Use Case #4 — Add Bing Custom Search
+#### Use Case #4 — Add Bing Custom Search
 
 - Objective review: Create a scoped web index for industry-specific public content.
 - Success evidence to collect: Bing Custom Search is configured with a valid Custom Configuration ID.
@@ -788,7 +788,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Most likely support issue: If expected sites are missing, fix the Bing Custom Search configuration rather than stuffing more prompt text into the agent.
 - Suggested next enhancement: You should explain override behavior to anyone who edits the agent later.
 
-### Use Case #5 — Compare results with and without Work IQ
+#### Use Case #5 — Compare results with and without Work IQ
 
 - Objective review: Run the same prompts and observe the quality improvement when Work IQ is enabled.
 - Success evidence to collect: The team has a side-by-side comparison set.
@@ -796,7 +796,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - Most likely support issue: If the answers look the same, your prompts may not depend enough on current collaboration context.
 - Suggested next enhancement: Side-by-side evaluations create stronger stakeholder buy-in than feature descriptions alone.
 
-## 📎 Appendix H — Facilitator retrospective questions
+### 📎 Appendix H — Facilitator retrospective questions
 
 - Which part of the lab delivered the clearest business value signal?
 - Where did learners need the most clarification or setup help?
@@ -807,7 +807,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - What data, screenshot, or transcript artifact should be saved as a future teaching example?
 - What would you simplify if you had to teach this lab in half the time?
 
-## 📎 Appendix I — Role-based adaptation ideas
+### 📎 Appendix I — Role-based adaptation ideas
 
 - For utility executives: shorten outputs into briefing bullets and decision-oriented summaries.
 - For operations managers: emphasize current blockers, exceptions, and next actions.
@@ -816,7 +816,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - For compliance reviewers: elevate logging, retention, consent, and approval checkpoints.
 - For helpdesk or contact-center leads: prioritize repeatability, escalation clarity, and support runbooks.
 
-## 📎 Appendix J — Final quality gate
+### 📎 Appendix J — Final quality gate
 
 - At least one successful end-to-end scenario has been recorded.
 - At least one edge case or failure path has been tested deliberately.
@@ -825,7 +825,7 @@ Use these copy-paste prompts when you want a quick demonstration set for the lab
 - A rollback or disable path exists before broader rollout.
 - The pilot audience and feedback loop are defined.
 
-## 📎 Appendix K — Quick demo script
+### 📎 Appendix K — Quick demo script
 
 - Start with the business problem in one sentence.
 - Show the core happy-path scenario end to end.
