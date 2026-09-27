@@ -403,7 +403,7 @@ console.log(
 const vendorDocs = result.manifest.vendorDocs;
 if (vendorDocs?.requested) {
   console.log(
-    `Vendor docs ${vendorDocs.read}/${vendorDocs.requested} vendor page(s) read (${vendorDocs.vendors.join(", ")})` +
+    `Vendor docs ${vendorDocs.read}/${vendorDocs.inLab} cited vendor page(s) read (${vendorDocs.vendors.join(", ") || "none cited"})` +
       (vendorDocs.skippedBecause ? ` — not read: ${vendorDocs.skippedBecause}` : "") +
       (vendorDocs.failed ? `; ${vendorDocs.failed} cited unverified` : "") +
       (vendorDocs.removedByLinkCheck ? `; ${vendorDocs.removedByLinkCheck} removed by the link check` : ""),

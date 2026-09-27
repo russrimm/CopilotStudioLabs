@@ -19,10 +19,14 @@
  *   - **Bounded.** One timeout covers the whole redirect chain and the body, and
  *     the body is read as a stream and abandoned past a size cap.
  *   - **Text only.** Only `text/html` and `text/plain` responses are accepted.
- *     HTML is reduced to plain text with `sanitize-html` configured to allow no
- *     tags at all, and to discard the *contents* of script, style, and similar
- *     elements rather than keep their text. Angle brackets are then removed, so
- *     nothing that could be read as markup reaches the lab.
+ *     HTML is reduced to plain text with `sanitize-html`, which keeps no
+ *     element and discards the *contents* of script, style, and similar
+ *     elements rather than keep their text. Angle brackets, square brackets,
+ *     backslashes, and backticks are then removed, so nothing a Markdown or HTML
+ *     renderer could turn into a link, image, or markup reaches the lab, and a
+ *     paragraph carrying a bare URL is never quoted.
+ *   - **Linear parsing.** Nothing here runs a backtracking pattern over a whole
+ *     page, so a crafted page cannot stall the process after its body is read.
  *   - **Never executed, never rendered as HTML.** A quoted excerpt goes through
  *     the same `condense()` + `scrubForbidden()` path as Microsoft Learn
  *     excerpts, and is only ever written into Markdown as quoted prose.
@@ -87,11 +91,16 @@ export function vendorUrlProblem(value, allowedHosts) {
   return null;
 }
 
-// Block-level boundaries become line breaks before tags are stripped, so a page
-// keeps its paragraphs even when its source hard-wraps them. This pre-pass only
-// rewrites whitespace; sanitize-html below is what removes the markup.
-const BLOCK_BOUNDARY =
-  /<\/?(?:p|div|section|article|main|h[1-6]|li|ul|ol|dl|dt|dd|tr|td|th|table|pre|blockquote|br|hr|figcaption)\b[^>]*>/gi;
+/** A page this module refuses to read, as opposed to one that failed to load. */
+class PolicyRefusal extends Error {}
+
+// Block-level elements. The first sanitize-html pass keeps these, with no
+// attributes, so the second step can turn each boundary into a line break and a
+// page keeps its paragraphs even when its source hard-wraps them.
+const BLOCK_TAGS = [
+  "p", "div", "section", "article", "main", "h1", "h2", "h3", "h4", "h5", "h6", "li", "ul", "ol",
+  "dl", "dt", "dd", "tr", "td", "th", "table", "blockquote", "br", "hr", "figcaption",
+];
 
 // Elements whose *text* is discarded, not just their tags: executable or
 // styling content, form controls, embedded documents, code samples, and page
@@ -124,7 +133,7 @@ const DISCARDED_CONTENT = [
 const NAMED_ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
 
 function decodeEntities(text) {
-  return String(text || "").replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]+);/gi, (entity, body) => {
+  return String(text || "").replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{1,32});/gi, (entity, body) => {
     if (body[0] === "#") {
       const point = body[1] === "x" || body[1] === "X" ? parseInt(body.slice(2), 16) : Number(body.slice(1));
       return point >= 32 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff) ? String.fromCodePoint(point) : " ";
@@ -133,12 +142,19 @@ function decodeEntities(text) {
   });
 }
 
-/** One line of fetched text, reduced to inert prose. */
+/**
+ * One line of fetched text, reduced to inert prose.
+ *
+ * Markdown needs square brackets for every inline link, image, and reference,
+ * so removing them (with the backslash that escapes them and the backtick that
+ * opens code) leaves nothing a Markdown renderer can turn into a link or image,
+ * however the page nests or escapes them. Angle brackets go too, so no HTML or
+ * autolink survives, even text that only became `<` after decoding.
+ */
 function inertLine(line) {
   return (
     decodeEntities(line)
-      // Nothing shaped like markup survives, even text that only became `<` after decoding.
-      .replace(/[<>]/g, " ")
+      .replace(/[<>[\]\\`]/g, " ")
       // eslint-disable-next-line no-control-regex
       .replace(/[\u0000-\u001F\u007F\u200B-\u200F\u2028\u2029\uFEFF]/g, " ")
       .replace(/\s+/g, " ")
@@ -146,11 +162,69 @@ function inertLine(line) {
   );
 }
 
-/** The part of a page that holds the documentation, when the page marks it. */
+/** Index just past the first `<tag ...>` start tag, or -1. Linear: no regex backtracking. */
+function startTagEnd(lower, tag) {
+  let from = 0;
+  for (;;) {
+    const at = lower.indexOf(`<${tag}`, from);
+    if (at < 0) return -1;
+    const next = lower[at + tag.length + 1];
+    if (next === ">" || next === "/" || /\s/.test(next || "")) {
+      const close = lower.indexOf(">", at);
+      return close < 0 ? -1 : close + 1;
+    }
+    from = at + 1;
+  }
+}
+
+/**
+ * Deepest element nesting in a page, estimated in one linear pass.
+ *
+ * sanitize-html takes time quadratic in nesting depth, so a page of nothing but
+ * unclosed `<b>` tags at the 2 MB size cap would hold the portal process for
+ * minutes. Real documentation pages nest about 25 deep. Void elements, and
+ * elements whose end tag HTML lets a page omit (a new `<p>` or `<li>` closes the
+ * last one), are not counted, so ordinary pages are never over-counted.
+ */
+const NOT_NESTING = new Set([
+  "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr",
+  "p", "li", "dt", "dd", "tr", "td", "th", "option", "optgroup", "thead", "tbody", "tfoot", "colgroup", "rp", "rt",
+]);
+
+export const MAX_NESTING = 256;
+
+export function nestingDepth(html) {
+  let depth = 0;
+  let max = 0;
+  const tag = /<(\/?)([a-z][a-z0-9-]*)[^<>]*?(\/?)>/gi;
+  let match;
+  while ((match = tag.exec(html)) !== null) {
+    if (match[1]) {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (match[3] || NOT_NESTING.has(match[2].toLowerCase())) continue;
+    depth += 1;
+    if (depth > max) max = depth;
+  }
+  return max;
+}
+
+/**
+ * The part of a page that holds the documentation, when the page marks it.
+ *
+ * Found with indexOf rather than a regular expression: a page is untrusted, and
+ * a pattern like `<main\b[^>]*>([\s\S]*)</main>` takes quadratic time on
+ * input built from many unclosed `<main` tags — long enough, at the size cap,
+ * to stall the portal process.
+ */
 function contentRegion(html) {
+  const lower = html.toLowerCase();
   for (const tag of ["main", "article"]) {
-    const match = html.match(new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*)</${tag}>`, "i"));
-    if (match && match[1].length > 200) return match[1];
+    const open = startTagEnd(lower, tag);
+    if (open < 0) continue;
+    const close = lower.lastIndexOf(`</${tag}>`);
+    if (close - open > 200) return html.slice(open, close);
   }
   return html;
 }
@@ -158,17 +232,25 @@ function contentRegion(html) {
 /**
  * Reduce an HTML page to plain text, one block per line.
  *
- * `allowedTags: []` means no element survives; `nonTextTags` means the text
- * inside script, style, and page chrome is dropped too rather than kept.
+ * sanitize-html does all the parsing. The first pass keeps only bare block
+ * tags and discards the *text* of script, style, code, and page chrome
+ * (`nonTextTags`). Its output escapes every `<` that is text, so every
+ * remaining `<` opens one of those attribute-free block tags, and each becomes
+ * a line break. No element survives.
  */
 export function htmlToText(html) {
   const region = contentRegion(String(html || "")).replace(/\s+/g, " ");
-  const stripped = sanitizeHtml(region.replace(BLOCK_BOUNDARY, (tag) => `${tag}\n`), {
-    allowedTags: [],
+  const depth = nestingDepth(region);
+  if (depth > MAX_NESTING) {
+    throw new PolicyRefusal(`its markup nests ${depth} elements deep, beyond the ${MAX_NESTING} any documentation page needs`);
+  }
+  const blocks = sanitizeHtml(region, {
+    allowedTags: BLOCK_TAGS,
     allowedAttributes: {},
     nonTextTags: DISCARDED_CONTENT,
   });
-  return stripped
+  return blocks
+    .replace(/<\/?[a-z0-9]+\s*\/?>/gi, "\n")
     .split(/\n/)
     .map(inertLine)
     .filter(Boolean)
@@ -178,7 +260,7 @@ export function htmlToText(html) {
 /** Reduce a text/plain page to the same one-paragraph-per-line shape. */
 export function plainTextToText(text) {
   return String(text || "")
-    .split(/\r?\n\s*\r?\n/)
+    .split(/\r?\n[ \t]*\r?\n/)
     .map((paragraph) => inertLine(paragraph.replace(/\r?\n/g, " ")))
     .filter(Boolean)
     .join("\n");
@@ -188,6 +270,14 @@ export function plainTextToText(text) {
 const BOILERPLATE =
   /\b(?:cookies?|enable javascript|javascript is (?:required|disabled)|sign (?:in|up) to|subscribe|newsletter|all rights reserved|privacy (?:policy|statement)|terms of (?:use|service))\b/i;
 
+// A bare URL, www. host, or email address is turned into a link by GitHub
+// Flavored Markdown, so a paragraph carrying one is never quoted. Neither is one
+// naming a script or data scheme: inert as text, but not something to quote.
+const LINKIFIABLE = /[a-z][a-z0-9+.-]*:\/\/|\bwww\.|[^\s@]+@[^\s@]+\.[a-z]{2,}|\b(?:javascript|vbscript|data|file):/i;
+
+// Longer than any quotable paragraph; bounds the work done on one line.
+const MAX_PARAGRAPH = 4000;
+
 /**
  * The first paragraph that reads like documentation prose, quoted the same way
  * as a Microsoft Learn excerpt. Null when the page has none — a client-rendered
@@ -195,13 +285,14 @@ const BOILERPLATE =
  * quotable in its served HTML.
  */
 export function pickExcerpt(text) {
-  for (const paragraph of String(text || "").split("\n")) {
+  for (const line of String(text || "").split("\n")) {
+    const paragraph = line.slice(0, MAX_PARAGRAPH);
     const words = paragraph.split(/\s+/).filter(Boolean);
     if (paragraph.length < 120 || words.length < 15 || !/[.!?]/.test(paragraph)) continue;
     const letters = (paragraph.match(/[\p{L}\s]/gu) || []).length;
     if (letters / paragraph.length < 0.75) continue;
-    if (BOILERPLATE.test(paragraph)) continue;
-    const quote = scrubForbidden(condense(paragraph));
+    if (BOILERPLATE.test(paragraph) || LINKIFIABLE.test(paragraph)) continue;
+    const quote = inertLine(scrubForbidden(condense(paragraph)));
     if (quote) return quote;
   }
   return null;
@@ -218,8 +309,6 @@ async function discardBody(res) {
     /* the body is being thrown away either way */
   }
 }
-
-class PolicyRefusal extends Error {}
 
 async function readCapped(res, maxBytes) {
   if (!res.body) return "";
@@ -385,6 +474,42 @@ let defaultFetcher = null;
 export function defaultVendorFetcher() {
   defaultFetcher ??= createVendorFetcher();
   return defaultFetcher;
+}
+
+/**
+ * A link checker for vendor URLs that obeys the same rules as the reader.
+ *
+ * The generic checker in `linkcheck.js` lets `fetch` follow redirects to any
+ * host, which is right for Microsoft Learn and wrong here: a vendor page the
+ * reader refused because it redirects off the allowlist must never be
+ * requested through the back door. This checker *is* the reader, so it re-checks
+ * every hop, and a page already read in this build is answered from its cache
+ * without a second request.
+ *
+ * Returns records in `linkcheck.js`'s shape. A refusal is status 0 — the
+ * citation is kept as unverified rather than called broken, because the page
+ * was never asked.
+ */
+export function createVendorLinkChecker({ fetchVendorDoc } = {}) {
+  const read = fetchVendorDoc || defaultVendorFetcher();
+  return async function checkVendorLink(url) {
+    const page = await read(url);
+    const checkedAt = new Date().toISOString();
+    if (page.status === "read") {
+      return { url, status: page.httpStatus || 200, ok: true, finalUrl: page.finalUrl, checkedAt };
+    }
+    if (page.errorKind === "http" && page.httpStatus >= 400) {
+      return { url, status: page.httpStatus, ok: false, finalUrl: page.finalUrl, error: page.error, checkedAt };
+    }
+    return {
+      url,
+      status: 0,
+      ok: false,
+      error: page.error,
+      ...(page.errorKind === "policy" ? { refused: true } : {}),
+      checkedAt,
+    };
+  };
 }
 
 async function mapLimit(items, limit, fn, signal) {

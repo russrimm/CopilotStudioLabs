@@ -3884,7 +3884,7 @@ function lbShowResult(data) {
       <span class="scenario-pill">${escapeHtml(data.difficulty)}</span>
       <span class="scenario-pill">${escapeHtml(data.duration)}</span>
       <span class="scenario-pill">${g.groundedModules}/${g.totalModules} modules grounded on Microsoft Learn</span>
-      ${vd?.requested ? `<span class="scenario-pill">${Number(vd.read)}/${Number(vd.requested)} vendor pages read</span>` : ""}
+      ${vd?.requested ? `<span class="scenario-pill">${Number(vd.read)}/${Number(vd.inLab)} vendor pages read</span>` : ""}
       <span class="scenario-pill">${v.passed} checks passed${v.failed ? `, ${v.failed} failed` : ""}</span>
       <span class="scenario-pill">${data.manifest.screenshots.reused} screenshots reused</span>
       <span class="scenario-pill">${data.manifest.screenshots.toCapture} to capture</span>

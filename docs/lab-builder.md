@@ -313,10 +313,16 @@ the public internet, so:
   `LAB_BUILDER_VENDOR_TIMEOUT_MS`), and the body is read as a stream and
   abandoned past 2 MB.
 - Only `text/html` and `text/plain` are accepted. HTML is reduced to plain text
-  with `sanitize-html` allowing no tags, and the *contents* of `script`, `style`,
-  `noscript`, `template`, `iframe`, code samples, and page chrome are discarded,
-  not kept. Angle brackets are then removed, so nothing that could be read as
-  markup survives.
+  with `sanitize-html`, and the *contents* of `script`, `style`, `noscript`,
+  `template`, `iframe`, code samples, and page chrome are discarded, not kept.
+  Angle brackets, square brackets, backslashes, and backticks are then removed,
+  so no Markdown link, image, or HTML survives however the page nests or escapes
+  it, and a paragraph that carries a bare URL or email address (which Markdown
+  would turn into a link) is never quoted.
+- Parsing is linear. A page whose markup nests more than 256 elements deep is
+  refused (real documentation nests about 25), because sanitize-html's cost
+  grows with the square of nesting depth and a crafted page could otherwise stall
+  the portal process after its body was read.
 - Nothing from a vendor page is executed, and nothing is ever rendered as HTML.
   At most one line per module is quoted, and it goes through the same
   `condense()` + `scrubForbidden()` path as a Microsoft Learn excerpt.
@@ -334,10 +340,15 @@ module with its fetch status, `fetchedAt`, final URL, link-check verdict, and
 whether it is still in the lab; the top-level `vendorDocs` summary records the
 allowlist the build ran under.
 
-Vendor URLs are link-checked with the rest (below), with one difference: a
-vendor site that answers the checker with 401, 403, or 429 is turning an
-automated client away, not reporting the page gone, so the link is kept and
-counted as `unverifiable`. 404, 410, and 5xx remove it.
+Vendor URLs are link-checked with the rest (below), but never through the
+generic checker, which follows redirects to any host. They are checked through
+the vendor reader itself, so every hop is re-checked against the allowlist, a
+page refused on policy is never requested by another route, and a page already
+read in this build is answered from cache. A vendor site that answers with 401,
+403, or 429 is turning an automated client away, not reporting the page gone,
+so the link is kept and counted as `unverifiable`. 404, 410, and 5xx remove it,
+and the lab's **How This Lab Was Built** paragraph then counts only the vendor
+links still in the lab and says how many were left out.
 
 **When a read fails.** A vendor page that times out, errors, or is refused by the
 rules above raises `vendor-docs-unavailable`: `retry` (recommended),

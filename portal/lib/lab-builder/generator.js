@@ -26,7 +26,13 @@ import {
   summarize as summarizeLinkCheck,
   verifyUrls,
 } from "./linkcheck.js";
-import { allowedVendorHosts, readVendorSources, skippedVendorSources, vendorDocsEnabled } from "./vendor-docs.js";
+import {
+  allowedVendorHosts,
+  createVendorLinkChecker,
+  readVendorSources,
+  skippedVendorSources,
+  vendorDocsEnabled,
+} from "./vendor-docs.js";
 import {
   BLOCKER_CODES,
   buildBlocker,
@@ -409,6 +415,8 @@ async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgres
  * @param {string} [opts.decisionSource] recorded in the manifest as `decidedVia`
  * @param {Function} [opts.fetchVendorDoc] reads one vendor page (see
  *   `vendor-docs.js`); injectable so tests never touch the network
+ * @param {Function} [opts.checkVendorLink] link-checks one vendor URL; defaults
+ *   to `createVendorLinkChecker()`, which obeys the vendor allowlist
  * @param {AbortSignal} [opts.signal]
  * @param {(e:{stage:string,message:string})=>void} [opts.onProgress]
  */
@@ -835,7 +843,11 @@ export async function generateLab(request, opts = {}) {
 
     // Everything the lab will actually render as a link: the citation list, the
     // pages behind the "From the docs" quote, and each module's step source.
+    // Vendor URLs are kept apart: they are checked through the vendor reader,
+    // which re-checks the allowlist on every redirect, never through the
+    // generic checker, which would follow a redirect anywhere.
     const embedded = [];
+    const vendorEmbedded = [];
     for (const feature of plan.features) {
       const grounding = groundingByFeature.get(feature.id);
       for (const source of grounding?.sources || []) embedded.push(source.url);
@@ -843,13 +855,23 @@ export async function generateLab(request, opts = {}) {
       const stepUrl = stepsByFeature.get(feature.id)?.url;
       if (stepUrl) embedded.push(stepUrl);
       for (const url of stepsByFeature.get(feature.id)?.sources || []) embedded.push(url);
-      for (const source of vendorByFeature.get(feature.id) || []) embedded.push(source.url);
+      for (const source of vendorByFeature.get(feature.id) || []) vendorEmbedded.push(source.url);
     }
+    const vendorSet = new Set(vendorEmbedded);
 
-    linkCheck.records = await verifyUrls(embedded, {
+    linkCheck.records = await verifyUrls(
+      embedded.filter((url) => !vendorSet.has(url)),
+      {
+        concurrency: LINK_CONCURRENCY,
+        checkLink: opts.checkLink || createLinkChecker(),
+        signal,
+      },
+    );
+    await verifyUrls(vendorEmbedded, {
       concurrency: LINK_CONCURRENCY,
-      checkLink: opts.checkLink || createLinkChecker(),
+      checkLink: opts.checkVendorLink || createVendorLinkChecker({ fetchVendorDoc: opts.fetchVendorDoc }),
       signal,
+      cache: linkCheck.records,
     });
 
     for (const feature of plan.features) {
@@ -956,7 +978,12 @@ export async function generateLab(request, opts = {}) {
           const verdict = classifyThirdParty(record);
           const annotated = {
             ...source,
-            linkCheck: { status: record.status, verdict, ...(record.error ? { error: record.error } : {}) },
+            linkCheck: {
+              status: record.status,
+              verdict,
+              ...(record.error ? { error: record.error } : {}),
+              ...(record.refused ? { refused: true } : {}),
+            },
             inLab: verdict !== "broken",
           };
           if (!annotated.inLab) removedVendor.push(annotated);
@@ -996,21 +1023,25 @@ export async function generateLab(request, opts = {}) {
   });
 
   // What the lab and the manifest say about vendor documentation, counted over
-  // the modules that survived every gate.
+  // the modules that survived every gate. Everything except `requested` and
+  // `removedByLinkCheck` counts only the links still in the lab, so the lab's
+  // own description never mentions a link the link check took out.
   const vendorRecords = plan.features.flatMap((f) => vendorByFeature.get(f.id) || []);
-  const vendorFetchDays = vendorRecords.map((s) => s.fetch.fetchedAt).filter(Boolean).sort();
+  const vendorShown = vendorRecords.filter((s) => s.inLab !== false);
+  const vendorFetchDays = vendorShown.map((s) => s.fetch.fetchedAt).filter(Boolean).sort();
   const vendorSummary = {
     enabled: vendorFeatures.length > 0 && !vendorSkipped,
     skippedBecause: vendorFeatures.length && vendorSkipped ? vendorSkipped : null,
     allowlist: [...allowedVendorHosts()].sort(),
-    modules: plan.features.filter((f) => vendorByFeature.get(f.id)?.length).length,
-    vendors: [...new Set(vendorRecords.map((s) => s.vendor))],
     requested: vendorRecords.length,
-    read: vendorRecords.filter((s) => s.fetch.status === "read").length,
-    failed: vendorRecords.filter((s) => s.fetch.status === "failed").length,
-    skipped: vendorRecords.filter((s) => s.fetch.status === "skipped").length,
-    quoted: vendorRecords.filter((s) => s.inLab !== false && s.fetch.status === "read" && s.excerpt).length,
-    removedByLinkCheck: vendorRecords.filter((s) => s.inLab === false).length,
+    inLab: vendorShown.length,
+    modules: plan.features.filter((f) => (vendorByFeature.get(f.id) || []).some((s) => s.inLab !== false)).length,
+    vendors: [...new Set(vendorShown.map((s) => s.vendor))],
+    read: vendorShown.filter((s) => s.fetch.status === "read").length,
+    failed: vendorShown.filter((s) => s.fetch.status === "failed").length,
+    skipped: vendorShown.filter((s) => s.fetch.status === "skipped").length,
+    quoted: vendorShown.filter((s) => s.fetch.status === "read" && s.excerpt).length,
+    removedByLinkCheck: vendorRecords.length - vendorShown.length,
     fetchedAt: vendorFetchDays[0] || null,
   };
 

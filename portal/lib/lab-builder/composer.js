@@ -559,21 +559,34 @@ function narrativeParagraph({ provider, grounded, synthesized, total, plural, ge
 function vendorParagraph(vendor) {
   if (!vendor?.requested) return null;
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const inLab = vendor.inLab ?? vendor.requested;
+  const removed = vendor.removedByLinkCheck || 0;
+  const removedNote = removed
+    ? ` ${plural(removed, "vendor link")} from the catalog ${removed === 1 ? "was" : "were"} left out, because the vendor's site reported ${
+        removed === 1 ? "that page" : "those pages"
+      } gone when the links were checked.`
+    : "";
+
+  if (!inLab) {
+    return `**Vendor documentation.** The feature catalog lists documentation published outside Microsoft Learn for this lab, but none of it is cited.${removedNote}`;
+  }
+
   const who = sentenceList((vendor.vendors || []).map((name) => scrubForbidden(name)));
   const lead = `**Vendor documentation.** ${plural(vendor.modules, "module")} also ${
     vendor.modules === 1 ? "cites" : "cite"
   } documentation published outside Microsoft Learn${who ? `, from ${who}` : ""}. Those links come from this repository's feature catalog, which records how stable each page is.`;
 
   if (!vendor.read && !vendor.failed) {
-    return `${lead} They were not read for this build (${scrubForbidden(vendor.skippedBecause || "vendor reads were switched off")}), so each one is marked as unverified where it appears.`;
+    return `${lead} They were not read for this build (${scrubForbidden(vendor.skippedBecause || "vendor reads were switched off")}), so each one is marked as unverified where it appears.${removedNote}`;
   }
 
   const day = (vendor.fetchedAt || "").slice(0, 10);
   return [
     lead,
     `The builder reads a vendor page only from a host on the catalog's allowlist, over HTTPS, re-checking every redirect against the same list.`,
-    `${vendor.read} of ${plural(vendor.requested, "vendor page")} ${vendor.read === 1 ? "was" : "were"} read${day ? ` on ${day}` : ""}` +
-      (vendor.failed ? `; ${vendor.failed} could not be read and ${vendor.failed === 1 ? "is" : "are"} marked as unverified where ${vendor.failed === 1 ? "it appears" : "they appear"}.` : "."),
+    `${vendor.read} of ${plural(inLab, "vendor page")} cited here ${vendor.read === 1 ? "was" : "were"} read${day ? ` on ${day}` : ""}` +
+      (vendor.failed ? `; ${vendor.failed} could not be read and ${vendor.failed === 1 ? "is" : "are"} marked as unverified where ${vendor.failed === 1 ? "it appears" : "they appear"}.` : ".") +
+      removedNote,
     `Vendor pages are treated as untrusted: nothing from them is run, and a quoted line is stripped of markup and filtered the same way as a Microsoft Learn excerpt.`,
     `Where a vendor page and Microsoft Learn disagree about Copilot Studio itself, follow Microsoft Learn.`,
   ].join(" ");
