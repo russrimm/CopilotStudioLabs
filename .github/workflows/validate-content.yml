@@ -43,7 +43,7 @@ jobs:
         run: node tools/lab-builder/build.mjs --features create-agent --no-learn --no-llm --dry-run
 
       # A generated lab is held to the same Python checks as labs/. Link checking
-      # is off because this step tests structure; the Microsoft Learn link step
+      # is off because this step tests structure; the external reference link step
       # below covers liveness, and leaving it on would make this step network-bound.
       - name: Validate a generated lab with the Python lab checks
         env:
@@ -79,6 +79,9 @@ jobs:
           npm ci
           npm test
 
-      - name: Validate external Microsoft Learn links
+      # Broken Microsoft Learn links fail this step. Broken third-party links are
+      # annotated as warnings only, so a vendor outage cannot block a pull request;
+      # the monthly accuracy audit tracks them until the lab is fixed.
+      - name: Validate external reference links
         working-directory: tools/lab-accuracy
         run: node check-accuracy.mjs --strict --drift-baseline=drift-baseline.json

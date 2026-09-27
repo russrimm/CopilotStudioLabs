@@ -24,6 +24,7 @@ export const BLOCKER_CODES = Object.freeze({
   STEPS_NOT_DERIVED: "steps-not-derived",
   LLM_PARTIAL_FAILURE: "llm-partial-failure",
   MODULES_DEFERRED: "modules-deferred",
+  VENDOR_DOCS_UNAVAILABLE: "vendor-docs-unavailable",
 });
 
 /** Option id that means "run the same gate again" rather than "resolve it". */
@@ -186,6 +187,35 @@ const OPTIONS = Object.freeze({
     },
     CANCEL_OPTION,
   ],
+
+  // A vendor page (issue #39) supplements a module that is still grounded on
+  // Microsoft Learn, so losing one is never a reason to remove the chapter:
+  // there is deliberately no "drop the modules" option.
+  //
+  // Retry is recommended because most failures are timeouts or a vendor site
+  // having a bad minute, and a failed read is never cached. When the failure is
+  // a refusal by the builder itself — a redirect off the allowlist, a content
+  // type that is not text — a retry cannot change it, and the consequence text
+  // says so per page rather than hiding that behind the recommendation.
+  //
+  // "Proceed" keeps the vendor link but marks it unverified in the lab. It does
+  // not keep a link the vendor's site reports as gone: link checking still
+  // removes a citation that returns 404, for the same reason it does for Learn.
+  [BLOCKER_CODES.VENDOR_DOCS_UNAVAILABLE]: [
+    {
+      id: RETRY,
+      label: "Retry reading the vendor pages",
+      tradeoff: "Costs one more request per page. Most failures here are timeouts or a vendor site having a bad minute.",
+      recommended: true,
+    },
+    {
+      id: "proceed-unverified",
+      label: "Cite the vendor links without reading them",
+      tradeoff:
+        "Those modules still link to the vendor's documentation, marked in the lab as not read during this build, and quote nothing from it. Anything the vendor has changed or moved since the catalog was written goes unnoticed.",
+    },
+    CANCEL_OPTION,
+  ],
 });
 
 const TITLES = Object.freeze({
@@ -196,6 +226,7 @@ const TITLES = Object.freeze({
   [BLOCKER_CODES.STEPS_NOT_DERIVED]: "Some modules' steps could not be read from the documentation",
   [BLOCKER_CODES.LLM_PARTIAL_FAILURE]: "Some model-written passages failed",
   [BLOCKER_CODES.MODULES_DEFERRED]: "The time budget dropped a module you asked for",
+  [BLOCKER_CODES.VENDOR_DOCS_UNAVAILABLE]: "Some vendor documentation could not be read",
 });
 
 const ALL_CODES = Object.values(BLOCKER_CODES);

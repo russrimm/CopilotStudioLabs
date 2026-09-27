@@ -31,6 +31,9 @@ import { validateLabDir, validateAllLabs } from "../lib/validator.js";
 // and never put a request to learn.microsoft.com; the tests that exercise the
 // checker turn it back on explicitly and inject a fake `checkLink`.
 process.env.LAB_BUILDER_LINK_CHECK = "off";
+// Vendor documentation reads (issue #39) are switched off for the same reason.
+// `lab-builder-vendor.test.js` covers them with an injected fetch.
+process.env.LAB_BUILDER_VENDOR_DOCS = "off";
 
 // ── Catalog ─────────────────────────────────────────────────────────────────
 

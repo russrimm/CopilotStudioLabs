@@ -112,6 +112,13 @@ API key — and uses what comes back in two different ways:
   the module falls back to the curated steps in this repository's feature
   catalog — and says so in the lab, in that module, with the reason.
 
+Some features are built on someone else's specification — MCP, the A2A
+protocol, OpenAPI, Adaptive Cards — which Microsoft Learn cannot return. For
+those, the catalog lists the **vendor documentation** per feature, and the builder
+reads it directly over HTTPS from an allowlist of hosts, treats its content as
+untrusted, link-checks it, and cites it in a separate **Vendor documentation**
+block so a learner can always tell Microsoft's documentation from a vendor's.
+
 Everything else — module structure, prerequisites, concepts, and the "check your
 work" tests — comes from that curated catalog
 (`portal/lib/lab-builder/features.json`), not from a live page.
@@ -137,7 +144,7 @@ node tools/lab-builder/build.mjs \
 Or use the **🧬 Build a Lab** tab in the portal for a guided wizard.
 
 Labs land in `generated-labs/<slug>/` with `index.md`, a `manifest.json` of the
-Learn sources used, a `shots.json` screenshot capture manifest, and any
+Learn and vendor sources used, a `shots.json` screenshot capture manifest, and any
 screenshots reusable from existing labs. Generated labs are validated against the
 same rules as the handwritten ones before the builder reports success.
 
@@ -344,7 +351,9 @@ Labs 01 and 06 (folder numbers) also keep a `screenshots/` folder of light and d
 
 ### Monthly accuracy audit
 
-On the 1st of each month, the [`monthly-lab-accuracy.yml`](./.github/workflows/monthly-lab-accuracy.yml) workflow checks every lab's Microsoft Learn links, audits screenshots, and smoke-tests start URLs. It then opens, updates, or closes a single tracking issue with the results. Pull requests run the same link check (`check-accuracy.mjs --strict`) as part of `validate`.
+On the 1st of each month, the [`monthly-lab-accuracy.yml`](./.github/workflows/monthly-lab-accuracy.yml) workflow checks every link the labs cite, audits screenshots, and smoke-tests start URLs. It then opens, updates, or closes a single tracking issue with the results. Pull requests run the same link check (`check-accuracy.mjs --strict`) as part of `validate`.
+
+Links are counted in two groups: Microsoft Learn (first-party) and everything else (third-party), such as vendor documentation, GitHub samples, and standards bodies. A broken Microsoft Learn link fails the pull request check. A broken third-party link is shown as a warning on the pull request, so a vendor's outage can't block unrelated work, and it makes the monthly issue ask for a maintainer. A site that answers the checker with HTTP 401, 403, or 429 is listed as unverifiable rather than broken. Hosts that a check can't say anything useful about, such as sign-in portals, API endpoints, and placeholders, are skipped. Each one is listed with its reason in [`tools/lab-accuracy/link-policy.json`](./tools/lab-accuracy/link-policy.json). Links inside code blocks are values to type, so they are never checked.
 
 The audit also flags *drift*: a lab whose cited Learn pages no longer appear when Learn is searched for the lab's topic. Search results vary from call to call, so a lab only counts as drifting if its cited pages are missing from three searches in a row. Some drift is a ranking false positive: the cited pages still resolve and are the right ones. Those labs are listed in [`tools/lab-accuracy/drift-baseline.json`](./tools/lab-accuracy/drift-baseline.json), each with a reason. Only drift outside that list needs a maintainer. Fix the lab's content before adding it to the baseline. Once the baseline's `verifiedAt` date is more than 90 days old, the audit asks for a re-triage, so acknowledged drift can't be ignored forever.
 

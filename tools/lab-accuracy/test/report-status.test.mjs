@@ -4,6 +4,8 @@ import { test } from "node:test";
 import {
   DEFAULT_DRIFT_BASELINE_MAX_AGE_DAYS,
   driftBaselineMaxAgeDays,
+  isReferenceReport,
+  referenceLinksNeedAction,
   reportsNeedAction,
 } from "../lib/report-status.mjs";
 
@@ -18,6 +20,10 @@ function cleanReports() {
         unreachableLinks: 0,
         mcpDriftWarnings: 0,
         mcpUnavailable: false,
+        references: {
+          firstParty: { checked: 3, broken: 0, unreachable: 0 },
+          thirdParty: { checked: 2, broken: 0, unreachable: 0, unverifiable: 0, skipped: 0 },
+        },
       },
       labs: [],
     },
@@ -109,4 +115,49 @@ test("drift without a baseline fails closed", () => {
   const reports = baselinedReports({ acknowledged: 8 });
   delete reports.accuracy.summary.driftBaseline;
   assert.equal(reportsNeedAction(reports), true);
+});
+
+function thirdPartyLab(links = {}) {
+  return {
+    name: "01-test",
+    brokenLinks: [],
+    unreachableLinks: [],
+    thirdPartyLinks: { broken: [], unreachable: [], unverifiable: [], skipped: [], ...links },
+  };
+}
+
+test("broken or unreachable third-party links need action; bot blocks and policy skips do not", () => {
+  const counts = (reports) => reports.accuracy.summary.references.thirdParty;
+
+  const clean = cleanReports();
+  clean.accuracy.labs = [thirdPartyLab()];
+  assert.equal(reportsNeedAction(clean), false);
+  assert.equal(referenceLinksNeedAction(clean.accuracy), false);
+
+  for (const key of ["broken", "unreachable"]) {
+    const reports = cleanReports();
+    counts(reports)[key] = 1;
+    assert.equal(reportsNeedAction(reports), true, key);
+  }
+  for (const key of ["unverifiable", "skipped"]) {
+    const reports = cleanReports();
+    counts(reports)[key] = 3;
+    assert.equal(reportsNeedAction(reports), false, key);
+  }
+});
+
+test("a report without a valid first-/third-party split fails closed", () => {
+  for (const mutate of [
+    (reports) => { delete reports.accuracy.summary.references; },
+    (reports) => { delete reports.accuracy.summary.references.thirdParty; },
+    (reports) => { reports.accuracy.summary.references.thirdParty.broken = "1"; },
+    (reports) => { reports.accuracy.summary.references.firstParty.checked = -1; },
+    (reports) => { reports.accuracy.labs = [{ brokenLinks: [], unreachableLinks: [] }]; },
+    (reports) => { reports.accuracy.labs = [thirdPartyLab({ broken: "not-an-array" })]; },
+  ]) {
+    const reports = cleanReports();
+    mutate(reports);
+    assert.equal(isReferenceReport(reports.accuracy), false);
+    assert.equal(reportsNeedAction(reports), true);
+  }
 });

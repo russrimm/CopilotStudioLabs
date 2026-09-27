@@ -120,7 +120,8 @@ Flags:
   --title "<text>"          Override the generated lab title.
   --agent-name "<text>"     Override the scenario agent name.
   --out <dir>               Output directory (default: generated-labs/).
-  --no-learn                Skip Microsoft Learn grounding (offline mode).
+  --no-learn                Skip Microsoft Learn grounding and vendor documentation
+                            reads (offline mode).
   --no-llm                  Skip LLM enrichment even if credentials are present.
   --synthesize-steps <a,b>  Opt in: have the language model write these modules'
                             steps from their Learn pages ("all" for every module).
@@ -139,13 +140,16 @@ Exit codes:
   3  a decision cancelled the build
 
 When the builder hits something that would quietly degrade the lab — Microsoft
-Learn unreachable, a module with no documentation results, model passages that
-failed — it stops before writing anything and asks. On a terminal it prompts;
+Learn unreachable, a module with no documentation results, a vendor page that
+could not be read, model passages that failed — it stops before writing
+anything and asks. On a terminal it prompts;
 piped or with --non-interactive it prints the exact --decide flag for each
 option and exits 2, so CI can never produce a degraded lab by accident.
 
 The lab builder grounds every module against the public Microsoft Learn MCP
-server (no sign-in required). If AZURE_OPENAI_* or GITHUB_TOKEN are set, it
+server (no sign-in required), and reads the vendor specifications some modules
+cite (Model Context Protocol, A2A, OpenAPI) from the catalog's allowlisted hosts.
+If AZURE_OPENAI_* or GITHUB_TOKEN are set, it
 also drafts scenario-specific narrative; otherwise it composes deterministically.
 For Azure OpenAI resources with key auth disabled, set AZURE_OPENAI_AD_TOKEN to a
 Microsoft Entra access token instead of AZURE_OPENAI_API_KEY.
@@ -396,6 +400,15 @@ console.log(
 console.log(
   `Steps       ${result.manifest.grounding.docDerivedModules}/${result.manifest.grounding.totalModules} modules had their steps read from a live documentation page`,
 );
+const vendorDocs = result.manifest.vendorDocs;
+if (vendorDocs?.requested) {
+  console.log(
+    `Vendor docs ${vendorDocs.read}/${vendorDocs.inLab} cited vendor page(s) read (${vendorDocs.vendors.join(", ") || "none cited"})` +
+      (vendorDocs.skippedBecause ? ` — not read: ${vendorDocs.skippedBecause}` : "") +
+      (vendorDocs.failed ? `; ${vendorDocs.failed} cited unverified` : "") +
+      (vendorDocs.removedByLinkCheck ? `; ${vendorDocs.removedByLinkCheck} removed by the link check` : ""),
+  );
+}
 if (synthesizeSteps) {
   const requested = result.manifest.modules.filter((m) => m.steps.synthesis?.requested);
   const verified = requested.filter((m) => m.steps.synthesis.verified);

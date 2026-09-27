@@ -1,6 +1,7 @@
 // Shared helpers for the monthly lab-accuracy automation.
 // Discovers every labs/NN-* folder, parses its index.md metadata table,
-// Microsoft Learn reference links, screenshot manifest, and start URL.
+// reference links (Microsoft Learn and third-party), screenshot manifest, and
+// start URL.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -60,15 +61,80 @@ function splitList(value) {
     .filter(Boolean);
 }
 
-/** Collect unique learn.microsoft.com links referenced in a lab. */
-function parseLearnLinks(markdown) {
-  const links = new Set();
-  const linkRe = /\]\((https?:\/\/learn\.microsoft\.com\/[^)\s]+)\)/gi;
-  let match;
-  while ((match = linkRe.exec(markdown)) !== null) {
-    links.add(match[1].replace(/[).,]+$/, ""));
+/**
+ * Hosts whose links count as first-party documentation. Only these gate pull
+ * requests, and only these feed the Learn drift check.
+ */
+export const FIRST_PARTY_HOSTS = Object.freeze(["learn.microsoft.com"]);
+
+/**
+ * The Markdown a reader sees as prose: fenced code blocks and inline code spans
+ * are blanked, so a URL that is a value to type (a redirect URI, an API
+ * endpoint, `http://localhost:5173`) is never mistaken for a reference.
+ */
+function proseOnly(markdown) {
+  const out = [];
+  let fence = null;
+  for (const line of markdown.split(/\r?\n/)) {
+    const marker = line.match(/^\s*(`{3,}|~{3,})/);
+    if (fence) {
+      if (marker && marker[1][0] === fence[0] && marker[1].length >= fence.length && /^\s*[`~]+\s*$/.test(line)) {
+        fence = null;
+      }
+      out.push("");
+      continue;
+    }
+    if (marker) {
+      fence = marker[1];
+      out.push("");
+      continue;
+    }
+    out.push(line.replace(/(`+)[^`]*?\1/g, " "));
   }
-  return [...links].sort();
+  return out.join("\n");
+}
+
+function trimUrl(url) {
+  return url.replace(/[).,;:!?'"*_]+$/, "");
+}
+
+/**
+ * Collect every unique reference link a reader can follow in a lab, tagged as
+ * first-party (Microsoft Learn) or third-party (everything else).
+ *
+ * A reference is an inline link, an autolink, a reference definition, an HTML
+ * `href`, or a bare URL — all outside code. Image sources are not references.
+ *
+ * @returns {Array<{url:string, host:string, party:"first"|"third"}>} sorted by url
+ */
+export function parseReferenceLinks(markdown) {
+  let text = proseOnly(String(markdown || "")).replace(/!\[[^\]\n]*\]\([^)\n]*\)/g, " ");
+  const found = [];
+  const take = (re) => {
+    text = text.replace(re, (match, url) => {
+      found.push(url);
+      return match.startsWith("]") ? "]( )" : " ";
+    });
+  };
+  take(/\]\(\s*<?(https?:\/\/[^\s)>]+)[^)\n]*\)/gi);
+  take(/^ {0,3}\[[^\]\n]+\]:\s*<?(https?:\/\/[^\s>]+)>?/gim);
+  take(/href\s*=\s*"(https?:\/\/[^"\s]+)"/gi);
+  take(/<(https?:\/\/[^>\s]+)>/gi);
+  take(/(https?:\/\/[^\s<>()[\]"'`]+)/gi);
+
+  const links = new Map();
+  for (const raw of found) {
+    const url = trimUrl(raw);
+    if (links.has(url)) continue;
+    let host;
+    try {
+      host = new URL(url).hostname.toLowerCase();
+    } catch {
+      continue;
+    }
+    links.set(url, { url, host, party: FIRST_PARTY_HOSTS.includes(host) ? "first" : "third" });
+  }
+  return [...links.values()].sort((a, b) => (a.url < b.url ? -1 : a.url > b.url ? 1 : 0));
 }
 
 /** Collect markdown image references (lab screenshots). */
@@ -125,6 +191,7 @@ export function loadLab(name) {
   const labDir = path.join(labsDir, name);
   const indexPath = path.join(labDir, "index.md");
   const markdown = fs.readFileSync(indexPath, "utf8");
+  const referenceLinks = parseReferenceLinks(markdown);
   return {
     name,
     dir: relativeToRoot(labDir),
@@ -132,7 +199,8 @@ export function loadLab(name) {
     title: parseTitle(markdown),
     products: splitList(parseMetadataRow(markdown, "PRODUCTS")),
     tags: splitList(parseMetadataRow(markdown, "TAGS")),
-    learnLinks: parseLearnLinks(markdown),
+    referenceLinks,
+    learnLinks: referenceLinks.filter((link) => link.party === "first").map((link) => link.url),
     images: parseImages(markdown, labDir),
     shots: parseShots(labDir, name),
   };

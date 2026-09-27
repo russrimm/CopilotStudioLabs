@@ -86,6 +86,44 @@ export function reportsNeedAction({ accuracy, screenshots, smoke }, { maxBaselin
       || screenshots.verifyShots.critical
       || screenshots.verifyShots.warning
       || screenshots.summary.labsNeedingRecapture
-      || smoke.summary.unreachable,
+      || smoke.summary.unreachable
+      || referenceLinksNeedAction(accuracy),
   );
+}
+
+function isCount(value) {
+  return Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * True when the accuracy report carries the first-/third-party reference split
+ * (issue #39) in a usable shape. A report without it is treated as malformed,
+ * so a run that silently skipped third-party links cannot pass as clean.
+ */
+export function isReferenceReport(accuracy) {
+  const refs = accuracy?.summary?.references;
+  return Boolean(
+    refs
+      && refs.firstParty
+      && ["checked", "broken", "unreachable"].every((key) => isCount(refs.firstParty[key]))
+      && refs.thirdParty
+      && ["checked", "broken", "unreachable", "unverifiable", "skipped"].every((key) => isCount(refs.thirdParty[key]))
+      && Array.isArray(accuracy.labs)
+      && accuracy.labs.every(
+        (lab) => lab.thirdPartyLinks
+          && ["broken", "unreachable", "unverifiable", "skipped"].every((key) => Array.isArray(lab.thirdPartyLinks[key])),
+      ),
+  );
+}
+
+/**
+ * Third-party links that need a maintainer: broken or unreachable ones. Links a
+ * vendor site refused to an automated client (unverifiable) and hosts skipped
+ * by policy are reported but are not, on their own, a reason to open the issue.
+ * Fails closed when the split is missing or malformed.
+ */
+export function referenceLinksNeedAction(accuracy) {
+  if (!isReferenceReport(accuracy)) return true;
+  const { thirdParty } = accuracy.summary.references;
+  return thirdParty.broken > 0 || thirdParty.unreachable > 0;
 }

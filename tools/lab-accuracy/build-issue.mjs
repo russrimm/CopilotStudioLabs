@@ -16,6 +16,7 @@ import {
   isSmokeReport,
   reportsNeedAction,
 } from "./lib/report-status.mjs";
+import { referenceLinksSection } from "./lib/reference-report.mjs";
 
 const DRIFT_TRIAGE_DOC = "docs/audits/2026-07-31-product-engineering-audit.md";
 
@@ -148,6 +149,11 @@ if (!isAccuracyReport(accuracy)) {
   }
 }
 lines.push("");
+
+// ---- Reference links: first-party vs third-party ----
+const references = referenceLinksSection(accuracy);
+if (references.needsAction) needsAction = true;
+lines.push(...references.lines, "");
 
 // ---- Screenshots ----
 lines.push("### 🖼️ Screenshot audit");

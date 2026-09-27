@@ -1,7 +1,25 @@
 {
-  "$comment": "Copilot Studio feature catalog. Drives the Lab Builder wizard. Each selected feature becomes one lab chapter. learnQueries feed the Microsoft Learn MCP server; docUrls are the pages the step deriver reads for each module, and the citation fallback when a search returns nothing relevant. steps are the fallback walk-through, used whenever no procedure on those pages matches the module closely enough, which is a common path rather than a rare one. docsReviewed is the catalog-wide date the docUrls were last checked against live documentation; leave it null unless someone actually checked, because the builder quotes it when asking a human whether to build on the fallback links, and a wrong freshness date is worse than none. The builder prefers a per-feature lastVerified date over it, but no feature carries one yet (issue #42).",
+  "$comment": "Copilot Studio feature catalog. Drives the Lab Builder wizard. Each selected feature becomes one lab chapter. learnQueries feed the Microsoft Learn MCP server; docUrls are the pages the step deriver reads for each module, and the citation fallback when a search returns nothing relevant. steps are the fallback walk-through, used whenever no procedure on those pages matches the module closely enough, which is a common path rather than a rare one. docsReviewed is the catalog-wide date the docUrls were last checked against live documentation; leave it null unless someone actually checked, because the builder quotes it when asking a human whether to build on the fallback links, and a wrong freshness date is worse than none. The builder prefers a per-feature lastVerified date over it, but no feature carries one yet (issue #42). thirdPartySources (optional, per feature) are documentation published outside Microsoft Learn — a specification or vendor reference the feature is built on — each with a vendor, a descriptive title (it becomes the link text), an https url, and a stability note saying how likely the page is to change or move. The builder reads them directly rather than through the Learn MCP server, cites them in a Vendor documentation block beside the Microsoft Learn references, and may quote one line from them. vendorHosts is the allowlist for that: the only hosts the builder will contact, matched exactly, with the reason each is trusted. Every thirdPartySources url must be on it, and every entry on it must be used by a feature, so the list never grows wider than the catalog needs. Redirects are re-checked against it on every hop.",
   "version": 1,
   "docsReviewed": null,
+  "vendorHosts": [
+    {
+      "host": "a2a-protocol.org",
+      "reason": "Publishes the Agent2Agent (A2A) protocol specification that Copilot Studio's A2A connections implement. Microsoft Learn links to it from the A2A connection article."
+    },
+    {
+      "host": "adaptivecards.microsoft.com",
+      "reason": "The Adaptive Cards documentation and designer site. adaptivecards.io now redirects here, and Copilot Studio renders Adaptive Cards defined by this schema."
+    },
+    {
+      "host": "modelcontextprotocol.io",
+      "reason": "Publishes the Model Context Protocol specification and documentation that Copilot Studio's MCP tools implement. Microsoft Learn links to it from the MCP overview."
+    },
+    {
+      "host": "spec.openapis.org",
+      "reason": "The OpenAPI Initiative's specification site. Custom connectors require OpenAPI 2.0 definitions, and Microsoft Learn links to this page for the format."
+    }
+  ],
   "product": "Microsoft Copilot Studio",
   "categories": [
     {
@@ -536,6 +554,14 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/authoring-send-message"
       ],
+      "thirdPartySources": [
+        {
+          "vendor": "Adaptive Cards",
+          "title": "Adaptive Cards documentation and designer",
+          "url": "https://adaptivecards.microsoft.com/",
+          "stability": "Replaced adaptivecards.io, whose old deep links such as /explorer/ no longer resolve. The site is rendered in the browser, so the builder can confirm it is up but has nothing to quote from it."
+        }
+      ],
       "prereqs": [
         "entities-variables"
       ],
@@ -1003,6 +1029,14 @@
         "https://learn.microsoft.com/connectors/custom-connectors/define-openapi-definition",
         "https://learn.microsoft.com/connectors/custom-connectors/"
       ],
+      "thirdPartySources": [
+        {
+          "vendor": "OpenAPI Initiative",
+          "title": "OpenAPI Specification version 2.0",
+          "url": "https://spec.openapis.org/oas/v2.0.html",
+          "stability": "A frozen specification version. Custom connectors accept OpenAPI 2.0 (formerly Swagger) definitions only, so this is the version to follow."
+        }
+      ],
       "prereqs": [
         "connector-tools"
       ],
@@ -1050,6 +1084,20 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agent-extend-action-mcp"
+      ],
+      "thirdPartySources": [
+        {
+          "vendor": "Model Context Protocol",
+          "title": "What is the Model Context Protocol (MCP)?",
+          "url": "https://modelcontextprotocol.io/docs/getting-started/intro",
+          "stability": "Unversioned overview. It redirects to the newest dated revision of the docs, so its wording follows each protocol release."
+        },
+        {
+          "vendor": "Model Context Protocol",
+          "title": "MCP specification: Tools",
+          "url": "https://modelcontextprotocol.io/specification/latest/server/tools",
+          "stability": "Redirects to the newest dated specification revision. Older revisions stay available at their own dated paths."
+        }
       ],
       "prereqs": [
         "connector-tools"
@@ -1174,6 +1222,14 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/authoring-a2a-agents"
+      ],
+      "thirdPartySources": [
+        {
+          "vendor": "A2A Protocol",
+          "title": "Agent2Agent (A2A) Protocol specification",
+          "url": "https://a2a-protocol.org/latest/specification/",
+          "stability": "Tracks the latest published release of the protocol. Earlier releases stay available at versioned paths such as /v0.3.0/."
+        }
       ],
       "prereqs": [
         "connected-agents"

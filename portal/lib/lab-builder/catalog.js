@@ -14,24 +14,28 @@ const CATALOG_PATH = path.join(__dirname, "features.json");
 
 let cached = null;
 
-function load() {
-  if (cached) return cached;
-  const raw = JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8"));
+function index(raw) {
   const categories = raw.categories || [];
   const features = raw.features || [];
 
   const byId = new Map(features.map((f) => [f.id, f]));
   const categoryIds = new Set(categories.map((c) => c.id));
 
-  cached = {
+  return {
     version: raw.version,
     product: raw.product,
     docsReviewed: raw.docsReviewed || null,
+    vendorHosts: raw.vendorHosts || [],
     categories,
     features,
     byId,
     categoryIds,
   };
+}
+
+function load() {
+  if (cached) return cached;
+  cached = index(JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8")));
   return cached;
 }
 
@@ -149,9 +153,85 @@ export function orderFeatures(ids) {
   return ordered;
 }
 
-/** Validate catalog integrity. Returns an array of human-readable problems. */
-export function validateCatalog() {
-  const { features, byId, categoryIds } = load();
+const HOST_NAME = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/;
+const LEARN_HOST = "learn.microsoft.com";
+const SOURCE_FIELDS = ["vendor", "title", "url", "stability"];
+
+/**
+ * Check the vendor allowlist and every feature's `thirdPartySources` against it.
+ *
+ * The allowlist is the builder's whole trust boundary for non-Microsoft
+ * content, so it is held tight: exact host names only, each with a reason, and
+ * no entry that no feature uses.
+ */
+function validateVendorSources(features, vendorHosts, problems) {
+  const allowed = new Map();
+  if (!Array.isArray(vendorHosts)) {
+    problems.push("vendorHosts must be an array of { host, reason } entries");
+    vendorHosts = [];
+  }
+  vendorHosts.forEach((entry, position) => {
+    const host = typeof entry?.host === "string" ? entry.host : "";
+    if (!HOST_NAME.test(host)) {
+      problems.push(`vendorHosts[${position}]: "${host}" must be a lower-case host name with no scheme, port, path, or wildcard`);
+      return;
+    }
+    if (host === LEARN_HOST) {
+      problems.push(`vendorHosts: ${host} is Microsoft Learn; cite it through docUrls, not as a vendor host`);
+      return;
+    }
+    if (allowed.has(host)) problems.push(`vendorHosts: duplicate host ${host}`);
+    if (typeof entry.reason !== "string" || !entry.reason.trim()) problems.push(`vendorHosts: ${host} needs a reason`);
+    allowed.set(host, 0);
+  });
+
+  for (const f of features) {
+    if (f.thirdPartySources === undefined) continue;
+    if (!Array.isArray(f.thirdPartySources)) {
+      problems.push(`${f.id}: thirdPartySources must be an array`);
+      continue;
+    }
+    const urls = new Set();
+    f.thirdPartySources.forEach((source, position) => {
+      const label = `${f.id}: thirdPartySources[${position}]`;
+      for (const field of SOURCE_FIELDS) {
+        if (typeof source?.[field] !== "string" || !source[field].trim()) problems.push(`${label} needs a ${field}`);
+      }
+      if (typeof source?.title === "string" && /^https?:\/\//i.test(source.title.trim())) {
+        problems.push(`${label}: title becomes the link text, so it must name the page rather than repeat a URL`);
+      }
+      if (typeof source?.url !== "string") return;
+
+      let url;
+      try {
+        url = new URL(source.url);
+      } catch {
+        problems.push(`${label}: "${source.url}" is not a valid URL`);
+        return;
+      }
+      if (url.protocol !== "https:") problems.push(`${label}: ${source.url} must use https`);
+      if (url.username || url.password) problems.push(`${label}: ${source.url} must not carry credentials`);
+      if (url.port) problems.push(`${label}: ${source.url} must use the default port`);
+      if (url.hostname === LEARN_HOST) problems.push(`${label}: Microsoft Learn pages belong in docUrls`);
+      else if (!allowed.has(url.hostname)) problems.push(`${label}: ${url.hostname} is not in vendorHosts`);
+      else allowed.set(url.hostname, allowed.get(url.hostname) + 1);
+      if (urls.has(source.url)) problems.push(`${label}: duplicate url ${source.url}`);
+      urls.add(source.url);
+    });
+  }
+
+  for (const [host, uses] of allowed) {
+    if (!uses) problems.push(`vendorHosts: ${host} is not used by any feature's thirdPartySources; remove it`);
+  }
+}
+
+/**
+ * Validate catalog integrity. Returns an array of human-readable problems.
+ *
+ * @param {object} [raw] a parsed catalog to check instead of features.json
+ */
+export function validateCatalog(raw) {
+  const { features, byId, categoryIds, vendorHosts } = raw ? index(raw) : load();
   const problems = [];
   const seen = new Set();
 
@@ -191,6 +271,8 @@ export function validateCatalog() {
     state.set(id, "done");
   };
   for (const f of features) walk(f.id, []);
+
+  validateVendorSources(features, vendorHosts, problems);
 
   return problems;
 }

@@ -358,7 +358,7 @@ Now that you've built a supplier onboarding dashboard, consider how this pattern
 - 🔗 [Power Apps code apps overview](https://learn.microsoft.com/power-apps/developer/code-apps/overview)
 - 🔗 [Power Platform CLI reference](https://learn.microsoft.com/power-platform/developer/cli/introduction)
 - 🔗 [Microsoft Dataverse developer guide](https://learn.microsoft.com/power-apps/developer/data-platform/)
-- 🔗 [GitHub Copilot in VS Code](https://docs.github.com/copilot/using-github-copilot/getting-code-suggestions-in-your-ide)
+- 🔗 [GitHub Copilot in VS Code](https://docs.github.com/copilot/how-tos/get-code-suggestions/get-ide-code-suggestions)
 - 🔗 [Reference lab from apps-agents-workshop](https://github.com/microsoft/apps-agents-workshop/blob/main/labs/byoc-powerapps/byoc-powerapps.md)
 
 ## ✅ Completion

@@ -19,12 +19,20 @@ import { synthesizeSteps } from "./synthesis.js";
 import {
   DEFAULT_CONCURRENCY as LINK_CONCURRENCY,
   DEFAULT_TIMEOUT_MS as LINK_TIMEOUT_MS,
+  classifyThirdParty,
   createLinkChecker,
   linkCheckEnabled,
   partitionSources,
   summarize as summarizeLinkCheck,
   verifyUrls,
 } from "./linkcheck.js";
+import {
+  allowedVendorHosts,
+  createVendorLinkChecker,
+  readVendorSources,
+  skippedVendorSources,
+  vendorDocsEnabled,
+} from "./vendor-docs.js";
 import {
   BLOCKER_CODES,
   buildBlocker,
@@ -318,7 +326,7 @@ async function mapLimit(items, limit, fn, signal) {
   return results;
 }
 
-async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgress, signal, maxConcurrency }) {
+async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgress, signal, maxConcurrency, vendorByFeature }) {
   const enrichment = { byFeature: new Map() };
   if (!llm.available) return enrichment;
 
@@ -346,6 +354,10 @@ async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgres
       .slice(0, 3)
       .map((r) => `- ${r.title || r.url}: ${r.excerpt.slice(0, 600)}`)
       .join("\n");
+    const vendorDocs = (vendorByFeature?.get(feature.id) || [])
+      .filter((source) => source.excerpt && source.inLab !== false)
+      .map((source) => `- ${source.vendor}, ${source.title}: ${source.excerpt}`)
+      .join("\n");
 
     const applied = await llm.complete(
       SYSTEM_PROMPT,
@@ -363,6 +375,9 @@ async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgres
           (stepsByFeature.get(feature.id)?.steps || feature.steps).map((s, i) => `${i + 1}. ${s}`).join("\n"),
         ),
         docs ? quoteUntrusted("Microsoft Learn excerpts", docs) : "",
+        // Vendor pages are public-internet content from outside Microsoft, so
+        // they are quoted as untrusted and labelled with their vendor.
+        vendorDocs ? quoteUntrusted("vendor documentation excerpts", vendorDocs) : "",
         "",
         "Write one paragraph (3-5 sentences) telling the learner exactly how to apply this module to the agent scenario above: what to name things, what content or records to use, and what the agent should be able to do afterwards. Use the industry's vocabulary.",
       ].join("\n"),
@@ -398,6 +413,10 @@ async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgres
  *   pass `synthesis.js`'s verifier. Off by default.
  * @param {Record<string,string>} [opts.decisions] blocker code → chosen option id
  * @param {string} [opts.decisionSource] recorded in the manifest as `decidedVia`
+ * @param {Function} [opts.fetchVendorDoc] reads one vendor page (see
+ *   `vendor-docs.js`); injectable so tests never touch the network
+ * @param {Function} [opts.checkVendorLink] link-checks one vendor URL; defaults
+ *   to `createVendorLinkChecker()`, which obeys the vendor allowlist
  * @param {AbortSignal} [opts.signal]
  * @param {(e:{stage:string,message:string})=>void} [opts.onProgress]
  */
@@ -584,6 +603,89 @@ export async function generateLab(request, opts = {}) {
       }
     }
   }
+
+  // ── 1b. Read the vendor documentation a module cites (issue #39) ─────────
+  // Some features are defined by someone else's specification, and Microsoft
+  // Learn cannot return it. `vendor-docs.js` reads those pages directly, from
+  // the catalog's allowlisted hosts only, and treats them as untrusted text.
+  //
+  // Skipping on purpose follows the same rule as Microsoft Learn: switching
+  // grounding off (or LAB_BUILDER_VENDOR_DOCS=off) is an explicit choice and
+  // stays a warning. A vendor page failing to load on its own is a blocker.
+  let vendorByFeature = new Map();
+  const vendorFeatures = plan.features.filter((feature) => feature.thirdPartySources?.length);
+  const vendorSkipped = !useLearnMcp
+    ? "Microsoft Learn grounding was switched off for this build"
+    : !vendorDocsEnabled()
+    ? "LAB_BUILDER_VENDOR_DOCS=off switched vendor reads off"
+    : null;
+  if (vendorFeatures.length) {
+    if (vendorSkipped) {
+      vendorByFeature = skippedVendorSources(vendorFeatures, vendorSkipped);
+      const count = [...vendorByFeature.values()].reduce((sum, list) => sum + list.length, 0);
+      plan.warnings.push(
+        `Vendor documentation was not read, because ${vendorSkipped}. ${count} vendor link(s) are cited from the catalog and marked unverified in the lab.`,
+      );
+    } else {
+      onProgress?.({ stage: "vendor", message: "Reading vendor documentation" });
+      vendorByFeature = await readVendorSources(vendorFeatures, {
+        fetchVendorDoc: opts.fetchVendorDoc,
+        concurrency: maxConcurrency,
+        signal,
+        onProgress,
+      });
+
+      // ── Gate 3b: a vendor page could not be read ─────────────────────────
+      const failedPages = new Map();
+      for (const feature of vendorFeatures) {
+        for (const source of vendorByFeature.get(feature.id) || []) {
+          if (source.fetch.status !== "failed") continue;
+          const page = failedPages.get(source.url) || { source, modules: [] };
+          page.modules.push(feature);
+          failedPages.set(source.url, page);
+        }
+      }
+      if (failedPages.size) {
+        const pages = [...failedPages.values()];
+        const modules = [...new Map(pages.flatMap((p) => p.modules).map((f) => [f.id, f])).values()];
+        const refusals = pages.filter((p) => p.source.fetch.errorKind === "policy").length;
+        const missingDependency = pages.some((p) => p.source.fetch.errorKind === "dependency");
+        const outcome = gate(
+          buildBlocker(BLOCKER_CODES.VENDOR_DOCS_UNAVAILABLE, {
+            consequence:
+              `${pages.length} vendor documentation page(s) cited by ${modules.length} module(s) could not be read: ` +
+              pages.map((p) => `${p.source.title} (${p.source.vendor}): ${p.source.fetch.error}`).join(" ") +
+              ` Those modules would still link to the vendor's page, but nothing on it was checked during this build, so ` +
+              `a page that has moved or changed since the catalog was written would go unnoticed.` +
+              (refusals
+                ? ` ${refusals} of these ${refusals === 1 ? "was" : "were"} refused by the builder's own safety rules rather than by the vendor's site; retrying will not change that, and the catalog entry needs updating.`
+                : "") +
+              (missingDependency
+                ? " This machine is missing the portal's npm dependencies, which the builder needs to read a vendor page safely: run npm ci in portal/ and then retry."
+                : ""),
+            detail: {
+              pages: pages.map((p) => ({
+                url: p.source.url,
+                vendor: p.source.vendor,
+                title: p.source.title,
+                error: p.source.fetch.error,
+                errorKind: p.source.fetch.errorKind,
+                httpStatus: p.source.fetch.httpStatus,
+                modules: p.modules.map((f) => f.id),
+              })),
+              modules: modules.map((f) => ({ id: f.id, name: f.name })),
+            },
+          }),
+        );
+        if (outcome.halt) return outcome.halt;
+        plan.warnings.push(
+          `${pages.length} vendor documentation page(s) could not be read and are cited unverified: ${pages
+            .map((p) => `${p.source.title} (${p.source.vendor})`)
+            .join(", ")}.`,
+        );
+      }
+    }
+  }
   // Counts the modules whose citations came from a live search that cleared the
   // relevance floor. `grounded` is broader — it includes modules citing only the
   // curated links — and using it here would let the lab's header claim those
@@ -745,7 +847,11 @@ export async function generateLab(request, opts = {}) {
 
     // Everything the lab will actually render as a link: the citation list, the
     // pages behind the "From the docs" quote, and each module's step source.
+    // Vendor URLs are kept apart: they are checked through the vendor reader,
+    // which re-checks the allowlist on every redirect, never through the
+    // generic checker, which would follow a redirect anywhere.
     const embedded = [];
+    const vendorEmbedded = [];
     for (const feature of plan.features) {
       const grounding = groundingByFeature.get(feature.id);
       for (const source of grounding?.sources || []) embedded.push(source.url);
@@ -753,12 +859,23 @@ export async function generateLab(request, opts = {}) {
       const stepUrl = stepsByFeature.get(feature.id)?.url;
       if (stepUrl) embedded.push(stepUrl);
       for (const url of stepsByFeature.get(feature.id)?.sources || []) embedded.push(url);
+      for (const source of vendorByFeature.get(feature.id) || []) vendorEmbedded.push(source.url);
     }
+    const vendorSet = new Set(vendorEmbedded);
 
-    linkCheck.records = await verifyUrls(embedded, {
+    linkCheck.records = await verifyUrls(
+      embedded.filter((url) => !vendorSet.has(url)),
+      {
+        concurrency: LINK_CONCURRENCY,
+        checkLink: opts.checkLink || createLinkChecker(),
+        signal,
+      },
+    );
+    await verifyUrls(vendorEmbedded, {
       concurrency: LINK_CONCURRENCY,
-      checkLink: opts.checkLink || createLinkChecker(),
+      checkLink: opts.checkVendorLink || createVendorLinkChecker({ fetchVendorDoc: opts.fetchVendorDoc }),
       signal,
+      cache: linkCheck.records,
     });
 
     for (const feature of plan.features) {
@@ -850,7 +967,45 @@ export async function generateLab(request, opts = {}) {
         `${unreachableCount} documentation link(s) could not be reached from this machine within ${LINK_TIMEOUT_MS}ms. They were kept, because a timeout says something about this network rather than about the page — verify them if the lab is being published.`,
       );
     }
+
+    // Vendor links are judged with the third-party rules: a site that turns the
+    // checker away (401/403/429) keeps its citation, and one that says the page
+    // is gone (404/410/5xx) loses it — whatever was decided at gate 3b, because
+    // citing a page the vendor reports as gone helps nobody.
+    const removedVendor = [];
+    for (const [featureId, sources] of vendorByFeature) {
+      vendorByFeature.set(
+        featureId,
+        sources.map((source) => {
+          const record = linkCheck.records.get(source.url);
+          if (!record) return { ...source, linkCheck: null, inLab: true };
+          const verdict = classifyThirdParty(record);
+          const annotated = {
+            ...source,
+            linkCheck: {
+              status: record.status,
+              verdict,
+              ...(record.error ? { error: record.error } : {}),
+              ...(record.refused ? { refused: true } : {}),
+            },
+            inLab: verdict !== "broken",
+          };
+          if (!annotated.inLab) removedVendor.push(annotated);
+          return annotated;
+        }),
+      );
+    }
+    if (removedVendor.length) {
+      plan.warnings.push(
+        `${removedVendor.length} vendor documentation link(s) returned an error when checked and were removed from the lab: ${removedVendor
+          .map((s) => `${s.title} (HTTP ${s.linkCheck.status})`)
+          .join(", ")}. Update the catalog's thirdPartySources for them.`,
+      );
+    }
   } else {
+    for (const [featureId, sources] of vendorByFeature) {
+      vendorByFeature.set(featureId, sources.map((source) => ({ ...source, linkCheck: null, inLab: true })));
+    }
     plan.warnings.push(
       "Link checking was switched off for this build, so no citation in this lab has been confirmed to resolve.",
     );
@@ -863,11 +1018,36 @@ export async function generateLab(request, opts = {}) {
   docDerivedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "doc-derived").length;
   synthesizedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "llm-verified").length;
 
+  const vendorUrls = new Set([...vendorByFeature.values()].flat().map((source) => source.url));
   const linkCheckSummary = summarizeLinkCheck(linkCheck.records, {
     enabled: linkCheck.enabled,
     timeoutMs: LINK_TIMEOUT_MS,
     concurrency: LINK_CONCURRENCY,
+    thirdPartyUrls: vendorUrls,
   });
+
+  // What the lab and the manifest say about vendor documentation, counted over
+  // the modules that survived every gate. Everything except `requested` and
+  // `removedByLinkCheck` counts only the links still in the lab, so the lab's
+  // own description never mentions a link the link check took out.
+  const vendorRecords = plan.features.flatMap((f) => vendorByFeature.get(f.id) || []);
+  const vendorShown = vendorRecords.filter((s) => s.inLab !== false);
+  const vendorFetchDays = vendorShown.map((s) => s.fetch.fetchedAt).filter(Boolean).sort();
+  const vendorSummary = {
+    enabled: vendorFeatures.length > 0 && !vendorSkipped,
+    skippedBecause: vendorFeatures.length && vendorSkipped ? vendorSkipped : null,
+    allowlist: [...allowedVendorHosts()].sort(),
+    requested: vendorRecords.length,
+    inLab: vendorShown.length,
+    modules: plan.features.filter((f) => (vendorByFeature.get(f.id) || []).some((s) => s.inLab !== false)).length,
+    vendors: [...new Set(vendorShown.map((s) => s.vendor))],
+    read: vendorShown.filter((s) => s.fetch.status === "read").length,
+    failed: vendorShown.filter((s) => s.fetch.status === "failed").length,
+    skipped: vendorShown.filter((s) => s.fetch.status === "skipped").length,
+    quoted: vendorShown.filter((s) => s.fetch.status === "read" && s.excerpt).length,
+    removedByLinkCheck: vendorRecords.length - vendorShown.length,
+    fetchedAt: vendorFetchDays[0] || null,
+  };
 
   // Drift is reported, never acted on — the doc-derived path already resolved it
   // by following the live page. The value is telling a human the catalog is
@@ -882,7 +1062,12 @@ export async function generateLab(request, opts = {}) {
   }
 
   // ── 3. Optional LLM narrative ─────────────────────────────────────────────
-  let enrichment = await enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgress, signal, maxConcurrency });
+  let enrichment = await enrich(llm, plan, groundingByFeature, stepsByFeature, {
+    onProgress,
+    signal,
+    maxConcurrency,
+    vendorByFeature,
+  });
 
   // ── Gate 7: a configured model wrote some passages but not others ─────────
   if (llm.available && llm.failures?.length) {
@@ -935,8 +1120,17 @@ export async function generateLab(request, opts = {}) {
     endpoint: LEARN_MCP_ENDPOINT,
     learnConnected: Boolean(session.ok),
     linkCheck: linkCheckSummary,
+    vendorDocs: vendorSummary,
   };
-  const markdown = composeLab(plan, groundingByFeature, screenshots.byFeature, enrichment, generation, stepsByFeature);
+  const markdown = composeLab(
+    plan,
+    groundingByFeature,
+    screenshots.byFeature,
+    enrichment,
+    generation,
+    stepsByFeature,
+    vendorByFeature,
+  );
 
   const manifest = {
     slug: plan.slug,
@@ -975,6 +1169,21 @@ export async function generateLab(request, opts = {}) {
         // What the relevance filter considered and what it refused, so an
         // off-topic citation can be diagnosed without re-running the build.
         relevance: groundingByFeature.get(f.id)?.relevance || null,
+        // Documentation from outside Microsoft Learn (issue #39): whether each
+        // page was read, when, what the link check said, and whether it is
+        // still in the lab. Nothing fetched from the page is stored here
+        // except the quoted line, which is what the lab shows.
+        vendorSources: (vendorByFeature.get(f.id) || []).map((source) => ({
+          vendor: source.vendor,
+          title: source.title,
+          url: source.url,
+          stability: source.stability,
+          fetch: source.fetch,
+          linkCheck: source.linkCheck ?? null,
+          inLab: source.inLab !== false,
+          quoted: Boolean(source.inLab !== false && source.fetch.status === "read" && source.excerpt),
+          excerpt: source.inLab !== false && source.fetch.status === "read" ? source.excerpt || null : null,
+        })),
         // Where this module's walk-through steps came from, so a reader can
         // tell a verified click list from a curated one without re-running.
         steps: {
@@ -1008,6 +1217,9 @@ export async function generateLab(request, opts = {}) {
     // were removed; `unreachable` ones were kept, because a timeout is evidence
     // about this network and not about the page.
     linkCheck: linkCheckSummary,
+    // Vendor documentation across the lab: the allowlist it was read under,
+    // and how many pages were read, failed, skipped, quoted, or removed.
+    vendorDocs: vendorSummary,
     llm: { provider: llm.provider.kind, label: llm.provider.label || null, reason: llm.provider.reason || null },
     screenshots: {
       reused: screenshots.copies.length,
