@@ -175,15 +175,15 @@ By the end of this lab, you will be able to:
 
 ---
 
-# 🧪 Use Case #1 — Topics (25 min)
+## 🧪 Use Case #1 — Topics (25 min)
 
 > 🎯 **Objective:** Create custom topics that capture user intent and route grid-operations questions to the correct branches. Location collection is handled in Use Case #2.
 
-## Scenario
+### Scenario
 
 A grid operator needs either a guided service-territory weather lookup or a quick explanation of what weather data the agent supports.
 
-### Step 1 — Create the Energy Operations Weather Agent
+#### Step 1 — Create the Energy Operations Weather Agent
 
 1. Open [Copilot Studio](https://copilotstudio.microsoft.com/). You should land on the **What would you like to build?** home page shown below. Make sure you select the correct Power Platform Environment for your lab work. If you don't see the environment you expect, check with your administrator to ensure you have access. If you are prompted with any "Welcome to Copilot Studio" or "What's new" pop-ups, close them to see the home page.
 
@@ -207,7 +207,7 @@ A grid operator needs either a guided service-territory weather lookup or a quic
 
 > 💡 **Tip:** Keep the agent instructions broad and cross-cutting. The detailed collection logic belongs in topics and tool descriptions, not in a massive system prompt.
 
-### Step 2 — Create the **Service Territory Weather Lookup** topic
+#### Step 2 — Create the **Service Territory Weather Lookup** topic
 
 1. Open the agent and select **Topics**.
 2. Select **+ Add a topic** and **From blank**.
@@ -230,7 +230,7 @@ A grid operator needs either a guided service-territory weather lookup or a quic
 
 5. Save the topic.
 
-### Step 3 — Ask the user for a City and State
+#### Step 3 — Ask the user for a City and State
 
 1. In the authoring canvas, click the **+** below the trigger and add a **Send a message** node:
 
@@ -264,7 +264,7 @@ A grid operator needs either a guided service-territory weather lookup or a quic
 
 > 💡 **Why two simple questions?** Asking for city and state as separate, named questions gives the orchestrator clean, validated values it can write straight into topic variables — no entity-extraction guesswork and no need to parse a freeform "what's the location?" reply. In Use Case #2 we'll layer in the rest of the variable strategy (defaults, units, forecast horizon) and compose `Topic.Location` from these inputs.
 
-### Step 4 — Add the **Weather Operations Help** topic
+#### Step 4 — Add the **Weather Operations Help** topic
 
 1. Create another new topic named:
 
@@ -299,7 +299,7 @@ A grid operator needs either a guided service-territory weather lookup or a quic
    If you want, I can run a weather lookup now. Which city and state should we check?
    ```
 
-### Step 5 — Add the MSN Weather connector as a tool and call it from the topic
+#### Step 5 — Add the MSN Weather connector as a tool and call it from the topic
 
 Now that the topic collects a city and state, wire it to a real connector so the operator gets actual weather back instead of a placeholder message.
 
@@ -331,7 +331,7 @@ Now that the topic collects a city and state, wire it to a real connector so the
 
 8. Save the tool.
 
-### Step 6 — Use the tool inside **Service Territory Weather Lookup**
+#### Step 6 — Use the tool inside **Service Territory Weather Lookup**
 
 1. Return to **Service Territory Weather Lookup**.
 2. After the **Ask a question** node that captures `Topic.State`, click **+**, select **Add a tool**, and pick the **Get Current Weather** tool you created in Step 5.
@@ -345,7 +345,7 @@ Now that the topic collects a city and state, wire it to a real connector so the
 
 7. Save the topic.
 
-### Step 7 — Test the end-to-end flow
+#### Step 7 — Test the end-to-end flow
 
 1. Open the **Test** panel.
 2. Run prompts such as:
@@ -359,7 +359,7 @@ Now that the topic collects a city and state, wire it to a real connector so the
 
 > 💡 **Tip:** A good operations topic should reduce ambiguity early. In Use Case #2 we'll replace these placeholders with dedicated Question nodes that save city and state to topic variables. In Use Case #3 we'll add a second connector tool (today's forecast) and a custom prompt that interprets the raw numbers as an operations briefing.
 
-### ✅ You've completed Use Case #1
+#### ✅ You've completed Use Case #1
 
 **Key takeaways**
 
@@ -377,15 +377,15 @@ Now that the topic collects a city and state, wire it to a real connector so the
 
 ---
 
-# 🧪 Use Case #2 — Variables (25 min)
+## 🧪 Use Case #2 — Variables (25 min)
 
 > 🎯 **Objective:** Configure global, topic, and system variables so the agent can store default location, units, forecast horizon, and the resolved location string used by every weather tool — and collect city and state from the user with simple **Question nodes**.
 
-## Scenario
+### Scenario
 
 Your agent needs reusable state for default location, units, and forecast horizon.
 
-### Step 1 — Define the variable strategy
+#### Step 1 — Define the variable strategy
 
 Use the following variable design:
 
@@ -402,7 +402,7 @@ Use the following variable design:
 | `System.Activity.Text` | System | Raw incoming user message |
 | `System.Conversation.Id` | System | Useful for diagnostics and flow tracing |
 
-### Step 2 — Create global variables
+#### Step 2 — Create global variables
 
 > 💡 **How global variables work in Copilot Studio.** There is no standalone variable management page. Create global variables from within any topic: add a **Set variable value** node, create a new variable, then open the variable’s **Properties** panel and change **Scope** to **Global**. Once promoted, the variable is accessible in all topics.
 
@@ -432,7 +432,7 @@ Use the following variable design:
 
 > 💡 **Tip:** Globals are how you adjust an entire demo footprint in one place. Move from `Cypress, TX` to `Minneapolis, MN` for a winter cold-load demo without touching topics or tools.
 
-### Step 3 — Initialize topic variables in **Service Territory Weather Lookup**
+#### Step 3 — Initialize topic variables in **Service Territory Weather Lookup**
 
 1. Return to the **Service Territory Weather Lookup** topic.
 2. Near the start of the topic, before the City and State Question nodes created in Use Case #1, add **Set variable value** nodes.
@@ -444,7 +444,7 @@ Use the following variable design:
 
 > 💡 **Tip:** Initialization makes your topic easier to debug. Empty strings are easier to reason about than partially populated values from a previous test run.
 
-### Step 4 — Ask for city and state with Question nodes
+#### Step 4 — Ask for city and state with Question nodes
 
 Review the City and State Question nodes created in Use Case #1. If you created only a placeholder message instead, delete it and add the two **Ask a question** nodes below.
 
@@ -468,7 +468,7 @@ Review the City and State Question nodes created in Use Case #1. If you created 
 
 > 💡 **Tip:** Two focused Question nodes keep the flow simple and easy to debug. Each node’s answer lands directly in the named variable — no JSON parsing, no card editor, no entity extraction required.
 
-### Step 5 — Compose `Topic.Location` from Question node outputs with Power Fx
+#### Step 5 — Compose `Topic.Location` from Question node outputs with Power Fx
 
 The MSN Weather connector accepts a single free-text `Location` such as `Cypress, TX`. Now that you have clean inputs from the Question nodes, compose them into the single string the connector expects.
 
@@ -492,14 +492,14 @@ The MSN Weather connector accepts a single free-text `Location` such as `Cypress
 
 > 💡 **Tip:** Keeping location parsing in one place (`Topic.Location`) means every weather tool, the connected agent, and the Power Automate flow all share the same input and behave consistently.
 
-### Step 6 — Resolve units and forecast horizon
+#### Step 6 — Resolve units and forecast horizon
 
 1. The Question nodes from Step 4 populate `Topic.City` and `Topic.State` — each answer is saved directly to its variable with no extra parsing required.
 2. The Power Fx step from Step 5 composes `Topic.Location`.
 3. If you want the operator to choose units, add a follow-up **Ask a question** node with choices `Imperial` and `Metric`, and set `Topic.Units` accordingly. Otherwise keep `Topic.Units = Global.DefaultUnits`.
 4. If the operator's wording mentions *"tomorrow"* (you can detect this with a simple condition on `System.Activity.Text` or with an entity), set `Topic.ForecastHorizon = "tomorrow"`. Otherwise leave it as `today`.
 
-### Step 7 — Use variables in connector calls
+#### Step 7 — Use variables in connector calls
 
 When you build the MSN Weather tools in Use Case #3, you'll wire the connector inputs to these variables:
 
@@ -510,14 +510,14 @@ When you build the MSN Weather tools in Use Case #3, you'll wire the connector i
 
 The connected agent and the Power Automate flow will reuse the same variables, so location and units behave consistently everywhere.
 
-### Step 8 — Pass variables between topics and use system variables
+#### Step 8 — Pass variables between topics and use system variables
 
 1. In **Weather Operations Help**, when the user says they want to run a lookup, transition to **Service Territory Weather Lookup** and pass along any already-known context (city, state, units).
 2. For debugging during development, inspect `System.Activity.Text` and `System.Conversation.Id` to trace conversation flow. Remove or hide diagnostic output before publishing.
 
 > ⚠️ **Do not** leave internal identifiers or raw troubleshooting output exposed in a production response to operators.
 
-### ✅ You've completed Use Case #2
+#### ✅ You've completed Use Case #2
 
 **Key takeaways**
 
@@ -536,11 +536,11 @@ The connected agent and the Power Automate flow will reuse the same variables, s
 
 ---
 
-# 🧪 Use Case #3 — Tools (25 min)
+## 🧪 Use Case #3 — Tools (25 min)
 
 > 🎯 **Objective:** Build three agent tools that together turn raw weather data into an operations briefing — two **connector tools** (MSN Weather actions) and one **custom prompt tool** that interprets the connector outputs in energy-operations language.
 
-## Scenario
+### Scenario
 
 Operators need three capabilities:
 
@@ -555,7 +555,7 @@ This is also a chance to see two distinct **tool types** in Copilot Studio side 
 | **Connector tool** | Calls a Power Platform connector action (deterministic, structured outputs) | When you need real data from a system of record |
 | **Custom prompt tool** | Wraps a reusable prompt template (model-generated outputs) | When you need to interpret, summarize, or translate structured data into operator-friendly language |
 
-### Step 1 — Build Tool 1: **Get Current Weather**
+#### Step 1 — Build Tool 1: **Get Current Weather**
 
 1. In the agent, open **Tools**.
 2. Select **Add tool**.
@@ -574,7 +574,7 @@ This is also a chance to see two distinct **tool types** in Copilot Studio side 
    Use when the operator needs live conditions — temperature, feels-like, humidity, wind, and a short text description — for a specific city and state. Useful for AC-peak risk, crew heat exposure, and right-now situational awareness.
    ```
 
-### Step 2 — Configure Tool 1 inputs
+#### Step 2 — Configure Tool 1 inputs
 
 The MSN Weather *Get current weather* action exposes two inputs:
 
@@ -595,7 +595,7 @@ Wire the inputs to the topic variables:
 - `Location` ← `Topic.Location`
 - `Units` ← `Topic.Units`
 
-### Step 3 — Configure Tool 1 outputs
+#### Step 3 — Configure Tool 1 outputs
 
 The MSN Weather connector returns a structured response. Surface the most useful fields to the agent so the operator sees clean names:
 
@@ -611,7 +611,7 @@ If your connector surface returns these as nested objects instead of flat output
 
 > 💡 **Tip:** Good output names matter. The operator should understand `feelsLike` instantly; raw nested paths are a tool-builder detail, not an operations concept.
 
-### Step 4 — Build Tool 2: **Get Today's Forecast**
+#### Step 4 — Build Tool 2: **Get Today's Forecast**
 
 Follow the same pattern as Tool 1:
 
@@ -636,7 +636,7 @@ Follow the same pattern as Tool 1:
 
 > 💡 **Optional:** If you want a tomorrow-aware experience, add a fourth connector tool named **Get Tomorrow's Forecast** that wraps the *Get forecast for tomorrow* action with the same input shape. The lab evaluation set assumes today and current only, so the extra tool is purely upside.
 
-### Step 5 — Build Tool 3: **Generate Operations Briefing** (custom prompt)
+#### Step 5 — Build Tool 3: **Generate Operations Briefing** (custom prompt)
 
 The two connector tools return raw numbers — temperature, humidity, wind, precipitation chance. They don't tell an operator *what to do about it*. A **custom prompt tool** wraps a reusable prompt template that takes the structured connector outputs as inputs and produces an operations-grade summary.
 
@@ -715,7 +715,7 @@ This is your first non-connector tool, and it's a useful pattern any time you wa
 
 > 💡 **Why a custom prompt instead of just composing the message in the topic?** A prompt tool is **reusable** — the connected agent in Use Case #4 and the agent flow in Use Case #5 will both call it with their own inputs and get the same briefing format. Composing the message inline in the topic would force you to copy-paste prompt logic into three places.
 
-### Step 6 — Wire the tools into the topic and run a manual test
+#### Step 6 — Wire the tools into the topic and run a manual test
 
 1. Return to **Service Territory Weather Lookup**.
 2. After the location resolution step, replace the Use Case #1 placeholders with real **Call an action** nodes:
@@ -736,7 +736,7 @@ This is your first non-connector tool, and it's a useful pattern any time you wa
    - The custom prompt produces a 3-bullet briefing in the exact requested format.
    - The briefing references `Global.HeatAdvisoryF` correctly when feels-like is at or above the threshold.
 
-### ✅ You've completed Use Case #3
+#### ✅ You've completed Use Case #3
 
 **Key takeaways**
 
@@ -756,15 +756,15 @@ This is your first non-connector tool, and it's a useful pattern any time you wa
 
 ---
 
-# 🧪 Optional: Use Case #4 — Connected Agents (18 min)
+## 🧪 Optional: Use Case #4 — Connected Agents (18 min)
 
 > 🎯 **Objective:** Create a **Weather Operations Specialist** connected agent, add it to the parent Energy Operations Weather Agent, and configure sharing so weather questions route cleanly to the specialist.
 
-## Scenario
+### Scenario
 
 The parent agent should orchestrate the operations experience while a connected specialist agent owns weather-specific reasoning and tool usage.
 
-### Step 1 — Create the connected agent
+#### Step 1 — Create the connected agent
 
 1. In Copilot Studio, create a new agent named:
 
@@ -780,7 +780,7 @@ The parent agent should orchestrate the operations experience while a connected 
 
 3. Save the agent.
 
-### Step 2 — Add tools, enable sharing, and publish the connected agent
+#### Step 2 — Add tools, enable sharing, and publish the connected agent
 
 1. Add **Get Current Weather** and **Get Today's Forecast** to the connected agent.
 2. Optionally add the **Weather Operations Help** topic or equivalent help content if you want the child to explain fields directly.
@@ -795,7 +795,7 @@ The parent agent should orchestrate the operations experience while a connected 
 
 > ⚠️ **Important:** A connected agent cannot be selected by a parent until it is published and sharing is enabled. Both agents must be in the same environment.
 
-### Step 3 — Add the connected agent to the parent
+#### Step 3 — Add the connected agent to the parent
 
 1. Open **Energy Operations Weather Agent**.
 2. Go to the **Agents** page.
@@ -808,7 +808,7 @@ The parent agent should orchestrate the operations experience while a connected 
 
 5. Save the parent agent.
 
-### Step 4 — Validate handoff behavior
+#### Step 4 — Validate handoff behavior
 
 1. In the parent agent test chat, try prompts such as:
    - `Pull current weather for the Cypress substation area`
@@ -816,7 +816,7 @@ The parent agent should orchestrate the operations experience while a connected 
 2. Open the activity trace and confirm the parent routed the work to the child agent.
 3. Refine the child description if the parent fails to route consistently.
 
-### ✅ You've completed Use Case #4
+#### ✅ You've completed Use Case #4
 
 **Key takeaways**
 
@@ -832,15 +832,15 @@ The parent agent should orchestrate the operations experience while a connected 
 
 ---
 
-# 🧪 Optional: Use Case #5 — Agent Flows (20 min)
+## 🧪 Optional: Use Case #5 — Agent Flows (20 min)
 
 > 🎯 **Objective:** Build a Power Automate cloud flow that takes a list of locations, calls the MSN Weather connector for each, aggregates the results, and returns a service-territory weather briefing to the agent.
 
-## Scenario
+### Scenario
 
 A dispatcher wants one briefing covering several substation areas instead of separate per-location lookups.
 
-### Step 1 — Create the cloud flow
+#### Step 1 — Create the cloud flow
 
 1. Open **Power Automate**.
 2. Select **Create**.
@@ -860,7 +860,7 @@ A dispatcher wants one briefing covering several substation areas instead of sep
    - `location3` (Text)
    - `units` (Text — `Imperial` or `Metric`)
 
-### Step 2 — Add the MSN Weather actions for each location
+#### Step 2 — Add the MSN Weather actions for each location
 
 For each of the three locations, add an MSN Weather **Get current weather** action and an MSN Weather **Get forecast for today** action.
 
@@ -870,7 +870,7 @@ For each of the three locations, add an MSN Weather **Get current weather** acti
 
 > 💡 **Tip:** If your environment supports the **Apply to each** loop and you want fewer actions, you can build an array of locations from the inputs and loop over a single Get current weather + Get forecast for today pair. The three-action layout above is easier to debug for a workshop.
 
-### Step 3 — Compose the operations briefing
+#### Step 3 — Compose the operations briefing
 
 1. Add a **Compose** action that builds a single briefing string from the six MSN Weather responses. Reference outputs like `body('Current_at_L1')?['responses'][0]?['weather']?['current']?['temperature']` or use the dynamic-content picker to insert each field.
 2. Suggested briefing format:
@@ -896,7 +896,7 @@ For each of the three locations, add an MSN Weather **Get current weather** acti
 
 3. If your environment supports cards, create a structured card payload with sections per location and an **Operations interpretation** footer.
 
-### Step 4 — Return output and add the flow to the agent
+#### Step 4 — Return output and add the flow to the agent
 
 1. Add the **Respond to the agent** action as the final step.
 2. Return fields such as:
@@ -915,7 +915,7 @@ For each of the three locations, add an MSN Weather **Get current weather** acti
 6. Test it with a prompt like:
    - `Give me a weather briefing for Cypress TX, Houston TX, and Tarrant County TX`
 
-### ✅ You've completed Use Case #5
+#### ✅ You've completed Use Case #5
 
 **Key takeaways**
 
@@ -931,15 +931,15 @@ For each of the three locations, add an MSN Weather **Get current weather** acti
 
 ---
 
-# 🧪 Optional: Use Case #6 — Model Selection & Testing (12 min)
+## 🧪 Optional: Use Case #6 — Model Selection & Testing (12 min)
 
 > 🎯 **Objective:** Compare available models in Copilot Studio for quality, speed, and cost tradeoffs on grid-operations prompts.
 
-## Scenario
+### Scenario
 
 You want to verify which model is best for simple lookups versus multi-step operations questions.
 
-### Step 1 — Locate the model selection setting
+#### Step 1 — Locate the model selection setting
 
 1. Open **Energy Operations Weather Agent**.
 2. Go to **Settings** or the **AI / Model** section of the agent.
@@ -948,7 +948,7 @@ You want to verify which model is best for simple lookups versus multi-step oper
 
 > 💡 **Important:** Model availability changes over time and varies by region or tenant. Use the highest-capability and lowest-cost models available in your environment for comparison.
 
-### Step 2 — Create a repeatable prompt set
+#### Step 2 — Create a repeatable prompt set
 
 Use the same prompts for every model so your comparison is fair.
 
@@ -958,7 +958,7 @@ Suggested prompt set:
 2. `Compare today's forecast for Cypress TX, Houston TX, and Tarrant County TX from a storm-staging perspective.`
 3. `Summarize whether tomorrow's weather across our Texas service territory raises crew heat-safety concerns.`
 
-### Step 3 — Test and compare models
+#### Step 3 — Test and compare models
 
 1. Select the strongest model available in your environment. Run the prompt set and observe response quality, synthesis ability, tool follow-through, and latency.
 2. Switch to the lowest-cost model available. Re-run the same prompts.
@@ -974,7 +974,7 @@ Use stronger models for shift-handoff briefings, multi-location analysis, and in
 
 > Screenshot intentionally omitted until a current, sanitized capture is available. Record the selected models and test results in your own evidence.
 
-### ✅ You've completed Use Case #6
+#### ✅ You've completed Use Case #6
 
 **Key takeaways**
 
@@ -990,15 +990,15 @@ Use stronger models for shift-handoff briefings, multi-location analysis, and in
 
 ---
 
-# 🧪 Use Case #7 — Agent Evaluations (15 min)
+## 🧪 Use Case #7 — Agent Evaluations (15 min)
 
 > 🎯 **Objective:** Create a 10-question evaluation set for grid-operations weather scenarios, run it to validate agent quality, review failures, and iterate.
 
-## Scenario
+### Scenario
 
 Before operators rely on the agent, you need evidence that it handles common and ambiguous questions reliably.
 
-### Step 1 — Create the evaluation test set
+#### Step 1 — Create the evaluation test set
 
 1. Open **Energy Operations Weather Agent**.
 2. Go to **Evaluation**.
@@ -1024,7 +1024,7 @@ Before operators rely on the agent, you need evidence that it handles common and
 
 > - **Keyword match** is useful for must-mention concepts like temperature, feels-like, AC peak, or crew safety.
 
-### Step 2 — Add 10 energy-specific test questions
+#### Step 2 — Add 10 energy-specific test questions
 
 Use a set like this:
 
@@ -1041,11 +1041,11 @@ Use a set like this:
 | 9 | `Will today's heat raise residential AC load above normal?` | Reasoning |
 | 10 | `Compare why heat waves and cold snaps both raise grid load.` | Multi-step reasoning |
 
-### Step 3 — Define expected outcomes
+#### Step 3 — Define expected outcomes
 
 For each test, add expected answers or assertions. For example: Question 1 should include keywords like `temperature`, `feels`, `humidity`. Question 5 should require the agent to ask for the city and state. Question 10 should mention both **AC load** and **heating load**.
 
-### Step 4 — Run the evaluation
+#### Step 4 — Run the evaluation
 
 1. Save the test set.
 2. Run the evaluation.
@@ -1055,7 +1055,7 @@ For each test, add expected answers or assertions. For example: Question 1 shoul
    - Whether failures cluster around help, multi-location aggregation, or reasoning
 4. Open several failed cases and review the activity map.
 
-### Step 5 — Interpret results and iterate
+#### Step 5 — Interpret results and iterate
 
 1. Identify the root cause for each failure using the activity map.
 2. Apply fixes in the right place:
@@ -1074,7 +1074,7 @@ Apply fixes in the right place: topic issues → fix the topic; tool issues → 
 
 > Screenshot intentionally omitted until a current, sanitized capture is available. Capture your own pass rate, per-test results, and failure evidence.
 
-### ✅ You've completed Use Case #7
+#### ✅ You've completed Use Case #7
 
 **Key takeaways**
 
@@ -1090,15 +1090,15 @@ Apply fixes in the right place: topic issues → fix the topic; tool issues → 
 
 ---
 
-# 🧪 Optional Use Case #8 — MCP (Model Context Protocol) Servers (20 min, optional)
+## 🧪 Optional Use Case #8 — MCP (Model Context Protocol) Servers (20 min, optional)
 
 > 🎯 **Objective:** Stand up an MCP server that wraps **Open-Meteo** weather APIs (free and key-free), expose it over **Streamable HTTP**, connect it to Copilot Studio with the MCP onboarding wizard, and add discoverable tools for runtime use. This section requires **VS Code** and **Node.js 24+** (or Python 3.10+).
 
-## Scenario
+### Scenario
 
 The MSN Weather connector covers most operator needs, but you want a richer set of weather signals (hourly forecast, multi-day forecast, derived peak-risk indicator) exposed through a single discoverable tool host. Open-Meteo is a free, key-free weather API that pairs well with MCP for this purpose.
 
-### Step 1 — Decide on Node.js or Python
+#### Step 1 — Decide on Node.js or Python
 
 Either platform works. In this lab, we'll show a **Node.js** example because it maps cleanly to local development and the MCP TypeScript SDK.
 
@@ -1119,7 +1119,7 @@ You will expose these tools:
 - `get_daily_forecast`
 - `get_demand_spike_indicator`
 
-### Step 2 — Create the MCP server project and add tool logic
+#### Step 2 — Create the MCP server project and add tool logic
 
 Create a file named `server.js` with a Streamable HTTP pattern like this:
 
@@ -1241,7 +1241,7 @@ app.listen(3000, () => console.log("MCP server listening at http://localhost:300
 
 The SDK's `StreamableHTTPServerTransport` handles the MCP protocol messages; your HTTP server only routes requests to `/mcp`. `express.json()` parses the JSON body for `handleRequest(req, res, req.body)`, so hand-test clients must send `Content-Type: application/json`.
 
-### Step 3 — Run locally and make it reachable
+#### Step 3 — Run locally and make it reachable
 
 1. Start the server locally:
 
@@ -1257,7 +1257,7 @@ The SDK's `StreamableHTTPServerTransport` handles the MCP protocol messages; you
 
 Use the public HTTPS URL plus `/mcp` as the MCP **Server URL**, for example `https://your-tunnel.example/mcp`.
 
-### Step 4 — Register the MCP server in Copilot Studio
+#### Step 4 — Register the MCP server in Copilot Studio
 
 Copilot Studio's documented path is the MCP onboarding wizard, not a desktop-client `command` / `args` JSON file.
 
@@ -1278,7 +1278,7 @@ Copilot Studio's documented path is the MCP onboarding wizard, not a desktop-cli
 
 Reference: [Connect your agent to an existing MCP server](https://learn.microsoft.com/microsoft-copilot-studio/mcp-add-existing-server-to-agent) and [Add MCP server tools and resources to an agent](https://learn.microsoft.com/microsoft-copilot-studio/mcp-add-components-to-agent).
 
-### Step 5 — Test discovery and runtime usage
+#### Step 5 — Test discovery and runtime usage
 
 1. In the agent test surface, ask:
    - `Get current weather at lat 29.97 lon -95.69` *(Cypress, TX area)*
@@ -1290,7 +1290,7 @@ Reference: [Connect your agent to an existing MCP server](https://learn.microsof
 
 > 💡 **Why MCP here?** The MSN Weather connector is great for a couple of high-value actions, but exposing hourly granularity, multi-day reach, and a derived heat-spike indicator through one MCP server keeps the agent's tool surface tight and discoverable. You can add fire-weather, lightning density, or wind-loading tools later without rebuilding any topics.
 
-### ✅ You've completed Optional Use Case #8
+#### ✅ You've completed Optional Use Case #8
 
 **Key takeaways**
 
@@ -1308,11 +1308,11 @@ Reference: [Connect your agent to an existing MCP server](https://learn.microsof
 
 ---
 
-# 🙋 Q&A and Wrap-Up (15 min)
+## 🙋 Q&A and Wrap-Up (15 min)
 
 > 🎯 **Objective:** Consolidate learning, answer outstanding questions, and discuss next steps for production deployment.
 
-## Suggested discussion topics
+### Suggested discussion topics
 
 Use this time for open Q&A. If the group needs prompts, consider these:
 
@@ -1334,7 +1334,7 @@ Use this time for open Q&A. If the group needs prompts, consider these:
 - How would you connect this agent to internal SCADA, DERMS, or outage-management systems?
 - Could this pattern support storm-restoration coordination across a multi-state footprint?
 
-### Recap — what you built today
+#### Recap — what you built today
 
 | Component | What it does |
 |---|---|
@@ -1352,18 +1352,18 @@ Use this time for open Q&A. If the group needs prompts, consider these:
 
 ---
 
-# 🧪 Optional: Use Case #9 — Adaptive Card Location Input (15 min)
+## 🧪 Optional: Use Case #9 — Adaptive Card Location Input (15 min)
 
 > 🎯 **Objective:** Replace the two **Ask a question** nodes from Use Case #2 with a single **Adaptive Card** node that collects city and state in one structured turn with built-in field validation.
 
-## When to use this enhancement
+### When to use this enhancement
 
 An Adaptive Card is worth adding when:
 - Dispatchers need fewer conversational turns during high-pressure operational events
 - You want built-in field-level validation (`isRequired`, `maxLength`, `errorMessage`) without building condition branches
 - Your deployment channel (Teams, custom website) renders Adaptive Cards natively
 
-### Step 1 — Replace the Question nodes with an Adaptive Card node
+#### Step 1 — Replace the Question nodes with an Adaptive Card node
 
 1. Open **Service Territory Weather Lookup**.
 2. Delete the two **Ask a question** nodes added in Use Case #2 (city question and state question).
@@ -1422,7 +1422,7 @@ An Adaptive Card is worth adding when:
 
 5. Save the card and click **Close**. Copilot Studio surfaces each `Input.Text` field as a separately addressable output you can map to a topic variable.
 
-### Step 2 — Map card outputs to topic variables
+#### Step 2 — Map card outputs to topic variables
 
 Under **Save user response as**, map each card output to its topic variable:
 
@@ -1437,12 +1437,12 @@ The `Topic.Location` Power Fx composition from Use Case #2 Step 5 works unchange
 
 > 💡 **Advanced:** Pre-populate the dominant state by adding `"value": "TX"` to the `state` Input.Text object. Operators working a single-state footprint just confirm the default instead of typing it.
 
-### ✅ You’ve completed the optional Adaptive Card enhancement
+#### ✅ You’ve completed the optional Adaptive Card enhancement
 
 The agent now collects location in one structured card turn instead of two sequential questions. All downstream tools, the connected agent, and the Power Automate flow continue to use `Topic.Location` — no further changes required.
 
 ---
-## 🏁 Congratulations
+### 🏁 Congratulations
 
 You've built an **Energy Operations Weather Agent** that combines topics, variables (collected via Question nodes), two MSN Weather connector tools plus a custom prompt tool, a connected specialist agent, a Power Automate flow, model testing, and an evaluation suite. If you completed the optional MCP section, you also explored runtime tool discovery against the Open-Meteo API.
 

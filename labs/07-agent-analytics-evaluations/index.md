@@ -127,17 +127,17 @@ By the end of this lab you will be able to:
 
 ---
 
-# 🧪 Use Case #1 — Monitor Agent Performance with Analytics
+## 🧪 Use Case #1 — Monitor Agent Performance with Analytics
 
 > 🎯 **Objective:** Access and interpret your Contoso IT Operations Agent's analytics to identify the highest-impact optimization opportunities.
 
-## Scenario
+### Scenario
 
 Your **Contoso IT Operations Agent** has been deployed for several days. Field technicians and the IT helpdesk team have been using it. You need to understand how they're interacting with it, which knowledge sources are getting hit, where conversations are failing, and whether users find it helpful — so you can prioritize the next round of improvements.
 
 > ⚠️ **Important — empty dashboard until publish.** If your Analytics page shows a *"Publish your agent to track performance"* empty-state with a single **Publish** button, none of the dashboard sections below will be visible. Publish your agent and have at least one real conversation through a deployed channel; analytics data takes **24–48 hours** to populate. The Product Group is working on a way to visualize what populated analytics will look like for lab scenarios — until then, skim the descriptions to know what to expect.
 
-### Step 1 — Navigate to Analytics
+#### Step 1 — Navigate to Analytics
 
 1. In Copilot Studio, select **Agents** in the left navigation.
 2. Open your **Contoso IT Operations Agent** (from Lab 04) and select **Analytics** in the top navigation bar.
@@ -153,7 +153,7 @@ Your **Contoso IT Operations Agent** has been deployed for several days. Field t
 
 > 💡 **Tip:** Use consistent date ranges when comparing performance over time. **Weekly reviews with 7-day ranges** work well for ongoing monitoring of a Contoso production agent.
 
-### Step 2 — Understand summary metrics
+#### Step 2 — Understand summary metrics
 
 1. In the **Overview** section on the Analytics tab, review the summary metrics.
 2. **Conversation sessions** — how many sessions occurred. A session starts when a user or agent initiates an interaction; a single conversation can contain multiple sessions.
@@ -161,7 +161,7 @@ Your **Contoso IT Operations Agent** has been deployed for several days. Field t
 
 > 💡 **Note:** Low engagement might mean users got their answer immediately (good!) or gave up after the first response (bad). **Always combine this metric with satisfaction scores** to interpret correctly. At Contoso, a 90% engagement + 90% satisfaction is a healthy IT-ops agent; 90% engagement + 40% satisfaction means the agent is *talking* but not *helping*.
 
-### Step 3 — Analyze conversation volume trends
+#### Step 3 — Analyze conversation volume trends
 
 1. Review the **Conversation outcomes** chart showing conversations over time.
 2. Look for patterns:
@@ -175,14 +175,14 @@ Your **Contoso IT Operations Agent** has been deployed for several days. Field t
 
 > 💡 **Tip:** Share **positive growth trends** with leadership to prove adoption and ROI. Use **declining trends** as triggers to refresh content or run an awareness campaign with field-ops leadership.
 
-### Step 4 — Review agent performance (child & connected agents)
+#### Step 4 — Review agent performance (child & connected agents)
 
 1. Go to the **Agents** section in analytics.
 2. Review the metrics for each **child** and **connected** agent your agent uses:
    - Which agents are being called and what type are they?
    - **Number of calls** and **success rate** — a low success rate may indicate the agent needs improvement, or that the planner is routing to it incorrectly (re-read [Lab 18](../18-account-orchestration-agent/index.md) Use Case #2 if you see this).
 
-### Step 5 — Review generated answer rate and quality
+#### Step 5 — Review generated answer rate and quality
 
 > 💡 This section requires a minimum of **10 answers per day** in conversation sessions before it populates.
 
@@ -195,7 +195,7 @@ Your **Contoso IT Operations Agent** has been deployed for several days. Field t
 7. **All sources** — breakdown by source. If your **uploaded Field Operations Remote Access Guide** is getting 0% usage, either users aren't asking those questions or the descriptions on the knowledge source need work.
 8. **Errors** — percentage of queries that produced a knowledge-related error per source. SharePoint permission errors and Bing connector throttling typically show up here first.
 
-### Step 6 — Review escalation and abandonment
+#### Step 6 — Review escalation and abandonment
 
 1. Go to the **Conversation outcomes** section on the Analytics tab.
 2. Upper-right corner of the section, select **See details**.
@@ -203,7 +203,7 @@ Your **Contoso IT Operations Agent** has been deployed for several days. Field t
 4. **Escalated** — how often users requested human assistance. **High escalation rates** mean the agent can't handle common scenarios — and at Contoso those drop on the helpdesk queue. Watch this number.
 5. **Abandoned** — conversations where users left without resolution. Pay attention to **where** in the conversation they drop off — that's a flow design problem, not a knowledge problem.
 
-### Step 7 — Review sessions and transcripts
+#### Step 7 — Review sessions and transcripts
 
 Use aggregate metrics to choose *where* to look, then use session detail to understand *why* the pattern happened. For the Contoso IT Operations Agent, review a small sample of real conversations before changing topics or knowledge sources.
 
@@ -218,7 +218,7 @@ Use aggregate metrics to choose *where* to look, then use session detail to unde
 
 > 💡 **Tip:** Don't rely on a single transcript. Sample a few sessions across the same pattern so you don't overfit the agent to one user's wording. For regulated scenarios, redact personal data before sharing transcript snippets with reviewers.
 
-### Step 8 — Identify improvement opportunities
+#### Step 8 — Identify improvement opportunities
 
 Based on your analytics and transcript review, build a **prioritized list of improvements**. Use this template:
 
@@ -232,7 +232,7 @@ Based on your analytics and transcript review, build a **prioritized list of imp
 
 > 💡 **Tip:** Always measure the **before/after impact** of each change by comparing analytics across the same date-range window. That validates your effort and informs the next round of optimization. Make **one change at a time** so you can attribute results cleanly.
 
-### ✅ You've completed Use Case #1
+#### ✅ You've completed Use Case #1
 
 **Key takeaways**
 
@@ -254,17 +254,17 @@ Based on your analytics and transcript review, build a **prioritized list of imp
 
 ---
 
-# 🧪 Use Case #2 — Create and Configure Evaluation Test Sets
+## 🧪 Use Case #2 — Create and Configure Evaluation Test Sets
 
 > 🎯 **Objective:** Create evaluation test sets four different ways and understand which approach to use when.
 
-## Scenario
+### Scenario
 
 You want to systematically test your Contoso IT Operations Agent. You'll create **three** distinct test sets — one auto-generated, one imported from CSV that's intentionally designed to **fail** (so you can see how the platform reports refusals), and one captured from real agent conversations that should **pass**. Together they form a complete picture of how different creation methods and outcomes work.
 
 > 💡 **Note:** Evaluation results are one quality signal. Pair them with manual review before promoting a production Contoso agent.
 
-### Step 1 — Generate test cases (Quick question set)
+#### Step 1 — Generate test cases (Quick question set)
 
 1. In your **Contoso IT Operations Agent**, select **Evaluation** in the top navigation bar.
 
@@ -302,7 +302,7 @@ You want to systematically test your Contoso IT Operations Agent. You'll create 
 11. Select a passing row too — the agent response and the LLM-judged reasoning are both worth reading.
 12. When done, select **Evaluation** in the agent's top nav to return to the test-set list.
 
-### Step 2 — Import test cases (CSV — adversarial "Always Fail" set)
+#### Step 2 — Import test cases (CSV — adversarial "Always Fail" set)
 
 1. Select **Create a test set** to open the **New evaluation** page.
 2. In the **Start by uploading some questions** section, select **CSV** to download the empty template.
@@ -323,7 +323,7 @@ You want to systematically test your Contoso IT Operations Agent. You'll create 
 6. Select **Save**.
 7. Select **Evaluate** to run. These adversarial cases use the **General quality** method to assess how the agent handles harmful requests. A "pass" on this set means **the agent appropriately refused or redirected** — not that it answered the harmful question.
 
-### Step 3 — Capture test cases from the test canvas ("Always Pass" set)
+#### Step 3 — Capture test cases from the test canvas ("Always Pass" set)
 
 1. Select the **Test** icon in the upper-right of the agent designer to open the test panel.
 2. Send the following message:
@@ -359,7 +359,7 @@ You want to systematically test your Contoso IT Operations Agent. You'll create 
 
 > 💡 **Note:** Since the expected responses were captured directly from the agent's own answers, this set should pass when re-evaluated — the agent should give the same (or very similar) answers when asked again. If it doesn't, you've discovered a *non-deterministic* response where you may want to tighten the agent's instructions.
 
-### Step 4 — Add a manual test case
+#### Step 4 — Add a manual test case
 
 1. Select **+ Add Question** → **Write**.
 2. Enter:
@@ -373,7 +373,7 @@ You want to systematically test your Contoso IT Operations Agent. You'll create 
 
 > ⚠️ **Important — key limits:** Each test set supports up to **100 test cases**. Questions can be up to **1,000 characters**. Evaluation results are retained for **89 days** — export anything you need for long-term reporting.
 
-### ✅ You've completed Use Case #2
+#### ✅ You've completed Use Case #2
 
 **Key takeaways**
 
@@ -395,15 +395,15 @@ You want to systematically test your Contoso IT Operations Agent. You'll create 
 
 ---
 
-# 🧪 Use Case #3 — Review Evaluation Results
+## 🧪 Use Case #3 — Review Evaluation Results
 
 > 🎯 **Objective:** Interpret evaluation outcomes, compare runs, and turn the results into measurable agent improvements.
 
-## Scenario
+### Scenario
 
 You created and ran three test sets in Use Case #2. Now read the results — pass rates, individual reasoning, activity maps, and run-over-run comparisons — and turn them into a backlog of concrete improvements for the Contoso IT Operations Agent.
 
-### Step 1 — Review the auto-generated test set results
+#### Step 1 — Review the auto-generated test set results
 
 1. Go to the **Evaluation** page in your **Contoso IT Operations Agent**.
 2. Select the **Contoso IT Ops — Non-Critical Set** to open its results.
@@ -424,7 +424,7 @@ For any result scored by **General quality** or **Compare meaning**, read the ev
 - If the evaluator passed an answer that omits a Contoso-required approval, citation, or safety caveat, tighten the expected response or add **Keyword match** for the required phrase.
 - For NERC CIP, PII, safety, and access-control cases, keep a human reviewer in the loop before using the result as a production gate.
 
-### Step 2 — Interpret scores, citations, and evaluator reasoning
+#### Step 2 — Interpret scores, citations, and evaluator reasoning
 
 Before you move between test sets, calibrate how you read individual results. The pass/fail label is the headline, but the detail pane is where you learn what to fix.
 
@@ -445,7 +445,7 @@ Before you move between test sets, calibrate how you read individual results. Th
 
 > 💡 **Tip:** A high score without the right citation is not enough for regulated utility scenarios. Treat citations as evidence quality, not decoration.
 
-### Step 3 — Review the "Always Fail" / Adversarial set results
+#### Step 3 — Review the "Always Fail" / Adversarial set results
 
 1. Select the **Contoso IT Ops — Adversarial / Always Fail Set**.
 2. Review the test-case results. These adversarial questions test whether your agent properly **refuses harmful or off-policy requests** using the **General quality** method.
@@ -456,7 +456,7 @@ Before you move between test sets, calibrate how you read individual results. Th
 
 > 💡 **Note — what "pass" means here:** A pass on the adversarial set means *"the agent appropriately refused or redirected,"* not *"the agent answered the harmful question."* If the agent **complied** with any of the adversarial cases (drafted a phishing email, gave bypass instructions, leaked PII), treat that as a **P0 issue** — tighten the agent's instructions immediately and re-run.
 
-### Step 4 — Review the "Always Pass" set results
+#### Step 4 — Review the "Always Pass" set results
 
 1. Select **Contoso IT Ops — Always Pass Set**.
 2. Review the pass rate. Since expected responses came from the agent's own answers, most cases should pass.
@@ -465,7 +465,7 @@ Before you move between test sets, calibrate how you read individual results. Th
 
 > 💡 **Tip:** If the **DLP test case failed**, that's a **knowledge gap** — the agent doesn't have the Contoso DLP policy in its knowledge sources. This is exactly how evaluations help you discover where to expand knowledge or improve instructions. Add the gap to the backlog you started in Use Case #1, Step 8.
 
-### Step 5 — Filter and compare results
+#### Step 5 — Filter and compare results
 
 1. Use the **filter** options to focus on a subset:
    - **All** — every test case
@@ -490,7 +490,7 @@ Before you publish an agent update, compare the latest run against the last know
 | Adversarial case changes from refusal to compliance | Stop; treat as a P0 safety issue |
 | No score movement after a content change | Recheck whether the test set covers the scenario you changed |
 
-### Step 6 — Provide feedback and export results
+#### Step 6 — Provide feedback and export results
 
 1. For an individual test case, use the 👍 / 👎 buttons to indicate whether the evaluation's pass/fail determination was correct:
    - 👍 The evaluation correctly assessed the response
@@ -506,7 +506,7 @@ Before you publish an agent update, compare the latest run against the last know
 
 > ⚠️ **Governance reminder:** Evaluation exports and transcripts can contain user prompts, generated answers, and potentially sensitive operational details. Store them in an approved Contoso location, redact personal data before broad distribution, and keep retention aligned with your compliance team's guidance.
 
-### ✅ You've completed Use Case #3
+#### ✅ You've completed Use Case #3
 
 **Test your understanding**
 
@@ -522,11 +522,11 @@ Before you publish an agent update, compare the latest run against the last know
 
 ---
 
-# 🧪 Use Case #4 — Application Insights Integration for Copilot Studio
+## 🧪 Use Case #4 — Application Insights Integration for Copilot Studio
 
 > 🎯 **Objective:** Connect Azure Application Insights to your Copilot Studio agent, write KQL queries to analyze conversation telemetry, build monitoring dashboards, and set up proactive alerts for production observability.
 
-## Scenario
+### Scenario
 
 As the Contoso Energy IT Operations team scales their agent to thousands of field technicians across substations, dispatch centers, and remote sites, the in-product analytics dashboard from Use Case #1 covers daily operational checks — but it can't answer deeper questions. *"Why did response latency spike at 2 AM during last Tuesday's storm?"* *"Which knowledge source is causing timeouts?"* *"How does conversation volume correlate with our ServiceNow ticket deflection?"* For that level of diagnostics, you need **Azure Application Insights** — the same telemetry platform that backs mission-critical Azure services across Contoso Infrastructure and Contoso Power.
 
@@ -538,13 +538,13 @@ As the Contoso Energy IT Operations team scales their agent to thousands of fiel
 > | Custom KQL queries, cross-service correlation, long-term retention (90+ days), and proactive alerting | **Application Insights** (this use case) |
 > | Repeatable quality testing after agent changes | **Agent Evaluation** (Use Cases #2–3) |
 
-### Prerequisites
+#### Prerequisites
 
 - An **Azure subscription** with permissions to create or access an Application Insights resource
 - Your **Contoso IT Operations Agent** from Lab 04 (or any published Copilot Studio agent)
 - Basic familiarity with the **Azure portal** ([portal.azure.com](https://portal.azure.com))
 
-### Step 1 — Create or identify an Application Insights resource
+#### Step 1 — Create or identify an Application Insights resource
 
 1. Sign in to the [Azure portal](https://portal.azure.com).
 2. Search for **Application Insights** in the top search bar and select it.
@@ -559,7 +559,7 @@ As the Contoso Energy IT Operations team scales their agent to thousands of fiel
 
 > ⚠️ **Important — connection string vs. instrumentation key.** Microsoft recommends using the **connection string** (which includes the instrumentation key plus ingestion endpoint) rather than the instrumentation key alone. The connection string is more resilient and supports regional endpoints. See [Connection strings in Application Insights](https://learn.microsoft.com/azure/azure-monitor/app/sdk-connection-string).
 
-### Step 2 — Connect Application Insights to Copilot Studio
+#### Step 2 — Connect Application Insights to Copilot Studio
 
 1. In **Copilot Studio**, open your **Contoso IT Operations Agent**.
 2. Select **Settings** (gear icon) in the top-right corner.
@@ -572,7 +572,7 @@ As the Contoso Energy IT Operations team scales their agent to thousands of fiel
 
 > ⚠️ **Important — environment-level vs. agent-level.** Depending on your Copilot Studio version and environment configuration, Application Insights may be configured at the **environment level** (applies to all agents) or the **agent level**. Check with your Contoso platform admin if you don't see the setting at the agent level. See [Configure Application Insights for your agent](https://learn.microsoft.com/microsoft-copilot-studio/advanced-bot-framework-composer-capture-telemetry).
 
-### Step 3 — Understand what telemetry Copilot Studio sends
+#### Step 3 — Understand what telemetry Copilot Studio sends
 
 Once connected, Copilot Studio emits telemetry to Application Insights across several tables. Familiarize yourself with the key tables before writing queries:
 
@@ -598,11 +598,11 @@ Once connected, Copilot Studio emits telemetry to Application Insights across se
 
 > 💡 **Tip:** The exact event names and schema may vary by Copilot Studio version. Use `customEvents | distinct name` to discover what's available in your environment. Microsoft is actively enriching the telemetry — check [What's new in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/whats-new) periodically.
 
-### Step 4 — Write KQL queries to analyze agent behavior
+#### Step 4 — Write KQL queries to analyze agent behavior
 
 Now write targeted KQL queries that answer the diagnostic questions in-product analytics can't. Run each query in the **Logs** blade of your Application Insights resource.
 
-#### 4a — Conversation volume and trends over time
+##### 4a — Conversation volume and trends over time
 
 ```kql
 customEvents
@@ -614,7 +614,7 @@ customEvents
 
 > 💡 **Contoso context:** Look for spikes during storm events, planned outages, or after training rollouts. A sudden drop might mean the agent's channel (e.g., Teams app) was uninstalled or the bot endpoint is down — not that users stopped needing help.
 
-#### 4b — Most triggered topics and success/failure rates
+##### 4b — Most triggered topics and success/failure rates
 
 ```kql
 customEvents
@@ -629,7 +629,7 @@ customEvents
 | order by TotalTriggers desc
 ```
 
-#### 4c — Average response latency per topic
+##### 4c — Average response latency per topic
 
 ```kql
 requests
@@ -646,7 +646,7 @@ requests
 
 > ⚠️ **Important — latency thresholds for field crews.** Contoso Energy field technicians often interact with the agent from mobile devices at remote substations with limited connectivity. A P95 latency above **10 seconds** likely means abandonment. Set your latency SLA accordingly and investigate any topic consistently above that threshold.
 
-#### 4d — Error and exception analysis
+##### 4d — Error and exception analysis
 
 ```kql
 exceptions
@@ -669,7 +669,7 @@ exceptions
 | take 50
 ```
 
-#### 4e — Knowledge source hit/miss rates
+##### 4e — Knowledge source hit/miss rates
 
 ```kql
 customEvents
@@ -689,7 +689,7 @@ customEvents
 
 > 💡 **Contoso context:** If the **NERC CIP Remote Access Standard** knowledge source shows a low hit rate but you know field crews are asking those questions, the issue is likely in how the knowledge source is described — the orchestrator isn't routing to it. Revisit the description and keywords in the knowledge source configuration.
 
-#### 4f — User session duration and engagement patterns
+##### 4f — User session duration and engagement patterns
 
 ```kql
 customEvents
@@ -721,7 +721,7 @@ customEvents
 
 > 💡 **Tip:** At Contoso Energy, field crews typically start shifts at 6 AM Pacific. Expect a usage peak between 6–8 AM as technicians check procedures for the day's work orders. If you see significant usage outside business hours, that's likely after-hours outage response — make sure the agent handles those scenarios well.
 
-### Step 5 — Create an Azure Monitor workbook for ongoing monitoring
+#### Step 5 — Create an Azure Monitor workbook for ongoing monitoring
 
 Individual KQL queries are powerful for investigation, but for daily monitoring you need a **reusable dashboard**. Azure Monitor Workbooks let you combine multiple queries, parameters, and visualizations into a single view.
 
@@ -767,7 +767,7 @@ Individual KQL queries are powerful for investigation, but for daily monitoring 
 
 > 📎 **Microsoft guidance:** For workbook authoring patterns, see [Azure Monitor Workbooks](https://learn.microsoft.com/azure/azure-monitor/visualize/workbooks-overview).
 
-### Step 6 — Set up alert rules for proactive monitoring
+#### Step 6 — Set up alert rules for proactive monitoring
 
 Don't wait for users to report problems — let Azure Monitor tell you first.
 
@@ -819,7 +819,7 @@ Don't wait for users to report problems — let Azure Monitor tell you first.
 
 > 📎 **Microsoft guidance:** See [Create or edit an alert rule](https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-create-new-alert-rule) for the full configuration reference.
 
-### Step 7 — Compare Application Insights data with in-product analytics
+#### Step 7 — Compare Application Insights data with in-product analytics
 
 Now that you have both in-product analytics (Use Case #1) and Application Insights (this use case), understand when to reach for each tool.
 
@@ -844,7 +844,7 @@ Now that you have both in-product analytics (Use Case #1) and Application Insigh
 
 > 💡 **Tip:** For Contoso's quarterly business reviews, use **in-product analytics** for the executive summary (clean charts, built-in) and **Application Insights workbooks** for the appendix (deep dives, custom analysis, correlation with Azure service health).
 
-### ✅ You've completed Use Case #4
+#### ✅ You've completed Use Case #4
 
 **Key takeaways**
 
@@ -876,7 +876,7 @@ Now that you have both in-product analytics (Use Case #1) and Application Insigh
 
 ---
 
-# 🧠 Summary of learnings
+## 🧠 Summary of learnings
 
 You've put together the three pillars of an agent quality practice:
 
@@ -884,7 +884,7 @@ You've put together the three pillars of an agent quality practice:
 - **Evaluations** tells you **whether** your improvements actually worked — repeatable, objective, comparable across runs.
 - **Application Insights** tells you **why** things happen — deep diagnostics, custom KQL queries, long-term retention, cross-service correlation, and proactive alerting.
 
-## 🪙 Analytics & evaluation golden rules for Contoso
+### 🪙 Analytics & evaluation golden rules for Contoso
 
 1. **Review analytics weekly for new agents, bi-weekly for mature agents.** Set a calendar reminder — drift happens silently.
 2. **Prioritize improvements by volume × satisfaction-impact.** A 50% satisfaction score on a topic that's asked 1,000 times beats 90% on a topic that's asked twice.

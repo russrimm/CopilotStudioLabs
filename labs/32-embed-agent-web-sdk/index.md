@@ -99,7 +99,7 @@ By the end of this lab, you will be able to:
 
 ---
 
-# 🧪 Use Case #1 — Configure Your Copilot Studio Agent (10 min)
+## 🧪 Use Case #1 — Configure Your Copilot Studio Agent (10 min)
 
 ```mermaid
 flowchart LR
@@ -127,7 +127,7 @@ The Copilot Studio Client SDK connects to your agent using three values:
 - **Agent (Schema) Name** — the immutable schema name of the agent
 - **Cloud / Region** — usually `Prod` (commercial cloud); some tenants use sovereign clouds
 
-## Step 1 — Publish your agent
+### Step 1 — Publish your agent
 
 1. Open [Microsoft Copilot Studio](https://copilotstudio.microsoft.com).
 2. Select the **environment** that contains your agent (top-right environment picker).
@@ -136,7 +136,7 @@ The Copilot Studio Client SDK connects to your agent using three values:
 
 > ⚠️ The SDK only sees the **published** version of your agent. If you edit topics or instructions later, re-publish before re-testing.
 
-### Step 2 — Capture the Environment ID
+#### Step 2 — Capture the Environment ID
 
 1. In Copilot Studio, click the **settings gear** (top-right).
 2. Select **Advanced** → **Resources**.
@@ -145,13 +145,13 @@ The Copilot Studio Client SDK connects to your agent using three values:
 
 **Alternative:** In the [Power Platform admin center](https://admin.powerplatform.microsoft.com/) → **Environments** → your environment → **Environment ID** is shown in the details pane.
 
-### Step 3 — Capture the Agent Schema Name
+#### Step 3 — Capture the Agent Schema Name
 
 1. Back in your agent, go to **Settings** → **Advanced**.
 2. Find **Schema name** (it usually looks like `cr1a3_contosoITOperationsAgent`).
 3. Copy it exactly — case and prefix matter.
 
-### Step 4 — Note the Cloud
+#### Step 4 — Note the Cloud
 
 For most commercial tenants, the cloud is simply `Prod`. If your organization uses GCC, GCC High, DoD, or another sovereign cloud, take note — you'll set this in the SDK config.
 
@@ -159,7 +159,7 @@ For most commercial tenants, the cloud is simply `Prod`. If your organization us
 
 ---
 
-# 🧪 Use Case #2 — Register an Entra ID Application (15 min)
+## 🧪 Use Case #2 — Register an Entra ID Application (15 min)
 
 ```mermaid
 flowchart LR
@@ -183,7 +183,7 @@ flowchart LR
 
 The Copilot Studio Client SDK uses **delegated** authentication — the user signs in, the app gets a token on their behalf, and Copilot Studio runs the conversation as that user. This is what enables identity-aware scenarios (the agent can know who you are, look up your tickets, your orders, etc.).
 
-## Step 1 — Create the app registration
+### Step 1 — Create the app registration
 
 1. Open the [Microsoft Entra admin center](https://entra.microsoft.com).
 2. In the left nav, go to **Applications** → **App registrations**.
@@ -196,7 +196,7 @@ The Copilot Studio Client SDK uses **delegated** authentication — the user sig
      - URI: `http://localhost:5173`
 5. Click **Register**.
 
-### Step 2 — Capture the Application IDs
+#### Step 2 — Capture the Application IDs
 
 On the app's **Overview** page, copy these two values:
 
@@ -205,14 +205,14 @@ On the app's **Overview** page, copy these two values:
 
 Save them next to your earlier three values.
 
-### Step 3 — Configure the SPA redirect (verify)
+#### Step 3 — Configure the SPA redirect (verify)
 
 1. Go to **Authentication** in the left nav.
 2. Confirm there's a **Single-page application** platform entry with `http://localhost:5173` listed.
 3. Under **Implicit grant and hybrid flows**, leave both checkboxes **unchecked** (we'll use the modern auth code flow with PKCE, which MSAL.js handles automatically).
 4. Click **Save** if you made changes.
 
-### Step 4 — Add the Power Platform API permission
+#### Step 4 — Add the Power Platform API permission
 
 This is the step most people miss — without it, MSAL will return a token but Copilot Studio will reject it.
 
@@ -229,7 +229,7 @@ This is the step most people miss — without it, MSAL will return a token but C
 > - **Microsoft Graph PowerShell:** connect with `Connect-MgGraph -Scopes Application.ReadWrite.All`, then run `New-MgServicePrincipal -AppId 8578e004-a5c6-46e7-913e-12f58912df43` (the well-known Power Platform API app ID), or
 > - **Azure CLI:** `az ad sp create --id 8578e004-a5c6-46e7-913e-12f58912df43`
 
-### Step 5 — (Optional) Grant admin consent
+#### Step 5 — (Optional) Grant admin consent
 
 If your tenant requires admin consent for this scope, click **Grant admin consent for {tenant}** at the top of the API permissions page. Otherwise, individual users will see a one-time consent prompt the first time they sign in.
 
@@ -237,7 +237,7 @@ If your tenant requires admin consent for this scope, click **Grant admin consen
 
 ---
 
-# 🧪 Use Case #3 — Scaffold the Web App (10 min)
+## 🧪 Use Case #3 — Scaffold the Web App (10 min)
 
 ```mermaid
 flowchart LR
@@ -261,7 +261,7 @@ flowchart LR
 
 We're using **Vite** because it gives us a near-zero-config dev server with TypeScript and ES modules — perfect for a lab. The same code works inside React, Vue, Angular, or any other framework — only the rendering layer changes.
 
-## Step 1 — Create the project
+### Step 1 — Create the project
 
 Open a terminal and run:
 
@@ -273,7 +273,7 @@ npm install
 
 When asked, accept the defaults.
 
-### Step 2 — Install the SDK + MSAL
+#### Step 2 — Install the SDK + MSAL
 
 ```bash
 npm install @microsoft/agents-copilotstudio-client @azure/msal-browser
@@ -282,7 +282,7 @@ npm install @microsoft/agents-copilotstudio-client @azure/msal-browser
 - `@microsoft/agents-copilotstudio-client` — the official Copilot Studio Client SDK
 - `@azure/msal-browser` — Microsoft Authentication Library for browser-based apps
 
-### Step 3 — Create the config file
+#### Step 3 — Create the config file
 
 Create a new file `src/config.ts`:
 
@@ -321,7 +321,7 @@ export const branding = {
 
 > 🔒 **Security note:** `clientId` and `tenantId` are **not secrets** — they're identifiers that end up in the browser regardless. But never put a client *secret* in a frontend app. The SPA flow uses PKCE specifically so no secret is needed.
 
-### Step 4 — Customize the avatar (optional)
+#### Step 4 — Customize the avatar (optional)
 
 The starter sample includes `public/agent-avatar.svg`. Replace it with an approved brand asset if needed, then update `agentAvatarUrl` and the favicon reference to match.
 
@@ -329,7 +329,7 @@ The starter sample includes `public/agent-avatar.svg`. Replace it with an approv
 
 ---
 
-# 🧪 Use Case #4 — Wire Up MSAL Authentication (10 min)
+## 🧪 Use Case #4 — Wire Up MSAL Authentication (10 min)
 
 ```mermaid
 flowchart LR
@@ -351,7 +351,7 @@ flowchart LR
 
 > 🎯 **Objective:** Sign the user in, get a token, refresh it silently.
 
-## Step 1 — Create an auth helper
+### Step 1 — Create an auth helper
 
 Create `src/auth.ts`:
 
@@ -433,7 +433,7 @@ export async function getAccessToken(): Promise<string> {
 }
 ```
 
-### Step 2 — Why this matters
+#### Step 2 — Why this matters
 
 - **Silent first, interactive fallback.** Tokens last ~60–90 min. Silent acquisition uses the cached refresh token; if it expires or the user revokes consent, we pop up an interactive flow.
 - **Popup vs. redirect.** Popup is simpler for a lab. Production apps often prefer redirect for mobile compatibility — MSAL supports both with nearly identical APIs.
@@ -443,7 +443,7 @@ export async function getAccessToken(): Promise<string> {
 
 ---
 
-# 🧪 Use Case #5 — Connect the SDK to Your Agent (10 min)
+## 🧪 Use Case #5 — Connect the SDK to Your Agent (10 min)
 
 ```mermaid
 flowchart LR
@@ -465,7 +465,7 @@ flowchart LR
 
 > 🎯 **Objective:** Instantiate the `CopilotStudioClient`, start a conversation, send and receive messages.
 
-## Step 1 — Create the chat client wrapper
+### Step 1 — Create the chat client wrapper
 
 Create `src/chatClient.ts`:
 
@@ -539,7 +539,7 @@ export function resetClient() {
 }
 ```
 
-### Step 2 — What's happening
+#### Step 2 — What's happening
 
 - **`startConversationAsync(true)`** opens a new conversation and asks the agent to send its greeting (topic: `Conversation Start`). It resolves to the initial activity array.
 - **`askQuestionAsync(text, conversationId)`** sends a user message and streams the agent's response activities (text, typing indicators, suggested actions, adaptive cards).
@@ -549,7 +549,7 @@ export function resetClient() {
 
 ---
 
-# 🧪 Use Case #6 — Build the Branded Chat UI (15 min)
+## 🧪 Use Case #6 — Build the Branded Chat UI (15 min)
 
 ```mermaid
 flowchart LR
@@ -571,7 +571,7 @@ flowchart LR
 
 > 🎯 **Objective:** Replace the default Vite template with a custom-branded chat experience.
 
-## Step 1 — Replace `index.html`
+### Step 1 — Replace `index.html`
 
 Open `index.html` at the project root and replace its contents with:
 
@@ -591,7 +591,7 @@ Open `index.html` at the project root and replace its contents with:
 </html>
 ```
 
-### Step 2 — Replace `src/main.ts`
+#### Step 2 — Replace `src/main.ts`
 
 ```typescript
 // src/main.ts
@@ -750,7 +750,7 @@ async function openWelcome() {
 bootstrap();
 ```
 
-### Step 3 — Create `src/ui.ts` for activity rendering
+#### Step 3 — Create `src/ui.ts` for activity rendering
 
 ```typescript
 // src/ui.ts
@@ -851,7 +851,7 @@ function formatText(s: string) {
 }
 ```
 
-### Step 4 — Add `src/styles.css`
+#### Step 4 — Add `src/styles.css`
 
 ```css
 /* src/styles.css */
@@ -1028,7 +1028,7 @@ body {
 
 ---
 
-# 🧪 Use Case #7 — Customize the Look & Brand (5 min)
+## 🧪 Use Case #7 — Customize the Look & Brand (5 min)
 
 ```mermaid
 flowchart LR
@@ -1075,7 +1075,7 @@ All the cosmetic knobs live in `src/config.ts` under `branding`. Tweak any of th
 
 ---
 
-# 🧪 Use Case #8 — Run It End-to-End (5 min)
+## 🧪 Use Case #8 — Run It End-to-End (5 min)
 
 ```mermaid
 flowchart LR
@@ -1097,7 +1097,7 @@ flowchart LR
 
 > 🎯 **Objective:** Verify the full sign-in → conversation → reply loop.
 
-## Step 1 — Start the dev server
+### Step 1 — Start the dev server
 
 ```bash
 npm run dev
@@ -1105,14 +1105,14 @@ npm run dev
 
 Vite prints a local URL — typically `http://localhost:5173`. Open it in your browser.
 
-### Step 2 — Sign in
+#### Step 2 — Sign in
 
 1. Click **Sign in** in the top-right of the chat shell.
 2. A popup appears — sign in with your work or school account.
 3. If this is your first time, you'll see a consent prompt asking you to grant the app access to **Copilot Studio**. Click **Accept**.
 4. The popup closes. The composer becomes enabled.
 
-### Step 3 — Have a conversation
+#### Step 3 — Have a conversation
 
 1. The agent's greeting (from your `Conversation Start` topic) should appear automatically.
 2. Try a question your agent should answer well — for example, if you're using the Contoso IT agent: *"How do I reset my VPN password?"*
@@ -1122,7 +1122,7 @@ Vite prints a local URL — typically `http://localhost:5173`. Open it in your b
    - ✅ Suggested-action chips (if your topics emit them)
    - ✅ Adaptive cards rendering (as JSON fallback in this lab)
 
-### Step 4 — Verify identity-awareness
+#### Step 4 — Verify identity-awareness
 
 Ask: *"What's my name?"* If your agent uses the system variable `User.DisplayName` or `User.PrincipalName`, it should answer correctly — proof that delegated authentication is flowing through.
 
@@ -1130,7 +1130,7 @@ Ask: *"What's my name?"* If your agent uses the system variable `User.DisplayNam
 
 ---
 
-## 🧯 Troubleshooting
+### 🧯 Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
@@ -1146,7 +1146,7 @@ Ask: *"What's my name?"* If your agent uses the system variable `User.DisplayNam
 
 ---
 
-## 🚀 Going further
+### 🚀 Going further
 
 This lab gives you a working foundation. Here's what to add for production:
 
@@ -1163,7 +1163,7 @@ This lab gives you a working foundation. Here's what to add for production:
 
 ---
 
-## 🧠 Concepts recap
+### 🧠 Concepts recap
 
 | Concept | What it means here |
 |---|---|
@@ -1176,7 +1176,7 @@ This lab gives you a working foundation. Here's what to add for production:
 
 ---
 
-## 🔗 References
+### 🔗 References
 
 - [Copilot Studio Client SDK on npm](https://www.npmjs.com/package/@microsoft/agents-copilotstudio-client)
 - [Copilot Studio – Connect with the Copilot Studio Client SDK](https://learn.microsoft.com/en-us/microsoft-copilot-studio/)
@@ -1187,7 +1187,7 @@ This lab gives you a working foundation. Here's what to add for production:
 
 ---
 
-## ✅ What you built
+### ✅ What you built
 
 - A fully branded, custom-UI chat experience embedded in your own web app
 - End-to-end Entra ID authentication using MSAL.js and PKCE
@@ -1198,6 +1198,6 @@ You now have everything you need to put a Copilot Studio agent inside your own p
 
 > ➡️ Pair this with [Lab 04](../04-energy-ops-agent/index.md) for an agent to embed, or [Lab 06](../06-energy-weather-agent/index.md) for the full end-to-end experience.
 
-## ✅ Completion
+### ✅ Completion
 
 Lab 32 is complete when sign-in, token acquisition, conversation start, and branded message rendering all work end-to-end in your web app.

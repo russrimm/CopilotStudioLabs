@@ -173,17 +173,17 @@ and UI automation only when there is no better contract.
 
 ---
 
-# 🧪 Use Case #1 — Build a Custom Connector from OpenAPI
+## 🧪 Use Case #1 — Build a Custom Connector from OpenAPI
 
 > 🎯 **Objective:** Import an API definition, review the generated connector metadata, and test a working operation before involving Copilot Studio.
 
-## Scenario
+### Scenario
 
 You want a Copilot Studio agent to call a REST API that is not available as a prebuilt connector.
 The API is documented with Swagger or OpenAPI.
 Your job is to wrap it as a custom connector that other makers can reuse.
 
-### Step 1 — Choose the API and definition source
+#### Step 1 — Choose the API and definition source
 
 1. Pick a lab-safe REST API.
 2. For a public example, use **JSONPlaceholder** for anonymous testing or **GitHub REST API** for more realistic auth and throttling behavior.
@@ -191,7 +191,7 @@ Your job is to wrap it as a custom connector that other makers can reuse.
 4. If your source definition is OpenAPI 3.x, convert it before import.
 5. Keep the file under the platform size limits and review it for unnecessary operations.
 
-### Step 2 — Import the OpenAPI definition
+#### Step 2 — Import the OpenAPI definition
 
 1. In **Power Apps** or **Power Automate**, open **Data** > **Custom connectors**.
 2. Select **New custom connector** > **Import an OpenAPI file**.
@@ -199,7 +199,7 @@ Your job is to wrap it as a custom connector that other makers can reuse.
 4. Upload the definition and continue.
 5. Review the imported icon, description, host, and base URL.
 
-### Step 3 — Review the General page carefully
+#### Step 3 — Review the General page carefully
 
 1. Confirm the title and description are understandable to other makers.
 2. Confirm the **host** and **base URL** match the API.
@@ -210,7 +210,7 @@ Your job is to wrap it as a custom connector that other makers can reuse.
 > 💡 **Tip:** A custom connector is a shared product, not just a lab artifact.
 Name it like something other teams could discover and trust.
 
-### Step 4 — Review the Definition page
+#### Step 4 — Review the Definition page
 
 1. Inspect each operation summary.
 2. Rename cryptic operation IDs to human-readable actions.
@@ -218,14 +218,14 @@ Name it like something other teams could discover and trust.
 4. Add sample descriptions for inputs that makers might misuse.
 5. Hide operations that do not belong in self-service use.
 
-#### Example operation cleanup checklist
+##### Example operation cleanup checklist
 
 - Replace `getRepoPulls` with **List repository pull requests**.
 - Replace `id` with **Repository owner** or **Issue number** where possible.
 - Add descriptions that mention rate limits and paging.
 - Remove admin-only operations from the connector definition.
 
-### Step 5 — Test the connector operation
+#### Step 5 — Test the connector operation
 
 1. Create the connector.
 2. Open the **Test** tab.
@@ -239,42 +239,42 @@ Name it like something other teams could discover and trust.
 > ⚠️ **Warning:** Do not expose every operation in a large public API “just because the spec imported cleanly.”
 Each operation you leave visible becomes part of your governance surface.
 
-### Validation checklist
+#### Validation checklist
 
 - The connector imports successfully.
 - The host and base path are correct.
 - Operation names are readable.
 - At least one operation runs successfully in the Test tab.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If import fails, inspect the definition for unsupported constructs and confirm it is OpenAPI 2.0.
 - If the connector imports but operations look wrong, simplify the spec rather than fighting every generated field manually.
 - If responses are too noisy, create a narrower API wrapper instead of exposing a massive public API directly.
 
-### Challenge
+#### Challenge
 
 Import a second API definition and compare the maker experience.
 Which spec is easier to govern?
 Which one would be safer to expose to a wide internal audience?
 
-### ✅ You've completed Use Case #1
+#### ✅ You've completed Use Case #1
 
 You now have a reusable API wrapper and a baseline for secure authentication.
 
 ---
 
-# 🧪 Use Case #2 — Add OAuth 2.0 Authentication
+## 🧪 Use Case #2 — Add OAuth 2.0 Authentication
 
 > 🎯 **Objective:** Secure the connector with Microsoft Entra ID OAuth 2.0 and avoid the most common redirect-URI mistakes.
 
-## Scenario
+### Scenario
 
 Your API should not be anonymous.
 You need delegated user access, central app governance, and a repeatable sign-in experience.
 Microsoft Entra ID is the preferred identity provider for this scenario.
 
-### Step 1 — Register the application in Microsoft Entra ID
+#### Step 1 — Register the application in Microsoft Entra ID
 
 1. Open the **Azure portal**.
 2. Go to **Microsoft Entra ID** > **App registrations**.
@@ -284,7 +284,7 @@ Microsoft Entra ID is the preferred identity provider for this scenario.
 6. Create a **client secret** if your pattern requires it.
 7. Record the **tenant ID**, **client ID**, and **client secret** securely.
 
-### Step 2 — Configure OAuth on the connector Security tab
+#### Step 2 — Configure OAuth on the connector Security tab
 
 1. Edit the custom connector.
 2. Open the **Security** tab.
@@ -299,7 +299,7 @@ Microsoft Entra ID is the preferred identity provider for this scenario.
    - Resource URL or scope configuration required by the API.
 6. Save the connector.
 
-### Step 3 — Capture the unique redirect URI
+#### Step 3 — Capture the unique redirect URI
 
 1. After saving, review the generated **Redirect URL**.
 2. Copy that exact connector-specific redirect URI.
@@ -310,14 +310,14 @@ Microsoft Entra ID is the preferred identity provider for this scenario.
 > ⚠️ **Warning:** Do **not** rely on the old shared or global redirect URI assumption.
 Custom connectors that use OAuth require the **unique per-connector redirect URL** pattern.
 
-### Step 4 — Apply the post-February-2024 redirect requirement
+#### Step 4 — Apply the post-February-2024 redirect requirement
 
 1. On the **Security** tab, check the box labeled **Update to unique redirect URL** if you are modernizing an older connector.
 2. Save the connector.
 3. Remove the obsolete global redirect URI from the Entra app if your organization no longer needs it.
 4. Update any deployment documentation so future admins use the unique redirect URI only.
 
-### Step 5 — Create and test the connection
+#### Step 5 — Create and test the connection
 
 1. Open the connector **Test** tab.
 2. Create a new connection.
@@ -328,7 +328,7 @@ Custom connectors that use OAuth require the **unique per-connector redirect URL
 > 💡 **Tip:** Test the OAuth connection with the smallest safe read operation first.
 It is much easier to debug auth with a simple `GET` than with a complex multi-parameter action.
 
-### Step 6 — Review alternate auth choices
+#### Step 6 — Review alternate auth choices
 
 1. Record why **Entra ID OAuth 2.0** is preferred for enterprise APIs.
 2. Record when you might still use:
@@ -344,44 +344,44 @@ It is much easier to debug auth with a simple `GET` than with a complex multi-pa
 | API key | Simple service-level access | Easier to set up, but weaker for delegated identity scenarios |
 | Basic auth | Legacy systems only | Use sparingly and review credential handling carefully |
 
-### Validation checklist
+#### Validation checklist
 
 - Entra app registration exists.
 - Connector security is configured correctly.
 - Unique redirect URI is registered.
 - An authenticated connection can be created successfully.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If sign-in loops, verify the redirect URI exactly matches the connector-generated value.
 - If consent succeeds but calls fail, review scopes, resource URL, and delegated permissions.
 - If the connector was created before the redirect-URI change and new connections fail, update it to the per-connector redirect mode immediately.
 - If a third-party OAuth provider behaves differently, document its token and redirect expectations separately from the Entra pattern.
 
-### Challenge
+#### Challenge
 
 Configure a second connector that uses **Generic OAuth 2.0** instead of Entra ID.
 Compare the configuration experience.
 Which settings were harder to standardize?
 Which approach would you support at scale more easily?
 
-### ✅ You've completed Use Case #2
+#### ✅ You've completed Use Case #2
 
 You now have an authenticated connector and a documented OAuth pattern your team can reuse.
 
 ---
 
-# 🧪 Use Case #3 — Connect Custom Connector to Copilot Studio
+## 🧪 Use Case #3 — Connect Custom Connector to Copilot Studio
 
 > 🎯 **Objective:** Add the custom connector as a tool, decide how credentials will be supplied, and build a topic that uses the operation safely.
 
-## Scenario
+### Scenario
 
 The connector works in the Test tab.
 Now you want the agent to call it during real conversations.
 You also need to decide whether the user or the maker supplies the credentials.
 
-### Step 1 — Add the connector as a tool
+#### Step 1 — Add the connector as a tool
 
 1. Open the target agent in Copilot Studio.
 2. Go to **Tools**.
@@ -390,7 +390,7 @@ You also need to decide whether the user or the maker supplies the credentials.
 5. Pick the operation or operations you want to expose.
 6. Write clear descriptions so the planner knows when to call them.
 
-### Step 2 — Choose the connection model
+#### Step 2 — Choose the connection model
 
 1. Decide between **user authentication** and **maker-provided credentials**.
 2. Choose **user authentication** when the API should respect each user's identity and permissions.
@@ -399,7 +399,7 @@ You also need to decide whether the user or the maker supplies the credentials.
    - User auth is usually safer and more auditable.
    - Maker-provided credentials may simplify onboarding but can broaden access if not carefully scoped.
 
-### Step 3 — Create the topic or prompt pattern
+#### Step 3 — Create the topic or prompt pattern
 
 1. Build a topic such as **Check engineering issue status**.
 2. Ask the user for the issue number or repository name.
@@ -407,13 +407,13 @@ You also need to decide whether the user or the maker supplies the credentials.
 4. Summarize the response in plain language.
 5. Return only the fields that make sense in conversation.
 
-#### Sample Copilot Studio topic starter
+##### Sample Copilot Studio topic starter
 
 ```text
 When a user asks about an engineering issue, GitHub pull request, or internal support ticket, collect the identifier, call the appropriate custom connector action, summarize the current status, and suggest the next step without exposing raw tokens or unnecessary API payload fields.
 ```
 
-### Step 4 — Test the tool behavior
+#### Step 4 — Test the tool behavior
 
 1. Use the Copilot Studio test chat.
 2. Ask a direct question that should trigger the tool.
@@ -421,7 +421,7 @@ When a user asks about an engineering issue, GitHub pull request, or internal su
 4. Confirm the tool fired and returned the expected operation.
 5. Adjust the tool description if the planner misses the action.
 
-### Step 5 — Review sharing and permissions
+#### Step 5 — Review sharing and permissions
 
 1. Ensure the connector is shared appropriately.
 2. Confirm makers who need the tool have permission to view and use the connector.
@@ -434,42 +434,42 @@ Someone must own schema changes, secret rotation, and support questions long aft
 > ⚠️ **Warning:** A working connector does not guarantee a good orchestration experience.
 Poor tool descriptions can cause the planner to ignore the connector or call it at the wrong time.
 
-### Validation checklist
+#### Validation checklist
 
 - The connector appears as a tool in Copilot Studio.
 - The chosen auth model is documented.
 - A topic or prompt pattern calls the connector successfully.
 - Test chat shows the expected operation in the activity map.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If the tool never fires, sharpen the tool description and the topic description.
 - If the tool fires but returns unauthorized, recheck the connection type and signed-in user context.
 - If the payload is too large, reduce the response shape in the API or a flow wrapper rather than dumping raw JSON into the chat.
 
-### Challenge
+#### Challenge
 
 Expose two operations from the same connector.
 Then test whether the agent chooses the correct one based on the user's request.
 If not, revise the descriptions until routing becomes reliable.
 
-### ✅ You've completed Use Case #3
+#### ✅ You've completed Use Case #3
 
 You now have an authenticated API surface available to your Copilot Studio agent.
 
 ---
 
-# 🧪 Use Case #4 — Enable SSO for Seamless Authentication
+## 🧪 Use Case #4 — Enable SSO for Seamless Authentication
 
 > 🎯 **Objective:** Configure SSO so users already signed in to a supported channel can authenticate with less friction when using your Copilot Studio agent.
 
-## Scenario
+### Scenario
 
 Your agent is published to an internal website.
 Employees are already signed in to the site with Entra ID.
 You want the agent to reuse that identity rather than forcing a separate sign-in prompt every time.
 
-### Step 1 — Review the five-step SSO model
+#### Step 1 — Review the five-step SSO model
 
 1. Enable **manual authentication** for the agent with Microsoft Entra ID.
 2. Create an **authentication app registration** for the agent.
@@ -480,7 +480,7 @@ You want the agent to reuse that identity rather than forcing a separate sign-in
 > ⚠️ **Warning:** Do **not** reuse the same app registration for both the agent and the website or canvas.
 Microsoft explicitly recommends separate app registrations.
 
-### Step 2 — Verify channel support
+#### Step 2 — Verify channel support
 
 1. Confirm that SSO is supported for:
    - **Custom Website**.
@@ -495,7 +495,7 @@ Microsoft explicitly recommends separate app registrations.
    - **Power Pages**.
 3. Document the channel constraints in your rollout plan.
 
-### Step 3 — Configure the authentication app
+#### Step 3 — Configure the authentication app
 
 1. In Azure, create or verify the app registration used for the agent's Entra authentication.
 2. Under **Expose an API**, create the custom scope.
@@ -504,7 +504,7 @@ Microsoft explicitly recommends separate app registrations.
 5. Paste the scope into **Token exchange URL**.
 6. Save the authentication settings.
 
-### Step 4 — Configure the canvas app registration
+#### Step 4 — Configure the canvas app registration
 
 1. Create a second app registration for the website or SPA.
 2. Add a **SPA** platform configuration.
@@ -512,7 +512,7 @@ Microsoft explicitly recommends separate app registrations.
 4. Enable **Access tokens** and **ID tokens** for implicit/hybrid flows if the implementation requires the documented sample pattern.
 5. Under the authentication app registration, add the canvas app as an **Authorized client application**.
 
-### Step 5 — Update the client-side code
+#### Step 5 — Update the client-side code
 
 1. Copy the **token endpoint URL** from the Copilot Studio channel settings.
 2. Configure the MSAL client in your website code with:
@@ -522,7 +522,7 @@ Microsoft explicitly recommends separate app registrations.
 4. Apply a custom prefix to `userId` if you want stable identifiers.
 5. Test the sign-in flow.
 
-### Step 6 — Review Teams-specific considerations
+#### Step 6 — Review Teams-specific considerations
 
 1. If you publish to **Microsoft Teams**, follow the separate Teams SSO guidance.
 2. Do not assume the custom website steps are sufficient for Teams.
@@ -532,7 +532,7 @@ Microsoft explicitly recommends separate app registrations.
 > 💡 **Tip:** SSO success is measured by **the absence of an extra sign-in prompt** for already-signed-in users.
 If the chat still asks users to sign in and paste a validation code, your SSO configuration is incomplete.
 
-### Validation checklist
+#### Validation checklist
 
 - Manual auth is enabled.
 - Separate authentication and canvas app registrations exist.
@@ -540,14 +540,14 @@ If the chat still asks users to sign in and paste a validation code, your SSO co
 - Website or client code uses MSAL and the Copilot Studio token endpoint.
 - Supported channel tests succeed without unnecessary sign-in prompts.
 
-### Troubleshooting
+#### Troubleshooting
 
 - If the user sees a validation code prompt, review the five SSO steps end to end.
 - If Teams fails but the website works, revisit the Teams-specific documentation.
 - If guest users cannot reach AI-generated answers from SharePoint or Graph Connector sources, treat that as a known platform behavior and design accordingly.
 - If engineers reused one app registration for both website and agent, split the registrations before continuing.
 
-### Challenge
+#### Challenge
 
 Document a rollout plan for two channels:
 **Custom Website** and **Teams**.
@@ -555,15 +555,15 @@ List which artifacts are shared,
 which settings differ,
 and which team owns testing for each channel.
 
-### ✅ You've completed Use Case #4
+#### ✅ You've completed Use Case #4
 
 You now have the pieces required for secure connector-based actions and a smoother sign-in experience in supported channels.
 
 ---
 
-# 🙋 Summary
+## 🙋 Summary
 
-## What you accomplished
+### What you accomplished
 
 | Step | What you did |
 |---|---|
@@ -573,7 +573,7 @@ You now have the pieces required for secure connector-based actions and a smooth
 | **Connect** | Added the connector to Copilot Studio as a tool |
 | **Streamline** | Planned and tested SSO for supported channels |
 
-### Golden rules
+#### Golden rules
 
 1. **Choose the simplest integration method that preserves governance.** Prebuilt first, then custom connector, then heavier patterns.
 2. **Treat the OpenAPI definition as a product artifact.** Clean names and clean schemas improve adoption.
@@ -583,7 +583,7 @@ You now have the pieces required for secure connector-based actions and a smooth
 6. **Separate website and agent app registrations for SSO.** Reuse creates security and support problems.
 7. **Test auth at three layers.** Connector test tab, Copilot Studio tool invocation, and end-user channel experience.
 
-### Recommended next steps
+#### Recommended next steps
 
 - Add a second operation to your connector and test planner selection quality.
 - Evaluate whether the API should stay a custom connector or graduate to a certified connector strategy.
@@ -595,14 +595,14 @@ It is a reusable, secure, and well-described capability that makes your Copilot 
 
 ---
 
-## 📎 Appendix A — Connector certification discussion prompts
+### 📎 Appendix A — Connector certification discussion prompts
 
 - Should this API stay internal, or could it become a broader certified connector investment?
 - Which operations are safe for wide reuse, and which should stay admin-only?
 - How will client-secret rotation be handled without breaking user connections?
 - Should the API return raw data, or should an API wrapper simplify the schema first?
 
-## 📎 Appendix B — Sample prompt bank
+### 📎 Appendix B — Sample prompt bank
 
 - Look up issue 412 and summarize the current owner and status.
 - Check pull request 97 in the engineering tools repository and tell me whether it is blocked.
@@ -610,7 +610,7 @@ It is a reusable, secure, and well-described capability that makes your Copilot 
 - Explain why I was asked to sign in again even though I am already on the intranet.
 - Compare whether this integration should use a custom connector, REST API tool, or agent flow.
 
-## 📎 Appendix C — OAuth setup checklist
+### 📎 Appendix C — OAuth setup checklist
 
 - [ ] App registration created.
 - [ ] Required API permissions granted.
@@ -621,7 +621,7 @@ It is a reusable, secure, and well-described capability that makes your Copilot 
 - [ ] Test connection created.
 - [ ] One authenticated operation verified.
 
-## 📎 Appendix D — SSO readiness checklist
+### 📎 Appendix D — SSO readiness checklist
 
 - [ ] Manual auth enabled for the agent.
 - [ ] Authentication app registration created.
