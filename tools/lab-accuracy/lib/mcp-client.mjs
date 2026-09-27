@@ -103,9 +103,31 @@ export class LearnMcpClient {
 
   /** Run a docs search and return normalized result entries. */
   async search(query) {
-    const result = await this.callTool("microsoft_docs_search", { query });
-    return normalizeContent(result);
+    return searchResultEntries(await this.callTool("microsoft_docs_search", { query }));
   }
+}
+
+/**
+ * Normalize a `microsoft_docs_search` result, throwing when the tool did not
+ * actually answer.
+ *
+ * MCP reports tool failures inside the result (`isError: true`), not as a
+ * JSON-RPC error, and a stream with no parseable frame yields no result at
+ * all. Both used to normalize to `[]`, which looks exactly like a search that
+ * found none of a lab's cited pages. That is drift, and for a baselined lab
+ * it is *acknowledged* drift, so a Learn outage could pass as a clean month.
+ */
+export function searchResultEntries(result) {
+  if (!result) throw new Error("Learn MCP returned no result for microsoft_docs_search");
+  if (result.isError) {
+    const detail = (Array.isArray(result.content) ? result.content : [])
+      .filter((block) => block?.type === "text" && typeof block.text === "string")
+      .map((block) => block.text)
+      .join(" ")
+      .slice(0, 300);
+    throw new Error(`microsoft_docs_search reported an error${detail ? `: ${detail}` : ""}`);
+  }
+  return normalizeContent(result);
 }
 
 /** Flatten MCP tool content blocks into an array of { title, url, snippet }. */
