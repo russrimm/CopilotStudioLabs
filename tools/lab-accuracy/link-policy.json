@@ -1,0 +1,58 @@
+{
+  "$comment": "Third-party hosts the reference-link check skips, each with the reason. Every other link a lab cites outside learn.microsoft.com is requested by check-accuracy.mjs. Add a host here only after requesting it yourself and finding that a check cannot say anything about the page the lab points at: a product portal that serves the same sign-in shell for every path, a sign-in or API endpoint, or a reserved placeholder. Never add a host just because its link is broken; fix the lab instead. URLs inside code blocks and inline code are never checked, because they are values to type rather than references. A host is either an exact name or *.suffix, which matches any subdomain of suffix but not suffix itself.",
+  "reviewedAt": "2026-09-27",
+  "skip": [
+    {
+      "host": "admin.powerplatform.microsoft.com",
+      "reason": "Power Platform admin center, behind sign-in. An unauthenticated request gets the sign-in app shell (HTTP 200) for any path, so a check cannot tell a valid deep link from a stale one."
+    },
+    {
+      "host": "copilotstudio.microsoft.com",
+      "reason": "Copilot Studio maker portal, behind sign-in. An unauthenticated request gets the sign-in app shell (HTTP 200) for any path, so a check cannot tell a valid deep link from a stale one."
+    },
+    {
+      "host": "make.powerapps.com",
+      "reason": "Power Apps maker portal, behind sign-in. An unauthenticated request gets the sign-in app shell (HTTP 200) for any path, so a check cannot tell a valid deep link from a stale one."
+    },
+    {
+      "host": "login.microsoftonline.com",
+      "reason": "Microsoft Entra sign-in and OpenID metadata endpoint. A request is redirected into an OAuth authorization flow; it is an identity endpoint, not documentation."
+    },
+    {
+      "host": "api.powerplatform.com",
+      "reason": "Power Platform API endpoint, cited as an OAuth scope audience. A bare request redirects to the Learn REST reference, which says nothing about the scope value the lab uses."
+    },
+    {
+      "host": "global.consent.azure-apim.net",
+      "reason": "Power Platform connector OAuth redirect URI. Without an authorization state it returns an error page by design; it is a value to register, not a page to read."
+    },
+    {
+      "host": "api.open-meteo.com",
+      "reason": "Open-Meteo forecast API endpoint used by a code sample. It returns data, not documentation; the documentation lives on open-meteo.com, which is checked."
+    },
+    {
+      "host": "localhost",
+      "reason": "The learner's own machine during a local development step. Never reachable from the audit."
+    },
+    {
+      "host": "127.0.0.1",
+      "reason": "The learner's own machine during a local development step. Never reachable from the audit."
+    },
+    {
+      "host": "*.localhost",
+      "reason": "Reserved loopback names (RFC 6761). Never reachable from the audit."
+    },
+    {
+      "host": "*.example",
+      "reason": "Reserved placeholder TLD (RFC 2606), used for values the learner substitutes, such as your-tunnel.example."
+    },
+    {
+      "host": "*.test",
+      "reason": "Reserved placeholder TLD (RFC 2606). Never a real page."
+    },
+    {
+      "host": "*.invalid",
+      "reason": "Reserved placeholder TLD (RFC 2606). Never a real page."
+    }
+  ]
+}

@@ -1,7 +1,11 @@
 // Monthly accuracy check for every lab.
 //
 // For each lab it:
-//   1. Validates that all Microsoft Learn reference links still resolve (no 404/410).
+//   1. Validates that every reference link still resolves: Microsoft Learn
+//      links (first-party) and every other cited link (third-party), counted
+//      apart. Only a broken Microsoft Learn link is critical for --strict; a
+//      broken third-party link is a warning here and an action item in the
+//      monthly issue. Hosts in link-policy.json are skipped with their reason.
 //   2. Queries the Microsoft Learn MCP server for the lab's primary topic and
 //      records whether current authoritative docs still cover it (drift signal).
 //
@@ -15,6 +19,13 @@
 
 import { loadAllLabs, writeReport } from "./lib/labs.mjs";
 import { LearnMcpClient } from "./lib/mcp-client.mjs";
+import {
+  addReferenceCounts,
+  checkThirdPartyLinks,
+  emptyReferenceSummary,
+  loadLinkPolicy,
+  referenceSummaryLines,
+} from "./lib/reference-links.mjs";
 import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
@@ -39,6 +50,8 @@ async function checkLink(url) {
       signal: controller.signal,
       headers: { "user-agent": "copilot-studio-lab-accuracy/1.0 (+monthly-link-check)" },
     });
+    // The body is never read; release the connection instead of holding it open.
+    await res.body?.cancel().catch(() => {});
     return { url, status: res.status, ok: res.ok, finalUrl: res.url };
   } catch (error) {
     return { url, status: 0, ok: false, error: error.name === "AbortError" ? "timeout" : error.message };
@@ -216,14 +229,35 @@ async function main() {
     }
   }
 
+  // Third-party links (issue #39): checked with their own rules, counted apart
+  // from Microsoft Learn, and never part of the --strict gate.
+  const linkPolicy = loadLinkPolicy();
+  report.summary.references = emptyReferenceSummary();
+  const thirdPartyWarnings = [];
+
   for (const lab of labs) {
-    const linkResults = await mapWithConcurrency(lab.learnLinks, LINK_CONCURRENCY, checkLink);
+    const linkResults = (await mapWithConcurrency(lab.learnLinks, LINK_CONCURRENCY, checkLink)).map((result) => ({
+      ...result,
+      party: "first",
+    }));
     // HTTP 4xx/5xx are definite breakages; status 0 means a transient network
     // error (timeout, DNS) that we surface as "unreachable" rather than broken.
     const broken = linkResults.filter((r) => r.status >= 400);
     const unreachable = linkResults.filter((r) => r.status === 0);
     report.summary.brokenLinks += broken.length;
     report.summary.unreachableLinks += unreachable.length;
+
+    const thirdParty = await checkThirdPartyLinks(lab.referenceLinks, {
+      policy: linkPolicy,
+      check: (urls) => mapWithConcurrency(urls, LINK_CONCURRENCY, checkLink),
+    });
+    addReferenceCounts(report.summary.references, {
+      firstParty: { checked: lab.learnLinks.length, broken: broken.length, unreachable: unreachable.length },
+      thirdParty,
+    });
+    for (const link of [...thirdParty.broken, ...thirdParty.unreachable]) {
+      thirdPartyWarnings.push({ lab, link });
+    }
 
     const labRecord = {
       name: lab.name,
@@ -232,6 +266,13 @@ async function main() {
       learnLinkCount: lab.learnLinks.length,
       brokenLinks: broken,
       unreachableLinks: unreachable,
+      thirdPartyLinkCount: thirdParty.checked + thirdParty.skipped.length,
+      thirdPartyLinks: {
+        broken: thirdParty.broken,
+        unreachable: thirdParty.unreachable,
+        unverifiable: thirdParty.unverifiable,
+        skipped: thirdParty.skipped,
+      },
       mcp: { query: null, topResults: [], coversReferencedDocs: null, note: null },
     };
 
@@ -276,6 +317,8 @@ async function main() {
         : "") +
       (report.summary.mcpUnavailable ? " (MCP unavailable)" : ""),
   );
+
+  for (const line of referenceSummaryLines(report.summary.references, thirdPartyWarnings)) console.log(line);
 
   if (
     (strict && report.summary.brokenLinks > 0)

@@ -40,6 +40,14 @@ function buildIssue(t, accuracy, env = {}) {
   return { output, body: readFileSync(join(outDir, "issue.md"), "utf8") };
 }
 
+// A clean first-/third-party reference split (issue #39). The report fails
+// closed without one, so every fixture that expects no action carries it.
+const CLEAN_REFERENCES = {
+  firstParty: { checked: 1, broken: 0, unreachable: 0 },
+  thirdParty: { checked: 0, broken: 0, unreachable: 0, unverifiable: 0, skipped: 0 },
+};
+const NO_THIRD_PARTY_LINKS = { broken: [], unreachable: [], unverifiable: [], skipped: [] };
+
 function baselinedAccuracy({ labs, unexpected, acknowledged, resolved = [], ageDays = 1 }) {
   return {
     summary: {
@@ -52,13 +60,14 @@ function baselinedAccuracy({ labs, unexpected, acknowledged, resolved = [], ageD
       resolvedBaselineEntries: resolved,
       driftBaseline: { verifiedAt: "2026-09-26", ageDays, entries: acknowledged + resolved.length },
       mcpUnavailable: false,
+      references: structuredClone(CLEAN_REFERENCES),
     },
     labs,
   };
 }
 
 function lab(name, mcp) {
-  return { name, brokenLinks: [], unreachableLinks: [], mcp };
+  return { name, brokenLinks: [], unreachableLinks: [], thirdPartyLinks: structuredClone(NO_THIRD_PARTY_LINKS), mcp };
 }
 
 test("issue report lists unreachable links exactly once without broken links", (t) => {
@@ -69,11 +78,13 @@ test("issue report lists unreachable links exactly once without broken links", (
       unreachableLinks: 1,
       mcpDriftWarnings: 0,
       mcpUnavailable: false,
+      references: { ...structuredClone(CLEAN_REFERENCES), firstParty: { checked: 1, broken: 0, unreachable: 1 } },
     },
     labs: [{
       name: "01-test",
       brokenLinks: [],
       unreachableLinks: [{ url: "https://learn.example.test/page", error: "timeout" }],
+      thirdPartyLinks: structuredClone(NO_THIRD_PARTY_LINKS),
       mcp: { note: null },
     }],
   });
