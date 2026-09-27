@@ -796,7 +796,7 @@ export async function generateLab(request, opts = {}) {
             `Microsoft Learn was read for ${underived.length} of ${plan.features.length} module(s), but no procedure on ` +
             `those pages matched the module closely enough to use: ${names}. Their steps would come from this repository's ` +
             `curated catalog, ${freshness.phrase}, while the rest of the lab follows the live documentation — so their ` +
-            `clicks are unverified and inconsistent with the lab around them.`,
+            `clicks were not checked against the product for this build and may be inconsistent with the lab around them.`,
           detail: {
             modules: underived.map((f) => ({
               id: f.id,
@@ -1201,6 +1201,14 @@ export async function generateLab(request, opts = {}) {
           // model, whether its steps verified, the quote behind each kept step,
           // and the checks a refused attempt failed.
           synthesis: derived?.synthesis || null,
+        },
+        // When this module's curated catalog entry was last checked by hand,
+        // and against which page (issue #42). Recorded for every module, not
+        // only catalog-fallback ones, because it dates the concepts and checks
+        // too, which always come from the catalog.
+        catalog: {
+          lastVerified: f.lastVerified || null,
+          verifiedAgainst: f.verifiedAgainst || null,
         },
       };
     }),

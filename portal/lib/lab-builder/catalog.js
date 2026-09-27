@@ -24,7 +24,6 @@ function index(raw) {
   return {
     version: raw.version,
     product: raw.product,
-    docsReviewed: raw.docsReviewed || null,
     vendorHosts: raw.vendorHosts || [],
     categories,
     features,
@@ -37,6 +36,70 @@ function load() {
   if (cached) return cached;
   cached = index(JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8")));
   return cached;
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_MS = 86400000;
+
+/** A timestamp's calendar date as YYYY-MM-DD in UTC. */
+function isoDay(ms) {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/**
+ * The pages a feature may claim to have been verified against: its own curated
+ * Microsoft Learn links and its own vendor sources (issue #39). A URL from
+ * anywhere else would let a feature borrow another page's freshness.
+ */
+export function verificationSources(feature) {
+  const vendor = Array.isArray(feature?.thirdPartySources)
+    ? feature.thirdPartySources.map((source) => source?.url).filter((url) => typeof url === "string")
+    : [];
+  return [...new Set([...(feature?.docUrls || []), ...vendor])];
+}
+
+/**
+ * Freshness problems for one feature (issue #42).
+ *
+ * `lastVerified` is the day someone last compared the feature's steps against
+ * `verifiedAgainst`. Both are required so a stale step list is detectable, and
+ * both are checked strictly because the builder quotes them to learners.
+ * A date one day ahead of UTC is tolerated so a maintainer east of UTC can
+ * stamp their own "today".
+ */
+export function freshnessProblems(feature, now = Date.now()) {
+  const problems = [];
+  const id = feature?.id || "(unnamed feature)";
+  const day = feature?.lastVerified;
+  const dayMs = typeof day === "string" && ISO_DAY.test(day) ? Date.parse(`${day}T00:00:00Z`) : NaN;
+
+  if (day === undefined || day === null || day === "") {
+    problems.push(`${id}: missing lastVerified (the YYYY-MM-DD date its steps were last checked against verifiedAgainst)`);
+  } else if (Number.isNaN(dayMs) || isoDay(dayMs) !== day) {
+    // The round trip rejects dates JavaScript would silently roll over, such as 2026-02-30.
+    problems.push(`${id}: lastVerified "${day}" is not a valid YYYY-MM-DD date`);
+  } else if (day > isoDay(now + DAY_MS)) {
+    problems.push(`${id}: lastVerified ${day} is in the future`);
+  }
+
+  const url = feature?.verifiedAgainst;
+  if (url === undefined || url === null || url === "") {
+    problems.push(`${id}: missing verifiedAgainst (the documentation URL its steps were checked against)`);
+    return problems;
+  }
+
+  let parsed = null;
+  try {
+    parsed = new URL(String(url));
+  } catch {
+    /* reported below */
+  }
+  if (!parsed || parsed.protocol !== "https:") {
+    problems.push(`${id}: verifiedAgainst "${url}" must be an https URL`);
+  } else if (!verificationSources(feature).includes(url)) {
+    problems.push(`${id}: verifiedAgainst ${url} is not one of this feature's docUrls or thirdPartySources`);
+  }
+  return problems;
 }
 
 export function getCatalog() {
@@ -228,9 +291,13 @@ function validateVendorSources(features, vendorHosts, problems) {
 /**
  * Validate catalog integrity. Returns an array of human-readable problems.
  *
+ * Checks the shipped catalog by default; tests pass a parsed catalog and a
+ * fixed `now` to exercise individual rules.
+ *
  * @param {object} [raw] a parsed catalog to check instead of features.json
+ * @param {{now?: number}} [options]
  */
-export function validateCatalog(raw) {
+export function validateCatalog(raw, { now = Date.now() } = {}) {
   const { features, byId, categoryIds, vendorHosts } = raw ? index(raw) : load();
   const problems = [];
   const seen = new Set();
@@ -249,6 +316,7 @@ export function validateCatalog(raw) {
     if (!f.validation?.length) problems.push(`${f.id}: needs at least one validation check`);
     if (!f.learnQueries?.length) problems.push(`${f.id}: needs at least one learnQuery`);
     if (!f.docUrls?.length) problems.push(`${f.id}: needs at least one docUrl fallback`);
+    problems.push(...freshnessProblems(f, now));
 
     for (const prereq of f.prereqs || []) {
       if (!byId.has(prereq)) problems.push(`${f.id}: unknown prereq "${prereq}"`);

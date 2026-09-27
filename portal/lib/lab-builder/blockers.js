@@ -14,8 +14,6 @@
  * wizard, and the CLI all speak the same codes.
  */
 
-import { getCatalog } from "./catalog.js";
-
 export const BLOCKER_CODES = Object.freeze({
   LEARN_MCP_UNAVAILABLE: "learn-mcp-unavailable",
   MODULES_UNGROUNDED: "modules-ungrounded",
@@ -267,19 +265,20 @@ export function isCancel(optionId) {
  * support. A date is only quoted when the catalog actually carries one.
  *
  * Resolution order:
- *   1. per-feature `lastVerified` (added by issue #42) — the oldest wins,
- *      and only when every affected feature carries one
- *   2. the catalog-wide `docsReviewed` fallback
- *   3. no date at all
+ *   1. per-feature `lastVerified` (issue #42) — the oldest wins, and only
+ *      when every affected feature carries one
+ *   2. no date at all
+ *
+ * `validateCatalog()` requires every feature to carry `lastVerified`, so the
+ * second branch is reached only for an empty list or an unvalidated catalog.
+ * There is deliberately no catalog-wide fallback date: features are
+ * re-verified one at a time, so a single date would claim more than it knows.
  *
  * @param {Array<{lastVerified?:string}>} [features] the affected features
  */
 export function curatedDocsAge(features = [], now = Date.now()) {
   const perFeature = features.map((feature) => feature?.lastVerified).filter(Boolean);
-  const source =
-    features.length > 0 && perFeature.length === features.length
-      ? perFeature.sort()[0]
-      : getCatalog().docsReviewed || null;
+  const source = features.length > 0 && perFeature.length === features.length ? perFeature.sort()[0] : null;
 
   const reviewedAt = source ? Date.parse(source) : NaN;
   if (Number.isNaN(reviewedAt)) {

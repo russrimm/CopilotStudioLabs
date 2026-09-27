@@ -58,6 +58,10 @@ export const MAX_SOURCES = 6;
  * reference architectures alike, so a feature documented under
  * `/power-platform/admin/` should not treat `/power-platform/release-plan/` as
  * home turf. For these roots the expected prefix is two segments deep.
+ *
+ * `/connectors/` is the reference for hundreds of connectors, one per system:
+ * a Jira module must not treat `/connectors/salesforce/` as home turf. The same
+ * goes for `/entra/`, which spans identity, governance, and agent identities.
  */
 const UMBRELLA_ROOTS = new Set([
   "power-platform",
@@ -70,6 +74,8 @@ const UMBRELLA_ROOTS = new Set([
   "microsoft-365",
   "troubleshoot",
   "industry",
+  "connectors",
+  "entra",
 ]);
 
 /**
@@ -106,8 +112,8 @@ function segmentsOf(url) {
 /**
  * The documentation areas a feature's citations are expected to live in.
  *
- * Derived from the curated `docUrls` the catalog already carries, so the 36
- * catalog entries need no hand editing and a new entry inherits the behaviour
+ * Derived from the curated `docUrls` the catalog already carries, so catalog
+ * entries need no hand editing and a new entry inherits the behaviour
  * for free. A feature may override with an explicit `docPaths` array when the
  * derivation is wrong for it.
  *

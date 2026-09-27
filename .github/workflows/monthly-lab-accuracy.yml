@@ -10,6 +10,10 @@ on:
         description: "Flag screenshots older than this many days"
         required: false
         default: "180"
+      catalog_max_age_days:
+        description: "Flag lab-builder catalog features last verified more than this many days ago"
+        required: false
+        default: "180"
 
 permissions:
   contents: read
@@ -25,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       STALE_DAYS: ${{ github.event.inputs.stale_days || '180' }}
+      CATALOG_MAX_AGE_DAYS: ${{ github.event.inputs.catalog_max_age_days || '180' }}
     steps:
       - name: Checkout (full history for screenshot staleness)
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -58,6 +63,13 @@ jobs:
         working-directory: tools/lab-accuracy
         continue-on-error: true
         run: node smoke-urls.mjs
+
+      - name: Lab-builder feature catalog check
+        working-directory: tools/lab-accuracy
+        continue-on-error: true
+        # Link-checks every catalog docUrl and flags features whose lastVerified
+        # is older than the threshold; build-issue.mjs decides what needs action.
+        run: node check-catalog.mjs --max-age-days=$CATALOG_MAX_AGE_DAYS
 
       - name: Build tracking issue body
         id: report

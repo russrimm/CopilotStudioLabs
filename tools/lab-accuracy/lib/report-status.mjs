@@ -1,3 +1,5 @@
+import { catalogNeedsAction } from "./catalog-report.mjs";
+
 export function isAccuracyReport(report) {
   return Boolean(
     report
@@ -71,10 +73,12 @@ export function actionableDriftWarnings(accuracy) {
     : accuracy.summary.mcpDriftWarnings;
 }
 
-export function reportsNeedAction({ accuracy, screenshots, smoke }, { maxBaselineAgeDays } = {}) {
+export function reportsNeedAction({ accuracy, screenshots, smoke, catalog }, { maxBaselineAgeDays } = {}) {
   if (!isAccuracyReport(accuracy) || !isScreenshotReport(screenshots) || !isSmokeReport(smoke)) {
     return true;
   }
+  // The lab builder's feature catalog (issue #42); fails closed on its own.
+  if (catalogNeedsAction(catalog)) return true;
 
   return Boolean(
     accuracy.summary.brokenLinks

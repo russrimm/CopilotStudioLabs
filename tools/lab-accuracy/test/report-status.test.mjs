@@ -36,6 +36,11 @@ function cleanReports() {
       summary: { unreachable: 0 },
       urls: [],
     },
+    catalog: {
+      maxAgeDays: 180,
+      summary: { features: 1, links: 1, brokenLinks: 0, unreachableLinks: 0, redirectedLinks: 0, staleFeatures: 0, unverifiedFeatures: 0 },
+      features: [{ id: "demo", stale: false, brokenLinks: [], unreachableLinks: [], redirectedLinks: [], verificationProblems: [] }],
+    },
   };
 }
 
@@ -58,6 +63,16 @@ test("monthly report status fails closed for missing or malformed reports", () =
   );
 });
 
+test("monthly report status fails closed for a missing or malformed catalog report", () => {
+  const { catalog: _catalog, ...withoutCatalog } = cleanReports();
+  assert.equal(reportsNeedAction(withoutCatalog), true);
+  assert.equal(reportsNeedAction({ ...cleanReports(), catalog: { summary: {}, features: [] } }), true);
+  const empty = cleanReports();
+  empty.catalog.summary.features = 0;
+  empty.catalog.features = [];
+  assert.equal(reportsNeedAction(empty), true, "a catalog check that covered no features proves nothing");
+});
+
 test("monthly report status requires action for every degraded signal", () => {
   for (const mutate of [
     (reports) => { reports.accuracy.summary.brokenLinks = 1; },
@@ -69,6 +84,10 @@ test("monthly report status requires action for every degraded signal", () => {
     (reports) => { reports.screenshots.verifyShots.warning = 1; },
     (reports) => { reports.screenshots.summary.labsNeedingRecapture = 1; },
     (reports) => { reports.smoke.summary.unreachable = 1; },
+    (reports) => { reports.catalog.summary.brokenLinks = 1; },
+    (reports) => { reports.catalog.summary.unreachableLinks = 1; },
+    (reports) => { reports.catalog.summary.staleFeatures = 1; },
+    (reports) => { reports.catalog.summary.unverifiedFeatures = 1; },
   ]) {
     const reports = cleanReports();
     mutate(reports);

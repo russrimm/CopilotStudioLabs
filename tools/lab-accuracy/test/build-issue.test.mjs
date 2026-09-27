@@ -6,6 +6,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
+import { cleanCatalogReport } from "./catalog-fixture.mjs";
+
 const toolRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const RANKING_NOTE =
@@ -23,14 +25,19 @@ const CLEAN_SMOKE = {
   urls: [],
 };
 
-/** Write the three reports, run build-issue.mjs, and return its output and issue body. */
-function buildIssue(t, accuracy, env = {}) {
+/**
+ * Write the reports, run build-issue.mjs, and return its output and issue body.
+ * A clean catalog report is written unless `catalog` is given; pass `null` to
+ * leave it out.
+ */
+function buildIssue(t, accuracy, env = {}, { catalog = cleanCatalogReport() } = {}) {
   const outDir = mkdtempSync(join(tmpdir(), "lab-accuracy-report-"));
   t.after(() => rmSync(outDir, { recursive: true, force: true }));
 
   writeFileSync(join(outDir, "accuracy.json"), JSON.stringify(accuracy));
   writeFileSync(join(outDir, "screenshots.json"), JSON.stringify(CLEAN_SCREENSHOTS));
   writeFileSync(join(outDir, "smoke.json"), JSON.stringify(CLEAN_SMOKE));
+  if (catalog !== null) writeFileSync(join(outDir, "catalog.json"), JSON.stringify(catalog));
 
   const { GITHUB_OUTPUT: _output, DRIFT_BASELINE_MAX_AGE_DAYS: _maxAge, ...parentEnv } = process.env;
   const output = execFileSync(process.execPath, [join(toolRoot, "build-issue.mjs")], {
@@ -141,4 +148,49 @@ test("a stale baseline asks for a re-triage", (t) => {
 
   assert.match(output, /needs_action=true/);
   assert.match(body, /last verified \*\*120 days ago\*\* \(limit 90\)/);
+});
+
+// ── Lab-builder catalog (issue #42) ─────────────────────────────────────────
+
+/** An accuracy report with nothing to act on, so only the catalog decides. */
+function cleanAccuracy() {
+  return baselinedAccuracy({ unexpected: 0, acknowledged: 0, labs: [lab("01-test", { note: null })] });
+}
+
+test("a clean catalog report adds its section and needs no action", (t) => {
+  const { output, body } = buildIssue(t, cleanAccuracy());
+  assert.match(output, /needs_action=false/);
+  assert.match(body, /### 🧭 Lab-builder catalog/);
+  assert.match(body, /Features checked: \*\*1\*\*/);
+  assert.match(body, /oldest: `create-agent` \(2026-09-27, 0 days\)/);
+  assert.match(body, /All checks passed/);
+});
+
+test("a missing catalog report fails closed", (t) => {
+  const { output, body } = buildIssue(t, cleanAccuracy(), {}, { catalog: null });
+  assert.match(output, /needs_action=true/);
+  assert.match(body, /No valid catalog report was produced/);
+});
+
+test("a stale catalog feature needs action and says how to re-verify it", (t) => {
+  const catalog = cleanCatalogReport({
+    summary: { staleFeatures: 1 },
+    feature: { lastVerified: "2026-01-01", ageDays: 269, stale: true },
+  });
+  const { output, body } = buildIssue(t, cleanAccuracy(), {}, { catalog });
+  assert.match(output, /needs_action=true/);
+  assert.match(body, /Features due for re-verification/);
+  assert.match(body, /`create-agent` — last verified 2026-01-01 \(269 days ago\)/);
+  assert.match(body, /Action required/);
+});
+
+test("a redirected catalog link is reported but needs no action", (t) => {
+  const catalog = cleanCatalogReport({
+    summary: { redirectedLinks: 1 },
+    feature: { redirectedLinks: [{ url: "https://learn.example.test/old", finalUrl: "https://learn.example.test/new" }] },
+  });
+  const { output, body } = buildIssue(t, cleanAccuracy(), {}, { catalog });
+  assert.match(output, /needs_action=false/);
+  assert.match(body, /Catalog links that redirect \(no action required\)/);
+  assert.match(body, /https:\/\/learn\.example\.test\/old now lands on https:\/\/learn\.example\.test\/new/);
 });

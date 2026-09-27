@@ -121,13 +121,21 @@ block so a learner can always tell Microsoft's documentation from a vendor's.
 
 Everything else — module structure, prerequisites, concepts, and the "check your
 work" tests — comes from that curated catalog
-(`portal/lib/lab-builder/features.json`), not from a live page.
+(`portal/lib/lab-builder/features.json`), not from a live page. The catalog
+covers 48 capabilities in 11 categories, including enterprise integrations
+(ServiceNow, Snowflake, SAP, Salesforce, Jira, Epic on FHIR, Shopify, on-premises
+data gateways, and VNet private connectivity) and governance topics such as agent
+inventory, release readiness, and Entra agent identities. Every entry records the
+day its curated steps were last checked by hand against a named Microsoft Learn
+page (`lastVerified` and `verifiedAgainst`). Each module that falls back to curated
+steps quotes that date, and the monthly accuracy audit flags any entry that has not
+been re-verified in 180 days or whose documentation links stop resolving.
 
 How many modules get live steps depends on what the documentation looks like on
-the day you build, so it changes from build to build — in the builds sampled so
-far it has been well under half. The builder prints the count when it finishes,
-records the source of every module's steps in `manifest.json`, and stops to ask
-you before falling back rather than degrading quietly.
+the day you build, so it changes from build to build. The builder prints the
+count when it finishes, records the source of every module's steps in
+`manifest.json`, and stops to ask you before falling back rather than degrading
+quietly.
 
 ```bash
 # See what you can pick
