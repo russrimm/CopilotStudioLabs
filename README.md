@@ -215,6 +215,25 @@ Lab numbers below are the `#` column in the table above, not folder numbers.
 
 ---
 
+## ✍️ Authoring a lab
+
+Every lab's `index.md` follows one format, whether a person wrote it under `labs/` or the lab builder wrote it under `generated-labs/`:
+
+- **Exactly one H1: the lab title.** Every section starts at H2, including use-case banners such as `## 🧪 Use Case #1 — Topics`, with their steps at H3 and below. A `# comment` inside a fenced code sample is code, not a heading, and does not count.
+- Heading levels never skip: an H2 is followed by an H3, not an H4.
+- A `| Field | Details |` metadata table with **DIFFICULTY**, **TIME**, **PRODUCTS**, **TAGS**, and **INDUSTRIES** rows, followed by overview, objectives, prerequisites, step, validation, and completion sections.
+
+Two validators enforce the format, and CI runs both over both kinds of lab:
+
+| Validator | Hand-written labs (`labs/`) | Generated labs |
+|---|---|---|
+| `validate_labs.py` | `python validate_labs.py` on every push and PR | `python validate_labs.py --lab-dir <path>` on an offline build in CI |
+| `portal/lib/validator.js` | `npm test` in `portal/` on every push and PR | every build, before the builder reports success |
+
+[`scripts/lab-validation-rules.json`](./scripts/lab-validation-rules.json) lists every rule, which validator owns it, and why any rule lives in only one of them. Each validator's tests fail when its rules and that manifest disagree, so a new rule has to be recorded there before CI passes. Run `python validate_labs.py` and `npm test` in `portal/` before opening a pull request.
+
+---
+
 ## 🎨 Deploy as a customizable template
 
 This repository is designed as a **GitHub Template** — you can create your own copy and customize it for any organization, industry, or scenario.

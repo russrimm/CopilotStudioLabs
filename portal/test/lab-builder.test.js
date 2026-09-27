@@ -171,6 +171,21 @@ test("generateLab writes a lab that passes every validator rule", async (t) => {
   assert.doesNotMatch(markdown, /\b(?:TODO|FIXME|TBD|XXX)\b/i);
 });
 
+test("generated citations and tables name what they point at", async () => {
+  // CI runs validate_labs.py --lab-dir over an offline build, and its
+  // accessible-markdown rule rejects a bare URL as link text and an empty table
+  // header cell. Curated catalog links have no page title, so they are the case
+  // that used to render the URL as its own label.
+  const { markdown } = await generateLab(
+    { features: ["create-agent"] },
+    { write: false, useLearnMcp: false, useLlm: false },
+  );
+  assert.match(markdown, /^\| Field \| Details \|$/m);
+  assert.doesNotMatch(markdown, /^\| \| \|$/m);
+  assert.doesNotMatch(markdown, /\[https?:\/\/[^\]]*]\(/);
+  assert.match(markdown, /\[Microsoft Learn: [^\]]+]\(https:\/\/learn\.microsoft\.com\//);
+});
+
 test("generateLab dry run writes nothing", async () => {
   const result = await generateLab(
     { industry: "education", features: ["topics"] },

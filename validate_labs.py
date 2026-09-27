@@ -6,13 +6,22 @@ and reports, per lab:
 
   * Required section checks (union of the historical validators): title,
     metadata, overview, objectives, prerequisites, steps, validation, completion.
+  * Exactly one H1 (the lab title) outside fenced code; sections start at H2.
   * Repository Markdown link integrity: local files, assets, and anchors resolve.
   * Numbering collisions: duplicate lab numbers are flagged.
+
+``--lab-dir <path>`` runs only the checks that apply to a single lab (structure,
+link integrity, accessibility, and authoring markers) against any directory
+containing an ``index.md`` — for example a lab written by the lab builder.
+
+The rule ids reported here, and which of them ``portal/lib/validator.js`` also
+implements, are recorded in ``scripts/lab-validation-rules.json``.
 
 Exit code is 0 when every lab passes all section checks, README links resolve,
 and there are no unexpected collisions; otherwise 1.
 """
 
+import argparse
 import os
 import re
 import subprocess
@@ -26,42 +35,94 @@ REPO_ROOT = Path(__file__).resolve().parent
 
 ALLOWED_DUPLICATE_NUMBERS = set()
 
-# Union of the section/keyword checks from the two historical validators.
-# A metadata section is satisfied by either a "## Metadata" heading OR an
-# emoji-prefixed metadata table (the convention used by labs 19-35).
+# Union of the section/keyword checks from the two historical validators, keyed
+# by rule id. A metadata section is satisfied by either a "## Metadata" heading OR
+# an emoji-prefixed metadata table (the convention used by labs 19-35). Every
+# pattern is matched against the document with fenced code blanked out, so a
+# heading-shaped line inside a code sample never satisfies a check.
 SECTION_CHECKS = {
-    "title": re.compile(r"^#\s", re.MULTILINE),
-    "metadata": re.compile(
+    "has-title": re.compile(r"^#\s", re.MULTILINE),
+    "has-metadata": re.compile(
         r"(?:^#+\s.*Metadata)"
         r"|(?:\*\*(?:DIFFICULTY|TIME|PRODUCTS|TAGS|INDUSTRIES)\*\*)"
         r"|(?:^author:|^ms\.author:|^ms\.service:)",
         re.IGNORECASE | re.MULTILINE,
     ),
-    "overview": re.compile(
+    "has-overview": re.compile(
         r"^#+\s.*(?:Overview|Introduction)", re.IGNORECASE | re.MULTILINE
     ),
-    "objectives": re.compile(
+    "has-objectives": re.compile(
         r"^#+\s.*(?:Objectives|What you(?:'ll| will) learn)",
         re.IGNORECASE | re.MULTILINE,
     ),
-    "prerequisites": re.compile(
+    "has-prerequisites": re.compile(
         r"^#+\s.*Prerequisites", re.IGNORECASE | re.MULTILINE
     ),
-    "steps": re.compile(
+    "has-steps": re.compile(
         r"^#+\s.*(?:Use Cases|Lab Flow|Step-by-Step|Steps|Step\s+\d|Exercise|"
         r"Walkthrough|Instructions|Section\s+\d)",
         re.IGNORECASE | re.MULTILINE,
     ),
-    "validation": re.compile(
+    "has-validation": re.compile(
         r"^#+\s.*(?:Validation|What You Built|Success Criteria|Review|Verify)",
         re.IGNORECASE | re.MULTILINE,
     ),
-    "completion": re.compile(
+    "has-completion": re.compile(
         r"^#+\s.*(?:Summary|Congratulations|Next Steps|Completion|Complete|"
         r"Conclusion|Wrap[- ]?up|Recap)",
         re.IGNORECASE | re.MULTILINE,
     ),
 }
+
+FENCE_OPEN = re.compile(r"^\s*(`{3,}|~{3,})(.*?)\s*$")
+ATX_HEADING = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
+
+
+def fenced_line_mask(lines):
+    """Return one bool per line: True when the line is part of a fenced code block.
+
+    Mirrors ``getHeadings()`` in portal/lib/validator.js so both validators agree
+    on what is code. A fence opens on three or more backticks or tildes and closes
+    on a line of the same character that is at least as long; indentation is
+    allowed so fences nested in list items count, and an unclosed fence runs to
+    the end of the file.
+    """
+    mask = []
+    closing = None
+    for line in lines:
+        if closing:
+            mask.append(True)
+            if closing.match(line):
+                closing = None
+            continue
+        opening = FENCE_OPEN.match(line)
+        # A backtick fence's info string cannot contain a backtick, so a line
+        # like ```inline``` is prose rather than a fence.
+        if opening and not (opening.group(1)[0] == "`" and "`" in opening.group(2)):
+            char = re.escape(opening.group(1)[0])
+            closing = re.compile(rf"^\s*{char}{{{len(opening.group(1))},}}\s*$")
+            mask.append(True)
+            continue
+        mask.append(False)
+    return mask
+
+
+def without_fenced_code(markdown):
+    """Return the Markdown with fenced code lines blanked, keeping line numbers."""
+    lines = markdown.splitlines()
+    mask = fenced_line_mask(lines)
+    return "\n".join("" if fenced else line for line, fenced in zip(lines, mask))
+
+
+def markdown_headings(markdown):
+    """Return (line, level, text) for every ATX heading outside fenced code."""
+    lines = markdown.splitlines()
+    found = []
+    for line_number, (line, fenced) in enumerate(zip(lines, fenced_line_mask(lines)), 1):
+        heading = None if fenced else ATX_HEADING.match(line)
+        if heading:
+            found.append((line_number, len(heading.group(1)), heading.group(2).strip()))
+    return found
 
 
 def discover_labs():
@@ -87,9 +148,56 @@ def read_markdown(file_path, cache=None):
 
 
 def check_sections(file_path, cache=None):
-    """Return the list of missing section keys for a lab index.md."""
-    content = read_markdown(file_path, cache)
+    """Return the rule ids of required sections missing from a lab index.md."""
+    content = without_fenced_code(read_markdown(file_path, cache))
     return [key for key, rx in SECTION_CHECKS.items() if not rx.search(content)]
+
+
+def check_single_title(file_path, cache=None):
+    """Return a failure message unless index.md has exactly one H1 outside code.
+
+    The one H1 is the lab title; every section heading starts at H2. A ``# comment``
+    inside a fenced code sample is code, not a heading, and is not counted.
+    """
+    titles = [
+        line
+        for line, level, _ in markdown_headings(read_markdown(file_path, cache))
+        if level == 1
+    ]
+    if len(titles) == 1:
+        return None
+    if not titles:
+        return "expected exactly one H1 title; found none"
+    return (
+        f"expected exactly one H1 title; found {len(titles)} "
+        f"(lines {', '.join(str(line) for line in titles)}) — "
+        "section headings start at H2"
+    )
+
+
+def check_lab(lab_dir, cache=None):
+    """Return (rule id, message) failures for one lab directory's index.md."""
+    index_path = Path(lab_dir) / "index.md"
+    if not index_path.exists():
+        return [("index-exists", "index.md missing")]
+    failures = [
+        (rule, "no matching section heading")
+        for rule in check_sections(index_path, cache)
+    ]
+    single_title = check_single_title(index_path, cache)
+    if single_title:
+        failures.append(("single-title", single_title))
+    return failures
+
+
+def format_lab_failures(failures):
+    """Render check_lab() failures on one line, grouping missing sections."""
+    missing = [rule for rule, _ in failures if rule in SECTION_CHECKS]
+    parts = [f"missing: {', '.join(missing)}"] if missing else []
+    parts += [
+        f"{rule}: {message}" for rule, message in failures if rule not in SECTION_CHECKS
+    ]
+    return "; ".join(parts)
 
 
 def tracked_markdown_files(root=REPO_ROOT):
@@ -430,7 +538,106 @@ def find_collisions(folders):
     return {num: f for num, f in by_num.items() if len(f) > 1}
 
 
-def main():
+# Every check in this module and the rule ids it reports directly. Ids are shared
+# with portal/lib/validator.js wherever the two validators check the same thing.
+# scripts/lab-validation-rules.json records which validator owns each id and why
+# any rule lives in only one of them; scripts/test_validate_labs.py fails when
+# this table and the manifest disagree, or when a check_* function is added
+# without an entry here.
+RULES_BY_CHECK = {
+    "check_lab": ("index-exists",),
+    "check_sections": tuple(SECTION_CHECKS),
+    "check_single_title": ("single-title",),
+    "check_markdown_links": ("no-broken-local-links",),
+    "check_markdown_accessibility": ("accessible-markdown",),
+    "check_authoring_markers": ("no-todo-markers",),
+    "check_readme_catalog": ("readme-catalog",),
+    "find_collisions": ("unique-lab-numbers",),
+}
+RULE_IDS = tuple(rule for rules in RULES_BY_CHECK.values() for rule in rules)
+
+# Checks that describe the repository as a whole rather than one lab, so
+# ``--lab-dir`` does not run them.
+REPOSITORY_RULE_IDS = ("readme-catalog", "unique-lab-numbers")
+
+
+def lab_markdown_files(lab_dir):
+    """Return every Markdown file inside a lab directory."""
+    return sorted(
+        path
+        for path in Path(lab_dir).rglob("*")
+        if path.is_file()
+        and path.suffix.lower() in {".md", ".markdown"}
+        and not {".git", "node_modules", "dist"}.intersection(path.parts)
+    )
+
+
+def validate_lab_dir(lab_dir):
+    """Run every per-lab check against one directory; return a process exit code.
+
+    This is how a lab that is not under ``labs/`` — a lab builder output, say — is
+    held to the same bar as the hand-written labs. Links may point anywhere in the
+    repository when the directory is inside it; otherwise they must stay inside
+    the lab directory, because that is all that ships.
+    """
+    lab_dir = Path(lab_dir).resolve()
+    if not lab_dir.is_dir():
+        print(f"Not a directory: {lab_dir}")
+        return 1
+    try:
+        lab_dir.relative_to(REPO_ROOT)
+        root = REPO_ROOT
+    except ValueError:
+        root = lab_dir
+
+    print(f"=== Lab Validation: {lab_dir} ===\n")
+    cache = {}
+    files = lab_markdown_files(lab_dir)
+
+    print("Structure checks:")
+    failures = check_lab(lab_dir, cache)
+    if failures:
+        print(f"  FAIL  {lab_dir.name} — {format_lab_failures(failures)}")
+    else:
+        print(f"  PASS  {lab_dir.name}")
+
+    broken = check_markdown_links(files, root, cache) if files else []
+    print("\nMarkdown link integrity:")
+    for source, line, target, reason in broken:
+        print(f"  FAIL  {source.relative_to(root)}:{line}: {target} — {reason}")
+    if not broken:
+        print(f"  PASS  all local links and anchors resolve in {len(files)} Markdown file(s)")
+
+    accessibility_issues = check_markdown_accessibility(files, root, cache) if files else []
+    print("\nRendered lab content accessibility:")
+    for source, line, reason in accessibility_issues:
+        print(f"  FAIL  {source.relative_to(root)}:{line}: {reason}")
+    if not accessibility_issues:
+        print("  PASS  headings, image alternatives, tables, and link text are structurally accessible")
+
+    authoring_issues = check_authoring_markers(files, root, cache) if files else []
+    print("\nUnfinished authoring markers:")
+    for source, line, marker, fix in authoring_issues:
+        print(f"  FAIL  {source.relative_to(root)}:{line}: {marker!r} is unfinished authoring text; {fix}")
+    if not authoring_issues:
+        print("  PASS  no TODO, FIXME, TBD, or XXX markers appear in rendered lab content")
+
+    ok = not failures and not broken and not accessibility_issues and not authoring_issues
+    print(f"\nRESULT: {'PASS' if ok else 'FAIL'}")
+    return 0 if ok else 1
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
+    parser.add_argument(
+        "--lab-dir",
+        metavar="PATH",
+        help="validate one lab directory (any folder with an index.md) instead of labs/",
+    )
+    args = parser.parse_args(argv)
+    if args.lab_dir:
+        return validate_lab_dir(args.lab_dir)
+
     folders = discover_labs()
     if not folders:
         print(f"No labs found under {LABS_DIR}/")
@@ -441,16 +648,11 @@ def main():
     markdown_cache = {}
     markdown_files = tracked_markdown_files()
     failed_labs = 0
-    print("Per-lab section checks:")
+    print("Per-lab structure checks:")
     for folder in folders:
-        index_path = os.path.join(LABS_DIR, folder, "index.md")
-        if not os.path.exists(index_path):
-            print(f"  FAIL  {folder} — index.md missing")
-            failed_labs += 1
-            continue
-        missing = check_sections(index_path, markdown_cache)
-        if missing:
-            print(f"  FAIL  {folder} — missing: {', '.join(missing)}")
+        failures = check_lab(os.path.join(LABS_DIR, folder), markdown_cache)
+        if failures:
+            print(f"  FAIL  {folder} — {format_lab_failures(failures)}")
             failed_labs += 1
         else:
             print(f"  PASS  {folder}")

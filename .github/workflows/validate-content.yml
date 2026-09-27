@@ -42,6 +42,19 @@ jobs:
       - name: Validate offline lab builder
         run: node tools/lab-builder/build.mjs --features create-agent --no-learn --no-llm --dry-run
 
+      # A generated lab is held to the same Python checks as labs/. Link checking
+      # is off because this step tests structure; the Microsoft Learn link step
+      # below covers liveness, and leaving it on would make this step network-bound.
+      - name: Validate a generated lab with the Python lab checks
+        env:
+          LAB_BUILDER_LINK_CHECK: "off"
+        run: |
+          out="$RUNNER_TEMP/generated-lab"
+          node tools/lab-builder/build.mjs --features create-agent --no-learn --no-llm --non-interactive --out "$out"
+          for lab in "$out"/*/; do
+            python validate_labs.py --lab-dir "$lab"
+          done
+
       - name: Validate screenshot manifests and assets
         run: node tools/screenshot-capture/verify-shots.js
 

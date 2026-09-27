@@ -4,29 +4,91 @@ import { discoverLabs, getLabPath } from "./labs.js";
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|svg|webp|bmp|avif)$/i;
 const TODO_RE = /\b(?:TODO|FIXME|TBD|XXX)\b/i;
 
+/**
+ * Every rule id validateLabDir() reports, in report order.
+ *
+ * Ids are shared with validate_labs.py wherever the two validators check the same
+ * thing. scripts/lab-validation-rules.json records which validator owns each id
+ * and why a rule lives in only one of them; test/validator.test.js fails when this
+ * list, the manifest, and the rules actually reported drift apart.
+ */
+export const RULE_IDS = Object.freeze([
+  "index-exists",
+  "has-title",
+  "single-title",
+  "has-metadata-table",
+  "has-difficulty",
+  "has-time",
+  "has-products",
+  "has-tags",
+  "has-industry",
+  "has-overview",
+  "has-objectives",
+  "has-steps",
+  "min-length",
+  "no-todo-markers",
+  "no-broken-image-refs",
+  "no-broken-relative-links",
+  "no-empty-sections",
+  "screenshots-exist",
+  "assets-dir-clean",
+]);
+
 function extractMeta(content, label) {
   const re = new RegExp(`\\|[^|]*\\*\\*${label}\\*\\*[^|]*\\|\\s*(.+?)\\s*\\|`, "i");
   const match = content.match(re);
   return match ? match[1].trim() : "";
 }
 
-function extractTitle(content) {
-  const match = content.match(/^#\s+(.+)$/m);
-  return match ? match[1].replace(/^[^\w]*/, "").trim() : "Untitled Lab";
+function extractTitle(headings) {
+  const title = headings.find((heading) => heading.level === 1);
+  return title ? title.text.replace(/^[^\w]*/, "").trim() : "Untitled Lab";
 }
 
+const FENCE_OPEN_RE = /^\s*(`{3,}|~{3,})(.*?)\s*$/;
+const HEADING_RE = /^(#{1,6})\s+(.+?)\s*$/;
+
+/**
+ * ATX headings outside fenced code blocks.
+ *
+ * A `# comment` inside a ```powershell block is code, not a heading — counting
+ * it made lab 33 fail `single-title`. A fence opens on three or more backticks
+ * or tildes and closes on a line of the same character at least as long, as in
+ * CommonMark. Leading indentation is allowed on both so fences nested in list
+ * items are recognised, and an unclosed fence runs to the end of the file.
+ */
 function getHeadings(content) {
   const headings = [];
-  const re = /^(#{1,6})\s+(.+?)\s*$/gm;
-  let match;
+  let fence = null;
+  let offset = 0;
 
-  while ((match = re.exec(content))) {
-    headings.push({
-      level: match[1].length,
-      text: match[2].trim(),
-      start: match.index,
-      end: re.lastIndex,
-    });
+  for (const line of content.split("\n")) {
+    const start = offset;
+    offset += line.length + 1;
+
+    if (fence) {
+      if (fence.close.test(line)) fence = null;
+      continue;
+    }
+
+    const open = line.match(FENCE_OPEN_RE);
+    // A backtick fence's info string cannot itself contain a backtick, so a line
+    // like ```inline``` is prose, not a fence.
+    if (open && !(open[1][0] === "`" && open[2].includes("`"))) {
+      const char = open[1][0] === "`" ? "`" : "~";
+      fence = { close: new RegExp(`^\\s*${char}{${open[1].length},}\\s*$`) };
+      continue;
+    }
+
+    const match = line.match(HEADING_RE);
+    if (match) {
+      headings.push({
+        level: match[1].length,
+        text: match[2].trim(),
+        start,
+        end: start + line.length,
+      });
+    }
   }
 
   return headings;
@@ -209,9 +271,9 @@ export function validateLabDir(labDir, { labId = labDir, title = labId } = {}) {
   }
 
   const content = readFileSync(indexPath, "utf-8");
-  const finalTitle = extractTitle(content) || title;
   const tests = [];
   const headings = getHeadings(content);
+  const finalTitle = extractTitle(headings) || title;
   const metadataRows = content.split(/\r?\n/).filter((line) => /^\|.*\|\s*$/.test(line));
   const difficulty = extractMeta(content, "DIFFICULTY");
   const time = extractMeta(content, "TIME");
@@ -291,19 +353,21 @@ export function validateLabDir(labDir, { labId = labDir, title = labId } = {}) {
     status: industry ? "pass" : "fail",
     message: industry ? `INDUSTRY = ${industry}.` : "Missing INDUSTRY or INDUSTRIES field.",
   });
-  const overviewRe = /^##+\s+.*(?:overview|why this lab|why .+ cares|introduction|about this lab).*$/im;
+  const overviewRe = /(?:overview|why this lab|why .+ cares|introduction|about this lab)/i;
+  const hasOverview = headings.some((heading) => heading.level >= 2 && overviewRe.test(heading.text));
   tests.push({
     name: "has-overview",
-    status: overviewRe.test(content) ? "pass" : "fail",
-    message: overviewRe.test(content)
+    status: hasOverview ? "pass" : "fail",
+    message: hasOverview
       ? "Overview section found."
       : "Missing Overview section heading.",
   });
-  const objectivesRe = /^##+\s+.*(?:objectives?|what you will (?:learn|do|build)|what you'?ll (?:learn|do|build)).*$/im;
+  const objectivesRe = /(?:objectives?|what you will (?:learn|do|build)|what you'?ll (?:learn|do|build))/i;
+  const hasObjectives = headings.some((heading) => heading.level >= 2 && objectivesRe.test(heading.text));
   tests.push({
     name: "has-objectives",
-    status: objectivesRe.test(content) ? "pass" : "fail",
-    message: objectivesRe.test(content)
+    status: hasObjectives ? "pass" : "fail",
+    message: hasObjectives
       ? "Objectives section found."
       : "Missing Objectives section heading.",
   });
