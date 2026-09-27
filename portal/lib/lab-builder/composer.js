@@ -301,6 +301,66 @@ function groundedInsight(grounding) {
   return ["", "> **From the docs:** " + quote + attribution];
 }
 
+/** Catalog text as Markdown link text: scrubbed, and unable to close the link early. */
+function vendorLabel(source) {
+  const title = scrubForbidden(String(source?.title || "").replace(/[[\]]/g, "").trim());
+  return title || `${scrubForbidden(String(source?.vendor || "Vendor").replace(/[[\]]/g, ""))} documentation`;
+}
+
+/** A URL that cannot end a Markdown link target early. */
+function markdownUrl(url) {
+  return String(url).replace(/[()\s]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`);
+}
+
+/**
+ * Documentation from outside Microsoft Learn (issue #39).
+ *
+ * Deliberately a block of its own, never folded into the Microsoft Learn list:
+ * a learner should always be able to tell Microsoft's documentation from a
+ * vendor's. Each line names the vendor, links the page by its title, and
+ * carries the catalog's stability note, plus a marker when the page was not
+ * read during this build.
+ *
+ * The optional quote is attributed to the vendor, never to Microsoft Learn, and
+ * goes through the same `condense()` + `scrubForbidden()` path as the Learn
+ * pull quote. Its text is untrusted and was already reduced to inert prose by
+ * `vendor-docs.js`.
+ */
+function vendorBlock(records) {
+  const shown = (records || []).filter((record) => record.inLab !== false);
+  if (!shown.length) return [];
+
+  const lines = shown.map((record) => {
+    const status =
+      record.fetch?.status === "read"
+        ? record.linkCheck?.verdict === "unverifiable"
+          ? " *(read during this build; the site turned away the automated link check)*"
+          : ""
+        : record.fetch?.status === "skipped"
+        ? " *(not read during this build)*"
+        : " *(could not be read during this build, so it is unverified)*";
+    return `**${scrubForbidden(record.vendor)}:** [${vendorLabel(record)}](${markdownUrl(record.url)}) — ${scrubForbidden(
+      record.stability,
+    )}${status}`;
+  });
+
+  const quoted = shown.find((record) => record.fetch?.status === "read" && record.excerpt);
+  const quote = quoted ? scrubForbidden(condense(quoted.excerpt)) : "";
+
+  return [
+    "",
+    "**Vendor documentation**",
+    "",
+    bullets(lines),
+    ...(quote
+      ? [
+          "",
+          `> **From the ${scrubForbidden(quoted.vendor)} documentation:** ${quote} — [${vendorLabel(quoted)}](${markdownUrl(quoted.url)})`,
+        ]
+      : []),
+  ];
+}
+
 /**
  * Where this module's steps came from, stated in the lab itself.
  *
@@ -348,7 +408,7 @@ function stepProvenance(record) {
   return ["", `*Read from ${link}${day ? ` on ${day}` : ""}.*`];
 }
 
-function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord) {
+function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord, vendorRecords) {
   const profile = plan.profile;
   const applied =
     enrichment?.applied ||
@@ -386,6 +446,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     "",
     bullets(feature.validation.map((v) => `[ ] ${scrubForbidden(v)}`)),
     ...citationBlock(grounding),
+    ...vendorBlock(vendorRecords),
   ].join("\n");
 }
 
@@ -490,6 +551,34 @@ function narrativeParagraph({ provider, grounded, synthesized, total, plural, ge
   return `**Narrative.** ${why}, so the overview and the per-module "In your scenario" passages come from ${source}. ${steps}`;
 }
 
+/**
+ * The "Vendor documentation." paragraph. Only present when a module cites a
+ * page outside Microsoft Learn, and worded from what the build actually did:
+ * read, failed, or deliberately skipped.
+ */
+function vendorParagraph(vendor) {
+  if (!vendor?.requested) return null;
+  const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+  const who = sentenceList((vendor.vendors || []).map((name) => scrubForbidden(name)));
+  const lead = `**Vendor documentation.** ${plural(vendor.modules, "module")} also ${
+    vendor.modules === 1 ? "cites" : "cite"
+  } documentation published outside Microsoft Learn${who ? `, from ${who}` : ""}. Those links come from this repository's feature catalog, which records how stable each page is.`;
+
+  if (!vendor.read && !vendor.failed) {
+    return `${lead} They were not read for this build (${scrubForbidden(vendor.skippedBecause || "vendor reads were switched off")}), so each one is marked as unverified where it appears.`;
+  }
+
+  const day = (vendor.fetchedAt || "").slice(0, 10);
+  return [
+    lead,
+    `The builder reads a vendor page only from a host on the catalog's allowlist, over HTTPS, re-checking every redirect against the same list.`,
+    `${vendor.read} of ${plural(vendor.requested, "vendor page")} ${vendor.read === 1 ? "was" : "were"} read${day ? ` on ${day}` : ""}` +
+      (vendor.failed ? `; ${vendor.failed} could not be read and ${vendor.failed === 1 ? "is" : "are"} marked as unverified where ${vendor.failed === 1 ? "it appears" : "they appear"}.` : "."),
+    `Vendor pages are treated as untrusted: nothing from them is run, and a quoted line is stripped of markup and filtered the same way as a Microsoft Learn excerpt.`,
+    `Where a vendor page and Microsoft Learn disagree about Copilot Studio itself, follow Microsoft Learn.`,
+  ].join(" ");
+}
+
 function howToUseSection(plan, generation) {
   const grounded = generation.groundedFeatures;
   const derived = generation.docDerivedFeatures ?? 0;
@@ -520,9 +609,12 @@ function howToUseSection(plan, generation) {
       : `**Citations.** No module's references came from a live search on this build. Every link below is a curated documentation link from this repository's feature catalog.`) +
       " " +
       (check?.enabled && check?.verifiedAt
-        ? `Every link this lab embeds was then requested once, on ${verifiedDay}, to confirm it still resolves: ${check.checked} checked, ${check.broken} removed for returning an error, ${check.unreachable} kept but unreachable from the machine that built this.`
+        ? `Every link this lab embeds was then requested once, on ${verifiedDay}, to confirm it still resolves: ${check.checked} checked, ${check.broken} removed for returning an error, ${check.unreachable} kept but unreachable from the machine that built this${
+            check.unverifiable ? `, ${check.unverifiable} kept because a vendor site turned the automated check away` : ""
+          }.`
         : `Link checking was switched off for this build, so no link below has been confirmed to resolve. Treat every reference as unverified.`),
     "",
+    ...(vendorParagraph(generation.vendorDocs) ? [vendorParagraph(generation.vendorDocs), ""] : []),
     synthesized > 0
       ? synthesizedStepsParagraph({ synthesized, derived, total, provider: generation.synthesisModel || provider })
       : derived === total
@@ -559,8 +651,17 @@ function howToUseSection(plan, generation) {
  * @param {object} enrichment { overview?, byFeature?: Map<string, {applied}> }
  * @param {object} generation { groundedFeatures, docDerivedFeatures, llmProvider, generatedAt }
  * @param {Map<string, object>} [stepsByFeature] featureId -> step provenance record
+ * @param {Map<string, Array>} [vendorByFeature] featureId -> vendor source records
  */
-export function composeLab(plan, groundingByFeature, shotsByFeature, enrichment = {}, generation = {}, stepsByFeature = new Map()) {
+export function composeLab(
+  plan,
+  groundingByFeature,
+  shotsByFeature,
+  enrichment = {},
+  generation = {},
+  stepsByFeature = new Map(),
+  vendorByFeature = new Map(),
+) {
   const sections = [
     `# ${scrubForbidden(plan.title)}`,
     "",
@@ -593,6 +694,7 @@ export function composeLab(plan, groundingByFeature, shotsByFeature, enrichment 
         shotsByFeature.get(feature.id) || { reused: [], capture: [] },
         enrichment.byFeature?.get(feature.id),
         stepsByFeature.get(feature.id),
+        vendorByFeature.get(feature.id),
       ),
       "",
     );

@@ -77,6 +77,22 @@ export function classify(record) {
   return record.ok ? "ok" : "broken";
 }
 
+/** Status codes a vendor site uses to turn away automated clients. */
+export const BOT_BLOCK_STATUSES = Object.freeze([401, 403, 429]);
+
+/**
+ * Bucket one check result for a link on a vendor (non-Learn) site.
+ *
+ * Adds `unverifiable` to `classify()`'s buckets: many vendor sites answer an
+ * automated request with 401, 403, or 429 while serving the same page to a
+ * browser. That is the site refusing the checker, not the page being gone, so
+ * the citation is kept. 404, 410, and 5xx are still `broken`.
+ */
+export function classifyThirdParty(record) {
+  if (BOT_BLOCK_STATUSES.includes(record?.status)) return "unverifiable";
+  return classify(record);
+}
+
 /**
  * Build a single-URL checker.
  *
@@ -161,11 +177,19 @@ export async function verifyUrls(urls, { concurrency = DEFAULT_CONCURRENCY, chec
  * `verifiedAt` is the moment the build stopped believing its citations on faith.
  * It is null when nothing was checked, because a timestamp on an unchecked lab
  * is worse than no timestamp: it reads as assurance that was never earned.
+ *
+ * URLs in `thirdPartyUrls` are bucketed with `classifyThirdParty()`, so a vendor
+ * site that turns the checker away is counted as `unverifiable`, not `broken`.
  */
-export function summarize(records, { enabled = true, timeoutMs = DEFAULT_TIMEOUT_MS, concurrency = DEFAULT_CONCURRENCY } = {}) {
+export function summarize(
+  records,
+  { enabled = true, timeoutMs = DEFAULT_TIMEOUT_MS, concurrency = DEFAULT_CONCURRENCY, thirdPartyUrls } = {},
+) {
   const all = [...(records?.values?.() || records || [])];
-  const counts = { ok: 0, broken: 0, unreachable: 0 };
-  for (const record of all) counts[classify(record)] += 1;
+  const counts = { ok: 0, broken: 0, unreachable: 0, unverifiable: 0 };
+  for (const record of all) {
+    counts[thirdPartyUrls?.has?.(record.url) ? classifyThirdParty(record) : classify(record)] += 1;
+  }
 
   return {
     enabled,

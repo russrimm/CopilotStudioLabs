@@ -112,6 +112,13 @@ API key — and uses what comes back in two different ways:
   the module falls back to the curated steps in this repository's feature
   catalog — and says so in the lab, in that module, with the reason.
 
+Some features are built on someone else's specification — MCP, the A2A
+protocol, OpenAPI, Adaptive Cards — which Microsoft Learn cannot return. For
+those, the catalog lists the **vendor documentation** per feature, and the builder
+reads it directly over HTTPS from an allowlist of hosts, treats its content as
+untrusted, link-checks it, and cites it in a separate **Vendor documentation**
+block so a learner can always tell Microsoft's documentation from a vendor's.
+
 Everything else — module structure, prerequisites, concepts, and the "check your
 work" tests — comes from that curated catalog
 (`portal/lib/lab-builder/features.json`), not from a live page.
@@ -137,7 +144,7 @@ node tools/lab-builder/build.mjs \
 Or use the **🧬 Build a Lab** tab in the portal for a guided wizard.
 
 Labs land in `generated-labs/<slug>/` with `index.md`, a `manifest.json` of the
-Learn sources used, a `shots.json` screenshot capture manifest, and any
+Learn and vendor sources used, a `shots.json` screenshot capture manifest, and any
 screenshots reusable from existing labs. Generated labs are validated against the
 same rules as the handwritten ones before the builder reports success.
 

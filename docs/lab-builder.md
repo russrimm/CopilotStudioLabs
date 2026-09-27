@@ -11,6 +11,7 @@ Which is which matters, because the two age differently:
 | Part of the lab | Where it comes from |
 |---|---|
 | Microsoft Learn citations and the **From the docs** excerpt | Searched live at build time, scored for relevance, and link-checked before use. |
+| **Vendor documentation** links and their quote | Specifications published outside Microsoft Learn (MCP, A2A, OpenAPI, Adaptive Cards), listed per feature in the catalog and read live at build time from an allowlist of hosts. See [Vendor documentation](#3b-vendor-documentation). |
 | **Do this** walk-through steps | Read from the module's live documentation page **when a procedure on it matches the module confidently enough** — otherwise the curated catalog steps, labeled as such in that module. |
 | Module set, ordering, prerequisites, concepts, **Check your work** | The curated catalog, `portal/lib/lab-builder/features.json`. Never live. |
 | Overview and per-module "In your scenario" narrative | A language model, when one is configured; otherwise the curated catalog. By default a model never writes the steps; see [step synthesis](#4b-opt-in-grounded-step-synthesis) for the opt-in exception. |
@@ -37,7 +38,8 @@ generated-labs/<slug>/
                   sections from H2; see README "Authoring a lab")
   manifest.json   what was selected, what was grounded, the Learn sources used
                   and the HTTP status each returned when checked, when they were
-                  verified, where each module's steps came from, and any
+                  verified, the vendor pages each module cites and whether each
+                  was read, where each module's steps came from, and any
                   decisions a human made about a blocked build
   shots.json      capture manifest for the screenshots that could not be reused
   assets/         screenshots copied from existing labs in this repo
@@ -68,7 +70,7 @@ Useful flags:
 |---|---|
 | `--time <minutes>` | Time budget. Modules that do not fit move to "Where to Go Next". |
 | `--no-core` | Skip the level 100 foundation modules (assumes learners already have an agent). |
-| `--no-learn` | Offline mode. Skips Microsoft Learn and uses the curated doc links. |
+| `--no-learn` | Offline mode. Skips Microsoft Learn and vendor documentation reads, and uses the curated doc links. |
 | `--no-llm` | Deterministic composition even if LLM credentials are configured. |
 | `--synthesize-steps <ids\|all>` | Opt in to [grounded step synthesis](#4b-opt-in-grounded-step-synthesis) for these modules. Needs a language model and Microsoft Learn. |
 | `--decide <code>=<option>` | Pre-answer a build blocker. Repeatable. See [Blocked builds](#blocked-builds). |
@@ -109,10 +111,11 @@ each stating its tradeoff.
 | `steps-not-derived` | The page was read, but no procedure on it matched the module. | `proceed-catalog` *(recommended)*, `cancel` |
 | `llm-partial-failure` | A configured model wrote some passages but not others. | `retry` *(recommended)*, `proceed-deterministic`, `proceed-mixed`, `cancel` |
 | `modules-deferred` | The time budget dropped a module you explicitly selected. | `accept-deferred` *(recommended)*, `ignore-budget`, `cancel` |
+| `vendor-docs-unavailable` | A vendor documentation page a module cites could not be read, or was refused by the builder's safety rules. | `retry` *(recommended)*, `proceed-unverified`, `cancel` |
 
 An explicit choice you already made is never a blocker. `--no-learn` and
-`--no-llm`, and modules the builder added on your behalf being deferred, stay
-warnings — you decided those.
+`--no-llm`, `LAB_BUILDER_VENDOR_DOCS=off`, and modules the builder added on your
+behalf being deferred, stay warnings — you decided those.
 
 `retry` is not a resolution: it re-runs the same gate, so a condition that has
 not cleared asks again.
@@ -169,7 +172,8 @@ finished markdown appears with a download button and a record of any decisions.
 flowchart LR
   A[Wizard selections] --> B[Planner]
   B -->|expand prereqs, order,<br/>fit time budget| C[Learn MCP grounding]
-  C -->|microsoft_docs_search<br/>per module| S[Step derivation<br/>microsoft_docs_fetch]
+  C --> V[Vendor documentation<br/>allowlisted HTTPS]
+  V -->|microsoft_docs_search<br/>per module| S[Step derivation<br/>microsoft_docs_fetch]
   S --> D[LLM enrichment<br/>optional]
   D --> E[Composer]
   E --> F[index.md + assets + shots.json]
@@ -267,6 +271,98 @@ actually checks, because a wrong freshness date is worse than none. The blocker
 text reads a per-feature `lastVerified` date in preference to it, but no feature
 carries one yet (issue #42); today the text quotes the catalog-wide date or says
 it does not know.
+
+### 3b. Vendor documentation
+
+Microsoft Learn is the only source the MCP server can return, and some features
+are defined by someone else's specification: MCP tools by the Model Context
+Protocol, A2A connections by the A2A protocol, custom connectors by OpenAPI 2.0.
+A lab about those is only well grounded if it cites the specification too
+(issue #39), so the builder has a second, non-MCP grounding path.
+
+**Where the sources come from.** A feature may list `thirdPartySources` in
+`features.json`, each with a `vendor`, a descriptive `title` (it becomes the link
+text), an `https` `url`, and a `stability` note that tells the learner how likely
+the page is to change or move — for example "a frozen specification version" or
+"redirects to the newest dated revision". Nothing is discovered by search; every
+vendor link is curated.
+
+**The allowlist.** The catalog's top-level `vendorHosts` is the only set of
+hosts the builder will contact, each with the reason it is trusted:
+
+| Host | Used by |
+|---|---|
+| `a2a-protocol.org` | `agent-to-agent` |
+| `adaptivecards.microsoft.com` | `adaptive-cards` |
+| `modelcontextprotocol.io` | `mcp-servers` |
+| `spec.openapis.org` | `custom-connectors` |
+
+`validateCatalog()` enforces it: every `thirdPartySources` URL must be `https`,
+on the default port, with no credentials, on a listed host (exact match, no
+wildcards or subdomains), and not on `learn.microsoft.com` (that belongs in
+`docUrls`). A listed host that no feature uses is also a problem, so the
+allowlist never grows wider than the catalog needs.
+
+**How a page is read** (`vendor-docs.js`). Vendor pages are untrusted input from
+the public internet, so:
+
+- Redirects are followed by hand (`redirect: "manual"`), at most five, and every
+  hop is re-checked against the allowlist and the `https` rule. A page that
+  redirects off the allowlist is refused, and the target is never requested.
+- One timeout covers the whole redirect chain and the body (10s,
+  `LAB_BUILDER_VENDOR_TIMEOUT_MS`), and the body is read as a stream and
+  abandoned past 2 MB.
+- Only `text/html` and `text/plain` are accepted. HTML is reduced to plain text
+  with `sanitize-html` allowing no tags, and the *contents* of `script`, `style`,
+  `noscript`, `template`, `iframe`, code samples, and page chrome are discarded,
+  not kept. Angle brackets are then removed, so nothing that could be read as
+  markup survives.
+- Nothing from a vendor page is executed, and nothing is ever rendered as HTML.
+  At most one line per module is quoted, and it goes through the same
+  `condense()` + `scrubForbidden()` path as a Microsoft Learn excerpt.
+- Only successful reads are cached (15 minutes); a failure never is, so `retry`
+  really does try again.
+
+**In the lab.** Each module that cites vendor pages gets a **Vendor
+documentation** block beside its Microsoft Learn references — vendor name,
+title link, stability note — and, when a page yielded quotable prose, a
+**From the *vendor* documentation** quote attributed to the vendor, never to
+Microsoft Learn. A page that was not read is marked in place. **How This Lab Was
+Built** says which vendors were cited, how many pages were read, and that vendor
+pages were treated as untrusted. The manifest records every vendor source per
+module with its fetch status, `fetchedAt`, final URL, link-check verdict, and
+whether it is still in the lab; the top-level `vendorDocs` summary records the
+allowlist the build ran under.
+
+Vendor URLs are link-checked with the rest (below), with one difference: a
+vendor site that answers the checker with 401, 403, or 429 is turning an
+automated client away, not reporting the page gone, so the link is kept and
+counted as `unverifiable`. 404, 410, and 5xx remove it.
+
+**When a read fails.** A vendor page that times out, errors, or is refused by the
+rules above raises `vendor-docs-unavailable`: `retry` (recommended),
+`proceed-unverified` (cite the link, marked unverified, quote nothing), or
+`cancel`. There is no "drop the modules" option, because a vendor page
+supplements a module that is still grounded on Microsoft Learn. When the failure
+was the builder's own refusal, the blocker says a retry will not help.
+
+Switching grounding off (`--no-learn`, or `useLearnMcp: false`) skips vendor
+reads too, with a warning rather than a blocker — the same rule as Microsoft
+Learn. `LAB_BUILDER_VENDOR_DOCS=off` skips only the vendor reads, for air-gapped
+builds and hermetic tests.
+
+**Adding a vendor source.**
+
+1. Request the page yourself and confirm it is the right page, that it resolves,
+   where it redirects, and that it serves `text/html` or `text/plain`. A page
+   rendered entirely in the browser (such as the Adaptive Cards site) can still
+   be cited, but will have nothing to quote.
+2. Add it to the feature's `thirdPartySources` with an honest `stability` note.
+3. If its host — or any host it redirects through — is new, add it to
+   `vendorHosts` with the reason it is trusted. Prefer a versioned or canonical
+   URL over one that redirects across hosts.
+4. Run `npm test` in `portal/`; the catalog test fails on anything the rules
+   above reject.
 
 ### 4. Step derivation
 
@@ -489,6 +585,9 @@ Each module renders as:
 - Screenshots (reused) and capture callouts (to fill in)
 - **Check your work** — per-module validation, from the curated catalog
 - **Microsoft Learn references** — citations, relevance-scored and link-checked
+- **Vendor documentation** — for modules whose catalog entry lists
+  `thirdPartySources`: vendor, title link, stability note, and an optional quote
+  attributed to the vendor
 
 ---
 
@@ -561,6 +660,13 @@ Add a feature to `portal/lib/lab-builder/features.json`:
   "screenshots": [{ "filename": "my-feature.png", "section": "agents", "instructions": ["What to show."] }],
   "learnQueries": ["Copilot Studio my feature"],
   "docUrls": ["https://learn.microsoft.com/microsoft-copilot-studio/..."],
+  // Optional: documentation published outside Microsoft Learn. The host must be
+  // in the catalog's top-level vendorHosts allowlist. See "Vendor documentation".
+  "thirdPartySources": [
+    { "vendor": "Model Context Protocol", "title": "MCP specification: Tools",
+      "url": "https://modelcontextprotocol.io/specification/latest/server/tools",
+      "stability": "Redirects to the newest dated specification revision." }
+  ],
   "prereqs": ["create-agent"],
   "relatedLabs": ["01-intro-workshop"],
   "reuseScreenshots": [{ "lab": "06-energy-weather-agent", "file": "some-shot.png", "caption": "..." }]
@@ -568,7 +674,8 @@ Add a feature to `portal/lib/lab-builder/features.json`:
 ```
 
 Then run `npm test` in `portal/` — the catalog integrity test will flag unknown
-categories, bad levels, missing fields, dangling prerequisites, and cycles.
+categories, bad levels, missing fields, dangling prerequisites, cycles, and any
+vendor source that breaks the allowlist rules.
 
 To add an industry, add an entry to `portal/lib/scenarios.json` (used across the
 portal) and a matching profile in `portal/lib/lab-builder/scenario-profiles.json`.
@@ -587,5 +694,9 @@ detection and resolution for all seven codes, LLM provider detection, and a full
 offline generation that must pass every validator rule.
 `portal/test/lab-builder-synthesis.test.js` covers each verifier check with a
 passing and a failing case, the repair loop, the split between failed requests
-and failed verification, and an end-to-end build with a scripted model. No
-network access is required.
+and failed verification, and an end-to-end build with a scripted model.
+`portal/test/lab-builder-vendor.test.js` covers vendor documentation: allowlist
+and redirect refusals, content-type and size limits, sanitization of hostile
+HTML, the `vendor-docs-unavailable` blocker and each of its options, the
+rendered block and manifest fields, third-party link-check rules, and catalog
+validation of bad sources. No network access is required.
