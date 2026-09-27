@@ -328,6 +328,10 @@ the public internet, so:
   `condense()` + `scrubForbidden()` path as a Microsoft Learn excerpt.
 - Only successful reads are cached (15 minutes); a failure never is, so `retry`
   really does try again.
+- `sanitize-html` is loaded only when a vendor HTML page is actually read, so
+  the CLI still runs offline (`--no-learn`) without the portal's npm
+  dependencies installed. If a live build runs without it, the read fails and
+  raises `vendor-docs-unavailable`, telling you to run `npm ci` in `portal/`.
 
 **In the lab.** Each module that cites vendor pages gets a **Vendor
 documentation** block beside its Microsoft Learn references — vendor name,
@@ -710,4 +714,7 @@ and failed verification, and an end-to-end build with a scripted model.
 and redirect refusals, content-type and size limits, sanitization of hostile
 HTML, the `vendor-docs-unavailable` blocker and each of its options, the
 rendered block and manifest fields, third-party link-check rules, and catalog
-validation of bad sources. No network access is required.
+validation of bad sources. `portal/test/lab-builder-offline.test.js` runs the
+CLI with every npm package blocked, the way CI runs it before `npm ci`, and
+fails if the builder's import graph starts needing `portal/node_modules`. No
+network access is required.

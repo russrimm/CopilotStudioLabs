@@ -35,10 +35,34 @@
  * without a network.
  */
 
-import sanitizeHtml from "sanitize-html";
-
 import { getCatalog } from "./catalog.js";
 import { condense, scrubForbidden } from "./composer.js";
+
+/**
+ * `sanitize-html`, loaded on first use.
+ *
+ * The lab builder CLI runs offline without the portal's npm dependencies
+ * installed (CI runs `build.mjs --no-learn` before `npm ci`). A static import
+ * would make every build resolve the package, including builds that never read
+ * a vendor page. Loading it only when an HTML page is actually read keeps that
+ * contract. If it is missing, the read fails with `errorKind: "dependency"`,
+ * which raises the `vendor-docs-unavailable` blocker instead of crashing.
+ */
+let sanitizer = null;
+
+class DependencyMissing extends Error {}
+
+export async function loadSanitizer() {
+  if (sanitizer) return sanitizer;
+  try {
+    sanitizer = (await import("sanitize-html")).default;
+  } catch (err) {
+    throw new DependencyMissing(
+      `the sanitize-html package could not be loaded (${err?.code || err?.message || err}); run npm ci in portal/ first`,
+    );
+  }
+  return sanitizer;
+}
 
 /** Whole-fetch budget, redirects and body included. A human is waiting. */
 export const DEFAULT_TIMEOUT_MS = Number(process.env.LAB_BUILDER_VENDOR_TIMEOUT_MS || 10000);
@@ -238,7 +262,8 @@ function contentRegion(html) {
  * remaining `<` opens one of those attribute-free block tags, and each becomes
  * a line break. No element survives.
  */
-export function htmlToText(html) {
+export async function htmlToText(html) {
+  const sanitizeHtml = await loadSanitizer();
   const region = contentRegion(String(html || "")).replace(/\s+/g, " ");
   const depth = nestingDepth(region);
   if (depth > MAX_NESTING) {
@@ -346,7 +371,8 @@ function abortError(reason = "Operation cancelled") {
  *
  * Always resolves, except on caller cancellation. The returned record says what
  * happened; `errorKind` separates what a retry might fix (`network`, `timeout`,
- * `http`) from what it cannot (`policy`, meaning this module refused the page).
+ * `http`) from what it cannot (`policy`, meaning this module refused the page,
+ * and `dependency`, meaning `sanitize-html` is not installed on this machine).
  */
 export function createVendorFetcher({
   allowedHosts,
@@ -439,7 +465,7 @@ export function createVendorFetcher({
         }
 
         const body = await readCapped(res, maxBytes);
-        const text = type === "text/html" ? htmlToText(body) : plainTextToText(body);
+        const text = type === "text/html" ? await htmlToText(body) : plainTextToText(body);
         const record = {
           url,
           status: "read",
@@ -459,6 +485,7 @@ export function createVendorFetcher({
     } catch (err) {
       if (signal?.aborted) throw abortError(signal.reason);
       if (err instanceof PolicyRefusal) return failure("policy", `Refused ${url}: ${err.message}.`);
+      if (err instanceof DependencyMissing) return failure("dependency", `${url} was fetched but could not be read: ${err.message}.`);
       if (controller.signal.aborted) return failure("timeout", `${url} did not respond within ${timeoutMs}ms.`);
       return failure("network", `${url} could not be reached: ${err?.cause?.code || err?.message || err}.`);
     } finally {

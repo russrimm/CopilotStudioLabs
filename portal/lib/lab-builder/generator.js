@@ -649,6 +649,7 @@ export async function generateLab(request, opts = {}) {
         const pages = [...failedPages.values()];
         const modules = [...new Map(pages.flatMap((p) => p.modules).map((f) => [f.id, f])).values()];
         const refusals = pages.filter((p) => p.source.fetch.errorKind === "policy").length;
+        const missingDependency = pages.some((p) => p.source.fetch.errorKind === "dependency");
         const outcome = gate(
           buildBlocker(BLOCKER_CODES.VENDOR_DOCS_UNAVAILABLE, {
             consequence:
@@ -658,6 +659,9 @@ export async function generateLab(request, opts = {}) {
               `a page that has moved or changed since the catalog was written would go unnoticed.` +
               (refusals
                 ? ` ${refusals} of these ${refusals === 1 ? "was" : "were"} refused by the builder's own safety rules rather than by the vendor's site; retrying will not change that, and the catalog entry needs updating.`
+                : "") +
+              (missingDependency
+                ? " This machine is missing the portal's npm dependencies, which the builder needs to read a vendor page safely: run npm ci in portal/ and then retry."
                 : ""),
             detail: {
               pages: pages.map((p) => ({
