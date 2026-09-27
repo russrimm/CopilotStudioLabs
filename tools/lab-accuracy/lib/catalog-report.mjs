@@ -5,7 +5,9 @@
 // live documentation page. Those steps age like any other documentation, so the
 // monthly job checks the catalog the same way it checks the hand-written labs:
 // every documentation link must still resolve, and every feature's
-// `lastVerified` date must be recent enough to trust.
+// `lastVerified` date must be recent enough to trust. Vendor pages cited in
+// `thirdPartySources` (issue #39) are checked under the same third-party rules
+// as lab links, and under the lab builder's own rules for reading them.
 //
 // Pure functions live here so check-catalog.mjs, report-status.mjs, and
 // build-issue.mjs share one definition of "needs a maintainer".
@@ -14,16 +16,23 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { repoRoot } from "./labs.mjs";
+import { classifyThirdParty } from "./reference-links.mjs";
 
-const { freshnessProblems } = await import(
-  pathToFileURL(path.join(repoRoot, "portal", "lib", "lab-builder", "catalog.js")).href
-);
+const builderLib = (file) => pathToFileURL(path.join(repoRoot, "portal", "lib", "lab-builder", file)).href;
+const { freshnessProblems } = await import(builderLib("catalog.js"));
+// vendor-docs.js loads sanitize-html only when it parses a page, which this
+// audit never does, so importing it needs none of the portal's dependencies.
+const { vendorUrlProblem, MAX_REDIRECTS, DEFAULT_MAX_BYTES } = await import(builderLib("vendor-docs.js"));
 
 export const DEFAULT_CATALOG_MAX_AGE_DAYS = 180;
 export const CATALOG_PATH = path.join(repoRoot, "portal", "lib", "lab-builder", "features.json");
 export const RE_VERIFY_DOC = "docs/lab-builder.md#extending-the-catalog";
 
 const DAY_MS = 86400000;
+const LINK_TIMEOUT_MS = 15000;
+const USER_AGENT = "copilot-studio-lab-accuracy/1.0 (+monthly-catalog-check)";
+// The content types the lab builder's vendor reader accepts (vendor-docs.js).
+const READABLE_TYPES = new Set(["text/html", "text/plain"]);
 
 /**
  * How old a feature's `lastVerified` may be before the audit asks for a
@@ -51,11 +60,89 @@ export function comparablePath(url) {
   }
 }
 
-/** Every URL the audit checks for one feature: its docUrls plus verifiedAgainst. */
+/** The vendor pages a feature cites (issue #39): its thirdPartySources urls. */
+export function vendorLinks(feature) {
+  if (!Array.isArray(feature?.thirdPartySources)) return [];
+  return [...new Set(feature.thirdPartySources.map((source) => source?.url).filter((url) => typeof url === "string" && url))];
+}
+
+/**
+ * The Microsoft Learn URLs the audit checks for one feature: its docUrls, plus
+ * verifiedAgainst when that is not one of its vendor pages.
+ */
 export function featureLinks(feature) {
   const links = [...(feature?.docUrls || [])];
-  if (typeof feature?.verifiedAgainst === "string" && feature.verifiedAgainst) links.push(feature.verifiedAgainst);
+  const verified = feature?.verifiedAgainst;
+  if (typeof verified === "string" && verified && !vendorLinks(feature).includes(verified)) links.push(verified);
   return [...new Set(links)];
+}
+
+/**
+ * Check one vendor URL under the lab builder's own reading rules.
+ *
+ * The builder only ever reads a vendor page from a host on the catalog's
+ * `vendorHosts`, over HTTPS, following redirects by hand and re-checking every
+ * hop, and only when the page is text. A link that breaks one of those rules
+ * fails every build that cites it, whatever a browser would show, so this
+ * checker applies the same rules and reports a breach as `refused` rather than
+ * following it. It never reads the body.
+ *
+ * Returns `{ url, status, ok, finalUrl?, error?, refused? }`. A refusal has
+ * status 0, so the third-party rules would call it unreachable; `refused`
+ * keeps it apart, because retrying next month will not fix it.
+ */
+export function createVendorLinkChecker({ allowedHosts, fetchImpl = fetch, timeoutMs = LINK_TIMEOUT_MS, maxRedirects = MAX_REDIRECTS, maxBytes = DEFAULT_MAX_BYTES } = {}) {
+  const hosts = new Set([...(allowedHosts || [])].map((host) => String(host).toLowerCase()));
+  return async function checkVendorLink(url) {
+    const refuse = (error, extra = {}) => ({ url, status: 0, ok: false, refused: true, error, ...extra });
+    const first = vendorUrlProblem(url, hosts);
+    if (first) return refuse(`not requested: ${first}`);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      let current = url;
+      for (let hop = 0; ; hop += 1) {
+        const res = await fetchImpl(current, {
+          method: "GET",
+          redirect: "manual",
+          signal: controller.signal,
+          headers: { "user-agent": USER_AGENT, accept: "text/html, text/plain;q=0.9" },
+        });
+        await res.body?.cancel().catch(() => {});
+
+        if (res.status >= 300 && res.status < 400) {
+          const location = res.headers.get("location");
+          if (!location) return refuse(`HTTP ${res.status} from ${current} named no redirect target`, { finalUrl: current });
+          if (hop >= maxRedirects) return refuse(`more than ${maxRedirects} redirects`, { finalUrl: current });
+          let next;
+          try {
+            next = new URL(location, current).href;
+          } catch {
+            return refuse(`malformed redirect from ${current}`, { finalUrl: current });
+          }
+          const problem = vendorUrlProblem(next, hosts);
+          if (problem) return refuse(`redirects to ${next}, and ${problem}`, { finalUrl: next });
+          current = next;
+          continue;
+        }
+
+        if (!res.ok) return { url, status: res.status, ok: false, finalUrl: current };
+
+        const type = String(res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+        if (!READABLE_TYPES.has(type)) return refuse(`content type is ${type || "missing"}, not text/html or text/plain`, { finalUrl: current, httpStatus: res.status });
+        const declared = Number(res.headers.get("content-length"));
+        if (Number.isFinite(declared) && declared > maxBytes) {
+          return refuse(`response is larger than the builder's ${maxBytes}-byte limit`, { finalUrl: current, httpStatus: res.status });
+        }
+        return { url, status: res.status, ok: true, finalUrl: current };
+      }
+    } catch (error) {
+      return { url, status: 0, ok: false, error: controller.signal.aborted ? "timeout" : error.message };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 }
 
 /**
@@ -72,12 +159,22 @@ export function verificationAgeDays(lastVerified, now = Date.now()) {
 /**
  * Turn one feature and the link results for its URLs into a report record.
  *
- * HTTP 4xx/5xx are broken; status 0 (timeout, DNS) is unreachable, the same
- * split check-accuracy.mjs uses. A redirect to a different page is recorded but
- * is not a failure: the link still works, it just is not canonical any more.
+ * Microsoft Learn links: HTTP 4xx/5xx are broken and status 0 (timeout, DNS) is
+ * unreachable, the same split check-accuracy.mjs uses. A redirect to a
+ * different page is recorded but is not a failure: the link still works, it
+ * just is not canonical any more.
+ *
+ * Vendor links follow the third-party rules in reference-links.mjs: HTTP 401,
+ * 403, and 429 are `unverifiable` (a site turning away an automated client),
+ * not broken. A link the builder would refuse to read is `refused`. Vendor
+ * redirects are not listed: versioned "latest" paths redirect by design, and
+ * every hop has already been checked against the allowlist.
  */
 export function analyzeFeature(feature, resultsByUrl, { now = Date.now(), maxAgeDays = DEFAULT_CATALOG_MAX_AGE_DAYS } = {}) {
-  const results = featureLinks(feature).map((url) => resultsByUrl.get(url) || { url, status: 0, ok: false, error: "not checked" });
+  const lookup = (url) => resultsByUrl.get(url) || { url, status: 0, ok: false, error: "not checked" };
+  const learn = featureLinks(feature).map(lookup);
+  const vendor = vendorLinks(feature).map((url) => ({ ...lookup(url), party: "third" }));
+  const vendorVerdict = (record) => (record.refused ? "refused" : classifyThirdParty(record));
   const ageDays = verificationAgeDays(feature?.lastVerified, now);
   const verificationProblems = freshnessProblems(feature, now);
 
@@ -89,10 +186,13 @@ export function analyzeFeature(feature, resultsByUrl, { now = Date.now(), maxAge
     ageDays,
     stale: ageDays !== null && ageDays > maxAgeDays,
     verificationProblems,
-    linkCount: results.length,
-    brokenLinks: results.filter((r) => r.status >= 400),
-    unreachableLinks: results.filter((r) => r.status === 0),
-    redirectedLinks: results
+    linkCount: learn.length + vendor.length,
+    vendorLinkCount: vendor.length,
+    brokenLinks: [...learn.filter((r) => r.status >= 400), ...vendor.filter((r) => vendorVerdict(r) === "broken")],
+    unreachableLinks: [...learn.filter((r) => r.status === 0), ...vendor.filter((r) => vendorVerdict(r) === "unreachable")],
+    refusedLinks: vendor.filter((r) => vendorVerdict(r) === "refused"),
+    unverifiableLinks: vendor.filter((r) => vendorVerdict(r) === "unverifiable"),
+    redirectedLinks: learn
       .filter((r) => r.ok && r.finalUrl && comparablePath(r.finalUrl) !== comparablePath(r.url))
       .map((r) => ({ url: r.url, finalUrl: r.finalUrl })),
   };
@@ -115,18 +215,32 @@ async function mapWithConcurrency(items, limit, fn) {
  * Check a catalog and build the `out/catalog.json` report.
  *
  * Each distinct URL is requested once however many features cite it.
- * `checkLink(url)` must resolve to `{ url, status, ok, finalUrl?, error? }`.
+ * `checkLink(url)` checks Microsoft Learn links and `checkVendorLink(url)`
+ * checks vendor links; both resolve to `{ url, status, ok, finalUrl?, error? }`.
+ * Without a `checkVendorLink`, vendor links are checked under the lab builder's
+ * rules against the catalog's own `vendorHosts`.
  */
-export async function buildCatalogReport(catalog, { checkLink, now = Date.now(), maxAgeDays = DEFAULT_CATALOG_MAX_AGE_DAYS, concurrency = 6, catalogPath = null } = {}) {
+export async function buildCatalogReport(
+  catalog,
+  { checkLink, checkVendorLink, now = Date.now(), maxAgeDays = DEFAULT_CATALOG_MAX_AGE_DAYS, concurrency = 6, catalogPath = null } = {},
+) {
   const features = Array.isArray(catalog?.features) ? catalog.features : [];
-  const urls = [...new Set(features.flatMap(featureLinks))];
-  const checked = await mapWithConcurrency(urls, concurrency, (url) => checkLink(url));
+  const vendorCheck =
+    checkVendorLink || createVendorLinkChecker({ allowedHosts: (catalog?.vendorHosts || []).map((entry) => entry?.host) });
+  const learnUrls = [...new Set(features.flatMap(featureLinks))];
+  const vendorUrls = [...new Set(features.flatMap(vendorLinks))].filter((url) => !learnUrls.includes(url));
+  const checked = await mapWithConcurrency(
+    [...learnUrls.map((url) => [url, checkLink]), ...vendorUrls.map((url) => [url, vendorCheck])],
+    concurrency,
+    ([url, check]) => check(url),
+  );
   const resultsByUrl = new Map(checked.map((result) => [result.url, result]));
 
   const records = features.map((feature) => analyzeFeature(feature, resultsByUrl, { now, maxAgeDays }));
   const oldest = records
     .filter((r) => r.ageDays !== null)
     .sort((a, b) => b.ageDays - a.ageDays)[0];
+  const total = (key) => records.reduce((sum, r) => sum + r[key].length, 0);
 
   return {
     generatedAt: new Date(now).toISOString(),
@@ -134,10 +248,13 @@ export async function buildCatalogReport(catalog, { checkLink, now = Date.now(),
     maxAgeDays,
     summary: {
       features: records.length,
-      links: urls.length,
-      brokenLinks: records.reduce((sum, r) => sum + r.brokenLinks.length, 0),
-      unreachableLinks: records.reduce((sum, r) => sum + r.unreachableLinks.length, 0),
-      redirectedLinks: records.reduce((sum, r) => sum + r.redirectedLinks.length, 0),
+      links: learnUrls.length + vendorUrls.length,
+      vendorLinks: vendorUrls.length,
+      brokenLinks: total("brokenLinks"),
+      unreachableLinks: total("unreachableLinks"),
+      refusedLinks: total("refusedLinks"),
+      unverifiableLinks: total("unverifiableLinks"),
+      redirectedLinks: total("redirectedLinks"),
       staleFeatures: records.filter((r) => r.stale).length,
       unverifiedFeatures: records.filter((r) => r.verificationProblems.length > 0).length,
       oldestVerification: oldest ? { id: oldest.id, lastVerified: oldest.lastVerified, ageDays: oldest.ageDays } : null,
@@ -147,7 +264,7 @@ export async function buildCatalogReport(catalog, { checkLink, now = Date.now(),
 }
 
 export function isCatalogReport(report) {
-  const counts = ["features", "brokenLinks", "unreachableLinks", "staleFeatures", "unverifiedFeatures"];
+  const counts = ["features", "brokenLinks", "unreachableLinks", "refusedLinks", "staleFeatures", "unverifiedFeatures"];
   return Boolean(
     report
       && Array.isArray(report.features)
@@ -158,6 +275,7 @@ export function isCatalogReport(report) {
       && report.features.every(
         (feature) => Array.isArray(feature.brokenLinks)
           && Array.isArray(feature.unreachableLinks)
+          && Array.isArray(feature.refusedLinks)
           && Array.isArray(feature.verificationProblems)
           && typeof feature.stale === "boolean",
       ),
@@ -174,6 +292,7 @@ export function catalogNeedsAction(report) {
   return Boolean(
     report.summary.brokenLinks
       || report.summary.unreachableLinks
+      || report.summary.refusedLinks
       || report.summary.staleFeatures
       || report.summary.unverifiedFeatures,
   );
@@ -198,9 +317,10 @@ export function renderCatalogSection(report) {
 
   const { summary } = report;
   const oldest = summary.oldestVerification;
-  lines.push(`- Features checked: **${summary.features}** · documentation links: **${summary.links ?? "?"}**`);
+  lines.push(`- Features checked: **${summary.features}** · documentation links: **${summary.links ?? "?"}** (vendor: **${summary.vendorLinks ?? 0}**)`);
   lines.push(
-    `- Broken links: **${summary.brokenLinks}** · temporarily unreachable: **${summary.unreachableLinks}** · redirected: **${summary.redirectedLinks ?? 0}**`,
+    `- Broken links: **${summary.brokenLinks}** · temporarily unreachable: **${summary.unreachableLinks}** · refused by the builder's vendor rules: **${summary.refusedLinks}** · ` +
+      `unverifiable (HTTP 401/403/429): **${summary.unverifiableLinks ?? 0}** · redirected: **${summary.redirectedLinks ?? 0}**`,
   );
   lines.push(
     `- Stale (\`lastVerified\` older than ${report.maxAgeDays} days): **${summary.staleFeatures}** · missing or invalid verification: **${summary.unverifiedFeatures}**` +
@@ -211,6 +331,20 @@ export function renderCatalogSection(report) {
   const broken = report.features.filter((f) => f.brokenLinks.length);
   if (broken.length) {
     details(lines, "Broken catalog links", broken.flatMap((f) => f.brokenLinks.map((l) => `- \`${f.id}\` → ${l.url} (HTTP ${l.status})`)), { open: true });
+  }
+
+  const refused = report.features.filter((f) => f.refusedLinks.length);
+  if (refused.length) {
+    details(
+      lines,
+      "Vendor links the lab builder would refuse to read",
+      [
+        ...refused.flatMap((f) => f.refusedLinks.map((l) => `- \`${f.id}\` → ${l.url} (${l.error || "refused"})`)),
+        "",
+        "Every build that cites one of these stops at the `vendor-docs-unavailable` blocker. Replace the link, or add its destination host to `vendorHosts` only if that host is itself a trustworthy source.",
+      ],
+      { open: true },
+    );
   }
 
   const stale = report.features.filter((f) => f.stale);
@@ -235,6 +369,19 @@ export function renderCatalogSection(report) {
   const unreachable = report.features.filter((f) => f.unreachableLinks.length);
   if (unreachable.length) {
     details(lines, "Catalog links that could not be checked", unreachable.flatMap((f) => f.unreachableLinks.map((l) => `- \`${f.id}\` → ${l.url} (${l.error || "network error"})`)));
+  }
+
+  const unverifiable = report.features.filter((f) => f.unverifiableLinks?.length);
+  if (unverifiable.length) {
+    details(
+      lines,
+      "Vendor links a site refused to check (HTTP 401/403/429, no action required)",
+      [
+        ...unverifiable.flatMap((f) => f.unverifiableLinks.map((l) => `- \`${f.id}\` → ${l.url} (HTTP ${l.status})`)),
+        "",
+        "Many vendor sites turn away automated clients while serving the page to a browser. Open these in a browser when the feature is next re-verified.",
+      ],
+    );
   }
 
   const redirected = report.features.filter((f) => f.redirectedLinks?.length);

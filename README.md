@@ -112,8 +112,9 @@ API key — and uses what comes back in two different ways:
   the module falls back to the curated steps in this repository's feature
   catalog — and says so in the lab, in that module, with the reason.
 
-Some features are built on someone else's specification — MCP, the A2A
-protocol, OpenAPI, Adaptive Cards — which Microsoft Learn cannot return. For
+Some features are built on someone else's specification or product — MCP, the
+A2A protocol, OpenAPI, Adaptive Cards, and each enterprise system the
+integration chapters connect to — which Microsoft Learn cannot return. For
 those, the catalog lists the **vendor documentation** per feature, and the builder
 reads it directly over HTTPS from an allowlist of hosts, treats its content as
 untrusted, link-checks it, and cites it in a separate **Vendor documentation**
@@ -126,7 +127,7 @@ covers 48 capabilities in 11 categories, including enterprise integrations
 (ServiceNow, Snowflake, SAP, Salesforce, Jira, Epic on FHIR, Shopify, on-premises
 data gateways, and VNet private connectivity) and governance topics such as agent
 inventory, release readiness, and Entra agent identities. Every entry records the
-day its curated steps were last checked by hand against a named Microsoft Learn
+day its curated steps were last checked by hand against a named documentation
 page (`lastVerified` and `verifiedAgainst`). Each module that falls back to curated
 steps quotes that date, and the monthly accuracy audit flags any entry that has not
 been re-verified in 180 days or whose documentation links stop resolving.
@@ -364,6 +365,8 @@ On the 1st of each month, the [`monthly-lab-accuracy.yml`](./.github/workflows/m
 Links are counted in two groups: Microsoft Learn (first-party) and everything else (third-party), such as vendor documentation, GitHub samples, and standards bodies. A broken Microsoft Learn link fails the pull request check. A broken third-party link is shown as a warning on the pull request, so a vendor's outage can't block unrelated work, and it makes the monthly issue ask for a maintainer. A site that answers the checker with HTTP 401, 403, or 429 is listed as unverifiable rather than broken. Hosts that a check can't say anything useful about, such as sign-in portals, API endpoints, and placeholders, are skipped. Each one is listed with its reason in [`tools/lab-accuracy/link-policy.json`](./tools/lab-accuracy/link-policy.json). Links inside code blocks are values to type, so they are never checked.
 
 The audit also flags *drift*: a lab whose cited Learn pages no longer appear when Learn is searched for the lab's topic. Search results vary from call to call, so a lab only counts as drifting if its cited pages are missing from three searches in a row. Some drift is a ranking false positive: the cited pages still resolve and are the right ones. Those labs are listed in [`tools/lab-accuracy/drift-baseline.json`](./tools/lab-accuracy/drift-baseline.json), each with a reason. Only drift outside that list needs a maintainer. Fix the lab's content before adding it to the baseline. Once the baseline's `verifiedAt` date is more than 90 days old, the audit asks for a re-triage, so acknowledged drift can't be ignored forever.
+
+The same run checks the lab builder's feature catalog (`check-catalog.mjs`). It requests every feature's Microsoft Learn and vendor links, the vendor ones under the same third-party rules, and it flags any feature whose `lastVerified` date is more than 180 days old. Results go in the **🧭 Lab-builder catalog** section of the issue; see [Extending the catalog](./docs/lab-builder.md#extending-the-catalog).
 
 ---
 

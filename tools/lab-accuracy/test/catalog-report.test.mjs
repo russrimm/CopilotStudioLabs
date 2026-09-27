@@ -13,6 +13,7 @@ import {
   analyzeFeature,
   buildCatalogReport,
   catalogMaxAgeDays,
+  createVendorLinkChecker,
   catalogNeedsAction,
   isCatalogReport,
   renderCatalogSection,
@@ -260,4 +261,141 @@ test("the shipped catalog passes its own freshness rules", () => {
   const { count, bad } = JSON.parse(output);
   assert.ok(count > 0);
   assert.deepEqual(bad, []);
+});
+
+// ── Vendor documentation (issue #39) ────────────────────────────────────────
+
+const VENDOR = "https://docs.vendor.example.org/guide";
+
+function vendorFeature(overrides = {}) {
+  return feature({
+    thirdPartySources: [{ vendor: "Vendor", title: "Vendor guide", url: VENDOR, stability: "Stable." }],
+    ...overrides,
+  });
+}
+
+/** A fetch stand-in: `routes` maps a URL to { status, location?, type? }. */
+function fakeFetch(routes) {
+  const calls = [];
+  const impl = async (url, init) => {
+    calls.push({ url, redirect: init?.redirect });
+    const route = routes[url] || { status: 404 };
+    const headers = new Map(Object.entries({
+      "content-type": route.type ?? "text/html; charset=utf-8",
+      ...(route.location ? { location: route.location } : {}),
+      ...(route.length ? { "content-length": String(route.length) } : {}),
+    }));
+    return { status: route.status, ok: route.status >= 200 && route.status < 300, headers: { get: (key) => headers.get(key) ?? null }, body: null };
+  };
+  impl.calls = calls;
+  return impl;
+}
+
+test("vendor links are checked separately and bucketed with the third-party rules", async () => {
+  const learnCalls = [];
+  const checkLink = async (url) => {
+    learnCalls.push(url);
+    return { url, status: 200, ok: true, finalUrl: url };
+  };
+  const statuses = { [VENDOR]: 403, "https://docs.vendor.example.org/gone": 404, "https://docs.vendor.example.org/slow": 0 };
+  const checkVendorLink = async (url) => (statuses[url] ? { url, status: statuses[url], ok: false } : { url, status: 0, ok: false, error: "timeout" });
+
+  const catalog = {
+    features: [
+      vendorFeature({
+        thirdPartySources: [
+          { vendor: "V", title: "Bot-blocked", url: VENDOR, stability: "s" },
+          { vendor: "V", title: "Gone", url: "https://docs.vendor.example.org/gone", stability: "s" },
+          { vendor: "V", title: "Slow", url: "https://docs.vendor.example.org/slow", stability: "s" },
+        ],
+      }),
+    ],
+  };
+  const report = await buildCatalogReport(catalog, { checkLink, checkVendorLink, now: NOW });
+  const [record] = report.features;
+
+  assert.deepEqual(learnCalls.sort(), [OTHER, PAGE], "vendor URLs never go through the Learn checker");
+  assert.equal(report.summary.vendorLinks, 3);
+  assert.deepEqual(record.unverifiableLinks.map((l) => [l.url, l.status]), [[VENDOR, 403]], "403 is unverifiable, not broken");
+  assert.deepEqual(record.brokenLinks.map((l) => l.url), ["https://docs.vendor.example.org/gone"]);
+  assert.deepEqual(record.unreachableLinks.map((l) => l.url), ["https://docs.vendor.example.org/slow"]);
+  assert.equal(record.brokenLinks[0].party, "third");
+  assert.equal(catalogNeedsAction(report), true);
+
+  // Unverifiable alone does not need a maintainer.
+  const onlyBlocked = await buildCatalogReport({ features: [vendorFeature()] }, {
+    checkLink,
+    checkVendorLink: async (url) => ({ url, status: 429, ok: false }),
+    now: NOW,
+  });
+  assert.equal(onlyBlocked.summary.unverifiableLinks, 1);
+  assert.equal(catalogNeedsAction(onlyBlocked), false);
+  assert.match(renderCatalogSection(onlyBlocked).join("\n"), /Vendor links a site refused to check \(HTTP 401\/403\/429, no action required\)/);
+});
+
+test("a verifiedAgainst on a vendor page is checked as a vendor link", async () => {
+  const checkLink = async (url) => ({ url, status: 200, ok: true, finalUrl: url });
+  const vendorCalls = [];
+  const checkVendorLink = async (url) => {
+    vendorCalls.push(url);
+    return { url, status: 200, ok: true, finalUrl: url };
+  };
+  const report = await buildCatalogReport({ features: [vendorFeature({ verifiedAgainst: VENDOR })] }, { checkLink, checkVendorLink, now: NOW });
+  assert.deepEqual(vendorCalls, [VENDOR]);
+  assert.deepEqual(report.features[0].verificationProblems, []);
+  assert.equal(catalogNeedsAction(report), false);
+});
+
+test("the vendor checker follows the lab builder's rules and never follows a redirect off the allowlist", async () => {
+  const hosts = ["docs.vendor.example.org"];
+  const ok = createVendorLinkChecker({
+    allowedHosts: hosts,
+    fetchImpl: fakeFetch({ [VENDOR]: { status: 301, location: "/guide/v2" }, "https://docs.vendor.example.org/guide/v2": { status: 200 } }),
+  });
+  assert.deepEqual(await ok(VENDOR), { url: VENDOR, status: 200, ok: true, finalUrl: "https://docs.vendor.example.org/guide/v2" });
+
+  const offList = fakeFetch({ [VENDOR]: { status: 302, location: "https://tracker.example.net/login" } });
+  const refused = await createVendorLinkChecker({ allowedHosts: hosts, fetchImpl: offList })(VENDOR);
+  assert.equal(refused.refused, true);
+  assert.equal(refused.status, 0);
+  assert.match(refused.error, /tracker\.example\.net is not on the vendor allowlist/);
+  assert.deepEqual(offList.calls.map((c) => c.url), [VENDOR], "the off-list destination is never requested");
+  assert.ok(offList.calls.every((c) => c.redirect === "manual"));
+
+  const unlisted = fakeFetch({});
+  assert.match((await createVendorLinkChecker({ allowedHosts: [], fetchImpl: unlisted })(VENDOR)).error, /not requested/);
+  assert.equal(unlisted.calls.length, 0);
+
+  const pdf = await createVendorLinkChecker({ allowedHosts: hosts, fetchImpl: fakeFetch({ [VENDOR]: { status: 200, type: "application/pdf" } }) })(VENDOR);
+  assert.match(pdf.error, /content type is application\/pdf/);
+
+  const huge = await createVendorLinkChecker({ allowedHosts: hosts, fetchImpl: fakeFetch({ [VENDOR]: { status: 200, length: 3 * 1024 * 1024 } }) })(VENDOR);
+  assert.match(huge.error, /larger than the builder's/);
+
+  const blocked = await createVendorLinkChecker({ allowedHosts: hosts, fetchImpl: fakeFetch({ [VENDOR]: { status: 403 } }) })(VENDOR);
+  assert.deepEqual(blocked, { url: VENDOR, status: 403, ok: false, finalUrl: VENDOR });
+});
+
+test("a refused vendor link needs action and says what every build will hit", async () => {
+  const report = await buildCatalogReport({ features: [vendorFeature()] }, {
+    checkLink: async (url) => ({ url, status: 200, ok: true, finalUrl: url }),
+    checkVendorLink: async (url) => ({ url, status: 0, ok: false, refused: true, error: "redirects to https://x.example.net/, and x.example.net is not on the vendor allowlist" }),
+    now: NOW,
+  });
+  assert.equal(report.summary.refusedLinks, 1);
+  assert.equal(report.summary.unreachableLinks, 0, "a refusal is not a network blip");
+  assert.equal(catalogNeedsAction(report), true);
+  const body = renderCatalogSection(report).join("\n");
+  assert.match(body, /Vendor links the lab builder would refuse to read/);
+  assert.match(body, /vendor-docs-unavailable/);
+});
+
+test("without an injected vendor checker, the catalog's own allowlist is used", async () => {
+  // docs.vendor.example.org is not in vendorHosts, so the default checker refuses without a request.
+  const report = await buildCatalogReport(
+    { vendorHosts: [{ host: "other.example.org", reason: "r" }], features: [vendorFeature()] },
+    { checkLink: async (url) => ({ url, status: 200, ok: true, finalUrl: url }), now: NOW },
+  );
+  assert.equal(report.summary.refusedLinks, 1);
+  assert.match(report.features[0].refusedLinks[0].error, /not on the vendor allowlist/);
 });

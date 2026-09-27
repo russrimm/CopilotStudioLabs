@@ -3,9 +3,13 @@
 // Reads portal/lib/lab-builder/features.json and, for every feature:
 //   1. requests each docUrl and its verifiedAgainst page once, the same way
 //      check-accuracy.mjs checks lab links (GET, redirects followed, 15 s timeout);
-//   2. flags a lastVerified date older than the threshold (default 180 days,
+//   2. requests each thirdPartySources page under the lab builder's vendor
+//      rules (allowlisted hosts only, every redirect re-checked, text only) and
+//      buckets the result with the third-party link rules, so HTTP 401/403/429
+//      is unverifiable rather than broken;
+//   3. flags a lastVerified date older than the threshold (default 180 days,
 //      --max-age-days=N or CATALOG_MAX_AGE_DAYS);
-//   3. re-applies the catalog's own freshness rules, so a missing or invalid
+//   4. re-applies the catalog's own freshness rules, so a missing or invalid
 //      lastVerified/verifiedAgainst is reported even if CI was bypassed.
 //
 // Writes out/catalog.json. Exit code is 0 unless --strict is passed and the
@@ -64,6 +68,8 @@ async function main() {
     const bits = [];
     if (feature.brokenLinks.length) bits.push(`${feature.brokenLinks.length} broken link(s)`);
     if (feature.unreachableLinks.length) bits.push(`${feature.unreachableLinks.length} unreachable`);
+    if (feature.refusedLinks.length) bits.push(`${feature.refusedLinks.length} vendor link(s) refused`);
+    if (feature.unverifiableLinks.length) bits.push(`${feature.unverifiableLinks.length} vendor link(s) unverifiable`);
     if (feature.stale) bits.push(`stale (verified ${feature.lastVerified}, ${feature.ageDays} days ago)`);
     if (feature.verificationProblems.length) bits.push("invalid verification metadata");
     console.log(`• ${feature.id}: ${bits.join(", ") || `OK (verified ${feature.lastVerified})`}`);
@@ -73,8 +79,9 @@ async function main() {
   const { summary } = report;
   console.log(`\nCatalog report written to ${target}`);
   console.log(
-    `Summary: ${summary.features} feature(s), ${summary.links} link(s): ${summary.brokenLinks} broken, ` +
-      `${summary.unreachableLinks} unreachable, ${summary.redirectedLinks} redirected; ` +
+    `Summary: ${summary.features} feature(s), ${summary.links} link(s) (${summary.vendorLinks} vendor): ${summary.brokenLinks} broken, ` +
+      `${summary.unreachableLinks} unreachable, ${summary.refusedLinks} refused, ${summary.unverifiableLinks} unverifiable, ` +
+      `${summary.redirectedLinks} redirected; ` +
       `${summary.staleFeatures} stale (> ${maxAgeDays} days), ${summary.unverifiedFeatures} with invalid verification metadata`,
   );
 

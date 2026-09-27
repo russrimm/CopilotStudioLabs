@@ -281,10 +281,11 @@ one at a time, so a single date would claim more than anyone checked.
 ### 3b. Vendor documentation
 
 Microsoft Learn is the only source the MCP server can return, and some features
-are defined by someone else's specification: MCP tools by the Model Context
-Protocol, A2A connections by the A2A protocol, custom connectors by OpenAPI 2.0.
-A lab about those is only well grounded if it cites the specification too
-(issue #39), so the builder has a second, non-MCP grounding path.
+are defined by someone else's specification or product: MCP tools by the Model
+Context Protocol, A2A connections by the A2A protocol, custom connectors by
+OpenAPI 2.0, and each enterprise integration by the system it connects to. A lab
+about those is only well grounded if it cites that documentation too (issue
+#39), so the builder has a second, non-MCP grounding path.
 
 **Where the sources come from.** A feature may list `thirdPartySources` in
 `features.json`, each with a `vendor`, a descriptive `title` (it becomes the link
@@ -300,8 +301,22 @@ hosts the builder will contact, each with the reason it is trusted:
 |---|---|
 | `a2a-protocol.org` | `agent-to-agent` |
 | `adaptivecards.microsoft.com` | `adaptive-cards` |
+| `developer.atlassian.com` | `jira-integration` |
+| `developer.salesforce.com` | `salesforce-integration` |
+| `docs.snowflake.com` | `snowflake-integration` |
+| `fhir.epic.com` | `epic-fhir-integration` |
+| `hl7.org` | `epic-fhir-integration` |
 | `modelcontextprotocol.io` | `mcp-servers` |
+| `shopify.dev` | `shopify-integration` |
 | `spec.openapis.org` | `custom-connectors` |
+| `support.sap.com` | `sap-integration` |
+| `www.servicenow.com` | `servicenow-integration` |
+
+Two of those sites answer HTTP 200 for any address and build the page in the
+browser: `www.servicenow.com/docs` and `fhir.epic.com/Documentation`. A link
+check against them can only show that the site is up, not that the page still
+exists, and their `stability` notes say so. Re-open those pages in a browser
+when you re-verify the feature.
 
 `validateCatalog()` enforces it: every `thirdPartySources` URL must be `https`,
 on the default port, with no credentials, on a listed host (exact match, no
@@ -723,17 +738,20 @@ Every feature must carry both fields, and `validateCatalog()` rejects a catalog
 where any feature is missing one, has a `lastVerified` that is not a real
 `YYYY-MM-DD` date or is in the future (one day of grace for time zones ahead of
 UTC), or has a `verifiedAgainst` that is not an `https` URL from the feature's own
-`docUrls`. Generated labs quote both in every module that falls back to curated
-steps ("last verified by hand on 2026-09-27 against the … documentation") and
-record them per module in `manifest.json` under `catalog`.
+`docUrls` or `thirdPartySources`. `verifiedAgainst` is normally the Microsoft
+Learn page the steps follow; point it at a vendor page only when the steps
+follow the vendor's documentation instead. Generated labs quote both in every
+module that falls back to curated steps ("last verified by hand on 2026-09-27
+against the … documentation") and record them per module in `manifest.json`
+under `catalog`.
 
 A date is a claim that someone did the work, so only change `lastVerified` after
 you have done all of this for that feature:
 
-1. Request every `docUrls` entry. Replace a `404` with the current page for the
-   same capability, and replace a URL that redirects to a different page with its
-   destination (a redirect that only adds a locale such as `/en-us/` is not a move;
-   keep URLs locale-free).
+1. Request every `docUrls` and `thirdPartySources` entry. Replace a `404`
+   with the current page for the same capability, and replace a URL that
+   redirects to a different page with its destination (a redirect that only
+   adds a locale such as `/en-us/` is not a move; keep URLs locale-free).
 2. Read `verifiedAgainst` in full, for example with the Learn MCP server's
    `microsoft_docs_fetch`, and skim the other `docUrls`.
 3. Compare `name`, `summary`, `whyItMatters`, `concepts`, `steps`, `validation`,
@@ -752,13 +770,25 @@ runs `tools/lab-accuracy/check-catalog.mjs` alongside the lab checks. It request
 every feature's `docUrls` and `verifiedAgainst` once (GET, redirects followed,
 15-second timeout, the same approach as `check-accuracy.mjs`), re-applies the
 freshness rules above, and flags every feature whose `lastVerified` is more than
-180 days old. It writes `out/catalog.json`, and `build-issue.mjs` adds a
-**🧭 Lab-builder catalog** section to the tracking issue. Broken or unreachable
-links, overdue verification dates, and invalid freshness fields all mark the
+180 days old.
+
+Vendor pages in `thirdPartySources` are requested under the lab builder's own
+reading rules: only hosts in `vendorHosts`, redirects followed by hand with every
+hop re-checked, and only `text/html` or `text/plain` under the builder's size
+limit. The result is then bucketed with the same third-party rules as lab links.
+HTTP 401, 403, and 429 are `unverifiable`, because a vendor site is turning away
+an automated client, and they are listed but need no action. 404, 410, and 5xx
+are broken. A link the builder would refuse to read is `refused` and needs
+action, because every build that cites it would stop at `vendor-docs-unavailable`.
+Vendor redirects are not listed, because versioned "latest" paths redirect by design.
+
+It writes `out/catalog.json`, and `build-issue.mjs` adds a
+**🧭 Lab-builder catalog** section to the tracking issue. Broken, unreachable, or
+refused links, overdue verification dates, and invalid freshness fields all mark the
 month as needing a maintainer. So does a missing or malformed catalog report,
-because an audit that did not run has not shown that anything is fine. Links that
-redirect to a different page are listed, but they do not need action on their
-own.
+because an audit that did not run has not shown that anything is fine. Microsoft
+Learn links that redirect to a different page are listed, but they do not need
+action on their own.
 
 ```bash
 cd tools/lab-accuracy
@@ -803,7 +833,9 @@ cd tools/lab-accuracy && npm test
 ```
 
 `tools/lab-accuracy/test/catalog-report.test.mjs` covers the age threshold and
-its overrides, broken versus unreachable versus redirected links, fail-closed
-handling of a missing, malformed, or empty report, and the tracking-issue
-section. Its link checks run against a local HTTP server, so it makes no requests
-to Microsoft Learn.
+its overrides, broken versus unreachable versus redirected links, vendor links
+under the third-party and builder reading rules (unverifiable, refused, and
+off-allowlist redirects that are never followed), fail-closed handling of a
+missing, malformed, or empty report, and the tracking-issue section. Its link
+checks run against a local HTTP server or a stub, so it makes no requests to
+Microsoft Learn or any vendor.

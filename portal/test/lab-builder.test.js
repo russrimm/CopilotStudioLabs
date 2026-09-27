@@ -78,7 +78,24 @@ test("a fully stamped catalog feature passes the freshness rules", () => {
 test("every shipped feature records when and against what it was last verified", () => {
   for (const feature of getFeatures()) {
     assert.match(feature.lastVerified, /^\d{4}-\d{2}-\d{2}$/, `${feature.id} has no lastVerified date`);
-    assert.ok(feature.docUrls.includes(feature.verifiedAgainst), `${feature.id} verifiedAgainst is not one of its docUrls`);
+    const own = [...feature.docUrls, ...(feature.thirdPartySources || []).map((source) => source.url)];
+    assert.ok(own.includes(feature.verifiedAgainst), `${feature.id} verifiedAgainst is not one of its own pages`);
+  }
+});
+
+test("every vendor integration chapter cites the vendor's own documentation", () => {
+  const expected = {
+    "servicenow-integration": "www.servicenow.com",
+    "snowflake-integration": "docs.snowflake.com",
+    "sap-integration": "support.sap.com",
+    "salesforce-integration": "developer.salesforce.com",
+    "jira-integration": "developer.atlassian.com",
+    "epic-fhir-integration": "fhir.epic.com",
+    "shopify-integration": "shopify.dev",
+  };
+  for (const [id, host] of Object.entries(expected)) {
+    const hosts = (getFeature(id).thirdPartySources || []).map((source) => new URL(source.url).hostname);
+    assert.ok(hosts.includes(host), `${id} should cite ${host}, cites ${hosts.join(", ") || "nothing"}`);
   }
 });
 
@@ -108,12 +125,20 @@ test("a lastVerified in the future is rejected, with a day of grace for time zon
 });
 
 test("verifiedAgainst must be an https page that belongs to the feature", () => {
+  // A feature whose steps follow a vendor's own documentation may be verified against it (issue #39).
+  const vendorUrl = "https://docs.vendor.example.org/guide";
+  const vendorVerified = freshnessCatalog({
+    verifiedAgainst: vendorUrl,
+    thirdPartySources: [{ vendor: "Vendor", title: "Vendor guide", url: vendorUrl, stability: "Stable." }],
+  });
+  vendorVerified.vendorHosts = [{ host: "docs.vendor.example.org", reason: "Test vendor." }];
+  assert.deepEqual(validateCatalog(vendorVerified, { now: FRESHNESS_NOW }), []);
   const foreign = validateCatalog(
     freshnessCatalog({ verifiedAgainst: "https://learn.microsoft.com/microsoft-copilot-studio/some-other-feature" }),
     { now: FRESHNESS_NOW },
   );
   assert.equal(foreign.length, 1);
-  assert.match(foreign[0], /verifiedAgainst .* is not one of this feature's docUrls/);
+  assert.match(foreign[0], /verifiedAgainst .* is not one of this feature's docUrls or thirdPartySources/);
 
   for (const bad of ["http://learn.microsoft.com/microsoft-copilot-studio/fresh", "not a url", "javascript:alert(1)"]) {
     const problems = validateCatalog(freshnessCatalog({ verifiedAgainst: bad }), { now: FRESHNESS_NOW });

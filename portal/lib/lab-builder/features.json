@@ -11,12 +11,44 @@
       "reason": "The Adaptive Cards documentation and designer site. adaptivecards.io now redirects here, and Copilot Studio renders Adaptive Cards defined by this schema."
     },
     {
+      "host": "developer.atlassian.com",
+      "reason": "Atlassian's developer documentation for the Jira Cloud REST APIs that the Jira connector calls. Microsoft Learn's Jira connector reference links to it."
+    },
+    {
+      "host": "developer.salesforce.com",
+      "reason": "Salesforce's developer documentation for the APIs behind the Salesforce connector. Microsoft Learn's Salesforce connector reference links to it."
+    },
+    {
+      "host": "docs.snowflake.com",
+      "reason": "Snowflake's product documentation, including the External OAuth setup that the Snowflake connector's Microsoft Entra ID sign-in depends on. Microsoft Learn's Snowflake connector reference links to it."
+    },
+    {
+      "host": "fhir.epic.com",
+      "reason": "Epic on FHIR, Epic's developer site for registering apps against its FHIR APIs. Microsoft Learn's FHIRlink connector article links to it for app registration."
+    },
+    {
+      "host": "hl7.org",
+      "reason": "Health Level Seven International, which publishes the FHIR specification that the FHIRlink connector and Epic on FHIR implement."
+    },
+    {
       "host": "modelcontextprotocol.io",
       "reason": "Publishes the Model Context Protocol specification and documentation that Copilot Studio's MCP tools implement. Microsoft Learn links to it from the MCP overview."
     },
     {
+      "host": "shopify.dev",
+      "reason": "Shopify's developer documentation for the Admin API that a Shopify custom connector calls. Shopify has no certified connector documented on Microsoft Learn."
+    },
+    {
       "host": "spec.openapis.org",
       "reason": "The OpenAPI Initiative's specification site. Custom connectors require OpenAPI 2.0 definitions, and Microsoft Learn links to this page for the format."
+    },
+    {
+      "host": "support.sap.com",
+      "reason": "SAP Support Portal, which publishes the SAP Connector for Microsoft .NET that the SAP ERP connector requires. Microsoft Learn's SAP ERP connector reference links to its product page."
+    },
+    {
+      "host": "www.servicenow.com",
+      "reason": "ServiceNow's product documentation (docs.servicenow.com now redirects here), including the Table API that the ServiceNow connector's record actions use. Microsoft Learn's ServiceNow connector reference links to ServiceNow's documentation."
     }
   ],
   "product": "Microsoft Copilot Studio",
@@ -1247,6 +1279,20 @@
         "https://learn.microsoft.com/connectors/service-now/",
         "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-real-time-connectors"
       ],
+      "thirdPartySources": [
+        {
+          "vendor": "ServiceNow",
+          "title": "ServiceNow Table API reference",
+          "url": "https://www.servicenow.com/docs/r/api-reference/rest-apis/c_TableAPI.html",
+          "stability": "The /docs/r/ path always opens the current ServiceNow release, so the page changes with each release. The ServiceNow connector's create, get, and update record actions go through this API. The site renders its pages in the browser and answers HTTP 200 for any address, so an automated check can only confirm that the site is up; open the page in a browser when you re-verify this feature."
+        },
+        {
+          "vendor": "ServiceNow",
+          "title": "Configure an OAuth OIDC provider for accepting third-party tokens",
+          "url": "https://www.servicenow.com/docs/r/platform-security/authentication/add-OIDC-entity.html",
+          "stability": "The ServiceNow-side setup for Microsoft Entra ID sign-in to the ServiceNow connector. Follows the current ServiceNow release. The site renders its pages in the browser and answers HTTP 200 for any address, so an automated check can only confirm that the site is up; open the page in a browser when you re-verify this feature."
+        }
+      ],
       "lastVerified": "2026-09-27",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
       "prereqs": [
@@ -1314,6 +1360,14 @@
         "https://learn.microsoft.com/connectors/snowflakev2/",
         "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-real-time-connectors"
       ],
+      "thirdPartySources": [
+        {
+          "vendor": "Snowflake",
+          "title": "Configure Microsoft Entra ID for External OAuth",
+          "url": "https://docs.snowflake.com/en/user-guide/oauth-azure",
+          "stability": "Snowflake's current documentation, updated with Snowflake releases. It defines the security integration and audience values the Snowflake connector's Microsoft Entra ID sign-in depends on."
+        }
+      ],
       "lastVerified": "2026-09-27",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
       "prereqs": [
@@ -1380,6 +1434,14 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
         "https://learn.microsoft.com/connectors/saperp/",
         "https://learn.microsoft.com/connectors/sapodata/"
+      ],
+      "thirdPartySources": [
+        {
+          "vendor": "SAP",
+          "title": "SAP Connector for Microsoft .NET (NCo 3.1)",
+          "url": "https://support.sap.com/en/product/connectors/msnet.html",
+          "stability": "SAP's product page for NCo 3.1, which the SAP ERP connector needs on the on-premises data gateway machine; Microsoft Learn's SAP ERP connector reference links to it. The page is public, but the downloads it points to need an SAP account."
+        }
       ],
       "lastVerified": "2026-09-27",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
@@ -1449,6 +1511,14 @@
         "https://learn.microsoft.com/connectors/salesforce/",
         "https://learn.microsoft.com/microsoft-365/copilot/connectors/salesforce-crm-overview"
       ],
+      "thirdPartySources": [
+        {
+          "vendor": "Salesforce",
+          "title": "Introduction to the Salesforce REST API",
+          "url": "https://developer.salesforce.com/docs/platform/api-rest/guide/intro-rest.html",
+          "stability": "Unversioned guide that follows the current Salesforce API release. It lists the editions and the API access a Salesforce user needs before any connector, including the real-time knowledge connector, can read their org."
+        }
+      ],
       "lastVerified": "2026-09-27",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-real-time-connectors",
       "prereqs": [
@@ -1514,6 +1584,14 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
         "https://learn.microsoft.com/connectors/jira/",
         "https://learn.microsoft.com/microsoft-365/copilot/connectors/jira-cloud-overview"
+      ],
+      "thirdPartySources": [
+        {
+          "vendor": "Atlassian",
+          "title": "Basic auth for Jira Cloud REST APIs with an API token",
+          "url": "https://developer.atlassian.com/cloud/jira/platform/basic-auth-for-rest-apis/",
+          "stability": "Atlassian's current Jira Cloud platform guide to email-and-API-token authentication, the connection type this chapter uses. Password-based basic authentication is deprecated, and the page tracks changes to API token lifetimes."
+        }
       ],
       "lastVerified": "2026-09-27",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
@@ -1582,6 +1660,20 @@
         "https://learn.microsoft.com/connectors/fhirlink/",
         "https://learn.microsoft.com/industry/healthcare/business-applications/fhirlink-connector-overview"
       ],
+      "thirdPartySources": [
+        {
+          "vendor": "HL7",
+          "title": "FHIR R4 RESTful API",
+          "url": "https://hl7.org/fhir/R4/http.html",
+          "stability": "A published, normative release of the FHIR specification in its permanent home, so it does not change. Epic on FHIR endpoints used by FHIRlink are R4, so this is the release to follow even though R5 exists."
+        },
+        {
+          "vendor": "Epic",
+          "title": "Epic on FHIR app creation and request process",
+          "url": "https://fhir.epic.com/Documentation?docId=epiconfhirrequestprocessstepbystep",
+          "stability": "The page Microsoft Learn's FHIRlink article sends you to for registering an Epic on FHIR app. Every Documentation address serves the same large page and the browser picks the section from docId, so an automated check can only confirm that the site is up; open it in a browser when you re-verify this feature."
+        }
+      ],
       "lastVerified": "2026-09-27",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
       "prereqs": [
@@ -1647,6 +1739,14 @@
         "https://learn.microsoft.com/connectors/custom-connectors/define-openapi-definition",
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
         "https://learn.microsoft.com/connectors/shopifyip/"
+      ],
+      "thirdPartySources": [
+        {
+          "vendor": "Shopify",
+          "title": "Shopify API authentication",
+          "url": "https://shopify.dev/docs/api/usage/authentication",
+          "stability": "Shopify's current developer documentation. It says which token and header each Shopify API expects, including X-Shopify-Access-Token for the Admin API, and changes when Shopify changes its authentication flows."
+        }
       ],
       "lastVerified": "2026-09-27",
       "verifiedAgainst": "https://learn.microsoft.com/connectors/custom-connectors/define-openapi-definition",

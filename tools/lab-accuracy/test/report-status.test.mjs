@@ -8,6 +8,7 @@ import {
   referenceLinksNeedAction,
   reportsNeedAction,
 } from "../lib/report-status.mjs";
+import { cleanCatalogReport } from "./catalog-fixture.mjs";
 
 // Pinned so a DRIFT_BASELINE_MAX_AGE_DAYS in the caller's environment cannot change the outcome.
 const DEFAULT_LIMIT = { maxBaselineAgeDays: DEFAULT_DRIFT_BASELINE_MAX_AGE_DAYS };
@@ -36,11 +37,7 @@ function cleanReports() {
       summary: { unreachable: 0 },
       urls: [],
     },
-    catalog: {
-      maxAgeDays: 180,
-      summary: { features: 1, links: 1, brokenLinks: 0, unreachableLinks: 0, redirectedLinks: 0, staleFeatures: 0, unverifiedFeatures: 0 },
-      features: [{ id: "demo", stale: false, brokenLinks: [], unreachableLinks: [], redirectedLinks: [], verificationProblems: [] }],
-    },
+    catalog: cleanCatalogReport(),
   };
 }
 
@@ -86,6 +83,7 @@ test("monthly report status requires action for every degraded signal", () => {
     (reports) => { reports.smoke.summary.unreachable = 1; },
     (reports) => { reports.catalog.summary.brokenLinks = 1; },
     (reports) => { reports.catalog.summary.unreachableLinks = 1; },
+    (reports) => { reports.catalog.summary.refusedLinks = 1; },
     (reports) => { reports.catalog.summary.staleFeatures = 1; },
     (reports) => { reports.catalog.summary.unverifiedFeatures = 1; },
   ]) {
