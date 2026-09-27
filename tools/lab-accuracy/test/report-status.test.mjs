@@ -8,6 +8,7 @@ import {
   referenceLinksNeedAction,
   reportsNeedAction,
 } from "../lib/report-status.mjs";
+import { cleanCatalogReport } from "./catalog-fixture.mjs";
 
 // Pinned so a DRIFT_BASELINE_MAX_AGE_DAYS in the caller's environment cannot change the outcome.
 const DEFAULT_LIMIT = { maxBaselineAgeDays: DEFAULT_DRIFT_BASELINE_MAX_AGE_DAYS };
@@ -36,6 +37,7 @@ function cleanReports() {
       summary: { unreachable: 0 },
       urls: [],
     },
+    catalog: cleanCatalogReport(),
   };
 }
 
@@ -58,6 +60,16 @@ test("monthly report status fails closed for missing or malformed reports", () =
   );
 });
 
+test("monthly report status fails closed for a missing or malformed catalog report", () => {
+  const { catalog: _catalog, ...withoutCatalog } = cleanReports();
+  assert.equal(reportsNeedAction(withoutCatalog), true);
+  assert.equal(reportsNeedAction({ ...cleanReports(), catalog: { summary: {}, features: [] } }), true);
+  const empty = cleanReports();
+  empty.catalog.summary.features = 0;
+  empty.catalog.features = [];
+  assert.equal(reportsNeedAction(empty), true, "a catalog check that covered no features proves nothing");
+});
+
 test("monthly report status requires action for every degraded signal", () => {
   for (const mutate of [
     (reports) => { reports.accuracy.summary.brokenLinks = 1; },
@@ -69,6 +81,11 @@ test("monthly report status requires action for every degraded signal", () => {
     (reports) => { reports.screenshots.verifyShots.warning = 1; },
     (reports) => { reports.screenshots.summary.labsNeedingRecapture = 1; },
     (reports) => { reports.smoke.summary.unreachable = 1; },
+    (reports) => { reports.catalog.summary.brokenLinks = 1; },
+    (reports) => { reports.catalog.summary.unreachableLinks = 1; },
+    (reports) => { reports.catalog.summary.refusedLinks = 1; },
+    (reports) => { reports.catalog.summary.staleFeatures = 1; },
+    (reports) => { reports.catalog.summary.unverifiedFeatures = 1; },
   ]) {
     const reports = cleanReports();
     mutate(reports);

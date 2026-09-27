@@ -6,6 +6,8 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
+import { cleanCatalogReport } from "./catalog-fixture.mjs";
+
 const toolRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const CLEAN_SCREENSHOTS = {
@@ -48,6 +50,7 @@ function buildIssue(t, accuracy) {
   writeFileSync(join(outDir, "accuracy.json"), JSON.stringify(accuracy));
   writeFileSync(join(outDir, "screenshots.json"), JSON.stringify(CLEAN_SCREENSHOTS));
   writeFileSync(join(outDir, "smoke.json"), JSON.stringify(CLEAN_SMOKE));
+  writeFileSync(join(outDir, "catalog.json"), JSON.stringify(cleanCatalogReport()));
 
   const { GITHUB_OUTPUT: _output, ...parentEnv } = process.env;
   const output = execFileSync(process.execPath, [join(toolRoot, "build-issue.mjs")], {

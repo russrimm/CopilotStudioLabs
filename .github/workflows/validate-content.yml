@@ -68,6 +68,8 @@ jobs:
       - name: Check tooling syntax
         run: |
           node --check tools/lab-accuracy/build-issue.mjs
+          node --check tools/lab-accuracy/check-catalog.mjs
+          node --check tools/lab-accuracy/lib/catalog-report.mjs
           node --check tools/lab-accuracy/screenshot-audit.mjs
           node --check tools/lab-pdf/generate.js
           node --check tools/screenshot-capture/capture.js

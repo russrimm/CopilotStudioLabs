@@ -182,22 +182,28 @@ flowchart LR
 
 ### 1. Feature catalog
 
-`portal/lib/lab-builder/features.json` is the source of truth for *structure*: 36
-Copilot Studio capabilities across 10 categories. Each entry carries the level,
-time estimate, prerequisites, concepts, fallback click-by-click steps, validation
-checks, Microsoft Learn search queries, doc URLs, related labs in this repo, and
-any existing screenshots that can be reused.
+`portal/lib/lab-builder/features.json` is the source of truth for *structure*: 48
+Copilot Studio capabilities across 11 categories, including the enterprise
+integrations (ServiceNow, Snowflake, SAP, Salesforce, Jira, Epic on FHIR, Shopify,
+on-premises data gateway, VNet private connectivity) and governance topics (agent
+inventory, release readiness, Entra agent identities) that the repository's
+hand-written labs cover. Each entry carries the level, time estimate,
+prerequisites, concepts, fallback click-by-click steps, validation checks,
+Microsoft Learn search queries, doc URLs, related labs in this repo, any existing
+screenshots that can be reused, and when and against which page it was last
+verified (`lastVerified`, `verifiedAgainst`).
 
 The steps in this file are the fallback for the **Do this** list, used whenever
 the module's documentation page cannot be read or carries no procedure that
 matches the module closely enough. That is not a rare path: the gates in
-[Step derivation](#4-step-derivation) are strict on purpose, and in sampled
-builds most modules have fallen back to these steps. Treat them as content a
+[Step derivation](#4-step-derivation) are strict on purpose, and some modules'
+pages never carry a procedure that clears them. Treat these steps as content a
 learner will read, and keep them accurate.
 
 This is the file to edit to add a feature, change a module's structure, or
 correct those curated steps. `validateCatalog()` (and a test) enforces its
-integrity, including prerequisite cycles.
+integrity, including prerequisite cycles and the freshness fields described in
+[Extending the catalog](#extending-the-catalog).
 
 ### 2. Planner
 
@@ -265,20 +271,21 @@ counted in the lab's "checked against live Microsoft Learn documentation" line.
 The catalog's `docUrls` serve two purposes: they are the pages the step deriver
 reads (below), and they are the citation fallback when a search returns nothing
 relevant.
-`features.json` carries an optional top-level `docsReviewed` date for when those
-links were last checked against live documentation; it is `null` until someone
-actually checks, because a wrong freshness date is worse than none. The blocker
-text reads a per-feature `lastVerified` date in preference to it, but no feature
-carries one yet (issue #42); today the text quotes the catalog-wide date or says
-it does not know.
+Every feature also records `lastVerified`, the day someone last compared its
+curated steps against the live documentation, and `verifiedAgainst`, the page
+they compared against. The blocker text quotes the oldest `lastVerified` among the
+affected modules, and each module that ships curated steps names its own date and
+page. There is deliberately no catalog-wide review date: features are re-verified
+one at a time, so a single date would claim more than anyone checked.
 
 ### 3b. Vendor documentation
 
 Microsoft Learn is the only source the MCP server can return, and some features
-are defined by someone else's specification: MCP tools by the Model Context
-Protocol, A2A connections by the A2A protocol, custom connectors by OpenAPI 2.0.
-A lab about those is only well grounded if it cites the specification too
-(issue #39), so the builder has a second, non-MCP grounding path.
+are defined by someone else's specification or product: MCP tools by the Model
+Context Protocol, A2A connections by the A2A protocol, custom connectors by
+OpenAPI 2.0, and each enterprise integration by the system it connects to. A lab
+about those is only well grounded if it cites that documentation too (issue
+#39), so the builder has a second, non-MCP grounding path.
 
 **Where the sources come from.** A feature may list `thirdPartySources` in
 `features.json`, each with a `vendor`, a descriptive `title` (it becomes the link
@@ -294,8 +301,22 @@ hosts the builder will contact, each with the reason it is trusted:
 |---|---|
 | `a2a-protocol.org` | `agent-to-agent` |
 | `adaptivecards.microsoft.com` | `adaptive-cards` |
+| `developer.atlassian.com` | `jira-integration` |
+| `developer.salesforce.com` | `salesforce-integration` |
+| `docs.snowflake.com` | `snowflake-integration` |
+| `fhir.epic.com` | `epic-fhir-integration` |
+| `hl7.org` | `epic-fhir-integration` |
 | `modelcontextprotocol.io` | `mcp-servers` |
+| `shopify.dev` | `shopify-integration` |
 | `spec.openapis.org` | `custom-connectors` |
+| `support.sap.com` | `sap-integration` |
+| `www.servicenow.com` | `servicenow-integration` |
+
+Two of those sites answer HTTP 200 for any address and build the page in the
+browser: `www.servicenow.com/docs` and `fhir.epic.com/Documentation`. A link
+check against them can only show that the site is up, not that the page still
+exists, and their `stability` notes say so. Re-open those pages in a browser
+when you re-verify the feature.
 
 `validateCatalog()` enforces it: every `thirdPartySources` URL must be `https`,
 on the default port, with no credentials, on a listed host (exact match, no
@@ -426,7 +447,9 @@ Each module records in `manifest.json` whether its steps were `doc-derived` or
 `catalog-fallback`, the source URL and section heading, the fetch timestamp, and a
 `drift` record comparing the curated steps against the live page. Drift is
 reported rather than acted on — the derived path already resolved it — and it is
-the signal that a catalog entry has gone stale.
+the signal that a catalog entry has gone stale. The manifest also carries each
+module's `catalog: { lastVerified, verifiedAgainst }`, so a reviewer can see how
+old the curated entry behind a module is, whichever path its steps took.
 
 ### 4b. Opt-in: grounded step synthesis
 
@@ -595,7 +618,8 @@ Each module renders as:
 - **Concepts before you click** — the mental model, from the curated catalog
 - **Do this** — numbered, click-level steps, followed by a line naming where they
   came from: the documentation page and the date it was read, or a note that the
-  curated catalog steps were used and why
+  curated catalog steps were used, why, and the date and page they were last
+  verified against
 - **In your scenario** — the module applied to the chosen industry
 - Screenshots (reused) and capture callouts (to fill in)
 - **Check your work** — per-module validation, from the curated catalog
@@ -682,6 +706,8 @@ Add a feature to `portal/lib/lab-builder/features.json`:
       "url": "https://modelcontextprotocol.io/specification/latest/server/tools",
       "stability": "Redirects to the newest dated specification revision." }
   ],
+  "lastVerified": "2026-09-27",   // required: the day you checked the steps against verifiedAgainst
+  "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/...", // required: a docUrls or thirdPartySources url
   "prereqs": ["create-agent"],
   "relatedLabs": ["01-intro-workshop"],
   "reuseScreenshots": [{ "lab": "06-energy-weather-agent", "file": "some-shot.png", "caption": "..." }]
@@ -689,11 +715,90 @@ Add a feature to `portal/lib/lab-builder/features.json`:
 ```
 
 Then run `npm test` in `portal/` — the catalog integrity test will flag unknown
-categories, bad levels, missing fields, dangling prerequisites, cycles, and any
-vendor source that breaks the allowlist rules.
+categories, bad levels, missing fields, dangling prerequisites, cycles, any
+vendor source that breaks the allowlist rules, and missing or invalid freshness
+fields.
+
+Write the steps for the step deriver as well as for the learner. Put the page
+whose procedure the steps follow first in `docUrls`, keep roughly one step per
+step of that procedure, and bold UI labels exactly as the page bolds them. The
+deriver only uses a live procedure whose bolded labels overlap the curated ones,
+and `diffSteps` reports drift against the curated list, so steps that paraphrase
+the page loosely both derive less often and raise stale-catalog warnings they do
+not deserve. `docUrls` also decide which search results count as on-product (see
+[Microsoft Learn grounding](#3-microsoft-learn-grounding)), so keep them on
+`learn.microsoft.com` and in the product area the feature is about.
 
 To add an industry, add an entry to `portal/lib/scenarios.json` (used across the
 portal) and a matching profile in `portal/lib/lab-builder/scenario-profiles.json`.
+
+### Freshness: `lastVerified` and `verifiedAgainst`
+
+Every feature must carry both fields, and `validateCatalog()` rejects a catalog
+where any feature is missing one, has a `lastVerified` that is not a real
+`YYYY-MM-DD` date or is in the future (one day of grace for time zones ahead of
+UTC), or has a `verifiedAgainst` that is not an `https` URL from the feature's own
+`docUrls` or `thirdPartySources`. `verifiedAgainst` is normally the Microsoft
+Learn page the steps follow; point it at a vendor page only when the steps
+follow the vendor's documentation instead. Generated labs quote both in every
+module that falls back to curated steps ("last verified by hand on 2026-09-27
+against the … documentation") and record them per module in `manifest.json`
+under `catalog`.
+
+A date is a claim that someone did the work, so only change `lastVerified` after
+you have done all of this for that feature:
+
+1. Request every `docUrls` and `thirdPartySources` entry. Replace a `404`
+   with the current page for the same capability, and replace a URL that
+   redirects to a different page with its destination (a redirect that only
+   adds a locale such as `/en-us/` is not a move; keep URLs locale-free).
+2. Read `verifiedAgainst` in full, for example with the Learn MCP server's
+   `microsoft_docs_fetch`, and skim the other `docUrls`.
+3. Compare `name`, `summary`, `whyItMatters`, `concepts`, `steps`, `validation`,
+   and screenshot instructions against the page, and correct what drifted: UI
+   labels, menu paths, step order, renamed or retired options, and preview versus
+   generally available status. Do not invent a label the page does not show.
+4. Set `lastVerified` to today and `verifiedAgainst` to the page the steps follow.
+
+If you cannot finish the check, leave the old date in place. A wrong freshness
+date is worse than an old one.
+
+### The monthly catalog check
+
+The [monthly accuracy workflow](../.github/workflows/monthly-lab-accuracy.yml)
+runs `tools/lab-accuracy/check-catalog.mjs` alongside the lab checks. It requests
+every feature's `docUrls` and `verifiedAgainst` once (GET, redirects followed,
+15-second timeout, the same approach as `check-accuracy.mjs`), re-applies the
+freshness rules above, and flags every feature whose `lastVerified` is more than
+180 days old.
+
+Vendor pages in `thirdPartySources` are requested under the lab builder's own
+reading rules: only hosts in `vendorHosts`, redirects followed by hand with every
+hop re-checked, and only `text/html` or `text/plain` under the builder's size
+limit. The result is then bucketed with the same third-party rules as lab links.
+HTTP 401, 403, and 429 are `unverifiable`, because a vendor site is turning away
+an automated client, and they are listed but need no action. 404, 410, and 5xx
+are broken. A link the builder would refuse to read is `refused` and needs
+action, because every build that cites it would stop at `vendor-docs-unavailable`.
+Vendor redirects are not listed, because versioned "latest" paths redirect by design.
+
+It writes `out/catalog.json`, and `build-issue.mjs` adds a
+**🧭 Lab-builder catalog** section to the tracking issue. Broken, unreachable, or
+refused links, overdue verification dates, and invalid freshness fields all mark the
+month as needing a maintainer. So does a missing or malformed catalog report,
+because an audit that did not run has not shown that anything is fine. Microsoft
+Learn links that redirect to a different page are listed, but they do not need
+action on their own.
+
+```bash
+cd tools/lab-accuracy
+node check-catalog.mjs                     # informational; exit 0
+node check-catalog.mjs --max-age-days=90   # tighter threshold (or CATALOG_MAX_AGE_DAYS)
+node check-catalog.mjs --strict            # exit 1 when the catalog needs a maintainer
+```
+
+The threshold is also a `workflow_dispatch` input (`catalog_max_age_days`) when
+you run the workflow by hand.
 
 ---
 
@@ -703,10 +808,12 @@ portal) and a matching profile in `portal/lib/lab-builder/scenario-profiles.json
 cd portal && npm test
 ```
 
-`portal/test/lab-builder.test.js` covers catalog integrity, prerequisite
-expansion and ordering, planner behavior (time budgets, unknown inputs), blocker
-detection and resolution for all seven codes, LLM provider detection, and a full
-offline generation that must pass every validator rule.
+`portal/test/lab-builder.test.js` covers catalog integrity (including the
+freshness rules for missing, malformed, future, and foreign verification
+metadata), prerequisite expansion and ordering, planner behavior (time budgets,
+unknown inputs), blocker detection and resolution for all seven codes, LLM
+provider detection, per-module disclosure of `lastVerified`, and a full offline
+generation that must pass every validator rule.
 `portal/test/lab-builder-synthesis.test.js` covers each verifier check with a
 passing and a failing case, the repair loop, the split between failed requests
 and failed verification, and an end-to-end build with a scripted model.
@@ -718,3 +825,17 @@ validation of bad sources. `portal/test/lab-builder-offline.test.js` runs the
 CLI with every npm package blocked, the way CI runs it before `npm ci`, and
 fails if the builder's import graph starts needing `portal/node_modules`. No
 network access is required.
+
+The monthly catalog check is tested with the rest of the accuracy tooling:
+
+```bash
+cd tools/lab-accuracy && npm test
+```
+
+`tools/lab-accuracy/test/catalog-report.test.mjs` covers the age threshold and
+its overrides, broken versus unreachable versus redirected links, vendor links
+under the third-party and builder reading rules (unverifiable, refused, and
+off-allowlist redirects that are never followed), fail-closed handling of a
+missing, malformed, or empty report, and the tracking-issue section. Its link
+checks run against a local HTTP server or a stub, so it makes no requests to
+Microsoft Learn or any vendor.

@@ -175,14 +175,27 @@ function prerequisitesSection(plan) {
   if (plan.features.some((f) => f.category === "knowledge")) {
     items.push(`Access to at least one knowledge source, for example: ${profile.knowledgeSources[0].toLowerCase()}.`);
   }
-  if (plan.features.some((f) => f.category === "tools" || f.category === "automation")) {
+  if (plan.features.some((f) => ["tools", "automation", "integrations"].includes(f.category))) {
     items.push("Permission to create connections in Power Platform (the lab uses at least one connector).");
+  }
+  const has = (id) => plan.features.some((f) => f.id === id);
+  if (plan.features.some((f) => f.category === "integrations" && f.id !== "onprem-data-gateway" && f.id !== "vnet-private-connectivity")) {
+    items.push("A sandbox or developer account for each external system the lab connects to, with credentials you are allowed to use for testing.");
+  }
+  if (has("onprem-data-gateway")) {
+    items.push("A Windows machine on the same network as your data source, where you are allowed to install the on-premises data gateway.");
+  }
+  if (has("vnet-private-connectivity")) {
+    items.push("An Azure subscription where you can create virtual networks and delegate subnets, and a Managed Environment in Power Platform.");
   }
   if (plan.features.some((f) => f.id === "authentication" || f.id === "channel-web-sdk")) {
     items.push("Permission to register an application in Microsoft Entra ID, or an admin who can do it with you.");
   }
-  if (plan.features.some((f) => f.id === "dlp-governance" || f.id === "alm-solutions")) {
-    items.push("Power Platform admin center access for the governance modules.");
+  if (has("entra-agent-identities")) {
+    items.push("Access to the Microsoft Entra admin center with permission to view agent identities.");
+  }
+  if (plan.features.some((f) => ["dlp-governance", "alm-solutions", "agent-inventory", "vnet-private-connectivity"].includes(f.id))) {
+    items.push("Power Platform admin center access for the administration modules in this lab.");
   }
 
   return [
@@ -362,15 +375,34 @@ function vendorBlock(records) {
 }
 
 /**
+ * The catalog's own freshness claim for a module, as a clause.
+ *
+ * Curated steps are a hand-checked snapshot: issue #42 requires every catalog
+ * feature to record the day its steps were last compared against a named
+ * documentation page. A learner following those steps is owed that date,
+ * because it is the only thing that tells a month-old check from a two-year-old
+ * one. The link text names the feature rather than repeating the URL, so it
+ * stays meaningful when read out of context.
+ */
+function catalogVerification(feature) {
+  const day = feature?.lastVerified;
+  if (!day) return null;
+  const url = feature.verifiedAgainst;
+  const page = url ? `[the ${scrubForbidden(feature.name)} documentation](${url})` : "its documentation page";
+  return `They were last verified by hand on ${day} against ${page}, not against the product as it is today.`;
+}
+
+/**
  * Where this module's steps came from, stated in the lab itself.
  *
  * A learner following a click list deserves to know whether it was read off the
  * current documentation or off a catalog that may have aged. Before issue #37
  * the lab's header claimed every module was "grounded on Microsoft Learn" while
  * the steps were always the catalog's — this line is what makes the claim honest
- * per module.
+ * per module. Since issue #42 the catalog branch also says when those steps were
+ * last checked, and against which page.
  */
-function stepProvenance(record) {
+function stepProvenance(record, feature) {
   if (record?.source === "llm-verified") {
     const heading = record.sectionHeading ? scrubForbidden(record.sectionHeading) : "the current documentation";
     const day = record.fetchedAt ? String(record.fetchedAt).slice(0, 10) : null;
@@ -397,7 +429,7 @@ function stepProvenance(record) {
     return [
       "",
       `*These steps come from this repository's curated catalog, because ${why}. ` +
-        `They were accurate when written, but they are not verified against the current product. ` +
+        `${catalogVerification(feature) || "They were accurate when written, but they are not verified against the current product."} ` +
         `If a click does not match what you see, trust the Microsoft Learn link in this module.*`,
     ];
   }
@@ -435,7 +467,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     bullets(feature.concepts.map(scrubForbidden)),
     "",
     "**Do this**",
-    ...stepProvenance(stepsRecord),
+    ...stepProvenance(stepsRecord, feature),
     "",
     steps.join("\n"),
     "",
@@ -514,14 +546,16 @@ function completeSection(plan) {
  * synthesis breaks that promise for the modules it covers, so the lab has to
  * say which modules, and what check replaced the promise.
  */
-function synthesizedStepsParagraph({ synthesized, derived, total, provider }) {
+function synthesizedStepsParagraph({ synthesized, derived, total, provider, dated }) {
   const plural = (n) => (n === 1 ? "" : "s");
   const model = provider && provider !== "none" ? provider : "a language model";
   const curated = total - synthesized - derived;
   return [
     `**Steps.** The click-by-click steps in ${synthesized} of ${total} module${plural(total)} were written by ${model} from that feature's current documentation at build time, and kept only because every step passed a mechanical check against the pages it was written from: each is tied to a word-for-word quote, each bolded label is one the documentation bolds, and each typed value uses only words from the scenario or the page.`,
     derived > 0 ? `${derived} more were read directly off the documentation page, with no model involved.` : "",
-    curated > 0 ? `The other ${curated} use this repository's curated steps, and each of those modules says why.` : "",
+    curated > 0
+      ? `The other ${curated} use this repository's curated steps, and each of those modules says why${dated ? " and when its steps were last verified by hand" : ""}.`
+      : "",
     "Every module names which of these it used.",
   ]
     .filter(Boolean)
@@ -599,6 +633,9 @@ function howToUseSection(plan, generation) {
   const total = plan.features.length;
   const provider = generation.llmProvider;
   const plural = total === 1 ? "" : "s";
+  // Every catalog feature carries a verification date once validateCatalog()
+  // passes; this guards the wording for a plan built from anything else.
+  const dated = plan.features.every((f) => f.lastVerified);
   const check = generation.linkCheck;
   const verifiedDay = (check?.verifiedAt || "").slice(0, 10);
   const generatedDay = (generation.generatedAt || "").slice(0, 10);
@@ -629,12 +666,18 @@ function howToUseSection(plan, generation) {
     "",
     ...(vendorParagraph(generation.vendorDocs) ? [vendorParagraph(generation.vendorDocs), ""] : []),
     synthesized > 0
-      ? synthesizedStepsParagraph({ synthesized, derived, total, provider: generation.synthesisModel || provider })
+      ? synthesizedStepsParagraph({ synthesized, derived, total, provider: generation.synthesisModel || provider, dated })
       : derived === total
       ? `**Steps.** The click-by-click steps in every module were read from that feature's current documentation page at build time, not copied from a stored list. Each module names the page it came from and the date it was read.`
       : derived > 0
-      ? `**Steps.** The click-by-click steps in ${derived} of ${total} module${plural} were read from that feature's current documentation page at build time. The other ${total - derived} use this repository's curated steps, because no procedure on the page matched the module closely enough to trust. Every module names which of the two it used; the ones read from a page also name that page and the date.`
-      : `**Steps.** No module's steps could be read from a live documentation page on this build, so every module uses this repository's curated steps. Each one says so, and why. They were accurate when written, but they are not verified against the current product.`,
+      ? `**Steps.** The click-by-click steps in ${derived} of ${total} module${plural} were read from that feature's current documentation page at build time. The other ${total - derived} use this repository's curated steps, because no procedure on the page matched the module closely enough to trust. Every module names which of the two it used; the ones read from a page also name that page and the date${
+          dated ? ", and the curated ones name the date their steps were last verified by hand and the page they were checked against" : ""
+        }.`
+      : `**Steps.** No module's steps could be read from a live documentation page on this build, so every module uses this repository's curated steps. ${
+          dated
+            ? "Each one says so, and why, and names the date its steps were last verified by hand and the page they were checked against. None of them was checked against the product when this lab was built."
+            : "Each one says so, and why. They were accurate when written, but they are not verified against the current product."
+        }`,
     "",
     narrativeParagraph({ provider, grounded, synthesized, total, plural, generation }),
     "",

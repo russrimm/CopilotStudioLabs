@@ -1,7 +1,7 @@
-// Merge the three monthly reports (accuracy, screenshots, smoke) into a single
-// Markdown body for the tracking GitHub issue. Writes out/issue.md and prints
-// `needs_action=true|false` to GITHUB_OUTPUT (or stdout) so the workflow can
-// decide whether to open/update an issue.
+// Merge the monthly reports (accuracy, screenshots, smoke, lab-builder catalog)
+// into a single Markdown body for the tracking GitHub issue. Writes out/issue.md
+// and prints `needs_action=true|false` to GITHUB_OUTPUT (or stdout) so the
+// workflow can decide whether to open/update an issue.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -17,15 +17,17 @@ import {
   reportsNeedAction,
 } from "./lib/report-status.mjs";
 import { referenceLinksSection } from "./lib/reference-report.mjs";
+import { renderCatalogSection } from "./lib/catalog-report.mjs";
 
 const DRIFT_TRIAGE_DOC = "docs/audits/2026-07-31-product-engineering-audit.md";
 
 const accuracy = readReport("accuracy.json");
 const screenshots = readReport("screenshots.json");
 const smoke = readReport("smoke.json");
+const catalog = readReport("catalog.json");
 
 const lines = [];
-let needsAction = reportsNeedAction({ accuracy, screenshots, smoke });
+let needsAction = reportsNeedAction({ accuracy, screenshots, smoke, catalog });
 
 lines.push("## 🔁 Monthly Lab Accuracy & Screenshot Audit");
 lines.push("");
@@ -34,7 +36,8 @@ lines.push("");
 lines.push(
   "This issue is automatically opened/updated each month. It checks lab content " +
     "against Microsoft Learn (via the Learn MCP server), validates reference links, " +
-    "audits screenshot integrity/staleness, and smoke-tests documented start URLs.",
+    "audits screenshot integrity/staleness, smoke-tests documented start URLs, and " +
+    "checks the lab builder's feature catalog for dead links and overdue verification dates.",
 );
 lines.push("");
 
@@ -202,6 +205,11 @@ if (!isSmokeReport(smoke)) {
     }
   }
 }
+lines.push("");
+
+// ---- Lab-builder feature catalog ----
+// Whether it needs action is decided by reportsNeedAction() above.
+lines.push(...renderCatalogSection(catalog));
 lines.push("");
 lines.push("---");
 lines.push(needsAction
