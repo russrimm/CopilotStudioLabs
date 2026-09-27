@@ -7,11 +7,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { getReportsDir, readReport } from "./lib/labs.mjs";
 import {
+  actionableDriftWarnings,
+  driftBaselineIsStale,
+  driftBaselineMaxAgeDays,
+  hasDriftBaseline,
   isAccuracyReport,
   isScreenshotReport,
   isSmokeReport,
   reportsNeedAction,
 } from "./lib/report-status.mjs";
+
+const DRIFT_TRIAGE_DOC = "docs/audits/2026-07-31-product-engineering-audit.md";
 
 const accuracy = readReport("accuracy.json");
 const screenshots = readReport("screenshots.json");
@@ -39,10 +45,17 @@ if (!isAccuracyReport(accuracy)) {
   const broken = accuracy.labs.filter((l) => l.brokenLinks.length > 0);
   const unreachable = accuracy.labs.filter((l) => l.unreachableLinks?.length > 0);
   const drift = accuracy.labs.filter((l) => l.mcp?.note);
+  const baselined = hasDriftBaseline(accuracy);
+  const baseline = baselined ? accuracy.summary.driftBaseline : null;
+  const unexpectedDrift = baselined ? drift.filter((l) => l.mcp.drift !== "acknowledged") : drift;
+  const acknowledgedDrift = baselined ? drift.filter((l) => l.mcp.drift === "acknowledged") : [];
   lines.push(`- Labs scanned: **${accuracy.summary.labs}**`);
   lines.push(`- Broken reference links: **${accuracy.summary.brokenLinks}**`);
   lines.push(`- Temporarily unreachable links: **${accuracy.summary.unreachableLinks || 0}**`);
   lines.push(`- Learn drift warnings: **${accuracy.summary.mcpDriftWarnings}**` +
+    (baselined
+      ? ` (**${actionableDriftWarnings(accuracy)}** new, **${accuracy.summary.acknowledgedDriftWarnings || 0}** acknowledged in the baseline)`
+      : "") +
     (accuracy.summary.mcpUnavailable ? " _(MCP server was unavailable this run)_" : ""));
   if (accuracy.summary.mcpUnavailable) needsAction = true;
   if (broken.length) {
@@ -70,14 +83,66 @@ if (!isAccuracyReport(accuracy)) {
     lines.push("");
     lines.push("</details>");
   }
-  if (drift.length) {
+  if (unexpectedDrift.length) {
     needsAction = true;
     lines.push("");
-    lines.push("<details><summary>Learn drift (cited docs not in current top results)</summary>");
+    lines.push(baselined
+      ? "<details open><summary>New Learn drift — not in the baseline, needs review</summary>"
+      : "<details><summary>Learn drift (cited docs not in current top results)</summary>");
     lines.push("");
-    for (const lab of drift) {
+    for (const lab of unexpectedDrift) {
       lines.push(`- \`${lab.name}\`: ${lab.mcp.note}`);
     }
+    if (baselined) {
+      lines.push("");
+      lines.push(
+        "Fix the lab's content or citations first. Add a lab to `tools/lab-accuracy/drift-baseline.json` " +
+          "(with a reason) only when the drift is a confirmed ranking false positive.",
+      );
+    }
+    lines.push("");
+    lines.push("</details>");
+  }
+  if (acknowledgedDrift.length) {
+    lines.push("");
+    lines.push(
+      `<details><summary>Acknowledged drift — already triaged (baseline verified ${baseline.verifiedAt || "on an unknown date"})</summary>`,
+    );
+    lines.push("");
+    for (const lab of acknowledgedDrift) {
+      lines.push(`- \`${lab.name}\`: ${lab.mcp.baselineReason || "No reason recorded in the baseline."}`);
+    }
+    lines.push("");
+    lines.push(`Classification: \`tools/lab-accuracy/drift-baseline.json\` and \`${DRIFT_TRIAGE_DOC}\`.`);
+    lines.push("");
+    lines.push("</details>");
+  }
+  if (baselined && driftBaselineIsStale(accuracy)) {
+    needsAction = true;
+    const limit = driftBaselineMaxAgeDays();
+    lines.push("");
+    lines.push(
+      Number.isFinite(baseline.ageDays)
+        ? `- ⚠️ The drift baseline was last verified **${baseline.ageDays} days ago** (limit ${limit}).`
+        : "- ⚠️ The drift baseline has no valid `verifiedAt` date.",
+    );
+    lines.push(
+      "  Re-check each acknowledged lab against current Microsoft Learn, fix any content that has really drifted, " +
+        "remove entries that no longer apply, then update `verifiedAt`.",
+    );
+  }
+  const resolved = accuracy.summary.resolvedBaselineEntries || [];
+  if (baselined && resolved.length) {
+    lines.push("");
+    lines.push("<details><summary>Baseline entries that no longer drift</summary>");
+    lines.push("");
+    for (const name of resolved) {
+      lines.push(`- \`${name}\``);
+    }
+    lines.push("");
+    lines.push(
+      "These labs are in `drift-baseline.json` but did not drift this run. If they stay clean next month, remove them from the baseline.",
+    );
     lines.push("");
     lines.push("</details>");
   }

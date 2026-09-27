@@ -8,6 +8,10 @@
 // Writes out/accuracy.json. Exit code is 0 unless --strict is passed and there
 // are critical findings (broken links), so the workflow stays informational by
 // default and can still gate when desired.
+//
+// --drift-baseline=<file> tags each drift warning as `acknowledged` (already
+// triaged and listed in the baseline) or `unexpected`, lists baseline entries
+// that no longer drift, and exits 1 on unexpected drift or when MCP is down.
 
 import { loadAllLabs, writeReport } from "./lib/labs.mjs";
 import { LearnMcpClient } from "./lib/mcp-client.mjs";
@@ -20,6 +24,7 @@ const skipMcp = args.includes("--no-mcp");
 const driftBaselinePath = args.find((arg) => arg.startsWith("--drift-baseline="))?.split("=", 2)[1];
 const LINK_TIMEOUT_MS = 15000;
 const LINK_CONCURRENCY = 6;
+const DRIFT_CONFIRM_ATTEMPTS = 3;
 const RANKING_DRIFT_NOTE =
   "No exact cited Learn page appeared in the current top search results. The links still resolve; review search ranking and product relevance before changing documentation.";
 
@@ -61,6 +66,30 @@ function buildSearchQuery(lab) {
   return focus ? `${product}: ${focus}` : `${product}: ${lab.title}`;
 }
 
+/**
+ * Search Learn for a lab's topic and report whether any result is a page the
+ * lab cites.
+ *
+ * Learn search is not deterministic: the same query can rank a cited page
+ * first on one call and leave it out entirely on the next. A single miss
+ * therefore proves nothing, and treating it as drift made the PR gate fail at
+ * random. Drift is only reported when the cited pages are missing from every
+ * attempt; the first attempt that finds one wins.
+ */
+export async function searchForCitedDocs(search, query, learnLinks, { attempts = DRIFT_CONFIRM_ATTEMPTS } = {}) {
+  const referenced = new Set(learnLinks.map((u) => safePath(u)).filter(Boolean));
+  const covers = (results) => results.some((r) => r.url && referenced.has(safePath(r.url)));
+
+  let first = null;
+  const maxAttempts = referenced.size > 0 ? Math.max(1, attempts) : 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const results = await search(query);
+    first ??= results;
+    if (covers(results)) return { results, overlap: true, attempts: attempt };
+  }
+  return { results: first, overlap: false, attempts: maxAttempts };
+}
+
 export function unexpectedDriftLabs(report, baseline) {
   const known = new Set(baseline?.knownLabWarnings || []);
   return report.labs
@@ -71,19 +100,84 @@ export function unexpectedDriftLabs(report, baseline) {
     .map((lab) => lab.name);
 }
 
-async function main() {
-  const driftBaseline = driftBaselinePath
-    ? JSON.parse(readFileSync(driftBaselinePath, "utf8"))
-    : null;
+/** Parse and validate a drift baseline. Throws on a malformed file. */
+export function parseDriftBaseline(baseline) {
   if (
-    driftBaseline
-    && (
-      !Array.isArray(driftBaseline.knownLabWarnings)
-      || driftBaseline.knownLabWarnings.some((name) => typeof name !== "string")
-    )
+    !baseline
+    || !Array.isArray(baseline.knownLabWarnings)
+    || baseline.knownLabWarnings.some((name) => typeof name !== "string")
   ) {
     throw new Error("Drift baseline must contain a knownLabWarnings string array");
   }
+  if (
+    baseline.reasons !== undefined
+    && (
+      typeof baseline.reasons !== "object"
+      || baseline.reasons === null
+      || Array.isArray(baseline.reasons)
+      || Object.values(baseline.reasons).some((reason) => typeof reason !== "string")
+    )
+  ) {
+    throw new Error("Drift baseline reasons must map a lab name to a string");
+  }
+  return {
+    verifiedAt: typeof baseline.verifiedAt === "string" ? baseline.verifiedAt : null,
+    knownLabWarnings: baseline.knownLabWarnings,
+    reasons: baseline.reasons || {},
+  };
+}
+
+/** Whole days between a baseline's verifiedAt date and `now`; null when the date is missing or invalid. */
+export function baselineAgeDays(verifiedAt, now) {
+  const verified = Date.parse(verifiedAt ?? "");
+  const current = Date.parse(now ?? "");
+  if (Number.isNaN(verified) || Number.isNaN(current)) return null;
+  return Math.max(0, Math.floor((current - verified) / 86400000));
+}
+
+/**
+ * Tag each drifting lab as `acknowledged` (a ranking warning the baseline
+ * already covers) or `unexpected` (anything else, including MCP query
+ * failures), and list baseline entries that no longer drift so they can be
+ * removed. Mutates `report.labs[].mcp.drift` and fills in the summary.
+ */
+export function applyDriftBaseline(report, baseline) {
+  const unexpected = new Set(unexpectedDriftLabs(report, baseline));
+  const known = new Set(baseline.knownLabWarnings);
+  let acknowledged = 0;
+
+  for (const lab of report.labs) {
+    if (!lab.mcp?.note) {
+      if (lab.mcp) lab.mcp.drift = null;
+      continue;
+    }
+    lab.mcp.drift = unexpected.has(lab.name) ? "unexpected" : "acknowledged";
+    if (lab.mcp.drift === "acknowledged") {
+      acknowledged += 1;
+      lab.mcp.baselineReason = baseline.reasons[lab.name] || null;
+    }
+  }
+
+  // Only claim an entry has cleared when this run actually queried Learn for it.
+  const resolved = report.labs
+    .filter((lab) => known.has(lab.name) && lab.mcp?.query && !lab.mcp.note)
+    .map((lab) => lab.name);
+
+  report.summary.acknowledgedDriftWarnings = acknowledged;
+  report.summary.unexpectedDriftWarnings = unexpected.size;
+  report.summary.resolvedBaselineEntries = resolved;
+  report.summary.driftBaseline = {
+    verifiedAt: baseline.verifiedAt,
+    ageDays: baselineAgeDays(baseline.verifiedAt, report.generatedAt),
+    entries: baseline.knownLabWarnings.length,
+  };
+  return [...unexpected];
+}
+
+async function main() {
+  const driftBaseline = driftBaselinePath
+    ? parseDriftBaseline(JSON.parse(readFileSync(driftBaselinePath, "utf8")))
+    : null;
 
   const labs = loadAllLabs();
   const report = {
@@ -95,6 +189,9 @@ async function main() {
       unreachableLinks: 0,
       mcpDriftWarnings: 0,
       unexpectedDriftWarnings: 0,
+      acknowledgedDriftWarnings: 0,
+      resolvedBaselineEntries: [],
+      driftBaseline: null,
       mcpUnavailable: false,
     },
     labs: [],
@@ -135,18 +232,15 @@ async function main() {
       const query = buildSearchQuery(lab);
       labRecord.mcp.query = query;
       try {
-        const results = await mcp.search(query);
-        labRecord.mcp.topResults = results.slice(0, 5);
+        const lookup = await searchForCitedDocs((q) => mcp.search(q), query, lab.learnLinks);
+        labRecord.mcp.topResults = lookup.results.slice(0, 5);
+        labRecord.mcp.searchAttempts = lookup.attempts;
         // Drift signal: do any current top docs share a host/path with the
         // lab's referenced Learn links? If the lab cites Learn docs but none
         // appear in fresh search results, flag for a human review.
         if (lab.learnLinks.length > 0) {
-          const referenced = new Set(
-            lab.learnLinks.map((u) => safePath(u)).filter(Boolean),
-          );
-          const overlap = results.some((r) => r.url && referenced.has(safePath(r.url)));
-          labRecord.mcp.coversReferencedDocs = overlap;
-          if (!overlap) {
+          labRecord.mcp.coversReferencedDocs = lookup.overlap;
+          if (!lookup.overlap) {
             labRecord.mcp.note = RANKING_DRIFT_NOTE;
             report.summary.mcpDriftWarnings += 1;
           }
@@ -161,14 +255,18 @@ async function main() {
     console.log(`• ${lab.name}: ${status}${labRecord.mcp.note ? " | drift: yes" : ""}`);
   }
 
-  const unexpectedDrift = unexpectedDriftLabs(report, driftBaseline);
+  const unexpectedDrift = driftBaseline
+    ? applyDriftBaseline(report, driftBaseline)
+    : unexpectedDriftLabs(report, null);
   report.summary.unexpectedDriftWarnings = unexpectedDrift.length;
   const target = writeReport("accuracy.json", report);
   console.log(`\nAccuracy report written to ${target}`);
   console.log(
     `Summary: ${report.summary.brokenLinks} broken link(s), ${report.summary.unreachableLinks} unreachable, ` +
       `${report.summary.mcpDriftWarnings} drift warning(s)` +
-      (driftBaseline ? `, ${unexpectedDrift.length} new versus baseline` : "") +
+      (driftBaseline
+        ? `, ${unexpectedDrift.length} new versus baseline, ${report.summary.acknowledgedDriftWarnings} acknowledged`
+        : "") +
       (report.summary.mcpUnavailable ? " (MCP unavailable)" : ""),
   );
 

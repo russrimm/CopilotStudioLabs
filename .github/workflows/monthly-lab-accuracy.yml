@@ -45,7 +45,9 @@ jobs:
       - name: Microsoft Learn accuracy + reference-link check
         working-directory: tools/lab-accuracy
         continue-on-error: true
-        run: node check-accuracy.mjs
+        # The baseline lets the report separate triaged ranking false positives
+        # from new drift; build-issue.mjs decides what needs a maintainer.
+        run: node check-accuracy.mjs --drift-baseline=drift-baseline.json
 
       - name: Screenshot integrity + staleness audit
         working-directory: tools/lab-accuracy

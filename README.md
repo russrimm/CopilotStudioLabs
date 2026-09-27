@@ -323,6 +323,12 @@ The tool uses Playwright to capture screenshots from the live Copilot Studio UI.
 
 Labs 01 and 06 (folder numbers) also keep a `screenshots/` folder of light and dark captures used by their DOCX and PDF guides. Those folders are linked from each lab's **Lab Materials** section and are not checked by `verify`.
 
+### Monthly accuracy audit
+
+On the 1st of each month, the [`monthly-lab-accuracy.yml`](./.github/workflows/monthly-lab-accuracy.yml) workflow checks every lab's Microsoft Learn links, audits screenshots, and smoke-tests start URLs. It then opens, updates, or closes a single tracking issue with the results. Pull requests run the same link check (`check-accuracy.mjs --strict`) as part of `validate`.
+
+The audit also flags *drift*: a lab whose cited Learn pages no longer appear when Learn is searched for the lab's topic. Search results vary from call to call, so a lab only counts as drifting if its cited pages are missing from three searches in a row. Some drift is a ranking false positive: the cited pages still resolve and are the right ones. Those labs are listed in [`tools/lab-accuracy/drift-baseline.json`](./tools/lab-accuracy/drift-baseline.json), each with a reason. Only drift outside that list needs a maintainer. Fix the lab's content before adding it to the baseline. Once the baseline's `verifiedAt` date is more than 90 days old, the audit asks for a re-triage, so acknowledged drift can't be ignored forever.
+
 ---
 
 ## 📚 Resources

@@ -1,4 +1,5 @@
 {
+  "$comment": "Labs whose Learn drift warning was triaged as a search-ranking false positive: the cited pages still resolve and are the right pages, but a broad search ranks other pages first. Fix the lab first; add an entry here only after triage, with a reason. Update verifiedAt whenever the list is re-checked. The monthly audit asks for a re-triage once verifiedAt is older than DRIFT_BASELINE_MAX_AGE_DAYS (default 90).",
   "verifiedAt": "2026-09-26",
   "knownLabWarnings": [
     "01-intro-workshop",
@@ -10,5 +11,16 @@
     "26-industry-integrations",
     "30-realtime-voice-agents",
     "32-embed-agent-web-sdk"
-  ]
+  ],
+  "reasons": {
+    "01-intro-workshop": "Broad search query ranks connector pages above the cited model page; the model link resolves. No edit.",
+    "04-energy-ops-agent": "Broad custom-agent query ranks newer topical pages above valid foundation links. No speculative rewrite.",
+    "05-work-iq-m365-intelligence": "Cites the canonical add-work-iq page (#53); the query now ranks Microsoft 365 Copilot and Azure AI Search Work IQ pages above the valid Copilot Studio pages (#69).",
+    "16-agent-flows-m365-copilot-nodes": "Preview Microsoft 365 Copilot workflow page does not rank in generic agent-flow results. Keep the current cited page.",
+    "22-servicenow-integration": "Generic ServiceNow query favors Microsoft 365 and Security Copilot integrations over the valid connector reference.",
+    "23-snowflake-data-integration": "Generic Snowflake query favors Copilot Studio security pages over the valid Snowflake/VNet references.",
+    "26-industry-integrations": "Multi-industry query cannot rank all of the intentionally cross-product references.",
+    "30-realtime-voice-agents": "Generic voice/telephony search does not rank every real-time voice page (region- and preview-dependent). Retain the current references.",
+    "32-embed-agent-web-sdk": "Search favors Microsoft 365 Agents SDK and custom canvas guidance over the current Client SDK sample; a product-owner architecture choice, no automatic migration."
+  }
 }
