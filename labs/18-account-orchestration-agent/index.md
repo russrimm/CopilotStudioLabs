@@ -91,7 +91,7 @@ By the end of this lab you will:
 - [Configure generative actions](https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-generative-actions)
 - [Multi-Agent in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-add-other-agents)
 - [Create a skill for an agent (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-create)
-- [Enhanced Task Completion sample (Order Management / Warehouse MCP)](https://microsoft.github.io/enhanced-task-completion/)
+- [Order Management with Enhanced Task Completion sample (Order Management / Warehouse MCP)](https://github.com/microsoft/CopilotStudioSamples/tree/main/extensibility/mcp/order-management-enhanced-tc)
 
 ---
 
@@ -463,7 +463,9 @@ In Use Case #3 you added the **internal** policy from the HR folder. Now add a *
 
 #### Step 2 — Create the MCP server connections (temporary workaround)
 
-This lab uses two prebuilt sample MCP connectors — **Order Management MCP** and **Warehouse MCP** — that simulate an e-commerce / fulfillment backend ([Enhanced Task Completion sample](https://microsoft.github.io/enhanced-task-completion/)). For Contoso purposes, treat them as analogs to a field-service ticketing system and a parts-inventory system.
+This lab uses two prebuilt sample MCP connectors — **Order Management MCP** and **Warehouse MCP** — that simulate an e-commerce / fulfillment backend ([Order Management with Enhanced Task Completion sample](https://github.com/microsoft/CopilotStudioSamples/tree/main/extensibility/mcp/order-management-enhanced-tc)). For Contoso purposes, treat them as analogs to a field-service ticketing system and a parts-inventory system.
+
+> ⚠️ **Experimental:** The sample's README describes Enhanced Task Completion as an experimental Copilot Studio capability. Check the sample for its current status and limitations before relying on it.
 
 > ⚠️ **Preview limitation:** At time of writing, the **new-type agent's** inline *Add tool → connection* step cannot create a brand-new connection for these custom MCP connectors. Workaround: mint the connections via a throwaway **classic** agent, then reuse them in the new-type agent. This step will go away as the preview matures.
 
