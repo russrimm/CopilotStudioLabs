@@ -19,6 +19,11 @@ test("the committed drift baseline is valid, sorted, and gives a reason for ever
   const baseline = parseDriftBaseline(raw);
 
   assert.match(baseline.verifiedAt, /^\d{4}-\d{2}-\d{2}$/);
+  assert.notEqual(
+    baselineAgeDays(baseline.verifiedAt, new Date().toISOString()),
+    null,
+    "drift-baseline.json verifiedAt must be a real date that is not in the future",
+  );
   assert.deepEqual(baseline.knownLabWarnings, [...baseline.knownLabWarnings].sort());
   for (const name of baseline.knownLabWarnings) {
     assert.ok(baseline.reasons[name]?.trim(), `${name} needs a triage reason in drift-baseline.json`);
@@ -38,8 +43,11 @@ test("parseDriftBaseline rejects malformed baselines", () => {
   });
 });
 
-test("baselineAgeDays counts whole days and refuses invalid dates", () => {
+test("baselineAgeDays counts whole days and refuses invalid or future dates", () => {
   assert.equal(baselineAgeDays("2026-09-26", "2026-10-01T06:00:00.000Z"), 5);
+  assert.equal(baselineAgeDays("2026-10-01", "2026-10-01T06:00:00.000Z"), 0);
+  assert.equal(baselineAgeDays("2026-10-02", "2026-10-01T06:00:00.000Z"), 0, "a day of time-zone slack");
+  assert.equal(baselineAgeDays("2027-09-26", "2026-10-01T06:00:00.000Z"), null, "a future date is a typo, not fresh");
   assert.equal(baselineAgeDays(null, "2026-10-01T06:00:00.000Z"), null);
   assert.equal(baselineAgeDays("not a date", "2026-10-01T06:00:00.000Z"), null);
 });

@@ -7,6 +7,9 @@ import {
   reportsNeedAction,
 } from "../lib/report-status.mjs";
 
+// Pinned so a DRIFT_BASELINE_MAX_AGE_DAYS in the caller's environment cannot change the outcome.
+const DEFAULT_LIMIT = { maxBaselineAgeDays: DEFAULT_DRIFT_BASELINE_MAX_AGE_DAYS };
+
 function cleanReports() {
   return {
     accuracy: {
@@ -79,16 +82,16 @@ function baselinedReports({ unexpected = 0, acknowledged = 0, ageDays = 5 } = {}
 }
 
 test("acknowledged drift alone does not need a maintainer", () => {
-  assert.equal(reportsNeedAction(baselinedReports({ acknowledged: 8 })), false);
+  assert.equal(reportsNeedAction(baselinedReports({ acknowledged: 8 }), DEFAULT_LIMIT), false);
 });
 
 test("drift outside the baseline still needs a maintainer", () => {
-  assert.equal(reportsNeedAction(baselinedReports({ unexpected: 1, acknowledged: 8 })), true);
+  assert.equal(reportsNeedAction(baselinedReports({ unexpected: 1, acknowledged: 8 }), DEFAULT_LIMIT), true);
 });
 
 test("a stale or undated drift baseline needs a re-triage", () => {
-  assert.equal(reportsNeedAction(baselinedReports({ acknowledged: 8, ageDays: 91 })), true);
-  assert.equal(reportsNeedAction(baselinedReports({ acknowledged: 8, ageDays: null })), true);
+  assert.equal(reportsNeedAction(baselinedReports({ acknowledged: 8, ageDays: 91 }), DEFAULT_LIMIT), true);
+  assert.equal(reportsNeedAction(baselinedReports({ acknowledged: 8, ageDays: null }), DEFAULT_LIMIT), true);
   assert.equal(
     reportsNeedAction(baselinedReports({ acknowledged: 8, ageDays: 91 }), { maxBaselineAgeDays: 120 }),
     false,

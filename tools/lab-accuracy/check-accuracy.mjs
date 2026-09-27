@@ -127,11 +127,18 @@ export function parseDriftBaseline(baseline) {
   };
 }
 
-/** Whole days between a baseline's verifiedAt date and `now`; null when the date is missing or invalid. */
+/**
+ * Whole days between a baseline's verifiedAt date and `now`; null when the date
+ * is missing, invalid, or in the future. A future date is almost always a typo,
+ * and treating it as "verified today" would switch the staleness check off
+ * until the date had come and gone, so it counts as undated instead. A day of
+ * slack allows for time zones.
+ */
 export function baselineAgeDays(verifiedAt, now) {
   const verified = Date.parse(verifiedAt ?? "");
   const current = Date.parse(now ?? "");
   if (Number.isNaN(verified) || Number.isNaN(current)) return null;
+  if (verified - current > 86400000) return null;
   return Math.max(0, Math.floor((current - verified) / 86400000));
 }
 

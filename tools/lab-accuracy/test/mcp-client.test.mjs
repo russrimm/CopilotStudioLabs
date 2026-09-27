@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { normalizeContent } from "../lib/mcp-client.mjs";
-import { safePath, unexpectedDriftLabs } from "../check-accuracy.mjs";
+import { normalizeContent, searchResultEntries } from "../lib/mcp-client.mjs";
+import { applyDriftBaseline, parseDriftBaseline, safePath, searchForCitedDocs, unexpectedDriftLabs } from "../check-accuracy.mjs";
 
 test("normalizeContent unwraps the current Learn MCP results envelope", () => {
   const result = {
@@ -45,6 +45,32 @@ test("safePath treats localized and canonical Learn URLs as the same page", () =
     safePath("https://learn.microsoft.com/en-us/microsoft-copilot-studio/computer-use"),
     safePath("https://learn.microsoft.com/microsoft-copilot-studio/computer-use#overview"),
   );
+});
+
+test("a search tool error or empty response throws instead of looking like zero results", () => {
+  assert.throws(
+    () => searchResultEntries({ isError: true, content: [{ type: "text", text: "Search service temporarily unavailable" }] }),
+    /microsoft_docs_search reported an error: Search service temporarily unavailable/,
+  );
+  assert.throws(() => searchResultEntries(null), /no result/);
+  assert.throws(() => searchResultEntries(undefined), /no result/);
+  assert.deepEqual(searchResultEntries({ content: [] }), []);
+});
+
+test("a baselined lab whose searches fail is unexpected, never acknowledged", async () => {
+  const lab = { name: "01-known", mcp: { query: "q", note: null } };
+  const failing = async () => searchResultEntries({ isError: true, content: [] });
+  try {
+    await searchForCitedDocs(failing, "q", ["https://learn.microsoft.com/microsoft-copilot-studio/x"]);
+    assert.fail("searchForCitedDocs should propagate the tool error");
+  } catch (error) {
+    // Mirrors check-accuracy.mjs main(): a thrown search becomes a query-failure note.
+    lab.mcp.note = `MCP query failed: ${error.message}`;
+  }
+  const report = { generatedAt: "2026-10-01T00:00:00.000Z", summary: {}, labs: [lab] };
+  const unexpected = applyDriftBaseline(report, parseDriftBaseline({ verifiedAt: "2026-09-26", knownLabWarnings: ["01-known"] }));
+  assert.deepEqual(unexpected, ["01-known"]);
+  assert.equal(lab.mcp.drift, "unexpected");
 });
 
 test("drift baseline permits known warnings and rejects new lab drift", () => {
