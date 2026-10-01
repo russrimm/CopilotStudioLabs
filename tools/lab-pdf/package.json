@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "marked": "^15.0.6",
-    "playwright": "^1.49.0"
+    "playwright": "^1.63.0"
   },
   "engines": {
     "node": ">=24.0.0"
