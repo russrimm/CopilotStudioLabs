@@ -14,7 +14,7 @@
     "@microsoft/agents-copilotstudio-client": "^1.7.1"
   },
   "devDependencies": {
-    "typescript": "^5.4.0",
+    "typescript": "^7.0.2",
     "vite": "^8.1.5"
   }
 }
