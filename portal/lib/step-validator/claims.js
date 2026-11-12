@@ -24,7 +24,8 @@ const GENERIC_BOLD = new Set(
   [
     "note", "tip", "important", "warning", "caution", "objective", "scenario", "example", "optional", "why",
     "goal", "time", "outcome", "expected", "result", "results", "prerequisites", "step", "steps", "lab", "yes",
-    "no", "true", "false", "ok", "done", "tbd", "and", "or",
+    "no", "true", "false", "ok", "done", "tbd", "and", "or", "when", "continue", "if", "then", "else", "all",
+    "any", "none", "each", "here", "this", "that",
   ].map((w) => w.toLowerCase()),
 );
 

@@ -271,6 +271,10 @@ test("renamed and deprecated text makes a claim stale, even when the old name ap
   assert.equal(deprecated.rule, "deprecated");
   const unrelated = evaluateClaim({ kind: "ui-label", term: "Classic chatbots" }, evidence("Topics are great. ".repeat(20) + "Another feature is deprecated."));
   assert.notEqual(unrelated.status, "stale");
+  // A page that merely mentions the name and, separately, something deprecated is not evidence.
+  const sameSentence = evaluateClaim({ kind: "ui-label", term: "Snowflake" }, evidence("The Snowflake connector supports OAuth, but the legacy sign-in method is deprecated."));
+  assert.notEqual(sameSentence.status, "stale");
+  assert.notEqual(evaluateClaim({ kind: "ui-label", term: "Topics" }, evidence("Topics help users; the old trigger is retired.")).status, "stale");
 });
 
 test("availability: matching stage verifies, a different stage is stale, mixed is left to a person", () => {
@@ -279,6 +283,9 @@ test("availability: matching stage verifies, a different stage is stale, mixed i
   assert.equal(evaluateClaim(claim, evidence("Computer use is in preview.")).rule, "availability-match");
   assert.equal(evaluateClaim(claim, evidence("Computer use was in preview and is now generally available.")).rule, "mixed-evidence");
   assert.equal(evaluateClaim({ ...claim, state: "ga" }, evidence("Computer use is in preview.")).rule, "availability-changed");
+  // Stage words about other features, or inside link-only lines, are not evidence about this one.
+  assert.equal(evaluateClaim({ ...claim, state: "ga" }, evidence("- [Add standalone computer use tools (preview)](https://learn.microsoft.com/x)")).rule, "no-support");
+  assert.equal(evaluateClaim({ ...claim, state: "ga" }, evidence("Computer use works with agents. Separately, the voice tools are in preview.")).rule, "no-support");
 });
 
 test("limits: same number verifies, a different number for the same subject is stale", () => {
@@ -288,6 +295,8 @@ test("limits: same number verifies, a different number for the same subject is s
   assert.equal(stale.rule, "limit-mismatch");
   assert.match(stale.explanation, /512/);
   assert.equal(evaluateClaim(claim, evidence("Topics can be 5 MB.")).status, "unverified");
+  // A guessed subject (no bold term in the lab) can verify but never contradicts.
+  assert.equal(evaluateClaim({ ...claim, confidence: "low" }, evidence("Files added to knowledge sources can be up to 512 MB.")).status, "unverified");
 });
 
 test("settings need the setting and value together; requirements need requirement wording", () => {

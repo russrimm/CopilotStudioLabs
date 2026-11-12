@@ -40,9 +40,9 @@ const MAX_UNITS_PER_DOC = 6000;
 const COMMON_SINGLE_WORDS = new Set(
   "save create test add next back ok cancel done close delete edit new open publish settings agent agents tools tool topics topic".split(" "),
 );
-const STALE_NEAR_RE = /\b(?:deprecated|retired|retirement|no longer (?:available|supported|offered|recommended)|has been removed|have been removed|is removed|end of support|sunset)\b/;
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const LIMIT_CUE_RE = /\b(?:limit|limits|maximum|max|up to|at most|no more than|minimum|quota|per|retention|timeout|capped|cap|allowed)\b/;
 
 /**
  * Index a document for matching.
@@ -100,7 +100,7 @@ function termsOf(claim) {
 /** Staleness rules that apply to any named item (renamed / deprecated). */
 function findNameStale(term, docs) {
   const t = escapeRe(normalizeText(term));
-  if (!t || t.length < 4) return null;
+  if (!t || t.length < 6) return null;
   const renamedPatterns = [
     new RegExp(`(?:^| )${t}(?:s)? (?:has been |was |is now |was recently |were )?(?:renamed|replaced by|replaced with|rebranded)\\b`),
     new RegExp(`(?:^| )${t}(?:s)? (?:is|are) now (?:called|known as|named)\\b`),
@@ -116,13 +116,12 @@ function findNameStale(term, docs) {
       explanation: `Learn says "${term}" was renamed or replaced.`,
     };
   }
+  const deprecatedRe = new RegExp(
+    `(?:^| )${t}(?:s)?(?: [a-z0-9]+){0,2} (?:(?:is|are|was|were|has been|have been|will be|is being|is now|are now) )?(?:deprecated|retired|removed|no longer (?:available|supported|offered))\\b`,
+  );
   const deprecated = findSentence(docs, (s) => {
-    const at = s.norm.search(new RegExp(`(?:^| )${t}(?:s)?(?= |$)`));
-    if (at < 0) return false;
-    const near = STALE_NEAR_RE.exec(s.norm);
-    if (!near) return false;
     if (/\bnot (?:been )?(?:deprecated|retired)\b/.test(s.norm)) return false;
-    return Math.abs(near.index - at) <= 120;
+    return deprecatedRe.test(s.norm);
   });
   if (deprecated) {
     return {
@@ -184,11 +183,12 @@ function evaluateLimit(claim, docs) {
             evidence: [cite(doc, sentence.raw)],
           };
         }
-        mismatch ??= { doc, sentence, values };
+        if (LIMIT_CUE_RE.test(sentence.norm)) mismatch ??= { doc, sentence, values };
       }
     }
   }
-  if (mismatch) {
+  // Subjects guessed from loose words (low confidence) can verify, but are too weak to call a limit stale.
+  if (mismatch && claim.confidence !== "low") {
     return {
       status: "stale",
       rule: "limit-mismatch",
@@ -201,14 +201,17 @@ function evaluateLimit(claim, docs) {
 
 function evaluateAvailability(claim, docs) {
   const subject = normalizeText(claim.term);
-  const words = subject.split(" ").filter(Boolean);
   const states = { preview: null, ga: null, both: null };
+  // The stage must be stated about the subject itself: within a short window after its name.
+  // Link-only lines ("[Add X tools (preview)](...)") describe other pages, not this feature.
   for (const doc of docs) {
     for (const unit of doc.units) {
-      const about = containsPhrase(unit.norm, subject) || (words.length >= 3 && subjectHit(unit.norm, words));
-      if (!about) continue;
+      if (/^\s*[-*]?\s*\[[^\]]+\]\([^)]*\)\s*$/.test(unit.raw)) continue;
       for (const sentence of unit.sentences) {
-        const stage = stageOfSentence(sentence.norm);
+        const at = (` ${sentence.norm} `).indexOf(` ${subject} `);
+        if (at < 0) continue;
+        const window = sentence.norm.slice(Math.max(0, at), at + subject.length + 70);
+        const stage = stageOfSentence(window);
         if (!stage.preview && !stage.ga) continue;
         const hit = { doc, text: sentence.raw };
         if (stage.preview && stage.ga) states.both ??= hit;
