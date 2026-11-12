@@ -52,6 +52,15 @@ function condense(text, maxLength = 420) {
   return `${(lastStop > 120 ? cut.slice(0, lastStop) : cut).trim()}...`;
 }
 
+/**
+ * Escape the characters that give text structure in Markdown (emphasis, links,
+ * inline HTML, tables, code). Applied to caller-supplied title, agent name, and
+ * audience so they render as the plain text the user typed.
+ */
+export function escapeMarkdown(text) {
+  return String(text).replace(/[\\`*_[\]<>|~]/g, "\\$&");
+}
+
 function scrubForbidden(text) {
   // The validator rejects TODO-style markers anywhere in the file, and Learn
   // excerpts occasionally contain them in sample code commentary.
@@ -130,7 +139,7 @@ function overviewSection(plan, enrichment) {
 
   const intro =
     enrichment?.overview ||
-    `${profile.problem} In this lab you build **${profile.agentName}**, a Microsoft Copilot Studio agent for ${profile.domain}, ending with ${profile.outcome}.`;
+    `${profile.problem} In this lab you build **${escapeMarkdown(profile.agentName)}**, a Microsoft Copilot Studio agent for ${profile.domain}, ending with ${profile.outcome}.`;
 
   const focus = plan.features.map((f) => `**${f.name}** - ${f.summary}`);
 
@@ -218,7 +227,7 @@ function scenarioSection(plan) {
   return [
     "## The Scenario",
     "",
-    `You are building **${profile.agentName}** for ${profile.audience}.`,
+    `You are building **${escapeMarkdown(profile.agentName)}** for ${escapeMarkdown(profile.audience)}.`,
     "",
     `**The problem.** ${profile.problem}`,
     "",
@@ -444,7 +453,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
   const profile = plan.profile;
   const applied =
     enrichment?.applied ||
-    `Do this for **${profile.agentName}**: ${lowerFirst(feature.summary.replace(/\.$/, ""))}, using the ${profile.domain} content described in **The Scenario** above. Keep the wording consistent with the domain language for this lab (${profile.terms.slice(0, 3).join(", ")}) so answers sound like they came from your team.`;
+    `Do this for **${escapeMarkdown(profile.agentName)}**: ${lowerFirst(feature.summary.replace(/\.$/, ""))}, using the ${profile.domain} content described in **The Scenario** above. Keep the wording consistent with the domain language for this lab (${profile.terms.slice(0, 3).join(", ")}) so answers sound like they came from your team.`;
 
   // Doc-derived steps when the live page could be read, curated steps otherwise.
   // Both paths are scrubbed: derived steps are untrusted fetched content, and
@@ -533,7 +542,7 @@ function completeSection(plan) {
   return [
     "## Lab Complete",
     "",
-    `You built **${plan.profile.agentName}** end to end: ${sentenceList(plan.features.map((f) => f.name))}.`,
+    `You built **${escapeMarkdown(plan.profile.agentName)}** end to end: ${sentenceList(plan.features.map((f) => f.name))}.`,
     "",
     `More importantly, you can now explain *why* each of those pieces exists, which is what makes the next agent faster to build than this one was.`,
   ].join("\n");
@@ -719,9 +728,9 @@ export function composeLab(
   vendorByFeature = new Map(),
 ) {
   const sections = [
-    `# ${scrubForbidden(plan.title)}`,
+    `# ${escapeMarkdown(scrubForbidden(plan.title))}`,
     "",
-    `*Build ${plan.profile.agentName} in Microsoft Copilot Studio, one grounded module at a time.*`,
+    `*Build ${escapeMarkdown(plan.profile.agentName)} in Microsoft Copilot Studio, one grounded module at a time.*`,
     "",
     metadataTable(plan, generation),
     "",

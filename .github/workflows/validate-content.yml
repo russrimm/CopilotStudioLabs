@@ -74,6 +74,7 @@ jobs:
           node --check tools/lab-pdf/generate.js
           node --check tools/screenshot-capture/capture.js
           node --check tools/screenshot-capture/verify-shots.js
+          node --check portal/server.js
 
       - name: Test lab accuracy tooling
         working-directory: tools/lab-accuracy

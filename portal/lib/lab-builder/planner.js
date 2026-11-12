@@ -180,7 +180,10 @@ export function planLab(request = {}) {
 
   const ordered = orderFeatures(expanded);
 
-  // Apply the time budget, but never drop a feature another kept feature depends on.
+  // Apply the time budget. The budget wins over the core level-100 modules, so
+  // those can be deferred; the only forced keep is the first module, so a plan is
+  // never empty. Dependency integrity is enforced below: a module whose
+  // prerequisite was deferred is deferred with it.
   const budget = Number(request.timeBudget) > 0 ? Number(request.timeBudget) : Infinity;
   const kept = [];
   const deferred = [];

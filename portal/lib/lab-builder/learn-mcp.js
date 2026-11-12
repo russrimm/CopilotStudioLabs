@@ -317,12 +317,15 @@ export async function fetchDocPage(session, url) {
     page = { markdown: "", url, fetchedAt: null, error: err.message || String(err) };
   }
 
-  cacheSet(cacheKey, page);
+  // A failed read is never cached: a transient MCP error must not outlive the
+  // retry the blocker flow offers for it.
+  if (!page.error) cacheSet(cacheKey, page);
   return page;
 }
 
 /**
  * Fetch a full Learn page as markdown.
+ *
  * @returns {Promise<string>} markdown, or "" on failure
  */
 export async function fetchDoc(session, url) {

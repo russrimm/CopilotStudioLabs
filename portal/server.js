@@ -27,6 +27,8 @@ import { getFeaturesByCategory, getFeatures, validateCatalog } from "./lib/lab-b
 import { planLab } from "./lib/lab-builder/planner.js";
 import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
+import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
+import { listGeneratedLabs, readGeneratedLab } from "./lib/lab-builder/generated-labs.js";
 import { renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
@@ -342,6 +344,7 @@ app.use((_req, res, next) => {
   next();
 });
 
+app.use(["/api/lab-builder"], express.json({ limit: process.env.LAB_BUILDER_BODY_LIMIT || "64kb" }));
 app.use(express.json({ limit: "10mb" }));
 // Harden user-uploaded content: block MIME sniffing so a file can't be
 // re-interpreted as HTML/SVG by the browser. Registered before the general
@@ -409,6 +412,10 @@ const LAB_BUILDER_MAX_ACTIVE = Number.isInteger(configuredLabBuilderConcurrency)
   ? Math.min(8, Math.max(1, configuredLabBuilderConcurrency))
   : 2;
 let activeLabGenerations = 0;
+const labBuilderRateCheck = createRateLimiter({
+  windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_RATE_WINDOW_MS, 3600000),
+  max: positiveIntFromEnv(process.env.LAB_BUILDER_RATE_MAX, 10),
+});
 
 /** GET /api/lab-builder/features — Catalog that drives the wizard */
 app.get("/api/lab-builder/features", (_req, res) => {
@@ -464,6 +471,12 @@ app.post("/api/lab-builder/generate", async (req, res) => {
   if (activeLabGenerations >= LAB_BUILDER_MAX_ACTIVE) {
     res.setHeader("Retry-After", "10");
     return res.status(429).json({ error: "The lab builder is busy. Try again shortly." });
+  }
+
+  const rate = labBuilderRateCheck(String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase());
+  if (!rate.allowed) {
+    res.setHeader("Retry-After", String(rate.retryAfterSec));
+    return res.status(429).json({ error: `Lab generation rate limit exceeded. Try again in ${rate.retryAfterSec}s.` });
   }
 
   const body = req.body || {};
@@ -534,31 +547,7 @@ app.post("/api/lab-builder/generate", async (req, res) => {
 /** GET /api/lab-builder/generated — List previously generated labs */
 app.get("/api/lab-builder/generated", (_req, res) => {
   try {
-    if (!existsSync(GENERATED_LABS_DIR)) return res.json({ labs: [] });
-
-    const labs = readdirSync(GENERATED_LABS_DIR, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => {
-        const manifestPath = join(GENERATED_LABS_DIR, entry.name, "manifest.json");
-        if (!existsSync(manifestPath)) return null;
-        try {
-          const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
-          return {
-            labId: entry.name,
-            title: manifest.title,
-            difficulty: manifest.difficulty,
-            totalMinutes: manifest.totalMinutes,
-            generatedAt: manifest.generatedAt,
-            moduleCount: manifest.modules?.length || 0,
-          };
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean)
-      .sort((a, b) => String(b.generatedAt).localeCompare(String(a.generatedAt)));
-
-    res.json({ labs });
+    res.json(listGeneratedLabs(GENERATED_LABS_DIR));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -566,25 +555,9 @@ app.get("/api/lab-builder/generated", (_req, res) => {
 
 /** GET /api/lab-builder/generated/:labId — Read a generated lab's markdown */
 app.get("/api/lab-builder/generated/:labId", (req, res) => {
-  const labId = String(req.params.labId);
-  if (!/^[a-z0-9-]+$/i.test(labId)) return res.status(400).json({ error: "Invalid lab id" });
-
-  const labDir = join(GENERATED_LABS_DIR, labId);
-  const indexPath = join(labDir, "index.md");
-  if (!resolve(labDir).startsWith(resolve(GENERATED_LABS_DIR)) || !existsSync(indexPath)) {
-    return res.status(404).json({ error: "Generated lab not found" });
-  }
-
-  try {
-    const markdown = readFileSync(indexPath, "utf-8");
-    const manifestPath = join(labDir, "manifest.json");
-    const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf-8")) : null;
-    res.json({ labId, markdown, html: renderLabMarkdown(markdown), manifest });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  const { status, body } = readGeneratedLab(GENERATED_LABS_DIR, req.params.labId, renderLabMarkdown);
+  res.status(status).json(body);
 });
-
 /** GET /api/labs — List all available labs with metadata */
 app.get("/api/labs", (_req, res) => {
   try {
@@ -1465,6 +1438,14 @@ app.get("/api/pp/tenant-settings", async (_req, res) => {
 // ── SPA fallback ────────────────────────────────────────────────────────────
 app.get("*", (_req, res) => {
   res.sendFile(resolve(import.meta.dirname, "public", "index.html"));
+});
+
+// Body-parser failures (oversized or malformed JSON) answer as JSON, not HTML.
+app.use((err, _req, res, next) => {
+  if (res.headersSent || !err?.status || err.status < 400 || err.status >= 500) return next(err);
+  res.status(err.status).json({
+    error: err.type === "entity.too.large" ? "Request body is too large." : "Invalid request body.",
+  });
 });
 
 // ── Start ───────────────────────────────────────────────────────────────────

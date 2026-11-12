@@ -28,7 +28,7 @@ Two ways to use it:
 | | |
 |---|---|
 | **Portal** | The **🧬 Build a Lab** tab — a five-step wizard with live preview. |
-| **CLI** | `node tools/lab-builder/build.mjs` — no portal, no sign-in, no dependencies beyond Node 24. |
+| **CLI** | `node tools/lab-builder/build.mjs` — no portal and no sign-in. Offline builds (`--no-learn`) need nothing beyond Node 24; live vendor-page reads load `sanitize-html` from `portal/` (run `npm ci` there first). |
 
 Output lands in `generated-labs/<slug>/` (git-ignored) as:
 
@@ -177,7 +177,7 @@ flowchart LR
   S --> D[LLM enrichment<br/>optional]
   D --> E[Composer]
   E --> F[index.md + assets + shots.json]
-  F --> G[Validator<br/>same 19 rules as labs/]
+  F --> G[Validator<br/>same rules as labs/]
 ```
 
 ### 1. Feature catalog
@@ -366,7 +366,8 @@ whether it is still in the lab; the top-level `vendorDocs` summary records the
 allowlist the build ran under.
 
 Vendor URLs are link-checked with the rest (below), but never through the
-generic checker, which follows redirects to any host. They are checked through
+generic checker, which only requires each hop to be a public host. They are
+checked through
 the vendor reader itself, so every hop is re-checked against the allowlist, a
 page refused on policy is never requested by another route, and a page already
 read in this build is answered from cache. A vendor site that answers with 401,
@@ -585,7 +586,11 @@ issue #41 a build could report all checks passing while citing a page that no
 longer exists.
 
 The check reuses the approach in `tools/lab-accuracy/check-accuracy.mjs`: GET
-rather than HEAD, because some Learn endpoints reject HEAD; redirects followed;
+rather than HEAD, because some Learn endpoints reject HEAD; redirects followed by
+hand (at most five), with every hop required to be a public host — loopback,
+private, link-local, and internal names are refused, so a crafted search result
+or redirect cannot point the server at its own network (a host that merely
+*resolves* to a private address needs egress filtering as well);
 and HTTP >= 400 kept distinct from status 0. That distinction decides what
 happens next:
 
@@ -632,7 +637,22 @@ Each module renders as:
 
 ## API
 
-All routes sit under `/api/lab-builder` and follow the portal's normal auth rules.
+All routes sit under `/api/lab-builder` and follow the portal's normal auth rules:
+every call needs an Entra ID bearer token (the CLI does not use these routes, which
+is why it needs no sign-in). For local development without Entra, set
+`PORTAL_AUTH_DISABLED=true`; never do that outside a development machine.
+
+Limits, all configurable by environment variable:
+
+- Request bodies on these routes are capped at 64 KB (`LAB_BUILDER_BODY_LIMIT`).
+- `generate` allows 10 builds per user per hour (`LAB_BUILDER_RATE_MAX`,
+  `LAB_BUILDER_RATE_WINDOW_MS`) and two builds at once per process
+  (`LAB_BUILDER_MAX_ACTIVE`). Both answer HTTP 429 with `Retry-After`. The windows
+  are in memory, so each portal instance counts for itself.
+
+Generated labs are a **shared library**: any authenticated user can list and read
+every lab. Nothing sensitive is written into one — who resolved a blocker goes to
+the server log, never the manifest — and the output is exportable by design.
 
 | Method | Route | Purpose |
 |---|---|---|
