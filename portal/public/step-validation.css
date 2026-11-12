@@ -1,0 +1,54 @@
+/* Step validation (Microsoft Learn) — Validation tab */
+.sv-panel {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.sv-panel h4 { margin: 0 0 6px; font-size: 15px; }
+.sv-help { margin: 0 0 12px; font-size: 13px; color: var(--text-muted); }
+.sv-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.sv-progress { margin-top: 14px; }
+.sv-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.sv-bar > span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent, #4f8cff);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.3s ease;
+}
+.sv-status { margin-top: 8px; font-size: 13px; }
+.sv-detail { margin-top: 2px; font-size: 12px; color: var(--text-muted); min-height: 1.2em; overflow-wrap: anywhere; }
+.sv-summary { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+.sv-labs { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.sv-lab { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 10px 12px; }
+.sv-lab[hidden] { display: none; }
+.sv-lab > details > summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 14px; font-weight: 600; }
+.sv-lab-meta { font-weight: 400; font-size: 12px; color: var(--text-muted); }
+.sv-steps { margin: 10px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.sv-step { border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; background: var(--bg); font-size: 13px; }
+.sv-step > summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sv-claims { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.sv-claim { padding: 6px 0 6px 0; border-top: 1px solid var(--border); }
+.sv-claim:first-child { border-top: 0; }
+.sv-claim-term { font-weight: 600; }
+.sv-claim-meta { color: var(--text-muted); font-size: 12px; }
+.sv-excerpt {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.sv-note { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); }

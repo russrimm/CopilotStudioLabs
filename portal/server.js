@@ -10,6 +10,7 @@ import multer from "multer";
 import { extname, join, resolve } from "path";
 import { discoverLabs, getLabContent, isValidLabId } from "./lib/labs.js";
 import { validateLab, validateAllLabs } from "./lib/validator.js";
+import { createStepValidationService, JobConflictError } from "./lib/step-validator/index.js";
 import { exportLabs } from "./lib/exporter.js";
 import { sendMail } from "./lib/mailer.js";
 import {
@@ -740,6 +741,48 @@ app.get("/api/validate/:labId", (req, res) => {
     }
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── Step validation: check each lab step's claims against Microsoft Learn ───
+// Runs as a polled job (see lib/step-validator and docs/step-validation.md).
+const stepValidation = createStepValidationService();
+const stepValidationRateCheck = createRateLimiter({
+  windowMs: positiveIntFromEnv(process.env.STEP_VALIDATION_RATE_WINDOW_MS, 3600000),
+  max: positiveIntFromEnv(process.env.STEP_VALIDATION_RATE_MAX, 20),
+});
+
+/** POST /api/step-validation — Start a run for the given labs (default: all) */
+app.post("/api/step-validation", (req, res) => {
+  const rate = stepValidationRateCheck(req.ip || "local");
+  if (!rate.allowed) {
+    res.setHeader("Retry-After", String(rate.retryAfterSec));
+    return res.status(429).json({ error: "Too many step validation runs. Try again later." });
+  }
+  const labIds = req.body?.labIds;
+  if (labIds !== undefined && (!Array.isArray(labIds) || labIds.length > 100 || labIds.some((id) => typeof id !== "string"))) {
+    return res.status(400).json({ error: "labIds must be an array of lab ids" });
+  }
+  try {
+    res.status(202).json(stepValidation.start(labIds));
+  } catch (err) {
+    if (err instanceof JobConflictError) return res.status(409).json({ error: err.message, jobId: err.activeId });
+    if (err.code === "invalid") return res.status(400).json({ error: "Invalid lab id" });
+    if (err.code === "not-found") return res.status(404).json({ error: "Lab not found" });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** GET /api/step-validation/:jobId — Progress and results so far */
+app.get("/api/step-validation/:jobId", (req, res) => {
+  const job = stepValidation.get(req.params.jobId);
+  if (!job) return res.status(404).json({ error: "Step validation run not found" });
+  res.json(job);
+});
+
+/** DELETE /api/step-validation/:jobId — Cancel a running job */
+app.delete("/api/step-validation/:jobId", (req, res) => {
+  if (!stepValidation.get(req.params.jobId)) return res.status(404).json({ error: "Step validation run not found" });
+  res.json({ cancelled: stepValidation.cancel(req.params.jobId) });
 });
 
 /** POST /api/export — Download a ZIP of selected labs */

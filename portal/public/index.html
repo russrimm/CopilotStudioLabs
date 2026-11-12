@@ -1522,6 +1522,7 @@
       .preview-frame a[href]::after { content: " (" attr(href) ")"; font-size: 10px; color: #666; }
     }
   </style>
+  <link rel="stylesheet" href="step-validation.css" />
 </head>
 <body>
   <a class="skip-link" href="#portal-main">Skip to portal content</a>
@@ -2243,12 +2244,31 @@
                     Run smoke tests against each lab's documentation, metadata, and referenced assets.
                   </p>
                 </div>
-                <button class="btn btn-primary" onclick="runValidation()">🧪 Run All Tests</button>
+                <button class="btn btn-primary" onclick="runValidation({ steps: true })">🧪 Run All Tests</button>
               </div>
               <div id="validation-summary" class="validation-summary">
                 <span class="tag">No validation run yet</span>
                 <span style="font-size: 13px; color: var(--text-muted);">Run the full validation suite to populate results.</span>
               </div>
+              <section id="step-validation" class="sv-panel" aria-labelledby="step-validation-title">
+                <h4 id="step-validation-title">📚 Step accuracy against Microsoft Learn</h4>
+                <p class="sv-help">
+                  Checks the claims in each lab step (menu paths, button and setting names, requirements, limits, preview or GA status) against current Microsoft Learn content.
+                  A lookup that fails is reported as unable to verify, never as a pass. Run All Tests starts this check after the structural tests.
+                </p>
+                <div class="sv-actions">
+                  <button class="btn btn-sm" id="step-validation-run" onclick="StepValidation.start()">Check all steps</button>
+                  <button class="btn btn-sm" id="step-validation-cancel" onclick="StepValidation.cancel()" hidden>Cancel</button>
+                  <label style="font-size: 13px;"><input type="checkbox" id="step-validation-filter" onchange="StepValidation.applyFilter()" /> Only labs that need attention</label>
+                </div>
+                <div id="step-validation-progress" class="sv-progress" hidden>
+                  <div id="step-validation-bar" class="sv-bar" role="progressbar" aria-label="Step validation progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
+                  <div id="step-validation-status" class="sv-status" role="status" aria-live="polite"></div>
+                  <div id="step-validation-detail" class="sv-detail" aria-hidden="true"></div>
+                </div>
+                <div id="step-validation-summary" class="sv-summary"></div>
+                <div id="step-validation-results"></div>
+              </section>
               <div id="validation-results" class="validation-grid">
                 <div class="scenario-empty">Run validation to see lab smoke test results.</div>
               </div>
@@ -2545,6 +2565,7 @@
     <div class="lightbox-help">Esc closes • +/- zoom • arrows pan • 0 resets</div>
   </div>
 
+  <script src="step-validation.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

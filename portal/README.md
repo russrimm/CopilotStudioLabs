@@ -21,7 +21,7 @@ A web-based lab operations portal for customizing, validating, previewing, provi
 - **🔐 Approval Workflows** — Gate environment provisioning with None, Portal, Power Automate, Logic Apps, Copilot Studio, or Teams Adaptive Card approvals
 - **📢 Notifications** — Send approval lifecycle notifications via Teams Adaptive Cards and email
 - **🤖 Agent Chat** — Embed a Copilot Studio agent chat widget for real-time lab guidance and troubleshooting
-- **🧪 Validation** — Run documentation smoke tests across all labs or a single lab
+- **🧪 Validation** — Run documentation smoke tests across all labs or a single lab, plus a step-level accuracy check of every lab step against current Microsoft Learn content
 - **⚙️ Configuration** — Review Azure, Key Vault, SMTP, branding, and deployment settings in one place
 - **🐳 Container-Ready** — Run locally, in Docker, or in Azure App Service
 
@@ -116,6 +116,13 @@ All configuration is provided through environment variables (see `.env.template`
 | `LAB_BUILDER_BODY_LIMIT` | No | Maximum JSON body size on `/api/lab-builder` routes (default: `64kb`) |
 | `LAB_BUILDER_CONCURRENCY` | No | Modules grounded, derived, and enriched in parallel within one build (default: `4`) |
 | `LAB_BUILDER_LINK_CHECK` | No | Set to `off` to skip citation liveness checks |
+| **Step validation** | | |
+| `STEP_VALIDATION_MIN_INTERVAL_MS` | No | Minimum gap between Microsoft Learn calls (default: `250`) |
+| `STEP_VALIDATION_MAX_CALLS` | No | Learn calls allowed per run before remaining claims become "unable to verify" (default: `2500`) |
+| `STEP_VALIDATION_CACHE_DIR` | No | Directory for a persistent Learn response cache shared across runs (default: memory only) |
+| `STEP_VALIDATION_CACHE_TTL_MS` | No | Cache lifetime for Learn responses (default: `86400000`) |
+| `STEP_VALIDATION_RATE_MAX` | No | Runs that can be started per window (default: `20`) |
+| `STEP_VALIDATION_RATE_WINDOW_MS` | No | Start rate-limit window (default: `3600000`) |
 | `LAB_BUILDER_LINK_TIMEOUT_MS` | No | Citation liveness check timeout (default: `8000`) |
 | `LAB_BUILDER_LLM` | No | Set to `off` to force deterministic composition |
 | `LAB_BUILDER_LLM_TIMEOUT_MS` | No | Language model call timeout (default: `60000`) |
@@ -169,6 +176,16 @@ All configuration is provided through environment variables (see `.env.template`
 | `GET` | `/api/validate/:labId` | Run smoke tests for a single lab |
 
 These run the `lib/validator.js` rule set, the same one every generated lab must pass. `npm test` holds every lab under `labs/` to it, so a failing lab on the dashboard is a regression, not a standing state. [`../scripts/lab-validation-rules.json`](../scripts/lab-validation-rules.json) lists each rule and whether `validate_labs.py` checks it too.
+
+Those checks are structural and finish instantly. The step-level check below goes further: it reads each lab's instructions and verifies what they say against Microsoft Learn.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/step-validation` | Start a run. Body: `{ "labIds": ["35-dlp-governance-policies"] }` (omit for all labs). Returns `202` with a `jobId`; `409` if a run is already active; `429` when rate limited |
+| `GET` | `/api/step-validation/:jobId` | Progress (`labsDone`, `stepsDone`, current step and message) plus results so far (`completedLabs`, `currentLab`) and, when finished, the report summary |
+| `DELETE` | `/api/step-validation/:jobId` | Cancel a running job; completed labs are kept |
+
+In the **Validation** tab, **Run All Tests** runs the structural tests and then the step check, a lab's **Run** button does the same for that lab, and **Check all steps** runs only the step check. Progress is shown per lab and per step, and results stream in as each lab finishes. How it works, what each status means, the CLI, and the limits are in [`../docs/step-validation.md`](../docs/step-validation.md).
 
 ### Config / Key Vault
 
@@ -257,7 +274,8 @@ portal/
 │   ├── labs.js            Lab discovery and metadata extraction
 │   ├── exporter.js        ZIP archive generation with text customization
 │   ├── mailer.js          SMTP and Microsoft Graph email transport
-│   ├── validator.js       Lab documentation smoke tests
+│   ├── validator.js       Lab documentation smoke tests (structural)
+│   ├── step-validator/    Step-level accuracy check against Microsoft Learn (parser, claims, matcher, runner, jobs)
 │   ├── markdown.js        Markdown rendering and HTML sanitization
 │   ├── branding.js        Company branding management
 │   ├── scenarios.js       Industry scenario templates
@@ -274,6 +292,8 @@ portal/
 ├── public/
 │   ├── index.html         Single-page app UI (tabs, forms, preview)
 │   ├── app.js             Frontend logic
+│   ├── step-validation.js Step validation UI (progress and results)
+│   ├── step-validation.css
 │   └── vendor/
 │       └── mermaid.min.js Mermaid diagram renderer
 ├── data/                  Runtime data (feedback, branding, approvals, agent config)
