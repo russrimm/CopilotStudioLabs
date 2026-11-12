@@ -111,6 +111,9 @@ All configuration is provided through environment variables (see `.env.template`
 | `LEARN_MCP_URL` | No | Microsoft Learn MCP endpoint (default: `https://learn.microsoft.com/api/mcp`) |
 | `LEARN_MCP_TIMEOUT_MS` | No | Learn MCP request timeout (default: `30000`) |
 | `LAB_BUILDER_MAX_ACTIVE` | No | Concurrent lab generations before the API returns HTTP 429 (default: `2`) |
+| `LAB_BUILDER_RATE_MAX` | No | Lab generations allowed per user per window (default: `10`) |
+| `LAB_BUILDER_RATE_WINDOW_MS` | No | Lab generation rate-limit window (default: `3600000`) |
+| `LAB_BUILDER_BODY_LIMIT` | No | Maximum JSON body size on `/api/lab-builder` routes (default: `64kb`) |
 | `LAB_BUILDER_CONCURRENCY` | No | Modules grounded, derived, and enriched in parallel within one build (default: `4`) |
 | `LAB_BUILDER_LINK_CHECK` | No | Set to `off` to skip citation liveness checks |
 | `LAB_BUILDER_LINK_TIMEOUT_MS` | No | Citation liveness check timeout (default: `8000`) |

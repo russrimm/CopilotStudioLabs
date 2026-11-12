@@ -12,8 +12,10 @@
  *
  *   - GET rather than HEAD, with the body discarded. Some Learn endpoints
  *     reject HEAD outright, so a HEAD-based checker reports phantom breakage.
- *   - Redirects are followed, and the final URL is recorded. Learn moves pages
- *     constantly; a 301 to a live page is a healthy link, not a broken one.
+ *   - Redirects are followed by hand, up to `MAX_REDIRECTS`, and the final URL is
+ *     recorded. Learn moves pages constantly; a 301 to a live page is a healthy
+ *     link, not a broken one. Every hop must still be a public host, so a
+ *     redirect cannot steer the server at an internal address.
  *   - HTTP >= 400 and status 0 are *not* the same thing and never collapse into
  *     one bucket. 4xx/5xx is the origin telling us the page is gone. Status 0 is
  *     our own timeout, DNS failure, or proxy — evidence about the network, not
@@ -61,6 +63,64 @@ export function isCheckableUrl(value) {
   }
 }
 
+/** Redirect hops the checker follows by hand before giving up. */
+export const MAX_REDIRECTS = 5;
+
+function isPrivateIPv4(host) {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 192 && b === 0) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
+  );
+}
+
+/**
+ * Whether a URL's host is one a public search result could legitimately point
+ * at. Rejects loopback, private, link-local, and other internal destinations
+ * (IP literals and obviously internal names) so a crafted result or redirect
+ * cannot make the server probe its own network.
+ *
+ * This is a syntactic check: a public name that resolves to a private address
+ * (DNS rebinding) needs connection-level enforcement, which `fetch` does not
+ * expose. Run the builder where egress to internal ranges is blocked as well.
+ */
+export function isPublicUrl(value) {
+  let parsed;
+  try {
+    parsed = new URL(String(value));
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  if (!host) return false;
+  if (host.includes(":")) {
+    const mapped = /^::ffff:(?:(\d+\.\d+\.\d+\.\d+)|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/.exec(host);
+    if (mapped) {
+      if (mapped[1]) return !isPrivateIPv4(mapped[1]);
+      const hi = parseInt(mapped[2], 16);
+      const lo = parseInt(mapped[3], 16);
+      return !isPrivateIPv4(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
+    }
+    return !(host === "::" || host === "::1" || /^f[cd]/.test(host) || /^fe[89ab]/.test(host));
+  }
+  if (isPrivateIPv4(host)) return false;
+  if (/^\d+$/.test(host) || /^0x/i.test(host)) return false;
+  if (!host.includes(".")) return false;
+  return !/(^|\.)(localhost|local|internal|localdomain|home|lan|corp|intranet)$/.test(host);
+}
+
 /**
  * Bucket one check result.
  *
@@ -105,23 +165,43 @@ export function createLinkChecker({ timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = 
       return { url, status: 0, ok: false, error: "unsupported URL scheme", checkedAt: new Date().toISOString() };
     }
 
+    const refused = (error) => ({ url, status: 0, ok: false, error, checkedAt: new Date().toISOString() });
+    if (!isPublicUrl(url)) return refused("refused: URL does not point at a public host");
+
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       // GET, not HEAD: some Learn endpoints reject HEAD. The body is never read.
-      const res = await fetchImpl(url, {
-        method: "GET",
-        redirect: "follow",
-        signal: controller.signal,
-        headers: { "user-agent": USER_AGENT },
-      });
-      return {
-        url,
-        status: res.status,
-        ok: res.ok,
-        finalUrl: res.url || url,
-        checkedAt: new Date().toISOString(),
-      };
+      // Redirects are followed by hand so every hop is checked against the same
+      // public-host rule as the first request.
+      let current = url;
+      for (let hop = 0; ; hop += 1) {
+        const res = await fetchImpl(current, {
+          method: "GET",
+          redirect: "manual",
+          signal: controller.signal,
+          headers: { "user-agent": USER_AGENT },
+        });
+        const location = res.status >= 300 && res.status < 400 ? res.headers?.get?.("location") : null;
+        if (!location) {
+          return {
+            url,
+            status: res.status,
+            ok: res.ok,
+            finalUrl: res.url || current,
+            checkedAt: new Date().toISOString(),
+          };
+        }
+        if (hop >= MAX_REDIRECTS) return refused(`refused: more than ${MAX_REDIRECTS} redirects`);
+        let next;
+        try {
+          next = new URL(location, current).href;
+        } catch {
+          return refused("refused: malformed redirect");
+        }
+        if (!isPublicUrl(next)) return refused("refused: redirect to a non-public host");
+        current = next;
+      }
     } catch (error) {
       return {
         url,

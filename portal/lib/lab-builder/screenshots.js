@@ -15,6 +15,31 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+
+/** True when `child` resolves to a location strictly inside `root`. */
+function isInside(root, child) {
+  const rel = path.relative(root, child);
+  return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
+}
+
+/** A bare file name: no separators, no traversal, no leading dot. */
+function isSafeName(name) {
+  return typeof name === "string" && SAFE_SEGMENT.test(name) && !name.includes("..");
+}
+
+/** Return `filename`, or a feature-suffixed variant, that is not yet in `used`; reserves the result. */
+function uniqueFilename(filename, featureId, used) {
+  const ext = path.extname(filename);
+  const base = path.basename(filename, ext);
+  let candidate = filename;
+  for (let n = 0; used.has(candidate); n += 1) {
+    candidate = `${base}-${featureId}${n ? `-${n + 1}` : ""}${ext}`;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
 /**
  * Build the screenshot plan for a lab.
  *
@@ -34,15 +59,12 @@ export function planScreenshots(plan, { labsDir }) {
     const capture = [];
 
     for (const ref of feature.reuseScreenshots || []) {
-      const source = path.join(labsDir, ref.lab, "assets", ref.file);
-      if (!fs.existsSync(source)) continue;
+      if (!isSafeName(ref.lab) || !isSafeName(ref.file)) continue;
+      const assetsRoot = path.resolve(labsDir, ref.lab, "assets");
+      const source = path.resolve(assetsRoot, ref.file);
+      if (!isInside(assetsRoot, source) || !fs.existsSync(source)) continue;
 
-      let filename = ref.file;
-      if (usedFilenames.has(filename)) {
-        const ext = path.extname(filename);
-        filename = `${path.basename(filename, ext)}-${feature.id}${ext}`;
-      }
-      usedFilenames.add(filename);
+      const filename = uniqueFilename(ref.file, feature.id, usedFilenames);
 
       copies.push({ source, filename });
       reused.push({
@@ -53,12 +75,8 @@ export function planScreenshots(plan, { labsDir }) {
     }
 
     for (const shot of feature.screenshots || []) {
-      let filename = shot.filename;
-      if (usedFilenames.has(filename)) {
-        const ext = path.extname(filename);
-        filename = `${path.basename(filename, ext)}-${feature.id}${ext}`;
-      }
-      usedFilenames.add(filename);
+      if (!isSafeName(shot.filename)) continue;
+      const filename = uniqueFilename(shot.filename, feature.id, usedFilenames);
 
       const entry = {
         id: `${feature.id}-${path.basename(filename, path.extname(filename))}`,
@@ -85,9 +103,12 @@ export function copyScreenshots(copies, assetsDir) {
   if (!copies.length) return 0;
   fs.mkdirSync(assetsDir, { recursive: true });
   let count = 0;
+  const root = path.resolve(assetsDir);
   for (const copy of copies) {
+    const target = path.resolve(root, copy.filename);
+    if (!isSafeName(copy.filename) || !isInside(root, target)) continue;
     try {
-      fs.copyFileSync(copy.source, path.join(assetsDir, copy.filename));
+      fs.copyFileSync(copy.source, target);
       count += 1;
     } catch {
       /* skip unreadable source */
