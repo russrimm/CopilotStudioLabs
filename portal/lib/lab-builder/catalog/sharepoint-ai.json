@@ -1,5 +1,5 @@
 {
-  "$comment": "Seed catalog for SharePoint AI (Copilot in SharePoint), grounded on Microsoft Learn, features verified 2026-11-13.",
+  "$comment": "SharePoint AI catalog (Copilot in SharePoint, agents grounded in SharePoint content, document processing, and the SharePoint Advanced Management controls that govern AI access to content), grounded on Microsoft Learn pages fetched 2026-11-13. Screenshot slots follow the shared schema (filename, section, instructions); the alt text, caption, and kind for each live in screenshot-slots.json. Each slot's instructions name the step it follows.",
   "product": "sharepoint-ai",
   "categories": [
     {
@@ -15,25 +15,47 @@
       "category": "sharepoint-ai",
       "level": 100,
       "minutes": 20,
-      "summary": "Understand what Copilot in SharePoint does, what the Microsoft 365 Copilot license includes, and how site owners manage it with Site AI settings.",
+      "summary": "Understand what Copilot in SharePoint does, what the Microsoft 365 Copilot license includes, which capabilities use Copilot Credits, and how site owners manage it with Site AI settings.",
       "whyItMatters": "Knowing which capabilities are included and which consume Copilot Credits prevents surprise costs and sets expectations for users. Site AI settings give owners direct control over how AI appears on their site.",
       "concepts": [
         "Copilot in SharePoint lets teams ask questions, run workflows, and create sites, pages, interactive reports, and Office files from SharePoint content using natural language.",
-        "Learn states it is in public preview, with general availability beginning to roll out on September 30, 2026.",
-        "Everyday capabilities are included with the Microsoft 365 Copilot license; advanced work, such as creating entire sites or real-time Autofill, requires usage-based billing and Copilot Credits."
+        "Learn states it is in public preview, with general availability beginning to roll out on September 30, 2026. Capabilities might appear in your tenant after that date as rollout progresses.",
+        "Everyday capabilities are included with the Microsoft 365 Copilot license at no extra cost and need no opt-in step. Advanced work, such as creating entire sites or real-time Autofill, requires usage-based billing and Copilot Credits.",
+        "Roles: an end user needs an active Microsoft 365 Copilot license; a site owner uses Site AI settings; a tenant admin sets up usage-based billing.",
+        "Learn states Copilot in SharePoint runs on a Microsoft-managed reasoning model from OpenAI that Microsoft selects and manages, so there is no model to configure. It supports only languages that appear in both the SharePoint Online and Microsoft Copilot supported-language lists."
       ],
       "steps": [
         "Confirm the user has an active Microsoft 365 Copilot license; everyday Copilot in SharePoint capabilities need no opt-in step.",
-        "Note that GCC, GCC High, DoD, air-gapped clouds, and Microsoft 365 operated by 21Vianet do not currently support Copilot in SharePoint.",
+        "Note that Microsoft 365 Government (GCC, GCC High, DoD), Office 365 air-gapped cloud environments, and Microsoft 365 operated by 21Vianet do not currently support Copilot in SharePoint.",
         "Open a SharePoint site and use Copilot in SharePoint to ask a question about content in the site.",
-        "Compare the included capabilities with the capabilities that require Copilot Credits in the licensing table.",
+        "Compare the capabilities included with the Microsoft 365 Copilot license with the capabilities that require Copilot Credits in the licensing table.",
         "If credits are enabled for your user, enter the /cost prompt to see credits used and the monthly limit remaining.",
-        "As a site owner, go to **Settings** > **Site AI** to review the **Site AI settings** panel.",
-        "Review how Restricted Content Discovery on a site hides Copilot in SharePoint and AI actions."
+        "As a site owner, go to **Settings** > **Site AI** to open the **Site AI settings** panel.",
+        "Review what owners can do there: choose which agent opens from the agent icon on the global header, hide the Copilot button on site pages for site visitors only, and enable advanced document processing for the site.",
+        "Review how Restricted Content Discovery on a site hides Copilot in SharePoint and AI actions, regardless of other availability settings."
       ],
       "validation": [
         "A licensed user can ask Copilot in SharePoint a question about site content and receive an answer.",
-        "The **Site AI settings** panel opens from **Settings** > **Site AI** for a site owner."
+        "The **Site AI settings** panel opens from **Settings** > **Site AI** for a site owner.",
+        "You can name two capabilities that are included with the license and two that require Copilot Credits."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-copilot-answer-site-content.png",
+          "section": "sharepoint-site",
+          "instructions": [
+            "After step 3, open a SharePoint site in a tenant where the signed-in user has a Microsoft 365 Copilot license.",
+            "Show Copilot in SharePoint with a question about site content and the answer it returned."
+          ]
+        },
+        {
+          "filename": "spai-site-ai-settings-panel.png",
+          "section": "sharepoint-site",
+          "instructions": [
+            "After step 6, sign in as a site owner and open **Settings** > **Site AI**.",
+            "Show the **Site AI settings** panel with its options visible."
+          ]
+        }
       ],
       "learnQueries": ["Get started with Copilot in SharePoint", "Copilot in SharePoint Site AI settings"],
       "docUrls": ["https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started"],
@@ -54,7 +76,8 @@
       "concepts": [
         "Learn states that starting in mid-November 2026 Agent Builder is used to create agents for SharePoint and OneDrive, and creating an agent no longer saves a .agent file.",
         "Existing .agent files keep working until the end of March 2027 and then stop responding.",
-        "Agent Builder offers a natural language Describe path, a manual Configure tab, and templates; the Try it tab tests the agent."
+        "Agent Builder offers a natural language path, a manual **Configure** tab, and templates; the **Try it** tab tests the agent. Agent Builder does not support authoring actions that integrate external services; Learn points to copying the agent to Copilot Studio for low-code actions.",
+        "Roles: any user who can create agents in Microsoft 365 Copilot builds the agent. Which knowledge sources are available depends on the user's license."
       ],
       "steps": [
         "In Microsoft 365 Copilot, select **New agent**.",
@@ -62,12 +85,29 @@
         "Select the plus icon (**+**) in the chat box and add SharePoint content as work content.",
         "Open the **Configure** tab and review the **Name**, **Description**, **Instructions**, **Knowledge**, and **Starter Prompts** fields.",
         "Keep the name within 30 characters, the description within 1,000 characters, and instructions within 8,000 characters.",
+        "In the **Model** section, review the default response mode: **Auto**, **Quick response**, or **Think deeper**.",
         "Select the **Try it** tab and ask a question that your SharePoint knowledge sources can answer.",
         "Refine the instructions or starter prompts using natural language or the **Configure** tab, then test again."
       ],
       "validation": [
         "The **Configure** tab shows your agent's name, description, instructions, and SharePoint knowledge source.",
         "On the **Try it** tab, the agent answers a question using content from the selected SharePoint source."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-agent-builder-configure-tab.png",
+          "section": "agent-builder",
+          "instructions": [
+            "After step 4, show the **Configure** tab with the name, description, instructions, and a SharePoint knowledge source filled in."
+          ]
+        },
+        {
+          "filename": "spai-agent-builder-try-it.png",
+          "section": "agent-builder",
+          "instructions": [
+            "After step 7, show the **Try it** tab with a question and an answer that uses the SharePoint source."
+          ]
+        }
       ],
       "learnQueries": ["Build agents in Agent Builder", "Upgrade agents in SharePoint and OneDrive"],
       "docUrls": [
@@ -76,6 +116,109 @@
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-build-agents",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-share-agent-and-manage-access",
+      "name": "Share an agent and manage who can use it",
+      "category": "sharepoint-ai",
+      "level": 100,
+      "minutes": 25,
+      "summary": "Share an Agent Builder agent with owners and chat users, understand how SharePoint knowledge sources are shared, and fix common sharing errors.",
+      "whyItMatters": "An agent that cannot be reached, or that quietly lacks access to its sources, gives a poor first impression. Learn documents roles, org-wide sharing, admin controls, and the errors you are most likely to meet.",
+      "concepts": [
+        "The share dialog has two roles: **Can edit** (owner, with full rights to edit, share, and manage) and **Can chat** (chat user who can only interact). A group can only be added as a chat user.",
+        "Sharing an agent gives a specified set of users direct access. It does not publish the agent across channels; Learn says to use Copilot Studio for that.",
+        "The agent respects each end user's permissions and sensitivity labels, so a user without access to a SharePoint source gets answers without that content.",
+        "Roles: an agent owner shares the agent. Tenant admins can set who can share org-wide in the Microsoft 365 admin center: all users (default), specific users or groups, or no users. An admin reviews and deploys agents submitted to the org catalog."
+      ],
+      "steps": [
+        "After you build and test your agent in Microsoft 365 Copilot, select **Create**. The confirmation says the agent is private and only available to you.",
+        "Select **Share** to open the share dialog.",
+        "In the **Add a name, group, or email** box, enter the people or group to add.",
+        "On the **Add people** panel, choose **Can edit** for an owner or **Can chat** for a chat user.",
+        "Leave the **Send notification** checkbox selected to email the new users, or clear it.",
+        "Select **Add**, then copy the chat link or the edit link from the dialog if you want to share it directly.",
+        "To change a role later, open the **Share** dialog, use the role dropdown next to the user, and choose **Can edit**, **Can chat**, or **Remove**.",
+        "If your admin allows it, turn on **Org-wide sharing for chat access** so other users in the tenant can find the agent in the Agent Store.",
+        "If you update a previously shared agent that has a SharePoint file and folder knowledge source, reshare it with the same users so the files and folders are shared again.",
+        "If sharing fails, match the message to the troubleshooting table in the Learn page, such as **Couldn't share** (insufficient privileges on certain files) or **Can no longer update agent** (sharing settings no longer comply with admin policy)."
+      ],
+      "validation": [
+        "The share dialog lists each person with the role you chose.",
+        "A chat user can open the chat link and ask the agent a question.",
+        "A chat user who lacks access to a SharePoint source gets answers that do not include that source's content."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-agent-share-dialog.png",
+          "section": "agent-builder",
+          "instructions": [
+            "After step 2, show the share dialog with the people who have access, their roles, the org-wide sharing toggle, and the copy-link options."
+          ]
+        },
+        {
+          "filename": "spai-agent-add-people-panel.png",
+          "section": "agent-builder",
+          "instructions": [
+            "After step 4, show the **Add people** panel with the role choices and the **Send notification** checkbox."
+          ]
+        }
+      ],
+      "learnQueries": ["Share and manage agents built in Agent Builder", "Agent Builder org-wide sharing admin controls"],
+      "docUrls": ["https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents"],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents",
+      "prereqs": ["spai-build-agent-sharepoint-content"],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-sam-overview-and-licensing",
+      "name": "Tour SharePoint Advanced Management and check prerequisites",
+      "category": "sharepoint-ai",
+      "level": 100,
+      "minutes": 20,
+      "summary": "Learn what SharePoint Advanced Management (SAM) is, which licenses and admin roles it needs, and which SAM features come with a Microsoft Copilot license.",
+      "whyItMatters": "Every governance lab for SharePoint AI depends on SAM. Checking licenses, roles, and the PowerShell module first avoids blocked steps later.",
+      "concepts": [
+        "SAM provides governance controls for SharePoint and OneDrive that help manage content sprawl, manage the content lifecycle, and prevent oversharing.",
+        "Learn states you get SAM capabilities for a Microsoft Copilot deployment when at least one user has a Microsoft Copilot license, or when you buy the SharePoint Advanced Management Plan 1 add-on on a subscription that includes SharePoint K, P1, or P2, or when you have Microsoft 365 E7.",
+        "Restricted site creation by apps is not included with a Microsoft Copilot license and requires the SharePoint Advanced Management Plan 1 add-on.",
+        "Roles: SAM is designed for SharePoint and Microsoft 365 administrators. Learn names two Microsoft Entra roles: SharePoint Administrator, and SharePoint Advanced Management Administrator, which adds viewing metadata across SharePoint content, removing permissions at scale, and managing SAM features."
+      ],
+      "steps": [
+        "Read the three SAM groups: manage content sprawl, manage the content lifecycle, and prevent oversharing.",
+        "Confirm your tenant has a supported base subscription, such as Microsoft 365 E3 or E5 or Office 365 E3 or E5.",
+        "Confirm at least one user has a Microsoft Copilot license, or that your organization has the SharePoint Advanced Management Plan 1 add-on.",
+        "Confirm your admin account has the SharePoint Administrator or SharePoint Advanced Management Administrator role in Microsoft Entra ID.",
+        "Download the latest SharePoint Online Management Shell and connect to SharePoint.",
+        "Sign in to the SharePoint admin center and select **Advanced Management** in the navigation pane.",
+        "Open the table of SAM features included in Microsoft Copilot licenses and find the sprawl, oversharing, and content lifecycle controls you plan to use.",
+        "Note that Learn says data access governance reports and site access reviews are unavailable in Microsoft 365 operated by 21Vianet."
+      ],
+      "validation": [
+        "You can state which license condition makes SAM available in your tenant.",
+        "Your admin account holds a role that can open the SharePoint admin center **Advanced Management** page.",
+        "You can list one SAM control for each of sprawl, lifecycle, and oversharing."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-sam-admin-center-landing.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 6, show the SharePoint admin center with **Advanced Management** selected and its landing content visible."
+          ]
+        }
+      ],
+      "learnQueries": ["What is SharePoint Advanced Management", "SharePoint Advanced Management prerequisites"],
+      "docUrls": [
+        "https://learn.microsoft.com/sharepoint/advanced-management",
+        "https://learn.microsoft.com/sharepoint/sharepoint-advanced-management-prerequisites",
+        "https://learn.microsoft.com/sharepoint/sharepoint-advanced-management-features-copilot-license"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/advanced-management",
       "prereqs": [],
       "relatedLabs": []
     },
@@ -90,19 +233,37 @@
       "concepts": [
         "Learn lists these limits per agent: 100 SharePoint files, one SharePoint list, 50 OneDrive files, and four public website URLs.",
         "The agent respects existing permissions and sensitivity labels on SharePoint and OneDrive content.",
-        "Selecting a SharePoint site does not include its lists; select the specific list. If Restricted SharePoint Search is enabled, SharePoint cannot be used as a knowledge source."
+        "Selecting a SharePoint site does not include its lists; select the specific list. If Restricted SharePoint Search is enabled, SharePoint cannot be used as a knowledge source.",
+        "Roles: the agent builder needs access to the content. A list is capped at 20,000 items and 50 MB of raw text, and the **Attachments** column is not used for grounding."
       ],
       "steps": [
         "In Microsoft 365 Copilot, select **New agent** and then **Skip to configure**.",
         "In the **Knowledge** section, choose **Enter URL** and paste a SharePoint link with the site path (.../sites/<site-name>/...) and no query parameters.",
-        "Or choose **Browse** to use the **Attach cloud files** picker to select SharePoint files, folders, or lists.",
-        "If you add a list, keep it within 20,000 items and 50 MB of raw text, and remember the **Attachments** column is not used.",
-        "Check that sources appear in the **Knowledge** section; a **Preparing** status means the source is not yet used in responses.",
-        "On the **Try it** tab, ask a question answered by one of the sources and confirm the response uses it."
+        "Or choose **Browse** to use the **Attach cloud files** picker to select SharePoint files, folders, or lists. Select **More places** to see additional sites, or **Recent lists** to find a list.",
+        "If you add a list, use a direct link to the list rather than a filtered or grouped view, keep it within 20,000 items and 50 MB of raw text, and remember the **Attachments** column is not used.",
+        "Check that sources appear in the **Knowledge** section; a **Preparing** status means the source is not yet used in responses. Select the refresh button above the section to reload the state.",
+        "On the **Try it** tab, ask a question answered by one of the sources and confirm the response uses it.",
+        "Rename or delete a source file in SharePoint and confirm the agent picks up the change."
       ],
       "validation": [
         "Each added SharePoint source appears in the **Knowledge** section of the **Configure** tab.",
         "A **Try it** answer reflects content from a source whose status is no longer **Preparing**."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-agent-attach-cloud-files-picker.png",
+          "section": "agent-builder",
+          "instructions": [
+            "After step 3, open the **Attach cloud files** picker showing recent SharePoint sites and the **Recent lists** entry."
+          ]
+        },
+        {
+          "filename": "spai-agent-knowledge-section.png",
+          "section": "agent-builder",
+          "instructions": [
+            "After step 5, show the **Knowledge** section of the **Configure** tab listing at least one SharePoint file and one SharePoint list, with their status visible."
+          ]
+        }
       ],
       "learnQueries": ["Add knowledge sources to an agent in Agent Builder", "SharePoint list knowledge source agent limits"],
       "docUrls": ["https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-add-knowledge"],
@@ -117,25 +278,48 @@
       "category": "sharepoint-ai",
       "level": 200,
       "minutes": 30,
-      "summary": "Create an autofill column that uses a natural language prompt to extract or generate metadata from files in a SharePoint library.",
+      "summary": "Create an autofill column that uses a natural language prompt to extract or generate metadata from files in a SharePoint library, and scope it by site.",
       "whyItMatters": "Metadata that is filled automatically improves search and downstream workflows without manual tagging. Learn describes autofill as part of document processing, the current name for the pay-as-you-go Syntex services.",
       "concepts": [
         "Learn states the pay-as-you-go services previously offered under Microsoft Syntex are now called document processing services, and autofill columns is one of them.",
-        "Autofill columns uses large language models to extract, classify, summarize, or generate content from files and saves it to a library column. AI-generated content might be incorrect.",
-        "Autofill columns is also included as part of Knowledge Agent (preview) per Learn, with otherwise a pay-as-you-go Azure subscription link required. Not confirmed in Microsoft Learn: current relationship between the two after the Copilot in SharePoint rename."
+        "Autofill columns uses large language models to extract, classify, summarize, or generate content from files and saves it to a library column. AI-generated content might be incorrect, so check the results.",
+        "Learn recommends no more than 10 autofill columns per library and files no larger than 65 pages; it charges up to 65 pages per file. Supported column types include Text, Multiple lines of text, Number, Yes/No, Date and time, Choice, Hyperlink, Currency, and Managed metadata; Person or Group, Location, Image, and Lookup are not available.",
+        "Not supported: the FormServerTemplates, SitePages, Style Library, and SiteAssets library types, encrypted files, and subsites. Changes to a document are captured only when the file is reprocessed manually.",
+        "Roles: a user with enough library permissions creates and edits prompts. A SharePoint Administrator or Global Administrator links the Azure subscription for pay-as-you-go billing and can limit the service to selected sites (up to 100) or no sites. Learn also says autofill is included in the Knowledge Agent (preview) experience for tenants that enabled it, with no separate pay-as-you-go setup during the preview. Not confirmed in Microsoft Learn: how that relates to Copilot in SharePoint after the rename."
       ],
       "steps": [
-        "Confirm billing: autofill requires pay-as-you-go billing in the Microsoft 365 admin center unless you use it through the Knowledge Agent (preview) experience.",
+        "As an admin, link an Azure subscription for pay-as-you-go billing; Learn says autofill columns is then set up and turned on for all SharePoint sites.",
+        "To limit sites, in the Microsoft 365 admin center select **Settings** > **Org settings** > **Pay-as-you-go services**, open the **Settings** tab, and under **Document & image services** select **Autofill columns**.",
+        "Under **Sites where Autofill can be used when it's turned on**, select **Edit** and change **All sites** to **Selected sites (up to 100)** or **No sites**, then select **Save**.",
         "In a SharePoint library, select **+Add Column**, choose a column type, and select **Next**.",
         "On the **Create a column** panel, name the column, then in the **Autofill** section select **Set up**.",
-        "On the **Autofill** panel, write a prompt in the **Prompt** box describing what to extract.",
+        "On the **Autofill** panel, write a prompt in the **Prompt** box describing what to extract. For Text and Multiple lines of text columns, select the suggested prompt and edit it.",
         "In **Test the prompt**, select a file and review the **Result**; adjust the prompt and retest.",
-        "Select **Save**, then select existing files and choose **More options** (**...**) > **Autofill** to process them.",
-        "Upload a new file and check that the column fills automatically; review the results for accuracy."
+        "Select **Save**. Set up all autofill columns before processing to help minimize transaction costs.",
+        "Select existing files and choose **More options** (**...**) > **Autofill** to process them; new files uploaded afterward are processed automatically.",
+        "Open the **Autofill activity** panel to watch processing status, and review the column values for accuracy.",
+        "To change a prompt, select the column, then **Column settings** > **Edit**, and in the **Autofill** section select **Edit prompt**. Switch the toggle to **Off** to turn autofill off for the column."
       ],
       "validation": [
         "The new column appears in the library and shows a value for a processed file.",
-        "The **Autofill activity** panel shows processing status for the files."
+        "The **Autofill activity** panel shows processing status for the files.",
+        "A newly uploaded file gets a value in the column without manual action."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-autofill-panel-prompt-test.png",
+          "section": "sharepoint-library",
+          "instructions": [
+            "After step 7, show the **Autofill** panel with a prompt entered and a tested file's **Result** visible."
+          ]
+        },
+        {
+          "filename": "spai-autofill-library-column-values.png",
+          "section": "sharepoint-library",
+          "instructions": [
+            "After step 10, show the library view with the autofill column filled in for several files."
+          ]
+        }
       ],
       "learnQueries": ["Create an autofill column SharePoint", "document processing for Microsoft 365 Syntex pay-as-you-go"],
       "docUrls": [
@@ -150,6 +334,250 @@
       "relatedLabs": []
     },
     {
+      "id": "spai-prebuilt-document-processing",
+      "name": "Set up prebuilt document processing models",
+      "category": "sharepoint-ai",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Choose between custom and prebuilt document processing models, enable prebuilt document processing with pay-as-you-go billing, and limit it to selected sites.",
+      "whyItMatters": "Prebuilt models extract fields from contracts, invoices, and receipts without training. Knowing the model types, billing, and site scoping lets an admin turn the service on safely.",
+      "concepts": [
+        "Document processing models link to a content type whose columns store the extracted data. Enterprise models are created in a content center and reused across sites; local models are scoped to one library.",
+        "Custom models: unstructured (documents with recognizable text patterns), freeform (data anywhere, PDFs and images, extraction only), and structured (consistent layouts such as forms).",
+        "Prebuilt models: contract, invoice, receipt, sensitive information, and simple document processing.",
+        "Learn states prebuilt document processing is a pay-as-you-go service billed by transaction type and number, and that per-user licenses are no longer available for purchase. For GCC organizations, pay-as-you-go is not yet available.",
+        "Roles: a SharePoint Administrator or Global Administrator sets up the service in the Microsoft 365 admin center; Learn recommends using the role with the fewest permissions."
+      ],
+      "steps": [
+        "Read the model types overview and decide whether your documents need a custom model or a prebuilt model.",
+        "Link an Azure subscription to pay-as-you-go; Learn says prebuilt document processing is then set up and enabled for all SharePoint sites.",
+        "In the Microsoft 365 admin center, select **Settings** > **Org settings**, then **Pay-as-you-go services**, and open the **Settings** tab.",
+        "Under **Document & image services**, select **Prebuilt document processing**.",
+        "On the **Prebuilt document processing** panel, select the **Sites** tab, and in **Sites where models can be used** select **Edit**.",
+        "Change **All sites** to **Selected sites (up to 100)**, choose sites or upload a CSV, and decide whether to select **Enable prebuilt model creation in all content center sites (recommended)**.",
+        "Select **Save**.",
+        "To turn the service off, clear the **Let people create and apply models to process files** check box on the **Settings** tab and select **Save**.",
+        "Not confirmed in Microsoft Learn (in the pages used here): the click path for creating a prebuilt model in a library. Follow the linked prebuilt model pages for that step."
+      ],
+      "validation": [
+        "The **Prebuilt document processing** panel shows the sites setting you chose.",
+        "You can say which model type fits an invoice, a scanned form, and a free-text contract letter."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-prebuilt-doc-processing-sites-panel.png",
+          "section": "m365-admin-center",
+          "instructions": [
+            "After step 6, show the **Sites where models can be used** panel with **Selected sites (up to 100)** chosen."
+          ]
+        }
+      ],
+      "learnQueries": ["Set up and manage prebuilt document processing", "Overview of document processing model types"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/prebuilt-setup",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/model-types-overview",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/syntex-licensing"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/documentprocessing/prebuilt-setup",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-copilot-credits-advanced-work",
+      "name": "Enable usage-based billing for advanced work in SharePoint",
+      "category": "sharepoint-ai",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Create a spending policy for Advanced work in SharePoint, decide who needs Copilot Credits, and explain the user experience to your users.",
+      "whyItMatters": "Advanced capabilities stop working for users until an admin enables usage-based billing. Targeting credits at the people who work at scale controls cost.",
+      "concepts": [
+        "Copilot in SharePoint uses a hybrid model: everyday work is included with the Microsoft 365 Copilot license, and advanced work consumes Copilot Credits through usage-based billing.",
+        "Learn says credit consumption varies with task type and complexity and the nature and volume of the content involved.",
+        "Roles: a tenant admin creates the policy in the Microsoft 365 admin center. Learn recommends prioritizing content managers and site managers, assigning content creators by need, and noting that most other users likely do not need credits."
+      ],
+      "steps": [
+        "In the Microsoft 365 admin center, go to **Copilot** > **Cost management**.",
+        "Select **Add spending policy** and give the policy a name.",
+        "Under **Access scope**, choose all users or specific security groups.",
+        "Under **Agents and services**, select **Advanced work in SharePoint**.",
+        "Set **Limits and alerts**, choose a **Billing method**, then review and add the policy.",
+        "Review existing policies: they might automatically include new services if **Allow new agents and services as they become available** is on.",
+        "As a licensed user, enter /cost in Copilot in SharePoint to see credits used and the monthly limit remaining.",
+        "Review what users see: a confirmation before credit use, a notice when 20% of the monthly limit remains, and a graceful stop for users without credits.",
+        "For site-wide real-time Autofill, also enable usage-based billing for the site, as Learn requires."
+      ],
+      "validation": [
+        "The new policy appears under **Cost management** with **Advanced work in SharePoint** in its scope.",
+        "A user in the policy's access scope is asked to confirm before a task spends Copilot Credits.",
+        "The /cost prompt returns credits used and the monthly limit."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-cost-management-spending-policy.png",
+          "section": "m365-admin-center",
+          "instructions": [
+            "After step 5, show the spending policy with the access scope, **Advanced work in SharePoint** selected under **Agents and services**, and **Limits and alerts** visible."
+          ]
+        }
+      ],
+      "learnQueries": ["Copilot in SharePoint usage-based billing Copilot Credits", "Copilot Credits cost management spending policy"],
+      "docUrls": ["https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started"],
+      "availability": "preview",
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started",
+      "prereqs": ["spai-copilot-in-sharepoint-overview"],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-manage-copilot-availability",
+      "name": "Manage where Copilot in SharePoint is available",
+      "category": "sharepoint-ai",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Control availability with Site AI settings and Restricted Content Discovery, and recognize the retiring preview PowerShell controls and their versioning error.",
+      "whyItMatters": "Phased rollouts need a supported way to turn Copilot on or off by site. Learn says the preview PowerShell controls are being retired, so labs should teach the supported controls.",
+      "concepts": [
+        "Learn states the PowerShell cmdlet parameters used to opt tenants and sites in or out during preview (KnowledgeAgentScope, KnowledgeAgentSelectedSitesList, and KnowledgeAgentSelectedSitesListOperation) are being retired. Existing settings are honored until November 1, 2026; after that, manage availability with Site AI settings and Restricted Content Discovery.",
+        "Restricted Content Discovery is respected regardless of other availability settings. If it is on for a site, Copilot in SharePoint and AI actions do not appear there.",
+        "Roles: site owners use the **Site AI settings** panel; SharePoint admins use Restricted Content Discovery and, until retirement, the preview parameters of Set-SPOTenant."
+      ],
+      "steps": [
+        "As a site owner, go to **Settings** > **Site AI** to open the **Site AI settings** panel.",
+        "Choose which agent opens from the agent icon on the global header: Copilot in SharePoint or a custom agent.",
+        "Optionally hide the Copilot button on site pages for site visitors only, and decide whether to enable advanced document processing for the site.",
+        "As a SharePoint admin, review Restricted Content Discovery for sites that should not show Copilot or AI actions.",
+        "Check which preview setting your tenant still has: run Get-SPOTenant | Select-Object KnowledgeAgentScope. Valid values are AllSites, IncludeSelectedSites, ExcludeSelectedSites, and NoSites (the default).",
+        "Note the limit: a site list for IncludeSelectedSites or ExcludeSelectedSites cannot exceed 100 items.",
+        "If Set-SPOTenant reports that a parameter named KnowledgeAgentScope cannot be found, update SharePoint Online Management Shell to version 16.0.26615.12013 or later and remove conflicting module versions, as Learn describes.",
+        "Plan the move from the retiring PowerShell parameters to Site AI settings and Restricted Content Discovery."
+      ],
+      "validation": [
+        "The **Site AI settings** panel shows the choice you made for the global header agent.",
+        "Get-SPOTenant returns the KnowledgeAgentScope value you expect, or you have documented its replacement."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-powershell-knowledgeagentscope-verify.png",
+          "section": "powershell",
+          "instructions": [
+            "After step 5, show the output of Get-SPOTenant | Select-Object KnowledgeAgentScope in SharePoint Online Management Shell, with the tenant name removed."
+          ]
+        }
+      ],
+      "learnQueries": ["Copilot in SharePoint manage availability Site AI settings", "Set-SPOTenant KnowledgeAgentScope"],
+      "docUrls": ["https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started"],
+      "availability": "preview",
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started",
+      "prereqs": ["spai-copilot-in-sharepoint-overview"],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-upgrade-agent-files",
+      "name": "Upgrade .agent files to Agent Builder agents",
+      "category": "sharepoint-ai",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Choose the right upgrade path for each existing SharePoint or OneDrive .agent file and upgrade agents that provide a customized Q&A experience.",
+      "whyItMatters": "Learn says .agent files stop responding after March 2027. Planning the upgrade now avoids broken agents in SharePoint, Teams, and the Copilot app.",
+      "concepts": [
+        "Only the .agent file format is being retired; agents in SharePoint and OneDrive are not. Existing .agent files keep working until the end of March 2027.",
+        "Upgrade paths: answering questions about the current site can use Copilot in SharePoint directly; a repeatable action can become a skill; a customized Q&A, retrieval, or analysis experience can be upgraded with Agent Builder; a Copilot Studio custom engine agent published to SharePoint is published to the Microsoft Copilot app instead.",
+        "Learn says the upgrade experience in Agent Builder is available starting mid-November 2026.",
+        "Roles: the upgrader needs edit permission to the .agent file, the ability to share the agent, and permission to edit pages if an Agent Chat web part is added. The Agent Chat web part is described as coming soon; Not confirmed in Microsoft Learn: its final name and availability."
+      ],
+      "steps": [
+        "Inventory your .agent files and note who has access and where each agent is used.",
+        "Review agents with no recent use or no clear owner for archival or deletion instead of upgrading them.",
+        "For each agent, pick the path from the role table: Copilot in SharePoint, a skill, Agent Builder, or publishing a Copilot Studio agent to the Microsoft Copilot app.",
+        "For an Agent Builder upgrade, edit the .agent file and select **Upgrade to Microsoft 365 agent**.",
+        "Confirm in the dialog. Select **Move file to Recycle bin** only if you plan to add the agent with the Agent Chat web part; leave it unselected to keep using the .agent file until March 2027.",
+        "After the upgrade, verify the agent uses Agent Builder for future updates and that the original .agent file can no longer be edited.",
+        "If the original agent was shared with everyone in the organization, that access continues; otherwise share the agent with the needed groups and confirm users can reach the knowledge sources."
+      ],
+      "validation": [
+        "Each .agent file has a recorded upgrade path or retirement decision.",
+        "An upgraded agent opens in Agent Builder and answers a test question from its knowledge sources."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-upgrade-agent-banner.png",
+          "section": "agent-builder",
+          "instructions": [
+            "After step 4, show the editor for a .agent file with the upgrade banner and the **Upgrade to Microsoft 365 agent** button."
+          ]
+        },
+        {
+          "filename": "spai-upgrade-confirmation-dialog.png",
+          "section": "agent-builder",
+          "instructions": [
+            "After step 5, show the upgrade confirmation dialog with the **Move file to Recycle bin** option visible."
+          ]
+        }
+      ],
+      "learnQueries": ["Upgrade agents in SharePoint and OneDrive", "SharePoint agent .agent file retirement"],
+      "docUrls": [
+        "https://learn.microsoft.com/sharepoint/upgrade-sharepoint-agents",
+        "https://learn.microsoft.com/sharepoint/manage-access-agents-in-sharepoint"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/upgrade-sharepoint-agents",
+      "prereqs": ["spai-build-agent-sharepoint-content"],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-content-management-assessment",
+      "name": "Assess Copilot readiness with the content management assessment",
+      "category": "sharepoint-ai",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Run the SharePoint Advanced Management content management assessment to find inactive sites, ownerless sites, broken inheritance, and broad sharing before a Copilot rollout.",
+      "whyItMatters": "Copilot answers from what users can already access. A one-click assessment shows where to start with cleanup instead of guessing.",
+      "concepts": [
+        "The assessment runs a suite of SAM reports and presents impacted sites, findings, and recommended actions in a dashboard. It takes no action without the admin's consent.",
+        "Included reports: inactive sites (no activity in the past 180 days), site ownership (no owner or one owner), broken inheritance, unrestricted internal sharing via Everyone except external users, and unrestricted sharing via sharing links.",
+        "Learn says reports can take between 2 hours and 72 hours depending on tenant size, and recommends rerunning the assessment every 30 days.",
+        "Roles: a SharePoint administrator with SAM available, per the SAM prerequisites."
+      ],
+      "steps": [
+        "Sign in to the SharePoint admin center.",
+        "In the navigation pane, select **Advanced Management**.",
+        "Select **Start assessment**.",
+        "Wait for the reports to finish; Learn says this can take 2 to 72 hours depending on tenant size.",
+        "Review the visual summary of impacted sites and each report finding.",
+        "Select a finding to see details and related Microsoft Learn documentation.",
+        "Take the recommended action for each finding, such as creating or adjusting site policies for oversharing, inactivity, or ownership.",
+        "Rerun the assessment every 30 days to track progress."
+      ],
+      "validation": [
+        "The dashboard shows impacted sites and report findings for the assessment you started.",
+        "You have chosen a next action for at least one finding."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-content-management-assessment-start.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 2, show the **Advanced Management** page with the **Start assessment** button."
+          ]
+        },
+        {
+          "filename": "spai-content-management-assessment-findings.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 5, show the assessment dashboard with the impacted sites summary and the report findings panel."
+          ]
+        }
+      ],
+      "learnQueries": ["SharePoint Advanced Management content management assessment", "Copilot readiness oversharing SharePoint assessment"],
+      "docUrls": ["https://learn.microsoft.com/sharepoint/content-management-assessment"],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/content-management-assessment",
+      "prereqs": ["spai-sam-overview-and-licensing"],
+      "relatedLabs": []
+    },
+    {
       "id": "spai-restricted-content-discovery",
       "name": "Limit Copilot discovery with Restricted Content Discovery",
       "category": "sharepoint-ai",
@@ -158,22 +586,44 @@
       "summary": "Apply Restricted Content Discovery to a SharePoint site so its content is not surfaced in organization-wide search and Microsoft Copilot while permissions are reviewed.",
       "whyItMatters": "It gives admins a temporary control for high-risk or under-review sites during phased Copilot rollouts. It does not change permissions, so it complements rather than replaces access cleanup.",
       "concepts": [
-        "Restricted Content Discovery limits discovery of site content in organization-wide search and Microsoft Copilot, and removes AI entry points such as the Copilot button and creating agents on that site.",
-        "It does not change permissions or remove content from the search index; it applies to SharePoint sites only, not OneDrive.",
-        "It needs a Microsoft Copilot license and SharePoint Advanced Management availability; updates can take time, and more than a week for sites over 500,000 items."
+        "Restricted Content Discovery limits discovery of site content, including recently interacted files, in organization-wide search and Microsoft Copilot, and removes AI entry points such as the Copilot button, AI actions menus (including creating agents), and Create pages with AI on that site.",
+        "It does not change permissions or remove content from the search index, so Microsoft Purview eDiscovery and auto-labeling keep working. It applies to SharePoint sites only, not OneDrive, and does not affect searches from site context or intelligent experiences such as Microsoft 365 Feed.",
+        "Learn describes it as a temporary control and cautions against excessive use, which can reduce the completeness and relevance of search and AI answers.",
+        "Roles: SharePoint administrators manage it by default; delegation to site administrators is opt-in and requires a justification for each change. It needs a Microsoft Copilot license and SharePoint Advanced Management availability. Updates can take time, and more than a week for sites with over 500,000 items."
       ],
       "steps": [
         "Review the SharePoint Advanced Management prerequisites and confirm your organization has a Microsoft Copilot license.",
+        "Identify candidate sites with the SharePoint Admin Agent, the content management assessment, data access governance reports, or catalog management.",
         "In the SharePoint admin center, expand **Sites** and select **Active sites**, then select the site.",
         "Open the **Settings** tab and turn **Restrict content from Microsoft Copilot** on.",
         "Select **Save**.",
         "Or run Set-SPOSite -Identity <site-url> -RestrictContentOrgWideSearch $true in PowerShell.",
         "Check status with Get-SPOSite -Identity <site-url> | Select RestrictContentOrgWideSearch.",
-        "To remove the restriction, run Set-SPOSite with -RestrictContentOrgWideSearch $false."
+        "To report across the tenant, run Start-SPORestrictedContentDiscoverabilityReport, then Get-SPORestrictedContentDiscoverabilityReport to check status and download.",
+        "To let site administrators manage it, run Set-SPOTenant -DelegateRestrictedContentDiscoverabilityManagement $true.",
+        "To remove the restriction, run Set-SPOSite with -RestrictContentOrgWideSearch $false.",
+        "If a restricted site still appears in search, allow time for index propagation and review the site's item count."
       ],
       "validation": [
         "Get-SPOSite returns RestrictContentOrgWideSearch as True for the site, and the site shows a Restricted tag.",
-        "After propagation, users on the site no longer see the Copilot button or AI actions menus."
+        "After propagation, users on the site no longer see the Copilot button or AI actions menus.",
+        "The change appears in Microsoft Purview audit log activities."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-rcd-site-settings-toggle.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 4, show the **Settings** tab of the site panel with **Restrict content from Microsoft Copilot** turned on."
+          ]
+        },
+        {
+          "filename": "spai-rcd-restricted-tag.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 7, show the site marked with the Restricted tag and the PowerShell status output if space allows."
+          ]
+        }
       ],
       "learnQueries": ["Restrict discovery of SharePoint sites and content", "Restricted content discovery Copilot SharePoint Advanced Management"],
       "docUrls": [
@@ -183,7 +633,56 @@
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/sharepoint/restricted-content-discovery",
-      "prereqs": ["spai-copilot-in-sharepoint-overview"],
+      "prereqs": ["spai-copilot-in-sharepoint-overview", "spai-sam-overview-and-licensing"],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-restricted-access-control",
+      "name": "Restrict site access with restricted access control",
+      "category": "sharepoint-ai",
+      "level": 300,
+      "minutes": 35,
+      "summary": "Limit a SharePoint site to members of specified Microsoft 365 or Entra security groups so that its content is also hidden from Copilot and search for everyone else.",
+      "whyItMatters": "Unlike Restricted Content Discovery, restricted access control blocks access itself, even for people with prior permissions or links. Copilot and organization-wide search honor it.",
+      "concepts": [
+        "Users outside the control group cannot access the site or its content, even with prior permissions or a shared link. Copilot and organization-wide search honor the policy, and it can take time to be reflected, longer for larger sites.",
+        "A site can have up to 10 Microsoft 365 or Microsoft Entra security groups as control groups. Being in the group does not grant access: a user needs both the site or content permission and membership in the group. Dynamic security groups can be used.",
+        "Shared and private channel sites are separate site collections, so the policy on the team-connected site does not apply to them; configure each one separately.",
+        "Roles: a SharePoint administrator enables the tenant setting. Delegation to site administrators is off by default, and they must give a justification for changes. Site owners see the status in the **Site access** panel. It requires SAM availability."
+      ],
+      "steps": [
+        "Review the SharePoint Advanced Management prerequisites.",
+        "In the SharePoint admin center, expand **Policies** and select **Access control**, then select **Site-level access restriction**.",
+        "Select **Allow access restriction** and then select **Save**. Or run Set-SPOTenant -EnableRestrictedAccessControl $true; Learn says it might take up to one hour.",
+        "Expand **Sites**, select **Active sites**, and select the site.",
+        "On the **Settings** tab, select **Edit** in the **Restricted site access** section.",
+        "Select the **Restrict SharePoint site access to only users in specified groups** check box, add at least one group, and select **Save**.",
+        "Or run Set-SPOSite -Identity <siteurl> -RestrictedAccessControl $true, then -AddRestrictedAccessControlGroups with group GUIDs.",
+        "Check with Get-SPOSite -Identity <siteurl> | Select RestrictedAccessControl, RestrictedAccessControlGroups.",
+        "Optionally restrict sharing to users outside the control group with Set-SPOTenant -AllowSharingOutsideRestrictedAccessControlGroups $false, and set a Learn more link for the access denied page with -RestrictedAccessControlForSitesErrorHelpLink.",
+        "Review auditing in the Microsoft Purview portal and the PowerShell insight reports for protected sites and access denials."
+      ],
+      "validation": [
+        "A user outside the control group cannot open the site, and a user inside it who already has permission can.",
+        "The site's **Site access** panel shows the policy status and control groups."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-rac-site-settings-groups.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 6, show the **Restricted site access** section of the site panel with the check box selected and at least one group added."
+          ]
+        }
+      ],
+      "learnQueries": ["Restrict SharePoint site access with Microsoft 365 groups and Microsoft Entra security groups", "restricted access control Copilot SharePoint"],
+      "docUrls": [
+        "https://learn.microsoft.com/sharepoint/restricted-access-control",
+        "https://learn.microsoft.com/sharepoint/manage-access-agents-in-sharepoint"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/restricted-access-control",
+      "prereqs": ["spai-sam-overview-and-licensing"],
       "relatedLabs": []
     },
     {
@@ -197,7 +696,9 @@
       "concepts": [
         "SharePoint Advanced Management groups its controls into content sprawl, content lifecycle, and oversharing prevention; data access governance (DAG) reports and site access reviews are in the oversharing group.",
         "Site access review supports SharePoint sites only, not OneDrive, and is not supported in Microsoft 365 operated by 21Vianet.",
-        "You can start reviews for up to 100 sites from the report view, and up to 1,000 reviews per calendar month from the site permissions report; use PowerShell for larger sets."
+        "You can start reviews for up to 100 sites from the report view, and up to 1,000 reviews per calendar month from the site permissions report; use PowerShell for larger sets.",
+        "DAG snapshot reports show current state (site permissions, sensitivity labels); activity reports cover the last 28 days (sharing links, Everyone except external users). Learn suggests snapshot reports quarterly and activity reports monthly.",
+        "Roles: an IT administrator starts the review. IT cannot see file-level details for compliance reasons, so site owners review and fix access and select **Complete review**."
       ],
       "steps": [
         "Review the SharePoint Advanced Management prerequisites and confirm site owners can respond.",
@@ -206,20 +707,253 @@
         "Select the sites to review, then select **Initiate site access review**.",
         "Select **Customize and preview email**, edit the message to site owners, and select **Send**.",
         "Track progress on the **My review requests** tab of the Data access governance landing page.",
-        "Site owners then use **Manage access** to fix permissions and select **Complete review** with comments."
+        "As a site owner, open the email link or go to **Site settings** > **Site reviews**, then use **Manage access** to fix permissions.",
+        "Select **Complete review**, add comments, and submit."
       ],
       "validation": [
         "The review appears on the **My review requests** tab with a pending status.",
         "After the owner selects **Complete review**, the status and comments update with the reviewer name and completion time."
       ],
-      "learnQueries": ["Initiate site access reviews for data access governance reports", "What is SharePoint Advanced Management"],
+      "screenshots": [
+        {
+          "filename": "spai-dag-initiate-site-access-review.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 4, show a data access governance report with sites selected and the **Initiate site access review** button."
+          ]
+        },
+        {
+          "filename": "spai-my-review-requests-tab.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 6, show the **My review requests** tab with at least one pending review."
+          ]
+        }
+      ],
+      "learnQueries": ["Initiate site access reviews for data access governance reports", "Data access governance reports for SharePoint and OneDrive sites"],
       "docUrls": [
         "https://learn.microsoft.com/sharepoint/site-access-review",
+        "https://learn.microsoft.com/sharepoint/data-access-governance-reports",
         "https://learn.microsoft.com/sharepoint/advanced-management"
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/sharepoint/site-access-review",
-      "prereqs": ["spai-copilot-in-sharepoint-overview"],
+      "prereqs": ["spai-sam-overview-and-licensing"],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-site-lifecycle-policies",
+      "name": "Reduce content sprawl with an inactive site policy",
+      "category": "sharepoint-ai",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Create a site lifecycle management inactive site policy in simulation mode, configure notifications and enforcement, and read the policy reports.",
+      "whyItMatters": "Stale and ownerless sites feed Copilot and agents outdated content. Lifecycle policies keep owners accountable without deleting sites directly.",
+      "concepts": [
+        "Site lifecycle management has three policy types: site ownership, inactive site, and site attestation. The policies do not delete sites; they notify owners or admins and can take enforcement actions.",
+        "Modes: simulation runs once and generates a report without ongoing enforcement; active mode runs on a recurring schedule, sends notifications, and can apply enforcement.",
+        "After three monthly notifications with no response, enforcement can be Do nothing, Read-only access, or archive after a read-only period of 3, 6, 9, or 12 months through Microsoft 365 Archive, which the tenant must have enabled.",
+        "Inactivity is judged across SharePoint, Teams, Viva Engage, and Exchange activity. OneDrive, root, home, app catalog, and tenant admin sites are out of scope. A site owner selects **Certify site** to keep a site, and the site is then not checked for a year.",
+        "Roles: a SharePoint administrator creates the policy. Up to 100 users or groups can be excluded from notifications, which does not exclude their sites from evaluation. Avoid overlapping policies of the same type."
+      ],
+      "steps": [
+        "As a SharePoint administrator, go to the SharePoint admin center and sign in.",
+        "In the navigation pane, expand **Policies**, and then select **Site lifecycle management**.",
+        "Under **Inactive site policies**, select **Open**.",
+        "Select **+ Create policy**, review the **Manage inactive sites** information, and select **Next**.",
+        "On the **Set policy scope** step, choose a scope option, such as uploading a CSV file with up to 10,000 URLs, and select **Next**.",
+        "On the **Configure policy** step, specify an inactivity period, who to notify (site owners, site admins, or both), any exclusions, the email content, and the enforcement action after three notifications. Then select **Next**.",
+        "On the **Finish** step, specify a name and description and select a policy mode. Choose simulation mode for a first run, then select **Finish**.",
+        "Select **Done**, then open the policy in the **Site lifecycle management** > **Inactive site policy** dashboard and review the policy execution report.",
+        "To customize notification email, configure **Send email notifications from your domain** in the Microsoft 365 admin center first, then edit the policy configuration."
+      ],
+      "validation": [
+        "The policy appears in the **Inactive site policy** dashboard with the mode you chose.",
+        "The simulation report lists the sites it would notify, with no enforcement applied."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-inactive-site-policy-configure.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 6, show the **Configure policy** step with the inactivity period, recipients, and enforcement action options."
+          ]
+        },
+        {
+          "filename": "spai-inactive-site-policy-finish.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 7, show the **Finish** step with the policy name, description, and the policy mode selection."
+          ]
+        }
+      ],
+      "learnQueries": ["Manage inactive sites by using inactive site policies", "SharePoint site lifecycle management policies"],
+      "docUrls": [
+        "https://learn.microsoft.com/sharepoint/inactive-site-policy",
+        "https://learn.microsoft.com/sharepoint/site-lifecycle-management"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/inactive-site-policy",
+      "prereqs": ["spai-sam-overview-and-licensing"],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-control-agent-access",
+      "name": "Control who can use agents and what they can reach",
+      "category": "sharepoint-ai",
+      "level": 300,
+      "minutes": 35,
+      "summary": "Combine Copilot license controls, site permissions, SharePoint Advanced Management, Purview DLP, and the Microsoft 365 admin center to govern agents that use SharePoint content.",
+      "whyItMatters": "Agents inherit the user's access, so governing agents means governing access to sites, labels, and discovery as well as the agents themselves.",
+      "concepts": [
+        "Agents respond based on each user's access permissions, the same way Copilot does in other Microsoft 365 apps.",
+        "Three questions: who can access the agents, what information they can reach through the agents, and where agents are available.",
+        "Learn describes this page in terms of .agent files in SharePoint, which are being upgraded. The ideas about permissions, labels, and discovery apply, but check the upgrade guidance for agents created in Agent Builder.",
+        "Blocking an agent in the admin center currently affects only Copilot Chat, not OneDrive, SharePoint, or Teams, as Learn states.",
+        "Roles: admins assign licenses and edit service plans; site owners manage site permissions; tenant and AI admins manage agents in the Microsoft 365 admin center."
+      ],
+      "steps": [
+        "Control who can use agents: assign Microsoft Copilot licenses in the Microsoft 365 admin center.",
+        "To block Copilot experiences on SharePoint per user, open the license details page for Microsoft Copilot and turn the *Microsoft Copilot for SharePoint* service plan off. Learn notes this also disables Copilot in OneDrive and page authoring Copilot for that user.",
+        "Control what agents can reach: use site permissions, private team sites, and group membership; for a site not tied to a group, use site permissions.",
+        "Use a restricted access control policy to limit a site, and with it Copilot visibility, to a specified group of users.",
+        "To exclude files from agent processing, create a Microsoft Purview DLP custom policy with the **Content contains** > **Sensitivity labels** condition. Learn says citations list such items but their content is not used in the response.",
+        "Control where agents appear: apply Restricted Content Discovery to remove the Agent icon and agent creation from a site.",
+        "In the Microsoft 365 admin center, open the **Agents** section of the Copilot Control System to review agents used in Copilot Chat, and block or unblock an agent."
+      ],
+      "validation": [
+        "You can explain which control applies to licensing, content access, and availability.",
+        "A user whose service plan is off no longer gets Copilot on SharePoint, and a user without site access gets no content from that site in agent answers."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-copilot-license-service-plan.png",
+          "section": "m365-admin-center",
+          "instructions": [
+            "After step 2, show the Microsoft Copilot license details page with the *Microsoft Copilot for SharePoint* service plan setting visible."
+          ]
+        },
+        {
+          "filename": "spai-admin-center-agents-block.png",
+          "section": "m365-admin-center",
+          "instructions": [
+            "After step 7, show the **Agents** section with the list of agents and the option to block or unblock one."
+          ]
+        }
+      ],
+      "learnQueries": ["Manage access to agents in SharePoint", "Block agents Copilot Chat Microsoft 365 admin center"],
+      "docUrls": [
+        "https://learn.microsoft.com/sharepoint/manage-access-agents-in-sharepoint",
+        "https://learn.microsoft.com/sharepoint/restricted-access-control"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/manage-access-agents-in-sharepoint",
+      "prereqs": ["spai-copilot-in-sharepoint-overview", "spai-sam-overview-and-licensing"],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-agent-insights-reports",
+      "name": "Monitor agent activity with agent insights reports",
+      "category": "sharepoint-ai",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Create agent insights and agent access reports in the SharePoint admin center to see where agents exist and how they access SharePoint and OneDrive content.",
+      "whyItMatters": "You cannot govern agents you cannot see. The reports show which sites host the most agents and which agents touch which content, and let you apply policies from the report.",
+      "concepts": [
+        "The insights report on agents in SharePoint uses audit data for agents created in SharePoint (FileCreated and FileRenamed events). The agent access insights report covers registered and activated agents, such as declarative and custom agents, using Microsoft 365 unified audit logs.",
+        "Reports can cover the past 1, 7, 14, or 28 days. Only one report exists per range, and a new report replaces the old one, so download first to keep it. A report can be rerun only 24 hours after the last one.",
+        "Without a SharePoint Advanced Management license, data collection must be enabled first. Reports are available 24 hours later, data is kept 28 days, and collection pauses if no report is generated in three months.",
+        "Roles: SharePoint administrator or higher. A SAM license, or Microsoft Copilot license for PowerShell use, is needed to generate and view reports."
+      ],
+      "steps": [
+        "Sign in to the SharePoint admin center with SharePoint administrator credentials.",
+        "In the navigation pane, expand **Reports** and select **Agent insights**.",
+        "Select **Agent access**, or open the agent insights report.",
+        "Select **Create a report**, enter a name, and choose a report duration of 1, 7, 14, or 28 days.",
+        "Select **Create and run**.",
+        "Check the **Status** column until the report is ready, then select it to view the top 100 sites and filter by site template and governance policies.",
+        "For agent access, select a site to view the top 20 agents accessing its content, or choose **Unique Agents found in SharePoint Sites** or **Unique Agents in OneDrive Account** to see distribution.",
+        "Apply Restricted access control or Restricted content discovery to a site from the report if needed. The policy status on the existing report does not update.",
+        "Or use PowerShell: Start-SPOM365AgentAccessInsightsReport, Get-SPOM365AgentAccessInsightsReport, and Export-SPOM365AgentAccessInsightsReport."
+      ],
+      "validation": [
+        "The report shows a ready status and lists sites with agent counts.",
+        "You can name one agent that accessed a given site and one governance action you can apply to it."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-agent-insights-create-report.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 4, show the **Create a report** dialog with a name and the report duration choices."
+          ]
+        },
+        {
+          "filename": "spai-agent-access-report-view.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "After step 7, show the agent access report with a site's agents or the agent distribution view."
+          ]
+        }
+      ],
+      "learnQueries": ["Monitor agent access to SharePoint and OneDrive", "Insights report on agents in SharePoint"],
+      "docUrls": [
+        "https://learn.microsoft.com/sharepoint/insights-on-agent-access",
+        "https://learn.microsoft.com/sharepoint/insights-on-sharepoint-agents"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/insights-on-agent-access",
+      "prereqs": ["spai-sam-overview-and-licensing"],
+      "relatedLabs": []
+    },
+    {
+      "id": "spai-sharepoint-admin-agent",
+      "name": "Govern content with the SharePoint Admin Agent",
+      "category": "sharepoint-ai",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Use the SharePoint Admin Agent to assess content risks and get guided remediation with natural language prompts.",
+      "whyItMatters": "It lets admins move from assessment to action in one conversation instead of running each report manually.",
+      "concepts": [
+        "The SharePoint Admin Agent analyzes data from SharePoint and SharePoint Advanced Management to give insights on content sprawl, lifecycle, oversharing in search and AI responses, and permissions.",
+        "It requires SharePoint Advanced Management and the SharePoint Advanced Management Administrator role in Microsoft Entra ID.",
+        "It can be opened in the Microsoft Copilot app, through Copilot in the SharePoint admin center, or in Microsoft Teams."
+      ],
+      "steps": [
+        "Confirm SAM is available and that your account has the SharePoint Advanced Management Administrator role.",
+        "In the Microsoft Copilot app, expand **Agents** and search for the SharePoint Admin Agent.",
+        "Or, in the SharePoint admin center, select the **Copilot** button and then **View prompts** to use content governance skills.",
+        "Or, in Microsoft Teams, select **Apps** and search for *SharePoint Admin Agent*.",
+        "Try a prompt such as: Which sites are overshared and what are the risk levels for these sites?",
+        "Try: Show me a list of the top 10 agents that are accessing my SharePoint and OneDrive content.",
+        "Review the data, analysis, and suggested next prompts, and choose a remediation step.",
+        "Confirm any action you take in the matching admin center experience, such as Restricted Content Discovery or a site access review."
+      ],
+      "validation": [
+        "The agent opens for your admin account and answers the prompt with data from your tenant.",
+        "You can name the report or policy that corresponds to each suggested remediation."
+      ],
+      "screenshots": [
+        {
+          "filename": "spai-admin-agent-copilot-app.png",
+          "section": "copilot-app",
+          "instructions": [
+            "After step 2, show the Microsoft Copilot app with the SharePoint Admin Agent found under **Agents**."
+          ]
+        },
+        {
+          "filename": "spai-admin-agent-prompt-response.png",
+          "section": "copilot-app",
+          "instructions": [
+            "After step 5, show the SharePoint Admin Agent answering the overshared sites prompt, with tenant data removed."
+          ]
+        }
+      ],
+      "learnQueries": ["What is the SharePoint Admin Agent", "SharePoint content governance agent prompts"],
+      "docUrls": ["https://learn.microsoft.com/sharepoint/content-governance-agent"],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/content-governance-agent",
+      "prereqs": ["spai-sam-overview-and-licensing"],
       "relatedLabs": []
     }
   ]

@@ -7,7 +7,7 @@
       "mc-create-agent", "mc-knowledge", "mc-preview-test", "mc-publish-agent",
       "m365h-copilot-controls-overview", "m365h-tour-copilot-settings", "m365h-pin-copilot-chat",
       "cc-harness-choice", "cc-create-agent", "cc-instructions", "cc-knowledge", "cc-preview-test", "cc-deploy-channels",
-      "dca-agent-builder-first-agent", "spai-copilot-in-sharepoint-overview", "spai-build-agent-sharepoint-content", "fdy-create-foundry-project",
+      "dca-agent-builder-first-agent", "spai-copilot-in-sharepoint-overview", "spai-build-agent-sharepoint-content", "spai-share-agent-and-manage-access", "spai-sam-overview-and-licensing", "fdy-create-foundry-project",
       "fdy-deploy-test-model", "m365h-assign-copilot-licenses", "m365h-review-agent-inventory", "ppai-explore-ai-hub-models", "ppai-build-custom-prompt"
     ],
     "200": [
@@ -19,6 +19,7 @@
       "cc-model-mode", "cc-add-tools", "cc-escalate-human", "cc-skills", "cc-mcp-server", "cc-sub-agents", "cc-memory", "cc-events", "cc-voice-settings",
       "cc-workflow-tool", "cc-evaluate", "cc-monitor", "cc-authentication", "cc-credit-billing",
       "dca-write-agent-instructions", "dca-agent-builder-knowledge", "dca-toolkit-typespec-agent", "spai-agent-sharepoint-knowledge-sources", "spai-autofill-columns",
+      "spai-prebuilt-document-processing", "spai-copilot-credits-advanced-work", "spai-manage-copilot-availability", "spai-upgrade-agent-files", "spai-content-management-assessment",
       "fdy-create-hub-based-project", "fdy-create-prompt-agent", "m365h-control-agent-availability", "m365h-measure-copilot-adoption",
       "ppai-document-processing-model", "ppai-use-prompt-in-flow-and-app"
     ],
@@ -29,29 +30,30 @@
       "m365h-agent-management-rules", "m365h-restricted-content-discovery", "m365h-dlp-for-copilot", "m365h-dspm-copilot-risk",
       "cc-connected-agent", "cc-contact-center", "cc-teams-phone", "cc-biometric-auth", "cc-export-import",
       "dca-agent-builder-share-and-catalog", "dca-toolkit-developer-mode", "dca-agent-builder-vs-copilot-studio", "spai-restricted-content-discovery",
-      "spai-site-access-review", "fdy-configure-guardrails", "fdy-foundry-rbac", "m365h-approve-agent-requests", "m365h-secure-copilot-data",
+      "spai-site-access-review", "spai-restricted-access-control", "spai-site-lifecycle-policies", "spai-control-agent-access", "spai-agent-insights-reports", "spai-sharepoint-admin-agent",
+      "fdy-configure-guardrails", "fdy-foundry-rbac", "m365h-approve-agent-requests", "m365h-secure-copilot-data",
       "ppai-admin-governance-security", "ppai-credits-licensing-transition"
     ]
   },
   "verticals": {
-    "healthcare": { "topics": ["epic-fhir-integration", "authentication", "content-moderation", "dlp-governance", "spai-restricted-content-discovery", "m365h-secure-copilot-data", "fdy-configure-guardrails", "m365h-dlp-for-copilot", "m365h-audit-copilot-interactions"], "why": "Healthcare labs handle patient data, so identity, safety, and data policy matter early, and Copilot access to protected health information must be limited and auditable." },
-    "retail": { "topics": ["shopify-integration", "salesforce-integration", "channel-teams", "ppai-document-processing-model"], "why": "Retail scenarios connect storefront and customer systems, and process documents such as invoices and receipts." },
-    "financial-services": { "topics": ["authentication", "dlp-governance", "entra-agent-identities", "content-moderation", "m365h-secure-copilot-data", "fdy-foundry-rbac", "m365h-dlp-for-copilot", "m365h-audit-copilot-interactions"], "why": "Financial services labs need strong identity and data controls, and evidence of who used Copilot and which data it touched." },
+    "healthcare": { "topics": ["epic-fhir-integration", "authentication", "content-moderation", "dlp-governance", "spai-restricted-content-discovery", "spai-restricted-access-control", "m365h-secure-copilot-data", "fdy-configure-guardrails", "m365h-dlp-for-copilot", "m365h-audit-copilot-interactions"], "why": "Healthcare labs handle patient data, so identity, safety, and data policy matter early, and Copilot access to protected health information must be limited and auditable." },
+    "retail": { "topics": ["shopify-integration", "salesforce-integration", "channel-teams", "ppai-document-processing-model", "spai-prebuilt-document-processing"], "why": "Retail scenarios connect storefront and customer systems, and process documents such as invoices and receipts." },
+    "financial-services": { "topics": ["authentication", "dlp-governance", "entra-agent-identities", "content-moderation", "m365h-secure-copilot-data", "fdy-foundry-rbac", "m365h-dlp-for-copilot", "m365h-audit-copilot-interactions", "spai-restricted-access-control", "spai-site-access-review"], "why": "Financial services labs need strong identity and data controls, and evidence of who used Copilot and which data it touched." },
     "manufacturing": { "topics": ["sap-integration", "onprem-data-gateway", "agent-flows", "ppai-document-processing-model", "ppai-use-prompt-in-flow-and-app"], "why": "Manufacturing scenarios reach plant and ERP systems, often on-premises, and handle paperwork." },
     "energy-resources": { "topics": ["sap-integration", "onprem-data-gateway", "agent-flows", "ppai-document-processing-model", "ppai-use-prompt-in-flow-and-app"], "why": "Energy operations rely on ERP and on-premises operational data, and handle field and compliance paperwork." },
     "education": { "topics": ["knowledge-files-web", "content-moderation", "channel-teams", "spai-agent-sharepoint-knowledge-sources", "dca-agent-builder-knowledge"], "why": "Education scenarios center on documents, safe responses, and Teams." },
     "nonprofit": { "topics": ["salesforce-integration", "knowledge-files-web", "channel-teams", "spai-agent-sharepoint-knowledge-sources"], "why": "Nonprofits track supporters and programs in CRM and shared documents." }
   },
   "departments": {
-    "it": { "topics": ["servicenow-integration", "jira-integration", "agent-flows", "mcp-servers", "m365h-control-agent-availability", "m365h-review-agent-inventory", "fdy-foundry-rbac", "m365h-tour-copilot-settings", "m365h-agent-lifecycle-actions", "m365h-troubleshoot-copilot-access"], "why": "IT teams work in ticketing systems, automate runbooks, administer who can use which agents, and support users who cannot reach Copilot." },
+    "it": { "topics": ["servicenow-integration", "jira-integration", "agent-flows", "mcp-servers", "m365h-control-agent-availability", "m365h-review-agent-inventory", "fdy-foundry-rbac", "m365h-tour-copilot-settings", "m365h-agent-lifecycle-actions", "m365h-troubleshoot-copilot-access", "spai-sam-overview-and-licensing", "spai-sharepoint-admin-agent", "spai-agent-insights-reports", "spai-site-lifecycle-policies", "spai-manage-copilot-availability"], "why": "IT teams work in ticketing systems, automate runbooks, administer who can use which agents, and support users who cannot reach Copilot." },
     "customer-service": { "topics": ["servicenow-integration", "salesforce-integration", "channel-teams", "voice-agents", "cc-escalate-human", "cc-voice-settings"], "why": "Customer service needs case systems and customer-facing channels." },
     "sales": { "topics": ["salesforce-integration", "knowledge-files-web"], "why": "Sales teams live in CRM and product material." },
     "marketing": { "topics": ["knowledge-files-web", "content-moderation", "ppai-build-custom-prompt"], "why": "Marketing content needs brand-safe, grounded answers, and reusable prompts." },
-    "finance": { "topics": ["sap-integration", "dlp-governance", "agent-flows", "ppai-document-processing-model"], "why": "Finance works in ERP, processes invoices, and needs policy controls and approvals." },
+    "finance": { "topics": ["sap-integration", "dlp-governance", "agent-flows", "ppai-document-processing-model", "spai-prebuilt-document-processing", "spai-autofill-columns"], "why": "Finance works in ERP, processes invoices, and needs policy controls and approvals." },
     "hr": { "topics": ["knowledge-sharepoint", "content-moderation", "authentication", "spai-agent-sharepoint-knowledge-sources", "dca-agent-builder-knowledge"], "why": "HR answers come from policy documents and involve private information." },
-    "legal": { "topics": ["content-moderation", "dlp-governance", "alm-solutions", "spai-restricted-content-discovery", "spai-site-access-review", "m365h-restricted-content-discovery", "m365h-dlp-for-copilot"], "why": "Legal teams need safe responses, data policy, controlled change, and control over which content Copilot can reach and process." },
-    "executives": { "topics": ["analytics", "evaluations", "m365h-measure-copilot-adoption", "m365h-pay-as-you-go-billing"], "why": "Executives look for measurable outcomes, quality, adoption, and cost." },
-    "operations": { "topics": ["agent-flows", "sap-integration", "analytics", "ppai-use-prompt-in-flow-and-app", "spai-autofill-columns"], "why": "Operations teams automate multi-step processes, organize documents, and track results." },
+    "legal": { "topics": ["content-moderation", "dlp-governance", "alm-solutions", "spai-restricted-content-discovery", "spai-site-access-review", "m365h-restricted-content-discovery", "m365h-dlp-for-copilot", "spai-restricted-access-control"], "why": "Legal teams need safe responses, data policy, controlled change, and control over which content Copilot can reach and process." },
+    "executives": { "topics": ["analytics", "evaluations", "m365h-measure-copilot-adoption", "m365h-pay-as-you-go-billing", "spai-copilot-credits-advanced-work"], "why": "Executives look for measurable outcomes, quality, adoption, and cost." },
+    "operations": { "topics": ["agent-flows", "sap-integration", "analytics", "ppai-use-prompt-in-flow-and-app", "spai-autofill-columns", "spai-prebuilt-document-processing"], "why": "Operations teams automate multi-step processes, organize documents, and track results." },
     "communications": { "topics": ["channel-teams", "content-moderation", "spai-build-agent-sharepoint-content"], "why": "Communications teams publish to employees and need safe wording." },
     "sustainability": { "topics": ["knowledge-dataverse", "analytics"], "why": "Sustainability reporting draws on structured data and trends." },
     "accessibility": { "topics": ["content-moderation", "evaluations"], "why": "Accessibility work needs checked, consistent responses." }

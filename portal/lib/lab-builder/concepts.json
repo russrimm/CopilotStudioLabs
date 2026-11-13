@@ -239,8 +239,8 @@
       "name": "Monitor and analytics",
       "order": 190,
       "summary": "See how the agent performs in use.",
-      "products": ["copilot-studio", "m365-copilot-hub"],
-      "features": ["analytics", "mc-monitor", "cc-monitor", "m365h-measure-copilot-adoption"],
+      "products": ["copilot-studio", "sharepoint-ai", "m365-copilot-hub"],
+      "features": ["analytics", "mc-monitor", "cc-monitor", "m365h-measure-copilot-adoption", "spai-agent-insights-reports"],
       "notApplicable": {}
     },
     {
@@ -248,8 +248,8 @@
       "name": "Publish and channels",
       "order": 200,
       "summary": "Put the agent in front of people on Teams, the web, or voice.",
-      "products": ["copilot-studio", "m365-copilot-agent-builder", "ai-foundry"],
-      "features": ["publish-agent", "mc-publish-agent", "channel-teams", "voice-agents", "cc-deploy-channels", "cc-teams-phone", "dca-agent-builder-share-and-catalog"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry"],
+      "features": ["publish-agent", "mc-publish-agent", "channel-teams", "voice-agents", "cc-deploy-channels", "cc-teams-phone", "dca-agent-builder-share-and-catalog", "spai-share-agent-and-manage-access"],
       "notApplicable": {}
     },
     {
@@ -258,7 +258,7 @@
       "order": 210,
       "summary": "Control who can use the agent, what it may say, and which identity it runs as.",
       "products": ["copilot-studio", "sharepoint-ai", "ai-foundry", "m365-copilot-hub"],
-      "features": ["authentication", "content-moderation", "entra-agent-identities", "mc-agent-settings-security", "cc-authentication", "cc-biometric-auth", "spai-restricted-content-discovery", "fdy-configure-guardrails", "m365h-secure-copilot-data"],
+      "features": ["authentication", "content-moderation", "entra-agent-identities", "mc-agent-settings-security", "cc-authentication", "cc-biometric-auth", "spai-restricted-content-discovery", "spai-restricted-access-control", "spai-control-agent-access", "fdy-configure-guardrails", "m365h-secure-copilot-data"],
       "notApplicable": {}
     },
     {
@@ -273,6 +273,11 @@
         "agent-inventory",
         "cc-export-import",
         "spai-site-access-review",
+        "spai-sam-overview-and-licensing",
+        "spai-content-management-assessment",
+        "spai-site-lifecycle-policies",
+        "spai-sharepoint-admin-agent",
+        "spai-upgrade-agent-files",
         "fdy-foundry-rbac",
         "m365h-review-agent-inventory",
         "m365h-control-agent-availability",
@@ -286,8 +291,8 @@
       "name": "Credits and billing",
       "order": 230,
       "summary": "Understand what an agent costs to build, test, and run.",
-      "products": ["copilot-studio", "m365-copilot-hub", "power-platform-ai-hub"],
-      "features": ["mc-credit-billing", "usage-credits", "cc-credit-billing", "m365h-assign-copilot-licenses", "ppai-credits-licensing-transition"],
+      "products": ["copilot-studio", "sharepoint-ai", "m365-copilot-hub", "power-platform-ai-hub"],
+      "features": ["mc-credit-billing", "usage-credits", "cc-credit-billing", "m365h-assign-copilot-licenses", "ppai-credits-licensing-transition", "spai-copilot-credits-advanced-work"],
       "notApplicable": {}
     },
     {
@@ -323,7 +328,7 @@
       "order": 25,
       "summary": "Use the Copilot built into the app your users already work in.",
       "products": ["sharepoint-ai"],
-      "features": ["spai-copilot-in-sharepoint-overview"],
+      "features": ["spai-copilot-in-sharepoint-overview", "spai-manage-copilot-availability"],
       "notApplicable": {}
     },
     {
@@ -341,7 +346,7 @@
       "order": 85,
       "summary": "Extract structured information from documents and files.",
       "products": ["sharepoint-ai", "power-platform-ai-hub"],
-      "features": ["spai-autofill-columns", "ppai-document-processing-model"],
+      "features": ["spai-autofill-columns", "spai-prebuilt-document-processing", "ppai-document-processing-model"],
       "notApplicable": {}
     },
     {
