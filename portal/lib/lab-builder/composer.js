@@ -289,20 +289,35 @@ function scenarioSection(plan) {
   ].join("\n");
 }
 
+/** Alt text goes inside `![...]`, so keep brackets and line breaks out of it. */
+function altText(text) {
+  return scrubForbidden(String(text)).replace(/[\r\n]+/g, " ").replace(/\[/g, "(").replace(/]/g, ")").trim();
+}
+
+/**
+ * Figures for one module: the image, specific alt text that says what it shows
+ * and why it matters, and a numbered caption. A slot not yet captured holds the
+ * neutral "Screenshot pending" placeholder at its final filename, so the lab
+ * stays valid and accessible now and needs no edit when the real image lands.
+ * Capture instructions are for authors and live in shots.json and SHOTLIST.md,
+ * not here.
+ */
 function screenshotBlock(shots) {
   const lines = [];
   for (const shot of shots.reused) {
-    lines.push("", `![${shot.caption}](assets/${shot.filename})`, "", `*${shot.caption}. ${shot.credit}.*`);
+    lines.push(
+      "",
+      `![${altText(shot.alt)}](assets/${shot.filename})`,
+      "",
+      `*Figure ${shot.figure}. ${scrubForbidden(shot.caption)}. ${shot.credit}.*`,
+    );
   }
   for (const shot of shots.capture) {
     lines.push(
       "",
-      `> 📸 **Capture this screen:** \`assets/${shot.filename}\``,
-      ">",
-      ...shot.instructions.map((line) => `> - ${line}`),
-      ">",
-      "> Capture it manually and save it with that filename, or run the repo's capture tool against this lab's manifest:",
-      "> `node tools/screenshot-capture/capture.js --manifest=<path-to-this-lab>/shots.json`",
+      `![${altText(shot.alt)}](assets/${shot.filename})`,
+      "",
+      `*Figure ${shot.figure}. ${scrubForbidden(shot.caption)}.*`,
     );
   }
   return lines;

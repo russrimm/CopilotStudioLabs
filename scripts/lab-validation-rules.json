@@ -129,6 +129,27 @@
       "asymmetry": "A dashboard-facing restatement of no-broken-image-refs; Python covers the targets under no-broken-local-links."
     },
     {
+      "id": "image-alt-text",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "Every image in index.md has alt text that says what it shows: at least four words, no longer than 250 characters, not starting with 'Screenshot of' or 'Image of', not a file name, and not relying on color. An empty alt is allowed only on a decorative <img> marked role=\"presentation\" or aria-hidden.",
+      "asymmetry": "Python enforces the missing, generic, leading-filler, and file-name cases inside accessible-markdown for every Markdown file under labs/. The word-count and length limits apply to generated labs through this rule."
+    },
+    {
+      "id": "heading-order",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "Heading levels never skip (an H2 is never followed directly by an H4).",
+      "asymmetry": "Python enforces the same rule inside accessible-markdown."
+    },
+    {
+      "id": "code-fence-language",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "Warns when a fenced code block has no language label. Never fails.",
+      "asymmetry": "A warning for the portal dashboard and for generated labs, not a gate: some hand-written labs predate the convention."
+    },
+    {
       "id": "expandable-notes",
       "validators": ["js"],
       "scope": "lab",

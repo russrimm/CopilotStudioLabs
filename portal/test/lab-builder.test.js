@@ -1710,8 +1710,8 @@ test("deciding the dead-source blocker resumes the build and the lab still valid
 
   assert.equal(result.status, "complete");
   assert.equal(result.validation.failed, 0, JSON.stringify(result.validation.tests.filter((x) => x.status === "fail")));
-  // Every structural rule still runs, including the relative-link guard and the expandable-notes check.
-  assert.equal(result.validation.total, 20);
+  // Every structural rule still runs: the relative-link guard, expandable notes, alt text, heading order, and code fence labels.
+  assert.equal(result.validation.total, 23);
   assert.equal(result.decisionLog[0].code, "sources-dead");
 });
 

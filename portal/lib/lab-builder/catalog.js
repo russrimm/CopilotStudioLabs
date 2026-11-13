@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 
 import { getConcepts, getRecommendations, validateConcepts } from "./concepts.js";
 import { getDifferences, validateDifferences } from "./differences.js";
+import { validateScreenshotSlots } from "./slots.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CATALOG_PATH = path.join(__dirname, "features.json");
 
@@ -426,6 +427,7 @@ export function validateCatalog(raw, { now = Date.now() } = {}) {
     problems.push(
       ...validateConcepts({ concepts: getConcepts(), recommendations: getRecommendations(), features, harnesses }),
       ...validateDifferences({ records: getDifferences(), concepts: getConcepts(), harnesses }),
+      ...validateScreenshotSlots({ features }),
     );
   }
 
