@@ -76,6 +76,9 @@ jobs:
           node --check tools/screenshot-capture/capture.js
           node --check tools/screenshot-capture/verify-shots.js
           node --check portal/server.js
+          node --check .github/extensions/agentic-kanban/extension.mjs
+          node --check .github/extensions/agentic-kanban/store.mjs
+          node --check .github/extensions/agentic-kanban/ui.mjs
 
       - name: Test lab accuracy tooling
         working-directory: tools/lab-accuracy
