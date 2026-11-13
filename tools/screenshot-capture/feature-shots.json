@@ -2176,6 +2176,7 @@
       "section": "agents",
       "caption": "Show the connected Copilot Studio agent configuration and its local description.",
       "navHint": "Open your agent, then go to Agents.",
+      "navSection": "agents",
       "prerequisites": [
         "Generative orchestration"
       ],
@@ -2277,6 +2278,7 @@
       "section": "agents",
       "caption": "Show the A2A agent connection configuration.",
       "navHint": "Open your agent, then go to Agents.",
+      "navSection": "agents",
       "prerequisites": [
         "Connected agents"
       ],
@@ -2527,7 +2529,8 @@
       "filename": "eval-test-set.png",
       "section": "evaluations",
       "caption": "Show the Evaluation page with a test set and its selected methods.",
-      "navHint": "Open your agent, then go to Evaluate.",
+      "navHint": "Open your agent, then go to Evaluations page.",
+      "navSection": "evaluations",
       "prerequisites": [
         "Agent instructions & persona"
       ],
@@ -2563,7 +2566,8 @@
       "filename": "eval-results.png",
       "section": "evaluations",
       "caption": "Show Recent results or a completed run with per-case outcomes.",
-      "navHint": "Open your agent, then go to Evaluate.",
+      "navHint": "Open your agent, then go to Evaluations page.",
+      "navSection": "evaluations",
       "prerequisites": [
         "Agent instructions & persona"
       ],
@@ -2599,7 +2603,8 @@
       "filename": "multiturn-test-run.png",
       "section": "evaluations",
       "caption": "Show a Conversation test set and its run result.",
-      "navHint": "Open your agent, then go to Evaluate.",
+      "navHint": "Open your agent, then go to Evaluations page.",
+      "navSection": "evaluations",
       "prerequisites": [
         "Agent evaluations"
       ],
@@ -2713,7 +2718,8 @@
       "filename": "readiness-recent-results.png",
       "section": "evaluations",
       "caption": "Show the Evaluation page with Recent results and pass-rate evidence for one completed run.",
-      "navHint": "Open your agent, then go to Evaluate.",
+      "navHint": "Open your agent, then go to Evaluations page.",
+      "navSection": "evaluations",
       "prerequisites": [
         "Agent evaluations"
       ],
@@ -2764,7 +2770,8 @@
       "filename": "readiness-test-case-details.png",
       "section": "evaluations",
       "caption": "Show a test case details view or Evaluation summary pane that supports a release decision.",
-      "navHint": "Open your agent, then go to Evaluate.",
+      "navHint": "Open your agent, then go to Evaluations page.",
+      "navSection": "evaluations",
       "prerequisites": [
         "Agent evaluations"
       ],
@@ -4092,9 +4099,9 @@
       "featureName": "Evaluate an agent (Microsoft Copilot harness)",
       "harness": "microsoft-copilot",
       "filename": "mc-evaluate-results.png",
-      "section": "evaluations",
+      "section": "evaluate",
       "caption": "The Evaluate tab with a finished evaluation",
-      "navHint": "Open your agent, then go to Evaluate.",
+      "navHint": "Open your agent, then go to the Evaluate tab.",
       "prerequisites": [
         "Preview and test an agent (Microsoft Copilot harness)"
       ],
@@ -4132,9 +4139,9 @@
       "featureName": "Copilot Credits and cost controls (Microsoft Copilot harness)",
       "harness": "microsoft-copilot",
       "filename": "mc-credit-billing-monitor.png",
-      "section": "build",
+      "section": "monitor",
       "caption": "The agent Monitor page showing Copilot Credits consumed",
-      "navHint": "Open your agent, then go to the Build tab.",
+      "navHint": "Open your agent, then go to the Monitor page.",
       "prerequisites": [],
       "setup": [
         "Open the agent, run a test conversation on the Preview tab, and note the running estimated Copilot Credits shown in the chat.",

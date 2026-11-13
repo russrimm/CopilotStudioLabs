@@ -45,7 +45,7 @@ export const AVAILABILITY = {
 
 // Sections for which the capture tool may jump straight to the agent page.
 // Everything else is reached by following the setup steps.
-export const NAV_SECTIONS = new Set(["topics", "settings"]);
+export const NAV_SECTIONS = new Set(["topics", "settings", "agents", "evaluations"]);
 
 export const SECTION_LABELS = {
   home: "Copilot Studio Home",
@@ -57,7 +57,9 @@ export const SECTION_LABELS = {
   analytics: "Analytics page",
   settings: "Agent Settings",
   channels: "Channels",
-  evaluations: "Evaluate",
+  evaluations: "Evaluations page",
+  evaluate: "Evaluate tab",
+  monitor: "Monitor page",
   test: "Test your agent panel",
   admin: "Admin center",
   solutions: "Solutions",

@@ -58,6 +58,13 @@ jobs:
       - name: Validate screenshot manifests and assets
         run: node tools/screenshot-capture/verify-shots.js
 
+      # Fails when features.json gained a feature (or changed one) without the
+      # generated shot list being regenerated, and runs the site tests.
+      - name: Validate feature tour
+        run: |
+          node tools/feature-tour/build.mjs --check
+          node --test tools/feature-tour/test/
+
       - name: Test portal
         working-directory: portal
         run: |
@@ -75,6 +82,11 @@ jobs:
           node --check tools/lab-pdf/generate.js
           node --check tools/screenshot-capture/capture.js
           node --check tools/screenshot-capture/verify-shots.js
+          node --check tools/screenshot-capture/callouts.mjs
+          node --check tools/screenshot-capture/feature-shots-check.mjs
+          node --check tools/feature-tour/build.mjs
+          node --check tools/feature-tour/serve.mjs
+          for f in tools/feature-tour/lib/*.mjs tools/feature-tour/site/assets/*.js; do node --check "$f"; done
           node --check portal/server.js
 
       - name: Test lab accuracy tooling

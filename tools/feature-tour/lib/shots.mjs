@@ -13,7 +13,7 @@ export function navHintFor(section) {
   if (section === "home") return "Start on the Copilot Studio Home page.";
   if (section === "admin") return "Start in the Power Platform admin center.";
   if (section === "custom" || section === "solutions") return "Follow the setup steps; the location depends on the feature.";
-  if (section === "build" || section === "preview" || section === "test") {
+  if (["build", "preview", "test", "evaluate", "monitor"].includes(section)) {
     return `Open your agent, then go to the ${SECTION_LABELS[section]}.`;
   }
   const label = SECTION_LABELS[section] ?? section;

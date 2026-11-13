@@ -218,7 +218,7 @@
     "mc-evaluate": [
       {
         "filename": "mc-evaluate-results.png",
-        "section": "evaluations",
+        "section": "evaluate",
         "caption": "The Evaluate tab with a finished evaluation",
         "instructions": [
           "Open the agent and select the **Evaluate** tab.",
@@ -234,7 +234,7 @@
     "mc-credit-billing": [
       {
         "filename": "mc-credit-billing-monitor.png",
-        "section": "build",
+        "section": "monitor",
         "caption": "The agent Monitor page showing Copilot Credits consumed",
         "instructions": [
           "Run a test conversation on the **Preview** tab first so there is usage to show.",
