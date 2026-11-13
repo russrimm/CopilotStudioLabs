@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { getFeature, getFeatures, getHarnesses, orderFeatures, getCoreFeatures } from "./catalog.js";
 import { defaultDifferencesFor } from "./differences.js";
 import { getIndustries, getRoles } from "../scenarios.js";
+import { countNewTopics } from "./topic-store.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const profiles = JSON.parse(fs.readFileSync(path.join(__dirname, "scenario-profiles.json"), "utf8"));
@@ -78,7 +79,7 @@ export function normalizeLabRequest(request = {}) {
     throw new Error("Lab request must be a JSON object.");
   }
 
-  const features = stringList(request.features, "features", getFeatures().length);
+  const features = stringList(request.features, "features", getFeatures().length + countNewTopics());
   if (!features.length) {
     throw new Error("Select at least one Copilot Studio feature to build a lab.");
   }
@@ -102,7 +103,7 @@ export function normalizeLabRequest(request = {}) {
     throw new Error("includeCore must be a boolean.");
   }
 
-  const excluded = stringList(request.excluded, "excluded", getFeatures().length);
+  const excluded = stringList(request.excluded, "excluded", getFeatures().length + countNewTopics());
   const unknownExcluded = excluded.filter((id) => !getFeature(id));
   if (unknownExcluded.length) {
     throw new Error(`Unknown excluded feature id(s): ${unknownExcluded.join(", ")}.`);

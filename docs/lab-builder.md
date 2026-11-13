@@ -899,6 +899,101 @@ Each module renders as:
 
 ---
 
+## Dynamic topics from Microsoft Learn
+
+The static catalog (`features.json`) is reviewed by hand, so it trails the
+documentation. The topic discovery service closes that gap: it reads the Copilot
+Studio documentation on Microsoft Learn through the Learn MCP server
+(`microsoft_docs_search` and `microsoft_docs_fetch`) and keeps a topic list the
+wizard offers next to the catalog.
+
+**How discovery works** (`topic-discovery.js`). It reads the documentation hub and
+the harness overview pages, follows their links, runs a few targeted searches per
+concept, and reads each page once. For every page it derives a stable id (`learn-`
+plus the path under `/microsoft-copilot-studio/`), a title, a summary, the Learn
+URL, the harnesses (from the section that links it, its path, and its title), a
+concept (from keyword rules; otherwise `uncategorized`), availability when the page
+states it (`preview` or `retired`; silence is `null`), first and last seen dates,
+and a content hash. Topics seen before are re-read directly, so a search that
+returns different results never makes a topic flap; a topic leaves the list only
+when Learn says its page no longer exists.
+
+**Classification.** Each discovered topic is `covered` when its page is one of a
+catalog feature's `docUrls` (a page that still uses the earlier harness name in
+its URL matches the renamed catalog page) and `new` otherwise. Each catalog feature
+is checked the other way: `stale` when every one of its documentation pages is gone
+from Learn, `updated` when a page it cites changed since the last run.
+
+**In the wizard.** The Topics step shows new topics inside their concept group (or
+in "New from Learn: not yet grouped") with a **New from Learn** badge and a link to
+the source article. Catalog topics whose documentation changed get **Updated**, and
+ones whose pages disappeared get **Docs moved**. A status line says when the list
+was last refreshed and from where; **Refresh from Microsoft Learn** re-reads it, and
+the **Show** filter narrows the list to new, updated, or moved topics. New topics
+are never pre-selected. The Customer Conversation harness becomes selectable when
+discovery finds topics for it.
+
+**Generating a lab for a new topic.** A new topic becomes a feature with no curated
+steps, so the lab says so: the module is marked **[Unverified]**, its steps are read
+from the Learn article by the same derivation path as catalog features (and by the
+opt-in model synthesis, which keeps only steps that verify against the page), and
+when nothing can be derived the module tells the learner to follow the article.
+Nothing is invented. The Learn title and summary are always quoted as untrusted
+data in any model prompt and never placed in its instructions.
+
+**Where the list comes from, and what happens offline.** In order: the runtime
+cache, then `portal/lib/lab-builder/learn-topics.snapshot.json` (committed, the
+offline baseline), then nothing, in which case the wizard shows only the static
+catalog. Each layer is schema-validated before use. The wizard works with no
+network at all. A refresh that fails never touches the cache, and a failure is
+never stored as a success. The cache is stale after 24 hours (stale-while-revalidate:
+the old list is served immediately and refreshed in the background). Protections:
+one refresh at a time, a minimum spacing between refreshes, a per-refresh call
+budget (500 calls, 250 pages) and deadline (4 minutes), a per-call timeout, and a
+circuit breaker that pauses refreshing for 15 minutes after three failures. A run
+that hits a budget is flagged `partial` and keeps earlier topics.
+
+**Security.** Everything fetched is untrusted. URLs must be `https` on
+`learn.microsoft.com` with no credentials or port; text is stripped of markup and
+control characters and length-capped; the UI renders it escaped, never as HTML. The
+product name is always "Microsoft Copilot harness": Learn's earlier "GitHub Copilot
+harness" wording is accepted when matching pages and rewritten in every stored
+string.
+
+**Configuration** (`portal/.env.template`):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `LAB_BUILDER_TOPICS_DISABLED` | `false` | Never contact Microsoft Learn; use the cache or snapshot. |
+| `LAB_BUILDER_TOPICS_CACHE` | `portal/data/lab-builder/topics-cache.json` | Cache file (inside the git-ignored `portal/data/`). |
+| `LAB_BUILDER_TOPICS_SNAPSHOT` | the committed snapshot | Offline baseline file. |
+| `LAB_BUILDER_TOPICS_TTL_MS` | `86400000` | How long the list counts as fresh. |
+| `LAB_BUILDER_TOPICS_AUTO_REFRESH` | `false` | Refresh on a timer while the server runs (the timer never keeps the process alive). |
+| `LAB_BUILDER_TOPICS_REFRESH_MS` | `86400000` | Timer interval. |
+| `LAB_BUILDER_TOPICS_MAX_CALLS`, `_MAX_PAGES`, `_DEADLINE_MS`, `_CALL_TIMEOUT_MS` | `500`, `250`, `240000`, `20000` | Per-refresh budgets and timeouts. |
+| `LAB_BUILDER_TOPICS_MIN_REFRESH_MS` | `60000` | Minimum spacing between refreshes. |
+| `LAB_BUILDER_TOPICS_BREAKER_FAILURES`, `_BREAKER_COOLDOWN_MS` | `3`, `900000` | Circuit breaker. |
+| `LAB_BUILDER_TOPICS_RATE_MAX`, `_RATE_WINDOW_MS` | `6`, `3600000` | Per-user limit on the refresh route. |
+| `LAB_BUILDER_TOPICS_UPDATED_DAYS` | `30` | How long an Updated badge stays. |
+
+**Refreshing the committed snapshot.**
+
+```bash
+npm run refresh-topics               # discover and write the snapshot if the topics changed
+npm run refresh-topics -- --check    # discover and report, write nothing
+```
+
+The CLI prints a covered, new, and stale count per harness and exits non-zero (writing
+nothing) if Learn is unreachable or the run was cut short. It rewrites the snapshot
+only when the topic list changed, so a run that finds nothing new leaves the working
+tree clean. `.github/workflows/refresh-topics.yml` runs it weekly and on demand and
+opens a pull request with the updated snapshot only when something changed. It needs
+"Allow GitHub Actions to create and approve pull requests" enabled in the
+repository's Actions settings; pull requests opened with the default token do not
+start other workflows, so close and reopen the pull request to run checks on it.
+
+---
+
 ## API
 
 All routes sit under `/api/lab-builder` and follow the portal's normal auth rules:
@@ -921,6 +1016,8 @@ the server log, never the manifest — and the output is exportable by design.
 | Method | Route | Purpose |
 |---|---|---|
 | `GET` | `/api/lab-builder/features` | Industries, roles, concepts, and the feature catalog grouped by category. |
+| `GET` | `/api/lab-builder/topics` | The static catalog merged with topics discovered on Microsoft Learn: each entry has `source` (`catalog` or `learn`), `status` (`current`, `updated`, `stale`, `new`), harnesses, and URLs, plus `refreshedAt`, `ageMs`, `stale`, `offline`, and per-harness covered, new, and stale counts. Serves the cache or snapshot immediately and revalidates in the background when stale. |
+| `POST` | `/api/lab-builder/topics/refresh` | Re-read the topic list from Microsoft Learn. Takes an empty `{}` body (anything else is HTTP 400). Limited to 6 refreshes per user per hour (`LAB_BUILDER_TOPICS_RATE_MAX`); answers 429 with `Retry-After` when rate limited, spaced too closely, or paused by the circuit breaker, 503 when refreshing is turned off, and 502 when Microsoft Learn failed. Every failure still returns the last good list. |
 | `POST` | `/api/lab-builder/recommend` | Topics grouped by concept for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `required`, and `reasons`. Read-only. |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. |
 | `POST` | `/api/lab-builder/generate` | Build the lab, write it to `generated-labs/`, return markdown + validation. |
@@ -1115,7 +1212,13 @@ and failed verification, and an end-to-end build with a scripted model.
 and redirect refusals, content-type and size limits, sanitization of hostile
 HTML, the `vendor-docs-unavailable` blocker and each of its options, the
 rendered block and manifest fields, third-party link-check rules, and catalog
-validation of bad sources. `portal/test/lab-builder-offline.test.js` runs the
+validation of bad sources. `portal/test/lab-builder-learn-topics.test.js` covers the Learn topic list against
+a mocked Learn MCP server (no network): discovery parsing, covered, new, and stale
+classification, change detection and a stable list hash, the call budget and
+partial runs, caching, offline fallback, the circuit breaker and single-flight
+refresh, the API routes (authentication, rate limit, bad input), hostile text
+staying inert, and validation of the committed snapshot.
+`portal/test/lab-builder-offline.test.js` runs the
 CLI with every npm package blocked, the way CI runs it before `npm ci`, and
 fails if the builder's import graph starts needing `portal/node_modules`. No
 network access is required.

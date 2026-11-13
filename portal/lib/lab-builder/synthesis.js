@@ -426,9 +426,11 @@ export function buildPrompt({ feature, pages, context = {} }) {
     context.terms?.length && `Domain vocabulary: ${context.terms.join(", ")}`,
   ].filter(Boolean);
 
+  // A topic discovered on Learn carries Learn's own title and summary. They are quoted as data, never placed in the instructions.
+  const discovered = Boolean(feature.learnTopic);
   return [
-    `Module: ${feature.name}`,
-    `What the learner does: ${feature.summary}`,
+    discovered ? "Module: the Microsoft Learn topic quoted below" : `Module: ${feature.name}`,
+    discovered ? quoteUntrusted("topic title and summary", `${feature.name}\n${feature.summary}`) : `What the learner does: ${feature.summary}`,
     `Why it matters: ${feature.whyItMatters}`,
     "",
     "Steps from this repository's catalog, which say which screens the module is about. They may be out of date;",
@@ -439,7 +441,7 @@ export function buildPrompt({ feature, pages, context = {} }) {
     ...scenario,
     "",
     ...pages.map((page) => [`Page ${page.index}: ${page.url}`, quoteUntrusted(`page ${page.index}`, page.markdown), ""].join("\n")),
-    `Write the steps for "${feature.name}" as JSON.`,
+    discovered ? "Write the steps for the quoted topic as JSON." : `Write the steps for "${feature.name}" as JSON.`,
   ].join("\n");
 }
 

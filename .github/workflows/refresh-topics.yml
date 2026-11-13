@@ -1,0 +1,67 @@
+name: Refresh Microsoft Learn topics
+
+# Weekly check of the Copilot Studio documentation on Microsoft Learn. When the
+# topic list changed, this opens a pull request with the updated snapshot
+# (portal/lib/lab-builder/learn-topics.snapshot.json); when nothing changed it
+# does nothing. Needs "Allow GitHub Actions to create and approve pull requests"
+# turned on under Settings > Actions > General.
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-learn-topics
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Refresh topic snapshot
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Refresh the snapshot from Microsoft Learn
+        id: refresh
+        run: node tools/lab-builder/refresh-topics.mjs --summary "$RUNNER_TEMP/summary.md"
+
+      - name: Open or update the pull request
+        if: steps.refresh.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          branch="automation/refresh-learn-topics"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$branch"
+          git add portal/lib/lab-builder/learn-topics.snapshot.json
+          git commit -m "chore(lab-builder): refresh Microsoft Learn topic snapshot"
+          git push --force origin "$branch"
+          if gh pr view "$branch" --json number > /dev/null 2>&1; then
+            gh pr edit "$branch" --body-file "$RUNNER_TEMP/summary.md"
+          else
+            gh pr create --base main --head "$branch" \
+              --title "Refresh Microsoft Learn topic snapshot" \
+              --body-file "$RUNNER_TEMP/summary.md"
+          fi
+
+      - name: Summarize the run
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/summary.md" ]; then
+            cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
