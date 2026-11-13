@@ -10,10 +10,15 @@
  * time and filter here.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
+import { escapeMarkdown, scrubForbidden } from "./composer.js";
 
-const LAB_ID = /^[a-z0-9-]+$/i;
+const LAB_ID = /^[a-z0-9-]{1,100}$/i;
+export const MAX_TITLE_LENGTH = 160;
+export const MAX_NOTES_LENGTH = 1000;
+const MAX_SELECTION_ITEMS = 300;
+const MAX_SELECTION_TEXT = 120;
 const ASSET_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|gif|webp)$/i;
 const CONTENT_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
 // Smaller than this is the "Screenshot pending" placeholder or another stub,
@@ -65,25 +70,81 @@ export function resolveGeneratedAsset(rootDir, rawId, rawName) {
   return { status: 200, path: file, type: CONTENT_TYPES[name.split(".").pop().toLowerCase()] };
 }
 
+function textList(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item) => typeof item === "string" && item && item.length <= MAX_SELECTION_TEXT)
+    .slice(0, MAX_SELECTION_ITEMS);
+}
+
+function shortText(value) {
+  return typeof value === "string" && value.length <= MAX_SELECTION_TEXT ? value : null;
+}
+
+/**
+ * What the wizard needs to re-open a lab pre-filled, or null for a lab whose
+ * manifest does not record its inputs (generated before they were kept).
+ */
+export function selectionsFromManifest(manifest) {
+  const request = manifest?.request;
+  if (!request || typeof request !== "object" || !Array.isArray(request.features)) return null;
+  const features = textList(request.features);
+  if (!features.length) return null;
+  const options = manifest.options && typeof manifest.options === "object" ? manifest.options : {};
+  const level = Number(request.level);
+  return {
+    industry: shortText(request.industry),
+    roles: textList(request.roles),
+    features,
+    excluded: textList(request.excluded),
+    harness: shortText(request.harness) || shortText(manifest.harness),
+    level: [100, 200, 300].includes(level) ? level : null,
+    differencesFor: Array.isArray(request.differencesFor) ? textList(request.differencesFor) : null,
+    targetMinutes: Number.isInteger(request.targetMinutes) && request.targetMinutes > 0 ? request.targetMinutes : null,
+    customTitle: typeof options.customTitle === "string" ? options.customTitle.slice(0, MAX_TITLE_LENGTH) : null,
+    agentName: typeof options.agentName === "string" ? options.agentName.slice(0, 128) : null,
+    useLearnMcp: options.useLearnMcp !== false,
+    useLlm: options.useLlm !== false,
+  };
+}
+
+function validationSummary(manifest) {
+  const v = manifest.validation;
+  if (!v || typeof v !== "object" || !Number.isFinite(v.passed) || !Number.isFinite(v.failed)) return null;
+  return { status: v.failed ? "failed" : "passed", passed: v.passed, failed: v.failed, checkedAt: v.checkedAt || null };
+}
+
+function summarizeManifest(labId, manifest) {
+  const request = manifest.request && typeof manifest.request === "object" ? manifest.request : {};
+  const selections = selectionsFromManifest(manifest);
+  return {
+    labId,
+    title: manifest.title,
+    notes: typeof manifest.notes === "string" ? manifest.notes : "",
+    difficulty: manifest.difficulty,
+    totalMinutes: manifest.totalMinutes,
+    generatedAt: manifest.generatedAt,
+    updatedAt: manifest.updatedAt || null,
+    moduleCount: manifest.modules?.length || 0,
+    vertical: manifest.industry || request.industry || null,
+    level: selections?.level ?? null,
+    harness: selections?.harness ?? null,
+    validation: validationSummary(manifest),
+    selections,
+  };
+}
+
 /** @returns {{labs: Array}} previously generated labs, newest first */
 export function listGeneratedLabs(rootDir) {
   if (!existsSync(rootDir)) return { labs: [] };
 
   const labs = readdirSync(rootDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter((entry) => entry.isDirectory() && LAB_ID.test(entry.name))
     .map((entry) => {
       const manifestPath = join(rootDir, entry.name, "manifest.json");
       if (!existsSync(manifestPath)) return null;
       try {
-        const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
-        return {
-          labId: entry.name,
-          title: manifest.title,
-          difficulty: manifest.difficulty,
-          totalMinutes: manifest.totalMinutes,
-          generatedAt: manifest.generatedAt,
-          moduleCount: manifest.modules?.length || 0,
-        };
+        return summarizeManifest(entry.name, JSON.parse(readFileSync(manifestPath, "utf-8")));
       } catch {
         return null;
       }
@@ -92,6 +153,146 @@ export function listGeneratedLabs(rootDir) {
     .sort((a, b) => String(b.generatedAt).localeCompare(String(a.generatedAt)));
 
   return { labs };
+}
+
+/**
+ * Resolve a generated lab's folder. Only a real, non-symlinked directory that
+ * sits directly inside `rootDir` and holds a manifest counts as a generated lab,
+ * so nothing outside that library can be reached through an id.
+ *
+ * @returns {{status: number, error?: string, labId?: string, labDir?: string}}
+ */
+function locateGeneratedLab(rootDir, rawId) {
+  if (typeof rawId !== "string" || !LAB_ID.test(rawId)) return { status: 400, error: "Invalid lab id" };
+  const root = resolve(rootDir);
+  const labDir = resolve(root, rawId);
+  const rel = relative(root, labDir);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel) || rel !== rawId) return { status: 400, error: "Invalid lab id" };
+  try {
+    const stat = lstatSync(labDir);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) return { status: 404, error: "Generated lab not found" };
+  } catch {
+    return { status: 404, error: "Generated lab not found" };
+  }
+  if (!existsSync(join(labDir, "manifest.json"))) return { status: 404, error: "Generated lab not found" };
+  return { status: 200, labId: rawId, labDir };
+}
+
+/** @returns {boolean} whether `rawId` names an existing generated lab */
+export function generatedLabExists(rootDir, rawId) {
+  return locateGeneratedLab(rootDir, rawId).status === 200;
+}
+
+/**
+ * Delete one generated lab. Hand-written labs live elsewhere and are never reachable here.
+ *
+ * @returns {{status: number, body: object}}
+ */
+export function deleteGeneratedLab(rootDir, rawId) {
+  const found = locateGeneratedLab(rootDir, rawId);
+  if (found.status !== 200) return { status: found.status, body: { error: found.error } };
+  try {
+    rmSync(found.labDir, { recursive: true, force: true });
+  } catch (err) {
+    return { status: 500, body: { error: `Could not delete the lab: ${err.message}` } };
+  }
+  return { status: 200, body: { deleted: true, labId: found.labId } };
+}
+
+/**
+ * Validate a rename/notes request. Only `title` and `notes` are accepted.
+ *
+ * @returns {{error?: string, patch?: {title?: string, notes?: string}}}
+ */
+export function normalizeMetaPatch(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return { error: "Request body must be a JSON object." };
+  const unknown = Object.keys(body).filter((key) => key !== "title" && key !== "notes");
+  if (unknown.length) return { error: `Only title and notes can be changed (not ${unknown.join(", ")}).` };
+  if (body.title === undefined && body.notes === undefined) return { error: "Send a title, notes, or both." };
+
+  const patch = {};
+  if (body.title !== undefined) {
+    if (typeof body.title !== "string") return { error: "title must be a string." };
+    const title = body.title.trim();
+    if (!title) return { error: "The title cannot be empty." };
+    if (title.length > MAX_TITLE_LENGTH) return { error: `The title must be at most ${MAX_TITLE_LENGTH} characters.` };
+    if (/[\u0000-\u001f\u007f]/.test(title)) return { error: "The title must not contain control characters or line breaks." };
+    patch.title = title;
+  }
+  if (body.notes !== undefined) {
+    if (typeof body.notes !== "string") return { error: "notes must be a string." };
+    const notes = body.notes.trim();
+    if (notes.length > MAX_NOTES_LENGTH) return { error: `Notes must be at most ${MAX_NOTES_LENGTH} characters.` };
+    if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(notes)) return { error: "Notes must not contain control characters." };
+    patch.notes = notes;
+  }
+  return { patch };
+}
+
+function writeFileAtomic(file, content) {
+  const temp = `${file}.${process.pid}.tmp`;
+  try {
+    writeFileSync(temp, content, "utf-8");
+    renameSync(temp, file);
+  } catch (err) {
+    rmSync(temp, { force: true });
+    throw err;
+  }
+}
+
+/**
+ * Rename a generated lab and/or change its notes. The title lives in the
+ * manifest and in the lab's single H1, so both are kept in step.
+ *
+ * @returns {{status: number, body: object}}
+ */
+export function updateGeneratedLabMeta(rootDir, rawId, body) {
+  const found = locateGeneratedLab(rootDir, rawId);
+  if (found.status !== 200) return { status: found.status, body: { error: found.error } };
+  const { error, patch } = normalizeMetaPatch(body);
+  if (error) return { status: 400, body: { error } };
+
+  try {
+    const manifestPath = join(found.labDir, "manifest.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+
+    if (patch.title !== undefined) {
+      const indexPath = join(found.labDir, "index.md");
+      if (existsSync(indexPath)) {
+        const lines = readFileSync(indexPath, "utf-8").split("\n");
+        const h1 = lines.slice(0, 5).findIndex((line) => /^# /.test(line));
+        if (h1 >= 0) {
+          lines[h1] = `# ${escapeMarkdown(scrubForbidden(patch.title))}`;
+          writeFileAtomic(indexPath, lines.join("\n"));
+        }
+      }
+      manifest.title = patch.title;
+    }
+    if (patch.notes !== undefined) manifest.notes = patch.notes;
+    manifest.updatedAt = new Date().toISOString();
+    writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
+    return { status: 200, body: { lab: summarizeManifest(found.labId, manifest) } };
+  } catch (err) {
+    return { status: 500, body: { error: `Could not update the lab: ${err.message}` } };
+  }
+}
+
+/**
+ * After a replacement lab was built, carry the old lab's notes across and
+ * remove the old one. The old lab is only touched once the new one exists.
+ */
+export function replaceGeneratedLab(rootDir, oldId, newId) {
+  const old = locateGeneratedLab(rootDir, oldId);
+  if (old.status !== 200 || oldId === newId) return { replaced: false };
+  try {
+    const oldManifest = JSON.parse(readFileSync(join(old.labDir, "manifest.json"), "utf-8"));
+    if (typeof oldManifest.notes === "string" && oldManifest.notes) {
+      updateGeneratedLabMeta(rootDir, newId, { notes: oldManifest.notes });
+    }
+  } catch {
+    /* notes are a convenience; replacement still proceeds */
+  }
+  return { replaced: deleteGeneratedLab(rootDir, oldId).status === 200 };
 }
 
 /**

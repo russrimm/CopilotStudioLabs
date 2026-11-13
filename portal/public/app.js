@@ -745,15 +745,42 @@ function renderLabs() {
     card.querySelector(".lab-toggle")?.addEventListener("click", (event) => {
       event.stopPropagation();
       toggleLab(card.dataset.id);
+      list.querySelector(`.lab-card[data-id="${CSS.escape(card.dataset.id)}"] .lab-toggle`)?.focus();
+    });
+    card.querySelector(".lab-preview-btn")?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectLab(card.dataset.id);
     });
   });
 
   updateSummary();
+  renderPreviewPicker();
   renderScenarioLabPreview();
   renderPreflightStatus();
 }
 
-// Difficulty level grouping for the Lab Chapters sidebar.
+// Keeps the Preview tab's lab picker in step with the lab list without
+// rebuilding it (and dropping keyboard focus) when only the selection moved.
+function renderPreviewPicker() {
+  const select = document.getElementById("preview-lab-select");
+  if (!select) return;
+  const key = labs.map((lab) => lab.id).join("|");
+  if (select.dataset.key !== key) {
+    select.dataset.key = key;
+    select.innerHTML =
+      '<option value="">Choose a lab...</option>' +
+      labs.map((lab) => `<option value="${escapeHtml(lab.id)}">${escapeHtml(lab.title || lab.id)}</option>`).join("");
+    if (!select.dataset.bound) {
+      select.dataset.bound = "true";
+      select.addEventListener("change", () => {
+        if (select.value) selectLab(select.value);
+      });
+    }
+  }
+  select.value = selectedLabId || "";
+}
+
+// Difficulty level grouping for the Lab chapters list.
 const LAB_LEVEL_ORDER = ["beginner", "intermediate", "advanced", "other"];
 const LAB_LEVEL_META = {
   beginner: { label: "Beginner", icon: "🟢" },
@@ -788,8 +815,10 @@ function labCardHtml(lab) {
   return `
     <div class="lab-card ${included ? "included" : "excluded"} ${selected ? "selected" : ""}"
          data-id="${labId}">
-      <button class="lab-toggle ${included ? "on" : ""}"
-              title="${included ? "Click to exclude" : "Click to include"}"></button>
+      <button type="button" class="lab-toggle ${included ? "on" : ""}"
+              aria-pressed="${included}"
+              aria-label="Include Lab ${escapeHtml(number)}: ${cleanTitle}"
+              title="${included ? "Included. Click to exclude" : "Excluded. Click to include"}"></button>
       <div class="lab-card-title">Lab ${escapeHtml(number)}: ${cleanTitle}</div>
       <div class="lab-card-meta">
         <span>⭐ ${escapeHtml(lab.difficulty || "?")}</span>
@@ -798,6 +827,9 @@ function labCardHtml(lab) {
       </div>
       <div style="margin-top: 6px;">
         ${(lab.tags || []).slice(0, 3).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join(" ")}
+      </div>
+      <div class="lab-card-actions">
+        <button type="button" class="btn btn-sm lab-preview-btn" aria-label="Preview Lab ${escapeHtml(number)}: ${cleanTitle}">Preview</button>
       </div>
     </div>
   `;
@@ -2409,6 +2441,8 @@ function updateSummary() {
   const count = includedLabs.size;
   document.getElementById("lab-count").textContent = `${count} lab${count !== 1 ? "s" : ""}`;
   document.getElementById("selected-summary").textContent = `${count} lab${count !== 1 ? "s" : ""} selected for provisioning`;
+  const chapters = document.getElementById("chapter-summary");
+  if (chapters) chapters.textContent = `${count} of ${labs.length} lab${labs.length !== 1 ? "s" : ""} included`;
 }
 
 function setInputValue(id, value) {
@@ -2734,7 +2768,7 @@ function renderResourceManifest() {
   const filtered = resourceManifest.filter((lab) => selected.includes(lab.labId));
 
   if (!filtered.length) {
-    container.innerHTML = '<div style="color: var(--text-muted);">Select labs from the sidebar to see their resource requirements.</div>';
+    container.innerHTML = '<div style="color: var(--text-muted);">Select labs under Lab chapters on the Lab setup tab to see their resource requirements.</div>';
     return;
   }
 
@@ -3675,7 +3709,7 @@ async function lbGenerate() {
       const res = await fetch("/api/lab-builder/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...lbRequest(), decisions }),
+        body: JSON.stringify({ ...lbRequest(), replaceLabId: lbReplaceTarget(), decisions }),
         signal: labBuilder.controller.signal,
       });
       const data = await res.json();
@@ -3701,9 +3735,15 @@ async function lbGenerate() {
       }
 
       lbShowResult(data);
+      lbGen.opened = data.labId;
+      if (data.replacedLabId) {
+        lbGenCloseOpened(data.replacedLabId);
+        lbGen.opened = data.labId;
+      }
+      lbStopEditing(true);
       lbLoadGenerated();
       if (status) status.textContent = "";
-      toast(`Built "${data.title}"`, "success");
+      toast(data.replacedLabId ? `Rebuilt "${data.title}" and replaced the original` : `Built "${data.title}"`, "success");
       return;
     }
   } catch (err) {
@@ -3785,7 +3825,7 @@ function lbShowResult(data) {
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
     <details class="lb-advanced">
       <summary>View the Markdown source</summary>
-      <pre style="white-space: pre-wrap; font-size: 12px; line-height: 1.6;">${escapeHtml(data.markdown)}</pre>
+      <pre id="lb-result-source" style="white-space: pre-wrap; font-size: 12px; line-height: 1.6;">${escapeHtml(data.markdown)}</pre>
     </details>`;
   panel.style.display = "";
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -3803,6 +3843,9 @@ async function lbLoadResultPreview(labId) {
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
     // The server sanitizes the lab's Markdown before it reaches us.
     host.innerHTML = data.html;
+    labBuilder.lastMarkdown = data.markdown;
+    const source = document.getElementById("lb-result-source");
+    if (source && !source.textContent) source.textContent = data.markdown;
     if (data.pendingScreenshots?.length) {
       host.insertAdjacentHTML(
         "afterbegin",
@@ -3828,36 +3871,3 @@ function lbDownload(labId) {
   URL.revokeObjectURL(url);
 }
 
-async function lbLoadGenerated() {
-  const el = document.getElementById("lb-generated-list");
-  if (!el) return;
-  try {
-    const res = await fetch("/api/lab-builder/generated");
-    const data = await res.json();
-    const labs = data.labs || [];
-    if (!labs.length) {
-      el.className = "scenario-empty";
-      el.textContent = "None yet. Build one above.";
-      return;
-    }
-    el.className = "lb-module-list";
-    el.innerHTML = labs
-      .map(
-        (l) => `<div class="lb-module">
-          <span>
-            <strong>${escapeHtml(l.title)}</strong>
-            <span class="lb-badge">${escapeHtml(l.difficulty)}</span>
-            <span class="lb-badge">${l.totalMinutes}m</span>
-            <span class="lb-badge">${l.moduleCount} modules</span>
-            <div class="lb-feature-summary">generated-labs/${escapeHtml(l.labId)} — ${escapeHtml(
-              new Date(l.generatedAt).toLocaleString()
-            )}</div>
-          </span>
-        </div>`
-      )
-      .join("");
-  } catch {
-    el.className = "scenario-empty";
-    el.textContent = "Could not list generated labs.";
-  }
-}
