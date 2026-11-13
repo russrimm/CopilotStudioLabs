@@ -27,7 +27,9 @@
       "learnHubUrl": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent",
       "learnRoots": [
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility",
-        "https://learn.microsoft.com/microsoftteams/platform/toolkit"
+        "https://learn.microsoft.com/microsoftteams/platform/toolkit",
+        "https://learn.microsoft.com/microsoft-agent-365/admin",
+        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-registry"
       ],
       "levels": [100, 200, 300],
       "hasHarnesses": false,

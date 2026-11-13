@@ -2,7 +2,6 @@
   "$comment": "The concept layer. A concept is an idea a lab teaches (Instructions, Knowledge, Skills, MCP servers, ...) independent of which product or Copilot Studio harness implements it. Each concept lists the catalog features that teach it and `products`, the products it applies to (default: copilot-studio); a feature's product must be one of them. A feature of a product with harnesses (Copilot Studio) also carries a `harness` tag, so the same concept can map to a Standard harness feature, a Microsoft Copilot harness feature, and a Customer Conversation harness feature. Coverage is judged per target: each harness of a product that has harnesses, and the product itself for every other product. `notApplicable` explains, per target (a harness id or a product id), why a concept has no equivalent there, so the wizard can say so instead of hiding the idea; `knownGaps` lists `concept:target` cells still waiting for a feature, and may only shrink. Every catalog feature belongs to exactly one concept (validateConcepts enforces this). `order` is the teaching order the wizard lists concepts in. Do not name the Microsoft Copilot harness anything else, and use US English.",
   "version": 1,
   "knownGaps": [
-    "tools:m365-copilot-agent-builder"
   ],
   "concepts": [
     {
@@ -19,7 +18,7 @@
       "order": 20,
       "summary": "Make the agent object everything else hangs off.",
       "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry"],
-      "features": ["create-agent", "mc-create-agent", "cc-create-agent", "dca-agent-builder-first-agent", "dca-toolkit-typespec-agent", "spai-build-agent-sharepoint-content", "fdy-create-prompt-agent", "fdy-deploy-hosted-agent"],
+      "features": ["create-agent", "mc-create-agent", "cc-create-agent", "dca-agent-builder-first-agent", "dca-agent-builder-templates-icon-mode", "dca-toolkit-typespec-agent", "spai-build-agent-sharepoint-content", "fdy-create-prompt-agent", "fdy-deploy-hosted-agent"],
       "notApplicable": {}
     },
     {
@@ -45,7 +44,7 @@
       "order": 50,
       "summary": "Ground answers in your documents, sites, and data.",
       "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry"],
-      "features": ["knowledge-sharepoint", "knowledge-files-web", "knowledge-dataverse", "knowledge-tuning", "mc-knowledge", "mc-foundry-iq", "cc-knowledge", "dca-agent-builder-knowledge", "spai-agent-sharepoint-knowledge-sources", "fdy-agent-file-search", "fdy-agent-ai-search"],
+      "features": ["knowledge-sharepoint", "knowledge-files-web", "knowledge-dataverse", "knowledge-tuning", "mc-knowledge", "mc-foundry-iq", "cc-knowledge", "dca-agent-builder-knowledge", "dca-toolkit-knowledge-capabilities", "spai-agent-sharepoint-knowledge-sources", "fdy-agent-file-search", "fdy-agent-ai-search"],
       "notApplicable": {}
     },
     {
@@ -54,7 +53,7 @@
       "order": 60,
       "summary": "Let the agent take actions through connectors, custom connectors, and computer use.",
       "products": ["copilot-studio", "m365-copilot-agent-builder", "ai-foundry"],
-      "features": ["connector-tools", "custom-connectors", "computer-use", "mc-tools", "cc-add-tools", "cc-escalate-human", "fdy-toolbox-tools"],
+      "features": ["connector-tools", "custom-connectors", "computer-use", "mc-tools", "cc-add-tools", "cc-escalate-human", "dca-agent-builder-capabilities", "dca-toolkit-api-plugin-typespec", "fdy-toolbox-tools"],
       "notApplicable": {}
     },
     {
@@ -62,7 +61,8 @@
       "name": "Skills and prompt tools",
       "order": 70,
       "summary": "Reusable, structured behaviors. The Standard harness uses prompt tools; the Microsoft Copilot harness uses skills.",
-      "features": ["prompt-tools", "mc-skills", "cc-skills"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder"],
+      "features": ["prompt-tools", "mc-skills", "cc-skills", "dca-agent-builder-skills"],
       "notApplicable": {}
     },
     {
@@ -70,7 +70,8 @@
       "name": "MCP servers",
       "order": 80,
       "summary": "Connect Model Context Protocol servers so the agent can use shared tools and resources.",
-      "features": ["mcp-servers", "mc-tools-mcp", "cc-mcp-server"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder"],
+      "features": ["mcp-servers", "mc-tools-mcp", "cc-mcp-server", "dca-toolkit-mcp-plugin"],
       "notApplicable": {}
     },
     {
@@ -87,7 +88,8 @@
       "name": "SDK and extensibility",
       "order": 100,
       "summary": "Author agents from code and embed them in your own apps.",
-      "features": ["vscode-authoring", "channel-web-sdk", "mc-sdk-agent"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder"],
+      "features": ["vscode-authoring", "channel-web-sdk", "mc-sdk-agent", "dca-toolkit-json-capabilities-action"],
       "notApplicable": {
         "customer-conversation": "Not confirmed in Microsoft Learn: the Customer Conversation pages describe building agents on the Build tab and embedding web chat with a copied script, and none describe SDK or code-first authoring."
       }
@@ -246,7 +248,7 @@
       "order": 200,
       "summary": "Put the agent in front of people on Teams, the web, or voice.",
       "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry"],
-      "features": ["publish-agent", "mc-publish-agent", "channel-teams", "voice-agents", "cc-deploy-channels", "cc-teams-phone", "dca-agent-builder-share-and-catalog", "spai-share-agent-and-manage-access", "fdy-publish-agent-copilot-teams", "fdy-troubleshoot-publishing"],
+      "features": ["publish-agent", "mc-publish-agent", "channel-teams", "voice-agents", "cc-deploy-channels", "cc-teams-phone", "dca-agent-builder-share-agent", "dca-agent-builder-share-and-catalog", "spai-share-agent-and-manage-access", "fdy-publish-agent-copilot-teams", "fdy-troubleshoot-publishing"],
       "notApplicable": {}
     },
     {
@@ -255,7 +257,8 @@
       "order": 210,
       "summary": "Control who can use the agent, what it may say, and which identity it runs as.",
       "products": ["copilot-studio", "sharepoint-ai", "ai-foundry", "m365-copilot-hub"],
-      "features": ["authentication", "content-moderation", "entra-agent-identities", "mc-agent-settings-security", "cc-authentication", "cc-biometric-auth", "spai-restricted-content-discovery", "spai-restricted-access-control", "spai-control-agent-access", "fdy-configure-guardrails", "m365h-secure-copilot-data"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry", "m365-copilot-hub"],
+      "features": ["authentication", "content-moderation", "entra-agent-identities", "mc-agent-settings-security", "cc-authentication", "cc-biometric-auth", "spai-restricted-content-discovery", "spai-restricted-access-control", "spai-control-agent-access", "fdy-configure-guardrails", "m365h-secure-copilot-data", "dca-agent-builder-troubleshooting"],
       "notApplicable": {}
     },
     {
@@ -263,8 +266,10 @@
       "name": "Governance and ALM",
       "order": 220,
       "summary": "Move agents between environments safely and keep an inventory under policy.",
-      "products": ["copilot-studio", "sharepoint-ai", "ai-foundry", "m365-copilot-hub", "power-platform-ai-hub"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry", "m365-copilot-hub", "power-platform-ai-hub"],
       "features": [
+        "dca-admin-agent-settings",
+        "dca-admin-agent-registry",
         "dlp-governance",
         "alm-solutions",
         "agent-inventory",
@@ -288,8 +293,8 @@
       "name": "Credits and billing",
       "order": 230,
       "summary": "Understand what an agent costs to build, test, and run.",
-      "products": ["copilot-studio", "sharepoint-ai", "m365-copilot-hub", "power-platform-ai-hub", "ai-foundry"],
-      "features": ["mc-credit-billing", "usage-credits", "cc-credit-billing", "m365h-assign-copilot-licenses", "ppai-credits-licensing-transition", "spai-copilot-credits-advanced-work", "fdy-manage-costs"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "m365-copilot-hub", "power-platform-ai-hub", "ai-foundry"],
+      "features": ["dca-licensing-and-environment", "mc-credit-billing", "usage-credits", "cc-credit-billing", "m365h-assign-copilot-licenses", "ppai-credits-licensing-transition", "spai-copilot-credits-advanced-work", "fdy-manage-costs"],
       "notApplicable": {}
     },
     {
@@ -316,7 +321,7 @@
       "order": 15,
       "summary": "Decide which authoring tool fits the scenario, and how to move an agent between tools.",
       "products": ["m365-copilot-agent-builder"],
-      "features": ["dca-agent-builder-vs-copilot-studio"],
+      "features": ["dca-declarative-agents-overview", "dca-agent-builder-vs-copilot-studio"],
       "notApplicable": {}
     },
     {

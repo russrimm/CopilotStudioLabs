@@ -1,39 +1,157 @@
 {
-  "$comment": "Seed catalog for Agent Builder in Microsoft 365 Copilot, grounded on Microsoft Learn, features verified 2026-11-13.",
+  "$comment": "Catalog for Agent Builder and declarative agents for Microsoft 365 Copilot (Agent Builder, Microsoft 365 Agents Toolkit, plugins as actions, sharing, and admin governance), grounded on Microsoft Learn; every feature verified 2026-11-13 against the pages it cites. Anything a page did not state is marked 'Not confirmed in Microsoft Learn'.",
   "product": "m365-copilot-agent-builder",
   "categories": [
     {
       "id": "declarative-agents",
       "name": "Declarative agents",
-      "description": "Build declarative agents for Microsoft 365 Copilot with Agent Builder or Microsoft 365 Agents Toolkit, and decide when to move to Copilot Studio."
+      "description": "Understand declarative agents, check licensing and environment, and decide when to use Agent Builder, Microsoft 365 Agents Toolkit, or Copilot Studio."
+    },
+    {
+      "id": "dca-agent-builder",
+      "name": "Agent Builder",
+      "description": "Build, ground, and extend an agent in Microsoft 365 Copilot without writing a source-code project."
+    },
+    {
+      "id": "dca-agents-toolkit",
+      "name": "Agents Toolkit (pro-code)",
+      "description": "Build and debug declarative agents in Visual Studio Code with Microsoft 365 Agents Toolkit, TypeSpec, and the JSON manifest."
+    },
+    {
+      "id": "dca-actions",
+      "name": "Actions and plugins",
+      "description": "Give a declarative agent actions by adding API plugins and MCP servers."
+    },
+    {
+      "id": "dca-distribute-govern",
+      "name": "Share, publish, and govern",
+      "description": "Share agents, submit them to your org catalog, and manage them as an administrator."
     }
   ],
   "features": [
     {
+      "id": "dca-declarative-agents-overview",
+      "name": "Understand declarative agents and plan one",
+      "category": "declarative-agents",
+      "level": 100,
+      "minutes": 20,
+      "summary": "Decide whether a scenario needs a declarative agent, record its dependencies, and pick the right tool to build it.",
+      "whyItMatters": "A short planning pass prevents building an agent that an approved agent already covers, and surfaces owner, licensing, and cloud limits before any configuration starts.",
+      "concepts": [
+        "A declarative agent is configuration, not code: it defines identity and behavior (name, purpose, instructions, conversation starters, constraints), knowledge, capabilities (actions, skills, connectors, or tools), and host and distribution metadata. Users engage with it in Microsoft 365 Copilot and supported Microsoft 365 apps.",
+        "Choose a declarative agent for a named experience with consistent instructions, curated knowledge, and selected capabilities. It might not be the right component when users already work in a supported experience that provides the capability, when an approved agent already meets the outcome, or when you need complete control of orchestration, model, hosting, or user interface; in that case compare declarative and custom engine agents.",
+        "National cloud support varies: GCC has full declarative agent support; GCCH supports pro-code agents built with Agents Toolkit and Agent Builder is also now available; DoD supports only pro-code agents built with Agents Toolkit and not Agent Builder."
+      ],
+      "steps": [
+        "Write one sentence for the **target users** and one for the **outcome** the agent should deliver, and name the Microsoft experiences where users will meet it.",
+        "Review the agents already approved for the target users and decide whether you can reuse, copy, configure, or extend one instead of building a new agent.",
+        "If you reuse an agent, confirm its owner supports your users, data, capabilities, sharing scope, and lifecycle.",
+        "Record the dependencies: instructions, knowledge sources, required skills, connectors, actions or MCP-based capabilities, identity and permissions, availability and language, licensing and environment, and the owner, support contact, and success measures.",
+        "Check the tenant cloud. In GCCH, plan for Agents Toolkit or Agent Builder as documented; in DoD, plan for Agents Toolkit only.",
+        "Choose the tool: Agent Builder for no-code, natural-language configuration; Microsoft 365 Agents Toolkit for pro-code; Copilot Studio when you need workflows, external channels, or environments (see the Agent Builder versus Copilot Studio topic).",
+        "Save the plan; the licensing and environment topic and the first-agent topic build on it."
+      ],
+      "validation": [
+        "The plan names the target users, the outcome, the owner, a support contact, and the success measures.",
+        "The plan states which existing approved agents were reviewed and why a new agent is or is not needed.",
+        "The plan names the chosen tool and the tenant cloud it was checked against."
+      ],
+      "learnQueries": ["Declarative agents for Microsoft 365 Copilot overview", "Agent Builder overview", "Choose between Agent Builder and Copilot Studio"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-experience"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-review-existing-agents.png",
+          "section": "build",
+          "instructions": [
+            "Show the **All agents** page in Microsoft 365 Copilot listing agents already available to you, with names that are not sensitive.",
+            "Capture after the step that reviews the approved agents."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "dca-licensing-and-environment",
+      "name": "Check licensing and prepare a development environment",
+      "category": "declarative-agents",
+      "level": 100,
+      "minutes": 25,
+      "summary": "Match your tenant's licensing model to the agent capabilities you plan to use, choose a development environment, and enable custom app upload for Agents Toolkit.",
+      "whyItMatters": "Capabilities depend on the license and billing model. Checking them first prevents tests that fail because a knowledge source or capability is unavailable to the tester.",
+      "concepts": [
+        "Learn lists these models: Microsoft 365 with a Microsoft 365 Copilot add-on license (including Microsoft 365 Copilot Business and Microsoft 365 E7), usage-based (pay-as-you-go) billing consumed as Copilot Credits, and Microsoft 365 without a Copilot license, where agent access is limited or disabled.",
+        "Without usage-based billing, Copilot Chat supports custom instructions, custom actions, code interpreter, image generator, web search, and scoped web search. Copilot connectors, SharePoint data, embedded files, and Dataverse also need usage-based billing or a Copilot license; email, people, Teams messages, and Teams meetings need a Microsoft 365 Copilot license.",
+        "Usage-based billing is not supported in GCC or GCCH. Agents grounded in shared tenant work data are not currently available in GCC, GCCH, or DoD.",
+        "Building with Agents Toolkit requires an admin to allow custom app upload; Provision fails otherwise. Whether a specific license SKU is enough for your tenant is Not confirmed in Microsoft Learn; confirm in the Microsoft 365 admin center."
+      ],
+      "steps": [
+        "Identify which licensing model applies to the maker and to the end users: Microsoft 365 Copilot license, usage-based billing, or neither.",
+        "In the capability table on the licensing page, mark each knowledge source and capability your agent needs and confirm the end users' column supports it.",
+        "If you use usage-based billing, confirm an Azure subscription and a billing policy in the Microsoft 365 admin center. For SharePoint knowledge, the billing policy must be connected to the SharePoint agents service and users must be in the security group assigned to the billing policy.",
+        "Choose a development environment: a Microsoft 365 Developer Program sandbox (an instant sandbox can purchase add-ons; a configurable sandbox cannot purchase a Copilot license), a production tenant with a Copilot license, or a subscription without a Copilot license for limited Copilot Chat agents.",
+        "Admin: in the Teams admin center, select **Teams apps** > **Setup policies** > **Global (Org-wide default)**, and switch **Upload custom apps** to **On**.",
+        "Admin: for accounts that test agents grounded on organizational data, manage Microsoft 365 Copilot Developer licenses in the Microsoft 365 admin center under **Billing** > **Licenses**.",
+        "Record any unresolved prerequisite as a blocker in your plan instead of substituting another environment."
+      ],
+      "validation": [
+        "Each capability in your plan is marked available or unavailable for the end users' licensing model.",
+        "**Upload custom apps** shows **On** in the **Global (Org-wide default)** setup policy.",
+        "Your plan lists the chosen environment, and any blockers are named."
+      ],
+      "learnQueries": ["Set up your development environment for your plugin", "Agent capabilities and licensing models", "Microsoft 365 Copilot extensibility prerequisites"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-upload-custom-apps-policy.png",
+          "section": "admin",
+          "instructions": [
+            "Show the **Global (Org-wide default)** setup policy in the Teams admin center, with the **Upload custom apps** toggle visible.",
+            "Capture after the step that switches the toggle to **On**."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
       "id": "dca-agent-builder-first-agent",
       "name": "Build your first agent in Agent Builder",
-      "category": "declarative-agents",
+      "category": "dca-agent-builder",
       "level": 100,
       "minutes": 20,
       "summary": "Create a declarative agent in Microsoft 365 Copilot by describing it in natural language, then review and test it.",
       "whyItMatters": "Agent Builder is the fastest no-code way to tailor Microsoft 365 Copilot to a scenario. Learning the Describe, Configure, and Try it flow is the base for every other task.",
       "concepts": [
-        "Agent Builder builds declarative agents by natural language, manual configuration on the Configure tab, or from a template. Natural language is available only for supported Microsoft 365 languages.",
-        "The Configure tab holds Name (30 characters), Description (1,000 characters), Instructions (8,000 characters), Knowledge, and Starter Prompts. Access depends on licensing; you need a Microsoft 365 Copilot license or pay-as-you-go billing for Copilot Studio.",
-        "Agent Builder does not support authoring actions that integrate external services."
+        "Agent Builder builds declarative agents by natural language, manual configuration on the **Configure** tab, or from a template. Natural language is available only when your Microsoft 365 language is one of the available languages.",
+        "The **Configure** tab holds Name (30 characters), Icon, Model, Description (1,000 characters), Instructions (8,000 characters), Knowledge, and Starter Prompts. Starter prompts have no minimum number.",
+        "You can build agents from microsoft365.com/chat, office.com/chat, and the Teams desktop and web client, on both the Work and Web options. Agent Builder is not available on mobile.",
+        "Agent Builder does not support authoring actions that integrate external services; copy the agent to Copilot Studio or choose a pro-code route."
       ],
       "steps": [
-        "In Microsoft 365 Copilot, select **New agent**. Confirm you have a Copilot license or pay-as-you-go billing (Not confirmed in Microsoft Learn for every tenant type).",
+        "In Microsoft 365 Copilot, select **New agent** (in Copilot chat it can be under **Agents & Skills**). Confirm you have a Microsoft 365 Copilot license or pay-as-you-go billing (see the licensing topic).",
         "On the **Describe** tab, describe in natural language what the agent should do and who it helps.",
-        "Accept or adjust the refinements that Agent Builder suggests, and refine further in chat.",
-        "Open the **Configure** tab and review the prepopulated Name, Description, Instructions, Knowledge, and Suggested prompts.",
-        "Prefer manual setup or a template? Select **Skip to configure**, or pick a template under **Start with a template**.",
-        "Open the **Try it** tab and send prompts; it is enabled once the agent has a name, description, and instructions.",
-        "Select **Create** when the agent behaves as expected; the new agent is private to you until you share it."
+        "Accept or adjust the refinements that Agent Builder suggests, and keep refining in chat. Use the plus sign (**+**) in the chat box to add knowledge sources.",
+        "Open the **Configure** tab and review the prepopulated Name, Description, Instructions, Knowledge, and Starter Prompts.",
+        "Prefer manual setup? On **New agent**, select **Skip to configure** instead and fill in the fields yourself.",
+        "Open the **Try it** tab and send prompts. It is enabled after the agent has a name, description, and instructions.",
+        "Select **Create** when the agent behaves as expected. A confirmation says the agent is private to you until you share it."
       ],
       "validation": [
         "The **Configure** tab shows a name, description, instructions, and suggested prompts that match what you described.",
-        "On the **Try it** tab, a prompt within the agent's scope returns a response that follows your instructions."
+        "On the **Try it** tab, a prompt within the agent's scope returns a response that follows your instructions.",
+        "After **Create**, the confirmation states that the agent is private and available only to you."
       ],
       "learnQueries": ["Build agents in Agent Builder", "Agent Builder overview Microsoft 365 Copilot"],
       "docUrls": [
@@ -41,23 +159,104 @@
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder",
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent"
       ],
+      "screenshots": [
+        {
+          "filename": "dca-new-agent-page.png",
+          "section": "build",
+          "instructions": [
+            "Show the **New agent** page in Microsoft 365 Copilot with the **Describe** chat box and the **Skip to configure** option, before you type a description."
+          ]
+        },
+        {
+          "filename": "dca-configure-tab-prepopulated.png",
+          "section": "build",
+          "instructions": [
+            "Show the **Configure** tab with Name, Description, Instructions, Knowledge, and Starter Prompts filled in from your description.",
+            "Capture after the step that opens the **Configure** tab."
+          ]
+        },
+        {
+          "filename": "dca-try-it-response.png",
+          "section": "test",
+          "instructions": [
+            "Show the **Try it** tab with one in-scope prompt and the agent's response, with any sensitive text masked.",
+            "Capture after the step that opens the **Try it** tab."
+          ]
+        }
+      ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-build-agents",
       "prereqs": [],
       "relatedLabs": []
     },
     {
+      "id": "dca-agent-builder-templates-icon-mode",
+      "name": "Start from a template, then set the icon and response mode",
+      "category": "dca-agent-builder",
+      "level": 100,
+      "minutes": 20,
+      "summary": "Begin with an Agent Builder template, customize it, give the agent an icon, and choose its default response mode.",
+      "whyItMatters": "A template is a tested scaffold of description, instructions, and prompts. The icon and response mode make the agent recognizable and set how deeply it reasons by default.",
+      "concepts": [
+        "A template supplies a description, instructions, and suggested prompts for one scenario. Learn lists templates such as My Company Policy (answers HR policy, holiday, and PTO questions grounded in SharePoint and the corporate website) and Meeting Coach.",
+        "Learn's build article says the template agent is created automatically, while the templates article says the agent does not exist until you select **Create**. Which wording is current is Not confirmed in Microsoft Learn; treat **Create** as the step that saves it and verify in your tenant.",
+        "Icon: use **Generate**, **Browse**, or **Upload** after selecting the pencil icon. An uploaded icon must be PNG, up to 192x192 pixels and 1 MB; a transparent background works best.",
+        "Response mode on the **Model** section: **Auto** (default), **Quick response**, or **Think deeper**. Users can override it with the model selector."
+      ],
+      "steps": [
+        "In Microsoft 365 Copilot, select **New agent**.",
+        "Under **Start with a template**, choose a template that matches your scenario.",
+        "On the **Describe** tab, use natural language to refine the name, description, and instructions.",
+        "Open the **Configure** tab. Select the pencil icon next to the icon, and choose **Generate**, **Browse**, or **Upload**.",
+        "In the **Model** section, choose **Auto**, **Quick response**, or **Think deeper** as the default response mode.",
+        "Add your own knowledge sources in the **Knowledge** section if the template needs them.",
+        "Select **Create**, and test on the **Try it** tab."
+      ],
+      "validation": [
+        "The agent shows your chosen icon and the **Model** section shows the response mode you selected.",
+        "The **Try it** tab answers with the template's behavior adapted to your refinements."
+      ],
+      "learnQueries": ["Agent Builder templates", "Design agent icons Agent Builder", "Set the default response mode Agent Builder"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-build-agents",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-templates-overview"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-template-gallery.png",
+          "section": "build",
+          "instructions": [
+            "Show the **Start with a template** list on the **New agent** page.",
+            "Capture before the step that selects a template."
+          ]
+        },
+        {
+          "filename": "dca-icon-and-response-mode.png",
+          "section": "build",
+          "instructions": [
+            "Show the **Configure** tab with the agent icon and the **Model** section's response mode choices visible.",
+            "Capture after the step that sets the response mode."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-templates-overview",
+      "prereqs": ["dca-agent-builder-first-agent"],
+      "relatedLabs": []
+    },
+    {
       "id": "dca-write-agent-instructions",
       "name": "Write effective agent instructions",
-      "category": "declarative-agents",
+      "category": "dca-agent-builder",
       "level": 200,
       "minutes": 30,
-      "summary": "Draft structured, testable instructions for a declarative agent following Learn's guidance.",
-      "whyItMatters": "Instructions steer how the agent behaves in every conversation. Clear structure and explicit references to knowledge and capabilities reduce inconsistent answers across model updates.",
+      "summary": "Draft structured, testable instructions for a declarative agent following Learn's guidance, then iterate with test prompts.",
+      "whyItMatters": "Instructions steer how the agent behaves in every conversation. Clear structure and explicit references to knowledge and capabilities reduce inconsistent answers, including after Copilot moves to newer models.",
       "concepts": [
-        "The guidance applies to agents built in Agent Builder or with Agents Toolkit. The Instructions limit is 8,000 characters.",
-        "Main components are purpose, general guidelines (directions, tone, restrictions), and skills; add step-by-step instructions, error handling, examples, and nonstandard terms when relevant.",
-        "Do not store instructions in SharePoint documents or other knowledge sources to work around the limit; Learn warns this is subject to cross-prompt injection (XPIA) classifiers and weakens governance."
+        "The guidance applies to agents built in Agent Builder or with Agents Toolkit. The Instructions limit is 8,000 characters. Microsoft 365 Copilot periodically moves to newer models automatically, so expect some behavior change and be ready to adjust instructions.",
+        "Main components are purpose, general guidelines (directions, tone, restrictions), and skills; add step-by-step instructions, error handling, examples, and nonstandard terms when relevant. Skills are a separate component: refer to them at a high level instead of copying their steps into the instructions.",
+        "Do not store instructions in SharePoint documents or other knowledge sources to work around the limit; Learn warns this is subject to cross-prompt injection (XPIA) classifiers and weakens governance.",
+        "To discourage the model from using its built-in knowledge, Learn recommends setting discourage_model_knowledge to true in the special_instructions object of the agent manifest."
       ],
       "steps": [
         "Write down the agent's goal, the workflows users follow, and any business logic.",
@@ -67,16 +266,36 @@
         "State tone, verbosity, and output format explicitly (for example, three bullet points per section).",
         "Format with Markdown headings and lists; use numbered lists only when order matters.",
         "Name each knowledge source and capability at the step that uses it, and define nonstandard terms.",
-        "Paste the instructions into the agent, test on the **Try it** tab, and adjust wording."
+        "Add a final self-evaluation step, and add more than one example for complex scenarios (few-shot prompting).",
+        "Paste the instructions into the agent, test on the **Try it** tab with prompts inside and outside your conversation starters, and adjust wording."
       ],
       "validation": [
         "The instructions are at or under 8,000 characters and are structured with Markdown sections or steps.",
-        "Test prompts produce answers in the specified tone and output format and use the named knowledge sources."
+        "Test prompts produce answers in the specified tone and output format and use the named knowledge sources.",
+        "Prompts outside the agent's scope are handled the way the instructions describe."
       ],
       "learnQueries": ["Write effective instructions for declarative agents", "declarative agent instructions best practices"],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-instructions",
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-build-agents"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-instructions-field.png",
+          "section": "build",
+          "instructions": [
+            "Show the **Instructions** field on the **Configure** tab containing your structured instructions with Markdown headings.",
+            "Capture after the step that pastes the instructions into the agent."
+          ]
+        },
+        {
+          "filename": "dca-instructions-test-result.png",
+          "section": "test",
+          "instructions": [
+            "Show the **Try it** tab with a prompt and a response that follows the required tone and output format.",
+            "Capture after the test step."
+          ]
+        }
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-instructions",
@@ -86,22 +305,25 @@
     {
       "id": "dca-agent-builder-knowledge",
       "name": "Ground an agent with knowledge sources",
-      "category": "declarative-agents",
+      "category": "dca-agent-builder",
       "level": 200,
       "minutes": 30,
-      "summary": "Add public websites, SharePoint and OneDrive content, and other supported sources to an Agent Builder agent and verify they are used.",
+      "summary": "Add public websites, SharePoint and OneDrive content, Teams data, email, and embedded files to an Agent Builder agent, and verify they are used.",
       "whyItMatters": "Knowledge sources ground answers in specific content instead of general model knowledge. Limits and licensing differ by source, so choosing them deliberately avoids failed tests.",
       "concepts": [
-        "Per-agent limits: four public website URLs, 100 SharePoint files, one SharePoint list, 50 OneDrive files, five Teams chats and five meetings, and 20 embedded files. Copilot connectors have no documented numerical limit and must be enabled by an admin.",
+        "Per-agent limits: four public website URLs, 100 SharePoint files, one SharePoint list, 50 OneDrive files, five Teams chats and five meetings, and 20 embedded files. Copilot connectors have no documented numerical limit and must be enabled by an admin; Dynamics 365 and Power Apps data needs an admin to enable Business Applications in Work IQ.",
         "Public website URLs can be only two levels deep and cannot contain query parameters. If Restricted SharePoint Search is enabled, SharePoint cannot be a knowledge source.",
-        "Knowledge availability depends on license: for example, SharePoint data and Copilot connectors are not available in Copilot Chat without usage-based billing."
+        "The agent respects existing permissions and sensitivity labels. Embedded files are different: anyone who can access the agent can see answers grounded in them, and Microsoft Purview Information Barriers is not supported on them.",
+        "Knowledge availability depends on license; for example, email and Teams knowledge depends on your license. If the Allow web search in Copilot policy disables web content, Copilot blocks web content even though the **Web content** toggle in the **Knowledge** pane is not disabled."
       ],
       "steps": [
         "In Microsoft 365 Copilot, select **New agent**, then **Skip to configure**.",
         "In the **Knowledge** section, add sources with **Search**, **Enter URL**, **Browse**, or **Upload**.",
-        "For a website, enter a public URL (up to four, two levels, no query parameters).",
-        "For SharePoint or OneDrive, enter a site, folder, file, or shareable link, or use **Attach cloud files** to browse.",
-        "For a SharePoint list, add the list's own URL or pick it under **Recent lists**; a site URL does not include its lists.",
+        "For a website, enter a public URL (up to four, two levels, no query parameters). To use any web data, turn on the toggle next to **Search all websites**.",
+        "For SharePoint or OneDrive, enter a site, folder, file, or shareable link, or select **Attach cloud files** to browse. Never enter a local path.",
+        "For a SharePoint list, add the list's own URL or select it under **Recent lists**; a site URL does not include its lists.",
+        "To use Teams data, select **My Teams chats and meetings**, or search and use the **Chats** and **Meetings** tabs to scope to specific ones. For email, select **My emails**; email cannot be scoped.",
+        "To embed files, drag them in or use the arrow icon on the **Configure** tab; they appear under **Uploaded files**.",
         "Wait until sources no longer show **Preparing**; select the refresh button above **Knowledge** to reload state.",
         "On the **Try it** tab, ask a question answered by one source and confirm the response uses it."
       ],
@@ -112,7 +334,33 @@
       "learnQueries": ["Add knowledge sources to an agent in Agent Builder", "Agent Builder SharePoint knowledge limits"],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-add-knowledge",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder",
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-knowledge-section.png",
+          "section": "knowledge",
+          "instructions": [
+            "Show the **Knowledge** section of the **Configure** tab with the **Search**, **Enter URL**, **Browse**, and **Upload** options visible.",
+            "Capture before the step that adds a source."
+          ]
+        },
+        {
+          "filename": "dca-knowledge-sources-added.png",
+          "section": "knowledge",
+          "instructions": [
+            "Show the **Knowledge** section listing a website, a SharePoint source, and an uploaded file, with none showing **Preparing**.",
+            "Capture after the step that waits for readiness."
+          ]
+        },
+        {
+          "filename": "dca-knowledge-test-result.png",
+          "section": "test",
+          "instructions": [
+            "Show the **Try it** tab with a question answered by one added source and the response using it."
+          ]
+        }
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-add-knowledge",
@@ -120,9 +368,121 @@
       "relatedLabs": []
     },
     {
+      "id": "dca-agent-builder-capabilities",
+      "name": "Use code interpreter and image generator in Agent Builder",
+      "category": "dca-agent-builder",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Turn on the built-in code interpreter and image generator capabilities and verify them with charts, files, and images.",
+      "whyItMatters": "Built-in capabilities add analysis and visuals without an external service. Knowing what they do, and what they do not, keeps expectations realistic.",
+      "concepts": [
+        "In Agent Builder, the capabilities are **Create documents, charts, and code** (code interpreter) and **Create images** (image generator). You get them whether you use the **Describe** tab or the **Configure** tab. Learn also states code interpreter is always enabled in Agent Builder.",
+        "Code interpreter writes and runs Python in a sandbox. It supports graphs, QR codes, word clouds, synthetic data files, math, uploaded image edits, and downloadable files. Supported upload formats include Word, Excel, PowerPoint, PDF, CSV/TSV, and TXT/UTF8. Generated files are hosted temporarily, only during the active session.",
+        "Code interpreter is available to users with a Microsoft 365 Copilot license and to Copilot Chat users without metered usage enabled. Image generator is not available to agents in GCCH.",
+        "Agent Builder cannot author actions that call external services; that needs Copilot Studio or a pro-code route."
+      ],
+      "steps": [
+        "Open your agent in Agent Builder and go to the **Configure** tab.",
+        "Find the capability toggles. Confirm the toggle next to **Create documents, charts, and code** is on for code interpreter.",
+        "Confirm the toggle next to **Create images** is on for image generator.",
+        "On the **Try it** tab, ask: Graph the first 20 numbers in a Fibonacci sequence. Open the code view to see the Python.",
+        "Upload a small Excel or CSV file and ask for a bar chart of its data.",
+        "Ask for a downloadable file, for example: Create a spreadsheet with a multiplication table for numbers 1 through 10 and give me the Excel file. Download it before ending the session.",
+        "Ask the agent to create an image and confirm an image is returned."
+      ],
+      "validation": [
+        "A chart is returned for the Fibonacci prompt and its Python code can be viewed or copied.",
+        "A generated file offers a download link in the response.",
+        "An image request returns a generated image."
+      ],
+      "learnQueries": ["Add the code interpreter capability to your agent", "Agent Builder capabilities code interpreter image generator"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-build-agents",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/code-interpreter",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents-add-capabilities"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-capability-toggles.png",
+          "section": "build",
+          "instructions": [
+            "Show the capability toggles for **Create documents, charts, and code** and **Create images** on the **Configure** tab."
+          ]
+        },
+        {
+          "filename": "dca-code-interpreter-chart.png",
+          "section": "test",
+          "instructions": [
+            "Show the **Try it** tab with the Fibonacci prompt, the returned line chart, and the code button.",
+            "Capture after the Fibonacci step."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/code-interpreter",
+      "prereqs": ["dca-agent-builder-first-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "dca-agent-builder-skills",
+      "name": "Add a skill to an Agent Builder agent",
+      "category": "dca-agent-builder",
+      "level": 200,
+      "minutes": 30,
+      "availability": "preview",
+      "summary": "Create a reusable skill from a natural-language description, or upload a skill package, and confirm the agent uses it.",
+      "whyItMatters": "A skill packages repeatable instructions and scripts so a workflow runs the same way every time, without pushing past the 8,000-character instruction limit.",
+      "concepts": [
+        "A skill is a directory with a required SKILL.md (name and description in YAML front matter, instructions under 20,000 characters) plus optional resource files and scripts. Learn's comparison article says custom skills in Agent Builder are in preview.",
+        "In Agent Builder you can add up to eight skills per agent; a package is a .zip of up to 50 MB, with up to 350 files across all skills and a directory depth of 3. Upload the complete .zip, never SKILL.md alone.",
+        "Skill scripts run in a sandbox with no network access and no package installation, and cannot call connectors, API plugins, or MCP servers; the agent uses those through the orchestrator instead.",
+        "In tenants that use Microsoft Purview Information Barriers, admins can deploy agents with skills, but end users cannot add skills to agents they create. Uploaded skill files are stored in tenant-scoped SharePoint Embedded containers."
+      ],
+      "steps": [
+        "In Copilot chat, select **Agents & Skills**, then **New agent**.",
+        "In the **Message Agent Builder** text box, ask for a reusable workflow, for example an agent that writes release notes with a skill that groups changes into Features, Fixes, and Other and formats a Markdown changelog.",
+        "On the **Configure** tab, confirm a skill was created, then select it to review its details.",
+        "If no skill was added, package one as a .zip containing SKILL.md (with name and description in the front matter) and any resources or scripts.",
+        "On the **Configure** tab, expand **Skills**, select **Add**, and upload the complete .zip.",
+        "Review the skill name, description, instructions, and included files.",
+        "On the **Try it** tab, send a prompt that should use the skill and confirm the output follows its steps."
+      ],
+      "validation": [
+        "The skill appears under **Skills** on the **Configure** tab with the expected name and description.",
+        "A prompt that matches the skill produces output in the skill's format."
+      ],
+      "learnQueries": ["Add skills to your declarative agent in Agent Builder", "Skills in declarative agents"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-add-skills",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-skills",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-experience"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-skill-attached.png",
+          "section": "build",
+          "instructions": [
+            "Show the **Configure** tab with the **Skills** section expanded and the new skill listed.",
+            "Capture after the step that confirms the skill."
+          ]
+        },
+        {
+          "filename": "dca-skill-test-result.png",
+          "section": "test",
+          "instructions": [
+            "Show the **Try it** tab with a prompt that uses the skill and the formatted output."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-add-skills",
+      "prereqs": ["dca-agent-builder-first-agent"],
+      "relatedLabs": []
+    },
+    {
       "id": "dca-toolkit-typespec-agent",
       "name": "Build a declarative agent with Agents Toolkit and TypeSpec",
-      "category": "declarative-agents",
+      "category": "dca-agents-toolkit",
       "level": 200,
       "minutes": 45,
       "summary": "Scaffold a declarative agent in Visual Studio Code with Microsoft 365 Agents Toolkit, edit main.tsp, provision, and test in Copilot.",
@@ -130,16 +490,16 @@
       "concepts": [
         "Microsoft 365 Agents Toolkit is an evolution of Teams Toolkit, available for Visual Studio Code, Visual Studio, and CLI. Provision fails if the tenant does not allow custom app upload.",
         "The manifest requires name (100 characters or less), description (1,000), and instructions (8,000); conversation starters are limited to 12. A JSON route also exists (choose **No Action**).",
-        "The tutorial agent targets licensed Microsoft 365 Copilot users; Copilot Chat users get limited capabilities. Not confirmed in Microsoft Learn: GCC/DoD behavior for this tutorial."
+        "The tutorial agent targets licensed Microsoft 365 Copilot users; Copilot Chat users get limited capabilities. Declarative agents based on Microsoft 365 Copilot are also supported in Word and PowerPoint. Not confirmed in Microsoft Learn: GCC and DoD behavior for this specific tutorial."
       ],
       "steps": [
         "Confirm custom app upload is enabled in your tenant and install Visual Studio Code and the Microsoft 365 Agents Toolkit extension.",
         "Select **Microsoft 365 Agents Toolkit > Create a New Agent/App**, then **Declarative Agent**.",
         "Select **Start with TypeSpec for Microsoft 365 Copilot**, **Default folder**, and enter `My Agent` as the **Application Name**.",
         "In the new window, open Agents Toolkit and select **Provision** in the **Lifecycle** pane.",
+        "Go to https://m365.cloud.microsoft/chat, open the conversation drawer next to **New Chat**, and select **My Agent**; ask a question.",
         "In `main.tsp`, replace the `@instructions` decorator text, add `@conversationStarter` entries, and select **Provision** again.",
-        "Add a capability such as `AgentCapabilities.WebSearch` with a `Sites` list inside the `MyAgent` namespace, then **Provision**.",
-        "Go to https://m365.cloud.microsoft/chat, open the conversation drawer next to **New Chat**, and select **My Agent**."
+        "Reload the page and confirm the starters appear and answers follow the updated instructions."
       ],
       "validation": [
         "After provisioning, **My Agent** appears in the Microsoft 365 Copilot agent list.",
@@ -153,60 +513,445 @@
         "https://learn.microsoft.com/microsoftteams/platform/toolkit/overview-agents-toolkit",
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites"
       ],
+      "screenshots": [
+        {
+          "filename": "dca-toolkit-create-agent-options.png",
+          "section": "build",
+          "instructions": [
+            "Show the Visual Studio Code prompt with **Start with TypeSpec for Microsoft 365 Copilot** and the other starting options visible.",
+            "Capture after the step that selects **Declarative Agent**."
+          ]
+        },
+        {
+          "filename": "dca-toolkit-lifecycle-provision.png",
+          "section": "build",
+          "instructions": [
+            "Show the Agents Toolkit pane with the **Lifecycle** section and the **Provision** action visible."
+          ]
+        },
+        {
+          "filename": "dca-typespec-instructions-result.png",
+          "section": "test",
+          "instructions": [
+            "Show Microsoft 365 Copilot Chat with **My Agent** selected, its conversation starters, and an answer that follows the updated instructions.",
+            "Capture after the final step."
+          ]
+        }
+      ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents-typespec",
+      "prereqs": ["dca-licensing-and-environment"],
+      "relatedLabs": []
+    },
+    {
+      "id": "dca-toolkit-json-capabilities-action",
+      "name": "Build with JSON, then add capabilities and an API action",
+      "category": "dca-agents-toolkit",
+      "level": 200,
+      "minutes": 50,
+      "summary": "Create a declarative agent with Agents Toolkit and the JSON manifest, add image generator and code interpreter, and attach an API plugin from an OpenAPI description.",
+      "whyItMatters": "The JSON route edits appPackage/declarativeAgent.json directly, which shows exactly how capabilities and actions are declared in the manifest that Copilot reads.",
+      "concepts": [
+        "Choose **No Action** when creating the agent to get a basic JSON-based declarative agent. Capabilities go in the capabilities array of appPackage/declarativeAgent.json; code interpreter needs manifest schema version 1.2 or later.",
+        "Image generator is not available to agents in GCCH, code interpreter in GCCH is available only to users with a Microsoft 365 Copilot add-on license, and custom actions are not supported in GCCH. Microsoft 365 Government tenants do not support publishing agents through Agents Toolkit.",
+        "An API plugin lets the agent call a REST API described by an OpenAPI document. Learn's sample uses the free JSONPlaceholder API, which returns fake data; do not point the exercise at a production API."
+      ],
+      "steps": [
+        "In Visual Studio Code, select **Microsoft 365 Agents Toolkit > Create a New Agent/App**, then **Declarative Agent**.",
+        "Select **No Action**, **Default folder**, and enter `My Agent` as the **Application Name**.",
+        "In the new window, select **Provision** in the **Lifecycle** pane, then open https://m365.cloud.microsoft/chat and select **My Agent** from the conversation drawer.",
+        "Confirm the agent replies with the sample message from Agents Toolkit.",
+        "Open `appPackage/declarativeAgent.json`, add `{ \"name\": \"GraphicArt\" }` to the capabilities array, and select **Provision**. Reload and ask for an image.",
+        "Add `{ \"name\": \"CodeInterpreter\" }` to the capabilities array and select **Provision**. Reload and ask for a graph.",
+        "Create `posts-api.yml` from the Posts API OpenAPI description in the Learn article.",
+        "Select **Add Action** in the **Development** pane, then **Start with an OpenAPI Description Document**, select **Browse**, and choose `posts-api.yml`.",
+        "Select all available APIs, select **OK**, select **manifest.json**, review the warning, and select **Add**.",
+        "Select **Provision** again, reload, and ask the agent about posts to confirm it uses the API plugin."
+      ],
+      "validation": [
+        "After each **Provision** and reload, the agent returns the added capability's output (an image, then a graph with its Python code).",
+        "A prompt about posts returns content from the Posts API plugin."
+      ],
+      "learnQueries": ["Create declarative agents by using Microsoft 365 Agents Toolkit and JSON", "Add capabilities and custom actions to a declarative agent Agents Toolkit"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents-add-capabilities",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/code-interpreter",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-json-capabilities-array.png",
+          "section": "build",
+          "instructions": [
+            "Show `declarativeAgent.json` in Visual Studio Code with the capabilities array containing GraphicArt and CodeInterpreter.",
+            "Capture after the code interpreter step."
+          ]
+        },
+        {
+          "filename": "dca-json-api-selection.png",
+          "section": "build",
+          "instructions": [
+            "Show the dialog that lists the APIs from `posts-api.yml` with all of them selected.",
+            "Capture after the step that selects all available APIs."
+          ]
+        },
+        {
+          "filename": "dca-json-plugin-response.png",
+          "section": "test",
+          "instructions": [
+            "Show the agent's answer in Copilot Chat that contains content returned by the Posts API plugin."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents-add-capabilities",
+      "prereqs": ["dca-licensing-and-environment"],
+      "relatedLabs": []
+    },
+    {
+      "id": "dca-toolkit-knowledge-capabilities",
+      "name": "Add knowledge capabilities with TypeSpec",
+      "category": "dca-agents-toolkit",
+      "level": 200,
+      "minutes": 40,
+      "summary": "Add web search, OneDrive and SharePoint, Teams messages, people, email, and Copilot connector knowledge to a TypeSpec agent, scoped as narrowly as the scenario allows.",
+      "whyItMatters": "Each capability's scoping array decides what the agent can read. An omitted array means broad access to everything the signed-in user can reach, so scoping is a security decision as well as a quality one.",
+      "concepts": [
+        "Capabilities are declared in the MyAgent namespace, for example AgentCapabilities.WebSearch, OneDriveAndSharePoint, TeamsMessages, People, Email, and GraphConnectors. Each links to its object in the manifest reference.",
+        "Scoping: omit Sites on WebSearch and the agent can access all web content; omit ItemsByUrl (or ItemsBySharePointIds) and it can reach all OneDrive and SharePoint content the signed-in user can access; omit TeamsMessagesByUrl for all Teams content the user can access; omit Connections for all Copilot connectors the user can access.",
+        "Licensing differs: web search works in Copilot Chat; Copilot connectors, SharePoint, and embedded files need usage-based billing or a Copilot license; email, people, and Teams knowledge need a Microsoft 365 Copilot license."
+      ],
+      "steps": [
+        "Open the TypeSpec project from the earlier topic and open `main.tsp`.",
+        "Add `op webSearch is AgentCapabilities.WebSearch<Sites = [{ url: \"https://learn.microsoft.com\" }]>;` in the `MyAgent` namespace and select **Provision**. Test a question that needs that site.",
+        "Add `AgentCapabilities.OneDriveAndSharePoint` with an `ItemsByUrl` entry for a SharePoint site in your tenant. Use the full path of the site, library, folder, or file, then **Provision**.",
+        "Add `AgentCapabilities.TeamsMessages` with a `TeamsMessagesByUrl` entry for a well-formed Teams chat, team, or meeting chat link, then **Provision**.",
+        "Add `AgentCapabilities.People`, then `AgentCapabilities.Email` scoped with a `Folders` entry such as Inbox, then **Provision** after each.",
+        "Add `AgentCapabilities.GraphConnectors` with a `connectionId` for a Copilot connector in your tenant, then **Provision**.",
+        "Reload Copilot Chat, select your agent, and ask one question per source to confirm each is used. Remove any capability you do not need."
+      ],
+      "validation": [
+        "Each question returns content from its intended source, and a question outside the configured scope is not answered from it.",
+        "Every capability in `main.tsp` has the narrowest scope the scenario needs."
+      ],
+      "learnQueries": ["Create declarative agents by using Microsoft 365 Agents Toolkit and TypeSpec add capabilities", "Add knowledge sources to your declarative agent"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents-typespec",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.9",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-typespec-capabilities-code.png",
+          "section": "build",
+          "instructions": [
+            "Show `main.tsp` with the MyAgent namespace containing WebSearch, OneDriveAndSharePoint, and TeamsMessages capabilities, with tenant URLs masked.",
+            "Capture after the Teams messages step."
+          ]
+        },
+        {
+          "filename": "dca-typespec-knowledge-answer.png",
+          "section": "test",
+          "instructions": [
+            "Show Copilot Chat with the agent answering from a SharePoint source, with sensitive text masked."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents-typespec",
+      "prereqs": ["dca-toolkit-typespec-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "dca-toolkit-api-plugin-typespec",
+      "name": "Add an API plugin action with TypeSpec",
+      "category": "dca-actions",
+      "level": 200,
+      "minutes": 50,
+      "summary": "Define REST operations in TypeSpec, add an Adaptive Card to a GET operation, provision, and test each custom action in Microsoft 365 Copilot.",
+      "whyItMatters": "API plugins are how a declarative agent reads and changes data in your own systems. Good operation descriptions decide whether the orchestrator picks the right function.",
+      "concepts": [
+        "MCP and API plugins are supported as actions within declarative agents; they are not enabled as standalone experiences in Microsoft 365 Copilot.",
+        "The plugin is declared in a namespace with @service, @server, and @actions (nameForHuman, descriptionForHuman, descriptionForModel). Operations use @route with @get, @post, @patch, and @delete; the @card decorator attaches an Adaptive Card file to an operation.",
+        "Copilot asks before sending data to a plugin for the first time; afterward, retrieval-only operations do not need confirmation but operations that modify data do. With five or fewer plugins the agent always injects them; with more than five it uses semantic matching on plugin descriptions. Quality might degrade above 10 functions or tools. The plugin API timeout is 10 seconds."
+      ],
+      "steps": [
+        "Open the TypeSpec agent project in Visual Studio Code and open `main.tsp`.",
+        "Add a `PostsAPI` namespace inside `MyAgent` with `@service`, `@server`, and `@actions`, and a `listPosts` GET operation that returns `PostItem[]`.",
+        "Add an optional `@query userId?` parameter to `listPosts`.",
+        "Create `post-card.json` in the **appPackage** directory and add `@card` to `listPosts`.",
+        "Add `createPost` (POST), `updatePost` (PATCH), and `deletePost` (DELETE) operations.",
+        "Select the Agents Toolkit icon, then **Provision** in the **Lifecycle** pane.",
+        "Open https://m365.cloud.microsoft/ and select your agent. Test GET, POST, PATCH, and DELETE prompts, approving the first-use confirmation.",
+        "Improve operation descriptions if the wrong function is chosen, and provision again."
+      ],
+      "validation": [
+        "A prompt to list posts returns a table, and a user-scoped prompt returns only that user's posts with the card's Read More link.",
+        "Create, update, and delete prompts each trigger the matching operation, and modifying operations ask for confirmation."
+      ],
+      "learnQueries": ["Build API plugins with TypeSpec for Microsoft 365 Copilot", "MCP and API plugins for declarative agents"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-api-plugins-typespec",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-plugins",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/debugging-agents-vscode"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-api-plugin-namespace-code.png",
+          "section": "build",
+          "instructions": [
+            "Show `main.tsp` with the PostsAPI namespace, its @actions decorator, and the listPosts operation.",
+            "Capture after the step that adds the optional query parameter."
+          ]
+        },
+        {
+          "filename": "dca-api-plugin-confirmation.png",
+          "section": "test",
+          "instructions": [
+            "Show the first-use confirmation prompt that asks you to allow data to be sent to the plugin."
+          ]
+        },
+        {
+          "filename": "dca-api-plugin-list-result.png",
+          "section": "test",
+          "instructions": [
+            "Show the agent's table of blog posts returned for the list prompt."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-api-plugins-typespec",
+      "prereqs": ["dca-toolkit-typespec-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "dca-toolkit-mcp-plugin",
+      "name": "Connect a declarative agent to an MCP server with OAuth",
+      "category": "dca-actions",
+      "level": 300,
+      "minutes": 45,
+      "summary": "Create an OAuth client, add a remote MCP server as an action with Agents Toolkit, provision the agent, and sign in through the agent to use it.",
+      "whyItMatters": "MCP actions reuse tools that already exist. Choosing the right authentication scheme and understanding dynamic tool discovery prevents sign-in failures and surprise tool changes.",
+      "concepts": [
+        "The walkthrough needs Microsoft 365 Agents Toolkit 6.12.0 or later and uses the GitHub MCP server as an example; the plugin manifest connects to a remote MCP server and does not host it.",
+        "Authentication choices in the toolkit: OAuth with static registration (client ID, client secret, optional scopes), OAuth with dynamic registration (DCR, no manual client), Entra SSO, or None. API key is for API plugins only. The redirect URL to register is https://teams.microsoft.com/api/platform/v1.0/oAuthRedirect.",
+        "By default Copilot resolves MCP tools at runtime (dynamic tool discovery); you can pin a fixed set instead. Treat client secrets as secrets: do not commit them or paste them into screenshots."
+      ],
+      "steps": [
+        "Create an OAuth client with your server's identity provider. For the GitHub example, go to https://github.com/settings/developers, select **OAuth Apps** > **New OAuth App**, and set the **Authorization callback URL** to `https://teams.microsoft.com/api/platform/v1.0/oAuthRedirect`.",
+        "Select **Register application**, then **Generate a new client secret**; copy the **Client ID** and the secret to a safe place.",
+        "In Visual Studio Code, select the **Microsoft 365 Agents Toolkit** icon, then **Create a New Agent/App** and **Declarative Agent**.",
+        "Select **Add an Action**, then **Start with an MCP Server**, and enter the MCP server URL.",
+        "Select the authentication type, for example **OAuth (with static registration)**, then enter the **Client ID**, the client secret, and press **Enter** to accept the scopes. Choose a project location and name.",
+        "In the **Accounts** pane, select **Sign in to Microsoft 365** and confirm **Custom App Upload Enabled** and **Copilot Access Enabled** show.",
+        "In the **Lifecycle** pane, select **Provision**, read the message, and select **Confirm**.",
+        "At https://m365.cloud.microsoft/chat, find your agent in the **Agents** section (its name ends with `dev`), ask it a question that needs the server, and select **Sign in to** the agent when prompted to authorize."
+      ],
+      "validation": [
+        "After authorizing, the agent returns data from the MCP server tool.",
+        "If a tool returns a UI widget (MCP app), the widget renders inline in the response."
+      ],
+      "learnQueries": ["Build a plugin for a declarative agent from an MCP server", "Configure authentication for MCP and API plugins in agents"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-mcp-plugins",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-authentication",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-plugins"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-mcp-auth-type-prompt.png",
+          "section": "build",
+          "instructions": [
+            "Show the **Select Authentication Type** prompt listing the OAuth static, OAuth dynamic, Entra SSO, and None options.",
+            "Capture before the step that selects an option; never show a client ID or secret."
+          ]
+        },
+        {
+          "filename": "dca-mcp-agent-response.png",
+          "section": "test",
+          "instructions": [
+            "Show the agent's response with data returned from the MCP server after sign-in, with account details masked."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-mcp-plugins",
+      "prereqs": ["dca-toolkit-api-plugin-typespec"],
+      "relatedLabs": []
+    },
+    {
+      "id": "dca-agent-builder-share-agent",
+      "name": "Share an agent and manage its owners",
+      "category": "dca-distribute-govern",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Share an Agent Builder agent with people or groups, set roles, publish updates, and fill in the About this agent details.",
+      "whyItMatters": "Sharing is the quickest way to pilot an agent with a known audience. Roles, admin policy, and knowledge-source permissions decide who can chat, who can edit, and what each person gets back.",
+      "concepts": [
+        "Roles are **Can edit** (owner, full rights) and **Can chat** (chat user). All owners have equal rights, and a group can only be a chat user, so add individual users as owners. Sharing does not deploy across the organization or to other channels.",
+        "Admins can limit org-wide sharing to all users (default), specific users or groups, or no users. Changes apply only to new sharing actions, and a banner asks owners to fix noncompliant sharing before they can update. Agents respect each user's permissions and sensitivity labels, so a user without access to a knowledge source gets no answers from it.",
+        "Changes are saved automatically but are not visible to users until you select **Update**, and can take several minutes. The **My agents** list shows only agents you own. Deleting an agent is permanent."
+      ],
+      "steps": [
+        "After testing, select **Create**; the confirmation says the agent is private to you. Select **Share**.",
+        "In **Add a name, group, or email**, enter people or groups and set **Can edit** or **Can chat** on the **Add people** panel.",
+        "Leave **Send notification** selected to email the new users, then select **Add**. Copy the chat link from the confirmation, or use **Copy chat link**.",
+        "To change access later, open **Share**, use the role dropdown next to a user, and choose **Can edit**, **Can chat**, or **Remove**.",
+        "If your admin policy allows it, turn on **Org-wide sharing for chat access**; other users in the tenant then see the agent in the Agent Store.",
+        "Select the **More** ellipses (**...**) > **About this agent** and set **Short description** (required, 80 characters), **Creator website**, **Privacy statement**, and **Terms of use** (valid HTTPS URLs).",
+        "To change a shared agent, open **All agents**, select the ellipses next to it, choose **Edit**, make changes, and select **Update** in the top right. Reshare it if it uses SharePoint files or folders.",
+        "To keep a copy outside the tenant UI, select the ellipses next to an agent in **View all agents** and choose **Download .zip file**; embedded files cannot be included."
+      ],
+      "validation": [
+        "A user added with **Can chat** can open the chat link and use the agent, and an unlicensed or unauthorized user gets a clear error rather than content.",
+        "After **Update**, a chat user sees the changed behavior."
+      ],
+      "learnQueries": ["Share and manage agents built in Agent Builder", "Agent Builder share agent roles Can edit Can chat"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-share-dialog.png",
+          "section": "build",
+          "instructions": [
+            "Show the share dialog listing who has access, their roles, the **Org-wide sharing for chat access** toggle, and the link actions, with names masked."
+          ]
+        },
+        {
+          "filename": "dca-add-people-panel.png",
+          "section": "build",
+          "instructions": [
+            "Show the **Add people** panel with a role selected and the **Send notification** checkbox.",
+            "Capture before the step that selects **Add**."
+          ]
+        },
+        {
+          "filename": "dca-about-this-agent.png",
+          "section": "build",
+          "instructions": [
+            "Show the **About this agent** dialog with its four fields filled in."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents",
       "prereqs": ["dca-agent-builder-first-agent"],
       "relatedLabs": []
     },
     {
       "id": "dca-agent-builder-share-and-catalog",
-      "name": "Share an agent and submit it to your org catalog",
-      "category": "declarative-agents",
+      "name": "Submit an agent to your org catalog",
+      "category": "dca-distribute-govern",
       "level": 300,
-      "minutes": 35,
-      "summary": "Share an Agent Builder agent with people or groups, then submit it for admin review so it appears in the Agent Store under Built by your org.",
-      "whyItMatters": "Sharing and catalog submission are separate paths with different review and update cycles. Knowing both prevents access failures and unreviewed changes reaching the organization.",
+      "minutes": 30,
+      "summary": "Submit an Agent Builder agent for admin review so it appears in the Agent Store under Built by your org, then track status and resubmit updates.",
+      "whyItMatters": "Catalog submission and sharing are separate paths with different review and update cycles. Knowing both prevents unreviewed changes reaching the organization and stale Agent Store listings.",
       "concepts": [
-        "Roles are **Can edit** (owner) and **Can chat**; a group can only be a chat user. Admins can limit org-wide sharing to all users, specific users or groups, or no users.",
-        "Sharing applies updates immediately; org catalog submission needs admin approval in the Microsoft 365 admin center and requires that the agent was published at least once. Embedded files cannot be included in the downloadable ZIP package.",
-        "Agents respect each user's permissions and sensitivity labels, so shared users without access to a knowledge source do not get answers from it."
+        "Sharing applies updates immediately; catalog submission needs admin approval and the Agent Store version updates only after an admin approves a resubmission. The two versions are tracked as separate entries.",
+        "The **Submit to your org catalog** menu item is disabled until the agent has been published at least once. Admins review the display name and short description, capabilities and knowledge sources, sensitivity label, developer information, and declarative agent metadata.",
+        "If personal knowledge such as Teams meetings, chats, or emails is used, say so in the short description. An agent can have only one active pending submission; resubmitting replaces it. Where an admin approves submissions in the Microsoft 365 admin center is Not confirmed in Microsoft Learn beyond the pages that link to the agent registry and requests."
       ],
       "steps": [
-        "After testing, select **Create**; the confirmation says the agent is private to you. Select **Share**.",
-        "In **Add a name, group, or email**, enter people or groups and set **Can edit** or **Can chat**, then select **Add**.",
-        "Optionally turn on **Org-wide sharing for chat access** if your admin policy allows it.",
-        "Open **About this agent** and set the short description (80 characters), creator website, privacy statement, and terms of use.",
-        "To publish broadly, select **Update** for pending changes, then **More** (...) > **Submit to your org catalog**.",
-        "Fill in **Display name**, **Short description**, **Developer name**, **Creator website**, **Privacy statement**, and **Terms of use**, then select **Continue**.",
-        "Track the status: **Waiting for approval**, **Approved**, or **Rejected by your admin**.",
-        "After approval, resubmit after each meaningful **Update**; the Agent Store version changes only after admin approval."
+        "In Microsoft 365 Copilot, go to **All agents**, select the agent, and select **Edit**. If there are unpublished changes, select **Update**.",
+        "In the authoring header, select the **More** ellipses (**...**), then **Submit to your org catalog**.",
+        "Fill in **Display name** (30 characters), **Short description** (80), **Developer name** (32), **Creator website**, **Privacy statement**, and **Terms of use** (HTTPS URLs; replace the placeholder links).",
+        "Select **Continue**. The dialog shows **Submitted for admin approval**.",
+        "Reopen **Submit to your org catalog** to see the status: **Waiting for approval**, **Approved**, or **Rejected by your admin** (the banner includes the reviewer's comment).",
+        "After approval, select **Go to Agent Store** on the **Approved** banner, or find the agent under **Built by your org** in **All agents**, and copy its URL.",
+        "For later changes, select **Update**, then **Submit to your catalog** on the success dialog and complete the dialog again; users keep the last approved version until approval."
       ],
       "validation": [
-        "A user added with **Can chat** can open the chat link and use the agent.",
-        "The submission dialog shows **Submitted for admin approval** and later **Approved**, and the agent appears under **Built by your org**."
+        "The submission dialog shows **Submitted for admin approval** and later **Approved**, and the agent appears under **Built by your org**.",
+        "After a resubmission, the Agent Store version does not change until the admin approves it."
       ],
-      "learnQueries": ["Share and manage agents built in Agent Builder", "Submit agents from Agent Builder to your org catalog"],
+      "learnQueries": ["Submit agents from Agent Builder to your org catalog", "Agent Builder Submit to your org catalog Built by your org"],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-lite-share-manage-agent",
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-submit-to-org-catalog",
-        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder"
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-submit-catalog-dialog.png",
+          "section": "deploy",
+          "instructions": [
+            "Show the **Submit to your org catalog** dialog with all required fields filled in.",
+            "Capture before the step that selects **Continue**."
+          ]
+        },
+        {
+          "filename": "dca-catalog-approved-status.png",
+          "section": "deploy",
+          "instructions": [
+            "Show the dialog with the **Approved** banner and the **Go to Agent Store** action."
+          ]
+        }
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-submit-to-org-catalog",
-      "prereqs": ["dca-agent-builder-first-agent", "dca-agent-builder-knowledge"],
+      "prereqs": ["dca-agent-builder-share-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "dca-agent-builder-troubleshooting",
+      "name": "Troubleshoot Agent Builder limits, errors, and validation",
+      "category": "dca-agent-builder",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Diagnose common Agent Builder problems: known limitations, network requirements, sharing errors, unsupported sensitivity labels, and Responsible AI validation failures.",
+      "whyItMatters": "Most failures trace to a documented limit or policy. A short checklist gets you to the cause, or to the right support ticket, faster than retrying.",
+      "concepts": [
+        "Known limitations: auto sharing of SharePoint files and folders works only with specific security groups, not everyone; Customer Managed Keys are not supported; agents cannot be used in Teams group or 1:1 chats.",
+        "Network: allow HTTPS to *.api.powerplatform.com in addition to the standard Microsoft 365 URLs. Agents built in Agent Builder do not consume Dataverse storage entitlement.",
+        "Responsible AI (RAI) validation runs when you publish or sideload; failures such as encouraging harmful actions block the agent until you fix the name, description, and instructions. Embedded files with unsupported sensitivity labels fail agent creation."
+      ],
+      "steps": [
+        "Reproduce the problem and note the exact message on the **Try it** tab or in the share dialog.",
+        "For sharing errors, match it to the Learn table: **Couldn't share** (fix SharePoint file permissions), **Agent sharing failed, knowledge access not granted** (confirm all users exist, then reshare), or **Can no longer update agent** (change sharing to a policy-compliant option).",
+        "For an unsupported sensitivity label message, check the shield icon next to uploaded files and remove files that show an error icon.",
+        "For a message that the agent might encourage harmful actions, review the name, description, and instructions, remove the content, and update again.",
+        "Check the limitations list (Teams chats, Customer Managed Keys, SharePoint auto sharing) and confirm the network endpoint is reachable.",
+        "If still blocked, select **Send feedback**, say it concerns Agent Builder, and include the agent ID, tenant ID, environment ID, and session ID from **Get support** in the **Help** menu; for **Try it** or **Describe** problems, type `/debug` in the chat box and include the output."
+      ],
+      "validation": [
+        "You can name the documented cause of each error you reproduced and the fix you applied.",
+        "A support request, if needed, includes the four IDs and the `/debug` output."
+      ],
+      "learnQueries": ["Agent Builder known limitations", "Responsible AI validation checks declarative agents", "Share and manage agents troubleshooting"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/rai-validation",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-add-knowledge"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-get-support-details.png",
+          "section": "build",
+          "instructions": [
+            "Show the **Get support** section of the **Help** menu with the agent ID, tenant ID, environment ID, and session ID, all masked."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder",
+      "prereqs": ["dca-agent-builder-first-agent"],
       "relatedLabs": []
     },
     {
       "id": "dca-toolkit-developer-mode",
       "name": "Debug an agent with developer mode in Agents Toolkit",
-      "category": "declarative-agents",
+      "category": "dca-agents-toolkit",
       "level": 300,
       "minutes": 30,
       "summary": "Use Preview your app (F5) and developer mode to see which capabilities and actions the Copilot orchestrator uses.",
       "whyItMatters": "Developer mode shows whether and how knowledge sources and actions were selected for a prompt. That evidence replaces guesswork when answers are wrong or missing.",
       "concepts": [
         "Developer mode returns a debug card when the orchestrator searches your agent's knowledge, capabilities, or actions. No card is returned if the orchestrator does not need Microsoft 365 data or skills, or during capacity throttling.",
-        "The card includes agent metadata (agent ID, version, conversation ID, request ID), capabilities with execution status and a downloadable diagnostic .txt log, and actions with matched and selected functions.",
+        "The card includes agent metadata (summary, agent ID, version, conversation ID, request ID), capabilities with execution status and a downloadable diagnostic .txt log, and actions with matched and selected functions and execution details.",
+        "No functions selected usually means the manifest description is not semantically related to the prompt; failed execution details for API plugins usually mean unclear action or parameter descriptions, invalid host URLs, or OpenAPI problems. The timeout for Copilot to execute a plugin API is 10 seconds.",
         "Learn states developer mode is available only in the licensed Microsoft 365 Copilot experience."
       ],
       "steps": [
@@ -227,6 +972,23 @@
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/debugging-agents-vscode",
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites"
       ],
+      "screenshots": [
+        {
+          "filename": "dca-devmode-preview-f5.png",
+          "section": "test",
+          "instructions": [
+            "Show Visual Studio Code with the Agents Toolkit pane and **Preview your app (F5)** selected, and the **Debug panel** connection status.",
+            "Capture after the step that checks the connection."
+          ]
+        },
+        {
+          "filename": "dca-devmode-debug-card.png",
+          "section": "test",
+          "instructions": [
+            "Show the debug card returned after `-developer on`, with the agent metadata, capabilities, and actions sections visible."
+          ]
+        }
+      ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/debugging-agents-vscode",
       "prereqs": ["dca-toolkit-typespec-agent"],
@@ -241,17 +1003,17 @@
       "summary": "Decide when an Agent Builder agent should move to Copilot Studio and use Copy to Copilot Studio without losing track of what is not copied.",
       "whyItMatters": "The two tools have different governance and lifecycle models. Copying creates a separate snapshot, so you must know what transfers and what you must rebuild.",
       "concepts": [
-        "Agent Builder governance relies on Microsoft 365 agent controls and the data sources' permissions. Copilot Studio adds Power Platform environment and connector controls, lifecycle management, and analytics.",
-        "Copying needs a Copilot Studio or Microsoft 365 Copilot license, the Dataverse entitlement, and a Power Platform environment with Dataverse in a supported data location.",
-        "Not copied or needing rework: Copilot connectors, embedded files, Teams chats and meetings, emails, and code interpreter setup; image creation is not currently supported in Copilot Studio."
+        "Agent Builder governance relies on Microsoft 365 agent controls and the data sources' permissions. Copilot Studio adds Power Platform environment and connector controls, lifecycle management, and analytics. Needing users across several departments does not by itself require Copilot Studio.",
+        "Copying needs a Copilot Studio or Microsoft 365 Copilot license, the Common Data Service (Dataverse) entitlement, and a Power Platform environment with Dataverse in a supported data location. The sharing limit control in the Microsoft 365 admin center differs from the one in the Power Platform admin center.",
+        "Copied: name, description, instructions, suggested prompts, icon, SharePoint and website knowledge. Not copied or needing rework: Copilot connectors, embedded files, Teams chats and meetings, emails, and code interpreter setup; image creation is not currently supported in Copilot Studio."
       ],
       "steps": [
         "Compare needs with the decision guide: external channels, external-service actions or workflows, and environments.",
         "Stay in Agent Builder if instructions plus supported knowledge and capabilities meet the scenario.",
         "To move, open the agent and select **Copy to Copilot Studio** in the **More options (...)** menu.",
-        "Select the Power Platform environment; the copy starts after you choose one.",
+        "Select the Power Platform environment; the copy starts after you choose one. If the environment is blocked, ask an admin to check the connector policy for the **Microsoft Teams + M365** channel.",
         "In Copilot Studio, save the agent so the snapshot is stored.",
-        "Re-add unsupported items: set up Copilot connectors, re-upload embedded files, and add Teams and Outlook connectors.",
+        "Re-add unsupported items: set up Copilot connectors, re-upload embedded files, and add the Teams and Outlook connectors.",
         "Test the copy in Copilot Studio before publishing, then decide whether to delete the original and tell shared users."
       ],
       "validation": [
@@ -260,12 +1022,135 @@
       ],
       "learnQueries": ["Choose between Agent Builder and Copilot Studio", "Copy an agent from Agent Builder to Copilot Studio"],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-experience",
-        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copy-agent-to-copilot-studio"
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copy-agent-to-copilot-studio",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-experience"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-copy-to-copilot-studio-menu.png",
+          "section": "build",
+          "instructions": [
+            "Show the **More options (...)** menu of an Agent Builder agent with **Copy to Copilot Studio** visible."
+          ]
+        },
+        {
+          "filename": "dca-copy-environment-picker.png",
+          "section": "build",
+          "instructions": [
+            "Show the environment selection step with a Power Platform environment chosen, with tenant names masked."
+          ]
+        }
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copy-agent-to-copilot-studio",
       "prereqs": ["dca-agent-builder-first-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "dca-admin-agent-settings",
+      "name": "Control agent sharing, access, and feedback as an admin",
+      "category": "dca-distribute-govern",
+      "level": 300,
+      "minutes": 35,
+      "summary": "Use the Agent settings page in the Microsoft 365 admin center to set who can share agents, which agent types users can install, who can use agents, and whether feedback is shared.",
+      "whyItMatters": "These tenant controls decide how far an agent can spread. Setting them before makers start building avoids oversharing and noncompliant agents.",
+      "concepts": [
+        "Agent settings covers agent management rules, agent and plugin access, security templates, sharing, user access, agent feedback sharing, and tags.",
+        "Sharing options are **All users**, **No users** (disables sharing at the org level, but users can still share directly with specific individuals on this page), and **Specific users**; the sharing control applies only to agents built with Microsoft Copilot Agent Builder.",
+        "User access options are **All users** (default), **No users**, and **Specific users or groups**. Data processed by non-Microsoft services is not subject to Microsoft agreements; review publisher terms first. Which admin role is required for these pages is Not confirmed in Microsoft Learn on the pages read here.",
+        "Learn describes the share dialog's No users option as disabling org-wide sharing completely, and the settings page as disabling org-level sharing while still allowing direct sharing with individuals. Verify behavior in a test tenant."
+      ],
+      "steps": [
+        "Admin: sign in to the Microsoft 365 admin center and select **Agents** > **Settings**.",
+        "Open **Sharing** and choose **All users**, **No users**, or **Specific users**. Save.",
+        "Open **Agent and plugin access** and choose which categories users can view and install: Microsoft, your organization, or external publishers.",
+        "Select **Agents** > **Settings** > **User access**, choose **All users**, **No users**, or **Specific users or groups**, and select **Save**.",
+        "Open **Agent feedback sharing** and choose **No agents**, **All agents**, or **Selected agents**; select the agents if you choose the last option, and select **Save**.",
+        "Open **Tags**, select **Add**, and create labels (up to 50) with descriptions for consistent use.",
+        "As a maker, test with a user in scope and a user out of scope: the **Org-wide sharing for chat access** toggle appears grayed out with a tooltip when org-wide sharing is disabled."
+      ],
+      "validation": [
+        "An in-scope user can share an agent as configured, and an out-of-scope user sees the restriction.",
+        "The **Tags** page lists the new tag and its agent count."
+      ],
+      "learnQueries": ["Agent settings in Microsoft 365 admin center", "Agent Builder org-wide sharing admin control"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-admin-agent-settings-page.png",
+          "section": "admin",
+          "instructions": [
+            "Show the **Agent settings** page in the Microsoft 365 admin center listing the settings sections."
+          ]
+        },
+        {
+          "filename": "dca-admin-sharing-setting.png",
+          "section": "admin",
+          "instructions": [
+            "Show the **Sharing** setting with **All users**, **No users**, and **Specific users** options.",
+            "Capture before the step that saves the choice."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
+      "prereqs": ["dca-agent-builder-share-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "dca-admin-agent-registry",
+      "name": "Manage the agent registry, owners, and custom agent uploads",
+      "category": "dca-distribute-govern",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Review agents in the registry, find agents without owners, add or reassign owners, block or delete agents, and upload an agent ZIP package.",
+      "whyItMatters": "Agents outlive their creators. The registry and owner actions keep each agent accountable and give admins a way to contain or remove one.",
+      "concepts": [
+        "The registry is under **Agents** > **All Agents** > **Registry** in the Microsoft 365 admin center and offers refresh, export, **Add agent**, manage pinned agents, customize view, and search.",
+        "Shared agents become ownerless when their creator is deleted; the **Agents without owners** card filters to them so you can block or delete them. Agent Builder agents support multiple owners with equal rights; groups cannot be owners. You can reassign ownership only for Agent Builder and Copilot Studio agents.",
+        "Blocking an agent built with Agent Builder or Copilot Studio affects it in Microsoft Copilot and in other host products such as Outlook and Teams. The same page uses both Agent Builder in Microsoft Copilot and Agent Builder in Microsoft 365 Copilot as the **Platform** filter label; use the label you see in your tenant."
+      ],
+      "steps": [
+        "Admin: sign in to the Microsoft 365 admin center and select **Agents** > **All Agents** > **Registry**.",
+        "Use the **Platform** filter to select the Agent Builder platform and review the list.",
+        "Select the **Agents without owners** card to filter to ownerless agents.",
+        "Select an agent, then add an owner (an individual user) or assign a new owner; or choose to block or delete the agent.",
+        "To automate cleanup, select **Agents** > **Settings** > **Agent management rules** > **Add rule** and choose a rule such as reassigning ownerless Agent Builder agents to the previous owner's manager. Review the affected agents before you run it.",
+        "To publish an exported agent, have the maker download it from Agent Builder (**All agents** > ellipses > **Edit** > ellipses > **Download .zip file**), then select **Agents** > **All agents** > **Add agent** > **Choose file**.",
+        "Verify the name, icon, and host products; under **Publish** select who can install it; optionally under **Deploy** select who gets it preinstalled; apply a policy template or the default policy; and finish."
+      ],
+      "validation": [
+        "An ownerless agent is reassigned, blocked, or deleted, and the **Agents without owners** count updates.",
+        "An uploaded agent appears in the registry and is available only to the audience you selected."
+      ],
+      "learnQueries": ["Manage agent registry in Microsoft 365 admin center", "Governance and lifecycle actions for agents Microsoft 365 admin center"],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-registry",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings"
+      ],
+      "screenshots": [
+        {
+          "filename": "dca-admin-registry-list.png",
+          "section": "admin",
+          "instructions": [
+            "Show the agent **Registry** list filtered to Agent Builder agents, with the **Agents without owners** card visible."
+          ]
+        },
+        {
+          "filename": "dca-admin-upload-agent.png",
+          "section": "admin",
+          "instructions": [
+            "Show the **Add agent** flow after the ZIP file is validated, with the agent name, icon, and host products listed."
+          ]
+        }
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/agent-registry",
+      "prereqs": ["dca-admin-agent-settings"],
       "relatedLabs": []
     }
   ]
