@@ -106,3 +106,13 @@ test("a paused lab build announces itself and is answerable by keyboard", () => 
   // Keyboard focus lands on the decision instead of staying where it was.
   assert.match(render, /firstLegend\?\.focus\(\)/);
 });
+
+test("themes: light and dark tokens exist, honor the OS setting, and have a persisted toggle", () => {
+  const themeSource = readFileSync(new URL("../public/theme.js", import.meta.url), "utf8");
+  assert.match(html, /<script src="theme\.js"><\/script>/);
+  assert.match(html, /:root\[data-theme="light"\]/);
+  assert.match(html, /@media \(prefers-color-scheme: light\)/);
+  assert.match(html, /id="theme-toggle"[^>]*aria-label=/);
+  assert.match(themeSource, /localStorage\.setItem/);
+  assert.doesNotMatch(html, /backdrop-filter:\s*blur/);
+});
