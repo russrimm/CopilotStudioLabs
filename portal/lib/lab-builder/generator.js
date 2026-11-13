@@ -1115,6 +1115,15 @@ export async function generateLab(request, opts = {}) {
     verifiedAt: linkCheckSummary.verifiedAt,
     durationMs: Date.now() - startedAt,
     request: plan.request,
+    // The wizard options that are not part of the plan, kept so "Edit selections"
+    // can re-open this lab with the same answers. Labs built before this existed
+    // simply lack the block.
+    options: {
+      customTitle: typeof request?.title === "string" && request.title.trim() ? request.title.trim() : null,
+      agentName: typeof request?.agentName === "string" && request.agentName.trim() ? request.agentName.trim() : null,
+      useLearnMcp: useLearnMcp !== false,
+      useLlm: useLlm !== false,
+    },
     industry: plan.industry?.id || null,
     roles: plan.roles.map((r) => r.id),
     difficulty: plan.difficulty,
@@ -1269,6 +1278,13 @@ export async function generateLab(request, opts = {}) {
     if (result.validation.failed) {
       throw new Error(`Generated lab failed ${result.validation.failed} validation check(s).`);
     }
+    // The list shows this without re-running the checks.
+    manifest.validation = {
+      passed: result.validation.passed,
+      failed: result.validation.failed,
+      checkedAt: new Date().toISOString(),
+    };
+    fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
   } catch (err) {
     fs.rmSync(outputDir, { recursive: true, force: true });
     result.outputDir = null;

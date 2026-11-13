@@ -29,10 +29,18 @@ import { planLab } from "./lib/lab-builder/planner.js";
 import { recommend } from "./lib/lab-builder/recommend.js";
 import { getConcepts } from "./lib/lab-builder/concepts.js";
 import { defaultDifferencesFor } from "./lib/lab-builder/differences.js";
-import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
+import { generateLab, OUTPUT_ROOT } from "./lib/lab-builder/generator.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
-import { listGeneratedLabs, readGeneratedLab, resolveGeneratedAsset } from "./lib/lab-builder/generated-labs.js";
+import {
+  deleteGeneratedLab,
+  generatedLabExists,
+  listGeneratedLabs,
+  readGeneratedLab,
+  replaceGeneratedLab,
+  resolveGeneratedAsset,
+  updateGeneratedLabMeta,
+} from "./lib/lab-builder/generated-labs.js";
 import { getTopicService } from "./lib/lab-builder/topic-service.js";
 import { learnContext, newTopicCounts, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
 import { renderLabMarkdown } from "./lib/markdown.js";
@@ -429,6 +437,22 @@ const labBuilderRateCheck = createRateLimiter({
   max: positiveIntFromEnv(process.env.LAB_BUILDER_RATE_MAX, 10),
 });
 
+// Where generated labs live. The override exists so tests never touch the real library.
+const GENERATED_LABS_DIR = process.env.LAB_BUILDER_OUTPUT_DIR ? resolve(process.env.LAB_BUILDER_OUTPUT_DIR) : OUTPUT_ROOT;
+// Deleting and renaming generated labs is cheap but destructive, so it has its own, looser window.
+const labBuilderManageRateCheck = createRateLimiter({
+  windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_MANAGE_RATE_WINDOW_MS, 3600000),
+  max: positiveIntFromEnv(process.env.LAB_BUILDER_MANAGE_RATE_MAX, 60),
+});
+
+function manageRateLimited(req, res) {
+  const rate = labBuilderManageRateCheck(String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase());
+  if (rate.allowed) return false;
+  res.setHeader("Retry-After", String(rate.retryAfterSec));
+  res.status(429).json({ error: `Too many changes to generated labs. Try again in ${rate.retryAfterSec}s.` });
+  return true;
+}
+
 /** GET /api/lab-builder/features — Catalog that drives the wizard */
 app.get("/api/lab-builder/features", (_req, res) => {
   try {
@@ -515,6 +539,10 @@ app.post("/api/lab-builder/generate", async (req, res) => {
   }
 
   const body = req.body || {};
+  const replaceLabId = body.replaceLabId;
+  if (replaceLabId !== undefined && replaceLabId !== null && !generatedLabExists(GENERATED_LABS_DIR, replaceLabId)) {
+    return res.status(400).json({ error: "The lab you chose to replace does not exist." });
+  }
   let decisions;
   try {
     decisions = normalizeDecisions(body.decisions);
@@ -531,6 +559,7 @@ app.post("/api/lab-builder/generate", async (req, res) => {
   res.once("close", cancel);
   try {
     const result = await generateLab(body, {
+      outputRoot: GENERATED_LABS_DIR,
       useLearnMcp: body.useLearnMcp !== false,
       useLlm: body.useLlm !== false,
       decisions,
@@ -556,9 +585,15 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       });
     }
 
+    const replaced =
+      replaceLabId !== undefined && replaceLabId !== null
+        ? replaceGeneratedLab(GENERATED_LABS_DIR, replaceLabId, result.labId).replaced
+        : false;
+
     res.json({
       status: "complete",
       labId: result.labId,
+      replacedLabId: replaced ? replaceLabId : null,
       outputDir: result.outputDir,
       title: result.plan.title,
       difficulty: result.plan.difficulty,
@@ -591,6 +626,20 @@ app.get("/api/lab-builder/generated", (_req, res) => {
 /** GET /api/lab-builder/generated/:labId — Read a generated lab's markdown */
 app.get("/api/lab-builder/generated/:labId", (req, res) => {
   const { status, body } = readGeneratedLab(GENERATED_LABS_DIR, req.params.labId, renderLabMarkdown);
+  res.status(status).json(body);
+});
+
+/** PATCH /api/lab-builder/generated/:labId — Rename a generated lab or change its notes */
+app.patch("/api/lab-builder/generated/:labId", (req, res) => {
+  if (manageRateLimited(req, res)) return;
+  const { status, body } = updateGeneratedLabMeta(GENERATED_LABS_DIR, req.params.labId, req.body);
+  res.status(status).json(body);
+});
+
+/** DELETE /api/lab-builder/generated/:labId — Remove a generated lab (never a hand-written one) */
+app.delete("/api/lab-builder/generated/:labId", (req, res) => {
+  if (manageRateLimited(req, res)) return;
+  const { status, body } = deleteGeneratedLab(GENERATED_LABS_DIR, req.params.labId);
   res.status(status).json(body);
 });
 

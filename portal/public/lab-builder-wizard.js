@@ -43,6 +43,8 @@ const labBuilder = {
   furthest: 1,
   busy: false,
   controller: null,
+  // The generated lab whose choices were loaded for editing, or null.
+  editing: null,
 };
 
 function lbFormatMinutes(minutes) {
@@ -664,6 +666,113 @@ function lbGoToStep(step) {
   if (step === 3) lbRenderLevels();
   if (step === 5) lbRenderTopics();
   if (step === 6) lbPreview();
+}
+
+// ── Re-opening a generated lab's choices ────────────────────────────────────
+function lbSetEditing(lab) {
+  labBuilder.editing = { labId: lab.labId, title: lab.title };
+  const banner = document.getElementById("lb-edit-banner");
+  document.getElementById("lb-edit-banner-text").textContent =
+    `Editing the choices behind "${lab.title}". On the last step you choose whether to save a new lab or replace this one. Nothing changes until you build.`;
+  if (banner) banner.hidden = false;
+  document.getElementById("lb-save-mode-title").textContent = `"${lab.title}"`;
+  const fieldset = document.getElementById("lb-save-mode");
+  if (fieldset) fieldset.hidden = false;
+}
+
+function lbStopEditing(silent) {
+  if (!labBuilder.editing) return;
+  labBuilder.editing = null;
+  const banner = document.getElementById("lb-edit-banner");
+  if (banner) banner.hidden = true;
+  const fieldset = document.getElementById("lb-save-mode");
+  if (fieldset) fieldset.hidden = true;
+  const keepNew = document.querySelector('input[name="lb-save-mode"][value="new"]');
+  if (keepNew) keepNew.checked = true;
+  if (!silent) {
+    toast("Stopped editing. The saved lab was not changed, and your next build is saved as a new lab.", "info");
+    document.getElementById(`lb-heading-${labBuilder.step}`)?.focus();
+  }
+}
+
+/** The `replaceLabId` to send, only when the learner explicitly chose to replace. */
+function lbReplaceTarget() {
+  if (!labBuilder.editing) return undefined;
+  return document.querySelector('input[name="lb-save-mode"]:checked')?.value === "replace" ? labBuilder.editing.labId : undefined;
+}
+
+function lbSetFormValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (el.type === "checkbox") el.checked = value;
+  else el.value = value ?? "";
+}
+
+function lbRenderAllSteps() {
+  lbRenderIndustries();
+  lbRenderRoles();
+  lbRenderLevels();
+  lbRenderHarnesses();
+  lbRenderStepper();
+  lbRenderSummary();
+}
+
+/** Back to the wizard's starting answers, without touching any saved lab. */
+function lbResetAnswers() {
+  labBuilder.industry = null;
+  labBuilder.selectedRoles = new Set();
+  labBuilder.level = 100;
+  labBuilder.harness = "standard";
+  labBuilder.differencesFor = null;
+  labBuilder.picked = null;
+  labBuilder.excluded = new Set();
+  labBuilder.rec = null;
+  labBuilder.furthest = 1;
+  for (const [id, value] of [["lb-time", ""], ["lb-title", ""], ["lb-agent-name", ""], ["lb-use-learn", true], ["lb-use-llm", true]]) {
+    lbSetFormValue(id, value);
+  }
+}
+
+async function lbStartNewLab() {
+  setActiveTab("labbuilder");
+  await lbLoadCatalog();
+  lbStopEditing(true);
+  lbResetAnswers();
+  lbRenderAllSteps();
+  lbRefresh();
+  lbGoToStep(1);
+}
+
+/** Pre-fill every step from a generated lab's saved choices and jump to Review. */
+async function lbLoadSelections(lab) {
+  const saved = lab?.selections;
+  if (!saved) throw new Error("This lab has no saved selections.");
+  setActiveTab("labbuilder");
+  await lbLoadCatalog();
+  if (!labBuilder.loaded) throw new Error("The lab builder catalog is not available.");
+
+  const knownRoles = new Set(labBuilder.roles.map((r) => r.id));
+  const industryKnown = labBuilder.industries.some((i) => i.id === saved.industry);
+  const harnessKnown = labBuilder.harnesses.some((h) => h.id === saved.harness);
+  labBuilder.industry = industryKnown ? saved.industry : null;
+  labBuilder.selectedRoles = new Set(saved.roles.filter((id) => knownRoles.has(id)));
+  labBuilder.level = saved.level || 100;
+  labBuilder.harness = harnessKnown ? saved.harness : "standard";
+  labBuilder.differencesFor = saved.differencesFor ? new Set(saved.differencesFor) : null;
+  labBuilder.picked = new Set(saved.features);
+  labBuilder.excluded = new Set(saved.excluded);
+  labBuilder.rec = null;
+  lbSetFormValue("lb-time", saved.targetMinutes || "");
+  lbSetFormValue("lb-title", saved.customTitle || "");
+  lbSetFormValue("lb-agent-name", saved.agentName || "");
+  lbSetFormValue("lb-use-learn", saved.useLearnMcp !== false);
+  lbSetFormValue("lb-use-llm", saved.useLlm !== false);
+  labBuilder.furthest = 6;
+  lbRenderAllSteps();
+  lbSetEditing(lab);
+  await lbRefresh();
+  lbGoToStep(6);
+  toast(`Loaded the choices from "${lab.title}". Change anything, then build.`, "info");
 }
 
 // ── Review and request ──────────────────────────────────────────────────────

@@ -180,51 +180,35 @@
       overflow: hidden;
     }
 
-    /* ── Sidebar ────────────────────────── */
-    .sidebar {
-      width: 340px;
-      min-width: 340px;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .sidebar-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .sidebar-header h2 { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
-    .sidebar-actions { display: flex; gap: 8px; }
-
+    /* ── Lab chapters (Lab setup tab) ────────────────────────── */
+    .chapter-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    .chapter-actions .btn { min-height: 32px; }
+    .chapter-summary { font-size: 13px; color: var(--text-muted); }
     .lab-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 12px;
+      align-items: start;
     }
-    .lab-list::-webkit-scrollbar,
     .tab-content::-webkit-scrollbar {
       width: 8px;
       height: 8px;
     }
-    .lab-list::-webkit-scrollbar-track,
     .tab-content::-webkit-scrollbar-track {
       background: color-mix(in srgb, var(--text) 3%, transparent);
       border-radius: 999px;
     }
-    .lab-list::-webkit-scrollbar-thumb,
     .tab-content::-webkit-scrollbar-thumb {
       background: var(--scrollbar-thumb);
       border-radius: 999px;
       border: 1px solid color-mix(in srgb, var(--text) 6%, transparent);
     }
-    .lab-list::-webkit-scrollbar-thumb:hover,
     .tab-content::-webkit-scrollbar-thumb:hover {
       background: color-mix(in srgb, var(--accent) 45%, transparent);
     }
+    .lab-card-actions { margin-top: 8px; }
+    .lab-card-actions .btn { min-height: 32px; }
+    .preview-picker { max-width: 520px; margin-bottom: 16px; }
 
     .lab-level {
       margin-bottom: 8px;
@@ -1061,6 +1045,30 @@
     .lb-advanced summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 6px 0; }
     .lb-advanced summary:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
 
+    /* ── Lab builder: previously generated labs ── */
+    .lb-gen-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin: 0 0 10px; }
+    .lb-gen-toolbar .form-group { flex: 1 1 220px; max-width: 360px; }
+    .lb-gen-count { margin: 0 0 10px; font-size: 13px; color: var(--text-muted); min-height: 1.2em; }
+    .lb-gen-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+    .lb-gen-item { padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+    .lb-gen-title { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+    .lb-gen-meta { margin: 0 0 8px; font-size: 12px; color: var(--text-muted); }
+    .lb-gen-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 8px; padding: 0; list-style: none; }
+    .lb-gen-chips li { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; }
+    .lb-gen-chips li.lb-gen-chip-fail { border-style: double; border-width: 3px; font-weight: 600; }
+    .lb-gen-notes { margin: 0 0 8px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .lb-gen-legacy { margin: 0 0 8px; font-size: 12px; color: var(--text-muted); }
+    .lb-gen-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .lb-gen-actions .btn { min-height: 32px; min-width: 44px; }
+    .lb-gen-dialog { max-width: min(520px, calc(100vw - 32px)); width: 100%; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); }
+    .lb-gen-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+    .lb-gen-dialog h4 { margin: 0 0 10px; font-size: 17px; }
+    .lb-gen-dialog p { margin: 0 0 12px; font-size: 14px; }
+    .lb-gen-dialog .lb-gen-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+    .lb-edit-banner { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 8px; background: rgba(79, 143, 247, 0.1); font-size: 13px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+    .lb-save-mode { margin: 16px 0 0; }
+    .lb-edit-banner[hidden], .lb-gen-toolbar[hidden] { display: none; }
+
     /* ── Lab builder: blocked-build decisions ── */
     /* The header is sticky, so scrolling this into view must leave room for it
        or the announcement line lands underneath it. */
@@ -1567,7 +1575,6 @@
       }
       .header-actions { flex-wrap: wrap; justify-content: flex-end; }
       .main-content { flex-direction: column; }
-      .sidebar { width: 100%; min-width: 100%; max-height: 35vh; }
       .tabs {
         overflow-x: auto;
         padding: 0 8px;
@@ -1583,8 +1590,6 @@
       .portal-branding-tagline, #lab-count { display: none; }
       .header-actions { gap: 6px; }
       .header-actions .btn { padding: 7px 9px; }
-      .sidebar { max-height: 30vh; }
-      .sidebar-header { padding: 12px; }
       .panel { padding: 18px 16px; }
     }
 
@@ -1607,7 +1612,6 @@
       }
 
       header,
-      .sidebar,
       .tabs,
       .status-bar,
       .btn,
@@ -1700,23 +1704,6 @@
     </header>
 
     <div class="main-content">
-      <!-- Sidebar: Lab chapters -->
-      <div class="sidebar">
-        <div class="sidebar-header">
-          <h2>Lab Chapters</h2>
-          <div class="sidebar-actions">
-            <button class="btn btn-sm" onclick="selectAll(true)" title="Include all">✓ All</button>
-            <button class="btn btn-sm" onclick="selectAll(false)" title="Exclude all">✗ None</button>
-          </div>
-        </div>
-        <div class="lab-list" id="lab-list">
-          <div style="padding: 40px 20px; text-align: center; color: var(--text-muted);">
-            <div class="spinner" style="margin: 0 auto 12px;"></div>
-            <div>Loading labs...</div>
-          </div>
-        </div>
-      </div>
-
       <!-- Content area -->
       <main class="content" id="portal-main" tabindex="-1">
         <nav class="tab-groups" aria-label="Portal areas">
@@ -1744,6 +1731,24 @@
         <div class="tab-content">
           <!-- Lab setup tab (formerly Provision) -->
           <div class="tab-panel" id="panel-provision" role="tabpanel" aria-labelledby="tab-provision" aria-hidden="true">
+            <section class="panel" aria-labelledby="chapters-heading">
+              <h3 id="chapters-heading">📚 Lab chapters</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Choose which of the hand-written labs are included when you set up, validate, export, or email labs.
+                Use Preview to read a lab.
+              </p>
+              <div class="chapter-actions">
+                <button type="button" class="btn btn-sm" onclick="selectAll(true)">Include all labs</button>
+                <button type="button" class="btn btn-sm" onclick="selectAll(false)">Exclude all labs</button>
+                <span id="chapter-summary" class="chapter-summary" role="status" aria-live="polite"></span>
+              </div>
+              <div class="lab-list" id="lab-list">
+                <div style="padding: 24px 0; text-align: center; color: var(--text-muted);">
+                  <div class="spinner" style="margin: 0 auto 12px;"></div>
+                  <div>Loading labs...</div>
+                </div>
+              </div>
+            </section>
             <div class="panel">
               <h3>🗺️ Lab Dependency &amp; Sequence Map</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
@@ -1980,6 +1985,10 @@
                 </ol>
               </nav>
               <p id="lb-summary" class="lb-summary" role="status" aria-live="polite">Your lab so far: loading...</p>
+              <div id="lb-edit-banner" class="lb-edit-banner" hidden>
+                <span id="lb-edit-banner-text"></span>
+                <button type="button" class="btn btn-sm" id="lb-edit-banner-stop" onclick="lbStopEditing()">Stop editing this lab</button>
+              </div>
             </div>
 
             <!-- Step 1: vertical -->
@@ -2135,6 +2144,25 @@
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 We research each topic on Microsoft Learn and write the lab. This can take a minute. You can go back to any step first.
               </p>
+              <fieldset id="lb-save-mode" class="lb-fieldset lb-save-mode" hidden>
+                <legend class="lb-legend" id="lb-save-mode-legend">How should this be saved?</legend>
+                <div class="scenario-role-list">
+                  <label class="scenario-role">
+                    <input type="radio" name="lb-save-mode" value="new" checked>
+                    <span>
+                      <span style="font-weight: 600;">Save as a new lab</span>
+                      <div class="scenario-card-desc">Keeps the original lab as it is. This is the default.</div>
+                    </span>
+                  </label>
+                  <label class="scenario-role">
+                    <input type="radio" name="lb-save-mode" value="replace">
+                    <span>
+                      <span style="font-weight: 600;">Replace <span id="lb-save-mode-title"></span></span>
+                      <div class="scenario-card-desc">Deletes the original after the new lab is built. If the build fails or is cancelled, the original stays. Notes carry over.</div>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
               <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
                 <button class="btn" type="button" onclick="lbGoToStep(6)">← Back</button>
                 <button class="btn btn-primary" type="button" id="lb-generate-btn" onclick="lbGenerate()">🧬 Build my lab</button>
@@ -2146,15 +2174,66 @@
             </div>
 
             <div class="panel" id="lb-result-panel" style="display: none;">
-              <h3>📘 Your lab</h3>
+              <h3 id="lb-result-heading" tabindex="-1">📘 Your lab</h3>
               <div id="lb-result-meta" style="margin-bottom: 16px;"></div>
               <div id="lb-result-body" class="preview-frame"></div>
             </div>
 
-            <div class="panel">
-              <h3>🗂️ Previously generated labs</h3>
-              <div id="lb-generated-list" class="scenario-empty">None yet.</div>
-            </div>
+            <section class="panel" aria-labelledby="lb-generated-heading">
+              <h3 id="lb-generated-heading" tabindex="-1">🗂️ Previously generated labs</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Open a lab, change the choices it was built from and build it again, rename it, or delete it.
+                These are labs you built here; the hand-written labs are never changed.
+              </p>
+              <div class="lb-gen-toolbar" id="lb-gen-toolbar" hidden>
+                <div class="form-group">
+                  <label for="lb-gen-search">Search generated labs</label>
+                  <input type="search" id="lb-gen-search" autocomplete="off" placeholder="Title, notes, industry, or harness">
+                </div>
+                <div class="form-group">
+                  <label for="lb-gen-sort">Sort by</label>
+                  <select id="lb-gen-sort">
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="title">Title (A to Z)</option>
+                    <option value="longest">Longest estimated time</option>
+                    <option value="shortest">Shortest estimated time</option>
+                  </select>
+                </div>
+              </div>
+              <p id="lb-gen-count" class="lb-gen-count" role="status" aria-live="polite"></p>
+              <div id="lb-generated-list" class="scenario-empty">Loading generated labs...</div>
+
+              <dialog id="lb-gen-delete-dialog" class="lb-gen-dialog" role="alertdialog" aria-labelledby="lb-gen-delete-title" aria-describedby="lb-gen-delete-desc">
+                <h4 id="lb-gen-delete-title">Delete this lab?</h4>
+                <p id="lb-gen-delete-desc"></p>
+                <p id="lb-gen-delete-error" class="lb-error" role="alert"></p>
+                <div class="lb-gen-dialog-actions">
+                  <button type="button" class="btn" id="lb-gen-delete-cancel">Cancel</button>
+                  <button type="button" class="btn btn-danger" id="lb-gen-delete-confirm">Delete lab</button>
+                </div>
+              </dialog>
+
+              <dialog id="lb-gen-rename-dialog" class="lb-gen-dialog" aria-labelledby="lb-gen-rename-heading">
+                <form id="lb-gen-rename-form" method="dialog" novalidate>
+                  <h4 id="lb-gen-rename-heading">Rename lab</h4>
+                  <div class="form-group">
+                    <label for="lb-gen-rename-title">Title</label>
+                    <input type="text" id="lb-gen-rename-title" maxlength="160" required aria-describedby="lb-gen-rename-error">
+                  </div>
+                  <div class="form-group" style="margin-top: 12px;">
+                    <label for="lb-gen-rename-notes">Notes (optional)</label>
+                    <textarea id="lb-gen-rename-notes" maxlength="1000" rows="4" aria-describedby="lb-gen-rename-hint"></textarea>
+                    <span class="hint" id="lb-gen-rename-hint">Up to 1000 characters. The title and notes change; the lab's content and saved folder name do not.</span>
+                  </div>
+                  <p id="lb-gen-rename-error" class="lb-error" role="alert"></p>
+                  <div class="lb-gen-dialog-actions">
+                    <button type="button" class="btn" id="lb-gen-rename-cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="lb-gen-rename-save">Save</button>
+                  </div>
+                </form>
+              </dialog>
+            </section>
           </div>
 
           <!-- Preview tab -->
@@ -2162,8 +2241,14 @@
             <div class="panel">
               <h3>👁️ Lab Preview</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
-                Select a lab from the sidebar to preview its content.
+                Choose a lab to preview its content. Which labs are included elsewhere is set under Lab chapters on the Lab setup tab.
               </p>
+              <div class="form-group preview-picker">
+                <label for="preview-lab-select">Lab to preview</label>
+                <select id="preview-lab-select">
+                  <option value="">Choose a lab...</option>
+                </select>
+              </div>
               <div class="preview-actions">
                 <button id="pdf-download-button" class="btn btn-primary" type="button" onclick="downloadCurrentPdf()" style="display: none;">📄 Download walkthrough PDF</button>
                 <span id="pdf-download-status" class="preview-download-status" aria-live="polite"></span>
@@ -2173,7 +2258,7 @@
                 <div id="preview-area" class="preview-frame"></div>
               </div>
               <div id="preview-empty" style="text-align: center; padding: 60px; color: var(--text-muted);">
-                ← Click a lab in the sidebar to preview
+                Choose a lab above to preview it, or use Preview on a card under Lab chapters.
               </div>
             </div>
           </div>
@@ -2227,7 +2312,7 @@
             <div class="panel">
               <h3>📋 Resource Manifest</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
-                Resources that will be provisioned for the selected labs. Toggle labs in the sidebar to change.
+                Resources that will be provisioned for the selected labs. Change the selection under Lab chapters on the Lab setup tab.
               </p>
               <div id="resource-manifest" style="margin-bottom: 16px;">
                 <div style="text-align: center; padding: 20px; color: var(--text-muted);">
@@ -2801,5 +2886,6 @@
   <script src="step-validation.js" defer></script>
   <script src="app.js" defer></script>
 <script src="lab-builder-wizard.js" defer></script>
+<script src="generated-labs.js" defer></script>
 </body>
 </html>

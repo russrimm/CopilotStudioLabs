@@ -5,7 +5,8 @@ A web-based lab operations portal for customizing, validating, previewing, provi
 ## Features
 
 - **🧬 Lab Builder** — Generate a custom lab from an industry, roles, and Copilot Studio features, grounded on Microsoft Learn (see [`docs/lab-builder.md`](../docs/lab-builder.md))
-- **📚 Chapter Management** — Include or exclude lab chapters from the package with one click
+- **📚 Chapter Management** — Include or exclude lab chapters from the package under **Lab chapters** on the Lab setup tab (the old left-hand pane was removed; the level for a generated lab is chosen only in wizard Step 3)
+- **🗂️ Generated lab management** — Open, rename, delete, or re-open the choices of labs you built with the Lab Builder, with search and sort
 - **🗺️ Lab Flow Diagrams** — Render Mermaid diagrams inside lab previews to visualize architecture and process flow
 - **🗺️ Lab Dependency Map** — View a top-level Mermaid sequence map showing recommended lab order
 - **🎨 Customization** — Replace organization names, industry context, compliance terms, agent names, end-user roles, and branding
@@ -259,9 +260,11 @@ In the **Validation** tab, **Run All Tests** runs the structural tests and then 
 |--------|------|-------------|
 | `GET` | `/api/lab-builder/features` | Industries, roles, and the feature catalog |
 | `POST` | `/api/lab-builder/preview` | Plan a lab without generating it |
-| `POST` | `/api/lab-builder/generate` | Build a lab into `generated-labs/` (returns `complete`, `blocked`, or `cancelled`) |
-| `GET` | `/api/lab-builder/generated` | List generated labs |
+| `POST` | `/api/lab-builder/generate` | Build a lab into `generated-labs/` (returns `complete`, `blocked`, or `cancelled`); optional `replaceLabId` replaces an existing generated lab once the new one is built |
+| `GET` | `/api/lab-builder/generated` | List generated labs (with saved selections, when recorded) |
 | `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab |
+| `PATCH` | `/api/lab-builder/generated/:labId` | Change a generated lab's `title` and/or `notes` |
+| `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab (never a hand-written one) |
 
 Request and response shapes are documented in [`docs/lab-builder.md`](../docs/lab-builder.md#api).
 

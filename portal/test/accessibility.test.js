@@ -116,3 +116,84 @@ test("themes: light and dark tokens exist, honor the OS setting, and have a pers
   assert.match(themeSource, /localStorage\.setItem/);
   assert.doesNotMatch(html, /backdrop-filter:\s*blur/);
 });
+
+// ── Generated labs management and the removed left pane ─────────────────────
+const generatedSource = readFileSync(new URL("../public/generated-labs.js", import.meta.url), "utf8");
+const wizardSource = readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
+
+test("the legacy left navigation pane is gone and wizard Step 3 is the only level picker", () => {
+  assert.doesNotMatch(html, /class=["']sidebar["']/);
+  assert.doesNotMatch(html, /\.sidebar\b/);
+  assert.doesNotMatch(html, /sidebar-header|sidebar-actions/);
+  assert.doesNotMatch(html, /from the sidebar|in the sidebar/i);
+  assert.doesNotMatch(appSource, /sidebar/i);
+  assert.equal([...html.matchAll(/id=["']lb-pane-3["']/g)].length, 1);
+  assert.equal([...html.matchAll(/id=["']lb-level-options["']/g)].length, 1);
+  assert.match(html, /Step 3 of 7: What level should the lab be\?/);
+  assert.match(appSource, /const DEFAULT_TAB = "labbuilder"/);
+});
+
+test("the chapter picker moved into the Lab setup panel with named controls", () => {
+  const provision = html.match(/<div class="tab-panel" id="panel-provision"[\s\S]*?<div class="panel">/)?.[0] || "";
+  assert.match(provision, /id=["']lab-list["']/);
+  assert.equal([...html.matchAll(/id=["']lab-list["']/g)].length, 1);
+  assert.match(provision, /aria-labelledby=["']chapters-heading["']/);
+  assert.match(provision, /Include all labs/);
+  assert.match(provision, /id=["']chapter-summary["'][^>]*aria-live=["']polite["']/);
+  assert.match(appSource, /aria-pressed="\$\{included\}"/);
+  assert.match(appSource, /aria-label="Preview Lab/);
+  assert.match(html, /<label for=["']preview-lab-select["']>/);
+});
+
+test("the generated-labs list is searchable, sortable, and announces results", () => {
+  const panel = html.match(/aria-labelledby=["']lb-generated-heading["'][\s\S]*?<\/section>/)?.[0] || "";
+  assert.ok(panel, "the generated labs section must be labelled by its heading");
+  assert.match(panel, /<label for=["']lb-gen-search["']>/);
+  assert.match(panel, /<label for=["']lb-gen-sort["']>/);
+  assert.match(panel, /id=["']lb-gen-count["'][^>]*role=["']status["'][^>]*aria-live=["']polite["']/);
+  assert.match(panel, /<h3 id=["']lb-generated-heading["'] tabindex=["']-1["']/);
+});
+
+test("delete asks for confirmation in a named alert dialog and rename in a labelled dialog", () => {
+  const del = html.match(/<dialog id=["']lb-gen-delete-dialog["'][^>]*>/)?.[0] || "";
+  assert.match(del, /role=["']alertdialog["']/);
+  assert.match(del, /aria-labelledby=["']lb-gen-delete-title["']/);
+  assert.match(del, /aria-describedby=["']lb-gen-delete-desc["']/);
+  const rename = html.match(/<dialog id=["']lb-gen-rename-dialog["'][^>]*>/)?.[0] || "";
+  assert.match(rename, /aria-labelledby=["']lb-gen-rename-heading["']/);
+  assert.match(html, /id=["']lb-gen-rename-error["'] class=["']lb-error["'] role=["']alert["']/);
+  // Safe default focus, and focus is not left on a removed row.
+  assert.match(generatedSource, /showModal\(\);\s*document\.getElementById\("lb-gen-delete-cancel"\)\.focus\(\)/);
+  assert.match(generatedSource, /lbGenFocusAfterRemoval/);
+  assert.match(generatedSource, /lb-generated-heading/);
+});
+
+test("each row action is a real button with a name that includes the lab", () => {
+  for (const action of ["open", "edit", "rename", "delete"]) {
+    assert.match(generatedSource, new RegExp(`<button type="button" class="btn btn-sm" data-gen-action="${action}" aria-label="[^"]*\\$\\{title\\}"`));
+  }
+  assert.doesNotMatch(generatedSource, /\bon(click|change|input)=/);
+  assert.match(generatedSource, /addEventListener\("click"/);
+  // Escapes every stored value it renders.
+  assert.match(generatedSource, /escapeHtml\(lab\.title/);
+  assert.match(generatedSource, /escapeHtml\(lab\.notes\)/);
+});
+
+test("validation status is spelled out, not colour alone", () => {
+  assert.match(generatedSource, /Checks: all \$\{Number\(lab\.validation\.passed\)\} passed/);
+  assert.match(generatedSource, /Checks: \$\{Number\(lab\.validation\.failed\)\} failed/);
+  assert.match(generatedSource, /Checks not recorded/);
+});
+
+test("legacy labs explain why selections cannot be edited", () => {
+  assert.match(generatedSource, /built before its choices were saved/);
+  assert.match(generatedSource, /lab\.selections/);
+});
+
+test("editing never overwrites silently", () => {
+  assert.match(html, /name=["']lb-save-mode["'] value=["']new["'] checked/);
+  assert.match(html, /name=["']lb-save-mode["'] value=["']replace["']/);
+  assert.match(wizardSource, /=== "replace" \? labBuilder\.editing\.labId : undefined/);
+  assert.match(appSource, /replaceLabId: lbReplaceTarget\(\)/);
+  assert.match(html, /<script src=["']generated-labs\.js["'] defer><\/script>/);
+});

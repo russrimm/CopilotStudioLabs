@@ -198,6 +198,11 @@ arrow, Home, and End keys move among the tabs of the current area.
    exactly what gets built: the wizard sends `includeCore: false` and the topics
    you kept, so no foundation module is added behind your back.
 
+   The level is chosen only in Step 3. The left-hand "Lab Chapters" pane that used to
+   group the hand-written labs by level has been removed; choosing which hand-written
+   labs are included now lives under **Lab chapters** on the **Lab setup** tab, and the
+   **Preview** tab has its own lab picker. Open `/#labbuilder` to start the wizard.
+
 The wizard previews the module outline (with prerequisites resolved and an
 estimated time for every module and for the whole lab) before you commit to a
 build. If the build hits a blocker it
@@ -1020,9 +1025,33 @@ the server log, never the manifest — and the output is exportable by design.
 | `POST` | `/api/lab-builder/topics/refresh` | Re-read the topic list from Microsoft Learn. Takes an empty `{}` body (anything else is HTTP 400). Limited to 6 refreshes per user per hour (`LAB_BUILDER_TOPICS_RATE_MAX`); answers 429 with `Retry-After` when rate limited, spaced too closely, or paused by the circuit breaker, 503 when refreshing is turned off, and 502 when Microsoft Learn failed. Every failure still returns the last good list. |
 | `POST` | `/api/lab-builder/recommend` | Topics grouped by concept for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `required`, and `reasons`. Read-only. |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. |
-| `POST` | `/api/lab-builder/generate` | Build the lab, write it to `generated-labs/`, return markdown + validation. |
-| `GET` | `/api/lab-builder/generated` | List previously generated labs. |
+| `POST` | `/api/lab-builder/generate` | Build the lab, write it to `generated-labs/`, return markdown + validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or cancelled build leaves it alone. The response has `replacedLabId` when that happened. |
+| `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, vertical, level, harness, estimated minutes, topic count, validation counts, and `selections` (null for labs built before choices were saved). |
 | `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab as markdown and HTML. |
+| `PATCH` | `/api/lab-builder/generated/:labId` | Change `title` (1-160 characters, no line breaks) and/or `notes` (up to 1000 characters). No other field is accepted. Updates the manifest and the lab's single `#` heading; the folder name stays the same. |
+| `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab folder. The id must match an existing folder directly under `generated-labs/` that holds a `manifest.json`, so hand-written labs under `labs/` can never be reached. Answers 400 for a bad id and 404 when it does not exist. |
+
+`PATCH` and `DELETE` are limited to 60 requests per user per hour
+(`LAB_BUILDER_MANAGE_RATE_MAX`, `LAB_BUILDER_MANAGE_RATE_WINDOW_MS`) and answer 429
+with `Retry-After`.
+
+### Managing generated labs
+
+Under **🗂️ Previously generated labs** each lab shows its title, created date, industry, level, harness,
+estimated time, topic count, and validation result, with a search box and a sort menu.
+Each row has **Open**, **Edit selections**, **Rename**, and **Delete**:
+
+- **Delete** asks for confirmation in a dialog and cannot be undone.
+- **Rename** changes the title and notes only.
+- **Edit selections** re-opens the wizard on the Review step, pre-filled with the saved industry,
+  departments, level, harness, topics, and options. On the last step you choose **Save as a new lab**
+  (the default) or **Replace** the original. Nothing is overwritten unless you pick Replace.
+- Labs built before choices were saved (`selections` is `null`) cannot be edited. They can still be opened, renamed,
+  or deleted, and the row offers **Start a new lab**.
+
+The manifest records the choices in `request` (industry, roles, features, excluded, harness, level, differencesFor,
+targetMinutes) and `options` (custom title, agent name, `useLearnMcp`, `useLlm`), plus `validation`
+(`passed`, `failed`, `checkedAt`) and, after a rename, `notes` and `updatedAt`.
 
 Request body for preview and generate:
 
