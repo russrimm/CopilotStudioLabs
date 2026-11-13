@@ -35,7 +35,8 @@
       "name": "Model and orchestration",
       "order": 40,
       "summary": "Choose the model and let the agent decide which tool or knowledge source to use.",
-      "features": ["generative-orchestration", "model-selection", "mc-model-selection", "cc-model-mode"],
+      "products": ["copilot-studio", "power-platform-ai-hub"],
+      "features": ["generative-orchestration", "model-selection", "mc-model-selection", "cc-model-mode", "ppai-prompt-inputs-and-model-settings"],
       "notApplicable": {}
     },
     {
@@ -109,7 +110,8 @@
       "name": "Files and code execution",
       "order": 120,
       "summary": "Create and edit documents and run code in a sandbox.",
-      "features": ["mc-created-files"],
+      "products": ["copilot-studio", "power-platform-ai-hub"],
+      "features": ["mc-created-files", "ppai-code-interpreter-prompts"],
       "notApplicable": {
         "standard": "The Standard harness does not focus on creating or editing files.",
         "customer-conversation": "Learn's harness comparison lists working with files as not a focus of the Customer Conversation harness, and its pages describe no file creation or code execution."
@@ -238,8 +240,8 @@
       "name": "Monitor and analytics",
       "order": 190,
       "summary": "See how the agent performs in use.",
-      "products": ["copilot-studio", "sharepoint-ai", "m365-copilot-hub", "ai-foundry"],
-      "features": ["analytics", "mc-monitor", "cc-monitor", "m365h-measure-copilot-adoption", "spai-agent-insights-reports", "fdy-trace-agent", "fdy-monitor-agent-dashboard"],
+      "products": ["copilot-studio", "sharepoint-ai", "m365-copilot-hub", "ai-foundry", "power-platform-ai-hub"],
+      "features": ["analytics", "mc-monitor", "cc-monitor", "m365h-measure-copilot-adoption", "spai-agent-insights-reports", "fdy-trace-agent", "fdy-monitor-agent-dashboard", "ppai-monitor-ai-activity"],
       "notApplicable": {}
     },
     {
@@ -256,9 +258,8 @@
       "name": "Authentication and safety",
       "order": 210,
       "summary": "Control who can use the agent, what it may say, and which identity it runs as.",
-      "products": ["copilot-studio", "sharepoint-ai", "ai-foundry", "m365-copilot-hub"],
-      "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry", "m365-copilot-hub"],
-      "features": ["authentication", "content-moderation", "entra-agent-identities", "mc-agent-settings-security", "cc-authentication", "cc-biometric-auth", "spai-restricted-content-discovery", "spai-restricted-access-control", "spai-control-agent-access", "fdy-configure-guardrails", "m365h-secure-copilot-data", "dca-agent-builder-troubleshooting"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry", "m365-copilot-hub", "power-platform-ai-hub"],
+      "features": ["authentication", "content-moderation", "entra-agent-identities", "mc-agent-settings-security", "cc-authentication", "cc-biometric-auth", "spai-restricted-content-discovery", "spai-restricted-access-control", "spai-control-agent-access", "fdy-configure-guardrails", "m365h-secure-copilot-data", "dca-agent-builder-troubleshooting", "ppai-human-review-prompt-output"],
       "notApplicable": {}
     },
     {
@@ -284,7 +285,8 @@
         "m365h-review-agent-inventory",
         "m365h-control-agent-availability",
         "m365h-approve-agent-requests",
-        "ppai-admin-governance-security"
+        "ppai-admin-governance-security",
+        "ppai-alm-distribute-models"
       ],
       "notApplicable": {}
     },
@@ -312,7 +314,7 @@
       "order": 12,
       "summary": "Pick the model type or prompt that fits the task before you build.",
       "products": ["power-platform-ai-hub"],
-      "features": ["ppai-explore-ai-hub-models"],
+      "features": ["ppai-explore-ai-hub-models", "ppai-check-region-and-prerequisites", "ppai-migrate-from-text-generation"],
       "notApplicable": {}
     },
     {
@@ -357,7 +359,25 @@
       "order": 165,
       "summary": "Call a prompt or model from the apps and flows people already build.",
       "products": ["power-platform-ai-hub"],
-      "features": ["ppai-use-prompt-in-flow-and-app"],
+      "features": ["ppai-use-prompt-in-flow-and-app", "ppai-powerfx-ai-models-in-canvas-app", "ppai-predict-action-dynamic-model"],
+      "notApplicable": {}
+    },
+    {
+      "id": "prebuilt-ai-models",
+      "name": "Prebuilt AI models",
+      "order": 82,
+      "summary": "Use models that are ready to run, with no training, for common document and text scenarios.",
+      "products": ["power-platform-ai-hub"],
+      "features": ["ppai-prebuilt-sentiment-analysis", "ppai-prebuilt-receipt-processing-flow"],
+      "notApplicable": {}
+    },
+    {
+      "id": "custom-ai-models",
+      "name": "Custom AI models",
+      "order": 86,
+      "summary": "Train models on your own text and structured data, then evaluate, version, and publish them.",
+      "products": ["power-platform-ai-hub"],
+      "features": ["ppai-category-classification-model", "ppai-prediction-model", "ppai-evaluate-version-retrain-models"],
       "notApplicable": {}
     }
   ]

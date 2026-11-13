@@ -1,11 +1,36 @@
 {
-  "$comment": "Seed catalog for AI Builder and the AI hub in Power Platform, grounded on Microsoft Learn, features verified 2026-11-13.",
+  "$comment": "Catalog for AI Builder and the AI hub in Power Platform, grounded on Microsoft Learn (/ai-builder/ and the prompt pages that Learn hosts under /microsoft-copilot-studio/). Features verified 2026-11-13. Availability is set only where Learn states it; where Learn pages disagree the feature says so and sets no availability.",
   "product": "power-platform-ai-hub",
   "categories": [
     {
       "id": "ai-builder",
       "name": "AI Builder and the AI hub",
-      "description": "Create, run, and govern AI Builder models and prompts from the AI hub in Power Apps and Power Automate."
+      "description": "Find your way around the AI hub, check regional availability, and pick the right AI capability."
+    },
+    {
+      "id": "prompts",
+      "name": "Prompts and prompt builder",
+      "description": "Build, test, tune, and review reusable generative AI prompts in prompt builder."
+    },
+    {
+      "id": "prebuilt-models",
+      "name": "Prebuilt models",
+      "description": "Use AI Builder models that are ready to run with no training."
+    },
+    {
+      "id": "custom-models",
+      "name": "Custom models",
+      "description": "Build, train, evaluate, and publish models on your own documents, text, and data."
+    },
+    {
+      "id": "apps-flows",
+      "name": "Use AI in apps and flows",
+      "description": "Call prompts and models from Power Apps and Power Automate."
+    },
+    {
+      "id": "administration",
+      "name": "Administration, governance, and licensing",
+      "description": "Control AI features per environment, move models between environments, monitor activity, and manage credits."
     }
   ],
   "features": [
@@ -19,7 +44,7 @@
       "whyItMatters": "Choosing the right data type and build type (prebuilt or custom) decides how much setup a scenario needs. The AI hub is the single entry point to AI models in both portals.",
       "concepts": [
         "AI Builder lets you create and use prebuilt models (ready for common scenarios) or custom models (built, trained, and published for your data) in Power Apps and Power Automate.",
-        "Model types are grouped by data type: documents, text, structured data, and images. For example, receipt processing is prebuilt, and document processing, prediction, and object detection are custom.",
+        "Model types are grouped by data type: documents, text, structured data, and images. For example, receipt processing is prebuilt, and document processing, prediction, and object detection are custom. Category classification and entity extraction come in both prebuilt and custom builds.",
         "AI Builder requires Microsoft Dataverse and AI Builder must be enabled for the environment."
       ],
       "steps": [
@@ -34,13 +59,31 @@
         "The AI hub appears in the left navigation and its AI models page lists model types grouped by documents, text, structured data, and images.",
         "You can state whether your chosen scenario uses a prebuilt or custom model and why."
       ],
+      "screenshots": [
+        {
+          "filename": "ppai-ai-hub-menu.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open Power Apps or Power Automate with the left pane showing **... More** > **AI hub**.",
+            "Show the AI hub entry and the **Discover an AI capability** area."
+          ]
+        },
+        {
+          "filename": "ppai-ai-models-page.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open **AI hub** > **AI models**.",
+            "Show the model types grouped by documents, text, structured data, and images."
+          ]
+        }
+      ],
       "learnQueries": [
         "AI Builder AI models and business scenarios",
         "AI Builder build a model AI hub"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/ai-builder/overview",
         "https://learn.microsoft.com/ai-builder/model-types",
+        "https://learn.microsoft.com/ai-builder/overview",
         "https://learn.microsoft.com/ai-builder/build-model"
       ],
       "lastVerified": "2026-11-13",
@@ -49,22 +92,128 @@
       "relatedLabs": []
     },
     {
+      "id": "ppai-check-region-and-prerequisites",
+      "name": "Check regional availability and environment prerequisites",
+      "category": "ai-builder",
+      "level": 100,
+      "minutes": 20,
+      "summary": "Find out which AI Builder models are available, and at what release status, in your environment's region, and confirm the environment prerequisites.",
+      "whyItMatters": "Availability differs by region and by feature, and some capabilities are preview only. Checking first avoids building a lab on a model your environment cannot use.",
+      "concepts": [
+        "AI Builder models are deployed in the region that hosts your Power Platform environment, so the region of the environment sets the availability and release status you get.",
+        "Learn lists custom models, prebuilt models, and US Government environments in separate tables. A dash means the feature isn't available, and each feature shows GA or Preview.",
+        "AI Builder requires Microsoft Dataverse and AI Builder must be enabled for the environment. Enabling the **Deploy sample apps and data** setting when you create an environment adds sample data to explore AI Builder.",
+        "Some features aren't available in US Government environments, for example adding an image or document input to a prompt isn't available in GCC and GCC High, and the 30-day user trials are listed as unavailable."
+      ],
+      "steps": [
+        "Note the region of the environment you will use.",
+        "Open Feature availability by region and find your region in the **Custom models** and **Prebuilt models** tables.",
+        "Record the release status (GA, Preview, or a dash) of each model type you plan to use.",
+        "For prompts, follow the **Prompts** section link to Model availability by region and check your region there.",
+        "If you use a US Government environment, review the **US Government feature limitations** list.",
+        "Confirm the environment has a Dataverse database and that AI Builder is enabled for it, as described in Build a model in AI Builder.",
+        "When you create a new environment for the lab, enable **Deploy sample apps and data** if you want Microsoft's sample data."
+      ],
+      "validation": [
+        "You can name your environment's region and the release status of each model type you plan to use.",
+        "You can state the two environment prerequisites for AI Builder: a Dataverse database and AI Builder enabled for the environment."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-region-availability-table.png",
+          "section": "learn",
+          "instructions": [
+            "Open Feature availability by region.",
+            "Show the Prebuilt models table with your region's column and its GA or Preview entries."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "AI Builder feature availability by region",
+        "AI Builder build a model prerequisites Dataverse"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/availability-region",
+        "https://learn.microsoft.com/ai-builder/build-model",
+        "https://learn.microsoft.com/ai-builder/overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/availability-region",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-prebuilt-sentiment-analysis",
+      "name": "Try the sentiment analysis prebuilt model",
+      "category": "prebuilt-models",
+      "level": 100,
+      "minutes": 20,
+      "availability": "ga",
+      "summary": "Open the sentiment analysis prebuilt model in the AI hub and analyze sample or your own text with no training.",
+      "whyItMatters": "A prebuilt model returns results straight away, so it is the quickest way to see what AI Builder does. Sentiment scores and labels help you route and prioritize customer feedback.",
+      "concepts": [
+        "The sentiment analysis prebuilt model returns a sentiment of positive, negative, neutral, or mixed with a confidence score from 0 through 1, for the whole text and for each sentence.",
+        "Learn lists many supported languages, and a document can't exceed 5,120 characters.",
+        "Calls are limited to 400 per 60 seconds per environment across language detection, sentiment analysis, and key phrase extraction.",
+        "The region availability table shows sentiment analysis as GA in all listed regions."
+      ],
+      "steps": [
+        "Sign in to Power Apps or Power Automate.",
+        "On the left pane, select **... More** > **AI hub**.",
+        "Select **AI models**.",
+        "Select **Sentiment analysis - Detect positive, negative, or neutral sentiment in text data**.",
+        "Select one of the predefined text samples, or add your own text.",
+        "Select **Analyze text** to display how the model analyzes your text.",
+        "Compare the overall sentiment, its confidence score, and the sentence-level results."
+      ],
+      "validation": [
+        "After you select **Analyze text**, the page shows a sentiment and confidence score for your text.",
+        "You can explain what the mixed label and the 5,120 character limit mean."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-sentiment-explore.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the sentiment analysis page after selecting **Analyze text**.",
+            "Show the sample text and the sentiment result with its confidence score."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "AI Builder sentiment analysis prebuilt model",
+        "AI Builder prebuilt models overview"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-sentiment-analysis",
+        "https://learn.microsoft.com/ai-builder/model-types",
+        "https://learn.microsoft.com/ai-builder/availability-region"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/prebuilt-sentiment-analysis",
+      "prereqs": [
+        "ppai-explore-ai-hub-models"
+      ],
+      "relatedLabs": []
+    },
+    {
       "id": "ppai-build-custom-prompt",
       "name": "Build and test a custom prompt in prompt builder",
-      "category": "ai-builder",
+      "category": "prompts",
       "level": 100,
       "minutes": 25,
       "summary": "Create a custom prompt with a name, instructions, and a sample input in prompt builder from the AI hub, then test and save it.",
       "whyItMatters": "A saved prompt is reusable across apps, flows, and agents, and testing it first checks the response before you integrate it. Specific, contextual instructions give more relevant output.",
       "concepts": [
-        "A prompt is mainly a natural language instruction that tells a generative AI model to perform a task; it generally has an instruction and context.",
-        "Prompt builder prompts run on language models powered by Azure OpenAI Service, are limited to some regions, and might be subject to usage limits or capacity throttling. Prompts also need Dataverse and Copilot Credits per the Overview of prompts page.",
-        "The preview Text generation model is marked deprecated and no longer visible; Learn says the new prompt builder feature should be used instead.",
-        "To start from a template, the prompt library is reachable through **AI hub** > **Prompts** in Power Apps or Power Automate."
+        "A prompt is mainly a natural language instruction that tells a generative AI model to perform a task; it generally has an instruction and context. A good prompt is clear, specific, contextual, and relevant.",
+        "Prompts need Microsoft Dataverse on the environment, an environment in a region where prompts are available, and Copilot Credits to run. Testing a prompt in prompt builder doesn't consume credits. Prompts might be subject to usage limits or capacity throttling.",
+        "Learn describes the model behind prompts differently across pages (Azure OpenAI Service on the create and use pages, Azure Foundry on the overview page). Which model service applies to your environment: Not confirmed in Microsoft Learn.",
+        "The preview Text generation model is deprecated and no longer visible; Learn says the new prompt builder feature should be used instead.",
+        "In the editor you can also select a knowledge object in the **Knowledge** section of the **Add content** menu, a set of data from a source such as Dataverse, to ground answers in organization data."
       ],
       "steps": [
         "Sign in to Power Apps or Power Automate.",
-        "Select **AI hub** > **Prompts** > **Build your own prompt**. To start from a template instead, select **Start from a prompt template**.",
+        "Select **AI hub** > **Prompts** > **Build your own prompt**. To start from a template instead, choose a prompt template.",
         "Enter a custom name by selecting the generated name at the top left of the prompt.",
         "Write your prompt with a clear instruction and context, or choose a prompt template.",
         "Include an input by typing **/** or selecting **Add content**, then select **Text** or **Image or document** in the **Input** section.",
@@ -76,71 +225,116 @@
         "The saved prompt appears in the AI hub prompts list with the name you gave it.",
         "Selecting **Test** with your sample input returns a response that matches the instruction."
       ],
+      "screenshots": [
+        {
+          "filename": "ppai-prompt-builder-editor.png",
+          "section": "prompt-builder",
+          "instructions": [
+            "Open **AI hub** > **Prompts** > **Build your own prompt**.",
+            "Show the prompt name, the instructions, and an input added with **/**."
+          ]
+        },
+        {
+          "filename": "ppai-prompt-test-response.png",
+          "section": "prompt-builder",
+          "instructions": [
+            "Enter a sample input value and select **Test**.",
+            "Show the generated response next to the instructions, with any real names masked."
+          ]
+        }
+      ],
       "learnQueries": [
         "create a prompt prompt builder AI hub",
-        "prompt library templates Power Apps Power Automate"
+        "overview of prompts AI Builder"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/ai-builder/create-a-custom-prompt",
+        "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt",
         "https://learn.microsoft.com/ai-builder/prompts-overview",
-        "https://learn.microsoft.com/microsoft-copilot-studio/prompt-library",
         "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai"
       ],
       "lastVerified": "2026-11-13",
-      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/create-a-custom-prompt",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt",
       "prereqs": [
         "ppai-explore-ai-hub-models"
       ],
       "relatedLabs": []
     },
     {
-      "id": "ppai-document-processing-model",
-      "name": "Create, train, and use a document processing model",
-      "category": "ai-builder",
+      "id": "ppai-prompt-inputs-and-model-settings",
+      "name": "Add inputs and tune the model settings of a prompt",
+      "category": "prompts",
       "level": 200,
-      "minutes": 45,
-      "summary": "Build a custom document processing model with the Create custom model wizard, train it, and call it from a cloud flow with Process documents.",
-      "whyItMatters": "Document processing extracts fields, tables, and checkboxes from documents such as invoices so you can automate data entry. It is a custom model, so it must be trained and published before use.",
+      "minutes": 35,
+      "summary": "Add text, image or document, and Power Fx inputs to a prompt, choose its model, and adjust temperature, record retrieval, code interpreter, and content moderation.",
+      "whyItMatters": "Inputs let one prompt serve many runs, and the model and settings decide quality, speed, cost, and how strict the safety filter is.",
       "concepts": [
-        "Document processing reads and saves information from standard documents; you need at least five example documents with the same layout per collection, or you can use sample data. Accepted files are JPG, PNG, and PDF.",
-        "The wizard offers three document types: Fixed template documents, General documents, and Invoices. A model can have up to 200 collections.",
-        "After training, publish the model to make it available, then use it in Power Automate or Power Apps. Running models consumes credits; building and testing does not."
+        "Inputs pass text, images, documents, or Power Fx results to the prompt at run time. Inputs can't contain instructions, which Learn says are forbidden for security reasons.",
+        "Image or document input supports PNG, JPG, JPEG, and PDF, with files under 25 MB in total, fewer than 50 pages, and a 100 second processing limit. Word, Excel, and PowerPoint files are supported only when code interpreter is on. The input isn't available in GCC and GCC High.",
+        "The **Model** list changes over time. At the time of writing Learn names GPT-4.1 mini as the default model and lists models in Mini, General, and Deep categories with Basic, Standard, and Premium rates. Check the Change the model version and settings page for the current list.",
+        "In Power Apps and Power Automate, prompts consume AI Builder credits first when you have them, then Copilot Credits.",
+        "Temperature runs from 0 (predictable) to 1 (creative) and isn't available for the GPT-5 reasoning model. The content moderation level (Low, Moderate, High, default Moderate) is available only for managed models."
       ],
       "steps": [
-        "Sign in to Power Apps or Power Automate and select **... More** > **AI hub**.",
-        "Under **Discover an AI capability**, select **AI models**, then **Extract custom information from documents**, then **Create custom model**.",
-        "On **Choose document type**, select **Fixed template documents**, **General documents**, or **Invoices**.",
-        "On **Choose information to extract**, select **+Add** and define each field, table, and checkbox.",
-        "Group documents into collections by layout and upload at least five sample documents per collection.",
-        "Select **Train**, then test the model by selecting **Quick test**.",
-        "Publish the model.",
-        "In Power Automate, create an **Instant cloud flow**, add the **Process documents** action, choose the model and document type, and set **Form** to `File Content` from the trigger."
+        "Sign in to Power Apps or Power Automate, then select **AI hub** > **Prompts**.",
+        "Select the prompt you want to change, or create a new one.",
+        "In the **Instructions** panel, type **/** or select **Add content**.",
+        "In the **Input** section, select **Text**, **Image or document**, or **Power Fx**.",
+        "Select the input in the instructions, change its **Name** if you want, and add **Sample data** (a file for **Document input**).",
+        "For a Power Fx input, write a formula that uses your inputs with the syntax `Input.'Your input name'`, for example `Text(Now(), Input.'Date Format')`.",
+        "Select **Model** at the top of prompt builder and choose a model.",
+        "Select the three dots (**...**) > **Settings** and review **Temperature**, **Record retrieval**, **Include links in the response**, **Enable code interpreter**, and **Content moderation level**.",
+        "Select **Test**, compare the response with the original, and select **Save**."
       ],
       "validation": [
-        "The model shows trained results in the **Last trained version** section and **Quick test** returns extracted values.",
-        "A test run of the flow returns each extracted **{field} value** and **{field} confidence score** in dynamic content."
+        "The prompt runs in **Test** with a sample value for each input and returns a response.",
+        "You can explain what changes when you move the temperature slider or the content moderation level."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-prompt-add-input-menu.png",
+          "section": "prompt-builder",
+          "instructions": [
+            "In the **Instructions** panel type **/**.",
+            "Show the **Input** section with **Text**, **Image or document**, and **Power Fx** options."
+          ]
+        },
+        {
+          "filename": "ppai-prompt-model-picker.png",
+          "section": "prompt-builder",
+          "instructions": [
+            "Select **Model** at the top of prompt builder.",
+            "Show the list of models with the default model marked."
+          ]
+        },
+        {
+          "filename": "ppai-prompt-settings-panel.png",
+          "section": "prompt-builder",
+          "instructions": [
+            "Open the three dots (**...**) > **Settings**.",
+            "Show the temperature slider, record retrieval, and content moderation level."
+          ]
+        }
       ],
       "learnQueries": [
-        "AI Builder document processing create custom model",
-        "Process documents action Power Automate AI Builder"
+        "add inputs to your prompt text image document Power Fx",
+        "prompt builder change the model version and settings"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/ai-builder/form-processing-model-overview",
-        "https://learn.microsoft.com/ai-builder/create-form-processing-model",
-        "https://learn.microsoft.com/ai-builder/train-model",
-        "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow"
+        "https://learn.microsoft.com/ai-builder/add-inputs-prompt",
+        "https://learn.microsoft.com/microsoft-copilot-studio/prompt-model-settings",
+        "https://learn.microsoft.com/ai-builder/availability-region"
       ],
       "lastVerified": "2026-11-13",
-      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/create-form-processing-model",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/add-inputs-prompt",
       "prereqs": [
-        "ppai-explore-ai-hub-models"
+        "ppai-build-custom-prompt"
       ],
       "relatedLabs": []
     },
     {
       "id": "ppai-use-prompt-in-flow-and-app",
       "name": "Use a prompt in Power Automate and Power Apps",
-      "category": "ai-builder",
+      "category": "apps-flows",
       "level": 200,
       "minutes": 40,
       "summary": "Run a saved prompt with the Run a prompt action in a cloud flow and call it with .Predict in a canvas app.",
@@ -148,7 +342,8 @@
       "concepts": [
         "In Power Automate, the action once named Create text with GPT using a prompt has been named Run a prompt since May 2025. Its output is a flow variable such as **Text**.",
         "In Power Apps, a prompt added from **Add data** is called as a Power Fx function with .Predict, for example 'Task identifier'.Predict(TextInput1.Text).",
-        "Prebuilt prompts (AISummarize, AISentiment, AIReply, AITranslate, AIClassify, AIExtract) can be used in Power Apps and Power Automate like custom prompts, except AI Translate. Prerequisite: a saved prompt such as Task Identifier."
+        "Prebuilt prompts (AISummarize, AISentiment, AIReply, AITranslate, AIClassify, AIExtract) can be used in Power Apps and Power Automate like custom prompts, except AI Translate. Prerequisite: a saved prompt such as Task Identifier with one input called Text.",
+        "Prompts are available only in some regions and might be subject to usage limits or capacity throttling."
       ],
       "steps": [
         "In Power Automate, select **+Create** > **Instant cloud flow** > **Manually trigger a flow** > **Create**.",
@@ -163,6 +358,32 @@
       "validation": [
         "The flow test run shows the **Run a prompt** step succeeded and the Teams message contains the generated text.",
         "The app label shows the prompt's generated text after you select the button."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-run-prompt-action.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the cloud flow designer.",
+            "Show the **Run a prompt** action with a prompt selected and its input filled."
+          ]
+        },
+        {
+          "filename": "ppai-app-predict-formula.png",
+          "section": "power-apps",
+          "instructions": [
+            "Open Power Apps Studio with **Button1** selected.",
+            "Show the **OnSelect** formula that calls the prompt with .Predict."
+          ]
+        },
+        {
+          "filename": "ppai-app-prompt-result.png",
+          "section": "power-apps",
+          "instructions": [
+            "Run the app, enter sample text, and select the button.",
+            "Show the generated text in the label."
+          ]
+        }
       ],
       "learnQueries": [
         "use your prompt in Power Automate Run a prompt",
@@ -183,39 +404,598 @@
       "relatedLabs": []
     },
     {
-      "id": "ppai-admin-governance-security",
-      "name": "Govern AI Builder: feature toggles, DLP, roles, and activity",
+      "id": "ppai-human-review-prompt-output",
+      "name": "Add human review to a prompt in a flow",
+      "category": "prompts",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Send the text a prompt generates to an approval before the flow uses it.",
+      "whyItMatters": "Generative models can fabricate details and are open to prompt injection. A human approval step catches wrong or harmful output before it reaches a customer or a decision.",
+      "concepts": [
+        "A prompt injection attack hides instructions in content the model reads, and can change the output or the actions that follow.",
+        "Fabrication, also called hallucination, is information the model invents that isn't in the input. Learn recommends rigorous testing, as much grounding as possible, and human oversight.",
+        "Learn describes human review as an approval in the flow: **Start and wait for an approval of text** followed by a **Condition** on the **Outcome**."
+      ],
+      "steps": [
+        "Open the cloud flow that has a **Run a prompt** action.",
+        "After the **Run a prompt** card, select **+**, enter **Approvals** in **Search**, and next to the **Approvals** heading select **See more**.",
+        "Select **Start and wait for an approval of text**.",
+        "Enter a **Title**, select **Text** from the dynamic content list in **Suggested Text**, and enter an email address in **Assigned To**.",
+        "After the approval card, add a **Condition** with **Outcome** from the dynamic content list, **is equal to**, and the value **Approve**.",
+        "In the **True** branch, add **Post message in a chat or channel**. Set **Post as** to **Flow bot**, **Post in** to **Chat with flow bot**, enter a **Recipient**, and select the **Accepted** text in **Message**.",
+        "Select **Save**, then run the flow.",
+        "As the reviewer, select **Approvals** > **Received**, open the approval, edit the text if needed, choose a response, and select **Confirm**."
+      ],
+      "validation": [
+        "The flow waits at the approval step and sends the message only after the reviewer approves.",
+        "A rejected approval does not send the generated text."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-approval-action.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the flow designer after configuring the approval.",
+            "Show **Start and wait for an approval of text** with **Title**, **Suggested Text**, and **Assigned To** filled."
+          ]
+        },
+        {
+          "filename": "ppai-approval-review.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open **Approvals** > **Received** as the reviewer.",
+            "Show the approval with the suggested text and the response choices, with real names masked."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "human review for automation with a prompt",
+        "use your prompt in Power Automate incorporate human review"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
+        "https://learn.microsoft.com/ai-builder/azure-openai-human-review"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
+      "prereqs": [
+        "ppai-use-prompt-in-flow-and-app"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-prebuilt-receipt-processing-flow",
+      "name": "Extract receipt data in a flow with the receipt processing model",
+      "category": "prebuilt-models",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Build an instant cloud flow that sends a receipt file to the Extract information from receipts action and reads merchant, date, and total.",
+      "whyItMatters": "Receipt processing turns photos and scans into structured values for expense automation, with no model training. Knowing the input limits and output types avoids common failures.",
+      "concepts": [
+        "Receipt processing is a prebuilt model that uses optical character recognition to read printed and handwritten text and key values from receipts.",
+        "The file must be JPEG, PNG, or PDF, at most 20 MB, with image dimensions from 50 x 50 to 10,000 x 10,000 pixels. Only the first page containing a receipt is processed, and multipage receipts aren't supported.",
+        "Calls are limited to 360 per 60 seconds per environment across document processing models, including receipt and invoice processing.",
+        "Receipt values return as strings, so convert them with the float or int expression when you need numbers.",
+        "Learn labels receipt processing as GA in the region table but as a preview model in the Power Automate overview list. Because the pages disagree, treat the release status as: Not confirmed in Microsoft Learn.",
+        "For any AI Builder action in a cloud flow, leave the default **Asynchronous Pattern** setting set to **On**."
+      ],
+      "steps": [
+        "Sign in to Power Automate, select **My flows**, then select **New flow** > **Instant cloud flow**.",
+        "Name your flow, select **Manually trigger a flow**, and select **Create**.",
+        "Expand **Manually trigger a flow**, then select **+Add an input** > **File** as the input type.",
+        "Replace **File Content** with **My receipt**.",
+        "Select **+New step** > **AI Builder**, then select **Extract information from receipts**.",
+        "Select the **Receipt file** input, then select **My receipt** from the **Dynamic content** list.",
+        "In later actions, use values such as **Merchant name**, **Transaction date**, and **Total**, converting numbers with float or int where needed.",
+        "Select **Save**, then **Test**, and upload a sample receipt."
+      ],
+      "validation": [
+        "The test run shows the **Extract information from receipts** step succeeded and returns merchant, date, and total values.",
+        "You can explain why a multipage or oversized receipt file would fail or return only part of the data."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-receipt-flow-action.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the flow designer.",
+            "Show the file trigger input and **Extract information from receipts** with the **Receipt file** input set."
+          ]
+        },
+        {
+          "filename": "ppai-receipt-flow-run.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the successful test run.",
+            "Show the extracted values and confidence scores, with any personal data masked."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "use the receipt processing prebuilt model in Power Automate",
+        "AI Builder receipt processing prebuilt model limits"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/flow-receipt-processing",
+        "https://learn.microsoft.com/ai-builder/prebuilt-receipt-processing",
+        "https://learn.microsoft.com/ai-builder/use-in-flow-overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/flow-receipt-processing",
+      "prereqs": [
+        "ppai-explore-ai-hub-models"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-document-processing-model",
+      "name": "Create, train, and use a document processing model",
+      "category": "custom-models",
+      "level": 200,
+      "minutes": 45,
+      "summary": "Build a custom document processing model with the Create custom model wizard, train it, and call it from a cloud flow with Process documents.",
+      "whyItMatters": "Document processing extracts fields, tables, and checkboxes from documents such as invoices so you can automate data entry. It is a custom model, so it must be trained and published before use.",
+      "concepts": [
+        "Document processing reads and saves information from standard documents; you need at least five example documents with the same layout per collection, or you can use sample data. Accepted files are JPG, PNG, and PDF.",
+        "The wizard offers three document types: Fixed template documents (quick training), General documents (powerful, longer training), and Invoices (extends the prebuilt invoice model with extra fields). A model can have up to 200 collections.",
+        "Learn says the underlying document intelligence model is v4.0 or v3.1 depending on when you last edited the model, and that you can move a model from v3.1 to v4.0 by editing, retraining, and publishing it.",
+        "General documents isn't available in every region (for example the region table shows a dash for Germany and Sweden), so check availability first.",
+        "After training, publish the model to make it available, then use it in Power Automate or Power Apps. Running models consumes credits; building and testing does not."
+      ],
+      "steps": [
+        "Sign in to Power Apps or Power Automate and select **... More** > **AI hub**.",
+        "Under **Discover an AI capability**, select **AI models**, then **Extract custom information from documents**, then **Create custom model**.",
+        "On **Choose document type**, select **Fixed template documents**, **General documents**, or **Invoices**.",
+        "On **Choose information to extract**, select **+Add** and define each field, table, and checkbox.",
+        "Group documents into collections by layout and upload at least five sample documents per collection.",
+        "Select **Train**, then test the model by selecting **Quick test**.",
+        "To check the document intelligence version, select **Settings** > **Published model version** > **Last trained model version**.",
+        "Publish the model.",
+        "In Power Automate, create an **Instant cloud flow**, add the **Process documents** action, choose the model and document type, and set **Form** to `File Content` from the trigger."
+      ],
+      "validation": [
+        "The model shows trained results in the **Last trained version** section and **Quick test** returns extracted values.",
+        "A test run of the flow returns each extracted **{field} value** and **{field} confidence score** in dynamic content."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-docproc-document-type.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the **Create custom model** wizard.",
+            "Show the **Choose document type** step with the three document type options."
+          ]
+        },
+        {
+          "filename": "ppai-docproc-fields.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the **Choose information to extract** step.",
+            "Show fields, a table, and a checkbox defined for the model."
+          ]
+        },
+        {
+          "filename": "ppai-docproc-quick-test.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the trained model's details page and run **Quick test** on a sample document.",
+            "Show the extracted values, with any personal data masked."
+          ]
+        },
+        {
+          "filename": "ppai-process-documents-action.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the cloud flow designer.",
+            "Show the **Process documents** action with the model, document type, and **Form** set to File Content."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "AI Builder document processing create custom model",
+        "Process documents action Power Automate AI Builder"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/create-form-processing-model",
+        "https://learn.microsoft.com/ai-builder/form-processing-model-overview",
+        "https://learn.microsoft.com/ai-builder/train-model",
+        "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow",
+        "https://learn.microsoft.com/ai-builder/availability-region"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/create-form-processing-model",
+      "prereqs": [
+        "ppai-explore-ai-hub-models"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-category-classification-model",
+      "name": "Build a category classification custom model",
+      "category": "custom-models",
+      "level": 200,
+      "minutes": 45,
+      "availability": "ga",
+      "summary": "Prepare tagged text in Dataverse, create and train a category classification model, publish it, and call it from a cloud flow.",
+      "whyItMatters": "Custom category classification sorts text such as feedback or requests into your own categories, so routing and reporting follow your business language.",
+      "concepts": [
+        "Training data is a Dataverse table with a text column and a tags column. You need at least two tags, at least 10 samples that use each tag, and at least 10 samples where each tag isn't used. Tags with fewer than 10 samples aren't trained.",
+        "You can define up to 200 distinct tags, each text sample must be under 5,000 characters, and multiple tags in one row use a comma, semicolon, or tab separator.",
+        "Publishing can run the model on Dataverse data. AI Builder creates a destination table named TC_{Model_Name} with a new_Tags column, uses Power Automate runs from your subscription, and results can take up to two hours.",
+        "Because a table is created when the model first runs, only System Customizers or System Administrators can run it first, and administrators must then grant access to the new table.",
+        "Learn's region table lists the custom model as GA. A prebuilt category classification model also exists, and Learn marks it preview in the model types table."
+      ],
+      "steps": [
+        "In Power Apps, select **Data** > **Tables**, open or create your table, and import tagged text, for example with **Data** > **Get data** > **Get data from Excel**. Or use the Learn sample data (the **healthcare_feedback** table).",
+        "Select **... More** > **AI hub**, then under **Discover an AI capability** select **AI models**.",
+        "Select **Text**, then **Category classification - Classify texts into custom categories**, then **Create custom model**.",
+        "Choose **Select text**, select the table and the text column, and choose **Select column**, then select **Next**.",
+        "Choose **Select tags**, select the tags column and **Select column**, confirm the separator, and select **Next**.",
+        "Review the text and tags, select **Next**, select the training language, and select **Next**.",
+        "Review the summary and select **Train**.",
+        "When training finishes, publish the model from the **Last trained version** section. To tag Dataverse data, turn on Dataverse in the **Model settings** pane.",
+        "In Power Automate, add the action **Classify text into categories with one of your custom models**, choose the model, and map **My Text** to the **Text** input."
+      ],
+      "validation": [
+        "The model details page shows trained results, and the published version is listed.",
+        "A flow test run returns a **Classification** and a **Confidence score** between 0 and 1."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-textclass-select-text-tags.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the **Create custom model** wizard for category classification.",
+            "Show the **Select text** and **Select tags** steps with the table and columns chosen."
+          ]
+        },
+        {
+          "filename": "ppai-textclass-trained.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the model details page after training.",
+            "Show the **Last trained version** section with its results."
+          ]
+        },
+        {
+          "filename": "ppai-textclass-flow-action.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the cloud flow designer.",
+            "Show **Classify text into categories with one of your custom models** with the model and text set."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "AI Builder category classification create custom model",
+        "AI Builder category classification before you build data preparation"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/create-text-classification-model",
+        "https://learn.microsoft.com/ai-builder/text-classification-overview",
+        "https://learn.microsoft.com/ai-builder/train-text-classification-model",
+        "https://learn.microsoft.com/ai-builder/publish-text-classification-model",
+        "https://learn.microsoft.com/ai-builder/text-classification-model-in-flow",
+        "https://learn.microsoft.com/ai-builder/security"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/create-text-classification-model",
+      "prereqs": [
+        "ppai-explore-ai-hub-models"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-prediction-model",
+      "name": "Build a prediction model from historical Dataverse data",
+      "category": "custom-models",
+      "level": 200,
+      "minutes": 45,
+      "availability": "ga",
+      "summary": "Choose a historical outcome in a Dataverse table, select training columns while avoiding target leakage, then train and publish a prediction model.",
+      "whyItMatters": "Prediction models learn from your own history to estimate yes/no outcomes, one of several outcomes, or a number, for example whether a shipment will be late.",
+      "concepts": [
+        "A prediction model supports binary (two options), multiple outcome, and numerical predictions. The outcome column can be Yes/No, Choices, Whole number, Decimal number, Floating point number, or Currency.",
+        "You need data in Dataverse, a security role with Read privilege over it, at least 10 rows of historical outcome for each class of the label column, and a minimum of 50 rows for training. Learn recommends at least 1,000 rows and a dataset under 1.5 GB.",
+        "Target leakage means a column that is only known after the outcome. Including it makes the model look near perfect on history and fail on real data, so deselect such columns.",
+        "Publishing the first time adds a column to the input table, so you need at least System Customizer rights. After you publish, predictions run daily.",
+        "Learn's region table lists prediction as GA in most regions, with a dash for some regions such as Korea, Norway, and South Africa."
+      ],
+      "steps": [
+        "Make sure the sample or your own data is in Dataverse. For sample data, enable **Deploy sample apps and data** when you create the environment, or follow the Data preparation article.",
+        "Sign in to Power Apps or Power Automate, select **... More** > **AI hub**, then under **Discover an AI capability** select **AI models**.",
+        "Select **Prediction - Predict future outcomes from historical data**, then **Create custom model**.",
+        "In the **Table** list select the table with the outcome (for the sample, **Online shopper intention**), and in the **Column** list select the outcome (for the sample, **Revenue (Label)**).",
+        "Review the data columns used to train the model and deselect any column that is indirectly determined by the outcome.",
+        "Optionally include related tables (many-to-one relationships) and add a filter to train on a subset of rows.",
+        "Select **Next** to view the training summary, then select **Train**.",
+        "Evaluate the performance on the details page, then publish the model."
+      ],
+      "validation": [
+        "The details page shows trained results under **Last trained version** and, after publishing, a published version.",
+        "You can name one column in your data that would cause target leakage and explain why you removed it."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-prediction-outcome.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the prediction **Create custom model** wizard.",
+            "Show the **Table** and **Column** selections for the historical outcome."
+          ]
+        },
+        {
+          "filename": "ppai-prediction-columns.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the data column selection step.",
+            "Show the list of training columns, with the leaking column deselected."
+          ]
+        },
+        {
+          "filename": "ppai-prediction-trained.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the model details page after training.",
+            "Show the performance result and the **Publish** option."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "AI Builder prediction create a prediction model",
+        "AI Builder prediction model prerequisites data preparation"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/prediction-create-model",
+        "https://learn.microsoft.com/ai-builder/prediction-overview",
+        "https://learn.microsoft.com/ai-builder/prediction-train-model",
+        "https://learn.microsoft.com/ai-builder/prediction-prereq",
+        "https://learn.microsoft.com/ai-builder/security"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/prediction-create-model",
+      "prereqs": [
+        "ppai-explore-ai-hub-models"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-evaluate-version-retrain-models",
+      "name": "Evaluate, version, retrain, and publish a custom model",
+      "category": "custom-models",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Judge a trained model, create a new version, retrain on new data, and publish the version you want users to run.",
+      "whyItMatters": "Custom models are iterative. Knowing how versions, drafts, and publishing work keeps a good published version safe while you try improvements.",
+      "concepts": [
+        "A model can have up to two trained versions at a time, a published version and a last trained version. Training a new version overwrites an existing last trained version, and publishing overwrites the previously published version.",
+        "Training creates a new version by updating the configuration. Retraining creates a new version with the same configuration so the model studies new data. Retraining applies only to some model types, and Learn names prediction and category classification.",
+        "An underfit model performs worse than a random guess. An overfit model looks perfect on training data, often because a column directly matches the outcome.",
+        "Publishing makes the model available to all users in the environment. You can have one draft at a time, so you resume or discard it before continuing."
+      ],
+      "steps": [
+        "Open your model from **AI hub** > **AI models** > **My models**. Learn's Manage your model page says **AI Builder** > **Models**; which label your portal shows: Not confirmed in Microsoft Learn.",
+        "On the details page, review the performance score and read the tooltip next to **Performance**.",
+        "Where it is offered, select **Quick test** to run the trained version on real data.",
+        "To try an improvement, select **Edit model**, change the configuration, and train a new version.",
+        "To refresh the model with new data, in the **Performance** section select the (**...**) menu > **Retrain now**.",
+        "To rename the model, select **Settings**, change **Name** in the **Model settings** pane, and select **Save**.",
+        "When you are satisfied, under **Last trained version** select **Publish**.",
+        "If you left work unfinished, select **Resume draft** or **Discard draft**."
+      ],
+      "validation": [
+        "The details page shows both the published version and a last trained version after you train a new version.",
+        "You can explain which version users run and what happens to an existing last trained version when you train again."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-model-details-versions.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the details page of a model that has a published version and a last trained version.",
+            "Show both version sections and the performance score."
+          ]
+        },
+        {
+          "filename": "ppai-model-edit-menu.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the **Edit model** menu on the details page.",
+            "Show the options for creating a new version."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "manage your model in AI Builder retrain new version",
+        "publish your model in AI Builder"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/manage-model",
+        "https://learn.microsoft.com/ai-builder/publish-model",
+        "https://learn.microsoft.com/ai-builder/train-model"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/manage-model",
+      "prereqs": [
+        "ppai-category-classification-model"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-powerfx-ai-models-in-canvas-app",
+      "name": "Use AI Builder models in a canvas app with Power Fx",
+      "category": "apps-flows",
+      "level": 200,
+      "minutes": 35,
+      "summary": "Add the Language detection model as a data source in a canvas app and call it with .Predict from a button.",
+      "whyItMatters": "Power Fx lets one formula call a prebuilt or custom model from any control. Good call patterns also save AI Builder credits.",
+      "concepts": [
+        "In a canvas app you add models from **Data** > **Add data** > **AI models**, and each model is invoked with the .Predict verb, for example 'Language detection'.Predict(TextInput1.Text).Language.",
+        "You must have an environment with a database and an AI Builder license (trial or paid).",
+        "You have to add the model to the app again after moving the app to another environment.",
+        "Learn labels the Power Fx experience as preview on the Power Apps overview page, but the Power Fx article doesn't carry a preview label. Treat its release status as: Not confirmed in Microsoft Learn.",
+        "Trigger predictions from a single action such as a button instead of an OnChange input, and save the result in a variable to reuse it, so you use credits efficiently."
+      ],
+      "steps": [
+        "Sign in to Power Apps and create a blank canvas app.",
+        "Select **Data** > **Add data** > **AI models**.",
+        "Search for and select **Language detection**.",
+        "Select **+** on the left pane and add a **Text input** control and two **Text label** controls.",
+        "Rename the first label to **Language**.",
+        "Add a **Button** and set its **OnSelect** to `Set(lang, 'Language detection'.Predict(TextInput1.Text).Language)`.",
+        "Set the second label's **Text** property to `lang`.",
+        "Select the **Play** button, enter `bonjour`, select the button, and confirm that fr appears."
+      ],
+      "validation": [
+        "The label shows fr after you enter bonjour and de after you enter guten tag.",
+        "You can explain why the formula runs from a button instead of from the input's OnChange."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-canvas-add-ai-model.png",
+          "section": "power-apps",
+          "instructions": [
+            "Open Power Apps Studio and select **Data** > **Add data** > **AI models**.",
+            "Show the Language detection model selected in the list."
+          ]
+        },
+        {
+          "filename": "ppai-canvas-language-result.png",
+          "section": "power-apps",
+          "instructions": [
+            "Preview the app after entering text and selecting the button.",
+            "Show the detected language code in the label."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "use AI Builder models in Power Apps Power Fx Predict",
+        "AI Builder in Power Apps overview components"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/powerfx-in-powerapps",
+        "https://learn.microsoft.com/ai-builder/use-in-powerapps-overview",
+        "https://learn.microsoft.com/ai-builder/model-types"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/powerfx-in-powerapps",
+      "prereqs": [
+        "ppai-explore-ai-hub-models"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-migrate-from-text-generation",
+      "name": "Move from the retired text generation model to prompts",
       "category": "ai-builder",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Recognize the retired Text generation model and renamed actions, and move that work to prompt builder prompts.",
+      "whyItMatters": "Older guidance and flows refer to the Text generation model and to actions that were renamed. Knowing what replaced them keeps existing automations and new labs on supported features.",
+      "concepts": [
+        "The Text generation model (preview) page is marked deprecated and no longer visible. Learn says the prompt builder feature should be used instead.",
+        "Since May 2025 the Power Automate action Create text with GPT using a prompt is named Run a prompt, and the action Extract information from documents is named Process documents.",
+        "Prompts built in prompt builder can be used in Power Apps, Power Automate, and also as tools in Copilot Studio agents, using the same saved prompt.",
+        "Whether Microsoft migrates existing Text generation model content for you: Not confirmed in Microsoft Learn."
+      ],
+      "steps": [
+        "Open the Text generation model (preview) (deprecated) article and read its deprecation notice.",
+        "Find where your flows or apps use text generation or an action with an older name, and list them.",
+        "In **AI hub** > **Prompts**, create a replacement prompt with **Build your own prompt** and test it with the same sample inputs.",
+        "In each flow, select **+** and add **Run a prompt**, then choose the replacement prompt in the **Prompt** field.",
+        "Where a flow used a document processing action, confirm the step is now named **Process documents** and still points to your model.",
+        "Save, run **Test**, and compare the output with the earlier results."
+      ],
+      "validation": [
+        "Each flow you updated runs with **Run a prompt** and returns text from the replacement prompt.",
+        "You can name the replacement for the Text generation model and the new action names."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-migrate-run-a-prompt.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open a flow after replacing the older action.",
+            "Show the **Run a prompt** action with the replacement prompt selected."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "AI Builder text generation model deprecated prompt builder",
+        "Run a prompt action renamed Create text with GPT"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai",
+        "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
+        "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow",
+        "https://learn.microsoft.com/ai-builder/prompts-overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai",
+      "prereqs": [
+        "ppai-build-custom-prompt"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-admin-governance-security",
+      "name": "Govern AI Builder: feature toggles, DLP, and roles",
+      "category": "administration",
       "level": 300,
       "minutes": 45,
-      "summary": "Control AI prompts and preview models per environment, apply DLP and security roles, and monitor AI Builder activity.",
+      "summary": "Control AI prompts and preview models per environment, apply DLP and security roles, and share models and prompts.",
       "whyItMatters": "Admins decide who can create and run models and prompts and which AI features are on. Environment group rules and DLP policies keep this consistent at scale.",
       "concepts": [
-        "AI prompts are enabled by default; if you turn them off, custom and prebuilt prompts can't be used. The Preview and experimental AI models setting also exists per environment.",
-        "AI Builder is part of the Dataverse connector for DLP. Environment makers can create models and prompts, basic users can use shared ones, and System Administrator and System Customizer see all.",
-        "Activity is stored in the AI Event Dataverse table and shown on the **AI Builder activity** page; makers see only their own rows."
+        "AI prompts are enabled by default; if you turn them off, custom and prebuilt prompts can't be used. The Preview and experimental AI models setting (called AI Builder preview models before August 2025) also exists per environment and is on by default for eligible environments.",
+        "AI Builder is part of the Dataverse connector for DLP. Business and Non-business connectors can't share data within the same consumption experience, and blocked connectors can't be used.",
+        "Environment makers can create models and prompts, basic users can use shared ones, and System Administrator and System Customizer see all. By default a model or prompt is accessible only to its owner, so it must be shared.",
+        "A published environment group rule locks the matching setting at the environment level, so admins change it in the group."
       ],
       "steps": [
         "Sign in to Power Platform admin center and select **Environments** > your environment > **Settings** > **Product** > **Features**.",
         "Under **AI Builder**, enable or disable the **AI prompts** toggle.",
-        "For preview models, on **Features** under **Preview and experimental AI models**, set **Let people use AI models that are experimental or in preview**.",
+        "For preview models, select **Manage** > **Environments** > your environment > **Settings** > **Features** and, under **Preview and experimental AI models**, set **Let people use AI models that are experimental or in preview**.",
         "To govern at scale, open **Environment groups** > your group > **Rules**, set the **AI prompts** rule, **Save**, then **Publish rules**.",
         "Check **Data policies** so the Dataverse connector (which includes AI Builder) is in the intended category.",
-        "Review roles: Environment Maker creates models and prompts; share a model or prompt from its details page with **Share**.",
-        "In Power Automate, select **Automation Center** > **AI Builder activity** to review activity by timeframe or tool type."
+        "Review roles: Environment Maker creates models and prompts. Share a model or prompt from its details page with **Share**."
       ],
       "validation": [
         "After disabling **AI prompts** in a test environment, prompts can't be used there; re-enable it to restore them.",
-        "The **AI Builder activity** page lists runs with Tool name, Used in, and Consumption for your own activity (or all as System Administrator)."
+        "You can state which roles can create, use, and view activity for a model or prompt."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-admin-features-toggle.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Settings** > **Product** > **Features** for a test environment.",
+            "Show the **AI Builder** section with the **AI prompts** toggle."
+          ]
+        },
+        {
+          "filename": "ppai-admin-preview-setting.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open the **Features** settings page.",
+            "Show **Preview and experimental AI models** and its setting."
+          ]
+        },
+        {
+          "filename": "ppai-share-model.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open a model or prompt details page.",
+            "Show the **Share** command at the top left."
+          ]
+        }
       ],
       "learnQueries": [
         "administer AI Builder enable disable AI prompts",
-        "AI Builder roles and security activity monitoring"
+        "AI Builder roles and security share model"
       ],
       "docUrls": [
         "https://learn.microsoft.com/ai-builder/administer",
-        "https://learn.microsoft.com/ai-builder/security",
-        "https://learn.microsoft.com/ai-builder/activity-monitoring"
+        "https://learn.microsoft.com/ai-builder/security"
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/ai-builder/administer",
@@ -226,41 +1006,305 @@
       "relatedLabs": []
     },
     {
-      "id": "ppai-credits-licensing-transition",
-      "name": "Manage AI Builder credits and Copilot Credits",
-      "category": "ai-builder",
+      "id": "ppai-monitor-ai-activity",
+      "name": "Monitor AI Builder activity and manage activity data",
+      "category": "administration",
       "level": 300,
       "minutes": 35,
-      "summary": "Understand how AI Builder credits and Copilot Credits are consumed, allocate credits to environments, and plan for the end of AI Builder credits.",
+      "summary": "Review AI model and prompt activity in the AI Builder activity page, export it, and schedule a bulk delete to control table growth.",
+      "whyItMatters": "Activity shows who ran which model or prompt and what it consumed. The data accumulates in Dataverse, so a retention job keeps the environment efficient.",
+      "concepts": [
+        "The **AI Builder activity** page shows activity from Power Automate, Power Apps, and Copilot Studio. By default it shows all AI models from the last seven days.",
+        "The data is stored in the AI Event Dataverse table (msdyn_aievent), persists even if you delete the model, flow, or app, and holds the input for text scenarios only.",
+        "System Administrators and System Customizers see all activity. Basic users and Environment Makers see only their own.",
+        "A Dataverse bulk delete is permanent and needs the **Bulk Delete** privilege; test the filter first."
+      ],
+      "steps": [
+        "Sign in to Power Automate and select **Automation Center**.",
+        "In the **Monitor** section, select **AI Builder activity**.",
+        "Filter the timeframe or tool type and open an event to see **Processed by** and **Model**.",
+        "To export the data, export the **AI Event** table to CSV as described in Import data from Excel and export data to CSV.",
+        "Sign in to Power Platform admin center, select **Environments**, select your environment, then select **Settings**.",
+        "Select **Data management** > **Bulk deletion**, then select **New** and **Next**.",
+        "In **Look for**, select **AI Events**, add a filter such as activity older than six months, and select **Next**.",
+        "Enter a job name, choose a start time, select **Run this job after every** and a number of days, then select **Next** and **Submit**."
+      ],
+      "validation": [
+        "The **AI Builder activity** page lists recent runs with Tool name, Used in, and Consumption.",
+        "The recurring bulk deletion job appears in **All Bulk Deletion System Jobs**."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-activity-page.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open **Automation Center** > **AI Builder activity**.",
+            "Show the activity table with the timeframe and tool type filters, with any personal data masked."
+          ]
+        },
+        {
+          "filename": "ppai-bulk-delete-wizard.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open the **Bulk Deletion Wizard** for the **AI Events** table.",
+            "Show the filter criteria for records older than a set number of months."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "monitor AI Builder models and prompts activity",
+        "AI Event table bulk delete AI Builder"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/activity-monitoring",
+        "https://learn.microsoft.com/ai-builder/security"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/activity-monitoring",
+      "prereqs": [
+        "ppai-use-prompt-in-flow-and-app"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-alm-distribute-models",
+      "name": "Move AI models between environments with solutions",
+      "category": "administration",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Package a published model in a solution, export it, import it as managed in a target environment, and protect it from edits.",
+      "whyItMatters": "Teams build in development, qualify in test, and run in production. Solutions carry models along that path, but only the published executable moves, which changes how you plan retraining.",
+      "concepts": [
+        "A model can be added to a solution only when it has a published version. Only the published version is installed in the target, and the training data isn't included.",
+        "You can't create or train a new version of an imported document processing, object detection, or entity extraction model, and you can't set a run schedule on imported category classification models. Create a new model instead.",
+        "A model used by an app or flow isn't a dependency, so add the app, the flow, and the model to the solution explicitly.",
+        "Learn's environment guidance varies by page: one section says models move fully with backup, restore, and copy, and another says that for models other than prediction and prebuilt models you retrain and republish after a move or copy. Check your model types in a test environment first."
+      ],
+      "steps": [
+        "Build and publish the model in a development environment.",
+        "Open the solution explorer in Power Apps or Power Automate and create a solution.",
+        "Add the published model, and the app and flow that use it, to the solution. The exact add-existing menu path: Not confirmed in Microsoft Learn.",
+        "Export the solution as a zip file, preferably managed for production.",
+        "Import the solution into the target environment.",
+        "In the solution, select **Managed Properties** and turn off **Allow customizations** before import to prevent accidental changes.",
+        "Open the model in the target environment and run a quick test; for document processing and object detection, wait while the model shows **Importing**."
+      ],
+      "validation": [
+        "The model appears in the target environment and runs in the app or flow without retraining.",
+        "You can explain why a new version can't be trained on an imported document processing model."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-solution-with-model.png",
+          "section": "power-apps",
+          "instructions": [
+            "Open the solution in the solution explorer.",
+            "Show the AI model, the app, and the flow listed as components."
+          ]
+        },
+        {
+          "filename": "ppai-model-importing-status.png",
+          "section": "ai-hub",
+          "instructions": [
+            "Open the AI models list in the target environment during import.",
+            "Show the **Importing** status message."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "distribute your AI model using a solution",
+        "AI Builder environment lifecycle backup restore copy"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/distribute-model",
+        "https://learn.microsoft.com/ai-builder/administer"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/distribute-model",
+      "prereqs": [
+        "ppai-document-processing-model"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-predict-action-dynamic-model",
+      "name": "Choose the model at run time with the Predict action",
+      "category": "apps-flows",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Use the Predict action with a model ID held in a variable so a flow can pick a document processing model per document.",
+      "whyItMatters": "When different document layouts need different models, a dynamic model ID avoids duplicate flows. It uses an advanced request format, so it needs care.",
+      "concepts": [
+        "The **Predict** action works with many model types. You find a model's ID in the URL of its details page in Power Apps, after /aibuilder/models/.",
+        "Learn says the dynamic model ID is supported only for document processing and not for prompts, yet the same page also shows request formats for object detection and category classification. Which types work in practice: Not confirmed in Microsoft Learn.",
+        "The document processing request is a JSON object with version 2.0, a requestv2 section that carries mimeType, base64Encoded file content, and an optional pages value."
+      ],
+      "steps": [
+        "In Power Automate, select **My flows** > **New flow** > **Instant cloud flow**, name it, and select **Manually trigger a flow** > **Create**.",
+        "In the trigger, add a **File** input named **File Content** and a **Text** input named **Mime Type**.",
+        "Select **+ New step**, search **Initialize variable**, and enter **model id** as **Name**, **String** as **Type**, and the model ID as **Value**.",
+        "Select **+ New step**, search **predict**, and select **Predict from AI Builder**.",
+        "Select the **Model** input > **Enter custom value** and enter the **model id** variable.",
+        "In **Infer request**, enter the JSON request for a document processing model from the Predict action article.",
+        "Select **Save**, then **Test**, and open the run to read the model JSON in the **OUTPUTS** section of the predict action.",
+        "Add a **Compose** action and read a value with a formula such as `outputs('Predict')?['body/responsev2/predictionOutput/labels/Total/value']`."
+      ],
+      "validation": [
+        "The test run returns the model JSON in the predict action outputs.",
+        "The **Compose** action returns the extracted field value."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-predict-dynamic-model.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the flow designer.",
+            "Show the **Initialize variable** action and the **Predict** action with the model id and **Infer request** set."
+          ]
+        },
+        {
+          "filename": "ppai-predict-outputs.png",
+          "section": "power-automate",
+          "instructions": [
+            "Open the successful test run and the **OUTPUTS** of the predict action.",
+            "Show the returned model JSON, with sensitive values masked."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "use predict action in Power Automate dynamic model ID",
+        "AI Builder in Power Automate overview predict action"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/predict-action-pwr-automate",
+        "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow",
+        "https://learn.microsoft.com/ai-builder/use-in-flow-overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/predict-action-pwr-automate",
+      "prereqs": [
+        "ppai-document-processing-model"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-code-interpreter-prompts",
+      "name": "Turn on code interpreter in a prompt",
+      "category": "prompts",
+      "level": 300,
+      "minutes": 35,
+      "summary": "Enable code interpreter for a prompt so it can run Python to analyze files and data and return files such as Excel workbooks.",
+      "whyItMatters": "Code interpreter extends a prompt from generating text to analyzing data, reading Office files, and producing files. It also bills at a higher tier and has file and authentication limits.",
+      "concepts": [
+        "Code interpreter lets a prompt write and run Python for data analysis, processing Word, Excel, PowerPoint, and PDF files, and visualizations. It adds files as an output type and Excel files as input and output types.",
+        "Code generation and execution count as text and generative AI tools (premium) features. It's available for all public clouds, and sovereign clouds aren't currently supported.",
+        "Limits listed by Learn include no analysis of multiple files in a single prompt, no multiple file outputs in a single prompt, and no multiple-turn questions about an uploaded file.",
+        "To use code interpreter in a Copilot Studio agent, the agent must use user authentication."
+      ],
+      "steps": [
+        "Go to Power Apps and select **AI hub** in the left pane, then select **Prompts**.",
+        "Select **Build your own prompt** and enter a name.",
+        "In the **Instructions** section, select the three dots (**...**) and then select **Settings**.",
+        "On **Settings**, turn on code interpreter, then close **Settings**.",
+        "Write instructions that name the output you want, for example Excel or JSON, and use a few examples.",
+        "Add an input of **Image or document** with a sample file, select **Test**, and review the result.",
+        "Select **Save**."
+      ],
+      "validation": [
+        "The prompt settings show code interpreter turned on, and **Test** returns the requested analysis or file.",
+        "You can list two limitations that apply to your scenario."
+      ],
+      "screenshots": [
+        {
+          "filename": "ppai-code-interpreter-setting.png",
+          "section": "prompt-builder",
+          "instructions": [
+            "Open the prompt's three dots (**...**) > **Settings**.",
+            "Show code interpreter turned on."
+          ]
+        },
+        {
+          "filename": "ppai-code-interpreter-result.png",
+          "section": "prompt-builder",
+          "instructions": [
+            "Select **Test** on a prompt that analyzes a sample file.",
+            "Show the generated result, with any real data masked."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "use code interpreter in a prompt to generate and execute Python code",
+        "code interpreter prompt examples"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/code-interpreter-for-prompts",
+        "https://learn.microsoft.com/ai-builder/add-inputs-prompt"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/code-interpreter-for-prompts",
+      "prereqs": [
+        "ppai-prompt-inputs-and-model-settings"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-credits-licensing-transition",
+      "name": "Manage AI Builder credits and Copilot Credits, and fix capacity errors",
+      "category": "administration",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Understand how AI Builder credits and Copilot Credits are consumed, allocate and monitor credits, resolve capacity errors, and plan for the end of AI Builder credits.",
       "whyItMatters": "Running models and prompts consumes capacity, and runs are blocked when no credits remain. AI Builder capacity add-ons and seeded credits are ending, so admins must plan Copilot Credits.",
       "concepts": [
         "Building and testing custom models and prompts doesn't consume credits; running them in agents, flows, or apps does. In Power Apps and Power Automate, runs consume AI Builder credits first, then Copilot Credits; if both are unavailable they fail.",
-        "Per Learn, AI Builder capacity add-ons reach end of life on 11/01/2026 and seeded credits stop for new or renewed licenses; existing credits are honored through the contract term. AI Builder trials are discontinued.",
-        "AI Builder features continue to be supported using Copilot Credits. Consumption resets monthly and unused credits don't roll over."
+        "Per Learn's calendar, AI Builder capacity add-ons reach end of life on 11/01/2026 and seeded credits stop for new or renewed licenses; existing credits are honored through the contract term. As of 11/01/2025 AI Builder trials are discontinued.",
+        "AI Builder features continue to be supported using Copilot Credits. There is no automatic conversion of AI Builder credits, consumption resets monthly, and unused credits don't roll over.",
+        "Consumption is computed periodically, ideally daily but possibly delayed by days, so an environment can overrun before a block or fallback applies. Learn says such overage only affects the environment and is never billed.",
+        "Overage errors include EntitlementNotAvailable, NoCapacity, QuotaExceeded, No capacity was found, and Credit usage exceeds allocation."
       ],
       "steps": [
         "Read the Overview of licensing and the capability rate table to estimate monthly consumption per scenario.",
         "In Power Platform admin center, select **Licensing** > **Capacity add-ons** > **Add-ons** tab, then **Assign to an environment** to allocate credits.",
         "To restrict use, clear **Allow users to consume unassigned AI Builder credits** in tenant settings.",
         "Check consumption on **Licensing** > **Capacity add-ons** > **Summary** tab (Allocation and Consumption bars).",
-        "Review the AI Builder consumption report for credits by environment and period.",
+        "To download the consumption report, select **Resources** > **Capacity**, then on the **Summary** tab select **Download reports** in the **Add-ons** section, select **+New**, choose **AI Builder** in **Choose a report**, select **Submit**, and download the report when it is ready.",
+        "If a flow or app fails with a capacity error, check the environment's allocation and the tenant's unassigned credits, compare them with the consumption report, and allocate more credits or make Copilot Credits available.",
         "Review the End of AI Builder credits calendar and plan Copilot Credits for after the end dates."
       ],
       "validation": [
         "The Summary tab shows allocated and consumed AI Builder credits against purchased credits for your tenant.",
         "You can explain which currency a flow run consumes first and what happens when both are exhausted."
       ],
+      "screenshots": [
+        {
+          "filename": "ppai-credits-summary-tab.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Licensing** > **Capacity add-ons** > **Summary**.",
+            "Show the Allocation and Consumption bars for AI Builder credits."
+          ]
+        },
+        {
+          "filename": "ppai-credits-assign-environment.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open the **Add-ons** tab and select **Assign to an environment**.",
+            "Show the allocation panel with an environment and an amount."
+          ]
+        }
+      ],
       "learnQueries": [
         "AI Builder licensing and credits overview",
         "end of AI Builder credits Copilot Credits"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/ai-builder/administer-licensing",
         "https://learn.microsoft.com/ai-builder/credit-management",
-        "https://learn.microsoft.com/ai-builder/endofaibcredits"
+        "https://learn.microsoft.com/ai-builder/endofaibcredits",
+        "https://learn.microsoft.com/ai-builder/administer-consumption-report",
+        "https://learn.microsoft.com/ai-builder/administer-licensing"
       ],
       "lastVerified": "2026-11-13",
-      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/administer-licensing",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/credit-management",
       "prereqs": [
         "ppai-use-prompt-in-flow-and-app"
       ],
