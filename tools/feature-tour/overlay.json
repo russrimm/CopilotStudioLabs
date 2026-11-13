@@ -1,6 +1,7 @@
 {
-  "$comment": "Curated additions on top of portal/lib/lab-builder/features.json, which stays the single source of truth. 'shots' adds screenshot entries for features that the catalog does not give any; 'features' can add caveats or override the uiPath breadcrumb. Every label and instruction is taken from the cited Learn procedure as recorded in the catalog steps (the bold UI names). Callout 'text' is the visible UI text the capture tool searches for to place the numbered hotspot. Edit this file, then run: npm run feature-tour:build",
+  "$comment": "Curated additions on top of portal/lib/lab-builder/features.json, which stays the single source of truth. 'shots' adds screenshot entries for features that the catalog does not give any; 'features' can add caveats or override the uiPath breadcrumb; 'shotOverrides' is keyed by shot filename and can replace caption, instructions, or callouts of a catalog shot after you see the real screen. Every label and instruction is taken from the cited Learn procedure as recorded in the catalog steps (the bold UI names). Callout 'text' is the visible UI text the capture tool searches for to place the numbered hotspot. Edit this file, then run: npm run feature-tour:build",
   "features": {},
+  "shotOverrides": {},
   "shots": {
     "test-agent": [
       {

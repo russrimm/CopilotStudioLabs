@@ -25,6 +25,7 @@ import { fileURLToPath } from "node:url";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { existsSync, readFileSync, mkdirSync, statSync } from "node:fs";
 import readline from "node:readline";
+import { resolveCallouts, sidecarName, writeSidecar } from "./callouts.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,7 +36,12 @@ const repoRoot = resolve(__dirname, "..", "..");
 const manifestArg = process.argv
   .slice(2)
   .find((a) => a.startsWith("--manifest="));
-const manifestOverride = manifestArg ? manifestArg.slice("--manifest=".length) : null;
+// --features is shorthand for the generated feature-tour shot list.
+const manifestOverride = manifestArg
+  ? manifestArg.slice("--manifest=".length)
+  : process.argv.slice(2).includes("--features")
+    ? join("tools", "screenshot-capture", "feature-shots.json")
+    : null;
 const manifestPath = manifestOverride
   ? (existsSync(resolve(process.cwd(), manifestOverride))
       ? resolve(process.cwd(), manifestOverride)
@@ -51,10 +57,12 @@ if (!/^[a-z0-9-]+$/i.test(manifest.lab || "")) {
   process.exit(1);
 }
 const manifestDir = dirname(manifestPath);
+const isFeatureTour = manifest.kind === "feature-tour";
 const assetsDir = manifest.assetsDir === "assets"
   ? resolve(manifestDir, manifest.assetsDir)
   : resolve(repoRoot, manifest.assetsDir);
 const expectedLabAssets = resolve(repoRoot, "labs", manifest.lab || "", "assets");
+const expectedFeatureAssets = resolve(repoRoot, "docs", "feature-tour", "screenshots");
 const repoRelativeAssets = relative(repoRoot, assetsDir);
 const usesLocalGeneratedAssets =
   manifest.assetsDir === "assets" && basename(manifestDir) === manifest.lab;
@@ -62,10 +70,14 @@ if (
   !manifest.assetsDir ||
   repoRelativeAssets.startsWith(`..${sep}`) ||
   isAbsolute(repoRelativeAssets) ||
-  (assetsDir !== expectedLabAssets && !usesLocalGeneratedAssets)
+  (isFeatureTour
+    ? assetsDir !== expectedFeatureAssets
+    : assetsDir !== expectedLabAssets && !usesLocalGeneratedAssets)
 ) {
   console.error(
-    `Error: assetsDir must resolve to labs/${manifest.lab}/assets or to an assets folder beside a generated lab manifest.`,
+    isFeatureTour
+      ? "Error: a feature-tour manifest must use assetsDir docs/feature-tour/screenshots."
+      : `Error: assetsDir must resolve to labs/${manifest.lab}/assets or to an assets folder beside a generated lab manifest.`,
   );
   process.exit(1);
 }
@@ -94,9 +106,11 @@ const wantMissing = flag("--missing");
 const onlyRaw = value("--only");
 const rangeRaw = value("--range");
 const fromRaw = value("--from");
+const featureRaw = value("--feature");
+const harnessRaw = value("--harness");
 
 function printHelp() {
-  console.log(`\nCopilot Studio Labs screenshot capture\n\nUsage:\n  node capture.js [flags]\n\nSelection flags (mutually exclusive):\n  --all             Capture every shot, even if the file exists.\n  --only=<csv>      Capture only specific shot IDs, e.g. --only=2,4,7.\n  --range=A-B       Capture an inclusive shot ID range.\n  --from=<id>       Capture from the matching shot ID through the end.\n  --missing         Capture only shots missing on disk (also the default).\n\nOther flags:\n  --manifest=<path> Use a specific shots.json (e.g. a lab's own manifest).\n  --list            List shots and whether each file exists.\n  --dry-run         Print resolved shot setup without launching Playwright.\n  --help, -h        Show this help.\n\nKeystrokes during capture:\n  SPACE             Snap the current shot and advance.\n  r                 Retry/re-snap the current shot.\n  n                 Skip this shot without saving.\n  q                 Quit gracefully and persist auth.\n  ?                 Re-print the current shot instructions.\n\nPrecedence: --only beats --range beats --from beats --missing default.\nConflicting selection flags are rejected so intent stays explicit.\n`);
+  console.log(`\nCopilot Studio Labs screenshot capture\n\nUsage:\n  node capture.js [flags]\n\nSelection flags (mutually exclusive):\n  --all             Capture every shot, even if the file exists.\n  --only=<csv>      Capture only specific shot IDs, e.g. --only=2,4,7.\n  --range=A-B       Capture an inclusive shot ID range.\n  --from=<id>       Capture from the matching shot ID through the end.\n  --missing         Capture only shots missing on disk (also the default).\n\nFilters (combine with a selection flag; feature-tour manifests only):\n  --feature=<csv>   Only shots for these feature ids, e.g. --feature=mc-skills,topics.\n  --harness=<id>    Only shots for one harness: standard, microsoft-copilot, or both.\n\nOther flags:\n  --manifest=<path> Use a specific shots.json (e.g. a lab's own manifest).\n  --features        Use the feature tour shot list (tools/screenshot-capture/feature-shots.json).\n  --list            List shots and whether each file exists.\n  --dry-run         Print resolved shot setup without launching Playwright.\n  --help, -h        Show this help.\n\nKeystrokes during capture:\n  SPACE             Snap the current shot and advance.\n  r                 Retry/re-snap the current shot.\n  n                 Skip this shot without saving.\n  q                 Quit gracefully and persist auth.\n  ?                 Re-print the current shot instructions.\n\nFeature tour shots also write a <file>.callouts.json next to each PNG with the\nposition of every numbered callout, so the site can draw the hotspots.\n\nPrecedence: --only beats --range beats --from beats --missing default.\nConflicting selection flags are rejected so intent stays explicit.\n`);
 }
 
 function failArg(message) {
@@ -139,6 +153,19 @@ if (fromRaw !== null && !Number.isFinite(fromId)) {
   failArg("--from must be a numeric shot ID.");
 }
 
+const featureFilter = featureRaw ? new Set(featureRaw.split(",").map((s) => s.trim()).filter(Boolean)) : null;
+if ((featureFilter || harnessRaw) && !isFeatureTour) {
+  failArg("--feature and --harness only apply to the feature tour shot list (use --features).");
+}
+if (harnessRaw && !["standard", "microsoft-copilot", "both"].includes(harnessRaw)) {
+  failArg("--harness must be standard, microsoft-copilot, or both.");
+}
+if (featureFilter) {
+  const known = new Set(manifest.shots.map((s) => s.feature));
+  const unknown = [...featureFilter].filter((id) => !known.has(id));
+  if (unknown.length) failArg(`unknown feature id(s): ${unknown.join(", ")}. Run with --list to see them.`);
+}
+
 // ---------- helpers ----------
 function shotPath(filename) {
   const outputPath = resolve(assetsDir, filename);
@@ -155,7 +182,10 @@ function shotPath(filename) {
 }
 
 function shotExists(filename) {
-  return existsSync(shotPath(filename));
+  const out = shotPath(filename);
+  if (!existsSync(out)) return false;
+  // The tour site treats a stub or non-PNG as pending, so --missing must too.
+  return isFeatureTour ? verifyPng(out).ok : true;
 }
 
 function resolvedViewport(shot) {
@@ -174,7 +204,9 @@ function isAbsoluteUrl(value) {
 }
 
 function shotNavSection(shot) {
-  return typeof shot.section === "string" && shot.section.trim() ? shot.section.trim().replace(/^\/+/, "") : null;
+  // Feature tour sections are descriptive labels; only navSection triggers a jump.
+  const raw = isFeatureTour ? shot.navSection : shot.section;
+  return typeof raw === "string" && raw.trim() ? raw.trim().replace(/^\/+/, "") : null;
 }
 
 function resolveBotSectionUrl(currentUrl, section) {
@@ -215,11 +247,29 @@ function validateShotShape(shot) {
   if (shot.highlight && (typeof shot.highlight.selector !== "string" || typeof shot.highlight.label !== "string")) {
     throw new Error(`Shot #${shot.id} highlight must be { selector, label } strings.`);
   }
+  if (shot.callouts !== undefined) {
+    if (!Array.isArray(shot.callouts)) throw new Error(`Shot #${shot.id} callouts must be an array.`);
+    for (const c of shot.callouts) {
+      if (!Number.isInteger(c?.n) || typeof c.label !== "string" || typeof c.text !== "string") {
+        throw new Error(`Shot #${shot.id} callouts need integer n and string label and text.`);
+      }
+    }
+  }
 }
 
 for (const shot of manifest.shots) validateShotShape(shot);
 
+function applyFilters(shots) {
+  return shots.filter(
+    (s) => (!featureFilter || featureFilter.has(s.feature)) && (!harnessRaw || s.harness === harnessRaw),
+  );
+}
+
 function selectShots() {
+  return applyFilters(selectByFlags());
+}
+
+function selectByFlags() {
   if (wantAll) return [...manifest.shots];
   if (onlyIds) return manifest.shots.filter((s) => onlyIds.has(Number(s.id)));
   if (rangeStart !== null) return manifest.shots.filter((s) => s.id >= rangeStart && s.id <= rangeEnd);
@@ -231,12 +281,31 @@ function selectShots() {
   return manifest.shots.filter((s) => !shotExists(s.filename));
 }
 
+function featureLabel(s) {
+  return isFeatureTour ? `${s.featureName} [${s.harness}]` : (s.labSection ?? s.section);
+}
+
+function printFeatureDetails(shot) {
+  if (!isFeatureTour) return;
+  if (shot.navHint) console.log(`Where: ${shot.navHint}`);
+  if (shot.prerequisites?.length) console.log(`Prerequisite features: ${shot.prerequisites.join("; ")}`);
+  if (shot.setup?.length) {
+    console.log("Steps to reach the screen:");
+    shot.setup.forEach((line, i) => console.log(`  ${i + 1}. ${line}`));
+  }
+  if (shot.callouts?.length) {
+    console.log("Callouts the site will number (UI text must be visible):");
+    for (const c of shot.callouts) console.log(`  ${c.n}. ${c.label} (finds "${c.text}")`);
+  }
+}
+
 function listAll() {
-  console.log(`\nShots manifest (${manifest.shots.length} total)\n`);
-  for (const s of manifest.shots) {
+  const missing = manifest.shots.filter((s) => !shotExists(s.filename)).length;
+  console.log(`\nShots manifest (${manifest.shots.length} total, ${missing} missing)\n`);
+  for (const s of applyFilters(manifest.shots)) {
     const have = shotExists(s.filename) ? "✓" : " ";
     console.log(`  [${have}] #${String(s.id).padStart(2, "0")}  ${s.filename}`);
-    console.log(`        ${s.labSection ?? s.section}`);
+    console.log(`        ${featureLabel(s)}`);
     console.log(`        target: ${resolvedUrl(s)}`);
   }
   console.log(`\nAssets dir: ${assetsDir}`);
@@ -253,11 +322,12 @@ function printDryRun(shots) {
     console.log(`  url: ${resolvedUrl(shot)}`);
     console.log(`  viewport: ${viewport.width}x${viewport.height}`);
     console.log(`  zoom: ${resolvedZoom(shot)}`);
-    console.log(`  lab section: ${shot.labSection ?? "(not set)"}`);
+    console.log(`  ${isFeatureTour ? "feature" : "lab section"}: ${featureLabel(shot)}`);
     console.log(`  section: ${shot.section}`);
     console.log("  instructions:");
     for (const line of shot.instructions) console.log(`    - ${line}`);
     if (shot.highlight) console.log(`  highlight: ${shot.highlight.selector} (${shot.highlight.label})`);
+    if (isFeatureTour) console.log(`  callouts: ${(shot.callouts ?? []).map((c) => `${c.n}=${c.label}`).join(", ") || "(none)"}`);
   }
   console.log("");
 }
@@ -265,12 +335,13 @@ function printDryRun(shots) {
 function printInstructions(shot) {
   console.log("─".repeat(72));
   console.log(`Shot #${shot.id}  →  ${shot.filename}`);
-  console.log(`Section: ${shot.labSection ?? shot.section}`);
+  console.log(`${isFeatureTour ? "Feature" : "Section"}: ${featureLabel(shot)}`);
   console.log(`Target: ${resolvedUrl(shot)}`);
   const viewport = resolvedViewport(shot);
   console.log(`Viewport: ${viewport.width}x${viewport.height}; zoom: ${resolvedZoom(shot)}`);
+  printFeatureDetails(shot);
   console.log("");
-  console.log("Setup steps:");
+  console.log(isFeatureTour ? "What the screenshot must show:" : "Setup steps:");
   for (const line of shot.instructions) console.log(`  • ${line}`);
   console.log("");
 }
@@ -553,6 +624,16 @@ for (let index = 0; index < todo.length; index += 1) {
       await target.screenshot({ path: out, fullPage: false });
       summary.snapped += 1;
       console.log(`Saved → ${out}`);
+      if (isFeatureTour) {
+        const viewport = target.viewportSize() ?? resolvedViewport(shot);
+        const results = await resolveCallouts(target, shot.callouts, viewport).catch(() => []);
+        writeSidecar(assetsDir, shot.filename, viewport, results);
+        const found = results.filter((r) => r.rect).length;
+        console.log(`Callouts: ${found}/${results.length} located → ${sidecarName(shot.filename)}`);
+        for (const r of results.filter((x) => !x.rect)) {
+          console.warn(`  Callout ${r.n} (${r.label}) was not visible; it will show in the list only. Press r to retry after revealing it.`);
+        }
+      }
       const verified = verifyPng(out);
       if (!verified.ok) {
         summary.failedVerify += 1;

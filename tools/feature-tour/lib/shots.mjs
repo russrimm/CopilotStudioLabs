@@ -68,13 +68,22 @@ function makeEntry({ feature, raw, section, caption, instructions, callouts }) {
 }
 
 export function buildShotList(catalog, model, overlay = {}) {
+  const known = new Set([
+    ...catalog.features.flatMap((f) => (f.screenshots ?? []).map((s) => s.filename)),
+    ...Object.values(overlay.shots ?? {}).flat().map((s) => s.filename),
+  ]);
+  for (const filename of Object.keys(overlay.shotOverrides ?? {})) {
+    if (!known.has(filename)) throw new Error(`overlay.shotOverrides has unknown shot filename: ${filename}`);
+  }
   const catalogById = new Map(catalog.features.map((f) => [f.id, f]));
   const shots = [];
   for (const feature of model.features) {
     const source = catalogById.get(feature.id);
     const overlayShots = overlay.shots?.[feature.id] ?? [];
     const raws = [...(source.screenshots ?? []), ...overlayShots];
-    for (const raw of raws) {
+    for (const base of raws) {
+      // Tune a catalog shot (for example its callouts) without editing the catalog.
+      const raw = { ...base, ...(overlay.shotOverrides?.[base.filename] ?? {}) };
       const hasExplicit = Array.isArray(raw.callouts) && raw.callouts.length > 0;
       const callouts = hasExplicit
         ? numberCallouts(raw.callouts)

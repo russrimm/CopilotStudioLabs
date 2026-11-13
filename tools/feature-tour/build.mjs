@@ -39,7 +39,8 @@ try {
 const expected = serializeShotList(result.shotList);
 
 if (flag("--check")) {
-  const actual = fs.existsSync(DEFAULTS.shotList) ? fs.readFileSync(DEFAULTS.shotList, "utf8") : "";
+  // A Windows checkout can convert line endings; the content is what matters.
+  const actual = fs.existsSync(DEFAULTS.shotList) ? fs.readFileSync(DEFAULTS.shotList, "utf8").replace(/\r\n/g, "\n") : "";
   if (actual !== expected) {
     console.error(
       "feature-tour: tools/screenshot-capture/feature-shots.json is out of date with portal/lib/lab-builder/features.json or tools/feature-tour/overlay.json.\nRun: npm run feature-tour:build   and commit the result.",
