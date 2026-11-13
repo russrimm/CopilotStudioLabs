@@ -26,6 +26,9 @@ const labBuilder = {
   selectedRoles: new Set(),
   level: 100,
   harness: "standard",
+  // null means "the default counterpart harness"; a Set is the learner's own choice.
+  differencesFor: null,
+  differenceDefaults: {},
   // null means "the recommendation as computed"; a Set is the learner's own picks.
   picked: null,
   excluded: new Set(),
@@ -118,6 +121,7 @@ async function lbLoadCatalog() {
     labBuilder.categories = data.categories || [];
     labBuilder.harnesses = data.harnesses || [];
     labBuilder.levels = data.levels || [];
+    labBuilder.differenceDefaults = data.differenceDefaults || {};
     labBuilder.loaded = true;
     lbBindTopicEvents();
     lbRenderIndustries();
@@ -260,7 +264,39 @@ function lbRenderHarnesses() {
   el.querySelectorAll("input[type=radio]").forEach((input) => {
     input.addEventListener("change", () => {
       labBuilder.harness = input.value;
+      labBuilder.differencesFor = null;
+      lbRenderDifferenceOptions();
       lbAnswersChanged();
+    });
+  });
+  lbRenderDifferenceOptions();
+}
+
+/** The other harnesses whose differences get expandable notes. */
+function lbDifferencesFor() {
+  return labBuilder.differencesFor || new Set(labBuilder.differenceDefaults[labBuilder.harness] || []);
+}
+
+function lbRenderDifferenceOptions() {
+  const el = document.getElementById("lb-differences-options");
+  if (!el) return;
+  const chosen = lbDifferencesFor();
+  el.innerHTML = labBuilder.harnesses
+    .filter((h) => h.id !== labBuilder.harness)
+    .map(
+      (h) => `
+      <label class="scenario-role">
+        <input type="checkbox" value="${escapeHtml(h.id)}" ${chosen.has(h.id) ? "checked" : ""}>
+        <span><span style="font-weight: 600;">${escapeHtml(h.name)}</span></span>
+      </label>`
+    )
+    .join("");
+  el.querySelectorAll("input[type=checkbox]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const next = new Set(lbDifferencesFor());
+      if (input.checked) next.add(input.value);
+      else next.delete(input.value);
+      labBuilder.differencesFor = next;
     });
   });
 }
@@ -491,6 +527,7 @@ function lbRequest() {
     roles: [...labBuilder.selectedRoles],
     harness: labBuilder.harness,
     level: labBuilder.level,
+    differencesFor: [...lbDifferencesFor()],
     // What you see in the topic list is what gets built; prerequisites you turned off are assumed.
     features: labBuilder.rec ? labBuilder.rec.selectedIds : [],
     excluded: [...labBuilder.excluded],

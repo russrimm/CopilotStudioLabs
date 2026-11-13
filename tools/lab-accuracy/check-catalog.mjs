@@ -85,7 +85,28 @@ async function main() {
       `${summary.staleFeatures} stale (> ${maxAgeDays} days), ${summary.unverifiedFeatures} with invalid verification metadata`,
   );
 
-  if (strict && catalogNeedsAction(report)) process.exit(1);
+  // The harness-difference notes quote Learn too, so their sources get the same
+  // liveness and age checks. Their wording is curated; only drift is flagged here.
+  const differencesPath = path.join(path.dirname(catalogPath), "harness-differences.json");
+  let differencesNeedAction = false;
+  if (fs.existsSync(differencesPath)) {
+    const { differences = [] } = JSON.parse(fs.readFileSync(differencesPath, "utf8"));
+    const urls = [...new Set(differences.flatMap((record) => record.sources.map((source) => source.url)))];
+    const results = await Promise.all(urls.map((url) => checkLink(url)));
+    const broken = results.filter((result) => !result.ok);
+    const stale = differences.filter((record) => {
+      const age = (Date.now() - Date.parse(`${record.lastVerified}T00:00:00Z`)) / 86400000;
+      return !(age <= maxAgeDays);
+    });
+    for (const result of broken) console.log(`• harness differences: broken source ${result.url} (${result.status || result.error})`);
+    for (const record of stale) console.log(`• harness differences: ${record.concept} last verified ${record.lastVerified}`);
+    console.log(
+      `Harness differences: ${differences.length} record(s), ${urls.length} source(s): ${broken.length} broken, ${stale.length} stale (> ${maxAgeDays} days)`,
+    );
+    differencesNeedAction = broken.length > 0 || stale.length > 0;
+  }
+
+  if (strict && (catalogNeedsAction(report) || differencesNeedAction)) process.exit(1);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

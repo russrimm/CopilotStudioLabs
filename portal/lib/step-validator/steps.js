@@ -211,12 +211,23 @@ function nearestUseCase(headings, position) {
   return null;
 }
 
+const DIFFERENCE_NOTE_RE = /<details>\s*<summary>\s*How this differs on[\s\S]*?<\/details>/gi;
+
+/**
+ * The expandable "How this differs on the <other> harness" notes describe a
+ * different harness than the lab's steps, so their wording is not a claim about
+ * the steps. Drop them before claims are extracted.
+ */
+export function withoutDifferenceNotes(markdown) {
+  return String(markdown || "").replace(DIFFERENCE_NOTE_RE, "");
+}
+
 /**
  * @param {string} markdown a lab's index.md
  * @returns {{source:string, steps:Array, prerequisites:object|null, stats:{steps:number, items:number}}}
  */
 export function parseLabSteps(markdown) {
-  const lines = String(markdown || "").split(/\r?\n/);
+  const lines = withoutDifferenceNotes(markdown).split(/\r?\n/);
   const headings = parseHeadings(lines);
   const lineCount = lines.length;
 
