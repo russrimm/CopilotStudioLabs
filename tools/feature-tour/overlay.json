@@ -1,0 +1,280 @@
+{
+  "$comment": "Curated additions on top of portal/lib/lab-builder/features.json, which stays the single source of truth. 'shots' adds screenshot entries for features that the catalog does not give any; 'features' can add caveats or override the uiPath breadcrumb. Every label and instruction is taken from the cited Learn procedure as recorded in the catalog steps (the bold UI names). Callout 'text' is the visible UI text the capture tool searches for to place the numbered hotspot. Edit this file, then run: npm run feature-tour:build",
+  "features": {},
+  "shots": {
+    "test-agent": [
+      {
+        "filename": "test-agent-panel.png",
+        "section": "test",
+        "caption": "The Test your agent panel with a conversation in progress",
+        "instructions": [
+          "Open your agent. If the **Test your agent** panel is hidden, select **Test** at the top of any page.",
+          "Send a message that matches a topic trigger phrase so the panel shows an agent response.",
+          "Select the three dots (**…**) at the top of the panel so the **Track between topics** option is visible, then close the menu."
+        ],
+        "callouts": [
+          { "label": "Test your agent panel", "text": "Test your agent", "note": "The panel where you chat with the agent while you build it." },
+          { "label": "Track between topics", "text": "Track between topics", "note": "Follows the conversation automatically as it moves from topic to topic." }
+        ]
+      }
+    ],
+    "mc-harness-choice": [
+      {
+        "filename": "mc-harness-choice-home.png",
+        "section": "home",
+        "caption": "Home page showing the entry points for both harnesses",
+        "instructions": [
+          "Open the Copilot Studio **Home** page.",
+          "Select the three dots (**…**) at the bottom of the side bar so **Open classic experience** is visible.",
+          "Keep the **Other ways to build** option in view if it appears on the page."
+        ],
+        "callouts": [
+          { "label": "Open classic experience", "text": "Open classic experience", "note": "Reaches the Standard harness for the current session." },
+          { "label": "Other ways to build", "text": "Other ways to build", "note": "Starts a new Standard harness agent or agent flow." }
+        ]
+      }
+    ],
+    "mc-create-agent": [
+      {
+        "filename": "mc-create-agent-build.png",
+        "section": "build",
+        "caption": "A new agent open on the Build tab with name and Instructions filled in",
+        "instructions": [
+          "On the **Home** page, select the **Agent** tile, or select **Agents** and then **New agent**.",
+          "Enter a name and write short text in the **Instructions** section.",
+          "Capture the **Build** tab with the name, **Instructions**, and the **Save** icon visible."
+        ],
+        "callouts": [
+          { "label": "Instructions", "text": "Instructions", "note": "Describe the role, tone, and rules the agent must follow." },
+          { "label": "Agent settings", "text": "Agent settings", "note": "Change primary language, solution, and schema name before you save." }
+        ]
+      }
+    ],
+    "mc-publish-agent": [
+      {
+        "filename": "mc-publish-agent-dialog.png",
+        "section": "build",
+        "caption": "The Publish agent dialog with channels listed",
+        "instructions": [
+          "Open an agent that has a name, a description, and instructions.",
+          "Select **Publish** to open the **Publish agent** dialog.",
+          "Capture the dialog with the channel list visible before you confirm."
+        ],
+        "callouts": [
+          { "label": "Publish agent dialog", "text": "Publish agent", "note": "Review agent details and select the channels to publish to." },
+          { "label": "Publish", "text": "Publish", "note": "Confirms the publish and starts it." }
+        ]
+      }
+    ],
+    "mc-upgrade-from-standard": [
+      {
+        "filename": "mc-upgrade-from-standard-home.png",
+        "section": "home",
+        "caption": "Home page chat after asking Copilot Studio to upgrade a standard agent",
+        "instructions": [
+          "On the **Home** page, enter a request such as \"upgrade my Coffee Coach agent\", using the name of your own standard harness agent.",
+          "Wait for the upgrade to finish so the agent card shows **(Upgraded)** after the name.",
+          "Capture the chat with the agent card and the migration report visible."
+        ],
+        "callouts": [
+          { "label": "Upgraded agent card", "text": "(Upgraded)", "note": "The new agent created from the standard harness agent." },
+          { "label": "Open icon", "text": "Open", "note": "Opens the upgraded agent or workflow to review and customize it." }
+        ]
+      }
+    ],
+    "mc-knowledge": [
+      {
+        "filename": "mc-knowledge-add-dialog.png",
+        "section": "build",
+        "caption": "The Add knowledge dialog on the Build tab",
+        "instructions": [
+          "Open your agent and select the **Build** tab.",
+          "In the components panel on the right, select **Knowledge**.",
+          "Capture the **Add knowledge** dialog with the source types visible, such as **Public websites**, **SharePoint**, and **OneDrive for Business**."
+        ],
+        "callouts": [
+          { "label": "Knowledge", "text": "Knowledge", "note": "Components panel button that opens the Add knowledge dialog." },
+          { "label": "Add knowledge dialog", "text": "Add knowledge", "note": "Upload files, search for a source, or choose a source type." },
+          { "label": "Advanced tab", "text": "Advanced", "note": "More source types." }
+        ]
+      }
+    ],
+    "mc-foundry-iq": [
+      {
+        "filename": "mc-foundry-iq-add-tool.png",
+        "section": "build",
+        "caption": "The Add a tool dialog with Foundry IQ selected",
+        "instructions": [
+          "Open your agent and select the **Build** tab.",
+          "In the components panel, select **Tools** to open the **Add a tool** dialog.",
+          "Select **Foundry IQ** and capture the dialog."
+        ],
+        "callouts": [
+          { "label": "Tools", "text": "Tools", "note": "Components panel button that opens the Add a tool dialog." },
+          { "label": "Foundry IQ", "text": "Foundry IQ", "note": "Connects the agent to a Foundry IQ knowledge base." }
+        ]
+      }
+    ],
+    "mc-skills": [
+      {
+        "filename": "mc-skills-add-skill.png",
+        "section": "build",
+        "caption": "The Add skill dialog with Create from blank",
+        "instructions": [
+          "Open your agent and select the **Build** tab.",
+          "In the components panel, select **Skills** so **Add skill** opens.",
+          "Capture the dialog with **Create from blank** visible."
+        ],
+        "callouts": [
+          { "label": "Skills", "text": "Skills", "note": "Components panel button for skills." },
+          { "label": "Create from blank", "text": "Create from blank", "note": "Write the name, description, and Markdown instructions yourself." },
+          { "label": "Generate with AI", "text": "Generate with AI", "note": "Describe the skill and let Copilot build it." }
+        ]
+      }
+    ],
+    "mc-tools-mcp": [
+      {
+        "filename": "mc-tools-mcp-add-server.png",
+        "section": "build",
+        "caption": "The Add a tool dialog with the MCP tab",
+        "instructions": [
+          "Open your agent, select the **Build** tab, and then select **Tools**.",
+          "In the **Add a tool** dialog, select the **MCP** tab.",
+          "Capture the list of published servers, or the **Add MCP server** page if you add a custom server."
+        ],
+        "callouts": [
+          { "label": "MCP tab", "text": "MCP", "note": "Lists published Model Context Protocol servers." },
+          { "label": "Add", "text": "Add", "note": "Add a custom server by selecting Model Context Protocol (MCP)." }
+        ]
+      }
+    ],
+    "mc-hooks": [
+      {
+        "filename": "mc-hooks-add-hook.png",
+        "section": "build",
+        "caption": "The Add hook page with an event type chosen",
+        "instructions": [
+          "Open the agent. On the top menu bar, select the three dots (**…**), and then select **Hooks**.",
+          "In the **Hooks** dialog, select **Create**.",
+          "Capture the **Add hook** page with the **Event type**, **Name**, and **Tools** fields visible."
+        ],
+        "callouts": [
+          { "label": "Event type", "text": "Event type", "note": "For example Pre tool use." },
+          { "label": "Tools", "text": "Tools", "note": "Pick the tools the hook applies to, or leave empty for All tools." },
+          { "label": "Workflow", "text": "Workflow", "note": "The published workflow the hook runs." }
+        ]
+      }
+    ],
+    "mc-workflows-tool": [
+      {
+        "filename": "mc-workflows-tool-designer.png",
+        "section": "build",
+        "caption": "The workflow designer with the agent trigger and response nodes",
+        "instructions": [
+          "In the agent configuration panel on the **Build** tab, select **Tools**.",
+          "In the **Add a tool** dialog, select **Add** next to the search bar, and then select **Workflow**.",
+          "Capture the designer with **When an agent calls the flow** and **Respond to the agent** visible."
+        ],
+        "callouts": [
+          { "label": "Agent trigger", "text": "When an agent calls the flow", "note": "Starts the workflow when the agent calls it." },
+          { "label": "Agent response", "text": "Respond to the agent", "note": "Returns the result to the agent." }
+        ]
+      }
+    ],
+    "mc-triggers": [
+      {
+        "filename": "mc-triggers-add-trigger.png",
+        "section": "build",
+        "caption": "The Triggers page with a trigger configured",
+        "instructions": [
+          "Open the agent in Copilot Studio and select **Triggers**.",
+          "Select a trigger, such as **New email**, and configure the connection until the green checkmark appears.",
+          "Capture the page with the **Trigger options** and **Add trigger** visible."
+        ],
+        "callouts": [
+          { "label": "Triggers", "text": "Triggers", "note": "Where you add events that start the agent." },
+          { "label": "Trigger options", "text": "Trigger options", "note": "Decide when the agent runs." },
+          { "label": "Add trigger", "text": "Add trigger", "note": "Saves the trigger on the agent." }
+        ]
+      }
+    ],
+    "mc-preview-test": [
+      {
+        "filename": "mc-preview-test-trace.png",
+        "section": "preview",
+        "caption": "The Preview tab with a response and its activity trace",
+        "instructions": [
+          "Open the agent and select the **Preview** tab.",
+          "Send a prompt that makes the agent use knowledge or a tool.",
+          "Open the activity trace for the response and capture the **Preview** tab with the trace and the **End user preview** toggle visible."
+        ],
+        "callouts": [
+          { "label": "Preview tab", "text": "Preview", "note": "Chat with the agent as you build it." },
+          { "label": "End user preview", "text": "End user preview", "note": "Switches between maker view and end user view." }
+        ]
+      }
+    ],
+    "mc-evaluate": [
+      {
+        "filename": "mc-evaluate-results.png",
+        "section": "evaluations",
+        "caption": "The Evaluate tab with a finished evaluation",
+        "instructions": [
+          "Open the agent and select the **Evaluate** tab.",
+          "Run an evaluation that uses the **General quality** test method and wait for the results.",
+          "Capture the results with the scores and per-test-case credit usage visible."
+        ],
+        "callouts": [
+          { "label": "Evaluate tab", "text": "Evaluate", "note": "Runs test conversations against an agent version." },
+          { "label": "General quality", "text": "General quality", "note": "The test method used for the run." }
+        ]
+      }
+    ],
+    "mc-credit-billing": [
+      {
+        "filename": "mc-credit-billing-monitor.png",
+        "section": "build",
+        "caption": "The agent Monitor page showing Copilot Credits consumed",
+        "instructions": [
+          "Run a test conversation on the **Preview** tab first so there is usage to show.",
+          "Open the agent's **Monitor** page.",
+          "Capture the total Copilot Credits and any breakdown by activity or outcome."
+        ],
+        "callouts": [
+          { "label": "Monitor", "text": "Monitor", "note": "Shows credits the agent consumed." },
+          { "label": "Copilot Credits", "text": "Copilot Credits", "note": "The consumption total and breakdown." }
+        ]
+      }
+    ],
+    "mc-memory": [
+      {
+        "filename": "mc-memory-toggle.png",
+        "section": "build",
+        "caption": "The Memory toggle in the components panel",
+        "instructions": [
+          "Open the agent and select the **Build** tab.",
+          "In the components panel, turn the **Memory** toggle on.",
+          "Capture the components panel with the **Memory** toggle visible."
+        ],
+        "callouts": [
+          { "label": "Memory toggle", "text": "Memory", "note": "Lets the agent remember preferences across conversations." }
+        ]
+      }
+    ],
+    "mc-created-files": [
+      {
+        "filename": "mc-created-files-card.png",
+        "section": "preview",
+        "caption": "A created file card below an agent response",
+        "instructions": [
+          "Open the agent and select the **Preview** tab.",
+          "Ask for a result that produces a file, for example to summarize a sales workbook and create a chart of revenue by region.",
+          "Capture the response with the created file card and its **Download** button visible."
+        ],
+        "callouts": [
+          { "label": "Download", "text": "Download", "note": "Opens the file the agent created." }
+        ]
+      }
+    ]
+  }
+}
