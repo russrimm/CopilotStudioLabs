@@ -847,9 +847,12 @@ happens next:
 - **4xx/5xx** — the origin says the page is gone, so the citation is removed. If
   the module still has others, that is a warning, not a blocker; keeping five
   good links instead of six is not a decision anyone would make differently.
-- **Status 0** — a timeout, DNS failure, or proxy. That is evidence about the
-  machine running the build, not about the page, so the citation is kept and
-  reported as a warning.
+- **Status 0, or 408, 425, 429, 502, 503, 504** — a timeout, DNS failure, proxy,
+  or an origin asking us to slow down or try again. That is evidence about the
+  machine running the build or about throttling, not about the page, so the
+  citation is kept and reported as a warning. (A burst of builds can make
+  Microsoft Learn answer 429 for every page; that must never strip a lab's
+  citations.)
 
 Only a module left with *no* citation at all raises `sources-dead`. URLs are
 deduplicated per run, checked with a bounded concurrency of 8 and an 8s timeout
