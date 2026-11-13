@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-13T07:39:09.211Z",
+  "generatedAt": "2026-11-13T07:57:22.896Z",
   "source": "microsoft-learn-mcp",
   "catalogVersion": 1,
   "partial": false,
   "partialReason": null,
   "stats": {
-    "calls": 322,
+    "calls": 323,
     "errors": 0,
-    "pagesRead": 150,
+    "pagesRead": 140,
     "searches": 50
   },
   "topics": [
@@ -28,7 +28,7 @@
       "featureIds": [
         "agent-to-agent"
       ],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -48,7 +48,7 @@
       "availability": null,
       "status": "new",
       "featureIds": [],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -70,7 +70,7 @@
       "featureIds": [
         "connected-agents"
       ],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -90,7 +90,7 @@
       "availability": "preview",
       "status": "new",
       "featureIds": [],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -110,7 +110,7 @@
       "availability": "preview",
       "status": "new",
       "featureIds": [],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -507,9 +507,11 @@
       ],
       "conceptId": "subagents",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 300,
+      "status": "covered",
+      "featureIds": [
+        "mc-connected-agents"
+      ],
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -529,7 +531,7 @@
       "availability": "preview",
       "status": "new",
       "featureIds": [],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -549,7 +551,7 @@
       "availability": null,
       "status": "new",
       "featureIds": [],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -565,10 +567,12 @@
       "harnesses": [
         "microsoft-copilot"
       ],
-      "conceptId": "subagents",
+      "conceptId": "sdk",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-sdk-agent"
+      ],
       "level": 300,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -589,7 +593,7 @@
       "availability": null,
       "status": "new",
       "featureIds": [],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -607,8 +611,10 @@
       ],
       "conceptId": "tools",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-tools"
+      ],
       "level": 300,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -771,8 +777,10 @@
       ],
       "conceptId": "monitor",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-monitor"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -853,9 +861,11 @@
       ],
       "conceptId": "subagents",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 300,
+      "status": "covered",
+      "featureIds": [
+        "mc-connected-agents"
+      ],
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -913,8 +923,10 @@
       ],
       "conceptId": "instructions",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-instructions"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -953,8 +965,10 @@
       ],
       "conceptId": "monitor",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-monitor"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -973,8 +987,10 @@
       ],
       "conceptId": "model-orchestration",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-model-selection"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1529,7 +1545,7 @@
       "availability": null,
       "status": "new",
       "featureIds": [],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -1549,7 +1565,7 @@
       "availability": "preview",
       "status": "new",
       "featureIds": [],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -1611,9 +1627,12 @@
       "availability": null,
       "status": "covered",
       "featureIds": [
+        "mc-agent-settings-security",
         "mc-create-agent",
         "mc-harness-choice",
-        "mc-knowledge"
+        "mc-instructions",
+        "mc-knowledge",
+        "mc-model-selection"
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
@@ -1976,10 +1995,12 @@
       "harnesses": [
         "microsoft-copilot"
       ],
-      "conceptId": "create-agent",
+      "conceptId": "security",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-agent-settings-security"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2143,7 +2164,7 @@
       "availability": "preview",
       "status": "new",
       "featureIds": [],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -2371,8 +2392,10 @@
       ],
       "conceptId": "tools",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-tools"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -4487,6 +4510,20 @@
       "missing": []
     },
     {
+      "featureId": "mc-agent-settings-security",
+      "status": "current",
+      "contentHash": "889559ccf759186a",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "mc-connected-agents",
+      "status": "current",
+      "contentHash": "c04968456601b0d4",
+      "changedAt": null,
+      "missing": []
+    },
+    {
       "featureId": "mc-create-agent",
       "status": "current",
       "contentHash": "45cffba68068d839",
@@ -4536,6 +4573,13 @@
       "missing": []
     },
     {
+      "featureId": "mc-instructions",
+      "status": "current",
+      "contentHash": "e188b36f286a3620",
+      "changedAt": null,
+      "missing": []
+    },
+    {
       "featureId": "mc-knowledge",
       "status": "current",
       "contentHash": "09c145ba19c3a0f7",
@@ -4546,6 +4590,20 @@
       "featureId": "mc-memory",
       "status": "current",
       "contentHash": "e812e9094d7d74f1",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "mc-model-selection",
+      "status": "current",
+      "contentHash": "67d1f63ffd215244",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "mc-monitor",
+      "status": "current",
+      "contentHash": "e474645519bed093",
       "changedAt": null,
       "missing": []
     },
@@ -4564,9 +4622,23 @@
       "missing": []
     },
     {
+      "featureId": "mc-sdk-agent",
+      "status": "current",
+      "contentHash": "5d468828021266e2",
+      "changedAt": null,
+      "missing": []
+    },
+    {
       "featureId": "mc-skills",
       "status": "current",
       "contentHash": "40e8f55329d5a1f1",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "mc-tools",
+      "status": "current",
+      "contentHash": "119b8325bc0bd3c4",
       "changedAt": null,
       "missing": []
     },
@@ -4757,6 +4829,7 @@
     "https://learn.microsoft.com/entra/agent-id/what-are-agent-identities": "eb9f57c97397af71",
     "https://learn.microsoft.com/industry/healthcare/business-applications/fhirlink-connector-overview": "cb2405b6f10d4027",
     "https://learn.microsoft.com/microsoft-365/admin/manage/agent-365-overview": "c48f612a041f0226",
+    "https://learn.microsoft.com/microsoft-365/agents-sdk/agents-sdk-overview": "051072e241624416",
     "https://learn.microsoft.com/microsoft-365/copilot/connectors/jira-cloud-overview": "21028953ed183007",
     "https://learn.microsoft.com/microsoft-365/copilot/connectors/salesforce-crm-overview": "c3223ffffd40245e",
     "https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq": "e5d36712920a8e38",
@@ -5007,6 +5080,6 @@
     "https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention": "352a37d3a4bcefc2",
     "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm": "305628bca9c7ccdd"
   },
-  "listHash": "db8ac080398b245e",
+  "listHash": "1dcc037941eaae11",
   "endpoint": "https://learn.microsoft.com/api/mcp"
 }
