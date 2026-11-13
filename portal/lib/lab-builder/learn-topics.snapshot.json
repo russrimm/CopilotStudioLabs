@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-13T07:20:15.399Z",
+  "generatedAt": "2026-11-13T07:39:09.211Z",
   "source": "microsoft-learn-mcp",
   "catalogVersion": 1,
   "partial": false,
@@ -241,7 +241,7 @@
     {
       "id": "learn-admin-transcript-controls",
       "title": "Control transcript access and retention",
-      "summary": "This article applies to multiple harnesses. The harness you use affects the billing, features, and capabilities of what you build.",
+      "summary": "When an agent interacts with an end user (or with a maker using the test chat), the system retains a record of the conversation as a transcript and saves it in Dataverse. This transcript includes the conversation between the agent and the user. It also includes metadata about the conversation, such as the time it star…",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/admin-transcript-controls"
       ],
@@ -884,7 +884,7 @@
     {
       "id": "learn-agents-experience-authoring-first-bot",
       "title": "Start building",
-      "summary": "This article applies to multiple harnesses. The harness you use affects the billing, features, and capabilities of what you build.",
+      "summary": "When you open Microsoft Copilot Studio, you can choose from several things to build. This article explains what each option is and where to find documentation to get started.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-first-bot"
       ],
@@ -2681,7 +2681,7 @@
     {
       "id": "learn-analytics-transcripts-powerapps",
       "title": "Understand downloaded conversation transcripts from Power Apps",
-      "summary": "This article applies to multiple harnesses. The harness you use affects the billing, features, and capabilities of what you build.",
+      "summary": "You can view, export, and download transcripts of customer interactions with your agent in both Power Apps and Copilot Studio. The information that each app exports is slightly different.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-transcripts-powerapps"
       ],
@@ -2701,7 +2701,7 @@
     {
       "id": "learn-analytics-transcripts-studio",
       "title": "Understand downloaded session data from Copilot Studio",
-      "summary": "This article applies to multiple harnesses. The harness you use affects the billing, features, and capabilities of what you build.",
+      "summary": "You can view, export, and download sessions of customer interactions with your agent in both Power Apps and Copilot Studio.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-transcripts-studio"
       ],
@@ -4244,7 +4244,7 @@
     {
       "id": "learn-workflows-experience-flows-overview",
       "title": "Workflows overview (Microsoft Copilot)",
-      "summary": "This article applies to multiple harnesses. The harness you use affects the billing, features, and capabilities of what you build.",
+      "summary": "Workflows are an automation experience built in Copilot Studio and powered by the Microsoft Copilot harness. You build them on a redesigned visual canvas with native AI actions, agent handoffs, and node-level testing.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/flows-overview"
       ],
@@ -5007,6 +5007,6 @@
     "https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention": "352a37d3a4bcefc2",
     "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm": "305628bca9c7ccdd"
   },
-  "listHash": "e039155be18cead6",
+  "listHash": "db8ac080398b245e",
   "endpoint": "https://learn.microsoft.com/api/mcp"
 }

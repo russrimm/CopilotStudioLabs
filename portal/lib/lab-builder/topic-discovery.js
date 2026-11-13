@@ -107,7 +107,7 @@ const ADVANCED_LEVEL = /govern|admin|security|vnet|\bsdk\b|\balm\b|\bdlp\b|netwo
 // ── Parsing ──────────────────────────────────────────────────────────────────
 
 // Lead-in sentences that appear on many pages and say nothing about the topic.
-const BOILERPLATE = /powered by the (standard|microsoft copilot|customer conversation) harness\.?$|^applies to\b|^this article (is|was) (updated|archived)/i;
+const BOILERPLATE = /powered by the (standard|microsoft copilot|customer conversation) harness\.?$|^applies to\b|^this article (applies to|is|was) (multiple harnesses|updated|archived)/i;
 
 /** Every `[text](url)` link with the headings in force where it appears, so a section can say which harness a link belongs to. */
 export function extractLinks(markdown, baseUrl) {

@@ -410,7 +410,7 @@ async function lbRefreshLearn() {
     }
     toast(data.refresh?.changed ? "The topic list was refreshed from Microsoft Learn." : "Refreshed. Nothing changed on Microsoft Learn.", "success");
   } catch (err) {
-    if (error) error.textContent = `Could not refresh from Microsoft Learn: ${err.message} Your last saved topic list is still in use.`;
+    if (error) error.textContent = `Could not refresh from Microsoft Learn: ${String(err.message).replace(/[.\s]*$/, ".")} Your last saved topic list is still in use.`;
   } finally {
     labBuilder.learnBusy = false;
     lbRenderLearnBar();
