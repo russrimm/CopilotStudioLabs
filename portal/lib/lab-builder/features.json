@@ -4226,6 +4226,439 @@
       ],
       "relatedLabs": [],
       "reuseScreenshots": []
+    },
+    {
+      "id": "mc-instructions",
+      "name": "Agent details and instructions (Microsoft Copilot harness)",
+      "category": "conversation",
+      "level": 100,
+      "minutes": 20,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "availability": "preview",
+      "summary": "Set the agent's name, icon, and natural-language instructions from the Build tab, which are the primary way to control behavior on this harness.",
+      "whyItMatters": "On the Microsoft Copilot harness, instructions replace authored topic flows: the orchestration runtime interprets them to decide tone, scope, and what to decline or escalate. Clear instructions are the main lever for agent quality.",
+      "concepts": [
+        "Instructions are natural-language guidance that shapes the agent's behavior, tone, and scope. The enhanced orchestration runtime interprets them on every response.",
+        "Good instructions state the agent's role, the tone to use, what to decline or redirect, how to handle unclear input, and any escalation or handoff triggers.",
+        "Instructions can also guide when the agent delegates to task agents and which model to request for delegated work. Some guidance in the Standard harness instructions article is specific to topic-based agents."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "To change the display name, select the name field and enter the new name.",
+        "To change the icon, select the existing icon, choose a new one from the catalog or upload a PNG of 100 KB or less in the **Change agent icon** dialog, optionally select **Colors**, and select **Apply**.",
+        "In the **Instructions** section, select the space under **Instructions** and enter natural-language instructions that state the agent's purpose, tone, and boundaries. Include what the agent should decline or redirect, how it handles unclear input, and any escalation triggers.",
+        "Select **Save**.",
+        "Select the **Preview** tab and ask one in-scope and one out-of-scope question to check that the agent follows the instructions, then return to the **Build** tab to refine them."
+      ],
+      "validation": [
+        "The **Instructions** section on the **Build** tab shows your saved instruction text.",
+        "In **Preview**, an in-scope question is answered in the tone you described and an out-of-scope question is declined or redirected."
+      ],
+      "screenshots": [
+        {
+          "filename": "mc-instructions-editor.png",
+          "section": "overview",
+          "instructions": [
+            "Open the agent's **Build** tab.",
+            "Show the name field, the agent icon, and the **Instructions** section containing the finished instruction text."
+          ]
+        },
+        {
+          "filename": "mc-instructions-preview.png",
+          "section": "test",
+          "instructions": [
+            "Open the **Preview** tab.",
+            "Show an out-of-scope question and the agent's redirect, so the instruction boundary is visible."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Configure agent details and instructions Microsoft Copilot harness",
+        "Copilot Studio Build tab instructions agent icon"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-instructions",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-instructions",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-model-selection",
+      "name": "Select a model (Microsoft Copilot harness)",
+      "category": "orchestration",
+      "level": 200,
+      "minutes": 10,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Choose the model that powers the agent's reasoning from the Model list on the Build tab.",
+      "whyItMatters": "The model affects reasoning depth, response quality, and speed. This harness has one orchestration runtime for every agent, so the model choice is the main reasoning control you have, and preview or external models carry admin and billing caveats.",
+      "concepts": [
+        "The model you choose affects reasoning depth, response quality, and speed. More capable models handle complex multi-step reasoning, and faster models can be less capable on hard tasks.",
+        "Experimental and preview models are for exploring, not production: they can vary in quality, latency, and message consumption, and use of a published agent that uses one is billed at the established rates.",
+        "Administrators control whether makers can use preview, experimental, and external models in an environment. Preview and external model settings are separate."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "In the components panel, select the **Model** list.",
+        "Select the model you want. Use a generally available model for anything you plan to publish.",
+        "Select **Save** to apply the change.",
+        "Select the **Preview** tab and ask the same multi-step question you used before the change to compare the response."
+      ],
+      "validation": [
+        "The **Model** list on the **Build** tab shows the model you selected after you save.",
+        "If a model you expected is not listed, your administrator's preview, experimental, or external model settings for the environment are the first thing to check."
+      ],
+      "screenshots": [
+        {
+          "filename": "mc-model-list.png",
+          "section": "overview",
+          "instructions": [
+            "Open the agent's **Build** tab.",
+            "Show the **Model** list in the components panel with the chosen model selected."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Select a model for an agent Microsoft Copilot harness",
+        "Copilot Studio model availability and controls Microsoft Copilot harness"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-select-agent-model",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-select-agent-model",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-tools",
+      "name": "Add tools from the Add a tool dialog (Microsoft Copilot harness)",
+      "category": "tools",
+      "level": 200,
+      "minutes": 25,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Add an existing connector, MCP, or workflow tool to the agent, then configure its authentication, actions, and description.",
+      "whyItMatters": "Tools let the agent look up live data and take actions. The orchestrator picks a tool from its name and description, so there are no topic flows to author, and data policies decide which tools you can use.",
+      "concepts": [
+        "The orchestrator evaluates each message and decides whether a tool is needed, using the tool's name and description plus your instructions. You do not create explicit triggers or topic flows for each tool call.",
+        "The Add a tool dialog offers Featured, Model Context Protocol (MCP), Connectors, and Workflows tabs. A tool blocked by a data policy cannot be selected, and the dialog explains why.",
+        "Files a tool produces are capped at 10 MB each. Prompt tools are not supported on this harness; skills replace them, and computer use is planned."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "In the components panel, select **Tools**.",
+        "In the **Add a tool** dialog, browse or search for a tool. Use the **Featured**, **Model Context Protocol (MCP)**, **Connectors**, or **Workflows** tabs to filter by type.",
+        "Select the tool to view its description and actions. If a tool shows a cross or info icon, your organization's data policy blocks it, so choose another or contact your administrator.",
+        "Select **Add**.",
+        "Complete any authentication prompts, select which actions to make available for connectors with several actions, and review the description so it says when to use the tool and what it returns.",
+        "Select the **Preview** tab, send a request that needs the tool, and check the activity trace to confirm it was called."
+      ],
+      "validation": [
+        "The tool appears in the components panel on the **Build** tab.",
+        "A matching request in **Preview** invokes the tool and returns its result."
+      ],
+      "screenshots": [
+        {
+          "filename": "mc-add-tool-dialog.png",
+          "section": "tools",
+          "instructions": [
+            "Open the **Build** tab and select **Tools**.",
+            "Show the **Add a tool** dialog with the **Featured**, **Model Context Protocol (MCP)**, **Connectors**, and **Workflows** tabs and a tool selected."
+          ]
+        },
+        {
+          "filename": "mc-tool-blocked-by-policy.png",
+          "section": "tools",
+          "instructions": [
+            "In the **Add a tool** dialog, show a tool that your data policy blocks with its explanation visible."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add a tool to an agent Microsoft Copilot harness",
+        "Tools overview for agents Copilot Studio"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-tools-custom-agent",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-tools-custom-agent",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-connected-agents",
+      "name": "Connected agents (Microsoft Copilot harness)",
+      "category": "orchestration",
+      "level": 200,
+      "minutes": 30,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Connect another published Copilot Studio agent so the primary agent can delegate a specialist domain to it, then test delegation.",
+      "whyItMatters": "Connected agents let one front-door agent route work to specialists that other teams own and publish on their own. Routing depends on the connected agent's name and description, and data access still follows each agent's tool authentication.",
+      "concepts": [
+        "The primary agent's orchestration runtime delegates a request to a connected agent when it falls in that agent's domain, based on its name and description, the user's message, and the primary agent's instructions.",
+        "You can connect Copilot Studio agents, Microsoft Foundry agents, Agent2Agent (A2A) agents, and Microsoft 365 Agents SDK agents, all from the same Add a connected agent dialog.",
+        "Delegation supports one level, so a connected agent cannot invoke another connected agent. The orchestrating model writes the task description and may rephrase the request, so do not depend on the original prompt being forwarded word for word.",
+        "Sharing the primary agent lets it invoke its connected Copilot Studio agents on the user's behalf. Use User authentication on the connected agent's tools to keep data limited to what the calling user can access."
+      ],
+      "steps": [
+        "Make sure another agent built with the Microsoft Copilot harness is published, available to connect, and owned by or shared with you, in the same environment.",
+        "Open the primary agent in Copilot Studio and select the **Build** tab.",
+        "In the components panel, select **Connected agents** to open the **Add a connected agent** dialog.",
+        "Browse or search the available Copilot Studio agents and select the agent to connect.",
+        "Review the agent's capabilities, enter a clear description of when it should be used, and select **Connect**.",
+        "Confirm the connected agent appears in the components panel.",
+        "Select the **Preview** tab, send a message in the connected agent's domain, and verify the answer comes from it. Then send a message outside its domain and confirm the primary agent handles it."
+      ],
+      "validation": [
+        "The connected agent appears under **Connected agents** in the components panel.",
+        "A matching request in **Preview** is delegated to the connected agent, and an unrelated request is not."
+      ],
+      "screenshots": [
+        {
+          "filename": "mc-connected-agent-dialog.png",
+          "section": "agents",
+          "instructions": [
+            "Open the **Build** tab and select **Connected agents**.",
+            "Show the **Add a connected agent** dialog with a Copilot Studio agent selected and its description entered."
+          ]
+        },
+        {
+          "filename": "mc-connected-agent-delegation.png",
+          "section": "test",
+          "instructions": [
+            "Open the **Preview** tab after a question in the connected agent's domain.",
+            "Show the response and the activity trace that indicates delegation."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Connected agents overview Microsoft Copilot harness",
+        "Add a Copilot Studio agent as a connected agent Microsoft Copilot harness"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-add-other-agents",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-connected"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-connected",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-sdk-agent",
+      "name": "Connect a Microsoft 365 Agents SDK agent (Microsoft Copilot harness)",
+      "category": "advanced",
+      "level": 300,
+      "minutes": 35,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Connect an agent built with the Microsoft 365 Agents SDK by entering its Activity protocol messaging endpoint, then test delegation.",
+      "whyItMatters": "This is the documented code-first extension point on this harness: you host your own agent built with the Microsoft 365 Agents SDK and let the primary agent hand tasks to it. Because it publishes no agent card, you supply its name and description yourself.",
+      "concepts": [
+        "An SDK agent exposes a messaging endpoint that speaks the Activity protocol, typically https://<your-agent-host>/api/messages. You connect by entering that URL.",
+        "Unlike an A2A agent, an SDK agent does not publish an agent card, so Copilot Studio cannot discover its name and description. The name is limited to 30 characters and the description must be 30 to 1,000 characters.",
+        "Authentication to the SDK agent can be none, API key, or OAuth 2.0. An API key value is entered when you create the connection, so it is not stored in the agent configuration.",
+        "You are responsible for reviewing and testing agents outside Copilot Studio, including data flows, permissions, and human oversight."
+      ],
+      "steps": [
+        "Have an agent built with the Microsoft 365 Agents SDK deployed and reachable, and note its messaging endpoint URL and authentication method.",
+        "Open the primary agent in Copilot Studio, select the **Build** tab, and in the components panel select **Connected agents**.",
+        "In the **Add a connected agent** dialog, select **Add**, then select **Add Microsoft 365 Agents SDK agent**.",
+        "On the **Connect to a Microsoft 365 Agents SDK agent** step, enter the **Messaging endpoint URL**, a **Name**, and a **Description** that says when to use the agent.",
+        "Under **Authentication**, select **None**, **API key**, or **OAuth 2.0** and complete the details for the method you chose. Select **Next**.",
+        "On the **Connect to the Microsoft 365 Agents SDK agent** step, choose an existing connection or create a new one, and select **Next**. If the connector cannot be created, select **Retry**.",
+        "On the **Review and add** step, review the details and select **Add to agent**.",
+        "Select the **Preview** tab, send a message in the SDK agent's domain, and confirm the response comes from it."
+      ],
+      "validation": [
+        "The SDK agent appears under **Connected agents** in the components panel.",
+        "A matching request in **Preview** is delegated to the SDK agent, and an unrelated request is handled by the primary agent."
+      ],
+      "screenshots": [
+        {
+          "filename": "mc-sdk-agent-connect.png",
+          "section": "agents",
+          "instructions": [
+            "Open the **Connect to a Microsoft 365 Agents SDK agent** step.",
+            "Show the **Messaging endpoint URL**, **Name**, **Description**, and **Authentication** choices with a non-production endpoint."
+          ]
+        },
+        {
+          "filename": "mc-sdk-agent-review.png",
+          "section": "agents",
+          "instructions": [
+            "Open the **Review and add** step.",
+            "Show the name, description, and messaging endpoint URL before you select **Add to agent**."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add a Microsoft 365 Agents SDK agent as a connected agent Microsoft Copilot harness",
+        "Microsoft 365 Agents SDK overview Activity protocol messaging endpoint"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-m-365-sdk",
+        "https://learn.microsoft.com/microsoft-365/agents-sdk/agents-sdk-overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-m-365-sdk",
+      "prereqs": [
+        "mc-connected-agents"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-monitor",
+      "name": "Monitor an agent (Microsoft Copilot harness)",
+      "category": "analytics",
+      "level": 200,
+      "minutes": 20,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Use the Monitor tab to review sessions, outcomes, reactions, tool use, and credit consumption for the published agent.",
+      "whyItMatters": "Monitor shows production health in context: where sessions fail, what users think, which tools ran, and how many Copilot Credits were used. It is the maker's feedback loop after publishing.",
+      "concepts": [
+        "The Overview shows total sessions, users, autonomous runs, average duration, success rate, and fail rate for the selected period. Percentage indicators compare with the previous period.",
+        "Reactions show thumbs-up and thumbs-down feedback. If the User feedback setting is off, the Reactions card asks you to turn it on.",
+        "The session list shows status, duration, user messages, and tools used. Filter by Failed or Rejected status and open a session for its full transcript. The list covers the past 28 days.",
+        "You can open Monitor before you publish, but it shows empty metrics until people use the published agent, and data can take up to an hour to appear."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select **Monitor**.",
+        "Use the date filter at the top of the page to select the reporting period.",
+        "Review the **Overview** metrics and the **Total estimated credits used** card.",
+        "Review **Reactions**. If the card prompts you to turn on user feedback, turn on **User feedback** in the agent settings.",
+        "In the sessions list, filter by status such as **Failed**, then select a session to read its transcript and the tools it used.",
+        "Note any pattern in failed sessions, such as a tool connection or authentication error, and plan the fix on the **Build** tab."
+      ],
+      "validation": [
+        "The **Monitor** tab shows the **Overview** metrics for the period you selected, or empty metrics with a prompt to publish if the agent is not published.",
+        "You can open a session from the list and see its transcript."
+      ],
+      "screenshots": [
+        {
+          "filename": "mc-monitor-overview.png",
+          "section": "analytics",
+          "instructions": [
+            "Open the **Monitor** tab.",
+            "Show the date filter, the **Overview** metrics, and the **Total estimated credits used** card."
+          ]
+        },
+        {
+          "filename": "mc-monitor-sessions.png",
+          "section": "analytics",
+          "instructions": [
+            "Open the sessions list on the **Monitor** tab.",
+            "Show the status filter and one session open with its transcript, with user names and message content masked."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Monitor agent performance overview Microsoft Copilot harness",
+        "Copilot Studio Monitor tab sessions reactions credits"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-review-activity"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview",
+      "prereqs": [
+        "mc-publish-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-agent-settings-security",
+      "name": "Safety and access settings (Microsoft Copilot harness)",
+      "category": "governance",
+      "level": 200,
+      "minutes": 20,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Set authentication, moderation level, web channel security, user feedback, and the greeting from the Agent settings dialog.",
+      "whyItMatters": "These settings decide who can talk to the agent, how strictly responses are filtered, and how the web channel is secured. Changes take effect only after you save and publish.",
+      "concepts": [
+        "Authentication offers No authentication or Authenticate with Microsoft. Manual and custom authentication are not supported on this harness.",
+        "Moderation level controls how strictly responses are filtered for unsafe content, from Minimum to Maximum.",
+        "Web channel security is required for the Direct Line API on web channels and provides two secrets you can copy or regenerate. Treat them as credentials.",
+        "Agent details such as schema name, solution, and primary language can be set only before the first save and are read-only afterward."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio, select the three dots (**…**) in the agent designer toolbar, and select **Settings**.",
+        "On the **AI & behavior** tab, set **Moderation level** to **Minimum**, **Low**, **Medium**, **High**, or **Maximum** to match your scenario.",
+        "On the **Safety & access** tab, choose **No authentication** or **Authenticate with Microsoft** from the **Authentication** dropdown. Use **Authenticate with Microsoft** for internal agents that need user-specific data.",
+        "If the agent uses the web channel, select **Web channel security** and use **Copy** or **Regenerate** for **Secret 1** and **Secret 2**. Store the secrets securely and do not share them.",
+        "Turn **User feedback** on or off, and optionally set the **Greeting message** and **Suggested prompts** on the **Greeting & prompts** tab.",
+        "Save, then publish the agent so the changes take effect."
+      ],
+      "validation": [
+        "After you reopen **Settings**, the **Authentication** and **Moderation level** values match what you chose.",
+        "The settings take effect only after the agent is saved and published."
+      ],
+      "screenshots": [
+        {
+          "filename": "mc-settings-safety-access.png",
+          "section": "settings",
+          "instructions": [
+            "Open **Settings** and select the **Safety & access** tab.",
+            "Show the **Authentication** dropdown and **User feedback** toggle, with any web channel secrets hidden."
+          ]
+        },
+        {
+          "filename": "mc-settings-moderation.png",
+          "section": "settings",
+          "instructions": [
+            "Open **Settings** and select the **AI & behavior** tab.",
+            "Show the **Moderation level** dropdown with a level selected."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Configure settings for agents powered by the Microsoft Copilot harness",
+        "Copilot Studio Microsoft Copilot harness authenticate with Microsoft web channel security"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-overview",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
     }
   ],
   "harnesses": [

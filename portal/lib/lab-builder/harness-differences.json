@@ -154,13 +154,14 @@
       "uncertainNote": "The pages reviewed for this lab do not describe how the Microsoft Agents SDK, the web chat SDK, or editor-based authoring differ between harnesses. The only documented point is that Microsoft 365 SDK agents can be connected agents on both the Standard and Microsoft Copilot harnesses. Check the harness comparison page before you rely on any other SDK behavior.",
       "harnesses": {
         "standard": { "term": "Microsoft 365 SDK agent (connected agent)", "availability": "supported", "summary": "A Microsoft 365 SDK agent can be added as a connected agent." },
-        "microsoft-copilot": { "term": "Microsoft 365 SDK agent (connected agent)", "availability": "supported", "summary": "A Microsoft 365 SDK agent can be added as a connected agent. Other SDK behavior is not confirmed." },
+        "microsoft-copilot": { "term": "Microsoft 365 SDK agent (connected agent)", "availability": "supported", "summary": "A Microsoft 365 Agents SDK agent can be added as a connected agent by entering its Activity protocol messaging endpoint, with none, API key, or OAuth 2.0 authentication. Because it publishes no agent card, you supply its name and description. Other SDK behavior is not confirmed.", "where": "Build tab, Connected agents, Add Microsoft 365 Agents SDK agent." },
         "customer-conversation": { "term": "SDK", "availability": "unknown", "summary": "Not described on the pages reviewed." }
       },
       "sources": [
-        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" }
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Add a Microsoft 365 Agents SDK agent as a connected agent (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-m-365-sdk" }
       ],
-      "lastVerified": "2026-11-12",
+      "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
     },
     {
