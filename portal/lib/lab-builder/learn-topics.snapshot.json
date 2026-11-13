@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-13T07:57:22.896Z",
+  "generatedAt": "2026-11-13T08:19:43.135Z",
   "source": "microsoft-learn-mcp",
   "catalogVersion": 1,
   "partial": false,
   "partialReason": null,
   "stats": {
-    "calls": 323,
+    "calls": 326,
     "errors": 0,
-    "pagesRead": 140,
+    "pagesRead": 111,
     "searches": 50
   },
   "topics": [
@@ -301,7 +301,7 @@
         "shopify-integration",
         "snowflake-integration"
       ],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -529,8 +529,10 @@
       ],
       "conceptId": "subagents",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-connected-agent"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -615,7 +617,7 @@
       "featureIds": [
         "mc-tools"
       ],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -633,9 +635,11 @@
       ],
       "conceptId": "tools",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
-      "level": 300,
+      "status": "covered",
+      "featureIds": [
+        "cc-add-tools"
+      ],
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -695,8 +699,10 @@
       ],
       "conceptId": "testing",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-evaluate"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -799,8 +805,11 @@
       ],
       "conceptId": "monitor",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-credit-billing",
+        "cc-monitor"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -863,6 +872,7 @@
       "availability": null,
       "status": "covered",
       "featureIds": [
+        "cc-connected-agent",
         "mc-connected-agents"
       ],
       "level": 200,
@@ -943,11 +953,13 @@
       "harnesses": [
         "customer-conversation"
       ],
-      "conceptId": "conversation-design",
+      "conceptId": "instructions",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
-      "level": 200,
+      "status": "covered",
+      "featureIds": [
+        "cc-instructions"
+      ],
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -1007,10 +1019,12 @@
       "harnesses": [
         "customer-conversation"
       ],
-      "conceptId": "conversation-design",
+      "conceptId": "model-orchestration",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-model-mode"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1049,8 +1063,10 @@
       ],
       "conceptId": "governance",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-export-import"
+      ],
       "level": 300,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1092,6 +1108,7 @@
       "availability": null,
       "status": "covered",
       "featureIds": [
+        "cc-credit-billing",
         "mc-credit-billing"
       ],
       "level": 100,
@@ -1172,10 +1189,12 @@
       "harnesses": [
         "customer-conversation"
       ],
-      "conceptId": "conversation-design",
+      "conceptId": "create-agent",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-create-agent"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1316,8 +1335,10 @@
       ],
       "conceptId": "conversation-design",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-events"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1336,8 +1357,10 @@
       ],
       "conceptId": "conversation-design",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-events"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1360,7 +1383,7 @@
       "featureIds": [
         "mc-foundry-iq"
       ],
-      "level": 200,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -1380,7 +1403,7 @@
       "availability": "preview",
       "status": "new",
       "featureIds": [],
-      "level": 200,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -1420,9 +1443,11 @@
       ],
       "conceptId": "knowledge",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
-      "level": 200,
+      "status": "covered",
+      "featureIds": [
+        "cc-knowledge"
+      ],
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -1445,7 +1470,7 @@
         "mc-foundry-iq",
         "mc-knowledge"
       ],
-      "level": 200,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -1465,7 +1490,7 @@
       "availability": null,
       "status": "new",
       "featureIds": [],
-      "level": 200,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -1485,7 +1510,7 @@
       "availability": null,
       "status": "new",
       "featureIds": [],
-      "level": 200,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -1523,8 +1548,10 @@
       ],
       "conceptId": "knowledge",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-knowledge"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1605,8 +1632,10 @@
       ],
       "conceptId": "memory",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-memory"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1650,10 +1679,13 @@
       "harnesses": [
         "customer-conversation"
       ],
-      "conceptId": "conversation-design",
+      "conceptId": "choose-harness",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-create-agent",
+        "cc-harness-choice"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1714,8 +1746,10 @@
       ],
       "conceptId": "testing",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-preview-test"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1772,10 +1806,14 @@
       "harnesses": [
         "customer-conversation"
       ],
-      "conceptId": "publish",
+      "conceptId": "integrations",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-contact-center",
+        "cc-deploy-channels",
+        "cc-teams-phone"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1792,11 +1830,15 @@
       "harnesses": [
         "customer-conversation"
       ],
-      "conceptId": "publish",
+      "conceptId": "integrations",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
-      "level": 100,
+      "status": "covered",
+      "featureIds": [
+        "cc-contact-center",
+        "cc-deploy-channels",
+        "cc-teams-phone"
+      ],
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -1814,8 +1856,10 @@
       ],
       "conceptId": "publish",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-deploy-channels"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1937,8 +1981,11 @@
       ],
       "conceptId": "security",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-authentication",
+        "cc-biometric-auth"
+      ],
       "level": 300,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2017,10 +2064,12 @@
       "harnesses": [
         "customer-conversation"
       ],
-      "conceptId": "conversation-design",
+      "conceptId": "security",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-authentication"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2079,8 +2128,10 @@
       ],
       "conceptId": "skills",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-skills"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2101,6 +2152,7 @@
       "availability": null,
       "status": "covered",
       "featureIds": [
+        "cc-skills",
         "mc-created-files",
         "mc-skills"
       ],
@@ -2120,11 +2172,13 @@
       "harnesses": [
         "customer-conversation"
       ],
-      "conceptId": "publish",
+      "conceptId": "conversation-design",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
-      "level": 100,
+      "status": "covered",
+      "featureIds": [
+        "cc-voice-settings"
+      ],
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -2140,10 +2194,13 @@
       "harnesses": [
         "customer-conversation"
       ],
-      "conceptId": "conversation-design",
+      "conceptId": "instructions",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-instructions",
+        "cc-voice-settings"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2162,8 +2219,10 @@
       ],
       "conceptId": "subagents",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-sub-agents"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2182,8 +2241,11 @@
       ],
       "conceptId": "subagents",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-connected-agent",
+        "cc-sub-agents"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2207,7 +2269,7 @@
       "featureIds": [
         "mc-harness-choice"
       ],
-      "level": 300,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -2267,8 +2329,10 @@
       ],
       "conceptId": "mcp",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-mcp-server"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2332,9 +2396,13 @@
       ],
       "conceptId": "tools",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
-      "level": 300,
+      "status": "covered",
+      "featureIds": [
+        "cc-add-tools",
+        "cc-mcp-server",
+        "cc-workflow-tool"
+      ],
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -2354,7 +2422,7 @@
       "availability": null,
       "status": "new",
       "featureIds": [],
-      "level": 300,
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -2372,9 +2440,11 @@
       ],
       "conceptId": "tools",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
-      "level": 300,
+      "status": "covered",
+      "featureIds": [
+        "cc-add-tools"
+      ],
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -2414,9 +2484,12 @@
       ],
       "conceptId": "tools",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
-      "level": 300,
+      "status": "covered",
+      "featureIds": [
+        "cc-biometric-auth",
+        "cc-escalate-human"
+      ],
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -2434,9 +2507,12 @@
       ],
       "conceptId": "tools",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
-      "level": 300,
+      "status": "covered",
+      "featureIds": [
+        "cc-biometric-auth",
+        "cc-escalate-human"
+      ],
+      "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -3404,6 +3480,7 @@
       "availability": null,
       "status": "covered",
       "featureIds": [
+        "cc-harness-choice",
         "mc-harness-choice"
       ],
       "level": 100,
@@ -3466,7 +3543,7 @@
       "availability": null,
       "status": "new",
       "featureIds": [],
-      "level": 200,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -3490,7 +3567,7 @@
         "knowledge-sharepoint",
         "knowledge-tuning"
       ],
-      "level": 200,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -3510,7 +3587,7 @@
       "availability": null,
       "status": "new",
       "featureIds": [],
-      "level": 200,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -3696,7 +3773,7 @@
       "availability": null,
       "status": "new",
       "featureIds": [],
-      "level": 200,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -4070,7 +4147,7 @@
       "featureIds": [
         "mc-upgrade-from-standard"
       ],
-      "level": 300,
+      "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
@@ -4359,6 +4436,181 @@
       "featureId": "authentication",
       "status": "current",
       "contentHash": "01c33b9bc957a7b0",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-add-tools",
+      "status": "current",
+      "contentHash": "86323a8479018c15",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-authentication",
+      "status": "current",
+      "contentHash": "09a4a80f7a3804bf",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-biometric-auth",
+      "status": "current",
+      "contentHash": "a4db786e15e5e1af",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-connected-agent",
+      "status": "current",
+      "contentHash": "beef9ef0afeed3c9",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-contact-center",
+      "status": "current",
+      "contentHash": "1d2d03d911b0d32a",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-create-agent",
+      "status": "current",
+      "contentHash": "3e827b1d118d46fb",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-credit-billing",
+      "status": "current",
+      "contentHash": "1982cfcce8d85a78",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-deploy-channels",
+      "status": "current",
+      "contentHash": "05cc366cfbd782f9",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-escalate-human",
+      "status": "current",
+      "contentHash": "2ba4e96ca7f82935",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-evaluate",
+      "status": "current",
+      "contentHash": "518d93a8e6d005e0",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-events",
+      "status": "current",
+      "contentHash": "0cdff71ef339d7dc",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-export-import",
+      "status": "current",
+      "contentHash": "dcc7a1ab9f5ca439",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-harness-choice",
+      "status": "current",
+      "contentHash": "81e97d1e03f1919c",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-instructions",
+      "status": "current",
+      "contentHash": "168f1e65977e6af9",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-knowledge",
+      "status": "current",
+      "contentHash": "d861d388d19921ab",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-mcp-server",
+      "status": "current",
+      "contentHash": "d3414ef27c55a75a",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-memory",
+      "status": "current",
+      "contentHash": "6230efcfa5c61888",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-model-mode",
+      "status": "current",
+      "contentHash": "aea7da4fb3c286b5",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-monitor",
+      "status": "current",
+      "contentHash": "67fc844d7dd8fe5f",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-preview-test",
+      "status": "current",
+      "contentHash": "f81dfbb039131138",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-skills",
+      "status": "current",
+      "contentHash": "fdffd32e37856afb",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-sub-agents",
+      "status": "current",
+      "contentHash": "8e6be4d46f719ae0",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-teams-phone",
+      "status": "current",
+      "contentHash": "1d2d03d911b0d32a",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-voice-settings",
+      "status": "current",
+      "contentHash": "af956dd6b98e7d56",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "cc-workflow-tool",
+      "status": "current",
+      "contentHash": "e8cad6d62352af81",
       "changedAt": null,
       "missing": []
     },
@@ -4951,6 +5203,7 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-mcp-server": "2f6a1e5418b17a6b",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-mcp-server-customer-conversation": "fb60861a97e34e23",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-workflow": "baebd5ca12061c14",
+    "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-workflow-customer-conversation": "d32526663590b415",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-available": "9783f440f91b7b4d",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-available-customer-conversation": "dc42f96fc1cc3ab2",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-manage": "213469b0def3f8cd",
@@ -5005,6 +5258,7 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/create-automation-natural-language": "92275d4091276b95",
     "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt": "63a89a9843fefbdb",
     "https://learn.microsoft.com/microsoft-copilot-studio/data-privacy-security-web-search": "8f3a3be7f4b46afb",
+    "https://learn.microsoft.com/microsoft-copilot-studio/faqs-memory-customer-conversation": "c1aa383dddc6695d",
     "https://learn.microsoft.com/microsoft-copilot-studio/flow-agent": "af8a8c43e817ce72",
     "https://learn.microsoft.com/microsoft-copilot-studio/flow-asynchronous-response": "f9771728c6ae020f",
     "https://learn.microsoft.com/microsoft-copilot-studio/flow-designer": "7da557864438aa78",
@@ -5072,6 +5326,7 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/flow-designer": "f01d3a8b04c0ae09",
     "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/flows-overview": "4935045b52b02c33",
     "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow": "b7c5ab2d1fbd11b6",
+    "https://learn.microsoft.com/power-platform/admin/manage-usage-customer-conversation-harness": "61fb92c3913abe92",
     "https://learn.microsoft.com/power-platform/admin/manage-usage-microsoft-copilot-harness": "8daa124359adee18",
     "https://learn.microsoft.com/power-platform/admin/power-platform-inventory": "b233d529e64e4ec3",
     "https://learn.microsoft.com/power-platform/admin/prevent-data-loss": "25fe5e19813fa69a",
@@ -5080,6 +5335,6 @@
     "https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention": "352a37d3a4bcefc2",
     "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm": "305628bca9c7ccdd"
   },
-  "listHash": "1dcc037941eaae11",
+  "listHash": "3636fe1bf4121770",
   "endpoint": "https://learn.microsoft.com/api/mcp"
 }
