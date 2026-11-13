@@ -223,7 +223,7 @@ flowchart LR
 
 ### 1. Feature catalog
 
-`portal/lib/lab-builder/features.json` is the source of truth for *structure*: 90
+`portal/lib/lab-builder/features.json` is the source of truth for *structure*: 97
 Copilot Studio capabilities across 11 categories, covering the standard
 harness, the Microsoft Copilot harness, and the Customer Conversation harness (see
 [Harnesses and levels](#harnesses-and-levels)), including the enterprise
