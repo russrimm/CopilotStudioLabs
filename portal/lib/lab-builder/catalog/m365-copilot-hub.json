@@ -47,6 +47,23 @@
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/assign-licenses-to-users",
+      "screenshots": [
+        {
+          "filename": "m365h-licenses-assign-panel.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Billing** > **Licenses**, select the Copilot product, select **Assign licenses**, and show the panel with a user and a group entered.",
+            "Mask user and tenant names."
+          ]
+        },
+        {
+          "filename": "m365h-licenses-errors-issues.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open the **Errors & Issues** tab on the product page and show any failed assignment with the **Reprocess** action."
+          ]
+        }
+      ],
       "prereqs": [],
       "relatedLabs": []
     },
@@ -87,6 +104,23 @@
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
+      "screenshots": [
+        {
+          "filename": "m365h-agents-overview.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Agents** > **Overview** and show the hero metrics and the governance cards.",
+            "Mask tenant details."
+          ]
+        },
+        {
+          "filename": "m365h-registry-summary.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Agents** > **All Agents** > **Registry** and show **Total agents**, **Agents without owners**, **Unmanaged agents**, and the filters."
+          ]
+        }
+      ],
       "prereqs": [],
       "relatedLabs": []
     },
@@ -129,6 +163,23 @@
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/agent-settings",
+      "screenshots": [
+        {
+          "filename": "m365h-agents-user-access.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Agents** > **Settings** > **User access** and show the **All users**, **No users**, and **Specific users or groups** options."
+          ]
+        },
+        {
+          "filename": "m365h-agent-install-deploy-pane.png",
+          "section": "admin-center",
+          "instructions": [
+            "Select an available agent, select **Install**, and show the **Deploy agent to selected users** pane.",
+            "Use a test agent."
+          ]
+        }
+      ],
       "prereqs": ["m365h-review-agent-inventory"],
       "relatedLabs": []
     },
@@ -170,6 +221,23 @@
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-usage",
+      "screenshots": [
+        {
+          "filename": "m365h-copilot-readiness-tab.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Reports** > **Usage** > **Microsoft Copilot** > **Copilot** and show the **Readiness** tab summary.",
+            "Show user names concealed."
+          ]
+        },
+        {
+          "filename": "m365h-copilot-usage-tab.png",
+          "section": "admin-center",
+          "instructions": [
+            "Select the **Usage** tab and show **Enabled Users**, **Active Users**, and **Active users rate** for a chosen timeframe."
+          ]
+        }
+      ],
       "prereqs": ["m365h-assign-copilot-licenses"],
       "relatedLabs": []
     },
@@ -211,6 +279,22 @@
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/agent-requests",
+      "screenshots": [
+        {
+          "filename": "m365h-agent-requests-list.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Agents** > **All agents** > **Requests** and show a pending request with its State."
+          ]
+        },
+        {
+          "filename": "m365h-agent-publish-template.png",
+          "section": "admin-center",
+          "instructions": [
+            "In the **Publish to store** wizard, show the step where you choose a policy template."
+          ]
+        }
+      ],
       "prereqs": ["m365h-control-agent-availability"],
       "relatedLabs": []
     },
@@ -251,6 +335,789 @@
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance",
+      "screenshots": [
+        {
+          "filename": "m365h-secure-data-settings.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Copilot** > **Settings** > **Data access** and show the **Data security and compliance** entry that links to the Microsoft Purview portal.",
+            "Mask tenant names and any user details."
+          ]
+        }
+      ],
+      "prereqs": ["m365h-data-access-governance-reports"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-copilot-controls-overview",
+      "name": "Tour the three pillars of Copilot controls",
+      "category": "copilot-admin",
+      "level": 100,
+      "minutes": 20,
+      "summary": "Learn what Copilot controls cover, map the security and governance, management, and measurement pillars to the admin surfaces you will use, and find where Copilot lives in the Microsoft 365 admin center.",
+      "whyItMatters": "Copilot and agents touch data, licensing, agent lifecycle, and reporting. A map of the three pillars tells you which admin center, which role, and which license tier each task needs before you start changing settings.",
+      "concepts": [
+        "Copilot controls are an integrated framework for Microsoft Copilot, Copilot Chat, Microsoft 365 prebuilt agents, and agents your organization builds in Microsoft Copilot Studio and publishes to Microsoft 365 channels.",
+        "There are three pillars: Security and governance (data security, AI security, compliance and privacy), Management controls (licensing and metering, agent lifecycle, customization), and Measurement and reporting (readiness and adoption, productivity impact, business value and ROI).",
+        "Learn calls controls in the Microsoft 365 admin center, SharePoint Advanced Management, and Microsoft Purview with A3/E3/G3 licensing foundational, and controls in Microsoft Purview and Microsoft Defender for Cloud Apps with A5/E5/G5 licensing optimized.",
+        "Management settings are found mainly in the Microsoft 365 admin center, the Power Platform admin center, and Copilot Studio. Copilot Analytics, shown in the Copilot Dashboard, the admin center, and Copilot Studio, powers measurement and reporting."
+      ],
+      "steps": [
+        "Read **Copilot controls overview** and write down the three pillars and the key capabilities under each.",
+        "Sign in to the Microsoft 365 admin center with an account that can view Copilot settings, such as AI Administrator, or Global Reader for read-only access.",
+        "In the left navigation, expand **Copilot** and note the **Settings** and **Search** nodes. A complete list of the nodes in your tenant: Not confirmed in Microsoft Learn.",
+        "Read **Copilot controls security and governance** and note which Microsoft Purview, SharePoint Advanced Management, and Microsoft Defender for Cloud Apps controls need A5/E5/G5 licensing.",
+        "Read **Copilot controls for management** and note where licensing and metering, agent lifecycle, and customization controls live.",
+        "Read **Copilot controls measurement and reporting** and note the difference between operational reports in the admin center, the Copilot Dashboard in Viva Insights, and custom reports in Viva Insights.",
+        "Create a one-page map with one row per pillar: its key capabilities, the admin center or portal you use, the admin role you need, and whether your tenant licenses the foundational or optimized controls."
+      ],
+      "validation": [
+        "Your map lists all three pillars with their capabilities: Data security, AI security, and Compliance and privacy; Licensing and metering, Agent lifecycle, and Customization; Readiness and adoption, Productivity impact, and Business value and ROI.",
+        "You can name, for each pillar, the portal where you would make a change, such as the Microsoft 365 admin center, the Microsoft Purview portal, or the Copilot Dashboard in Viva Insights."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-copilot-nav-expanded.png",
+          "section": "admin-center",
+          "instructions": [
+            "Show the Microsoft 365 admin center left navigation with **Copilot** expanded and the **Settings** entry visible.",
+            "Mask tenant and user details."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Copilot controls overview Microsoft Copilot three pillars",
+        "Copilot controls security governance management measurement"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-overview",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-management",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-measurement-reporting"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/copilot/implement/copilot-controls-overview",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-tour-copilot-settings",
+      "name": "Find and understand Copilot settings",
+      "category": "copilot-admin",
+      "level": 100,
+      "minutes": 25,
+      "summary": "Browse Copilot > Settings in the Microsoft 365 admin center and learn which settings you change there and which ones open another service.",
+      "whyItMatters": "Many Copilot settings only link to another admin center or policy service. Knowing where each change is really made, and which role it needs, prevents wasted time and accidental changes.",
+      "concepts": [
+        "Copilot settings are grouped under User access, Data access, Copilot actions, and Other settings. Use **View all** or **All settings** when a setting is not shown in a category.",
+        "Use the AI Administrator role, or the least-privileged role that fits the task. Global Reader can view but not change settings. Linked services need their own permissions; for example, Cloud Policy settings for Microsoft 365 apps need the Office Apps admin role.",
+        "Which settings you see depends on your licenses, enabled features, and rollout status, so a setting might be missing or in a different place.",
+        "Some settings are information only or link elsewhere: web search opens the Microsoft 365 Apps admin center, data security and compliance opens the Microsoft Purview portal, and Copilot in Teams meetings opens the Teams admin center."
+      ],
+      "steps": [
+        "Sign in to the Microsoft 365 admin center at admin.microsoft.com with an account that has the AI Administrator role, or Global Reader to view only.",
+        "In the left navigation, expand **Copilot**, and then select **Settings**.",
+        "Under **User access**, review settings such as **Copilot Frontier**, **Microsoft Copilot self-service purchases**, **Pin Microsoft Copilot Chat**, and **Microsoft Copilot in admin centers**.",
+        "Under **Data access**, review **Agents**, **Web search for Microsoft Copilot and Microsoft Copilot Chat**, **Data security and compliance**, and **Recommendations for Microsoft Copilot licensing**.",
+        "Under **Copilot actions**, review **Copilot image generation**, **Screen and camera sharing**, **Copilot in Teams meetings**, and **Advanced package uploads**.",
+        "Under **Other settings**, find **Copilot custom dictionary** and **Copilot diagnostics logs**.",
+        "Select **View all** or **All settings** and compare the full list with the categories to find settings that are not shown by default.",
+        "For three settings, record whether you change it on the page or whether it links to another service: **Web search for Microsoft Copilot and Microsoft Copilot Chat**, **Data security and compliance**, and **Copilot in Teams meetings**."
+      ],
+      "validation": [
+        "You can state which settings sit under User access, Data access, Copilot actions, and Other settings in your tenant, and note any that are missing because of licensing or rollout.",
+        "Your notes show that web search is configured with a cloud policy in the Microsoft 365 Apps admin center, data security and compliance opens the Microsoft Purview portal, and Copilot in Teams meetings opens the Teams admin center."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-copilot-settings-landing.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Copilot** > **Settings** and show the **User access**, **Data access**, **Copilot actions**, and **Other settings** categories.",
+            "Mask tenant details."
+          ]
+        },
+        {
+          "filename": "m365h-copilot-settings-view-all.png",
+          "section": "admin-center",
+          "instructions": [
+            "Select **View all** and show the expanded list of Copilot settings.",
+            "Mask tenant details."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Configure Microsoft Copilot settings Microsoft 365 admin center",
+        "Copilot settings user access data access Copilot actions"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-management"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-pin-copilot-chat",
+      "name": "Pin Copilot Chat for your users",
+      "category": "copilot-admin",
+      "level": 100,
+      "minutes": 20,
+      "summary": "Set whether Microsoft Copilot Chat is pinned in Microsoft 365 apps, scope the pinning policy to groups, and pin the Copilot app in Teams and on the Windows taskbar.",
+      "whyItMatters": "Users adopt Copilot Chat faster when it is one click away in the apps they already use. Pinning is also the quickest adoption lever for unlicensed users.",
+      "concepts": [
+        "Copilot Chat is the integrated chat experience in Microsoft 365 apps such as Teams and Outlook. The Copilot app is a separate standalone app that provides Chat, Search, Agents if enabled, Notebooks, and Create.",
+        "You need the AI Administrator role to change the setting. Changes take up to 48 hours to go into effect.",
+        "Copilot Chat is pinned by default. Learn lists a Do not pin option and also states that Copilot Chat can't be unpinned from the navigation for all tenants worldwide as of January 2026. Which behavior your tenant shows: Not confirmed in Microsoft Learn.",
+        "Pinning the Copilot app to the Windows taskbar applies only to users with an active Intune license and needs the Intune Administrator role. Only users who sign in with a Microsoft Entra account can have Copilot Chat pinned."
+      ],
+      "steps": [
+        "Sign in to the Microsoft 365 admin center as an AI Administrator and go to **Copilot** > **Settings**.",
+        "Select **Pin Microsoft Copilot Chat**.",
+        "Choose **Pin Copilot Chat in Microsoft 365 apps (recommended)** to pin it for all users without prompts, or **Do not pin Copilot Chat in Microsoft 365 apps** to leave it unpinned by default. Save steps and button labels: Not confirmed in Microsoft Learn.",
+        "To scope pinning to groups, sign in to the Microsoft 365 Apps admin center at config.office.com, and on the **Office policies** card select **Go to Microsoft 365 Cloud Policy**, and then select **Create**.",
+        "Customize the basics and scope of the policy, search for and select **Pin Microsoft Copilot Chat**, choose an option, and select **Apply**.",
+        "Select **Next** to review, and then select **Create** to publish the policy. Confirm the policy status shows **Configured**.",
+        "In the Teams admin center, create or edit an app setup policy and add the Copilot app to **Pinned apps**, and allow the app with an app permission policy or app-centric management.",
+        "To pin the Copilot app to the Windows taskbar of managed devices, follow the taskbar link on the Copilot settings page, as an Intune Administrator for users with an Intune license. Wait up to 48 hours before testing."
+      ],
+      "validation": [
+        "The Copilot settings page shows your chosen pinning option, and a Cloud Policy you created shows the status Configured.",
+        "After up to 48 hours, a test user signed in with a Microsoft Entra account sees Copilot Chat in the navigation of Teams or Outlook as your policy defines."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-pin-copilot-chat-options.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Copilot** > **Settings** > **Pin Microsoft Copilot Chat** and show the pinning options with your choice selected.",
+            "Mask tenant details."
+          ]
+        },
+        {
+          "filename": "m365h-pin-cloud-policy.png",
+          "section": "m365-apps-admin-center",
+          "instructions": [
+            "In the Cloud Policy flyout for **Pin Microsoft Copilot Chat**, show the option selected before you select **Apply**."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Pin Microsoft Copilot Chat in Microsoft 365 apps",
+        "Pin Copilot app Windows taskbar Teams app setup policy"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar",
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center",
+        "https://learn.microsoft.com/copilot/manage/manage-copilot-chat"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-control-web-search",
+      "name": "Control web search and web grounding",
+      "category": "copilot-admin",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Allow or turn off web search for Microsoft Copilot and Copilot Chat with the Allow web search in Copilot cloud policy, and learn how to confirm and audit its use.",
+      "whyItMatters": "Web search sends short generated queries to the Bing search service, which has different data handling than Microsoft 365. Regulated teams need to decide deliberately where this is allowed and be able to show it.",
+      "concepts": [
+        "When web search is on, Copilot generates a short query from the prompt and sends it to the Bing search service. The query excludes the whole prompt unless it is very short, entire files, and Microsoft Entra identifiers such as user name, domain, or tenant ID. The client IP address is sent so results can be localized.",
+        "The Allow web search in Copilot policy is available only in Cloud Policy service for Microsoft 365 and applies to both Microsoft Copilot and Microsoft Copilot Chat. Options are enabled in both, disabled in both, or disabled in Microsoft Copilot Work mode and enabled in Web mode and Copilot Chat.",
+        "If you do not configure the policy, web search is available unless Allow the use of additional optional connected experiences in Office is Disabled. In GCC and DoD, web search is off by default and needs the policy to enable it.",
+        "Users have a Web content toggle. If an admin turns web search off, the toggle is off and dimmed. Web search queries are logged for audit, eDiscovery, and DSPM activity explorer."
+      ],
+      "steps": [
+        "Sign in to the Microsoft 365 admin center and go to **Copilot** > **Settings** > **Data access**.",
+        "Select **Web search for Microsoft Copilot and Microsoft Copilot Chat** and follow the link to create the cloud policy in the Microsoft 365 Apps admin center.",
+        "In Cloud Policy, create a policy, set its scope to the users or groups, and search for **Allow web search in Copilot**. Wizard labels beyond the policy name: Not confirmed in Microsoft Learn.",
+        "Choose **Enabled in Microsoft Copilot and Microsoft Copilot Chat**, **Disabled in Microsoft Copilot and Microsoft Copilot Chat**, or **Disabled in Microsoft Copilot Work mode; Enabled in Microsoft Copilot Web mode and Microsoft Copilot Chat**, and publish the policy.",
+        "As a test user, open the Microsoft Copilot app, select **Settings**, select **Personalization**, expand **Advanced**, and check the **Web search** toggle. If you disabled web search, confirm the toggle is dimmed off.",
+        "Ask a prompt that needs current information and check whether the response cites web search queries in the linked citation section. Web search query citations appear only in Microsoft Copilot Chat.",
+        "In the Microsoft Purview portal, select **Audit** and open a *CopilotInteraction* record. In the record, check whether *AISystemPlugin.Id* contains *BingWebSearch*."
+      ],
+      "validation": [
+        "A test user in the scoped group sees web search behave as the policy dictates, and the Web content toggle is dimmed off when you disabled web search.",
+        "A Copilot audit record shows *BingWebSearch* in *AISystemPlugin.Id* when web search was used, and no such value when it was disabled."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-web-search-policy.png",
+          "section": "m365-apps-admin-center",
+          "instructions": [
+            "Show the **Allow web search in Copilot** policy flyout with the three options and one selected."
+          ]
+        },
+        {
+          "filename": "m365h-web-search-user-toggle.png",
+          "section": "copilot-app",
+          "instructions": [
+            "In the Microsoft Copilot app, show **Settings** > **Personalization** > **Advanced** with the **Web search** toggle visible."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Allow web search in Copilot cloud policy",
+        "Data privacy and security for web search in Microsoft Copilot and Copilot Chat"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/copilot/plan/manage-public-web-access",
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center",
+        "https://learn.microsoft.com/purview/audit-copilot"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/copilot/plan/manage-public-web-access",
+      "prereqs": ["m365h-tour-copilot-settings"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-restrict-copilot-chat-access",
+      "name": "Manage or remove Copilot Chat access",
+      "category": "copilot-admin",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Decide who can use Copilot Chat, block or limit the Copilot app with Integrated apps and Teams policies, and add a company policy link for blocked users.",
+      "whyItMatters": "Some organizations must restrict Copilot Chat to licensed users or to a pilot group. The controls live in several admin centers, and an incomplete configuration leaves paths open.",
+      "concepts": [
+        "The Copilot app provides Copilot Chat in the Microsoft Copilot app and Outlook across web, desktop, and mobile, and on the web at m365.cloud.microsoft/chat. You manage it in the Integrated apps portal in the Microsoft 365 admin center.",
+        "Blocking the Copilot app through Integrated apps is tenant-wide, can be scoped to users or groups, and also blocks licensed users in the Microsoft Copilot app, Teams, Outlook, and Copilot Chat on the web.",
+        "Users blocked through Integrated apps see Copilot Chat was turned off for your organization. You can add a company policy URL that appears as View info from your organization.",
+        "Teams, Edge, and Windows each have their own controls: a Teams app permission and app setup policy, Edge policies such as HubsSidebarEnabled and EdgeEntraCopilotPageContext, and Windows policies for the Copilot key."
+      ],
+      "steps": [
+        "In the Microsoft 365 admin center, open **Settings** > **Integrated apps** and find the Copilot app. Exact menu labels for blocking: Not confirmed in Microsoft Learn.",
+        "To limit the app to licensed users, set availability to specific users or groups and select a group that contains only licensed users. To remove it for everyone, block the app, accepting that this includes licensed users.",
+        "Go to **Copilot** > **Settings** > **View all**, and select **Custom link for blocked Microsoft Copilot app**.",
+        "Enter the URL of your internal guidance page. Users then see the link text **View info from your organization**.",
+        "In the Teams admin center, allow the Copilot app in an app permission policy only for licensed users, and do not pin it in app setup policies for unlicensed users.",
+        "To control Edge, use the *HubsSidebarEnabled* policy to turn off the sidebar apps, or *EdgeEntraCopilotPageContext* to stop Copilot Chat from using page or PDF content.",
+        "Review the Microsoft Edge setting **Allow Copilot to use browser content** under **Copilot and Sidebar** if you manage browser content access.",
+        "Test with a blocked user and with a licensed user, and record where Copilot Chat remains reachable."
+      ],
+      "validation": [
+        "A blocked user opening Copilot Chat sees the Copilot Chat was turned off for your organization page and a View info from your organization link that opens your URL.",
+        "Your test notes list every entry point (Copilot app, Outlook, Teams, web, Edge) and whether it is blocked for unlicensed users and available to licensed users."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-blocked-chat-custom-link.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Copilot** > **Settings** > **View all** > **Custom link for blocked Microsoft Copilot app** and show the URL entry field with an example link.",
+            "Use an example URL, not a real internal address."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Manage Copilot Chat block users Integrated apps",
+        "Remove access to Copilot Chat Teams Edge"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/copilot/manage/manage-copilot-chat",
+        "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar",
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/copilot/manage/manage-copilot-chat",
+      "prereqs": ["m365h-pin-copilot-chat"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-troubleshoot-copilot-access",
+      "name": "Troubleshoot Copilot access and gather diagnostics",
+      "category": "copilot-admin",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Diagnose users who cannot reach Copilot: check network allow lists, Conditional Access, account type, and policy timing, then submit Copilot diagnostics logs.",
+      "whyItMatters": "Most early Copilot support tickets are access, network, or timing issues rather than product defects. A repeatable checklist shortens the time to resolution and gives Microsoft useful data when you need to escalate.",
+      "concepts": [
+        "Users can sign in with a work or school account or a personal Microsoft account. Chats, files, permissions, and protections stay separate by account, and enterprise protections apply only to work or school sign-in.",
+        "Add *.cloud.microsoft to allow lists as a whole domain. Learn says to allow the entire domain because allowing only some URLs is not supported. Check that URL filters, Conditional Access, and app control policies do not block copilot.cloud.microsoft.",
+        "Several settings take time: pinning changes can take up to 48 hours, and usage report data typically appears within 48 hours.",
+        "Copilot diagnostics logs let an admin submit diagnostic information to Microsoft for users who cannot submit feedback. Submissions can include prompts, responses, content samples, and log files, and they temporarily override user-level feedback policies."
+      ],
+      "steps": [
+        "Confirm the user signs in with a work or school account, and look for the Work label and the data protection shield in the Microsoft Copilot app. Use **Tenant Restrictions v2** if you must control personal account sign-in.",
+        "Confirm the user has the access you intend: license assignment, pinning or block settings, and Teams app permission policies. For license errors, use the Errors & Issues tab as described in the Assign Microsoft Copilot licenses lab.",
+        "Verify the network allows *.cloud.microsoft and does not block copilot.cloud.microsoft with URL category filters, Conditional Access, or app control policies.",
+        "Run the Microsoft 365 Connectivity test tool for Copilot endpoints, and confirm your environment meets the Microsoft 365 and Copilot network requirements.",
+        "Check recent policy changes against the timing: pinning changes can take up to 48 hours, and report data can lag by up to 48 hours.",
+        "If the issue persists, go to **Copilot** > **Settings** > **Other settings** > **Copilot diagnostics logs**, review the information, and submit it.",
+        "Record the cause and fix in a runbook, with the exact setting, role, and the wait time that applied."
+      ],
+      "validation": [
+        "A user who was unable to reach Copilot regains access after you correct one cause from your checklist, and you can say which check found it.",
+        "You can explain what a Copilot diagnostics logs submission contains and that it temporarily overrides user-level feedback policies."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-diagnostics-logs.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Copilot** > **Settings** > **Other settings** > **Copilot diagnostics logs** and show the page before you submit anything.",
+            "Mask tenant details."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Manage Copilot Chat ensure users can access cloud.microsoft",
+        "Copilot diagnostics logs Microsoft 365 admin center"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/copilot/manage/manage-copilot-chat",
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center",
+        "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/copilot/manage/manage-copilot-chat",
+      "prereqs": ["m365h-tour-copilot-settings", "m365h-assign-copilot-licenses"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-agent-lifecycle-actions",
+      "name": "Block, delete, restore, and reassign agents",
+      "category": "copilot-admin",
+      "level": 200,
+      "minutes": 35,
+      "summary": "Run the lifecycle actions in the Agent Registry: block or unblock, soft delete and restore, assign an owner, and start or stop a Foundry agent.",
+      "whyItMatters": "Agents get abandoned, lose their owners, or turn out to be unsafe. You need to act quickly and reversibly, and to know what each action does in each host product.",
+      "concepts": [
+        "Block restricts an agent for the whole organization. Blocking an agent built with Agent Builder or Copilot Studio affects Microsoft Copilot and other hosts such as Outlook and Teams, while blocking an agent built with SharePoint or Microsoft Foundry only affects Microsoft Copilot Chat.",
+        "Delete is a soft delete. For 30 days the agent keeps its ID, metadata, channels, ownership, and connections, and you can restore it or permanently delete it. Microsoft 365 permanently deletes it when the retention period ends.",
+        "Researcher and Analyst cannot be limited with Edit users; block them for the entire tenant instead.",
+        "Starting or stopping a Foundry agent controls the underlying Azure infrastructure and needs the Azure AI Owner role. Assigning a new owner applies to Agent Builder and Copilot Studio agents."
+      ],
+      "steps": [
+        "Sign in to the Microsoft 365 admin center with a role that can manage agents, such as AI Administrator, and select **Agents** > **All agents**.",
+        "Select an agent, and in the details pane, immediately under its name, select **Block**. In the **Block agent** pane, select **Block agent**, and then select **Save**.",
+        "Reopen the agent and select **Unblock**, then in the **Unblock agent** pane select **Unblock agent** and **Save**, to confirm blocking is reversible.",
+        "Select an agent to delete, select **Delete agent** in the details pane, and then select **Delete** in the confirmation pane.",
+        "On the **All agents** page, select **Deleted**, select the agent, and select **Restore agent**, and then **Restore**.",
+        "To remove an agent for good, select **Deleted**, select the agent, select **Permanently delete**, and then **Delete**. This cannot be undone.",
+        "For an ownerless Agent Builder or Copilot Studio agent, select it, select **Assign new owner** under its name, enter a new owner, and select **Assign**.",
+        "For a Microsoft Foundry agent, select it, add the **Azure AI Owner** role with **Add role** if needed, and select **Stop** or **Start**."
+      ],
+      "validation": [
+        "A blocked test agent is unavailable to users and returns after you select Unblock; a deleted agent shows under Deleted and returns to active after Restore agent.",
+        "Delete, restore, and permanent delete events appear in the audit log, and an ownerless agent shows a new owner after you assign one."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-agent-block-pane.png",
+          "section": "admin-center",
+          "instructions": [
+            "Select a test agent, open the **Block agent** pane, and show the **Block agent** option before you select **Save**."
+          ]
+        },
+        {
+          "filename": "m365h-agent-deleted-restore.png",
+          "section": "admin-center",
+          "instructions": [
+            "Select the **Deleted** view, select a deleted test agent, and show the **Restore agent** and **Permanently delete** actions."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Governance and lifecycle actions for agents Microsoft 365 admin center",
+        "Block delete restore agent Microsoft 365 admin center"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
+        "https://learn.microsoft.com/microsoft-365/admin/manage/manage-copilot-agents-integrated-apps"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions",
+      "prereqs": ["m365h-review-agent-inventory"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-agent-management-rules",
+      "name": "Automate agent governance with rules, tags, and feedback settings",
+      "category": "copilot-admin",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Create agent management rules for bulk actions, apply a template to existing agents, organize agents with tags, and control agent feedback sharing.",
+      "whyItMatters": "Manual agent review does not scale. Rules give you repeatable governance, while tags and feedback settings keep the inventory searchable and control what developers see.",
+      "concepts": [
+        "Agent management rules identify agents that meet conditions, let you review the affected agents, and apply a governance action in bulk. Supported scenarios are install Microsoft agents, reassign ownerless Agent Builder agents to the previous owner's manager, block ownerless agents without usage, apply a template, and reject publish requests older than a set number of days.",
+        "Reassigning ownerless agents supports only agents created with Microsoft Copilot Agent Builder, and the new owner is the previous owner's manager based on the Microsoft Entra ID hierarchy.",
+        "Apply template is a one-time bulk operation, not a schedule. It evaluates agents in the registry that have an agent identity and does not apply to agent blueprints or AI teammates. The Policy templates FAQ says templates support only new agent activation, so confirm in your tenant how the rule treats agents that are already approved: Not confirmed in Microsoft Learn.",
+        "Your organization can have up to 50 tags. Deleting a tag removes it from every agent that uses it. Agent feedback sharing controls whether developers receive thumbs-up or thumbs-down ratings and comments."
+      ],
+      "steps": [
+        "Sign in to the Microsoft 365 admin center as an AI Administrator and go to **Agents** > **Settings** > **Agent management rules**.",
+        "Select **Add rule**, choose an action such as **Apply template**, and define the criteria that identify the agent instances.",
+        "For **Apply template**, choose a preexisting template, or select policies from the **Custom** section, review the policies, and save the rule.",
+        "In the rule details pane, review the impacted agents, choose all agents or a subset, and run the rule.",
+        "Create a custom rule that rejects agent publish requests older than a number of days you choose, and review the list of affected requests before running it.",
+        "Go to **Agents** > **Settings** > **Tags**, select **Add**, enter a tag name, add a description that says when to use it, and save it. Check the agent count before you delete any tag.",
+        "Go to **Agents** > **Settings** > **Agent feedback sharing**, choose **No agents**, **All agents**, or **Selected agents**, choose agents if you selected **Selected agents**, and select **Save**."
+      ],
+      "validation": [
+        "After you run a rule, the affected agents show the result, such as the applied template or a changed owner, and agents outside the criteria are unchanged.",
+        "The Tags page lists your new tag with its description and agent count, and the Agent feedback sharing page shows your chosen option."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-agent-rule-apply-template.png",
+          "section": "admin-center",
+          "instructions": [
+            "In **Agents** > **Settings** > **Agent management rules**, show a rule with **Apply template** selected and its criteria defined."
+          ]
+        },
+        {
+          "filename": "m365h-agent-tags-page.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Agents** > **Settings** > **Tags** and show the tag list with descriptions and agent counts."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Agent settings Microsoft 365 admin center agent management rules",
+        "Agent management rules apply template ownerless agents"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-settings",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/policy-template",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/agent-settings",
+      "prereqs": ["m365h-agent-lifecycle-actions", "m365h-control-agent-availability"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-data-access-governance-reports",
+      "name": "Find overshared SharePoint sites with data access governance reports",
+      "category": "copilot-admin",
+      "level": 200,
+      "minutes": 35,
+      "summary": "Run the snapshot and activity data access governance reports in the SharePoint admin center, find sites with broad access, and choose a remediation.",
+      "whyItMatters": "Copilot and agents respect existing permissions, so broad access means broad discoverability. These reports show you where access is widest before Copilot makes it obvious to users.",
+      "concepts": [
+        "Snapshot reports show status as of when they were generated: site permissions across your organization (recommended), site permissions for users, and sensitivity labels for files. Activity reports cover the last 28 days: Sharing links and Shared with Everyone except external users.",
+        "Learn suggests running the site permissions report first and quarterly, then the activity reports monthly.",
+        "The reports need SharePoint Advanced Management prerequisites. IT administrators with Microsoft 365 E5 can use the reports but not the other SharePoint Advanced Management features, and they get no snapshot reports or remedial actions. Without SharePoint Advanced Management you must enable data collection for activity reports; data is kept 28 days and reports appear 24 hours later.",
+        "Remedial actions include restricted access control, the Change history report, and the Site access review feature."
+      ],
+      "steps": [
+        "Sign in to the SharePoint admin center with SharePoint administrator credentials.",
+        "In the left pane, expand **Reports**, and then select **Data access governance**.",
+        "Under **Snapshot reports**, run **Site permissions across your organization** and open the result. Report creation button labels: Not confirmed in Microsoft Learn.",
+        "Identify sites with the broadest access, such as sites with thousands of users, external guests, or Everyone except external users permissions.",
+        "Run **Sensitivity label applied to files** and check that sites holding sensitive files have the policies you expect.",
+        "Under **Activity reports**, run **Sharing links** and **Shared with 'Everyone except external users'** to find recent oversharing in the last 28 days. If you lack SharePoint Advanced Management, enable data collection first and return after 24 hours.",
+        "For each site you care about, choose a remedy: restricted access control for immediate action, the Change history report to trace permission changes, or a Site access review sent to site owners.",
+        "If reports fail, ask a Global Administrator to clear **Display concealed user, group, and site names in all reports** in the Reports settings of the Microsoft 365 admin center."
+      ],
+      "validation": [
+        "You have a list of the sites with the broadest access, taken from the site permissions report, with the remedy you chose for each.",
+        "An activity report lists sites with recent sharing links or Everyone except external users sharing for the last 28 days."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-dag-landing.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "Open **Reports** > **Data access governance** and show the snapshot and activity report cards.",
+            "Mask tenant details."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Data access governance reports SharePoint site permissions",
+        "SharePoint Advanced Management oversharing Copilot"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/sharepoint/data-access-governance-reports",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/data-access-governance-reports",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-audit-copilot-interactions",
+      "name": "Audit Copilot and agent interactions in Microsoft Purview",
+      "category": "copilot-admin",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Search Microsoft Purview Audit for Copilot and agent interactions, read the key audit properties, and check whether Copilot used web search.",
+      "whyItMatters": "Auditors and incident responders need to know who used Copilot, where, what resources it touched, and which agent was involved. These logs answer those questions.",
+      "concepts": [
+        "Copilot and AI application activity is logged automatically as part of Audit (Standard) when your organization enables auditing; no extra configuration is needed for Microsoft Copilot.",
+        "User interactions with Microsoft Copilot appear with the operation CopilotInteraction. Admin operations include UpdateTenantSettings, CreatePlugin, DeletePlugin, and EnablePromptBook.",
+        "Useful properties include AccessedResources, AgentId, AgentName, AppHost, AISystemPlugin, and Messages, which includes a JailbreakDetected flag. AccessedResources can also include an XPIADetected flag for cross prompt injection attacks.",
+        "Audit for non-Microsoft AI applications uses pay-as-you-go billing and retains records for 180 days. Applications from Microsoft, including Copilot Studio and Microsoft Foundry apps, are included in Audit Standard."
+      ],
+      "steps": [
+        "Sign in to the Microsoft Purview portal. The role needed to search audit logs is not stated on the audit page: Not confirmed in Microsoft Learn.",
+        "Select **Audit**.",
+        "Choose a date range, and in the **Activities – operation names** field select the Copilot operation, such as CopilotInteraction, to filter by *Operation*, *RecordType*, and *Workload*.",
+        "Run the search, open a record, and review *AccessedResources*, *AppHost*, *AgentId*, and *Messages*.",
+        "Look at *AISystemPlugin.Id*. A value of *BingWebSearch* means the interaction used the public web through Microsoft Bing.",
+        "To filter on *AppIdentity*, search and export the Copilot audit logs by operation, and filter the *AppIdentity* values in the exported file.",
+        "Search for the admin operations, such as *UpdateTenantSettings*, to see changes made to Copilot settings."
+      ],
+      "validation": [
+        "Your search returns CopilotInteraction records for a test user's prompt, and you can name the AppHost and any accessed resources.",
+        "You can show, from AISystemPlugin.Id, whether a test prompt used web search."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-purview-audit-search.png",
+          "section": "purview",
+          "instructions": [
+            "In **Audit**, show the search with the **Activities – operation names** filter set to a Copilot operation.",
+            "Mask user names."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Audit logs for Copilot and AI applications Purview",
+        "CopilotInteraction audit record properties"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/purview/audit-copilot",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/purview/audit-copilot",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-pay-as-you-go-billing",
+      "name": "Set up pay-as-you-go billing for Copilot services",
+      "category": "copilot-admin",
+      "level": 200,
+      "minutes": 40,
+      "summary": "Create a billing policy tied to an Azure subscription, connect it to Microsoft Copilot Chat or SharePoint agents, add a budget, and test with a sample agent.",
+      "whyItMatters": "Pay-as-you-go lets you offer Copilot features without licensing every user and shows usage patterns before you buy licenses. Budgets and a billing policy keep cost visible.",
+      "concepts": [
+        "A billing policy is the billing identifier that ties an Azure subscription, a resource group, and a set of users. Creating one does not finish setup; you must connect it to a Copilot service. You can create up to 50 billing policies.",
+        "Pay-as-you-go applies to Microsoft Copilot Chat, SharePoint agents, and the Microsoft Copilot Retrieval API (Preview). Pay-as-you-go is disabled by default.",
+        "Billing Administrator, AI Administrator, and Global Administrator can set it up, and you need Owner or Contributor on the Azure subscription and resource group.",
+        "A budget sends email notifications at percentage milestones but does not enforce a limit; usage can continue after the budget is exceeded."
+      ],
+      "steps": [
+        "Confirm your role (Billing Administrator, AI Administrator, or Global Administrator) and that you have an Azure subscription and resource group in the same tenant with Owner or Contributor rights.",
+        "In the Microsoft 365 admin center, go to **Copilot** > **Billing & usage**, open the **Billing policies** tab, and select **Add a billing policy**.",
+        "Select an existing subscription and resource group, or create them from the same flow by selecting **Create a new subscription** or **Create a new resource group**.",
+        "Add the users or groups the policy covers, and optionally set a budget. Step labels for these pages: Not confirmed in Microsoft Learn.",
+        "On the **Review and finish** page, review the details and select **Create policy**.",
+        "On the **Billing & usage** page, select the **Pay-as-you-go services** tab, select **Microsoft Copilot Chat** or **SharePoint agents**, and select the billing policy.",
+        "Have an eligible user try the Learning Coach, Writing Coach, or Career Coach agent with the prompt What can you do? That prompt consumes about 12 credits.",
+        "Check the usage in the Copilot Credits Report, and on the **Cost Management** page for the service."
+      ],
+      "validation": [
+        "The Pay-as-you-go services tab shows the billing policy connected to your chosen service.",
+        "The test prompt appears in the Copilot Credits Report, and the policy shows a budget if you set one."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-payg-billing-policies.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open **Copilot** > **Billing & usage** > **Billing policies** and show a policy in the list.",
+            "Mask subscription IDs and tenant details."
+          ]
+        },
+        {
+          "filename": "m365h-payg-connect-service.png",
+          "section": "admin-center",
+          "instructions": [
+            "Open the **Pay-as-you-go services** tab and show **Microsoft Copilot Chat** connected to a billing policy.",
+            "Mask subscription IDs."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Set up Microsoft Copilot pay-as-you-go services billing policy",
+        "Microsoft Copilot pay-as-you-go overview for IT admins"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/copilot/implement/setup-pay-as-you-go",
+        "https://learn.microsoft.com/copilot/plan/pay-as-you-go-overview",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-management"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/copilot/implement/setup-pay-as-you-go",
+      "prereqs": ["m365h-assign-copilot-licenses"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-restricted-content-discovery",
+      "name": "Limit Copilot discovery of risky SharePoint sites",
+      "category": "copilot-admin",
+      "level": 300,
+      "minutes": 35,
+      "summary": "Turn on Restricted Content Discovery for selected SharePoint sites, delegate management, generate a tenant report, and review the audit events.",
+      "whyItMatters": "While you review permissions on high-risk sites, you can keep their content out of organization-wide search and Copilot responses without changing access.",
+      "concepts": [
+        "Restricted Content Discovery is a site-level, temporary governance control. It limits discovery of content from selected SharePoint sites in organization-wide search and Microsoft Copilot responses, and removes AI entry points such as the Copilot button and Create pages with AI on those sites.",
+        "It does not change permissions, does not remove content from the search index, and applies only to SharePoint sites, not OneDrive. Microsoft Purview features such as eDiscovery and auto-labeling continue to work.",
+        "It needs the SharePoint Advanced Management prerequisites and a Microsoft Copilot license. By default only SharePoint administrators manage it, and delegation lets site administrators do so with a justification.",
+        "Propagation takes time. For sites with more than 500,000 items, an update can take more than a week."
+      ],
+      "steps": [
+        "Review the SharePoint Advanced Management prerequisites, and use Data access governance reports to choose the sites to restrict.",
+        "In the SharePoint admin center, expand **Sites** and select **Active sites**, and then select the site.",
+        "Open the **Settings** tab, turn **Restrict content from Microsoft Copilot** on, and select **Save**. As an alternative, run *Set-SPOSite -Identity <site-url> -RestrictContentOrgWideSearch $true*.",
+        "Check the status with *Get-SPOSite -Identity <site-url> | Select RestrictContentOrgWideSearch*, and look for the Restricted tag on the site.",
+        "To let site administrators manage the setting, run *Set-SPOTenant -DelegateRestrictedContentDiscoverabilityManagement $true*, and verify with *Get-SPOTenant*.",
+        "Generate a tenant report with *Start-SPORestrictedContentDiscoverabilityReport*, check it with *Get-SPORestrictedContentDiscoverabilityReport*, and download it with the *-Action Download -ReportId* parameters.",
+        "When the permissions review is done, set *-RestrictContentOrgWideSearch $false* to remove the restriction.",
+        "In Microsoft Purview audit log activities, find the events for enabling, disabling, and justifications."
+      ],
+      "validation": [
+        "The restricted site shows the Restricted tag and *RestrictContentOrgWideSearch* returns True. After propagation, its content no longer appears in organization-wide search or Copilot answers, while users with access can still open it directly.",
+        "Your tenant report lists the restricted sites, and the audit log shows the enable event."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-rcd-site-setting.png",
+          "section": "sharepoint-admin-center",
+          "instructions": [
+            "Select a site under **Active sites**, open the **Settings** tab, and show **Restrict content from Microsoft Copilot** turned on."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "SharePoint Restricted Content Discovery Copilot",
+        "Restrict content from Microsoft Copilot Set-SPOSite RestrictContentOrgWideSearch"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/sharepoint/restricted-content-discovery",
+        "https://learn.microsoft.com/sharepoint/data-access-governance-reports",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/sharepoint/restricted-content-discovery",
+      "prereqs": ["m365h-data-access-governance-reports"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-dlp-for-copilot",
+      "name": "Protect Copilot with Microsoft Purview Data Loss Prevention",
+      "category": "copilot-admin",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Create a DLP policy for the Microsoft Copilot, Copilot Chat, and Copilot Cowork location that blocks sensitive prompts, web searches with sensitive data, or labeled files and emails.",
+      "whyItMatters": "Permissions decide what Copilot can reach; DLP decides what it may process. It stops sensitive text from reaching Copilot, web search, or responses in real time.",
+      "concepts": [
+        "The DLP location is named Microsoft Copilot, Copilot Chat, and Copilot Cowork. Policies can block external web search when prompts contain sensitive information types, block processing of prompts with sensitive information types, block files and emails by sensitivity label, and block external email processing.",
+        "Blocking SITs in prompts is in preview, and blocking external email is in preview. During preview, user messages in Word, Excel, and PowerPoint might not say the prompt was blocked by policy.",
+        "You cannot use Content contains sensitive info types and Content contains sensitivity labels in the same rule, but you can add one rule for each in the same policy. Items blocked by a label still appear in citations, but Copilot does not use their content.",
+        "Roles that can create or edit the policy include Microsoft Entra AI Admin and Purview Data Security AI Admin. Learn security guidance lists these as optimized controls for A5/E5/G5; exact licensing on the DLP page: Not confirmed in Microsoft Learn."
+      ],
+      "steps": [
+        "Sign in to the Microsoft Purview portal with a role that can edit Copilot DLP policies, such as Purview Data Security AI Admin.",
+        "Go to **Data Loss Prevention** > **Policies**, and select **+ Create policy**.",
+        "Select the **Custom** template, then **Custom policy**, and name the policy.",
+        "On the **Locations** page, turn on the **Microsoft Copilot, Copilot Chat, and Copilot Cowork** location.",
+        "Add a rule with **Content contains** > **Sensitive information types** and choose the SITs, or **Content contains** > **Sensitivity labels** and choose the labels. Use a separate rule for each condition.",
+        "Set the rule action: for SITs, the Copilot processing action for **Performing Web Searches** or **Processing prompts**; for labels, the action that stops Copilot processing labeled items. Learn words the action as Prevent Copilot from processing content and as Restrict Copilot from processing content.",
+        "Optionally, turn on **Policy Tips** in the user notification settings, select **Provide a compliance URL for the end user to learn more about your organization's policies**, and enter the full URL.",
+        "Save and turn on the policy, wait for it to apply, and test with a prompt that contains a test SIT value and with a file that has a blocked label."
+      ],
+      "validation": [
+        "A test prompt that contains the blocked SIT value is not answered, or runs without web search if you chose the web search action.",
+        "A response cites a document with the blocked label but does not use its content, and the policy shows as on."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-dlp-copilot-location.png",
+          "section": "purview",
+          "instructions": [
+            "In the DLP policy wizard, show the **Locations** page with **Microsoft Copilot, Copilot Chat, and Copilot Cowork** turned on."
+          ]
+        },
+        {
+          "filename": "m365h-dlp-copilot-rule.png",
+          "section": "purview",
+          "instructions": [
+            "Show the rule with **Content contains** > **Sensitive information types** and the Copilot processing action selected."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Purview Data Loss Prevention Microsoft 365 Copilot location",
+        "DLP block sensitive information types in Copilot prompts"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/purview/dlp-microsoft365-copilot-location-learn-about",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/purview/dlp-microsoft365-copilot-location-learn-about",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-dspm-copilot-risk",
+      "name": "Monitor Copilot and agent data risk with Data Security Posture Management",
+      "category": "copilot-admin",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Use Microsoft Purview Data Security Posture Management to review posture, data security objectives, AI observability, activity explorer, and data risk assessments for Copilot and agents.",
+      "whyItMatters": "After you set controls, you need evidence of how Copilot and agents are really used and where sensitive data is exposed. DSPM gives guided objectives and one-click policy actions.",
+      "concepts": [
+        "Data Security Posture Management (DSPM) is the current version in the Microsoft Purview portal. Earlier versions are named DSPM for AI (classic) and DSPM (classic), and Learn says new features go to the current version.",
+        "Data security objectives include Prevent data exposure in Microsoft 365 Copilot and Microsoft Copilot interactions and Prevent oversharing of sensitive data, each with a remediation plan and one-click policies.",
+        "AI observability lists AI apps and agents with activity in the last 30 days, including Microsoft Agent 365, and their risk. Activity explorer has an AI activities tab for prompts, responses, and DLP matches.",
+        "Allow a day or so for data to appear after the first-time setup tasks. You need a role such as Entra Compliance Administrator or the Microsoft Purview Compliance Administrator role group, and Data Security Viewer to use Security Copilot."
+      ],
+      "steps": [
+        "Sign in to the Microsoft Purview portal and select **Solutions** > **DSPM**. Do not use the entries named classic.",
+        "Accept the initial setup tasks if prompted, and wait about a day for data to appear.",
+        "Open **Posture** and review the key posture metrics, top objectives, and the 30-day trend.",
+        "Open **Objectives** and select **Prevent data exposure in Microsoft 365 Copilot and Microsoft Copilot interactions**. Review its metrics and recommended actions.",
+        "Open **AI observability** and review the inventory of AI apps and agents, the high-risk count, and sensitive interactions.",
+        "Go to **Discover** > **Activity explorer**, select the **AI activities** tab, and review prompts, responses, and DLP rule matches.",
+        "Go to **Discover** > **Data risk assessments** and review the default assessment or create a custom one to find oversharing.",
+        "Go to **Tasks and actions** > **Remediation actions** and review the policies you could create, and apply those that match your plan."
+      ],
+      "validation": [
+        "The Posture page shows data for your tenant and the Prevent data exposure objective lists recommended actions.",
+        "Activity explorer shows AI activities from a test prompt, and a data risk assessment lists sites or locations with a risk finding."
+      ],
+      "screenshots": [
+        {
+          "filename": "m365h-dspm-objectives.png",
+          "section": "purview",
+          "instructions": [
+            "Open **DSPM** > **Objectives** and show the data security objective cards.",
+            "Mask tenant details."
+          ]
+        },
+        {
+          "filename": "m365h-dspm-ai-observability.png",
+          "section": "purview",
+          "instructions": [
+            "Open **AI observability** and show the inventory of AI apps and agents."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Data Security Posture Management Purview objectives AI observability",
+        "Purview DSPM Microsoft Copilot data risk assessments"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/purview/data-security-posture-management-learn-about",
+        "https://learn.microsoft.com/purview/dspm-for-ai",
+        "https://learn.microsoft.com/purview/ai-m365-copilot"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/purview/data-security-posture-management-learn-about",
       "prereqs": [],
       "relatedLabs": []
     }

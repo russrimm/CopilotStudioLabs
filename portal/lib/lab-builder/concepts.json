@@ -186,6 +186,55 @@
       "notApplicable": {}
     },
     {
+      "id": "copilot-controls",
+      "name": "Copilot controls and settings",
+      "order": 186,
+      "summary": "Find the Copilot controls and settings in the admin center, and control who can use Copilot Chat, web search, and how to troubleshoot access.",
+      "products": ["m365-copilot-hub"],
+      "features": [
+        "m365h-copilot-controls-overview",
+        "m365h-tour-copilot-settings",
+        "m365h-pin-copilot-chat",
+        "m365h-control-web-search",
+        "m365h-restrict-copilot-chat-access",
+        "m365h-troubleshoot-copilot-access"
+      ],
+      "notApplicable": {}
+    },
+    {
+      "id": "copilot-data-protection",
+      "name": "Data protection for Copilot",
+      "order": 187,
+      "summary": "Find oversharing, restrict discovery, apply data loss prevention, audit interactions, and monitor data risk for Copilot and agents.",
+      "products": ["m365-copilot-hub"],
+      "features": [
+        "m365h-data-access-governance-reports",
+        "m365h-restricted-content-discovery",
+        "m365h-dlp-for-copilot",
+        "m365h-audit-copilot-interactions",
+        "m365h-dspm-copilot-risk"
+      ],
+      "notApplicable": {}
+    },
+    {
+      "id": "agent-lifecycle",
+      "name": "Agent lifecycle and rules",
+      "order": 188,
+      "summary": "Block, delete, restore, and reassign agents, and automate governance with management rules, tags, and feedback settings.",
+      "products": ["m365-copilot-hub"],
+      "features": ["m365h-agent-lifecycle-actions", "m365h-agent-management-rules"],
+      "notApplicable": {}
+    },
+    {
+      "id": "copilot-metering",
+      "name": "Pay-as-you-go and metering",
+      "order": 189,
+      "summary": "Bill Copilot services by usage with a billing policy and budget instead of per-user licenses.",
+      "products": ["m365-copilot-hub"],
+      "features": ["m365h-pay-as-you-go-billing"],
+      "notApplicable": {}
+    },
+    {
       "id": "monitor",
       "name": "Monitor and analytics",
       "order": 190,
