@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { getFeatures, getHarnesses, validateCatalog } from "../lib/lab-builder/catalog.js";
-import { getConcepts, getConceptForFeature, getRecommendations, validateConcepts } from "../lib/lab-builder/concepts.js";
+import { getConcepts, getConceptForFeature, getKnownCoverageGaps, getRecommendations, validateConcepts } from "../lib/lab-builder/concepts.js";
+import { buildCoverageMatrix, renderCoverageMarkdown, validateCoverage } from "../lib/lab-builder/coverage.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
 import { planLab } from "../lib/lab-builder/planner.js";
 
@@ -36,6 +38,29 @@ test("concept validation names every inconsistency", () => {
   assert.deepEqual(check([concept({ features: ["a", "b"] })]), []);
 });
 
+test("a concept with no variant and no not-applicable reason fails coverage", () => {
+  const concept = (over) => ({ id: "c", name: "C", summary: "S", order: 1, features: ["a"], notApplicable: {}, ...over });
+  const check = (concepts, knownGaps = []) =>
+    validateCoverage({ concepts, features: FEATURES, harnesses: HARNESSES, knownGaps });
+
+  assert.match(check([concept()]).join("\n"), /coverage c: no feature and no notApplicable reason for harness "microsoft-copilot"/);
+  assert.deepEqual(check([concept({ notApplicable: { "microsoft-copilot": "Not offered." } })]), []);
+  assert.deepEqual(check([concept()], ["c:microsoft-copilot"]), []);
+  assert.match(check([concept({ features: ["a", "b"] })], ["c:microsoft-copilot"]).join("\n"), /now covered; remove it/);
+  assert.equal(buildCoverageMatrix({ concepts: [concept()], features: FEATURES, harnesses: HARNESSES }).rows[0].cells.standard.status, "variant");
+});
+
+test("the shipped coverage matrix lists every concept and only shrinks its known gaps", () => {
+  const matrix = buildCoverageMatrix({ concepts: getConcepts(), features: getFeatures(), harnesses: getHarnesses() });
+  assert.equal(matrix.rows.length, getConcepts().length);
+  assert.deepEqual([...matrix.missing].sort(), [...getKnownCoverageGaps()].sort());
+});
+test("docs/lab-builder.md carries the current coverage matrix", () => {
+  const doc = readFileSync(new URL("../../docs/lab-builder.md", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const block = doc.match(/<!-- coverage-matrix:start -->\n([\s\S]*?)\n<!-- coverage-matrix:end -->/)?.[1];
+  const matrix = buildCoverageMatrix({ concepts: getConcepts(), features: getFeatures(), harnesses: getHarnesses() });
+  assert.equal(block, renderCoverageMarkdown(matrix, getHarnesses()), "regenerate the matrix in docs/lab-builder.md");
+});
 test("recommendations cite a reason for every pre-selected topic", () => {
   const result = recommend({ industry: "healthcare", departments: ["it"], level: 200, harness: "standard" });
   const selected = result.concepts.flatMap((c) => c.topics).filter((t) => t.selected);
