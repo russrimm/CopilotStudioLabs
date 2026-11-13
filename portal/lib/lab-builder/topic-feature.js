@@ -10,6 +10,7 @@
  */
 
 import { cleanText, MAX_TITLE, MAX_SUMMARY } from "./topic-sanitize.js";
+import { resolveTopicLevel } from "./levels.js";
 
 const CATEGORY_BY_CONCEPT = {
   "choose-harness": "foundations",
@@ -44,11 +45,14 @@ export function topicToFeature(topic) {
   const title = cleanText(topic.title, MAX_TITLE) || "Microsoft Learn topic";
   const summary = cleanText(topic.summary, MAX_SUMMARY) || `${title}: see the linked Microsoft Learn article.`;
   const url = topic.urls[0];
+  // A topic whose level cannot be resolved keeps `level: null`, so it never passes a level filter by accident.
+  const { level, basis } = resolveTopicLevel(topic);
   return {
     id: topic.id,
     name: title,
     category: CATEGORY_BY_CONCEPT[topic.conceptId] || "advanced",
-    level: topic.level,
+    level,
+    levelBasis: basis,
     minutes: DEFAULT_MINUTES,
     core: false,
     harness: [...topic.harnesses],

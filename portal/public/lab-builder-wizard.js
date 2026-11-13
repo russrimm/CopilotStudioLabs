@@ -45,6 +45,11 @@ const labBuilder = {
   controller: null,
   // The generated lab whose choices were loaded for editing, or null.
   editing: null,
+  // Set when a level change removed the learner's own topic picks, so they can be restored.
+  levelNotice: null,
+  // Whether the collapsed prerequisite and unknown-level groups are open; kept across re-renders.
+  prereqOpen: false,
+  unknownOpen: false,
 };
 
 function lbFormatMinutes(minutes) {
@@ -65,6 +70,12 @@ function lbHarnessName(id) {
 function lbLevelLabel(level) {
   const entry = labBuilder.levels.find((l) => l.level === level);
   return entry ? entry.label : "";
+}
+
+/** "Level 100 (Beginner)" */
+function lbLevelName(level) {
+  const label = lbLevelLabel(level);
+  return label ? `Level ${level} (${label})` : `Level ${level}`;
 }
 
 function lbAnswers() {
@@ -117,6 +128,77 @@ function lbAnswersChanged() {
   if (hadOwnPicks) toast("Your topic choices were reset to match your new answers.", "info");
 }
 
+/** Names of the topics a rec would build for its level, for the removal notice. */
+function lbSelectedNames(rec) {
+  if (!rec) return [];
+  const level = (rec.concepts || []).flatMap((c) => c.topics).filter((t) => t.selected);
+  const unknown = (rec.levelUnknown?.topics || []).filter((t) => t.selected);
+  return [...level, ...unknown].map((t) => ({ id: t.id, name: t.name }));
+}
+
+/**
+ * Step 3 is the single source of truth for level. Changing it drops the learner's own
+ * topic picks (they belonged to the old level), says exactly what was removed, and keeps
+ * them so one button restores them.
+ */
+function lbLevelChanged(previous) {
+  const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0;
+  const removed = hadOwnPicks ? lbSelectedNames(labBuilder.rec) : [];
+  labBuilder.levelNotice = hadOwnPicks
+    ? {
+        from: previous,
+        to: labBuilder.level,
+        removed,
+        stash: { picked: labBuilder.picked ? new Set(labBuilder.picked) : null, excluded: new Set(labBuilder.excluded) },
+      }
+    : null;
+  labBuilder.picked = null;
+  labBuilder.excluded.clear();
+  labBuilder.rec = null;
+  lbRenderHarnesses();
+  lbRenderLearnBar();
+  lbRenderLevelNotice();
+  lbRenderSummary();
+  lbRefresh();
+}
+
+function lbRestoreLevelChoices() {
+  const notice = labBuilder.levelNotice;
+  if (!notice) return;
+  labBuilder.level = notice.from;
+  labBuilder.picked = notice.stash.picked;
+  labBuilder.excluded = notice.stash.excluded;
+  labBuilder.levelNotice = null;
+  labBuilder.rec = null;
+  lbRenderLevels();
+  lbRenderHarnesses();
+  lbRenderLearnBar();
+  lbRenderLevelNotice(`Restored your ${lbLevelName(notice.from)} topic choices.`);
+  lbRenderSummary();
+  lbRefresh();
+}
+
+/** The visible, announced notice shown on the level and topics steps. */
+function lbRenderLevelNotice(restoredMessage) {
+  const notice = labBuilder.levelNotice;
+  for (const id of ["lb-level-notice-3", "lb-level-notice-5"]) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (!notice) {
+      el.innerHTML = restoredMessage ? `<div class="lb-warning">${escapeHtml(restoredMessage)}</div>` : "";
+      continue;
+    }
+    const names = notice.removed.map((t) => t.name);
+    const list = names.length ? ` Removed: ${names.map(escapeHtml).join(", ")}.` : "";
+    el.innerHTML = `<div class="lb-warning">
+      <strong>The level changed from ${escapeHtml(lbLevelName(notice.from))} to ${escapeHtml(lbLevelName(notice.to))}.</strong>
+      Your own topic choices for ${escapeHtml(lbLevelName(notice.from))} were removed, and the topics below were recalculated for ${escapeHtml(lbLevelName(notice.to))}.${list}
+      <button type="button" class="btn btn-small" data-level-restore>Restore my ${escapeHtml(lbLevelName(notice.from))} choices</button>
+    </div>`;
+    el.querySelector("[data-level-restore]")?.addEventListener("click", lbRestoreLevelChoices);
+  }
+}
+
 async function lbLoadCatalog() {
   if (labBuilder.loaded) return;
   try {
@@ -129,7 +211,7 @@ async function lbLoadCatalog() {
     labBuilder.harnesses = data.harnesses || [];
     labBuilder.levels = data.levels || [];
     labBuilder.differenceDefaults = data.differenceDefaults || {};
-    labBuilder.learnNew = data.learnNewByHarness || {};
+    labBuilder.learnNew = data.learnNewByHarnessLevel || {};
     labBuilder.loaded = true;
     lbBindTopicEvents();
     lbRenderIndustries();
@@ -216,9 +298,11 @@ async function lbRenderLevels() {
   if (!el) return;
   const hint = {};
   try {
-    const recs = await Promise.all(labBuilder.levels.map((l) => lbRecommend({ level: l.level })));
+    const recs = await Promise.all(labBuilder.levels.map((l) => lbRecommend({ level: l.level, harness: labBuilder.harness })));
     labBuilder.levels.forEach((l, i) => {
-      hint[l.level] = `About ${recs[i].totals.selectedCount} topics, around ${recs[i].totals.duration} (an estimate)`;
+      const totals = recs[i].totals;
+      const recaps = totals.prerequisiteCount ? `, plus ${totals.prerequisiteCount} short prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
+      hint[l.level] = `About ${totals.selectedCount} topics at this level${recaps}, around ${totals.duration} (an estimate)`;
     });
   } catch {
     /* the hint is a nicety; the choice still works without it */
@@ -239,11 +323,13 @@ async function lbRenderLevels() {
     .join("");
   el.querySelectorAll("input[type=radio]").forEach((input) => {
     input.addEventListener("change", () => {
+      const previous = labBuilder.level;
       labBuilder.level = Number(input.value);
-      lbAnswersChanged();
+      if (labBuilder.level !== previous) lbLevelChanged(previous);
     });
   });
   if (focused) el.querySelector(`input[value="${focused}"]`)?.focus();
+  lbRenderLevelNotice();
 }
 
 // ── Step 4: harness ─────────────────────────────────────────────────────────
@@ -251,11 +337,15 @@ function lbRenderHarnesses() {
   const el = document.getElementById("lb-harness-options");
   if (!el) return;
   const features = lbFeatureList();
+  const level = labBuilder.level;
   el.innerHTML = labBuilder.harnesses
     .map((h) => {
-      const count = features.filter((f) => (f.harness || []).includes(h.id)).length;
-      const fromLearn = labBuilder.learnNew[h.id] || 0;
-      const unavailable = count + fromLearn === 0;
+      const onHarness = features.filter((f) => (f.harness || []).includes(h.id));
+      const atLevel = onHarness.filter((f) => f.level === level).length;
+      const fromLearn = lbLearnNewCount(h.id, level);
+      // A harness is only unavailable when it has no topic at any level; a level with none is explained instead.
+      const unavailable = onHarness.length + lbLearnNewCount(h.id) === 0;
+      const shown = atLevel + fromLearn;
       return `
       <label class="scenario-role ${unavailable ? "lb-unavailable" : ""}">
         <input type="radio" name="lb-harness" value="${escapeHtml(h.id)}" ${labBuilder.harness === h.id ? "checked" : ""} ${unavailable ? "disabled" : ""}>
@@ -265,7 +355,9 @@ function lbRenderHarnesses() {
           <div class="scenario-card-desc">${
             unavailable
               ? "No lab topics are available for this harness yet, so it cannot be selected."
-              : `${count + fromLearn} topics available${fromLearn ? `, ${fromLearn} of them new from Microsoft Learn` : ""}.`
+              : shown
+              ? `${shown} ${lbLevelName(level)} topics available${fromLearn ? `, ${fromLearn} of them new from Microsoft Learn` : ""}.`
+              : `No ${lbLevelName(level)} topics are available for this harness yet.`
           } <a href="${escapeHtml(h.learnUrl)}" target="_blank" rel="noopener noreferrer">Learn about the ${escapeHtml(h.name)} (opens in a new tab)</a></div>
         </span>
       </label>`;
@@ -276,6 +368,7 @@ function lbRenderHarnesses() {
       labBuilder.harness = input.value;
       labBuilder.differencesFor = null;
       lbRenderDifferenceOptions();
+      lbRenderLearnBar();
       lbAnswersChanged();
     });
   });
@@ -326,13 +419,24 @@ function lbAgo(ms) {
   return `${days} days ago`;
 }
 
+/** New-from-Learn topics per harness and level, for topics whose level could be resolved. */
 function lbLearnNewByHarness(topics) {
   const counts = {};
   for (const topic of topics || []) {
-    if (topic.source !== "learn") continue;
-    for (const harness of topic.harnesses) counts[harness] = (counts[harness] || 0) + 1;
+    if (topic.source !== "learn" || ![100, 200, 300].includes(topic.level)) continue;
+    for (const harness of topic.harnesses) {
+      counts[harness] ||= {};
+      counts[harness][topic.level] = (counts[harness][topic.level] || 0) + 1;
+    }
   }
   return counts;
+}
+
+/** Count at one level, or across all levels when no level is given. */
+function lbLearnNewCount(harness, level) {
+  const byLevel = labBuilder.learnNew[harness] || {};
+  if (level) return byLevel[level] || 0;
+  return Object.values(byLevel).reduce((sum, n) => sum + n, 0);
 }
 
 function lbApplyLearn(data) {
@@ -366,7 +470,7 @@ function lbRenderLearnBar() {
     const stamp = when.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
     const label = learn.source === "cache" ? "Last refreshed from Microsoft Learn" : "Built-in Microsoft Learn snapshot";
     parts.push(`${label}: ${stamp} (${lbAgo(learn.ageMs)}).`);
-    parts.push(`${newCount} new topic${newCount === 1 ? "" : "s"} from Learn.`);
+    parts.push(`${newCount} new topic${newCount === 1 ? "" : "s"} from Learn, ${lbLearnNewCount(labBuilder.harness, labBuilder.level)} at ${lbLevelName(labBuilder.level)}.`);
   }
   if (learn.disabled) parts.push("Refreshing is turned off on this server.");
   else if (learn.refreshing) parts.push("A refresh is running in the background.");
@@ -448,9 +552,8 @@ function lbSelectedCount() {
 /** Make the learner's picks explicit, starting from what is currently selected. */
 function lbOwnPicks() {
   if (!labBuilder.picked) {
-    labBuilder.picked = new Set(
-      (labBuilder.rec?.concepts || []).flatMap((c) => c.topics).filter((t) => t.selected && !t.required).map((t) => t.id)
-    );
+    const rows = [...(labBuilder.rec?.concepts || []).flatMap((c) => c.topics), ...(labBuilder.rec?.levelUnknown?.topics || [])];
+    labBuilder.picked = new Set(rows.filter((t) => t.selected && !t.required).map((t) => t.id));
   }
   return labBuilder.picked;
 }
@@ -465,6 +568,13 @@ function lbSetTopic(id, checked, required) {
   } else {
     picks.delete(id);
   }
+  lbRefresh();
+}
+
+/** A lower-level prerequisite is never a pick of its own: turning it off marks it as already known. */
+function lbSetPrerequisite(id, checked) {
+  if (checked) labBuilder.excluded.delete(id);
+  else labBuilder.excluded.add(id);
   lbRefresh();
 }
 
@@ -485,6 +595,7 @@ function lbSetGroup(conceptId, checked) {
 }
 
 function lbSelectAllTopics() {
+  // Only the level's own topics; "Level unknown" topics are never added in bulk.
   const all = (labBuilder.rec?.concepts || []).flatMap((c) => c.topics.map((t) => t.id));
   labBuilder.picked = new Set(all);
   labBuilder.excluded.clear();
@@ -506,9 +617,22 @@ function lbResetTopics() {
 function lbBindTopicEvents() {
   const groups = document.getElementById("lb-topic-groups");
   groups?.addEventListener("change", (event) => {
+    const prerequisite = event.target.closest("input[data-prerequisite]");
+    if (prerequisite) {
+      lbSetPrerequisite(prerequisite.dataset.prerequisite, prerequisite.checked);
+      return;
+    }
     const input = event.target.closest("input[data-topic]");
     if (input) lbSetTopic(input.dataset.topic, input.checked, input.dataset.required === "true");
   });
+  groups?.addEventListener(
+    "toggle",
+    (event) => {
+      if (event.target.id === "lb-prereq-group") labBuilder.prereqOpen = event.target.open;
+      if (event.target.id === "lb-unknown-group") labBuilder.unknownOpen = event.target.open;
+    },
+    true
+  );
   groups?.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-group-action]");
     if (button) lbSetGroup(button.dataset.concept, button.dataset.groupAction === "select");
@@ -521,6 +645,46 @@ function lbBindTopicEvents() {
     labBuilder.filter = event.target.value;
     lbRenderTopics();
   });
+}
+
+/** Level as text, never color alone. A level worked out from the docs rubric says so. */
+function lbLevelBadge(t) {
+  if (!t.level) return '<span class="lb-badge">Level unknown</span>';
+  return `<span class="lb-badge">Level ${t.level}</span>${t.levelBasis === "estimated" ? '<span class="lb-badge">Estimated level</span>' : ""}`;
+}
+
+function lbTopicCard(t) {
+  return `
+            <label class="lb-feature ${t.selected ? "checked" : ""}">
+              <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" ${t.selected ? "checked" : ""}
+                     aria-describedby="lb-topic-desc-${escapeHtml(t.id)}">
+              <span>
+                <span class="lb-feature-name">${escapeHtml(t.name)}${lbLevelBadge(t)}<span class="lb-badge">about ${t.minutes} min</span>${
+                  t.required ? '<span class="lb-badge lb-badge-required">Required prerequisite</span>' : ""
+                }${
+                  t.availability ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>` : ""
+                }${lbLearnBadges(t)}</span>
+                <span id="lb-topic-desc-${escapeHtml(t.id)}" class="lb-feature-summary">${escapeHtml(t.summary)}</span>
+                ${t.source === "learn" && lbLearnUrl(t.learn?.url)
+                  ? `<span class="lb-feature-note">Source: Microsoft Learn, not yet reviewed for this repository. <a class="lb-learn-source" href="${escapeHtml(t.learn.url)}" target="_blank" rel="noopener noreferrer">Read the article (opens in a new tab)</a></span>`
+                  : ""}
+                ${t.learn?.status === "stale" ? '<span class="lb-feature-note">The Microsoft Learn pages this topic cites could not be found. Its steps are checked against Learn when the lab is built.</span>' : ""}
+                ${t.reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(t.reasons.join(". "))}</span>` : ""}
+                ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(t.harnessNote)}</span>` : ""}
+              </span>
+            </label>`;
+}
+
+/** How many topic cards the current search and filter leave visible in the level's own concept groups. */
+function lbVisibleTopicCount(rec, query) {
+  return rec.concepts.reduce(
+    (sum, concept) =>
+      sum +
+      concept.topics.filter(
+        (t) => lbMatchesFilter(t) && (!query || t.name.toLowerCase().includes(query) || t.summary.toLowerCase().includes(query) || t.id.includes(query))
+      ).length,
+    0
+  );
 }
 
 function lbRenderTopics() {
@@ -566,46 +730,88 @@ function lbRenderTopics() {
           <button type="button" class="btn btn-small" data-group-action="clear" data-concept="${escapeHtml(concept.id)}" aria-label="Clear all ${escapeHtml(concept.name)} topics">Clear group</button>
         </div>
         <div class="lb-feature-grid">
-          ${topics
-            .map(
-              (t) => `
-            <label class="lb-feature ${t.selected ? "checked" : ""}">
-              <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" ${t.selected ? "checked" : ""}
-                     aria-describedby="lb-topic-desc-${escapeHtml(t.id)}">
-              <span>
-                <span class="lb-feature-name">${escapeHtml(t.name)}<span class="lb-badge">Level ${t.level}</span><span class="lb-badge">about ${t.minutes} min</span>${
-                  t.required ? '<span class="lb-badge lb-badge-required">Required prerequisite</span>' : ""
-                }${
-                  t.availability ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>` : ""
-                }${lbLearnBadges(t)}</span>
-                <span id="lb-topic-desc-${escapeHtml(t.id)}" class="lb-feature-summary">${escapeHtml(t.summary)}</span>
-                ${t.source === "learn" && lbLearnUrl(t.learn?.url)
-                  ? `<span class="lb-feature-note">Source: Microsoft Learn, not yet reviewed for this repository. <a class="lb-learn-source" href="${escapeHtml(t.learn.url)}" target="_blank" rel="noopener noreferrer">Read the article (opens in a new tab)</a></span>`
-                  : ""}
-                ${t.learn?.status === "stale" ? '<span class="lb-feature-note">The Microsoft Learn pages this topic cites could not be found. Its steps are checked against Learn when the lab is built.</span>' : ""}
-                ${t.reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(t.reasons.join(". "))}</span>` : ""}
-                ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(t.harnessNote)}</span>` : ""}
-              </span>
-            </label>`
-            )
-            .join("")}
+          ${topics.map(lbTopicCard).join("")}
         </div>
       </fieldset>`;
     })
     .join("");
 
-  el.innerHTML = html || '<div class="scenario-empty">No topics match that search.</div>';
+  // Lower-level topics that the selected topics need: separate, collapsed, and each one can be turned off.
+  const prereqs = rec.prerequisites?.topics || [];
+  const prereqHtml =
+    prereqs.length && !query && labBuilder.filter === "all"
+      ? `
+      <details class="lb-concept lb-prereq-group" id="lb-prereq-group" ${labBuilder.prereqOpen ? "open" : ""}>
+        <summary class="lb-category-title">Prerequisites from lower levels (included automatically)
+          <span class="lb-concept-count">${rec.prerequisites.selectedCount} of ${prereqs.length} included${rec.prerequisites.minutes ? `, about ${lbFormatMinutes(rec.prerequisites.minutes)}` : ""}</span>
+        </summary>
+        <p class="lb-category-desc">These are not ${escapeHtml(lbLevelName(rec.answers.level))} topics. Topics you selected build on them, so the lab includes each one as a short, labeled recap. Uncheck one if your learners already know it: the lab then assumes it.</p>
+        <div class="lb-feature-grid">
+          ${prereqs
+            .map(
+              (p) => `
+            <label class="lb-feature ${p.selected ? "checked" : ""}">
+              <input type="checkbox" data-prerequisite="${escapeHtml(p.id)}" ${p.selected ? "checked" : ""} aria-describedby="lb-prereq-desc-${escapeHtml(p.id)}">
+              <span>
+                <span class="lb-feature-name">${escapeHtml(p.name)}<span class="lb-badge">Level ${p.level}</span><span class="lb-badge">Prerequisite recap</span><span class="lb-badge">about ${p.minutes} min</span></span>
+                <span id="lb-prereq-desc-${escapeHtml(p.id)}" class="lb-feature-summary">${escapeHtml(p.summary)}</span>
+                <span class="lb-topic-reason">Why: ${escapeHtml(p.reason)}</span>
+              </span>
+            </label>`
+            )
+            .join("")}
+        </div>
+      </details>`
+      : "";
+
+  // Learn topics whose level could not be worked out. They are never recommended and stay collapsed.
+  const unknown = (rec.levelUnknown?.topics || []).filter(
+    (t) => lbMatchesFilter(t) && (!query || t.name.toLowerCase().includes(query) || t.summary.toLowerCase().includes(query) || t.id.includes(query))
+  );
+  const unknownHtml = unknown.length
+    ? `
+      <details class="lb-concept lb-unknown-group" id="lb-unknown-group" ${labBuilder.unknownOpen ? "open" : ""}>
+        <summary class="lb-category-title">Level unknown (${unknown.length})
+          <span class="lb-concept-count">${rec.levelUnknown.selectedCount} selected</span>
+        </summary>
+        <p class="lb-category-desc">These topics were found on Microsoft Learn, but we could not tell which level they belong to, so they are not recommended for ${escapeHtml(lbLevelName(rec.answers.level))}. Add one only if you have checked its article and want it in this lab.</p>
+        <div class="lb-feature-grid">${unknown.map(lbTopicCard).join("")}</div>
+      </details>`
+    : "";
+
+  const shown = lbVisibleTopicCount(rec, query);
+  const narrowed = Boolean(query) || labBuilder.filter !== "all";
+  const levelName = lbLevelName(rec.answers.level);
+  const countText = rec.filter.shown
+    ? `Showing ${shown} topic${shown === 1 ? "" : "s"} for ${levelName}${narrowed ? ` that match your search or filter (of ${rec.filter.shown})` : ""}.`
+    : `No ${levelName} topics are available for the ${harnessName} yet.`;
+  const count = document.getElementById("lb-topic-count");
+  if (count && count.textContent !== countText) count.textContent = countText;
+
+  const empty = rec.filter.shown
+    ? "No topics match that search."
+    : `No ${escapeHtml(levelName)} topics are available for the ${escapeHtml(harnessName)} yet. Go back and choose another level or harness.`;
+  el.innerHTML = html + prereqHtml + unknownHtml || `<div class="scenario-empty">${empty}</div>`;
 
   const warnings = document.getElementById("lb-topic-warnings");
   if (warnings) {
+    const dropped = rec.filter.droppedSelections || [];
     warnings.innerHTML = [
+      ...(dropped.length
+        ? [
+            `<div class="lb-warning" role="status">These selected topics belong to another level, so they are not part of this ${escapeHtml(levelName)} lab: ${dropped
+              .map((t) => `${escapeHtml(t.name)} (Level ${t.level})`)
+              .join(", ")}.</div>`,
+          ]
+        : []),
       ...rec.dependencyWarnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(w.message)}</div>`),
       ...rec.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(w)}</div>`),
     ].join("");
   }
   const intro = document.getElementById("lb-topic-intro");
   if (intro) {
-    intro.textContent = `Topics for the ${harnessName}, grouped by concept. ${rec.totals.selectedCount} selected, about ${rec.totals.duration} (an estimate, not a limit).`;
+    const recaps = rec.totals.prerequisiteCount ? `, plus ${rec.totals.prerequisiteCount} short prerequisite recap${rec.totals.prerequisiteCount === 1 ? "" : "s"}` : "";
+    intro.textContent = `${levelName} topics for the ${harnessName}, grouped by concept. ${rec.totals.selectedCount} selected${recaps}, about ${rec.totals.duration} (an estimate, not a limit).`;
   }
   const error = document.getElementById("lb-topic-error");
   if (error && lbSelectedCount()) error.textContent = "";
@@ -626,12 +832,13 @@ function lbRenderSummary() {
   const parts = [
     industry ? industry.name : "Cross-industry",
     departments.length ? `Departments: ${departments.join(", ")}` : "All departments",
-    `Level ${labBuilder.level} ${lbLevelLabel(labBuilder.level)}`.trim(),
+    lbLevelName(labBuilder.level),
     lbHarnessName(labBuilder.harness),
   ];
   const totals = labBuilder.rec?.totals;
+  const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
   const time = totals
-    ? `${totals.selectedCount} topic${totals.selectedCount === 1 ? "" : "s"}, about ${totals.duration} (estimate, not a limit)`
+    ? `${totals.selectedCount} topic${totals.selectedCount === 1 ? "" : "s"}${recaps}, about ${totals.duration} (estimate, not a limit)`
     : "Calculating topics...";
   el.innerHTML = `<strong>Your lab so far:</strong> ${parts.map(escapeHtml).join(" · ")} · ${escapeHtml(time)}`;
 }
@@ -664,7 +871,10 @@ function lbGoToStep(step) {
   lbRenderStepper();
   document.getElementById(`lb-heading-${step}`)?.focus();
   if (step === 3) lbRenderLevels();
-  if (step === 5) lbRenderTopics();
+  if (step === 5) {
+    lbRenderLevelNotice();
+    lbRenderTopics();
+  }
   if (step === 6) lbPreview();
 }
 
@@ -728,6 +938,8 @@ function lbResetAnswers() {
   labBuilder.excluded = new Set();
   labBuilder.rec = null;
   labBuilder.furthest = 1;
+  labBuilder.levelNotice = null;
+  lbRenderLevelNotice();
   for (const [id, value] of [["lb-time", ""], ["lb-title", ""], ["lb-agent-name", ""], ["lb-use-learn", true], ["lb-use-llm", true]]) {
     lbSetFormValue(id, value);
   }
@@ -743,6 +955,16 @@ async function lbStartNewLab() {
   lbGoToStep(1);
 }
 
+/**
+ * The level a saved lab was built for. Labs saved before the level was recorded take the
+ * highest level among their topics, so editing them still lists and builds one level.
+ */
+function lbSavedLevel(saved) {
+  if ([100, 200, 300].includes(saved.level)) return saved.level;
+  const levels = new Map(lbFeatureList().map((f) => [f.id, f.level]));
+  return Math.max(100, ...saved.features.map((id) => levels.get(id) || 0));
+}
+
 /** Pre-fill every step from a generated lab's saved choices and jump to Review. */
 async function lbLoadSelections(lab) {
   const saved = lab?.selections;
@@ -756,7 +978,8 @@ async function lbLoadSelections(lab) {
   const harnessKnown = labBuilder.harnesses.some((h) => h.id === saved.harness);
   labBuilder.industry = industryKnown ? saved.industry : null;
   labBuilder.selectedRoles = new Set(saved.roles.filter((id) => knownRoles.has(id)));
-  labBuilder.level = saved.level || 100;
+  labBuilder.level = lbSavedLevel(saved);
+  labBuilder.levelNotice = null;
   labBuilder.harness = harnessKnown ? saved.harness : "standard";
   labBuilder.differencesFor = saved.differencesFor ? new Set(saved.differencesFor) : null;
   labBuilder.picked = new Set(saved.features);
@@ -772,7 +995,13 @@ async function lbLoadSelections(lab) {
   lbSetEditing(lab);
   await lbRefresh();
   lbGoToStep(6);
-  toast(`Loaded the choices from "${lab.title}". Change anything, then build.`, "info");
+  const dropped = labBuilder.rec?.filter?.droppedSelections || [];
+  toast(
+    dropped.length
+      ? `Loaded the choices from "${lab.title}" for ${lbLevelName(labBuilder.level)}. ${dropped.length} saved topic${dropped.length === 1 ? " belongs" : "s belong"} to another level and ${dropped.length === 1 ? "was" : "were"} not loaded: ${dropped.map((t) => t.name).join(", ")}.`
+      : `Loaded the choices from "${lab.title}". Change anything, then build.`,
+    "info"
+  );
 }
 
 // ── Review and request ──────────────────────────────────────────────────────
@@ -809,12 +1038,15 @@ async function lbPreview() {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
 
+    const recaps = data.modules.filter((m) => m.role === "prerequisite").length;
+    const own = data.modules.length - recaps;
     el.innerHTML = `
       <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">${escapeHtml(data.title)}</div>
       <div class="scenario-pill-list">
         <span class="scenario-pill">${escapeHtml(data.difficulty)}</span>
+        <span class="scenario-pill">${escapeHtml(lbLevelName(data.level))}</span>
         <span class="scenario-pill">About ${escapeHtml(data.duration)} (estimate, not a limit)</span>
-        <span class="scenario-pill">${data.modules.length} modules</span>
+        <span class="scenario-pill">${own} module${own === 1 ? "" : "s"}${recaps ? ` + ${recaps} prerequisite recap${recaps === 1 ? "" : "s"}` : ""}</span>
         <span class="scenario-pill">Agent: ${escapeHtml(data.agentName)}</span>
       </div>
       <div style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">${escapeHtml(data.scenario.problem)}</div>
@@ -824,7 +1056,10 @@ async function lbPreview() {
         <tbody>
           ${data.modules
             .map(
-              (m) => `<tr><td>${m.order}</td><th scope="row">${escapeHtml(m.name)}<div class="lb-feature-summary">${escapeHtml(m.summary)}</div></th><td>${m.level}</td><td>about ${m.minutes} min</td></tr>`
+              (m) =>
+                `<tr><td>${m.order}</td><th scope="row">${m.role === "prerequisite" ? "Recap: " : ""}${escapeHtml(m.name)}<div class="lb-feature-summary">${escapeHtml(m.summary)}</div></th><td>${m.level}${
+                  m.role === "prerequisite" ? " (prerequisite recap)" : ""
+                }</td><td>about ${m.minutes} min</td></tr>`
             )
             .join("")}
         </tbody>

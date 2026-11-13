@@ -3796,6 +3796,8 @@ function lbShowResult(data) {
     <div style="font-size: 16px; font-weight: 600;">${escapeHtml(data.title)}</div>
     <div class="scenario-pill-list">
       <span class="scenario-pill">${escapeHtml(data.difficulty)}</span>
+      ${data.manifest.level ? `<span class="scenario-pill">${escapeHtml(data.manifest.levelName || `Level ${data.manifest.level}`)}</span>` : ""}
+      ${data.manifest.prerequisites?.length ? `<span class="scenario-pill">${data.manifest.prerequisites.length} prerequisite recap${data.manifest.prerequisites.length === 1 ? "" : "s"}</span>` : ""}
       <span class="scenario-pill">${escapeHtml(data.duration)}</span>
       <span class="scenario-pill">${g.groundedModules}/${g.totalModules} modules grounded on Microsoft Learn</span>
       ${vd?.requested ? `<span class="scenario-pill">${Number(vd.read)}/${Number(vd.inLab)} vendor pages read</span>` : ""}

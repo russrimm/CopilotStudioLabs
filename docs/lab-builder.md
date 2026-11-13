@@ -175,13 +175,19 @@ arrow, Home, and End keys move among the tabs of the current area.
 3. Answer one question per step, in this order:
    1. **Vertical** (industry). Cross-industry is the default.
    2. **Departments** (any number, optional).
-   3. **Level**: 100 Beginner, 200 Intermediate, or 300 Advanced.
+   3. **Level**: 100 Beginner, 200 Intermediate, or 300 Advanced. This is the single
+      source of truth for level: every later step shows, and the lab builds, only
+      that level (see [The level filter](#the-level-filter)).
    4. **Harness**: Standard, Microsoft Copilot, or Customer Conversation (preview).
-   5. **Topics**: every topic that applies to your harness, grouped by concept
-      (Instructions, Knowledge, Tools, Skills, MCP servers, and so on). Topics are
-      pre-selected from your answers, each with the reason. Check or uncheck
-      anything; use **Select all**, **Clear**, **Reset to recommended**, or the
-      per-group buttons. Prerequisites are marked *Required prerequisite*. If you
+   5. **Topics**: every topic at your level that applies to your harness, grouped by
+      concept (Instructions, Knowledge, Tools, Skills, MCP servers, and so on).
+      Topics are pre-selected from your answers, each with the reason. Check or
+      uncheck anything; use **Select all**, **Clear**, **Reset to recommended**, or
+      the per-group buttons. A status line announces the count ("Showing 20 topics
+      for Level 100 (Beginner)"). Prerequisites at the same level are marked
+      *Required prerequisite*. Prerequisites from lower levels are not mixed into
+      the list: they sit in a collapsed group, **Prerequisites from lower levels
+      (included automatically)**, each with the reason and a checkbox. If you
       uncheck one, you get a warning, and the lab assumes learners have already
       done it. Concepts with no topic on your harness say whether the harness has
       no equivalent or the topic is not written yet.
@@ -192,7 +198,10 @@ arrow, Home, and End keys move among the tabs of the current area.
 
    The step list at the top is made of buttons: you can jump back to any step you
    have already reached, and changing an earlier answer recomputes the topic
-   recommendations (the page says so if it resets your own choices). A "Your lab
+   recommendations (the page says so if it resets your own choices). Changing the
+   **level** after you picked topics removes those picks, because they belonged to
+   the old level; an announced notice lists what was removed and has a **Restore my
+   Level N choices** button. A "Your lab
    so far" line shows the answers and a running time estimate throughout. Times
    are guidance only; nothing is removed to fit them. What the topic list shows is
    exactly what gets built: the wizard sends `includeCore: false` and the topics
@@ -299,7 +308,8 @@ detail, and each is set only when a Learn page says it:
   `mc-knowledge`) rather than one feature with two step lists.
 
 The wizard filters by harness and by level. The planner uses the tags in two ways:
-the level 100 *core* modules it adds follow the harness of the features you picked
+the level 100 *core* modules it adds (only when the lab is at level 100 or has no
+level) follow the harness of the features you picked
 (a feature tagged for both stays neutral, and untagged features count as
 standard), and a plan that mixes single-harness modules from both harnesses gets
 a warning.
@@ -312,6 +322,58 @@ a prerequisite from a higher level:
 | 100 | Beginner | The basics of making an agent and testing it. |
 | 200 | Intermediate | Adding tools, skills, MCP servers, workflows, knowledge tuning, and evaluation. |
 | 300 | Advanced | Custom connectors, ALM, governance, identity, networking, and autonomous or protocol-level integration. |
+
+#### The level filter
+
+The level chosen in Step 3 decides what the rest of the wizard shows and what the
+lab contains. There is no second level selector in the Topics step, so the two can
+never disagree. `levels.js` holds the shared rules.
+
+- **Listed topics.** `recommend()` returns only topics whose level equals the
+  chosen level. Industry and department boosts apply only to topics at that level.
+  A concept with no topic at the level is left out when the harness has topics for
+  it at other levels; a concept the harness cannot teach at any level stays as a
+  muted row that explains why. The response carries `filter` (`level`, `label`,
+  `shown`, and `droppedSelections`), which the wizard announces as "Showing N
+  topics for Level 100 (Beginner)".
+- **Prerequisites from lower levels.** A topic's `prereqs` in `features.json`
+  are hard dependencies (the catalog validator already requires them to be at the
+  same or a lower level). A same-level prerequisite stays in the main list as
+  *Required prerequisite*. A lower-level one is returned apart, in
+  `prerequisites.topics`, with `neededBy`, a `reason`, and recap minutes (at most
+  5 per topic, `PREREQ_RECAP_MINUTES`). It is auto-included, which keeps the
+  warn-don't-block behavior: unchecking it adds it to `excluded`, the lab assumes
+  learners know it, and a warning says so. The wizard shows these in a collapsed
+  group, never as same-level content. `selectedIds` holds only the level's own
+  topics, so the wizard sends exactly those, and the planner re-derives the
+  prerequisites.
+- **Topics from Microsoft Learn.** A discovered topic uses the level in the
+  snapshot (`declared`). Without a valid level, `resolveTopicLevel()` applies the
+  same rubric as the table above to its address and title (300 first: custom
+  connectors, ALM, governance, identity, networking, SDK; then 200: tools, skills,
+  MCP, workflows, memory, hooks, evaluation, flows, triggers, monitoring; then 100:
+  overview, get started, create, test, publish) and the card says **Estimated
+  level**. If nothing matches, the level is unknown: the topic is returned in
+  `levelUnknown`, shown only in a collapsed **Level unknown** group, never
+  recommended, never counted in "Select all", and built only if the learner picks
+  it on purpose. Harness and Learn-bar counts are also per level.
+- **The planner and generator enforce it too.** With a `level`, `planLab()` drops
+  requested topics from other levels (recorded in `plan.request.droppedOutOfLevel`
+  and a warning) and refuses a request with none at the level. Lower-level
+  prerequisites become *recaps*: flagged `prerequisite`, ordered first, estimated at
+  no more than 5 minutes, and written short (what you are doing, the steps, a check,
+  and sources; no concepts, knowledge checks, or screenshots). The lab titles them
+  `Recap: <name>`, labels them as prerequisite recaps in the Time Estimate table, and
+  keeps them out of the learning objectives and the quality review's per-module
+  checks. A recap dropped during the build never removes the module that builds on
+  it; the lab assumes it instead. The metadata table gains a **LEVEL** row, and
+  `manifest.json` records `level`, `levelName`, `prerequisites`, and a `role`
+  (`level` or `prerequisite`) per module. A request with no `level` (the CLI, older
+  API callers) is built exactly as before.
+- **Older saved labs.** A lab saved before the level was recorded has no level, so
+  its card says "Level not recorded"; **Edit selections** takes the highest level
+  among its topics, and tells you which saved topics belong to another level and
+  were not loaded.
 
 **The rename.** Copilot Studio renamed the *GitHub Copilot harness* to the
 *Microsoft Copilot harness*, and some Learn pages, titles, and URLs still use the
@@ -336,14 +398,15 @@ and names what to use instead. Every feature belongs to exactly one concept.
 `recommendations.json` holds the deterministic rules that pre-select topics: the
 topics that make up each level (the new depth it adds; prerequisites join
 automatically), plus topics a vertical or a department adds, each with a
-plain-language reason. A vertical or department topic is recommended only at or
-below the chosen level, and always stays selectable.
+plain-language reason. A vertical or department topic is recommended only when it
+is at the chosen level, and always stays selectable.
 
 `validateCatalog()` checks both files (every feature in one concept, known ids,
 a reason for every `notApplicable`), and `recommend.js` turns the answers into
-concept rows with `selected`, `required`, and `reasons` per topic. Nothing is
-filtered out: every topic that applies to the harness is listed, and a topic
-whose prerequisite you turn off only produces a warning.
+concept rows with `selected`, `required`, and `reasons` per topic. Every topic at
+the chosen level that applies to the harness is listed (topics from other levels
+are not; see [The level filter](#the-level-filter)), and a topic whose
+prerequisite you turn off only produces a warning.
 
 #### Concept coverage matrix
 
@@ -426,7 +489,8 @@ different harness than the lab's steps.
 
 `planner.js` resolves the industry and roles, expands transitive prerequisites,
 topologically orders modules (prerequisite → category → level), and derives the
-title, difficulty, time estimate, and scenario framing.
+title, difficulty, time estimate, and scenario framing. When the request has a
+`level`, it also enforces the level filter: see [The level filter](#the-level-filter).
 
 **Time is guidance, never a limit.** Every module you select, and every
 prerequisite it needs, stays in the lab. Each module carries an estimated
@@ -964,9 +1028,9 @@ its URL matches the renamed catalog page) and `new` otherwise. Each catalog feat
 is checked the other way: `stale` when every one of its documentation pages is gone
 from Learn, `updated` when a page it cites changed since the last run.
 
-**In the wizard.** The Topics step shows new topics inside their concept group (or
+**In the wizard.** The Topics step shows new topics at their own level inside their concept group (or
 in "New from Learn: not yet grouped") with a **New from Learn** badge and a link to
-the source article. Catalog topics whose documentation changed get **Updated**, and
+the source article; a topic whose level could not be resolved goes in the collapsed **Level unknown** group (see [The level filter](#the-level-filter)). Catalog topics whose documentation changed get **Updated**, and
 ones whose pages disappeared get **Docs moved**. A status line says when the list
 was last refreshed and from where; **Refresh from Microsoft Learn** re-reads it, and
 the **Show** filter narrows the list to new, updated, or moved topics. New topics
@@ -1058,8 +1122,8 @@ the server log, never the manifest — and the output is exportable by design.
 | `GET` | `/api/lab-builder/features` | Industries, roles, concepts, and the feature catalog grouped by category. |
 | `GET` | `/api/lab-builder/topics` | The static catalog merged with topics discovered on Microsoft Learn: each entry has `source` (`catalog` or `learn`), `status` (`current`, `updated`, `stale`, `new`), harnesses, and URLs, plus `refreshedAt`, `ageMs`, `stale`, `offline`, and per-harness covered, new, and stale counts. Serves the cache or snapshot immediately and revalidates in the background when stale. |
 | `POST` | `/api/lab-builder/topics/refresh` | Re-read the topic list from Microsoft Learn. Takes an empty `{}` body (anything else is HTTP 400). Limited to 6 refreshes per user per hour (`LAB_BUILDER_TOPICS_RATE_MAX`); answers 429 with `Retry-After` when rate limited, spaced too closely, or paused by the circuit breaker, 503 when refreshing is turned off, and 502 when Microsoft Learn failed. Every failure still returns the last good list. |
-| `POST` | `/api/lab-builder/recommend` | Topics grouped by concept for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `required`, and `reasons`. Read-only. |
-| `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. |
+| `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `required`, and `reasons`. Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`). A `selected` list that names other levels is filtered, not trusted. Read-only. |
+| `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. With a `level`, topics from other levels are dropped (`droppedOutOfLevel`), and each module has a `role` of `level` or `prerequisite`. |
 | `POST` | `/api/lab-builder/generate` | Build the lab, write it to `generated-labs/`, return markdown + validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or cancelled build leaves it alone. The response has `replacedLabId` when that happened. |
 | `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, vertical, level, harness, estimated minutes, topic count, validation counts, and `selections` (null for labs built before choices were saved). |
 | `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab as markdown and HTML. |

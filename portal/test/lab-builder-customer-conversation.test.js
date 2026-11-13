@@ -46,23 +46,29 @@ test("the wizard recommends only Customer Conversation topics at each level, wit
   const level300 = recommend({ harness: HARNESS, level: 300 });
   assert.ok(level300.totals.minutes > level100.totals.minutes);
   const covered = level300.concepts.filter((c) => c.topics.length);
-  assert.ok(covered.length >= 19, `${covered.length} concepts have Customer Conversation topics`);
+  assert.ok(covered.length >= 4, `${covered.length} concepts have Customer Conversation topics`);
+  assert.ok(covered.every((c) => c.topics.every((t) => t.level === 300)), "only Level 300 topics are listed");
   const notApplicable = level300.concepts.filter((c) => !c.topics.length);
   assert.ok(notApplicable.every((c) => c.notApplicable && !c.notYetAvailable), "empty concepts explain themselves");
 });
 
-test("prerequisites join a Customer Conversation lab with the topic that needs them", () => {
-  const rec = recommend({ harness: HARNESS, level: 100, selected: ["cc-contact-center"] });
-  for (const id of ["cc-deploy-channels", "cc-teams-phone", "cc-preview-test", "cc-create-agent"]) {
-    const topic = rec.concepts.flatMap((c) => c.topics).find((t) => t.id === id);
-    assert.ok(topic?.selected && topic.required, `${id} is added as a prerequisite`);
-    assert.ok(topic.reasons.some((r) => /Required by/.test(r)), `${id} says why`);
+test("lower-level prerequisites join a Customer Conversation lab as a separate group, with the topic that needs them", () => {
+  const rec = recommend({ harness: HARNESS, level: 300, selected: ["cc-contact-center"] });
+  const listed = rec.concepts.flatMap((c) => c.topics);
+  const sameLevel = listed.find((t) => t.id === "cc-teams-phone");
+  assert.ok(sameLevel?.selected && sameLevel.required, "a Level 300 prerequisite stays in the Level 300 list");
+  assert.ok(sameLevel.reasons.some((r) => /Required by/.test(r)));
+  for (const id of ["cc-deploy-channels", "cc-preview-test", "cc-create-agent"]) {
+    assert.equal(listed.some((t) => t.id === id), false, `${id} is not mixed into the main list`);
+    const pre = rec.prerequisites.topics.find((t) => t.id === id);
+    assert.ok(pre?.selected, `${id} is added as a prerequisite`);
+    assert.equal(pre.level, 100);
+    assert.match(pre.reason, /Needed by/);
   }
-  const added = rec.totals.minutes;
   assert.equal(
-    added,
-    rec.concepts.flatMap((c) => c.topics).filter((t) => t.selected).reduce((sum, t) => sum + t.minutes, 0),
-    "review time totals count the added prerequisites",
+    rec.totals.minutes,
+    listed.filter((t) => t.selected).reduce((sum, t) => sum + t.minutes, 0) + rec.prerequisites.minutes,
+    "review time totals count the added prerequisite recaps",
   );
 });
 

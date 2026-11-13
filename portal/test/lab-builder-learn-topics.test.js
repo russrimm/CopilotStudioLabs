@@ -604,17 +604,24 @@ test("recommend offers new Learn topics inside their concept, never pre-selected
   assert.equal(without.concepts.some((c) => c.topics.some((topic) => topic.source === "learn")), false, "static catalog alone is unchanged");
 
   const learn = { topics: snapshot.topics, checks: [{ featureId: "mc-memory", status: "updated", changedAt: "2026-11-10", missing: [] }, { featureId: "mc-hooks", status: "stale", changedAt: null, missing: ["https://learn.microsoft.com/x"] }], now: NOW };
-  const rec = recommend({ harness: "microsoft-copilot" }, learn);
+  const discoveredLevel = snapshot.topics.find((topic) => topic.id === "learn-agents-experience-memory-overview").level;
+  const rec = recommend({ harness: "microsoft-copilot", level: discoveredLevel }, learn);
   const memory = rec.concepts.find((c) => c.id === "memory");
   const offered = memory.topics.find((topic) => topic.id === "learn-agents-experience-memory-overview");
-  assert.ok(offered, "the discovered topic sits in its concept group");
+  assert.ok(offered, "the discovered topic sits in its concept group, at its own level");
   assert.equal(offered.source, "learn");
   assert.equal(offered.learn.status, "new");
   assert.equal(offered.selected, false);
-  assert.equal(memory.topics.find((topic) => topic.id === "mc-memory").learn.status, "updated");
-  assert.equal(rec.concepts.flatMap((c) => c.topics).find((topic) => topic.id === "mc-hooks").learn.status, "stale");
+  const otherLevel = [100, 200, 300].find((level) => level !== discoveredLevel);
+  assert.equal(
+    recommend({ harness: "microsoft-copilot", level: otherLevel }, learn).concepts.some((c) => c.topics.some((topic) => topic.id === offered.id)),
+    false,
+    "the discovered topic is hidden at other levels",
+  );
+  assert.equal(recommend({ harness: "microsoft-copilot", level: 200 }, learn).concepts.find((c) => c.id === "memory").topics.find((topic) => topic.id === "mc-memory").learn.status, "updated");
+  assert.equal(recommend({ harness: "microsoft-copilot", level: 300 }, learn).concepts.flatMap((c) => c.topics).find((topic) => topic.id === "mc-hooks").learn.status, "stale");
 
-  const picked = recommend({ harness: "microsoft-copilot", selected: ["learn-agents-experience-memory-overview"] }, learn);
+  const picked = recommend({ harness: "microsoft-copilot", level: discoveredLevel, selected: ["learn-agents-experience-memory-overview"] }, learn);
   assert.deepEqual(picked.selectedIds, ["learn-agents-experience-memory-overview"]);
   const unknown = recommend({ harness: "microsoft-copilot", selected: ["learn-not-a-topic"] }, learn);
   assert.match(unknown.warnings.join(" "), /Unknown topic/);

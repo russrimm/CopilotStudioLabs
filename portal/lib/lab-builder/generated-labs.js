@@ -91,7 +91,7 @@ export function selectionsFromManifest(manifest) {
   const features = textList(request.features);
   if (!features.length) return null;
   const options = manifest.options && typeof manifest.options === "object" ? manifest.options : {};
-  const level = Number(request.level);
+  const level = Number(request.level ?? manifest.level);
   return {
     industry: shortText(request.industry),
     roles: textList(request.roles),
@@ -126,6 +126,7 @@ function summarizeManifest(labId, manifest) {
     generatedAt: manifest.generatedAt,
     updatedAt: manifest.updatedAt || null,
     moduleCount: manifest.modules?.length || 0,
+    prerequisiteCount: Array.isArray(manifest.prerequisites) ? manifest.prerequisites.length : 0,
     vertical: manifest.industry || request.industry || null,
     level: selections?.level ?? null,
     harness: selections?.harness ?? null,

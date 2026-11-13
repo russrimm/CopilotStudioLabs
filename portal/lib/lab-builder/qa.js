@@ -207,6 +207,8 @@ function topicsOf(sections, lines) {
       return {
         order: module.order,
         name: module.name,
+        // A prerequisite recap is a short refresher; the per-module teaching checks apply to the level's own modules.
+        recap: /^recap:\s/i.test(module.name),
         minutes,
         steps: module.steps,
         images: module.images.length,
@@ -229,6 +231,7 @@ export function assessLab(markdown, options = {}) {
   const lines = stripFences(source);
   const sections = parseSections(lines);
   const topics = topicsOf(sections, lines);
+  const reviewed = topics.filter((t) => !t.recap);
   const findings = [];
   const checks = [];
 
@@ -289,7 +292,7 @@ export function assessLab(markdown, options = {}) {
     "troubleshooting-section",
     "Troubleshooting guidance",
     4,
-    titled(/troubleshoot/i) || topics.some((t) => t.checklist.find((c) => c.id === "troubleshooting")?.pass) ? 1 : 0,
+    titled(/troubleshoot/i) || reviewed.some((t) => t.checklist.find((c) => c.id === "troubleshooting")?.pass) ? 1 : 0,
     "warn",
     "The lab has no troubleshooting guidance.",
     "Add a troubleshooting section or per-module common mistakes.",
@@ -312,11 +315,11 @@ export function assessLab(markdown, options = {}) {
 
   // Per-module completeness
   for (const check of MODULE_CHECKS) {
-    const failing = topics.filter((t) => !t.checklist.find((c) => c.id === check.id).pass);
-    const ratio = topics.length ? 1 - failing.length / topics.length : 0;
+    const failing = reviewed.filter((t) => !t.checklist.find((c) => c.id === check.id).pass);
+    const ratio = reviewed.length ? 1 - failing.length / reviewed.length : 0;
     const weights = { "numbered-steps": 8, "expected-results": 9, verification: 6, troubleshooting: 6, "knowledge-check": 5, "scenario-thread": 5, screenshot: 6, "time-estimate": 3, sources: 5 };
     const severity = ["numbered-steps", "verification"].includes(check.id) ? "error" : "warn";
-    add(`module-${check.id}`, `Every module: ${check.label.toLowerCase()}`, weights[check.id], ratio, severity, topics.length ? `${check.label}: ${failing.length} of ${topics.length} modules fall short (${failing.map((t) => `Step ${t.order}`).join(", ")}).` : "No `### Step N - ...` modules were found.", MODULE_CHECK_FIX[check.id]);
+    add(`module-${check.id}`, `Every module: ${check.label.toLowerCase()}`, weights[check.id], ratio, severity, reviewed.length ? `${check.label}: ${failing.length} of ${reviewed.length} modules fall short (${failing.map((t) => `Step ${t.order}`).join(", ")}).` : "No `### Step N - ...` modules were found.", MODULE_CHECK_FIX[check.id]);
       }
 
   const expected = options.expectedTopics || [];

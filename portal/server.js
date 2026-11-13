@@ -42,7 +42,7 @@ import {
   updateGeneratedLabMeta,
 } from "./lib/lab-builder/generated-labs.js";
 import { getTopicService } from "./lib/lab-builder/topic-service.js";
-import { learnContext, newTopicCounts, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
+import { learnContext, newTopicCounts, newTopicCountsByLevel, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
 import { renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
@@ -466,6 +466,7 @@ app.get("/api/lab-builder/features", (_req, res) => {
       differenceDefaults: Object.fromEntries(getHarnesses().map((h) => [h.id, defaultDifferencesFor(h.id)])),
       totalFeatures: getFeatures().length,
       learnNewByHarness: newTopicCounts(getTopicService()),
+      learnNewByHarnessLevel: newTopicCountsByLevel(getTopicService()),
       catalogIssues: validateCatalog(),
     });
   } catch (err) {
@@ -512,9 +513,12 @@ app.post("/api/lab-builder/preview", (req, res) => {
         name: f.name,
         category: f.category,
         level: f.level,
+        role: f.prerequisite ? "prerequisite" : "level",
         minutes: f.minutes,
         summary: f.summary,
       })),
+      level: plan.level,
+      droppedOutOfLevel: plan.request.droppedOutOfLevel || [],
       deferred: plan.deferred,
       assumedPrereqs: plan.assumedPrereqs,
       relatedLabs: plan.relatedLabs,
