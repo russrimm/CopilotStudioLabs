@@ -7,7 +7,7 @@ import path from "node:path";
 import { IMAGE_EXTENSIONS, inspectScreenshot, sidecarName } from "../feature-tour/lib/screenshots.mjs";
 
 export const FEATURE_ASSETS_DIR = "docs/feature-tour/screenshots";
-const HARNESSES = new Set(["standard", "microsoft-copilot", "both"]);
+const HARNESSES = new Set(["standard", "microsoft-copilot", "customer-conversation", "both"]);
 const nonEmpty = (v) => typeof v === "string" && v.trim().length > 0;
 
 export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = false }) {
@@ -63,7 +63,7 @@ export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = fals
     for (const key of ["feature", "featureName", "section", "caption", "navHint"]) {
       if (!nonEmpty(shot[key])) add("critical", "feature-shots-schema", `${where} must have a non-empty ${key}.`);
     }
-    if (!HARNESSES.has(shot.harness)) add("critical", "feature-shots-schema", `${where} harness must be standard, microsoft-copilot, or both.`);
+    if (!HARNESSES.has(shot.harness)) add("critical", "feature-shots-schema", `${where} harness must be standard, microsoft-copilot, customer-conversation, or both.`);
     if (!Array.isArray(shot.instructions) || shot.instructions.length === 0 || !shot.instructions.every(nonEmpty)) {
       add("critical", "feature-shots-schema", `${where} must have non-empty instructions.`);
     }

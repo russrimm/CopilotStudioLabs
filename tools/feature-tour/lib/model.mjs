@@ -8,7 +8,7 @@ export const LEVELS = {
   300: { value: 300, label: "300 Advanced", short: "Advanced" },
 };
 
-export const HARNESS_ORDER = ["standard", "both", "microsoft-copilot"];
+export const HARNESS_ORDER = ["standard", "both", "microsoft-copilot", "customer-conversation"];
 
 // Wording is deliberately independent of the catalog's harness descriptions,
 // which mention the earlier product name. The site always uses the current one.
@@ -33,6 +33,13 @@ export const HARNESS_GROUPS = {
     short: "Microsoft Copilot",
     description:
       "The Build-tab experience for reasoning-heavy agents and workflows: natural-language instructions, knowledge, tools, skills, memory, and hooks, billed in Copilot Credits.",
+  },
+  "customer-conversation": {
+    id: "customer-conversation",
+    name: "Customer Conversation harness",
+    short: "Customer Conversation",
+    description:
+      "Preview. Agents that answer questions and resolve issues for customers over voice and chat, with specialized sub-agents and escalation to a human representative, billed in Copilot Credits.",
   },
 };
 
@@ -66,14 +73,17 @@ export const SECTION_LABELS = {
   custom: "Custom location",
   build: "Build tab",
   preview: "Preview tab",
+  deploy: "Deploy tab",
 };
 
 export function harnessGroup(harness) {
   const list = Array.isArray(harness) ? harness : [];
   const hasStd = list.includes("standard");
   const hasMc = list.includes("microsoft-copilot");
+  const hasCc = list.includes("customer-conversation");
   if (hasStd && hasMc) return "both";
   if (hasMc) return "microsoft-copilot";
+  if (hasCc && !hasStd) return "customer-conversation";
   return "standard";
 }
 

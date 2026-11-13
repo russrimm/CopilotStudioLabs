@@ -263,7 +263,7 @@ export function renderIndex(model) {
   const body = `    <div class="wrap">
       <section class="hero" aria-labelledby="page-title">
         <h1 id="page-title">Every Copilot Studio feature in the lab catalog, explained</h1>
-        <p class="lede">${t.features} features across the Standard harness and the Microsoft Copilot harness. Each one has an explanation, the path to follow in Copilot Studio, prerequisites, caveats, Microsoft Learn links, and a screenshot slot. ${t.shotsReady} of ${t.shots} screenshots are captured so far.</p>
+        <p class="lede">${t.features} features across the Standard harness, the Microsoft Copilot harness, and the Customer Conversation harness. Each one has an explanation, the path to follow in Copilot Studio, prerequisites, caveats, Microsoft Learn links, and a screenshot slot. ${t.shotsReady} of ${t.shots} screenshots are captured so far.</p>
         <p><a class="button" href="tour.html">Start the guided tour</a></p>
       </section>
 

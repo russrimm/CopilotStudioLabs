@@ -138,6 +138,7 @@ test("text and control colors meet WCAG AA in the light and dark themes", () => 
     ["fg", "bg"], ["fg", "surface"], ["muted", "bg"], ["muted", "surface"], ["accent", "bg"], ["accent", "surface"],
     ["accent-fg", "accent"], ["callout-fg", "callout"],
     ["badge-standard-fg", "badge-standard-bg"], ["badge-microsoft-copilot-fg", "badge-microsoft-copilot-bg"],
+    ["badge-customer-conversation-fg", "badge-customer-conversation-bg"],
     ["badge-both-fg", "badge-both-bg"], ["badge-level-fg", "badge-level-bg"], ["badge-preview-fg", "badge-preview-bg"],
     ["badge-ga-fg", "badge-ga-bg"], ["badge-unflagged-fg", "badge-unflagged-bg"], ["badge-retired-fg", "badge-retired-bg"],
   ];

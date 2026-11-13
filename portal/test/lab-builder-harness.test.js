@@ -138,14 +138,14 @@ test("core modules follow the harness the requested features belong to", () => {
 
 test("a lab that mixes harnesses says so", () => {
   const mixed = planLab({ features: ["topics", "mc-skills"] });
-  assert.ok(mixed.warnings.some((w) => /mixes standard harness and Microsoft Copilot harness/.test(w)), mixed.warnings.join("\n"));
+  assert.ok(mixed.warnings.some((w) => /mixes Standard harness and Microsoft Copilot harness modules/.test(w)), mixed.warnings.join("\n"));
   const single = planLab({ features: ["mc-skills"] });
   assert.ok(!single.warnings.some((w) => /mixes/.test(w)));
 });
 
 test("every harness's full module set generates a complete lab that passes the portal validator", async () => {
   const { generateLab } = await import("../lib/lab-builder/generator.js");
-  for (const harness of ["standard", "microsoft-copilot"]) {
+  for (const harness of ["standard", "microsoft-copilot", "customer-conversation"]) {
     const features = getFeatures().filter((f) => f.harness.includes(harness)).map((f) => f.id);
     let lab;
     const root = mkdtempSync(join(tmpdir(), "harness-lab-"));
