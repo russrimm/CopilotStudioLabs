@@ -195,6 +195,21 @@ test("rename updates the manifest and the H1, and escapes Markdown in the title"
   }
 });
 
+test("a renamed title is what 'Edit selections' prefills, so a rebuild or replacement does not silently revert it", () => {
+  const { root, done } = library();
+  try {
+    writeLab(root, "lab-one", { ...modern, options: { ...modern.options, customTitle: null } });
+    assert.equal(listGeneratedLabs(root).labs[0].selections.customTitle, null);
+    updateGeneratedLabMeta(root, "lab-one", { title: "Pilot rollout" });
+    assert.equal(listGeneratedLabs(root).labs[0].selections.customTitle, "Pilot rollout");
+    assert.equal(listGeneratedLabs(root).labs[0].selections.agentName, "Ava", "other saved options are kept");
+    updateGeneratedLabMeta(root, "lab-one", { notes: "notes only" });
+    assert.equal(listGeneratedLabs(root).labs[0].selections.customTitle, "Pilot rollout", "a notes-only change leaves the title choice alone");
+  } finally {
+    done();
+  }
+});
+
 test("rename works on a legacy lab and keeps it legacy", () => {
   const { root, done } = library();
   try {

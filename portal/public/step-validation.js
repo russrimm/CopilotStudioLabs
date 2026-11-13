@@ -22,6 +22,8 @@
   let jobId = null;
   let timer = null;
   let running = false;
+  let starting = false;
+  let cancelRequested = false;
   const labs = new Map(); // labId -> { lab, partial }
   const cards = new Map(); // labId -> { el, signature }
 
@@ -244,6 +246,8 @@
     const summary = $("step-validation-summary");
     if (summary) summary.innerHTML = "";
     setRunning(true);
+    starting = true;
+    cancelRequested = false;
     const status = $("step-validation-status");
     if (status) status.textContent = "Starting…";
     try {
@@ -260,8 +264,16 @@
       } else {
         jobId = body.jobId;
       }
+      starting = false;
+      // Cancel was pressed before the server answered: honor it now that there is a job to cancel.
+      if (cancelRequested) {
+        cancelRequested = false;
+        await cancel();
+        return;
+      }
       poll();
     } catch (err) {
+      starting = false;
       setRunning(false);
       if (status) status.textContent = `Could not start step validation: ${err.message}`;
       notify(`Could not start step validation: ${err.message}`, "error");
@@ -269,7 +281,15 @@
   }
 
   async function cancel() {
-    if (!jobId) return;
+    if (!jobId) {
+      // The run is still starting, so there is nothing to cancel yet: remember the request instead of dropping it.
+      if (starting) {
+        cancelRequested = true;
+        const status = $("step-validation-status");
+        if (status) status.textContent = "Canceling…";
+      }
+      return;
+    }
     clearTimeout(timer);
     try {
       await fetch(`/api/step-validation/${encodeURIComponent(jobId)}`, { method: "DELETE" });

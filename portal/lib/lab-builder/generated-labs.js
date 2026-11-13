@@ -287,6 +287,8 @@ export function updateGeneratedLabMeta(rootDir, rawId, body) {
         }
       }
       manifest.title = patch.title;
+      // "Edit selections" prefills the Review title from here, so a rename survives a rebuild or replacement.
+      manifest.options = { ...(manifest.options && typeof manifest.options === "object" ? manifest.options : {}), customTitle: patch.title };
     }
     if (patch.notes !== undefined) manifest.notes = patch.notes;
     manifest.updatedAt = new Date().toISOString();

@@ -1377,10 +1377,13 @@ estimated time, topic count, and validation result, with a search box and a sort
 Each row has **Open**, **Edit selections**, **Rename**, and **Delete**:
 
 - **Delete** asks for confirmation in a dialog and cannot be undone.
-- **Rename** changes the title and notes only.
+- **Rename** changes the title and notes only. The new title is also saved as the lab's custom title, so
+  **Edit selections** pre-fills it in Review and a rebuild or replacement keeps it unless you change it there.
 - **Edit selections** re-opens the wizard on the Review step, pre-filled with the saved industry,
   departments, level, harness, topics, and options. On the last step you choose **Save as a new lab**
-  (the default) or **Replace** the original. Nothing is overwritten unless you pick Replace.
+  (the default) or **Replace** the original. Nothing is overwritten unless you pick Replace, and the original is
+  removed only after the new lab was built and validated: a cancelled or failed build leaves it alone. When a build
+  finishes, keyboard focus moves to the new lab's heading.
 - Labs built before choices were saved (`selections` is `null`) cannot be edited. They can still be opened, renamed,
   or deleted, and the row offers **Start a new lab**.
 

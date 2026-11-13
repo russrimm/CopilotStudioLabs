@@ -3747,6 +3747,8 @@ async function lbGenerate() {
       lbLoadGenerated();
       if (status) status.textContent = "";
       toast(data.replacedLabId ? `Rebuilt "${data.title}" and replaced the original` : `Built "${data.title}"`, "success");
+      // The build button was disabled while the lab was built, so focus would otherwise fall back to the page.
+      document.getElementById("lb-result-heading")?.focus({ preventScroll: true });
       return;
     }
   } catch (err) {
@@ -3755,7 +3757,11 @@ async function lbGenerate() {
   } finally {
     labBuilder.busy = false;
     labBuilder.controller = null;
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      // A cancelled, blocked-and-cancelled, or failed build leaves focus on the page: put it back on the button.
+      if (document.activeElement === document.body) btn.focus();
+    }
     if (cancelBtn) cancelBtn.hidden = true;
   }
 }
