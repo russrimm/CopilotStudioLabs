@@ -88,6 +88,9 @@ jobs:
           node --check tools/feature-tour/serve.mjs
           for f in tools/feature-tour/lib/*.mjs tools/feature-tour/site/assets/*.js; do node --check "$f"; done
           node --check portal/server.js
+          node --check .github/extensions/agentic-kanban/extension.mjs
+          node --check .github/extensions/agentic-kanban/store.mjs
+          node --check .github/extensions/agentic-kanban/ui.mjs
 
       - name: Test lab accuracy tooling
         working-directory: tools/lab-accuracy
