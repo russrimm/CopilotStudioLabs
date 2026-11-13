@@ -153,6 +153,8 @@ export function recommend(answers = {}) {
       summary: concept.summary,
       order: concept.order,
       notApplicable: topics.length ? null : notApplicableReason(concept, harness, features),
+      // True when the concept has no topic only because none is written yet, not because the harness lacks the idea.
+      notYetAvailable: !topics.length && !concept.notApplicable?.[harness],
       otherHarnessTopics: topics.length
         ? []
         : concept.features.map((id) => ({ id, name: features.get(id).name, harnesses: features.get(id).harness })),
