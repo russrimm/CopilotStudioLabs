@@ -193,6 +193,61 @@ export function getRoleProfile(roleId) {
   return profiles.roles[roleId] || null;
 }
 
+const joinWith = (items, sep = "; ") => items.join(sep);
+
+function listNames(names) {
+  if (names.length <= 2) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+}
+
+/** Take items from each list in turn, so every selected department is represented before any gets a second item. */
+function interleave(lists, limit) {
+  const out = [];
+  for (let i = 0; out.length < limit && lists.some((l) => i < l.length); i += 1) {
+    for (const list of lists) if (i < list.length && out.length < limit) out.push(list[i]);
+  }
+  return [...new Set(out)];
+}
+
+/**
+ * The scenario a lab is written around. The vertical sets the setting; the departments set the
+ * use case (agent, problem, outcome, sample questions, sample data, vocabulary, and measure).
+ * With no department the vertical's own scenario is used unchanged, and nothing from a
+ * department that was not selected ever appears.
+ */
+export function composeScenarioProfile(industryId, departmentIds = [], roleOrder = []) {
+  const base = getScenarioProfile(industryId);
+  const known = new Set(departmentIds);
+  const depts = (roleOrder.length ? roleOrder : departmentIds)
+    .filter((id) => known.has(id) && profiles.departments?.[id])
+    .map((id) => profiles.departments[id]);
+  if (!depts.length) return base;
+
+  const setting = profiles.settings?.[industryId] || profiles.defaultSetting || "your organization";
+  const atSetting = (text) => text.replace(/\{setting\}/g, setting);
+  const names = depts.map((d) => d.name);
+  const several = depts.length > 1;
+
+  const agentName = !several ? depts[0].agentName : depts.length <= 3 ? `${listNames(names)} Assistant` : "Cross-Functional Assistant";
+  const capabilities = several
+    ? interleave(depts.map((d) => d.capabilities), 4)
+    : depts[0].capabilities;
+  const crowded = depts.length > 2;
+  return {
+    ...base,
+    agentName,
+    domain: `${crowded ? `shared work across ${listNames(names)}` : joinWith(depts.map((d) => d.domain))}${industryId ? ` in ${setting}` : ""}`,
+    audience: `${crowded ? `${listNames(names)} teams` : joinWith(depts.map((d) => d.audience))}${industryId ? ` in ${setting}` : ""}`,
+    problem: several ? depts.map((d) => `For ${d.name}: ${atSetting(d.problem)}`).join(" ") : atSetting(depts[0].problem),
+    outcome: `a single agent that ${listNames(capabilities)}`,
+    knowledgeSources: interleave(depts.map((d) => d.knowledgeSources), several ? 6 : 3),
+    sampleQuestions: interleave(depts.map((d) => d.sampleQuestions), several ? 6 : 3),
+    entities: interleave(depts.map((d) => d.entities), 6),
+    terms: interleave([...depts.map((d) => d.terms), industryId ? base.terms.slice(0, 2) : []], 8),
+    kpi: joinWith(depts.slice(0, 3).map((d) => d.kpi)),
+  };
+}
+
 function formatDuration(minutes) {
   if (minutes < 60) return `${minutes} minutes`;
   const hours = Math.floor(minutes / 60);
@@ -455,7 +510,11 @@ export function planLab(request = {}) {
   const labHarness = hasHarnessProduct ? request.harness || [...harnessVotes].sort((a, b) => b[1] - a[1])[0]?.[0] || "standard" : null;
   const differencesFor = labHarness ? (request.differencesFor ?? defaultDifferencesFor(labHarness)).filter((id) => id !== labHarness) : [];
   const maxLevel = features.filter((f) => !f.prerequisite).reduce((max, f) => Math.max(max, f.level || 0), 100);
-  const profile = getScenarioProfile(industry?.id);
+  const profile = composeScenarioProfile(
+    industry?.id,
+    roles.map((r) => r.id),
+    roleCatalog.map((r) => r.id),
+  );
 
   const roleProfiles = roles.map((r) => ({ ...r, ...(getRoleProfile(r.id) || {}) }));
   const focusNames = requested
@@ -465,7 +524,7 @@ export function planLab(request = {}) {
 
   const industryName = industry?.name || "Cross-industry";
   const headline = focusNames.slice(0, 2).join(" and ") || productsPhrase(planProducts) || "Microsoft AI";
-  const title = request.title || `${industryName}: Build a ${profile.agentName} with ${headline}`;
+  const title = request.title || `${industryName}: Build ${/^[aeiou]/i.test(profile.agentName) ? "an" : "a"} ${profile.agentName} with ${headline}`;
 
   const categories = [...new Set(features.map((f) => f.category))];
 

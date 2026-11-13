@@ -713,6 +713,28 @@ Scenario framing comes from `scenario-profiles.json`: per-industry agent name,
 audience, business problem, knowledge sources, sample questions, domain
 vocabulary, and the KPI to watch — plus per-role design guidance.
 
+**The departments you pick drive the use case.** Each of the 12 departments has its own
+scenario in the `departments` block of `scenario-profiles.json` (agent, domain,
+audience, problem, capabilities, sample data sources, sample questions, entities,
+vocabulary, and KPI). The vertical supplies the setting (the `{setting}` token, from
+`settings`, for example "a healthcare organization"), so the same department reads
+differently in each vertical and the same vertical reads differently for each
+department. `composeScenarioProfile()` in `planner.js` does the merge:
+
+| Selection | Scenario used |
+|---|---|
+| Vertical only (no department) | The vertical's own scenario, unchanged. |
+| One department | That department's scenario in the vertical's setting. The title is "Vertical: Build a *Department agent* with ...". |
+| Two or three departments | Each one's problem is stated in turn ("For Finance: ..."), the agent is named for them ("Finance and HR Assistant"), and sample questions, data sources, and vocabulary are interleaved so every department is represented. |
+| Four or more | "Cross-Functional Assistant", with the departments named in the audience. |
+| No vertical, no department | The generic team assistant. |
+
+Departments are applied in catalog order, so the click order never changes the lab, and
+nothing from a department you did not select appears. A title or agent name typed in
+Review still wins. The Learning Objectives close with a sentence that ties them to the
+selected departments. `recommendations.json` maps each department to topics for all six
+products, so the departments also change which topics are recommended.
+
 ### 3. Microsoft Learn grounding
 
 `learn-mcp.js` is a small streamable-HTTP JSON-RPC client for the public
@@ -1463,7 +1485,9 @@ not deserve. `docUrls` also decide which search results count as on-product (see
 `learn.microsoft.com` and in the product area the feature is about.
 
 To add an industry, add an entry to `portal/lib/scenarios.json` (used across the
-portal) and a matching profile in `portal/lib/lab-builder/scenario-profiles.json`.
+portal) and a matching profile (plus a `settings` entry) in `portal/lib/lab-builder/scenario-profiles.json`.
+To add a department, add it to `scenarios.json` and give it a `departments` scenario in the same file;
+a test fails if any department lacks one.
 
 ### Freshness: `lastVerified` and `verifiedAgainst`
 

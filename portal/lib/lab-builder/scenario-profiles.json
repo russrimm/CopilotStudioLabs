@@ -192,5 +192,269 @@
       "emphasis": "Accessibility-focused users need responses that work with screen readers and simple language.",
       "designNote": "Avoid dense adaptive cards for primary answers and keep plain-text alternatives."
     }
+  },
+  "settings": {
+    "manufacturing": "a manufacturing business",
+    "retail": "a retail business",
+    "financial-services": "a financial services firm",
+    "healthcare": "a healthcare organization",
+    "energy-resources": "an energy and resources company",
+    "education": "an education institution",
+    "nonprofit": "a nonprofit organization"
+  },
+  "defaultSetting": "your organization",
+  "departments": {
+    "executives": {
+      "name": "Executive",
+      "agentName": "Executive Briefing Assistant",
+      "domain": "executive briefings and decision support",
+      "audience": "executives and their chiefs of staff",
+      "problem": "Leaders in {setting} want the number first and the source second, but the figures live in dashboards, status decks, and email threads, so preparing for one decision meeting takes a team hours.",
+      "capabilities": ["summarizes the key metrics with their source and date", "assembles a briefing for an upcoming meeting from approved documents"],
+      "knowledgeSources": [
+        "A SharePoint library of leadership briefings and board materials",
+        "An Excel or Power BI report of the metrics leaders track",
+        "A Dataverse table of strategic initiatives, owners, and status"
+      ],
+      "sampleQuestions": [
+        "What changed in our key metrics since last month?",
+        "Summarize the open risks for Thursday's leadership meeting.",
+        "Which initiatives are behind plan, and who owns them?"
+      ],
+      "entities": ["initiative", "metric", "meeting date"],
+      "terms": ["briefing", "initiative", "metric", "decision", "risk"],
+      "kpi": "hours spent preparing a decision briefing"
+    },
+    "sales": {
+      "name": "Sales",
+      "agentName": "Account Briefing Assistant",
+      "domain": "account research, pipeline follow-up, and customer-ready drafts",
+      "audience": "account executives, sales managers, and sales operations",
+      "problem": "Sellers in {setting} prepare for each customer conversation by piecing together CRM notes, product sheets, and past emails, so account context is incomplete and follow-ups go out late.",
+      "capabilities": ["summarizes an account and its open opportunities", "drafts a follow-up from approved product material"],
+      "knowledgeSources": [
+        "A SharePoint library of product sheets, pricing guidance, and case studies",
+        "A public product or solutions website",
+        "A Dataverse table of accounts, contacts, and opportunities"
+      ],
+      "sampleQuestions": [
+        "Give me a briefing on the Contoso account before my 2 p.m. call.",
+        "Which open opportunities have no activity in the last 14 days?",
+        "Draft a follow-up that answers the pricing question from this thread."
+      ],
+      "entities": ["account", "opportunity", "stage"],
+      "terms": ["account", "opportunity", "pipeline", "quote", "follow-up"],
+      "kpi": "days from first meeting to follow-up sent"
+    },
+    "marketing": {
+      "name": "Marketing",
+      "agentName": "Campaign Content Assistant",
+      "domain": "campaign content, brand voice, and audience insight",
+      "audience": "campaign managers, content writers, and brand managers",
+      "problem": "Marketers in {setting} draft campaign copy from scattered brand guides, past campaigns, and product facts, so tone drifts and every claim needs a manual check against an approved source.",
+      "capabilities": ["drafts on-brand copy from approved messaging", "checks a claim against the approved source before it is used"],
+      "knowledgeSources": [
+        "A SharePoint library of brand guidelines, approved messaging, and past campaigns",
+        "A public website with product and solution pages",
+        "A Dataverse table of campaigns, audiences, and results"
+      ],
+      "sampleQuestions": [
+        "Draft three subject lines for the spring launch email in our brand voice.",
+        "What is the approved wording for our sustainability claim?",
+        "Which campaigns reached the small-business audience last quarter?"
+      ],
+      "entities": ["campaign", "audience", "asset"],
+      "terms": ["campaign", "brand voice", "audience", "asset", "claim"],
+      "kpi": "days from brief to approved content"
+    },
+    "customer-service": {
+      "name": "Customer Service",
+      "agentName": "Support Resolution Assistant",
+      "domain": "customer support answers, case lookup, and escalation",
+      "audience": "support agents, team leads, and customers who ask for help",
+      "problem": "Support teams in {setting} answer the same questions from knowledge articles, case history, and policy pages that live in different places, so answers vary and hard cases reach a human too late.",
+      "capabilities": ["answers common questions from approved knowledge with a citation", "looks up a case and hands off to a person with the context attached"],
+      "knowledgeSources": [
+        "A SharePoint library of knowledge articles and support playbooks",
+        "A public help center or support website",
+        "A Dataverse table of cases, customers, and resolutions"
+      ],
+      "sampleQuestions": [
+        "How do I reset my password if I no longer have my old phone?",
+        "What is the status of case 10482?",
+        "Hand this conversation to an agent and include what the customer already tried."
+      ],
+      "entities": ["case number", "customer", "priority"],
+      "terms": ["case", "escalation", "resolution", "knowledge article", "priority"],
+      "kpi": "first-contact resolution rate"
+    },
+    "legal": {
+      "name": "Legal",
+      "agentName": "Contract and Policy Assistant",
+      "domain": "contract review, policy lookup, and matter intake",
+      "audience": "attorneys, paralegals, and compliance reviewers",
+      "problem": "Legal and compliance teams in {setting} search clause libraries, policies, and prior matters by hand, and any answer has to be traceable to an approved source before anyone relies on it.",
+      "capabilities": ["finds the approved clause or policy and cites it", "routes a new matter request with the facts a reviewer needs"],
+      "knowledgeSources": [
+        "A SharePoint library of approved clauses, policies, and templates",
+        "A public regulatory or standards website",
+        "A Dataverse table of matters, requests, and reviewers"
+      ],
+      "sampleQuestions": [
+        "What is our approved limitation of liability clause for a services agreement?",
+        "Which policy covers retention of customer records?",
+        "Open a review request for this vendor agreement and assign it to commercial legal."
+      ],
+      "entities": ["matter number", "contract", "clause"],
+      "terms": ["clause", "matter", "policy", "citation", "review"],
+      "kpi": "days to complete a first-pass contract review"
+    },
+    "finance": {
+      "name": "Finance",
+      "agentName": "Finance Close Assistant",
+      "domain": "financial close, reporting, and approvals",
+      "audience": "finance analysts, controllers, and approvers",
+      "problem": "Finance teams in {setting} spend the close cycle chasing numbers, policy answers, and approvals across spreadsheets, email, and the ERP, so status questions are answered slowly and inconsistently.",
+      "capabilities": ["explains the close calendar and policy with a citation", "looks up an invoice, budget line, or approval status from the system of record"],
+      "knowledgeSources": [
+        "A SharePoint library of finance policies, the close calendar, and procedures",
+        "A public tax or accounting guidance website",
+        "A Dataverse table of invoices, budget lines, and approvals"
+      ],
+      "sampleQuestions": [
+        "What is the approval limit for a purchase over 10,000?",
+        "What is the status of invoice INV-2041?",
+        "Which budget lines are over forecast this month?"
+      ],
+      "entities": ["invoice number", "cost center", "period"],
+      "terms": ["close", "invoice", "variance", "approval", "forecast"],
+      "kpi": "business days to close the books"
+    },
+    "hr": {
+      "name": "HR",
+      "agentName": "Employee Help Assistant",
+      "domain": "HR policy answers, benefits, and onboarding",
+      "audience": "employees, new hires, and HR business partners",
+      "problem": "Employees in {setting} ask HR the same policy, benefits, and onboarding questions again and again, and the answers depend on who is asking, so they must be consistent, private, and scoped to the signed-in person.",
+      "capabilities": ["answers policy and benefits questions with a citation", "tells a new hire what to do next based on their start date and role"],
+      "knowledgeSources": [
+        "A SharePoint library of HR policies, benefits guides, and onboarding checklists",
+        "An internal people-and-culture site",
+        "A Dataverse table of onboarding tasks and requests"
+      ],
+      "sampleQuestions": [
+        "How many days of parental leave am I eligible for?",
+        "What do I need to complete in my first week?",
+        "Who do I contact to change my benefits election?"
+      ],
+      "entities": ["employee", "request type", "start date"],
+      "terms": ["onboarding", "leave", "benefits", "policy", "request"],
+      "kpi": "HR tickets avoided per month"
+    },
+    "it": {
+      "name": "IT",
+      "agentName": "IT Help Desk Assistant",
+      "domain": "IT support, access requests, and agent governance",
+      "audience": "help desk analysts, IT administrators, and employees who need technical help",
+      "problem": "IT teams in {setting} resolve the same access, device, and how-do-I tickets by hand, and at the same time must decide who can use which agents and keep them governed, monitored, and reversible.",
+      "capabilities": ["resolves common requests from runbooks and opens a ticket when it cannot", "shows administrators which agents exist, who owns them, and who can use them"],
+      "knowledgeSources": [
+        "A SharePoint library of runbooks and standard operating procedures",
+        "A public vendor documentation site",
+        "A Dataverse table of tickets, assets, and agent owners"
+      ],
+      "sampleQuestions": [
+        "How do I connect to the VPN from a personal laptop?",
+        "Open a ticket for a new monitor and attach my asset tag.",
+        "Which agents were created in the last 30 days, and who owns them?"
+      ],
+      "entities": ["ticket number", "asset tag", "owner"],
+      "terms": ["ticket", "runbook", "access request", "governance", "owner"],
+      "kpi": "mean time to resolve a ticket"
+    },
+    "communications": {
+      "name": "Communications",
+      "agentName": "Internal Communications Assistant",
+      "domain": "announcements, employee messaging, and on-message content",
+      "audience": "communications managers, writers, and the employees they reach",
+      "problem": "Communications teams in {setting} rewrite the same announcements for different channels and audiences, and every draft has to stay on message and match what leadership has already approved.",
+      "capabilities": ["drafts an announcement in a fixed format from approved facts", "answers employee questions about a recent announcement"],
+      "knowledgeSources": [
+        "A SharePoint library of approved announcements, talking points, and style guides",
+        "A public newsroom or corporate website",
+        "A Dataverse table of the communications calendar and audiences"
+      ],
+      "sampleQuestions": [
+        "Draft a Teams post announcing the new travel policy for all employees.",
+        "What did leadership say about the reorganization in last week's update?",
+        "Which announcements are scheduled for the frontline audience this month?"
+      ],
+      "entities": ["announcement", "audience", "channel"],
+      "terms": ["announcement", "talking points", "audience", "channel", "tone"],
+      "kpi": "hours to produce a multi-channel announcement"
+    },
+    "operations": {
+      "name": "Operations",
+      "agentName": "Operations Workflow Assistant",
+      "domain": "process steps, requests, and status tracking",
+      "audience": "operations managers, coordinators, and frontline teams",
+      "problem": "Operations teams in {setting} run multi-step processes across forms, spreadsheets, and shared folders, so people ask where a request stands and re-key the same details into each system.",
+      "capabilities": ["walks a requester through the right process step with the right form", "reports where a request is and what is blocking it"],
+      "knowledgeSources": [
+        "A SharePoint library of process guides and standard operating procedures",
+        "A public supplier or partner portal",
+        "A Dataverse table of requests, owners, and status"
+      ],
+      "sampleQuestions": [
+        "What are the steps to onboard a new supplier?",
+        "Where is request 3307, and what is blocking it?",
+        "Start a purchase request for 20 replacement badges."
+      ],
+      "entities": ["request number", "owner", "due date"],
+      "terms": ["request", "process step", "handoff", "status", "backlog"],
+      "kpi": "cycle time per request"
+    },
+    "sustainability": {
+      "name": "Sustainability",
+      "agentName": "Sustainability Reporting Assistant",
+      "domain": "sustainability data, reporting periods, and methodology",
+      "audience": "sustainability analysts, reporting leads, and facilities teams",
+      "problem": "Sustainability teams in {setting} collect figures from facilities, suppliers, and utilities, and each number has to be tied to a reporting period, a methodology, and a source document before it can be reported.",
+      "capabilities": ["returns a figure with its reporting period and source document", "explains which methodology a metric follows"],
+      "knowledgeSources": [
+        "A SharePoint library of reporting methodologies, supplier statements, and audit evidence",
+        "A public standards or regulatory guidance website",
+        "A Dataverse table of facilities, metrics, and reporting periods"
+      ],
+      "sampleQuestions": [
+        "What were total energy use figures for the Denver site in the last reporting year?",
+        "Which methodology do we use for supplier emissions estimates?",
+        "Which facilities have not submitted data for this period?"
+      ],
+      "entities": ["facility", "metric", "reporting period"],
+      "terms": ["reporting period", "methodology", "emissions", "facility", "evidence"],
+      "kpi": "days to assemble the annual sustainability report"
+    },
+    "accessibility": {
+      "name": "Accessibility",
+      "agentName": "Accessible Content Assistant",
+      "domain": "accessible content, plain-language answers, and accommodation requests",
+      "audience": "accessibility specialists, content authors, and employees who use assistive technology",
+      "problem": "Accessibility teams in {setting} answer guidance and accommodation questions from scattered standards and checklists, and every answer has to work with a screen reader and in plain language.",
+      "capabilities": ["answers accessibility guidance in plain language with a citation", "guides someone through requesting an accommodation"],
+      "knowledgeSources": [
+        "A SharePoint library of accessibility standards, checklists, and accommodation procedures",
+        "A public accessibility guidelines website",
+        "A Dataverse table of accommodation requests and their status"
+      ],
+      "sampleQuestions": [
+        "What contrast ratio do we need for body text?",
+        "How do I request a screen reader license?",
+        "Rewrite this paragraph in plain language."
+      ],
+      "entities": ["request", "content item", "accommodation"],
+      "terms": ["screen reader", "contrast", "plain language", "accommodation", "alternative text"],
+      "kpi": "days to fulfill an accommodation request"
+    }
   }
 }

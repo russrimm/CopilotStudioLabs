@@ -216,6 +216,12 @@ function objectivesSection(plan) {
     "By the end of this lab you will be able to do each of the following in your own environment, and explain to someone else why it matters. Each objective names the step that teaches it:",
     "",
     bullets(objectives),
+    ...(plan.roles.length
+      ? [
+          "",
+          `Applied to the ${sentenceList(plan.roles.map((r) => r.name))} scenario, you carry each objective into **${escapeMarkdown(plan.profile.agentName)}**, ending with ${plan.profile.outcome}.`,
+        ]
+      : []),
   ].join("\n");
 }
 
