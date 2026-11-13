@@ -82,6 +82,20 @@ Each shot still requires `id`, `filename`, `section`, and `instructions`. Option
 
 `url` navigates before prompting when the active page is elsewhere. When `url` is absent, `section` is treated as a current-agent section such as `topics`, `actions`, `agents`, `settings`, or `evaluations`; if the browser is already under `/environments/.../bots/.../`, the tool keeps the current environment/agent and replaces only the trailing section. Absolute `url` values win over `section`. If no current agent is open, the tool prints a hint and waits for manual navigation. `labSection` keeps the human lab step label for prompts. `viewport` and `zoom` reset to 1440x900 / 1.0 between shots before applying shot overrides. `highlight` is reserved for future callout-arrow work and is not implemented yet.
 
+## Feature tour screenshots
+
+`feature-shots.json` is a generated shot list with one or more shots for every feature in the lab builder catalog (`npm run feature-tour:build` regenerates it). Use `--features` to run the tool against it; the PNGs go to `docs/feature-tour/screenshots/`, and the GitHub Pages feature tour picks them up with no code changes.
+
+```bash
+node capture.js --features --list                       # captured and missing
+node capture.js --features --harness=standard --missing # one harness at a time
+node capture.js --features --feature=mc-skills,topics   # specific features
+node capture.js --features --only=85                    # a shot id
+node capture.js --features --dry-run --missing          # print the plan
+node verify-shots.js --lab=feature-tour --missing       # list what is still pending
+```
+
+Feature shots also print the steps to reach the screen and the numbered callouts. After each snap the tool writes `<name>.callouts.json` with the position of every callout so the site can draw hotspots. `--feature` and `--harness` filters combine with `--missing`, `--all`, `--only`, `--range`, and `--from`. Missing feature screenshots are reported as pending, not failures; add `--strict-missing` to `verify-shots.js` to fail on them. See [`docs/feature-tour.md`](../../docs/feature-tour.md) for the full workflow, prerequisites, and order.
 ## Notes
 
 - Login state is stored in `tools/screenshot-capture/.auth/`. That directory is git-ignored — never commit it.

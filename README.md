@@ -175,6 +175,10 @@ default path.
 
 📖 Full documentation: [`docs/lab-builder.md`](docs/lab-builder.md)
 
+### Feature tour site
+
+A static GitHub Pages site shows a screenshot and an explanation for every feature in the lab builder catalog, with a guided tour across the Standard harness and the Microsoft Copilot harness. It is generated from `features.json`, so it stays in sync with the catalog. See [`docs/feature-tour.md`](docs/feature-tour.md) for how to refresh it, capture the screenshots, and publish it.
+
 ---
 
 ## ⚡ Portal Features

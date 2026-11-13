@@ -2,7 +2,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { checkFeatureShots } from './feature-shots-check.mjs';
 
+const FEATURE_TOUR_LAB = 'feature-tour';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..', '..');
@@ -18,6 +20,8 @@ const args = process.argv.slice(2);
 const emitJson = args.includes('--json');
 const strict = args.includes('--strict');
 const checkState = args.includes('--check-state');
+const strictMissing = args.includes('--strict-missing');
+const listMissing = args.includes('--missing');
 const labArg = args.find((arg) => arg.startsWith('--lab='));
 const scopedLab = labArg ? labArg.slice('--lab='.length) : null;
 
@@ -358,6 +362,28 @@ for (const [lab, catalogs] of catalogsByLab.entries()) {
   }
 }
 
+if (!scopedLab || scopedLab === FEATURE_TOUR_LAB) {
+  const featureResult = checkFeatureShots({
+    repoRoot,
+    manifestPath: path.join(repoRoot, 'tools', 'screenshot-capture', 'feature-shots.json'),
+    strictMissing
+  });
+  ensureLab(FEATURE_TOUR_LAB).shotFiles.push(featureResult.file);
+  ensureLab(FEATURE_TOUR_LAB).assetsDir = 'docs/feature-tour/screenshots';
+  for (const finding of featureResult.findings) {
+    const { severity, code, message, ...details } = finding;
+    addFinding(FEATURE_TOUR_LAB, severity, code, message, details);
+  }
+  report.shotFiles.push({ file: featureResult.file, lab: FEATURE_TOUR_LAB, valid: featureResult.findings.every((f) => f.severity !== 'critical'), shots: [] });
+  report.summary.shotFiles = report.shotFiles.length;
+  report.featureTour = {
+    total: featureResult.total,
+    captured: featureResult.captured,
+    pending: featureResult.missing.length,
+    missing: featureResult.missing
+  };
+}
+
 report.summary.labs = Object.keys(report.labs).filter((lab) => lab !== 'repo').length;
 report.ok = report.summary.critical === 0 && (!strict || report.summary.warning === 0);
 
@@ -374,6 +400,13 @@ function printHumanReport() {
   console.log(`Root: ${repoRoot}`);
   console.log(`Mode: ${strict ? 'strict' : 'default'}${checkState ? ', check-state' : ''}${scopedLab ? `, lab=${scopedLab}` : ''}`);
   console.log(`Summary: ${report.summary.critical} critical, ${report.summary.warning} warnings, ${report.summary.shotFiles} shots.json file(s)`);
+  if (report.featureTour) {
+    const ft = report.featureTour;
+    console.log(`Feature tour screenshots: ${ft.captured} of ${ft.total} captured, ${ft.pending} pending${listMissing ? '' : ' (run with --missing to list them)'}`);
+    if (listMissing) {
+      for (const item of ft.missing) console.log(`  pending #${item.id} ${item.filename} (${item.feature})`);
+    }
+  }
   const labs = Object.keys(report.labs).sort();
   if (labs.length === 0) {
     console.log('\nNo labs found.');

@@ -1,0 +1,70 @@
+name: Publish feature tour to GitHub Pages
+
+# Builds the Copilot Studio feature tour from the lab builder catalog and
+# deploys it. One-time setup: Settings > Pages > Build and deployment >
+# Source: GitHub Actions. See docs/feature-tour.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "portal/lib/lab-builder/features.json"
+      - "tools/feature-tour/**"
+      - "tools/screenshot-capture/feature-shots.json"
+      - "docs/feature-tour/**"
+      - ".github/workflows/feature-tour-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+
+      # Refuses to publish when the committed shot list is stale or a feature
+      # lacks a site entry, so the published site always matches the catalog.
+      - name: Check the shot list is current
+        run: node tools/feature-tour/build.mjs --check
+
+      - name: Test the feature tour
+        run: node --test "tools/feature-tour/test/*.test.mjs"
+
+      - name: Build the site
+        run: node tools/feature-tour/build.mjs --out=_site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
