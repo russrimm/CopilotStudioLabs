@@ -1880,7 +1880,7 @@ async function fetchValidationResults() {
   return buildValidationData();
 }
 
-async function runValidation() {
+async function runValidation(options = {}) {
   const summary = document.getElementById("validation-summary");
   const results = document.getElementById("validation-results");
   if (summary) {
@@ -1893,6 +1893,7 @@ async function runValidation() {
   try {
     const data = await fetchValidationResults();
     toast(`Validation complete for ${data.summary.total} lab(s)`, data.summary.failed > 0 ? "error" : "success");
+    if (options.steps) window.StepValidation?.start();
     return data;
   } catch (err) {
     if (summary) {
@@ -1906,7 +1907,7 @@ async function runValidation() {
   }
 }
 
-async function runLabValidation(labId) {
+async function runLabValidation(labId, options = {}) {
   const res = await fetch(`/api/validate/${labId}`);
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Validation failed");
@@ -1915,6 +1916,7 @@ async function runLabValidation(labId) {
   validationTimestamp = data.timestamp || new Date().toISOString();
   renderValidationResults(buildValidationData());
   toast(`Validation updated for ${data.title || labId}`, data.failed > 0 ? "error" : "success");
+  if (options.steps) window.StepValidation?.start([data.labId]);
   return data;
 }
 
@@ -1955,7 +1957,7 @@ function renderValidationResults(data) {
             </div>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
               <span class="tag ${badge.className}">${badge.icon} ${badge.text}</span>
-              <button class="btn btn-sm" onclick="runLabValidation('${lab.labId}')">Run</button>
+              <button class="btn btn-sm" onclick="runLabValidation('${lab.labId}', { steps: true })">Run</button>
             </div>
           </div>
           <details ${lab.failed > 0 ? "open" : ""}>
