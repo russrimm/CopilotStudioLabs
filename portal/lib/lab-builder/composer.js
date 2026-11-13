@@ -487,6 +487,14 @@ function stepProvenance(record, feature) {
   }
 
   if (!record || record.source !== "doc-derived") {
+    if (feature?.learnTopic) {
+      return [
+        "",
+        "*[Unverified] This topic is new on Microsoft Learn and is not in this repository's reviewed catalog, so it has no curated steps. " +
+          "The text above comes from its Learn article summary, and no procedure could be read from the article during this build. " +
+          "Follow the Microsoft Learn link in this module and trust it over anything written here.*",
+      ];
+    }
     const why =
       record?.reason === "fetch-failed"
         ? "its documentation page could not be read"

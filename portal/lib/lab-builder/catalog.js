@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { getConcepts, getKnownCoverageGaps, getRecommendations, validateConcepts } from "./concepts.js";
 import { getDifferences, validateDifferences } from "./differences.js";
 import { validateScreenshotSlots } from "./slots.js";
+import { getDynamicFeature } from "./topic-store.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CATALOG_PATH = path.join(__dirname, "features.json");
 
@@ -141,8 +142,9 @@ export function getHarnesses() {
   return load().harnesses;
 }
 
+/** A catalog feature, or a topic discovered on Microsoft Learn that the catalog does not cover yet. */
 export function getFeature(id) {
-  return load().byId.get(id) || null;
+  return load().byId.get(id) || getDynamicFeature(id);
 }
 
 export function getCoreFeatures() {
@@ -198,22 +200,24 @@ export function expandPrereqs(ids) {
  */
 export function orderFeatures(ids) {
   const { byId, features, categories } = load();
+  // Topics discovered on Learn have no catalog position; they sort after the catalog's own features.
+  const lookup = (id) => byId.get(id) || getDynamicFeature(id);
   const catalogOrder = new Map(features.map((f, i) => [f.id, i]));
   const categoryOrder = new Map(categories.map((c, i) => [c.id, i]));
   const phaseWeight = { build: 0, deploy: 1 };
-  const wanted = new Set(ids.filter((id) => byId.has(id)));
+  const wanted = new Set(ids.filter((id) => lookup(id)));
 
   const ordered = [];
   const placed = new Set();
   const visiting = new Set();
 
   const rank = (id) => {
-    const f = byId.get(id);
+    const f = lookup(id);
     return [
       phaseWeight[f.phase] ?? 0,
       categoryOrder.get(f.category) ?? 99,
       f.level,
-      catalogOrder.get(id),
+      catalogOrder.get(id) ?? features.length,
     ];
   };
 
@@ -229,7 +233,7 @@ export function orderFeatures(ids) {
   const visit = (id) => {
     if (placed.has(id) || visiting.has(id)) return;
     visiting.add(id);
-    const feature = byId.get(id);
+    const feature = lookup(id);
     for (const prereq of feature.prereqs || []) {
       if (wanted.has(prereq)) visit(prereq);
     }

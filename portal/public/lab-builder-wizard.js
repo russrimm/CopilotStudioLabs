@@ -34,6 +34,11 @@ const labBuilder = {
   excluded: new Set(),
   rec: null,
   search: "",
+  filter: "all",
+  // Freshness of the Microsoft Learn topic list, and the busy and error state of its refresh.
+  learn: null,
+  learnNew: {},
+  learnBusy: false,
   step: 1,
   furthest: 1,
   busy: false,
@@ -122,6 +127,7 @@ async function lbLoadCatalog() {
     labBuilder.harnesses = data.harnesses || [];
     labBuilder.levels = data.levels || [];
     labBuilder.differenceDefaults = data.differenceDefaults || {};
+    labBuilder.learnNew = data.learnNewByHarness || {};
     labBuilder.loaded = true;
     lbBindTopicEvents();
     lbRenderIndustries();
@@ -131,6 +137,7 @@ async function lbLoadCatalog() {
     lbRenderStepper();
     lbRenderSummary();
     lbRefresh();
+    lbLoadLearn();
     lbLoadGenerated();
   } catch (err) {
     document.getElementById("lb-industry-grid").innerHTML =
@@ -245,7 +252,8 @@ function lbRenderHarnesses() {
   el.innerHTML = labBuilder.harnesses
     .map((h) => {
       const count = features.filter((f) => (f.harness || []).includes(h.id)).length;
-      const unavailable = count === 0;
+      const fromLearn = labBuilder.learnNew[h.id] || 0;
+      const unavailable = count + fromLearn === 0;
       return `
       <label class="scenario-role ${unavailable ? "lb-unavailable" : ""}">
         <input type="radio" name="lb-harness" value="${escapeHtml(h.id)}" ${labBuilder.harness === h.id ? "checked" : ""} ${unavailable ? "disabled" : ""}>
@@ -255,7 +263,7 @@ function lbRenderHarnesses() {
           <div class="scenario-card-desc">${
             unavailable
               ? "No lab topics are available for this harness yet, so it cannot be selected."
-              : `${count} topics available.`
+              : `${count + fromLearn} topics available${fromLearn ? `, ${fromLearn} of them new from Microsoft Learn` : ""}.`
           } <a href="${escapeHtml(h.learnUrl)}" target="_blank" rel="noopener noreferrer">Learn about the ${escapeHtml(h.name)} (opens in a new tab)</a></div>
         </span>
       </label>`;
@@ -299,6 +307,135 @@ function lbRenderDifferenceOptions() {
       labBuilder.differencesFor = next;
     });
   });
+}
+
+// ── Microsoft Learn topic list: freshness, refresh, and badges ──────────────
+function lbLearnUrl(url) {
+  return typeof url === "string" && url.startsWith("https://learn.microsoft.com/") ? url : null;
+}
+
+function lbAgo(ms) {
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} days ago`;
+}
+
+function lbLearnNewByHarness(topics) {
+  const counts = {};
+  for (const topic of topics || []) {
+    if (topic.source !== "learn") continue;
+    for (const harness of topic.harnesses) counts[harness] = (counts[harness] || 0) + 1;
+  }
+  return counts;
+}
+
+function lbApplyLearn(data) {
+  labBuilder.learn = data;
+  labBuilder.learnNew = lbLearnNewByHarness(data.topics);
+  lbRenderLearnBar();
+  lbRenderHarnesses();
+}
+
+function lbRenderLearnBar() {
+  const status = document.getElementById("lb-learn-status");
+  const button = document.getElementById("lb-learn-refresh");
+  if (!status || !button) return;
+  const learn = labBuilder.learn;
+  button.disabled = labBuilder.learnBusy || Boolean(learn?.disabled);
+  button.setAttribute("aria-busy", String(labBuilder.learnBusy));
+  if (labBuilder.learnBusy) {
+    status.textContent = "Refreshing the topic list from Microsoft Learn. This can take up to a minute.";
+    return;
+  }
+  if (!learn) {
+    status.textContent = "Checking when the topic list was last refreshed from Microsoft Learn...";
+    return;
+  }
+  const newCount = learn.topics.filter((t) => t.source === "learn").length;
+  const parts = [];
+  if (!learn.refreshedAt) {
+    parts.push("Microsoft Learn topics are not available, so only the built-in catalog is shown.");
+  } else {
+    const when = new Date(learn.refreshedAt);
+    const stamp = when.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    const label = learn.source === "cache" ? "Last refreshed from Microsoft Learn" : "Built-in Microsoft Learn snapshot";
+    parts.push(`${label}: ${stamp} (${lbAgo(learn.ageMs)}).`);
+    parts.push(`${newCount} new topic${newCount === 1 ? "" : "s"} from Learn.`);
+  }
+  if (learn.disabled) parts.push("Refreshing is turned off on this server.");
+  else if (learn.refreshing) parts.push("A refresh is running in the background.");
+  else if (learn.stale && learn.refreshedAt) parts.push("This list is older than the refresh interval.");
+  if (learn.offline) parts.push("Microsoft Learn could not be reached, so the last saved list is shown.");
+  if (learn.partial) parts.push("The last refresh was cut short, so some pages may be missing.");
+  status.textContent = parts.join(" ");
+}
+
+async function lbLoadLearn() {
+  try {
+    const res = await fetch("/api/lab-builder/topics");
+    if (!res.ok) throw new Error(`Request failed (${res.status})`);
+    lbApplyLearn(await res.json());
+  } catch (err) {
+    const status = document.getElementById("lb-learn-status");
+    if (status) status.textContent = "The Microsoft Learn topic list is unavailable right now. The built-in catalog is shown.";
+  }
+}
+
+async function lbRefreshLearn() {
+  if (labBuilder.learnBusy) return;
+  const error = document.getElementById("lb-learn-error");
+  if (error) error.textContent = "";
+  labBuilder.learnBusy = true;
+  lbRenderLearnBar();
+  try {
+    const res = await fetch("/api/lab-builder/topics/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      /* a non-JSON failure is reported by status below */
+    }
+    if (data?.topics) lbApplyLearn(data);
+    if (!res.ok) {
+      const wait = res.headers.get("Retry-After");
+      throw new Error(`${data?.error || `Request failed (${res.status})`}${wait ? ` Try again in ${wait} seconds.` : ""}`);
+    }
+    toast(data.refresh?.changed ? "The topic list was refreshed from Microsoft Learn." : "Refreshed. Nothing changed on Microsoft Learn.", "success");
+  } catch (err) {
+    if (error) error.textContent = `Could not refresh from Microsoft Learn: ${String(err.message).replace(/[.\s]*$/, ".")} Your last saved topic list is still in use.`;
+  } finally {
+    labBuilder.learnBusy = false;
+    lbRenderLearnBar();
+    await lbRefresh();
+  }
+}
+
+/** Text badges, so meaning never rests on color alone. */
+function lbLearnBadges(topic) {
+  const learn = topic.learn;
+  if (!learn) return "";
+  if (learn.status === "new") {
+    return `<span class="lb-badge lb-badge-new">New from Learn</span>${learn.updated ? '<span class="lb-badge lb-badge-updated">Updated</span>' : ""}`;
+  }
+  if (learn.status === "updated") return '<span class="lb-badge lb-badge-updated">Updated</span>';
+  if (learn.status === "stale") return '<span class="lb-badge lb-badge-moved">Docs moved</span>';
+  return "";
+}
+
+function lbMatchesFilter(topic) {
+  const status = topic.learn?.status;
+  if (labBuilder.filter === "new") return status === "new";
+  if (labBuilder.filter === "updated") return status === "updated" || topic.learn?.updated === true;
+  if (labBuilder.filter === "moved") return status === "stale";
+  return true;
 }
 
 // ── Step 5: topics ──────────────────────────────────────────────────────────
@@ -378,6 +515,10 @@ function lbBindTopicEvents() {
     labBuilder.search = event.target.value.trim().toLowerCase();
     lbRenderTopics();
   });
+  document.getElementById("lb-topic-filter")?.addEventListener("change", (event) => {
+    labBuilder.filter = event.target.value;
+    lbRenderTopics();
+  });
 }
 
 function lbRenderTopics() {
@@ -407,7 +548,9 @@ function lbRenderTopics() {
         </section>`;
       }
       const topics = concept.topics.filter(
-        (t) => !query || t.name.toLowerCase().includes(query) || t.summary.toLowerCase().includes(query) || t.id.includes(query)
+        (t) =>
+          lbMatchesFilter(t) &&
+          (!query || t.name.toLowerCase().includes(query) || t.summary.toLowerCase().includes(query) || t.id.includes(query))
       );
       if (!topics.length) return "";
       return `
@@ -432,8 +575,12 @@ function lbRenderTopics() {
                   t.required ? '<span class="lb-badge lb-badge-required">Required prerequisite</span>' : ""
                 }${
                   t.availability ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>` : ""
-                }</span>
+                }${lbLearnBadges(t)}</span>
                 <span id="lb-topic-desc-${escapeHtml(t.id)}" class="lb-feature-summary">${escapeHtml(t.summary)}</span>
+                ${t.source === "learn" && lbLearnUrl(t.learn?.url)
+                  ? `<span class="lb-feature-note">Source: Microsoft Learn, not yet reviewed for this repository. <a class="lb-learn-source" href="${escapeHtml(t.learn.url)}" target="_blank" rel="noopener noreferrer">Read the article (opens in a new tab)</a></span>`
+                  : ""}
+                ${t.learn?.status === "stale" ? '<span class="lb-feature-note">The Microsoft Learn pages this topic cites could not be found. Its steps are checked against Learn when the lab is built.</span>' : ""}
                 ${t.reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(t.reasons.join(". "))}</span>` : ""}
                 ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(t.harnessNote)}</span>` : ""}
               </span>

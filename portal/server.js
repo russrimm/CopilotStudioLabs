@@ -33,6 +33,8 @@ import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builde
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
 import { listGeneratedLabs, readGeneratedLab, resolveGeneratedAsset } from "./lib/lab-builder/generated-labs.js";
+import { getTopicService } from "./lib/lab-builder/topic-service.js";
+import { learnContext, newTopicCounts, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
 import { renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
@@ -439,12 +441,16 @@ app.get("/api/lab-builder/features", (_req, res) => {
       concepts: getConcepts().map(({ id, name, order, summary }) => ({ id, name, order, summary })),
       differenceDefaults: Object.fromEntries(getHarnesses().map((h) => [h.id, defaultDifferencesFor(h.id)])),
       totalFeatures: getFeatures().length,
+      learnNewByHarness: newTopicCounts(getTopicService()),
       catalogIssues: validateCatalog(),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Learn topic list: GET /api/lab-builder/topics and POST /api/lab-builder/topics/refresh (behind requireAuth above)
+registerTopicRoutes(app, { getService: getTopicService, createRateLimiter, positiveIntFromEnv });
 
 /**
  * POST /api/lab-builder/recommend — Topics for the chosen vertical, departments,
@@ -453,7 +459,7 @@ app.get("/api/lab-builder/features", (_req, res) => {
  */
 app.post("/api/lab-builder/recommend", (req, res) => {
   try {
-    res.json(recommend(req.body || {}));
+    res.json(recommend(req.body || {}, learnContext(getTopicService())));
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1543,5 +1549,6 @@ app.listen(PORT, HOST, () => {
       "This exposes an unauthenticated Azure CLI to the network.",
     );
   }
+  if (getTopicService().startAutoRefresh()) console.log("   Learn topic list: scheduled refresh is on");
   console.log("");
 });

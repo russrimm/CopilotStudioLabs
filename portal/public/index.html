@@ -983,6 +983,13 @@
     .btn-small { padding: 4px 10px; font-size: 12px; }
     .lb-topic-reason { display: block; font-size: 12px; margin-top: 4px; color: var(--text); }
     .lb-badge-required { border-style: double; border-width: 3px; }
+    .lb-badge-new { border-color: var(--accent); font-weight: 600; }
+    .lb-badge-updated { border-style: dashed; border-color: var(--accent); font-weight: 600; }
+    .lb-badge-moved { border-style: double; border-width: 3px; font-weight: 600; }
+    .lb-learn-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 13px; }
+    .lb-learn-status { flex: 1 1 260px; margin: 0; }
+    .lb-learn-source { font-size: 11px; margin-left: 6px; }
+    .btn[aria-busy="true"] { cursor: progress; opacity: 0.8; }
     .lb-error { color: #fca5a5; font-size: 13px; margin: 0 0 10px; min-height: 0; }
     .lb-error:empty { display: none; }
     .lb-outline { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
@@ -2005,9 +2012,21 @@
                 We pre-selected topics from your answers and say why. Check or uncheck anything. Prerequisites are added
                 automatically; if you uncheck one, the lab assumes learners have already done it.
               </p>
+              <div class="lb-learn-bar" id="lb-learn-bar">
+                <p id="lb-learn-status" class="lb-learn-status" role="status" aria-live="polite">Checking when the topic list was last refreshed from Microsoft Learn...</p>
+                <button class="btn" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
+              </div>
+              <p id="lb-learn-error" class="lb-error" role="alert"></p>
               <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;">
                 <label for="lb-topic-search" class="lb-inline-label">Search topics</label>
                 <input type="search" id="lb-topic-search" class="lb-search" placeholder="For example: skills, MCP" style="max-width: 280px;">
+                <label for="lb-topic-filter" class="lb-inline-label">Show</label>
+                <select id="lb-topic-filter" class="lb-filter">
+                  <option value="all">All topics</option>
+                  <option value="new">New from Learn</option>
+                  <option value="updated">Updated</option>
+                  <option value="moved">Docs moved</option>
+                </select>
                 <button class="btn" type="button" onclick="lbSelectAllTopics()">Select all</button>
                 <button class="btn" type="button" onclick="lbClearTopics()">Clear</button>
                 <button class="btn" type="button" onclick="lbResetTopics()">Reset to recommended</button>

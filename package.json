@@ -9,6 +9,7 @@
     "setup:dry-run": "node setup.js --dry-run",
     "build-lab": "node tools/lab-builder/build.mjs",
     "build-lab:list": "node tools/lab-builder/build.mjs --list",
+    "refresh-topics": "node tools/lab-builder/refresh-topics.mjs",
     "capture": "cd tools/screenshot-capture && npm run capture",
     "feature-tour:build": "node tools/feature-tour/build.mjs",
     "feature-tour:check": "node tools/feature-tour/build.mjs --check",

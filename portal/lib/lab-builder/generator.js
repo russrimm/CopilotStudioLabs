@@ -345,7 +345,7 @@ async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgres
   onProgress?.({ stage: "enrich", message: "Drafting scenario narrative" });
   const overview = await llm.complete(
     SYSTEM_PROMPT,
-    `${context}\n\nModules in this lab: ${plan.features.map((f) => f.name).join(", ")}.\n\nWrite two short paragraphs introducing this lab. Paragraph one: the business problem in this industry and why an agent helps. Paragraph two: what the learner ends up with and how the modules connect. Do not list the modules verbatim.`,
+    `${context}\n\nModules in this lab: ${plan.features.map((f) => (f.learnTopic ? "a topic from Microsoft Learn" : f.name)).join(", ")}.\n\nWrite two short paragraphs introducing this lab. Paragraph one: the business problem in this industry and why an agent helps. Paragraph two: what the learner ends up with and how the modules connect. Do not list the modules verbatim.`,
     { maxTokens: 500, signal },
   );
   if (overview) enrichment.overview = overview;
@@ -367,8 +367,9 @@ async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgres
       [
         context,
         "",
-        `Module: ${feature.name}`,
-        `What it does: ${feature.summary}`,
+        `Module: ${feature.learnTopic ? "a topic from Microsoft Learn (quoted below)" : feature.name}`,
+        `What it does: ${feature.learnTopic ? "(summary quoted below)" : feature.summary}`,
+        feature.learnTopic ? quoteUntrusted("topic title and summary from Microsoft Learn", `${feature.name}\n${feature.summary}`) : "",
         `Why it matters: ${feature.whyItMatters}`,
         // The steps the learner will actually see, which are read from live
         // documentation when that succeeded. Quoted as untrusted for the same

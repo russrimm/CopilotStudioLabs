@@ -14,9 +14,12 @@ import { getFeatures, getHarnesses, expandPrereqs } from "./catalog.js";
 import { getConcepts, getRecommendations, notApplicableReason } from "./concepts.js";
 import { DIFFICULTY_BY_LEVEL, formatDuration } from "./planner.js";
 import { getIndustries, getRoles } from "../scenarios.js";
+import { topicToFeature } from "./topic-feature.js";
+import { UNCATEGORIZED } from "./topic-snapshot.js";
 
 export const DEFAULT_HARNESS = "standard";
 const LEVELS = [100, 200, 300];
+const DAY_MS = 86400000;
 
 function toLevel(value) {
   if (value === undefined || value === null || value === "") return 100;
@@ -45,9 +48,14 @@ function addReason(reasons, id, reason) {
  * @param {number} [answers.level]          100, 200, or 300
  * @param {string} [answers.harness]        harness id; defaults to the Standard harness
  * @param {string[]} [answers.selected]     the learner's own selection; replaces the recommendation
+ * @param {object} [learn]                  what Microsoft Learn discovery found; omit for the static catalog alone
+ * @param {object[]} [learn.topics]         discovered topics (only those new to the catalog are offered)
+ * @param {object[]} [learn.checks]         catalog freshness checks, for Updated and Docs moved flags
+ * @param {number} [learn.now]              clock for the Updated window
+ * @param {number} [learn.updatedWindowDays]
  * @returns {object} concepts with their topics, plus totals and warnings
  */
-export function recommend(answers = {}) {
+export function recommend(answers = {}, learn = {}) {
   const warnings = [];
   const harnesses = getHarnesses();
   const harness = answers.harness || DEFAULT_HARNESS;
@@ -66,6 +74,22 @@ export function recommend(answers = {}) {
 
   const recs = getRecommendations();
   const features = new Map(getFeatures().map((f) => [f.id, f]));
+
+  // Topics found on Microsoft Learn that the catalog does not cover. They are offered, never pre-selected.
+  const learnNow = learn.now ?? Date.now();
+  const updatedWithin = (learn.updatedWindowDays ?? 30) * DAY_MS;
+  const isRecent = (day) => Boolean(day) && learnNow - Date.parse(`${day}T00:00:00Z`) <= updatedWithin;
+  const dynamicByConcept = new Map();
+  const dynamicTopics = new Map();
+  for (const topic of learn.topics || []) {
+    if (topic.status !== "new" || features.has(topic.id)) continue;
+    features.set(topic.id, topicToFeature(topic));
+    dynamicTopics.set(topic.id, topic);
+    const concept = getConcepts().some((c) => c.id === topic.conceptId) ? topic.conceptId : UNCATEGORIZED;
+    if (!dynamicByConcept.has(concept)) dynamicByConcept.set(concept, []);
+    dynamicByConcept.get(concept).push(topic.id);
+  }
+  const checks = new Map((learn.checks || []).map((c) => [c.featureId, c]));
   const applies = (id) => features.get(id)?.harness?.includes(harness);
 
   // Why each topic is recommended. Insertion order is the display order of reasons.
@@ -127,25 +151,35 @@ export function recommend(answers = {}) {
   }
 
   const selectedIds = new Set([...chosenSet, ...requiredBy.keys()]);
-  const conceptRows = getConcepts().map((concept) => {
-    const topics = concept.features
-      .filter((id) => applies(id) || selectedIds.has(id))
-      .map((id) => {
-        const f = features.get(id);
-        return {
-          id,
-          name: f.name,
-          summary: f.summary,
-          level: f.level,
-          minutes: f.minutes,
-          availability: f.availability || null,
-          harnessNote: f.harnessNote || null,
-          harnesses: f.harness,
-          selected: selectedIds.has(id),
-          required: requiredBy.has(id) && !chosenSet.has(id),
-          reasons: reasons.get(id) || [],
-        };
-      });
+  const topicRow = (id) => {
+    const f = features.get(id);
+    const discovered = dynamicTopics.get(id);
+    const check = checks.get(id);
+    return {
+      id,
+      name: f.name,
+      summary: f.summary,
+      level: f.level,
+      minutes: f.minutes,
+      availability: f.availability || null,
+      harnessNote: f.harnessNote || null,
+      harnesses: f.harness,
+      selected: selectedIds.has(id),
+      required: requiredBy.has(id) && !chosenSet.has(id),
+      reasons: reasons.get(id) || [],
+      source: discovered ? "learn" : "catalog",
+      // `new` topics come from Learn and are not in the catalog; `updated` and `stale` flag a catalog topic whose docs changed or moved.
+      learn: discovered
+        ? { status: "new", url: discovered.urls[0], lastSeen: discovered.lastSeen, updated: isRecent(discovered.changedAt) }
+        : check?.status === "stale"
+        ? { status: "stale", missing: check.missing }
+        : check?.status === "updated" && isRecent(check.changedAt)
+        ? { status: "updated", changedAt: check.changedAt }
+        : null,
+    };
+  };
+  const makeRow = (concept, ids, extra = {}) => {
+    const topics = ids.filter((id) => applies(id) || selectedIds.has(id)).map(topicRow);
     const minutes = topics.filter((t) => t.selected).reduce((sum, t) => sum + t.minutes, 0);
     return {
       id: concept.id,
@@ -161,8 +195,27 @@ export function recommend(answers = {}) {
       topics,
       selectedCount: topics.filter((t) => t.selected).length,
       minutes,
+      ...extra,
     };
-  });
+  };
+  const conceptRows = getConcepts().map((concept) => makeRow(concept, [...concept.features, ...(dynamicByConcept.get(concept.id) || [])]));
+
+  // Discovered topics that match no concept yet still get a home, so none is hidden.
+  const loose = (dynamicByConcept.get(UNCATEGORIZED) || []).filter((id) => applies(id) || selectedIds.has(id));
+  if (loose.length) {
+    conceptRows.push(
+      makeRow(
+        {
+          id: UNCATEGORIZED,
+          name: "New from Learn: not yet grouped",
+          summary: "Topics found on Microsoft Learn that do not match a concept yet. They are unreviewed, so check each against its article.",
+          order: 999,
+          features: [],
+        },
+        loose,
+      ),
+    );
+  }
 
   const totalMinutes = conceptRows.reduce((sum, c) => sum + c.minutes, 0);
   return {
