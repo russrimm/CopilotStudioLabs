@@ -157,6 +157,13 @@
       "asymmetry": "Python enforces the same rule inside accessible-markdown, so hand-written labs and generated labs are both held to it."
     },
     {
+      "id": "harness-terminology",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "The lab never says \"GitHub Copilot harness\"; the product name is \"Microsoft Copilot harness\". Fenced code is ignored.",
+      "asymmetry": "Python enforces the same rule inside accessible-markdown, so hand-written labs and generated labs are both held to it."
+    },
+    {
       "id": "assets-dir-clean",
       "validators": ["js"],
       "scope": "lab",

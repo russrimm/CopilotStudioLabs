@@ -889,13 +889,48 @@ Each module renders as:
   came from: the documentation page and the date it was read, or a note that the
   curated catalog steps were used, why, and the date and page they were last
   verified against
+- **What you should see** — the screen to compare against (the module's last
+  figure) and the expected outcome, so a learner can confirm progress mid-module
 - **In your scenario** — the module applied to the chosen industry
+- **Sample input** — a description, starter instructions, test prompts, or sample
+  data tailored to the vertical (`teaching.js`); text that came from the caller is
+  stripped of markup so it cannot close the code fence
 - Screenshots (reused) and capture callouts (to fill in)
 - **Check your work** — per-module validation, from the curated catalog
+- **Troubleshooting** — cautions taken from the module's own concepts, a pointer
+  to the cited Learn page when a step does not match the screen, and recovery for
+  a check that is not true yet
+- **Knowledge check** — short self-check questions with expandable
+  `<details>`/`<summary>` answers
 - **Microsoft Learn references** — citations, relevance-scored and link-checked
 - **Vendor documentation** — for modules whose catalog entry lists
   `thirdPartySources`: vendor, title link, stability note, and an optional quote
   attributed to the vendor
+
+The lab as a whole adds **Licensing and permissions** to Prerequisites, objectives
+that name the step teaching them, **Cleanup** (conditioned on the modules present),
+a **Glossary**, and **Further reading on Microsoft Learn**. Every one of these is
+built from text the catalog already vets, so none invents a UI path, a limit, or a
+URL. A catalog feature may supply `expectedResults` (list of strings) or
+`troubleshooting` (list of `{ symptom, fix }`) to override the defaults. Time
+estimates stay guidance only: no block is dropped to fit a time.
+
+#### Lab quality review
+
+After composition, `assessLab()` in `portal/lib/lab-builder/qa.js` scores the lab
+0-100 and returns a per-module completeness checklist and actionable findings:
+numbered steps, expected results, verification, troubleshooting, knowledge checks,
+scenario thread, screenshots with valid alt text, time estimate, and Learn
+citation per module; objectives mapped to steps, licensing and permissions, cleanup,
+glossary, further learning, every selected topic covered, specific alt text and
+figure captions, heading order, consistent time estimates, the
+"Microsoft Copilot harness" product name, US English, repeated paragraphs, and
+sentence length. It is advisory and deterministic: it never blocks a build. The
+result appears in the CLI output, in the portal result view (**Lab quality**), in
+the `/api/lab-builder/generate` response as `qa`, and as a summary in
+`manifest.json` (`quality`). The validators separately enforce the product name
+(`harness-terminology` in `validator.js`; inside `accessible-markdown` in
+`validate_labs.py`).
 
 ---
 

@@ -566,6 +566,7 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       markdown: result.markdown,
       manifest: result.manifest,
       validation: result.validation,
+      qa: result.qa,
       warnings: result.plan.warnings,
     });
   } catch (err) {

@@ -36,6 +36,7 @@ export const RULE_IDS = Object.freeze([
   "heading-order",
   "code-fence-language",
   "expandable-notes",
+  "harness-terminology",
   "assets-dir-clean",
 ]);
 
@@ -349,6 +350,7 @@ function missingIndexResult(labId, title, labDir) {
     { name: "heading-order", status: "fail", message: "Cannot inspect heading order because index.md is missing." },
     { name: "code-fence-language", status: "fail", message: "Cannot inspect code blocks because index.md is missing." },
     { name: "expandable-notes", status: "fail", message: "Cannot inspect expandable notes because index.md is missing." },
+    { name: "harness-terminology", status: "fail", message: "Cannot inspect terminology because index.md is missing." },
   ];
 
   const assets = collectAssetFiles(labDir);
@@ -580,6 +582,15 @@ export function validateLabDir(labDir, { labId = labDir, title = labId } = {}) {
       : expandable.count
       ? `${expandable.count} expandable note(s) each have a summary and content.`
       : "No expandable notes found.",
+  });
+
+  const harnessName = outsideFences(content).match(/GitHub Copilot harness/gi) || [];
+  tests.push({
+    name: "harness-terminology",
+    status: harnessName.length ? "fail" : "pass",
+    message: harnessName.length
+      ? `Found "GitHub Copilot harness" ${harnessName.length} time(s). The product name is "Microsoft Copilot harness".`
+      : "No incorrect harness product names found.",
   });
 
   const orphanedImages = orphanedAssets.filter(
