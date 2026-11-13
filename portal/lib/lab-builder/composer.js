@@ -21,6 +21,16 @@ const PRODUCTS = "Microsoft Copilot Studio, Power Platform, Microsoft 365";
 import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
 import { buildDifferenceBlocks } from "./differences.js";
+import {
+  cleanupSection,
+  expectedResultBlock,
+  furtherLearningBlock,
+  glossarySection,
+  knowledgeCheckBlock,
+  licensingBlock,
+  sampleInputBlock,
+  troubleshootingBlock,
+} from "./teaching.js";
 
 function bullets(items, prefix = "-") {
   return items.map((item) => `${prefix} ${item}`).join("\n");
@@ -167,11 +177,11 @@ function overviewSection(plan, enrichment) {
 }
 
 function objectivesSection(plan) {
-  const objectives = plan.features.map((f) => `**${f.name}** — ${scrubForbidden(f.summary)}`);
+  const objectives = plan.features.map((f) => `**Step ${f.order} - ${f.name}:** ${scrubForbidden(f.summary)}`);
   return [
     "## Learning Objectives",
     "",
-    "By the end of this lab you will be able to configure each of the following in your own environment, and explain to someone else why it is there:",
+    "By the end of this lab you will be able to do each of the following in your own environment, and explain to someone else why it matters. Each objective names the step that teaches it:",
     "",
     bullets(objectives),
   ].join("\n");
@@ -219,7 +229,7 @@ function prerequisitesSection(plan) {
   ];
 
   if (plan.features.some((f) => f.category === "knowledge")) {
-    items.push(`Access to at least one knowledge source, for example: ${profile.knowledgeSources[0].toLowerCase()}.`);
+    items.push(`Access to at least one knowledge source, for example: ${lowerFirst(profile.knowledgeSources[0])}.`);
   }
   if (plan.features.some((f) => ["tools", "automation", "integrations"].includes(f.category))) {
     items.push("Permission to create connections in Power Platform (the lab uses at least one connector).");
@@ -262,6 +272,7 @@ function prerequisitesSection(plan) {
     bullets(profile.knowledgeSources),
     "",
     "You do not need production data. Sample documents and a handful of test records are enough to make every module work end to end.",
+    ...licensingBlock(plan, TEACH),
   ].join("\n");
 }
 
@@ -517,6 +528,8 @@ function stepProvenance(record, feature) {
   return ["", `*Read from ${link}${day ? ` on ${day}` : ""}.*`];
 }
 
+const TEACH = { scrub: scrubForbidden, esc: escapeMarkdown, lowerFirst, bullets, label: citationLabel };
+
 function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord, vendorRecords, differenceLines = []) {
   const profile = plan.profile;
   const applied =
@@ -547,14 +560,18 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     ...stepProvenance(stepsRecord, feature),
     "",
     steps.join("\n"),
+    ...expectedResultBlock(feature, shots, TEACH),
     "",
     `**In your scenario.** ${scrubForbidden(applied)}`,
+    ...sampleInputBlock(feature, plan, feature.order - 1, TEACH),
     ...screenshotBlock(shots),
     ...differenceLines,
     "",
     "**Check your work**",
     "",
     bullets(feature.validation.map((v) => `[ ] ${scrubForbidden(v)}`)),
+    ...troubleshootingBlock(feature, TEACH),
+    ...knowledgeCheckBlock(feature, plan, TEACH),
     ...citationBlock(grounding),
     ...vendorBlock(vendorRecords),
   ].join("\n");
@@ -579,7 +596,7 @@ function validationSection(plan) {
   ].join("\n");
 }
 
-function nextStepsSection(plan) {
+function nextStepsSection(plan, groundingByFeature) {
   const lines = ["## Where to Go Next", ""];
 
   if (plan.deferred.length) {
@@ -599,6 +616,8 @@ function nextStepsSection(plan) {
       "",
     );
   }
+
+  lines.push(...furtherLearningBlock(plan, groundingByFeature, TEACH));
 
   lines.push(
     "Extend the scenario itself by adding a second knowledge source, wiring a real system of record, or handing part of the work to a connected agent.",
@@ -854,7 +873,11 @@ export function composeLab(
   sections.push(
     validationSection(plan),
     "",
-    nextStepsSection(plan),
+    cleanupSection(plan, TEACH),
+    "",
+    glossarySection(plan, TEACH),
+    "",
+    nextStepsSection(plan, groundingByFeature),
     "",
     completeSection(plan),
     "",
