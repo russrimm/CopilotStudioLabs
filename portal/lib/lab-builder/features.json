@@ -4659,6 +4659,1411 @@
       ],
       "relatedLabs": [],
       "reuseScreenshots": []
+    },
+    {
+      "id": "cc-harness-choice",
+      "name": "Choose the harness (Customer Conversation harness)",
+      "category": "foundations",
+      "level": 100,
+      "minutes": 15,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Decide whether a customer-facing voice and chat scenario belongs on the Customer Conversation harness, and map its tabs to the agent lifecycle.",
+      "whyItMatters": "The harness decides the features, channels, and billing of the agent. Customer-facing scenarios with escalation to a human representative fit this harness, and picking it deliberately avoids rework and surprise Copilot Credit use.",
+      "concepts": [
+        "The Customer Conversation harness is best when an agent needs predictable responses for defined topics while still holding a fluid, natural-language conversation over voice or chat. An agent built on it is called a Customer Assist Agent.",
+        "It uses a multi-agent architecture with specialized sub-agents, each with its own escalation path to route unresolved questions to a human representative, like in contact centers or customer service.",
+        "You build, test, deploy, and monitor from five tabs (**Build**, **Preview**, **Evaluate**, **Deploy**, and **Monitor**), and the agent uses Copilot Credits."
+      ],
+      "steps": [
+        "Write down the scenario you want to build, including whether customers reach the agent by phone, on a website chat, or both, and when a human representative must take over.",
+        "Open the **Harnesses in Copilot Studio** article and compare your scenario with the **Customer Conversation harness** column in the **Compare harnesses** table.",
+        "Open **Agents powered by the Customer Conversation harness overview** and read **What is the Customer Conversation harness?** and **Key concepts**.",
+        "In the **Agent authoring surface** table, match the **Build**, **Preview**, **Evaluate**, **Deploy**, and **Monitor** tabs to the steps in **Agent lifecycle**.",
+        "Record your decision and note that using, building, testing, and evaluating the agent might consume Copilot Credits."
+      ],
+      "validation": [
+        "You can state why the scenario fits the Customer Conversation harness and give two reasons from the comparison table.",
+        "You can name the five tabs of the authoring surface and the lifecycle step each one supports."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Copilot Studio Customer Conversation harness overview",
+        "Harnesses in Copilot Studio compare Customer Conversation harness"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview",
+      "prereqs": [],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-create-agent",
+      "name": "Create an agent (Customer Conversation harness)",
+      "category": "foundations",
+      "level": 100,
+      "minutes": 20,
+      "core": true,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Create a Customer Conversation agent from the Customer Conversation tile, review the generated name, description, and instructions, and open the Build tab.",
+      "whyItMatters": "Everything else hangs off the primary agent. It greets customers, classifies intent, and routes conversations to specialist sub-agents, and every agent supports both Speech and Chat so you do not pick a channel up front.",
+      "concepts": [
+        "An agent built with this harness starts with a primary agent that greets customers, classifies intent, and routes conversations to specialist sub-agents that each handle a focused task.",
+        "You can describe the scenario in natural language, including over several messages, to generate a starting primary agent with a suggested name, description, and instructions, or start from a blank agent.",
+        "Copilot Studio and the Microsoft Contact Center Intelligence portal use the same underlying builder. Connecting an agent to a contact center can only be done from the portal, by an Omnichannel Admin."
+      ],
+      "steps": [
+        "Sign in to Copilot Studio.",
+        "On the **Home** page, under **Other ways to build**, select the **Customer Conversation** tile. Or, on the **Agents** page, select **New agent**, and then select **Agent** from the list, shown with a **Customer Conversation** badge.",
+        "Describe the scenario you want the agent to handle in the text box. Or, under **Start from scratch**, select **Create agent** to start from a blank primary agent.",
+        "In the **Name** field, confirm or update the name of the primary agent.",
+        "In the **Description** field, confirm or update what the agent handles, so the orchestrator knows when to route conversations to it. The field has a 1,024-character limit.",
+        "In the **Instructions** section, confirm or update the role, tone, and rules. General instructions have a hard limit of 20,000 characters.",
+        "On the **Build** tab, select the primary agent's card to open its configuration panel."
+      ],
+      "validation": [
+        "The agent appears on the **Agents** page with a **Customer Conversation** badge.",
+        "The **Name**, **Description**, and **Instructions** fields hold the values you confirmed.",
+        "The **Build** tab shows the primary agent's card and its configuration panel."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-create-agent-home.png",
+          "section": "home",
+          "instructions": [
+            "Open the **Home** page and scroll to **Other ways to build**.",
+            "Show the **Customer Conversation** tile before you select it."
+          ]
+        },
+        {
+          "filename": "cc-create-agent-fields.png",
+          "section": "build",
+          "instructions": [
+            "Open the new agent and select the **Build** tab.",
+            "Show the **Name**, **Description**, and **Instructions** fields on the primary agent's configuration panel."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Create an agent Customer Conversation Copilot Studio preview",
+        "Customer Assist Agent Customer Conversation tile Other ways to build"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent-customer-conversation",
+      "prereqs": [],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-instructions",
+      "name": "Details and instructions (Customer Conversation harness)",
+      "category": "foundations",
+      "level": 100,
+      "minutes": 20,
+      "core": true,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Write the primary agent's description and instructions, add separate Speech and Chat guidance, and keep the instructions concise.",
+      "whyItMatters": "The agent depends on instructions to decide which tools, knowledge, skills, or sub-agents to use and how to answer. Voice and chat need different wording, and long instructions use up conversation context.",
+      "concepts": [
+        "The **Description** (up to 1,024 characters) tells the orchestrator when to route conversations to the agent. **Instructions** shape behavior, tone, and scope, with a hard limit of 20,000 characters on each tab.",
+        "Only the primary agent's instructions have separate **Speech** and **Chat** tabs, which layer modality-specific guidance on top of the **General** tab.",
+        "Type / in the instructions to insert tools, topics, and variables, or to reference a sub-agent by name. The agent can only invoke what you have added and configured on it."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "Select the primary agent's card to open its configuration panel.",
+        "In the **Name** field, enter or update the agent's display name.",
+        "In the **Description** field, describe what the agent handles. Select **See an example** for a sample description.",
+        "In the **Instructions** section, on the **General** tab, describe what the agent does, its tone, and its rules. Type / to insert tools, topics, and variables.",
+        "Select the **Speech** tab and add guidance for phone calls, such as a warm, professional tone and short responses.",
+        "Select the **Chat** tab and add guidance for web chat, such as response length and formatting preferences.",
+        "Select **Save**."
+      ],
+      "validation": [
+        "The **General**, **Speech**, and **Chat** tabs each hold their own guidance, and instructions that apply to both are not repeated on the two modality tabs.",
+        "The **Description** is under 1,024 characters and does not overlap with any sub-agent's description."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-instructions-tabs.png",
+          "section": "build",
+          "instructions": [
+            "Open the primary agent's configuration panel on the **Build** tab.",
+            "Show the **Instructions** section with the **General**, **Speech**, and **Chat** tabs."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Configure agent details and instructions Customer Conversation",
+        "Customer Conversation harness Speech and Chat instructions tabs"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-instructions-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/speech-chat-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-instructions-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-model-mode",
+      "name": "Select a model mode (Customer Conversation harness)",
+      "category": "foundations",
+      "level": 200,
+      "minutes": 15,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Choose the Auto model mode that fits chat (optimized for cost) or voice (optimized for latency) for the primary agent and all its sub-agents.",
+      "whyItMatters": "The model decides reasoning, response quality, and speed. Voice and real-time scenarios need low latency, while chat and text-first scenarios can favor cost.",
+      "concepts": [
+        "The model mode you pick on the primary agent applies to the primary agent and all sub-agents. **Auto — optimized for cost** uses the latest supported text model, and **Auto — optimized for latency** uses the latest supported speech-to-speech model.",
+        "A third mode, **Finetuned model: optimized for contact center**, is listed as coming soon and is not currently available.",
+        "A connected agent hosted in Microsoft Foundry uses a model selected separately in Microsoft Foundry. Administrators can allow or block preview and experimental models, and Learn advises against using them in production."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "In the primary agent, select the model mode you want: **Auto — optimized for cost** for chat and text-first scenarios, or **Auto — optimized for latency** for voice and real-time scenarios.",
+        "Save your changes, open the **Preview** tab, and ask the same question in **Web Chat** and in **Voice Call** to compare the experience."
+      ],
+      "validation": [
+        "The primary agent shows the model mode you selected.",
+        "You can explain why the selected mode fits the channel your customers use most."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-model-mode.png",
+          "section": "build",
+          "instructions": [
+            "Open the primary agent's configuration panel on the **Build** tab.",
+            "Show the model mode choices with the selected mode visible."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Select a model for an agent Customer Conversation",
+        "Customer Conversation Auto optimized for latency speech-to-speech model"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-select-agent-model-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-select-agent-model-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-knowledge",
+      "name": "Add knowledge (Customer Conversation harness)",
+      "category": "knowledge",
+      "level": 100,
+      "minutes": 20,
+      "core": true,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Add public websites, files, Dynamics 365, or a source that needs authentication to the primary agent or a sub-agent, and plan for sources that only work in Chat.",
+      "whyItMatters": "Knowledge grounds the agent's answers in your organization's data. Speech channels do not support end-user sign-in, so a source scoped to the signed-in user's permissions only works for Chat conversations.",
+      "concepts": [
+        "The **Add knowledge** dialog opens to a **Featured** tab, with an **Advanced** tab for more source types. Sources you can add directly include **Public websites**, **Files**, and **Dynamics 365**.",
+        "Sources under **Requires authentication**, such as **SharePoint**, **Dataverse**, **Salesforce**, and **ServiceNow**, need **Change authentication** first, which opens the **Security** tab of **Shared Settings**. They use end-user authentication, so they are available only in Chat conversations.",
+        "Search quality for third-party sources such as Salesforce or ServiceNow depends on the provider's search capabilities."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "Select the primary agent's card to open its configuration panel. To give a sub-agent its own knowledge, select that sub-agent's card instead.",
+        "In the **Knowledge** section, select **Add knowledge**.",
+        "In the **Add knowledge** dialog, choose a source on the **Featured** tab, or open the **Advanced** tab for more source types. For a source under **Requires authentication**, select **Change authentication** first and set the **Authentication mode**.",
+        "Select the source type you want and follow its configuration steps.",
+        "Select **Add to agent** to confirm."
+      ],
+      "validation": [
+        "The source is listed in the **Knowledge** section of the agent you selected.",
+        "On the **Preview** tab, a question the source can answer returns an answer with a citation that matches the source."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-knowledge-add-dialog.png",
+          "section": "build",
+          "instructions": [
+            "In the **Knowledge** section, select **Add knowledge**.",
+            "Show the **Add knowledge** dialog with the **Featured** tab and the **Requires authentication** group visible."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add knowledge to an agent Customer Conversation",
+        "Available knowledge sources for agents Customer Conversation"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-add-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-sources-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-add-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-add-tools",
+      "name": "Add and manage tools (Customer Conversation harness)",
+      "category": "tools",
+      "level": 200,
+      "minutes": 25,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Add a tool from the Add a tool dialog, write a clear name and description, and edit or remove it later.",
+      "whyItMatters": "Tools let the agent perform actions and retrieve live data. The agent's orchestration reads the tool's name and description to decide when to call it, so vague or overlapping descriptions cause wrong or missed calls.",
+      "concepts": [
+        "The **Add a tool** dialog has tabs for **System tools**, **Popular**, **Prompt**, **Model Context Protocol**, **Connector**, **REST API**, and **Workflows**. Each tool type fits a different kind of system.",
+        "Use clear, specific names and descriptions that explain when the tool should be used and what it returns, and avoid similar names or descriptions across tools, skills, topics, and sub-agents.",
+        "In the **Edit tool** panel you can change the name, description, inputs, and what the agent does **After running** the tool. Prebuilt tools such as **Escalate** and **Biometric authentication** might not be removable the same way as tools you add yourself."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "Select the primary agent's card to open its configuration panel. To scope a tool to a sub-agent, select that sub-agent's card instead.",
+        "In the **Tools** section, select **Add tool**.",
+        "In the **Add a tool** dialog, browse or search for a tool, and use the tabs to filter by tool type.",
+        "Select the tool to view its description and actions, and then select **Add**.",
+        "If prompted, authenticate, and for a connector select which actions to make available to the agent.",
+        "Select the tool's chip in the **Tools** section to open the **Edit tool** panel, review the **Name** and **Description**, and select **Save**."
+      ],
+      "validation": [
+        "The tool appears as a chip in the **Tools** section of the agent you selected.",
+        "On the **Preview** tab, a question that needs the tool makes the agent call it, and the Activity map shows the call."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-add-tool-dialog.png",
+          "section": "build",
+          "instructions": [
+            "In the **Tools** section, select **Add tool**.",
+            "Show the **Add a tool** dialog with the tool type tabs visible."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add a tool to an agent Customer Conversation",
+        "Available tools for agents Customer Conversation"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-tools-custom-agent-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-available-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-manage-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-tools-custom-agent-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-escalate-human",
+      "name": "Escalate to a human representative (Customer Conversation harness)",
+      "category": "tools",
+      "level": 200,
+      "minutes": 30,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Add the prebuilt Escalate tool and configure a Teams Phone, Email, or Customer Engagement path so unresolved conversations reach a person.",
+      "whyItMatters": "Escalation is the safety net of a contact-center agent. A defined path hands the customer to a human representative, with conversation context where the path supports it, instead of leaving the customer stuck.",
+      "concepts": [
+        "**Escalate** is a prebuilt system tool with three paths: **Teams Phone** for immediate voice assistance, **Email** when a specialist can follow up later, and **Customer Engagement** for a live representative.",
+        "With **Customer Engagement**, a customer can ask for a live agent at any point, or the agent's instructions can trigger it. The agent sends the entire conversation to the engagement hub, which finds the best available live agent.",
+        "Select **Make this the default tool** to use a path when an agent or sub-agent has no escalation configured. Each sub-agent can have its own escalation path, such as a different queue."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "Select the primary agent's card, or a sub-agent's card, to open its configuration panel.",
+        "In the **Tools** section, select **Add tool**, select the **System tools** tab, and then select **Escalate**.",
+        "Choose the escalation path to configure: **Teams Phone**, **Email**, or **Customer Engagement**.",
+        "Enter a name and description for the tool.",
+        "For **Teams Phone**, under **Route the call**, choose **External phone number or SIP URI** or **Teams call queue via Tags**. For **Email**, enter one or more addresses under **Recipients**.",
+        "To use this path when an agent or sub-agent has no escalation configured, select **Make this the default tool**.",
+        "Select **Add**."
+      ],
+      "validation": [
+        "The **Escalate** tool appears in the **Tools** section with the path you chose.",
+        "On the **Preview** tab, asking for a representative triggers the escalation instead of the agent attempting the task."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-escalate-teams-phone.png",
+          "section": "build",
+          "instructions": [
+            "Add the **Escalate** tool and choose **Teams Phone**.",
+            "Show the **Route the call** options and the **Make this the default tool** option."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add prebuilt contact center tools Customer Conversation Escalate",
+        "Customer Conversation harness escalate Teams Phone email Customer Engagement"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-prebuilt-add-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-prebuilt-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-prebuilt-add-customer-conversation",
+      "prereqs": [
+        "cc-add-tools"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-skills",
+      "name": "Skills (Customer Conversation harness)",
+      "category": "tools",
+      "level": 200,
+      "minutes": 25,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Add a Generative skill for flexible behavior and a Topic skill for deterministic logic from the Add skill dialog.",
+      "whyItMatters": "Skills package reusable behaviors. A Generative skill lets the agent reason in the moment, while a Topic skill gives the predictable, repeatable logic that customer-facing scenarios often need.",
+      "concepts": [
+        "A **Generative** skill is instructions-based: the agent reasons over your instructions. A **Topic** skill is a deterministic, authored flow of steps and conditions, the same concept as Topics elsewhere in Copilot Studio.",
+        "A generative skill name is kebab-case, up to 64 characters, with a description of up to 200 characters that the orchestrator uses to route requests.",
+        "To preserve conversation context, keep each skill to about 3,000 characters of instructions and use no more than 10 skills per sub-agent. These are recommendations, not hard limits."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "Select the primary agent's card, or a sub-agent's card, to open its configuration panel.",
+        "In the **Skills** section, select **Add skill**.",
+        "In the **Add skill** dialog, select the **Generative** tab. Enter a **Skill name** in kebab-case, a **Description**, and the **Instructions**, typing / to add tools or variables.",
+        "Select **Add skill**. The skill appears in the **Skills** list for this agent.",
+        "To add a deterministic skill, select **Add skill** again and select the **Topic** tab.",
+        "Under **Topic**, pick an existing topic or leave **Create topic** selected, enter a **Skill name** and **Description**, and select **Add skill** to open the topic canvas."
+      ],
+      "validation": [
+        "Both skills are listed in the **Skills** section.",
+        "On the **Preview** tab, a request that matches each skill's description activates that skill."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-add-skill-dialog.png",
+          "section": "build",
+          "instructions": [
+            "In the **Skills** section, select **Add skill**.",
+            "Show the **Add skill** dialog with the **Generative** and **Topic** tabs."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Create a skill Customer Conversation Generative Topic skills",
+        "Skills overview Customer Conversation harness topic skill"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-create-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-create-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-mcp-server",
+      "name": "Add an MCP server (Customer Conversation harness)",
+      "category": "tools",
+      "level": 200,
+      "minutes": 25,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Add a Model Context Protocol server from the gallery, create its connection, and test that the agent calls its tools.",
+      "whyItMatters": "MCP exposes tools from custom services, databases, or internal APIs through a standard protocol, so the agent can use them without a custom connector for each one.",
+      "concepts": [
+        "When you add an MCP server, every tool the server exposes becomes available for the agent to invoke during a conversation.",
+        "Connection values vary by server: some need only a display name, others an endpoint URL and API key, or a hostname and workspace ID. Rely on the server's description and **Connector documentation** link.",
+        "If the agent does not call the tool when you expect it to, refine the tool name, the tool description, or the agent's instructions."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "Select the primary agent's card, or a sub-agent's card, to open its configuration panel.",
+        "In the **Tools** section, select **Add tool**.",
+        "In the **Add a tool** dialog, select the **Model Context Protocol** tab, and then select a server.",
+        "Review the server's description. If it has a **Connector documentation** link, use it to learn about capabilities and setup.",
+        "If a connection isn't already set up, select **Create new connection** and provide the values the server requires.",
+        "Select **Create**, and then select **Add and configure** to add the server's tools to your agent.",
+        "Select the **Preview** tab and ask a question that requires one of the server's tools."
+      ],
+      "validation": [
+        "The server's tools are listed in the **Tools** section.",
+        "The agent's response shows that the MCP tool was invoked as expected."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-mcp-gallery.png",
+          "section": "build",
+          "instructions": [
+            "In the **Add a tool** dialog, select the **Model Context Protocol** tab.",
+            "Show the list of servers and the selected server's description."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add a Model Context Protocol MCP server Customer Conversation",
+        "Copilot Studio Customer Conversation MCP server tool"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-mcp-server-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-available-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-mcp-server-customer-conversation",
+      "prereqs": [
+        "cc-add-tools"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-sub-agents",
+      "name": "Add a sub-agent (Customer Conversation harness)",
+      "category": "orchestration",
+      "level": 200,
+      "minutes": 30,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Build a specialist sub-agent inside the primary agent, pass data with input and output variables, and test that routing reaches it.",
+      "whyItMatters": "Sub-agents work like departments in a contact center. Each handles one focused intent with its own tools, knowledge, and escalation path, and the primary agent routes between them.",
+      "concepts": [
+        "A sub-agent shares configuration, deployment, and application lifecycle management (ALM) with its primary agent. A connected agent keeps its own, can be reused across primary agents, and is covered in a separate module.",
+        "The primary agent's orchestration evaluates each message against the name, description, and instructions of every sub-agent. Keep sub-agents mutually exclusive and avoid similar names or descriptions.",
+        "A sub-agent has a **Name** of up to 42 characters, a **Description** of up to 1,024 characters, and **Instructions** of up to 20,000 characters. For output, choose whether the response is returned verbatim or summarized by the primary agent."
+      ],
+      "steps": [
+        "Sign in to Copilot Studio and open the primary agent you want to add a sub-agent to.",
+        "On the **Build** tab, select **Add a sub-agent**.",
+        "In the **Name** field, enter a name for the sub-agent (up to 42 characters).",
+        "In the **Description** field, describe the intent this sub-agent handles. Make it specific enough that the orchestrator can tell it apart from your other agents.",
+        "In the **Instructions** section, describe the sub-agent's role, tone, and rules.",
+        "Add the skills, tools, and knowledge this sub-agent needs to handle its intent.",
+        "If the sub-agent needs data from the primary agent or must return data to it, configure input and output variables. Mark a variable as required if the sub-agent can't run without it, and choose whether the output is returned **verbatim** or **summarized**.",
+        "Save the sub-agent, select the **Preview** tab, and send a message that matches the sub-agent's intent. Then send a message outside its intent."
+      ],
+      "validation": [
+        "The sub-agent's card appears on the **Build** tab.",
+        "The in-scope message reflects the sub-agent's instructions, and the out-of-scope message is still handled by the primary agent or another sub-agent."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-sub-agent-form.png",
+          "section": "build",
+          "instructions": [
+            "On the **Build** tab, select **Add a sub-agent**.",
+            "Show the **Name**, **Description**, and **Instructions** fields filled in for a specialist intent."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add a sub-agent Customer Conversation Copilot Studio",
+        "Sub-agents overview Customer Conversation routing"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/sub-agents-add-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/sub-agents-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/sub-agents-add-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-connected-agent",
+      "name": "Connect a Microsoft Foundry agent (Customer Conversation harness)",
+      "category": "orchestration",
+      "level": 300,
+      "minutes": 35,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Prepare a Microsoft Foundry agent, add it as a connected agent from the Build tab, and publish the primary agent so it can communicate with Azure.",
+      "whyItMatters": "A connected agent keeps its own configuration and lifecycle, so another team can own it and several primary agents can reuse it. Its model also affects response time, which matters on voice.",
+      "concepts": [
+        "For this harness, a connected agent is currently an agent hosted in Microsoft Foundry. It can't reference tools, topics, events, sub-agents, or variables from the primary agent's orchestration.",
+        "The Foundry agent must have the **Activity protocol** endpoint enabled. A new Foundry agent exposes only the **Responses** and **A2A** endpoints by default, and without the Activity endpoint the connection fails at runtime with a 400 error.",
+        "The model selected in Microsoft Foundry affects how long the agent takes to answer, so choose one with latency that suits the scenario, especially for a voice channel."
+      ],
+      "steps": [
+        "In the Microsoft Foundry portal, locate the agent you want to connect and publish it.",
+        "Copy the **Azure AI Project Endpoint** for the agent's project and the agent's **Agent ID**, which is the agent's name.",
+        "Sign in to Copilot Studio, open the primary agent, and on the **Build** tab select the primary agent's card.",
+        "In the components panel, select **Connected agents** to open the **Add a connected agent** dialog.",
+        "Select the connection to use for **Microsoft Foundry**, or create a new one by providing the Foundry project endpoint URL, and then select **Next**.",
+        "Enter a **Name** and **Description** that explain the Foundry agent's purpose, and enter the **Agent Id**.",
+        "Select **Add Agent** and confirm the connected agent appears in the components panel.",
+        "Publish your primary agent. You don't need to deploy it to a specific channel yet."
+      ],
+      "validation": [
+        "The connected agent appears in the components panel.",
+        "On the **Preview** tab, a question in the connected agent's domain is answered through it without a 400 error."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-connected-agent-dialog.png",
+          "section": "build",
+          "instructions": [
+            "In the components panel, select **Connected agents**.",
+            "Show the **Add a connected agent** dialog with the **Name**, **Description**, and **Agent Id** fields."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add a connected agent Customer Conversation Microsoft Foundry",
+        "Connected agents overview Copilot Studio Foundry Activity protocol"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-connected-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-add-other-agents",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/sub-agents-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-connected-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-memory",
+      "name": "Memory (Customer Conversation harness)",
+      "category": "advanced",
+      "level": 200,
+      "minutes": 20,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Turn Memory on for the agent, define custom parameters with Replace or Append, reference memory variables in instructions, and test continuity across conversations.",
+      "whyItMatters": "A returning customer is met with continuity instead of a cold start, but remembered context can be incomplete or stale, so you need to know what it holds, how long it lasts, and how to use it safely.",
+      "concepts": [
+        "Memory carries short-term conversation context for 30 days. Two built-in types are active when it is on: **Customer profile** (`/customerName`) and **Conversation history** (`/pastOpenIntentList` and `/pastConversationSummary`).",
+        "You can define up to five custom parameters with a unique name, a data type of string, number, or boolean, a description of 30 to 300 characters, and up to 10 allowed values of up to 30 characters each. **Replace** keeps the latest value, and **Append** keeps a timestamped list.",
+        "One agent-level control governs the root agent and all child agents, and turning it off does not delete stored context. Don't use remembered text as proof of identity or as an authoritative record, and verify it before consequential actions. Learn does not name where the control appears in the product."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio.",
+        "Find the single agent-level control for Memory and turn it on, and confirm the change when prompted.",
+        "Optionally add a custom parameter. Give it a unique name, a data type, a description that tells the agent what to look for, and the allowed values, and then choose **Replace** or **Append** as its update mode.",
+        "In the agent's instructions, type / to reference the built-in variables, such as `/customerName` or `/pastConversationSummary`, where they should shape the response.",
+        "Have a test conversation that shares a detail, such as a customer name or an open request, and then start a new conversation.",
+        "Check whether the agent uses the remembered context, and confirm any important fact with the customer."
+      ],
+      "validation": [
+        "Memory is on for the agent, and any custom parameter shows its data type, allowed values, and update mode.",
+        "A later conversation applies context captured in an earlier one, and a fact you changed is confirmed rather than trusted blindly."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Memory Customer Conversation harness Copilot Studio preview",
+        "FAQ for Memory Customer Conversation 30 days custom parameters"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/memory-overview-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/faqs-memory-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/memory-overview-customer-conversation",
+      "prereqs": [
+        "cc-instructions"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-events",
+      "name": "Conversation events (Customer Conversation harness)",
+      "category": "conversation",
+      "level": 200,
+      "minutes": 20,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Open the Conversation events list, turn an event on or off, and edit the greeting, ending, or error logging of an event topic.",
+      "whyItMatters": "Events are the deterministic parts of the conversation, such as the greeting and the ending, so customers get a predictable experience at the key moments around the AI-driven middle.",
+      "concepts": [
+        "Every agent has **Conversation Start**, **End of Conversation**, **On Error**, **Prompt Website Login**, **Reset Conversation**, and **Silence Detection** events. You can't remove events, but you can disable and edit them.",
+        "An event is a topic, so you edit its nodes the same way as any other topic. **Prompt Website Login** applies only to chat channels.",
+        "When Voice Authentication is enabled, three more events appear: **SMS One Time Passcode**, **Biometric enrollment consent**, and **Speech collection for biometric enrollment and authentication**."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "Select the primary agent's card, or a sub-agent's card, to open its configuration panel.",
+        "In the **Events** section, select the **Conversation events** card to open the list of events.",
+        "Use the toggle next to an event to turn it on or off.",
+        "Select an event, such as **Conversation Start**, and edit the topic's nodes, for example the greeting message.",
+        "Select **Save**."
+      ],
+      "validation": [
+        "The **Conversation events** list shows the toggle state you set for each event.",
+        "On the **Preview** tab, a new conversation starts with the edited greeting."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-conversation-events.png",
+          "section": "build",
+          "instructions": [
+            "In the **Events** section, select the **Conversation events** card.",
+            "Show the list of events with their on and off toggles."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Events overview Customer Conversation Conversation Start End of Conversation",
+        "Configure events Customer Conversation harness"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/events-configure-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/events-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/events-configure-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-voice-settings",
+      "name": "Voice settings (Customer Conversation harness)",
+      "category": "conversation",
+      "level": 200,
+      "minutes": 25,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Open Voice Settings and tune the voice font, DTMF behavior, speech sensitivity or voice activity detection, silence detection, and latency messaging.",
+      "whyItMatters": "Voice is not web chat with audio attached. How the agent sounds, when it decides a caller has finished speaking, and what it does during silence or delay decide whether a phone call feels natural.",
+      "concepts": [
+        "Every agent supports Speech by default, and Voice is a configurable feature of it. Sub-agents inherit the voice settings of the primary agent.",
+        "With **Auto — optimized for cost**, speech uses Microsoft Neural Text-to-Speech with voice name, **Speaking speed**, and **Voice pitch**. With **Auto — optimized for latency**, you choose a built-in voice and a **Server VAD** or **Semantic VAD** mode.",
+        "Silence detection isn't on by default, so an agent waits indefinitely for a silent caller unless you turn it on and configure a reprompt. Latency messaging applies only to telephony channels."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "Select the primary agent's card to open its configuration panel.",
+        "Select **Voice Settings** to open the **Voice Settings** dialog.",
+        "On the voice font tab, review the **Primary language**, select a **Voice name**, and adjust **Speaking speed** and **Voice pitch**. Select **Try it out** to hear the voice.",
+        "In the DTMF settings, turn the **Allow DTMF** toggle on or off, and set the **Interdigit timeout (ms)** and **Termination key**.",
+        "Configure speech sensitivity: set **Sensitivity**, or for the latency mode choose **Server VAD** (**Threshold**, **Prefix padding**, **Silence duration**) or **Semantic VAD** (**Eagerness**).",
+        "Under **Silence detection timeout**, choose **No silence timeout** or **Silence detection timeout**, and then configure the **Silence Detection** event.",
+        "Under **Latency options**, choose **Play a message** or **Play an audio file**, and set the **Latency message**, **Send message delay (ms)**, and **Minimum playback time (ms)**.",
+        "Select **Save**, and then test with **Voice Call** on the **Preview** tab."
+      ],
+      "validation": [
+        "The **Voice Settings** dialog shows the values you saved.",
+        "In a **Voice Call** test, the agent speaks with the chosen voice and re-prompts politely during silence instead of dropping the call."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-voice-settings-dialog.png",
+          "section": "build",
+          "instructions": [
+            "On the primary agent's configuration panel, select **Voice Settings**.",
+            "Show the **Voice Settings** dialog with its tabs and the voice font options."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Configure voice settings Customer Conversation harness",
+        "Customer Conversation speech and chat settings overview DTMF silence detection"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/speech-chat-configure-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/speech-chat-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/speech-chat-configure-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-workflow-tool",
+      "name": "Add a workflow as a tool (Customer Conversation harness)",
+      "category": "automation",
+      "level": 200,
+      "minutes": 30,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Add an existing flow from the Workflows tab, configure its details, inputs, and completion behavior, and test that the agent runs it.",
+      "whyItMatters": "Workflows give the agent repeated, deterministic multi-step processes, such as approvals or data transformations, that it can run on demand instead of improvising them.",
+      "concepts": [
+        "The **Workflows** tab lists flows that are already built and available to your environment. It does not offer a way to create a new flow, so build the flow first.",
+        "In the **Edit flow** pane, **Details** holds the **Name** and **Description** that help the agent decide when to use the flow, **Inputs** the values it expects, and **Completion** what the agent does **After running** it.",
+        "If the agent doesn't invoke the workflow when you expect it to, refine the tool name, the tool description, or the agent's instructions."
+      ],
+      "steps": [
+        "Make sure the flow you want already exists in your environment.",
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "Select the primary agent's card, or a sub-agent's card, to open its configuration panel.",
+        "In the **Tools** section, select **Add tool**.",
+        "In the **Add a tool** dialog, select the **Workflows** tab, and then select a flow.",
+        "Select **Add and configure**.",
+        "In the **Edit flow** pane, enter a **Name** and **Description** under **Details**, configure any **Inputs**, and under **Completion** choose what the agent does **After running**.",
+        "Select **Save**, then select the **Preview** tab and ask a question you expect to trigger the workflow."
+      ],
+      "validation": [
+        "The workflow appears in the **Tools** section of the agent you selected.",
+        "The agent's response confirms the workflow was invoked as expected."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-workflow-edit-flow.png",
+          "section": "build",
+          "instructions": [
+            "After you select **Add and configure**, show the **Edit flow** pane.",
+            "Include the **Details**, **Inputs**, and **Completion** sections."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add a workflow to your agent as a tool Customer Conversation",
+        "Customer Conversation harness workflows tab flow tool"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-workflow-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-available-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-workflow-customer-conversation",
+      "prereqs": [
+        "cc-add-tools"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-contact-center",
+      "name": "Connect to Dynamics 365 Contact Center (Customer Conversation harness)",
+      "category": "integrations",
+      "level": 300,
+      "minutes": 40,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Connect web chat and Teams Phone to Dynamics 365 Contact Center so conversations can hand off to a person, and hand the voice setup to a contact center admin.",
+      "whyItMatters": "A contact center connection lets the agent hand a conversation to a person with context, while its web chat and Teams Phone channels keep working. The setup spans two roles, so unclear ownership leaves the voice channel unfinished.",
+      "concepts": [
+        "Connecting the channels in Copilot Studio is only part of the setup. Web chat gets its workstream automatically, but for Teams Phone connecting only sets the agent's voice status to **Connected**.",
+        "A contact center admin must still create the voice workstream, link the Teams resource account to Dynamics 365 Contact Center, sync it, and attach the phone number, using the Copilot Service admin center and Teams PowerShell.",
+        "Other contact center channels listed on the channels page are Genesys and Bring your own. Deploying an agent to a contact center from the Microsoft Contact Center Intelligence portal can only be done by an Omnichannel Admin."
+      ],
+      "steps": [
+        "Confirm the agent is published and web chat responds, and confirm that calling the Teams Phone number reaches the agent in standalone mode.",
+        "Open the agent, then go to **Deploy** > **Dynamics 365 Contact Center** > **Configure**.",
+        "Under **Step 1 · Connect channels**, turn on **Web chat** and **Teams Phone**, and confirm both show **Connected**.",
+        "Under **Step 2 · Finish setup**, confirm **Web chat** is ready. For **Teams Phone**, select **Open Copilot Service admin center** and send the admin the agent name.",
+        "As the contact center admin, in the Copilot Service admin center go to **AI agents** and confirm voice shows **Connected**, create an inbound voice workstream and queue, and add the agent as the AI agent.",
+        "Link the Teams resource account to Dynamics 365 Contact Center with the documented Teams PowerShell commands, and then in **Channels** > **Phone numbers** > **Advanced** select **Sync**.",
+        "Open the workstream, go to **Set up voice**, select the Teams number, and save. Then test both channels end to end."
+      ],
+      "validation": [
+        "Both **Web chat** and **Teams Phone** show **Connected** on the **Dynamics 365 Contact Center** card.",
+        "A test chat and a test call both reach the agent, and the Teams number appears in the voice workstream."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-d365-contact-center-deploy.png",
+          "section": "deploy",
+          "instructions": [
+            "Go to **Deploy** > **Dynamics 365 Contact Center** > **Configure**.",
+            "Show **Step 1 · Connect channels** and **Step 2 · Finish setup**."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Deploy an agent Customer Conversation Dynamics 365 Contact Center",
+        "Available channels Customer Conversation Genesys bring your own"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation",
+      "prereqs": [
+        "cc-deploy-channels",
+        "cc-teams-phone"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-preview-test",
+      "name": "Preview and test an agent (Customer Conversation harness)",
+      "category": "analytics",
+      "level": 100,
+      "minutes": 15,
+      "core": true,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Test the saved agent in Web Chat and Voice Call on the Preview tab, read the Activity map, and break the agent on purpose.",
+      "whyItMatters": "An agent that looks correct on the Build tab can still fail in conversation, and voice has failure modes that text never shows. Testing before you publish catches routing, tool, knowledge, and guardrail problems.",
+      "concepts": [
+        "The **Preview** tab has **Web Chat**, with a reasoning trace and a full transcript, and **Voice Call**, a live voice conversation with a **Live Transcript** panel. It runs your saved agent, not unsaved edits.",
+        "Test five layers in order: greeting and scope, routing, tools and topics, knowledge, and guardrails. The Activity map shows routing, tool calls, and topic execution, so you can tell a reasoning failure from a plumbing failure.",
+        "Start a new test session between scenarios because context carries over, and fix one thing at a time before you re-run."
+      ],
+      "steps": [
+        "Save your changes on the **Build** tab, and then select the **Preview** tab.",
+        "Select **Web Chat** at the top of the **Preview** tab, and open the Activity map beside the chat.",
+        "Run the happy path first as a realistic customer with a complete goal, and verify every fact in the final recap against the transcript.",
+        "Then break it on purpose: skip a required detail, change your mind, ask something out of scope, trigger an escalation rule, and ask the agent to repeat an earlier detail.",
+        "Select **Voice Call**, grant microphone access, and speak a full request. Watch the **Live Transcript**, interrupt the agent mid-sentence, and stay silent for several seconds.",
+        "Start a new session, fix one issue, save, and re-run the same scenario and your other passing scenarios."
+      ],
+      "validation": [
+        "The happy path completes end to end, and escalation and refusal rules fire reliably.",
+        "Voice responses are short, and a confirmation code is spelled out character by character."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-preview-activity-map.png",
+          "section": "preview",
+          "instructions": [
+            "Open the **Preview** tab and select **Web Chat**.",
+            "Send a message that routes to a sub-agent and show the reply next to the Activity map."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Preview and test an agent Customer Conversation",
+        "Customer Conversation harness Preview tab Web Chat Voice Call Activity map"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-test-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-test-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-evaluate",
+      "name": "Evaluate an agent (Customer Conversation harness)",
+      "category": "analytics",
+      "level": 200,
+      "minutes": 30,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Create a test set on the Evaluate tab, choose test methods, run it against the draft, and review the results.",
+      "whyItMatters": "Manual chats do not scale. A repeatable test set measures quality across many questions or conversations before you publish and after every change.",
+      "concepts": [
+        "A **Single response** test set checks targeted capabilities, and a **Conversation (preview)** test set checks longer interactions. Data sources include a CSV upload (up to 5 MB), a quick set of 10 questions, a full set of up to 100, or questions you write yourself.",
+        "Pick up to five **Test method** options, such as **General quality**, **Compare meaning**, **Keyword match**, **Text similarity**, **Exact match**, or **Custom**.",
+        "Choose whether to evaluate the **Current draft** or the published agent, and use an authenticated user profile with all required connections so the evaluation can test every capability."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Evaluate** tab.",
+        "Select **Create a test set**, or **New evaluation** if you already have test sets.",
+        "Choose a **Data type**: **Single response** or **Conversation (preview)**.",
+        "Choose a **Data source**, such as **Quick question set**, **Upload a CSV file**, or **Or, write some questions yourself**, and review the test case list.",
+        "In the **Configure test set** panel, enter a **Name**, select up to five test methods with **Add test method**, and choose the **Agent version**.",
+        "Under **User profile**, select **Manage** to choose an authenticated account.",
+        "Run the evaluation and review the results."
+      ],
+      "validation": [
+        "The test set appears in the **Evaluation sets** table with its **Run status**.",
+        "You can explain the result of each test method and fix at least one failing case."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-evaluate-test-set.png",
+          "section": "evaluate",
+          "instructions": [
+            "On the **Evaluate** tab, select **Create a test set** and choose a **Data type** and **Data source**.",
+            "Show the **Configure test set** panel with the **Test method** list."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Evaluate an agent Customer Conversation test set",
+        "Customer Conversation harness Evaluate tab test methods"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-customer-conversation",
+      "prereqs": [
+        "cc-preview-test"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-monitor",
+      "name": "Monitor an agent (Customer Conversation harness)",
+      "category": "analytics",
+      "level": 200,
+      "minutes": 20,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Read the Monitor tab for sessions, outcomes, answer quality, tool and knowledge use, and credits, and download conversation transcripts.",
+      "whyItMatters": "After deployment you need to see whether customers are resolved, escalated, or abandoned, and which tools and knowledge sources drive quality and cost.",
+      "concepts": [
+        "The **Overview** panel shows **Conversation sessions**, **Engagement**, **Successful runs**, **Total reactions**, **Runs**, and **Average duration** for the selected time range.",
+        "**Conversation outcomes** breaks sessions into **Abandoned**, **Escalated**, **Resolved**, and **Unengaged**. Generated answers are rated **Looks good**, **Incomplete**, **Irrelevant**, or **Not fully grounded**.",
+        "**Tool use** and **Knowledge source use** show success rates, top tools, and quality per source. Transcripts can be downloaded a few minutes after a conversation times out."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Monitor** tab.",
+        "Select a time range and review the **Overview** panel, including **Conversation sessions** and **Successful runs**.",
+        "Review **Conversation outcomes** and select **See sessions** to drill into abandoned or escalated sessions.",
+        "Review **Generated answer rate and quality**, and select **See questions** for unanswered or low-quality answers.",
+        "Review **Tool use** and the **Knowledge source use** table.",
+        "Review the **Billing** panel, and select **See billing** for more detail.",
+        "Download a conversation transcript from Dataverse in the Power Apps portal or as a session chat transcript in the Copilot Studio app."
+      ],
+      "validation": [
+        "You can name the share of sessions that were resolved and escalated for the selected period.",
+        "You can identify the least reliable tool or knowledge source from the **Tool use** and **Knowledge source use** panels."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-monitor-overview.png",
+          "section": "monitor",
+          "instructions": [
+            "Open the **Monitor** tab and select a time range.",
+            "Show the **Overview** panel and the **Conversation outcomes** chart."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Monitor an agent Customer Conversation Monitor tab",
+        "Customer Conversation harness conversation outcomes escalated resolved"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview-customer-conversation",
+      "prereqs": [
+        "cc-deploy-channels"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-deploy-channels",
+      "name": "Deploy to the demo website and web chat (Customer Conversation harness)",
+      "category": "channels",
+      "level": 100,
+      "minutes": 20,
+      "core": true,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Publish from the Deploy tab, customize the demo website for testers, and embed web chat on a live website with a script.",
+      "whyItMatters": "Publishing and channel setup happen in one place. The demo website lets teammates test safely first, and the web chat script puts the agent in front of customers on your own site.",
+      "concepts": [
+        "When you publish, Copilot Studio creates a prebuilt demo website automatically. It is for testing and sharing with teammates and stakeholders, and its URL should not be shared with customers.",
+        "The live website uses the **Web chat** card: customize branding, copy the script, and give it to your web developer. Standalone channels are **Demo website**, **Web chat**, and **Teams Phone**.",
+        "If setting up web chat and the demo website takes longer than usual, select **Retry** or check back later. You can keep building and testing in the meantime."
+      ],
+      "steps": [
+        "Open your agent and, on the top menu bar, select **Deploy**.",
+        "Select **Configure** on the **Demo website** card.",
+        "On the **Demo Website** panel, enter a message under **Welcome message**, and list trigger phrases for the topics to test under **Conversation starters**. Select **Save**.",
+        "Select **Open demo website** to test, and copy the URL under **Share your website** to share it with teammates.",
+        "Select **Configure** on the **Web chat** card and customize the branding to match your company theme.",
+        "Select **Copy script**, save it in an HTML file such as `index.html`, and open the file in a modern browser to confirm the agent responds.",
+        "Give the file to your web developer to add the agent to your website."
+      ],
+      "validation": [
+        "The demo website opens and a teammate can chat with the agent using your welcome message and conversation starters.",
+        "The saved HTML file loads the agent in a browser and the agent responds."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-deploy-demo-website.png",
+          "section": "deploy",
+          "instructions": [
+            "On the **Deploy** tab, select **Configure** on the **Demo website** card.",
+            "Show the **Welcome message**, **Conversation starters**, and **Open demo website** controls."
+          ]
+        },
+        {
+          "filename": "cc-deploy-web-chat.png",
+          "section": "deploy",
+          "instructions": [
+            "On the **Deploy** tab, select **Configure** on the **Web chat** card.",
+            "Show the branding options and the **Copy script** button."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Deploy an agent Customer Conversation demo website web chat",
+        "Customer Conversation harness Deploy tab live website script"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-overview-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation",
+      "prereqs": [
+        "cc-preview-test"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-teams-phone",
+      "name": "Deploy to Teams Phone (Customer Conversation harness)",
+      "category": "channels",
+      "level": 300,
+      "minutes": 40,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Enable the Teams Phone channel as the maker and hand a resource account to a Teams admin to provision a phone number and license.",
+      "whyItMatters": "Teams Phone lets customers call a voice agent for workflows such as billing or order status. The setup spans a maker and a Teams admin, and the right licenses must be in place first.",
+      "concepts": [
+        "You need Copilot Studio tenant and user licenses, plus Teams Phone licenses that depend on your scenario.",
+        "After the maker selects **Enable**, the agent's name appears in the Teams admin center under **Resource accounts**, and a Teams admin provisions a Teams Phone number and assigns a license.",
+        "Administrators can disable the **Microsoft Teams Phone** channel with the **Agent access channels** setting in the Power Platform admin center."
+      ],
+      "steps": [
+        "Confirm the Copilot Studio and Teams Phone licenses for your scenario.",
+        "Open your agent and, on the top menu bar, select **Deploy**.",
+        "Select **Configure** on the **Teams Phone** card.",
+        "On the **Teams Phone** panel, select **Enable**. The agent's name now appears in the Teams admin center under **Resource accounts**.",
+        "Contact your Teams admin to provision a Teams Phone number and assign a license, and share the **Setup - Direct dial Copilot Studio Voice Agents** article with them.",
+        "After the number is assigned, call it and test the agent."
+      ],
+      "validation": [
+        "The **Teams Phone** card shows the channel as enabled, and the agent's name appears under **Resource accounts** in the Teams admin center.",
+        "A call to the assigned number reaches the agent."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-teams-phone-enable.png",
+          "section": "deploy",
+          "instructions": [
+            "On the **Deploy** tab, select **Configure** on the **Teams Phone** card.",
+            "Show the **Teams Phone** panel with the **Enable** button."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Deploy to Teams Phone Customer Conversation harness",
+        "Direct dial Copilot Studio voice agents Teams Phone resource account"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-deploy-customer-conversation",
+      "prereqs": [
+        "cc-deploy-channels"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-authentication",
+      "name": "Authentication settings (Customer Conversation harness)",
+      "category": "governance",
+      "level": 200,
+      "minutes": 25,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Set the orchestration-wide Authentication mode and turn on Voice authentication from the Security tab of Shared Settings, and review the grounding and file upload options on the Details tab.",
+      "whyItMatters": "Shared Settings apply across every agent in the orchestration. Chat can sign users in but Speech cannot, so identity, grounding, and file handling need deliberate choices for both modalities.",
+      "concepts": [
+        "The **Security** tab sets one **Authentication mode** for all agents in the orchestration (for example, **No authentication**) and, separately, **Voice authentication** for caller verification on voice channels.",
+        "Voice authentication needs an environment with Dynamics 365 apps enabled and uses biometric authentication, authentication policies, and one-time passcode challenge rules.",
+        "On the **Details** tab, **Allow ungrounded responses** lets the agent answer from general model knowledge, **Use information from the web** uses Grounding with Bing Search, which might send data outside your compliance boundary, and **File uploads** accepts files up to 15 MB that are processed per conversation and not stored."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "Open **Shared Settings** and select the **Details** tab.",
+        "Under **Knowledge**, decide on **Allow ungrounded responses** and **Use information from the web**.",
+        "Under **File processing capabilities**, decide whether to turn on **File uploads**.",
+        "Select the **Security** tab.",
+        "Under **Agent authentication**, select an **Authentication mode** from the dropdown.",
+        "Under **Voice authentication**, turn on **Voice authentication** if callers must be verified on voice channels.",
+        "Save, and then test on the **Preview** tab."
+      ],
+      "validation": [
+        "The **Security** tab shows the **Authentication mode** you selected.",
+        "You can explain which knowledge sources work only in Chat because Speech has no end-user sign-in."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-shared-settings-security.png",
+          "section": "build",
+          "instructions": [
+            "On the **Build** tab, open **Shared Settings** and select the **Security** tab.",
+            "Show **Agent authentication** with the **Authentication mode** and the **Voice authentication** toggle."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Configure agent details and security Customer Conversation Shared Settings",
+        "Customer Conversation harness Voice authentication Authentication mode"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-details-security-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-details-security-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-biometric-auth",
+      "name": "Biometric Authentication for callers (Customer Conversation harness)",
+      "category": "governance",
+      "level": 300,
+      "minutes": 30,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Enable Biometric Authentication under Voice capabilities, choose how to identify the caller, set the lookup table, and require verification before the agent runs another tool.",
+      "whyItMatters": "Callers cannot sign in on a Speech channel, so the agent must verify identity another way before it discusses account details or runs sensitive tools.",
+      "concepts": [
+        "An admin first enables biometric authentication and fraud detection in the Microsoft Contact Center Intelligence portal, which pre-enables the **Biometric authentication** setting for every agent.",
+        "**Identify user** uses **Use phone number** or **Use custom identifier**, and the lookup table defaults to the Dataverse **Contact** or **Account** tables. Name the tool for a specific purpose, because a generic name can make the orchestrator over-invoke it.",
+        "Switching to **Advanced editing** is a one-way change. To gate another tool, add a **Condition** node that checks the Voice Authentication status variable for \"Verified\" before the tool runs."
+      ],
+      "steps": [
+        "Ask an admin to enable biometric authentication and fraud detection in the Microsoft Contact Center Intelligence portal, and confirm the **Biometric authentication** setting under **Shared Settings** > **Security**.",
+        "In the **Voice capabilities** section of the **Build** tab, select the primary agent's card (or a sub-agent's card), and select **Enable** next to **Biometric Authentication**.",
+        "Give the tool a specific name and description, such as one that verifies callers before discussing account details.",
+        "Under **Identify user**, select **Use phone number** or **Use custom identifier**.",
+        "Turn on **Use selected identifiers to look up user record**, and set the **Lookup table**, for example the **Contact** table.",
+        "Under **Authenticate user**, review the **Authentication profile** and the resolved **Unique identifier**.",
+        "Select **Add behavior** to save the tool.",
+        "To protect another tool, use **Advanced editing**, add a **Condition** node on the Voice Authentication status variable, and place the tool in the branch for a verified caller."
+      ],
+      "validation": [
+        "**Biometric Authentication** no longer shows a setup-needed indicator.",
+        "A voice test shows the agent verifies the caller before it runs the protected tool."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-biometric-config.png",
+          "section": "build",
+          "instructions": [
+            "In the **Voice capabilities** section, select **Enable** next to **Biometric Authentication**.",
+            "Show **Identify user**, the **Lookup table**, and **Authenticate user**."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add prebuilt contact center tools Customer Conversation Biometric Authentication",
+        "Customer Conversation Voice Authenticate node Condition Verified"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-prebuilt-add-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-prebuilt-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-details-security-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-prebuilt-add-customer-conversation",
+      "prereqs": [
+        "cc-authentication"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-export-import",
+      "name": "Export and import an agent (Customer Conversation harness)",
+      "category": "advanced",
+      "level": 300,
+      "minutes": 30,
+      "harness": [
+        "customer-conversation"
+      ],
+      "availability": "preview",
+      "summary": "Move an agent between environments with an unmanaged solution, and know what does not transfer.",
+      "whyItMatters": "Some channels, such as certain contact center connections and voice authentication, need an environment with Dynamics 365 apps enabled. Solutions are how you move or promote an agent safely.",
+      "concepts": [
+        "Export and import use the same solutions-based procedure as the standard harness. You can't export managed solutions, and you need at least the System Customizer security role.",
+        "Not all components and properties transfer: for example conversation ID, environment ID, and topic-level or node-level comments don't, and the agent icon and channel details might be empty.",
+        "You must deploy the imported agent before it can be shared, and you must configure user authentication for it again. Add any flows, custom connectors, or environment variables the agent uses to the solution too."
+      ],
+      "steps": [
+        "Open the solution explorer in Copilot Studio.",
+        "Create a new solution, or select an existing unmanaged solution.",
+        "Select **Add existing** > **Agent** > **Agent**, select the agent, and then select **Add**. Add any flows, custom connectors, or environment variables the agent uses.",
+        "Select the unmanaged solution, select **Export solution**, and follow the Power Apps export experience.",
+        "In the target environment, open the solution explorer and select **Import solution**.",
+        "After the import finishes, select the imported solution, select **Agents**, and select the agent's name to open it.",
+        "Configure user authentication again, and then deploy the agent from the **Deploy** tab."
+      ],
+      "validation": [
+        "The imported agent opens in the target environment with its instructions, tools, and knowledge intact.",
+        "User authentication is reconfigured and the agent is deployed before it is shared."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-solution-add-agent.png",
+          "section": "solutions",
+          "instructions": [
+            "In the solution explorer, select **Add existing** > **Agent** > **Agent**.",
+            "Show the agent selected before you select **Add**."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Export and import an agent Customer Conversation solutions",
+        "Customer Conversation harness move agent to another environment Dynamics 365"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-solutions-import-export-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-import-export"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-solutions-import-export-customer-conversation",
+      "prereqs": [
+        "cc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "cc-credit-billing",
+      "name": "Copilot Credits and cost controls (Customer Conversation harness)",
+      "category": "governance",
+      "level": 200,
+      "minutes": 25,
+      "harness": [
+        "customer-conversation"
+      ],
+      "summary": "Find the Copilot Credits a Customer Conversation agent consumes on the Monitor tab and review the admin controls that allocate, limit, and track them.",
+      "whyItMatters": "Customer conversations consume credits based on complexity and modality, and Voice Biometrics adds more. Planning capacity and limits early prevents an agent from stopping when credits run out or consuming more than expected.",
+      "concepts": [
+        "Copilot Credit use varies by conversation complexity and modality: digital, GenAI voice, and premium voice. Using, building, testing, and evaluating agents might consume credits, and a Microsoft 365 Copilot license does not cover this usage.",
+        "Each voice enrollment or authentication interaction with Voice Biometrics consumes 6 credits, so a voice conversation with two biometric interactions consumes 12 additional credits.",
+        "Admins control spend with environment allocations, turning off **Draw from the available capacity in my tenant**, and agent-level monthly limits with **Stop usage**. Azure budgets and alerts for pay-as-you-go send notifications but do not stop consumption."
+      ],
+      "steps": [
+        "Open the agent's **Monitor** tab and review the **Billing** panel for the Copilot Credits billed in the selected period. Select **See billing** for more detail.",
+        "Use the Copilot Credits estimator linked from **Overview of usage-based billing** to model light, medium, and heavy conversations by modality.",
+        "As an admin, sign in to the Power Platform admin center, select **Licensing**, and under **Products** select **Copilot Studio**.",
+        "Select **Manage Copilot Credits**, select the environment, enter the number of credits to allocate, and under **Capacity overages** clear **Draw from the available capacity in my tenant** if the environment should not use tenant capacity. Select **Save**.",
+        "Select **Manage Agents**, select the customer conversation agent, and select **Set limit**. Enter the monthly limit, configure the notification threshold, turn on **Stop usage** if needed, and select **Save**.",
+        "Review consumption by tenant, environment, and agent, and compare it with expected conversation volume."
+      ],
+      "validation": [
+        "You can show the credits billed for the agent on the **Monitor** tab.",
+        "You can name the controls that allocate and limit spend and where to review consumption."
+      ],
+      "screenshots": [
+        {
+          "filename": "cc-monitor-billing.png",
+          "section": "monitor",
+          "instructions": [
+            "Open the **Monitor** tab.",
+            "Show the **Billing** panel with the Copilot Credits billed for the selected time range."
+          ]
+        },
+        {
+          "filename": "cc-admin-agent-limit.png",
+          "section": "admin",
+          "instructions": [
+            "In the Power Platform admin center, go to **Licensing** > **Copilot Studio** > **Manage Agents**.",
+            "Select the agent and select **Set limit** to show the monthly limit and **Stop usage** options."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Overview of usage-based billing Customer Conversation harness Copilot Credits",
+        "Manage costs for agents powered by the Customer Conversation harness"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview",
+        "https://learn.microsoft.com/power-platform/admin/manage-usage-customer-conversation-harness",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview-customer-conversation"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview",
+      "prereqs": [],
+      "relatedLabs": [],
+      "reuseScreenshots": []
     }
   ],
   "harnesses": [
