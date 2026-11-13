@@ -4412,7 +4412,7 @@
     {
       "id": 99,
       "feature": "mc-monitor",
-      "featureName": "Monitor an agent (Microsoft Copilot harness)",
+      "featureName": "Monitor and analyze agent performance (Microsoft Copilot harness)",
       "harness": "microsoft-copilot",
       "filename": "mc-monitor-overview.png",
       "section": "analytics",
@@ -4457,7 +4457,7 @@
     {
       "id": 100,
       "feature": "mc-monitor",
-      "featureName": "Monitor an agent (Microsoft Copilot harness)",
+      "featureName": "Monitor and analyze agent performance (Microsoft Copilot harness)",
       "harness": "microsoft-copilot",
       "filename": "mc-monitor-sessions.png",
       "section": "analytics",
@@ -4528,7 +4528,7 @@
     {
       "id": 102,
       "feature": "mc-agent-settings-security",
-      "featureName": "Safety and access settings (Microsoft Copilot harness)",
+      "featureName": "Configure settings for agents (Microsoft Copilot harness)",
       "harness": "microsoft-copilot",
       "filename": "mc-settings-safety-access.png",
       "section": "settings",
@@ -4580,7 +4580,7 @@
     {
       "id": 103,
       "feature": "mc-agent-settings-security",
-      "featureName": "Safety and access settings (Microsoft Copilot harness)",
+      "featureName": "Configure settings for agents (Microsoft Copilot harness)",
       "harness": "microsoft-copilot",
       "filename": "mc-settings-moderation.png",
       "section": "settings",

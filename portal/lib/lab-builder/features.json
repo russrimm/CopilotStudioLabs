@@ -4536,7 +4536,7 @@
     },
     {
       "id": "mc-monitor",
-      "name": "Monitor an agent (Microsoft Copilot harness)",
+      "name": "Monitor and analyze agent performance (Microsoft Copilot harness)",
       "category": "analytics",
       "level": 200,
       "minutes": 20,
@@ -4586,11 +4586,11 @@
         "Copilot Studio Monitor tab sessions reactions credits"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview",
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-review-activity"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-review-activity",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview"
       ],
       "lastVerified": "2026-11-13",
-      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-overview",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-review-activity",
       "prereqs": [
         "mc-publish-agent"
       ],
@@ -4599,7 +4599,7 @@
     },
     {
       "id": "mc-agent-settings-security",
-      "name": "Safety and access settings (Microsoft Copilot harness)",
+      "name": "Configure settings for agents (Microsoft Copilot harness)",
       "category": "governance",
       "level": 200,
       "minutes": 20,
