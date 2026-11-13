@@ -4,17 +4,21 @@
   "levels": {
     "100": [
       "create-agent", "agent-instructions", "knowledge-sharepoint", "knowledge-files-web", "topics", "test-agent", "publish-agent", "channel-teams",
-      "mc-create-agent", "mc-knowledge", "mc-preview-test", "mc-publish-agent"
+      "mc-create-agent", "mc-knowledge", "mc-preview-test", "mc-publish-agent",
+      "cc-harness-choice", "cc-create-agent", "cc-instructions", "cc-knowledge", "cc-preview-test", "cc-deploy-channels"
     ],
     "200": [
       "generative-orchestration", "connector-tools", "prompt-tools", "mcp-servers", "agent-flows", "connected-agents", "knowledge-dataverse",
       "evaluations", "content-moderation", "analytics",
-      "mc-skills", "mc-tools-mcp", "mc-workflows-tool", "mc-memory", "mc-evaluate"
+      "mc-skills", "mc-tools-mcp", "mc-workflows-tool", "mc-memory", "mc-evaluate",
+      "cc-model-mode", "cc-add-tools", "cc-escalate-human", "cc-skills", "cc-mcp-server", "cc-sub-agents", "cc-memory", "cc-events", "cc-voice-settings",
+      "cc-workflow-tool", "cc-evaluate", "cc-monitor", "cc-authentication", "cc-credit-billing"
     ],
     "300": [
       "custom-connectors", "agent-to-agent", "authentication", "alm-solutions", "dlp-governance", "entra-agent-identities", "agent-inventory",
       "channel-web-sdk", "vscode-authoring",
-      "mc-hooks", "mc-triggers"
+      "mc-hooks", "mc-triggers",
+      "cc-connected-agent", "cc-contact-center", "cc-teams-phone", "cc-biometric-auth", "cc-export-import"
     ]
   },
   "verticals": {
@@ -28,7 +32,7 @@
   },
   "departments": {
     "it": { "topics": ["servicenow-integration", "jira-integration", "agent-flows", "mcp-servers"], "why": "IT teams work in ticketing systems and automate runbooks." },
-    "customer-service": { "topics": ["servicenow-integration", "salesforce-integration", "channel-teams", "voice-agents"], "why": "Customer service needs case systems and customer-facing channels." },
+    "customer-service": { "topics": ["servicenow-integration", "salesforce-integration", "channel-teams", "voice-agents", "cc-escalate-human", "cc-voice-settings"], "why": "Customer service needs case systems and customer-facing channels." },
     "sales": { "topics": ["salesforce-integration", "knowledge-files-web"], "why": "Sales teams live in CRM and product material." },
     "marketing": { "topics": ["knowledge-files-web", "content-moderation"], "why": "Marketing content needs brand-safe, grounded answers." },
     "finance": { "topics": ["sap-integration", "dlp-governance", "agent-flows"], "why": "Finance works in ERP and needs policy controls and approvals." },

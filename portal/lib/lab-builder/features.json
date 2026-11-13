@@ -498,7 +498,7 @@
         "A harness is the runtime between the model and the agent's configuration: it decides when to call the model, what to send it, how to read the result, and which tools to call. The harness affects billing, features, and capabilities.",
         "The standard harness fits rule-based agents and structured, repeatable conversations. The Microsoft Copilot harness fits reasoning-heavy, longer-running work, such as multi-step business processes, and it uses Copilot Credits.",
         "You choose the harness when you create an agent. An agent on the Microsoft Copilot harness can't be transferred to the standard harness, but Copilot Studio can create a Microsoft Copilot harness agent from a standard harness agent.",
-        "Learn also describes a Customer Conversation harness and a Copilot chat harness. They use separate creation paths and are outside this catalog, which covers the standard and Microsoft Copilot harnesses."
+        "Learn also describes a Customer Conversation harness, which has its own modules in this catalog (see Choose the harness (Customer Conversation harness)), and a Copilot chat harness, which uses a separate creation path and is outside this catalog."
       ],
       "steps": [
         "Write down the scenario you want to build and whether it is short and rule-based (for example, an HR intake and routing bot) or long-running, multi-step, and file-heavy (for example, accounts payable reconciliation).",

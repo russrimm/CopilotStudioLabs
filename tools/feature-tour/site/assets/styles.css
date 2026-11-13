@@ -15,6 +15,8 @@
   --badge-standard-fg: #0b3b8f;
   --badge-microsoft-copilot-bg: #ecdffb;
   --badge-microsoft-copilot-fg: #4b1c8a;
+  --badge-customer-conversation-bg: #d5f0f2;
+  --badge-customer-conversation-fg: #0b4a52;
   --badge-both-bg: #d7f0e2;
   --badge-both-fg: #0a4a2a;
   --badge-level-bg: #e8eaee;
@@ -45,6 +47,8 @@
     --badge-standard-fg: #cfe0ff;
     --badge-microsoft-copilot-bg: #3a2562;
     --badge-microsoft-copilot-fg: #e6d8ff;
+    --badge-customer-conversation-bg: #124349;
+    --badge-customer-conversation-fg: #cdeff2;
     --badge-both-bg: #14432b;
     --badge-both-fg: #c9f0da;
     --badge-level-bg: #2a2e3a;
@@ -75,6 +79,8 @@
   --badge-standard-fg: #cfe0ff;
   --badge-microsoft-copilot-bg: #3a2562;
   --badge-microsoft-copilot-fg: #e6d8ff;
+  --badge-customer-conversation-bg: #124349;
+  --badge-customer-conversation-fg: #cdeff2;
   --badge-both-bg: #14432b;
   --badge-both-fg: #c9f0da;
   --badge-level-bg: #2a2e3a;
@@ -174,6 +180,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .badge { display: inline-block; font-size: 0.8rem; font-weight: 600; padding: 0.1rem 0.55rem; border-radius: 999px; line-height: 1.5; border: 1px solid transparent; }
 .badge-harness-standard { background: var(--badge-standard-bg); color: var(--badge-standard-fg); }
 .badge-harness-microsoft-copilot { background: var(--badge-microsoft-copilot-bg); color: var(--badge-microsoft-copilot-fg); }
+.badge-harness-customer-conversation { background: var(--badge-customer-conversation-bg); color: var(--badge-customer-conversation-fg); }
 .badge-harness-both { background: var(--badge-both-bg); color: var(--badge-both-fg); }
 .badge-level, .badge-minutes { background: var(--badge-level-bg); color: var(--badge-level-fg); }
 .badge-availability-preview { background: var(--badge-preview-bg); color: var(--badge-preview-fg); }

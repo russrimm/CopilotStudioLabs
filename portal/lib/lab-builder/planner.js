@@ -324,8 +324,9 @@ export function planLab(request = {}) {
     ordered.map((id) => getFeature(id)?.harness || []).filter((tags) => tags.length === 1).map((tags) => tags[0]),
   );
   if (harnessesUsed.size > 1 && !request.harness) {
+    const names = [...harnessesUsed].map((id) => getHarnesses().find((h) => h.id === id)?.name || id);
     warnings.push(
-      "This lab mixes standard harness and Microsoft Copilot harness modules. Their steps follow different authoring surfaces, so consider building one lab per harness.",
+      `This lab mixes ${names.join(" and ")} modules. Their steps follow different authoring surfaces, so consider building one lab per harness.`,
     );
   }
   // Length is guidance, never a limit: every selected module and every
