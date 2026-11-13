@@ -14,6 +14,9 @@ import { connect, groundFeature, fetchDocPage, LEARN_MCP_ENDPOINT } from "./lear
 import { createLlm } from "./llm.js";
 import { planScreenshots, copyScreenshots, buildShotsManifest } from "./screenshots.js";
 import { composeLab } from "./composer.js";
+import { getHarnesses } from "./catalog.js";
+import { getConcepts } from "./concepts.js";
+import { buildDifferenceBlocks } from "./differences.js";
 import { deriveSteps, diffSteps } from "./steps.js";
 import { synthesizeSteps } from "./synthesis.js";
 import {
@@ -1100,6 +1103,7 @@ export async function generateLab(request, opts = {}) {
     stepsByFeature,
     vendorByFeature,
   );
+  const differenceSummary = buildDifferenceBlocks(plan, { harnesses: getHarnesses(), concepts: getConcepts() });
 
   const manifest = {
     slug: plan.slug,
@@ -1191,8 +1195,15 @@ export async function generateLab(request, opts = {}) {
       bySection: plan.estimate.bySection,
       suggestedParts: plan.estimate.suggestedParts,
     },
+    // The expandable harness-difference notes this lab carries, and which of
+    // them rest on pages that do not fully document every harness.
+    differences: {
+      labHarness: plan.harness,
+      comparedWith: differenceSummary.harnesses,
+      concepts: differenceSummary.concepts,
+      notFullyDocumented: differenceSummary.uncertain,
+    },
     grounding: {
-      endpoint: LEARN_MCP_ENDPOINT,
       connected: Boolean(session.ok),
       groundedModules: groundedFeatures,
       docDerivedModules: docDerivedFeatures,

@@ -12,6 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getFeature, getFeatures, getHarnesses, orderFeatures, getCoreFeatures } from "./catalog.js";
+import { defaultDifferencesFor } from "./differences.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -119,6 +120,15 @@ export function normalizeLabRequest(request = {}) {
     if (![100, 200, 300].includes(level)) throw new Error("level must be 100, 200, or 300.");
   }
 
+  // Which other harnesses get expandable "How this differs" notes. Omitted means
+  // the default counterpart; an empty list turns the notes off.
+  let differencesFor;
+  if (request.differencesFor !== undefined && request.differencesFor !== null) {
+    differencesFor = stringList(request.differencesFor, "differencesFor", getHarnesses().length);
+    const unknown = differencesFor.filter((id) => !getHarnesses().some((h) => h.id === id));
+    if (unknown.length) throw new Error(`Unknown harness id(s) in differencesFor: ${unknown.join(", ")}.`);
+  }
+
   return {
     industry: optionalText(request.industry, "industry"),
     roles: stringList(request.roles, "roles", getRoles().length),
@@ -126,6 +136,7 @@ export function normalizeLabRequest(request = {}) {
     excluded,
     harness,
     level,
+    differencesFor,
     targetMinutes,
     title: optionalText(request.title, "title"),
     agentName: optionalText(request.agentName, "agentName"),
@@ -327,6 +338,13 @@ export function planLab(request = {}) {
   const totalMinutes = features.reduce((sum, f) => sum + f.minutes, 0);
   const estimate = buildEstimate(features, request.targetMinutes);
   if (estimate.splitSuggestion) warnings.push(estimate.splitSuggestion);
+
+  // The harness the lab is written for: the one chosen, or the one most of its
+  // single-harness modules belong to. Modules tagged for both stay neutral.
+  const harnessVotes = new Map();
+  for (const f of features) if (f.harness?.length === 1) harnessVotes.set(f.harness[0], (harnessVotes.get(f.harness[0]) || 0) + 1);
+  const labHarness = request.harness || [...harnessVotes].sort((a, b) => b[1] - a[1])[0]?.[0] || "standard";
+  const differencesFor = (request.differencesFor ?? defaultDifferencesFor(labHarness)).filter((id) => id !== labHarness);
   const maxLevel = features.reduce((max, f) => Math.max(max, f.level), 100);
   const profile = getScenarioProfile(industry?.id);
 
@@ -350,6 +368,7 @@ export function planLab(request = {}) {
       excluded: request.excluded,
       harness: request.harness || null,
       level: request.level || null,
+      differencesFor: request.differencesFor ?? null,
       targetMinutes: request.targetMinutes ?? null,
     },
     title,
@@ -369,6 +388,8 @@ export function planLab(request = {}) {
     duration: formatDuration(totalMinutes),
     estimate,
     assumedPrereqs,
+    harness: labHarness,
+    differencesFor,
     difficulty: DIFFICULTY_BY_LEVEL[request.level || maxLevel] || "Intermediate",
     level: request.level || maxLevel,
     relatedLabs: [...new Set(features.flatMap((f) => f.relatedLabs || []))],

@@ -315,6 +315,45 @@ concept rows with `selected`, `required`, and `reasons` per topic. Nothing is
 filtered out: every topic that applies to the harness is listed, and a topic
 whose prerequisite you turn off only produces a warning.
 
+#### Harness differences
+
+Every generated lab is written for one harness. Where the same concept works
+differently on another harness, the section carries an expandable note, an
+accessible `<details>` block titled **How this differs on the Microsoft Copilot
+harness** (or **...on the Standard harness**, or **...on the Customer
+Conversation harness**). Inside it: the same goal, how the concept works in this
+lab and on the other harness (with where to find it), terminology, availability
+(Supported, Preview, Planned, Not supported, or Not confirmed in Microsoft
+Learn), limits and gaps, and the Microsoft Learn pages the note rests on. The
+labels are bold text rather than headings, so heading order is never disturbed.
+
+The notes come from `harness-differences.json`, one curated record per concept.
+They are grounded on Microsoft Learn (the harness comparison, the skills, hooks,
+memory, and channels pages, and the Customer Conversation overview) and are never
+generated or fetched at build time, so a lab cannot quote a page as a difference.
+A harness whose behavior Learn does not describe is marked `unknown`, and a record
+that leans on it is `partly-documented` or `uncertain` with an `uncertainNote`;
+the lab then says **Not confirmed in Microsoft Learn** instead of guessing.
+
+Each concept is explained once per lab, on its first module. By default a lab
+compares the Standard and Microsoft Copilot harnesses with each other, and a
+Customer Conversation lab compares with both; set `differencesFor` to a list of
+harness ids to choose, or to `[]` to leave the notes out. The wizard offers the
+choice on the harness step. `manifest.json` records `differences` (the lab's
+harness, who it was compared with, which concepts, and which are not fully
+documented).
+
+`validateCatalog()` checks the records: a concept that exists, at least two
+harnesses described, Learn sources only, `verifiedAgainst` among them, a valid
+`lastVerified`, an `uncertainNote` when not fully documented, no use of the
+earlier harness name, and US English. The monthly `check-catalog` run also
+checks that every source still resolves and flags records older than the
+threshold. The structural validators check the rendered notes: `expandable-notes`
+in the portal validator and the details check inside `accessible-markdown` in
+`validate_labs.py` require a non-empty `<summary>` first, content after it, and
+balanced tags. Step validation skips these notes, because they describe a
+different harness than the lab's steps.
+
 ### 2. Planner
 
 `planner.js` resolves the industry and roles, expands transitive prerequisites,
@@ -791,6 +830,10 @@ Request body for preview and generate:
   "roles": ["customer-service"],
   "features": ["knowledge-sharepoint", "authentication"],
   "targetMinutes": 240,
+  "harness": "microsoft-copilot",       // optional: the harness the lab is written for
+  "level": 200,                         // optional: 100, 200, or 300
+  "excluded": [],                       // optional: prerequisites to assume instead of teaching
+  "differencesFor": ["standard"],       // optional: harnesses to explain; [] turns the notes off
   "includeCore": true,
   "title": "Optional title override",
   "agentName": "Optional agent name override",
