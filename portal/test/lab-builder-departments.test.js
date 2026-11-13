@@ -16,10 +16,7 @@ const answersFor = (product, level, extra = {}) => ({
   ...extra,
 });
 // One level 100 topic per product, enough to plan and build a lab.
-const firstTopic = (product) => {
-  const rec = recommend(answersFor(product, 100));
-  return (rec.recommendedIds || rec.selectedIds)[0];
-};
+const firstTopic = (product) => recommend(answersFor(product, 100)).recommendedIds[0];
 const build = (request) => generateLab(request, { write: false, useLearnMcp: false, useLlm: false });
 
 test("every department has its own complete scenario, and no two departments share a sample question", () => {
