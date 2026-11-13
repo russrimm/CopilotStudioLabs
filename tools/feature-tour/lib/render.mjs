@@ -39,13 +39,29 @@ function harnessBadge(model, feature) {
 function badges(model, feature) {
   const availability = model.availability.find((a) => a.id === feature.availability);
   return [
-    harnessBadge(model, feature),
+    model.hasHarnesses ? harnessBadge(model, feature) : "",
     `<span class="badge badge-level">${esc(feature.levelLabel)}</span>`,
     `<span class="badge badge-availability-${esc(availability.id)}">${esc(availability.label)}</span>`,
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
-function layout({ title, description, root, active, body, scripts = [], bodyClass = "" }) {
+// Links to every product's tour. Copilot Studio is the site root; the others sit in their own folder.
+function productNav(model, root) {
+  const links = model.products ?? [];
+  if (links.length < 2) return "";
+  const items = links
+    .map((p) => `<a href="${root}${model.siteBase ?? ""}${p.href}"${p.id === model.productId ? ' aria-current="true"' : ""}>${esc(p.label)}</a>`)
+    .join("\n        ");
+  return `
+    <div class="wrap product-row"><nav aria-label="Products" class="primary-nav product-nav"><span class="product-nav-label">Products:</span>
+        ${items}
+      </nav></div>`;
+}
+
+function layout({ model, title, description, root, active, body, scripts = [], bodyClass = "" }) {
+  const assets = `${root}${model.siteBase ?? ""}assets/`;
   const nav = [
     ["index.html", "Overview", "overview"],
     ["tour.html", "Guided tour", "tour"],
@@ -56,8 +72,12 @@ function layout({ title, description, root, active, body, scripts = [], bodyClas
     )
     .join("\n        ");
   const scriptTags = ["theme.js", ...scripts]
-    .map((s) => `<script src="${root}assets/${s}" defer></script>`)
+    .map((s) => `<script src="${assets}${s}" defer></script>`)
     .join("\n  ");
+  const only = (model.products ?? []).length < 2;
+  const scope = only
+    ? "This tour covers the Copilot Studio features."
+    : `This page covers ${model.productLabel}. Use the Products links at the top for the other products in the catalog.`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -67,7 +87,7 @@ function layout({ title, description, root, active, body, scripts = [], bodyClas
   <meta name="description" content="${esc(description)}">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="${root}assets/styles.css">
+  <link rel="stylesheet" href="${assets}styles.css">
   ${scriptTags}
 </head>
 <body class="${esc(bodyClass)}">
@@ -80,14 +100,14 @@ function layout({ title, description, root, active, body, scripts = [], bodyClas
         <a href="${REPO_URL}/blob/main/docs/feature-tour.md">About and refresh guide</a>
       </nav>
       <button type="button" class="theme-toggle" id="theme-toggle" aria-pressed="false">Dark theme</button>
-    </div>
+    </div>${productNav(model, root)}
   </header>
   <main id="main" tabindex="-1">
 ${body}
   </main>
   <footer class="site-footer">
     <div class="wrap">
-      <p>Generated from the <a href="${REPO_URL}/blob/main/portal/lib/lab-builder/features.json">Microsoft AI Training Generator feature catalog</a>. This tour covers the Copilot Studio features; the other products in the catalog are not part of the tour yet. Explanations follow Microsoft Learn; check the linked pages for the latest steps. Screenshots marked pending have not been captured yet.</p>
+      <p>Generated from the <a href="${REPO_URL}/blob/main/portal/lib/lab-builder/features.json">Microsoft AI Training Generator feature catalog</a>. ${scope} Explanations follow Microsoft Learn; check the linked pages for the latest steps. Screenshots marked pending have not been captured yet.</p>
     </div>
   </footer>
 </body>
@@ -114,7 +134,7 @@ function placeholder(shot) {
 }
 
 function shotFigure(feature, shot, root) {
-  const label = `${feature.name}: ${shot.caption}`;
+  const label = shot.alt ? shot.alt.replace(/\.$/, "") : `${feature.name}: ${shot.caption}`;
   let media;
   if (shot.status === "ready") {
     const size = shot.width && shot.height ? ` width="${shot.width}" height="${shot.height}"` : "";
@@ -176,7 +196,7 @@ export function renderFeaturePage(model, feature, repoUrl = REPO_URL) {
     : "";
 
   const body = `    <div class="wrap feature-page">
-      <nav aria-label="Breadcrumb" class="breadcrumb"><a href="${root}index.html">Overview</a> <span aria-hidden="true">/</span> <span>${esc(group.name)}</span> <span aria-hidden="true">/</span> <span>${esc(category.name)}</span></nav>
+      <nav aria-label="Breadcrumb" class="breadcrumb"><a href="${root}index.html">Overview</a> <span aria-hidden="true">/</span> ${model.hasHarnesses ? `<span>${esc(group.name)}</span> <span aria-hidden="true">/</span> ` : ""}<span>${esc(category.name)}</span></nav>
       <h1>${esc(feature.name)}</h1>
       <p class="badges">${badges(model, feature)} <span class="badge badge-minutes">About ${esc(feature.minutes)} min</span></p>
       <p class="lede">${esc(feature.summary)}</p>
@@ -210,6 +230,7 @@ export function renderFeaturePage(model, feature, repoUrl = REPO_URL) {
     </div>`;
 
   return layout({
+    model,
     title: `${feature.name} | Microsoft AI Training Generator feature tour`,
     description: feature.summary,
     root,
@@ -260,16 +281,23 @@ export function renderIndex(model) {
     })
     .join("\n");
 
+  const heading = model.hasHarnesses
+    ? "Every Copilot Studio feature in the lab catalog, explained"
+    : `Every ${model.productLabel} feature in the lab catalog, explained`;
+  const lede = model.hasHarnesses
+    ? `${t.features} features across the Standard harness, the Microsoft Copilot harness, and the Customer Conversation harness. Each one has an explanation, the path to follow in Copilot Studio, prerequisites, caveats, Microsoft Learn links, and a screenshot slot. ${t.shotsReady} of ${t.shots} screenshots are captured so far.`
+    : `${t.features} features, grouped by category. Each one has an explanation, the path to follow, prerequisites, caveats, Microsoft Learn links, and a screenshot slot. ${t.shotsReady} of ${t.shots} screenshots are captured so far.`;
+
   const body = `    <div class="wrap">
       <section class="hero" aria-labelledby="page-title">
-        <h1 id="page-title">Every Copilot Studio feature in the lab catalog, explained</h1>
-        <p class="lede">${t.features} features across the Standard harness, the Microsoft Copilot harness, and the Customer Conversation harness. Each one has an explanation, the path to follow in Copilot Studio, prerequisites, caveats, Microsoft Learn links, and a screenshot slot. ${t.shotsReady} of ${t.shots} screenshots are captured so far.</p>
+        <h1 id="page-title">${esc(heading)}</h1>
+        <p class="lede">${esc(lede)}</p>
         <p><a class="button" href="tour.html">Start the guided tour</a></p>
       </section>
 
       <form class="filters" id="filters" role="search" aria-label="Filter features">
         <div class="field field-search"><label for="f-q">Search features</label><input id="f-q" name="q" type="search" autocomplete="off" placeholder="For example: MCP, knowledge, publish"></div>
-        ${filterSelect("f-harness", "Harness", model.harnesses.map((h) => [h.id, h.name]))}
+        ${model.hasHarnesses ? filterSelect("f-harness", "Harness", model.harnesses.map((h) => [h.id, h.name])) : ""}
         ${filterSelect("f-level", "Level", model.levels.map((l) => [String(l.value), l.label]))}
         ${filterSelect("f-category", "Category", model.categories.map((c) => [c.id, c.name]))}
         ${filterSelect("f-availability", "Availability", model.availability.map((a) => [a.id, a.label]))}
@@ -283,8 +311,11 @@ ${groups}
     </div>`;
 
   return layout({
-    title: "Microsoft AI Training Generator feature tour",
-    description: "Screenshots, explanations, and a guided tour for every Copilot Studio feature in the Microsoft AI Training Generator catalog.",
+    model,
+    title: model.hasHarnesses ? "Microsoft AI Training Generator feature tour" : `${model.productLabel} | Microsoft AI Training Generator feature tour`,
+    description: model.hasHarnesses
+      ? "Screenshots, explanations, and a guided tour for every Copilot Studio feature in the Microsoft AI Training Generator catalog."
+      : `Screenshots, explanations, and a guided tour for every ${model.productLabel} feature in the Microsoft AI Training Generator catalog.`,
     root: "",
     active: "overview",
     body,
@@ -306,6 +337,7 @@ export function renderTour(model) {
 
   const data = JSON.stringify({
     total,
+    hasHarnesses: model.hasHarnesses,
     harnesses: model.harnesses,
     categories: model.categories,
     availability: model.availability,
@@ -314,7 +346,7 @@ export function renderTour(model) {
 
   const body = `    <div class="wrap tour" id="tour" aria-labelledby="tour-title">
       <h1 id="tour-title">Guided tour</h1>
-      <p class="tour-help" id="tour-help">Step through every feature in order: by harness, then category, then level. Use the Previous and Next buttons or the Left and Right arrow keys. Home and End jump to the first and last step.</p>
+      <p class="tour-help" id="tour-help">Step through every feature in order: ${model.hasHarnesses ? "by harness, then category, then level" : "by category, then level"}. Use the Previous and Next buttons or the Left and Right arrow keys. Home and End jump to the first and last step.</p>
       <div class="tour-controls" role="group" aria-label="Tour controls" aria-describedby="tour-help">
         <button type="button" id="tour-prev">Previous</button>
         <div class="field field-jump"><label for="tour-jump">Jump to step</label><select id="tour-jump">${options}</select></div>
@@ -331,8 +363,11 @@ export function renderTour(model) {
     <script type="application/json" id="tour-data">${data}</script>`;
 
   return layout({
-    title: "Guided tour | Microsoft AI Training Generator feature tour",
-    description: "Step through every Copilot Studio feature in the lab catalog with screenshots and callouts.",
+    model,
+    title: model.hasHarnesses ? "Guided tour | Microsoft AI Training Generator feature tour" : `Guided tour | ${model.productLabel} | Microsoft AI Training Generator feature tour`,
+    description: model.hasHarnesses
+      ? "Step through every Copilot Studio feature in the lab catalog with screenshots and callouts."
+      : `Step through every ${model.productLabel} feature in the lab catalog with screenshots and callouts.`,
     root: "",
     active: "tour",
     body,

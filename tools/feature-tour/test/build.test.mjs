@@ -25,14 +25,23 @@ test("every catalog feature appears exactly once in the model, index, tour, and 
   assert.equal((index.match(/<li class="card"/g) ?? []).length, ids.length);
 });
 
-test("the tour lists only Copilot Studio features, and every feature in it carries its product", () => {
-  const other = { ...catalog.features[0], id: "other-product-feature", product: "sharepoint-ai", harness: undefined };
+test("the Copilot Studio tour lists only Copilot Studio features, and every feature in it carries its product", () => {
+  const other = {
+    ...catalog.features[0],
+    id: "other-product-feature",
+    product: "sharepoint-ai",
+    harness: undefined,
+    screenshots: [{ filename: "other-product-feature.png", section: "sharepoint-site", instructions: ["Open a SharePoint site."] }],
+  };
   const mixed = { ...catalog, features: [...catalog.features, other] };
   const scoped = generate({ catalog: mixed, overlay, screenshotsDir: path.join(tmpDir(), "none") });
-  assert.ok(!scoped.site.features.some((f) => f.id === other.id), "another product's feature is not in the tour");
+  assert.ok(!scoped.site.features.some((f) => f.id === other.id), "another product's feature is not in the Copilot Studio tour");
   assert.equal(scoped.site.features.length, catalog.features.length);
   assert.ok(scoped.site.features.every((f) => f.product === "copilot-studio"));
   assert.equal(scoped.shotList.shots.some((s) => s.feature === other.id), false);
+  const spai = scoped.products.find((p) => p.id === "sharepoint-ai");
+  assert.deepEqual(spai.site.features.map((f) => f.id), [other.id], "the other product has its own tour");
+  assert.ok(scoped.pages.has(`sharepoint-ai/features/${other.id}.html`));
 });
 
 test("harness, level, and availability match the catalog", () => {

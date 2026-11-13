@@ -18,6 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { PLACEHOLDER_PATH, describeSlot, slotsForFeature } from "./slots.js";
+import { capturedImage, capturedScreenshotsDir } from "./captured.js";
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** True when `child` resolves to a location strictly inside `root`. */
@@ -49,9 +50,12 @@ function uniqueFilename(filename, featureId, used) {
  * @param {object} plan planner output
  * @param {object} opts
  * @param {string} opts.labsDir absolute path to the repo `labs/` folder
- * @returns {{ byFeature: Map<string, {reused: Array, capture: Array}>, copies: Array, shots: Array }}
+ * @param {string} [opts.capturedDir] folder of captured feature-tour screenshots (default docs/feature-tour/screenshots)
+ * @returns {{ byFeature: Map<string, {reused: Array, capture: Array}>, copies: Array, shots: Array, placeholders: Array }}
+ *   `shots` lists every slot; a slot with a captured image has status "captured" and is copied
+ *   instead of getting a placeholder, any other slot has status "pending".
  */
-export function planScreenshots(plan, { labsDir }) {
+export function planScreenshots(plan, { labsDir, capturedDir = capturedScreenshotsDir() }) {
   const byFeature = new Map();
   const copies = [];
   const shots = [];
@@ -89,6 +93,8 @@ export function planScreenshots(plan, { labsDir }) {
       const filename = uniqueFilename(shot.filename, feature.id, usedFilenames);
       const described = describeSlot(feature, shot);
       figure += 1;
+      // A real screenshot captured for this slot is used as is; every other slot keeps the placeholder.
+      const captured = capturedImage(capturedDir, shot.filename);
 
       const entry = {
         // capture.js selects shots by numeric id (--only, --range, --from).
@@ -105,13 +111,14 @@ export function planScreenshots(plan, { labsDir }) {
         caption: described.caption,
         kind: described.kind,
         figure: `${feature.order}.${figure}`,
-        status: "pending",
+        status: captured ? "captured" : "pending",
       };
       if (shot.url) entry.url = shot.url;
       if (shot.viewport) entry.viewport = shot.viewport;
 
       shots.push(entry);
-      placeholders.push({ filename });
+      if (captured) copies.push({ source: captured.file, filename, captured: true });
+      else placeholders.push({ filename });
       capture.push({
         filename,
         caption: described.caption,
@@ -119,7 +126,7 @@ export function planScreenshots(plan, { labsDir }) {
         kind: described.kind,
         figure: entry.figure,
         instructions: entry.instructions,
-        pending: true,
+        pending: !captured,
       });
     }
 
@@ -184,11 +191,13 @@ export function buildShotsManifest(plan, shots) {
  * screenshots, not for the learner, so they live here and in `shots.json`
  * rather than in the lab.
  */
-export function buildShotList(plan, shots) {
+export function buildShotList(plan, allShots) {
+  const shots = allShots.filter((shot) => shot.status !== "captured");
+  const done = allShots.length - shots.length;
   const lines = [
     `# Shot list: ${plan.title}`,
     "",
-    `${shots.length} screenshot${shots.length === 1 ? "" : "s"} still to capture. Each one is already in the lab as a "Screenshot pending" placeholder with its alt text and caption written, so capturing it never requires editing \`index.md\`.`,
+    `${shots.length} screenshot${shots.length === 1 ? "" : "s"} still to capture${done ? ` (${done} already captured and copied in from the feature tour)` : ""}. Each one is already in the lab as a "Screenshot pending" placeholder with its alt text and caption written, so capturing it never requires editing \`index.md\`.`,
     "",
     "Run the capture tool against this lab's manifest, then confirm nothing is left pending:",
     "",

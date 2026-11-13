@@ -16,7 +16,8 @@
     "feature-tour:serve": "node tools/feature-tour/serve.mjs",
     "feature-tour:test": "node --test \"tools/feature-tour/test/*.test.mjs\"",
     "feature-tour:capture": "cd tools/screenshot-capture && npm run capture:features",
-    "feature-tour:verify": "node tools/screenshot-capture/verify-shots.js --lab=feature-tour --missing",
+    "feature-tour:verify": "node tools/screenshot-capture/verify-shots.js --features --missing",
+    "capture:status": "node tools/screenshot-capture/status.mjs",
     "verify:appreg": "node scripts/verify-app-reg.js"
   },
   "engines": {

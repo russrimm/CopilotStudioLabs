@@ -137,6 +137,10 @@ main:focus { outline: none; }
 .primary-nav { display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; flex: 1; }
 .primary-nav a { color: var(--fg); padding: 0.25rem 0; }
 .primary-nav a[aria-current="page"] { font-weight: 700; text-decoration: none; border-bottom: 3px solid var(--accent); }
+.product-row { padding-bottom: 0.5rem; }
+.product-nav { font-size: 0.95rem; align-items: center; }
+.product-nav-label { color: var(--muted, var(--fg)); font-weight: 600; }
+.product-nav a[aria-current="true"] { font-weight: 700; text-decoration: none; border-bottom: 3px solid var(--accent); }
 
 button, .button, select, input[type="search"] {
   font: inherit; color: var(--fg); background: var(--bg);

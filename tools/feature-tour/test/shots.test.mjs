@@ -101,7 +101,7 @@ test("build --check exits 0 when current", () => {
 
 test("verify-shots reports pending screenshots without failing, and fails in strict-missing mode", () => {
   const script = path.join(DEFAULTS.shotList, "..", "verify-shots.js");
-  const base = spawnSync(process.execPath, [script, "--lab=feature-tour", "--json"], { encoding: "utf8" });
+  const base = spawnSync(process.execPath, [script, "--product=copilot-studio", "--json"], { encoding: "utf8" });
   assert.equal(base.status, 0, base.stderr);
   const report = JSON.parse(base.stdout);
   assert.equal(report.featureTour.total, shotList.shots.length);
@@ -109,7 +109,7 @@ test("verify-shots reports pending screenshots without failing, and fails in str
   const shotsDir = path.resolve(path.dirname(DEFAULTS.shotList), "..", "..", "docs", "feature-tour", "screenshots");
   const anyCaptured = fs.readdirSync(shotsDir).some((n) => /\.(png|jpe?g|webp)$/i.test(n));
   if (!anyCaptured) {
-    const strict = spawnSync(process.execPath, [script, "--lab=feature-tour", "--strict-missing"], { encoding: "utf8" });
+    const strict = spawnSync(process.execPath, [script, "--product=copilot-studio", "--strict-missing"], { encoding: "utf8" });
     assert.equal(strict.status, 1);
   }
 });

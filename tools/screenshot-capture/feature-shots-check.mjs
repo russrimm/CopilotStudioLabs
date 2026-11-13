@@ -10,7 +10,9 @@ export const FEATURE_ASSETS_DIR = "docs/feature-tour/screenshots";
 const HARNESSES = new Set(["standard", "microsoft-copilot", "customer-conversation", "both"]);
 const nonEmpty = (v) => typeof v === "string" && v.trim().length > 0;
 
-export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = false }) {
+// knownFilenames is every filename in every product's manifest. The screenshots
+// folder is shared, so a file that belongs to another product is not an orphan.
+export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = false, knownFilenames = null }) {
   const findings = [];
   const add = (severity, code, message, details = {}) => findings.push({ severity, code, message, ...details });
   const rel = path.relative(repoRoot, manifestPath).split(path.sep).join("/");
@@ -29,8 +31,20 @@ export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = fals
   }
 
   if (manifest.kind !== "feature-tour") add("critical", "feature-shots-schema", `${rel} must have kind "feature-tour".`);
+  const product = manifest.product ?? "copilot-studio";
+  const hasHarnesses = product === "copilot-studio";
+  result.product = product;
   if (!nonEmpty(manifest.lab) || !/^[a-z0-9-]+$/i.test(manifest.lab)) {
     add("critical", "feature-shots-schema", `${rel} must have a "lab" id with letters, digits, and hyphens.`);
+  }
+  if (manifest.product !== undefined) {
+    if (!nonEmpty(manifest.authProfile) || !/^[a-z0-9-]+$/.test(manifest.authProfile)) {
+      add("critical", "feature-shots-schema", `${rel} must have an authProfile with lowercase letters, digits, and hyphens.`);
+    }
+    if (!/^https:\/\//.test(manifest.startUrl ?? "")) add("critical", "feature-shots-schema", `${rel} startUrl must be an https URL.`);
+    if (manifest.startUrlEnv !== undefined && !/^CAPTURE_[A-Z0-9_]+$/.test(manifest.startUrlEnv)) {
+      add("critical", "feature-shots-schema", `${rel} startUrlEnv must be an environment variable name starting with CAPTURE_.`);
+    }
   }
   if (manifest.assetsDir !== FEATURE_ASSETS_DIR) {
     add("critical", "feature-shots-assets-path", `${rel} assetsDir must be ${FEATURE_ASSETS_DIR}.`);
@@ -63,7 +77,16 @@ export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = fals
     for (const key of ["feature", "featureName", "section", "caption", "navHint"]) {
       if (!nonEmpty(shot[key])) add("critical", "feature-shots-schema", `${where} must have a non-empty ${key}.`);
     }
-    if (!HARNESSES.has(shot.harness)) add("critical", "feature-shots-schema", `${where} harness must be standard, microsoft-copilot, customer-conversation, or both.`);
+    if (hasHarnesses) {
+      if (!HARNESSES.has(shot.harness)) add("critical", "feature-shots-schema", `${where} harness must be standard, microsoft-copilot, customer-conversation, or both.`);
+    } else if (shot.harness !== undefined) {
+      add("critical", "feature-shots-schema", `${where} must not have a harness: ${product} has no harnesses.`);
+    }
+    if (shot.product !== undefined && shot.product !== product) add("critical", "feature-shots-schema", `${where} product must be ${product}.`);
+    if (shot.urlEnv !== undefined && !/^CAPTURE_[A-Z0-9_]+$/.test(shot.urlEnv)) {
+      add("critical", "feature-shots-schema", `${where} urlEnv must be an environment variable name starting with CAPTURE_.`);
+    }
+    if (shot.manual !== undefined && shot.manual !== true) add("critical", "feature-shots-schema", `${where} manual must be true when present.`);
     if (!Array.isArray(shot.instructions) || shot.instructions.length === 0 || !shot.instructions.every(nonEmpty)) {
       add("critical", "feature-shots-schema", `${where} must have non-empty instructions.`);
     }
@@ -89,7 +112,7 @@ export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = fals
     if (info.status === "ready") {
       result.captured += 1;
     } else {
-      result.missing.push({ id: shot.id, feature: shot.feature, filename: shot.filename, reason: info.reason });
+      result.missing.push({ id: shot.id, feature: shot.feature, filename: shot.filename, reason: info.reason, product, ...(shot.manual ? { manual: true } : {}) });
       if (info.reason === "too-small" || info.reason === "not-an-image") {
         add("warning", "feature-shots-invalid-image", `${FEATURE_ASSETS_DIR}/${shot.filename} exists but is not a usable screenshot (${info.reason}); the site shows it as pending.`, { filename: shot.filename });
       } else if (strictMissing) {
@@ -99,15 +122,16 @@ export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = fals
   }
 
   if (fs.existsSync(assetsDir)) {
+    const known = knownFilenames ?? filenames;
     for (const name of fs.readdirSync(assetsDir)) {
       const ext = path.extname(name).toLowerCase();
-      if (IMAGE_EXTENSIONS.has(ext) && !filenames.has(name)) {
+      if (IMAGE_EXTENSIONS.has(ext) && !known.has(name)) {
         add("warning", "feature-shots-orphan", `${FEATURE_ASSETS_DIR}/${name} is not in ${rel}.`, { filename: name });
       }
       if (name.endsWith(".callouts.json")) {
-        const owner = [...filenames].find((f) => sidecarName(f) === name);
+        const owner = [...known].find((f) => sidecarName(f) === name);
         if (!owner) add("warning", "feature-shots-orphan-sidecar", `${FEATURE_ASSETS_DIR}/${name} has no matching shot.`, { filename: name });
-        else {
+        else if (filenames.has(owner)) {
           try {
             const parsed = JSON.parse(fs.readFileSync(path.join(assetsDir, name), "utf8"));
             if (!Array.isArray(parsed.callouts)) throw new Error("callouts must be an array");

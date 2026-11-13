@@ -1,0 +1,98 @@
+{
+  "$comment": "Where and how to capture each product's screenshots. Read by tools/feature-tour/build.mjs (to write one feature-shots manifest per product) and by tools/screenshot-capture. A product's id must match portal/lib/lab-builder/products.json. 'startUrl' is the page the capture browser opens first; 'startUrlEnv' names an optional environment variable that overrides it, for a tenant-specific address. A section is the 'section' value of a catalog screenshot entry: 'url' is a public sign-in or home page, 'urlEnv' names an optional environment variable that holds a tenant-specific address (it wins over 'url'), 'hint' tells the person capturing where the screen is, and 'manual' marks a screen outside the browser (a terminal or Visual Studio Code) that the person captures with an OS screenshot tool and saves at the planned filename. Every public URL here is quoted from Microsoft Learn. A location Learn does not give a stable address for has no URL: its hint says to follow the setup steps. Edit this file, then run: npm run feature-tour:build",
+  "version": 1,
+  "products": {
+    "copilot-studio": {
+      "label": "Microsoft Copilot Studio",
+      "order": 1,
+      "authProfile": "copilot-studio",
+      "startUrl": "https://copilotstudio.microsoft.com/",
+      "startUrlEnv": "CAPTURE_COPILOT_STUDIO_START_URL",
+      "sections": {
+        "home": { "url": "https://copilotstudio.microsoft.com/" },
+        "admin": { "url": "https://admin.powerplatform.microsoft.com/" }
+      }
+    },
+    "m365-copilot-agent-builder": {
+      "label": "Agent Builder and declarative agents for Microsoft 365 Copilot",
+      "order": 2,
+      "authProfile": "m365-copilot-agent-builder",
+      "startUrl": "https://m365.cloud.microsoft/chat",
+      "startUrlEnv": "CAPTURE_M365_AGENT_BUILDER_START_URL",
+      "sections": {
+        "build": { "url": "https://m365.cloud.microsoft/chat", "hint": "Open Microsoft 365 Copilot, then follow the setup steps to reach Agent Builder. Agents Toolkit steps happen in Visual Studio Code: capture those with an OS screenshot tool and save the file at the planned filename." },
+        "test": { "url": "https://m365.cloud.microsoft/chat", "hint": "Open Microsoft 365 Copilot and the agent you are building, then use the Try it tab or the agent's chat." },
+        "knowledge": { "url": "https://m365.cloud.microsoft/chat", "hint": "Open Agent Builder in Microsoft 365 Copilot, then go to the Knowledge section of the Configure tab." },
+        "deploy": { "url": "https://m365.cloud.microsoft/chat", "hint": "Open Agent Builder in Microsoft 365 Copilot, then follow the setup steps to the sharing or submit dialog." },
+        "admin": { "url": "https://admin.teams.microsoft.com/", "hint": "Start in the Teams admin center as an admin, then follow the setup steps." }
+      }
+    },
+    "sharepoint-ai": {
+      "label": "SharePoint AI features",
+      "order": 3,
+      "authProfile": "sharepoint-ai",
+      "startUrl": "https://m365.cloud.microsoft/chat",
+      "startUrlEnv": "CAPTURE_SHAREPOINT_AI_START_URL",
+      "sections": {
+        "sharepoint-site": { "urlEnv": "CAPTURE_SHAREPOINT_SITE_URL", "hint": "Open a SharePoint site you own (set CAPTURE_SHAREPOINT_SITE_URL to its address), then follow the setup steps." },
+        "sharepoint-library": { "urlEnv": "CAPTURE_SHAREPOINT_SITE_URL", "hint": "Open a document library on a SharePoint site you own (set CAPTURE_SHAREPOINT_SITE_URL to the site address), then follow the setup steps." },
+        "agent-builder": { "urlEnv": "CAPTURE_SHAREPOINT_SITE_URL", "hint": "Open a SharePoint site you own (set CAPTURE_SHAREPOINT_SITE_URL to its address), then follow the setup steps to open the agent builder." },
+        "sharepoint-admin-center": { "url": "https://admin.microsoft.com/sharepoint", "urlEnv": "CAPTURE_SHAREPOINT_ADMIN_URL", "hint": "Start in the SharePoint admin center. Set CAPTURE_SHAREPOINT_ADMIN_URL to https://<TenantName>-admin.sharepoint.com to use your tenant address." },
+        "m365-admin-center": { "url": "https://admin.cloud.microsoft/", "urlEnv": "CAPTURE_M365_ADMIN_URL", "hint": "Start in the Microsoft 365 admin center as an admin, then follow the setup steps." },
+        "powershell": { "manual": true, "hint": "Run the command in SharePoint Online Management Shell, remove the tenant name from the output, capture the window with an OS screenshot tool, and save it at the planned filename." },
+        "copilot-app": { "url": "https://m365.cloud.microsoft/chat", "hint": "Open the Microsoft Copilot app, then follow the setup steps." }
+      }
+    },
+    "ai-foundry": {
+      "label": "Microsoft Foundry",
+      "order": 4,
+      "authProfile": "ai-foundry",
+      "startUrl": "https://ai.azure.com",
+      "startUrlEnv": "CAPTURE_FOUNDRY_START_URL",
+      "sections": {
+        "home": { "url": "https://ai.azure.com", "hint": "Start on the Microsoft Foundry portal, signed in, with the New Foundry toggle on." },
+        "catalog": { "urlEnv": "CAPTURE_FOUNDRY_PROJECT_URL", "hint": "Open your Foundry project in the Foundry portal (set CAPTURE_FOUNDRY_PROJECT_URL to its address), then follow the setup steps." },
+        "playground": { "urlEnv": "CAPTURE_FOUNDRY_PROJECT_URL", "hint": "Open your Foundry project (set CAPTURE_FOUNDRY_PROJECT_URL to its address), then open the playground for your deployment." },
+        "agents": { "urlEnv": "CAPTURE_FOUNDRY_PROJECT_URL", "hint": "Open your Foundry project (set CAPTURE_FOUNDRY_PROJECT_URL to its address), then follow the setup steps. If a step runs in a terminal, capture the terminal with an OS screenshot tool and save it at the planned filename." },
+        "manage": { "urlEnv": "CAPTURE_FOUNDRY_PROJECT_URL", "hint": "Open your Foundry project (set CAPTURE_FOUNDRY_PROJECT_URL to its address), then follow the setup steps to the Manage area." },
+        "evaluation": { "urlEnv": "CAPTURE_FOUNDRY_PROJECT_URL", "hint": "Open your Foundry project (set CAPTURE_FOUNDRY_PROJECT_URL to its address), then follow the setup steps to Evaluation." },
+        "guardrails": { "urlEnv": "CAPTURE_FOUNDRY_PROJECT_URL", "hint": "Open your Foundry project (set CAPTURE_FOUNDRY_PROJECT_URL to its address), then follow the setup steps to Guardrails." },
+        "publish": { "urlEnv": "CAPTURE_FOUNDRY_PROJECT_URL", "hint": "Open your agent in your Foundry project (set CAPTURE_FOUNDRY_PROJECT_URL to the project address), then follow the setup steps to Publish." },
+        "azure-portal": { "url": "https://portal.azure.com", "hint": "Start in the Azure portal, signed in to the subscription you use for Foundry." },
+        "classic-portal": { "url": "https://ai.azure.com", "hint": "Open the Foundry portal with the New Foundry toggle off to see the Foundry (classic) experience." },
+        "local": { "manual": true, "hint": "Run the command in a terminal, capture the terminal window with an OS screenshot tool, and save it at the planned filename." },
+        "microsoft-copilot": { "url": "https://m365.cloud.microsoft/chat", "hint": "Open the Microsoft Copilot app after publishing, then follow the setup steps." },
+        "copilot-studio": { "url": "https://copilotstudio.microsoft.com/", "hint": "Open Copilot Studio, then open your agent and follow the setup steps." }
+      }
+    },
+    "m365-copilot-hub": {
+      "label": "Microsoft 365 Copilot hub and Copilot controls",
+      "order": 5,
+      "authProfile": "m365-copilot-hub",
+      "startUrl": "https://admin.cloud.microsoft/",
+      "startUrlEnv": "CAPTURE_M365_COPILOT_HUB_START_URL",
+      "sections": {
+        "admin-center": { "url": "https://admin.cloud.microsoft/", "urlEnv": "CAPTURE_M365_ADMIN_URL", "hint": "Start in the Microsoft 365 admin center as an admin, then follow the setup steps." },
+        "m365-apps-admin-center": { "url": "https://config.office.com/", "hint": "Start in the Microsoft 365 Apps admin center as an admin, then follow the setup steps." },
+        "copilot-app": { "url": "https://m365.cloud.microsoft/chat", "hint": "Open the Microsoft Copilot app, then follow the setup steps." },
+        "sharepoint-admin-center": { "url": "https://admin.microsoft.com/sharepoint", "urlEnv": "CAPTURE_SHAREPOINT_ADMIN_URL", "hint": "Start in the SharePoint admin center. Set CAPTURE_SHAREPOINT_ADMIN_URL to https://<TenantName>-admin.sharepoint.com to use your tenant address." },
+        "purview": { "url": "https://purview.microsoft.com", "hint": "Start in the Microsoft Purview portal as an admin, then follow the setup steps." }
+      }
+    },
+    "power-platform-ai-hub": {
+      "label": "Power Platform AI hub (AI Builder)",
+      "order": 6,
+      "authProfile": "power-platform-ai-hub",
+      "startUrl": "https://make.powerapps.com",
+      "startUrlEnv": "CAPTURE_POWER_PLATFORM_START_URL",
+      "sections": {
+        "ai-hub": { "url": "https://make.powerapps.com", "urlEnv": "CAPTURE_POWER_PLATFORM_START_URL", "hint": "Open Power Apps or Power Automate in your environment, then open More > AI hub in the left pane." },
+        "prompt-builder": { "url": "https://make.powerapps.com", "urlEnv": "CAPTURE_POWER_PLATFORM_START_URL", "hint": "Open Power Apps in your environment, then open AI hub > Prompts." },
+        "power-apps": { "url": "https://make.powerapps.com", "urlEnv": "CAPTURE_POWER_PLATFORM_START_URL", "hint": "Open Power Apps in your environment, then follow the setup steps in Power Apps Studio." },
+        "power-automate": { "url": "https://make.powerautomate.com", "hint": "Open Power Automate in your environment, then follow the setup steps in the cloud flow designer." },
+        "admin-center": { "url": "https://admin.powerplatform.microsoft.com/", "hint": "Start in the Power Platform admin center as an admin, then follow the setup steps." },
+        "learn": { "hint": "Open the Microsoft Learn article named in the steps in the capture browser." }
+      }
+    }
+  }
+}

@@ -84,13 +84,17 @@
     return h("span", { class: "badge " + cls, text: text });
   }
 
+  function groupLabel(harness, category) {
+    return data.hasHarnesses === false ? category.name : harness.name + " · " + category.name;
+  }
+
   function badgesFor(f) {
     var harness = find(data.harnesses, f.harnessGroup);
     var avail = find(data.availability, f.availability);
     return h(
       "p",
       { class: "badges" },
-      badge("badge-harness-" + harness.id, harness.id === "both" ? "Both harnesses" : harness.name),
+      data.hasHarnesses === false ? "" : badge("badge-harness-" + harness.id, harness.id === "both" ? "Both harnesses" : harness.name),
       badge("badge-level", f.levelLabel),
       badge("badge-availability-" + avail.id, avail.label),
       badge("badge-minutes", "About " + f.minutes + " min")
@@ -189,7 +193,7 @@
     stepEl.textContent = "";
     stepEl.setAttribute("aria-labelledby", "tour-step-title");
 
-    stepEl.appendChild(h("p", { class: "eyebrow", text: harness.name + " · " + category.name }));
+    stepEl.appendChild(h("p", { class: "eyebrow", text: groupLabel(harness, category) }));
     stepEl.appendChild(h("h2", { id: "tour-step-title", text: f.name }));
     stepEl.appendChild(badgesFor(f));
     stepEl.appendChild(h("p", { class: "lede", text: f.summary }));
@@ -242,7 +246,7 @@
     progress.setAttribute("aria-valuenow", String(n));
     progress.setAttribute("aria-valuetext", "Step " + n + " of " + total);
     bar.style.width = ((n / total) * 100).toFixed(1) + "%";
-    progressText.textContent = "Step " + n + " of " + total + " · " + harness.name + " · " + category.name;
+    progressText.textContent = "Step " + n + " of " + total + " · " + groupLabel(harness, category);
     jump.value = f.id;
     prevBtn.disabled = current === 0;
     nextBtn.disabled = current === total - 1;

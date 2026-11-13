@@ -17,6 +17,11 @@
     availability: document.getElementById("f-availability"),
     shots: document.getElementById("f-shots"),
   };
+  // Products without harnesses have no harness filter.
+  Object.keys(controls).forEach(function (key) {
+    if (!controls[key]) delete controls[key];
+  });
+  var harnessValue = function () { return controls.harness ? controls.harness.value : ""; };
 
   function readUrl() {
     var params = new URLSearchParams(location.search);
@@ -45,7 +50,7 @@
     cards.forEach(function (card) {
       var d = card.dataset;
       var match =
-        (!controls.harness.value || d.harness === controls.harness.value) &&
+        (!harnessValue() || d.harness === harnessValue()) &&
         (!controls.level.value || d.level === controls.level.value) &&
         (!controls.category.value || d.category === controls.category.value) &&
         (!controls.availability.value || d.availability === controls.availability.value) &&

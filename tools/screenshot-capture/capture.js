@@ -20,12 +20,13 @@
 // Login state is persisted in tools/screenshot-capture/.auth so subsequent
 // runs reuse the session.
 
-import { chromium } from "playwright";
 import { fileURLToPath } from "node:url";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { existsSync, readFileSync, mkdirSync, statSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import readline from "node:readline";
 import { resolveCallouts, sidecarName, writeSidecar } from "./callouts.mjs";
+import { listFeatureManifests, resolveShotUrl, resolveStartUrl } from "./manifests.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -33,15 +34,45 @@ const repoRoot = resolve(__dirname, "..", "..");
 
 // --manifest=<path> lets callers point at any lab's shots.json (paths are
 // resolved relative to the current working directory, then the repo root).
-const manifestArg = process.argv
-  .slice(2)
-  .find((a) => a.startsWith("--manifest="));
-// --features is shorthand for the generated feature-tour shot list.
+// --product=<id> picks that product's generated feature shot list, and --features
+// is shorthand for the Copilot Studio list (or every product's list with --list or --dry-run).
+const rawArgs = process.argv.slice(2);
+const manifestArg = rawArgs.find((a) => a.startsWith("--manifest="));
+const productArg = rawArgs.find((a) => a.startsWith("--product="));
+const wantFeatures = rawArgs.includes("--features");
+const productRaw = productArg ? productArg.slice("--product=".length) : null;
+const productManifests = listFeatureManifests(__dirname);
+
+function productManifestPath(product) {
+  const entry = productManifests.find((m) => m.product === product);
+  if (!entry) {
+    console.error(`Error: no feature shot list for product "${product}". Products: ${productManifests.map((m) => m.product).join(", ")}.`);
+    console.error("Run `node capture.js --help` for usage.");
+    process.exit(1);
+  }
+  return entry.path;
+}
+
+// Every product's list is read by running this script once per product; capture needs one browser profile per product.
+const allProducts = productRaw === "all" || (wantFeatures && !productRaw && !manifestArg && (rawArgs.includes("--list") || rawArgs.includes("--dry-run")));
+if (allProducts) {
+  const passthrough = rawArgs.filter((a) => !a.startsWith("--product=") && a !== "--features");
+  let status = 0;
+  for (const entry of productManifests) {
+    console.log(`\n===== ${entry.product} =====`);
+    const run = spawnSync(process.execPath, [__filename, `--product=${entry.product}`, ...passthrough], { stdio: "inherit" });
+    status = status || (run.status ?? 1);
+  }
+  process.exit(status);
+}
+
 const manifestOverride = manifestArg
   ? manifestArg.slice("--manifest=".length)
-  : process.argv.slice(2).includes("--features")
-    ? join("tools", "screenshot-capture", "feature-shots.json")
-    : null;
+  : productRaw
+    ? productManifestPath(productRaw)
+    : wantFeatures
+      ? productManifestPath("copilot-studio")
+      : null;
 const manifestPath = manifestOverride
   ? (existsSync(resolve(process.cwd(), manifestOverride))
       ? resolve(process.cwd(), manifestOverride)
@@ -82,7 +113,12 @@ if (
   );
   process.exit(1);
 }
-const userDataDir = join(__dirname, ".auth");
+// Lab shots keep the original profile folder. Each product's feature tour has its own
+// profile under .auth, so you sign in once per product and tenant.
+const userDataDir = isFeatureTour && manifest.authProfile
+  ? join(__dirname, ".auth", manifest.authProfile)
+  : join(__dirname, ".auth");
+const productLabel = manifest.product ?? "Copilot Studio";
 
 const DEFAULT_VIEWPORT = { width: 1440, height: 900 };
 const DEFAULT_ZOOM = 1.0;
@@ -108,10 +144,11 @@ const onlyRaw = value("--only");
 const rangeRaw = value("--range");
 const fromRaw = value("--from");
 const featureRaw = value("--feature");
+const sectionRaw = value("--section");
 const harnessRaw = value("--harness");
 
 function printHelp() {
-  console.log(`\nMicrosoft AI Training Generator screenshot capture\n\nUsage:\n  node capture.js [flags]\n\nSelection flags (mutually exclusive):\n  --all             Capture every shot, even if the file exists.\n  --only=<csv>      Capture only specific shot IDs, e.g. --only=2,4,7.\n  --range=A-B       Capture an inclusive shot ID range.\n  --from=<id>       Capture from the matching shot ID through the end.\n  --missing         Capture only shots missing on disk (also the default).\n\nFilters (combine with a selection flag; feature-tour manifests only):\n  --feature=<csv>   Only shots for these feature ids, e.g. --feature=mc-skills,topics.\n  --harness=<id>    Only shots for one harness: standard, microsoft-copilot, customer-conversation, or both.\n\nOther flags:\n  --manifest=<path> Use a specific shots.json (e.g. a lab's own manifest).\n  --features        Use the feature tour shot list (tools/screenshot-capture/feature-shots.json).\n  --list            List shots and whether each file exists.\n  --dry-run         Print resolved shot setup without launching Playwright.\n  --help, -h        Show this help.\n\nKeystrokes during capture:\n  SPACE             Snap the current shot and advance.\n  r                 Retry/re-snap the current shot.\n  n                 Skip this shot without saving.\n  q                 Quit gracefully and persist auth.\n  ?                 Re-print the current shot instructions.\n\nFeature tour shots also write a <file>.callouts.json next to each PNG with the\nposition of every numbered callout, so the site can draw the hotspots.\n\nPrecedence: --only beats --range beats --from beats --missing default.\nConflicting selection flags are rejected so intent stays explicit.\n`);
+  console.log(`\nMicrosoft AI Training Generator screenshot capture\n\nUsage:\n  node capture.js [flags]\n\nSelection flags (mutually exclusive):\n  --all             Capture every shot, even if the file exists.\n  --only=<csv>      Capture only specific shot IDs, e.g. --only=2,4,7.\n  --range=A-B       Capture an inclusive shot ID range.\n  --from=<id>       Capture from the matching shot ID through the end.\n  --missing         Capture only shots missing on disk (also the default).\n\nFilters (combine with a selection flag; feature tour shot lists only):\n  --feature=<csv>   Only shots for these feature ids, e.g. --feature=mc-skills,topics.\n  --section=<csv>   Only shots for these portal areas (the section column of --list), e.g. --section=sharepoint-admin-center.\n  --harness=<id>    Copilot Studio only. Only shots for one harness: standard, microsoft-copilot, customer-conversation, or both.\n\nOther flags:\n  --manifest=<path> Use a specific shots.json (e.g. a lab's own manifest).\n  --product=<id>    Use one product's feature shot list and its own browser profile: copilot-studio, m365-copilot-agent-builder, sharepoint-ai, ai-foundry, m365-copilot-hub, or power-platform-ai-hub. --product=all runs each product in turn.\n  --features        Shorthand for --product=copilot-studio; with --list or --dry-run and no --product it covers every product.\n  --list            List shots and whether each file exists.\n  --dry-run         Print resolved shot setup without launching Playwright.\n  --help, -h        Show this help.\n\nKeystrokes during capture:\n  SPACE             Snap the current shot and advance.\n  r                 Retry/re-snap the current shot.\n  n                 Skip this shot without saving.\n  q                 Quit gracefully and persist auth.\n  ?                 Re-print the current shot instructions.\n\nFeature tour shots also write a <file>.callouts.json next to each PNG with the\nposition of every numbered callout, so the site can draw the hotspots. A shot marked\nmanual (a terminal or Visual Studio Code) is not screenshotted by the tool: save the\nimage at the printed path, then press SPACE to verify it.\n\nTenant-specific addresses: set the CAPTURE_* environment variable named in a shot's\n"tenant address variable" line (see README.md) before you run.\n\nPrecedence: --only beats --range beats --from beats --missing default.\nConflicting selection flags are rejected so intent stays explicit.\n`);
 }
 
 function failArg(message) {
@@ -155,8 +192,17 @@ if (fromRaw !== null && !Number.isFinite(fromId)) {
 }
 
 const featureFilter = featureRaw ? new Set(featureRaw.split(",").map((s) => s.trim()).filter(Boolean)) : null;
-if ((featureFilter || harnessRaw) && !isFeatureTour) {
-  failArg("--feature and --harness only apply to the feature tour shot list (use --features).");
+const sectionFilter = sectionRaw ? new Set(sectionRaw.split(",").map((s) => s.trim()).filter(Boolean)) : null;
+if ((featureFilter || sectionFilter || harnessRaw) && !isFeatureTour) {
+  failArg("--feature, --section, and --harness only apply to a feature tour shot list (use --product=<id> or --features).");
+}
+if (sectionFilter) {
+  const known = new Set(manifest.shots.map((s) => s.section));
+  const unknown = [...sectionFilter].filter((id) => !known.has(id));
+  if (unknown.length) failArg(`unknown section(s): ${unknown.join(", ")}. Sections in this list: ${[...known].join(", ")}.`);
+}
+if (harnessRaw && manifest.product && manifest.product !== "copilot-studio") {
+  failArg("--harness only applies to Copilot Studio, the one product with harnesses.");
 }
 if (harnessRaw && !["standard", "microsoft-copilot", "customer-conversation", "both"].includes(harnessRaw)) {
   failArg("--harness must be standard, microsoft-copilot, customer-conversation, or both.");
@@ -226,13 +272,25 @@ function urlMatchesTarget(currentUrl, targetUrl) {
 }
 
 function resolvedUrl(shot, currentUrl = null) {
-  if (shot.url && isAbsoluteUrl(shot.url)) return shot.url;
+  const own = shotUrl(shot);
+  if (own) return own;
   const navSection = shotNavSection(shot);
   if (navSection) {
     const resolved = currentUrl ? resolveBotSectionUrl(currentUrl, navSection) : null;
     return resolved ?? `(current bot → ${navSection})`;
   }
-  return shot.url ?? "(stay on current page)";
+  return "(stay on current page)";
+}
+
+// A tenant-specific address from the shot's environment variable wins over its public url.
+function shotUrl(shot) {
+  if (shot.manual) return null;
+  try {
+    const { url } = resolveShotUrl(shot);
+    return url && isAbsoluteUrl(url) ? url : null;
+  } catch (error) {
+    failArg(error.message);
+  }
 }
 
 function validateShotShape(shot) {
@@ -264,7 +322,10 @@ for (const shot of manifest.shots) validateShotShape(shot);
 
 function applyFilters(shots) {
   return shots.filter(
-    (s) => (!featureFilter || featureFilter.has(s.feature)) && (!harnessRaw || s.harness === harnessRaw),
+    (s) =>
+      (!featureFilter || featureFilter.has(s.feature)) &&
+      (!sectionFilter || sectionFilter.has(s.section)) &&
+      (!harnessRaw || s.harness === harnessRaw),
   );
 }
 
@@ -285,12 +346,14 @@ function selectByFlags() {
 }
 
 function featureLabel(s) {
-  return isFeatureTour ? `${s.featureName} [${s.harness}]` : (s.labSection ?? s.section);
+  return isFeatureTour ? `${s.featureName}${s.harness ? ` [${s.harness}]` : ""}` : (s.labSection ?? s.section);
 }
 
 function printFeatureDetails(shot) {
   if (!isFeatureTour) return;
   if (shot.navHint) console.log(`Where: ${shot.navHint}`);
+  if (shot.urlEnv) console.log(`Tenant address: set ${shot.urlEnv} to use yours${process.env[shot.urlEnv] ? " (set)" : " (not set)"}.`);
+  if (shot.manual) console.log("Manual capture: this screen is outside the browser. Capture it with an OS screenshot tool and save it at the path below.");
   if (shot.prerequisites?.length) console.log(`Prerequisite features: ${shot.prerequisites.join("; ")}`);
   if (shot.setup?.length) {
     console.log("Steps to reach the screen:");
@@ -302,13 +365,21 @@ function printFeatureDetails(shot) {
   }
 }
 
+function startUrl() {
+  try {
+    return resolveStartUrl(manifest);
+  } catch (error) {
+    failArg(error.message);
+  }
+}
+
 function listAll() {
   const missing = manifest.shots.filter((s) => !shotExists(s.filename)).length;
   console.log(`\nShots manifest (${manifest.shots.length} total, ${missing} missing)\n`);
   for (const s of applyFilters(manifest.shots)) {
     const have = shotExists(s.filename) ? "✓" : " ";
     console.log(`  [${have}] #${String(s.id).padStart(2, "0")}  ${s.filename}`);
-    console.log(`        ${featureLabel(s)}`);
+    console.log(`        ${featureLabel(s)}${isFeatureTour ? ` (section: ${s.section})` : ""}`);
     console.log(`        target: ${resolvedUrl(s)}`);
   }
   console.log(`\nAssets dir: ${assetsDir}`);
@@ -317,12 +388,19 @@ function listAll() {
 
 function printDryRun(shots) {
   console.log(`\nDry run: ${shots.length} selected shot(s); Playwright was not launched.`);
+  if (isFeatureTour) {
+    console.log(`Product: ${productLabel}`);
+    console.log(`Start URL: ${startUrl()}`);
+    console.log(`Browser profile: ${relative(__dirname, userDataDir) || "."}`);
+  }
   console.log(`Assets dir: ${assetsDir}\n`);
   for (const shot of shots) {
     const viewport = resolvedViewport(shot);
     console.log(`#${String(shot.id).padStart(2, "0")} ${shot.filename}`);
     console.log(`  exists: ${shotExists(shot.filename) ? "yes" : "no"}`);
     console.log(`  url: ${resolvedUrl(shot)}`);
+    if (shot.manual) console.log("  manual: yes (capture with an OS screenshot tool and save at the path above)");
+    if (shot.urlEnv) console.log(`  tenant address variable: ${shot.urlEnv}${process.env[shot.urlEnv] ? " (set)" : " (not set)"}`);
     console.log(`  viewport: ${viewport.width}x${viewport.height}`);
     console.log(`  zoom: ${resolvedZoom(shot)}`);
     console.log(`  ${isFeatureTour ? "feature" : "lab section"}: ${featureLabel(shot)}`);
@@ -427,16 +505,18 @@ async function activePage(context) {
 }
 
 async function applyShotSetup(page, shot) {
+  if (shot.manual) return;
   await page.setViewportSize(DEFAULT_VIEWPORT).catch(() => {});
   await page.evaluate((zoom) => {
     document.body.style.zoom = String(zoom);
   }, DEFAULT_ZOOM).catch(() => {});
 
   const currentUrl = page.url();
-  if (shot.url && isAbsoluteUrl(shot.url)) {
-    if (!urlMatchesTarget(currentUrl, shot.url)) {
-      console.log(`Navigating to ${shot.url}`);
-      await page.goto(shot.url).catch((err) => console.warn(`Navigation warning: ${err.message}`));
+  const targetOwn = shotUrl(shot);
+  if (targetOwn) {
+    if (!urlMatchesTarget(currentUrl, targetOwn)) {
+      console.log(`Navigating to ${targetOwn}`);
+      await page.goto(targetOwn).catch((err) => console.warn(`Navigation warning: ${err.message}`));
     }
   } else {
     const navSection = shotNavSection(shot);
@@ -446,9 +526,6 @@ async function applyShotSetup(page, shot) {
       await page.goto(targetUrl).catch((err) => console.warn(`Navigation warning: ${err.message}`));
     } else if (navSection && !targetUrl) {
       console.log(`💡 Open any agent first, then this shot can auto-jump to the ${navSection} page.`);
-    } else if (shot.url && !urlMatchesTarget(currentUrl, shot.url)) {
-      console.log(`Navigating to ${shot.url}`);
-      await page.goto(shot.url).catch((err) => console.warn(`Navigation warning: ${err.message}`));
     }
   }
 
@@ -576,6 +653,7 @@ process.on("SIGINT", () => {
   shutdown(130);
 });
 
+const { chromium } = await import("playwright");
 context = await chromium.launchPersistentContext(userDataDir, {
   headless: false,
   viewport: DEFAULT_VIEWPORT,
@@ -584,11 +662,11 @@ context = await chromium.launchPersistentContext(userDataDir, {
 
 const page = context.pages()[0] ?? (await context.newPage());
 if (!page.url() || page.url() === "about:blank") {
-  await page.goto(manifest.startUrl).catch(() => {});
+  await page.goto(startUrl()).catch(() => {});
 }
 
-console.log("A Chromium window is now open. If this is your first run, sign in to Copilot Studio.");
-console.log("Your session is cached locally in tools/screenshot-capture/.auth so you won't need to sign in again.\n");
+console.log(`A Chromium window is now open. If this is your first run, sign in to ${productLabel}.`);
+console.log(`Your session is cached locally in ${relative(repoRoot, userDataDir).split(sep).join("/")} so you won't need to sign in again.\n`);
 
 for (let index = 0; index < todo.length; index += 1) {
   const shot = todo[index];
@@ -623,6 +701,22 @@ for (let index = 0; index < todo.length; index += 1) {
     }
 
     const out = shotPath(shot.filename);
+    if (shot.manual) {
+      // The screen is outside the browser: the person saves the image, and SPACE only verifies it.
+      const verified = verifyPng(out);
+      if (verified.ok) {
+        summary.snapped += 1;
+        console.log(`Found ${out} (${verified.size} bytes). Add a ${sidecarName(shot.filename)} file if you want numbered callouts on it.\n`);
+      } else {
+        summary.failedVerify += 1;
+        console.warn(`WARNING: ${out} is missing or is not a usable PNG (png=${verified.isPng}, size=${verified.size} bytes). Save it there, then retry.`);
+        if (await readVerifyChoice()) {
+          summary.retried += 1;
+          retrying = true;
+        }
+      }
+      continue;
+    }
     try {
       await target.screenshot({ path: out, fullPage: false });
       summary.snapped += 1;
