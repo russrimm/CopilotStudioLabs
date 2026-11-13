@@ -1,0 +1,258 @@
+{
+  "$comment": "Seed catalog for Copilot controls in the Microsoft 365 admin center, grounded on Microsoft Learn, features verified 2026-11-13.",
+  "product": "m365-copilot-hub",
+  "categories": [
+    {
+      "id": "copilot-admin",
+      "name": "Microsoft 365 Copilot administration",
+      "description": "Administer Microsoft Copilot and agents from the Microsoft 365 admin center: licensing, agent management, data security and governance, and usage analytics."
+    }
+  ],
+  "features": [
+    {
+      "id": "m365h-assign-copilot-licenses",
+      "name": "Assign Microsoft Copilot licenses",
+      "category": "copilot-admin",
+      "level": 100,
+      "minutes": 20,
+      "summary": "Confirm eligible plans and assign Microsoft Copilot licenses to users or groups in the Microsoft 365 admin center.",
+      "whyItMatters": "Users cannot use Microsoft Copilot features until they have a license, and license errors are the most common blocker during rollout. Group assignment and the Errors & Issues tab help you scale and troubleshoot.",
+      "concepts": [
+        "Microsoft Copilot is an add-on for eligible plans (for example Microsoft 365 E3 or E5) or is included with Microsoft 365 E7; Microsoft Copilot Business covers organizations with up to 300 users.",
+        "You must be at least a License or User Administrator to assign licenses. You can assign up to 20 users and/or groups at a time on the Licenses page.",
+        "After a Copilot license is assigned, the system sends the user a notification email automatically."
+      ],
+      "steps": [
+        "Check License options for Microsoft Copilot and confirm your plans are eligible prerequisite licenses.",
+        "Purchase Copilot licenses if you have none. Purchase steps beyond the licensing article: Not confirmed in Microsoft Learn.",
+        "Sign in to the Microsoft 365 admin center with an account that is at least a License or User Administrator.",
+        "Go to **Billing** > **Licenses** and select the Copilot product. Exact product label in your tenant: Not confirmed in Microsoft Learn.",
+        "On the product details page, select **Assign licenses**.",
+        "In the **Assign licenses** panel, type a user or group name and select it. Add up to 20 users or groups.",
+        "Optionally select **Turn apps and services on or off** to limit services, then select **Assign** and close the pane.",
+        "If an assignment fails, open the **Errors & Issues** tab, fix the cause, and select **Reprocess**."
+      ],
+      "validation": [
+        "The assigned users or groups appear in the product's assignment list on the Licenses page, and the Errors & Issues tab shows no failures for them.",
+        "A licensed user receives the automatic Microsoft Copilot notification email."
+      ],
+      "learnQueries": [
+        "assign Microsoft Copilot licenses Microsoft 365 admin center",
+        "license options for Microsoft Copilot eligible plans"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/copilot/plan/copilot-license-options",
+        "https://learn.microsoft.com/microsoft-365/admin/manage/assign-licenses-to-users",
+        "https://learn.microsoft.com/microsoft-365/copilot/microsoft-365-copilot-enable-users"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/assign-licenses-to-users",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-review-agent-inventory",
+      "name": "Review the agent overview and registry",
+      "category": "copilot-admin",
+      "level": 100,
+      "minutes": 25,
+      "summary": "Use Agents > Overview and the agent Registry to see which agents exist, who owns them, and which need attention.",
+      "whyItMatters": "You cannot govern agents you cannot see. The overview and registry show agent counts, ownership gaps, risks, and usage in one place.",
+      "concepts": [
+        "The registry lists Microsoft agents, External partner-built agents, agents Published by your org, and agents Shared by creator.",
+        "To manage agents you need licenses for Microsoft 365, Microsoft Copilot, or Microsoft Agent 365 and an admin role with the right permissions. AI Administrator and Global Administrator can act; AI Reader and Global Reader are read-only.",
+        "The same Copilot Studio agent can appear in more than one row with different publisher types. Learn states this is by design."
+      ],
+      "steps": [
+        "Sign in to the Microsoft 365 admin center with a role that can view agent registry information, such as AI Reader or AI Administrator.",
+        "Select **Agents** > **Overview** and review the hero metrics: **Agent registry**, **Active users**, **Agent run-time**, and **Registry sync**.",
+        "Review the governance cards for pending requests, agents at risk, agents without owners, and agents with exceptions.",
+        "Select **Explore All agents** > **Registry**, or go to **Agents** > **All Agents** > **Registry**.",
+        "Read the summary counts: **Total agents**, **Agents without owners**, and **Unmanaged agents**.",
+        "Filter the list by **Status**, **Publisher Type**, **Channel**, **Platform**, or **Data source**. Totals do not change when you filter.",
+        "Use **Export** to save the list to a CSV file, and select an agent to open its details pane."
+      ],
+      "validation": [
+        "The Registry shows a Total agents count and rows you can narrow with the Publisher Type and Platform filters.",
+        "Selecting the Agents without owners card filters the list to ownerless agents, or an exported CSV opens with the agent rows."
+      ],
+      "learnQueries": [
+        "Microsoft 365 admin center agent registry",
+        "agent overview Microsoft 365 admin center governance"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-365-overview",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-roles-perms"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-control-agent-availability",
+      "name": "Control agent access and availability",
+      "category": "copilot-admin",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Set agent and plugin access, user access, and sharing, and install or block individual agents.",
+      "whyItMatters": "These settings decide which agents your users can find, install, and share. They are the main lever for balancing experimentation with oversight.",
+      "concepts": [
+        "Agent settings include Agent management rules, Agent and plugin access, Security templates, Sharing, User access, Agent feedback sharing, and Tags.",
+        "User access has three options: All users (default), No users, and Specific users or groups. Sharing control applies only to agents built with Microsoft Copilot Agent Builder.",
+        "Block restricts an agent for the whole organization; Install makes it ready for all users or for selected users or groups."
+      ],
+      "steps": [
+        "Sign in as an AI Administrator. Copilot > Settings > Data access > Agents also links to agent controls.",
+        "Go to **Agents** > **Settings** > **Agent and plugin access** and choose whether to allow agents built by Microsoft, your organization, or external publishers.",
+        "Go to **Agents** > **Settings** > **User access**, choose **All users**, **No users**, or **Specific users or groups**, and select **Save**.",
+        "In **Sharing**, choose **All users**, **No users**, or **Specific users** for Agent Builder agents.",
+        "To install, go to **Agents** > **All agents**, keep **Registry** selected, set **Status** to **Available**, and select an agent.",
+        "In the details pane select **Install**, choose all users or specific users or groups, and select **Next**.",
+        "In **Review permissions**, select **Grant admin consent**, then **Accept**, **Next**, and **Finish deployment**.",
+        "To restrict an agent organization-wide, use the **Block** action on that agent. Exact control placement: Not confirmed in Microsoft Learn."
+      ],
+      "validation": [
+        "After you save User access, the page shows your chosen option and only the selected users or groups can use agents.",
+        "The installed agent no longer shows an Install option in its details pane, and a blocked agent is unavailable to users."
+      ],
+      "learnQueries": [
+        "agent settings Microsoft 365 admin center user access",
+        "install or block agents Microsoft 365 admin center"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-settings",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions",
+        "https://learn.microsoft.com/microsoft-365/admin/manage/manage-copilot-agents-integrated-apps",
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/agent-settings",
+      "prereqs": ["m365h-review-agent-inventory"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-measure-copilot-adoption",
+      "name": "Measure readiness and adoption",
+      "category": "copilot-admin",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Read the Microsoft Copilot readiness and usage reports and open the Copilot Dashboard in Viva Insights.",
+      "whyItMatters": "Reports show who is ready for a license, who actually uses Copilot, and where enablement stalls. That data supports license decisions and adoption plans.",
+      "concepts": [
+        "The Microsoft Copilot report has a Readiness tab and a Usage tab. For a given day, usage data typically appears within 48 hours; readiness is available within 72 hours.",
+        "Usage metrics include Enabled Users, Active Users, and Active users rate. The Suggested candidate for Copilot column flags the top 25% of unlicensed users by app usage.",
+        "The Copilot Dashboard in Viva Insights covers readiness, adoption, impact, and sentiment; agent insights need at least 50 Copilot or 50 Viva Insights licenses."
+      ],
+      "steps": [
+        "In the Microsoft 365 admin center, select **Reports** (use **Show all** if needed), then **Usage**.",
+        "Under **Reports**, select **Microsoft Copilot**, then **Copilot**.",
+        "On the **Readiness** tab, review Total Prerequisite Licenses, Users on an eligible update channel, Assigned Licenses, and Available Licenses.",
+        "Review the user table, including **Suggested candidate for Copilot**, and use **Export** for a CSV if needed.",
+        "Select the **Usage** tab, set the timeframe to 7, 28, 90, or 180 days, and review **Enabled Users**, **Active Users**, and **Active users rate**.",
+        "Review **Adoption by app** and **Prompts submitted**, switching between summary and trend views.",
+        "Open the Viva Insights web app, select **Copilot Dashboard**, and review the Readiness, Adoption, and Impact pages."
+      ],
+      "validation": [
+        "The Usage tab shows Enabled Users and Active Users for the timeframe you selected.",
+        "The Readiness tab lists Assigned Licenses and Available Licenses, and the Copilot Dashboard opens in the Viva Insights web app."
+      ],
+      "learnQueries": [
+        "Microsoft Copilot usage report admin center",
+        "Copilot Dashboard Viva Insights readiness adoption impact"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-usage",
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-readiness",
+        "https://learn.microsoft.com/viva/insights/org-team-insights/copilot-dashboard",
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-measurement-reporting"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-usage",
+      "prereqs": ["m365h-assign-copilot-licenses"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-approve-agent-requests",
+      "name": "Approve agent requests with policy templates",
+      "category": "copilot-admin",
+      "level": 300,
+      "minutes": 35,
+      "summary": "Review submitted agents in the Requests list, apply a policy template, and publish to the store or reject.",
+      "whyItMatters": "Agents that people publish need admin approval before they reach the tenant. Templates apply consistent Entra, Purview, SharePoint, and Defender protections at publish time.",
+      "concepts": [
+        "Requests show states such as Pending review, Pending update, and Pending activate. Approving or activating agents needs the AI Administrator or Global Administrator role.",
+        "Default templates bundle policies from Microsoft Entra, Microsoft Purview, SharePoint Online, and Microsoft Defender. Custom templates extend this with Entra policies and need an Agent 365 license.",
+        "Templates apply only to new activations, not to agents already approved. AI teammate template scenarios are preview and limited to Frontier tenants."
+      ],
+      "steps": [
+        "Sign in as an AI Administrator or Global Administrator.",
+        "Go to **Agents** > **All agents** > **Requests** and filter by **State** or **Channel** if needed.",
+        "Select the requested agent and review its capabilities, data sources, security and permissions, and custom actions.",
+        "Select **Publish to store** to start the publishing wizard.",
+        "Select the users or groups who can install the agent, and optionally those who get it preinstalled, then select **Next**.",
+        "Choose a policy template: an existing, the default, or a custom template. Create custom templates under **Agents** > **Settings** > **Templates**.",
+        "In **Review permissions**, grant admin consent if the requested permissions are acceptable, then select **Next** and **Publish**.",
+        "To decline, open the ellipsis next to the agent and select **Reject submission**."
+      ],
+      "validation": [
+        "The agent leaves the Requests list and appears in the Registry as Published by your org.",
+        "The selected users or groups can install the agent from the store, and a rejected agent stays unavailable."
+      ],
+      "learnQueries": [
+        "manage agent requests Microsoft 365 admin center publish to store",
+        "Agent 365 policy templates default custom"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-requests",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/policy-template",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/agent-requests",
+      "prereqs": ["m365h-control-agent-availability"],
+      "relatedLabs": []
+    },
+    {
+      "id": "m365h-secure-copilot-data",
+      "name": "Reduce oversharing and secure data for Copilot",
+      "category": "copilot-admin",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Follow the Copilot controls security and governance guidance to find oversharing, set guardrails, and meet audit and retention needs.",
+      "whyItMatters": "Copilot and agents ground responses in data users can already access, so overshared content becomes easier to surface. Purview and SharePoint Advanced Management controls limit that exposure.",
+      "concepts": [
+        "The foundational deployment blueprint has three pillars: remediate oversharing, set up guardrails, and meet regulations. SharePoint Advanced Management is included with your Microsoft Copilot license per that page.",
+        "Learn separates foundational controls (A3/E3/G3) from optimized controls (A5/E5/G5) in Purview and Microsoft Defender for Cloud Apps.",
+        "Specific Purview and SharePoint role requirements: Not confirmed in Microsoft Learn."
+      ],
+      "steps": [
+        "Go to **Copilot** > **Settings** > **Data access** > **Data security and compliance** and follow the shortcut to the Microsoft Purview portal.",
+        "Run Data access governance reports for SharePoint sites to find overshared data, and send site access reviews to owners.",
+        "Restrict Copilot and agent access to overshared sites with SharePoint restricted content discovery or restricted access control.",
+        "Apply Microsoft Purview sensitivity labels, and use DSPM for AI reports to see sensitive data referenced in Copilot interactions.",
+        "Use Microsoft Purview Audit for Copilot and AI applications and Data Lifecycle Management to audit and retain interactions.",
+        "With A5/E5/G5, add Purview Data Loss Prevention for Copilot and agents and Insider Risk Management adaptive protection.",
+        "Review the Zero Trust guidance for Copilot that Learn links from the security and governance article."
+      ],
+      "validation": [
+        "You have a list of overshared sites from the access governance reports and a documented restriction or review for each.",
+        "Purview audit shows Copilot and agent interactions, and your chosen sensitivity label, DLP, or retention policies are active."
+      ],
+      "learnQueries": [
+        "Copilot controls security and governance Purview oversharing",
+        "secure and govern Microsoft Copilot foundational deployment blueprint"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance",
+        "https://learn.microsoft.com/copilot/plan/secure-govern-copilot-foundational-deployment-guidance",
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance",
+      "prereqs": [],
+      "relatedLabs": []
+    }
+  ]
+}

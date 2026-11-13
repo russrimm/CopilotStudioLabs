@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "
 import { resolve } from "path";
 
 export const DEFAULT_BRANDING = Object.freeze({
-  companyName: "Copilot Studio Labs",
+  companyName: "Microsoft AI Training Generator",
   logo: null,
   primaryColor: "#4f8ff7",
   tagline: "Provisioning Portal",

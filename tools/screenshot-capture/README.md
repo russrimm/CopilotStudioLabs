@@ -1,4 +1,4 @@
-# Copilot Studio Labs — Screenshot Capture Tool
+# Microsoft AI Training Generator — Screenshot Capture Tool
 
 Interactive Playwright script that helps you capture every screenshot referenced in a lab's `index.md`, with the exact filenames already wired into the markdown.
 

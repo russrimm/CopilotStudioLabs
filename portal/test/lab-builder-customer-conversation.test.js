@@ -15,14 +15,14 @@ process.env.LAB_BUILDER_LINK_CHECK = "off";
 process.env.LAB_BUILDER_VENDOR_DOCS = "off";
 
 const HARNESS = "customer-conversation";
-const ccFeatures = () => getFeatures().filter((f) => f.harness.includes(HARNESS));
+const ccFeatures = () => getFeatures().filter((f) => f.harness?.includes(HARNESS));
 
 test("every concept has a Customer Conversation variant or a reason, and no gap is left", () => {
   assert.deepEqual(validateCatalog(), []);
   assert.deepEqual(getKnownCoverageGaps().filter((gap) => gap.endsWith(`:${HARNESS}`)), []);
   const features = new Map(getFeatures().map((f) => [f.id, f]));
-  for (const concept of getConcepts()) {
-    const variants = concept.features.filter((id) => features.get(id)?.harness.includes(HARNESS));
+  for (const concept of getConcepts().filter((c) => (c.products || ["copilot-studio"]).includes("copilot-studio"))) {
+    const variants = concept.features.filter((id) => features.get(id)?.harness?.includes(HARNESS));
     assert.ok(variants.length || concept.notApplicable?.[HARNESS], `${concept.id} has neither a variant nor a reason`);
     if (!variants.length) assert.match(concept.notApplicable[HARNESS], /Learn/, `${concept.id}: the reason says what Learn says`);
   }

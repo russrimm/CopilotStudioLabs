@@ -121,15 +121,15 @@ test("themes: light and dark tokens exist, honor the OS setting, and have a pers
 const generatedSource = readFileSync(new URL("../public/generated-labs.js", import.meta.url), "utf8");
 const wizardSource = readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
 
-test("the legacy left navigation pane is gone and wizard Step 3 is the only level picker", () => {
+test("the legacy left navigation pane is gone and the wizard Level step is the only level picker", () => {
   assert.doesNotMatch(html, /class=["']sidebar["']/);
   assert.doesNotMatch(html, /\.sidebar\b/);
   assert.doesNotMatch(html, /sidebar-header|sidebar-actions/);
   assert.doesNotMatch(html, /from the sidebar|in the sidebar/i);
   assert.doesNotMatch(appSource, /sidebar/i);
-  assert.equal([...html.matchAll(/id=["']lb-pane-3["']/g)].length, 1);
+  assert.equal([...html.matchAll(/id=["']lb-pane-4["']/g)].length, 1);
   assert.equal([...html.matchAll(/id=["']lb-level-options["']/g)].length, 1);
-  assert.match(html, /Step 3 of 7: What level should the lab be\?/);
+  assert.match(html, /Step 4 of 8: What level should the lab be\?/);
   assert.match(appSource, /const DEFAULT_TAB = "labbuilder"/);
 });
 

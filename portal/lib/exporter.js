@@ -95,7 +95,7 @@ export function exportLabs(labIds, replacements = {}, outputStream) {
     const manifest = {
       exportedAt: new Date().toISOString(),
       labs: labIds,
-      customized: replacementEntries.length > 0 || !!branding.logo || branding.companyName !== "Copilot Studio Labs" || branding.tagline !== "Provisioning Portal",
+      customized: replacementEntries.length > 0 || !!branding.logo || branding.companyName !== "Microsoft AI Training Generator" || branding.tagline !== "Provisioning Portal",
       branding: {
         companyName: branding.companyName,
         logo: logoArchivePath,

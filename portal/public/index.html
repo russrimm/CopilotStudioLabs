@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>⚡ Copilot Studio Labs — Provisioning Portal</title>
+  <title>⚡ Microsoft AI Training Generator — Provisioning Portal</title>
   <link id="app-favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='50'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E" />
   <script src="theme.js"></script>
   <style>
@@ -1691,7 +1691,7 @@
       <div class="portal-branding">
         <img id="portal-logo" class="portal-branding-logo" alt="Company logo" />
         <div class="portal-branding-copy">
-          <div id="portal-title" class="portal-branding-title"><span class="accent">⚡</span> Copilot Studio Labs</div>
+          <div id="portal-title" class="portal-branding-title"><span class="accent">⚡</span> Microsoft AI Training Generator</div>
           <div id="portal-tagline" class="portal-branding-tagline">Provisioning Portal</div>
         </div>
       </div>
@@ -1968,21 +1968,22 @@
             <div class="panel">
               <h3>🧬 Build a Custom Lab</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
-                Answer one question at a time: industry, departments, level, harness, then the topics. Each answer
-                changes the topics we recommend next. Every module is grounded against live Microsoft Learn
-                documentation through the Microsoft Learn MCP server, so the steps and citations reflect the current product.
-                Times are estimates to help you plan, never limits.
+                Answer one question at a time: product, industry, departments, level, harness (only for products that have
+                harnesses), then the topics. Each answer changes the topics we recommend next. Every module is grounded
+                against live Microsoft Learn documentation through the Microsoft Learn MCP server, so the steps and
+                citations reflect the current product. Times are estimates to help you plan, never limits.
               </p>
 
               <nav aria-label="Lab builder steps">
                 <ol class="lb-steps" id="lb-steps">
-                  <li><button type="button" class="lb-step active" data-lb-step="1" aria-current="step" onclick="lbGoToStep(1)"><span aria-hidden="true">1</span> Vertical</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="2" onclick="lbGoToStep(2)" disabled><span aria-hidden="true">2</span> Departments</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="3" onclick="lbGoToStep(3)" disabled><span aria-hidden="true">3</span> Level</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="4" onclick="lbGoToStep(4)" disabled><span aria-hidden="true">4</span> Harness</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="5" onclick="lbGoToStep(5)" disabled><span aria-hidden="true">5</span> Topics</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="6" onclick="lbGoToStep(6)" disabled><span aria-hidden="true">6</span> Review</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="7" onclick="lbGoToStep(7)" disabled><span aria-hidden="true">7</span> Generate</button></li>
+                  <li><button type="button" class="lb-step active" data-lb-step="1" aria-current="step" onclick="lbGoToStep(1)"><span aria-hidden="true">1</span> Product</button></li>
+                  <li><button type="button" class="lb-step" data-lb-step="2" onclick="lbGoToStep(2)" disabled><span aria-hidden="true">2</span> Vertical</button></li>
+                  <li><button type="button" class="lb-step" data-lb-step="3" onclick="lbGoToStep(3)" disabled><span aria-hidden="true">3</span> Departments</button></li>
+                  <li><button type="button" class="lb-step" data-lb-step="4" onclick="lbGoToStep(4)" disabled><span aria-hidden="true">4</span> Level</button></li>
+                  <li><button type="button" class="lb-step" data-lb-step="5" onclick="lbGoToStep(5)" disabled><span aria-hidden="true">5</span> Harness</button></li>
+                  <li><button type="button" class="lb-step" data-lb-step="6" onclick="lbGoToStep(6)" disabled><span aria-hidden="true">6</span> Topics</button></li>
+                  <li><button type="button" class="lb-step" data-lb-step="7" onclick="lbGoToStep(7)" disabled><span aria-hidden="true">7</span> Review</button></li>
+                  <li><button type="button" class="lb-step" data-lb-step="8" onclick="lbGoToStep(8)" disabled><span aria-hidden="true">8</span> Generate</button></li>
                 </ol>
               </nav>
               <p id="lb-summary" class="lb-summary" role="status" aria-live="polite">Your lab so far: loading...</p>
@@ -1992,9 +1993,27 @@
               </div>
             </div>
 
-            <!-- Step 1: vertical -->
+            <!-- Step 1: product -->
             <div class="panel lb-pane" id="lb-pane-1">
-              <h3 id="lb-heading-1" tabindex="-1">Step 1 of 7: Which industry is this lab for?</h3>
+              <h3 id="lb-heading-1" tabindex="-1">Step 1 of 8: Which products is this lab about?</h3>
+              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Choose one or more. A lab can combine products, for example SharePoint AI with Copilot Studio. Copilot Studio is the default.
+              </p>
+              <fieldset class="lb-fieldset">
+                <legend class="lb-legend">Products</legend>
+                <div id="lb-product-options" class="scenario-role-list">
+                  <div class="scenario-empty">Loading products...</div>
+                </div>
+              </fieldset>
+              <p id="lb-product-error" class="lb-error" role="alert"></p>
+              <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Vertical →</button>
+              </div>
+            </div>
+
+            <!-- Step 2: vertical -->
+            <div class="panel lb-pane" id="lb-pane-2" style="display: none;">
+              <h3 id="lb-heading-2" tabindex="-1">Step 2 of 8: Which industry is this lab for?</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 The industry sets the agent scenario, sample questions, knowledge sources, and vocabulary used throughout the lab.
                 Not sure? Keep Cross-industry.
@@ -2003,13 +2022,14 @@
                 <div class="scenario-empty">Loading industries...</div>
               </div>
               <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn btn-primary" type="button" onclick="lbGoToStep(2)">Next: Departments →</button>
+                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
+                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Departments →</button>
               </div>
             </div>
 
-            <!-- Step 2: departments -->
-            <div class="panel lb-pane" id="lb-pane-2" style="display: none;">
-              <h3 id="lb-heading-2" tabindex="-1">Step 2 of 7: Which departments are you teaching?</h3>
+            <!-- Step 3: departments -->
+            <div class="panel lb-pane" id="lb-pane-3" style="display: none;">
+              <h3 id="lb-heading-3" tabindex="-1">Step 3 of 8: Which departments are you teaching?</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 Choose any number. Departments add the topics their teams use most and shape the design guidance in each module.
                 Optional: leave all unchecked for a general lab.
@@ -2018,14 +2038,14 @@
                 <div class="scenario-empty">Loading departments...</div>
               </div>
               <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn" type="button" onclick="lbGoToStep(1)">← Back</button>
-                <button class="btn btn-primary" type="button" onclick="lbGoToStep(3)">Next: Level →</button>
+                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
+                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Level →</button>
               </div>
             </div>
 
-            <!-- Step 3: level -->
-            <div class="panel lb-pane" id="lb-pane-3" style="display: none;">
-              <h3 id="lb-heading-3" tabindex="-1">Step 3 of 7: What level should the lab be?</h3>
+            <!-- Step 4: level -->
+            <div class="panel lb-pane" id="lb-pane-4" style="display: none;">
+              <h3 id="lb-heading-4" tabindex="-1">Step 4 of 8: What level should the lab be?</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 The level you choose here decides what the rest of the wizard shows and builds. Only topics at this level are
                 listed and generated. If a topic you pick builds on a lower-level topic, it is added as a short, labeled
@@ -2035,16 +2055,16 @@
                 <legend class="lb-legend">Lab level</legend>
                 <div id="lb-level-options" class="scenario-role-list"></div>
               </fieldset>
-              <div id="lb-level-notice-3" role="status" aria-live="polite"></div>
+              <div id="lb-level-notice-4" role="status" aria-live="polite"></div>
               <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn" type="button" onclick="lbGoToStep(2)">← Back</button>
-                <button class="btn btn-primary" type="button" onclick="lbGoToStep(4)">Next: Harness →</button>
+                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
+                <button class="btn btn-primary" type="button" id="lb-next-from-level" onclick="lbNextStep()">Next: Harness →</button>
               </div>
             </div>
 
-            <!-- Step 4: harness -->
-            <div class="panel lb-pane" id="lb-pane-4" style="display: none;">
-              <h3 id="lb-heading-4" tabindex="-1">Step 4 of 7: Which harness will learners build on?</h3>
+            <!-- Step 5: harness (shown only when a selected product has harnesses) -->
+            <div class="panel lb-pane" id="lb-pane-5" style="display: none;">
+              <h3 id="lb-heading-5" tabindex="-1">Step 5 of 8: Which harness will learners build on?</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 A harness is the runtime behind a Copilot Studio agent. Each has its own authoring surface, so the lab follows one.
                 Not sure? <a href="https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness" target="_blank" rel="noopener noreferrer">Compare the harnesses on Microsoft Learn (opens in a new tab)</a>.
@@ -2062,21 +2082,22 @@
                 <div id="lb-differences-options" class="scenario-role-list"></div>
               </fieldset>
               <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn" type="button" onclick="lbGoToStep(3)">← Back</button>
-                <button class="btn btn-primary" type="button" onclick="lbGoToStep(5)">Next: Topics →</button>
+                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
+                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Topics →</button>
               </div>
             </div>
 
-            <!-- Step 5: topics -->
-            <div class="panel lb-pane" id="lb-pane-5" style="display: none;">
-              <h3 id="lb-heading-5" tabindex="-1">Step 5 of 7: Which topics should the lab cover?</h3>
+            <!-- Step 6: topics -->
+            <div class="panel lb-pane" id="lb-pane-6" style="display: none;">
+              <h3 id="lb-heading-6" tabindex="-1">Step 6 of 8: Which topics should the lab cover?</h3>
               <p id="lb-topic-intro" style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;"></p>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 13px;">
                 We pre-selected topics from your answers and say why. Check or uncheck anything. The topics shown are the
-                ones at the level you chose in Step 3. Prerequisites from lower levels are added automatically as short
+                ones at the level you chose in the Level step. Prerequisites from lower levels are added automatically as short
                 recaps, in their own group below; if you uncheck one, the lab assumes learners have already done it.
               </p>
-              <div id="lb-level-notice-5" role="status" aria-live="polite"></div>
+              <div id="lb-product-notes" role="status" aria-live="polite"></div>
+              <div id="lb-level-notice-6" role="status" aria-live="polite"></div>
               <div class="lb-learn-bar" id="lb-learn-bar">
                 <p id="lb-learn-status" class="lb-learn-status" role="status" aria-live="polite">Checking when the topic list was last refreshed from Microsoft Learn...</p>
                 <button class="btn" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
@@ -2101,14 +2122,14 @@
               <p id="lb-topic-error" class="lb-error" role="alert"></p>
               <div id="lb-topic-groups"><div class="scenario-empty">Loading topics...</div></div>
               <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn" type="button" onclick="lbGoToStep(4)">← Back</button>
-                <button class="btn btn-primary" type="button" onclick="lbGoToStep(6)">Next: Review →</button>
+                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
+                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Review →</button>
               </div>
             </div>
 
-            <!-- Step 6: review -->
-            <div class="panel lb-pane" id="lb-pane-6" style="display: none;">
-              <h3 id="lb-heading-6" tabindex="-1">Step 6 of 7: Review your lab</h3>
+            <!-- Step 7: review -->
+            <div class="panel lb-pane" id="lb-pane-7" style="display: none;">
+              <h3 id="lb-heading-7" tabindex="-1">Step 7 of 8: Review your lab</h3>
               <div id="lb-preview" class="scenario-empty">Choose topics to see the outline.</div>
               <details class="lb-advanced">
                 <summary>Advanced options</summary>
@@ -2139,15 +2160,15 @@
                 </div>
               </details>
               <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn" type="button" onclick="lbGoToStep(5)">← Back</button>
+                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
                 <button class="btn" type="button" onclick="lbPreview()">Refresh outline</button>
-                <button class="btn btn-primary" type="button" onclick="lbGoToStep(7)">Next: Generate →</button>
+                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Generate →</button>
               </div>
             </div>
 
-            <!-- Step 7: generate -->
-            <div class="panel lb-pane" id="lb-pane-7" style="display: none;">
-              <h3 id="lb-heading-7" tabindex="-1">Step 7 of 7: Generate your lab</h3>
+            <!-- Step 8: generate -->
+            <div class="panel lb-pane" id="lb-pane-8" style="display: none;">
+              <h3 id="lb-heading-8" tabindex="-1">Step 8 of 8: Generate your lab</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 We research each topic on Microsoft Learn and write the lab. This can take a minute. You can go back to any step first.
               </p>
@@ -2171,7 +2192,7 @@
                 </div>
               </fieldset>
               <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                <button class="btn" type="button" onclick="lbGoToStep(6)">← Back</button>
+                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
                 <button class="btn btn-primary" type="button" id="lb-generate-btn" onclick="lbGenerate()">🧬 Build my lab</button>
                 <button class="btn" type="button" id="lb-cancel-btn" onclick="lbCancelGenerate()" hidden>Cancel</button>
                 <span id="lb-status" role="status" style="font-size: 13px; color: var(--text-muted);"></span>
@@ -2615,7 +2636,7 @@
                 </div>
                 <div class="form-group full">
                   <label for="email-subject">Subject</label>
-                  <input type="text" id="email-subject" value="Your Copilot Studio Labs Package" />
+                  <input type="text" id="email-subject" value="Your Microsoft AI Training Generator Package" />
                 </div>
               </div>
               <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
@@ -2725,7 +2746,7 @@
                   <div id="branding-preview-header" class="branding-preview-header">
                     <img id="branding-preview-logo" alt="Brand preview logo" />
                     <div>
-                      <div id="branding-preview-title" class="branding-preview-title">Copilot Studio Labs</div>
+                      <div id="branding-preview-title" class="branding-preview-title">Microsoft AI Training Generator</div>
                       <div id="branding-preview-tagline" class="branding-preview-tagline">Provisioning Portal</div>
                     </div>
                   </div>

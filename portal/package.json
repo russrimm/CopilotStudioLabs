@@ -2,7 +2,7 @@
   "name": "copilot-studio-labs-portal",
   "version": "1.0.0",
   "private": true,
-  "description": "Lab provisioning and de-provisioning portal for Copilot Studio Labs.",
+  "description": "Lab provisioning and de-provisioning portal for the Microsoft AI Training Generator.",
   "type": "module",
   "scripts": {
     "start": "node server.js",

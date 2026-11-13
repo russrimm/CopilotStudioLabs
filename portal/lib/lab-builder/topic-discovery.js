@@ -27,12 +27,14 @@ import {
   MAX_TITLE,
   cleanText,
   contentHash,
-  isCopilotStudioDoc,
+  isProductDoc,
   matchKey,
   normalizeLearnUrl,
   topicId,
 } from "./topic-sanitize.js";
 import { DEFAULT_HARNESS_IDS, SNAPSHOT_SCHEMA_VERSION, UNCATEGORIZED, listHash } from "./topic-snapshot.js";
+import { conceptProducts } from "./coverage.js";
+import { DEFAULT_PRODUCT, getProduct, productOf } from "./products.js";
 
 export const LEARN_DOCS_HUB = `https://${LEARN_HOST}/en-us/microsoft-copilot-studio/`;
 
@@ -315,12 +317,15 @@ function day(ms) {
  * @param {object} options
  * @param {{ok:boolean, call:Function}} options.session an open Learn MCP session
  * @param {{features:object[], concepts:object[], version?:string, endpoint?:string}} options.catalog
+ * @param {string} [options.product] the product to discover topics for (default Copilot Studio). Discovery starts at
+ *   that product's Learn hub, follows only links under its Learn roots, and compares only its own catalog features.
  * @param {object|null} [options.previous] the last good snapshot, for change detection
  * @returns {Promise<object>} a snapshot (see topic-snapshot.js)
  */
 export async function discoverSnapshot({
   session,
   catalog,
+  product = DEFAULT_PRODUCT,
   previous = null,
   limits: limitOverrides = {},
   signal,
@@ -328,11 +333,17 @@ export async function discoverSnapshot({
   onProgress,
 }) {
   if (!session?.ok) throw new DiscoveryError(`Microsoft Learn is not reachable${session?.error ? `: ${session.error}` : ""}`, "unreachable");
+  const productDef = getProduct(product);
+  if (!productDef) throw new DiscoveryError(`Unknown product "${product}".`, "unknown-product");
+  const isDefault = product === DEFAULT_PRODUCT;
+  const roots = productDef.learnRoots.map((root) => normalizeLearnUrl(root)).filter(Boolean);
+  const hubUrl = isDefault ? LEARN_DOCS_HUB : productDef.learnHubUrl;
+  const seeds = isDefault ? SEEDS : [...new Set([productDef.learnHubUrl, ...productDef.learnRoots])];
   const limits = { ...DEFAULT_LIMITS, ...limitOverrides };
   const ctx = createContext({ session, limits, signal, now });
   const today = day(now());
-  const features = catalog.features || [];
-  const concepts = catalog.concepts || [];
+  const features = (catalog.features || []).filter((f) => productOf(f) === product);
+  const concepts = (catalog.concepts || []).filter((c) => conceptProducts(c).includes(product));
 
   const levelsByConcept = new Map();
   for (const concept of concepts) {
@@ -356,7 +367,7 @@ export async function discoverSnapshot({
 
   const candidates = new Map();
   const addCandidate = (url, { title = "", hints = new Set(), excerpt = "", priority, retain = false }) => {
-    if (!isCopilotStudioDoc(url) || EXCLUDED_PATH.test(url) || candidates.size >= limits.maxTopics * 2) return;
+    if (!isProductDoc(url, roots) || EXCLUDED_PATH.test(url) || candidates.size >= limits.maxTopics * 2) return;
     const key = matchKey(url);
     const existing = candidates.get(key);
     if (existing) {
@@ -371,29 +382,31 @@ export async function discoverSnapshot({
   };
 
   // A. Section index pages.
-  onProgress?.("Reading the Copilot Studio documentation index");
+  onProgress?.(`Reading the ${productDef.shortName} documentation index`);
   let hubOk = false;
-  for (const seed of SEEDS) {
+  for (const seed of seeds) {
     const page = await ctx.page(seed);
     if (page.state !== "ok") continue;
-    if (seed === LEARN_DOCS_HUB) hubOk = true;
+    if (seed === hubUrl) hubOk = true;
     const seedUrl = normalizeLearnUrl(seed);
     if (seedUrl) addCandidate(seedUrl, { priority: 0 });
     for (const link of extractLinks(page.markdown, seed)) {
       addCandidate(link.url, { title: link.text, hints: hintFromHeading(link.heading), priority: 0 });
     }
   }
-  if (!hubOk) throw new DiscoveryError("The Copilot Studio documentation index could not be read from Microsoft Learn.", "index-unavailable");
+  if (!hubOk) throw new DiscoveryError(`The ${productDef.shortName} documentation index could not be read from Microsoft Learn.`, "index-unavailable");
 
   // B. Targeted searches, so pages the index does not link are still found.
   onProgress?.("Searching Microsoft Learn for each concept");
-  const queries = [
-    ...concepts.flatMap((concept) => [
-      `Microsoft Copilot Studio ${concept.name} Microsoft Copilot harness`,
-      `Microsoft Copilot Studio ${concept.name} standard harness`,
-    ]),
-    ...CUSTOMER_CONVERSATION_QUERIES,
-  ];
+  const queries = isDefault
+    ? [
+        ...concepts.flatMap((concept) => [
+          `Microsoft Copilot Studio ${concept.name} Microsoft Copilot harness`,
+          `Microsoft Copilot Studio ${concept.name} standard harness`,
+        ]),
+        ...CUSTOMER_CONVERSATION_QUERIES,
+      ]
+    : concepts.map((concept) => `${productDef.name} ${concept.name}`);
   const found = await mapLimit(queries, limits.concurrency, (query) => ctx.search(query));
   found.forEach((items) => {
     for (const item of items) {
@@ -450,7 +463,7 @@ export async function discoverSnapshot({
     seenIds.add(id);
 
     const summary = parsed?.summary || candidate.excerpt || `${title}: see the linked Microsoft Learn article.`;
-    const harnesses = harnessesFor({ url: candidate.url, title: parsed?.rawTitle || title, hints: candidate.hints });
+    const harnesses = productDef.hasHarnesses ? harnessesFor({ url: candidate.url, title: parsed?.rawTitle || title, hints: candidate.hints }) : [];
     const coveredBy = [...(featuresByPage.get(matchKey(candidate.url)) || [])];
     const conceptId = coveredBy.length ? conceptOfFeature.get(coveredBy[0]) || UNCATEGORIZED : conceptFor({ url: candidate.url, title });
     const hash = page?.state === "ok" ? page.hash : contentHash(`${title}\n${summary}`);
@@ -458,6 +471,8 @@ export async function discoverSnapshot({
     topics.push({
       id,
       title,
+      // Only a topic of another product names its product, so a Copilot Studio snapshot is unchanged.
+      ...(isDefault ? {} : { product }),
       summary: cleanText(summary, MAX_SUMMARY),
       urls: [candidate.url],
       harnesses,
@@ -513,6 +528,7 @@ export async function discoverSnapshot({
     schemaVersion: SNAPSHOT_SCHEMA_VERSION,
     generatedAt: new Date(now()).toISOString(),
     source: "microsoft-learn-mcp",
+    ...(isDefault ? {} : { product }),
     catalogVersion: catalog.version ?? null,
     partial: Boolean(ctx.partial),
     partialReason: ctx.partial,

@@ -14,7 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { validateCoverage } from "./coverage.js";
+import { conceptProducts, conceptTargets, validateCoverage } from "./coverage.js";
+import { featureTargets, productOf } from "./products.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONCEPTS_PATH = path.join(__dirname, "concepts.json");
@@ -52,23 +53,27 @@ export function getConceptForFeature(featureId) {
   return getConcepts().find((concept) => concept.features.includes(featureId)) || null;
 }
 
-/** Why a concept has nothing for a harness, or null when it has at least one feature. */
-export function notApplicableReason(concept, harnessId, features) {
-  const has = concept.features.some((id) => features.get(id)?.harness?.includes(harnessId));
+/**
+ * Why a concept has nothing for a coverage target (a harness, or a product
+ * without harnesses), or null when it has at least one feature. `kind` only
+ * words the fallback: "harness" for a harness id, "product" for a product id.
+ */
+export function notApplicableReason(concept, targetId, features, kind = "harness") {
+  const has = concept.features.some((id) => features.get(id) && featureTargets(features.get(id)).includes(targetId));
   if (has) return null;
-  return concept.notApplicable?.[harnessId] || "No topic for this concept is available on this harness yet.";
+  return concept.notApplicable?.[targetId] || `No topic for this concept is available on this ${kind} yet.`;
 }
 
 /**
  * Check the concept layer and the recommendations against the feature list.
  * Returns human-readable problems; an empty array means consistent.
  *
- * @param {{concepts: object[], recommendations: object, features: object[], harnesses: object[]}} input
+ * @param {{concepts: object[], recommendations: object, features: object[], harnesses: object[], products?: object[]}} input
  */
-export function validateConcepts({ concepts, recommendations, features, harnesses = [], knownGaps = [] }) {
+export function validateConcepts({ concepts, recommendations, features, harnesses = [], products = [], knownGaps = [] }) {
   const problems = [];
   const byId = new Map(features.map((f) => [f.id, f]));
-  const harnessIds = new Set(harnesses.map((h) => h.id));
+  const productIds = new Set(products.map((p) => p.id));
   const owner = new Map();
   const seen = new Set();
 
@@ -80,6 +85,11 @@ export function validateConcepts({ concepts, recommendations, features, harnesse
     if (!concept.name?.trim()) problems.push(`${label}: needs a name`);
     if (!concept.summary?.trim()) problems.push(`${label}: needs a summary`);
     if (!Number.isFinite(concept.order)) problems.push(`${label}: needs a numeric order`);
+    const conceptOwners = conceptProducts(concept);
+    if (new Set(conceptOwners).size !== conceptOwners.length) problems.push(`${label}: products lists a product twice`);
+    for (const id of conceptOwners) {
+      if (productIds.size && !productIds.has(id)) problems.push(`${label}: unknown product "${id}"`);
+    }
     if (!Array.isArray(concept.features) || !concept.features.length) {
       problems.push(`${label}: must list at least one feature`);
       continue;
@@ -87,13 +97,21 @@ export function validateConcepts({ concepts, recommendations, features, harnesse
     for (const id of concept.features) {
       if (!byId.has(id)) problems.push(`${label}: unknown feature "${id}"`);
       else if (owner.has(id)) problems.push(`${id}: listed under both ${owner.get(id)} and ${concept.id}`);
-      else owner.set(id, concept.id);
+      else {
+        owner.set(id, concept.id);
+        if (!conceptOwners.includes(productOf(byId.get(id)))) {
+          problems.push(`${label}: feature ${id} belongs to product ${productOf(byId.get(id))}, which the concept does not list in products`);
+        }
+      }
     }
-    for (const [harness, reason] of Object.entries(concept.notApplicable || {})) {
-      if (harnessIds.size && !harnessIds.has(harness)) problems.push(`${label}: notApplicable names unknown harness "${harness}"`);
-      if (typeof reason !== "string" || !reason.trim()) problems.push(`${label}: notApplicable.${harness} needs a reason`);
-      const applies = concept.features.some((id) => byId.get(id)?.harness?.includes(harness));
-      if (applies) problems.push(`${label}: says it is not applicable to ${harness}, but a feature for it exists`);
+    const targets = new Set(conceptTargets(concept, harnesses));
+    for (const [target, reason] of Object.entries(concept.notApplicable || {})) {
+      if ((harnesses.length || productIds.size) && !targets.has(target)) {
+        problems.push(`${label}: notApplicable names "${target}", which is not a harness or product this concept applies to`);
+      }
+      if (typeof reason !== "string" || !reason.trim()) problems.push(`${label}: notApplicable.${target} needs a reason`);
+      const applies = concept.features.some((id) => byId.get(id) && featureTargets(byId.get(id)).includes(target));
+      if (applies) problems.push(`${label}: says it is not applicable to ${target}, but a feature for it exists`);
     }
   }
   for (const f of features) {

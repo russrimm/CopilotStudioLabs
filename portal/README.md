@@ -1,4 +1,4 @@
-# ⚡ Copilot Studio Labs — Provisioning Portal
+# ⚡ Microsoft AI Training Generator — Provisioning Portal
 
 A web-based lab operations portal for customizing, validating, previewing, provisioning, approving, exporting, and supporting Copilot Studio training labs at scale.
 

@@ -18,6 +18,7 @@ import { composeLab } from "./composer.js";
 import { assessLab } from "./qa.js";
 import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
+import { GENERATOR_NAME, primaryProduct, productOf } from "./products.js";
 import { buildDifferenceBlocks } from "./differences.js";
 import { deriveSteps, diffSteps } from "./steps.js";
 import { synthesizeSteps } from "./synthesis.js";
@@ -55,7 +56,7 @@ const LABS_DIR = path.join(REPO_ROOT, "labs");
 export const OUTPUT_ROOT = path.join(REPO_ROOT, "generated-labs");
 
 const SYSTEM_PROMPT = [
-  "You write hands-on Microsoft Copilot Studio lab content for practitioners.",
+  "You write hands-on lab content for Microsoft AI products, such as Microsoft Copilot Studio, for practitioners.",
   "Rules:",
   "- Be concrete and specific to the stated industry, role, and agent scenario.",
   "- Never invent product UI, menu names, or features. Only describe what the supplied documentation and step list support.",
@@ -1113,6 +1114,10 @@ export async function generateLab(request, opts = {}) {
   const manifest = {
     slug: plan.slug,
     title: plan.title,
+    generator: GENERATOR_NAME,
+    // The products the lab covers, with the one most of its modules belong to first. Labs built before products existed lack both and are Copilot Studio labs.
+    product: primaryProduct(plan),
+    products: plan.products,
     quality: { score: qa.score, grade: qa.grade, findings: qa.findings.length, version: qa.version },
     generatedAt: generation.generatedAt,
     // When every embedded URL was last confirmed to resolve. Null when checking
@@ -1142,6 +1147,7 @@ export async function generateLab(request, opts = {}) {
       return {
         id: f.id,
         name: f.name,
+        product: productOf(f),
         order: f.order,
         level: f.level,
         role: f.prerequisite ? "prerequisite" : "level",

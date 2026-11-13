@@ -1,0 +1,270 @@
+{
+  "$comment": "Seed catalog for AI Builder and the AI hub in Power Platform, grounded on Microsoft Learn, features verified 2026-11-13.",
+  "product": "power-platform-ai-hub",
+  "categories": [
+    {
+      "id": "ai-builder",
+      "name": "AI Builder and the AI hub",
+      "description": "Create, run, and govern AI Builder models and prompts from the AI hub in Power Apps and Power Automate."
+    }
+  ],
+  "features": [
+    {
+      "id": "ppai-explore-ai-hub-models",
+      "name": "Explore the AI hub and AI model types",
+      "category": "ai-builder",
+      "level": 100,
+      "minutes": 20,
+      "summary": "Open the AI hub in Power Apps or Power Automate and match a business scenario to a prebuilt or custom AI Builder model type.",
+      "whyItMatters": "Choosing the right data type and build type (prebuilt or custom) decides how much setup a scenario needs. The AI hub is the single entry point to AI models in both portals.",
+      "concepts": [
+        "AI Builder lets you create and use prebuilt models (ready for common scenarios) or custom models (built, trained, and published for your data) in Power Apps and Power Automate.",
+        "Model types are grouped by data type: documents, text, structured data, and images. For example, receipt processing is prebuilt, and document processing, prediction, and object detection are custom.",
+        "AI Builder requires Microsoft Dataverse and AI Builder must be enabled for the environment."
+      ],
+      "steps": [
+        "Sign in to Power Apps (make.powerapps.com) or Power Automate (make.powerautomate.com).",
+        "On the left pane, select **... More** > **AI hub**.",
+        "Under **Discover an AI capability**, select **AI models**.",
+        "Optionally select the pin icon so **AI models** stays on the menu.",
+        "On the right pane, review the model types and compare them with the Data type and Build type table in AI models and business scenarios.",
+        "Pick a model type that matches your scenario, for example Receipt processing for expense reports or Document processing for customer applications."
+      ],
+      "validation": [
+        "The AI hub appears in the left navigation and its AI models page lists model types grouped by documents, text, structured data, and images.",
+        "You can state whether your chosen scenario uses a prebuilt or custom model and why."
+      ],
+      "learnQueries": [
+        "AI Builder AI models and business scenarios",
+        "AI Builder build a model AI hub"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/overview",
+        "https://learn.microsoft.com/ai-builder/model-types",
+        "https://learn.microsoft.com/ai-builder/build-model"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/model-types",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-build-custom-prompt",
+      "name": "Build and test a custom prompt in prompt builder",
+      "category": "ai-builder",
+      "level": 100,
+      "minutes": 25,
+      "summary": "Create a custom prompt with a name, instructions, and a sample input in prompt builder from the AI hub, then test and save it.",
+      "whyItMatters": "A saved prompt is reusable across apps, flows, and agents, and testing it first checks the response before you integrate it. Specific, contextual instructions give more relevant output.",
+      "concepts": [
+        "A prompt is mainly a natural language instruction that tells a generative AI model to perform a task; it generally has an instruction and context.",
+        "Prompt builder prompts run on language models powered by Azure OpenAI Service, are limited to some regions, and might be subject to usage limits or capacity throttling. Prompts also need Dataverse and Copilot Credits per the Overview of prompts page.",
+        "The preview Text generation model is marked deprecated and no longer visible; Learn says the new prompt builder feature should be used instead.",
+        "To start from a template, the prompt library is reachable through **AI hub** > **Prompts** in Power Apps or Power Automate."
+      ],
+      "steps": [
+        "Sign in to Power Apps or Power Automate.",
+        "Select **AI hub** > **Prompts** > **Build your own prompt**. To start from a template instead, select **Start from a prompt template**.",
+        "Enter a custom name by selecting the generated name at the top left of the prompt.",
+        "Write your prompt with a clear instruction and context, or choose a prompt template.",
+        "Include an input by typing **/** or selecting **Add content**, then select **Text** or **Image or document** in the **Input** section.",
+        "Type a sample value for each input.",
+        "Select **Test** to run the prompt and review the response, and refine the instruction if the output is too long or irrelevant.",
+        "When satisfied, select **Save**."
+      ],
+      "validation": [
+        "The saved prompt appears in the AI hub prompts list with the name you gave it.",
+        "Selecting **Test** with your sample input returns a response that matches the instruction."
+      ],
+      "learnQueries": [
+        "create a prompt prompt builder AI hub",
+        "prompt library templates Power Apps Power Automate"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/create-a-custom-prompt",
+        "https://learn.microsoft.com/ai-builder/prompts-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/prompt-library",
+        "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/create-a-custom-prompt",
+      "prereqs": [
+        "ppai-explore-ai-hub-models"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-document-processing-model",
+      "name": "Create, train, and use a document processing model",
+      "category": "ai-builder",
+      "level": 200,
+      "minutes": 45,
+      "summary": "Build a custom document processing model with the Create custom model wizard, train it, and call it from a cloud flow with Process documents.",
+      "whyItMatters": "Document processing extracts fields, tables, and checkboxes from documents such as invoices so you can automate data entry. It is a custom model, so it must be trained and published before use.",
+      "concepts": [
+        "Document processing reads and saves information from standard documents; you need at least five example documents with the same layout per collection, or you can use sample data. Accepted files are JPG, PNG, and PDF.",
+        "The wizard offers three document types: Fixed template documents, General documents, and Invoices. A model can have up to 200 collections.",
+        "After training, publish the model to make it available, then use it in Power Automate or Power Apps. Running models consumes credits; building and testing does not."
+      ],
+      "steps": [
+        "Sign in to Power Apps or Power Automate and select **... More** > **AI hub**.",
+        "Under **Discover an AI capability**, select **AI models**, then **Extract custom information from documents**, then **Create custom model**.",
+        "On **Choose document type**, select **Fixed template documents**, **General documents**, or **Invoices**.",
+        "On **Choose information to extract**, select **+Add** and define each field, table, and checkbox.",
+        "Group documents into collections by layout and upload at least five sample documents per collection.",
+        "Select **Train**, then test the model by selecting **Quick test**.",
+        "Publish the model.",
+        "In Power Automate, create an **Instant cloud flow**, add the **Process documents** action, choose the model and document type, and set **Form** to `File Content` from the trigger."
+      ],
+      "validation": [
+        "The model shows trained results in the **Last trained version** section and **Quick test** returns extracted values.",
+        "A test run of the flow returns each extracted **{field} value** and **{field} confidence score** in dynamic content."
+      ],
+      "learnQueries": [
+        "AI Builder document processing create custom model",
+        "Process documents action Power Automate AI Builder"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/form-processing-model-overview",
+        "https://learn.microsoft.com/ai-builder/create-form-processing-model",
+        "https://learn.microsoft.com/ai-builder/train-model",
+        "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/create-form-processing-model",
+      "prereqs": [
+        "ppai-explore-ai-hub-models"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-use-prompt-in-flow-and-app",
+      "name": "Use a prompt in Power Automate and Power Apps",
+      "category": "ai-builder",
+      "level": 200,
+      "minutes": 40,
+      "summary": "Run a saved prompt with the Run a prompt action in a cloud flow and call it with .Predict in a canvas app.",
+      "whyItMatters": "Prompts become useful when they run inside automations and apps. Calling them from a flow or Power Fx lets you add generative AI without writing complex code.",
+      "concepts": [
+        "In Power Automate, the action once named Create text with GPT using a prompt has been named Run a prompt since May 2025. Its output is a flow variable such as **Text**.",
+        "In Power Apps, a prompt added from **Add data** is called as a Power Fx function with .Predict, for example 'Task identifier'.Predict(TextInput1.Text).",
+        "Prebuilt prompts (AISummarize, AISentiment, AIReply, AITranslate, AIClassify, AIExtract) can be used in Power Apps and Power Automate like custom prompts, except AI Translate. Prerequisite: a saved prompt such as Task Identifier."
+      ],
+      "steps": [
+        "In Power Automate, select **+Create** > **Instant cloud flow** > **Manually trigger a flow** > **Create**.",
+        "Select **+** after the trigger and select the action **Run a prompt**.",
+        "In the **Prompt** field choose your prompt, then fill any inputs with content from previous actions.",
+        "Add **Post message in a chat or channel** and use the **Text** variable in the message body; select **Save**, then **Test**.",
+        "In Power Apps, select **+Create** > **Blank app** > **Create**, name it **Task ID**, and choose **Phone** format.",
+        "Select **Data** > **+Add Data** > your custom prompt, then insert a **Text input**, a **Button**, and a **Text label**.",
+        "Set the button **OnSelect** to `Set(result, 'Task identifier'.Predict(TextInput1.Text));` and the label **Text** to `result.text`.",
+        "Select the play button, enter text, and check the AI text in the label."
+      ],
+      "validation": [
+        "The flow test run shows the **Run a prompt** step succeeded and the Teams message contains the generated text.",
+        "The app label shows the prompt's generated text after you select the button."
+      ],
+      "learnQueries": [
+        "use your prompt in Power Automate Run a prompt",
+        "use your prompt in Power Apps Predict"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
+        "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-app",
+        "https://learn.microsoft.com/ai-builder/prebuilt-prompts",
+        "https://learn.microsoft.com/ai-builder/use-in-flow-overview",
+        "https://learn.microsoft.com/ai-builder/use-in-powerapps-overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
+      "prereqs": [
+        "ppai-build-custom-prompt"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-admin-governance-security",
+      "name": "Govern AI Builder: feature toggles, DLP, roles, and activity",
+      "category": "ai-builder",
+      "level": 300,
+      "minutes": 45,
+      "summary": "Control AI prompts and preview models per environment, apply DLP and security roles, and monitor AI Builder activity.",
+      "whyItMatters": "Admins decide who can create and run models and prompts and which AI features are on. Environment group rules and DLP policies keep this consistent at scale.",
+      "concepts": [
+        "AI prompts are enabled by default; if you turn them off, custom and prebuilt prompts can't be used. The Preview and experimental AI models setting also exists per environment.",
+        "AI Builder is part of the Dataverse connector for DLP. Environment makers can create models and prompts, basic users can use shared ones, and System Administrator and System Customizer see all.",
+        "Activity is stored in the AI Event Dataverse table and shown on the **AI Builder activity** page; makers see only their own rows."
+      ],
+      "steps": [
+        "Sign in to Power Platform admin center and select **Environments** > your environment > **Settings** > **Product** > **Features**.",
+        "Under **AI Builder**, enable or disable the **AI prompts** toggle.",
+        "For preview models, on **Features** under **Preview and experimental AI models**, set **Let people use AI models that are experimental or in preview**.",
+        "To govern at scale, open **Environment groups** > your group > **Rules**, set the **AI prompts** rule, **Save**, then **Publish rules**.",
+        "Check **Data policies** so the Dataverse connector (which includes AI Builder) is in the intended category.",
+        "Review roles: Environment Maker creates models and prompts; share a model or prompt from its details page with **Share**.",
+        "In Power Automate, select **Automation Center** > **AI Builder activity** to review activity by timeframe or tool type."
+      ],
+      "validation": [
+        "After disabling **AI prompts** in a test environment, prompts can't be used there; re-enable it to restore them.",
+        "The **AI Builder activity** page lists runs with Tool name, Used in, and Consumption for your own activity (or all as System Administrator)."
+      ],
+      "learnQueries": [
+        "administer AI Builder enable disable AI prompts",
+        "AI Builder roles and security activity monitoring"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/administer",
+        "https://learn.microsoft.com/ai-builder/security",
+        "https://learn.microsoft.com/ai-builder/activity-monitoring"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/administer",
+      "prereqs": [
+        "ppai-build-custom-prompt",
+        "ppai-use-prompt-in-flow-and-app"
+      ],
+      "relatedLabs": []
+    },
+    {
+      "id": "ppai-credits-licensing-transition",
+      "name": "Manage AI Builder credits and Copilot Credits",
+      "category": "ai-builder",
+      "level": 300,
+      "minutes": 35,
+      "summary": "Understand how AI Builder credits and Copilot Credits are consumed, allocate credits to environments, and plan for the end of AI Builder credits.",
+      "whyItMatters": "Running models and prompts consumes capacity, and runs are blocked when no credits remain. AI Builder capacity add-ons and seeded credits are ending, so admins must plan Copilot Credits.",
+      "concepts": [
+        "Building and testing custom models and prompts doesn't consume credits; running them in agents, flows, or apps does. In Power Apps and Power Automate, runs consume AI Builder credits first, then Copilot Credits; if both are unavailable they fail.",
+        "Per Learn, AI Builder capacity add-ons reach end of life on 11/01/2026 and seeded credits stop for new or renewed licenses; existing credits are honored through the contract term. AI Builder trials are discontinued.",
+        "AI Builder features continue to be supported using Copilot Credits. Consumption resets monthly and unused credits don't roll over."
+      ],
+      "steps": [
+        "Read the Overview of licensing and the capability rate table to estimate monthly consumption per scenario.",
+        "In Power Platform admin center, select **Licensing** > **Capacity add-ons** > **Add-ons** tab, then **Assign to an environment** to allocate credits.",
+        "To restrict use, clear **Allow users to consume unassigned AI Builder credits** in tenant settings.",
+        "Check consumption on **Licensing** > **Capacity add-ons** > **Summary** tab (Allocation and Consumption bars).",
+        "Review the AI Builder consumption report for credits by environment and period.",
+        "Review the End of AI Builder credits calendar and plan Copilot Credits for after the end dates."
+      ],
+      "validation": [
+        "The Summary tab shows allocated and consumed AI Builder credits against purchased credits for your tenant.",
+        "You can explain which currency a flow run consumes first and what happens when both are exhausted."
+      ],
+      "learnQueries": [
+        "AI Builder licensing and credits overview",
+        "end of AI Builder credits Copilot Credits"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/ai-builder/administer-licensing",
+        "https://learn.microsoft.com/ai-builder/credit-management",
+        "https://learn.microsoft.com/ai-builder/endofaibcredits"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/administer-licensing",
+      "prereqs": [
+        "ppai-use-prompt-in-flow-and-app"
+      ],
+      "relatedLabs": []
+    }
+  ]
+}

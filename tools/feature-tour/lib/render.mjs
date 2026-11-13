@@ -74,7 +74,7 @@ function layout({ title, description, root, active, body, scripts = [], bodyClas
   <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header">
     <div class="wrap header-row">
-      <a class="brand" href="${root}index.html">Copilot Studio feature tour</a>
+      <a class="brand" href="${root}index.html">Microsoft AI Training Generator feature tour</a>
       <nav aria-label="Primary" class="primary-nav">
         ${nav}
         <a href="${REPO_URL}/blob/main/docs/feature-tour.md">About and refresh guide</a>
@@ -87,7 +87,7 @@ ${body}
   </main>
   <footer class="site-footer">
     <div class="wrap">
-      <p>Generated from the <a href="${REPO_URL}/blob/main/portal/lib/lab-builder/features.json">Copilot Studio Labs feature catalog</a>. Explanations follow Microsoft Learn; check the linked pages for the latest steps. Screenshots marked pending have not been captured yet.</p>
+      <p>Generated from the <a href="${REPO_URL}/blob/main/portal/lib/lab-builder/features.json">Microsoft AI Training Generator feature catalog</a>. This tour covers the Copilot Studio features; the other products in the catalog are not part of the tour yet. Explanations follow Microsoft Learn; check the linked pages for the latest steps. Screenshots marked pending have not been captured yet.</p>
     </div>
   </footer>
 </body>
@@ -210,7 +210,7 @@ export function renderFeaturePage(model, feature, repoUrl = REPO_URL) {
     </div>`;
 
   return layout({
-    title: `${feature.name} | Copilot Studio feature tour`,
+    title: `${feature.name} | Microsoft AI Training Generator feature tour`,
     description: feature.summary,
     root,
     active: "overview",
@@ -283,8 +283,8 @@ ${groups}
     </div>`;
 
   return layout({
-    title: "Copilot Studio feature tour",
-    description: "Screenshots, explanations, and a guided tour for every Copilot Studio feature in the lab builder catalog.",
+    title: "Microsoft AI Training Generator feature tour",
+    description: "Screenshots, explanations, and a guided tour for every Copilot Studio feature in the Microsoft AI Training Generator catalog.",
     root: "",
     active: "overview",
     body,
@@ -331,7 +331,7 @@ export function renderTour(model) {
     <script type="application/json" id="tour-data">${data}</script>`;
 
   return layout({
-    title: "Guided tour | Copilot Studio feature tour",
+    title: "Guided tour | Microsoft AI Training Generator feature tour",
     description: "Step through every Copilot Studio feature in the lab catalog with screenshots and callouts.",
     root: "",
     active: "tour",

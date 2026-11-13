@@ -79,7 +79,8 @@ test("the page shows a visible placeholder for a pending screenshot and an image
 
 test("tour page has progress, status, keyboard help, and a no-script fallback", () => {
   const html = pages.get("tour.html");
-  assert.match(html, new RegExp(`role="progressbar"[^>]*aria-valuemin="1"[^>]*aria-valuemax="${getFeatures().length}"`));
+  const tourFeatures = getFeatures().filter((f) => (f.product ?? "copilot-studio") === "copilot-studio");
+  assert.match(html, new RegExp(`role="progressbar"[^>]*aria-valuemin="1"[^>]*aria-valuemax="${tourFeatures.length}"`));
   assert.match(html, /role="status" aria-live="polite"/);
   assert.match(html, /<label for="tour-jump">/);
   assert.match(html, /<noscript>/);

@@ -1,5 +1,5 @@
 /**
- * Azure resource provisioner for Copilot Studio Labs.
+ * Azure resource provisioner for the Microsoft AI Training Generator.
  *
  * Orchestrates resource deployment using az CLI, Bicep templates,
  * and Microsoft Graph / Power Platform APIs.

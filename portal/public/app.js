@@ -1,5 +1,5 @@
 /**
- * Copilot Studio Labs — Provisioning Portal (Frontend)
+ * Microsoft AI Training Generator — Provisioning Portal (Frontend)
  */
 
 // ── State ─────────────────────────────────────────────────────────────────
@@ -212,7 +212,7 @@ const SCENARIO_LAB_MAP = {
 
 function getDefaultBranding() {
   return {
-    companyName: "Copilot Studio Labs",
+    companyName: "Microsoft AI Training Generator",
     logo: null,
     primaryColor: "#4f8ff7",
     tagline: "Provisioning Portal",

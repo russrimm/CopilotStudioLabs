@@ -10,6 +10,9 @@ export const LEVELS = {
 
 export const HARNESS_ORDER = ["standard", "both", "microsoft-copilot", "customer-conversation"];
 
+// The product whose screens the tour shows. Products without a tour are not listed.
+export const TOUR_PRODUCT = "copilot-studio";
+
 // Wording is deliberately independent of the catalog's harness descriptions,
 // which mention the earlier product name. The site always uses the current one.
 export const HARNESS_GROUPS = {
@@ -144,9 +147,14 @@ export function buildModel(catalog, overlay = {}) {
   const problems = validateOverlay(overlay, catalog);
   if (problems.length) throw new Error(problems.join("\n"));
 
-  const categories = catalog.categories.map((c) => ({ id: c.id, name: c.name, icon: c.icon, description: c.description }));
+  // The tour shows Copilot Studio screens, so it lists only that product's features. Every feature still
+  // carries its product, so a tour for another product can reuse this model.
+  const inTour = (f) => (f.product ?? TOUR_PRODUCT) === TOUR_PRODUCT;
+  const categories = catalog.categories
+    .filter((c) => !Array.isArray(c.products) || c.products.includes(TOUR_PRODUCT))
+    .map((c) => ({ id: c.id, name: c.name, icon: c.icon, description: c.description }));
   const byId = new Map(catalog.features.map((f) => [f.id, f]));
-  const ordered = tourOrder(catalog.features, categories);
+  const ordered = tourOrder(catalog.features.filter(inTour), categories);
 
   const features = ordered.map((f, i) => {
     const extra = overlay.features?.[f.id] ?? {};
@@ -162,6 +170,7 @@ export function buildModel(catalog, overlay = {}) {
       id: f.id,
       order: i + 1,
       name: f.name,
+      product: TOUR_PRODUCT,
       category: f.category,
       harness: [...f.harness],
       harnessGroup: harnessGroup(f.harness),

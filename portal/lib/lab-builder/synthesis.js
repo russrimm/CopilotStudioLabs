@@ -72,7 +72,7 @@ const INSTRUCTION_WORDS = tokens(
 );
 
 const SYSTEM_PROMPT = [
-  "You write the click-by-click steps for one module of a hands-on Microsoft Copilot Studio lab.",
+  "You write the click-by-click steps for one module of a hands-on lab for a Microsoft AI product.",
   "You receive the module, the learner's scenario, and one or more Microsoft Learn pages.",
   "A program checks every step you write against those pages, and rejects any step that fails. Follow these rules exactly:",
   "1. Use only procedures that appear on the supplied pages. Choose the procedure that accomplishes this module,",

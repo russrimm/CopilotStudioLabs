@@ -94,7 +94,7 @@ test("every topic at the chosen level that applies to the harness stays selectab
       const result = recommend({ harness, level });
       const listed = result.concepts.flatMap((c) => c.topics);
       const ids = new Set(listed.map((t) => t.id));
-      for (const f of getFeatures().filter((f) => f.harness.includes(harness) && f.level === level)) {
+      for (const f of getFeatures().filter((f) => f.harness?.includes(harness) && f.level === level)) {
         assert.ok(ids.has(f.id), `${f.id} missing for ${harness} at level ${level}`);
       }
       assert.ok(listed.every((t) => t.level === level), `${harness} level ${level} lists another level`);

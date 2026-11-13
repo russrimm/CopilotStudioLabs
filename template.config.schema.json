@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/russrimm/CopilotStudioLabs/blob/main/template.config.schema.json",
-  "title": "Copilot Studio Labs template configuration",
+  "title": "Microsoft AI Training Generator template configuration",
   "type": "object",
   "required": [
     "industryPreset",

@@ -55,9 +55,12 @@ export function validateSnapshot(snapshot, { harnessIds = DEFAULT_HARNESS_IDS } 
     if (!Array.isArray(topic.urls) || !topic.urls.length || topic.urls.length > 5) problems.push(`${label}: urls must list 1-5 Learn URLs`);
     else if (topic.urls.some((url) => normalizeLearnUrl(url) !== url)) problems.push(`${label}: every url must be a canonical https learn.microsoft.com URL`);
     else if (typeof topic.id === "string" && topic.id.length <= 80 && topicId(topic.urls[0]) !== topic.id) problems.push(`${label}: id does not match its first url`);
-    if (!Array.isArray(topic.harnesses) || !topic.harnesses.length || topic.harnesses.some((h) => !harnessIds.includes(h))) {
+    // A topic of a product without harnesses (it names its `product`) has no harnesses; a Copilot Studio topic must name at least one.
+    const harnessless = typeof topic.product === "string" && topic.product !== "copilot-studio";
+    if (!Array.isArray(topic.harnesses) || (!harnessless && !topic.harnesses.length) || topic.harnesses.some((h) => !harnessIds.includes(h))) {
       problems.push(`${label}: harnesses must name known harnesses`);
     }
+    if (topic.product !== undefined && !/^[a-z][a-z0-9-]*$/.test(String(topic.product))) problems.push(`${label}: product must be a slug`);
     if (typeof topic.conceptId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topic.conceptId)) problems.push(`${label}: conceptId must be a slug`);
     if (topic.availability !== null && !AVAILABILITY.includes(topic.availability)) problems.push(`${label}: availability must be ga, preview, retired, or null`);
     if (!TOPIC_STATUS.includes(topic.status)) problems.push(`${label}: status must be covered or new`);

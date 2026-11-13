@@ -1,7 +1,13 @@
 {
-  "$comment": "The concept layer. A concept is an idea a lab teaches (Instructions, Knowledge, Skills, MCP servers, ...) independent of which Copilot Studio harness implements it. Each concept lists the catalog features that teach it; a feature's own `harness` tag says which harnesses it applies to, so the same concept can map to a Standard harness feature, a Microsoft Copilot harness feature, and a Customer Conversation harness feature. `notApplicable` explains, per harness, why a concept has no equivalent there, so the wizard can say so instead of hiding the idea. Every catalog feature belongs to exactly one concept (validateConcepts enforces this). `order` is the teaching order the wizard lists concepts in. Do not name the Microsoft Copilot harness anything else, and use US English.",
+  "$comment": "The concept layer. A concept is an idea a lab teaches (Instructions, Knowledge, Skills, MCP servers, ...) independent of which product or Copilot Studio harness implements it. Each concept lists the catalog features that teach it and `products`, the products it applies to (default: copilot-studio); a feature's product must be one of them. A feature of a product with harnesses (Copilot Studio) also carries a `harness` tag, so the same concept can map to a Standard harness feature, a Microsoft Copilot harness feature, and a Customer Conversation harness feature. Coverage is judged per target: each harness of a product that has harnesses, and the product itself for every other product. `notApplicable` explains, per target (a harness id or a product id), why a concept has no equivalent there, so the wizard can say so instead of hiding the idea; `knownGaps` lists `concept:target` cells still waiting for a feature, and may only shrink. Every catalog feature belongs to exactly one concept (validateConcepts enforces this). `order` is the teaching order the wizard lists concepts in. Do not name the Microsoft Copilot harness anything else, and use US English.",
   "version": 1,
-  "knownGaps": [],
+  "knownGaps": [
+    "tools:m365-copilot-agent-builder",
+    "tools:ai-foundry",
+    "knowledge:ai-foundry",
+    "testing:ai-foundry",
+    "publish:ai-foundry"
+  ],
   "concepts": [
     {
       "id": "choose-harness",
@@ -16,7 +22,8 @@
       "name": "Create an agent",
       "order": 20,
       "summary": "Make the agent object everything else hangs off.",
-      "features": ["create-agent", "mc-create-agent", "cc-create-agent"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry"],
+      "features": ["create-agent", "mc-create-agent", "cc-create-agent", "dca-agent-builder-first-agent", "dca-toolkit-typespec-agent", "spai-build-agent-sharepoint-content", "fdy-create-prompt-agent"],
       "notApplicable": {}
     },
     {
@@ -24,7 +31,8 @@
       "name": "Instructions",
       "order": 30,
       "summary": "Tell the agent who it is, what it covers, and how to behave.",
-      "features": ["agent-instructions", "mc-instructions", "cc-instructions"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "power-platform-ai-hub"],
+      "features": ["agent-instructions", "mc-instructions", "cc-instructions", "dca-write-agent-instructions", "ppai-build-custom-prompt"],
       "notApplicable": {}
     },
     {
@@ -40,7 +48,8 @@
       "name": "Knowledge",
       "order": 50,
       "summary": "Ground answers in your documents, sites, and data.",
-      "features": ["knowledge-sharepoint", "knowledge-files-web", "knowledge-dataverse", "knowledge-tuning", "mc-knowledge", "mc-foundry-iq", "cc-knowledge"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "sharepoint-ai", "ai-foundry"],
+      "features": ["knowledge-sharepoint", "knowledge-files-web", "knowledge-dataverse", "knowledge-tuning", "mc-knowledge", "mc-foundry-iq", "cc-knowledge", "dca-agent-builder-knowledge", "spai-agent-sharepoint-knowledge-sources"],
       "notApplicable": {}
     },
     {
@@ -48,6 +57,7 @@
       "name": "Tools and connectors",
       "order": 60,
       "summary": "Let the agent take actions through connectors, custom connectors, and computer use.",
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "ai-foundry"],
       "features": ["connector-tools", "custom-connectors", "computer-use", "mc-tools", "cc-add-tools", "cc-escalate-human"],
       "notApplicable": {}
     },
@@ -171,7 +181,8 @@
       "name": "Testing and evaluation",
       "order": 180,
       "summary": "Prove the agent works and keeps working.",
-      "features": ["test-agent", "mc-preview-test", "evaluations", "multiturn-tests", "mc-evaluate", "readiness-scorecard", "cc-preview-test", "cc-evaluate"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "ai-foundry"],
+      "features": ["test-agent", "mc-preview-test", "evaluations", "multiturn-tests", "mc-evaluate", "readiness-scorecard", "cc-preview-test", "cc-evaluate", "dca-toolkit-developer-mode"],
       "notApplicable": {}
     },
     {
@@ -179,7 +190,8 @@
       "name": "Monitor and analytics",
       "order": 190,
       "summary": "See how the agent performs in use.",
-      "features": ["analytics", "mc-monitor", "cc-monitor"],
+      "products": ["copilot-studio", "m365-copilot-hub"],
+      "features": ["analytics", "mc-monitor", "cc-monitor", "m365h-measure-copilot-adoption"],
       "notApplicable": {}
     },
     {
@@ -187,7 +199,8 @@
       "name": "Publish and channels",
       "order": 200,
       "summary": "Put the agent in front of people on Teams, the web, or voice.",
-      "features": ["publish-agent", "mc-publish-agent", "channel-teams", "voice-agents", "cc-deploy-channels", "cc-teams-phone"],
+      "products": ["copilot-studio", "m365-copilot-agent-builder", "ai-foundry"],
+      "features": ["publish-agent", "mc-publish-agent", "channel-teams", "voice-agents", "cc-deploy-channels", "cc-teams-phone", "dca-agent-builder-share-and-catalog"],
       "notApplicable": {}
     },
     {
@@ -195,7 +208,8 @@
       "name": "Authentication and safety",
       "order": 210,
       "summary": "Control who can use the agent, what it may say, and which identity it runs as.",
-      "features": ["authentication", "content-moderation", "entra-agent-identities", "mc-agent-settings-security", "cc-authentication", "cc-biometric-auth"],
+      "products": ["copilot-studio", "sharepoint-ai", "ai-foundry", "m365-copilot-hub"],
+      "features": ["authentication", "content-moderation", "entra-agent-identities", "mc-agent-settings-security", "cc-authentication", "cc-biometric-auth", "spai-restricted-content-discovery", "fdy-configure-guardrails", "m365h-secure-copilot-data"],
       "notApplicable": {}
     },
     {
@@ -203,7 +217,19 @@
       "name": "Governance and ALM",
       "order": 220,
       "summary": "Move agents between environments safely and keep an inventory under policy.",
-      "features": ["dlp-governance", "alm-solutions", "agent-inventory", "cc-export-import"],
+      "products": ["copilot-studio", "sharepoint-ai", "ai-foundry", "m365-copilot-hub", "power-platform-ai-hub"],
+      "features": [
+        "dlp-governance",
+        "alm-solutions",
+        "agent-inventory",
+        "cc-export-import",
+        "spai-site-access-review",
+        "fdy-foundry-rbac",
+        "m365h-review-agent-inventory",
+        "m365h-control-agent-availability",
+        "m365h-approve-agent-requests",
+        "ppai-admin-governance-security"
+      ],
       "notApplicable": {}
     },
     {
@@ -211,7 +237,71 @@
       "name": "Credits and billing",
       "order": 230,
       "summary": "Understand what an agent costs to build, test, and run.",
-      "features": ["mc-credit-billing", "usage-credits", "cc-credit-billing"],
+      "products": ["copilot-studio", "m365-copilot-hub", "power-platform-ai-hub"],
+      "features": ["mc-credit-billing", "usage-credits", "cc-credit-billing", "m365h-assign-copilot-licenses", "ppai-credits-licensing-transition"],
+      "notApplicable": {}
+    },
+    {
+      "id": "foundry-projects",
+      "name": "Resources, hubs, and projects",
+      "order": 5,
+      "summary": "Set up the workspace that holds your models, agents, and access control.",
+      "products": ["ai-foundry"],
+      "features": ["fdy-create-foundry-project", "fdy-create-hub-based-project"],
+      "notApplicable": {}
+    },
+    {
+      "id": "ai-capability-selection",
+      "name": "Choose an AI capability",
+      "order": 12,
+      "summary": "Pick the model type or prompt that fits the task before you build.",
+      "products": ["power-platform-ai-hub"],
+      "features": ["ppai-explore-ai-hub-models"],
+      "notApplicable": {}
+    },
+    {
+      "id": "choose-approach",
+      "name": "Choose an approach",
+      "order": 15,
+      "summary": "Decide which authoring tool fits the scenario, and how to move an agent between tools.",
+      "products": ["m365-copilot-agent-builder"],
+      "features": ["dca-agent-builder-vs-copilot-studio"],
+      "notApplicable": {}
+    },
+    {
+      "id": "copilot-in-app",
+      "name": "Copilot in the host app",
+      "order": 25,
+      "summary": "Use the Copilot built into the app your users already work in.",
+      "products": ["sharepoint-ai"],
+      "features": ["spai-copilot-in-sharepoint-overview"],
+      "notApplicable": {}
+    },
+    {
+      "id": "model-deployment",
+      "name": "Model deployment and playground",
+      "order": 35,
+      "summary": "Deploy a model and try it before you build on it.",
+      "products": ["ai-foundry"],
+      "features": ["fdy-deploy-test-model"],
+      "notApplicable": {}
+    },
+    {
+      "id": "content-ai",
+      "name": "Content AI and document processing",
+      "order": 85,
+      "summary": "Extract structured information from documents and files.",
+      "products": ["sharepoint-ai", "power-platform-ai-hub"],
+      "features": ["spai-autofill-columns", "ppai-document-processing-model"],
+      "notApplicable": {}
+    },
+    {
+      "id": "ai-consumption",
+      "name": "Use AI in apps and flows",
+      "order": 165,
+      "summary": "Call a prompt or model from the apps and flows people already build.",
+      "products": ["power-platform-ai-hub"],
+      "features": ["ppai-use-prompt-in-flow-and-app"],
       "notApplicable": {}
     }
   ]
