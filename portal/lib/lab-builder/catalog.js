@@ -9,7 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getConcepts, getRecommendations, validateConcepts } from "./concepts.js";
+import { getConcepts, getKnownCoverageGaps, getRecommendations, validateConcepts } from "./concepts.js";
 import { getDifferences, validateDifferences } from "./differences.js";
 import { validateScreenshotSlots } from "./slots.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -425,7 +425,7 @@ export function validateCatalog(raw, { now = Date.now() } = {}) {
   // The concept layer describes the shipped catalog, so a parsed fixture is not held to it.
   if (!raw) {
     problems.push(
-      ...validateConcepts({ concepts: getConcepts(), recommendations: getRecommendations(), features, harnesses }),
+      ...validateConcepts({ concepts: getConcepts(), recommendations: getRecommendations(), features, harnesses, knownGaps: getKnownCoverageGaps() }),
       ...validateDifferences({ records: getDifferences(), concepts: getConcepts(), harnesses }),
       ...validateScreenshotSlots({ features }),
     );

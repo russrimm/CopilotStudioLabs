@@ -20,6 +20,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { writeReport, repoRoot } from "./lib/labs.mjs";
+import { validateCoverage } from "../../portal/lib/lab-builder/coverage.js";
 import {
   CATALOG_PATH,
   buildCatalogReport,
@@ -29,6 +30,21 @@ import {
 
 const LINK_TIMEOUT_MS = 15000;
 const LINK_CONCURRENCY = 6;
+
+/** Coverage problems for the concepts that sit next to the catalog file. */
+export function checkCoverage(catalogPath) {
+  const dir = path.dirname(catalogPath);
+  const conceptsPath = path.join(dir, "concepts.json");
+  if (!fs.existsSync(conceptsPath)) return [];
+  const raw = JSON.parse(fs.readFileSync(conceptsPath, "utf8"));
+  const catalog = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
+  return validateCoverage({
+    concepts: raw.concepts || [],
+    features: catalog.features || [],
+    harnesses: catalog.harnesses || [],
+    knownGaps: raw.knownGaps || [],
+  });
+}
 
 export async function checkLink(url) {
   const controller = new AbortController();
@@ -105,6 +121,12 @@ async function main() {
     );
     differencesNeedAction = broken.length > 0 || stale.length > 0;
   }
+
+  // Structural, offline: every concept needs a variant or an explanation on every harness.
+  const coverageProblems = checkCoverage(catalogPath);
+  for (const problem of coverageProblems) console.log(`• ${problem}`);
+  console.log(`Concept coverage: ${coverageProblems.length} problem(s)`);
+  if (coverageProblems.length) process.exitCode = 1;
 
   if (strict && (catalogNeedsAction(report) || differencesNeedAction)) process.exit(1);
 }

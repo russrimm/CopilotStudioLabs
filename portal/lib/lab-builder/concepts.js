@@ -14,12 +14,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { validateCoverage } from "./coverage.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONCEPTS_PATH = path.join(__dirname, "concepts.json");
 const RECOMMENDATIONS_PATH = path.join(__dirname, "recommendations.json");
 
 let cachedConcepts = null;
 let cachedRecommendations = null;
+let cachedKnownGaps = null;
 
 export function getConcepts() {
   if (!cachedConcepts) {
@@ -27,6 +30,14 @@ export function getConcepts() {
     cachedConcepts = [...(raw.concepts || [])].sort((a, b) => a.order - b.order);
   }
   return cachedConcepts;
+}
+
+/** `concept:harness` cells still waiting for a variant; the list in concepts.json may only shrink. */
+export function getKnownCoverageGaps() {
+  if (!cachedKnownGaps) {
+    cachedKnownGaps = [...(JSON.parse(fs.readFileSync(CONCEPTS_PATH, "utf8")).knownGaps || [])];
+  }
+  return cachedKnownGaps;
 }
 
 export function getRecommendations() {
@@ -54,7 +65,7 @@ export function notApplicableReason(concept, harnessId, features) {
  *
  * @param {{concepts: object[], recommendations: object, features: object[], harnesses: object[]}} input
  */
-export function validateConcepts({ concepts, recommendations, features, harnesses = [] }) {
+export function validateConcepts({ concepts, recommendations, features, harnesses = [], knownGaps = [] }) {
   const problems = [];
   const byId = new Map(features.map((f) => [f.id, f]));
   const harnessIds = new Set(harnesses.map((h) => h.id));
@@ -88,6 +99,8 @@ export function validateConcepts({ concepts, recommendations, features, harnesse
   for (const f of features) {
     if (!owner.has(f.id)) problems.push(`${f.id}: does not belong to any concept`);
   }
+
+  problems.push(...validateCoverage({ concepts, features, harnesses, knownGaps }));
 
   const known = (id, where) => {
     if (!byId.has(id)) problems.push(`recommendations ${where}: unknown feature "${id}"`);
