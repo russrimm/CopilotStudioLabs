@@ -41,7 +41,7 @@ jobs:
         run: node tools/feature-tour/build.mjs --check
 
       - name: Test the feature tour
-        run: node --test tools/feature-tour/test/
+        run: node --test "tools/feature-tour/test/*.test.mjs"
 
       - name: Build the site
         run: node tools/feature-tour/build.mjs --out=_site

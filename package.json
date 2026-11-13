@@ -13,7 +13,7 @@
     "feature-tour:build": "node tools/feature-tour/build.mjs",
     "feature-tour:check": "node tools/feature-tour/build.mjs --check",
     "feature-tour:serve": "node tools/feature-tour/serve.mjs",
-    "feature-tour:test": "node --test tools/feature-tour/test/",
+    "feature-tour:test": "node --test \"tools/feature-tour/test/*.test.mjs\"",
     "feature-tour:capture": "cd tools/screenshot-capture && npm run capture:features",
     "feature-tour:verify": "node tools/screenshot-capture/verify-shots.js --lab=feature-tour --missing",
     "verify:appreg": "node scripts/verify-app-reg.js"

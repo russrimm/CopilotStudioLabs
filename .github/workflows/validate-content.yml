@@ -63,7 +63,7 @@ jobs:
       - name: Validate feature tour
         run: |
           node tools/feature-tour/build.mjs --check
-          node --test tools/feature-tour/test/
+          node --test "tools/feature-tour/test/*.test.mjs"
 
       - name: Test portal
         working-directory: portal
