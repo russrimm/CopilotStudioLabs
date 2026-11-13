@@ -7,6 +7,13 @@
  * the reasons it was chosen, and nothing is dropped, so every topic that applies
  * to the harness stays selectable or deselectable.
  *
+ * The level is the single source of truth. Only topics taught at the chosen
+ * level are listed. A lower-level topic that a selected topic genuinely depends
+ * on is never mixed into that list: it appears in `prerequisites`, a separate
+ * group the learner can deselect, and the lab teaches it as a short recap.
+ * Learn-discovered topics whose level cannot be resolved appear in
+ * `levelUnknown` and are never recommended.
+ *
  * Time is guidance only. The totals here are estimates, never limits.
  */
 
@@ -16,6 +23,7 @@ import { DIFFICULTY_BY_LEVEL, formatDuration } from "./planner.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 import { topicToFeature } from "./topic-feature.js";
 import { UNCATEGORIZED } from "./topic-snapshot.js";
+import { atLevel, isLevel, levelName, PREREQ_RECAP_MINUTES } from "./levels.js";
 
 export const DEFAULT_HARNESS = "standard";
 const LEVELS = [100, 200, 300];
@@ -97,10 +105,13 @@ export function recommend(answers = {}, learn = {}) {
   for (const id of recs.levels?.[String(level)] || []) {
     if (applies(id)) addReason(reasons, id, `Recommended for level ${level} ${DIFFICULTY_BY_LEVEL[level]}`);
   }
+  const inLevel = (id) => atLevel(features.get(id), level);
+  const levelUnknown = (id) => features.has(id) && !isLevel(features.get(id).level);
+  // Industry and department picks only apply to topics taught at the chosen level.
   const boost = (group, key, label) => {
     const entry = recs[group]?.[key];
     for (const id of entry?.topics || []) {
-      if (applies(id) && features.get(id).level <= level) addReason(reasons, id, `Recommended for ${label}: ${entry.why}`);
+      if (applies(id) && inLevel(id)) addReason(reasons, id, `Recommended for ${label}: ${entry.why}`);
     }
   };
   if (industry) boost("verticals", industry.id, industry.name);
@@ -108,10 +119,18 @@ export function recommend(answers = {}, learn = {}) {
 
   const explicit = Array.isArray(answers.selected);
   let chosen;
+  // A saved or hand-built selection can name topics from other levels. They are
+  // not listed here, and they come back only as prerequisites when a topic at
+  // this level needs them.
+  const offLevel = [];
   if (explicit) {
     chosen = toIdList(answers.selected, "selected").filter((id) => {
       const known = features.has(id);
       if (!known) warnings.push(`Unknown topic "${id}" was ignored.`);
+      if (known && !inLevel(id) && !levelUnknown(id)) {
+        offLevel.push(id);
+        return false;
+      }
       return known;
     });
   } else {
@@ -135,6 +154,7 @@ export function recommend(answers = {}, learn = {}) {
     }
   }
   const dependencyWarnings = [];
+  const neededBy = new Map([...requiredBy].map(([id, names]) => [id, [...names]]));
   for (const pre of [...requiredBy.keys()]) {
     if (!excluded.has(pre)) continue;
     const dependents = requiredBy.get(pre);
@@ -168,6 +188,8 @@ export function recommend(answers = {}, learn = {}) {
       required: requiredBy.has(id) && !chosenSet.has(id),
       reasons: reasons.get(id) || [],
       source: discovered ? "learn" : "catalog",
+      // `estimated` marks a Learn topic whose level came from the docs rubric rather than the snapshot.
+      levelBasis: f.levelBasis || "declared",
       // `new` topics come from Learn and are not in the catalog; `updated` and `stale` flag a catalog topic whose docs changed or moved.
       learn: discovered
         ? { status: "new", url: discovered.urls[0], lastSeen: discovered.lastSeen, updated: isRecent(discovered.changedAt) }
@@ -179,7 +201,7 @@ export function recommend(answers = {}, learn = {}) {
     };
   };
   const makeRow = (concept, ids, extra = {}) => {
-    const topics = ids.filter((id) => applies(id) || selectedIds.has(id)).map(topicRow);
+    const topics = ids.filter((id) => (applies(id) || selectedIds.has(id)) && inLevel(id)).map(topicRow);
     const minutes = topics.filter((t) => t.selected).reduce((sum, t) => sum + t.minutes, 0);
     return {
       id: concept.id,
@@ -191,17 +213,29 @@ export function recommend(answers = {}, learn = {}) {
       notYetAvailable: !topics.length && !concept.notApplicable?.[harness],
       otherHarnessTopics: topics.length
         ? []
-        : concept.features.map((id) => ({ id, name: features.get(id).name, harnesses: features.get(id).harness })),
+        : concept.features
+            .filter((id) => inLevel(id))
+            .map((id) => ({ id, name: features.get(id).name, harnesses: features.get(id).harness })),
       topics,
       selectedCount: topics.filter((t) => t.selected).length,
       minutes,
       ...extra,
     };
   };
-  const conceptRows = getConcepts().map((concept) => makeRow(concept, [...concept.features, ...(dynamicByConcept.get(concept.id) || [])]));
+  // A concept with no topic at this level is left out when the harness has topics for it at other levels:
+  // listing it would only point at content the learner did not ask for. A concept the harness cannot
+  // teach at any level stays as a muted row, so the gap is still explained.
+  const conceptRows = getConcepts()
+    .map((concept) => ({
+      concept,
+      row: makeRow(concept, [...concept.features, ...(dynamicByConcept.get(concept.id) || [])]),
+      applicableElsewhere: [...concept.features, ...(dynamicByConcept.get(concept.id) || [])].some(applies),
+    }))
+    .filter(({ row, applicableElsewhere }) => row.topics.length || !applicableElsewhere)
+    .map(({ row }) => row);
 
   // Discovered topics that match no concept yet still get a home, so none is hidden.
-  const loose = (dynamicByConcept.get(UNCATEGORIZED) || []).filter((id) => applies(id) || selectedIds.has(id));
+  const loose = (dynamicByConcept.get(UNCATEGORIZED) || []).filter((id) => (applies(id) || selectedIds.has(id)) && inLevel(id));
   if (loose.length) {
     conceptRows.push(
       makeRow(
@@ -217,13 +251,67 @@ export function recommend(answers = {}, learn = {}) {
     );
   }
 
-  const totalMinutes = conceptRows.reduce((sum, c) => sum + c.minutes, 0);
+  // Lower-level topics that a selected topic needs, kept apart from the topics at this level.
+  const lowerLevel = (id) => isLevel(features.get(id)?.level) && features.get(id).level < level;
+  const prerequisiteIds = new Set([...neededBy.keys()].filter(lowerLevel));
+  const warned = new Map(dependencyWarnings.map((w) => [w.id, w.dependents]));
+  const prerequisiteRows = [...prerequisiteIds]
+    .map((id) => {
+      const f = features.get(id);
+      const needers = neededBy.get(id) || warned.get(id) || [];
+      return {
+        id,
+        name: f.name,
+        summary: f.summary,
+        level: f.level,
+        minutes: Math.min(f.minutes, PREREQ_RECAP_MINUTES),
+        fullMinutes: f.minutes,
+        selected: selectedIds.has(id),
+        neededBy: needers,
+        reason: `Needed by ${needers.join(", ")}. Included as a short Level ${f.level} recap, not a full module.`,
+      };
+    })
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+  const prerequisiteSelected = prerequisiteRows.filter((p) => p.selected);
+
+  const unknownRows = [...dynamicTopics.keys()]
+    .filter((id) => levelUnknown(id) && (applies(id) || selectedIds.has(id)))
+    .map(topicRow);
+
+  const levelMinutes =
+    conceptRows.reduce((sum, c) => sum + c.minutes, 0) + unknownRows.filter((t) => t.selected).reduce((sum, t) => sum + t.minutes, 0);
+  const totalMinutes = levelMinutes + prerequisiteSelected.reduce((sum, p) => sum + p.minutes, 0);
+  const selectedTopicIds = [
+    ...conceptRows.flatMap((c) => c.topics.filter((t) => t.selected).map((t) => t.id)),
+    ...unknownRows.filter((t) => t.selected).map((t) => t.id),
+  ];
+  const listed = conceptRows.reduce((sum, c) => sum + c.topics.length, 0);
   return {
     answers: { industry: industry?.id || null, departments, level, harness },
     concepts: conceptRows,
-    selectedIds: conceptRows.flatMap((c) => c.topics.filter((t) => t.selected).map((t) => t.id)),
+    prerequisites: {
+      topics: prerequisiteRows,
+      selectedIds: prerequisiteSelected.map((p) => p.id),
+      selectedCount: prerequisiteSelected.length,
+      minutes: prerequisiteSelected.reduce((sum, p) => sum + p.minutes, 0),
+    },
+    levelUnknown: {
+      topics: unknownRows,
+      selectedCount: unknownRows.filter((t) => t.selected).length,
+    },
+    filter: {
+      level,
+      label: levelName(level),
+      shown: listed,
+      // Topics from other levels the request named; the wizard tells the learner they were dropped.
+      droppedSelections: offLevel
+        .filter((id) => !selectedIds.has(id))
+        .map((id) => ({ id, name: features.get(id).name, level: features.get(id).level })),
+    },
+    selectedIds: selectedTopicIds,
     totals: {
-      selectedCount: conceptRows.reduce((sum, c) => sum + c.selectedCount, 0),
+      selectedCount: selectedTopicIds.length,
+      prerequisiteCount: prerequisiteSelected.length,
       minutes: totalMinutes,
       duration: formatDuration(totalMinutes),
       isEstimate: true,

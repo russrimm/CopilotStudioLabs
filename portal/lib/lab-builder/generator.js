@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { planLab, dropModules } from "./planner.js";
+import { levelName } from "./levels.js";
 import { connect, groundFeature, fetchDocPage, LEARN_MCP_ENDPOINT } from "./learn-mcp.js";
 import { createLlm } from "./llm.js";
 import { planScreenshots, copyScreenshots, writePlaceholders, buildShotsManifest, buildShotList } from "./screenshots.js";
@@ -1106,8 +1107,8 @@ export async function generateLab(request, opts = {}) {
     vendorByFeature,
   );
   // Advisory only: a low score is reported to the learner and never blocks the build.
-  const qa = assessLab(markdown, { expectedTopics: plan.features });
-  const differenceSummary = buildDifferenceBlocks(plan, { harnesses: getHarnesses(), concepts: getConcepts() });
+  const qa = assessLab(markdown, { expectedTopics: plan.features.filter((f) => !f.prerequisite) });
+  const differenceSummary = buildDifferenceBlocks({ ...plan, features: plan.features.filter((f) => !f.prerequisite) }, { harnesses: getHarnesses(), concepts: getConcepts() });
 
   const manifest = {
     slug: plan.slug,
@@ -1131,6 +1132,10 @@ export async function generateLab(request, opts = {}) {
     industry: plan.industry?.id || null,
     roles: plan.roles.map((r) => r.id),
     difficulty: plan.difficulty,
+    // The level chosen in the wizard. Modules at other levels appear only as labeled prerequisite recaps.
+    level: plan.level,
+    levelName: levelName(plan.level),
+    prerequisites: plan.prerequisites || [],
     totalMinutes: plan.totalMinutes,
     modules: plan.features.map((f) => {
       const derived = stepsByFeature.get(f.id);
@@ -1139,6 +1144,7 @@ export async function generateLab(request, opts = {}) {
         name: f.name,
         order: f.order,
         level: f.level,
+        role: f.prerequisite ? "prerequisite" : "level",
         minutes: f.minutes,
         grounded: Boolean(groundingByFeature.get(f.id)?.grounded),
         // Narrower than `grounded`: this module's citations came from a live

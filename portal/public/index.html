@@ -1013,6 +1013,7 @@
     .lb-concept .lb-category-title { padding: 0 6px; }
     .lb-concept-count { color: var(--text-muted); font-size: 12px; font-weight: 400; margin-left: 8px; }
     .lb-concept-muted { background: var(--bg); }
+    details.lb-concept > summary { cursor: pointer; }
     .lb-group-actions { display: flex; gap: 8px; margin-bottom: 10px; }
     .btn-small { padding: 4px 10px; font-size: 12px; }
     .lb-topic-reason { display: block; font-size: 12px; margin-top: 4px; color: var(--text); }
@@ -2026,12 +2027,15 @@
             <div class="panel lb-pane" id="lb-pane-3" style="display: none;">
               <h3 id="lb-heading-3" tabindex="-1">Step 3 of 7: What level should the lab be?</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                The level sets how deep the lab goes. Foundations a higher level depends on are added automatically.
+                The level you choose here decides what the rest of the wizard shows and builds. Only topics at this level are
+                listed and generated. If a topic you pick builds on a lower-level topic, it is added as a short, labeled
+                prerequisite recap that you can turn off.
               </p>
               <fieldset class="lb-fieldset">
                 <legend class="lb-legend">Lab level</legend>
                 <div id="lb-level-options" class="scenario-role-list"></div>
               </fieldset>
+              <div id="lb-level-notice-3" role="status" aria-live="polite"></div>
               <div style="margin-top: 16px; display: flex; gap: 12px;">
                 <button class="btn" type="button" onclick="lbGoToStep(2)">← Back</button>
                 <button class="btn btn-primary" type="button" onclick="lbGoToStep(4)">Next: Harness →</button>
@@ -2068,9 +2072,11 @@
               <h3 id="lb-heading-5" tabindex="-1">Step 5 of 7: Which topics should the lab cover?</h3>
               <p id="lb-topic-intro" style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;"></p>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 13px;">
-                We pre-selected topics from your answers and say why. Check or uncheck anything. Prerequisites are added
-                automatically; if you uncheck one, the lab assumes learners have already done it.
+                We pre-selected topics from your answers and say why. Check or uncheck anything. The topics shown are the
+                ones at the level you chose in Step 3. Prerequisites from lower levels are added automatically as short
+                recaps, in their own group below; if you uncheck one, the lab assumes learners have already done it.
               </p>
+              <div id="lb-level-notice-5" role="status" aria-live="polite"></div>
               <div class="lb-learn-bar" id="lb-learn-bar">
                 <p id="lb-learn-status" class="lb-learn-status" role="status" aria-live="polite">Checking when the topic list was last refreshed from Microsoft Learn...</p>
                 <button class="btn" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
@@ -2090,6 +2096,7 @@
                 <button class="btn" type="button" onclick="lbClearTopics()">Clear</button>
                 <button class="btn" type="button" onclick="lbResetTopics()">Reset to recommended</button>
               </div>
+              <p id="lb-topic-count" class="lb-learn-status" role="status" aria-live="polite"></p>
               <div id="lb-topic-warnings"></div>
               <p id="lb-topic-error" class="lb-error" role="alert"></p>
               <div id="lb-topic-groups"><div class="scenario-empty">Loading topics...</div></div>

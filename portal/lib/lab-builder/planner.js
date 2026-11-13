@@ -15,6 +15,7 @@ import { getFeature, getFeatures, getHarnesses, orderFeatures, getCoreFeatures }
 import { defaultDifferencesFor } from "./differences.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 import { countNewTopics } from "./topic-store.js";
+import { atLevel, isLevel, levelName, PREREQ_RECAP_MINUTES } from "./levels.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const profiles = JSON.parse(fs.readFileSync(path.join(__dirname, "scenario-profiles.json"), "utf8"));
@@ -182,7 +183,13 @@ export const SPLIT_SUGGESTION_MINUTES = 240;
 export function buildEstimate(features, targetMinutes) {
   const totalMinutes = features.reduce((sum, f) => sum + f.minutes, 0);
   const target = targetMinutes || SPLIT_SUGGESTION_MINUTES;
-  const bySection = features.map((f) => ({ id: f.id, name: f.name, level: f.level, minutes: f.minutes }));
+  const bySection = features.map((f) => ({
+    id: f.id,
+    name: f.name,
+    level: f.level,
+    minutes: f.minutes,
+    ...(f.prerequisite ? { prerequisite: true } : {}),
+  }));
 
   let parts = [];
   if (totalMinutes > target) {
@@ -269,14 +276,47 @@ export function planLab(request = {}) {
     })
     .filter(Boolean);
 
-  const requested = request.features.filter((id) => !request.excluded.includes(id));
+  // The level is the single source of truth: a topic from another level is not
+  // built, however it got into the request (an older saved selection, an API
+  // caller). A lower-level topic comes back below only as a prerequisite recap.
+  // Without a level the request is built as given, for older callers.
+  const requestedLevel = request.level;
+  const droppedOutOfLevel = [];
+  let requested = request.features.filter((id) => !request.excluded.includes(id));
+  if (requestedLevel) {
+    requested = requested.filter((id) => {
+      const feature = getFeature(id);
+      // A Learn topic whose level could not be resolved is built only because the learner picked it from the "Level unknown" group.
+      if (atLevel(feature, requestedLevel) || !isLevel(feature?.level)) return true;
+      droppedOutOfLevel.push({ id, name: feature.name, level: feature.level });
+      return false;
+    });
+    if (droppedOutOfLevel.length) {
+      warnings.push(
+        `${droppedOutOfLevel.length} selected topic(s) belong to another level and were not built for ${levelName(requestedLevel)}: ${droppedOutOfLevel
+          .map((d) => `${d.name} (Level ${d.level})`)
+          .join(", ")}.`,
+      );
+    }
+    if (!requested.length) {
+      throw new Error(`None of the selected topics are at ${levelName(requestedLevel)}. Choose at least one Level ${requestedLevel} topic.`);
+    }
+  }
   if (!requested.length) {
     throw new Error("Every selected topic was also marked as excluded. Keep at least one topic to build a lab.");
   }
 
-  const seedIds = request.includeCore === false
-    ? requested
-    : [...new Set([...coreSeedIds(requested, request.harness), ...requested])].filter((id) => !request.excluded.includes(id));
+  // Core foundations are level 100 modules. They are a seed only when the lab is at that level
+  // (or has no level); at a higher level the ones a topic needs arrive as prerequisite recaps.
+  const seedIds =
+    request.includeCore === false
+      ? requested
+      : [
+          ...new Set([
+            ...coreSeedIds(requested, request.harness).filter((id) => !requestedLevel || atLevel(getFeature(id), requestedLevel)),
+            ...requested,
+          ]),
+        ].filter((id) => !request.excluded.includes(id));
 
   // Prerequisites join automatically so the lab stands on its own, except the
   // ones the learner explicitly turned off. Those are assumed to be done already
@@ -310,16 +350,32 @@ export function planLab(request = {}) {
         .join("; ")}.`,
     );
   }
+  const isRecap = (id) => {
+    const level = getFeature(id)?.level;
+    return Boolean(requestedLevel) && isLevel(level) && level < requestedLevel;
+  };
   const addedPrereqs = expanded.filter((id) => !seedIds.includes(id));
-  if (addedPrereqs.length) {
+  const addedSameLevel = addedPrereqs.filter((id) => !isRecap(id));
+  const addedRecaps = addedPrereqs.filter(isRecap);
+  if (addedSameLevel.length) {
     warnings.push(
-      `Added ${addedPrereqs.length} prerequisite module(s) so the lab stands on its own: ${addedPrereqs
+      `Added ${addedSameLevel.length} prerequisite module(s) so the lab stands on its own: ${addedSameLevel
         .map((id) => getFeature(id).name)
         .join(", ")}.`,
     );
   }
+  if (addedRecaps.length) {
+    warnings.push(
+      `Added ${addedRecaps.length} short prerequisite recap(s) from lower levels because topics you selected depend on them: ${addedRecaps
+        .map((id) => `${getFeature(id).name} (Level ${getFeature(id).level})`)
+        .join(", ")}. They are labeled as recaps, not Level ${requestedLevel} content, and you can turn any of them off.`,
+    );
+  }
 
-  const ordered = orderFeatures(expanded);
+  // Recaps come first. Each recap depends only on lower-level modules, so putting them ahead
+  // keeps every prerequisite before the module that needs it.
+  const topological = orderFeatures(expanded);
+  const ordered = requestedLevel ? [...topological.filter(isRecap), ...topological.filter((id) => !isRecap(id))] : topological;
 
   const harnessesUsed = new Set(
     ordered.map((id) => getFeature(id)?.harness || []).filter((tags) => tags.length === 1).map((tags) => tags[0]),
@@ -334,7 +390,14 @@ export function planLab(request = {}) {
   // prerequisite stays in the lab. A long lab only gets a suggestion to split.
   const features = ordered.map((id, index) => {
     const feature = getFeature(id);
-    return { ...feature, order: index + 1 };
+    if (!isRecap(id)) return { ...feature, order: index + 1 };
+    return {
+      ...feature,
+      order: index + 1,
+      prerequisite: true,
+      fullMinutes: feature.minutes,
+      minutes: Math.min(feature.minutes, PREREQ_RECAP_MINUTES),
+    };
   });
 
   const totalMinutes = features.reduce((sum, f) => sum + f.minutes, 0);
@@ -347,7 +410,7 @@ export function planLab(request = {}) {
   for (const f of features) if (f.harness?.length === 1) harnessVotes.set(f.harness[0], (harnessVotes.get(f.harness[0]) || 0) + 1);
   const labHarness = request.harness || [...harnessVotes].sort((a, b) => b[1] - a[1])[0]?.[0] || "standard";
   const differencesFor = (request.differencesFor ?? defaultDifferencesFor(labHarness)).filter((id) => id !== labHarness);
-  const maxLevel = features.reduce((max, f) => Math.max(max, f.level), 100);
+  const maxLevel = features.filter((f) => !f.prerequisite).reduce((max, f) => Math.max(max, f.level || 0), 100);
   const profile = getScenarioProfile(industry?.id);
 
   const roleProfiles = roles.map((r) => ({ ...r, ...(getRoleProfile(r.id) || {}) }));
@@ -370,6 +433,7 @@ export function planLab(request = {}) {
       excluded: request.excluded,
       harness: request.harness || null,
       level: request.level || null,
+      droppedOutOfLevel,
       differencesFor: request.differencesFor ?? null,
       targetMinutes: request.targetMinutes ?? null,
     },
@@ -390,6 +454,7 @@ export function planLab(request = {}) {
     duration: formatDuration(totalMinutes),
     estimate,
     assumedPrereqs,
+    prerequisites: features.filter((f) => f.prerequisite).map((f) => f.id),
     harness: labHarness,
     differencesFor,
     difficulty: DIFFICULTY_BY_LEVEL[request.level || maxLevel] || "Intermediate",
@@ -419,12 +484,16 @@ export function dropModules(plan, ids, reason = "removed") {
   const drop = new Set((ids || []).filter(Boolean));
   if (!drop.size) return plan;
 
-  // Cascade: a module whose prerequisite is going must go too.
+  // Cascade: a module whose prerequisite is going must go too. A prerequisite recap is
+  // the exception: losing a short recap never removes the module that builds on it, so the
+  // lab assumes the learner already knows it instead.
+  const recapIds = new Set(plan.features.filter((feature) => feature.prerequisite).map((feature) => feature.id));
+  const recapsDropped = [...drop].filter((id) => recapIds.has(id));
   for (let changed = true; changed; ) {
     changed = false;
     for (const feature of plan.features) {
       if (drop.has(feature.id)) continue;
-      if ((feature.prereqs || []).some((prereq) => drop.has(prereq))) {
+      if ((feature.prereqs || []).some((prereq) => drop.has(prereq) && !recapIds.has(prereq))) {
         drop.add(feature.id);
         changed = true;
       }
@@ -453,8 +522,14 @@ export function dropModules(plan, ids, reason = "removed") {
   plan.totalMinutes = plan.features.reduce((sum, feature) => sum + feature.minutes, 0);
   plan.duration = formatDuration(plan.totalMinutes);
   plan.estimate = buildEstimate(plan.features, plan.request.targetMinutes);
-  plan.level = plan.request.level || plan.features.reduce((max, feature) => Math.max(max, feature.level), 100);
+  plan.level = plan.request.level || plan.features.filter((feature) => !feature.prerequisite).reduce((max, feature) => Math.max(max, feature.level || 0), 100);
   plan.difficulty = DIFFICULTY_BY_LEVEL[plan.level] || "Intermediate";
+  plan.prerequisites = plan.features.filter((feature) => feature.prerequisite).map((feature) => feature.id);
+  for (const id of recapsDropped) {
+    const gone = removed.find((feature) => feature.id === id);
+    const needers = plan.features.filter((feature) => (feature.prereqs || []).includes(id)).map((feature) => feature.name);
+    plan.assumedPrereqs = [...(plan.assumedPrereqs || []), { id, name: gone.name, minutes: gone.minutes, neededBy: needers }];
+  }
   plan.categories = [...new Set(plan.features.map((feature) => feature.category))];
   plan.relatedLabs = [...new Set(plan.features.flatMap((feature) => feature.relatedLabs || []))];
   plan.tags = [

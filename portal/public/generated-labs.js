@@ -76,9 +76,13 @@ function lbGenItemHtml(lab) {
   const createdText = Number.isNaN(created.getTime()) ? "date unknown" : created.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   const chips = [escapeHtml(lbGenIndustryName(lab.vertical))];
   if (lab.level) chips.push(escapeHtml(lbGenLevelName(lab.level)));
+  else chips.push("Level not recorded");
   if (lab.harness) chips.push(escapeHtml(lbGenHarnessName(lab.harness)));
   chips.push(`About ${escapeHtml(lbFormatMinutes(lab.totalMinutes || 0))} (estimate)`);
-  chips.push(`${Number(lab.moduleCount) || 0} topic${lab.moduleCount === 1 ? "" : "s"}`);
+  const recaps = Number(lab.prerequisiteCount) || 0;
+  const topics = Math.max((Number(lab.moduleCount) || 0) - recaps, 0);
+  chips.push(`${topics} topic${topics === 1 ? "" : "s"}`);
+  if (recaps) chips.push(`${recaps} prerequisite recap${recaps === 1 ? "" : "s"}`);
   const chipHtml = chips.map((chip) => `<li>${chip}</li>`).join("");
   let validation = '<li>Checks not recorded</li>';
   if (lab.validation) {

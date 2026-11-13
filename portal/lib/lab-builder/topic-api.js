@@ -6,6 +6,7 @@
 import { getFeatures, getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
 import { summarize } from "./topic-snapshot.js";
+import { resolveTopicLevel } from "./levels.js";
 
 const DAY_MS = 86400000;
 
@@ -26,6 +27,21 @@ export function newTopicCounts(service) {
   for (const topic of service.view().snapshot?.topics || []) {
     if (topic.status !== "new") continue;
     for (const harness of topic.harnesses) counts[harness] = (counts[harness] || 0) + 1;
+  }
+  return counts;
+}
+
+/** The same counts split by level, so the harness step can count only what the chosen level offers. Topics with no resolvable level are not counted. */
+export function newTopicCountsByLevel(service) {
+  const counts = {};
+  for (const topic of service.view().snapshot?.topics || []) {
+    if (topic.status !== "new") continue;
+    const { level } = resolveTopicLevel(topic);
+    if (!level) continue;
+    for (const harness of topic.harnesses) {
+      counts[harness] ||= {};
+      counts[harness][level] = (counts[harness][level] || 0) + 1;
+    }
   }
   return counts;
 }
@@ -89,7 +105,7 @@ export function topicsPayload(service, now = Date.now()) {
       status: recent(topic.changedAt) ? "updated" : "new",
       conceptId: topic.conceptId,
       harnesses: topic.harnesses,
-      level: topic.level,
+      level: resolveTopicLevel(topic).level,
       availability: topic.availability,
       urls: topic.urls,
       changedAt: topic.changedAt,

@@ -21,6 +21,7 @@ const PRODUCTS = "Microsoft Copilot Studio, Power Platform, Microsoft 365";
 import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
 import { buildDifferenceBlocks } from "./differences.js";
+import { levelName } from "./levels.js";
 import {
   cleanupSection,
   expectedResultBlock,
@@ -135,6 +136,7 @@ function metadataTable(plan, generation = {}) {
     "| Field | Details |",
     "|---|---|",
     `| ⭐ **DIFFICULTY** | ${plan.difficulty} |`,
+    `| 🎚️ **LEVEL** | ${levelName(plan.level)} |`,
     `| ⏱️ **TIME** | About ${plan.duration} (estimate, not a limit) |`,
     `| 🧩 **PRODUCTS** | ${PRODUCTS} |`,
     `| 🏷️ **TAGS** | ${tags} |`,
@@ -155,16 +157,26 @@ function overviewSection(plan, enrichment) {
     enrichment?.overview ||
     `${profile.problem} In this lab you build **${escapeMarkdown(profile.agentName)}**, a Microsoft Copilot Studio agent for ${profile.domain}, ending with ${profile.outcome}.`;
 
-  const focus = plan.features.map((f) => `**${f.name}** - ${f.summary}`);
+  const focus = plan.features.filter((f) => !f.prerequisite).map((f) => `**${f.name}** - ${f.summary}`);
+  const recaps = plan.features.filter((f) => f.prerequisite);
+  const moduleCount = plan.features.length - recaps.length;
 
   return [
     "## Overview",
     "",
     scrubForbidden(intro) + roleLine,
     "",
-    `You will work through ${plan.features.length} module${plan.features.length === 1 ? "" : "s"}, in order, building on the same agent the whole way. Each module explains what you are configuring and why it matters before you touch the product, so you finish with working software *and* a mental model you can reuse.`,
+    `You will work through ${moduleCount} ${levelName(plan.level)} module${moduleCount === 1 ? "" : "s"}, in order, building on the same agent the whole way. Each module explains what you are configuring and why it matters before you touch the product, so you finish with working software *and* a mental model you can reuse.`,
+    ...(recaps.length
+      ? [
+          "",
+          `This lab also opens with ${recaps.length} short **prerequisite recap${recaps.length === 1 ? "" : "s"}** from lower levels (${sentenceList(
+            recaps.map((f) => f.name),
+          )}), because the ${levelName(plan.level)} modules build on them. A recap is a refresher, not new ${levelName(plan.level)} content: skip it if you already know the topic.`,
+        ]
+      : []),
     "",
-    "**What this lab covers**",
+    `**What this ${levelName(plan.level)} lab covers**`,
     "",
     bullets(focus),
     "",
@@ -177,7 +189,9 @@ function overviewSection(plan, enrichment) {
 }
 
 function objectivesSection(plan) {
-  const objectives = plan.features.map((f) => `**Step ${f.order} - ${f.name}:** ${scrubForbidden(f.summary)}`);
+  const objectives = plan.features
+    .filter((f) => !f.prerequisite)
+    .map((f) => `**Step ${f.order} - ${f.name}:** ${scrubForbidden(f.summary)}`);
   return [
     "## Learning Objectives",
     "",
@@ -189,8 +203,10 @@ function objectivesSection(plan) {
 
 function timeEstimateSection(plan) {
   const estimate = plan.estimate;
-  const rows = plan.features.map(
-    (f) => `| ${f.order} | ${escapeMarkdown(f.name)} | ${f.level} | about ${f.minutes} min |`,
+  const rows = plan.features.map((f) =>
+    f.prerequisite
+      ? `| ${f.order} | Recap: ${escapeMarkdown(f.name)} | ${f.level} (prerequisite recap) | about ${f.minutes} min |`
+      : `| ${f.order} | ${escapeMarkdown(f.name)} | ${f.level} | about ${f.minutes} min |`,
   );
   const lines = [
     "## Time Estimate",
@@ -530,7 +546,33 @@ function stepProvenance(record, feature) {
 
 const TEACH = { scrub: scrubForbidden, esc: escapeMarkdown, lowerFirst, bullets, label: citationLabel };
 
+/** A prerequisite recap: the lower-level topic a selected topic builds on, kept short and clearly labeled. */
+function recapSection(feature, plan, grounding, stepsRecord, vendorRecords) {
+  const source = stepsRecord?.steps?.length ? stepsRecord.steps : feature.steps;
+  const steps = source.map((step, index) => `${index + 1}. ${scrubForbidden(step)}`);
+  return [
+    `### Step ${feature.order} - Recap: ${feature.name}`,
+    "",
+    `*Prerequisite recap from Level ${feature.level} · about ${feature.minutes} minutes. This is a refresher for a lower-level topic that the ${levelName(plan.level)} modules build on. Skip it if you already know it.*`,
+    "",
+    `**What you are doing.** ${scrubForbidden(feature.summary)}`,
+    ...groundedInsight(grounding),
+    "",
+    "**Do this**",
+    ...stepProvenance(stepsRecord, feature),
+    "",
+    steps.join("\n"),
+    "",
+    "**Check your work**",
+    "",
+    bullets(feature.validation.map((v) => `[ ] ${scrubForbidden(v)}`)),
+    ...citationBlock(grounding),
+    ...vendorBlock(vendorRecords),
+  ].join("\n");
+}
+
 function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord, vendorRecords, differenceLines = []) {
+  if (feature.prerequisite) return recapSection(feature, plan, grounding, stepsRecord, vendorRecords);
   const profile = plan.profile;
   const applied =
     enrichment?.applied ||
@@ -630,7 +672,7 @@ function completeSection(plan) {
   return [
     "## Lab Complete",
     "",
-    `You built **${escapeMarkdown(plan.profile.agentName)}** end to end: ${sentenceList(plan.features.map((f) => f.name))}.`,
+    `You built **${escapeMarkdown(plan.profile.agentName)}** end to end: ${sentenceList(plan.features.filter((f) => !f.prerequisite).map((f) => f.name))}.`,
     "",
     `More importantly, you can now explain *why* each of those pieces exists, which is what makes the next agent faster to build than this one was.`,
   ].join("\n");
@@ -815,7 +857,7 @@ export function composeLab(
   stepsByFeature = new Map(),
   vendorByFeature = new Map(),
 ) {
-  const differences = buildDifferenceBlocks(plan, {
+  const differences = buildDifferenceBlocks({ ...plan, features: plan.features.filter((f) => !f.prerequisite) }, {
     harnesses: getHarnesses(),
     clean: (text) => escapeMarkdown(scrubForbidden(text)),
     concepts: getConcepts(),
@@ -849,7 +891,9 @@ export function composeLab(
     "",
     "## Step-by-Step",
     "",
-    "Each module below stands on its own, but they are ordered so that every prerequisite is configured before you need it. Work top to bottom.",
+    `Each module below stands on its own, but they are ordered so that every prerequisite is configured before you need it. Work top to bottom.${
+      plan.features.some((f) => f.prerequisite) ? ` Steps labeled **Recap** are short refreshers of lower-level topics, not ${levelName(plan.level)} content.` : ""
+    }`,
     "",
     ...differencesNote,
   ];
