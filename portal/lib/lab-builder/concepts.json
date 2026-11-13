@@ -4,17 +4,13 @@
   "knownGaps": [
     "choose-harness:customer-conversation",
     "create-agent:customer-conversation",
-    "instructions:microsoft-copilot",
     "instructions:customer-conversation",
     "model-orchestration:customer-conversation",
     "knowledge:customer-conversation",
-    "tools:microsoft-copilot",
     "tools:customer-conversation",
     "skills:customer-conversation",
     "mcp:customer-conversation",
-    "subagents:microsoft-copilot",
     "subagents:customer-conversation",
-    "sdk:microsoft-copilot",
     "sdk:customer-conversation",
     "memory:customer-conversation",
     "files-code:customer-conversation",
@@ -24,10 +20,8 @@
     "workflows:customer-conversation",
     "integrations:customer-conversation",
     "testing:customer-conversation",
-    "monitor:microsoft-copilot",
     "monitor:customer-conversation",
     "publish:customer-conversation",
-    "security:microsoft-copilot",
     "security:customer-conversation",
     "governance:customer-conversation",
     "billing:customer-conversation"
@@ -54,7 +48,7 @@
       "name": "Instructions",
       "order": 30,
       "summary": "Tell the agent who it is, what it covers, and how to behave.",
-      "features": ["agent-instructions"],
+      "features": ["agent-instructions", "mc-instructions"],
       "notApplicable": {}
     },
     {
@@ -62,10 +56,8 @@
       "name": "Model and orchestration",
       "order": 40,
       "summary": "Choose the model and let the agent decide which tool or knowledge source to use.",
-      "features": ["generative-orchestration", "model-selection"],
-      "notApplicable": {
-        "microsoft-copilot": "The Microsoft Copilot harness uses its own orchestration for every agent, so there is no orchestration mode to switch on."
-      }
+      "features": ["generative-orchestration", "model-selection", "mc-model-selection"],
+      "notApplicable": {}
     },
     {
       "id": "knowledge",
@@ -80,7 +72,7 @@
       "name": "Tools and connectors",
       "order": 60,
       "summary": "Let the agent take actions through connectors, custom connectors, and computer use.",
-      "features": ["connector-tools", "custom-connectors", "computer-use"],
+      "features": ["connector-tools", "custom-connectors", "computer-use", "mc-tools"],
       "notApplicable": {}
     },
     {
@@ -104,7 +96,7 @@
       "name": "Subagents and connected agents",
       "order": 90,
       "summary": "Delegate focused work to other agents, including agents in other products.",
-      "features": ["connected-agents", "agent-to-agent"],
+      "features": ["connected-agents", "agent-to-agent", "mc-connected-agents"],
       "notApplicable": {}
     },
     {
@@ -112,7 +104,7 @@
       "name": "SDK and extensibility",
       "order": 100,
       "summary": "Author agents from code and embed them in your own apps.",
-      "features": ["vscode-authoring", "channel-web-sdk"],
+      "features": ["vscode-authoring", "channel-web-sdk", "mc-sdk-agent"],
       "notApplicable": {}
     },
     {
@@ -205,7 +197,7 @@
       "name": "Monitor and analytics",
       "order": 190,
       "summary": "See how the agent performs in use.",
-      "features": ["analytics"],
+      "features": ["analytics", "mc-monitor"],
       "notApplicable": {}
     },
     {
@@ -221,7 +213,7 @@
       "name": "Authentication and safety",
       "order": 210,
       "summary": "Control who can use the agent, what it may say, and which identity it runs as.",
-      "features": ["authentication", "content-moderation", "entra-agent-identities"],
+      "features": ["authentication", "content-moderation", "entra-agent-identities", "mc-agent-settings-security"],
       "notApplicable": {}
     },
     {

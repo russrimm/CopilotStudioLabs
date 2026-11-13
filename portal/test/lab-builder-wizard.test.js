@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 import { recommend } from "../lib/lab-builder/recommend.js";
+import { getKnownCoverageGaps, notApplicableReason } from "../lib/lab-builder/concepts.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const wizard = readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
@@ -71,9 +72,16 @@ test("the wizard script loads after app.js, and app.js no longer carries the old
 });
 
 test("a concept with no topic yet is reported as not available yet, not as not applicable", () => {
-  const mc = recommend({ harness: "microsoft-copilot" });
-  const instructions = mc.concepts.find((c) => c.id === "instructions");
-  assert.equal(instructions.notYetAvailable, true);
+  // Cells listed in knownGaps are the only ones that can still be "not available yet".
+  for (const cell of getKnownCoverageGaps()) {
+    const [conceptId, harness] = cell.split(":");
+    const row = recommend({ harness }).concepts.find((c) => c.id === conceptId);
+    assert.equal(row.notYetAvailable, true, cell);
+  }
+  const concept = { id: "x", features: ["f"], notApplicable: {} };
+  const features = new Map([["f", { harness: ["standard"] }]]);
+  assert.match(notApplicableReason(concept, "microsoft-copilot", features), /available on this harness yet/i);
+  assert.equal(notApplicableReason(concept, "standard", features), null);
   const hooksOnStandard = recommend({ harness: "standard" }).concepts.find((c) => c.id === "hooks");
   assert.equal(hooksOnStandard.notYetAvailable, false);
   assert.match(hooksOnStandard.notApplicable, /topics/);

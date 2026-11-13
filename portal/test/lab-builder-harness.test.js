@@ -1,5 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { getFeature, getFeatures, getFeaturesByCategory, getHarnesses, LEVELS, validateCatalog } from "../lib/lab-builder/catalog.js";
 import { planLab } from "../lib/lab-builder/planner.js";
@@ -138,4 +141,21 @@ test("a lab that mixes harnesses says so", () => {
   assert.ok(mixed.warnings.some((w) => /mixes standard harness and Microsoft Copilot harness/.test(w)), mixed.warnings.join("\n"));
   const single = planLab({ features: ["mc-skills"] });
   assert.ok(!single.warnings.some((w) => /mixes/.test(w)));
+});
+
+test("every harness's full module set generates a complete lab that passes the portal validator", async () => {
+  const { generateLab } = await import("../lib/lab-builder/generator.js");
+  for (const harness of ["standard", "microsoft-copilot"]) {
+    const features = getFeatures().filter((f) => f.harness.includes(harness)).map((f) => f.id);
+    let lab;
+    const root = mkdtempSync(join(tmpdir(), "harness-lab-"));
+    try {
+      lab = await generateLab({ features, harness }, { outputRoot: root, useLearnMcp: false, useLlm: false });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+    assert.equal(lab.status, "complete", `${harness}: ${lab.blockers.map((b) => b.code)}`);
+    assert.equal(lab.validation.failed, 0, `${harness}: ${lab.validation.tests.filter((t) => t.status === "fail").map((t) => t.name)}`);
+    for (const f of features) assert.ok(lab.markdown.includes(getFeature(f).name), `${harness}: ${f} is missing from the lab`);
+  }
 });
