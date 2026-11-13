@@ -140,7 +140,7 @@ export function sampleInputBlock(feature, plan, index, u) {
     return fence("**Sample test prompts.** Use these to exercise the agent:", questions.join("\n"));
   }
   if (questions.length) {
-    return ["", `**Sample prompt.** Try asking ${u.esc(profile.agentName)}: "${questions[index]}"`];
+    return ["", `**Sample prompt.** Try asking ${u.esc(profile.agentName)}: "${questions[index % questions.length]}"`];
   }
   return [];
 }
