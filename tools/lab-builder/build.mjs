@@ -117,7 +117,7 @@ Flags:
   --industry <id>           Industry id (see --list).
   --roles <a,b>             Comma-separated role ids.
   --features <a,b>          Comma-separated feature ids (required unless interactive).
-  --time <minutes>          Time budget; modules that do not fit become "next steps".
+  --time <minutes>          Preferred length in minutes. Guidance only: no module is removed; longer labs get a split suggestion.
   --title "<text>"          Override the generated lab title.
   --agent-name "<text>"     Override the scenario agent name.
   --out <dir>               Output directory (default: generated-labs/).
@@ -252,9 +252,9 @@ async function interactive() {
     const features = list(featureAnswer).filter((id) => getFeature(id));
     if (!features.length) throw new Error("No valid feature ids were entered.");
 
-    const timeAnswer = (await rl.question("Time budget in minutes (Enter for no limit): ")).trim();
+    const timeAnswer = (await rl.question("Preferred lab length in minutes, guidance only (Enter to skip): ")).trim();
 
-    return { industry, roles: chosenRoles, features, timeBudget: timeAnswer ? Number(timeAnswer) : undefined };
+    return { industry, roles: chosenRoles, features, targetMinutes: timeAnswer ? Number(timeAnswer) : undefined };
   } finally {
     rl.close();
   }
@@ -291,7 +291,7 @@ if (args.interactive) {
     industry: typeof args.industry === "string" ? args.industry : undefined,
     roles: list(args.roles),
     features,
-    timeBudget: args.time ? Number(args.time) : undefined,
+    targetMinutes: args.time ? Number(args.time) : undefined,
     title: typeof args.title === "string" ? args.title : undefined,
     agentName: typeof args["agent-name"] === "string" ? args["agent-name"] : undefined,
     includeCore: args["no-core"] ? false : undefined,

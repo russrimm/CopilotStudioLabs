@@ -3,7 +3,8 @@
  *
  * Turns a wizard request (industry, roles, features, options) into a concrete,
  * ordered lab plan: scenario framing, prerequisite-expanded feature order,
- * time budget, difficulty, and per-step numbering.
+ * time estimate, difficulty, and per-step numbering. Nothing here caps the
+ * lab: duration is guidance, and quality and completeness win.
  */
 
 import fs from "node:fs";
@@ -85,11 +86,14 @@ export function normalizeLabRequest(request = {}) {
     throw new Error(`Unknown feature id(s): ${unknownFeatures.join(", ")}.`);
   }
 
-  let timeBudget;
-  if (request.timeBudget !== undefined && request.timeBudget !== null && request.timeBudget !== "") {
-    timeBudget = Number(request.timeBudget);
-    if (!Number.isInteger(timeBudget) || timeBudget < 30 || timeBudget > 1440) {
-      throw new Error("timeBudget must be a whole number from 30 to 1440 minutes.");
+  // `timeBudget` is the older name. Either one is advisory: it only sets the
+  // length at which the planner suggests splitting the lab into parts.
+  let targetMinutes;
+  const rawTarget = request.targetMinutes ?? request.timeBudget;
+  if (rawTarget !== undefined && rawTarget !== null && rawTarget !== "") {
+    targetMinutes = Number(rawTarget);
+    if (!Number.isInteger(targetMinutes) || targetMinutes < 1) {
+      throw new Error("targetMinutes must be a whole number of minutes greater than zero.");
     }
   }
 
@@ -101,7 +105,7 @@ export function normalizeLabRequest(request = {}) {
     industry: optionalText(request.industry, "industry"),
     roles: stringList(request.roles, "roles", getRoles().length),
     features,
-    timeBudget,
+    targetMinutes,
     title: optionalText(request.title, "title"),
     agentName: optionalText(request.agentName, "agentName"),
     audience: optionalText(request.audience, "audience"),
@@ -133,6 +137,55 @@ function formatDuration(minutes) {
   return rest ? `${hourLabel} ${rest} minutes` : hourLabel;
 }
 
+/** Length, in minutes, above which a lab gets a suggestion to split. Guidance only. */
+export const SPLIT_SUGGESTION_MINUTES = 240;
+
+/**
+ * Time estimate for a planned lab. Every number is guidance: nothing is removed
+ * to meet it. When the lab runs past the advisory length it also proposes
+ * split points, cut between modules in plan order, so a module never lands in a
+ * part before its prerequisites.
+ */
+export function buildEstimate(features, targetMinutes) {
+  const totalMinutes = features.reduce((sum, f) => sum + f.minutes, 0);
+  const target = targetMinutes || SPLIT_SUGGESTION_MINUTES;
+  const bySection = features.map((f) => ({ id: f.id, name: f.name, level: f.level, minutes: f.minutes }));
+
+  let parts = [];
+  if (totalMinutes > target) {
+    const count = Math.ceil(totalMinutes / target);
+    const goal = totalMinutes / count;
+    let current = { part: 1, ids: [], minutes: 0 };
+    for (const f of features) {
+      const overshoot = current.minutes + f.minutes - goal;
+      if (current.ids.length && overshoot > 0 && overshoot > goal - current.minutes && parts.length < count - 1) {
+        parts.push(current);
+        current = { part: parts.length + 1, ids: [], minutes: 0 };
+      }
+      current.ids.push(f.id);
+      current.minutes += f.minutes;
+    }
+    parts.push(current);
+    parts = parts.map((part) => ({ ...part, duration: formatDuration(part.minutes) }));
+  }
+
+  const splitSuggestion = parts.length > 1
+    ? `This lab runs about ${formatDuration(totalMinutes)}. Consider splitting it into ${parts.length} parts of roughly ${formatDuration(
+        Math.round(totalMinutes / parts.length),
+      )} each. This is only a suggestion: every module you selected is included.`
+    : null;
+
+  return {
+    totalMinutes,
+    duration: formatDuration(totalMinutes),
+    isEstimate: true,
+    targetMinutes: target,
+    bySection,
+    suggestedParts: parts.length > 1 ? parts : [],
+    splitSuggestion,
+  };
+}
+
 /**
  * The level 100 core modules that match the harness the lab is about. A feature
  * with one harness tag decides it; features tagged for both harnesses stay
@@ -156,7 +209,7 @@ function coreSeedIds(requested) {
  * @param {string} [request.industry]        industry id from portal/lib/scenarios.json
  * @param {string[]} [request.roles]         role ids
  * @param {string[]} request.features        feature ids from the catalog
- * @param {number} [request.timeBudget]      max minutes; extra features are deferred
+ * @param {number} [request.targetMinutes]   advisory length; only sets when a split is suggested (alias: timeBudget)
  * @param {boolean} [request.includeCore]    force-include core foundation features
  * @param {string} [request.title]           override the generated title
  * @param {string} [request.agentName]       override the scenario agent name
@@ -206,46 +259,16 @@ export function planLab(request = {}) {
       "This lab mixes standard harness and Microsoft Copilot harness modules. Their steps follow different authoring surfaces, so consider building one lab per harness.",
     );
   }
-  // Apply the time budget. The budget wins over the core level-100 modules, so
-  // those can be deferred; the only forced keep is the first module, so a plan is
-  // never empty. Dependency integrity is enforced below: a module whose
-  // prerequisite was deferred is deferred with it.
-  const budget = Number(request.timeBudget) > 0 ? Number(request.timeBudget) : Infinity;
-  const kept = [];
-  const deferred = [];
-  let running = 0;
-  for (const id of ordered) {
-    const feature = getFeature(id);
-    const required = feature.prereqs?.some((p) => kept.includes(p)) || feature.level === 100;
-    if (running + feature.minutes <= budget || (kept.length === 0 && required)) {
-      kept.push(id);
-      running += feature.minutes;
-    } else {
-      deferred.push(id);
-    }
-  }
-  // Drop anything whose prerequisite got deferred.
-  const keptSet = new Set(kept);
-  const finalIds = kept.filter((id) => (getFeature(id).prereqs || []).every((p) => !ordered.includes(p) || keptSet.has(p)));
-  const finalDeferred = [...deferred, ...kept.filter((id) => !finalIds.includes(id))];
-  if (!finalIds.length) {
-    throw new Error("The time budget is too small for the selected modules. Increase it or include core modules.");
-  }
-
-  if (finalDeferred.length) {
-    warnings.push(
-      `${finalDeferred.length} module(s) did not fit the ${budget}-minute budget and are listed as next steps: ${finalDeferred
-        .map((id) => getFeature(id).name)
-        .join(", ")}.`,
-    );
-  }
-
-  const features = finalIds.map((id, index) => {
+  // Length is guidance, never a limit: every selected module and every
+  // prerequisite stays in the lab. A long lab only gets a suggestion to split.
+  const features = ordered.map((id, index) => {
     const feature = getFeature(id);
     return { ...feature, order: index + 1 };
   });
 
   const totalMinutes = features.reduce((sum, f) => sum + f.minutes, 0);
+  const estimate = buildEstimate(features, request.targetMinutes);
+  if (estimate.splitSuggestion) warnings.push(estimate.splitSuggestion);
   const maxLevel = features.reduce((max, f) => Math.max(max, f.level), 100);
   const profile = getScenarioProfile(industry?.id);
 
@@ -266,7 +289,7 @@ export function planLab(request = {}) {
       industry: industry?.id || null,
       roles: roles.map((r) => r.id),
       features: requested,
-      timeBudget: Number.isFinite(budget) ? budget : null,
+      targetMinutes: request.targetMinutes ?? null,
     },
     title,
     slug: slugify(`${industry?.id || "custom"}-${profile.agentName}-${headline}`),
@@ -278,22 +301,12 @@ export function planLab(request = {}) {
       audience: request.audience || profile.audience,
     },
     features,
-    deferred: finalDeferred.map((id) => {
-      const f = getFeature(id);
-      return {
-        id: f.id,
-        name: f.name,
-        minutes: f.minutes,
-        summary: f.summary,
-        // Dropping something the learner explicitly asked for is a decision;
-        // dropping a module we added on their behalf is only a note.
-        requested: requested.includes(id),
-        reason: "time-budget",
-      };
-    }),
+    // Modules taken out after planning (see dropModules). Planning itself never defers a module.
+    deferred: [],
     categories,
     totalMinutes,
     duration: formatDuration(totalMinutes),
+    estimate,
     difficulty: DIFFICULTY_BY_LEVEL[maxLevel] || "Intermediate",
     level: maxLevel,
     relatedLabs: [...new Set(features.flatMap((f) => f.relatedLabs || []))],
@@ -354,6 +367,7 @@ export function dropModules(plan, ids, reason = "removed") {
 
   plan.totalMinutes = plan.features.reduce((sum, feature) => sum + feature.minutes, 0);
   plan.duration = formatDuration(plan.totalMinutes);
+  plan.estimate = buildEstimate(plan.features, plan.request.targetMinutes);
   plan.level = plan.features.reduce((max, feature) => Math.max(max, feature.level), 100);
   plan.difficulty = DIFFICULTY_BY_LEVEL[plan.level] || "Intermediate";
   plan.categories = [...new Set(plan.features.map((feature) => feature.category))];

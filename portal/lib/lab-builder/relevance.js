@@ -40,14 +40,14 @@ import { tokens, overlap, coverage, clamp } from "./steps.js";
  * bleed, so the floor is set by the other risk: cutting a good citation.
  *
  * The binding case is `content-moderation`, whose best on-product result scores
- * only 0.185 because its vocabulary ("moderation level", "refusal behaviour")
+ * only 0.185 because its vocabulary ("moderation level", "refusal behavior")
  * barely appears in Learn titles. At 0.18 it would lose `prompt-model-settings`
  * (0.154) — the page that actually documents the moderation slider. 0.10 sits
  * below that page and above every off-product result, which is the whole job.
  */
 export const DEFAULT_FLOOR = 0.1;
 
-/** How many citations a module carries. Matches the previous behaviour. */
+/** How many citations a module carries. Matches the previous behavior. */
 export const MAX_SOURCES = 6;
 
 /**
@@ -113,7 +113,7 @@ function segmentsOf(url) {
  * The documentation areas a feature's citations are expected to live in.
  *
  * Derived from the curated `docUrls` the catalog already carries, so catalog
- * entries need no hand editing and a new entry inherits the behaviour
+ * entries need no hand editing and a new entry inherits the behavior
  * for free. A feature may override with an explicit `docPaths` array when the
  * derivation is wrong for it.
  *

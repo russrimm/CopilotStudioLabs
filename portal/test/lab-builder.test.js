@@ -200,10 +200,41 @@ test("planLab produces an ordered, numbered module list", () => {
   assert.match(plan.title, /Retail/);
 });
 
-test("planLab respects a time budget and reports deferred modules", () => {
+test("planLab treats time as guidance: a short target never drops a module", () => {
   const plan = planLab({ industry: "retail", features: ["agent-to-agent", "voice-agents"], timeBudget: 60 });
-  assert.ok(plan.totalMinutes <= 60, `expected <= 60 minutes, got ${plan.totalMinutes}`);
-  assert.ok(plan.deferred.length > 0);
+  const ids = plan.features.map((f) => f.id);
+  for (const id of ["agent-to-agent", "voice-agents", "connected-agents", "publish-agent"]) {
+    assert.ok(ids.includes(id), `${id} must stay in the lab`);
+  }
+  assert.deepEqual(plan.deferred, []);
+  assert.ok(plan.totalMinutes > 60);
+  assert.equal(plan.estimate.totalMinutes, plan.totalMinutes);
+  assert.equal(plan.estimate.isEstimate, true);
+  assert.equal(plan.estimate.bySection.length, plan.features.length);
+  assert.equal(plan.request.targetMinutes, 60);
+});
+
+test("planLab suggests, but never forces, splitting a long lab", () => {
+  const all = getFeatures().map((f) => f.id);
+  const plan = planLab({ features: all });
+  assert.equal(plan.features.length, getFeatures().length);
+  const parts = plan.estimate.suggestedParts;
+  assert.ok(parts.length > 1);
+  assert.equal(parts.flatMap((p) => p.ids).length, plan.features.length);
+  assert.equal(parts.reduce((sum, p) => sum + p.minutes, 0), plan.totalMinutes);
+  assert.ok(plan.warnings.some((w) => /only a suggestion/i.test(w)));
+
+  // A prerequisite is never placed in a later part than the module that needs it.
+  const partOf = new Map(parts.flatMap((p) => p.ids.map((id) => [id, p.part])));
+  for (const f of plan.features) {
+    for (const pre of f.prereqs || []) {
+      if (partOf.has(pre)) assert.ok(partOf.get(pre) <= partOf.get(f.id), `${pre} after ${f.id}`);
+    }
+  }
+
+  const short = planLab({ features: ["topics"] });
+  assert.deepEqual(short.estimate.suggestedParts, []);
+  assert.equal(short.estimate.splitSuggestion, null);
 });
 
 test("planLab warns about unknown industries and roles", () => {
@@ -216,8 +247,8 @@ test("planLab rejects malformed and unknown selections", () => {
   assert.throws(() => planLab({ features: "topics" }), /features must be an array/i);
   assert.throws(() => planLab({ features: ["topics"], roles: "operations" }), /roles must be an array/i);
   assert.throws(() => planLab({ features: ["not-a-feature"] }), /unknown feature/i);
-  assert.throws(() => planLab({ features: ["topics"], timeBudget: "NaN" }), /timeBudget/i);
-  assert.throws(() => planLab({ features: ["topics"], timeBudget: 29 }), /30 to 1440/i);
+  assert.throws(() => planLab({ features: ["topics"], timeBudget: "NaN" }), /targetMinutes/i);
+  assert.throws(() => planLab({ features: ["topics"], targetMinutes: 0 }), /greater than zero/i);
   assert.throws(() => planLab({ features: ["topics"], title: "Bad\n# title" }), /control characters/i);
 });
 
@@ -1058,47 +1089,36 @@ test("no configured language model stays a warning, never a blocker", async () =
   );
 });
 
-test("an explicitly requested module dropped by the time budget blocks", async () => {
+test("a short time target never blocks a build or removes a requested module", async () => {
   const result = await generateLab(
     { industry: "retail", features: ["agent-to-agent", "voice-agents"], timeBudget: 60 },
     { write: false, useLearnMcp: false, useLlm: false },
   );
 
-  assert.equal(result.status, "blocked");
-  assert.equal(result.blockers[0].code, "modules-deferred");
-  assert.ok(result.blockers[0].detail.modules.length > 0);
-});
-
-test("setting the budget aside builds every requested module", async () => {
-  const budgeted = await generateLab(
-    { industry: "retail", features: ["agent-to-agent", "voice-agents"], timeBudget: 60 },
-    { write: false, useLearnMcp: false, useLlm: false, decisions: { "modules-deferred": "accept-deferred" } },
-  );
-  const unbudgeted = await generateLab(
-    { industry: "retail", features: ["agent-to-agent", "voice-agents"], timeBudget: 60 },
-    { write: false, useLearnMcp: false, useLlm: false, decisions: { "modules-deferred": "ignore-budget" } },
-  );
-
-  assert.equal(budgeted.status, "complete");
-  assert.equal(unbudgeted.status, "complete");
-  assert.ok(unbudgeted.plan.features.length > budgeted.plan.features.length);
-  for (const id of ["agent-to-agent", "voice-agents"]) {
-    assert.ok(unbudgeted.plan.features.some((f) => f.id === id), `${id} should be a chapter`);
-  }
-});
-
-test("an auto-added module dropped by the budget stays a warning", async () => {
-  // At 60 minutes the requested module fits; only auto-added core modules are
-  // deferred, and the learner never asked for those.
-  const result = await generateLab(
-    { features: ["topics"], timeBudget: 60 },
-    { write: false, useLearnMcp: false, useLlm: false },
-  );
-
-  assert.ok(result.plan.deferred.length > 0);
-  assert.ok(result.plan.deferred.every((module) => module.requested === false));
   assert.equal(result.status, "complete");
   assert.deepEqual(result.manifest.decisions, []);
+  for (const id of ["agent-to-agent", "voice-agents"]) {
+    assert.ok(result.plan.features.some((f) => f.id === id), `${id} should be a chapter`);
+  }
+  assert.equal(result.manifest.estimate.totalMinutes, result.plan.totalMinutes);
+  assert.equal(result.manifest.estimate.isEstimate, true);
+});
+
+test("the lab shows its estimated time in the metadata, per module, and as a total", async () => {
+  const result = await generateLab(
+    { features: ["topics", "knowledge-sharepoint"] },
+    { write: false, useLearnMcp: false, useLlm: false },
+  );
+  const md = result.markdown;
+  assert.match(md, /\| ⏱️ \*\*TIME\*\* \| About .+\(estimate, not a limit\) \|/);
+  assert.match(md, /^## Time Estimate$/m);
+  assert.match(md, /\| Step \| Module \| Level \| Estimated time \|/);
+  assert.match(md, /\*\*Total\*\*/);
+  for (const f of result.plan.features) assert.ok(md.includes(`about ${f.minutes} min`));
+});
+
+test("a decision for the retired modules-deferred blocker is ignored, not rejected", () => {
+  assert.deepEqual(normalizeDecisions({ "modules-deferred": "ignore-budget" }), {});
 });
 
 test("decisions from an untrusted caller are validated", () => {
