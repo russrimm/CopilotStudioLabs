@@ -3683,7 +3683,7 @@ function lbShowResult(data) {
       ${vd?.requested ? `<span class="scenario-pill">${Number(vd.read)}/${Number(vd.inLab)} vendor pages read</span>` : ""}
       <span class="scenario-pill">${v.passed} checks passed${v.failed ? `, ${v.failed} failed` : ""}</span>
       <span class="scenario-pill">${data.manifest.screenshots.reused} screenshots reused</span>
-      <span class="scenario-pill">${data.manifest.screenshots.toCapture} to capture</span>
+      <span class="scenario-pill">${data.manifest.screenshots.pending ?? data.manifest.screenshots.toCapture} screenshots pending</span>
     </div>
     <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
       Saved to <code>generated-labs/${escapeHtml(data.labId)}</code> on the portal host.
@@ -3702,10 +3702,37 @@ function lbShowResult(data) {
     ${(data.warnings || []).map((w) => `<div class="lb-warning">${escapeHtml(w)}</div>`).join("")}
   `;
 
-  body.innerHTML = `<pre style="white-space: pre-wrap; font-size: 12px; line-height: 1.6;">${escapeHtml(data.markdown)}</pre>`;
+  body.innerHTML = `
+    <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
+    <details class="lb-advanced">
+      <summary>View the Markdown source</summary>
+      <pre style="white-space: pre-wrap; font-size: 12px; line-height: 1.6;">${escapeHtml(data.markdown)}</pre>
+    </details>`;
   panel.style.display = "";
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
   labBuilder.lastMarkdown = data.markdown;
+  lbLoadResultPreview(data.labId);
+}
+
+/** Render the generated lab as HTML, with its images and a visible note on any still pending. */
+async function lbLoadResultPreview(labId) {
+  const host = document.getElementById("lb-result-preview");
+  if (!host) return;
+  try {
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    // The server sanitizes the lab's Markdown before it reaches us.
+    host.innerHTML = data.html;
+    if (data.pendingScreenshots?.length) {
+      host.insertAdjacentHTML(
+        "afterbegin",
+        `<p class="lb-warning" role="status">${data.pendingScreenshots.length} screenshot${data.pendingScreenshots.length === 1 ? " is" : "s are"} still pending. Each shows a placeholder until it is captured; see SHOTLIST.md in the lab folder.</p>`
+      );
+    }
+  } catch (err) {
+    host.innerHTML = `<p class="scenario-empty" role="alert">Could not load the preview: ${escapeHtml(err.message)}</p>`;
+  }
 }
 
 function lbDownload(labId) {

@@ -307,6 +307,15 @@ def check_markdown_links(files=None, root=REPO_ROOT, cache=None):
     return findings
 
 
+def weak_alt_reason(alt):
+    """Why an alt text is still weak even though it is not empty or a bare generic word."""
+    if re.match(r"^(?:an?\s+|the\s+)?(?:screenshot|screen shot|image|picture|photo|graphic)\s+(?:of|showing)\b", alt):
+        return 'should not start with "Screenshot of" or "Image of"; describe what it shows'
+    if re.search(r"\.(?:png|jpe?g|gif|webp|svg)\b", alt):
+        return "looks like a file name; describe what the image shows"
+    return None
+
+
 def check_markdown_accessibility(files=None, root=REPO_ROOT, cache=None):
     """Return structural accessibility findings for rendered lab Markdown."""
     findings = []
@@ -370,6 +379,8 @@ def check_markdown_accessibility(files=None, root=REPO_ROOT, cache=None):
                 alt = re.sub(r"[*_~]", "", match.group(1)).strip().lower()
                 if not alt or alt in generic_text:
                     findings.append((source, line_number, "image has missing or generic alt text"))
+                elif weak_alt_reason(alt):
+                    findings.append((source, line_number, f"image alt text {weak_alt_reason(alt)}"))
 
             for match in re.finditer(r"!\[([^\]]*)]\s*\[[^\]]*]", visible_line):
                 alt = re.sub(r"[*_~]", "", match.group(1)).strip().lower()

@@ -7,14 +7,17 @@
  *  1. Reuses real screenshots already committed in this repo (`reuseScreenshots`
  *     in the feature catalog) by copying them into the generated lab's assets
  *     folder and emitting markdown image references.
- *  2. Emits a `shots.json` capture manifest for every remaining screenshot so
- *     the learner (or an author) can run `tools/screenshot-capture` against
- *     their own tenant and fill the gaps automatically.
+ *  2. Gives every remaining screenshot a slot: a neutral "Screenshot pending"
+ *     image at its final filename, alt text and a caption already written, and a
+ *     `shots.json` entry plus `SHOTLIST.md` line for `tools/screenshot-capture`.
+ *     The capture tool treats the tiny placeholder as missing and writes the real
+ *     image over it, so the lab's Markdown never has to change.
  */
 
 import fs from "node:fs";
 import path from "node:path";
 
+import { PLACEHOLDER_PATH, describeSlot, slotsForFeature } from "./slots.js";
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** True when `child` resolves to a location strictly inside `root`. */
@@ -52,11 +55,13 @@ export function planScreenshots(plan, { labsDir }) {
   const byFeature = new Map();
   const copies = [];
   const shots = [];
+  const placeholders = [];
   const usedFilenames = new Set();
 
   for (const feature of plan.features) {
     const reused = [];
     const capture = [];
+    let figure = 0;
 
     for (const ref of feature.reuseScreenshots || []) {
       if (!isSafeName(ref.lab) || !isSafeName(ref.file)) continue;
@@ -65,37 +70,82 @@ export function planScreenshots(plan, { labsDir }) {
       if (!isInside(assetsRoot, source) || !fs.existsSync(source)) continue;
 
       const filename = uniqueFilename(ref.file, feature.id, usedFilenames);
+      const caption = String(ref.caption || feature.name).replace(/\.$/, "");
 
       copies.push({ source, filename });
+      figure += 1;
       reused.push({
         filename,
-        caption: ref.caption || feature.name,
+        caption,
+        // The reused caption is already a description of the screen.
+        alt: `${caption}.`,
+        figure: `${feature.order}.${figure}`,
         credit: `Reused from lab \`${ref.lab}\``,
       });
     }
 
-    for (const shot of feature.screenshots || []) {
+    for (const shot of slotsForFeature(feature)) {
       if (!isSafeName(shot.filename)) continue;
       const filename = uniqueFilename(shot.filename, feature.id, usedFilenames);
+      const described = describeSlot(feature, shot);
+      figure += 1;
 
       const entry = {
-        id: `${feature.id}-${path.basename(filename, path.extname(filename))}`,
+        // capture.js selects shots by numeric id (--only, --range, --from).
+        id: shots.length + 1,
+        slot: `${feature.id}-${path.basename(filename, path.extname(filename))}`,
+        feature: feature.id,
         filename,
         section: shot.section || "agents",
         labSection: `Step ${feature.order} - ${feature.name}`,
         instructions: shot.instructions || [`Capture the ${feature.name} experience.`],
+        // What the finished image shows, written now so the lab is accessible
+        // before the capture tool fills the image in.
+        alt: described.alt,
+        caption: described.caption,
+        kind: described.kind,
+        figure: `${feature.order}.${figure}`,
+        status: "pending",
       };
       if (shot.url) entry.url = shot.url;
       if (shot.viewport) entry.viewport = shot.viewport;
 
       shots.push(entry);
-      capture.push({ filename, caption: shot.caption || feature.name, instructions: entry.instructions });
+      placeholders.push({ filename });
+      capture.push({
+        filename,
+        caption: described.caption,
+        alt: described.alt,
+        kind: described.kind,
+        figure: entry.figure,
+        instructions: entry.instructions,
+        pending: true,
+      });
     }
 
     byFeature.set(feature.id, { reused, capture });
   }
 
-  return { byFeature, copies, shots };
+  return { byFeature, copies, shots, placeholders };
+}
+
+/**
+ * Write the neutral "Screenshot pending" image at every pending slot's final
+ * filename. The capture tool treats a file this small as missing, so it replaces
+ * the placeholder in place and the lab's Markdown never has to change.
+ */
+export function writePlaceholders(placeholders, assetsDir) {
+  if (!placeholders.length) return 0;
+  fs.mkdirSync(assetsDir, { recursive: true });
+  const root = path.resolve(assetsDir);
+  let count = 0;
+  for (const { filename } of placeholders) {
+    const target = path.resolve(root, filename);
+    if (!isSafeName(filename) || !isInside(root, target) || fs.existsSync(target)) continue;
+    fs.copyFileSync(PLACEHOLDER_PATH, target);
+    count += 1;
+  }
+  return count;
 }
 
 /** Copy reused screenshots into the generated lab's assets folder. */
@@ -127,4 +177,41 @@ export function buildShotsManifest(plan, shots) {
     startUrl: "https://copilotstudio.microsoft.com/",
     shots,
   };
+}
+
+/**
+ * The author-facing shot list. Capture instructions are for whoever takes the
+ * screenshots, not for the learner, so they live here and in `shots.json`
+ * rather than in the lab.
+ */
+export function buildShotList(plan, shots) {
+  const lines = [
+    `# Shot list: ${plan.title}`,
+    "",
+    `${shots.length} screenshot${shots.length === 1 ? "" : "s"} still to capture. Each one is already in the lab as a "Screenshot pending" placeholder with its alt text and caption written, so capturing it never requires editing \`index.md\`.`,
+    "",
+    "Run the capture tool against this lab's manifest, then confirm nothing is left pending:",
+    "",
+    "```bash",
+    "node tools/screenshot-capture/capture.js --manifest=<path-to-this-lab>/shots.json --missing",
+    "node tools/screenshot-capture/verify-shots.js",
+    "```",
+    "",
+    "Capture each image at the final filename. Keep the alt text accurate: if the real screen differs from the description, update `alt` in `shots.json` and the matching image in `index.md` together.",
+    "",
+  ];
+  for (const shot of shots) {
+    lines.push(
+      `## Figure ${shot.figure}: ${shot.caption}`,
+      "",
+      `- **File:** \`assets/${shot.filename}\``,
+      `- **Lab section:** ${shot.labSection}`,
+      `- **Type:** ${shot.kind}`,
+      `- **Alt text:** ${shot.alt}`,
+      "- **How to capture:**",
+      ...shot.instructions.map((line) => `  - ${line}`),
+      "",
+    );
+  }
+  return lines.join("\n").trimEnd() + "\n";
 }

@@ -1,6 +1,7 @@
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 import { discoverLabs, getLabPath } from "./labs.js";
+import { altProblems } from "./lab-builder/slots.js";
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|svg|webp|bmp|avif)$/i;
 const TODO_RE = /\b(?:TODO|FIXME|TBD|XXX)\b/i;
 
@@ -31,6 +32,9 @@ export const RULE_IDS = Object.freeze([
   "no-broken-relative-links",
   "no-empty-sections",
   "screenshots-exist",
+  "image-alt-text",
+  "heading-order",
+  "code-fence-language",
   "expandable-notes",
   "assets-dir-clean",
 ]);
@@ -126,6 +130,89 @@ function stripSectionScaffolding(content) {
   return content
     .replace(/^\s*(?:[-*_]\s*){3,}\s*$/gm, "")
     .trim();
+}
+
+/**
+ * Markdown with fenced code blanked out, line for line, so line numbers still
+ * match. Uses the same fence rules as getHeadings.
+ */
+function outsideFences(content) {
+  let fence = null;
+  return content
+    .split("\n")
+    .map((line) => {
+      if (fence) {
+        if (fence.close.test(line)) fence = null;
+        return "";
+      }
+      const open = line.match(FENCE_OPEN_RE);
+      if (open && !(open[1][0] === "`" && open[2].includes("`"))) {
+        const char = open[1][0] === "`" ? "`" : "~";
+        fence = { close: new RegExp(`^\\s*${char}{${open[1].length},}\\s*$`) };
+        return "";
+      }
+      return line;
+    })
+    .join("\n");
+}
+
+/**
+ * Alt text problems for every image in a lab. Markdown images and `<img>` tags
+ * must say what they show and why it matters. An empty alt is correct only for
+ * a purely decorative `<img>` marked `role="presentation"` or `aria-hidden`.
+ */
+export function checkImageAlts(content) {
+  const text = outsideFences(content).replace(/`[^`\n]*`/g, "");
+  const problems = [];
+  let count = 0;
+  for (const match of text.matchAll(/!\[([^\]]*)]\(([^)]*)\)/g)) {
+    count += 1;
+    for (const problem of altProblems(match[1])) problems.push(`${match[2].trim() || "image"}: ${problem}.`);
+  }
+  for (const match of text.matchAll(/<img\b[^>]*>/gi)) {
+    count += 1;
+    const tag = match[0];
+    const alt = tag.match(/\balt\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/i);
+    const value = alt ? (alt[1] ?? alt[2] ?? alt[3] ?? "") : null;
+    const decorative = /\brole\s*=\s*["']?(?:presentation|none)\b/i.test(tag) || /\baria-hidden\s*=\s*["']?true/i.test(tag);
+    const src = tag.match(/\bsrc\s*=\s*["']?([^"'\s>]+)/i)?.[1] || "image";
+    if (value === null) problems.push(`${src}: <img> has no alt attribute.`);
+    else if (value.trim() === "" && !decorative) problems.push(`${src}: empty alt on an image that is not marked decorative.`);
+    else if (value.trim() !== "") for (const problem of altProblems(value)) problems.push(`${src}: ${problem}.`);
+  }
+  return { count, problems };
+}
+
+/** Heading levels that skip, such as an H2 followed directly by an H4. */
+export function checkHeadingOrder(headings) {
+  const problems = [];
+  let previous = 0;
+  for (const heading of headings) {
+    if (previous && heading.level > previous + 1) {
+      problems.push(`"${heading.text}" jumps from H${previous} to H${heading.level}.`);
+    }
+    previous = heading.level;
+  }
+  return problems;
+}
+
+/** Fenced code blocks that open without a language label. */
+export function countUnlabeledFences(content) {
+  let fence = null;
+  let unlabeled = 0;
+  for (const line of content.split("\n")) {
+    if (fence) {
+      if (fence.close.test(line)) fence = null;
+      continue;
+    }
+    const open = line.match(FENCE_OPEN_RE);
+    if (open && !(open[1][0] === "`" && open[2].includes("`"))) {
+      const char = open[1][0] === "`" ? "`" : "~";
+      fence = { close: new RegExp(`^\\s*${char}{${open[1].length},}\\s*$`) };
+      if (!open[2].trim()) unlabeled += 1;
+    }
+  }
+  return unlabeled;
 }
 
 function parseImageRefs(content) {
@@ -258,6 +345,9 @@ function missingIndexResult(labId, title, labDir) {
     { name: "no-broken-relative-links", status: "fail", message: "Cannot inspect relative links because index.md is missing." },
     { name: "no-empty-sections", status: "fail", message: "Cannot inspect sections because index.md is missing." },
     { name: "screenshots-exist", status: "fail", message: "Cannot inspect screenshots because index.md is missing." },
+    { name: "image-alt-text", status: "fail", message: "Cannot inspect alt text because index.md is missing." },
+    { name: "heading-order", status: "fail", message: "Cannot inspect heading order because index.md is missing." },
+    { name: "code-fence-language", status: "fail", message: "Cannot inspect code blocks because index.md is missing." },
     { name: "expandable-notes", status: "fail", message: "Cannot inspect expandable notes because index.md is missing." },
   ];
 
@@ -454,6 +544,31 @@ export function validateLabDir(labDir, { labId = labDir, title = labId } = {}) {
       : imageRefs.length
       ? `All ${imageRefs.length} referenced screenshot/image file(s) exist.`
       : "No screenshots referenced in markdown.",
+  });
+
+  const altCheck = checkImageAlts(content);
+  tests.push({
+    name: "image-alt-text",
+    status: altCheck.problems.length ? "fail" : "pass",
+    message: altCheck.problems.length
+      ? `Image alt text problem(s): ${altCheck.problems.join(" ")}`
+      : altCheck.count
+      ? `All ${altCheck.count} image(s) have specific alt text.`
+      : "No images found.",
+  });
+  const orderProblems = checkHeadingOrder(headings);
+  tests.push({
+    name: "heading-order",
+    status: orderProblems.length ? "fail" : "pass",
+    message: orderProblems.length ? `Heading order problem(s): ${orderProblems.join(" ")}` : "Heading levels never skip.",
+  });
+  const unlabeledFences = countUnlabeledFences(content);
+  tests.push({
+    name: "code-fence-language",
+    status: unlabeledFences ? "warn" : "pass",
+    message: unlabeledFences
+      ? `${unlabeledFences} code block(s) have no language label. Label each fence (for example \`\`\`powershell) so assistive technology and highlighters know what it holds.`
+      : "Every code block is labeled.",
   });
 
   const expandable = checkExpandableNotes(content);

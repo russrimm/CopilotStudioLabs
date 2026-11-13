@@ -120,6 +120,28 @@ class MarkdownLinkValidationTests(unittest.TestCase):
             )
             self.assertEqual(check_markdown_accessibility([clean], root), [])
 
+    def test_alt_text_must_describe_the_image(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            weak = root / "weak.md"
+            weak.write_text(
+                "# Lab\n\n## Shots\n\n"
+                "![Screenshot of the Topics page](assets/topics.png)\n\n"
+                "![topics-list.png](assets/topics.png)\n",
+                encoding="utf-8",
+            )
+            reasons = [finding[2] for finding in check_markdown_accessibility([weak], root)]
+            self.assertTrue(any('should not start with "Screenshot of"' in reason for reason in reasons))
+            self.assertTrue(any("looks like a file name" in reason for reason in reasons))
+
+            good = root / "good.md"
+            good.write_text(
+                "# Lab\n\n## Shots\n\n"
+                "![The Topics page listing custom and system topics](assets/topics.png)\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(check_markdown_accessibility([good], root), [])
+
     def test_expandable_notes_need_a_summary_and_content(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

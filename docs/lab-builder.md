@@ -712,18 +712,54 @@ after 60 seconds (`LAB_BUILDER_LLM_TIMEOUT_MS`).
 ### 6. Screenshots
 
 Copilot Studio is behind an interactive sign-in, so the builder cannot capture
-fresh screenshots on demand. It does two things instead:
+fresh screenshots on demand, and it never invents an image of the product. Every
+screenshot a well-written lab would show gets a slot instead:
 
-- **Reuses** real screenshots already committed in `labs/*/assets/`, copying them
-  into the generated lab and captioning them with their source lab.
-- **Emits a capture manifest** (`shots.json`) for everything else, plus an inline
-  callout in the markdown telling the learner exactly what to capture.
+- **Reuse.** Real screenshots already committed in `labs/*/assets/` are copied into
+  the lab and captioned with their source lab.
+- **Slots.** Every other screenshot is a slot from the feature catalog
+  (`screenshots` in `features.json`), or from the feature tour overlay
+  (`tools/feature-tour/overlay.json`) for features the catalog gives none, such as
+  the Microsoft Copilot harness features. There are slots for where something
+  lives, dialogs, settings pages, before and after states, and test results.
+- **Alt text, caption, kind.** `screenshot-slots.json` holds specific alt text (what
+  the image shows and why it matters), a short caption, and a kind for every slot.
+  `validateCatalog()` fails when a slot has no entry or the alt text is empty,
+  generic, shorter than four words, longer than 250 characters, starts with
+  "Screenshot of" or "Image of", looks like a file name, or relies on a color. The
+  alt text is written before the image exists, so the lab is accessible the moment
+  it is generated.
+- **Figures.** Each image is followed by a numbered caption (*Figure 2.1. ...*).
+  Capture instructions are for authors, so they are not in the lab.
+- **Pending slots.** A slot not yet captured holds a neutral "Screenshot pending"
+  image (a 1-bit PNG, 532 bytes, made by
+  `tools/lab-builder/make-pending-placeholder.mjs`) at its final filename. It shows
+  no product UI. `tools/screenshot-capture` and the feature tour treat any image
+  under 5 KB as missing, so the capture tool overwrites it in place and the lab's
+  Markdown never has to change. The portal preview reads the files on disk each
+  time and adds a visible "Screenshot pending." note after every image that is
+  still a placeholder.
+- **Shot list.** `shots.json` carries one entry per pending slot (numeric `id`,
+  `filename`, `section`, `instructions`, plus `alt`, `caption`, `kind`, `figure`,
+  and `status`), and `SHOTLIST.md` lists the same for a human.
 
-Fill the gaps against your own tenant with the existing capture tool:
+Fill the gaps against your own tenant with the existing capture tool; it reads
+placeholders as missing:
 
 ```bash
-node tools/screenshot-capture/capture.js --manifest="generated-labs/<slug>/shots.json"
+node tools/screenshot-capture/capture.js --manifest="generated-labs/<slug>/shots.json" --missing
+node tools/screenshot-capture/verify-shots.js
 ```
+
+A known limit: until an image is captured, a screen reader reads the alt text,
+which describes the finished screenshot, and the visible "Screenshot pending."
+note only appears in the portal preview. Raw Markdown shows the placeholder image,
+which says "Screenshot pending" in its pixels.
+
+The portal's result view renders the generated lab as HTML (images served from
+`/api/lab-builder/generated/:labId/assets/:file`, which only serves PNG, JPEG, GIF,
+and WebP files inside the lab's own `assets` folder) with the Markdown source one
+click away.
 
 ### 7. Composition and validation
 
@@ -734,7 +770,10 @@ validate exactly like the handwritten ones. Every generated lab is run through t
 same rule set as `labs/` (`validateLabDir()` in `portal/lib/validator.js`) before
 the builder reports success. CI also builds an offline lab and runs
 `python validate_labs.py --lab-dir <path>` on it, so the composer is held to the
-Python checks (heading order, link text, table headers, required sections) too.
+Python checks (heading order, alt text, link text, table headers, expandable
+notes, required sections) too. The portal validator also checks every image's alt
+text (`image-alt-text`), heading order (`heading-order`), and warns on code blocks
+with no language label (`code-fence-language`).
 [`scripts/lab-validation-rules.json`](../scripts/lab-validation-rules.json) records
 which validator owns each rule.
 

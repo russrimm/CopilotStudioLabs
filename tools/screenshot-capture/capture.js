@@ -58,6 +58,7 @@ if (!/^[a-z0-9-]+$/i.test(manifest.lab || "")) {
 }
 const manifestDir = dirname(manifestPath);
 const isFeatureTour = manifest.kind === "feature-tour";
+const hasPendingShots = Array.isArray(manifest.shots) && manifest.shots.some((s) => s?.status === "pending");
 const assetsDir = manifest.assetsDir === "assets"
   ? resolve(manifestDir, manifest.assetsDir)
   : resolve(repoRoot, manifest.assetsDir);
@@ -185,7 +186,9 @@ function shotExists(filename) {
   const out = shotPath(filename);
   if (!existsSync(out)) return false;
   // The tour site treats a stub or non-PNG as pending, so --missing must too.
-  return isFeatureTour ? verifyPng(out).ok : true;
+  // A generated lab's shot list marks each slot "pending" and parks a tiny
+  // placeholder at its final filename, so size, not existence, says whether it is captured.
+  return isFeatureTour || hasPendingShots ? verifyPng(out).ok : true;
 }
 
 function resolvedViewport(shot) {

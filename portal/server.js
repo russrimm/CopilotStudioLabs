@@ -32,7 +32,7 @@ import { defaultDifferencesFor } from "./lib/lab-builder/differences.js";
 import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
-import { listGeneratedLabs, readGeneratedLab } from "./lib/lab-builder/generated-labs.js";
+import { listGeneratedLabs, readGeneratedLab, resolveGeneratedAsset } from "./lib/lab-builder/generated-labs.js";
 import { renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
@@ -580,6 +580,14 @@ app.get("/api/lab-builder/generated", (_req, res) => {
 app.get("/api/lab-builder/generated/:labId", (req, res) => {
   const { status, body } = readGeneratedLab(GENERATED_LABS_DIR, req.params.labId, renderLabMarkdown);
   res.status(status).json(body);
+});
+
+/** GET /api/lab-builder/generated/:labId/assets/:file — An image from a generated lab's assets folder */
+app.get("/api/lab-builder/generated/:labId/assets/:file", (req, res) => {
+  const asset = resolveGeneratedAsset(GENERATED_LABS_DIR, req.params.labId, req.params.file);
+  if (asset.status !== 200) return res.status(asset.status).json({ error: asset.error });
+  res.set({ "Content-Type": asset.type, "Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff" });
+  return res.sendFile(asset.path);
 });
 /** GET /api/labs — List all available labs with metadata */
 app.get("/api/labs", (_req, res) => {

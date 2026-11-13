@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 import { planLab, dropModules } from "./planner.js";
 import { connect, groundFeature, fetchDocPage, LEARN_MCP_ENDPOINT } from "./learn-mcp.js";
 import { createLlm } from "./llm.js";
-import { planScreenshots, copyScreenshots, buildShotsManifest } from "./screenshots.js";
+import { planScreenshots, copyScreenshots, writePlaceholders, buildShotsManifest, buildShotList } from "./screenshots.js";
 import { composeLab } from "./composer.js";
 import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
@@ -1220,7 +1220,10 @@ export async function generateLab(request, opts = {}) {
     llm: { provider: llm.provider.kind, label: llm.provider.label || null, reason: llm.provider.reason || null },
     screenshots: {
       reused: screenshots.copies.length,
+      pending: screenshots.shots.length,
+      // Older name for the same count.
       toCapture: screenshots.shots.length,
+      total: screenshots.copies.length + screenshots.shots.length,
     },
     // Which blocks were hit and what a human chose about each. Carries no user
     // identity on purpose — see decisionRecord() in blockers.js.
@@ -1249,10 +1252,12 @@ export async function generateLab(request, opts = {}) {
   const outputDir = reserveUniqueDir(outputRoot, plan.slug);
   try {
     copyScreenshots(screenshots.copies, path.join(outputDir, "assets"));
+    writePlaceholders(screenshots.placeholders, path.join(outputDir, "assets"));
     fs.writeFileSync(path.join(outputDir, "index.md"), markdown, "utf8");
     fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
     if (screenshots.shots.length) {
       fs.writeFileSync(path.join(outputDir, "shots.json"), JSON.stringify(result.shots, null, 2) + "\n", "utf8");
+      fs.writeFileSync(path.join(outputDir, "SHOTLIST.md"), buildShotList(plan, screenshots.shots), "utf8");
     }
 
     result.outputDir = outputDir;
