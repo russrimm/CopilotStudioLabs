@@ -70,7 +70,7 @@ Useful flags:
 | Flag | Effect |
 |---|---|
 | `--time <minutes>` | Preferred lab length. Guidance only: no module is ever removed. A lab that runs longer gets a suggestion to split it into parts. |
-| `--no-core` | Skip the level 100 foundation modules (assumes learners already have an agent). |
+| `--core` | Also add the level 100 foundation modules (create, instructions, and so on). Off by default: only the features you list, plus the prerequisites they need, are built. The older `--no-core` is still accepted and is now the default. |
 | `--no-learn` | Offline mode. Skips Microsoft Learn and vendor documentation reads, and uses the curated doc links. |
 | `--no-llm` | Deterministic composition even if LLM credentials are configured. |
 | `--synthesize-steps <ids\|all>` | Opt in to [grounded step synthesis](#4b-opt-in-grounded-step-synthesis) for these modules. Needs a language model and Microsoft Learn. |
@@ -192,9 +192,15 @@ arrow, Home, and End keys move among the tabs of the current area.
       Copilot Studio, your harness), grouped by
       concept (Instructions, Knowledge, Tools, Skills, MCP servers, and so on), each
       labeled with its product.
-      Topics are pre-selected from your answers, each with the reason. Check or
-      uncheck anything; use **Select all**, **Clear**, **Reset to recommended**, or
-      the per-group buttons. A status line announces the count ("Showing 20 topics
+      A topic is pre-selected only when it follows from an answer you gave: the
+      vertical or a department you chose points at it, and it says why. **With no
+      vertical and no department, nothing is selected**: the level alone never
+      selects a topic. The topics the rules suggest for your answers carry a
+      *Recommended, not selected* badge and a reason; **Select recommended** adds
+      them on purpose. Check or uncheck anything; use **Select all**, **Clear**,
+      **Reset to my answers** (back to what your vertical and departments pre-select),
+      or the per-group buttons. A line above the list says how many topics were
+      pre-selected and from which answer. A status line announces the count ("Showing 20 topics
       for Level 100 (Beginner)"). Prerequisites at the same level are marked
       *Required prerequisite*. Prerequisites from lower levels are not mixed into
       the list: they sit in a collapsed group, **Prerequisites from lower levels
@@ -217,11 +223,14 @@ arrow, Home, and End keys move among the tabs of the current area.
    so far" line shows the answers and a running time estimate throughout. Times
    are guidance only; nothing is removed to fit them. What the topic list shows is
    exactly what gets built: the wizard sends `includeCore: false` and the topics
-   you kept, so no foundation module is added behind your back.
+   you kept, so no foundation module is added behind your back. The API and the
+   CLI behave the same way: `includeCore` is off unless it is `true` (CLI: `--core`),
+   and when it is on the lab says which foundation modules it added.
 
    The level is chosen only in the Level step. The left-hand "Lab Chapters" pane that used to
    group the hand-written labs by level has been removed; choosing which hand-written
-   labs are included now lives under **Lab chapters** on the **Lab setup** tab, and the
+   labs are included now lives under **Lab chapters** on the **Lab setup** tab (no lab is included
+until you include it; **Include all labs** and **Apply scenario** are explicit actions), and the
    **Preview** tab has its own lab picker. Open `/#labbuilder` to start the wizard.
 
 The wizard previews the module outline (with prerequisites resolved and an
@@ -503,11 +512,13 @@ harness) and `mc-skills` (Microsoft Copilot harness). When a concept has nothing
 for a harness or product, its `notApplicable` map says why, so the wizard explains the gap
 and names what to use instead. Every feature belongs to exactly one concept, and the concept must list the feature's product.
 
-`recommendations.json` holds the deterministic rules that pre-select topics: the
+`recommendations.json` holds the deterministic rules that suggest topics: the
 topics that make up each level (the new depth it adds; prerequisites join
 automatically), plus topics a vertical or a department adds, each with a
 plain-language reason. A vertical or department topic is recommended only when it
-is at the chosen level, and always stays selectable.
+is at the chosen level, and always stays selectable. Only the vertical and department
+rules pre-select a topic; the level's own list is recommended but never selected for
+the learner.
 
 `validateCatalog()` checks both files (every feature in one concept, known ids,
 a reason for every `notApplicable`), and `recommend.js` turns the answers into
@@ -1325,7 +1336,7 @@ the server log, never the manifest — and the output is exportable by design.
 | `GET` | `/api/lab-builder/features` | Industries, roles, concepts, and the feature catalog grouped by category. |
 | `GET` | `/api/lab-builder/topics` | The static catalog merged with topics discovered on Microsoft Learn: each entry has `source` (`catalog` or `learn`), `status` (`current`, `updated`, `stale`, `new`), harnesses, and URLs, plus `refreshedAt`, `ageMs`, `stale`, `offline`, and per-harness covered, new, and stale counts. Serves the cache or snapshot immediately and revalidates in the background when stale. |
 | `POST` | `/api/lab-builder/topics/refresh` | Re-read the topic list from Microsoft Learn. Takes an empty `{}` body (anything else is HTTP 400). Limited to 6 refreshes per user per hour (`LAB_BUILDER_TOPICS_RATE_MAX`); answers 429 with `Retry-After` when rate limited, spaced too closely, or paused by the circuit breaker, 503 when refreshing is turned off, and 502 when Microsoft Learn failed. Every failure still returns the last good list. |
-| `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `required`, and `reasons`. Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`). A `selected` list that names other levels is filtered, not trusted. Read-only. |
+| `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `recommended`, `required`, and `reasons`. Nothing is selected unless the vertical or a department points at it (`preselectedIds`); `recommendedIds` lists everything the rules suggest, selected or not. Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`). A `selected` list that names other levels is filtered, not trusted. Read-only. |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. With a `level`, topics from other levels are dropped (`droppedOutOfLevel`), and each module has a `role` of `level` or `prerequisite`. |
 | `POST` | `/api/lab-builder/generate` | Build the lab, write it to `generated-labs/`, return markdown + validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or cancelled build leaves it alone. The response has `replacedLabId` when that happened. |
 | `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, vertical, level, harness, estimated minutes, topic count, validation counts, and `selections` (null for labs built before choices were saved). |

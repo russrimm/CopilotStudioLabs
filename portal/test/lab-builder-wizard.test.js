@@ -45,8 +45,8 @@ test("a running total and the time-as-guidance message are always shown", () => 
   assert.doesNotMatch(wizard + app, /timeBudget/);
 });
 
-test("topics are checkboxes with Select all, Clear, Reset, and group actions", () => {
-  for (const label of ["Select all", "Clear", "Reset to recommended"]) assert.match(builderPanel, new RegExp(`>${label}<`));
+test("topics are checkboxes with Select recommended, Select all, Clear, Reset, and group actions", () => {
+  for (const label of ["Select recommended", "Select all", "Clear", "Reset to my answers"]) assert.match(builderPanel, new RegExp(`>${label}<`));
   assert.match(wizard, /type="checkbox" data-topic=/);
   assert.match(wizard, /data-group-action="select"/);
   assert.match(wizard, /<fieldset class="lb-concept">/);

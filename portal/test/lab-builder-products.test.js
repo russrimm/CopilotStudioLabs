@@ -166,14 +166,14 @@ test("a product with nothing at the chosen level explains what exists instead of
     const thin = result.products.find((p) => p.id === "power-platform-ai-hub");
     assert.equal(thin.atLevel, 0);
     assert.match(thin.message, /no Level 300 \(Advanced\) topics yet\. It has \d+ at Level 100 \(Beginner\) and \d+ at Level 200 \(Intermediate\)\. Choose another level/);
-    assert.ok(result.totals.selectedCount > 0, "the other product's topics are still listed");
+    assert.ok(result.recommendedIds.length > 0, "the other product's topics are still listed and recommended");
     const only = recommend({ products: ["power-platform-ai-hub"], level: 300 });
-    assert.equal(only.totals.selectedCount, 0);
+    assert.equal(only.recommendedIds.length, 0);
     assert.match(only.products[0].message, /Choose another level/);
   } finally {
     all.splice(0, all.length, ...snapshot);
   }
-  assert.ok(recommend({ products: ["power-platform-ai-hub"], level: 300 }).totals.selectedCount > 0);
+  assert.ok(recommend({ products: ["power-platform-ai-hub"], level: 300 }).recommendedIds.length > 0);
 });
 
 test("the level filter still decides what is listed for every product", () => {

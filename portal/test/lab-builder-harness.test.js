@@ -124,7 +124,7 @@ test("the old and new harness names compare equal against Learn text", () => {
 });
 
 test("core modules follow the harness the requested features belong to", () => {
-  const ids = (features) => planLab({ features }).features.map((f) => f.id);
+  const ids = (features) => planLab({ features, includeCore: true }).features.map((f) => f.id);
 
   const microsoft = ids(["work-iq"]);
   assert.ok(microsoft.includes("mc-create-agent"));

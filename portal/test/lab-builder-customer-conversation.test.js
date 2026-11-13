@@ -38,12 +38,15 @@ test("Customer Conversation features are single-harness and cite the Learn pages
 });
 
 test("the wizard recommends only Customer Conversation topics at each level, with core modules first", () => {
-  const level100 = recommend({ harness: HARNESS, level: 100 });
+  const base = recommend({ harness: HARNESS, level: 100 });
+  assert.deepEqual(base.selectedIds, [], "level alone selects nothing");
+  const level100 = recommend({ harness: HARNESS, level: 100, selected: base.recommendedIds });
   assert.ok(level100.selectedIds.length >= 5);
   assert.ok(level100.selectedIds.every((id) => ccFeatures().some((f) => f.id === id)), level100.selectedIds.join(", "));
   assert.ok(level100.selectedIds.includes("cc-create-agent"));
 
   const level300 = recommend({ harness: HARNESS, level: 300 });
+  level300.totals.minutes = recommend({ harness: HARNESS, level: 300, selected: level300.recommendedIds }).totals.minutes;
   assert.ok(level300.totals.minutes > level100.totals.minutes);
   const covered = level300.concepts.filter((c) => c.topics.length);
   assert.ok(covered.length >= 4, `${covered.length} concepts have Customer Conversation topics`);

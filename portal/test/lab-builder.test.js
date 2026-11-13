@@ -1072,7 +1072,7 @@ test("choosing deterministic narrative resolves the language model blocker", asy
 test("no configured language model stays a warning, never a blocker", async () => {
   const session = groundedSession();
   const result = await generateLab(
-    { features: ["topics"] },
+    { features: ["topics"], includeCore: true },
     {
       write: false,
       useLearnMcp: true,
