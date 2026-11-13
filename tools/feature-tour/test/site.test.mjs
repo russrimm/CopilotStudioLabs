@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { build, makePng, tmpDir } from "./helpers.mjs";
 import { DEFAULTS } from "../lib/build.mjs";
+import { getFeatures } from "../../../portal/lib/lab-builder/catalog.js";
 
 const css = fs.readFileSync(path.join(DEFAULTS.assetsDir, "styles.css"), "utf8");
 const scripts = Object.fromEntries(
@@ -78,7 +79,7 @@ test("the page shows a visible placeholder for a pending screenshot and an image
 
 test("tour page has progress, status, keyboard help, and a no-script fallback", () => {
   const html = pages.get("tour.html");
-  assert.match(html, /role="progressbar"[^>]*aria-valuemin="1"[^>]*aria-valuemax="65"/);
+  assert.match(html, new RegExp(`role="progressbar"[^>]*aria-valuemin="1"[^>]*aria-valuemax="${getFeatures().length}"`));
   assert.match(html, /role="status" aria-live="polite"/);
   assert.match(html, /<label for="tour-jump">/);
   assert.match(html, /<noscript>/);
