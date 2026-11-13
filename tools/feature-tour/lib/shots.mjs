@@ -43,6 +43,18 @@ export function deriveCallouts(instructions, steps) {
   return callouts.map((c, i) => ({ n: i + 1, ...c }));
 }
 
+export function defaultShot(feature) {
+  return {
+    filename: `${feature.id}-main.png`,
+    section: "custom",
+    caption: `${feature.name}: the screen where the main setting or result is visible`,
+    instructions: [
+      `Follow the steps for ${feature.name} until the main setting or result is on screen.`,
+      "Show the controls the steps name. Add a curated shot for this feature in tools/feature-tour/overlay.json to replace this default.",
+    ],
+  };
+}
+
 function numberCallouts(callouts) {
   return callouts.map((c, i) => ({ n: i + 1, label: c.label, text: c.text, ...(c.note ? { note: c.note } : {}) }));
 }
@@ -81,6 +93,9 @@ export function buildShotList(catalog, model, overlay = {}) {
     const source = catalogById.get(feature.id);
     const overlayShots = overlay.shots?.[feature.id] ?? [];
     const raws = [...(source.screenshots ?? []), ...overlayShots];
+    // A feature added to the catalog with no shots still gets a slot, so it can
+    // never silently drop out of the site or the capture list.
+    if (raws.length === 0) raws.push(defaultShot(feature));
     for (const base of raws) {
       // Tune a catalog shot (for example its callouts) without editing the catalog.
       const raw = { ...base, ...(overlay.shotOverrides?.[base.filename] ?? {}) };

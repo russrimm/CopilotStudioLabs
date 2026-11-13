@@ -20,17 +20,19 @@ if (flag("--help") || flag("-h")) {
   (default)      Write tools/screenshot-capture/feature-shots.json and the site in _site/.
   --check        Exit 1 if feature-shots.json is out of date with features.json and overlay.json.
   --shots-only   Refresh feature-shots.json without writing the site.
-  --out=<dir>    Site output folder (default: _site).`);
+  --out=<dir>    Site output folder (default: _site).
+  --screenshots=<dir>  Read screenshots from another folder (for previews and tests).`);
   process.exit(0);
 }
 
 const out = path.resolve(value("--out") ?? DEFAULTS.out);
+const screenshotsDir = path.resolve(value("--screenshots") ?? DEFAULTS.screenshotsDir);
 const catalog = readJson(DEFAULTS.catalog);
 const overlay = readJson(DEFAULTS.overlay);
 
 let result;
 try {
-  result = generate({ catalog, overlay, screenshotsDir: DEFAULTS.screenshotsDir });
+  result = generate({ catalog, overlay, screenshotsDir });
 } catch (error) {
   console.error(`feature-tour: ${error.message}`);
   process.exit(1);
@@ -55,7 +57,7 @@ fs.writeFileSync(DEFAULTS.shotList, expected);
 console.log(`Wrote ${path.relative(process.cwd(), DEFAULTS.shotList)} (${result.shotList.shots.length} shots).`);
 
 if (!flag("--shots-only")) {
-  writeSite(result, { out, assetsDir: DEFAULTS.assetsDir, screenshotsDir: DEFAULTS.screenshotsDir });
+  writeSite(result, { out, assetsDir: DEFAULTS.assetsDir, screenshotsDir });
   const t = result.site.totals;
   console.log(`Wrote site to ${path.relative(process.cwd(), out) || "."}: ${t.features} features, ${t.shotsReady} of ${t.shots} screenshots captured.`);
 }

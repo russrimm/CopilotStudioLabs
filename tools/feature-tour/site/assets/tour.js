@@ -1,6 +1,6 @@
 // Guided tour. Reads the feature data embedded in tour.html, so it also works
 // when the file is opened without a server. All text is inserted with
-// textContent, never innerHTML.
+// textContent, never as HTML.
 (function () {
   var dataEl = document.getElementById("tour-data");
   if (!dataEl) return;
@@ -187,6 +187,7 @@
     var category = find(data.categories, f.category);
     var shot = f.shots[Math.min(shotIndex, f.shots.length - 1)];
     stepEl.textContent = "";
+    stepEl.setAttribute("aria-labelledby", "tour-step-title");
 
     stepEl.appendChild(h("p", { class: "eyebrow", text: harness.name + " · " + category.name }));
     stepEl.appendChild(h("h2", { id: "tour-step-title", text: f.name }));

@@ -66,6 +66,7 @@ function layout({ title, description, root, active, body, scripts = [], bodyClas
   <title>${esc(title)}</title>
   <meta name="description" content="${esc(description)}">
   <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:,">
   <link rel="stylesheet" href="${root}assets/styles.css">
   ${scriptTags}
 </head>
@@ -324,7 +325,7 @@ export function renderTour(model) {
         <p id="tour-progress-text" class="progress-text">Step 1 of ${total}</p>
       </div>
       <div id="tour-status" class="visually-hidden" role="status" aria-live="polite"></div>
-      <article id="tour-step" class="tour-step" tabindex="-1" aria-labelledby="tour-step-title"></article>
+      <article id="tour-step" class="tour-step" tabindex="-1"></article>
       <noscript><p class="no-script">The guided tour needs JavaScript. You can read every feature without it from the <a href="index.html">overview</a>.</p></noscript>
     </div>
     <script type="application/json" id="tour-data">${data}</script>`;
