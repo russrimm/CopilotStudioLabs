@@ -350,6 +350,12 @@ app.use((_req, res, next) => {
 
 app.use(["/api/lab-builder"], express.json({ limit: process.env.LAB_BUILDER_BODY_LIMIT || "64kb" }));
 app.use(express.json({ limit: "10mb" }));
+// Express 5 leaves req.body undefined when no body was parsed; handlers
+// destructure it, so keep the empty-object default Express 4 provided.
+app.use((req, _res, next) => {
+  req.body ??= {};
+  next();
+});
 // Harden user-uploaded content: block MIME sniffing so a file can't be
 // re-interpreted as HTML/SVG by the browser. Registered before the general
 // public static handler so it wins for /uploads/*.
@@ -1509,7 +1515,8 @@ app.get("/api/pp/tenant-settings", async (_req, res) => {
 });
 
 // ── SPA fallback ────────────────────────────────────────────────────────────
-app.get("*", (_req, res) => {
+// A regular expression (not "*") so the catch-all works on Express 4 and 5.
+app.get(/.*/, (_req, res) => {
   res.sendFile(resolve(import.meta.dirname, "public", "index.html"));
 });
 
