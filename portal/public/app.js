@@ -3721,6 +3721,28 @@ function lbCancelGenerate() {
   labBuilder.controller?.abort();
 }
 
+/** Advisory quality report: a score, the weakest modules, and what to fix. It never blocks a lab. */
+function lbQualityPanel(qa) {
+  if (!qa || typeof qa.score !== "number") return "";
+  const findings = (qa.findings || []).slice(0, 8);
+  const modules = (qa.topics || [])
+    .map((t) => `<li>Step ${Number(t.order)} - ${escapeHtml(t.name)}: ${Number(t.score)}/100</li>`)
+    .join("");
+  return `
+    <details class="lb-advanced lb-quality" open>
+      <summary>Lab quality: ${Number(qa.score)}/100 (${escapeHtml(qa.grade)})</summary>
+      <p>${Number(qa.stats?.words || 0)} words, ${Number(qa.stats?.modules || 0)} modules, ${Number(qa.stats?.images || 0)} images. This review is advisory and does not change the lab.</p>
+      ${modules ? `<ul style="padding-left: 20px;">${modules}</ul>` : ""}
+      ${
+        findings.length
+          ? `<ul style="padding-left: 20px;">${findings
+              .map((f) => `<li><strong>${escapeHtml(f.severity)}:</strong> ${escapeHtml(f.message)} ${escapeHtml(f.fix || "")}</li>`)
+              .join("")}</ul>`
+          : "<p>No findings.</p>"
+      }
+    </details>`;
+}
+
 function lbShowResult(data) {
   const panel = document.getElementById("lb-result-panel");
   const meta = document.getElementById("lb-result-meta");
@@ -3759,6 +3781,7 @@ function lbShowResult(data) {
   `;
 
   body.innerHTML = `
+    ${lbQualityPanel(data.qa)}
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
     <details class="lb-advanced">
       <summary>View the Markdown source</summary>

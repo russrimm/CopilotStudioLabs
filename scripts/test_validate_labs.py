@@ -142,6 +142,18 @@ class MarkdownLinkValidationTests(unittest.TestCase):
             )
             self.assertEqual(check_markdown_accessibility([good], root), [])
 
+    def test_harness_product_name_is_enforced_outside_code(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            bad = root / "bad.md"
+            bad.write_text(
+                "# Lab\n\n## Intro\n\nThe GitHub Copilot harness differs.\n\n```text\nGitHub Copilot harness\n```\n",
+                encoding="utf-8",
+            )
+            findings = check_markdown_accessibility([bad], root)
+            self.assertEqual(len(findings), 1)
+            self.assertIn("Microsoft Copilot harness", findings[0][2])
+
     def test_expandable_notes_need_a_summary_and_content(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

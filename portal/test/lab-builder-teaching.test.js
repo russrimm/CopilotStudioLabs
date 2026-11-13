@@ -59,3 +59,10 @@ test("no content is dropped when a short time target is set", async () => {
   assert.equal((short.markdown.match(/^### Step /gm) || []).length, (none.markdown.match(/^### Step /gm) || []).length);
   assert.equal((short.markdown.match(/<summary>Knowledge check/g) || []).length, (none.markdown.match(/<summary>Knowledge check/g) || []).length);
 });
+
+test("the build result and manifest carry the QA review, and a weak score never blocks", async () => {
+  const result = await build({ industry: "retail", features: ["create-agent"], includeCore: false });
+  assert.equal(typeof result.qa.score, "number");
+  assert.equal(result.manifest.quality.score, result.qa.score);
+  assert.equal(result.status, "complete");
+});

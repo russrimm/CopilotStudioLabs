@@ -362,6 +362,10 @@ def check_markdown_accessibility(files=None, root=REPO_ROOT, cache=None):
 
             visible_line = re.sub(r"`[^`]*`", "", line)
             visible_lines.append(visible_line)
+            if re.search(r"GitHub Copilot harness", visible_line, re.IGNORECASE):
+                findings.append(
+                    (source, line_number, "says \"GitHub Copilot harness\"; the product name is \"Microsoft Copilot harness\"")
+                )
             heading = re.match(r"^ {0,3}(#{1,6})\s+", visible_line)
             if heading:
                 level = len(heading.group(1))

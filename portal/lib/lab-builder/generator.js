@@ -14,6 +14,7 @@ import { connect, groundFeature, fetchDocPage, LEARN_MCP_ENDPOINT } from "./lear
 import { createLlm } from "./llm.js";
 import { planScreenshots, copyScreenshots, writePlaceholders, buildShotsManifest, buildShotList } from "./screenshots.js";
 import { composeLab } from "./composer.js";
+import { assessLab } from "./qa.js";
 import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
 import { buildDifferenceBlocks } from "./differences.js";
@@ -1104,11 +1105,14 @@ export async function generateLab(request, opts = {}) {
     stepsByFeature,
     vendorByFeature,
   );
+  // Advisory only: a low score is reported to the learner and never blocks the build.
+  const qa = assessLab(markdown, { expectedTopics: plan.features });
   const differenceSummary = buildDifferenceBlocks(plan, { harnesses: getHarnesses(), concepts: getConcepts() });
 
   const manifest = {
     slug: plan.slug,
     title: plan.title,
+    quality: { score: qa.score, grade: qa.grade, findings: qa.findings.length, version: qa.version },
     generatedAt: generation.generatedAt,
     // When every embedded URL was last confirmed to resolve. Null when checking
     // was switched off — an unearned timestamp reads as assurance.
@@ -1240,6 +1244,7 @@ export async function generateLab(request, opts = {}) {
     plan,
     manifest,
     markdown,
+    qa,
     warnings: plan.warnings,
     shots: buildShotsManifest(plan, screenshots.shots),
     outputDir: null,

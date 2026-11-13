@@ -49,6 +49,13 @@ function check(t, markdown, name) {
   return result.tests.find((x) => x.name === name);
 }
 
+test("the product is the Microsoft Copilot harness, never the GitHub Copilot harness", (t) => {
+  const bad = lab("The GitHub Copilot harness is not a thing.");
+  assert.equal(check(t, bad, "harness-terminology").status, "fail");
+  assert.equal(check(t, lab("The Microsoft Copilot harness is the product."), "harness-terminology").status, "pass");
+  assert.equal(check(t, lab(["```text", "GitHub Copilot harness", "```"].join("\n")), "harness-terminology").status, "pass");
+});
+
 // ── Fenced code is not headings ─────────────────────────────────────────────
 
 test("a # comment inside a fenced code block is not a second title", (t) => {

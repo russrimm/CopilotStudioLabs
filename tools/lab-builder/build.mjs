@@ -29,6 +29,7 @@ const { generateLab, OUTPUT_ROOT } = await import(
 const { normalizeDecisions } = await import(
   pathToFileURL(path.join(LIB, "lab-builder", "blockers.js")).href
 );
+const { formatQaReport } = await import(pathToFileURL(path.join(LIB, "lab-builder", "qa.js")).href);
 const { detectProvider } = await import(pathToFileURL(path.join(LIB, "lab-builder", "llm.js")).href);
 const { getIndustries, getRoles } = await import(pathToFileURL(path.join(LIB, "scenarios.js")).href);
 
@@ -442,6 +443,7 @@ for (const test of validation.tests.filter((t) => t.status !== "pass")) {
   console.log(`  ${test.status.toUpperCase()} ${test.name}: ${test.message}`);
 }
 
+console.log(`\n${formatQaReport(result.qa)}`);
 console.log(`\nOpen ${path.join(result.outputDir, "index.md")} to start the lab.`);
 if (result.manifest.screenshots.toCapture) {
   console.log(
