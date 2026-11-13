@@ -1,0 +1,213 @@
+{
+  "$comment": "The concept layer. A concept is an idea a lab teaches (Instructions, Knowledge, Skills, MCP servers, ...) independent of which Copilot Studio harness implements it. Each concept lists the catalog features that teach it; a feature's own `harness` tag says which harnesses it applies to, so the same concept can map to a Standard harness feature, a Microsoft Copilot harness feature, and a Customer Conversation harness feature. `notApplicable` explains, per harness, why a concept has no equivalent there, so the wizard can say so instead of hiding the idea. Every catalog feature belongs to exactly one concept (validateConcepts enforces this). `order` is the teaching order the wizard lists concepts in. Do not name the Microsoft Copilot harness anything else, and use US English.",
+  "version": 1,
+  "concepts": [
+    {
+      "id": "choose-harness",
+      "name": "Choose a harness",
+      "order": 10,
+      "summary": "Decide which Copilot Studio harness fits the scenario, and how to move an existing agent.",
+      "features": ["mc-harness-choice", "mc-upgrade-from-standard"],
+      "notApplicable": {}
+    },
+    {
+      "id": "create-agent",
+      "name": "Create an agent",
+      "order": 20,
+      "summary": "Make the agent object everything else hangs off.",
+      "features": ["create-agent", "mc-create-agent"],
+      "notApplicable": {}
+    },
+    {
+      "id": "instructions",
+      "name": "Instructions",
+      "order": 30,
+      "summary": "Tell the agent who it is, what it covers, and how to behave.",
+      "features": ["agent-instructions"],
+      "notApplicable": {}
+    },
+    {
+      "id": "model-orchestration",
+      "name": "Model and orchestration",
+      "order": 40,
+      "summary": "Choose the model and let the agent decide which tool or knowledge source to use.",
+      "features": ["generative-orchestration", "model-selection"],
+      "notApplicable": {
+        "microsoft-copilot": "The Microsoft Copilot harness uses its own orchestration for every agent, so there is no orchestration mode to switch on."
+      }
+    },
+    {
+      "id": "knowledge",
+      "name": "Knowledge",
+      "order": 50,
+      "summary": "Ground answers in your documents, sites, and data.",
+      "features": ["knowledge-sharepoint", "knowledge-files-web", "knowledge-dataverse", "knowledge-tuning", "mc-knowledge", "mc-foundry-iq"],
+      "notApplicable": {}
+    },
+    {
+      "id": "tools",
+      "name": "Tools and connectors",
+      "order": 60,
+      "summary": "Let the agent take actions through connectors, custom connectors, and computer use.",
+      "features": ["connector-tools", "custom-connectors", "computer-use"],
+      "notApplicable": {}
+    },
+    {
+      "id": "skills",
+      "name": "Skills and prompt tools",
+      "order": 70,
+      "summary": "Reusable, structured behaviors. The Standard harness uses prompt tools; the Microsoft Copilot harness uses skills.",
+      "features": ["prompt-tools", "mc-skills"],
+      "notApplicable": {}
+    },
+    {
+      "id": "mcp",
+      "name": "MCP servers",
+      "order": 80,
+      "summary": "Connect Model Context Protocol servers so the agent can use shared tools and resources.",
+      "features": ["mcp-servers", "mc-tools-mcp"],
+      "notApplicable": {}
+    },
+    {
+      "id": "subagents",
+      "name": "Subagents and connected agents",
+      "order": 90,
+      "summary": "Delegate focused work to other agents, including agents in other products.",
+      "features": ["connected-agents", "agent-to-agent"],
+      "notApplicable": {}
+    },
+    {
+      "id": "sdk",
+      "name": "SDK and extensibility",
+      "order": 100,
+      "summary": "Author agents from code and embed them in your own apps.",
+      "features": ["vscode-authoring", "channel-web-sdk"],
+      "notApplicable": {}
+    },
+    {
+      "id": "memory",
+      "name": "Memory",
+      "order": 110,
+      "summary": "Let the agent remember details across conversations.",
+      "features": ["mc-memory"],
+      "notApplicable": {
+        "standard": "The Standard harness does not have memory; context lives in topics and variables."
+      }
+    },
+    {
+      "id": "files-code",
+      "name": "Files and code execution",
+      "order": 120,
+      "summary": "Create and edit documents and run code in a sandbox.",
+      "features": ["mc-created-files"],
+      "notApplicable": {
+        "standard": "The Standard harness does not focus on creating or editing files."
+      }
+    },
+    {
+      "id": "conversation-design",
+      "name": "Conversation design",
+      "order": 130,
+      "summary": "Control the conversation with topics, entities, variables, Adaptive Cards, and Power Fx.",
+      "features": ["topics", "entities-variables", "adaptive-cards", "power-fx"],
+      "notApplicable": {
+        "microsoft-copilot": "The Microsoft Copilot harness describes behavior in instructions instead of authoring topic flows. Hooks cover lifecycle moments."
+      }
+    },
+    {
+      "id": "hooks",
+      "name": "Hooks",
+      "order": 140,
+      "summary": "Run logic automatically at set points in an agent's lifecycle.",
+      "features": ["mc-hooks"],
+      "notApplicable": {
+        "standard": "The Standard harness uses topics and system triggers for this."
+      }
+    },
+    {
+      "id": "triggers",
+      "name": "Triggers",
+      "order": 150,
+      "summary": "Start the agent from events rather than a person's message.",
+      "features": ["mc-triggers"],
+      "notApplicable": {
+        "standard": "Standard agents are triggered through topics and agent flows."
+      }
+    },
+    {
+      "id": "workflows",
+      "name": "Workflows and flows",
+      "order": 160,
+      "summary": "Run repeatable, predictable steps, with or without AI in the loop.",
+      "features": ["agent-flows", "flow-prompt-nodes", "flow-async", "mc-workflows-tool"],
+      "notApplicable": {}
+    },
+    {
+      "id": "integrations",
+      "name": "Enterprise systems and Microsoft 365",
+      "order": 170,
+      "summary": "Connect to systems of record such as ServiceNow, SAP, Salesforce, Epic, and Microsoft 365 data.",
+      "features": [
+        "servicenow-integration",
+        "snowflake-integration",
+        "sap-integration",
+        "salesforce-integration",
+        "jira-integration",
+        "epic-fhir-integration",
+        "shopify-integration",
+        "onprem-data-gateway",
+        "vnet-private-connectivity",
+        "work-iq"
+      ],
+      "notApplicable": {}
+    },
+    {
+      "id": "testing",
+      "name": "Testing and evaluation",
+      "order": 180,
+      "summary": "Prove the agent works and keeps working.",
+      "features": ["test-agent", "mc-preview-test", "evaluations", "multiturn-tests", "mc-evaluate", "readiness-scorecard"],
+      "notApplicable": {}
+    },
+    {
+      "id": "monitor",
+      "name": "Monitor and analytics",
+      "order": 190,
+      "summary": "See how the agent performs in use.",
+      "features": ["analytics"],
+      "notApplicable": {}
+    },
+    {
+      "id": "publish",
+      "name": "Publish and channels",
+      "order": 200,
+      "summary": "Put the agent in front of people on Teams, the web, or voice.",
+      "features": ["publish-agent", "mc-publish-agent", "channel-teams", "voice-agents"],
+      "notApplicable": {}
+    },
+    {
+      "id": "security",
+      "name": "Authentication and safety",
+      "order": 210,
+      "summary": "Control who can use the agent, what it may say, and which identity it runs as.",
+      "features": ["authentication", "content-moderation", "entra-agent-identities"],
+      "notApplicable": {}
+    },
+    {
+      "id": "governance",
+      "name": "Governance and ALM",
+      "order": 220,
+      "summary": "Move agents between environments safely and keep an inventory under policy.",
+      "features": ["dlp-governance", "alm-solutions", "agent-inventory"],
+      "notApplicable": {}
+    },
+    {
+      "id": "billing",
+      "name": "Credits and billing",
+      "order": 230,
+      "summary": "Understand what an agent costs to build, test, and run.",
+      "features": ["mc-credit-billing", "usage-credits"],
+      "notApplicable": {}
+    }
+  ]
+}

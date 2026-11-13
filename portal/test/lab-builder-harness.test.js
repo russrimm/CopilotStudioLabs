@@ -74,8 +74,8 @@ test("a feature cannot require a prerequisite from a higher level", () => {
   assert.ok(problems.some((p) => /basic: level 100 feature requires advanced, which is level 300/.test(p)), problems.join("\n"));
 });
 
-test("the shipped catalog tags every feature and covers both harnesses and all three levels", () => {
-  assert.deepEqual(getHarnesses().map((h) => h.id), ["standard", "microsoft-copilot"]);
+test("the shipped catalog tags every feature and covers every shipped harness and all three levels", () => {
+  assert.deepEqual(getHarnesses().map((h) => h.id), ["standard", "microsoft-copilot", "customer-conversation"]);
   const features = getFeatures();
   for (const f of features) assert.ok(f.harness?.length, `${f.id} has no harness`);
   assert.ok(features.some((f) => f.harness.length === 1 && f.harness[0] === "microsoft-copilot"));
@@ -99,7 +99,7 @@ test("the wizard payload carries harness, availability, and note", () => {
   assert.ok(flat.find((f) => f.id === "topics").harnessNote);
 });
 
-test("the catalog uses the Microsoft Copilot harness name outside the rename note", () => {
+test("the catalog uses the Microsoft Copilot harness name everywhere", () => {
   const found = [];
   const walk = (value, path) => {
     if (typeof value === "string") {
@@ -108,10 +108,7 @@ test("the catalog uses the Microsoft Copilot harness name outside the rename not
     else if (value && typeof value === "object") for (const [k, v] of Object.entries(value)) walk(v, `${path}.${k}`);
   };
   walk({ harnesses: getHarnesses(), features: getFeatures() }, "catalog");
-  // Only the harness description may use the old name, to explain the rename. The admin center
-  // column label "GitHub Copilot" in mc-credit-billing is a UI value, not the old product name.
-  assert.deepEqual(found.length, 1, found.join("\n"));
-  assert.match(found[0], /^catalog\.harnesses\[1\]\.description$/);
+  assert.deepEqual(found.length, 0, found.join("\n"));
 });
 
 test("the old and new harness names compare equal against Learn text", () => {

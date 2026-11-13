@@ -4238,8 +4238,14 @@
     {
       "id": "microsoft-copilot",
       "name": "Microsoft Copilot harness",
-      "description": "The Build-tab experience for reasoning-heavy agents and workflows: natural-language instructions, knowledge, tools, skills, memory, and hooks, billed in Copilot Credits. Some Learn pages and URLs still use the earlier name, GitHub Copilot harness.",
+      "description": "The Build-tab experience for reasoning-heavy agents and workflows: natural-language instructions, knowledge, tools, skills, memory, and hooks, billed in Copilot Credits. Some Learn pages and URLs still use an earlier name for this harness.",
       "learnUrl": "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview"
+    },
+    {
+      "id": "customer-conversation",
+      "name": "Customer Conversation harness",
+      "description": "Agents that answer questions and resolve issues for customers over voice and chat, with specialized subagents and escalation to a human representative. Preview. Billed in Copilot Credits.",
+      "learnUrl": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation"
     }
   ]
 }
