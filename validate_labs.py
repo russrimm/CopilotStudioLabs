@@ -429,6 +429,19 @@ def check_markdown_accessibility(files=None, root=REPO_ROOT, cache=None):
                 line_number = visible_markdown.count("\n", 0, match.start()) + 1
                 findings.append((source, line_number, "HTML table has no header cells"))
 
+        # Expandable notes must start with a non-empty <summary> and have content.
+        for match in re.finditer(r"<details\b[^>]*>([\s\S]*?)</details>", visible_markdown, re.IGNORECASE):
+            line_number = visible_markdown.count("\n", 0, match.start()) + 1
+            summary = re.match(r"\s*<summary\b[^>]*>([\s\S]*?)</summary>", match.group(1), re.IGNORECASE)
+            if not summary or not summary.group(1).strip():
+                findings.append((source, line_number, "expandable <details> block has no <summary>"))
+            elif not match.group(1)[summary.end() :].strip():
+                findings.append((source, line_number, "expandable <details> block has no content"))
+        if len(re.findall(r"<details\b", visible_markdown, re.IGNORECASE)) != len(
+            re.findall(r"</details>", visible_markdown, re.IGNORECASE)
+        ):
+            findings.append((source, 1, "unbalanced <details> tags"))
+
     return findings
 
 

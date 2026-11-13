@@ -18,6 +18,10 @@
 
 const PRODUCTS = "Microsoft Copilot Studio, Power Platform, Microsoft 365";
 
+import { getHarnesses } from "./catalog.js";
+import { getConcepts } from "./concepts.js";
+import { buildDifferenceBlocks } from "./differences.js";
+
 function bullets(items, prefix = "-") {
   return items.map((item) => `${prefix} ${item}`).join("\n");
 }
@@ -490,7 +494,7 @@ function stepProvenance(record, feature) {
   return ["", `*Read from ${link}${day ? ` on ${day}` : ""}.*`];
 }
 
-function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord, vendorRecords) {
+function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord, vendorRecords, differenceLines = []) {
   const profile = plan.profile;
   const applied =
     enrichment?.applied ||
@@ -523,6 +527,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     "",
     `**In your scenario.** ${scrubForbidden(applied)}`,
     ...screenshotBlock(shots),
+    ...differenceLines,
     "",
     "**Check your work**",
     "",
@@ -768,6 +773,19 @@ export function composeLab(
   stepsByFeature = new Map(),
   vendorByFeature = new Map(),
 ) {
+  const differences = buildDifferenceBlocks(plan, {
+    harnesses: getHarnesses(),
+    clean: (text) => escapeMarkdown(scrubForbidden(text)),
+    concepts: getConcepts(),
+  });
+  const harnessLabel = getHarnesses().find((h) => h.id === plan.harness)?.name;
+  const differencesNote = differences.byFeature.size
+    ? [
+        `This lab is written for the ${harnessLabel || "selected harness"}. Where the same idea works differently on another harness, an expandable **How this differs** note follows the steps: it explains the equivalent steps, terminology, availability, and limits, with sources. Open it only when you need it.`,
+        "",
+      ]
+    : [];
+
   const sections = [
     `# ${escapeMarkdown(scrubForbidden(plan.title))}`,
     "",
@@ -791,6 +809,7 @@ export function composeLab(
     "",
     "Each module below stands on its own, but they are ordered so that every prerequisite is configured before you need it. Work top to bottom.",
     "",
+    ...differencesNote,
   ];
 
   for (const feature of plan.features) {
@@ -803,6 +822,7 @@ export function composeLab(
         enrichment.byFeature?.get(feature.id),
         stepsByFeature.get(feature.id),
         vendorByFeature.get(feature.id),
+        differences.byFeature.get(feature.id),
       ),
       "",
     );

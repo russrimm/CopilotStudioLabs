@@ -120,6 +120,30 @@ class MarkdownLinkValidationTests(unittest.TestCase):
             )
             self.assertEqual(check_markdown_accessibility([clean], root), [])
 
+    def test_expandable_notes_need_a_summary_and_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            broken = root / "broken.md"
+            broken.write_text(
+                "# Lab\n\n## Notes\n\n"
+                "<details>\nNo summary here.\n</details>\n\n"
+                "<details>\n<summary>How this differs on the Standard harness</summary>\n</details>\n",
+                encoding="utf-8",
+            )
+            reasons = {finding[2] for finding in check_markdown_accessibility([broken], root)}
+            self.assertIn("expandable <details> block has no <summary>", reasons)
+            self.assertIn("expandable <details> block has no content", reasons)
+
+            fine = root / "fine.md"
+            fine.write_text(
+                "# Lab\n\n## Notes\n\n"
+                "<details>\n<summary>How this differs on the Standard harness</summary>\n\n"
+                "**Same goal.** Explain it.\n\n</details>\n\n"
+                "```html\n<details>\n</details>\n```\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(check_markdown_accessibility([fine], root), [])
+
     def test_unfinished_authoring_markers_are_reported_with_line_numbers(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

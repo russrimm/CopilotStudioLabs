@@ -129,6 +129,13 @@
       "asymmetry": "A dashboard-facing restatement of no-broken-image-refs; Python covers the targets under no-broken-local-links."
     },
     {
+      "id": "expandable-notes",
+      "validators": ["js"],
+      "scope": "lab",
+      "checks": "Every expandable <details> note (the 'How this differs on the other harness' blocks) has a non-empty <summary> as its first element, has content after it, and is balanced. Fenced code is ignored.",
+      "asymmetry": "Python enforces the same rule inside accessible-markdown, so hand-written labs and generated labs are both held to it."
+    },
+    {
       "id": "assets-dir-clean",
       "validators": ["js"],
       "scope": "lab",
@@ -174,7 +181,7 @@
       "id": "accessible-markdown",
       "validators": ["python"],
       "scope": "lab",
-      "checks": "Heading levels never skip, images have meaningful alt text, link text makes sense out of context, and tables have header cells.",
+      "checks": "Heading levels never skip, images have meaningful alt text, link text makes sense out of context, tables have header cells, and expandable <details> notes have a summary and content.",
       "asymmetry": "Not ported to JS. Generated labs are held to it by the CI step that runs validate_labs.py --lab-dir on an offline build."
     },
     {

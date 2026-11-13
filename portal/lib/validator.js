@@ -31,8 +31,36 @@ export const RULE_IDS = Object.freeze([
   "no-broken-relative-links",
   "no-empty-sections",
   "screenshots-exist",
+  "expandable-notes",
   "assets-dir-clean",
 ]);
+
+/**
+ * Expandable `<details>` notes (the "How this differs on the <other> harness"
+ * blocks) must be operable by keyboard and screen reader: every block needs a
+ * non-empty `<summary>` as its first child and some content after it, and
+ * blocks must be balanced. Code fences are ignored.
+ */
+export function checkExpandableNotes(content) {
+  const text = String(content || "")
+    .replace(/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[ \t]*$/gm, "")
+    .replace(/`[^`\n]*`/g, "");
+  const problems = [];
+  const opens = [...text.matchAll(/<details\b[^>]*>/gi)].length;
+  const closes = [...text.matchAll(/<\/details>/gi)].length;
+  if (opens !== closes) problems.push(`Found ${opens} <details> and ${closes} </details>.`);
+  let count = 0;
+  for (const block of text.matchAll(/<details\b[^>]*>([\s\S]*?)<\/details>/gi)) {
+    count += 1;
+    const summary = block[1].match(/^\s*<summary\b[^>]*>([\s\S]*?)<\/summary>/i);
+    if (!summary || !summary[1].trim()) {
+      problems.push(`Block ${count} has no <summary> as its first element.`);
+      continue;
+    }
+    if (!block[1].slice(summary[0].length).trim()) problems.push(`Block ${count} ("${summary[1].trim()}") has no content.`);
+  }
+  return { count, problems };
+}
 
 function extractMeta(content, label) {
   const re = new RegExp(`\\|[^|]*\\*\\*${label}\\*\\*[^|]*\\|\\s*(.+?)\\s*\\|`, "i");
@@ -230,6 +258,7 @@ function missingIndexResult(labId, title, labDir) {
     { name: "no-broken-relative-links", status: "fail", message: "Cannot inspect relative links because index.md is missing." },
     { name: "no-empty-sections", status: "fail", message: "Cannot inspect sections because index.md is missing." },
     { name: "screenshots-exist", status: "fail", message: "Cannot inspect screenshots because index.md is missing." },
+    { name: "expandable-notes", status: "fail", message: "Cannot inspect expandable notes because index.md is missing." },
   ];
 
   const assets = collectAssetFiles(labDir);
@@ -425,6 +454,17 @@ export function validateLabDir(labDir, { labId = labDir, title = labId } = {}) {
       : imageRefs.length
       ? `All ${imageRefs.length} referenced screenshot/image file(s) exist.`
       : "No screenshots referenced in markdown.",
+  });
+
+  const expandable = checkExpandableNotes(content);
+  tests.push({
+    name: "expandable-notes",
+    status: expandable.problems.length ? "fail" : "pass",
+    message: expandable.problems.length
+      ? `Expandable note problem(s): ${expandable.problems.join(" ")}`
+      : expandable.count
+      ? `${expandable.count} expandable note(s) each have a summary and content.`
+      : "No expandable notes found.",
   });
 
   const orphanedImages = orphanedAssets.filter(

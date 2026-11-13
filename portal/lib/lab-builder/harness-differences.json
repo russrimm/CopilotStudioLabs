@@ -1,0 +1,364 @@
+{
+  "$comment": "Documented differences between Copilot Studio harnesses, by concept. Each record explains one concept on each harness, so a lab written for one harness can offer an expandable 'How this differs on the <other> harness' block. Everything here is grounded on Microsoft Learn pages listed in `sources`; nothing is invented. `availability` is one of supported, preview, planned, not-supported, or unknown, and is set from what the page says: 'supported' reflects a Learn comparison table, and 'preview' only where a page labels the feature preview. A harness whose behavior Learn does not describe is marked `unknown`, and a record that leans on that carries `confidence: uncertain` or `partly-documented` with an `uncertainNote`, which the lab shows as 'Not confirmed in Microsoft Learn'. Use the exact name 'Microsoft Copilot harness' and US English. Re-verify a record by re-reading `verifiedAgainst`; update `lastVerified` only after doing so.",
+  "version": 1,
+  "differences": [
+    {
+      "concept": "choose-harness",
+      "title": "Choosing a harness",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Harness", "availability": "supported", "summary": "Best for rule-based agents and structured conversations where you define the topics and paths and want consistent, predictable answers. Complex scenarios can need extensive custom routing and exception logic." },
+        "microsoft-copilot": { "term": "Harness", "availability": "supported", "summary": "Best for long-running, multi-step business processes: it takes a goal, breaks it into steps, and adjusts when a step fails. Simple scenarios can incur extra reasoning, latency, and Copilot Credit consumption without a better result.", "limits": ["Validate that the channels and features you need are available as the experience matures."] },
+        "customer-conversation": { "term": "Harness", "availability": "preview", "summary": "Best for customer-facing agents over voice and chat, with specialized subagents and escalation to a human representative." }
+      },
+      "sources": [
+        { "title": "Compare Copilot Studio agent harnesses", "url": "https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness" },
+        { "title": "Harnesses in Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness"
+    },
+    {
+      "concept": "create-agent",
+      "title": "Creating an agent",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Agent", "availability": "supported", "summary": "Agents built with the Standard harness remain fully supported alongside agents on the other harnesses." },
+        "microsoft-copilot": { "term": "Agent", "availability": "preview", "summary": "You choose the harness when you create the agent. You describe the agent in natural language (preview) and the system generates the underlying configuration, then you refine it on the Build tab.", "where": "Copilot Studio home page, then create a new agent powered by the Microsoft Copilot harness.", "limits": ["An agent created with the Microsoft Copilot harness can't be transferred to the Standard harness. Copilot Studio can create a Microsoft Copilot harness agent from a Standard agent."] },
+        "customer-conversation": { "term": "Agent (Customer Assist Agent)", "availability": "preview", "summary": "Describe the agent in natural language to generate a starting primary agent, or start from a blank agent.", "where": "Copilot Studio home page or the Agents tab." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "instructions",
+      "title": "Instructions",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Instructions", "availability": "supported", "summary": "Instructions guide the agent, and explicit topics, triggers, and branching conversation flows also shape its behavior." },
+        "microsoft-copilot": { "term": "Instructions", "availability": "preview", "summary": "Instructions define the agent's identity, tone, scope, and behavior, and they carry more of the load because you describe the agent in natural language instead of authoring topic flows. Response language is controlled by the instructions.", "where": "Build tab." },
+        "customer-conversation": { "term": "Instructions", "availability": "preview", "summary": "Only the primary agent's instructions can include modality-specific guidance, separated into Speech and Chat tabs.", "where": "Build tab." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "model-orchestration",
+      "title": "Model and orchestration",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Orchestration setting", "availability": "supported", "summary": "You can configure orchestration behavior. Some advanced models and newer agentic capabilities aren't available." },
+        "microsoft-copilot": { "term": "Enhanced orchestration", "availability": "supported", "summary": "Every agent uses the enhanced orchestration model, so there is no orchestration mode to switch. Reasoning models and some emerging agentic capabilities are available only through this harness. You choose the model from the Build tab.", "where": "Build tab." },
+        "customer-conversation": { "term": "Multi-agent orchestration", "availability": "preview", "summary": "Uses a multi-agent architecture with specialized subagents, each able to escalate to a human representative." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Compare Copilot Studio agent harnesses", "url": "https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "knowledge",
+      "title": "Knowledge",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Knowledge", "availability": "supported", "summary": "Supports public websites, file upload, SharePoint, Graph connectors, Dataverse tables, and Azure AI Search." },
+        "microsoft-copilot": { "term": "Knowledge", "availability": "supported", "summary": "Supports public websites, file upload, SharePoint, Graph connectors, and Dataverse tables. Memory adds context from earlier interactions.", "where": "Build tab.", "limits": ["Azure AI Search isn't supported as a knowledge source."] },
+        "customer-conversation": { "term": "Knowledge", "availability": "preview", "summary": "Connected data sources ground the agent's responses. Speech channels don't support end-user sign-in, so knowledge sources that require end-user credentials only work for Chat conversations.", "where": "Build tab." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "tools",
+      "title": "Tools and connectors",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Tools", "availability": "supported", "summary": "Connectors, MCP, workflows, prompt tools, and the computer use tool are supported." },
+        "microsoft-copilot": { "term": "Tools", "availability": "supported", "summary": "Connectors, MCP, and workflows are supported. Tools let the agent perform actions such as calling APIs and running flows.", "where": "Build tab.", "limits": ["Computer use is planned, not yet supported.", "Prompt tools are not supported. Skills replace them."] },
+        "customer-conversation": { "term": "Tools", "availability": "preview", "summary": "Calls tools across connectors, knowledge, MCP, and connected agents, plus prebuilt contact-center tools such as Escalate and Biometric Authentication.", "where": "Build tab." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "skills",
+      "title": "Skills and prompt tools",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Prompt tool", "availability": "supported", "summary": "AI prompts (prompt tools) are supported as a tool type. Skills are not supported on the Standard harness." },
+        "microsoft-copilot": { "term": "Skill", "availability": "supported", "summary": "A skill is a name, a description, and Markdown instructions that you create from blank, generate with AI, or upload as a file or package. The orchestration runtime invokes a skill when a request matches its description. Skills replace prompt tools and can be shared across agents. The harness also provides built-in skills for analyzing CSV, Word, HTML, Markdown, PDF, PowerPoint, and Excel files.", "where": "Build tab, then add a skill." },
+        "customer-conversation": { "term": "Generative skill and Topic skill", "availability": "preview", "summary": "Supports two skill types: Generative skills (instructions-based, like Microsoft Copilot harness skills) and Topic skills (deterministic authored flows that match the Topics concept).", "where": "Add skill dialog." }
+      },
+      "sources": [
+        { "title": "Skills overview for agents (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-overview" },
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-overview"
+    },
+    {
+      "concept": "mcp",
+      "title": "MCP servers",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "MCP tool", "availability": "supported", "summary": "Connect to an MCP server and its tools and resources through the agent's tools." },
+        "microsoft-copilot": { "term": "MCP tool", "availability": "supported", "summary": "MCP is supported as a tool type. You can also publish the agent itself to MCP and A2A clients through the MCP client and A2A client channels, which are in preview.", "where": "Build tab, tools." },
+        "customer-conversation": { "term": "MCP tool", "availability": "preview", "summary": "The harness can call tools across connectors, knowledge, MCP, and connected agents." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Available channels for agents (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "subagents",
+      "title": "Subagents and connected agents",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Connected agent", "availability": "supported", "summary": "Supports connected Copilot Studio agents in the same environment, Foundry agents, A2A protocol agents, and Microsoft 365 SDK agents. Context is distributed across topics, variables, tools, and subagents, so makers manage the handoffs." },
+        "microsoft-copilot": { "term": "Connected agent", "availability": "supported", "summary": "Supports the same connected agent types. The orchestrator keeps unified context as work flows back from connected agents, and subagent conversations can continue with shared context.", "where": "Build tab, connected agents." },
+        "customer-conversation": { "term": "Sub-agent and connected agent", "availability": "preview", "summary": "A sub-agent shares configuration, deployment, and ALM with its primary agent. A connected agent, such as an agent hosted in Azure AI Foundry, keeps independent configuration and ALM so it can be reused across orchestrations.", "where": "Build tab." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Compare Copilot Studio agent harnesses", "url": "https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "sdk",
+      "title": "SDK and extensibility",
+      "confidence": "uncertain",
+      "uncertainNote": "The pages reviewed for this lab do not describe how the Microsoft Agents SDK, the web chat SDK, or editor-based authoring differ between harnesses. The only documented point is that Microsoft 365 SDK agents can be connected agents on both the Standard and Microsoft Copilot harnesses. Check the harness comparison page before you rely on any other SDK behavior.",
+      "harnesses": {
+        "standard": { "term": "Microsoft 365 SDK agent (connected agent)", "availability": "supported", "summary": "A Microsoft 365 SDK agent can be added as a connected agent." },
+        "microsoft-copilot": { "term": "Microsoft 365 SDK agent (connected agent)", "availability": "supported", "summary": "A Microsoft 365 SDK agent can be added as a connected agent. Other SDK behavior is not confirmed." },
+        "customer-conversation": { "term": "SDK", "availability": "unknown", "summary": "Not described on the pages reviewed." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "memory",
+      "title": "Memory",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Context in topics and variables", "availability": "not-supported", "summary": "Memory is not supported on the Standard harness. Context lives in topics and variables." },
+        "microsoft-copilot": { "term": "Memory", "availability": "preview", "summary": "Turn Memory on for an agent and it keeps a separate, private memory for each user: it captures signals such as preferences, stores them as files in Microsoft-managed storage, and applies them in later conversations. Users review or delete memories in chat or in the memory portal; makers can't view them.", "where": "Build tab, Memory toggle.", "limits": ["Memories are deleted after 28 days without interaction.", "User memory is disabled in group chats and Microsoft Teams channels.", "Turning Memory off doesn't delete stored memories."] },
+        "customer-conversation": { "term": "Memory (Customer Conversation)", "availability": "preview", "summary": "Has a separate, structured Memory capability with its own retention period and configuration." }
+      },
+      "sources": [
+        { "title": "Memory (Microsoft Copilot) (preview)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/memory-overview" },
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/memory-overview"
+    },
+    {
+      "concept": "files-code",
+      "title": "Files and code execution",
+      "confidence": "partly-documented",
+      "uncertainNote": "Learn's comparison says working with files is not a focus of the Customer Conversation or Standard harnesses, but it does not say whether either one blocks it.",
+      "harnesses": {
+        "standard": { "term": "Code interpreter", "availability": "supported", "summary": "Code interpreter is an opt-in capability. Creating and editing files isn't a focus of this harness." },
+        "microsoft-copilot": { "term": "Created files and code interpreter", "availability": "supported", "summary": "Natively creates, edits, and reasons over Word, Excel, PowerPoint, and PDF files. Code interpreter is native, and each task runs in a secure sandbox governed by Copilot Studio." },
+        "customer-conversation": { "term": "Files", "availability": "unknown", "summary": "Working with files isn't a focus of this harness according to the comparison page." }
+      },
+      "sources": [
+        { "title": "Harnesses in Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview" },
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview"
+    },
+    {
+      "concept": "conversation-design",
+      "title": "Conversation design (topics)",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Topics", "availability": "supported", "summary": "You author topics, triggers, and branching conversation flows, and the agent follows the paths you define. Custom entities and manual authentication are available." },
+        "microsoft-copilot": { "term": "Instructions and hooks", "availability": "supported", "summary": "You describe behavior in natural language and the harness reasons through it instead of following authored topic flows. Hooks replace topic triggers for lifecycle moments.", "limits": ["Custom entities are not supported."] },
+        "customer-conversation": { "term": "Topic skills and events", "availability": "preview", "summary": "Topic skills are deterministic authored flows that match the Topics concept, and Events turn built-in responses such as Conversation Start, End of Conversation, and On Error on or off." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Skills overview for agents (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-overview" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "hooks",
+      "title": "Hooks",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Topic triggers and system triggers", "availability": "supported", "summary": "Triggers on user intent and other system triggers, such as Message received, are handled by topics." },
+        "microsoft-copilot": { "term": "Hook", "availability": "preview", "summary": "A hook runs one of your workflows every time a lifecycle event fires: Start, User prompt submitted, Error, Pre tool use, Post tool use, or After tool failure. Pre tool use is the only event that can block an action. You configure hooks from the agent's command bar, not the Build tab.", "where": "Top menu bar, three dots (...), then Hooks.", "limits": ["A hook that fails, times out, or returns something unreadable doesn't stop the agent, so don't make it your only safeguard.", "The workflow must be published, and a hook doesn't run for users until you publish the agent."] },
+        "customer-conversation": { "term": "Events", "availability": "preview", "summary": "Events turn built-in responses for common conversation moments on or off, such as Conversation Start, End of Conversation, and On Error." }
+      },
+      "sources": [
+        { "title": "Hooks (Microsoft Copilot) (preview)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/hooks-overview" },
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/hooks-overview"
+    },
+    {
+      "concept": "triggers",
+      "title": "Triggers",
+      "confidence": "partly-documented",
+      "uncertainNote": "The pages reviewed do not say whether the Customer Conversation harness can start an agent autonomously.",
+      "harnesses": {
+        "standard": { "term": "Autonomous trigger", "availability": "supported", "summary": "Agents can be triggered autonomously." },
+        "microsoft-copilot": { "term": "Trigger or Agent node", "availability": "preview", "summary": "Use triggers (preview) or an Agent node in a workflow to start work autonomously." },
+        "customer-conversation": { "term": "Not described", "availability": "unknown", "summary": "Not described on the pages reviewed." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "workflows",
+      "title": "Workflows and flows",
+      "confidence": "partly-documented",
+      "uncertainNote": "The pages reviewed do not describe workflows on the Customer Conversation harness.",
+      "harnesses": {
+        "standard": { "term": "Agent flow", "availability": "supported", "summary": "Workflows are supported as a tool, and the harness is suited to structured, repeatable workflows." },
+        "microsoft-copilot": { "term": "Workflow", "availability": "supported", "summary": "Workflows are supported as a tool and give predictable, deterministic steps while the agent reasons through the rest. The same workflow can also be bound to a hook." },
+        "customer-conversation": { "term": "Not described", "availability": "unknown", "summary": "Not described on the pages reviewed." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Hooks (Microsoft Copilot) (preview)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/hooks-overview" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "testing",
+      "title": "Testing and evaluation",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Agent evaluation", "availability": "supported", "summary": "Agent evaluation is supported." },
+        "microsoft-copilot": { "term": "Preview and Evaluate tabs", "availability": "supported", "summary": "Test interactively on the Preview tab, then create and run test sets on the Evaluate tab to measure quality.", "where": "Preview and Evaluate tabs." },
+        "customer-conversation": { "term": "Preview and Evaluate tabs", "availability": "preview", "summary": "Test conversations on the Preview tab and run test sets on the Evaluate tab to review pass or fail results.", "where": "Preview and Evaluate tabs." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "monitor",
+      "title": "Monitor and analytics",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Monitor and run history", "availability": "supported", "summary": "Monitor and activity or run history are supported." },
+        "microsoft-copilot": { "term": "Monitor tab", "availability": "supported", "summary": "Review production health, outcomes, reactions, sessions, and credit usage. You can open Monitor before publishing, but production data appears only after people use the published agent.", "where": "Monitor tab." },
+        "customer-conversation": { "term": "Monitor tab", "availability": "preview", "summary": "Track recent and live conversation activity after deployment.", "where": "Monitor tab." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "publish",
+      "title": "Publish and channels",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Channels", "availability": "supported", "summary": "Supports Microsoft 365 and Teams, websites, SharePoint, WhatsApp, and Dynamics 365 Contact Center, among others." },
+        "microsoft-copilot": { "term": "Channels", "availability": "supported", "summary": "Publish to Microsoft Copilot, Microsoft Teams, a demo website, or a web app, to internal teams or external customers. The MCP client and A2A client channels are in preview and available only in early release cycle environments.", "limits": ["SharePoint, WhatsApp, and Dynamics 365 Contact Center channels are not supported.", "Messaging, contact center, and native app channels listed on the channels page are not currently available."] },
+        "customer-conversation": { "term": "Deploy tab", "availability": "preview", "summary": "Deploy to Speech and Chat channels: a website chat or a phone number, with escalation to a human representative.", "where": "Deploy tab." }
+      },
+      "sources": [
+        { "title": "Available channels for agents (Microsoft Copilot)", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview" },
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview"
+    },
+    {
+      "concept": "security",
+      "title": "Authentication and safety",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Authentication", "availability": "supported", "summary": "Supports Microsoft (Entra ID), no authentication, and manual or custom authentication." },
+        "microsoft-copilot": { "term": "Authentication", "availability": "supported", "summary": "Supports Microsoft (Entra ID) and no authentication.", "limits": ["Manual or custom authentication is not supported."] },
+        "customer-conversation": { "term": "Authentication", "availability": "preview", "summary": "Speech channels don't support end-user sign-in. The prebuilt Biometric Authentication tool authenticates callers." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "governance",
+      "title": "Governance and ALM",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Solutions and DLP", "availability": "supported", "summary": "Solutions and ALM support and DLP governance controls are supported." },
+        "microsoft-copilot": { "term": "Solutions and DLP", "availability": "supported", "summary": "Solutions and ALM support and DLP governance controls are supported. Plan governance for Copilot Credit consumption as well, because usage-based billing applies to building, testing, evaluating, and running the agent." },
+        "customer-conversation": { "term": "ALM", "availability": "preview", "summary": "A sub-agent shares configuration, deployment, and ALM with its primary agent; a connected agent keeps its own." }
+      },
+      "sources": [
+        { "title": "About agents powered by the Microsoft Copilot harness", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" },
+        { "title": "Compare Copilot Studio agent harnesses", "url": "https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness" },
+        { "title": "Agents powered by the Customer Conversation harness overview", "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview-customer-conversation" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+    },
+    {
+      "concept": "billing",
+      "title": "Credits and billing",
+      "confidence": "documented",
+      "harnesses": {
+        "standard": { "term": "Copilot Studio licensing", "availability": "supported", "summary": "Standard harness agents keep the pre-existing Copilot Studio licensing model." },
+        "microsoft-copilot": { "term": "Copilot Credits", "availability": "supported", "summary": "Usage-based billing applies to creating, testing, evaluating, and running the agent, so building and testing can consume Copilot Credits." },
+        "customer-conversation": { "term": "Copilot Credits", "availability": "preview", "summary": "Agents on this harness use Copilot Credits (usage-based)." }
+      },
+      "sources": [
+        { "title": "Compare Copilot Studio agent harnesses", "url": "https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness" },
+        { "title": "Harnesses in Copilot Studio", "url": "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview" }
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness"
+    }
+  ]
+}

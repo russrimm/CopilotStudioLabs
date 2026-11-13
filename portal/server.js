@@ -28,6 +28,7 @@ import { getFeaturesByCategory, getFeatures, getHarnesses, LEVELS, validateCatal
 import { planLab } from "./lib/lab-builder/planner.js";
 import { recommend } from "./lib/lab-builder/recommend.js";
 import { getConcepts } from "./lib/lab-builder/concepts.js";
+import { defaultDifferencesFor } from "./lib/lab-builder/differences.js";
 import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
@@ -430,6 +431,7 @@ app.get("/api/lab-builder/features", (_req, res) => {
       harnesses: getHarnesses(),
       levels: LEVELS,
       concepts: getConcepts().map(({ id, name, order, summary }) => ({ id, name, order, summary })),
+      differenceDefaults: Object.fromEntries(getHarnesses().map((h) => [h.id, defaultDifferencesFor(h.id)])),
       totalFeatures: getFeatures().length,
       catalogIssues: validateCatalog(),
     });
