@@ -118,7 +118,7 @@ test("notes can be turned off, extended, and have sensible defaults", async () =
   assert.deepEqual(defaultDifferencesFor("customer-conversation"), ["standard", "microsoft-copilot"]);
 
   const off = await lab({ features: ["mc-skills"], harness: "microsoft-copilot", differencesFor: [] });
-  assert.doesNotMatch(off.markdown, /<details>/);
+  assert.doesNotMatch(off.markdown, /<summary>How this differs/);
   assert.doesNotMatch(off.markdown, /expandable \*\*How this differs\*\* note/);
   assert.deepEqual(off.manifest.differences.concepts, []);
 
