@@ -1245,11 +1245,13 @@ export async function generateLab(request, opts = {}) {
     vendorDocs: vendorSummary,
     llm: { provider: llm.provider.kind, label: llm.provider.label || null, reason: llm.provider.reason || null },
     screenshots: {
-      reused: screenshots.copies.length,
-      pending: screenshots.shots.length,
+      reused: screenshots.copies.filter((c) => !c.captured).length,
+      // Slots whose real screenshot was already captured for the feature tour and copied in.
+      captured: screenshots.shots.filter((s) => s.status === "captured").length,
+      pending: screenshots.shots.filter((s) => s.status !== "captured").length,
       // Older name for the same count.
-      toCapture: screenshots.shots.length,
-      total: screenshots.copies.length + screenshots.shots.length,
+      toCapture: screenshots.shots.filter((s) => s.status !== "captured").length,
+      total: screenshots.copies.filter((c) => !c.captured).length + screenshots.shots.length,
     },
     // Which blocks were hit and what a human chose about each. Carries no user
     // identity on purpose — see decisionRecord() in blockers.js.
@@ -1284,7 +1286,9 @@ export async function generateLab(request, opts = {}) {
     fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
     if (screenshots.shots.length) {
       fs.writeFileSync(path.join(outputDir, "shots.json"), JSON.stringify(result.shots, null, 2) + "\n", "utf8");
-      fs.writeFileSync(path.join(outputDir, "SHOTLIST.md"), buildShotList(plan, screenshots.shots), "utf8");
+      if (screenshots.shots.some((s) => s.status !== "captured")) {
+        fs.writeFileSync(path.join(outputDir, "SHOTLIST.md"), buildShotList(plan, screenshots.shots), "utf8");
+      }
     }
 
     result.outputDir = outputDir;

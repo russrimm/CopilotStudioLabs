@@ -127,12 +127,12 @@ export function validateOverlay(overlay, catalog) {
   return errors;
 }
 
-export function tourOrder(features, categories) {
+export function tourOrder(features, categories, byHarness = true) {
   const catRank = new Map(categories.map((c, i) => [c.id, i]));
   return features
     .map((f, index) => ({ f, index }))
     .sort((a, b) => {
-      const h = HARNESS_ORDER.indexOf(harnessGroup(a.f.harness)) - HARNESS_ORDER.indexOf(harnessGroup(b.f.harness));
+      const h = byHarness ? HARNESS_ORDER.indexOf(harnessGroup(a.f.harness)) - HARNESS_ORDER.indexOf(harnessGroup(b.f.harness)) : 0;
       if (h) return h;
       const c = (catRank.get(a.f.category) ?? 99) - (catRank.get(b.f.category) ?? 99);
       if (c) return c;
@@ -143,18 +143,23 @@ export function tourOrder(features, categories) {
     .map((x) => x.f);
 }
 
-export function buildModel(catalog, overlay = {}) {
+// Each product gets its own model. Only Copilot Studio has harnesses; the other products group
+// their features by category, so the pages and the tour reuse the harness-group structure.
+export function buildModel(catalog, overlay = {}, product = TOUR_PRODUCT, label = null) {
   const problems = validateOverlay(overlay, catalog);
   if (problems.length) throw new Error(problems.join("\n"));
 
-  // The tour shows Copilot Studio screens, so it lists only that product's features. Every feature still
-  // carries its product, so a tour for another product can reuse this model.
-  const inTour = (f) => (f.product ?? TOUR_PRODUCT) === TOUR_PRODUCT;
+  const hasHarnesses = product === TOUR_PRODUCT;
+  const inTour = (f) => (f.product ?? TOUR_PRODUCT) === product;
+  const productFeatures = catalog.features.filter(inTour);
   const categories = catalog.categories
-    .filter((c) => !Array.isArray(c.products) || c.products.includes(TOUR_PRODUCT))
+    .filter((c) => !Array.isArray(c.products) || c.products.includes(product))
     .map((c) => ({ id: c.id, name: c.name, icon: c.icon, description: c.description }));
+  for (const f of productFeatures) {
+    if (!categories.some((c) => c.id === f.category)) categories.push({ id: f.category, name: f.category, description: "" });
+  }
   const byId = new Map(catalog.features.map((f) => [f.id, f]));
-  const ordered = tourOrder(catalog.features.filter(inTour), categories);
+  const ordered = tourOrder(productFeatures, categories, hasHarnesses);
 
   const features = ordered.map((f, i) => {
     const extra = overlay.features?.[f.id] ?? {};
@@ -170,10 +175,10 @@ export function buildModel(catalog, overlay = {}) {
       id: f.id,
       order: i + 1,
       name: f.name,
-      product: TOUR_PRODUCT,
+      product,
       category: f.category,
-      harness: [...f.harness],
-      harnessGroup: harnessGroup(f.harness),
+      harness: hasHarnesses ? [...f.harness] : [],
+      harnessGroup: hasHarnesses ? harnessGroup(f.harness) : f.category,
       level: f.level,
       levelLabel: LEVELS[f.level]?.label ?? String(f.level),
       availability,
@@ -193,9 +198,15 @@ export function buildModel(catalog, overlay = {}) {
     };
   });
 
+  const groups = hasHarnesses
+    ? HARNESS_ORDER.map((id) => HARNESS_GROUPS[id])
+    : categories.map((c) => ({ id: c.id, name: c.name, short: c.name, description: c.description }));
   return {
     product: catalog.product,
-    harnesses: HARNESS_ORDER.map((id) => HARNESS_GROUPS[id]),
+    productId: product,
+    productLabel: label ?? product,
+    hasHarnesses,
+    harnesses: groups,
     categories,
     levels: Object.values(LEVELS),
     availability: Object.values(AVAILABILITY),

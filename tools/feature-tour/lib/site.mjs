@@ -3,7 +3,7 @@
 
 import { inspectScreenshot } from "./screenshots.mjs";
 
-export function assemble(model, shotList, screenshotsDir) {
+export function assemble(model, shotList, screenshotsDir, { shotsPrefix = "" } = {}) {
   const byFeature = new Map();
   for (const shot of shotList.shots) {
     if (!byFeature.has(shot.feature)) byFeature.set(shot.feature, []);
@@ -18,12 +18,13 @@ export function assemble(model, shotList, screenshotsDir) {
         id: shot.id,
         filename: shot.filename,
         caption: shot.caption,
+        alt: shot.alt ?? null,
         section: shot.section,
         navHint: shot.navHint,
         instructions: shot.instructions,
         status: info.status,
         reason: info.reason ?? null,
-        src: ready ? `screenshots/${shot.filename}` : null,
+        src: ready ? `${shotsPrefix}screenshots/${shot.filename}` : null,
         width: ready ? info.width : null,
         height: ready ? info.height : null,
         callouts: shot.callouts.map((c) => ({

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
+import zlib from "node:zlib";
 import { getFeatures, validateCatalog } from "../lib/lab-builder/catalog.js";
 import { decorateGeneratedHtml, resolveGeneratedAsset } from "../lib/lab-builder/generated-labs.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
@@ -25,6 +25,44 @@ const tmp = (t) => {
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   return dir;
 };
+
+// These tests assume no screenshot has been captured. Point the captured-screenshots folder at an
+// empty one so real captures committed under docs/feature-tour/screenshots never change the results.
+const NO_CAPTURES = mkdtempSync(join(tmpdir(), "lab-shots-none-"));
+process.env.FEATURE_TOUR_SCREENSHOTS_DIR = NO_CAPTURES;
+
+// A valid, incompressible PNG above the 5 KB "real screenshot" bar. A test fixture only.
+function fixturePng(width = 120, height = 80) {
+  const chunk = (type, data) => {
+    const body = Buffer.concat([Buffer.from(type, "latin1"), data]);
+    const out = Buffer.alloc(8 + data.length + 4);
+    out.writeUInt32BE(data.length, 0);
+    body.copy(out, 4);
+    out.writeUInt32BE(zlib.crc32(body) >>> 0, 8 + data.length);
+    return out;
+  };
+  const rows = [];
+  let seed = 4242;
+  for (let y = 0; y < height; y += 1) {
+    const row = Buffer.alloc(1 + width * 3);
+    for (let i = 1; i < row.length; i += 1) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      row[i] = seed >> 16;
+    }
+    rows.push(row);
+  }
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", zlib.deflateSync(Buffer.concat(rows))),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
 
 test("every slot has specific alt text, a caption, and a kind, and the catalog stays valid", () => {
   assert.deepEqual(validateCatalog(), []);
@@ -179,4 +217,74 @@ test("the asset route only serves real images inside a generated lab", (t) => {
   assert.equal(resolveGeneratedAsset(root, "../lab-one", "a.png").status, 400);
   assert.equal(resolveGeneratedAsset(root, "lab-one", "missing.png").status, 404);
   assert.equal(existsSync(join(root, "secret.png")), true);
+});
+
+test("a captured screenshot is copied into a generated lab for any product, and uncaptured slots keep the placeholder", async (t) => {
+  const captured = tmp(t);
+  const plan = planLab({ products: ["sharepoint-ai"], level: 100, features: ["spai-build-agent-sharepoint-content"], harness: "standard" });
+  const slots = planScreenshots(plan, { labsDir: join(tmpdir(), "no-such-labs"), capturedDir: captured });
+  assert.ok(slots.shots.length >= 2, "the feature has more than one slot");
+  assert.ok(slots.shots.every((s) => s.status === "pending"), "nothing captured yet");
+
+  const [first, second] = slots.shots;
+  const png = fixturePng();
+  writeFileSync(join(captured, first.filename), png);
+  writeFileSync(join(captured, second.filename), readFileSync(PLACEHOLDER_PATH));
+
+  const result = planScreenshots(plan, { labsDir: join(tmpdir(), "no-such-labs"), capturedDir: captured });
+  assert.equal(result.shots[0].status, "captured");
+  assert.equal(result.shots[1].status, "pending", "a stub under the 5 KB bar is still pending");
+  assert.deepEqual(result.copies.map((c) => c.filename), [first.filename]);
+  assert.deepEqual(result.placeholders.map((p) => p.filename), result.shots.slice(1).map((s) => s.filename));
+  assert.equal(result.shots[0].alt, first.alt, "alt text does not change when the image arrives");
+  assert.equal(result.shots[0].caption, first.caption);
+
+  process.env.FEATURE_TOUR_SCREENSHOTS_DIR = captured;
+  try {
+    const outputRoot = tmp(t);
+    const lab = await generateLab(
+      { products: ["sharepoint-ai"], level: 100, features: ["spai-build-agent-sharepoint-content"], harness: "standard" },
+      { outputRoot, useLearnMcp: false, useLlm: false },
+    );
+    const assets = join(lab.outputDir, "assets");
+    assert.deepEqual(readFileSync(join(assets, first.filename)), png);
+    assert.ok(statSync(join(assets, second.filename)).size < MIN_CAPTURED_BYTES);
+    assert.equal(lab.manifest.screenshots.captured, 1);
+    assert.equal(lab.manifest.screenshots.pending, slots.shots.length - 1);
+    assert.equal(lab.manifest.screenshots.total, lab.manifest.screenshots.reused + slots.shots.length);
+
+    const md = readFileSync(join(lab.outputDir, "index.md"), "utf8");
+    assert.match(md, new RegExp(`\\]\\(assets/${first.filename.replace(/\./g, "\\.")}\\)`), "the Markdown still points at the same filename");
+    const shotsJson = JSON.parse(readFileSync(join(lab.outputDir, "shots.json"), "utf8"));
+    assert.deepEqual(shotsJson.shots.map((s) => s.status), ["captured", ...slots.shots.slice(1).map(() => "pending")]);
+    const list = readFileSync(join(lab.outputDir, "SHOTLIST.md"), "utf8");
+    assert.doesNotMatch(list, new RegExp(`assets/${first.filename.replace(/\./g, "\\.")}`), "a captured slot is not on the to-do list");
+    assert.match(list, /1 already captured/);
+  } finally {
+    process.env.FEATURE_TOUR_SCREENSHOTS_DIR = NO_CAPTURES;
+  }
+});
+
+test("a previewed lab that still holds a placeholder shows the captured image instead of the pending note", (t) => {
+  const root = tmp(t);
+  const captured = tmp(t);
+  const labDir = join(root, "my-lab");
+  mkdirSync(join(labDir, "assets"), { recursive: true });
+  writeFileSync(join(labDir, "manifest.json"), "{}");
+  writeFileSync(join(labDir, "assets", "later.png"), readFileSync(PLACEHOLDER_PATH));
+  writeFileSync(join(labDir, "assets", "still-pending.png"), readFileSync(PLACEHOLDER_PATH));
+  const html = '<img src="assets/later.png" alt="Captured later"><img src="assets/still-pending.png" alt="Not yet">';
+
+  assert.deepEqual(decorateGeneratedHtml(html, "my-lab", labDir, { capturedDir: captured }).pending, ["later.png", "still-pending.png"]);
+
+  const png = fixturePng();
+  writeFileSync(join(captured, "later.png"), png);
+  assert.deepEqual(decorateGeneratedHtml(html, "my-lab", labDir, { capturedDir: captured }).pending, ["still-pending.png"]);
+  const served = resolveGeneratedAsset(root, "my-lab", "later.png", { capturedDir: captured });
+  assert.equal(served.status, 200);
+  assert.deepEqual(readFileSync(served.path), png);
+  assert.equal(resolveGeneratedAsset(root, "my-lab", "still-pending.png", { capturedDir: captured }).path, join(labDir, "assets", "still-pending.png"));
+
+  // A lab that does not exist cannot be used to read captured images.
+  assert.equal(resolveGeneratedAsset(root, "no-such-lab", "later.png", { capturedDir: captured }).status, 404);
 });

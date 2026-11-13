@@ -9,7 +9,8 @@
     "list": "node capture.js --list",
     "capture:features": "node capture.js --features",
     "list:features": "node capture.js --features --list",
-    "verify:features": "node verify-shots.js --lab=feature-tour --missing",
+    "status": "node status.mjs",
+    "verify:features": "node verify-shots.js --features --missing",
     "verify": "node verify-shots.js"
   },
   "dependencies": {

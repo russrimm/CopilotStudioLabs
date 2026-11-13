@@ -1066,7 +1066,15 @@ screenshot a well-written lab would show gets a slot instead:
   Markdown never has to change. The portal preview reads the files on disk each
   time and adds a visible "Screenshot pending." note after every image that is
   still a placeholder.
-- **Shot list.** `shots.json` carries one entry per pending slot (numeric `id`,
+- **Captured slots.** Screenshots captured for the feature tour (all six products)
+  land in `docs/feature-tour/screenshots/` under the catalog's filenames. When a
+  slot's file exists there as a real image (5 KB or more, the right file type), the
+  generator copies it into the lab's `assets/` folder instead of the placeholder, marks
+  the slot `captured` in `shots.json`, and leaves it off `SHOTLIST.md`; every other
+  slot keeps the placeholder. Markdown, alt text, and caption are identical either
+  way. The portal preview also serves a captured image for a lab generated earlier
+  that still holds a placeholder. `FEATURE_TOUR_SCREENSHOTS_DIR` points at another
+  folder. See [Feature tour site](feature-tour.md).- **Shot list.** `shots.json` carries one entry per pending slot (numeric `id`,
   `filename`, `section`, `instructions`, plus `alt`, `caption`, `kind`, `figure`,
   and `status`), and `SHOTLIST.md` lists the same for a human.
 

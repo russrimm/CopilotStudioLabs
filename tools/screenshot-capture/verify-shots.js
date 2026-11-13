@@ -3,11 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkFeatureShots } from './feature-shots-check.mjs';
+import { listFeatureManifests } from './manifests.mjs';
 
 const FEATURE_TOUR_LAB = 'feature-tour';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const repoRoot = path.resolve(__dirname, '..', '..');
+// --root=<dir> checks another repo layout (tests use it); the default is this repository.
+const rootArg = process.argv.slice(2).find((arg) => arg.startsWith('--root='));
+const repoRoot = rootArg ? path.resolve(rootArg.slice('--root='.length)) : path.resolve(__dirname, '..', '..');
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp']);
 const ORPHAN_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
@@ -23,7 +26,13 @@ const checkState = args.includes('--check-state');
 const strictMissing = args.includes('--strict-missing');
 const listMissing = args.includes('--missing');
 const labArg = args.find((arg) => arg.startsWith('--lab='));
-const scopedLab = labArg ? labArg.slice('--lab='.length) : null;
+const productArg = args.find((arg) => arg.startsWith('--product='));
+const featuresOnly = args.includes('--features');
+const labValue = labArg ? labArg.slice('--lab='.length) : null;
+// --product=<id>, --features, and --lab=feature-tour[-<id>] check only the feature tour shot lists.
+let productFilter = productArg ? productArg.slice('--product='.length) : null;
+if (labValue && labValue.startsWith(FEATURE_TOUR_LAB + '-') && !productFilter) productFilter = labValue.slice(FEATURE_TOUR_LAB.length + 1);
+const scopedLab = productFilter || featuresOnly ? FEATURE_TOUR_LAB : (labValue && labValue.startsWith(FEATURE_TOUR_LAB + '-') ? FEATURE_TOUR_LAB : labValue);
 
 const LAB04_PLACEHOLDER_LAB = '06-energy-weather-agent';
 const LAB04_PLACEHOLDER_SIZE_DENYLIST = new Set([
@@ -35,6 +44,7 @@ const report = {
   ok: true,
   strict,
   scopedLab,
+  product: productFilter,
   root: repoRoot,
   summary: { critical: 0, warning: 0, labs: 0, shotFiles: 0 },
   labs: {},
@@ -363,25 +373,42 @@ for (const [lab, catalogs] of catalogsByLab.entries()) {
 }
 
 if (!scopedLab || scopedLab === FEATURE_TOUR_LAB) {
-  const featureResult = checkFeatureShots({
-    repoRoot,
-    manifestPath: path.join(repoRoot, 'tools', 'screenshot-capture', 'feature-shots.json'),
-    strictMissing
-  });
-  ensureLab(FEATURE_TOUR_LAB).shotFiles.push(featureResult.file);
-  ensureLab(FEATURE_TOUR_LAB).assetsDir = 'docs/feature-tour/screenshots';
-  for (const finding of featureResult.findings) {
-    const { severity, code, message, ...details } = finding;
-    addFinding(FEATURE_TOUR_LAB, severity, code, message, details);
+  const entries = listFeatureManifests(path.join(repoRoot, 'tools', 'screenshot-capture'));
+  if (productFilter && !entries.some((entry) => entry.product === productFilter)) {
+    process.stderr.write(`Unknown product "${productFilter}". Products with a shot list: ${entries.map((entry) => entry.product).join(', ')}.\n`);
+    process.exit(2);
   }
-  report.shotFiles.push({ file: featureResult.file, lab: FEATURE_TOUR_LAB, valid: featureResult.findings.every((f) => f.severity !== 'critical'), shots: [] });
+  const knownFilenames = new Set(
+    entries.flatMap((entry) => (Array.isArray(entry.manifest?.shots) ? entry.manifest.shots : []).map((shot) => shot?.filename).filter(isNonEmptyString))
+  );
+  const selected = entries.filter((entry) => !productFilter || entry.product === productFilter);
+  report.featureTour = { total: 0, captured: 0, pending: 0, missing: [], products: {} };
+  for (const entry of selected) {
+    const featureResult = checkFeatureShots({ repoRoot, manifestPath: entry.path, strictMissing, knownFilenames });
+    const labId = entry.manifest?.lab && /^[a-z0-9-]+$/i.test(entry.manifest.lab) ? entry.manifest.lab : FEATURE_TOUR_LAB;
+    ensureLab(labId).shotFiles.push(featureResult.file);
+    ensureLab(labId).assetsDir = 'docs/feature-tour/screenshots';
+    for (const finding of featureResult.findings) {
+      const { severity, code, message, ...details } = finding;
+      addFinding(labId, severity, code, message, details);
+    }
+    report.shotFiles.push({ file: featureResult.file, lab: labId, product: entry.product, valid: featureResult.findings.every((f) => f.severity !== 'critical'), shots: [] });
+    report.featureTour.total += featureResult.total;
+    report.featureTour.captured += featureResult.captured;
+    report.featureTour.pending += featureResult.missing.length;
+    report.featureTour.missing.push(...featureResult.missing.map((item) => ({ ...item, product: entry.product })));
+    report.featureTour.products[entry.product] = {
+      lab: labId,
+      file: featureResult.file,
+      total: featureResult.total,
+      captured: featureResult.captured,
+      pending: featureResult.missing.length
+    };
+  }
+  if (!productFilter && selected.length === 0) {
+    addFinding(FEATURE_TOUR_LAB, 'critical', 'feature-shots-missing-file', 'No feature-shots*.json found in tools/screenshot-capture. Run npm run feature-tour:build.');
+  }
   report.summary.shotFiles = report.shotFiles.length;
-  report.featureTour = {
-    total: featureResult.total,
-    captured: featureResult.captured,
-    pending: featureResult.missing.length,
-    missing: featureResult.missing
-  };
 }
 
 report.summary.labs = Object.keys(report.labs).filter((lab) => lab !== 'repo').length;
@@ -403,8 +430,11 @@ function printHumanReport() {
   if (report.featureTour) {
     const ft = report.featureTour;
     console.log(`Feature tour screenshots: ${ft.captured} of ${ft.total} captured, ${ft.pending} pending${listMissing ? '' : ' (run with --missing to list them)'}`);
+    for (const [product, p] of Object.entries(ft.products)) {
+      console.log(`  ${product}: ${p.captured} of ${p.total} captured, ${p.pending} pending`);
+    }
     if (listMissing) {
-      for (const item of ft.missing) console.log(`  pending #${item.id} ${item.filename} (${item.feature})`);
+      for (const item of ft.missing) console.log(`  pending ${item.product} #${item.id} ${item.filename} (${item.feature})${item.manual ? ' [manual]' : ''}`);
     }
   }
   const labs = Object.keys(report.labs).sort();

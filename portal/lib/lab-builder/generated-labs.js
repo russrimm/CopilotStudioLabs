@@ -13,6 +13,7 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { escapeMarkdown, scrubForbidden } from "./composer.js";
+import { capturedImage, capturedScreenshotsDir } from "./captured.js";
 
 const LAB_ID = /^[a-z0-9-]{1,100}$/i;
 export const MAX_TITLE_LENGTH = 160;
@@ -30,11 +31,13 @@ const MIN_CAPTURED_BYTES = 5 * 1024;
  *
  * A lab's Markdown never changes when a screenshot is captured, so whether an
  * image is still a placeholder is decided here from the file on disk each time
- * the lab is read. The note is visible text, not color, so it reaches everyone.
+ * the lab is read. A slot still holding the placeholder counts as captured when
+ * the feature tour has a real screenshot under the same name, and the asset route
+ * serves that image. The note is visible text, not color, so it reaches everyone.
  *
  * @returns {{html: string, pending: string[]}}
  */
-export function decorateGeneratedHtml(html, labId, labDir) {
+export function decorateGeneratedHtml(html, labId, labDir, { capturedDir = capturedScreenshotsDir() } = {}) {
   const pending = [];
   const decorated = String(html).replace(/<img\b[^>]*>/gi, (tag) => {
     const src = tag.match(/\bsrc="assets\/([^"]+)"/i);
@@ -47,7 +50,7 @@ export function decorateGeneratedHtml(html, labId, labDir) {
     } catch {
       /* a missing file is pending too */
     }
-    if (size >= MIN_CAPTURED_BYTES) return next;
+    if (size >= MIN_CAPTURED_BYTES || capturedImage(capturedDir, name)) return next;
     pending.push(name);
     return `${next}<br><strong class="shot-pending">Screenshot pending.</strong> The image will appear here once it is captured.`;
   });
@@ -55,19 +58,31 @@ export function decorateGeneratedHtml(html, labId, labDir) {
 }
 
 /**
- * Resolve one image inside a generated lab's assets folder.
+ * Resolve one image inside a generated lab's assets folder. When the lab still
+ * holds a placeholder (or no file) for it, a captured feature tour screenshot
+ * with the same name is served instead.
  *
  * @returns {{status: number, path?: string, type?: string, error?: string}}
  */
-export function resolveGeneratedAsset(rootDir, rawId, rawName) {
+export function resolveGeneratedAsset(rootDir, rawId, rawName, { capturedDir = capturedScreenshotsDir() } = {}) {
   const labId = String(rawId);
   const name = String(rawName);
   if (!LAB_ID.test(labId) || !ASSET_NAME.test(name)) return { status: 400, error: "Invalid asset" };
+  const type = CONTENT_TYPES[name.split(".").pop().toLowerCase()];
   const assetsDir = resolve(resolve(rootDir), labId, "assets");
   const file = resolve(assetsDir, name);
   const rel = relative(assetsDir, file);
-  if (!rel || rel.startsWith("..") || isAbsolute(rel) || !existsSync(file)) return { status: 404, error: "Asset not found" };
-  return { status: 200, path: file, type: CONTENT_TYPES[name.split(".").pop().toLowerCase()] };
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return { status: 404, error: "Asset not found" };
+  let size = 0;
+  try {
+    size = statSync(file).size;
+  } catch {
+    /* fall through to the captured image */
+  }
+  if (size >= MIN_CAPTURED_BYTES) return { status: 200, path: file, type };
+  const captured = existsSync(join(resolve(rootDir), labId, "manifest.json")) ? capturedImage(capturedDir, name) : null;
+  if (captured) return { status: 200, path: captured.file, type };
+  return existsSync(file) ? { status: 200, path: file, type } : { status: 404, error: "Asset not found" };
 }
 
 function textList(value) {

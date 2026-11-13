@@ -423,7 +423,7 @@ if (synthesizeSteps) {
 }
 console.log(`Narrative   ${result.manifest.llm.label || result.manifest.llm.reason}`);
 console.log(
-  `Screenshots ${result.manifest.screenshots.reused} reused from existing labs, ${result.manifest.screenshots.toCapture} listed in shots.json for capture`,
+  `Screenshots ${result.manifest.screenshots.reused} reused from existing labs, ${result.manifest.screenshots.captured} copied from captured feature tour screenshots, ${result.manifest.screenshots.toCapture} still pending (listed in shots.json for capture)`,
 );
 
 for (const decision of result.decisionLog) {
