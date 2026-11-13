@@ -1,14 +1,81 @@
 {
-  "$comment": "Seed catalog for Microsoft Foundry, grounded on Microsoft Learn, features verified 2026-11-13.",
+  "$comment": "Catalog for Microsoft Foundry, grounded on Microsoft Learn (/azure/foundry/ and /azure/foundry-classic/). Each feature's lastVerified is the day its verifiedAgainst page was fetched. Screenshot slots use the pending-screenshot convention: alt text, caption, and kind live in screenshot-slots.json.",
   "product": "ai-foundry",
   "categories": [
     {
       "id": "foundry-platform",
       "name": "Foundry platform",
-      "description": "Projects, hubs, model deployment, agents, guardrails, and access control in Microsoft Foundry."
+      "description": "Projects, hubs, guardrails, and access control in Microsoft Foundry."
+    },
+    {
+      "id": "foundry-models",
+      "name": "Models and capacity",
+      "description": "The model catalog, deployments, the playground, quota, and costs in Microsoft Foundry."
+    },
+    {
+      "id": "foundry-agents",
+      "name": "Agents, tools, and knowledge",
+      "description": "Foundry Agent Service: prompt and hosted agents, toolboxes, and grounding on your data."
+    },
+    {
+      "id": "foundry-operate",
+      "name": "Evaluate, monitor, and publish",
+      "description": "Evaluation, tracing, monitoring, publishing to Microsoft Copilot and Teams, and connecting Foundry agents to Copilot Studio."
     }
   ],
   "features": [
+    {
+      "id": "fdy-orient-foundry",
+      "name": "Orient yourself in Microsoft Foundry",
+      "category": "foundry-platform",
+      "level": 100,
+      "minutes": 15,
+      "availability": "ga",
+      "summary": "Sign in to Microsoft Foundry, tell the new portal from the classic portal, and decide whether your first build is a prompt agent, a hosted agent, or a direct model call.",
+      "whyItMatters": "Microsoft Foundry renamed and merged several earlier products, and it has two portals and two project types. Knowing which portal and project type a lab uses keeps you from following instructions that do not match what you see on screen.",
+      "concepts": [
+        "Microsoft Foundry is the current name. Learn lists Azure AI Studio and Azure AI Foundry as the previous brand, and Foundry (classic) as the previous portal. Hub-based projects are reached in the Foundry (classic) portal, and Learn says new investments are focused on Foundry projects in the new portal.",
+        "Learn describes three things you can build: agents (declarative prompt agents, voice-based prompt agents, and hosted agents that run your own code), models (more than 10,000 from the Foundry Models catalog), and tools and knowledge (through a Foundry Toolbox).",
+        "The new Foundry portal is generally available for Foundry projects. Learn's feature readiness table lists some areas as preview, such as monitoring, memory, and agent guardrails, so check each feature's status before you rely on it in production.",
+        "Learn says the platform is free to explore and that you pay for the services you use. Role and subscription needs differ by lab, and each lab lists them in its own prerequisites."
+      ],
+      "steps": [
+        "Sign in to Microsoft Foundry at https://ai.azure.com with the Azure account you will use for the labs.",
+        "Make sure the **New Foundry** toggle is on. These labs, unless they say otherwise, use **Foundry (new)** and Foundry projects.",
+        "Find the project name in the upper-left corner. If you have no project yet, you create one in the next lab.",
+        "Read the **What you can build** table in What is Microsoft Foundry? and note the three capabilities: **Agents**, **Models**, and **Tools and knowledge**.",
+        "Read the **Start by building an agent** section and decide your first build: a **prompt agent** (declarative, hosted by Foundry), a **hosted agent** (your own code in a container), or a single model call with no tools.",
+        "Open the **Evolution of Foundry** table and write down the current term for each previous term you know, for example Azure AI Foundry to Microsoft Foundry and Assistants API to Responses API.",
+        "Toggle **New Foundry** off to see the **Foundry (classic)** portal, note that hub-based projects live there, then turn the toggle back on."
+      ],
+      "validation": [
+        "You can state the difference between a Foundry project (new portal, built on a Foundry resource) and a hub-based project (Foundry (classic) portal).",
+        "You can name which build path (prompt agent, hosted agent, or model call) fits a scenario you care about."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-orient-new-foundry-toggle.png",
+          "section": "home",
+          "instructions": [
+            "Open https://ai.azure.com signed in.",
+            "Show the **New Foundry** toggle in its on position and the project name in the upper-left corner."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "What is Microsoft Foundry",
+        "Foundry new portal vs Foundry classic"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/what-is-foundry",
+        "https://learn.microsoft.com/azure/foundry/concepts/general-availability",
+        "https://learn.microsoft.com/azure/foundry-classic/what-is-foundry"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/what-is-foundry",
+      "prereqs": [],
+      "relatedLabs": []
+    },
     {
       "id": "fdy-create-foundry-project",
       "name": "Create a Foundry project",
@@ -20,7 +87,8 @@
       "concepts": [
         "A Foundry project is a child of a Foundry resource. The portal creates the resource automatically when you create the first project, and extra projects can share the same resource.",
         "Projects can have their own access controls but share settings such as network security, deployments, and tool integration from the parent resource.",
-        "This procedure is for Foundry projects only. Hub-based projects use a hub and are created differently; see the hub-based project feature in this file."
+        "This procedure is for Foundry projects only. Hub-based projects use a hub and are created differently; see the hub-based project feature in this file.",
+        "Creating a project needs an Azure subscription and a role that can create a Foundry resource, such as Foundry Account Owner or Foundry Owner. Per the Foundry (classic) overview, the platform is free to explore and pricing occurs at the deployment level, so a project on its own is not the cost driver."
       ],
       "steps": [
         "Confirm you have an Azure subscription and a role that can create a Foundry resource, such as **Foundry Account Owner** or **Foundry Owner**.",
@@ -34,6 +102,24 @@
       "validation": [
         "The project overview page appears and the project name shows in the upper-left corner.",
         "The project **Home** page shows a project endpoint in the form https://<resource-name>.services.ai.azure.com/api/projects/<project-name>."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-project-create-dialog.png",
+          "section": "home",
+          "instructions": [
+            "Select the project name in the upper-left corner, then **Create new project**.",
+            "Show the project name box and **Create project** button, with **Advanced options** visible."
+          ]
+        },
+        {
+          "filename": "fdy-project-endpoint.png",
+          "section": "home",
+          "instructions": [
+            "Open the new project's **Home** page.",
+            "Show the project endpoint. Blur or replace the real resource and project names before you save the image."
+          ]
+        }
       ],
       "learnQueries": [
         "Create a project for Microsoft Foundry",
@@ -50,17 +136,80 @@
       "relatedLabs": []
     },
     {
-      "id": "fdy-deploy-test-model",
-      "name": "Deploy a model and test it in the playground",
-      "category": "foundry-platform",
+      "id": "fdy-explore-model-catalog",
+      "name": "Explore the model catalog and choose a model",
+      "category": "foundry-models",
       "level": 100,
       "minutes": 20,
+      "availability": "ga",
+      "summary": "Search and filter the Foundry model catalog, read a model card, and decide between a model sold by Azure and a model from partners and community.",
+      "whyItMatters": "The model you pick sets support, billing, deployment options, and which regions you can use. Reading the model card before you deploy avoids quota, region, and marketplace surprises later.",
+      "concepts": [
+        "Learn splits Foundry Models into two groups. Models sold by Azure are hosted and sold by Microsoft, with Microsoft support and enterprise SLAs. Models from partners and community come from other providers, who support them, and they need an Azure Marketplace subscription before you deploy.",
+        "Partner and community models are deployed as managed compute or as serverless deployments, and the provider chooses which. Learn says models deployable on managed compute, such as Hugging Face models, need a hub-based project in the Foundry (classic) portal.",
+        "Learn lists catalog filters such as Collections, Region, Deployment options, Deployment SKU, Lifecycle, Industry, Supported features, and Inference tasks. The exact filter layout in the new portal: Not confirmed in Microsoft Learn.",
+        "Learn lists Discover > Model as generally available, and lists Instant Access Models and Model leaderboards as preview. Instant access lets you call supported models by name without creating a deployment."
+      ],
+      "steps": [
+        "Open your Foundry project at https://ai.azure.com with the **New Foundry** toggle on.",
+        "Go to **Build** > **Catalog** > **Model Catalog**.",
+        "Search by keyword, then narrow the list with the catalog filters, for example by provider collection, deployment option, or supported features.",
+        "Select **View leaderboard** or **Compare models** to look at benchmark metrics for the models that have them.",
+        "Select a model and review the **Quick facts**, then open the **Details**, **Deployments**, **Benchmarks**, and **License** tabs on its model card.",
+        "Decide whether the model is sold by Azure or comes from partners and community, and note the support and Azure Marketplace implications for your choice.",
+        "If a model you need is missing, search for it by name and select **Request a model** to ask Microsoft to add it."
+      ],
+      "validation": [
+        "You can state who supports the model you chose and whether deploying it needs an Azure Marketplace subscription.",
+        "You can name at least two filters you used to narrow the catalog and one model card tab you read."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-catalog-search-filters.png",
+          "section": "catalog",
+          "instructions": [
+            "Open **Build** > **Catalog** > **Model Catalog**.",
+            "Show the search box and the filter controls with at least one filter applied."
+          ]
+        },
+        {
+          "filename": "fdy-catalog-model-card.png",
+          "section": "catalog",
+          "instructions": [
+            "Open the model card for one model.",
+            "Show the **Details**, **Deployments**, **Benchmarks**, and **License** tabs and the **Deploy** button."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Overview of Microsoft Foundry Models",
+        "Foundry model catalog filters and model card"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/concepts/foundry-models-overview",
+        "https://learn.microsoft.com/azure/foundry/foundry-models/how-to/deploy-foundry-models",
+        "https://learn.microsoft.com/azure/foundry/concepts/general-availability"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/concepts/foundry-models-overview",
+      "prereqs": ["fdy-create-foundry-project"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-deploy-test-model",
+      "name": "Deploy a model and test it in the playground",
+      "category": "foundry-models",
+      "level": 100,
+      "minutes": 20,
+      "availability": "ga",
       "summary": "Deploy a model from the Model Catalog into a Foundry project and try it in the playground.",
       "whyItMatters": "A deployment is what applications and agents call, so deploying and testing a model is the first checkpoint for any build. The playground lets you confirm behavior before writing code.",
       "concepts": [
         "This procedure is for Foundry projects in the new portal. You need a paid Azure subscription, the Cognitive Services Contributor role or equivalent on the Foundry resource, and a Foundry project.",
         "Models from partners and community require an Azure Marketplace subscription and the permissions to create one; Foundry Models sold by Azure do not.",
-        "For hub-based projects use the Foundry (classic) portal. The classic chat playground quickstart says it works with either project type and uses the model catalog, **Use this model**, and **Open in playground**. Full hub-based deployment options: Not confirmed in Microsoft Learn."
+        "For hub-based projects use the Foundry (classic) portal. The classic chat playground quickstart says it works with either project type and uses the model catalog, **Use this model**, and **Open in playground**. Full hub-based deployment options: Not confirmed in Microsoft Learn.",
+        "Deploying consumes quota that Azure assigns per subscription, region, and model in tokens per minute (TPM), and each deployment type has different data residency or throughput guarantees. If a deployment shows **Failed** or quota is exceeded, Learn says to confirm the region and quota, then request more quota or reallocate TPM; see the quota lab.",
+        "A deployment name is what you put in the `model` parameter at inference time. Learn describes the playground as the place to test prompts before you write code, and says playground evaluations in the agents playground are on by default and included in consumption-based billing."
       ],
       "steps": [
         "Sign in to Microsoft Foundry at https://ai.azure.com and make sure the **New Foundry** toggle is on.",
@@ -76,6 +225,24 @@
         "The deployment status shows **Succeeded** in your deployment list (**Build** > **Models**).",
         "A prompt sent in the playground returns a model response."
       ],
+      "screenshots": [
+        {
+          "filename": "fdy-deploy-model-settings.png",
+          "section": "catalog",
+          "instructions": [
+            "From a model card, select **Deploy** > **Custom settings**.",
+            "Show the deployment name and the deployment settings before you select **Deploy**."
+          ]
+        },
+        {
+          "filename": "fdy-deploy-playground-response.png",
+          "section": "playground",
+          "instructions": [
+            "After deployment completes, send a short prompt in the playground.",
+            "Show the prompt, the model response, and the **Code** tab."
+          ]
+        }
+      ],
       "learnQueries": [
         "Deploy Microsoft Foundry Models in the Foundry portal",
         "Foundry playground chat quickstart"
@@ -83,7 +250,8 @@
       "docUrls": [
         "https://learn.microsoft.com/azure/foundry/foundry-models/how-to/deploy-foundry-models",
         "https://learn.microsoft.com/azure/foundry-classic/quickstarts/get-started-playground",
-        "https://learn.microsoft.com/azure/foundry/tutorials/quickstart-create-foundry-resources"
+        "https://learn.microsoft.com/azure/foundry/tutorials/quickstart-create-foundry-resources",
+        "https://learn.microsoft.com/azure/foundry/concepts/concept-playgrounds"
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/foundry-models/how-to/deploy-foundry-models",
@@ -117,6 +285,24 @@
         "The project breadcrumb shows **(Hub)** on its second line, which identifies a hub-based project.",
         "The project appears under the hub, and the **Overview** page shows the project name, subscription, and resource group."
       ],
+      "screenshots": [
+        {
+          "filename": "fdy-hub-create-azure-portal.png",
+          "section": "azure-portal",
+          "instructions": [
+            "In the Azure portal, open **AI Hubs** and select **+ Create** > **Hub**.",
+            "Show the hub name, resource group, location, and **Azure AI services base models** fields."
+          ]
+        },
+        {
+          "filename": "fdy-hub-project-breadcrumb.png",
+          "section": "classic-portal",
+          "instructions": [
+            "Open the new hub-based project in the Foundry (classic) portal.",
+            "Show the project breadcrumb with **(Hub)** on its second line and the **Overview** page."
+          ]
+        }
+      ],
       "learnQueries": [
         "Create a hub project for Microsoft Foundry classic",
         "Foundry hub resources overview hub-based projects"
@@ -135,7 +321,7 @@
     {
       "id": "fdy-create-prompt-agent",
       "name": "Create a prompt agent with Foundry Agent Service",
-      "category": "foundry-platform",
+      "category": "foundry-agents",
       "level": 200,
       "minutes": 30,
       "summary": "Create a declarative prompt agent from a deployed model and instructions, then chat with it across two turns.",
@@ -159,6 +345,24 @@
         "The console prints the agent ID, name, and version after creation.",
         "The follow-up answer reflects the earlier question, showing the agent keeps conversation history."
       ],
+      "screenshots": [
+        {
+          "filename": "fdy-prompt-agent-console.png",
+          "section": "agents",
+          "instructions": [
+            "Run the quickstart script in a terminal.",
+            "Show the printed agent ID, name, and version, and the follow-up answer that reflects the first question."
+          ]
+        },
+        {
+          "filename": "fdy-agents-list.png",
+          "section": "agents",
+          "instructions": [
+            "In the Foundry portal, go to **Build** > **Agents**.",
+            "Show the new agent in the list."
+          ]
+        }
+      ],
       "learnQueries": [
         "Quickstart create a prompt agent Foundry Agent Service",
         "Foundry prompt agent vs hosted agent"
@@ -175,16 +379,498 @@
       "relatedLabs": []
     },
     {
+      "id": "fdy-manage-quota",
+      "name": "View and request model quota",
+      "category": "foundry-models",
+      "level": 200,
+      "minutes": 20,
+      "availability": "ga",
+      "summary": "Open the Quota pane in Microsoft Foundry, read token-per-minute allocations for your deployments, free up unused quota, and request an increase.",
+      "whyItMatters": "Every model deployment draws on quota, and a deployment fails or throttles when quota runs out. Knowing where quota lives and who can change it turns a blocked deployment into a five-minute fix.",
+      "concepts": [
+        "Azure assigns quota per subscription, per region, and per model in tokens per minute (TPM). Standard and Provisioned deployment types have different mechanics, so the **Quota** pane has a **Token per minute** tab and a **Provisioned throughput unit** tab.",
+        "Roles differ by task. Viewing allocations needs the Cognitive Services Usages Reader role at the subscription scope. Requesting an increase needs Owner or Contributor on the subscription. Editing allocations in the portal needs Cognitive Services Contributor combined with Cognitive Services Usages Reader.",
+        "Learn describes a shared quota pool for short-term testing of catalog models, billed by usage. It says to use it only for temporary test endpoints and to request dedicated quota for production endpoints.",
+        "Models onboarded to subscription-level quota management show **Global** or **Data Zone** in the Scope column. Learn says Global Standard deployments of the same model and version then draw from a single shared pool across regions.",
+        "Changes can take up to 15 minutes to propagate. Not every model and region combination supports quota increases."
+      ],
+      "steps": [
+        "Confirm your roles: Cognitive Services Usages Reader at the subscription scope to view quota, and Owner or Contributor on the subscription to request more.",
+        "Sign in to Microsoft Foundry at https://ai.azure.com with the **New Foundry** toggle on and open your project.",
+        "Select **Manage** from the upper-right navigation, then select **Quota** in the left pane.",
+        "Use the **Token per minute** tab for standard deployments, or the **Provisioned throughput unit** tab for provisioned deployments.",
+        "Select a deployment in the list to open its details pane and review its quota allocation, usage, and affiliated deployments.",
+        "In **Affiliated deployments using shared quota**, select the pencil icon in the **Actions** column to free up unused quota or increase the allocation for a deployment.",
+        "Select **Request quota** in the upper-right corner to request an increase for the standard deployment type.",
+        "Wait up to 15 minutes, then refresh the **Quota** page to confirm the new allocation."
+      ],
+      "validation": [
+        "The **Quota** pane lists your deployments with their current allocation and usage.",
+        "After an edit or approved request, the refreshed pane shows the updated allocation."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-quota-pane.png",
+          "section": "manage",
+          "instructions": [
+            "Go to **Manage** > **Quota** and open the **Token per minute** tab.",
+            "Select a deployment so its details pane is open with the affiliated deployments table visible."
+          ]
+        },
+        {
+          "filename": "fdy-quota-request.png",
+          "section": "manage",
+          "instructions": [
+            "On the **Quota** pane, select **Request quota**.",
+            "Show the request form before you submit it."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Manage and increase quotas for resources with Microsoft Foundry",
+        "Foundry Models quotas and limits"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/how-to/quota",
+        "https://learn.microsoft.com/azure/foundry/foundry-models/how-to/deploy-foundry-models",
+        "https://learn.microsoft.com/azure/foundry/concepts/general-availability"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/how-to/quota",
+      "prereqs": ["fdy-deploy-test-model"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-manage-costs",
+      "name": "Estimate and track Foundry costs",
+      "category": "foundry-models",
+      "level": 200,
+      "minutes": 25,
+      "summary": "Estimate Foundry spend with the Azure pricing calculator, run a small test workload, and compare real meter charges to your estimate in Cost Management.",
+      "whyItMatters": "Foundry is billed through several Azure services, so spend is easy to misjudge. Reconciling an estimate with actual meters on a small test workload shows where the money goes before production traffic arrives.",
+      "concepts": [
+        "Learn says Foundry has no dedicated page in the Azure pricing calculator because it is composed of several optional Azure services. You add the services you plan to use, such as Azure Speech in Foundry, Azure Language in Foundry, or Azure AI Search.",
+        "Billing models include pay-as-you-go (serverless API) and commitment tiers. Model usage is token-based, and the billing unit and rate vary by model, deployment type, and meter.",
+        "Fine-tuned models are charged for training, hosting, and inference. Learn warns that fine-tuned deployments incur hosting charges while deployed, even with no traffic, so remove or scale down deployments you do not need.",
+        "To view cost data you need Cost Management Reader and, to see Foundry resource context, Foundry User, at the subscription or resource group scope. Cost and usage records can appear with a delay, so compare trends rather than minute-by-minute numbers.",
+        "Budget and alert setup beyond the guidance in the article: Not confirmed in Microsoft Learn."
+      ],
+      "steps": [
+        "Confirm you have Cost Management Reader and Foundry User at the subscription or resource group scope.",
+        "Go to the Azure pricing calculator at https://azure.microsoft.com/pricing/calculator/ and search for a product such as Azure Speech in Foundry or Azure Language in Foundry.",
+        "Add the other services in your architecture, for example Azure AI Search, and enter your expected usage to build an estimate.",
+        "Check that the models and services you need are available in your target regions before you deploy.",
+        "Deploy a small test workload and generate representative traffic.",
+        "In the Azure portal, open **Cost Management** at the same scope you used for the estimate and group costs by **Resource**, then by **Meter**.",
+        "Compare the observed meter charges to your estimate assumptions and record the variance by service.",
+        "Remove or scale down test resources that keep billing while idle, such as fine-tuned model deployments."
+      ],
+      "validation": [
+        "You can map each major assumption in your estimate to one or more observed billing meters.",
+        "You can explain any material variance between the estimate and the actual charges."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-costs-pricing-calculator.png",
+          "section": "azure-portal",
+          "instructions": [
+            "Open the Azure pricing calculator with two Foundry-related services added.",
+            "Show the estimate summary."
+          ]
+        },
+        {
+          "filename": "fdy-costs-by-meter.png",
+          "section": "azure-portal",
+          "instructions": [
+            "In Cost Management, group the cost analysis by **Resource** and then by **Meter**.",
+            "Show the meter-level breakdown for the Foundry resource."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Plan and manage costs for Microsoft Foundry",
+        "Foundry Models billing token-based pricing fine-tuned hosting"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/concepts/manage-costs",
+        "https://learn.microsoft.com/azure/foundry/concepts/planning"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/concepts/manage-costs",
+      "prereqs": ["fdy-deploy-test-model"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-agent-file-search",
+      "name": "Ground an agent on your files with file search",
+      "category": "foundry-agents",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Upload a document to a vector store, give a prompt agent the file search tool, and ask a question that only your file can answer.",
+      "whyItMatters": "File search is the quickest way to make an agent answer from your own documents instead of general model knowledge. Testing with a fact only your file contains proves the grounding works.",
+      "concepts": [
+        "File search ingests your files into a vector store, and the agent retrieves from it at run time. With the standard agent setup, Learn says your files stay in your own storage and your Azure AI Search resource ingests them.",
+        "You need a basic or standard agent environment, the Foundry User role on the project, and the Storage Blob Data Contributor role on the project's storage account to upload files.",
+        "Learn says file search has additional charges beyond the token-based fees for model usage.",
+        "Learn recommends adding file search through a toolbox for most agents. When you use file search through a toolbox in a hosted agent, Learn says user isolation is not supported, so all users in the project share access to the referenced vector stores.",
+        "Whether file search is GA or preview for your region and model: Not confirmed in Microsoft Learn. Learn's readiness table says to check the label on each tool."
+      ],
+      "steps": [
+        "Create a small text or Markdown file that contains a fact a model could not know, such as an invented product detail.",
+        "Confirm the Foundry User role on the project and the Storage Blob Data Contributor role on the project's storage account, then run `pip install azure-ai-projects` and sign in with `az login`.",
+        "Copy the project endpoint from the project welcome screen and set it in your script with a model deployment name.",
+        "Create an `AIProjectClient` with `DefaultAzureCredential` and get the OpenAI client with `project.get_openai_client()`.",
+        "Create a vector store with `openai.vector_stores.create`, then upload your file with `openai.vector_stores.files.upload_and_poll` so ingestion finishes before you query.",
+        "Create an agent version with `project.agents.create_version` and a `PromptAgentDefinition` whose tools include `FileSearchTool(vector_store_ids=[vector_store.id])`.",
+        "Create a conversation and call `openai.responses.create` with an `agent_reference` for your agent and a question only the file can answer.",
+        "Compare the answer to the file, then delete the agent version and the vector store with `project.agents.delete_version` and `openai.vector_stores.delete`."
+      ],
+      "validation": [
+        "The response contains the fact from your uploaded file.",
+        "The same question to a model with no file search tool does not return that fact."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-filesearch-response.png",
+          "section": "agents",
+          "instructions": [
+            "Run the file search script.",
+            "Show the question and the grounded answer printed in the terminal."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "File search tool for agents Foundry",
+        "Foundry agent vector store file search"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/file-search",
+        "https://learn.microsoft.com/azure/foundry/agents/concepts/toolbox-overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/file-search",
+      "prereqs": ["fdy-create-prompt-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-agent-ai-search",
+      "name": "Ground an agent on an Azure AI Search index",
+      "category": "foundry-agents",
+      "level": 200,
+      "minutes": 40,
+      "summary": "Connect your Foundry project to an Azure AI Search service, give a prompt agent the Azure AI Search tool, and check that answers carry citations from your index.",
+      "whyItMatters": "Most enterprise grounding already lives in a search index. Connecting it with keyless authentication gives source-backed answers without hard-coded keys.",
+      "concepts": [
+        "The Azure AI Search tool retrieves documents from one index so the agent can answer with inline citations. Your search index needs searchable, retrievable text fields, a searchable vector field, and a retrievable source URL field for citation links.",
+        "For keyless authentication, assign Search Index Data Contributor and Search Service Contributor on the search service to the system-assigned managed identity of the Foundry account. Learn says private virtual network access requires this managed identity method and does not support keys.",
+        "Limits from Learn: the tool targets one index, the search resource and the agent must be in the same tenant, and a basic agent deployment does not support private search resources.",
+        "Tool parameters include the connection ID and index name (required), `top_k` (default 5), `query_type` (default `vector_semantic_hybrid`), and a `filter`.",
+        "Learn points to Foundry IQ for a managed knowledge base experience; that is a separate capability and its portal access is preview. Search costs follow your Azure AI Search pricing: Not confirmed in Microsoft Learn on the tool page."
+      ],
+      "steps": [
+        "In the Azure portal, open your search service, select **Overview**, and note the endpoint, which looks like `https://my-service.search.windows.net`.",
+        "Select **Settings** > **Keys** and select **Both** to allow key-based and keyless authentication.",
+        "On the Foundry account in the Azure portal, select **Identity** and copy the **Object (principal) ID** of the system-assigned managed identity.",
+        "On the search service, select **Access control (IAM)** > **Add** > **Add role assignment** and assign **Search Index Data Contributor** to that identity, then repeat for **Search Service Contributor**.",
+        "In the Foundry portal, open your project and select **Manage** > **Project details**, then the **Connected resources** tab.",
+        "Select **Add connection**, select **Azure AI Search**, choose your search service and the **Authentication** type, then select **Add connection**.",
+        "In your script, resolve the connection with `project.connections.get`, then create an agent version whose tools include `AzureAISearchTool` with your index name and `project_connection_id`.",
+        "Ask a question you know your index answers, using `tool_choice=\"required\"`, and read the citations in the response."
+      ],
+      "validation": [
+        "The response includes citations in the form `[message_idx:search_idx†source]`, or `url_citation` annotations when you stream.",
+        "The cited content matches the documents in your search index."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-search-connection-dialog.png",
+          "section": "manage",
+          "instructions": [
+            "Go to **Manage** > **Project details** > **Connected resources** and select **Add connection**.",
+            "Show **Azure AI Search** selected with the authentication type visible."
+          ]
+        },
+        {
+          "filename": "fdy-search-citations.png",
+          "section": "agents",
+          "instructions": [
+            "Run the Azure AI Search agent script.",
+            "Show the answer with its citations or URL citations."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Connect an Azure AI Search index to Foundry agents",
+        "Foundry agent Azure AI Search keyless authentication roles"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/ai-search",
+        "https://learn.microsoft.com/azure/foundry/agents/concepts/toolbox-overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/ai-search",
+      "prereqs": ["fdy-create-prompt-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-toolbox-tools",
+      "name": "Share tools with a Foundry toolbox",
+      "category": "foundry-agents",
+      "level": 200,
+      "minutes": 40,
+      "availability": "ga",
+      "summary": "Create a toolbox with web search, an MCP server, and tool search, copy its endpoint, and verify the tools load before you attach it to an agent.",
+      "whyItMatters": "A toolbox lets you define tools once and reuse them across agents, with central credentials, guardrails, and versions. Verifying the endpoint first catches authentication and region problems before they look like agent bugs.",
+      "concepts": [
+        "A toolbox exposes a curated set of tools through a single MCP-compatible endpoint, and any MCP-compatible runtime can use it. It covers Build, Discover (tool search), Consume, and Govern, including versioning and guardrails.",
+        "Learn lists toolboxes as GA. It lists skills in a toolbox as preview, and each tool type has its own limits and region and model support, so verify your target region before you deploy.",
+        "Grant Foundry User on the project to the developer who manages the toolbox, to the agent identity when you use a prompt agent, and to end users only for OAuth flows.",
+        "A toolbox supports at most one tool without a `name` field for Web Search, Azure AI Search, Code Interpreter, and File Search. Add a unique name to repeat a type, and add a description to every tool.",
+        "Learn warns that connecting to non-Foundry tools can incur costs and send data outside Foundry's compliance boundary, so review each tool's terms."
+      ],
+      "steps": [
+        "Grant the **Foundry User** role on your project to the developer identity, and to the agent identity if you use a prompt agent.",
+        "Install the SDK with `pip install azure-ai-projects` and create an `AIProjectClient` with your project endpoint and `DefaultAzureCredential`.",
+        "Call `project.toolboxes.create_version` with a toolbox name, a description, and tools such as `WebSearchToolboxTool()`, an `MCPToolboxTool` with a `server_label`, `server_url`, and `project_connection_id`, and `ToolSearchToolboxTool()`.",
+        "Note that the first version you create is promoted to the default version automatically.",
+        "Build the toolbox consumer endpoint `{project_endpoint}/toolboxes/{toolbox_name}/mcp?api-version=v1`, which always serves the default version, and the version-specific endpoint for testing.",
+        "Install an MCP client with `pip install mcp`, connect to the version-specific endpoint with a token for `https://ai.azure.com/.default`, and call `list_tools`.",
+        "Confirm the expected tool names appear, remembering that MCP tool names are prefixed with the `server_label`.",
+        "Attach the consumer endpoint to an agent as an MCP tool, run one request that uses a toolbox tool, and promote later versions to default when you are ready."
+      ],
+      "validation": [
+        "`list_tools` returns the tools you added to the toolbox.",
+        "An agent request that uses a toolbox tool returns a result without a `401` or `CONSENT_REQUIRED` error."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-toolbox-tools-list.png",
+          "section": "agents",
+          "instructions": [
+            "Run the MCP client script against the version-specific endpoint.",
+            "Show the printed count and names of the tools found."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "What is Toolbox in Foundry",
+        "Create and manage a toolbox in Foundry"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/toolbox",
+        "https://learn.microsoft.com/azure/foundry/agents/concepts/toolbox-overview",
+        "https://learn.microsoft.com/azure/foundry/concepts/general-availability"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/agents/how-to/tools/toolbox",
+      "prereqs": ["fdy-create-prompt-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-evaluate-agent",
+      "name": "Evaluate an agent in the Foundry portal",
+      "category": "foundry-operate",
+      "level": 200,
+      "minutes": 35,
+      "availability": "ga",
+      "summary": "Create an evaluation that scores an agent on a test dataset with built-in evaluators, then read its status and results.",
+      "whyItMatters": "Evaluation turns a vague feeling that an agent is good into measured quality, safety, and tool-use scores you can compare across versions before you publish.",
+      "concepts": [
+        "An evaluation applies evaluators to a target (an agent, a model, a dataset, or traces) and returns metrics. You can score individual turns or, in preview, full conversations from simulated or existing data.",
+        "Built-in evaluators fall into agent evaluators (for example Intent Resolution and Tool Call Accuracy), quality evaluators (for example Relevance and Groundedness), and safety evaluators (for example Violence and Hate/Unfairness). Safety and agent evaluators apply to individual turns only.",
+        "You need an Azure subscription, a Foundry project, and the Foundry User role. AI-assisted quality evaluators need an Azure OpenAI connection with a deployed GPT model, and that judge model counts against your quota and costs.",
+        "Learn lists evaluations as GA with some evaluators and features in preview, and labels full-conversation evaluation as preview.",
+        "Learn suggests starting small, for example one simulated conversation per scenario and 5 to 10 turns."
+      ],
+      "steps": [
+        "Confirm you have the **Foundry User** role on the project, an agent to test, and a deployed GPT model for the judge.",
+        "In the Foundry portal, select **Evaluation** in the left pane, then select **Create**.",
+        "In **Step 1: Select evaluation target**, choose **Agent** and select your agent.",
+        "Choose the evaluation scope, **Individual turns** for a first run, then choose a data source such as **Synthetic** or **Existing dataset** (CSV or JSONL).",
+        "In the agent configuration step, review the system prompt and the user prompt, which defaults to `{{item.query}}`.",
+        "Check the field mapping, assigning any field shown as **Unassigned** to a dataset column.",
+        "Select testing criteria: the preselected evaluators, plus **Intent Resolution**, **Task Adherence**, or **Tool Call Accuracy** if your agent uses tools.",
+        "Enter a name, review the summary, and select **Submit**, then watch the **Status** column on the **Evaluation** page change from **In Progress** to **Completed**."
+      ],
+      "validation": [
+        "The evaluation appears in the **Evaluation** list with a **Status** of **Completed** or **Partial**.",
+        "You can open the results and name one metric that scored lower than the others."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-eval-create-target.png",
+          "section": "evaluation",
+          "instructions": [
+            "Select **Evaluation** > **Create**.",
+            "Show the evaluation target choices with **Agent** selected."
+          ]
+        },
+        {
+          "filename": "fdy-eval-evaluators.png",
+          "section": "evaluation",
+          "instructions": [
+            "Reach the testing criteria step.",
+            "Show the agent, quality, and safety evaluator groups with some evaluators selected."
+          ]
+        },
+        {
+          "filename": "fdy-eval-status.png",
+          "section": "evaluation",
+          "instructions": [
+            "After you submit, open the **Evaluation** page.",
+            "Show your evaluation with its **Status** value."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Run evaluations from the Microsoft Foundry portal",
+        "Evaluation in Microsoft Foundry"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/how-to/evaluate-generative-ai-app",
+        "https://learn.microsoft.com/azure/foundry/concepts/evaluation-overview"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/how-to/evaluate-generative-ai-app",
+      "prereqs": ["fdy-create-prompt-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-trace-agent",
+      "name": "Trace an agent with Application Insights",
+      "category": "foundry-operate",
+      "level": 200,
+      "minutes": 25,
+      "availability": "ga",
+      "summary": "Connect Application Insights to your project, run an agent, and step through a trace and its conversation in the Foundry portal.",
+      "whyItMatters": "Traces show latency, tool calls, and errors for each run, so you can debug an agent from evidence instead of guesses. Server-side tracing needs no code changes once Application Insights is connected.",
+      "concepts": [
+        "Server-side tracing is the recommended start. After you connect Application Insights, Foundry logs traces for prompt agents, hosted agents, and workflows, and the portal shows out-of-the-box traces for the past 90 days.",
+        "Learn says tracing is generally available for prompt and hosted agents, and in preview for workflow and external agents.",
+        "To query telemetry you need access to the Application Insights resource and the Log Analytics Reader role. If the Log Analytics tables are protected, you also need Privileged Monitoring Data Reader.",
+        "Traces can capture user inputs, model outputs, and tool arguments. Do not put secrets in prompts or tool arguments, and treat trace data as production telemetry with the same access and retention controls as logs.",
+        "Storage, retention, and billing follow your Application Insights and Log Analytics configuration."
+      ],
+      "steps": [
+        "Confirm you have access to an Application Insights resource and the **Log Analytics Reader** role on it.",
+        "In the Foundry portal, open your project and select **Build** > **Agents**.",
+        "At the top, select **Traces**, then on the right select **Connect**.",
+        "Select an existing Application Insights resource and select **Connect**, or select **Create new** and complete the wizard.",
+        "If you do not see **Connect**, select **Manage** > **Project details**, open the **Connected resources** tab, select **Add connection**, and choose **Application Insights**.",
+        "Run your agent at least once from the portal or your app.",
+        "Open the **Traces** view, wait a few minutes if needed, and select a trace to step through its spans.",
+        "Search by Response ID or Trace ID, select a **Conversation ID**, and review the conversation history, tokens, and tool calls."
+      ],
+      "validation": [
+        "A new trace appears in the **Traces** view with a timestamp, duration, and status after you run the agent.",
+        "The conversation view shows the ordered run steps and tool calls for that run."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-trace-connect.png",
+          "section": "agents",
+          "instructions": [
+            "Go to **Build** > **Agents** > **Traces**.",
+            "Show the **Connect** button for Application Insights."
+          ]
+        },
+        {
+          "filename": "fdy-trace-detail.png",
+          "section": "agents",
+          "instructions": [
+            "Open one trace from the **Traces** view.",
+            "Show the span timeline and the details of one step."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Set up tracing in Microsoft Foundry",
+        "Foundry agent server-side tracing Application Insights"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-setup",
+        "https://learn.microsoft.com/azure/foundry/concepts/general-availability"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-setup",
+      "prereqs": ["fdy-create-prompt-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-monitor-agent-dashboard",
+      "name": "Monitor an agent with the Agent Monitoring Dashboard",
+      "category": "foundry-operate",
+      "level": 200,
+      "minutes": 25,
+      "availability": "preview",
+      "summary": "Open the Monitor tab for an agent, read token usage, latency, run success rate, and evaluation scores, and open the Monitor settings.",
+      "whyItMatters": "The dashboard shows whether an agent is healthy in production: cost drivers, slow runs, failed runs, and quality scores in one place.",
+      "concepts": [
+        "The dashboard reads telemetry from the Application Insights resource connected to your project, so it needs the tracing setup from the previous lab and access to that resource and its Log Analytics workspace.",
+        "Learn defines the metrics: token usage, latency (above 10 seconds can mean throttling, complex tool calls, or network issues), run success rate (below 95% warrants investigating failed runs), evaluation metrics, and red teaming results.",
+        "The Monitor settings panel configures recurring evaluations, red team scans, and alerts. Learn marks these as preview, and the article itself is preview.",
+        "To run continuous evaluation, Learn says to assign the **Foundry User** role to the project's managed identity.",
+        "Retention and billing of monitoring data follow your Application Insights configuration."
+      ],
+      "steps": [
+        "Make sure Application Insights is connected to your project, as in the tracing lab.",
+        "Generate agent traffic by running your app or testing the agent in the portal.",
+        "Sign in to https://ai.azure.com with the **New Foundry** toggle on, select **Build** > **Agents**, and select your agent.",
+        "Select the **Monitor** tab and choose a time range.",
+        "Read the summary cards, then the charts for token usage, latency, run success rate, and evaluation scores.",
+        "Select the gear icon on the **Monitor** tab to open the Monitor settings panel.",
+        "Review the **Recurring evaluations (preview)**, **Red team scans (preview)**, and **Alerts (preview)** settings and note which you would turn on for production.",
+        "To run continuous evaluation, open your Foundry project resource in the Azure portal, select **Access control (IAM)** > **Add**, and assign **Foundry User** to the project's managed identity."
+      ],
+      "validation": [
+        "The **Monitor** tab shows charts for the time range after you generate traffic.",
+        "You can state the thresholds Learn gives for latency and run success rate."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-monitor-dashboard.png",
+          "section": "agents",
+          "instructions": [
+            "Open an agent and select the **Monitor** tab after generating traffic.",
+            "Show the summary cards and the token usage, latency, and success rate charts."
+          ]
+        },
+        {
+          "filename": "fdy-monitor-settings.png",
+          "section": "agents",
+          "instructions": [
+            "Select the gear icon on the **Monitor** tab.",
+            "Show the recurring evaluations, red team scans, and alerts settings."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Monitor agents with the Agent Monitoring Dashboard",
+        "Foundry continuous evaluation recurring evaluations"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/observability/how-to/how-to-monitor-agents-dashboard",
+        "https://learn.microsoft.com/azure/foundry/observability/how-to/trace-agent-setup",
+        "https://learn.microsoft.com/azure/foundry/concepts/general-availability"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/observability/how-to/how-to-monitor-agents-dashboard",
+      "prereqs": ["fdy-trace-agent"],
+      "relatedLabs": []
+    },
+    {
       "id": "fdy-configure-guardrails",
       "name": "Configure guardrails for models and agents",
       "category": "foundry-platform",
       "level": 300,
       "minutes": 30,
+      "availability": "preview",
       "summary": "Create a guardrail with risk controls, assign it to models and agents, and test it in the playground.",
       "whyItMatters": "Guardrails set what content is detected and blocked at each intervention point, and changes take effect on live deployments. Testing them on a non-production model avoids surprises.",
       "concepts": [
         "In the new portal a guardrail is a set of controls (a risk, intervention points, and an action) assigned to models and agents. In the REST API a guardrail is a RAI policy on the resource, assigned through the deployment's `raiPolicyName`.",
         "You need a Foundry project, at least one model deployment, and the Foundry Account Owner role or higher. Microsoft Default guardrails such as Default.V2 can't be edited.",
+        "Learn's feature readiness table lists guardrails for models as GA, and guardrails for agents and the controls and intervention experience as preview, so treat this procedure as preview.",
         "For hub-based projects and the classic portal, content filters are created under **Guardrails + controls** > **Content filters** and applied from **Models + endpoints** > **Edit**. That is a different procedure from the one below."
       ],
       "steps": [
@@ -199,6 +885,24 @@
       "validation": [
         "The new guardrail appears in the list on the **Guardrails** page and shows the models and agents it applies to.",
         "A test prompt that triggers an \"Annotate and block\" control shows a message with the risk and intervention point."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-guardrail-controls.png",
+          "section": "guardrails",
+          "instructions": [
+            "Go to **Build** > **Guardrails** and select **Create Guardrail**.",
+            "Show Step 1: Add Controls with a risk, intervention points, and an action chosen."
+          ]
+        },
+        {
+          "filename": "fdy-guardrail-playground-block.png",
+          "section": "playground",
+          "instructions": [
+            "Select the guardrail and **Try in Playground**.",
+            "Send a prompt that triggers an **Annotate and block** control and show the message that names the risk and intervention point."
+          ]
+        }
       ],
       "learnQueries": [
         "How to configure guardrails and controls in Microsoft Foundry",
@@ -239,6 +943,24 @@
         "The role assignment appears under **Access control (IAM)** for the Foundry resource or project, for example in the output of `az role assignment list --scope <project-id>`.",
         "A team member signs in to https://ai.azure.com, can select the project, and sees deployed models under **Build** > **Models**."
       ],
+      "screenshots": [
+        {
+          "filename": "fdy-rbac-iam-assignment.png",
+          "section": "azure-portal",
+          "instructions": [
+            "In the Azure portal, open the Foundry resource and go to **Access control (IAM)**.",
+            "Show the role assignment for **Foundry User** with the **Members** step visible."
+          ]
+        },
+        {
+          "filename": "fdy-rbac-project-users.png",
+          "section": "manage",
+          "instructions": [
+            "In the Foundry portal, select **Manage** > **Project details** and open the **Users** tab.",
+            "Show the user list with the **Add user** button. Blur real email addresses."
+          ]
+        }
+      ],
       "learnQueries": [
         "Role-based access control for Microsoft Foundry",
         "Foundry User role vs Azure AI Developer hub-based projects"
@@ -251,6 +973,249 @@
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/concepts/rbac-foundry",
       "prereqs": ["fdy-create-foundry-project"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-deploy-hosted-agent",
+      "name": "Deploy a hosted agent with the Azure Developer CLI",
+      "category": "foundry-agents",
+      "level": 300,
+      "minutes": 45,
+      "summary": "Scaffold a sample hosted agent with azd, test it locally, deploy it to Foundry Agent Service, and invoke it.",
+      "whyItMatters": "A hosted agent runs your own code and framework with a managed endpoint, identity, and observability. It is the path when a declarative prompt agent no longer gives you enough control.",
+      "concepts": [
+        "A hosted agent is your own code, for example Microsoft Agent Framework or LangGraph, that Foundry builds and runs with a managed endpoint, scaling, identity, and observability. You can start with a prompt agent and move to code as needs grow.",
+        "The quickstart offers several paths (Azure Developer CLI, Python SDK, C#, VS Code, and others). This lab follows the Azure Developer CLI path.",
+        "For an existing project you need the Foundry Project Manager role at project scope. To create a new project you need the Owner role at resource group scope. The azd path needs the Foundry Dev Pack, which installs azd 1.27.1 or later and the Foundry extensions.",
+        "Connect Application Insights to the project and grant permission to read cloud traces before the first remote invocation. Provisioning can create resources declared in azure.yaml, such as a model deployment, so review it first because those resources can incur cost.",
+        "Whether hosted agents are GA or preview: Not confirmed in Microsoft Learn on the quickstart page. Learn says private Azure Container Registry for hosted agents is supported only for projects created after June 25, 2026."
+      ],
+      "steps": [
+        "Install the Foundry Dev Pack and sign in with `azd auth login`.",
+        "In an empty directory, run `azd ai agent init --template \"https://github.com/microsoft-foundry/foundry-samples/blob/main/samples/python/hosted-agents/agent-framework/responses/01-basic/azure.yaml\" --deploy-mode code --src .`.",
+        "Select **Create a new Foundry project** or **Use an existing Foundry project**, then select your tenant and subscription. Add `--model-deployment <existing-deployment-name>` to reuse a deployment.",
+        "Review the agent name, model deployment, and resource settings in `azure.yaml`, and make sure the Python service sets `env: { PYTHONNOUSERSITE: \"1\" }`.",
+        "Run `azd provision` to create the resources defined in `azure.yaml`.",
+        "Configure or verify Application Insights and trace-reading access for the project.",
+        "Run `azd ai agent run` to test the agent locally in the agent inspector that opens in your browser.",
+        "Run `azd deploy`, then send a prompt with `azd ai agent invoke \"Write a haiku about deploying cloud applications.\"` and stream logs with `azd ai agent monitor --follow` if you want."
+      ],
+      "validation": [
+        "`azd deploy` prints links to the agent playground and the agent endpoint.",
+        "`azd ai agent invoke` returns a haiku within a few seconds."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-hosted-inspector.png",
+          "section": "local",
+          "instructions": [
+            "Run `azd ai agent run`.",
+            "Show the agent inspector in the browser with a prompt and the agent's reply."
+          ]
+        },
+        {
+          "filename": "fdy-hosted-deploy-output.png",
+          "section": "local",
+          "instructions": [
+            "Run `azd deploy` to completion.",
+            "Show the terminal output with the agent playground link and the agent endpoint. Blur your account and project names."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Quickstart deploy your first hosted agent Foundry",
+        "Foundry hosted agents azd ai agent"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/agents/quickstarts/quickstart-hosted-agent",
+        "https://learn.microsoft.com/azure/foundry/what-is-foundry",
+        "https://learn.microsoft.com/azure/foundry/concepts/general-availability"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/agents/quickstarts/quickstart-hosted-agent",
+      "prereqs": ["fdy-create-prompt-agent", "fdy-trace-agent"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-publish-agent-copilot-teams",
+      "name": "Publish a Foundry agent to Microsoft Copilot and Teams",
+      "category": "foundry-operate",
+      "level": 300,
+      "minutes": 35,
+      "availability": "ga",
+      "summary": "Pick the active agent version, publish an agent to Microsoft Copilot and Microsoft Teams from the Foundry portal, and choose who can use it.",
+      "whyItMatters": "Publishing puts your agent where people already work. The scope you choose decides who can discover the agent and whether a Microsoft 365 admin must approve it.",
+      "concepts": [
+        "You publish the agent's stable endpoint, so users always reach the same agent while you roll out new versions behind it. Foundry registers the Teams bot for direct publishing, so you do not create a separate Azure Bot Service resource.",
+        "Learn lists publishing to Microsoft Copilot and Teams as GA. Publishing from the portal is not supported for projects that disable public network access; use the REST API for those.",
+        "**Just you** is available immediately without admin approval and uses the `BotServiceRbac` authorization scheme. **People in your organization** uses `BotServiceTenant` and needs approval in the Microsoft 365 admin center before it appears under **Built by your org**.",
+        "You need the Foundry User role on the project. Learn warns that Microsoft 365 and Teams process and store data from publishing and from agent responses, so confirm that this fits your compliance and data residency requirements.",
+        "Learn says end users do not need a Microsoft 365 Copilot license to use a published agent in Microsoft Copilot Chat, and that usage that accesses shared tenant data might incur usage-based charges."
+      ],
+      "steps": [
+        "Test the agent thoroughly in the Foundry portal and confirm any tools work.",
+        "Open your agent and select the **Details** tab. In **Agent configuration**, next to **Active version**, select **Edit** and choose **Always use latest** or a specific version.",
+        "Select **Publish**, then select **Teams and Microsoft Copilot** to open the **Publish to Teams and Microsoft 365** dialog.",
+        "Complete the required metadata: **Name**, **Publish version** (three parts, major.minor.patch), **Short description**, **Description**, and **Developer** under **Author**. Do not put secrets in any field.",
+        "Select **Next: Publish options** and open the **Direct publish** tab.",
+        "Under **Choose who can use this agent**, select **Just you** or **People in your organization**, then select **Publish**.",
+        "Confirm that the **Publish successful** dialog appears.",
+        "For **People in your organization**, ask a Microsoft 365 admin to approve the request in the Microsoft 365 admin center, then find the agent under **Built by your org**; for **Just you**, look under **Your agents** in the agent store."
+      ],
+      "validation": [
+        "The **Publish successful** dialog confirms the publish.",
+        "The agent appears in the Microsoft Copilot or Teams agent store in the section that matches your scope, and it answers a test message."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-publish-dialog.png",
+          "section": "publish",
+          "instructions": [
+            "Select **Publish** > **Teams and Microsoft Copilot**.",
+            "Show the metadata fields in the **Publish to Teams and Microsoft 365** dialog."
+          ]
+        },
+        {
+          "filename": "fdy-publish-scope.png",
+          "section": "publish",
+          "instructions": [
+            "On **Publish options**, select the **Direct publish** tab.",
+            "Show **Just you** and **People in your organization** under **Choose who can use this agent**."
+          ]
+        },
+        {
+          "filename": "fdy-publish-agent-store.png",
+          "section": "microsoft-copilot",
+          "instructions": [
+            "Open the agent store in Microsoft Copilot after publishing.",
+            "Show the agent under **Your agents** or **Built by your org**."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Publish agents to Microsoft Copilot and Microsoft Teams in the Foundry portal",
+        "Foundry agent endpoint authorization BotServiceRbac"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot",
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/troubleshoot-publish-copilot",
+        "https://learn.microsoft.com/azure/foundry/concepts/general-availability"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot",
+      "prereqs": ["fdy-create-prompt-agent", "fdy-foundry-rbac"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-troubleshoot-publishing",
+      "name": "Troubleshoot publishing and published agents",
+      "category": "foundry-operate",
+      "level": 300,
+      "minutes": 25,
+      "summary": "Diagnose publish validation errors, agents missing from the agent store, and runtime failures after you publish a Foundry agent to Microsoft Copilot and Teams.",
+      "whyItMatters": "Most publishing problems have a known cause and fix, from an invalid version string to a missing role on the agent identity. Knowing the table saves a support case.",
+      "concepts": [
+        "Publish validation fails on specific fields: the version can contain only digits and periods and cannot start with 0, the developer name must be 32 characters or fewer, the description must be 4,000 characters or fewer, and URLs must begin with https://.",
+        "A published agent that works in the Foundry playground but fails after publishing usually means the agent's identity lacks permissions on an Azure resource the agent uses.",
+        "Where the agent appears depends on scope: **Your agents** for **Just you**, and **Built by your org** only after admin approval for **People in your organization**. The store cache refreshes on about a one-hour cycle.",
+        "In Microsoft Teams you reset a stuck conversation by sending `/foundry_new_preview`. In Microsoft Copilot you start a new chat with the agent. A reset conversation cannot be restored.",
+        "For projects that disable public network access, Learn says to use the REST API with `enable_m365_public_endpoint`, and that guest users cannot interact with these agents."
+      ],
+      "steps": [
+        "Read the exact error text from the publish dialog or the API response and find its row in the **Resolve publishing issues** table.",
+        "For a validation error, fix the field the message names, for example change the version to digits and periods only, and publish again. If the app version already exists, increment it.",
+        "If **Download ZIP** returns no package, correct the field named in the error and retry; Foundry does not return a package that fails manifest validation.",
+        "If you see `403 AuthorizationFailed` for `Microsoft.BotService/botServices/write`, assign the **Azure Bot Service Contributor Role**, **Contributor**, or **Owner** on the resource group, refresh your credentials, and retry.",
+        "If the agent is missing from the store, check the publish scope, confirm admin approval in the Microsoft 365 admin center for organization scope, then clear the store cache or sign out and back in.",
+        "If the agent works in the playground but fails once published, assign the required roles to the agent's identity for each Azure resource it accesses, and check that the agent identity is enabled.",
+        "If the conversation is stuck or returns `no tool output found`, reset it with a new chat in Microsoft Copilot or `/foundry_new_preview` in Teams.",
+        "If users get an insufficient permissions error, check that the user has permission to invoke the agent endpoint under `BotServiceRbac`."
+      ],
+      "validation": [
+        "A publish that failed validation succeeds after you correct the named field.",
+        "A test message to the published agent in Microsoft Copilot or Teams returns a normal response."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-troubleshoot-publish-error.png",
+          "section": "publish",
+          "instructions": [
+            "In the publish dialog, enter an invalid version such as one that starts with 0 and select **Publish**.",
+            "Show the validation error message. Revert the field afterward."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Troubleshoot publishing agents to Microsoft Copilot and Microsoft Teams",
+        "Foundry published agent authorization errors"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/troubleshoot-publish-copilot",
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/agents/how-to/troubleshoot-publish-copilot",
+      "prereqs": ["fdy-publish-agent-copilot-teams"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-connect-agent-to-copilot-studio",
+      "name": "Connect a Foundry agent to Copilot Studio",
+      "category": "foundry-operate",
+      "level": 300,
+      "minutes": 40,
+      "summary": "Enable the Activity protocol on a Foundry agent, add it as a connected agent in Microsoft Copilot Studio, and test that the primary agent delegates to it.",
+      "whyItMatters": "A Foundry agent can do specialized work for a Copilot Studio agent. Without the Activity protocol enabled, the connection is created but every call fails.",
+      "concepts": [
+        "Copilot Studio talks to a connected Foundry agent over the Activity protocol, which is not enabled by default. Publishing a prompt agent to Microsoft 365 or Teams enables it and the `BotServiceRbac` authorization scheme automatically; otherwise you update the agent with a REST call.",
+        "This lab follows the Microsoft Copilot harness article, so the primary agent must be created with the Microsoft Copilot harness. Learn says that harness uses usage-based billing, so building, testing, and evaluating can consume Copilot Credits. The Standard harness has its own, earlier article labeled preview.",
+        "You can connect only to agents created in the current Microsoft Foundry portal. An agent from the previous portal returns `404 - Version not found`.",
+        "The connection authenticates with your Microsoft Entra ID user login, so you need permission to access the Foundry project and its endpoint.",
+        "The orchestrator routes using the connected agent's name and description, the user's message, and the primary agent's instructions, so write a specific description that does not overlap other tools or agents. Learn says you are responsible for reviewing and testing connected agents."
+      ],
+      "steps": [
+        "Confirm you have a Foundry agent from the new portal, its **Agent ID**, the project's **Azure AI Project endpoint**, and a primary Copilot Studio agent built with the Microsoft Copilot harness.",
+        "Enable the Activity protocol by publishing the Foundry agent to Microsoft 365 or Teams, or by calling the Foundry **Agents - Update agent** REST API to set `protocols` to `responses` and `activity` and add the `BotServiceRbac` scheme. Keep `responses` and `Entra` in the lists.",
+        "Sign in to Copilot Studio at https://copilotstudio.com, open the primary agent, and select the **Build** tab.",
+        "In the components panel, select **Connected agents**, select **Add**, and then select **Add Foundry agent**.",
+        "On **Connect to Azure AI Foundry**, pick an existing **Connection**, or select **Create new connection**, enter the **Azure AI Project Endpoint**, and select **Create**, then **Next**.",
+        "On **Review and add**, enter a **Name**, a specific **Description**, and the **Agent ID**, then select **Add to agent**.",
+        "Confirm the agent appears under **Connected agents** in the components panel.",
+        "Select the **Preview** tab, send a message in the Foundry agent's domain and one outside it, and check that only the first is answered by the Foundry agent."
+      ],
+      "validation": [
+        "The Foundry agent appears under **Connected agents** in the components panel.",
+        "A message in its domain returns an answer from the Foundry agent, and an unrelated message is handled by the primary agent."
+      ],
+      "screenshots": [
+        {
+          "filename": "fdy-cs-add-foundry-agent.png",
+          "section": "copilot-studio",
+          "instructions": [
+            "In Copilot Studio, open **Connected agents** and select **Add** > **Add Foundry agent**.",
+            "Show the **Review and add** step with name, description, and agent ID fields. Blur real IDs."
+          ]
+        },
+        {
+          "filename": "fdy-cs-delegation-test.png",
+          "section": "copilot-studio",
+          "instructions": [
+            "Open the **Preview** tab and send a message in the Foundry agent's domain.",
+            "Show the reply that came from the Foundry agent."
+          ]
+        }
+      ],
+      "learnQueries": [
+        "Add a Foundry agent as a connected agent Copilot Studio",
+        "Foundry agent Activity protocol enable"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-foundry",
+        "https://learn.microsoft.com/azure/foundry/agents/how-to/publish-copilot"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-foundry",
+      "prereqs": ["fdy-create-prompt-agent", "fdy-publish-agent-copilot-teams"],
       "relatedLabs": []
     }
   ]
