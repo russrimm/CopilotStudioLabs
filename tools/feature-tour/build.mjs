@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Builds the Copilot Studio feature tour site from the lab builder catalog.
+// Builds the Microsoft AI Training Generator feature tour site from the lab builder catalog.
 //
 //   node tools/feature-tour/build.mjs            write feature-shots.json and _site/
 //   node tools/feature-tour/build.mjs --check    fail if feature-shots.json is stale
@@ -9,6 +9,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DEFAULTS, generate, readJson, serializeShotList, writeSite } from "./lib/build.mjs";
+import { readCatalogFile } from "../../portal/lib/lab-builder/catalog-source.js";
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
@@ -27,7 +28,7 @@ if (flag("--help") || flag("-h")) {
 
 const out = path.resolve(value("--out") ?? DEFAULTS.out);
 const screenshotsDir = path.resolve(value("--screenshots") ?? DEFAULTS.screenshotsDir);
-const catalog = readJson(DEFAULTS.catalog);
+const catalog = readCatalogFile(DEFAULTS.catalog);
 const overlay = readJson(DEFAULTS.overlay);
 
 let result;

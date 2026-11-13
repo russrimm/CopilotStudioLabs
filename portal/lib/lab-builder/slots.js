@@ -18,6 +18,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { getProduct, productOf } from "./products.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SLOTS_PATH = path.join(__dirname, "screenshot-slots.json");
 const OVERLAY_PATH = path.resolve(__dirname, "../../../tools/feature-tour/overlay.json");
@@ -65,7 +67,7 @@ function plain(text) {
  */
 export function describeSlot(feature, slot) {
   const meta = getSlotMeta()[slot.filename];
-  const fallback = plain(slot.caption || slot.instructions?.[0] || `${feature.name} in Copilot Studio`).replace(/\.$/, "");
+  const fallback = plain(slot.caption || slot.instructions?.[0] || `${feature.name} in ${getProduct(productOf(feature))?.shortName || "the product"}`).replace(/\.$/, "");
   return {
     kind: meta?.kind || "ui-location",
     caption: meta?.caption || plain(slot.caption || fallback),

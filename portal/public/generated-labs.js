@@ -41,8 +41,14 @@ function lbGenHarnessName(id) {
   return id ? labBuilder.harnesses.find((h) => h.id === id)?.name || id : "";
 }
 
+/** The product names a lab covers. A lab saved before products existed is a Copilot Studio lab. */
+function lbGenProductNames(lab) {
+  const ids = Array.isArray(lab.products) && lab.products.length ? lab.products : [lab.product || "copilot-studio"];
+  return ids.map((id) => labBuilder.products.find((p) => p.id === id)?.shortName || id);
+}
+
 function lbGenSearchText(lab) {
-  return [lab.title, lab.notes, lab.labId, lbGenIndustryName(lab.vertical), lbGenHarnessName(lab.harness), lbGenLevelName(lab.level)]
+  return [lab.title, lab.notes, lab.labId, lbGenIndustryName(lab.vertical), lbGenHarnessName(lab.harness), lbGenLevelName(lab.level), ...lbGenProductNames(lab)]
     .join(" ")
     .toLowerCase();
 }
@@ -74,7 +80,7 @@ function lbGenItemHtml(lab) {
   const title = escapeHtml(lab.title || lab.labId);
   const created = new Date(lab.generatedAt);
   const createdText = Number.isNaN(created.getTime()) ? "date unknown" : created.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
-  const chips = [escapeHtml(lbGenIndustryName(lab.vertical))];
+  const chips = [...lbGenProductNames(lab).map((name) => escapeHtml(name)), escapeHtml(lbGenIndustryName(lab.vertical))];
   if (lab.level) chips.push(escapeHtml(lbGenLevelName(lab.level)));
   else chips.push("Level not recorded");
   if (lab.harness) chips.push(escapeHtml(lbGenHarnessName(lab.harness)));

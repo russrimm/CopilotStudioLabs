@@ -316,7 +316,7 @@ export function buildApprovalNotificationHtml({ request, title, intro, portalUrl
         ${request.reason ? `<li><strong>Reason:</strong> ${escapeHtml(request.reason)}</li>` : ""}
         ${request.environmentId ? `<li><strong>Environment ID:</strong> ${escapeHtml(request.environmentId)}</li>` : ""}
       </ul>
-      <p><a href="${escapeHtml(reviewUrl)}">Open the Copilot Studio Labs Portal</a></p>
+      <p><a href="${escapeHtml(reviewUrl)}">Open the Microsoft AI Training Generator Portal</a></p>
     </div>
   `;
 }
@@ -335,7 +335,7 @@ async function sendConfiguredNotifications(request, eventType) {
   };
 
   const introText = {
-    submitted: "Review and respond in the Copilot Studio Labs Portal",
+    submitted: "Review and respond in the Microsoft AI Training Generator Portal",
     approved: `Approved by ${request.decidedBy || "an approver"}.`,
     rejected: `Rejected by ${request.decidedBy || "an approver"}.`,
     provisioned: `Provisioning completed${request.environmentId ? ` — Environment ID: ${request.environmentId}` : ""}.`,

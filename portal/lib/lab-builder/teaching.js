@@ -11,6 +11,7 @@
  */
 
 import { getFeature } from "./catalog.js";
+import { getProduct } from "./products.js";
 
 const CAUTION = /\b(?:can't|cannot|can not|must|requires?|required|only|unavailable|isn't|aren't|not available|don't|doesn't|won't|might|may not|limits?)\b/i;
 
@@ -172,13 +173,23 @@ export function cleanupSection(plan, u) {
 
 /** Licensing and permissions, tied to the modules that need them, with the catalog's own Learn page. */
 export function licensingBlock(plan, u) {
+  const ids = plan.products?.length ? plan.products : ["copilot-studio"];
   const billing = getFeature("usage-credits")?.docUrls?.[0];
-  const items = [
-    `**License.** You need a Copilot Studio license or trial in your tenant before you start. ${
-      billing ? `Check the current options in [Copilot Studio billing and licensing](${billing}).` : "Check the current options on Microsoft Learn."
-    }`,
-    `**Role.** You need permission to create agents in the environment you use, for example the Environment Maker role. Modules that need more are called out in the list above.`,
-  ];
+  const items = [];
+  if (ids.includes("copilot-studio")) {
+    items.push(
+      `**License.** You need a Copilot Studio license or trial in your tenant before you start. ${
+        billing ? `Check the current options in [Copilot Studio billing and licensing](${billing}).` : "Check the current options on Microsoft Learn."
+      }`,
+    );
+  }
+  for (const id of ids.filter((pid) => pid !== "copilot-studio")) {
+    const product = getProduct(id);
+    if (product) items.push(`**License (${product.shortName}).** ${product.licenseNote}`);
+  }
+  items.push(
+    `**Role.** You need permission to ${ids.includes("copilot-studio") ? "create agents in the environment you use, for example the Environment Maker role" : "do the work in your tenant or subscription, as listed in the prerequisites"}. Modules that need more are called out in the list above.`,
+  );
   if (plan.features.some((f) => f.availability === "preview")) {
     items.push("**Preview features.** Some modules cover preview capabilities. They might be unavailable in your tenant or region, and they can change before general availability.");
   }

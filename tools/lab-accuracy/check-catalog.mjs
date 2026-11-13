@@ -21,6 +21,7 @@ import { pathToFileURL } from "node:url";
 
 import { writeReport, repoRoot } from "./lib/labs.mjs";
 import { validateCoverage } from "../../portal/lib/lab-builder/coverage.js";
+import { readCatalogFile } from "../../portal/lib/lab-builder/catalog-source.js";
 import {
   CATALOG_PATH,
   buildCatalogReport,
@@ -37,7 +38,7 @@ export function checkCoverage(catalogPath) {
   const conceptsPath = path.join(dir, "concepts.json");
   if (!fs.existsSync(conceptsPath)) return [];
   const raw = JSON.parse(fs.readFileSync(conceptsPath, "utf8"));
-  const catalog = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
+  const catalog = readCatalogFile(catalogPath);
   return validateCoverage({
     concepts: raw.concepts || [],
     features: catalog.features || [],
@@ -72,7 +73,7 @@ async function main() {
   const catalogPath = process.env.LAB_CATALOG_PATH ? path.resolve(process.env.LAB_CATALOG_PATH) : CATALOG_PATH;
   const maxAgeDays = catalogMaxAgeDays(args);
 
-  const catalog = JSON.parse(fs.readFileSync(catalogPath, "utf8"));
+  const catalog = readCatalogFile(catalogPath);
   const report = await buildCatalogReport(catalog, {
     checkLink,
     maxAgeDays,

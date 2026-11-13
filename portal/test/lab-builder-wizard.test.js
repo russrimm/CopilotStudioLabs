@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
+import { getHarnesses } from "../lib/lab-builder/catalog.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
 import { getKnownCoverageGaps, notApplicableReason } from "../lib/lab-builder/concepts.js";
 
@@ -13,10 +14,10 @@ const builderPanel = html.match(/id="panel-labbuilder"[\s\S]*?<!-- Preview tab -
 
 test("the wizard asks one question per step, in the required order", () => {
   const headings = [...builderPanel.matchAll(/id="lb-heading-(\d)"[^>]*>([^<]+)</g)].map((m) => [Number(m[1]), m[2]]);
-  assert.deepEqual(headings.map(([n]) => n), [1, 2, 3, 4, 5, 6, 7]);
-  const order = ["industry", "departments", "level", "harness", "topics", "Review", "Generate"];
+  assert.deepEqual(headings.map(([n]) => n), [1, 2, 3, 4, 5, 6, 7, 8]);
+  const order = ["products", "industry", "departments", "level", "harness", "topics", "Review", "Generate"];
   headings.forEach(([n, text], i) => {
-    assert.match(text, new RegExp(`Step ${n} of 7`));
+    assert.match(text, new RegExp(`Step ${n} of 8`));
     assert.match(text, new RegExp(order[i], "i"));
   });
 });
@@ -24,7 +25,7 @@ test("the wizard asks one question per step, in the required order", () => {
 test("the step list is real buttons with the current step announced", () => {
   const list = builderPanel.match(/<ol class="lb-steps"[\s\S]*?<\/ol>/)?.[0];
   assert.ok(list, "the stepper is an ordered list");
-  assert.equal([...list.matchAll(/<button\b/g)].length, 7);
+  assert.equal([...list.matchAll(/<button\b/g)].length, 8);
   assert.match(list, /aria-current="step"/);
   assert.match(builderPanel, /<nav aria-label="Lab builder steps">/);
   assert.match(wizard, /setAttribute\("aria-current", "step"\)/);
@@ -32,7 +33,7 @@ test("the step list is real buttons with the current step announced", () => {
 });
 
 test("each pane heading can take focus so a step change is announced", () => {
-  for (let n = 1; n <= 7; n += 1) {
+  for (let n = 1; n <= 8; n += 1) {
     assert.match(builderPanel, new RegExp(`id="lb-heading-${n}" tabindex="-1"`));
   }
 });
@@ -74,8 +75,9 @@ test("the wizard script loads after app.js, and app.js no longer carries the old
 test("a concept with no topic yet is reported as not available yet, not as not applicable", () => {
   // Cells listed in knownGaps are the only ones that can still be "not available yet".
   for (const cell of getKnownCoverageGaps()) {
-    const [conceptId, harness] = cell.split(":");
-    const row = recommend({ harness }).concepts.find((c) => c.id === conceptId);
+    const [conceptId, target] = cell.split(":");
+    const answers = getHarnesses().some((h) => h.id === target) ? { harness: target } : { products: [target] };
+    const row = recommend(answers).concepts.find((c) => c.id === conceptId);
     assert.equal(row.notYetAvailable, true, cell);
   }
   const concept = { id: "x", features: ["f"], notApplicable: {} };

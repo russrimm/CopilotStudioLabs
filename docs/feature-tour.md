@@ -1,6 +1,6 @@
 # Feature tour site
 
-The feature tour is a static GitHub Pages site that shows a screenshot and an explanation for every Copilot Studio feature in the lab builder catalog, plus a guided tour that steps through them. It covers the features in [`portal/lib/lab-builder/features.json`](../portal/lib/lab-builder/features.json) across the Standard harness and the Microsoft Copilot harness. It does not cover the lab portal's own features.
+The feature tour is a static GitHub Pages site that shows a screenshot and an explanation for every Copilot Studio feature in the Microsoft AI Training Generator catalog, plus a guided tour that steps through them. The tour lists only the `copilot-studio` product's features, because its screenshots and paths are Copilot Studio screens; every feature in the tour data carries its `product` so a tour for another product can reuse the model. It covers the features in [`portal/lib/lab-builder/features.json`](../portal/lib/lab-builder/features.json) across the Standard harness and the Microsoft Copilot harness. It does not cover the lab portal's own features.
 
 - **Overview**: filter and search by harness, level, category, availability, and screenshot status.
 - **Feature pages**: one per feature, with what it is, why it matters, where to click, prerequisites, caveats, how to check your work, Microsoft Learn links, and screenshots with numbered callouts.

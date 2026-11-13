@@ -1,5 +1,5 @@
 /**
- * Copilot Studio Labs — Provisioning Portal Server
+ * Microsoft AI Training Generator — Provisioning Portal Server
  */
 
 import "dotenv/config";
@@ -29,6 +29,7 @@ import { planLab } from "./lib/lab-builder/planner.js";
 import { recommend } from "./lib/lab-builder/recommend.js";
 import { getConcepts } from "./lib/lab-builder/concepts.js";
 import { defaultDifferencesFor } from "./lib/lab-builder/differences.js";
+import { getProducts, productOf } from "./lib/lab-builder/products.js";
 import { generateLab, OUTPUT_ROOT } from "./lib/lab-builder/generator.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
@@ -460,6 +461,16 @@ app.get("/api/lab-builder/features", (_req, res) => {
       industries: getIndustries(),
       roles: getRoles(),
       categories: getFeaturesByCategory(),
+      products: getProducts().map((p) => ({
+        id: p.id,
+        name: p.name,
+        shortName: p.shortName,
+        summary: p.summary,
+        levels: p.levels,
+        hasHarnesses: p.hasHarnesses,
+        learnHubUrl: p.learnHubUrl,
+        featureCount: getFeatures().filter((f) => productOf(f) === p.id).length,
+      })),
       harnesses: getHarnesses(),
       levels: LEVELS,
       concepts: getConcepts().map(({ id, name, order, summary }) => ({ id, name, order, summary })),
@@ -518,6 +529,9 @@ app.post("/api/lab-builder/preview", (req, res) => {
         summary: f.summary,
       })),
       level: plan.level,
+      products: plan.products,
+      productNames: plan.productNames,
+      harness: plan.harness,
       droppedOutOfLevel: plan.request.droppedOutOfLevel || [],
       deferred: plan.deferred,
       assumedPrereqs: plan.assumedPrereqs,
@@ -1061,16 +1075,16 @@ app.post("/api/email", async (req, res) => {
     // existing lab export pipeline).
     const result = await sendMail({
       to: recipients,
-      subject: "Your Copilot Studio Labs Package",
+      subject: "Your Microsoft AI Training Generator Package",
       html: `
         <div style="font-family: Segoe UI, Arial, sans-serif; max-width: 600px;">
-          <h2>⚡ Your Copilot Studio Labs</h2>
+          <h2>⚡ Your Microsoft AI Training Generator</h2>
           <p>Attached is your customized lab package containing ${labIds.length} lab(s):</p>
           <ul>${labList}</ul>
           <p>Unzip the attachment and follow each lab's <code>index.md</code> to get started.</p>
           <hr />
           <p style="color: #666; font-size: 12px;">
-            Sent from the Copilot Studio Labs Provisioning Portal
+            Sent from the Microsoft AI Training Generator Provisioning Portal
           </p>
         </div>
       `,
@@ -1591,7 +1605,7 @@ app.use((err, _req, res, next) => {
 // ── Start ───────────────────────────────────────────────────────────────────
 app.listen(PORT, HOST, () => {
   const auth = authConfigSummary();
-  console.log(`\n⚡ Copilot Studio Labs Portal running at http://${HOST}:${PORT}`);
+  console.log(`\n⚡ Microsoft AI Training Generator Portal running at http://${HOST}:${PORT}`);
   console.log(
     `   Auth: ${auth.enabled ? "enabled" : "DISABLED"} ` +
     `(tenant: ${auth.tenantConfigured ? "set" : "MISSING"}, ` +

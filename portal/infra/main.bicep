@@ -1,5 +1,5 @@
 // ── Main Bicep entry point for lab resource provisioning ──────────────────
-// Deploys the Azure resources needed by Copilot Studio Labs.
+// Deploys the Azure resources needed by the Microsoft AI Training Generator.
 // Usage: az deployment sub create --location eastus --template-file main.bicep --parameters ...
 
 targetScope = 'subscription'

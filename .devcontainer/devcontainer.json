@@ -1,5 +1,5 @@
 {
-  "name": "Copilot Studio Labs",
+  "name": "Microsoft AI Training Generator",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."

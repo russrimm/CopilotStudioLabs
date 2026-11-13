@@ -55,7 +55,8 @@ export function topicToFeature(topic) {
     levelBasis: basis,
     minutes: DEFAULT_MINUTES,
     core: false,
-    harness: [...topic.harnesses],
+    // Only a topic of another product names its product; harness tags exist only for a product that has harnesses.
+    ...(topic.product && topic.product !== "copilot-studio" ? { product: topic.product } : { harness: [...topic.harnesses] }),
     availability: topic.availability || undefined,
     summary,
     whyItMatters:
@@ -73,7 +74,7 @@ export function topicToFeature(topic) {
     validation: [
       "[Unverified] You completed the procedure in the linked Microsoft Learn article and the result matches what the article describes.",
     ],
-    learnQueries: [`Microsoft Copilot Studio ${title}`],
+    learnQueries: [`${topic.productName || "Microsoft Copilot Studio"} ${title}`],
     docUrls: [...topic.urls],
     prereqs: [],
     relatedLabs: [],

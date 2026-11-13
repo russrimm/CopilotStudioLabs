@@ -14,6 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getConceptForFeature } from "./concepts.js";
+import { productHasHarnesses, productOf } from "./products.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIFFERENCES_PATH = path.join(__dirname, "harness-differences.json");
@@ -188,8 +189,9 @@ export function renderDifferenceBlock({ record, concept, labHarness, otherHarnes
  * @returns {{ byFeature: Map<string, string[]>, concepts: string[], uncertain: string[], harnesses: string[] }}
  */
 export function buildDifferenceBlocks(plan, { harnesses, clean = (t) => String(t), concepts } = {}) {
-  const labHarness = plan.harness || "standard";
-  const targets = (plan.differencesFor || []).filter((id) => id !== labHarness);
+  // An omitted harness is Standard (older plans); a plan for products without harnesses sets it to null.
+  const labHarness = plan.harness === undefined ? "standard" : plan.harness;
+  const targets = labHarness ? (plan.differencesFor || []).filter((id) => id !== labHarness) : [];
   const byFeature = new Map();
   const shown = [];
   const uncertain = [];
@@ -197,6 +199,8 @@ export function buildDifferenceBlocks(plan, { harnesses, clean = (t) => String(t
 
   const seen = new Set();
   for (const feature of plan.features) {
+    // A difference record compares harnesses, so it only fits a feature of a product that has them.
+    if (!productHasHarnesses(productOf(feature))) continue;
     const concept = (concepts || []).find((c) => c.features.includes(feature.id)) || getConceptForFeature(feature.id);
     if (!concept || seen.has(concept.id)) continue;
     const record = getDifference(concept.id);

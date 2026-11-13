@@ -1,15 +1,18 @@
 /**
- * Copilot Studio feature catalog.
+ * Feature catalog for every product the Microsoft AI Training Generator covers.
  *
- * Loads `features.json` and exposes lookup / dependency helpers used by the
- * lab planner, the portal wizard, and the CLI.
+ * Loads `features.json` (Copilot Studio) plus `catalog/<product>.json` for each
+ * other product, and exposes lookup / dependency helpers used by the lab
+ * planner, the portal wizard, and the CLI.
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readCatalogFile } from "./catalog-source.js";
 import { getConcepts, getKnownCoverageGaps, getRecommendations, validateConcepts } from "./concepts.js";
+import { getProducts, harnessProduct, productOf, validateProducts } from "./products.js";
 import { getDifferences, validateDifferences } from "./differences.js";
 import { validateScreenshotSlots } from "./slots.js";
 import { getDynamicFeature } from "./topic-store.js";
@@ -29,7 +32,7 @@ function index(raw) {
     version: raw.version,
     product: raw.product,
     vendorHosts: raw.vendorHosts || [],
-    harnesses: raw.harnesses || [],
+    harnesses: (raw.harnesses || []).map((h) => ({ ...h, product: harnessProduct(h) })),
     categories,
     features,
     byId,
@@ -39,7 +42,7 @@ function index(raw) {
 
 function load() {
   if (cached) return cached;
-  cached = index(JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8")));
+  cached = index(readCatalogFile(CATALOG_PATH));
   return cached;
 }
 
@@ -129,6 +132,7 @@ export function getCategories() {
   const { categories, features } = load();
   return categories.map((cat) => ({
     ...cat,
+    products: categoryProducts(cat),
     featureCount: features.filter((f) => f.category === cat.id).length,
   }));
 }
@@ -156,11 +160,13 @@ export function getFeaturesByCategory() {
   const { categories, features } = load();
   return categories.map((cat) => ({
     ...cat,
+    products: categoryProducts(cat),
     features: features
       .filter((f) => f.category === cat.id)
       .map((f) => ({
         id: f.id,
         name: f.name,
+        product: productOf(f),
         level: f.level,
         minutes: f.minutes,
         core: Boolean(f.core),
@@ -325,8 +331,9 @@ function validateVendorSources(features, vendorHosts, problems) {
  * not checked, so the tag stays optional until a catalog opts in. Once it
  * opts in, every feature must say which harness its steps and checks apply to.
  */
-function validateHarnesses(features, harnesses, problems) {
+function validateHarnesses(features, harnesses, problems, products = getProducts()) {
   if (!Array.isArray(harnesses) || !harnesses.length) return;
+  const productsById = new Map(products.map((p) => [p.id, p]));
   const ids = new Set();
   harnesses.forEach((entry, position) => {
     const label = `harnesses[${position}]`;
@@ -350,11 +357,17 @@ function validateHarnesses(features, harnesses, problems) {
   });
 
   for (const f of features) {
+    // A harness is a Copilot Studio idea. A feature of a product without harnesses carries no tag, and validateProducts rejects one that does.
+    const harnessProductId = productOf(f);
+    const owner = productsById.get(harnessProductId);
+    if (owner && !owner.hasHarnesses) continue;
+    const ofProduct = new Set(harnesses.filter((h) => harnessProduct(h) === harnessProductId).map((h) => h.id));
     if (!Array.isArray(f.harness) || !f.harness.length) {
-      problems.push(`${f.id}: harness must list at least one of ${[...ids].join(", ")}`);
+      problems.push(`${f.id}: harness must list at least one of ${[...ofProduct].join(", ")}`);
     } else {
       for (const tag of f.harness) {
         if (!ids.has(tag)) problems.push(`${f.id}: unknown harness "${tag}"`);
+        else if (!ofProduct.has(tag)) problems.push(`${f.id}: harness "${tag}" does not belong to product ${harnessProductId}`);
       }
       if (new Set(f.harness).size !== f.harness.length) problems.push(`${f.id}: harness lists a value twice`);
     }
@@ -365,6 +378,29 @@ function validateHarnesses(features, harnesses, problems) {
       problems.push(`${f.id}: harnessNote must be a non-empty string`);
     }
   }
+}
+
+/** A category belongs to one or more products (default Copilot Studio); a feature's category must belong to the feature's product. */
+export function categoryProducts(category) {
+  return Array.isArray(category?.products) && category.products.length ? category.products : [productOf(null)];
+}
+
+function validateCategories({ categories, features, products }) {
+  const problems = [];
+  const productIds = new Set(products.map((p) => p.id));
+  const byId = new Map(categories.map((c) => [c.id, c]));
+  for (const category of categories) {
+    for (const id of categoryProducts(category)) {
+      if (!productIds.has(id)) problems.push(`category ${category.id}: unknown product "${id}"`);
+    }
+  }
+  for (const f of features) {
+    const category = byId.get(f.category);
+    if (category && !categoryProducts(category).includes(productOf(f))) {
+      problems.push(`${f.id}: category ${f.category} does not belong to product ${productOf(f)}`);
+    }
+  }
+  return problems;
 }
 
 /**
@@ -429,7 +465,16 @@ export function validateCatalog(raw, { now = Date.now() } = {}) {
   // The concept layer describes the shipped catalog, so a parsed fixture is not held to it.
   if (!raw) {
     problems.push(
-      ...validateConcepts({ concepts: getConcepts(), recommendations: getRecommendations(), features, harnesses, knownGaps: getKnownCoverageGaps() }),
+      ...validateProducts({ products: getProducts(), features, harnesses }),
+      ...validateCategories({ categories: load().categories, features, products: getProducts() }),
+      ...validateConcepts({
+        concepts: getConcepts(),
+        recommendations: getRecommendations(),
+        features,
+        harnesses,
+        products: getProducts(),
+        knownGaps: getKnownCoverageGaps(),
+      }),
       ...validateDifferences({ records: getDifferences(), concepts: getConcepts(), harnesses }),
       ...validateScreenshotSlots({ features }),
     );

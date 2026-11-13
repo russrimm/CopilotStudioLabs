@@ -1,8 +1,9 @@
-# Lab Builder — build your own Copilot Studio lab
+# Lab Builder — the Microsoft AI Training Generator
 
-The 40 labs in `labs/` are fixed walkthroughs. The lab builder is the opposite:
-you pick an industry, the roles you are teaching, and the Copilot Studio
-capabilities you want covered, and it writes a complete, step-by-step lab for
+The 40 labs in `labs/` are fixed walkthroughs of Microsoft Copilot Studio. The lab builder is the opposite:
+you pick the **products** you are teaching (Copilot Studio, declarative agents for Microsoft 365 Copilot, SharePoint AI,
+Microsoft Foundry, the Microsoft 365 Copilot hub, or the Power Platform AI hub), an industry, the roles you are teaching,
+and the capabilities you want covered, and it writes a complete, step-by-step lab for
 that exact combination, drawing on live Microsoft Learn documentation where it
 can and on a curated catalog where it cannot.
 
@@ -27,7 +28,7 @@ Two ways to use it:
 
 | | |
 |---|---|
-| **Portal** | The **🧬 Build a Lab** tab — a five-step wizard with live preview. |
+| **Portal** | The **🧬 Build a Lab** tab — an eight-step wizard (seven when no selected product has harnesses) with live preview. |
 | **CLI** | `node tools/lab-builder/build.mjs` — no portal and no sign-in. Offline builds (`--no-learn`) need nothing beyond Node 24; live vendor-page reads load `sanitize-html` from `portal/` (run `npm ci` there first). |
 
 Output lands in `generated-labs/<slug>/` (git-ignored) as:
@@ -173,14 +174,24 @@ arrow, Home, and End keys move among the tabs of the current area.
 1. Start the portal: `cd portal && npm install && npm start`.
 2. Open the portal; it lands on **🧬 Build a Lab**.
 3. Answer one question per step, in this order:
-   1. **Vertical** (industry). Cross-industry is the default.
-   2. **Departments** (any number, optional).
-   3. **Level**: 100 Beginner, 200 Intermediate, or 300 Advanced. This is the single
+   1. **Product** (any number). Copilot Studio is the default, so the wizard behaves as
+      it always did until you pick another. A lab can combine products, for example
+      SharePoint AI with Copilot Studio. Each product shows how many topics it has at
+      each level and links to its Microsoft Learn hub. See [Products](#products).
+   2. **Vertical** (industry). Cross-industry is the default.
+   3. **Departments** (any number, optional).
+   4. **Level**: 100 Beginner, 200 Intermediate, or 300 Advanced. This is the single
       source of truth for level: every later step shows, and the lab builds, only
-      that level (see [The level filter](#the-level-filter)).
-   4. **Harness**: Standard, Microsoft Copilot, or Customer Conversation (preview).
-   5. **Topics**: every topic at your level that applies to your harness, grouped by
-      concept (Instructions, Knowledge, Tools, Skills, MCP servers, and so on).
+      that level (see [The level filter](#the-level-filter)). A product with no topic
+      at a level is named under that level, never silently dropped.
+   5. **Harness**: Standard, Microsoft Copilot, or Customer Conversation (preview).
+      This step appears **only when a selected product has harnesses** (today, Copilot
+      Studio). Without one, the wizard goes from Level straight to Topics, the step
+      numbers close up ("Step 5 of 7"), and the request carries no harness.
+   6. **Topics**: every topic at your level that applies to your products (and, for
+      Copilot Studio, your harness), grouped by
+      concept (Instructions, Knowledge, Tools, Skills, MCP servers, and so on), each
+      labeled with its product.
       Topics are pre-selected from your answers, each with the reason. Check or
       uncheck anything; use **Select all**, **Clear**, **Reset to recommended**, or
       the per-group buttons. A status line announces the count ("Showing 20 topics
@@ -189,12 +200,13 @@ arrow, Home, and End keys move among the tabs of the current area.
       the list: they sit in a collapsed group, **Prerequisites from lower levels
       (included automatically)**, each with the reason and a checkbox. If you
       uncheck one, you get a warning, and the lab assumes learners have already
-      done it. Concepts with no topic on your harness say whether the harness has
-      no equivalent or the topic is not written yet.
-   6. **Review**: the outline with the estimated time for each module and a total.
+      done it. Concepts with no topic for your selection say whether the product or
+      harness has no equivalent or the topic is not written yet, and a product with
+      nothing at your level says what it does have and at which levels.
+   7. **Review**: the outline with the estimated time for each module and a total.
       Advanced options (agent name, title, Learn grounding, model narrative, and a
       preferred length that only suggests where to split) are folded away here.
-   7. **Generate**.
+   8. **Generate**.
 
    The step list at the top is made of buttons: you can jump back to any step you
    have already reached, and changing an earlier answer recomputes the topic
@@ -207,7 +219,7 @@ arrow, Home, and End keys move among the tabs of the current area.
    exactly what gets built: the wizard sends `includeCore: false` and the topics
    you kept, so no foundation module is added behind your back.
 
-   The level is chosen only in Step 3. The left-hand "Lab Chapters" pane that used to
+   The level is chosen only in the Level step. The left-hand "Lab Chapters" pane that used to
    group the hand-written labs by level has been removed; choosing which hand-written
    labs are included now lives under **Lab chapters** on the **Lab setup** tab, and the
    **Preview** tab has its own lab picker. Open `/#labbuilder` to start the wizard.
@@ -237,14 +249,18 @@ flowchart LR
 
 ### 1. Feature catalog
 
-`portal/lib/lab-builder/features.json` is the source of truth for *structure*: 97
-Copilot Studio capabilities across 11 categories, covering the standard
+The catalog is the source of truth for *structure*. Copilot Studio's 97
+capabilities live in `portal/lib/lab-builder/features.json` across 11 categories, covering the standard
 harness, the Microsoft Copilot harness, and the Customer Conversation harness (see
-[Harnesses and levels](#harnesses-and-levels)), including the enterprise
+[Harnesses and levels](#harnesses-and-levels)); every other product keeps its own
+file, `portal/lib/lab-builder/catalog/<product-id>.json` (see [Products](#products)).
+`catalog-source.js` merges them, and everything that reads the catalog (the portal,
+the CLI, the accuracy checks, and the feature tour) goes through it. The Copilot Studio
+capabilities include the enterprise
 integrations (ServiceNow, Snowflake, SAP, Salesforce, Jira, Epic on FHIR, Shopify,
 on-premises data gateway, VNet private connectivity) and governance topics (agent
 inventory, release readiness, Entra agent identities) that the repository's
-hand-written labs cover. Each entry carries the level, harness tags, time
+hand-written labs cover. Each entry carries the level, harness tags (Copilot Studio only), time
 estimate, prerequisites, concepts, fallback click-by-click steps, validation
 checks, Microsoft Learn search queries, doc URLs, related labs in this repo, any
 existing screenshots that can be reused, and when and against which page it was
@@ -261,6 +277,95 @@ This is the file to edit to add a feature, change a module's structure, or
 correct those curated steps. `validateCatalog()` (and a test) enforces its
 integrity, including prerequisite cycles and the freshness fields described in
 [Extending the catalog](#extending-the-catalog).
+
+#### Products
+
+A **product** is a solution area the generator builds labs for. It sits above the harness:
+a harness exists only for a product that has harnesses (today, Copilot Studio), so
+every harness rule applies to Copilot Studio features alone. `products.json` defines
+each product:
+
+| Field | Meaning |
+|---|---|
+| `id`, `name`, `shortName`, `summary`, `order` | Identity and display. Plain text; no emoji. |
+| `learnHubUrl`, `learnRoots` | The Microsoft Learn hub and URL prefixes the product's topic discovery starts from and is limited to. |
+| `levels` | The levels (100, 200, 300) the product has curated topics for. Each must have at least one feature. |
+| `hasHarnesses` | True only when a harness belongs to the product. |
+| `agentNoun`, `labPrerequisites`, `licenseNote` | Quoted into generated labs, so state only what Learn states and mark the rest "Not confirmed in Microsoft Learn." |
+
+The products, and what each covers:
+
+| Id | Product | Grounded on |
+|---|---|---|
+| `copilot-studio` | Microsoft Copilot Studio (Standard, Microsoft Copilot, and Customer Conversation harnesses) | `/microsoft-copilot-studio/` |
+| `m365-copilot-agent-builder` | Agent Builder and declarative agents for Microsoft 365 Copilot (Agent Builder; Microsoft 365 Agents Toolkit) | `/microsoft-365/copilot/extensibility/`, `/microsoftteams/platform/toolkit/` |
+| `sharepoint-ai` | SharePoint AI features (Copilot in SharePoint, agents with SharePoint content, document processing, SharePoint Advanced Management) | `/sharepoint/`, `/microsoft-365/documentprocessing/` |
+| `ai-foundry` | Microsoft Foundry, formerly Azure AI Foundry (Foundry projects and hub-based projects) | `/azure/foundry/`, `/azure/foundry-classic/` |
+| `m365-copilot-hub` | Microsoft 365 Copilot hub and Copilot controls in the Microsoft 365 admin center | `/copilot/implement/`, `/microsoft-365/admin/` |
+| `power-platform-ai-hub` | Power Platform AI hub (AI Builder) | `/ai-builder/` |
+
+**Which "AI hub"?** The request that introduced products said "the AI Hub", which is
+ambiguous in Microsoft's portfolio. Rather than guess, the generator includes the
+three products that plausibly match as separate, clearly named products: Microsoft
+Foundry hubs and projects (`ai-foundry`), the Microsoft 365 Copilot hub
+(`m365-copilot-hub`), and the Power Platform AI hub (`power-platform-ai-hub`). Each
+product is one entry in `products.json` plus one file in `catalog/`, so pruning one
+means deleting those two and the ids that name it in `concepts.json` and
+`recommendations.json`.
+
+Rules the catalog enforces (`validateProducts`, `validateCategories`, `validateConcepts`):
+
+- A feature with no `product` field is a `copilot-studio` feature. A feature in
+  `catalog/<product-id>.json` takes that product, and the file's `product` must match
+  its name.
+- A feature of a product without harnesses carries **no** `harness` tag; a feature of
+  Copilot Studio must carry one.
+- A feature's `level` must be in its product's `levels`, its `category` must belong to
+  its product, and its `prereqs` must stay inside the product.
+- Every product has at least one feature, and every level it lists has one.
+
+**Wizard and planner.** The request carries `products` (default: the products of the
+selected topics, so older callers keep working). `recommend` and `planLab` take only
+topics of the selected products; a harness is validated and used only when a selected
+product has harnesses, and is otherwise ignored with a warning. A lab for products
+without harnesses has `harness: null` and no "How this differs" notes. The core
+foundation modules are Copilot Studio modules, so another product's lab never gets
+them as a seed. `recommend` returns `products`, one summary per selected product
+with its topic counts per level and a sentence that says what exists when the chosen
+level has nothing, which is how the wizard avoids a dead end.
+
+**Manifests.** `manifest.json` records `generator`, `product` (the one most modules
+belong to), `products`, and each module's `product`. A manifest without them is a
+Copilot Studio lab. The Previously generated labs list shows a chip per product.
+
+**Topic discovery** is scoped per product: `discoverSnapshot({ product })` starts at
+the product's `learnHubUrl`, follows only links under its `learnRoots`, compares only
+that product's catalog features, and tags its topics with the product. The portal's
+refresh runs Copilot Studio discovery; the other products use the curated catalog
+until their snapshots are added.
+
+#### Adding a product
+
+1. Add an entry to `products.json` (ids are lower-case slugs; set `hasHarnesses` to
+   `false` unless the product genuinely has harnesses). Read Microsoft Learn first,
+   because product names change; mention a former name only when Learn does.
+2. Create `catalog/<product-id>.json`:
+   `{ "product": "<product-id>", "categories": [...], "features": [...] }`. Features
+   use the same fields as [Extending the catalog](#extending-the-catalog), minus
+   `harness` and `product`.
+3. In `concepts.json`, add the product to the `products` of each concept its features
+   teach, add those feature ids to the concept, and add product-specific concepts where
+   no existing one fits. For a concept the product should cover but does not yet, list
+   `concept:<product-id>` in `knownGaps`; for one that does not apply, give a
+   `notApplicable.<product-id>` reason that says what Learn says.
+4. Add the new topics to `recommendations.json` (`levels`, and any vertical or
+   department they suit, each with a `why`).
+5. Regenerate the coverage matrix below, run `npm test` in `portal/`, and run
+   `node tools/lab-accuracy/check-catalog.mjs`.
+
+Every feature must be written from pages you fetched on Learn, with `lastVerified` set
+only for pages you read. Mark anything you could not confirm "Not confirmed in
+Microsoft Learn."
 
 #### Harnesses and levels
 
@@ -325,7 +430,7 @@ a prerequisite from a higher level:
 
 #### The level filter
 
-The level chosen in Step 3 decides what the rest of the wizard shows and what the
+The level chosen in the Level step decides what the rest of the wizard shows and what the
 lab contains. There is no second level selector in the Topics step, so the two can
 never disagree. `levels.js` holds the shared rules.
 
@@ -386,14 +491,17 @@ product, are untouched.
 
 #### Concepts and recommendations
 
-The catalog is organized by harness, but learners think in concepts: Instructions,
+The catalog is organized by product and, for Copilot Studio, by harness, but learners think in concepts: Instructions,
 Knowledge, Tools, Skills, MCP servers, Subagents, SDK, Memory, Hooks, Triggers,
 Workflows, Testing, Publish, Governance, and so on. `concepts.json` is that
-layer. Each concept lists the feature ids that teach it; a feature's own
-`harness` tag says where it applies, so **Skills** lists `prompt-tools` (Standard
+layer. Each concept lists the feature ids that teach it and the `products` it
+applies to (default: Copilot Studio), so a concept such as Instructions, Knowledge,
+Governance, or Publish can be shared across products while one such as Hooks stays
+product-specific. A feature's own `harness` tag says where it applies within Copilot
+Studio, so **Skills** lists `prompt-tools` (Standard
 harness) and `mc-skills` (Microsoft Copilot harness). When a concept has nothing
-for a harness, its `notApplicable` map says why, so the wizard explains the gap
-and names what to use instead. Every feature belongs to exactly one concept.
+for a harness or product, its `notApplicable` map says why, so the wizard explains the gap
+and names what to use instead. Every feature belongs to exactly one concept, and the concept must list the feature's product.
 
 `recommendations.json` holds the deterministic rules that pre-select topics: the
 topics that make up each level (the new depth it adds; prerequisites join
@@ -410,16 +518,23 @@ prerequisite you turn off only produces a warning.
 
 #### Concept coverage matrix
 
-Every concept must say something for every harness: a catalog feature tagged for
-that harness (`variant`, with the number of features), or a `notApplicable`
-reason in `concepts.json` (`n/a`). A cell with neither is `missing` and
+Every concept must say something for every coverage target it applies to. A target is
+a **harness** for a product that has harnesses (Copilot Studio) and the **product itself**
+for every other product; a concept is judged only on the products it lists in `products`,
+so a concept that makes sense for one product never owes a cell to the others. Each cell
+is a catalog feature for that target (`variant`, with the number of features), or a
+`notApplicable` reason in `concepts.json` keyed by the harness or product id (`n/a`). A
+cell with neither is `missing` and
 fails `validateCatalog()`, the portal tests, and the monthly `check-catalog`
-run, unless it is listed in `knownGaps` in `concepts.json`. `knownGaps` can
+run, unless it is listed in `knownGaps` in `concepts.json` as `concept:target`. `knownGaps` can
 only shrink: a listed cell that gains a variant or an `n/a` reason fails until
-it is removed. The matrix below is generated by `buildCoverageMatrix` in
+it is removed. The **missing** cells below are the known gaps, which the next
+sessions that deepen a product fill in. The matrix below is generated by `buildCoverageMatrix` in
 `portal/lib/lab-builder/coverage.js` and a test keeps it in sync.
 
 <!-- coverage-matrix:start -->
+**Microsoft Copilot Studio**
+
 | Concept | Standard harness | Microsoft Copilot harness | Customer Conversation harness |
 | --- | --- | --- | --- |
 | Choose a harness | variant (2) | variant (2) | variant (1) |
@@ -445,7 +560,65 @@ it is removed. The matrix below is generated by `buildCoverageMatrix` in
 | Authentication and safety | variant (3) | variant (1) | variant (2) |
 | Governance and ALM | variant (3) | variant (3) | variant (1) |
 | Credits and billing | variant (1) | variant (1) | variant (1) |
+
+**Agent Builder and declarative agents for Microsoft 365 Copilot**
+
+| Concept | Coverage |
+| --- | --- |
+| Choose an approach | variant (1) |
+| Create an agent | variant (2) |
+| Instructions | variant (1) |
+| Knowledge | variant (1) |
+| Tools and connectors | **missing** |
+| Testing and evaluation | variant (1) |
+| Publish and channels | variant (1) |
+
+**SharePoint AI features**
+
+| Concept | Coverage |
+| --- | --- |
+| Create an agent | variant (1) |
+| Copilot in the host app | variant (1) |
+| Knowledge | variant (1) |
+| Content AI and document processing | variant (1) |
+| Authentication and safety | variant (1) |
+| Governance and ALM | variant (1) |
+
+**Microsoft Foundry**
+
+| Concept | Coverage |
+| --- | --- |
+| Resources, hubs, and projects | variant (2) |
+| Create an agent | variant (1) |
+| Model deployment and playground | variant (1) |
+| Knowledge | **missing** |
+| Tools and connectors | **missing** |
+| Testing and evaluation | **missing** |
+| Publish and channels | **missing** |
+| Authentication and safety | variant (1) |
+| Governance and ALM | variant (1) |
+
+**Microsoft 365 Copilot hub and Copilot controls**
+
+| Concept | Coverage |
+| --- | --- |
+| Monitor and analytics | variant (1) |
+| Authentication and safety | variant (1) |
+| Governance and ALM | variant (3) |
+| Credits and billing | variant (1) |
+
+**Power Platform AI hub (AI Builder)**
+
+| Concept | Coverage |
+| --- | --- |
+| Choose an AI capability | variant (1) |
+| Instructions | variant (1) |
+| Content AI and document processing | variant (1) |
+| Use AI in apps and flows | variant (1) |
+| Governance and ALM | variant (1) |
+| Credits and billing | variant (1) |
 <!-- coverage-matrix:end -->
+
 #### Harness differences
 
 Every generated lab is written for one harness. Where the same concept works
@@ -1196,7 +1369,8 @@ option id is rejected with HTTP 400.
 
 ## Extending the catalog
 
-Add a feature to `portal/lib/lab-builder/features.json`:
+Add a feature to `portal/lib/lab-builder/features.json` (Copilot Studio) or to the product's
+`catalog/<product-id>.json` (any other product; leave out `product` and `harness` there):
 
 ```jsonc
 {
@@ -1205,7 +1379,7 @@ Add a feature to `portal/lib/lab-builder/features.json`:
   "category": "tools",            // must match a category id
   "level": 200,                   // 100, 200, or 300; see the level rubric under Harnesses and levels
   "minutes": 20,
-  "harness": ["standard"],        // required: ids from the top-level harnesses list
+  "harness": ["standard"],        // Copilot Studio features only: ids from the top-level harnesses list. Other products carry none.
   "availability": "preview",      // optional: ga, preview, or retired; only when a Learn page states it
   "harnessNote": "How the other harness differs, with the sibling feature id.", // optional
   "summary": "One sentence on what the learner configures.",

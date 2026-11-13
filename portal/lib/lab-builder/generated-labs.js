@@ -95,6 +95,8 @@ export function selectionsFromManifest(manifest) {
   return {
     industry: shortText(request.industry),
     roles: textList(request.roles),
+    // A lab saved before products existed is a Copilot Studio lab.
+    products: textList(request.products).length ? textList(request.products) : textList(manifest.products).length ? textList(manifest.products) : ["copilot-studio"],
     features,
     excluded: textList(request.excluded),
     harness: shortText(request.harness) || shortText(manifest.harness),
@@ -129,6 +131,8 @@ function summarizeManifest(labId, manifest) {
     prerequisiteCount: Array.isArray(manifest.prerequisites) ? manifest.prerequisites.length : 0,
     vertical: manifest.industry || request.industry || null,
     level: selections?.level ?? null,
+    products: selections?.products ?? textList(manifest.products),
+    product: shortText(manifest.product) || selections?.products?.[0] || "copilot-studio",
     harness: selections?.harness ?? null,
     validation: validationSummary(manifest),
     selections,

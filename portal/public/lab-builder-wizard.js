@@ -1,28 +1,37 @@
 // ── Guided lab builder wizard ───────────────────────────────────────────────
-// One question per step: vertical, departments, level, harness, topics, review,
-// generate. Each answer feeds the topic recommendations through
-// /api/lab-builder/recommend, so the server owns every rule and this file only
-// renders. Time is guidance everywhere: nothing here limits a lab.
+// One question per step: product, vertical, departments, level, harness (only
+// when a selected product has harnesses), topics, review, generate. Each answer
+// feeds the topic recommendations through /api/lab-builder/recommend, so the
+// server owns every rule and this file only renders. Time is guidance
+// everywhere: nothing here limits a lab.
 // The generate, decision, and result functions live in app.js.
 
 const LB_STEPS = [
-  { id: 1, label: "Vertical" },
-  { id: 2, label: "Departments" },
-  { id: 3, label: "Level" },
-  { id: 4, label: "Harness" },
-  { id: 5, label: "Topics" },
-  { id: 6, label: "Review" },
-  { id: 7, label: "Generate" },
+  { id: 1, label: "Product" },
+  { id: 2, label: "Vertical" },
+  { id: 3, label: "Departments" },
+  { id: 4, label: "Level" },
+  { id: 5, label: "Harness" },
+  { id: 6, label: "Topics" },
+  { id: 7, label: "Review" },
+  { id: 8, label: "Generate" },
 ];
+
+// Named step ids, so no rule below depends on a bare number.
+const LB_STEP = { product: 1, vertical: 2, departments: 3, level: 4, harness: 5, topics: 6, review: 7, generate: 8 };
+const LB_DEFAULT_PRODUCT = "copilot-studio";
 
 const labBuilder = {
   loaded: false,
   industries: [],
   roles: [],
   categories: [],
+  products: [],
   harnesses: [],
   levels: [],
   industry: null,
+  // Copilot Studio is the default, so the wizard behaves as it always did until another product is chosen.
+  selectedProducts: new Set([LB_DEFAULT_PRODUCT]),
   selectedRoles: new Set(),
   level: 100,
   harness: "standard",
@@ -67,6 +76,49 @@ function lbHarnessName(id) {
   return labBuilder.harnesses.find((h) => h.id === id)?.name || id;
 }
 
+function lbProduct(id) {
+  return labBuilder.products.find((p) => p.id === id) || null;
+}
+
+/** The product a harness belongs to. */
+function lbHarnessOwner(harnessId) {
+  return labBuilder.harnesses.find((h) => h.id === harnessId)?.product || LB_DEFAULT_PRODUCT;
+}
+
+/** The products picked in the first step, in catalog order. */
+function lbSelectedProductList() {
+  const known = labBuilder.products.filter((p) => labBuilder.selectedProducts.has(p.id));
+  return known.length ? known : [{ id: LB_DEFAULT_PRODUCT, name: "Microsoft Copilot Studio", shortName: "Copilot Studio", hasHarnesses: true }];
+}
+
+/** A harness only exists for a product that has harnesses; the harness step and its answers apply only then. */
+function lbHasHarnessProduct() {
+  return lbSelectedProductList().some((p) => p.hasHarnesses);
+}
+
+/** The steps the learner walks through, in order. The harness step is skipped when no selected product has harnesses. */
+function lbVisibleStepIds() {
+  return LB_STEPS.map((s) => s.id).filter((id) => id !== LB_STEP.harness || lbHasHarnessProduct());
+}
+
+/** The next (direction 1) or previous (direction -1) visible step, or the same step at either end. */
+function lbAdjacentStep(from, direction) {
+  const ids = lbVisibleStepIds();
+  const index = ids.indexOf(from);
+  if (index === -1) return ids.find((id) => (direction > 0 ? id > from : id < from)) ?? from;
+  return ids[Math.min(Math.max(index + direction, 0), ids.length - 1)];
+}
+
+/** "Copilot Studio", "Copilot Studio and SharePoint AI", "A, B, and C". */
+function lbJoinNames(names) {
+  if (names.length <= 2) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+}
+
+function lbProductsLabel() {
+  return lbJoinNames(lbSelectedProductList().map((p) => p.shortName || p.name));
+}
+
 function lbLevelLabel(level) {
   const entry = labBuilder.levels.find((l) => l.level === level);
   return entry ? entry.label : "";
@@ -79,12 +131,14 @@ function lbLevelName(level) {
 }
 
 function lbAnswers() {
-  return {
+  const answers = {
     industry: labBuilder.industry || undefined,
     departments: [...labBuilder.selectedRoles],
+    products: lbSelectedProductList().map((p) => p.id),
     level: labBuilder.level,
-    harness: labBuilder.harness,
   };
+  if (lbHasHarnessProduct()) answers.harness = labBuilder.harness;
+  return answers;
 }
 
 async function lbRecommend(extra = {}) {
@@ -114,10 +168,10 @@ async function lbRefresh() {
     toast(`Could not update the topics: ${err.message}`, "error");
   }
   lbRenderSummary();
-  if (labBuilder.step === 5) lbRenderTopics();
+  if (labBuilder.step === LB_STEP.topics) lbRenderTopics();
 }
 
-/** An answer in steps 1-4 changed: topic choices start over from the new recommendation. */
+/** An answer in the first steps changed: topic choices start over from the new recommendation. */
 function lbAnswersChanged() {
   const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0;
   labBuilder.picked = null;
@@ -181,7 +235,7 @@ function lbRestoreLevelChoices() {
 /** The visible, announced notice shown on the level and topics steps. */
 function lbRenderLevelNotice(restoredMessage) {
   const notice = labBuilder.levelNotice;
-  for (const id of ["lb-level-notice-3", "lb-level-notice-5"]) {
+  for (const id of ["lb-level-notice-4", "lb-level-notice-6"]) {
     const el = document.getElementById(id);
     if (!el) continue;
     if (!notice) {
@@ -208,12 +262,14 @@ async function lbLoadCatalog() {
     labBuilder.industries = data.industries || [];
     labBuilder.roles = data.roles || [];
     labBuilder.categories = data.categories || [];
+    labBuilder.products = data.products || [];
     labBuilder.harnesses = data.harnesses || [];
     labBuilder.levels = data.levels || [];
     labBuilder.differenceDefaults = data.differenceDefaults || {};
     labBuilder.learnNew = data.learnNewByHarnessLevel || {};
     labBuilder.loaded = true;
     lbBindTopicEvents();
+    lbRenderProducts();
     lbRenderIndustries();
     lbRenderRoles();
     lbRenderLevels();
@@ -229,7 +285,70 @@ async function lbLoadCatalog() {
   }
 }
 
-// ── Step 1: vertical ────────────────────────────────────────────────────────
+// ── Step 1: product ─────────────────────────────────────────────────────────
+/** What a product offers at each level, in words: "Level 100: 2, Level 200: 3". */
+function lbProductLevelCounts(product) {
+  const counts = {};
+  for (const feature of lbFeatureList()) {
+    if (feature.product === product.id) counts[feature.level] = (counts[feature.level] || 0) + 1;
+  }
+  const parts = labBuilder.levels.filter((l) => counts[l.level]).map((l) => `Level ${l.level}: ${counts[l.level]}`);
+  return parts.length ? parts.join(", ") : "No topics yet";
+}
+
+function lbRenderProducts() {
+  const el = document.getElementById("lb-product-options");
+  if (!el) return;
+  const focused = el.contains(document.activeElement) ? document.activeElement.value : null;
+  el.innerHTML = labBuilder.products
+    .map((p) => {
+      const checked = labBuilder.selectedProducts.has(p.id);
+      const hub = lbLearnUrl(p.learnHubUrl);
+      return `
+      <label class="scenario-role">
+        <input type="checkbox" name="lb-product" value="${escapeHtml(p.id)}" ${checked ? "checked" : ""}>
+        <span>
+          <span style="font-weight: 600;">${escapeHtml(p.name)}</span>
+          ${p.hasHarnesses ? '<span class="lb-badge">Has harnesses</span>' : ""}
+          <div class="scenario-card-desc">${escapeHtml(p.summary)}</div>
+          <div class="scenario-card-desc">${escapeHtml(p.featureCount)} topics. ${escapeHtml(lbProductLevelCounts(p))}.${
+            hub ? ` <a href="${escapeHtml(hub)}" target="_blank" rel="noopener noreferrer">Microsoft Learn for ${escapeHtml(p.shortName)} (opens in a new tab)</a>` : ""
+          }</div>
+        </span>
+      </label>`;
+    })
+    .join("");
+  el.querySelectorAll("input[type=checkbox]").forEach((input) => {
+    input.addEventListener("change", () => lbToggleProduct(input.value, input.checked));
+  });
+  if (focused) el.querySelector(`input[value="${CSS.escape(focused)}"]`)?.focus();
+}
+
+function lbToggleProduct(id, checked) {
+  const error = document.getElementById("lb-product-error");
+  if (error) error.textContent = "";
+  if (checked) labBuilder.selectedProducts.add(id);
+  else if (labBuilder.selectedProducts.size > 1) labBuilder.selectedProducts.delete(id);
+  else {
+    // A lab needs a product. Say so, and keep the last one selected.
+    if (error) error.textContent = "Choose at least one product. Select another product before you clear this one.";
+    lbRenderProducts();
+    return;
+  }
+  lbProductsChanged();
+}
+
+/** The product choice changed: the harness step may appear or disappear, and every list below restarts from the new products. */
+function lbProductsChanged() {
+  lbRenderProducts();
+  lbRenderHarnesses();
+  lbRenderLevels();
+  lbRenderLearnBar();
+  lbRenderStepper();
+  lbAnswersChanged();
+}
+
+// ── Step 2: vertical ────────────────────────────────────────────────────────
 function lbRenderIndustries() {
   const el = document.getElementById("lb-industry-grid");
   if (!el) return;
@@ -265,7 +384,7 @@ function lbSelectIndustry(id) {
   lbAnswersChanged();
 }
 
-// ── Step 2: departments ─────────────────────────────────────────────────────
+// ── Step 3: departments ─────────────────────────────────────────────────────
 function lbRenderRoles() {
   const el = document.getElementById("lb-role-list");
   if (!el) return;
@@ -292,17 +411,20 @@ function lbToggleRole(id, checked) {
   lbAnswersChanged();
 }
 
-// ── Step 3: level ───────────────────────────────────────────────────────────
+// ── Step 4: level ───────────────────────────────────────────────────────────
 async function lbRenderLevels() {
   const el = document.getElementById("lb-level-options");
   if (!el) return;
   const hint = {};
+  const gaps = {};
   try {
-    const recs = await Promise.all(labBuilder.levels.map((l) => lbRecommend({ level: l.level, harness: labBuilder.harness })));
+    const recs = await Promise.all(labBuilder.levels.map((l) => lbRecommend({ level: l.level })));
     labBuilder.levels.forEach((l, i) => {
       const totals = recs[i].totals;
       const recaps = totals.prerequisiteCount ? `, plus ${totals.prerequisiteCount} short prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
       hint[l.level] = `About ${totals.selectedCount} topics at this level${recaps}, around ${totals.duration} (an estimate)`;
+      // A selected product with nothing at this level is named, so a short list is never a mystery.
+      gaps[l.level] = (recs[i].products || []).filter((p) => !p.atLevel).map((p) => p.shortName);
     });
   } catch {
     /* the hint is a nicety; the choice still works without it */
@@ -317,6 +439,7 @@ async function lbRenderLevels() {
           <span style="font-weight: 600;">Level ${l.level}: ${escapeHtml(l.label)}</span>
           <div class="scenario-card-desc">${escapeHtml(l.description)}</div>
           ${hint[l.level] ? `<div class="scenario-card-desc">${escapeHtml(hint[l.level])}</div>` : ""}
+          ${gaps[l.level]?.length ? `<div class="scenario-card-desc">No Level ${l.level} topics yet for ${escapeHtml(lbJoinNames(gaps[l.level]))}.</div>` : ""}
         </span>
       </label>`
     )
@@ -332,13 +455,14 @@ async function lbRenderLevels() {
   lbRenderLevelNotice();
 }
 
-// ── Step 4: harness ─────────────────────────────────────────────────────────
+// ── Step 5: harness (only for products that have harnesses) ────────────────
 function lbRenderHarnesses() {
   const el = document.getElementById("lb-harness-options");
   if (!el) return;
   const features = lbFeatureList();
   const level = labBuilder.level;
   el.innerHTML = labBuilder.harnesses
+    .filter((h) => labBuilder.selectedProducts.has(h.product || LB_DEFAULT_PRODUCT))
     .map((h) => {
       const onHarness = features.filter((f) => (f.harness || []).includes(h.id));
       const atLevel = onHarness.filter((f) => f.level === level).length;
@@ -385,7 +509,7 @@ function lbRenderDifferenceOptions() {
   if (!el) return;
   const chosen = lbDifferencesFor();
   el.innerHTML = labBuilder.harnesses
-    .filter((h) => h.id !== labBuilder.harness)
+    .filter((h) => h.id !== labBuilder.harness && (h.product || LB_DEFAULT_PRODUCT) === (lbHarnessOwner(labBuilder.harness) || LB_DEFAULT_PRODUCT))
     .map(
       (h) => `
       <label class="scenario-role">
@@ -470,7 +594,11 @@ function lbRenderLearnBar() {
     const stamp = when.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
     const label = learn.source === "cache" ? "Last refreshed from Microsoft Learn" : "Built-in Microsoft Learn snapshot";
     parts.push(`${label}: ${stamp} (${lbAgo(learn.ageMs)}).`);
-    parts.push(`${newCount} new topic${newCount === 1 ? "" : "s"} from Learn, ${lbLearnNewCount(labBuilder.harness, labBuilder.level)} at ${lbLevelName(labBuilder.level)}.`);
+    if (lbHasHarnessProduct()) {
+      parts.push(`${newCount} new topic${newCount === 1 ? "" : "s"} from Learn, ${lbLearnNewCount(labBuilder.harness, labBuilder.level)} at ${lbLevelName(labBuilder.level)}.`);
+    } else {
+      parts.push("Live discovery of new Microsoft Learn topics covers Copilot Studio only so far; the other products use the built-in catalog.");
+    }
   }
   if (learn.disabled) parts.push("Refreshing is turned off on this server.");
   else if (learn.refreshing) parts.push("A refresh is running in the background.");
@@ -544,7 +672,7 @@ function lbMatchesFilter(topic) {
   return true;
 }
 
-// ── Step 5: topics ──────────────────────────────────────────────────────────
+// ── Step 6: topics ──────────────────────────────────────────────────────────
 function lbSelectedCount() {
   return labBuilder.rec ? labBuilder.rec.selectedIds.length : 0;
 }
@@ -659,7 +787,7 @@ function lbTopicCard(t) {
               <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" ${t.selected ? "checked" : ""}
                      aria-describedby="lb-topic-desc-${escapeHtml(t.id)}">
               <span>
-                <span class="lb-feature-name">${escapeHtml(t.name)}${lbLevelBadge(t)}<span class="lb-badge">about ${t.minutes} min</span>${
+                <span class="lb-feature-name">${escapeHtml(t.name)}${t.productName ? `<span class="lb-badge lb-badge-product">${escapeHtml(lbProduct(t.product)?.shortName || t.productName)}</span>` : ""}${lbLevelBadge(t)}<span class="lb-badge">about ${t.minutes} min</span>${
                   t.required ? '<span class="lb-badge lb-badge-required">Required prerequisite</span>' : ""
                 }${
                   t.availability ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>` : ""
@@ -700,17 +828,20 @@ function lbRenderTopics() {
     ? `${document.activeElement.dataset.concept}:${document.activeElement.dataset.groupAction}`
     : null;
   const query = labBuilder.search;
-  const harnessName = lbHarnessName(rec.answers.harness);
+  const onlyCopilotStudio = (rec.answers.products || [LB_DEFAULT_PRODUCT]).every((id) => id === LB_DEFAULT_PRODUCT);
+  // Copilot Studio alone is described by its harness, as before; any other selection is described by its products.
+  const scopeName = onlyCopilotStudio && rec.answers.harness ? `the ${lbHarnessName(rec.answers.harness)}` : lbJoinNames((rec.products || []).map((p) => p.shortName));
 
   const html = rec.concepts
     .map((concept) => {
       if (!concept.topics.length) {
         if (query) return "";
         const others = concept.otherHarnessTopics.map((t) => t.name).join(", ");
+        const where = onlyCopilotStudio ? "on this harness" : "for these products";
         return `
         <section class="lb-concept lb-concept-muted" aria-label="${escapeHtml(concept.name)} (${concept.notYetAvailable ? "not available yet" : "not applicable"})">
-          <div class="lb-category-title">${escapeHtml(concept.name)} <span class="lb-badge">${concept.notYetAvailable ? "Not available yet on this harness" : "Not applicable on this harness"}</span></div>
-          <div class="lb-category-desc">${escapeHtml(concept.notApplicable || "")}${others ? ` Available on other harnesses: ${escapeHtml(others)}.` : ""}</div>
+          <div class="lb-category-title">${escapeHtml(concept.name)} <span class="lb-badge">${concept.notYetAvailable ? `Not available yet ${where}` : `Not applicable ${where}`}</span></div>
+          <div class="lb-category-desc">${escapeHtml(concept.notApplicable || "")}${others ? ` Available at other levels or for other harnesses: ${escapeHtml(others)}.` : ""}</div>
         </section>`;
       }
       const topics = concept.topics.filter(
@@ -784,13 +915,22 @@ function lbRenderTopics() {
   const levelName = lbLevelName(rec.answers.level);
   const countText = rec.filter.shown
     ? `Showing ${shown} topic${shown === 1 ? "" : "s"} for ${levelName}${narrowed ? ` that match your search or filter (of ${rec.filter.shown})` : ""}.`
-    : `No ${levelName} topics are available for the ${harnessName} yet.`;
+    : `No ${levelName} topics are available for ${scopeName} yet.`;
   const count = document.getElementById("lb-topic-count");
   if (count && count.textContent !== countText) count.textContent = countText;
 
+  // What each selected product offers, and why a list may be short: never a dead end.
+  const notes = document.getElementById("lb-product-notes");
+  if (notes) {
+    const thin = (rec.products || []).filter((p) => !p.atLevel);
+    notes.innerHTML = thin.map((p) => `<div class="lb-warning" role="status">${escapeHtml(p.message)}</div>`).join("");
+  }
+
   const empty = rec.filter.shown
     ? "No topics match that search."
-    : `No ${escapeHtml(levelName)} topics are available for the ${escapeHtml(harnessName)} yet. Go back and choose another level or harness.`;
+    : `No ${escapeHtml(levelName)} topics are available for ${escapeHtml(scopeName)} yet. ${(rec.products || [])
+        .map((p) => escapeHtml(p.message))
+        .join(" ")} Go back and choose another level${onlyCopilotStudio ? " or harness" : ", product, or harness"}.`;
   el.innerHTML = html + prereqHtml + unknownHtml || `<div class="scenario-empty">${empty}</div>`;
 
   const warnings = document.getElementById("lb-topic-warnings");
@@ -811,7 +951,7 @@ function lbRenderTopics() {
   const intro = document.getElementById("lb-topic-intro");
   if (intro) {
     const recaps = rec.totals.prerequisiteCount ? `, plus ${rec.totals.prerequisiteCount} short prerequisite recap${rec.totals.prerequisiteCount === 1 ? "" : "s"}` : "";
-    intro.textContent = `${levelName} topics for the ${harnessName}, grouped by concept. ${rec.totals.selectedCount} selected${recaps}, about ${rec.totals.duration} (an estimate, not a limit).`;
+    intro.textContent = `${levelName} topics for ${scopeName}, grouped by concept. ${rec.totals.selectedCount} selected${recaps}, about ${rec.totals.duration} (an estimate, not a limit).`;
   }
   const error = document.getElementById("lb-topic-error");
   if (error && lbSelectedCount()) error.textContent = "";
@@ -830,10 +970,11 @@ function lbRenderSummary() {
   const industry = labBuilder.industries.find((i) => i.id === labBuilder.industry);
   const departments = labBuilder.roles.filter((r) => labBuilder.selectedRoles.has(r.id)).map((r) => r.name);
   const parts = [
+    lbProductsLabel(),
     industry ? industry.name : "Cross-industry",
     departments.length ? `Departments: ${departments.join(", ")}` : "All departments",
     lbLevelName(labBuilder.level),
-    lbHarnessName(labBuilder.harness),
+    ...(lbHasHarnessProduct() ? [lbHarnessName(labBuilder.harness)] : []),
   ];
   const totals = labBuilder.rec?.totals;
   const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
@@ -843,9 +984,16 @@ function lbRenderSummary() {
   el.innerHTML = `<strong>Your lab so far:</strong> ${parts.map(escapeHtml).join(" · ")} · ${escapeHtml(time)}`;
 }
 
+/** Number the visible steps again, hide the harness step when it does not apply, and keep each heading's "Step n of m" true. */
 function lbRenderStepper() {
+  const visible = lbVisibleStepIds();
   document.querySelectorAll("#lb-steps [data-lb-step]").forEach((button) => {
     const step = Number(button.dataset.lbStep);
+    const shown = visible.includes(step);
+    const item = button.closest("li");
+    if (item) item.hidden = !shown;
+    const number = button.querySelector("span[aria-hidden]");
+    if (number && shown) number.textContent = String(visible.indexOf(step) + 1);
     const reachable = step <= labBuilder.furthest;
     button.disabled = !reachable;
     button.classList.toggle("active", step === labBuilder.step);
@@ -853,14 +1001,34 @@ function lbRenderStepper() {
     if (step === labBuilder.step) button.setAttribute("aria-current", "step");
     else button.removeAttribute("aria-current");
   });
+  for (const step of visible) {
+    const heading = document.getElementById(`lb-heading-${step}`);
+    if (heading) heading.textContent = heading.textContent.replace(/^Step \d+ of \d+/, `Step ${visible.indexOf(step) + 1} of ${visible.length}`);
+  }
+}
+
+/** The step after or before the current one, skipping a step that does not apply. */
+function lbNextStep() {
+  if (labBuilder.step === LB_STEP.product && !labBuilder.selectedProducts.size) {
+    const error = document.getElementById("lb-product-error");
+    if (error) error.textContent = "Choose at least one product to continue.";
+    return;
+  }
+  lbGoToStep(lbAdjacentStep(labBuilder.step, 1));
+}
+
+function lbPrevStep() {
+  lbGoToStep(lbAdjacentStep(labBuilder.step, -1));
 }
 
 function lbGoToStep(step) {
   step = Math.min(Math.max(step, 1), LB_STEPS.length);
-  if (step > 5 && !lbSelectedCount()) {
+  // The harness step does not exist for a lab with no harness product: land on the step after it.
+  if (step === LB_STEP.harness && !lbHasHarnessProduct()) step = LB_STEP.topics;
+  if (step > LB_STEP.topics && !lbSelectedCount()) {
     const error = document.getElementById("lb-topic-error");
     if (error) error.textContent = "Choose at least one topic before you review the lab.";
-    step = 5;
+    step = LB_STEP.topics;
   }
   labBuilder.step = step;
   labBuilder.furthest = Math.max(labBuilder.furthest, step);
@@ -870,12 +1038,15 @@ function lbGoToStep(step) {
   }
   lbRenderStepper();
   document.getElementById(`lb-heading-${step}`)?.focus();
-  if (step === 3) lbRenderLevels();
-  if (step === 5) {
+  // The Level step's next button names whichever step follows it.
+  const afterLevel = document.getElementById("lb-next-from-level");
+  if (afterLevel) afterLevel.textContent = lbHasHarnessProduct() ? "Next: Harness →" : "Next: Topics →";
+  if (step === LB_STEP.level) lbRenderLevels();
+  if (step === LB_STEP.topics) {
     lbRenderLevelNotice();
     lbRenderTopics();
   }
-  if (step === 6) lbPreview();
+  if (step === LB_STEP.review) lbPreview();
 }
 
 // ── Re-opening a generated lab's choices ────────────────────────────────────
@@ -920,6 +1091,8 @@ function lbSetFormValue(id, value) {
 
 function lbRenderAllSteps() {
   lbRenderIndustries();
+  lbRenderProducts();
+  lbRenderIndustries();
   lbRenderRoles();
   lbRenderLevels();
   lbRenderHarnesses();
@@ -929,6 +1102,7 @@ function lbRenderAllSteps() {
 
 /** Back to the wizard's starting answers, without touching any saved lab. */
 function lbResetAnswers() {
+  labBuilder.selectedProducts = new Set([LB_DEFAULT_PRODUCT]);
   labBuilder.industry = null;
   labBuilder.selectedRoles = new Set();
   labBuilder.level = 100;
@@ -952,7 +1126,7 @@ async function lbStartNewLab() {
   lbResetAnswers();
   lbRenderAllSteps();
   lbRefresh();
-  lbGoToStep(1);
+  lbGoToStep(LB_STEP.product);
 }
 
 /**
@@ -976,6 +1150,9 @@ async function lbLoadSelections(lab) {
   const knownRoles = new Set(labBuilder.roles.map((r) => r.id));
   const industryKnown = labBuilder.industries.some((i) => i.id === saved.industry);
   const harnessKnown = labBuilder.harnesses.some((h) => h.id === saved.harness);
+  // A lab saved before products existed is a Copilot Studio lab.
+  const savedProducts = (saved.products || []).filter((id) => lbProduct(id));
+  labBuilder.selectedProducts = new Set(savedProducts.length ? savedProducts : [LB_DEFAULT_PRODUCT]);
   labBuilder.industry = industryKnown ? saved.industry : null;
   labBuilder.selectedRoles = new Set(saved.roles.filter((id) => knownRoles.has(id)));
   labBuilder.level = lbSavedLevel(saved);
@@ -990,11 +1167,11 @@ async function lbLoadSelections(lab) {
   lbSetFormValue("lb-agent-name", saved.agentName || "");
   lbSetFormValue("lb-use-learn", saved.useLearnMcp !== false);
   lbSetFormValue("lb-use-llm", saved.useLlm !== false);
-  labBuilder.furthest = 6;
+  labBuilder.furthest = LB_STEP.review;
   lbRenderAllSteps();
   lbSetEditing(lab);
   await lbRefresh();
-  lbGoToStep(6);
+  lbGoToStep(LB_STEP.review);
   const dropped = labBuilder.rec?.filter?.droppedSelections || [];
   toast(
     dropped.length
@@ -1007,12 +1184,11 @@ async function lbLoadSelections(lab) {
 // ── Review and request ──────────────────────────────────────────────────────
 function lbRequest() {
   const time = Number(document.getElementById("lb-time")?.value || 0);
-  return {
+  const request = {
     industry: labBuilder.industry || undefined,
     roles: [...labBuilder.selectedRoles],
-    harness: labBuilder.harness,
+    products: lbSelectedProductList().map((p) => p.id),
     level: labBuilder.level,
-    differencesFor: [...lbDifferencesFor()],
     // What you see in the topic list is what gets built; prerequisites you turned off are assumed.
     features: labBuilder.rec ? labBuilder.rec.selectedIds : [],
     excluded: [...labBuilder.excluded],
@@ -1022,7 +1198,10 @@ function lbRequest() {
     agentName: document.getElementById("lb-agent-name")?.value.trim() || undefined,
     useLearnMcp: document.getElementById("lb-use-learn")?.checked !== false,
     useLlm: document.getElementById("lb-use-llm")?.checked !== false,
+    // A harness, and the notes comparing harnesses, only exist for a product that has harnesses.
+    ...(lbHasHarnessProduct() ? { harness: labBuilder.harness, differencesFor: [...lbDifferencesFor()] } : {}),
   };
+  return request;
 }
 
 async function lbPreview() {

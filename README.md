@@ -1,12 +1,25 @@
-# ⚡ Copilot Studio Labs
+# ⚡ Microsoft AI Training Generator
 
-**Hands-on labs for building AI-powered agents with Microsoft Copilot Studio — no coding required.**
+**Hands-on labs for building AI-powered agents and solutions with Microsoft Copilot Studio, Microsoft 365 Copilot declarative agents, SharePoint AI, Microsoft Foundry, the Microsoft 365 Copilot hub, and the Power Platform AI hub, plus a generator that writes a new lab for any combination.**
 
 ---
 
 ## What is this?
 
-Copilot Studio Labs is a series of practical, scenario-driven labs that teach you how to design, build, and deploy intelligent agents using Microsoft Copilot Studio. Each lab is grounded in a real-world business scenario and walks you step-by-step through the agent authoring experience — from natural language prompts to enterprise knowledge sources.
+The Microsoft AI Training Generator is a set of practical, scenario-driven labs and a lab builder that teach you how to design, build, govern, and deploy AI solutions on Microsoft products. The 40 hand-written labs teach Microsoft Copilot Studio. The lab builder writes a new lab for the **products** you choose, grounded on Microsoft Learn:
+
+| Product | What the builder covers |
+|---|---|
+| Microsoft Copilot Studio | Agents on the Standard harness, the Microsoft Copilot harness, and the Customer Conversation harness. |
+| Agent Builder and declarative agents for Microsoft 365 Copilot | Agent Builder in Microsoft 365 Copilot and declarative agents built with Microsoft 365 Agents Toolkit. |
+| SharePoint AI features | Copilot in SharePoint, agents grounded in SharePoint content, document processing, and SharePoint Advanced Management controls. |
+| Microsoft Foundry | Foundry projects and hub-based projects, model deployment, prompt agents, guardrails, and access control. |
+| Microsoft 365 Copilot hub and Copilot controls | Copilot licenses, agent management, data security, and adoption reporting in the Microsoft 365 admin center. |
+| Power Platform AI hub (AI Builder) | AI Builder prompts and models, using them in Power Automate and Power Apps, and their governance and credits. |
+
+"AI hub" can mean more than one Microsoft product, so the generator lists the three that match as separate products (Microsoft Foundry hubs and projects, the Microsoft 365 Copilot hub, and the Power Platform AI hub). See [docs/lab-builder.md](docs/lab-builder.md).
+
+The hand-written labs are grounded in real-world business scenarios and walk you step-by-step through the agent authoring experience — from natural language prompts to enterprise knowledge sources.
 
 These labs are designed for a wide range of learners: IT professionals, business analysts, operations leads, and anyone who wants to put AI to work without needing a background in software development.
 
@@ -45,7 +58,7 @@ This isn't just about saving developer time. It's about unlocking the ability to
 
 ---
 
-## 🧪 Copilot Studio Labs
+## 🧪 Copilot Studio labs
 
 | # | Lab | Industry | Scenario | Difficulty | Time |
 |---|-----|----------|----------|------------|------|
@@ -122,9 +135,10 @@ block so a learner can always tell Microsoft's documentation from a vendor's.
 
 Everything else — module structure, prerequisites, concepts, and the "check your
 work" tests — comes from that curated catalog
-(`portal/lib/lab-builder/features.json`), not from a live page. The catalog
-covers 97 capabilities in 11 categories, tagged by harness (standard, Microsoft
-Copilot, or Customer Conversation) and by level (100 Beginner, 200 Intermediate, 300 Advanced), including enterprise integrations
+(`portal/lib/lab-builder/features.json` for Copilot Studio, and one
+`portal/lib/lab-builder/catalog/<product>.json` file for every other product), not from a live page. The catalog
+covers 128 capabilities across 6 products. The 97 Copilot Studio capabilities are in 11 categories, tagged by harness (standard, Microsoft
+Copilot, or Customer Conversation); every capability is tagged by level (100 Beginner, 200 Intermediate, 300 Advanced), including enterprise integrations
 (ServiceNow, Snowflake, SAP, Salesforce, Jira, Epic on FHIR, Shopify, on-premises
 data gateways, and VNet private connectivity) and governance topics such as agent
 inventory, release readiness, and Entra agent identities. Every entry records the
@@ -183,7 +197,7 @@ A static GitHub Pages site shows a screenshot and an explanation for every featu
 
 ## ⚡ Portal Features
 
-The repository also includes a full **Copilot Studio Labs portal** for delivering and operating the labs:
+The repository also includes a full **Microsoft AI Training Generator portal** for delivering and operating the labs:
 
 - 🧬 **Lab builder** wizard that generates custom labs grounded on Microsoft Learn
 - 🤖 Embedded Copilot Studio **Agent Chat** for real-time learner support

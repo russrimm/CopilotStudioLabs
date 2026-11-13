@@ -1,0 +1,130 @@
+{
+  "$comment": "The products (solution areas) the Microsoft AI Training Generator can build labs for. A product sits above the harness: a harness only exists for a product with hasHarnesses true (today, Copilot Studio). Every catalog feature belongs to exactly one product (a feature with no product field is a copilot-studio feature) and every concept lists the products it applies to. Labels are plain text. learnHubUrl and learnRoots are the Microsoft Learn locations the product's topic discovery starts from and is limited to; every URL must be https on learn.microsoft.com. levels lists the learner levels the product has curated topics for; the wizard says so instead of showing an empty list. labPrerequisites and licenseNote are quoted into generated labs, so state only what Microsoft Learn states and mark the rest 'Not confirmed in Microsoft Learn.' To add a product, see docs/lab-builder.md ('Adding a product').",
+  "version": 1,
+  "products": [
+    {
+      "id": "copilot-studio",
+      "name": "Microsoft Copilot Studio",
+      "shortName": "Copilot Studio",
+      "order": 10,
+      "summary": "Build, test, and publish agents with the Standard harness, the Microsoft Copilot harness, or the Customer Conversation harness.",
+      "learnHubUrl": "https://learn.microsoft.com/microsoft-copilot-studio/",
+      "learnRoots": ["https://learn.microsoft.com/microsoft-copilot-studio/"],
+      "levels": [100, 200, 300],
+      "hasHarnesses": true,
+      "agentNoun": "agent",
+      "labPrerequisites": [
+        "A Microsoft Copilot Studio environment you can create agents in (a [free trial](https://copilotstudio.microsoft.com/) is enough for everything here)."
+      ],
+      "licenseNote": "You need a Copilot Studio license or trial in your tenant before you start."
+    },
+    {
+      "id": "m365-copilot-agent-builder",
+      "name": "Agent Builder and declarative agents for Microsoft 365 Copilot",
+      "shortName": "Declarative agents",
+      "order": 20,
+      "summary": "Build declarative agents for Microsoft 365 Copilot, either with Agent Builder in Microsoft 365 Copilot or with Microsoft 365 Agents Toolkit (an evolution of Teams Toolkit).",
+      "learnHubUrl": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent",
+      "learnRoots": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility",
+        "https://learn.microsoft.com/microsoftteams/platform/toolkit"
+      ],
+      "levels": [100, 200, 300],
+      "hasHarnesses": false,
+      "agentNoun": "declarative agent",
+      "labPrerequisites": [
+        "Agent Builder: a Microsoft 365 Copilot license, or a tenant with pay-as-you-go billing enabled for Copilot Studio (agent capabilities vary by billing model).",
+        "Agents Toolkit: Visual Studio Code with the Microsoft 365 Agents Toolkit extension, and a tenant where an admin enabled the Upload custom apps toggle (Teams admin center > Teams apps > Setup policies > Global (Org-wide default)).",
+        "Access to Microsoft 365 Copilot at https://m365.cloud.microsoft/chat. Government cloud support varies; see the declarative agents overview on Microsoft Learn."
+      ],
+      "licenseNote": "Access to Agent Builder and to agent capabilities depends on tenant licensing: Microsoft 365 Copilot licenses or usage-based (pay-as-you-go) billing consumed as Copilot Credits; some knowledge sources need a full Copilot license."
+    },
+    {
+      "id": "sharepoint-ai",
+      "name": "SharePoint AI features",
+      "shortName": "SharePoint AI",
+      "order": 30,
+      "summary": "Copilot in SharePoint, agents grounded in SharePoint content, document processing such as autofill columns, and SharePoint Advanced Management controls for Copilot readiness.",
+      "learnHubUrl": "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started",
+      "learnRoots": [
+        "https://learn.microsoft.com/sharepoint",
+        "https://learn.microsoft.com/microsoft-365/documentprocessing",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility"
+      ],
+      "levels": [100, 200, 300],
+      "hasHarnesses": false,
+      "agentNoun": "agent",
+      "labPrerequisites": [
+        "A Microsoft 365 tenant with SharePoint Online and a user with an active Microsoft 365 Copilot license (required for Copilot in SharePoint per Microsoft Learn).",
+        "A SharePoint site and a document library you own, so you can use Settings > Site AI and add columns.",
+        "For admin labs: SharePoint administrator access to the SharePoint admin center. Exact roles for SharePoint Advanced Management: Not confirmed in Microsoft Learn."
+      ],
+      "licenseNote": "Everyday Copilot in SharePoint capabilities are included with the Microsoft 365 Copilot license; advanced work uses Copilot Credits through usage-based billing, and SharePoint Advanced Management features are available when at least one Copilot license is assigned."
+    },
+    {
+      "id": "ai-foundry",
+      "name": "Microsoft Foundry",
+      "shortName": "Foundry",
+      "order": 40,
+      "summary": "Microsoft Foundry (formerly Azure AI Foundry and Azure AI Studio) is a platform for building agents and working with models. It has Foundry projects (new portal) and hub-based projects (classic portal).",
+      "learnHubUrl": "https://learn.microsoft.com/azure/foundry/what-is-foundry",
+      "learnRoots": [
+        "https://learn.microsoft.com/azure/foundry",
+        "https://learn.microsoft.com/azure/foundry-classic"
+      ],
+      "levels": [100, 200, 300],
+      "hasHarnesses": false,
+      "agentNoun": "project",
+      "labPrerequisites": [
+        "An Azure account with an active subscription, and a role that can create a Foundry resource, such as Foundry Account Owner or Foundry Owner on the subscription or resource group.",
+        "Access to the Microsoft Foundry portal at https://ai.azure.com (the New Foundry toggle on for Foundry projects, off for hub-based projects).",
+        "Model and agent labs need quota and a supported region for the chosen model. Which region works for every model: Not confirmed in Microsoft Learn."
+      ],
+      "licenseNote": "Per the Foundry (classic) overview, the platform is free to use and explore, pricing occurs at the deployment level, and the underlying services also incur costs."
+    },
+    {
+      "id": "m365-copilot-hub",
+      "name": "Microsoft 365 Copilot hub and Copilot controls",
+      "shortName": "Copilot hub",
+      "order": 50,
+      "summary": "The Copilot and Agents areas of the Microsoft 365 admin center, where admins assign Microsoft Copilot licenses, manage agents, apply data security and governance controls, and review adoption reports. Microsoft Learn groups this guidance under Copilot controls.",
+      "learnHubUrl": "https://learn.microsoft.com/copilot/implement/copilot-controls-overview",
+      "learnRoots": [
+        "https://learn.microsoft.com/copilot/implement",
+        "https://learn.microsoft.com/copilot/plan",
+        "https://learn.microsoft.com/microsoft-365/admin/manage",
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports",
+        "https://learn.microsoft.com/microsoft-agent-365"
+      ],
+      "levels": [100, 200, 300],
+      "hasHarnesses": false,
+      "agentNoun": "agent",
+      "labPrerequisites": [
+        "A Microsoft 365 tenant with an eligible prerequisite plan and Microsoft Copilot licenses to assign (see License options for Microsoft Copilot on Microsoft Learn).",
+        "An admin account with the AI Administrator role for Copilot and agent settings, plus License Administrator or User Administrator to assign licenses. Global Reader or AI Reader can view but not change.",
+        "Access to the Microsoft 365 admin center at https://admin.microsoft.com. Roles for Microsoft Purview and the SharePoint admin center: Not confirmed in Microsoft Learn."
+      ],
+      "licenseNote": "Microsoft Copilot is available with Microsoft 365 E7 or as an add-on for eligible commercial, US Government, and education plans; Microsoft Agent 365 is licensed per user and is also included in Microsoft 365 E7."
+    },
+    {
+      "id": "power-platform-ai-hub",
+      "name": "Power Platform AI hub (AI Builder)",
+      "shortName": "AI Builder and AI hub",
+      "order": 60,
+      "summary": "AI Builder creates and uses prebuilt and custom AI models and prompts in Power Apps and Power Automate. Makers reach it through the AI hub item in the left navigation of both portals.",
+      "learnHubUrl": "https://learn.microsoft.com/ai-builder/overview",
+      "learnRoots": [
+        "https://learn.microsoft.com/ai-builder"
+      ],
+      "levels": [100, 200, 300],
+      "hasHarnesses": false,
+      "agentNoun": "model or prompt",
+      "labPrerequisites": [
+        "A Power Platform environment with a Microsoft Dataverse database, and AI Builder enabled for that environment.",
+        "A Power Apps or Power Automate license that lets you create an environment, plus Copilot Credits or AI Builder credits to run models and prompts. Building and testing custom models and prompts does not require credits.",
+        "Sign-in to https://make.powerapps.com or https://make.powerautomate.com with the Environment Maker role (or System Administrator or System Customizer). The regions where prompts are available: Not confirmed in Microsoft Learn."
+      ],
+      "licenseNote": "AI Builder is licensed on a capacity basis; AI Builder credits are progressively ending and features are moving to Copilot Credits, with dates stated on Microsoft Learn."
+    }
+  ]
+}

@@ -25,6 +25,16 @@ test("every catalog feature appears exactly once in the model, index, tour, and 
   assert.equal((index.match(/<li class="card"/g) ?? []).length, ids.length);
 });
 
+test("the tour lists only Copilot Studio features, and every feature in it carries its product", () => {
+  const other = { ...catalog.features[0], id: "other-product-feature", product: "sharepoint-ai", harness: undefined };
+  const mixed = { ...catalog, features: [...catalog.features, other] };
+  const scoped = generate({ catalog: mixed, overlay, screenshotsDir: path.join(tmpDir(), "none") });
+  assert.ok(!scoped.site.features.some((f) => f.id === other.id), "another product's feature is not in the tour");
+  assert.equal(scoped.site.features.length, catalog.features.length);
+  assert.ok(scoped.site.features.every((f) => f.product === "copilot-studio"));
+  assert.equal(scoped.shotList.shots.some((s) => s.feature === other.id), false);
+});
+
 test("harness, level, and availability match the catalog", () => {
   const byId = new Map(catalog.features.map((f) => [f.id, f]));
   for (const f of site.features) {

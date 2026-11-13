@@ -290,8 +290,8 @@ test("changing the level drops the learner's own picks, announces what was remov
   assert.ok(notice.removed.some((t) => t.id === "mcp-servers"));
   assert.equal(run("labBuilder.picked"), null, "picks start over from the new level's recommendation");
   assert.equal(run("labBuilder.excluded.size"), 0);
-  assert.match(element("lb-level-notice-3").innerHTML, /changed from Level 200 \(Intermediate\) to Level 100 \(Beginner\)/);
-  assert.match(element("lb-level-notice-3").innerHTML, /Restore my Level 200 \(Intermediate\) choices/);
+  assert.match(element("lb-level-notice-4").innerHTML, /changed from Level 200 \(Intermediate\) to Level 100 \(Beginner\)/);
+  assert.match(element("lb-level-notice-4").innerHTML, /Restore my Level 200 \(Intermediate\) choices/);
   assert.equal(run("labBuilder.rec.answers.level"), 100, "recommendations are recomputed for the new level");
 
   run("lbRestoreLevelChoices()");
@@ -364,12 +364,12 @@ test("the harness step counts only the chosen level's Learn topics", () => {
 
 test("the topics step has no level selector of its own, and its counts and notices are announced", () => {
   const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-  const pane5 = html.match(/id="lb-pane-5"[\s\S]*?<!-- Step 6: review -->/)?.[0] || "";
-  assert.ok(pane5);
-  assert.doesNotMatch(pane5, /name="lb-level"|id="lb-topic-level"|lb-level-filter/i);
-  assert.match(pane5, /id="lb-topic-count"[^>]*aria-live="polite"/);
-  assert.match(pane5, /id="lb-level-notice-5"[^>]*aria-live="polite"/);
-  assert.match(html, /id="lb-level-notice-3"[^>]*aria-live="polite"/);
+  const topicsPane = html.match(/id="lb-pane-6"[\s\S]*?<!-- Step 7: review -->/)?.[0] || "";
+  assert.ok(topicsPane);
+  assert.doesNotMatch(topicsPane, /name="lb-level"|id="lb-topic-level"|lb-level-filter/i);
+  assert.match(topicsPane, /id="lb-topic-count"[^>]*aria-live="polite"/);
+  assert.match(topicsPane, /id="lb-level-notice-6"[^>]*aria-live="polite"/);
+  assert.match(html, /id="lb-level-notice-4"[^>]*aria-live="polite"/);
   const wizard = readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
   assert.doesNotMatch(wizard, /GitHub Copilot harness/);
 });

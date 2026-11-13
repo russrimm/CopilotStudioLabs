@@ -19,6 +19,8 @@
 
 import { getFeatures, getHarnesses, expandPrereqs } from "./catalog.js";
 import { getConcepts, getRecommendations, notApplicableReason } from "./concepts.js";
+import { conceptProducts } from "./coverage.js";
+import { DEFAULT_PRODUCT, getProduct, getProducts, productHasHarnesses, productName, productOf } from "./products.js";
 import { DIFFICULTY_BY_LEVEL, formatDuration } from "./planner.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 import { topicToFeature } from "./topic-feature.js";
@@ -50,6 +52,32 @@ function addReason(reasons, id, reason) {
 }
 
 /**
+ * Per selected product: how many topics it has at the chosen level and at the
+ * others, and a sentence that says what exists and why the list may be short.
+ * A product with nothing at the level is explained, never left as a dead end.
+ */
+function summarizeProducts({ products, harness, level, features }) {
+  return products.map((id) => {
+    const product = getProduct(id);
+    const own = [...features.values()].filter(
+      (f) => productOf(f) === id && (!product?.hasHarnesses || !harness || f.harness?.includes(harness)),
+    );
+    const byLevel = Object.fromEntries(LEVELS.map((l) => [l, own.filter((f) => f.level === l).length]));
+    const here = byLevel[level];
+    const elsewhere = LEVELS.filter((l) => l !== level && byLevel[l]);
+    let message = `${here} ${levelName(level)} topic${here === 1 ? "" : "s"} for ${productName(id)}.`;
+    if (!here) {
+      message = elsewhere.length
+        ? `${productName(id)} has no ${levelName(level)} topics yet. It has ${elsewhere
+            .map((l) => `${byLevel[l]} at ${levelName(l)}`)
+            .join(" and ")}. Choose another level to teach them.`
+        : `${productName(id)} has no topics for ${product?.hasHarnesses && harness ? "this harness" : "this level"} yet.`;
+    }
+    return { id, name: productName(id), shortName: product?.shortName || productName(id), byLevel, atLevel: here, message };
+  });
+}
+
+/**
  * @param {object} answers
  * @param {string} [answers.industry]       industry id (the vertical)
  * @param {string[]} [answers.departments]  role ids
@@ -66,9 +94,27 @@ function addReason(reasons, id, reason) {
 export function recommend(answers = {}, learn = {}) {
   const warnings = [];
   const harnesses = getHarnesses();
-  const harness = answers.harness || DEFAULT_HARNESS;
-  if (!harnesses.some((h) => h.id === harness)) throw new Error(`Unknown harness "${harness}".`);
   const level = toLevel(answers.level);
+
+  // Products default to Copilot Studio so every older caller and saved selection behaves as before.
+  const knownProducts = getProducts();
+  const requestedProducts = answers.products === undefined || answers.products === null ? [DEFAULT_PRODUCT] : toIdList(answers.products, "products");
+  const unknownProducts = requestedProducts.filter((id) => !getProduct(id));
+  if (unknownProducts.length) throw new Error(`Unknown product id(s): ${unknownProducts.join(", ")}.`);
+  if (!requestedProducts.length) throw new Error("Select at least one product.");
+  const selectedProducts = knownProducts.filter((p) => requestedProducts.includes(p.id)).map((p) => p.id);
+
+  // A harness exists only for a product that has harnesses.
+  const harnessProducts = selectedProducts.filter((id) => productHasHarnesses(id));
+  let harness = null;
+  if (harnessProducts.length) {
+    harness = answers.harness || DEFAULT_HARNESS;
+    const entry = harnesses.find((h) => h.id === harness);
+    if (!entry) throw new Error(`Unknown harness "${harness}".`);
+    if (!harnessProducts.includes(entry.product)) throw new Error(`The harness "${harness}" belongs to a product that is not selected.`);
+  } else if (answers.harness) {
+    warnings.push("A harness was ignored because none of the selected products has harnesses.");
+  }
 
   const industry = getIndustries().find((i) => i.id === answers.industry) || null;
   if (answers.industry && !industry) warnings.push(`Unknown industry "${answers.industry}"; using a cross-industry lab.`);
@@ -98,7 +144,13 @@ export function recommend(answers = {}, learn = {}) {
     dynamicByConcept.get(concept).push(topic.id);
   }
   const checks = new Map((learn.checks || []).map((c) => [c.featureId, c]));
-  const applies = (id) => features.get(id)?.harness?.includes(harness);
+  const applies = (id) => {
+    const f = features.get(id);
+    if (!f) return false;
+    const product = productOf(f);
+    if (!selectedProducts.includes(product)) return false;
+    return productHasHarnesses(product) ? Boolean(f.harness?.includes(harness)) : true;
+  };
 
   // Why each topic is recommended. Insertion order is the display order of reasons.
   const reasons = new Map();
@@ -183,7 +235,9 @@ export function recommend(answers = {}, learn = {}) {
       minutes: f.minutes,
       availability: f.availability || null,
       harnessNote: f.harnessNote || null,
-      harnesses: f.harness,
+      product: productOf(f),
+      productName: productName(productOf(f)),
+      harnesses: f.harness || [],
       selected: selectedIds.has(id),
       required: requiredBy.has(id) && !chosenSet.has(id),
       reasons: reasons.get(id) || [],
@@ -200,32 +254,49 @@ export function recommend(answers = {}, learn = {}) {
         : null,
     };
   };
+  // The coverage targets a concept owes the learner right now: the chosen harness for a product with harnesses,
+  // the product itself for every other selected product.
+  const activeTargets = (concept) =>
+    conceptProducts(concept)
+      .filter((id) => selectedProducts.includes(id))
+      .map((id) => (productHasHarnesses(id) ? { id: harness, kind: "harness", product: id } : { id, kind: "product", product: id }));
   const makeRow = (concept, ids, extra = {}) => {
     const topics = ids.filter((id) => (applies(id) || selectedIds.has(id)) && inLevel(id)).map(topicRow);
     const minutes = topics.filter((t) => t.selected).reduce((sum, t) => sum + t.minutes, 0);
+    const targets = activeTargets(concept);
+    const documented = targets.map((t) => concept.notApplicable?.[t.id]).filter(Boolean);
     return {
       id: concept.id,
       name: concept.name,
       summary: concept.summary,
       order: concept.order,
-      notApplicable: topics.length ? null : notApplicableReason(concept, harness, features),
-      // True when the concept has no topic only because none is written yet, not because the harness lacks the idea.
-      notYetAvailable: !topics.length && !concept.notApplicable?.[harness],
+      products: targets.map((t) => t.product),
+      notApplicable: topics.length
+        ? null
+        : documented.length
+        ? [...new Set(documented)].join(" ")
+        : targets.length
+        ? notApplicableReason(concept, targets[0].id, features, targets[0].kind)
+        : null,
+      // True when the concept has no topic only because none is written yet, not because the product or harness lacks the idea.
+      notYetAvailable: !topics.length && !documented.length,
       otherHarnessTopics: topics.length
         ? []
         : concept.features
             .filter((id) => inLevel(id))
-            .map((id) => ({ id, name: features.get(id).name, harnesses: features.get(id).harness })),
+            .map((id) => ({ id, name: features.get(id).name, harnesses: features.get(id).harness || [], product: productOf(features.get(id)) })),
       topics,
       selectedCount: topics.filter((t) => t.selected).length,
       minutes,
       ...extra,
     };
   };
-  // A concept with no topic at this level is left out when the harness has topics for it at other levels:
-  // listing it would only point at content the learner did not ask for. A concept the harness cannot
-  // teach at any level stays as a muted row, so the gap is still explained.
+  // A concept with no topic at this level is left out when the selection has topics for it at other levels:
+  // listing it would only point at content the learner did not ask for. A concept the selection cannot
+  // teach at any level stays as a muted row, so the gap is still explained. A concept that applies to none
+  // of the selected products is not shown.
   const conceptRows = getConcepts()
+    .filter((concept) => activeTargets(concept).length)
     .map((concept) => ({
       concept,
       row: makeRow(concept, [...concept.features, ...(dynamicByConcept.get(concept.id) || [])]),
@@ -244,6 +315,7 @@ export function recommend(answers = {}, learn = {}) {
           name: "New from Learn: not yet grouped",
           summary: "Topics found on Microsoft Learn that do not match a concept yet. They are unreviewed, so check each against its article.",
           order: 999,
+          products: selectedProducts,
           features: [],
         },
         loose,
@@ -287,7 +359,8 @@ export function recommend(answers = {}, learn = {}) {
   ];
   const listed = conceptRows.reduce((sum, c) => sum + c.topics.length, 0);
   return {
-    answers: { industry: industry?.id || null, departments, level, harness },
+    answers: { industry: industry?.id || null, departments, products: selectedProducts, level, harness },
+    products: summarizeProducts({ products: selectedProducts, harness, level, features }),
     concepts: conceptRows,
     prerequisites: {
       topics: prerequisiteRows,

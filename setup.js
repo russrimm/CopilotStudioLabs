@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Copilot Studio Labs — Template Setup Script
+ * Microsoft AI Training Generator — Template Setup Script
  *
  * Reads template.config.json and customizes the lab content:
  *   - Replaces organization names, industry, branding, and scenario references
@@ -68,7 +68,7 @@ function replaceAll(content, searchValue, replaceValue) {
 
 // ── Main ────────────────────────────────────────────────────────────────────
 async function main() {
-  console.log("\n⚡ Copilot Studio Labs — Template Setup\n");
+  console.log("\n⚡ Microsoft AI Training Generator — Template Setup\n");
 
   // Load config
   if (!existsSync(configPath)) {

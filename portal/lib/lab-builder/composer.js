@@ -16,9 +16,10 @@
  *  - the words TODO / FIXME / TBD / XXX must never appear
  */
 
-const PRODUCTS = "Microsoft Copilot Studio, Power Platform, Microsoft 365";
+const CS_PRODUCTS = "Microsoft Copilot Studio, Power Platform, Microsoft 365";
 
 import { getHarnesses } from "./catalog.js";
+import { DEFAULT_PRODUCT, getProduct, joinNames, productName, productsPhrase } from "./products.js";
 import { getConcepts } from "./concepts.js";
 import { buildDifferenceBlocks } from "./differences.js";
 import { levelName } from "./levels.js";
@@ -129,6 +130,21 @@ function freshnessRow(generation) {
     : `| 🔗 **VERIFIED** | ${check.checked} link(s) confirmed to resolve on ${day}; Microsoft Learn was not read for this build |`;
 }
 
+/** The PRODUCTS row: the Copilot Studio row as it always was, with any other product the lab covers added. */
+function productsRow(plan) {
+  const ids = plan.products?.length ? plan.products : [DEFAULT_PRODUCT];
+  const others = ids.filter((id) => id !== DEFAULT_PRODUCT).map((id) => productName(id));
+  return ids.includes(DEFAULT_PRODUCT) ? [CS_PRODUCTS, ...others].join(", ") : others.join(", ");
+}
+
+/** Short product names for prose: "Copilot Studio", "Copilot Studio and SharePoint AI". */
+function shortProducts(plan) {
+  const ids = plan.products?.length ? plan.products : [DEFAULT_PRODUCT];
+  return joinNames(ids.map((id) => getProduct(id)?.shortName || id));
+}
+
+const isCopilotStudioOnly = (plan) => !plan.products?.length || plan.products.every((id) => id === DEFAULT_PRODUCT);
+
 function metadataTable(plan, generation = {}) {
   const industries = plan.industry ? plan.industry.name : "Cross-industry";
   const tags = plan.tags.slice(0, 8).join(", ");
@@ -138,7 +154,7 @@ function metadataTable(plan, generation = {}) {
     `| ⭐ **DIFFICULTY** | ${plan.difficulty} |`,
     `| 🎚️ **LEVEL** | ${levelName(plan.level)} |`,
     `| ⏱️ **TIME** | About ${plan.duration} (estimate, not a limit) |`,
-    `| 🧩 **PRODUCTS** | ${PRODUCTS} |`,
+    `| 🧩 **PRODUCTS** | ${productsRow(plan)} |`,
     `| 🏷️ **TAGS** | ${tags} |`,
     `| 🏭 **INDUSTRIES** | ${industries} |`,
     freshnessRow(generation),
@@ -155,7 +171,9 @@ function overviewSection(plan, enrichment) {
 
   const intro =
     enrichment?.overview ||
-    `${profile.problem} In this lab you build **${escapeMarkdown(profile.agentName)}**, a Microsoft Copilot Studio agent for ${profile.domain}, ending with ${profile.outcome}.`;
+    `${profile.problem} In this lab you build **${escapeMarkdown(profile.agentName)}**, ${
+      isCopilotStudioOnly(plan) ? "a Microsoft Copilot Studio agent" : `a solution with ${productsPhrase(plan.products)}`
+    } for ${profile.domain}, ending with ${profile.outcome}.`;
 
   const focus = plan.features.filter((f) => !f.prerequisite).map((f) => `**${f.name}** - ${f.summary}`);
   const recaps = plan.features.filter((f) => f.prerequisite);
@@ -238,11 +256,16 @@ function timeEstimateSection(plan) {
 
 function prerequisitesSection(plan) {
   const profile = plan.profile;
-  const items = [
-    "A Microsoft Copilot Studio environment you can create agents in (a [free trial](https://copilotstudio.microsoft.com/) is enough for everything here).",
-    "A Power Platform environment where you are at least an Environment Maker.",
-    "A modern browser signed in with the account that owns that environment.",
-  ];
+  const ids = plan.products?.length ? plan.products : [DEFAULT_PRODUCT];
+  const items = [];
+  if (ids.includes(DEFAULT_PRODUCT)) {
+    items.push(
+      "A Microsoft Copilot Studio environment you can create agents in (a [free trial](https://copilotstudio.microsoft.com/) is enough for everything here).",
+      "A Power Platform environment where you are at least an Environment Maker.",
+    );
+  }
+  for (const id of ids.filter((pid) => pid !== DEFAULT_PRODUCT)) items.push(...(getProduct(id)?.labPrerequisites || []));
+  items.push("A modern browser signed in with the account that owns that environment.");
 
   if (plan.features.some((f) => f.category === "knowledge")) {
     items.push(`Access to at least one knowledge source, for example: ${lowerFirst(profile.knowledgeSources[0])}.`);
@@ -729,7 +752,7 @@ function narrativeParagraph({ provider, grounded, synthesized, total, plural, ge
  * page outside Microsoft Learn, and worded from what the build actually did:
  * read, failed, or deliberately skipped.
  */
-function vendorParagraph(vendor) {
+function vendorParagraph(vendor, plan) {
   if (!vendor?.requested) return null;
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
   const inLab = vendor.inLab ?? vendor.requested;
@@ -761,7 +784,7 @@ function vendorParagraph(vendor) {
       (vendor.failed ? `; ${vendor.failed} could not be read and ${vendor.failed === 1 ? "is" : "are"} marked as unverified where ${vendor.failed === 1 ? "it appears" : "they appear"}.` : ".") +
       removedNote,
     `Vendor pages are treated as untrusted: nothing from them is run, and a quoted line is stripped of markup and filtered the same way as a Microsoft Learn excerpt.`,
-    `Where a vendor page and Microsoft Learn disagree about Copilot Studio itself, follow Microsoft Learn.`,
+    `Where a vendor page and Microsoft Learn disagree about ${shortProducts(plan)} itself, follow Microsoft Learn.`,
   ].join(" ");
 }
 
@@ -789,10 +812,10 @@ function howToUseSection(plan, generation) {
   const lines = [
     "## How This Lab Was Built",
     "",
-    "This lab was generated for your selections rather than written by hand. It draws on live Microsoft Learn documentation where it can and on this repository's curated Copilot Studio feature catalog where it cannot, and the two age differently — so here is which is which.",
+    `This lab was generated for your selections rather than written by hand. It draws on live Microsoft Learn documentation where it can and on this repository's curated ${shortProducts(plan)} feature catalog where it cannot, and the two age differently — so here is which is which.`,
     "",
     (grounded > 0
-      ? `**Citations.** The Microsoft Learn references in ${grounded} of ${total} module${plural} were found by searching the Microsoft Learn MCP server at build time and then scored for relevance, so a page about a different Microsoft product is dropped rather than quoted under a Copilot Studio heading.${
+      ? `**Citations.** The Microsoft Learn references in ${grounded} of ${total} module${plural} were found by searching the Microsoft Learn MCP server at build time and then scored for relevance, so a page about a different Microsoft product is dropped rather than quoted under a ${shortProducts(plan)} heading.${
           grounded < total ? ` The other ${total - grounded} rely on this repository's curated documentation links instead.` : ""
         }`
       : `**Citations.** No module's references came from a live search on this build. Every link below is a curated documentation link from this repository's feature catalog.`) +
@@ -803,7 +826,7 @@ function howToUseSection(plan, generation) {
           }.`
         : `Link checking was switched off for this build, so no link below has been confirmed to resolve. Treat every reference as unverified.`),
     "",
-    ...(vendorParagraph(generation.vendorDocs) ? [vendorParagraph(generation.vendorDocs), ""] : []),
+    ...(vendorParagraph(generation.vendorDocs, plan) ? [vendorParagraph(generation.vendorDocs, plan), ""] : []),
     synthesized > 0
       ? synthesizedStepsParagraph({ synthesized, derived, total, provider: generation.synthesisModel || provider, dated })
       : derived === total
@@ -873,7 +896,7 @@ export function composeLab(
   const sections = [
     `# ${escapeMarkdown(scrubForbidden(plan.title))}`,
     "",
-    `*Build ${escapeMarkdown(plan.profile.agentName)} in Microsoft Copilot Studio, one grounded module at a time.*`,
+    `*Build ${escapeMarkdown(plan.profile.agentName)} ${isCopilotStudioOnly(plan) ? "in Microsoft Copilot Studio" : `with ${productsPhrase(plan.products)}`}, one grounded module at a time.*`,
     "",
     metadataTable(plan, generation),
     "",

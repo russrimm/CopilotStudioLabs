@@ -1,4 +1,4 @@
-# Open Copilot Studio Labs in GitHub Codespaces
+# Open the Microsoft AI Training Generator in GitHub Codespaces
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/russrimm/CopilotStudioLabs?quickstart=1)
 

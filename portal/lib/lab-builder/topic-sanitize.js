@@ -82,6 +82,15 @@ export function isCopilotStudioDoc(url) {
   return typeof url === "string" && url.startsWith(`https://${LEARN_HOST}${DOCS_PREFIX}`);
 }
 
+/** True for a normalized URL that is one of a product's Microsoft Learn roots or sits beneath one. */
+export function isProductDoc(url, roots) {
+  if (typeof url !== "string") return false;
+  return (roots || []).some((root) => {
+    const base = String(root).replace(/\/+$/, "");
+    return url === base || url.startsWith(`${base}/`);
+  });
+}
+
 /** Stable topic id derived from the Learn URL: `learn-` plus the path under the docs set. */
 export function topicId(url) {
   const path = new URL(url).pathname;

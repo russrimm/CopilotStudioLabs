@@ -1,0 +1,257 @@
+{
+  "$comment": "Seed catalog for Microsoft Foundry, grounded on Microsoft Learn, features verified 2026-11-13.",
+  "product": "ai-foundry",
+  "categories": [
+    {
+      "id": "foundry-platform",
+      "name": "Foundry platform",
+      "description": "Projects, hubs, model deployment, agents, guardrails, and access control in Microsoft Foundry."
+    }
+  ],
+  "features": [
+    {
+      "id": "fdy-create-foundry-project",
+      "name": "Create a Foundry project",
+      "category": "foundry-platform",
+      "level": 100,
+      "minutes": 15,
+      "summary": "Create a Foundry project in the new Foundry portal, which also creates the Foundry resource it lives on.",
+      "whyItMatters": "A project is the container for agents, evaluations, and files, and every later lab in the new portal starts from one. Knowing that a Foundry project sits on a Foundry resource separates it from a hub-based project.",
+      "concepts": [
+        "A Foundry project is a child of a Foundry resource. The portal creates the resource automatically when you create the first project, and extra projects can share the same resource.",
+        "Projects can have their own access controls but share settings such as network security, deployments, and tool integration from the parent resource.",
+        "This procedure is for Foundry projects only. Hub-based projects use a hub and are created differently; see the hub-based project feature in this file."
+      ],
+      "steps": [
+        "Confirm you have an Azure subscription and a role that can create a Foundry resource, such as **Foundry Account Owner** or **Foundry Owner**.",
+        "Sign in to Microsoft Foundry at https://ai.azure.com and make sure the **New Foundry** toggle is on.",
+        "Select the project name in the upper-left corner, then select **Create new project**.",
+        "Enter a project name and select **Create project**.",
+        "For more control, open **Advanced options**, choose a **Resource group** and **Location**, then select **Create**.",
+        "When provisioning finishes, open the project **Home** page and note the project endpoint.",
+        "To add another project to the same resource, select **Manage**, then **Resource details**, then **Add project**."
+      ],
+      "validation": [
+        "The project overview page appears and the project name shows in the upper-left corner.",
+        "The project **Home** page shows a project endpoint in the form https://<resource-name>.services.ai.azure.com/api/projects/<project-name>."
+      ],
+      "learnQueries": [
+        "Create a project for Microsoft Foundry",
+        "Foundry project vs hub-based project"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/how-to/create-projects",
+        "https://learn.microsoft.com/azure/foundry/what-is-foundry",
+        "https://learn.microsoft.com/azure/foundry-classic/what-is-foundry"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/how-to/create-projects",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-deploy-test-model",
+      "name": "Deploy a model and test it in the playground",
+      "category": "foundry-platform",
+      "level": 100,
+      "minutes": 20,
+      "summary": "Deploy a model from the Model Catalog into a Foundry project and try it in the playground.",
+      "whyItMatters": "A deployment is what applications and agents call, so deploying and testing a model is the first checkpoint for any build. The playground lets you confirm behavior before writing code.",
+      "concepts": [
+        "This procedure is for Foundry projects in the new portal. You need a paid Azure subscription, the Cognitive Services Contributor role or equivalent on the Foundry resource, and a Foundry project.",
+        "Models from partners and community require an Azure Marketplace subscription and the permissions to create one; Foundry Models sold by Azure do not.",
+        "For hub-based projects use the Foundry (classic) portal. The classic chat playground quickstart says it works with either project type and uses the model catalog, **Use this model**, and **Open in playground**. Full hub-based deployment options: Not confirmed in Microsoft Learn."
+      ],
+      "steps": [
+        "Sign in to Microsoft Foundry at https://ai.azure.com and make sure the **New Foundry** toggle is on.",
+        "Open your Foundry project, then go to **Build** > **Catalog** > **Model Catalog**.",
+        "Select a model and review its model card.",
+        "Select **Deploy** > **Default settings**, or **Deploy** > **Custom settings** to change deployment settings.",
+        "For a partner or community model, read the terms and select **Agree and Proceed** to subscribe through Azure Marketplace.",
+        "Keep or edit the deployment name, then select **Deploy**.",
+        "When deployment completes you land in the playground; type a prompt and review the output.",
+        "Select the **Code** tab to see how to call the deployment from code."
+      ],
+      "validation": [
+        "The deployment status shows **Succeeded** in your deployment list (**Build** > **Models**).",
+        "A prompt sent in the playground returns a model response."
+      ],
+      "learnQueries": [
+        "Deploy Microsoft Foundry Models in the Foundry portal",
+        "Foundry playground chat quickstart"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/foundry-models/how-to/deploy-foundry-models",
+        "https://learn.microsoft.com/azure/foundry-classic/quickstarts/get-started-playground",
+        "https://learn.microsoft.com/azure/foundry/tutorials/quickstart-create-foundry-resources"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/foundry-models/how-to/deploy-foundry-models",
+      "prereqs": ["fdy-create-foundry-project"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-create-hub-based-project",
+      "name": "Create a hub and a hub-based project",
+      "category": "foundry-platform",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Create a Foundry hub in the Azure portal, then create a hub-based project from it in the Foundry (classic) portal.",
+      "whyItMatters": "Hub-based projects remain the option for prompt flow, managed compute, and Azure Machine Learning compatibility. Hubs let an admin set security, connections, and spend once for many projects.",
+      "concepts": [
+        "A hub is an Azure Machine Learning-based resource that groups projects and shares security, connections, compute and quota, and policy with them. Creating a hub also provisions a Foundry resource.",
+        "Learn says to prefer a Foundry project in most cases, and that new agents and model-centric capabilities are only available on Foundry projects. Agents are listed as preview only on hub-based projects.",
+        "This procedure applies only to hub-based projects in the Foundry (classic) portal. It does not work for Foundry projects."
+      ],
+      "steps": [
+        "Confirm you have an Azure subscription and the Contributor or Owner role on the resource group; project creation needs Owner or Contributor on the hub resource.",
+        "In the Azure portal, search for `Foundry`, select **AI Hubs**, then select **+ Create** and **Hub**.",
+        "Enter the hub name, subscription, resource group, and location. For **Azure AI services base models**, select an existing Foundry resource or create a new one.",
+        "Set the **Storage**, **Inbound Access**, **Outbound Access**, **Encryption**, and **Identity** tabs as needed, then select **Review + create** > **Create**.",
+        "Sign in to Microsoft Foundry at https://ai.azure.com and turn the **New Foundry** toggle off to use Foundry (classic).",
+        "Select **Create new** (or the project breadcrumb, then **Create new resource**), choose **AI hub resource**, and select **Next**.",
+        "Enter a project name, choose your hub in the dropdown (or **Create a new hub**), and select **Create**.",
+        "Open the project **Overview** page to see its name, subscription, and resource group."
+      ],
+      "validation": [
+        "The project breadcrumb shows **(Hub)** on its second line, which identifies a hub-based project.",
+        "The project appears under the hub, and the **Overview** page shows the project name, subscription, and resource group."
+      ],
+      "learnQueries": [
+        "Create a hub project for Microsoft Foundry classic",
+        "Foundry hub resources overview hub-based projects"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry-classic/how-to/hub-create-projects",
+        "https://learn.microsoft.com/azure/foundry-classic/how-to/create-azure-ai-resource",
+        "https://learn.microsoft.com/azure/foundry-classic/concepts/ai-resources",
+        "https://learn.microsoft.com/azure/foundry-classic/what-is-foundry"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry-classic/how-to/hub-create-projects",
+      "prereqs": [],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-create-prompt-agent",
+      "name": "Create a prompt agent with Foundry Agent Service",
+      "category": "foundry-platform",
+      "level": 200,
+      "minutes": 30,
+      "summary": "Create a declarative prompt agent from a deployed model and instructions, then chat with it across two turns.",
+      "whyItMatters": "A prompt agent is the lowest-effort agent in Foundry Agent Service: Foundry hosts it and you supply only a model, instructions, and optional tools. It is the starting point before moving to hosted agents.",
+      "concepts": [
+        "A prompt agent is declaratively defined: it combines a model from the model catalog, instructions, tools, and prompts. The quickstart uses Azure AI Projects 2.x, which is incompatible with 1.x.",
+        "This procedure is for Foundry projects. Learn lists agents as GA on Foundry projects and preview only on hub-based projects. The quickstart's portal tab has no portal creation steps; portal-based agent creation: Not confirmed in Microsoft Learn.",
+        "The quickstart expects a deployed model and Application Insights connected to the project with permission to read traces."
+      ],
+      "steps": [
+        "Make sure you have a Foundry project, a deployed model (for example gpt-5-mini), and Application Insights connected to the project.",
+        "Run `pip install \"azure-ai-projects>=2.3.0\"` and sign in with `az login`.",
+        "Copy the project endpoint from the project welcome screen; it has the form https://<resource-name>.services.ai.azure.com/api/projects/<project-name>.",
+        "In your script, set the project endpoint and an agent name, and create an `AIProjectClient` with `DefaultAzureCredential`.",
+        "Call `project.agents.create_version` with a `PromptAgentDefinition` that sets the model and the instructions.",
+        "Get an agent-bound client with `project.get_openai_client(agent_name=...)` and create a conversation.",
+        "Call `openai.responses.create` with the conversation ID and a question, then send a related follow-up in the same conversation.",
+        "When finished, delete the resource group in the Azure portal if you no longer need the resources."
+      ],
+      "validation": [
+        "The console prints the agent ID, name, and version after creation.",
+        "The follow-up answer reflects the earlier question, showing the agent keeps conversation history."
+      ],
+      "learnQueries": [
+        "Quickstart create a prompt agent Foundry Agent Service",
+        "Foundry prompt agent vs hosted agent"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/agents/quickstarts/prompt-agent",
+        "https://learn.microsoft.com/azure/foundry/what-is-foundry",
+        "https://learn.microsoft.com/azure/foundry-classic/what-is-foundry"
+      ],
+      "availability": "ga",
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/agents/quickstarts/prompt-agent",
+      "prereqs": ["fdy-create-foundry-project", "fdy-deploy-test-model"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-configure-guardrails",
+      "name": "Configure guardrails for models and agents",
+      "category": "foundry-platform",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Create a guardrail with risk controls, assign it to models and agents, and test it in the playground.",
+      "whyItMatters": "Guardrails set what content is detected and blocked at each intervention point, and changes take effect on live deployments. Testing them on a non-production model avoids surprises.",
+      "concepts": [
+        "In the new portal a guardrail is a set of controls (a risk, intervention points, and an action) assigned to models and agents. In the REST API a guardrail is a RAI policy on the resource, assigned through the deployment's `raiPolicyName`.",
+        "You need a Foundry project, at least one model deployment, and the Foundry Account Owner role or higher. Microsoft Default guardrails such as Default.V2 can't be edited.",
+        "For hub-based projects and the classic portal, content filters are created under **Guardrails + controls** > **Content filters** and applied from **Models + endpoints** > **Edit**. That is a different procedure from the one below."
+      ],
+      "steps": [
+        "Open your project in https://ai.azure.com, select **Build**, then the **Guardrails** page, and select **Create Guardrail**.",
+        "In Step 1: Add Controls, select a risk from the dropdown.",
+        "Choose intervention points and one action, then select **Add control**.",
+        "Select **Next** for Step 2, then use **Add agents** and **Add models** to pick what the guardrail applies to, and select **Save**.",
+        "Select **Next** for Step 3: Review, name the guardrail, and select **Create**.",
+        "Select the guardrail row, then select **Try in Playground**; if the button is missing, assign the guardrail to a model or agent first.",
+        "Send test queries and look for the chat message that names the detected risk and intervention point when a control with the action \"Annotate and block\" triggers."
+      ],
+      "validation": [
+        "The new guardrail appears in the list on the **Guardrails** page and shows the models and agents it applies to.",
+        "A test prompt that triggers an \"Annotate and block\" control shows a message with the risk and intervention point."
+      ],
+      "learnQueries": [
+        "How to configure guardrails and controls in Microsoft Foundry",
+        "Foundry content filters classic create and apply"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/guardrails/how-to-create-guardrails",
+        "https://learn.microsoft.com/azure/foundry-classic/openai/how-to/content-filters"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/guardrails/how-to-create-guardrails",
+      "prereqs": ["fdy-deploy-test-model"],
+      "relatedLabs": []
+    },
+    {
+      "id": "fdy-foundry-rbac",
+      "name": "Grant access with Foundry roles",
+      "category": "foundry-platform",
+      "level": 300,
+      "minutes": 30,
+      "summary": "Assign Foundry built-in roles at the right scope so builders, managers, and agent consumers get least-privilege access.",
+      "whyItMatters": "Foundry separates managing accounts, creating projects, building, and calling agents into different roles. Correct scoping lets a team build without broad subscription rights.",
+      "concepts": [
+        "RBAC applies when you authenticate with Microsoft Entra ID; key-based authentication grants full access without role restrictions. Scopes are subscription, resource group, Foundry resource, Foundry project, and individual agent.",
+        "Key roles are Foundry Agent Consumer, Foundry User, Foundry Project Manager, Foundry Account Owner, and Foundry Owner. Do not use Azure AI Developer for Foundry projects; it is scoped to Azure Machine Learning workspaces and hubs.",
+        "This is for Foundry projects. Hub-based projects use a separate hub-focused RBAC article with roles such as Azure AI Developer and Reader at the hub and project levels."
+      ],
+      "steps": [
+        "Choose the role and scope per persona, for example Foundry User on the project for developers and Foundry Agent Consumer for callers that only use agent endpoints.",
+        "In the Azure portal, open your Foundry resource and go to **Access control (IAM)**.",
+        "Create a role assignment for **Foundry User**, set **Members** to **User, group, or service principal**, select the principal, and select **Review + assign**.",
+        "Repeat with **Members** set to **Managed identity** and select your project's managed identity.",
+        "Alternatively in the Foundry portal, select **Manage** > **Project details**, open the **Users** tab, select **Add user**, enter the email address, and select **Add**.",
+        "If users need quota visibility, assign **Cognitive Services Usages Reader** at the subscription scope.",
+        "Use role definition IDs instead of names in scripts because of the role rename; Foundry User is 53ca6127-db72-4b80-b1b0-d745d6d5456d."
+      ],
+      "validation": [
+        "The role assignment appears under **Access control (IAM)** for the Foundry resource or project, for example in the output of `az role assignment list --scope <project-id>`.",
+        "A team member signs in to https://ai.azure.com, can select the project, and sees deployed models under **Build** > **Models**."
+      ],
+      "learnQueries": [
+        "Role-based access control for Microsoft Foundry",
+        "Foundry User role vs Azure AI Developer hub-based projects"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/azure/foundry/concepts/rbac-foundry",
+        "https://learn.microsoft.com/azure/foundry/tutorials/quickstart-create-foundry-resources",
+        "https://learn.microsoft.com/azure/foundry-classic/concepts/hub-rbac-foundry"
+      ],
+      "lastVerified": "2026-11-13",
+      "verifiedAgainst": "https://learn.microsoft.com/azure/foundry/concepts/rbac-foundry",
+      "prereqs": ["fdy-create-foundry-project"],
+      "relatedLabs": []
+    }
+  ]
+}

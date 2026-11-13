@@ -12,6 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getFeature, getFeatures, getHarnesses, orderFeatures, getCoreFeatures } from "./catalog.js";
+import { getProducts, productHasHarnesses, productName, productOf, productsPhrase } from "./products.js";
 import { defaultDifferencesFor } from "./differences.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 import { countNewTopics } from "./topic-store.js";
@@ -82,7 +83,7 @@ export function normalizeLabRequest(request = {}) {
 
   const features = stringList(request.features, "features", getFeatures().length + countNewTopics());
   if (!features.length) {
-    throw new Error("Select at least one Copilot Studio feature to build a lab.");
+    throw new Error("Select at least one topic to build a lab.");
   }
   const unknownFeatures = features.filter((id) => !getFeature(id));
   if (unknownFeatures.length) {
@@ -116,6 +117,33 @@ export function normalizeLabRequest(request = {}) {
     if (!getHarnesses().some((h) => h.id === harness)) throw new Error(`Unknown harness "${harness}".`);
   }
 
+  // The products the lab covers. Omitted means the products of the selected topics, so older callers keep working.
+  const knownProducts = getProducts();
+  const topicProducts = [...new Set([...features, ...excluded].map((id) => productOf(getFeature(id))))];
+  let products;
+  if (request.products !== undefined && request.products !== null) {
+    products = stringList(request.products, "products", knownProducts.length);
+    const unknown = products.filter((id) => !knownProducts.some((p) => p.id === id));
+    if (unknown.length) throw new Error(`Unknown product id(s): ${unknown.join(", ")}.`);
+    if (!products.length) throw new Error("Select at least one product to build a lab.");
+    const outside = features.filter((id) => !products.includes(productOf(getFeature(id))));
+    if (outside.length) {
+      throw new Error(`Topic(s) ${outside.join(", ")} belong to a product that is not selected. Add that product or remove the topic.`);
+    }
+  } else {
+    products = knownProducts.filter((p) => topicProducts.includes(p.id)).map((p) => p.id);
+  }
+  // A harness only exists for a product that has harnesses. For any other lab it is not an error to send one, but it is dropped.
+  let harnessDropped = false;
+  if (harness && !products.some((id) => productHasHarnesses(id))) {
+    harness = undefined;
+    harnessDropped = true;
+  }
+  const harnessOwner = harness ? getHarnesses().find((h) => h.id === harness)?.product : null;
+  if (harness && harnessOwner && !products.includes(harnessOwner)) {
+    throw new Error(`The harness "${harness}" belongs to ${productName(harnessOwner)}, which is not selected.`);
+  }
+
   let level;
   if (request.level !== undefined && request.level !== null && request.level !== "") {
     level = Number(request.level);
@@ -134,9 +162,11 @@ export function normalizeLabRequest(request = {}) {
   return {
     industry: optionalText(request.industry, "industry"),
     roles: stringList(request.roles, "roles", getRoles().length),
+    products,
     features,
     excluded,
     harness,
+    harnessDropped,
     level,
     differencesFor,
     targetMinutes,
@@ -231,7 +261,7 @@ export function buildEstimate(features, targetMinutes) {
  * with one harness tag decides it; features tagged for both harnesses stay
  * neutral, and untagged features count as standard.
  */
-function coreSeedIds(requested, harness) {
+function coreSeedIds(requested, harness, products) {
   const harnessesOf = (feature) => (feature?.harness?.length ? feature.harness : ["standard"]);
   const targets = new Set();
   if (harness) targets.add(harness);
@@ -242,8 +272,9 @@ function coreSeedIds(requested, harness) {
     }
   }
   if (!targets.size) targets.add("standard");
+  // Core foundations are Copilot Studio modules: another product's lab never gets them as a seed.
   return getCoreFeatures()
-    .filter((f) => f.level === 100 && harnessesOf(f).some((h) => targets.has(h)))
+    .filter((f) => products.includes(productOf(f)) && f.level === 100 && harnessesOf(f).some((h) => targets.has(h)))
     .map((f) => f.id);
 }
 
@@ -313,7 +344,7 @@ export function planLab(request = {}) {
       ? requested
       : [
           ...new Set([
-            ...coreSeedIds(requested, request.harness).filter((id) => !requestedLevel || atLevel(getFeature(id), requestedLevel)),
+            ...coreSeedIds(requested, request.harness, request.products).filter((id) => !requestedLevel || atLevel(getFeature(id), requestedLevel)),
             ...requested,
           ]),
         ].filter((id) => !request.excluded.includes(id));
@@ -380,6 +411,9 @@ export function planLab(request = {}) {
   const harnessesUsed = new Set(
     ordered.map((id) => getFeature(id)?.harness || []).filter((tags) => tags.length === 1).map((tags) => tags[0]),
   );
+  if (request.harnessDropped) {
+    warnings.push("A harness was ignored because none of the selected products has harnesses.");
+  }
   if (harnessesUsed.size > 1 && !request.harness) {
     const names = [...harnessesUsed].map((id) => getHarnesses().find((h) => h.id === id)?.name || id);
     warnings.push(
@@ -406,10 +440,13 @@ export function planLab(request = {}) {
 
   // The harness the lab is written for: the one chosen, or the one most of its
   // single-harness modules belong to. Modules tagged for both stay neutral.
+  // A lab with no product that has harnesses has no harness at all.
+  const planProducts = getProducts().map((p) => p.id).filter((id) => request.products.includes(id) || features.some((f) => productOf(f) === id));
   const harnessVotes = new Map();
   for (const f of features) if (f.harness?.length === 1) harnessVotes.set(f.harness[0], (harnessVotes.get(f.harness[0]) || 0) + 1);
-  const labHarness = request.harness || [...harnessVotes].sort((a, b) => b[1] - a[1])[0]?.[0] || "standard";
-  const differencesFor = (request.differencesFor ?? defaultDifferencesFor(labHarness)).filter((id) => id !== labHarness);
+  const hasHarnessProduct = planProducts.some((id) => productHasHarnesses(id));
+  const labHarness = hasHarnessProduct ? request.harness || [...harnessVotes].sort((a, b) => b[1] - a[1])[0]?.[0] || "standard" : null;
+  const differencesFor = labHarness ? (request.differencesFor ?? defaultDifferencesFor(labHarness)).filter((id) => id !== labHarness) : [];
   const maxLevel = features.filter((f) => !f.prerequisite).reduce((max, f) => Math.max(max, f.level || 0), 100);
   const profile = getScenarioProfile(industry?.id);
 
@@ -420,7 +457,7 @@ export function planLab(request = {}) {
     .map((f) => f.name);
 
   const industryName = industry?.name || "Cross-industry";
-  const headline = focusNames.slice(0, 2).join(" and ") || "Copilot Studio";
+  const headline = focusNames.slice(0, 2).join(" and ") || productsPhrase(planProducts) || "Microsoft AI";
   const title = request.title || `${industryName}: Build a ${profile.agentName} with ${headline}`;
 
   const categories = [...new Set(features.map((f) => f.category))];
@@ -429,6 +466,7 @@ export function planLab(request = {}) {
     request: {
       industry: industry?.id || null,
       roles: roles.map((r) => r.id),
+      products: planProducts,
       features: requested,
       excluded: request.excluded,
       harness: request.harness || null,
@@ -456,6 +494,8 @@ export function planLab(request = {}) {
     assumedPrereqs,
     prerequisites: features.filter((f) => f.prerequisite).map((f) => f.id),
     harness: labHarness,
+    products: planProducts,
+    productNames: planProducts.map((id) => productName(id)),
     differencesFor,
     difficulty: DIFFICULTY_BY_LEVEL[request.level || maxLevel] || "Intermediate",
     level: request.level || maxLevel,

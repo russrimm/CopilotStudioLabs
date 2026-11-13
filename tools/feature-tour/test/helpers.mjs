@@ -4,6 +4,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { DEFAULTS, generate, readJson } from "../lib/build.mjs";
 
+// features.json holds the Copilot Studio features, which are the ones the tour lists.
 export const catalog = readJson(DEFAULTS.catalog);
 export const overlay = readJson(DEFAULTS.overlay);
 

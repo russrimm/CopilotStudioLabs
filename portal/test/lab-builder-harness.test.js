@@ -77,13 +77,15 @@ test("a feature cannot require a prerequisite from a higher level", () => {
   assert.ok(problems.some((p) => /basic: level 100 feature requires advanced, which is level 300/.test(p)), problems.join("\n"));
 });
 
-test("the shipped catalog tags every feature and covers every shipped harness and all three levels", () => {
+test("the shipped catalog tags every harness feature and covers every shipped harness and all three levels", () => {
   assert.deepEqual(getHarnesses().map((h) => h.id), ["standard", "microsoft-copilot", "customer-conversation"]);
   const features = getFeatures();
-  for (const f of features) assert.ok(f.harness?.length, `${f.id} has no harness`);
-  assert.ok(features.some((f) => f.harness.length === 1 && f.harness[0] === "microsoft-copilot"));
-  assert.ok(features.some((f) => f.harness.length === 1 && f.harness[0] === "standard"));
-  for (const { level } of LEVELS) assert.ok(features.some((f) => f.level === level), `no feature at level ${level}`);
+  const copilotStudio = features.filter((f) => (f.product || "copilot-studio") === "copilot-studio");
+  for (const f of copilotStudio) assert.ok(f.harness?.length, `${f.id} has no harness`);
+  for (const f of features.filter((f) => !copilotStudio.includes(f))) assert.equal(f.harness, undefined, `${f.id} has no harnesses to tag`);
+  assert.ok(copilotStudio.some((f) => f.harness.length === 1 && f.harness[0] === "microsoft-copilot"));
+  assert.ok(copilotStudio.some((f) => f.harness.length === 1 && f.harness[0] === "standard"));
+  for (const { level } of LEVELS) assert.ok(copilotStudio.some((f) => f.level === level), `no feature at level ${level}`);
 });
 
 test("harness notes only point at features that exist", () => {
@@ -146,7 +148,7 @@ test("a lab that mixes harnesses says so", () => {
 test("every harness's full module set generates a complete lab that passes the portal validator", async () => {
   const { generateLab } = await import("../lib/lab-builder/generator.js");
   for (const harness of ["standard", "microsoft-copilot", "customer-conversation"]) {
-    const features = getFeatures().filter((f) => f.harness.includes(harness)).map((f) => f.id);
+    const features = getFeatures().filter((f) => f.harness?.includes(harness)).map((f) => f.id);
     let lab;
     const root = mkdtempSync(join(tmpdir(), "harness-lab-"));
     try {
