@@ -108,16 +108,24 @@ async function main() {
   if (fs.existsSync(differencesPath)) {
     const { differences = [] } = JSON.parse(fs.readFileSync(differencesPath, "utf8"));
     const urls = [...new Set(differences.flatMap((record) => record.sources.map((source) => source.url)))];
-    const results = await Promise.all(urls.map((url) => checkLink(url)));
-    const broken = results.filter((result) => !result.ok);
+    // Fetch a few at a time and count only a real "gone" answer as broken: Learn
+    // answers 429 when it is hit in a burst, which says nothing about the page.
+    const results = [];
+    for (let i = 0; i < urls.length; i += 3) {
+      results.push(...(await Promise.all(urls.slice(i, i + 3).map((url) => checkLink(url)))));
+    }
+    const TRANSIENT = new Set([0, 408, 425, 429, 502, 503, 504]);
+    const broken = results.filter((result) => !result.ok && !TRANSIENT.has(result.status));
+    const throttled = results.filter((result) => !result.ok && TRANSIENT.has(result.status));
     const stale = differences.filter((record) => {
       const age = (Date.now() - Date.parse(`${record.lastVerified}T00:00:00Z`)) / 86400000;
       return !(age <= maxAgeDays);
     });
     for (const result of broken) console.log(`• harness differences: broken source ${result.url} (${result.status || result.error})`);
+    for (const result of throttled) console.log(`• harness differences: could not verify ${result.url} (${result.status || result.error}); not counted as broken`);
     for (const record of stale) console.log(`• harness differences: ${record.concept} last verified ${record.lastVerified}`);
     console.log(
-      `Harness differences: ${differences.length} record(s), ${urls.length} source(s): ${broken.length} broken, ${stale.length} stale (> ${maxAgeDays} days)`,
+      `Harness differences: ${differences.length} record(s), ${urls.length} source(s): ${broken.length} broken, ${throttled.length} unverifiable, ${stale.length} stale (> ${maxAgeDays} days)`,
     );
     differencesNeedAction = broken.length > 0 || stale.length > 0;
   }
