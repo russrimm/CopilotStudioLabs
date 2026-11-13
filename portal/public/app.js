@@ -694,8 +694,11 @@ async function refreshLabs() {
     const res = await fetch("/api/labs");
     const data = await res.json();
     labs = data.labs || [];
-    includedLabs = new Set(labs.filter((l) => l.available).map((l) => l.id));
+    // Nothing is included until the user includes it. A refresh keeps the user's own choices and drops any lab that is no longer available.
+    const available = new Set(labs.filter((l) => l.available).map((l) => l.id));
+    includedLabs = new Set([...includedLabs].filter((id) => available.has(id)));
     renderLabs();
+    renderResourceManifest();
     if (validationResults.size) renderValidationResults(buildValidationData());
     updateStatus("green", `Connected — ${labs.length} labs discovered`);
   } catch (err) {

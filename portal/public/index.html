@@ -2092,9 +2092,11 @@
               <h3 id="lb-heading-6" tabindex="-1">Step 6 of 8: Which topics should the lab cover?</h3>
               <p id="lb-topic-intro" style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;"></p>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 13px;">
-                We pre-selected topics from your answers and say why. Check or uncheck anything. The topics shown are the
-                ones at the level you chose in the Level step. Prerequisites from lower levels are added automatically as short
-                recaps, in their own group below; if you uncheck one, the lab assumes learners have already done it.
+                We only pre-select a topic when it follows from the vertical or departments you chose, and each one says why.
+                With no vertical or department, nothing is selected: check the topics you want, or use Select recommended
+                to add the ones we suggest. The topics shown are the ones at the level you chose in the Level step.
+                Prerequisites from lower levels are added automatically as short recaps, in their own group below; if you
+                uncheck one, the lab assumes learners have already done it.
               </p>
               <div id="lb-product-notes" role="status" aria-live="polite"></div>
               <div id="lb-level-notice-6" role="status" aria-live="polite"></div>
@@ -2113,9 +2115,10 @@
                   <option value="updated">Updated</option>
                   <option value="moved">Docs moved</option>
                 </select>
+                <button class="btn" type="button" onclick="lbSelectRecommended()">Select recommended</button>
                 <button class="btn" type="button" onclick="lbSelectAllTopics()">Select all</button>
                 <button class="btn" type="button" onclick="lbClearTopics()">Clear</button>
-                <button class="btn" type="button" onclick="lbResetTopics()">Reset to recommended</button>
+                <button class="btn" type="button" onclick="lbResetTopics()">Reset to my answers</button>
               </div>
               <p id="lb-topic-count" class="lb-learn-status" role="status" aria-live="polite"></p>
               <div id="lb-topic-warnings"></div>

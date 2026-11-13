@@ -45,7 +45,8 @@ test("every hub topic belongs to a concept that lists the hub, and recommendatio
     const result = recommend({ products: [PRODUCT], level });
     const ids = result.concepts.flatMap((c) => c.topics.map((t) => t.id));
     assert.ok(ids.some((id) => id.startsWith("m365h-")), `level ${level} lists hub topics`);
-    assert.ok(result.concepts.flatMap((c) => c.topics).some((t) => t.selected), `level ${level} pre-selects hub topics`);
+    assert.ok(result.concepts.flatMap((c) => c.topics).some((t) => t.recommended), `level ${level} recommends hub topics`);
+    assert.equal(result.totals.selectedCount, 0, `level ${level} pre-selects nothing until the learner chooses`);
   }
 });
 

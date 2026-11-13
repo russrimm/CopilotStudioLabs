@@ -153,9 +153,17 @@ export function recommend(answers = {}, learn = {}) {
   };
 
   // Why each topic is recommended. Insertion order is the display order of reasons.
+  // `recommended` is every topic the rules suggest. `preselected` is only the subset an answer the
+  // learner actually gave (a vertical or a department) points at: the level alone never selects a
+  // topic, so a learner who has chosen nothing starts with nothing selected.
   const reasons = new Map();
+  const recommended = new Set();
+  const preselected = new Set();
   for (const id of recs.levels?.[String(level)] || []) {
-    if (applies(id)) addReason(reasons, id, `Recommended for level ${level} ${DIFFICULTY_BY_LEVEL[level]}`);
+    if (applies(id)) {
+      addReason(reasons, id, `Recommended for level ${level} ${DIFFICULTY_BY_LEVEL[level]}`);
+      recommended.add(id);
+    }
   }
   const inLevel = (id) => atLevel(features.get(id), level);
   const levelUnknown = (id) => features.has(id) && !isLevel(features.get(id).level);
@@ -163,7 +171,11 @@ export function recommend(answers = {}, learn = {}) {
   const boost = (group, key, label) => {
     const entry = recs[group]?.[key];
     for (const id of entry?.topics || []) {
-      if (applies(id) && inLevel(id)) addReason(reasons, id, `Recommended for ${label}: ${entry.why}`);
+      if (applies(id) && inLevel(id)) {
+        addReason(reasons, id, `Recommended for ${label}: ${entry.why}`);
+        recommended.add(id);
+        preselected.add(id);
+      }
     }
   };
   if (industry) boost("verticals", industry.id, industry.name);
@@ -186,7 +198,7 @@ export function recommend(answers = {}, learn = {}) {
       return known;
     });
   } else {
-    chosen = [...reasons.keys()];
+    chosen = [...preselected];
   }
   const chosenSet = new Set(chosen);
 
@@ -239,6 +251,7 @@ export function recommend(answers = {}, learn = {}) {
       productName: productName(productOf(f)),
       harnesses: f.harness || [],
       selected: selectedIds.has(id),
+      recommended: recommended.has(id),
       required: requiredBy.has(id) && !chosenSet.has(id),
       reasons: reasons.get(id) || [],
       source: discovered ? "learn" : "catalog",
@@ -382,6 +395,10 @@ export function recommend(answers = {}, learn = {}) {
         .map((id) => ({ id, name: features.get(id).name, level: features.get(id).level })),
     },
     selectedIds: selectedTopicIds,
+    // What the rules suggest for these answers, whether or not it is selected. Selecting it is the learner's act.
+    recommendedIds: conceptRows.flatMap((c) => c.topics.filter((t) => t.recommended).map((t) => t.id)),
+    // The part of the selection that came from an answer (vertical or department) rather than from the learner's own picks.
+    preselectedIds: explicit ? [] : selectedTopicIds.filter((id) => preselected.has(id)),
     totals: {
       selectedCount: selectedTopicIds.length,
       prerequisiteCount: prerequisiteSelected.length,

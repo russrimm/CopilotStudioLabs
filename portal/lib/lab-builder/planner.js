@@ -284,7 +284,7 @@ function coreSeedIds(requested, harness, products) {
  * @param {string[]} [request.roles]         role ids
  * @param {string[]} request.features        feature ids from the catalog
  * @param {number} [request.targetMinutes]   advisory length; only sets when a split is suggested (alias: timeBudget)
- * @param {boolean} [request.includeCore]    force-include core foundation features
+ * @param {boolean} [request.includeCore]    add the level 100 core foundation modules. Off unless true: nothing is added that was not asked for.
  * @param {string} [request.title]           override the generated title
  * @param {string} [request.agentName]       override the scenario agent name
  * @param {string} [request.audience]        override the audience line
@@ -339,8 +339,9 @@ export function planLab(request = {}) {
 
   // Core foundations are level 100 modules. They are a seed only when the lab is at that level
   // (or has no level); at a higher level the ones a topic needs arrive as prerequisite recaps.
+  // They are never added on their own: only an explicit includeCore: true brings them in, and the lab says so.
   const seedIds =
-    request.includeCore === false
+    request.includeCore !== true
       ? requested
       : [
           ...new Set([
@@ -385,6 +386,12 @@ export function planLab(request = {}) {
     const level = getFeature(id)?.level;
     return Boolean(requestedLevel) && isLevel(level) && level < requestedLevel;
   };
+  const addedCore = request.includeCore === true ? seedIds.filter((id) => !requested.includes(id)) : [];
+  if (addedCore.length) {
+    warnings.push(
+      `Added ${addedCore.length} core foundation module(s) because you asked to include them: ${addedCore.map((id) => getFeature(id).name).join(", ")}.`,
+    );
+  }
   const addedPrereqs = expanded.filter((id) => !seedIds.includes(id));
   const addedSameLevel = addedPrereqs.filter((id) => !isRecap(id));
   const addedRecaps = addedPrereqs.filter(isRecap);

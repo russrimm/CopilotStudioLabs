@@ -73,7 +73,7 @@ test("recommendations cite a reason for every pre-selected topic", () => {
 });
 
 test("prerequisites from lower levels are listed apart from the level's own topics, with the topic that needs them", () => {
-  const result = recommend({ level: 200, harness: "standard" });
+  const result = recommend({ level: 200, harness: "standard", selected: ["generative-orchestration"] });
   const flat = result.concepts.flatMap((c) => c.topics);
   const orchestration = flat.find((t) => t.id === "generative-orchestration");
   assert.ok(orchestration.selected);

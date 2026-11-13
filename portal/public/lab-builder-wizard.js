@@ -736,6 +736,14 @@ function lbClearTopics() {
   lbRefresh();
 }
 
+/** Select every topic the rules recommend for these answers. Only this deliberate action adds the level's baseline picks. */
+function lbSelectRecommended() {
+  labBuilder.picked = new Set(labBuilder.rec?.recommendedIds || []);
+  labBuilder.excluded.clear();
+  lbRefresh();
+}
+
+/** Back to what the learner's answers pre-select (nothing, unless a vertical or department points at a topic). */
 function lbResetTopics() {
   labBuilder.picked = null;
   labBuilder.excluded.clear();
@@ -789,7 +797,7 @@ function lbTopicCard(t) {
               <span>
                 <span class="lb-feature-name">${escapeHtml(t.name)}${t.productName ? `<span class="lb-badge lb-badge-product">${escapeHtml(lbProduct(t.product)?.shortName || t.productName)}</span>` : ""}${lbLevelBadge(t)}<span class="lb-badge">about ${t.minutes} min</span>${
                   t.required ? '<span class="lb-badge lb-badge-required">Required prerequisite</span>' : ""
-                }${
+                }${t.recommended && !t.selected ? '<span class="lb-badge">Recommended, not selected</span>' : ""}${
                   t.availability ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>` : ""
                 }${lbLearnBadges(t)}</span>
                 <span id="lb-topic-desc-${escapeHtml(t.id)}" class="lb-feature-summary">${escapeHtml(t.summary)}</span>
@@ -951,7 +959,15 @@ function lbRenderTopics() {
   const intro = document.getElementById("lb-topic-intro");
   if (intro) {
     const recaps = rec.totals.prerequisiteCount ? `, plus ${rec.totals.prerequisiteCount} short prerequisite recap${rec.totals.prerequisiteCount === 1 ? "" : "s"}` : "";
-    intro.textContent = `${levelName} topics for ${scopeName}, grouped by concept. ${rec.totals.selectedCount} selected${recaps}, about ${rec.totals.duration} (an estimate, not a limit).`;
+    const pre = (rec.preselectedIds || []).length;
+    const origin = rec.totals.selectedCount
+      ? labBuilder.picked
+        ? ""
+        : pre
+        ? ` ${pre} ${pre === 1 ? "was" : "were"} pre-selected because of the vertical or departments you chose; uncheck any you do not want.`
+        : ""
+      : " Nothing is selected yet: check the topics you want, or use Select recommended.";
+    intro.textContent = `${levelName} topics for ${scopeName}, grouped by concept. ${rec.totals.selectedCount} selected${recaps}, about ${rec.totals.duration} (an estimate, not a limit).${origin}`;
   }
   const error = document.getElementById("lb-topic-error");
   if (error && lbSelectedCount()) error.textContent = "";
@@ -979,7 +995,9 @@ function lbRenderSummary() {
   const totals = labBuilder.rec?.totals;
   const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
   const time = totals
-    ? `${totals.selectedCount} topic${totals.selectedCount === 1 ? "" : "s"}${recaps}, about ${totals.duration} (estimate, not a limit)`
+    ? totals.selectedCount
+      ? `${totals.selectedCount} topic${totals.selectedCount === 1 ? "" : "s"}${recaps}, about ${totals.duration} (estimate, not a limit)`
+      : "No topics selected yet"
     : "Calculating topics...";
   el.innerHTML = `<strong>Your lab so far:</strong> ${parts.map(escapeHtml).join(" · ")} · ${escapeHtml(time)}`;
 }

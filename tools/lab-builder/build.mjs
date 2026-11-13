@@ -129,7 +129,8 @@ Flags:
                             steps from their Learn pages ("all" for every module).
                             Steps are kept only if each one verifies against the
                             page; anything that fails falls back to the default.
-  --no-core                 Do not auto-add the level 100 foundation modules.
+  --core                    Also add the level 100 foundation modules. Off by default: only the
+                            features you list are built (plus the prerequisites they need).
   --decide <code>=<option>  Pre-answer a build blocker. Repeatable.
   --non-interactive         Never prompt; report blockers and exit 2 instead.
   --dry-run                 Print the plan and exit without writing files.
@@ -295,7 +296,7 @@ if (args.interactive) {
     targetMinutes: args.time ? Number(args.time) : undefined,
     title: typeof args.title === "string" ? args.title : undefined,
     agentName: typeof args["agent-name"] === "string" ? args["agent-name"] : undefined,
-    includeCore: args["no-core"] ? false : undefined,
+    includeCore: args.core === true && !args["no-core"],
   };
 }
 

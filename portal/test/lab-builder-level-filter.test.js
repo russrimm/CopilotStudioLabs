@@ -15,6 +15,8 @@ const LEVELS = [100, 200, 300];
 const HARNESSES = ["standard", "microsoft-copilot", "customer-conversation"];
 
 const listed = (rec) => rec.concepts.flatMap((c) => c.topics);
+// Level-only recommendations are never pre-selected, so a test that needs a populated lab selects them the way a learner would.
+const withRecommended = (answers, learn) => recommend({ ...answers, selected: recommend(answers, learn).recommendedIds }, learn);
 
 function learnTopic(over = {}) {
   return {
@@ -56,7 +58,7 @@ test("prerequisites from lower levels are separate, brief, and counted in the to
   assert.equal(level100.prerequisites.topics.length, 0, "Level 100 has no lower level to recap");
 
   for (const level of [200, 300]) {
-    const rec = recommend({ harness: "standard", level });
+    const rec = withRecommended({ harness: "standard", level });
     const pre = rec.prerequisites;
     assert.ok(pre.topics.length > 0, `Level ${level} depends on lower levels`);
     for (const p of pre.topics) {
@@ -73,9 +75,9 @@ test("prerequisites from lower levels are separate, brief, and counted in the to
 });
 
 test("turning a prerequisite off keeps it listed, unselected, and only warns", () => {
-  const base = recommend({ harness: "standard", level: 200 });
+  const base = withRecommended({ harness: "standard", level: 200 });
   const victim = base.prerequisites.topics[0].id;
-  const off = recommend({ harness: "standard", level: 200, excluded: [victim] });
+  const off = recommend({ harness: "standard", level: 200, selected: base.selectedIds, excluded: [victim] });
   const row = off.prerequisites.topics.find((p) => p.id === victim);
   assert.equal(row.selected, false, "it stays in the group so it can be turned back on");
   assert.ok(off.dependencyWarnings.some((w) => w.id === victim));
@@ -154,7 +156,7 @@ test("the docs rubric classifies a Learn page by its address and title", () => {
 
 test("the planner builds one level, with lower-level prerequisites as labeled recaps", () => {
   for (const level of LEVELS) {
-    const rec = recommend({ harness: "standard", level });
+    const rec = withRecommended({ harness: "standard", level });
     const plan = planLab({ level, harness: "standard", features: rec.selectedIds, includeCore: false });
     const own = plan.features.filter((f) => !f.prerequisite);
     const recaps = plan.features.filter((f) => f.prerequisite);
@@ -203,7 +205,7 @@ test("a dropped prerequisite recap never removes the module that builds on it", 
 
 test("a generated lab holds only the chosen level plus labeled recaps, and says its level", async () => {
   for (const level of LEVELS) {
-    const rec = recommend({ harness: "standard", level });
+    const rec = withRecommended({ harness: "standard", level });
     const result = await generateLab(
       { level, harness: "standard", features: rec.selectedIds, includeCore: false },
       { useLearnMcp: false, useLlm: false, write: false },
@@ -312,7 +314,7 @@ test("changing the level without any own picks shows no removal notice but still
 
 test("the topics step lists the level's topics, announces the count, and collapses the prerequisites group", async () => {
   const { run, element } = loadWizard();
-  const rec = recommend({ harness: "standard", level: 200 });
+  const rec = withRecommended({ harness: "standard", level: 200 });
   run(`labBuilder.levels = ${JSON.stringify(levelsFixture)}; labBuilder.harnesses = [{ id: "standard", name: "Standard harness" }]; labBuilder.level = 200; labBuilder.rec = ${JSON.stringify(rec)};`);
   run("lbRenderTopics()");
 
