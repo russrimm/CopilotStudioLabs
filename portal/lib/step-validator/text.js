@@ -20,6 +20,14 @@ export function stripMarkdown(text) {
 }
 
 /**
+ * Copilot Studio renamed the "GitHub Copilot harness" to the "Microsoft Copilot
+ * harness". Some Learn pages, titles, and URLs still use the old name, so both
+ * names compare equal here. Only the comparison form changes; the Learn text
+ * and URLs shown to learners are left exactly as published.
+ */
+const HARNESS_ALIAS_RE = /\bgithub copilot harness(es)?\b/g;
+
+/**
  * Normalize text for phrase comparison. Case, quotes, dashes, markdown, and
  * punctuation are ignored; navigation arrows become ">" so "Settings → X",
  * "Settings > X", and "**Settings** > **X**" compare equal.
@@ -36,6 +44,7 @@ export function normalizeText(text) {
     .replace(/[^\p{L}\p{N}>% ]+/gu, " ")
     .replace(/\s*>\s*/g, " > ")
     .replace(/\s+/g, " ")
+    .replace(HARNESS_ALIAS_RE, "microsoft copilot harness$1")
     .trim();
 }
 

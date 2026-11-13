@@ -898,6 +898,17 @@
     .lb-feature-name { font-size: 13px; font-weight: 600; }
     .lb-feature-meta { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
     .lb-feature-summary { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+    .lb-feature-note { color: var(--text-muted); font-size: 11px; font-style: italic; margin-top: 4px; }
+    .lb-filter {
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .lb-badge-harness { border-color: var(--accent); }
+    .lb-badge-preview { border-style: dashed; }
     .lb-badge {
       display: inline-block;
       padding: 1px 6px;
@@ -1850,6 +1861,14 @@
               <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;">
                 <input type="text" id="lb-feature-search" aria-label="Search lab features" placeholder="Search features..."
                   oninput="lbRenderFeatures()" style="max-width: 320px;">
+                <select id="lb-harness-filter" class="lb-filter" aria-label="Filter features by harness"
+                  onchange="lbRenderFeatures()">
+                  <option value="">All harnesses</option>
+                </select>
+                <select id="lb-level-filter" class="lb-filter" aria-label="Filter features by level"
+                  onchange="lbRenderFeatures()">
+                  <option value="">All levels</option>
+                </select>
                 <button class="btn" type="button" onclick="lbClearFeatures()">Clear selection</button>
                 <span id="lb-feature-count" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>

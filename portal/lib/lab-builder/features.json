@@ -1,5 +1,5 @@
 {
-  "$comment": "Copilot Studio feature catalog. Drives the Lab Builder wizard. Each selected feature becomes one lab chapter. learnQueries feed the Microsoft Learn MCP server; docUrls are the pages the step deriver reads for each module, and the citation fallback when a search returns nothing relevant. steps are the fallback walk-through, used whenever no procedure on those pages matches the module closely enough, which is a common path rather than a rare one. Every feature records lastVerified, the YYYY-MM-DD day someone last compared its steps, concepts, and checks against the live documentation, and verifiedAgainst, the page they compared against: one of its docUrls, or one of its thirdPartySources urls when the steps follow a vendor's own documentation. validateCatalog() requires both, generated labs quote them to learners, and the monthly accuracy audit flags any feature verified more than 180 days ago. Only change lastVerified after actually re-reading verifiedAgainst and correcting whatever drifted, because a wrong freshness date is worse than none; the procedure is in docs/lab-builder.md, 'Extending the catalog'. There is deliberately no catalog-wide review date: features are re-verified one at a time. thirdPartySources (optional, per feature) are documentation published outside Microsoft Learn — a specification or vendor reference the feature is built on — each with a vendor, a descriptive title (it becomes the link text), an https url, and a stability note saying how likely the page is to change or move. The builder reads them directly rather than through the Learn MCP server, cites them in a Vendor documentation block beside the Microsoft Learn references, and may quote one line from them. vendorHosts is the allowlist for that: the only hosts the builder will contact, matched exactly, with the reason each is trusted. Every thirdPartySources url must be on it, and every entry on it must be used by a feature, so the list never grows wider than the catalog needs. Redirects are re-checked against it on every hop.",
+  "$comment": "Copilot Studio feature catalog. Drives the Lab Builder wizard. Each selected feature becomes one lab chapter. learnQueries feed the Microsoft Learn MCP server; docUrls are the pages the step deriver reads for each module, and the citation fallback when a search returns nothing relevant. steps are the fallback walk-through, used whenever no procedure on those pages matches the module closely enough, which is a common path rather than a rare one. Every feature has a level (100 Beginner: make an agent and test it; 200 Intermediate: add tools, skills, MCP servers, and workflows; 300 Advanced: custom connectors, ALM, governance, and enterprise integration) and a harness list naming the Copilot Studio harnesses (see the top-level harnesses list) whose steps and checks it describes. Optional availability (ga, preview, or retired) is set only when a Learn page states it, and optional harnessNote records a documented difference between the harnesses, sourced from the harness comparison on the harnesses-overview page. Every feature records lastVerified, the YYYY-MM-DD day someone last compared its steps, concepts, and checks against the live documentation, and verifiedAgainst, the page they compared against: one of its docUrls, or one of its thirdPartySources urls when the steps follow a vendor's own documentation. validateCatalog() requires both, generated labs quote them to learners, and the monthly accuracy audit flags any feature verified more than 180 days ago. Only change lastVerified after actually re-reading verifiedAgainst and correcting whatever drifted, because a wrong freshness date is worse than none; the procedure is in docs/lab-builder.md, 'Extending the catalog'. There is deliberately no catalog-wide review date: features are re-verified one at a time. thirdPartySources (optional, per feature) are documentation published outside Microsoft Learn — a specification or vendor reference the feature is built on — each with a vendor, a descriptive title (it becomes the link text), an https url, and a stability note saying how likely the page is to change or move. The builder reads them directly rather than through the Learn MCP server, cites them in a Vendor documentation block beside the Microsoft Learn references, and may quote one line from them. vendorHosts is the allowlist for that: the only hosts the builder will contact, matched exactly, with the reason each is trusted. Every thirdPartySources url must be on it, and every entry on it must be used by a feature, so the list never grows wider than the catalog needs. Redirects are re-checked against it on every hop.",
   "version": 1,
   "vendorHosts": [
     {
@@ -128,6 +128,9 @@
       "level": 100,
       "minutes": 15,
       "core": true,
+      "harness": [
+        "standard"
+      ],
       "summary": "Create a new Copilot Studio agent from a natural-language description or the blank agent option.",
       "whyItMatters": "Everything else in Copilot Studio hangs off the agent object. Describing the agent in natural language lets Copilot Studio generate the starting name, description, instructions, and suggestions, which is the fastest path from idea to working prototype.",
       "concepts": [
@@ -173,7 +176,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/authoring-first-bot",
         "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-get-started"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-12",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-first-bot",
       "prereqs": [],
       "relatedLabs": [
@@ -194,6 +197,9 @@
       "level": 100,
       "minutes": 20,
       "core": true,
+      "harness": [
+        "standard"
+      ],
       "summary": "Write the instructions that define the agent's role, scope, resource-use guidance, tone, and guardrails.",
       "whyItMatters": "Instructions are the central directions an agent follows when it chooses resources, fills inputs, and generates responses. Vague instructions produce vague agents; explicit scope, configured-resource guidance, and escalation rules make an agent safer to hand to real users.",
       "concepts": [
@@ -255,6 +261,10 @@
       "category": "foundations",
       "level": 200,
       "minutes": 20,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "The Microsoft Copilot harness uses its own orchestration for every agent, so the orchestration setting described here exists only on the standard harness.",
       "summary": "Confirm or turn on generative orchestration so the agent can plan across topics, knowledge, tools, and other agents.",
       "whyItMatters": "Classic orchestration selects a topic by matching trigger phrases. Generative orchestration can select one or more topics, tools, knowledge sources, or other agents, which is what makes multi-step business questions answerable.",
       "concepts": [
@@ -315,6 +325,9 @@
       "category": "foundations",
       "level": 200,
       "minutes": 15,
+      "harness": [
+        "standard"
+      ],
       "summary": "Choose the primary AI model for the agent and compare quality, latency, reasoning, and cost tradeoffs.",
       "whyItMatters": "Model choice is a per-agent lever on response quality, latency, and cost. Deep models fit multistep reasoning and tool-rich workflows, while general models fit faster everyday grounded answers.",
       "concepts": [
@@ -374,6 +387,10 @@
       "minutes": 10,
       "core": true,
       "phase": "deploy",
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "The Microsoft Copilot harness has its own publish flow; see mc-publish-agent.",
       "summary": "Publish the agent so channel users receive the latest authored content.",
       "whyItMatters": "Authoring changes are invisible to published channels until you publish. Even after publishing, some persistent conversations need a new session before the latest content appears.",
       "concepts": [
@@ -420,11 +437,248 @@
       "reuseScreenshots": []
     },
     {
+      "id": "test-agent",
+      "name": "Test your agent",
+      "category": "foundations",
+      "level": 100,
+      "minutes": 15,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "The Microsoft Copilot harness uses a Preview tab instead of this panel; see mc-preview-test.",
+      "summary": "Use the Test your agent panel to walk through a conversation, follow the topics and nodes that fire, and watch variable values.",
+      "whyItMatters": "Testing in the panel catches broken topics and bad variable values before users see them, and it is the quickest way to confirm what a change did.",
+      "concepts": [
+        "The Test your agent panel runs a conversation as a user would, so you can check that topics trigger and the conversation flows as you expect.",
+        "Selecting a response in the test chat takes you to the topic and node that sent it; nodes that fired show a colored checkmark and border.",
+        "The panel is for design-time validation and doesn't fully replicate published channel behavior. Timer-based and background-triggered events, such as inactivity triggers, might not fire there, so test them on a published channel such as Microsoft Teams."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio. If the **Test your agent** panel is hidden, select **Test** at the top of any page.",
+        "In the field at the bottom of the panel, enter a message. If the text is similar to a trigger phrase for a topic, that topic begins.",
+        "Select the agent response in the test chat to open the topic and the node that sent the response.",
+        "Select the three dots (**…**) at the top of the test panel and turn on **Track between topics** to follow the conversation automatically as it moves from topic to topic.",
+        "Select **Variables** on the secondary toolbar, switch to the **Test** tab, and expand a variable category to watch values change as the conversation continues.",
+        "After you change and save a topic, select the **Reset** icon at the top of the test panel to start a fresh conversation."
+      ],
+      "validation": [
+        "A test conversation produces agent responses in the **Test your agent** panel.",
+        "Selecting a response opens the topic and node that sent it.",
+        "The **Variables** panel **Test** tab shows values for the variables used in the conversation."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Copilot Studio test your agent test panel",
+        "Copilot Studio test variables track between topics"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-test-bot"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-test-bot",
+      "prereqs": [
+        "create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-harness-choice",
+      "name": "Choose a harness: standard or Microsoft Copilot",
+      "category": "foundations",
+      "level": 100,
+      "minutes": 15,
+      "harness": [
+        "standard",
+        "microsoft-copilot"
+      ],
+      "summary": "Compare the standard and Microsoft Copilot harnesses, pick one for a scenario, and learn how to reach each in Copilot Studio.",
+      "whyItMatters": "The harness you build on decides the features, channels, and billing model of the agent, and an agent on the Microsoft Copilot harness cannot be moved back to the standard harness. Choosing deliberately avoids rework and surprise credit use.",
+      "concepts": [
+        "A harness is the runtime between the model and the agent's configuration: it decides when to call the model, what to send it, how to read the result, and which tools to call. The harness affects billing, features, and capabilities.",
+        "The standard harness fits rule-based agents and structured, repeatable conversations. The Microsoft Copilot harness fits reasoning-heavy, longer-running work, such as multi-step business processes, and it uses Copilot Credits.",
+        "You choose the harness when you create an agent. An agent on the Microsoft Copilot harness can't be transferred to the standard harness, but Copilot Studio can create a Microsoft Copilot harness agent from a standard harness agent.",
+        "Learn also describes a Customer Conversation harness and a Copilot chat harness. They use separate creation paths and are outside this catalog, which covers the standard and Microsoft Copilot harnesses."
+      ],
+      "steps": [
+        "Write down the scenario you want to build and whether it is short and rule-based (for example, an HR intake and routing bot) or long-running, multi-step, and file-heavy (for example, accounts payable reconciliation).",
+        "Open the **Harnesses in Copilot Studio** article and compare your scenario with the **Standard harness** and **Microsoft Copilot harness** columns of its comparison table.",
+        "Sign in to Copilot Studio and open the **Home** page.",
+        "To reach standard harness agents, select the three dots (**…**) at the bottom of the side bar, and then select **Open classic experience**. The classic experience applies to your current session only.",
+        "To create a new standard harness agent or agent flow, select **Other ways to build** on the **Home** page. You can also open an existing agent or flow from **Agents** or **Workflows**.",
+        "Record your decision, and for the Microsoft Copilot harness note the expected Copilot Credit use."
+      ],
+      "validation": [
+        "You can state which harness fits the scenario and give two reasons from the comparison table.",
+        "You can reach both the new **Home** page and the classic experience."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Copilot Studio choose a harness standard Microsoft Copilot",
+        "Compare Copilot Studio agent harnesses"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/switch-experiences"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview",
+      "prereqs": [],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-create-agent",
+      "name": "Create an agent (Microsoft Copilot harness)",
+      "category": "foundations",
+      "level": 100,
+      "minutes": 15,
+      "core": true,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Create an agent on the Microsoft Copilot harness, name it, write its instructions, and save it on the Build tab.",
+      "whyItMatters": "Everything else on the Microsoft Copilot harness, including knowledge, tools, skills, and memory, hangs off this agent. Writing clear instructions up front is the main way you steer how it reasons.",
+      "concepts": [
+        "Agents on the Microsoft Copilot harness use natural-language instructions, knowledge, tools, and other components to reason over context and take action. Using, building, testing, and evaluating them might consume Copilot Credits.",
+        "The last agent name you enter before the first save sets the agent's schema name, and that system name becomes read-only afterward.",
+        "The Build tab brings instructions, knowledge, tools, skills, connected agents, the model, and memory into one place. The Preview, Evaluate, and Monitor tabs cover testing and operating the agent."
+      ],
+      "steps": [
+        "Sign in to Copilot Studio.",
+        "On the **Home** page, select the **Agent** tile. Alternatively, select **Agents** in the side pane and then **New agent**. The agent opens in the designer on the **Build** tab with the name field in focus.",
+        "Enter a name for your agent in the name field.",
+        "Optionally, use the **Agent settings** panel to change the primary language, solution, and schema name before you save.",
+        "In the **Instructions** section, describe how the agent should behave, including its role, tone, and any rules it must follow.",
+        "Select the **Save** icon. If you skipped the name, enter it when prompted and select **Save**.",
+        "On the **Build** tab, confirm that the agent now offers knowledge, tools, skills, connected agents, model, and memory as components you can add next."
+      ],
+      "validation": [
+        "The agent appears on the **Agents** page in your lab environment.",
+        "The **Build** tab shows the saved name and non-empty instructions."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Create a new agent Microsoft Copilot harness Copilot Studio",
+        "Copilot Studio Build tab instructions Microsoft Copilot harness"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent",
+      "prereqs": [],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-publish-agent",
+      "name": "Publish an agent (Microsoft Copilot harness)",
+      "category": "foundations",
+      "level": 100,
+      "minutes": 10,
+      "core": true,
+      "phase": "deploy",
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Publish the agent to its channels, check readiness and data-policy blocks, and republish after changes.",
+      "whyItMatters": "Changes on the Build tab reach users only after you publish, and data policies can block channels. Knowing the publish flow and its failure messages prevents a launch day surprise.",
+      "concepts": [
+        "Publishing needs a saved name, description, and instructions, and Learn recommends you test in the Preview pane first. If something is missing, the publish dialog tells you what to complete.",
+        "Your organization's data policies can block channels or connectors, which disables them in the publish flow. The built-in test channel that powers Preview does not block publishing on its own.",
+        "The Microsoft Copilot harness supports fewer publishing channels than the standard harness. Microsoft Copilot, Microsoft Teams, the demo website, and web app embedding are available, and an agent with triggers needs an extra activation step after publishing."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select **Publish**.",
+        "In the **Publish agent** dialog, review the agent details and select and configure each channel you want to publish to.",
+        "If the dialog says the agent is missing a name, description, or instructions, complete them before you continue.",
+        "Select **Publish** to confirm, and wait for the dialog to show that publishing finished.",
+        "When publishing succeeds, use the confirmation to share the agent or add it to the organization catalog.",
+        "After you change the agent on the **Build** tab, select **Publish** in the upper-right corner, review the **Publish your changes** dialog, and select **Publish** to confirm. If publishing fails, select **Retry**."
+      ],
+      "validation": [
+        "The **Publish agent** dialog reports a successful publish.",
+        "The channels you selected are configured and none are blocked by a data policy."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Publish an agent Microsoft Copilot harness Copilot Studio",
+        "Copilot Studio publish channels data policies Microsoft Copilot harness"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-publish-agent",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/faqs-copilot-harness"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-publish-agent",
+      "prereqs": [
+        "mc-preview-test"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-upgrade-from-standard",
+      "name": "Upgrade a standard agent to the Microsoft Copilot harness",
+      "category": "foundations",
+      "level": 300,
+      "minutes": 30,
+      "harness": [
+        "standard",
+        "microsoft-copilot"
+      ],
+      "availability": "preview",
+      "summary": "Ask Copilot Studio to upgrade a standard harness agent, then review what was migrated and rebuild what was not.",
+      "whyItMatters": "Migration is re-architecture, not a mechanical copy. Reading the upgrade report tells you which knowledge, topic logic, and child agents you must rebuild before the new agent matches the old one.",
+      "concepts": [
+        "The upgrade creates a copy of the agent on the Microsoft Copilot harness. It carries over instructions, tools, and suggested prompts, and the upgrade consumes credits.",
+        "Custom topics can be rebuilt as skills or workflows. Knowledge sources, Power Fx expressions, and child agents aren't migrated, and Azure AI Search grounding must be reconfigured through Foundry IQ or an Azure AI Search connector tool.",
+        "Learn recommends migrating only for a scenario-level benefit. A working standard harness agent doesn't need to move, and standard harness agents keep running."
+      ],
+      "steps": [
+        "On the Copilot Studio **Home** page, enter a request such as \"upgrade my Coffee Coach agent\" in the input box, using the name of your own standard harness agent.",
+        "Follow the progress in the chat, and confirm or clarify details when Copilot Studio asks, for example whether it found the right agent.",
+        "When it finishes, find the new agent card, which shows the agent name followed by **(Upgraded)**, and any workflow cards.",
+        "Select the **Open** icon on a card to view or customize the artifact.",
+        "Review the report of what was migrated, what needs attention, and what was skipped.",
+        "Re-add knowledge sources, rebuild Power Fx logic and child-agent behavior, and test the core journeys on the **Preview** tab."
+      ],
+      "validation": [
+        "A new agent labeled **(Upgraded)** exists alongside the original standard harness agent.",
+        "You have a list of skipped items, such as knowledge sources, and a plan to rebuild each one."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Upgrade agents to the Microsoft Copilot harness Copilot Studio",
+        "Copilot Studio upgrade standard harness agent migrate"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-microsoft-copilot-from-standard-harness",
+        "https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/faqs-copilot-harness"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-microsoft-copilot-from-standard-harness",
+      "prereqs": [
+        "mc-harness-choice"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
       "id": "topics",
       "name": "Topics & trigger phrases",
       "category": "conversation",
       "level": 100,
       "minutes": 25,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "The Microsoft Copilot harness has no topics: hooks run workflows at lifecycle events instead, and custom topics can be rebuilt as skills or workflows. See mc-hooks and mc-upgrade-from-standard.",
       "summary": "Create custom topics with trigger phrases and descriptions, and understand the system topics every agent starts with.",
       "whyItMatters": "Topics define deterministic conversation paths for scenarios that need an exact script, such as disclosures, intake forms, and escalation. System topics handle common events, so reviewing them prevents custom topics from accidentally duplicating built-in behavior.",
       "concepts": [
@@ -498,6 +752,10 @@
       "category": "conversation",
       "level": 200,
       "minutes": 25,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "Custom entities are not supported on the Microsoft Copilot harness.",
       "summary": "Create custom entities, collect values in Question nodes, and reuse the resulting variables across topics.",
       "whyItMatters": "Entities turn free text into structured values your tools can use, and variables keep those values available to the parts of the conversation that need them. Without this structure, topics have to ask for the same information repeatedly.",
       "concepts": [
@@ -570,6 +828,9 @@
       "category": "conversation",
       "level": 200,
       "minutes": 25,
+      "harness": [
+        "standard"
+      ],
       "summary": "Add display or interactive Adaptive Cards and use Power Fx when a card needs values from variables.",
       "whyItMatters": "A wall of prose is hard to use on a phone or in Teams. Adaptive Cards let you show key values, status, and actions in a layout users can scan quickly.",
       "concepts": [
@@ -647,8 +908,11 @@
       "id": "power-fx",
       "name": "Power Fx in topics",
       "category": "conversation",
-      "level": 300,
+      "level": 200,
       "minutes": 20,
+      "harness": [
+        "standard"
+      ],
       "summary": "Use Power Fx formulas to set variables and evaluate conditions inside topic logic.",
       "whyItMatters": "Power Fx is the formula layer for exact transformations, mappings, and date or text logic inside a topic. When a value has to be deterministic, compute it instead of asking the model to produce it.",
       "concepts": [
@@ -711,6 +975,10 @@
       "level": 100,
       "minutes": 20,
       "core": true,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "SharePoint knowledge is also available on the Microsoft Copilot harness; see mc-knowledge for those steps.",
       "summary": "Ground the agent in SharePoint sites or lists so it answers from your organization's content.",
       "whyItMatters": "SharePoint is where many organizations already keep policies, procedures, and list-based operational data. Grounding there gives immediate, permission-trimmed value without moving that content into a separate repository.",
       "concepts": [
@@ -771,6 +1039,10 @@
       "category": "knowledge",
       "level": 100,
       "minutes": 15,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "File upload and public websites are also available on the Microsoft Copilot harness; see mc-knowledge for those steps.",
       "summary": "Add uploaded documents and public web sources as additional grounding for the agent.",
       "whyItMatters": "Uploaded files cover one-off documents that are not ready for SharePoint, and public websites cover authoritative external content. Together they expand grounding without requiring a custom connector.",
       "concepts": [
@@ -824,6 +1096,10 @@
       "category": "knowledge",
       "level": 200,
       "minutes": 25,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "Dataverse tables are also supported as knowledge on the Microsoft Copilot harness. Azure AI Search knowledge is standard-only there; use Foundry IQ instead (mc-foundry-iq).",
       "summary": "Ground the agent in structured Dataverse tables so it can answer record-level questions.",
       "whyItMatters": "Documents answer questions about policies and procedures; Dataverse answers questions about specific business records. Many real business conversations need both.",
       "concepts": [
@@ -876,6 +1152,10 @@
       "category": "knowledge",
       "level": 200,
       "minutes": 20,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "Agents on the Microsoft Copilot harness have no general knowledge on/off setting; you manage knowledge through the specific sources you add.",
       "summary": "Configure knowledge settings to block ungrounded responses, control web search, and verify citations.",
       "whyItMatters": "An agent that quietly answers without a source can invent policy. Blocking ungrounded turns gives a defensible failure mode when no knowledge source or tool is used.",
       "concepts": [
@@ -927,12 +1207,108 @@
       ]
     },
     {
+      "id": "mc-knowledge",
+      "name": "Add knowledge (Microsoft Copilot harness)",
+      "category": "knowledge",
+      "level": 100,
+      "minutes": 20,
+      "core": true,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "harnessNote": "Azure AI Search is not supported as a knowledge source on the Microsoft Copilot harness; use Foundry IQ (mc-foundry-iq) or an Azure AI Search connector tool instead.",
+      "summary": "Add files, websites, SharePoint, and other knowledge sources from the Build tab, then confirm in Preview that the agent uses them.",
+      "whyItMatters": "Knowledge is the data the agent can reference when it answers. On this harness you manage access source by source, so adding and describing the right sources is what grounds the agent.",
+      "concepts": [
+        "The Microsoft Copilot harness supports the same categories of knowledge sources as the standard harness, including websites, SharePoint, and uploaded files, but it has no general knowledge on/off setting. You manage knowledge through the sources you add.",
+        "The Add knowledge dialog always offers file upload. Featured source types include Public websites, SharePoint, OneDrive for Business, Salesforce, ServiceNow, and Azure SQL, and the Advanced tab adds more, such as Azure DevOps Wiki and Custom Connector.",
+        "A Power Platform admin center setting can block knowledge sources, and a blocked source appears disabled. OneDrive for Business and uploaded SharePoint files have an item-count limit per add."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "In the components panel on the right, select the **Knowledge** button.",
+        "In the **Add knowledge** dialog, drag and drop files or select the upload area, search for a source, or select a source type such as **Public websites**, **SharePoint**, or **OneDrive for Business**. Use the **Advanced** tab for more types.",
+        "Follow the configuration steps for the source type you selected.",
+        "Select **Save** or **Add** to confirm the knowledge source.",
+        "Update the source name and description so the agent can tell when to use the source.",
+        "Select the **Preview** tab, ask a question the source should answer, and check the activity trace for the knowledge source and its citations."
+      ],
+      "validation": [
+        "The knowledge source appears in the agent on the **Build** tab.",
+        "A test question in **Preview** is answered from the source and the activity trace shows the source."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Add knowledge sources Microsoft Copilot harness Copilot Studio",
+        "Copilot Studio knowledge SharePoint file upload Microsoft Copilot harness"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-add-existing-copilot",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-add-existing-copilot",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-foundry-iq",
+      "name": "Foundry IQ knowledge bases (Microsoft Copilot harness)",
+      "category": "knowledge",
+      "level": 300,
+      "minutes": 30,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Connect the agent to an existing Foundry IQ knowledge base as a tool and verify retrieval in the activity trace.",
+      "whyItMatters": "A team may already have built and tuned a knowledge base in Azure AI Foundry. Connecting to it reuses that retrieval setup, and it is also how Azure AI Search content reaches this harness.",
+      "concepts": [
+        "A Foundry IQ knowledge base bundles enterprise data sources with retrieval and relevance settings into one reusable asset. You tune it in Azure AI Foundry, not in Copilot Studio.",
+        "An agent can have only one Foundry IQ connection, and only the knowledge bases you have access to in Foundry appear in the picker.",
+        "Connection authentication types are API key, client certificate, service principal (Microsoft Entra ID application), and Microsoft Entra ID Integrated."
+      ],
+      "steps": [
+        "Open your agent and select the **Build** tab.",
+        "In the components panel, select **Tools** to open the **Add a tool** dialog, and then select **Foundry IQ**.",
+        "Select **Create new connection**, choose the **Authentication type**, enter the values it needs, and select **Create**.",
+        "Select **Next**, select a knowledge base from the list, and select **Add to agent**. Then select **Save**.",
+        "Select the new Foundry IQ connection under **Tools**, write a detailed name and description to help orchestration, and select **Save**.",
+        "On the **Preview** tab, ask a question the knowledge base can answer and open the activity trace to confirm a Foundry IQ retrieval step and the items it returned."
+      ],
+      "validation": [
+        "The Foundry IQ connection appears as a connected tool on the **Build** tab.",
+        "The activity trace shows Foundry IQ handling retrieval for a test question."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Connect to Foundry IQ Microsoft Copilot harness Copilot Studio",
+        "Foundry IQ knowledge base Copilot Studio agent tool"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/foundry-iq-connect",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-add-existing-copilot"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/foundry-iq-connect",
+      "prereqs": [
+        "mc-knowledge"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
       "id": "connector-tools",
       "name": "Connector tools",
       "category": "tools",
       "level": 200,
       "minutes": 25,
       "core": true,
+      "harness": [
+        "standard"
+      ],
       "summary": "Add a Power Platform connector action as an agent tool and configure its details, inputs, and completion behavior.",
       "whyItMatters": "Connectors let an agent read from and act on external services through Power Platform. Clear connector configuration keeps tool calls predictable and prevents the agent from asking for, sending, or returning the wrong data.",
       "concepts": [
@@ -1015,6 +1391,10 @@
       "category": "tools",
       "level": 200,
       "minutes": 25,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "The Microsoft Copilot harness has no separate prompt tool; reusable behavior is packaged as a skill. See mc-skills.",
       "summary": "Create a custom prompt in Prompt Builder and add it to an agent as a tool.",
       "whyItMatters": "Prompt tools package a focused AI task so you can test and reuse it instead of hiding the behavior in agent instructions. Prompt Builder gives makers a place to define inputs, sample data, model settings, knowledge, and output formatting before the prompt is used in a conversation.",
       "concepts": [
@@ -1078,6 +1458,9 @@
       "category": "tools",
       "level": 300,
       "minutes": 40,
+      "harness": [
+        "standard"
+      ],
       "summary": "Create a custom connector from an OpenAPI definition, secure it with Microsoft Entra ID OAuth, and use it from a Copilot Studio agent.",
       "whyItMatters": "Line-of-business APIs rarely have a prebuilt connector. A custom connector wraps the API, centralizes OAuth configuration, and lets the agent call approved operations without embedding credentials in the agent.",
       "concepts": [
@@ -1154,8 +1537,12 @@
       "id": "mcp-servers",
       "name": "MCP servers as tools",
       "category": "tools",
-      "level": 300,
+      "level": 200,
       "minutes": 30,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "The Microsoft Copilot harness also supports MCP servers; see mc-tools-mcp for those steps.",
       "summary": "Add an MCP server to an agent so its tools and resources are available from the agent's Tools page.",
       "whyItMatters": "MCP moves tool and resource definitions out of the agent and into a connected server. The agent can use the server capabilities while Power Platform connector policies continue to govern access.",
       "concepts": [
@@ -1225,11 +1612,154 @@
       ]
     },
     {
+      "id": "mc-skills",
+      "name": "Skills (Microsoft Copilot harness)",
+      "category": "tools",
+      "level": 200,
+      "minutes": 25,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Create a reusable skill from blank or with AI so the agent can activate task-specific instructions when a request matches.",
+      "whyItMatters": "Skills package expertise as portable Markdown instructions that the agent loads only when needed. They replace separate prompts on this harness and let you reuse behavior across agents.",
+      "concepts": [
+        "A skill is a name, a description, and Markdown instructions. The orchestration runtime activates it when the user request matches the skill description, so a clear description matters.",
+        "You can add a skill three ways: upload an existing skill file or package, create one from blank, or generate one with AI. The harness also provides built-in skills for reading CSV, Word, HTML, Markdown, PDF, PowerPoint, and Excel files.",
+        "Skills provide instructions while tools connect to external services. A skill can tell the agent to use a specific tool in a particular way."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio and select the **Build** tab.",
+        "In the components panel, select **Skills**.",
+        "In **Add skill**, select **Create from blank**.",
+        "Enter a **Name** that uses only lowercase letters, numbers, and hyphens and does not start or end with a hyphen, such as `customer-support-escalation`.",
+        "Enter a **Description** that says what the skill does and when it should be activated.",
+        "Enter **Instructions** in Markdown with specific steps, response formats, and constraints, and select **Create**. The skill appears in the components panel.",
+        "Optional: select **Skills**, then **Generate with AI**, describe the skill, select **Build**, answer the questions Copilot asks, and select **Add to agent**.",
+        "Select the **Preview** tab, send a request that matches the skill purpose, and check the activity trace to confirm the skill ran."
+      ],
+      "validation": [
+        "The skill appears in the components panel on the **Build** tab.",
+        "A matching request in **Preview** activates the skill."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Create a skill Microsoft Copilot harness Copilot Studio",
+        "Copilot Studio skills overview agent skills"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-create"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-create",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-tools-mcp",
+      "name": "MCP servers (Microsoft Copilot harness)",
+      "category": "tools",
+      "level": 200,
+      "minutes": 30,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "availability": "preview",
+      "summary": "Add an MCP server from the gallery or by URL as a tool and verify which of its tools the agent calls.",
+      "whyItMatters": "MCP servers expose many tools through one connection. Reviewing the tool names and descriptions, and testing with the activity trace, shows whether the agent will pick the right one.",
+      "concepts": [
+        "Model Context Protocol (MCP) is a standard for exposing tools to an agent. When you add a server, the agent can use every tool that server exposes.",
+        "The gallery lists servers already published for your organization, such as Microsoft 365 services, Foundry IQ, and Fabric IQ. You can also add a custom server by its HTTPS URL, with the authentication method it needs.",
+        "The number of MCP server instances that run in one conversation is capped, and each server counts against the total number of tools an agent can host, so keep attached servers few."
+      ],
+      "steps": [
+        "Open your agent in Copilot Studio, select the **Build** tab, and then select **Tools** in the components panel.",
+        "To use a published server, select **Add tool**, select the **MCP** tab, select a server, review its description and **Docs** link, and select **Add**. If prompted, enter the connection values and select **Create**.",
+        "To add a custom server, select **Add** next to the search bar in the **Add a tool** dialog, and then select **Model Context Protocol (MCP)**.",
+        "On the **Add MCP server** page, enter a **Name**, a **Description**, the **Server URL**, and the **Authentication** details the server requires.",
+        "Select **Add**, review the tools that appear and their descriptions, and then select **Save**.",
+        "Select the **Preview** tab, ask a question that needs one of the server tools, and use the activity trace to confirm which tool ran, with which arguments, and what it returned."
+      ],
+      "validation": [
+        "The MCP server appears in the **Tools** list on the **Build** tab.",
+        "The activity trace shows the agent calling a tool from the server."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Add a Model Context Protocol MCP server Microsoft Copilot harness Copilot Studio",
+        "Copilot Studio MCP tool gallery custom server URL"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-mcp-server",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-available"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-mcp-server",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-hooks",
+      "name": "Hooks (Microsoft Copilot harness)",
+      "category": "tools",
+      "level": 300,
+      "minutes": 40,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "availability": "preview",
+      "summary": "Bind a published workflow to an agent lifecycle event, such as Pre tool use, so a rule runs every time the event fires.",
+      "whyItMatters": "Tools run only when the agent judges them relevant, but hooks run every time. They are the way to log tool calls, check requests against policy, or add context consistently.",
+      "concepts": [
+        "A hook has an event and an action, and the action is always a workflow today. Events are Start, User prompt submitted, Error, Pre tool use, Post tool use, and After tool failure.",
+        "Pre tool use is the only event that can block an action. The three tool events can be scoped to specific tools, and leaving the Tools field empty applies the hook to all tools.",
+        "Hooks don't stop the agent when they fail, and prompts, tool results, and errors are untrusted input. Don't rely on a hook as the only safeguard for a business-critical rule, and publish the agent before the hook runs for users."
+      ],
+      "steps": [
+        "Open the agent and, on the top menu bar, select the three dots (**…**), and then select **Hooks**.",
+        "In the **Hooks** dialog, select **Create**.",
+        "On the **Add hook** page, choose the **Event type**, such as **Pre tool use**, and enter a **Name**.",
+        "For a tool event, use the **Tools** field to select the tools the hook applies to, or leave it empty for **All tools**.",
+        "Select an existing published **Workflow**, or select **New workflow**. The starter workflow already has a **When an agent calls the flow** node and a **Respond to the agent** node, so keep their input and output names, add your nodes between them, then select **Save** and **Publish**.",
+        "Select **Done**, select the **Save** icon on the top menu bar to save the agent, and then publish the agent so the hook runs for users.",
+        "On the **Preview** tab, trigger the event, such as a tool call, and use the activity trace to confirm the hook changed or recorded what you expected."
+      ],
+      "validation": [
+        "The hook is listed in the **Hooks** dialog by name and event type.",
+        "The workflow bound to the hook is published, and the event triggers it during a test conversation."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Hooks Microsoft Copilot harness Copilot Studio preview",
+        "Copilot Studio hooks Pre tool use workflow event"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/hooks-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-workflow"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/hooks-overview",
+      "prereqs": [
+        "mc-workflows-tool"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
       "id": "servicenow-integration",
       "name": "ServiceNow ITSM integration",
       "category": "integrations",
-      "level": 300,
+      "level": 200,
       "minutes": 40,
+      "harness": [
+        "standard"
+      ],
       "summary": "Add ServiceNow connector actions as agent tools so the agent can look up, create, or summarize ITSM records from Copilot Studio.",
       "whyItMatters": "Service desks need agents that can act on live incident and knowledge data instead of only answering policy questions. Copilot Studio also documents ServiceNow as a real-time connector knowledge source, but this chapter stays on one coherent tool procedure for operational ITSM actions.",
       "concepts": [
@@ -1307,8 +1837,11 @@
       "id": "snowflake-integration",
       "name": "Snowflake data integration",
       "category": "integrations",
-      "level": 300,
+      "level": 200,
       "minutes": 35,
+      "harness": [
+        "standard"
+      ],
       "summary": "Add Snowflake connector actions as agent tools so the agent can query governed warehouse data through a Power Platform connection.",
       "whyItMatters": "Warehouse-backed answers are useful only when the agent reaches Snowflake through governed authentication and scoped operations. Copilot Studio also documents Snowflake as a preview real-time connector knowledge source, but this chapter teaches the connector-tool path used for controlled query actions.",
       "concepts": [
@@ -1382,8 +1915,11 @@
       "id": "sap-integration",
       "name": "SAP ERP and OData integration",
       "category": "integrations",
-      "level": 300,
+      "level": 200,
       "minutes": 40,
+      "harness": [
+        "standard"
+      ],
       "summary": "Add SAP ERP or SAP OData connector actions as agent tools for read-first finance and manufacturing lookups.",
       "whyItMatters": "SAP is usually a system of record, so an agent must call narrow business operations instead of exposing a broad enterprise payload. The documented SAP ERP and SAP OData connectors support Copilot Studio, but gateway dependencies, SAP authorizations, and SAP licensing assumptions must be resolved before makers build the conversation.",
       "concepts": [
@@ -1459,6 +1995,9 @@
       "category": "integrations",
       "level": 200,
       "minutes": 30,
+      "harness": [
+        "standard"
+      ],
       "summary": "Add Salesforce as a real-time knowledge source (preview) so a citizen-services agent can answer CRM case and account questions with source permissions.",
       "whyItMatters": "Public-sector CRM questions need current case context without copying more data into the agent than necessary. Copilot Studio real-time knowledge connectors can ground answers at runtime, but the Salesforce connector's cloud availability, API access, and field-security implications still need an explicit review.",
       "concepts": [
@@ -1535,6 +2074,9 @@
       "category": "integrations",
       "level": 200,
       "minutes": 25,
+      "harness": [
+        "standard"
+      ],
       "summary": "Add Jira connector actions as agent tools so a DevOps support agent can retrieve issue and project status.",
       "whyItMatters": "DevOps users need quick answers about blockers without leaving the support conversation. The Jira connector provides direct issue actions for Copilot Studio, while the separate Jira Cloud Microsoft 365 Copilot connector is the documented knowledge-indexing path for Jira Cloud content.",
       "concepts": [
@@ -1609,6 +2151,9 @@
       "category": "integrations",
       "level": 300,
       "minutes": 40,
+      "harness": [
+        "standard"
+      ],
       "summary": "Add Microsoft FHIRlink as a connector tool for a read-only Epic on FHIR patient lookup scenario.",
       "whyItMatters": "Healthcare agents need live clinical-system access without normalizing unsafe data exposure in chat. FHIRlink gives makers a documented Power Platform path to Epic on FHIR and Azure Health Data Services while still requiring least-privilege app registration, approved scopes, and careful PHI minimization.",
       "concepts": [
@@ -1690,6 +2235,9 @@
       "category": "integrations",
       "level": 300,
       "minutes": 40,
+      "harness": [
+        "standard"
+      ],
       "summary": "Build a governed Shopify Admin API custom connector from an OpenAPI definition and expose a read-first order lookup tool.",
       "whyItMatters": "Retail support agents need order and inventory facts, but they should not inherit every commerce action by default. Microsoft Learn lists a Shopify Independent Publisher preview connector, so this chapter uses the custom connector path to keep the Admin API version, auth model, scopes, and exposed operations under lab-owner control.",
       "concepts": [
@@ -1764,6 +2312,9 @@
       "category": "integrations",
       "level": 300,
       "minutes": 40,
+      "harness": [
+        "standard"
+      ],
       "summary": "Install and verify a standard on-premises data gateway that an agent flow can use to reach an on-premises SQL Server connection.",
       "whyItMatters": "Many operational records still live on private networks where direct cloud access is not available. The gateway provides an outbound-only bridge, while agent flows give Copilot Studio a deterministic way to call the gateway-backed connector and return compact results.",
       "concepts": [
@@ -1829,6 +2380,9 @@
       "category": "integrations",
       "level": 300,
       "minutes": 45,
+      "harness": [
+        "standard"
+      ],
       "summary": "Set up Azure VNet support for a managed Power Platform environment so supported Copilot Studio connector calls can reach private resources.",
       "whyItMatters": "Regulated agents often need Azure SQL, Key Vault, Snowflake, or private APIs without exposing those systems to the public internet. VNet support uses delegated subnets and enterprise policies, so the environment, licensing, DNS, and outbound dependencies must be planned before makers add tools.",
       "concepts": [
@@ -1899,8 +2453,12 @@
       "id": "connected-agents",
       "name": "Connected agents",
       "category": "orchestration",
-      "level": 300,
+      "level": 200,
       "minutes": 30,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "Per the harness FAQ, connected agents on the Microsoft Copilot harness can currently delegate only to other Microsoft Copilot harness agents, and standard and Microsoft Copilot harness agents cannot invoke each other.",
       "summary": "Connect a published Copilot Studio specialist agent in the same environment to a primary agent.",
       "whyItMatters": "One agent with too many overlapping capabilities routes badly. Connecting specialist agents keeps each agent's instructions and resource list focused, while the primary agent delegates based on clear descriptions.",
       "concepts": [
@@ -1972,6 +2530,9 @@
       "category": "orchestration",
       "level": 300,
       "minutes": 35,
+      "harness": [
+        "standard"
+      ],
       "summary": "Connect a Copilot Studio agent to an external agent that implements the Agent2Agent (A2A) protocol.",
       "whyItMatters": "A2A is for agents that already implement the Agent2Agent protocol and are hosted outside Copilot Studio. It lets Copilot Studio delegate tasks to another agent with structured agent metadata instead of reducing the integration to a basic API call.",
       "concepts": [
@@ -2036,6 +2597,10 @@
       "category": "automation",
       "level": 200,
       "minutes": 30,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "On the Microsoft Copilot harness these are called workflows; see mc-workflows-tool.",
       "summary": "Create and publish an agent flow with an agent trigger and response, then add it to the agent as a tool.",
       "whyItMatters": "Some work must happen the same way every time, such as creating a ticket, writing a row, or sending a notification. Agent flows provide deterministic execution while the agent handles the conversation and fills inputs.",
       "concepts": [
@@ -2110,6 +2675,9 @@
       "category": "automation",
       "level": 200,
       "minutes": 25,
+      "harness": [
+        "standard"
+      ],
       "summary": "Add a prompt node to an agent flow and return text or JSON for downstream actions.",
       "whyItMatters": "A prompt node lets a flow perform one focused AI transformation while the surrounding flow stays deterministic. Choosing JSON output gives downstream actions named fields instead of free text to parse.",
       "concepts": [
@@ -2166,6 +2734,9 @@
       "category": "automation",
       "level": 300,
       "minutes": 25,
+      "harness": [
+        "standard"
+      ],
       "summary": "Turn on asynchronous responses for long-running agent flows and plan channel behavior.",
       "whyItMatters": "Long-running flows can exceed the real-time response window. Asynchronous responses let the flow continue beyond the normal two-minute limit and call back when it finishes, but channel support must be confirmed before relying on that behavior.",
       "concepts": [
@@ -2215,11 +2786,107 @@
       "reuseScreenshots": []
     },
     {
+      "id": "mc-workflows-tool",
+      "name": "Workflows as tools (Microsoft Copilot harness)",
+      "category": "automation",
+      "level": 200,
+      "minutes": 30,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "availability": "preview",
+      "summary": "Build a workflow with the agent-call trigger and a response node, publish it, and add it to the agent as a tool.",
+      "whyItMatters": "Workflows give the agent a repeatable, deterministic process for things like approvals and data transformations, while the agent decides when to run them.",
+      "concepts": [
+        "Workflows are automated flows built in the Copilot Studio designer for repeated, deterministic processes the agent runs on demand. Using them might consume Copilot Credits.",
+        "A workflow used as a tool should include a **When an agent calls the flow** node and a **Respond to the agent** node, and it must be saved and published before the agent can use it.",
+        "When a workflow starts with **When an agent calls the flow**, each connector action runs with the invoking user's own connections and permissions, and the agent asks users to connect their account when a connection is missing."
+      ],
+      "steps": [
+        "In the agent configuration panel on the **Build** tab, select **Tools**.",
+        "In the **Add a tool** dialog, select **Add** next to the search bar, and then select **Workflow**.",
+        "In the workflow designer, make sure the workflow has a **When an agent calls the flow** node and a **Respond to the agent** node, and add nodes between them to retrieve data or run business logic.",
+        "Select the **Save** icon in the upper-right corner, and then select **Publish**.",
+        "Go back to the agent's **Build** tab and confirm the workflow appears in the **Tools** list. It also appears on the **Workflows** page for other agents to use.",
+        "Select the **Preview** tab, ask a question that should trigger the workflow, and use the activity trace to verify the tool, its arguments, and its result."
+      ],
+      "validation": [
+        "The workflow is published and listed under **Tools** on the **Build** tab.",
+        "The activity trace shows the workflow tool called with the expected arguments."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Add a workflow to your agent as a tool Microsoft Copilot harness",
+        "Copilot Studio workflow When an agent calls the flow"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-workflow"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-workflow",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-triggers",
+      "name": "Triggers and autonomous agents (Microsoft Copilot harness)",
+      "category": "automation",
+      "level": 300,
+      "minutes": 40,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "availability": "preview",
+      "summary": "Add a trigger so the agent runs when an event occurs, test it, publish, and activate the autonomous agent.",
+      "whyItMatters": "Triggers turn an agent from something users chat with into something that reacts to email, files, or schedules. Testing and activating it correctly decides whose credentials it runs with.",
+      "concepts": [
+        "The trigger sends event details to the agent, and the agent instructions and tools decide what it does with them. Add the tools the agent needs and write instructions for the event before you add a trigger.",
+        "The agent doesn't run autonomously until you publish it. Choose **Activate for myself** to run with your own maker credentials, or **Share with others** so recipients use their own credentials and edit only the trigger options you allow.",
+        "Autonomous usage is billed at Copilot Studio billing rates for the Microsoft Copilot harness, and each end user usage is totaled and billed through the environment that hosts the agent."
+      ],
+      "steps": [
+        "Open the agent in Copilot Studio and select **Triggers**.",
+        "Select the trigger you want, such as **New email**.",
+        "Configure the connection until you see the green checkmark, optionally add extra instructions for this trigger, and set the **Trigger options** that decide when the agent runs.",
+        "If you plan to share the agent, turn **Editable by user** on or off for each trigger option, and expand **Advanced parameters** if you need them. Then select **Add trigger**.",
+        "Select the testing flask button, select **Start listening**, and create a matching event, such as sending an email. You can also choose a previous event from **Test with previous trigger events**.",
+        "Select **Publish**, and in the success dialog choose **Activate for myself** or **Share with others**.",
+        "If you chose **Activate for myself**, turn the agent on in **Agent management**."
+      ],
+      "validation": [
+        "The trigger test starts the agent and its tools run for the test event.",
+        "The published agent is activated for you, or shared with the options you allowed."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Add triggers autonomous agent Microsoft Copilot harness Copilot Studio",
+        "Copilot Studio trigger Start listening activate for myself"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-add-event-trigger",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-publish-agent"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-add-event-trigger",
+      "prereqs": [
+        "mc-publish-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
       "id": "analytics",
       "name": "Monitor analytics",
       "category": "analytics",
       "level": 200,
       "minutes": 20,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "Monitor is supported on both harnesses. On the Microsoft Copilot harness the Monitor tab also shows Copilot Credit usage.",
       "summary": "Use the Monitor page to review outcomes, answer quality, usage, and drill-down sessions for improvement.",
       "whyItMatters": "Monitor analytics replaces opinions about agent quality with evidence from outcomes, response quality, tool use, knowledge use, and sessions. Drill-down views turn weak metrics into a prioritized improvement backlog, but transcript access requires the right role and recent data.",
       "concepts": [
@@ -2275,6 +2942,10 @@
       "level": 200,
       "minutes": 30,
       "core": true,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "Agent evaluation is supported on both harnesses; see mc-evaluate for the Microsoft Copilot harness Evaluate tab.",
       "summary": "Create a single-response evaluation test set, choose methods, run it, and compare results.",
       "whyItMatters": "Agent evaluation provides automated, repeatable quality assurance for changes to an agent. Running the same test set over time helps catch bad answers early, compare improvements, and validate behavior before publishing.",
       "concepts": [
@@ -2353,6 +3024,9 @@
       "category": "analytics",
       "level": 200,
       "minutes": 25,
+      "harness": [
+        "standard"
+      ],
       "summary": "Create a conversational evaluation test set to validate context retention, clarifications, and multi-step tasks.",
       "whyItMatters": "Single-response tests miss failures that appear only after several turns. Conversational evaluations exercise context, clarifying questions, and longer task completion so regressions appear before users encounter them.",
       "concepts": [
@@ -2401,11 +3075,107 @@
       "reuseScreenshots": []
     },
     {
+      "id": "mc-preview-test",
+      "name": "Preview and test an agent (Microsoft Copilot harness)",
+      "category": "analytics",
+      "level": 100,
+      "minutes": 15,
+      "core": true,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Chat with the agent on the Preview tab, read the activity trace, and check the running Copilot Credit estimate before you publish.",
+      "whyItMatters": "The Preview tab shows how the agent reasoned, which knowledge and tools it used, and what the test cost in credits, so you can fix instructions and tools before users depend on them.",
+      "concepts": [
+        "The Preview tab is an interactive chat that mirrors how users talk to the published agent, with conversation starters from the agent configuration.",
+        "The activity trace shows chain-of-thought steps, the knowledge sources and citations consulted, tool, connector, flow, or skill invocations and their results, and error details.",
+        "Preview and Evaluate are complementary: use Preview for quick interactive debugging and Evaluate for repeatable testing across many cases. Preview also shows a running estimate of Copilot Credits used in the session."
+      ],
+      "steps": [
+        "Open the agent in Copilot Studio and select the **Preview** tab.",
+        "Select one of the prompt suggestions, or enter a message, and send it. The suggestions come from the agent's configuration.",
+        "Review the response, and open the activity trace to see the knowledge sources consulted, the tools invoked, and the reasoning steps.",
+        "Select a source or tool chip in the trace to jump to that component on the **Build** tab.",
+        "Rate a response with thumbs up or thumbs down, and add written feedback if you want.",
+        "Turn the **End user preview** toggle on to see the agent as end users see it, and turn it off to return to the maker view.",
+        "Note the running estimated Copilot Credits total in the **Preview** chat after the test conversation.",
+        "Open the conversation history and filter it by status, such as **Failed** or **Completed**, to review earlier test conversations."
+      ],
+      "validation": [
+        "A test conversation runs on the **Preview** tab and the activity trace lists the steps the agent took.",
+        "The **Preview** chat shows an estimated Copilot Credit total for the session."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Preview and test an agent Microsoft Copilot harness Copilot Studio",
+        "Copilot Studio activity trace Preview tab"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-evaluate",
+      "name": "Evaluate an agent (Microsoft Copilot harness)",
+      "category": "analytics",
+      "level": 200,
+      "minutes": 30,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "availability": "preview",
+      "summary": "Create an evaluation with test conversations on the Evaluate tab, run the General quality test method, and compare results after a change.",
+      "whyItMatters": "Evaluations make quality measurable and repeatable. After you change instructions, knowledge, or tools, you can rerun the same set and see whether the agent improved or regressed.",
+      "concepts": [
+        "A conversation is a test case. An evaluation combines conversations with a test method, and you can write conversations manually, generate them with AI, or upload a CSV file.",
+        "Currently the only test method is **General quality**, an AI-based check of relevance and completeness. It doesn't compare responses to expected answers.",
+        "Evaluations show estimated Copilot Credit usage, run as the signed-in user, and support only agents set to No authentication or Authenticate with Microsoft."
+      ],
+      "steps": [
+        "Open the agent and select the **Evaluate** tab.",
+        "Start a new evaluation and add test conversations by writing them, generating them with AI, or uploading a CSV file.",
+        "Name the evaluation, select the **General quality** test method, and choose the agent version.",
+        "Select **Evaluate** to run it, and wait for the results.",
+        "Review the scores and the per-test-case credit usage to find weak spots.",
+        "Adjust the agent's instructions, knowledge, or tools, and run the evaluation again to measure the effect."
+      ],
+      "validation": [
+        "An evaluation run finishes and shows a score per conversation.",
+        "A rerun after a change lets you compare results across agent versions."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Evaluate an agent Microsoft Copilot harness Copilot Studio preview",
+        "Copilot Studio Evaluate tab test set General quality"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-intro"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-intro",
+      "prereqs": [
+        "mc-preview-test"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
       "id": "authentication",
       "name": "User authentication & SSO",
       "category": "governance",
       "level": 300,
       "minutes": 30,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "Manual (custom) authentication is not supported on the Microsoft Copilot harness; Microsoft Entra ID and no authentication are.",
       "summary": "Choose and configure Copilot Studio user authentication so signed-in users can access restricted resources.",
       "whyItMatters": "Authentication lets an agent securely reach resources or information that require a signed-in user. The selected option affects channel support, sharing controls, available authentication variables, and whether manual Microsoft Entra ID setup is needed.",
       "concepts": [
@@ -2491,6 +3261,9 @@
       "category": "governance",
       "level": 200,
       "minutes": 25,
+      "harness": [
+        "standard"
+      ],
       "summary": "Configure moderation and grounded-response settings, then validate safety behavior with adversarial tests.",
       "whyItMatters": "Content moderation reduces the risk of harmful output, while grounded-response settings reduce unsupported answers. These controls must be tuned and tested because stricter settings can reduce answers and no single evaluator guarantees that an agent is safe for every scenario.",
       "concepts": [
@@ -2564,6 +3337,11 @@
       "category": "governance",
       "level": 300,
       "minutes": 30,
+      "harness": [
+        "standard",
+        "microsoft-copilot"
+      ],
+      "harnessNote": "Learn lists DLP and governance controls as supported on both harnesses. The steps follow the standard-harness UI.",
       "summary": "Create Power Platform data policies that classify connectors and scope them to environments.",
       "whyItMatters": "Data policies are platform guardrails that reduce the risk of organizational data being shared with unauthorized services. They affect maker design-time experiences, runtime behavior, and existing apps, flows, and agents after policy changes cascade.",
       "concepts": [
@@ -2640,6 +3418,11 @@
       "category": "governance",
       "level": 300,
       "minutes": 30,
+      "harness": [
+        "standard",
+        "microsoft-copilot"
+      ],
+      "harnessNote": "Learn lists solutions and ALM support on both harnesses. The steps follow the standard-harness UI.",
       "summary": "Create a custom solution for an agent, include required objects, then export and import it between environments.",
       "whyItMatters": "Solutions are the carrier for agents across environments and the foundation for repeatable ALM. Missing dependencies, unmanaged customizations, or post-import settings can break promotion, so packaging must be deliberate and validated.",
       "concepts": [
@@ -2692,8 +3475,13 @@
       "id": "agent-inventory",
       "name": "Agent inventory & ownership",
       "category": "governance",
-      "level": 200,
+      "level": 300,
       "minutes": 30,
+      "harness": [
+        "standard",
+        "microsoft-copilot"
+      ],
+      "harnessNote": "The Power Platform admin center inventory covers both harnesses and has a Harness column that shows Standard or the Microsoft Copilot harness value. The steps follow the standard-harness UI.",
       "summary": "Export and inspect the documented agent inventory, then map it to an ownership and risk schema.",
       "whyItMatters": "Agent governance starts with knowing what exists, who owns it, and what each agent can reach. Without a reliable inventory, ownerless agents, unmanaged connectors, and stale releases become invisible operational risk.",
       "concepts": [
@@ -2757,6 +3545,9 @@
       "category": "governance",
       "level": 200,
       "minutes": 30,
+      "harness": [
+        "standard"
+      ],
       "summary": "Run and export Copilot Studio evaluation evidence, then translate it into a release go/no-go scorecard.",
       "whyItMatters": "A release gate should be based on repeatable evidence, not a successful demo conversation. Evaluation results give the team a documented quality signal that can be combined with open issues and governance checks before publishing broadly.",
       "concepts": [
@@ -2821,6 +3612,9 @@
       "category": "governance",
       "level": 300,
       "minutes": 35,
+      "harness": [
+        "standard"
+      ],
       "summary": "Locate a Copilot Studio agent's Microsoft Entra Agent ID and review the governance evidence it exposes.",
       "whyItMatters": "Copilot Studio now automatically manages Entra Agent IDs for new agents, while older agents may still show legacy app registrations until migration. Identity visibility helps administrators connect agent ownership, connector permissions, sign-in evidence, and lifecycle accountability.",
       "concepts": [
@@ -2877,11 +3671,60 @@
       "reuseScreenshots": []
     },
     {
+      "id": "mc-credit-billing",
+      "name": "Copilot Credits and cost controls (Microsoft Copilot harness)",
+      "category": "governance",
+      "level": 200,
+      "minutes": 25,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "summary": "Find where Copilot Credit use shows up for a Microsoft Copilot harness agent and review the admin cost controls.",
+      "whyItMatters": "This harness bills from the moment you start building, including preview, evaluation, and testing, so makers and admins need to see consumption early and set limits before agents scale.",
+      "concepts": [
+        "Usage-based billing charges Copilot Credits for model tokens, tools including knowledge and MCP, and the harness itself. Unlike the standard harness, which starts billing after publish, credits are consumed from the first build and test.",
+        "You can see an agent total on its **Monitor** page, and consumption for an environment or tenant under **Licensing** > **Copilot Studio** in the Power Platform admin center.",
+        "There is no setting that turns the Microsoft Copilot harness on or off. Admins govern it with security roles, data policies, sharing controls, and spend controls such as environment credit allocations, agent limits, and disabling draw from the tenant pool."
+      ],
+      "steps": [
+        "Open the agent, run a test conversation on the **Preview** tab, and note the running estimated Copilot Credits shown in the chat.",
+        "Open the agent's **Monitor** page and review the total Copilot Credits it consumed and, where shown, the breakdown by activity or outcome.",
+        "Use the Copilot Credits estimator linked from the **Overview of usage-based billing** article to estimate consumption for your scenario.",
+        "As an admin, open the Power Platform admin center and go to **Licensing** > **Copilot Studio** to view consumption across an environment or your tenant.",
+        "In the Power Platform admin center, go to **Manage** > **Copilot Studio** and filter the **Harness** column. Learn currently labels the Microsoft Copilot harness value **GitHub Copilot** in that column.",
+        "Review the cost controls: set environment credit allocations (prepaid capacity only), set agent limits, and disable draw from the tenant pool at scale for environments that should not overconsume."
+      ],
+      "validation": [
+        "You can show the credit estimate for a test session and the agent total on **Monitor**.",
+        "You can name the admin controls that limit credit spend and where to find tenant-wide consumption."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Overview of usage-based billing Copilot Credits Microsoft Copilot harness",
+        "Manage costs for agents powered by the Microsoft Copilot harness"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/faqs-copilot-harness",
+        "https://learn.microsoft.com/power-platform/admin/manage-usage-microsoft-copilot-harness",
+        "https://learn.microsoft.com/microsoft-copilot-studio/guidance/govern-credit-consumption"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview",
+      "prereqs": [],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
       "id": "channel-teams",
       "name": "Publish to Teams & Microsoft 365",
       "category": "channels",
       "level": 100,
       "minutes": 20,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "Teams and Microsoft 365 are supported on both harnesses, but the SharePoint, WhatsApp, and Dynamics 365 Contact Center channels are standard-only. See mc-publish-agent.",
       "summary": "Publish the agent to the Teams and Microsoft 365 Copilot channels and validate the installed end-user experience.",
       "whyItMatters": "Adoption follows the tools people already have open. Publishing into Teams and Microsoft 365 Copilot removes the discovery problem and lets admins control how broadly the agent is distributed.",
       "concepts": [
@@ -2942,6 +3785,9 @@
       "category": "channels",
       "level": 300,
       "minutes": 40,
+      "harness": [
+        "standard"
+      ],
       "summary": "Integrate a Copilot Studio agent into an existing web or native app by using the Copilot Studio client in the Microsoft 365 Agents SDK.",
       "whyItMatters": "The default embed is useful for simple public scenarios. A custom integration lets developers use their existing app experience, user sign-in model, and client code while connecting to the same Copilot Studio agent.",
       "concepts": [
@@ -2997,6 +3843,9 @@
       "category": "channels",
       "level": 300,
       "minutes": 40,
+      "harness": [
+        "standard"
+      ],
       "summary": "Configure a real-time voice agent with voice model selection, speech sensitivity, hold and resume behavior, and post-call actions.",
       "whyItMatters": "Voice scenarios punish latency, long responses, and ambiguous recovery more than chat. Real-time voice configuration makes turn-taking, silence handling, and post-call automation explicit before callers depend on the agent.",
       "concepts": [
@@ -3054,6 +3903,10 @@
       "category": "advanced",
       "level": 300,
       "minutes": 40,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "Computer use is planned, not yet supported, on the Microsoft Copilot harness.",
       "summary": "Add a computer use tool so an agent can operate a Windows desktop or website when no API is available.",
       "whyItMatters": "Some important systems only expose a graphical interface. Computer use lets an agent complete those workflows with a virtual mouse and keyboard, while machine, credential, supervision, and access controls reduce the risk of uncontrolled automation.",
       "concepts": [
@@ -3105,53 +3958,59 @@
     },
     {
       "id": "work-iq",
-      "name": "Work IQ MCP (preview)",
+      "name": "Work IQ (Microsoft Copilot harness)",
       "category": "advanced",
-      "level": 300,
+      "level": 200,
       "minutes": 30,
-      "summary": "Add Work IQ (preview) as a Model Context Protocol tool so an agent can use Microsoft 365 work context such as email, calendar, and Teams.",
-      "whyItMatters": "Work IQ grounds agents in real-time organizational context across Microsoft 365 and business applications. Because it is preview and usage-billed, makers need to configure it deliberately, test with signed-in users, and align with admin governance.",
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "availability": "ga",
+      "summary": "Use Work IQ, which is added by default to agents on the Microsoft Copilot harness, and scope the Microsoft 365 workloads the agent can use, such as email, calendar, and Teams.",
+      "whyItMatters": "Work IQ grounds agents in real-time organizational context across Microsoft 365 and business applications. Because it is usage-billed and write operations are on by default, makers need to scope workloads deliberately, test with signed-in users, and align with admin governance.",
       "concepts": [
-        "Work IQ in Copilot Studio is a GitHub Copilot harness preview feature and consumes Copilot Credits through usage-based billing.",
+        "Work IQ in Copilot Studio is generally available and powered by the Microsoft Copilot harness, which uses Copilot Credits for usage-based billing. Individual workloads, such as Business apps (preview), can still be in preview.",
         "Work IQ uses Data, Memory, and Inference layers to provide permission-aware context and tools across Microsoft 365 and business systems.",
-        "Microsoft 365 Work IQ is read only unless an administrator explicitly enables write operations in the Microsoft 365 admin center."
+        "Work IQ is added to every new agent on the Microsoft Copilot harness with all available workloads selected. Write operations are on by default, subject to your organization's permissions and policies, and admins manage Work IQ MCP in the Microsoft 365 admin center, although that control might not be available in every region yet.",
+        "Separate workload-specific tools such as Mail, Teams, and Calendar are a legacy experience that uses the standard harness and standard licensing. Don't select them in place of Work IQ."
       ],
       "steps": [
-        "Select or create the agent in Copilot Studio.",
-        "Select the **Tools** tab and select **Add Tool**.",
-        "On the *Add tool* page, select **Model Context Protocol** to show Work IQ and other MCP tools.",
-        "Select **Work IQ** (preview), expand the **connection** dropdown, and select **Create New Connection**.",
-        "Select **Create**, provide **credentials**, complete sign-in, and select **Add and Configure**.",
-        "Select **Test**, enter a prompt that requires work context, select **Enter**, and select **Allow** when prompted to let Work IQ connect and use services."
+        "Sign in to Copilot Studio and open an agent that uses the Microsoft Copilot harness.",
+        "On the **Build** tab, under **Tools**, select **Work IQ**. If the agent does not have Work IQ, add it as a tool first.",
+        "In the **Edit tool** dialog, review the **Connection**. If you need a new connection, open the connection dropdown, select **Create New Connection**, select **Create**, and complete the sign-in.",
+        "Under **Sources**, clear the workloads the agent doesn't need. Workloads include **SharePoint**, **OneDrive**, **Outlook mail**, **Teams**, **Calendar**, and **People**, and you can select only whole workloads.",
+        "Select **Done**.",
+        "Optional: to use a preview workload, select the ellipsis (**...**) in the agent designer toolbar, select **Settings**, select **Work IQ**, turn on **Enable preview workloads** under **Preview workloads**, and select **Done**. Then reopen **Work IQ** and review **Business apps (preview)** under **Sources**.",
+        "Test the agent with a prompt that uses a selected workload, such as \"Summarize my unread emails from today.\" and select **Allow** when prompted to let Work IQ connect and use services."
       ],
       "validation": [
-        "The Work IQ MCP tool is added to the agent and the connection is configured.",
-        "A test prompt that requires Microsoft 365 context succeeds for the signed-in user.",
-        "Write behavior is unavailable unless an administrator enabled write operations for Work IQ."
+        "Work IQ appears under **Tools** on the **Build** tab and its connection is configured.",
+        "Only the workloads the agent needs are selected under **Sources**.",
+        "A test prompt that needs Microsoft 365 context succeeds for the signed-in user after you select **Allow**."
       ],
       "screenshots": [
         {
           "filename": "work-iq-knowledge.png",
           "section": "tools",
           "instructions": [
-            "Show Work IQ (preview) configured as a Model Context Protocol tool on the agent, with connection and credential details masked."
+            "Show Work IQ configured under **Tools** on the agent, with connection and credential details masked."
           ]
         }
       ],
       "learnQueries": [
-        "Copilot Studio Work IQ preview Model Context Protocol",
-        "Work IQ MCP overview preview Microsoft Copilot Studio",
-        "Microsoft 365 Work IQ governance billing"
+        "Work IQ in Copilot Studio Microsoft Copilot harness",
+        "Work IQ select workloads preview workloads Copilot Studio",
+        "Work IQ MCP overview"
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-work-iq",
         "https://learn.microsoft.com/microsoft-agent-365/tooling-servers-overview",
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-12",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-work-iq",
       "prereqs": [
-        "authentication"
+        "mc-create-agent"
       ],
       "relatedLabs": [
         "05-work-iq-m365-intelligence",
@@ -3165,6 +4024,9 @@
       "category": "advanced",
       "level": 300,
       "minutes": 30,
+      "harness": [
+        "standard"
+      ],
       "summary": "Use the Microsoft Copilot Studio extension for Visual Studio Code to clone, edit, synchronize, and test an agent definition locally.",
       "whyItMatters": "Source-based authoring gives makers YAML editing, validation, Git workflows, and code review for agent definitions. The Visual Studio Code extension is generally available, but applying changes modifies the remote agent and is separate from publishing.",
       "concepts": [
@@ -3222,6 +4084,10 @@
       "category": "advanced",
       "level": 200,
       "minutes": 20,
+      "harness": [
+        "standard"
+      ],
+      "harnessNote": "This lab covers standard-harness licensing. The Microsoft Copilot harness uses usage-based billing; see mc-credit-billing.",
       "summary": "Estimate Copilot Credit consumption, export assumptions, and compare the forecast with actual billing consumption after rollout.",
       "whyItMatters": "Copilot Credits are the shared usage currency for Copilot Studio capabilities. Estimating expected consumption, adding a variance buffer, and monitoring actual usage keeps a successful pilot from becoming an unplanned capacity issue.",
       "concepts": [
@@ -3270,6 +4136,110 @@
         "37-usage-estimator-copilot-credits"
       ],
       "reuseScreenshots": []
+    },
+    {
+      "id": "mc-memory",
+      "name": "Memory (Microsoft Copilot harness)",
+      "category": "advanced",
+      "level": 200,
+      "minutes": 15,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "availability": "preview",
+      "summary": "Turn Memory on so the agent remembers each user preferences, and review how users view and delete what it remembers.",
+      "whyItMatters": "Memory makes answers more relevant and consistent over time. Because it stores per-user context, makers need to know what is retained, for how long, and who can see it.",
+      "concepts": [
+        "The agent captures signals such as preferences and context, stores them as files in a per-user folder in Microsoft-managed storage, and applies them in later interactions.",
+        "A user's memories are private to that user, so the maker and other users can't see them. If a user doesn't interact with the agent for 28 days, the system deletes their memories from that agent, and user memory is disabled in group chats and Microsoft Teams channels.",
+        "Turning Memory off doesn't delete stored memories; it only stops the agent from using them. Users can manage memories in chat or in the memory portal, where they can view or delete all memories."
+      ],
+      "steps": [
+        "Create or open the agent in Copilot Studio and select the **Build** tab.",
+        "In the components panel, use the **Memory** toggle to turn the feature on.",
+        "On the **Preview** tab, tell the agent a preference, such as how you like summaries formatted, and then start a new conversation.",
+        "In the new conversation, ask for a summary and check whether the agent applies the remembered preference.",
+        "Ask the agent in chat what it remembers about you, update or forget one memory in chat, and open the memory portal link the agent shows to **View memories**."
+      ],
+      "validation": [
+        "The **Memory** toggle is on for the agent.",
+        "A new conversation applies a preference remembered from an earlier one.",
+        "The memory portal lists what the agent stored and offers **Delete all memories**."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Memory Microsoft Copilot harness Copilot Studio preview",
+        "Copilot Studio agent memory per user 28 days"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/memory-overview"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/memory-overview",
+      "prereqs": [
+        "mc-create-agent"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    },
+    {
+      "id": "mc-created-files",
+      "name": "Files the agent creates (Microsoft Copilot harness)",
+      "category": "advanced",
+      "level": 200,
+      "minutes": 20,
+      "harness": [
+        "microsoft-copilot"
+      ],
+      "availability": "preview",
+      "summary": "Ask the agent for a document, spreadsheet, chart, or deck and check the created file card, download, and limits.",
+      "whyItMatters": "Creating and editing Word, Excel, PowerPoint, and PDF files is a core reason to pick this harness. Knowing the size and retention limits keeps deliverables reliable.",
+      "concepts": [
+        "You do not configure file creation. When the user request naturally produces a file, the agent creates it and returns a created file card with the file name, type, a preview or icon, and a **Download** action.",
+        "The harness includes Python packages the agent can use without any setup, for example python-docx for Word, openpyxl for Excel, python-pptx for PowerPoint, reportlab for PDF, pandas for tabular data, and matplotlib for charts.",
+        "A created file can be up to 10 MB, and files are kept for 28 days after the last activity in the conversation. A file over the limit is not surfaced, so ask the agent to split large output."
+      ],
+      "steps": [
+        "Open the agent and select the **Preview** tab.",
+        "Ask for a result that produces a file, for example to summarize a sales workbook and create a chart of revenue by region.",
+        "Confirm the response includes a created file card below the message text, and select **Download** to open the file.",
+        "Send a follow-up that edits the file, such as asking for a taller chart, and confirm the agent returns an updated version.",
+        "Ask for a deliberately large deliverable and note how the agent responds when a file would exceed the 10 MB limit."
+      ],
+      "validation": [
+        "A created file card with **Download** appears in the **Preview** response.",
+        "A follow-up request produces an updated version of the file."
+      ],
+      "screenshots": [],
+      "learnQueries": [
+        "Files the agent creates Microsoft Copilot harness Copilot Studio",
+        "Copilot Studio created files Word Excel PowerPoint PDF agent"
+      ],
+      "docUrls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/created-files-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-overview"
+      ],
+      "lastVerified": "2026-11-12",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/created-files-overview",
+      "prereqs": [
+        "mc-preview-test"
+      ],
+      "relatedLabs": [],
+      "reuseScreenshots": []
+    }
+  ],
+  "harnesses": [
+    {
+      "id": "standard",
+      "name": "Standard harness",
+      "description": "The classic Copilot Studio experience for rule-based agents and agent flows: topics, triggers, and explicit conversation paths. Reach it from Open classic experience on the Home page.",
+      "learnUrl": "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview"
+    },
+    {
+      "id": "microsoft-copilot",
+      "name": "Microsoft Copilot harness",
+      "description": "The Build-tab experience for reasoning-heavy agents and workflows: natural-language instructions, knowledge, tools, skills, memory, and hooks, billed in Copilot Credits. Some Learn pages and URLs still use the earlier name, GitHub Copilot harness.",
+      "learnUrl": "https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview"
     }
   ]
 }

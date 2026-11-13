@@ -123,7 +123,8 @@ block so a learner can always tell Microsoft's documentation from a vendor's.
 Everything else — module structure, prerequisites, concepts, and the "check your
 work" tests — comes from that curated catalog
 (`portal/lib/lab-builder/features.json`), not from a live page. The catalog
-covers 48 capabilities in 11 categories, including enterprise integrations
+covers 65 capabilities in 11 categories, tagged by harness (standard or Microsoft
+Copilot) and by level (100 Beginner, 200 Intermediate, 300 Advanced), including enterprise integrations
 (ServiceNow, Snowflake, SAP, Salesforce, Jira, Epic on FHIR, Shopify, on-premises
 data gateways, and VNet private connectivity) and governance topics such as agent
 inventory, release readiness, and Entra agent identities. Every entry records the

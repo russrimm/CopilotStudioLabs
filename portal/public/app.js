@@ -3484,6 +3484,8 @@ const labBuilder = {
   industries: [],
   roles: [],
   categories: [],
+  harnesses: [],
+  levels: [],
   industry: null,
   selectedRoles: new Set(),
   selectedFeatures: new Set(),
@@ -3501,10 +3503,13 @@ async function lbLoadCatalog() {
     labBuilder.industries = data.industries || [];
     labBuilder.roles = data.roles || [];
     labBuilder.categories = data.categories || [];
+    labBuilder.harnesses = data.harnesses || [];
+    labBuilder.levels = data.levels || [];
     labBuilder.loaded = true;
     if (!labBuilder.industry && labBuilder.industries.length) {
       labBuilder.industry = labBuilder.industries[0].id;
     }
+    lbRenderFilters();
     lbRenderIndustries();
     lbRenderRoles();
     lbRenderFeatures();
@@ -3561,15 +3566,49 @@ function lbToggleRole(id, checked) {
   else labBuilder.selectedRoles.delete(id);
 }
 
+const LB_HARNESS_LABEL_SUFFIX = / harness$/i;
+
+function lbHarnessLabel(id) {
+  const harness = labBuilder.harnesses.find((h) => h.id === id);
+  return harness ? harness.name.replace(LB_HARNESS_LABEL_SUFFIX, "") : id;
+}
+
+function lbLevelLabel(level) {
+  const entry = labBuilder.levels.find((l) => l.level === level);
+  return entry ? entry.label : "";
+}
+
+function lbRenderFilters() {
+  const harnessSelect = document.getElementById("lb-harness-filter");
+  if (harnessSelect) {
+    harnessSelect.innerHTML =
+      '<option value="">All harnesses</option>' +
+      labBuilder.harnesses.map((h) => `<option value="${escapeHtml(h.id)}">${escapeHtml(h.name)}</option>`).join("");
+  }
+  const levelSelect = document.getElementById("lb-level-filter");
+  if (levelSelect) {
+    levelSelect.innerHTML =
+      '<option value="">All levels</option>' +
+      labBuilder.levels
+        .map((l) => `<option value="${l.level}">${l.level} ${escapeHtml(l.label)}</option>`)
+        .join("");
+  }
+}
+
 function lbRenderFeatures() {
   const el = document.getElementById("lb-feature-groups");
   if (!el) return;
   const query = (document.getElementById("lb-feature-search")?.value || "").trim().toLowerCase();
+  const harnessFilter = document.getElementById("lb-harness-filter")?.value || "";
+  const levelFilter = Number(document.getElementById("lb-level-filter")?.value || 0);
 
   const html = labBuilder.categories
     .map((cat) => {
       const features = cat.features.filter(
-        (f) => !query || f.name.toLowerCase().includes(query) || f.summary.toLowerCase().includes(query) || f.id.includes(query)
+        (f) =>
+          (!query || f.name.toLowerCase().includes(query) || f.summary.toLowerCase().includes(query) || f.id.includes(query)) &&
+          (!harnessFilter || (f.harness || []).includes(harnessFilter)) &&
+          (!levelFilter || f.level === levelFilter)
       );
       if (!features.length) return "";
       return `
@@ -3584,8 +3623,11 @@ function lbRenderFeatures() {
                 <input type="checkbox" value="${escapeHtml(f.id)}" ${labBuilder.selectedFeatures.has(f.id) ? "checked" : ""}
                        onchange="lbToggleFeature('${escapeHtml(f.id)}', this.checked)">
                 <span>
-                  <span class="lb-feature-name">${escapeHtml(f.name)}<span class="lb-badge">L${f.level}</span><span class="lb-badge">${f.minutes}m</span></span>
+                  <span class="lb-feature-name">${escapeHtml(f.name)}<span class="lb-badge">L${f.level} ${escapeHtml(lbLevelLabel(f.level))}</span><span class="lb-badge">${f.minutes}m</span>${(f.harness || [])
+                    .map((h) => `<span class="lb-badge lb-badge-harness">${escapeHtml(lbHarnessLabel(h))}</span>`)
+                    .join("")}${f.availability ? `<span class="lb-badge lb-badge-${escapeHtml(f.availability)}">${f.availability === "ga" ? "GA" : escapeHtml(f.availability.charAt(0).toUpperCase() + f.availability.slice(1))}</span>` : ""}</span>
                   <div class="lb-feature-summary">${escapeHtml(f.summary)}</div>
+                  ${f.harnessNote ? `<div class="lb-feature-note">${escapeHtml(f.harnessNote)}</div>` : ""}
                 </span>
               </label>`
               )
@@ -3595,7 +3637,7 @@ function lbRenderFeatures() {
     })
     .join("");
 
-  el.innerHTML = html || '<div class="scenario-empty">No features match that search.</div>';
+  el.innerHTML = html || '<div class="scenario-empty">No features match those filters.</div>';
   lbUpdateFeatureCount();
 }
 

@@ -24,7 +24,7 @@ import {
   updateBrandingLogo,
 } from "./lib/branding.js";
 import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/scenarios.js";
-import { getFeaturesByCategory, getFeatures, validateCatalog } from "./lib/lab-builder/catalog.js";
+import { getFeaturesByCategory, getFeatures, getHarnesses, LEVELS, validateCatalog } from "./lib/lab-builder/catalog.js";
 import { planLab } from "./lib/lab-builder/planner.js";
 import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
@@ -425,6 +425,8 @@ app.get("/api/lab-builder/features", (_req, res) => {
       industries: getIndustries(),
       roles: getRoles(),
       categories: getFeaturesByCategory(),
+      harnesses: getHarnesses(),
+      levels: LEVELS,
       totalFeatures: getFeatures().length,
       catalogIssues: validateCatalog(),
     });
