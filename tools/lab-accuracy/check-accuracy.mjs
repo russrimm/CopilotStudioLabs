@@ -39,7 +39,25 @@ const DRIFT_CONFIRM_ATTEMPTS = 3;
 const RANKING_DRIFT_NOTE =
   "No exact cited Learn page appeared in the current top search results. The links still resolve; review search ranking and product relevance before changing documentation.";
 
-async function checkLink(url) {
+const LINK_RETRY_STATUSES = new Set([429, 502, 503, 504]);
+const LINK_ATTEMPTS = 3;
+const LINK_RETRY_DELAY_MS = 2000;
+
+// Retries throttling and gateway errors with backoff. A link that is still
+// throttled (429) after every attempt is reported as unreachable, not broken:
+// the server turned the client away without saying anything about the page.
+export async function checkLink(url, { attempts = LINK_ATTEMPTS, delayMs = LINK_RETRY_DELAY_MS } = {}) {
+  let result;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    result = await checkLinkOnce(url);
+    if (!LINK_RETRY_STATUSES.has(result.status)) break;
+    if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, delayMs * attempt));
+  }
+  if (result.status === 429) return { url, status: 0, ok: false, error: "HTTP 429 (rate limited)" };
+  return result;
+}
+
+async function checkLinkOnce(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LINK_TIMEOUT_MS);
   try {
@@ -236,7 +254,7 @@ async function main() {
   const thirdPartyWarnings = [];
 
   for (const lab of labs) {
-    const linkResults = (await mapWithConcurrency(lab.learnLinks, LINK_CONCURRENCY, checkLink)).map((result) => ({
+    const linkResults = (await mapWithConcurrency(lab.learnLinks, LINK_CONCURRENCY, (url) => checkLink(url))).map((result) => ({
       ...result,
       party: "first",
     }));
@@ -249,7 +267,7 @@ async function main() {
 
     const thirdParty = await checkThirdPartyLinks(lab.referenceLinks, {
       policy: linkPolicy,
-      check: (urls) => mapWithConcurrency(urls, LINK_CONCURRENCY, checkLink),
+      check: (urls) => mapWithConcurrency(urls, LINK_CONCURRENCY, (url) => checkLink(url)),
     });
     addReferenceCounts(report.summary.references, {
       firstParty: { checked: lab.learnLinks.length, broken: broken.length, unreachable: unreachable.length },
