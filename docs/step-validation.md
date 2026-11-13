@@ -66,7 +66,7 @@ No LLM decides pass or fail. Extraction and matching are deterministic and every
 
 ### Portal
 
-In the **Validation** tab, **Run All Tests** runs the structural tests and then the step check. Each lab's **Run** button does the same for that lab, and **Check all steps** runs only the step check. A progress bar and status line show the current lab and step ("Lab 3 of 40 · section 2 of 6"), results stream in as each lab finishes, and **Cancel** stops the run while keeping completed labs. The API is documented in [`portal/README.md`](../portal/README.md#validation).
+In the **Validation** tab, **Run All Tests** runs the structural tests and then the step check. Each lab's **Run** button does the same for that lab, and **Check all steps** runs only the step check. A progress bar and status line show the current lab and step ("Lab 3 of 40 · section 2 of 6"), results stream in as each lab finishes, and **Cancel** stops the run while keeping completed labs. Pressing it while the run is still starting is remembered and applied as soon as the server has started the run, so a click is never silently dropped. The API is documented in [`portal/README.md`](../portal/README.md#validation).
 
 The pre-flight check that gates export and provisioning stays structural-only, so exporting a lab never waits on network calls.
 
