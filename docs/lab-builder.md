@@ -158,7 +158,31 @@ instead.
 
 1. Start the portal: `cd portal && npm install && npm start`.
 2. Open the **🧬 Build a Lab** tab.
-3. Industry → roles → features → options → build.
+3. Answer one question per step, in this order:
+   1. **Vertical** (industry). Cross-industry is the default.
+   2. **Departments** (any number, optional).
+   3. **Level**: 100 Beginner, 200 Intermediate, or 300 Advanced.
+   4. **Harness**: Standard, Microsoft Copilot, or Customer Conversation (preview).
+   5. **Topics**: every topic that applies to your harness, grouped by concept
+      (Instructions, Knowledge, Tools, Skills, MCP servers, and so on). Topics are
+      pre-selected from your answers, each with the reason. Check or uncheck
+      anything; use **Select all**, **Clear**, **Reset to recommended**, or the
+      per-group buttons. Prerequisites are marked *Required prerequisite*. If you
+      uncheck one, you get a warning, and the lab assumes learners have already
+      done it. Concepts with no topic on your harness say whether the harness has
+      no equivalent or the topic is not written yet.
+   6. **Review**: the outline with the estimated time for each module and a total.
+      Advanced options (agent name, title, Learn grounding, model narrative, and a
+      preferred length that only suggests where to split) are folded away here.
+   7. **Generate**.
+
+   The step list at the top is made of buttons: you can jump back to any step you
+   have already reached, and changing an earlier answer recomputes the topic
+   recommendations (the page says so if it resets your own choices). A "Your lab
+   so far" line shows the answers and a running time estimate throughout. Times
+   are guidance only; nothing is removed to fit them. What the topic list shows is
+   exactly what gets built: the wizard sends `includeCore: false` and the topics
+   you kept, so no foundation module is added behind your back.
 
 The wizard previews the module outline (with prerequisites resolved and an
 estimated time for every module and for the whole lab) before you commit to a
