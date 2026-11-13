@@ -445,6 +445,7 @@ app.post("/api/lab-builder/preview", (req, res) => {
       difficulty: plan.difficulty,
       duration: plan.duration,
       totalMinutes: plan.totalMinutes,
+      estimate: plan.estimate,
       agentName: plan.profile.agentName,
       scenario: {
         problem: plan.profile.problem,

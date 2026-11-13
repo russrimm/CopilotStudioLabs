@@ -210,23 +210,21 @@ test("user-supplied title, agent name, and audience cannot add Markdown structur
   assert.ok(markdown.includes("\\*\\*Bold\\*\\* Bot"));
   assert.ok(!/(^|[^\\])<b>staff/.test(markdown));
 });
-test("a tight time budget never keeps a module without its prerequisites or overruns the budget", () => {
+test("no time target ever removes a module or its prerequisites", () => {
   for (const feature of getFeatures()) {
-    for (const timeBudget of [30, 45, 60, 120]) {
-      let plan;
-      try {
-        plan = planLab({ features: [feature.id], timeBudget });
-      } catch {
-        continue; // budget too small for any module is a reported error, not a bad plan
-      }
+    const unlimited = planLab({ features: [feature.id] });
+    for (const targetMinutes of [1, 30, 60, 120]) {
+      const plan = planLab({ features: [feature.id], targetMinutes });
+      assert.deepEqual(
+        plan.features.map((f) => f.id),
+        unlimited.features.map((f) => f.id),
+        `${feature.id} changed at a ${targetMinutes} minute target`,
+      );
       const kept = new Set(plan.features.map((f) => f.id));
-      for (const kept_ of plan.features) {
-        for (const pre of getFeature(kept_.id).prereqs || []) {
-          assert.ok(kept.has(pre), `${kept_.id} kept without prerequisite ${pre} at ${timeBudget} min`);
+      for (const planned of plan.features) {
+        for (const pre of getFeature(planned.id).prereqs || []) {
+          assert.ok(kept.has(pre), `${planned.id} kept without prerequisite ${pre}`);
         }
-      }
-      if (plan.features.length > 1) {
-        assert.ok(plan.totalMinutes <= timeBudget, `${feature.id} at ${timeBudget} min planned ${plan.totalMinutes}`);
       }
     }
   }

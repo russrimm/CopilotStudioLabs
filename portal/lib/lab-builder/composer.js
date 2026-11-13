@@ -121,7 +121,7 @@ function metadataTable(plan, generation = {}) {
     "| Field | Details |",
     "|---|---|",
     `| ⭐ **DIFFICULTY** | ${plan.difficulty} |`,
-    `| ⏱️ **TIME** | ${plan.duration} |`,
+    `| ⏱️ **TIME** | About ${plan.duration} (estimate, not a limit) |`,
     `| 🧩 **PRODUCTS** | ${PRODUCTS} |`,
     `| 🏷️ **TAGS** | ${tags} |`,
     `| 🏭 **INDUSTRIES** | ${industries} |`,
@@ -171,6 +171,39 @@ function objectivesSection(plan) {
     "",
     bullets(objectives),
   ].join("\n");
+}
+
+function timeEstimateSection(plan) {
+  const estimate = plan.estimate;
+  const rows = plan.features.map(
+    (f) => `| ${f.order} | ${escapeMarkdown(f.name)} | ${f.level} | about ${f.minutes} min |`,
+  );
+  const lines = [
+    "## Time Estimate",
+    "",
+    `Plan for about **${estimate.duration}** in total. These are estimates to help you schedule, not limits: work at your own pace, and take the time each module needs to be done well.`,
+    "",
+    "| Step | Module | Level | Estimated time |",
+    "|---|---|---|---|",
+    ...rows,
+    `| | **Total** | | **about ${estimate.duration}** |`,
+  ];
+  if (estimate.suggestedParts.length > 1) {
+    lines.push(
+      "",
+      `This is a long lab. If you would rather run it as ${estimate.suggestedParts.length} shorter sessions, these are natural stopping points, and every module stays in the lab:`,
+      "",
+      bullets(
+        estimate.suggestedParts.map((part) => {
+          const first = plan.features.find((f) => f.id === part.ids[0]);
+          const last = plan.features.find((f) => f.id === part.ids[part.ids.length - 1]);
+          const span = first === last ? `Step ${first.order}` : `Steps ${first.order} to ${last.order}`;
+          return `**Part ${part.part}** (${span}): about ${part.duration}`;
+        }),
+      ),
+    );
+  }
+  return lines.join("\n");
 }
 
 function prerequisitesSection(plan) {
@@ -515,7 +548,7 @@ function nextStepsSection(plan) {
 
   if (plan.deferred.length) {
     lines.push(
-      "These modules were left out to keep the lab inside its time budget. Add them to a follow-up run:",
+      "These modules were taken out of this lab during the build. Add them to a follow-up run:",
       "",
       bullets(plan.deferred.map((d) => `**${d.name}** (${d.minutes} min) - ${d.summary}`)),
       "",
@@ -739,6 +772,8 @@ export function composeLab(
     overviewSection(plan, enrichment),
     "",
     objectivesSection(plan),
+    "",
+    timeEstimateSection(plan),
     "",
     prerequisitesSection(plan),
     "",

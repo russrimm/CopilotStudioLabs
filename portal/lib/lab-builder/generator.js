@@ -483,37 +483,6 @@ export async function generateLab(request, opts = {}) {
     return { applied: chosen };
   };
 
-  // ── Gate 1: the time budget dropped a module the learner asked for ────────
-  const droppedByRequest = plan.deferred.filter((module) => module.requested);
-  if (droppedByRequest.length) {
-    const names = droppedByRequest.map((module) => module.name).join(", ");
-    const outcome = gate(
-      buildBlocker(BLOCKER_CODES.MODULES_DEFERRED, {
-        consequence:
-          `The ${plan.request.timeBudget}-minute budget has no room for ${droppedByRequest.length} module(s) ` +
-          `you selected: ${names}. The learner will not practise them; they would appear only as a suggestion ` +
-          `at the end of the lab.`,
-        detail: {
-          timeBudget: plan.request.timeBudget,
-          modules: droppedByRequest.map((module) => ({ id: module.id, name: module.name, minutes: module.minutes })),
-        },
-      }),
-    );
-    if (outcome.halt) return outcome.halt;
-
-    if (outcome.applied === "ignore-budget") {
-      plan = planLab({ ...request, timeBudget: undefined });
-      plan.warnings.push(
-        `The time budget was set aside so every selected module is a hands-on chapter. The lab now runs ${plan.duration}.`,
-      );
-      onProgress?.({ stage: "plan", message: `Replanned without the time budget (${plan.duration})` });
-    } else {
-      plan.warnings.push(
-        `You chose to keep the ${plan.request.timeBudget}-minute budget, so ${names} appear only under Where to Go Next.`,
-      );
-    }
-  }
-
   // ── 1. Ground every module against Microsoft Learn ────────────────────────
   const groundingByFeature = new Map();
   let session = { ok: false };
@@ -1213,6 +1182,15 @@ export async function generateLab(request, opts = {}) {
       };
     }),
     deferred: plan.deferred,
+    // Guidance only: no module is ever removed to meet a length.
+    estimate: {
+      totalMinutes: plan.estimate.totalMinutes,
+      duration: plan.estimate.duration,
+      isEstimate: true,
+      targetMinutes: plan.estimate.targetMinutes,
+      bySection: plan.estimate.bySection,
+      suggestedParts: plan.estimate.suggestedParts,
+    },
     grounding: {
       endpoint: LEARN_MCP_ENDPOINT,
       connected: Boolean(session.ok),

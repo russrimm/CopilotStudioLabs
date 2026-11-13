@@ -3641,11 +3641,26 @@ function lbRenderFeatures() {
   lbUpdateFeatureCount();
 }
 
+function lbFormatMinutes(minutes) {
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (!hours) return `${rest} min`;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+}
+
 function lbUpdateFeatureCount() {
   const el = document.getElementById("lb-feature-count");
   if (!el) return;
   const n = labBuilder.selectedFeatures.size;
-  el.textContent = n ? `${n} feature${n === 1 ? "" : "s"} selected` : "No features selected yet";
+  if (!n) {
+    el.textContent = "No features selected yet";
+    return;
+  }
+  const minutes = labBuilder.categories
+    .flatMap((cat) => cat.features)
+    .filter((f) => labBuilder.selectedFeatures.has(f.id))
+    .reduce((sum, f) => sum + f.minutes, 0);
+  el.textContent = `${n} feature${n === 1 ? "" : "s"} selected, about ${lbFormatMinutes(minutes)} before prerequisites (an estimate, not a limit)`;
 }
 
 function lbToggleFeature(id, checked) {
@@ -3665,7 +3680,7 @@ function lbRequest() {
     industry: labBuilder.industry || undefined,
     roles: [...labBuilder.selectedRoles],
     features: [...labBuilder.selectedFeatures],
-    timeBudget: time > 0 ? time : undefined,
+    targetMinutes: time > 0 ? time : undefined,
     title: document.getElementById("lb-title")?.value.trim() || undefined,
     agentName: document.getElementById("lb-agent-name")?.value.trim() || undefined,
     includeCore: document.getElementById("lb-include-core")?.checked !== false,
@@ -3709,7 +3724,7 @@ async function lbPreview() {
       <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">${escapeHtml(data.title)}</div>
       <div class="scenario-pill-list">
         <span class="scenario-pill">${escapeHtml(data.difficulty)}</span>
-        <span class="scenario-pill">${escapeHtml(data.duration)}</span>
+        <span class="scenario-pill">About ${escapeHtml(data.duration)} (estimate)</span>
         <span class="scenario-pill">${data.modules.length} modules</span>
         <span class="scenario-pill">Agent: ${escapeHtml(data.agentName)}</span>
       </div>
@@ -3718,11 +3733,14 @@ async function lbPreview() {
         ${data.modules
           .map(
             (m) => `<div class="lb-module"><strong>${m.order}.</strong>
-              <span><strong>${escapeHtml(m.name)}</strong> <span class="lb-badge">L${m.level}</span> <span class="lb-badge">${m.minutes}m</span>
+              <span><strong>${escapeHtml(m.name)}</strong> <span class="lb-badge">L${m.level}</span> <span class="lb-badge">about ${m.minutes} min</span>
               <div class="lb-feature-summary">${escapeHtml(m.summary)}</div></span></div>`
           )
           .join("")}
       </div>
+      ${(data.estimate?.suggestedParts || [])
+        .map((part) => `<div class="lb-feature-note">Optional part ${part.part}: ${part.ids.length} module${part.ids.length === 1 ? "" : "s"}, about ${escapeHtml(part.duration)}</div>`)
+        .join("")}
       ${data.warnings.map((w) => `<div class="lb-warning">${escapeHtml(w)}</div>`).join("")}
     `;
   } catch (err) {

@@ -21,9 +21,15 @@ export const BLOCKER_CODES = Object.freeze({
   STEPS_FETCH_FAILED: "steps-fetch-failed",
   STEPS_NOT_DERIVED: "steps-not-derived",
   LLM_PARTIAL_FAILURE: "llm-partial-failure",
-  MODULES_DEFERRED: "modules-deferred",
   VENDOR_DOCS_UNAVAILABLE: "vendor-docs-unavailable",
 });
+
+/**
+ * Codes that no longer block a build. Old clients may still send a decision for
+ * one, so it is accepted and ignored rather than rejected as unknown.
+ * `modules-deferred` went away with the time budget: length is guidance, never a limit.
+ */
+const RETIRED_CODES = Object.freeze(["modules-deferred"]);
 
 /** Option id that means "run the same gate again" rather than "resolve it". */
 export const RETRY = "retry";
@@ -170,22 +176,6 @@ const OPTIONS = Object.freeze({
     CANCEL_OPTION,
   ],
 
-  [BLOCKER_CODES.MODULES_DEFERRED]: [
-    {
-      id: "accept-deferred",
-      label: "Keep the time budget and list them as next steps",
-      tradeoff:
-        "The lab fits the time you asked for. The dropped modules appear only under Where to Go Next, not as hands-on chapters.",
-      recommended: true,
-    },
-    {
-      id: "ignore-budget",
-      label: "Build every module you selected",
-      tradeoff: "Every selected module becomes a chapter, and the lab runs longer than the budget you set.",
-    },
-    CANCEL_OPTION,
-  ],
-
   // A vendor page (issue #39) supplements a module that is still grounded on
   // Microsoft Learn, so losing one is never a reason to remove the chapter:
   // there is deliberately no "drop the modules" option.
@@ -223,7 +213,6 @@ const TITLES = Object.freeze({
   [BLOCKER_CODES.STEPS_FETCH_FAILED]: "Some documentation pages could not be read",
   [BLOCKER_CODES.STEPS_NOT_DERIVED]: "Some modules' steps could not be read from the documentation",
   [BLOCKER_CODES.LLM_PARTIAL_FAILURE]: "Some model-written passages failed",
-  [BLOCKER_CODES.MODULES_DEFERRED]: "The time budget dropped a module you asked for",
   [BLOCKER_CODES.VENDOR_DOCS_UNAVAILABLE]: "Some vendor documentation could not be read",
 });
 
@@ -329,6 +318,7 @@ export function normalizeDecisions(raw) {
   // safe here and stays comparable for callers and tests.
   const out = {};
   for (const [code, optionId] of Object.entries(raw)) {
+    if (RETIRED_CODES.includes(code)) continue;
     if (!isKnownBlockerCode(code)) {
       throw new Error(`Unknown blocker code "${code}". Known codes: ${ALL_CODES.join(", ")}.`);
     }

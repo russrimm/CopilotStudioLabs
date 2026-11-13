@@ -68,7 +68,7 @@ Useful flags:
 
 | Flag | Effect |
 |---|---|
-| `--time <minutes>` | Time budget. Modules that do not fit move to "Where to Go Next". |
+| `--time <minutes>` | Preferred lab length. Guidance only: no module is ever removed. A lab that runs longer gets a suggestion to split it into parts. |
 | `--no-core` | Skip the level 100 foundation modules (assumes learners already have an agent). |
 | `--no-learn` | Offline mode. Skips Microsoft Learn and vendor documentation reads, and uses the curated doc links. |
 | `--no-llm` | Deterministic composition even if LLM credentials are configured. |
@@ -110,12 +110,14 @@ each stating its tradeoff.
 | `steps-fetch-failed` | A module's documentation page could not be read. | `retry` *(recommended)*, `proceed-catalog`, `cancel` |
 | `steps-not-derived` | The page was read, but no procedure on it matched the module. | `proceed-catalog` *(recommended)*, `cancel` |
 | `llm-partial-failure` | A configured model wrote some passages but not others. | `retry` *(recommended)*, `proceed-deterministic`, `proceed-mixed`, `cancel` |
-| `modules-deferred` | The time budget dropped a module you explicitly selected. | `accept-deferred` *(recommended)*, `ignore-budget`, `cancel` |
 | `vendor-docs-unavailable` | A vendor documentation page a module cites could not be read, or was refused by the builder's safety rules. | `retry` *(recommended)*, `proceed-unverified`, `cancel` |
 
 An explicit choice you already made is never a blocker. `--no-learn` and
-`--no-llm`, `LAB_BUILDER_VENDOR_DOCS=off`, and modules the builder added on your
-behalf being deferred, stay warnings — you decided those.
+`--no-llm`, `LAB_BUILDER_VENDOR_DOCS=off`, stay warnings — you decided those.
+
+There is no blocker for lab length. The earlier `modules-deferred` blocker was
+retired with the time budget; a decision for it is still accepted and ignored so
+older clients keep working.
 
 `retry` is not a resolution: it re-runs the same gate, so a condition that has
 not cleared asks again.
@@ -158,8 +160,9 @@ instead.
 2. Open the **🧬 Build a Lab** tab.
 3. Industry → roles → features → options → build.
 
-The wizard previews the module outline (with prerequisites resolved and the time
-budget applied) before you commit to a build. If the build hits a blocker it
+The wizard previews the module outline (with prerequisites resolved and an
+estimated time for every module and for the whole lab) before you commit to a
+build. If the build hits a blocker it
 pauses and shows the decision inline — keyboard-navigable radios with the
 consequence and each option's tradeoff — and only resumes once you choose. The
 finished markdown appears with a download button and a record of any decisions.
@@ -171,7 +174,7 @@ finished markdown appears with a download button and a record of any decisions.
 ```mermaid
 flowchart LR
   A[Wizard selections] --> B[Planner]
-  B -->|expand prereqs, order,<br/>fit time budget| C[Learn MCP grounding]
+  B -->|expand prereqs, order,<br/>estimate time| C[Learn MCP grounding]
   C --> V[Vendor documentation<br/>allowlisted HTTPS]
   V -->|microsoft_docs_search<br/>per module| S[Step derivation<br/>microsoft_docs_fetch]
   S --> D[LLM enrichment<br/>optional]
@@ -264,9 +267,19 @@ product, are untouched.
 ### 2. Planner
 
 `planner.js` resolves the industry and roles, expands transitive prerequisites,
-topologically orders modules (prerequisite → category → level), applies the time
-budget without ever orphaning a dependent module, and derives the title,
-difficulty, duration, and scenario framing.
+topologically orders modules (prerequisite → category → level), and derives the
+title, difficulty, time estimate, and scenario framing.
+
+**Time is guidance, never a limit.** Every module you select, and every
+prerequisite it needs, stays in the lab. Each module carries an estimated
+`minutes` value; the plan adds `estimate` (`totalMinutes`, `duration`,
+`bySection`, and `suggestedParts`). The generated lab shows the estimate in its
+metadata table (`TIME`), in a **Time Estimate** section with one row per module
+and a total, and in `manifest.json`. When the total passes the advisory length
+(240 minutes by default, or the optional `targetMinutes` you pass; `timeBudget`
+is accepted as an older name), the planner suggests split points between
+modules in plan order, so a module never lands in a part before its
+prerequisites. That is a suggestion in the warnings and the lab, never a cut.
 
 Scenario framing comes from `scenario-profiles.json`: per-industry agent name,
 audience, business problem, knowledge sources, sample questions, domain
@@ -725,7 +738,7 @@ Request body for preview and generate:
   "industry": "healthcare",
   "roles": ["customer-service"],
   "features": ["knowledge-sharepoint", "authentication"],
-  "timeBudget": 240,
+  "targetMinutes": 240,
   "includeCore": true,
   "title": "Optional title override",
   "agentName": "Optional agent name override",
@@ -890,8 +903,9 @@ cd portal && npm test
 
 `portal/test/lab-builder.test.js` covers catalog integrity (including the
 freshness rules for missing, malformed, future, and foreign verification
-metadata), prerequisite expansion and ordering, planner behavior (time budgets,
-unknown inputs), blocker detection and resolution for all seven codes, LLM
+metadata), prerequisite expansion and ordering, planner behavior (time estimates
+and split suggestions that never remove a module,
+unknown inputs), blocker detection and resolution for all codes, LLM
 provider detection, per-module disclosure of `lastVerified`, and a full offline
 generation that must pass every validator rule.
 `portal/test/lab-builder-synthesis.test.js` covers each verifier check with a
