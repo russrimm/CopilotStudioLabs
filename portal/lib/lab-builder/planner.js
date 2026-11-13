@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getFeature, getFeatures, expandPrereqs, orderFeatures, getCoreFeatures } from "./catalog.js";
+import { getFeature, getFeatures, getHarnesses, orderFeatures, getCoreFeatures } from "./catalog.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -101,10 +101,31 @@ export function normalizeLabRequest(request = {}) {
     throw new Error("includeCore must be a boolean.");
   }
 
+  const excluded = stringList(request.excluded, "excluded", getFeatures().length);
+  const unknownExcluded = excluded.filter((id) => !getFeature(id));
+  if (unknownExcluded.length) {
+    throw new Error(`Unknown excluded feature id(s): ${unknownExcluded.join(", ")}.`);
+  }
+
+  let harness;
+  if (request.harness !== undefined && request.harness !== null && request.harness !== "") {
+    harness = String(request.harness);
+    if (!getHarnesses().some((h) => h.id === harness)) throw new Error(`Unknown harness "${harness}".`);
+  }
+
+  let level;
+  if (request.level !== undefined && request.level !== null && request.level !== "") {
+    level = Number(request.level);
+    if (![100, 200, 300].includes(level)) throw new Error("level must be 100, 200, or 300.");
+  }
+
   return {
     industry: optionalText(request.industry, "industry"),
     roles: stringList(request.roles, "roles", getRoles().length),
     features,
+    excluded,
+    harness,
+    level,
     targetMinutes,
     title: optionalText(request.title, "title"),
     agentName: optionalText(request.agentName, "agentName"),
@@ -191,12 +212,15 @@ export function buildEstimate(features, targetMinutes) {
  * with one harness tag decides it; features tagged for both harnesses stay
  * neutral, and untagged features count as standard.
  */
-function coreSeedIds(requested) {
+function coreSeedIds(requested, harness) {
   const harnessesOf = (feature) => (feature?.harness?.length ? feature.harness : ["standard"]);
   const targets = new Set();
-  for (const id of requested) {
-    const tags = harnessesOf(getFeature(id));
-    if (getFeature(id) && tags.length === 1) targets.add(tags[0]);
+  if (harness) targets.add(harness);
+  else {
+    for (const id of requested) {
+      const tags = harnessesOf(getFeature(id));
+      if (getFeature(id) && tags.length === 1) targets.add(tags[0]);
+    }
   }
   if (!targets.size) targets.add("standard");
   return getCoreFeatures()
@@ -233,13 +257,47 @@ export function planLab(request = {}) {
     })
     .filter(Boolean);
 
-  const requested = request.features;
+  const requested = request.features.filter((id) => !request.excluded.includes(id));
+  if (!requested.length) {
+    throw new Error("Every selected topic was also marked as excluded. Keep at least one topic to build a lab.");
+  }
 
   const seedIds = request.includeCore === false
     ? requested
-    : [...new Set([...coreSeedIds(requested), ...requested])];
+    : [...new Set([...coreSeedIds(requested, request.harness), ...requested])].filter((id) => !request.excluded.includes(id));
 
-  const expanded = expandPrereqs(seedIds);
+  // Prerequisites join automatically so the lab stands on its own, except the
+  // ones the learner explicitly turned off. Those are assumed to be done already
+  // and the lab says so, instead of teaching them.
+  const excludedSet = new Set(request.excluded);
+  const expanded = [];
+  const needers = new Map();
+  const place = (id, trail) => {
+    const feature = getFeature(id);
+    if (!feature || expanded.includes(id) || trail.has(id)) return;
+    trail.add(id);
+    for (const pre of feature.prereqs || []) {
+      if (excludedSet.has(pre) && !seedIds.includes(pre)) {
+        if (!needers.has(pre)) needers.set(pre, []);
+        needers.get(pre).push(feature.name);
+        continue;
+      }
+      place(pre, trail);
+    }
+    expanded.push(id);
+  };
+  for (const id of seedIds) place(id, new Set());
+  const assumedPrereqs = [...needers].map(([id, neededBy]) => {
+    const f = getFeature(id);
+    return { id, name: f.name, minutes: f.minutes, neededBy: [...new Set(neededBy)] };
+  });
+  if (assumedPrereqs.length) {
+    warnings.push(
+      `You turned off ${assumedPrereqs.length} prerequisite(s) that other topics build on, so this lab assumes learners have already done them: ${assumedPrereqs
+        .map((a) => `${a.name} (needed by ${a.neededBy.join(", ")})`)
+        .join("; ")}.`,
+    );
+  }
   const addedPrereqs = expanded.filter((id) => !seedIds.includes(id));
   if (addedPrereqs.length) {
     warnings.push(
@@ -254,7 +312,7 @@ export function planLab(request = {}) {
   const harnessesUsed = new Set(
     ordered.map((id) => getFeature(id)?.harness || []).filter((tags) => tags.length === 1).map((tags) => tags[0]),
   );
-  if (harnessesUsed.size > 1) {
+  if (harnessesUsed.size > 1 && !request.harness) {
     warnings.push(
       "This lab mixes standard harness and Microsoft Copilot harness modules. Their steps follow different authoring surfaces, so consider building one lab per harness.",
     );
@@ -289,6 +347,9 @@ export function planLab(request = {}) {
       industry: industry?.id || null,
       roles: roles.map((r) => r.id),
       features: requested,
+      excluded: request.excluded,
+      harness: request.harness || null,
+      level: request.level || null,
       targetMinutes: request.targetMinutes ?? null,
     },
     title,
@@ -307,8 +368,9 @@ export function planLab(request = {}) {
     totalMinutes,
     duration: formatDuration(totalMinutes),
     estimate,
-    difficulty: DIFFICULTY_BY_LEVEL[maxLevel] || "Intermediate",
-    level: maxLevel,
+    assumedPrereqs,
+    difficulty: DIFFICULTY_BY_LEVEL[request.level || maxLevel] || "Intermediate",
+    level: request.level || maxLevel,
     relatedLabs: [...new Set(features.flatMap((f) => f.relatedLabs || []))],
     tags: [...new Set([...categories, ...(industry ? [industry.id] : []), ...roles.map((r) => r.id)])],
     warnings,
@@ -368,7 +430,7 @@ export function dropModules(plan, ids, reason = "removed") {
   plan.totalMinutes = plan.features.reduce((sum, feature) => sum + feature.minutes, 0);
   plan.duration = formatDuration(plan.totalMinutes);
   plan.estimate = buildEstimate(plan.features, plan.request.targetMinutes);
-  plan.level = plan.features.reduce((max, feature) => Math.max(max, feature.level), 100);
+  plan.level = plan.request.level || plan.features.reduce((max, feature) => Math.max(max, feature.level), 100);
   plan.difficulty = DIFFICULTY_BY_LEVEL[plan.level] || "Intermediate";
   plan.categories = [...new Set(plan.features.map((feature) => feature.category))];
   plan.relatedLabs = [...new Set(plan.features.flatMap((feature) => feature.relatedLabs || []))];

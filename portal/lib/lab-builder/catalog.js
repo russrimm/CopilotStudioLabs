@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { getConcepts, getRecommendations, validateConcepts } from "./concepts.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CATALOG_PATH = path.join(__dirname, "features.json");
 
@@ -418,6 +419,13 @@ export function validateCatalog(raw, { now = Date.now() } = {}) {
 
   validateVendorSources(features, vendorHosts, problems);
   validateHarnesses(features, harnesses, problems);
+
+  // The concept layer describes the shipped catalog, so a parsed fixture is not held to it.
+  if (!raw) {
+    problems.push(
+      ...validateConcepts({ concepts: getConcepts(), recommendations: getRecommendations(), features, harnesses }),
+    );
+  }
 
   return problems;
 }

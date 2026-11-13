@@ -212,17 +212,21 @@ integrity, including prerequisite cycles and the freshness fields described in
 
 #### Harnesses and levels
 
-Copilot Studio runs every agent on a *harness*. The catalog covers two of them,
-listed in the top-level `harnesses` array (each with a name, description, and
+Copilot Studio runs every agent on a *harness*. The catalog lists three,
+in the top-level `harnesses` array (each with a name, description, and
 `learnUrl`):
 
 | Harness id | Name | Use it for |
 | --- | --- | --- |
 | `standard` | Standard harness | Rule-based agents, topics, and agent flows (the classic experience). |
 | `microsoft-copilot` | Microsoft Copilot harness | Reasoning-heavy agents and workflows built on the **Build** tab, billed in Copilot Credits. |
+| `customer-conversation` | Customer Conversation harness (preview) | Customer-facing agents over voice and chat, with subagents and escalation to a human. |
 
-Learn also documents a Customer Conversation harness and a Copilot chat harness.
-They use separate creation paths and are not modeled here.
+The Customer Conversation harness is registered so the wizard and concept layer
+can reference it, but it has no feature modules yet: every concept shows it as
+"not available on this harness yet" until its modules are authored from Learn.
+Learn also documents a Copilot chat harness. It uses a separate creation path
+and is not modeled here.
 
 Every feature has a `harness` array that names the harnesses its steps and checks
 describe. Features whose id starts with `mc-` and a few others are
@@ -263,6 +267,29 @@ citations. The step validator's `normalizeText()` maps the old name to the new o
 on both sides of a comparison, so a claim written with either name matches Learn
 text that uses either name. Unrelated uses of GitHub Copilot, such as the IDE
 product, are untouched.
+
+#### Concepts and recommendations
+
+The catalog is organized by harness, but learners think in concepts: Instructions,
+Knowledge, Tools, Skills, MCP servers, Subagents, SDK, Memory, Hooks, Triggers,
+Workflows, Testing, Publish, Governance, and so on. `concepts.json` is that
+layer. Each concept lists the feature ids that teach it; a feature's own
+`harness` tag says where it applies, so **Skills** lists `prompt-tools` (Standard
+harness) and `mc-skills` (Microsoft Copilot harness). When a concept has nothing
+for a harness, its `notApplicable` map says why, so the wizard explains the gap
+and names what to use instead. Every feature belongs to exactly one concept.
+
+`recommendations.json` holds the deterministic rules that pre-select topics: the
+topics that make up each level (the new depth it adds; prerequisites join
+automatically), plus topics a vertical or a department adds, each with a
+plain-language reason. A vertical or department topic is recommended only at or
+below the chosen level, and always stays selectable.
+
+`validateCatalog()` checks both files (every feature in one concept, known ids,
+a reason for every `notApplicable`), and `recommend.js` turns the answers into
+concept rows with `selected`, `required`, and `reasons` per topic. Nothing is
+filtered out: every topic that applies to the harness is listed, and a topic
+whose prerequisite you turn off only produces a warning.
 
 ### 2. Planner
 
@@ -725,7 +752,8 @@ the server log, never the manifest — and the output is exportable by design.
 
 | Method | Route | Purpose |
 |---|---|---|
-| `GET` | `/api/lab-builder/features` | Industries, roles, and the feature catalog grouped by category. |
+| `GET` | `/api/lab-builder/features` | Industries, roles, concepts, and the feature catalog grouped by category. |
+| `POST` | `/api/lab-builder/recommend` | Topics grouped by concept for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `required`, and `reasons`. Read-only. |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. |
 | `POST` | `/api/lab-builder/generate` | Build the lab, write it to `generated-labs/`, return markdown + validation. |
 | `GET` | `/api/lab-builder/generated` | List previously generated labs. |

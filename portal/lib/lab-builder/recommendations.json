@@ -1,0 +1,43 @@
+{
+  "$comment": "Deterministic, hand-curated recommendations for the lab builder wizard. Nothing here is scored by a model, so every pre-selected topic can show the exact reason it was chosen. `levels` lists the topics that make up a lab at each level (the new depth that level adds; prerequisites are added automatically, so a level 200 lab still includes the level 100 foundations it depends on). `verticals` and `departments` add topics that matter to that industry or team; they are recommended only at or below the chosen level, and every one stays selectable at any level. Features that do not apply to the chosen harness are ignored, so one list serves every harness. Every id must exist in features.json (validateRecommendations enforces this).",
+  "version": 1,
+  "levels": {
+    "100": [
+      "create-agent", "agent-instructions", "knowledge-sharepoint", "knowledge-files-web", "topics", "test-agent", "publish-agent", "channel-teams",
+      "mc-create-agent", "mc-knowledge", "mc-preview-test", "mc-publish-agent"
+    ],
+    "200": [
+      "generative-orchestration", "connector-tools", "prompt-tools", "mcp-servers", "agent-flows", "connected-agents", "knowledge-dataverse",
+      "evaluations", "content-moderation", "analytics",
+      "mc-skills", "mc-tools-mcp", "mc-workflows-tool", "mc-memory", "mc-evaluate"
+    ],
+    "300": [
+      "custom-connectors", "agent-to-agent", "authentication", "alm-solutions", "dlp-governance", "entra-agent-identities", "agent-inventory",
+      "channel-web-sdk", "vscode-authoring",
+      "mc-hooks", "mc-triggers"
+    ]
+  },
+  "verticals": {
+    "healthcare": { "topics": ["epic-fhir-integration", "authentication", "content-moderation", "dlp-governance"], "why": "Healthcare labs handle patient data, so identity, safety, and data policy matter early." },
+    "retail": { "topics": ["shopify-integration", "salesforce-integration", "channel-teams"], "why": "Retail scenarios connect storefront and customer systems." },
+    "financial-services": { "topics": ["authentication", "dlp-governance", "entra-agent-identities", "content-moderation"], "why": "Financial services labs need strong identity and data controls." },
+    "manufacturing": { "topics": ["sap-integration", "onprem-data-gateway", "agent-flows"], "why": "Manufacturing scenarios reach plant and ERP systems, often on-premises." },
+    "energy-resources": { "topics": ["sap-integration", "onprem-data-gateway", "agent-flows"], "why": "Energy operations rely on ERP and on-premises operational data." },
+    "education": { "topics": ["knowledge-files-web", "content-moderation", "channel-teams"], "why": "Education scenarios center on documents, safe responses, and Teams." },
+    "nonprofit": { "topics": ["salesforce-integration", "knowledge-files-web", "channel-teams"], "why": "Nonprofits track supporters and programs in CRM and shared documents." }
+  },
+  "departments": {
+    "it": { "topics": ["servicenow-integration", "jira-integration", "agent-flows", "mcp-servers"], "why": "IT teams work in ticketing systems and automate runbooks." },
+    "customer-service": { "topics": ["servicenow-integration", "salesforce-integration", "channel-teams", "voice-agents"], "why": "Customer service needs case systems and customer-facing channels." },
+    "sales": { "topics": ["salesforce-integration", "knowledge-files-web"], "why": "Sales teams live in CRM and product material." },
+    "marketing": { "topics": ["knowledge-files-web", "content-moderation"], "why": "Marketing content needs brand-safe, grounded answers." },
+    "finance": { "topics": ["sap-integration", "dlp-governance", "agent-flows"], "why": "Finance works in ERP and needs policy controls and approvals." },
+    "hr": { "topics": ["knowledge-sharepoint", "content-moderation", "authentication"], "why": "HR answers come from policy documents and involve private information." },
+    "legal": { "topics": ["content-moderation", "dlp-governance", "alm-solutions"], "why": "Legal teams need safe responses, data policy, and controlled change." },
+    "executives": { "topics": ["analytics", "evaluations"], "why": "Executives look for measurable outcomes and quality." },
+    "operations": { "topics": ["agent-flows", "sap-integration", "analytics"], "why": "Operations teams automate multi-step processes and track results." },
+    "communications": { "topics": ["channel-teams", "content-moderation"], "why": "Communications teams publish to employees and need safe wording." },
+    "sustainability": { "topics": ["knowledge-dataverse", "analytics"], "why": "Sustainability reporting draws on structured data and trends." },
+    "accessibility": { "topics": ["content-moderation", "evaluations"], "why": "Accessibility work needs checked, consistent responses." }
+  }
+}

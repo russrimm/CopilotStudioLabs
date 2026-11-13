@@ -240,6 +240,14 @@ function prerequisitesSection(plan) {
     items.push("Power Platform admin center access for the administration modules in this lab.");
   }
 
+  if (plan.assumedPrereqs?.length) {
+    items.push(
+      `You have already completed these topics, which this lab builds on but does not teach: ${plan.assumedPrereqs
+        .map((a) => `${escapeMarkdown(a.name)} (needed by ${a.neededBy.map(escapeMarkdown).join(", ")})`)
+        .join("; ")}.`,
+    );
+  }
+
   return [
     "## Prerequisites",
     "",

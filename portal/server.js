@@ -26,6 +26,8 @@ import {
 import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/scenarios.js";
 import { getFeaturesByCategory, getFeatures, getHarnesses, LEVELS, validateCatalog } from "./lib/lab-builder/catalog.js";
 import { planLab } from "./lib/lab-builder/planner.js";
+import { recommend } from "./lib/lab-builder/recommend.js";
+import { getConcepts } from "./lib/lab-builder/concepts.js";
 import { generateLab, OUTPUT_ROOT as GENERATED_LABS_DIR } from "./lib/lab-builder/generator.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
@@ -427,11 +429,25 @@ app.get("/api/lab-builder/features", (_req, res) => {
       categories: getFeaturesByCategory(),
       harnesses: getHarnesses(),
       levels: LEVELS,
+      concepts: getConcepts().map(({ id, name, order, summary }) => ({ id, name, order, summary })),
       totalFeatures: getFeatures().length,
       catalogIssues: validateCatalog(),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/lab-builder/recommend — Topics for the chosen vertical, departments,
+ * level, and harness, grouped by concept, each with the reasons it was chosen.
+ * Pure and read-only: it plans nothing and writes nothing.
+ */
+app.post("/api/lab-builder/recommend", (req, res) => {
+  try {
+    res.json(recommend(req.body || {}));
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 });
 
@@ -462,6 +478,7 @@ app.post("/api/lab-builder/preview", (req, res) => {
         summary: f.summary,
       })),
       deferred: plan.deferred,
+      assumedPrereqs: plan.assumedPrereqs,
       relatedLabs: plan.relatedLabs,
       warnings: plan.warnings,
     });
