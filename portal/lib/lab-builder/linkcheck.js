@@ -126,12 +126,19 @@ export function isPublicUrl(value) {
  *
  *   `ok`          the origin served it (after redirects)
  *   `broken`      the origin says it is gone — 4xx/5xx
- *   `unreachable` we never got an answer — timeout, DNS, proxy, offline
+ *   `unreachable` we never got a useful answer — timeout, DNS, proxy, offline, or
+ *                 the origin asked us to slow down or try again (408, 425, 429,
+ *                 502, 503, 504)
  *
  * `unreachable` is not a weaker `broken`; it is a statement about our network
- * rather than about the page, and the callers act on it differently.
+ * or about throttling rather than about the page, and the callers act on it
+ * differently. A burst of lab builds can make Microsoft Learn answer 429 for
+ * every page, and that must not strip every citation from a lab.
  */
+export const TRANSIENT_STATUSES = Object.freeze([408, 425, 429, 502, 503, 504]);
+
 export function classify(record) {
+  if (TRANSIENT_STATUSES.includes(record?.status)) return "unreachable";
   if (record?.status >= 400) return "broken";
   if (!record?.status) return "unreachable";
   return record.ok ? "ok" : "broken";

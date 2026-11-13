@@ -1614,6 +1614,10 @@ test("classify separates a page that is gone from a network that failed", () => 
   assert.equal(classify({ status: 301, ok: true }), "ok");
   assert.equal(classify({ status: 404, ok: false }), "broken");
   assert.equal(classify({ status: 500, ok: false }), "broken");
+  // Throttling and "try again" answers are about timing, not about the page being gone.
+  for (const status of [408, 425, 429, 502, 503, 504]) {
+    assert.equal(classify({ status, ok: false }), "unreachable", `HTTP ${status}`);
+  }
   // A timeout is evidence about this machine, not about the page.
   assert.equal(classify({ status: 0, ok: false, error: "timeout" }), "unreachable");
 });
