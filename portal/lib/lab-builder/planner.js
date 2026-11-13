@@ -134,6 +134,24 @@ function formatDuration(minutes) {
 }
 
 /**
+ * The level 100 core modules that match the harness the lab is about. A feature
+ * with one harness tag decides it; features tagged for both harnesses stay
+ * neutral, and untagged features count as standard.
+ */
+function coreSeedIds(requested) {
+  const harnessesOf = (feature) => (feature?.harness?.length ? feature.harness : ["standard"]);
+  const targets = new Set();
+  for (const id of requested) {
+    const tags = harnessesOf(getFeature(id));
+    if (getFeature(id) && tags.length === 1) targets.add(tags[0]);
+  }
+  if (!targets.size) targets.add("standard");
+  return getCoreFeatures()
+    .filter((f) => f.level === 100 && harnessesOf(f).some((h) => targets.has(h)))
+    .map((f) => f.id);
+}
+
+/**
  * @param {object} request
  * @param {string} [request.industry]        industry id from portal/lib/scenarios.json
  * @param {string[]} [request.roles]         role ids
@@ -166,7 +184,7 @@ export function planLab(request = {}) {
 
   const seedIds = request.includeCore === false
     ? requested
-    : [...new Set([...getCoreFeatures().filter((f) => f.level === 100).map((f) => f.id), ...requested])];
+    : [...new Set([...coreSeedIds(requested), ...requested])];
 
   const expanded = expandPrereqs(seedIds);
   const addedPrereqs = expanded.filter((id) => !seedIds.includes(id));
@@ -180,6 +198,14 @@ export function planLab(request = {}) {
 
   const ordered = orderFeatures(expanded);
 
+  const harnessesUsed = new Set(
+    ordered.map((id) => getFeature(id)?.harness || []).filter((tags) => tags.length === 1).map((tags) => tags[0]),
+  );
+  if (harnessesUsed.size > 1) {
+    warnings.push(
+      "This lab mixes standard harness and Microsoft Copilot harness modules. Their steps follow different authoring surfaces, so consider building one lab per harness.",
+    );
+  }
   // Apply the time budget. The budget wins over the core level-100 modules, so
   // those can be deferred; the only forced keep is the first module, so a plan is
   // never empty. Dependency integrity is enforced below: a module whose

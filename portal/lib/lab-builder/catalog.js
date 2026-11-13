@@ -25,6 +25,7 @@ function index(raw) {
     version: raw.version,
     product: raw.product,
     vendorHosts: raw.vendorHosts || [],
+    harnesses: raw.harnesses || [],
     categories,
     features,
     byId,
@@ -37,6 +38,20 @@ function load() {
   cached = index(JSON.parse(fs.readFileSync(CATALOG_PATH, "utf8")));
   return cached;
 }
+
+/**
+ * The learner level each feature targets. `level` is one of these numbers:
+ * 100 is the basics of making an agent and testing it, 200 adds tools, skills,
+ * and MCP servers, and 300 covers custom connectors, ALM, governance, and the
+ * other advanced topics.
+ */
+export const LEVELS = [
+  { level: 100, label: "Beginner", description: "Make an agent and test it." },
+  { level: 200, label: "Intermediate", description: "Add tools, skills, MCP servers, and workflows." },
+  { level: 300, label: "Advanced", description: "Custom connectors, ALM, governance, and enterprise integration." },
+];
+
+export const AVAILABILITY_VALUES = ["ga", "preview", "retired"];
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_MS = 86400000;
@@ -118,6 +133,11 @@ export function getFeatures() {
   return load().features;
 }
 
+/** The harnesses a feature can be tagged with, in display order. */
+export function getHarnesses() {
+  return load().harnesses;
+}
+
 export function getFeature(id) {
   return load().byId.get(id) || null;
 }
@@ -140,6 +160,9 @@ export function getFeaturesByCategory() {
         minutes: f.minutes,
         core: Boolean(f.core),
         summary: f.summary,
+        harness: f.harness || [],
+        availability: f.availability || null,
+        harnessNote: f.harnessNote || null,
         prereqs: f.prereqs || [],
         relatedLabs: f.relatedLabs || [],
       })),
@@ -289,6 +312,55 @@ function validateVendorSources(features, vendorHosts, problems) {
 }
 
 /**
+ * Check the harness definitions and every feature's harness tag against them.
+ *
+ * A catalog that declares no harnesses (a small test fixture, for example) is
+ * not checked, so the tag stays optional until a catalog opts in. Once it
+ * opts in, every feature must say which harness its steps and checks apply to.
+ */
+function validateHarnesses(features, harnesses, problems) {
+  if (!Array.isArray(harnesses) || !harnesses.length) return;
+  const ids = new Set();
+  harnesses.forEach((entry, position) => {
+    const label = `harnesses[${position}]`;
+    if (typeof entry?.id !== "string" || !/^[a-z][a-z0-9-]*$/.test(entry.id)) {
+      problems.push(`${label}: id must be a lower-case slug`);
+      return;
+    }
+    if (ids.has(entry.id)) problems.push(`${label}: duplicate harness id ${entry.id}`);
+    ids.add(entry.id);
+    if (typeof entry.name !== "string" || !entry.name.trim()) problems.push(`${label}: ${entry.id} needs a name`);
+    if (typeof entry.description !== "string" || !entry.description.trim()) problems.push(`${label}: ${entry.id} needs a description`);
+    let url = null;
+    try {
+      url = new URL(String(entry.learnUrl));
+    } catch {
+      /* reported below */
+    }
+    if (!url || url.protocol !== "https:" || url.hostname !== LEARN_HOST) {
+      problems.push(`${label}: ${entry.id} needs a learnUrl on ${LEARN_HOST}`);
+    }
+  });
+
+  for (const f of features) {
+    if (!Array.isArray(f.harness) || !f.harness.length) {
+      problems.push(`${f.id}: harness must list at least one of ${[...ids].join(", ")}`);
+    } else {
+      for (const tag of f.harness) {
+        if (!ids.has(tag)) problems.push(`${f.id}: unknown harness "${tag}"`);
+      }
+      if (new Set(f.harness).size !== f.harness.length) problems.push(`${f.id}: harness lists a value twice`);
+    }
+    if (f.availability !== undefined && !AVAILABILITY_VALUES.includes(f.availability)) {
+      problems.push(`${f.id}: availability must be one of ${AVAILABILITY_VALUES.join(", ")}`);
+    }
+    if (f.harnessNote !== undefined && (typeof f.harnessNote !== "string" || !f.harnessNote.trim())) {
+      problems.push(`${f.id}: harnessNote must be a non-empty string`);
+    }
+  }
+}
+
+/**
  * Validate catalog integrity. Returns an array of human-readable problems.
  *
  * Checks the shipped catalog by default; tests pass a parsed catalog and a
@@ -298,7 +370,7 @@ function validateVendorSources(features, vendorHosts, problems) {
  * @param {{now?: number}} [options]
  */
 export function validateCatalog(raw, { now = Date.now() } = {}) {
-  const { features, byId, categoryIds, vendorHosts } = raw ? index(raw) : load();
+  const { features, byId, categoryIds, vendorHosts, harnesses } = raw ? index(raw) : load();
   const problems = [];
   const seen = new Set();
 
@@ -321,6 +393,10 @@ export function validateCatalog(raw, { now = Date.now() } = {}) {
     for (const prereq of f.prereqs || []) {
       if (!byId.has(prereq)) problems.push(`${f.id}: unknown prereq "${prereq}"`);
       if (prereq === f.id) problems.push(`${f.id}: is its own prereq`);
+      const required = byId.get(prereq);
+      if (required && required.level > f.level) {
+        problems.push(`${f.id}: level ${f.level} feature requires ${prereq}, which is level ${required.level}`);
+      }
     }
   }
 
@@ -341,6 +417,7 @@ export function validateCatalog(raw, { now = Date.now() } = {}) {
   for (const f of features) walk(f.id, []);
 
   validateVendorSources(features, vendorHosts, problems);
+  validateHarnesses(features, harnesses, problems);
 
   return problems;
 }

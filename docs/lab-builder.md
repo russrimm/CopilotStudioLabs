@@ -182,16 +182,18 @@ flowchart LR
 
 ### 1. Feature catalog
 
-`portal/lib/lab-builder/features.json` is the source of truth for *structure*: 48
-Copilot Studio capabilities across 11 categories, including the enterprise
+`portal/lib/lab-builder/features.json` is the source of truth for *structure*: 65
+Copilot Studio capabilities across 11 categories, covering both the standard
+harness and the Microsoft Copilot harness (see
+[Harnesses and levels](#harnesses-and-levels)), including the enterprise
 integrations (ServiceNow, Snowflake, SAP, Salesforce, Jira, Epic on FHIR, Shopify,
 on-premises data gateway, VNet private connectivity) and governance topics (agent
 inventory, release readiness, Entra agent identities) that the repository's
-hand-written labs cover. Each entry carries the level, time estimate,
-prerequisites, concepts, fallback click-by-click steps, validation checks,
-Microsoft Learn search queries, doc URLs, related labs in this repo, any existing
-screenshots that can be reused, and when and against which page it was last
-verified (`lastVerified`, `verifiedAgainst`).
+hand-written labs cover. Each entry carries the level, harness tags, time
+estimate, prerequisites, concepts, fallback click-by-click steps, validation
+checks, Microsoft Learn search queries, doc URLs, related labs in this repo, any
+existing screenshots that can be reused, and when and against which page it was
+last verified (`lastVerified`, `verifiedAgainst`).
 
 The steps in this file are the fallback for the **Do this** list, used whenever
 the module's documentation page cannot be read or carries no procedure that
@@ -204,6 +206,60 @@ This is the file to edit to add a feature, change a module's structure, or
 correct those curated steps. `validateCatalog()` (and a test) enforces its
 integrity, including prerequisite cycles and the freshness fields described in
 [Extending the catalog](#extending-the-catalog).
+
+#### Harnesses and levels
+
+Copilot Studio runs every agent on a *harness*. The catalog covers two of them,
+listed in the top-level `harnesses` array (each with a name, description, and
+`learnUrl`):
+
+| Harness id | Name | Use it for |
+| --- | --- | --- |
+| `standard` | Standard harness | Rule-based agents, topics, and agent flows (the classic experience). |
+| `microsoft-copilot` | Microsoft Copilot harness | Reasoning-heavy agents and workflows built on the **Build** tab, billed in Copilot Credits. |
+
+Learn also documents a Customer Conversation harness and a Copilot chat harness.
+They use separate creation paths and are not modeled here.
+
+Every feature has a `harness` array that names the harnesses its steps and checks
+describe. Features whose id starts with `mc-` and a few others are
+`["microsoft-copilot"]`; most older features are `["standard"]`; a feature is
+tagged for both only when Learn shows the same behavior on both harnesses (for
+example `dlp-governance` and `mc-harness-choice`). Three optional fields add
+detail, and each is set only when a Learn page says it:
+
+- `availability`: `ga`, `preview`, or `retired`. The wizard shows it as a badge.
+- `harnessNote`: one sentence on a documented difference between the harnesses,
+  such as "Prompts are replaced by skills." The notes come from the comparison
+  table on [Harnesses in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview)
+  and the [harness FAQ](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/faqs-copilot-harness).
+- A sibling relationship: when both harnesses offer a capability with different
+  steps, the catalog keeps two features (for example `knowledge-sharepoint` and
+  `mc-knowledge`) rather than one feature with two step lists.
+
+The wizard filters by harness and by level. The planner uses the tags in two ways:
+the level 100 *core* modules it adds follow the harness of the features you picked
+(a feature tagged for both stays neutral, and untagged features count as
+standard), and a plan that mixes single-harness modules from both harnesses gets
+a warning.
+
+`level` follows a rubric, and `validateCatalog()` rejects a feature that requires
+a prerequisite from a higher level:
+
+| Level | Label | Covers |
+| --- | --- | --- |
+| 100 | Beginner | The basics of making an agent and testing it. |
+| 200 | Intermediate | Adding tools, skills, MCP servers, workflows, knowledge tuning, and evaluation. |
+| 300 | Advanced | Custom connectors, ALM, governance, identity, networking, and autonomous or protocol-level integration. |
+
+**The rename.** Copilot Studio renamed the *GitHub Copilot harness* to the
+*Microsoft Copilot harness*, and some Learn pages, titles, and URLs still use the
+old name. Our own content (catalog, UI, docs, tests, comments) says Microsoft
+Copilot harness. Learn URLs and titles are never edited, because they are
+citations. The step validator's `normalizeText()` maps the old name to the new one
+on both sides of a comparison, so a claim written with either name matches Learn
+text that uses either name. Unrelated uses of GitHub Copilot, such as the IDE
+product, are untouched.
 
 ### 2. Planner
 
@@ -709,8 +765,11 @@ Add a feature to `portal/lib/lab-builder/features.json`:
   "id": "my-feature",
   "name": "My feature",
   "category": "tools",            // must match a category id
-  "level": 200,                   // 100, 200, or 300
+  "level": 200,                   // 100, 200, or 300; see the level rubric under Harnesses and levels
   "minutes": 20,
+  "harness": ["standard"],        // required: ids from the top-level harnesses list
+  "availability": "preview",      // optional: ga, preview, or retired; only when a Learn page states it
+  "harnessNote": "How the other harness differs, with the sibling feature id.", // optional
   "summary": "One sentence on what the learner configures.",
   "whyItMatters": "Why this exists and what breaks without it.",
   "concepts": ["Mental model point one.", "Point two."],
@@ -735,7 +794,8 @@ Add a feature to `portal/lib/lab-builder/features.json`:
 ```
 
 Then run `npm test` in `portal/` — the catalog integrity test will flag unknown
-categories, bad levels, missing fields, dangling prerequisites, cycles, any
+categories, bad levels, unknown or missing harness tags, prerequisites from a
+higher level, missing fields, dangling prerequisites, cycles, any
 vendor source that breaks the allowlist rules, and missing or invalid freshness
 fields.
 

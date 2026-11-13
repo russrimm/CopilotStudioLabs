@@ -96,8 +96,9 @@ function printCatalog() {
   for (const category of getFeaturesByCategory()) {
     console.log(`\n  ${category.icon || ""} ${category.name}`);
     for (const feature of category.features) {
-      const flags = [`L${feature.level}`, `${feature.minutes}m`, feature.core ? "core" : ""].filter(Boolean).join(" ");
-      console.log(`    ${feature.id.padEnd(26)} ${String(flags).padEnd(14)} ${feature.name}`);
+      const harness = (feature.harness || []).map((h) => (h === "microsoft-copilot" ? "mc" : "std")).join("+");
+      const flags = [`L${feature.level}`, `${feature.minutes}m`, harness, feature.availability || "", feature.core ? "core" : ""].filter(Boolean).join(" ");
+      console.log(`    ${feature.id.padEnd(26)} ${String(flags).padEnd(24)} ${feature.name}`);
     }
   }
   console.log("");
