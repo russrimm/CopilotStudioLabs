@@ -156,8 +156,22 @@ instead.
 
 ## Quick start (portal)
 
+The portal groups its ten panels into four areas, and **Build** is where it opens:
+
+| Area | Tabs | Use it to |
+|---|---|---|
+| **Build** | Build a Lab, Industry scenarios | Create a lab, or browse industry scenarios and recommended labs. |
+| **Preview and validate** | Preview, Validation | Read a lab as learners see it, and check it against Microsoft Learn. |
+| **Deploy and share** | Lab setup, Azure resources, Power Platform, Email labs | Set up the lab environment and send labs to learners. |
+| **Settings** | Configuration | Branding, identity, email, and deployment targets. |
+
+The **🤖 Assistant** button in the header opens the lab assistant (formerly the
+Agent Chat tab) from anywhere. Nothing was removed: each panel keeps its id, so a
+link such as `/#provision` or `/#azure` still opens the right panel, and the
+arrow, Home, and End keys move among the tabs of the current area.
+
 1. Start the portal: `cd portal && npm install && npm start`.
-2. Open the **🧬 Build a Lab** tab.
+2. Open the portal; it lands on **🧬 Build a Lab**.
 3. Answer one question per step, in this order:
    1. **Vertical** (industry). Cross-industry is the default.
    2. **Departments** (any number, optional).

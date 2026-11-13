@@ -232,11 +232,28 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ── Tabs ──────────────────────────────────────────────────────────────────
+// Ten panels, one mental model: four areas (Build, Preview and validate, Deploy
+// and share, Settings), each showing only its own tabs. The assistant is reached
+// from the header. Every panel keeps its id, so older links still work.
+const TAB_GROUPS = {
+  build: { label: "Build", hint: "Create a lab step by step, or browse industry scenarios." },
+  check: { label: "Preview and validate", hint: "Read a lab the way learners see it, and check it against Microsoft Learn." },
+  deploy: { label: "Deploy and share", hint: "Set up the lab environment, then send labs to the people taking them." },
+  settings: { label: "Settings", hint: "Branding, identity, email, and deployment targets." },
+  assistant: { label: "Assistant", hint: "Ask the lab assistant a question." },
+};
+const DEFAULT_TAB = "labbuilder";
+
+function visibleTabs() {
+  return [...document.querySelectorAll(".tab")].filter((tab) => !tab.hidden);
+}
+
 function setupTabs() {
-  const tabs = [...document.querySelectorAll(".tab")];
-  tabs.forEach((tab, index) => {
+  document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => setActiveTab(tab.dataset.tab));
     tab.addEventListener("keydown", (event) => {
+      const tabs = visibleTabs();
+      const index = tabs.indexOf(tab);
       let nextIndex = null;
       if (event.key === "ArrowRight" || event.key === "ArrowDown") nextIndex = (index + 1) % tabs.length;
       if (event.key === "ArrowLeft" || event.key === "ArrowUp") nextIndex = (index - 1 + tabs.length) % tabs.length;
@@ -249,9 +266,48 @@ function setupTabs() {
       nextTab.focus();
     });
   });
+
+  document.querySelectorAll(".tab-group").forEach((button) => {
+    button.addEventListener("click", () => {
+      const group = button.dataset.group;
+      setActiveTab(lastTabByGroup[group] || button.dataset.firstTab);
+    });
+  });
+
+  window.addEventListener("hashchange", () => {
+    const requested = window.location.hash.slice(1);
+    if (document.getElementById(`panel-${requested}`)) setActiveTab(requested, { updateHash: false });
+  });
+
+  const fromHash = window.location.hash.slice(1);
+  setActiveTab(document.getElementById(`panel-${fromHash}`) ? fromHash : DEFAULT_TAB, { updateHash: false });
 }
 
-function setActiveTab(tabName) {
+const lastTabByGroup = {};
+
+function showTabGroup(group, activeTabName) {
+  const info = TAB_GROUPS[group];
+  document.querySelectorAll(".tab").forEach((tab) => {
+    tab.hidden = tab.dataset.group !== group;
+  });
+  document.querySelectorAll(".tab-group").forEach((button) => {
+    if (button.dataset.group === group) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+  const list = document.querySelector(".tabs");
+  if (list && info) list.setAttribute("aria-label", info.label);
+  const hint = document.getElementById("tab-group-hint");
+  if (hint && info) hint.textContent = info.hint;
+  lastTabByGroup[group] = activeTabName;
+}
+
+function setActiveTab(tabName, { updateHash = true } = {}) {
+  const target = document.querySelector(`.tab[data-tab="${tabName}"]`);
+  if (!target) return;
+  showTabGroup(target.dataset.group, tabName);
+  if (updateHash && window.location.hash !== `#${tabName}`) {
+    window.history.replaceState(null, "", `#${tabName}`);
+  }
   document.querySelectorAll(".tab").forEach((tab) => {
     const active = tab.dataset.tab === tabName;
     tab.classList.toggle("active", active);

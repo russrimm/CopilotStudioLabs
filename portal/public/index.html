@@ -329,6 +329,26 @@
     .tab:hover { color: var(--text); }
     .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
     .tab.active::after { transform: scaleX(1); opacity: 1; }
+    .tab[hidden] { display: none; }
+
+    /* ── Primary navigation: four areas, each with its own tabs ── */
+    .tab-groups { background: var(--surface); padding: 10px 20px 0; }
+    .tab-groups ul { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+    .tab-group {
+      padding: 8px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tab-group:hover { border-color: var(--accent); }
+    .tab-group[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+    .tab-group:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
+    .tab-group-hint { background: var(--surface); margin: 0; padding: 8px 20px 0; font-size: 13px; color: var(--text-muted); min-height: 24px; }
 
     .tab-content {
       flex: 1;
@@ -1616,6 +1636,7 @@
       </div>
       <div class="header-actions">
         <span id="lab-count" class="tag tag-success">0 labs</span>
+        <button class="btn btn-sm" onclick="setActiveTab('agent')" title="Ask the lab assistant">🤖 Assistant</button>
         <button class="btn btn-sm" onclick="reportIssue()" title="Report an issue with the labs">🐛 Report Issue</button>
         <button class="btn btn-sm" onclick="refreshLabs()">↻ Refresh</button>
       </div>
@@ -1641,22 +1662,31 @@
 
       <!-- Content area -->
       <main class="content" id="portal-main" tabindex="-1">
-        <div class="tabs" role="tablist" aria-label="Portal sections">
-          <button class="tab active" id="tab-provision" role="tab" aria-selected="true" aria-controls="panel-provision" data-tab="provision">🚀 Provision</button>
-          <button class="tab" id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1" data-tab="scenarios">🏢 Industry Scenarios</button>
-          <button class="tab" id="tab-labbuilder" role="tab" aria-selected="false" aria-controls="panel-labbuilder" tabindex="-1" data-tab="labbuilder">🧬 Build a Lab</button>
-          <button class="tab" id="tab-preview" role="tab" aria-selected="false" aria-controls="panel-preview" tabindex="-1" data-tab="preview">👁️ Preview</button>
-          <button class="tab" id="tab-azure" role="tab" aria-selected="false" aria-controls="panel-azure" tabindex="-1" data-tab="azure">☁️ Azure Resources</button>
-          <button class="tab" id="tab-powerplatform" role="tab" aria-selected="false" aria-controls="panel-powerplatform" tabindex="-1" data-tab="powerplatform">⚡ Power Platform</button>
-          <button class="tab" id="tab-validate" role="tab" aria-selected="false" aria-controls="panel-validate" tabindex="-1" data-tab="validate">🧪 Validation</button>
-          <button class="tab" id="tab-email" role="tab" aria-selected="false" aria-controls="panel-email" tabindex="-1" data-tab="email">📧 Email</button>
-          <button class="tab" id="tab-agent" role="tab" aria-selected="false" aria-controls="panel-agent" tabindex="-1" data-tab="agent">🤖 Agent Chat</button>
-          <button class="tab" id="tab-config" role="tab" aria-selected="false" aria-controls="panel-config" tabindex="-1" data-tab="config">⚙️ Configuration</button>
+        <nav class="tab-groups" aria-label="Portal areas">
+          <ul>
+            <li><button type="button" class="tab-group" data-group="build" data-first-tab="labbuilder">🧬 Build</button></li>
+            <li><button type="button" class="tab-group" data-group="check" data-first-tab="preview">👁️ Preview and validate</button></li>
+            <li><button type="button" class="tab-group" data-group="deploy" data-first-tab="provision">🚀 Deploy and share</button></li>
+            <li><button type="button" class="tab-group" data-group="settings" data-first-tab="config">⚙️ Settings</button></li>
+          </ul>
+        </nav>
+        <p id="tab-group-hint" class="tab-group-hint"></p>
+        <div class="tabs" role="tablist" aria-label="Build">
+          <button class="tab active" id="tab-labbuilder" role="tab" aria-selected="true" aria-controls="panel-labbuilder" data-tab="labbuilder" data-group="build">🧬 Build a Lab</button>
+          <button class="tab" id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1" data-tab="scenarios" data-group="build">🏢 Industry scenarios</button>
+          <button class="tab" id="tab-preview" role="tab" aria-selected="false" aria-controls="panel-preview" tabindex="-1" data-tab="preview" data-group="check" hidden>👁️ Preview</button>
+          <button class="tab" id="tab-validate" role="tab" aria-selected="false" aria-controls="panel-validate" tabindex="-1" data-tab="validate" data-group="check" hidden>🧪 Validation</button>
+          <button class="tab" id="tab-provision" role="tab" aria-selected="false" aria-controls="panel-provision" tabindex="-1" data-tab="provision" data-group="deploy" hidden>🚀 Lab setup</button>
+          <button class="tab" id="tab-azure" role="tab" aria-selected="false" aria-controls="panel-azure" tabindex="-1" data-tab="azure" data-group="deploy" hidden>☁️ Azure resources</button>
+          <button class="tab" id="tab-powerplatform" role="tab" aria-selected="false" aria-controls="panel-powerplatform" tabindex="-1" data-tab="powerplatform" data-group="deploy" hidden>⚡ Power Platform</button>
+          <button class="tab" id="tab-email" role="tab" aria-selected="false" aria-controls="panel-email" tabindex="-1" data-tab="email" data-group="deploy" hidden>📧 Email labs</button>
+          <button class="tab" id="tab-agent" role="tab" aria-selected="false" aria-controls="panel-agent" tabindex="-1" data-tab="agent" data-group="assistant" hidden>🤖 Assistant</button>
+          <button class="tab" id="tab-config" role="tab" aria-selected="false" aria-controls="panel-config" tabindex="-1" data-tab="config" data-group="settings" hidden>⚙️ Configuration</button>
         </div>
 
         <div class="tab-content">
-          <!-- Provision tab -->
-          <div class="tab-panel active" id="panel-provision" role="tabpanel" aria-labelledby="tab-provision" aria-hidden="false">
+          <!-- Lab setup tab (formerly Provision) -->
+          <div class="tab-panel" id="panel-provision" role="tabpanel" aria-labelledby="tab-provision" aria-hidden="true">
             <div class="panel">
               <h3>🗺️ Lab Dependency &amp; Sequence Map</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
@@ -1871,7 +1901,7 @@
           </div>
 
           <!-- Lab Builder tab -->
-          <div class="tab-panel" id="panel-labbuilder" role="tabpanel" aria-labelledby="tab-labbuilder" aria-hidden="true">
+          <div class="tab-panel active" id="panel-labbuilder" role="tabpanel" aria-labelledby="tab-labbuilder" aria-hidden="false">
             <div class="panel">
               <h3>🧬 Build a Custom Lab</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
