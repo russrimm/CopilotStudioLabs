@@ -76,7 +76,6 @@ const PROSE_PRODUCT_TERMS = [
   "model picker",
   "model dropdown",
   "model selection",
-  "natural language",
   "content moderation",
   "knowledge-source",
   "knowledge source",
@@ -90,8 +89,9 @@ const PROSE_PRODUCT_TERMS = [
   "premium connectors",
   "on-premises data gateway",
   "gateway cluster",
-  "ServiceNow",
-  "Snowflake",
+  "ServiceNow connector",
+  "Snowflake (v2)",
+  "Snowflake connector",
   "Bing Custom Search",
   "Fabric Data Agent",
   "Work IQ MCP",
@@ -121,31 +121,30 @@ const PROSE_PRODUCT_TERMS = [
   "turn-taking",
   "DTMF input",
   "hold and resume",
-  "telephony",
   "agent evaluations",
   "evaluation run",
   "test set",
   "test chat",
   "test mode",
-  "multi-turn",
+  "multi-turn conversation",
+  "multi-turn testing",
   "agent analytics",
   "custom analytics",
   "custom metric",
   "conversation transcript",
   "Copilot Credits",
   "usage estimator",
-  "least-privilege",
-  "least privilege",
   "access review",
-  "authentication",
+  "single sign-on",
+  "end-user authentication",
   "data loss prevention",
 ];
 
 const PROSE_PRODUCT_RE = new RegExp(
-  `\\b(${[...PROSE_PRODUCT_TERMS]
+  `(?<!\\w)(${[...PROSE_PRODUCT_TERMS]
     .sort((a, b) => b.length - a.length)
     .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"))
-    .join("|")})\\b`,
+    .join("|")})(?!\\w)`,
   "gi",
 );
 const PROSE_CODE_RE =
@@ -176,7 +175,18 @@ const TITLE_AVAILABILITY_RE = /\b(?:[Pp]review|generally available|GA)\b/;
 const PRIORITY = Object.fromEntries(CLAIM_KINDS.map((kind, i) => [kind, i]));
 
 function cleanTerm(text) {
-  return stripMarkdown(text).replace(/^[\s"'“”‘’:.,;()-]+|[\s"'“”‘’:.,;()-]+$/g, "").replace(/\s+/g, " ").trim();
+  let cleaned = stripMarkdown(text)
+    .replace(/^[\s"'“”‘’:.,;-]+|[\s"'“”‘’:.,;-]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  while (cleaned.startsWith("(") && cleaned.endsWith(")")) {
+    const inner = cleaned.slice(1, -1).trim();
+    if (!inner || (inner.includes(")") && !inner.includes("("))) break;
+    cleaned = inner;
+  }
+  cleaned = cleaned.replace(/^\(+/, "");
+  if (!cleaned.includes("(")) cleaned = cleaned.replace(/\)+$/, "");
+  return cleaned.trim();
 }
 
 function isUsableTerm(term, ignore) {
@@ -406,16 +416,16 @@ export function extractClaims(step, { ignoreTerms = [], maxClaims = 12 } = {}) {
     }
   }
 
-  // De-duplicate by kind and normalized term, keep the first occurrence, then cap by priority.
-  // The same wording under two kinds keeps the stronger kind.
+  // De-duplicate per step by kind + normalized subject as well as cross-kind normalized term,
+  // keeping the first/highest-priority occurrence, then cap by priority.
   const byPriority = found
     .map((claim, order) => ({ claim, order }))
     .sort((a, b) => PRIORITY[a.claim.kind] - PRIORITY[b.claim.kind] || a.order - b.order);
   const seen = new Set();
   const ranked = byPriority.filter(({ claim }) => {
-    const key = claim.kind === "availability" || claim.kind === "limit" ? `${claim.kind}:${normalizeText(claim.term)}` : normalizeText(claim.term);
-    if (seen.has(key)) return false;
-    seen.add(key);
+    const keys = claimDedupKeys(claim);
+    if (keys.some((k) => seen.has(k))) return false;
+    for (const k of keys) seen.add(k);
     return true;
   });
   const kept = ranked.slice(0, maxClaims).map((r) => r.claim);
@@ -424,7 +434,39 @@ export function extractClaims(step, { ignoreTerms = [], maxClaims = 12 } = {}) {
   return { claims, skipped, truncated: Math.max(0, ranked.length - kept.length) };
 }
 
+function claimDedupKeys(claim) {
+  const normTerm = normalizeText(claim.term);
+  if (claim.kind === "availability") {
+    return [`availability:${normTerm}`];
+  }
+  if (claim.kind === "limit") {
+    const subj = [...new Set((claim.subject || []).map(normalizeText).filter(Boolean))].sort().join("+");
+    return subj ? [`limit:${normTerm}:${subj}`, `limit:${normTerm}`] : [`limit:${normTerm}`];
+  }
+  if (claim.kind === "nav-path") {
+    const segs = (claim.segments || [claim.term]).map(normalizeText).join(" > ");
+    return [`nav-path:${segs}`, normTerm];
+  }
+  if (claim.kind === "setting") {
+    const pair = (claim.terms || [claim.term]).map(normalizeText).join(" = ");
+    return [`setting:${pair}`, normTerm];
+  }
+  if (claim.kind === "requirement") {
+    const req = (claim.terms || [claim.term]).map(normalizeText).join("|");
+    return [`requirement:${req}`, `requirement:${normTerm}`, normTerm];
+  }
+  return [`${claim.kind}:${normTerm}`, normTerm];
+}
+
 function extractProseItemClaims(items, ignore, out) {
+  const seenProse = new Set();
+  const pushUnique = (candidate) => {
+    const key = `${candidate.kind}:${normalizeText(candidate.term)}`;
+    if (!key || seenProse.has(key)) return;
+    seenProse.add(key);
+    out.push(candidate);
+  };
+
   for (const item of items) {
     if (!item?.text || item.kind === "title") continue;
     const text = item.text;
@@ -438,14 +480,14 @@ function extractProseItemClaims(items, ignore, out) {
       if (GENERIC_LINK_LABEL_RE.test(label) || !isUsableTerm(label, ignore)) continue;
       const before = text.slice(Math.max(0, m.index - 60), m.index);
       if (NAMING_BEFORE_RE.test(before)) continue;
-      out.push({ kind: "term", term: label, confidence: "low", context, line });
+      pushUnique({ kind: "term", term: label, confidence: "low", context, line });
     }
 
     PROSE_CODE_RE.lastIndex = 0;
     while ((m = PROSE_CODE_RE.exec(text)) !== null) {
       const token = m[1].trim();
       if (!isUsableTerm(token, ignore)) continue;
-      out.push({ kind: "term", term: token, confidence: "low", context, line });
+      pushUnique({ kind: "term", term: token, confidence: "low", context, line });
     }
 
     const plain = stripMarkdown(text);
@@ -459,7 +501,7 @@ function extractProseItemClaims(items, ignore, out) {
       if (!isUsableTerm(phrase, ignore)) continue;
       const before = plain.slice(Math.max(0, m.index - 30), m.index);
       if (/\b(?:named|called|titled)\s*[:"“']?\s*$/i.test(before)) continue;
-      out.push({ kind: "term", term: phrase, confidence: "low", context, line });
+      pushUnique({ kind: "term", term: phrase, confidence: "low", context, line });
     }
   }
 }

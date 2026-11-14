@@ -163,6 +163,7 @@ export async function validateLabSteps(lab, { learn, onProgress, signal, ignoreT
     const { step, preset } = units[i];
     const extracted = preset || extractClaims(step, { ignoreTerms, maxClaims: cfg.maxClaimsPerStep });
     const claims = extracted.claims;
+    const stepText = [step.title, ...(step.items || []).map((item) => item.text)].filter(Boolean).join("\n");
     emit({ type: "step-start", stepId: step.id, stepIndex: i + 1, stepTotal: units.length, stepTitle: step.title, message: `Checking ${claims.length} claim(s)` });
 
     const docs = [...citedDocs];
@@ -176,7 +177,7 @@ export async function validateLabSteps(lab, { learn, onProgress, signal, ignoreT
     const evaluatePending = () => {
       const stillPending = [];
       for (const claim of pending) {
-        const verdict = evaluateClaim(claim, docs);
+        const verdict = evaluateClaim(claim, docs, { claim, stepText, labText: lab.markdown || "" });
         verdicts.set(claim.id, verdict);
         if (!isResolved(verdict)) stillPending.push(claim);
       }

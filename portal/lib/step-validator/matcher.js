@@ -41,6 +41,61 @@ const COMMON_SINGLE_WORDS = new Set(
   "save create test add next back ok cancel done close delete edit new open publish settings agent agents tools tool topics topic".split(" "),
 );
 
+// Standalone generic category nouns cannot be deprecated as a whole feature; only specific
+// named modes or features (such as "Basic authentication" or "Classic chatbots") can be deprecated.
+const GENERIC_DEPRECATION_NOUNS = new Set(
+  [
+    "authentication",
+    "authorization",
+    "connection",
+    "connections",
+    "connector",
+    "connectors",
+    "channel",
+    "channels",
+    "security",
+    "governance",
+    "integration",
+    "integrations",
+    "configuration",
+    "settings",
+    "setting",
+    "environment",
+    "environments",
+    "analytics",
+    "evaluation",
+    "evaluations",
+    "knowledge",
+    "telephony",
+    "identity",
+    "identities",
+    "permissions",
+    "permission",
+    "variables",
+    "variable",
+    "messages",
+    "message",
+    "triggers",
+    "trigger",
+    "actions",
+    "action",
+    "webhooks",
+    "webhook",
+    "plugins",
+    "plugin",
+    "topics",
+    "topic",
+    "models",
+    "model",
+    "default",
+  ],
+);
+
+// Subtype qualifiers immediately before a term in Learn ("Basic authentication is deprecated")
+// narrow the deprecation to that specific mode rather than the broader term.
+const SUBTYPE_PREFIX_RE =
+  /(?:^| )(?:basic|password|passwords|username|anonymous|unauthenticated|default|implicit|standalone|custom|manual|direct) $/;
+
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const LIMIT_CUE_RE = /\b(?:limit|limits|maximum|max|up to|at most|no more than|minimum|quota|per|retention|timeout|capped|cap|allowed)\b/;
 
@@ -97,17 +152,62 @@ function termsOf(claim) {
   return [claim.term];
 }
 
+function docsHaveV2Connector(baseVendor, doc, docs) {
+  const slug = escapeRe(baseVendor).replace(/\s+/g, "[-_]?");
+  const v2UrlRe = new RegExp(`/connectors/${slug}v2(?:[/?#]|$)`, "i");
+  if (v2UrlRe.test(doc?.url || "") || docs.some((d) => v2UrlRe.test(d.url || ""))) return true;
+  const v2TextRe = new RegExp(
+    `\\b${escapeRe(baseVendor)}(?:\\s*\\(\\s*v2\\s*\\)(?!\\w)|\\s+v2\\b)|\\bmigrate from an older ${escapeRe(baseVendor)} connector\\b`,
+    "i",
+  );
+  return docs.some((d) => d.units.some((u) => v2TextRe.test(u.raw)));
+}
+
+function labUsesV2Connector(baseVendor, context) {
+  const claimTerm = String(context?.claim?.term || "");
+  if (/\(\s*v1\s*\)|\bv1\b|\blegacy\b|\bdeprecated\b/i.test(claimTerm)) return false;
+  const proseSources = [context?.stepText || "", context?.labText || "", claimTerm, context?.claim?.context || ""]
+    .join("\n")
+    .replace(/https?:\/\/[^\s)>\]"']+/gi, " ")
+    .replace(/[*_`~]+/g, "");
+  const v2DisplayRe = new RegExp(`\\b${escapeRe(baseVendor)}(?:\\s*\\(\\s*v2\\s*\\)(?!\\w)|\\s+v2\\b)`, "i");
+  return v2DisplayRe.test(proseSources);
+}
+
+function isConnectorClaimContext(baseVendor, context) {
+  const claim = context?.claim;
+  if (!claim) return false;
+  const ctx = String(claim.context || "");
+  const vendorConnectorRe = new RegExp(
+    `\\b${escapeRe(baseVendor)}(?:\\s+\\w+)?\\s+connectors?\\b|\\bconnectors?\\s+(?:for|to)\\s+${escapeRe(baseVendor)}\\b`,
+    "i",
+  );
+  if (vendorConnectorRe.test(ctx)) return true;
+  return claim.kind === "ui-label" && /\b(?:add a tool|add tool|choose a connector|select a connector)\b/i.test(ctx);
+}
+
 /** Staleness rules that apply to any named item (renamed / deprecated). */
-function findNameStale(term, docs) {
-  const t = escapeRe(normalizeText(term));
+function findNameStale(term, docs, context = {}) {
+  const normTerm = normalizeText(term);
+  const t = escapeRe(normTerm);
   if (!t || t.length < 6) return null;
+  if (GENERIC_DEPRECATION_NOUNS.has(normTerm)) return null;
+
   const renamedPatterns = [
-    new RegExp(`(?:^| )${t}(?:s)? (?:has been |was |is now |was recently |were )?(?:renamed|replaced by|replaced with|rebranded)\\b`),
-    new RegExp(`(?:^| )${t}(?:s)? (?:is|are) now (?:called|known as|named)\\b`),
-    new RegExp(`\\b(?:formerly|previously|originally)(?: (?:called|known as|named))? (?:the )?${t}(?:s)?(?: |$)`),
-    new RegExp(`\\brenamed from (?:the )?${t}(?:s)?(?: |$)`),
+    new RegExp(`(?:^| )(${t}(?:s)?) (?:has been |was |is now |was recently |were )?(?:renamed|replaced by|replaced with|rebranded)\\b`),
+    new RegExp(`(?:^| )(${t}(?:s)?) (?:is|are) now (?:called|known as|named)\\b`),
+    new RegExp(`\\b(?:formerly|previously|originally)(?: (?:called|known as|named))? (?:the )?(${t}(?:s)?)(?: |$)`),
+    new RegExp(`\\brenamed from (?:the )?(${t}(?:s)?)(?: |$)`),
   ];
-  const renamed = findSentence(docs, (s) => renamedPatterns.some((re) => re.test(s.norm)));
+  const renamed = findSentence(docs, (s) =>
+    renamedPatterns.some((re) => {
+      const m = re.exec(s.norm);
+      if (!m) return false;
+      const start = s.norm.indexOf(m[1], m.index);
+      if (start > 0 && SUBTYPE_PREFIX_RE.test(s.norm.slice(0, start))) return false;
+      return true;
+    }),
+  );
   if (renamed) {
     return {
       rule: "renamed",
@@ -117,11 +217,32 @@ function findNameStale(term, docs) {
     };
   }
   const deprecatedRe = new RegExp(
-    `(?:^| )${t}(?:s)?(?: [a-z0-9]+){0,2} (?:(?:is|are|was|were|has been|have been|will be|is being|is now|are now) )?(?:deprecated|retired|removed|no longer (?:available|supported|offered))\\b`,
+    `(?:^| )(${t}(?:s)?((?: [a-z0-9]+){0,2})) (?:(?:is|are|was|were|has been|have been|will be|is being|is now|are now) )?(?:deprecated|retired|removed|no longer (?:available|supported|offered))\\b`,
   );
-  const deprecated = findSentence(docs, (s) => {
+  const deprecated = findSentence(docs, (s, _unit, doc) => {
     if (/\bnot (?:been )?(?:deprecated|retired)\b/.test(s.norm)) return false;
-    return deprecatedRe.test(s.norm);
+    const m = deprecatedRe.exec(s.norm);
+    if (!m) return false;
+    const start = m.index + (s.norm[m.index] === " " ? 1 : 0);
+    if (start > 0 && SUBTYPE_PREFIX_RE.test(s.norm.slice(0, start))) return false;
+
+    const trailing = (m[2] || "").trim();
+    const termIsConnector = /\bconnectors?$/.test(normTerm);
+    const trailingIsConnector = /^(?:connectors?|connections?)\b/.test(trailing);
+    if (termIsConnector || trailingIsConnector) {
+      const baseVendor = termIsConnector ? normTerm.replace(/\s+connectors?$/, "") : normTerm;
+      // If Learn deprecates "<Vendor> connector" (not the external platform itself), platform-only
+      // mentions (for example SQL worksheets or trial setup in Snowflake) are not connector claims.
+      if (!termIsConnector && trailingIsConnector && !isConnectorClaimContext(baseVendor, context)) {
+        return false;
+      }
+      // If Learn documents a v2 replacement connector and the lab/section already uses "(v2)",
+      // prose or shorthand references to the vendor/connector are not referencing the legacy v1 connector.
+      if (docsHaveV2Connector(baseVendor, doc, docs) && labUsesV2Connector(baseVendor, context)) {
+        return false;
+      }
+    }
+    return true;
   });
   if (deprecated) {
     return {
@@ -394,6 +515,24 @@ function evaluatePhrase(claim, docs) {
       evidence: [cite(hit.doc, hit.unit.raw)],
     };
   }
+  // Versioned connector names such as "Snowflake (v2)" are often documented on a /connectors/<name>v2/
+  // reference page whose heading is simply "# <Name>".
+  const versionedMatch = String(claim.term || "").trim().match(/^(.+?)\s*\(\s*v(\d+)\s*\)$/i);
+  if (versionedMatch) {
+    const baseNorm = normalizeText(versionedMatch[1]);
+    const ver = versionedMatch[2];
+    const slug = escapeRe(baseNorm).replace(/\s+/g, "[-_]?");
+    const urlRe = new RegExp(`/connectors/${slug}v${ver}(?:[/?#]|$)`, "i");
+    const versionedHit = findUnit(docs, (unit, doc) => urlRe.test(doc.url || "") && containsPhrase(unit.norm, baseNorm));
+    if (versionedHit) {
+      return {
+        status: "verified",
+        rule: "exact-phrase",
+        explanation: `"${claim.term}" matches the versioned connector reference page on Learn.`,
+        evidence: [cite(versionedHit.doc, versionedHit.unit.raw)],
+      };
+    }
+  }
   return null;
 }
 
@@ -402,9 +541,11 @@ function evaluatePhrase(claim, docs) {
  *
  * @param {object} claim a claim from claims.js
  * @param {Array} docs documents from buildEvidence(), most authoritative first
+ * @param {{claim?:object, stepText?:string, labText?:string}} [context]
  * @returns {{status:"verified"|"unverified"|"stale", rule:string, explanation:string, evidence:Array<{url,title,excerpt}>}}
  */
-export function evaluateClaim(claim, docs) {
+export function evaluateClaim(claim, docs, context = {}) {
+  const matchContext = { ...context, claim };
   // Contradicting text wins over supporting text: if Learn says the name changed, the lab is stale
   // even when the old name still appears elsewhere.
   if (claim.kind === "availability") {
@@ -416,7 +557,7 @@ export function evaluateClaim(claim, docs) {
   } else {
     const terms = claim.kind === "nav-path" ? [claim.segments.at(-1)] : termsOf(claim).slice(0, 2);
     for (const term of terms) {
-      const stale = findNameStale(term, docs);
+      const stale = findNameStale(term, docs, matchContext);
       if (stale) {
         return {
           status: "stale",

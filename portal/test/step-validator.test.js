@@ -260,14 +260,34 @@ test("prose fallback extracts product terms, named links, and SDK/system identif
   const prose = claimsFor([
     "Open the [Microsoft agent usage estimator](https://microsoft.github.io/copilot-studio-estimator/) and apply Copilot Credits assumptions.",
     "Add a prompt-node to your agent flow and verify `User.DisplayName` in test mode.",
+    "Repeat Copilot Credits and agent flow in a second sentence to verify per-step deduplication.",
   ]);
   const terms = prose.claims.map((c) => c.term);
   assert.ok(terms.includes("Microsoft agent usage estimator"));
-  assert.ok(terms.includes("Copilot Credits"));
+  assert.equal(terms.filter((t) => t === "Copilot Credits").length, 1);
   assert.ok(terms.includes("prompt node"));
-  assert.ok(terms.includes("agent flow"));
+  assert.equal(terms.filter((t) => t === "agent flow").length, 1);
   assert.ok(terms.includes("User.DisplayName"));
   assert.ok(prose.claims.every((c) => c.confidence === "low" && c.kind === "term"));
+});
+
+test("prose fallback skips standalone generic nouns like 'authentication' and preserves balanced parentheses like 'Snowflake (v2)'", () => {
+  const genericAuth = claimsFor(
+    [
+      "Register an approved custom app and choose the authentication pattern required by your organization.",
+      "Decide whether each support user authenticates individually or uses a shared connection.",
+    ],
+    { title: "Configure authentication" },
+  );
+  assert.ok(!genericAuth.claims.some((c) => /^authentication$/i.test(c.term)));
+
+  const boldV2 = claimsFor(["In **Tools**, choose **Add a tool** and find the **Snowflake (v2)** connector."]);
+  assert.ok(boldV2.claims.some((c) => c.kind === "ui-label" && c.term === "Snowflake (v2)"));
+
+  const proseV2 = claimsFor(["Configure Snowflake (v2) with single sign-on for warehouse queries."]);
+  const proseTerms = proseV2.claims.map((c) => c.term);
+  assert.ok(proseTerms.includes("Snowflake (v2)"));
+  assert.ok(proseTerms.includes("single sign-on"));
 });
 
 // ── Matcher ─────────────────────────────────────────────────────────────────
@@ -318,6 +338,78 @@ test("renamed and deprecated text makes a claim stale, even when the old name ap
   const sameSentence = evaluateClaim({ kind: "ui-label", term: "Snowflake" }, evidence("The Snowflake connector supports OAuth, but the legacy sign-in method is deprecated."));
   assert.notEqual(sameSentence.status, "stale");
   assert.notEqual(evaluateClaim({ kind: "ui-label", term: "Topics" }, evidence("Topics help users; the old trigger is retired.")).status, "stale");
+});
+
+test("generic 'authentication' is never deprecated by 'Basic authentication is deprecated', while 'Basic authentication' is", () => {
+  const jiraDocs = evidence(
+    "- Basic authentication with passwords is deprecated.\n- Use an API token for authentication.",
+    `${LEARN}/en-us/connectors/jira/`,
+  );
+  const genericTerm = evaluateClaim({ kind: "term", term: "authentication", context: "Configure authentication." }, jiraDocs);
+  assert.notEqual(genericTerm.status, "stale");
+  const genericUi = evaluateClaim({ kind: "ui-label", term: "Authentication", context: "Select **Authentication**." }, jiraDocs);
+  assert.notEqual(genericUi.status, "stale");
+  const specificBasic = evaluateClaim(
+    { kind: "term", term: "Basic authentication", context: "Configure Basic authentication with your Jira password." },
+    jiraDocs,
+  );
+  assert.equal(specificBasic.status, "stale");
+  assert.equal(specificBasic.rule, "deprecated");
+});
+
+test("distinguishes legacy v1 Snowflake connector selection from Snowflake platform mentions and Snowflake (v2) labs", () => {
+  const snowflakeV2Docs = evidence(
+    [
+      "# Snowflake",
+      "This article describes the capabilities and actions of the Snowflake connector.",
+      "### Customers using Snowflake Connector [DEPRECATED]",
+      "To migrate from an older Snowflake connector to the new one, follow the steps below.",
+    ].join("\n\n"),
+    `${LEARN}/en-us/connectors/snowflakev2/`,
+  );
+
+  // 1. Platform / SQL console mention of Snowflake is never flagged as a deprecated connector, even without Snowflake (v2) in the lab.
+  const sqlPlatformMention = evaluateClaim(
+    {
+      kind: "term",
+      term: "Snowflake",
+      context: "Create the external OAuth security integration in Snowflake and run DESCRIBE INTEGRATION.",
+    },
+    snowflakeV2Docs,
+    { labText: "# Lab 23: Snowflake\nhttps://global.consent.azure-apim.net/redirect/snowflakev2" },
+  );
+  assert.equal(sqlPlatformMention.status, "verified");
+
+  // 2. Selecting the unversioned **Snowflake** connector when "Snowflake (v2)" is absent from the lab IS flagged stale
+  //    (and a raw /redirect/snowflakev2 URL does not mask the missing "(v2)" connector display name).
+  const legacyConnectorUi = evaluateClaim(
+    {
+      kind: "ui-label",
+      term: "Snowflake",
+      context: "1. In Tools, choose Add a tool and find the Snowflake connector.",
+    },
+    snowflakeV2Docs,
+    { labText: "# Lab 23: Snowflake\nhttps://global.consent.azure-apim.net/redirect/snowflakev2\nIn **Tools**, choose **Add a tool** and find the **Snowflake** connector." },
+  );
+  assert.equal(legacyConnectorUi.status, "stale");
+  assert.equal(legacyConnectorUi.rule, "deprecated");
+
+  // 3. Once the lab uses "Snowflake (v2)", both **Snowflake (v2)** and prose "Snowflake" / "Snowflake connector" verify cleanly.
+  const updatedLabText =
+    "# Lab 23: Snowflake Data Integration\nIn **Tools**, choose **Add a tool** and find the **Snowflake (v2)** connector.\nNote that the Snowflake connector is not available in GCC.";
+  const v2Ui = evaluateClaim(
+    { kind: "ui-label", term: "Snowflake (v2)", context: "In Tools, choose Add a tool and find the Snowflake (v2) connector." },
+    snowflakeV2Docs,
+    { labText: updatedLabText },
+  );
+  assert.equal(v2Ui.status, "verified");
+
+  const proseConnectorInV2Lab = evaluateClaim(
+    { kind: "term", term: "Snowflake connector", context: "Note that the Snowflake connector is not available in GCC." },
+    snowflakeV2Docs,
+    { labText: updatedLabText },
+  );
+  assert.equal(proseConnectorInV2Lab.status, "verified");
 });
 
 test("availability: matching stage verifies, a different stage is stale, mixed is left to a person", () => {
