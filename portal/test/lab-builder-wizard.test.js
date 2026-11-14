@@ -47,6 +47,22 @@ test("a running total, reset affordances, and the time-as-guidance message are a
   assert.doesNotMatch(wizard + app, /timeBudget/);
 });
 
+test("Your lab so far stays sticky at the top of the wizard stage, Previously generated labs starts collapsed, and Step 8 has an accessible generation progress card", () => {
+  assert.match(builderPanel, /id="lb-wizard-stage"[\s\S]*?id="lb-wizard-sticky"[\s\S]*?id="lb-summary"/);
+  assert.match(html, /\.lb-wizard-sticky\s*\{[^}]*position:\s*sticky;/);
+
+  const detailsTag = builderPanel.match(/<details\b[^>]*id="lb-generated-details"[^>]*>/)?.[0];
+  assert.ok(detailsTag, "Previously generated labs is wrapped in <details id=\"lb-generated-details\">");
+  assert.doesNotMatch(detailsTag, /\bopen\b/, "Previously generated labs must always start collapsed");
+  assert.match(builderPanel, /id="lb-gen-badge"/);
+
+  assert.match(builderPanel, /<div id="lb-generating-card" class="lb-generating-card" hidden>/);
+  assert.match(builderPanel, /id="lb-generating-stages"/);
+  assert.match(builderPanel, /id="lb-generating-elapsed"/);
+  assert.match(html, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(html, /@media print[\s\S]*?\.preview-frame \.lab-page\s*\{\s*display:\s*block !important;/);
+});
+
 test("wizard inputs disable browser form autocomplete restoration across soft reloads", () => {
   for (const id of ["lb-topic-search", "lb-topic-filter", "lb-time", "lb-agent-name", "lb-title", "lb-use-learn", "lb-use-llm"]) {
     assert.match(builderPanel, new RegExp(`id="${id}"[^>]*autocomplete="off"`), `${id} should have autocomplete="off"`);

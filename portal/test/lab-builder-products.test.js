@@ -364,6 +364,13 @@ test("selecting SharePoint AI alone selects only SharePoint AI and never auto-in
   assert.equal(run("lbProductsLabel()"), "SharePoint AI");
   assert.equal(run("lbHasHarnessProduct()"), false);
   assert.equal(run.element("lb-start-over").hidden, false, "Start over appears as soon as a product is selected");
+  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> SharePoint AI");
+  assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio|Cross-industry|All departments|Level 100/);
+
+  run("lbNextStep()"); // Step 1 -> Step 2
+  run("lbNextStep()"); // Step 2 -> Step 3 (confirms Cross-industry)
+  run("lbNextStep()"); // Step 3 -> Step 4 (confirms All departments)
+  run("lbNextStep()"); // Step 4 -> Step 6 (confirms Level 100, skips Harness)
   assert.match(run.element("lb-summary").innerHTML, /SharePoint AI · Cross-industry · All departments · Level 100 \(Beginner\)/);
   assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio/);
 });
@@ -450,6 +457,60 @@ test("lbStartNewLab clears carryover state back to a blank Step 1 while lbLoadSe
   })`);
   assert.deepEqual(JSON.parse(run("JSON.stringify([...labBuilder.selectedProducts])")), ["copilot-studio"]);
   assert.equal(run.element("lb-start-over").hidden, false);
+});
+
+test("Your lab so far reveals each wizard option progressively only after its step is chosen or confirmed", async () => {
+  const run = loadWizard();
+  run(`
+    labBuilder.industries = [{ id: "healthcare", name: "Healthcare" }];
+    labBuilder.roles = [{ id: "it", name: "IT" }];
+    labBuilder.harnesses = [{ id: "standard", name: "Standard harness", product: "copilot-studio" }];
+    lbRenderSummary();
+  `);
+
+  // Step 0 state: nothing chosen at all
+  assert.match(run.element("lb-summary").innerHTML, /No products selected yet/);
+  assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio|Cross-industry|All departments|Level 100|Standard harness|topic/);
+
+  // Step 1: choose Copilot Studio -> ONLY product appears
+  run("lbToggleProduct('copilot-studio', true)");
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> Copilot Studio");
+
+  // Advance Step 1 -> Step 2 (Vertical not chosen yet!)
+  run("lbNextStep()");
+  assert.equal(run("labBuilder.step"), 2);
+  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> Copilot Studio");
+
+  // Choose Healthcare in Step 2 -> Vertical now appears, still no Departments/Level/Harness/Topics
+  run("lbSelectIndustry('healthcare')");
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> Copilot Studio · Healthcare");
+
+  // Advance Step 2 -> Step 3 -> Step 4 (confirming All departments via Next)
+  run("lbNextStep()");
+  assert.equal(run("labBuilder.step"), 3);
+  run("lbNextStep()");
+  assert.equal(run("labBuilder.step"), 4);
+  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> Copilot Studio · Healthcare · All departments");
+
+  // Choose Level 200 in Step 4 -> Level appears, still no Harness or Topics
+  run("lbSelectLevel(200)");
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(
+    run.element("lb-summary").innerHTML,
+    "<strong>Your lab so far:</strong> Copilot Studio · Healthcare · All departments · Level 200 (Intermediate)",
+  );
+
+  // Advance Step 4 -> Step 5 -> Step 6 (confirming Standard harness via Next and entering Topics)
+  run("lbNextStep()");
+  assert.equal(run("labBuilder.step"), 5);
+  run("lbNextStep()");
+  assert.equal(run("labBuilder.step"), 6);
+  assert.match(
+    run.element("lb-summary").innerHTML,
+    /^<strong>Your lab so far:<\/strong> Copilot Studio · Healthcare · All departments · Level 200 \(Intermediate\) · Standard harness · /,
+  );
 });
 
 // ── The rename ──────────────────────────────────────────────────────────────

@@ -33,6 +33,9 @@ const labBuilder = {
   // Start with no products selected so learners explicitly choose the product(s) for their lab.
   selectedProducts: new Set(),
   selectedRoles: new Set(),
+  // Tracks which wizard steps the learner has explicitly chosen or confirmed so
+  // "Your lab so far" never shows default values for unvisited steps.
+  chosenSteps: new Set(),
   level: 100,
   harness: "standard",
   // null means "the default counterpart harness"; a Set is the learner's own choice.
@@ -218,6 +221,7 @@ function lbAnswersChanged() {
   const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0;
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.chosenSteps.delete("topics");
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
   labBuilder.rec = null;
@@ -252,6 +256,7 @@ function lbLevelChanged(previous) {
     : null;
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.chosenSteps.delete("topics");
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
   labBuilder.rec = null;
@@ -266,8 +271,10 @@ function lbRestoreLevelChoices() {
   const notice = labBuilder.levelNotice;
   if (!notice) return;
   labBuilder.level = notice.from;
+  labBuilder.chosenSteps.add("level");
   labBuilder.picked = notice.stash.picked;
   labBuilder.excluded = notice.stash.excluded;
+  if (labBuilder.picked || labBuilder.excluded.size) labBuilder.chosenSteps.add("topics");
   labBuilder.levelNotice = null;
   labBuilder.rec = null;
   lbRenderLevels();
@@ -376,9 +383,11 @@ function lbToggleProduct(id, checked) {
   if (error) error.textContent = "";
   if (checked) {
     labBuilder.selectedProducts.add(id);
+    labBuilder.chosenSteps.add("product");
   } else {
     labBuilder.selectedProducts.delete(id);
     if (!labBuilder.selectedProducts.size) {
+      labBuilder.chosenSteps.clear();
       labBuilder.furthest = LB_STEP.product;
     }
   }
@@ -387,6 +396,9 @@ function lbToggleProduct(id, checked) {
 
 /** The product choice changed: the harness step may appear or disappear, and every list below restarts from the new products. */
 function lbProductsChanged() {
+  if (!lbHasHarnessProduct()) {
+    labBuilder.chosenSteps.delete("harness");
+  }
   lbRenderProducts();
   lbRenderHarnesses();
   lbRenderLevels();
@@ -400,12 +412,12 @@ function lbRenderIndustries() {
   const el = document.getElementById("lb-industry-grid");
   if (!el) return;
   const cards = [
-    { id: "", name: "Cross-industry", icon: "🌐", description: "A general scenario that is not tied to one industry. This is the default." },
+    { id: "", name: "Cross-industry", icon: "🌐", description: "A general scenario that is not tied to one industry." },
     ...labBuilder.industries,
   ];
   el.innerHTML = cards
     .map((i) => {
-      const active = (i.id || null) === labBuilder.industry;
+      const active = lbIsStepChosen("vertical") && (i.id || null) === labBuilder.industry;
       return `
       <button type="button" class="scenario-card ${active ? "active" : ""}" data-industry="${escapeHtml(i.id)}" aria-pressed="${active}">
         <div class="scenario-card-title">
@@ -423,7 +435,17 @@ function lbRenderIndustries() {
 
 function lbSelectIndustry(id) {
   const next = id || null;
-  if (next === labBuilder.industry) return;
+  const wasChosen = lbIsStepChosen("vertical");
+  labBuilder.chosenSteps.add("vertical");
+  if (next === labBuilder.industry) {
+    if (!wasChosen) {
+      lbRenderIndustries();
+      const pressed = document.querySelector(`#lb-industry-grid [data-industry="${CSS.escape(id)}"]`);
+      pressed?.focus();
+      lbRenderSummary();
+    }
+    return;
+  }
   labBuilder.industry = next;
   lbRenderIndustries();
   const pressed = document.querySelector(`#lb-industry-grid [data-industry="${CSS.escape(id)}"]`);
@@ -479,11 +501,12 @@ async function lbRenderLevels() {
     }
   }
   const focused = el.contains(document.activeElement) ? document.activeElement.value : null;
+  const levelChosen = lbIsStepChosen("level");
   el.innerHTML = labBuilder.levels
     .map(
       (l) => `
       <label class="scenario-role">
-        <input type="radio" name="lb-level" value="${l.level}" autocomplete="off" ${labBuilder.level === l.level ? "checked" : ""}>
+        <input type="radio" name="lb-level" value="${l.level}" autocomplete="off" ${levelChosen && labBuilder.level === l.level ? "checked" : ""}>
         <span>
           <span style="font-weight: 600;">Level ${l.level}: ${escapeHtml(l.label)}</span>
           <div class="scenario-card-desc">${escapeHtml(l.description)}</div>
@@ -494,14 +517,20 @@ async function lbRenderLevels() {
     )
     .join("");
   el.querySelectorAll("input[type=radio]").forEach((input) => {
-    input.addEventListener("change", () => {
-      const previous = labBuilder.level;
-      labBuilder.level = Number(input.value);
-      if (labBuilder.level !== previous) lbLevelChanged(previous);
-    });
+    input.addEventListener("change", () => lbSelectLevel(Number(input.value)));
   });
   if (focused) el.querySelector(`input[value="${focused}"]`)?.focus();
   lbRenderLevelNotice();
+}
+
+function lbSelectLevel(level) {
+  const nextLevel = Number(level);
+  const previous = labBuilder.level;
+  const wasChosen = lbIsStepChosen("level");
+  labBuilder.chosenSteps.add("level");
+  labBuilder.level = nextLevel;
+  if (labBuilder.level !== previous) lbLevelChanged(previous);
+  else if (!wasChosen) lbRenderSummary();
 }
 
 // ── Step 5: harness (only for products that have harnesses) ────────────────
@@ -510,6 +539,7 @@ function lbRenderHarnesses() {
   if (!el) return;
   const features = lbFeatureList();
   const level = labBuilder.level;
+  const harnessChosen = lbIsStepChosen("harness");
   el.innerHTML = labBuilder.harnesses
     .filter((h) => labBuilder.selectedProducts.has(h.product || LB_DEFAULT_PRODUCT))
     .map((h) => {
@@ -521,7 +551,7 @@ function lbRenderHarnesses() {
       const shown = atLevel + fromLearn;
       return `
       <label class="scenario-role ${unavailable ? "lb-unavailable" : ""}">
-        <input type="radio" name="lb-harness" value="${escapeHtml(h.id)}" autocomplete="off" ${labBuilder.harness === h.id ? "checked" : ""} ${unavailable ? "disabled" : ""}>
+        <input type="radio" name="lb-harness" value="${escapeHtml(h.id)}" autocomplete="off" ${harnessChosen && labBuilder.harness === h.id ? "checked" : ""} ${unavailable ? "disabled" : ""}>
         <span>
           <span style="font-weight: 600;">${escapeHtml(h.name)}</span>
           <div class="scenario-card-desc">${escapeHtml(h.description)}</div>
@@ -537,15 +567,24 @@ function lbRenderHarnesses() {
     })
     .join("");
   el.querySelectorAll("input[type=radio]").forEach((input) => {
-    input.addEventListener("change", () => {
-      labBuilder.harness = input.value;
-      labBuilder.differencesFor = null;
-      lbRenderDifferenceOptions();
-      lbRenderLearnBar();
-      lbAnswersChanged();
-    });
+    input.addEventListener("change", () => lbSelectHarness(input.value));
   });
   lbRenderDifferenceOptions();
+}
+
+function lbSelectHarness(id) {
+  const previous = labBuilder.harness;
+  const wasChosen = lbIsStepChosen("harness");
+  labBuilder.chosenSteps.add("harness");
+  labBuilder.harness = id;
+  if (labBuilder.harness !== previous) {
+    labBuilder.differencesFor = null;
+    lbRenderDifferenceOptions();
+    lbRenderLearnBar();
+    lbAnswersChanged();
+  } else if (!wasChosen) {
+    lbRenderSummary();
+  }
 }
 
 /** The other harnesses whose differences get expandable notes. */
@@ -573,6 +612,8 @@ function lbRenderDifferenceOptions() {
       if (input.checked) next.add(input.value);
       else next.delete(input.value);
       labBuilder.differencesFor = next;
+      labBuilder.chosenSteps.add("harness");
+      lbRenderSummary();
     });
   });
 }
@@ -736,6 +777,7 @@ function lbOwnPicks() {
 }
 
 function lbSetTopic(id, checked, required) {
+  labBuilder.chosenSteps.add("topics");
   const picks = lbOwnPicks();
   labBuilder.prereqNotice = null;
   if (checked) {
@@ -754,6 +796,7 @@ function lbSetTopic(id, checked, required) {
 
 /** A lower-level prerequisite is never a pick of its own: turning it off marks it as already known. */
 function lbSetPrerequisite(id, checked) {
+  labBuilder.chosenSteps.add("topics");
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
   if (checked) labBuilder.excluded.delete(id);
@@ -764,6 +807,7 @@ function lbSetPrerequisite(id, checked) {
 function lbSetGroup(conceptId, checked) {
   const concept = labBuilder.rec?.concepts.find((c) => c.id === conceptId);
   if (!concept) return;
+  labBuilder.chosenSteps.add("topics");
   labBuilder.prereqNotice = null;
   const unchecked = [];
   const picks = lbOwnPicks();
@@ -783,6 +827,7 @@ function lbSetGroup(conceptId, checked) {
 
 function lbSelectAllTopics() {
   // Only the level's own topics; "Level unknown" topics are never added in bulk.
+  labBuilder.chosenSteps.add("topics");
   const all = (labBuilder.rec?.concepts || []).flatMap((c) => c.topics.map((t) => t.id));
   labBuilder.picked = new Set(all);
   labBuilder.excluded.clear();
@@ -792,6 +837,7 @@ function lbSelectAllTopics() {
 }
 
 function lbClearTopics() {
+  labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set();
   labBuilder.excluded.clear();
   labBuilder.prereqNotice = null;
@@ -801,6 +847,7 @@ function lbClearTopics() {
 
 /** Select every topic the rules recommend for these answers. Only this deliberate action adds the level's baseline picks. */
 function lbSelectRecommended() {
+  labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set(labBuilder.rec?.recommendedIds || []);
   labBuilder.excluded.clear();
   labBuilder.prereqNotice = null;
@@ -810,6 +857,7 @@ function lbSelectRecommended() {
 
 /** Back to what the learner's answers pre-select (nothing, unless a vertical or department points at a topic). */
 function lbResetTopics() {
+  labBuilder.chosenSteps.add("topics");
   labBuilder.picked = null;
   labBuilder.excluded.clear();
   labBuilder.prereqNotice = null;
@@ -1054,9 +1102,39 @@ function lbRenderTopics() {
 }
 
 // ── Summary and stepper ─────────────────────────────────────────────────────
+function lbIsStepChosen(stepKey) {
+  switch (stepKey) {
+    case "product":
+      return lbSelectedProductList().length > 0;
+    case "vertical":
+      return labBuilder.chosenSteps.has("vertical") || labBuilder.industry !== null;
+    case "departments":
+      return labBuilder.chosenSteps.has("departments") || labBuilder.selectedRoles.size > 0;
+    case "level":
+      return labBuilder.chosenSteps.has("level") || labBuilder.level !== 100;
+    case "harness":
+      return (
+        lbHasHarnessProduct() &&
+        (labBuilder.chosenSteps.has("harness") ||
+          labBuilder.harness !== "standard" ||
+          labBuilder.differencesFor !== null)
+      );
+    case "topics":
+      return (
+        labBuilder.step >= LB_STEP.topics ||
+        labBuilder.chosenSteps.has("topics") ||
+        labBuilder.picked !== null ||
+        labBuilder.excluded.size > 0
+      );
+    default:
+      return false;
+  }
+}
+
 function lbHasProgress() {
   return (
     labBuilder.selectedProducts.size > 0 ||
+    labBuilder.chosenSteps.size > 0 ||
     labBuilder.industry !== null ||
     labBuilder.selectedRoles.size > 0 ||
     labBuilder.level !== 100 ||
@@ -1075,31 +1153,49 @@ function lbSyncResetButton() {
   if (btn) btn.hidden = !lbHasProgress();
 }
 
+function lbSyncStepSummaryMirrors(summaryHtml) {
+  if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;
+  document.querySelectorAll("[data-lb-step-summary]").forEach((node) => {
+    node.innerHTML = summaryHtml;
+  });
+}
+
 function lbRenderSummary() {
   lbSyncResetButton();
   const el = document.getElementById("lb-summary");
-  if (!el) return;
-  if (!lbSelectedProductList().length) {
-    el.innerHTML = "<strong>Your lab so far:</strong> No products selected yet — choose one or more products in Step 1 to begin.";
-    return;
+  let summaryHtml;
+  if (!lbIsStepChosen("product")) {
+    summaryHtml = "<strong>Your lab so far:</strong> No products selected yet — choose one or more products in Step 1 to begin.";
+  } else {
+    const parts = [escapeHtml(lbProductsLabel())];
+    if (lbIsStepChosen("vertical")) {
+      const industry = labBuilder.industries.find((i) => i.id === labBuilder.industry);
+      parts.push(escapeHtml(industry ? industry.name : "Cross-industry"));
+    }
+    if (lbIsStepChosen("departments")) {
+      const departments = labBuilder.roles.filter((r) => labBuilder.selectedRoles.has(r.id)).map((r) => r.name);
+      parts.push(escapeHtml(departments.length ? `Departments: ${departments.join(", ")}` : "All departments"));
+    }
+    if (lbIsStepChosen("level")) {
+      parts.push(escapeHtml(lbLevelName(labBuilder.level)));
+    }
+    if (lbIsStepChosen("harness")) {
+      parts.push(escapeHtml(lbHarnessName(labBuilder.harness)));
+    }
+    if (lbIsStepChosen("topics")) {
+      const totals = labBuilder.rec?.totals;
+      const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
+      const time = totals
+        ? totals.selectedCount
+          ? `${totals.selectedCount} topic${totals.selectedCount === 1 ? "" : "s"}${recaps}, about ${totals.duration} (estimate, not a limit)`
+          : "No topics selected yet"
+        : "Calculating topics...";
+      parts.push(escapeHtml(time));
+    }
+    summaryHtml = `<strong>Your lab so far:</strong> ${parts.join(" · ")}`;
   }
-  const industry = labBuilder.industries.find((i) => i.id === labBuilder.industry);
-  const departments = labBuilder.roles.filter((r) => labBuilder.selectedRoles.has(r.id)).map((r) => r.name);
-  const parts = [
-    lbProductsLabel(),
-    industry ? industry.name : "Cross-industry",
-    departments.length ? `Departments: ${departments.join(", ")}` : "All departments",
-    lbLevelName(labBuilder.level),
-    ...(lbHasHarnessProduct() ? [lbHarnessName(labBuilder.harness)] : []),
-  ];
-  const totals = labBuilder.rec?.totals;
-  const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
-  const time = totals
-    ? totals.selectedCount
-      ? `${totals.selectedCount} topic${totals.selectedCount === 1 ? "" : "s"}${recaps}, about ${totals.duration} (estimate, not a limit)`
-      : "No topics selected yet"
-    : "Calculating topics...";
-  el.innerHTML = `<strong>Your lab so far:</strong> ${parts.map(escapeHtml).join(" · ")} · ${escapeHtml(time)}`;
+  if (el) el.innerHTML = summaryHtml;
+  lbSyncStepSummaryMirrors(summaryHtml);
 }
 
 /** Number the visible steps again, hide the harness step when it does not apply, and keep each heading's "Step n of m" true. */
@@ -1127,11 +1223,27 @@ function lbRenderStepper() {
 
 /** The step after or before the current one, skipping a step that does not apply. */
 function lbNextStep() {
-  if (labBuilder.step === LB_STEP.product && !labBuilder.selectedProducts.size) {
-    const error = document.getElementById("lb-product-error");
-    if (error) error.textContent = "Choose at least one product to continue.";
-    return;
+  if (labBuilder.step === LB_STEP.product) {
+    if (!labBuilder.selectedProducts.size) {
+      const error = document.getElementById("lb-product-error");
+      if (error) error.textContent = "Choose at least one product to continue.";
+      return;
+    }
+    labBuilder.chosenSteps.add("product");
+  } else if (labBuilder.step === LB_STEP.vertical) {
+    labBuilder.chosenSteps.add("vertical");
+    lbRenderIndustries();
+  } else if (labBuilder.step === LB_STEP.departments) {
+    labBuilder.chosenSteps.add("departments");
+  } else if (labBuilder.step === LB_STEP.level) {
+    labBuilder.chosenSteps.add("level");
+  } else if (labBuilder.step === LB_STEP.harness && lbHasHarnessProduct()) {
+    labBuilder.chosenSteps.add("harness");
+    lbRenderHarnesses();
+  } else if (labBuilder.step === LB_STEP.topics && lbSelectedCount() > 0) {
+    labBuilder.chosenSteps.add("topics");
   }
+  lbRenderSummary();
   lbGoToStep(lbAdjacentStep(labBuilder.step, 1));
 }
 
@@ -1160,6 +1272,7 @@ function lbGoToStep(step) {
     if (pane) pane.style.display = id === step ? "" : "none";
   }
   lbRenderStepper();
+  lbRenderSummary();
   lbSyncResetButton();
   document.getElementById(`lb-heading-${step}`)?.focus();
   // The Level step's next button names whichever step follows it.
@@ -1229,6 +1342,7 @@ function lbResetAnswers() {
   labBuilder.selectedProducts = new Set();
   labBuilder.industry = null;
   labBuilder.selectedRoles = new Set();
+  labBuilder.chosenSteps = new Set();
   labBuilder.level = 100;
   labBuilder.harness = "standard";
   labBuilder.differencesFor = null;
@@ -1304,6 +1418,14 @@ async function lbLoadSelections(lab) {
   labBuilder.differencesFor = saved.differencesFor ? new Set(saved.differencesFor) : null;
   labBuilder.picked = new Set(saved.features);
   labBuilder.excluded = new Set(saved.excluded);
+  labBuilder.chosenSteps = new Set([
+    "product",
+    "vertical",
+    "departments",
+    "level",
+    ...(lbHasHarnessProduct() ? ["harness"] : []),
+    "topics",
+  ]);
   labBuilder.rec = null;
   lbSetFormValue("lb-time", saved.targetMinutes || "");
   lbSetFormValue("lb-title", saved.customTitle || "");

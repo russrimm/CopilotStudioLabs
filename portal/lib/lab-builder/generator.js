@@ -51,6 +51,7 @@ import {
   resolveDecision,
 } from "./blockers.js";
 import { validateLabDir } from "../validator.js";
+import { renderStandaloneLabHtml } from "./html-lab.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
@@ -1328,6 +1329,8 @@ export async function generateLab(request, opts = {}) {
     warnings: plan.warnings,
   };
 
+  const html = renderStandaloneLabHtml(markdown, { title: plan.title, labId: plan.slug });
+
   const result = {
     status: "complete",
     blockers: [],
@@ -1336,6 +1339,7 @@ export async function generateLab(request, opts = {}) {
     plan,
     manifest,
     markdown,
+    html,
     qa,
     warnings: plan.warnings,
     shots: buildShotsManifest(plan, screenshots.shots),
@@ -1349,9 +1353,12 @@ export async function generateLab(request, opts = {}) {
   fs.mkdirSync(outputRoot, { recursive: true });
   const outputDir = reserveUniqueDir(outputRoot, plan.slug);
   try {
+    const savedLabId = path.basename(outputDir);
+    result.html = renderStandaloneLabHtml(markdown, { title: plan.title, labId: savedLabId });
     copyScreenshots(screenshots.copies, path.join(outputDir, "assets"));
     writePlaceholders(screenshots.placeholders, path.join(outputDir, "assets"));
     fs.writeFileSync(path.join(outputDir, "index.md"), markdown, "utf8");
+    fs.writeFileSync(path.join(outputDir, "index.html"), result.html, "utf8");
     fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
     if (screenshots.shots.length) {
       fs.writeFileSync(path.join(outputDir, "shots.json"), JSON.stringify(result.shots, null, 2) + "\n", "utf8");

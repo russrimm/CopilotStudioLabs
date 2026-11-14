@@ -14,6 +14,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, s
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { escapeMarkdown, scrubForbidden } from "./composer.js";
 import { capturedImage, capturedScreenshotsDir } from "./captured.js";
+import { renderStandaloneLabHtml } from "./html-lab.js";
 
 const LAB_ID = /^[a-z0-9-]{1,100}$/i;
 export const MAX_TITLE_LENGTH = 160;
@@ -283,7 +284,12 @@ export function updateGeneratedLabMeta(rootDir, rawId, body) {
         const h1 = lines.slice(0, 5).findIndex((line) => /^# /.test(line));
         if (h1 >= 0) {
           lines[h1] = `# ${escapeMarkdown(scrubForbidden(patch.title))}`;
-          writeFileAtomic(indexPath, lines.join("\n"));
+          const updatedMarkdown = lines.join("\n");
+          writeFileAtomic(indexPath, updatedMarkdown);
+          writeFileAtomic(
+            join(found.labDir, "index.html"),
+            renderStandaloneLabHtml(updatedMarkdown, { title: patch.title, labId: found.labId }),
+          );
         }
       }
       manifest.title = patch.title;

@@ -13,8 +13,30 @@ import {
   loadBranding,
   prependBrandingBanner,
 } from "./branding.js";
+import { renderStandaloneLabHtml } from "./lab-builder/html-lab.js";
+import { renderLabMarkdown } from "./markdown.js";
 
 const SAFE_GENERATED_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
+const IMAGE_MIME_BY_EXT = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".svg": "image/svg+xml",
+};
+
+function fileToDataUri(filePath, explicitMime) {
+  if (!filePath || !existsSync(filePath)) return null;
+  const mime = explicitMime || IMAGE_MIME_BY_EXT[extname(filePath).toLowerCase()];
+  if (!mime) return null;
+  try {
+    const bytes = readFileSync(filePath);
+    return `data:${mime};base64,${bytes.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
 
 export function isCustomBranding(branding = loadBranding()) {
   return Boolean(
@@ -187,6 +209,61 @@ export function renderGeneratedLabMarkdown(
 }
 
 /**
+ * Render a single generated lab as a standalone multi-page HTML document,
+ * applying optional replacements, custom branding, and inline image data URIs
+ * so a downloaded `.html` file works offline as a single file.
+ */
+export function renderGeneratedLabHtml(
+  generatedRoot,
+  rawLabId,
+  replacements = {},
+  { branding = loadBranding(), resolveAsset, logoSourcePath: explicitLogoPath } = {},
+) {
+  const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
+  if (found.status !== 200) return { status: found.status, error: found.error };
+
+  const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
+  let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
+  for (const [search, replace] of replacementEntries) {
+    content = content.split(search).join(replace);
+  }
+  content = applyBrandingTokens(content, branding);
+
+  const customizedBranding = isCustomBranding(branding);
+  const logoPath = customizedBranding
+    ? explicitLogoPath || getBrandingLogoAbsolutePath(branding.logo)
+    : null;
+  const brandingInfo = customizedBranding
+    ? {
+        companyName: branding.companyName,
+        tagline: branding.tagline,
+        primaryColor: branding.primaryColor,
+        logoUrl: fileToDataUri(logoPath),
+      }
+    : null;
+
+  const html = renderStandaloneLabHtml(content, {
+    title: found.manifest?.title || found.labId,
+    labId: found.labId,
+    branding: brandingInfo,
+    renderMarkdown: renderLabMarkdown,
+    resolveImageSrc: (assetName) => {
+      if (typeof resolveAsset === "function") {
+        const resolved = resolveAsset(generatedRoot, found.labId, assetName);
+        if (resolved?.status === 200 && resolved.path) {
+          const uri = fileToDataUri(resolved.path, resolved.type);
+          if (uri) return uri;
+        }
+      }
+      const localAsset = join(found.labDir, "assets", assetName);
+      return fileToDataUri(localAsset) || `/api/lab-builder/generated/${found.labId}/assets/${assetName}`;
+    },
+  });
+
+  return { status: 200, labId: found.labId, html };
+}
+
+/**
  * Create a ZIP archive of a single generated lab, resolving captured assets
  * when available and applying custom branding when configured.
  */
@@ -247,6 +324,11 @@ export function exportGeneratedLab(
         const relPath = relative(labDir, fullPath).replace(/\\/g, "/");
         const archiveName = posix.join(labId, relPath);
 
+        if (relPath === "index.html") {
+          // Rendered fresh below from index.md so replacements and branding match.
+          continue;
+        }
+
         if (entry.name.endsWith(".md")) {
           let content = readFileSync(fullPath, "utf-8");
           for (const [search, replace] of replacementEntries) {
@@ -277,6 +359,30 @@ export function exportGeneratedLab(
     }
 
     walkLab(labDir);
+
+    let htmlSourceMd = readFileSync(join(labDir, "index.md"), "utf-8");
+    for (const [search, replace] of replacementEntries) {
+      htmlSourceMd = htmlSourceMd.split(search).join(replace);
+    }
+    htmlSourceMd = applyBrandingTokens(htmlSourceMd, branding);
+    const htmlArchiveName = posix.join(labId, "index.html");
+    const htmlLogoRel = logoArchivePath
+      ? relative(dirname(htmlArchiveName), logoArchivePath).replace(/\\/g, "/")
+      : null;
+    const standaloneHtml = renderStandaloneLabHtml(htmlSourceMd, {
+      title: found.manifest?.title || labId,
+      labId,
+      renderMarkdown: renderLabMarkdown,
+      branding: customizedBranding
+        ? {
+            companyName: branding.companyName,
+            tagline: branding.tagline,
+            primaryColor: branding.primaryColor,
+            logoUrl: htmlLogoRel,
+          }
+        : null,
+    });
+    archive.append(standaloneHtml, { name: htmlArchiveName });
 
     const manifest = {
       exportedAt: new Date().toISOString(),

@@ -911,6 +911,7 @@ async function selectLab(labId) {
     }
 
     injectFeedbackButtons(preview);
+    paginateLabElement(preview);
     injectReportIssueButton(preview);
   } catch (err) {
     const message = document.createElement("p");
@@ -1360,8 +1361,272 @@ function buildPreviewToc(contentEl, tocEl) {
 
     event.preventDefault();
     const target = contentEl.querySelector(link.getAttribute("href"));
-    if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (target) {
+      if (!revealPaginatedTarget(contentEl, target)) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
   };
+}
+
+function extractCleanHeadingTitle(heading) {
+  if (!heading) return "Section";
+  if (typeof heading.cloneNode === "function") {
+    const clone = heading.cloneNode(true);
+    clone.querySelectorAll?.(".feedback-widget").forEach((el) => el.remove());
+    const text = (clone.textContent || "").replace(/\s+/g, " ").trim();
+    if (text) return text;
+  }
+  return (heading.textContent || "").replace(/\s+/g, " ").trim() || "Section";
+}
+
+function ensureContainerHeadingIds(container) {
+  const seen = new Map();
+  container.querySelectorAll?.("h1, h2, h3, h4").forEach((heading) => {
+    if (heading.id) {
+      seen.set(heading.id, (seen.get(heading.id) || 0) + 1);
+      return;
+    }
+    const base =
+      extractCleanHeadingTitle(heading)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "section";
+    const count = seen.get(base) || 0;
+    seen.set(base, count + 1);
+    heading.id = count === 0 ? base : `${base}-${count}`;
+  });
+}
+
+function paginateLabElement(container) {
+  if (!container || !container.children) return null;
+  container.classList?.remove("lab-paged-mode", "lab-all-pages-mode");
+  delete container._labPaginator;
+
+  const allChildren = Array.from(container.children);
+  const pinnedNodes = [];
+  const flowNodes = [];
+  for (const child of allChildren) {
+    if (
+      child.classList?.contains("lb-warning") ||
+      child.classList?.contains("report-issue-float") ||
+      child.classList?.contains("lab-pagination-controls")
+    ) {
+      if (!child.classList?.contains("lab-pagination-controls")) {
+        pinnedNodes.push(child);
+      }
+    } else {
+      flowNodes.push(child);
+    }
+  }
+
+  let splitIndices = [];
+  flowNodes.forEach((node, idx) => {
+    if (node.tagName === "H2") splitIndices.push(idx);
+  });
+  if (splitIndices.length < 2) {
+    splitIndices = [];
+    flowNodes.forEach((node, idx) => {
+      if (node.tagName === "H3") splitIndices.push(idx);
+    });
+  }
+  if (splitIndices.length < 2) return null;
+
+  ensureContainerHeadingIds(container);
+
+  const pageSpecs = [];
+  for (let i = 0; i < splitIndices.length; i += 1) {
+    const start = i === 0 ? 0 : splitIndices[i];
+    const end = i + 1 < splitIndices.length ? splitIndices[i + 1] : flowNodes.length;
+    const slice = flowNodes.slice(start, end);
+    while (slice.length && slice[slice.length - 1].tagName === "HR") {
+      slice.pop();
+    }
+    if (!slice.length) continue;
+    const headingNode = flowNodes[splitIndices[i]];
+    pageSpecs.push({
+      title: extractCleanHeadingTitle(headingNode),
+      nodes: slice,
+    });
+  }
+  if (pageSpecs.length < 2) return null;
+
+  const topNav = document.createElement("nav");
+  topNav.className = "lab-pagination-controls lab-pagination-top";
+  topNav.setAttribute("aria-label", "Lab page navigation");
+
+  const optionsHtml = pageSpecs
+    .map((spec, idx) => `<option value="${idx}">${idx + 1}. ${escapeHtml(spec.title)}</option>`)
+    .join("");
+
+  topNav.innerHTML = `
+    <div class="lab-pagination-row">
+      <span class="lab-pagination-status" data-lab-page-indicator role="status" aria-live="polite">Page 1 of ${pageSpecs.length}</span>
+      <div class="lab-pagination-nav-group">
+        <select class="lab-page-select" data-lab-page-select aria-label="Jump to lab section">${optionsHtml}</select>
+        <button type="button" class="lab-page-btn" data-lab-prev disabled>← Previous</button>
+        <button type="button" class="lab-page-btn lab-page-btn-primary" data-lab-top-next>Next →</button>
+        <button type="button" class="lab-page-btn" data-lab-view-all aria-pressed="false">Show all pages</button>
+      </div>
+    </div>
+    <div class="lab-pagination-progress" aria-hidden="true">
+      <div class="lab-pagination-progress-fill" data-lab-progress-fill style="transform: scaleX(${(1 / pageSpecs.length).toFixed(4)})"></div>
+    </div>`;
+
+  const pages = pageSpecs.map((spec, idx) => {
+    const section = document.createElement("section");
+    section.className = idx === 0 ? "lab-page active" : "lab-page";
+    section.dataset.pageIndex = String(idx);
+    section.dataset.pageTitle = spec.title;
+    section.setAttribute("aria-label", `Page ${idx + 1} of ${pageSpecs.length}: ${spec.title}`);
+    spec.nodes.forEach((node) => section.appendChild(node));
+    return section;
+  });
+
+  const bottomNav = document.createElement("nav");
+  bottomNav.className = "lab-pagination-controls lab-pagination-bottom";
+  bottomNav.setAttribute("aria-label", "Lab page footer navigation");
+  bottomNav.innerHTML = `
+    <button type="button" class="lab-page-btn" data-lab-bottom-prev disabled>← Previous</button>
+    <span class="lab-pagination-status" data-lab-bottom-status>Page 1 of ${pageSpecs.length}</span>
+    <button type="button" class="lab-page-btn lab-page-btn-primary" data-lab-bottom-next>Next: ${escapeHtml(pageSpecs[1].title)} →</button>
+    <span class="lab-complete-badge" data-lab-complete hidden>✓ Final page reached</span>`;
+
+  container.replaceChildren(...pinnedNodes, topNav, ...pages, bottomNav);
+  container.classList.add("lab-paged-mode");
+
+  const indicator = topNav.querySelector("[data-lab-page-indicator]");
+  const select = topNav.querySelector("[data-lab-page-select]");
+  const topPrev = topNav.querySelector("[data-lab-prev]");
+  const topNext = topNav.querySelector("[data-lab-top-next]");
+  const viewAllBtn = topNav.querySelector("[data-lab-view-all]");
+  const progressFill = topNav.querySelector("[data-lab-progress-fill]");
+  const bottomPrev = bottomNav.querySelector("[data-lab-bottom-prev]");
+  const bottomStatus = bottomNav.querySelector("[data-lab-bottom-status]");
+  const bottomNext = bottomNav.querySelector("[data-lab-bottom-next]");
+  const completeBadge = bottomNav.querySelector("[data-lab-complete]");
+
+  let currentIndex = 0;
+  let showAll = false;
+
+  function syncState(scrollToTop) {
+    pages.forEach((section, idx) => {
+      section.classList.toggle("active", showAll || idx === currentIndex);
+    });
+    container.classList.toggle("lab-paged-mode", !showAll);
+    container.classList.toggle("lab-all-pages-mode", showAll);
+
+    if (select) {
+      select.value = String(currentIndex);
+      select.disabled = showAll;
+    }
+    const currentTitle = pageSpecs[currentIndex]?.title || "";
+    if (indicator) {
+      indicator.textContent = showAll
+        ? `Showing all ${pages.length} pages`
+        : `Page ${currentIndex + 1} of ${pages.length} — ${currentTitle}`;
+    }
+    if (bottomStatus) {
+      bottomStatus.textContent = showAll
+        ? `All ${pages.length} pages shown`
+        : `Page ${currentIndex + 1} of ${pages.length}`;
+    }
+    if (progressFill) {
+      const ratio = showAll ? 1 : (currentIndex + 1) / pages.length;
+      progressFill.style.transform = `scaleX(${ratio.toFixed(4)})`;
+    }
+
+    const atStart = showAll || currentIndex <= 0;
+    const atEnd = showAll || currentIndex >= pages.length - 1;
+    if (topPrev) topPrev.disabled = atStart;
+    if (bottomPrev) bottomPrev.disabled = atStart;
+    if (topNext) topNext.disabled = atEnd;
+
+    if (bottomNext) {
+      if (showAll || currentIndex >= pages.length - 1) {
+        bottomNext.style.display = "none";
+      } else {
+        bottomNext.style.display = "inline-flex";
+        bottomNext.textContent = `Next: ${pageSpecs[currentIndex + 1].title} →`;
+      }
+    }
+    if (completeBadge) {
+      completeBadge.hidden = showAll || currentIndex < pages.length - 1;
+    }
+    if (viewAllBtn) {
+      viewAllBtn.setAttribute("aria-pressed", String(showAll));
+      viewAllBtn.textContent = showAll ? "Paged view" : "Show all pages";
+    }
+
+    if (scrollToTop && !showAll && typeof container.scrollIntoView === "function") {
+      const prefersReduced =
+        typeof window !== "undefined" &&
+        window.matchMedia &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      container.scrollIntoView({ behavior: prefersReduced ? "auto" : "smooth", block: "start" });
+    }
+  }
+
+  function goToPage(index, scrollToTop = true) {
+    const clamped = Math.max(0, Math.min(pages.length - 1, Number(index) || 0));
+    currentIndex = clamped;
+    if (showAll) showAll = false;
+    syncState(scrollToTop);
+  }
+
+  function revealElement(target) {
+    if (!target) return false;
+    const owner = target.closest?.(".lab-page");
+    if (owner && !showAll) {
+      const idx = pages.indexOf(owner);
+      if (idx >= 0 && idx !== currentIndex) {
+        goToPage(idx, false);
+      }
+    }
+    target.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    return true;
+  }
+
+  topPrev?.addEventListener("click", () => goToPage(currentIndex - 1, true));
+  bottomPrev?.addEventListener("click", () => goToPage(currentIndex - 1, true));
+  topNext?.addEventListener("click", () => goToPage(currentIndex + 1, true));
+  bottomNext?.addEventListener("click", () => goToPage(currentIndex + 1, true));
+  select?.addEventListener("change", () => goToPage(Number(select.value), true));
+  viewAllBtn?.addEventListener("click", () => {
+    showAll = !showAll;
+    syncState(false);
+  });
+
+  if (!container.dataset.labHashBound) {
+    container.dataset.labHashBound = "true";
+    container.addEventListener("click", (event) => {
+      const anchor = event.target?.closest?.('a[href^="#"]');
+      if (!anchor || !container._labPaginator) return;
+      const rawHash = anchor.getAttribute("href");
+      if (!rawHash || rawHash === "#") return;
+      const escapedId = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(rawHash.slice(1)) : rawHash.slice(1);
+      const target = container.querySelector(`#${escapedId}`);
+      if (target) {
+        event.preventDefault();
+        container._labPaginator.revealElement(target);
+      }
+    });
+  }
+
+  syncState(false);
+  container._labPaginator = {
+    goToPage,
+    revealElement,
+    getPageCount: () => pages.length,
+    getCurrentIndex: () => currentIndex,
+    isShowingAll: () => showAll,
+  };
+  return container._labPaginator;
+}
+
+function revealPaginatedTarget(container, target) {
+  if (!container || !target || !container._labPaginator) return false;
+  return container._labPaginator.revealElement(target);
 }
 
 // ── Scenarios ───────────────────────────────────────────────────────────────
@@ -3753,6 +4018,66 @@ function lbRenderDecisions(blockers) {
   });
 }
 
+const LB_GENERATION_STAGE_LABELS = [
+  "Planning lab structure & prerequisites...",
+  "Querying live Microsoft Learn documentation...",
+  "Extracting verified UI steps & citations...",
+  "Rendering interactive multi-page HTML lab & running quality checks...",
+];
+
+let lbGenerationAnimTimer = null;
+
+function lbUpdateGeneratingAnimation(elapsedSec) {
+  const phaseEl = document.getElementById("lb-generating-phase");
+  const elapsedEl = document.getElementById("lb-generating-elapsed");
+  const stagesEl = document.getElementById("lb-generating-stages");
+  const activeStage = Math.min(LB_GENERATION_STAGE_LABELS.length - 1, Math.floor(elapsedSec / 3));
+
+  if (phaseEl) phaseEl.textContent = LB_GENERATION_STAGE_LABELS[activeStage];
+  if (elapsedEl) {
+    const mins = Math.floor(elapsedSec / 60);
+    const secs = elapsedSec % 60;
+    elapsedEl.textContent = `${mins}:${String(secs).padStart(2, "0")}`;
+  }
+  if (stagesEl?.querySelectorAll) {
+    stagesEl.querySelectorAll(".lb-gen-stage").forEach((item, idx) => {
+      item.classList?.toggle("active", idx === activeStage);
+      item.classList?.toggle("done", idx < activeStage);
+      const dot = item.querySelector?.(".lb-gen-stage-dot");
+      if (dot) dot.textContent = idx < activeStage ? "✓" : String(idx + 1);
+    });
+  }
+}
+
+function lbStartGeneratingAnimation() {
+  lbStopGeneratingAnimation();
+  const card = document.getElementById("lb-generating-card");
+  if (card) {
+    card.hidden = false;
+    card.setAttribute?.("aria-busy", "true");
+  }
+  const startedAt = Date.now();
+  lbUpdateGeneratingAnimation(0);
+  lbGenerationAnimTimer = setInterval(() => {
+    const elapsedSec = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    lbUpdateGeneratingAnimation(elapsedSec);
+  }, 1000);
+  lbGenerationAnimTimer?.unref?.();
+}
+
+function lbStopGeneratingAnimation() {
+  if (lbGenerationAnimTimer) {
+    clearInterval(lbGenerationAnimTimer);
+    lbGenerationAnimTimer = null;
+  }
+  const card = document.getElementById("lb-generating-card");
+  if (card) {
+    card.hidden = true;
+    card.removeAttribute?.("aria-busy");
+  }
+  lbUpdateGeneratingAnimation(0);
+}
+
 async function lbGenerate() {
   if (labBuilder.busy) return;
   const btn = document.getElementById("lb-generate-btn");
@@ -3769,6 +4094,7 @@ async function lbGenerate() {
     for (;;) {
       labBuilder.controller = new AbortController();
       if (cancelBtn) cancelBtn.hidden = false;
+      if (typeof lbStartGeneratingAnimation === "function") lbStartGeneratingAnimation();
       if (status) status.textContent = "Researching Microsoft Learn and composing your lab. This can take a minute...";
 
       const res = await fetch("/api/lab-builder/generate", {
@@ -3788,6 +4114,7 @@ async function lbGenerate() {
 
       if (data.status === "blocked") {
         if (cancelBtn) cancelBtn.hidden = true;
+        if (typeof lbStopGeneratingAnimation === "function") lbStopGeneratingAnimation();
         if (status) status.textContent = "Build paused — nothing has been written yet.";
         const answers = await lbRenderDecisions(data.blockers);
         if (!answers) {
@@ -3817,6 +4144,7 @@ async function lbGenerate() {
     if (status) status.textContent = "";
     toast(err.name === "AbortError" ? "Lab build canceled." : `Lab build failed: ${err.message}`, err.name === "AbortError" ? "info" : "error");
   } finally {
+    if (typeof lbStopGeneratingAnimation === "function") lbStopGeneratingAnimation();
     labBuilder.busy = false;
     labBuilder.controller = null;
     if (btn) {
@@ -3940,6 +4268,9 @@ async function lbLoadResultPreview(labId) {
         "afterbegin",
         `<p class="lb-warning" role="status">${data.pendingScreenshots.length} screenshot${data.pendingScreenshots.length === 1 ? " is" : "s are"} still pending. Each shows a placeholder until it is captured; see SHOTLIST.md in the lab folder.</p>`
       );
+    }
+    if (typeof paginateLabElement === "function") {
+      paginateLabElement(host);
     }
   } catch (err) {
     host.innerHTML = `<p class="scenario-empty" role="alert">Could not load the preview: ${escapeHtml(err.message)}</p>`;

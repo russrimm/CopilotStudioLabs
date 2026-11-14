@@ -15,6 +15,7 @@ import {
   exportGeneratedLab,
   exportLabs,
   isCustomBranding,
+  renderGeneratedLabHtml,
   renderGeneratedLabMarkdown,
   resolveSafeGeneratedLabDir,
 } from "./lib/exporter.js";
@@ -660,8 +661,8 @@ app.get("/api/lab-builder/generated/:labId", (req, res) => {
 
 async function handleGeneratedLabExport(req, res) {
   const format = String(req.query?.format ?? req.body?.format ?? "zip").trim().toLowerCase();
-  if (format !== "zip" && format !== "md" && format !== "markdown") {
-    return res.status(400).json({ error: "format must be 'zip' or 'md'." });
+  if (format !== "zip" && format !== "md" && format !== "markdown" && format !== "html") {
+    return res.status(400).json({ error: "format must be 'zip', 'html', or 'md'." });
   }
 
   let replacements = {};
@@ -674,6 +675,23 @@ async function handleGeneratedLabExport(req, res) {
   const found = resolveSafeGeneratedLabDir(GENERATED_LABS_DIR, req.params.labId);
   if (found.status !== 200) {
     return res.status(found.status).json({ error: found.error });
+  }
+
+  if (format === "html") {
+    try {
+      const rendered = renderGeneratedLabHtml(GENERATED_LABS_DIR, found.labId, replacements, {
+        resolveAsset: resolveGeneratedAsset,
+      });
+      if (rendered.status !== 200) {
+        return res.status(rendered.status).json({ error: rendered.error });
+      }
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.html"`);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(rendered.html);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
   }
 
   if (format === "md" || format === "markdown") {

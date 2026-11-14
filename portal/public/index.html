@@ -1013,6 +1013,21 @@
       margin: 0;
       flex: 1 1 260px;
     }
+    .lb-wizard-stage {
+      position: relative;
+    }
+    .lb-wizard-sticky {
+      position: sticky;
+      top: 68px;
+      z-index: 20;
+      padding: 16px 20px;
+      background: var(--surface);
+    }
+    @media (max-width: 720px) {
+      .lb-wizard-sticky { top: 0; padding: 12px 14px; }
+    }
+    .lb-pane { scroll-margin-top: 190px; }
+    .lb-pane h3 { scroll-margin-top: 190px; }
     .lb-pane h3:focus { outline: none; }
     .lb-pane h3:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 4px; }
     .lb-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
@@ -1057,8 +1072,287 @@
     .lb-advanced summary:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
 
     /* ── Lab builder: previously generated labs ── */
-    .lb-gen-header { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 8px; }
+    .lb-generated-section { padding: 0; overflow: hidden; }
+    .lb-generated-details { width: 100%; }
+    .lb-gen-summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 24px;
+      user-select: none;
+      transition: background var(--dur-fast) ease;
+    }
+    .lb-gen-summary::-webkit-details-marker { display: none; }
+    .lb-gen-summary:hover { background: var(--surface-hover); }
+    .lb-gen-summary-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .lb-gen-summary-title h3 { margin: 0; }
+    .lb-gen-badge { font-size: 12px; padding: 2px 9px; border-radius: 999px; }
+    .lb-gen-summary-chevron {
+      color: var(--text-muted);
+      font-size: 13px;
+      transition: transform var(--dur-fast) ease;
+      flex-shrink: 0;
+    }
+    .lb-generated-details[open] > .lb-gen-summary {
+      border-bottom: 1px solid var(--border);
+    }
+    .lb-generated-details[open] .lb-gen-summary-chevron {
+      transform: rotate(90deg);
+    }
+    .lb-gen-body { padding: 18px 24px 24px; }
+    .lb-gen-header { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
     .lb-gen-header h3 { margin: 0; }
+
+    /* ── Lab builder: generation animation (Step 8) ── */
+    @keyframes lb-orbit-spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes lb-core-pulse {
+      0%, 100% { transform: scale(1); opacity: 0.92; }
+      50% { transform: scale(1.12); opacity: 1; }
+    }
+    @keyframes lb-progress-slide {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(260%); }
+    }
+    .lb-generating-card {
+      margin-top: 18px;
+      padding: 18px 20px;
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--accent) 7%, var(--bg));
+    }
+    .lb-generating-card[hidden] { display: none; }
+    .lb-generating-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .lb-generating-orb {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .lb-generating-ring {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 3px solid color-mix(in srgb, var(--accent) 22%, transparent);
+      border-top-color: var(--accent);
+      border-right-color: var(--accent-hover);
+      animation: lb-orbit-spin 1.1s linear infinite;
+    }
+    .lb-generating-core {
+      font-size: 18px;
+      animation: lb-core-pulse 1.8s ease-in-out infinite;
+    }
+    .lb-generating-copy { flex: 1; min-width: 0; }
+    .lb-generating-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 14px;
+    }
+    .lb-generating-sub {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .lb-generating-bar {
+      position: relative;
+      height: 6px;
+      margin: 14px 0;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--border) 75%, transparent);
+      overflow: hidden;
+    }
+    .lb-generating-bar-fill {
+      width: 38%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, transparent, var(--accent), var(--accent-hover), transparent);
+      animation: lb-progress-slide 1.6s ease-in-out infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .lb-generating-bar-fill {
+        width: 100%;
+        transform: none !important;
+        background: var(--accent);
+      }
+    }
+    .lb-generating-stages {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+      font-size: 12px;
+    }
+    .lb-gen-stage {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+    }
+    .lb-gen-stage.active {
+      border-color: var(--accent);
+      color: var(--text);
+      font-weight: 600;
+      background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    }
+    .lb-gen-stage.done {
+      border-color: color-mix(in srgb, var(--success) 55%, var(--border));
+      color: var(--text);
+    }
+    .lb-gen-stage-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .lb-gen-stage.active .lb-gen-stage-dot {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-contrast);
+    }
+    .lb-gen-stage.done .lb-gen-stage-dot {
+      background: var(--success);
+      border-color: var(--success);
+      color: var(--success-contrast);
+    }
+
+    /* ── Interactive multi-page lab pagination (portal viewers) ── */
+    .lab-pagination-controls {
+      background: #f4f6fb;
+      border: 1px solid #dce2ef;
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: #1f2937;
+    }
+    .lab-pagination-top {
+      margin: 0 0 18px;
+    }
+    .lab-pagination-bottom {
+      margin: 24px 0 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .lab-pagination-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .lab-pagination-status {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e293b;
+    }
+    .lab-pagination-nav-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .lab-page-select {
+      background: #ffffff;
+      color: #1e293b;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 13px;
+      max-width: min(320px, 65vw);
+    }
+    .lab-page-btn {
+      background: #ffffff;
+      color: #1e293b;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .lab-page-btn:hover:not(:disabled) {
+      background: #eef2ff;
+      border-color: #3b82f6;
+    }
+    .lab-page-btn:disabled {
+      opacity: 0.48;
+      cursor: not-allowed;
+    }
+    .lab-page-btn-primary {
+      background: #1a56c7;
+      color: #ffffff;
+      border-color: #1a56c7;
+    }
+    .lab-page-btn-primary:hover:not(:disabled) {
+      background: #123f9a;
+      border-color: #123f9a;
+    }
+    .lab-pagination-progress {
+      height: 5px;
+      margin-top: 9px;
+      border-radius: 999px;
+      background: #dce2ef;
+      overflow: hidden;
+    }
+    .lab-pagination-progress-fill {
+      width: 100%;
+      height: 100%;
+      border-radius: 999px;
+      background: #1a56c7;
+      transform-origin: left center;
+      transition: transform 0.2s ease;
+    }
+    .lab-paged-mode .lab-page:not(.active) {
+      display: none;
+    }
+    .lab-all-pages-mode .lab-page + .lab-page {
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .lab-complete-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #0b6e4f;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #e6f6f0;
+      border: 1px solid #a7f3d0;
+    }
     .lb-gen-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin: 0 0 10px; }
     .lb-gen-toolbar .form-group { flex: 1 1 220px; max-width: 360px; }
     .lb-gen-count { margin: 0 0 10px; font-size: 13px; color: var(--text-muted); min-height: 1.2em; }
@@ -1685,6 +1979,7 @@
       }
 
       body[data-print-target="generated"] #panel-labbuilder > .panel:not(#lb-result-panel),
+      body[data-print-target="generated"] #lb-wizard-stage,
       body[data-print-target="generated"] #panel-labbuilder > section,
       body[data-print-target="generated"] #lb-result-heading,
       body[data-print-target="generated"] #lb-result-meta,
@@ -1692,6 +1987,14 @@
       body[data-print-target="generated"] #lb-result-body > details.lb-advanced,
       body[data-print-target="generated"] #lb-result-preview > .lb-warning {
         display: none !important;
+      }
+
+      .lab-pagination-controls {
+        display: none !important;
+      }
+
+      .preview-frame .lab-page {
+        display: block !important;
       }
 
       .panel,
@@ -2056,34 +2359,37 @@
           <div class="tab-panel active" id="panel-labbuilder" role="tabpanel" aria-labelledby="tab-labbuilder" aria-hidden="false">
             <div class="panel">
               <h3>🧬 Build a Custom Lab</h3>
-              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
+              <p style="color: var(--text-muted); margin-bottom: 0; font-size: 14px;">
                 Answer one question at a time: product, industry, departments, level, harness (only for products that have
                 harnesses), then the topics. Each answer changes the topics we recommend next. Every module is grounded
                 against live Microsoft Learn documentation through the Microsoft Learn MCP server, so the steps and
                 citations reflect the current product. Times are estimates to help you plan, never limits.
               </p>
-
-              <nav aria-label="Lab builder steps">
-                <ol class="lb-steps" id="lb-steps">
-                  <li><button type="button" class="lb-step active" data-lb-step="1" aria-current="step" onclick="lbGoToStep(1)"><span aria-hidden="true">1</span> Product</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="2" onclick="lbGoToStep(2)" disabled><span aria-hidden="true">2</span> Vertical</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="3" onclick="lbGoToStep(3)" disabled><span aria-hidden="true">3</span> Departments</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="4" onclick="lbGoToStep(4)" disabled><span aria-hidden="true">4</span> Level</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="5" onclick="lbGoToStep(5)" disabled><span aria-hidden="true">5</span> Harness</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="6" onclick="lbGoToStep(6)" disabled><span aria-hidden="true">6</span> Topics</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="7" onclick="lbGoToStep(7)" disabled><span aria-hidden="true">7</span> Review</button></li>
-                  <li><button type="button" class="lb-step" data-lb-step="8" onclick="lbGoToStep(8)" disabled><span aria-hidden="true">8</span> Generate</button></li>
-                </ol>
-              </nav>
-              <div class="lb-summary-bar">
-                <p id="lb-summary" class="lb-summary" role="status" aria-live="polite">Your lab so far: loading...</p>
-                <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbStartNewLab()" hidden>Start over</button>
-              </div>
-              <div id="lb-edit-banner" class="lb-edit-banner" hidden>
-                <span id="lb-edit-banner-text"></span>
-                <button type="button" class="btn btn-sm" id="lb-edit-banner-stop" onclick="lbStopEditing()">Stop editing this lab</button>
-              </div>
             </div>
+
+            <div class="lb-wizard-stage" id="lb-wizard-stage">
+              <div class="panel lb-wizard-sticky" id="lb-wizard-sticky">
+                <nav aria-label="Lab builder steps">
+                  <ol class="lb-steps" id="lb-steps">
+                    <li><button type="button" class="lb-step active" data-lb-step="1" aria-current="step" onclick="lbGoToStep(1)"><span aria-hidden="true">1</span> Product</button></li>
+                    <li><button type="button" class="lb-step" data-lb-step="2" onclick="lbGoToStep(2)" disabled><span aria-hidden="true">2</span> Vertical</button></li>
+                    <li><button type="button" class="lb-step" data-lb-step="3" onclick="lbGoToStep(3)" disabled><span aria-hidden="true">3</span> Departments</button></li>
+                    <li><button type="button" class="lb-step" data-lb-step="4" onclick="lbGoToStep(4)" disabled><span aria-hidden="true">4</span> Level</button></li>
+                    <li><button type="button" class="lb-step" data-lb-step="5" onclick="lbGoToStep(5)" disabled><span aria-hidden="true">5</span> Harness</button></li>
+                    <li><button type="button" class="lb-step" data-lb-step="6" onclick="lbGoToStep(6)" disabled><span aria-hidden="true">6</span> Topics</button></li>
+                    <li><button type="button" class="lb-step" data-lb-step="7" onclick="lbGoToStep(7)" disabled><span aria-hidden="true">7</span> Review</button></li>
+                    <li><button type="button" class="lb-step" data-lb-step="8" onclick="lbGoToStep(8)" disabled><span aria-hidden="true">8</span> Generate</button></li>
+                  </ol>
+                </nav>
+                <div class="lb-summary-bar">
+                  <p id="lb-summary" class="lb-summary" role="status" aria-live="polite"><strong>Your lab so far:</strong> No products selected yet — choose one or more products in Step 1 to begin.</p>
+                  <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbStartNewLab()" hidden>Start over</button>
+                </div>
+                <div id="lb-edit-banner" class="lb-edit-banner" hidden>
+                  <span id="lb-edit-banner-text"></span>
+                  <button type="button" class="btn btn-sm" id="lb-edit-banner-stop" onclick="lbStopEditing()">Stop editing this lab</button>
+                </div>
+              </div>
 
             <!-- Step 1: product -->
             <div class="panel lb-pane" id="lb-pane-1">
@@ -2290,10 +2596,35 @@
                 <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
                 <button class="btn btn-primary" type="button" id="lb-generate-btn" onclick="lbGenerate()">🧬 Build my lab</button>
                 <button class="btn" type="button" id="lb-cancel-btn" onclick="lbCancelGenerate()" hidden>Cancel</button>
-                <span id="lb-status" role="status" style="font-size: 13px; color: var(--text-muted);"></span>
+                <span id="lb-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);"></span>
+              </div>
+              <div id="lb-generating-card" class="lb-generating-card" hidden>
+                <div class="lb-generating-header">
+                  <div class="lb-generating-orb" aria-hidden="true">
+                    <span class="lb-generating-ring"></span>
+                    <span class="lb-generating-core">🧬</span>
+                  </div>
+                  <div class="lb-generating-copy">
+                    <div class="lb-generating-title-row">
+                      <strong id="lb-generating-phase">Planning lab structure &amp; prerequisites...</strong>
+                      <span id="lb-generating-elapsed" class="tag lb-generating-elapsed" aria-label="Elapsed build time">0:00</span>
+                    </div>
+                    <p class="lb-generating-sub">Ground-truthing steps against Microsoft Learn and assembling interactive multi-page lab content.</p>
+                  </div>
+                </div>
+                <div class="lb-generating-bar" aria-hidden="true">
+                  <div class="lb-generating-bar-fill"></div>
+                </div>
+                <ol class="lb-generating-stages" id="lb-generating-stages" aria-label="Lab generation stages">
+                  <li class="lb-gen-stage active" data-gen-stage="0"><span class="lb-gen-stage-dot" aria-hidden="true">1</span><span>Planning lab structure &amp; prerequisites</span></li>
+                  <li class="lb-gen-stage" data-gen-stage="1"><span class="lb-gen-stage-dot" aria-hidden="true">2</span><span>Querying live Microsoft Learn documentation</span></li>
+                  <li class="lb-gen-stage" data-gen-stage="2"><span class="lb-gen-stage-dot" aria-hidden="true">3</span><span>Extracting verified UI steps &amp; citations</span></li>
+                  <li class="lb-gen-stage" data-gen-stage="3"><span class="lb-gen-stage-dot" aria-hidden="true">4</span><span>Rendering interactive multi-page HTML lab &amp; running quality checks</span></li>
+                </ol>
               </div>
               <!-- Populated by lbRenderDecisions() when a build stops for a human decision. -->
               <div id="lb-decisions" class="lb-decisions" hidden></div>
+            </div>
             </div>
 
             <div class="panel" id="lb-result-panel" style="display: none;">
@@ -2302,33 +2633,43 @@
               <div id="lb-result-body" class="preview-frame"></div>
             </div>
 
-            <section class="panel" aria-labelledby="lb-generated-heading">
-              <div class="lb-gen-header">
-                <h3 id="lb-generated-heading" tabindex="-1">🗂️ Previously generated labs</h3>
-                <button type="button" class="btn btn-sm" id="lb-gen-start-new" data-gen-action="new">Start new lab</button>
-              </div>
-              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                Open, export (ZIP or Markdown), print/save as PDF, validate, edit selections and rebuild, rename, or delete a generated lab.
-                These are labs you built here; the hand-written labs are never changed.
-              </p>
-              <div class="lb-gen-toolbar" id="lb-gen-toolbar" hidden>
-                <div class="form-group">
-                  <label for="lb-gen-search">Search generated labs</label>
-                  <input type="search" id="lb-gen-search" autocomplete="off" placeholder="Title, notes, product, industry, level, or harness">
+            <section class="panel lb-generated-section" aria-labelledby="lb-generated-heading">
+              <details class="lb-generated-details" id="lb-generated-details">
+                <summary class="lb-gen-summary">
+                  <span class="lb-gen-summary-title">
+                    <h3 id="lb-generated-heading" tabindex="-1">🗂️ Previously generated labs</h3>
+                    <span id="lb-gen-badge" class="tag lb-gen-badge" aria-hidden="true">0</span>
+                  </span>
+                  <span class="lb-gen-summary-chevron" aria-hidden="true">▸</span>
+                </summary>
+                <div class="lb-gen-body">
+                  <div class="lb-gen-header">
+                    <p style="color: var(--text-muted); margin: 0; font-size: 14px;">
+                      Open, export (ZIP, multi-page HTML, or Markdown), print/save as PDF, validate, edit selections and rebuild, rename, or delete a generated lab.
+                      These are labs you built here; the hand-written labs are never changed.
+                    </p>
+                    <button type="button" class="btn btn-sm" id="lb-gen-start-new" data-gen-action="new">Start new lab</button>
+                  </div>
+                  <div class="lb-gen-toolbar" id="lb-gen-toolbar" hidden>
+                    <div class="form-group">
+                      <label for="lb-gen-search">Search generated labs</label>
+                      <input type="search" id="lb-gen-search" autocomplete="off" placeholder="Title, notes, product, industry, level, or harness">
+                    </div>
+                    <div class="form-group">
+                      <label for="lb-gen-sort">Sort by</label>
+                      <select id="lb-gen-sort" autocomplete="off">
+                        <option value="newest">Newest first</option>
+                        <option value="oldest">Oldest first</option>
+                        <option value="title">Title (A to Z)</option>
+                        <option value="longest">Longest estimated time</option>
+                        <option value="shortest">Shortest estimated time</option>
+                      </select>
+                    </div>
+                  </div>
+                  <p id="lb-gen-count" class="lb-gen-count" role="status" aria-live="polite"></p>
+                  <div id="lb-generated-list" class="scenario-empty">Loading generated labs...</div>
                 </div>
-                <div class="form-group">
-                  <label for="lb-gen-sort">Sort by</label>
-                  <select id="lb-gen-sort" autocomplete="off">
-                    <option value="newest">Newest first</option>
-                    <option value="oldest">Oldest first</option>
-                    <option value="title">Title (A to Z)</option>
-                    <option value="longest">Longest estimated time</option>
-                    <option value="shortest">Shortest estimated time</option>
-                  </select>
-                </div>
-              </div>
-              <p id="lb-gen-count" class="lb-gen-count" role="status" aria-live="polite"></p>
-              <div id="lb-generated-list" class="scenario-empty">Loading generated labs...</div>
+              </details>
 
               <dialog id="lb-gen-delete-dialog" class="lb-gen-dialog" role="alertdialog" aria-labelledby="lb-gen-delete-title" aria-describedby="lb-gen-delete-desc">
                 <h4 id="lb-gen-delete-title">Delete this lab?</h4>

@@ -37,6 +37,9 @@ Output lands in `generated-labs/<slug>/` (git-ignored) as:
 generated-labs/<slug>/
   index.md        the lab, in this repo's standard lab format (one H1 title,
                   sections from H2; see README "Authoring a lab")
+  index.html      standalone, multi-page interactive HTML version of the lab
+                  with Previous/Next navigation, section jumper, single-page
+                  toggle, and print styles that include all pages
   manifest.json   what was selected, what was grounded, the Learn sources used
                   and the HTTP status each returned when checked, when they were
                   verified, the vendor pages each module cites and whether each
@@ -227,18 +230,29 @@ arrow, Home, and End keys move among the tabs of the current area.
       preferred length that only suggests where to split) are folded away here.
    8. **Generate**.
 
-   The step list at the top is made of buttons: you can jump back to any step you
+   The step list and the **Your lab so far** summary bar stay pinned at the top of
+   every wizard step so you can always see what will be generated. **Your lab so far**
+   displays only the steps you have chosen so far (no default options are shown ahead
+   of your choices), adding a running topic count and time estimate once you reach
+   **Topics**. You can jump back to any step you
    have already reached, and changing an earlier answer recomputes the topic
    recommendations (the page says so if it resets your own choices). Changing the
    **level** after you picked topics removes those picks, because they belonged to
    the old level; an announced notice lists what was removed and has a **Restore my
-   Level N choices** button. A "Your lab
-   so far" line shows the answers and a running time estimate throughout. Times
+   Level N choices** button. Times
    are guidance only; nothing is removed to fit them. What the topic list shows is
    exactly what gets built: the wizard sends `includeCore: false` and the topics
    you kept, so no foundation module is added behind your back. The API and the
    CLI behave the same way: `includeCore` is off unless it is `true` (CLI: `--core`),
    and when it is on the lab says which foundation modules it added.
+
+   The **Previously generated labs** panel starts collapsed by default with a live
+   count badge so the wizard stays focused on your current lab. While a lab is
+   building in Step 8, an animated stage-by-stage progress card tracks the build.
+   Finished labs are generated in both Markdown (`index.md`) and standalone
+   multi-page HTML (`index.html`), and both the generated-lab viewer and the
+   **Preview** tab paginate labs section by section with **Previous** and **Next**
+   controls (plus a **Show all pages** toggle and print rules that print every page).
 
    The level is chosen only in the Level step. The left-hand "Lab Chapters" pane that used to
    group the hand-written labs by level has been removed; choosing which hand-written

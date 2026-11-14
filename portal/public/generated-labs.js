@@ -80,6 +80,7 @@ function lbGeneratedActionButtonsHtml(labId, title) {
   const safeTitle = escapeHtml(title || labId);
   return `
     <button type="button" class="btn btn-sm btn-primary" data-gen-action="export-zip" data-lab-id="${safeId}" aria-label="Export ${safeTitle} as ZIP">📦 Export ZIP</button>
+    <button type="button" class="btn btn-sm" data-gen-action="export-html" data-lab-id="${safeId}" aria-label="Download ${safeTitle} as multi-page HTML">🌐 Download HTML</button>
     <button type="button" class="btn btn-sm" data-gen-action="download" data-lab-id="${safeId}" aria-label="Download ${safeTitle} as Markdown">⬇️ Download .md</button>
     <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">🖨️ Print / Save PDF</button>
     <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>`;
@@ -124,6 +125,7 @@ function lbGenItemHtml(lab) {
         <button type="button" class="btn btn-sm" data-gen-action="open" aria-label="Open ${title}">Open</button>
         ${edit}
         <button type="button" class="btn btn-sm" data-gen-action="export-zip" aria-label="Export ${title} as ZIP">Export ZIP</button>
+        <button type="button" class="btn btn-sm" data-gen-action="export-html" aria-label="Download ${title} as multi-page HTML">Download HTML</button>
         <button type="button" class="btn btn-sm" data-gen-action="download" aria-label="Download ${title} as Markdown">Download .md</button>
         <button type="button" class="btn btn-sm" data-gen-action="print" aria-label="Print or save ${title} as PDF">Print / Save PDF</button>
         <button type="button" class="btn btn-sm" data-gen-action="validate" aria-label="Validate ${title}">Validate</button>
@@ -133,9 +135,15 @@ function lbGenItemHtml(lab) {
     </li>`;
 }
 
+function lbGenSyncBadge() {
+  const badge = document.getElementById("lb-gen-badge");
+  if (badge) badge.textContent = String(lbGen.labs.length);
+}
+
 function lbGenRender(message) {
   const list = document.getElementById("lb-generated-list");
   const toolbar = document.getElementById("lb-gen-toolbar");
+  lbGenSyncBadge();
   if (!list) return;
   toolbar.hidden = !lbGen.labs.length;
   if (!lbGen.labs.length) {
@@ -218,6 +226,30 @@ async function lbOpenGenerated(labId) {
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
   document.getElementById("lb-result-heading")?.focus({ preventScroll: true });
   await lbLoadResultPreview(labId);
+}
+
+async function lbDownloadGeneratedHtml(labId) {
+  if (!labId) return;
+  try {
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=html`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Download failed (${res.status})`);
+    }
+    const htmlContent = await res.text();
+    const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${labId}.html`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast(`Downloaded ${labId}.html`, "success");
+  } catch (err) {
+    toast(`Could not download HTML: ${err.message}`, "error");
+  }
 }
 
 async function lbExportGeneratedZip(labId) {
@@ -459,6 +491,7 @@ function lbGenBind() {
       case "open": lbOpenGenerated(labId); break;
       case "edit": lbEditGenerated(labId); break;
       case "export-zip": lbExportGeneratedZip(labId); break;
+      case "export-html": lbDownloadGeneratedHtml(labId); break;
       case "download": lbDownload(labId); break;
       case "print": lbPrintGenerated(labId); break;
       case "validate": lbValidateGenerated(labId); break;

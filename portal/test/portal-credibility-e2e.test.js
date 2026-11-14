@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { PassThrough } from "node:stream";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import vm from "node:vm";
@@ -12,7 +12,8 @@ import { getCatalog, getFeature, getFeatures } from "../lib/lab-builder/catalog.
 import { getProducts } from "../lib/lab-builder/products.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
-import { resolveGeneratedAsset } from "../lib/lab-builder/generated-labs.js";
+import { resolveGeneratedAsset, updateGeneratedLabMeta } from "../lib/lab-builder/generated-labs.js";
+import { splitLabHtmlIntoPages } from "../lib/lab-builder/html-lab.js";
 import { DEFAULT_BRANDING } from "../lib/branding.js";
 import {
   exportGeneratedLab,
@@ -209,6 +210,13 @@ test("HTTP generated-lab export and validate endpoints work on canonical and ali
       { product: "ai-foundry", features: ["fdy-orient-foundry"], level: 100, industry: "financial-services" },
       { outputRoot: genRoot, useLearnMcp: false, useLlm: false },
     );
+    const diskHtmlPath = join(built.outputDir, "index.html");
+    assert.equal(existsSync(diskHtmlPath), true, "generateLab writes standalone multi-page index.html alongside index.md");
+    const diskHtml = readFileSync(diskHtmlPath, "utf8");
+    assert.match(diskHtml, /class="lab-page active"/);
+    assert.match(diskHtml, /data-nav="next"/);
+    assert.match(diskHtml, /@media print[\s\S]*?\.lab-page\s*\{\s*display:\s*block !important;/);
+
     srv = await bootServer({ LAB_BUILDER_OUTPUT_DIR: genRoot });
 
     for (const prefix of ["/api/lab-builder/generated", "/api/generated-labs"]) {
@@ -224,6 +232,15 @@ test("HTTP generated-lab export and validate endpoints work on canonical and ali
       assert.match(md.headers.get("content-disposition") || "", new RegExp(`${built.labId}\\.md`));
       assert.match(await md.text(), /^#\s+/m);
 
+      const htmlRes = await fetch(`${srv.base}${prefix}/${built.labId}/export?format=html`);
+      assert.equal(htmlRes.status, 200);
+      assert.match(htmlRes.headers.get("content-type") || "", /text\/html/);
+      assert.match(htmlRes.headers.get("content-disposition") || "", new RegExp(`${built.labId}\\.html`));
+      const htmlBody = await htmlRes.text();
+      assert.match(htmlBody, /class="lab-page active"/);
+      assert.match(htmlBody, /data-nav="prev"/);
+      assert.match(htmlBody, /data-nav="next"/);
+
       const zip = await fetch(`${srv.base}${prefix}/${built.labId}/export`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -234,7 +251,12 @@ test("HTTP generated-lab export and validate endpoints work on canonical and ali
       const buf = Buffer.from(await zip.arrayBuffer());
       assert.equal(buf[0], 0x50);
       assert.equal(buf[1], 0x4b);
+      assert.ok(buf.includes(Buffer.from(`${built.labId}/index.html`, "utf8")), "ZIP export includes multi-page index.html");
     }
+
+    const renamed = updateGeneratedLabMeta(genRoot, built.labId, { title: "Renamed Foundry Lab" });
+    assert.equal(renamed.status, 200);
+    assert.match(readFileSync(diskHtmlPath, "utf8"), /<title>Renamed Foundry Lab<\/title>/);
 
     const bad = await fetch(`${srv.base}/api/lab-builder/generated/missing-slug/export`);
     assert.equal(bad.status, 404);
@@ -369,4 +391,36 @@ test("repo docs and portal UI stay accurate on 195 capabilities across 6 product
   assert.doesNotMatch(indexHtml, /Lab 15: Account Orchestration/);
   assert.match(indexHtml, /body\[data-print-target="generated"\]\s+#lb-result-preview/);
   assert.match(indexHtml, /:root\[data-theme="light"\],\s*body\[data-theme="light"\]/);
+});
+
+test("splitLabHtmlIntoPages and portal viewers partition multi-section labs into navigable pages", () => {
+  const sampleHtml = [
+    "<h1>Lab Title</h1><p>Intro metadata</p>",
+    "<h2 id=\"overview\">Overview</h2><p>Overview text</p>",
+    "<h2 id=\"prereqs\">Prerequisites</h2><p>Prereq text</p>",
+    "<h2 id=\"mod-1\">Module 1: Build Agent</h2><p>Step 1</p>",
+  ].join("\n");
+
+  const pages = splitLabHtmlIntoPages(sampleHtml);
+  assert.equal(pages.length, 3, "H1 + first H2 share Page 1; each subsequent H2 gets its own page");
+  assert.equal(pages[0].title, "Overview");
+  assert.match(pages[0].html, /<h1[^>]*>Lab Title<\/h1>[\s\S]*<h2 id="overview">Overview<\/h2>/);
+  assert.equal(pages[1].title, "Prerequisites");
+  assert.equal(pages[2].title, "Module 1: Build Agent");
+
+  const fallbackPages = splitLabHtmlIntoPages(
+    "<h1>Quick Lab</h1><h2>Exercises</h2><h3>Part 1</h3><p>A</p><h3>Part 2</h3><p>B</p>",
+  );
+  assert.equal(fallbackPages.length, 2, "when fewer than 2 H2 sections exist, falls back to H3 boundaries");
+  assert.equal(fallbackPages[0].title, "Part 1");
+  assert.equal(fallbackPages[1].title, "Part 2");
+
+  const appSrc = readFileSync(join(repoRoot, "portal/public/app.js"), "utf8");
+  assert.match(appSrc, /async function selectLab[\s\S]*?paginateLabElement\(preview\)/, "hand-written lab preview is paginated");
+  assert.match(appSrc, /async function lbLoadResultPreview[\s\S]*?paginateLabElement\(host\)/, "generated lab preview is paginated");
+  assert.match(appSrc, /revealPaginatedTarget\(contentEl,\s*target\)/, "TOC links switch to the page containing the target heading");
+
+  const genLabsSrc = readFileSync(join(repoRoot, "portal/public/generated-labs.js"), "utf8");
+  assert.match(genLabsSrc, /data-gen-action="export-html"/, "generated lab actions expose Download HTML");
+  assert.match(genLabsSrc, /export\?format=html/, "lbDownloadGeneratedHtml downloads ?format=html");
 });
