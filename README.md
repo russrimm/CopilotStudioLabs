@@ -86,11 +86,11 @@ This isn't just about saving developer time. It's about unlocking the ability to
 | 22 | [Prompt Assistant](./labs/03-prompt-assistant/index.md) | Cross-industry | Use Prompt Assistant to generate, refine, and compare prompt drafts with practical guardrails and measurable output quality gains | Beginner-Intermediate (100-200) | 45 min |
 | 23 | [Work IQ MCP (Preview)](./labs/27-work-iq-mcp-preview/index.md) | Cross-industry | Pilot Work IQ MCP preview integration for contextual grounding, compare before/after response quality, and document preview risk controls | Advanced (300) | 75 min |
 | 24 | [Agent-to-agent (GA)](./labs/20-agent-to-agent-ga/index.md) | Cross-industry | Implement generally available multi-agent delegation patterns with clear role boundaries, routing hints, and handoff validation | Advanced (300) | 75 min |
-| 25 | [Computer Use (GA)](./labs/29-computer-use-ga/index.md) | Cross-industry | Build generally available desktop automation patterns, improve reliability through retries and checkpoints, and define operational governance | Advanced (300) | 90 min |
+| 25 | [Computer Use — Production Readiness & Governance (Preview)](./labs/29-computer-use-ga/index.md) | Cross-industry | Build production-minded preview desktop automation patterns, improve reliability through retries and checkpoints, and define operational governance | Advanced (300) | 90 min |
 | 26 | [Agent Flows: Agent Nodes](./labs/15-agent-flows-agent-nodes/index.md) | Cross-industry | Create agent flows that invoke specialist agent nodes with explicit input/output contracts and fallback paths | Intermediate-Advanced (200-300) | 75 min |
 | 27 | [Agent Flows: Prompt Nodes](./labs/14-agent-flows-prompt-nodes/index.md) | Cross-industry | Build prompt-node patterns for classification and synthesis with structured outputs and validation branches | Intermediate (200) | 60 min |
 | 28 | [Agent Flows: M365 Copilot Nodes](./labs/16-agent-flows-m365-copilot-nodes/index.md) | Cross-industry | Integrate M365 Copilot nodes into agent flows for research and summarization with permission-safe branching | Advanced (300) | 75 min |
-| 29 | [Agent Flows: Async Responses](./labs/17-agent-flows-async-responses/index.md) | Cross-industry | Design async response patterns for long-running workflows with acknowledgement, completion, timeout, and failure handling | Advanced (300) | 75 min |
+| 29 | [Agent Flows: Async Responses](./labs/17-agent-flows-async-responses/index.md) | Cross-industry | Design async response patterns for long-running workflows with acknowledgment, completion, timeout, and failure handling | Advanced (300) | 75 min |
 | 30 | [Usage Estimator & Copilot Credits](./labs/37-usage-estimator-copilot-credits/index.md) | Cross-industry | Estimate demand and Copilot Credits usage, identify cost drivers, and establish rollout guardrails and monitoring cadence | Intermediate (200) | 45 min |
 | 31 | [Custom Analytics Metrics](./labs/11-custom-analytics-metrics/index.md) | Cross-industry | Define custom KPI metrics, map them to observable events, and operationalize threshold-based performance reviews | Intermediate-Advanced (200-300) | 45 min plus metric-processing time |
 | 32 | [Agent Inventory Schema](./labs/38-agent-inventory-schema/index.md) | Cross-industry | Build an inventory schema for agent ownership, lifecycle, dependencies, risk tiers, and governance recertification | Intermediate (200) | 50 min |
@@ -108,10 +108,13 @@ This isn't just about saving developer time. It's about unlocking the ability to
 ## 🧬 Build your own lab
 
 The 40 labs above are fixed walkthroughs. The **lab builder** writes a new one for
-whatever combination you actually need: pick an industry, the roles you are
-teaching, and the Copilot Studio capabilities to cover, and it generates a
-complete step-by-step lab — with the reasoning behind each configuration,
-Microsoft Learn citations, and screenshots.
+whatever combination you actually need: choose one or more of the 6 Microsoft AI
+products, an industry/vertical, the departments you are teaching, a level (100,
+200, or 300), a harness (for Copilot Studio), and the capabilities to cover, and
+it generates a complete step-by-step lab — with the reasoning behind each
+configuration, Microsoft Learn citations, and screenshots. Nothing is added
+automatically beyond the topics you choose and their required prerequisites
+(pass `--core` on the CLI if you also want the Level 100 foundation modules).
 
 At build time it queries the public
 [Microsoft Learn MCP server](https://learn.microsoft.com/api/mcp) — no sign-in or
@@ -137,7 +140,7 @@ Everything else — module structure, prerequisites, concepts, and the "check yo
 work" tests — comes from that curated catalog
 (`portal/lib/lab-builder/features.json` for Copilot Studio, and one
 `portal/lib/lab-builder/catalog/<product>.json` file for every other product), not from a live page. The catalog
-covers 128 capabilities across 6 products. The 97 Copilot Studio capabilities are in 11 categories, tagged by harness (standard, Microsoft
+covers 195 capabilities across 6 products: 97 for Microsoft Copilot Studio, 20 for Agent Builder and declarative agents, 18 for SharePoint AI, 20 for Microsoft Foundry, 20 for the Microsoft 365 Copilot hub, and 20 for the Power Platform AI hub (AI Builder). The 97 Copilot Studio capabilities are in 11 categories, tagged by harness (standard, Microsoft
 Copilot, or Customer Conversation); every capability is tagged by level (100 Beginner, 200 Intermediate, 300 Advanced), including enterprise integrations
 (ServiceNow, Snowflake, SAP, Salesforce, Jira, Epic on FHIR, Shopify, on-premises
 data gateways, and VNet private connectivity) and governance topics such as agent
@@ -157,7 +160,7 @@ quietly.
 # See what you can pick
 node tools/lab-builder/build.mjs --list
 
-# Build a lab
+# Build a lab (only requested features + required prerequisites; add --core to include Level 100 foundations)
 node tools/lab-builder/build.mjs \
   --industry healthcare \
   --roles customer-service \
@@ -191,7 +194,7 @@ default path.
 
 ### Feature tour site
 
-A static GitHub Pages site shows a screenshot and an explanation for every feature in the lab builder catalog, with a guided tour across the Standard harness and the Microsoft Copilot harness. It is generated from `features.json`, so it stays in sync with the catalog. See [`docs/feature-tour.md`](docs/feature-tour.md) for how to refresh it, capture the screenshots, and publish it.
+A static GitHub Pages site shows a screenshot and an explanation for every capability across all 6 products in the lab builder catalog (195 capabilities total, including all three Copilot Studio harnesses: Standard, Microsoft Copilot, and Customer Conversation). It is generated from `features.json` and `portal/lib/lab-builder/catalog/<product>.json`, so it stays in sync with the catalog. See [`docs/feature-tour.md`](docs/feature-tour.md) for how to refresh it, capture the screenshots, and publish it.
 
 ---
 
@@ -199,12 +202,12 @@ A static GitHub Pages site shows a screenshot and an explanation for every featu
 
 The repository also includes a full **Microsoft AI Training Generator portal** for delivering and operating the labs:
 
-- 🧬 **Lab builder** wizard that generates custom labs grounded on Microsoft Learn
+- 🧬 **Lab builder** 8-step wizard across 6 Microsoft AI products (195 capabilities), grounded on Microsoft Learn, with one-click ZIP/Markdown export, print/PDF, and validation for generated labs
 - 🤖 Embedded Copilot Studio **Agent Chat** for real-time learner support
 - 🔐 **Approval workflows** for Power Platform environment provisioning
 - 👍 **Inline feedback** capture and 🐛 one-click issue reporting
-- 👁️ Rendered **lab preview** with Mermaid diagrams, TOC, and image lightbox
-- 🧪 **Validation** smoke tests for lab documentation quality
+- 👁️ Rendered **lab preview** with Mermaid diagrams, TOC, print/PDF, and image lightbox
+- 🧪 **Validation** structural smoke tests plus step-level Microsoft Learn accuracy checks
 - ☁️ **Azure provisioning** plus ⚡ **Power Platform** environment management
 - 📥 **ZIP export**, 📧 **email delivery**, and 🎨 **branding/customization**
 

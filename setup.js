@@ -136,7 +136,7 @@ async function main() {
   console.log(`🏢 Organization: ${org.name || DEFAULTS.orgName}`);
   console.log(`🏭 Industry:     ${org.industry || DEFAULTS.industry}${preset ? `  (preset: ${presetId})` : ""}`);
   console.log(`🤖 Agent:        ${scenario.agentName || DEFAULTS.agentName}`);
-  console.log(`🧪 Labs:         ${(labConfig.include || []).length} included\n`);
+  console.log(`🧪 Labs:         ${configuredLabs.length} included\n`);
 
   if (!dryRun) {
     const confirm = await ask("Proceed with customization? (y/N) ");

@@ -1,8 +1,7 @@
 """Validate index.md structure across all numbered lab directories.
 
 Single canonical validator (the former ``validate_labs_new.py`` has been merged
-in and deleted). It scans every ``labs/NN-*`` folder — including the two
-and reports, per lab:
+in and deleted). It scans every ``labs/NN-*`` folder and reports, per lab:
 
   * Required section checks (union of the historical validators): title,
     metadata, overview, objectives, prerequisites, steps, validation, completion.

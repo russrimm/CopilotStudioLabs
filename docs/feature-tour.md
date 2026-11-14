@@ -110,7 +110,7 @@ Node.js 24 or later, then:
 
 ```powershell
 cd tools/screenshot-capture
-npm ci --registry https://packagefeedproxy.microsoft.io/npm/   # or your usual registry
+npm ci
 npx playwright install chromium
 ```
 

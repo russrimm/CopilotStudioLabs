@@ -39,7 +39,8 @@
       color-scheme: dark;
     }
     /* Light theme: AA contrast on --bg and --surface for text, accent and status colors. */
-    :root[data-theme="light"] {
+    :root[data-theme="light"],
+    body[data-theme="light"] {
       --bg: #f3f5fa;
       --surface: #ffffff;
       --surface-hover: #e9eef9;
@@ -100,7 +101,7 @@
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;
-        transition-duration: 0.01ms !important;
+        transition-duration: 0s !important;
       }
     }
 
@@ -1614,6 +1615,7 @@
 
       header,
       .tabs,
+      .tab-group-hint,
       .status-bar,
       .btn,
       .toast-container,
@@ -1629,10 +1631,7 @@
       .app,
       .main-content,
       .content,
-      .tab-content,
-      .tab-panel,
-      #panel-preview,
-      #preview-wrapper {
+      .tab-content {
         display: block !important;
         width: 100% !important;
         overflow: visible !important;
@@ -1641,8 +1640,46 @@
         background: #fff !important;
       }
 
-      .tab-panel:not(#panel-preview),
+      /* Default print target: static lab Preview panel */
+      body:not([data-print-target="generated"]) #panel-preview,
+      body:not([data-print-target="generated"]) #preview-wrapper {
+        display: block !important;
+        width: 100% !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: #fff !important;
+      }
+
+      body:not([data-print-target="generated"]) .tab-panel:not(#panel-preview),
       #preview-empty {
+        display: none !important;
+      }
+
+      /* Generated lab print target: Build a Lab result preview */
+      body[data-print-target="generated"] .tab-panel:not(#panel-labbuilder) {
+        display: none !important;
+      }
+
+      body[data-print-target="generated"] #panel-labbuilder,
+      body[data-print-target="generated"] #lb-result-panel,
+      body[data-print-target="generated"] #lb-result-body,
+      body[data-print-target="generated"] #lb-result-preview {
+        display: block !important;
+        width: 100% !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: #fff !important;
+      }
+
+      body[data-print-target="generated"] #panel-labbuilder > .panel:not(#lb-result-panel),
+      body[data-print-target="generated"] #panel-labbuilder > section,
+      body[data-print-target="generated"] #lb-result-heading,
+      body[data-print-target="generated"] #lb-result-meta,
+      body[data-print-target="generated"] #lb-result-validation,
+      body[data-print-target="generated"] #lb-result-body > details.lb-advanced,
+      body[data-print-target="generated"] #lb-result-preview > .lb-warning {
         display: none !important;
       }
 
@@ -1662,23 +1699,63 @@
       .preview-frame h1,
       .preview-frame h2,
       .preview-frame h3,
+      .preview-frame h4,
       .preview-frame p,
       .preview-frame li,
       .preview-frame td,
       .preview-frame th,
       .preview-frame code,
       .preview-frame pre,
-      .preview-frame blockquote {
+      .preview-frame blockquote,
+      .preview-frame details,
+      .preview-frame summary {
         color: #000 !important;
+      }
+
+      .preview-frame table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+      }
+      .preview-frame th,
+      .preview-frame td {
+        border: 1px solid #bbb !important;
+        background: #fff !important;
+        padding: 6px 8px !important;
+      }
+      .preview-frame pre {
+        background: #f6f8fa !important;
+        border: 1px solid #d0d7de !important;
+        padding: 10px 12px !important;
+        white-space: pre-wrap !important;
+        word-break: break-word !important;
+      }
+      .preview-frame blockquote {
+        border-left: 4px solid #333 !important;
+        background: #f8f9fa !important;
+        padding: 8px 12px !important;
+      }
+      .preview-frame .shot-pending {
+        border: 1px dashed #666 !important;
+        background: #fafafa !important;
+        color: #222 !important;
+        padding: 10px 12px !important;
+        margin: 12px 0 !important;
+        page-break-inside: avoid !important;
+      }
+      .preview-frame .mermaid,
+      .preview-frame svg {
+        max-width: 100% !important;
+        height: auto !important;
       }
 
       .preview-frame h2 { page-break-before: auto; }
       .preview-frame table,
       .preview-frame pre,
       .preview-frame code,
+      .preview-frame blockquote,
       .preview-frame .mermaid { page-break-inside: avoid; }
       .agent-chat-container { display: none !important; }
-      .preview-frame a[href]::after { content: " (" attr(href) ")"; font-size: 10px; color: #666; }
+      .preview-frame a[href]:not([href^="#"])::after { content: " (" attr(href) ")"; font-size: 10px; color: #666; }
     }
   </style>
   <link rel="stylesheet" href="step-validation.css" />
@@ -1696,7 +1773,7 @@
         </div>
       </div>
       <div class="header-actions">
-        <span id="lab-count" class="tag tag-success">0 labs</span>
+        <span id="lab-count" class="tag" title="Selected static lab chapters">0 / 0 chapters</span>
         <button class="btn btn-sm" onclick="setActiveTab('agent')" title="Ask the lab assistant">🤖 Assistant</button>
         <button class="btn btn-sm" onclick="reportIssue()" title="Report an issue with the labs">🐛 Report Issue</button>
         <button class="btn btn-sm" onclick="refreshLabs()">↻ Refresh</button>
@@ -1756,10 +1833,11 @@
                 Use this sequence map to understand which labs build on earlier setup, which labs branch into specialized tracks, and where your team can safely jump ahead.
               </p>
               <ul class="dependency-map">
-                <li><strong>Lab 01: IT Operations Agent</strong> → Labs 02, 03, 05, 08, 09, and 10</li>
-                <li><strong>Lab 03: Account Orchestration</strong> → Lab 07: Agent-to-Agent Protocol</li>
-                <li><strong>Lab 04: Energy Operations Weather Agent</strong> → Labs 05 and 07</li>
-                <li><strong>Independent tracks:</strong> Lab 06: Computer Use Agents and Lab 11: Power Apps Code Apps</li>
+                <li><strong>Labs 01–03: Foundations &amp; SharePoint Grounding</strong> → Recommended orientation before building specialized agents</li>
+                <li><strong>Lab 04: IT Operations Agent</strong> → Labs 05, 07, 13, 18, 30, and 36</li>
+                <li><strong>Lab 18: Account Orchestration</strong> → Lab 19 (Agent-to-Agent Protocol) and Lab 20 (Multi-Agent Security Audit)</li>
+                <li><strong>Lab 06: Energy Operations Weather Agent</strong> → Labs 19 and 36</li>
+                <li><strong>Independent tracks:</strong> Labs 21–26 (Enterprise Integrations), Labs 28–29 (Computer-Using Agents), Lab 33 (Power Apps Code App), and Labs 34–35, 37–40 (Governance, Security &amp; Voice)</li>
               </ul>
             </div>
             <div class="panel">
@@ -1907,11 +1985,11 @@
 
             <div class="panel">
               <h3>📥 Export</h3>
-              <div style="display: flex; gap: 12px; align-items: center;">
+              <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="exportZip()">
                   📦 Download ZIP
                 </button>
-                <span id="export-status" style="font-size: 13px; color: var(--text-muted);"></span>
+                <span id="export-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);">Select one or more chapters under Lab chapters above to export a bundle.</span>
               </div>
             </div>
           </div>
@@ -2189,7 +2267,7 @@
                     <input type="radio" name="lb-save-mode" value="replace">
                     <span>
                       <span style="font-weight: 600;">Replace <span id="lb-save-mode-title"></span></span>
-                      <div class="scenario-card-desc">Deletes the original after the new lab is built. If the build fails or is cancelled, the original stays. Notes carry over.</div>
+                      <div class="scenario-card-desc">Deletes the original after the new lab is built. If the build fails or is canceled, the original stays. Notes carry over.</div>
                     </span>
                   </label>
                 </div>
@@ -2213,13 +2291,13 @@
             <section class="panel" aria-labelledby="lb-generated-heading">
               <h3 id="lb-generated-heading" tabindex="-1">🗂️ Previously generated labs</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                Open a lab, change the choices it was built from and build it again, rename it, or delete it.
+                Open, export (ZIP or Markdown), print/save as PDF, validate, edit selections and rebuild, rename, or delete a generated lab.
                 These are labs you built here; the hand-written labs are never changed.
               </p>
               <div class="lb-gen-toolbar" id="lb-gen-toolbar" hidden>
                 <div class="form-group">
                   <label for="lb-gen-search">Search generated labs</label>
-                  <input type="search" id="lb-gen-search" autocomplete="off" placeholder="Title, notes, industry, or harness">
+                  <input type="search" id="lb-gen-search" autocomplete="off" placeholder="Title, notes, product, industry, level, or harness">
                 </div>
                 <div class="form-group">
                   <label for="lb-gen-sort">Sort by</label>
@@ -2281,6 +2359,7 @@
                 </select>
               </div>
               <div class="preview-actions">
+                <button id="preview-print-button" class="btn" type="button" onclick="printSelectedLabPreview()" style="display: none;">🖨️ Print / Save PDF</button>
                 <button id="pdf-download-button" class="btn btn-primary" type="button" onclick="downloadCurrentPdf()" style="display: none;">📄 Download walkthrough PDF</button>
                 <span id="pdf-download-status" class="preview-download-status" aria-live="polite"></span>
               </div>
@@ -2358,7 +2437,7 @@
                 <button class="btn btn-primary" id="deploy-button" onclick="deployResources()">☁️ Deploy Resources</button>
                 <button class="btn btn-danger" onclick="destroyResources()">🗑️ Destroy Resources</button>
                 <button class="btn" onclick="checkDeployStatus()">📊 Check Status</button>
-                <span id="deploy-status" style="font-size: 13px; color: var(--text-muted);"></span>
+                <span id="deploy-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>
               <div id="deploy-log" style="margin-top: 16px; display: none;">
                 <h4 style="font-size: 14px; margin-bottom: 8px;">Deployment Log</h4>
@@ -2443,7 +2522,7 @@
                 </div>
                 <div class="form-group">
                   <label for="pp-env-sg">Security Group ID (optional)</label>
-                  <input type="text" id="pp-env-sg" placeholder="Azure AD security group GUID" />
+                  <input type="text" id="pp-env-sg" placeholder="Microsoft Entra security group GUID" />
                   <span class="hint">Restricts access to members of this group</span>
                 </div>
               </div>
@@ -2628,6 +2707,9 @@
           <div class="tab-panel" id="panel-email" role="tabpanel" aria-labelledby="tab-email" aria-hidden="true">
             <div class="panel">
               <h3>📧 Send Labs via Email</h3>
+              <div id="email-selection-hint" role="status" aria-live="polite" style="margin-bottom: 14px; font-size: 13px; color: var(--text-muted);">
+                No lab chapters selected yet. Choose chapters on the Lab setup tab before sending.
+              </div>
               <div class="form-grid">
                 <div class="form-group full">
                   <label for="email-input">Recipients</label>
@@ -2642,9 +2724,9 @@
                   <input type="text" id="email-subject" value="Your Microsoft AI Training Generator Package" />
                 </div>
               </div>
-              <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center;">
+              <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
                 <button class="btn btn-primary" onclick="sendEmail()">📨 Send Email</button>
-                <span id="email-status" style="font-size: 13px; color: var(--text-muted);"></span>
+                <span id="email-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>
             </div>
           </div>
@@ -2807,7 +2889,7 @@
                 <div class="form-group" data-config-key="AZURE_TENANT_ID">
                   <label for="cfg-tenant">Tenant ID</label>
                   <input type="text" id="cfg-tenant" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
-                  <span class="hint">Azure AD / Entra ID tenant</span>
+                  <span class="hint">Microsoft Entra ID tenant</span>
                 </div>
                 <div class="form-group" data-config-key="AZURE_CLIENT_ID">
                   <label for="cfg-client-id">Client (App) ID</label>

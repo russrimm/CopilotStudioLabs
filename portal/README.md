@@ -1,21 +1,21 @@
 # ⚡ Microsoft AI Training Generator — Provisioning Portal
 
-A web-based lab operations portal for customizing, validating, previewing, provisioning, approving, exporting, and supporting Copilot Studio training labs at scale.
+A web-based lab operations portal for building, customizing, validating, previewing, provisioning, approving, exporting, and supporting training labs across Microsoft Copilot Studio, Agent Builder and declarative agents, SharePoint AI, Microsoft Foundry, the Microsoft 365 Copilot hub, and the Power Platform AI hub (AI Builder).
 
 ## Features
 
-- **🧬 Lab Builder** — Generate a custom lab from an industry, roles, and Copilot Studio features, grounded on Microsoft Learn (see [`docs/lab-builder.md`](../docs/lab-builder.md))
-- **📚 Chapter Management** — Include or exclude lab chapters from the package under **Lab chapters** on the Lab setup tab (the old left-hand pane was removed; the level for a generated lab is chosen only in wizard Step 3)
-- **🗂️ Generated lab management** — Open, rename, delete, or re-open the choices of labs you built with the Lab Builder, with search and sort
+- **🧬 Lab Builder** — 8-step wizard across 6 Microsoft AI products and 195 capabilities (product, industry/vertical, departments, level, harness, topics, review, generate), grounded on Microsoft Learn (see [`docs/lab-builder.md`](../docs/lab-builder.md))
+- **📚 Chapter Management** — Explicitly include or exclude hand-written lab chapters under **Lab chapters** on the Lab setup tab (nothing is auto-selected initially; the level for a generated lab is chosen in wizard Step 4)
+- **🗂️ Generated lab management** — Open, export as `.zip` or `.md` (with configured Branding banner), print/save as PDF, run structural validation, rename, delete, or re-open the saved selections of generated labs, with search and sort
 - **🗺️ Lab Flow Diagrams** — Render Mermaid diagrams inside lab previews to visualize architecture and process flow
-- **🗺️ Lab Dependency Map** — View a top-level Mermaid sequence map showing recommended lab order
+- **🗺️ Lab Dependency Map** — View a structured dependency and sequence map showing recommended lab order and independent tracks
 - **🎨 Customization** — Replace organization names, industry context, compliance terms, agent names, end-user roles, and branding
 - **🏢 Industry Scenario Planner** — Apply preconfigured industry and role templates to lab selection and content defaults
-- **👁️ Lab Preview** — Read fully rendered labs in the browser with table of contents, image lightbox, and PDF download links where available
+- **👁️ Lab Preview** — Read fully rendered labs in the browser with table of contents, image lightbox, print/save as PDF, and walkthrough PDF download links where available
 - **👍 Inline Feedback** — Capture thumbs up/down feedback on sections and checkpoints
 - **🐛 Issue Reporting** — Open a GitHub issue with current lab context in one click
-- **🖨️ Print Support** — Clean print styling for exported or previewed lab walkthroughs
-- **📥 Export** — Build ZIP packages with customized content replacements
+- **🖨️ Print Support** — Clean `@media print` styling for both hand-written lab previews and generated custom labs
+- **📥 Export** — Build ZIP packages with customized content replacements and company branding for selected static chapters or generated labs
 - **📧 Email** — Send lab bundles through SMTP or Microsoft Graph
 - **☁️ Azure Resources** — Check prerequisites, inspect resource manifests, deploy resources, monitor progress, and destroy environments
 - **⚡ Power Platform** — Use device code auth to list, create, and delete environments, inspect Secure Score, review recommendations, remediate issues, and schedule admin activities
@@ -258,11 +258,16 @@ In the **Validation** tab, **Run All Tests** runs the structural tests and then 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/lab-builder/features` | Industries, roles, and the feature catalog |
+| `GET` | `/api/lab-builder/features` | Products, industries, roles, harnesses, and the 195-capability catalog |
+| `POST` | `/api/lab-builder/recommend` | Compute level-filtered topic recommendations, prerequisites, and dependency reasons |
+| `GET` | `/api/lab-builder/learn-topics` | Read Microsoft Learn topic snapshot freshness |
+| `POST` | `/api/lab-builder/learn-topics/refresh` | Refresh discovered Microsoft Learn topics |
 | `POST` | `/api/lab-builder/preview` | Plan a lab without generating it |
 | `POST` | `/api/lab-builder/generate` | Build a lab into `generated-labs/` (returns `complete`, `blocked`, or `cancelled`); optional `replaceLabId` replaces an existing generated lab once the new one is built |
 | `GET` | `/api/lab-builder/generated` | List generated labs (with saved selections, when recorded) |
-| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab |
+| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab (rendered HTML + branded Markdown) |
+| `GET` / `POST` | `/api/lab-builder/generated/:labId/export` | Export a generated lab as `.zip` (`?format=zip`, default) or `.md` (`?format=md`), applying configured Branding (also aliased at `/api/generated-labs/:labId/export`) |
+| `GET` | `/api/lab-builder/generated/:labId/validate` | Run structural validation against a generated lab (also aliased at `/api/generated-labs/:labId/validate`) |
 | `PATCH` | `/api/lab-builder/generated/:labId` | Change a generated lab's `title` and/or `notes` |
 | `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab (never a hand-written one) |
 
@@ -275,9 +280,9 @@ portal/
 ├── server.js              Express API + static file server
 ├── lib/
 │   ├── labs.js            Lab discovery and metadata extraction
-│   ├── exporter.js        ZIP archive generation with text customization
+│   ├── exporter.js        ZIP/Markdown export for static and generated labs with branding
 │   ├── mailer.js          SMTP and Microsoft Graph email transport
-│   ├── validator.js       Lab documentation smoke tests (structural)
+│   ├── validator.js       Lab documentation smoke tests (structural, static + generated labs)
 │   ├── step-validator/    Step-level accuracy check against Microsoft Learn (parser, claims, matcher, runner, jobs)
 │   ├── markdown.js        Markdown rendering and HTML sanitization
 │   ├── branding.js        Company branding management
@@ -287,18 +292,22 @@ portal/
 │   ├── powerplatform.js   Power Platform API (environments, Secure Score)
 │   ├── auth.js            MSAL device code delegated auth
 │   ├── require-auth.js    Entra ID bearer-token API middleware
+│   ├── rate-limit.js      Fixed-window in-memory API rate limiter
 │   ├── validate-id.js     Input validation for az CLI arguments
 │   ├── approvals.js       Environment approval workflow engine
 │   ├── agent-chat.js      Copilot Studio agent chat config
-│   └── lab-builder/       Lab builder: catalog, planner, Learn MCP grounding, composer
+│   └── lab-builder/       Lab builder: 6-product catalog, planner, Learn MCP grounding, composer
 ├── test/                  Node test suites (npm test)
 ├── public/
-│   ├── index.html         Single-page app UI (tabs, forms, preview)
-│   ├── app.js             Frontend logic
-│   ├── step-validation.js Step validation UI (progress and results)
-│   ├── step-validation.css
+│   ├── index.html             Single-page app UI (tabs, forms, preview, print styles)
+│   ├── app.js                 Core portal frontend logic
+│   ├── lab-builder-wizard.js  8-step custom lab builder wizard UI
+│   ├── generated-labs.js      Generated lab manager, export, print, and validation UI
+│   ├── step-validation.js     Step validation UI (progress and results)
+│   ├── step-validation.css    Step validation styles
+│   ├── theme.js               Light/dark color theme toggle and persistence
 │   └── vendor/
-│       └── mermaid.min.js Mermaid diagram renderer
+│       └── mermaid.min.js     Mermaid diagram renderer
 ├── data/                  Runtime data (feedback, branding, approvals, agent config)
 ├── Dockerfile             Production container build
 ├── docker-compose.yml     Container orchestration

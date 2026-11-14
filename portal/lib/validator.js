@@ -1,5 +1,5 @@
-import { readFileSync, existsSync, readdirSync } from "fs";
-import { join, resolve } from "path";
+import { readFileSync, existsSync, readdirSync, lstatSync } from "fs";
+import { isAbsolute, join, relative, resolve } from "path";
 import { discoverLabs, getLabPath } from "./labs.js";
 import { altProblems } from "./lab-builder/slots.js";
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|svg|webp|bmp|avif)$/i;
@@ -613,6 +613,50 @@ export function validateLabDir(labDir, { labId = labDir, title = labId } = {}) {
   }
 
   return buildResult(labId, finalTitle, tests);
+}
+
+const GENERATED_LAB_ID_RE = /^[a-z0-9][a-z0-9-]{0,99}$/i;
+
+export function validateGeneratedLab(generatedRoot, rawLabId) {
+  const labId = String(rawLabId ?? "");
+  if (!GENERATED_LAB_ID_RE.test(labId)) {
+    return { status: 400, body: { error: "Invalid lab id" } };
+  }
+
+  const root = resolve(generatedRoot);
+  const labDir = resolve(root, labId);
+  const rel = relative(root, labDir);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel) || !existsSync(labDir)) {
+    return { status: 404, body: { error: "Generated lab not found" } };
+  }
+
+  let stats;
+  try {
+    stats = lstatSync(labDir);
+  } catch {
+    return { status: 404, body: { error: "Generated lab not found" } };
+  }
+  if (stats.isSymbolicLink() || !stats.isDirectory()) {
+    return { status: 404, body: { error: "Generated lab not found" } };
+  }
+
+  const indexPath = join(labDir, "index.md");
+  const manifestPath = join(labDir, "manifest.json");
+  if (!existsSync(indexPath) || !existsSync(manifestPath)) {
+    return { status: 404, body: { error: "Generated lab not found" } };
+  }
+
+  let title = labId;
+  try {
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+    if (typeof manifest?.title === "string" && manifest.title.trim()) {
+      title = manifest.title.trim();
+    }
+  } catch {
+    /* fall back to labId or H1 title */
+  }
+
+  return { status: 200, body: validateLabDir(labDir, { labId, title }) };
 }
 
 export function validateAllLabs() {

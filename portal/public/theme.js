@@ -17,13 +17,23 @@
   }
 
   function effective() {
+    var attr = root.getAttribute("data-theme");
+    if (attr === "light" || attr === "dark") return attr;
     return stored() || systemTheme();
   }
 
+  function setThemeAttr(value) {
+    if (value) {
+      root.setAttribute("data-theme", value);
+      if (document.body) document.body.setAttribute("data-theme", value);
+    } else {
+      root.removeAttribute("data-theme");
+      if (document.body) document.body.removeAttribute("data-theme");
+    }
+  }
+
   function apply() {
-    var saved = stored();
-    if (saved) root.setAttribute("data-theme", saved);
-    else root.removeAttribute("data-theme");
+    setThemeAttr(stored());
   }
 
   function label(button) {
@@ -35,6 +45,7 @@
   apply();
 
   document.addEventListener("DOMContentLoaded", function () {
+    setThemeAttr(root.getAttribute("data-theme") || stored());
     var button = document.getElementById("theme-toggle");
     if (!button) return;
     label(button);
@@ -45,7 +56,7 @@
       } catch (_err) {
         /* storage unavailable: the choice applies for this page view only */
       }
-      root.setAttribute("data-theme", next);
+      setThemeAttr(next);
       label(button);
     });
     if (window.matchMedia) {

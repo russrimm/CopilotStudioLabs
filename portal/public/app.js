@@ -461,6 +461,13 @@ function computeContrastText(hex) {
 
 function setThemeAccent(color) {
   const root = document.documentElement;
+  if (!color || color.toLowerCase() === getDefaultBranding().primaryColor.toLowerCase()) {
+    root.style.removeProperty("--accent");
+    root.style.removeProperty("--accent-hover");
+    root.style.removeProperty("--accent-contrast");
+    root.style.removeProperty("--accent-hover-contrast");
+    return;
+  }
   const hoverColor = computeAccentHover(color);
   root.style.setProperty("--accent", color);
   root.style.setProperty("--accent-hover", hoverColor);
@@ -879,8 +886,10 @@ async function selectLab(labId) {
   empty.style.display = "none";
 
   try {
+    const printButton = document.getElementById("preview-print-button");
     const pdfButton = document.getElementById("pdf-download-button");
     const pdfStatus = document.getElementById("pdf-download-status");
+    if (printButton) printButton.style.display = "inline-flex";
     if (pdfButton) pdfButton.style.display = "inline-flex";
     if (pdfStatus) pdfStatus.textContent = "";
 
@@ -1047,6 +1056,15 @@ async function submitFeedback(payload) {
   }
 
   return body;
+}
+
+function printSelectedLabPreview() {
+  if (!selectedLabId) {
+    toast("Choose a lab above to preview and print.", "info");
+    return;
+  }
+  document.body.removeAttribute("data-print-target");
+  window.print();
 }
 
 async function downloadCurrentPdf() {
@@ -2127,16 +2145,26 @@ async function ensureValidationBeforeAction(actionLabel, statusElementId) {
   });
 })();
 
+function goToChapterSelection() {
+  setActiveTab("provision");
+  const heading = document.getElementById("chapters-heading");
+  heading?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 // ── Export ─────────────────────────────────────────────────────────────────
 async function exportZip() {
   const selected = [...includedLabs];
+  const status = document.getElementById("export-status");
   if (!selected.length) {
-    toast("No labs selected for export.", "error");
+    if (status) {
+      status.textContent = "⚠️ Select at least one chapter under Lab chapters above before exporting (or export a custom lab from Build a Lab).";
+    }
+    document.getElementById("chapters-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    toast("Select at least one chapter under Lab chapters before exporting.", "error");
     return;
   }
   if (!requireIndustrySelected()) return;
 
-  const status = document.getElementById("export-status");
   await ensureValidationBeforeAction("export", "export-status");
   status.innerHTML = '<span class="spinner"></span> Generating ZIP...';
 
@@ -2210,18 +2238,20 @@ function renderRecipients() {
 }
 
 async function sendEmail() {
+  const status = document.getElementById("email-status");
   if (!recipients.length) {
+    if (status) status.textContent = "⚠️ Add at least one recipient email address.";
     toast("Add at least one recipient.", "error");
     return;
   }
   const selected = [...includedLabs];
   if (!selected.length) {
-    toast("No labs selected to send.", "error");
+    if (status) status.textContent = "⚠️ Select at least one chapter on the Lab setup tab before sending.";
+    toast("Select at least one chapter on the Lab setup tab before sending.", "error");
     return;
   }
   if (!requireIndustrySelected()) return;
 
-  const status = document.getElementById("email-status");
   status.innerHTML = '<span class="spinner"></span> Sending...';
 
   try {
@@ -2442,10 +2472,29 @@ function updateStatus(color, text) {
 
 function updateSummary() {
   const count = includedLabs.size;
-  document.getElementById("lab-count").textContent = `${count} lab${count !== 1 ? "s" : ""}`;
+  const total = labs.length;
+  const labCountBadge = document.getElementById("lab-count");
+  if (labCountBadge) {
+    labCountBadge.textContent = total ? `${count} / ${total} chapters` : `${count} lab${count !== 1 ? "s" : ""}`;
+    labCountBadge.classList.toggle("tag-success", count > 0);
+  }
   document.getElementById("selected-summary").textContent = `${count} lab${count !== 1 ? "s" : ""} selected for provisioning`;
   const chapters = document.getElementById("chapter-summary");
-  if (chapters) chapters.textContent = `${count} of ${labs.length} lab${labs.length !== 1 ? "s" : ""} included`;
+  if (chapters) chapters.textContent = `${count} of ${total} lab${total !== 1 ? "s" : ""} included`;
+
+  const exportStatus = document.getElementById("export-status");
+  if (exportStatus && !exportStatus.querySelector(".spinner") && !exportStatus.textContent.startsWith("✅")) {
+    exportStatus.textContent = count
+      ? `${count} chapter${count === 1 ? "" : "s"} selected for ZIP export.`
+      : "Select one or more chapters under Lab chapters above to export a bundle.";
+  }
+
+  const emailHint = document.getElementById("email-selection-hint");
+  if (emailHint) {
+    emailHint.innerHTML = count
+      ? `📦 <strong>${count}</strong> lab chapter${count === 1 ? "" : "s"} selected to package and send.`
+      : `No lab chapters selected yet. Choose chapters on the Lab setup tab before sending. <button type="button" class="btn btn-sm" style="margin-left: 8px;" onclick="goToChapterSelection()">Select lab chapters →</button>`;
+  }
 }
 
 function setInputValue(id, value) {
@@ -2762,16 +2811,26 @@ async function loadResourceManifest() {
 
 function renderResourceManifest() {
   const container = document.getElementById("resource-manifest");
-  if (!resourceManifest.length) {
-    container.innerHTML = '<div style="color: var(--text-muted);">No resource data available.</div>';
+  if (!container) return;
+
+  const selected = [...includedLabs];
+  if (!selected.length) {
+    container.innerHTML =
+      '<div style="color: var(--text-muted); display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">' +
+      '<span>No lab chapters selected yet. Choose chapters on the Lab setup tab to inspect their Azure resource requirements.</span>' +
+      '<button type="button" class="btn btn-sm" onclick="goToChapterSelection()">Select lab chapters →</button>' +
+      "</div>";
     return;
   }
 
-  const selected = [...includedLabs];
-  const filtered = resourceManifest.filter((lab) => selected.includes(lab.labId));
+  if (!resourceManifest.length) {
+    container.innerHTML = '<div style="color: var(--text-muted);">Loading resource requirements...</div>';
+    return;
+  }
 
+  const filtered = resourceManifest.filter((lab) => selected.includes(lab.labId));
   if (!filtered.length) {
-    container.innerHTML = '<div style="color: var(--text-muted);">Select labs under Lab chapters on the Lab setup tab to see their resource requirements.</div>';
+    container.innerHTML = '<div style="color: var(--text-muted);">No additional Azure resources are required for the selected chapters.</div>';
     return;
   }
 
@@ -2862,14 +2921,17 @@ async function deployResources() {
   }
 
   const selected = [...includedLabs];
+  const status = document.getElementById("deploy-status");
   if (!selected.length) {
-    toast("No labs selected for deployment.", "error");
+    if (status) {
+      status.innerHTML =
+        '⚠️ No lab chapters selected. <button type="button" class="btn btn-sm" style="margin-left: 6px;" onclick="goToChapterSelection()">Select lab chapters →</button>';
+    }
+    toast("Select at least one chapter on the Lab setup tab before deploying.", "error");
     return;
   }
 
   await ensureValidationBeforeAction("deployment", "deploy-status");
-
-  const status = document.getElementById("deploy-status");
   const logContainer = document.getElementById("deploy-log");
   const logEntries = document.getElementById("deploy-log-entries");
   const baseName = document.getElementById("az-base-name").value || "copilot-labs";
@@ -3720,7 +3782,7 @@ async function lbGenerate() {
 
       if (data.status === "cancelled") {
         if (status) status.textContent = "";
-        toast("Lab build cancelled. Nothing was written.", "info");
+        toast("Lab build canceled. Nothing was written.", "info");
         return;
       }
 
@@ -3730,7 +3792,7 @@ async function lbGenerate() {
         const answers = await lbRenderDecisions(data.blockers);
         if (!answers) {
           if (status) status.textContent = "";
-          toast("Lab build cancelled. Nothing was written.", "info");
+          toast("Lab build canceled. Nothing was written.", "info");
           return;
         }
         Object.assign(decisions, answers);
@@ -3753,13 +3815,13 @@ async function lbGenerate() {
     }
   } catch (err) {
     if (status) status.textContent = "";
-    toast(err.name === "AbortError" ? "Lab build cancelled." : `Lab build failed: ${err.message}`, err.name === "AbortError" ? "info" : "error");
+    toast(err.name === "AbortError" ? "Lab build canceled." : `Lab build failed: ${err.message}`, err.name === "AbortError" ? "info" : "error");
   } finally {
     labBuilder.busy = false;
     labBuilder.controller = null;
     if (btn) {
       btn.disabled = false;
-      // A cancelled, blocked-and-cancelled, or failed build leaves focus on the page: put it back on the button.
+      // A canceled, blocked-and-canceled, or failed build leaves focus on the page: put it back on the button.
       if (document.activeElement === document.body) btn.focus();
     }
     if (cancelBtn) cancelBtn.hidden = true;
@@ -3817,8 +3879,10 @@ function lbShowResult(data) {
     <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
       Saved to <code>generated-labs/${escapeHtml(data.labId)}</code> on the portal host.
     </div>
-    <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
-      <button class="btn btn-sm" onclick="lbDownload('${escapeHtml(data.labId)}')">⬇️ Download index.md</button>
+    <div class="lb-result-actions" style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+      ${typeof lbGeneratedActionButtonsHtml === "function"
+        ? lbGeneratedActionButtonsHtml(data.labId, data.title)
+        : `<button type="button" class="btn btn-sm" onclick="lbDownload('${escapeHtml(data.labId)}')">⬇️ Download .md</button>`}
     </div>
     ${(data.manifest?.decisions || [])
       .map(
@@ -3832,6 +3896,7 @@ function lbShowResult(data) {
   `;
 
   body.innerHTML = `
+    <div id="lb-result-validation" role="region" aria-label="Generated lab validation results" aria-live="polite"></div>
     ${lbQualityPanel(data.qa)}
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
     <details class="lb-advanced">
@@ -3840,6 +3905,7 @@ function lbShowResult(data) {
     </details>`;
   panel.style.display = "";
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (typeof lbGen !== "undefined") lbGen.opened = data.labId;
   labBuilder.lastMarkdown = data.markdown;
   lbLoadResultPreview(data.labId);
 }
@@ -3857,6 +3923,18 @@ async function lbLoadResultPreview(labId) {
     labBuilder.lastMarkdown = data.markdown;
     const source = document.getElementById("lb-result-source");
     if (source && !source.textContent) source.textContent = data.markdown;
+    if (typeof enhanceLabImages === "function") {
+      enhanceLabImages(host);
+    }
+    const mermaidNodes = host.querySelectorAll(".mermaid");
+    if (mermaidNodes.length && typeof loadMermaid === "function") {
+      try {
+        const mermaid = await loadMermaid();
+        await mermaid.run({ nodes: mermaidNodes });
+      } catch (_) {
+        // Keep raw diagram block visible if optional renderer fails.
+      }
+    }
     if (data.pendingScreenshots?.length) {
       host.insertAdjacentHTML(
         "afterbegin",
@@ -3868,10 +3946,34 @@ async function lbLoadResultPreview(labId) {
   }
 }
 
-function lbDownload(labId) {
-  const markdown = labBuilder.lastMarkdown || "";
-  if (!markdown) return;
-  const blob = new Blob([markdown], { type: "text/markdown" });
+async function lbDownload(labId) {
+  if (!labId) return;
+  try {
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=md`);
+    if (res.ok) {
+      const markdown = await res.text();
+      const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${labId}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast(`Downloaded ${labId}.md`, "success");
+      return;
+    }
+  } catch (_) {
+    // Fall back to cached markdown if server fetch fails.
+  }
+
+  const fallbackMarkdown = labBuilder.lastMarkdown || "";
+  if (!fallbackMarkdown) {
+    toast("Could not download Markdown for this lab.", "error");
+    return;
+  }
+  const blob = new Blob([fallbackMarkdown], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -3880,5 +3982,6 @@ function lbDownload(labId) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+  toast(`Downloaded ${labId}.md`, "success");
 }
 

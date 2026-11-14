@@ -9,9 +9,15 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSy
 import multer from "multer";
 import { extname, join, resolve } from "path";
 import { discoverLabs, getLabContent, isValidLabId } from "./lib/labs.js";
-import { validateLab, validateAllLabs } from "./lib/validator.js";
+import { validateLab, validateAllLabs, validateGeneratedLab } from "./lib/validator.js";
 import { createStepValidationService, JobConflictError } from "./lib/step-validator/index.js";
-import { exportLabs } from "./lib/exporter.js";
+import {
+  exportGeneratedLab,
+  exportLabs,
+  isCustomBranding,
+  renderGeneratedLabMarkdown,
+  resolveSafeGeneratedLabDir,
+} from "./lib/exporter.js";
 import { sendMail } from "./lib/mailer.js";
 import {
   BRANDING_UPLOADS_DIR,
@@ -644,9 +650,76 @@ app.get("/api/lab-builder/generated", (_req, res) => {
 
 /** GET /api/lab-builder/generated/:labId — Read a generated lab's markdown */
 app.get("/api/lab-builder/generated/:labId", (req, res) => {
-  const { status, body } = readGeneratedLab(GENERATED_LABS_DIR, req.params.labId, renderLabMarkdown);
+  const branding = loadBranding();
+  const renderPreview = isCustomBranding(branding)
+    ? (md) => renderLabMarkdown(prependBrandingBanner(md, branding))
+    : renderLabMarkdown;
+  const { status, body } = readGeneratedLab(GENERATED_LABS_DIR, req.params.labId, renderPreview);
   res.status(status).json(body);
 });
+
+async function handleGeneratedLabExport(req, res) {
+  const format = String(req.query?.format ?? req.body?.format ?? "zip").trim().toLowerCase();
+  if (format !== "zip" && format !== "md" && format !== "markdown") {
+    return res.status(400).json({ error: "format must be 'zip' or 'md'." });
+  }
+
+  let replacements = {};
+  try {
+    replacements = sanitizeReplacements(req.body?.replacements);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  const found = resolveSafeGeneratedLabDir(GENERATED_LABS_DIR, req.params.labId);
+  if (found.status !== 200) {
+    return res.status(found.status).json({ error: found.error });
+  }
+
+  if (format === "md" || format === "markdown") {
+    try {
+      const rendered = renderGeneratedLabMarkdown(GENERATED_LABS_DIR, found.labId, replacements);
+      if (rendered.status !== 200) {
+        return res.status(rendered.status).json({ error: rendered.error });
+      }
+      res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.md"`);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(rendered.markdown);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  res.setHeader("Content-Type", "application/zip");
+  res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.zip"`);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
+  try {
+    await exportGeneratedLab(GENERATED_LABS_DIR, found.labId, replacements, res, {
+      resolveAsset: resolveGeneratedAsset,
+    });
+  } catch (err) {
+    if (!res.headersSent) {
+      res.status(err.status || 500).json({ error: err.message });
+    }
+  }
+}
+
+function handleGeneratedLabValidate(req, res) {
+  const { status, body } = validateGeneratedLab(GENERATED_LABS_DIR, req.params.labId);
+  res.status(status).json(body);
+}
+
+/** GET|POST /api/lab-builder/generated/:labId/export — Download a generated lab as ZIP or Markdown */
+app.get("/api/lab-builder/generated/:labId/export", handleGeneratedLabExport);
+app.post("/api/lab-builder/generated/:labId/export", handleGeneratedLabExport);
+app.get("/api/generated-labs/:labId/export", handleGeneratedLabExport);
+app.post("/api/generated-labs/:labId/export", handleGeneratedLabExport);
+
+/** GET /api/lab-builder/generated/:labId/validate — Run structural validation against a generated lab */
+app.get("/api/lab-builder/generated/:labId/validate", handleGeneratedLabValidate);
+app.get("/api/generated-labs/:labId/validate", handleGeneratedLabValidate);
 
 /** PATCH /api/lab-builder/generated/:labId — Rename a generated lab or change its notes */
 app.patch("/api/lab-builder/generated/:labId", (req, res) => {

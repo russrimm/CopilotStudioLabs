@@ -56,6 +56,9 @@ const labBuilder = {
   editing: null,
   // Set when a level change removed the learner's own topic picks, so they can be restored.
   levelNotice: null,
+  // Set when unchecking a topic keeps it checked as a required prerequisite of another selected topic.
+  prereqNotice: null,
+  pendingUncheckIds: [],
   // Whether the collapsed prerequisite and unknown-level groups are open; kept across re-renders.
   prereqOpen: false,
   unknownOpen: false,
@@ -162,8 +165,31 @@ async function lbRefresh() {
     const rec = await lbRecommend(extra);
     if (labBuilder.refreshToken !== token) return;
     labBuilder.rec = rec;
+    const uncheckedIds = Array.isArray(labBuilder.pendingUncheckIds) ? labBuilder.pendingUncheckIds : [];
+    labBuilder.pendingUncheckIds = [];
+    if (uncheckedIds.length && rec) {
+      const allTopics = [
+        ...(rec.concepts || []).flatMap((c) => c.topics),
+        ...(rec.levelUnknown?.topics || []),
+      ];
+      const keptPrereqs = uncheckedIds
+        .map((uid) => allTopics.find((t) => t.id === uid && t.selected && t.required))
+        .filter(Boolean);
+      if (keptPrereqs.length) {
+        const notices = keptPrereqs.map((topic) => {
+          const reqReason = (topic.reasons || []).find((r) => /^Required by\s+/i.test(r));
+          const dependents = reqReason
+            ? reqReason.replace(/^Required by\s+/i, "").replace(/\.$/, "")
+            : "another selected topic";
+          return `"${topic.name}" is required by ${dependents}. Uncheck ${dependents} first to remove it, or uncheck "${topic.name}" again to exclude it and assume learners already completed it.`;
+        });
+        labBuilder.prereqNotice = notices.join(" ");
+        toast(labBuilder.prereqNotice, "info");
+      }
+    }
   } catch (err) {
     if (labBuilder.refreshToken !== token) return;
+    labBuilder.pendingUncheckIds = [];
     labBuilder.rec = null;
     toast(`Could not update the topics: ${err.message}`, "error");
   }
@@ -176,6 +202,8 @@ function lbAnswersChanged() {
   const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0;
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
   labBuilder.rec = null;
   lbRenderSummary();
   lbRefresh();
@@ -191,7 +219,7 @@ function lbSelectedNames(rec) {
 }
 
 /**
- * Step 3 is the single source of truth for level. Changing it drops the learner's own
+ * Step 4 is the single source of truth for level. Changing it drops the learner's own
  * topic picks (they belonged to the old level), says exactly what was removed, and keeps
  * them so one button restores them.
  */
@@ -208,6 +236,8 @@ function lbLevelChanged(previous) {
     : null;
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
   labBuilder.rec = null;
   lbRenderHarnesses();
   lbRenderLearnBar();
@@ -688,19 +718,25 @@ function lbOwnPicks() {
 
 function lbSetTopic(id, checked, required) {
   const picks = lbOwnPicks();
+  labBuilder.prereqNotice = null;
   if (checked) {
     picks.add(id);
     labBuilder.excluded.delete(id);
+    labBuilder.pendingUncheckIds = [];
   } else if (required) {
     labBuilder.excluded.add(id);
+    labBuilder.pendingUncheckIds = [];
   } else {
     picks.delete(id);
+    labBuilder.pendingUncheckIds = [id];
   }
   lbRefresh();
 }
 
 /** A lower-level prerequisite is never a pick of its own: turning it off marks it as already known. */
 function lbSetPrerequisite(id, checked) {
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
   if (checked) labBuilder.excluded.delete(id);
   else labBuilder.excluded.add(id);
   lbRefresh();
@@ -709,16 +745,20 @@ function lbSetPrerequisite(id, checked) {
 function lbSetGroup(conceptId, checked) {
   const concept = labBuilder.rec?.concepts.find((c) => c.id === conceptId);
   if (!concept) return;
+  labBuilder.prereqNotice = null;
+  const unchecked = [];
   const picks = lbOwnPicks();
   for (const topic of concept.topics) {
     if (checked) {
       picks.add(topic.id);
       labBuilder.excluded.delete(topic.id);
     } else {
+      if (topic.selected && !topic.required) unchecked.push(topic.id);
       picks.delete(topic.id);
       if (topic.required) labBuilder.excluded.add(topic.id);
     }
   }
+  labBuilder.pendingUncheckIds = unchecked;
   lbRefresh();
 }
 
@@ -727,12 +767,16 @@ function lbSelectAllTopics() {
   const all = (labBuilder.rec?.concepts || []).flatMap((c) => c.topics.map((t) => t.id));
   labBuilder.picked = new Set(all);
   labBuilder.excluded.clear();
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
   lbRefresh();
 }
 
 function lbClearTopics() {
   labBuilder.picked = new Set();
   labBuilder.excluded.clear();
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
   lbRefresh();
 }
 
@@ -740,6 +784,8 @@ function lbClearTopics() {
 function lbSelectRecommended() {
   labBuilder.picked = new Set(labBuilder.rec?.recommendedIds || []);
   labBuilder.excluded.clear();
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
   lbRefresh();
 }
 
@@ -747,6 +793,8 @@ function lbSelectRecommended() {
 function lbResetTopics() {
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
   lbRefresh();
 }
 
@@ -945,6 +993,9 @@ function lbRenderTopics() {
   if (warnings) {
     const dropped = rec.filter.droppedSelections || [];
     warnings.innerHTML = [
+      ...(labBuilder.prereqNotice
+        ? [`<div class="lb-warning lb-prereq-notice" role="status">${escapeHtml(labBuilder.prereqNotice)}</div>`]
+        : []),
       ...(dropped.length
         ? [
             `<div class="lb-warning" role="status">These selected topics belong to another level, so they are not part of this ${escapeHtml(levelName)} lab: ${dropped
@@ -1131,6 +1182,8 @@ function lbResetAnswers() {
   labBuilder.rec = null;
   labBuilder.furthest = 1;
   labBuilder.levelNotice = null;
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
   lbRenderLevelNotice();
   for (const [id, value] of [["lb-time", ""], ["lb-title", ""], ["lb-agent-name", ""], ["lb-use-learn", true], ["lb-use-llm", true]]) {
     lbSetFormValue(id, value);

@@ -75,6 +75,16 @@ function lbGenCountMessage(shown) {
   return `${total} generated lab${total === 1 ? "" : "s"}.`;
 }
 
+function lbGeneratedActionButtonsHtml(labId, title) {
+  const safeId = escapeHtml(labId);
+  const safeTitle = escapeHtml(title || labId);
+  return `
+    <button type="button" class="btn btn-sm btn-primary" data-gen-action="export-zip" data-lab-id="${safeId}" aria-label="Export ${safeTitle} as ZIP">📦 Export ZIP</button>
+    <button type="button" class="btn btn-sm" data-gen-action="download" data-lab-id="${safeId}" aria-label="Download ${safeTitle} as Markdown">⬇️ Download .md</button>
+    <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">🖨️ Print / Save PDF</button>
+    <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>`;
+}
+
 function lbGenItemHtml(lab) {
   const id = escapeHtml(lab.labId);
   const title = escapeHtml(lab.title || lab.labId);
@@ -99,7 +109,7 @@ function lbGenItemHtml(lab) {
   const editable = Boolean(lab.selections);
   const legacy = editable
     ? ""
-    : `<p class="lb-gen-legacy">This lab was built before its choices were saved, so its selections cannot be edited. You can open, rename, or delete it, or start a new lab in the wizard.</p>`;
+    : `<p class="lb-gen-legacy">This lab was built before its choices were saved, so its selections cannot be edited. You can open, export, print, validate, rename, or delete it, or start a new lab in the wizard.</p>`;
   const edit = editable
     ? `<button type="button" class="btn btn-sm" data-gen-action="edit" aria-label="Edit selections for ${title}">Edit selections</button>`
     : `<button type="button" class="btn btn-sm" data-gen-action="new" aria-label="Start a new lab in the wizard">Start a new lab</button>`;
@@ -113,6 +123,10 @@ function lbGenItemHtml(lab) {
       <div class="lb-gen-actions">
         <button type="button" class="btn btn-sm" data-gen-action="open" aria-label="Open ${title}">Open</button>
         ${edit}
+        <button type="button" class="btn btn-sm" data-gen-action="export-zip" aria-label="Export ${title} as ZIP">Export ZIP</button>
+        <button type="button" class="btn btn-sm" data-gen-action="download" aria-label="Download ${title} as Markdown">Download .md</button>
+        <button type="button" class="btn btn-sm" data-gen-action="print" aria-label="Print or save ${title} as PDF">Print / Save PDF</button>
+        <button type="button" class="btn btn-sm" data-gen-action="validate" aria-label="Validate ${title}">Validate</button>
         <button type="button" class="btn btn-sm" data-gen-action="rename" aria-label="Rename ${title}">Rename</button>
         <button type="button" class="btn btn-sm" data-gen-action="delete" aria-label="Delete ${title}">Delete</button>
       </div>
@@ -190,10 +204,11 @@ async function lbOpenGenerated(labId) {
     <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
       Saved to <code>generated-labs/${escapeHtml(lab.labId)}</code> on the portal host.
     </div>
-    <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
-      <button type="button" class="btn btn-sm" data-gen-action="download" data-lab-id="${escapeHtml(lab.labId)}">⬇️ Download index.md</button>
+    <div class="lb-result-actions" style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+      ${lbGeneratedActionButtonsHtml(lab.labId, lab.title)}
     </div>`;
   body.innerHTML = `
+    <div id="lb-result-validation" role="region" aria-label="Generated lab validation results" aria-live="polite"></div>
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
     <details class="lb-advanced">
       <summary>View the Markdown source</summary>
@@ -203,6 +218,124 @@ async function lbOpenGenerated(labId) {
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
   document.getElementById("lb-result-heading")?.focus({ preventScroll: true });
   await lbLoadResultPreview(labId);
+}
+
+async function lbExportGeneratedZip(labId) {
+  if (!labId) return;
+  try {
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=zip`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Export failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${labId}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast(`Exported ${labId}.zip`, "success");
+  } catch (err) {
+    toast(`Could not export ZIP: ${err.message}`, "error");
+  }
+}
+
+async function lbPrintGenerated(labId) {
+  if (!labId) return;
+  const preview = document.getElementById("lb-result-preview");
+  const panel = document.getElementById("lb-result-panel");
+  const needsLoad =
+    lbGen.opened !== labId ||
+    !panel ||
+    panel.style.display === "none" ||
+    !preview ||
+    Boolean(preview.querySelector(".scenario-empty"));
+  if (needsLoad) {
+    if (lbGenFind(labId)) {
+      await lbOpenGenerated(labId);
+    } else {
+      await lbLoadResultPreview(labId);
+    }
+  }
+  document.body.dataset.printTarget = "generated";
+  const cleanup = () => {
+    delete document.body.dataset.printTarget;
+  };
+  window.addEventListener("afterprint", cleanup, { once: true });
+  setTimeout(cleanup, 2000);
+  window.print();
+}
+
+function lbRenderGeneratedValidationHtml(report) {
+  const failed = Number(report.failed) || 0;
+  const warnings = Number(report.warnings) || 0;
+  const passed = Number(report.passed) || 0;
+  const total = Number(report.total) || 0;
+  const badgeClass = failed ? "tag tag-danger" : warnings ? "tag tag-warning" : "tag tag-success";
+  const summaryLabel = failed
+    ? `${failed} failed, ${passed}/${total} passed`
+    : warnings
+    ? `All ${passed}/${total} passed (${warnings} warning${warnings === 1 ? "" : "s"})`
+    : `All ${passed}/${total} structural checks passed`;
+  const rows = (report.tests || [])
+    .map((item) => {
+      const icon = item.status === "fail" ? "❌" : item.status === "warn" ? "⚠️" : "✅";
+      return `<li>${icon} <code>${escapeHtml(item.name)}</code> — ${escapeHtml(item.message || "")}</li>`;
+    })
+    .join("");
+  return `
+    <details class="lb-advanced" style="margin-bottom: 16px;" ${failed || warnings ? "open" : ""}>
+      <summary style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span class="${badgeClass}">${escapeHtml(summaryLabel)}</span>
+        <span style="font-size: 13px; color: var(--text-muted);">Validated ${escapeHtml(report.title || report.labId)}</span>
+      </summary>
+      <ul style="margin-top: 10px; padding-left: 20px; font-size: 13px; line-height: 1.65;">${rows}</ul>
+    </details>`;
+}
+
+async function lbValidateGenerated(labId) {
+  if (!labId) return;
+  const panel = document.getElementById("lb-result-panel");
+  if ((lbGen.opened !== labId || !panel || panel.style.display === "none") && lbGenFind(labId)) {
+    await lbOpenGenerated(labId);
+  }
+  const host = document.getElementById("lb-result-validation");
+  if (host) {
+    host.innerHTML = '<p class="lb-learn-status">Running structural validation checks...</p>';
+  }
+  try {
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/validate`);
+    const report = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(report.error || `Validation failed (${res.status})`);
+    if (host) {
+      host.innerHTML = lbRenderGeneratedValidationHtml(report);
+      host.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    const existing = lbGenFind(labId);
+    if (existing) {
+      existing.validation = {
+        status: report.failed ? "failed" : "passed",
+        passed: report.passed,
+        failed: report.failed,
+        checkedAt: report.timestamp || new Date().toISOString(),
+      };
+      lbGenRender();
+    }
+    toast(
+      report.failed
+        ? `Validation found ${report.failed} issue${report.failed === 1 ? "" : "s"} in ${labId}`
+        : `All ${report.passed} checks passed for ${labId}`,
+      report.failed ? "error" : "success",
+    );
+  } catch (err) {
+    if (host) {
+      host.innerHTML = `<p class="lb-error" role="alert">Could not validate lab: ${escapeHtml(err.message)}</p>`;
+    }
+    toast(`Validation error: ${err.message}`, "error");
+  }
 }
 
 function lbGenCloseOpened(labId) {
@@ -324,9 +457,12 @@ function lbGenBind() {
     switch (button.dataset.genAction) {
       case "open": lbOpenGenerated(labId); break;
       case "edit": lbEditGenerated(labId); break;
+      case "export-zip": lbExportGeneratedZip(labId); break;
+      case "download": lbDownload(labId); break;
+      case "print": lbPrintGenerated(labId); break;
+      case "validate": lbValidateGenerated(labId); break;
       case "rename": lbGenAskRename(labId); break;
       case "delete": lbGenAskDelete(labId); break;
-      case "download": lbDownload(labId); break;
       case "retry": lbLoadGenerated(); break;
       case "new": lbStartNewLab(); break;
     }
@@ -351,6 +487,22 @@ function lbGenBind() {
   document.getElementById("lb-gen-rename-dialog")?.addEventListener("close", () => {
     if (lbGen.renaming) lbGenFocusAction(lbGen.renaming, "rename");
     lbGen.renaming = null;
+  });
+  let autoSetPrintTarget = false;
+  window.addEventListener("beforeprint", () => {
+    if (document.body.dataset.printTarget) return;
+    const builderActive = document.getElementById("panel-labbuilder")?.classList.contains("active");
+    const resultPanel = document.getElementById("lb-result-panel");
+    if (builderActive && resultPanel && resultPanel.style.display !== "none") {
+      document.body.dataset.printTarget = "generated";
+      autoSetPrintTarget = true;
+    }
+  });
+  window.addEventListener("afterprint", () => {
+    if (autoSetPrintTarget) {
+      delete document.body.dataset.printTarget;
+      autoSetPrintTarget = false;
+    }
   });
 }
 
