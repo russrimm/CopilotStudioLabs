@@ -1286,7 +1286,7 @@
         "Select Agents and select the agent you want to add ServiceNow to.",
         "Go to the Tools page of your agent and select Add a tool.",
         "Select Connector, search for ServiceNow, and select the incident or knowledge tool you want to add.",
-        "If the connection doesn't already exist, select Create new connection and complete the ServiceNow authentication option your tenant prepared.",
+        "If the connection doesn't already exist, select Create new connection and complete the explicit ServiceNow authentication option your tenant prepared (do not select Default [DEPRECATED]).",
         "Select Submit or Create when the connection setup is complete.",
         "Select Add and configure, then refine the tool description and credential behavior before testing the agent."
       ],
@@ -1340,7 +1340,7 @@
         "Select Agents and select the agent you want to add ServiceNow to.",
         "Go to the Tools page of your agent and select Add a tool.",
         "Select Connector, search for ServiceNow, and select the incident or knowledge tool you want to add.",
-        "If the connection doesn't already exist, select Create new connection and complete the ServiceNow authentication option your tenant prepared.",
+        "If the connection doesn't already exist, select Create new connection and complete the explicit ServiceNow authentication option your tenant prepared (do not select Default [DEPRECATED]).",
         "Select Submit or Create when the connection setup is complete.",
         "Select Add and configure, then refine the tool description and credential behavior before testing the agent."
       ],
@@ -1393,9 +1393,9 @@
         "Select Agents and select the analytics agent you want to add Snowflake data to.",
         "Go to the Tools page of your agent and select Add a tool.",
         "Select Connector to see the services with connectors available.",
-        "Select Snowflake, or search for Snowflake by name in the search box to see its connector tools.",
+        "Select the current Snowflake (snowflakev2) connector (not the legacy deprecated Snowflake connector), or search for Snowflake by name in the search box to see its connector tools.",
         "Select the Snowflake query tool you want to add. The Add tool pane opens.",
-        "If the Snowflake connection doesn't already exist, select Create new connection and complete tenant-approved connection details.",
+        "If the Snowflake connection doesn't already exist, select Create new connection and complete tenant-approved Microsoft Entra ID OAuth connection details (do not select Default [DEPRECATED]).",
         "Select Submit or Create as applicable when you're done.",
         "Select Add and configure. The configuration page for the new Snowflake tool opens, showing the tool and its details."
       ],
@@ -1449,9 +1449,9 @@
         "Select Agents and select the analytics agent you want to add Snowflake data to.",
         "Go to the Tools page of your agent and select Add a tool.",
         "Select Connector to see the services with connectors available.",
-        "Select Snowflake, or search for Snowflake by name in the search box to see its connector tools.",
+        "Select the current Snowflake (snowflakev2) connector (not the legacy deprecated Snowflake connector), or search for Snowflake by name in the search box to see its connector tools.",
         "Select the Snowflake query tool you want to add. The Add tool pane opens.",
-        "If the Snowflake connection doesn't already exist, select Create new connection and complete tenant-approved connection details.",
+        "If the Snowflake connection doesn't already exist, select Create new connection and complete tenant-approved Microsoft Entra ID OAuth connection details (do not select Default [DEPRECATED]).",
         "Select Submit or Create as applicable when you're done.",
         "Select Add and configure. The configuration page for the new Snowflake tool opens, showing the tool and its details."
       ],
@@ -1505,8 +1505,8 @@
         "Go to the Tools page of your agent and select Add a tool.",
         "Select Connector to see the services with connectors available.",
         "Select SAP ERP or SAP OData, or search for SAP by name in the search box to see connector tools.",
-        "Select the SAP tool you want to add, such as Call SAP function. The Add tool pane opens.",
-        "If the SAP connection doesn't already exist, select Create new connection and complete approved gateway or OAuth connection details.",
+        "Select the SAP tool you want to add, such as Call SAP function (V3). The Add tool pane opens.",
+        "If the SAP connection doesn't already exist, select Create new connection and complete approved gateway or OAuth connection details (do not select Default [DEPRECATED]).",
         "Select Submit or Create as applicable when you're done.",
         "Select Add and configure. The configuration page for the new SAP tool opens, showing the tool and its details."
       ],
@@ -1560,8 +1560,8 @@
         "Go to the Tools page of your agent and select Add a tool.",
         "Select Connector to see the services with connectors available.",
         "Select SAP ERP or SAP OData, or search for SAP by name in the search box to see connector tools.",
-        "Select the SAP tool you want to add, such as Call SAP function. The Add tool pane opens.",
-        "If the SAP connection doesn't already exist, select Create new connection and complete approved gateway or OAuth connection details.",
+        "Select the SAP tool you want to add, such as Call SAP function (V3). The Add tool pane opens.",
+        "If the SAP connection doesn't already exist, select Create new connection and complete approved gateway or OAuth connection details (do not select Default [DEPRECATED]).",
         "Select Submit or Create as applicable when you're done.",
         "Select Add and configure. The configuration page for the new SAP tool opens, showing the tool and its details."
       ],
@@ -1840,7 +1840,7 @@
         "Select Connector to see the services with connectors available.",
         "Select FHIRlink, or search for FHIRlink by name in the search box to see connector tools.",
         "Select the FHIRlink read tool you want to add, such as Get a resource. The Add tool pane opens.",
-        "If the Epic connection doesn't already exist, select Create new connection and complete approved FHIR endpoint connection details.",
+        "If the Epic connection doesn't already exist, select Create new connection and complete approved OAuth 2.0 FHIR endpoint connection details (do not select Default [DEPRECATED]).",
         "Select Submit or Create as applicable when you're done.",
         "Select Add and configure. The configuration page for the new FHIRlink tool opens, showing the tool and its details."
       ],
@@ -1895,7 +1895,7 @@
         "Select Connector to see the services with connectors available.",
         "Select FHIRlink, or search for FHIRlink by name in the search box to see connector tools.",
         "Select the FHIRlink read tool you want to add, such as Get a resource. The Add tool pane opens.",
-        "If the Epic connection doesn't already exist, select Create new connection and complete approved FHIR endpoint connection details.",
+        "If the Epic connection doesn't already exist, select Create new connection and complete approved OAuth 2.0 FHIR endpoint connection details (do not select Default [DEPRECATED]).",
         "Select Submit or Create as applicable when you're done.",
         "Select Add and configure. The configuration page for the new FHIRlink tool opens, showing the tool and its details."
       ],
@@ -2281,11 +2281,10 @@
       ],
       "setup": [
         "Confirm the specialist agent is available to use from the main agent and has agent connection enabled.",
-        "Go to the Agents page for your main agent and select Add an agent.",
-        "Under Connect to an external agent, select Copilot Studio.",
-        "Select the desired agent from the list of available Copilot Studio agents and review its name, instructions, and description.",
+        "Go to the Agents page for your main agent and select Add next to Add an agent.",
+        "Under Select an agent in your environment, select the desired Copilot Studio agent (use Connect to an external agent for Microsoft Foundry, Fabric, Microsoft 365 Agents SDK, or Agent2Agent agents) and review its name, instructions, and description.",
         "Adjust the description so it is contextual and specific enough for the main agent to know when to invoke the specialist agent.",
-        "Optionally clear Pass conversation history to this agent to pass only the explicit task to the connected agent."
+        "Optionally clear Pass conversation history to this agent to pass only the explicit task to the connected agent, then select Add."
       ],
       "instructions": [
         "Show the connected Copilot Studio agent configuration and its local description."
@@ -2295,25 +2294,25 @@
           "n": 1,
           "label": "Agents",
           "text": "Agents",
-          "note": "Go to the Agents page for your main agent and select Add an agent."
+          "note": "Go to the Agents page for your main agent and select Add next to Add an agent."
         },
         {
           "n": 2,
-          "label": "Add an agent",
-          "text": "Add an agent",
-          "note": "Go to the Agents page for your main agent and select Add an agent."
+          "label": "Add",
+          "text": "Add",
+          "note": "Go to the Agents page for your main agent and select Add next to Add an agent."
         },
         {
           "n": 3,
-          "label": "Connect to an external agent",
-          "text": "Connect to an external agent",
-          "note": "Under Connect to an external agent, select Copilot Studio."
+          "label": "Add an agent",
+          "text": "Add an agent",
+          "note": "Go to the Agents page for your main agent and select Add next to Add an agent."
         },
         {
           "n": 4,
-          "label": "Copilot Studio",
-          "text": "Copilot Studio",
-          "note": "Under Connect to an external agent, select Copilot Studio."
+          "label": "Select an agent in your environment",
+          "text": "Select an agent in your environment",
+          "note": "Under Select an agent in your environment, select the desired Copilot Studio agent (use Connect to an external agent for Microsoft Foundry, Fabric, Microsoft 3…"
         }
       ]
     },
@@ -2333,11 +2332,10 @@
       ],
       "setup": [
         "Confirm the specialist agent is available to use from the main agent and has agent connection enabled.",
-        "Go to the Agents page for your main agent and select Add an agent.",
-        "Under Connect to an external agent, select Copilot Studio.",
-        "Select the desired agent from the list of available Copilot Studio agents and review its name, instructions, and description.",
+        "Go to the Agents page for your main agent and select Add next to Add an agent.",
+        "Under Select an agent in your environment, select the desired Copilot Studio agent (use Connect to an external agent for Microsoft Foundry, Fabric, Microsoft 365 Agents SDK, or Agent2Agent agents) and review its name, instructions, and description.",
         "Adjust the description so it is contextual and specific enough for the main agent to know when to invoke the specialist agent.",
-        "Optionally clear Pass conversation history to this agent to pass only the explicit task to the connected agent."
+        "Optionally clear Pass conversation history to this agent to pass only the explicit task to the connected agent, then select Add."
       ],
       "instructions": [
         "Ask a specialist question in the test pane.",
@@ -2348,25 +2346,25 @@
           "n": 1,
           "label": "Agents",
           "text": "Agents",
-          "note": "Go to the Agents page for your main agent and select Add an agent."
+          "note": "Go to the Agents page for your main agent and select Add next to Add an agent."
         },
         {
           "n": 2,
-          "label": "Add an agent",
-          "text": "Add an agent",
-          "note": "Go to the Agents page for your main agent and select Add an agent."
+          "label": "Add",
+          "text": "Add",
+          "note": "Go to the Agents page for your main agent and select Add next to Add an agent."
         },
         {
           "n": 3,
-          "label": "Connect to an external agent",
-          "text": "Connect to an external agent",
-          "note": "Under Connect to an external agent, select Copilot Studio."
+          "label": "Add an agent",
+          "text": "Add an agent",
+          "note": "Go to the Agents page for your main agent and select Add next to Add an agent."
         },
         {
           "n": 4,
-          "label": "Copilot Studio",
-          "text": "Copilot Studio",
-          "note": "Under Connect to an external agent, select Copilot Studio."
+          "label": "Select an agent in your environment",
+          "text": "Select an agent in your environment",
+          "note": "Under Select an agent in your environment, select the desired Copilot Studio agent (use Connect to an external agent for Microsoft Foundry, Fabric, Microsoft 3…"
         }
       ]
     },
@@ -2423,12 +2421,12 @@
         "Connector tools"
       ],
       "setup": [
-        "In Copilot Studio, go to Flows from the left pane.",
-        "Select New flow > Agent flow.",
+        "In Copilot Studio, open your agent, go to the Tools tab, and select Add tool > Agent flow under Create new (or go to Flows in the left pane and select New agent flow).",
+        "Confirm the designer opens with the When an agent calls the flow trigger and Respond to the agent action, with Asynchronous response set to Off under Networking.",
         "Add input parameters to the When an agent calls the flow trigger.",
         "Add the actions your flow needs between the trigger and Respond to the agent.",
         "Add output parameters to Respond to the agent and select Publish.",
-        "Add the published flow to the agent from Agents > Tools > Add a tool > Flow, then configure Name, Description, Inputs, and Completion."
+        "If you created the flow from Flows, add the published flow from the agent's Tools page via Add a tool > Flow; then configure Name, Description, Inputs, and Completion."
       ],
       "instructions": [
         "Show the agent flow canvas with When an agent calls the flow, action steps, and Respond to the agent."
@@ -2463,12 +2461,12 @@
         "Connector tools"
       ],
       "setup": [
-        "In Copilot Studio, go to Flows from the left pane.",
-        "Select New flow > Agent flow.",
+        "In Copilot Studio, open your agent, go to the Tools tab, and select Add tool > Agent flow under Create new (or go to Flows in the left pane and select New agent flow).",
+        "Confirm the designer opens with the When an agent calls the flow trigger and Respond to the agent action, with Asynchronous response set to Off under Networking.",
         "Add input parameters to the When an agent calls the flow trigger.",
         "Add the actions your flow needs between the trigger and Respond to the agent.",
         "Add output parameters to Respond to the agent and select Publish.",
-        "Add the published flow to the agent from Agents > Tools > Add a tool > Flow, then configure Name, Description, Inputs, and Completion."
+        "If you created the flow from Flows, add the published flow from the agent's Tools page via Add a tool > Flow; then configure Name, Description, Inputs, and Completion."
       ],
       "instructions": [
         "Show a successful flow run with its inputs and outputs.",
@@ -2477,27 +2475,27 @@
       "callouts": [
         {
           "n": 1,
-          "label": "Flows",
-          "text": "Flows",
-          "note": "In Copilot Studio, go to Flows from the left pane."
+          "label": "Tools",
+          "text": "Tools",
+          "note": "In Copilot Studio, open your agent, go to the Tools tab, and select Add tool > Agent flow under Create new (or go to Flows in the left pane and select New agen…"
         },
         {
           "n": 2,
-          "label": "New flow",
-          "text": "New flow",
-          "note": "Select New flow > Agent flow."
+          "label": "Add tool",
+          "text": "Add tool",
+          "note": "In Copilot Studio, open your agent, go to the Tools tab, and select Add tool > Agent flow under Create new (or go to Flows in the left pane and select New agen…"
         },
         {
           "n": 3,
           "label": "Agent flow",
           "text": "Agent flow",
-          "note": "Select New flow > Agent flow."
+          "note": "In Copilot Studio, open your agent, go to the Tools tab, and select Add tool > Agent flow under Create new (or go to Flows in the left pane and select New agen…"
         },
         {
           "n": 4,
-          "label": "When an agent calls the flow",
-          "text": "When an agent calls the flow",
-          "note": "Add input parameters to the When an agent calls the flow trigger."
+          "label": "Create new",
+          "text": "Create new",
+          "note": "In Copilot Studio, open your agent, go to the Tools tab, and select Add tool > Agent flow under Create new (or go to Flows in the left pane and select New agen…"
         }
       ]
     },
@@ -2657,7 +2655,7 @@
         "Under Select test methods, change or add the test methods you want to use.",
         "Edit the test case details, adding expected responses or keywords for every method except general quality.",
         "Under Additional configuration, select Manage.",
-        "In Manage profile and connections, under User, select or add the account to use for the data set.",
+        "In Manage profile and connections, review the connections for the currently signed-in user (to run as a different user, sign out and sign in with that account before starting the evaluation).",
         "Select Save to update the data set without running it, or select Run to run it immediately.",
         "After making an improvement, open Recent results, rerun the same test set, and use Compare with to compare runs."
       ],
@@ -2696,7 +2694,7 @@
         "Under Select test methods, change or add the test methods you want to use.",
         "Edit the test case details, adding expected responses or keywords for every method except general quality.",
         "Under Additional configuration, select Manage.",
-        "In Manage profile and connections, under User, select or add the account to use for the data set.",
+        "In Manage profile and connections, review the connections for the currently signed-in user (to run as a different user, sign out and sign in with that account before starting the evaluation).",
         "Select Save to update the data set without running it, or select Run to run it immediately.",
         "After making an improvement, open Recent results, rerun the same test set, and use Compare with to compare runs."
       ],
@@ -3154,40 +3152,34 @@
         "Publish the agent"
       ],
       "setup": [
-        "Publish the agent at least once, then open the configuration panel for the Teams and Microsoft 365 Copilot channels.",
-        "Under Turn on Microsoft 365, keep Make agent available in Microsoft 365 Copilot selected if the agent should appear in Microsoft 365 Copilot, then select Add channel.",
+        "Publish the agent at least once, then on Channels, open the Microsoft 365 and Microsoft Teams (or Teams and Microsoft 365 Copilot) configuration panel.",
+        "Under Turn on Microsoft 365, keep Make agent available in Microsoft Copilot selected if the agent should appear in Microsoft Copilot, then select Add channel.",
         "Select Edit details, update the agent icon, color, descriptions, and optional publisher details, then select Save.",
         "Select See agent in Teams, then select Add to install the agent for yourself.",
         "Select Availability options and choose Copy link, Show to my teammates and shared users, or Show to everyone in my org based on the rollout path.",
         "In Microsoft 365 Copilot, enter @, select the agent, enter a question, and select Enter."
       ],
       "instructions": [
-        "Show the Teams and Microsoft 365 Copilot channel configuration with Microsoft 365 availability and availability options visible."
+        "Show the Microsoft 365 and Microsoft Teams channel configuration with Make agent available in Microsoft Copilot and Availability options visible."
       ],
       "callouts": [
         {
           "n": 1,
-          "label": "Teams and Microsoft 365 Copilot",
-          "text": "Teams and Microsoft 365 Copilot",
-          "note": "Publish the agent at least once, then open the configuration panel for the Teams and Microsoft 365 Copilot channels."
+          "label": "Microsoft 365 and Microsoft Teams",
+          "text": "Microsoft 365 and Microsoft Teams",
+          "note": "Show the Microsoft 365 and Microsoft Teams channel configuration with Make agent available in Microsoft Copilot and Availability options visible."
         },
         {
           "n": 2,
-          "label": "Turn on Microsoft 365",
-          "text": "Turn on Microsoft 365",
-          "note": "Under Turn on Microsoft 365, keep Make agent available in Microsoft 365 Copilot selected if the agent should appear in Microsoft 365 Copilot, then select Add c…"
+          "label": "Make agent available in Microsoft Copilot",
+          "text": "Make agent available in Microsoft Copilot",
+          "note": "Show the Microsoft 365 and Microsoft Teams channel configuration with Make agent available in Microsoft Copilot and Availability options visible."
         },
         {
           "n": 3,
-          "label": "Make agent available in Microsoft 365 Copilot",
-          "text": "Make agent available in Microsoft 365 Copilot",
-          "note": "Under Turn on Microsoft 365, keep Make agent available in Microsoft 365 Copilot selected if the agent should appear in Microsoft 365 Copilot, then select Add c…"
-        },
-        {
-          "n": 4,
-          "label": "Add channel",
-          "text": "Add channel",
-          "note": "Under Turn on Microsoft 365, keep Make agent available in Microsoft 365 Copilot selected if the agent should appear in Microsoft 365 Copilot, then select Add c…"
+          "label": "Availability options",
+          "text": "Availability options",
+          "note": "Show the Microsoft 365 and Microsoft Teams channel configuration with Make agent available in Microsoft Copilot and Availability options visible."
         }
       ]
     },
@@ -3206,8 +3198,8 @@
         "Publish the agent"
       ],
       "setup": [
-        "Publish the agent at least once, then open the configuration panel for the Teams and Microsoft 365 Copilot channels.",
-        "Under Turn on Microsoft 365, keep Make agent available in Microsoft 365 Copilot selected if the agent should appear in Microsoft 365 Copilot, then select Add channel.",
+        "Publish the agent at least once, then on Channels, open the Microsoft 365 and Microsoft Teams (or Teams and Microsoft 365 Copilot) configuration panel.",
+        "Under Turn on Microsoft 365, keep Make agent available in Microsoft Copilot selected if the agent should appear in Microsoft Copilot, then select Add channel.",
         "Select Edit details, update the agent icon, color, descriptions, and optional publisher details, then select Save.",
         "Select See agent in Teams, then select Add to install the agent for yourself.",
         "Select Availability options and choose Copy link, Show to my teammates and shared users, or Show to everyone in my org based on the rollout path.",
@@ -3219,27 +3211,27 @@
       "callouts": [
         {
           "n": 1,
-          "label": "Teams and Microsoft 365 Copilot",
-          "text": "Teams and Microsoft 365 Copilot",
-          "note": "Publish the agent at least once, then open the configuration panel for the Teams and Microsoft 365 Copilot channels."
+          "label": "Microsoft 365 and Microsoft Teams",
+          "text": "Microsoft 365 and Microsoft Teams",
+          "note": "Publish the agent at least once, then on Channels, open the Microsoft 365 and Microsoft Teams (or Teams and Microsoft 365 Copilot) configuration panel."
         },
         {
           "n": 2,
-          "label": "Turn on Microsoft 365",
-          "text": "Turn on Microsoft 365",
-          "note": "Under Turn on Microsoft 365, keep Make agent available in Microsoft 365 Copilot selected if the agent should appear in Microsoft 365 Copilot, then select Add c…"
+          "label": "Teams and Microsoft 365 Copilot",
+          "text": "Teams and Microsoft 365 Copilot",
+          "note": "Publish the agent at least once, then on Channels, open the Microsoft 365 and Microsoft Teams (or Teams and Microsoft 365 Copilot) configuration panel."
         },
         {
           "n": 3,
-          "label": "Make agent available in Microsoft 365 Copilot",
-          "text": "Make agent available in Microsoft 365 Copilot",
-          "note": "Under Turn on Microsoft 365, keep Make agent available in Microsoft 365 Copilot selected if the agent should appear in Microsoft 365 Copilot, then select Add c…"
+          "label": "Turn on Microsoft 365",
+          "text": "Turn on Microsoft 365",
+          "note": "Under Turn on Microsoft 365, keep Make agent available in Microsoft Copilot selected if the agent should appear in Microsoft Copilot, then select Add channel."
         },
         {
           "n": 4,
-          "label": "Add channel",
-          "text": "Add channel",
-          "note": "Under Turn on Microsoft 365, keep Make agent available in Microsoft 365 Copilot selected if the agent should appear in Microsoft 365 Copilot, then select Add c…"
+          "label": "Make agent available in Microsoft Copilot",
+          "text": "Make agent available in Microsoft Copilot",
+          "note": "Under Turn on Microsoft 365, keep Make agent available in Microsoft Copilot selected if the agent should appear in Microsoft Copilot, then select Add channel."
         }
       ]
     },
@@ -3259,12 +3251,12 @@
         "Publish the agent"
       ],
       "setup": [
-        "Download the Copilot Studio client sample from the Microsoft 365 Agents SDK.",
-        "Get the appropriate sample for .NET, JavaScript, or Python from the Copilot Studio Client Samples.",
-        "Get the Embed code or connection string for your agent in Copilot Studio: if Authenticate with Microsoft or Authenticate manually is selected, use the connection string; if No authentication is selected, use the Embed code or connection string.",
-        "Get your connection string.",
-        "Get information for traditional configuration settings.",
-        "Configure your application registration with the correct permissions, such as Copilot Studio.Copilots.Invoke, to access Copilot Studio."
+        "Clone or download the .NET, JavaScript, or Python sample from the CopilotStudioSamples repository in the Microsoft 365 Agents SDK.",
+        "In Copilot Studio, check Settings > Security > Authentication: use the SDK connection string when Authenticate with Microsoft or Authenticate manually is selected (the no-code Embed code appears only when No authentication is selected).",
+        "Go to Channels > Web app or Native app > Microsoft 365 Agents SDK and select Copy under Connection string (or collect Environment ID and Schema name from Settings > Advanced > Metadata).",
+        "Register a client application in the Microsoft Entra admin center with the redirect URI required by your web or native sample.",
+        "Under API permissions > Add a permission > APIs my organization uses, search for Power Platform API, select Delegated permissions > CopilotStudio > CopilotStudio.Copilots.Invoke, and select Add permissions (grant admin consent if required).",
+        "Add the connection string (or environment ID and schema name) plus your Microsoft Entra tenant ID and client ID to the sample configuration, then run the app and test an authenticated conversation."
       ],
       "instructions": [
         "Show the custom app or SDK sample connected to the agent, with any connection string, tenant ID, client ID, or secret values masked."
@@ -3272,21 +3264,27 @@
       "callouts": [
         {
           "n": 1,
-          "label": "Authenticate with Microsoft",
-          "text": "Authenticate with Microsoft",
-          "note": "Get the Embed code or connection string for your agent in Copilot Studio: if Authenticate with Microsoft or Authenticate manually is selected, use the connecti…"
+          "label": "CopilotStudioSamples",
+          "text": "CopilotStudioSamples",
+          "note": "Clone or download the .NET, JavaScript, or Python sample from the CopilotStudioSamples repository in the Microsoft 365 Agents SDK."
         },
         {
           "n": 2,
-          "label": "Authenticate manually",
-          "text": "Authenticate manually",
-          "note": "Get the Embed code or connection string for your agent in Copilot Studio: if Authenticate with Microsoft or Authenticate manually is selected, use the connecti…"
+          "label": "Settings",
+          "text": "Settings",
+          "note": "In Copilot Studio, check Settings > Security > Authentication: use the SDK connection string when Authenticate with Microsoft or Authenticate manually is selec…"
         },
         {
           "n": 3,
-          "label": "No authentication",
-          "text": "No authentication",
-          "note": "Get the Embed code or connection string for your agent in Copilot Studio: if Authenticate with Microsoft or Authenticate manually is selected, use the connecti…"
+          "label": "Security",
+          "text": "Security",
+          "note": "In Copilot Studio, check Settings > Security > Authentication: use the SDK connection string when Authenticate with Microsoft or Authenticate manually is selec…"
+        },
+        {
+          "n": 4,
+          "label": "Authentication",
+          "text": "Authentication",
+          "note": "In Copilot Studio, check Settings > Security > Authentication: use the SDK connection string when Authenticate with Microsoft or Authenticate manually is selec…"
         }
       ]
     },
@@ -3306,7 +3304,7 @@
       ],
       "setup": [
         "Create or open the agent, go to Voice settings, turn on Enable voice, and set Voice type to Real-time.",
-        "Select GPT-Realtime, GPT-Realtime-Mini, or GPT-5-Chat (Preview) based on latency, cost, and voice customization needs, then set Security to No Authentication.",
+        "Select GPT-Realtime, GPT-Realtime-Mini (Preview), or GPT-5-Chat (Preview) based on latency, cost, and voice customization needs, then set Security to No Authentication.",
         "Configure Settings > Voice > Select voice and choose speech input sensitivity under Phone Setup > Speech input > Sensitivity.",
         "Configure DTMF, Silence detection, and Latency messaging under Conversation behavior as required for the call flow.",
         "Configure Hold and resume under Settings > Voice > Conversational skills, or use the Question properties panel's Hold & Resume category for topic-level control.",

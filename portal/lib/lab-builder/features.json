@@ -244,7 +244,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/authoring-instructions",
         "https://learn.microsoft.com/microsoft-copilot-studio/guidance/generative-mode-guidance"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-instructions",
       "prereqs": [
         "create-agent"
@@ -309,7 +309,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-generative-actions",
         "https://learn.microsoft.com/microsoft-copilot-studio/nlu-gpt-overview"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-generative-actions",
       "prereqs": [
         "agent-instructions"
@@ -363,7 +363,7 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/authoring-select-agent-model"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-select-agent-model",
       "prereqs": [
         "generative-orchestration"
@@ -426,7 +426,7 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels",
       "prereqs": [
         "create-agent"
@@ -725,7 +725,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/authoring-create-edit-topics",
         "https://learn.microsoft.com/microsoft-copilot-studio/authoring-system-topics"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-create-edit-topics",
       "prereqs": [
         "create-agent"
@@ -801,7 +801,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-entities-slot-filling",
         "https://learn.microsoft.com/microsoft-copilot-studio/authoring-variables"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-entities-slot-filling",
       "prereqs": [
         "topics"
@@ -883,7 +883,7 @@
           "stability": "Replaced adaptivecards.io, whose old deep links such as /explorer/ no longer resolve. The site is rendered in the browser, so the builder can confirm it is up but has nothing to quote from it."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-ask-with-adaptive-card",
       "prereqs": [
         "entities-variables"
@@ -952,7 +952,7 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-power-fx"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-power-fx",
       "prereqs": [
         "entities-variables"
@@ -1023,7 +1023,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-sharepoint",
         "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-sharepoint",
       "prereqs": [
         "create-agent"
@@ -1080,7 +1080,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-file-upload",
         "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-public-website"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-file-upload",
       "prereqs": [
         "knowledge-sharepoint"
@@ -1136,7 +1136,7 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-dataverse"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-dataverse",
       "prereqs": [
         "knowledge-sharepoint"
@@ -1190,7 +1190,7 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio",
       "prereqs": [
         "knowledge-sharepoint"
@@ -1264,9 +1264,9 @@
         "microsoft-copilot"
       ],
       "summary": "Connect the agent to an existing Foundry IQ knowledge base as a tool and verify retrieval in the activity trace.",
-      "whyItMatters": "A team may already have built and tuned a knowledge base in Azure AI Foundry. Connecting to it reuses that retrieval setup, and it is also how Azure AI Search content reaches this harness.",
+      "whyItMatters": "A team may already have built and tuned a knowledge base in Microsoft Foundry. Connecting to it reuses that retrieval setup, and it is also how Azure AI Search content reaches this harness.",
       "concepts": [
-        "A Foundry IQ knowledge base bundles enterprise data sources with retrieval and relevance settings into one reusable asset. You tune it in Azure AI Foundry, not in Copilot Studio.",
+        "A Foundry IQ knowledge base bundles enterprise data sources with retrieval and relevance settings into one reusable asset. You tune it in Microsoft Foundry, not in Copilot Studio.",
         "An agent can have only one Foundry IQ connection, and only the knowledge bases you have access to in Foundry appear in the picker.",
         "Connection authentication types are API key, client certificate, service principal (Microsoft Entra ID application), and Microsoft Entra ID Integrated."
       ],
@@ -1291,7 +1291,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/foundry-iq-connect",
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-add-existing-copilot"
       ],
-      "lastVerified": "2026-11-12",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/foundry-iq-connect",
       "prereqs": [
         "mc-knowledge"
@@ -1364,7 +1364,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
         "https://learn.microsoft.com/microsoft-copilot-studio/add-tools-custom-agent"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
       "prereqs": [
         "generative-orchestration"
@@ -1441,7 +1441,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt",
         "https://learn.microsoft.com/microsoft-copilot-studio/add-tools-custom-agent"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/nlu-prompt-node",
       "prereqs": [
         "generative-orchestration"
@@ -1523,7 +1523,7 @@
           "stability": "A frozen specification version. Custom connectors accept OpenAPI 2.0 (formerly Swagger) definitions only, so this is the version to follow."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/connectors/custom-connectors/azure-active-directory-authentication",
       "prereqs": [
         "connector-tools"
@@ -1594,7 +1594,7 @@
           "stability": "Redirects to the newest dated specification revision. Older revisions stay available at their own dated paths."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/mcp-add-components-to-agent",
       "prereqs": [
         "connector-tools"
@@ -1765,13 +1765,13 @@
       "concepts": [
         "The ServiceNow connector is a premium Power Platform connector for Copilot Studio and supports create, read, and update actions over ServiceNow records.",
         "ServiceNow knowledge can be exposed either through connector actions, the preview real-time connector knowledge path, or the Microsoft 365 Copilot connector; choose one pattern per chapter so users understand the runtime path.",
-        "Authentication and tool credentials control whether ServiceNow is called with each end user's access or with a maker-provided connection."
+        "Authentication and tool credentials control whether ServiceNow is called with each end user's access or with a maker-provided connection; select an explicit authentication type (such as Microsoft Entra ID OAuth) rather than `Default [DEPRECATED]`."
       ],
       "steps": [
         "Select **Agents** and select the agent you want to add ServiceNow to.",
         "Go to the **Tools** page of your agent and select **Add a tool**.",
         "Select **Connector**, search for ServiceNow, and select the incident or knowledge tool you want to add.",
-        "If the connection doesn't already exist, select **Create new connection** and complete the ServiceNow authentication option your tenant prepared.",
+        "If the connection doesn't already exist, select **Create new connection** and complete the explicit ServiceNow authentication option your tenant prepared (do not select `Default [DEPRECATED]`).",
         "Select **Submit** or **Create** when the connection setup is complete.",
         "Select **Add and configure**, then refine the tool description and credential behavior before testing the agent."
       ],
@@ -1823,7 +1823,7 @@
           "stability": "The ServiceNow-side setup for Microsoft Entra ID sign-in to the ServiceNow connector. Follows the current ServiceNow release. The site renders its pages in the browser and answers HTTP 200 for any address, so an automated check can only confirm that the site is up; open the page in a browser when you re-verify this feature."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
       "prereqs": [
         "generative-orchestration"
@@ -1845,17 +1845,17 @@
       "summary": "Add Snowflake connector actions as agent tools so the agent can query governed warehouse data through a Power Platform connection.",
       "whyItMatters": "Warehouse-backed answers are useful only when the agent reaches Snowflake through governed authentication and scoped operations. Copilot Studio also documents Snowflake as a preview real-time connector knowledge source, but this chapter teaches the connector-tool path used for controlled query actions.",
       "concepts": [
-        "The Snowflake connector is a premium connector for Copilot Studio and supports Power Automate actions that execute SQL and return results.",
-        "External OAuth with Microsoft Entra ID depends on the chosen delegated or service principal flow, including the correct redirect URI, audience, and user mapping claim.",
+        "Use the current **Snowflake** (`snowflakev2` / v2) premium connector rather than the legacy `Snowflake [DEPRECATED]` connector; it executes SQL statements and returns results to Copilot Studio and Power Automate.",
+        "External OAuth with Microsoft Entra ID uses explicit delegated or service principal authentication (rather than `Default [DEPRECATED]`), including the `https://global.consent.azure-apim.net/redirect/snowflakev2` redirect URI, audience, and user mapping claim.",
         "A Snowflake real-time connector knowledge source is documented in preview, but action tools are the clearer fit when the agent must run a specific query or stored operation."
       ],
       "steps": [
         "Select **Agents** and select the analytics agent you want to add Snowflake data to.",
         "Go to the **Tools** page of your agent and select **Add a tool**.",
         "Select **Connector** to see the services with connectors available.",
-        "Select Snowflake, or search for Snowflake by name in the search box to see its connector tools.",
+        "Select the current **Snowflake** (`snowflakev2`) connector (not the legacy deprecated Snowflake connector), or search for Snowflake by name in the search box to see its connector tools.",
         "Select the Snowflake query tool you want to add. The **Add tool** pane opens.",
-        "If the Snowflake connection doesn't already exist, select **Create new connection** and complete tenant-approved connection details.",
+        "If the Snowflake connection doesn't already exist, select **Create new connection** and complete tenant-approved Microsoft Entra ID OAuth connection details (do not select `Default [DEPRECATED]`).",
         "Select **Submit** or **Create** as applicable when you're done.",
         "Select **Add and configure**. The configuration page for the new Snowflake tool opens, showing the tool and its details."
       ],
@@ -1901,7 +1901,7 @@
           "stability": "Snowflake's current documentation, updated with Snowflake releases. It defines the security integration and audience values the Snowflake connector's Microsoft Entra ID sign-in depends on."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
       "prereqs": [
         "generative-orchestration"
@@ -1925,15 +1925,15 @@
       "concepts": [
         "Use SAP ERP for RFC and BAPI operations through the on-premises data gateway, and use SAP OData when the business system exposes OData services.",
         "Gateway installation, SAP .NET Connector dependencies, SAP authorizations, and SNC or Kerberos choices are part of the integration design, not late troubleshooting details.",
-        "Financial and manufacturing topics should start with read-only summaries such as payment exception, invoice status, or work-order state before adding write actions or approvals."
+        "Financial and manufacturing topics should start with read-only summaries such as payment exception, invoice status, or work-order state before adding write actions or approvals; on SAP ERP, use **Call SAP function (V3)** and explicit authentication rather than deprecated `Call SAP function` (v1) or `Default [DEPRECATED]`."
       ],
       "steps": [
         "Select **Agents** and select the operations agent you want to add SAP data to.",
         "Go to the **Tools** page of your agent and select **Add a tool**.",
         "Select **Connector** to see the services with connectors available.",
         "Select SAP ERP or SAP OData, or search for SAP by name in the search box to see connector tools.",
-        "Select the SAP tool you want to add, such as Call SAP function. The **Add tool** pane opens.",
-        "If the SAP connection doesn't already exist, select **Create new connection** and complete approved gateway or OAuth connection details.",
+        "Select the SAP tool you want to add, such as **Call SAP function (V3)**. The **Add tool** pane opens.",
+        "If the SAP connection doesn't already exist, select **Create new connection** and complete approved gateway or OAuth connection details (do not select `Default [DEPRECATED]`).",
         "Select **Submit** or **Create** as applicable when you're done.",
         "Select **Add and configure**. The configuration page for the new SAP tool opens, showing the tool and its details."
       ],
@@ -1979,7 +1979,7 @@
           "stability": "SAP's product page for NCo 3.1, which the SAP ERP connector needs on the on-premises data gateway machine; Microsoft Learn's SAP ERP connector reference links to it. The page is public, but the downloads it points to need an SAP account."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
       "prereqs": [
         "generative-orchestration"
@@ -1998,11 +1998,12 @@
       "harness": [
         "standard"
       ],
+      "availability": "preview",
       "summary": "Add Salesforce as a real-time knowledge source (preview) so a citizen-services agent can answer CRM case and account questions with source permissions.",
       "whyItMatters": "Public-sector CRM questions need current case context without copying more data into the agent than necessary. Copilot Studio real-time knowledge connectors can ground answers at runtime, but the Salesforce connector's cloud availability, API access, and field-security implications still need an explicit review.",
       "concepts": [
         "Power Platform real-time knowledge connectors are preview in Copilot Studio, and requests run against the target system at runtime using user authentication tokens.",
-        "The Salesforce connector is premium for Copilot Studio and the connector reference excludes some government and sovereign clouds, so cloud-boundary fit must be checked early.",
+        "The Salesforce connector is premium for Copilot Studio and the connector reference excludes some government and sovereign clouds, so cloud-boundary fit must be checked early; if you also add Salesforce connector action tools, use current actions such as **Get record**, **Update record (V3)**, and **Insert or Update (Upsert) a Record by External ID (V2)** with explicit OAuth rather than deprecated v1 actions or `Default [DEPRECATED]`.",
         "Select only the Salesforce tables or records needed for case-status answers, and avoid surfacing fields that Salesforce security or agency policy treats as restricted."
       ],
       "steps": [
@@ -2058,7 +2059,7 @@
           "stability": "Unversioned guide that follows the current Salesforce API release. It lists the editions and the API access a Salesforce user needs before any connector, including the real-time knowledge connector, can read their org."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-real-time-connectors",
       "prereqs": [
         "knowledge-sharepoint"
@@ -2080,7 +2081,7 @@
       "summary": "Add Jira connector actions as agent tools so a DevOps support agent can retrieve issue and project status.",
       "whyItMatters": "DevOps users need quick answers about blockers without leaving the support conversation. The Jira connector provides direct issue actions for Copilot Studio, while the separate Jira Cloud Microsoft 365 Copilot connector is the documented knowledge-indexing path for Jira Cloud content.",
       "concepts": [
-        "The Jira Power Platform connector is premium in Copilot Studio and supports API token or OAuth connections; Jira Cloud password-based basic authentication is deprecated.",
+        "The Jira Power Platform connector is premium in Copilot Studio and supports explicit API token or OAuth connections (do not use `Default [DEPRECATED]` or deprecated Jira Cloud password-based basic authentication); for write actions, use **Create a new issue (V3)** and account IDs rather than deprecated v1/V2 actions or usernames.",
         "Issue-key lookups are more predictable than broad searches for lab validation because Jira search results might not show recent writes immediately.",
         "Keep Jira and GitHub correlation logic narrow so the agent summarizes blockers and next action instead of reproducing every ticket field."
       ],
@@ -2135,7 +2136,7 @@
           "stability": "Atlassian's current Jira Cloud platform guide to email-and-API-token authentication, the connection type this chapter uses. Password-based basic authentication is deprecated, and the page tracks changes to API token lifetimes."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
       "prereqs": [
         "generative-orchestration"
@@ -2167,7 +2168,7 @@
         "Select **Connector** to see the services with connectors available.",
         "Select FHIRlink, or search for FHIRlink by name in the search box to see connector tools.",
         "Select the FHIRlink read tool you want to add, such as Get a resource. The **Add tool** pane opens.",
-        "If the Epic connection doesn't already exist, select **Create new connection** and complete approved FHIR endpoint connection details.",
+        "If the Epic connection doesn't already exist, select **Create new connection** and complete approved OAuth 2.0 FHIR endpoint connection details (do not select `Default [DEPRECATED]`).",
         "Select **Submit** or **Create** as applicable when you're done.",
         "Select **Add and configure**. The configuration page for the new FHIRlink tool opens, showing the tool and its details."
       ],
@@ -2219,7 +2220,7 @@
           "stability": "The page Microsoft Learn's FHIRlink article sends you to for registering an Epic on FHIR app. Every Documentation address serves the same large page and the browser picks the section from docId, so an automated check can only confirm that the site is up; open it in a browser when you re-verify this feature."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors",
       "prereqs": [
         "generative-orchestration"
@@ -2296,7 +2297,7 @@
           "stability": "Shopify's current developer documentation. It says which token and header each Shopify API expects, including X-Shopify-Access-Token for the Admin API, and changes when Shopify changes its authentication flows."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/connectors/custom-connectors/define-openapi-definition",
       "prereqs": [
         "connector-tools"
@@ -2364,7 +2365,7 @@
         "https://learn.microsoft.com/data-integration/gateway/service-gateway-onprem",
         "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/data-integration/gateway/service-gateway-install",
       "prereqs": [
         "agent-flows"
@@ -2439,7 +2440,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/admin-network-isolation-vnet",
         "https://learn.microsoft.com/power-platform/admin/vnet-support-overview"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/power-platform/admin/vnet-support-setup-configure",
       "prereqs": [
         "connector-tools"
@@ -2458,7 +2459,7 @@
       "harness": [
         "standard"
       ],
-      "harnessNote": "Per the harness FAQ, connected agents on the Microsoft Copilot harness can currently delegate only to other Microsoft Copilot harness agents, and standard and Microsoft Copilot harness agents cannot invoke each other.",
+      "harnessNote": "Per the harness FAQ, for Copilot Studio connected agents, a Microsoft Copilot harness agent can delegate only to other Microsoft Copilot harness agents (standard and Microsoft Copilot harness Copilot Studio agents cannot invoke each other), while both harnesses also support Foundry, Microsoft 365 Agents SDK, and A2A connected agents.",
       "summary": "Connect a published Copilot Studio specialist agent in the same environment to a primary agent.",
       "whyItMatters": "One agent with too many overlapping capabilities routes badly. Connecting specialist agents keeps each agent's instructions and resource list focused, while the primary agent delegates based on clear descriptions.",
       "concepts": [
@@ -2468,11 +2469,10 @@
       ],
       "steps": [
         "Confirm the specialist agent is available to use from the main agent and has agent connection enabled.",
-        "Go to the **Agents** page for your main agent and select **Add an agent**.",
-        "Under **Connect to an external agent**, select **Copilot Studio**.",
-        "Select the desired agent from the list of available Copilot Studio agents and review its name, instructions, and description.",
+        "Go to the **Agents** page for your main agent and select **Add** next to **Add an agent**.",
+        "Under **Select an agent in your environment**, select the desired Copilot Studio agent (use **Connect to an external agent** for Microsoft Foundry, Fabric, Microsoft 365 Agents SDK, or Agent2Agent agents) and review its name, instructions, and description.",
         "Adjust the description so it is contextual and specific enough for the main agent to know when to invoke the specialist agent.",
-        "Optionally clear **Pass conversation history to this agent** to pass only the explicit task to the connected agent."
+        "Optionally clear **Pass conversation history to this agent** to pass only the explicit task to the connected agent, then select **Add**."
       ],
       "validation": [
         "A specialist question is delegated to the connected Copilot Studio agent.",
@@ -2502,7 +2502,7 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/add-agent-copilot-studio-agent"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/add-agent-copilot-studio-agent",
       "prereqs": [
         "generative-orchestration"
@@ -2580,7 +2580,7 @@
           "stability": "Tracks the latest published release of the protocol. Earlier releases stay available at versioned paths such as /v0.3.0/."
         }
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/add-agent-agent-to-agent",
       "prereqs": [
         "connected-agents"
@@ -2609,12 +2609,12 @@
         "Inputs and outputs form the contract the agent uses when it fills variables and reads the result."
       ],
       "steps": [
-        "In Copilot Studio, go to **Flows** from the left pane.",
-        "Select **New flow** > **Agent flow**.",
+        "In Copilot Studio, open your agent, go to the **Tools** tab, and select **Add tool** > **Agent flow** under **Create new** (or go to **Flows** in the left pane and select **New agent flow**).",
+        "Confirm the designer opens with the **When an agent calls the flow** trigger and **Respond to the agent** action, with **Asynchronous response** set to **Off** under **Networking**.",
         "Add input parameters to the **When an agent calls the flow** trigger.",
         "Add the actions your flow needs between the trigger and **Respond to the agent**.",
         "Add output parameters to **Respond to the agent** and select **Publish**.",
-        "Add the published flow to the agent from **Agents** > **Tools** > **Add a tool** > **Flow**, then configure **Name**, **Description**, **Inputs**, and **Completion**."
+        "If you created the flow from **Flows**, add the published flow from the agent's **Tools** page via **Add a tool** > **Flow**; then configure **Name**, **Description**, **Inputs**, and **Completion**."
       ],
       "validation": [
         "The published flow contains **When an agent calls the flow** and **Respond to the agent**.",
@@ -2647,7 +2647,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-use-flow",
         "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-flow-create",
       "prereqs": [
         "connector-tools"
@@ -2678,6 +2678,7 @@
       "harness": [
         "standard"
       ],
+      "harnessNote": "The prompt node is not available in workflows on the Microsoft Copilot harness; add an Agent action in the workflow with instructions and leave tools unconfigured instead.",
       "summary": "Add a prompt node to an agent flow and return text or JSON for downstream actions.",
       "whyItMatters": "A prompt node lets a flow perform one focused AI transformation while the surrounding flow stays deterministic. Choosing JSON output gives downstream actions named fields instead of free text to parse.",
       "concepts": [
@@ -2717,7 +2718,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/prompt-node-workflow",
         "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/prompt-node-workflow",
       "prereqs": [
         "agent-flows",
@@ -2741,7 +2742,7 @@
       "whyItMatters": "Long-running flows can exceed the real-time response window. Asynchronous responses let the flow continue beyond the normal two-minute limit and call back when it finishes, but channel support must be confirmed before relying on that behavior.",
       "concepts": [
         "Asynchronous response support is available only in environments on the new infrastructure.",
-        "Turning on **Asynchronous response** lets a flow continue beyond the normal two-minute limit and send a callback response after it finishes.",
+        "Turning on **Asynchronous response** lets a flow continue beyond the normal two-minute limit and send a callback response after it finishes; callbacks are fully supported in Microsoft Teams and aren't supported for Microsoft Copilot or telephony channels.",
         "If the agent must respond immediately after triggering the flow, remove **Respond to the agent** instead of waiting for the flow result."
       ],
       "steps": [
@@ -2775,7 +2776,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/flow-asynchronous-response",
         "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/flow-asynchronous-response",
       "prereqs": [
         "agent-flows"
@@ -2924,7 +2925,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-improve-agent-effectiveness",
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-questions-sessions"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-overview",
       "prereqs": [
         "publish-agent"
@@ -2961,7 +2962,7 @@
         "Under **Select test methods**, change or add the test methods you want to use.",
         "Edit the test case details, adding expected responses or keywords for every method except general quality.",
         "Under **Additional configuration**, select **Manage**.",
-        "In **Manage profile and connections**, under **User**, select or add the account to use for the data set.",
+        "In **Manage profile and connections**, review the connections for the currently signed-in user (to run as a different user, sign out and sign in with that account before starting the evaluation).",
         "Select **Save** to update the data set without running it, or select **Run** to run it immediately.",
         "After making an improvement, open **Recent results**, rerun the same test set, and use **Compare with** to compare runs."
       ],
@@ -2996,7 +2997,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview",
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-create",
       "prereqs": [
         "agent-instructions"
@@ -3064,7 +3065,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-multi-turn",
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-results"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-multi-turn",
       "prereqs": [
         "evaluations"
@@ -3229,7 +3230,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/configuration-end-user-authentication",
         "https://learn.microsoft.com/microsoft-copilot-studio/configuration-authentication-azure-ad"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/configuration-authentication-azure-ad",
       "prereqs": [
         "create-agent"
@@ -3310,7 +3311,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/security-and-governance",
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio",
       "prereqs": [
         "agent-instructions"
@@ -3388,7 +3389,7 @@
         "https://learn.microsoft.com/power-platform/admin/prevent-data-loss",
         "https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/power-platform/admin/prevent-data-loss",
       "prereqs": [],
       "relatedLabs": [
@@ -3461,7 +3462,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-overview",
         "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-import-export",
       "prereqs": [
         "publish-agent"
@@ -3529,9 +3530,9 @@
       "docUrls": [
         "https://learn.microsoft.com/power-platform/admin/power-platform-inventory",
         "https://learn.microsoft.com/microsoft-copilot-studio/admin-agent-inventory",
-        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-365-overview?view=o365-worldwide"
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-365-overview?view=o365-worldwide"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/power-platform/admin/power-platform-inventory",
       "prereqs": [],
       "relatedLabs": [
@@ -3551,7 +3552,7 @@
       "summary": "Run and export Copilot Studio evaluation evidence, then translate it into a release go/no-go scorecard.",
       "whyItMatters": "A release gate should be based on repeatable evidence, not a successful demo conversation. Evaluation results give the team a documented quality signal that can be combined with open issues and governance checks before publishing broadly.",
       "concepts": [
-        "A test set is a reusable collection of cases that Copilot Studio can run against an agent to compare quality over time.",
+        "A test set is a reusable collection of cases that Copilot Studio can run against an agent to compare quality over time; the **Review** button in the top menu bar flags warnings when no evaluation exists or the agent model changed since the latest evaluation.",
         "Pass rate is useful, but individual failures, invalid cases, response time, and tool-use results can still block a release.",
         "Open issues, policy exceptions, support readiness, and approval thresholds belong in the scorecard design rather than in the evaluation UI itself."
       ],
@@ -3596,7 +3597,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-create",
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-results",
       "prereqs": [
         "evaluations"
@@ -3662,7 +3663,7 @@
         "https://learn.microsoft.com/entra/agent-id/agent-lists",
         "https://learn.microsoft.com/entra/agent-id/what-are-agent-identities"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/govern-agents-identities-overview",
       "prereqs": [],
       "relatedLabs": [
@@ -3733,11 +3734,11 @@
         "If Microsoft 365 availability is enabled, users can invoke the installed agent in Microsoft 365 Copilot by mentioning it with @."
       ],
       "steps": [
-        "Publish the agent at least once, then open the configuration panel for the **Teams and Microsoft 365 Copilot** channels.",
-        "Under **Turn on Microsoft 365**, keep **Make agent available in Microsoft 365 Copilot** selected if the agent should appear in Microsoft 365 Copilot, then select **Add channel**.",
+        "Publish the agent at least once, then on Channels, open the **Microsoft 365 and Microsoft Teams** (or **Teams and Microsoft 365 Copilot**) configuration panel.",
+        "Under **Turn on Microsoft 365**, keep **Make agent available in Microsoft Copilot** selected if the agent should appear in Microsoft Copilot, then select **Add channel**.",
         "Select **Edit details**, update the agent icon, color, descriptions, and optional publisher details, then select **Save**.",
         "Select **See agent in Teams**, then select **Add** to install the agent for yourself.",
-        "Select **Availability options** and choose **Copy link**, **Show to my teammates and shared users**, or **Show to everyone in my org** based on the rollout path.",
+        "Select **Availability options** and choose Copy link, **Show to my teammates and shared users**, or Show to everyone in my org based on the rollout path.",
         "In Microsoft 365 Copilot, enter **@**, select the agent, enter a question, and select **Enter**."
       ],
       "validation": [
@@ -3750,7 +3751,7 @@
           "filename": "channel-teams-config.png",
           "section": "channels",
           "instructions": [
-            "Show the Teams and Microsoft 365 Copilot channel configuration with Microsoft 365 availability and availability options visible."
+            "Show the **Microsoft 365 and Microsoft Teams** channel configuration with **Make agent available in Microsoft Copilot** and **Availability options** visible."
           ]
         },
         {
@@ -3769,7 +3770,7 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams",
       "prereqs": [
         "publish-agent"
@@ -3796,12 +3797,12 @@
         "Direct Line remains available for scenarios that the Microsoft 365 Agents SDK doesn't support."
       ],
       "steps": [
-        "Download the Copilot Studio client sample from the Microsoft 365 Agents SDK.",
-        "Get the appropriate sample for .NET, JavaScript, or Python from the Copilot Studio Client Samples.",
-        "Get the Embed code or connection string for your agent in Copilot Studio: if **Authenticate with Microsoft** or **Authenticate manually** is selected, use the connection string; if **No authentication** is selected, use the Embed code or connection string.",
-        "Get your connection string.",
-        "Get information for traditional configuration settings.",
-        "Configure your application registration with the correct permissions, such as Copilot Studio.Copilots.Invoke, to access Copilot Studio."
+        "Clone or download the .NET, JavaScript, or Python sample from the **CopilotStudioSamples** repository in the Microsoft 365 Agents SDK.",
+        "In Copilot Studio, check **Settings** > **Security** > **Authentication**: use the SDK connection string when **Authenticate with Microsoft** or **Authenticate manually** is selected (the no-code **Embed code** appears only when **No authentication** is selected).",
+        "Go to **Channels** > **Web app** or **Native app** > **Microsoft 365 Agents SDK** and select **Copy** under **Connection string** (or collect **Environment ID** and **Schema name** from **Settings** > **Advanced** > **Metadata**).",
+        "Register a client application in the Microsoft Entra admin center with the redirect URI required by your web or native sample.",
+        "Under **API permissions** > **Add a permission** > **APIs my organization uses**, search for `Power Platform API`, select **Delegated permissions** > **CopilotStudio** > `CopilotStudio.Copilots.Invoke`, and select **Add permissions** (grant admin consent if required).",
+        "Add the connection string (or environment ID and schema name) plus your Microsoft Entra tenant ID and client ID to the sample configuration, then run the app and test an authenticated conversation."
       ],
       "validation": [
         "The app connects to the Copilot Studio agent by using the Microsoft 365 Agents SDK configuration.",
@@ -3826,7 +3827,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/publication-integrate-web-or-native-app-m365-agents-sdk",
         "https://learn.microsoft.com/microsoft-copilot-studio/publication-connect-bot-to-custom-application"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/publication-integrate-web-or-native-app-m365-agents-sdk",
       "prereqs": [
         "authentication",
@@ -3855,7 +3856,7 @@
       ],
       "steps": [
         "Create or open the agent, go to **Voice** settings, turn on **Enable voice**, and set **Voice type** to **Real-time**.",
-        "Select **GPT-Realtime**, **GPT-Realtime-Mini**, or **GPT-5-Chat (Preview)** based on latency, cost, and voice customization needs, then set **Security** to **No Authentication**.",
+        "Select **GPT-Realtime**, **GPT-Realtime-Mini (Preview)**, or **GPT-5-Chat (Preview)** based on latency, cost, and voice customization needs, then set **Security** to **No Authentication**.",
         "Configure **Settings** > **Voice** > **Select voice** and choose speech input sensitivity under **Phone Setup** > **Speech input** > **Sensitivity**.",
         "Configure **DTMF**, **Silence detection**, and **Latency messaging** under **Conversation behavior** as required for the call flow.",
         "Configure **Hold and resume** under **Settings** > **Voice** > **Conversational skills**, or use the **Question properties** panel's **Hold & Resume** category for topic-level control.",
@@ -3886,7 +3887,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/voice-hold-resume",
         "https://learn.microsoft.com/microsoft-copilot-studio/voice-post-call-actions"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-configure",
       "prereqs": [
         "publish-agent"
@@ -3945,7 +3946,7 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/computer-use"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/computer-use",
       "prereqs": [
         "connector-tools"
@@ -4027,6 +4028,7 @@
       "harness": [
         "standard"
       ],
+      "availability": "ga",
       "summary": "Use the Microsoft Copilot Studio extension for Visual Studio Code to clone, edit, synchronize, and test an agent definition locally.",
       "whyItMatters": "Source-based authoring gives makers YAML editing, validation, Git workflows, and code review for agent definitions. The Visual Studio Code extension is generally available, but applying changes modifies the remote agent and is separate from publishing.",
       "concepts": [
@@ -4068,7 +4070,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-edit-agent-components",
         "https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-synchronization"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-overview",
       "prereqs": [
         "publish-agent"
@@ -4129,7 +4131,7 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/requirements-messages-management",
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-consumption"
       ],
-      "lastVerified": "2026-09-27",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agent-usage-estimator",
       "prereqs": [],
       "relatedLabs": [
@@ -4147,7 +4149,7 @@
         "microsoft-copilot"
       ],
       "availability": "preview",
-      "summary": "Turn Memory on so the agent remembers each user preferences, and review how users view and delete what it remembers.",
+      "summary": "Turn Memory on so the agent remembers each user's preferences, and review how users view and delete what it remembers.",
       "whyItMatters": "Memory makes answers more relevant and consistent over time. Because it stores per-user context, makers need to know what is retained, for how long, and who can see it.",
       "concepts": [
         "The agent captures signals such as preferences and context, stores them as files in a per-user folder in Microsoft-managed storage, and applies them in later interactions.",
@@ -4174,7 +4176,7 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/memory-overview"
       ],
-      "lastVerified": "2026-11-12",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/memory-overview",
       "prereqs": [
         "mc-create-agent"

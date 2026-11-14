@@ -249,10 +249,10 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt",
-        "https://learn.microsoft.com/ai-builder/prompts-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/prompts-overview",
         "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai"
       ],
-      "lastVerified": "2026-11-13",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt",
       "prereqs": [
         "ppai-explore-ai-hub-models"
@@ -320,12 +320,12 @@
         "prompt builder change the model version and settings"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/ai-builder/add-inputs-prompt",
+        "https://learn.microsoft.com/microsoft-copilot-studio/add-inputs-prompt",
         "https://learn.microsoft.com/microsoft-copilot-studio/prompt-model-settings",
         "https://learn.microsoft.com/ai-builder/availability-region"
       ],
-      "lastVerified": "2026-11-13",
-      "verifiedAgainst": "https://learn.microsoft.com/ai-builder/add-inputs-prompt",
+      "lastVerified": "2026-11-14",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/add-inputs-prompt",
       "prereqs": [
         "ppai-build-custom-prompt"
       ],
@@ -454,9 +454,9 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
-        "https://learn.microsoft.com/ai-builder/azure-openai-human-review"
+        "https://learn.microsoft.com/microsoft-copilot-studio/azure-openai-human-review"
       ],
-      "lastVerified": "2026-11-13",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
       "prereqs": [
         "ppai-use-prompt-in-flow-and-app"
@@ -928,9 +928,9 @@
         "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai",
         "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow",
         "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow",
-        "https://learn.microsoft.com/ai-builder/prompts-overview"
+        "https://learn.microsoft.com/microsoft-copilot-studio/prompts-overview"
       ],
-      "lastVerified": "2026-11-13",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai",
       "prereqs": [
         "ppai-build-custom-prompt"
@@ -1238,9 +1238,9 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/code-interpreter-for-prompts",
-        "https://learn.microsoft.com/ai-builder/add-inputs-prompt"
+        "https://learn.microsoft.com/microsoft-copilot-studio/add-inputs-prompt"
       ],
-      "lastVerified": "2026-11-13",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/code-interpreter-for-prompts",
       "prereqs": [
         "ppai-prompt-inputs-and-model-settings"

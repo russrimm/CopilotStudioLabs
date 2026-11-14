@@ -43,9 +43,9 @@
       "docUrls": [
         "https://learn.microsoft.com/copilot/plan/copilot-license-options",
         "https://learn.microsoft.com/microsoft-365/admin/manage/assign-licenses-to-users",
-        "https://learn.microsoft.com/microsoft-365/copilot/microsoft-365-copilot-enable-users"
+        "https://learn.microsoft.com/copilot/adopt/enable-users"
       ],
-      "lastVerified": "2026-11-13",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/assign-licenses-to-users",
       "screenshots": [
         {
@@ -98,11 +98,11 @@
         "agent overview Microsoft 365 admin center governance"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-365-overview",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-365-overview",
         "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
         "https://learn.microsoft.com/microsoft-agent-365/admin/agent-roles-perms"
       ],
-      "lastVerified": "2026-11-13",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
       "screenshots": [
         {
@@ -156,13 +156,13 @@
         "install or block agents Microsoft 365 admin center"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-settings",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
         "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions",
-        "https://learn.microsoft.com/microsoft-365/admin/manage/manage-copilot-agents-integrated-apps",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/manage-copilot-agents-integrated-apps",
         "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center"
       ],
-      "lastVerified": "2026-11-13",
-      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/agent-settings",
+      "lastVerified": "2026-11-14",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
       "screenshots": [
         {
           "filename": "m365h-agents-user-access.png",
@@ -273,12 +273,12 @@
         "Agent 365 policy templates default custom"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-requests",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-requests",
         "https://learn.microsoft.com/microsoft-agent-365/admin/policy-template",
         "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions"
       ],
-      "lastVerified": "2026-11-13",
-      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/agent-requests",
+      "lastVerified": "2026-11-14",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-requests",
       "screenshots": [
         {
           "filename": "m365h-agent-requests-list.png",
@@ -729,9 +729,9 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions",
         "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
-        "https://learn.microsoft.com/microsoft-365/admin/manage/manage-copilot-agents-integrated-apps"
+        "https://learn.microsoft.com/microsoft-agent-365/admin/manage-copilot-agents-integrated-apps"
       ],
-      "lastVerified": "2026-11-13",
+      "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions",
       "prereqs": ["m365h-review-agent-inventory"],
       "relatedLabs": []
@@ -784,12 +784,12 @@
         "Agent management rules apply template ownerless agents"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-settings",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
         "https://learn.microsoft.com/microsoft-agent-365/admin/policy-template",
         "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions"
       ],
-      "lastVerified": "2026-11-13",
-      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/agent-settings",
+      "lastVerified": "2026-11-14",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings",
       "prereqs": ["m365h-agent-lifecycle-actions", "m365h-control-agent-availability"],
       "relatedLabs": []
     },

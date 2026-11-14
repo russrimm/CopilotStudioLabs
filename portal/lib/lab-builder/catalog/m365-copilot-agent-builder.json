@@ -1128,7 +1128,7 @@
       ],
       "learnQueries": ["Manage agent registry in Microsoft 365 admin center", "Governance and lifecycle actions for agents Microsoft 365 admin center"],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-registry",
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
         "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions",
         "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings"
       ],
@@ -1148,8 +1148,8 @@
           ]
         }
       ],
-      "lastVerified": "2026-11-13",
-      "verifiedAgainst": "https://learn.microsoft.com/microsoft-365/admin/manage/agent-registry",
+      "lastVerified": "2026-11-14",
+      "verifiedAgainst": "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview",
       "prereqs": ["dca-admin-agent-settings"],
       "relatedLabs": []
     }

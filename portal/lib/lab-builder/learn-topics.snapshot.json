@@ -1202,26 +1202,6 @@
       "contentHash": "b7cf4b1285a3a726"
     },
     {
-      "id": "learn-agents-experience-build-overview",
-      "title": "About agents powered by the Microsoft Copilot harness",
-      "summary": "The Microsoft Copilot harness is a redesigned authoring and runtime environment for building AI agents. It introduces a natural-language-first approach to agent creation, a unified single-surface design, and an enhanced orchestration model that improves response quality and reasoning capability.",
-      "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-overview"
-      ],
-      "harnesses": [
-        "microsoft-copilot"
-      ],
-      "conceptId": "create-agent",
-      "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 100,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "495533086c351de7"
-    },
-    {
       "id": "learn-agents-experience-copilot-studio-mcp",
       "title": "Connect to Microsoft Copilot Studio with MCP",
       "summary": "Microsoft Copilot Studio MCP brings Copilot Studio tools into Model Context Protocol (MCP)-compatible CLIs, developer tools, and agentic interfaces. It provides a single entry point for working across the agent and automation lifecycle, from creation and configuration to testing, deployment, monitoring, and ongoing ma…",
@@ -2738,26 +2718,6 @@
       "contentHash": "5e5c6e63f3d59fbc"
     },
     {
-      "id": "learn-analytics-summary",
-      "title": "Monitor agent performance in Copilot Studio",
-      "summary": "Use analytics to understand how well your agent is performing and to identify areas for improvement.",
-      "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-summary"
-      ],
-      "harnesses": [
-        "standard"
-      ],
-      "conceptId": "monitor",
-      "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 200,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "9759683fd1435ba4"
-    },
-    {
       "id": "learn-analytics-themes",
       "title": "Monitor user questions by theme (preview)",
       "summary": "Themes group related user questions that trigger generative answers. By clustering related questions, themes help you organize customer intent insights, identify frequent topics, and focus on areas needing improvement. You can explore individual questions within a theme and monitor performance to understand theme-leve…",
@@ -4136,7 +4096,7 @@
       "title": "Upgrade agents to the Microsoft Copilot harness (preview)",
       "summary": "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits. Learn more in Overview of usage-based billing.",
       "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-github-copilot-from-standard-harness"
+        "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-microsoft-copilot-from-standard-harness"
       ],
       "harnesses": [
         "microsoft-copilot"
@@ -5080,7 +5040,6 @@
     "https://learn.microsoft.com/entra/agent-id/agent-lists": "fda3b02cbbd7b1fe",
     "https://learn.microsoft.com/entra/agent-id/what-are-agent-identities": "eb9f57c97397af71",
     "https://learn.microsoft.com/industry/healthcare/business-applications/fhirlink-connector-overview": "cb2405b6f10d4027",
-    "https://learn.microsoft.com/microsoft-365/admin/manage/agent-365-overview": "c48f612a041f0226",
     "https://learn.microsoft.com/microsoft-365/agents-sdk/agents-sdk-overview": "051072e241624416",
     "https://learn.microsoft.com/microsoft-365/copilot/connectors/jira-cloud-overview": "21028953ed183007",
     "https://learn.microsoft.com/microsoft-365/copilot/connectors/salesforce-crm-overview": "c3223ffffd40245e",
@@ -5147,7 +5106,6 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-manage-buy-credits": "4cbdd7382a4bd63f",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent": "10795fb47f37a9f7",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent-customer-conversation": "b7cf4b1285a3a726",
-    "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-overview": "495533086c351de7",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp": "21417290aa9106a2",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp-configure": "248195e245c15e8b",
     "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp-vscode-copilot-cli": "8c9756f0ca662ebf",
@@ -5223,7 +5181,6 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-improve-agent-health": "8c344ac4b9b72ca1",
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-overview": "9759683fd1435ba4",
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-questions-sessions": "5e5c6e63f3d59fbc",
-    "https://learn.microsoft.com/microsoft-copilot-studio/analytics-summary": "9759683fd1435ba4",
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-themes": "594e8857747eeafc",
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-transcripts-powerapps": "dc920d0ae6dbfe78",
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-transcripts-studio": "bdfc675d026dcf70",
@@ -5308,7 +5265,6 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/security-scan": "0fc5271f99f98521",
     "https://learn.microsoft.com/microsoft-copilot-studio/system-service-card-copilot-studio": "a7e042f545d08130",
     "https://learn.microsoft.com/microsoft-copilot-studio/unified-authoring-conversion": "3c09531d98e3786e",
-    "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-github-copilot-from-standard-harness": "7da73b585397bda2",
     "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-microsoft-copilot-from-standard-harness": "7da73b585397bda2",
     "https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-clone-agent": "7ceec085c6bf7e8d",
     "https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-edit-agent-components": "24140e485d238e64",
@@ -5333,8 +5289,9 @@
     "https://learn.microsoft.com/power-platform/admin/vnet-support-overview": "757322d62b26a70c",
     "https://learn.microsoft.com/power-platform/admin/vnet-support-setup-configure": "8c3ae9b8aeb72526",
     "https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention": "352a37d3a4bcefc2",
-    "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm": "305628bca9c7ccdd"
+    "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm": "305628bca9c7ccdd",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-365-overview": "c48f612a041f0226"
   },
-  "listHash": "3636fe1bf4121770",
+  "listHash": "4c068049b20a21d3",
   "endpoint": "https://learn.microsoft.com/api/mcp"
 }

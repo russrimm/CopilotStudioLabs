@@ -88,7 +88,7 @@ Exit codes:
 | `0` | The lab was built and passed validation. |
 | `1` | Bad input, or the generated lab failed validation. |
 | `2` | The build stopped for a decision and none was supplied. |
-| `3` | A decision cancelled the build. |
+| `3` | A decision canceled the build. |
 
 ---
 
@@ -1008,7 +1008,7 @@ unchanged. Failed checks are recorded in `manifest.json`.
 
 A request that never got a reply is kept apart from a reply that failed, for the
 same reason `linkcheck.js` keeps a 404 apart from a timeout. Rate limits,
-overload, and network errors are waited out, honouring any "retry after N
+overload, and network errors are waited out, honoring any "retry after N
 seconds" hint, and they do not use up an attempt. A request that keeps failing,
 or is refused outright (for example by a content filter), is recorded as
 `request-failed` and warned about separately from `not-verified`.
@@ -1360,7 +1360,7 @@ the server log, never the manifest — and the output is exportable by design.
 | `POST` | `/api/lab-builder/topics/refresh` | Re-read the topic list from Microsoft Learn. Takes an empty `{}` body (anything else is HTTP 400). Limited to 6 refreshes per user per hour (`LAB_BUILDER_TOPICS_RATE_MAX`); answers 429 with `Retry-After` when rate limited, spaced too closely, or paused by the circuit breaker, 503 when refreshing is turned off, and 502 when Microsoft Learn failed. Every failure still returns the last good list. |
 | `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `recommended`, `required`, and `reasons`. Nothing is selected unless the vertical or a department points at it (`preselectedIds`); `recommendedIds` lists everything the rules suggest, selected or not. Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`). A `selected` list that names other levels is filtered, not trusted. Read-only. |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. With a `level`, topics from other levels are dropped (`droppedOutOfLevel`), and each module has a `role` of `level` or `prerequisite`. |
-| `POST` | `/api/lab-builder/generate` | Build the lab, write it to `generated-labs/`, return markdown + validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or cancelled build leaves it alone. The response has `replacedLabId` when that happened. |
+| `POST` | `/api/lab-builder/generate` | Build the lab, write it to `generated-labs/`, return markdown + validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. |
 | `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, vertical, level, harness, estimated minutes, topic count, validation counts, and `selections` (null for labs built before choices were saved). |
 | `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab as markdown and HTML. |
 | `PATCH` | `/api/lab-builder/generated/:labId` | Change `title` (1-160 characters, no line breaks) and/or `notes` (up to 1000 characters). No other field is accepted. Updates the manifest and the lab's single `#` heading; the folder name stays the same. |
@@ -1382,7 +1382,7 @@ Each row has **Open**, **Edit selections**, **Rename**, and **Delete**:
 - **Edit selections** re-opens the wizard on the Review step, pre-filled with the saved industry,
   departments, level, harness, topics, and options. On the last step you choose **Save as a new lab**
   (the default) or **Replace** the original. Nothing is overwritten unless you pick Replace, and the original is
-  removed only after the new lab was built and validated: a cancelled or failed build leaves it alone. When a build
+  removed only after the new lab was built and validated: a canceled or failed build leaves it alone. When a build
   finishes, keyboard focus moves to the new lab's heading.
 - Labs built before choices were saved (`selections` is `null`) cannot be edited. They can still be opened, renamed,
   or deleted, and the row offers **Start a new lab**.
