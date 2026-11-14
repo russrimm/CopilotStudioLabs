@@ -217,14 +217,15 @@ function quotedSpans(text) {
   return spans;
 }
 
+const PATH_CLAUSE_SPLIT_RE =
+  /(?:\.(?=\s|$)|[;!?\n])+|,\s*(?:or|and|then)\b|\b(?:or|and)\s+(?:go|navigate|select|open|choose|click|in|from|under)\b/i;
+
 /** Arrow chains such as "Power Platform admin center → Policies → Data policies". */
 function findPaths(text) {
   const plain = stripMarkdown(text);
-  const parts = plain.split(/\s*(?:→|->|›|»|(?<=\s)>(?=\s))\s*/);
-  if (parts.length < 2) return [];
+  const clauses = plain.split(PATH_CLAUSE_SPLIT_RE);
   const paths = [];
-  let chain = [];
-  // Walk the arrow-separated pieces; the first and last pieces are trimmed to the words that belong to the path.
+  // Walk the arrow-separated pieces within each clause; the first and last pieces are trimmed to the words that belong to the path.
   const trimLead = (piece) => {
     const words = piece.trim().split(/\s+/);
     const verbIdx = words.map((w) => /^(?:to|in|on|from|select|open|click|choose|navigate|go|via|under|then|and)$/i.test(w)).lastIndexOf(true);
@@ -246,18 +247,20 @@ function findPaths(text) {
     }
     return out.join(" ");
   };
-  parts.forEach((piece, i) => {
-    if (i === 0) {
-      chain = [trimLead(piece)];
-      return;
-    }
-    const isLast = i === parts.length - 1 || false;
-    chain.push(isLast ? trimTail(piece) : piece.trim().split(/\s+/).slice(0, 5).join(" "));
-    if (isLast) {
-      paths.push(chain);
-      chain = [];
-    }
-  });
+  for (const clause of clauses) {
+    const parts = clause.split(/\s*(?:→|->|›|»|(?<=\s)>(?=\s))\s*/);
+    if (parts.length < 2) continue;
+    const chain = [];
+    parts.forEach((piece, i) => {
+      if (i === 0) {
+        chain.push(trimLead(piece));
+        return;
+      }
+      const isLast = i === parts.length - 1;
+      chain.push(isLast ? trimTail(piece) : piece.trim().split(/\s+/).slice(0, 5).join(" "));
+    });
+    paths.push(chain);
+  }
   return paths.filter((p) => p.length >= 2 && p.every((s) => s && s.length <= 60));
 }
 

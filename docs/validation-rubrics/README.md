@@ -1,6 +1,6 @@
 # Lab Validation Rubrics
 
-Lab Validation Rubrics turn each hands-on CopilotStudioLabs build into a repeatable quality check. A rubric is a structured set of evaluation criteria that a learner, instructor, or lab author can run against a completed Copilot Studio agent to verify that it meets the lab's stated objectives. The framework repurposes the Copilot Studio Agent Evaluation features taught in Lab 02: test sets, expected responses, evaluator methods, pass rates, evaluator reasoning, activity maps, run comparison, and result export.
+Lab Validation Rubrics turn each hands-on CopilotStudioLabs build into a repeatable quality check. A rubric is a structured set of evaluation criteria that a learner, instructor, or lab author can run against a completed Copilot Studio agent to verify that it meets the lab's stated objectives. The framework repurposes the Copilot Studio Agent Evaluations capabilities taught in Labs 07 and 08 (`labs/07-agent-analytics-evaluations/index.md` and `labs/08-agent-evaluations-ga/index.md`): test sets, expected responses, evaluator methods, pass rates, evaluator reasoning, activity maps, run comparison, and result export.
 
 This is intentionally a content framework, not a new test runner. Rubrics define what to test and how to judge it; Copilot Studio executes the evaluation.
 
@@ -15,8 +15,8 @@ An earlier competitive scan identified AI agent output validation as an unmet ma
 | `schema.md` | Rubric structure specification and field definitions |
 | `authoring-guide.md` | Step-by-step instructions for lab authors |
 | `learner-guide.md` | Step-by-step instructions for learners running a rubric |
-| `lab-04-energy-ops-agent.rubric.yaml` | Worked rubric example for Lab 01 |
-| `lab-04-energy-ops-agent.testset.csv` | Importable Copilot Studio test set for Lab 01 |
+| `lab-04-energy-ops-agent.rubric.yaml` | Worked rubric example for Lab 04 (`labs/04-energy-ops-agent/index.md`) |
+| `lab-04-energy-ops-agent.testset.csv` | Importable Copilot Studio test set for Lab 04 (`labs/04-energy-ops-agent/index.md`) |
 
 ## What a rubric contains
 
@@ -61,4 +61,4 @@ Instructors can provide the rubric YAML and CSV with the lab materials, ask lear
 
 ## Future integration: Validate Your Lab
 
-Each lab README can add a short **Validate Your Lab** section after `Lab Complete`. That section should link to the lab's rubric file, link to its importable test-set CSV, state the passing score, and tell learners to run Copilot Studio Evaluation before moving on. Lab 01 in this folder is the template for that future rollout; the remaining 17 labs can adopt the same structure in a follow-up content task.
+Each lab README can add a short **Validate Your Lab** section after `Lab Complete`. That section should link to the lab's rubric file, link to its importable test-set CSV, state the passing score, and tell learners to run Copilot Studio Evaluations before moving on. Lab 04 (`labs/04-energy-ops-agent/index.md`) in this folder is the template for that future rollout; the remaining 39 labs can adopt the same structure in a follow-up content task.

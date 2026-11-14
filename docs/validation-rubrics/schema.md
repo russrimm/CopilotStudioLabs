@@ -22,15 +22,15 @@ docs/validation-rubrics/lab-04-energy-ops-agent.rubric.yaml
 schemaVersion: 1
 rubricId: lab-04-energy-ops-agent
 lab:
-  id: "01"
+  id: "04"
   slug: 04-energy-ops-agent
-  title: "Lab 01: Build a Custom IT Operations Agent for Contoso Energy"
+  title: "Lab 04: Build a Custom IT Operations Agent for Contoso Energy"
   agentNamePattern: "Contoso IT Operations Agent"
 validation:
   mode: copilot-studio-agent-evaluation
   overallPassingScore: 0.80
   criticalCriteriaMustPass: true
-  recommendedTestSetName: "Lab 01 — Energy Ops Validation"
+  recommendedTestSetName: "Lab 04 — Energy Ops Validation"
   testSetCsv: "lab-04-energy-ops-agent.testset.csv"
 learningObjectives:
   - id: objective-id
@@ -112,4 +112,4 @@ question,expectedResponse
 "Question the evaluation asks","Expected behavior or answer used by the selected method"
 ```
 
-Keep CSV test cases under Copilot Studio limits taught in Lab 02: up to 100 questions per file and up to 1,000 characters per question.
+Keep CSV test cases under the Copilot Studio limits taught in Labs 07 and 08 (`labs/07-agent-analytics-evaluations/index.md` and `labs/08-agent-evaluations-ga/index.md`): up to 100 questions per file and up to 1,000 characters per question.

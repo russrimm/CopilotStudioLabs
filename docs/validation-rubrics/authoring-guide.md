@@ -62,7 +62,7 @@ Create a CSV next to the rubric:
 docs/validation-rubrics/<lab-id>.testset.csv
 ```
 
-Use the Copilot Studio format taught in Lab 02:
+Use the Copilot Studio format taught in Labs 07 and 08 (`labs/07-agent-analytics-evaluations/index.md` and `labs/08-agent-evaluations-ga/index.md`):
 
 ```csv
 question,expectedResponse

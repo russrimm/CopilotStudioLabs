@@ -7,23 +7,23 @@ Use this guide after you complete a CopilotStudioLabs build lab.
 - Your completed Copilot Studio agent
 - The rubric YAML for the lab
 - The lab's `.testset.csv` file
-- Access to the **Evaluation** feature in Copilot Studio
+- Access to the **Evaluations** tab in Copilot Studio
 
-> Agent Evaluation is a Copilot Studio preview feature. If you do not see **Evaluation**, ask your instructor or tenant administrator whether the feature is enabled and available in your region.
+> **Evaluations** in Copilot Studio is **generally available (GA)** (as covered in Labs 07 and 08: `labs/07-agent-analytics-evaluations/index.md` and `labs/08-agent-evaluations-ga/index.md`). Specific tenant or environment governance policies and optional custom or preview evaluators can vary by tenant; if **Evaluations** is hidden in your environment, check with your instructor or tenant administrator.
 
 ## 1. Open your completed agent
 
 1. Go to <https://copilotstudio.microsoft.com>.
 2. Open the agent you built for the lab.
 3. Confirm the required knowledge sources, topics, tools, flows, or connected agents are present and ready.
-4. Open **Evaluation** in the agent's top navigation.
+4. Open the **Evaluations** tab in the agent's top navigation.
 
 ## 2. Import the test set CSV
 
-1. Select **Create a test set**.
+1. Select **New test set**.
 2. Choose **CSV** under the upload/start options.
 3. Upload the lab's `.testset.csv` file.
-4. Name the test set using the name in the rubric, such as `Lab 01 — Energy Ops Validation`.
+4. Name the test set using the name in the rubric, such as `Lab 04 — Energy Ops Validation`.
 5. Save the test set.
 
 The CSV includes `question` and `expectedResponse` columns. Copilot Studio uses those fields with the test methods you configure after import.
@@ -45,7 +45,7 @@ If the rubric includes knowledge-source or tool evidence, you will review the ac
 
 1. Select the user profile that should run the evaluation.
 2. Select **Evaluate**.
-3. Wait for the run to complete. Lab 02 notes that small sets often take a few minutes.
+3. Wait for the run to complete. As covered in Labs 07 and 08, small sets typically finish in a few minutes.
 4. Open the results.
 
 ## 5. Interpret your score

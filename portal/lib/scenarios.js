@@ -31,7 +31,7 @@ function loadScenarios() {
 
 function normalizeType(type) {
   if (type === "industry" || type === "industries") return "industries";
-  if (type === "role" || type === "roles") return "roles";
+  if (type === "role" || type === "roles" || type === "department" || type === "departments") return "roles";
   return null;
 }
 
@@ -83,6 +83,10 @@ export function getIndustries() {
 }
 
 export function getRoles() {
+  return loadScenarios().roles;
+}
+
+export function getDepartments() {
   return loadScenarios().roles;
 }
 

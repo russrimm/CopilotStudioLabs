@@ -87,6 +87,8 @@ const GENERIC_DEPRECATION_NOUNS = new Set(
     "topic",
     "models",
     "model",
+    "registry",
+    "registries",
     "default",
   ],
 );
@@ -95,6 +97,17 @@ const GENERIC_DEPRECATION_NOUNS = new Set(
 // narrow the deprecation to that specific mode rather than the broader term.
 const SUBTYPE_PREFIX_RE =
   /(?:^| )(?:basic|password|passwords|username|anonymous|unauthenticated|default|implicit|standalone|custom|manual|direct) $/;
+
+// Product/brand prefixes immediately before a short term ("Microsoft 365 Copilot is now named Microsoft Copilot")
+// mean the sentence is about the longer product name, not the bare suffix ("Copilot").
+const PRODUCT_PREFIX_RE =
+  /(?:^| )(?:microsoft 365|microsoft|azure ai|azure|power platform|power|dynamics 365|dynamics|github|windows|office 365|office|sharepoint|teams|entra|fabric|dataverse|viva) $/;
+
+const IMAGE_MARKDOWN_RE = /!\[[^\]]*\]\([^)]*\)/g;
+const CHILD_RECORD_NOUN_RE =
+  /\b(?:entry|entries|item|items|row|rows|record|records|user|users|owner|owners|member|members|file|files|value|values|license|licenses|seat|seats|account|accounts|group|groups|role|roles|permission|permissions|assignment|assignments)\b/;
+const CONTRAST_BOUNDARY_RE =
+  /\b(?:separate from|different from|other than|unlike|except for|distinct from|independent of|aside from|rather than|instead of)\b/;
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const LIMIT_CUE_RE = /\b(?:limit|limits|maximum|max|up to|at most|no more than|minimum|quota|per|retention|timeout|capped|cap|allowed)\b/;
@@ -186,6 +199,40 @@ function isConnectorClaimContext(baseVendor, context) {
   return claim.kind === "ui-label" && /\b(?:add a tool|add tool|choose a connector|select a connector)\b/i.test(ctx);
 }
 
+function normalizeWithBoundaries(raw) {
+  return String(raw ?? "")
+    .replace(IMAGE_MARKDOWN_RE, " ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/[*_`~]+/g, "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/\s&\s/g, " and ")
+    .replace(/[,;:()[\]|—–/.!?]+/g, " | ")
+    .replace(/[^\p{L}\p{N}| ]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isProductPrefixedOccurrence(bounded, termVariant) {
+  if (!bounded || !termVariant) return false;
+  const re = new RegExp(`(?:^| )(${escapeRe(termVariant)})(?= |\\||$)`, "g");
+  let m;
+  let sawAny = false;
+  let sawUnprefixed = false;
+  while ((m = re.exec(bounded)) !== null) {
+    sawAny = true;
+    const start = m.index + (bounded[m.index] === " " ? 1 : 0);
+    const before = bounded.slice(0, start);
+    const clauseBefore = before.includes("|") ? before.slice(before.lastIndexOf("|") + 1) : before;
+    if (!PRODUCT_PREFIX_RE.test(clauseBefore)) {
+      sawUnprefixed = true;
+      break;
+    }
+  }
+  return sawAny && !sawUnprefixed;
+}
+
 /** Staleness rules that apply to any named item (renamed / deprecated). */
 function findNameStale(term, docs, context = {}) {
   const normTerm = normalizeText(term);
@@ -193,21 +240,57 @@ function findNameStale(term, docs, context = {}) {
   if (!t || t.length < 6) return null;
   if (GENERIC_DEPRECATION_NOUNS.has(normTerm)) return null;
 
-  const renamedPatterns = [
-    new RegExp(`(?:^| )(${t}(?:s)?) (?:has been |was |is now |was recently |were )?(?:renamed|replaced by|replaced with|rebranded)\\b`),
-    new RegExp(`(?:^| )(${t}(?:s)?) (?:is|are) now (?:called|known as|named)\\b`),
-    new RegExp(`\\b(?:formerly|previously|originally)(?: (?:called|known as|named))? (?:the )?(${t}(?:s)?)(?: |$)`),
-    new RegExp(`\\brenamed from (?:the )?(${t}(?:s)?)(?: |$)`),
+  const forwardRenamePatterns = [
+    new RegExp(
+      `(?:^| )(${t}(?:s)?) (?:(?:has been|have been|was|were|is now|are now|was recently) (?:renamed(?: (?:to|as))?|replaced (?:by|with)|rebranded)|renamed (?:to|as)|(?:is|are|was|were|has been|have been) replaced (?:by|with))\\b`,
+      "g",
+    ),
+    new RegExp(`(?:^| )(${t}(?:s)?) (?:is|are) now (?:called|known as|named)\\b`, "g"),
   ];
-  const renamed = findSentence(docs, (s) =>
-    renamedPatterns.some((re) => {
-      const m = re.exec(s.norm);
-      if (!m) return false;
-      const start = s.norm.indexOf(m[1], m.index);
-      if (start > 0 && SUBTYPE_PREFIX_RE.test(s.norm.slice(0, start))) return false;
-      return true;
-    }),
-  );
+  const backwardEndGuard = `(?=\\s*(?:\\||$)| (?:is|are|was|were|has|have|which|that|and|or|in|on|for|to|from|with|by|as|now)\\b)`;
+  const backwardRenamePatterns = [
+    new RegExp(`\\b(?:formerly|previously|originally)(?: (?:called|known as|named))? (?:the )?(${t}(?:s)?)${backwardEndGuard}`, "g"),
+    new RegExp(`\\brenamed from (?:the )?(${t}(?:s)?)${backwardEndGuard}`, "g"),
+  ];
+  const renamed = findSentence(docs, (s) => {
+    const rawWithoutImages = String(s.raw ?? "").replace(IMAGE_MARKDOWN_RE, " ").trim();
+    if (!rawWithoutImages) return false;
+    const bounded = normalizeWithBoundaries(rawWithoutImages);
+    if (!bounded) return false;
+
+    for (const re of forwardRenamePatterns) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(bounded)) !== null) {
+        const start = bounded.indexOf(m[1], m.index);
+        const before = bounded.slice(0, start);
+        const clauseBefore = before.includes("|") ? before.slice(before.lastIndexOf("|") + 1) : before;
+        if (SUBTYPE_PREFIX_RE.test(clauseBefore) || PRODUCT_PREFIX_RE.test(clauseBefore)) continue;
+        const afterVerb = bounded.slice(m.index + m[0].length);
+        const replacementClause = afterVerb.split(/\||(?:\band\b)/)[0] || "";
+        const replacementNorm = normalizeText(replacementClause);
+        if (replacementNorm && containsPhrase(replacementNorm, normTerm)) continue;
+        return true;
+      }
+    }
+
+    for (const re of backwardRenamePatterns) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(bounded)) !== null) {
+        const start = bounded.indexOf(m[1], m.index);
+        const before = bounded.slice(0, start);
+        const clauseBefore = before.includes("|") ? before.slice(before.lastIndexOf("|") + 1) : before;
+        if (SUBTYPE_PREFIX_RE.test(clauseBefore) || PRODUCT_PREFIX_RE.test(clauseBefore)) continue;
+        const afterMatch = bounded.slice(m.index + m[0].length);
+        const nowReplacement = afterMatch.match(/^(?:\s*\|[^|]*\|)?\s*(?:is|are) now ([^|]+)/);
+        if (nowReplacement && containsPhrase(normalizeText(nowReplacement[1]), normTerm)) continue;
+        return true;
+      }
+    }
+
+    return false;
+  });
   if (renamed) {
     return {
       rule: "renamed",
@@ -217,32 +300,49 @@ function findNameStale(term, docs, context = {}) {
     };
   }
   const deprecatedRe = new RegExp(
-    `(?:^| )(${t}(?:s)?((?: [a-z0-9]+){0,2})) (?:(?:is|are|was|were|has been|have been|will be|is being|is now|are now) )?(?:deprecated|retired|removed|no longer (?:available|supported|offered))\\b`,
+    `(?:^| )(${t}(?:s)?((?: [a-z0-9]+){0,2})) (?:(?:(?:is|are|was|were|has been|have been|will be|is being|is now|are now) )?(?:deprecated|retired|no longer (?:available|supported|offered))|(?:is|are|was|were|has been|have been|will be|is being|is now|are now) removed)\\b`,
+    "g",
   );
   const deprecated = findSentence(docs, (s, _unit, doc) => {
-    if (/\bnot (?:been )?(?:deprecated|retired)\b/.test(s.norm)) return false;
-    const m = deprecatedRe.exec(s.norm);
-    if (!m) return false;
-    const start = m.index + (s.norm[m.index] === " " ? 1 : 0);
-    if (start > 0 && SUBTYPE_PREFIX_RE.test(s.norm.slice(0, start))) return false;
+    const rawWithoutImages = String(s.raw ?? "").replace(IMAGE_MARKDOWN_RE, " ").trim();
+    if (!rawWithoutImages) return false;
+    const normWithoutImages = normalizeText(rawWithoutImages);
+    if (!normWithoutImages) return false;
+    if (/\bnot (?:been )?(?:deprecated|retired|removed)\b/.test(normWithoutImages)) return false;
 
-    const trailing = (m[2] || "").trim();
-    const termIsConnector = /\bconnectors?$/.test(normTerm);
-    const trailingIsConnector = /^(?:connectors?|connections?)\b/.test(trailing);
-    if (termIsConnector || trailingIsConnector) {
-      const baseVendor = termIsConnector ? normTerm.replace(/\s+connectors?$/, "") : normTerm;
-      // If Learn deprecates "<Vendor> connector" (not the external platform itself), platform-only
-      // mentions (for example SQL worksheets or trial setup in Snowflake) are not connector claims.
-      if (!termIsConnector && trailingIsConnector && !isConnectorClaimContext(baseVendor, context)) {
-        return false;
+    const bounded = normalizeWithBoundaries(rawWithoutImages);
+    deprecatedRe.lastIndex = 0;
+    let m;
+    while ((m = deprecatedRe.exec(normWithoutImages)) !== null) {
+      const start = m.index + (normWithoutImages[m.index] === " " ? 1 : 0);
+      if (start > 0 && SUBTYPE_PREFIX_RE.test(normWithoutImages.slice(0, start))) continue;
+
+      const trailing = (m[2] || "").trim();
+      const matchedTermOnly = trailing ? m[1].slice(0, m[1].length - trailing.length).trim() : m[1];
+      if (isProductPrefixedOccurrence(bounded, matchedTermOnly)) continue;
+
+      if (trailing && CHILD_RECORD_NOUN_RE.test(trailing) && !CHILD_RECORD_NOUN_RE.test(normTerm)) {
+        continue;
       }
-      // If Learn documents a v2 replacement connector and the lab/section already uses "(v2)",
-      // prose or shorthand references to the vendor/connector are not referencing the legacy v1 connector.
-      if (docsHaveV2Connector(baseVendor, doc, docs) && labUsesV2Connector(baseVendor, context)) {
-        return false;
+
+      const termIsConnector = /\bconnectors?$/.test(normTerm);
+      const trailingIsConnector = /^(?:connectors?|connections?)\b/.test(trailing);
+      if (termIsConnector || trailingIsConnector) {
+        const baseVendor = termIsConnector ? normTerm.replace(/\s+connectors?$/, "") : normTerm;
+        // If Learn deprecates "<Vendor> connector" (not the external platform itself), platform-only
+        // mentions (for example SQL worksheets or trial setup in Snowflake) are not connector claims.
+        if (!termIsConnector && trailingIsConnector && !isConnectorClaimContext(baseVendor, context)) {
+          continue;
+        }
+        // If Learn documents a v2 replacement connector and the lab/section already uses "(v2)",
+        // prose or shorthand references to the vendor/connector are not referencing the legacy v1 connector.
+        if (docsHaveV2Connector(baseVendor, doc, docs) && labUsesV2Connector(baseVendor, context)) {
+          continue;
+        }
       }
+      return true;
     }
-    return true;
+    return false;
   });
   if (deprecated) {
     return {
@@ -320,6 +420,48 @@ function evaluateLimit(claim, docs) {
   return null;
 }
 
+function prepareAvailabilityWindow(rawSentence, subject) {
+  // Strip images and neutralize inline links whose label refers to a different feature
+  // (for example "... separate from [deep reasoning (preview)](...)" when checking "Model selection").
+  const withoutOtherLinks = String(rawSentence ?? "")
+    .replace(IMAGE_MARKDOWN_RE, " ")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, (_full, label) => {
+      const normLabel = normalizeText(label);
+      return containsPhrase(normLabel, subject) ? label : " ";
+    });
+
+  // Neutralize parenthetical "(preview)" / "(GA)" attached to a different noun phrase.
+  const cleanedRaw = withoutOtherLinks.replace(
+    /\(\s*(?:public\s+|private\s+|in\s+)?(?:preview|ga|generally\s+available)\s*\)/gi,
+    (tag, offset, str) => {
+      const beforeNorm = normalizeText(str.slice(0, offset));
+      if (!containsPhrase(beforeNorm, subject)) return " ";
+      const padded = ` ${beforeNorm} `;
+      const lastIdx = padded.lastIndexOf(` ${subject} `);
+      if (lastIdx < 0) return " ";
+      const between = beforeNorm.slice(lastIdx + subject.length).trim();
+      if (!between) return tag;
+      if (
+        CONTRAST_BOUNDARY_RE.test(between) ||
+        /\b(?:with|for|from|including|such as|like|and|or|via|using|into|under)\b/.test(between)
+      ) {
+        return " ";
+      }
+      return tag;
+    },
+  );
+
+  const norm = normalizeText(cleanedRaw);
+  if (!norm) return null;
+  const at = (` ${norm} `).indexOf(` ${subject} `);
+  if (at < 0) return null;
+  const afterStart = at + subject.length;
+  let tail = norm.slice(afterStart, afterStart + 70);
+  const contrast = CONTRAST_BOUNDARY_RE.exec(tail);
+  if (contrast) tail = tail.slice(0, contrast.index);
+  return `${subject}${tail ? ` ${tail.trim()}` : ""}`;
+}
+
 function evaluateAvailability(claim, docs) {
   const subject = normalizeText(claim.term);
   const states = { preview: null, ga: null, both: null };
@@ -329,9 +471,8 @@ function evaluateAvailability(claim, docs) {
     for (const unit of doc.units) {
       if (/^\s*[-*]?\s*\[[^\]]+\]\([^)]*\)\s*$/.test(unit.raw)) continue;
       for (const sentence of unit.sentences) {
-        const at = (` ${sentence.norm} `).indexOf(` ${subject} `);
-        if (at < 0) continue;
-        const window = sentence.norm.slice(Math.max(0, at), at + subject.length + 70);
+        const window = prepareAvailabilityWindow(sentence.raw, subject);
+        if (!window) continue;
         const stage = stageOfSentence(window);
         if (!stage.preview && !stage.ga) continue;
         const hit = { doc, text: sentence.raw };

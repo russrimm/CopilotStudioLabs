@@ -24,7 +24,7 @@ A step's status is the worst of its claims (stale > unable > unverified > verifi
 
 No LLM decides pass or fail. Extraction and matching are deterministic and every verdict names the rule that produced it.
 
-1. **Parse steps** (`portal/lib/step-validator/steps.js`). Labs are written in several shapes, so the parser tries them from most to least specific and records which one matched (`stepSource`): `### Step N` headings, numbered headings (`### 1.1 ...`), `## Use Case #N` headings, and `**1. Title**` prose steps. Code fences, sample prompts, and validation checklists are not instructions and are skipped. Prerequisites and the lab title (for a `(Preview)` or `(GA)` marker) are checked as extra sections.
+1. **Parse steps** (`portal/lib/step-validator/steps.js`). Labs are written in several shapes, so the parser tries them from most to least specific and records which one matched (`stepSource`): `### Step N` / `### Task N` / `### Exercise N` / `### Part N` / `### Section N: ...` / `### Module N: ...` headings (`step-headings` / section headings), numbered headings (`### 1.1 ...`, `numbered-headings`), `## Use Case #N` headings (`use-cases`), and `**1. Title**` prose steps (`bold-numbered`). Non-instructional top-level sections and sub-sections (`Summary`, `Appendix`, `Cleanup` / `Lab Complete`, `Troubleshooting`, `Sample Prompts`, `Expected Results`, `Validation Checklist`, `Next Steps`, `Related Labs`, `Further Reading`, `References`, plus code fences and expandable harness-difference notes) are excluded automatically. `## Prerequisites`, the lab title (for a `(Preview)` or `(GA)` marker), and `## Overview` (when instructional or overview claims are present before or without explicit step claims) are checked as extra sections rather than numbered step units.
 2. **Extract claims** (`claims.js`). Only text Microsoft Learn can confirm or contradict becomes a claim:
 
    | Kind | Example in a lab | Confidence |
@@ -35,9 +35,9 @@ No LLM decides pass or fail. Extraction and matching are deterministic and every
    | `requirement` | requires a **Microsoft 365 Copilot** license | high |
    | `limit` | files up to 25 MB | high with a bold subject, otherwise low |
    | `availability` | "(Preview)" in a title, "is currently in preview" | high |
-   | `term` | other bold feature names | low |
+   | `term` | other bold feature names, or prose fallback tokens | low |
 
-   Text the learner types or names (`named **Operations Briefing Agent**`, `Enter ...`, anything in a code block, placeholders such as `<environment-id>`, and organization names such as Contoso) is never a claim. Skipped candidates are listed on each step with the reason, so extraction is auditable. At most 12 claims are kept per step, highest-value kinds first; `truncated` records how many were dropped.
+   When a section uses plain prose instead of bold UI labels, `extractProseItemClaims` extracts recognized Microsoft AI product and capability terms, non-generic Markdown link labels (`[Title](https://...)`), and official CLI/SDK/system code tokens (such as `` `@microsoft/...` ``, `` `@azure/...` ``, `` `pac ...` ``, `` `power.config.json` ``, `` `System.*` ``, and `` `User.*` ``). Text the learner types or names (`named **Operations Briefing Agent**`, `Enter ...`, anything in a code block, placeholders such as `<environment-id>`, and organization names such as Contoso) is never a claim. Skipped candidates are listed on each step with the reason, so extraction is auditable. At most 12 claims are kept per step, highest-value kinds first; `truncated` records how many were dropped.
 3. **Gather evidence**, cheapest first, and only while claims remain unresolved: the Learn pages the lab itself cites (read once per lab), then one targeted Learn search for the step, then a second search on the still-unresolved terms, then the single most relevant hit fetched in full.
 4. **Match** (`matcher.js`). Text is normalized (case, markdown, quotes, arrow styles, singular and plural). Contradicting text wins over supporting text.
 
@@ -107,7 +107,7 @@ The CLI is syntax-checked and unit tested in the pull request workflow. It is de
 
 - Learn does not describe every UI label, and its search returns short chunks. Many correct steps will be **unverified**; that means "no supporting doc found", not "wrong". Cited pages and a fetched page per step reduce this but cannot remove it.
 - Matching is textual. It does not understand that "Policies > Data policies" and "Data policies under Policies" mean the same thing, and the staleness rules can misfire on similar wording about different features.
-- Steps written as free prose, or in a separate document the lab links to (for example Lab 01), have little or nothing to extract. Those labs report `no-steps` or `no-claims`.
+- Steps written purely as free prose with no recognizable UI labels, product terms, links, or CLI/SDK tokens, or kept only in an external document, have little or nothing to extract and report `no-steps` or `no-claims`. (All 40 labs in `labs/` parse steps and verifiable claims.)
 - Instructions in tables and screenshots are only partly covered (table rows are read; image text is not).
 - Learn describes the product as it is documented, which can lag or lead what a given tenant sees. Only live execution can settle that.
 

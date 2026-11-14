@@ -52,6 +52,23 @@ const DEFAULT_PROFILE = {
 };
 
 export const DIFFICULTY_BY_LEVEL = { 100: "Beginner", 200: "Intermediate", 300: "Advanced" };
+const DEPARTMENT_ALIASES = {
+  "it-operations": "it",
+  "human-resources": "hr",
+  support: "customer-service",
+  comms: "communications",
+};
+
+function levelList(value, name) {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value)) throw new Error(`${name} must be an array.`);
+  if (!value.length) return undefined;
+  const nums = value.map((item) => Number(item));
+  if (nums.some((n) => ![100, 200, 300].includes(n))) {
+    throw new Error(`${name} must contain only 100, 200, or 300.`);
+  }
+  return [...new Set(nums)].sort((a, b) => a - b);
+}
 const MAX_TEXT_LENGTHS = {
   industry: 100,
   title: 160,
@@ -118,10 +135,20 @@ export function normalizeLabRequest(request = {}) {
     throw new Error(`Unknown excluded feature id(s): ${unknownExcluded.join(", ")}.`);
   }
 
+  let harnesses;
+  if (request.harnesses !== undefined && request.harnesses !== null) {
+    harnesses = stringList(request.harnesses, "harnesses", getHarnesses().length);
+    for (const h of harnesses) {
+      if (!getHarnesses().some((known) => known.id === h)) throw new Error(`Unknown harness "${h}".`);
+    }
+  }
+
   let harness;
   if (request.harness !== undefined && request.harness !== null && request.harness !== "") {
     harness = String(request.harness);
     if (!getHarnesses().some((h) => h.id === harness)) throw new Error(`Unknown harness "${harness}".`);
+  } else if (harnesses?.length) {
+    harness = harnesses[0];
   }
 
   // The products the lab covers. Omitted means the products of the selected topics, so older callers keep working.
@@ -142,8 +169,9 @@ export function normalizeLabRequest(request = {}) {
   }
   // A harness only exists for a product that has harnesses. For any other lab it is not an error to send one, but it is dropped.
   let harnessDropped = false;
-  if (harness && !products.some((id) => productHasHarnesses(id))) {
+  if ((harness || harnesses?.length) && !products.some((id) => productHasHarnesses(id))) {
     harness = undefined;
+    harnesses = undefined;
     harnessDropped = true;
   }
   const harnessOwner = harness ? getHarnesses().find((h) => h.id === harness)?.product : null;
@@ -151,10 +179,13 @@ export function normalizeLabRequest(request = {}) {
     throw new Error(`The harness "${harness}" belongs to ${productName(harnessOwner)}, which is not selected.`);
   }
 
+  const levels = levelList(request.levels, "levels");
   let level;
   if (request.level !== undefined && request.level !== null && request.level !== "") {
     level = Number(request.level);
     if (![100, 200, 300].includes(level)) throw new Error("level must be 100, 200, or 300.");
+  } else if (levels?.length === 1) {
+    level = levels[0];
   }
 
   // Which other harnesses get expandable "How this differs" notes. Omitted means
@@ -164,17 +195,27 @@ export function normalizeLabRequest(request = {}) {
     differencesFor = stringList(request.differencesFor, "differencesFor", getHarnesses().length);
     const unknown = differencesFor.filter((id) => !getHarnesses().some((h) => h.id === id));
     if (unknown.length) throw new Error(`Unknown harness id(s) in differencesFor: ${unknown.join(", ")}.`);
+  } else if (harnesses && harnesses.length > 1) {
+    differencesFor = harnesses.slice(1);
   }
+
+  const rawDepartments = stringList(request.departments, "departments", 50);
+  const normalizedDepartments = rawDepartments.map((id) => DEPARTMENT_ALIASES[id] || id);
+  const rawRoles = stringList(request.roles, "roles", 50);
+  const combinedRoles = [...new Set([...normalizedDepartments, ...rawRoles])];
 
   return {
     industry: optionalText(request.industry, "industry"),
-    roles: stringList(request.roles, "roles", getRoles().length),
+    departments: normalizedDepartments,
+    roles: combinedRoles,
     products,
     features,
     excluded,
     harness,
+    harnesses,
     harnessDropped,
     level,
+    levels,
     differencesFor,
     targetMinutes,
     title: optionalText(request.title, "title"),
@@ -379,25 +420,32 @@ export function planLab(request = {}) {
   // caller). A lower-level topic comes back below only as a prerequisite recap.
   // Without a level the request is built as given, for older callers.
   const requestedLevel = request.level;
+  const allowedLevels = request.levels?.length ? request.levels : requestedLevel ? [requestedLevel] : null;
+  const minRequestedLevel = allowedLevels ? Math.min(...allowedLevels) : null;
+  const levelSummaryLabel = allowedLevels
+    ? allowedLevels.map((lvl) => levelName(lvl)).join(" / ")
+    : null;
   const droppedOutOfLevel = [];
   let requested = request.features.filter((id) => !request.excluded.includes(id));
-  if (requestedLevel) {
+  if (allowedLevels) {
     requested = requested.filter((id) => {
       const feature = getFeature(id);
       // A Learn topic whose level could not be resolved is built only because the learner picked it from the "Level unknown" group.
-      if (atLevel(feature, requestedLevel) || !isLevel(feature?.level)) return true;
+      if (allowedLevels.some((lvl) => atLevel(feature, lvl)) || !isLevel(feature?.level)) return true;
       droppedOutOfLevel.push({ id, name: feature.name, level: feature.level });
       return false;
     });
     if (droppedOutOfLevel.length) {
       warnings.push(
-        `${droppedOutOfLevel.length} selected topic(s) belong to another level and were not built for ${levelName(requestedLevel)}: ${droppedOutOfLevel
+        `${droppedOutOfLevel.length} selected topic(s) belong to another level and were not built for ${levelSummaryLabel}: ${droppedOutOfLevel
           .map((d) => `${d.name} (Level ${d.level})`)
           .join(", ")}.`,
       );
     }
     if (!requested.length) {
-      throw new Error(`None of the selected topics are at ${levelName(requestedLevel)}. Choose at least one Level ${requestedLevel} topic.`);
+      throw new Error(
+        `None of the selected topics are at ${levelSummaryLabel}. Choose at least one Level ${allowedLevels.join(" or ")} topic.`,
+      );
     }
   }
   if (!requested.length) {
@@ -412,7 +460,9 @@ export function planLab(request = {}) {
       ? requested
       : [
           ...new Set([
-            ...coreSeedIds(requested, request.harness, request.products).filter((id) => !requestedLevel || atLevel(getFeature(id), requestedLevel)),
+            ...coreSeedIds(requested, request.harness, request.products).filter(
+              (id) => !allowedLevels || allowedLevels.some((lvl) => atLevel(getFeature(id), lvl)),
+            ),
             ...requested,
           ]),
         ].filter((id) => !request.excluded.includes(id));
@@ -451,7 +501,7 @@ export function planLab(request = {}) {
   }
   const isRecap = (id) => {
     const level = getFeature(id)?.level;
-    return Boolean(requestedLevel) && isLevel(level) && level < requestedLevel;
+    return Boolean(minRequestedLevel) && isLevel(level) && level < minRequestedLevel;
   };
   const addedCore = request.includeCore === true ? seedIds.filter((id) => !requested.includes(id)) : [];
   if (addedCore.length) {
@@ -473,14 +523,14 @@ export function planLab(request = {}) {
     warnings.push(
       `Added ${addedRecaps.length} short prerequisite recap(s) from lower levels because topics you selected depend on them: ${addedRecaps
         .map((id) => `${getFeature(id).name} (Level ${getFeature(id).level})`)
-        .join(", ")}. They are labeled as recaps, not Level ${requestedLevel} content, and you can turn any of them off.`,
+        .join(", ")}. They are labeled as recaps, not Level ${minRequestedLevel} content, and you can turn any of them off.`,
     );
   }
 
   // Recaps come first. Each recap depends only on lower-level modules, so putting them ahead
   // keeps every prerequisite before the module that needs it.
   const topological = orderFeatures(expanded);
-  const ordered = requestedLevel ? [...topological.filter(isRecap), ...topological.filter((id) => !isRecap(id))] : topological;
+  const ordered = minRequestedLevel ? [...topological.filter(isRecap), ...topological.filter((id) => !isRecap(id))] : topological;
 
   const harnessesUsed = new Set(
     ordered.map((id) => getFeature(id)?.harness || []).filter((tags) => tags.length === 1).map((tags) => tags[0]),

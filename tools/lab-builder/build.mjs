@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
- * Standalone lab builder CLI.
+ * Microsoft AI Training Generator — Custom Lab Builder CLI.
  *
- * Builds a custom, Microsoft Learn-grounded Copilot Studio lab without needing
- * the portal or any authentication.
+ * Builds a custom, Microsoft Learn-grounded hands-on lab across all 6 Microsoft AI
+ * products without needing the portal or any authentication.
  *
  *   node tools/lab-builder/build.mjs --list
- *   node tools/lab-builder/build.mjs --industry retail --roles customer-service \
- *        --features knowledge-sharepoint,connector-tools,adaptive-cards
+ *   node tools/lab-builder/build.mjs --products copilot-studio --industry retail \
+ *        --departments customer-service --features knowledge-sharepoint,connector-tools,adaptive-cards
+ *   node tools/lab-builder/build.mjs --products ai-foundry --industry manufacturing \
+ *        --departments it-operations --roles developer --features fdy-orient-foundry
  *   node tools/lab-builder/build.mjs --interactive
  */
 
@@ -20,8 +22,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const LIB = path.join(REPO_ROOT, "portal", "lib");
 
-const { getFeaturesByCategory, getFeature, getFeatures } = await import(
+const { getFeaturesByCategory, getFeature, getFeatures, getHarnesses } = await import(
   pathToFileURL(path.join(LIB, "lab-builder", "catalog.js")).href
+);
+const { getProducts, productOf } = await import(
+  pathToFileURL(path.join(LIB, "lab-builder", "products.js")).href
 );
 const { generateLab, OUTPUT_ROOT } = await import(
   pathToFileURL(path.join(LIB, "lab-builder", "generator.js")).href
@@ -31,10 +36,12 @@ const { normalizeDecisions } = await import(
 );
 const { formatQaReport } = await import(pathToFileURL(path.join(LIB, "lab-builder", "qa.js")).href);
 const { detectProvider } = await import(pathToFileURL(path.join(LIB, "lab-builder", "llm.js")).href);
-const { getIndustries, getRoles } = await import(pathToFileURL(path.join(LIB, "scenarios.js")).href);
+const { getIndustries, getDepartments, getRoles } = await import(
+  pathToFileURL(path.join(LIB, "scenarios.js")).href
+);
 
 /** Exit codes, so CI can tell "needs a human" from "produced something broken". */
-const EXIT = { OK: 0, VALIDATION_FAILED: 1, DECISION_REQUIRED: 2, CANCELLED: 3 };
+const EXIT = { OK: 0, VALIDATION_FAILED: 1, DECISION_REQUIRED: 2, CANCELED: 3 };
 
 function parseArgs(argv) {
   const args = {};
@@ -87,19 +94,54 @@ function list(csv) {
 }
 
 function printCatalog() {
+  const products = getProducts();
+  const categories = getFeaturesByCategory();
+
+  console.log("\nMicrosoft AI Training Generator — Custom Lab Builder CLI\n");
+
+  console.log("Products");
+  for (const product of products) {
+    const meta = product.hasHarnesses ? " (supports harnesses)" : "";
+    console.log(`  ${product.id.padEnd(26)} ${product.name}${meta}`);
+  }
+
+  const harnesses = getHarnesses();
+  if (harnesses.length) {
+    console.log("\nHarnesses");
+    for (const harness of harnesses) {
+      console.log(`  ${harness.id.padEnd(26)} ${harness.name}`);
+    }
+  }
+
   console.log("\nIndustries");
-  for (const industry of getIndustries()) console.log(`  ${industry.id.padEnd(20)} ${industry.name}`);
+  for (const industry of getIndustries()) console.log(`  ${industry.id.padEnd(26)} ${industry.name}`);
+
+  console.log("\nDepartments");
+  for (const dept of getDepartments()) console.log(`  ${dept.id.padEnd(26)} ${dept.name}`);
 
   console.log("\nRoles");
-  for (const role of getRoles()) console.log(`  ${role.id.padEnd(20)} ${role.name}`);
+  for (const role of getRoles()) console.log(`  ${role.id.padEnd(26)} ${role.name}`);
 
-  console.log("\nCopilot Studio features");
-  for (const category of getFeaturesByCategory()) {
-    console.log(`\n  ${category.icon || ""} ${category.name}`);
-    for (const feature of category.features) {
-      const harness = (feature.harness || []).map((h) => (h === "microsoft-copilot" ? "mc" : "std")).join("+");
-      const flags = [`L${feature.level}`, `${feature.minutes}m`, harness, feature.availability || "", feature.core ? "core" : ""].filter(Boolean).join(" ");
-      console.log(`    ${feature.id.padEnd(26)} ${String(flags).padEnd(24)} ${feature.name}`);
+  console.log("\nCapabilities by Product");
+  for (const product of products) {
+    const productCategories = categories
+      .map((cat) => ({
+        ...cat,
+        features: cat.features.filter((f) => productOf(f) === product.id),
+      }))
+      .filter((cat) => cat.features.length > 0);
+    const total = productCategories.reduce((sum, cat) => sum + cat.features.length, 0);
+    console.log(`\n  ${product.name} (${product.id}) — ${total} capabilities`);
+    for (const category of productCategories) {
+      const heading = [category.icon, category.name].filter(Boolean).join(" ");
+      console.log(`\n    ${heading}`);
+      for (const feature of category.features) {
+        const harness = (feature.harness || []).map((h) => (h === "microsoft-copilot" ? "mc" : "std")).join("+");
+        const flags = [`L${feature.level}`, `${feature.minutes}m`, harness, feature.availability || "", feature.core ? "core" : ""]
+          .filter(Boolean)
+          .join(" ");
+        console.log(`      ${feature.id.padEnd(32)} ${String(flags).padEnd(22)} ${feature.name}`);
+      }
     }
   }
   console.log("");
@@ -107,20 +149,28 @@ function printCatalog() {
 
 function help() {
   console.log(`
-Copilot Studio custom lab builder
+Microsoft AI Training Generator — Custom Lab Builder CLI
+
+Builds custom, Microsoft Learn-grounded hands-on labs across Microsoft Copilot Studio,
+Microsoft Foundry, Microsoft Agent 365 & M365 Admin Governance, Power Platform AI &
+Agent Flows, Azure AI Services & Enterprise Search, and Microsoft 365 Copilot Extensibility.
 
 Usage:
   node tools/lab-builder/build.mjs [flags]
 
 Flags:
-  --list                    Show every industry, role, and feature id, then exit.
+  --list                    Show products, industries, departments, roles, and capabilities, then exit.
   --interactive             Answer prompts instead of passing flags.
+  --products <a,b>          Comma-separated product ids (default: inferred from --features).
   --industry <id>           Industry id (see --list).
+  --departments <a,b>       Comma-separated department ids (see --list).
   --roles <a,b>             Comma-separated role ids.
-  --features <a,b>          Comma-separated feature ids (required unless interactive).
+  --harnesses <a,b>         Comma-separated harness ids for harness-aware products (for example standard,microsoft-copilot).
+  --levels <100,200,300>    Comma-separated target levels (100, 200, 300).
+  --features <a,b>          Comma-separated capability/feature ids (required unless interactive).
   --time <minutes>          Preferred length in minutes. Guidance only: no module is removed; longer labs get a split suggestion.
   --title "<text>"          Override the generated lab title.
-  --agent-name "<text>"     Override the scenario agent name.
+  --agent-name "<text>"     Override the scenario deliverable or agent name.
   --out <dir>               Output directory (default: generated-labs/).
   --no-learn                Skip Microsoft Learn grounding and vendor documentation
                             reads (offline mode).
@@ -140,7 +190,7 @@ Exit codes:
   0  the lab was built and passed validation
   1  bad input, or the generated lab failed validation
   2  the build stopped for a decision and none was supplied (see --decide)
-  3  a decision cancelled the build
+  3  a decision canceled the build
 
 When the builder hits something that would quietly degrade the lab — Microsoft
 Learn unreachable, a module with no documentation results, a vendor page that
@@ -207,7 +257,7 @@ async function promptForBlockers(blockers) {
             signal: closed.signal,
           })).trim();
         } catch {
-          console.log("\n  Input closed before a decision was made. Cancelling the build.");
+          console.log("\n  Input closed before a decision was made. Canceling the build.");
           chosen[blocker.code] = "cancel";
           return chosen;
         }
@@ -230,12 +280,28 @@ async function promptForBlockers(blockers) {
 async function interactive() {
   const rl = readline.createInterface({ input: stdin, output: stdout });
   try {
+    const products = getProducts();
+    console.log("\nProducts:");
+    products.forEach((p, n) => console.log(`  ${n + 1}. ${p.name} (${p.id})`));
+    const productAnswer = (await rl.question("\nProduct ids or numbers, comma-separated (Enter to skip): ")).trim();
+    const chosenProducts = list(productAnswer)
+      .map((token) => products[Number(token) - 1]?.id || products.find((p) => p.id === token)?.id)
+      .filter(Boolean);
+
     const industries = getIndustries();
     console.log("\nIndustries:");
     industries.forEach((i, n) => console.log(`  ${n + 1}. ${i.name} (${i.id})`));
     const industryAnswer = (await rl.question("\nIndustry number or id (Enter to skip): ")).trim();
     const industry =
-      industries[Number(industryAnswer) - 1]?.id || industries.find((i) => i.id === industryAnswer)?.id || null;
+      industries[Number(industryAnswer) - 1]?.id || industries.find((i) => i.id === industryAnswer)?.id || undefined;
+
+    const departments = getDepartments();
+    console.log("\nDepartments:");
+    departments.forEach((d, n) => console.log(`  ${n + 1}. ${d.name} (${d.id})`));
+    const deptAnswer = (await rl.question("\nDepartment ids or numbers, comma-separated (Enter to skip): ")).trim();
+    const chosenDepartments = list(deptAnswer)
+      .map((token) => departments[Number(token) - 1]?.id || departments.find((d) => d.id === token)?.id)
+      .filter(Boolean);
 
     const roles = getRoles();
     console.log("\nRoles:");
@@ -245,18 +311,38 @@ async function interactive() {
       .map((token) => roles[Number(token) - 1]?.id || roles.find((r) => r.id === token)?.id)
       .filter(Boolean);
 
-    console.log("\nFeatures:");
-    for (const category of getFeaturesByCategory()) {
-      console.log(`\n  ${category.name}`);
-      for (const f of category.features) console.log(`    ${f.id.padEnd(26)} ${f.name} (${f.minutes}m, L${f.level})`);
+    const visibleProducts = chosenProducts.length
+      ? products.filter((p) => chosenProducts.includes(p.id))
+      : products;
+    const categories = getFeaturesByCategory();
+    console.log("\nCapabilities:");
+    for (const product of visibleProducts) {
+      const prodCats = categories
+        .map((cat) => ({ ...cat, features: cat.features.filter((f) => productOf(f) === product.id) }))
+        .filter((cat) => cat.features.length > 0);
+      if (!prodCats.length) continue;
+      console.log(`\n  ${product.name} (${product.id})`);
+      for (const category of prodCats) {
+        console.log(`    ${category.name}`);
+        for (const f of category.features) {
+          console.log(`      ${f.id.padEnd(30)} ${f.name} (${f.minutes}m, L${f.level})`);
+        }
+      }
     }
-    const featureAnswer = (await rl.question("\nFeature ids, comma-separated: ")).trim();
+    const featureAnswer = (await rl.question("\nCapability/feature ids, comma-separated: ")).trim();
     const features = list(featureAnswer).filter((id) => getFeature(id));
     if (!features.length) throw new Error("No valid feature ids were entered.");
 
     const timeAnswer = (await rl.question("Preferred lab length in minutes, guidance only (Enter to skip): ")).trim();
 
-    return { industry, roles: chosenRoles, features, targetMinutes: timeAnswer ? Number(timeAnswer) : undefined };
+    return {
+      products: chosenProducts.length ? chosenProducts : undefined,
+      industry,
+      departments: chosenDepartments,
+      roles: chosenRoles,
+      features,
+      targetMinutes: timeAnswer ? Number(timeAnswer) : undefined,
+    };
   } finally {
     rl.close();
   }
@@ -289,9 +375,25 @@ if (args.interactive) {
     console.error(`Valid ids: ${getFeatures().map((f) => f.id).join(", ")}`);
     process.exit(1);
   }
+  const products = args.products !== undefined ? list(args.products) : undefined;
+  const departments = args.departments !== undefined ? list(args.departments) : undefined;
+  const harnesses = args.harnesses !== undefined ? list(args.harnesses) : undefined;
+  let levels;
+  if (args.levels !== undefined) {
+    const rawLevels = list(args.levels);
+    levels = rawLevels.map((value) => Number(value));
+    if (!levels.length || levels.some((n) => ![100, 200, 300].includes(n))) {
+      console.error("Error: --levels expects comma-separated values from 100, 200, 300.");
+      process.exit(EXIT.VALIDATION_FAILED);
+    }
+  }
   request = {
+    products,
     industry: typeof args.industry === "string" ? args.industry : undefined,
+    departments,
     roles: list(args.roles),
+    harnesses,
+    levels,
     features,
     targetMinutes: args.time ? Number(args.time) : undefined,
     title: typeof args.title === "string" ? args.title : undefined,
@@ -317,7 +419,7 @@ try {
   process.exit(EXIT.VALIDATION_FAILED);
 }
 
-// Step synthesis is an explicit request, so a build that cannot honour it is a
+// Step synthesis is an explicit request, so a build that cannot honor it is a
 // usage error rather than something to degrade around quietly.
 let synthesizeSteps;
 if (args["synthesize-steps"]) {
@@ -362,32 +464,37 @@ const canPrompt = Boolean(stdin.isTTY && stdout.isTTY) && !args["non-interactive
 let prompted = false;
 let result;
 
-for (;;) {
-  result = await generateLab(request, {
-    outputRoot: typeof args.out === "string" ? path.resolve(args.out) : OUTPUT_ROOT,
-    write: !args["dry-run"],
-    useLearnMcp: !args["no-learn"],
-    useLlm: !args["no-llm"],
-    synthesizeSteps,
-    decisions,
-    decisionSource: prompted ? "cli-interactive" : "cli-flag",
-    onProgress: (event) => process.stdout.write(`  [${event.stage}] ${event.message}\n`),
-  });
+try {
+  for (;;) {
+    result = await generateLab(request, {
+      outputRoot: typeof args.out === "string" ? path.resolve(args.out) : OUTPUT_ROOT,
+      write: !args["dry-run"],
+      useLearnMcp: !args["no-learn"],
+      useLlm: !args["no-llm"],
+      synthesizeSteps,
+      decisions,
+      decisionSource: prompted ? "cli-interactive" : "cli-flag",
+      onProgress: (event) => process.stdout.write(`  [${event.stage}] ${event.message}\n`),
+    });
 
-  if (result.status !== "blocked") break;
+    if (result.status !== "blocked") break;
 
-  if (!canPrompt) {
-    reportBlockers(result.blockers);
-    process.exit(EXIT.DECISION_REQUIRED);
+    if (!canPrompt) {
+      reportBlockers(result.blockers);
+      process.exit(EXIT.DECISION_REQUIRED);
+    }
+
+    Object.assign(decisions, await promptForBlockers(result.blockers));
+    prompted = true;
   }
-
-  Object.assign(decisions, await promptForBlockers(result.blockers));
-  prompted = true;
+} catch (err) {
+  console.error(`Error: ${err.message}`);
+  process.exit(EXIT.VALIDATION_FAILED);
 }
 
 if (result.status === "cancelled") {
-  console.log("\nBuild cancelled. Nothing was written.\n");
-  process.exit(EXIT.CANCELLED);
+  console.log("\nBuild canceled. Nothing was written.\n");
+  process.exit(EXIT.CANCELED);
 }
 
 console.log("");

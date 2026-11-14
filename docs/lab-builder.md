@@ -14,7 +14,7 @@ Which is which matters, because the two age differently:
 | Microsoft Learn citations and the **From the docs** excerpt | Searched live at build time, scored for relevance, and link-checked before use. |
 | **Vendor documentation** links and their quote | Specifications published outside Microsoft Learn (MCP, A2A, OpenAPI, Adaptive Cards), listed per feature in the catalog and read live at build time from an allowlist of hosts. See [Vendor documentation](#3b-vendor-documentation). |
 | **Do this** walk-through steps | Read from the module's live documentation page **when a procedure on it matches the module confidently enough** — otherwise the curated catalog steps, labeled as such in that module. |
-| Module set, ordering, prerequisites, concepts, **Check your work** | The curated catalog, `portal/lib/lab-builder/features.json`. Never live. |
+| Module set, ordering, prerequisites, concepts, **Check your work** | The curated six-product catalog (`portal/lib/lab-builder/features.json` for Copilot Studio plus `portal/lib/lab-builder/catalog/<product-id>.json` for the other five products). Never live. |
 | Overview and per-module "In your scenario" narrative | A language model, when one is configured; otherwise the curated catalog. By default a model never writes the steps; see [step synthesis](#4b-opt-in-grounded-step-synthesis) for the opt-in exception. |
 | Screenshots | Reused from existing labs in this repo, or listed for you to capture. |
 
@@ -51,13 +51,17 @@ generated-labs/<slug>/
 ## Quick start (CLI)
 
 ```bash
-# See every industry, role, and feature id
+# See all 6 products, industries, departments, roles, and capabilities grouped by product
 node tools/lab-builder/build.mjs --list
 
 # Build a lab
 node tools/lab-builder/build.mjs \
+  --products copilot-studio \
   --industry healthcare \
+  --departments customer-service \
   --roles customer-service \
+  --levels 100,200 \
+  --harnesses standard \
   --features knowledge-sharepoint,authentication,content-moderation \
   --time 240
 
@@ -69,8 +73,15 @@ Useful flags:
 
 | Flag | Effect |
 |---|---|
+| `--products <a,b>` | Product ids from `products.json` (`copilot-studio`, `m365-copilot-agent-builder`, `sharepoint-ai`, `ai-foundry`, `m365-copilot-hub`, `power-platform-ai-hub`). Defaults to the products of the selected features (or `copilot-studio`). |
+| `--industry <id>` | Scenario vertical id (`healthcare`, `manufacturing`, `financial-services`, and so on). |
+| `--departments <a,b>` | Department ids (`it`, `customer-service`, `finance`, `hr`, and so on) to tailor the scenario profile and objectives. |
+| `--roles <a,b>` | Learner role ids (`maker`, `developer`, `admin`, `architect`, `customer-service`, and so on). |
+| `--levels <100,200,300>` | Restrict planned modules to one or more catalog levels (`100`, `200`, `300`); `--level <n>` is accepted for a single level. Lower-level prerequisites are included automatically as short recaps. |
+| `--harnesses <a,b>` | Copilot Studio harness filter (`standard`, `microsoft-copilot`, `customer-conversation`); `--harness <id>` sets a single primary harness. Ignored for products without harnesses. |
+| `--features <a,b>` | Capability ids to teach; prerequisites within the product are added automatically unless listed in `--excluded <a,b>`. |
 | `--time <minutes>` | Preferred lab length. Guidance only: no module is ever removed. A lab that runs longer gets a suggestion to split it into parts. |
-| `--core` | Also add the level 100 foundation modules (create, instructions, and so on). Off by default: only the features you list, plus the prerequisites they need, are built. The older `--no-core` is still accepted and is now the default. |
+| `--core` | Also add the level 100 Copilot Studio foundation modules (create, instructions, and so on). Off by default: only the features you list, plus the prerequisites they need, are built. The older `--no-core` is still accepted and is now the default. |
 | `--no-learn` | Offline mode. Skips Microsoft Learn and vendor documentation reads, and uses the curated doc links. |
 | `--no-llm` | Deterministic composition even if LLM credentials are configured. |
 | `--synthesize-steps <ids\|all>` | Opt in to [grounded step synthesis](#4b-opt-in-grounded-step-synthesis) for these modules. Needs a language model and Microsoft Learn. |
@@ -109,7 +120,7 @@ each stating its tradeoff.
 | `modules-ungrounded` | A module has nothing to cite: no relevant search result and no curated link. | `proceed-curated` *(recommended)*, `drop-modules`, `cancel` |
 | `sources-dead` | Link checking found that *every* URL a module cites returns an error, leaving it with no reference. | `proceed-flagged` *(recommended)*, `drop-modules`, `cancel` |
 | `steps-fetch-failed` | A module's documentation page could not be read. | `retry` *(recommended)*, `proceed-catalog`, `cancel` |
-| `steps-not-derived` | The page was read, but no procedure on it matched the module. | `proceed-catalog` *(recommended)*, `cancel` |
+| `steps-not-derived` | The page was read, no procedure on it matched the module, and the module could not be confirmed as a freshly verified Conceptual/Overview page. | `proceed-catalog` *(recommended)*, `cancel` |
 | `llm-partial-failure` | A configured model wrote some passages but not others. | `retry` *(recommended)*, `proceed-deterministic`, `proceed-mixed`, `cancel` |
 | `vendor-docs-unavailable` | A vendor documentation page a module cites could not be read, or was refused by the builder's safety rules. | `retry` *(recommended)*, `proceed-unverified`, `cancel` |
 
@@ -291,8 +302,8 @@ integrity, including prerequisite cycles and the freshness fields described in
 
 A **product** is a solution area the generator builds labs for. It sits above the harness:
 a harness exists only for a product that has harnesses (today, Copilot Studio), so
-every harness rule applies to Copilot Studio features alone. `products.json` defines
-each product:
+every harness rule applies to Copilot Studio features alone. `portal/lib/lab-builder/products.json` defines
+each product and `portal/lib/lab-builder/products.js` exposes the lookup, validation, and naming helpers (`getProducts`, `getProduct`, `productOf`, `validateProducts`):
 
 | Field | Meaning |
 |---|---|
@@ -342,6 +353,19 @@ foundation modules are Copilot Studio modules, so another product's lab never ge
 them as a seed. `recommend` returns `products`, one summary per selected product
 with its topic counts per level and a sentence that says what exists when the chosen
 level has nothing, which is how the wizard avoids a dead end.
+
+**Product-accurate deliverables** (`portal/lib/lab-builder/deliverable.js`). Not every
+product or capability builds a conversational agent: `resolveDeliverable()` maps the
+selected products and modules to one of 11 `DELIVERABLE_MODES` (`copilot-studio-agent`,
+`declarative-agent`, `declarative-agent-governance`, `m365-copilot-governance`,
+`power-platform-ai-builder`, `power-platform-ai-governance`, `sharepoint-agent`,
+`sharepoint-content-ai`, `sharepoint-governance`, `foundry-agent`, and
+`foundry-models-platform`). The planner, composer, teaching blocks, LLM prompts, and
+QA checks use that descriptor so non-agent tracks (such as Microsoft 365 Copilot hub
+governance, AI Builder prompts and models, SharePoint content intelligence or
+SharePoint Advanced Management governance, and Microsoft Foundry model/platform
+provisioning) get accurate titles, architecture diagrams, sample inputs, and learning
+objectives instead of framing every lab as "Build an *X* Assistant".
 
 **Manifests.** `manifest.json` records `generator`, `product` (the one most modules
 belong to), `products`, and each module's `product`. A manifest without them is a
@@ -482,8 +506,10 @@ never disagree. `levels.js` holds the shared rules.
   checks. A recap dropped during the build never removes the module that builds on
   it; the lab assumes it instead. The metadata table gains a **LEVEL** row, and
   `manifest.json` records `level`, `levelName`, `prerequisites`, and a `role`
-  (`level` or `prerequisite`) per module. A request with no `level` (the CLI, older
-  API callers) is built exactly as before.
+  (`level` or `prerequisite`) per module. A request with no `level` or `levels`
+  filter (for example when `--level` / `--levels` are omitted on the CLI, or from older
+  API callers) is built across the selected features' levels as before; passing
+  `--level` or `--levels` restricts the plan to those levels.
 - **Older saved labs.** A lab saved before the level was recorded has no level, so
   its card says "Level not recorded"; **Edit selections** takes the highest level
   among its topics, and tells you which saved topics belong to another level and
@@ -940,9 +966,16 @@ used:
 - **Completeness.** It is never allowed to be materially shorter than the curated
   procedure. A shorter candidate is a fragment, not the procedure.
 
-When nothing clears the gates, the curated steps are used and the module says so
-in the lab. That path raises `steps-not-derived` first, so it is a decision rather
-than a silent substitution.
+When nothing clears the gates, the builder checks whether `--no-learn` is off and
+the module's canonical Learn page (`verifiedAgainst`) was fetched live as a
+Conceptual or Overview article that carries no numbered procedure while the
+module's curated steps are freshly verified (`lastVerified`). When that holds,
+the curated steps are used with `reason: "conceptual-page-curated"` and
+`canonicalVerified: true` without raising a false `steps-not-derived` blocker.
+Otherwise, falling back to curated steps raises `steps-not-derived` (or
+`steps-fetch-failed` / `learn-mcp-unavailable` when Learn could not be reached or
+the page failed to fetch), so any unverified fallback remains an explicit human
+decision rather than a silent substitution.
 
 Expect that to happen often. The gates reject any candidate that is a fragment or
 that never names the screens the module is about, and Learn articles frequently
@@ -1025,7 +1058,7 @@ What this does and does not guarantee:
 - It guarantees that every bolded UI label and every quote exists in the fetched
   documentation. The model cannot pass a step off as documented when it is not.
 - It does not guarantee that a quote came from the procedure the module needs
-  rather than a neighbouring one on the same page, or that steps stay in the
+  rather than a neighboring one on the same page, or that steps stay in the
   documentation's order. Read a synthesized module before you teach from it, the
   same as a derived one.
 - Results vary from run to run, and depend on the model deployment's capacity.

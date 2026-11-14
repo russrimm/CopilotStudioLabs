@@ -423,6 +423,106 @@ test("availability: matching stage verifies, a different stage is stale, mixed i
   assert.equal(evaluateClaim({ ...claim, state: "ga" }, evidence("Computer use works with agents. Separately, the voice tools are in preview.")).rule, "no-support");
 });
 
+test("extracts separate nav-paths across alternative clauses and sentences without glueing", () => {
+  const step = {
+    id: "step-1",
+    title: "Step 1 — Open Agent Registry",
+    items: [
+      {
+        text: "Select **Explore All agents** > **Registry**, or go to **Agents** > **All Agents** > **Registry**.",
+        line: 10,
+        kind: "ordered",
+      },
+    ],
+  };
+  const navPaths = extractClaims(step)
+    .claims.filter((c) => c.kind === "nav-path")
+    .map((c) => c.term);
+  assert.deepEqual(navPaths, [
+    "Explore All agents > Registry",
+    "Agents > All Agents > Registry",
+  ]);
+});
+
+test("availability ignores inline links and contrasted features in preview while matching subject links", () => {
+  const modelSelectionClaim = { kind: "availability", term: "Model selection", state: "ga" };
+  const contrastedLinksDoc = evidence(
+    "Primary model selection is separate from the settings for [deep reasoning (preview)](authoring-reasoning-models), [generative responses (preview)](nlu-preview-model), and [prompt builder models](prompt-model-settings).",
+  );
+  assert.equal(evaluateClaim(modelSelectionClaim, contrastedLinksDoc).rule, "no-support");
+  assert.notEqual(evaluateClaim(modelSelectionClaim, contrastedLinksDoc).status, "stale");
+
+  // Positive control: a link or prose directly stating the subject itself is in preview still flags availability-changed.
+  const subjectPreviewLinkDoc = evidence(
+    "Configure [Model selection (preview)](authoring-select-agent-model) for your agent.",
+  );
+  assert.equal(evaluateClaim(modelSelectionClaim, subjectPreviewLinkDoc).status, "stale");
+  assert.equal(evaluateClaim(modelSelectionClaim, subjectPreviewLinkDoc).rule, "availability-changed");
+});
+
+test("avoids false-positive deprecations on audit headings, child-record removals, and generic Registry", () => {
+  const registryDoc = evidence(
+    [
+      "# Agent registry in the Microsoft 365 admin center",
+      "Go to Agents > All Agents > Registry to inspect registered agents.",
+      "### Registry entry removed",
+      "Logged when an administrator deletes a registry entry.",
+    ].join("\n\n"),
+    "https://learn.microsoft.com/en-us/microsoft-agent-365/builder/agent-registry",
+  );
+  const navClaim = {
+    kind: "nav-path",
+    term: "Agents > All Agents > Registry",
+    segments: ["Agents", "All Agents", "Registry"],
+  };
+  assert.equal(evaluateClaim(navClaim, registryDoc).status, "verified");
+
+  // Child-record removal on a non-generic term ("Custom catalog entry was removed") is not feature deprecation.
+  const childRecordDoc = evidence("Custom catalog is available in admin center. If a custom catalog entry was removed, restore it.");
+  assert.equal(evaluateClaim({ kind: "ui-label", term: "Custom catalog" }, childRecordDoc).status, "verified");
+  const licenseFilterDoc = evidence(
+    "Open **Microsoft Copilot** readiness. Users who are assigned a Microsoft Copilot license are removed from consideration.",
+  );
+  assert.equal(evaluateClaim({ kind: "ui-label", term: "Microsoft Copilot" }, licenseFilterDoc).status, "verified");
+
+  // Positive control: explicit copula + removed on a real feature still flags deprecated.
+  const removedFeatureDoc = evidence("Legacy feature has been removed from Copilot Studio.");
+  const removedRes = evaluateClaim({ kind: "ui-label", term: "Legacy feature" }, removedFeatureDoc);
+  assert.equal(removedRes.status, "stale");
+  assert.equal(removedRes.rule, "deprecated");
+});
+
+test("avoids false-positive renames on product-prefix suffixes and image alt captions", () => {
+  const copilotRenameDoc = evidence(
+    [
+      "Open the Microsoft Copilot adoption dashboard.",
+      "Microsoft 365 Copilot is now named Microsoft Copilot, and Microsoft 365 Copilot Chat is now named Microsoft Copilot Chat.",
+    ].join("\n\n"),
+  );
+  // Bare "Copilot" is neither the full old brand ("Microsoft 365 Copilot") nor dropped from the new name ("Microsoft Copilot").
+  assert.equal(evaluateClaim({ kind: "ui-label", term: "Copilot" }, copilotRenameDoc).status, "verified");
+  // Positive control: the exact old full product name ("Microsoft 365 Copilot") is flagged as renamed.
+  const fullOldBrand = evaluateClaim({ kind: "term", term: "Microsoft 365 Copilot" }, copilotRenameDoc);
+  assert.equal(fullOldBrand.status, "stale");
+  assert.equal(fullOldBrand.rule, "renamed");
+
+  const metricRenameDoc = evidence(
+    [
+      "Select **Copilot** in the navigation pane.",
+      'The metric previously known as "Copilot Chat (web)" is now **Copilot Chat (legacy web)**.',
+    ].join("\n\n"),
+  );
+  assert.equal(evaluateClaim({ kind: "ui-label", term: "Copilot" }, metricRenameDoc).status, "verified");
+
+  const approvalScreenshotDoc = evidence(
+    [
+      "Add an Approval action in your flow.",
+      "![Screenshot of the left pane in the flow designer with the approval renamed.](media/approval-renamed.png)",
+    ].join("\n\n"),
+  );
+  assert.equal(evaluateClaim({ kind: "ui-label", term: "Approval" }, approvalScreenshotDoc).status, "verified");
+});
+
 test("limits: same number verifies, a different number for the same subject is stale", () => {
   const claim = { kind: "limit", term: "25 MB", value: "25", unit: "mb", subject: ["knowledge sources", "files"] };
   assert.equal(evaluateClaim(claim, evidence("Files added to knowledge sources can be up to 25 MB.")).rule, "limit-match");
