@@ -15,6 +15,7 @@ import { connect, groundFeature, fetchDocPage, LEARN_MCP_ENDPOINT } from "./lear
 import { createLlm } from "./llm.js";
 import { planScreenshots, copyScreenshots, writePlaceholders, buildShotsManifest, buildShotList } from "./screenshots.js";
 import { composeLab } from "./composer.js";
+import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { assessLab } from "./qa.js";
 import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
@@ -1326,6 +1327,7 @@ export async function generateLab(request, opts = {}) {
     // Which blocks were hit and what a human chose about each. Carries no user
     // identity on purpose — see decisionRecord() in blockers.js.
     decisions: decisionLog,
+    adminPrerequisites: buildAdminPrerequisites(plan),
     warnings: plan.warnings,
   };
 
@@ -1338,6 +1340,7 @@ export async function generateLab(request, opts = {}) {
     decisionLog,
     plan,
     manifest,
+    adminPrerequisites: manifest.adminPrerequisites,
     markdown,
     html,
     qa,

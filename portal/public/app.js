@@ -4223,10 +4223,17 @@ function lbShowResult(data) {
     ${(data.warnings || []).map((w) => `<div class="lb-warning">${escapeHtml(w)}</div>`).join("")}
   `;
 
+  const adminPrereqs = data.adminPrerequisites || data.manifest?.adminPrerequisites || null;
+  const adminPrereqsHtml =
+    typeof lbRenderAdminPrerequisitesHtml === "function"
+      ? lbRenderAdminPrerequisitesHtml(adminPrereqs)
+      : "";
+
   body.innerHTML = `
     <div id="lb-result-validation" role="region" aria-label="Generated lab validation results" aria-live="polite"></div>
     ${lbQualityPanel(data.qa)}
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
+    <div id="lb-result-admin-prereqs">${adminPrereqsHtml}</div>
     <details class="lb-advanced">
       <summary>View the Markdown source</summary>
       <pre id="lb-result-source" style="white-space: pre-wrap; font-size: 12px; line-height: 1.6;">${escapeHtml(data.markdown)}</pre>
@@ -4251,6 +4258,11 @@ async function lbLoadResultPreview(labId) {
     labBuilder.lastMarkdown = data.markdown;
     const source = document.getElementById("lb-result-source");
     if (source && !source.textContent) source.textContent = data.markdown;
+    const prereqHost = document.getElementById("lb-result-admin-prereqs");
+    if (prereqHost && typeof lbRenderAdminPrerequisitesHtml === "function") {
+      const prereqs = data.adminPrerequisites || data.manifest?.adminPrerequisites || null;
+      if (prereqs) prereqHost.innerHTML = lbRenderAdminPrerequisitesHtml(prereqs);
+    }
     if (typeof enhanceLabImages === "function") {
       enhanceLabImages(host);
     }

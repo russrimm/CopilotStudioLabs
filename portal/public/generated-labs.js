@@ -75,15 +75,142 @@ function lbGenCountMessage(shown) {
   return `${total} generated lab${total === 1 ? "" : "s"}.`;
 }
 
+function lbZipFormatSelectHtml(labId, title, scopePrefix) {
+  const safeId = escapeHtml(labId);
+  const safeTitle = escapeHtml(title || labId);
+  const selectId = `${scopePrefix}-${safeId}`;
+  return `
+    <span class="lb-export-zip-group">
+      <label class="sr-only" for="${selectId}">Export format for ${safeTitle}</label>
+      <select id="${selectId}" class="lb-zip-format-select" data-zip-format-select data-lab-id="${safeId}" aria-label="Module document format for ${safeTitle} ZIP">
+        <option value="all">All formats (.docx, .pdf, .html)</option>
+        <option value="docx">Word (.docx)</option>
+        <option value="pdf">PDF (.pdf)</option>
+        <option value="html">HTML (.html)</option>
+      </select>
+      <button type="button" class="btn btn-sm btn-primary" data-gen-action="export-zip" data-lab-id="${safeId}" aria-label="Download ${safeTitle} per-module ZIP with sample files">📦 Download Lab ZIP</button>
+    </span>`;
+}
+
 function lbGeneratedActionButtonsHtml(labId, title) {
   const safeId = escapeHtml(labId);
   const safeTitle = escapeHtml(title || labId);
   return `
-    <button type="button" class="btn btn-sm btn-primary" data-gen-action="export-zip" data-lab-id="${safeId}" aria-label="Export ${safeTitle} as ZIP">📦 Export ZIP</button>
+    ${lbZipFormatSelectHtml(labId, title, "lb-zip-fmt-result")}
     <button type="button" class="btn btn-sm" data-gen-action="export-html" data-lab-id="${safeId}" aria-label="Download ${safeTitle} as multi-page HTML">🌐 Download HTML</button>
     <button type="button" class="btn btn-sm" data-gen-action="download" data-lab-id="${safeId}" aria-label="Download ${safeTitle} as Markdown">⬇️ Download .md</button>
     <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">🖨️ Print / Save PDF</button>
     <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>`;
+}
+
+function lbRenderAdminPrerequisitesHtml(prereqs) {
+  if (!prereqs || typeof prereqs !== "object") return "";
+  const connectors = Array.isArray(prereqs.connectors) ? prereqs.connectors : [];
+  const dlpAndAcp = Array.isArray(prereqs.dlpAndAcp) ? prereqs.dlpAndAcp : [];
+  const environmentSettings = Array.isArray(prereqs.environmentSettings) ? prereqs.environmentSettings : [];
+  const tenantAndCloud = Array.isArray(prereqs.tenantAndCloud) ? prereqs.tenantAndCloud : [];
+  if (!connectors.length && !dlpAndAcp.length && !environmentSettings.length && !tenantAndCloud.length) {
+    return "";
+  }
+
+  const renderSettingItems = (items) =>
+    items
+      .map(
+        (item) => `
+        <li class="lb-prereq-card">
+          <div class="lb-prereq-card-head">
+            <strong>${escapeHtml(item.title || "")}</strong>
+            <span>
+              ${item.status ? `<span class="tag">${escapeHtml(item.status)}</span> ` : ""}
+              ${item.requiredBy?.length ? `<span class="tag">${escapeHtml(item.requiredBy.join(", "))}</span>` : ""}
+            </span>
+          </div>
+          ${item.adminPath ? `<div class="lb-prereq-path">Admin path: <code>${escapeHtml(item.adminPath)}</code></div>` : ""}
+          <p class="lb-prereq-detail">${escapeHtml(item.details || item.detail || "")}</p>
+        </li>`,
+      )
+      .join("");
+
+  const connectorRows = connectors
+    .map(
+      (c) => `
+      <tr>
+        <td>
+          <strong>${escapeHtml(c.name || "")}</strong>
+          ${c.endpoints?.length ? `<div class="lb-prereq-path"><code>${escapeHtml(c.endpoints.join(", "))}</code></div>` : ""}
+        </td>
+        <td><span class="tag">${escapeHtml(c.classification || c.tier || "Standard")}</span></td>
+        <td><code>${escapeHtml(c.dataGroup || "Business")}</code></td>
+        <td>${escapeHtml((c.requiredBy || []).join(", "))}</td>
+        <td>${escapeHtml(c.details || c.purpose || "")}</td>
+      </tr>`,
+    )
+    .join("");
+
+  return `
+    <section class="lb-admin-prereqs" aria-labelledby="lb-admin-prereqs-heading">
+      <div class="lb-admin-prereqs-header">
+        <h4 id="lb-admin-prereqs-heading">🔐 Connectors, Environment, and Tenant Prerequisites</h4>
+        <div class="scenario-pill-list">
+          <span class="scenario-pill">${connectors.length} connector${connectors.length === 1 ? "" : "s"} to allow</span>
+          <span class="scenario-pill">${dlpAndAcp.length} DLP / ACP polic${dlpAndAcp.length === 1 ? "y" : "ies"}</span>
+          <span class="scenario-pill">${environmentSettings.length} environment setting${environmentSettings.length === 1 ? "" : "s"}</span>
+          <span class="scenario-pill">${tenantAndCloud.length} tenant &amp; cloud prerequisite${tenantAndCloud.length === 1 ? "" : "s"}</span>
+        </div>
+      </div>
+      <p class="lb-admin-prereqs-intro">
+        Share this checklist with your Power Platform, Microsoft Entra, Microsoft 365, and Azure administrators before running the workshop so every connector, DLP/ACP rule, environment toggle, and storage allocation is ready. It is also included inside the lab guide and packaged in <code>00 - Overview and Admin Prerequisites</code> when you export the Lab ZIP.
+      </p>
+
+      ${
+        connectors.length
+          ? `<div class="lb-prereq-group">
+              <h5>Connectors to Allow (DLP Allowlist)</h5>
+              <div class="lb-prereq-table-wrap">
+                <table class="lb-prereq-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Connector / Endpoint</th>
+                      <th scope="col">Tier</th>
+                      <th scope="col">DLP Group</th>
+                      <th scope="col">Required By</th>
+                      <th scope="col">Scope &amp; Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>${connectorRows}</tbody>
+                </table>
+              </div>
+            </div>`
+          : ""
+      }
+
+      ${
+        dlpAndAcp.length
+          ? `<div class="lb-prereq-group">
+              <h5>DLP, Agent Control Plane (ACP), and Channel Policies</h5>
+              <ul class="lb-prereq-list">${renderSettingItems(dlpAndAcp)}</ul>
+            </div>`
+          : ""
+      }
+
+      ${
+        environmentSettings.length
+          ? `<div class="lb-prereq-group">
+              <h5>Power Platform Environment and Feature Settings</h5>
+              <ul class="lb-prereq-list">${renderSettingItems(environmentSettings)}</ul>
+            </div>`
+          : ""
+      }
+
+      ${
+        tenantAndCloud.length
+          ? `<div class="lb-prereq-group">
+              <h5>Tenant, Identity, and Cloud Admin Prerequisites</h5>
+              <ul class="lb-prereq-list">${renderSettingItems(tenantAndCloud)}</ul>
+            </div>`
+          : ""
+      }
+    </section>`;
 }
 
 function lbGenItemHtml(lab) {
@@ -124,7 +251,7 @@ function lbGenItemHtml(lab) {
       <div class="lb-gen-actions">
         <button type="button" class="btn btn-sm" data-gen-action="open" aria-label="Open ${title}">Open</button>
         ${edit}
-        <button type="button" class="btn btn-sm" data-gen-action="export-zip" aria-label="Export ${title} as ZIP">Export ZIP</button>
+        ${lbZipFormatSelectHtml(lab.labId, lab.title || lab.labId, "lb-zip-fmt-item")}
         <button type="button" class="btn btn-sm" data-gen-action="export-html" aria-label="Download ${title} as multi-page HTML">Download HTML</button>
         <button type="button" class="btn btn-sm" data-gen-action="download" aria-label="Download ${title} as Markdown">Download .md</button>
         <button type="button" class="btn btn-sm" data-gen-action="print" aria-label="Print or save ${title} as PDF">Print / Save PDF</button>
@@ -218,6 +345,7 @@ async function lbOpenGenerated(labId) {
   body.innerHTML = `
     <div id="lb-result-validation" role="region" aria-label="Generated lab validation results" aria-live="polite"></div>
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
+    <div id="lb-result-admin-prereqs"></div>
     <details class="lb-advanced">
       <summary>View the Markdown source</summary>
       <pre id="lb-result-source" style="white-space: pre-wrap; font-size: 12px; line-height: 1.6;"></pre>
@@ -252,10 +380,17 @@ async function lbDownloadGeneratedHtml(labId) {
   }
 }
 
-async function lbExportGeneratedZip(labId) {
+async function lbExportGeneratedZip(labId, triggerEl) {
   if (!labId) return;
+  const scope = triggerEl?.closest?.(".lb-export-zip-group, .lb-result-actions, .lb-gen-actions, .lb-gen-item");
+  const select =
+    scope?.querySelector?.("[data-zip-format-select]") ||
+    document.querySelector(`[data-zip-format-select][data-lab-id="${CSS.escape(labId)}"]`);
+  const formats = String(select?.value || "all").trim().toLowerCase() || "all";
   try {
-    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=zip`);
+    const res = await fetch(
+      `/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=zip&formats=${encodeURIComponent(formats)}`,
+    );
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || `Export failed (${res.status})`);
@@ -263,13 +398,15 @@ async function lbExportGeneratedZip(labId) {
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
+    const suffix = formats !== "all" ? `-${formats}` : "";
+    const fileName = `${labId}${suffix}.zip`;
     link.href = url;
-    link.download = `${labId}.zip`;
+    link.download = fileName;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    toast(`Exported ${labId}.zip`, "success");
+    toast(`Exported ${fileName} with per-module folders and sample files`, "success");
   } catch (err) {
     toast(`Could not export ZIP: ${err.message}`, "error");
   }
@@ -490,7 +627,7 @@ function lbGenBind() {
     switch (button.dataset.genAction) {
       case "open": lbOpenGenerated(labId); break;
       case "edit": lbEditGenerated(labId); break;
-      case "export-zip": lbExportGeneratedZip(labId); break;
+      case "export-zip": lbExportGeneratedZip(labId, button); break;
       case "export-html": lbDownloadGeneratedHtml(labId); break;
       case "download": lbDownload(labId); break;
       case "print": lbPrintGenerated(labId); break;

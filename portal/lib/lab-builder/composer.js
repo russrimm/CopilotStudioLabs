@@ -39,6 +39,7 @@ import {
   sampleInputBlock,
   troubleshootingBlock,
 } from "./teaching.js";
+import { buildAdminPrerequisites, renderAdminPrerequisitesMarkdown } from "./admin-prereqs.js";
 
 function bullets(items, prefix = "-") {
   return items.map((item) => `${prefix} ${item}`).join("\n");
@@ -969,7 +970,7 @@ export function composeLab(
     "",
     "## Step-by-Step",
     "",
-    `Each module below stands on its own, but they are ordered so that every prerequisite is configured before you need it. Work top to bottom.${
+    `Each module below stands on its own, but they are ordered so that every prerequisite is configured before you need it. Work top to bottom. When you export this lab as a ZIP archive, each module is packaged in its own titled folder along with scenario-tailored upload and configuration files in \`sample-files/\`.${
       plan.features.some((f) => f.prerequisite) ? ` Steps labeled **Recap** are short refreshers of lower-level topics, not ${levelName(plan.level)} content.` : ""
     }`,
     "",
@@ -992,6 +993,8 @@ export function composeLab(
     );
   }
 
+  const adminPrereqs = buildAdminPrerequisites(plan);
+
   sections.push(
     validationSection(plan),
     "",
@@ -1004,6 +1007,8 @@ export function composeLab(
     completeSection(plan),
     "",
     howToUseSection(plan, generation),
+    "",
+    renderAdminPrerequisitesMarkdown(adminPrereqs),
     "",
   );
 

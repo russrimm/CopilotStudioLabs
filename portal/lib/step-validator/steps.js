@@ -25,7 +25,7 @@ const PREREQ_TITLE_RE = /^prerequisites?\b/i;
 const OVERVIEW_TITLE_RE = /^overview\b/i;
 // Trailing summary, appendix, and wrap-up containers hold review worksheets or next-lab links, not lab steps.
 const NON_INSTRUCTION_SECTION_RE =
-  /^(?:appendix\b|summary\b|lab complete\b|related labs\b|suggested next labs\b|next steps\b|further reading\b|references\b)/i;
+  /^(?:appendix\b|summary\b|lab complete\b|related labs\b|suggested next labs\b|next steps\b|further reading\b|references\b|how this lab was built\b|connectors\b|admin prerequisites\b|environment and tenant\b)/i;
 // Sub-sections inside a step that hold text to type or outcomes, not instructions.
 const SKIPPED_SUBSECTION_RE =
   /^(?:sample prompts?|prompts?|test prompts?|quick verification|expected(?: results?| output)?|validation(?: checklist)?|troubleshooting|summary)\b/i;

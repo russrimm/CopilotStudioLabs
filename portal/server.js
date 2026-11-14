@@ -15,8 +15,11 @@ import {
   exportGeneratedLab,
   exportLabs,
   isCustomBranding,
+  normalizeDocFormats,
+  renderGeneratedLabDocx,
   renderGeneratedLabHtml,
   renderGeneratedLabMarkdown,
+  renderGeneratedLabPdf,
   resolveSafeGeneratedLabDir,
 } from "./lib/exporter.js";
 import { sendMail } from "./lib/mailer.js";
@@ -625,6 +628,7 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       duration: result.plan.duration,
       markdown: result.markdown,
       manifest: result.manifest,
+      adminPrerequisites: result.adminPrerequisites,
       validation: result.validation,
       qa: result.qa,
       warnings: result.plan.warnings,
@@ -661,8 +665,26 @@ app.get("/api/lab-builder/generated/:labId", (req, res) => {
 
 async function handleGeneratedLabExport(req, res) {
   const format = String(req.query?.format ?? req.body?.format ?? "zip").trim().toLowerCase();
-  if (format !== "zip" && format !== "md" && format !== "markdown" && format !== "html") {
-    return res.status(400).json({ error: "format must be 'zip', 'html', or 'md'." });
+  if (
+    format !== "zip" &&
+    format !== "md" &&
+    format !== "markdown" &&
+    format !== "html" &&
+    format !== "docx" &&
+    format !== "pdf"
+  ) {
+    return res.status(400).json({ error: "format must be 'zip', 'html', 'docx', 'pdf', or 'md'." });
+  }
+
+  let selectedZipFormats = null;
+  if (format === "zip") {
+    try {
+      selectedZipFormats = normalizeDocFormats(
+        req.query?.formats ?? req.body?.formats ?? req.query?.docFormats ?? req.body?.docFormats,
+      );
+    } catch (err) {
+      return res.status(err.status || 400).json({ error: err.message });
+    }
   }
 
   let replacements = {};
@@ -694,6 +716,43 @@ async function handleGeneratedLabExport(req, res) {
     }
   }
 
+  if (format === "docx") {
+    try {
+      const rendered = renderGeneratedLabDocx(GENERATED_LABS_DIR, found.labId, replacements, {
+        resolveAsset: resolveGeneratedAsset,
+      });
+      if (rendered.status !== 200) {
+        return res.status(rendered.status).json({ error: rendered.error });
+      }
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      );
+      res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.docx"`);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(rendered.buffer);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (format === "pdf") {
+    try {
+      const rendered = renderGeneratedLabPdf(GENERATED_LABS_DIR, found.labId, replacements, {
+        resolveAsset: resolveGeneratedAsset,
+      });
+      if (rendered.status !== 200) {
+        return res.status(rendered.status).json({ error: rendered.error });
+      }
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.pdf"`);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(rendered.buffer);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   if (format === "md" || format === "markdown") {
     try {
       const rendered = renderGeneratedLabMarkdown(GENERATED_LABS_DIR, found.labId, replacements);
@@ -709,17 +768,22 @@ async function handleGeneratedLabExport(req, res) {
     }
   }
 
+  const zipSuffix =
+    selectedZipFormats && selectedZipFormats.length === 1 ? `-${selectedZipFormats[0]}` : "";
   res.setHeader("Content-Type", "application/zip");
-  res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.zip"`);
+  res.setHeader("Content-Disposition", `attachment; filename="${found.labId}${zipSuffix}.zip"`);
   res.setHeader("X-Content-Type-Options", "nosniff");
 
   try {
     await exportGeneratedLab(GENERATED_LABS_DIR, found.labId, replacements, res, {
       resolveAsset: resolveGeneratedAsset,
+      formats: selectedZipFormats,
     });
   } catch (err) {
     if (!res.headersSent) {
       res.status(err.status || 500).json({ error: err.message });
+    } else if (!res.writableEnded) {
+      res.destroy(err);
     }
   }
 }
