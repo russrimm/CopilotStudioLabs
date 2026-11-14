@@ -5,6 +5,7 @@ import { test } from "node:test";
 import { FIRST_PARTY_HOSTS, loadAllLabs, parseReferenceLinks, repoRoot } from "../lib/labs.mjs";
 import {
   checkThirdPartyLinks,
+  classifyFirstParty,
   classifyThirdParty,
   loadLinkPolicy,
   parseLinkPolicy,
@@ -88,6 +89,18 @@ test("third-party check results are bucketed so bot blocks are not called broken
   for (const status of [401, 403, 429]) assert.equal(classifyThirdParty({ status }), "unverifiable");
   for (const status of [404, 410, 400, 500, 503]) assert.equal(classifyThirdParty({ status }), "broken");
   assert.equal(classifyThirdParty({ status: 0, error: "timeout" }), "unreachable");
+});
+
+test("Learn check results do not treat bot blocks or temporary HTTP errors as broken links", () => {
+  assert.equal(classifyFirstParty({ status: 200 }), "ok");
+  assert.equal(classifyFirstParty({ status: 301 }), "ok");
+  for (const status of [401, 403, 408, 429, 500, 503]) {
+    assert.equal(classifyFirstParty({ status }), "unreachable", `HTTP ${status}`);
+  }
+  for (const status of [400, 404, 410]) {
+    assert.equal(classifyFirstParty({ status }), "broken", `HTTP ${status}`);
+  }
+  assert.equal(classifyFirstParty({ status: 0, error: "timeout" }), "unreachable");
 });
 
 test("the shipped link policy is valid and every skip has a reason", () => {

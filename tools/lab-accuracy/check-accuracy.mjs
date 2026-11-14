@@ -22,6 +22,7 @@ import { LearnMcpClient } from "./lib/mcp-client.mjs";
 import {
   addReferenceCounts,
   checkThirdPartyLinks,
+  classifyFirstParty,
   emptyReferenceSummary,
   loadLinkPolicy,
   referenceSummaryLines,
@@ -240,10 +241,10 @@ async function main() {
       ...result,
       party: "first",
     }));
-    // HTTP 4xx/5xx are definite breakages; status 0 means a transient network
-    // error (timeout, DNS) that we surface as "unreachable" rather than broken.
-    const broken = linkResults.filter((r) => r.status >= 400);
-    const unreachable = linkResults.filter((r) => r.status === 0);
+    // Bot blocks, rate limits, timeouts, and server errors do not prove a Learn
+    // page is gone; only other HTTP 4xx responses are treated as broken.
+    const broken = linkResults.filter((result) => classifyFirstParty(result) === "broken");
+    const unreachable = linkResults.filter((result) => classifyFirstParty(result) === "unreachable");
     report.summary.brokenLinks += broken.length;
     report.summary.unreachableLinks += unreachable.length;
 

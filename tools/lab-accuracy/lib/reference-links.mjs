@@ -64,6 +64,14 @@ export function policySkip(policy, host) {
   );
 }
 
+/** Bucket a Microsoft Learn check result without treating transient responses as dead links. */
+export function classifyFirstParty(record) {
+  if (!record?.status) return "unreachable";
+  if ([401, 403, 408, 429].includes(record.status) || record.status >= 500) return "unreachable";
+  if (record.status >= 400) return "broken";
+  return "ok";
+}
+
 /** Bucket one third-party check result. */
 export function classifyThirdParty(record) {
   if (!record?.status) return "unreachable";
