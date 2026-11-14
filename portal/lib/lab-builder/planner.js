@@ -17,6 +17,13 @@ import { defaultDifferencesFor } from "./differences.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 import { countNewTopics } from "./topic-store.js";
 import { atLevel, isLevel, levelName, PREREQ_RECAP_MINUTES } from "./levels.js";
+import {
+  adaptProfileForDeliverable,
+  buildDeliverableTitle,
+  isAgentDeliverable,
+  resolveDeliverableMode,
+  roleDesignNoteForDeliverable,
+} from "./deliverable.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const profiles = JSON.parse(fs.readFileSync(path.join(__dirname, "scenario-profiles.json"), "utf8"));
@@ -28,7 +35,7 @@ const DEFAULT_PROFILE = {
   problem:
     "People answer the same questions repeatedly from documents and systems that live in different places, so answers are slow and inconsistent.",
   outcome:
-    "a single agent that answers grounded questions, retrieves records from a system of record, and takes action on the user's behalf",
+    "an end-to-end agent that answers grounded questions, retrieves records from a system of record, and takes action on the user's behalf",
   knowledgeSources: [
     "A SharePoint library of policy and procedure documents",
     "A public product or support website",
@@ -215,37 +222,42 @@ function interleave(lists, limit) {
  * With no department the vertical's own scenario is used unchanged, and nothing from a
  * department that was not selected ever appears.
  */
-export function composeScenarioProfile(industryId, departmentIds = [], roleOrder = []) {
+export function composeScenarioProfile(industryId, departmentIds = [], roleOrder = [], options = {}) {
   const base = getScenarioProfile(industryId);
   const known = new Set(departmentIds);
   const depts = (roleOrder.length ? roleOrder : departmentIds)
     .filter((id) => known.has(id) && profiles.departments?.[id])
     .map((id) => profiles.departments[id]);
-  if (!depts.length) return base;
+  const mode =
+    options?.mode ||
+    (options?.products || options?.features ? resolveDeliverableMode(options.products || [], options.features || []) : null);
+  if (!depts.length) {
+    return mode ? adaptProfileForDeliverable(base, mode) : base;
+  }
 
   const setting = profiles.settings?.[industryId] || profiles.defaultSetting || "your organization";
   const atSetting = (text) => text.replace(/\{setting\}/g, setting);
   const names = depts.map((d) => d.name);
   const several = depts.length > 1;
-
   const agentName = !several ? depts[0].agentName : depts.length <= 3 ? `${listNames(names)} Assistant` : "Cross-Functional Assistant";
   const capabilities = several
     ? interleave(depts.map((d) => d.capabilities), 4)
     : depts[0].capabilities;
   const crowded = depts.length > 2;
-  return {
+  const composed = {
     ...base,
     agentName,
     domain: `${crowded ? `shared work across ${listNames(names)}` : joinWith(depts.map((d) => d.domain))}${industryId ? ` in ${setting}` : ""}`,
     audience: `${crowded ? `${listNames(names)} teams` : joinWith(depts.map((d) => d.audience))}${industryId ? ` in ${setting}` : ""}`,
     problem: several ? depts.map((d) => `For ${d.name}: ${atSetting(d.problem)}`).join(" ") : atSetting(depts[0].problem),
-    outcome: `a single agent that ${listNames(capabilities)}`,
+    outcome: `an end-to-end agent that ${listNames(capabilities)}`,
     knowledgeSources: interleave(depts.map((d) => d.knowledgeSources), several ? 6 : 3),
     sampleQuestions: interleave(depts.map((d) => d.sampleQuestions), several ? 6 : 3),
     entities: interleave(depts.map((d) => d.entities), 6),
     terms: interleave([...depts.map((d) => d.terms), industryId ? base.terms.slice(0, 2) : []], 8),
     kpi: joinWith(depts.slice(0, 3).map((d) => d.kpi)),
   };
+  return mode ? adaptProfileForDeliverable(composed, mode, { capabilities }) : composed;
 }
 
 function formatDuration(minutes) {
@@ -510,21 +522,34 @@ export function planLab(request = {}) {
   const labHarness = hasHarnessProduct ? request.harness || [...harnessVotes].sort((a, b) => b[1] - a[1])[0]?.[0] || "standard" : null;
   const differencesFor = labHarness ? (request.differencesFor ?? defaultDifferencesFor(labHarness)).filter((id) => id !== labHarness) : [];
   const maxLevel = features.filter((f) => !f.prerequisite).reduce((max, f) => Math.max(max, f.level || 0), 100);
+  const deliverableMode = resolveDeliverableMode(planProducts, features);
   const profile = composeScenarioProfile(
     industry?.id,
     roles.map((r) => r.id),
     roleCatalog.map((r) => r.id),
+    { mode: deliverableMode },
   );
 
-  const roleProfiles = roles.map((r) => ({ ...r, ...(getRoleProfile(r.id) || {}) }));
+  const roleProfiles = roles.map((r) => {
+    const merged = { ...r, ...(getRoleProfile(r.id) || {}) };
+    return { ...merged, designNote: roleDesignNoteForDeliverable(merged, deliverableMode) };
+  });
   const focusNames = requested
     .map((id) => getFeature(id))
     .filter(Boolean)
     .map((f) => f.name);
 
+  const finalAgentName = request.agentName || profile.agentName;
   const industryName = industry?.name || "Cross-industry";
   const headline = focusNames.slice(0, 2).join(" and ") || productsPhrase(planProducts) || "Microsoft AI";
-  const title = request.title || `${industryName}: Build ${/^[aeiou]/i.test(profile.agentName) ? "an" : "a"} ${profile.agentName} with ${headline}`;
+  const title =
+    request.title ||
+    buildDeliverableTitle({
+      mode: deliverableMode,
+      industryName,
+      deliverableName: finalAgentName,
+      headline,
+    });
 
   const categories = [...new Set(features.map((f) => f.category))];
 
@@ -542,12 +567,16 @@ export function planLab(request = {}) {
       targetMinutes: request.targetMinutes ?? null,
     },
     title,
-    slug: slugify(`${industry?.id || "custom"}-${profile.agentName}-${headline}`),
+    slug: slugify(`${industry?.id || "custom"}-${finalAgentName}-${headline}`),
     industry,
     roles: roleProfiles,
+    deliverable: {
+      mode: deliverableMode,
+      isAgent: isAgentDeliverable(deliverableMode),
+    },
     profile: {
       ...profile,
-      agentName: request.agentName || profile.agentName,
+      agentName: finalAgentName,
       audience: request.audience || profile.audience,
     },
     features,
@@ -637,6 +666,8 @@ export function dropModules(plan, ids, reason = "removed") {
     plan.assumedPrereqs = [...(plan.assumedPrereqs || []), { id, name: gone.name, minutes: gone.minutes, neededBy: needers }];
   }
   plan.categories = [...new Set(plan.features.map((feature) => feature.category))];
+  const nextMode = resolveDeliverableMode(plan.products, plan.features);
+  plan.deliverable = { mode: nextMode, isAgent: isAgentDeliverable(nextMode) };
   plan.relatedLabs = [...new Set(plan.features.flatMap((feature) => feature.relatedLabs || []))];
   plan.tags = [
     ...new Set([

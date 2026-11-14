@@ -265,6 +265,9 @@ export function isCancel(optionId) {
  *
  * @param {Array<{lastVerified?:string}>} [features] the affected features
  */
+/** Maximum age (in days) at which curated catalog steps are treated as fresh when their canonical Learn article is confirmed live. */
+export const MAX_VERIFIED_CURATED_DAYS = 180;
+
 export function curatedDocsAge(features = [], now = Date.now()) {
   const perFeature = features.map((feature) => feature?.lastVerified).filter(Boolean);
   const source = features.length > 0 && perFeature.length === features.length ? perFeature.sort()[0] : null;
@@ -280,6 +283,16 @@ export function curatedDocsAge(features = [], now = Date.now()) {
     ageDays,
     phrase: `last verified ${source} (${ageDays} day${ageDays === 1 ? "" : "s"} ago)`,
   };
+}
+
+/**
+ * True when a reviewed catalog feature has curated steps verified within
+ * `MAX_VERIFIED_CURATED_DAYS` days of `now`.
+ */
+export function isCuratedFresh(feature, now = Date.now(), maxDays = MAX_VERIFIED_CURATED_DAYS) {
+  if (!feature || feature.learnTopic || !Array.isArray(feature.steps) || !feature.steps.length) return false;
+  const age = curatedDocsAge([feature], now);
+  return age.ageDays !== null && age.ageDays <= maxDays;
 }
 
 /**

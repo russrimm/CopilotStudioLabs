@@ -52,6 +52,18 @@ const HEADING_PENALTIES = [
   [/\b(advanced|migrate|migration|deprecat|release note|what's new)\b/i, 0.15],
 ];
 
+const TAB_HEADING_RE = /^\[([^\]]+)\]\(#tab\/[^)]+\)/i;
+const STEP_HEADING_RE = /^step\s+(\d{1,2})\s*[:.–—-]\s*(.+)$/i;
+const PROCEDURAL_SECTION_RE =
+  /\b(how to|create|configure|set up|setup|assign|enable|manage|deploy|build|test|publish|share|add|connect|turn on|restrict|view|run|install|register|provision|evaluate|import|export|customize|edit|update)\b/i;
+const ACTION_BULLET_RE =
+  /^(?:\*\*[^*]{1,60}\*\*|(?:select|choose|open|go to|navigate|sign in|enter|type|paste|turn on|turn off|enable|disable|set|pick|upload|add|create|save|publish|review|confirm|expand|in the|from the|on the|under|next to)\b)/i;
+const CODE_TAB_RE =
+  /\b(python|c#|csharp|\.net|javascript|typescript|java|azure cli|\bcli\b|rest api|bicep|terraform|arm template|powershell)\b/i;
+const UI_TAB_RE = /\b(portal|studio|foundry|admin|copilot|maker|web|ui)\b/i;
+const CODE_FEATURE_RE = /\b(sdk|cli|rest|code|typespec|powershell|bicep|api)\b/i;
+const INLINE_ARTIFACT_RE = /^(?:!?\[!\[|!\[|:::image\b|:::(?:zone|row|column|moniker)\b|>|\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\])/i;
+
 function singular(word) {
   if (word.length > 3 && word.endsWith("s") && !/(ss|us|is)$/.test(word)) return word.slice(0, -1);
   return word;
@@ -235,14 +247,42 @@ export function extractProcedures(markdown) {
   const lines = String(markdown || "").split(/\r?\n/);
   const procedures = [];
   let heading = "";
+  let parentHeading = "";
+  let activeTab = null;
+  let tabLevel = 0;
   let current = null;
   let expected = 1;
+  let stepHeadingRun = null;
+  let bulletRun = null;
   let fenced = false;
 
-  const flush = () => {
+  const flushOrdered = () => {
     if (current && current.items.length >= 2) procedures.push(current);
     current = null;
     expected = 1;
+  };
+
+  const flushBullets = () => {
+    if (bulletRun && bulletRun.items.length >= MIN_STEPS) {
+      const actionCount = bulletRun.items.filter((item) => ACTION_BULLET_RE.test(item[0].trim())).length;
+      if (actionCount / bulletRun.items.length >= 0.75) {
+        procedures.push(bulletRun);
+      }
+    }
+    bulletRun = null;
+  };
+
+  const flushStepHeadings = () => {
+    if (stepHeadingRun && stepHeadingRun.items.length >= MIN_STEPS) {
+      procedures.push(stepHeadingRun);
+    }
+    stepHeadingRun = null;
+  };
+
+  const flushAll = () => {
+    flushOrdered();
+    flushBullets();
+    flushStepHeadings();
   };
 
   for (const line of lines) {
@@ -256,42 +296,140 @@ export function extractProcedures(markdown) {
     // kind: SendMessage" — sample data presented to the learner as clicks.
     if (fenced) continue;
 
+    if (/^\s*---\s*$/.test(line)) {
+      flushOrdered();
+      flushBullets();
+      activeTab = null;
+      tabLevel = 0;
+      continue;
+    }
+
     const headingMatch = /^(#{1,6})\s+(.*)$/.exec(line);
     if (headingMatch) {
-      flush();
+      flushOrdered();
+      flushBullets();
+      const level = headingMatch[1].length;
       const text = headingMatch[2].trim();
+      const tabMatch = TAB_HEADING_RE.exec(text);
       // Tabbed sections render as headings like `[Web app](#tab/webApp)`. They
       // are switcher labels, not sections, so the procedure keeps the real
       // heading above it rather than being attributed to the tab.
-      if (!/\(#tab\//.test(text)) heading = text;
+      if (tabMatch) {
+        activeTab = tabMatch[1].trim();
+        tabLevel = level;
+        continue;
+      }
+
+      if (tabLevel && level <= tabLevel) {
+        activeTab = null;
+        tabLevel = 0;
+      }
+
+      const stepHeading = STEP_HEADING_RE.exec(text);
+      if (stepHeading) {
+        const stepNum = Number(stepHeading[1]);
+        const stepTitle = stepHeading[2].trim();
+        if (stepNum === 1) {
+          flushStepHeadings();
+          stepHeadingRun = {
+            heading: parentHeading || heading || "Procedure",
+            tab: activeTab,
+            kind: "step-headings",
+            expectedStep: 2,
+            awaitingBody: true,
+            items: [[`**${stepTitle.replace(/\.$/, "")}.**`]],
+          };
+        } else if (stepHeadingRun && stepNum === stepHeadingRun.expectedStep) {
+          stepHeadingRun.expectedStep += 1;
+          stepHeadingRun.awaitingBody = true;
+          stepHeadingRun.items.push([`**${stepTitle.replace(/\.$/, "")}.**`]);
+        } else {
+          flushStepHeadings();
+        }
+        heading = text;
+        continue;
+      }
+
+      flushStepHeadings();
+      if (level <= 2) parentHeading = text;
+      heading = text;
       continue;
     }
 
     const itemMatch = /^(\d{1,2})\.\s+(.*)$/.exec(line);
     if (itemMatch) {
+      flushBullets();
       const number = Number(itemMatch[1]);
       if (number === 1) {
-        flush();
-        current = { heading, items: [[itemMatch[2]]] };
+        flushOrdered();
+        current = { heading, ...(activeTab ? { tab: activeTab } : {}), items: [[itemMatch[2]]] };
         expected = 2;
       } else if (current && number === expected) {
         current.items.push([itemMatch[2]]);
         expected += 1;
       } else {
-        flush();
+        flushOrdered();
       }
       continue;
     }
 
-    if (!line.trim()) continue;
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    // Inside an ordered procedure, Microsoft Learn frequently renders unindented
+    // screenshots, Note/Tip/Important callout banners, blockquotes, and reference
+    // tables between step N and step N+1. Keep the procedure open without folding
+    // table or callout noise into the click instruction.
+    if (current) {
+      if (/^\s/.test(line)) {
+        current.items[current.items.length - 1].push(line);
+        continue;
+      }
+      if (CALLOUT.test(trimmed) || INLINE_ARTIFACT_RE.test(trimmed) || /^\|.*\|\s*$/.test(trimmed)) {
+        continue;
+      }
+      flushOrdered();
+    }
+
+    // Top-level action bullets under a procedural heading (for Learn pages that
+    // present short 3-6 action checklists as bullets rather than `<ol>`).
+    const topBullet = /^[-*]\s+(.*)$/.exec(line);
+    if (topBullet) {
+      const canCollectBullets =
+        heading &&
+        PROCEDURAL_SECTION_RE.test(heading) &&
+        !HEADING_PENALTIES.some(([pattern]) => pattern.test(heading));
+      if (canCollectBullets) {
+        if (!bulletRun) {
+          bulletRun = {
+            heading,
+            ...(activeTab ? { tab: activeTab } : {}),
+            kind: "action-bullets",
+            items: [[topBullet[1]]],
+          };
+        } else {
+          bulletRun.items.push([topBullet[1]]);
+        }
+        continue;
+      }
+    }
+
     if (/^\s/.test(line)) {
-      if (current) current.items[current.items.length - 1].push(line);
+      if (bulletRun) bulletRun.items[bulletRun.items.length - 1].push(line);
       continue;
     }
-    flush();
+
+    if (stepHeadingRun && stepHeadingRun.awaitingBody && !CALLOUT.test(trimmed) && !INLINE_ARTIFACT_RE.test(trimmed) && !/^\|.*\|\s*$/.test(trimmed)) {
+      const lastItem = stepHeadingRun.items[stepHeadingRun.items.length - 1];
+      lastItem[0] = `${lastItem[0]} ${trimmed}`;
+      stepHeadingRun.awaitingBody = false;
+      continue;
+    }
+
+    flushBullets();
   }
 
-  flush();
+  flushAll();
   return procedures;
 }
 
@@ -331,12 +469,21 @@ export function scoreProcedure(procedure, feature, position = 0) {
   const headingScore = overlap(tokens(procedure.heading), tokens(featureText));
 
   const count = procedure.items.length;
-  const shape = count >= MIN_STEPS && count <= 12 ? 1 : count === 2 ? 0.3 : count > 12 ? 0.4 : 0;
+  const baseShape = count >= MIN_STEPS && count <= 12 ? 1 : count === 2 ? 0.3 : count > 12 ? 0.4 : 0;
+  const shape = procedure.kind === "action-bullets" ? baseShape * 0.8 : baseShape;
 
   let penalty = 0;
   for (const [pattern, weight] of HEADING_PENALTIES) {
     if (pattern.test(procedure.heading)) {
       penalty = Math.max(penalty, weight);
+    }
+  }
+  if (procedure.tab) {
+    const isCodeFeature = CODE_FEATURE_RE.test(`${feature.id || ""} ${feature.name || ""}`);
+    if (!isCodeFeature && CODE_TAB_RE.test(procedure.tab)) {
+      penalty += 0.2;
+    } else if (UI_TAB_RE.test(procedure.tab)) {
+      penalty = Math.max(0, penalty - 0.03);
     }
   }
 
@@ -376,49 +523,82 @@ export function deriveSteps(markdown, feature, docUrl, { threshold = DEFAULT_THR
     .sort((a, b) => b.score - a.score);
 
   const best = ranked[0];
-  const heading = best.procedure.heading;
   if (best.score < threshold) {
-    return { ok: false, reason: "low-confidence", score: best.score, heading };
+    return { ok: false, reason: "low-confidence", score: best.score, heading: best.procedure.heading };
   }
 
   const catalogSteps = feature.steps || [];
   const catalogLabels = labels(catalogSteps.join(" "));
+  const minComplete =
+    catalogSteps.length <= 5
+      ? Math.max(MIN_STEPS, catalogSteps.length - 1)
+      : Math.max(4, Math.ceil(catalogSteps.length * 0.6));
 
-  // Gate 1 — does the candidate visit the screens this module is about?
-  //
-  // A candidate that reproduces none of the curated UI labels is describing
-  // something else, however well its prose scores. The `create-agent` article's
-  // tutorial narrative is the case that forced this: it scored 0.623 while never
-  // mentioning **Create**, **New agent**, or the **Overview** page, and the
-  // steps it produced were worse than the curated ones.
-  if (catalogLabels.size >= 2) {
-    const labelCoverage = coverage(catalogLabels, labels(best.procedure.items.map((i) => i.join(" ")).join(" ")));
-    if (labelCoverage < MIN_LABEL_COVERAGE) {
-      return { ok: false, reason: "label-mismatch", score: best.score, heading };
+  let topFailure = null;
+  for (const candidate of ranked) {
+    if (candidate.score < threshold) break;
+    const candidateHeading = candidate.procedure.heading;
+
+    // Gate 1 — does the candidate visit the screens this module is about?
+    if (catalogLabels.size >= 2) {
+      const labelCoverage = coverage(
+        catalogLabels,
+        labels(candidate.procedure.items.map((i) => i.join(" ")).join(" ")),
+      );
+      if (labelCoverage < MIN_LABEL_COVERAGE) {
+        if (!topFailure) topFailure = { ok: false, reason: "label-mismatch", score: candidate.score, heading: candidateHeading };
+        continue;
+      }
     }
+
+    const steps = candidate.procedure.items
+      .slice(0, MAX_STEPS)
+      .map((item) => cleanStep(item, docUrl))
+      .filter(Boolean);
+
+    if (steps.length < MIN_STEPS) {
+      if (!topFailure) topFailure = { ok: false, reason: "too-few-steps", score: candidate.score, heading: candidateHeading };
+      continue;
+    }
+
+    // Gate 2 — never trade a curated procedure for a fragment that stops early,
+    // while allowing complete official Microsoft Learn procedures that group
+    // multiple clicks into 4-8 concise steps where the catalog splits 6-11.
+    if (catalogSteps.length && steps.length < minComplete) {
+      if (!topFailure) topFailure = { ok: false, reason: "less-complete-than-catalog", score: candidate.score, heading: candidateHeading };
+      continue;
+    }
+
+    return { ok: true, steps, heading: candidateHeading, score: candidate.score };
   }
 
-  const steps = best.procedure.items
-    .slice(0, MAX_STEPS)
-    .map((item) => cleanStep(item, docUrl))
-    .filter(Boolean);
+  return topFailure || { ok: false, reason: "low-confidence", score: best.score, heading: best.procedure.heading };
+}
 
-  if (steps.length < MIN_STEPS) {
-    return { ok: false, reason: "too-few-steps", score: best.score, heading };
+/**
+ * True when a fetched Microsoft Learn `verifiedAgainst` article is a live,
+ * substantive, on-topic page for `feature` (even if it is written as conceptual,
+ * architectural, or reference prose rather than a numbered click checklist).
+ *
+ * Rejects short stubs, malformed text, 404 banners, and pages about a different
+ * feature so genuine grounding failures still raise `steps-not-derived`.
+ */
+export function isVerifiedCanonicalArticle(markdown, feature) {
+  const text = String(markdown || "").trim();
+  if (text.length < 350) return false;
+  const headerSample = text.slice(0, 400);
+  if (/\b(?:404\s*[-–:]?\s*(?:page\s+)?not\s+found|page\s+not\s+found|we\s+couldn['’]t\s+find\s+this\s+page)\b/i.test(headerSample)) {
+    return false;
   }
+  const headings = text.match(/^#{1,3}\s+\S.*$/gm) || [];
+  if (headings.length < 2) return false;
 
-  // Gate 2 — never trade a curated procedure for a shorter one.
-  //
-  // The curated list is not trusted for its wording, but it is a fair statement
-  // of how much ground the module has to cover. A materially shorter candidate
-  // is a fragment of the real procedure rather than the procedure. `channel-teams`
-  // is the case: the best candidate stopped at "the configuration panel appears"
-  // and never reached publishing or installing, which is most of the module.
-  if (catalogSteps.length && steps.length < catalogSteps.length - 1) {
-    return { ok: false, reason: "less-complete-than-catalog", score: best.score, heading };
+  const wanted = tokens([feature?.name || "", feature?.summary || ""].join(" "));
+  if (wanted.size >= 2) {
+    const pageTokens = tokens(text);
+    if (coverage(wanted, pageTokens) < 0.3) return false;
   }
-
-  return { ok: true, steps, heading, score: best.score };
+  return true;
 }
 
 /**

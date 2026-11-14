@@ -7,7 +7,7 @@
       "domain": "plant operations and maintenance",
       "audience": "plant supervisors, maintenance technicians, and production planners",
       "problem": "Line supervisors lose hours every shift chasing maintenance history, standard operating procedures, and parts availability across SharePoint, a CMMS, and a stack of PDF manuals.",
-      "outcome": "a single agent that answers equipment and procedure questions, looks up work orders, and files a maintenance request without leaving Teams",
+      "outcome": "an end-to-end agent that answers equipment and procedure questions, looks up work orders, and files a maintenance request without leaving Teams",
       "knowledgeSources": [
         "A SharePoint library of standard operating procedures and equipment manuals",
         "A public product safety and compliance site",
@@ -27,7 +27,7 @@
       "domain": "store operations and customer service",
       "audience": "store associates, store managers, and contact-center agents",
       "problem": "Associates answer the same product, returns, and promotion questions dozens of times a day, and the answers live in three different systems that change weekly.",
-      "outcome": "a single agent that answers policy and product questions, checks order status, and starts a return with the right approvals",
+      "outcome": "an end-to-end agent that answers policy and product questions, checks order status, and starts a return with the right approvals",
       "knowledgeSources": [
         "A SharePoint site holding returns, pricing, and promotion policies",
         "The public product catalog and support site",
@@ -47,7 +47,7 @@
       "domain": "client servicing and back-office operations",
       "audience": "relationship managers, client service representatives, and operations analysts",
       "problem": "Client service reps switch between a policy portal, a case system, and email to answer routine account questions, and every answer must be traceable to an approved source.",
-      "outcome": "a single, auditable agent that answers policy questions with citations, retrieves case status, and escalates to a human with full context",
+      "outcome": "an auditable agent that answers policy questions with citations, retrieves case status, and escalates to a human with full context",
       "knowledgeSources": [
         "A SharePoint library of approved product disclosures and servicing policies",
         "The public regulatory guidance site for your market",
@@ -173,15 +173,15 @@
       "designNote": "Pay close attention to authentication so answers can be scoped to the signed-in employee."
     },
     "it": {
-      "emphasis": "IT users want the agent to resolve tickets and to be governable, monitorable, and reversible.",
+      "emphasis": "IT teams want AI solutions that reduce manual ticket load and remain governable, monitorable, and reversible.",
       "designNote": "Wire analytics and solution-based deployment early rather than as an afterthought."
     },
     "communications": {
       "emphasis": "Communications teams want reusable, on-message content grounded in approved announcements.",
-      "designNote": "Use prompt tools with fixed formats so output is consistent across authors."
+      "designNote": "Use structured prompt templates with fixed formats so output is consistent across authors."
     },
     "operations": {
-      "emphasis": "Operations users want the agent embedded in the flow of work, not in another browser tab.",
+      "emphasis": "Operations users want AI support embedded in the flow of work, not in another browser tab.",
       "designNote": "Prioritize the Teams channel and short, mobile-friendly responses."
     },
     "sustainability": {

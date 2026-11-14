@@ -12,12 +12,31 @@
 
 import { getFeature } from "./catalog.js";
 import { getProduct } from "./products.js";
+import { DELIVERABLE_MODES, describeDeliverable } from "./deliverable.js";
 
 const CAUTION = /\b(?:can't|cannot|can not|must|requires?|required|only|unavailable|isn't|aren't|not available|don't|doesn't|won't|might|may not|limits?)\b/i;
 
 const CREATE_IDS = new Set(["create-agent", "mc-create-agent", "cc-create-agent"]);
 const INSTRUCTION_IDS = new Set(["agent-instructions", "mc-instructions", "cc-instructions"]);
 const TEST_IDS = new Set(["test-agent", "multiturn-tests", "mc-preview-test", "cc-preview-test", "evaluations", "mc-evaluate", "cc-evaluate"]);
+const DCA_CREATE_IDS = new Set(["dca-agent-builder-first-agent", "dca-agent-builder-configure", "dca-typespec-copilot-pro-dev"]);
+const PPAI_PROMPT_IDS = new Set([
+  "ppai-prompt-builder-basics",
+  "ppai-prompt-inputs-and-variables",
+  "ppai-prompt-dataverse-grounding",
+  "ppai-prompt-json-and-structured-output",
+  "ppai-prompt-model-choice-and-tuning",
+]);
+const FDY_PLAYGROUND_IDS = new Set([
+  "fdy-explore-model-catalog",
+  "fdy-deploy-serverless-model",
+  "fdy-deploy-provisioned-throughput",
+  "fdy-chat-playground-and-parameters",
+  "fdy-structured-outputs-and-tools",
+  "fdy-evaluate-genai-app",
+  "fdy-safety-and-risk-evaluations",
+  "fdy-red-teaming-agent",
+]);
 
 function firstSentence(text) {
   const match = String(text || "").trim().match(/^.*?[.!?](?=\s|$)/);
@@ -106,11 +125,159 @@ export function knowledgeCheckBlock(feature, plan, u) {
   return lines;
 }
 
-/** Sample data or a prompt to type, tailored to the lab's vertical and audience. */
+/** Sample data or a prompt to type, tailored to the lab's vertical, audience, and product deliverable. */
 export function sampleInputBlock(feature, plan, index, u) {
   const profile = plan.profile;
   const questions = profile.sampleQuestions || [];
+  const entities = (profile.entities || []).slice(0, 3);
+  const terms = (profile.terms || []).slice(0, 4);
+  const source = profile.knowledgeSources?.[index % Math.max(1, (profile.knowledgeSources || []).length)];
+  const d = describeDeliverable(plan);
   const fence = (label, text) => ["", label, "", "```text", text, "```"];
+
+  if (d.mode === DELIVERABLE_MODES.M365_COPILOT_GOVERNANCE) {
+    return fence(
+      "**Sample rollout configuration note.** Record these pilot parameters in your admin change log as you complete this step:",
+      [
+        `Rollout plan: ${plain(profile.agentName)}`,
+        `Pilot security group: ${plain(profile.audience)}`,
+        `Protected content scope: ${plain(source || "approved SharePoint sites and Teams workspaces")}`,
+        `Governance controls to verify: ${plain(terms.join(", ") || "licensing, DLP, audit")}`,
+      ].join("\n"),
+    );
+  }
+
+  if (d.mode === DELIVERABLE_MODES.POWER_PLATFORM_AI_BUILDER) {
+    if (PPAI_PROMPT_IDS.has(feature.id)) {
+      return fence(
+        "**Sample AI Builder prompt.** Paste this into the prompt editor and bind the input variables for your scenario:",
+        [
+          `Analyze the following ${plain(profile.domain)} record: {{InputRecord}}`,
+          `Extract ${plain(entities.join(", ") || "key identifiers and status")} using our standard terms (${plain(terms.join(", ") || "status, owner")}).`,
+          "Return a concise summary and next action in structured JSON with fields summary, priority, and citedField.",
+        ].join("\n"),
+      );
+    }
+    return [
+      "",
+      `**Sample test input.** Run **${u.esc(profile.agentName)}** against ${u.lowerFirst(source || "a sample document or Dataverse row")} containing ${entities.join(", ") || "representative fields"}, and verify how it handles: "${questions[index % Math.max(1, questions.length)] || "a standard business request"}"`,
+    ];
+  }
+
+  if (d.mode === DELIVERABLE_MODES.POWER_PLATFORM_AI_GOVERNANCE) {
+    return fence(
+      "**Sample governance record.** Capture these environment and credit settings for your AI Builder rollout:",
+      [
+        `Solution scope: ${plain(profile.agentName)}`,
+        `Target makers and business owners: ${plain(profile.audience)}`,
+        `Monitored entities and terms: ${plain([...entities, ...terms].slice(0, 4).join(", "))}`,
+      ].join("\n"),
+    );
+  }
+
+  if (d.mode === DELIVERABLE_MODES.SHAREPOINT_CONTENT_AI) {
+    return [
+      "",
+      `**Sample library content.** Upload 3–5 non-production files from ${u.lowerFirst(source || "a sample SharePoint document library")} and map extracted columns for ${entities.join(", ") || "document type, owner, and status"}.`,
+    ];
+  }
+
+  if (d.mode === DELIVERABLE_MODES.SHAREPOINT_GOVERNANCE) {
+    return fence(
+      "**Sample SharePoint governance scope.** Use these site criteria when configuring your report or policy:",
+      [
+        `Governance plan: ${plain(profile.agentName)}`,
+        `Target libraries: ${plain(source || "departmental SharePoint sites")}`,
+        `Sensitivity and review terms: ${plain(terms.join(", ") || "access review, oversharing, lifecycle")}`,
+      ].join("\n"),
+    );
+  }
+
+  if (d.mode === DELIVERABLE_MODES.SHAREPOINT_AGENT) {
+    if (feature.id === "spai-create-custom-sharepoint-agent" || feature.id === "spai-customize-agent-sources-and-prompts") {
+      return fence(
+        "**Sample SharePoint agent configuration.** Use these grounded instructions and starter prompts for your site library:",
+        [
+          `Agent name: ${plain(profile.agentName)}`,
+          `Purpose: Answer questions for ${plain(profile.audience)} using only approved files in this SharePoint site.`,
+          `Starter prompt: "${plain(questions[0] || "Summarize the latest policy in this library.")}"`,
+        ].join("\n"),
+      );
+    }
+    return questions.length
+      ? ["", `**Sample prompt.** Test **${u.esc(profile.agentName)}** in SharePoint or Teams with: "${questions[index % questions.length]}"`]
+      : [];
+  }
+
+  if (d.mode === DELIVERABLE_MODES.FOUNDRY_MODELS_PLATFORM) {
+    if (FDY_PLAYGROUND_IDS.has(feature.id)) {
+      return fence(
+        "**Sample evaluation prompt.** Test your deployed model in the Microsoft Foundry playground or evaluation dataset with:",
+        [
+          `System message: You assist ${plain(profile.audience)} with ${plain(profile.domain)}. Ground responses strictly in supplied context and use consistent terms (${plain(terms.join(", "))}).`,
+          `User prompt: "${plain(questions[index % Math.max(1, questions.length)] || "Summarize the key operational status and cite the source record.")}"`,
+        ].join("\n"),
+      );
+    }
+    return fence(
+      "**Sample Foundry project metadata.** Keep naming and tags consistent across your hub, project, and connections:",
+      [
+        `Workload: ${plain(profile.agentName)}`,
+        `Stakeholder team: ${plain(profile.audience)}`,
+        `Data asset scope: ${plain(source || "indexed operational documents")}`,
+      ].join("\n"),
+    );
+  }
+
+  if (d.mode === DELIVERABLE_MODES.FOUNDRY_AGENT) {
+    if (feature.id === "fdy-agent-service-basics" || feature.id === "fdy-prompt-flow-and-Orchestration") {
+      return fence(
+        "**Sample Foundry agent instructions.** Paste this into the system instructions field for your Foundry agent:",
+        [
+          `You are ${plain(profile.agentName)} for ${plain(profile.audience)}.`,
+          `Assist with ${plain(profile.domain)} using connected tools and grounded indexes.`,
+          `Keep domain terminology consistent: ${plain(terms.join(", "))}.`,
+          "Cite retrieved documents and decline out-of-scope requests clearly.",
+        ].join("\n"),
+      );
+    }
+    return questions.length
+      ? ["", `**Sample prompt.** Test **${u.esc(profile.agentName)}** in the Foundry agent playground with: "${questions[index % questions.length]}"`]
+      : [];
+  }
+
+  if (d.mode === DELIVERABLE_MODES.DECLARATIVE_AGENT_GOVERNANCE) {
+    return fence(
+      "**Sample declarative agent review criteria.** Check each item before approving or publishing in the Microsoft 365 admin center:",
+      [
+        `Package under review: ${plain(profile.agentName)}`,
+        `Intended user group: ${plain(profile.audience)}`,
+        `Scoped knowledge sources: ${plain(source || "approved SharePoint sites and connectors")}`,
+      ].join("\n"),
+    );
+  }
+
+  if (d.mode === DELIVERABLE_MODES.DECLARATIVE_AGENT) {
+    if (DCA_CREATE_IDS.has(feature.id)) {
+      return fence(
+        "**Sample input.** Paste and adapt these declarative agent instructions in Agent Builder:",
+        [
+          `You are ${plain(profile.agentName)}, a declarative agent in Microsoft 365 Copilot for ${plain(profile.audience)}.`,
+          `Help with ${plain(profile.domain)}, such as: "${plain(questions[0] || "common team questions")}"`,
+          `Use these terms consistently: ${plain(terms.join(", "))}.`,
+          "Answer only from scoped SharePoint, Teams, or connector sources and cite every reference.",
+        ].join("\n"),
+      );
+    }
+    if (feature.category === "knowledge" || /knowledge/.test(feature.id)) {
+      return source
+        ? ["", `**Sample data.** Scope **${u.esc(profile.agentName)}** to ${u.lowerFirst(source)}, then test in Microsoft 365 Copilot with: "${questions[0] || ""}"`]
+        : [];
+    }
+    return questions.length
+      ? ["", `**Sample prompt.** Try asking **${u.esc(profile.agentName)}** in Microsoft 365 Copilot: "${questions[index % questions.length]}"`]
+      : [];
+  }
 
   if (CREATE_IDS.has(feature.id)) {
     return fence(
@@ -131,7 +298,6 @@ export function sampleInputBlock(feature, plan, index, u) {
     );
   }
   if (feature.category === "knowledge" || /knowledge/.test(feature.id)) {
-    const source = profile.knowledgeSources?.[index % profile.knowledgeSources.length];
     return source
       ? ["", `**Sample data.** Use content like this for ${u.esc(profile.agentName)}: ${u.lowerFirst(source)}. Then ask: "${questions[0] || ""}"`]
       : [];
@@ -154,12 +320,12 @@ export function glossarySection(plan, u) {
 /** Cleanup that follows from the modules actually in the lab; nothing is deleted for the learner. */
 export function cleanupSection(plan, u) {
   const has = (id) => plan.features.some((f) => f.id === id);
+  const d = describeDeliverable(plan);
+  const ids = plan.products?.length ? plan.products : ["copilot-studio"];
+  const powerPlatformProducts = ids.some((id) => ["copilot-studio", "power-platform-ai-hub", "m365-copilot-agent-builder"].includes(id));
   const inCategory = (...cats) => plan.features.some((f) => cats.includes(f.category));
-  const items = [
-    `If you built **${u.esc(plan.profile.agentName)}** only to learn, remove it from the **Agents** page when you no longer need it. Ask your administrator first if the environment is shared.`,
-    "Stop sharing the agent with test users, and unpublish it if you published it for the lab.",
-  ];
-  if (inCategory("tools", "automation", "integrations")) {
+  const items = [...d.cleanupLead(u.esc(plan.profile.agentName))];
+  if (powerPlatformProducts && inCategory("tools", "automation", "integrations")) {
     items.push("Delete the connections and flows you created for testing, and revoke any test credentials you shared.");
   }
   if (has("authentication") || has("channel-web-sdk")) {

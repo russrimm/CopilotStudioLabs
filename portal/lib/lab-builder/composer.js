@@ -19,10 +19,16 @@
 const CS_PRODUCTS = "Microsoft Copilot Studio, Power Platform, Microsoft 365";
 
 import { getHarnesses } from "./catalog.js";
-import { DEFAULT_PRODUCT, getProduct, joinNames, productName, productsPhrase } from "./products.js";
+import { DEFAULT_PRODUCT, getProduct, joinNames, productName, productOf, productsPhrase } from "./products.js";
 import { getConcepts } from "./concepts.js";
 import { buildDifferenceBlocks } from "./differences.js";
 import { levelName } from "./levels.js";
+import {
+  buildArchitectureBlock,
+  buildFeatureScenarioNote,
+  DELIVERABLE_MODES,
+  describeDeliverable,
+} from "./deliverable.js";
 import {
   cleanupSection,
   expectedResultBlock,
@@ -165,15 +171,23 @@ function metadataTable(plan, generation = {}) {
 
 function overviewSection(plan, enrichment) {
   const profile = plan.profile;
+  const d = describeDeliverable(plan);
   const roleLine = plan.roles.length
     ? ` It is written for ${sentenceList(plan.roles.map((r) => r.name))}.`
     : "";
 
+  const leadClause =
+    !isCopilotStudioOnly(plan) && d.mode === DELIVERABLE_MODES.COPILOT_STUDIO_AGENT
+      ? `In this lab you build **${escapeMarkdown(profile.agentName)}**, a solution with ${productsPhrase(plan.products)}`
+      : d.overviewLead(escapeMarkdown(profile.agentName), productsPhrase(plan.products));
+
+  const domainClause =
+    profile.domain && !String(profile.outcome || "").toLowerCase().includes(String(profile.domain).toLowerCase())
+      ? ` for ${profile.domain}`
+      : "";
   const intro =
     enrichment?.overview ||
-    `${profile.problem} In this lab you build **${escapeMarkdown(profile.agentName)}**, ${
-      isCopilotStudioOnly(plan) ? "a Microsoft Copilot Studio agent" : `a solution with ${productsPhrase(plan.products)}`
-    } for ${profile.domain}, ending with ${profile.outcome}.`;
+    `${profile.problem} ${leadClause}${domainClause}, ending with ${profile.outcome}.`;
 
   const focus = plan.features.filter((f) => !f.prerequisite).map((f) => `**${f.name}** - ${f.summary}`);
   const recaps = plan.features.filter((f) => f.prerequisite);
@@ -184,7 +198,7 @@ function overviewSection(plan, enrichment) {
     "",
     scrubForbidden(intro) + roleLine,
     "",
-    `You will work through ${moduleCount} ${levelName(plan.level)} module${moduleCount === 1 ? "" : "s"}, in order, building on the same agent the whole way. Each module explains what you are configuring and why it matters before you touch the product, so you finish with working software *and* a mental model you can reuse.`,
+    `You will work through ${moduleCount} ${levelName(plan.level)} module${moduleCount === 1 ? "" : "s"}, in order, ${d.progressionClause}. Each module explains what you are configuring and why it matters before you touch the product, so you finish with ${d.isAgent ? "working software" : "a verified configuration"} *and* a mental model you can reuse.`,
     ...(recaps.length
       ? [
           "",
@@ -276,7 +290,18 @@ function prerequisitesSection(plan) {
   if (plan.features.some((f) => f.category === "knowledge")) {
     items.push(`Access to at least one knowledge source, for example: ${lowerFirst(profile.knowledgeSources[0])}.`);
   }
-  if (plan.features.some((f) => ["tools", "automation", "integrations"].includes(f.category))) {
+  const powerPlatformConnectorProduct = new Set([
+    "copilot-studio",
+    "power-platform-ai-hub",
+    "m365-copilot-agent-builder",
+  ]);
+  if (
+    plan.features.some(
+      (f) =>
+        ["tools", "automation", "integrations"].includes(f.category) &&
+        powerPlatformConnectorProduct.has(productOf(f)),
+    )
+  ) {
     items.push("Permission to create connections in Power Platform (the lab uses at least one connector).");
   }
   const has = (id) => plan.features.some((f) => f.id === id);
@@ -323,18 +348,19 @@ function prerequisitesSection(plan) {
 
 function scenarioSection(plan) {
   const profile = plan.profile;
+  const d = describeDeliverable(plan);
   const roleNotes = plan.roles.filter((r) => r.designNote).map((r) => `**${r.name}:** ${r.designNote}`);
 
   return [
     "## The Scenario",
     "",
-    `You are building **${escapeMarkdown(profile.agentName)}** for ${escapeMarkdown(profile.audience)}.`,
+    d.scenarioLead(escapeMarkdown(profile.agentName), escapeMarkdown(profile.audience)),
     "",
     `**The problem.** ${profile.problem}`,
     "",
     `**What good looks like.** By the end of the lab you have ${profile.outcome}.`,
     "",
-    "**Questions the finished agent should answer**",
+    `**${d.sampleQuestionsHeading}**`,
     "",
     bullets(profile.sampleQuestions.map((q) => `"${q}"`)),
     "",
@@ -342,6 +368,7 @@ function scenarioSection(plan) {
     "",
     `**Measure of success:** ${profile.kpi}.`,
     ...(roleNotes.length ? ["", "**Design notes for your audience**", "", bullets(roleNotes)] : []),
+    ...buildArchitectureBlock(plan, TEACH),
   ].join("\n");
 }
 
@@ -551,6 +578,20 @@ function stepProvenance(record, feature) {
           "Follow the Microsoft Learn link in this module and trust it over anything written here.*",
       ];
     }
+    if (record?.reason === "conceptual-page-curated") {
+      const day = record.fetchedAt ? String(record.fetchedAt).slice(0, 10) : null;
+      const canonicalUrl = record.url || feature?.verifiedAgainst || feature?.docUrls?.[0];
+      const canonicalLink = canonicalUrl
+        ? `[the ${scrubForbidden(feature.name)} documentation](${canonicalUrl})`
+        : "its Microsoft Learn documentation page";
+      const reviewedOn = feature?.lastVerified
+        ? `verified by hand on ${feature.lastVerified} against ${canonicalLink}`
+        : `checked against ${canonicalLink}`;
+      return [
+        "",
+        `*These steps come from this repository's curated catalog (${reviewedOn}), because ${canonicalLink}${day ? ` — confirmed live on ${day} —` : ""} presents conceptual or reference guidance rather than a single numbered checklist. If a screen differs in your tenant, follow that Microsoft Learn page.*`,
+      ];
+    }
     const why =
       record?.reason === "fetch-failed"
         ? "its documentation page could not be read"
@@ -602,10 +643,8 @@ function recapSection(feature, plan, grounding, stepsRecord, vendorRecords) {
 
 function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord, vendorRecords, differenceLines = []) {
   if (feature.prerequisite) return recapSection(feature, plan, grounding, stepsRecord, vendorRecords);
-  const profile = plan.profile;
   const applied =
-    enrichment?.applied ||
-    `Do this for **${escapeMarkdown(profile.agentName)}**: ${lowerFirst(feature.summary.replace(/\.$/, ""))}, using the ${profile.domain} content described in **The Scenario** above. Keep the wording consistent with the domain language for this lab (${profile.terms.slice(0, 3).join(", ")}) so answers sound like they came from your team.`;
+    enrichment?.applied || buildFeatureScenarioNote(feature, plan, TEACH);
 
   // Doc-derived steps when the live page could be read, curated steps otherwise.
   // Both paths are scrubbed: derived steps are untrusted fetched content, and
@@ -651,6 +690,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
 function validationSection(plan) {
   const checks = plan.features.flatMap((f) => f.validation.map((v) => `[ ] **${f.name}:** ${scrubForbidden(v)}`));
   const profile = plan.profile;
+  const d = describeDeliverable(plan);
 
   return [
     "## Validation / Success Criteria",
@@ -661,7 +701,7 @@ function validationSection(plan) {
     "",
     "**End-to-end test**",
     "",
-    bullets(profile.sampleQuestions.map((q) => `Ask the published agent "${q}" and confirm the answer is correct, grounded, and cites a source where one applies.`)),
+    bullets(d.validationLead((profile.sampleQuestions || []).map(scrubForbidden))),
     "",
     "If a check fails, the module that owns it is the place to start debugging. Each module lists the exact setting it changed.",
   ].join("\n");
@@ -690,20 +730,19 @@ function nextStepsSection(plan, groundingByFeature) {
 
   lines.push(...furtherLearningBlock(plan, groundingByFeature, TEACH));
 
-  lines.push(
-    "Extend the scenario itself by adding a second knowledge source, wiring a real system of record, or handing part of the work to a connected agent.",
-  );
+  lines.push(describeDeliverable(plan).nextStepsExtension);
 
   return lines.join("\n");
 }
 
 function completeSection(plan) {
+  const d = describeDeliverable(plan);
   return [
     "## Lab Complete",
     "",
-    `You built **${escapeMarkdown(plan.profile.agentName)}** end to end: ${sentenceList(plan.features.filter((f) => !f.prerequisite).map((f) => f.name))}.`,
+    `You ${d.pastVerb} **${escapeMarkdown(plan.profile.agentName)}** end to end: ${sentenceList(plan.features.filter((f) => !f.prerequisite).map((f) => f.name))}.`,
     "",
-    `More importantly, you can now explain *why* each of those pieces exists, which is what makes the next agent faster to build than this one was.`,
+    d.closingTakeaway,
   ].join("\n");
 }
 
@@ -797,6 +836,7 @@ function vendorParagraph(vendor, plan) {
 function howToUseSection(plan, generation) {
   const grounded = generation.groundedFeatures;
   const derived = generation.docDerivedFeatures ?? 0;
+  const verifiedCurated = generation.verifiedCuratedFeatures ?? 0;
   const synthesized = generation.synthesizedFeatures ?? 0;
   const total = plan.features.length;
   const provider = generation.llmProvider;
@@ -837,10 +877,18 @@ function howToUseSection(plan, generation) {
       ? synthesizedStepsParagraph({ synthesized, derived, total, provider: generation.synthesisModel || provider, dated })
       : derived === total
       ? `**Steps.** The click-by-click steps in every module were read from that feature's current documentation page at build time, not copied from a stored list. Each module names the page it came from and the date it was read.`
+      : derived > 0 && verifiedCurated > 0
+      ? `**Steps.** The click-by-click steps in ${derived} of ${total} module${plural} were read from that feature's current documentation page at build time. ${verifiedCurated} module${verifiedCurated === 1 ? " uses" : "s use"} this repository's verified curated steps because ${verifiedCurated === 1 ? "its" : "their"} canonical Microsoft Learn article was confirmed live on this build and presents conceptual or reference guidance rather than a single numbered checklist${
+          total - derived - verifiedCurated > 0 ? `; the remaining ${total - derived - verifiedCurated} also fall back to curated steps` : ""
+        }. Every module states its exact step source, verification date, and canonical Microsoft Learn page.`
       : derived > 0
       ? `**Steps.** The click-by-click steps in ${derived} of ${total} module${plural} were read from that feature's current documentation page at build time. The other ${total - derived} use this repository's curated steps, because no procedure on the page matched the module closely enough to trust. Every module names which of the two it used; the ones read from a page also name that page and the date${
           dated ? ", and the curated ones name the date their steps were last verified by hand and the page they were checked against" : ""
         }.`
+      : verifiedCurated > 0
+      ? `**Steps.** Each module's canonical Microsoft Learn page was confirmed live on this build, and ${verifiedCurated} of ${total} module${plural} use this repository's recently verified curated steps because those pages present conceptual or reference guidance rather than a single numbered checklist${
+          total - verifiedCurated > 0 ? `; the other ${total - verifiedCurated} also use curated steps` : ""
+        }. Every module names the date its steps were verified by hand and links the canonical Microsoft Learn page.`
       : `**Steps.** No module's steps could be read from a live documentation page on this build, so every module uses this repository's curated steps. ${
           dated
             ? "Each one says so, and why, and names the date its steps were last verified by hand and the page they were checked against. None of them was checked against the product when this lab was built."
@@ -899,10 +947,11 @@ export function composeLab(
       ]
     : [];
 
+  const d = describeDeliverable(plan);
   const sections = [
     `# ${escapeMarkdown(scrubForbidden(plan.title))}`,
     "",
-    `*Build ${escapeMarkdown(plan.profile.agentName)} ${isCopilotStudioOnly(plan) ? "in Microsoft Copilot Studio" : `with ${productsPhrase(plan.products)}`}, one grounded module at a time.*`,
+    `*${d.subtitle(escapeMarkdown(plan.profile.agentName))}*`,
     "",
     metadataTable(plan, generation),
     "",

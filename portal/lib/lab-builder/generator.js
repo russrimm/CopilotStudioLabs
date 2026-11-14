@@ -18,9 +18,10 @@ import { composeLab } from "./composer.js";
 import { assessLab } from "./qa.js";
 import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
-import { GENERATOR_NAME, primaryProduct, productOf } from "./products.js";
+import { GENERATOR_NAME, primaryProduct, productOf, productsPhrase } from "./products.js";
 import { buildDifferenceBlocks } from "./differences.js";
-import { deriveSteps, diffSteps } from "./steps.js";
+import { describeDeliverable } from "./deliverable.js";
+import { deriveSteps, diffSteps, isVerifiedCanonicalArticle } from "./steps.js";
 import { synthesizeSteps } from "./synthesis.js";
 import {
   DEFAULT_CONCURRENCY as LINK_CONCURRENCY,
@@ -45,6 +46,7 @@ import {
   curatedDocsAge,
   decisionRecord,
   isCancel,
+  isCuratedFresh,
   normalizeDecisions,
   resolveDecision,
 } from "./blockers.js";
@@ -216,7 +218,7 @@ async function synthesizeModule(session, feature, { llm, context, onProgress, si
  * Returns a record per feature so the caller can gate on the failures and record
  * provenance in the manifest.
  */
-async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrency, synthesis }) {
+async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrency, synthesis, nowMs }) {
   const byFeature = new Map();
   const context = synthesis?.ids?.size ? synthesisContext(plan) : null;
 
@@ -229,6 +231,7 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
       fetchedAt: null,
       sectionHeading: null,
       reason: null,
+      canonicalVerified: false,
       drift: null,
       attempts: [],
       synthesis: null,
@@ -256,8 +259,10 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
     // not always the procedure page, and a later one often derives cleanly.
     // Using the catalog's own URLs rather than search results also keeps this
     // path clear of the citation-relevance defect tracked in issue #40.
+    const fetchedByUrl = new Map();
     for (const url of feature.docUrls || []) {
       const page = await fetchDocPage(session, url);
+      fetchedByUrl.set(url, page);
       if (page.error) {
         catalogEntry.attempts.push({ url, outcome: "fetch-failed", detail: page.error });
         continue;
@@ -280,6 +285,7 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
           sectionHeading: result.heading,
           confidence: Number(result.score.toFixed(3)),
           reason: null,
+          canonicalVerified: true,
           drift: diffSteps(feature.steps, result.steps),
           attempts: catalogEntry.attempts,
           synthesis: catalogEntry.synthesis,
@@ -289,6 +295,20 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
 
     const everyAttemptFailedToFetch =
       catalogEntry.attempts.length > 0 && catalogEntry.attempts.every((a) => a.outcome === "fetch-failed");
+    if (!everyAttemptFailedToFetch && feature.verifiedAgainst && isCuratedFresh(feature, nowMs)) {
+      let canonicalPage = fetchedByUrl.get(feature.verifiedAgainst);
+      if (!canonicalPage) {
+        canonicalPage = await fetchDocPage(session, feature.verifiedAgainst);
+      }
+      if (!canonicalPage.error && isVerifiedCanonicalArticle(canonicalPage.markdown, feature)) {
+        catalogEntry.reason = "conceptual-page-curated";
+        catalogEntry.url = feature.verifiedAgainst;
+        catalogEntry.fetchedAt = canonicalPage.fetchedAt;
+        catalogEntry.canonicalVerified = true;
+        return [feature.id, catalogEntry];
+      }
+    }
+
     catalogEntry.reason = !catalogEntry.attempts.length
       ? "no-doc-url"
       : everyAttemptFailedToFetch
@@ -336,11 +356,12 @@ async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgres
   const enrichment = { byFeature: new Map() };
   if (!llm.available) return enrichment;
 
+  const d = describeDeliverable(plan);
   const roleLine = plan.roles.length ? plan.roles.map((r) => r.name).join(", ") : "a general business audience";
   const context = [
     `Industry: ${plan.industry?.name || "Cross-industry"}`,
     `Audience: ${roleLine}`,
-    `Agent: ${plan.profile.agentName} for ${plan.profile.domain}`,
+    `Deliverable (${d.progressionNoun}): ${plan.profile.agentName} for ${plan.profile.domain}`,
     `Business problem: ${plan.profile.problem}`,
     `Target outcome: ${plan.profile.outcome}`,
   ].join("\n");
@@ -348,7 +369,7 @@ async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgres
   onProgress?.({ stage: "enrich", message: "Drafting scenario narrative" });
   const overview = await llm.complete(
     SYSTEM_PROMPT,
-    `${context}\n\nModules in this lab: ${plan.features.map((f) => (f.learnTopic ? "a topic from Microsoft Learn" : f.name)).join(", ")}.\n\nWrite two short paragraphs introducing this lab. Paragraph one: the business problem in this industry and why an agent helps. Paragraph two: what the learner ends up with and how the modules connect. Do not list the modules verbatim.`,
+    `${context}\n\nModules in this lab: ${plan.features.map((f) => (f.learnTopic ? "a topic from Microsoft Learn" : f.name)).join(", ")}.\n\nWrite two short paragraphs introducing this lab. Paragraph one: the business problem in this industry and why this ${d.progressionNoun} solves it. Paragraph two: what the learner ends up with and how the modules connect. Do not claim the learner is building a chat agent unless this deliverable is an agent. Do not list the modules verbatim.`,
     { maxTokens: 500, signal },
   );
   if (overview) enrichment.overview = overview;
@@ -386,7 +407,7 @@ async function enrich(llm, plan, groundingByFeature, stepsByFeature, { onProgres
         // they are quoted as untrusted and labelled with their vendor.
         vendorDocs ? quoteUntrusted("vendor documentation excerpts", vendorDocs) : "",
         "",
-        "Write one paragraph (3-5 sentences) telling the learner exactly how to apply this module to the agent scenario above: what to name things, what content or records to use, and what the agent should be able to do afterwards. Use the industry's vocabulary.",
+        `Write one paragraph (3-5 sentences) telling the learner how to apply this module to the ${d.progressionNoun} scenario above: what to name or scope, what sample content or settings to use, and what outcome to verify afterwards. Use the industry's vocabulary and match the product deliverable.`,
       ].join("\n"),
       { maxTokens: 400, signal },
     );
@@ -442,6 +463,7 @@ export async function generateLab(request, opts = {}) {
   const decisionLog = [];
 
   const startedAt = Date.now();
+  const nowMs = Number.isFinite(opts.now) ? opts.now : startedAt;
   let plan = planLab(request);
   onProgress?.({ stage: "plan", message: `Planned ${plan.features.length} modules (${plan.duration})` });
 
@@ -499,12 +521,12 @@ export async function generateLab(request, opts = {}) {
 
     // ── Gate 2: the grounding server is unreachable ───────────────────────
     if (!session.ok) {
-      const freshness = curatedDocsAge(plan.features);
+      const freshness = curatedDocsAge(plan.features, nowMs);
       const outcome = gate(
         buildBlocker(BLOCKER_CODES.LEARN_MCP_UNAVAILABLE, {
           consequence:
             `Microsoft Learn could not be reached (${session.error}). Every citation in this lab would come from ` +
-            `the curated fallback links in the feature catalog, ${freshness.phrase}. Copilot Studio changes monthly, ` +
+            `the curated fallback links in the feature catalog, ${freshness.phrase}. ${productsPhrase(plan.products)} changes frequently, ` +
             `so the learner may be sent to instructions that no longer match the product.`,
           detail: {
             endpoint: LEARN_MCP_ENDPOINT,
@@ -545,7 +567,7 @@ export async function generateLab(request, opts = {}) {
     const ungrounded = plan.features.filter((feature) => !groundingByFeature.get(feature.id)?.grounded);
     if (ungrounded.length) {
       const names = ungrounded.map((feature) => feature.name).join(", ");
-      const freshness = curatedDocsAge(ungrounded);
+      const freshness = curatedDocsAge(ungrounded, nowMs);
       const outcome = gate(
         buildBlocker(BLOCKER_CODES.MODULES_UNGROUNDED, {
           consequence:
@@ -698,6 +720,7 @@ export async function generateLab(request, opts = {}) {
     signal,
     maxConcurrency,
     synthesis: { ids: synthesisIds, llm },
+    nowMs,
   });
 
   // A module whose pages could not be read (`no-pages`) is left to the
@@ -730,7 +753,7 @@ export async function generateLab(request, opts = {}) {
     const unreadable = plan.features.filter((f) => stepsByFeature.get(f.id)?.reason === "fetch-failed");
     if (unreadable.length) {
       const names = unreadable.map((f) => f.name).join(", ");
-      const freshness = curatedDocsAge(unreadable);
+      const freshness = curatedDocsAge(unreadable, nowMs);
       const outcome = gate(
         buildBlocker(BLOCKER_CODES.STEPS_FETCH_FAILED, {
           consequence:
@@ -755,9 +778,40 @@ export async function generateLab(request, opts = {}) {
     }
   }
 
+  const linkCheck = { enabled: linkCheckEnabled(), records: new Map(), deadByFeature: new Map() };
+  if (session.ok && linkCheck.enabled) {
+    const conceptualUrls = plan.features
+      .map((f) => stepsByFeature.get(f.id))
+      .filter((record) => record?.reason === "conceptual-page-curated" && record.url)
+      .map((record) => record.url);
+    if (conceptualUrls.length) {
+      await verifyUrls(conceptualUrls, {
+        concurrency: LINK_CONCURRENCY,
+        checkLink: opts.checkLink || createLinkChecker(),
+        signal,
+        cache: linkCheck.records,
+      });
+      for (const feature of plan.features) {
+        const record = stepsByFeature.get(feature.id);
+        if (record?.reason !== "conceptual-page-curated" || !record.url) continue;
+        const linkRecord = linkCheck.records.get(record.url);
+        if (linkRecord && linkRecord.status >= 400) {
+          record.reason = "not-derivable";
+          record.url = null;
+          record.fetchedAt = null;
+          record.canonicalVerified = false;
+        }
+      }
+    }
+  }
+
   // ── Gate 5: the page was read, but no procedure on it fits the module ─────
   // No retry is offered: the page is cached and the parse is deterministic, so
-  // running it again cannot produce a different answer.
+  // running it again cannot produce a different answer. Modules whose canonical
+  // `verifiedAgainst` Learn article is live and conceptual/reference-formatted,
+  // and whose curated steps were verified within 180 days, seamlessly use their
+  // verified curated steps (`reason: "conceptual-page-curated"`) with explicit
+  // provenance instead of raising a false alarm.
   if (session.ok) {
     const underived = plan.features.filter((f) => {
       const record = stepsByFeature.get(f.id);
@@ -765,7 +819,7 @@ export async function generateLab(request, opts = {}) {
     });
     if (underived.length) {
       const names = underived.map((f) => f.name).join(", ");
-      const freshness = curatedDocsAge(underived);
+      const freshness = curatedDocsAge(underived, nowMs);
       const outcome = gate(
         buildBlocker(BLOCKER_CODES.STEPS_NOT_DERIVED, {
           consequence:
@@ -783,6 +837,7 @@ export async function generateLab(request, opts = {}) {
             derivedModules: plan.features.length - underived.length,
             totalModules: plan.features.length,
             curatedDocsReviewed: freshness.reviewed,
+            curatedDocsAgeDays: freshness.ageDays,
           },
         }),
       );
@@ -796,6 +851,9 @@ export async function generateLab(request, opts = {}) {
   // Recomputed after the link check below, for the same reason as `groundedFeatures`.
   let docDerivedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "doc-derived").length;
   let synthesizedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "llm-verified").length;
+  let verifiedCuratedFeatures = plan.features.filter(
+    (f) => stepsByFeature.get(f.id)?.reason === "conceptual-page-curated",
+  ).length;
 
   // ── 2b. Check that every URL about to be embedded actually resolves ────────
   //
@@ -817,7 +875,6 @@ export async function generateLab(request, opts = {}) {
   //
   // Only the case where a module ends up with *nothing* left to cite reaches a
   // human, below.
-  const linkCheck = { enabled: linkCheckEnabled(), records: new Map(), deadByFeature: new Map() };
   if (linkCheck.enabled) {
     onProgress?.({ stage: "verify", message: "Checking that the documentation links resolve" });
 
@@ -839,12 +896,13 @@ export async function generateLab(request, opts = {}) {
     }
     const vendorSet = new Set(vendorEmbedded);
 
-    linkCheck.records = await verifyUrls(
+    await verifyUrls(
       embedded.filter((url) => !vendorSet.has(url)),
       {
         concurrency: LINK_CONCURRENCY,
         checkLink: opts.checkLink || createLinkChecker(),
         signal,
+        cache: linkCheck.records,
       },
     );
     await verifyUrls(vendorEmbedded, {
@@ -897,7 +955,7 @@ export async function generateLab(request, opts = {}) {
     );
     if (emptied.length) {
       const names = emptied.map((f) => f.name).join(", ");
-      const freshness = curatedDocsAge(emptied);
+      const freshness = curatedDocsAge(emptied, nowMs);
       const outcome = gate(
         buildBlocker(BLOCKER_CODES.SOURCES_DEAD, {
           consequence:
@@ -993,6 +1051,9 @@ export async function generateLab(request, opts = {}) {
   groundedFeatures = plan.features.filter((f) => groundingByFeature.get(f.id)?.learnVerified).length;
   docDerivedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "doc-derived").length;
   synthesizedFeatures = plan.features.filter((f) => stepsByFeature.get(f.id)?.source === "llm-verified").length;
+  verifiedCuratedFeatures = plan.features.filter(
+    (f) => stepsByFeature.get(f.id)?.reason === "conceptual-page-curated",
+  ).length;
 
   const vendorUrls = new Set([...vendorByFeature.values()].flat().map((source) => source.url));
   const linkCheckSummary = summarizeLinkCheck(linkCheck.records, {
@@ -1089,6 +1150,7 @@ export async function generateLab(request, opts = {}) {
     groundedFeatures,
     docDerivedFeatures,
     synthesizedFeatures,
+    verifiedCuratedFeatures,
     llmProvider: llm.available && narrativeUsed ? llm.provider.label : "none",
     llmAvailable: Boolean(llm.available),
     synthesisModel: synthesizedFeatures ? llm.provider.label || llm.provider.kind : null,
@@ -1108,7 +1170,11 @@ export async function generateLab(request, opts = {}) {
     vendorByFeature,
   );
   // Advisory only: a low score is reported to the learner and never blocks the build.
-  const qa = assessLab(markdown, { expectedTopics: plan.features.filter((f) => !f.prerequisite) });
+  const qa = assessLab(markdown, {
+    expectedTopics: plan.features.filter((f) => !f.prerequisite),
+    products: plan.products,
+    isAgentDeliverable: plan.deliverable?.isAgent,
+  });
   const differenceSummary = buildDifferenceBlocks({ ...plan, features: plan.features.filter((f) => !f.prerequisite) }, { harnesses: getHarnesses(), concepts: getConcepts() });
 
   const manifest = {
@@ -1118,6 +1184,7 @@ export async function generateLab(request, opts = {}) {
     // The products the lab covers, with the one most of its modules belong to first. Labs built before products existed lack both and are Copilot Studio labs.
     product: primaryProduct(plan),
     products: plan.products,
+    deliverable: plan.deliverable || null,
     quality: { score: qa.score, grade: qa.grade, findings: qa.findings.length, version: qa.version },
     generatedAt: generation.generatedAt,
     // When every embedded URL was last confirmed to resolve. Null when checking
@@ -1188,6 +1255,7 @@ export async function generateLab(request, opts = {}) {
         steps: {
           source: derived?.source || "catalog-fallback",
           reason: derived?.reason || null,
+          canonicalVerified: Boolean(derived?.canonicalVerified),
           url: derived?.url || null,
           fetchedAt: derived?.fetchedAt || null,
           sectionHeading: derived?.sectionHeading || null,
@@ -1234,6 +1302,7 @@ export async function generateLab(request, opts = {}) {
       groundedModules: groundedFeatures,
       docDerivedModules: docDerivedFeatures,
       synthesizedModules: synthesizedFeatures,
+      verifiedCuratedModules: verifiedCuratedFeatures,
       totalModules: plan.features.length,
     },
     // Liveness of every URL the lab embeds, as of `verifiedAt`. `broken` links

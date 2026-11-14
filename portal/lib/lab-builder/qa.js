@@ -388,6 +388,74 @@ export function assessLab(markdown, options = {}) {
   const markers = visible.join("\n").match(/\b(?:TODO|FIXME|TBD|XXX)\b/g) || [];
   add("no-markers", "No unfinished-work markers", 3, markers.length ? 0 : 1, "error", `${markers.length} TODO-style marker(s) remain.`, "Replace each marker with final guidance.");
 
+  // Product-to-deliverable narrative alignment: non-agent labs (M365 Copilot admin
+  // governance, Power Platform AI Builder models/prompts, SharePoint content AI /
+  // governance, and Foundry model/platform labs without an agent module) must never
+  // claim the learner is building or chatting with a conversational agent, and
+  // non-Copilot Studio labs must not misattribute steps to Copilot Studio.
+  const productsCell = ((source.match(/\|\s*[^|\n]*\*\*PRODUCTS\*\*[^|\n]*\|\s*([^|\n]+)\|/) || [])[1] || "").trim();
+  const explicitProducts = Array.isArray(options.products) ? options.products : null;
+  const hasCopilotStudio = explicitProducts
+    ? explicitProducts.includes("copilot-studio")
+    : /Copilot Studio/i.test(productsCell);
+  const inferredNonAgent = (() => {
+    if (typeof options.isAgentDeliverable === "boolean") return !options.isAgentDeliverable;
+    if (!productsCell || hasCopilotStudio || /Agent Builder/i.test(productsCell)) return false;
+    if (/Microsoft 365 admin center/i.test(productsCell)) return true;
+    if (/AI Builder/i.test(productsCell)) return true;
+    if (/SharePoint|Microsoft Foundry/i.test(productsCell)) {
+      const h1Text = sections.find((s) => s.level === 1)?.text || "";
+      const anyAgentTopic = topics.some((t) => /\bagents?\b/i.test(t.name)) || /\bagent\b/i.test(h1Text);
+      return !anyAgentTopic;
+    }
+    return false;
+  })();
+
+  const alignmentIssues = [];
+  if (/\ba single(?:,\s*auditable)? agent\b/i.test(prose)) {
+    alignmentIssues.push('uses generic "a single agent" boilerplate');
+  }
+  const hasCrossCopilotStudioTopic = topics.some((t) => /copilot studio/i.test(t.name));
+  if (
+    !hasCopilotStudio &&
+    !hasCrossCopilotStudioTopic &&
+    /\ba Microsoft Copilot Studio agent\b|When Copilot Studio asks you to describe the agent|\bin (?:Microsoft )?Copilot Studio\b/i.test(prose)
+  ) {
+    alignmentIssues.push("frames a non-Copilot Studio lab as a Copilot Studio agent");
+  }
+  if (inferredNonAgent) {
+    if (/\bQuestions the finished agent should answer\b/i.test(source)) {
+      alignmentIssues.push('uses "Questions the finished agent should answer" on a non-agent lab');
+    }
+    if (/\bAsk the published agent\b/i.test(prose)) {
+      alignmentIssues.push('tells learners to "Ask the published agent" on a non-agent lab');
+    }
+    if (/\bremove it from the \*\*Agents\*\* page\b/i.test(source)) {
+      alignmentIssues.push('instructs cleanup from the "**Agents** page" on a non-agent lab');
+    }
+    if (/\bbuilding on the same agent the whole way\b/i.test(prose)) {
+      alignmentIssues.push('claims learners are "building on the same agent" on a non-agent lab');
+    }
+    if (/\*\*Sample prompt\.\*\*\s*Try asking\b/i.test(source)) {
+      alignmentIssues.push('prompts learners to "Try asking" a chat agent on a non-agent lab');
+    }
+    const h1Text = sections.find((s) => s.level === 1)?.text || "";
+    if (/:\s*Build an? [^\n]*\bAssistant\b/i.test(h1Text)) {
+      alignmentIssues.push(`titles a non-agent lab as building an Assistant ("${h1Text}")`);
+    }
+  }
+  if (productsCell || explicitProducts || options.isAgentDeliverable !== undefined) {
+    add(
+      "product-deliverable-alignment",
+      "Deliverable framing matches selected product and capabilities",
+      6,
+      alignmentIssues.length ? 0 : 1,
+      "error",
+      `Product/deliverable mismatch: ${alignmentIssues.join("; ")}.`,
+      "Frame the title, scenario, sample inputs, validation, and cleanup around the actual product deliverable (for example tenant governance, AI Builder prompts/models, SharePoint content AI, or Foundry model deployments) rather than a chat agent.",
+    );
+  }
+
   const level = readingLevel(prose);
   add(
     "reading-level",

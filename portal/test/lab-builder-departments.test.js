@@ -56,11 +56,17 @@ test("the same vertical and level with two departments yield different titles, a
     assert.notEqual(finance.plan.profile.agentName, hr.plan.profile.agentName, `${label}: agent`);
     assert.notEqual(finance.plan.profile.problem, hr.plan.profile.problem, `${label}: problem`);
     assert.notEqual(finance.plan.slug, hr.plan.slug, `${label}: slug`);
-    assert.match(finance.plan.title, /^Healthcare: Build an? Finance Close Assistant/, label);
-    assert.match(hr.plan.title, /^Healthcare: Build an? Employee Help Assistant/, label);
+    assert.match(finance.plan.title, /^Healthcare: .*Finance Close/, label);
+    assert.match(hr.plan.title, /^Healthcare: .*Employee Help/, label);
+    if (product.id === "copilot-studio") {
+      assert.match(finance.plan.title, /^Healthcare: Build a Finance Close Assistant/, label);
+      assert.match(hr.plan.title, /^Healthcare: Build an Employee Help Assistant/, label);
+    }
+    const financeDeliverable = finance.plan.profile.agentName;
+    const hrDeliverable = hr.plan.profile.agentName;
     for (const [result, own, other] of [
-      [finance, "Finance Close Assistant", "Employee Help Assistant"],
-      [hr, "Employee Help Assistant", "Finance Close Assistant"],
+      [finance, financeDeliverable, hrDeliverable],
+      [hr, hrDeliverable, financeDeliverable],
     ]) {
       assert.ok(result.markdown.includes(own), `${label}: the lab names ${own}`);
       assert.ok(!result.markdown.includes(other), `${label}: ${other} leaked into ${own}'s lab`);
