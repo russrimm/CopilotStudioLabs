@@ -13,6 +13,7 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { escapeMarkdown, scrubForbidden } from "./composer.js";
+import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { capturedImage, capturedScreenshotsDir } from "./captured.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
 
@@ -344,8 +345,12 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown) {
     const markdown = readFileSync(indexPath, "utf-8");
     const manifestPath = join(labDir, "manifest.json");
     const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf-8")) : null;
+    const adminPrerequisites = manifest?.adminPrerequisites || buildAdminPrerequisites({ manifest, markdown });
     const { html, pending } = decorateGeneratedHtml(renderMarkdown(markdown), labId, labDir);
-    return { status: 200, body: { labId, markdown, html, manifest, pendingScreenshots: pending } };
+    return {
+      status: 200,
+      body: { labId, markdown, html, manifest, adminPrerequisites, pendingScreenshots: pending },
+    };
   } catch (err) {
     return { status: 500, body: { error: err.message } };
   }
