@@ -448,9 +448,10 @@ async function lbGenSubmitRename(event) {
 // ── Wiring ──────────────────────────────────────────────────────────────────
 function lbGenBind() {
   if (lbGen.bound) return;
-  lbGen.bound = true;
   const root = document.getElementById("panel-labbuilder");
-  root?.addEventListener("click", (event) => {
+  if (!root) return;
+  lbGen.bound = true;
+  root.addEventListener("click", (event) => {
     const button = event.target.closest("[data-gen-action]");
     if (!button) return;
     const labId = button.closest("[data-lab-id]")?.dataset.labId || button.dataset.labId;

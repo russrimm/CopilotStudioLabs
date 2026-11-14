@@ -38,11 +38,25 @@ test("each pane heading can take focus so a step change is announced", () => {
   }
 });
 
-test("a running total and the time-as-guidance message are always shown", () => {
+test("a running total, reset affordances, and the time-as-guidance message are always shown", () => {
   assert.match(builderPanel, /id="lb-summary"[^>]*aria-live="polite"/);
+  assert.match(builderPanel, /id="lb-start-over"[^>]*onclick="lbStartNewLab\(\)"[^>]*hidden[^>]*>Start over<\/button>/);
+  assert.match(builderPanel, /id="lb-gen-start-new"[^>]*data-gen-action="new"[^>]*>Start new lab<\/button>/);
   assert.match(wizard, /estimate, not a limit/);
   assert.doesNotMatch(builderPanel, /Time budget/i);
   assert.doesNotMatch(wizard + app, /timeBudget/);
+});
+
+test("wizard inputs disable browser form autocomplete restoration across soft reloads", () => {
+  for (const id of ["lb-topic-search", "lb-topic-filter", "lb-time", "lb-agent-name", "lb-title", "lb-use-learn", "lb-use-llm"]) {
+    assert.match(builderPanel, new RegExp(`id="${id}"[^>]*autocomplete="off"`), `${id} should have autocomplete="off"`);
+  }
+  assert.match(wizard, /name="lb-product"[^>]*autocomplete="off"/);
+  assert.match(wizard, /name="lb-role"[^>]*autocomplete="off"/);
+  assert.match(wizard, /name="lb-level"[^>]*autocomplete="off"/);
+  assert.match(wizard, /name="lb-harness"[^>]*autocomplete="off"/);
+  assert.match(wizard, /data-topic=[^>]*autocomplete="off"/);
+  assert.match(wizard, /data-prerequisite=[^>]*autocomplete="off"/);
 });
 
 test("topics are checkboxes with Select recommended, Select all, Clear, Reset, and group actions", () => {

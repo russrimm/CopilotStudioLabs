@@ -284,13 +284,42 @@ test("discovery for a product starts at its own hub and follows only links under
 
 function loadWizard() {
   const source = readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
-  const element = () => ({ innerHTML: "", textContent: "", value: "", checked: true, hidden: false, style: {}, contains: () => false, querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, setAttribute() {}, removeAttribute() {}, classList: { toggle() {}, add() {}, remove() {} } });
+  const elements = new Map();
+  const element = (id) => {
+    if (!elements.has(id)) {
+      elements.set(id, {
+        id,
+        innerHTML: "",
+        textContent: "",
+        value: "",
+        checked: true,
+        hidden: id === "lb-start-over",
+        style: {},
+        contains: () => false,
+        querySelector: () => null,
+        querySelectorAll: () => [],
+        addEventListener() {},
+        setAttribute() {},
+        removeAttribute() {},
+        focus() {},
+        scrollIntoView() {},
+        classList: { toggle() {}, add() {}, remove() {} },
+      });
+    }
+    return elements.get(id);
+  };
+  const recommendCalls = [];
+  const toasts = [];
   const context = {
     document: { getElementById: element, querySelector: () => null, querySelectorAll: () => [], activeElement: { dataset: {} } },
     CSS: { escape: (s) => s },
     escapeHtml: (s) => String(s),
-    toast: () => {},
-    fetch: async (_url, init) => ({ ok: true, json: async () => recommend(JSON.parse(init.body)) }),
+    toast: (msg, type) => toasts.push({ msg, type }),
+    fetch: async (_url, init) => {
+      const body = JSON.parse(init.body);
+      recommendCalls.push(body);
+      return { ok: true, json: async () => recommend(body) };
+    },
     setTimeout,
     console,
   };
@@ -298,15 +327,45 @@ function loadWizard() {
   vm.runInContext(source, context);
   const run = (code) => vm.runInContext(code, context);
   run(`labBuilder.products = ${JSON.stringify(getProducts().map((p) => ({ id: p.id, name: p.name, shortName: p.shortName, hasHarnesses: p.hasHarnesses })))};`);
-  return run;
+  run(`labBuilder.levels = ${JSON.stringify([{ level: 100, label: "Beginner", description: "" }, { level: 200, label: "Intermediate", description: "" }, { level: 300, label: "Advanced", description: "" }])};`);
+  return Object.assign(run, { element, recommendCalls, toasts, context });
 }
 
-test("the wizard starts on Product with Copilot Studio selected and the steps in the required order", () => {
+test("a fresh wizard starts on Step 1 with no products selected and requires at least one product before advancing", async () => {
   const run = loadWizard();
   assert.deepEqual(JSON.parse(run("JSON.stringify(LB_STEPS.map((s) => s.label))")), ["Product", "Vertical", "Departments", "Level", "Harness", "Topics", "Review", "Generate"]);
-  assert.deepEqual(JSON.parse(run("JSON.stringify([...labBuilder.selectedProducts])")), ["copilot-studio"]);
-  assert.deepEqual(JSON.parse(run("JSON.stringify(lbVisibleStepIds())")), [1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.equal(run("lbAnswers().harness"), "standard");
+  assert.equal(run("labBuilder.step"), 1);
+  assert.deepEqual(JSON.parse(run("JSON.stringify([...labBuilder.selectedProducts])")), []);
+  assert.deepEqual(JSON.parse(run("JSON.stringify(lbSelectedProductList())")), []);
+  assert.equal(run("lbHasHarnessProduct()"), false);
+  assert.equal(run("'harness' in lbAnswers()"), false);
+
+  await run("lbRefresh()");
+  assert.equal(run("labBuilder.rec"), null);
+  assert.equal(run.recommendCalls.length, 0, "does not call /api/lab-builder/recommend when 0 products are selected");
+  assert.match(run.element("lb-summary").innerHTML, /No products selected yet/);
+  assert.equal(run.element("lb-start-over").hidden, true, "Start over stays hidden when nothing has been selected yet");
+
+  run("lbNextStep()");
+  assert.equal(run("labBuilder.step"), 1);
+  assert.equal(run.element("lb-product-error").textContent, "Choose at least one product to continue.");
+
+  run("lbGoToStep(2)");
+  assert.equal(run("labBuilder.step"), 1, "cannot jump past Step 1 without selecting a product");
+});
+
+test("selecting SharePoint AI alone selects only SharePoint AI and never auto-includes Copilot Studio", async () => {
+  const run = loadWizard();
+  run("lbToggleProduct('sharepoint-ai', true)");
+  await new Promise((r) => setTimeout(r, 20));
+
+  assert.deepEqual(JSON.parse(run("JSON.stringify([...labBuilder.selectedProducts])")), ["sharepoint-ai"]);
+  assert.deepEqual(JSON.parse(run("JSON.stringify(lbRequest().products)")), ["sharepoint-ai"]);
+  assert.equal(run("lbProductsLabel()"), "SharePoint AI");
+  assert.equal(run("lbHasHarnessProduct()"), false);
+  assert.equal(run.element("lb-start-over").hidden, false, "Start over appears as soon as a product is selected");
+  assert.match(run.element("lb-summary").innerHTML, /SharePoint AI · Cross-industry · All departments · Level 100 \(Beginner\)/);
+  assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio/);
 });
 
 test("the Harness step appears only when a selected product has harnesses", () => {
@@ -326,12 +385,71 @@ test("the Harness step appears only when a selected product has harnesses", () =
   assert.equal(run("lbRequest().harness"), "standard");
 });
 
-test("the last product cannot be cleared, and the product label names every selected product", () => {
+test("unchecking all products clears selectedProducts cleanly without calling recommend with empty products", async () => {
   const run = loadWizard();
-  run("lbToggleProduct('copilot-studio', false)");
+  run("lbToggleProduct('copilot-studio', true)");
+  await new Promise((r) => setTimeout(r, 20));
   assert.deepEqual(JSON.parse(run("JSON.stringify([...labBuilder.selectedProducts])")), ["copilot-studio"]);
+
+  const callsBeforeClear = run.recommendCalls.length;
+  run("lbToggleProduct('copilot-studio', false)");
+  await new Promise((r) => setTimeout(r, 20));
+
+  assert.deepEqual(JSON.parse(run("JSON.stringify([...labBuilder.selectedProducts])")), []);
+  assert.equal(run.element("lb-product-error").textContent, "");
+  assert.equal(run("labBuilder.rec"), null);
+  assert.equal(run.recommendCalls.length, callsBeforeClear, "no /api/lab-builder/recommend call is made with empty products");
+  assert.match(run.element("lb-summary").innerHTML, /No products selected yet/);
+
   run("labBuilder.selectedProducts = new Set(['sharepoint-ai', 'ai-foundry', 'copilot-studio'])");
   assert.equal(run("lbProductsLabel()"), "Copilot Studio, SharePoint AI, and Foundry");
+});
+
+test("lbStartNewLab clears carryover state back to a blank Step 1 while lbLoadSelections keeps legacy fallback", async () => {
+  const run = loadWizard();
+  run(`
+    labBuilder.industries = [{ id: "manufacturing", name: "Manufacturing" }];
+    labBuilder.roles = [{ id: "sales", name: "Sales" }];
+    labBuilder.harnesses = [{ id: "standard", name: "Standard harness", product: "copilot-studio" }];
+    labBuilder.selectedProducts = new Set(["copilot-studio", "sharepoint-ai"]);
+    labBuilder.industry = "manufacturing";
+    labBuilder.selectedRoles = new Set(["sales"]);
+    labBuilder.level = 200;
+    labBuilder.harness = "standard";
+    labBuilder.picked = new Set(["connector-tools"]);
+    labBuilder.excluded = new Set(["agent-instructions"]);
+    labBuilder.step = 6;
+    labBuilder.furthest = 6;
+  `);
+  await run("lbRefresh()");
+  assert.match(run.element("lb-summary").innerHTML, /Copilot Studio and SharePoint AI · Manufacturing · Departments: Sales · Level 200 \(Intermediate\)/);
+  assert.equal(run.element("lb-start-over").hidden, false);
+
+  const callsBeforeReset = run.recommendCalls.length;
+  await run("lbStartNewLab()");
+
+  assert.equal(run("labBuilder.step"), 1);
+  assert.equal(run("labBuilder.furthest"), 1);
+  assert.deepEqual(JSON.parse(run("JSON.stringify([...labBuilder.selectedProducts])")), []);
+  assert.equal(run("labBuilder.industry"), null);
+  assert.deepEqual(JSON.parse(run("JSON.stringify([...labBuilder.selectedRoles])")), []);
+  assert.equal(run("labBuilder.level"), 100);
+  assert.equal(run("labBuilder.picked"), null);
+  assert.equal(run("labBuilder.excluded.size"), 0);
+  assert.equal(run("labBuilder.rec"), null);
+  assert.equal(run.recommendCalls.length, callsBeforeReset, "resetting to 0 products does not call recommend");
+  assert.match(run.element("lb-summary").innerHTML, /No products selected yet/);
+  assert.equal(run.element("lb-start-over").hidden, true);
+  assert.ok(run.toasts.some((t) => t.msg === "Started a fresh lab. Choose one or more products to begin."));
+
+  // Legacy saved labs with no products array still fall back to Copilot Studio when edited.
+  await run(`lbLoadSelections({
+    labId: "legacy-lab",
+    title: "Legacy Lab",
+    selections: { industry: "manufacturing", roles: ["sales"], level: 200, harness: "standard", features: ["connector-tools"], excluded: [] }
+  })`);
+  assert.deepEqual(JSON.parse(run("JSON.stringify([...labBuilder.selectedProducts])")), ["copilot-studio"]);
+  assert.equal(run.element("lb-start-over").hidden, false);
 });
 
 // ── The rename ──────────────────────────────────────────────────────────────

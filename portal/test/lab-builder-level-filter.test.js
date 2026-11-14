@@ -264,6 +264,7 @@ function loadWizard() {
   vm.createContext(context);
   vm.runInContext(wizardSource, context);
   const run = (code) => vm.runInContext(code, context);
+  run("labBuilder.selectedProducts = new Set([LB_DEFAULT_PRODUCT]);");
   return { run, element, context };
 }
 

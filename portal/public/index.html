@@ -996,13 +996,22 @@
       font-size: 12px;
       margin-top: 10px;
     }
-    .lb-summary {
+    .lb-summary-bar {
       margin: 14px 0 0;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
       padding: 10px 12px;
       border: 1px solid var(--border);
       border-radius: 8px;
       background: var(--bg);
       font-size: 13px;
+    }
+    .lb-summary {
+      margin: 0;
+      flex: 1 1 260px;
     }
     .lb-pane h3:focus { outline: none; }
     .lb-pane h3:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 4px; }
@@ -1048,6 +1057,8 @@
     .lb-advanced summary:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
 
     /* ── Lab builder: previously generated labs ── */
+    .lb-gen-header { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 8px; }
+    .lb-gen-header h3 { margin: 0; }
     .lb-gen-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin: 0 0 10px; }
     .lb-gen-toolbar .form-group { flex: 1 1 220px; max-width: 360px; }
     .lb-gen-count { margin: 0 0 10px; font-size: 13px; color: var(--text-muted); min-height: 1.2em; }
@@ -2064,7 +2075,10 @@
                   <li><button type="button" class="lb-step" data-lb-step="8" onclick="lbGoToStep(8)" disabled><span aria-hidden="true">8</span> Generate</button></li>
                 </ol>
               </nav>
-              <p id="lb-summary" class="lb-summary" role="status" aria-live="polite">Your lab so far: loading...</p>
+              <div class="lb-summary-bar">
+                <p id="lb-summary" class="lb-summary" role="status" aria-live="polite">Your lab so far: loading...</p>
+                <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbStartNewLab()" hidden>Start over</button>
+              </div>
               <div id="lb-edit-banner" class="lb-edit-banner" hidden>
                 <span id="lb-edit-banner-text"></span>
                 <button type="button" class="btn btn-sm" id="lb-edit-banner-stop" onclick="lbStopEditing()">Stop editing this lab</button>
@@ -2075,7 +2089,7 @@
             <div class="panel lb-pane" id="lb-pane-1">
               <h3 id="lb-heading-1" tabindex="-1">Step 1 of 8: Which products is this lab about?</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                Choose one or more. A lab can combine products, for example SharePoint AI with Copilot Studio. Copilot Studio is the default.
+                Choose one or more products to include in this lab — for example, SharePoint AI on its own or combined with Copilot Studio.
               </p>
               <fieldset class="lb-fieldset">
                 <legend class="lb-legend">Products</legend>
@@ -2185,9 +2199,9 @@
               <p id="lb-learn-error" class="lb-error" role="alert"></p>
               <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;">
                 <label for="lb-topic-search" class="lb-inline-label">Search topics</label>
-                <input type="search" id="lb-topic-search" class="lb-search" placeholder="For example: skills, MCP" style="max-width: 280px;">
+                <input type="search" id="lb-topic-search" class="lb-search" autocomplete="off" placeholder="For example: skills, MCP" style="max-width: 280px;">
                 <label for="lb-topic-filter" class="lb-inline-label">Show</label>
-                <select id="lb-topic-filter" class="lb-filter">
+                <select id="lb-topic-filter" class="lb-filter" autocomplete="off">
                   <option value="all">All topics</option>
                   <option value="new">New from Learn</option>
                   <option value="updated">Updated</option>
@@ -2217,25 +2231,25 @@
                 <div class="form-grid">
                   <div class="form-group">
                     <label for="lb-time">Preferred length per lab (minutes, optional)</label>
-                    <input type="number" id="lb-time" min="1" step="15" placeholder="About 240">
+                    <input type="number" id="lb-time" min="1" step="15" autocomplete="off" placeholder="About 240">
                     <small style="color: var(--text-muted);">Guidance only. Nothing is removed: every topic you choose stays in the lab. If it runs longer, we suggest where you could split it.</small>
                   </div>
                   <div class="form-group">
                     <label for="lb-agent-name">Agent name (optional)</label>
-                    <input type="text" id="lb-agent-name" placeholder="Uses an industry default">
+                    <input type="text" id="lb-agent-name" autocomplete="off" placeholder="Uses an industry default">
                   </div>
                   <div class="form-group">
                     <label for="lb-title">Lab title (optional)</label>
-                    <input type="text" id="lb-title" placeholder="Generated from your selections">
+                    <input type="text" id="lb-title" autocomplete="off" placeholder="Generated from your selections">
                   </div>
                 </div>
                 <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
                   <label style="display: flex; gap: 8px; align-items: center;">
-                    <input type="checkbox" id="lb-use-learn" checked>
+                    <input type="checkbox" id="lb-use-learn" autocomplete="off" checked>
                     Ground every module against Microsoft Learn and read the vendor specifications it cites (recommended)
                   </label>
                   <label style="display: flex; gap: 8px; align-items: center;">
-                    <input type="checkbox" id="lb-use-llm" checked>
+                    <input type="checkbox" id="lb-use-llm" autocomplete="off" checked>
                     Use a language model for scenario narrative when one is configured
                   </label>
                 </div>
@@ -2257,14 +2271,14 @@
                 <legend class="lb-legend" id="lb-save-mode-legend">How should this be saved?</legend>
                 <div class="scenario-role-list">
                   <label class="scenario-role">
-                    <input type="radio" name="lb-save-mode" value="new" checked>
+                    <input type="radio" autocomplete="off" name="lb-save-mode" value="new" checked>
                     <span>
                       <span style="font-weight: 600;">Save as a new lab</span>
                       <div class="scenario-card-desc">Keeps the original lab as it is. This is the default.</div>
                     </span>
                   </label>
                   <label class="scenario-role">
-                    <input type="radio" name="lb-save-mode" value="replace">
+                    <input type="radio" autocomplete="off" name="lb-save-mode" value="replace">
                     <span>
                       <span style="font-weight: 600;">Replace <span id="lb-save-mode-title"></span></span>
                       <div class="scenario-card-desc">Deletes the original after the new lab is built. If the build fails or is canceled, the original stays. Notes carry over.</div>
@@ -2289,7 +2303,10 @@
             </div>
 
             <section class="panel" aria-labelledby="lb-generated-heading">
-              <h3 id="lb-generated-heading" tabindex="-1">🗂️ Previously generated labs</h3>
+              <div class="lb-gen-header">
+                <h3 id="lb-generated-heading" tabindex="-1">🗂️ Previously generated labs</h3>
+                <button type="button" class="btn btn-sm" id="lb-gen-start-new" data-gen-action="new">Start new lab</button>
+              </div>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 Open, export (ZIP or Markdown), print/save as PDF, validate, edit selections and rebuild, rename, or delete a generated lab.
                 These are labs you built here; the hand-written labs are never changed.
@@ -2301,7 +2318,7 @@
                 </div>
                 <div class="form-group">
                   <label for="lb-gen-sort">Sort by</label>
-                  <select id="lb-gen-sort">
+                  <select id="lb-gen-sort" autocomplete="off">
                     <option value="newest">Newest first</option>
                     <option value="oldest">Oldest first</option>
                     <option value="title">Title (A to Z)</option>

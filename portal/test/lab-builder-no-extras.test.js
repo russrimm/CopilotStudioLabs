@@ -139,6 +139,7 @@ function loadWizard() {
   };
   vm.createContext(context);
   vm.runInContext(source, context);
+  vm.runInContext("labBuilder.selectedProducts = new Set([LB_DEFAULT_PRODUCT]);", context);
   return { run: (code) => vm.runInContext(code, context), element };
 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));

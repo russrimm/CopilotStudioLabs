@@ -309,7 +309,8 @@ test("unchecking a required prerequisite explains which selected topic depends o
 
   const { LB_STEP, labBuilder, lbSetTopic, lbSetPrerequisite, lbRefresh } = context.__wizard;
   labBuilder.catalog = getCatalog();
-  labBuilder.products = ["copilot-studio"];
+  labBuilder.products = [{ id: "copilot-studio", name: "Microsoft Copilot Studio", shortName: "Copilot Studio", hasHarnesses: true }];
+  labBuilder.selectedProducts = new Set(["copilot-studio"]);
   labBuilder.harness = "standard";
   labBuilder.level = dependent.level;
   labBuilder.step = LB_STEP.topics;

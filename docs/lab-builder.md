@@ -185,10 +185,12 @@ arrow, Home, and End keys move among the tabs of the current area.
 1. Start the portal: `cd portal && npm install && npm start`.
 2. Open the portal; it lands on **🧬 Build a Lab**.
 3. Answer one question per step, in this order:
-   1. **Product** (any number). Copilot Studio is the default, so the wizard behaves as
-      it always did until you pick another. A lab can combine products, for example
-      SharePoint AI with Copilot Studio. Each product shows how many topics it has at
-      each level and links to its Microsoft Learn hub. See [Products](#products).
+   1. **Product** (one or more). Nothing is pre-selected on load: pick the product(s)
+      you are teaching — for example SharePoint AI alone, Copilot Studio alone, or both
+      together. Use **Start over** in the summary bar (or **Start new lab** under
+      *Previously generated labs*) at any time to clear your selections and start fresh.
+      Each product shows how many topics it has at each level and links to its Microsoft
+      Learn hub. See [Products](#products).
    2. **Vertical** (industry). Cross-industry is the default.
    3. **Departments** (any number, optional).
    4. **Level**: 100 Beginner, 200 Intermediate, or 300 Advanced. This is the single

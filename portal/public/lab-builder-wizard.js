@@ -30,8 +30,8 @@ const labBuilder = {
   harnesses: [],
   levels: [],
   industry: null,
-  // Copilot Studio is the default, so the wizard behaves as it always did until another product is chosen.
-  selectedProducts: new Set([LB_DEFAULT_PRODUCT]),
+  // Start with no products selected so learners explicitly choose the product(s) for their lab.
+  selectedProducts: new Set(),
   selectedRoles: new Set(),
   level: 100,
   harness: "standard",
@@ -90,8 +90,16 @@ function lbHarnessOwner(harnessId) {
 
 /** The products picked in the first step, in catalog order. */
 function lbSelectedProductList() {
-  const known = labBuilder.products.filter((p) => labBuilder.selectedProducts.has(p.id));
-  return known.length ? known : [{ id: LB_DEFAULT_PRODUCT, name: "Microsoft Copilot Studio", shortName: "Copilot Studio", hasHarnesses: true }];
+  if (!labBuilder.selectedProducts.size) return [];
+  const catalogProducts = labBuilder.products.filter((p) => p && typeof p === "object" && p.id);
+  if (catalogProducts.length) {
+    return catalogProducts.filter((p) => labBuilder.selectedProducts.has(p.id));
+  }
+  return [...labBuilder.selectedProducts].map((id) =>
+    id === LB_DEFAULT_PRODUCT
+      ? { id, name: "Microsoft Copilot Studio", shortName: "Copilot Studio", hasHarnesses: true }
+      : { id, name: id, shortName: id, hasHarnesses: false }
+  );
 }
 
 /** A harness only exists for a product that has harnesses; the harness step and its answers apply only then. */
@@ -119,7 +127,8 @@ function lbJoinNames(names) {
 }
 
 function lbProductsLabel() {
-  return lbJoinNames(lbSelectedProductList().map((p) => p.shortName || p.name));
+  const names = lbSelectedProductList().map((p) => p.shortName || p.name);
+  return names.length ? lbJoinNames(names) : "No products selected";
 }
 
 function lbLevelLabel(level) {
@@ -157,10 +166,17 @@ async function lbRecommend(extra = {}) {
 
 /** Recompute the recommendation for the current answers and the learner's own picks. */
 async function lbRefresh() {
-  const extra = { excluded: [...labBuilder.excluded] };
-  if (labBuilder.picked) extra.selected = [...labBuilder.picked];
   const token = Symbol("refresh");
   labBuilder.refreshToken = token;
+  if (!lbSelectedProductList().length) {
+    labBuilder.pendingUncheckIds = [];
+    labBuilder.rec = null;
+    lbRenderSummary();
+    if (labBuilder.step === LB_STEP.topics) lbRenderTopics();
+    return;
+  }
+  const extra = { excluded: [...labBuilder.excluded] };
+  if (labBuilder.picked) extra.selected = [...labBuilder.picked];
   try {
     const rec = await lbRecommend(extra);
     if (labBuilder.refreshToken !== token) return;
@@ -284,6 +300,7 @@ function lbRenderLevelNotice(restoredMessage) {
 }
 
 async function lbLoadCatalog() {
+  if (typeof lbGenBind === "function") lbGenBind();
   if (labBuilder.loaded) return;
   try {
     const res = await fetch("/api/lab-builder/features");
@@ -336,7 +353,7 @@ function lbRenderProducts() {
       const hub = lbLearnUrl(p.learnHubUrl);
       return `
       <label class="scenario-role">
-        <input type="checkbox" name="lb-product" value="${escapeHtml(p.id)}" ${checked ? "checked" : ""}>
+        <input type="checkbox" name="lb-product" value="${escapeHtml(p.id)}" autocomplete="off" ${checked ? "checked" : ""}>
         <span>
           <span style="font-weight: 600;">${escapeHtml(p.name)}</span>
           ${p.hasHarnesses ? '<span class="lb-badge">Has harnesses</span>' : ""}
@@ -357,13 +374,13 @@ function lbRenderProducts() {
 function lbToggleProduct(id, checked) {
   const error = document.getElementById("lb-product-error");
   if (error) error.textContent = "";
-  if (checked) labBuilder.selectedProducts.add(id);
-  else if (labBuilder.selectedProducts.size > 1) labBuilder.selectedProducts.delete(id);
-  else {
-    // A lab needs a product. Say so, and keep the last one selected.
-    if (error) error.textContent = "Choose at least one product. Select another product before you clear this one.";
-    lbRenderProducts();
-    return;
+  if (checked) {
+    labBuilder.selectedProducts.add(id);
+  } else {
+    labBuilder.selectedProducts.delete(id);
+    if (!labBuilder.selectedProducts.size) {
+      labBuilder.furthest = LB_STEP.product;
+    }
   }
   lbProductsChanged();
 }
@@ -422,7 +439,7 @@ function lbRenderRoles() {
     .map(
       (r) => `
       <label class="scenario-role">
-        <input type="checkbox" value="${escapeHtml(r.id)}" ${labBuilder.selectedRoles.has(r.id) ? "checked" : ""}>
+        <input type="checkbox" name="lb-role" value="${escapeHtml(r.id)}" autocomplete="off" ${labBuilder.selectedRoles.has(r.id) ? "checked" : ""}>
         <span>
           <span style="font-weight: 600;"><span aria-hidden="true">${escapeHtml(r.icon || "")}</span> ${escapeHtml(r.name)}</span>
           <div class="scenario-card-desc">${escapeHtml(r.description || "")}</div>
@@ -447,24 +464,26 @@ async function lbRenderLevels() {
   if (!el) return;
   const hint = {};
   const gaps = {};
-  try {
-    const recs = await Promise.all(labBuilder.levels.map((l) => lbRecommend({ level: l.level })));
-    labBuilder.levels.forEach((l, i) => {
-      const totals = recs[i].totals;
-      const recaps = totals.prerequisiteCount ? `, plus ${totals.prerequisiteCount} short prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
-      hint[l.level] = `About ${totals.selectedCount} topics at this level${recaps}, around ${totals.duration} (an estimate)`;
-      // A selected product with nothing at this level is named, so a short list is never a mystery.
-      gaps[l.level] = (recs[i].products || []).filter((p) => !p.atLevel).map((p) => p.shortName);
-    });
-  } catch {
-    /* the hint is a nicety; the choice still works without it */
+  if (lbSelectedProductList().length) {
+    try {
+      const recs = await Promise.all(labBuilder.levels.map((l) => lbRecommend({ level: l.level })));
+      labBuilder.levels.forEach((l, i) => {
+        const totals = recs[i].totals;
+        const recaps = totals.prerequisiteCount ? `, plus ${totals.prerequisiteCount} short prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
+        hint[l.level] = `About ${totals.selectedCount} topics at this level${recaps}, around ${totals.duration} (an estimate)`;
+        // A selected product with nothing at this level is named, so a short list is never a mystery.
+        gaps[l.level] = (recs[i].products || []).filter((p) => !p.atLevel).map((p) => p.shortName);
+      });
+    } catch {
+      /* the hint is a nicety; the choice still works without it */
+    }
   }
   const focused = el.contains(document.activeElement) ? document.activeElement.value : null;
   el.innerHTML = labBuilder.levels
     .map(
       (l) => `
       <label class="scenario-role">
-        <input type="radio" name="lb-level" value="${l.level}" ${labBuilder.level === l.level ? "checked" : ""}>
+        <input type="radio" name="lb-level" value="${l.level}" autocomplete="off" ${labBuilder.level === l.level ? "checked" : ""}>
         <span>
           <span style="font-weight: 600;">Level ${l.level}: ${escapeHtml(l.label)}</span>
           <div class="scenario-card-desc">${escapeHtml(l.description)}</div>
@@ -502,7 +521,7 @@ function lbRenderHarnesses() {
       const shown = atLevel + fromLearn;
       return `
       <label class="scenario-role ${unavailable ? "lb-unavailable" : ""}">
-        <input type="radio" name="lb-harness" value="${escapeHtml(h.id)}" ${labBuilder.harness === h.id ? "checked" : ""} ${unavailable ? "disabled" : ""}>
+        <input type="radio" name="lb-harness" value="${escapeHtml(h.id)}" autocomplete="off" ${labBuilder.harness === h.id ? "checked" : ""} ${unavailable ? "disabled" : ""}>
         <span>
           <span style="font-weight: 600;">${escapeHtml(h.name)}</span>
           <div class="scenario-card-desc">${escapeHtml(h.description)}</div>
@@ -543,7 +562,7 @@ function lbRenderDifferenceOptions() {
     .map(
       (h) => `
       <label class="scenario-role">
-        <input type="checkbox" value="${escapeHtml(h.id)}" ${chosen.has(h.id) ? "checked" : ""}>
+        <input type="checkbox" name="lb-differences" value="${escapeHtml(h.id)}" autocomplete="off" ${chosen.has(h.id) ? "checked" : ""}>
         <span><span style="font-weight: 600;">${escapeHtml(h.name)}</span></span>
       </label>`
     )
@@ -840,7 +859,7 @@ function lbLevelBadge(t) {
 function lbTopicCard(t) {
   return `
             <label class="lb-feature ${t.selected ? "checked" : ""}">
-              <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" ${t.selected ? "checked" : ""}
+              <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" autocomplete="off" ${t.selected ? "checked" : ""}
                      aria-describedby="lb-topic-desc-${escapeHtml(t.id)}">
               <span>
                 <span class="lb-feature-name">${escapeHtml(t.name)}${t.productName ? `<span class="lb-badge lb-badge-product">${escapeHtml(lbProduct(t.product)?.shortName || t.productName)}</span>` : ""}${lbLevelBadge(t)}<span class="lb-badge">about ${t.minutes} min</span>${
@@ -875,6 +894,10 @@ function lbRenderTopics() {
   const el = document.getElementById("lb-topic-groups");
   const rec = labBuilder.rec;
   if (!el) return;
+  if (!lbSelectedProductList().length) {
+    el.innerHTML = '<div class="scenario-empty">Choose at least one product in Step 1 to see available topics.</div>';
+    return;
+  }
   if (!rec) {
     el.innerHTML = '<div class="scenario-empty">Loading topics...</div>';
     return;
@@ -938,7 +961,7 @@ function lbRenderTopics() {
             .map(
               (p) => `
             <label class="lb-feature ${p.selected ? "checked" : ""}">
-              <input type="checkbox" data-prerequisite="${escapeHtml(p.id)}" ${p.selected ? "checked" : ""} aria-describedby="lb-prereq-desc-${escapeHtml(p.id)}">
+              <input type="checkbox" data-prerequisite="${escapeHtml(p.id)}" autocomplete="off" ${p.selected ? "checked" : ""} aria-describedby="lb-prereq-desc-${escapeHtml(p.id)}">
               <span>
                 <span class="lb-feature-name">${escapeHtml(p.name)}<span class="lb-badge">Level ${p.level}</span><span class="lb-badge">Prerequisite recap</span><span class="lb-badge">about ${p.minutes} min</span></span>
                 <span id="lb-prereq-desc-${escapeHtml(p.id)}" class="lb-feature-summary">${escapeHtml(p.summary)}</span>
@@ -1031,9 +1054,35 @@ function lbRenderTopics() {
 }
 
 // ── Summary and stepper ─────────────────────────────────────────────────────
+function lbHasProgress() {
+  return (
+    labBuilder.selectedProducts.size > 0 ||
+    labBuilder.industry !== null ||
+    labBuilder.selectedRoles.size > 0 ||
+    labBuilder.level !== 100 ||
+    labBuilder.harness !== "standard" ||
+    labBuilder.differencesFor !== null ||
+    labBuilder.picked !== null ||
+    labBuilder.excluded.size > 0 ||
+    labBuilder.furthest > 1 ||
+    labBuilder.step > 1 ||
+    labBuilder.editing !== null
+  );
+}
+
+function lbSyncResetButton() {
+  const btn = document.getElementById("lb-start-over");
+  if (btn) btn.hidden = !lbHasProgress();
+}
+
 function lbRenderSummary() {
+  lbSyncResetButton();
   const el = document.getElementById("lb-summary");
   if (!el) return;
+  if (!lbSelectedProductList().length) {
+    el.innerHTML = "<strong>Your lab so far:</strong> No products selected yet — choose one or more products in Step 1 to begin.";
+    return;
+  }
   const industry = labBuilder.industries.find((i) => i.id === labBuilder.industry);
   const departments = labBuilder.roles.filter((r) => labBuilder.selectedRoles.has(r.id)).map((r) => r.name);
   const parts = [
@@ -1063,7 +1112,7 @@ function lbRenderStepper() {
     if (item) item.hidden = !shown;
     const number = button.querySelector("span[aria-hidden]");
     if (number && shown) number.textContent = String(visible.indexOf(step) + 1);
-    const reachable = step <= labBuilder.furthest;
+    const reachable = step === LB_STEP.product || (labBuilder.selectedProducts.size > 0 && step <= labBuilder.furthest);
     button.disabled = !reachable;
     button.classList.toggle("active", step === labBuilder.step);
     button.classList.toggle("done", step < labBuilder.step);
@@ -1092,6 +1141,11 @@ function lbPrevStep() {
 
 function lbGoToStep(step) {
   step = Math.min(Math.max(step, 1), LB_STEPS.length);
+  if (step > LB_STEP.product && !labBuilder.selectedProducts.size) {
+    const error = document.getElementById("lb-product-error");
+    if (error) error.textContent = "Choose at least one product to continue.";
+    step = LB_STEP.product;
+  }
   // The harness step does not exist for a lab with no harness product: land on the step after it.
   if (step === LB_STEP.harness && !lbHasHarnessProduct()) step = LB_STEP.topics;
   if (step > LB_STEP.topics && !lbSelectedCount()) {
@@ -1106,6 +1160,7 @@ function lbGoToStep(step) {
     if (pane) pane.style.display = id === step ? "" : "none";
   }
   lbRenderStepper();
+  lbSyncResetButton();
   document.getElementById(`lb-heading-${step}`)?.focus();
   // The Level step's next button names whichever step follows it.
   const afterLevel = document.getElementById("lb-next-from-level");
@@ -1171,7 +1226,7 @@ function lbRenderAllSteps() {
 
 /** Back to the wizard's starting answers, without touching any saved lab. */
 function lbResetAnswers() {
-  labBuilder.selectedProducts = new Set([LB_DEFAULT_PRODUCT]);
+  labBuilder.selectedProducts = new Set();
   labBuilder.industry = null;
   labBuilder.selectedRoles = new Set();
   labBuilder.level = 100;
@@ -1180,24 +1235,41 @@ function lbResetAnswers() {
   labBuilder.picked = null;
   labBuilder.excluded = new Set();
   labBuilder.rec = null;
-  labBuilder.furthest = 1;
+  labBuilder.search = "";
+  labBuilder.filter = "all";
+  labBuilder.step = LB_STEP.product;
+  labBuilder.furthest = LB_STEP.product;
   labBuilder.levelNotice = null;
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
   lbRenderLevelNotice();
-  for (const [id, value] of [["lb-time", ""], ["lb-title", ""], ["lb-agent-name", ""], ["lb-use-learn", true], ["lb-use-llm", true]]) {
+  for (const id of ["lb-product-error", "lb-topic-error", "lb-learn-error"]) {
+    const errEl = document.getElementById(id);
+    if (errEl) errEl.textContent = "";
+  }
+  for (const [id, value] of [
+    ["lb-time", ""],
+    ["lb-title", ""],
+    ["lb-agent-name", ""],
+    ["lb-use-learn", true],
+    ["lb-use-llm", true],
+    ["lb-topic-search", ""],
+    ["lb-topic-filter", "all"],
+  ]) {
     lbSetFormValue(id, value);
   }
 }
 
 async function lbStartNewLab() {
-  setActiveTab("labbuilder");
-  await lbLoadCatalog();
+  if (typeof setActiveTab === "function") setActiveTab("labbuilder");
+  if (!labBuilder.loaded && !labBuilder.products.length) await lbLoadCatalog();
   lbStopEditing(true);
   lbResetAnswers();
   lbRenderAllSteps();
-  lbRefresh();
+  await lbRefresh();
   lbGoToStep(LB_STEP.product);
+  document.getElementById("lb-pane-1")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  toast("Started a fresh lab. Choose one or more products to begin.", "info");
 }
 
 /**
@@ -1214,9 +1286,9 @@ function lbSavedLevel(saved) {
 async function lbLoadSelections(lab) {
   const saved = lab?.selections;
   if (!saved) throw new Error("This lab has no saved selections.");
-  setActiveTab("labbuilder");
-  await lbLoadCatalog();
-  if (!labBuilder.loaded) throw new Error("The lab builder catalog is not available.");
+  if (typeof setActiveTab === "function") setActiveTab("labbuilder");
+  if (!labBuilder.loaded && !labBuilder.products.length) await lbLoadCatalog();
+  if (!labBuilder.loaded && !labBuilder.products.length) throw new Error("The lab builder catalog is not available.");
 
   const knownRoles = new Set(labBuilder.roles.map((r) => r.id));
   const industryKnown = labBuilder.industries.some((i) => i.id === saved.industry);
