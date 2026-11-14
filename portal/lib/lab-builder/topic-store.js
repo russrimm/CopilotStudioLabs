@@ -16,7 +16,8 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { readSnapshot, validateSnapshot, writeJsonAtomic, listHash } from "./topic-snapshot.js";
+import { listHash, readSnapshot, validateSnapshot, writeJsonAtomic } from "./topic-snapshot.js";
+import { consolidateSnapshot, resolveTopicAlias } from "./topic-consolidate.js";
 import { topicToFeature } from "./topic-feature.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -48,8 +49,8 @@ export function topicConfig(env = process.env) {
 /** The newest valid snapshot between the runtime cache and the committed baseline. */
 export function loadBest({ cachePath, snapshotPath }) {
   const candidates = [
-    { source: "cache", snapshot: readSnapshot(cachePath) },
-    { source: "snapshot", snapshot: readSnapshot(snapshotPath) },
+    { source: "cache", snapshot: consolidateSnapshot(readSnapshot(cachePath)) },
+    { source: "snapshot", snapshot: consolidateSnapshot(readSnapshot(snapshotPath)) },
   ].filter((entry) => entry.snapshot);
   candidates.sort((a, b) => Date.parse(b.snapshot.generatedAt) - Date.parse(a.snapshot.generatedAt));
   return candidates[0] || null;
@@ -67,7 +68,10 @@ function current() {
 
 /** Tests and the service use this to set or clear the in-memory view. Pass undefined to reload from disk. */
 export function setTopicSource(entry) {
-  override = entry;
+  override =
+    entry && entry.snapshot
+      ? { ...entry, snapshot: consolidateSnapshot(entry.snapshot, { syncCatalogCoverage: false }) }
+      : entry;
   loaded = null;
 }
 
@@ -79,13 +83,24 @@ export function resetTopicSource() {
 
 /** Topics found on Learn that the static catalog does not cover. */
 export function getNewTopics() {
-  return (current()?.snapshot.topics || []).filter((topic) => topic.status === "new");
+  return (current()?.snapshot?.topics || []).filter((topic) => topic.status === "new");
 }
 
-/** The feature for a discovered topic id, or null. Only topics that are new on Learn resolve. */
+/** Resolve a merged or catalog-covered `learn-*` topic id to its canonical id. */
+export function resolveLearnedTopicId(id, { harness = null, allowCoveredFeature = false } = {}) {
+  return resolveTopicAlias(id, {
+    topics: current()?.snapshot?.topics || [],
+    harness,
+    allowCoveredFeature,
+  });
+}
+
+/** The feature for a discovered topic id (including merged companion subtopic ids), or null. */
 export function getDynamicFeature(id) {
   if (typeof id !== "string" || !id.startsWith("learn-")) return null;
-  const topic = getNewTopics().find((entry) => entry.id === id);
+  const resolvedId = resolveLearnedTopicId(id);
+  if (!resolvedId) return null;
+  const topic = getNewTopics().find((entry) => entry.id === resolvedId);
   return topic ? topicToFeature(topic) : null;
 }
 

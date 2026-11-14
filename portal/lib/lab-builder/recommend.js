@@ -23,6 +23,7 @@ import { conceptProducts } from "./coverage.js";
 import { DEFAULT_PRODUCT, getProduct, getProducts, productHasHarnesses, productName, productOf } from "./products.js";
 import { DIFFICULTY_BY_LEVEL, formatDuration } from "./planner.js";
 import { getIndustries, getRoles } from "../scenarios.js";
+import { consolidateTopics, resolveTopicAlias } from "./topic-consolidate.js";
 import { topicToFeature } from "./topic-feature.js";
 import { UNCATEGORIZED } from "./topic-snapshot.js";
 import { atLevel, isLevel, levelName, PREREQ_RECAP_MINUTES } from "./levels.js";
@@ -133,9 +134,10 @@ export function recommend(answers = {}, learn = {}) {
   const learnNow = learn.now ?? Date.now();
   const updatedWithin = (learn.updatedWindowDays ?? 30) * DAY_MS;
   const isRecent = (day) => Boolean(day) && learnNow - Date.parse(`${day}T00:00:00Z`) <= updatedWithin;
+  const consolidatedTopics = consolidateTopics(learn.topics || []);
   const dynamicByConcept = new Map();
   const dynamicTopics = new Map();
-  for (const topic of learn.topics || []) {
+  for (const topic of consolidatedTopics) {
     if (topic.status !== "new" || features.has(topic.id)) continue;
     features.set(topic.id, topicToFeature(topic));
     dynamicTopics.set(topic.id, topic);
@@ -143,6 +145,10 @@ export function recommend(answers = {}, learn = {}) {
     if (!dynamicByConcept.has(concept)) dynamicByConcept.set(concept, []);
     dynamicByConcept.get(concept).push(topic.id);
   }
+  const canonicalizeTopicId = (id) =>
+    features.has(id)
+      ? id
+      : resolveTopicAlias(id, { topics: consolidatedTopics, harness, allowCoveredFeature: true }) || id;
   const checks = new Map((learn.checks || []).map((c) => [c.featureId, c]));
   const applies = (id) => {
     const f = features.get(id);
@@ -188,7 +194,8 @@ export function recommend(answers = {}, learn = {}) {
   // this level needs them.
   const offLevel = [];
   if (explicit) {
-    chosen = toIdList(answers.selected, "selected").filter((id) => {
+    const resolvedSelected = [...new Set(toIdList(answers.selected, "selected").map(canonicalizeTopicId))];
+    chosen = resolvedSelected.filter((id) => {
       const known = features.has(id);
       if (!known) warnings.push(`Unknown topic "${id}" was ignored.`);
       if (known && !inLevel(id) && !levelUnknown(id)) {
@@ -206,7 +213,7 @@ export function recommend(answers = {}, learn = {}) {
   // listed with the topic that needs them. A prerequisite the learner turned off
   // (`excluded`) stays off and only produces a warning: the lab then assumes
   // learners have already done it.
-  const excluded = new Set(toIdList(answers.excluded, "excluded"));
+  const excluded = new Set(toIdList(answers.excluded, "excluded").map(canonicalizeTopicId));
   for (const id of excluded) chosenSet.delete(id);
   const requiredBy = new Map();
   for (const id of chosenSet) {
@@ -259,7 +266,22 @@ export function recommend(answers = {}, learn = {}) {
       levelBasis: f.levelBasis || "declared",
       // `new` topics come from Learn and are not in the catalog; `updated` and `stale` flag a catalog topic whose docs changed or moved.
       learn: discovered
-        ? { status: "new", url: discovered.urls[0], lastSeen: discovered.lastSeen, updated: isRecent(discovered.changedAt) }
+        ? {
+            status: "new",
+            url: discovered.urls[0],
+            urls: discovered.urls,
+            ...(discovered.subtopics?.length
+              ? {
+                  subtopics: discovered.subtopics.map(({ id: subId, title, url }) => ({
+                    id: subId,
+                    title,
+                    url,
+                  })),
+                }
+              : {}),
+            lastSeen: discovered.lastSeen,
+            updated: isRecent(discovered.changedAt),
+          }
         : check?.status === "stale"
         ? { status: "stale", missing: check.missing }
         : check?.status === "updated" && isRecent(check.changedAt)

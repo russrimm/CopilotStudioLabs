@@ -33,6 +33,7 @@ import {
   topicId,
 } from "./topic-sanitize.js";
 import { DEFAULT_HARNESS_IDS, SNAPSHOT_SCHEMA_VERSION, UNCATEGORIZED, listHash } from "./topic-snapshot.js";
+import { consolidateTopics, isBoilerplateSummary } from "./topic-consolidate.js";
 import { conceptProducts } from "./coverage.js";
 import { DEFAULT_PRODUCT, getProduct, productOf } from "./products.js";
 
@@ -84,7 +85,7 @@ const CONCEPT_RULES = [
   ["skills", /\bskills?\b|prompt[- ](tool|node)|custom[- ]prompt/],
   ["memory", /\bmemory\b/],
   ["files-code", /created[- ]files|code[- ]interpreter|code[- ]execution|\bfiles?\b/],
-  ["subagents", /sub-?agents?|connected[- ]agents?|agent[- ]to[- ]agent|add[- ]agent/],
+  ["subagents", /sub-?agents?|connected[- ]agents?|agent[- ]to[- ]agent|add[- ](?:other[- ])?agents?|task[- ]agents?/],
   ["triggers", /\btriggers?\b/],
   ["workflows", /workflows?|\bflows?\b/],
   ["knowledge", /knowledge|sharepoint|foundry[- ]iq|grounding|generative[- ]answers/],
@@ -134,7 +135,7 @@ export function extractLinks(markdown, baseUrl) {
   return links;
 }
 
-function parsePage(markdown) {
+export function parsePage(markdown) {
   const lines = String(markdown || "").split(/\r?\n/);
   const titleIndex = lines.findIndex((line) => /^#\s+\S/.test(line));
   const rawTitle = titleIndex >= 0 ? lines[titleIndex].replace(/^#\s+/, "") : "";
@@ -144,7 +145,7 @@ function parsePage(markdown) {
     if (!text) continue;
     if (/^(#|>|\||!\[|[-*]\s|\d+\.\s|\[This article|(?:Note|Important|Tip|Caution|Warning|Applies to)\b)/i.test(text)) continue;
     const cleaned = cleanText(text, MAX_SUMMARY);
-    if (BOILERPLATE.test(cleaned)) continue;
+    if (BOILERPLATE.test(cleaned) || isBoilerplateSummary(cleaned)) continue;
     if (cleaned.length >= 40) {
       summary = cleaned;
       break;
@@ -158,7 +159,7 @@ function parsePage(markdown) {
 export function availabilityOf(rawTitle, head) {
   if (/\(retired\)|\(deprecated\)/i.test(rawTitle)) return "retired";
   if (/(this (feature|article|connector|capability)|it)\b.{0,40}\b(has been|was|is) (retired|deprecated)\b/i.test(head)) return "retired";
-  if (/\(preview\)/i.test(rawTitle) || /prerelease documentation/i.test(head)) return "preview";
+  if (/\(preview\)/i.test(rawTitle) || /\b(?:prerelease|preview) documentation\b/i.test(head)) return "preview";
   return null;
 }
 
@@ -176,7 +177,7 @@ export function harnessesFor({ url, title = "", hints = new Set() }) {
   const path = matchKey(new URL(url).pathname);
   const key = `${path} ${title}`.toLowerCase();
   if (/customer-conversation|customer conversation/.test(key)) found.add("customer-conversation");
-  else if (/\/(agents|workflows)-experience\//.test(path) || /\(microsoft copilot\)/i.test(title)) found.add("microsoft-copilot");
+  else if (/\/(agents|workflows)-experience\//.test(path) || /\(microsoft copilot\)|\bin the (?:microsoft|github) copilot harness\b/i.test(title)) found.add("microsoft-copilot");
   if (/standard harness/i.test(title)) found.add("standard");
   if (!found.size) found.add("standard");
   return DEFAULT_HARNESS_IDS.filter((id) => found.has(id));
@@ -418,8 +419,17 @@ export async function discoverSnapshot({
   // Topics from the last good run are re-read directly, so a search that happens to return different results
   // cannot make a topic flap in and out of the list. A topic leaves only when Learn says its page is gone.
   for (const before of previous?.topics || []) {
-    const url = before.urls?.[0];
-    if (url) addCandidate(url, { title: before.title, excerpt: before.summary, hints: new Set(before.harnesses), priority: 2, retain: true });
+    const subByUrl = new Map((before.subtopics || []).map((s) => [s.url, s]));
+    for (const url of before.urls || []) {
+      const sub = subByUrl.get(url);
+      addCandidate(url, {
+        title: sub?.title || before.title,
+        excerpt: sub?.summary || before.summary,
+        hints: new Set(before.harnesses),
+        priority: 2,
+        retain: true,
+      });
+    }
   }
 
   // C. The pages the catalog cites, to see which still exist and which changed.
@@ -447,7 +457,13 @@ export async function discoverSnapshot({
   }
 
   // E. Build topics.
-  const previousTopics = new Map((previous?.topics || []).map((t) => [t.id, t]));
+  const previousTopics = new Map();
+  for (const before of previous?.topics || []) {
+    previousTopics.set(before.id, before);
+    for (const sub of before.subtopics || []) {
+      if (!previousTopics.has(sub.id)) previousTopics.set(sub.id, { ...before, id: sub.id, contentHash: null });
+    }
+  }
   const topics = [];
   const seenIds = new Set();
   for (const candidate of candidates.values()) {
@@ -462,7 +478,7 @@ export async function discoverSnapshot({
     if (seenIds.has(id)) continue;
     seenIds.add(id);
 
-    const summary = parsed?.summary || candidate.excerpt || `${title}: see the linked Microsoft Learn article.`;
+    const summary = parsed?.summary || (!isBoilerplateSummary(candidate.excerpt) ? candidate.excerpt : "") || `${title}: see the linked Microsoft Learn article.`;
     const harnesses = productDef.hasHarnesses ? harnessesFor({ url: candidate.url, title: parsed?.rawTitle || title, hints: candidate.hints }) : [];
     const coveredBy = [...(featuresByPage.get(matchKey(candidate.url)) || [])];
     const conceptId = coveredBy.length ? conceptOfFeature.get(coveredBy[0]) || UNCATEGORIZED : conceptFor({ url: candidate.url, title });
@@ -483,7 +499,7 @@ export async function discoverSnapshot({
       level: levelFor({ url: candidate.url, conceptId }, levelsByConcept),
       firstSeen: before?.firstSeen || today,
       lastSeen: today,
-      changedAt: before && before.contentHash !== hash ? today : before?.changedAt ?? null,
+      changedAt: before?.contentHash && before.contentHash !== hash ? today : before?.changedAt ?? null,
       contentHash: hash,
     });
     if (topics.length >= limits.maxTopics) break;
@@ -491,11 +507,26 @@ export async function discoverSnapshot({
 
   // A partial run keeps what earlier runs knew instead of silently dropping it.
   if (ctx.partial) {
-    for (const before of previousTopics.values()) if (!seenIds.has(before.id)) topics.push(before);
+    for (const before of previous?.topics || []) {
+      const anySeen = seenIds.has(before.id) || (before.subtopics || []).some((s) => seenIds.has(s.id));
+      if (!anySeen) topics.push(before);
+    }
   }
   if (topics.length < limits.minTopics) {
     throw new DiscoveryError(`Only ${topics.length} topic(s) were found, which is too few to trust, so the list was not updated.`, "too-few");
   }
+
+  const consolidatedTopics = consolidateTopics(topics, {
+    catalogFeatures: features,
+    catalogConcepts: concepts,
+  }).map((topic) => {
+    const before = previous?.topics?.find((t) => t.id === topic.id);
+    if (!before) return topic;
+    return {
+      ...topic,
+      changedAt: before.contentHash !== topic.contentHash ? today : before.changedAt ?? null,
+    };
+  });
 
   // F. Catalog features checked against what Learn still serves.
   const previousChecks = new Map((previous?.catalog || []).map((c) => [c.featureId, c]));
@@ -523,7 +554,6 @@ export async function discoverSnapshot({
   const pageHashes = {};
   for (const [url, page] of [...ctx.pages].sort(([a], [b]) => a.localeCompare(b))) if (page.state === "ok" && normalizeLearnUrl(url) === url) pageHashes[url] = page.hash;
 
-  topics.sort((a, b) => a.id.localeCompare(b.id));
   const snapshot = {
     schemaVersion: SNAPSHOT_SCHEMA_VERSION,
     generatedAt: new Date(now()).toISOString(),
@@ -533,7 +563,7 @@ export async function discoverSnapshot({
     partial: Boolean(ctx.partial),
     partialReason: ctx.partial,
     stats: { calls: ctx.calls, errors: ctx.errors, pagesRead, searches: queries.length },
-    topics,
+    topics: consolidatedTopics,
     catalog: checks.sort((a, b) => a.featureId.localeCompare(b.featureId)),
     pageHashes,
   };

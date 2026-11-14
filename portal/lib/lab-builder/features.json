@@ -174,7 +174,9 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/authoring-first-bot",
-        "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-get-started"
+        "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-get-started",
+        "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-what-is-copilot-studio",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-overview"
       ],
       "lastVerified": "2026-11-12",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-first-bot",
@@ -566,7 +568,8 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent",
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-first-bot"
       ],
       "lastVerified": "2026-11-12",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent",
@@ -611,7 +614,9 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-publish-agent",
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/faqs-copilot-harness"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/faqs-copilot-harness",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-fundamentals-publish-channels",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview"
       ],
       "lastVerified": "2026-11-12",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-publish-agent",
@@ -1244,7 +1249,10 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-add-existing-copilot",
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-copilot-studio",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-sources-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-edit-source"
       ],
       "lastVerified": "2026-11-12",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-add-existing-copilot",
@@ -2500,7 +2508,8 @@
         "Copilot Studio add agent as tool delegation"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/add-agent-copilot-studio-agent"
+        "https://learn.microsoft.com/microsoft-copilot-studio/add-agent-copilot-studio-agent",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-add-other-agents"
       ],
       "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/add-agent-copilot-studio-agent",
@@ -2645,7 +2654,9 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-flow-create",
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-use-flow",
-        "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview"
+        "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-flow",
+        "https://learn.microsoft.com/microsoft-copilot-studio/flow-agent"
       ],
       "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-flow-create",
@@ -2821,7 +2832,9 @@
         "Copilot Studio workflow When an agent calls the flow"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-workflow"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-workflow",
+        "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/flow-agent",
+        "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/flows-overview"
       ],
       "lastVerified": "2026-11-12",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-add-workflow",
@@ -3112,7 +3125,9 @@
         "Copilot Studio activity trace Preview tab"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-test-bot",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-history"
       ],
       "lastVerified": "2026-11-12",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview",
@@ -3157,7 +3172,10 @@
         "Copilot Studio Evaluate tab test set General quality"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-intro"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-intro",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-create",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-results",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-view"
       ],
       "lastVerified": "2026-11-12",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/analytics-agent-evaluation-intro",
@@ -3387,7 +3405,9 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/power-platform/admin/prevent-data-loss",
-        "https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention"
+        "https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention",
+        "https://learn.microsoft.com/microsoft-copilot-studio/admin-data-loss-prevention",
+        "https://learn.microsoft.com/microsoft-copilot-studio/admin-dlp-troubleshooting"
       ],
       "lastVerified": "2026-11-14",
       "verifiedAgainst": "https://learn.microsoft.com/power-platform/admin/prevent-data-loss",
@@ -4335,7 +4355,8 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-select-agent-model",
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-agent-model-availability"
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-select-agent-model",
@@ -4397,7 +4418,8 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-tools-custom-agent",
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-overview"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/tools-manage"
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-tools-custom-agent",
@@ -4461,7 +4483,8 @@
       ],
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-add-other-agents",
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-connected"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-connected",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/manage-connected-agents"
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-connected",
@@ -5266,7 +5289,8 @@
       "docUrls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-connected-customer-conversation",
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-add-other-agents",
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/sub-agents-overview-customer-conversation"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/sub-agents-overview-customer-conversation",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/manage-connected-agents-customer-conversation"
       ],
       "lastVerified": "2026-11-13",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-connected-customer-conversation",

@@ -161,7 +161,7 @@
     {
       "id": "learn-admin-data-loss-prevention",
       "title": "Configure data policies for agents",
-      "summary": "This article includes information about Azure Bot Service skills , a code-based way to extend the capabilities of an agent in the standard harness. These skills shouldn't be confused with agentic skills in the Microsoft Copilot harness. Learn more about how to use agentic skills in Skills overview for agents.",
+      "summary": "By using Copilot Studio, you can quickly create and deploy high-value agents for your users that connect to many data sources and services. Data policies let you govern how agents connect and interact with data and services, both within and outside your organization.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/admin-data-loss-prevention"
       ],
@@ -170,8 +170,10 @@
       ],
       "conceptId": "governance",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "dlp-governance"
+      ],
       "level": 300,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -190,8 +192,10 @@
       ],
       "conceptId": "governance",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "dlp-governance"
+      ],
       "level": 300,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -319,8 +323,10 @@
       ],
       "conceptId": "workflows",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "agent-flows"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -376,7 +382,8 @@
       "title": "Hand off to a live agent",
       "summary": "By using Copilot Studio, you can configure your agent to hand off conversations to live agents seamlessly and contextually.",
       "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-hand-off"
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-hand-off",
+        "https://learn.microsoft.com/microsoft-copilot-studio/configure-generic-handoff"
       ],
       "harnesses": [
         "standard"
@@ -389,7 +396,15 @@
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
-      "contentHash": "6d16d73ba665255b"
+      "contentHash": "b8892cbbf15c18e8",
+      "subtopics": [
+        {
+          "id": "learn-configure-generic-handoff",
+          "title": "Configure handoff to any generic engagement hub",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/configure-generic-handoff",
+          "summary": "Copilot Studio enables you to hand off agent conversations seamlessly and contextually to a human agent through an engagement hub."
+        }
+      ]
     },
     {
       "id": "learn-advanced-use-pva-as-a-skill",
@@ -410,26 +425,6 @@
       "lastSeen": "2026-11-13",
       "changedAt": null,
       "contentHash": "3c6dde508ecf5a34"
-    },
-    {
-      "id": "learn-advanced-use-skills",
-      "title": "Use Azure Bot Service skills in Copilot Studio agents",
-      "summary": "This article includes information about Azure Bot Service skills , a code-based way to extend the capabilities of an agent in the standard harness. These skills shouldn't be confused with agentic skills in the Microsoft Copilot harness. Learn more about how to use agentic skills in Skills overview for agents.",
-      "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-use-skills"
-      ],
-      "harnesses": [
-        "standard"
-      ],
-      "conceptId": "skills",
-      "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 200,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "91b14765d696d486"
     },
     {
       "id": "learn-agent-extend-action-mcp",
@@ -679,8 +674,10 @@
       ],
       "conceptId": "testing",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-evaluate"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -743,8 +740,10 @@
       ],
       "conceptId": "testing",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-evaluate"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -763,8 +762,10 @@
       ],
       "conceptId": "testing",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-evaluate"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -884,7 +885,7 @@
     {
       "id": "learn-agents-experience-authoring-agent-model-availability",
       "title": "Model availability and controls (Microsoft Copilot)",
-      "summary": "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits. Learn more in Overview of usage-based billing.",
+      "summary": "Microsoft Copilot Studio supports multiple generative AI models with different capabilities, performance characteristics, and availability requirements. You can select a model for an agent that uses the Microsoft Copilot harness, and explore experimental and preview models before they become generally available.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-agent-model-availability"
       ],
@@ -893,8 +894,10 @@
       ],
       "conceptId": "model-orchestration",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-model-selection"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -913,8 +916,10 @@
       ],
       "conceptId": "create-agent",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-create-agent"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1034,7 +1039,7 @@
     {
       "id": "learn-agents-experience-authoring-share-agent",
       "title": "Share agents with other users and makers (Microsoft Copilot)",
-      "summary": "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits. Learn more in Overview of usage-based billing.",
+      "summary": "You can share your agents with others in your organization so they can see, test, and use your agents.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-share-agent"
       ],
@@ -1085,8 +1090,10 @@
       ],
       "conceptId": "testing",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-preview-test"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1160,7 +1167,7 @@
     {
       "id": "learn-agents-experience-build-new-agent",
       "title": "Create a new agent (Microsoft Copilot)",
-      "summary": "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits. Learn more in Overview of usage-based billing.",
+      "summary": "Agents powered by the Microsoft Copilot harness in Microsoft Copilot Studio use instructions written in natural language, knowledge, tools, and other components to reason over context and take action. In this article, you manually create an agent, save it, and configure its details.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent"
       ],
@@ -1206,46 +1213,8 @@
       "title": "Connect to Microsoft Copilot Studio with MCP",
       "summary": "Microsoft Copilot Studio MCP brings Copilot Studio tools into Model Context Protocol (MCP)-compatible CLIs, developer tools, and agentic interfaces. It provides a single entry point for working across the agent and automation lifecycle, from creation and configuration to testing, deployment, monitoring, and ongoing ma…",
       "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp"
-      ],
-      "harnesses": [
-        "microsoft-copilot"
-      ],
-      "conceptId": "mcp",
-      "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 200,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "21417290aa9106a2"
-    },
-    {
-      "id": "learn-agents-experience-copilot-studio-mcp-configure",
-      "title": "Configure access to Copilot Studio MCP",
-      "summary": "Configure access so your Model Context Protocol (MCP)-compatible client can launch the Copilot Studio MCP npm package and connect to the service. Installing or registering the server in a client doesn't grant permissions to an environment or authorize every action.",
-      "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp-configure"
-      ],
-      "harnesses": [
-        "microsoft-copilot"
-      ],
-      "conceptId": "mcp",
-      "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 200,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "248195e245c15e8b"
-    },
-    {
-      "id": "learn-agents-experience-copilot-studio-mcp-vscode-copilot-cli",
-      "title": "Connect to Copilot Studio MCP with Visual Studio Code and GitHub Copilot CLI",
-      "summary": "Add Copilot Studio MCP to Visual Studio Code or GitHub Copilot CLI by using the Microsoft-published npm package. Your client launches the server with npx and communicates with it over stdio. Sign in and select an environment to access the connected service's tools.",
-      "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp-configure",
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp-vscode-copilot-cli"
       ],
       "harnesses": [
@@ -1259,7 +1228,21 @@
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
-      "contentHash": "8c9756f0ca662ebf"
+      "contentHash": "b0dd1eb5f9a15408",
+      "subtopics": [
+        {
+          "id": "learn-agents-experience-copilot-studio-mcp-configure",
+          "title": "Configure access to Copilot Studio MCP",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp-configure",
+          "summary": "Configure access so your Model Context Protocol (MCP)-compatible client can launch the Copilot Studio MCP npm package and connect to the service. Installing or registering the server in a client doesn't grant permissions to an environment or authorize every action."
+        },
+        {
+          "id": "learn-agents-experience-copilot-studio-mcp-vscode-copilot-cli",
+          "title": "Connect to Copilot Studio MCP with Visual Studio Code and GitHub Copilot CLI",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp-vscode-copilot-cli",
+          "summary": "Add Copilot Studio MCP to Visual Studio Code or GitHub Copilot CLI by using the Microsoft-published npm package. Your client launches the server with npx and communicates with it over stdio. Sign in and select an environment to access the connected service's tools."
+        }
+      ]
     },
     {
       "id": "learn-agents-experience-created-files-overview",
@@ -1468,8 +1451,10 @@
       ],
       "conceptId": "knowledge",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-knowledge"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1488,8 +1473,10 @@
       ],
       "conceptId": "knowledge",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-knowledge"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1508,8 +1495,10 @@
       ],
       "conceptId": "knowledge",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-knowledge"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1550,8 +1539,10 @@
       ],
       "conceptId": "subagents",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-connected-agents"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1570,8 +1561,10 @@
       ],
       "conceptId": "subagents",
       "availability": "preview",
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "cc-connected-agent"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1684,8 +1677,10 @@
       ],
       "conceptId": "testing",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-preview-test"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1768,8 +1763,10 @@
       ],
       "conceptId": "publish",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-publish-agent"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -1858,8 +1855,10 @@
       ],
       "conceptId": "publish",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-publish-agent"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2265,7 +2264,7 @@
       "harnesses": [
         "microsoft-copilot"
       ],
-      "conceptId": "create-agent",
+      "conceptId": "subagents",
       "availability": null,
       "status": "new",
       "featureIds": [],
@@ -2400,8 +2399,10 @@
       ],
       "conceptId": "tools",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-tools"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2510,8 +2511,10 @@
       ],
       "conceptId": "create-agent",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "create-agent"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -2738,10 +2741,11 @@
       "contentHash": "594e8857747eeafc"
     },
     {
-      "id": "learn-analytics-transcripts-powerapps",
-      "title": "Understand downloaded conversation transcripts from Power Apps",
-      "summary": "You can view, export, and download transcripts of customer interactions with your agent in both Power Apps and Copilot Studio. The information that each app exports is slightly different.",
+      "id": "learn-analytics-transcripts-studio",
+      "title": "Understand downloaded session data from Copilot Studio",
+      "summary": "You can view, export, and download sessions of customer interactions with your agent in both Power Apps and Copilot Studio.",
       "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-transcripts-studio",
         "https://learn.microsoft.com/microsoft-copilot-studio/analytics-transcripts-powerapps"
       ],
       "harnesses": [
@@ -2755,27 +2759,15 @@
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
-      "contentHash": "dc920d0ae6dbfe78"
-    },
-    {
-      "id": "learn-analytics-transcripts-studio",
-      "title": "Understand downloaded session data from Copilot Studio",
-      "summary": "You can view, export, and download sessions of customer interactions with your agent in both Power Apps and Copilot Studio.",
-      "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-transcripts-studio"
-      ],
-      "harnesses": [
-        "standard"
-      ],
-      "conceptId": "monitor",
-      "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 200,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "bdfc675d026dcf70"
+      "contentHash": "ff8d5706c043b918",
+      "subtopics": [
+        {
+          "id": "learn-analytics-transcripts-powerapps",
+          "title": "Understand downloaded conversation transcripts from Power Apps",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/analytics-transcripts-powerapps",
+          "summary": "You can view, export, and download transcripts of customer interactions with your agent in both Power Apps and Copilot Studio. The information that each app exports is slightly different."
+        }
+      ]
     },
     {
       "id": "learn-authoring-add-other-agents",
@@ -2789,8 +2781,10 @@
       ],
       "conceptId": "create-agent",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "connected-agents"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -3016,7 +3010,8 @@
       "title": "Add an event trigger",
       "summary": "Event triggers allow your agent to react automatically when an event occurs in other systems. You can then define a specific flow of actions for the agent to take in response, or give your agent instructions for how to determine the best actions to take.",
       "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-trigger-event"
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-trigger-event",
+        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-triggers-about"
       ],
       "harnesses": [
         "standard"
@@ -3029,32 +3024,20 @@
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
-      "contentHash": "03b37dc3bf54e7a9"
-    },
-    {
-      "id": "learn-authoring-triggers-about",
-      "title": "Event trigger overview",
-      "summary": "Use event triggers to make custom agents perform actions or call topics in response to something happening. Unlike topic triggers, which require input from a user, event triggers allow an agent to act autonomously in response to the specified event.",
-      "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/authoring-triggers-about"
-      ],
-      "harnesses": [
-        "standard"
-      ],
-      "conceptId": "triggers",
-      "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 100,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "15c74da54148c413"
+      "contentHash": "e7c56e9a63ac88d4",
+      "subtopics": [
+        {
+          "id": "learn-authoring-triggers-about",
+          "title": "Event trigger overview",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/authoring-triggers-about",
+          "summary": "Use event triggers to make custom agents perform actions or call topics in response to something happening. Unlike topic triggers, which require input from a user, event triggers allow an agent to act autonomously in response to the specified event."
+        }
+      ]
     },
     {
       "id": "learn-billing-licensing",
       "title": "Licensing for agents powered by the standard harness",
-      "summary": "This article includes information about Azure Bot Service skills , a code-based way to extend the capabilities of an agent in the standard harness. These skills shouldn't be confused with agentic skills in the Microsoft Copilot harness. Learn more about how to use agentic skills in Skills overview for agents.",
+      "summary": "This article covers licensing details for agents powered by the standard harness, including Copilot Credits prepaid packs, pay-as-you-go meters, prepurchase plans, trial licenses, and Microsoft 365 Copilot entitlements.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing"
       ],
@@ -3078,26 +3061,7 @@
       "title": "Use code interpreter in a prompt to generate and execute Python code",
       "summary": "By using the code interpreter in Microsoft Copilot Studio and prompt builder prompts, makers can build AI agents that:",
       "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/code-interpreter-for-prompts"
-      ],
-      "harnesses": [
-        "standard"
-      ],
-      "conceptId": "files-code",
-      "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 200,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "87c0d5379675d4cb"
-    },
-    {
-      "id": "learn-code-interpreter-prompts-examples",
-      "title": "Use code interpreter in prompts examples",
-      "summary": "The following examples demonstrate the functionality of code interpreter for handling complex prompts.",
-      "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/code-interpreter-for-prompts",
         "https://learn.microsoft.com/microsoft-copilot-studio/code-interpreter-prompts-examples"
       ],
       "harnesses": [
@@ -3111,14 +3075,23 @@
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
-      "contentHash": "5fd83bf5bd9ea096"
+      "contentHash": "f98b7108cb65d948",
+      "subtopics": [
+        {
+          "id": "learn-code-interpreter-prompts-examples",
+          "title": "Use code interpreter in prompts examples",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/code-interpreter-prompts-examples",
+          "summary": "The following examples demonstrate the functionality of code interpreter for handling complex prompts."
+        }
+      ]
     },
     {
       "id": "learn-configuration-add-skills",
       "title": "Configure Azure Bot Service skills for use in Copilot Studio agents",
-      "summary": "This article includes information about Azure Bot Service skills , a code-based way to extend the capabilities of an agent in the standard harness. These skills shouldn't be confused with agentic skills in the Microsoft Copilot harness. Learn more about how to use agentic skills in Skills overview for agents.",
+      "summary": "Copilot Studio lets you extend your agent by using Azure Bot Service skills. If you already have agents built and deployed in your organization (using the Microsoft 365 Agents SDK or other pro-code tools), you can convert those bots into Azure Bot Service skills and register them in a Copilot Studio agent.",
       "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/configuration-add-skills"
+        "https://learn.microsoft.com/microsoft-copilot-studio/configuration-add-skills",
+        "https://learn.microsoft.com/microsoft-copilot-studio/advanced-use-skills"
       ],
       "harnesses": [
         "standard"
@@ -3131,7 +3104,15 @@
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
-      "contentHash": "d04d22413b87e8a4"
+      "contentHash": "1ada0473491cbe4f",
+      "subtopics": [
+        {
+          "id": "learn-advanced-use-skills",
+          "title": "Use Azure Bot Service skills in Copilot Studio agents",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/advanced-use-skills",
+          "summary": "Copilot Studio lets you extend your agent by using Azure Bot Service skills. If your organization already has deployed bots for specific scenarios (built by using pro-code tools, including the Microsoft 365 Agents SDK), you can convert these bots to Azure Bot Service skills and embed them within a Copilot Studio agent."
+        }
+      ]
     },
     {
       "id": "learn-configuration-authentication-azure-ad",
@@ -3198,26 +3179,6 @@
       "contentHash": "8149fc18a1c25d4b"
     },
     {
-      "id": "learn-configure-generic-handoff",
-      "title": "Configure handoff to any generic engagement hub",
-      "summary": "Copilot Studio enables you to hand off agent conversations seamlessly and contextually to a human agent through an engagement hub.",
-      "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/configure-generic-handoff"
-      ],
-      "harnesses": [
-        "standard"
-      ],
-      "conceptId": "uncategorized",
-      "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 200,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "6627641c3367f59b"
-    },
-    {
       "id": "learn-configure-sharing-agents-embedded-maker-credentials",
       "title": "Configure sharing agents with embedded maker credentials",
       "summary": "The Sharing agents with embedded maker credentials setting is an environment-level control for Microsoft Copilot Studio agents. It lets administrators warn makers about unsafe credential use or block unsafe sharing. Configure the setting in the Power Platform admin center.",
@@ -3260,12 +3221,12 @@
     {
       "id": "learn-create-automation-natural-language",
       "title": "Quickstart: Create an automated solution with natural language in the Microsoft Copilot harness (preview)",
-      "summary": "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits. Learn more in Overview of usage-based billing.",
+      "summary": "By using Copilot Studio, you can quickly and easily create automated solutions through a guided, no-code graphical experience. You don't need data scientists or developers.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/create-automation-natural-language"
       ],
       "harnesses": [
-        "standard"
+        "microsoft-copilot"
       ],
       "conceptId": "governance",
       "availability": "preview",
@@ -3309,8 +3270,10 @@
       ],
       "conceptId": "workflows",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "agent-flows"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -3396,8 +3359,10 @@
       ],
       "conceptId": "create-agent",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "create-agent"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -3494,7 +3459,8 @@
       "title": "Add Copilot connectors as a knowledge source",
       "summary": "When you build enterprise-level custom agents in Copilot Studio, you often need more than just Microsoft ecosystem data. You might also want to ground agents in enterprise knowledge stored in non-Microsoft systems. Copilot connectors make this functionality possible by indexing your organization's external data into M…",
       "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-connectors"
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-connectors",
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-graph-vs-power-platform-connectors"
       ],
       "harnesses": [
         "standard"
@@ -3507,7 +3473,15 @@
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
-      "contentHash": "c83def9d85020cc5"
+      "contentHash": "0185c958aa6372d2",
+      "subtopics": [
+        {
+          "id": "learn-knowledge-graph-vs-power-platform-connectors",
+          "title": "Copilot connectors versus Power Platform connectors as knowledge sources",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-graph-vs-power-platform-connectors",
+          "summary": "This article helps you understand and make informed decisions about integrating external knowledge sources into Copilot Studio agents. It provides a clear comparison between Copilot connectors (formerly Microsoft Graph connectors) and Power Platform connectors as knowledge sources in Copilot Studio."
+        }
+      ]
     },
     {
       "id": "learn-knowledge-copilot-studio",
@@ -3532,26 +3506,6 @@
       "lastSeen": "2026-11-13",
       "changedAt": null,
       "contentHash": "d5c97d91cdbf732a"
-    },
-    {
-      "id": "learn-knowledge-graph-vs-power-platform-connectors",
-      "title": "Copilot connectors versus Power Platform connectors as knowledge sources",
-      "summary": "This article helps you understand and make informed decisions about integrating external knowledge sources into Copilot Studio agents. It provides a clear comparison between Copilot connectors (formerly Microsoft Graph connectors) and Power Platform connectors as knowledge sources in Copilot Studio.",
-      "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-graph-vs-power-platform-connectors"
-      ],
-      "harnesses": [
-        "standard"
-      ],
-      "conceptId": "knowledge",
-      "availability": null,
-      "status": "new",
-      "featureIds": [],
-      "level": 100,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "0b318d2cf0d74e96"
     },
     {
       "id": "learn-knowledge-real-time-connectors",
@@ -3620,26 +3574,6 @@
       "contentHash": "e708090b0d65aaa0"
     },
     {
-      "id": "learn-mcp-certification",
-      "title": "Microsoft MCP server certification overview (preview)",
-      "summary": "This article contains Microsoft Copilot Studio preview documentation and is subject to change.",
-      "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/mcp-certification"
-      ],
-      "harnesses": [
-        "standard"
-      ],
-      "conceptId": "mcp",
-      "availability": "preview",
-      "status": "new",
-      "featureIds": [],
-      "level": 200,
-      "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "d268553baa1cce64"
-    },
-    {
       "id": "learn-mcp-create-new-server",
       "title": "Create a new Model Context Protocol (MCP) server",
       "summary": "Use MCP software development kits (SDKs) to set up an MCP server in one of the supported languages.",
@@ -3662,9 +3596,10 @@
     {
       "id": "learn-mcp-server-certification",
       "title": "Microsoft MCP server certification",
-      "summary": "Model Context Protocol (MCP) servers are services that provide tools and actions for Microsoft Copilot and other AI-powered experiences. To ensure external, third-party services are secure, reliable, and compliant, Microsoft requires that they undergo a certification process before being made available to all users. C…",
+      "summary": "Model Context Protocol (MCP) servers are services that provide tools and actions for Microsoft Copilot and other AI-powered experiences. To ensure external, third-party services are secure, reliable, and compliant, Microsoft requires that they undergo a certification process before being made available to all users.",
       "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/mcp-server-certification"
+        "https://learn.microsoft.com/microsoft-copilot-studio/mcp-server-certification",
+        "https://learn.microsoft.com/microsoft-copilot-studio/mcp-certification"
       ],
       "harnesses": [
         "standard"
@@ -3677,7 +3612,15 @@
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
       "changedAt": null,
-      "contentHash": "0ed58e6ece692962"
+      "contentHash": "87ee9bcfc253f87d",
+      "subtopics": [
+        {
+          "id": "learn-mcp-certification",
+          "title": "Microsoft MCP server certification overview (preview)",
+          "url": "https://learn.microsoft.com/microsoft-copilot-studio/mcp-certification",
+          "summary": "Model Context Protocol (MCP) servers provide tools and actions that agents can use across Microsoft Copilot and other AI-powered experiences. Certification gives customers and administrators confidence that an external service meets Microsoft expectations for reliability, security, and compliance."
+        }
+      ]
     },
     {
       "id": "learn-monitor-computer-use",
@@ -3848,7 +3791,7 @@
     {
       "id": "learn-publication-fundamentals-publish-channels",
       "title": "Key concepts - Publish and deploy your agent",
-      "summary": "This article includes information about Azure Bot Service skills , a code-based way to extend the capabilities of an agent in the standard harness. These skills shouldn't be confused with agentic skills in the Microsoft Copilot harness. Learn more about how to use agentic skills in Skills overview for agents.",
+      "summary": "By using Copilot Studio, you can publish agents that engage with your customers on multiple platforms or channels, such as live websites, mobile apps, Microsoft Copilot, and messaging platforms like Teams and Facebook.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels"
       ],
@@ -3890,7 +3833,7 @@
     {
       "id": "learn-requirements-licensing-gcc",
       "title": "Copilot Studio for US Government customers",
-      "summary": "This article includes information about Azure Bot Service skills , a code-based way to extend the capabilities of an agent in the standard harness. These skills shouldn't be confused with agentic skills in the Microsoft Copilot harness. Learn more about how to use agentic skills in Skills overview for agents.",
+      "summary": "This article is for US government customers who are deploying Copilot Studio as part of a Copilot Studio Government Community Cloud (GCC) plan. It provides an overview of features, compliance commitments, and service URLs that are specific to these plans.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/requirements-licensing-gcc"
       ],
@@ -3910,7 +3853,7 @@
     {
       "id": "learn-requirements-licensing-subscriptions",
       "title": "Get access to Copilot Studio",
-      "summary": "This article includes information about Azure Bot Service skills , a code-based way to extend the capabilities of an agent in the standard harness. These skills shouldn't be confused with agentic skills in the Microsoft Copilot harness. Learn more about how to use agentic skills in Skills overview for agents.",
+      "summary": "This article provides information about Copilot Studio licensing, standalone subscriptions, the Copilot Studio for Microsoft Teams plan, and signing up for an individual free trial.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/requirements-licensing-subscriptions"
       ],
@@ -3952,7 +3895,7 @@
     {
       "id": "learn-requirements-quotas",
       "title": "Quotas and limits",
-      "summary": "This article includes information about Azure Bot Service skills , a code-based way to extend the capabilities of an agent in the standard harness. These skills shouldn't be confused with agentic skills in the Microsoft Copilot harness. Learn more about how to use agentic skills in Skills overview for agents.",
+      "summary": "This article lists the quotas and limits for standard harness agents, including requests-per-minute quotas, Copilot Studio web app and Teams app limits, knowledge source limits, and required network services.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/requirements-quotas"
       ],
@@ -4094,7 +4037,7 @@
     {
       "id": "learn-upgrade-to-microsoft-copilot-from-standard-harness",
       "title": "Upgrade agents to the Microsoft Copilot harness (preview)",
-      "summary": "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits. Learn more in Overview of usage-based billing.",
+      "summary": "You can ask Copilot Studio to upgrade agents powered by the standard harness. The upgrade creates a copy of the agent onto the Microsoft Copilot harness, carrying over instructions, tools, and suggested prompts, and reports what was migrated or skipped.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-microsoft-copilot-from-standard-harness"
       ],
@@ -4244,7 +4187,7 @@
     {
       "id": "learn-workflows-experience-agent-node-workflow",
       "title": "Add an agent node to a workflow (Microsoft Copilot)",
-      "summary": "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits. Learn more in Overview of usage-based billing.",
+      "summary": "You can either pick an existing published agent or build a brand-new agent directly inside the workflow node without leaving the workflow designer. Inline agents are the fastest way to add AI to a workflow. Give the node an instruction, optionally attach tools and knowledge, and you're done.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/agent-node-workflow"
       ],
@@ -4264,7 +4207,7 @@
     {
       "id": "learn-workflows-experience-flow-agent",
       "title": "Add a workflow as a tool to an agent (Microsoft Copilot)",
-      "summary": "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits. Learn more in Overview of usage-based billing.",
+      "summary": "Workflows can be added to agents as tools to create larger automation scenarios.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/flow-agent"
       ],
@@ -4273,8 +4216,10 @@
       ],
       "conceptId": "workflows",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-workflows-tool"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -4284,7 +4229,7 @@
     {
       "id": "learn-workflows-experience-flow-designer",
       "title": "Edit and manage your workflow in the designer (Microsoft Copilot)",
-      "summary": "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits. Learn more in Overview of usage-based billing.",
+      "summary": "Create and edit workflows in the redesigned visual designer in Copilot Studio. The designer provides a canvas where you can build or edit an automation, add and remove actions, check for errors, and publish your workflow without leaving the designer.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/flow-designer"
       ],
@@ -4313,8 +4258,10 @@
       ],
       "conceptId": "workflows",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-workflows-tool"
+      ],
       "level": 100,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -4324,7 +4271,7 @@
     {
       "id": "learn-workflows-experience-microsoft-365-copilot-node-workflow",
       "title": "Add a Copilot node to a workflow (Microsoft Copilot)",
-      "summary": "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits. Learn more in Overview of usage-based billing.",
+      "summary": "The Copilot node lets a workflow run Copilot Chat or a Cowork task, grounded in the connected user's mail, files, calendar, chats, and other Microsoft 365 content. Use Chat for a quick answer, summary, or draft. Use Cowork to delegate complex work that spans apps, data, and artifacts.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow"
       ],
@@ -4353,7 +4300,7 @@
     {
       "featureId": "agent-flows",
       "status": "current",
-      "contentHash": "2c8c3a832476445b",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4423,7 +4370,7 @@
     {
       "featureId": "cc-connected-agent",
       "status": "current",
-      "contentHash": "beef9ef0afeed3c9",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4598,7 +4545,7 @@
     {
       "featureId": "connected-agents",
       "status": "current",
-      "contentHash": "c1a9b91dd64bffbf",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4619,7 +4566,7 @@
     {
       "featureId": "create-agent",
       "status": "current",
-      "contentHash": "39151efd13fac6e0",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4633,7 +4580,7 @@
     {
       "featureId": "dlp-governance",
       "status": "current",
-      "contentHash": "7f00d00816981c39",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4731,14 +4678,14 @@
     {
       "featureId": "mc-connected-agents",
       "status": "current",
-      "contentHash": "c04968456601b0d4",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
     {
       "featureId": "mc-create-agent",
       "status": "current",
-      "contentHash": "45cffba68068d839",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4759,7 +4706,7 @@
     {
       "featureId": "mc-evaluate",
       "status": "current",
-      "contentHash": "6cee3de5ca5bd8ad",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4794,7 +4741,7 @@
     {
       "featureId": "mc-knowledge",
       "status": "current",
-      "contentHash": "09c145ba19c3a0f7",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4808,7 +4755,7 @@
     {
       "featureId": "mc-model-selection",
       "status": "current",
-      "contentHash": "67d1f63ffd215244",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4822,14 +4769,14 @@
     {
       "featureId": "mc-preview-test",
       "status": "current",
-      "contentHash": "5f8c4c0ad7a7f80e",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
     {
       "featureId": "mc-publish-agent",
       "status": "current",
-      "contentHash": "034385afac30b764",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4850,7 +4797,7 @@
     {
       "featureId": "mc-tools",
       "status": "current",
-      "contentHash": "119b8325bc0bd3c4",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -4878,7 +4825,7 @@
     {
       "featureId": "mc-workflows-tool",
       "status": "current",
-      "contentHash": "12706646d20997a9",
+      "contentHash": "e3b0c44298fc1c14",
       "changedAt": null,
       "missing": []
     },
@@ -5292,6 +5239,6 @@
     "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm": "305628bca9c7ccdd",
     "https://learn.microsoft.com/microsoft-agent-365/admin/agent-365-overview": "c48f612a041f0226"
   },
-  "listHash": "4c068049b20a21d3",
+  "listHash": "33dc69efaaf3cb42",
   "endpoint": "https://learn.microsoft.com/api/mcp"
 }

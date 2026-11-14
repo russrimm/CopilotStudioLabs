@@ -1307,15 +1307,23 @@ and a content hash. Topics seen before are re-read directly, so a search that
 returns different results never makes a topic flap; a topic leaves the list only
 when Learn says its page no longer exists.
 
-**Classification.** Each discovered topic is `covered` when its page is one of a
+**Classification and consolidation** (`topic-consolidate.js`). Each discovered topic is `covered` when its page is one of a
 catalog feature's `docUrls` (a page that still uses the earlier harness name in
-its URL matches the renamed catalog page) and `new` otherwise. Each catalog feature
+its URL matches the renamed catalog page) and `new` otherwise. When Microsoft
+Learn splits one capability across an overview or conceptual article and a
+procedural or examples article within the same product and compatible harnesses
+(for example, `/mcp-certification` alongside `/mcp-server-certification`), the
+pages are consolidated into one canonical topic with up to five `urls` and
+`subtopics` metadata rather than separate cards. Consolidation also runs when
+reading cached snapshots from disk so older runtime caches stay deduplicated,
+and merged or newly covered `learn-*` IDs continue to resolve cleanly as aliases
+in recommendations, previews, and lab generation. Each catalog feature
 is checked the other way: `stale` when every one of its documentation pages is gone
 from Learn, `updated` when a page it cites changed since the last run.
 
 **In the wizard.** The Topics step shows new topics at their own level inside their concept group (or
 in "New from Learn: not yet grouped") with a **New from Learn** badge and a link to
-the source article; a topic whose level could not be resolved goes in the collapsed **Level unknown** group (see [The level filter](#the-level-filter)). Catalog topics whose documentation changed get **Updated**, and
+the source article (plus an **Includes:** line naming any combined companion guides); a topic whose level could not be resolved goes in the collapsed **Level unknown** group (see [The level filter](#the-level-filter)). Catalog topics whose documentation changed get **Updated**, and
 ones whose pages disappeared get **Docs moved**. A status line says when the list
 was last refreshed and from where; **Refresh from Microsoft Learn** re-reads it, and
 the **Show** filter narrows the list to new, updated, or moved topics. New topics

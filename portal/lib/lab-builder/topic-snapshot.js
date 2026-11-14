@@ -17,6 +17,7 @@ export const SNAPSHOT_SCHEMA_VERSION = 1;
 export const DEFAULT_HARNESS_IDS = ["standard", "microsoft-copilot", "customer-conversation"];
 export const UNCATEGORIZED = "uncategorized";
 export const MAX_TOPICS = 1000;
+export const MAX_URLS = 5;
 
 const ID = /^learn-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const HASH = /^[0-9a-f]{16}$/;
@@ -52,9 +53,35 @@ export function validateSnapshot(snapshot, { harnessIds = DEFAULT_HARNESS_IDS } 
     else seen.add(topic.id);
     if (typeof topic.title !== "string" || !topic.title.trim() || topic.title.length > MAX_TITLE) problems.push(`${label}: title must be 1-${MAX_TITLE} characters`);
     if (typeof topic.summary !== "string" || topic.summary.length > MAX_SUMMARY) problems.push(`${label}: summary must be at most ${MAX_SUMMARY} characters`);
-    if (!Array.isArray(topic.urls) || !topic.urls.length || topic.urls.length > 5) problems.push(`${label}: urls must list 1-5 Learn URLs`);
+    if (!Array.isArray(topic.urls) || !topic.urls.length || topic.urls.length > MAX_URLS) problems.push(`${label}: urls must list 1-${MAX_URLS} Learn URLs`);
     else if (topic.urls.some((url) => normalizeLearnUrl(url) !== url)) problems.push(`${label}: every url must be a canonical https learn.microsoft.com URL`);
     else if (typeof topic.id === "string" && topic.id.length <= 80 && topicId(topic.urls[0]) !== topic.id) problems.push(`${label}: id does not match its first url`);
+    if (topic.subtopics !== undefined) {
+      if (!Array.isArray(topic.subtopics) || !topic.subtopics.length || topic.subtopics.length > MAX_URLS - 1) {
+        problems.push(`${label}: subtopics must list 1-${MAX_URLS - 1} merged Learn pages`);
+      } else {
+        topic.subtopics.forEach((sub, subIdx) => {
+          const subLabel = `${label}.subtopics[${subIdx}]`;
+          if (!sub || typeof sub !== "object" || Array.isArray(sub)) {
+            problems.push(`${subLabel}: must be an object`);
+            return;
+          }
+          if (typeof sub.url !== "string" || normalizeLearnUrl(sub.url) !== sub.url) {
+            problems.push(`${subLabel}: url must be a canonical https learn.microsoft.com URL`);
+          } else if (Array.isArray(topic.urls) && !topic.urls.includes(sub.url)) {
+            problems.push(`${subLabel}: url must also appear in topic.urls`);
+          } else if (typeof sub.id !== "string" || topicId(sub.url) !== sub.id) {
+            problems.push(`${subLabel}: id must match topicId(url)`);
+          }
+          if (typeof sub.title !== "string" || !sub.title.trim() || sub.title.length > MAX_TITLE) {
+            problems.push(`${subLabel}: title must be 1-${MAX_TITLE} characters`);
+          }
+          if (sub.summary !== undefined && (typeof sub.summary !== "string" || sub.summary.length > MAX_SUMMARY)) {
+            problems.push(`${subLabel}: summary must be at most ${MAX_SUMMARY} characters`);
+          }
+        });
+      }
+    }
     // A topic of a product without harnesses (it names its `product`) has no harnesses; a Copilot Studio topic must name at least one.
     const harnessless = typeof topic.product === "string" && topic.product !== "copilot-studio";
     if (!Array.isArray(topic.harnesses) || (!harnessless && !topic.harnesses.length) || topic.harnesses.some((h) => !harnessIds.includes(h))) {

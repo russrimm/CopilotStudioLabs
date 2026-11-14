@@ -491,6 +491,28 @@ export function scoreProcedure(procedure, feature, position = 0) {
   // are variants and edge cases. Small enough only to break a near-tie.
   const order = 0.02 * (1 - position);
 
+  // Discovered Learn topics (`feature.learnTopic`) have no curated step list:
+  // their `feature.steps` is a single `[Unverified]` fallback placeholder whose
+  // bolded label is the article title rather than UI screen labels. Score them
+  // against the topic's own title, summary, and merged subtopic titles plus
+  // UI-action density so procedural companion pages derive cleanly.
+  if (feature.learnTopic) {
+    const subtopicText = (feature.learnTopic.subtopics || [])
+      .map((sub) => `${sub.title || ""} ${sub.summary || ""}`)
+      .join(" ");
+    const topicTokens = tokens([feature.name, feature.summary, subtopicText].join(" "));
+    const actionItems = procedure.items.filter((item) => {
+      const joined = item.join(" ");
+      return /\*\*[^*]{1,80}\*\*/.test(joined) || ACTION_BULLET_RE.test(joined.trim());
+    }).length;
+    const actionDensity = count ? actionItems / count : 0;
+    const topicCoverage = coverage(topicTokens, procedureTokens);
+    const learnHeadingScore = overlap(tokens(procedure.heading), topicTokens);
+    return clamp(
+      0.35 * actionDensity + 0.25 * topicCoverage + 0.25 * learnHeadingScore + 0.15 * shape - penalty + order,
+    );
+  }
+
   return clamp(
     0.45 * labelCoverage + 0.2 * bodyCoverage + 0.2 * headingScore + 0.15 * shape - penalty + order,
   );

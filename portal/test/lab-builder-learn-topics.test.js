@@ -15,7 +15,14 @@ import {
   discoverSnapshot,
   extractLinks,
   harnessesFor,
+  parsePage,
 } from "../lib/lab-builder/topic-discovery.js";
+import {
+  consolidateSnapshot,
+  consolidateTopics,
+  isBoilerplateSummary,
+  resolveTopicAlias,
+} from "../lib/lab-builder/topic-consolidate.js";
 import { cleanText, normalizeLearnUrl, topicId } from "../lib/lab-builder/topic-sanitize.js";
 import { listHash, summarize, validateSnapshot } from "../lib/lab-builder/topic-snapshot.js";
 import { createTopicService, resetTopicSource, setTopicSource, topicConfig } from "../lib/lab-builder/topic-store.js";
@@ -692,5 +699,326 @@ test("the wizard renders Learn badges as text, announces refresh status, and esc
   assert.match(wizard, /aria-busy/);
   assert.match(wizard, /Last refreshed from Microsoft Learn/);
   assert.match(wizard, /startsWith\("https:\/\/learn\.microsoft\.com\/"\)/);
+  assert.match(wizard, /lbTopicSubtopicsNote/);
+  assert.match(wizard, /Includes:/);
   assert.doesNotMatch(wizard, /innerHTML\s*=\s*[^;]*\b(learn\.lastError|data\.error)\b/);
+});
+
+test("parsePage skips multi-paragraph preview, billing, and skills disclaimers to extract the real summary", () => {
+  const mcpOverview = parsePage(
+    [
+      "# Microsoft MCP server certification overview (preview)",
+      "",
+      "[This article is prerelease documentation and is subject to change.]",
+      "",
+      "Important",
+      "",
+      "This article contains Microsoft Copilot Studio preview documentation and is subject to change.",
+      "",
+      "Preview features aren't meant for production use and may have restricted functionality.",
+      "",
+      "If you're building a production-ready agent, see [Microsoft Copilot Studio Overview](fundamentals-what-is-copilot-studio).",
+      "",
+      "Model Context Protocol (MCP) servers provide tools and actions that agents can use across Microsoft Copilot.",
+    ].join("\n"),
+    `${BASE}/mcp-certification`,
+  );
+  assert.equal(
+    mcpOverview.summary,
+    "Model Context Protocol (MCP) servers provide tools and actions that agents can use across Microsoft Copilot.",
+  );
+  assert.equal(isBoilerplateSummary(mcpOverview.summary), false);
+  assert.equal(
+    availabilityOf("Microsoft MCP server certification", "This article contains Microsoft Copilot Studio preview documentation."),
+    "preview",
+  );
+
+  const billingBannerPage = parsePage(
+    [
+      "# Share agents with other users and makers (Microsoft Copilot)",
+      "",
+      "The harness used to build this agent uses usage-based billing. Using, building, testing, and evaluating agents might consume Copilot Credits.",
+      "",
+      "This article includes information about Azure Bot Service skills, a code-based way to extend the capabilities of an agent in the standard harness. These skills shouldn't be confused with agentic skills in the Microsoft Copilot harness.",
+      "",
+      "You can share your agents with others in your organization so they can see, test, and use your agents.",
+    ].join("\n"),
+    `${BASE}/agents-experience/authoring-share-agent`,
+  );
+  assert.equal(
+    billingBannerPage.summary,
+    "You can share your agents with others in your organization so they can see, test, and use your agents.",
+  );
+});
+
+test("discovery consolidates duplicate and overview-companion Learn pages without merging distinct topics", async (t) => {
+  const site = {
+    ...defaultSite(),
+    [HUB]: hubPage(
+      [
+        "- [Microsoft MCP server certification overview (preview)](mcp-certification)",
+        "- [Microsoft MCP server certification](mcp-server-certification)",
+        "- [Create a new Model Context Protocol (MCP) server](mcp-create-new-server)",
+        "- [Widget trigger overview](authoring-widget-triggers-overview)",
+        "- [Add a widget trigger](authoring-widget-triggers)",
+      ].join("\n"),
+    ),
+    "/microsoft-copilot-studio/mcp-certification": [
+      "# Microsoft MCP server certification overview (preview)",
+      "",
+      "This article contains Microsoft Copilot Studio preview documentation and is subject to change.",
+      "",
+      "Preview features aren't meant for production use and may have restricted functionality.",
+      "",
+      "Certification gives customers confidence that an external MCP service meets security and reliability standards.",
+    ].join("\n"),
+    "/microsoft-copilot-studio/mcp-server-certification": page(
+      "Microsoft MCP server certification",
+      "To ensure external MCP servers are secure, reliable, and compliant, Microsoft requires certification before broad availability.",
+    ),
+    "/microsoft-copilot-studio/mcp-create-new-server": page(
+      "Create a new Model Context Protocol (MCP) server",
+      "Use the MCP creation wizard in Copilot Studio to expose connectors and actions as a new MCP server.",
+    ),
+    "/microsoft-copilot-studio/authoring-widget-triggers-overview": page(
+      "Widget trigger overview",
+      "Widget triggers start an agent topic when a host application fires a custom widget event.",
+    ),
+    "/microsoft-copilot-studio/authoring-widget-triggers": page(
+      "Add a widget trigger",
+      "Configure a widget trigger on your agent so external widget events invoke your automation.",
+    ),
+  };
+
+  const { snapshot } = await discover(t, site);
+  assert.deepEqual(validateSnapshot(snapshot), []);
+
+  const byId = new Map(snapshot.topics.map((topic) => [topic.id, topic]));
+  assert.equal(byId.has("learn-mcp-certification"), false);
+  assert.equal(byId.has("learn-authoring-widget-triggers-overview"), false);
+
+  const cert = byId.get("learn-mcp-server-certification");
+  assert.ok(cert);
+  assert.deepEqual(cert.urls, [`${BASE}/mcp-server-certification`, `${BASE}/mcp-certification`]);
+  assert.equal(cert.subtopics.length, 1);
+  assert.equal(cert.subtopics[0].id, "learn-mcp-certification");
+  assert.equal(cert.subtopics[0].title, "Microsoft MCP server certification overview (preview)");
+  assert.equal(isBoilerplateSummary(cert.summary), false);
+
+  // Genuinely distinct MCP capability stays its own topic.
+  assert.ok(byId.has("learn-mcp-create-new-server"));
+
+  // Unseen overview + procedural pair merges via the conservative stem heuristic.
+  const widget = byId.get("learn-authoring-widget-triggers");
+  assert.ok(widget);
+  assert.deepEqual(widget.urls, [`${BASE}/authoring-widget-triggers`, `${BASE}/authoring-widget-triggers-overview`]);
+  assert.equal(widget.subtopics[0].id, "learn-authoring-widget-triggers-overview");
+});
+
+test("legacy unmerged caches consolidate on read and merged or covered IDs resolve cleanly as aliases", async (t) => {
+  const { snapshot: baseSnapshot } = await discover(t, defaultSite());
+  const legacySnapshot = {
+    ...baseSnapshot,
+    catalogVersion: "1.0.0",
+    topics: [
+      ...baseSnapshot.topics,
+      {
+        id: "learn-mcp-certification",
+        title: "Microsoft MCP server certification overview (preview)",
+        summary: "This article contains Microsoft Copilot Studio preview documentation and is subject to change.",
+        urls: [`${BASE}/mcp-certification`],
+        harnesses: ["standard"],
+        conceptId: "mcp",
+        availability: "preview",
+        status: "new",
+        featureIds: [],
+        level: 200,
+        firstSeen: "2026-11-13",
+        lastSeen: "2026-11-13",
+        changedAt: null,
+        contentHash: "1111111111111111",
+      },
+      {
+        id: "learn-mcp-server-certification",
+        title: "Microsoft MCP server certification",
+        summary: "Microsoft requires external MCP servers to complete certification before broad availability.",
+        urls: [`${BASE}/mcp-server-certification`],
+        harnesses: ["standard"],
+        conceptId: "mcp",
+        availability: null,
+        status: "new",
+        featureIds: [],
+        level: 200,
+        firstSeen: "2026-11-13",
+        lastSeen: "2026-11-13",
+        changedAt: null,
+        contentHash: "2222222222222222",
+      },
+      {
+        id: "learn-agents-experience-authoring-test-bot",
+        title: "Test your agent (Microsoft Copilot)",
+        summary: "Test your agent in the Preview pane before publishing.",
+        urls: [`${BASE}/agents-experience/authoring-test-bot`],
+        harnesses: ["microsoft-copilot"],
+        conceptId: "testing",
+        availability: null,
+        status: "new",
+        featureIds: [],
+        level: 100,
+        firstSeen: "2026-11-13",
+        lastSeen: "2026-11-13",
+        changedAt: null,
+        contentHash: "3333333333333333",
+      },
+    ].sort((a, b) => a.id.localeCompare(b.id)),
+  };
+  legacySnapshot.listHash = listHash(legacySnapshot);
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cps-consolidate-"));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const cachePath = path.join(dir, "topics-cache.json");
+  fs.writeFileSync(cachePath, JSON.stringify(legacySnapshot, null, 2), "utf8");
+
+  const svc = createTopicService({
+    disabled: true,
+    cachePath,
+    snapshotPath: path.join(dir, "missing-snapshot.json"),
+    now: () => NOW,
+  });
+  t.after(() => {
+    svc.stop();
+    resetTopicSource();
+  });
+
+  const loaded = svc.view().snapshot;
+  assert.deepEqual(validateSnapshot(loaded), []);
+  assert.equal(loaded.topics.some((topic) => topic.id === "learn-mcp-certification"), false);
+  const coveredCompanion = loaded.topics.find((topic) => topic.id === "learn-agents-experience-authoring-test-bot");
+  assert.equal(coveredCompanion.status, "covered");
+  assert.ok(coveredCompanion.featureIds.includes("mc-preview-test"));
+
+  // Merged subtopic ID resolves to the consolidated dynamic feature.
+  const resolvedCert = getFeature("learn-mcp-certification");
+  assert.ok(resolvedCert);
+  assert.equal(resolvedCert.id, "learn-mcp-server-certification");
+  assert.deepEqual(resolvedCert.docUrls, [`${BASE}/mcp-server-certification`, `${BASE}/mcp-certification`]);
+  assert.equal(resolvedCert.learnTopic.subtopics[0].id, "learn-mcp-certification");
+
+  // Companion Learn ID covered by a curated catalog feature resolves to that catalog feature.
+  const resolvedTest = getFeature("learn-agents-experience-authoring-test-bot", { harness: "microsoft-copilot" });
+  assert.ok(resolvedTest);
+  assert.equal(resolvedTest.id, "mc-preview-test");
+
+  // Recommender and planner deduplicate when both primary and merged alias IDs are passed.
+  const rec = recommend(
+    {
+      harness: "standard",
+      level: 200,
+      selected: ["learn-mcp-certification", "learn-mcp-server-certification"],
+    },
+    { topics: loaded.topics, now: NOW },
+  );
+  assert.deepEqual(rec.selectedIds, ["learn-mcp-server-certification"]);
+  const mcpCard = rec.concepts.flatMap((c) => c.topics).find((topic) => topic.id === "learn-mcp-server-certification");
+  assert.ok(mcpCard);
+  assert.equal(mcpCard.learn.subtopics[0].id, "learn-mcp-certification");
+
+  const plan = planLab({
+    features: ["learn-mcp-certification", "learn-mcp-server-certification"],
+    harness: "standard",
+    includeCore: false,
+  });
+  assert.deepEqual(plan.features.map((f) => f.id), ["learn-mcp-server-certification"]);
+});
+
+test("multi-URL consolidated Learn topics derive procedural steps from companion pages when urls[0] is conceptual", async (t) => {
+  const site = {
+    [HUB]: hubPage(
+      [
+        "- [Connect to Microsoft Copilot Studio with MCP](agents-experience/copilot-studio-mcp)",
+        "- [Configure access to Copilot Studio MCP](agents-experience/copilot-studio-mcp-configure)",
+      ].join("\n"),
+    ),
+    "/microsoft-copilot-studio/harnesses-overview": page("Harnesses in Copilot Studio"),
+    "/microsoft-copilot-studio/agents-experience/overview": page("About agents powered by the Microsoft Copilot harness"),
+    "/microsoft-copilot-studio/agents-experience/overview-customer-conversation": page("Customer Conversation overview"),
+    "/microsoft-copilot-studio/agents-experience/billing-credit-overview": page("Billing overview"),
+    "/microsoft-copilot-studio/upgrade-to-github-copilot-from-standard-harness": page("Upgrade agents"),
+    "/microsoft-copilot-studio/agents-experience/memory-overview": page("Memory overview"),
+    "/microsoft-copilot-studio/agents-experience/build-new-agent-customer-conversation": page("Create agent"),
+    "/microsoft-copilot-studio/authoring-first-bot": page("Create and delete agents"),
+    "/microsoft-copilot-studio/advanced-hand-off": page("Hand off to a live agent"),
+    // Conceptual overview at urls[0]: prose only, no numbered UI steps.
+    "/microsoft-copilot-studio/agents-experience/copilot-studio-mcp": [
+      "# Connect to Microsoft Copilot Studio with MCP",
+      "",
+      "Microsoft Copilot Studio MCP connects developer tools to Copilot Studio agents over the Model Context Protocol.",
+      "",
+      "## Architecture",
+      "",
+      "The MCP endpoint exposes environment discovery and agent management capabilities to authorized clients.",
+    ].join("\n"),
+    // Procedural companion at urls[1]: concrete numbered Copilot Studio steps.
+    "/microsoft-copilot-studio/agents-experience/copilot-studio-mcp-configure": [
+      "# Configure access to Copilot Studio MCP",
+      "",
+      "Enable Copilot Studio MCP access in your environment before connecting an MCP client.",
+      "",
+      "## Enable Copilot Studio MCP",
+      "",
+      "1. Sign in to the **Power Platform admin center** and open **Environments**.",
+      "2. Select your target environment and open **Settings** > **Features**.",
+      "3. Turn on **Copilot Studio MCP** and select **Save**.",
+      "4. Open **Copilot Studio**, select **Settings**, and copy the MCP server connection URL.",
+    ].join("\n"),
+  };
+
+  const learn = await mockLearn(t, site);
+  const session = await learn.session();
+  const snapshot = await discoverSnapshot({
+    session,
+    catalog: TEST_CATALOG,
+    limits: LIMITS,
+    now: () => NOW,
+  });
+  setTopicSource({ source: "cache", snapshot });
+  t.after(() => resetTopicSource());
+
+  const merged = getFeature("learn-agents-experience-copilot-studio-mcp");
+  assert.ok(merged);
+  assert.equal(merged.docUrls.length, 2);
+
+  const result = await generateLab(
+    {
+      features: ["learn-agents-experience-copilot-studio-mcp"],
+      harness: "microsoft-copilot",
+      includeCore: false,
+    },
+    {
+      useLearnMcp: true,
+      connect: () => learn.session(),
+      useLlm: false,
+      write: false,
+    },
+  );
+  assert.equal(result.status, "complete");
+  assert.match(result.markdown, /Power Platform admin center/);
+  assert.match(result.markdown, /\[Unverified\]/);
+});
+
+test("committed learn-topics.snapshot.json is consolidated, valid, and free of boilerplate summaries", () => {
+  const snap = JSON.parse(
+    fs.readFileSync(new URL("../lib/lab-builder/learn-topics.snapshot.json", import.meta.url), "utf8"),
+  );
+  assert.deepEqual(validateSnapshot(snap), []);
+  assert.deepEqual(
+    snap.topics.filter((topic) => isBoilerplateSummary(topic.summary)).map((topic) => topic.id),
+    [],
+  );
+  assert.equal(snap.topics.some((topic) => topic.id === "learn-mcp-certification"), false);
+  const mcpCert = snap.topics.find((topic) => topic.id === "learn-mcp-server-certification");
+  assert.ok(mcpCert);
+  assert.ok(mcpCert.subtopics.some((sub) => sub.id === "learn-mcp-certification"));
+  const reConsolidated = consolidateSnapshot(snap);
+  assert.equal(reConsolidated.listHash, snap.listHash);
 });
