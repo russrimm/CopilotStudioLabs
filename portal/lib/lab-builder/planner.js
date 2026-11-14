@@ -11,7 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { getFeature, getFeatures, getHarnesses, orderFeatures, getCoreFeatures } from "./catalog.js";
+import { expandPrereqs, getFeature, getFeatures, getHarnesses, orderFeatures, getCoreFeatures } from "./catalog.js";
 import { getProducts, productHasHarnesses, productName, productOf, productsPhrase } from "./products.js";
 import { defaultDifferencesFor } from "./differences.js";
 import { getIndustries, getRoles } from "../scenarios.js";
@@ -469,18 +469,38 @@ export function planLab(request = {}) {
 
   // Prerequisites join automatically so the lab stands on its own, except the
   // ones the learner explicitly turned off. Those are assumed to be done already
-  // and the lab says so, instead of teaching them.
+  // and the lab says so, instead of teaching them. Any earlier prerequisites
+  // underneath an excluded module still join unless they were also excluded.
   const excludedSet = new Set(request.excluded);
   const expanded = [];
   const needers = new Map();
+  const recordNeeder = (excludedId, dependentName) => {
+    if (!needers.has(excludedId)) needers.set(excludedId, []);
+    if (!needers.get(excludedId).includes(dependentName)) {
+      needers.get(excludedId).push(dependentName);
+    }
+  };
+  const placePrereqsOfExcluded = (excludedId, dependentName, trail) => {
+    const excludedFeature = getFeature(excludedId);
+    if (!excludedFeature || trail.has(excludedId)) return;
+    trail.add(excludedId);
+    for (const pre of excludedFeature.prereqs || []) {
+      if (excludedSet.has(pre) && !seedIds.includes(pre)) {
+        recordNeeder(pre, dependentName);
+        placePrereqsOfExcluded(pre, dependentName, trail);
+        continue;
+      }
+      place(pre, trail);
+    }
+  };
   const place = (id, trail) => {
     const feature = getFeature(id);
     if (!feature || expanded.includes(id) || trail.has(id)) return;
     trail.add(id);
     for (const pre of feature.prereqs || []) {
       if (excludedSet.has(pre) && !seedIds.includes(pre)) {
-        if (!needers.has(pre)) needers.set(pre, []);
-        needers.get(pre).push(feature.name);
+        recordNeeder(pre, feature.name);
+        placePrereqsOfExcluded(pre, feature.name, trail);
         continue;
       }
       place(pre, trail);
@@ -528,8 +548,25 @@ export function planLab(request = {}) {
   }
 
   // Recaps come first. Each recap depends only on lower-level modules, so putting them ahead
-  // keeps every prerequisite before the module that needs it.
-  const topological = orderFeatures(expanded);
+  // keeps every prerequisite before the module that needs it. Also honor transitive prerequisites
+  // when an intermediate prerequisite in the chain was excluded.
+  const baseTopological = orderFeatures(expanded);
+  const wantedSet = new Set(baseTopological);
+  const placedIds = new Set();
+  const visitingIds = new Set();
+  const topological = [];
+  const visitOrdered = (id) => {
+    if (placedIds.has(id) || visitingIds.has(id)) return;
+    visitingIds.add(id);
+    const feature = getFeature(id);
+    for (const prereq of expandPrereqs(feature?.prereqs || [])) {
+      if (prereq !== id && wantedSet.has(prereq)) visitOrdered(prereq);
+    }
+    visitingIds.delete(id);
+    placedIds.add(id);
+    topological.push(id);
+  };
+  for (const id of baseTopological) visitOrdered(id);
   const ordered = minRequestedLevel ? [...topological.filter(isRecap), ...topological.filter((id) => !isRecap(id))] : topological;
 
   const harnessesUsed = new Set(

@@ -73,6 +73,7 @@ test("wizard inputs disable browser form autocomplete restoration across soft re
   assert.match(wizard, /name="lb-harness"[^>]*autocomplete="off"/);
   assert.match(wizard, /data-topic=[^>]*autocomplete="off"/);
   assert.match(wizard, /data-prerequisite=[^>]*autocomplete="off"/);
+  assert.match(wizard, /data-outline-module=[^>]*autocomplete="off"/);
 });
 
 test("topics are checkboxes with Select recommended, Select all, Clear, Reset, and group actions", () => {

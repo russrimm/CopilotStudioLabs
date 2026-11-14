@@ -226,8 +226,17 @@ arrow, Home, and End keys move among the tabs of the current area.
       harness has no equivalent or the topic is not written yet, and a product with
       nothing at your level says what it does have and at which levels.
    7. **Review**: the outline with the estimated time for each module and a total.
-      Advanced options (agent name, title, Learn grounding, model narrative, and a
-      preferred length that only suggests where to split) are folded away here.
+      Every planned module—including both chosen modules and lower-level
+      prerequisite recaps—has an **Include** checkbox so you can uncheck anything
+      you do not want right in the outline. Unchecking a module immediately removes
+      it from the curriculum, renumbers the remaining steps, updates **Your lab so
+      far** and Step 6's checkboxes, and moves the removed module into a **Removed
+      from curriculum** section below the outline where you can re-check individual
+      modules or **Restore all** without leaving Review. If every module is
+      unchecked, Review stays open with a recovery prompt and disables **Next:
+      Generate** until at least one module is included. Advanced options (agent
+      name, title, Learn grounding, model narrative, and a preferred length that
+      only suggests where to split) are folded away here.
    8. **Generate**.
 
    The step list and the **Your lab so far** summary bar stay pinned at the top of
@@ -240,9 +249,11 @@ arrow, Home, and End keys move among the tabs of the current area.
    **level** after you picked topics removes those picks, because they belonged to
    the old level; an announced notice lists what was removed and has a **Restore my
    Level N choices** button. Times
-   are guidance only; nothing is removed to fit them. What the topic list shows is
-   exactly what gets built: the wizard sends `includeCore: false` and the topics
-   you kept, so no foundation module is added behind your back. The API and the
+   are guidance only; time guidance never drops modules to fit a preferred length.
+   What your active outline and topic list show is
+   exactly what gets built: the wizard sends `includeCore: false`, the topics
+   you kept, and any modules you excluded, so neither foundation modules nor
+   unchecked prerequisites sneak back into the generated lab. The API and the
    CLI behave the same way: `includeCore` is off unless it is `true` (CLI: `--core`),
    and when it is on the lab says which foundation modules it added.
 

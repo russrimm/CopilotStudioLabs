@@ -62,6 +62,10 @@ const labBuilder = {
   // Set when unchecking a topic keeps it checked as a required prerequisite of another selected topic.
   prereqNotice: null,
   pendingUncheckIds: [],
+  // Modules deselected on Step 7 so learners can re-select them right in Review.
+  step7Removed: new Map(),
+  previewModules: [],
+  previewToken: null,
   // Whether the collapsed prerequisite and unknown-level groups are open; kept across re-renders.
   prereqOpen: false,
   unknownOpen: false,
@@ -175,6 +179,7 @@ async function lbRefresh() {
     labBuilder.pendingUncheckIds = [];
     labBuilder.rec = null;
     lbRenderSummary();
+    lbSyncReviewControls();
     if (labBuilder.step === LB_STEP.topics) lbRenderTopics();
     return;
   }
@@ -184,6 +189,13 @@ async function lbRefresh() {
     const rec = await lbRecommend(extra);
     if (labBuilder.refreshToken !== token) return;
     labBuilder.rec = rec;
+    const activeIds = new Set([
+      ...(rec?.selectedIds || []),
+      ...(rec?.prerequisites?.selectedIds || []),
+    ]);
+    for (const id of [...labBuilder.step7Removed.keys()]) {
+      if (activeIds.has(id)) labBuilder.step7Removed.delete(id);
+    }
     const uncheckedIds = Array.isArray(labBuilder.pendingUncheckIds) ? labBuilder.pendingUncheckIds : [];
     labBuilder.pendingUncheckIds = [];
     if (uncheckedIds.length && rec) {
@@ -213,14 +225,17 @@ async function lbRefresh() {
     toast(`Could not update the topics: ${err.message}`, "error");
   }
   lbRenderSummary();
+  lbSyncReviewControls();
   if (labBuilder.step === LB_STEP.topics) lbRenderTopics();
 }
 
 /** An answer in the first steps changed: topic choices start over from the new recommendation. */
 function lbAnswersChanged() {
-  const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0;
+  const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0 || labBuilder.step7Removed.size > 0;
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.step7Removed.clear();
+  labBuilder.previewModules = [];
   labBuilder.chosenSteps.delete("topics");
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
@@ -244,18 +259,24 @@ function lbSelectedNames(rec) {
  * them so one button restores them.
  */
 function lbLevelChanged(previous) {
-  const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0;
+  const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0 || labBuilder.step7Removed.size > 0;
   const removed = hadOwnPicks ? lbSelectedNames(labBuilder.rec) : [];
   labBuilder.levelNotice = hadOwnPicks
     ? {
         from: previous,
         to: labBuilder.level,
         removed,
-        stash: { picked: labBuilder.picked ? new Set(labBuilder.picked) : null, excluded: new Set(labBuilder.excluded) },
+        stash: {
+          picked: labBuilder.picked ? new Set(labBuilder.picked) : null,
+          excluded: new Set(labBuilder.excluded),
+          step7Removed: new Map(labBuilder.step7Removed),
+        },
       }
     : null;
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.step7Removed.clear();
+  labBuilder.previewModules = [];
   labBuilder.chosenSteps.delete("topics");
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
@@ -274,6 +295,7 @@ function lbRestoreLevelChoices() {
   labBuilder.chosenSteps.add("level");
   labBuilder.picked = notice.stash.picked;
   labBuilder.excluded = notice.stash.excluded;
+  labBuilder.step7Removed = new Map(notice.stash.step7Removed || []);
   if (labBuilder.picked || labBuilder.excluded.size) labBuilder.chosenSteps.add("topics");
   labBuilder.levelNotice = null;
   labBuilder.rec = null;
@@ -831,6 +853,7 @@ function lbSelectAllTopics() {
   const all = (labBuilder.rec?.concepts || []).flatMap((c) => c.topics.map((t) => t.id));
   labBuilder.picked = new Set(all);
   labBuilder.excluded.clear();
+  labBuilder.step7Removed.clear();
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
   lbRefresh();
@@ -840,6 +863,7 @@ function lbClearTopics() {
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set();
   labBuilder.excluded.clear();
+  labBuilder.step7Removed.clear();
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
   lbRefresh();
@@ -850,6 +874,7 @@ function lbSelectRecommended() {
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set(labBuilder.rec?.recommendedIds || []);
   labBuilder.excluded.clear();
+  labBuilder.step7Removed.clear();
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
   lbRefresh();
@@ -860,12 +885,14 @@ function lbResetTopics() {
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.step7Removed.clear();
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
   lbRefresh();
 }
 
 function lbBindTopicEvents() {
+  lbEnsurePreviewEvents(document.getElementById("lb-preview"));
   const groups = document.getElementById("lb-topic-groups");
   groups?.addEventListener("change", (event) => {
     const prerequisite = event.target.closest("input[data-prerequisite]");
@@ -1208,7 +1235,8 @@ function lbRenderStepper() {
     if (item) item.hidden = !shown;
     const number = button.querySelector("span[aria-hidden]");
     if (number && shown) number.textContent = String(visible.indexOf(step) + 1);
-    const reachable = step === LB_STEP.product || (labBuilder.selectedProducts.size > 0 && step <= labBuilder.furthest);
+    const blockedGenerate = step === LB_STEP.generate && Boolean(labBuilder.rec) && lbSelectedCount() === 0;
+    const reachable = step === LB_STEP.product || (labBuilder.selectedProducts.size > 0 && step <= labBuilder.furthest && !blockedGenerate);
     button.disabled = !reachable;
     button.classList.toggle("active", step === labBuilder.step);
     button.classList.toggle("done", step < labBuilder.step);
@@ -1219,6 +1247,7 @@ function lbRenderStepper() {
     const heading = document.getElementById(`lb-heading-${step}`);
     if (heading) heading.textContent = heading.textContent.replace(/^Step \d+ of \d+/, `Step ${visible.indexOf(step) + 1} of ${visible.length}`);
   }
+  lbSyncReviewControls();
 }
 
 /** The step after or before the current one, skipping a step that does not apply. */
@@ -1242,6 +1271,10 @@ function lbNextStep() {
     lbRenderHarnesses();
   } else if (labBuilder.step === LB_STEP.topics && lbSelectedCount() > 0) {
     labBuilder.chosenSteps.add("topics");
+  } else if (labBuilder.step === LB_STEP.review && !lbSelectedCount()) {
+    const error = document.getElementById("lb-review-error");
+    if (error) error.textContent = "Keep or re-select at least one module before generating your lab.";
+    return;
   }
   lbRenderSummary();
   lbGoToStep(lbAdjacentStep(labBuilder.step, 1));
@@ -1261,9 +1294,15 @@ function lbGoToStep(step) {
   // The harness step does not exist for a lab with no harness product: land on the step after it.
   if (step === LB_STEP.harness && !lbHasHarnessProduct()) step = LB_STEP.topics;
   if (step > LB_STEP.topics && !lbSelectedCount()) {
-    const error = document.getElementById("lb-topic-error");
-    if (error) error.textContent = "Choose at least one topic before you review the lab.";
-    step = LB_STEP.topics;
+    if (labBuilder.step === LB_STEP.review) {
+      const error = document.getElementById("lb-review-error");
+      if (error) error.textContent = "Keep or re-select at least one module before generating your lab.";
+      step = LB_STEP.review;
+    } else {
+      const error = document.getElementById("lb-topic-error");
+      if (error) error.textContent = "Choose at least one topic before you review the lab.";
+      step = LB_STEP.topics;
+    }
   }
   labBuilder.step = step;
   labBuilder.furthest = Math.max(labBuilder.furthest, step);
@@ -1348,6 +1387,8 @@ function lbResetAnswers() {
   labBuilder.differencesFor = null;
   labBuilder.picked = null;
   labBuilder.excluded = new Set();
+  labBuilder.step7Removed = new Map();
+  labBuilder.previewModules = [];
   labBuilder.rec = null;
   labBuilder.search = "";
   labBuilder.filter = "all";
@@ -1357,7 +1398,7 @@ function lbResetAnswers() {
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
   lbRenderLevelNotice();
-  for (const id of ["lb-product-error", "lb-topic-error", "lb-learn-error"]) {
+  for (const id of ["lb-product-error", "lb-topic-error", "lb-learn-error", "lb-review-error"]) {
     const errEl = document.getElementById(id);
     if (errEl) errEl.textContent = "";
   }
@@ -1418,6 +1459,8 @@ async function lbLoadSelections(lab) {
   labBuilder.differencesFor = saved.differencesFor ? new Set(saved.differencesFor) : null;
   labBuilder.picked = new Set(saved.features);
   labBuilder.excluded = new Set(saved.excluded);
+  labBuilder.step7Removed = new Map();
+  labBuilder.previewModules = [];
   labBuilder.chosenSteps = new Set([
     "product",
     "vertical",
@@ -1469,9 +1512,270 @@ function lbRequest() {
   return request;
 }
 
-async function lbPreview() {
+function lbSyncReviewControls() {
+  const empty = Boolean(labBuilder.rec) && lbSelectedCount() === 0;
+  const nextBtn = document.getElementById("lb-next-from-review");
+  if (nextBtn) nextBtn.disabled = empty;
+  const genBtn = document.getElementById("lb-generate-btn");
+  if (genBtn && !labBuilder.busy) genBtn.disabled = empty;
+  if (!empty) {
+    const reviewError = document.getElementById("lb-review-error");
+    if (reviewError) reviewError.textContent = "";
+  }
+}
+
+function lbLookupModuleMeta(id) {
+  const fromPreview = labBuilder.previewModules.find((m) => m.id === id);
+  if (fromPreview) {
+    return {
+      id: fromPreview.id,
+      name: fromPreview.name,
+      summary: fromPreview.summary || "",
+      level: fromPreview.level ?? null,
+      role:
+        fromPreview.role ||
+        ([100, 200, 300].includes(fromPreview.level) && fromPreview.level < labBuilder.level ? "prerequisite" : "level"),
+      minutes: fromPreview.minutes ?? null,
+    };
+  }
+  const fromRemoved = labBuilder.step7Removed.get(id);
+  if (fromRemoved) return { ...fromRemoved };
+  const recTopics = [
+    ...(labBuilder.rec?.concepts || []).flatMap((c) => c.topics),
+    ...(labBuilder.rec?.levelUnknown?.topics || []),
+  ];
+  const recTopic = recTopics.find((t) => t.id === id);
+  if (recTopic) {
+    return {
+      id: recTopic.id,
+      name: recTopic.name,
+      summary: recTopic.summary || "",
+      level: recTopic.level ?? null,
+      role: "level",
+      minutes: recTopic.minutes ?? null,
+    };
+  }
+  const recPrereq = (labBuilder.rec?.prerequisites?.topics || []).find((p) => p.id === id);
+  if (recPrereq) {
+    return {
+      id: recPrereq.id,
+      name: recPrereq.name,
+      summary: recPrereq.summary || "",
+      level: recPrereq.level ?? null,
+      role: "prerequisite",
+      minutes: recPrereq.minutes ?? null,
+    };
+  }
+  const catalogFeature = lbFeatureList().find((f) => f.id === id);
+  if (catalogFeature) {
+    const isPrereq = [100, 200, 300].includes(catalogFeature.level) && catalogFeature.level < labBuilder.level;
+    return {
+      id: catalogFeature.id,
+      name: catalogFeature.name,
+      summary: catalogFeature.summary || "",
+      level: catalogFeature.level ?? null,
+      role: isPrereq ? "prerequisite" : "level",
+      minutes: catalogFeature.minutes ?? null,
+    };
+  }
+  return { id, name: id, summary: "", level: labBuilder.level, role: "level", minutes: null };
+}
+
+function lbRemovedCurriculumItems() {
+  const rec = labBuilder.rec;
+  const activeIds = new Set([
+    ...(rec?.selectedIds || []),
+    ...(rec?.prerequisites?.selectedIds || []),
+  ]);
+  const byId = new Map();
+  for (const [id, item] of labBuilder.step7Removed.entries()) {
+    if (!activeIds.has(id)) byId.set(id, item);
+  }
+  for (const prereq of rec?.prerequisites?.topics || []) {
+    if (!prereq.selected && labBuilder.excluded.has(prereq.id) && !byId.has(prereq.id)) {
+      byId.set(prereq.id, {
+        id: prereq.id,
+        name: prereq.name,
+        summary: prereq.summary || "",
+        level: prereq.level ?? null,
+        role: "prerequisite",
+        minutes: prereq.minutes ?? null,
+        wasPicked: false,
+      });
+    }
+  }
+  for (const topic of (rec?.concepts || []).flatMap((c) => c.topics)) {
+    if (!topic.selected && labBuilder.excluded.has(topic.id) && !byId.has(topic.id)) {
+      byId.set(topic.id, {
+        id: topic.id,
+        name: topic.name,
+        summary: topic.summary || "",
+        level: topic.level ?? null,
+        role: "level",
+        minutes: topic.minutes ?? null,
+        wasPicked: false,
+      });
+    }
+  }
+  const neededPrereqIds = new Set((rec?.prerequisites?.topics || []).map((p) => p.id));
+  return [...byId.values()].map((item) => {
+    const isPrereqRecap =
+      item.role === "prerequisite" || ([100, 200, 300].includes(item.level) && item.level < labBuilder.level);
+    const canRestoreAlone = !isPrereqRecap || neededPrereqIds.has(item.id);
+    return { ...item, role: isPrereqRecap ? "prerequisite" : "level", canRestoreAlone };
+  });
+}
+
+function lbRenderRemovedSection() {
+  const removed = lbRemovedCurriculumItems();
+  if (!removed.length) return "";
+  return `
+    <section class="lb-removed-section" aria-labelledby="lb-removed-heading">
+      <div class="lb-removed-header">
+        <h4 id="lb-removed-heading" class="lb-removed-title">Removed from curriculum (${removed.length})</h4>
+        <button type="button" class="btn btn-small" data-outline-action="restore-all">Restore all</button>
+      </div>
+      <p class="lb-removed-desc">Check a module below to add it back to this lab, or restore all removed modules.</p>
+      <div class="lb-removed-list">
+        ${removed
+          .map((item) => {
+            const levelBadge = item.level ? `<span class="lb-badge">Level ${item.level}</span>` : '<span class="lb-badge">Level unknown</span>';
+            const roleBadge = item.role === "prerequisite" ? '<span class="lb-badge">Prerequisite recap</span>' : "";
+            const timeBadge = item.minutes ? `<span class="lb-badge">about ${item.minutes} min</span>` : "";
+            const note = item.canRestoreAlone
+              ? item.summary
+              : `Included as a recap once a dependent Level ${labBuilder.level} module is selected, or select Restore all.`;
+            return `
+              <label class="lb-removed-item ${item.canRestoreAlone ? "" : "lb-removed-disabled"}">
+                <input type="checkbox" data-outline-module="${escapeHtml(item.id)}" data-outline-role="${escapeHtml(item.role)}" autocomplete="off" ${
+                  item.canRestoreAlone ? "" : "disabled"
+                } aria-describedby="lb-removed-desc-${escapeHtml(item.id)}">
+                <span>
+                  <span class="lb-feature-name">${item.role === "prerequisite" ? "Recap: " : ""}${escapeHtml(item.name)}${levelBadge}${roleBadge}${timeBadge}</span>
+                  <span id="lb-removed-desc-${escapeHtml(item.id)}" class="lb-feature-summary">${escapeHtml(note)}</span>
+                </span>
+              </label>`;
+          })
+          .join("")}
+      </div>
+    </section>`;
+}
+
+function lbEnsurePreviewEvents(el) {
+  if (!el || el._lbOutlineBound || typeof el.addEventListener !== "function") return;
+  el._lbOutlineBound = true;
+  el.addEventListener("change", (event) => {
+    const input = event.target?.closest?.("input[data-outline-module]");
+    if (!input) return undefined;
+    return lbSetOutlineModule(input.dataset.outlineModule, Boolean(input.checked));
+  });
+  el.addEventListener("click", (event) => {
+    const actionBtn = event.target?.closest?.("button[data-outline-action]");
+    if (!actionBtn) return undefined;
+    const action = actionBtn.dataset.outlineAction;
+    if (action === "restore-all") return lbRestoreRemovedModules();
+    if (action === "back-to-topics") return lbGoToStep(LB_STEP.topics);
+    return undefined;
+  });
+}
+
+/**
+ * Toggle a planned curriculum module directly on Step 7 (Review your lab).
+ * A single uncheck removes the module immediately from the curriculum and marks it
+ * excluded so prerequisite expansion does not add it back.
+ */
+async function lbSetOutlineModule(id, checked) {
+  if (!id) return;
+  const meta = lbLookupModuleMeta(id);
+  const picks = lbOwnPicks();
+  const wasPicked = picks.has(id);
+  const isPrereqRecap =
+    meta.role === "prerequisite" || ([100, 200, 300].includes(meta.level) && meta.level < labBuilder.level);
+  labBuilder.chosenSteps.add("topics");
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
+  if (!checked) {
+    picks.delete(id);
+    labBuilder.excluded.add(id);
+    labBuilder.step7Removed.set(id, { ...meta, role: isPrereqRecap ? "prerequisite" : "level", wasPicked });
+  } else {
+    labBuilder.excluded.delete(id);
+    labBuilder.step7Removed.delete(id);
+    if (!isPrereqRecap) {
+      const sameLevelTopic = (labBuilder.rec?.concepts || []).flatMap((c) => c.topics).find((t) => t.id === id);
+      if (wasPicked || meta.wasPicked || !sameLevelTopic?.required) {
+        picks.add(id);
+      }
+    }
+  }
+  await lbRefresh();
+  if (checked && !isPrereqRecap && !(labBuilder.rec?.selectedIds || []).includes(id)) {
+    lbOwnPicks().add(id);
+    await lbRefresh();
+  }
+  lbRenderStepper();
+  lbSyncReviewControls();
+  if (labBuilder.step === LB_STEP.review) {
+    await lbPreview({ focusModuleId: id });
+  }
+}
+
+async function lbRestoreRemovedModules() {
+  const removed = lbRemovedCurriculumItems();
+  if (!removed.length) return;
+  const picks = lbOwnPicks();
+  labBuilder.chosenSteps.add("topics");
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
+  const anyWasPicked = removed.some((item) => item.wasPicked);
+  for (const item of removed) {
+    labBuilder.excluded.delete(item.id);
+    const isPrereqRecap =
+      item.role === "prerequisite" || ([100, 200, 300].includes(item.level) && item.level < labBuilder.level);
+    if (!isPrereqRecap && (item.wasPicked || (!anyWasPicked && !lbSelectedCount()))) {
+      picks.add(item.id);
+    }
+  }
+  labBuilder.step7Removed.clear();
+  await lbRefresh();
+  const stillMissingLevel = removed.filter(
+    (item) => item.role !== "prerequisite" && !(labBuilder.rec?.selectedIds || []).includes(item.id)
+  );
+  if (stillMissingLevel.length) {
+    const nextPicks = lbOwnPicks();
+    for (const item of stillMissingLevel) nextPicks.add(item.id);
+    await lbRefresh();
+  }
+  lbRenderStepper();
+  lbSyncReviewControls();
+  if (labBuilder.step === LB_STEP.review) {
+    await lbPreview({ focusFirstModule: true });
+  }
+}
+
+async function lbPreview(options = {}) {
   const el = document.getElementById("lb-preview");
   if (!el) return;
+  lbEnsurePreviewEvents(el);
+  lbSyncReviewControls();
+  const token = Symbol("preview");
+  labBuilder.previewToken = token;
+
+  if (labBuilder.rec && lbSelectedCount() === 0) {
+    labBuilder.previewModules = [];
+    el.innerHTML = `
+      <div class="lb-warning lb-empty-curriculum" role="status">
+        <p style="margin: 0 0 8px;"><strong>No modules remain in your curriculum.</strong> Re-select at least one module below or go back to Topics.</p>
+        <button type="button" class="btn btn-small" data-outline-action="back-to-topics">← Back to Topics</button>
+      </div>
+      ${lbRenderRemovedSection()}
+    `;
+    if (options.focusModuleId && typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+      el.querySelector?.(`input[data-outline-module="${CSS.escape(options.focusModuleId)}"]`)?.focus?.();
+    }
+    return;
+  }
+
   el.innerHTML = '<div class="scenario-empty" role="status">Planning your lab...</div>';
   try {
     const res = await fetch("/api/lab-builder/preview", {
@@ -1480,8 +1784,10 @@ async function lbPreview() {
       body: JSON.stringify(lbRequest()),
     });
     const data = await res.json();
+    if (labBuilder.previewToken !== token) return;
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
 
+    labBuilder.previewModules = Array.isArray(data.modules) ? data.modules : [];
     const recaps = data.modules.filter((m) => m.role === "prerequisite").length;
     const own = data.modules.length - recaps;
     el.innerHTML = `
@@ -1496,25 +1802,32 @@ async function lbPreview() {
       <div style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">${escapeHtml(data.scenario.problem)}</div>
       <table class="lb-outline">
         <caption>Lab outline with estimated time per module</caption>
-        <thead><tr><th scope="col">Step</th><th scope="col">Module</th><th scope="col">Level</th><th scope="col">Estimated time</th></tr></thead>
+        <thead><tr><th scope="col" class="lb-outline-include-col">Include</th><th scope="col">Step</th><th scope="col">Module</th><th scope="col">Level</th><th scope="col">Estimated time</th></tr></thead>
         <tbody>
           ${data.modules
             .map(
               (m) =>
-                `<tr><td>${m.order}</td><th scope="row">${m.role === "prerequisite" ? "Recap: " : ""}${escapeHtml(m.name)}<div class="lb-feature-summary">${escapeHtml(m.summary)}</div></th><td>${m.level}${
+                `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"></td><td>${m.order}</td><th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${m.role === "prerequisite" ? "Recap: " : ""}${escapeHtml(m.name)}</label><div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div></th><td>${m.level}${
                   m.role === "prerequisite" ? " (prerequisite recap)" : ""
                 }</td><td>about ${m.minutes} min</td></tr>`
             )
             .join("")}
         </tbody>
-        <tfoot><tr><th scope="row" colspan="3">Total (estimate)</th><td>about ${escapeHtml(data.duration)}</td></tr></tfoot>
+        <tfoot><tr><th scope="row" colspan="4">Total (estimate)</th><td>about ${escapeHtml(data.duration)}</td></tr></tfoot>
       </table>
       ${(data.estimate?.suggestedParts || [])
         .map((part) => `<div class="lb-feature-note">Optional part ${part.part}: ${part.ids.length} module${part.ids.length === 1 ? "" : "s"}, about ${escapeHtml(part.duration)}</div>`)
         .join("")}
       ${data.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(w)}</div>`).join("")}
+      ${lbRenderRemovedSection()}
     `;
+    if (options.focusModuleId && typeof CSS !== "undefined" && typeof CSS.escape === "function") {
+      el.querySelector?.(`input[data-outline-module="${CSS.escape(options.focusModuleId)}"]`)?.focus?.();
+    } else if (options.focusFirstModule) {
+      el.querySelector?.("input[data-outline-module]")?.focus?.();
+    }
   } catch (err) {
+    if (labBuilder.previewToken !== token) return;
     el.innerHTML = `<div class="scenario-empty" role="alert">Could not plan the lab: ${escapeHtml(err.message)}</div>`;
   }
 }

@@ -1055,8 +1055,21 @@
     .lb-outline { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px; }
     .lb-outline caption { text-align: left; font-weight: 600; padding-bottom: 6px; }
     .lb-outline th, .lb-outline td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .lb-outline th.lb-outline-include-col, .lb-outline td.lb-outline-include-cell { width: 44px; text-align: center; }
     .lb-outline thead th { color: var(--text-muted); font-size: 12px; }
     .lb-outline tbody th { font-weight: 600; }
+    .lb-outline-check { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; margin-top: 2px; }
+    .lb-outline-module-label { cursor: pointer; font-weight: 600; }
+    .lb-outline-module-label:hover { color: var(--accent-hover); }
+    .lb-removed-section { margin-top: 16px; padding: 12px 14px; border: 1px dashed var(--border); border-radius: 10px; background: var(--bg); }
+    .lb-removed-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+    .lb-removed-title { font-size: 13px; font-weight: 600; margin: 0; }
+    .lb-removed-desc { color: var(--text-muted); font-size: 12px; margin: 0 0 10px; }
+    .lb-removed-list { display: flex; flex-direction: column; gap: 6px; }
+    .lb-removed-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 13px; cursor: pointer; }
+    .lb-removed-item:hover { border-color: var(--accent); }
+    .lb-removed-item.lb-removed-disabled { opacity: 0.75; cursor: default; }
+    .lb-removed-item input { width: 16px; height: 16px; margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; }
     .lb-advanced { margin-top: 16px; }
     .lb-search {
       background: var(--bg);
@@ -2531,6 +2544,10 @@
             <!-- Step 7: review -->
             <div class="panel lb-pane" id="lb-pane-7" style="display: none;">
               <h3 id="lb-heading-7" tabindex="-1">Step 7 of 8: Review your lab</h3>
+              <p class="lb-review-intro" style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
+                Review your planned curriculum below. Uncheck any module or prerequisite recap you do not want to remove it from the lab.
+              </p>
+              <p id="lb-review-error" class="lb-error" role="alert"></p>
               <div id="lb-preview" class="scenario-empty">Choose topics to see the outline.</div>
               <details class="lb-advanced">
                 <summary>Advanced options</summary>
@@ -2538,7 +2555,7 @@
                   <div class="form-group">
                     <label for="lb-time">Preferred length per lab (minutes, optional)</label>
                     <input type="number" id="lb-time" min="1" step="15" autocomplete="off" placeholder="About 240">
-                    <small style="color: var(--text-muted);">Guidance only. Nothing is removed: every topic you choose stays in the lab. If it runs longer, we suggest where you could split it.</small>
+                    <small style="color: var(--text-muted);">Guidance only. Time guidance never drops modules: every module kept in your outline stays in the lab. If it runs longer, we suggest where you could split it.</small>
                   </div>
                   <div class="form-group">
                     <label for="lb-agent-name">Agent name (optional)</label>
@@ -2563,7 +2580,7 @@
               <div style="margin-top: 16px; display: flex; gap: 12px;">
                 <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
                 <button class="btn" type="button" onclick="lbPreview()">Refresh outline</button>
-                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Generate →</button>
+                <button class="btn btn-primary" type="button" id="lb-next-from-review" onclick="lbNextStep()">Next: Generate →</button>
               </div>
             </div>
 
