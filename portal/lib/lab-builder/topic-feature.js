@@ -45,6 +45,25 @@ export function topicToFeature(topic) {
   const title = cleanText(topic.title, MAX_TITLE) || "Microsoft Learn topic";
   const summary = cleanText(topic.summary, MAX_SUMMARY) || `${title}: see the linked Microsoft Learn article.`;
   const url = topic.urls[0];
+  const productLabel = topic.productName || "Microsoft Copilot Studio";
+  const subtopics = (topic.subtopics || [])
+    .filter((sub) => sub && typeof sub.url === "string")
+    .map((sub) => ({
+      id: sub.id,
+      title: cleanText(sub.title, MAX_TITLE) || sub.id,
+      url: sub.url,
+      ...(sub.summary ? { summary: cleanText(sub.summary, MAX_SUMMARY) } : {}),
+    }));
+  const companionConcepts = subtopics
+    .filter((sub) => sub.summary && sub.summary !== summary)
+    .slice(0, 2)
+    .map((sub) => `[Unverified] Companion Microsoft Learn article (${sub.title}): ${sub.summary}`);
+  const learnQueries = [
+    ...new Set([
+      `${productLabel} ${title}`,
+      ...subtopics.slice(0, 2).map((sub) => `${productLabel} ${sub.title}`),
+    ]),
+  ];
   // A topic whose level cannot be resolved keeps `level: null`, so it never passes a level filter by accident.
   const { level, basis } = resolveTopicLevel(topic);
   return {
@@ -65,6 +84,7 @@ export function topicToFeature(topic) {
       "so confirm each detail against the linked article.",
     concepts: [
       `Microsoft Learn describes this topic as: ${summary}`,
+      ...companionConcepts,
       "[Unverified] This topic has no curated concepts yet; read the linked article before you start.",
     ],
     steps: [
@@ -74,11 +94,17 @@ export function topicToFeature(topic) {
     validation: [
       "[Unverified] You completed the procedure in the linked Microsoft Learn article and the result matches what the article describes.",
     ],
-    learnQueries: [`${topic.productName || "Microsoft Copilot Studio"} ${title}`],
+    learnQueries,
     docUrls: [...topic.urls],
     prereqs: [],
     relatedLabs: [],
     concept: topic.conceptId,
-    learnTopic: { url, status: topic.status, lastSeen: topic.lastSeen },
+    learnTopic: {
+      url,
+      urls: [...topic.urls],
+      ...(subtopics.length ? { subtopics } : {}),
+      status: topic.status,
+      lastSeen: topic.lastSeen,
+    },
   };
 }

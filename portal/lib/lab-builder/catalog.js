@@ -15,7 +15,7 @@ import { getConcepts, getKnownCoverageGaps, getRecommendations, validateConcepts
 import { getProducts, harnessProduct, productOf, validateProducts } from "./products.js";
 import { getDifferences, validateDifferences } from "./differences.js";
 import { validateScreenshotSlots } from "./slots.js";
-import { getDynamicFeature } from "./topic-store.js";
+import { getDynamicFeature, resolveLearnedTopicId } from "./topic-store.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CATALOG_PATH = path.join(__dirname, "features.json");
 
@@ -146,9 +146,14 @@ export function getHarnesses() {
   return load().harnesses;
 }
 
-/** A catalog feature, or a topic discovered on Microsoft Learn that the catalog does not cover yet. */
-export function getFeature(id) {
-  return load().byId.get(id) || getDynamicFeature(id);
+/** A catalog feature, or a topic discovered on Microsoft Learn (including merged companion IDs). */
+export function getFeature(id, { harness = null } = {}) {
+  const data = load();
+  if (data.byId.has(id)) return data.byId.get(id);
+  const dynamic = getDynamicFeature(id);
+  if (dynamic) return dynamic;
+  const coveredId = resolveLearnedTopicId(id, { harness, allowCoveredFeature: true });
+  return coveredId ? data.byId.get(coveredId) || null : null;
 }
 
 export function getCoreFeatures() {

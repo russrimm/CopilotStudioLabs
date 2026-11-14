@@ -108,6 +108,15 @@ export function topicsPayload(service, now = Date.now()) {
       level: resolveTopicLevel(topic).level,
       availability: topic.availability,
       urls: topic.urls,
+      ...(topic.subtopics?.length
+        ? {
+            subtopics: topic.subtopics.map(({ id: subId, title, url }) => ({
+              id: subId,
+              title,
+              url,
+            })),
+          }
+        : {}),
       changedAt: topic.changedAt,
       firstSeen: topic.firstSeen,
       lastSeen: topic.lastSeen,

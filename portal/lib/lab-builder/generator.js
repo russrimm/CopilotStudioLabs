@@ -258,9 +258,12 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
 
     // Amendment: try every curated URL, not just the first. The first entry is
     // not always the procedure page, and a later one often derives cleanly.
-    // Using the catalog's own URLs rather than search results also keeps this
-    // path clear of the citation-relevance defect tracked in issue #40.
+    // For consolidated multi-URL Learn topics (`feature.learnTopic`), evaluate
+    // all merged URLs and pick the highest-confidence procedure so an overview
+    // page at `urls[0]` never shadows a procedural companion page at `urls[1]`.
     const fetchedByUrl = new Map();
+    const isMultiUrlLearnTopic = Boolean(feature.learnTopic && (feature.docUrls || []).length > 1);
+    let bestDerived = null;
     for (const url of feature.docUrls || []) {
       const page = await fetchDocPage(session, url);
       fetchedByUrl.set(url, page);
@@ -275,23 +278,30 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
         continue;
       }
 
-      return [
-        feature.id,
-        {
-          featureId: feature.id,
-          source: "doc-derived",
-          steps: result.steps,
-          url,
-          fetchedAt: page.fetchedAt,
-          sectionHeading: result.heading,
-          confidence: Number(result.score.toFixed(3)),
-          reason: null,
-          canonicalVerified: true,
-          drift: diffSteps(feature.steps, result.steps),
-          attempts: catalogEntry.attempts,
-          synthesis: catalogEntry.synthesis,
-        },
-      ];
+      const candidate = {
+        featureId: feature.id,
+        source: "doc-derived",
+        steps: result.steps,
+        url,
+        fetchedAt: page.fetchedAt,
+        sectionHeading: result.heading,
+        confidence: Number(result.score.toFixed(3)),
+        reason: null,
+        canonicalVerified: true,
+        drift: diffSteps(feature.steps, result.steps),
+        attempts: catalogEntry.attempts,
+        synthesis: catalogEntry.synthesis,
+      };
+      if (!isMultiUrlLearnTopic) {
+        return [feature.id, candidate];
+      }
+      catalogEntry.attempts.push({ url, outcome: "derived", score: Number(result.score.toFixed(3)) });
+      if (!bestDerived || candidate.confidence > bestDerived.confidence) {
+        bestDerived = candidate;
+      }
+    }
+    if (bestDerived) {
+      return [feature.id, bestDerived];
     }
 
     const everyAttemptFailedToFetch =

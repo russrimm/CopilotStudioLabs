@@ -105,14 +105,23 @@ export function normalizeLabRequest(request = {}) {
     throw new Error("Lab request must be a JSON object.");
   }
 
-  const features = stringList(request.features, "features", getFeatures().length + countNewTopics());
-  if (!features.length) {
+  const harnessHint =
+    typeof request.harness === "string" && request.harness.trim()
+      ? request.harness.trim()
+      : Array.isArray(request.harnesses) && typeof request.harnesses[0] === "string" && request.harnesses[0].trim()
+      ? request.harnesses[0].trim()
+      : null;
+
+  const maxTopicIds = getFeatures().length + countNewTopics() + 64;
+  const rawFeatures = stringList(request.features, "features", maxTopicIds);
+  if (!rawFeatures.length) {
     throw new Error("Select at least one topic to build a lab.");
   }
-  const unknownFeatures = features.filter((id) => !getFeature(id));
+  const unknownFeatures = rawFeatures.filter((id) => !getFeature(id, { harness: harnessHint }));
   if (unknownFeatures.length) {
     throw new Error(`Unknown feature id(s): ${unknownFeatures.join(", ")}.`);
   }
+  const features = [...new Set(rawFeatures.map((id) => getFeature(id, { harness: harnessHint }).id))];
 
   // `timeBudget` is the older name. Either one is advisory: it only sets the
   // length at which the planner suggests splitting the lab into parts.
@@ -129,11 +138,12 @@ export function normalizeLabRequest(request = {}) {
     throw new Error("includeCore must be a boolean.");
   }
 
-  const excluded = stringList(request.excluded, "excluded", getFeatures().length + countNewTopics());
-  const unknownExcluded = excluded.filter((id) => !getFeature(id));
+  const rawExcluded = stringList(request.excluded, "excluded", maxTopicIds);
+  const unknownExcluded = rawExcluded.filter((id) => !getFeature(id, { harness: harnessHint }));
   if (unknownExcluded.length) {
     throw new Error(`Unknown excluded feature id(s): ${unknownExcluded.join(", ")}.`);
   }
+  const excluded = [...new Set(rawExcluded.map((id) => getFeature(id, { harness: harnessHint }).id))];
 
   let harnesses;
   if (request.harnesses !== undefined && request.harnesses !== null) {

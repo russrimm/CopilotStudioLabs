@@ -931,6 +931,30 @@ function lbLevelBadge(t) {
   return `<span class="lb-badge">Level ${t.level}</span>${t.levelBasis === "estimated" ? '<span class="lb-badge">Estimated level</span>' : ""}`;
 }
 
+function lbTopicSubtopicsNote(t) {
+  const subs = (t.learn?.subtopics || []).filter((s) => s && s.title);
+  if (t.source !== "learn" || !subs.length) return "";
+  const rendered = subs
+    .map((s) => {
+      const href = lbLearnUrl(s.url);
+      return href
+        ? `<a class="lb-learn-source" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title)}</a>`
+        : escapeHtml(s.title);
+    })
+    .join(", ");
+  return `<span class="lb-feature-note lb-feature-subtopics">Includes: ${rendered}</span>`;
+}
+
+function lbMatchesQuery(t, query) {
+  if (!query) return true;
+  if (t.name.toLowerCase().includes(query) || t.summary.toLowerCase().includes(query) || t.id.includes(query)) {
+    return true;
+  }
+  return (t.learn?.subtopics || []).some(
+    (s) => (s.title || "").toLowerCase().includes(query) || (s.id || "").includes(query),
+  );
+}
+
 function lbTopicCard(t) {
   return `
             <label class="lb-feature ${t.selected ? "checked" : ""}">
@@ -946,6 +970,7 @@ function lbTopicCard(t) {
                 ${t.source === "learn" && lbLearnUrl(t.learn?.url)
                   ? `<span class="lb-feature-note">Source: Microsoft Learn, not yet reviewed for this repository. <a class="lb-learn-source" href="${escapeHtml(t.learn.url)}" target="_blank" rel="noopener noreferrer">Read the article (opens in a new tab)</a></span>`
                   : ""}
+                ${lbTopicSubtopicsNote(t)}
                 ${t.learn?.status === "stale" ? '<span class="lb-feature-note">The Microsoft Learn pages this topic cites could not be found. Its steps are checked against Learn when the lab is built.</span>' : ""}
                 ${t.reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(t.reasons.join(". "))}</span>` : ""}
                 ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(t.harnessNote)}</span>` : ""}
@@ -959,7 +984,7 @@ function lbVisibleTopicCount(rec, query) {
     (sum, concept) =>
       sum +
       concept.topics.filter(
-        (t) => lbMatchesFilter(t) && (!query || t.name.toLowerCase().includes(query) || t.summary.toLowerCase().includes(query) || t.id.includes(query))
+        (t) => lbMatchesFilter(t) && lbMatchesQuery(t, query)
       ).length,
     0
   );
@@ -999,9 +1024,7 @@ function lbRenderTopics() {
         </section>`;
       }
       const topics = concept.topics.filter(
-        (t) =>
-          lbMatchesFilter(t) &&
-          (!query || t.name.toLowerCase().includes(query) || t.summary.toLowerCase().includes(query) || t.id.includes(query))
+        (t) => lbMatchesFilter(t) && lbMatchesQuery(t, query)
       );
       if (!topics.length) return "";
       return `
@@ -1051,7 +1074,7 @@ function lbRenderTopics() {
 
   // Learn topics whose level could not be worked out. They are never recommended and stay collapsed.
   const unknown = (rec.levelUnknown?.topics || []).filter(
-    (t) => lbMatchesFilter(t) && (!query || t.name.toLowerCase().includes(query) || t.summary.toLowerCase().includes(query) || t.id.includes(query))
+    (t) => lbMatchesFilter(t) && lbMatchesQuery(t, query)
   );
   const unknownHtml = unknown.length
     ? `
