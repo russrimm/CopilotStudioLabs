@@ -17,11 +17,15 @@
 
 const HEADING_RE = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
 const FENCE_RE = /^\s*(`{3,}|~{3,})/;
-const STEP_TITLE_RE = /^(?:step|task|exercise|part)\s*#?\s*(\d+)\b[\s—–:.)-]*(.*)$/i;
+const STEP_TITLE_RE = /^(?:step|task|exercise|part|section|module)\s*#?\s*(\d+)\b[\s—–:.)-]*(.*)$/i;
 const USE_CASE_TITLE_RE = /^(?:optional\s+)?(?:use\s*case|lab)\s*#?\s*(\d+)\b[\s—–:.)-]*(.*)$/i;
 const NUMBERED_TITLE_RE = /^(\d+(?:\.\d+)+)[\s—–:.)-]+(.*)$/;
 const BOLD_NUMBERED_RE = /^\s*\*\*(\d+)[.)]\s+(.+?)\*\*\s*$/;
 const PREREQ_TITLE_RE = /^prerequisites?\b/i;
+const OVERVIEW_TITLE_RE = /^overview\b/i;
+// Trailing summary, appendix, and wrap-up containers hold review worksheets or next-lab links, not lab steps.
+const NON_INSTRUCTION_SECTION_RE =
+  /^(?:appendix\b|summary\b|lab complete\b|related labs\b|suggested next labs\b|next steps\b|further reading\b|references\b)/i;
 // Sub-sections inside a step that hold text to type or outcomes, not instructions.
 const SKIPPED_SUBSECTION_RE =
   /^(?:sample prompts?|prompts?|test prompts?|quick verification|expected(?: results?| output)?|validation(?: checklist)?|troubleshooting|summary)\b/i;
@@ -231,6 +235,25 @@ export function parseLabSteps(markdown) {
   const headings = parseHeadings(lines);
   const lineCount = lines.length;
 
+  let overview = null;
+  const overviewPos = headings.findIndex((h) => h.kind === "other" && h.level === 2 && OVERVIEW_TITLE_RE.test(h.title));
+  if (overviewPos >= 0) {
+    const items = collectItems(lines, headings[overviewPos].index + 1, endOfRegion(headings, overviewPos, lineCount), headings);
+    if (items.length) {
+      overview = {
+        id: "overview",
+        index: 0,
+        kind: "overview",
+        ordinal: null,
+        title: "Lab overview",
+        heading: headings[overviewPos].title,
+        group: null,
+        line: headings[overviewPos].index + 1,
+        items,
+      };
+    }
+  }
+
   let prerequisites = null;
   const prereqPos = headings.findIndex((h) => h.kind === "other" && h.level === 2 && PREREQ_TITLE_RE.test(h.title));
   if (prereqPos >= 0) {
@@ -250,7 +273,15 @@ export function parseLabSteps(markdown) {
     }
   }
 
-  const at = (kind) => headings.map((h, i) => (h.kind === kind ? i : -1)).filter((i) => i >= 0);
+  const nonInstructionRanges = headings
+    .map((h, i) => (h.kind === "other" && NON_INSTRUCTION_SECTION_RE.test(h.title) ? [h.index, endOfRegion(headings, i, lineCount), h.level] : null))
+    .filter(Boolean);
+  const inNonInstructionSection = (pos) => {
+    const h = headings[pos];
+    return nonInstructionRanges.some(([start, end, level]) => h.index > start && h.index < end && h.level > level);
+  };
+
+  const at = (kind) => headings.map((h, i) => (h.kind === kind && !inNonInstructionSection(i) ? i : -1)).filter((i) => i >= 0);
   const stepPositions = at("step");
   const numberedPositions = at("numbered");
   const useCasePositions = at("useCase");
@@ -313,6 +344,7 @@ export function parseLabSteps(markdown) {
     source: numbered.length ? source : "none",
     steps: numbered,
     prerequisites,
+    overview,
     stats: { steps: numbered.length, items: numbered.reduce((sum, step) => sum + step.items.length, 0) },
   };
 }

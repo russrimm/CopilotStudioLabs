@@ -164,7 +164,36 @@ test("a lab with no step structure reports no steps instead of passing", async (
   assert.equal(result.status, "no-steps");
 });
 
-test("every real lab parses without throwing", () => {
+test("parses numbered Section headings and ignores trailing Appendix review worksheets", () => {
+  const md = `# Lab 01: Intro Workshop
+
+## Overview
+
+Build and publish AI agents in Microsoft Copilot Studio.
+
+## Section Summaries
+
+### Section 1: Ways to Build Agents
+- Computer-using agents
+- Workflows (Power Automate)
+
+### Section 2: Tool Use with Connectors
+- Adding the MSN Weather connector as a tool
+
+## 🙋 Summary
+
+### 📎 Appendix G — Use-case review worksheet
+
+#### Use Case #1 — Ways to Build Agents
+- Objective review: Build an agent.
+`;
+  const parsed = parseLabSteps(md);
+  assert.equal(parsed.source, "step-headings");
+  assert.deepEqual(parsed.steps.map((s) => s.title), ["Ways to Build Agents", "Tool Use with Connectors"]);
+  assert.ok(parsed.overview?.items.length > 0);
+});
+
+test("every real lab parses into at least one step without throwing", () => {
   const labsDir = resolve(import.meta.dirname, "..", "..", "labs");
   const dirs = readdirSync(labsDir, { withFileTypes: true }).filter((d) => d.isDirectory());
   assert.ok(dirs.length > 0);
@@ -177,7 +206,7 @@ test("every real lab parses without throwing", () => {
     }
     const parsed = parseLabSteps(markdown);
     for (const step of parsed.steps) extractClaims(step);
-    assert.ok(Array.isArray(parsed.steps), dir.name);
+    assert.ok(parsed.steps.length > 0, `${dir.name} produced zero steps`);
   }
 });
 
@@ -225,6 +254,20 @@ test("lab titles with a stage produce an availability claim", () => {
   assert.equal(claims[0].term, "Work IQ MCP");
   assert.equal(claims[0].state, "preview");
   assert.equal(extractLabClaims({ title: "Lab 12: Content Moderation", labId: "12" }).claims.length, 0);
+});
+
+test("prose fallback extracts product terms, named links, and SDK/system identifiers when bold UI formatting is absent", () => {
+  const prose = claimsFor([
+    "Open the [Microsoft agent usage estimator](https://microsoft.github.io/copilot-studio-estimator/) and apply Copilot Credits assumptions.",
+    "Add a prompt-node to your agent flow and verify `User.DisplayName` in test mode.",
+  ]);
+  const terms = prose.claims.map((c) => c.term);
+  assert.ok(terms.includes("Microsoft agent usage estimator"));
+  assert.ok(terms.includes("Copilot Credits"));
+  assert.ok(terms.includes("prompt node"));
+  assert.ok(terms.includes("agent flow"));
+  assert.ok(terms.includes("User.DisplayName"));
+  assert.ok(prose.claims.every((c) => c.confidence === "low" && c.kind === "term"));
 });
 
 // ── Matcher ─────────────────────────────────────────────────────────────────

@@ -39,6 +39,21 @@ export const DEFAULT_TIMEOUT_MS = Number(process.env.LAB_BUILDER_LINK_TIMEOUT_MS
 /** Requests in flight. These are cheap and mostly latency, so wider than the MCP limit. */
 export const DEFAULT_CONCURRENCY = 8;
 
+/** Polite per-host settings for Microsoft Learn so live lab builds do not trigger HTTP 429 bursts. */
+export const DEFAULT_LEARN_HOST_CONCURRENCY = 2;
+export const DEFAULT_LEARN_MIN_INTERVAL_MS = 120;
+export const DEFAULT_MAX_RETRIES = 2;
+export const DEFAULT_BASE_DELAY_MS = 250;
+export const DEFAULT_MAX_DELAY_MS = 2500;
+export const DEFAULT_MAX_RETRY_AFTER_MS = 5000;
+
+const LEARN_HOSTS = Object.freeze([
+  "learn.microsoft.com",
+  "docs.microsoft.com",
+  "techcommunity.microsoft.com",
+  "devblogs.microsoft.com",
+]);
+
 const USER_AGENT = "copilot-studio-lab-builder/1.0 (+generation-link-check)";
 
 /**
@@ -161,20 +176,129 @@ export function classifyThirdParty(record) {
 }
 
 /**
+ * Parse a `Retry-After` header (delta-seconds or HTTP-date) into bounded milliseconds.
+ * Returns `null` when absent or unparseable.
+ */
+export function parseRetryAfterMs(headerValue, { now = Date.now(), maxMs = DEFAULT_MAX_RETRY_AFTER_MS } = {}) {
+  if (headerValue === null || headerValue === undefined) return null;
+  const raw = String(headerValue).trim();
+  if (!raw) return null;
+
+  if (/^\d+(?:\.\d+)?$/.test(raw)) {
+    const ms = Math.ceil(Number(raw) * 1000);
+    return Math.min(Math.max(0, ms), maxMs);
+  }
+
+  const parsedDate = Date.parse(raw);
+  if (!Number.isNaN(parsedDate)) {
+    return Math.min(Math.max(0, parsedDate - now), maxMs);
+  }
+
+  return null;
+}
+
+function computeBackoffMs(
+  attempt,
+  {
+    retryAfterMs = null,
+    baseDelayMs = DEFAULT_BASE_DELAY_MS,
+    maxDelayMs = DEFAULT_MAX_DELAY_MS,
+    maxRetryAfterMs = DEFAULT_MAX_RETRY_AFTER_MS,
+    random = Math.random,
+  } = {},
+) {
+  if (retryAfterMs !== null && Number.isFinite(retryAfterMs)) {
+    const clamped = Math.min(Math.max(0, retryAfterMs), maxRetryAfterMs);
+    const jitter = Math.round(Math.min(200, clamped * 0.1) * random());
+    return Math.min(maxRetryAfterMs, clamped + jitter);
+  }
+  const exp = Math.min(maxDelayMs, baseDelayMs * 2 ** Math.max(0, attempt));
+  return Math.max(1, Math.round(exp * (0.5 + 0.5 * random())));
+}
+
+function defaultSleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function createHostGate({ hostConcurrency = {}, minHostIntervalMs = {}, now = Date.now, sleep = defaultSleep } = {}) {
+  const states = new Map();
+
+  function getState(host) {
+    let state = states.get(host);
+    if (!state) {
+      const limit = hostConcurrency[host];
+      const minInterval = minHostIntervalMs[host];
+      state = {
+        active: 0,
+        limit: Number.isFinite(limit) && limit > 0 ? limit : Infinity,
+        minInterval: Number.isFinite(minInterval) && minInterval > 0 ? minInterval : 0,
+        nextAllowedAt: 0,
+        cooldownUntil: 0,
+        queue: [],
+      };
+      states.set(host, state);
+    }
+    return state;
+  }
+
+  return {
+    async run(host, fn) {
+      if (!host) return fn();
+      const state = getState(host);
+      if (state.active >= state.limit) {
+        await new Promise((resolve) => state.queue.push(resolve));
+      }
+      state.active += 1;
+      try {
+        const current = now();
+        const scheduled = Math.max(current, state.nextAllowedAt, state.cooldownUntil);
+        if (state.minInterval > 0) state.nextAllowedAt = scheduled + state.minInterval;
+        if (scheduled > current) await sleep(scheduled - current);
+        return await fn();
+      } finally {
+        state.active = Math.max(0, state.active - 1);
+        const next = state.queue.shift();
+        if (next) next();
+      }
+    },
+    noteCooldown(host, delayMs) {
+      if (!host || !Number.isFinite(delayMs) || delayMs <= 0) return;
+      const state = getState(host);
+      state.cooldownUntil = Math.max(state.cooldownUntil, now() + delayMs);
+    },
+  };
+}
+
+/**
  * Build a single-URL checker.
  *
  * `fetchImpl` is injectable so tests can exercise 404 and timeout handling
  * without a network, and so a caller can supply an agent with a proxy.
  */
-export function createLinkChecker({ timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = fetch } = {}) {
-  return async function checkLink(url) {
-    if (!isCheckableUrl(url)) {
-      return { url, status: 0, ok: false, error: "unsupported URL scheme", checkedAt: new Date().toISOString() };
-    }
+export function createLinkChecker({
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  fetchImpl = fetch,
+  maxRetries = DEFAULT_MAX_RETRIES,
+  baseDelayMs = DEFAULT_BASE_DELAY_MS,
+  maxDelayMs = DEFAULT_MAX_DELAY_MS,
+  maxRetryAfterMs = DEFAULT_MAX_RETRY_AFTER_MS,
+  sleep = defaultSleep,
+  random = Math.random,
+  now = Date.now,
+  hostConcurrency,
+  minHostIntervalMs,
+} = {}) {
+  const defaultHostLimits = Object.fromEntries(LEARN_HOSTS.map((h) => [h, DEFAULT_LEARN_HOST_CONCURRENCY]));
+  const defaultHostIntervals = Object.fromEntries(LEARN_HOSTS.map((h) => [h, DEFAULT_LEARN_MIN_INTERVAL_MS]));
+  const gate = createHostGate({
+    hostConcurrency: { ...defaultHostLimits, ...(hostConcurrency || {}) },
+    minHostIntervalMs: { ...defaultHostIntervals, ...(minHostIntervalMs || {}) },
+    now,
+    sleep,
+  });
 
-    const refused = (error) => ({ url, status: 0, ok: false, error, checkedAt: new Date().toISOString() });
-    if (!isPublicUrl(url)) return refused("refused: URL does not point at a public host");
-
+  async function fetchSingleAttempt(url) {
+    const refused = (error) => ({ url, status: 0, ok: false, refused: true, error, checkedAt: new Date().toISOString() });
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -189,13 +313,19 @@ export function createLinkChecker({ timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = 
           signal: controller.signal,
           headers: { "user-agent": USER_AGENT },
         });
+        await res.body?.cancel?.().catch(() => {});
+
         const location = res.status >= 300 && res.status < 400 ? res.headers?.get?.("location") : null;
         if (!location) {
+          const retryAfterMs = TRANSIENT_STATUSES.includes(res.status)
+            ? parseRetryAfterMs(res.headers?.get?.("retry-after"), { now: now(), maxMs: maxRetryAfterMs })
+            : null;
           return {
             url,
             status: res.status,
             ok: res.ok,
             finalUrl: res.url || current,
+            retryAfterMs,
             checkedAt: new Date().toISOString(),
           };
         }
@@ -215,11 +345,58 @@ export function createLinkChecker({ timeoutMs = DEFAULT_TIMEOUT_MS, fetchImpl = 
         status: 0,
         ok: false,
         error: error?.name === "AbortError" ? "timeout" : String(error?.message || error),
+        retryAfterMs: null,
         checkedAt: new Date().toISOString(),
       };
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  return async function checkLink(url) {
+    if (!isCheckableUrl(url)) {
+      return { url, status: 0, ok: false, error: "unsupported URL scheme", checkedAt: new Date().toISOString() };
+    }
+
+    if (!isPublicUrl(url)) {
+      return { url, status: 0, ok: false, error: "refused: URL does not point at a public host", checkedAt: new Date().toISOString() };
+    }
+
+    let host = "";
+    try {
+      host = new URL(String(url)).hostname.toLowerCase();
+    } catch {
+      host = "";
+    }
+
+    let last = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      last = await gate.run(host, () => fetchSingleAttempt(url));
+      const retryable = !last.ok && !last.refused && (last.status === 0 || TRANSIENT_STATUSES.includes(last.status));
+      if (!retryable || attempt >= maxRetries) break;
+
+      const waitMs = computeBackoffMs(attempt, {
+        retryAfterMs: last.retryAfterMs,
+        baseDelayMs,
+        maxDelayMs,
+        maxRetryAfterMs,
+        random,
+      });
+      if (last.status === 429 || last.retryAfterMs !== null) {
+        gate.noteCooldown(host, waitMs);
+      }
+      await sleep(waitMs);
+    }
+
+    const { retryAfterMs: _unused, refused: _refused, ...record } = last;
+    if (!record.ok && TRANSIENT_STATUSES.includes(record.status)) {
+      return {
+        ...record,
+        ...(record.status === 429 ? { rateLimited: true } : {}),
+        error: record.status === 429 ? "HTTP 429 (rate limited)" : `HTTP ${record.status} (transient)`,
+      };
+    }
+    return record;
   };
 }
 

@@ -18,6 +18,11 @@
 // that no longer drift, and exits 1 on unexpected drift or when MCP is down.
 
 import { loadAllLabs, writeReport } from "./lib/labs.mjs";
+import {
+  classifyFirstPartyLink,
+  createPoliteLinkChecker,
+  describeUnreachable,
+} from "./lib/http-check.mjs";
 import { LearnMcpClient } from "./lib/mcp-client.mjs";
 import {
   addReferenceCounts,
@@ -38,27 +43,6 @@ const LINK_CONCURRENCY = 6;
 const DRIFT_CONFIRM_ATTEMPTS = 3;
 const RANKING_DRIFT_NOTE =
   "No exact cited Learn page appeared in the current top search results. The links still resolve; review search ranking and product relevance before changing documentation.";
-
-async function checkLink(url) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), LINK_TIMEOUT_MS);
-  try {
-    // Some Learn endpoints reject HEAD, so use GET but discard the body.
-    const res = await fetch(url, {
-      method: "GET",
-      redirect: "follow",
-      signal: controller.signal,
-      headers: { "user-agent": "copilot-studio-lab-accuracy/1.0 (+monthly-link-check)" },
-    });
-    // The body is never read; release the connection instead of holding it open.
-    await res.body?.cancel().catch(() => {});
-    return { url, status: res.status, ok: res.ok, finalUrl: res.url };
-  } catch (error) {
-    return { url, status: 0, ok: false, error: error.name === "AbortError" ? "timeout" : error.message };
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 async function mapWithConcurrency(items, limit, fn) {
   const results = new Array(items.length);
@@ -234,16 +218,24 @@ async function main() {
   const linkPolicy = loadLinkPolicy();
   report.summary.references = emptyReferenceSummary();
   const thirdPartyWarnings = [];
+  const checkLink = createPoliteLinkChecker({
+    timeoutMs: LINK_TIMEOUT_MS,
+    userAgent: "copilot-studio-lab-accuracy/1.0 (+monthly-link-check)",
+  });
 
   for (const lab of labs) {
     const linkResults = (await mapWithConcurrency(lab.learnLinks, LINK_CONCURRENCY, checkLink)).map((result) => ({
       ...result,
       party: "first",
     }));
-    // HTTP 4xx/5xx are definite breakages; status 0 means a transient network
-    // error (timeout, DNS) that we surface as "unreachable" rather than broken.
-    const broken = linkResults.filter((r) => r.status >= 400);
-    const unreachable = linkResults.filter((r) => r.status === 0);
+    // Definitive HTTP 4xx/5xx responses are broken; network failures (status 0)
+    // and persistent transient throttling/gateway statuses (429, 502, 503, 504)
+    // are classified as unreachable rather than broken so rate-limiting never
+    // produces false-positive broken-link failures.
+    const broken = linkResults.filter((r) => classifyFirstPartyLink(r) === "broken");
+    const unreachable = linkResults
+      .filter((r) => classifyFirstPartyLink(r) === "unreachable")
+      .map((r) => (r.error ? r : { ...r, error: describeUnreachable(r) }));
     report.summary.brokenLinks += broken.length;
     report.summary.unreachableLinks += unreachable.length;
 
@@ -299,9 +291,16 @@ async function main() {
     }
 
     report.labs.push(labRecord);
-    const status = broken.length ? `${broken.length} broken link(s)` : "links OK";
+    const statusParts = [];
+    if (broken.length) statusParts.push(`${broken.length} broken link(s)`);
+    if (unreachable.length) statusParts.push(`${unreachable.length} unreachable`);
+    const status = statusParts.join(", ") || "links OK";
     console.log(`• ${lab.name}: ${status}${labRecord.mcp.note ? " | drift: yes" : ""}`);
   }
+
+  const linkStats = checkLink.stats();
+  report.summary.uniqueUrlsChecked = linkStats.uniqueChecked;
+  report.summary.linkRetries = linkStats.retries;
 
   const unexpectedDrift = driftBaseline
     ? applyDriftBaseline(report, driftBaseline)

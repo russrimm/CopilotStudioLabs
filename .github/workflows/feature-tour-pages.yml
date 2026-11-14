@@ -28,9 +28,14 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      pages_enabled: ${{ steps.pages_check.outputs.enabled }}
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -48,18 +53,55 @@ jobs:
           node --test "tools/screenshot-capture/test/*.test.mjs"
 
       - name: Build the site
-        run: node tools/feature-tour/build.mjs --out=_site
+        run: |
+          node tools/feature-tour/build.mjs --out=_site
+          test -f _site/index.html
+
+      - name: Check whether GitHub Pages is enabled
+        id: pages_check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          response="$(gh api "repos/${GITHUB_REPOSITORY}/pages" 2>&1)"
+          status=$?
+          set -e
+          if [ "$status" -ne 0 ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### GitHub Pages deployment skipped"
+              echo ""
+              echo "The feature tour site built and passed all verification checks, but GitHub Pages is not enabled for \`${GITHUB_REPOSITORY}\` yet."
+              echo "To publish automatically on pushes to \`main\`, open **Settings > Pages > Build and deployment** and set **Source** to **GitHub Actions**."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          build_type="$(printf '%s' "$response" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).build_type||"")}catch{console.log("")}})')"
+          if [ "$build_type" != "workflow" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### GitHub Pages deployment skipped"
+              echo ""
+              echo "GitHub Pages is enabled for \`${GITHUB_REPOSITORY}\`, but its build source is \`${build_type:-legacy}\` rather than **GitHub Actions**."
+              echo "Set **Settings > Pages > Build and deployment > Source** to **GitHub Actions** to deploy this workflow artifact."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
 
       - name: Configure Pages
-        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+        if: steps.pages_check.outputs.enabled == 'true'
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
       - name: Upload the site
-        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        if: steps.pages_check.outputs.enabled == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
 
   deploy:
     needs: build
+    if: needs.build.outputs.pages_enabled == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -71,4 +113,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

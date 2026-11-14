@@ -16,6 +16,13 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { repoRoot } from "./labs.mjs";
+import {
+  classifyFirstPartyLink,
+  computeBackoffMs,
+  describeUnreachable,
+  isTransientHttpStatus,
+  parseRetryAfterMs,
+} from "./http-check.mjs";
 import { classifyThirdParty } from "./reference-links.mjs";
 
 const builderLib = (file) => pathToFileURL(path.join(repoRoot, "portal", "lib", "lab-builder", file)).href;
@@ -91,13 +98,21 @@ export function featureLinks(feature) {
  * status 0, so the third-party rules would call it unreachable; `refused`
  * keeps it apart, because retrying next month will not fix it.
  */
-export function createVendorLinkChecker({ allowedHosts, fetchImpl = fetch, timeoutMs = LINK_TIMEOUT_MS, maxRedirects = MAX_REDIRECTS, maxBytes = DEFAULT_MAX_BYTES } = {}) {
+export function createVendorLinkChecker({
+  allowedHosts,
+  fetchImpl = fetch,
+  timeoutMs = LINK_TIMEOUT_MS,
+  maxRedirects = MAX_REDIRECTS,
+  maxBytes = DEFAULT_MAX_BYTES,
+  maxRetries = 0,
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  random = Math.random,
+  now = Date.now,
+} = {}) {
   const hosts = new Set([...(allowedHosts || [])].map((host) => String(host).toLowerCase()));
-  return async function checkVendorLink(url) {
-    const refuse = (error, extra = {}) => ({ url, status: 0, ok: false, refused: true, error, ...extra });
-    const first = vendorUrlProblem(url, hosts);
-    if (first) return refuse(`not requested: ${first}`);
 
+  async function attemptVendorFetch(url) {
+    const refuse = (error, extra = {}) => ({ url, status: 0, ok: false, refused: true, error, ...extra });
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -109,7 +124,7 @@ export function createVendorLinkChecker({ allowedHosts, fetchImpl = fetch, timeo
           signal: controller.signal,
           headers: { "user-agent": USER_AGENT, accept: "text/html, text/plain;q=0.9" },
         });
-        await res.body?.cancel().catch(() => {});
+        await res.body?.cancel?.().catch(() => {});
 
         if (res.status >= 300 && res.status < 400) {
           const location = res.headers.get("location");
@@ -127,7 +142,12 @@ export function createVendorLinkChecker({ allowedHosts, fetchImpl = fetch, timeo
           continue;
         }
 
-        if (!res.ok) return { url, status: res.status, ok: false, finalUrl: current };
+        if (!res.ok) {
+          const retryAfterMs = isTransientHttpStatus(res.status)
+            ? parseRetryAfterMs(res.headers?.get?.("retry-after"), { now: now() })
+            : null;
+          return { url, status: res.status, ok: false, finalUrl: current, retryAfterMs };
+        }
 
         const type = String(res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
         if (!READABLE_TYPES.has(type)) return refuse(`content type is ${type || "missing"}, not text/html or text/plain`, { finalUrl: current, httpStatus: res.status });
@@ -142,6 +162,22 @@ export function createVendorLinkChecker({ allowedHosts, fetchImpl = fetch, timeo
     } finally {
       clearTimeout(timer);
     }
+  }
+
+  return async function checkVendorLink(url) {
+    const first = vendorUrlProblem(url, hosts);
+    if (first) return { url, status: 0, ok: false, refused: true, error: `not requested: ${first}` };
+
+    let last = null;
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      last = await attemptVendorFetch(url);
+      const retryable = !last.ok && !last.refused && (last.status === 0 || (isTransientHttpStatus(last.status) && last.status !== 429));
+      if (!retryable || attempt >= maxRetries) break;
+      const waitMs = computeBackoffMs(attempt, { retryAfterMs: last.retryAfterMs ?? null, random });
+      await sleep(waitMs);
+    }
+    const { retryAfterMs: _unused, ...record } = last;
+    return record;
   };
 }
 
@@ -177,6 +213,10 @@ export function analyzeFeature(feature, resultsByUrl, { now = Date.now(), maxAge
   const vendorVerdict = (record) => (record.refused ? "refused" : classifyThirdParty(record));
   const ageDays = verificationAgeDays(feature?.lastVerified, now);
   const verificationProblems = freshnessProblems(feature, now);
+  const learnBroken = learn.filter((r) => classifyFirstPartyLink(r) === "broken");
+  const learnUnreachable = learn
+    .filter((r) => classifyFirstPartyLink(r) === "unreachable")
+    .map((r) => (r.error ? r : { ...r, error: describeUnreachable(r) }));
 
   return {
     id: feature?.id ?? null,
@@ -188,8 +228,8 @@ export function analyzeFeature(feature, resultsByUrl, { now = Date.now(), maxAge
     verificationProblems,
     linkCount: learn.length + vendor.length,
     vendorLinkCount: vendor.length,
-    brokenLinks: [...learn.filter((r) => r.status >= 400), ...vendor.filter((r) => vendorVerdict(r) === "broken")],
-    unreachableLinks: [...learn.filter((r) => r.status === 0), ...vendor.filter((r) => vendorVerdict(r) === "unreachable")],
+    brokenLinks: [...learnBroken, ...vendor.filter((r) => vendorVerdict(r) === "broken")],
+    unreachableLinks: [...learnUnreachable, ...vendor.filter((r) => vendorVerdict(r) === "unreachable")],
     refusedLinks: vendor.filter((r) => vendorVerdict(r) === "refused"),
     unverifiableLinks: vendor.filter((r) => vendorVerdict(r) === "unverifiable"),
     redirectedLinks: learn

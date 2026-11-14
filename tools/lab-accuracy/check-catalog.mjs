@@ -20,6 +20,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { writeReport, repoRoot } from "./lib/labs.mjs";
+import { createPoliteLinkChecker, isTransientHttpStatus } from "./lib/http-check.mjs";
 import { validateCoverage } from "../../portal/lib/lab-builder/coverage.js";
 import { readCatalogFile } from "../../portal/lib/lab-builder/catalog-source.js";
 import {
@@ -27,10 +28,15 @@ import {
   buildCatalogReport,
   catalogMaxAgeDays,
   catalogNeedsAction,
+  createVendorLinkChecker,
 } from "./lib/catalog-report.mjs";
 
 const LINK_TIMEOUT_MS = 15000;
 const LINK_CONCURRENCY = 6;
+const defaultCheckLink = createPoliteLinkChecker({
+  timeoutMs: LINK_TIMEOUT_MS,
+  userAgent: "copilot-studio-lab-accuracy/1.0 (+monthly-catalog-check)",
+});
 
 /** Coverage problems for the concepts that sit next to the catalog file. */
 export function checkCoverage(catalogPath) {
@@ -48,23 +54,7 @@ export function checkCoverage(catalogPath) {
 }
 
 export async function checkLink(url) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), LINK_TIMEOUT_MS);
-  try {
-    // Some Learn endpoints reject HEAD, so use GET but discard the body.
-    const res = await fetch(url, {
-      method: "GET",
-      redirect: "follow",
-      signal: controller.signal,
-      headers: { "user-agent": "copilot-studio-lab-accuracy/1.0 (+monthly-catalog-check)" },
-    });
-    await res.body?.cancel().catch(() => {});
-    return { url, status: res.status, ok: res.ok, finalUrl: res.url };
-  } catch (error) {
-    return { url, status: 0, ok: false, error: error.name === "AbortError" ? "timeout" : error.message };
-  } finally {
-    clearTimeout(timer);
-  }
+  return defaultCheckLink(url);
 }
 
 async function main() {
@@ -74,8 +64,18 @@ async function main() {
   const maxAgeDays = catalogMaxAgeDays(args);
 
   const catalog = readCatalogFile(catalogPath);
+  const runCheckLink = createPoliteLinkChecker({
+    timeoutMs: LINK_TIMEOUT_MS,
+    userAgent: "copilot-studio-lab-accuracy/1.0 (+monthly-catalog-check)",
+  });
+  const checkVendorLink = createVendorLinkChecker({
+    allowedHosts: (catalog?.vendorHosts || []).map((entry) => entry?.host),
+    timeoutMs: LINK_TIMEOUT_MS,
+    maxRetries: 2,
+  });
   const report = await buildCatalogReport(catalog, {
-    checkLink,
+    checkLink: runCheckLink,
+    checkVendorLink,
     maxAgeDays,
     concurrency: LINK_CONCURRENCY,
     catalogPath: path.relative(repoRoot, catalogPath).split(path.sep).join("/"),
@@ -109,15 +109,11 @@ async function main() {
   if (fs.existsSync(differencesPath)) {
     const { differences = [] } = JSON.parse(fs.readFileSync(differencesPath, "utf8"));
     const urls = [...new Set(differences.flatMap((record) => record.sources.map((source) => source.url)))];
-    // Fetch a few at a time and count only a real "gone" answer as broken: Learn
-    // answers 429 when it is hit in a burst, which says nothing about the page.
-    const results = [];
-    for (let i = 0; i < urls.length; i += 3) {
-      results.push(...(await Promise.all(urls.slice(i, i + 3).map((url) => checkLink(url)))));
-    }
-    const TRANSIENT = new Set([0, 408, 425, 429, 502, 503, 504]);
-    const broken = results.filter((result) => !result.ok && !TRANSIENT.has(result.status));
-    const throttled = results.filter((result) => !result.ok && TRANSIENT.has(result.status));
+    // Reuse runCheckLink so URLs already checked in the catalog are not re-fetched,
+    // and any new Learn URLs share the same per-host concurrency and backoff.
+    const results = await Promise.all(urls.map((url) => runCheckLink(url)));
+    const broken = results.filter((result) => !result.ok && result.status !== 0 && !isTransientHttpStatus(result.status));
+    const throttled = results.filter((result) => !result.ok && (result.status === 0 || isTransientHttpStatus(result.status)));
     const stale = differences.filter((record) => {
       const age = (Date.now() - Date.parse(`${record.lastVerified}T00:00:00Z`)) / 86400000;
       return !(age <= maxAgeDays);

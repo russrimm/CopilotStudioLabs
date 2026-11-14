@@ -106,9 +106,21 @@ export async function validateLabSteps(lab, { learn, onProgress, signal, ignoreT
 
   const parsed = parseLabSteps(lab.markdown);
   const units = [];
-  const overview = extractLabClaims({ title: lab.title, labId: lab.labId });
+  const hasExplicitStepClaims = parsed.steps.some((step) =>
+    extractClaims(step, { ignoreTerms, maxClaims: cfg.maxClaimsPerStep }).claims.some((c) => c.confidence === "high"),
+  );
+  const overview = extractLabClaims({
+    title: lab.title,
+    labId: lab.labId,
+    overview: parsed.overview,
+    includeOverviewTerms: !hasExplicitStepClaims,
+    ignoreTerms,
+  });
   if (overview.claims.length) {
-    units.push({ step: { id: "overview", index: 0, ordinal: null, title: "Lab overview", group: null, line: 1, items: [] }, preset: overview });
+    units.push({
+      step: { id: "overview", index: 0, ordinal: null, title: "Lab overview", group: null, line: parsed.overview?.line ?? 1, items: [] },
+      preset: overview,
+    });
   }
   if (parsed.prerequisites) units.push({ step: parsed.prerequisites });
   for (const step of parsed.steps) units.push({ step });

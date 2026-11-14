@@ -28,12 +28,12 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          node-version: "24"
 
       - name: Refresh the snapshot from Microsoft Learn
         id: refresh
@@ -51,12 +51,33 @@ jobs:
           git add portal/lib/lab-builder/learn-topics.snapshot.json
           git commit -m "chore(lab-builder): refresh Microsoft Learn topic snapshot"
           git push --force origin "$branch"
-          if gh pr view "$branch" --json number > /dev/null 2>&1; then
-            gh pr edit "$branch" --body-file "$RUNNER_TEMP/summary.md"
+          open_pr="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$open_pr" ]; then
+            gh pr edit "$open_pr" --body-file "$RUNNER_TEMP/summary.md"
           else
-            gh pr create --base main --head "$branch" \
+            set +e
+            pr_output="$(gh pr create --base main --head "$branch" \
               --title "Refresh Microsoft Learn topic snapshot" \
-              --body-file "$RUNNER_TEMP/summary.md"
+              --body-file "$RUNNER_TEMP/summary.md" 2>&1)"
+            pr_status=$?
+            set -e
+            if [ "$pr_status" -eq 0 ]; then
+              printf '%s\n' "$pr_output"
+            elif printf '%s' "$pr_output" | grep -qi "not permitted to create or approve pull requests"; then
+              compare_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/main...${branch}?expand=1"
+              echo "::warning::Updated branch ${branch} was pushed, but GitHub Actions pull request creation is disabled in repository settings."
+              {
+                echo "### Pull request creation skipped"
+                echo ""
+                echo "Updated snapshot pushed to \`${branch}\`, but GitHub Actions is not permitted to open pull requests in \`${GITHUB_REPOSITORY}\`."
+                echo "- Open the pull request manually: ${compare_url}"
+                echo "- Or enable **Allow GitHub Actions to create and approve pull requests** under **Settings > Actions > General**."
+                echo ""
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              printf '%s\n' "$pr_output" >&2
+              exit "$pr_status"
+            fi
           fi
 
       - name: Summarize the run
