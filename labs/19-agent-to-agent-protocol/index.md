@@ -100,8 +100,10 @@ User
 
 ## 📚 Documentation
 
-- [Add other agents overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-add-other-agents)
-- [Connect to an agent over the Agent2Agent (A2A) protocol](https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-agent-agent-to-agent)
+- [Add other agents overview](https://learn.microsoft.com/microsoft-copilot-studio/authoring-add-other-agents)
+- [Connect an agent available over the Agent2Agent (A2A) protocol (standard harness)](https://learn.microsoft.com/microsoft-copilot-studio/add-agent-agent-to-agent)
+- [Add an Agent2Agent (A2A) agent as a connected agent (Microsoft Copilot harness)](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-agent-to-agent)
+- [Connect to a Microsoft Fabric Data agent (preview)](https://learn.microsoft.com/microsoft-copilot-studio/add-agent-fabric-data-agent)
 
 ---
 
@@ -109,10 +111,10 @@ User
 
 - An environment with access to **Microsoft Copilot Studio** and the ability to connect other agents.
 - A working Copilot Studio specialist agent from a previous lab, such as the Contoso account or operations pattern from **Lab 18**.
-- Access to **Microsoft Fabric** and a **Fabric Data Agent** or equivalent A2A-capable analytics endpoint.
+- Access to either an external A2A-compliant analytics agent endpoint or **Microsoft Fabric** with a **Fabric Data Agent**.
 - A small set of sample utility analytics questions, such as feeder peak-load analysis, outage trends, or billing-segment comparisons.
 
-> ⚠️ **Preview:** Fabric Data Agent connectivity is preview. Use non-production data for this pilot and confirm that the external agent exposes a supported A2A endpoint.
+> ⚠️ **External-agent options and preview note:** On the **Agents** → **Add an agent** page, Copilot Studio provides both a dedicated **Microsoft Fabric** external-agent connector (**preview** — see [Connect to a Microsoft Fabric Data agent (preview)](https://learn.microsoft.com/microsoft-copilot-studio/add-agent-fabric-data-agent)) and a general **Agent2Agent (A2A)** option for any external agent implementing the open A2A standard. Note the endpoint difference by harness: on the **standard harness** (`Agents` → `Add agent` → `A2A agent`), enter the agent's communication **Endpoint URL** (Copilot Studio reads `<endpoint>/.well-known/agent.json`); on the **Microsoft Copilot harness** (`Build` → `Connected agents` → `Add` → `Add A2A agent`), enter the **Agent card URL** (typically `https://<host>/.well-known/agent-card.json`) and a 30–1,000 character description. Use non-production data when piloting preview Fabric Data Agent connections.
 
 > ⚠️ **Warning:** Because connected agents expand your solution surface area, align naming, ownership, and test responsibilities before you connect them.
 
@@ -262,12 +264,13 @@ Your operations team has a Fabric Data Agent that can answer questions about fee
 
 #### Step 2 — Add the external agent in Copilot Studio
 
-1. Open your parent Copilot Studio agent and go to the **Agents** page.
-2. Select **Add agent** and choose the external agent / **Agent2Agent (A2A)** option available in your tenant.
-3. Enter the connection details for the Fabric Data Agent and wait for Copilot Studio to retrieve or validate the external agent metadata.
-4. Review the imported or displayed name and description carefully. If they are vague, improve them at the source if possible because the orchestrator depends on these hints.
-5. Save the connection and confirm the external agent appears in the parent agent's **Agents** list.
-6. Leave the agent enabled so the orchestrator can consider it during testing.
+1. Open your parent Copilot Studio agent and go to the **Agents** page (or **Build** → **Connected agents** on the Microsoft Copilot harness).
+2. Select **Add agent** (or **Add an agent**) and choose the connector matching your endpoint:
+   - Choose **A2A agent** when connecting an external analytics agent over the open A2A protocol (passing the message **Endpoint URL** on the standard harness or the **Agent card URL** `/.well-known/agent-card.json` on the Microsoft Copilot harness, plus **None**, **API key**, or **OAuth 2.0** authentication).
+   - Choose **Microsoft Fabric** under **Connect to an external agent** when connecting directly to a native **Fabric Data Agent (preview)** in your tenant, authenticate the Fabric connection, select **Next**, and pick your Fabric Data Agent.
+3. Review the imported or displayed name and description carefully. If they are vague, refine them so the orchestrator has unambiguous routing signals.
+4. Select **Save** / **Add and configure** (or **Add to agent**) and confirm the external agent appears in the parent agent's **Agents** list.
+5. Leave the **Enabled** toggle turned on so the orchestrator can route to it during testing.
 
 > ⚠️ **Warning:** Do not settle for a generic description like 'data agent.' That forces the parent to guess when analytics delegation is appropriate.
 

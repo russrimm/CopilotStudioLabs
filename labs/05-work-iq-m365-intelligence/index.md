@@ -102,20 +102,22 @@ User
 
 ## 📚 Documentation
 
-- [Work IQ in Copilot Studio (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-work-iq)
-- [Add SharePoint as a knowledge source](https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-add-sharepoint)
-- [Add Bing Custom Search as a knowledge source](https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-bing-custom-search)
+- [Add Work IQ to your agent](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-work-iq)
+- [Overview of usage-based billing (Microsoft Copilot harness)](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview)
+- [Overview of Work IQ MCP servers (preview)](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/overview)
+- [Add SharePoint as a knowledge source](https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-sharepoint)
+- [Add Bing Custom Search as a knowledge source](https://learn.microsoft.com/microsoft-copilot-studio/knowledge-bing-custom-search)
 
 ---
 
 ## Prerequisites
 
-- Access to **Microsoft Copilot Studio** and permission to configure tools or knowledge sources.
-- A **Microsoft 365 Copilot license** because Work IQ requires Microsoft 365 Copilot licensing.
+- Access to **Microsoft Copilot Studio** with agents powered by the [Microsoft Copilot harness](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview) and permission to configure tools or knowledge sources.
+- A **Microsoft 365 Copilot license** in the tenant and [Copilot Credits](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview) available for usage-based Work IQ consumption.
 - At least one SharePoint site that contains internal utility content such as outage playbooks, planning memos, or field guidance.
-- Optional but recommended: a curated list of public energy-industry sites you want to include in a Bing Custom Search instance.
+- Optional: a curated list of public energy-industry sites you want to include in a Bing Custom Search instance.
 
-> ⚠️ **Preview:** Work IQ in Copilot Studio is preview. Do not use it for production workloads without tenant approval, confirmed regional availability, and a supported fallback.
+> ℹ️ **Availability note:** **Work IQ in Copilot Studio is generally available (GA)** for Microsoft 365 sources (**SharePoint**, **OneDrive**, **Outlook mail**, **Teams**, **Calendar**, and **People**) and is added by default to every new agent built on the **Microsoft Copilot harness** (**Build** tab → **Tools** → **Work IQ** → **Edit tool**). Optional **Business apps (preview)** workloads (Dynamics 365 and Power Apps) and standalone **Work IQ MCP servers** remain preview — enable preview workloads in the top toolbar (**...** → **Settings** → **Work IQ** → **Enable preview workloads**) only with tenant approval. Write operations on Work IQ are enabled by default, so test in a non-production or dedicated training tenant first.
 
 ---
 
@@ -167,14 +169,16 @@ A utility operations manager wants a morning briefing agent that understands cur
 You are an operations briefing assistant for Contoso Energy leaders. Use available Microsoft 365 and enterprise knowledge to summarize current work, recent decisions, key meetings, action items, and relevant files. Keep answers concise, traceable, and useful for outage operations, field readiness, and planning reviews.
 ```
 
-#### Step 3 — Enable Work IQ MCP tools
+#### Step 3 — Configure Work IQ tools and sources
 
-1. Open the agent's tool configuration surface where Work IQ MCP tools are exposed in your tenant.
-2. Add or enable the Work IQ toolset approved by your administrators.
-3. Review the available scopes so the agent uses only the required Microsoft 365 context for this scenario.
-4. Save the configuration and note any admin-center dependencies if tools remain blocked.
-5. Return to the agent overview and add one sentence reminding the agent to prefer current M365 context when the user asks about recent work or meetings.
+1. On your agent's **Build** tab, locate **Work IQ** under **Tools** (added automatically on new Microsoft Copilot harness agents, or select **Add tool** → **Work IQ**) and select **Edit tool** (or attach approved Work IQ MCP servers if using the standard harness).
+2. Review the connection and source settings to confirm which Microsoft 365 workloads are enabled for this scenario (**SharePoint**, **OneDrive**, **Outlook mail**, **Teams**, **Calendar**, and **People**).
+3. Restrict scopes and write operations so a read-only morning briefing agent uses only the Microsoft 365 context required for this scenario.
+4. Save the configuration and note any Microsoft 365 admin center allow/block dependencies if Work IQ servers remain restricted.
+5. Return to the agent instructions and add one sentence reminding the agent to prefer current Microsoft 365 context when the user asks about recent work or meetings.
 6. Save again so the instruction and tooling updates land together.
+
+> 💡 **Tip:** If your scenario also needs connected Dynamics 365 or Power Apps context on the Microsoft Copilot harness, makers can opt in to connected business app workloads from the toolbar (**...** → **Settings** → **Work IQ** → **Enable preview workloads**), as documented in [Add Work IQ to custom agents](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-work-iq).
 
 
 ##### Quick verification

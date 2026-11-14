@@ -476,7 +476,11 @@ Congratulations! 👏 You've built a custom Contoso Energy IT Operations agent g
 
 🔗 [Create and delete agents](https://learn.microsoft.com/microsoft-copilot-studio/authoring-first-bot)
 
-🔗 [Key concepts — Authoring agents](https://learn.microsoft.com/microsoft-copilot-studio/authoring-fundamentals)
+🔗 [Key concepts — Microsoft Copilot Studio overview](https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-what-is-copilot-studio)
+
+🔗 [Orchestrate agent behavior with generative AI](https://learn.microsoft.com/microsoft-copilot-studio/nlu-gpt-overview)
+
+🔗 [Knowledge sources summary](https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio)
 
 🔗 [Add knowledge to your agent](https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-existing-copilot)
 

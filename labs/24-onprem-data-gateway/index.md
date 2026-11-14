@@ -88,11 +88,12 @@ The gateway provides that bridge through outbound Azure Relay communication and 
 
 ## 📚 Documentation
 
-- [What is an on-premises data gateway?](https://learn.microsoft.com/en-us/data-integration/gateway/service-gateway-onprem)
-- [On-premises data gateway architecture](https://learn.microsoft.com/en-us/data-integration/gateway/service-gateway-onprem-indepth)
-- [Install an on-premises data gateway](https://learn.microsoft.com/en-us/data-integration/gateway/service-gateway-install)
-- [Add tools to custom agents](https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-tools-custom-agent)
-- [Use agent flows in Copilot Studio](https://learn.microsoft.com/en-us/training/modules/use-agent-flows/)
+- [What is an on-premises data gateway?](https://learn.microsoft.com/data-integration/gateway/service-gateway-onprem)
+- [On-premises data gateway architecture](https://learn.microsoft.com/data-integration/gateway/service-gateway-onprem-indepth)
+- [Install an on-premises data gateway](https://learn.microsoft.com/data-integration/gateway/service-gateway-install)
+- [Add tools to custom agents](https://learn.microsoft.com/microsoft-copilot-studio/add-tools-custom-agent)
+- [Agent flows overview in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/flows-overview)
+- [Use agent flows in Copilot Studio training module](https://learn.microsoft.com/training/modules/use-agent-flows/)
 
 ---
 
@@ -357,7 +358,7 @@ This use case creates the full hybrid pattern end to end.
 
 #### Step 1 — Create the flow
 
-1. Open Power Automate and create an instant or agent-triggered cloud flow.
+1. In Copilot Studio (**Tools** → **Add a tool** → **New tool** → **Agent flow**, starting with **When an agent calls the flow**) or in Power Automate, create an agent-triggered flow.
 2. Define inputs such as **Plant**, **Work Order ID**, or **Status** depending on your scenario.
 3. Add a SQL Server action that uses the data source created through the gateway.
 

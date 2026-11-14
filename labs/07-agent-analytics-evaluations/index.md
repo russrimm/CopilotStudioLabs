@@ -110,7 +110,7 @@ By the end of this lab you will be able to:
 - Access to **Microsoft Copilot Studio** with **Analytics** and **Agent Evaluation** permissions
 - Your agent has been **published** and used through a **deployed channel** (Microsoft Teams, a website, or another Copilot Studio channel) — only those conversations contribute to analytics data
 
-> ⚠️ **Important — analytics needs published, real conversations.** Test-canvas conversations may *not* appear in the Analytics view. Before starting Use Case #1, publish your agent and have at least one real conversation through a deployed channel. Even then, analytics data takes **24–48 hours to populate**. There's no way to pre-provision or simulate analytics data — for now, if your environment is brand new, skim the descriptions in Use Case #1 to know what to expect, then move to Use Case #2 (which works immediately).
+> ⚠️ **Important — analytics needs published, real conversations.** Test-canvas conversations do *not* appear in the **Monitor** (formerly **Analytics**) view. Before starting Use Case #1, publish your agent and have at least one real conversation through a deployed channel. Analytics data appears within **up to an hour after an analytics session ends** (see [Analyze agent performance](https://learn.microsoft.com/microsoft-copilot-studio/analytics-overview)). If your environment is brand new and has no channel sessions yet, skim Use Case #1 to know what to expect, then move to Use Case #2 (which works immediately).
 
 > 💡 **Quality gate.** Do not use one evaluation method as the only production quality gate. Pair repeatable test sets with manual review, analytics, and stricter checks for compliance-sensitive facts.
 
@@ -135,12 +135,12 @@ By the end of this lab you will be able to:
 
 Your **Contoso IT Operations Agent** has been deployed for several days. Field technicians and the IT helpdesk team have been using it. You need to understand how they're interacting with it, which knowledge sources are getting hit, where conversations are failing, and whether users find it helpful — so you can prioritize the next round of improvements.
 
-> ⚠️ **Important — empty dashboard until publish.** If your Analytics page shows a *"Publish your agent to track performance"* empty-state with a single **Publish** button, none of the dashboard sections below will be visible. Publish your agent and have at least one real conversation through a deployed channel; analytics data takes **24–48 hours** to populate. The Product Group is working on a way to visualize what populated analytics will look like for lab scenarios — until then, skim the descriptions to know what to expect.
+> ⚠️ **Important — empty dashboard until publish.** If your **Monitor** (or **Analytics**) page shows a *"Publish your agent to track performance"* empty-state with a single **Publish** button, none of the dashboard sections below will be visible. Publish your agent and complete at least one real conversation through a deployed channel; analytics data appears within **up to an hour** after the analytics session ends. Until your environment has channel activity, skim the descriptions below to know what to expect.
 
-#### Step 1 — Navigate to Analytics
+#### Step 1 — Navigate to Monitor (Analytics)
 
 1. In Copilot Studio, select **Agents** in the left navigation.
-2. Open your **Contoso IT Operations Agent** (from Lab 04) and select **Analytics** in the top navigation bar.
+2. Open your **Contoso IT Operations Agent** (from Lab 04) and select **Monitor** (labeled **Analytics** in earlier Copilot Studio layouts) in the top navigation bar.
 3. Review the analytics dashboard overview, which typically includes:
    - **Summary metrics:** total conversations, engaged conversations, resolution rate
    - **Trend charts:** conversation volume over time
@@ -557,7 +557,7 @@ As the Contoso Energy IT Operations team scales their agent to thousands of fiel
 4. Select **Review + create**, then **Create**.
 5. Once deployed, open the resource and copy the **Connection String** from the **Overview** page (top-right). You'll need this in the next step.
 
-> ⚠️ **Important — connection string vs. instrumentation key.** Microsoft recommends using the **connection string** (which includes the instrumentation key plus ingestion endpoint) rather than the instrumentation key alone. The connection string is more resilient and supports regional endpoints. See [Connection strings in Application Insights](https://learn.microsoft.com/azure/azure-monitor/app/sdk-connection-string).
+> ⚠️ **Important — connection string vs. instrumentation key.** Microsoft recommends using the **connection string** (which includes the instrumentation key plus ingestion endpoint) rather than the instrumentation key alone. The connection string is more resilient and supports regional endpoints. See [Connection strings in Application Insights](https://learn.microsoft.com/azure/azure-monitor/app/connection-strings).
 
 #### Step 2 — Connect Application Insights to Copilot Studio
 
@@ -817,7 +817,7 @@ Don't wait for users to report problems — let Azure Monitor tell you first.
 
 > 💡 **Tip:** For critical production agents (e.g., the Contoso Energy outage-response agent during fire season), consider adding a **Sev 1** alert with an action group that pages the on-call engineer via PagerDuty, ServiceNow, or Microsoft Teams webhook.
 
-> 📎 **Microsoft guidance:** See [Create or edit an alert rule](https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-create-new-alert-rule) for the full configuration reference.
+> 📎 **Microsoft guidance:** See [Create or edit a log search alert rule](https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-create-log-alert-rule) for the full configuration reference.
 
 #### Step 7 — Compare Application Insights data with in-product analytics
 
@@ -834,12 +834,12 @@ Now that you have both in-product analytics (Use Case #1) and Application Insigh
 | "What was the 99th percentile response time last month?" | Application Insights | Long-term retention + percentile aggregation in KQL |
 | "What phrases are users typing that the agent doesn't understand?" | In-product Analytics + App Insights | In-product for the summary; App Insights traces for the raw user messages |
 
-1. Open the **in-product Analytics** in Copilot Studio and note a metric — for example, the conversation count for the last 7 days.
+1. Open **Monitor** (in-product Analytics) in Copilot Studio and note a metric — for example, the conversation count for the last 7 days.
 2. Open **Application Insights Logs** and run a query for the same metric and time range.
 3. Compare the numbers. They may not match exactly due to:
    - **Sampling** — Application Insights may sample at high volume; in-product analytics counts all events
-   - **Timing** — in-product analytics has a 24–48 hour delay; App Insights is near real-time
-   - **Scope** — test-canvas conversations may or may not appear depending on the channel
+   - **Timing** — in-product analytics updates within up to an hour after an analytics session ends; App Insights is near real-time
+   - **Scope** — test-canvas conversations do not appear in in-product analytics, while Application Insights captures telemetry according to your agent logging settings
 4. Document the delta and its cause for your team so everyone interprets the numbers consistently.
 
 > 💡 **Tip:** For Contoso's quarterly business reviews, use **in-product analytics** for the executive summary (clean charts, built-in) and **Application Insights workbooks** for the appendix (deep dives, custom analysis, correlation with Azure service health).
@@ -857,7 +857,7 @@ Now that you have both in-product analytics (Use Case #1) and Application Insigh
 
 - If no telemetry appears in Application Insights after 15 minutes, verify the **connection string** is correct and saved. Start a new conversation (existing conversations won't retroactively emit telemetry).
 - If you see telemetry in `customEvents` but not in `requests` or `dependencies`, your agent may not be making outbound calls in the conversations you tested. Try a conversation that triggers a knowledge source lookup or connector action.
-- **Sampling** can cause discrepancies between in-product analytics and App Insights at high volume. Check your Application Insights resource's [sampling configuration](https://learn.microsoft.com/azure/azure-monitor/app/sampling-classic-api) if numbers diverge significantly.
+- **Sampling** can cause discrepancies between in-product analytics and App Insights at high volume. Check your Application Insights resource's [sampling configuration](https://learn.microsoft.com/azure/azure-monitor/app/sampling) if numbers diverge significantly.
 - KQL event names and custom dimensions may change as Microsoft updates Copilot Studio telemetry. Use `customEvents | distinct name` and `customEvents | take 10` to discover the current schema in your environment.
 
 **Challenge — apply to a Contoso workflow**
@@ -872,7 +872,7 @@ Now that you have both in-product analytics (Use Case #1) and Application Insigh
 > - [Application Insights overview](https://learn.microsoft.com/azure/azure-monitor/app/app-insights-overview)
 > - [KQL quick reference](https://learn.microsoft.com/kusto/query/kql-quick-reference)
 > - [Azure Monitor Workbooks](https://learn.microsoft.com/azure/azure-monitor/visualize/workbooks-overview)
-> - [Create or edit an alert rule](https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-create-new-alert-rule)
+> - [Create or edit a log search alert rule](https://learn.microsoft.com/azure/azure-monitor/alerts/alerts-create-log-alert-rule)
 
 ---
 

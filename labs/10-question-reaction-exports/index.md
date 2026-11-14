@@ -26,20 +26,20 @@ Analytics exports help you move from anecdotal feedback to evidence-based priori
 
 ## Prerequisites
 
-- Access to analytics for a **published** agent with conversations in a supported channel. Test-pane activity does not appear in Analytics.
-- Enough recent interaction volume to analyze patterns.
-- A spreadsheet or BI tool for filtering and grouping.
+- Access to the **Monitor** page (formerly **Analytics**) for a **published** standard-harness agent with conversations in a supported channel, plus the **Bot Transcript Viewer** security role required to view and download drill-down transcripts. Test-pane activity does not appear in Monitor. See [Drill-down lists for questions, themes, and user reactions](https://learn.microsoft.com/microsoft-copilot-studio/analytics-drill-down-lists) and [Analyze agent performance](https://learn.microsoft.com/microsoft-copilot-studio/analytics-overview).
+- Enough recent interaction volume within the **28-day** transcript retention window to analyze patterns.
+- A spreadsheet or BI tool for filtering and grouping `.csv` exports.
 - A team backlog where actions can be tracked.
 
 ## Step-by-Step
 
 ### Step 1 - Export question and reaction data
 
-1. Open your agent analytics in Copilot Studio.
-2. Locate export options for user questions and reactions.
-3. Export data for a defined window (for example, last 14 days).
-4. Save files with date-stamped names.
-5. Confirm all expected columns were included.
+1. Open your agent's **Monitor** page in Copilot Studio and set your date filter (drill-down query and reaction lists cover up to the **past 28 days**).
+2. Open the drill-down panels: select **See questions** on the **Answers** card (or **Themes** on the **Questions** card) for unanswered/answered user queries, and select **Reactions** or **Comments** on the **Satisfaction** card for thumbs-up / thumbs-down message feedback.
+3. Select **Download questions** and **Download reactions** to export the `.csv` files (and optionally select **Evaluate** next to high-priority questions to seed an Agent Evaluation test set directly).
+4. Save files with date-stamped names in an approved team location.
+5. Confirm all expected columns were included and redact any sensitive user text before broad sharing.
 
 ### Step 2 - Prepare and normalize data
 

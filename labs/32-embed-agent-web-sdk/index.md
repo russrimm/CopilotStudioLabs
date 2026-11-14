@@ -127,33 +127,28 @@ The Copilot Studio Client SDK connects to your agent using three values:
 - **Agent (Schema) Name** — the immutable schema name of the agent
 - **Cloud / Region** — usually `Prod` (commercial cloud); some tenants use sovereign clouds
 
-### Step 1 — Publish your agent
+### Step 1 — Publish your agent and verify authentication
 
 1. Open [Microsoft Copilot Studio](https://copilotstudio.microsoft.com).
 2. Select the **environment** that contains your agent (top-right environment picker).
-3. Open your agent and click **Publish** in the top-right corner.
-4. Confirm. Wait for the publish to succeed.
+3. Open your agent, go to **Settings** → **Security** → **Authentication**, and confirm **Authenticate with Microsoft** (on by default) or **Authenticate manually** with Microsoft Entra ID is selected—do **not** select **No authentication**, because Microsoft 365 Agents SDK integration requires Microsoft Entra ID user authentication.
+4. Click **Publish** in the top-right corner and wait for publishing to succeed.
 
 > ⚠️ The SDK only sees the **published** version of your agent. If you edit topics or instructions later, re-publish before re-testing.
 
-#### Step 2 — Capture the Environment ID
+#### Step 2 — Capture the Environment ID and Agent Schema Name
 
-1. In Copilot Studio, click the **settings gear** (top-right).
-2. Select **Advanced** → **Resources**.
-3. Copy the **Environment ID** (a GUID).
-4. Save it somewhere — you'll paste it into your app config.
+1. In your agent, open **Settings** → **Advanced** → **Metadata**.
+2. Copy the **Environment ID** (a GUID).
+3. Copy the **Schema name** (for example `cr1a3_contosoITOperationsAgent`)—case and publisher prefix matter.
 
-**Alternative:** In the [Power Platform admin center](https://admin.powerplatform.microsoft.com/) → **Environments** → your environment → **Environment ID** is shown in the details pane.
+**Alternatives:**
+- Under **Channels** → **Web app** (or **Native app**) → **Microsoft 365 Agents SDK**, you can also copy the agent's direct **Connection string** if you prefer setting `directConnectUrl` instead of separate environment and schema fields.
+- In the [Power Platform admin center](https://admin.powerplatform.microsoft.com/) → **Manage** → **Environments** → your environment, **Environment ID** is also shown in the details pane.
 
-#### Step 3 — Capture the Agent Schema Name
+#### Step 3 — Note the Cloud
 
-1. Back in your agent, go to **Settings** → **Advanced**.
-2. Find **Schema name** (it usually looks like `cr1a3_contosoITOperationsAgent`).
-3. Copy it exactly — case and prefix matter.
-
-#### Step 4 — Note the Cloud
-
-For most commercial tenants, the cloud is simply `Prod`. If your organization uses GCC, GCC High, DoD, or another sovereign cloud, take note — you'll set this in the SDK config.
+For most commercial tenants, the cloud is simply `Prod`. If your organization uses GCC (`Gov`), GCC High (`High`), DoD (`DoD`), or another sovereign cloud, take note — you'll set this in the SDK config.
 
 > 📋 **Stash these three values** — Environment ID, Agent Schema Name, Cloud — in a scratch file. You'll wire them into the app shortly.
 
@@ -266,7 +261,7 @@ We're using **Vite** because it gives us a near-zero-config dev server with Type
 Open a terminal and run:
 
 ```bash
-npm create vite@9.1.1 copilot-studio-embed -- --template vanilla-ts
+npm create vite@latest copilot-studio-embed -- --template vanilla-ts
 cd copilot-studio-embed
 npm install
 ```
@@ -279,7 +274,7 @@ When asked, accept the defaults.
 npm install @microsoft/agents-copilotstudio-client @azure/msal-browser
 ```
 
-- `@microsoft/agents-copilotstudio-client` — the official Copilot Studio Client SDK
+- `@microsoft/agents-copilotstudio-client` (`^1.10.1` in the starter sample) — the official Microsoft 365 Agents SDK Copilot Studio client
 - `@azure/msal-browser` — Microsoft Authentication Library for browser-based apps
 
 #### Step 3 — Create the config file
@@ -301,7 +296,7 @@ export const authConfig = {
 
 export const agentConfig = {
   environmentId: "<YOUR-ENVIRONMENT-ID>",
-  agentIdentifier: "<YOUR-AGENT-SCHEMA-NAME>", // e.g. cr1a3_contosoITOperationsAgent
+  schemaName: "<YOUR-AGENT-SCHEMA-NAME>", // e.g. cr1a3_contosoITOperationsAgent
   cloud: "Prod" as const, // "Prod" | "Gov" | "High" | "DoD"
 };
 
@@ -500,11 +495,11 @@ export async function ensureClient(): Promise<CopilotStudioClient> {
 
   const token = await getAccessToken();
 
-  const settings: ConnectionSettings = {
+  const settings = new ConnectionSettings({
     environmentId: agentConfig.environmentId,
-    agentIdentifier: agentConfig.agentIdentifier,
+    schemaName: agentConfig.schemaName,
     cloud: cloudFromString(agentConfig.cloud),
-  };
+  });
 
   client = new CopilotStudioClient(settings, token);
   return client;
@@ -512,11 +507,12 @@ export async function ensureClient(): Promise<CopilotStudioClient> {
 
 export async function startConversation() {
   const c = await ensureClient();
-  const activities = await c.startConversationAsync(true);
-  for (const activity of activities) {
+  const activities = [];
+  for await (const activity of c.startConversationStreaming(true)) {
     if (activity.conversation?.id) {
       conversationId = activity.conversation.id;
     }
+    activities.push(activity);
   }
   return activities;
 }
@@ -541,9 +537,10 @@ export function resetClient() {
 
 #### Step 2 — What's happening
 
-- **`startConversationAsync(true)`** opens a new conversation and asks the agent to send its greeting (topic: `Conversation Start`). It resolves to the initial activity array.
-- **`askQuestionAsync(text, conversationId)`** sends a user message and streams the agent's response activities (text, typing indicators, suggested actions, adaptive cards).
-- **Activities** follow the Bot Framework activity schema. The most common types you'll render: `message` (with optional `attachments` and `suggestedActions`) and `typing`.
+- **`new ConnectionSettings({ environmentId, schemaName, cloud })`** configures the client using `schemaName` (replacing the deprecated `agentIdentifier` field in `@microsoft/agents-copilotstudio-client` `1.10.x`). Sovereign-cloud apps can also derive the token scope dynamically with `ScopeHelper.getScopeFromSettings(settings)`.
+- **`startConversationStreaming(true)`** opens a new conversation over Server-Sent Events (SSE) and yields the agent's greeting activities (topic: `Conversation Start`).
+- **`askQuestionAsync(text, conversationId)`** is a convenience wrapper that sends a text message and collects the turn's activities (`message`, `typing`, `suggestedActions`, Adaptive Card `attachments`). When you're ready to render tokens incrementally as they stream, iterate `sendActivityStreaming(activity, conversationId)` directly using `Activity` from `@microsoft/agents-activity`.
+- **Activities** follow the Agents / Bot Framework activity schema. The most common types you'll render: `message` (with optional `attachments` and `suggestedActions`) and `typing`.
 
 > ✅ The plumbing is in place. Now build the UI that makes it look like *your* product.
 
@@ -1179,9 +1176,10 @@ This lab gives you a working foundation. Here's what to add for production:
 ### 🔗 References
 
 - [Copilot Studio Client SDK on npm](https://www.npmjs.com/package/@microsoft/agents-copilotstudio-client)
-- [Copilot Studio – Connect with the Copilot Studio Client SDK](https://learn.microsoft.com/en-us/microsoft-copilot-studio/)
-- [MSAL.js for browsers](https://learn.microsoft.com/en-us/entra/identity-platform/msal-overview)
-- [Power Platform API reference](https://learn.microsoft.com/en-us/power-platform/admin/programmability-authentication-v2)
+- [Integrate web or native apps with Microsoft 365 Agents SDK](https://learn.microsoft.com/microsoft-copilot-studio/publication-integrate-web-or-native-app-m365-agents-sdk)
+- [Configure user authentication in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/configuration-end-user-authentication)
+- [MSAL.js for browsers](https://learn.microsoft.com/entra/identity-platform/msal-overview)
+- [Power Platform API authentication](https://learn.microsoft.com/power-platform/admin/programmability-authentication-v2)
 - [Adaptive Cards documentation](https://adaptivecards.io/)
 - [Bot Framework Activity schema](https://github.com/microsoft/botframework-sdk/blob/main/specs/botframework-activity/botframework-activity.md)
 

@@ -88,11 +88,12 @@ That experience only works if identity, connector setup, and ServiceNow records 
 
 ## 📚 Documentation
 
-- [ServiceNow connector reference](https://learn.microsoft.com/en-us/connectors/service-now/)
-- [Add tools to custom agents](https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-tools-custom-agent)
-- [Configure single sign-on with Microsoft Entra ID](https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-sso)
-- [Configure generic OAuth 2 provider SSO](https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-sso-3p)
-- [Use agent flows in Copilot Studio](https://learn.microsoft.com/en-us/training/modules/use-agent-flows/)
+- [ServiceNow connector reference](https://learn.microsoft.com/connectors/service-now/)
+- [Add tools to custom agents](https://learn.microsoft.com/microsoft-copilot-studio/add-tools-custom-agent)
+- [Configure single sign-on with Microsoft Entra ID](https://learn.microsoft.com/microsoft-copilot-studio/configure-sso)
+- [Configure generic OAuth 2 provider SSO](https://learn.microsoft.com/microsoft-copilot-studio/configure-sso-3p)
+- [Agent flows overview in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/flows-overview)
+- [Use agent flows in Copilot Studio training module](https://learn.microsoft.com/training/modules/use-agent-flows/)
 
 ---
 

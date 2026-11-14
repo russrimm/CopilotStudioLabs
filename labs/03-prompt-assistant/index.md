@@ -26,16 +26,19 @@ Prompt quality strongly influences reliability, tone, and task completion. In th
 
 ## Prerequisites
 
-- Access to Copilot Studio with a configurable agent.
+- Access to Copilot Studio on the [standard harness](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview#standard-harness) (or Power Apps / Power Automate **AI hub**) with [Prompt assistant](https://learn.microsoft.com/microsoft-copilot-studio/prompt-assistant) and [Prompt builder](https://learn.microsoft.com/microsoft-copilot-studio/nlu-prompt-node) available.
+- Dataverse provisioned in the environment and Copilot Credits available for prompt testing.
 - A known scenario where response quality needs improvement.
 - Example user prompts and desired outcomes.
-- Permission to modify instructions and topics.
+- Permission to modify prompts, instructions, and topics.
+
+> 💡 **Known Prompt assistant boundaries:** **Prompt assistant** generates a new prompt draft from a concise natural-language description (4 to 500 characters). It can't edit an existing prompt in place and can't generate grounded prompts directly — after you select **Keep it**, you add input variables, knowledge data, and output formatting in Prompt builder.
 
 ## Step-by-Step
 
 ### Step 1 - Capture baseline behavior
 
-1. Open your target agent in Copilot Studio.
+1. Open your target agent or existing prompt tool in Copilot Studio.
 2. Run five representative prompts and save outputs.
 3. Note issues such as vague responses or missing actions.
 4. Label each issue by type (clarity, grounding, tone, structure).
@@ -43,11 +46,11 @@ Prompt quality strongly influences reliability, tone, and task completion. In th
 
 ### Step 2 - Generate improved drafts with Prompt Assistant
 
-1. Open Prompt Assistant from your authoring experience.
-2. Provide the business goal and user persona.
-3. Request a structured prompt with explicit constraints.
-4. Generate two to three candidate drafts.
-5. Keep the best draft as your working version.
+1. Open **Tools** → **New tool** → **Prompt** (or **AI hub** → **Prompts** → **Build your own prompt**) and select **Prompt assistant**.
+2. Enter a 4–500 character description covering the business goal, user persona, constraints, and desired output structure, then select **Submit**.
+3. Review the generated prompt draft and regenerate or refine your description across two to three candidate drafts.
+4. Select **Keep it** on the strongest draft to load it into Prompt builder, then add any dynamic inputs, knowledge references, and **Output** format (**Text**, **JSON**, or **Document**).
+5. Test the draft in Prompt builder's **Test** panel and save it as your working version.
 
 ### Step 3 - Add practical guardrails
 

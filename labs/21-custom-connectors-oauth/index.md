@@ -105,14 +105,14 @@ By the end of this lab you will be able to:
 
 ## 📚 Documentation
 
-- [Custom connectors overview](https://learn.microsoft.com/en-us/connectors/custom-connectors/)
-- [Create a custom connector from an OpenAPI definition](https://learn.microsoft.com/en-us/connectors/custom-connectors/define-openapi-definition)
-- [Authenticate your API and connector with Microsoft Entra ID](https://learn.microsoft.com/en-us/connectors/custom-connectors/azure-active-directory-authentication)
-- [Submit your connector for certification](https://learn.microsoft.com/en-us/connectors/custom-connectors/submit-certification)
-- [Configure single sign-on with Microsoft Entra ID in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-sso)
-- [Configure single sign-on for agents in Microsoft Teams](https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-sso-teams)
-- [Configure single sign-on with generic OAuth providers](https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-sso-3p)
-- [Use connectors in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-connectors)
+- [Custom connectors overview](https://learn.microsoft.com/connectors/custom-connectors/)
+- [Create a custom connector from an OpenAPI definition](https://learn.microsoft.com/connectors/custom-connectors/define-openapi-definition)
+- [Authenticate your API and connector with Microsoft Entra ID](https://learn.microsoft.com/connectors/custom-connectors/azure-active-directory-authentication)
+- [Submit your connector for certification](https://learn.microsoft.com/connectors/custom-connectors/submit-certification)
+- [Configure single sign-on with Microsoft Entra ID in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/configure-sso)
+- [Configure single sign-on for agents in Microsoft Teams](https://learn.microsoft.com/microsoft-copilot-studio/configure-sso-teams)
+- [Configure single sign-on with generic OAuth providers](https://learn.microsoft.com/microsoft-copilot-studio/configure-sso-3p)
+- [Use Power Platform connectors as tools in Copilot Studio agents](https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors)
 
 ---
 
@@ -276,8 +276,8 @@ Microsoft Entra ID is the preferred identity provider for this scenario.
 
 #### Step 1 — Register the application in Microsoft Entra ID
 
-1. Open the **Azure portal**.
-2. Go to **Microsoft Entra ID** > **App registrations**.
+1. Open the **Microsoft Entra admin center** (`entra.microsoft.com`, or **Microsoft Entra ID** in the Azure portal).
+2. Go to **Identity** > **Applications** > **App registrations** (or **Microsoft Entra ID** > **App registrations**).
 3. Create a new app registration for the API access pattern.
 4. Capture the **Application (client) ID**.
 5. Add the required API permissions for the underlying API.

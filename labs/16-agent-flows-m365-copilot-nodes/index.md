@@ -14,42 +14,42 @@
 
 ## Overview
 
-This lab teaches you how to use **Microsoft 365 Copilot nodes** inside Copilot Studio agent flows for research, summarization, and productivity-centric workflows. You will add node orchestration, pass context cleanly, and validate enterprise-ready output quality.
+This lab teaches you how to use the **Copilot node** inside Copilot Studio workflows (powered by the **Microsoft Copilot harness**) to run **Copilot Chat** — optionally targeting specialized agents such as **Researcher**, **Analyst**, or custom **Agent Builder** agents — or to delegate multi-app work through a **Cowork** task grounded in the connected user's mail, files, calendar, and chats. You will configure node connections, pass runtime tokens cleanly, and validate enterprise-ready output quality.
 
 ## Learning Objectives
 
-1. Add Microsoft 365 Copilot nodes to an agent flow.
-2. Pass business context and task intent into nodes.
-3. Validate output quality for decision-support scenarios.
-4. Handle missing data and permission-related constraints.
-5. Build a reusable M365 node orchestration pattern.
+1. Add a **Copilot** node to a Copilot Studio workflow on the Microsoft Copilot harness.
+2. Choose between **Run Copilot Chat** (including **Researcher**, **Analyst**, or **Agent Builder** agents) and **Run a Cowork task** (new or resumed).
+3. Pass dynamic context into **Message** or **Task instructions** and consume **Response** downstream.
+4. Handle missing data and connection-account permission boundaries safely.
+5. Build a reusable Microsoft 365 Copilot workflow orchestration pattern.
 
 ## Prerequisites
 
-> ⚠️ **Preview:** The Microsoft 365 Copilot node and the new workflow experience are preview capabilities. Do not use them for production workloads without tenant approval and a supported fallback. See [Add a Microsoft 365 Copilot node to a workflow (preview)](https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow).
+> ℹ️ **Harness, billing, and data-access note:** Workflows that use the **Copilot node** run on the [Microsoft Copilot harness](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview) and use usage-based billing — building, testing, and running Chat or Cowork steps consumes [Copilot Credits](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview). The node runs on behalf of the Microsoft 365 account selected in **Connection**, so choose that account with least privilege in mind. See [Add a Copilot node to a workflow (Microsoft Copilot)](https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow).
 
-- Access to Copilot Studio with agent flows.
-- Access to Microsoft 365 data relevant to your scenario.
-- Appropriate permissions for Microsoft 365 Copilot-connected tasks.
-- A workflow requiring research or summary synthesis.
+- Access to Copilot Studio workflows (**Flows** → **Build** tab) on the Microsoft Copilot harness.
+- A Microsoft 365 account with appropriate access to the mail, files, calendar, and chats needed for your test scenario.
+- Appropriate permissions and Copilot Credits for Microsoft 365 Copilot-connected workflow runs.
+- A workflow requiring grounded research, spreadsheet analysis, summary synthesis, or multi-step Cowork artifact creation.
 
 ## Step-by-Step
 
 ### Step 1 - Define the M365-supported workflow
 
-1. Select a scenario needing M365-derived context.
-2. Identify expected data sources (mail, docs, meetings, etc.).
-3. Define required output for business decisions.
-4. Capture sensitivity constraints for enterprise data.
-5. Set acceptance criteria for response usefulness.
+1. Select a scenario needing Microsoft 365-derived context (for example, opportunity briefing, audit response drafting, monthly close review, or weekly account review).
+2. Decide whether the step fits **Run Copilot Chat** (general Chat, **Researcher** for deep web + M365 synthesis, **Analyst** for data/spreadsheet reasoning, or a custom **Agent Builder** agent) or **Run a Cowork task** (multi-app artifact delegation).
+3. Identify expected data sources (mail, SharePoint/OneDrive files, meetings, Teams chats) and verify what the **Connection** account is permitted to read.
+4. Define the exact output format required by downstream steps.
+5. Set acceptance criteria for response usefulness and grounding accuracy.
 
-### Step 2 - Add and configure Microsoft 365 Copilot nodes
+### Step 2 - Add and configure the Copilot node
 
-1. Open your flow and add an Microsoft 365 Copilot node.
-2. Configure node objective and output expectations.
-3. Bind incoming context variables to the node.
-4. Add a concise instruction for response format.
-5. Save and run an initial test.
+1. In Copilot Studio, go to **Flows**, open or create your workflow on the **Build** tab, and select the **Copilot** icon on the Add panel.
+2. In **Connection**, select or create the Microsoft 365 connection whose mail, files, calendar, and chats the node should ground on.
+3. Under **What would you like to do?**, choose **Run Copilot Chat** (optionally picking **Researcher**, **Analyst**, or an **Agent Builder** agent in **Agent**) or **Run a Cowork task** (leaving **Task** empty to start a new task, or selecting an existing Cowork task to resume).
+4. Enter explicit instructions and output formatting in **Message** (for Chat) or **Task instructions** (for Cowork), using **Insert token** to bind dynamic content from earlier steps.
+5. Bind the Copilot node's **Response** token into a downstream action (such as **Send an email** or **Post a message in Teams**), save, and run an initial test.
 
 ### Step 3 - Build permission-safe branches
 
@@ -81,6 +81,12 @@ This lab teaches you how to use **Microsoft 365 Copilot nodes** inside Copilot S
 - Permission-related edge cases are handled gracefully.
 - Output quality is validated against your acceptance criteria.
 - A reusable integration template is documented.
+
+## References
+
+- [Agent flows overview](https://learn.microsoft.com/microsoft-copilot-studio/flows-overview)
+- [Add a Copilot node to a workflow (Microsoft Copilot)](https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow)
+- [Billing and Copilot Credit management](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview)
 
 ## Lab Complete
 

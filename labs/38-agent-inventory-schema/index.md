@@ -14,7 +14,13 @@
 
 ## Overview
 
-As agent portfolios grow, teams need a consistent way to answer basic governance questions quickly. In this lab, you will build an **agent inventory schema** that captures ownership, purpose, integrations, release state, and operational risk.
+As agent portfolios grow, teams need a consistent way to answer governance questions quickly. Power Platform automatically exposes a tenant-wide `microsoft.copilotstudio/agents` inventory (refreshed within ~15–20 minutes in the Power Platform admin center under **Manage** → **Tenant-wide inventory**, via the Power Platform API, and in Azure Resource Graph; see [View your agent inventory](https://learn.microsoft.com/microsoft-copilot-studio/admin-agent-inventory) and [Copilot Studio agent inventory schema](https://learn.microsoft.com/power-platform/admin/inventory-schema)):
+
+- **Generally available system fields:** `id`, `displayName`, `environmentId`, `properties.harness` (`standard` or Microsoft Copilot harness), `createdBy` / `modifiedBy`, `usageType`, `lastActivityTime`, and Microsoft Entra identity links (`entraAgentId`, `entraAgentBlueprintId`, `entraAppId`).
+- **Preview posture fields in `inventory-schema`:** `isQuarantined`, `orchestration`, `model`, `authentication`, `channels`, `powerPlatformConnectors`, and `IsWebSearchEnabledForKnowledge`.
+- **Operational limits:** the Power Platform admin center UI displays up to **200** resources (use CSV export, the Power Platform API, or Azure Resource Graph for larger tenants), and legacy V1 classic bots are excluded.
+
+In this lab, you design a complementary **governance inventory schema** in Dataverse or SharePoint that joins `microsoft.copilotstudio/agents` system metadata with business context—product and support owners, risk tier, exception expiry, and recertification dates—that automated discovery cannot infer on its own.
 
 > **Facilitated workshop:** This lab is a governance design exercise, not a deployable template. A facilitator should provide the chosen Dataverse table or SharePoint list and guide participants to adapt the field definitions, approval states, and ownership model to their organization's policies.
 
@@ -37,19 +43,19 @@ As agent portfolios grow, teams need a consistent way to answer basic governance
 
 ### Step 1 - Define core schema fields
 
-1. Create required identity fields: name, ID, environment.
-2. Add business fields: purpose, user group, primary scenario.
-3. Add ownership fields: product owner, technical owner, support owner.
-4. Add lifecycle fields: draft, pilot, production, retired.
-5. Add review-date field for governance recertification.
+1. Create required identity keys matching `microsoft.copilotstudio/agents`: `id` (bot GUID), `displayName`, `environmentId`, `properties.harness`, and `entraAgentId`.
+2. Add business fields: purpose, target user group, and primary business scenario.
+3. Add ownership fields beyond `createdBy`: product owner, technical owner, and support escalation owner.
+4. Add lifecycle fields: draft, pilot, production, quarantined, or retired.
+5. Add a review-date field for governance recertification.
 
 ### Step 2 - Add technical and dependency fields
 
-1. Add connected tools and knowledge-source fields.
-2. Add external dependency and integration fields.
-3. Add authentication and data-sensitivity fields.
-4. Add last-publish date and version reference fields.
-5. Add runbook or documentation link fields.
+1. Map automated posture fields where available (`orchestration`, `model`, `authentication`, `channels`, `powerPlatformConnectors`, `IsWebSearchEnabledForKnowledge`).
+2. Add knowledge-source classification and external API / MCP server dependency fields.
+3. Add data-sensitivity classification and authentication mode fields.
+4. Add `lastActivityTime`, last-publish date, and solution version reference fields.
+5. Add runbook and architecture documentation link fields.
 
 ### Step 3 - Capture risk and compliance metadata
 
@@ -82,6 +88,12 @@ As agent portfolios grow, teams need a consistent way to answer basic governance
 - Governance and recertification workflow is documented.
 - Inventory supports operational filtering and reporting.
 
+## References
+
+- [View your agent inventory](https://learn.microsoft.com/microsoft-copilot-studio/admin-agent-inventory)
+- [Power Platform tenant-wide inventory](https://learn.microsoft.com/power-platform/admin/power-platform-inventory)
+- [Copilot Studio agent inventory schema](https://learn.microsoft.com/power-platform/admin/inventory-schema)
+
 ## Lab Complete
 
 You created a practical **agent inventory schema** for portfolio governance and lifecycle operations.
@@ -89,4 +101,4 @@ You created a practical **agent inventory schema** for portfolio governance and 
 Suggested next labs:
 
 - [Lab 39: Agent Readiness / Issue Status](../39-agent-readiness-issue-status/index.md)
-- [Lab 40: Entra Agent Identities (Preview)](../40-entra-agent-identities-preview/index.md)
+- [Lab 40: Microsoft Entra Agent Identities](../40-entra-agent-identities-preview/index.md)

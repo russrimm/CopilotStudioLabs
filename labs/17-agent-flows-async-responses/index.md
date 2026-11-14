@@ -37,21 +37,23 @@ Some workflows cannot complete within a single turn. In this lab, you will build
 
 ## Step-by-Step
 
-### Step 1 - Identify async candidates and states
+### Step 1 - Choose async callback vs. immediate response
 
-1. Choose one workflow with expected delayed completion.
-2. Define async states: accepted, processing, completed, failed.
-3. Define user-visible messages for each state.
-4. Define maximum wait thresholds and timeout policy.
-5. Document which events trigger completion notices.
+1. Choose one agent flow that uses **When an agent calls the flow** and runs longer than the default **two-minute** synchronous limit.
+2. Decide between the two documented patterns in [Asynchronous response support for agent flows](https://learn.microsoft.com/microsoft-copilot-studio/flow-asynchronous-response):
+   - **Asynchronous callback (`Asynchronous response` = On):** Keep **Respond to the agent** so the flow runs past two minutes and sends a callback response when finished (fully supported in **Microsoft Teams**; not supported in **Microsoft 365 Copilot** or telephony).
+   - **Immediate fire-and-forget response:** Remove the **Respond to the agent** action if you want the agent to reply immediately after triggering the flow while background work continues separately.
+3. Define how the agent should handle interim user turns (while an async flow is still running, if the user sends another message, the agent responds to the new message immediately without waiting for the flow to finish).
+4. Define maximum wait thresholds, external dependency timeouts, and failure notifications.
+5. Document which structured outputs **Respond to the agent** will return on completion.
 
-### Step 2 - Build async acknowledgement behavior
+### Step 2 - Enable Asynchronous response on Respond to the agent
 
-1. Add flow logic to acknowledge request receipt immediately.
-2. Include a reference ID in the acknowledgement message.
-3. Store required context for deferred completion.
-4. Add status update placeholders for follow-up checks.
-5. Save and test acknowledgement delivery.
+1. Open your agent flow in Copilot Studio and confirm the trigger is **When an agent calls the flow**.
+2. Select the **Respond to the agent** action at the end of the flow to open its configuration pane.
+3. Select **Settings**, turn on **Asynchronous response**, and define the output fields returned to the calling agent.
+4. Attach the flow as a tool on your agent (see [Call an agent flow from an agent](https://learn.microsoft.com/microsoft-copilot-studio/advanced-use-flow)) with clear description metadata explaining that the action is long-running.
+5. Save and publish the flow, then test that runs exceeding two minutes complete and deliver the callback response in Teams.
 
 ### Step 3 - Implement completion and timeout branches
 

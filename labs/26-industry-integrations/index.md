@@ -105,14 +105,15 @@ By the end of this lab you will be able to:
 
 ## 📚 Documentation
 
-- [Custom connectors overview](https://learn.microsoft.com/en-us/connectors/custom-connectors/)
-- [Authenticate your API and connector with Microsoft Entra ID](https://learn.microsoft.com/en-us/connectors/custom-connectors/azure-active-directory-authentication)
-- [Create a custom connector from an OpenAPI definition](https://learn.microsoft.com/en-us/connectors/custom-connectors/define-openapi-definition)
+- [Custom connectors overview](https://learn.microsoft.com/connectors/custom-connectors/)
+- [Authenticate your API and connector with Microsoft Entra ID](https://learn.microsoft.com/connectors/custom-connectors/azure-active-directory-authentication)
+- [Create a custom connector from an OpenAPI definition](https://learn.microsoft.com/connectors/custom-connectors/define-openapi-definition)
 - [Shopify Admin GraphQL API reference](https://shopify.dev/docs/api/admin-graphql)
-- [Jira connector reference](https://learn.microsoft.com/en-us/connectors/jira/)
-- [GitHub connector reference](https://learn.microsoft.com/en-us/connectors/github/)
-- [Configure single sign-on with Microsoft Entra ID in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/configure-sso)
-- [Azure Health Data Services documentation](https://learn.microsoft.com/en-us/azure/healthcare-apis/)
+- [Jira connector reference](https://learn.microsoft.com/connectors/jira/)
+- [GitHub connector reference](https://learn.microsoft.com/connectors/github/)
+- [Configure single sign-on with Microsoft Entra ID in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/configure-sso)
+- [Compliance and certifications for Copilot Studio (including HIPAA)](https://learn.microsoft.com/microsoft-copilot-studio/admin-certification)
+- [Azure Health Data Services documentation](https://learn.microsoft.com/azure/healthcare-apis/)
 
 ---
 
@@ -596,20 +597,21 @@ This industry is interesting because the APIs are mature, but auth and licensing
 
 #### Step 2 — Configure authentication
 
-1. For **Jira**, use the connector's supported auth pattern and remember that **API token auth** is used instead of a password for many setups.
-2. For **GitHub**, configure the standard connector with the required repository permissions.
-3. Decide whether each engineer uses their own connection or whether a service connection is acceptable for the support bot.
+1. For **Jira**, choose either **API Token** (`APIToken`) or **OAuth** (`oauth`) in the [Jira connector](https://learn.microsoft.com/connectors/jira/). **Basic authentication with passwords is deprecated**, and the legacy **Default [DEPRECATED]** connection type is retained only for backward compatibility and should not be selected for new connections.
+   - If you select **API Token** for Jira Cloud, supply a **valid email address** as the username (otherwise the connection appears to succeed without actually establishing access), an Atlassian API token from `https://id.atlassian.com/manage/api-tokens`, and your HTTPS Jira instance URL.
+2. For **GitHub**, configure the standard [GitHub connector](https://learn.microsoft.com/connectors/github/) with the required repository permissions.
+3. Account for connection sharing: neither Jira connection type (**API Token** nor **OAuth**) is shareable in Power Platform, so user-authenticated tools prompt each engineer to create their own Jira connection unless you mediate lookups through an agent flow or intermediary service running under an approved service account.
 
 #### Step 3 — Build the connector configuration
 
 1. Add the **Jira** premium connector.
 2. Add the **GitHub** standard connector.
-3. Expose only the operations the support scenario needs, such as:
-   - Get issue.
-   - Search issues by key.
-   - Get pull request.
-   - List pull requests for a repo.
-4. If needed, wrap both in a Power Automate flow so the agent receives one consolidated payload.
+3. Expose only the current, non-deprecated operations the support scenario needs, such as:
+   - **Get issue by key (V2)** (for OAuth connections, pass the Jira Cloud ID GUID returned by **Get list of Resources**; for API Token connections, pass the Jira instance URL).
+   - **Get list of issues** using a **bounded JQL** filter (unbounded JQL queries fail with `400 Bad Request`, and Jira Cloud search does not guarantee immediate search-after-write consistency and returns at most 20 comments and 40 changelog items).
+   - If you later add issue creation, use **Create a new issue (V3)** rather than the deprecated `Create a new issue` or `Create a new issue (V2)` actions, and avoid deprecated Jira Cloud usernames in fields such as `Reporter`.
+   - **Get a pull request by id** and **Lists all pull requests for a repository** on GitHub.
+4. If needed, wrap both in an agent flow or Power Automate flow so the agent receives one consolidated payload.
 
 #### Step 4 — Create the Copilot Studio topic
 
@@ -646,7 +648,8 @@ When an engineer asks for the status of a Jira issue, incident, or GitHub pull r
 
 #### Troubleshooting
 
-- If Jira auth fails, confirm the API token pattern and connector documentation rather than trying a normal password.
+- If Jira auth fails or returns `400 Bad Request` on an existing flow, confirm you selected **API Token** or **OAuth** (never a password or **Default [DEPRECATED]**), used a valid email address for Jira Cloud, and rotated any expired Atlassian API token by recreating the connection.
+- If a Jira query fails with `400 Bad Request`, check that your JQL query is bounded (for example scoped by project key or updated window) rather than unbounded.
 - If GitHub data returns but Jira does not, test the connectors independently before debugging the combined topic.
 - If the response becomes too verbose, have a flow or API wrapper consolidate the result into a support-friendly summary.
 

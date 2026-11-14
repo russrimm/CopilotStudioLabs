@@ -101,22 +101,25 @@ User or agent
 
 ## 📚 Documentation
 
-- [Prompts overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/prompts-overview)
-- [Add a prompt node to an agent flow or workflow](https://learn.microsoft.com/en-us/microsoft-copilot-studio/prompt-node-workflow)
-- [Add a Microsoft 365 Copilot node to a workflow (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow)
-- [Asynchronous response support for agent flows](https://learn.microsoft.com/en-us/microsoft-copilot-studio/flow-asynchronous-response)
-- [Speed up agent flow execution with express mode](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-flow-express-mode)
+- [Prompts overview](https://learn.microsoft.com/microsoft-copilot-studio/nlu-prompt-node)
+- [Add a prompt node to an agent flow](https://learn.microsoft.com/microsoft-copilot-studio/prompt-node-workflow)
+- [Add a Copilot node to a workflow (Microsoft Copilot)](https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow)
+- [Asynchronous response support for agent flows](https://learn.microsoft.com/microsoft-copilot-studio/flow-asynchronous-response)
+- [Speed up agent flow execution with express mode (preview)](https://learn.microsoft.com/microsoft-copilot-studio/agent-flow-express-mode)
 
 ---
 
 ## Prerequisites
 
-> ⚠️ **Preview:** The Microsoft 365 Copilot node and the new workflow experience are preview capabilities. Do not use them for production workloads without tenant approval and a supported fallback. See [Add a Microsoft 365 Copilot node to a workflow (preview)](https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/microsoft-365-copilot-node-workflow).
+> ℹ️ **Harness and preview notes:**
+> - **Prompt nodes (`Run a prompt`)** run in agent flows on the [standard harness](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview#standard-harness). In workflows powered by the **Microsoft Copilot harness**, add an **Agent** node with instructions and leave tools unconfigured for equivalent single-prompt behavior.
+> - The **Copilot node** (in workflows on the Microsoft Copilot harness) runs **Copilot Chat** (optionally targeting **Researcher**, **Analyst**, or an **Agent Builder** agent) or a **Cowork** task and consumes [Copilot Credits](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview).
+> - **Express mode** remains a **preview** capability (`When an agent calls a flow` / `When an app calls a flow` on new Power Automate infrastructure, 2-minute execution cap, 64 KB action message limit, 1,024-character variable limit, and no `Delay` or `Webhook` actions). Do not rely on preview capabilities for production workloads without tenant approval and a fallback. See [Speed up agent flow execution with express mode (preview)](https://learn.microsoft.com/microsoft-copilot-studio/agent-flow-express-mode).
 
-- Access to **Copilot Studio** and permission to create or edit **agent flows**.
+- Access to **Copilot Studio** and permission to create or edit **agent flows** and workflows.
 - Dataverse installed in the environment because prompt features depend on it.
 - Copilot Credits and regional availability for prompt models.
-- Optional: Microsoft 365 access if you plan to fully test the **Microsoft 365 Copilot** node with real user context.
+- Optional: Microsoft 365 access if you plan to fully test the **Copilot** node with real user context.
 - A set of realistic utility examples such as outage narratives, field notes, bilingual customer messages, or meeting prep requests.
 
 > ⚠️ **Warning:** Generative features can produce plausible but wrong content. Always include human review when prompt output affects customer communication, safety decisions, or regulated reporting.

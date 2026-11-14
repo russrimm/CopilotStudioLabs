@@ -132,15 +132,15 @@ By the end of this lab, you will be able to:
 
 ## 📚 Documentation
 
-- [Create and edit topics](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-create-edit-topics)
-- [Variables overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-variables-about)
-- [Add other agents overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-add-other-agents)
-- [Agent flows overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/flows-overview)
-- [Call an agent flow from an agent](https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-use-flow)
-- [Select a primary AI model](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-select-agent-model)
-- [Extend your agent with MCP](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agent-extend-action-mcp)
-- [Agent evaluation overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/analytics-agent-evaluation-intro)
-- [Run evaluations and view results](https://learn.microsoft.com/en-us/microsoft-copilot-studio/analytics-agent-evaluation-results)
+- [Create and edit topics](https://learn.microsoft.com/microsoft-copilot-studio/authoring-create-edit-topics)
+- [Variables overview](https://learn.microsoft.com/microsoft-copilot-studio/authoring-variables-about)
+- [Add other agents overview](https://learn.microsoft.com/microsoft-copilot-studio/authoring-add-other-agents)
+- [Agent flows overview](https://learn.microsoft.com/microsoft-copilot-studio/flows-overview)
+- [Call an agent flow from an agent](https://learn.microsoft.com/microsoft-copilot-studio/advanced-use-flow)
+- [Select a primary AI model](https://learn.microsoft.com/microsoft-copilot-studio/authoring-select-agent-model)
+- [Extend your agent with MCP](https://learn.microsoft.com/microsoft-copilot-studio/agent-extend-action-mcp)
+- [Agent evaluation overview](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro)
+- [Run evaluations and view results](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-results)
 - [MSN Weather connector reference](https://learn.microsoft.com/connectors/msnweather/)
 - [Open-Meteo API documentation](https://open-meteo.com/en/docs) *(used in the optional MCP section)*
 
@@ -942,9 +942,9 @@ You want to verify which model is best for simple lookups versus multi-step oper
 #### Step 1 — Locate the model selection setting
 
 1. Open **Energy Operations Weather Agent**.
-2. Go to **Settings** or the **AI / Model** section of the agent.
+2. On the agent's **Overview** page, go to the **Model** section (on standard-harness agents, **GPT Chat Latest** is the default supported chat model; see [Select the primary AI model for your agent](https://learn.microsoft.com/microsoft-copilot-studio/authoring-select-agent-model)).
 3. Open the **primary model** selector.
-4. Note which models are available in your environment.
+4. Note which models are available in your environment, and verify none of your chosen production candidates carry an active retirement notice.
 
 > 💡 **Important:** Model availability changes over time and varies by region or tenant. Use the highest-capability and lowest-cost models available in your environment for comparison.
 

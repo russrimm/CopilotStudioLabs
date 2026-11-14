@@ -28,11 +28,11 @@ export async function ensureClient(): Promise<CopilotStudioClient> {
 
   const token = await getAccessToken();
 
-  const settings: ConnectionSettings = {
+  const settings = new ConnectionSettings({
     environmentId: agentConfig.environmentId,
-    agentIdentifier: agentConfig.agentIdentifier,
+    schemaName: agentConfig.schemaName,
     cloud: cloudFromString(agentConfig.cloud),
-  };
+  });
 
   client = new CopilotStudioClient(settings, token);
   return client;
@@ -40,11 +40,12 @@ export async function ensureClient(): Promise<CopilotStudioClient> {
 
 export async function startConversation() {
   const c = await ensureClient();
-  const activities = await c.startConversationAsync(true);
-  for (const activity of activities) {
+  const activities = [];
+  for await (const activity of c.startConversationStreaming(true)) {
     if (activity.conversation?.id) {
       conversationId = activity.conversation.id;
     }
+    activities.push(activity);
   }
   return activities;
 }

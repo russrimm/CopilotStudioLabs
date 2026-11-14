@@ -14,7 +14,9 @@
 
 ## Overview
 
-Teams need a simple answer to: "Is this agent ready to ship?" In this lab, you will build an **agent readiness / issue status** model that blends evaluations, open defects, and governance checks into a clear release decision.
+Teams need a clear, repeatable answer to: *"Is this agent ready to ship?"* On the **standard harness**, Copilot Studio includes a built-in [Agent status (preview)](https://learn.microsoft.com/microsoft-copilot-studio/authoring-agent-status) check on the agent **Overview** page (**Copilot details** → **Agent status** → **Review**) that flags configuration and data-policy issues by severity (`Blocking`, `Warning`, `Info`) and affected state (`Draft`, `Published`, `Both`), highlights blocked items on the **Tools** and **Channels** tabs, and surfaces up to 400 characters of custom **Maker guidance** configured by administrators in the Power Platform admin center (**Copilot** → **Settings** → **Maker guidance**).
+
+In this lab, you combine those in-product status signals with [automated agent evaluations](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro), open engineering defects in Azure DevOps or GitHub, and operational readiness checks into a single go/no-go release scorecard.
 
 > **Facilitated workshop:** This lab is a governance design exercise, not a deployable scorecard or automation template. A facilitator should provide the issue-tracker view and scorecard workspace, then guide participants to define thresholds and release gates that match their organization's policies.
 
@@ -37,11 +39,11 @@ Teams need a simple answer to: "Is this agent ready to ship?" In this lab, you w
 
 ### Step 1 - Define readiness dimensions
 
-1. Create readiness categories: quality, reliability, governance, support.
-2. Define measurable criteria for each category.
-3. Assign category owners and approvers.
-4. Define acceptable evidence for each criterion.
-5. Document non-negotiable release blockers.
+1. Create four readiness categories: **Quality** (evaluation pass rates), **Configuration & Policy** (Copilot Studio Agent status `Blocking` / `Warning` findings and DLP compliance), **Reliability**, and **Support**.
+2. Define measurable criteria for each category (for example, zero `Blocking` findings in **Overview** → **Copilot details** → **Agent status** across `Draft` and `Published` states).
+3. Assign category owners and release approvers.
+4. Define acceptable evidence for each criterion (evaluation run ID, Agent status export/screenshot, DLP check, support runbook).
+5. Document non-negotiable release blockers and configure optional tenant **Maker guidance** messaging if you administer the environment.
 
 ### Step 2 - Link issue status to readiness
 
@@ -81,6 +83,12 @@ Teams need a simple answer to: "Is this agent ready to ship?" In this lab, you w
 - Issue status is linked to readiness outcomes.
 - A traffic-light scorecard is populated for a real agent.
 - Release gate decisions can be made with clear evidence.
+
+## References
+
+- [Agent status (preview) in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/authoring-agent-status)
+- [Agent evaluation overview](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro)
+- [Configure data policies for agents](https://learn.microsoft.com/microsoft-copilot-studio/admin-data-loss-prevention)
 
 ## Lab Complete
 

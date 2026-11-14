@@ -93,17 +93,17 @@ Caller
 | **Hold and resume** | A topic-level or agent-level capability that pauses the conversation while the caller retrieves information. |
 | **Post-call action topic** | A topic triggered by **End of conversation** so backend updates happen after the call ends. |
 | **Consent-based recording** | An approach where callers explicitly approve recording and transcription before it begins. |
-| **Regional limitation** | Availability and cross-geo processing depend on the selected model. As of July 2026, GPT-Realtime is hosted in North America, GPT-Realtime-Mini (preview) in Australia, and GPT-5-Chat (preview) supports in-region processing in the US, EU, UK, and Australia. |
+| **Standard harness & model geography** | Real-time voice agents run on the **standard harness** integrated with Dynamics 365 Contact Center. Availability and data processing depend on the voice model: **GPT-Realtime** (North America), **GPT-Realtime-Mini (preview)** (Australia), and **GPT-5-Chat (preview)** (Text LLM with Microsoft Neural TTS and custom voice models, supporting in-region processing in the US, EU, UK, and Australia). |
 
 ---
 
 ## 📚 Documentation
 
-- [Real-time voice agents overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/voice-realtime-voice-agents)
-- [Test your real-time voice agent](https://learn.microsoft.com/en-us/microsoft-copilot-studio/voice-realtime-test)
-- [Use Hold and resume](https://learn.microsoft.com/en-us/microsoft-copilot-studio/voice-hold-resume)
-- [Configure post-call action topics](https://learn.microsoft.com/en-us/microsoft-copilot-studio/voice-post-call-actions)
-- [Consent-based recording](https://learn.microsoft.com/en-us/microsoft-copilot-studio/voice-consent-based-record)
+- [Real-time voice agents overview](https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-voice-agents)
+- [Test your real-time voice agent](https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-test)
+- [Use Hold and resume](https://learn.microsoft.com/microsoft-copilot-studio/voice-hold-resume)
+- [Configure post-call action topics](https://learn.microsoft.com/microsoft-copilot-studio/voice-post-call-actions)
+- [Consent-based recording](https://learn.microsoft.com/microsoft-copilot-studio/voice-consent-based-record)
 
 ---
 

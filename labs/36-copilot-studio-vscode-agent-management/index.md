@@ -33,7 +33,7 @@ flowchart LR
 
 ## Overview
 
-This lab shows how to manage Copilot Studio agents as local files in VS Code, then push and publish those changes back to the cloud.
+This lab shows how to manage Copilot Studio agents (on the **standard harness**) as local files using the generally available **Copilot Studio extension for Visual Studio Code**, then synchronize and publish those changes back to the cloud.
 
 ## ⚡ Why this lab matters
 
@@ -74,16 +74,18 @@ By the end of this lab, you will be able to:
 
 ## ✅ Prerequisites
 
-1. **Visual Studio Code** — installed and up to date
-2. **Copilot Studio VS Code Extension** — installed from the VS Code marketplace ([Install guide](https://learn.microsoft.com/en-us/microsoft-copilot-studio/visual-studio-code-extension-install-configure))
+1. **Visual Studio Code** — desktop version on Windows or macOS (Visual Studio Code for the Web is not supported)
+2. **Copilot Studio VS Code Extension** — generally available on the Visual Studio Code Marketplace (`ms-CopilotStudio.vscode-copilotstudio`; [Install guide](https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-install-configure))
 3. **Microsoft account** — signed into VS Code with access to a Copilot Studio environment
-4. **An existing agent** — at least one agent published in your Copilot Studio environment
-5. **GitHub Copilot** *(optional)* — if you want to use Copilot Chat with the Copilot Studio plugin for natural-language editing
+4. **An existing agent** — at least one standard-harness agent in your Copilot Studio environment
+5. **GitHub Copilot** *(optional)* — if you want to use Copilot Chat in Visual Studio Code for natural-language YAML authoring
 
 Official references:
 
 - [Copilot Studio extension for Visual Studio Code overview](https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-overview)
 - [Clone your Copilot Studio agent in Visual Studio Code](https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-clone-agent)
+- [Edit agent components in Visual Studio Code](https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-edit-agent-components)
+- [Synchronize changes with Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-synchronization)
 
 ---
 

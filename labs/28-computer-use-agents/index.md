@@ -23,7 +23,9 @@ By the end of this lab, you will be able to:
 
 ---
 
-> 🔗 **Related lab:** [Lab 29: Computer Use (GA)](../29-computer-use-ga/index.md) — a focused deep-dive on the generally available computer-use feature. This lab is the end-to-end desktop-automation scenario.
+> 🔗 **Related lab:** [Lab 29: Computer Use — Production Governance & Reliability](../29-computer-use-ga/index.md) — a focused deep-dive on GA vs. preview execution targets, Copilot Credit step billing, and environment governance controls. This lab walks through the end-to-end utility desktop-automation scenario.
+
+> ℹ️ **Availability note:** Computer use runs on agents and agent flows powered by the **standard harness** with **generative orchestration** turned on. In-agent computer use on a registered Windows machine (**Bring-your-own machine**) with standard GA models (`Computer-Using Agent (CUA)`, `GPT-6 Sol`, `Claude Sonnet 4.5`) is **generally available**, whereas **Cloud PC pool (preview)** (Use Case #2), **Hosted browser (preview)**, and **Standalone computer use tools (preview)** (Use Case #3) are **preview** features and aren't meant for production use.
 
 ## 🗺️ Lab Flow
 
@@ -102,10 +104,12 @@ User or scheduled trigger
 
 ## 📚 Documentation
 
-- [Automate web and desktop apps with computer use](https://learn.microsoft.com/en-us/microsoft-copilot-studio/computer-use)
-- [Add standalone computer use tools to agents and agent flows](https://learn.microsoft.com/en-us/microsoft-copilot-studio/computer-use-standalone)
-- [Use Cloud PC pool for computer user runs](https://learn.microsoft.com/en-us/microsoft-copilot-studio/use-cloud-pc-pool)
-- [Monitor computer use](https://learn.microsoft.com/en-us/microsoft-copilot-studio/monitor-computer-use)
+- [Automate web and desktop apps with computer use](https://learn.microsoft.com/microsoft-copilot-studio/computer-use)
+- [Configure where computer use runs (preview)](https://learn.microsoft.com/microsoft-copilot-studio/configure-where-computer-use-runs)
+- [Add standalone computer use tools to agents and agent flows (preview)](https://learn.microsoft.com/microsoft-copilot-studio/computer-use-standalone)
+- [Use Cloud PC pool for computer use runs (preview)](https://learn.microsoft.com/microsoft-copilot-studio/use-cloud-pc-pool)
+- [Monitor computer use](https://learn.microsoft.com/microsoft-copilot-studio/monitor-computer-use)
+- [Administer computer use](https://learn.microsoft.com/microsoft-copilot-studio/administer-computer-use)
 
 ---
 
@@ -340,7 +344,7 @@ Agent tool
 
 #### Step 1 — Review Cloud PC pool prerequisites
 
-1. Read the **Use Cloud PC pool for computer user runs** documentation and note that the feature is preview-oriented in current Microsoft Learn guidance.
+1. Read the **Use Cloud PC pool for computer use runs (preview)** documentation and note that Cloud PC pools are a preview feature (not meant for production use) in current Microsoft Learn guidance.
 2. Confirm that your environment supports machine management and that the operations or platform team can provision machine groups.
 3. Verify whether your tenant already has a billing plan for **Windows 365 for Agents** or whether you are using the limited free evaluation capacity described in the documentation.
 4. Document the security requirements for the pool: Entra join, Intune compliance, least-privilege access, and naming standards.
@@ -533,8 +537,8 @@ Do not update account settings or submit forms.
 
 1. Select **Publish** to make the standalone tool available to agent flows.
 2. Open an existing **agent flow** or create a small flow triggered by **When an agent calls the flow**.
-3. Add a step and choose the published **Shared Billing Account Lookup** tool from the action picker.
-4. Map the incoming flow parameter to **accountNumber** and store the outputs in later flow variables or a **Respond to agent** action.
+3. Select **Insert a new action** (`+`), choose **AI capabilities** → **Run a computer use tool**, and select the published **Shared Billing Account Lookup** tool.
+4. Map the incoming flow parameter to **accountNumber** and store the outputs in later flow variables or a **Respond to the agent** action.
 5. Save the flow and note that agent flows always reference the latest published version of the standalone tool.
 6. If you also add the tool to a normal agent as a local tool, note the lifecycle difference: the agent receives a duplicated local copy, not a live reference.
 

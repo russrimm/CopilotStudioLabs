@@ -11,7 +11,7 @@ export const authConfig = {
 
 export const agentConfig = {
   environmentId: "<YOUR-ENVIRONMENT-ID>",
-  agentIdentifier: "<YOUR-AGENT-SCHEMA-NAME>",
+  schemaName: "<YOUR-AGENT-SCHEMA-NAME>",
   cloud: "Prod" as const,
 };
 

@@ -9,7 +9,7 @@
 | ⭐ **DIFFICULTY** | Advanced (Level 300) |
 | ⏱️ **TIME** | 60 minutes |
 | 🧩 **PRODUCTS** | Microsoft Copilot Studio, Microsoft Dataverse, Microsoft 365 (SharePoint / Work IQ), Model Context Protocol (MCP), MSN Weather |
-| 🏷️ **TAGS** | Generative Orchestration, New Orchestrator, Agentic Reasoning Loop, Skills, MCP, Connected Agents |
+| 🏷️ **TAGS** | Generative Orchestration, Microsoft Copilot Harness, Agentic Reasoning Loop, Skills, MCP, Connected Agents |
 | 🏭 **INDUSTRY** | Energy / Utilities (Contoso family of companies) |
 
 > **Adapted from:** [Orchestration with Copilot Studio — Microsoft Copilot Agents Labs](https://microsoft.github.io/mcs-labs/labs/mcs-orchestration/). Reframed for **Contoso** — the North American energy infrastructure company and parent of Contoso Energy, Contoso Gas, Contoso Infrastructure, and Contoso Power. Technical steps remain compatible with the upstream Microsoft sample data and connectors.
@@ -48,7 +48,7 @@ That decision is what **generative orchestration** does on every turn. The quali
 
 - The **Instructions** at agent and child-agent level
 - The **Descriptions** on every tool, child agent, and input
-- Whether you use the **New Orchestrator (Agentic Reasoning Loop)** for multi-step tasks
+- Whether you use the **Microsoft Copilot harness (Agentic Reasoning Loop)** for multi-step tasks
 - Whether you package recurring playbooks as **Skills**
 
 Common challenges this lab solves:
@@ -67,7 +67,7 @@ By the end of this lab you will:
 1. ✅ Verify and publish a **Contoso Customer Account Lookup** connected agent backed by Dataverse
 2. ✅ See — turn by turn — how **Instructions** and **Descriptions** at four different levels shape the planner's routing decisions
 3. ✅ Use the **Activity Tracker** and **Get rationale** as debugger traces for your descriptions
-4. ✅ Build a new-type **Contoso Customer Operations Assistant** that uses the **New Orchestrator (Agentic Reasoning Loop)** to complete multi-step tasks end to end
+4. ✅ Build a **Contoso Customer Operations Assistant** on the **Microsoft Copilot harness** that uses the **Agentic Reasoning Loop** to complete multi-step tasks end to end
 5. ✅ Package a **Service Resolution Concierge Skill** that chains custom MCP servers, two knowledge sources (customer-facing vs. internal), and live weather across a single turn
 
 ---
@@ -79,7 +79,7 @@ By the end of this lab you will:
 | **Generative Orchestration** | The planner that decides — on every turn — which tool, knowledge source, child agent, or connected agent answers the user. |
 | **Instructions** | Top-level rules that always apply (e.g., *"Always include account number when handing off to billing."*). Run on every turn — use sparingly. |
 | **Descriptions** | Per-tool, per-agent, per-input metadata the planner reads when it's deciding *whether* to use that thing. Descriptions are the most important routing signal; names and parameter metadata help refine selection. |
-| **New Orchestrator (Agentic Reasoning Loop)** | The default orchestrator in newly created agents using generative orchestration. Plans → acts → observes → iterates within **one turn** until the task is done. |
+| **Microsoft Copilot harness (Agentic Reasoning Loop)** | The reasoning-heavy runtime in newly created agents. Plans → acts → observes → iterates within **one turn** until the task is done. |
 | **Skill** | A reusable, named playbook the orchestrator loads on demand. Bundles *when to use me + the tools I rely on + the procedure to follow* — keeps base instructions short and behavior consistent. |
 | **MCP Tool** | A Model Context Protocol server attached to the agent. In this lab you'll use the **Microsoft Dataverse MCP Server** plus two sample servers (Order Management, Warehouse) that simulate a Contoso field-service backend. |
 
@@ -87,10 +87,11 @@ By the end of this lab you will:
 
 ## 📚 Documentation
 
-- [Generative Orchestration FAQ](https://learn.microsoft.com/en-us/microsoft-copilot-studio/faqs-generative-orchestration)
-- [Configure generative actions](https://learn.microsoft.com/en-us/microsoft-copilot-studio/advanced-generative-actions)
-- [Multi-Agent in Copilot Studio](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-add-other-agents)
-- [Create a skill for an agent (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-create)
+- [Harnesses in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview)
+- [Generative Orchestration FAQ](https://learn.microsoft.com/microsoft-copilot-studio/faqs-generative-orchestration)
+- [Configure generative actions](https://learn.microsoft.com/microsoft-copilot-studio/advanced-generative-actions)
+- [Add other agents overview](https://learn.microsoft.com/microsoft-copilot-studio/authoring-add-other-agents)
+- [Create a skill for an agent (Microsoft Copilot)](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-create)
 - [Order Management with Enhanced Task Completion sample (Order Management / Warehouse MCP)](https://github.com/microsoft/CopilotStudioSamples/tree/main/extensibility/mcp/order-management-enhanced-tc)
 
 ---
@@ -100,12 +101,12 @@ By the end of this lab you will:
 - Access to **Microsoft Copilot Studio**
 - A Power Platform environment where you can edit Dataverse table views and toggle environment settings (**System Administrator** or **System Customizer**)
 - Sample data installed in the Dataverse **Account** and **Contact** tables by an instructor or administrator (the `(sample)` records used throughout Use Cases #1 and #2)
-- The instructor-provisioned **Account Data Lookup Agent** available in your environment (Use Case #1 verifies and publishes it — this becomes your *Contoso Customer Account Lookup Agent*)
-- For **Use Cases #3 and #4** only: an environment where **new-type agents** (the New Orchestrator), **Dataverse Intelligence (Work IQ)**, and **Dataverse MCP servers** can be used
+- The instructor-provisioned **Account Data Lookup Agent** available in your environment (Use Case #1 verifies and publishes it — this becomes your *Contoso Customer Account Lookup Agent* on the **standard harness**)
+- For **Use Cases #3 and #4** only: an environment where agents powered by the **Microsoft Copilot harness** (formerly referred to during preview as "new-type agents" / the "New Orchestrator"), **Work IQ**, **Skills**, and **Dataverse MCP servers** are available, with [Copilot Credits](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/billing-credit-overview) enabled
 
-> 💡 Sample records aren't guaranteed to be present in every environment. Before the lab, an administrator should verify or install them by following [Add or remove sample data](https://learn.microsoft.com/en-us/power-platform/admin/add-remove-sample-data). Treat the records as stand-ins for Contoso commercial customer accounts as you walk through the scenarios.
+> 💡 Sample records aren't guaranteed to be present in every environment. Before the lab, an administrator should verify or install them by following [Add or remove sample data](https://learn.microsoft.com/power-platform/admin/add-remove-sample-data). Treat the records as stand-ins for Contoso commercial customer accounts as you walk through the scenarios.
 >
-> ⚠️ **Preview and tenant dependency (verified July 31, 2026):** The new agent experience and Skills used in Use Cases #3 and #4 remain preview experiences, and connected-agent availability varies by agent type and tenant. Confirm that the required experiences are enabled before delivering the lab. See [Classic vs. new agent experience](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/classic-vs-new), [Create a skill for an agent (preview)](https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/skills-create), and [Add other agents overview](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-add-other-agents).
+> ℹ️ **Harness terminology and billing:** Copilot Studio now names its reasoning-heavy multi-step runtime the **Microsoft Copilot harness** (alongside the **standard harness** used in Use Cases #1–#2 and the **Customer Conversation harness**). Agents and **Skills** on the Microsoft Copilot harness are generally available and consume Copilot Credits under usage-based billing (**Add skill** now offers **Generate with AI**, **Upload a skill**, and **Create from blank**). Connected-agent options still vary by harness and tenant. See [Harnesses in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview), [Create a skill for an agent (Microsoft Copilot)](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/skills-create), and [Add other agents overview](https://learn.microsoft.com/microsoft-copilot-studio/authoring-add-other-agents).
 
 ---
 
@@ -115,7 +116,7 @@ By the end of this lab you will:
 |---|---|---|---|
 | 1 | Get the sample connected agent working | Stand up the **Contoso Customer Account Lookup Agent** | 10 min |
 | 2 | See the impact of Instructions and Descriptions on the planner | Watch the planner pick the right account, contact, tool, and input | 20 min |
-| 3 | New Orchestrator — Agentic Reasoning Loop | Build a **Contoso Customer Operations Assistant** that completes multi-step asks in one turn | 30 min |
+| 3 | Microsoft Copilot harness — Agentic Reasoning Loop | Build a **Contoso Customer Operations Assistant** that completes multi-step asks in one turn | 30 min |
 | 4 | Leveraging Skills | Package a **Service Resolution Concierge** Skill that chains MCP, knowledge, and weather | 30 min |
 
 ---
@@ -308,17 +309,17 @@ No **Account Agent** in the trace this time — the planner recognized the subje
 
 ---
 
-## 🧪 Use Case #3 — New Orchestrator: Agentic Reasoning Loop
+## 🧪 Use Case #3 — Microsoft Copilot Harness: Agentic Reasoning Loop
 
-> 🎯 **Objective:** Stand up a newly created Contoso Customer Operations Assistant using generative orchestration and validate how the **Agentic Reasoning Loop** drives multi-tool task completion in a single turn.
+> 🎯 **Objective:** Stand up a newly created Contoso Customer Operations Assistant on the **Microsoft Copilot harness** and validate how the **Agentic Reasoning Loop** drives multi-tool task completion in a single turn.
 
 ### Scenario
 
-A Contoso customer operations specialist wants one assistant that can — without stopping to confirm at every step — pull a commercial customer's primary contact, check the weather at that customer's site (storm risk! gift planning! site visit planning!), look up internal policy, and synthesize an answer. A newly created agent uses generative orchestration with the Agentic Reasoning Loop by default, so this is what you get out of the box.
+A Contoso customer operations specialist wants one assistant that can — without stopping to confirm at every step — pull a commercial customer's primary contact, check the weather at that customer's site (storm risk! gift planning! site visit planning!), look up internal policy, and synthesize an answer. Newly created agents powered by the Microsoft Copilot harness run this multi-step reasoning loop out of the box.
 
 #### Step 1 — Enable Dataverse Intelligence (Work IQ) and Dataverse MCP servers
 
-> 💡 Required for the **Microsoft Dataverse MCP Server** tool you'll add below — not specific to the New Orchestrator.
+> 💡 Required for the **Microsoft Dataverse MCP Server** tool you'll add below — not specific to the Microsoft Copilot harness.
 
 1. Navigate to the **Power Platform admin center** as in Use Case #1 → **Manage** → **Environments** → your environment → **Settings** (top nav) → **Product** group → **Features**.
 2. Under **Dataverse intelligence**, verify *"Turn on Dataverse intelligence (Work IQ) for agents and AI experiences"* is checked.
@@ -434,7 +435,7 @@ Any tool step in the trace is expandable. Open a **read_query** step and you'll 
 
 ## 🧪 Use Case #4 — Leveraging Skills: a Contoso Service Resolution Concierge
 
-> 🎯 **Objective:** Extend your Use Case #3 agent so it can diagnose and resolve service problems end to end — then watch the New Orchestrator **load the Skill** and chain MCP tools, two knowledge sources, and weather across a single turn.
+> 🎯 **Objective:** Extend your Use Case #3 agent so it can diagnose and resolve service problems end to end — then watch the Microsoft Copilot harness **load the Skill** and chain MCP tools, two knowledge sources, and weather across a single turn.
 
 ### Scenario
 
@@ -467,7 +468,7 @@ This lab uses two prebuilt sample MCP connectors — **Order Management MCP** an
 
 > ⚠️ **Experimental:** The sample's README describes Enhanced Task Completion as an experimental Copilot Studio capability. Check the sample for its current status and limitations before relying on it.
 
-> ⚠️ **Preview limitation:** At time of writing, the **new-type agent's** inline *Add tool → connection* step cannot create a brand-new connection for these custom MCP connectors. Workaround: mint the connections via a throwaway **classic** agent, then reuse them in the new-type agent. This step will go away as the preview matures.
+> ⚠️ **Custom MCP connection note:** If the Microsoft Copilot harness inline *Add tool → connection* step in your environment cannot mint a brand-new connection for these custom sample MCP connectors directly, create the connections once via a standard-harness (**classic**) agent (`Agents` → chevron next to `New Agent` → `New classic agent`, or `Access standard agents and agent flows`), then reuse those connections on your Microsoft Copilot harness agent.
 
 1. Go to the **Agents** page. Select the chevron next to **New Agent** → **New classic agent**. Name it `Enable New MCP Servers` → **Create**.
 2. On the agent's **Overview**, select **Add tool** → filter to **Model Context Protocol (MCP)** → search `Order Management` → press **Enter**.
@@ -649,18 +650,18 @@ Use this quick checklist to validate that your orchestration design is working a
 
 - The planner selects the correct child agent and tool for each prompt in Use Case #2.
 - Activity Tracker and Get rationale show decisions that align to your updated descriptions.
-- The new-type agent in Use Case #3 completes multi-step requests in a single turn where appropriate.
+- The Microsoft Copilot harness agent in Use Case #3 completes multi-step requests in a single turn where appropriate.
 - The Skill in Use Case #4 loads when triggered and enforces customer-facing vs internal policy boundaries.
 
 ## 🧠 Summary of learnings
 
 You've seen Copilot Studio's orchestration engine from three distinct angles:
 
-- **Generative orchestration (Use Case #2)** — the planner can select multiple topics, tools, and agents and execute multistep plans. Highly inspectable via the Activity Tracker and *Get rationale*. Tunable through agent Instructions, child-agent and tool Names + Descriptions, and input-parameter Descriptions.
-- **Agentic Reasoning Loop (Use Case #3)** — the default in newly created agents. Plans, acts, observes, iterates within **one turn** until the task is complete. Better when users want finished outcomes; provides activity traces for inspection.
-- **Skills (Use Case #4)** — reusable, named playbooks the New Orchestrator loads on demand. Bundles when to use it, the tools it relies on, and a numbered procedure with guardrails — so base instructions stay short and behavior stays consistent.
+- **Generative orchestration on the standard harness (Use Case #2)** — the planner can select multiple topics, tools, and agents and execute multistep plans. Highly inspectable via the Activity Tracker and *Get rationale*. Tunable through agent Instructions, child-agent and tool Names + Descriptions, and input-parameter Descriptions.
+- **Agentic Reasoning Loop on the Microsoft Copilot harness (Use Case #3)** — plans, acts, observes, iterates within **one turn** until the task is complete. Better when users want finished outcomes; provides activity traces in the Preview pane for inspection.
+- **Skills (Use Case #4)** — reusable, named playbooks the Microsoft Copilot harness loads on demand. Bundles when to use it, the tools it relies on, and a numbered procedure with guardrails — so base instructions stay short and behavior stays consistent.
 
-> The single most important shift between the two orchestrators: **standard orchestration optimizes for the next correct step; the New Orchestrator optimizes for the user's end goal.** Pick the orchestrator based on which behavior your users actually want — and use Skills to give that orchestrator consistent, reusable playbooks for the workflows it handles most.
+> The single most important shift between the two harnesses: **the standard harness optimizes for structured, step-by-step topic and action control; the Microsoft Copilot harness optimizes for reasoning through the user's end goal.** Pick the harness based on which behavior and billing model your scenario needs — and use Skills to give the Microsoft Copilot harness consistent, reusable playbooks for the workflows it handles most.
 
 ### 🪙 Orchestration golden rules
 
@@ -670,6 +671,11 @@ You've seen Copilot Studio's orchestration engine from three distinct angles:
 4. **Match credential pattern to tool intent.** Anonymous / API-key / service-account tools → **Maker** credentials. Tools that act as the user → **User** credentials.
 5. **Choose your orchestration approach deliberately.** Use classic orchestration where manual topic control matters; use generative orchestration with the Agentic Reasoning Loop where finished outcomes matter.
 6. **At Contoso: never blur internal and customer-facing policy.** Two knowledge sources, two audiences. Instructions and Skills draw the line.
+
+### 📚 Architecture references
+
+- [Choose the right harness in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness)
+- [Generative orchestration architecture guidance](https://learn.microsoft.com/microsoft-copilot-studio/guidance/generative-orchestration)
 
 ---
 

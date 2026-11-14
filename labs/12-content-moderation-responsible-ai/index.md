@@ -26,8 +26,8 @@ A capable agent must also be a **safe** agent. In this lab you configure Copilot
 
 ## Prerequisites
 
-- A Copilot Studio agent with at least one knowledge source.
-- Permission to edit Generative AI settings.
+- A Copilot Studio agent on the [standard harness](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview#standard-harness) with at least one knowledge source.
+- Permission to edit **Settings → Generative AI**, topic generative answers nodes, and prompt tools. See [Knowledge source agent settings — Moderation](https://learn.microsoft.com/microsoft-copilot-studio/knowledge-copilot-studio#moderation) and [FAQ for generative answers](https://learn.microsoft.com/microsoft-copilot-studio/faqs-generative-answers).
 - A short list of in-scope and out-of-scope example questions.
 
 ## Step-by-Step
@@ -35,23 +35,23 @@ A capable agent must also be a **safe** agent. In this lab you configure Copilot
 ### Step 1 — Review Generative AI settings
 
 1. Open your agent and go to **Settings → Generative AI**.
-2. Review the available **content moderation** and response controls.
-3. Note the current moderation level and grounding options.
+2. Review the available **content moderation** controls (ranging from **Lowest** to **Highest**, with **High** as the default) and knowledge grounding toggles (**Use information from the web** and **Allow ungrounded responses**).
+3. Note how precedence works at runtime: a [topic-level generative answers node moderation setting](https://learn.microsoft.com/microsoft-copilot-studio/nlu-boost-node#content-moderation) overrides the agent-level **Generative AI** setting, and [prompt tools have their own moderation level](https://learn.microsoft.com/microsoft-copilot-studio/prompt-model-settings#content-moderation-level) under **… → Settings** in Prompt builder.
 
 ![Settings → Generative AI with moderation controls](assets/generative-ai-settings.png)
 
 ### Step 2 — Set the content moderation level
 
-1. Adjust the **content moderation** level to a stricter setting.
-2. Understand the tradeoff: higher moderation reduces risky output but may refuse more borderline requests.
-3. Save the change.
+1. Adjust the agent-level **content moderation** level between **Lowest** and **Highest** (keep **High** or **Highest** for stricter enterprise scenarios) and remember that Copilot Studio checks both user input and generated output for harmful content, jailbreaks, and prompt injection.
+2. Understand the tradeoff: **Highest** applies the strictest filter against harmful content and generates fewer answers, while lower levels generate more answers at greater risk.
+3. Select **Save**.
 
 ![Content moderation level selector](assets/content-moderation-level.png)
 
 ### Step 3 — Constrain grounding
 
-1. Enable settings that keep answers grounded in your **selected knowledge** only.
-2. Disable general web/world knowledge if the scenario requires source-bound answers.
+1. Turn off **Allow ungrounded responses** in the **Knowledge** section of **Settings → Generative AI** if your scenario requires every answer turn to use a configured knowledge source or tool and include an in-text citation (note that follow-up turns relying only on prior chat history without calling a knowledge source or tool will route to Fallback when this is off).
+2. Turn off **Use information from the web** (**Web Search** on **Overview**) when answers must stay strictly within approved enterprise sources.
 3. Confirm citations are returned for grounded responses.
 
 ### Step 4 — Author safety boundaries
@@ -74,6 +74,11 @@ A capable agent must also be a **safe** agent. In this lab you configure Copilot
 - The agent answers in-scope questions with citations from approved knowledge.
 - The agent safely refuses or redirects at least two out-of-scope prompts.
 - You documented a short Responsible AI review checklist.
+
+## Documentation
+
+- [Copilot Studio system and service card — Safety components and mitigations](https://learn.microsoft.com/microsoft-copilot-studio/system-service-card-copilot-studio#safety-components-and-mitigations)
+- [Troubleshoot Responsible AI filter errors in Copilot Studio](https://learn.microsoft.com/troubleshoot/power-platform/copilot-studio/generative-answers/agent-response-filtered-by-responsible-ai)
 
 ## ✅ Lab Complete
 

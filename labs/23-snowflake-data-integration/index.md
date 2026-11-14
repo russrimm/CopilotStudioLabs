@@ -1,6 +1,6 @@
 # ❄️ Lab 23: Snowflake Data Integration with Copilot Studio
 
-*Bring governed warehouse data into Copilot Studio with OAuth, premium connectivity, and private-network design.*
+*Bring governed warehouse data into Copilot Studio with the Snowflake (v2) connector, Microsoft Entra OAuth, and private-network design.*
 
 ## Metadata
 
@@ -24,7 +24,7 @@ flowchart LR
   B --> C["Register Entra Resource App"]
   C --> D["Register Entra Client App"]
   D --> E["Create External OAuth Integration"]
-  E --> F["Add Snowflake Tool to Agent"]
+  E --> F["Add Snowflake (v2) Tool to Agent"]
   F --> G["Test Analytics Prompts"]
   G --> H["Plan Private Connectivity with VNet"]
 ```
@@ -35,7 +35,9 @@ flowchart LR
 
 Warehouse data is where many organizations keep the metrics that actually drive planning, operations, and risk decisions.
 Snowflake plus Copilot Studio gives you a way to bring those governed datasets into a conversational experience without copying them into yet another system.
-This lab shows how to combine a premium connector, Entra-backed OAuth, and optional private networking so the pattern can scale beyond a proof of concept.
+This lab shows how to combine the **Snowflake (v2)** (`snowflakev2`) premium connector, Microsoft Entra-backed OAuth, and optional private networking so the pattern can scale beyond a proof of concept.
+
+> ⚠️ **Connector currency note:** The legacy Power Platform **Snowflake** connector (along with the legacy `Default [DEPRECATED]` connection option and `Convert result set rows from array to objects` action) is deprecated. Always select **Snowflake (v2)** (`snowflakev2`), which connects through the Snowflake SQL REST API using Microsoft Entra ID OAuth.
 
 ---
 
@@ -53,7 +55,7 @@ That outcome depends on careful work across trial setup, OAuth, role design, and
 |---|---|
 | **Snowflake sandbox** | A no-cost trial account with a sample warehouse, schema, and analytics tables |
 | **Identity layer** | Entra resource and client applications plus a Snowflake external OAuth integration |
-| **Connector path** | A premium Snowflake connection suitable for Copilot Studio tools |
+| **Connector path** | A premium **Snowflake (v2)** (`snowflakev2`) connection suitable for Copilot Studio tools |
 | **Analytics experience** | An agent that answers inventory, risk, and energy consumption questions |
 | **Network posture** | A VNet and private-connectivity blueprint for production hardening |
 
@@ -62,9 +64,9 @@ That outcome depends on careful work across trial setup, OAuth, role design, and
 ## 🎯 Objectives
 
 1. Provision a Snowflake trial and create sample tables that map to real business questions.
-2. Configure delegated or service-principal OAuth with Entra ID and Snowflake external OAuth integration.
-3. Add Snowflake as a tool in Copilot Studio and shape clear, read-only analytics prompts.
-4. Explain the role of blocked roles, claim mapping, and token version settings in successful authentication.
+2. Configure **Service principal Delegated Auth** or **Service principal** OAuth with Microsoft Entra ID and a Snowflake external OAuth integration.
+3. Add **Snowflake (v2)** as a tool in Copilot Studio using its SQL REST API actions and shape clear, read-only analytics prompts.
+4. Explain the role of blocked roles, claim mapping, case-sensitive identifiers, and Entra token version settings in successful authentication.
 5. Plan a private-connectivity pattern using Power Platform VNet support and Snowflake private networking.
 
 ---
@@ -73,26 +75,26 @@ That outcome depends on careful work across trial setup, OAuth, role design, and
 
 | Concept | What it means in this lab |
 |---|---|
-| **Premium connector** | The Snowflake connector is premium and requires the right Power Platform licensing. |
+| **Snowflake (v2) connector** | Current premium Power Platform connector (`snowflakev2`) backed by the Snowflake SQL REST API; replaces the deprecated legacy Snowflake connector. |
 | **Trial credits** | The free trial currently offers 30 days and about $400 credits with no credit card required. |
-| **Delegated auth** | Maps the `upn` claim and is best when the user context should flow into Snowflake. |
-| **Service principal auth** | Maps the `sub` claim and is best for shared-service integrations. |
-| **Resource app** | The Entra app that exposes the API scope consumed by the connector client. |
-| **Client app** | The Entra app that uses the `snowflakev2` redirect URI and requests the exposed scope. |
-| **External OAuth integration** | The Snowflake object that trusts Entra tokens and maps claims to Snowflake users. |
-| **Blocked roles** | A Snowflake control that can quietly prevent successful connector use even with valid tokens. |
-| **Token version** | Setting `requestedAccessTokenVersion=2` can matter when Snowflake is used alongside Power BI. |
-| **VNet support** | A Power Platform managed-environment capability that helps route connector traffic privately where supported. |
+| **Service principal Delegated Auth** | Connector auth mode (`oauthSPUserDelegated`) that maps the `upn` claim (`LOGIN_NAME` or `EMAIL_ADDRESS`) so per-user Snowflake RBAC applies. |
+| **Service principal auth** | Connector auth mode (`oauthSP`) that maps the `sub` claim to the Entra service principal Object ID (`LOGIN_NAME`); required for Dataverse Virtual Tables and shared-service runs. |
+| **Resource app** | The Entra app that exposes the delegated API scope (`session:scope:<role>`) or application role (`session:role:<role>`). |
+| **Client app** | The Entra app that uses the `snowflakev2` redirect URI (for delegated auth) and requests the exposed permission. |
+| **External OAuth integration** | The Snowflake security integration that trusts Entra tokens and maps claims to Snowflake users. |
+| **Blocked roles** | A Snowflake control (`ACCOUNTADMIN`, `ORGADMIN`, `SECURITYADMIN` blocked by default) that prevents privileged role misuse. |
+| **Token version & issuer** | Entra v1 tokens emit `https://sts.windows.net/<tenant-id>/`, whereas `requestedAccessTokenVersion = 2` emits `https://login.microsoftonline.com/<tenant-id>/v2.0` — Snowflake's `EXTERNAL_OAUTH_ISSUER` must match. |
+| **VNet support** | A Power Platform managed-environment capability that routes **Snowflake (v2)** connector traffic over private networking. |
 
 ---
 
 ## 📚 Documentation
 
-- [Snowflake connector reference](https://learn.microsoft.com/en-us/connectors/snowflakev2/)
-- [Add tools to custom agents](https://learn.microsoft.com/en-us/microsoft-copilot-studio/add-tools-custom-agent)
-- [Virtual Network support overview](https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-overview)
-- [Azure Private Link overview](https://learn.microsoft.com/en-us/azure/private-link/private-link-overview)
-- [Use agent flows in Copilot Studio](https://learn.microsoft.com/en-us/training/modules/use-agent-flows/)
+- [Snowflake (v2) connector reference](https://learn.microsoft.com/connectors/snowflakev2/)
+- [Add tools to custom agents](https://learn.microsoft.com/microsoft-copilot-studio/add-tools-custom-agent)
+- [Virtual Network support overview](https://learn.microsoft.com/power-platform/admin/vnet-support-overview)
+- [Azure Private Link overview](https://learn.microsoft.com/azure/private-link/private-link-overview)
+- [Use agent flows in Copilot Studio](https://learn.microsoft.com/training/modules/use-agent-flows/)
 
 ---
 
@@ -295,46 +297,53 @@ This use case walks through the minimum moving parts you must get right.
 
 #### Step 1 — Decide between delegated and service principal auth
 
-| Pattern | Claim mapping | When to use it |
-|---|---|---|
-| **Delegated** | Map the `upn` claim | End-user queries where Snowflake authorization should reflect the signed-in user. |
-| **Service Principal** | Map the `sub` claim | Shared integration identity or background workloads with a controlled service role. |
+The **Snowflake (v2)** connector supports two active OAuth authentication types (do not select `Default [DEPRECATED]`):
 
-1. Decide whether the workshop goal is user-context analytics or shared-service analytics.
-2. Document which Snowflake role the connection should land on.
-3. Confirm the role is not blocked by current integration restrictions.
+| Snowflake (v2) authentication type | Claim mapping | Entra permission model | When to use it |
+|---|---|---|---|
+| **Service principal Delegated Auth (Microsoft Entra ID application)** | Map the `upn` claim to `LOGIN_NAME` or `EMAIL_ADDRESS` | Delegated scope (for example, `session:scope:analyst`) + `snowflakev2` redirect URI | End-user queries where Snowflake RBAC should reflect the signed-in user. |
+| **Service principal (Microsoft Entra ID application)** | Map the `sub` claim to the Client Service Principal Object ID (`LOGIN_NAME`) | Application App Role (for example, `session:role:analyst`) + admin consent + Read on `information_schema.columns` | Shared integration identity, background flows, or Dataverse Virtual Tables. |
 
-> 💡 **Tip:** If your eventual production design needs both patterns, implement delegated first for human-facing agent questions and service principal second for scheduled or background flows.
+1. Decide whether the workshop goal is user-context analytics (**Service principal Delegated Auth**) or shared-service analytics (**Service principal**).
+2. Document which Snowflake role the connection should land on (for example, `ANALYST`).
+3. Confirm the role is not blocked by Snowflake's external OAuth integration restrictions (`ACCOUNTADMIN`, `ORGADMIN`, and `SECURITYADMIN` are blocked by default).
+
+> 💡 **Tip:** If your eventual production design needs both patterns, implement delegated first for human-facing agent questions and service principal second for scheduled flows or Dataverse Virtual Tables.
 
 #### Step 2 — Create the OAuth Resource app in Entra ID
 
-1. In Entra ID, create an app registration named something like **Snowflake OAuth Resource**.
-2. Open **Expose an API** and create an application ID URI and a scope that the client app can request.
-3. If the same tenant also uses Power BI with Snowflake, set:
+1. In Microsoft Entra ID, create an app registration named **Snowflake OAuth Resource**.
+2. Open **Expose an API** and set the **Application ID URI** (for example, `api://<resource-app-id>`).
+3. Add the permission that matches your chosen auth mode:
+   - **Delegated mode:** Select **Add a scope** and name it `session:scope:analyst` (or `SESSION:ROLE-ANY` if your governance allows role switching).
+   - **Service principal mode:** Open **App roles** → **Create app role** with allowed member type **Applications** and value `session:role:analyst`.
+4. Open **Manifest** and set the access token version to v2 so it matches the v2.0 issuer URL in Step 4 (and coexists cleanly with Power BI if used in the same tenant):
 
 ```text
-requestedAccessTokenVersion = 2
+"requestedAccessTokenVersion": 2
 ```
 
-4. Record the tenant ID, application ID URI, and scope value.
+   *(In newer Microsoft Graph app manifests, the equivalent property is `"accessTokenAcceptedVersion": 2`. If you leave the manifest at the v1 default `null`/`1`, use `https://sts.windows.net/<tenant-id>/` as the issuer and `https://login.microsoftonline.com/<tenant-id>/discovery/keys` as the JWS keys URL in Step 4.)*
+5. Record the tenant ID, Application ID URI, and scope or app role value.
 
-> ⚠️ **Warning:** Token version mismatches are easy to miss. If your tenant needs coexistence with other tools like Power BI, validate token version expectations up front.
+> ⚠️ **Warning:** Token version and issuer mismatches are the #1 cause of initial OAuth failures. Always pair `requestedAccessTokenVersion = 2` with the `/v2.0` issuer URL, or v1 tokens with `https://sts.windows.net/<tenant-id>/`.
 
 #### Step 3 — Create the OAuth Client app in Entra ID
 
-1. Create a second app registration named **Snowflake OAuth Client**.
-2. Add this redirect URI exactly:
+1. Create a second app registration named **Snowflake OAuth Client** and generate a client secret under **Certificates & secrets**.
+2. For **Service principal Delegated Auth**, open **Authentication** → **Add a platform** → **Web** and add this redirect URI exactly:
 
 ```text
 https://global.consent.azure-apim.net/redirect/snowflakev2
 ```
 
-3. Grant the client app permission to the scope exposed by the resource app.
-4. Record the client ID and secret or certificate details, depending on your standard.
+3. Open **API permissions** → **Add a permission** → **My APIs** → **Snowflake OAuth Resource**:
+   - Select **Delegated permissions** (your `session:scope:analyst` scope) for delegated auth, or **Application permissions** (your `session:role:analyst` app role) with **Grant admin consent** for service principal auth.
+4. Record the Client ID, Client Secret, and (if using service principal mode) the Enterprise Application **Object ID** used as the Snowflake `LOGIN_NAME`.
 
 #### Step 4 — Create the external OAuth security integration in Snowflake
 
-Run a starter pattern such as the following and adjust names to your tenant:
+Run a starter pattern such as the following (matching `"requestedAccessTokenVersion": 2` from Step 2) and adjust names to your tenant:
 
 ```sql
 CREATE OR REPLACE SECURITY INTEGRATION EXTERNAL_OAUTH_COPILOT
@@ -345,11 +354,12 @@ CREATE OR REPLACE SECURITY INTEGRATION EXTERNAL_OAUTH_COPILOT
   EXTERNAL_OAUTH_JWS_KEYS_URL = 'https://login.microsoftonline.com/<tenant-id>/discovery/v2.0/keys'
   EXTERNAL_OAUTH_AUDIENCE_LIST = ('api://<resource-app-id>')
   EXTERNAL_OAUTH_TOKEN_USER_MAPPING_CLAIM = 'upn'
-  EXTERNAL_OAUTH_SNOWFLAKE_USER_MAPPING_ATTRIBUTE = 'LOGIN_NAME';
+  EXTERNAL_OAUTH_SNOWFLAKE_USER_MAPPING_ATTRIBUTE = 'LOGIN_NAME'
+  EXTERNAL_OAUTH_ANY_ROLE_MODE = 'ENABLE';
 ```
 
-1. For service principal mode, switch the mapping claim from `upn` to `sub` as required by your design.
-2. Review Snowflake documentation or your platform standards for additional integration clauses such as any-role mode.
+1. For **Service principal** mode, set `EXTERNAL_OAUTH_TOKEN_USER_MAPPING_CLAIM = 'sub'`, create a Snowflake `SERVICE` user whose `LOGIN_NAME` equals the Client Service Principal Object ID, and grant `SELECT` on `information_schema.columns` as required by **Snowflake (v2)**.
+2. Verify token validation directly in Snowflake if needed using `SELECT SYSTEM$VERIFY_EXTERNAL_OAUTH_TOKEN('<access-token>');`.
 3. Save the SQL in version control or a secured runbook.
 
 #### Step 5 — Inspect blocked roles and verify the integration
@@ -418,7 +428,7 @@ You now have the identity architecture needed for a governed Snowflake integrati
 
 ## 🧪 Use Case #3 — Build a Data Analytics Agent (20 min)
 
-> 🎯 **Objective:** Add the Snowflake connector as a tool, shape agent instructions for safe analytics questions, and return readable results.
+> 🎯 **Objective:** Add the **Snowflake (v2)** connector as a tool, shape agent instructions for safe analytics questions, and return readable results.
 
 | Field | Details |
 |---|---|
@@ -430,7 +440,7 @@ You now have the identity architecture needed for a governed Snowflake integrati
 
 Your operations director wants quick answers about inventory risk, portfolio exposure, and plant consumption trends.
 Analysts can write SQL, but frontline managers often just want the answer and a short explanation.
-This use case turns the Snowflake connection into a practical conversational analytics pattern.
+This use case turns the **Snowflake (v2)** connection into a practical conversational analytics pattern.
 
 #### Step 1 — Create the analytics agent
 
@@ -443,14 +453,18 @@ Snowflake Analytics Agent
 2. Add instructions that tell the agent to answer with concise business summaries, cite the table or metric used, and ask one clarifying question when scope is missing.
 3. Tell the agent not to invent numeric values and to say when the requested slice of data is unavailable.
 
-#### Step 2 — Add the Snowflake tool
+#### Step 2 — Add the Snowflake (v2) tool
 
-1. In **Tools**, choose **Add a tool** and find the **Snowflake** connector.
-2. Create or select the OAuth connection built from Use Case #2.
-3. Add the actions you need for the pilot, starting with the smallest set that can answer your sample questions.
-4. Review whether the connector action expects SQL text, stored procedure names, or table-oriented parameters in your tenant configuration.
+1. On the agent's **Tools** page, select **Add a tool** and search for the **Snowflake (v2)** (`snowflakev2`) connector — do not select the legacy deprecated connector entry.
+2. Choose the active SQL REST API actions needed for your scenario:
+   - **Submit SQL Statement for Execution** (`ExecuteSqlStatement`) — submits a read-only SQL query and accepts **Snowflake Instance**, **Statement**, and case-sensitive **database**, **schema**, **warehouse**, and **role** inputs.
+   - **Check the Status and Get Results** (`GetResults`) — retrieves results or additional partitions by `statementHandle` when statements run asynchronously or exceed a single page.
+   - *(Optional)* **Cancel the Execution of a Statement** (`Cancel`) — cancels a long-running query by `statementHandle`.
+   *(Avoid the legacy `Convert result set rows from array to objects` action, which is deprecated in `snowflakev2`.)*
+3. Create or select your connection using **Service principal Delegated Auth (Microsoft Entra ID application)** or **Service principal (Microsoft Entra ID application)** with the Client ID, Client Secret, Token URL, and Resource URL from Use Case #2, then select **Add and configure**.
+4. In **Inputs**, set fixed environment parameters (**warehouse**, **database**, **schema**, and **role**) using exact Snowflake identifier casing (for example, `COMPUTE_WH` rather than `compute_wh` unless quoted lowercase), and review connector limits (50 concurrent requests and 900 calls per 60 seconds per connection).
 
-> 💡 **Tip:** Keep the first scenario read-only. Production trust grows faster when stakeholders see safe queries before write-back scenarios.
+> 💡 **Tip:** Keep the first scenario read-only (`SELECT` statements against curated views or tables, or `CALL` statements to approved read-only stored procedures). Production trust grows faster when stakeholders see safe queries before write-back scenarios.
 
 #### Step 3 — Define the business questions and guardrails
 

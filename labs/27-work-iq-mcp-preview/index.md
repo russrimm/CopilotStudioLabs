@@ -14,64 +14,76 @@
 
 ## Overview
 
-This lab explores **Work IQ MCP (preview)** patterns for contextual grounding in Copilot Studio. You will connect MCP-backed context, map it to business workflows, and validate that responses improve without introducing unnecessary complexity.
+This lab explores connecting agents and MCP clients to the [Work IQ MCP server](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/overview) for contextual grounding over Microsoft 365 and enterprise business data.
+
+> 💡 **Availability & architecture distinction:** Built-in Work IQ tools inside Copilot Studio are generally available on the **Microsoft Copilot harness** for Microsoft 365 workloads (covered in [Lab 05](../05-work-iq-m365-intelligence/index.md), with connected Dynamics 365 and Power Apps business app workloads in preview; see [Add Work IQ to custom agents](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-work-iq)). Separately, the **Work IQ MCP server** exposes Microsoft 365 and workplace context over the Model Context Protocol (MCP) using three tool groups documented in the [Work IQ MCP tool reference](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference): **Entity tools** (`fetch`, `fetch_blob`, `create_entity`, `update_entity`, `delete_entity`, `do_action`, `call_function` over relative resource paths such as `/me/messages`), **Copilot tools** (`ask`, `list_agents`, and `retrieve`, which is in **public preview**), and **Schema tools** (`get_schema`, `search_paths`).
 
 ## Learning Objectives
 
-1. Understand Work IQ MCP (preview) architecture in Copilot Studio scenarios.
-2. Configure MCP-backed context access for an agent workflow.
-3. Design prompts that use context selectively and safely.
-4. Validate response quality and traceability with context enabled.
-5. Document preview risks and mitigation steps.
+1. Distinguish built-in Work IQ tools on the Microsoft Copilot harness from direct [Work IQ MCP server](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/overview) integration.
+2. Verify tenant enablement, Microsoft Entra ID OAuth 2.0 discovery, and MCP server governance in the Microsoft 365 admin center.
+3. Map Entity, Copilot (`ask` and preview `retrieve`), and Schema MCP tools to a bounded business workflow.
+4. Design prompts that retrieve workplace context selectively and preserve per-user permission boundaries.
+5. Validate response quality, latency tradeoffs, and preview support boundaries before pilot rollout.
 
 ## Prerequisites
 
-- Access to Copilot Studio and a preview-enabled environment.
-- Access to relevant MCP-capable context sources.
-- A target use case where broader work context improves outcomes.
-- Stakeholder alignment on preview feature usage.
+- Access to Copilot Studio and a usage-based Copilot Credits billing plan linked to an Azure subscription (see [Enable your tenant for Work IQ](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/enable-work-iq)).
+- One-time Global Administrator provisioning of the Work IQ service principal (`fdcc1f02-fc51-4226-8753-f668596af7f7`) in Microsoft Entra ID and MCP server approval in the Microsoft 365 admin center (**Agents** → **Manage** → **MCP servers**).
+- Familiarity with [connecting to Model Context Protocol servers in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/agent-extend-action-mcp).
+- Stakeholder alignment on using preview capabilities (such as the Work IQ MCP `retrieve` tool or connected business app workloads).
 
 ## Step-by-Step
 
-### Step 1 - Define the preview pilot scope
+### Step 1 - Define the pilot scope and tool selection
 
-1. Identify one workflow where Work IQ context could help significantly.
-2. Define what context is in-scope and out-of-scope.
-3. Document expected user and business outcomes.
-4. Capture preview caveats and rollback criteria.
-5. Align scope with your platform governance owner.
+1. Identify one workflow where workplace context materially improves decisions (for example account preparation, incident handoff, or project status synthesis).
+2. Decide which Work IQ MCP tool category fits each task:
+   - `search_paths` and `get_schema` to discover supported relative resource paths and parameters dynamically.
+   - `fetch` (read-only Entity tool) for targeted Microsoft 365 items such as `/me/messages` or `/me/events`, keeping write operations (`create_entity`, `update_entity`, `delete_entity`, `do_action`) out of scope for a read-first pilot.
+   - `ask` for synthesized workplace Q&A or `retrieve` when testing semantic grounding chunks in a pilot workflow.
+3. Document what data is in-scope and out-of-scope for the pilot.
+4. Capture rollback criteria and confirm governance sign-off with your Microsoft 365 and Power Platform administrators.
 
-### Step 2 - Configure MCP context integration
+### Step 2 - Configure MCP server connectivity and authentication
 
-1. Open your Copilot Studio agent configuration.
-2. Add the MCP context source for the pilot workflow.
-3. Validate connection status and permissions.
-4. Restrict access to only necessary context surfaces.
-5. Save and document configuration settings.
+1. Confirm the Work IQ resource service principal (`fdcc1f02-fc51-4226-8753-f668596af7f7`) is provisioned in your tenant and allowed under Microsoft 365 admin center MCP governance.
+2. Connect the MCP tool surface using delegated Microsoft Entra ID OAuth 2.0 (Work IQ MCP supports OAuth metadata discovery via `/.well-known/oauth-protected-resource` so tokens run in the signed-in user's permission context).
+3. In your agent's **Tools** configuration, attach the approved MCP connection and verify that tool discovery succeeds.
+4. Disable or omit write/mutation tools (`create_entity`, `update_entity`, `delete_entity`, `do_action`) so the pilot operates strictly read-only.
+5. Save and document the connection ownership, Entra scopes, and billing plan settings.
 
 ### Step 3 - Design context-aware prompt behavior
 
-1. Update instructions to prefer MCP context when relevant.
-2. Add a fallback when context is missing or stale.
-3. Require concise attribution language where appropriate.
-4. Avoid over-fetching unrelated context data.
-5. Save prompt updates and prepare a test set.
+1. Update agent instructions so the orchestrator discovers paths with `search_paths` / `get_schema` when needed and calls `fetch`, `ask`, or `retrieve` selectively rather than on greeting or purely static policy turns.
+2. Add a fallback instruction when the signed-in user has no matching items or when an MCP call times out.
+3. Require concise source attribution (for example referencing the meeting, thread, or document title) without echoing raw JSON payloads.
+4. Avoid broad, unbounded multi-workload fetches when a narrow relative path or targeted query answers the user's question.
+5. Save your instruction updates and prepare a repeatable evaluation prompt set.
 
-### Step 4 - Test with and without Work IQ context
+### Step 4 - Test with and without Work IQ MCP context
 
-1. Run a baseline set of prompts with context disabled.
-2. Run the same prompts with Work IQ MCP context enabled.
-3. Compare answer quality, relevance, and actionability.
-4. Note any latency or inconsistency tradeoffs.
-5. Capture examples where context materially improved outcomes.
+1. Run your baseline prompt set with the Work IQ MCP tool disabled.
+2. Enable the Work IQ MCP tool and run the identical prompt set as an authorized test user.
+3. Compare answer relevance, citation specificity, and actionability across both runs.
+4. Measure turn latency and Copilot Credit consumption tradeoffs on multi-tool turns.
+5. Capture side-by-side transcripts showing where permission-trimmed workplace context improved the outcome.
 
-### Step 5 - Publish preview readiness notes
+### Step 5 - Publish pilot readiness and governance notes
 
-1. Document known limitations and support boundaries.
-2. Define monitoring signals for pilot health.
-3. Create a support playbook for common failure modes.
-4. Record decision criteria for expanding the pilot.
-5. Share readiness notes with stakeholders.
+1. Document which capabilities in your design are generally available versus preview (such as the Work IQ MCP `retrieve` tool or connected business app sources).
+2. Define operational monitoring signals, including MCP error rates, Entra sign-in logs, and usage-based Copilot Credit spend.
+3. Create a support runbook covering token consent failures, admin MCP server blocks, and empty-context fallbacks.
+4. Record clear promotion criteria for expanding beyond the pilot group.
+5. Share the readiness package with security, compliance, and platform stakeholders.
+
+## References
+
+- [Work IQ MCP server overview](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/overview)
+- [Work IQ MCP tool reference](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/mcp/tool-reference)
+- [Enable your tenant for Work IQ](https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq/enable-work-iq)
+- [Add Work IQ to custom agents in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-work-iq)
+- [Connect to Model Context Protocol servers in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/agent-extend-action-mcp)
 
 ## Validation / Success Criteria
 

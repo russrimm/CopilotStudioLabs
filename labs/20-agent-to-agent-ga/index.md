@@ -26,28 +26,30 @@ In this lab, you will implement **agent-to-agent (GA)** collaboration patterns i
 
 ## Prerequisites
 
-- Access to Copilot Studio with multi-agent capabilities enabled.
-- At least one existing agent to use as the orchestrator.
-- A target scenario that benefits from specialized sub-agents.
-- Permission to edit instructions and connected-agent settings.
+- Access to Copilot Studio with multi-agent capabilities enabled. See [Add other agents overview](https://learn.microsoft.com/microsoft-copilot-studio/authoring-add-other-agents), [Connect to an existing Copilot Studio agent](https://learn.microsoft.com/microsoft-copilot-studio/add-agent-copilot-studio-agent), and [Connect an agent available over the Agent2Agent (A2A) protocol](https://learn.microsoft.com/microsoft-copilot-studio/add-agent-agent-to-agent).
+- One primary orchestrator agent and at least two published specialist agents in the same environment (or one internal Copilot Studio specialist plus one A2A specialist).
+- A target scenario that benefits from specialized sub-agents (for example, independent team ownership, independent ALM/channels, or splitting an agent approaching 30–40 tools/actions).
+- Permission to edit **Instructions**, **Agents**, and **Settings** on both the orchestrator and specialists.
+
+> ℹ️ **Key multi-agent platform rules:** Connected Copilot Studio agents must be **published**, live in the **same environment**, and have **Settings** → **Let other agents connect to and use this one** enabled. An agent that already acts as a *main agent* with connected agents cannot itself be attached as a connected agent under another main agent. Also ensure each connected agent either answers from its tools/knowledge or has **Allow ungrounded responses** enabled — otherwise ungrounded answers from a connected agent are silently discarded.
 
 ## Step-by-Step
 
 ### Step 1 - Define your agent collaboration design
 
-1. Choose one orchestrator agent and two specialist agents.
+1. Choose one orchestrator agent and two specialist agents (deciding whether lightweight in-agent [child agents](https://learn.microsoft.com/microsoft-copilot-studio/add-agent-child-agent) or independent connected agents fit each role).
 2. Write a clear one-sentence mission for each specialist.
-3. Define which requests should never be delegated.
-4. Define expected outputs from each specialist.
+3. Define which requests should stay in the orchestrator and never be delegated.
+4. Decide whether conversation history should be shared with each specialist (**Pass conversation history to this agent**) or restricted to the explicit task.
 5. Save this design as the handoff contract.
 
 ### Step 2 - Configure connected agents and routing hints
 
-1. Connect specialist agents to the orchestrator.
-2. Add concise descriptions that differentiate each specialist.
-3. Update orchestrator instructions for delegation boundaries.
-4. Add fallback behavior for uncertain routing cases.
-5. Save and publish testable configuration.
+1. Open each specialist agent, verify **Settings** → **Let other agents connect to and use this one** is **On**, and **Publish** the specialist.
+2. On the orchestrator's **Agents** page, select **Add** next to **Add an agent**, and select each specialist under **Select an agent in your environment** (or **A2A agent** for an external A2A endpoint).
+3. Refine each connected agent's local **Description** on the orchestrator (note that later description edits on the source agent do not auto-sync to the orchestrator — you manage the local routing description here) and configure **Pass conversation history to this agent**.
+4. On the orchestrator's **Overview** page, update **Instructions** with delegation boundaries — optionally typing `/` to reference a child or connected agent directly.
+5. Save and publish the orchestrator configuration.
 
 ### Step 3 - Execute handoff test scenarios
 

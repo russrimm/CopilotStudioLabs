@@ -104,16 +104,16 @@ By the end of this lab you will be able to:
 ## 📚 Documentation
 
 - [Configure Virtual Network support for outbound connections from agents](https://learn.microsoft.com/microsoft-copilot-studio/admin-network-isolation-vnet)
-- [Virtual Network support overview for Power Platform](https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-overview)
-- [Set up virtual network support for Power Platform](https://learn.microsoft.com/en-us/power-platform/admin/vnet-support-setup-configure)
-- [What is a virtual network (VNet) data gateway](https://learn.microsoft.com/en-us/data-integration/vnet/overview)
-- [Monitor Azure Virtual Network](https://learn.microsoft.com/en-us/azure/virtual-network/monitor-virtual-network)
-- [Azure Private Endpoint overview](https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-overview)
-- [Azure NAT Gateway overview](https://learn.microsoft.com/en-us/azure/nat-gateway/nat-overview)
-- [Custom connectors overview](https://learn.microsoft.com/en-us/connectors/custom-connectors/)
-- [Azure Key Vault connector reference](https://learn.microsoft.com/en-us/connectors/keyvault/)
-- [Snowflake connector reference](https://learn.microsoft.com/en-us/connectors/snowflakev2/)
-- [HTTP with Microsoft Entra ID connector reference](https://learn.microsoft.com/en-us/connectors/webcontents/)
+- [Virtual Network support overview for Power Platform](https://learn.microsoft.com/power-platform/admin/vnet-support-overview)
+- [Set up virtual network support for Power Platform](https://learn.microsoft.com/power-platform/admin/vnet-support-setup-configure)
+- [What is a virtual network (VNet) data gateway](https://learn.microsoft.com/data-integration/vnet/overview)
+- [Monitor Azure Virtual Network](https://learn.microsoft.com/azure/virtual-network/monitor-virtual-network)
+- [Azure Private Endpoint overview](https://learn.microsoft.com/azure/private-link/private-endpoint-overview)
+- [Azure NAT Gateway overview](https://learn.microsoft.com/azure/nat-gateway/nat-overview)
+- [Custom connectors overview](https://learn.microsoft.com/connectors/custom-connectors/)
+- [Azure Key Vault connector reference](https://learn.microsoft.com/connectors/keyvault/)
+- [Snowflake (v2) connector reference](https://learn.microsoft.com/connectors/snowflakev2/)
+- [HTTP with Microsoft Entra ID connector reference](https://learn.microsoft.com/connectors/webcontents/)
 
 ---
 
@@ -453,7 +453,7 @@ You want the agent to use private routing without exposing those systems publicl
 
 1. Use the **SQL Server** connector or a relevant supported SQL pattern for Azure SQL or SQL Server scenarios.
 2. Use the **Azure Key Vault** connector for secret retrieval.
-3. Use the **Snowflake** connector if it matches the scenario and region support.
+3. Use the **Snowflake (v2)** connector (the legacy Snowflake connector is retired; see [Lab 23](../23-snowflake-data-integration/index.md)) if it matches the scenario and region support.
 4. Use a **custom connector** when you must reach a private REST API that has no suitable prebuilt connector.
 5. Use **HTTP with Microsoft Entra ID** when a private web API is secured by Entra ID and the connector meets the requirement.
 
@@ -461,7 +461,7 @@ You want the agent to use private routing without exposing those systems publicl
 |---|---|---|
 | Azure SQL / SQL Server | SQL connector or custom API wrapper | Supported by delegated runtime and common in enterprise data agents |
 | Azure Key Vault | Key Vault connector | Keeps secret retrieval aligned with Azure-native identity and auditing |
-| Snowflake | Snowflake connector | Supported in delegated runtime and useful for analytics enrichment |
+| Snowflake | Snowflake (v2) connector | Supported in delegated runtime and useful for analytics enrichment |
 | Private line-of-business API | Custom connector or HTTP with Entra ID | Best for private REST endpoints not covered by a prebuilt connector |
 
 #### Step 3 — Build or update the connector connection

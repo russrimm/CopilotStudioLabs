@@ -26,28 +26,28 @@ Agent nodes let you compose workflows that invoke specialized agents at the righ
 
 ## Prerequisites
 
-- Access to Copilot Studio agent flow authoring.
-- One orchestrator agent and one specialist agent.
-- A scenario requiring structured multi-step processing.
-- Permission to edit flow nodes and variables.
+- Access to Copilot Studio agent flow authoring (**Flows** → **Designer**). See [Add an agent node to an agent flow](https://learn.microsoft.com/microsoft-copilot-studio/agent-node-workflow) and [Agent flows overview](https://learn.microsoft.com/microsoft-copilot-studio/flows-overview).
+- One published specialist agent equipped with the required instructions, knowledge (such as SharePoint or public websites), or tools (connectors and MCP servers) — or permission to create a new agent from the node.
+- A scenario requiring multi-turn reasoning, grounded knowledge, or tool orchestration beyond a single-turn prompt node.
+- Permission to edit flow nodes, connections, and variables.
 
 ## Step-by-Step
 
 ### Step 1 - Design your flow contract
 
-1. Map the user request lifecycle across flow stages.
-2. Define which stage requires a specialist agent call.
-3. Specify required input variables for the agent node.
-4. Specify expected output schema from the node.
-5. Record fallback behavior for node failures.
+1. Map the user request lifecycle across flow stages: intake/normalization steps first, agent reasoning in the middle, and deterministic system updates after.
+2. Confirm the stage truly needs an **agent node** (multi-step reasoning, MCP/connector tools, SharePoint/web grounding, or human escalation) rather than a lightweight prompt node.
+3. Specify the runtime tokens you will pass into the node's **Message** field.
+4. Specify the expected structure in **agent response** for downstream steps.
+5. Decide whether to turn on **Request human assistance when unsure** (which emails the connection owner for input when the agent can't proceed safely on its own).
 
 ### Step 2 - Build the flow and insert an agent node
 
-1. Create a new agent flow for your scenario.
-2. Add initial nodes for request intake and normalization.
-3. Insert an agent node where specialist reasoning is needed.
-4. Bind required input variables to the node.
-5. Connect output variables to downstream steps.
+1. In Copilot Studio, go to **Flows**, open or create your agent flow on the **Designer** page, and add initial actions for request intake and normalization.
+2. Select **Insert a new action** at the reasoning step, and under **AI capabilities** select **Run an agent**.
+3. Under **Agent**, choose **Select an existing agent** to pick your published specialist (or **New** to build and publish one in a new tab, or configure an inline workflow-scoped agent if authoring on the Microsoft Copilot harness).
+4. In the **Message** field, write the task instruction for this run and insert upstream values from the dynamic content picker; toggle **Request human assistance when unsure** if human escalation is required.
+5. In downstream actions, open the dynamic content picker and bind **agent response** from the **Run an agent** step.
 
 ### Step 3 - Add validation and branching logic
 

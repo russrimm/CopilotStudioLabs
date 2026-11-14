@@ -51,11 +51,11 @@ This hands-on lab covers the essential skills for building, configuring, and pub
 - Testing end-to-end tool invocation
 
 ### Section 3: Model Selection
-- Available models vary by environment, region, licensing, and release status
-- Review the model picker and [Microsoft Learn](https://learn.microsoft.com/microsoft-copilot-studio/authoring-select-agent-model) before selecting a production model
+- Available models vary by environment, region, licensing, and release status (for example, standard-harness agents default to **GPT Chat Latest** on the agent's **Overview** → **Model** selector)
+- Review the model picker on **Overview** → **Model** and [Select the primary AI model for your agent](https://learn.microsoft.com/microsoft-copilot-studio/authoring-select-agent-model) before selecting a production model
 - Do not use experimental or preview models for production without organizational approval
 - Decision guide: when to use which model
-- Advanced Generative AI settings
+- Advanced **Settings** → **Generative AI** controls (grounding, web search, and content moderation)
 
 ### Section 4: Publishing & Sharing
 - Microsoft 365 Copilot (Agent Store)
@@ -64,17 +64,24 @@ This hands-on lab covers the essential skills for building, configuring, and pub
 - Authentication considerations
 - Other channels overview
 
+## 📚 Documentation
+
+- [Overview of Microsoft Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-what-is-copilot-studio)
+- [Use Power Platform connectors as tools in Copilot Studio agents](https://learn.microsoft.com/microsoft-copilot-studio/advanced-connectors)
+- [Add a tool to an agent (Microsoft Copilot)](https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/add-tools-custom-agent)
+- [Select the primary AI model for your agent](https://learn.microsoft.com/microsoft-copilot-studio/authoring-select-agent-model)
+
 ## ✅ Validation
 
 You have successfully completed this workshop when you can confirm all of the following:
 
 - **Built an agent** — you created a Copilot Studio agent using at least one of the approaches covered (describe-to-build or build-from-scratch) and it responds in the test canvas.
 - **Tool use works** — you added the MSN Weather connector as a tool, wired it with a question node and Power Fx, and the agent returns live weather data for a location you supply.
-- **Model choice understood** — you can explain when to choose an OpenAI (GPT) model versus an Anthropic (Claude) model, and you changed the agent's model in the Generative AI settings.
+- **Model choice understood** — you can explain when to choose an OpenAI (GPT) model versus an Anthropic (Claude) model, and you changed the agent's primary model on the **Overview** → **Model** card (and reviewed **Settings** → **Generative AI** for grounding and moderation).
 - **Published successfully** — you published the agent and made it available in at least one Microsoft 365 channel (Microsoft 365 Copilot, Teams, or SharePoint).
 - **Sharing verified** — another user (or a second test session) can reach the published agent through the channel you configured.
 
-If any check fails, revisit the matching section: confirm the connector tool is configured correctly, that the model is set in Generative AI settings, and that the agent has been published before testing the channel.
+If any check fails, revisit the matching section: confirm the connector tool is configured correctly, that the primary model is set on **Overview** → **Model**, and that the agent has been published before testing the channel.
 
 ## ✅ Lab Complete
 

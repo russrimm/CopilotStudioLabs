@@ -83,10 +83,11 @@ By the end of this lab, you will be able to:
 | Requirement | Details |
 |---|---|
 | **Northwind Traders solution** | Import version 1.0.0.11 or later to your environment and seed with data using the Northwind Sample Data App. See the [Solutions folder](https://github.com/microsoft/apps-agents-workshop/tree/main/solutions) for the solution and full instructions. |
+| **Environment feature enabled** | In the Power Platform admin center → **Manage** → **Environments** → your environment → **Settings** → **Product** → **Features**, turn on **Enable code apps** under **Power Apps code apps** and select **Save** (see [Power Apps code apps overview](https://learn.microsoft.com/power-apps/developer/code-apps/overview)). |
 | **Node.js** | [Long-term support (LTS) version](https://nodejs.org/) |
 | **Power Platform CLI** | [Install PAC CLI](https://learn.microsoft.com/power-platform/developer/cli/introduction?tabs=windows) |
 | **Visual Studio Code** | With GitHub Copilot extension installed |
-| **Power Apps license** | End users running code apps need a Power Apps Premium License |
+| **Power Apps license** | End users running code apps need a Power Apps Premium license, pay-as-you-go, App Pass, or auto-claim enabled |
 
 ### Configure PowerShell execution policy
 

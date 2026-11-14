@@ -79,6 +79,7 @@ Production agents almost always need to know **who** the user is — to honor da
 
 ## Documentation
 
+- [Configure user authentication in Copilot Studio](https://learn.microsoft.com/microsoft-copilot-studio/configuration-end-user-authentication)
 - [Configure user authentication with Microsoft Entra ID](https://learn.microsoft.com/microsoft-copilot-studio/configuration-authentication-azure-ad)
 
 ## ✅ Lab Complete
@@ -88,7 +89,7 @@ Your agent now authenticates end users with **Microsoft Entra ID**, enabling per
 **Suggested next labs:**
 
 - [Lab 35: Data Loss Prevention (DLP) & Governance Policies](../35-dlp-governance-policies/index.md) — govern what connectors authenticated agents may use.
-- [Lab 40: Entra Agent Identities (Preview)](../40-entra-agent-identities-preview/index.md) — give the agent itself a managed identity.
+- [Lab 40: Microsoft Entra Agent Identities](../40-entra-agent-identities-preview/index.md) — inspect and govern the agent's own Microsoft Entra Agent ID.
 
 > 🔗 **Related lab:** [Lab 21: Custom Connectors & OAuth for Copilot Studio](../21-custom-connectors-oauth/index.md) — apply OAuth to custom connectors.
 

@@ -26,9 +26,9 @@ In this lab, you will operationalize **Agent Evaluations (GA)** in Copilot Studi
 
 ## Prerequisites
 
-- Access to Copilot Studio with permission to run evaluations.
-- A published or test-ready agent with at least one business scenario.
-- A documented quality target (for example, groundedness and task completion).
+- Access to Copilot Studio on the [standard harness](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview#standard-harness) with permission to run [agent evaluations](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-intro) and Copilot Credits available.
+- A published or test-ready agent with at least one business scenario (and a signed-in **User profile** configured if your knowledge sources or tools require user authentication).
+- A documented quality target across supported [evaluation test methods](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-overview) (**General quality**, **Compare meaning**, **Keyword match**, **Text match**, **Exact match**, **Capability use**, **Plan validation**, and **Content safety** levels 0–7).
 - Sample prompts from real user questions.
 
 ## Step-by-Step
@@ -37,25 +37,25 @@ In this lab, you will operationalize **Agent Evaluations (GA)** in Copilot Studi
 
 1. Open your target agent in Copilot Studio.
 2. List the top three user intents you must evaluate first.
-3. Define pass thresholds for quality dimensions your team cares about.
+3. Choose the matching evaluation methods and pass thresholds (for example, **General quality** or **Compare meaning** for open-ended answers, **Keyword match** or **Exact match** for strict facts, **Capability use** for tool/knowledge checks, and **Content safety** for harm filtering).
 4. Record known risk areas such as ambiguous prompts or policy-heavy answers.
 5. Save this scope in your project notes before creating tests.
 
 ### Step 2 - Build a baseline test set
 
-1. Open the evaluations area and create a new test set.
-2. Add at least 15 prompts across your three priority intents.
+1. Open the **Evaluation** page in the top navigation bar, select **New evaluation**, and choose **Single response** (see [Create and edit an evaluation test set](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-create)).
+2. Add at least 15 prompts across your three priority intents (generated automatically, imported from CSV, captured from test chat, or entered manually).
 3. Include edge cases such as incomplete requests and conflicting constraints.
-4. Add expected outcomes or acceptance notes for each prompt.
-5. Tag prompts by intent so failures can be grouped later.
+4. Configure expected answers, keywords, or capability expectations and select a **User profile** if your agent accesses authenticated sources.
+5. Save the test set with a clear name so runs can be compared over time.
 
 ### Step 3 - Run the baseline evaluation
 
-1. Execute an evaluation run using your baseline test set.
-2. Wait for scoring to complete and open the run summary.
-3. Identify the lowest-scoring dimensions first.
+1. Select **Evaluate** on your baseline test set (see [Run evaluations and view results](https://learn.microsoft.com/microsoft-copilot-studio/analytics-agent-evaluation-results)).
+2. Wait for scoring to complete and open the run summary on the **Evaluation** page.
+3. Review pass rates by test method, open failed cases to inspect evaluator reasoning, citations, and the activity map, and mark 👍 / 👎 feedback where needed.
 4. Capture at least five failing examples with transcript excerpts.
-5. Export or document results so you can compare after changes.
+5. Export the run to CSV (Copilot Studio retains evaluation runs for up to **89 days**; export runs you need for longer compliance archives).
 
 ### Step 4 - Improve and rerun
 

@@ -26,7 +26,7 @@ Before an agent can ground answers in knowledge or call tools, it needs a solid 
 
 ## Prerequisites
 
-- Access to Microsoft Copilot Studio with permission to create an agent.
+- Access to Microsoft Copilot Studio on the [standard harness](https://learn.microsoft.com/microsoft-copilot-studio/harnesses-overview#standard-harness) with permission to create an agent and author topics. See [Create and edit topics](https://learn.microsoft.com/microsoft-copilot-studio/authoring-create-edit-topics), [Use entities and slot filling](https://learn.microsoft.com/microsoft-copilot-studio/authoring-variables-bot), and [Variables overview](https://learn.microsoft.com/microsoft-copilot-studio/authoring-variables).
 - A web browser (Microsoft Edge or Chrome recommended).
 - No prior agent-building experience required.
 
