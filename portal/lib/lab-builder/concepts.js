@@ -120,8 +120,12 @@ export function validateConcepts({ concepts, recommendations, features, harnesse
 
   problems.push(...validateCoverage({ concepts, features, harnesses, knownGaps }));
 
-  const known = (id, where) => {
-    if (!byId.has(id)) problems.push(`recommendations ${where}: unknown feature "${id}"`);
+  const known = (id, where, { allowThirdParty = false } = {}) => {
+    const feature = byId.get(id);
+    if (!feature) problems.push(`recommendations ${where}: unknown feature "${id}"`);
+    else if (!allowThirdParty && feature.thirdPartyConnector) {
+      problems.push(`recommendations ${where}: "${id}" is a third-party connector and must remain optional, not recommended or pre-selected by default`);
+    }
   };
   for (const [level, ids] of Object.entries(recommendations?.levels || {})) {
     if (![100, 200, 300].includes(Number(level))) problems.push(`recommendations levels: "${level}" must be 100, 200, or 300`);
@@ -131,6 +135,15 @@ export function validateConcepts({ concepts, recommendations, features, harnesse
     for (const [key, entry] of Object.entries(recommendations?.[group] || {})) {
       if (!entry.why?.trim()) problems.push(`recommendations ${group}.${key}: needs a why`);
       (entry.topics || []).forEach((id) => known(id, `${group}.${key}`));
+      if (entry.optionalThirdParty !== undefined && !Array.isArray(entry.optionalThirdParty)) {
+        problems.push(`recommendations ${group}.${key}: optionalThirdParty must be an array`);
+      }
+      for (const id of entry.optionalThirdParty || []) {
+        known(id, `${group}.${key}.optionalThirdParty`, { allowThirdParty: true });
+        if (byId.has(id) && !byId.get(id).thirdPartyConnector) {
+          problems.push(`recommendations ${group}.${key}.optionalThirdParty: "${id}" must have thirdPartyConnector: true`);
+        }
+      }
     }
   }
   return problems;

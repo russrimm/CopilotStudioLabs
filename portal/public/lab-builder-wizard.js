@@ -776,7 +776,18 @@ function lbLearnBadges(topic) {
   return "";
 }
 
+function lbEnsureThirdPartyFilterOption() {
+  const select = document.getElementById("lb-topic-filter");
+  if (!select || typeof document.createElement !== "function" || typeof select.appendChild !== "function") return;
+  if (typeof select.querySelector === "function" && select.querySelector('option[value="third-party"]')) return;
+  const option = document.createElement("option");
+  option.value = "third-party";
+  option.textContent = "Optional 3rd-party connectors";
+  select.appendChild(option);
+}
+
 function lbMatchesFilter(topic) {
+  if (labBuilder.filter === "third-party") return Boolean(topic.thirdPartyConnector);
   const status = topic.learn?.status;
   if (labBuilder.filter === "new") return status === "new";
   if (labBuilder.filter === "updated") return status === "updated" || topic.learn?.updated === true;
@@ -892,6 +903,7 @@ function lbResetTopics() {
 }
 
 function lbBindTopicEvents() {
+  lbEnsureThirdPartyFilterOption();
   lbEnsurePreviewEvents(document.getElementById("lb-preview"));
   const groups = document.getElementById("lb-topic-groups");
   groups?.addEventListener("change", (event) => {
@@ -955,6 +967,14 @@ function lbMatchesQuery(t, query) {
   );
 }
 
+function lbThirdPartyNote(t) {
+  if (!t.thirdPartyConnector) return "";
+  const context = Array.isArray(t.optionalFor) && t.optionalFor.length
+    ? ` (relevant to ${escapeHtml(lbJoinNames(t.optionalFor))})`
+    : "";
+  return `<span class="lb-feature-note">Optional 3rd-party connector${context} — not selected by default. Custom labs use 1st-party Microsoft connectors unless you select this topic.</span>`;
+}
+
 function lbTopicCard(t) {
   return `
             <label class="lb-feature ${t.selected ? "checked" : ""}">
@@ -962,11 +982,14 @@ function lbTopicCard(t) {
                      aria-describedby="lb-topic-desc-${escapeHtml(t.id)}">
               <span>
                 <span class="lb-feature-name">${escapeHtml(t.name)}${t.productName ? `<span class="lb-badge lb-badge-product">${escapeHtml(lbProduct(t.product)?.shortName || t.productName)}</span>` : ""}${lbLevelBadge(t)}<span class="lb-badge">about ${t.minutes} min</span>${
+                  t.thirdPartyConnector ? '<span class="lb-badge">Optional 3rd-party connector</span>' : ""
+                }${
                   t.required ? '<span class="lb-badge lb-badge-required">Required prerequisite</span>' : ""
                 }${t.recommended && !t.selected ? '<span class="lb-badge">Recommended, not selected</span>' : ""}${
                   t.availability ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>` : ""
                 }${lbLearnBadges(t)}</span>
                 <span id="lb-topic-desc-${escapeHtml(t.id)}" class="lb-feature-summary">${escapeHtml(t.summary)}</span>
+                ${lbThirdPartyNote(t)}
                 ${t.source === "learn" && lbLearnUrl(t.learn?.url)
                   ? `<span class="lb-feature-note">Source: Microsoft Learn, not yet reviewed for this repository. <a class="lb-learn-source" href="${escapeHtml(t.learn.url)}" target="_blank" rel="noopener noreferrer">Read the article (opens in a new tab)</a></span>`
                   : ""}
@@ -991,6 +1014,7 @@ function lbVisibleTopicCount(rec, query) {
 }
 
 function lbRenderTopics() {
+  lbEnsureThirdPartyFilterOption();
   const el = document.getElementById("lb-topic-groups");
   const rec = labBuilder.rec;
   if (!el) return;
@@ -1014,7 +1038,7 @@ function lbRenderTopics() {
   const html = rec.concepts
     .map((concept) => {
       if (!concept.topics.length) {
-        if (query) return "";
+        if (query || labBuilder.filter !== "all") return "";
         const others = concept.otherHarnessTopics.map((t) => t.name).join(", ");
         const where = onlyCopilotStudio ? "on this harness" : "for these products";
         return `
@@ -1104,7 +1128,9 @@ function lbRenderTopics() {
   }
 
   const empty = rec.filter.shown
-    ? "No topics match that search."
+    ? labBuilder.filter === "third-party" && !query
+      ? `No optional 3rd-party connector topics are listed at ${escapeHtml(levelName)}. Custom labs use 1st-party Microsoft connectors by default; optional 3rd-party connector topics are available at Level 200 and Level 300.`
+      : "No topics match that search."
     : `No ${escapeHtml(levelName)} topics are available for ${escapeHtml(scopeName)} yet. ${(rec.products || [])
         .map((p) => escapeHtml(p.message))
         .join(" ")} Go back and choose another level${onlyCopilotStudio ? " or harness" : ", product, or harness"}.`;
@@ -1139,7 +1165,7 @@ function lbRenderTopics() {
         ? ` ${pre} ${pre === 1 ? "was" : "were"} pre-selected because of the vertical or departments you chose; uncheck any you do not want.`
         : ""
       : " Nothing is selected yet: check the topics you want, or use Select recommended.";
-    intro.textContent = `${levelName} topics for ${scopeName}, grouped by concept. ${rec.totals.selectedCount} selected${recaps}, about ${rec.totals.duration} (an estimate, not a limit).${origin}`;
+    intro.textContent = `${levelName} topics for ${scopeName}, grouped by concept. ${rec.totals.selectedCount} selected${recaps}, about ${rec.totals.duration} (an estimate, not a limit).${origin} Custom labs use 1st-party Microsoft connectors by default; optional 3rd-party connectors remain unchecked unless you select them.`;
   }
   const error = document.getElementById("lb-topic-error");
   if (error && lbSelectedCount()) error.textContent = "";

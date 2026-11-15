@@ -175,6 +175,7 @@ export function getFeaturesByCategory() {
         level: f.level,
         minutes: f.minutes,
         core: Boolean(f.core),
+        thirdPartyConnector: Boolean(f.thirdPartyConnector),
         summary: f.summary,
         harness: f.harness || [],
         availability: f.availability || null,
@@ -436,6 +437,9 @@ export function validateCatalog(raw, { now = Date.now() } = {}) {
     if (!f.validation?.length) problems.push(`${f.id}: needs at least one validation check`);
     if (!f.learnQueries?.length) problems.push(`${f.id}: needs at least one learnQuery`);
     if (!f.docUrls?.length) problems.push(`${f.id}: needs at least one docUrl fallback`);
+    if (f.thirdPartyConnector !== undefined && typeof f.thirdPartyConnector !== "boolean") {
+      problems.push(`${f.id}: thirdPartyConnector must be a boolean`);
+    }
     problems.push(...freshnessProblems(f, now));
 
     for (const prereq of f.prereqs || []) {
@@ -444,6 +448,9 @@ export function validateCatalog(raw, { now = Date.now() } = {}) {
       const required = byId.get(prereq);
       if (required && required.level > f.level) {
         problems.push(`${f.id}: level ${f.level} feature requires ${prereq}, which is level ${required.level}`);
+      }
+      if (required && required.thirdPartyConnector && !f.thirdPartyConnector) {
+        problems.push(`${f.id}: 1st-party feature cannot require third-party connector "${prereq}"`);
       }
     }
   }
