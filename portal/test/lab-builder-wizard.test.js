@@ -119,3 +119,131 @@ test("a concept with no topic yet is reported as not available yet, not as not a
   assert.equal(hooksOnStandard.notYetAvailable, false);
   assert.match(hooksOnStandard.notApplicable, /topics/);
 });
+
+test("Step 6 badges 3rd-party connectors as optional, offers a 3rd-party filter, keeps them unchecked by default, and includes them only when checked", async () => {
+  const vm = await import("node:vm");
+  const elements = new Map();
+  const filterOptions = [
+    { value: "all", textContent: "All topics" },
+    { value: "new", textContent: "New from Learn" },
+    { value: "updated", textContent: "Updated recently" },
+    { value: "moved", textContent: "Docs moved" },
+  ];
+  const element = (id) => {
+    if (!elements.has(id)) {
+      const base = {
+        id,
+        innerHTML: "",
+        textContent: "",
+        value: id === "lb-topic-filter" ? "all" : "",
+        checked: true,
+        hidden: false,
+        style: {},
+        options: id === "lb-topic-filter" ? filterOptions : [],
+        contains: () => false,
+        querySelector: (sel) => {
+          if (id === "lb-topic-filter") {
+            const m = sel.match(/option\[value="([^"]+)"\]/);
+            return m ? filterOptions.find((o) => o.value === m[1]) || null : null;
+          }
+          return null;
+        },
+        querySelectorAll: () => [],
+        appendChild: (opt) => {
+          if (id === "lb-topic-filter") filterOptions.push(opt);
+        },
+        addEventListener() {},
+        setAttribute() {},
+        removeAttribute() {},
+        classList: { toggle() {}, add() {}, remove() {} },
+      };
+      elements.set(id, base);
+    }
+    return elements.get(id);
+  };
+  const context = {
+    document: {
+      getElementById: element,
+      createElement: (tag) => ({ tagName: tag.toUpperCase(), value: "", textContent: "" }),
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      activeElement: { dataset: {} },
+    },
+    CSS: { escape: (s) => s },
+    escapeHtml: (s) => String(s),
+    toast: () => {},
+    fetch: async (_url, init) => ({ ok: true, json: async () => recommend(JSON.parse(init.body)) }),
+    setTimeout,
+    console,
+  };
+  vm.createContext(context);
+  vm.runInContext(wizard, context);
+  vm.runInContext(
+    `
+    labBuilder.concepts = {
+      levels: [
+        { id: 100, label: "Level 100 (Beginner)" },
+        { id: 200, label: "Level 200 (Intermediate)" },
+        { id: 300, label: "Level 300 (Advanced)" },
+      ],
+    };
+    labBuilder.selectedProducts = new Set(["copilot-studio"]);
+    labBuilder.industry = "retail";
+    labBuilder.selectedRoles = new Set(["sales", "finance", "operations", "customer-service", "it"]);
+    labBuilder.level = 200;
+    labBuilder.harness = "standard";
+    labBuilder.step = 6;
+    lbBindTopicEvents();
+    `,
+    context,
+  );
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 25));
+  vm.runInContext("lbRefresh()", context);
+  await settle();
+
+  // Dynamic filter option is added idempotently without duplicating on re-render.
+  vm.runInContext("lbRenderTopics()", context);
+  assert.equal(filterOptions.filter((o) => o.value === "third-party").length, 1);
+  assert.equal(filterOptions.find((o) => o.value === "third-party").textContent, "Optional 3rd-party connectors");
+
+  // Intro explains 1st-party defaults and optional 3rd-party connectors.
+  assert.match(element("lb-topic-intro").textContent, /1st-party Microsoft connectors by default/);
+
+  // Neither default selection, Select recommended, nor Reset selects SAP or Salesforce.
+  const thirdPartyIds = ["sap-integration", "salesforce-integration", "servicenow-integration", "snowflake-integration", "jira-integration"];
+  const currentFeatures = () => JSON.parse(vm.runInContext("JSON.stringify(lbRequest().features)", context));
+  for (const id of thirdPartyIds) assert.equal(currentFeatures().includes(id), false, `${id} must not be selected by default`);
+
+  vm.runInContext("lbSelectRecommended()", context);
+  await settle();
+  for (const id of thirdPartyIds) assert.equal(currentFeatures().includes(id), false, `${id} must not be selected by Select recommended`);
+
+  vm.runInContext("lbResetTopics()", context);
+  await settle();
+  for (const id of thirdPartyIds) assert.equal(currentFeatures().includes(id), false, `${id} must not be selected by Reset`);
+
+  // Filtering to "third-party" shows only the 5 Level 200 optional 3rd-party connector cards with badges and relevance notes.
+  vm.runInContext('labBuilder.filter = "third-party"; lbRenderTopics();', context);
+  const filteredHtml = element("lb-topic-groups").innerHTML;
+  assert.match(element("lb-topic-count").textContent, /Showing 5 topics for Level 200 that match your search or filter \(of 24\)\./);
+  assert.match(filteredHtml, /<span class="lb-badge">Optional 3rd-party connector<\/span>/);
+  assert.match(filteredHtml, /Optional 3rd-party connector \(relevant to Retail, Sales, and Customer Service\) — not selected by default/);
+  assert.doesNotMatch(filteredHtml, /lb-concept-muted/);
+  assert.doesNotMatch(filteredHtml, /data-topic="connector-tools"/);
+  assert.doesNotMatch(filteredHtml, /\schecked\s/);
+
+  // At Level 100, the "third-party" filter explains that optional 3rd-party connectors live at Levels 200 and 300.
+  vm.runInContext("labBuilder.level = 100; lbRefresh();", context);
+  await settle();
+  assert.match(element("lb-topic-groups").innerHTML, /No optional 3rd-party connector topics are listed at Level 100/);
+
+  // Explicitly checking SAP and Salesforce on Step 6 at Level 200 adds them to lbRequest().features.
+  vm.runInContext('labBuilder.level = 200; labBuilder.filter = "all"; lbRefresh();', context);
+  await settle();
+  vm.runInContext('lbSetTopic("sap-integration", true, false);', context);
+  await settle();
+  vm.runInContext('lbSetTopic("salesforce-integration", true, false);', context);
+  await settle();
+  assert.equal(currentFeatures().includes("sap-integration"), true);
+  assert.equal(currentFeatures().includes("salesforce-integration"), true);
+});

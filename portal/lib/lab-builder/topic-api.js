@@ -5,6 +5,7 @@
 
 import { getFeatures, getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
+import { isThirdPartyConnectorTopic } from "./topic-feature.js";
 import { summarize } from "./topic-snapshot.js";
 import { resolveTopicLevel } from "./levels.js";
 
@@ -90,6 +91,7 @@ export function topicsPayload(service, now = Date.now()) {
       harnesses: feature.harness || [],
       level: feature.level,
       availability: feature.availability || null,
+      thirdPartyConnector: Boolean(feature.thirdPartyConnector),
       urls: feature.docUrls || [],
       changedAt: check?.changedAt ?? null,
     };
@@ -107,6 +109,7 @@ export function topicsPayload(service, now = Date.now()) {
       harnesses: topic.harnesses,
       level: resolveTopicLevel(topic).level,
       availability: topic.availability,
+      thirdPartyConnector: isThirdPartyConnectorTopic(topic),
       urls: topic.urls,
       ...(topic.subtopics?.length
         ? {

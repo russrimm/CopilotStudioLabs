@@ -162,25 +162,36 @@ export function recommend(answers = {}, learn = {}) {
   // `recommended` is every topic the rules suggest. `preselected` is only the subset an answer the
   // learner actually gave (a vertical or a department) points at: the level alone never selects a
   // topic, so a learner who has chosen nothing starts with nothing selected.
+  // 3rd-party non-Microsoft connectors (`thirdPartyConnector: true`) are strictly optional: they
+  // are never recommended or pre-selected by default, ensuring custom labs default to 1st-party
+  // Microsoft connectors unless the learner explicitly checks them.
+  const isThirdParty = (id) => Boolean(features.get(id)?.thirdPartyConnector);
   const reasons = new Map();
+  const optionalFor = new Map();
   const recommended = new Set();
   const preselected = new Set();
   for (const id of recs.levels?.[String(level)] || []) {
-    if (applies(id)) {
+    if (applies(id) && !isThirdParty(id)) {
       addReason(reasons, id, `Recommended for level ${level} ${DIFFICULTY_BY_LEVEL[level]}`);
       recommended.add(id);
     }
   }
   const inLevel = (id) => atLevel(features.get(id), level);
   const levelUnknown = (id) => features.has(id) && !isLevel(features.get(id).level);
-  // Industry and department picks only apply to topics taught at the chosen level.
+  // Industry and department picks only apply to 1st-party topics taught at the chosen level.
+  // Relevant 3rd-party connectors remain unchecked and unrecommended, carrying only optional context.
   const boost = (group, key, label) => {
     const entry = recs[group]?.[key];
     for (const id of entry?.topics || []) {
-      if (applies(id) && inLevel(id)) {
+      if (applies(id) && inLevel(id) && !isThirdParty(id)) {
         addReason(reasons, id, `Recommended for ${label}: ${entry.why}`);
         recommended.add(id);
         preselected.add(id);
+      }
+    }
+    for (const id of entry?.optionalThirdParty || []) {
+      if (applies(id) && inLevel(id) && isThirdParty(id)) {
+        addReason(optionalFor, id, label);
       }
     }
   };
@@ -219,6 +230,7 @@ export function recommend(answers = {}, learn = {}) {
   for (const id of chosenSet) {
     for (const pre of expandPrereqs([id])) {
       if (pre !== id && !chosenSet.has(pre)) {
+        if (isThirdParty(pre) && !isThirdParty(id)) continue;
         if (!requiredBy.has(pre)) requiredBy.set(pre, []);
         requiredBy.get(pre).push(features.get(id).name);
       }
@@ -253,6 +265,8 @@ export function recommend(answers = {}, learn = {}) {
       level: f.level,
       minutes: f.minutes,
       availability: f.availability || null,
+      thirdPartyConnector: isThirdParty(id),
+      optionalFor: optionalFor.get(id) || [],
       harnessNote: f.harnessNote || null,
       product: productOf(f),
       productName: productName(productOf(f)),

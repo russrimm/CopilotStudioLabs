@@ -40,6 +40,24 @@ const CATEGORY_BY_CONCEPT = {
 
 export const DEFAULT_MINUTES = 20;
 
+const THIRD_PARTY_TITLE_RE =
+  /\b(servicenow|service-now|salesforce|sap(?:\s+(?:erp|odata|hana|s\/4hana|bw))?|snowflake|jira|atlassian|confluence|epic\s+on\s+fhir|fhirlink|shopify|workday|zendesk|hubspot|netsuite|docusign|adobe\s+sign|pagerduty|splunk|coupa|ariba)\b|\b(box|dropbox|slack|asana|trello)\s+connector\b/i;
+const THIRD_PARTY_URL_RE =
+  /\/connectors\/(service-now|salesforce|saperp|sapodata|snowflake\w*|jira|fhirlink|shopify\w*|zendesk|workday|hubspot|docusign|box|dropbox|slack|asana|trello|confluence|netsuite)\b|\/microsoft-365\/copilot\/connectors\/(service-now|servicenow|salesforce|jira|confluence|zendesk|box|dropbox|slack|workday|hubspot|snowflake|sap)(?:[-/]|$)/i;
+
+/** True when a discovered Microsoft Learn topic targets a non-Microsoft 3rd-party connector or SaaS/ERP/CRM data source. */
+export function isThirdPartyConnectorTopic(topic) {
+  if (!topic) return false;
+  if (topic.thirdPartyConnector === true) return true;
+  const title = cleanText(topic.title, MAX_TITLE);
+  if (THIRD_PARTY_TITLE_RE.test(title)) return true;
+  const urls = [
+    ...(Array.isArray(topic.urls) ? topic.urls : []),
+    ...(Array.isArray(topic.subtopics) ? topic.subtopics.map((sub) => sub?.url) : []),
+  ].filter((u) => typeof u === "string");
+  return urls.some((u) => THIRD_PARTY_URL_RE.test(u));
+}
+
 /** The feature a discovered topic becomes. `learnTopic` marks it for the composer and generator. */
 export function topicToFeature(topic) {
   const title = cleanText(topic.title, MAX_TITLE) || "Microsoft Learn topic";
@@ -74,6 +92,7 @@ export function topicToFeature(topic) {
     levelBasis: basis,
     minutes: DEFAULT_MINUTES,
     core: false,
+    thirdPartyConnector: isThirdPartyConnectorTopic(topic),
     // Only a topic of another product names its product; harness tags exist only for a product that has harnesses.
     ...(topic.product && topic.product !== "copilot-studio" ? { product: topic.product } : { harness: [...topic.harnesses] }),
     availability: topic.availability || undefined,

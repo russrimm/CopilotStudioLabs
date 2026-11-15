@@ -211,13 +211,19 @@ arrow, Home, and End keys move among the tabs of the current area.
       A topic is pre-selected only when it follows from an answer you gave: the
       vertical or a department you chose points at it, and it says why. **With no
       vertical and no department, nothing is selected**: the level alone never
-      selects a topic. The topics the rules suggest for your answers carry a
-      *Recommended, not selected* badge and a reason; **Select recommended** adds
-      them on purpose. Check or uncheck anything; use **Select all**, **Clear**,
-      **Reset to my answers** (back to what your vertical and departments pre-select),
-      or the per-group buttons. A line above the list says how many topics were
-      pre-selected and from which answer. A status line announces the count ("Showing 20 topics
-      for Level 100 (Beginner)"). Prerequisites at the same level are marked
+      selects a topic. **Custom labs default strictly to 1st-party Microsoft
+      connectors**: 3rd-party SaaS, ERP, CRM, EHR, and ticketing connector modules
+      (such as SAP, Salesforce, ServiceNow, Snowflake, Jira, Epic on FHIR, and
+      Shopify) carry an *Optional 3rd-party connector* badge, can be narrowed with
+      the **Optional 3rd-party connectors** filter, and remain unchecked unless you
+      explicitly select them (neither vertical/department defaults nor **Select
+      recommended** adds them automatically). The 1st-party topics the rules suggest
+      for your answers carry a *Recommended, not selected* badge and a reason;
+      **Select recommended** adds them on purpose. Check or uncheck anything; use
+      **Select all**, **Clear**, **Reset to my answers** (back to what your vertical
+      and departments pre-select), or the per-group buttons. A line above the list
+      says how many topics were pre-selected and from which answer. A status line
+      announces the count ("Showing 20 topics for Level 100 (Beginner)"). Prerequisites at the same level are marked
       *Required prerequisite*. Prerequisites from lower levels are not mixed into
       the list: they sit in a collapsed group, **Prerequisites from lower levels
       (included automatically)**, each with the reason and a checkbox. If you
@@ -571,12 +577,19 @@ for a harness or product, its `notApplicable` map says why, so the wizard explai
 and names what to use instead. Every feature belongs to exactly one concept, and the concept must list the feature's product.
 
 `recommendations.json` holds the deterministic rules that suggest topics: the
-topics that make up each level (the new depth it adds; prerequisites join
-automatically), plus topics a vertical or a department adds, each with a
+1st-party topics that make up each level (the new depth it adds; prerequisites join
+automatically), plus 1st-party topics a vertical or a department adds, each with a
 plain-language reason. A vertical or department topic is recommended only when it
 is at the chosen level, and always stays selectable. Only the vertical and department
 rules pre-select a topic; the level's own list is recommended but never selected for
-the learner.
+the learner. Non-Microsoft 3rd-party connector modules (`"thirdPartyConnector": true`
+in `features.json`, or discovered 3rd-party vendor connector topics from Microsoft
+Learn) are never listed in `levels` or `topics` (`validateConcepts()` enforces this),
+so every industry, department, and **Select recommended** combination produces a
+100% 1st-party Microsoft connector curriculum unless the user explicitly checks an
+optional 3rd-party connector module. A vertical or department may list relevant
+3rd-party modules in `optionalThirdParty` so Step 6 can surface domain context on
+their cards while keeping `selected: false` and `recommended: false`.
 
 `validateCatalog()` checks both files (every feature in one concept, known ids,
 a reason for every `notApplicable`), and `recommend.js` turns the answers into
@@ -1431,7 +1444,7 @@ the server log, never the manifest — and the output is exportable by design.
 | `GET` | `/api/lab-builder/features` | Industries, roles, concepts, and the feature catalog grouped by category. |
 | `GET` | `/api/lab-builder/topics` | The static catalog merged with topics discovered on Microsoft Learn: each entry has `source` (`catalog` or `learn`), `status` (`current`, `updated`, `stale`, `new`), harnesses, and URLs, plus `refreshedAt`, `ageMs`, `stale`, `offline`, and per-harness covered, new, and stale counts. Serves the cache or snapshot immediately and revalidates in the background when stale. |
 | `POST` | `/api/lab-builder/topics/refresh` | Re-read the topic list from Microsoft Learn. Takes an empty `{}` body (anything else is HTTP 400). Limited to 6 refreshes per user per hour (`LAB_BUILDER_TOPICS_RATE_MAX`); answers 429 with `Retry-After` when rate limited, spaced too closely, or paused by the circuit breaker, 503 when refreshing is turned off, and 502 when Microsoft Learn failed. Every failure still returns the last good list. |
-| `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `recommended`, `required`, and `reasons`. Nothing is selected unless the vertical or a department points at it (`preselectedIds`); `recommendedIds` lists everything the rules suggest, selected or not. Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`). A `selected` list that names other levels is filtered, not trusted. Read-only. |
+| `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `recommended`, `required`, `thirdPartyConnector`, `optionalFor`, and `reasons`. Nothing is selected unless the vertical or a department points at it (`preselectedIds`); `recommendedIds` lists every 1st-party topic the rules suggest, selected or not (`thirdPartyConnector` modules remain `selected: false` and `recommended: false` unless explicitly included in `selected`). Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`). A `selected` list that names other levels is filtered, not trusted. Read-only. |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. With a `level`, topics from other levels are dropped (`droppedOutOfLevel`), and each module has a `role` of `level` or `prerequisite`. |
 | `POST` | `/api/lab-builder/generate` | Build the lab, write it to `generated-labs/`, return markdown + validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. |
 | `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, vertical, level, harness, estimated minutes, topic count, validation counts, and `selections` (null for labs built before choices were saved). |
@@ -1520,6 +1533,7 @@ Add a feature to `portal/lib/lab-builder/features.json` (Copilot Studio) or to t
   "minutes": 20,
   "harness": ["standard"],        // Copilot Studio features only: ids from the top-level harnesses list. Other products carry none.
   "availability": "preview",      // optional: ga, preview, or retired; only when a Learn page states it
+  "thirdPartyConnector": true,    // optional: true for non-Microsoft SaaS/ERP/CRM/EHR connector modules so they stay optional and unchecked by default
   "harnessNote": "How the other harness differs, with the sibling feature id.", // optional
   "summary": "One sentence on what the learner configures.",
   "whyItMatters": "Why this exists and what breaks without it.",
