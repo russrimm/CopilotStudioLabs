@@ -42,6 +42,13 @@
     button.setAttribute("title", "Switch to " + next + " theme");
   }
 
+  function notifyThemeChange() {
+    if (typeof window.CustomEvent === "function") {
+      window.dispatchEvent(new CustomEvent("portal-theme-change", { detail: { theme: effective() } }));
+    }
+  }
+
+  window.getPortalTheme = effective;
   apply();
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -58,10 +65,14 @@
       }
       setThemeAttr(next);
       label(button);
+      notifyThemeChange();
     });
     if (window.matchMedia) {
       window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", function () {
-        if (!stored()) label(button);
+        if (!stored()) {
+          label(button);
+          notifyThemeChange();
+        }
       });
     }
   });

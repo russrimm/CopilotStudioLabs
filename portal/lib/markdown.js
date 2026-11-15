@@ -30,7 +30,7 @@ export function sanitizeLabHtml(html) {
     },
     allowedClasses: {
       code: [/^language-[a-z0-9_-]+$/],
-      div: ["mermaid"],
+      div: ["mermaid", "lab-branding-banner", "lab-branding-title", "lab-branding-tagline"],
       input: ["task-list-item-checkbox"],
       li: ["task-list-item"],
       ul: ["contains-task-list"],

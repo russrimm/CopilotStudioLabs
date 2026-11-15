@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { renderStandaloneLabHtml } from "../lib/lab-builder/html-lab.js";
+import { prependBrandingBanner } from "../lib/branding.js";
+import { renderLabMarkdown } from "../lib/markdown.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
@@ -197,3 +200,230 @@ test("editing never overwrites silently", () => {
   assert.match(appSource, /replaceLabId: lbReplaceTarget\(\)/);
   assert.match(html, /<script src=["']generated-labs\.js["'] defer><\/script>/);
 });
+
+// ── Dark, light, and print theme consistency & WCAG AA contrast ──────────────
+
+function hexToRgb(hex) {
+  const raw = String(hex).trim().replace(/^#/, "");
+  const full = raw.length === 3 ? raw.split("").map((c) => c + c).join("") : raw.slice(0, 6);
+  return [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+}
+
+function mixRgb(fgRgb, bgRgb, fgWeight) {
+  return fgRgb.map((c, idx) => Math.round(c * fgWeight + bgRgb[idx] * (1 - fgWeight)));
+}
+
+function luminance(rgb) {
+  const [r, g, b] = rgb.map((v) => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(fg, bg) {
+  const l1 = luminance(Array.isArray(fg) ? fg : hexToRgb(fg));
+  const l2 = luminance(Array.isArray(bg) ? bg : hexToRgb(bg));
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+function parseCssCustomProperties(cssBlock) {
+  const vars = {};
+  for (const match of cssBlock.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
+    vars[match[1]] = match[2].trim();
+  }
+  return vars;
+}
+
+test("generated lab result body separates outer panels from preview-frame and avoids hardcoded light colors", () => {
+  // #lb-result-body must not carry .preview-frame so sibling validation, QA, admin-prereq, and source panels do not inherit preview overrides.
+  assert.match(html, /<div id="lb-result-body" class="lb-result-body"><\/div>/);
+  assert.doesNotMatch(html, /id="lb-result-body"[^>]*class="[^"]*preview-frame/);
+  assert.match(appSource, /id="lb-result-preview" class="preview-frame"/);
+  assert.match(generatedSource, /id="lb-result-preview" class="preview-frame"/);
+
+  const styleContent = html.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+  const screenCss = styleContent.split("@media print")[0];
+  const printCss = styleContent.split("@media print")[1] || "";
+
+  for (const selector of [
+    "\\.lab-pagination-controls",
+    "\\.lab-pagination-status",
+    "\\.lab-page-select",
+    "\\.lab-page-btn",
+    "\\.lab-page-btn-primary",
+    "\\.lab-complete-badge",
+    "\\.lb-admin-prereqs",
+    "\\.preview-toc",
+    "\\.preview-frame",
+  ]) {
+    const rule = screenCss.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))?.[1] || "";
+    assert.ok(rule, `screen CSS rule for ${selector} must exist`);
+    assert.doesNotMatch(
+      rule,
+      /#(?:1a1a2e|f0f0f5|f4f6fb|f8f8fc|fafafe|1e293b|1f2937|3d4560|1d4ed8|ffffff|fff)\b|\bwhite\b/i,
+      `${selector} must use theme custom properties instead of hardcoded light colors`,
+    );
+  }
+
+  for (const descendant of [
+    /\.preview-frame\s+th\s*\{([^}]*)\}/,
+    /\.preview-frame\s+code\s*\{([^}]*)\}/,
+    /\.preview-frame\s+pre\s*\{([^}]*)\}/,
+    /\.preview-frame\s+details\s*\{([^}]*)\}/,
+    /\.preview-frame\s+blockquote\s*\{([^}]*)\}/,
+    /\.preview-frame\s+\.mermaid\s*\{([^}]*)\}/,
+  ]) {
+    const body = screenCss.match(descendant)?.[1] || "";
+    assert.ok(body, `expected rule ${descendant}`);
+    assert.match(body, /var\(--/);
+    assert.doesNotMatch(body, /#(?:1a1a2e|f0f0f5|f4f6fb|fafafe|3d4560|1d4ed8)\b/i);
+  }
+
+  // Print stylesheet preserves generated-lab print target and ink-on-white rules.
+  assert.match(printCss, /body\[data-print-target="generated"\]\s+#lb-result-preview/);
+  assert.match(printCss, /\.preview-frame\s+\.lab-page\s*\{\s*display:\s*block !important;/);
+  assert.match(printCss, /\.lb-admin-prereqs[\s\S]*?background:\s*#fff !important;/);
+
+  // Mermaid diagrams adapt to dark/light themes and re-render on theme toggle.
+  const themeSource = readFileSync(new URL("../public/theme.js", import.meta.url), "utf8");
+  assert.match(themeSource, /portal-theme-change/);
+  assert.match(appSource, /function getMermaidThemeConfig\(/);
+  assert.match(appSource, /async function renderMermaidNodes\(/);
+  assert.match(appSource, /addEventListener\("portal-theme-change"/);
+
+  // Branded preview banners avoid hardcoded low-contrast #666 taglines.
+  const brandedHtml = renderLabMarkdown(prependBrandingBanner("# Sample Lab"));
+  assert.match(brandedHtml, /class="lab-branding-tagline"/);
+  assert.doesNotMatch(brandedHtml, /color:\s*#666/i);
+});
+
+test("portal dark and light theme tokens meet WCAG AA contrast across previews, pagination, code chips, and admin prerequisites", () => {
+  const styleContent = html.match(/<style>([\s\S]*?)<\/style>/)?.[1] || "";
+  const darkBlock = styleContent.match(/:root\s*\{([^}]*)\}/)?.[1] || "";
+  const lightBlock = styleContent.match(/:root\[data-theme="light"\],\s*body\[data-theme="light"\]\s*\{([^}]*)\}/)?.[1] || "";
+
+  const dark = parseCssCustomProperties(darkBlock);
+  const light = parseCssCustomProperties(lightBlock);
+
+  for (const [themeName, tokens] of [
+    ["dark", dark],
+    ["light", light],
+  ]) {
+    const surfaces = [
+      tokens["--bg"],
+      tokens["--surface"],
+      tokens["--surface-hover"],
+      tokens["--preview-bg"],
+      tokens["--preview-muted-bg"],
+      tokens["--code-bg"],
+    ];
+
+    for (const bg of surfaces) {
+      assert.ok(
+        contrastRatio(tokens["--text"], bg) >= 4.5,
+        `${themeName}: --text (${tokens["--text"]}) on ${bg} must be >= 4.5:1`,
+      );
+      assert.ok(
+        contrastRatio(tokens["--text-muted"], bg) >= 4.5,
+        `${themeName}: --text-muted (${tokens["--text-muted"]}) on ${bg} must be >= 4.5:1`,
+      );
+      assert.ok(
+        contrastRatio(tokens["--link-color"], bg) >= 4.5,
+        `${themeName}: --link-color (${tokens["--link-color"]}) on ${bg} must be >= 4.5:1`,
+      );
+    }
+
+    assert.ok(
+      contrastRatio(tokens["--accent-contrast"], tokens["--accent"]) >= 4.5,
+      `${themeName}: --accent-contrast on --accent must be >= 4.5:1`,
+    );
+    assert.ok(
+      contrastRatio(tokens["--accent-hover-contrast"], tokens["--accent-hover"]) >= 4.5,
+      `${themeName}: --accent-hover-contrast on --accent-hover must be >= 4.5:1`,
+    );
+    assert.ok(
+      contrastRatio(tokens["--complete-text"], tokens["--complete-bg"]) >= 4.5,
+      `${themeName}: .lab-complete-badge text on background must be >= 4.5:1`,
+    );
+
+    // .tag, .tag-success, .tag-warning, .tag-danger use 15% tint over --bg / --surface.
+    for (const [label, tintHex, fgHex] of [
+      [".tag", tokens["--accent"], tokens["--link-color"]],
+      [".tag-success", tokens["--success"], tokens["--success"]],
+      [".tag-warning", tokens["--warning"], tokens["--warning"]],
+      [".tag-danger", tokens["--danger"], tokens["--danger"]],
+    ]) {
+      for (const hostBg of [tokens["--bg"], tokens["--surface"]]) {
+        const pillBg = mixRgb(hexToRgb(tintHex), hexToRgb(hostBg), 0.15);
+        assert.ok(
+          contrastRatio(hexToRgb(fgHex), pillBg) >= 4.5,
+          `${themeName}: ${label} (${fgHex}) over 15% tint on ${hostBg} must be >= 4.5:1`,
+        );
+      }
+    }
+
+    // UI component borders (--border-strong) on preview and pagination surfaces meet >= 3:1.
+    for (const hostBg of [tokens["--surface"], tokens["--preview-bg"], tokens["--preview-muted-bg"]]) {
+      assert.ok(
+        contrastRatio(tokens["--border-strong"], hostBg) >= 3.0,
+        `${themeName}: --border-strong (${tokens["--border-strong"]}) on ${hostBg} must be >= 3.0:1`,
+      );
+    }
+  }
+});
+
+test("standalone exported HTML labs maintain WCAG AA contrast in both light and dark themes", () => {
+  const sampleMd = [
+    "# Sample Lab",
+    "## Overview",
+    "Read the [documentation](https://learn.microsoft.com/) and use `*.crm.dynamics.com`.",
+    "## Module 1",
+    "| Connector | Tier |",
+    "| --- | --- |",
+    "| Dataverse | Standard |",
+  ].join("\n\n");
+
+  for (const [label, branding] of [
+    ["unbranded", undefined],
+    ["dark-brand", { companyName: "Contoso", primaryColor: "#107c41" }],
+    ["bright-brand", { companyName: "Fabrikam", primaryColor: "#f59e0b" }],
+    ["portal-default-brand", { companyName: "Northwind", primaryColor: "#4f8ff7" }],
+  ]) {
+    const doc = renderStandaloneLabHtml(sampleMd, { branding });
+    const lightVars = parseCssCustomProperties(doc.match(/:root\s*\{([^}]*)\}/)?.[1] || "");
+    const darkVars = parseCssCustomProperties(doc.match(/:root\[data-theme="dark"\]\s*\{([^}]*)\}/)?.[1] || "");
+
+    for (const [mode, vars] of [
+      ["light", lightVars],
+      ["dark", darkVars],
+    ]) {
+      for (const bg of [vars["--bg"], vars["--surface"], vars["--surface-muted"], vars["--code-bg"]]) {
+        assert.ok(
+          contrastRatio(vars["--text"], bg) >= 4.5,
+          `${label} (${mode}): --text on ${bg} must be >= 4.5:1`,
+        );
+        assert.ok(
+          contrastRatio(vars["--text-muted"], bg) >= 4.5,
+          `${label} (${mode}): --text-muted on ${bg} must be >= 4.5:1`,
+        );
+        assert.ok(
+          contrastRatio(vars["--link"], bg) >= 4.5,
+          `${label} (${mode}): --link (${vars["--link"]}) on ${bg} must be >= 4.5:1`,
+        );
+      }
+      assert.ok(
+        contrastRatio(vars["--accent-contrast"], vars["--accent"]) >= 4.5,
+        `${label} (${mode}): primary button (${vars["--accent-contrast"]} on ${vars["--accent"]}) must be >= 4.5:1`,
+      );
+      assert.ok(
+        contrastRatio(vars["--success-text"], vars["--success-bg"]) >= 4.5,
+        `${label} (${mode}): complete badge must be >= 4.5:1`,
+      );
+    }
+
+    assert.match(doc, /@media print[\s\S]*?\.lab-article\s*\{\s*background:\s*#ffffff !important;\s*color:\s*#111111 !important;/);
+    assert.match(doc, /@media print[\s\S]*?\.lab-page\s*\{\s*display:\s*block !important;/);
+  }
+});
+

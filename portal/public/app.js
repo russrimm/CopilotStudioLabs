@@ -903,8 +903,7 @@ async function selectLab(labId) {
     const mermaidNodes = preview.querySelectorAll(".mermaid");
     if (mermaidNodes.length) {
       try {
-        const mermaid = await loadMermaid();
-        await mermaid.run({ nodes: mermaidNodes });
+        await renderMermaidNodes(mermaidNodes);
       } catch (_) {
         // Graceful fallback: the source remains visible if the optional renderer fails.
       }
@@ -921,6 +920,67 @@ async function selectLab(labId) {
   }
 }
 
+function getActivePortalTheme() {
+  if (typeof window.getPortalTheme === "function") {
+    return window.getPortalTheme();
+  }
+  const attr = document.documentElement.getAttribute("data-theme");
+  if (attr === "light" || attr === "dark") return attr;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+function getMermaidThemeConfig(theme = getActivePortalTheme()) {
+  const isDark = theme !== "light";
+  return {
+    startOnLoad: false,
+    securityLevel: "strict",
+    theme: "base",
+    themeVariables: isDark
+      ? {
+          darkMode: true,
+          background: "#1d2233",
+          primaryColor: "#23283d",
+          primaryTextColor: "#e4e6f0",
+          primaryBorderColor: "#6b7394",
+          secondaryColor: "#1a1d27",
+          secondaryTextColor: "#e4e6f0",
+          secondaryBorderColor: "#4a5378",
+          tertiaryColor: "#141722",
+          tertiaryTextColor: "#e4e6f0",
+          tertiaryBorderColor: "#4a5378",
+          lineColor: "#94a3b8",
+          textColor: "#e4e6f0",
+          mainBkg: "#23283d",
+          nodeBorder: "#6b7394",
+          clusterBkg: "#141722",
+          clusterBorder: "#4a5378",
+          titleColor: "#e4e6f0",
+          edgeLabelBackground: "#1d2233",
+        }
+      : {
+          darkMode: false,
+          background: "#f4f6fb",
+          primaryColor: "#ffffff",
+          primaryTextColor: "#141a2e",
+          primaryBorderColor: "#5b6b8c",
+          secondaryColor: "#eef1f8",
+          secondaryTextColor: "#141a2e",
+          secondaryBorderColor: "#5b6b8c",
+          tertiaryColor: "#f4f6fb",
+          tertiaryTextColor: "#141a2e",
+          tertiaryBorderColor: "#cbd3e4",
+          lineColor: "#4a5470",
+          textColor: "#141a2e",
+          mainBkg: "#ffffff",
+          nodeBorder: "#5b6b8c",
+          clusterBkg: "#eef1f8",
+          clusterBorder: "#5b6b8c",
+          titleColor: "#141a2e",
+          edgeLabelBackground: "#f4f6fb",
+        },
+  };
+}
+
 function loadMermaid() {
   if (window.mermaid) return Promise.resolve(window.mermaid);
   if (mermaidLoadPromise) return mermaidLoadPromise;
@@ -929,19 +989,7 @@ function loadMermaid() {
     const script = document.createElement("script");
     script.src = "vendor/mermaid.min.js";
     script.onload = () => {
-      window.mermaid.initialize({
-        startOnLoad: false,
-        securityLevel: "strict",
-        theme: "base",
-        themeVariables: {
-          primaryColor: "#f3f4f8",
-          primaryTextColor: "#1f2937",
-          primaryBorderColor: "#cbd5e1",
-          lineColor: "#94a3b8",
-          mainBkg: "#f3f4f8",
-          edgeLabelBackground: { fill: "transparent" },
-        },
-      });
+      window.mermaid.initialize(getMermaidThemeConfig());
       resolve(window.mermaid);
     };
     script.onerror = () => {
@@ -953,6 +1001,29 @@ function loadMermaid() {
 
   return mermaidLoadPromise;
 }
+
+async function renderMermaidNodes(nodes) {
+  if (!nodes || !nodes.length) return;
+  for (const node of nodes) {
+    if (!node.dataset.mermaidSource) {
+      node.dataset.mermaidSource = node.textContent || "";
+    } else {
+      node.removeAttribute("data-processed");
+      node.textContent = node.dataset.mermaidSource;
+    }
+  }
+  const mermaid = await loadMermaid();
+  mermaid.initialize(getMermaidThemeConfig());
+  await mermaid.run({ nodes });
+}
+
+window.addEventListener("portal-theme-change", () => {
+  if (!window.mermaid) return;
+  const renderedNodes = document.querySelectorAll(".mermaid[data-mermaid-source]");
+  if (renderedNodes.length) {
+    renderMermaidNodes(renderedNodes).catch(() => {});
+  }
+});
 
 function reportIssue(context) {
   const labContext = selectedLabId ? `Lab: ${selectedLabId}` : "General";
@@ -2000,12 +2071,12 @@ function initAgentChat(tokenEndpoint, agentName) {
   if (!container) return;
 
   container.innerHTML = `
-    <div style="display: flex; flex-direction: column; height: 100%; background: white;">
-      <div style="padding: 12px 16px; background: #f8f8fc; border-bottom: 1px solid #e0e0e8; display: flex; align-items: center; gap: 10px;">
+    <div style="display: flex; flex-direction: column; height: 100%; background: var(--surface); color: var(--text);">
+      <div style="padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px;">
         <span style="font-size: 20px;">🤖</span>
         <div>
-          <div style="font-weight: 600; color: #1a1a2e; font-size: 15px;">${escapeHtml(agentName)}</div>
-          <div style="font-size: 11px; color: #888;">Powered by Copilot Studio</div>
+          <div style="font-weight: 600; color: var(--text); font-size: 15px;">${escapeHtml(agentName)}</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Powered by Copilot Studio</div>
         </div>
       </div>
       <div id="agent-webchat-host" style="flex: 1; overflow: hidden;"></div>
@@ -2022,7 +2093,7 @@ async function loadWebChatScript(tokenEndpoint) {
   const initToken = ++agentWebChatInitToken;
 
   try {
-    host.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #888;"><span class="spinner" style="margin-right: 8px;"></span> Connecting to agent...</div>';
+    host.innerHTML = '<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--text-muted);"><span class="spinner" style="margin-right: 8px;"></span> Connecting to agent...</div>';
 
     const tokenRes = await fetch(tokenEndpoint);
     if (!tokenRes.ok) throw new Error(`Token endpoint returned ${tokenRes.status}`);
@@ -2055,16 +2126,18 @@ async function loadWebChatScript(tokenEndpoint) {
     agentWebChatDirectLine?.end?.();
     agentWebChatDirectLine = window.WebChat.createDirectLine({ token });
 
+    const isDarkChat = getActivePortalTheme() !== "light";
     window.WebChat.renderWebChat(
       {
         directLine: agentWebChatDirectLine,
         styleOptions: {
-          backgroundColor: "#ffffff",
-          bubbleBackground: "#f0f0f5",
-          bubbleFromUserBackground: "#4f8ff7",
-          bubbleFromUserTextColor: "#ffffff",
-          sendBoxBackground: "#ffffff",
-          sendBoxTextColor: "#1a1a2e",
+          backgroundColor: isDarkChat ? "#141722" : "#ffffff",
+          bubbleBackground: isDarkChat ? "#23283d" : "#eef1f8",
+          bubbleTextColor: isDarkChat ? "#e4e6f0" : "#141a2e",
+          bubbleFromUserBackground: isDarkChat ? "#4f8ff7" : "#1a56c7",
+          bubbleFromUserTextColor: isDarkChat ? "#0f1117" : "#ffffff",
+          sendBoxBackground: isDarkChat ? "#1a1d27" : "#ffffff",
+          sendBoxTextColor: isDarkChat ? "#e4e6f0" : "#141a2e",
           rootHeight: "100%",
           rootWidth: "100%",
           hideUploadButton: true,
@@ -2074,11 +2147,11 @@ async function loadWebChatScript(tokenEndpoint) {
     );
   } catch (err) {
     if (initToken !== agentWebChatInitToken) return;
-    host.innerHTML = `<div style="padding: 24px; text-align: center; color: #d32f2f;">
+    host.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--danger-text);">
       <div style="font-size: 24px; margin-bottom: 8px;">⚠️</div>
       <div style="font-weight: 600; margin-bottom: 8px;">Connection Failed</div>
-      <div style="font-size: 13px; color: #666;">${escapeHtml(err.message)}</div>
-      <div style="margin-top: 12px; font-size: 12px; color: #888;">Check that your Token Endpoint URL is correct and the agent is published.</div>
+      <div style="font-size: 13px; color: var(--text);">${escapeHtml(err.message)}</div>
+      <div style="margin-top: 12px; font-size: 12px; color: var(--text-muted);">Check that your Token Endpoint URL is correct and the agent is published.</div>
     </div>`;
   }
 }
@@ -4267,10 +4340,9 @@ async function lbLoadResultPreview(labId) {
       enhanceLabImages(host);
     }
     const mermaidNodes = host.querySelectorAll(".mermaid");
-    if (mermaidNodes.length && typeof loadMermaid === "function") {
+    if (mermaidNodes.length && typeof renderMermaidNodes === "function") {
       try {
-        const mermaid = await loadMermaid();
-        await mermaid.run({ nodes: mermaidNodes });
+        await renderMermaidNodes(mermaidNodes);
       } catch (_) {
         // Keep raw diagram block visible if optional renderer fails.
       }

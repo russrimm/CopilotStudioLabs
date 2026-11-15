@@ -406,6 +406,82 @@ function extractMarkdownTitle(markdown) {
  * @param {(assetName: string) => string | null} [options.resolveImageSrc]
  * @returns {string}
  */
+function parseHexRgb(hex) {
+  const raw = String(hex || "").trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3,4}$/i.test(raw)) {
+    return [0, 1, 2].map((i) => parseInt(raw[i] + raw[i], 16));
+  }
+  if (/^[0-9a-f]{6}(?:[0-9a-f]{2})?$/i.test(raw)) {
+    return [0, 2, 4].map((i) => parseInt(raw.slice(i, i + 2), 16));
+  }
+  return null;
+}
+
+function rgbToHex([r, g, b]) {
+  return (
+    "#" +
+    [r, g, b]
+      .map((channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
+
+function relativeLuminance(rgb) {
+  const [r, g, b] = rgb.map((v) => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatioRgb(rgbA, rgbB) {
+  const l1 = relativeLuminance(rgbA);
+  const l2 = relativeLuminance(rgbB);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function ensureContrastHex(fgHex, bgHexList, targetHex, minRatio = 4.6) {
+  const startRgb = parseHexRgb(fgHex);
+  const targetRgb = parseHexRgb(targetHex);
+  const bgRgbs = bgHexList.map(parseHexRgb).filter(Boolean);
+  if (!startRgb || !targetRgb || !bgRgbs.length) return fgHex;
+  const passesAll = (candidate) => bgRgbs.every((bg) => contrastRatioRgb(candidate, bg) >= minRatio);
+  if (passesAll(startRgb)) return rgbToHex(startRgb);
+  let low = 0;
+  let high = 1;
+  let best = targetRgb;
+  for (let step = 0; step < 18; step += 1) {
+    const mid = (low + high) / 2;
+    const blended = startRgb.map((c, idx) => c + (targetRgb[idx] - c) * mid);
+    if (passesAll(blended)) {
+      best = blended;
+      high = mid;
+    } else {
+      low = mid;
+    }
+  }
+  return rgbToHex(best);
+}
+
+function pickButtonPair(rawHex, fallbackBg, fallbackFg) {
+  const rgb = parseHexRgb(rawHex);
+  if (!rgb) return { bg: fallbackBg, fg: fallbackFg };
+  const white = [255, 255, 255];
+  const nearBlack = [11, 14, 20];
+  const whiteRatio = contrastRatioRgb(rgb, white);
+  const darkRatio = contrastRatioRgb(rgb, nearBlack);
+  if (whiteRatio >= 4.5 && whiteRatio >= darkRatio) {
+    return { bg: rgbToHex(rgb), fg: "#ffffff" };
+  }
+  if (darkRatio >= 4.5) {
+    return { bg: rgbToHex(rgb), fg: "#0b0e14" };
+  }
+  const adjustedBg = ensureContrastHex(rgbToHex(rgb), ["#ffffff"], "#0b0e14", 4.6);
+  return { bg: adjustedBg, fg: "#ffffff" };
+}
+
 export function renderStandaloneLabHtml(markdown, options = {}) {
   const renderMd = typeof options.renderMarkdown === "function" ? options.renderMarkdown : renderLabMarkdownFallback;
   let bodyHtml = renderMd(String(markdown ?? ""));
@@ -426,10 +502,23 @@ export function renderStandaloneLabHtml(markdown, options = {}) {
   const safeTitle = escapeHtml(rawTitle);
 
   const branding = options.branding && typeof options.branding === "object" ? options.branding : null;
-  const accentColor =
+  const customBrandHex =
     branding?.primaryColor && /^#[0-9a-f]{3,8}$/i.test(branding.primaryColor)
       ? branding.primaryColor
-      : "#1a56c7";
+      : null;
+
+  const lightButton = customBrandHex
+    ? pickButtonPair(customBrandHex, "#1a56c7", "#ffffff")
+    : { bg: "#1a56c7", fg: "#ffffff" };
+  const darkButton = customBrandHex
+    ? pickButtonPair(customBrandHex, "#4f8ff7", "#0b0e14")
+    : { bg: "#4f8ff7", fg: "#0b0e14" };
+  const lightLinkColor = customBrandHex
+    ? ensureContrastHex(customBrandHex, ["#ffffff", "#f8fafc", "#f1f5f9"], "#123f9a", 4.6)
+    : "#1a56c7";
+  const darkLinkColor = customBrandHex
+    ? ensureContrastHex(customBrandHex, ["#181c26", "#1f2533", "#111520"], "#93c5fd", 4.6)
+    : "#6ba1ff";
 
   const brandingHeader =
     branding && (branding.companyName || branding.tagline || branding.logoUrl)
@@ -473,13 +562,16 @@ ${page.html}
       --surface: #ffffff;
       --surface-muted: #f8fafc;
       --border: #dce2ef;
+      --border-strong: #5b6b8c;
       --text: #1a1d27;
       --text-muted: #526077;
-      --accent: ${accentColor};
-      --accent-contrast: #ffffff;
+      --accent: ${lightButton.bg};
+      --accent-contrast: ${lightButton.fg};
+      --link: ${lightLinkColor};
       --code-bg: #f1f5f9;
+      --code-border: #d5dce9;
       --success-bg: #e6f6f0;
-      --success-border: #a7f3d0;
+      --success-border: #86efac;
       --success-text: #0b6e4f;
       color-scheme: light;
     }
@@ -489,9 +581,14 @@ ${page.html}
         --surface: #181c26;
         --surface-muted: #1f2533;
         --border: #2c3447;
+        --border-strong: #6b7394;
         --text: #e6eaf2;
         --text-muted: #9ba6bc;
+        --accent: ${darkButton.bg};
+        --accent-contrast: ${darkButton.fg};
+        --link: ${darkLinkColor};
         --code-bg: #111520;
+        --code-border: #2c3447;
         --success-bg: #102a22;
         --success-border: #1f6f54;
         --success-text: #6ee7b7;
@@ -503,9 +600,14 @@ ${page.html}
       --surface: #181c26;
       --surface-muted: #1f2533;
       --border: #2c3447;
+      --border-strong: #6b7394;
       --text: #e6eaf2;
       --text-muted: #9ba6bc;
+      --accent: ${darkButton.bg};
+      --accent-contrast: ${darkButton.fg};
+      --link: ${darkLinkColor};
       --code-bg: #111520;
+      --code-border: #2c3447;
       --success-bg: #102a22;
       --success-border: #1f6f54;
       --success-text: #6ee7b7;
@@ -662,22 +764,27 @@ ${page.html}
       border: 1px solid var(--success-border);
       color: var(--success-text);
     }
-    .lab-article h1 { font-size: 28px; line-height: 1.25; margin: 0 0 16px; border-bottom: 2px solid var(--border); padding-bottom: 12px; }
-    .lab-article h2 { font-size: 21px; line-height: 1.3; margin: 24px 0 12px; }
+    .lab-article h1 { font-size: 28px; line-height: 1.25; margin: 0 0 16px; border-bottom: 2px solid var(--border); padding-bottom: 12px; color: var(--text); }
+    .lab-article h2 { font-size: 21px; line-height: 1.3; margin: 24px 0 12px; color: var(--text); }
     .lab-article .lab-page > h2:first-child { margin-top: 0; }
-    .lab-article h3 { font-size: 17px; margin: 20px 0 8px; }
+    .lab-article h3 { font-size: 17px; margin: 20px 0 8px; color: var(--text); }
+    .lab-article h4, .lab-article h5 { color: var(--text); }
     .lab-article p { margin: 10px 0; }
     .lab-article ul, .lab-article ol { padding-left: 24px; margin: 10px 0; }
     .lab-article li { margin: 5px 0; }
-    .lab-article a { color: var(--accent); }
+    .lab-article hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+    .lab-article a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
     .lab-article code {
       background: var(--code-bg);
+      color: var(--text);
+      border: 1px solid var(--code-border);
       padding: 2px 6px;
       border-radius: 4px;
       font-size: 0.9em;
     }
     .lab-article pre {
       background: var(--code-bg);
+      color: var(--text);
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 14px 16px;
@@ -685,12 +792,13 @@ ${page.html}
       font-size: 13px;
       line-height: 1.55;
     }
-    .lab-article pre code { background: none; padding: 0; }
+    .lab-article pre code { background: none; border: 0; padding: 0; }
     .lab-article blockquote {
       margin: 14px 0;
       padding: 12px 16px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-strong);
       background: var(--surface-muted);
+      color: var(--text);
       border-radius: 8px;
     }
     .lab-article table {
@@ -703,6 +811,7 @@ ${page.html}
       border: 1px solid var(--border);
       padding: 8px 12px;
       text-align: left;
+      color: var(--text);
     }
     .lab-article th {
       background: var(--surface-muted);
@@ -712,25 +821,89 @@ ${page.html}
       max-width: 100%;
       height: auto;
       border-radius: 8px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-strong);
       margin: 10px 0;
     }
     .lab-article details {
       margin: 14px 0;
       padding: 10px 14px;
-      border: 1px solid var(--border);
+      border: 1px solid var(--border-strong);
       border-radius: 8px;
       background: var(--surface-muted);
+      color: var(--text);
+    }
+    .lab-article details[open] > summary {
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
     }
     .lab-article summary {
       cursor: pointer;
       font-weight: 600;
+      color: var(--text);
+    }
+    .lab-article summary:focus-visible,
+    .lab-page-btn:focus-visible,
+    .lab-page-select:focus-visible {
+      outline: 3px solid var(--link);
+      outline-offset: 2px;
+    }
+    .lab-article .mermaid {
+      margin: 18px 0;
+      padding: 14px 16px;
+      background: var(--code-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      white-space: pre;
+      text-align: left;
+    }
+    .lab-article .shot-pending { color: var(--text); }
+    .lab-article .lab-branding-tagline { color: var(--text-muted); }
+    .lab-article .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--surface-muted);
+      border: 1px solid var(--border);
+      color: var(--link);
     }
     @media print {
       body { background: #ffffff !important; color: #111111 !important; }
       .lab-shell { max-width: 100%; padding: 0; }
       .lab-pagination-controls { display: none !important; }
-      .lab-article { border: none; padding: 0; }
+      .lab-brand-banner { background: #ffffff !important; color: #111111 !important; border-color: #cccccc !important; }
+      .lab-brand-text span { color: #333333 !important; }
+      .lab-article { background: #ffffff !important; color: #111111 !important; border: none; padding: 0; }
+      .lab-article h1,
+      .lab-article h2,
+      .lab-article h3,
+      .lab-article h4,
+      .lab-article h5,
+      .lab-article p,
+      .lab-article li,
+      .lab-article th,
+      .lab-article td,
+      .lab-article code,
+      .lab-article pre,
+      .lab-article blockquote,
+      .lab-article details,
+      .lab-article summary,
+      .lab-article .shot-pending { color: #111111 !important; }
+      .lab-article a { color: #0b3d91 !important; }
+      .lab-article th,
+      .lab-article td { background: #ffffff !important; border: 1px solid #bbbbbb !important; }
+      .lab-article code,
+      .lab-article pre,
+      .lab-article .mermaid { background: #f6f8fa !important; border-color: #d0d7de !important; }
+      .lab-article pre code { background: transparent !important; border: 0 !important; }
+      .lab-article blockquote,
+      .lab-article details { background: #f8f9fa !important; border-color: #bbbbbb !important; }
       .lab-page { display: block !important; }
       .lab-page + .lab-page { margin-top: 24px; padding-top: 16px; border-top: 1px solid #cccccc; }
     }

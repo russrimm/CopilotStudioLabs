@@ -141,12 +141,12 @@ export function renderBrandingBannerHtml(branding = loadBranding(), logoPath = b
     : "";
 
   return `
-<div style="margin: 0 0 24px; border: 1px solid ${accent}; border-radius: 14px; padding: 18px 20px; background: rgba(79, 143, 247, 0.08);">
+<div class="lab-branding-banner" style="margin: 0 0 24px; border: 1px solid ${accent}; border-radius: 14px; padding: 18px 20px; background: rgba(79, 143, 247, 0.08);">
   <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
     ${logo}
     <div>
-      <div style="font-size: 28px; font-weight: 700; color: ${accent};">${title}</div>
-      <div style="font-size: 14px; color: #666;">${tagline}</div>
+      <div class="lab-branding-title" style="font-size: 28px; font-weight: 700; color: ${accent};">${title}</div>
+      <div class="lab-branding-tagline" style="font-size: 14px;">${tagline}</div>
     </div>
   </div>
 </div>`.trim();
