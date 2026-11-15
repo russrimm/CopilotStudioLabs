@@ -17,7 +17,7 @@
 
 const HEADING_RE = /^(#{1,6})\s+(.*?)\s*#*\s*$/;
 const FENCE_RE = /^\s*(`{3,}|~{3,})/;
-const STEP_TITLE_RE = /^(?:step|task|exercise|part|section|module)\s*#?\s*(\d+)\b[\s—–:.)-]*(.*)$/i;
+const STEP_TITLE_RE = /^(?:step|recap|task|exercise|part|section|module)\s*#?\s*(\d+)\b[\s—–:.)-]*(.*)$/i;
 const USE_CASE_TITLE_RE = /^(?:optional\s+)?(?:use\s*case|lab)\s*#?\s*(\d+)\b[\s—–:.)-]*(.*)$/i;
 const NUMBERED_TITLE_RE = /^(\d+(?:\.\d+)+)[\s—–:.)-]+(.*)$/;
 const BOLD_NUMBERED_RE = /^\s*\*\*(\d+)[.)]\s+(.+?)\*\*\s*$/;

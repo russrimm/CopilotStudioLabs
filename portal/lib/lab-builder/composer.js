@@ -170,6 +170,26 @@ function metadataTable(plan, generation = {}) {
     .join("\n");
 }
 
+function featureStepLabel(feature) {
+  if (feature?.stepLabel) return feature.stepLabel;
+  if (feature?.prerequisite) return `Recap ${feature.recapOrder ?? feature.order}`;
+  return `Step ${feature?.stepOrder ?? feature?.order}`;
+}
+
+function formatPartSpan(first, last) {
+  if (!first || !last) return "";
+  const firstLabel = featureStepLabel(first);
+  const lastLabel = featureStepLabel(last);
+  if (first === last || firstLabel === lastLabel) return firstLabel;
+  if (!first.prerequisite && !last.prerequisite) {
+    return `Steps ${first.stepOrder ?? first.order} to ${last.stepOrder ?? last.order}`;
+  }
+  if (first.prerequisite && last.prerequisite) {
+    return `Recaps ${first.recapOrder ?? first.order} to ${last.recapOrder ?? last.order}`;
+  }
+  return `${firstLabel} to ${lastLabel}`;
+}
+
 function overviewSection(plan, enrichment) {
   const profile = plan.profile;
   const d = describeDeliverable(plan);
@@ -190,20 +210,25 @@ function overviewSection(plan, enrichment) {
     enrichment?.overview ||
     `${profile.problem} ${leadClause}${domainClause}, ending with ${profile.outcome}.`;
 
-  const focus = plan.features.filter((f) => !f.prerequisite).map((f) => `**${f.name}** - ${f.summary}`);
+  const mainModules = plan.features.filter((f) => !f.prerequisite);
   const recaps = plan.features.filter((f) => f.prerequisite);
-  const moduleCount = plan.features.length - recaps.length;
+  const moduleCount = mainModules.length;
+  const stepRange = moduleCount === 1 ? "Step 1" : `Steps 1 to ${moduleCount}`;
+  const recapRange = recaps.length === 1 ? "Recap 1" : `Recaps 1 to ${recaps.length}`;
+  const focus = mainModules.map(
+    (f, idx) => `**Step ${f.stepOrder ?? idx + 1} - ${f.name}** - ${scrubForbidden(f.summary)}`,
+  );
 
   return [
     "## Overview",
     "",
     scrubForbidden(intro) + roleLine,
     "",
-    `You will work through ${moduleCount} ${levelName(plan.level)} module${moduleCount === 1 ? "" : "s"}, in order, ${d.progressionClause}. Each module explains what you are configuring and why it matters before you touch the product, so you finish with ${d.isAgent ? "working software" : "a verified configuration"} *and* a mental model you can reuse.`,
+    `You will work through ${moduleCount} ${levelName(plan.level)} module${moduleCount === 1 ? "" : "s"} (${stepRange}), in order, ${d.progressionClause}. Each module explains what you are configuring and why it matters before you touch the product, so you finish with ${d.isAgent ? "working software" : "a verified configuration"} *and* a mental model you can reuse.`,
     ...(recaps.length
       ? [
           "",
-          `This lab also opens with ${recaps.length} short **prerequisite recap${recaps.length === 1 ? "" : "s"}** from lower levels (${sentenceList(
+          `This lab also opens with ${recaps.length} short **prerequisite recap${recaps.length === 1 ? "" : "s"}** (${recapRange}) from lower levels (${sentenceList(
             recaps.map((f) => f.name),
           )}), because the ${levelName(plan.level)} modules build on them. A recap is a refresher, not new ${levelName(plan.level)} content: skip it if you already know the topic.`,
         ]
@@ -222,13 +247,21 @@ function overviewSection(plan, enrichment) {
 }
 
 function objectivesSection(plan) {
-  const objectives = plan.features
-    .filter((f) => !f.prerequisite)
-    .map((f) => `**Step ${f.order} - ${f.name}:** ${scrubForbidden(f.summary)}`);
+  const mainModules = plan.features.filter((f) => !f.prerequisite);
+  const recaps = plan.features.filter((f) => f.prerequisite);
+  const objectives = mainModules.map(
+    (f, idx) => `**Step ${f.stepOrder ?? idx + 1} - ${f.name}:** ${scrubForbidden(f.summary)}`,
+  );
+  const recapNote = recaps.length
+    ? recaps.length === 1
+      ? "Optional **Prerequisite Recap 1** appears at the start of *Step-by-Step* as a quick lower-level refresher before **Step 1**."
+      : `Optional **Prerequisite Recaps 1 to ${recaps.length}** appear at the start of *Step-by-Step* as quick lower-level refreshers before **Step 1**.`
+    : null;
   return [
     "## Learning Objectives",
     "",
     "By the end of this lab you will be able to do each of the following in your own environment, and explain to someone else why it matters. Each objective names the step that teaches it:",
+    ...(recapNote ? ["", recapNote] : []),
     "",
     bullets(objectives),
     ...(plan.roles.length
@@ -244,8 +277,8 @@ function timeEstimateSection(plan) {
   const estimate = plan.estimate;
   const rows = plan.features.map((f) =>
     f.prerequisite
-      ? `| ${f.order} | Recap: ${escapeMarkdown(f.name)} | ${f.level} (prerequisite recap) | about ${f.minutes} min |`
-      : `| ${f.order} | ${escapeMarkdown(f.name)} | ${f.level} | about ${f.minutes} min |`,
+      ? `| Recap ${f.recapOrder ?? f.order} | Recap: ${escapeMarkdown(f.name)} | ${f.level} (prerequisite recap) | about ${f.minutes} min |`
+      : `| Step ${f.stepOrder ?? f.order} | ${escapeMarkdown(f.name)} | ${f.level} | about ${f.minutes} min |`,
   );
   const lines = [
     "## Time Estimate",
@@ -266,7 +299,7 @@ function timeEstimateSection(plan) {
         estimate.suggestedParts.map((part) => {
           const first = plan.features.find((f) => f.id === part.ids[0]);
           const last = plan.features.find((f) => f.id === part.ids[part.ids.length - 1]);
-          const span = first === last ? `Step ${first.order}` : `Steps ${first.order} to ${last.order}`;
+          const span = part.span || formatPartSpan(first, last);
           return `**Part ${part.part}** (${span}): about ${part.duration}`;
         }),
       ),
@@ -622,7 +655,7 @@ function recapSection(feature, plan, grounding, stepsRecord, vendorRecords) {
   const source = stepsRecord?.steps?.length ? stepsRecord.steps : feature.steps;
   const steps = source.map((step, index) => `${index + 1}. ${scrubForbidden(step)}`);
   return [
-    `### Step ${feature.order} - Recap: ${feature.name}`,
+    `### Recap ${feature.recapOrder ?? feature.order} - ${feature.name}`,
     "",
     `*Prerequisite recap from Level ${feature.level} · about ${feature.minutes} minutes. This is a refresher for a lower-level topic that the ${levelName(plan.level)} modules build on. Skip it if you already know it.*`,
     "",
@@ -652,9 +685,10 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
   // the validator rejects TODO-style markers anywhere in a lab file.
   const source = stepsRecord?.steps?.length ? stepsRecord.steps : feature.steps;
   const steps = source.map((step, index) => `${index + 1}. ${scrubForbidden(step)}`);
+  const stepNum = feature.stepOrder ?? feature.order;
 
   return [
-    `### Step ${feature.order} - ${feature.name}`,
+    `### Step ${stepNum} - ${feature.name}`,
     "",
     `*Level ${feature.level} · about ${feature.minutes} minutes*`,
     "",
@@ -674,7 +708,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     ...expectedResultBlock(feature, shots, TEACH),
     "",
     `**In your scenario.** ${scrubForbidden(applied)}`,
-    ...sampleInputBlock(feature, plan, feature.order - 1, TEACH),
+    ...sampleInputBlock(feature, plan, stepNum - 1, TEACH),
     ...screenshotBlock(shots),
     ...differenceLines,
     "",
@@ -971,7 +1005,7 @@ export function composeLab(
     "## Step-by-Step",
     "",
     `Each module below stands on its own, but they are ordered so that every prerequisite is configured before you need it. Work top to bottom. When you export this lab as a ZIP archive, each module is packaged in its own titled folder along with scenario-tailored upload and configuration files in \`sample-files/\`.${
-      plan.features.some((f) => f.prerequisite) ? ` Steps labeled **Recap** are short refreshers of lower-level topics, not ${levelName(plan.level)} content.` : ""
+      plan.features.some((f) => f.prerequisite) ? ` Modules labeled **Recap** are short refreshers of lower-level topics before **Step 1**, not ${levelName(plan.level)} content.` : ""
     }`,
     "",
     ...differencesNote,

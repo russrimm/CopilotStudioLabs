@@ -40,6 +40,9 @@ function previewPayload(request) {
     modules: plan.features.map((f) => ({
       id: f.id,
       order: f.order,
+      stepOrder: f.stepOrder,
+      recapOrder: f.recapOrder,
+      stepLabel: f.stepLabel,
       name: f.name,
       category: f.category,
       level: f.level,
@@ -246,6 +249,8 @@ test("deselecting modules and prerequisite recaps on Step 7 removes them everywh
     "generative-orchestration",
     "connector-tools",
   ]);
+  const initialStepLabels = [...previewHtml.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
+  assert.deepEqual(initialStepLabels, ["Recap 1", "Recap 2", "Step 1", "Step 2"]);
   assert.match(previewHtml, /2 modules \+ 2 prerequisite recaps/);
   assert.match(previewHtml, /About 55 minutes/);
   assert.match(previewHtml, /Optional part 2:/, "55 min against 30 min target suggests a split initially");
@@ -265,9 +270,9 @@ test("deselecting modules and prerequisite recaps on Step 7 removes them everywh
     ["create-agent", "agent-instructions", "connector-tools"],
     "single uncheck removes generative-orchestration while keeping un-excluded transitive recaps",
   );
-  // Step numbers renumber cleanly 1..3.
-  const stepCellsAfterFirst = [...previewHtml.matchAll(/<\/td><td>(\d+)<\/td><th scope="row">/g)].map((m) => Number(m[1]));
-  assert.deepEqual(stepCellsAfterFirst, [1, 2, 3]);
+  // Recaps stay Recap 1..2 while remaining main module renumbers cleanly to Step 1.
+  const stepCellsAfterFirst = [...previewHtml.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
+  assert.deepEqual(stepCellsAfterFirst, ["Recap 1", "Recap 2", "Step 1"]);
   assert.match(previewHtml, /1 module \+ 2 prerequisite recaps/);
   assert.match(previewHtml, /Total \(estimate\)<\/th><td>about 35 minutes<\/td>/);
   assert.deepEqual(removedSectionModuleIds(previewHtml), ["generative-orchestration"]);
@@ -285,8 +290,8 @@ test("deselecting modules and prerequisite recaps on Step 7 removes them everywh
   await context.lbSetOutlineModule("agent-instructions", false);
   previewHtml = element("lb-preview").innerHTML;
   assert.deepEqual(activeOutlineModuleIds(previewHtml), ["create-agent", "connector-tools"]);
-  const stepCellsAfterSecond = [...previewHtml.matchAll(/<\/td><td>(\d+)<\/td><th scope="row">/g)].map((m) => Number(m[1]));
-  assert.deepEqual(stepCellsAfterSecond, [1, 2]);
+  const stepCellsAfterSecond = [...previewHtml.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
+  assert.deepEqual(stepCellsAfterSecond, ["Recap 1", "Step 1"]);
   assert.match(previewHtml, /1 module \+ 1 prerequisite recap/);
   assert.match(previewHtml, /Total \(estimate\)<\/th><td>about 30 minutes<\/td>/);
   assert.doesNotMatch(previewHtml, /Optional part 2:/, "30 min now fits the 30 min target without split parts");
@@ -309,10 +314,11 @@ test("deselecting modules and prerequisite recaps on Step 7 removes them everywh
     ["create-agent", "connector-tools"],
   );
   assert.equal(built.manifest.totalMinutes, 30);
-  assert.doesNotMatch(built.markdown, /### Step \d+ - (?:Recap: )?Generative orchestration/);
-  assert.doesNotMatch(built.markdown, /### Step \d+ - (?:Recap: )?Agent instructions/);
-  assert.match(built.markdown, /### Step 1 - Recap: Create an agent/);
-  assert.match(built.markdown, /### Step 2 - Connector tools/);
+  assert.doesNotMatch(built.markdown, /### (?:Step|Recap) \d+ - (?:Recap: )?Generative orchestration/);
+  assert.doesNotMatch(built.markdown, /### (?:Step|Recap) \d+ - (?:Recap: )?Write agent instructions/);
+  assert.match(built.markdown, /### Recap 1 - Create an agent/);
+  assert.match(built.markdown, /### Step 1 - Connector tools/);
+  assert.match(built.markdown, /- \*\*Step 1 - Connector tools:\*\*/);
 
   // 4) Re-select a prerequisite recap individually on Step 7 without flagging off-level dropped selections, then Restore all.
   await context.lbSetOutlineModule("agent-instructions", true);
@@ -397,4 +403,35 @@ test("unchecking the last remaining module on Step 7 keeps the learner on Review
     "generative-orchestration",
     "connector-tools",
   ]);
+});
+
+test("deselecting prerequisite recaps on Step 7 preserves Step 1..M numbering for all main modules", async () => {
+  const { context, element, run } = loadStep7Harness();
+
+  run(`labBuilder.picked = new Set(["generative-orchestration", "connector-tools"]);`);
+  await context.lbRefresh();
+  context.lbGoToStep(7);
+  await new Promise((r) => setImmediate(r));
+
+  const stepCellsOf = (htmlSnippet) =>
+    [...htmlSnippet.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
+
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Recap 1", "Recap 2", "Step 1", "Step 2"]);
+
+  // Uncheck first prerequisite recap: remaining recap becomes Recap 1, main modules stay Step 1, Step 2.
+  await context.lbSetOutlineModule("create-agent", false);
+  assert.deepEqual(activeOutlineModuleIds(element("lb-preview").innerHTML), [
+    "agent-instructions",
+    "generative-orchestration",
+    "connector-tools",
+  ]);
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Recap 1", "Step 1", "Step 2"]);
+
+  // Uncheck second prerequisite recap too: main modules still stay Step 1, Step 2.
+  await context.lbSetOutlineModule("agent-instructions", false);
+  assert.deepEqual(activeOutlineModuleIds(element("lb-preview").innerHTML), [
+    "generative-orchestration",
+    "connector-tools",
+  ]);
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Step 1", "Step 2"]);
 });

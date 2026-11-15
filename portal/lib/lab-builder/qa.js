@@ -188,15 +188,21 @@ const MODULE_CHECK_FIX = {
 };
 
 function topicsOf(sections, lines) {
-  const stepHeading = /^Step\s+(\d+)\s*[-–—:]\s*(.+)$/i;
+  const moduleHeading = /^(Step|Recap)\s+(\d+)\s*[-–—:]\s*(.+)$/i;
   return sections
-    .filter((s) => s.level === 3 && stepHeading.test(s.text))
+    .filter((s) => s.level === 3 && moduleHeading.test(s.text))
     .map((s) => {
-      const [, order, name] = s.text.match(stepHeading);
+      const [, kind, order, name] = s.text.match(moduleHeading);
+      const isRecapHeading = /^recap$/i.test(kind);
+      const cleanName = name.trim();
+      const recap = isRecapHeading || /^recap:\s/i.test(cleanName);
+      const num = Number(order);
+      const label = recap ? `Recap ${num}` : `Step ${num}`;
       const body = s.body.join("\n");
       const module = {
-        order: Number(order),
-        name: name.trim(),
+        order: num,
+        label,
+        name: cleanName,
         text: body,
         steps: s.body.filter((l) => /^\s*\d+\.\s+\S/.test(l)).length,
         images: imagesIn(s.body),
@@ -206,9 +212,10 @@ function topicsOf(sections, lines) {
       const minutes = parseMinutes((body.match(/about (\d+ (?:minutes?|hours?)(?: \d+ minutes?)?)/i) || [])[1]);
       return {
         order: module.order,
+        label,
         name: module.name,
         // A prerequisite recap is a short refresher; the per-module teaching checks apply to the level's own modules.
-        recap: /^recap:\s/i.test(module.name),
+        recap,
         minutes,
         steps: module.steps,
         images: module.images.length,
@@ -319,7 +326,7 @@ export function assessLab(markdown, options = {}) {
     const ratio = reviewed.length ? 1 - failing.length / reviewed.length : 0;
     const weights = { "numbered-steps": 8, "expected-results": 9, verification: 6, troubleshooting: 6, "knowledge-check": 5, "scenario-thread": 5, screenshot: 6, "time-estimate": 3, sources: 5 };
     const severity = ["numbered-steps", "verification"].includes(check.id) ? "error" : "warn";
-    add(`module-${check.id}`, `Every module: ${check.label.toLowerCase()}`, weights[check.id], ratio, severity, reviewed.length ? `${check.label}: ${failing.length} of ${reviewed.length} modules fall short (${failing.map((t) => `Step ${t.order}`).join(", ")}).` : "No `### Step N - ...` modules were found.", MODULE_CHECK_FIX[check.id]);
+    add(`module-${check.id}`, `Every module: ${check.label.toLowerCase()}`, weights[check.id], ratio, severity, reviewed.length ? `${check.label}: ${failing.length} of ${reviewed.length} modules fall short (${failing.map((t) => t.label || `Step ${t.order}`).join(", ")}).` : "No `### Step N - ...` modules were found.", MODULE_CHECK_FIX[check.id]);
       }
 
   const expected = options.expectedTopics || [];
@@ -362,7 +369,7 @@ export function assessLab(markdown, options = {}) {
   const table = parseMinutes((source.match(/^\|\s*\|\s*\*\*Total\*\*\s*\|[^|]*\|\s*([^|\n]+)\|/m) || [])[1]);
   const stepSum = topics.length && topics.every((t) => t.minutes) ? topics.reduce((n, t) => n + t.minutes, 0) : null;
   const rowSum = (() => {
-    const rows = [...source.matchAll(/^\|\s*\d+\s*\|[^|\n]+\|[^|\n]*\|\s*about (\d+) min/gim)];
+    const rows = [...source.matchAll(/^\|\s*(?:(?:Step|Recap)\s+)?\d+\s*\|[^|\n]+\|[^|\n]*\|\s*about (\d+) min/gim)];
     return rows.length ? rows.reduce((n, m) => n + Number(m[1]), 0) : null;
   })();
   const stated = [meta, table, stepSum, rowSum].filter((v) => v != null);

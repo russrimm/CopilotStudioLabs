@@ -328,6 +328,32 @@ export const SPLIT_SUGGESTION_MINUTES = 240;
  * split points, cut between modules in plan order, so a module never lands in a
  * part before its prerequisites.
  */
+function numberFeatures(features) {
+  let recapOrder = 0;
+  let stepOrder = 0;
+  return features.map((feature, index) => {
+    const order = index + 1;
+    if (feature.prerequisite) {
+      recapOrder += 1;
+      return {
+        ...feature,
+        order,
+        recapOrder,
+        stepOrder: null,
+        stepLabel: `Recap ${recapOrder}`,
+      };
+    }
+    stepOrder += 1;
+    return {
+      ...feature,
+      order,
+      recapOrder: null,
+      stepOrder,
+      stepLabel: `Step ${stepOrder}`,
+    };
+  });
+}
+
 export function buildEstimate(features, targetMinutes) {
   const totalMinutes = features.reduce((sum, f) => sum + f.minutes, 0);
   const target = targetMinutes || SPLIT_SUGGESTION_MINUTES;
@@ -336,6 +362,9 @@ export function buildEstimate(features, targetMinutes) {
     name: f.name,
     level: f.level,
     minutes: f.minutes,
+    ...(f.stepOrder != null ? { stepOrder: f.stepOrder } : {}),
+    ...(f.recapOrder != null ? { recapOrder: f.recapOrder } : {}),
+    ...(f.stepLabel ? { stepLabel: f.stepLabel } : {}),
     ...(f.prerequisite ? { prerequisite: true } : {}),
   }));
 
@@ -354,7 +383,25 @@ export function buildEstimate(features, targetMinutes) {
       current.minutes += f.minutes;
     }
     parts.push(current);
-    parts = parts.map((part) => ({ ...part, duration: formatDuration(part.minutes) }));
+    parts = parts.map((part) => {
+      const first = features.find((f) => f.id === part.ids[0]);
+      const last = features.find((f) => f.id === part.ids[part.ids.length - 1]);
+      const span =
+        first?.stepLabel && last?.stepLabel
+          ? first === last
+            ? first.stepLabel
+            : !first.prerequisite && !last.prerequisite
+            ? `Steps ${first.stepOrder} to ${last.stepOrder}`
+            : first.prerequisite && last.prerequisite
+            ? `Recaps ${first.recapOrder} to ${last.recapOrder}`
+            : `${first.stepLabel} to ${last.stepLabel}`
+          : undefined;
+      return {
+        ...part,
+        duration: formatDuration(part.minutes),
+        ...(span ? { span } : {}),
+      };
+    });
   }
 
   const splitSuggestion = parts.length > 1
@@ -593,17 +640,18 @@ export function planLab(request = {}) {
   }
   // Length is guidance, never a limit: every selected module and every
   // prerequisite stays in the lab. A long lab only gets a suggestion to split.
-  const features = ordered.map((id, index) => {
-    const feature = getFeature(id);
-    if (!isRecap(id)) return { ...feature, order: index + 1 };
-    return {
-      ...feature,
-      order: index + 1,
-      prerequisite: true,
-      fullMinutes: feature.minutes,
-      minutes: Math.min(feature.minutes, PREREQ_RECAP_MINUTES),
-    };
-  });
+  const features = numberFeatures(
+    ordered.map((id) => {
+      const feature = getFeature(id);
+      if (!isRecap(id)) return { ...feature };
+      return {
+        ...feature,
+        prerequisite: true,
+        fullMinutes: feature.minutes,
+        minutes: Math.min(feature.minutes, PREREQ_RECAP_MINUTES),
+      };
+    }),
+  );
 
   const totalMinutes = features.reduce((sum, f) => sum + f.minutes, 0);
   const estimate = buildEstimate(features, request.targetMinutes);
@@ -738,7 +786,7 @@ export function dropModules(plan, ids, reason = "removed") {
   }
 
   const removed = plan.features.filter((feature) => drop.has(feature.id));
-  plan.features = kept.map((feature, index) => ({ ...feature, order: index + 1 }));
+  plan.features = numberFeatures(kept);
   plan.deferred = [
     ...plan.deferred,
     ...removed.map((feature) => ({

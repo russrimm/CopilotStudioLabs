@@ -134,7 +134,9 @@ export function buildModuleSampleFiles(moduleInfo, options = {}) {
   const name = String(moduleInfo?.name || catalogFeature.name || `Module ${moduleInfo?.order || 1}`);
   const category = String(catalogFeature.category || "");
   const order = Number(moduleInfo?.order) || 1;
-  const moduleStem = formatModuleBaseName(order, name);
+  const moduleStem =
+    moduleInfo?.folderName ||
+    formatModuleBaseName(order, moduleInfo?.role === "prerequisite" ? `Recap - ${name}` : name);
 
   const profile = resolveScenarioProfile(manifest);
   const domainSlug = slugToken(profile.industryId !== "default" ? profile.industryId : profile.agentName, "enterprise");
@@ -685,12 +687,19 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
     }
 
     if (stepByStepIdx !== -1 && postStepsIdx === lines.length) {
-      const stepMatch = line.match(/^###\s+Step\s+(\d+)\s+[—–-]\s+(.+?)\s*$/i);
-      if (stepMatch) {
+      const headingMatch = line.match(/^###\s+(Step|Recap)\s+(\d+)\s+[—–-]\s+(.+?)\s*$/i);
+      if (headingMatch) {
+        const headingKind = headingMatch[1].toLowerCase();
+        const headingNum = Number(headingMatch[2]);
+        const rawHeadingTitle = headingMatch[3].trim();
+        const isLegacyRecap = headingKind === "step" && /^recap:\s+/i.test(rawHeadingTitle);
         stepStarts.push({
           lineIndex: i,
-          order: Number(stepMatch[1]),
-          rawHeadingTitle: stepMatch[2].trim(),
+          headingKind,
+          headingNum,
+          isRecap: headingKind === "recap" || isLegacyRecap,
+          isLegacyRecap,
+          rawHeadingTitle,
         });
       }
     }
@@ -704,14 +713,34 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
   const postStepsText = stepByStepIdx !== -1 && postStepsIdx < lines.length ? lines.slice(postStepsIdx).join("\n").trim() : "";
 
   const manifestModules = Array.isArray(manifest?.modules) ? manifest.modules : [];
+  const hasAnyRecap = stepStarts.some((s) => s.isRecap) || manifestModules.some((m) => m.role === "prerequisite");
+  const hasLegacyRecap = stepStarts.some((s) => s.isLegacyRecap);
+  let recapCounter = 0;
+  let stepCounter = 0;
+
   const modules = stepStarts.map((entry, idx) => {
     const endLine = idx + 1 < stepStarts.length ? stepStarts[idx + 1].lineIndex : postStepsIdx;
     const bodyLines = lines.slice(entry.lineIndex + 1, endLine);
+    const seqOrder = hasAnyRecap ? idx + 1 : stepStarts.length > 1 ? idx + 1 : entry.headingNum || 1;
     const matchedMeta =
-      manifestModules.find((m) => Number(m.order) === entry.order) || manifestModules[idx] || {};
-    const cleanTitle = (matchedMeta.name || entry.rawHeadingTitle.replace(/\s*\(Recap\)\s*$/i, "")).trim();
-    const displayTitle = entry.rawHeadingTitle;
-    const folderName = formatModuleBaseName(entry.order, cleanTitle);
+      manifestModules.find((m) => Number(m.order) === seqOrder) || manifestModules[idx] || {};
+    const isRecap = entry.isRecap || matchedMeta.role === "prerequisite";
+    if (isRecap) recapCounter += 1;
+    else stepCounter += 1;
+
+    const roleNum = isRecap
+      ? Number(matchedMeta.recapOrder) || (entry.headingKind === "recap" ? entry.headingNum : recapCounter)
+      : Number(matchedMeta.stepOrder) || (!hasLegacyRecap && entry.headingKind === "step" ? entry.headingNum : stepCounter);
+    const stepLabel = matchedMeta.stepLabel || (isRecap ? `Recap ${roleNum}` : `Step ${roleNum}`);
+
+    const strippedHeadingTitle = entry.rawHeadingTitle
+      .replace(/^recap:\s+/i, "")
+      .replace(/\s*\(Recap\)\s*$/i, "")
+      .trim();
+    const cleanTitle = (matchedMeta.name || strippedHeadingTitle).trim();
+    const displayTitle = isRecap ? `Recap: ${cleanTitle}` : cleanTitle;
+    const folderTitle = isRecap ? `Recap - ${cleanTitle}` : cleanTitle;
+    const folderName = formatModuleBaseName(seqOrder, folderTitle);
     const fileBaseName = folderName;
 
     const moduleMd = [
@@ -722,8 +751,8 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
       "| Field | Details |",
       "|---|---|",
       `| **LAB** | ${labTitle.replace(/\|/g, "\\|")} |`,
-      `| **MODULE** | Step ${entry.order} — ${displayTitle.replace(/\|/g, "\\|")} |`,
-      matchedMeta.level ? `| **LEVEL** | Level ${matchedMeta.level}${matchedMeta.role === "prerequisite" ? " (Prerequisite Recap)" : ""} |` : null,
+      `| **MODULE** | ${stepLabel} — ${cleanTitle.replace(/\|/g, "\\|")} |`,
+      matchedMeta.level ? `| **LEVEL** | Level ${matchedMeta.level}${isRecap ? " (Prerequisite Recap)" : ""} |` : null,
       matchedMeta.minutes ? `| **ESTIMATED TIME** | About ${matchedMeta.minutes} minutes |` : null,
       `| **SAMPLE FILES** | Included in \`sample-files/\` inside this module folder |`,
       "",
@@ -738,7 +767,10 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
       .join("\n");
 
     return {
-      order: entry.order,
+      order: seqOrder,
+      stepOrder: isRecap ? null : roleNum,
+      recapOrder: isRecap ? roleNum : null,
+      stepLabel,
       id: matchedMeta.id || null,
       title: cleanTitle,
       displayTitle,
@@ -748,8 +780,12 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
       moduleInfo: {
         id: matchedMeta.id || null,
         name: cleanTitle,
-        order: entry.order,
-        role: matchedMeta.role || "level",
+        order: seqOrder,
+        stepOrder: isRecap ? null : roleNum,
+        recapOrder: isRecap ? roleNum : null,
+        stepLabel,
+        folderName,
+        role: isRecap ? "prerequisite" : matchedMeta.role || "level",
       },
     };
   });
@@ -761,7 +797,7 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
         "| Module | Folder | Sample Files |",
         "|---|---|---|",
         ...modules.map(
-          (m) => `| Step ${m.order} — ${m.displayTitle.replace(/\|/g, "\\|")} | \`${m.folderName}/\` | \`${m.folderName}/sample-files/\` |`,
+          (m) => `| ${m.stepLabel} — ${m.title.replace(/\|/g, "\\|")} | \`${m.folderName}/\` | \`${m.folderName}/sample-files/\` |`,
         ),
         "",
       ].join("\n")

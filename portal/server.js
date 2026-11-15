@@ -531,6 +531,9 @@ app.post("/api/lab-builder/preview", (req, res) => {
       modules: plan.features.map((f) => ({
         id: f.id,
         order: f.order,
+        stepOrder: f.stepOrder ?? null,
+        recapOrder: f.recapOrder ?? null,
+        stepLabel: f.stepLabel,
         name: f.name,
         category: f.category,
         level: f.level,

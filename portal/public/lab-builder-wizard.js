@@ -1813,6 +1813,21 @@ async function lbPreview(options = {}) {
     labBuilder.previewModules = Array.isArray(data.modules) ? data.modules : [];
     const recaps = data.modules.filter((m) => m.role === "prerequisite").length;
     const own = data.modules.length - recaps;
+    let recapCount = 0;
+    let stepCount = 0;
+    const moduleRowsHtml = data.modules
+      .map((m) => {
+        const isRecap = m.role === "prerequisite";
+        if (isRecap) recapCount += 1;
+        else stepCount += 1;
+        const stepLabel =
+          m.stepLabel ||
+          (isRecap ? `Recap ${m.recapOrder ?? recapCount}` : `Step ${m.stepOrder ?? stepCount}`);
+        return `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"></td><td>${escapeHtml(stepLabel)}</td><th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${isRecap ? "Recap: " : ""}${escapeHtml(m.name)}</label><div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div></th><td>${m.level}${
+          isRecap ? " (prerequisite recap)" : ""
+        }</td><td>about ${m.minutes} min</td></tr>`;
+      })
+      .join("");
     el.innerHTML = `
       <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">${escapeHtml(data.title)}</div>
       <div class="scenario-pill-list">
@@ -1827,14 +1842,7 @@ async function lbPreview(options = {}) {
         <caption>Lab outline with estimated time per module</caption>
         <thead><tr><th scope="col" class="lb-outline-include-col">Include</th><th scope="col">Step</th><th scope="col">Module</th><th scope="col">Level</th><th scope="col">Estimated time</th></tr></thead>
         <tbody>
-          ${data.modules
-            .map(
-              (m) =>
-                `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"></td><td>${m.order}</td><th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${m.role === "prerequisite" ? "Recap: " : ""}${escapeHtml(m.name)}</label><div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div></th><td>${m.level}${
-                  m.role === "prerequisite" ? " (prerequisite recap)" : ""
-                }</td><td>about ${m.minutes} min</td></tr>`
-            )
-            .join("")}
+          ${moduleRowsHtml}
         </tbody>
         <tfoot><tr><th scope="row" colspan="4">Total (estimate)</th><td>about ${escapeHtml(data.duration)}</td></tr></tfoot>
       </table>

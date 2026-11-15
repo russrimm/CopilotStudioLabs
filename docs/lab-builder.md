@@ -525,15 +525,20 @@ never disagree. `levels.js` holds the shared rules.
 - **The planner and generator enforce it too.** With a `level`, `planLab()` drops
   requested topics from other levels (recorded in `plan.request.droppedOutOfLevel`
   and a warning) and refuses a request with none at the level. Lower-level
-  prerequisites become *recaps*: flagged `prerequisite`, ordered first, estimated at
-  no more than 5 minutes, and written short (what you are doing, the steps, a check,
-  and sources; no concepts, knowledge checks, or screenshots). The lab titles them
-  `Recap: <name>`, labels them as prerequisite recaps in the Time Estimate table, and
-  keeps them out of the learning objectives and the quality review's per-module
-  checks. A recap dropped during the build never removes the module that builds on
-  it; the lab assumes it instead. The metadata table gains a **LEVEL** row, and
-  `manifest.json` records `level`, `levelName`, `prerequisites`, and a `role`
-  (`level` or `prerequisite`) per module. A request with no `level` or `levels`
+  prerequisites become *recaps*: flagged `prerequisite`, ordered first, numbered on
+  their own `Recap 1..K` sequence (`recapOrder`, `stepLabel: "Recap K"`) while main
+  modules always start at `Step 1..M` (`stepOrder`, `stepLabel: "Step M"`), estimated
+  at no more than 5 minutes, and written short (what you are doing, the steps, a check,
+  and sources; no concepts, knowledge checks, or screenshots). The lab headings render
+  them as `### Recap K - <name>` before `### Step 1 - <name>`, labels them as
+  prerequisite recaps in the Time Estimate table (`Recap K`) and Step 7 outline, and
+  keeps Learning Objectives numbered `Step 1..M` with a short refresher note when
+  recaps are present. A recap dropped during the build or unchecked on Step 7 never
+  shifts main module `Step 1..M` numbers or removes the module that builds on it; the
+  lab assumes it instead. The metadata table gains a **LEVEL** row, and
+  `manifest.json` records `level`, `levelName`, `prerequisites`, and `role`
+  (`level` or `prerequisite`), `order`, `stepOrder`, `recapOrder`, and `stepLabel`
+  per module. A request with no `level` or `levels`
   filter (for example when `--level` / `--levels` are omitted on the CLI, or from older
   API callers) is built across the selected features' levels as before; passing
   `--level` or `--levels` restricts the plan to those levels.

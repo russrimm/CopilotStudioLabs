@@ -1,13 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
 import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import vm from "node:vm";
 
 import { getFeatures, getFeature, expandPrereqs } from "../lib/lab-builder/catalog.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
 import { planLab } from "../lib/lab-builder/planner.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
-import { selectionsFromManifest } from "../lib/lab-builder/generated-labs.js";
+import { assessLab } from "../lib/lab-builder/qa.js";
+import { validateLabDir } from "../lib/validator.js";
+import { splitGeneratedLabModules } from "../lib/lab-builder/module-samples.js";
+import { parseLabSteps } from "../lib/step-validator/steps.js";
+import { selectionsFromManifest, resolveGeneratedAsset } from "../lib/lab-builder/generated-labs.js";
+import { exportGeneratedLab } from "../lib/exporter.js";
 import { classifyByRubric, resolveTopicLevel, PREREQ_RECAP_MINUTES } from "../lib/lab-builder/levels.js";
 import { resetTopicSource, setTopicSource } from "../lib/lab-builder/topic-store.js";
 
@@ -221,13 +230,135 @@ test("a generated lab holds only the chosen level plus labeled recaps, and says 
     assert.deepEqual(manifest.prerequisites, recaps.map((m) => m.id));
     assert.match(markdown, new RegExp(`\\| 🎚️ \\*\\*LEVEL\\*\\* \\| Level ${level} \\(`));
 
-    const recapHeadings = [...markdown.matchAll(/^### Step \d+ - Recap: /gm)];
-    assert.equal(recapHeadings.length, recaps.length);
-    const stepHeadings = [...markdown.matchAll(/^### Step \d+ - /gm)];
-    assert.equal(stepHeadings.length, manifest.modules.length);
+    const recapHeadings = [...markdown.matchAll(/^### Recap (\d+) - /gm)].map((m) => Number(m[1]));
+    assert.deepEqual(
+      recapHeadings,
+      recaps.map((_, idx) => idx + 1),
+    );
+    const stepHeadings = [...markdown.matchAll(/^### Step (\d+) - /gm)].map((m) => Number(m[1]));
+    assert.deepEqual(
+      stepHeadings,
+      own.map((_, idx) => idx + 1),
+    );
+    assert.deepEqual(
+      recaps.map((m) => ({ recapOrder: m.recapOrder, stepOrder: m.stepOrder, stepLabel: m.stepLabel })),
+      recaps.map((_, idx) => ({ recapOrder: idx + 1, stepOrder: null, stepLabel: `Recap ${idx + 1}` })),
+    );
+    assert.deepEqual(
+      own.map((m) => ({ recapOrder: m.recapOrder, stepOrder: m.stepOrder, stepLabel: m.stepLabel })),
+      own.map((_, idx) => ({ recapOrder: null, stepOrder: idx + 1, stepLabel: `Step ${idx + 1}` })),
+    );
+    const objectivesBlock = markdown.split("## Learning Objectives")[1]?.split("\n## ")[0] || "";
+    assert.match(objectivesBlock, /- \*\*Step 1 - /);
     assert.equal(manifest.totalMinutes, rec.totals.minutes);
     if (recaps.length) assert.match(markdown, /prerequisite recap/i);
     assert.doesNotMatch(markdown, /GitHub Copilot harness/);
+  }
+});
+
+test("a Level 200 lab with prerequisite recaps numbers Recaps 1..K and Steps 1..M separately and passes QA, step parser, dir validation, and ZIP export", async () => {
+  const outRoot = mkdtempSync(join(tmpdir(), "level200-recap-numbering-"));
+  try {
+    const built = await generateLab(
+      {
+        level: 200,
+        harness: "standard",
+        industry: "financial-services",
+        departments: ["finance"],
+        features: ["knowledge-sharepoint", "connector-tools", "adaptive-cards"],
+        includeCore: false,
+      },
+      { outputRoot: outRoot, useLearnMcp: false, useLlm: false, write: true },
+    );
+
+    assert.equal(built.status, "complete");
+    const recaps = built.manifest.modules.filter((m) => m.role === "prerequisite");
+    const mainModules = built.manifest.modules.filter((m) => m.role === "level");
+    assert.ok(recaps.length >= 2, "expected at least 2 Level 100 prerequisite recaps");
+    assert.equal(mainModules.length, 4, "expected 4 Level 200 main modules (including generative-orchestration)");
+
+    // Overview aligns Page 1 with Page 2: explicit step & recap ranges + Step 1..M bullets.
+    const overviewBlock = built.markdown.split("## Overview")[1]?.split("\n## ")[0] || "";
+    assert.match(overviewBlock, new RegExp(`\\(Steps 1 to ${mainModules.length}\\)`));
+    assert.match(overviewBlock, new RegExp(`\\(Recaps 1 to ${recaps.length}\\)`));
+    assert.match(overviewBlock, /- \*\*Step 1 - /);
+    assert.match(overviewBlock, new RegExp(`- \\*\\*Step ${mainModules.length} - `));
+
+    // Learning Objectives starts at Step 1 (never Step K+1) and notes prerequisite recaps in prose.
+    const objectivesBlock = built.markdown.split("## Learning Objectives")[1]?.split("\n## ")[0] || "";
+    const objectiveBullets = objectivesBlock.split("\n").filter((l) => /^\s*-\s+/.test(l));
+    assert.equal(objectiveBullets.length, mainModules.length);
+    assert.match(objectiveBullets[0], /^- \*\*Step 1 - /);
+    assert.match(objectiveBullets[mainModules.length - 1], new RegExp(`^- \\*\\*Step ${mainModules.length} - `));
+    assert.match(objectivesBlock, new RegExp(`Optional \\*\\*Prerequisite Recaps 1 to ${recaps.length}\\*\\*`));
+
+    // Step-by-Step headings use ### Recap 1..K and ### Step 1..M.
+    const recapNums = [...built.markdown.matchAll(/^### Recap (\d+) - /gm)].map((m) => Number(m[1]));
+    const stepNums = [...built.markdown.matchAll(/^### Step (\d+) - /gm)].map((m) => Number(m[1]));
+    assert.deepEqual(recapNums, recaps.map((_, i) => i + 1));
+    assert.deepEqual(
+      stepNums,
+      mainModules.map((_, i) => i + 1),
+    );
+    assert.doesNotMatch(built.markdown, /^### Step \d+ - Recap:/m);
+
+    // Time Estimate table uses Recap 1..K and Step 1..M in column 1.
+    const timeBlock = built.markdown.split("## Time Estimate")[1]?.split("\n## ")[0] || "";
+    assert.match(timeBlock, /^\| Recap 1 \| Recap: /m);
+    assert.match(timeBlock, /^\| Step 1 \| /m);
+
+    // QA assessment passes with 0 errors and objectives-mapped ratio === 1.
+    const qa = assessLab(built.markdown, { expectedTopics: mainModules.map((m) => ({ name: m.name })) });
+    assert.deepEqual(
+      qa.findings.filter((f) => f.severity === "error"),
+      [],
+      `Expected 0 QA errors, got: ${JSON.stringify(qa.findings)}`,
+    );
+    const objMapped = qa.checks.find((c) => c.id === "objectives-mapped");
+    assert.equal(objMapped?.ratio, 1, "objectives-mapped ratio must be 1");
+    const timeConsistent = qa.checks.find((c) => c.id === "time-consistency");
+    assert.equal(timeConsistent?.ratio, 1, "time-consistency ratio must be 1");
+
+    // Step validator extracts all K + M units cleanly.
+    const parsedSteps = parseLabSteps(built.markdown);
+    assert.equal(parsedSteps.steps.length, recaps.length + mainModules.length);
+
+    // Directory structural validation passes with 0 failures.
+    const dirValidation = validateLabDir(built.outputDir);
+    assert.equal(dirValidation.failed, 0, `Expected 0 dir validation failures, got: ${JSON.stringify(dirValidation)}`);
+
+    // Module splitter and full ZIP export preserve Module 01..NN order with accurate Recap K / Step M labels.
+    const split = splitGeneratedLabModules(built.markdown, built.manifest);
+    assert.equal(split.modules.length, recaps.length + mainModules.length);
+    assert.match(split.modules[0].folderName, /^Module 01 - Recap - /);
+    assert.equal(split.modules[0].stepLabel, "Recap 1");
+    assert.match(split.modules[0].markdown, /\| \*\*MODULE\*\* \| Recap 1 — /);
+    const firstMainIdx = recaps.length;
+    const expectedMainFolderPrefix = `Module ${String(firstMainIdx + 1).padStart(2, "0")} - `;
+    assert.ok(split.modules[firstMainIdx].folderName.startsWith(expectedMainFolderPrefix));
+    assert.doesNotMatch(split.modules[firstMainIdx].folderName, /Recap - /);
+    assert.equal(split.modules[firstMainIdx].stepLabel, "Step 1");
+    assert.match(split.modules[firstMainIdx].markdown, /\| \*\*MODULE\*\* \| Step 1 — /);
+    assert.match(split.overview.markdown, /\| Recap 1 — .+ \| `Module 01 - Recap - /);
+    assert.match(split.overview.markdown, new RegExp(`\\| Step 1 — .+ \\| \`${expectedMainFolderPrefix}`));
+
+    const zipChunks = [];
+    const outStream = new PassThrough();
+    outStream.on("data", (chunk) => zipChunks.push(chunk));
+    const zipDone = new Promise((res, rej) => {
+      outStream.on("end", res);
+      outStream.on("error", rej);
+    });
+    await exportGeneratedLab(outRoot, built.labId, {}, outStream, {
+      resolveAsset: resolveGeneratedAsset,
+      formats: "docx,pdf,html",
+    });
+    await zipDone;
+    const zipBuf = Buffer.concat(zipChunks);
+    assert.equal(zipBuf[0], 0x50);
+    assert.equal(zipBuf[1], 0x4b);
+  } finally {
+    rmSync(outRoot, { recursive: true, force: true });
   }
 });
 

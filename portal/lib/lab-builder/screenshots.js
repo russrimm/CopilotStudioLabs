@@ -67,6 +67,12 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
     const capture = [];
     let figure = 0;
 
+    const sectionNum = feature.prerequisite
+      ? (feature.recapOrder ?? feature.order)
+      : (feature.stepOrder ?? feature.order);
+    const sectionLabel =
+      feature.stepLabel || (feature.prerequisite ? `Recap ${sectionNum}` : `Step ${sectionNum}`);
+
     for (const ref of feature.reuseScreenshots || []) {
       if (!isSafeName(ref.lab) || !isSafeName(ref.file)) continue;
       const assetsRoot = path.resolve(labsDir, ref.lab, "assets");
@@ -83,7 +89,7 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
         caption,
         // The reused caption is already a description of the screen.
         alt: `${caption}.`,
-        figure: `${feature.order}.${figure}`,
+        figure: `${sectionNum}.${figure}`,
         credit: `Reused from lab \`${ref.lab}\``,
       });
     }
@@ -103,14 +109,14 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
         feature: feature.id,
         filename,
         section: shot.section || "agents",
-        labSection: `Step ${feature.order} - ${feature.name}`,
+        labSection: `${sectionLabel} - ${feature.name}`,
         instructions: shot.instructions || [`Capture the ${feature.name} experience.`],
         // What the finished image shows, written now so the lab is accessible
         // before the capture tool fills the image in.
         alt: described.alt,
         caption: described.caption,
         kind: described.kind,
-        figure: `${feature.order}.${figure}`,
+        figure: `${sectionNum}.${figure}`,
         status: captured ? "captured" : "pending",
       };
       if (shot.url) entry.url = shot.url;

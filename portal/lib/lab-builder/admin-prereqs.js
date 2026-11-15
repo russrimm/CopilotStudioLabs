@@ -54,14 +54,22 @@ function normalizeModules(input = {}) {
   // Fallback for legacy generated labs that only have index.md on disk.
   const markdown = String(input.markdown || "");
   if (markdown) {
-    const matches = [...markdown.matchAll(/^###\s+Step\s+(\d+)\s+[—–-]\s+(.+?)\s*$/gm)];
-    return matches.map((match) => {
-      const order = Number(match[1]);
-      const rawName = match[2].replace(/\s*\(Recap\)\s*$/i, "").trim();
+    const matches = [...markdown.matchAll(/^###\s+(Step|Recap)\s+(\d+)\s+[—–-]\s+(.+?)\s*$/gim)];
+    return matches.map((match, idx) => {
+      const kind = match[1].toLowerCase();
+      const num = Number(match[2]);
+      const rawTitle = match[3].trim();
+      const isRecap = kind === "recap" || /^recap:\s+/i.test(rawTitle);
+      const rawName = rawTitle.replace(/^recap:\s+/i, "").replace(/\s*\(Recap\)\s*$/i, "").trim();
       return {
-        id: `step-${order}`,
+        id: `${isRecap ? "recap" : "step"}-${num}`,
         name: rawName,
-        order,
+        order: idx + 1,
+        stepOrder: isRecap ? null : num,
+        recapOrder: isRecap ? num : null,
+        stepLabel: isRecap ? `Recap ${num}` : `Step ${num}`,
+        prerequisite: isRecap,
+        role: isRecap ? "prerequisite" : "level",
         product: input.manifest?.product || DEFAULT_PRODUCT,
         category: "foundations",
       };
@@ -72,7 +80,11 @@ function normalizeModules(input = {}) {
 }
 
 function stepLabel(mod) {
-  return `Step ${mod.order} - ${mod.name}`;
+  if (mod.stepLabel) return `${mod.stepLabel} - ${mod.name}`;
+  if (mod.prerequisite || mod.role === "prerequisite") {
+    return `Recap ${mod.recapOrder ?? mod.order} - ${mod.name}`;
+  }
+  return `Step ${mod.stepOrder ?? mod.order} - ${mod.name}`;
 }
 
 function uniqueLabels(mods) {
