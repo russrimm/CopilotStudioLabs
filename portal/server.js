@@ -55,6 +55,11 @@ import {
   resolveGeneratedAsset,
   updateGeneratedLabMeta,
 } from "./lib/lab-builder/generated-labs.js";
+import {
+  captureLabScreenshots,
+  getLabScreenshotsStatus,
+  revalidateLabAgainstLearn,
+} from "./lib/lab-builder/lab-screenshots.js";
 import { getTopicService } from "./lib/lab-builder/topic-service.js";
 import { learnContext, newTopicCounts, newTopicCountsByLevel, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
 import { labDiagramExtension, renderLabMarkdown } from "./lib/markdown.js";
@@ -600,6 +605,8 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       outputRoot: GENERATED_LABS_DIR,
       useLearnMcp: body.useLearnMcp !== false,
       useLlm: body.useLlm !== false,
+      captureScreenshots: Boolean(body.captureScreenshots),
+      captureMode: typeof body.captureMode === "string" ? body.captureMode : typeof body.screenshotMode === "string" ? body.screenshotMode : "auto",
       decisions,
       decisionSource: "portal",
       signal: controller.signal,
@@ -640,6 +647,8 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       manifest: result.manifest,
       topicDocuments: result.topicDocuments || result.manifest?.topicDocuments || [],
       adminPrerequisites: result.adminPrerequisites,
+      screenshotState: result.screenshotState || getLabScreenshotsStatus(GENERATED_LABS_DIR, result.labId).body || null,
+      screenshotCapture: result.screenshotCapture || null,
       validation: result.validation,
       qa: result.qa,
       warnings: result.plan.warnings,
@@ -885,13 +894,80 @@ app.delete("/api/lab-builder/generated/:labId", (req, res) => {
   res.status(status).json(body);
 });
 
-/** GET /api/lab-builder/generated/:labId/assets/:file — An image from a generated lab's assets folder */
-app.get("/api/lab-builder/generated/:labId/assets/:file", (req, res) => {
-  const asset = resolveGeneratedAsset(GENERATED_LABS_DIR, req.params.labId, req.params.file);
+/** GET /api/lab-builder/generated/:labId/screenshots — Per-lab Playwright screenshot plan & MS Learn sync status */
+function handleGeneratedLabScreenshotsGet(req, res) {
+  const { status, body } = getLabScreenshotsStatus(GENERATED_LABS_DIR, req.params.labId);
+  return res.status(status).json(body);
+}
+app.get("/api/lab-builder/generated/:labId/screenshots", handleGeneratedLabScreenshotsGet);
+app.get("/api/generated-labs/:labId/screenshots", handleGeneratedLabScreenshotsGet);
+
+/** POST /api/lab-builder/generated/:labId/screenshots/revalidate — Check live MS Learn for drift & optionally auto-update steps + screenshots */
+async function handleGeneratedLabScreenshotsRevalidate(req, res) {
+  if (manageRateLimited(req, res)) return;
+  const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+  const autoCapture = Boolean(body.autoCapture);
+  const autoUpdate = Boolean(body.autoUpdate ?? autoCapture);
+  const updateSteps = body.updateSteps !== undefined ? Boolean(body.updateSteps) : autoUpdate;
+  const onlyStale = body.onlyStale !== false;
+  const mode = typeof body.mode === "string" ? body.mode : "headless";
+  try {
+    const result = await revalidateLabAgainstLearn(GENERATED_LABS_DIR, req.params.labId, {
+      autoUpdate,
+      updateSteps,
+      autoCapture,
+      onlyStale,
+      mode,
+    });
+    return res.status(result.status).json(result.body);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+app.post("/api/lab-builder/generated/:labId/screenshots/revalidate", handleGeneratedLabScreenshotsRevalidate);
+app.post("/api/generated-labs/:labId/screenshots/revalidate", handleGeneratedLabScreenshotsRevalidate);
+
+/** POST /api/lab-builder/generated/:labId/screenshots/capture — Run Playwright step-through screenshot capture for an individual lab */
+async function handleGeneratedLabScreenshotsCapture(req, res) {
+  if (manageRateLimited(req, res)) return;
+  const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+  const onlyMissing = Boolean(body.onlyMissing);
+  const onlyStale = Boolean(body.onlyStale);
+  const featureIds = Array.isArray(body.featureIds)
+    ? body.featureIds.filter((id) => typeof id === "string" && id.trim()).map((id) => id.trim())
+    : undefined;
+  const mode = typeof body.mode === "string" ? body.mode : "auto";
+  try {
+    const result = await captureLabScreenshots(GENERATED_LABS_DIR, req.params.labId, {
+      onlyMissing,
+      onlyStale,
+      featureIds,
+      mode,
+    });
+    return res.status(result.status).json(result.body);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+app.post("/api/lab-builder/generated/:labId/screenshots/capture", handleGeneratedLabScreenshotsCapture);
+app.post("/api/generated-labs/:labId/screenshots/capture", handleGeneratedLabScreenshotsCapture);
+
+/** GET /api/lab-builder/generated/:labId/assets/:filename — An image from a generated lab's assets folder */
+function handleGeneratedLabAsset(req, res) {
+  const filename = req.params.filename ?? req.params.file;
+  const asset = resolveGeneratedAsset(GENERATED_LABS_DIR, req.params.labId, filename);
   if (asset.status !== 200) return res.status(asset.status).json({ error: asset.error });
   res.set({ "Content-Type": asset.type, "Cache-Control": "no-cache", "X-Content-Type-Options": "nosniff" });
   return res.sendFile(asset.path);
-});
+}
+app.get("/api/lab-builder/generated/:labId/assets/:filename", handleGeneratedLabAsset);
+app.get("/api/generated-labs/:labId/assets/:filename", handleGeneratedLabAsset);
+app.get("/api/lab-builder/generated/:labId/assets/*extra", (_req, res) =>
+  res.status(400).json({ error: "Invalid asset" }),
+);
+app.get("/api/generated-labs/:labId/assets/*extra", (_req, res) =>
+  res.status(400).json({ error: "Invalid asset" }),
+);
 /** GET /api/labs — List all available labs with metadata */
 app.get("/api/labs", (_req, res) => {
   try {

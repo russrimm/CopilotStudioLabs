@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "capture": "node capture.js",
+    "capture:lab": "node capture.js",
     "list": "node capture.js --list",
     "capture:features": "node capture.js --features",
     "list:features": "node capture.js --features --list",

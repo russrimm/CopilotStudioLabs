@@ -4222,6 +4222,42 @@ function lbRenderDecisions(blockers) {
     const chosen = new Map();
     let firstLegend = null;
 
+    const finish = (value) => {
+      host.hidden = true;
+      host.textContent = "";
+      resolve(value);
+    };
+
+    const createActionRow = (modifierClass) => {
+      const actions = document.createElement("div");
+      actions.className = modifierClass
+        ? `lb-decision-actions ${modifierClass}`
+        : "lb-decision-actions";
+
+      const submit = document.createElement("button");
+      submit.type = "submit";
+      submit.className = "btn btn-primary lb-decision-continue-btn";
+      submit.textContent = "Continue with these choices";
+
+      const abandon = document.createElement("button");
+      abandon.type = "button";
+      abandon.className = "btn";
+      abandon.textContent = "Cancel the build";
+      abandon.addEventListener("click", () => finish(null));
+
+      actions.append(submit, abandon);
+      return actions;
+    };
+
+    const quickBanner = document.createElement("div");
+    quickBanner.className = "lb-decision-quickbar";
+    const quickHint = document.createElement("p");
+    quickHint.className = "lb-decision-quickbar-hint";
+    quickHint.textContent =
+      "Recommended choices are pre-selected below. Select \"Continue with these choices\" to resume in one click, or adjust an option first.";
+    quickBanner.append(quickHint, createActionRow("lb-decision-actions-top"));
+    form.appendChild(quickBanner);
+
     blockers.forEach((blocker, blockerIndex) => {
       const fieldset = document.createElement("fieldset");
       fieldset.className = "lb-blocker";
@@ -4237,6 +4273,7 @@ function lbRenderDecisions(blockers) {
       consequence.textContent = blocker.consequence;
       fieldset.appendChild(consequence);
 
+      const optionLabels = [];
       blocker.options.forEach((option, optionIndex) => {
         const inputId = `lb-decision-${blockerIndex}-${optionIndex}`;
         const tradeoffId = `${inputId}-tradeoff`;
@@ -4247,16 +4284,39 @@ function lbRenderDecisions(blockers) {
         input.id = inputId;
         input.value = option.id;
         input.setAttribute("aria-describedby", tradeoffId);
+
+        const label = document.createElement("label");
+        label.className = option.recommended ? "lb-option lb-option-recommended lb-option-selected" : "lb-option";
+        label.htmlFor = inputId;
+        optionLabels.push({ input, label });
+
         if (option.recommended) {
           input.checked = true;
           chosen.set(blocker.code, option.id);
         }
-        input.addEventListener("change", () => chosen.set(blocker.code, option.id));
+        input.addEventListener("change", () => {
+          chosen.set(blocker.code, option.id);
+          optionLabels.forEach((entry) => {
+            entry.label.classList.toggle("lb-option-selected", Boolean(entry.input.checked));
+          });
+        });
+
+        const nameRow = document.createElement("span");
+        nameRow.className = "lb-option-head";
 
         const name = document.createElement("span");
         name.className = "lb-option-label";
-        // "(recommended)" is part of the accessible name, not colour alone.
+        // "(recommended)" is part of the accessible name, not color alone.
         name.textContent = option.recommended ? `${option.label} (recommended)` : option.label;
+        nameRow.appendChild(name);
+
+        if (option.recommended) {
+          const badge = document.createElement("span");
+          badge.className = "lb-option-rec-badge";
+          badge.setAttribute("aria-hidden", "true");
+          badge.textContent = "Pre-selected";
+          nameRow.appendChild(badge);
+        }
 
         const tradeoff = document.createElement("span");
         tradeoff.className = "lb-option-tradeoff";
@@ -4264,11 +4324,9 @@ function lbRenderDecisions(blockers) {
         tradeoff.textContent = option.tradeoff;
 
         const text = document.createElement("span");
-        text.append(name, tradeoff);
+        text.className = "lb-option-body";
+        text.append(nameRow, tradeoff);
 
-        const label = document.createElement("label");
-        label.className = "lb-option";
-        label.htmlFor = inputId;
         label.append(input, text);
         fieldset.appendChild(label);
       });
@@ -4276,28 +4334,7 @@ function lbRenderDecisions(blockers) {
       form.appendChild(fieldset);
     });
 
-    const finish = (value) => {
-      host.hidden = true;
-      host.textContent = "";
-      resolve(value);
-    };
-
-    const actions = document.createElement("div");
-    actions.className = "lb-decision-actions";
-
-    const submit = document.createElement("button");
-    submit.type = "submit";
-    submit.className = "btn btn-primary";
-    submit.textContent = "Continue with these choices";
-
-    const abandon = document.createElement("button");
-    abandon.type = "button";
-    abandon.className = "btn";
-    abandon.textContent = "Cancel the build";
-    abandon.addEventListener("click", () => finish(null));
-
-    actions.append(submit, abandon);
-    form.appendChild(actions);
+    form.appendChild(createActionRow("lb-decision-actions-bottom"));
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       finish(Object.fromEntries(chosen));
@@ -4395,10 +4432,11 @@ async function lbGenerate() {
       if (typeof lbStartGeneratingAnimation === "function") lbStartGeneratingAnimation();
       if (status) status.textContent = "Researching Microsoft Learn and composing your lab. This can take a minute...";
 
+      const captureScreenshots = Boolean(document.getElementById("lb-capture-on-build")?.checked);
       const res = await fetch("/api/lab-builder/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...lbRequest(), replaceLabId: lbReplaceTarget(), decisions }),
+        body: JSON.stringify({ ...lbRequest(), replaceLabId: lbReplaceTarget(), captureScreenshots, decisions }),
         signal: labBuilder.controller.signal,
       });
       const data = await res.json();
@@ -4545,6 +4583,7 @@ function lbShowResult(data) {
   body.innerHTML = `
     <div id="lb-result-validation" role="region" aria-label="Generated lab validation results" aria-live="polite"></div>
     ${lbQualityPanel(data.qa)}
+    <div id="lb-result-screenshots"></div>
     <div id="lb-result-topic-docs">${topicDocsHtml}</div>
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
     <div id="lb-result-admin-prereqs">${adminPrereqsHtml}</div>
@@ -4556,6 +4595,14 @@ function lbShowResult(data) {
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
   if (typeof lbGen !== "undefined") lbGen.opened = data.labId;
   labBuilder.lastMarkdown = data.markdown;
+  if (typeof lbRenderLabScreenshotsPanel === "function" && data.screenshotState) {
+    lbRenderLabScreenshotsPanel(
+      document.getElementById("lb-result-screenshots"),
+      data.labId,
+      data.screenshotState,
+      data.screenshotCapture ? { type: "capture", capture: data.screenshotCapture } : null,
+    );
+  }
   lbLoadResultPreview(data.labId);
 }
 
@@ -4576,6 +4623,14 @@ async function lbLoadResultPreview(labId) {
     if (topicDocsHost && typeof lbRenderTopicDocumentsHtml === "function") {
       const topicDocs = data.topicDocuments || data.manifest?.topicDocuments || [];
       topicDocsHost.innerHTML = lbRenderTopicDocumentsHtml(labId, topicDocs);
+    }
+    const screenshotsHost = document.getElementById("lb-result-screenshots");
+    if (screenshotsHost && typeof lbRenderLabScreenshotsPanel === "function") {
+      if (data.screenshotState) {
+        lbRenderLabScreenshotsPanel(screenshotsHost, labId, data.screenshotState);
+      } else if (typeof lbRefreshLabScreenshotsPanel === "function") {
+        lbRefreshLabScreenshotsPanel(labId);
+      }
     }
     const prereqHost = document.getElementById("lb-result-admin-prereqs");
     if (prereqHost && typeof lbRenderAdminPrerequisitesHtml === "function") {

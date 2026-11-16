@@ -3128,12 +3128,14 @@
       ],
       "screenshots": [],
       "learnQueries": [
+        "Test your agent Microsoft Copilot Copilot Studio",
         "Preview and test an agent Microsoft Copilot harness Copilot Studio",
         "Copilot Studio activity trace Preview tab"
       ],
       "docUrls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview",
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-test-bot",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-overview",
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-activity-trace",
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/preview-history"
       ],
       "lastVerified": "2026-11-12",
@@ -4197,7 +4199,8 @@
       ],
       "screenshots": [],
       "learnQueries": [
-        "Memory Microsoft Copilot harness Copilot Studio preview",
+        "Memory Microsoft Copilot preview Copilot Studio",
+        "Turn Memory on or off Copilot Studio Build tab",
         "Copilot Studio agent memory per user 28 days"
       ],
       "docUrls": [

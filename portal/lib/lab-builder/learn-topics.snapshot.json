@@ -829,8 +829,10 @@
       ],
       "conceptId": "testing",
       "availability": null,
-      "status": "new",
-      "featureIds": [],
+      "status": "covered",
+      "featureIds": [
+        "mc-preview-test"
+      ],
       "level": 200,
       "firstSeen": "2026-11-13",
       "lastSeen": "2026-11-13",
@@ -5239,6 +5241,6 @@
     "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm": "305628bca9c7ccdd",
     "https://learn.microsoft.com/microsoft-agent-365/admin/agent-365-overview": "c48f612a041f0226"
   },
-  "listHash": "33dc69efaaf3cb42",
+  "listHash": "b3e2745f280ab307",
   "endpoint": "https://learn.microsoft.com/api/mcp"
 }

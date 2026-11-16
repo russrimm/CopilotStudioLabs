@@ -16,6 +16,7 @@ import { escapeMarkdown, scrubForbidden } from "./composer.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { capturedImage, capturedScreenshotsDir } from "./captured.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
+import { getLabScreenshotsStatus } from "./lab-screenshots.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
 import {
   ALLOWED_TOPIC_DOC_FORMATS,
@@ -78,24 +79,31 @@ export function decorateGeneratedHtml(html, labId, labDir, { capturedDir = captu
  * @returns {{status: number, path?: string, type?: string, error?: string}}
  */
 export function resolveGeneratedAsset(rootDir, rawId, rawName, { capturedDir = capturedScreenshotsDir() } = {}) {
-  const labId = String(rawId);
-  const name = String(rawName);
-  if (!LAB_ID.test(labId) || !ASSET_NAME.test(name)) return { status: 400, error: "Invalid asset" };
+  const labId = String(rawId ?? "");
+  const name = String(rawName ?? "");
+  if (!LAB_ID.test(labId) || !ASSET_NAME.test(name) || name.includes("..")) {
+    return { status: 400, error: "Invalid asset" };
+  }
+  const found = locateGeneratedLab(rootDir, labId);
   const type = CONTENT_TYPES[name.split(".").pop().toLowerCase()];
   const assetsDir = resolve(resolve(rootDir), labId, "assets");
   const file = resolve(assetsDir, name);
   const rel = relative(assetsDir, file);
-  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return { status: 404, error: "Asset not found" };
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return { status: 400, error: "Invalid asset" };
   let size = 0;
+  let existsLocal = false;
   try {
-    size = statSync(file).size;
+    const lst = lstatSync(file);
+    if (lst.isSymbolicLink() || !lst.isFile()) return { status: 400, error: "Invalid asset" };
+    existsLocal = true;
+    size = lst.size;
   } catch {
     /* fall through to the captured image */
   }
   if (size >= MIN_CAPTURED_BYTES) return { status: 200, path: file, type };
-  const captured = existsSync(join(resolve(rootDir), labId, "manifest.json")) ? capturedImage(capturedDir, name) : null;
+  const captured = found.status === 200 ? capturedImage(capturedDir, name) : null;
   if (captured) return { status: 200, path: captured.file, type };
-  return existsSync(file) ? { status: 200, path: file, type } : { status: 404, error: "Asset not found" };
+  return existsLocal ? { status: 200, path: file, type } : { status: 404, error: "Asset not found" };
 }
 
 function textList(value) {
@@ -186,6 +194,18 @@ function summarizeManifest(labId, manifest) {
       ? { name: spSite.name, url: spSite.url, label: spSite.label }
       : null,
     validation: validationSummary(manifest),
+    screenshots: manifest.screenshots
+      ? {
+          total: Number(
+            manifest.screenshots.total ??
+              Number(manifest.screenshots.reused || 0) + Number(manifest.screenshots.toCapture || 0),
+          ),
+          captured: Number(manifest.screenshots.captured ?? manifest.screenshots.reused ?? 0),
+          pending: Number(manifest.screenshots.pending ?? manifest.screenshots.toCapture ?? 0),
+          stale: Number(manifest.screenshots.stale || 0),
+          learnSyncStatus: manifest.screenshots.learnSyncStatus || "up-to-date",
+        }
+      : null,
     selections,
   };
 }
@@ -404,6 +424,7 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown = (md) => String
     const adminPrerequisites = manifest?.adminPrerequisites || buildAdminPrerequisites({ manifest, markdown });
     const summary = manifest ? summarizeManifest(labId, manifest) : null;
     const { html, pending } = decorateGeneratedHtml(renderMarkdown(markdown), labId, labDir);
+    const screenshotStatus = getLabScreenshotsStatus(rootDir, labId);
     return {
       status: 200,
       body: {
@@ -416,6 +437,7 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown = (md) => String
         sharepointSite: summary?.sharepointSite || null,
         topicDocuments,
         pendingScreenshots: pending,
+        screenshotState: screenshotStatus.status === 200 ? screenshotStatus.body : null,
       },
     };
   } catch (err) {

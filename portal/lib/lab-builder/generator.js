@@ -57,6 +57,14 @@ import {
   resolveDecision,
 } from "./blockers.js";
 import { validateLabDir } from "../validator.js";
+import { resolveLabScreenshot } from "./captured.js";
+import {
+  buildPerLabScreenshotArtifacts,
+  captureLabScreenshots,
+  extractDocHeadings,
+  hashContentFingerprint,
+  writePerLabScreenshotArtifacts,
+} from "./lab-screenshots.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -294,6 +302,8 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
         confidence: Number(result.score.toFixed(3)),
         reason: null,
         canonicalVerified: true,
+        contentFingerprint: hashContentFingerprint(page.markdown),
+        pageHeadings: extractDocHeadings(page.markdown),
         drift: diffSteps(feature.steps, result.steps),
         attempts: catalogEntry.attempts,
         synthesis: catalogEntry.synthesis,
@@ -322,6 +332,8 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
         catalogEntry.url = feature.verifiedAgainst;
         catalogEntry.fetchedAt = canonicalPage.fetchedAt;
         catalogEntry.canonicalVerified = true;
+        catalogEntry.contentFingerprint = hashContentFingerprint(canonicalPage.markdown);
+        catalogEntry.pageHeadings = extractDocHeadings(canonicalPage.markdown);
         return [feature.id, catalogEntry];
       }
     }
@@ -1390,9 +1402,45 @@ export async function generateLab(request, opts = {}) {
   const outputDir = reserveUniqueDir(outputRoot, plan.slug);
   try {
     const savedLabId = path.basename(outputDir);
-    result.html = renderStandaloneLabHtml(markdown, { title: plan.title, labId: savedLabId });
     copyScreenshots(screenshots.copies, path.join(outputDir, "assets"));
     writePlaceholders(screenshots.placeholders, path.join(outputDir, "assets"));
+
+    const screenshotArtifacts = buildPerLabScreenshotArtifacts({
+      labId: savedLabId,
+      labDir: outputDir,
+      plan,
+      screenshots,
+      stepsByFeature,
+      groundingByFeature,
+      generatedAt: generation.generatedAt,
+    });
+    writePerLabScreenshotArtifacts(outputDir, {
+      ...screenshotArtifacts,
+      manifest,
+    });
+
+    result.html = renderStandaloneLabHtml(markdown, {
+      title: plan.title,
+      labId: savedLabId,
+      resolveImageSrc: (assetName) => {
+        const resolved = resolveLabScreenshot(outputDir, assetName);
+        if (resolved?.file && fs.existsSync(resolved.file)) {
+          const ext = path.extname(resolved.file).toLowerCase();
+          const mime =
+            ext === ".png"
+              ? "image/png"
+              : ext === ".jpg" || ext === ".jpeg"
+              ? "image/jpeg"
+              : ext === ".webp"
+              ? "image/webp"
+              : null;
+          if (mime) {
+            return `data:${mime};base64,${fs.readFileSync(resolved.file).toString("base64")}`;
+          }
+        }
+        return `assets/${assetName}`;
+      },
+    });
     fs.writeFileSync(path.join(outputDir, "index.md"), markdown, "utf8");
     fs.writeFileSync(path.join(outputDir, "index.html"), result.html, "utf8");
 
@@ -1412,7 +1460,25 @@ export async function generateLab(request, opts = {}) {
     }
 
     result.outputDir = outputDir;
-    result.labId = path.basename(outputDir);
+    result.labId = savedLabId;
+
+    const wantCaptureScreenshots = Boolean(opts.captureScreenshots || request?.captureScreenshots);
+    if (wantCaptureScreenshots) {
+      onProgress?.({ stage: "screenshots", message: "Stepping through lab modules with Playwright to capture screenshots" });
+      const captureOutcome = await captureLabScreenshots(outputRoot, savedLabId, {
+        onlyMissing: true,
+        mode: opts.captureMode || request?.captureMode || "auto",
+        driver: opts.screenshotDriver || null,
+      });
+      result.screenshotCapture = captureOutcome.body?.capture || null;
+      result.screenshotState = captureOutcome.body?.state || null;
+      if (fs.existsSync(path.join(outputDir, "manifest.json"))) {
+        Object.assign(manifest, JSON.parse(fs.readFileSync(path.join(outputDir, "manifest.json"), "utf8")));
+      }
+      if (fs.existsSync(path.join(outputDir, "index.html"))) {
+        result.html = fs.readFileSync(path.join(outputDir, "index.html"), "utf8");
+      }
+    }
 
     onProgress?.({ stage: "validate", message: "Validating the generated lab" });
     result.validation = validateLabDir(outputDir, { labId: result.labId, title: plan.title });

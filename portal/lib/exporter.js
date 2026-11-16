@@ -14,6 +14,8 @@ import {
   prependBrandingBanner,
 } from "./branding.js";
 import { renderStandaloneLabHtml } from "./lab-builder/html-lab.js";
+import { resolveLabScreenshot } from "./lab-builder/captured.js";
+import { MIN_CAPTURED_BYTES } from "./lab-builder/slots.js";
 import { renderMarkdownToDocxBuffer } from "./lab-builder/docx-builder.js";
 import { renderMarkdownToPdfBuffer } from "./lab-builder/pdf-builder.js";
 import {
@@ -67,20 +69,25 @@ function resolveLabAssetBuffer(generatedRoot, labId, labDir, rawSrc, resolveAsse
   const match = String(rawSrc || "").trim().match(/^(?:\/?assets\/)([A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|gif|webp))$/i);
   const assetName = match ? match[1] : null;
   if (!assetName) return null;
+  const localPath = resolve(join(labDir, "assets", assetName));
   if (typeof resolveAsset === "function") {
     const resolved = resolveAsset(generatedRoot, labId, assetName);
     if (resolved?.status === 200 && resolved.path && existsSync(resolved.path)) {
       try {
-        return readFileSync(resolved.path);
+        const buf = readFileSync(resolved.path);
+        const resolvedAbs = resolve(resolved.path);
+        if (resolvedAbs !== localPath || buf.length >= MIN_CAPTURED_BYTES) {
+          return buf;
+        }
       } catch {
-        // Fall through to local asset copy.
+        // Fall through to standard per-lab / shared screenshot resolution.
       }
     }
   }
-  const localPath = join(labDir, "assets", assetName);
-  if (existsSync(localPath)) {
+  const captured = resolveLabScreenshot(labDir, assetName);
+  if (captured?.file && existsSync(captured.file)) {
     try {
-      return readFileSync(localPath);
+      return readFileSync(captured.file);
     } catch {
       return null;
     }
@@ -325,8 +332,12 @@ export function renderGeneratedLabHtml(
           if (uri) return uri;
         }
       }
-      const localAsset = join(found.labDir, "assets", assetName);
-      return fileToDataUri(localAsset) || `/api/lab-builder/generated/${found.labId}/assets/${assetName}`;
+      const captured = resolveLabScreenshot(found.labDir, assetName);
+      if (captured?.file) {
+        const uri = fileToDataUri(captured.file);
+        if (uri) return uri;
+      }
+      return `/api/lab-builder/generated/${found.labId}/assets/${assetName}`;
     },
   });
 
@@ -545,10 +556,17 @@ export function exportGeneratedLab(
           continue;
         }
 
-        if (relPath.startsWith("assets/") && !relPath.slice("assets/".length).includes("/") && typeof resolveAsset === "function") {
-          const resolved = resolveAsset(generatedRoot, labId, entry.name);
-          if (resolved?.status === 200 && resolved.path && existsSync(resolved.path)) {
-            archive.file(resolved.path, { name: archiveName });
+        if (relPath.startsWith("assets/") && !relPath.slice("assets/".length).includes("/")) {
+          if (typeof resolveAsset === "function") {
+            const resolved = resolveAsset(generatedRoot, labId, entry.name);
+            if (resolved?.status === 200 && resolved.path && existsSync(resolved.path)) {
+              archive.file(resolved.path, { name: archiveName });
+              continue;
+            }
+          }
+          const captured = resolveLabScreenshot(labDir, entry.name);
+          if (captured?.file && existsSync(captured.file)) {
+            archive.file(captured.file, { name: archiveName });
             continue;
           }
         }
@@ -596,7 +614,12 @@ export function exportGeneratedLab(
           if (uri) return uri;
         }
       }
-      return fileToDataUri(join(labDir, "assets", assetName));
+      const captured = resolveLabScreenshot(labDir, assetName);
+      if (captured?.file) {
+        const uri = fileToDataUri(captured.file);
+        if (uri) return uri;
+      }
+      return null;
     };
 
     const docBranding = customizedBranding

@@ -281,3 +281,176 @@ test("status says nothing is pending when every shot is captured", () => {
   assert.match(text.stdout, /Nothing pending/);
   assert.equal(run(status, [`--root=${root}`, "--strict"]).status, 0);
 });
+
+test("capture.js --generated-lab supports --list, --dry-run, and step-through execution", async () => {
+  const { runGeneratedLabCapture } = await import("../lab-runner.mjs");
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "gen-lab-cli-"));
+  const labId = "contoso-memory-lab";
+  const labDir = path.join(tmpRoot, labId);
+  fs.mkdirSync(path.join(labDir, "screenshots"), { recursive: true });
+  fs.mkdirSync(path.join(labDir, "assets"), { recursive: true });
+
+  const plan = {
+    version: 1,
+    labId,
+    title: "Contoso Memory Lab",
+    products: ["copilot-studio"],
+    harness: "microsoft-copilot",
+    shots: [
+      {
+        id: 1,
+        shotId: "01-mc-memory-01",
+        moduleOrder: 1,
+        featureId: "mc-memory",
+        moduleTitle: "Memory",
+        product: "copilot-studio",
+        filename: "mc-memory-toggle.png",
+        outputPath: "assets/mc-memory-toggle.png",
+        startUrl: "https://copilotstudio.microsoft.com/",
+        viewport: { width: 1440, height: 900 },
+        instructions: ["Open **Settings** and turn on **Memory**."],
+        steps: [
+          { action: "navigate", url: "https://copilotstudio.microsoft.com/" },
+          { action: "stepThrough", label: "Settings", stepIndex: 1 },
+          { action: "screenshot", outputPath: "assets/mc-memory-toggle.png" },
+        ],
+      },
+    ],
+  };
+  const learnState = {
+    schema: 1,
+    labId,
+    modules: {
+      "mc-memory": {
+        featureId: "mc-memory",
+        moduleOrder: 1,
+        moduleTitle: "Memory",
+        status: "docs-updated",
+      },
+    },
+    shots: { "mc-memory-toggle.png": { featureId: "mc-memory", stale: true } },
+  };
+  fs.writeFileSync(
+    path.join(labDir, "manifest.json"),
+    JSON.stringify(
+      { labId, title: "Contoso Memory Lab", modules: [{ id: "mc-memory", name: "Memory", order: 1 }] },
+      null,
+      2,
+    ),
+  );
+  fs.writeFileSync(path.join(labDir, "screenshots", "shots.json"), JSON.stringify(plan, null, 2));
+  fs.writeFileSync(path.join(labDir, "screenshots", "learn-state.json"), JSON.stringify(learnState, null, 2));
+
+  const listOut = run(capture, [`--generated-lab=${labId}`, `--generated-root=${tmpRoot}`, "--list"]);
+  assert.equal(listOut.status, 0, listOut.stderr);
+  assert.match(listOut.stdout, /Generated lab "contoso-memory-lab"/);
+  assert.match(listOut.stdout, /mc-memory-toggle\.png/);
+  assert.match(listOut.stdout, /\[stale - MS Learn updated\]/);
+
+  const dryOut = run(capture, [`--generated-lab=${labId}`, `--generated-root=${tmpRoot}`, "--dry-run", "--stale-only"]);
+  assert.equal(dryOut.status, 0, dryOut.stderr);
+  assert.match(dryOut.stdout, /Dry run for generated lab "contoso-memory-lab": 1 shot\(s\)/);
+
+  const pngBytes = fixturePng();
+  const clickedLabels = [];
+  const fakePlaywright = {
+    chromium: {
+      async launch() {
+        return {
+          async newContext() {
+            return {
+              pages() {
+                return [];
+              },
+              async newPage() {
+                let currentUrl = "https://copilotstudio.microsoft.com/";
+                const locatorStub = (label) => {
+                  const item = {
+                    async isVisible() {
+                      return Boolean(label);
+                    },
+                    async click() {
+                      if (label) clickedLabels.push(label);
+                    },
+                    async scrollIntoViewIfNeeded() {},
+                    async innerText() {
+                      return label || "";
+                    },
+                    async evaluate() {
+                      return { x: 100, y: 80, width: 120, height: 36 };
+                    },
+                  };
+                  return {
+                    async count() {
+                      return label ? 1 : 0;
+                    },
+                    nth() {
+                      return item;
+                    },
+                    first() {
+                      return item;
+                    },
+                  };
+                };
+                return {
+                  async goto(u) {
+                    currentUrl = u;
+                  },
+                  url() {
+                    return currentUrl;
+                  },
+                  async waitForTimeout() {},
+                  async waitForLoadState() {},
+                  getByRole(_role, opts) {
+                    return locatorStub(opts?.name ? String(opts.name) : "");
+                  },
+                  getByText(re) {
+                    return locatorStub(String(re));
+                  },
+                  locator() {
+                    return locatorStub("");
+                  },
+                  async evaluate() {},
+                  async screenshot() {
+                    return pngBytes;
+                  },
+                  async close() {},
+                };
+              },
+              async storageState() {},
+              async close() {},
+            };
+          },
+          async close() {},
+        };
+      },
+    },
+  };
+
+  const runRes = await runGeneratedLabCapture({
+    labId,
+    generatedLabsRoot: tmpRoot,
+    repoRoot: tmpRoot,
+    staleOnly: true,
+    mode: "headless",
+    playwrightModule: fakePlaywright,
+  });
+  assert.equal(runRes.capturedCount, 1);
+  assert.equal(runRes.results[0].status, "captured");
+  assert.ok(clickedLabels.length >= 1, "Playwright step-through clicked bold UI label");
+  assert.ok(fs.statSync(path.join(labDir, "assets", "mc-memory-toggle.png")).size >= 5120);
+
+  const noBrowserRes = await runGeneratedLabCapture({
+    labId,
+    generatedLabsRoot: tmpRoot,
+    repoRoot: tmpRoot,
+    mode: "headless",
+    playwrightModule: null,
+  });
+  assert.equal(noBrowserRes.status, "browser-unavailable");
+  assert.equal(noBrowserRes.browserUnavailableCount, 1);
+  assert.match(noBrowserRes.cliCommand, /--generated-lab=contoso-memory-lab --headed/);
+
+  fs.rmSync(tmpRoot, { recursive: true, force: true });
+});
+
