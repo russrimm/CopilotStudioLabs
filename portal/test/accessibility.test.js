@@ -257,7 +257,16 @@ test("generated lab result body separates outer panels from preview-frame and av
     "\\.lb-card-footer",
     "\\.lb-stat-chip",
     "\\.lb-stat-chip-total",
+    "\\.lb-stat-chip-recap",
     "\\.lb-card-meta-note",
+    "\\.lb-topic-scorebar",
+    "\\.lb-topic-toolbar",
+    "\\.lb-badge",
+    "\\.lb-badge-product",
+    "\\.lb-badge-ga",
+    "\\.lb-badge-required",
+    "\\.lb-concept-count",
+    "\\.lb-topic-reason",
     "\\.preview-toc",
     "\\.preview-frame",
   ]) {
@@ -288,6 +297,8 @@ test("generated lab result body separates outer panels from preview-frame and av
   assert.match(printCss, /body\[data-print-target="generated"\]\s+#lb-result-preview/);
   assert.match(printCss, /\.preview-frame\s+\.lab-page\s*\{\s*display:\s*block !important;/);
   assert.match(printCss, /\.lb-admin-prereqs[\s\S]*?background:\s*#fff !important;/);
+  assert.match(printCss, /\.lb-stat-chip-recap[\s\S]*?background:\s*#fff !important;/);
+  assert.match(printCss, /\.lb-topic-reason[\s\S]*?background:\s*#fff !important;/);
 
   // Mermaid diagrams adapt to dark/light themes and re-render on theme toggle.
   const themeSource = readFileSync(new URL("../public/theme.js", import.meta.url), "utf8");
@@ -407,15 +418,25 @@ test("portal dark and light theme tokens meet WCAG AA contrast across previews, 
       [".lb-stat-chip text", tokens["--stat-chip-text"], tokens["--stat-chip-bg"]],
       [".lb-stat-chip strong", tokens["--stat-chip-strong"], tokens["--stat-chip-bg"]],
       [".lb-card-meta-note text", tokens["--stat-warn-text"], tokens["--stat-warn-bg"]],
+      [".lb-stat-chip-recap / .lb-badge-recap", tokens["--arch-recap-text"], tokens["--arch-recap-bg"]],
+      [".lb-topic-reason text", tokens["--lb-reason-text"], tokens["--lb-reason-bg"]],
     ]) {
       assert.ok(
         contrastRatio(fgToken, bgToken) >= 4.5,
         `${themeName}: ${chipLabel} (${fgToken}) on ${bgToken} must be >= 4.5:1`,
       );
     }
+
+    // Active Step 6 concept group surface preserves WCAG AA text and link contrast.
+    for (const fg of [tokens["--text"], tokens["--text-muted"], tokens["--link-color"]]) {
+      assert.ok(
+        contrastRatio(fg, tokens["--lb-concept-active-bg"]) >= 4.5,
+        `${themeName}: ${fg} on --lb-concept-active-bg (${tokens["--lb-concept-active-bg"]}) must be >= 4.5:1`,
+      );
+    }
   }
 
-  // OS prefers-color-scheme: light block defines the same stat chip tokens as explicit light theme.
+  // OS prefers-color-scheme: light block defines the same stat chip and Step 6 tokens as explicit light theme.
   const mediaLightBlock =
     styleContent.match(/@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme="dark"\]\)\s*\{([^}]*)\}/)?.[1] || "";
   const mediaLight = parseCssCustomProperties(mediaLightBlock);
@@ -432,6 +453,11 @@ test("portal dark and light theme tokens meet WCAG AA contrast across previews, 
     "--stat-warn-bg",
     "--stat-warn-border",
     "--stat-warn-text",
+    "--lb-reason-bg",
+    "--lb-reason-border",
+    "--lb-reason-text",
+    "--lb-concept-active-bg",
+    "--lb-concept-active-border",
   ]) {
     assert.equal(mediaLight[key], light[key], `prefers-color-scheme light must match explicit light token ${key}`);
   }

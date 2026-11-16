@@ -247,3 +247,153 @@ test("Step 6 badges 3rd-party connectors as optional, offers a 3rd-party filter,
   assert.equal(currentFeatures().includes("sap-integration"), true);
   assert.equal(currentFeatures().includes("salesforce-integration"), true);
 });
+
+test("Step 6 uses collapsible help, unclipped two-zone toolbar, live selection scorecard, Selected/Recommended filters, and multi-row topic cards", async () => {
+  const pane6 = builderPanel.match(/id="lb-pane-6"[\s\S]*?<!-- Step 7: review -->/)?.[0] || "";
+  assert.ok(pane6, "Step 6 pane must exist");
+
+  // Collapsible progressive-disclosure help replaces redundant top paragraph.
+  const helpDetails = pane6.match(/<details class="lb-topic-help"[^>]*>/)?.[0];
+  assert.ok(helpDetails, "Step 6 must include collapsible <details class=\"lb-topic-help\">");
+  assert.doesNotMatch(helpDetails, /\bopen\b/, "Step 6 help details must start collapsed");
+  assert.match(pane6, /<summary>How recommendations, levels, and prerequisite recaps work<\/summary>/);
+
+  // Scorebar pairs interactive scorecard chips with #lb-topic-count live region.
+  assert.match(pane6, /class="lb-topic-scorebar"[\s\S]*?id="lb-topic-scorecard"[\s\S]*?id="lb-topic-count"/);
+
+  // Two-zone toolbar separates Find & Filter from Bulk Selection Actions and prevents search clipping.
+  assert.match(pane6, /class="lb-topic-toolbar"[\s\S]*?class="lb-toolbar-find"[\s\S]*?class="lb-toolbar-actions"/);
+  for (const val of ["all", "selected", "recommended", "new", "updated", "moved", "third-party"]) {
+    assert.match(pane6, new RegExp(`<option value="${val}">`), `#lb-topic-filter should offer ${val}`);
+  }
+  assert.match(html, /\.lb-toolbar-search-field\s*\{[^}]*min-width:\s*220px/);
+
+  // Multi-row card CSS ensures block hierarchy rather than inline run-on spans.
+  assert.match(html, /\.lb-feature-body\s*\{[^}]*display:\s*flex;\s*flex-direction:\s*column/);
+  assert.match(html, /\.lb-feature-name\s*\{[^}]*display:\s*block/);
+  assert.match(html, /\.lb-feature-badges\s*\{[^}]*display:\s*flex;\s*flex-wrap:\s*wrap/);
+  assert.match(html, /\.lb-feature-summary\s*\{[^}]*display:\s*block/);
+  assert.match(html, /\.lb-feature-note\s*\{[^}]*display:\s*block/);
+  assert.match(html, /\.lb-topic-reason\s*\{[^}]*display:\s*block/);
+  assert.match(html, /\.lb-concept-toolbar\s*\{[^}]*display:\s*flex/);
+
+  const vm = await import("node:vm");
+  const elements = new Map();
+  const listeners = new Map();
+  const filterOptions = [{ value: "all", textContent: "All topics" }];
+  const element = (id) => {
+    if (!elements.has(id)) {
+      const base = {
+        id,
+        innerHTML: "",
+        textContent: "",
+        value: id === "lb-topic-filter" ? "all" : "",
+        checked: true,
+        hidden: false,
+        style: {},
+        options: id === "lb-topic-filter" ? filterOptions : [],
+        contains: () => false,
+        querySelector: (sel) => {
+          if (id === "lb-topic-filter") {
+            const m = sel.match(/option\[value="([^"]+)"\]/);
+            return m ? filterOptions.find((o) => o.value === m[1]) || null : null;
+          }
+          return null;
+        },
+        querySelectorAll: () => [],
+        appendChild: (opt) => {
+          if (id === "lb-topic-filter") filterOptions.push(opt);
+        },
+        addEventListener(type, fn) {
+          listeners.set(`${id}:${type}`, fn);
+        },
+        setAttribute() {},
+        removeAttribute() {},
+        classList: { toggle() {}, add() {}, remove() {} },
+      };
+      elements.set(id, base);
+    }
+    return elements.get(id);
+  };
+  const context = {
+    document: {
+      getElementById: element,
+      createElement: (tag) => ({ tagName: tag.toUpperCase(), value: "", textContent: "" }),
+      querySelector: () => null,
+      querySelectorAll: () => [],
+      activeElement: { dataset: {} },
+    },
+    CSS: { escape: (s) => s },
+    escapeHtml: (s) => String(s),
+    toast: () => {},
+    fetch: async (_url, init) => ({ ok: true, json: async () => recommend(JSON.parse(init.body)) }),
+    setTimeout,
+    console,
+  };
+  vm.createContext(context);
+  vm.runInContext(wizard, context);
+  vm.runInContext(
+    `
+    labBuilder.concepts = {
+      levels: [
+        { id: 100, label: "Level 100 (Beginner)" },
+        { id: 200, label: "Level 200 (Intermediate)" },
+        { id: 300, label: "Level 300 (Advanced)" },
+      ],
+    };
+    labBuilder.selectedProducts = new Set(["copilot-studio", "sharepoint-ai", "power-platform-ai-hub"]);
+    labBuilder.industry = "retail";
+    labBuilder.selectedRoles = new Set(["sales", "operations"]);
+    labBuilder.level = 200;
+    labBuilder.harness = "standard";
+    labBuilder.step = 6;
+    lbBindTopicEvents();
+    `,
+    context,
+  );
+  await vm.runInContext("lbRefresh()", context);
+
+  // Dynamic filter options include selected, recommended, and third-party idempotently.
+  for (const val of ["selected", "recommended", "third-party"]) {
+    assert.equal(filterOptions.filter((o) => o.value === val).length, 1, `${val} option should be present once`);
+  }
+
+  // Multi-row card structure keeps badges outside .lb-feature-name and inside .lb-feature-badges.
+  const allHtml = element("lb-topic-groups").innerHTML;
+  assert.match(allHtml, /<span class="lb-feature-body">\s*<span class="lb-feature-name">[^<]+<\/span>\s*<span class="lb-feature-badges">/);
+  assert.match(allHtml, /<div class="lb-concept-toolbar">/);
+
+  // Scorecard shows selected count, recommended count, prerequisite recaps, and estimated time.
+  const scorecardHtml = element("lb-topic-scorecard").innerHTML;
+  assert.match(scorecardHtml, /data-scorecard-action="toggle-selected"/);
+  assert.match(scorecardHtml, /data-scorecard-action="toggle-recommended"/);
+  assert.match(scorecardHtml, /data-scorecard-action="jump-prereqs"/);
+  assert.match(scorecardHtml, /About <strong>/);
+
+  // Clicking the Selected scorecard chip filters to only selected cards.
+  const scorecardClick = listeners.get("lb-topic-scorecard:click");
+  assert.ok(scorecardClick, "scorecard click listener must be registered");
+  scorecardClick({
+    target: {
+      closest: () => ({ dataset: { scorecardAction: "toggle-selected" } }),
+    },
+  });
+  assert.equal(element("lb-topic-filter").value, "selected");
+  const selectedHtml = element("lb-topic-groups").innerHTML;
+  assert.match(selectedHtml, /class="lb-feature checked"/);
+  assert.doesNotMatch(selectedHtml, /class="lb-feature "\s*>/);
+  assert.match(element("lb-topic-count").textContent, /that match your search or filter/);
+
+  // Jumping to prerequisites opens #lb-prereq-group.
+  vm.runInContext('labBuilder.filter = "recommended"; labBuilder.search = "mcp"; lbJumpToPrerequisites();', context);
+  assert.equal(element("lb-topic-filter").value, "all");
+  assert.equal(element("lb-topic-search").value, "");
+  assert.match(element("lb-topic-groups").innerHTML, /id="lb-prereq-group" open/);
+
+  // Clearing all selections while on "selected" filter renders a clear, helpful empty message.
+  vm.runInContext("lbClearTopics()", context);
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  vm.runInContext('lbSetTopicFilter("selected")', context);
+  assert.match(element("lb-topic-groups").innerHTML, /No topics are currently selected/);
+});
+

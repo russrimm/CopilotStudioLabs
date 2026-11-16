@@ -881,23 +881,104 @@ function lbLearnBadges(topic) {
   return "";
 }
 
-function lbEnsureThirdPartyFilterOption() {
+function lbEnsureTopicFilterOptions() {
   const select = document.getElementById("lb-topic-filter");
   if (!select || typeof document.createElement !== "function" || typeof select.appendChild !== "function") return;
-  if (typeof select.querySelector === "function" && select.querySelector('option[value="third-party"]')) return;
-  const option = document.createElement("option");
-  option.value = "third-party";
-  option.textContent = "Optional 3rd-party connectors";
-  select.appendChild(option);
+  const extraOptions = [
+    ["selected", "Selected topics"],
+    ["recommended", "Recommended topics"],
+    ["third-party", "Optional 3rd-party connectors"],
+  ];
+  for (const [value, label] of extraOptions) {
+    if (typeof select.querySelector === "function" && select.querySelector(`option[value="${value}"]`)) continue;
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  }
+}
+
+function lbEnsureThirdPartyFilterOption() {
+  lbEnsureTopicFilterOptions();
 }
 
 function lbMatchesFilter(topic) {
+  if (labBuilder.filter === "selected") return Boolean(topic.selected);
+  if (labBuilder.filter === "recommended") return Boolean(topic.recommended);
   if (labBuilder.filter === "third-party") return Boolean(topic.thirdPartyConnector);
   const status = topic.learn?.status;
   if (labBuilder.filter === "new") return status === "new";
   if (labBuilder.filter === "updated") return status === "updated" || topic.learn?.updated === true;
   if (labBuilder.filter === "moved") return status === "stale";
   return true;
+}
+
+function lbSetTopicFilter(nextFilter) {
+  labBuilder.filter = nextFilter;
+  const select = document.getElementById("lb-topic-filter");
+  if (select) select.value = nextFilter;
+  lbRenderTopics();
+}
+
+function lbJumpToPrerequisites() {
+  if (labBuilder.filter !== "all" && labBuilder.filter !== "selected") {
+    labBuilder.filter = "all";
+    const select = document.getElementById("lb-topic-filter");
+    if (select) select.value = "all";
+  }
+  if (labBuilder.search) {
+    labBuilder.search = "";
+    const search = document.getElementById("lb-topic-search");
+    if (search) search.value = "";
+  }
+  labBuilder.prereqOpen = true;
+  lbRenderTopics();
+  const prereqEl = document.getElementById("lb-prereq-group");
+  const summary = prereqEl?.querySelector?.("summary");
+  summary?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  summary?.focus?.();
+}
+
+function lbRenderTopicScorecard(rec) {
+  const scorecard = document.getElementById("lb-topic-scorecard");
+  if (!scorecard) return;
+  if (!rec || !lbSelectedProductList().length) {
+    scorecard.innerHTML = "";
+    return;
+  }
+  const selectedCount = rec.totals.selectedCount;
+  const recommendedCount = (rec.recommendedIds || []).length;
+  const prereqCount = rec.totals.prerequisiteCount;
+  const totalPrereqs = (rec.prerequisites?.topics || []).length;
+  const isSelectedFilter = labBuilder.filter === "selected";
+  const isRecommendedFilter = labBuilder.filter === "recommended";
+  const chips = [];
+
+  if (selectedCount > 0 || isSelectedFilter) {
+    chips.push(
+      `<button type="button" class="lb-stat-chip lb-stat-chip-total lb-scorecard-btn${isSelectedFilter ? " is-active" : ""}" data-scorecard-action="toggle-selected" aria-pressed="${isSelectedFilter}" title="Show only selected topics"><strong>${escapeHtml(selectedCount)}</strong> selected${isSelectedFilter ? " (filtered)" : ""}</button>`
+    );
+  } else {
+    chips.push(`<span class="lb-stat-chip lb-stat-chip-empty"><strong>0</strong> selected</span>`);
+  }
+
+  if (recommendedCount > 0) {
+    chips.push(
+      `<button type="button" class="lb-stat-chip lb-scorecard-btn${isRecommendedFilter ? " is-active" : ""}" data-scorecard-action="toggle-recommended" aria-pressed="${isRecommendedFilter}" title="Show only recommended topics"><strong>${escapeHtml(recommendedCount)}</strong> recommended${isRecommendedFilter ? " (filtered)" : ""}</button>`
+    );
+  }
+
+  if (totalPrereqs > 0) {
+    chips.push(
+      `<button type="button" class="lb-stat-chip lb-stat-chip-recap lb-scorecard-btn" data-scorecard-action="jump-prereqs" title="Jump to prerequisite recaps">+<strong>${escapeHtml(prereqCount)}</strong> prerequisite recap${prereqCount === 1 ? "" : "s"}</button>`
+    );
+  }
+
+  if (selectedCount > 0 || prereqCount > 0) {
+    chips.push(`<span class="lb-stat-chip">About <strong>${escapeHtml(rec.totals.duration)}</strong> est.</span>`);
+  }
+
+  scorecard.innerHTML = chips.join("");
 }
 
 // ── Step 6: topics ──────────────────────────────────────────────────────────
@@ -1040,12 +1121,24 @@ function lbBindTopicEvents() {
     labBuilder.filter = event.target.value;
     lbRenderTopics();
   });
+  document.getElementById("lb-topic-scorecard")?.addEventListener("click", (event) => {
+    const btn = event.target?.closest?.("button[data-scorecard-action]");
+    if (!btn) return;
+    const action = btn.dataset.scorecardAction;
+    if (action === "toggle-selected") {
+      lbSetTopicFilter(labBuilder.filter === "selected" ? "all" : "selected");
+    } else if (action === "toggle-recommended") {
+      lbSetTopicFilter(labBuilder.filter === "recommended" ? "all" : "recommended");
+    } else if (action === "jump-prereqs") {
+      lbJumpToPrerequisites();
+    }
+  });
 }
 
 /** Level as text, never color alone. A level worked out from the docs rubric says so. */
 function lbLevelBadge(t) {
-  if (!t.level) return '<span class="lb-badge">Level unknown</span>';
-  return `<span class="lb-badge">Level ${t.level}</span>${t.levelBasis === "estimated" ? '<span class="lb-badge">Estimated level</span>' : ""}`;
+  if (!t.level) return '<span class="lb-badge lb-badge-warn">Level unknown</span>';
+  return `<span class="lb-badge lb-badge-level">Level ${t.level}</span>${t.levelBasis === "estimated" ? '<span class="lb-badge lb-badge-warn">Estimated level</span>' : ""}`;
 }
 
 function lbTopicSubtopicsNote(t) {
@@ -1081,26 +1174,33 @@ function lbThirdPartyNote(t) {
 }
 
 function lbTopicCard(t) {
+  const badges = [
+    t.productName ? `<span class="lb-badge lb-badge-product">${escapeHtml(lbProduct(t.product)?.shortName || t.productName)}</span>` : "",
+    lbLevelBadge(t),
+    `<span class="lb-badge lb-badge-time">about ${t.minutes} min</span>`,
+    t.thirdPartyConnector ? '<span class="lb-badge">Optional 3rd-party connector</span>' : "",
+    t.required ? '<span class="lb-badge lb-badge-required">Required prerequisite</span>' : "",
+    t.recommended && !t.selected ? '<span class="lb-badge lb-badge-recommended">Recommended, not selected</span>' : "",
+    t.availability
+      ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>`
+      : "",
+    lbLearnBadges(t),
+  ].join("");
   return `
             <label class="lb-feature ${t.selected ? "checked" : ""}">
               <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" autocomplete="off" ${t.selected ? "checked" : ""}
                      aria-describedby="lb-topic-desc-${escapeHtml(t.id)}">
-              <span>
-                <span class="lb-feature-name">${escapeHtml(t.name)}${t.productName ? `<span class="lb-badge lb-badge-product">${escapeHtml(lbProduct(t.product)?.shortName || t.productName)}</span>` : ""}${lbLevelBadge(t)}<span class="lb-badge">about ${t.minutes} min</span>${
-                  t.thirdPartyConnector ? '<span class="lb-badge">Optional 3rd-party connector</span>' : ""
-                }${
-                  t.required ? '<span class="lb-badge lb-badge-required">Required prerequisite</span>' : ""
-                }${t.recommended && !t.selected ? '<span class="lb-badge">Recommended, not selected</span>' : ""}${
-                  t.availability ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>` : ""
-                }${lbLearnBadges(t)}</span>
+              <span class="lb-feature-body">
+                <span class="lb-feature-name">${escapeHtml(t.name)}</span>
+                <span class="lb-feature-badges">${badges}</span>
                 <span id="lb-topic-desc-${escapeHtml(t.id)}" class="lb-feature-summary">${escapeHtml(t.summary)}</span>
+                ${t.reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(t.reasons.join(". "))}</span>` : ""}
                 ${lbThirdPartyNote(t)}
                 ${t.source === "learn" && lbLearnUrl(t.learn?.url)
                   ? `<span class="lb-feature-note">Source: Microsoft Learn, not yet reviewed for this repository. <a class="lb-learn-source" href="${escapeHtml(t.learn.url)}" target="_blank" rel="noopener noreferrer">Read the article (opens in a new tab)</a></span>`
                   : ""}
                 ${lbTopicSubtopicsNote(t)}
                 ${t.learn?.status === "stale" ? '<span class="lb-feature-note">The Microsoft Learn pages this topic cites could not be found. Its steps are checked against Learn when the lab is built.</span>' : ""}
-                ${t.reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(t.reasons.join(". "))}</span>` : ""}
                 ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(t.harnessNote)}</span>` : ""}
               </span>
             </label>`;
@@ -1122,6 +1222,18 @@ function lbRenderTopics() {
   lbEnsureThirdPartyFilterOption();
   const el = document.getElementById("lb-topic-groups");
   const rec = labBuilder.rec;
+  const activeScorecardAction = document.activeElement?.dataset?.scorecardAction || null;
+  lbRenderTopicScorecard(rec);
+  if (activeScorecardAction) {
+    const safeAction =
+      typeof CSS !== "undefined" && typeof CSS.escape === "function"
+        ? CSS.escape(activeScorecardAction)
+        : activeScorecardAction;
+    document
+      .getElementById("lb-topic-scorecard")
+      ?.querySelector?.(`button[data-scorecard-action="${safeAction}"]`)
+      ?.focus?.();
+  }
   if (!el) return;
   if (!lbSelectedProductList().length) {
     el.innerHTML = '<div class="scenario-empty">Choose at least one product in Step 1 to see available topics.</div>';
@@ -1159,12 +1271,14 @@ function lbRenderTopics() {
       return `
       <fieldset class="lb-concept">
         <legend class="lb-category-title">${escapeHtml(concept.name)}
-          <span class="lb-concept-count">${concept.selectedCount} of ${concept.topics.length} selected${concept.minutes ? `, about ${lbFormatMinutes(concept.minutes)}` : ""}</span>
+          <span class="lb-concept-count${concept.selectedCount ? " lb-concept-count-active" : ""}">${concept.selectedCount} of ${concept.topics.length} selected${concept.minutes ? `, about ${lbFormatMinutes(concept.minutes)}` : ""}</span>
         </legend>
-        <div class="lb-category-desc">${escapeHtml(concept.summary)}</div>
-        <div class="lb-group-actions">
-          <button type="button" class="btn btn-small" data-group-action="select" data-concept="${escapeHtml(concept.id)}" aria-label="Select all ${escapeHtml(concept.name)} topics">Select group</button>
-          <button type="button" class="btn btn-small" data-group-action="clear" data-concept="${escapeHtml(concept.id)}" aria-label="Clear all ${escapeHtml(concept.name)} topics">Clear group</button>
+        <div class="lb-concept-toolbar">
+          <div class="lb-category-desc">${escapeHtml(concept.summary)}</div>
+          <div class="lb-group-actions${concept.topics.length === 1 ? " lb-group-actions-single" : ""}">
+            <button type="button" class="btn btn-small" data-group-action="select" data-concept="${escapeHtml(concept.id)}" aria-label="Select all ${escapeHtml(concept.name)} topics">Select group</button>
+            <button type="button" class="btn btn-small" data-group-action="clear" data-concept="${escapeHtml(concept.id)}" aria-label="Clear all ${escapeHtml(concept.name)} topics">Clear group</button>
+          </div>
         </div>
         <div class="lb-feature-grid">
           ${topics.map(lbTopicCard).join("")}
@@ -1175,22 +1289,25 @@ function lbRenderTopics() {
 
   // Lower-level topics that the selected topics need: separate, collapsed, and each one can be turned off.
   const prereqs = rec.prerequisites?.topics || [];
-  const prereqHtml =
-    prereqs.length && !query && labBuilder.filter === "all"
-      ? `
+  const visiblePrereqs = labBuilder.filter === "selected" ? prereqs.filter((p) => p.selected) : prereqs;
+  const showPrereqs =
+    visiblePrereqs.length && !query && (labBuilder.filter === "all" || labBuilder.filter === "selected");
+  const prereqHtml = showPrereqs
+    ? `
       <details class="lb-concept lb-prereq-group" id="lb-prereq-group" ${labBuilder.prereqOpen ? "open" : ""}>
         <summary class="lb-category-title">Prerequisites from lower levels (included automatically)
-          <span class="lb-concept-count">${rec.prerequisites.selectedCount} of ${prereqs.length} included${rec.prerequisites.minutes ? `, about ${lbFormatMinutes(rec.prerequisites.minutes)}` : ""}</span>
+          <span class="lb-concept-count${rec.prerequisites.selectedCount ? " lb-concept-count-active" : ""}">${rec.prerequisites.selectedCount} of ${prereqs.length} included${rec.prerequisites.minutes ? `, about ${lbFormatMinutes(rec.prerequisites.minutes)}` : ""}</span>
         </summary>
         <p class="lb-category-desc">These are not ${escapeHtml(lbLevelName(rec.answers.level))} topics. Topics you selected build on them, so the lab includes each one as a short, labeled recap. Uncheck one if your learners already know it: the lab then assumes it.</p>
         <div class="lb-feature-grid">
-          ${prereqs
+          ${visiblePrereqs
             .map(
               (p) => `
             <label class="lb-feature ${p.selected ? "checked" : ""}">
               <input type="checkbox" data-prerequisite="${escapeHtml(p.id)}" autocomplete="off" ${p.selected ? "checked" : ""} aria-describedby="lb-prereq-desc-${escapeHtml(p.id)}">
-              <span>
-                <span class="lb-feature-name">${escapeHtml(p.name)}<span class="lb-badge">Level ${p.level}</span><span class="lb-badge">Prerequisite recap</span><span class="lb-badge">about ${p.minutes} min</span></span>
+              <span class="lb-feature-body">
+                <span class="lb-feature-name">${escapeHtml(p.name)}</span>
+                <span class="lb-feature-badges"><span class="lb-badge lb-badge-level">Level ${p.level}</span><span class="lb-badge lb-badge-recap">Prerequisite recap</span><span class="lb-badge lb-badge-time">about ${p.minutes} min</span></span>
                 <span id="lb-prereq-desc-${escapeHtml(p.id)}" class="lb-feature-summary">${escapeHtml(p.summary)}</span>
                 <span class="lb-topic-reason">Why: ${escapeHtml(p.reason)}</span>
               </span>
@@ -1199,7 +1316,7 @@ function lbRenderTopics() {
             .join("")}
         </div>
       </details>`
-      : "";
+    : "";
 
   // Learn topics whose level could not be worked out. They are never recommended and stay collapsed.
   const unknown = (rec.levelUnknown?.topics || []).filter(
@@ -1209,7 +1326,7 @@ function lbRenderTopics() {
     ? `
       <details class="lb-concept lb-unknown-group" id="lb-unknown-group" ${labBuilder.unknownOpen ? "open" : ""}>
         <summary class="lb-category-title">Level unknown (${unknown.length})
-          <span class="lb-concept-count">${rec.levelUnknown.selectedCount} selected</span>
+          <span class="lb-concept-count${rec.levelUnknown.selectedCount ? " lb-concept-count-active" : ""}">${rec.levelUnknown.selectedCount} selected</span>
         </summary>
         <p class="lb-category-desc">These topics were found on Microsoft Learn, but we could not tell which level they belong to, so they are not recommended for ${escapeHtml(lbLevelName(rec.answers.level))}. Add one only if you have checked its article and want it in this lab.</p>
         <div class="lb-feature-grid">${unknown.map(lbTopicCard).join("")}</div>
@@ -1233,9 +1350,13 @@ function lbRenderTopics() {
   }
 
   const empty = rec.filter.shown
-    ? labBuilder.filter === "third-party" && !query
+    ? labBuilder.filter === "selected" && !query
+      ? "No topics are currently selected. Switch Show back to All topics to browse, or choose Select recommended to add our suggested baseline."
+      : labBuilder.filter === "recommended" && !query
+      ? `No topics are marked as recommended for your current answers at ${escapeHtml(levelName)}. Switch Show back to All topics to browse all available topics.`
+      : labBuilder.filter === "third-party" && !query
       ? `No optional 3rd-party connector topics are listed at ${escapeHtml(levelName)}. Custom labs use 1st-party Microsoft connectors by default; optional 3rd-party connector topics are available at Level 200 and Level 300.`
-      : "No topics match that search."
+      : "No topics match that search or filter."
     : `No ${escapeHtml(levelName)} topics are available for ${escapeHtml(scopeName)} yet. ${(rec.products || [])
         .map((p) => escapeHtml(p.message))
         .join(" ")} Go back and choose another level${onlyCopilotStudio ? " or harness" : ", product, or harness"}.`;
@@ -1261,16 +1382,15 @@ function lbRenderTopics() {
   }
   const intro = document.getElementById("lb-topic-intro");
   if (intro) {
-    const recaps = rec.totals.prerequisiteCount ? `, plus ${rec.totals.prerequisiteCount} short prerequisite recap${rec.totals.prerequisiteCount === 1 ? "" : "s"}` : "";
     const pre = (rec.preselectedIds || []).length;
     const origin = rec.totals.selectedCount
       ? labBuilder.picked
-        ? ""
+        ? " Adjust your picks below — time is an estimate, not a limit."
         : pre
-        ? ` ${pre} ${pre === 1 ? "was" : "were"} pre-selected because of the vertical or departments you chose; uncheck any you do not want.`
-        : ""
-      : " Nothing is selected yet: check the topics you want, or use Select recommended.";
-    intro.textContent = `${levelName} topics for ${scopeName}, grouped by concept. ${rec.totals.selectedCount} selected${recaps}, about ${rec.totals.duration} (an estimate, not a limit).${origin} Custom labs use 1st-party Microsoft connectors by default; optional 3rd-party connectors remain unchecked unless you select them.`;
+        ? ` ${pre} ${pre === 1 ? "topic was" : "topics were"} pre-selected because of the vertical or departments you chose; uncheck any you do not want.`
+        : " Time shown is an estimate, not a limit."
+      : " Nothing is selected yet: check the topics you want, or choose Select recommended.";
+    intro.textContent = `${levelName} topics for ${scopeName}, grouped by concept.${origin} Custom labs use 1st-party Microsoft connectors by default; optional 3rd-party connectors stay unchecked unless you select them.`;
   }
   const error = document.getElementById("lb-topic-error");
   if (error && lbSelectedCount()) error.textContent = "";
@@ -1546,6 +1666,8 @@ function lbResetAnswers() {
   labBuilder.rec = null;
   labBuilder.search = "";
   labBuilder.filter = "all";
+  labBuilder.prereqOpen = false;
+  labBuilder.unknownOpen = false;
   labBuilder.step = LB_STEP.product;
   labBuilder.furthest = LB_STEP.product;
   labBuilder.levelNotice = null;
@@ -1793,9 +1915,9 @@ function lbRenderRemovedSection() {
       <div class="lb-removed-list">
         ${removed
           .map((item) => {
-            const levelBadge = item.level ? `<span class="lb-badge">Level ${item.level}</span>` : '<span class="lb-badge">Level unknown</span>';
-            const roleBadge = item.role === "prerequisite" ? '<span class="lb-badge">Prerequisite recap</span>' : "";
-            const timeBadge = item.minutes ? `<span class="lb-badge">about ${item.minutes} min</span>` : "";
+            const levelBadge = item.level ? `<span class="lb-badge lb-badge-level">Level ${item.level}</span>` : '<span class="lb-badge lb-badge-warn">Level unknown</span>';
+            const roleBadge = item.role === "prerequisite" ? '<span class="lb-badge lb-badge-recap">Prerequisite recap</span>' : "";
+            const timeBadge = item.minutes ? `<span class="lb-badge lb-badge-time">about ${item.minutes} min</span>` : "";
             const note = item.canRestoreAlone
               ? item.summary
               : `Included as a recap once a dependent Level ${labBuilder.level} module is selected, or select Restore all.`;
@@ -1804,8 +1926,9 @@ function lbRenderRemovedSection() {
                 <input type="checkbox" data-outline-module="${escapeHtml(item.id)}" data-outline-role="${escapeHtml(item.role)}" autocomplete="off" ${
                   item.canRestoreAlone ? "" : "disabled"
                 } aria-describedby="lb-removed-desc-${escapeHtml(item.id)}">
-                <span>
-                  <span class="lb-feature-name">${item.role === "prerequisite" ? "Recap: " : ""}${escapeHtml(item.name)}${levelBadge}${roleBadge}${timeBadge}</span>
+                <span class="lb-feature-body">
+                  <span class="lb-feature-name">${item.role === "prerequisite" ? "Recap: " : ""}${escapeHtml(item.name)}</span>
+                  <span class="lb-feature-badges">${levelBadge}${roleBadge}${timeBadge}</span>
                   <span id="lb-removed-desc-${escapeHtml(item.id)}" class="lb-feature-summary">${escapeHtml(note)}</span>
                 </span>
               </label>`;

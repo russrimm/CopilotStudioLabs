@@ -83,6 +83,11 @@
       --stat-warn-bg: #332611;
       --stat-warn-border: #d99b26;
       --stat-warn-text: #fde68a;
+      --lb-reason-bg: #182238;
+      --lb-reason-border: #5b9bff;
+      --lb-reason-text: #dce6fa;
+      --lb-concept-active-bg: #151b2b;
+      --lb-concept-active-border: #4f8ff7;
       --shadow-ink: #000;
       --radius: 10px;
       --radius-sm: 6px;
@@ -175,6 +180,11 @@
       --stat-warn-bg: #fef3c7;
       --stat-warn-border: #b45309;
       --stat-warn-text: #78350f;
+      --lb-reason-bg: #edf3fe;
+      --lb-reason-border: #1d5bd6;
+      --lb-reason-text: #162447;
+      --lb-concept-active-bg: #f5f8ff;
+      --lb-concept-active-border: #1a56c7;
       --shadow-ink: #1a2340;
       --shadow: 0 4px 24px rgba(26, 35, 64, 0.12);
       color-scheme: light;
@@ -256,6 +266,11 @@
         --stat-warn-bg: #fef3c7;
         --stat-warn-border: #b45309;
         --stat-warn-text: #78350f;
+        --lb-reason-bg: #edf3fe;
+        --lb-reason-border: #1d5bd6;
+        --lb-reason-text: #162447;
+        --lb-concept-active-bg: #f5f8ff;
+        --lb-concept-active-border: #1a56c7;
         --shadow-ink: #1a2340;
         --shadow: 0 4px 24px rgba(26, 35, 64, 0.12);
         color-scheme: light;
@@ -1250,44 +1265,103 @@
     .lb-category-desc { color: var(--text-muted); font-size: 12px; margin-bottom: 10px; }
     .lb-feature-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 10px;
+    }
+    @media (max-width: 560px) {
+      .lb-feature-grid {
+        grid-template-columns: 1fr;
+      }
     }
     .lb-feature {
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      padding: 10px 12px;
+      padding: 12px 14px;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 8px;
       cursor: pointer;
+      transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
     }
     .lb-feature:hover { border-color: var(--accent); }
-    .lb-feature.checked { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
-    .lb-feature input { margin-top: 3px; accent-color: var(--accent); }
-    .lb-feature-name { font-size: 13px; font-weight: 600; }
-    .lb-feature-meta { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
-    .lb-feature-summary { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
-    .lb-feature-note { color: var(--text-muted); font-size: 11px; font-style: italic; margin-top: 4px; }
+    .lb-feature.checked { border-color: var(--accent); background: var(--lb-card-checked-bg); }
+    .lb-feature input { width: 16px; height: 16px; margin-top: 2px; accent-color: var(--accent); flex-shrink: 0; cursor: pointer; }
+    .lb-feature-body { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+    .lb-feature-name { display: block; font-size: 13.5px; font-weight: 600; line-height: 1.35; color: var(--text); }
+    .lb-feature-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 6px; }
+    .lb-feature-badges:empty { display: none; }
+    .lb-feature-badges .lb-badge { margin-left: 0; }
+    .lb-feature-meta { display: block; color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+    .lb-feature-summary { display: block; color: var(--text-muted); font-size: 12.5px; line-height: 1.5; margin-top: 7px; }
+    .lb-feature-note { display: block; color: var(--text-muted); font-size: 11.5px; font-style: normal; line-height: 1.45; margin-top: 6px; }
     .lb-filter {
-      padding: 8px 10px;
+      padding: 7px 10px;
       border-radius: 8px;
       border: 1px solid var(--border);
-      background: var(--bg);
+      background: var(--surface);
       color: var(--text);
       font-size: 13px;
     }
-    .lb-badge-harness { border-color: var(--accent); }
-    .lb-badge-preview { border-style: dashed; }
+    .lb-filter:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
     .lb-badge {
-      display: inline-block;
-      padding: 1px 6px;
+      display: inline-flex;
+      align-items: center;
+      padding: 1.5px 7px;
       border-radius: 999px;
-      border: 1px solid var(--border);
-      font-size: 10px;
+      border: 1px solid var(--stat-chip-border);
+      background: var(--stat-chip-bg);
+      color: var(--stat-chip-text);
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.35;
       margin-left: 6px;
+      font-variant-numeric: tabular-nums;
     }
+    .lb-badge-product {
+      background: var(--stat-total-bg);
+      border-color: var(--stat-total-border);
+      color: var(--stat-total-text);
+      font-weight: 600;
+    }
+    .lb-badge-level,
+    .lb-badge-time {
+      background: var(--stat-chip-bg);
+      border-color: var(--stat-chip-border);
+      color: var(--stat-chip-text);
+    }
+    .lb-badge-recommended,
+    .lb-badge-ga {
+      background: var(--complete-bg);
+      border-color: var(--arch-outcome-border);
+      color: var(--complete-text);
+      font-weight: 600;
+    }
+    .lb-badge-recap,
+    .lb-badge-required {
+      background: var(--arch-recap-bg);
+      border-color: var(--arch-recap-border);
+      color: var(--arch-recap-text);
+      font-weight: 600;
+    }
+    .lb-badge-harness,
+    .lb-badge-new {
+      background: var(--stat-total-bg);
+      border-color: var(--stat-total-border);
+      color: var(--stat-total-strong);
+      font-weight: 600;
+    }
+    .lb-badge-preview,
+    .lb-badge-updated,
+    .lb-badge-moved,
+    .lb-badge-warn,
+    .lb-feature-badges > .lb-badge[class="lb-badge"] {
+      background: var(--stat-warn-bg);
+      border-color: var(--stat-warn-border);
+      color: var(--stat-warn-text);
+      font-weight: 600;
+    }
+    .lb-badge-preview { border-style: dashed; }
     .lb-module-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
     .lb-module {
       display: flex;
@@ -1344,21 +1418,210 @@
     .lb-legend { font-size: 13px; font-weight: 600; margin-bottom: 8px; padding: 0; }
     .lb-inline-label { font-size: 13px; font-weight: 600; }
     .lb-unavailable { opacity: 0.75; }
-    .lb-concept { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px 14px; margin: 0 0 16px; min-width: 0; }
-    .lb-concept .lb-category-title { padding: 0 6px; }
-    .lb-concept-count { color: var(--text-muted); font-size: 12px; font-weight: 400; margin-left: 8px; }
-    .lb-concept-muted { background: var(--bg); }
-    details.lb-concept > summary { cursor: pointer; }
-    .lb-group-actions { display: flex; gap: 8px; margin-bottom: 10px; }
-    .btn-small { padding: 4px 10px; font-size: 12px; }
-    .lb-topic-reason { display: block; font-size: 12px; margin-top: 4px; color: var(--text); }
-    .lb-badge-required { border-style: double; border-width: 3px; }
-    .lb-badge-new { border-color: var(--accent); font-weight: 600; }
-    .lb-badge-updated { border-style: dashed; border-color: var(--accent); font-weight: 600; }
-    .lb-badge-moved { border-style: double; border-width: 3px; font-weight: 600; }
-    .lb-learn-bar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 13px; }
+    .lb-topic-header {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .lb-topic-intro {
+      color: var(--text-muted);
+      font-size: 13.5px;
+      line-height: 1.5;
+      margin: 0;
+    }
+    .lb-topic-help {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+    .lb-topic-help > summary {
+      cursor: pointer;
+      padding: 7px 12px;
+      font-weight: 600;
+      color: var(--text);
+      user-select: none;
+    }
+    .lb-topic-help > summary:hover { color: var(--link-color); }
+    .lb-topic-help > summary:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; border-radius: 8px; }
+    .lb-topic-help-body {
+      padding: 2px 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      line-height: 1.5;
+    }
+    .lb-topic-help-body p { margin: 0; }
+    .lb-topic-scorebar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 12px;
+      margin: 0 0 10px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+    }
+    .lb-topic-scorecard {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .lb-scorecard-btn {
+      font-family: inherit;
+      cursor: pointer;
+      transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+    }
+    .lb-scorecard-btn:hover { border-color: var(--accent-hover); }
+    .lb-scorecard-btn:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
+    .lb-scorecard-btn.is-active { box-shadow: 0 0 0 2px var(--accent); }
+    .lb-stat-chip-recap {
+      background: var(--arch-recap-bg);
+      border-color: var(--arch-recap-border);
+      color: var(--arch-recap-text);
+      font-weight: 600;
+    }
+    .lb-stat-chip-recap strong { color: var(--arch-recap-text); }
+    .lb-topic-count {
+      margin: 0;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .lb-topic-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px 14px;
+      padding: 10px 12px;
+      margin: 0 0 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+    }
+    .lb-toolbar-find {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 12px;
+      flex: 1 1 420px;
+      min-width: 0;
+    }
+    .lb-toolbar-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .lb-toolbar-search-field {
+      flex: 1 1 260px;
+      min-width: 220px;
+    }
+    .lb-toolbar-field .lb-inline-label { white-space: nowrap; }
+    .lb-toolbar-search-field .lb-search {
+      flex: 1 1 220px;
+      min-width: 220px;
+      width: 100%;
+      padding: 7px 11px;
+      font-size: 13px;
+      background: var(--surface);
+    }
+    .lb-toolbar-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn.lb-btn-recommend {
+      background: var(--stat-total-bg);
+      border-color: var(--stat-total-border);
+      color: var(--stat-total-strong);
+      font-weight: 600;
+    }
+    .btn.lb-btn-recommend:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-contrast);
+    }
+    .btn.lb-btn-subtle {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text-muted);
+    }
+    .btn.lb-btn-subtle:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-strong);
+      color: var(--text);
+    }
+    .lb-concept { border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px 14px; margin: 0 0 14px; min-width: 0; background: var(--surface); }
+    fieldset.lb-concept:has(.lb-feature.checked),
+    details.lb-concept:has(.lb-feature.checked) {
+      border-color: var(--lb-concept-active-border);
+      background: var(--lb-concept-active-bg);
+    }
+    .lb-concept .lb-category-title { padding: 0 6px; line-height: 1.4; }
+    .lb-concept-count {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--stat-chip-border);
+      background: var(--stat-chip-bg);
+      color: var(--stat-chip-text);
+      font-size: 11.5px;
+      font-weight: 600;
+      line-height: 1.35;
+      margin-left: 8px;
+      vertical-align: middle;
+      font-variant-numeric: tabular-nums;
+    }
+    .lb-concept-count-active {
+      background: var(--stat-total-bg);
+      border-color: var(--stat-total-border);
+      color: var(--stat-total-strong);
+    }
+    .lb-concept-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .lb-concept-toolbar .lb-category-desc { margin-bottom: 0; flex: 1 1 260px; line-height: 1.45; }
+    .lb-concept-muted { background: var(--bg); border-style: dashed; padding: 10px 14px; }
+    .lb-concept-muted .lb-category-title { padding: 0; }
+    .lb-concept-muted .lb-category-desc { margin-bottom: 0; }
+    details.lb-concept > summary { cursor: pointer; padding: 2px 0; }
+    details.lb-concept[open] > summary { margin-bottom: 8px; }
+    .lb-group-actions { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; flex-shrink: 0; }
+    .lb-concept-toolbar .lb-group-actions { margin-bottom: 0; }
+    .btn-small { padding: 3px 9px; font-size: 11.5px; }
+    .lb-topic-reason {
+      display: block;
+      margin-top: 7px;
+      padding: 5px 9px;
+      border-left: 3px solid var(--lb-reason-border);
+      border-radius: 4px;
+      background: var(--lb-reason-bg);
+      color: var(--lb-reason-text);
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+    .lb-badge-required { border-style: double; border-width: 3px; padding: 0.5px 7px; }
+    .lb-badge-new { font-weight: 600; }
+    .lb-badge-updated { border-style: dashed; font-weight: 600; }
+    .lb-badge-moved { border-style: double; border-width: 3px; padding: 0.5px 7px; font-weight: 600; }
+    .lb-learn-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 0 0 10px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 12px; color: var(--text-muted); }
     .lb-learn-status { flex: 1 1 260px; margin: 0; }
-    .lb-learn-source { font-size: 11px; margin-left: 6px; }
+    .lb-learn-source { color: var(--link-color); font-size: 11.5px; margin-left: 4px; }
+    .lb-outline th .lb-feature-summary { margin-top: 3px; font-size: 12px; font-weight: 400; }
     .btn[aria-busy="true"] { cursor: progress; opacity: 0.8; }
     .lb-error { color: var(--danger-text); font-size: 13px; margin: 0 0 10px; min-height: 0; }
     .lb-error:empty { display: none; }
@@ -2878,7 +3141,11 @@
       .lb-stat-chip,
       .lb-stat-chip-total,
       .lb-stat-chip-level,
+      .lb-stat-chip-recap,
       .lb-stat-chip-empty,
+      .lb-badge,
+      .lb-concept-count,
+      .lb-topic-reason,
       .lb-card-meta-note {
         background: #fff !important;
         color: #000 !important;
@@ -3453,37 +3720,53 @@
             <!-- Step 6: topics -->
             <div class="panel lb-pane" id="lb-pane-6" style="display: none;">
               <h3 id="lb-heading-6" tabindex="-1">Step 6 of 8: Which topics should the lab cover?</h3>
-              <p id="lb-topic-intro" style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;"></p>
-              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 13px;">
-                We only pre-select a topic when it follows from the vertical or departments you chose, and each one says why.
-                With no vertical or department, nothing is selected: check the topics you want, or use Select recommended
-                to add the ones we suggest. The topics shown are the ones at the level you chose in the Level step.
-                Prerequisites from lower levels are added automatically as short recaps, in their own group below; if you
-                uncheck one, the lab assumes learners have already done it.
-              </p>
+              <div class="lb-topic-header">
+                <p id="lb-topic-intro" class="lb-topic-intro"></p>
+                <details class="lb-topic-help">
+                  <summary>How recommendations, levels, and prerequisite recaps work</summary>
+                  <div class="lb-topic-help-body">
+                    <p>Topics are pre-selected only when they follow directly from the vertical or departments you chose, and each card shows why. With no vertical or department, nothing is pre-selected — check individual topics or choose <strong>Select recommended</strong> to add our suggested baseline.</p>
+                    <p>Only topics at the level you chose in Step 4 appear in the main groups. Lower-level prerequisites required by your selections are added automatically as short recaps in their own collapsible section at the bottom; uncheck a recap if learners already know it. Optional 3rd-party connectors stay unchecked unless you explicitly select them.</p>
+                  </div>
+                </details>
+              </div>
               <div id="lb-product-notes" role="status" aria-live="polite"></div>
               <div id="lb-level-notice-6" role="status" aria-live="polite"></div>
               <div class="lb-learn-bar" id="lb-learn-bar">
                 <p id="lb-learn-status" class="lb-learn-status" role="status" aria-live="polite">Checking when the topic list was last refreshed from Microsoft Learn...</p>
-                <button class="btn" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
+                <button class="btn btn-sm" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
               </div>
               <p id="lb-learn-error" class="lb-error" role="alert"></p>
-              <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 16px;">
-                <label for="lb-topic-search" class="lb-inline-label">Search topics</label>
-                <input type="search" id="lb-topic-search" class="lb-search" autocomplete="off" placeholder="For example: skills, MCP" style="max-width: 280px;">
-                <label for="lb-topic-filter" class="lb-inline-label">Show</label>
-                <select id="lb-topic-filter" class="lb-filter" autocomplete="off">
-                  <option value="all">All topics</option>
-                  <option value="new">New from Learn</option>
-                  <option value="updated">Updated</option>
-                  <option value="moved">Docs moved</option>
-                </select>
-                <button class="btn" type="button" onclick="lbSelectRecommended()">Select recommended</button>
-                <button class="btn" type="button" onclick="lbSelectAllTopics()">Select all</button>
-                <button class="btn" type="button" onclick="lbClearTopics()">Clear</button>
-                <button class="btn" type="button" onclick="lbResetTopics()">Reset to my answers</button>
+              <div class="lb-topic-scorebar">
+                <div id="lb-topic-scorecard" class="lb-topic-scorecard" role="group" aria-label="Topic selection summary"></div>
+                <p id="lb-topic-count" class="lb-topic-count" role="status" aria-live="polite"></p>
               </div>
-              <p id="lb-topic-count" class="lb-learn-status" role="status" aria-live="polite"></p>
+              <div class="lb-topic-toolbar" role="region" aria-label="Filter and bulk-select topics">
+                <div class="lb-toolbar-find">
+                  <div class="lb-toolbar-field lb-toolbar-search-field">
+                    <label for="lb-topic-search" class="lb-inline-label">Search topics</label>
+                    <input type="search" id="lb-topic-search" class="lb-search" autocomplete="off" placeholder="For example: skills, MCP">
+                  </div>
+                  <div class="lb-toolbar-field">
+                    <label for="lb-topic-filter" class="lb-inline-label">Show</label>
+                    <select id="lb-topic-filter" class="lb-filter" autocomplete="off">
+                      <option value="all">All topics</option>
+                      <option value="selected">Selected topics</option>
+                      <option value="recommended">Recommended topics</option>
+                      <option value="new">New from Learn</option>
+                      <option value="updated">Updated</option>
+                      <option value="moved">Docs moved</option>
+                      <option value="third-party">Optional 3rd-party connectors</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="lb-toolbar-actions" role="group" aria-label="Bulk selection actions">
+                  <button class="btn btn-sm lb-btn-recommend" type="button" onclick="lbSelectRecommended()">Select recommended</button>
+                  <button class="btn btn-sm" type="button" onclick="lbSelectAllTopics()">Select all</button>
+                  <button class="btn btn-sm lb-btn-subtle" type="button" onclick="lbClearTopics()">Clear</button>
+                  <button class="btn btn-sm lb-btn-subtle" type="button" onclick="lbResetTopics()">Reset to my answers</button>
+                </div>
+              </div>
               <div id="lb-topic-warnings"></div>
               <p id="lb-topic-error" class="lb-error" role="alert"></p>
               <div id="lb-topic-groups"><div class="scenario-empty">Loading topics...</div></div>
