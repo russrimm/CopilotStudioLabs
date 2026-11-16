@@ -4158,6 +4158,7 @@ async function lbGenerate() {
   const cancelBtn = document.getElementById("lb-cancel-btn");
   labBuilder.busy = true;
   if (btn) btn.disabled = true;
+  if (typeof lbSyncNavControls === "function") lbSyncNavControls();
 
   // Accumulated across the pause/resume round-trips. The server holds no state
   // between them: every resume replays the request with the answers so far.
@@ -4225,6 +4226,7 @@ async function lbGenerate() {
       // A canceled, blocked-and-canceled, or failed build leaves focus on the page: put it back on the button.
       if (document.activeElement === document.body) btn.focus();
     }
+    if (typeof lbSyncNavControls === "function") lbSyncNavControls();
     if (cancelBtn) cancelBtn.hidden = true;
   }
 }

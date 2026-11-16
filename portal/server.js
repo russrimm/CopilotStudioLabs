@@ -368,7 +368,13 @@ app.use("/uploads", (_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   next();
 });
-app.use(express.static(resolve(import.meta.dirname, "public")));
+app.use(
+  express.static(resolve(import.meta.dirname, "public"), {
+    setHeaders(res) {
+      res.setHeader("Cache-Control", "no-cache");
+    },
+  }),
+);
 app.use(LABS_ROUTE, express.static(labsRoot));
 app.use(["/uploads", LABS_ROUTE], (_req, res) => {
   res.status(404).json({ error: "Asset not found" });
