@@ -18,6 +18,7 @@ import {
   renderArchitectureDocumentMarkdown,
 } from "./architecture-overview.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
+import { resolveTopicTrainingDigest } from "./topic-training.js";
 
 const SLIDE_CX = 12192000; // 13.333 in * 914400 EMU/in (16:9 widescreen)
 const SLIDE_CY = 6858000;  // 7.500 in * 914400 EMU/in
@@ -558,7 +559,7 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
       section = "check";
       continue;
     }
-    if (/^\*\*Knowledge check:?/i.test(trimmed)) {
+    if (/^(?:\*\*Knowledge check:?|#{2,4}\s+Knowledge check\b)/i.test(trimmed)) {
       section = "quiz";
       continue;
     }
@@ -586,10 +587,12 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
     // Quiz questions & options
     if (section === "quiz") {
       const qPromptMatch =
-        trimmed.match(/^\*\*Question\s+(\d+)\.\*\*\s*(.+)$/i) ||
+        trimmed.match(/^\*\*Question(?:\s+(\d+))?[.:]\*\*\s*(.+)$/i) ||
         trimmed.match(/^(\d+)\.\s+(.+)$/);
       if (qPromptMatch) {
-        const qNum = Number.parseInt(qPromptMatch[1], 10);
+        const qNum = qPromptMatch[1]
+          ? Number.parseInt(qPromptMatch[1], 10)
+          : knowledgeChecks.length + 1;
         const answerInfo = quizAnswerByNumber.get(qNum) || {
           correctLetter: "",
           explanation: "",
@@ -1663,17 +1666,38 @@ class SlideBuilder {
     }
   }
 
-  addTable({ x, y, cx, headers, rows }) {
+  addTable({
+    x,
+    y,
+    cx,
+    headers,
+    rows,
+    maxCy = 4600000,
+    rowHeight = 400000,
+    cellMaxChars = 260,
+    colRatios = null,
+  }) {
     const colCount = Math.max(
       1,
       headers?.length || 0,
       ...(rows || []).map((r) => r.length)
     );
-    const colWidth = Math.floor(cx / colCount);
-    const gridCols = Array.from({ length: colCount }, () => `<a:gridCol w="${colWidth}"/>`).join("");
+    const totalCx = Math.round(cx);
+    let colWidths;
+    if (Array.isArray(colRatios) && colRatios.length === colCount) {
+      const ratioSum = colRatios.reduce((acc, n) => acc + (Number(n) || 0), 0) || 1;
+      colWidths = colRatios.map((r) => Math.max(457200, Math.floor((totalCx * Number(r)) / ratioSum)));
+      const usedExcludingLast = colWidths.slice(0, -1).reduce((a, b) => a + b, 0);
+      colWidths[colCount - 1] = Math.max(457200, totalCx - usedExcludingLast);
+    } else {
+      const evenWidth = Math.floor(totalCx / colCount);
+      colWidths = Array.from({ length: colCount }, (_v, idx) =>
+        idx === colCount - 1 ? totalCx - evenWidth * (colCount - 1) : evenWidth
+      );
+    }
+    const gridCols = colWidths.map((w) => `<a:gridCol w="${w}"/>`).join("");
     const allRows = [headers || [], ...(rows || [])];
-    const rowHeight = 400000;
-    const totalCy = Math.min(4600000, allRows.length * rowHeight);
+    const totalCy = Math.min(maxCy, allRows.length * rowHeight);
     const id = this.allocateShapeId();
 
     const rowsXml = allRows
@@ -1688,7 +1712,7 @@ class SlideBuilder {
         const cellsXml = Array.from({ length: colCount }, (_v, cIdx) => {
           const cellVal = cells[cIdx] ?? "";
           const pXml = this.renderParagraphXml({
-            markdown: truncateText(cellVal, 160),
+            markdown: truncateText(cellVal, cellMaxChars),
             sizePt: isHeader ? 11 : 10.5,
             bold: isHeader,
             colorHex: textColor,
@@ -1798,21 +1822,25 @@ class SlideBuilder {
 }
 
 /**
- * Append a complete multi-slide topic sequence into a `PptxDeckAssembler`.
+ * Append a complete, instructor-ready multi-slide training & walkthrough
+ * sequence for a topic into a `PptxDeckAssembler`.
  */
-function appendStructuredTopicSlides(deck, parsedTopic) {
+function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
   const { meta } = parsedTopic;
+  const training = resolveTopicTrainingDigest(parsedTopic, topicHints);
   const stepBadge = meta.stepLabel || "Lab Topic";
   const footerContext = `${meta.labTitle}${meta.stepLabel ? ` • ${meta.stepLabel}` : ""} — ${meta.topicTitle}`;
+  const fullContentCx = SLIDE_CX - 1280160;
+  const colCx = Math.floor((fullContentCx - 228600) / 2);
+  const rightColX = 640080 + colCx + 228600;
 
-  // 1. Title Slide
+  // 1. Topic Title & Learning Objectives Slide
   const titleSlide = deck.createSlide({
     isHero: true,
     bgHex: COLORS.cardBg,
     footerContext,
   });
 
-  // Hero left accent bar + top brand ribbon
   titleSlide.addShape({
     name: "Hero Brand Top Bar",
     x: 0,
@@ -1822,48 +1850,54 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
     fillHex: deck.primaryHex,
     paragraphs: [{ text: "", sizePt: 4 }],
   });
+
+  const heroSummary =
+    training.capabilitySummary ||
+    parsedTopic.whatYouAreDoing[0] ||
+    training.whyItMatters ||
+    "";
   titleSlide.addShape({
     name: "Hero Accent Panel",
     x: 640080,
-    y: 520000,
-    cx: SLIDE_CX - 1280160,
-    cy: 4380000,
+    y: 280000,
+    cx: fullContentCx,
+    cy: 2300000,
     geom: "roundRect",
     fillHex: COLORS.canvasBg,
     borderHex: deck.primaryBorderHex,
-    insets: { l: 365760, t: 320040, r: 365760, b: 274320 },
+    insets: { l: 320040, t: 228600, r: 320040, b: 205740 },
     paragraphs: [
       {
         text: meta.labTitle.toUpperCase(),
-        sizePt: 11,
+        sizePt: 10.5,
         bold: true,
         colorHex: deck.primaryHex,
         font: FONT_HEADING,
-        spaceAfterPt: 8,
+        spaceAfterPt: 4,
       },
       {
-        text: stepBadge,
-        sizePt: 14,
+        text: `${stepBadge}  •  ${training.availabilityBadge || "Generally Available"}`,
+        sizePt: 12.5,
         bold: true,
         colorHex: deck.primaryDarkHex,
         font: FONT_HEADING,
-        spaceAfterPt: 6,
+        spaceAfterPt: 4,
       },
       {
         text: meta.topicTitle,
-        sizePt: 30,
+        sizePt: 26,
         bold: true,
         colorHex: COLORS.ink,
         font: FONT_HEADING,
-        spaceAfterPt: 14,
+        spaceAfterPt: 8,
       },
-      ...(parsedTopic.whatYouAreDoing[0]
+      ...(heroSummary
         ? [
             {
-              markdown: truncateText(parsedTopic.whatYouAreDoing[0], 300),
-              sizePt: 14,
+              markdown: truncateText(heroSummary, 340),
+              sizePt: 12.5,
               colorHex: COLORS.body,
-              spaceAfterPt: 8,
+              spaceAfterPt: 4,
             },
           ]
         : []),
@@ -1874,27 +1908,58 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
     titleSlide.addPicture({
       media: deck.logoMedia,
       x: SLIDE_CX - 2560000,
-      y: 660000,
-      maxCx: 1650000,
-      maxCy: 685800,
+      y: 380000,
+      maxCx: 1600000,
+      maxCy: 560000,
       alt: deck.organizationName || "Organization logo",
     });
   }
 
+  titleSlide.addCard({
+    name: "Learning Objectives Card",
+    heading: "Learning Objectives — What You Will Master",
+    x: 640080,
+    y: 2720000,
+    cx: fullContentCx,
+    cy: 2220000,
+    fillHex: deck.primaryTintHex,
+    borderHex: deck.primaryBorderHex,
+    insets: { l: 251460, t: 160020, r: 251460, b: 160020 },
+    paragraphs: (training.learningObjectives || []).slice(0, 4).map((obj) => ({
+      markdown: truncateText(obj, 240),
+      sizePt: 11.5,
+      bulletChar: "✓",
+      bulletColorHex: deck.primaryHex,
+      spaceAfterPt: 5,
+    })),
+  });
+
   const metaCards = [
-    { label: "PRODUCT(S)", value: meta.products || "Microsoft Copilot Studio" },
-    { label: "LEVEL", value: meta.levelText || "Hands-On" },
+    {
+      label: "PRODUCT(S)",
+      value: meta.products || training.productLabel || "Microsoft Copilot Studio",
+    },
+    {
+      label: "LEVEL & TIER",
+      value: `${meta.levelText || "Hands-On"}${
+        training.availabilityBadge ? ` • ${training.availabilityBadge}` : ""
+      }`,
+    },
     { label: "ESTIMATED TIME", value: meta.estimatedTime || "Self-paced" },
-    { label: "SCENARIO / AGENT", value: meta.agentName || meta.moduleText || stepBadge },
+    {
+      label: "SCENARIO / AGENT",
+      value: meta.agentName || training.domainLabel || meta.moduleText || stepBadge,
+    },
   ];
   const cardGap = 182880;
-  const totalCardsWidth = SLIDE_CX - 1280160;
-  const singleCardCx = Math.floor((totalCardsWidth - cardGap * (metaCards.length - 1)) / metaCards.length);
+  const singleCardCx = Math.floor(
+    (fullContentCx - cardGap * (metaCards.length - 1)) / metaCards.length
+  );
   metaCards.forEach((chip, i) => {
     titleSlide.addCard({
       name: `Metadata ${chip.label}`,
       x: 640080 + i * (singleCardCx + cardGap),
-      y: 5120000,
+      y: 5080000,
       cx: singleCardCx,
       cy: 1080000,
       fillHex: COLORS.cardBg,
@@ -1911,7 +1976,7 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
         },
         {
           text: truncateText(chip.value, 64),
-          sizePt: 12,
+          sizePt: 11.5,
           bold: true,
           colorHex: COLORS.ink,
           font: FONT_HEADING,
@@ -1920,104 +1985,55 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
     });
   });
 
-  // 2. Overview & Scenario Slide(s)
-  const overviewSlide = deck.createSlide({
-    kicker: `${stepBadge} • OVERVIEW & SCENARIO`,
-    badge: meta.estimatedTime || stepBadge,
-    title: `${meta.topicTitle} — Why It Matters & Key Concepts`,
+  // 2. Core Concepts: What It Is & How It Works
+  const conceptsSlide = deck.createSlide({
+    kicker: `${stepBadge} • CORE CONCEPTS & ARCHITECTURE`,
+    badge: training.conceptName || meta.estimatedTime || "How It Works",
+    title: `${meta.topicTitle} — Core Concepts & How It Works`,
     footerContext,
   });
 
-  const leftOverviewParas = [];
-  if (parsedTopic.whyItMatters) {
-    leftOverviewParas.push({
-      text: "Why this matters",
-      sizePt: 13,
-      bold: true,
-      colorHex: deck.primaryDarkHex,
-      font: FONT_HEADING,
-      spaceAfterPt: 4,
-    });
-    leftOverviewParas.push({
-      markdown: truncateText(parsedTopic.whyItMatters, 380),
-      sizePt: 12,
-      colorHex: COLORS.body,
-      spaceAfterPt: 10,
-    });
-  } else if (parsedTopic.whatYouAreDoing.length > 0) {
-    leftOverviewParas.push({
-      text: "Module objective",
-      sizePt: 13,
-      bold: true,
-      colorHex: deck.primaryDarkHex,
-      font: FONT_HEADING,
-      spaceAfterPt: 4,
-    });
-    leftOverviewParas.push({
-      markdown: truncateText(parsedTopic.whatYouAreDoing.join(" "), 380),
-      sizePt: 12,
-      colorHex: COLORS.body,
-      spaceAfterPt: 10,
-    });
-  }
-
-  if (parsedTopic.inYourScenario) {
-    leftOverviewParas.push({
-      text: "In your scenario",
-      sizePt: 13,
-      bold: true,
-      colorHex: deck.primaryDarkHex,
-      font: FONT_HEADING,
-      spaceBeforePt: 4,
-      spaceAfterPt: 4,
-    });
-    leftOverviewParas.push({
-      markdown: truncateText(parsedTopic.inYourScenario, 380),
-      sizePt: 12,
-      colorHex: COLORS.body,
-      spaceAfterPt: 8,
-    });
-  }
-
-  if (parsedTopic.sharepointSite) {
-    leftOverviewParas.push({
-      text: "Target SharePoint site",
+  const leftMentalModelParas = [];
+  if (training.whyItMatters) {
+    leftMentalModelParas.push({
+      text: "Why This Capability Matters",
       sizePt: 12.5,
       bold: true,
       colorHex: deck.primaryDarkHex,
       font: FONT_HEADING,
-      spaceBeforePt: 4,
-      spaceAfterPt: 3,
+      spaceAfterPt: 4,
     });
-    leftOverviewParas.push({
-      markdown: truncateText(parsedTopic.sharepointSite, 340),
+    leftMentalModelParas.push({
+      markdown: truncateText(training.whyItMatters, 520),
       sizePt: 11.5,
       colorHex: COLORS.body,
       spaceAfterPt: 8,
     });
   }
-
-  if (parsedTopic.fromTheDocs) {
-    leftOverviewParas.push({
-      text: "From Microsoft Learn",
+  if (Array.isArray(training.architectureFlow) && training.architectureFlow.length > 0) {
+    leftMentalModelParas.push({
+      text: "Runtime Execution Lifecycle",
       sizePt: 12,
       bold: true,
-      colorHex: deck.primaryHex,
+      colorHex: deck.primaryDarkHex,
       font: FONT_HEADING,
       spaceBeforePt: 4,
-      spaceAfterPt: 3,
+      spaceAfterPt: 4,
     });
-    leftOverviewParas.push({
-      markdown: truncateText(parsedTopic.fromTheDocs, 280),
-      sizePt: 11,
-      italic: true,
-      colorHex: COLORS.muted,
+    training.architectureFlow.slice(0, 4).forEach((stage, idx) => {
+      leftMentalModelParas.push({
+        prefix: `${idx + 1}. `,
+        prefixColorHex: deck.primaryHex,
+        markdown: truncateText(stage, 210),
+        sizePt: 10.5,
+        colorHex: COLORS.body,
+        spaceAfterPt: 4,
+      });
     });
   }
 
-  const colCx = Math.floor((SLIDE_CX - 1280160 - 228600) / 2);
-  overviewSlide.addCard({
-    name: "Scenario Context Card",
+  conceptsSlide.addCard({
+    name: "Mental Model Card",
     x: 640080,
     y: 1220000,
     cx: colCx,
@@ -2025,50 +2041,46 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
     fillHex: COLORS.cardBg,
     borderHex: COLORS.border,
     paragraphs:
-      leftOverviewParas.length > 0
-        ? leftOverviewParas
+      leftMentalModelParas.length > 0
+        ? leftMentalModelParas
         : [{ text: meta.topicTitle, sizePt: 13, colorHex: COLORS.body }],
   });
 
-  const conceptItems = [
-    ...parsedTopic.concepts,
-    ...parsedTopic.differenceNotes,
-    ...parsedTopic.otherBullets.slice(0, 3),
-  ];
-  const firstConceptChunk = conceptItems.slice(0, 5);
+  const primaryCoreConcepts = (training.coreConcepts || []).slice(0, 4);
   const rightConceptParas = [];
-  if (firstConceptChunk.length > 0) {
-    for (const c of firstConceptChunk) {
+  if (primaryCoreConcepts.length > 0) {
+    for (const c of primaryCoreConcepts) {
       rightConceptParas.push({
-        markdown: truncateText(c, 220),
+        markdown: truncateText(c, 340),
         sizePt: 11.5,
         bulletChar: "•",
         bulletColorHex: deck.primaryHex,
-        spaceAfterPt: 6,
+        spaceAfterPt: 7,
       });
     }
   } else {
     rightConceptParas.push({
-      markdown: `Complete **${meta.topicTitle}** in **${meta.products || "your lab environment"}** and verify each expected outcome before moving to the next module.`,
+      markdown: `Configure **${meta.topicTitle}** in **${meta.products || training.productLabel || "your lab environment"}** and verify runtime behavior before moving to downstream modules.`,
       sizePt: 12,
       bulletChar: "•",
       bulletColorHex: deck.primaryHex,
       spaceAfterPt: 8,
     });
-    if (parsedTopic.provenance) {
-      rightConceptParas.push({
-        markdown: parsedTopic.provenance,
-        sizePt: 11,
-        italic: true,
-        colorHex: COLORS.muted,
-      });
-    }
+  }
+  if (parsedTopic.provenance) {
+    rightConceptParas.push({
+      markdown: truncateText(parsedTopic.provenance, 220),
+      sizePt: 10,
+      italic: true,
+      colorHex: COLORS.muted,
+      spaceBeforePt: 4,
+    });
   }
 
-  overviewSlide.addCard({
-    name: "Concepts Card",
-    heading: "Concepts & Architecture Notes",
-    x: 640080 + colCx + 228600,
+  conceptsSlide.addCard({
+    name: "Core Mechanics Card",
+    heading: "Core Mechanics & Platform Concepts",
+    x: rightColX,
     y: 1220000,
     cx: colCx,
     cy: 4980000,
@@ -2077,33 +2089,469 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
     paragraphs: rightConceptParas,
   });
 
-  if (conceptItems.length > 5) {
-    const extraConceptChunks = chunkItems(conceptItems.slice(5), 6);
-    extraConceptChunks.forEach((chunk, cIdx) => {
-      const extraSlide = deck.createSlide({
-        kicker: `${stepBadge} • KEY CONCEPTS (CONTINUED)`,
-        badge: `Part ${cIdx + 2}`,
-        title: `${meta.topicTitle} — Additional Concepts & Notes`,
+  // 2b. Microsoft Learn Deep-Dive Takeaways & Additional Concepts Slide(s)
+  const deepDiveEntries = [];
+  for (const extraConcept of (training.coreConcepts || []).slice(4)) {
+    deepDiveEntries.push({ kind: "concept", markdown: extraConcept });
+  }
+  for (const takeaway of training.learnTakeaways || []) {
+    if (!takeaway?.summary) continue;
+    deepDiveEntries.push({
+      kind: "learn",
+      title: takeaway.title || "Microsoft Learn",
+      summary: takeaway.summary,
+      url: takeaway.url || null,
+    });
+  }
+  if (parsedTopic.fromTheDocs && deepDiveEntries.length === 0) {
+    deepDiveEntries.push({
+      kind: "quote",
+      markdown: parsedTopic.fromTheDocs,
+    });
+  }
+
+  if (deepDiveEntries.length > 0) {
+    const deepDiveChunks = chunkItems(deepDiveEntries, 4);
+    deepDiveChunks.forEach((chunk, dIdx) => {
+      const showHeadingsStrip =
+        dIdx === 0 && Array.isArray(training.docHeadings) && training.docHeadings.length > 0;
+      const learnSlide = deck.createSlide({
+        kicker: `${stepBadge} • MICROSOFT LEARN INSIGHTS & KEY CONCEPTS`,
+        badge:
+          deepDiveChunks.length > 1
+            ? `Insights (${dIdx + 1}/${deepDiveChunks.length})`
+            : "Microsoft Learn",
+        title: `${meta.topicTitle} — Essential Topic Takeaways`,
         footerContext,
       });
-      extraSlide.addCard({
+
+      learnSlide.addCard({
+        name: "Learn Takeaways Card",
+        heading: "Important Facts & Guidance from Official Documentation",
         x: 640080,
         y: 1220000,
-        cx: SLIDE_CX - 1280160,
-        cy: 4980000,
-        heading: "Key Concepts & Platform Notes",
-        paragraphs: chunk.map((c) => ({
-          markdown: truncateText(c, 260),
-          sizePt: 12.5,
+        cx: fullContentCx,
+        cy: showHeadingsStrip ? 4040000 : 4980000,
+        fillHex: COLORS.cardBg,
+        borderHex: COLORS.border,
+        paragraphs: chunk.map((entry) => {
+          if (entry.kind === "learn") {
+            const linkSuffix = entry.url ? ` ([Learn](${entry.url}))` : "";
+            return {
+              markdown: `**${truncateText(entry.title, 88)}:** ${truncateText(entry.summary, 400)}${linkSuffix}`,
+              sizePt: 11.5,
+              bulletChar: "•",
+              bulletColorHex: deck.primaryHex,
+              spaceAfterPt: 8,
+            };
+          }
+          return {
+            markdown: truncateText(entry.markdown, 420),
+            sizePt: 11.5,
+            bulletChar: "•",
+            bulletColorHex: deck.primaryHex,
+            spaceAfterPt: 8,
+          };
+        }),
+      });
+
+      if (showHeadingsStrip) {
+        learnSlide.addCard({
+          name: "Documentation Topics Strip",
+          x: 640080,
+          y: 5380000,
+          cx: fullContentCx,
+          cy: 820000,
+          fillHex: COLORS.subtleBg,
+          borderHex: COLORS.border,
+          insets: { l: 182880, t: 102870, r: 182880, b: 91440 },
+          paragraphs: [
+            {
+              markdown: `**Key Documentation Sections:** ${training.docHeadings
+                .slice(0, 6)
+                .map((h) => truncateText(h, 48))
+                .join("  •  ")}`,
+              sizePt: 10.5,
+              colorHex: COLORS.muted,
+            },
+          ],
+        });
+      }
+    });
+  }
+
+  // 3. Design Best Practices, Use Cases & Scenario Application
+  const hasPracticesOrScenario =
+    Boolean(training.whenToUse) ||
+    (training.bestPractices && training.bestPractices.length > 0) ||
+    Boolean(training.inYourScenario) ||
+    Boolean(parsedTopic.sharepointSite) ||
+    (training.surfaceComparisons?.notes?.length || 0) > 0;
+
+  if (hasPracticesOrScenario) {
+    const practiceSlide = deck.createSlide({
+      kicker: `${stepBadge} • BEST PRACTICES & SCENARIO DESIGN`,
+      badge: "Design Guidance",
+      title: `${meta.topicTitle} — When to Use It & Design Best Practices`,
+      footerContext,
+    });
+
+    const leftPracticeParas = [];
+    if (training.whenToUse) {
+      leftPracticeParas.push({
+        text: "When to Use This Capability",
+        sizePt: 12.5,
+        bold: true,
+        colorHex: deck.primaryDarkHex,
+        font: FONT_HEADING,
+        spaceAfterPt: 4,
+      });
+      leftPracticeParas.push({
+        markdown: truncateText(training.whenToUse, 360),
+        sizePt: 11.5,
+        colorHex: COLORS.body,
+        spaceAfterPt: 8,
+      });
+    }
+    const bestPracticeList = (training.bestPractices || []).slice(0, 4);
+    if (bestPracticeList.length > 0) {
+      leftPracticeParas.push({
+        text: "Implementation Best Practices",
+        sizePt: 12,
+        bold: true,
+        colorHex: deck.primaryDarkHex,
+        font: FONT_HEADING,
+        spaceBeforePt: 2,
+        spaceAfterPt: 4,
+      });
+      for (const bp of bestPracticeList) {
+        leftPracticeParas.push({
+          markdown: truncateText(bp, 320),
+          sizePt: 11,
           bulletChar: "•",
           bulletColorHex: deck.primaryHex,
+          spaceAfterPt: 6,
+        });
+      }
+    }
+
+    practiceSlide.addCard({
+      name: "Best Practices Card",
+      x: 640080,
+      y: 1220000,
+      cx: colCx,
+      cy: 4980000,
+      fillHex: COLORS.cardBg,
+      borderHex: COLORS.border,
+      paragraphs:
+        leftPracticeParas.length > 0
+          ? leftPracticeParas
+          : [
+              {
+                markdown: `Use **${meta.topicTitle}** when building modular, enterprise-ready agent workflows with explicit validation checkpoints.`,
+                sizePt: 12,
+                colorHex: COLORS.body,
+              },
+            ],
+    });
+
+    const rightScenarioParas = [];
+    const scenarioBody =
+      training.inYourScenario ||
+      `Apply **${meta.topicTitle}** directly in **${
+        meta.agentName || training.domainLabel || "your lab scenario"
+      }** so learners experience realistic prompts, enterprise data boundaries, and end-to-end verification.`;
+    rightScenarioParas.push({
+      text: "In Your Lab Scenario",
+      sizePt: 12.5,
+      bold: true,
+      colorHex: deck.primaryDarkHex,
+      font: FONT_HEADING,
+      spaceAfterPt: 4,
+    });
+    rightScenarioParas.push({
+      markdown: truncateText(scenarioBody, 420),
+      sizePt: 11.5,
+      colorHex: COLORS.body,
+      spaceAfterPt: 8,
+    });
+
+    if (parsedTopic.sharepointSite) {
+      rightScenarioParas.push({
+        text: "Target SharePoint Site",
+        sizePt: 12,
+        bold: true,
+        colorHex: deck.primaryDarkHex,
+        font: FONT_HEADING,
+        spaceBeforePt: 4,
+        spaceAfterPt: 3,
+      });
+      rightScenarioParas.push({
+        markdown: truncateText(parsedTopic.sharepointSite, 340),
+        sizePt: 11,
+        colorHex: COLORS.body,
+        spaceAfterPt: 8,
+      });
+    }
+
+    const surfaceNotes = (training.surfaceComparisons?.notes || []).slice(0, 2);
+    if (surfaceNotes.length > 0) {
+      rightScenarioParas.push({
+        text: "Platform & Surface Notes",
+        sizePt: 12,
+        bold: true,
+        colorHex: deck.primaryDarkHex,
+        font: FONT_HEADING,
+        spaceBeforePt: 4,
+        spaceAfterPt: 4,
+      });
+      for (const note of surfaceNotes) {
+        rightScenarioParas.push({
+          markdown: truncateText(note, 280),
+          sizePt: 10.5,
+          bulletChar: "•",
+          bulletColorHex: deck.primaryHex,
+          spaceAfterPt: 5,
+        });
+      }
+    }
+
+    practiceSlide.addCard({
+      name: "Scenario Application Card",
+      x: rightColX,
+      y: 1220000,
+      cx: colCx,
+      cy: 4980000,
+      fillHex: deck.primaryTintHex,
+      borderHex: deck.primaryBorderHex,
+      paragraphs: rightScenarioParas,
+    });
+  }
+
+  // 3b. Cross-Harness Surface Comparison Table Slide (when applicable)
+  const surfaceRows = training.surfaceComparisons?.rows || [];
+  if (surfaceRows.length >= 2) {
+    const surfaceSlide = deck.createSlide({
+      kicker: `${stepBadge} • SURFACE & HARNESS COMPARISON`,
+      badge: "Cross-Platform",
+      title: `${meta.topicTitle} — ${truncateText(
+        training.surfaceComparisons.conceptTitle || "Across Microsoft AI Surfaces",
+        58
+      )}`,
+      footerContext,
+    });
+    surfaceSlide.addTable({
+      x: 640080,
+      y: 1260000,
+      cx: fullContentCx,
+      headers: ["Surface / Harness", "Terminology & Support", "How It Works & Key Limits"],
+      rows: surfaceRows.slice(0, 5),
+      colRatios: [0.22, 0.28, 0.5],
+      cellMaxChars: 260,
+    });
+  }
+
+  // 4. Governance, Admin Prerequisites, Licensing & Guardrails Slide(s)
+  const govRows = training.governanceRows || [];
+  const guardrails = training.guardrails || [];
+  if (govRows.length > 0 || guardrails.length > 0) {
+    const govSlide = deck.createSlide({
+      kicker: `${stepBadge} • GOVERNANCE, LICENSING & GUARDRAILS`,
+      badge: training.availabilityBadge || "Governance",
+      title: `${meta.topicTitle} — Admin Prerequisites, DLP & Guardrails`,
+      footerContext,
+    });
+
+    if (govRows.length > 0) {
+      govSlide.addTable({
+        x: 640080,
+        y: 1200000,
+        cx: fullContentCx,
+        maxCy: 2800000,
+        rowHeight: 420000,
+        colRatios: [0.22, 0.28, 0.5],
+        cellMaxChars: 240,
+        headers: [
+          "Governance Area",
+          "Required Role / Connector / Policy",
+          "Admin Center & Implementation Guidance",
+        ],
+        rows: govRows.slice(0, 4),
+      });
+
+      const guardrailParas = [];
+      if (training.availabilityGuidance) {
+        guardrailParas.push({
+          markdown: `**Availability (${training.availabilityBadge || "GA"}):** ${truncateText(
+            training.availabilityGuidance,
+            280
+          )}`,
+          sizePt: 10.5,
+          colorHex: COLORS.body,
+          spaceAfterPt: 4,
+        });
+      }
+      for (const g of guardrails.slice(0, 3)) {
+        guardrailParas.push({
+          markdown: truncateText(g, 300),
+          sizePt: 10.5,
+          bulletChar: "⚠",
+          bulletColorHex: COLORS.warnAccent,
+          spaceAfterPt: 4,
+        });
+      }
+      if (guardrailParas.length > 0) {
+        govSlide.addCard({
+          name: "Guardrails Card",
+          heading: "Production Guardrails, Quotas & Availability",
+          headingColorHex: COLORS.warnAccent,
+          x: 640080,
+          y: 4160000,
+          cx: fullContentCx,
+          cy: 2040000,
+          fillHex: COLORS.warnBg,
+          borderHex: COLORS.warnBorder,
+          insets: { l: 182880, t: 114300, r: 182880, b: 114300 },
+          paragraphs: guardrailParas,
+        });
+      }
+
+      if (govRows.length > 4) {
+        const extraGovChunks = chunkItems(govRows.slice(4), 5);
+        extraGovChunks.forEach((gChunk, gIdx) => {
+          const extraGovSlide = deck.createSlide({
+            kicker: `${stepBadge} • GOVERNANCE & PREREQUISITES (CONTINUED)`,
+            badge: `Admin (${gIdx + 2})`,
+            title: `${meta.topicTitle} — Additional Admin & DLP Controls`,
+            footerContext,
+          });
+          extraGovSlide.addTable({
+            x: 640080,
+            y: 1260000,
+            cx: fullContentCx,
+            colRatios: [0.22, 0.28, 0.5],
+            cellMaxChars: 240,
+            headers: [
+              "Governance Area",
+              "Required Role / Connector / Policy",
+              "Admin Center & Implementation Guidance",
+            ],
+            rows: gChunk,
+          });
+        });
+      }
+    } else {
+      const guardrailOnlyParas = [];
+      if (training.availabilityGuidance) {
+        guardrailOnlyParas.push({
+          markdown: `**Availability (${training.availabilityBadge || "GA"}):** ${truncateText(
+            training.availabilityGuidance,
+            320
+          )}`,
+          sizePt: 11.5,
+          colorHex: COLORS.body,
+          spaceAfterPt: 8,
+        });
+      }
+      for (const g of guardrails.slice(0, 5)) {
+        guardrailOnlyParas.push({
+          markdown: truncateText(g, 340),
+          sizePt: 11.5,
+          bulletChar: "⚠",
+          bulletColorHex: COLORS.warnAccent,
           spaceAfterPt: 7,
+        });
+      }
+      govSlide.addCard({
+        name: "Guardrails Card",
+        heading: "Production Guardrails, Quotas & Availability",
+        headingColorHex: COLORS.warnAccent,
+        x: 640080,
+        y: 1220000,
+        cx: fullContentCx,
+        cy: 4980000,
+        fillHex: COLORS.warnBg,
+        borderHex: COLORS.warnBorder,
+        paragraphs: guardrailOnlyParas,
+      });
+    }
+  }
+
+  // 5. Configuration Reference Tables & Copy-Ready Prompt / Payload Assets
+  if (parsedTopic.tables.length > 0) {
+    for (const tbl of parsedTopic.tables) {
+      const rowChunks = chunkItems(tbl.rows, 6);
+      (rowChunks.length ? rowChunks : [[]]).forEach((rChunk, rIdx) => {
+        const tblSlide = deck.createSlide({
+          kicker: `${stepBadge} • CONFIGURATION TABLE`,
+          badge: rowChunks.length > 1 ? `Table (${rIdx + 1}/${rowChunks.length})` : "Reference",
+          title: `${meta.topicTitle} — ${truncateText(tbl.title, 70)}`,
+          footerContext,
+        });
+        tblSlide.addTable({
+          x: 640080,
+          y: 1260000,
+          cx: fullContentCx,
+          headers: tbl.headers,
+          rows: rChunk,
+          cellMaxChars: 260,
+        });
+      });
+    }
+  } else if (
+    Array.isArray(training.synthesizedConfigRows) &&
+    training.synthesizedConfigRows.length >= 3
+  ) {
+    const refTblSlide = deck.createSlide({
+      kicker: `${stepBadge} • CONFIGURATION QUICK-REFERENCE`,
+      badge: "Reference",
+      title: `${meta.topicTitle} — Configuration Summary`,
+      footerContext,
+    });
+    refTblSlide.addTable({
+      x: 640080,
+      y: 1260000,
+      cx: fullContentCx,
+      headers: ["Configuration Aspect", "Target / Scope", "Guidance & Expected State"],
+      rows: training.synthesizedConfigRows.slice(0, 6),
+      colRatios: [0.24, 0.28, 0.48],
+      cellMaxChars: 240,
+    });
+  }
+
+  for (const snippet of parsedTopic.codeSnippets) {
+    const codeLines = snippet.code.split("\n");
+    const lineChunks = chunkItems(codeLines, 13);
+    lineChunks.forEach((linesPart, lIdx) => {
+      const codeSlide = deck.createSlide({
+        kicker: `${stepBadge} • COPY-READY PROMPT & INPUT`,
+        badge: snippet.language || "Prompt",
+        title: `${meta.topicTitle} — ${truncateText(snippet.label, 68)}${
+          lineChunks.length > 1 ? ` (${lIdx + 1}/${lineChunks.length})` : ""
+        }`,
+        footerContext,
+      });
+      codeSlide.addCard({
+        name: "Code Card",
+        x: 640080,
+        y: 1260000,
+        cx: fullContentCx,
+        cy: 4900000,
+        fillHex: COLORS.codeBg,
+        borderHex: COLORS.codeBorder,
+        paragraphs: linesPart.map((line) => ({
+          text: line.length ? truncateText(line, 118) : " ",
+          sizePt: 11,
+          colorHex: COLORS.codeText,
+          font: FONT_CODE,
+          spaceAfterPt: 2,
+          lineSpacingPct: 112000,
         })),
       });
     });
   }
 
-  // Resolve embedded topic screenshots
+  // 6. Paginated Hands-On Lab Walkthrough Slides (`Do this`)
   const resolvedImages = parsedTopic.images
     .map((img) => ({
       ...img,
@@ -2111,9 +2559,17 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
     }))
     .filter((img) => img.media !== null);
 
-  // 3. Paginated Walkthrough Slides (`Do this`)
-  const maxStepsPerSlide = resolvedImages.length > 0 ? 4 : 5;
+  const avgStepLen =
+    parsedTopic.steps.length > 0
+      ? parsedTopic.steps.reduce((acc, s) => acc + String(s.text || "").length, 0) /
+        parsedTopic.steps.length
+      : 0;
+  const maxStepsPerSlide = resolvedImages.length > 0 || avgStepLen > 170 ? 4 : 5;
   const stepChunks = chunkItems(parsedTopic.steps, maxStepsPerSlide);
+  const expectedOutcomes =
+    parsedTopic.expectedResults.length > 0
+      ? parsedTopic.expectedResults
+      : training.expectedResults || [];
 
   if (stepChunks.length > 0) {
     stepChunks.forEach((chunk, chunkIdx) => {
@@ -2129,12 +2585,10 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
         footerContext,
       });
 
-      const stepCardCx = hasVisual
-        ? Math.floor((SLIDE_CX - 1280160) * 0.56)
-        : SLIDE_CX - 1280160;
+      const stepCardCx = hasVisual ? Math.floor(fullContentCx * 0.56) : fullContentCx;
       const isLastWalkSlide = chunkIdx === stepChunks.length - 1;
       const showExpectedInline =
-        isLastWalkSlide && parsedTopic.expectedResults.length > 0 && !hasVisual;
+        isLastWalkSlide && expectedOutcomes.length > 0 && !hasVisual;
       const stepCardCy = showExpectedInline ? 3780000 : 4980000;
 
       walkSlide.addCard({
@@ -2147,8 +2601,8 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
         paragraphs: chunk.map((step) => ({
           prefix: `${step.number}. `,
           prefixColorHex: deck.primaryHex,
-          markdown: truncateText(step.text, hasVisual ? 220 : 300),
-          sizePt: hasVisual ? 12 : 12.5,
+          markdown: truncateText(step.text, hasVisual ? 320 : 440),
+          sizePt: hasVisual ? 11.5 : 12,
           spaceAfterPt: 8,
         })),
       });
@@ -2157,7 +2611,7 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
         const imgX = 640080 + stepCardCx + 205740;
         const imgCx = SLIDE_CX - 640080 - imgX;
         const imgCy =
-          isLastWalkSlide && parsedTopic.expectedResults.length > 0 ? 3500000 : 4980000;
+          isLastWalkSlide && expectedOutcomes.length > 0 ? 3500000 : 4980000;
         walkSlide.addPicture({
           media: pairedImage.media,
           x: imgX,
@@ -2167,7 +2621,7 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
           alt: pairedImage.alt,
           caption: pairedImage.caption || pairedImage.alt,
         });
-        if (isLastWalkSlide && parsedTopic.expectedResults.length > 0) {
+        if (isLastWalkSlide && expectedOutcomes.length > 0) {
           walkSlide.addCard({
             name: "Expected Result Card",
             heading: "What You Should See",
@@ -2179,8 +2633,8 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
             borderHex: COLORS.successBorder,
             headingColorHex: COLORS.successAccent,
             insets: { l: 160020, t: 114300, r: 160020, b: 114300 },
-            paragraphs: parsedTopic.expectedResults.slice(0, 2).map((er) => ({
-              markdown: truncateText(er, 180),
+            paragraphs: expectedOutcomes.slice(0, 2).map((er) => ({
+              markdown: truncateText(er, 220),
               sizePt: 10.5,
               colorHex: COLORS.body,
               spaceAfterPt: 4,
@@ -2193,14 +2647,14 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
           heading: "What You Should See",
           x: 640080,
           y: 5140000,
-          cx: SLIDE_CX - 1280160,
+          cx: fullContentCx,
           cy: 1060000,
           fillHex: COLORS.successBg,
           borderHex: COLORS.successBorder,
           headingColorHex: COLORS.successAccent,
           insets: { l: 182880, t: 114300, r: 182880, b: 114300 },
-          paragraphs: parsedTopic.expectedResults.slice(0, 2).map((er) => ({
-            markdown: truncateText(er, 260),
+          paragraphs: expectedOutcomes.slice(0, 2).map((er) => ({
+            markdown: truncateText(er, 320),
             sizePt: 11,
             colorHex: COLORS.body,
             spaceAfterPt: 4,
@@ -2232,69 +2686,27 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
     }
   }
 
-  // Dedicated Table Slide(s)
-  for (const tbl of parsedTopic.tables) {
-    const rowChunks = chunkItems(tbl.rows, 6);
-    (rowChunks.length ? rowChunks : [[]]).forEach((rChunk, rIdx) => {
-      const tblSlide = deck.createSlide({
-        kicker: `${stepBadge} • CONFIGURATION TABLE`,
-        badge: rowChunks.length > 1 ? `Table (${rIdx + 1}/${rowChunks.length})` : "Reference",
-        title: `${meta.topicTitle} — ${truncateText(tbl.title, 70)}`,
-        footerContext,
-      });
-      tblSlide.addTable({
-        x: 640080,
-        y: 1260000,
-        cx: SLIDE_CX - 1280160,
-        headers: tbl.headers,
-        rows: rChunk,
-      });
-    });
-  }
+  // 7. Common Pitfalls, Troubleshooting & Validation Checklist Slide(s)
+  const checkSource =
+    training.checkItems && training.checkItems.length > 0
+      ? training.checkItems
+      : parsedTopic.checkYourWork;
+  const troubleSource =
+    training.troubleshootingItems && training.troubleshootingItems.length > 0
+      ? training.troubleshootingItems
+      : parsedTopic.troubleshooting;
 
-  // Dedicated Copy-Ready Prompt / Code Snippet Slide(s)
-  for (const snippet of parsedTopic.codeSnippets) {
-    const codeLines = snippet.code.split("\n");
-    const lineChunks = chunkItems(codeLines, 13);
-    lineChunks.forEach((linesPart, lIdx) => {
-      const codeSlide = deck.createSlide({
-        kicker: `${stepBadge} • COPY-READY PROMPT & INPUT`,
-        badge: snippet.language || "Prompt",
-        title: `${meta.topicTitle} — ${truncateText(snippet.label, 68)}${
-          lineChunks.length > 1 ? ` (${lIdx + 1}/${lineChunks.length})` : ""
-        }`,
-        footerContext,
-      });
-      codeSlide.addCard({
-        name: "Code Card",
-        x: 640080,
-        y: 1260000,
-        cx: SLIDE_CX - 1280160,
-        cy: 4900000,
-        fillHex: COLORS.codeBg,
-        borderHex: COLORS.codeBorder,
-        paragraphs: linesPart.map((line) => ({
-          text: line.length ? truncateText(line, 118) : " ",
-          sizePt: 11,
-          colorHex: COLORS.codeText,
-          font: FONT_CODE,
-          spaceAfterPt: 2,
-          lineSpacingPct: 112000,
-        })),
-      });
-    });
-  }
-
-  // 4. Check Your Work & Troubleshooting Slide(s)
-  if (parsedTopic.checkYourWork.length > 0 || parsedTopic.troubleshooting.length > 0) {
-    const checkChunks = chunkItems(parsedTopic.checkYourWork, 5);
-    const troubleChunks = chunkItems(parsedTopic.troubleshooting, 4);
+  if (checkSource.length > 0 || troubleSource.length > 0) {
+    const checkChunks = chunkItems(checkSource, 4);
+    const troubleChunks = chunkItems(troubleSource, 4);
     const totalValSlides = Math.max(1, checkChunks.length, troubleChunks.length);
 
     for (let vIdx = 0; vIdx < totalValSlides; vIdx += 1) {
-      const checks = checkChunks[vIdx] || (vIdx === 0 ? [] : checkChunks[checkChunks.length - 1] || []);
+      const checks =
+        checkChunks[vIdx] || (vIdx === 0 ? [] : checkChunks[checkChunks.length - 1] || []);
       const troubles =
-        troubleChunks[vIdx] || (vIdx === 0 ? [] : troubleChunks[troubleChunks.length - 1] || []);
+        troubleChunks[vIdx] ||
+        (vIdx === 0 ? [] : troubleChunks[troubleChunks.length - 1] || []);
       const valSlide = deck.createSlide({
         kicker: `${stepBadge} • VERIFICATION & TROUBLESHOOTING`,
         badge: totalValSlides > 1 ? `Part ${vIdx + 1}/${totalValSlides}` : "Validation",
@@ -2315,7 +2727,7 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
           fillHex: COLORS.successBg,
           borderHex: COLORS.successBorder,
           paragraphs: checks.map((item) => ({
-            markdown: truncateText(item.text, 220),
+            markdown: truncateText(item.text, 340),
             sizePt: 11.5,
             bulletChar: item.checked ? "☑" : "☐",
             bulletColorHex: COLORS.successAccent,
@@ -2326,15 +2738,15 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
           name: "Troubleshooting Card",
           heading: "Troubleshooting & Common Pitfalls",
           headingColorHex: COLORS.warnAccent,
-          x: 640080 + colCx + 228600,
+          x: rightColX,
           y: 1220000,
           cx: colCx,
           cy: 4980000,
           fillHex: COLORS.warnBg,
           borderHex: COLORS.warnBorder,
           paragraphs: troubles.map((item) => ({
-            markdown: truncateText(item, 230),
-            sizePt: 11.5,
+            markdown: truncateText(item, 360),
+            sizePt: 11,
             bulletChar: "•",
             bulletColorHex: COLORS.warnAccent,
             spaceAfterPt: 8,
@@ -2347,13 +2759,13 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
           headingColorHex: COLORS.successAccent,
           x: 640080,
           y: 1220000,
-          cx: SLIDE_CX - 1280160,
+          cx: fullContentCx,
           cy: 4980000,
           fillHex: COLORS.successBg,
           borderHex: COLORS.successBorder,
           paragraphs: checks.map((item) => ({
-            markdown: truncateText(item.text, 300),
-            sizePt: 12.5,
+            markdown: truncateText(item.text, 400),
+            sizePt: 12,
             bulletChar: item.checked ? "☑" : "☐",
             bulletColorHex: COLORS.successAccent,
             spaceAfterPt: 8,
@@ -2366,13 +2778,13 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
           headingColorHex: COLORS.warnAccent,
           x: 640080,
           y: 1220000,
-          cx: SLIDE_CX - 1280160,
+          cx: fullContentCx,
           cy: 4980000,
           fillHex: COLORS.warnBg,
           borderHex: COLORS.warnBorder,
           paragraphs: troubles.map((item) => ({
-            markdown: truncateText(item, 300),
-            sizePt: 12.5,
+            markdown: truncateText(item, 400),
+            sizePt: 12,
             bulletChar: "•",
             bulletColorHex: COLORS.warnAccent,
             spaceAfterPt: 8,
@@ -2382,7 +2794,7 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
     }
   }
 
-  // 5. Knowledge Check Slide(s) (when mini-quiz content is present)
+  // 8. Knowledge Check Slide(s) (when mini-quiz content is present)
   if (parsedTopic.knowledgeChecks.length > 0) {
     parsedTopic.knowledgeChecks.forEach((quiz, qIdx) => {
       const qSlide = deck.createSlide({
@@ -2398,20 +2810,20 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
         headingColorHex: COLORS.quizAccent,
         x: 640080,
         y: 1220000,
-        cx: SLIDE_CX - 1280160,
+        cx: fullContentCx,
         cy: 3180000,
         fillHex: COLORS.cardBg,
         borderHex: COLORS.border,
         paragraphs: [
           {
-            markdown: truncateText(quiz.prompt, 240),
+            markdown: truncateText(quiz.prompt, 280),
             sizePt: 13.5,
             bold: true,
             colorHex: COLORS.ink,
             spaceAfterPt: 10,
           },
           ...quiz.options.map((opt) => ({
-            markdown: truncateText(opt, 190),
+            markdown: truncateText(opt, 220),
             sizePt: 12,
             colorHex: COLORS.body,
             spaceAfterPt: 6,
@@ -2424,7 +2836,7 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
         answerParas.push({
           markdown: `${quiz.correctLetter ? `**Correct answer: ${quiz.correctLetter}.** ` : ""}${truncateText(
             quiz.explanation,
-            260
+            320
           )}`,
           sizePt: 11.5,
           colorHex: COLORS.body,
@@ -2447,7 +2859,7 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
           headingColorHex: COLORS.quizAccent,
           x: 640080,
           y: 4540000,
-          cx: SLIDE_CX - 1280160,
+          cx: fullContentCx,
           cy: 1660000,
           fillHex: COLORS.quizBg,
           borderHex: COLORS.quizBorder,
@@ -2458,9 +2870,22 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
     });
   }
 
-  // 6. Microsoft Learn References Slide(s)
-  if (parsedTopic.references.length > 0) {
-    const refChunks = chunkItems(parsedTopic.references, 5);
+  // 9. Microsoft Learn Deep-Dive References Slide(s)
+  const combinedRefs = [];
+  const seenRefUrls = new Set();
+  for (const r of [...(parsedTopic.references || []), ...(training.references || [])]) {
+    if (!r?.url || seenRefUrls.has(r.url)) continue;
+    seenRefUrls.add(r.url);
+    combinedRefs.push(r);
+  }
+
+  if (combinedRefs.length > 0) {
+    const takeawayByUrl = new Map(
+      (training.learnTakeaways || [])
+        .filter((t) => t?.url && t?.summary)
+        .map((t) => [t.url, t.summary])
+    );
+    const refChunks = chunkItems(combinedRefs, 4);
     refChunks.forEach((rChunk, rIdx) => {
       const refSlide = deck.createSlide({
         kicker: `${stepBadge} • DOCUMENTATION & GROUNDING`,
@@ -2476,14 +2901,14 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
           bulletColorHex: deck.primaryHex,
           runs: [
             {
-              text: `${ref.category}: `,
+              text: `${ref.category || "Microsoft Learn"}: `,
               bold: true,
               sizePt: 12,
               colorHex: COLORS.ink,
               font: FONT_HEADING,
             },
             {
-              text: truncateText(ref.title, 110),
+              text: truncateText(ref.title || ref.url, 120),
               url: ref.url,
               sizePt: 12,
               colorHex: deck.primaryHex,
@@ -2491,6 +2916,15 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
           ],
           spaceAfterPt: 2,
         });
+        const takeawayLine = takeawayByUrl.get(ref.url);
+        if (takeawayLine) {
+          refParas.push({
+            text: truncateText(takeawayLine, 180),
+            sizePt: 10.5,
+            colorHex: COLORS.body,
+            spaceAfterPt: 2,
+          });
+        }
         refParas.push({
           runs: [
             {
@@ -2506,10 +2940,10 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
 
       refSlide.addCard({
         name: "References Card",
-        heading: "Official Documentation Links",
+        heading: "Official Documentation & Study Links",
         x: 640080,
         y: 1220000,
-        cx: SLIDE_CX - 1280160,
+        cx: fullContentCx,
         cy: 4980000,
         paragraphs: refParas,
       });
@@ -2859,7 +3293,7 @@ export function renderTopicToPptxBuffer(topicMarkdown, options = {}) {
     resolveImageBuffer: options.resolveImageBuffer,
   });
 
-  appendStructuredTopicSlides(deck, parsed);
+  appendStructuredTopicSlides(deck, parsed, hints);
   return deck.toPptxBuffer();
 }
 
@@ -2922,7 +3356,8 @@ export function renderMarkdownToPptxBuffer(markdown, options = {}) {
     for (const mod of split.modules) {
       const mMeta =
         manifestMods.find((m) => Number(m.order) === Number(mod.order)) || mod.moduleInfo || {};
-      const parsedMod = parseTopicMarkdownStructure(mod.markdown, {
+      const modHints = {
+        featureId: mMeta.id || mod.id || null,
         labTitle,
         stepLabel: mod.stepLabel,
         topicTitle: mod.title,
@@ -2930,8 +3365,15 @@ export function renderMarkdownToPptxBuffer(markdown, options = {}) {
         estimatedTime: mMeta.minutes ? `~${mMeta.minutes} min` : "",
         products: productsText,
         agentName: options.manifest?.agentName || options.manifest?.options?.agentName || "",
-      });
-      appendStructuredTopicSlides(deck, parsedMod);
+        harness:
+          options.manifest?.request?.harness ||
+          options.manifest?.differences?.labHarness ||
+          null,
+        trainingDigest: mMeta.trainingDigest || null,
+        manifest: options.manifest || null,
+      };
+      const parsedMod = parseTopicMarkdownStructure(mod.markdown, modHints);
+      appendStructuredTopicSlides(deck, parsedMod, modHints);
     }
 
     // Post-module validation / next steps sections if present
@@ -2948,17 +3390,19 @@ export function renderMarkdownToPptxBuffer(markdown, options = {}) {
   }
 
   // Check if `markdown` is a standalone topic module (e.g. from `splitGeneratedLabModules`)
-  const candidateTopic = parseTopicMarkdownStructure(src, {
+  const standaloneHints = {
     labTitle: options.manifest?.title || "",
     topicTitle: options.title || "",
-  });
+    manifest: options.manifest || null,
+  };
+  const candidateTopic = parseTopicMarkdownStructure(src, standaloneHints);
   if (candidateTopic.isStructuredTopic && candidateTopic.steps.length > 0) {
     const deck = new PptxDeckAssembler({
       title: options.title || candidateTopic.meta.topicTitle,
       branding: options.branding,
       resolveImageBuffer: options.resolveImageBuffer,
     });
-    appendStructuredTopicSlides(deck, candidateTopic);
+    appendStructuredTopicSlides(deck, candidateTopic, standaloneHints);
     return deck.toPptxBuffer();
   }
 

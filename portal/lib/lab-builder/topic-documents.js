@@ -17,6 +17,7 @@ import { renderTopicToPptxBuffer } from "./pptx-builder.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
 
 export const ALLOWED_TOPIC_DOC_FORMATS = Object.freeze(["docx", "pptx"]);
+export const TOPIC_DOCUMENTS_SCHEMA_VERSION = 2;
 
 export const TOPIC_DOC_MIME_TYPES = Object.freeze({
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -110,6 +111,7 @@ export function applyTopicDocumentsToManifest(manifest, topicDocuments) {
   if (!manifest || typeof manifest !== "object") return topicDocuments;
   const docs = Array.isArray(topicDocuments) ? topicDocuments : [];
   manifest.topicDocuments = docs;
+  manifest.topicDocumentsVersion = TOPIC_DOCUMENTS_SCHEMA_VERSION;
   if (Array.isArray(manifest.modules)) {
     const byOrder = new Map(docs.map((d) => [Number(d.order), d]));
     manifest.modules = manifest.modules.map((mod, idx) => {
@@ -149,6 +151,7 @@ export function renderSingleTopicBuffers(mod, { labTitle, manifest = {}, brandin
     branding,
     resolveImageBuffer,
     topic: {
+      featureId: matchedMod.id || mod.id || null,
       labTitle,
       stepLabel: mod.stepLabel,
       topicTitle: mod.title,
@@ -156,6 +159,9 @@ export function renderSingleTopicBuffers(mod, { labTitle, manifest = {}, brandin
       estimatedTime: matchedMod.minutes ? `~${matchedMod.minutes} min` : "",
       products: productsText,
       agentName: manifest?.options?.agentName || manifest?.request?.agentName || "",
+      harness: manifest?.request?.harness || manifest?.differences?.labHarness || null,
+      trainingDigest: matchedMod.trainingDigest || null,
+      manifest,
     },
   });
 
@@ -258,6 +264,7 @@ export function ensureGeneratedLabTopicDocuments(labDir, options = {}) {
     });
 
   const manifestMatches =
+    manifest?.topicDocumentsVersion === TOPIC_DOCUMENTS_SCHEMA_VERSION &&
     Array.isArray(manifest?.topicDocuments) &&
     manifest.topicDocuments.length === expectedDocs.length &&
     manifest.topicDocuments.every(

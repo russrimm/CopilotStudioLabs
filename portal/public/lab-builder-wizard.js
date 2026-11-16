@@ -64,6 +64,7 @@ const labBuilder = {
   pendingUncheckIds: [],
   // Modules deselected on Step 7 so learners can re-select them right in Review.
   step7Removed: new Map(),
+  moduleOrder: [],
   previewModules: [],
   previewToken: null,
   // Whether the collapsed prerequisite and unknown-level groups are open; kept across re-renders.
@@ -382,6 +383,7 @@ function lbSaveSelections() {
     harness: lbHasHarnessProduct() ? labBuilder.harness : null,
     features: labBuilder.rec ? [...labBuilder.rec.selectedIds] : [...(labBuilder.picked || [])],
     excluded: [...labBuilder.excluded],
+    moduleOrder: [...labBuilder.moduleOrder],
     includeKnowledgeCheck: Boolean(labBuilder.includeKnowledgeCheck),
     sharepointSiteName: name,
     sharepointSiteUrl: storedUrl,
@@ -2386,6 +2388,7 @@ function lbResetAnswers() {
   labBuilder.picked = null;
   labBuilder.excluded = new Set();
   labBuilder.step7Removed = new Map();
+  labBuilder.moduleOrder = [];
   labBuilder.previewModules = [];
   labBuilder.rec = null;
   labBuilder.search = "";
@@ -2490,6 +2493,7 @@ async function lbLoadSelections(lab) {
   labBuilder.picked = new Set(saved.features);
   labBuilder.excluded = new Set(saved.excluded);
   labBuilder.step7Removed = new Map();
+  labBuilder.moduleOrder = Array.isArray(saved.moduleOrder) ? [...saved.moduleOrder] : [];
   labBuilder.previewModules = [];
   labBuilder.chosenSteps = new Set([
     "product",
@@ -2546,6 +2550,7 @@ function lbRequest() {
     // What you see in the topic list is what gets built; prerequisites you turned off are assumed.
     features: labBuilder.rec ? labBuilder.rec.selectedIds : [],
     excluded: [...labBuilder.excluded],
+    ...(labBuilder.moduleOrder.length ? { moduleOrder: [...labBuilder.moduleOrder] } : {}),
     includeCore: false,
     targetMinutes: time > 0 ? time : undefined,
     title: document.getElementById("lb-title")?.value.trim() || undefined,
@@ -2713,6 +2718,83 @@ function lbRenderRemovedSection() {
     </section>`;
 }
 
+function lbRenderOutlineOrderControls(moduleOrId, index, total, maybeName) {
+  const mod =
+    moduleOrId && typeof moduleOrId === "object"
+      ? moduleOrId
+      : { id: moduleOrId, name: maybeName || moduleOrId };
+  const safeId = escapeHtml(mod.id || "");
+  const safeName = escapeHtml(mod.name || mod.id || "module");
+  const disableUp = index <= 0 ? " disabled" : "";
+  const disableDown = index >= total - 1 ? " disabled" : "";
+  return `<td class="lb-outline-order-cell"><div class="lb-outline-order-controls" role="group" aria-label="Reorder ${safeName}"><button type="button" class="btn btn-sm lb-outline-move-btn" data-outline-move="up" data-outline-module="${safeId}" aria-label="Move ${safeName} up" title="Move up"${disableUp}><span aria-hidden="true">↑</span></button><button type="button" class="btn btn-sm lb-outline-move-btn" data-outline-move="down" data-outline-module="${safeId}" aria-label="Move ${safeName} down" title="Move down"${disableDown}><span aria-hidden="true">↓</span></button></div></td>`;
+}
+
+function lbRenderOutlineOrderToolbar() {
+  if (!Array.isArray(labBuilder.moduleOrder) || !labBuilder.moduleOrder.length) return "";
+  return `<div class="lb-outline-order-bar"><span class="lb-outline-order-status">Custom module order active</span><button type="button" class="btn btn-small lb-outline-reset-btn" data-outline-action="reset-order">Reset default order</button></div>`;
+}
+
+async function lbMoveOutlineModule(id, direction) {
+  if (!id || (direction !== "up" && direction !== "down")) return;
+  const baseIds =
+    Array.isArray(labBuilder.previewModules) && labBuilder.previewModules.length
+      ? labBuilder.previewModules.map((m) => m.id)
+      : [...(labBuilder.moduleOrder || [])];
+  const index = baseIds.indexOf(id);
+  if (index < 0) return;
+  const targetIndex = direction === "up" ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= baseIds.length) return;
+  const nextIds = [...baseIds];
+  [nextIds[index], nextIds[targetIndex]] = [nextIds[targetIndex], nextIds[index]];
+  labBuilder.moduleOrder = nextIds;
+  lbSaveSelections();
+  if (labBuilder.step === LB_STEP.review) {
+    await lbPreview({ focusMove: { id, direction } });
+  }
+}
+
+async function lbResetModuleOrder() {
+  if (!labBuilder.moduleOrder.length) return;
+  labBuilder.moduleOrder = [];
+  lbSaveSelections();
+  if (labBuilder.step === LB_STEP.review) {
+    await lbPreview({ focusFirstModule: true });
+  }
+}
+
+function lbFocusOutlineAfterPreview(el, options = {}) {
+  if (!el || typeof el.querySelector !== "function") return;
+  const cssEscape =
+    typeof CSS !== "undefined" && typeof CSS.escape === "function"
+      ? CSS.escape.bind(CSS)
+      : (val) => String(val).replace(/["\\]/g, "\\$&");
+  if (options.focusMove?.id) {
+    const { id, direction } = options.focusMove;
+    const escapedId = cssEscape(id);
+    const primary = el.querySelector(
+      `button[data-outline-module="${escapedId}"][data-outline-move="${direction === "down" ? "down" : "up"}"]`
+    );
+    if (primary && !primary.disabled) {
+      primary.focus?.();
+      return;
+    }
+    const fallbackDir = direction === "down" ? "up" : "down";
+    const fallback = el.querySelector(
+      `button[data-outline-module="${escapedId}"][data-outline-move="${fallbackDir}"]`
+    );
+    if (fallback && !fallback.disabled) {
+      fallback.focus?.();
+      return;
+    }
+  }
+  if (options.focusModuleId) {
+    el.querySelector(`input[data-outline-module="${cssEscape(options.focusModuleId)}"]`)?.focus?.();
+  } else if (options.focusFirstModule) {
+    el.querySelector("input[data-outline-module]")?.focus?.();
+  }
+}
+
 function lbEnsurePreviewEvents(el) {
   if (!el || el._lbOutlineBound || typeof el.addEventListener !== "function") return;
   el._lbOutlineBound = true;
@@ -2722,9 +2804,15 @@ function lbEnsurePreviewEvents(el) {
     return lbSetOutlineModule(input.dataset.outlineModule, Boolean(input.checked));
   });
   el.addEventListener("click", (event) => {
+    const moveBtn = event.target?.closest?.("button[data-outline-move]");
+    if (moveBtn) {
+      if (moveBtn.disabled) return undefined;
+      return lbMoveOutlineModule(moveBtn.dataset.outlineModule, moveBtn.dataset.outlineMove);
+    }
     const actionBtn = event.target?.closest?.("button[data-outline-action]");
     if (!actionBtn) return undefined;
     const action = actionBtn.dataset.outlineAction;
+    if (action === "reset-order") return lbResetModuleOrder();
     if (action === "restore-all") return lbRestoreRemovedModules();
     if (action === "back-to-topics") return lbGoToStep(LB_STEP.topics);
     return undefined;
@@ -2862,14 +2950,14 @@ async function lbPreview(options = {}) {
     let recapCount = 0;
     let stepCount = 0;
     const moduleRowsHtml = data.modules
-      .map((m) => {
+      .map((m, idx) => {
         const isRecap = m.role === "prerequisite";
         if (isRecap) recapCount += 1;
         else stepCount += 1;
         const stepLabel =
           m.stepLabel ||
           (isRecap ? `Recap ${m.recapOrder ?? recapCount}` : `Step ${m.stepOrder ?? stepCount}`);
-        return `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"></td><td>${escapeHtml(stepLabel)}</td><th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${isRecap ? "Recap: " : ""}${escapeHtml(m.name)}</label><div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div></th><td>${m.level}${
+        return `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"></td>${lbRenderOutlineOrderControls(m, idx, data.modules.length)}<td>${escapeHtml(stepLabel)}</td><th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${isRecap ? "Recap: " : ""}${escapeHtml(m.name)}</label><div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div></th><td>${m.level}${
           isRecap ? " (prerequisite recap)" : ""
         }</td><td>about ${m.minutes} min</td></tr>`;
       })
@@ -2886,13 +2974,14 @@ async function lbPreview(options = {}) {
         ${spPillHtml}
       </div>
       <div style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">${escapeHtml(data.scenario.problem)}</div>
+      ${lbRenderOutlineOrderToolbar()}
       <table class="lb-outline">
         <caption>Lab outline with estimated time per module</caption>
-        <thead><tr><th scope="col" class="lb-outline-include-col">Include</th><th scope="col">Step</th><th scope="col">Module</th><th scope="col">Level</th><th scope="col">Estimated time</th></tr></thead>
+        <thead><tr><th scope="col" class="lb-outline-include-col">Include</th><th scope="col" class="lb-outline-order-col">Order</th><th scope="col">Step</th><th scope="col">Module</th><th scope="col">Level</th><th scope="col">Estimated time</th></tr></thead>
         <tbody>
           ${moduleRowsHtml}
         </tbody>
-        <tfoot><tr><th scope="row" colspan="4">Total (estimate)</th><td>about ${escapeHtml(data.duration)}</td></tr></tfoot>
+        <tfoot><tr><th scope="row" colspan="5">Total (estimate)</th><td>about ${escapeHtml(data.duration)}</td></tr></tfoot>
       </table>
       ${(data.estimate?.suggestedParts || [])
         .map((part) => `<div class="lb-feature-note">Optional part ${part.part}: ${part.ids.length} module${part.ids.length === 1 ? "" : "s"}, about ${escapeHtml(part.duration)}</div>`)
@@ -2900,11 +2989,7 @@ async function lbPreview(options = {}) {
       ${data.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(w)}</div>`).join("")}
       ${lbRenderRemovedSection()}
     `;
-    if (options.focusModuleId && typeof CSS !== "undefined" && typeof CSS.escape === "function") {
-      el.querySelector?.(`input[data-outline-module="${CSS.escape(options.focusModuleId)}"]`)?.focus?.();
-    } else if (options.focusFirstModule) {
-      el.querySelector?.("input[data-outline-module]")?.focus?.();
-    }
+    lbFocusOutlineAfterPreview(el, options);
   } catch (err) {
     if (labBuilder.previewToken !== token) return;
     el.innerHTML = `<div class="scenario-empty" role="alert">Could not plan the lab: ${escapeHtml(err.message)}</div>`;

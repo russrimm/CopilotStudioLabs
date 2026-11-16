@@ -126,9 +126,30 @@ function lbGenCountMessage(shown) {
   return `${total} generated lab${total === 1 ? "" : "s"}.`;
 }
 
+function lbSanitizeFileBase(rawTitle, fallback = "lab") {
+  const cleaned = String(rawTitle ?? "")
+    .replace(/[<>:"/\\|?*\u0000-\u001F\u007F]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[. ]+$/g, "")
+    .slice(0, 80)
+    .trim();
+  return cleaned || String(fallback || "lab").trim() || "lab";
+}
+
+function lbResolveDisplayLabTitle(labId, explicitTitle) {
+  const candidate =
+    String(explicitTitle || "").trim() ||
+    String(lbGenFind(labId)?.title || "").trim() ||
+    (typeof document !== "undefined"
+      ? String(document.querySelector?.("#lb-result-meta .lb-result-title")?.textContent || "").trim()
+      : "");
+  return candidate || "Lab";
+}
+
 function lbZipFormatSelectHtml(labId, title, scopePrefix) {
   const safeId = escapeHtml(labId);
-  const safeTitle = escapeHtml(title || labId);
+  const safeTitle = escapeHtml(title || "Lab");
   const selectId = `${scopePrefix}-${safeId}`;
   return `
     <span class="lb-export-zip-group">
@@ -140,24 +161,37 @@ function lbZipFormatSelectHtml(labId, title, scopePrefix) {
         <option value="pdf">PDF (.pdf)</option>
         <option value="html">HTML (.html)</option>
       </select>
-      <button type="button" class="btn btn-sm btn-primary" data-gen-action="export-zip" data-lab-id="${safeId}" aria-label="Download ${safeTitle} per-module ZIP with sample files">📦 Download Lab ZIP</button>
+      <button type="button" class="btn btn-sm btn-primary" data-gen-action="export-zip" data-lab-id="${safeId}" aria-label="Download Complete Lab Package (.zip) for ${safeTitle}">📦 Complete Lab Package (.zip)</button>
     </span>`;
 }
 
-function lbGeneratedActionButtonsHtml(labId, title) {
+function lbGeneratedActionButtonsHtml(labId, title, options = {}) {
   const safeId = escapeHtml(labId);
-  const safeTitle = escapeHtml(title || labId);
+  const encodedId = encodeURIComponent(labId);
+  const displayTitle = String(title || "Lab").trim() || "Lab";
+  const safeTitle = escapeHtml(displayTitle);
+  const fileBase = escapeHtml(lbSanitizeFileBase(displayTitle, labId));
+  const scopePrefix = options.scopePrefix || "lb-zip-fmt-result";
   return `
-    ${lbZipFormatSelectHtml(labId, title, "lb-zip-fmt-result")}
-    <button type="button" class="btn btn-sm" data-gen-action="export-html" data-lab-id="${safeId}" aria-label="Download ${safeTitle} as multi-page HTML">🌐 Download HTML</button>
-    <button type="button" class="btn btn-sm" data-gen-action="download" data-lab-id="${safeId}" aria-label="Download ${safeTitle} as Markdown">⬇️ Download .md</button>
-    <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">🖨️ Print / Save PDF</button>
-    <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>`;
+    <div class="lb-download-files-group" role="group" aria-label="Download associated files for ${safeTitle}">
+      <span class="lb-download-files-label">Download Lab Files</span>
+      <div class="lb-download-files-links">
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=html" download="${fileBase}.html" data-gen-action="export-html" data-lab-id="${safeId}" aria-label="Download Interactive Web Lab (.html) for ${safeTitle}">🌐 Interactive Web Lab (.html)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=docx" download="${fileBase}.docx" aria-label="Download Word Guide (.docx) for ${safeTitle}">📝 Word Guide (.docx)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pptx" download="${fileBase}.pptx" aria-label="Download PowerPoint Deck (.pptx) for ${safeTitle}">📊 PowerPoint Deck (.pptx)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pdf" download="${fileBase}.pdf" aria-label="Download PDF Guide (.pdf) for ${safeTitle}">📕 PDF Guide (.pdf)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=md" download="${fileBase}.md" data-gen-action="download" data-lab-id="${safeId}" aria-label="Download Markdown (.md) for ${safeTitle}">📄 Markdown (.md)</a>
+        ${lbZipFormatSelectHtml(labId, displayTitle, scopePrefix)}
+      </div>
+    </div>
+    <div class="lb-result-utility-actions" role="group" aria-label="Lab tools for ${safeTitle}">
+      <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">🖨️ Print</button>
+      <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>
+    </div>`;
 }
 
 function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
   if (!labId || !Array.isArray(topicDocuments) || !topicDocuments.length) return "";
-  const safeLabId = escapeHtml(labId);
   const encodedLabId = encodeURIComponent(labId);
 
   const itemsHtml = topicDocuments
@@ -181,15 +215,10 @@ function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
               <span class="lb-prereq-req-badge${badgeMod}">${escapeHtml(stepLabel)}</span>
               <strong class="lb-topic-doc-title">${escapeHtml(title)}</strong>
             </div>
-            <div class="lb-topic-doc-files">
-              <code>${escapeHtml(docxFileName)}</code>
-              <span aria-hidden="true">·</span>
-              <code>${escapeHtml(pptxFileName)}</code>
-            </div>
           </div>
           <div class="lb-topic-doc-actions">
-            <a class="btn btn-sm lb-topic-doc-btn" href="${docxHref}" download="${escapeHtml(docxFileName)}" aria-label="Download Word document ${escapeHtml(docxFileName)}">📝 Word (.docx)</a>
-            <a class="btn btn-sm lb-topic-doc-btn" href="${pptxHref}" download="${escapeHtml(pptxFileName)}" aria-label="Download PowerPoint slides ${escapeHtml(pptxFileName)}">📊 Slides (.pptx)</a>
+            <a class="btn btn-sm lb-topic-doc-btn" href="${docxHref}" download="${escapeHtml(docxFileName)}" aria-label="Download Word guide for ${escapeHtml(stepLabel)}: ${escapeHtml(title)}">📝 Word (.docx)</a>
+            <a class="btn btn-sm lb-topic-doc-btn" href="${pptxHref}" download="${escapeHtml(pptxFileName)}" aria-label="Download PowerPoint deck for ${escapeHtml(stepLabel)}: ${escapeHtml(title)}">📊 PowerPoint (.pptx)</a>
           </div>
         </li>`;
     })
@@ -200,11 +229,11 @@ function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
       <div class="lb-topic-docs-header">
         <h4 id="lb-topic-docs-heading">📄 Topic Word Documents &amp; PowerPoint Slides</h4>
         <div class="scenario-pill-list">
-          <span class="scenario-pill">${topicDocuments.length} topic${topicDocuments.length === 1 ? "" : "s"} (${topicDocuments.length * 2} files named per lab)</span>
+          <span class="scenario-pill">${topicDocuments.length} topic${topicDocuments.length === 1 ? "" : "s"}</span>
         </div>
       </div>
       <p class="lb-topic-docs-intro">
-        Standalone Word handouts (<code>.docx</code>) and widescreen PowerPoint decks (<code>.pptx</code>) generated for each topic in <code>generated-labs/${safeLabId}/topics/</code> and named with this lab's title.
+        Download standalone Word guides and PowerPoint training slide decks for individual topics.
       </p>
       <ul class="lb-topic-docs-list" aria-label="Per-topic Word documents and PowerPoint slides">${itemsHtml}</ul>
     </section>`;
@@ -373,7 +402,8 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
 
 function lbGenItemHtml(lab) {
   const id = escapeHtml(lab.labId);
-  const title = escapeHtml(lab.title || lab.labId);
+  const rawTitle = String(lab.title || "Untitled Lab").trim() || "Untitled Lab";
+  const title = escapeHtml(lab.title || rawTitle);
   const created = new Date(lab.generatedAt);
   const createdText = Number.isNaN(created.getTime()) ? "date unknown" : created.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   const chips = [...lbGenProductNames(lab).map((name) => escapeHtml(name)), escapeHtml(lbGenIndustryName(lab.vertical))];
@@ -423,11 +453,7 @@ function lbGenItemHtml(lab) {
         <span class="lb-gen-open-note">Open above. Download, print, and validate are in the lab panel.</span>`
     : `<button type="button" class="btn btn-sm" data-gen-action="open" aria-label="Open ${title}">Open</button>
         ${edit}
-        ${lbZipFormatSelectHtml(lab.labId, lab.title || lab.labId, "lb-zip-fmt-item")}
-        <button type="button" class="btn btn-sm" data-gen-action="export-html" aria-label="Download ${title} as multi-page HTML">Download HTML</button>
-        <button type="button" class="btn btn-sm" data-gen-action="download" aria-label="Download ${title} as Markdown">Download .md</button>
-        <button type="button" class="btn btn-sm" data-gen-action="print" aria-label="Print or save ${title} as PDF">Print / Save PDF</button>
-        <button type="button" class="btn btn-sm" data-gen-action="validate" aria-label="Validate ${title}">Validate</button>`;
+        ${lbGeneratedActionButtonsHtml(lab.labId, rawTitle, { scopePrefix: "lb-zip-fmt-item" })}`;
   return `
     <li class="lb-gen-item" data-lab-id="${id}">
       <h4 class="lb-gen-title">${title}</h4>
@@ -518,25 +544,25 @@ async function lbOpenGenerated(labId) {
     : lab.sharepointSite?.name
     ? `<span class="scenario-pill">SharePoint site: ${escapeHtml(lab.sharepointSite.name)}</span>`
     : "";
+  const labTitle = String(lab.title || "Generated Lab").trim() || "Generated Lab";
   meta.innerHTML = `
-    <div style="font-size: 16px; font-weight: 600;">${escapeHtml(lab.title)}</div>
-    <div class="scenario-pill-list">
-      <span class="scenario-pill">${escapeHtml(lab.difficulty || "")}</span>
-      <span class="scenario-pill">About ${escapeHtml(lbFormatMinutes(lab.totalMinutes || 0))}</span>
-      <span class="scenario-pill">${Number(lab.moduleCount) || 0} topics</span>
-      ${spOpenPill}
+    <div class="lb-result-header-block">
+      <h4 class="lb-result-title">${escapeHtml(labTitle)}</h4>
+      <div class="scenario-pill-list">
+        ${lab.difficulty ? `<span class="scenario-pill">${escapeHtml(lab.difficulty)}</span>` : ""}
+        <span class="scenario-pill">About ${escapeHtml(lbFormatMinutes(lab.totalMinutes || 0))}</span>
+        <span class="scenario-pill">${Number(lab.moduleCount) || 0} topics</span>
+        ${spOpenPill}
+      </div>
+      ${lab.notes ? `<p class="lb-gen-notes" style="margin-top: 10px;">${escapeHtml(lab.notes)}</p>` : ""}
     </div>
-    ${lab.notes ? `<p class="lb-gen-notes" style="margin-top: 10px;">${escapeHtml(lab.notes)}</p>` : ""}
-    <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
-      Saved to <code>generated-labs/${escapeHtml(lab.labId)}</code> on the portal host.
-    </div>
-    <div class="lb-result-actions" style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
-      ${lbGeneratedActionButtonsHtml(lab.labId, lab.title)}
+    <div class="lb-result-actions">
+      ${lbGeneratedActionButtonsHtml(lab.labId, labTitle)}
     </div>`;
   body.innerHTML = `
     <div id="lb-result-validation" role="region" aria-label="Generated lab validation results" aria-live="polite"></div>
-    <div id="lb-result-screenshots"></div>
     <div id="lb-result-topic-docs"></div>
+    <div id="lb-result-screenshots"></div>
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
     <div id="lb-result-admin-prereqs"></div>
     <details class="lb-advanced">
@@ -558,16 +584,18 @@ async function lbDownloadGeneratedHtml(labId) {
       throw new Error(data.error || `Download failed (${res.status})`);
     }
     const htmlContent = await res.text();
+    const labTitle = lbResolveDisplayLabTitle(labId);
+    const fileBase = lbSanitizeFileBase(labTitle, labId);
     const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${labId}.html`;
+    link.download = `${fileBase}.html`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    toast(`Downloaded ${labId}.html`, "success");
+    toast(`Downloaded Interactive Web Lab for "${labTitle}"`, "success");
   } catch (err) {
     toast(`Could not download HTML: ${err.message}`, "error");
   }
@@ -588,18 +616,20 @@ async function lbExportGeneratedZip(labId, triggerEl) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || `Export failed (${res.status})`);
     }
+    const labTitle = lbResolveDisplayLabTitle(labId);
+    const fileBase = lbSanitizeFileBase(labTitle, labId);
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     const suffix = formats !== "all" ? `-${formats}` : "";
-    const fileName = `${labId}${suffix}.zip`;
+    const fileName = `${fileBase}${suffix}.zip`;
     link.href = url;
     link.download = fileName;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    toast(`Exported ${fileName} with per-module folders and sample files`, "success");
+    toast(`Downloaded Complete Lab Package for "${labTitle}"`, "success");
   } catch (err) {
     toast(`Could not export ZIP: ${err.message}`, "error");
   }
@@ -724,7 +754,7 @@ function lbGenAskDelete(labId) {
   lbGen.deleting = labId;
   document.getElementById("lb-gen-delete-title").textContent = `Delete "${lab.title}"?`;
   document.getElementById("lb-gen-delete-desc").textContent =
-    `This permanently removes the lab and its images from the portal host (generated-labs/${lab.labId}). It cannot be undone. Hand-written labs are not affected.`;
+    `This permanently removes "${lab.title}" and its associated files. It cannot be undone. Hand-written labs are not affected.`;
   document.getElementById("lb-gen-delete-error").textContent = "";
   dialog.showModal();
   document.getElementById("lb-gen-delete-cancel").focus();
@@ -825,6 +855,7 @@ function lbGenBind() {
   root.addEventListener("click", (event) => {
     const button = event.target.closest("[data-gen-action]");
     if (!button) return;
+    if (button.tagName === "A") event.preventDefault();
     const labId = button.closest("[data-lab-id]")?.dataset.labId || button.dataset.labId;
     switch (button.dataset.genAction) {
       case "open": lbOpenGenerated(labId); break;

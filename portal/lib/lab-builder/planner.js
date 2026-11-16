@@ -155,6 +155,15 @@ export function normalizeLabRequest(request = {}) {
   }
   const excluded = [...new Set(rawExcluded.map((id) => getFeature(id, { harness: harnessHint }).id))];
 
+  const rawModuleOrder = stringList(request.moduleOrder, "moduleOrder", maxTopicIds);
+  const moduleOrder = [
+    ...new Set(
+      rawModuleOrder
+        .map((id) => getFeature(id, { harness: harnessHint })?.id)
+        .filter(Boolean),
+    ),
+  ];
+
   let harnesses;
   if (request.harnesses !== undefined && request.harnesses !== null) {
     harnesses = stringList(request.harnesses, "harnesses", getHarnesses().length);
@@ -241,6 +250,7 @@ export function normalizeLabRequest(request = {}) {
     products,
     features,
     excluded,
+    moduleOrder: moduleOrder.length ? moduleOrder : undefined,
     harness,
     harnesses,
     harnessDropped,
@@ -375,6 +385,53 @@ function numberFeatures(features) {
       stepLabel: `Step ${stepOrder}`,
     };
   });
+}
+
+/**
+ * Reorder planned module IDs according to an explicit `moduleOrder` array.
+ * Modules listed in `moduleOrder` appear in that exact relative sequence, while
+ * any planned module not listed in `moduleOrder` stays in its natural slot.
+ */
+export function applyModuleOrder(orderedIds, moduleOrder) {
+  if (!Array.isArray(orderedIds) || orderedIds.length <= 1) return [...(orderedIds || [])];
+  if (!Array.isArray(moduleOrder) || !moduleOrder.length) return [...orderedIds];
+  const plannedSet = new Set(orderedIds);
+  const customQueue = [];
+  const customSet = new Set();
+  for (const id of moduleOrder) {
+    if (plannedSet.has(id) && !customSet.has(id)) {
+      customSet.add(id);
+      customQueue.push(id);
+    }
+  }
+  if (!customQueue.length) return [...orderedIds];
+  let cursor = 0;
+  return orderedIds.map((id) => (customSet.has(id) ? customQueue[cursor++] : id));
+}
+
+/**
+ * Advisory warnings when a custom module order places a module before one of
+ * its own included prerequisites. The explicit order is always honored.
+ */
+export function collectModuleOrderPrereqWarnings(orderedIds, { harness = null } = {}) {
+  if (!Array.isArray(orderedIds) || orderedIds.length <= 1) return [];
+  const indexById = new Map(orderedIds.map((id, idx) => [id, idx]));
+  const warnings = [];
+  for (let i = 0; i < orderedIds.length; i += 1) {
+    const id = orderedIds[i];
+    const feature = getFeature(id, { harness });
+    if (!feature) continue;
+    const allPrereqs = expandPrereqs(feature.prereqs || []);
+    for (const preId of allPrereqs) {
+      if (preId === id || !indexById.has(preId) || indexById.get(preId) <= i) continue;
+      const prereqFeature = getFeature(preId, { harness });
+      if (!prereqFeature) continue;
+      warnings.push(
+        `Custom module order places "${feature.name}" before its prerequisite "${prereqFeature.name}".`,
+      );
+    }
+  }
+  return warnings;
 }
 
 export function buildEstimate(features, targetMinutes) {
@@ -647,7 +704,15 @@ export function planLab(request = {}) {
     topological.push(id);
   };
   for (const id of baseTopological) visitOrdered(id);
-  const ordered = minRequestedLevel ? [...topological.filter(isRecap), ...topological.filter((id) => !isRecap(id))] : topological;
+  const defaultOrdered = minRequestedLevel
+    ? [...topological.filter(isRecap), ...topological.filter((id) => !isRecap(id))]
+    : topological;
+  const ordered = request.moduleOrder?.length
+    ? applyModuleOrder(defaultOrdered, request.moduleOrder)
+    : defaultOrdered;
+  if (request.moduleOrder?.length) {
+    warnings.push(...collectModuleOrderPrereqWarnings(ordered, { harness: request.harness }));
+  }
 
   const harnessesUsed = new Set(
     ordered.map((id) => getFeature(id)?.harness || []).filter((tags) => tags.length === 1).map((tags) => tags[0]),
@@ -737,6 +802,7 @@ export function planLab(request = {}) {
       products: planProducts,
       features: requested,
       excluded: request.excluded,
+      moduleOrder: request.moduleOrder ? request.moduleOrder.filter((id) => ordered.includes(id)) : [],
       harness: request.harness || null,
       level: request.level || null,
       droppedOutOfLevel,

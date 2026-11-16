@@ -676,11 +676,18 @@ test("portal UI renders accessible Topic Word Documents & PowerPoint Slides card
     },
   ]);
 
+  const visibleText = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
   assert.match(html, /Topic Word Documents &amp; PowerPoint Slides/);
-  assert.match(html, /2 topics \(4 files named per lab\)/);
+  assert.match(html, /2 topics<\/span>/);
+  assert.doesNotMatch(html, /files named per lab/);
+  assert.doesNotMatch(html, /generated-labs\//);
+  assert.doesNotMatch(html, /lb-topic-doc-files/);
   assert.match(html, /lb-prereq-req-badge-recap">Recap 1<\/span>/);
-  assert.match(html, /Healthcare Lab - Recap 01 - Create an agent\.docx/);
-  assert.match(html, /Healthcare Lab - Step 01 - Ground on SharePoint\.pptx/);
+  assert.match(html, /download="Healthcare Lab - Recap 01 - Create an agent\.docx"/);
+  assert.match(html, /download="Healthcare Lab - Step 01 - Ground on SharePoint\.pptx"/);
+  assert.doesNotMatch(visibleText, /Healthcare Lab - Recap 01 - Create an agent\.docx/);
+  assert.doesNotMatch(visibleText, /Healthcare Lab - Step 01 - Ground on SharePoint\.pptx/);
   assert.match(html, /href="\/api\/lab-builder\/generated\/healthcare-lab\/topics\/1\/docx"/);
   assert.match(html, /href="\/api\/lab-builder\/generated\/healthcare-lab\/topics\/2\/pptx"/);
   assert.equal(context.__topicUi.lbRenderTopicDocumentsHtml("healthcare-lab", []), "");

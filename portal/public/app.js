@@ -4536,27 +4536,27 @@ function lbShowResult(data) {
     : spSite?.name
     ? `<span class="scenario-pill">SharePoint site: ${escapeHtml(spSite.name)}</span>`
     : "";
+  const labTitle = String(data.title || data.manifest?.title || "Generated Lab").trim() || "Generated Lab";
   meta.innerHTML = `
-    <div style="font-size: 16px; font-weight: 600;">${escapeHtml(data.title)}</div>
-    <div class="scenario-pill-list">
-      <span class="scenario-pill">${escapeHtml(data.difficulty)}</span>
-      ${data.manifest.level ? `<span class="scenario-pill">${escapeHtml(data.manifest.levelName || `Level ${data.manifest.level}`)}</span>` : ""}
-      ${data.manifest.prerequisites?.length ? `<span class="scenario-pill">${data.manifest.prerequisites.length} prerequisite recap${data.manifest.prerequisites.length === 1 ? "" : "s"}</span>` : ""}
-      <span class="scenario-pill">${escapeHtml(data.duration)}</span>
-      ${spPillHtml}
-      <span class="scenario-pill">${g.groundedModules}/${g.totalModules} modules grounded on Microsoft Learn</span>
-      ${vd?.requested ? `<span class="scenario-pill">${Number(vd.read)}/${Number(vd.inLab)} vendor pages read</span>` : ""}
-      <span class="scenario-pill">${v.passed} checks passed${v.failed ? `, ${v.failed} failed` : ""}</span>
-      <span class="scenario-pill">${data.manifest.screenshots.reused} screenshots reused</span>
-      <span class="scenario-pill">${data.manifest.screenshots.pending ?? data.manifest.screenshots.toCapture} screenshots pending</span>
+    <div class="lb-result-header-block">
+      <h4 class="lb-result-title">${escapeHtml(labTitle)}</h4>
+      <div class="scenario-pill-list">
+        <span class="scenario-pill">${escapeHtml(data.difficulty)}</span>
+        ${data.manifest.level ? `<span class="scenario-pill">${escapeHtml(data.manifest.levelName || `Level ${data.manifest.level}`)}</span>` : ""}
+        ${data.manifest.prerequisites?.length ? `<span class="scenario-pill">${data.manifest.prerequisites.length} prerequisite recap${data.manifest.prerequisites.length === 1 ? "" : "s"}</span>` : ""}
+        <span class="scenario-pill">${escapeHtml(data.duration)}</span>
+        ${spPillHtml}
+        <span class="scenario-pill">${g.groundedModules}/${g.totalModules} modules grounded on Microsoft Learn</span>
+        ${vd?.requested ? `<span class="scenario-pill">${Number(vd.read)}/${Number(vd.inLab)} vendor pages read</span>` : ""}
+        <span class="scenario-pill">${v.passed} checks passed${v.failed ? `, ${v.failed} failed` : ""}</span>
+        <span class="scenario-pill">${data.manifest.screenshots.reused} screenshots reused</span>
+        <span class="scenario-pill">${data.manifest.screenshots.pending ?? data.manifest.screenshots.toCapture} screenshots pending</span>
+      </div>
     </div>
-    <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
-      Saved to <code>generated-labs/${escapeHtml(data.labId)}</code> on the portal host.
-    </div>
-    <div class="lb-result-actions" style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+    <div class="lb-result-actions">
       ${typeof lbGeneratedActionButtonsHtml === "function"
-        ? lbGeneratedActionButtonsHtml(data.labId, data.title)
-        : `<button type="button" class="btn btn-sm" onclick="lbDownload('${escapeHtml(data.labId)}')">⬇️ Download .md</button>`}
+        ? lbGeneratedActionButtonsHtml(data.labId, labTitle)
+        : `<button type="button" class="btn btn-sm" onclick="lbDownload('${escapeHtml(data.labId)}')">📄 Markdown (.md)</button>`}
     </div>
     ${(data.manifest?.decisions || [])
       .map(
@@ -4582,9 +4582,9 @@ function lbShowResult(data) {
 
   body.innerHTML = `
     <div id="lb-result-validation" role="region" aria-label="Generated lab validation results" aria-live="polite"></div>
+    <div id="lb-result-topic-docs">${topicDocsHtml}</div>
     ${lbQualityPanel(data.qa)}
     <div id="lb-result-screenshots"></div>
-    <div id="lb-result-topic-docs">${topicDocsHtml}</div>
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
     <div id="lb-result-admin-prereqs">${adminPrereqsHtml}</div>
     <details class="lb-advanced">
@@ -4667,6 +4667,12 @@ async function lbLoadResultPreview(labId) {
 
 async function lbDownload(labId) {
   if (!labId) return;
+  const labTitle =
+    typeof lbResolveDisplayLabTitle === "function"
+      ? lbResolveDisplayLabTitle(labId)
+      : document.querySelector("#lb-result-meta .lb-result-title")?.textContent?.trim() || "Lab";
+  const fileBase =
+    typeof lbSanitizeFileBase === "function" ? lbSanitizeFileBase(labTitle, labId) : labId;
   try {
     const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=md`);
     if (res.ok) {
@@ -4675,12 +4681,12 @@ async function lbDownload(labId) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${labId}.md`;
+      a.download = `${fileBase}.md`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast(`Downloaded ${labId}.md`, "success");
+      toast(`Downloaded Markdown for "${labTitle}"`, "success");
       return;
     }
   } catch (_) {
@@ -4696,11 +4702,11 @@ async function lbDownload(labId) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${labId}.md`;
+  a.download = `${fileBase}.md`;
   document.body.appendChild(a);
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  toast(`Downloaded ${labId}.md`, "success");
+  toast(`Downloaded Markdown for "${labTitle}"`, "success");
 }
 

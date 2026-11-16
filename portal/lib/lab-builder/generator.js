@@ -16,6 +16,7 @@ import { createLlm } from "./llm.js";
 import { planScreenshots, copyScreenshots, writePlaceholders, buildShotsManifest, buildShotList } from "./screenshots.js";
 import { composeLab } from "./composer.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
+import { buildModuleTrainingDigest } from "./topic-training.js";
 import {
   applyTopicDocumentsToManifest,
   buildTopicDocumentsMeta,
@@ -1318,6 +1319,14 @@ export async function generateLab(request, opts = {}) {
           lastVerified: f.lastVerified || null,
           verifiedAgainst: f.verifiedAgainst || null,
         },
+        trainingDigest: buildModuleTrainingDigest({
+          feature: f,
+          plan,
+          grounding: groundingByFeature.get(f.id),
+          stepsRecord: derived,
+          vendorSources: vendorByFeature.get(f.id) || [],
+          appliedNarrative: enrichment.byFeature?.get(f.id)?.applied || "",
+        }),
       };
     }),
     deferred: plan.deferred,

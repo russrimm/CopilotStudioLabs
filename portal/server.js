@@ -43,6 +43,7 @@ import { getConcepts } from "./lib/lab-builder/concepts.js";
 import { defaultDifferencesFor } from "./lib/lab-builder/differences.js";
 import { getProducts, productOf } from "./lib/lab-builder/products.js";
 import { generateLab, OUTPUT_ROOT } from "./lib/lab-builder/generator.js";
+import { capFilesystemSegment, sanitizeFilesystemTitle } from "./lib/lab-builder/module-samples.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
 import {
@@ -558,6 +559,7 @@ app.post("/api/lab-builder/preview", (req, res) => {
           }
         : { name: null, url: null, label: null, configured: false },
       droppedOutOfLevel: plan.request.droppedOutOfLevel || [],
+      moduleOrder: plan.request.moduleOrder || [],
       deferred: plan.deferred,
       assumedPrereqs: plan.assumedPrereqs,
       relatedLabs: plan.relatedLabs,
@@ -720,6 +722,28 @@ async function handleGeneratedLabExport(req, res) {
     return res.status(found.status).json({ error: found.error });
   }
 
+  const buildExportContentDisposition = (ext, suffix = "") => {
+    let preferredBase = "";
+    try {
+      const manifestPath = join(found.labDir, "manifest.json");
+      if (existsSync(manifestPath)) {
+        const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+        if (manifest && typeof manifest.title === "string" && manifest.title.trim()) {
+          preferredBase = capFilesystemSegment(sanitizeFilesystemTitle(manifest.title, ""), 80, "");
+        }
+      }
+    } catch {
+      preferredBase = "";
+    }
+    const fallbackName = `${found.labId}${suffix}.${ext}`;
+    const preferredName = preferredBase ? `${preferredBase}${suffix}.${ext}` : fallbackName;
+    const encodedUtf8 = encodeURIComponent(preferredName).replace(
+      /['()*]/g,
+      (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`,
+    );
+    return `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodedUtf8}`;
+  };
+
   if (format === "html") {
     try {
       const rendered = renderGeneratedLabHtml(GENERATED_LABS_DIR, found.labId, replacements, {
@@ -729,7 +753,7 @@ async function handleGeneratedLabExport(req, res) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.html"`);
+      res.setHeader("Content-Disposition", buildExportContentDisposition("html"));
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.html);
     } catch (err) {
@@ -749,7 +773,7 @@ async function handleGeneratedLabExport(req, res) {
         "Content-Type",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       );
-      res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.docx"`);
+      res.setHeader("Content-Disposition", buildExportContentDisposition("docx"));
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer);
     } catch (err) {
@@ -769,7 +793,7 @@ async function handleGeneratedLabExport(req, res) {
         "Content-Type",
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       );
-      res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.pptx"`);
+      res.setHeader("Content-Disposition", buildExportContentDisposition("pptx"));
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer);
     } catch (err) {
@@ -786,7 +810,7 @@ async function handleGeneratedLabExport(req, res) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
       res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.pdf"`);
+      res.setHeader("Content-Disposition", buildExportContentDisposition("pdf"));
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer);
     } catch (err) {
@@ -801,7 +825,7 @@ async function handleGeneratedLabExport(req, res) {
         return res.status(rendered.status).json({ error: rendered.error });
       }
       res.setHeader("Content-Type", "text/markdown; charset=utf-8");
-      res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.md"`);
+      res.setHeader("Content-Disposition", buildExportContentDisposition("md"));
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.markdown);
     } catch (err) {
@@ -812,7 +836,7 @@ async function handleGeneratedLabExport(req, res) {
   const zipSuffix =
     selectedZipFormats && selectedZipFormats.length === 1 ? `-${selectedZipFormats[0]}` : "";
   res.setHeader("Content-Type", "application/zip");
-  res.setHeader("Content-Disposition", `attachment; filename="${found.labId}${zipSuffix}.zip"`);
+  res.setHeader("Content-Disposition", buildExportContentDisposition("zip", zipSuffix));
   res.setHeader("X-Content-Type-Options", "nosniff");
 
   try {
