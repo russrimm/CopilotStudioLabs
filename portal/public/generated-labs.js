@@ -103,6 +103,40 @@ function lbGeneratedActionButtonsHtml(labId, title) {
     <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>`;
 }
 
+const LB_PREREQ_STEP_PREFIX_RE = /^(Step|Recap)\s+(\d+)\s+[—–-]\s+(.+)$/i;
+
+function lbRenderRequiredByItemHtml(rawEntry) {
+  const text = String(rawEntry ?? "").trim();
+  if (!text) return "";
+  const match = text.match(LB_PREREQ_STEP_PREFIX_RE);
+  if (match) {
+    const isRecap = /^recap$/i.test(match[1]);
+    const badgeLabel = `${isRecap ? "Recap" : "Step"} ${match[2]}`;
+    const badgeMod = isRecap ? " lb-prereq-req-badge-recap" : "";
+    return `<li class="lb-prereq-req-item"><span class="lb-prereq-req-badge${badgeMod}">${escapeHtml(badgeLabel)}</span><span class="lb-prereq-req-title">${escapeHtml(match[3].trim())}</span></li>`;
+  }
+  return `<li class="lb-prereq-req-item lb-prereq-req-item-general"><span class="lb-prereq-req-title">${escapeHtml(text)}</span></li>`;
+}
+
+function lbRenderRequiredByHtml(requiredBy, { visibleLimit = 4 } = {}) {
+  const entries = (Array.isArray(requiredBy) ? requiredBy : [])
+    .map((entry) => String(entry ?? "").trim())
+    .filter(Boolean);
+  if (!entries.length) return "";
+
+  const limit = Number.isFinite(visibleLimit) && visibleLimit > 0 ? Math.floor(visibleLimit) : 4;
+  const visible = entries.slice(0, limit);
+  const hidden = entries.slice(limit);
+  const visibleListHtml = `<ul class="lb-prereq-req-list">${visible.map(lbRenderRequiredByItemHtml).join("")}</ul>`;
+  if (!hidden.length) {
+    return visibleListHtml;
+  }
+
+  const moreWord = hidden.length === 1 ? "module" : "modules";
+  const hiddenListHtml = `<ul class="lb-prereq-req-list">${hidden.map(lbRenderRequiredByItemHtml).join("")}</ul>`;
+  return `${visibleListHtml}<details class="lb-prereq-req-more"><summary>+${hidden.length} more ${moreWord} (${entries.length} total)</summary>${hiddenListHtml}</details>`;
+}
+
 function lbRenderAdminPrerequisitesHtml(prereqs) {
   if (!prereqs || typeof prereqs !== "object") return "";
   const connectors = Array.isArray(prereqs.connectors) ? prereqs.connectors : [];
@@ -115,25 +149,32 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
 
   const renderSettingItems = (items) =>
     items
-      .map(
-        (item) => `
+      .map((item) => {
+        const reqHtml = lbRenderRequiredByHtml(item.requiredBy);
+        return `
         <li class="lb-prereq-card">
           <div class="lb-prereq-card-head">
             <strong>${escapeHtml(item.title || "")}</strong>
-            <span>
-              ${item.status ? `<span class="tag">${escapeHtml(item.status)}</span> ` : ""}
-              ${item.requiredBy?.length ? `<span class="tag">${escapeHtml(item.requiredBy.join(", "))}</span>` : ""}
-            </span>
+            ${item.status ? `<span class="tag">${escapeHtml(item.status)}</span>` : ""}
           </div>
           ${item.adminPath ? `<div class="lb-prereq-path">Admin path: <code>${escapeHtml(item.adminPath)}</code></div>` : ""}
           <p class="lb-prereq-detail">${escapeHtml(item.details || item.detail || "")}</p>
-        </li>`,
-      )
+          ${
+            reqHtml
+              ? `<div class="lb-prereq-card-req">
+                  <span class="lb-prereq-card-req-label">Required by:</span>
+                  <div class="lb-prereq-card-req-body">${reqHtml}</div>
+                </div>`
+              : ""
+          }
+        </li>`;
+      })
       .join("");
 
   const connectorRows = connectors
-    .map(
-      (c) => `
+    .map((c) => {
+      const reqHtml = lbRenderRequiredByHtml(c.requiredBy);
+      return `
       <tr>
         <td>
           <strong>${escapeHtml(c.name || "")}</strong>
@@ -141,10 +182,10 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
         </td>
         <td><span class="tag">${escapeHtml(c.classification || c.tier || "Standard")}</span></td>
         <td><code>${escapeHtml(c.dataGroup || "Business")}</code></td>
-        <td>${escapeHtml((c.requiredBy || []).join(", "))}</td>
+        <td class="lb-prereq-col-req">${reqHtml || '<span class="lb-prereq-req-empty">—</span>'}</td>
         <td>${escapeHtml(c.details || c.purpose || "")}</td>
-      </tr>`,
-    )
+      </tr>`;
+    })
     .join("");
 
   return `
@@ -173,7 +214,7 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
                       <th scope="col">Connector / Endpoint</th>
                       <th scope="col">Tier</th>
                       <th scope="col">DLP Group</th>
-                      <th scope="col">Required By</th>
+                      <th scope="col" class="lb-prereq-col-req">Required By</th>
                       <th scope="col">Scope &amp; Notes</th>
                     </tr>
                   </thead>
@@ -429,9 +470,18 @@ async function lbPrintGenerated(labId) {
       await lbLoadResultPreview(labId);
     }
   }
+  const closedPrereqDetails = [
+    ...(document.querySelectorAll?.(".lb-admin-prereqs details.lb-prereq-req-more:not([open])") || []),
+  ];
+  closedPrereqDetails.forEach((el) => {
+    el.open = true;
+  });
   document.body.dataset.printTarget = "generated";
   const cleanup = () => {
     delete document.body.dataset.printTarget;
+    closedPrereqDetails.forEach((el) => {
+      el.open = false;
+    });
   };
   window.addEventListener("afterprint", cleanup, { once: true });
   setTimeout(cleanup, 2000);

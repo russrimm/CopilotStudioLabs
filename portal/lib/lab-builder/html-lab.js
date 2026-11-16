@@ -55,6 +55,9 @@ function renderInlineMarkdown(rawText) {
   // Unescape backslash-escaped punctuation in plain text before escaping HTML.
   text = text.replace(/\\([\\`*_[\]<>|~#+-])/g, (_m, ch) => stash(escapeHtml(ch)));
 
+  // Explicit inline line breaks (<br> / <br/>) inside Markdown cells and list items.
+  text = text.replace(/<br\s*\/?>/gi, () => stash("<br>"));
+
   // Images: ![alt](src)
   text = text.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_m, alt, src) => {
     const safeSrc = sanitizeImgSrc(src);
@@ -82,8 +85,8 @@ function splitTableCells(line) {
     .trim()
     .replace(/^\|/, "")
     .replace(/\|$/, "")
-    .split("|")
-    .map((cell) => cell.trim());
+    .split(/(?<!\\)\|/)
+    .map((cell) => cell.replace(/\\\|/g, "|").trim());
 }
 
 /**
@@ -933,6 +936,7 @@ ${page.html}
       border: 1px solid var(--border);
       padding: 8px 12px;
       text-align: left;
+      vertical-align: top;
       color: var(--text);
     }
     .lab-article th {
@@ -1548,3 +1552,5 @@ ${pagesHtml}
 </html>
 `;
 }
+
+export const renderLabHtmlDocument = renderStandaloneLabHtml;

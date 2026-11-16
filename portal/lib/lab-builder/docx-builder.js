@@ -276,7 +276,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
   const renderInlineRuns = (rawText, baseProps = {}) => {
     const text = String(rawText ?? "");
     const tokenRe =
-      /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|`([^`\n]+)`|\*\*([^*]+)\*\*|(?<!\*)\*([^*\n]+)\*(?!\*)/g;
+      /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|`([^`\n]+)`|(?<!\\)(<br\s*\/?>)|\*\*([^*]+)\*\*|(?<!\*)\*([^*\n]+)\*(?!\*)/gi;
     const out = [];
     let lastIdx = 0;
     let match;
@@ -316,9 +316,11 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
       } else if (match[5] !== undefined) {
         out.push(makeRun(match[5], { ...baseProps, code: true }));
       } else if (match[6] !== undefined) {
-        out.push(makeRun(match[6], { ...baseProps, bold: true }));
+        out.push("<w:r><w:br/></w:r>");
       } else if (match[7] !== undefined) {
-        out.push(makeRun(match[7], { ...baseProps, italic: true }));
+        out.push(makeRun(match[7], { ...baseProps, bold: true }));
+      } else if (match[8] !== undefined) {
+        out.push(makeRun(match[8], { ...baseProps, italic: true }));
       }
       lastIdx = tokenRe.lastIndex;
     }

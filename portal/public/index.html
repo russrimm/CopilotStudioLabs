@@ -1765,6 +1765,80 @@
       color: var(--text);
     }
     .lb-prereq-table th { background: var(--surface); font-weight: 600; }
+    .lb-prereq-table th.lb-prereq-col-req,
+    .lb-prereq-table td.lb-prereq-col-req {
+      min-width: 240px;
+    }
+    .lb-prereq-req-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .lb-prereq-req-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: var(--stat-chip-bg);
+      border: 1px solid var(--border);
+      line-height: 1.4;
+    }
+    .lb-prereq-req-badge {
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.45;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      background: var(--arch-step-bg);
+      border: 1px solid var(--arch-step-border);
+      color: var(--arch-step-text);
+    }
+    .lb-prereq-req-badge-recap {
+      background: var(--arch-recap-bg);
+      border-color: var(--arch-recap-border);
+      color: var(--arch-recap-text);
+    }
+    .lb-prereq-req-title {
+      font-size: 12.5px;
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+    .lb-prereq-req-empty {
+      color: var(--text-muted);
+    }
+    .lb-prereq-req-more {
+      margin-top: 6px;
+    }
+    .lb-prereq-req-more > summary {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--link-color);
+      background: var(--code-bg);
+      border: 1px solid var(--border-strong);
+      user-select: none;
+    }
+    .lb-prereq-req-more > summary:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+    }
+    .lb-prereq-req-more[open] > .lb-prereq-req-list {
+      margin-top: 6px;
+    }
     .lb-prereq-list {
       list-style: none;
       margin: 0;
@@ -1790,6 +1864,19 @@
     }
     .lb-prereq-path { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
     .lb-prereq-detail { margin: 0; font-size: 13px; line-height: 1.5; }
+    .lb-prereq-card-req {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .lb-prereq-card-req-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
     .lb-gen-dialog { margin: auto; max-width: min(520px, calc(100vw - 32px)); width: 100%; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); }
     .lb-gen-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
     .lb-gen-dialog h4 { margin: 0 0 10px; font-size: 17px; }
@@ -2915,7 +3002,11 @@
       .lb-admin-prereqs td,
       .lb-admin-prereqs th,
       .lb-admin-prereqs code,
-      .lb-admin-prereqs .tag {
+      .lb-admin-prereqs summary,
+      .lb-admin-prereqs .tag,
+      .lb-admin-prereqs .lb-prereq-req-badge,
+      .lb-admin-prereqs .lb-prereq-req-title,
+      .lb-admin-prereqs .lb-prereq-card-req-label {
         color: #000 !important;
       }
 
@@ -2936,6 +3027,23 @@
         border: 1px solid #bbb !important;
         background: #fff !important;
         padding: 6px 8px !important;
+      }
+      .lb-admin-prereqs .lb-prereq-req-item,
+      .lb-admin-prereqs .lb-prereq-req-badge,
+      .lb-admin-prereqs .lb-prereq-req-more > summary {
+        background: #fff !important;
+        border: 1px solid #666 !important;
+      }
+      .lb-admin-prereqs .lb-prereq-card-req {
+        border-top: 1px solid #bbb !important;
+      }
+      .lb-admin-prereqs details.lb-prereq-req-more::details-content {
+        display: block !important;
+        content-visibility: visible !important;
+      }
+      .lb-admin-prereqs .lb-prereq-req-more > .lb-prereq-req-list {
+        display: flex !important;
+        margin-top: 6px !important;
       }
       .preview-frame code,
       .lb-admin-prereqs code {
