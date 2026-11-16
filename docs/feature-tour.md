@@ -1,15 +1,15 @@
 # Feature tour site
 
-The feature tour is a static GitHub Pages site that shows a screenshot and an explanation for every feature in the Microsoft AI Training Generator catalog, plus a guided tour that steps through them. It covers all six products:
+The feature tour is a static GitHub Pages site that shows a screenshot and an explanation for every capability in the Microsoft AI Training Generator catalog (`195` capabilities and `325` configured feature-tour shots across `6` products, alongside the `40` curated hand-written labs in `labs/`), plus a guided tour that steps through them. It covers all six products:
 
-| Product id | Product | Where on the site |
-| --- | --- | --- |
-| `copilot-studio` | Microsoft Copilot Studio (Standard harness, Microsoft Copilot harness, Customer Conversation harness) | the site root |
-| `m365-copilot-agent-builder` | Agent Builder and declarative agents for Microsoft 365 Copilot | `m365-copilot-agent-builder/` |
-| `sharepoint-ai` | SharePoint AI features | `sharepoint-ai/` |
-| `ai-foundry` | Microsoft Foundry | `ai-foundry/` |
-| `m365-copilot-hub` | Microsoft 365 Copilot hub and Copilot controls | `m365-copilot-hub/` |
-| `power-platform-ai-hub` | Power Platform AI hub (AI Builder) | `power-platform-ai-hub/` |
+| Product id | Product | Capabilities | Shots | Where on the site |
+| --- | --- | --- | --- | --- |
+| `copilot-studio` | Microsoft Copilot Studio (Standard harness, Microsoft Copilot harness, Customer Conversation harness) | 97 | 136 | the site root |
+| `m365-copilot-agent-builder` | Agent Builder and declarative agents for Microsoft 365 Copilot | 20 | 43 | `m365-copilot-agent-builder/` |
+| `sharepoint-ai` | SharePoint AI features | 18 | 31 | `sharepoint-ai/` |
+| `ai-foundry` | Microsoft Foundry | 20 | 38 | `ai-foundry/` |
+| `m365-copilot-hub` | Microsoft 365 Copilot hub and Copilot controls | 20 | 33 | `m365-copilot-hub/` |
+| `power-platform-ai-hub` | Power Platform AI hub (AI Builder) | 20 | 44 | `power-platform-ai-hub/` |
 
 Copilot Studio is the only product with harnesses, so only its pages show the harness badge and filter; the other products group features by category. Every product reads the catalog in [`portal/lib/lab-builder/features.json`](../portal/lib/lab-builder/features.json) (Copilot Studio) and `portal/lib/lab-builder/catalog/<product>.json` (the rest). It does not cover the lab portal's own features.
 

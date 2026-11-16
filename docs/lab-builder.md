@@ -11,12 +11,13 @@ Which is which matters, because the two age differently:
 
 | Part of the lab | Where it comes from |
 |---|---|
-| Microsoft Learn citations and the **From the docs** excerpt | Searched live at build time, scored for relevance, and link-checked before use. |
+| Microsoft Learn citations and the **From the docs** excerpt | Searched live at build time, scored for relevance, deduplicated by canonical article URL and visible citation title (`learn-citations.js`), and link-checked before use. |
 | **Vendor documentation** links and their quote | Specifications published outside Microsoft Learn (MCP, A2A, OpenAPI, Adaptive Cards), listed per feature in the catalog and read live at build time from an allowlist of hosts. See [Vendor documentation](#3b-vendor-documentation). |
 | **Do this** walk-through steps | Read from the module's live documentation page **when a procedure on it matches the module confidently enough** — otherwise the curated catalog steps, labeled as such in that module. |
-| Module set, ordering, prerequisites, concepts, **Check your work** | The curated six-product catalog (`portal/lib/lab-builder/features.json` for Copilot Studio plus `portal/lib/lab-builder/catalog/<product-id>.json` for the other five products). Never live. |
+| Module set, ordering, prerequisites, concepts, **Check your work**, **Lesson mini-quiz** | The curated six-product, 195-capability catalog (`portal/lib/lab-builder/features.json` for Copilot Studio plus `portal/lib/lab-builder/catalog/<product-id>.json` for the other five products). Never live. |
+| **Connectors, Environment, and Tenant Prerequisites** (`Required By`) | Derived deterministically (`admin-prereqs.js`) from the planned products, harness, and modules, mapping every connector, DLP/ACP policy, environment setting, and tenant admin role to the exact `Step N` / `Recap N` modules that require it. |
 | Overview and per-module "In your scenario" narrative | A language model, when one is configured; otherwise the curated catalog. By default a model never writes the steps; see [step synthesis](#4b-opt-in-grounded-step-synthesis) for the opt-in exception. |
-| Screenshots | Reused from existing labs in this repo, or listed for you to capture. |
+| Screenshots | Reused from existing labs or `docs/feature-tour/screenshots/`, or written as a per-lab `shots.json` manifest for Playwright capture against your tenant. |
 
 The share of modules that get live steps is not a fixed property of the tool. It
 depends on what the documentation looks like on the day you build, and in the
@@ -28,7 +29,7 @@ Two ways to use it:
 
 | | |
 |---|---|
-| **Portal** | The **🧬 Build a Lab** tab — an eight-step wizard (seven when no selected product has harnesses) with live preview. |
+| **Portal** | The **🧬 Build a Lab** tab (`http://localhost:3005`) — an eight-step wizard (seven when no selected product has harnesses) with live preview and multi-format exports (`.md`, `.html`, `.docx`, `.pdf`, `.pptx`, per-topic `.docx`/`.pptx`, and `.zip`). |
 | **CLI** | `node tools/lab-builder/build.mjs` — no portal and no sign-in. Offline builds (`--no-learn`) need nothing beyond Node 24; live vendor-page reads load `sanitize-html` from `portal/` (run `npm ci` there first). |
 
 Output lands in `generated-labs/<slug>/` (git-ignored) as:
@@ -38,19 +39,22 @@ generated-labs/<slug>/
   index.md        the lab, in this repo's standard lab format (one H1 title,
                   sections from H2; see README "Authoring a lab")
   index.html      standalone, multi-page interactive HTML version of the lab
-                  with Previous/Next navigation, section jumper, single-page
-                  toggle, and print styles that include all pages
+                  with Previous/Next navigation, section jumper, Show all pages
+                  toggle, light/dark theme toggle, localStorage checkable task
+                  lists, opt-in multiple-choice Knowledge Check mini-quizzes,
+                  Required By prerequisite cards, and print styles for all pages
   manifest.json   what was selected, what was grounded, the Learn sources used
                   and the HTTP status each returned when checked, when they were
                   verified, the vendor pages each module cites and whether each
                   was read, where each module's steps came from, per-topic
                   Word/PowerPoint metadata (topicDocuments), and any decisions a
                   human made about a blocked build
-  shots.json      capture manifest for the screenshots that could not be reused
-  assets/         screenshots copied from existing labs in this repo
+  shots.json      Playwright capture manifest for pending screenshots
+  assets/         screenshots copied from existing labs or feature-tour captures
   topics/         standalone Word (.docx) and PowerPoint (.pptx) files generated
                   for each topic and prerequisite recap, named per lab
-                  (<Lab Name> - Step NN - <Topic Name>.docx / .pptx)
+                  (<Lab Name> - Step NN - <Topic Name>.docx / .pptx, or
+                  <Lab Name> - Recap N - <Topic Name>.docx / .pptx)
 ```
 
 ---
@@ -145,9 +149,10 @@ not cleared asks again.
 # CI: fails loudly rather than shipping a degraded lab
 node tools/lab-builder/build.mjs --features topics --non-interactive
 
-# CI: proceed deliberately, recorded in the manifest
+# CI: proceed deliberately when Learn is unreachable or a live page has no matching procedure, recorded in manifest.json
 node tools/lab-builder/build.mjs --features topics \
-  --decide learn-mcp-unavailable=proceed-curated
+  --decide learn-mcp-unavailable=proceed-curated \
+  --decide steps-not-derived=proceed-catalog
 ```
 
 Whatever is chosen is written to `manifest.json` so a reader can see which
@@ -244,9 +249,19 @@ arrow, Home, and End keys move among the tabs of the current area.
       from curriculum** section below the outline where you can re-check individual
       modules or **Restore all** without leaving Review. If every module is
       unchecked, Review stays open with a recovery prompt and disables **Next:
-      Generate** until at least one module is included. Advanced options (agent
-      name, title, Learn grounding, model narrative, and a preferred length that
-      only suggests where to split) are folded away here.
+      Generate** until at least one module is included. Review also exposes:
+      - **Per-lesson Knowledge Check mini-quizzes (`includeKnowledgeCheck`)** — an
+        opt-in toggle (unchecked by default on a fresh wizard start) that adds
+        1–3 multiple-choice questions (`A`–`D`) per lesson with instant grading and
+        Microsoft Learn reference links.
+      - **SharePoint target site name & URL** — when the planned lab includes
+        SharePoint AI capabilities or SharePoint knowledge sources, learners can
+        specify a target SharePoint site display name and `https://` URL so
+        generated instructions, grounding blocks, and prerequisites render clickable
+        links to that SharePoint site instead of generic placeholders.
+      - **Advanced options** — folded away for custom lab title, agent name,
+        Microsoft Learn grounding, optional LLM narrative, and a preferred length
+        that only suggests split points.
    8. **Generate**.
 
    The step list and the **Your lab so far** summary bar stay pinned at the top of
@@ -303,12 +318,12 @@ finished markdown appears with a download button and a record of any decisions.
 ```mermaid
 flowchart LR
   A[Wizard selections] --> B[Planner]
-  B -->|expand prereqs, order,<br/>estimate time| C[Learn MCP grounding]
+  B -->|expand prereqs, order,<br/>estimate time| C[Learn MCP grounding<br/>+ canonical URL dedup]
   C --> V[Vendor documentation<br/>allowlisted HTTPS]
   V -->|microsoft_docs_search<br/>per module| S[Step derivation<br/>microsoft_docs_fetch]
   S --> D[LLM enrichment<br/>optional]
-  D --> E[Composer]
-  E --> F[index.md + assets + shots.json]
+  D --> E[Composer + Admin Prereqs]
+  E --> F[index.md + index.html +<br/>topics/*.docx/*.pptx + shots.json]
   F --> G[Validator<br/>same rules as labs/]
 ```
 
@@ -859,6 +874,22 @@ taken from the highest-scoring source rather than the first sufficiently long
 one, so a module cannot quote one product's page under another product's
 heading.
 
+**Canonical URL normalization and citation deduplication** (`learn-citations.js`).
+Microsoft Learn search frequently returns multiple section chunks of the same
+article (`#fragment`), locale-prefixed URLs (`/en-us/`), `docs.microsoft.com`
+aliases, trailing-slash variants, or tracking/tab query parameters (`wt.mc_id`,
+`ocid`, `tabs`, `pivots`, `utm_*`). `canonicalLearnUrl()` normalizes every
+Microsoft Learn URL to its clean `https://learn.microsoft.com/<path>` article
+form (preserving meaningful query parameters such as `?view=`), and
+`dedupeLearnSources()` deduplicates references across **both** the canonical
+article key (`canonicalLearnPageKey`) and the normalized visible citation title
+(`normalizeCitationTitleKey`) so neither duplicate links nor identical titles
+appear in the same reference list. For inline troubleshooting guidance and
+per-question Knowledge Check explanations, `selectRelevantLearnSource()` scores
+the module's verified Learn sources by keyword overlap across title, URL slug,
+and search excerpt so each answer links to the most relevant Microsoft Learn
+article.
+
 Every call degrades gracefully at the transport level: a timeout or a malformed
 response returns an empty result rather than throwing. What it does *not* do is
 quietly ship a lab built on that emptiness — an unreachable server raises the
@@ -1202,17 +1233,29 @@ screenshot a well-written lab would show gets a slot instead:
   slot keeps the placeholder. Markdown, alt text, and caption are identical either
   way. The portal preview also serves a captured image for a lab generated earlier
   that still holds a placeholder. `FEATURE_TOUR_SCREENSHOTS_DIR` points at another
-  folder. See [Feature tour site](feature-tour.md).- **Shot list.** `shots.json` carries one entry per pending slot (numeric `id`,
+  folder. See [Feature tour site](feature-tour.md).
+- **Shot list.** `shots.json` carries one entry per pending slot (numeric `id`,
   `filename`, `section`, `instructions`, plus `alt`, `caption`, `kind`, `figure`,
   and `status`), and `SHOTLIST.md` lists the same for a human.
 
-Fill the gaps against your own tenant with the existing capture tool; it reads
-placeholders as missing:
+#### Per-lab Playwright screenshot capture and Microsoft Learn re-validation
+
+Every generated lab writes its own `shots.json` manifest so you can capture
+tenant-accurate screenshots for just that custom lab with Playwright (using
+cached per-product browser sign-in profiles under `tools/screenshot-capture/.auth/<product>/`;
+ placeholders under 5 KB are automatically treated as missing and overwritten in place):
 
 ```bash
 node tools/screenshot-capture/capture.js --manifest="generated-labs/<slug>/shots.json" --missing
 node tools/screenshot-capture/verify-shots.js
 ```
+
+Because a generated lab is a point-in-time snapshot, you can also re-validate its
+step-by-step UI labels, navigation paths, settings, and availability markers against
+current Microsoft Learn documentation at any time using the step-level validator
+(`portal/lib/step-validator/`, exposed in the portal's **Validation** tab and
+`tools/lab-accuracy/check-steps.mjs`; see [`docs/step-validation.md`](step-validation.md))
+to spot UI or documentation drift before delivering a workshop.
 
 A known limit: until an image is captured, a screen reader reads the alt text,
 which describes the finished screenshot, and the visible "Screenshot pending."
@@ -1296,28 +1339,94 @@ Each module renders as:
   data tailored to the vertical (`teaching.js`); text that came from the caller is
   stripped of markup so it cannot close the code fence
 - Screenshots (reused) and capture callouts (to fill in)
-- **Check your work** — per-module validation, from the curated catalog
+- **Check your work** — per-module validation checklist (`- [ ]` items), from the
+  curated catalog (rendered as persistent interactive checkboxes in HTML)
 - **Troubleshooting** — cautions taken from the module's own concepts, a pointer
-  to the cited Learn page when a step does not match the screen, and recovery for
-  a check that is not true yet
-- **Knowledge check** — short self-check questions with expandable
-  `<details>`/`<summary>` answers
-- **Microsoft Learn references** — citations, relevance-scored and link-checked.
+  to the relevance-matched cited Learn page when a step does not match the screen,
+  and recovery for a check that is not true yet
+- **Knowledge check: Lesson mini-quiz** (when `includeKnowledgeCheck` is enabled:
+  opt-in on Wizard Step 7; enabled unless `includeKnowledgeCheck: false` in direct
+  API/CLI calls, and omitted on short `Recap N` modules) — 1 to 3 deterministic
+  multiple-choice questions (`A`–`D`) built from vetted catalog `whyItMatters`,
+  `validation`/`expectedResults`, and `concepts`/`troubleshooting` fields, each
+  with an expandable `<details>`/`<summary>` explanation and a relevance-matched
+  Microsoft Learn reference link (`selectRelevantLearnSource()`)
+- **Microsoft Learn references** — citations, relevance-scored, canonicalized and
+  deduplicated (`dedupeLearnSources()`), and link-checked.
   Each one is a link whose text is the page title and whose URL lives only in the
-  link target: `[Title](url)` in Markdown, a titled hyperlink in HTML, Word, and
-  PDF, and the same in the portal preview and its print view, which never appends the
-  raw URL. Links to other sites open in a new tab.
+  link target: `[Title](url)` in Markdown, a titled hyperlink in HTML, Word,
+  PowerPoint, and PDF, and the same in the portal preview and its print view,
+  which never appends the raw URL. Links to other sites open in a new tab.
 - **Vendor documentation** — for modules whose catalog entry lists
   `thirdPartySources`: vendor, title link, stability note, and an optional quote
   attributed to the vendor
 
-The lab as a whole adds **Licensing and permissions** to Prerequisites, objectives
-that name the step teaching them, **Cleanup** (conditioned on the modules present),
-a **Glossary**, and **Further reading on Microsoft Learn**. Every one of these is
+The lab as a whole adds **Licensing and permissions** to Prerequisites, a
+curriculum-specific **Connectors, Environment, and Tenant Prerequisites** section
+(`admin-prereqs.js`), objectives that name the step teaching them, **Cleanup**
+(conditioned on the modules present), a **Glossary**, and **Further reading on
+Microsoft Learn**. When a SharePoint target site name and URL are configured,
+SharePoint references link directly to that site. Every one of these blocks is
 built from text the catalog already vets, so none invents a UI path, a limit, or a
 URL. A catalog feature may supply `expectedResults` (list of strings) or
 `troubleshooting` (list of `{ symptom, fix }`) to override the defaults. Time
 estimates stay guidance only: no block is dropped to fit a time.
+
+#### `Required By` administrator prerequisites (`admin-prereqs.js`)
+
+Before a workshop runs, environment and tenant administrators need an exact
+pre-flight list rather than generic product boilerplate. `buildAdminPrerequisites()`
+inspects the lab's selected products, Copilot Studio harness, and `Step N` /
+`Recap N` modules to emit `## Connectors, Environment, and Tenant Prerequisites`
+(also returned as structured JSON in `adminPrerequisites` from
+`GET /api/lab-builder/generated/:labId`):
+
+1. **Connectors and Endpoints to Allow** — a 5-column Markdown table (`Connector / Endpoint`, `Classification`, `Target Policy Scope`, `Required By`, `Configuration Notes`) naming every `Step N` / `Recap N` module that depends on Dataverse, SharePoint, Microsoft Teams/Outlook, Approvals, Power Automate/Agent Flows, prebuilt or custom OpenAPI connectors, MCP endpoints, Microsoft 365 Copilot / Graph connectors, On-Premises Data Gateway, Microsoft Foundry project connections, or optional 3rd-party enterprise connectors.
+2. **DLP, Agent Control Plane (ACP), and Governance Policies** — checkable `- [ ]` pre-flight items for Business data-group co-location, connector endpoint filtering, Managed Environments, and Agent Control Plane rules, each tagged with `**Required by:**`.
+3. **Environment and Feature Settings** — checkable toggles for Dataverse capacity, Generative AI / knowledge search, Code Interpreter, Computer Use, Power Apps Code Apps, ALM solutions, or real-time voice channels, each listing the requiring steps.
+4. **Tenant, Identity, and Cloud Admin Prerequisites** — checkable role and licensing prerequisites across Entra ID app registrations, Entra Agent Identities, Microsoft 365 Copilot & Teams custom app upload policies, Microsoft Purview DLP / DSPM for AI, SharePoint Administrator / SharePoint Advanced Management (SAM), and Azure / Microsoft Foundry RBAC and TPM quota, each attributed to its `Step N` / `Recap N` modules.
+
+#### Interactive paged HTML (`html-lab.js` and `interactive-elements.js`)
+
+Every build writes a self-contained `generated-labs/<slug>/index.html` alongside
+`index.md` (and serves it at `?format=html`), sharing the same interactive UX as
+the portal's in-browser preview:
+
+- **Section pagination** (`splitLabHtmlIntoPages`) — splits multi-section labs at
+  `<h2>` boundaries (falling back to `<h3>` when fewer than two `<h2>` sections
+  exist) with **Previous** / **Next** navigation buttons, a chapter-jumper dropdown,
+  TOC deep-linking that switches to the target page automatically, a **Show all
+  pages** toggle, light/dark theme toggle, and `@media print` CSS that expands every
+  page when printing.
+- **Persistent checkable task lists** — upgrades Markdown `- [ ]` task lists (in
+  **Check your work**, **Validation / Success Criteria**, and **Prerequisites**) into
+  accessible checkboxes with a live `X / Y completed` progress header and **Clear
+  checks** button, persisted in `localStorage` under `cslabs:checks:v1:<labId>`.
+- **Interactive Lesson mini-quizzes** — upgrades each **Knowledge check: Lesson
+  mini-quiz** block into a styled quiz card with `A`–`D` radio options, per-question
+  **Check answer**, **Check all answers**, **Reset quiz**, a live `Score: X / Y`
+  pill, instant color-coded explanations with Microsoft Learn links, and
+  `localStorage` persistence under `cslabs:quiz:v1:<labId>`.
+- **`Required By` prerequisite cards and tables** — formats `Required By` cells and
+  checklist metadata as scannable badges and cards across light, dark, and print
+  views.
+
+### 8. Multi-format and per-topic exports
+
+All generated-lab exports are built in pure Node.js (zero external Office, LibreOffice,
+or headless browser dependencies required at runtime) by `portal/lib/exporter.js`,
+`docx-builder.js`, `pdf-builder.js`, `pptx-builder.js`, `html-lab.js`, and
+`topic-documents.js`:
+
+| Format | Route / Disk Output | What it produces |
+|---|---|---|
+| Markdown (`.md`) | `generated-labs/<slug>/index.md` or `/export?format=md` | Complete lab Markdown with optional organization/term replacements and custom branding banner. |
+| Standalone HTML (`.html`) | `generated-labs/<slug>/index.html` or `/export?format=html` | Self-contained multi-page interactive HTML with `localStorage` checklists, interactive mini-quizzes, theme toggle, embedded base64/asset images, and full-lab `@media print` styling. |
+| Word (`.docx`) | `/export?format=docx` | OOXML Word handout (`docx-builder.js`) with cover metadata, architecture overview table, `Required By` prerequisite tables, embedded screenshots, callouts, checklists, printable quiz & answer key, and clickable titled hyperlinks. |
+| PDF (`.pdf`) | `/export?format=pdf` | Multi-page printable PDF guide (`pdf-builder.js`) with typography hierarchy, architecture overview, prerequisite tables, embedded PNG/JPEG figures, callout boxes, and clickable link annotations. |
+| PowerPoint (`.pptx`) | `/export?format=pptx` | Widescreen 16:9 OOXML presentation (`pptx-builder.js`, 13.333" × 7.5") with title slide, agenda, architecture overview, prerequisite summary, step walkthrough slides, figure slides, and key takeaways. |
+| Per-topic `.docx` & `.pptx` | `generated-labs/<slug>/topics/` and `/topics/:order/:format` | Individual Word handout and 16:9 PowerPoint deck for each module or recap, named `<Lab Name> - Step NN - <Topic Name>.docx` / `.pptx` (or `<Lab Name> - Recap N - <Topic Name>.docx` / `.pptx`). Synthesized automatically at build time (and on demand for older generated labs) and renamed whenever the lab title is updated via `PATCH`. |
+| Per-module ZIP (`.zip`) | `/export?format=zip&formats=all` (`all\|docx\|pptx\|pdf\|html`) | Complete workshop archive containing `<labId>/index.md`, `<labId>/index.html`, `<labId>/manifest.json`, `<labId>/shots.json`, `00 - Overview and Admin Prerequisites/`, titled `Module NN - <Title>/` folders in the requested formats, `sample-files/` starter artifacts, `export-manifest.json`, and optional `_branding/` assets. |
 
 #### Lab quality review
 
@@ -1468,11 +1577,13 @@ the server log, never the manifest — and the output is exportable by design.
 | `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `recommended`, `required`, `thirdPartyConnector`, `optionalFor`, and `reasons`. Nothing is selected unless the vertical or a department points at it (`preselectedIds`); `recommendedIds` lists every 1st-party topic the rules suggest, selected or not (`thirdPartyConnector` modules remain `selected: false` and `recommended: false` unless explicitly included in `selected`). Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`). A `selected` list that names other levels is filtered, not trusted. Read-only. |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. With a `level`, topics from other levels are dropped (`droppedOutOfLevel`), and each module has a `role` of `level` or `prerequisite`. |
 | `POST` | `/api/lab-builder/generate` | Build the lab, write it (including per-topic `.docx` and `.pptx` files in `topics/` named per lab) to `generated-labs/`, and return markdown, `topicDocuments`, and validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. |
-| `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, vertical, level, harness, estimated minutes, topic count, validation counts, and `selections` (null for labs built before choices were saved). |
-| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab as markdown and HTML, along with `topicDocuments` (synthesizing `topics/*.docx` and `topics/*.pptx` on demand for labs generated before `topics/` existed). |
+| `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, products, vertical, level, harness, estimated minutes, topic count, `topicDocumentCount`, validation counts, and `selections` (null for labs built before choices were saved). |
+| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab as markdown and HTML, along with `adminPrerequisites` and `topicDocuments` (synthesizing `topics/*.docx` and `topics/*.pptx` on demand for labs generated before `topics/` existed). |
+| `GET` | `/api/lab-builder/generated/:labId/assets/:file` | Serve a generated lab's screenshot or image asset (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`) from its `assets/` directory. |
 | `GET` | `/api/lab-builder/generated/:labId/topics/:order/:format` | Download a single topic's standalone Word document (`docx`) or PowerPoint slide deck (`pptx`) named per lab (`<Lab Name> - Step NN - <Topic Name>.docx` / `.pptx`). Also mounted at `/api/generated-labs/:labId/topics/:order/:format`. |
-| `GET` / `POST` | `/api/lab-builder/generated/:labId/export` | Export a generated lab as a per-module `zip` (`formats=all\|docx\|pptx\|pdf\|html`), `html`, `docx`, `pptx`, `pdf`, or `md`. |
-| `PATCH` | `/api/lab-builder/generated/:labId` | Change `title` (1-160 characters, no line breaks) and/or `notes` (up to 1000 characters). No other field is accepted. Updates the manifest, the lab's single `#` heading, and regenerates/renames the per-topic `.docx` and `.pptx` files inside `topics/` so their filenames match the updated lab title; the folder name stays the same. |
+| `GET` / `POST` | `/api/lab-builder/generated/:labId/export` | Export a generated lab as a per-module `zip` (`formats=all\|docx\|pptx\|pdf\|html`), `html`, `docx`, `pptx`, `pdf`, or `md`. Also mounted at `/api/generated-labs/:labId/export`. |
+| `GET` | `/api/lab-builder/generated/:labId/validate` | Run structural validation (`validator.js`) against a generated lab. Also mounted at `/api/generated-labs/:labId/validate`. |
+| `PATCH` | `/api/lab-builder/generated/:labId` | Change `title` (1-160 characters, no line breaks) and/or `notes` (up to 1000 characters). No other field is accepted. Updates the manifest, the lab's single `#` heading, `index.html`, and regenerates/renames the per-topic `.docx` and `.pptx` files inside `topics/` so their filenames match the updated lab title; the folder name stays the same. |
 | `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab folder. The id must match an existing folder directly under `generated-labs/` that holds a `manifest.json`, so hand-written labs under `labs/` can never be reached. Answers 400 for a bad id and 404 when it does not exist. |
 
 `PATCH` and `DELETE` are limited to 60 requests per user per hour
@@ -1504,20 +1615,28 @@ Request body for preview and generate:
 
 ```json
 {
+  "products": ["copilot-studio"],
   "industry": "healthcare",
+  "departments": ["customer-service"],
   "roles": ["customer-service"],
   "features": ["knowledge-sharepoint", "authentication"],
   "targetMinutes": 240,
-  "harness": "microsoft-copilot",       // optional: the harness the lab is written for
-  "level": 200,                         // optional: 100, 200, or 300
-  "excluded": [],                       // optional: prerequisites to assume instead of teaching
-  "differencesFor": ["standard"],       // optional: harnesses to explain; [] turns the notes off
-  "includeCore": true,
+  "harness": "microsoft-copilot",
+  "level": 200,
+  "excluded": [],
+  "differencesFor": ["standard"],
+  "includeCore": false,
+  "includeKnowledgeCheck": true,
+  "sharepointSiteName": "Contoso Clinical Operations Hub",
+  "sharepointSiteUrl": "https://contoso.sharepoint.com/sites/clinical-ops",
   "title": "Optional title override",
   "agentName": "Optional agent name override",
   "useLearnMcp": true,
   "useLlm": true,
-  "decisions": { "learn-mcp-unavailable": "proceed-curated" }
+  "decisions": {
+    "learn-mcp-unavailable": "proceed-curated",
+    "steps-not-derived": "proceed-catalog"
+  }
 }
 ```
 

@@ -21,7 +21,7 @@ Use Codespaces when you want to run the Node.js-based lab tooling without instal
 
 1. Select the badge above, or open the repository on GitHub and choose **Code > Codespaces > Create codespace on main**.
 2. Wait for the post-create install tasks to finish.
-3. Open the lab Markdown file you want to run from the `labs` folder.
+3. Open any of the 40 curated lab Markdown files from the `labs/` folder, start the Provisioning Portal on port `3005` (`cd portal && cp .env.template .env`, set `PORTAL_AUTH_DISABLED=true` for local loopback/Codespaces preview, then `npm run dev`), or run the 6-product, 195-capability Lab Builder CLI (`node tools/lab-builder/build.mjs --list`; see [`docs/lab-builder.md`](./lab-builder.md)).
 
 If you use this repo as a template or fork, update the badge URL to your repository:
 
