@@ -45,3 +45,23 @@ export function capturedImage(dir, filename) {
     return null;
   }
 }
+
+/**
+ * Resolve a real captured screenshot for a specific generated lab:
+ *   1. `generated-labs/<labId>/assets/<filename>` when a real image (>= 5 KB) exists there
+ *   2. Shared `docs/feature-tour/screenshots/<filename>` (or `FEATURE_TOUR_SCREENSHOTS_DIR`)
+ *   3. `null` when only the "Screenshot pending" placeholder or nothing is present
+ */
+export function resolveLabScreenshot(labDir, filename, { capturedDir = capturedScreenshotsDir() } = {}) {
+  if (!SAFE_NAME.test(String(filename)) || String(filename).includes("..")) return null;
+  if (labDir) {
+    const perLab = capturedImage(path.join(path.resolve(labDir), "assets"), filename);
+    if (perLab) return { ...perLab, source: "lab" };
+  }
+  if (capturedDir) {
+    const shared = capturedImage(capturedDir, filename);
+    if (shared) return { ...shared, source: "shared" };
+  }
+  return null;
+}
+

@@ -27,6 +27,11 @@ import { spawnSync } from "node:child_process";
 import readline from "node:readline";
 import { resolveCallouts, sidecarName, writeSidecar } from "./callouts.mjs";
 import { listFeatureManifests, resolveShotUrl, resolveStartUrl } from "./manifests.mjs";
+import {
+  DEFAULT_GENERATED_ROOT,
+  runGeneratedLabCapture,
+  verifyCapturedImageFile,
+} from "./lab-runner.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -34,9 +39,126 @@ const repoRoot = resolve(__dirname, "..", "..");
 
 // --manifest=<path> lets callers point at any lab's shots.json (paths are
 // resolved relative to the current working directory, then the repo root).
+// --generated-lab=<labId> runs Playwright step-through capture for an individual
+// generated lab under generated-labs/<labId>/screenshots/shots.json.
 // --product=<id> picks that product's generated feature shot list, and --features
 // is shorthand for the Copilot Studio list (or every product's list with --list or --dry-run).
 const rawArgs = process.argv.slice(2);
+const generatedLabArg = rawArgs.find((a) => a.startsWith("--generated-lab="));
+if (generatedLabArg) {
+  const labId = generatedLabArg.slice("--generated-lab=".length).trim();
+  const rootOverrideArg = rawArgs.find((a) => a.startsWith("--generated-root="));
+  const generatedRoot = rootOverrideArg
+    ? resolve(process.cwd(), rootOverrideArg.slice("--generated-root=".length))
+    : process.env.LAB_BUILDER_GENERATED_ROOT
+    ? resolve(process.env.LAB_BUILDER_GENERATED_ROOT)
+    : DEFAULT_GENERATED_ROOT;
+  const isHeaded = rawArgs.includes("--headed");
+  const onlyStale = rawArgs.includes("--stale-only");
+  const onlyMissing = rawArgs.includes("--only-missing") || rawArgs.includes("--missing");
+  const wantLabList = rawArgs.includes("--list");
+  const wantLabDryRun = rawArgs.includes("--dry-run");
+  const featureFilterArg = rawArgs.find((a) => a.startsWith("--feature="));
+  const featureIds = featureFilterArg
+    ? featureFilterArg
+        .slice("--feature=".length)
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null;
+
+  if (!/^[a-z0-9][a-z0-9-]{0,99}$/i.test(labId)) {
+    console.error(`Error: invalid generated lab id "${labId}".`);
+    process.exit(1);
+  }
+  const labDir = resolve(generatedRoot, labId);
+  const perLabShotsPath = join(labDir, "screenshots", "shots.json");
+  const legacyShotsPath = join(labDir, "shots.json");
+  if (!existsSync(join(labDir, "manifest.json"))) {
+    console.error(`Error: generated lab not found at ${labDir}`);
+    process.exit(1);
+  }
+
+  if (wantLabList || wantLabDryRun) {
+    const planPath = existsSync(perLabShotsPath) ? perLabShotsPath : legacyShotsPath;
+    if (!existsSync(planPath)) {
+      console.log(`Generated lab "${labId}" has 0 planned screenshots.`);
+      process.exit(0);
+    }
+    const plan = JSON.parse(readFileSync(planPath, "utf-8"));
+    const learnStatePath = join(labDir, "screenshots", "learn-state.json");
+    const learnState = existsSync(learnStatePath)
+      ? JSON.parse(readFileSync(learnStatePath, "utf-8"))
+      : { modules: {}, shots: {} };
+    const assetsPath = join(labDir, "assets");
+    const isShotStale = (s) =>
+      Boolean(learnState.shots?.[s.filename]?.stale) ||
+      learnState.modules?.[s.featureId || s.feature]?.status === "docs-updated";
+    const allMatchingShots = (plan.shots || []).filter(
+      (s) => !featureIds || featureIds.includes(s.featureId || s.feature),
+    );
+    const shots = allMatchingShots.filter((s) => {
+      const hasPng = verifyCapturedImageFile(join(assetsPath, s.filename)).ok;
+      if (onlyStale) return isShotStale(s) || !hasPng;
+      if (onlyMissing) return !hasPng;
+      return true;
+    });
+    const missingCount = allMatchingShots.filter(
+      (s) => !verifyCapturedImageFile(join(assetsPath, s.filename)).ok,
+    ).length;
+    const staleCount = allMatchingShots.filter((s) => isShotStale(s)).length;
+    if (wantLabList) {
+      console.log(
+        `\nGenerated lab "${labId}" (${allMatchingShots.length} total, ${missingCount} missing, ${staleCount} stale)\n`,
+      );
+      for (const s of allMatchingShots) {
+        const have = verifyCapturedImageFile(join(assetsPath, s.filename)).ok ? "✓" : " ";
+        const staleTag = isShotStale(s) ? " [stale - MS Learn updated]" : "";
+        console.log(
+          `  [${have}] #${String(s.id ?? s.shotId ?? "").padStart(2, "0")}  ${s.filename} (${s.featureId || s.feature})${staleTag}`,
+        );
+        console.log(`        target: ${s.startUrl || plan.startUrl || "(current page)"}`);
+      }
+      process.exit(0);
+    }
+    console.log(
+      `\nDry run for generated lab "${labId}": ${shots.length} shot(s) (${missingCount} missing, ${staleCount} stale); Playwright was not launched.`,
+    );
+    console.log(`Mode: ${isHeaded ? "headed" : "auto"}`);
+    console.log(`Start URL: ${plan.startUrl || "https://copilotstudio.microsoft.com/"}`);
+    for (const s of shots) {
+      console.log(
+        `#${String(s.id ?? s.shotId ?? "").padStart(2, "0")} ${s.filename} [${s.featureId || s.feature}] -> ${s.outputPath || `generated-labs/${labId}/assets/${s.filename}`}`,
+      );
+      console.log(`  steps: ${(s.steps || []).length} Playwright action(s)`);
+    }
+    process.exit(0);
+  }
+
+  const summary = await runGeneratedLabCapture({
+    labId,
+    generatedRoot,
+    repoRoot,
+    mode: isHeaded ? "headed" : "auto",
+    onlyStale,
+    onlyMissing,
+    featureIds,
+    logger: (msg) => console.log(msg),
+  });
+  console.log(
+    `\nGenerated lab "${labId}" screenshot run (${summary.status}): ${summary.capturedCount || 0} captured, ${summary.authRequiredCount || 0} auth-required, ${summary.failedCount || 0} failed.`,
+  );
+  if (summary.status === "browser-unavailable") {
+    console.error(summary.message);
+    if (summary.installCommand) console.error(`Install: ${summary.installCommand}`);
+    process.exit(2);
+  }
+  if (summary.status === "auth-required") {
+    console.error(`Sign-in needed. Run interactively: ${summary.cliCommand}`);
+    process.exit(3);
+  }
+  process.exit(summary.ok || summary.status === "nothing-to-capture" ? 0 : 1);
+}
 const manifestArg = rawArgs.find((a) => a.startsWith("--manifest="));
 const productArg = rawArgs.find((a) => a.startsWith("--product="));
 const wantFeatures = rawArgs.includes("--features");
@@ -148,7 +270,7 @@ const sectionRaw = value("--section");
 const harnessRaw = value("--harness");
 
 function printHelp() {
-  console.log(`\nMicrosoft AI Training Generator screenshot capture\n\nUsage:\n  node capture.js [flags]\n\nSelection flags (mutually exclusive):\n  --all             Capture every shot, even if the file exists.\n  --only=<csv>      Capture only specific shot IDs, e.g. --only=2,4,7.\n  --range=A-B       Capture an inclusive shot ID range.\n  --from=<id>       Capture from the matching shot ID through the end.\n  --missing         Capture only shots missing on disk (also the default).\n\nFilters (combine with a selection flag; feature tour shot lists only):\n  --feature=<csv>   Only shots for these feature ids, e.g. --feature=mc-skills,topics.\n  --section=<csv>   Only shots for these portal areas (the section column of --list), e.g. --section=sharepoint-admin-center.\n  --harness=<id>    Copilot Studio only. Only shots for one harness: standard, microsoft-copilot, customer-conversation, or both.\n\nOther flags:\n  --manifest=<path> Use a specific shots.json (e.g. a lab's own manifest).\n  --product=<id>    Use one product's feature shot list and its own browser profile: copilot-studio, m365-copilot-agent-builder, sharepoint-ai, ai-foundry, m365-copilot-hub, or power-platform-ai-hub. --product=all runs each product in turn.\n  --features        Shorthand for --product=copilot-studio; with --list or --dry-run and no --product it covers every product.\n  --list            List shots and whether each file exists.\n  --dry-run         Print resolved shot setup without launching Playwright.\n  --help, -h        Show this help.\n\nKeystrokes during capture:\n  SPACE             Snap the current shot and advance.\n  r                 Retry/re-snap the current shot.\n  n                 Skip this shot without saving.\n  q                 Quit gracefully and persist auth.\n  ?                 Re-print the current shot instructions.\n\nFeature tour shots also write a <file>.callouts.json next to each PNG with the\nposition of every numbered callout, so the site can draw the hotspots. A shot marked\nmanual (a terminal or Visual Studio Code) is not screenshotted by the tool: save the\nimage at the printed path, then press SPACE to verify it.\n\nTenant-specific addresses: set the CAPTURE_* environment variable named in a shot's\n"tenant address variable" line (see README.md) before you run.\n\nPrecedence: --only beats --range beats --from beats --missing default.\nConflicting selection flags are rejected so intent stays explicit.\n`);
+  console.log(`\nMicrosoft AI Training Generator screenshot capture\n\nUsage:\n  node capture.js [flags]\n\nSelection flags (mutually exclusive):\n  --all             Capture every shot, even if the file exists.\n  --only=<csv>      Capture only specific shot IDs, e.g. --only=2,4,7.\n  --range=A-B       Capture an inclusive shot ID range.\n  --from=<id>       Capture from the matching shot ID through the end.\n  --missing         Capture only shots missing on disk (also the default).\n\nFilters (combine with a selection flag; feature tour shot lists only):\n  --feature=<csv>   Only shots for these feature ids, e.g. --feature=mc-skills,topics.\n  --section=<csv>   Only shots for these portal areas (the section column of --list), e.g. --section=sharepoint-admin-center.\n  --harness=<id>    Copilot Studio only. Only shots for one harness: standard, microsoft-copilot, customer-conversation, or both.\n\nOther flags:\n  --manifest=<path> Use a specific shots.json (e.g. a lab's own manifest).\n  --generated-lab=<labId> Step through and capture screenshots for generated-labs/<labId> (combine with --auto, --headed, --stale-only, --only-missing, --feature=<csv>, --list, or --dry-run).\n  --product=<id>    Use one product's feature shot list and its own browser profile: copilot-studio, m365-copilot-agent-builder, sharepoint-ai, ai-foundry, m365-copilot-hub, or power-platform-ai-hub. --product=all runs each product in turn.\n  --features        Shorthand for --product=copilot-studio; with --list or --dry-run and no --product it covers every product.\n  --list            List shots and whether each file exists.\n  --dry-run         Print resolved shot setup without launching Playwright.\n  --help, -h        Show this help.\n\nKeystrokes during capture:\n  SPACE             Snap the current shot and advance.\n  r                 Retry/re-snap the current shot.\n  n                 Skip this shot without saving.\n  q                 Quit gracefully and persist auth.\n  ?                 Re-print the current shot instructions.\n\nFeature tour shots also write a <file>.callouts.json next to each PNG with the\nposition of every numbered callout, so the site can draw the hotspots. A shot marked\nmanual (a terminal or Visual Studio Code) is not screenshotted by the tool: save the\nimage at the printed path, then press SPACE to verify it.\n\nTenant-specific addresses: set the CAPTURE_* environment variable named in a shot's\n"tenant address variable" line (see README.md) before you run.\n\nPrecedence: --only beats --range beats --from beats --missing default.\nConflicting selection flags are rejected so intent stays explicit.\n`);
 }
 
 function failArg(message) {

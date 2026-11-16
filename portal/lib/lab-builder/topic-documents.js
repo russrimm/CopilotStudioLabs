@@ -11,12 +11,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { capturedImage, capturedScreenshotsDir } from "./captured.js";
+import { resolveLabScreenshot } from "./captured.js";
 import { inspectImageDimensions, renderMarkdownToDocxBuffer } from "./docx-builder.js";
 import { renderTopicToPptxBuffer } from "./pptx-builder.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
-
-const MIN_CAPTURED_BYTES = 5 * 1024;
 
 export const ALLOWED_TOPIC_DOC_FORMATS = Object.freeze(["docx", "pptx"]);
 
@@ -27,8 +25,10 @@ export const TOPIC_DOC_MIME_TYPES = Object.freeze({
 
 /**
  * Create a safe image resolver scoped strictly inside `labDir`.
- * Placeholder SVGs are automatically ignored because `inspectImageDimensions`
- * accepts only valid PNG and JPEG buffers.
+ * Resolves real per-lab captured PNGs (`generated-labs/<labId>/assets/<file>`)
+ * first, then shared `docs/feature-tour/screenshots/<file>`, and returns `null`
+ * for tiny "Screenshot pending" stubs so DOCX and PPTX fall back to structured
+ * figure callouts / wireframes until captured.
  */
 export function createLabImageResolver(labDir) {
   if (!labDir) return () => null;
@@ -51,16 +51,10 @@ export function createLabImageResolver(labDir) {
     try {
       if (cleaned.startsWith("assets/") && !cleaned.slice("assets/".length).includes("/")) {
         const assetName = cleaned.slice("assets/".length);
-        const localSize = fs.existsSync(candidate) && fs.statSync(candidate).isFile()
-          ? fs.statSync(candidate).size
-          : 0;
-        if (localSize < MIN_CAPTURED_BYTES) {
-          const cap = capturedImage(capturedScreenshotsDir(), assetName);
-          if (cap?.file && fs.existsSync(cap.file)) {
-            const capBuf = fs.readFileSync(cap.file);
-            if (inspectImageDimensions(capBuf)) return capBuf;
-          }
-        }
+        const resolved = resolveLabScreenshot(resolvedLabRoot, assetName);
+        if (!resolved?.file || !fs.existsSync(resolved.file)) return null;
+        const buf = fs.readFileSync(resolved.file);
+        return inspectImageDimensions(buf) ? buf : null;
       }
       if (!fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) return null;
       const buf = fs.readFileSync(candidate);

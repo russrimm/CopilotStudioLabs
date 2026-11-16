@@ -50,7 +50,12 @@ const HEADING_PENALTIES = [
   [/\b(troubleshoot|known issue|limitation|consideration|faq)\b/i, 0.3],
   [/\b(example|sample|scenario walkthrough|appendix)\b/i, 0.25],
   [/\b(advanced|migrate|migration|deprecat|release note|what's new)\b/i, 0.15],
+  [/^how\s+(?:[\w-]+\s+){1,3}works?\b/i, 0.25],
 ];
+
+const CONCEPTUAL_SECTION_RE = /^how\s+(?:[\w-]+\s+){1,3}works?\b/i;
+const MULTI_SECTION_UI_STEP_RE =
+  /\b(select|choose|open|go to|navigate|sign in|enter|type|paste|turn on|turn off|enable|disable|toggle|set|pick|upload|add|create|save|publish|review|confirm|expand|ask|filter|view|delete|manage|test|check|submit|in the|from the|on the|in chat)\b/i;
 
 const TAB_HEADING_RE = /^\[([^\]]+)\]\(#tab\/[^)]+\)/i;
 const STEP_HEADING_RE = /^step\s+(\d{1,2})\s*[:.–—-]\s*(.+)$/i;
@@ -519,6 +524,185 @@ export function scoreProcedure(procedure, feature, position = 0) {
 }
 
 /**
+ * Combine sequential procedural sections on a multi-section Microsoft Learn
+ * how-to article when no single `<ol>` covers the full walkthrough on its own
+ * (for example `authoring-test-bot` or `memory-overview`, where Microsoft Learn
+ * splits turning a feature on, testing it, and managing it across adjacent H2/H3
+ * headings). Requires at least two qualifying UI procedural sections so a
+ * single-fragment page is never promoted.
+ */
+function extractMultiSectionProcedures(markdown) {
+  const lines = String(markdown || "").split(/\r?\n/);
+  const sections = [];
+  let heading = "";
+  let parentHeading = "";
+  let activeTab = null;
+  let tabLevel = 0;
+  let current = null;
+  let expected = 1;
+  let bulletRun = null;
+  let fenced = false;
+
+  const isEligibleHeading = (h) =>
+    Boolean(h) &&
+    !CONCEPTUAL_SECTION_RE.test(h) &&
+    !HEADING_PENALTIES.some(([pattern]) => pattern.test(h));
+
+  const hasUiActionDensity = (items) => {
+    if (!items.length) return false;
+    const hits = items.filter((item) => MULTI_SECTION_UI_STEP_RE.test(item.join(" "))).length;
+    return hits / items.length >= 0.6;
+  };
+
+  const flushOrdered = () => {
+    if (current && current.items.length >= 2 && isEligibleHeading(current.heading) && hasUiActionDensity(current.items)) {
+      sections.push(current);
+    }
+    current = null;
+    expected = 1;
+  };
+
+  const flushBullets = () => {
+    if (bulletRun && bulletRun.items.length >= 2) {
+      const actionCount = bulletRun.items.filter((item) => ACTION_BULLET_RE.test(item[0].trim())).length;
+      if (actionCount / bulletRun.items.length >= 0.75 && hasUiActionDensity(bulletRun.items)) {
+        sections.push(bulletRun);
+      }
+    }
+    bulletRun = null;
+  };
+
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+
+    if (/^\s*---\s*$/.test(line)) {
+      flushOrdered();
+      flushBullets();
+      activeTab = null;
+      tabLevel = 0;
+      continue;
+    }
+
+    const headingMatch = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (headingMatch) {
+      flushOrdered();
+      flushBullets();
+      const level = headingMatch[1].length;
+      const text = headingMatch[2].trim();
+      const tabMatch = TAB_HEADING_RE.exec(text);
+      if (tabMatch) {
+        activeTab = tabMatch[1].trim();
+        tabLevel = level;
+        continue;
+      }
+      if (tabLevel && level <= tabLevel) {
+        activeTab = null;
+        tabLevel = 0;
+      }
+      if (level <= 2) parentHeading = text;
+      heading = text;
+      continue;
+    }
+
+    const itemMatch = /^(\d{1,2})\.\s+(.*)$/.exec(line);
+    if (itemMatch) {
+      flushBullets();
+      const number = Number(itemMatch[1]);
+      if (number === 1) {
+        flushOrdered();
+        current = { heading: heading || parentHeading, ...(activeTab ? { tab: activeTab } : {}), items: [[itemMatch[2]]] };
+        expected = 2;
+      } else if (current && number === expected) {
+        current.items.push([itemMatch[2]]);
+        expected += 1;
+      } else {
+        flushOrdered();
+      }
+      continue;
+    }
+
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    if (current) {
+      if (/^\s/.test(line)) {
+        current.items[current.items.length - 1].push(line);
+        continue;
+      }
+      if (CALLOUT.test(trimmed) || INLINE_ARTIFACT_RE.test(trimmed) || /^\|.*\|\s*$/.test(trimmed)) {
+        continue;
+      }
+      flushOrdered();
+    }
+
+    const topBullet = /^[-*]\s+(.*)$/.exec(line);
+    if (topBullet) {
+      if (isEligibleHeading(heading) && PROCEDURAL_SECTION_RE.test(heading)) {
+        if (!bulletRun) {
+          bulletRun = {
+            heading,
+            ...(activeTab ? { tab: activeTab } : {}),
+            kind: "action-bullets",
+            items: [[topBullet[1]]],
+          };
+        } else {
+          bulletRun.items.push([topBullet[1]]);
+        }
+        continue;
+      }
+    }
+
+    if (/^\s/.test(line)) {
+      if (bulletRun) bulletRun.items[bulletRun.items.length - 1].push(line);
+      continue;
+    }
+
+    flushBullets();
+  }
+
+  flushOrdered();
+  flushBullets();
+
+  const byTab = new Map();
+  for (const sec of sections) {
+    const key = sec.tab || "";
+    const group = byTab.get(key) || [];
+    group.push(sec);
+    byTab.set(key, group);
+  }
+
+  const combined = [];
+  for (const [tabKey, group] of byTab.entries()) {
+    if (group.length < 2) continue;
+    const seen = new Set();
+    const mergedItems = [];
+    for (const sec of group) {
+      for (const item of sec.items) {
+        const key = item[0].trim().toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        mergedItems.push(item);
+        if (mergedItems.length >= MAX_STEPS) break;
+      }
+      if (mergedItems.length >= MAX_STEPS) break;
+    }
+    if (mergedItems.length >= MIN_STEPS) {
+      combined.push({
+        heading: group.map((sec) => sec.heading).filter(Boolean)[0] || "Procedure",
+        ...(tabKey ? { tab: tabKey } : {}),
+        kind: "multi-section",
+        items: mergedItems,
+      });
+    }
+  }
+  return combined;
+}
+
+/**
  * Derive a step list for one feature from one fetched page.
  *
  * Selection is deliberately conservative. Falling back to curated steps costs
@@ -531,9 +715,40 @@ export function scoreProcedure(procedure, feature, position = 0) {
  *          |{ok:false, reason:string, score:number, heading:string|null}}
  */
 export function deriveSteps(markdown, feature, docUrl, { threshold = DEFAULT_THRESHOLD } = {}) {
+  const catalogSteps = feature.steps || [];
+  const catalogLabels = labels(catalogSteps.join(" "));
+  const minComplete =
+    catalogSteps.length <= 5
+      ? Math.max(MIN_STEPS, catalogSteps.length - 1)
+      : Math.max(4, Math.ceil(catalogSteps.length * 0.6));
+
+  const tryMultiSection = () => {
+    const multiCandidates = extractMultiSectionProcedures(markdown)
+      .map((procedure) => ({ procedure, score: scoreProcedure(procedure, feature, 0) }))
+      .sort((a, b) => b.score - a.score);
+    for (const candidate of multiCandidates) {
+      if (candidate.score < threshold) break;
+      if (catalogLabels.size >= 2) {
+        const labelCoverage = coverage(
+          catalogLabels,
+          labels(candidate.procedure.items.map((i) => i.join(" ")).join(" ")),
+        );
+        if (labelCoverage < MIN_LABEL_COVERAGE) continue;
+      }
+      const steps = candidate.procedure.items
+        .slice(0, MAX_STEPS)
+        .map((item) => cleanStep(item, docUrl))
+        .filter(Boolean);
+      if (steps.length < MIN_STEPS) continue;
+      if (catalogSteps.length && steps.length < minComplete) continue;
+      return { ok: true, steps, heading: candidate.procedure.heading, score: candidate.score };
+    }
+    return null;
+  };
+
   const procedures = extractProcedures(markdown);
   if (!procedures.length) {
-    return { ok: false, reason: "no-procedure-found", score: 0, heading: null };
+    return tryMultiSection() || { ok: false, reason: "no-procedure-found", score: 0, heading: null };
   }
 
   const last = Math.max(1, procedures.length - 1);
@@ -546,15 +761,15 @@ export function deriveSteps(markdown, feature, docUrl, { threshold = DEFAULT_THR
 
   const best = ranked[0];
   if (best.score < threshold) {
-    return { ok: false, reason: "low-confidence", score: best.score, heading: best.procedure.heading };
+    return (
+      tryMultiSection() || {
+        ok: false,
+        reason: "low-confidence",
+        score: best.score,
+        heading: best.procedure.heading,
+      }
+    );
   }
-
-  const catalogSteps = feature.steps || [];
-  const catalogLabels = labels(catalogSteps.join(" "));
-  const minComplete =
-    catalogSteps.length <= 5
-      ? Math.max(MIN_STEPS, catalogSteps.length - 1)
-      : Math.max(4, Math.ceil(catalogSteps.length * 0.6));
 
   let topFailure = null;
   for (const candidate of ranked) {
@@ -594,7 +809,7 @@ export function deriveSteps(markdown, feature, docUrl, { threshold = DEFAULT_THR
     return { ok: true, steps, heading: candidateHeading, score: candidate.score };
   }
 
-  return topFailure || { ok: false, reason: "low-confidence", score: best.score, heading: best.procedure.heading };
+  return tryMultiSection() || topFailure || { ok: false, reason: "low-confidence", score: best.score, heading: best.procedure.heading };
 }
 
 /**

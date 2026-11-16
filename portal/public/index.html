@@ -2413,7 +2413,162 @@
     .lb-gen-dialog .lb-gen-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
     .lb-edit-banner { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 8px; background: rgba(79, 143, 247, 0.1); font-size: 13px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
     .lb-save-mode { margin: 16px 0 0; }
+    .lb-capture-on-build-opt { margin: 14px 0 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
     .lb-edit-banner[hidden], .lb-gen-toolbar[hidden] { display: none; }
+
+    /* ── Lab builder: Playwright Screenshots & MS Learn Sync panel ── */
+    .lb-screenshots-panel {
+      padding: 16px 18px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface2);
+      color: var(--text);
+    }
+    .lb-screenshots-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+    .lb-screenshots-header h4 {
+      margin: 0;
+      font-size: 15px;
+      color: var(--text);
+    }
+    .lb-screenshots-intro {
+      margin: 0 0 12px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+    .lb-screenshots-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      margin-bottom: 12px;
+    }
+    .lb-screenshots-actions,
+    .lb-screenshots-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .lb-screenshots-select {
+      padding: 5px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 12.5px;
+    }
+    .lb-screenshots-banner {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .lb-screenshots-banner-warn {
+      border-color: var(--warning);
+    }
+    .lb-screenshots-banner-ok {
+      border-color: var(--success);
+    }
+    .lb-screenshots-cli {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 12.5px;
+    }
+    .lb-screenshots-cli summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .lb-screenshots-cli-row {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .lb-screenshots-cli-row code {
+      flex: 1 1 320px;
+      overflow-x: auto;
+      white-space: nowrap;
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      color: var(--text);
+      font-size: 12px;
+    }
+    .lb-shot-module-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .lb-shot-module-item {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .lb-shot-module-main {
+      flex: 1 1 320px;
+      min-width: 0;
+    }
+    .lb-shot-module-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+    .lb-shot-module-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .lb-shot-module-diff {
+      margin-top: 6px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border-left: 3px solid var(--warning);
+      background: var(--surface2);
+      font-size: 12px;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .lb-shot-module-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
 
     /* ── Lab builder: blocked-build decisions ── */
     /* The header is sticky, so scrolling this into view must leave room for it
@@ -2452,22 +2607,65 @@
       display: flex;
       gap: 10px;
       align-items: flex-start;
-      padding: 10px 12px;
+      padding: 12px 14px;
       margin-bottom: 8px;
       border: 1px solid var(--border);
       border-radius: 8px;
       cursor: pointer;
+      background: var(--surface);
+      transition: border-color 0.15s ease, background-color 0.15s ease;
     }
     .lb-option:hover { border-color: var(--accent); }
-    .lb-option:focus-within { border-color: var(--accent); }
+    .lb-option:focus-within { border-color: var(--accent); outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 1px; }
+    .lb-option-selected {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+      box-shadow: inset 3px 0 0 var(--accent);
+    }
     .lb-option input { margin-top: 3px; accent-color: var(--accent); flex: none; }
-    .lb-option-label { display: block; font-size: 13px; font-weight: 600; }
+    .lb-option-body { display: block; flex: 1; min-width: 0; }
+    .lb-option-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .lb-option-label { display: inline; font-size: 13px; font-weight: 600; color: var(--text); }
+    .lb-option-rec-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      background: var(--accent);
+      color: #ffffff;
+    }
     .lb-option-tradeoff {
       display: block;
       color: var(--text-muted);
       font-size: 12px;
       line-height: 1.55;
-      margin-top: 3px;
+      margin-top: 4px;
+    }
+    .lb-decision-quickbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 12px 14px;
+      margin: 0 0 14px;
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--accent) 11%, var(--surface));
+      border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+    }
+    .lb-decision-quickbar-hint {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text);
+      flex: 1 1 280px;
+    }
+    .lb-decision-continue-btn {
+      font-weight: 600;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
     }
     .lb-decision-actions {
       display: flex;
@@ -2475,6 +2673,8 @@
       flex-wrap: wrap;
       margin-top: 4px;
     }
+    .lb-decision-actions-top { margin-top: 0; }
+    .lb-decision-actions-bottom { padding-top: 4px; }
     .lb-decision-record {
       padding: 10px 12px;
       border-radius: 8px;
@@ -3844,6 +4044,7 @@
       body[data-print-target="generated"] #lb-result-heading,
       body[data-print-target="generated"] #lb-result-meta,
       body[data-print-target="generated"] #lb-result-validation,
+      body[data-print-target="generated"] #lb-result-screenshots,
       body[data-print-target="generated"] #lb-result-topic-docs,
       body[data-print-target="generated"] #lb-result-body > details.lb-advanced,
       body[data-print-target="generated"] #lb-result-preview > .lb-warning {
@@ -4643,6 +4844,13 @@
                   </label>
                 </div>
               </fieldset>
+              <label class="scenario-role lb-capture-on-build-opt" for="lb-capture-on-build">
+                <input type="checkbox" id="lb-capture-on-build" autocomplete="off">
+                <span>
+                  <span style="font-weight: 600;">Capture Playwright screenshots during build</span>
+                  <div class="scenario-card-desc">Steps through each module's verified UI instructions with Playwright right after composing the lab and embeds captured PNGs into HTML, Word, PDF, and PowerPoint exports. You can also capture or re-validate screenshots anytime after building.</div>
+                </span>
+              </label>
               <div class="lb-step-footer" data-lb-step-footer>
                 <div class="lb-step-footer-secondary">
                   <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>

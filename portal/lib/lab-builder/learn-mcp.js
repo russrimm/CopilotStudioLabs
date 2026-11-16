@@ -301,13 +301,15 @@ export async function searchDocs(session, query, { limit = 6 } = {}) {
  *
  * @returns {Promise<{markdown:string, url:string, fetchedAt:string|null, error:string|null}>}
  */
-export async function fetchDocPage(session, url) {
+export async function fetchDocPage(session, url, { bypassCache = false } = {}) {
   if (!session?.ok) return { markdown: "", url, fetchedAt: null, error: "Microsoft Learn session is not connected" };
   if (!url) return { markdown: "", url, fetchedAt: null, error: "No documentation URL was supplied" };
 
   const cacheKey = `page:${session.endpoint}:${url}`;
-  const cached = cacheGet(cacheKey);
-  if (cached !== undefined) return cached;
+  if (!bypassCache) {
+    const cached = cacheGet(cacheKey);
+    if (cached !== undefined) return cached;
+  }
 
   let page;
   try {
