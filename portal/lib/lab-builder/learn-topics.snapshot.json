@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-13T08:19:43.135Z",
+  "generatedAt": "2026-11-16T06:40:49.347Z",
   "source": "microsoft-learn-mcp",
   "catalogVersion": 1,
   "partial": false,
   "partialReason": null,
   "stats": {
-    "calls": 326,
+    "calls": 332,
     "errors": 0,
-    "pagesRead": 111,
+    "pagesRead": 93,
     "searches": 50
   },
   "topics": [
@@ -30,7 +30,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "4160b0dd679b946d"
     },
@@ -50,7 +50,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "979fbbd15494abef"
     },
@@ -72,7 +72,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "33cd518bf12bddca"
     },
@@ -92,7 +92,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "3aab2359bf3d7bc3"
     },
@@ -112,7 +112,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "3c5076f635e9a64c"
     },
@@ -132,7 +132,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "7304097c2fe63d2c"
     },
@@ -154,14 +154,14 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "f02ac7a11da3088b"
     },
     {
       "id": "learn-admin-data-loss-prevention",
       "title": "Configure data policies for agents",
-      "summary": "By using Copilot Studio, you can quickly create and deploy high-value agents for your users that connect to many data sources and services. Data policies let you govern how agents connect and interact with data and services, both within and outside your organization.",
+      "summary": "By using Copilot Studio, you can quickly create and deploy high-value agents for your users that connect to many data sources and services. Some of these sources and services might be external, non-Microsoft services. They might even include social networks, alongside connections to your organizational data.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/admin-data-loss-prevention"
       ],
@@ -176,7 +176,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "8085b6dad5afb41b"
     },
@@ -198,7 +198,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "c8f4a9e52cea1aaf"
     },
@@ -218,7 +218,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "8c489de5184ffe06"
     },
@@ -238,7 +238,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "6f57ebdca6764f85"
     },
@@ -258,7 +258,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "5eba3d7c04ec5f38"
     },
@@ -278,7 +278,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "25d3358cef8c25a7"
     },
@@ -307,7 +307,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "13355f45818fcc00"
     },
@@ -329,7 +329,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "99580707c01a76a6"
     },
@@ -351,7 +351,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "8d8e7bf23031242e"
     },
@@ -373,7 +373,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "f34f23cc399b332b"
     },
@@ -394,7 +394,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "b8892cbbf15c18e8",
       "subtopics": [
@@ -422,7 +422,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "3c6dde508ecf5a34"
     },
@@ -444,7 +444,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "78e965104d14ecb0"
     },
@@ -464,7 +464,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "9cb398e60505c8e4"
     },
@@ -486,7 +486,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "fd910e44fb48c520"
     },
@@ -508,7 +508,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "706e9613d24eb133"
     },
@@ -530,7 +530,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "36a8ebab53014a7d"
     },
@@ -550,7 +550,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "404ec6cc9ae0f43f"
     },
@@ -572,7 +572,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "90167dcb7f09ae31"
     },
@@ -592,7 +592,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "447194db9c937f1c"
     },
@@ -614,7 +614,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "6accd30b271f0c45"
     },
@@ -636,7 +636,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "0539dfe4c50b60f5"
     },
@@ -658,7 +658,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "a1f9d5abe36464df"
     },
@@ -680,7 +680,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "7762dad8b2728add"
     },
@@ -702,7 +702,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "8d39c2763b8944ad"
     },
@@ -724,7 +724,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "eee7cfdbabebeb43"
     },
@@ -746,7 +746,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "adfcb10d191b82ef"
     },
@@ -768,7 +768,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "5005bc4f2fbdfdf1"
     },
@@ -790,7 +790,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "54898af2157ac656"
     },
@@ -813,7 +813,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "da33b30611ef4d73"
     },
@@ -833,7 +833,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "84e26f07ec27b1e6"
     },
@@ -855,7 +855,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "f0fecd29207a1cf0"
     },
@@ -878,14 +878,14 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "c5fc07763547d164"
     },
     {
       "id": "learn-agents-experience-authoring-agent-model-availability",
       "title": "Model availability and controls (Microsoft Copilot)",
-      "summary": "Microsoft Copilot Studio supports multiple generative AI models with different capabilities, performance characteristics, and availability requirements. You can select a model for an agent that uses the Microsoft Copilot harness, and explore experimental and preview models before they become generally available.",
+      "summary": "Microsoft Copilot Studio supports multiple generative AI models with different capabilities, performance characteristics, and availability requirements. You can select a model for an agent that uses the Microsoft Copilot harness. You can also explore experimental and preview models before they become generally availab…",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-agent-model-availability"
       ],
@@ -900,7 +900,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "6ea7eb329f6fc51a"
     },
@@ -922,7 +922,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "3428ee7c318405d1"
     },
@@ -944,7 +944,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "556e2a50614e5e8f"
     },
@@ -966,7 +966,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "946dfc783549fe25"
     },
@@ -988,7 +988,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "7ed62576169862a0"
     },
@@ -1010,7 +1010,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "47d599fbea300c01"
     },
@@ -1032,14 +1032,14 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "32785b965182f751"
     },
     {
       "id": "learn-agents-experience-authoring-share-agent",
       "title": "Share agents with other users and makers (Microsoft Copilot)",
-      "summary": "You can share your agents with others in your organization so they can see, test, and use your agents.",
+      "summary": "You can share your agents with others in your organization so they can see, test, and use your agents. For each agent, you can share with:",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/authoring-share-agent"
       ],
@@ -1052,7 +1052,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "f094a840103b1e41"
     },
@@ -1074,7 +1074,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "62316e6c9ab555f5"
     },
@@ -1096,7 +1096,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "fa4231db959a0079"
     },
@@ -1120,7 +1120,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "9daf58dedd7a4f55"
     },
@@ -1140,7 +1140,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "f43125c8bd95304a"
     },
@@ -1160,14 +1160,14 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "4cbdd7382a4bd63f"
     },
     {
       "id": "learn-agents-experience-build-new-agent",
       "title": "Create a new agent (Microsoft Copilot)",
-      "summary": "Agents powered by the Microsoft Copilot harness in Microsoft Copilot Studio use instructions written in natural language, knowledge, tools, and other components to reason over context and take action. In this article, you manually create an agent, save it, and configure its details.",
+      "summary": "Agents powered by the Microsoft Copilot harness in Microsoft Copilot Studio use instructions written in natural language, knowledge, tools, and other components to reason over context and take action. In this article, you manually create an agent, save it, and optionally update its primary language, solution, and sche…",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent"
       ],
@@ -1182,7 +1182,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "10795fb47f37a9f7"
     },
@@ -1204,7 +1204,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "b7cf4b1285a3a726"
     },
@@ -1226,7 +1226,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "b0dd1eb5f9a15408",
       "subtopics": [
@@ -1262,7 +1262,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "0b31fc72e339dcd7"
     },
@@ -1282,7 +1282,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "c223f7b617d711a7"
     },
@@ -1304,7 +1304,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "01b56e4bbb55b3d0"
     },
@@ -1326,7 +1326,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "080a148d43918dc3"
     },
@@ -1348,7 +1348,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "0f94fc7ba33a0827"
     },
@@ -1368,7 +1368,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "1178f44d11e8d593"
     },
@@ -1390,7 +1390,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "4fe8379fbf45115c"
     },
@@ -1412,7 +1412,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "46f38fe5b513f617"
     },
@@ -1435,7 +1435,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "ea3ef6aba0a015c9"
     },
@@ -1457,7 +1457,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "e77e5d0b685a5020"
     },
@@ -1479,7 +1479,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "ccae4d91541842ca"
     },
@@ -1501,7 +1501,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "b03c7fe282b68522"
     },
@@ -1523,7 +1523,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "5f9b8f1c709f3d17"
     },
@@ -1545,7 +1545,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "2dca73e06eb0b510"
     },
@@ -1567,7 +1567,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "ce9c92f61a120826"
     },
@@ -1589,7 +1589,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "e5aa10e3afa45630"
     },
@@ -1611,7 +1611,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "7bcaca96e69cfc86"
     },
@@ -1638,7 +1638,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "495533086c351de7"
     },
@@ -1661,7 +1661,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "142f29790d2a67fa"
     },
@@ -1683,7 +1683,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "3b69449c5f9e2541"
     },
@@ -1705,7 +1705,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "e538d3319ab715fb"
     },
@@ -1727,7 +1727,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "a64885dac8ce4657"
     },
@@ -1747,7 +1747,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "13734822169800b5"
     },
@@ -1769,7 +1769,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "a65cbe20aabfd750"
     },
@@ -1793,7 +1793,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "d68b0e4a5206b378"
     },
@@ -1817,7 +1817,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "9c14c02bb5b7b72f"
     },
@@ -1839,7 +1839,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "010b759b689d9e20"
     },
@@ -1861,7 +1861,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "bcecff4347f0db58"
     },
@@ -1884,7 +1884,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "edad16dae80701cc"
     },
@@ -1904,7 +1904,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "54a5dadeeeaef135"
     },
@@ -1924,7 +1924,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "aeacc3c290f02bf7"
     },
@@ -1944,7 +1944,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "f4ddc45e9a05fc8e"
     },
@@ -1967,7 +1967,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "3b6b2e286ec09711"
     },
@@ -1987,7 +1987,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "409b8ab333199fca"
     },
@@ -2007,7 +2007,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "b9646c19da031f71"
     },
@@ -2029,7 +2029,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "b325de706dda63c7"
     },
@@ -2051,7 +2051,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "c057ae01daa9a30b"
     },
@@ -2071,7 +2071,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "362d235580c9bd0d"
     },
@@ -2091,7 +2091,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "f69c45af5c43d568"
     },
@@ -2113,7 +2113,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "6476d757cbeb0bff"
     },
@@ -2137,7 +2137,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "e9573bc08cb1aee5"
     },
@@ -2159,7 +2159,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "1d01069e3208b3a5"
     },
@@ -2182,7 +2182,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "e816c43e2b04e3c8"
     },
@@ -2204,7 +2204,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "b6b32a2111f79dcc"
     },
@@ -2227,7 +2227,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "a11a3bd378fc258e"
     },
@@ -2250,7 +2250,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "ce13b36a1a0b70ba"
     },
@@ -2270,7 +2270,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "7f4d5711efb6d8c3"
     },
@@ -2292,7 +2292,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "2f6a1e5418b17a6b"
     },
@@ -2314,7 +2314,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "fb60861a97e34e23"
     },
@@ -2337,7 +2337,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "baebd5ca12061c14"
     },
@@ -2359,7 +2359,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "9783f440f91b7b4d"
     },
@@ -2383,7 +2383,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "dc42f96fc1cc3ab2"
     },
@@ -2405,7 +2405,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "213469b0def3f8cd"
     },
@@ -2427,7 +2427,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "df58dcf694ec4436"
     },
@@ -2449,7 +2449,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "2d9e0d8e35fabf37"
     },
@@ -2472,7 +2472,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "913d22e1facc4f0a"
     },
@@ -2495,7 +2495,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "04c81b8682751041"
     },
@@ -2517,7 +2517,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "9f0c7d0bd78f3099"
     },
@@ -2540,7 +2540,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "54b59f895126730b"
     },
@@ -2562,7 +2562,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "b53a6b22ada031e2"
     },
@@ -2586,7 +2586,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "6ff111e927417ad5"
     },
@@ -2610,9 +2610,31 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "2fb1659eabfb9da8"
+    },
+    {
+      "id": "learn-analytics-consumption",
+      "title": "View agent's billing consumption",
+      "summary": "The Monitor page in Copilot Studio provides consumption data on the billed Copilot Credits or sessions your agent uses.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-consumption"
+      ],
+      "harnesses": [
+        "standard"
+      ],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "usage-credits"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-16",
+      "lastSeen": "2026-11-16",
+      "changedAt": null,
+      "contentHash": "f599eb81fd4959be"
     },
     {
       "id": "learn-analytics-cost-savings",
@@ -2630,7 +2652,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "58f3be2bf3be8ab4"
     },
@@ -2652,7 +2674,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "74b4678ef20bd05e"
     },
@@ -2672,7 +2694,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "8c344ac4b9b72ca1"
     },
@@ -2694,7 +2716,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "9759683fd1435ba4"
     },
@@ -2716,9 +2738,29 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "5e5c6e63f3d59fbc"
+    },
+    {
+      "id": "learn-analytics-summary",
+      "title": "Monitor agent performance in Copilot Studio",
+      "summary": "Use analytics to understand how well your agent is performing and to identify areas for improvement.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/analytics-summary"
+      ],
+      "harnesses": [
+        "standard"
+      ],
+      "conceptId": "monitor",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-16",
+      "lastSeen": "2026-11-16",
+      "changedAt": null,
+      "contentHash": "9759683fd1435ba4"
     },
     {
       "id": "learn-analytics-themes",
@@ -2736,7 +2778,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "594e8857747eeafc"
     },
@@ -2757,7 +2799,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "ff8d5706c043b918",
       "subtopics": [
@@ -2779,15 +2821,15 @@
       "harnesses": [
         "microsoft-copilot"
       ],
-      "conceptId": "create-agent",
+      "conceptId": "subagents",
       "availability": null,
       "status": "covered",
       "featureIds": [
         "connected-agents"
       ],
-      "level": 100,
+      "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "f8e56e90b2386bd4"
     },
@@ -2809,7 +2851,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "5f0991b7273b4af8"
     },
@@ -2831,7 +2873,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "c2a208f81f27e27c"
     },
@@ -2851,7 +2893,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "dea7e57b009b3abc"
     },
@@ -2873,7 +2915,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "12032aa5d1eecf7f"
     },
@@ -2893,7 +2935,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "30bc4774a50cda9a"
     },
@@ -2915,7 +2957,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "619c7d1b5eb5cc2b"
     },
@@ -2937,7 +2979,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "04e8b1a576919054"
     },
@@ -2959,9 +3001,9 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "0377a8c7efd2fe55"
+      "lastSeen": "2026-11-16",
+      "changedAt": "2026-11-16",
+      "contentHash": "1ecd318b6242cb81"
     },
     {
       "id": "learn-authoring-test-bot",
@@ -2981,7 +3023,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "43c49428cf5b84ab"
     },
@@ -3001,7 +3043,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "4524142aec58e093"
     },
@@ -3022,7 +3064,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "e7c56e9a63ac88d4",
       "subtopics": [
@@ -3037,7 +3079,7 @@
     {
       "id": "learn-billing-licensing",
       "title": "Licensing for agents powered by the standard harness",
-      "summary": "This article covers licensing details for agents powered by the standard harness, including Copilot Credits prepaid packs, pay-as-you-go meters, prepurchase plans, trial licenses, and Microsoft 365 Copilot entitlements.",
+      "summary": "If you already have a Copilot Studio user license, see Assign licenses and manage access to Copilot Studio.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/billing-licensing"
       ],
@@ -3052,7 +3094,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "bfd771e55b048cf6"
     },
@@ -3073,7 +3115,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "f98b7108cb65d948",
       "subtopics": [
@@ -3088,7 +3130,7 @@
     {
       "id": "learn-configuration-add-skills",
       "title": "Configure Azure Bot Service skills for use in Copilot Studio agents",
-      "summary": "Copilot Studio lets you extend your agent by using Azure Bot Service skills. If you already have agents built and deployed in your organization (using the Microsoft 365 Agents SDK or other pro-code tools), you can convert those bots into Azure Bot Service skills and register them in a Copilot Studio agent.",
+      "summary": "Copilot Studio lets you extend your agent by using Azure Bot Service skills. If you already have agents built and deployed in your organization (using the Microsoft 365 Agents SDK or other pro-code tools) for specific scenarios, you can convert those bots into Azure Bot Service skills and register the skills in a Copi…",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/configuration-add-skills",
         "https://learn.microsoft.com/microsoft-copilot-studio/advanced-use-skills"
@@ -3102,7 +3144,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "1ada0473491cbe4f",
       "subtopics": [
@@ -3132,7 +3174,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "9c85d331a8b03a85"
     },
@@ -3154,7 +3196,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "ad58c31c76b5cdaf"
     },
@@ -3174,7 +3216,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "8149fc18a1c25d4b"
     },
@@ -3194,9 +3236,29 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "102d109bfb50e36c"
+    },
+    {
+      "id": "learn-configure-starter-prompts",
+      "title": "Configure suggested prompts for Teams and Copilot",
+      "summary": "You can configure up to 10 suggested prompts that customers can choose from to start a conversation with your agent in Microsoft Teams or Microsoft Copilot. When Copilot Studio creates an agent, it might automatically generate suggested prompts based on information in the description and instructions for the agent.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/configure-starter-prompts"
+      ],
+      "harnesses": [
+        "standard"
+      ],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-16",
+      "lastSeen": "2026-11-16",
+      "changedAt": null,
+      "contentHash": "843019ef1ef7f597"
     },
     {
       "id": "learn-configure-web-security",
@@ -3214,7 +3276,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "9fc53af381940598"
     },
@@ -3234,7 +3296,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "92275d4091276b95"
     },
@@ -3254,7 +3316,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "8f3a3be7f4b46afb"
     },
@@ -3276,7 +3338,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "af8a8c43e817ce72"
     },
@@ -3296,7 +3358,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "7da557864438aa78"
     },
@@ -3321,7 +3383,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "ca2bdcecd4690f5f"
     },
@@ -3343,9 +3405,29 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "4db29ce0d89b1e70"
+    },
+    {
+      "id": "learn-fundamentals-get-started-teams",
+      "title": "Quickstart: Create a classic agent and publish it to Microsoft Teams",
+      "summary": "This article only applies to makers who have a Teams plan, available in select Microsoft 365 subscriptions. Makers with a Teams plan are limited to creating agents that use classic orchestration in Copilot Studio, and they can only publish these agents to Microsoft Teams. If you have a standalone Copilot Studio subscr…",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-get-started-teams"
+      ],
+      "harnesses": [
+        "standard"
+      ],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-16",
+      "lastSeen": "2026-11-16",
+      "changedAt": null,
+      "contentHash": "7fa22064c4246f09"
     },
     {
       "id": "learn-fundamentals-what-is-copilot-studio",
@@ -3365,7 +3447,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "142329a9796e2577"
     },
@@ -3387,7 +3469,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "9a43dc348e200994"
     },
@@ -3410,7 +3492,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "790a78169e77f7ab"
     },
@@ -3430,7 +3512,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "ba38ee169501f325"
     },
@@ -3450,7 +3532,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "1676c394521cad1b"
     },
@@ -3471,7 +3553,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "0185c958aa6372d2",
       "subtopics": [
@@ -3503,7 +3585,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "d5c97d91cdbf732a"
     },
@@ -3527,7 +3609,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "c86048e3d6b89505"
     },
@@ -3549,7 +3631,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "8283414d634bfde7"
     },
@@ -3569,7 +3651,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "e708090b0d65aaa0"
     },
@@ -3589,14 +3671,14 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "57f8886e7d28d514"
     },
     {
       "id": "learn-mcp-server-certification",
       "title": "Microsoft MCP server certification",
-      "summary": "Model Context Protocol (MCP) servers are services that provide tools and actions for Microsoft Copilot and other AI-powered experiences. To ensure external, third-party services are secure, reliable, and compliant, Microsoft requires that they undergo a certification process before being made available to all users.",
+      "summary": "Model Context Protocol (MCP) servers are services that provide tools and actions for Microsoft Copilot and other AI-powered experiences. To ensure external, third-party services are secure, reliable, and compliant, Microsoft requires that they undergo a certification process before being made available to all users. C…",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/mcp-server-certification",
         "https://learn.microsoft.com/microsoft-copilot-studio/mcp-certification"
@@ -3610,7 +3692,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "87ee9bcfc253f87d",
       "subtopics": [
@@ -3618,9 +3700,29 @@
           "id": "learn-mcp-certification",
           "title": "Microsoft MCP server certification overview (preview)",
           "url": "https://learn.microsoft.com/microsoft-copilot-studio/mcp-certification",
-          "summary": "Model Context Protocol (MCP) servers provide tools and actions that agents can use across Microsoft Copilot and other AI-powered experiences. Certification gives customers and administrators confidence that an external service meets Microsoft expectations for reliability, security, and compliance."
+          "summary": "Model Context Protocol (MCP) servers are services that provide tools and actions that agents can use across Microsoft Copilot and other AI powered experiences. Certification gives customers and administrators confidence that an external service meets Microsoft expectations for reliability, security, compliance, and re…"
         }
       ]
+    },
+    {
+      "id": "learn-microsoft-copilot-studio",
+      "title": "Microsoft Copilot Studio documentation",
+      "summary": "Discover how to build AI-driven agents, workflows, and apps with Microsoft Copilot Studio. Access documentation, implementation guidance, online training, and other resources.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio"
+      ],
+      "harnesses": [
+        "standard"
+      ],
+      "conceptId": "uncategorized",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-16",
+      "lastSeen": "2026-11-16",
+      "changedAt": null,
+      "contentHash": "6279dfffe069ac59"
     },
     {
       "id": "learn-monitor-computer-use",
@@ -3638,9 +3740,9 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
-      "changedAt": null,
-      "contentHash": "bc805ea2a2c02b97"
+      "lastSeen": "2026-11-16",
+      "changedAt": "2026-11-16",
+      "contentHash": "66b5d5e7b6a0f59d"
     },
     {
       "id": "learn-nlu-authoring",
@@ -3658,7 +3760,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "d4b8677bb8cd35ea"
     },
@@ -3678,7 +3780,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "dffd14ad1421844a"
     },
@@ -3700,9 +3802,29 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "fb633bb50fcd50d5"
+    },
+    {
+      "id": "learn-nlu-gpt-quickstart",
+      "title": "Quickstart: Create and deploy an agent with the standard harness",
+      "summary": "This article applies to makers with a standalone Copilot Studio subscription. If you have a Teams plan, available in select Microsoft 365 subscriptions, see Quickstart: Create a classic agent and publish it to Microsoft Teams.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/nlu-gpt-quickstart"
+      ],
+      "harnesses": [
+        "standard"
+      ],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-16",
+      "lastSeen": "2026-11-16",
+      "changedAt": null,
+      "contentHash": "4db29ce0d89b1e70"
     },
     {
       "id": "learn-publication-add-bot-to-microsoft-teams",
@@ -3722,7 +3844,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "66527ce67797ab20"
     },
@@ -3742,7 +3864,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "2c68ff506319c6af"
     },
@@ -3764,7 +3886,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "a91b35467fd9ea70"
     },
@@ -3784,14 +3906,14 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "6d4aa92d1b11ba4f"
     },
     {
       "id": "learn-publication-fundamentals-publish-channels",
       "title": "Key concepts - Publish and deploy your agent",
-      "summary": "By using Copilot Studio, you can publish agents that engage with your customers on multiple platforms or channels, such as live websites, mobile apps, Microsoft Copilot, and messaging platforms like Teams and Facebook.",
+      "summary": "By using Copilot Studio, you can publish agents that engage with your customers on multiple platforms or channels. For example, live websites, mobile apps, Microsoft Copilot, and messaging platforms like Teams and Facebook.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/publication-fundamentals-publish-channels"
       ],
@@ -3806,7 +3928,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "035f3c58adbd8548"
     },
@@ -3826,14 +3948,14 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "24605fc0a4728457"
     },
     {
       "id": "learn-requirements-licensing-gcc",
       "title": "Copilot Studio for US Government customers",
-      "summary": "This article is for US government customers who are deploying Copilot Studio as part of a Copilot Studio Government Community Cloud (GCC) plan. It provides an overview of features, compliance commitments, and service URLs that are specific to these plans.",
+      "summary": "This article is for US government customers who are deploying Copilot Studio as part of a Copilot Studio Government Community Cloud (GCC) plan. It provides an overview of features that are specific to these plans.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/requirements-licensing-gcc"
       ],
@@ -3846,14 +3968,14 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "45543df432b07747"
     },
     {
       "id": "learn-requirements-licensing-subscriptions",
       "title": "Get access to Copilot Studio",
-      "summary": "This article provides information about Copilot Studio licensing, standalone subscriptions, the Copilot Studio for Microsoft Teams plan, and signing up for an individual free trial.",
+      "summary": "This article provides information about Copilot Studio licensing and the free trial.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/requirements-licensing-subscriptions"
       ],
@@ -3866,7 +3988,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "3d259d3950644f33"
     },
@@ -3888,14 +4010,14 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "58be7412d81e6231"
     },
     {
       "id": "learn-requirements-quotas",
       "title": "Quotas and limits",
-      "summary": "This article lists the quotas and limits for standard harness agents, including requests-per-minute quotas, Copilot Studio web app and Teams app limits, knowledge source limits, and required network services.",
+      "summary": "This article lists the quotas and limits for standard harness agents.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/requirements-quotas"
       ],
@@ -3908,7 +4030,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "b975a781cdc80cea"
     },
@@ -3928,7 +4050,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "aa19a07e8d666ca8"
     },
@@ -3950,7 +4072,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "41efd62794d7d391"
     },
@@ -3970,7 +4092,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "dcf4eeeaf1cb1c04"
     },
@@ -3990,7 +4112,7 @@
       "featureIds": [],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "0fc5271f99f98521"
     },
@@ -4010,7 +4132,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "a7e042f545d08130"
     },
@@ -4030,16 +4152,16 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "3c09531d98e3786e"
     },
     {
       "id": "learn-upgrade-to-microsoft-copilot-from-standard-harness",
       "title": "Upgrade agents to the Microsoft Copilot harness (preview)",
-      "summary": "You can ask Copilot Studio to upgrade agents powered by the standard harness. The upgrade creates a copy of the agent onto the Microsoft Copilot harness, carrying over instructions, tools, and suggested prompts, and reports what was migrated or skipped.",
+      "summary": "You can ask Copilot Studio to upgrade agents powered by the standard harness. The upgrade creates a copy of the agent onto the Microsoft Copilot harness. The upgrade carries over instructions, tools, and suggested prompts. Your custom topics can be rebuilt as skills of workflows. You get a report of what was migrated,…",
       "urls": [
-        "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-microsoft-copilot-from-standard-harness"
+        "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-github-copilot-from-standard-harness"
       ],
       "harnesses": [
         "microsoft-copilot"
@@ -4052,7 +4174,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "7da73b585397bda2"
     },
@@ -4074,7 +4196,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "7ceec085c6bf7e8d"
     },
@@ -4096,7 +4218,7 @@
       ],
       "level": 300,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "2e97d1ad3f41a9fb"
     },
@@ -4118,9 +4240,29 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "6eec37252a906150"
+    },
+    {
+      "id": "learn-voice-configuration",
+      "title": "Configure basic voice agents",
+      "summary": "This article describes how to configure basic voice interactive voice response (IVR) agents for use in Dynamics 365 Contact Center applications. Typically, basic voice agents use classic orchestration. Learn more in Integrate a voice-enabled agent with Dynamics 365 Contact Center.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/voice-configuration"
+      ],
+      "harnesses": [
+        "standard"
+      ],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-16",
+      "lastSeen": "2026-11-16",
+      "changedAt": null,
+      "contentHash": "c99b7e15674a06e7"
     },
     {
       "id": "learn-voice-overview",
@@ -4140,7 +4282,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "d0160c2220ee7c8e"
     },
@@ -4160,7 +4302,7 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "46d5b78ddacb095b"
     },
@@ -4180,14 +4322,34 @@
       "featureIds": [],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "4b229241b96f1e3e"
     },
     {
+      "id": "learn-voice-realtime-test",
+      "title": "Test your real-time agent",
+      "summary": "Test your real-time agent directly in Copilot Studio by using voice or text. When you use voice testing, you can speak to your agent and hear its spoken responses. When you use text testing, you can validate the conversation experience for digital messaging scenarios.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-test"
+      ],
+      "harnesses": [
+        "standard"
+      ],
+      "conceptId": "testing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-16",
+      "lastSeen": "2026-11-16",
+      "changedAt": null,
+      "contentHash": "3c4fbdc078360929"
+    },
+    {
       "id": "learn-workflows-experience-agent-node-workflow",
       "title": "Add an agent node to a workflow (Microsoft Copilot)",
-      "summary": "You can either pick an existing published agent or build a brand-new agent directly inside the workflow node without leaving the workflow designer. Inline agents are the fastest way to add AI to a workflow. Give the node an instruction, optionally attach tools and knowledge, and you're done.",
+      "summary": "You can either pick an existing published agent or build a brand-new agent directly inside the node without leaving the workflow designer. Inline agents are the fastest way to add AI to a workflow. Give the node an instruction, optionally attach tools and knowledge, and you're done.",
       "urls": [
         "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/agent-node-workflow"
       ],
@@ -4200,7 +4362,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "3198cff6d8781ca9"
     },
@@ -4222,7 +4384,7 @@
       ],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "2e6ea236c06bbb38"
     },
@@ -4242,7 +4404,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "f01d3a8b04c0ae09"
     },
@@ -4264,7 +4426,7 @@
       ],
       "level": 100,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "4935045b52b02c33"
     },
@@ -4284,7 +4446,7 @@
       "featureIds": [],
       "level": 200,
       "firstSeen": "2026-11-13",
-      "lastSeen": "2026-11-13",
+      "lastSeen": "2026-11-16",
       "changedAt": null,
       "contentHash": "b7c5ab2d1fbd11b6"
     }
@@ -4299,9 +4461,9 @@
     },
     {
       "featureId": "agent-flows",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "be28a240161d67ae",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4313,9 +4475,9 @@
     },
     {
       "featureId": "agent-inventory",
-      "status": "current",
-      "contentHash": "f272f1c30dc6efac",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "69c9ef0bd1f276e9",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4369,9 +4531,9 @@
     },
     {
       "featureId": "cc-connected-agent",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "bbec5b5de42eabb0",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4544,9 +4706,9 @@
     },
     {
       "featureId": "connected-agents",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "eefbb81e84080db3",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4565,9 +4727,9 @@
     },
     {
       "featureId": "create-agent",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "7f92dbb55b2ee399",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4579,9 +4741,9 @@
     },
     {
       "featureId": "dlp-governance",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "1d73e8bfc9b7513a",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4677,16 +4839,16 @@
     },
     {
       "featureId": "mc-connected-agents",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "6c705df3b172cac0",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
       "featureId": "mc-create-agent",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "e222d7d96e08e093",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4705,9 +4867,9 @@
     },
     {
       "featureId": "mc-evaluate",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "8ff70be2be1d209a",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4740,9 +4902,9 @@
     },
     {
       "featureId": "mc-knowledge",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "6edce24fa59d6b8d",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4754,9 +4916,9 @@
     },
     {
       "featureId": "mc-model-selection",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "5d8091d1f7fed823",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4768,16 +4930,16 @@
     },
     {
       "featureId": "mc-preview-test",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "f94287ccfe3b9af3",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
       "featureId": "mc-publish-agent",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "bfca4ccd61ae3e63",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4796,9 +4958,9 @@
     },
     {
       "featureId": "mc-tools",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "6f1dd69f5388b705",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4824,9 +4986,9 @@
     },
     {
       "featureId": "mc-workflows-tool",
-      "status": "current",
-      "contentHash": "e3b0c44298fc1c14",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "757c11afc7c8e83e",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4929,9 +5091,9 @@
     },
     {
       "featureId": "topics",
-      "status": "current",
-      "contentHash": "42243529625c28b7",
-      "changedAt": null,
+      "status": "updated",
+      "contentHash": "3da8081538256eee",
+      "changedAt": "2026-11-16",
       "missing": []
     },
     {
@@ -4991,7 +5153,9 @@
     "https://learn.microsoft.com/microsoft-365/copilot/connectors/jira-cloud-overview": "21028953ed183007",
     "https://learn.microsoft.com/microsoft-365/copilot/connectors/salesforce-crm-overview": "c3223ffffd40245e",
     "https://learn.microsoft.com/microsoft-365/copilot/extensibility/work-iq": "e5d36712920a8e38",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-365-overview": "c48f612a041f0226",
     "https://learn.microsoft.com/microsoft-agent-365/tooling-servers-overview": "4f8ae88f6c98f434",
+    "https://learn.microsoft.com/microsoft-copilot-studio": "6279dfffe069ac59",
     "https://learn.microsoft.com/microsoft-copilot-studio/add-agent-agent-to-agent": "4160b0dd679b946d",
     "https://learn.microsoft.com/microsoft-copilot-studio/add-agent-child-agent": "979fbbd15494abef",
     "https://learn.microsoft.com/microsoft-copilot-studio/add-agent-copilot-studio-agent": "33cd518bf12bddca",
@@ -5128,6 +5292,7 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-improve-agent-health": "8c344ac4b9b72ca1",
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-overview": "9759683fd1435ba4",
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-questions-sessions": "5e5c6e63f3d59fbc",
+    "https://learn.microsoft.com/microsoft-copilot-studio/analytics-summary": "9759683fd1435ba4",
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-themes": "594e8857747eeafc",
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-transcripts-powerapps": "dc920d0ae6dbfe78",
     "https://learn.microsoft.com/microsoft-copilot-studio/analytics-transcripts-studio": "bdfc675d026dcf70",
@@ -5142,7 +5307,7 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/authoring-send-message": "f490485ce72b6cc5",
     "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-import-export": "c98f80f6eeb6f6b5",
     "https://learn.microsoft.com/microsoft-copilot-studio/authoring-solutions-overview": "04e8b1a576919054",
-    "https://learn.microsoft.com/microsoft-copilot-studio/authoring-system-topics": "0377a8c7efd2fe55",
+    "https://learn.microsoft.com/microsoft-copilot-studio/authoring-system-topics": "1ecd318b6242cb81",
     "https://learn.microsoft.com/microsoft-copilot-studio/authoring-test-bot": "43c49428cf5b84ab",
     "https://learn.microsoft.com/microsoft-copilot-studio/authoring-topic-management": "4524142aec58e093",
     "https://learn.microsoft.com/microsoft-copilot-studio/authoring-trigger-event": "03b37dc3bf54e7a9",
@@ -5158,6 +5323,7 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/configure-enduser-authentication": "8149fc18a1c25d4b",
     "https://learn.microsoft.com/microsoft-copilot-studio/configure-generic-handoff": "6627641c3367f59b",
     "https://learn.microsoft.com/microsoft-copilot-studio/configure-sharing-agents-embedded-maker-credentials": "102d109bfb50e36c",
+    "https://learn.microsoft.com/microsoft-copilot-studio/configure-starter-prompts": "843019ef1ef7f597",
     "https://learn.microsoft.com/microsoft-copilot-studio/configure-web-security": "9fc53af381940598",
     "https://learn.microsoft.com/microsoft-copilot-studio/create-automation-natural-language": "92275d4091276b95",
     "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt": "63a89a9843fefbdb",
@@ -5168,6 +5334,7 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/flow-designer": "7da557864438aa78",
     "https://learn.microsoft.com/microsoft-copilot-studio/flows-overview": "ca2bdcecd4690f5f",
     "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-get-started": "4db29ce0d89b1e70",
+    "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-get-started-teams": "7fa22064c4246f09",
     "https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-what-is-copilot-studio": "142329a9796e2577",
     "https://learn.microsoft.com/microsoft-copilot-studio/govern-agents-identities-overview": "9a43dc348e200994",
     "https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness": "46cdc604a3e71adb",
@@ -5189,10 +5356,11 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/mcp-certification": "d268553baa1cce64",
     "https://learn.microsoft.com/microsoft-copilot-studio/mcp-create-new-server": "57f8886e7d28d514",
     "https://learn.microsoft.com/microsoft-copilot-studio/mcp-server-certification": "0ed58e6ece692962",
-    "https://learn.microsoft.com/microsoft-copilot-studio/monitor-computer-use": "bc805ea2a2c02b97",
+    "https://learn.microsoft.com/microsoft-copilot-studio/monitor-computer-use": "66b5d5e7b6a0f59d",
     "https://learn.microsoft.com/microsoft-copilot-studio/nlu-authoring": "d4b8677bb8cd35ea",
     "https://learn.microsoft.com/microsoft-copilot-studio/nlu-boost-node": "dffd14ad1421844a",
     "https://learn.microsoft.com/microsoft-copilot-studio/nlu-gpt-overview": "fb633bb50fcd50d5",
+    "https://learn.microsoft.com/microsoft-copilot-studio/nlu-gpt-quickstart": "4db29ce0d89b1e70",
     "https://learn.microsoft.com/microsoft-copilot-studio/nlu-prompt-node": "899ac46485874902",
     "https://learn.microsoft.com/microsoft-copilot-studio/prompt-node-workflow": "c4309e6025cf5038",
     "https://learn.microsoft.com/microsoft-copilot-studio/publication-add-bot-to-microsoft-teams": "66527ce67797ab20",
@@ -5212,18 +5380,21 @@
     "https://learn.microsoft.com/microsoft-copilot-studio/security-scan": "0fc5271f99f98521",
     "https://learn.microsoft.com/microsoft-copilot-studio/system-service-card-copilot-studio": "a7e042f545d08130",
     "https://learn.microsoft.com/microsoft-copilot-studio/unified-authoring-conversion": "3c09531d98e3786e",
+    "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-github-copilot-from-standard-harness": "7da73b585397bda2",
     "https://learn.microsoft.com/microsoft-copilot-studio/upgrade-to-microsoft-copilot-from-standard-harness": "7da73b585397bda2",
     "https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-clone-agent": "7ceec085c6bf7e8d",
     "https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-edit-agent-components": "24140e485d238e64",
     "https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-install-configure": "2e97d1ad3f41a9fb",
     "https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-overview": "6eec37252a906150",
     "https://learn.microsoft.com/microsoft-copilot-studio/visual-studio-code-extension-synchronization": "52701d7c5718b459",
+    "https://learn.microsoft.com/microsoft-copilot-studio/voice-configuration": "c99b7e15674a06e7",
     "https://learn.microsoft.com/microsoft-copilot-studio/voice-hold-resume": "1d7b3e73306bb5d5",
     "https://learn.microsoft.com/microsoft-copilot-studio/voice-overview": "d0160c2220ee7c8e",
     "https://learn.microsoft.com/microsoft-copilot-studio/voice-post-call-actions": "6be55a135905daff",
     "https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-configure": "edc1b1043aef1bbc",
     "https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-customize": "46d5b78ddacb095b",
     "https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-publish": "4b229241b96f1e3e",
+    "https://learn.microsoft.com/microsoft-copilot-studio/voice-realtime-test": "3c4fbdc078360929",
     "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/agent-node-workflow": "3198cff6d8781ca9",
     "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/flow-agent": "2e6ea236c06bbb38",
     "https://learn.microsoft.com/microsoft-copilot-studio/workflows-experience/flow-designer": "f01d3a8b04c0ae09",
@@ -5236,9 +5407,8 @@
     "https://learn.microsoft.com/power-platform/admin/vnet-support-overview": "757322d62b26a70c",
     "https://learn.microsoft.com/power-platform/admin/vnet-support-setup-configure": "8c3ae9b8aeb72526",
     "https://learn.microsoft.com/power-platform/admin/wp-data-loss-prevention": "352a37d3a4bcefc2",
-    "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm": "305628bca9c7ccdd",
-    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-365-overview": "c48f612a041f0226"
+    "https://learn.microsoft.com/power-platform/alm/solution-concepts-alm": "305628bca9c7ccdd"
   },
-  "listHash": "33dc69efaaf3cb42",
+  "listHash": "8b8ae54b2417e9c9",
   "endpoint": "https://learn.microsoft.com/api/mcp"
 }
