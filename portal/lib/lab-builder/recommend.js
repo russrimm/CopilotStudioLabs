@@ -27,6 +27,7 @@ import { consolidateTopics, resolveTopicAlias } from "./topic-consolidate.js";
 import { topicToFeature } from "./topic-feature.js";
 import { UNCATEGORIZED } from "./topic-snapshot.js";
 import { atLevel, isLevel, levelName, PREREQ_RECAP_MINUTES } from "./levels.js";
+import { featureRequiresSharepointSite, labRequiresSharepointSite } from "./sharepoint-site.js";
 
 export const DEFAULT_HARNESS = "standard";
 const LEVELS = [100, 200, 300];
@@ -274,6 +275,7 @@ export function recommend(answers = {}, learn = {}) {
       selected: selectedIds.has(id),
       recommended: recommended.has(id),
       required: requiredBy.has(id) && !chosenSet.has(id),
+      requiresSharepointSite: featureRequiresSharepointSite(f),
       reasons: reasons.get(id) || [],
       source: discovered ? "learn" : "catalog",
       // `estimated` marks a Learn topic whose level came from the docs rubric rather than the snapshot.
@@ -388,6 +390,7 @@ export function recommend(answers = {}, learn = {}) {
         minutes: Math.min(f.minutes, PREREQ_RECAP_MINUTES),
         fullMinutes: f.minutes,
         selected: selectedIds.has(id),
+        requiresSharepointSite: featureRequiresSharepointSite(f),
         neededBy: needers,
         reason: `Needed by ${needers.join(", ")}. Included as a short Level ${f.level} recap, not a full module.`,
       };
@@ -442,6 +445,10 @@ export function recommend(answers = {}, learn = {}) {
       duration: formatDuration(totalMinutes),
       isEstimate: true,
     },
+    requiresSharepointSite: labRequiresSharepointSite({
+      products: selectedProducts,
+      features: [...selectedIds].map((id) => features.get(id)).filter(Boolean),
+    }),
     dependencyWarnings,
     warnings,
   };

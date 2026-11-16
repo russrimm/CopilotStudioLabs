@@ -71,7 +71,10 @@ function renderInlineMarkdown(rawText) {
     const safeHref = sanitizeHref(href);
     const renderedLabel = renderInlineMarkdown(label);
     if (!safeHref) return stash(renderedLabel);
-    return stash(`<a href="${escapeHtml(safeHref)}">${renderedLabel}</a>`);
+    const externalAttrs = /^https?:\/\//i.test(safeHref)
+      ? ' target="_blank" rel="noopener noreferrer"'
+      : "";
+    return stash(`<a href="${escapeHtml(safeHref)}"${externalAttrs}>${renderedLabel}</a>`);
   });
 
   text = escapeHtml(text);

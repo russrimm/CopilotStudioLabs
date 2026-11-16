@@ -11,6 +11,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getFeature } from "./catalog.js";
 import { buildAdminPrerequisites, renderAdminPrerequisitesMarkdown } from "./admin-prereqs.js";
+import { featureRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROFILES = JSON.parse(readFileSync(join(__dirname, "scenario-profiles.json"), "utf8"));
@@ -713,6 +714,12 @@ export function buildModuleSampleFiles(moduleInfo, options = {}) {
     );
   }
 
+  const spSite = resolveSharepointSite(
+    manifest?.sharepointSite || manifest?.request || manifest?.options || {},
+  );
+  const showSpSite =
+    spSite.configured && (isKnowledge || featureRequiresSharepointSite(catalogFeature) || featureRequiresSharepointSite(moduleInfo));
+
   // Every module always gets a copy-ready starter inputs sheet so learners never
   // have to re-type scenario instructions, sample prompts, or field names.
   addFile(
@@ -724,6 +731,7 @@ export function buildModuleSampleFiles(moduleInfo, options = {}) {
       `- **Lab:** ${options.labTitle || manifest.title || "Generated Lab"}`,
       `- **Target Solution / Assistant:** ${profile.agentName}`,
       `- **Domain:** ${profile.domain}`,
+      ...(showSpSite ? [`- **Target SharePoint Site:** ${spSite.markdownLink}`] : []),
       "",
       "## Copy-Ready Configuration Values",
       "",
@@ -888,6 +896,15 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}, options = 
     const productsLabel = Array.isArray(manifest?.products) && manifest.products.length
       ? manifest.products.join(", ")
       : null;
+    const spSite = resolveSharepointSite(
+      manifest?.sharepointSite || manifest?.request || manifest?.options || {},
+    );
+    const catalogMod = matchedMeta?.id ? getFeature(matchedMeta.id) : null;
+    const modNeedsSharepoint =
+      spSite.configured &&
+      (featureRequiresSharepointSite(catalogMod) ||
+        featureRequiresSharepointSite(matchedMeta) ||
+        featureRequiresSharepointSite({ name: cleanTitle }));
 
     const moduleMd = [
       `# ${labTitle} — ${stepLabel}: ${cleanTitle}`,
@@ -901,6 +918,7 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}, options = 
       matchedMeta.level ? `| **LEVEL** | Level ${matchedMeta.level}${isRecap ? " (Prerequisite Recap)" : ""} |` : null,
       matchedMeta.minutes ? `| **ESTIMATED TIME** | About ${matchedMeta.minutes} minutes |` : null,
       productsLabel ? `| **PRODUCTS** | ${productsLabel.replace(/\|/g, "\\|")} |` : null,
+      modNeedsSharepoint ? `| **SHAREPOINT SITE** | ${spSite.markdownLink} |` : null,
       `| **SAMPLE FILES** | Included in \`sample-files/\` inside this module folder |`,
       "",
       "---",

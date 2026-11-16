@@ -71,7 +71,570 @@ const labBuilder = {
   unknownOpen: false,
   // Opt-in per-lesson multiple-choice Knowledge Check mini-quiz (off by default on a fresh wizard start).
   includeKnowledgeCheck: false,
+  // SharePoint training target site details & interactive prompt state.
+  sharepointSiteName: "",
+  sharepointSiteUrl: "",
+  sharepointPromptSkipped: false,
+  sharepointPromptPendingAction: null,
+  sharepointPromptBound: false,
+  previewRequiresSharepointSite: null,
 };
+
+const LB_SHAREPOINT_STORAGE_KEY = "cslabs.labBuilder.sharepointSite";
+const LB_CONTROL_CHARS_RE = /[\u0000-\u001F\u007F]/g;
+const LB_SHAREPOINT_FEATURE_IDS = new Set([
+  "knowledge-sharepoint",
+  "mc-knowledge",
+  "mc-knowledge-enterprise",
+  "dca-agent-builder-knowledge",
+  "dca-toolkit-knowledge-capabilities",
+  "dca-knowledge-sharepoint-onedrive",
+  "m365h-data-access-governance-reports",
+  "m365h-restricted-content-discovery",
+  "m365h-secure-copilot-data",
+  "ppai-document-processing-model",
+  "sp-ai-page-approval-flow",
+]);
+const LB_SHAREPOINT_STEP_ACTION_RE =
+  /\b(?:create|open|navigate\s+to|go\s+to|enter|paste|provide|type|connect|ground|restrict|govern|assess|review|run\s+data\s+access\s+governance\s+reports\s+for)\b[^.]{0,90}\bsharepoint\s+(?:site|sites|url|urls|document\s+library|library|libraries|list|lists|page|pages|team\s+site|communication\s+site)\b|\bsharepoint\.com\/(?:sites|teams)\b|\bOneDriveAndSharePoint\b/i;
+const LB_SHAREPOINT_CAPABILITY_RE = /^(?:sharepoint|onedriveandsharepoint|sharepoint-online|spo|sam)$/i;
+const LB_BARE_HOSTNAME_URL_RE =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?:\/.*)?$/i;
+const LB_UNSAFE_URL_SCHEME_RE = /^\s*(?:javascript|data|vbscript|file|blob):/i;
+
+/** Mirrors `featureRequiresSharepointSite` in `portal/lib/lab-builder/sharepoint-site.js`. */
+function lbFeatureRequiresSharepointSite(feature) {
+  if (!feature) return false;
+  if (typeof feature === "string") {
+    const rawId = feature.trim();
+    if (!rawId) return false;
+    return (
+      LB_SHAREPOINT_FEATURE_IDS.has(rawId) ||
+      /^sp(?:ai|-ai)-/i.test(rawId) ||
+      /\bsharepoint\b/i.test(rawId)
+    );
+  }
+  if (typeof feature !== "object") return false;
+  if (feature.requiresSharepointSite === true) return true;
+
+  const id = String(feature.id || "").trim();
+  const product = String(feature.product || "").trim();
+  if (product === "sharepoint-ai") return true;
+  if (
+    id &&
+    (LB_SHAREPOINT_FEATURE_IDS.has(id) || /^sp(?:ai|-ai)-/i.test(id) || /\bsharepoint\b/i.test(id))
+  ) {
+    return true;
+  }
+
+  const name = String(feature.name || "");
+  if (/\bsharepoint\b/i.test(name)) return true;
+
+  const summaryWithoutBillingService = String(feature.summary || "").replace(
+    /\bsharepoint\s+agents\b/gi,
+    ""
+  );
+  if (/\bsharepoint\b|\bOneDriveAndSharePoint\b/i.test(summaryWithoutBillingService)) {
+    return true;
+  }
+
+  for (const list of [feature.tags, feature.capabilities, feature.connectors]) {
+    if (!Array.isArray(list)) continue;
+    if (
+      list.some((item) => {
+        const token = String(item || "").trim();
+        return LB_SHAREPOINT_CAPABILITY_RE.test(token) || /\bsharepoint\b/i.test(token);
+      })
+    ) {
+      return true;
+    }
+  }
+
+  if (Array.isArray(feature.prerequisites)) {
+    if (feature.prerequisites.some((entry) => /\bsharepoint\b/i.test(String(entry || "")))) {
+      return true;
+    }
+  }
+
+  if (Array.isArray(feature.steps)) {
+    if (feature.steps.some((step) => LB_SHAREPOINT_STEP_ACTION_RE.test(String(step || "")))) {
+      return true;
+    }
+  }
+
+  if (Array.isArray(feature.screenshots)) {
+    if (feature.screenshots.some((shot) => /^sharepoint-/i.test(String(shot?.section || "")))) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/** Whether the current product + topic selection requires having or creating a SharePoint site. */
+function lbRequiresSharepointSite() {
+  if (labBuilder.selectedProducts.has("sharepoint-ai")) return true;
+  if (!labBuilder.selectedProducts.size && !labBuilder.picked?.size) return false;
+  if (labBuilder.rec?.requiresSharepointSite === true && lbSelectedCount() > 0) return true;
+  if (labBuilder.previewRequiresSharepointSite === true && lbSelectedCount() > 0) return true;
+
+  const catalogById = new Map(lbFeatureList().map((f) => [f.id, f]));
+  const recById = new Map([
+    ...(labBuilder.rec?.concepts || []).flatMap((c) => c.topics).map((t) => [t.id, t]),
+    ...(labBuilder.rec?.levelUnknown?.topics || []).map((t) => [t.id, t]),
+    ...(labBuilder.rec?.prerequisites?.topics || []).map((p) => [p.id, p]),
+  ]);
+
+  const activeIds = labBuilder.rec
+    ? [...(labBuilder.rec.selectedIds || []), ...(labBuilder.rec.prerequisites?.selectedIds || [])]
+    : [...(labBuilder.picked || [])].filter((id) => !labBuilder.excluded.has(id));
+
+  for (const id of activeIds) {
+    const recItem = recById.get(id);
+    if (recItem && lbFeatureRequiresSharepointSite(recItem)) return true;
+    const catItem = catalogById.get(id);
+    if (catItem && lbFeatureRequiresSharepointSite(catItem)) return true;
+    if (lbFeatureRequiresSharepointSite(id)) return true;
+  }
+  return false;
+}
+
+function lbNormalizeSharepointSiteName(rawName) {
+  if (typeof rawName !== "string") return "";
+  return rawName
+    .replace(LB_CONTROL_CHARS_RE, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+}
+
+function lbValidateSharepointSiteUrl(rawUrl) {
+  if (rawUrl === undefined || rawUrl === null) {
+    return { valid: true, url: "", error: null };
+  }
+  if (typeof rawUrl !== "string") {
+    return {
+      valid: false,
+      url: "",
+      error:
+        "Enter a valid http:// or https:// SharePoint site URL (for example, https://contoso.sharepoint.com/sites/OperationsHub).",
+    };
+  }
+  const cleaned = rawUrl.replace(LB_CONTROL_CHARS_RE, "").trim();
+  if (!cleaned) return { valid: true, url: "", error: null };
+
+  if (LB_UNSAFE_URL_SCHEME_RE.test(cleaned) || cleaned.startsWith("//") || /[<>"`\s]/.test(cleaned)) {
+    return {
+      valid: false,
+      url: "",
+      error:
+        "Enter a valid http:// or https:// SharePoint site URL (for example, https://contoso.sharepoint.com/sites/OperationsHub).",
+    };
+  }
+
+  let candidate = cleaned;
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(candidate)) {
+    if (LB_BARE_HOSTNAME_URL_RE.test(candidate)) {
+      candidate = `https://${candidate}`;
+    } else {
+      return {
+        valid: false,
+        url: "",
+        error:
+          "Enter a valid http:// or https:// SharePoint site URL (for example, https://contoso.sharepoint.com/sites/OperationsHub).",
+      };
+    }
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return {
+      valid: false,
+      url: "",
+      error:
+        "Enter a valid http:// or https:// SharePoint site URL (for example, https://contoso.sharepoint.com/sites/OperationsHub).",
+    };
+  }
+
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return {
+      valid: false,
+      url: "",
+      error:
+        "SharePoint site URL must start with https:// or http:// (for example, https://contoso.sharepoint.com/sites/OperationsHub).",
+    };
+  }
+  if (parsed.username || parsed.password) {
+    return {
+      valid: false,
+      url: "",
+      error: "SharePoint site URL must not include embedded credentials.",
+    };
+  }
+
+  const host = parsed.hostname || "";
+  if (!host || !host.includes(".") || host.startsWith(".") || host.endsWith(".") || host.includes("..")) {
+    return {
+      valid: false,
+      url: "",
+      error:
+        "Enter a complete SharePoint site domain and URL (for example, https://contoso.sharepoint.com/sites/OperationsHub).",
+    };
+  }
+
+  const rawAfterOrigin = candidate.replace(/^https?:\/\/[^/?#]+/i, "");
+  const hadExplicitRootSlash = rawAfterOrigin.startsWith("/");
+  const normalized =
+    parsed.pathname === "/" && !hadExplicitRootSlash && !parsed.search && !parsed.hash
+      ? parsed.origin
+      : `${parsed.origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+
+  return { valid: true, url: normalized, error: null };
+}
+
+function lbDeriveSharepointSiteLabel(validUrl) {
+  if (!validUrl) return "";
+  try {
+    const parsed = new URL(validUrl);
+    const segments = parsed.pathname
+      .split("/")
+      .map((seg) => {
+        try {
+          return decodeURIComponent(seg).trim();
+        } catch {
+          return seg.trim();
+        }
+      })
+      .filter(Boolean);
+    const sitesIdx = segments.findIndex((seg) => /^(?:sites|teams)$/i.test(seg));
+    const candidate =
+      sitesIdx >= 0 && segments[sitesIdx + 1]
+        ? segments[sitesIdx + 1]
+        : segments.length
+        ? segments[segments.length - 1]
+        : "";
+    if (candidate && !/\.(?:aspx|html?|pdf|docx?)$/i.test(candidate)) {
+      const humanized = candidate
+        .replace(/[-_]+/g, " ")
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (humanized) return `${humanized} (${parsed.hostname})`;
+    }
+    return parsed.hostname || validUrl;
+  } catch {
+    return validUrl;
+  }
+}
+
+function lbReadSharepointRawInputs() {
+  const nameEl = document.getElementById("lb-sharepoint-site-name");
+  const urlEl = document.getElementById("lb-sharepoint-site-url");
+  const rawName = typeof nameEl?.value === "string" ? nameEl.value : labBuilder.sharepointSiteName || "";
+  const rawUrl = typeof urlEl?.value === "string" ? urlEl.value : labBuilder.sharepointSiteUrl || "";
+  return { nameEl, urlEl, rawName, rawUrl };
+}
+
+function lbResolveSharepointSiteState() {
+  const requiresSharepointSite = lbRequiresSharepointSite();
+  const { nameEl, urlEl, rawName, rawUrl } = lbReadSharepointRawInputs();
+  const name = lbNormalizeSharepointSiteName(rawName);
+  const checkedUrl = lbValidateSharepointSiteUrl(rawUrl);
+  const url = checkedUrl.valid ? checkedUrl.url : "";
+  const label = name || lbDeriveSharepointSiteLabel(url) || "";
+  return {
+    requiresSharepointSite,
+    nameEl,
+    urlEl,
+    rawName,
+    rawUrl: typeof rawUrl === "string" ? rawUrl.replace(LB_CONTROL_CHARS_RE, "").trim() : "",
+    name,
+    url,
+    label,
+    validUrl: checkedUrl.valid,
+    urlError: checkedUrl.error,
+    configured: Boolean(name || url),
+  };
+}
+
+function lbClearSharepointSkipFlag() {
+  labBuilder.sharepointPromptSkipped = false;
+  labBuilder.sharepointPromptPendingAction = null;
+  labBuilder.previewRequiresSharepointSite = null;
+  const promptEl = document.getElementById("lb-sharepoint-site-prompt");
+  if (promptEl) promptEl.hidden = true;
+}
+
+function lbSaveSelections() {
+  const { rawName, rawUrl } = lbReadSharepointRawInputs();
+  const name = lbNormalizeSharepointSiteName(rawName);
+  const checkedUrl = lbValidateSharepointSiteUrl(rawUrl);
+  const storedUrl = checkedUrl.valid ? checkedUrl.url : String(rawUrl || "").trim();
+  labBuilder.sharepointSiteName = name;
+  labBuilder.sharepointSiteUrl = storedUrl;
+  const snapshot = {
+    products: lbSelectedProductList().map((p) => p.id),
+    industry: labBuilder.industry || null,
+    roles: [...labBuilder.selectedRoles],
+    level: labBuilder.level,
+    harness: lbHasHarnessProduct() ? labBuilder.harness : null,
+    features: labBuilder.rec ? [...labBuilder.rec.selectedIds] : [...(labBuilder.picked || [])],
+    excluded: [...labBuilder.excluded],
+    includeKnowledgeCheck: Boolean(labBuilder.includeKnowledgeCheck),
+    sharepointSiteName: name,
+    sharepointSiteUrl: storedUrl,
+  };
+  try {
+    if (typeof localStorage !== "undefined" && typeof localStorage?.setItem === "function") {
+      if (name || storedUrl) {
+        localStorage.setItem(
+          LB_SHAREPOINT_STORAGE_KEY,
+          JSON.stringify({ sharepointSiteName: name, sharepointSiteUrl: storedUrl })
+        );
+      } else if (typeof localStorage?.removeItem === "function") {
+        localStorage.removeItem(LB_SHAREPOINT_STORAGE_KEY);
+      }
+    }
+  } catch {
+    // Ignore storage quota or privacy-mode errors.
+  }
+  return snapshot;
+}
+
+function lbRestoreSavedSharepointSite() {
+  try {
+    if (typeof localStorage === "undefined" || typeof localStorage?.getItem !== "function") return;
+    const raw = localStorage.getItem(LB_SHAREPOINT_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return;
+    const savedName = lbNormalizeSharepointSiteName(parsed.sharepointSiteName || "");
+    const checkedUrl = lbValidateSharepointSiteUrl(parsed.sharepointSiteUrl || "");
+    const savedUrl = checkedUrl.valid ? checkedUrl.url : "";
+    if (!labBuilder.sharepointSiteName && savedName) {
+      lbSetFormValue("lb-sharepoint-site-name", savedName);
+    }
+    if (!labBuilder.sharepointSiteUrl && savedUrl) {
+      lbSetFormValue("lb-sharepoint-site-url", savedUrl);
+    }
+  } catch {
+    // Ignore malformed storage data.
+  }
+}
+
+function lbIsSharepointPromptMounted() {
+  const card = document.getElementById("lb-sharepoint-site-card");
+  if (!card) return false;
+  return Boolean(card.dataset?.sharepointPromptCard === "true" || labBuilder.sharepointPromptBound);
+}
+
+function lbSyncSharepointSiteUi() {
+  const state = lbResolveSharepointSiteState();
+  const card = document.getElementById("lb-sharepoint-site-card");
+  if (card) card.hidden = !state.requiresSharepointSite;
+
+  const previewEl = document.getElementById("lb-sharepoint-site-preview");
+  const previewLink = document.getElementById("lb-sharepoint-site-preview-link");
+  if (previewEl && previewLink) {
+    if (state.requiresSharepointSite && state.validUrl && state.url) {
+      previewLink.href = state.url;
+      previewLink.textContent = state.label || state.url;
+      previewEl.hidden = false;
+    } else {
+      previewEl.hidden = true;
+    }
+  }
+
+  const errEl = document.getElementById("lb-sharepoint-site-error");
+  if (errEl && (!state.requiresSharepointSite || (state.validUrl && errEl.textContent))) {
+    errEl.textContent = "";
+    state.urlEl?.removeAttribute?.("aria-invalid");
+  }
+
+  const promptEl = document.getElementById("lb-sharepoint-site-prompt");
+  if (promptEl && (!state.requiresSharepointSite || (state.name && state.validUrl && state.url))) {
+    promptEl.hidden = true;
+  }
+
+  const step8El = document.getElementById("lb-step8-sharepoint-summary");
+  if (step8El) {
+    if (!state.requiresSharepointSite) {
+      step8El.hidden = true;
+      step8El.innerHTML = "";
+    } else if (state.validUrl && state.url) {
+      step8El.hidden = false;
+      step8El.innerHTML = `<strong>Target SharePoint site:</strong> <a href="${escapeHtml(state.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.label || state.url)}</a> — clickable link included in the lab overview, prerequisites, and SharePoint walkthrough steps.`;
+    } else if (state.name) {
+      step8El.hidden = false;
+      step8El.innerHTML = `<strong>Target SharePoint site:</strong> ${escapeHtml(state.name)} (no URL configured — go back to Step 7 to add a clickable SharePoint URL).`;
+    } else {
+      step8El.hidden = false;
+      step8El.innerHTML = "<strong>SharePoint site URL not set:</strong> Learners will see placeholder SharePoint site instructions. Go back to Step 7 to add a site name and clickable URL.";
+    }
+  }
+}
+
+function lbValidateOrPromptSharepointSite(action = "next") {
+  const state = lbResolveSharepointSiteState();
+  if (!state.requiresSharepointSite) {
+    lbSyncSharepointSiteUi();
+    return true;
+  }
+
+  const card = document.getElementById("lb-sharepoint-site-card");
+  const errEl = document.getElementById("lb-sharepoint-site-error");
+  const promptEl = document.getElementById("lb-sharepoint-site-prompt");
+  const promptTextEl = document.getElementById("lb-sharepoint-site-prompt-text");
+
+  if (!state.validUrl) {
+    if (labBuilder.step !== LB_STEP.review) {
+      lbGoToStep(LB_STEP.review);
+    }
+    if (card) card.hidden = false;
+    if (errEl) errEl.textContent = state.urlError || "Enter a valid https:// SharePoint site URL.";
+    state.urlEl?.setAttribute?.("aria-invalid", "true");
+    card?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    state.urlEl?.focus?.();
+    return false;
+  }
+
+  if (errEl) errEl.textContent = "";
+  state.urlEl?.removeAttribute?.("aria-invalid");
+
+  if (state.url && state.urlEl && state.urlEl.value !== state.url) {
+    state.urlEl.value = state.url;
+  }
+  lbSaveSelections();
+  lbSyncSharepointSiteUi();
+
+  const missingName = !state.name;
+  const missingUrl = !state.url;
+  if ((missingName || missingUrl) && !labBuilder.sharepointPromptSkipped && lbIsSharepointPromptMounted()) {
+    labBuilder.sharepointPromptPendingAction = action;
+    if (labBuilder.step !== LB_STEP.review) {
+      lbGoToStep(LB_STEP.review);
+    }
+    if (card) card.hidden = false;
+    if (promptTextEl) {
+      promptTextEl.textContent =
+        missingName && missingUrl
+          ? "Enter the SharePoint site name and URL above so learners get a clickable hyperlink to open or create the site, or skip to use a placeholder URL."
+          : missingName
+          ? "Enter the SharePoint site name above for the learner hyperlink label, or skip to continue."
+          : "Enter the SharePoint site URL (https://...) above so learners can click directly to the site, or skip to use a placeholder URL.";
+    }
+    if (promptEl) promptEl.hidden = false;
+    card?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    if (missingName) state.nameEl?.focus?.();
+    else state.urlEl?.focus?.();
+    return false;
+  }
+
+  if (promptEl) promptEl.hidden = true;
+  return true;
+}
+
+function lbSkipSharepointSitePrompt() {
+  const state = lbResolveSharepointSiteState();
+  if (!state.validUrl) {
+    lbSetFormValue("lb-sharepoint-site-url", "");
+  }
+  const errEl = document.getElementById("lb-sharepoint-site-error");
+  if (errEl) errEl.textContent = "";
+  state.urlEl?.removeAttribute?.("aria-invalid");
+  labBuilder.sharepointPromptSkipped = true;
+  const promptEl = document.getElementById("lb-sharepoint-site-prompt");
+  if (promptEl) promptEl.hidden = true;
+  lbSaveSelections();
+  lbSyncSharepointSiteUi();
+  lbRenderSummary();
+
+  const pending = labBuilder.sharepointPromptPendingAction;
+  labBuilder.sharepointPromptPendingAction = null;
+  if (pending === "generate") {
+    lbGoToStep(LB_STEP.generate);
+    return generateCustomLab();
+  }
+  if (labBuilder.step === LB_STEP.review) {
+    return lbNextStep();
+  }
+  return undefined;
+}
+
+function lbBindSharepointSiteControls() {
+  if (labBuilder.sharepointPromptBound) return;
+  labBuilder.sharepointPromptBound = true;
+  lbRestoreSavedSharepointSite();
+
+  const nameEl = document.getElementById("lb-sharepoint-site-name");
+  const urlEl = document.getElementById("lb-sharepoint-site-url");
+  const skipBtn = document.getElementById("lb-sharepoint-site-skip");
+
+  nameEl?.addEventListener("input", (event) => {
+    labBuilder.sharepointSiteName = lbNormalizeSharepointSiteName(event?.target?.value ?? nameEl.value);
+    lbSaveSelections();
+    lbSyncSharepointSiteUi();
+    lbRenderSummary();
+  });
+
+  urlEl?.addEventListener("input", (event) => {
+    const raw = String(event?.target?.value ?? urlEl.value ?? "");
+    const checked = lbValidateSharepointSiteUrl(raw);
+    labBuilder.sharepointSiteUrl = checked.valid ? checked.url : raw.trim();
+    const errEl = document.getElementById("lb-sharepoint-site-error");
+    if (checked.valid && errEl) {
+      errEl.textContent = "";
+      urlEl.removeAttribute?.("aria-invalid");
+    }
+    lbSaveSelections();
+    lbSyncSharepointSiteUi();
+    lbRenderSummary();
+  });
+
+  const handleUrlCommit = () => {
+    const raw = String(urlEl.value || "").trim();
+    if (!raw) {
+      labBuilder.sharepointSiteUrl = "";
+      const errEl = document.getElementById("lb-sharepoint-site-error");
+      if (errEl) errEl.textContent = "";
+      urlEl.removeAttribute?.("aria-invalid");
+      lbSaveSelections();
+      lbSyncSharepointSiteUi();
+      lbRenderSummary();
+      return;
+    }
+    const checked = lbValidateSharepointSiteUrl(raw);
+    const errEl = document.getElementById("lb-sharepoint-site-error");
+    if (!checked.valid) {
+      labBuilder.sharepointSiteUrl = raw;
+      if (errEl) errEl.textContent = checked.error;
+      urlEl.setAttribute?.("aria-invalid", "true");
+    } else {
+      labBuilder.sharepointSiteUrl = checked.url;
+      if (urlEl.value !== checked.url) urlEl.value = checked.url;
+      if (errEl) errEl.textContent = "";
+      urlEl.removeAttribute?.("aria-invalid");
+    }
+    lbSaveSelections();
+    lbSyncSharepointSiteUi();
+    lbRenderSummary();
+    if (labBuilder.step === LB_STEP.review && checked.valid) lbPreview();
+  };
+  urlEl?.addEventListener("change", handleUrlCommit);
+  urlEl?.addEventListener("blur", handleUrlCommit);
+
+  nameEl?.addEventListener("change", () => {
+    lbSaveSelections();
+    lbSyncSharepointSiteUi();
+    lbRenderSummary();
+    if (labBuilder.step === LB_STEP.review) lbPreview();
+  });
+
+  skipBtn?.addEventListener("click", () => lbSkipSharepointSitePrompt());
+  lbSyncSharepointSiteUi();
+}
 
 function lbFormatMinutes(minutes) {
   const hours = Math.floor(minutes / 60);
@@ -234,6 +797,7 @@ async function lbRefresh() {
 /** An answer in the first steps changed: topic choices start over from the new recommendation. */
 function lbAnswersChanged() {
   const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0 || labBuilder.step7Removed.size > 0;
+  lbClearSharepointSkipFlag();
   labBuilder.picked = null;
   labBuilder.excluded.clear();
   labBuilder.step7Removed.clear();
@@ -457,6 +1021,7 @@ function lbToggleProduct(id, checked) {
 
 /** The product choice changed: the harness step may appear or disappear, and every list below restarts from the new products. */
 function lbProductsChanged() {
+  lbClearSharepointSkipFlag();
   if (!lbHasHarnessProduct()) {
     labBuilder.chosenSteps.delete("harness");
   }
@@ -995,6 +1560,7 @@ function lbOwnPicks() {
 }
 
 function lbSetTopic(id, checked, required) {
+  lbClearSharepointSkipFlag();
   labBuilder.chosenSteps.add("topics");
   const picks = lbOwnPicks();
   labBuilder.prereqNotice = null;
@@ -1014,6 +1580,7 @@ function lbSetTopic(id, checked, required) {
 
 /** A lower-level prerequisite is never a pick of its own: turning it off marks it as already known. */
 function lbSetPrerequisite(id, checked) {
+  lbClearSharepointSkipFlag();
   labBuilder.chosenSteps.add("topics");
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
@@ -1025,6 +1592,7 @@ function lbSetPrerequisite(id, checked) {
 function lbSetGroup(conceptId, checked) {
   const concept = labBuilder.rec?.concepts.find((c) => c.id === conceptId);
   if (!concept) return;
+  lbClearSharepointSkipFlag();
   labBuilder.chosenSteps.add("topics");
   labBuilder.prereqNotice = null;
   const unchecked = [];
@@ -1045,6 +1613,7 @@ function lbSetGroup(conceptId, checked) {
 
 function lbSelectAllTopics() {
   // Only the level's own topics; "Level unknown" topics are never added in bulk.
+  lbClearSharepointSkipFlag();
   labBuilder.chosenSteps.add("topics");
   const all = (labBuilder.rec?.concepts || []).flatMap((c) => c.topics.map((t) => t.id));
   labBuilder.picked = new Set(all);
@@ -1056,6 +1625,7 @@ function lbSelectAllTopics() {
 }
 
 function lbClearTopics() {
+  lbClearSharepointSkipFlag();
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set();
   labBuilder.excluded.clear();
@@ -1067,6 +1637,7 @@ function lbClearTopics() {
 
 /** Select every topic the rules recommend for these answers. Only this deliberate action adds the level's baseline picks. */
 function lbSelectRecommended() {
+  lbClearSharepointSkipFlag();
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set(labBuilder.rec?.recommendedIds || []);
   labBuilder.excluded.clear();
@@ -1078,6 +1649,7 @@ function lbSelectRecommended() {
 
 /** Back to what the learner's answers pre-select (nothing, unless a vertical or department points at a topic). */
 function lbResetTopics() {
+  lbClearSharepointSkipFlag();
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = null;
   labBuilder.excluded.clear();
@@ -1090,6 +1662,7 @@ function lbResetTopics() {
 function lbBindTopicEvents() {
   lbEnsureThirdPartyFilterOption();
   lbEnsurePreviewEvents(document.getElementById("lb-preview"));
+  lbBindSharepointSiteControls();
   const groups = document.getElementById("lb-topic-groups");
   groups?.addEventListener("change", (event) => {
     const prerequisite = event.target.closest("input[data-prerequisite]");
@@ -1446,6 +2019,8 @@ function lbHasProgress() {
     labBuilder.differencesFor !== null ||
     labBuilder.picked !== null ||
     labBuilder.excluded.size > 0 ||
+    Boolean(labBuilder.sharepointSiteName) ||
+    Boolean(labBuilder.sharepointSiteUrl) ||
     labBuilder.furthest > 1 ||
     labBuilder.step > 1 ||
     labBuilder.editing !== null
@@ -1499,10 +2074,15 @@ function lbRenderSummary() {
     if (lbIncludeKnowledgeCheck() || labBuilder.step >= LB_STEP.review) {
       parts.push(escapeHtml(lbIncludeKnowledgeCheck() ? "Knowledge checks: mini-quizzes on" : "Knowledge checks: off"));
     }
+    const spState = lbResolveSharepointSiteState();
+    if (spState.requiresSharepointSite && spState.configured) {
+      parts.push(escapeHtml(`SharePoint site: ${spState.label || spState.name || spState.url}`));
+    }
     summaryHtml = `<strong>Your lab so far:</strong> ${parts.join(" · ")}`;
   }
   if (el) el.innerHTML = summaryHtml;
   lbSyncStepSummaryMirrors(summaryHtml);
+  lbSyncSharepointSiteUi();
 }
 
 /** Number the visible steps again, hide the harness step when it does not apply, and keep each heading's "Step n of m" true. */
@@ -1649,13 +2229,16 @@ function lbNextStep() {
     lbRenderHarnesses();
   } else if (labBuilder.step === LB_STEP.topics && lbSelectedCount() > 0) {
     labBuilder.chosenSteps.add("topics");
-  } else if (labBuilder.step === LB_STEP.review && !lbSelectedCount()) {
-    const error = document.getElementById("lb-review-error");
-    if (error) {
-      error.textContent = "Keep or re-select at least one module before generating your lab.";
-      error.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  } else if (labBuilder.step === LB_STEP.review) {
+    if (!lbSelectedCount()) {
+      const error = document.getElementById("lb-review-error");
+      if (error) {
+        error.textContent = "Keep or re-select at least one module before generating your lab.";
+        error.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+      }
+      return;
     }
-    return;
+    if (!lbValidateOrPromptSharepointSite("next")) return;
   }
   lbRenderSummary();
   lbGoToStep(lbAdjacentStep(labBuilder.step, 1));
@@ -1694,6 +2277,9 @@ function lbGoToStep(step) {
       step = LB_STEP.topics;
     }
   }
+  if (step === LB_STEP.generate && !lbValidateOrPromptSharepointSite("next")) {
+    return;
+  }
   labBuilder.step = step;
   labBuilder.furthest = Math.max(labBuilder.furthest, step);
   for (const { id } of LB_STEPS) {
@@ -1709,7 +2295,13 @@ function lbGoToStep(step) {
     lbRenderLevelNotice();
     lbRenderTopics();
   }
-  if (step === LB_STEP.review) lbPreview();
+  if (step === LB_STEP.review) {
+    lbSyncSharepointSiteUi();
+    lbPreview();
+  }
+  if (step === LB_STEP.generate) {
+    lbSyncSharepointSiteUi();
+  }
 }
 
 // ── Re-opening a generated lab's choices ────────────────────────────────────
@@ -1758,6 +2350,12 @@ function lbSetIncludeKnowledgeCheck(checked) {
 function lbSetFormValue(id, value) {
   if (id === "lb-include-knowledge-check") {
     labBuilder.includeKnowledgeCheck = Boolean(value);
+  } else if (id === "lb-sharepoint-site-name") {
+    labBuilder.sharepointSiteName = lbNormalizeSharepointSiteName(String(value ?? ""));
+  } else if (id === "lb-sharepoint-site-url") {
+    const raw = String(value ?? "").trim();
+    const checked = lbValidateSharepointSiteUrl(raw);
+    labBuilder.sharepointSiteUrl = checked.valid ? checked.url : raw;
   }
   const el = document.getElementById(id);
   if (!el) return;
@@ -1795,20 +2393,41 @@ function lbResetAnswers() {
   labBuilder.prereqOpen = false;
   labBuilder.unknownOpen = false;
   labBuilder.includeKnowledgeCheck = false;
+  labBuilder.sharepointSiteName = "";
+  labBuilder.sharepointSiteUrl = "";
+  labBuilder.sharepointPromptSkipped = false;
+  labBuilder.sharepointPromptPendingAction = null;
+  labBuilder.previewRequiresSharepointSite = null;
   labBuilder.step = LB_STEP.product;
   labBuilder.furthest = LB_STEP.product;
   labBuilder.levelNotice = null;
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
+  try {
+    if (typeof localStorage !== "undefined" && typeof localStorage?.removeItem === "function") {
+      localStorage.removeItem(LB_SHAREPOINT_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore storage errors.
+  }
   lbRenderLevelNotice();
-  for (const id of ["lb-product-error", "lb-topic-error", "lb-learn-error", "lb-review-error"]) {
+  for (const id of [
+    "lb-product-error",
+    "lb-topic-error",
+    "lb-learn-error",
+    "lb-review-error",
+    "lb-sharepoint-site-error",
+  ]) {
     const errEl = document.getElementById(id);
     if (errEl) errEl.textContent = "";
   }
+  document.getElementById("lb-sharepoint-site-url")?.removeAttribute?.("aria-invalid");
   for (const [id, value] of [
     ["lb-time", ""],
     ["lb-title", ""],
     ["lb-agent-name", ""],
+    ["lb-sharepoint-site-name", ""],
+    ["lb-sharepoint-site-url", ""],
     ["lb-use-learn", true],
     ["lb-use-llm", true],
     ["lb-include-knowledge-check", false],
@@ -1817,6 +2436,13 @@ function lbResetAnswers() {
   ]) {
     lbSetFormValue(id, value);
   }
+  lbSyncSharepointSiteUi();
+}
+
+function lbResetWizard() {
+  lbStopEditing(true);
+  lbResetAnswers();
+  lbRenderAllSteps();
 }
 
 async function lbStartNewLab() {
@@ -1877,9 +2503,19 @@ async function lbLoadSelections(lab) {
   lbSetFormValue("lb-time", saved.targetMinutes || "");
   lbSetFormValue("lb-title", saved.customTitle || "");
   lbSetFormValue("lb-agent-name", saved.agentName || "");
+  const loadedSpName = lbNormalizeSharepointSiteName(saved.sharepointSiteName || "");
+  const loadedSpUrlCheck = lbValidateSharepointSiteUrl(saved.sharepointSiteUrl || "");
+  labBuilder.sharepointSiteName = loadedSpName;
+  labBuilder.sharepointSiteUrl = loadedSpUrlCheck.valid ? loadedSpUrlCheck.url : "";
+  lbSetFormValue("lb-sharepoint-site-name", loadedSpName);
+  lbSetFormValue("lb-sharepoint-site-url", labBuilder.sharepointSiteUrl);
   lbSetFormValue("lb-use-learn", saved.useLearnMcp !== false);
   lbSetFormValue("lb-use-llm", saved.useLlm !== false);
   lbSetFormValue("lb-include-knowledge-check", Boolean(saved.includeKnowledgeCheck));
+  labBuilder.sharepointPromptSkipped = false;
+  labBuilder.sharepointPromptPendingAction = null;
+  labBuilder.previewRequiresSharepointSite = null;
+  lbSaveSelections();
   labBuilder.furthest = LB_STEP.review;
   lbRenderAllSteps();
   lbSetEditing(lab);
@@ -1897,6 +2533,11 @@ async function lbLoadSelections(lab) {
 // ── Review and request ──────────────────────────────────────────────────────
 function lbRequest() {
   const time = Number(document.getElementById("lb-time")?.value || 0);
+  const spState = lbResolveSharepointSiteState();
+  const includeSharepoint =
+    spState.requiresSharepointSite ||
+    (!labBuilder.selectedProducts.size && (spState.name || spState.rawUrl));
+  const spUrlValue = spState.validUrl ? spState.url : spState.rawUrl;
   const request = {
     industry: labBuilder.industry || undefined,
     roles: [...labBuilder.selectedRoles],
@@ -1909,6 +2550,8 @@ function lbRequest() {
     targetMinutes: time > 0 ? time : undefined,
     title: document.getElementById("lb-title")?.value.trim() || undefined,
     agentName: document.getElementById("lb-agent-name")?.value.trim() || undefined,
+    ...(includeSharepoint && spState.name ? { sharepointSiteName: spState.name } : {}),
+    ...(includeSharepoint && spUrlValue ? { sharepointSiteUrl: spUrlValue } : {}),
     useLearnMcp: document.getElementById("lb-use-learn")?.checked !== false,
     useLlm: document.getElementById("lb-use-llm")?.checked !== false,
     includeKnowledgeCheck: lbIncludeKnowledgeCheck(),
@@ -1918,9 +2561,14 @@ function lbRequest() {
   return request;
 }
 
+function lbCollectRequest() {
+  return lbRequest();
+}
+
 function lbSyncReviewControls() {
   const empty = Boolean(labBuilder.rec) && lbSelectedCount() === 0;
   lbSyncNavControls();
+  lbSyncSharepointSiteUi();
   if (!empty) {
     const reviewError = document.getElementById("lb-review-error");
     if (reviewError) reviewError.textContent = "";
@@ -2090,6 +2738,7 @@ function lbEnsurePreviewEvents(el) {
  */
 async function lbSetOutlineModule(id, checked) {
   if (!id) return;
+  lbClearSharepointSkipFlag();
   const meta = lbLookupModuleMeta(id);
   const picks = lbOwnPicks();
   const wasPicked = picks.has(id);
@@ -2127,6 +2776,7 @@ async function lbSetOutlineModule(id, checked) {
 async function lbRestoreRemovedModules() {
   const removed = lbRemovedCurriculumItems();
   if (!removed.length) return;
+  lbClearSharepointSkipFlag();
   const picks = lbOwnPicks();
   labBuilder.chosenSteps.add("topics");
   labBuilder.prereqNotice = null;
@@ -2192,6 +2842,21 @@ async function lbPreview(options = {}) {
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
 
     labBuilder.previewModules = Array.isArray(data.modules) ? data.modules : [];
+    labBuilder.previewRequiresSharepointSite =
+      typeof data.requiresSharepointSite === "boolean" ? data.requiresSharepointSite : null;
+    lbSyncSharepointSiteUi();
+    const spPreview = data.sharepointSite || lbResolveSharepointSiteState();
+    const spRequires = Boolean(data.requiresSharepointSite || lbRequiresSharepointSite());
+    const spPreviewUrl =
+      spPreview?.url && /^https?:\/\//i.test(String(spPreview.url)) ? String(spPreview.url) : "";
+    const spPreviewLabel = spPreview?.label || spPreview?.name || spPreviewUrl;
+    const spPillHtml = !spRequires
+      ? ""
+      : spPreviewUrl
+      ? `<span class="scenario-pill">SharePoint site: <a href="${escapeHtml(spPreviewUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(spPreviewLabel)}</a></span>`
+      : spPreview?.name
+      ? `<span class="scenario-pill">SharePoint site: ${escapeHtml(spPreview.name)}</span>`
+      : '<span class="scenario-pill">SharePoint site required</span>';
     const recaps = data.modules.filter((m) => m.role === "prerequisite").length;
     const own = data.modules.length - recaps;
     let recapCount = 0;
@@ -2218,6 +2883,7 @@ async function lbPreview(options = {}) {
         <span class="scenario-pill">${own} module${own === 1 ? "" : "s"}${recaps ? ` + ${recaps} prerequisite recap${recaps === 1 ? "" : "s"}` : ""}</span>
         <span class="scenario-pill">Agent: ${escapeHtml(data.agentName)}</span>
         <span class="scenario-pill">${data.includeKnowledgeCheck ? "Lesson mini-quizzes included" : "Lesson mini-quizzes off"}</span>
+        ${spPillHtml}
       </div>
       <div style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">${escapeHtml(data.scenario.problem)}</div>
       <table class="lb-outline">
