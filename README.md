@@ -154,32 +154,42 @@ How many modules get live steps depends on what the documentation looks like on
 the day you build, so it changes from build to build. The builder prints the
 count when it finishes, records the source of every module's steps in
 `manifest.json`, and stops to ask you before falling back rather than degrading
-quietly.
+quietly (or accepts an explicit CLI resolution such as
+`--decide steps-not-derived=proceed-catalog` or
+`--decide learn-mcp-unavailable=proceed-curated` for unattended runs).
 
 ```bash
-# See what you can pick
+# See all 6 products, levels, harnesses, and 195 capabilities
 node tools/lab-builder/build.mjs --list
 
 # Build a lab (only requested features + required prerequisites; add --core to include Level 100 foundations)
 node tools/lab-builder/build.mjs \
+  --products copilot-studio \
   --industry healthcare \
   --roles customer-service \
   --features knowledge-sharepoint,authentication,content-moderation \
   --time 240
 ```
 
-Or use the **🧬 Build a Lab** tab in the portal for a guided wizard.
+Or use the **🧬 Build a Lab** tab in the portal (`http://localhost:3005`) for the guided 8-step wizard (Product → Vertical → Departments → Level → Harness → Topics → Review → Generate).
 
-Labs land in `generated-labs/<slug>/` with `index.md`, a `manifest.json` of the
-Learn and vendor sources used, a `shots.json` screenshot capture manifest, and any
-screenshots reusable from existing labs. Generated labs are validated against the
-same rules as the handwritten ones before the builder reports success.
+### What each generated lab includes
+
+Labs land in `generated-labs/<slug>/` and are validated against the same structural rules as the hand-written labs before the builder reports success:
+
+- **Rich instructional structure** — Scenario-grounded overview, architecture diagram, a dynamic **Connectors, Environment, and Tenant Prerequisites** checklist (`Required By` table and cards mapped to the exact `Step N` / `Recap N` modules that need each connector, DLP/ACP rule, environment toggle, or Entra/cloud admin role), SharePoint target site name and clickable URL links when SharePoint sources are used, numbered walkthrough steps, **Check your work** verification lists, troubleshooting callouts, and deduplicated canonical Microsoft Learn citations.
+- **Interactive standalone HTML (`index.html`)** — Generated alongside `index.md` with Previous/Next chapter pagination, a section jumper, a **Show all pages** toggle, light/dark theme persistence, checkable task lists saved in `localStorage` per lab, and opt-in per-lesson multiple-choice **Knowledge check: Lesson mini-quiz** cards (`includeKnowledgeCheck`) with instant grading and Microsoft Learn reference links.
+- **Multi-format & per-topic exports** — Export any generated lab from the portal (pure Node.js, zero external Office or browser runtime required) as:
+  - Markdown (`.md`) and standalone paged HTML (`.html`)
+  - Word handout (`.docx`), printable PDF guide (`.pdf`), and 16:9 widescreen PowerPoint deck (`.pptx`)
+  - Per-topic Word and PowerPoint files in `generated-labs/<slug>/topics/` (and downloadable individually via the portal), named `<Lab Name> - Step NN - <Topic Name>.docx` / `.pptx` (or `Recap N` for prerequisite recaps)
+  - Packaged `.zip` bundle (`formats=all|docx|pptx|pdf|html`) containing `00 - Overview and Admin Prerequisites/`, titled `Module NN - <Title>/` folders, `sample-files/`, `shots.json`, `manifest.json`, and optional custom branding (`_branding/`)
+- **Per-lab screenshots & Microsoft Learn drift checks** — Every generated lab writes a `shots.json` manifest compatible with [`tools/screenshot-capture`](./tools/screenshot-capture/) for Playwright-driven UI screenshot capture against a live tenant, and its steps can be re-validated against current Microsoft Learn documentation from the portal's **Validation** tab or CLI.
 
 Each generated lab carries a **VERIFIED** row naming the date its links were
 checked, or saying plainly that they were not. Generated labs are point-in-time
 artifacts: they sit outside `labs/`, are git-ignored, and are not covered by the
-monthly accuracy audit, so the fix for an old one is to regenerate it rather than
-re-read it.
+monthly accuracy audit, so the fix for an old one is to regenerate or re-validate it.
 
 Optionally set `AZURE_OPENAI_*` or `GITHUB_TOKEN` to add LLM-drafted,
 scenario-specific narrative on top of the grounded content. Without them the
@@ -194,22 +204,23 @@ default path.
 
 ### Feature tour site
 
-A static GitHub Pages site shows a screenshot and an explanation for every capability across all 6 products in the lab builder catalog (195 capabilities total, including all three Copilot Studio harnesses: Standard, Microsoft Copilot, and Customer Conversation). It is generated from `features.json` and `portal/lib/lab-builder/catalog/<product>.json`, so it stays in sync with the catalog. See [`docs/feature-tour.md`](docs/feature-tour.md) for how to refresh it, capture the screenshots, and publish it.
+A static GitHub Pages site shows a screenshot and an explanation for every capability across all 6 products in the lab builder catalog (`195` capabilities and `325` configured feature-tour shots total, including all three Copilot Studio harnesses: Standard, Microsoft Copilot, and Customer Conversation). It is generated from `features.json` and `portal/lib/lab-builder/catalog/<product>.json`, so it stays in sync with the catalog. See [`docs/feature-tour.md`](docs/feature-tour.md) for how to refresh it, capture the screenshots, and publish it.
 
 ---
 
 ## ⚡ Portal Features
 
-The repository also includes a full **Microsoft AI Training Generator portal** for delivering and operating the labs:
+The repository includes a full **Microsoft AI Training Generator portal** ([`portal/README.md`](./portal/README.md), default port `3005`) for building, delivering, and operating labs:
 
-- 🧬 **Lab builder** 8-step wizard across 6 Microsoft AI products (195 capabilities), grounded on Microsoft Learn, with one-click ZIP/Markdown export, print/PDF, and validation for generated labs
+- 🧬 **Lab builder** 8-step wizard across 6 Microsoft AI products (`195` capabilities), grounded on Microsoft Learn, with exports to `.md`, standalone paged `.html`, `.docx`, `.pdf`, `.pptx`, per-topic `.docx`/`.pptx` files, and multi-format `.zip` bundles
+- 👁️ **Interactive paged lab viewer** with chapter navigation, Mermaid flow diagrams, TOC, image lightbox, `localStorage` checkable task lists, opt-in multiple-choice Knowledge Check mini-quizzes, print/PDF support, and pre-built walkthrough PDFs ([`tools/lab-pdf`](./tools/lab-pdf/README.md))
+- 🛡️ **Dynamic admin prerequisites** generating `Required By` connector, DLP/ACP, environment, and tenant role checklists tailored to the exact modules in a lab
+- 🧪 **Validation** running instant structural smoke tests plus live step-level Microsoft Learn accuracy checks ([`docs/step-validation.md`](./docs/step-validation.md))
 - 🤖 Embedded Copilot Studio **Agent Chat** for real-time learner support
 - 🔐 **Approval workflows** for Power Platform environment provisioning
-- 👍 **Inline feedback** capture and 🐛 one-click issue reporting
-- 👁️ Rendered **lab preview** with Mermaid diagrams, TOC, print/PDF, and image lightbox
-- 🧪 **Validation** structural smoke tests plus step-level Microsoft Learn accuracy checks
-- ☁️ **Azure provisioning** plus ⚡ **Power Platform** environment management
-- 📥 **ZIP export**, 📧 **email delivery**, and 🎨 **branding/customization**
+- 👍 **Inline feedback** capture and 🐛 one-click GitHub issue reporting
+- ☁️ **Azure provisioning**, ⚡ **Power Platform** environment management, and `/healthz` container readiness probes
+- 📥 **ZIP export**, 📧 **email delivery** (SMTP or Microsoft Graph), and 🎨 **company branding/customization**
 
 ---
 
@@ -235,11 +246,56 @@ The repository also includes a full **Microsoft AI Training Generator portal** f
 
 ### Prerequisites
 
-- Access to [Microsoft Copilot Studio](https://copilotstudio.microsoft.com)
-- A Power Platform environment (trial or licensed)
-- A SharePoint site for lab 01 (instructions included in the lab)
-- Node.js 24+ (for the template setup script)
+- Access to [Microsoft Copilot Studio](https://copilotstudio.microsoft.com) (or the Microsoft 365, SharePoint, Microsoft Foundry, or Power Platform tenant matching your chosen product)
+- A Power Platform environment (trial or licensed) for Copilot Studio and AI Builder labs
+- A SharePoint site for Lab 01 or SharePoint-grounded labs (instructions included in each lab)
+- Node.js 24+ (for the Provisioning Portal, Lab Builder CLI, and template setup script) and Python 3.10+ (for `validate_labs.py`)
 - Prefer zero local setup for Node.js/MCP labs? See [Open in GitHub Codespaces](./docs/codespaces.md).
+- Need Entra ID app registrations for Power Platform device-code auth, portal bearer-token auth, or Lab 18 / Lab 39? See [Entra ID App Registration Setup](./docs/app-registration-setup.md).
+
+### Quickstart: run the portal locally
+
+```bash
+cd portal
+npm install
+cp .env.template .env
+# Set PORTAL_AUTH_DISABLED=true in portal/.env for loopback-only local development
+npm run dev
+```
+
+Open [http://localhost:3005](http://localhost:3005) to browse all 40 hand-written labs, launch the **🧬 Build a Lab** wizard, export lab packages, or run structural and Microsoft Learn step validation.
+
+---
+
+## ☁️ Deploy to Azure (Azure Container Apps + `azd`)
+
+The repository ships a complete [Azure Developer CLI (`azd`)](https://learn.microsoft.com/azure/developer/azure-developer-cli/) template in [`azure.yaml`](./azure.yaml) and [`infra/`](./infra/) (`infra/main.bicep` + `infra/modules/`) to host the Provisioning Portal on **Azure Container Apps**.
+
+### What `infra/` provisions
+
+- **Monitoring (`infra/modules/monitoring.bicep`)** — Log Analytics Workspace (`log-<token>`) and Application Insights (`appi-<token>`), wired into the container via `APPLICATIONINSIGHTS_CONNECTION_STRING`.
+- **Azure Container Registry (`infra/modules/container-registry.bicep`)** — Basic SKU ACR with `adminUserEnabled: false` (no admin passwords).
+- **Managed Identity & RBAC (`infra/modules/identity.bicep`, `infra/modules/acr-pull-role.bicep`)** — A User-Assigned Managed Identity granted `AcrPull` on ACR *before* the Container App is created (avoiding circular dependencies), plus `AcrPull` granted to the Container App's System-Assigned Managed Identity (`SystemAssigned, UserAssigned`).
+- **Container Apps Environment & `portal` App (`infra/modules/container-app.bicep`)** — External HTTPS ingress targeting port `3005` (`PORT=3005`, `HOST=0.0.0.0`, `0.5` vCPU / `1Gi` memory, HTTP auto-scaling from `1` to `3` replicas) backed by [`portal/Dockerfile`](./portal/Dockerfile) (`node:24-alpine`, non-root `node` user) and unauthenticated readiness probe `GET /healthz`.
+
+### Two-step deployment workflow
+
+Run from the repository root with [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) installed:
+
+```bash
+azd auth login
+azd env new <environment-name>
+
+# Step 1: Provision Azure infrastructure (uses a lightweight bootstrap image first)
+azd provision
+
+# Step 2: Build portal/Dockerfile remotely in ACR and deploy the Container App revision
+azd deploy
+```
+
+`azd provision` outputs `SERVICE_PORTAL_URI` (your live `https://<app>.<region>.azurecontainerapps.io` endpoint). By default, `infra/main.bicep` sets `portalAuthDisabled = true` (`PORTAL_AUTH_DISABLED=true`) for frictionless evaluation and demos; for shared or production environments, configure Entra ID authentication ([`docs/app-registration-setup.md`](./docs/app-registration-setup.md)) and set `azd env set AZURE_PORTAL_AUTH_DISABLED false` before provisioning. Run `azd down` when you want to tear down the resource group.
+
+---
 
 ### How to use these labs
 
@@ -268,7 +324,33 @@ Two validators enforce the format, and CI runs both over both kinds of lab:
 | `validate_labs.py` | `python validate_labs.py` on every push and PR | `python validate_labs.py --lab-dir <path>` on an offline build in CI |
 | `portal/lib/validator.js` | `npm test` in `portal/` on every push and PR | every build, before the builder reports success |
 
-[`scripts/lab-validation-rules.json`](./scripts/lab-validation-rules.json) lists every rule, which validator owns it, and why any rule lives in only one of them. Each validator's tests fail when its rules and that manifest disagree, so a new rule has to be recorded there before CI passes. Run `python validate_labs.py` and `npm test` in `portal/` before opening a pull request.
+[`scripts/lab-validation-rules.json`](./scripts/lab-validation-rules.json) lists every rule, which validator owns it, and why any rule lives in only one of them. Each validator's tests fail when its rules and that manifest disagree, so a new rule has to be recorded there before CI passes.
+
+### Testing and validation commands
+
+Run these checks before opening a pull request:
+
+```bash
+# 1. Validate all 40 hand-written labs (or pass --lab-dir <path> for a generated lab)
+python validate_labs.py
+
+# 2. Run the Provisioning Portal & Lab Builder test suite (offline link-check mode)
+cd portal
+LAB_BUILDER_LINK_CHECK=off npm test
+cd ..
+
+# 3. Validate all 325 feature-tour shot definitions across the 6 products & run site tests
+npm run feature-tour:check
+npm run feature-tour:test
+
+# 4. Optional: verify lab screenshot manifests, Entra app-reg setup, or live Learn links
+cd tools/screenshot-capture && npm run verify && cd ../..
+npm run verify:appreg
+node tools/lab-accuracy/check-accuracy.mjs --strict
+node tools/lab-accuracy/check-catalog.mjs
+```
+
+> **Windows PowerShell tip:** Set environment variables inline before running portal tests: `$env:LAB_BUILDER_LINK_CHECK='off'; npm test`.
 
 ---
 

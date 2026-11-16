@@ -14,11 +14,11 @@ Those values enable **client-credentials / service-principal** authentication. T
 
 This guide covers the authentication boundaries for:
 
-- `labs\18-account-orchestration-agent\index.md`
-- `labs\36-copilot-studio-vscode-agent-management\index.md`
-- `labs\19-agent-to-agent-protocol\index.md`
+- [`labs/18-account-orchestration-agent/index.md`](../labs/18-account-orchestration-agent/index.md)
+- [`labs/36-copilot-studio-vscode-agent-management/index.md`](../labs/36-copilot-studio-vscode-agent-management/index.md)
+- [`labs/19-agent-to-agent-protocol/index.md`](../labs/19-agent-to-agent-protocol/index.md)
 
-These lab folders contain walkthrough documentation rather than a local authentication service. The repository-level `.env.local.example`, `.copilot\mcp-config.json`, `setup.js`, `docs\codespaces.md`, and portal authentication/provisioning helpers are separate support surfaces.
+These lab folders contain walkthrough documentation rather than a local authentication service. The repository-level `.env.local.example`, `setup.js`, [`docs/codespaces.md`](./codespaces.md), and Provisioning Portal authentication/provisioning helpers ([`portal/README.md`](../portal/README.md), port `3005`, where shared deployments validate Entra ID bearer tokens against `PORTAL_API_AUDIENCE` when `PORTAL_AUTH_DISABLED` is not set) are separate support surfaces. For browser-based delegated Entra ID sign-in with the Copilot Studio Client SDK or end-user authentication in Copilot Studio, see [`labs/32-embed-agent-web-sdk/index.md`](../labs/32-embed-agent-web-sdk/index.md) and [`labs/34-authentication-end-user-signin/index.md`](../labs/34-authentication-end-user-signin/index.md).
 
 High-level guidance: **Lab 18 has Dataverse/MCP pieces that can use service-principal-style access only when the app is also created as a Dataverse application user in the target environment. Lab 36 and most Lab 19 authoring steps require delegated user sign-in and can't be completed with client credentials alone.**
 

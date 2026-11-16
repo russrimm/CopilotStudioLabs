@@ -4,14 +4,14 @@ A web-based lab operations portal for building, customizing, validating, preview
 
 ## Features
 
-- **🧬 Lab Builder** — 8-step wizard across 6 Microsoft AI products and 195 capabilities (product, industry/vertical, departments, level, harness, topics, review, generate), grounded on Microsoft Learn (see [`docs/lab-builder.md`](../docs/lab-builder.md))
+- **🧬 Lab Builder** — 8-step wizard across 6 Microsoft AI products and 195 capabilities (product, industry/vertical, departments, level, harness, topics, review, generate), grounded on Microsoft Learn with canonical URL deduplication, SharePoint site configuration, opt-in multiple-choice Knowledge Check mini-quizzes, and `Required By` admin prerequisites (see [`docs/lab-builder.md`](../docs/lab-builder.md))
 - **📚 Chapter Management** — Explicitly include or exclude hand-written lab chapters under **Lab chapters** on the Lab setup tab (nothing is auto-selected initially; the level for a generated lab is chosen in wizard Step 4)
-- **🗂️ Generated lab management** — Open, export as `.zip` or `.md` (with configured Branding banner), print/save as PDF, run structural validation, rename, delete, or re-open the saved selections of generated labs, with search and sort
+- **🗂️ Generated Lab Management & Multi-Format Exports** — Open, preview as interactive paged HTML (with `localStorage` checkable task lists and Knowledge Check mini-quizzes), export as `.zip` (`formats=all|docx|pptx|pdf|html`), `.html`, `.docx`, `.pdf`, `.pptx`, `.md`, or per-topic `.docx`/`.pptx` files (`<Lab Name> - Step NN - <Topic Name>`), print/save as PDF, run structural validation, rename, delete, or re-open saved selections
 - **🗺️ Lab Flow Diagrams** — Render Mermaid diagrams inside lab previews to visualize architecture and process flow
 - **🗺️ Lab Dependency Map** — View a structured dependency and sequence map showing recommended lab order and independent tracks
 - **🎨 Customization** — Replace organization names, industry context, compliance terms, agent names, end-user roles, and branding
 - **🏢 Industry Scenario Planner** — Apply preconfigured industry and role templates to lab selection and content defaults
-- **👁️ Lab Preview** — Read fully rendered labs in the browser with table of contents, image lightbox, print/save as PDF, and walkthrough PDF download links where available
+- **👁️ Lab Preview** — Read fully rendered paginated labs in the browser with table of contents, chapter jumper, image lightbox, print/save as PDF, and walkthrough PDF download links ([`tools/lab-pdf`](../tools/lab-pdf/README.md)) where available
 - **👍 Inline Feedback** — Capture thumbs up/down feedback on sections and checkpoints
 - **🐛 Issue Reporting** — Open a GitHub issue with current lab context in one click
 - **🖨️ Print Support** — Clean `@media print` styling for both hand-written lab previews and generated custom labs
@@ -24,7 +24,7 @@ A web-based lab operations portal for building, customizing, validating, preview
 - **🤖 Agent Chat** — Embed a Copilot Studio agent chat widget for real-time lab guidance and troubleshooting
 - **🧪 Validation** — Run documentation smoke tests across all labs or a single lab, plus a step-level accuracy check of every lab step against current Microsoft Learn content
 - **⚙️ Configuration** — Review Azure, Key Vault, SMTP, branding, and deployment settings in one place
-- **🐳 Container-Ready** — Run locally, in Docker, or in Azure App Service
+- **🐳 Cloud & Container-Ready** — Run locally on port `3005`, in Docker (with `/healthz` readiness checks), on **Azure Container Apps** via `azd`, or in Azure App Service
 
 ## Quick Start
 
@@ -47,12 +47,42 @@ Open [http://localhost:3005](http://localhost:3005)
 cd portal
 docker compose up --build
 
-# Or build/run directly
+# Or build/run directly from the repository root (required so labs/, docs/, and scripts/ are in context)
 docker build -t copilot-labs-portal -f portal/Dockerfile .
 docker run -p 3005:3005 --env-file portal/.env copilot-labs-portal
 ```
 
-### Azure Web App deployment
+`portal/Dockerfile` builds on `node:24-alpine`, runs as the non-root `node` user on `HOST=0.0.0.0` and `PORT=3005`, and configures a container `HEALTHCHECK` against `http://127.0.0.1:3005/healthz`.
+
+### Deploy to Azure (Azure Container Apps + `azd`)
+
+The recommended cloud deployment uses [Azure Developer CLI (`azd`)](https://learn.microsoft.com/azure/developer/azure-developer-cli/) with [`../azure.yaml`](../azure.yaml) and the Bicep templates under [`../infra/`](../infra/):
+
+- **`azure.yaml`** — Defines `name: copilot-studio-labs-portal` and the `portal` service (`host: containerapp`, `project: ./portal`, `docker.path: ./Dockerfile`, `docker.context: ..`, `docker.remoteBuild: true`).
+- **`infra/main.bicep` & `infra/modules/`** — Subscription-scoped Bicep deployment creating:
+  - Resource Group (`rg-<environmentName>`)
+  - Log Analytics Workspace and Application Insights (`APPLICATIONINSIGHTS_CONNECTION_STRING`)
+  - Azure Container Registry (`adminUserEnabled: false`)
+  - User-Assigned Managed Identity + System-Assigned Managed Identity granted `AcrPull` on ACR (keyless image pull, no admin credentials, no circular dependency)
+  - Container Apps Managed Environment and the `portal` Container App (`targetPort: 3005`, external HTTPS ingress, `0.5` vCPU / `1Gi` RAM, `1`–`3` HTTP-scaled replicas, `/healthz` health check)
+
+Run the two-step deployment from the **repository root**:
+
+```bash
+azd auth login
+azd env new <environment-name>
+
+# 1. Provision Azure resources (deploys a bootstrap image so ACR + AcrPull exist first)
+azd provision
+
+# 2. Remotely build portal/Dockerfile in ACR and deploy the portal Container App revision
+azd deploy
+```
+
+> [!NOTE]
+> `infra/main.bicep` defaults `portalAuthDisabled` to `true` (`PORTAL_AUTH_DISABLED=true`) for demo and evaluation environments. Before exposing a shared deployment to untrusted networks, configure Entra ID authentication (see [`../docs/app-registration-setup.md`](../docs/app-registration-setup.md)) and set `azd env set AZURE_PORTAL_AUTH_DISABLED false` prior to `azd provision`. Use `azd down` to delete provisioned resources.
+
+### Alternative: Azure App Service (Web App for Containers)
 
 ```bash
 az acr build --registry <acr-name> --image copilot-labs-portal:latest -f portal/Dockerfile .
@@ -74,12 +104,13 @@ All configuration is provided through environment variables (see `.env.template`
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `PORT` | No | Portal port (default: `3005`) |
-| `HOST` | No | Listener address (default: `127.0.0.1`; container image uses `0.0.0.0`) |
+| `HOST` | No | Listener address (default: `127.0.0.1`; container image and Container Apps use `0.0.0.0`) |
 | `PORTAL_BASE_URL` | For approval links | Public portal URL used for approval callback and review links |
-| `PORTAL_AUTH_DISABLED` | Local development only | Disables API authentication; never enable on a deployed listener |
-| `PORTAL_API_AUDIENCE` | For authenticated deployment | Expected Entra access-token audience |
-| `PORTAL_ALLOWED_USERS` | Optional | Comma-separated user allowlist |
+| `PORTAL_AUTH_DISABLED` | Local / demo only | Set to `true` to bypass Entra bearer-token authentication (`requireAuth()`); keep disabled (`false`) on shared production listeners |
+| `PORTAL_API_AUDIENCE` | For authenticated deployment | Expected Entra access-token audience (`aud` claim, e.g. `api://<AZURE_CLIENT_ID>`) |
+| `PORTAL_ALLOWED_USERS` | Optional | Comma-separated user allowlist (`upn` / `preferred_username`) |
 | `PORTAL_ALLOWED_GROUPS` | Optional | Comma-separated Entra group object-ID allowlist |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional | Azure Application Insights connection string (set automatically by `infra/main.bicep` on Container Apps) |
 | **Azure / Entra ID** | | |
 | `AZURE_TENANT_ID` | For Graph email / delegated auth | Entra tenant ID |
 | `AZURE_CLIENT_ID` | For Graph email / delegated auth | App registration client ID |
@@ -111,20 +142,22 @@ All configuration is provided through environment variables (see `.env.template`
 | **Lab Builder** | | |
 | `LEARN_MCP_URL` | No | Microsoft Learn MCP endpoint (default: `https://learn.microsoft.com/api/mcp`) |
 | `LEARN_MCP_TIMEOUT_MS` | No | Learn MCP request timeout (default: `30000`) |
+| `LAB_BUILDER_OUTPUT_DIR` | No | Output directory for generated labs (default: `../generated-labs`) |
 | `LAB_BUILDER_MAX_ACTIVE` | No | Concurrent lab generations before the API returns HTTP 429 (default: `2`) |
 | `LAB_BUILDER_RATE_MAX` | No | Lab generations allowed per user per window (default: `10`) |
 | `LAB_BUILDER_RATE_WINDOW_MS` | No | Lab generation rate-limit window (default: `3600000`) |
+| `LAB_BUILDER_MANAGE_RATE_MAX` | No | Generated-lab export/validate/rename/delete calls allowed per window (default: `60`) |
+| `LAB_BUILDER_MANAGE_RATE_WINDOW_MS` | No | Generated-lab management rate-limit window (default: `3600000`) |
 | `LAB_BUILDER_BODY_LIMIT` | No | Maximum JSON body size on `/api/lab-builder` routes (default: `64kb`) |
 | `LAB_BUILDER_CONCURRENCY` | No | Modules grounded, derived, and enriched in parallel within one build (default: `4`) |
 | `LAB_BUILDER_LINK_CHECK` | No | Set to `off` to skip citation liveness checks |
-| **Step validation** | | |
-| `STEP_VALIDATION_MIN_INTERVAL_MS` | No | Minimum gap between Microsoft Learn calls (default: `250`) |
-| `STEP_VALIDATION_MAX_CALLS` | No | Learn calls allowed per run before remaining claims become "unable to verify" (default: `2500`) |
-| `STEP_VALIDATION_CACHE_DIR` | No | Directory for a persistent Learn response cache shared across runs (default: memory only) |
-| `STEP_VALIDATION_CACHE_TTL_MS` | No | Cache lifetime for Learn responses (default: `86400000`) |
-| `STEP_VALIDATION_RATE_MAX` | No | Runs that can be started per window (default: `20`) |
-| `STEP_VALIDATION_RATE_WINDOW_MS` | No | Start rate-limit window (default: `3600000`) |
 | `LAB_BUILDER_LINK_TIMEOUT_MS` | No | Citation liveness check timeout (default: `8000`) |
+| `LAB_BUILDER_VENDOR_DOCS` | No | Set to `off` to skip fetching allowlisted third-party vendor documentation |
+| `LAB_BUILDER_VENDOR_TIMEOUT_MS` | No | Vendor documentation fetch timeout (default: `10000`) |
+| `LAB_BUILDER_TOPICS_FILE` | No | Snapshot cache path for discovered Microsoft Learn topics |
+| `LAB_BUILDER_TOPICS_MAX_AGE_MS` | No | Maximum age before a discovered Learn topic snapshot is treated as stale (default: `604800000` / 7 days) |
+| `LAB_BUILDER_TOPICS_REFRESH_MAX` | No | Topic discovery refreshes allowed per window (default: `6`) |
+| `LAB_BUILDER_TOPICS_REFRESH_WINDOW_MS` | No | Topic discovery refresh rate-limit window (default: `3600000`) |
 | `LAB_BUILDER_LLM` | No | Set to `off` to force deterministic composition |
 | `LAB_BUILDER_LLM_TIMEOUT_MS` | No | Language model call timeout (default: `60000`) |
 | `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_DEPLOYMENT` | Optional | Azure OpenAI resource for LLM-drafted narrative |
@@ -132,11 +165,26 @@ All configuration is provided through environment variables (see `.env.template`
 | `AZURE_OPENAI_API_VERSION` | No | Azure OpenAI API version (default: `2024-10-21`) |
 | `GITHUB_TOKEN` or `GITHUB_MODELS_TOKEN` | Optional | GitHub Models token, used when Azure OpenAI is not configured |
 | `GITHUB_MODELS_MODEL`, `GITHUB_MODELS_ENDPOINT` | No | GitHub Models model and endpoint overrides |
+| **Step validation** | | |
+| `STEP_VALIDATION_MIN_INTERVAL_MS` | No | Minimum gap between Microsoft Learn calls (default: `250`) |
+| `STEP_VALIDATION_MAX_CALLS` | No | Learn calls allowed per run before remaining claims become "unable to verify" (default: `2500`) |
+| `STEP_VALIDATION_CACHE_DIR` | No | Directory for a persistent Learn response cache shared across runs (default: memory only) |
+| `STEP_VALIDATION_CACHE_TTL_MS` | No | Cache lifetime for Learn responses (default: `86400000`) |
+| `STEP_VALIDATION_RATE_MAX` | No | Runs that can be started per window (default: `20`) |
+| `STEP_VALIDATION_RATE_WINDOW_MS` | No | Start rate-limit window (default: `3600000`) |
 | **Feature Flags** | | |
 | `ENABLE_GRAPH_EMAIL` | Optional | Force/enable Graph email usage |
 | `ENABLE_AZURE_DEPLOY` | Optional | Enable Azure deployment workflows |
 
 ## API Endpoints
+
+All `/api/*` routes pass through `requireAuth()` unless `PORTAL_AUTH_DISABLED=true` is set for local development or demo evaluation.
+
+### Health Check
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/healthz` | Unauthenticated container liveness and readiness probe returning `{ "status": "ok" }` |
 
 ### Labs
 
@@ -258,17 +306,19 @@ In the **Validation** tab, **Run All Tests** runs the structural tests and then 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/lab-builder/features` | Products, industries, roles, harnesses, and the 195-capability catalog |
-| `POST` | `/api/lab-builder/recommend` | Compute level-filtered topic recommendations, prerequisites, and dependency reasons |
-| `GET` | `/api/lab-builder/learn-topics` | Read Microsoft Learn topic snapshot freshness |
-| `POST` | `/api/lab-builder/learn-topics/refresh` | Refresh discovered Microsoft Learn topics |
-| `POST` | `/api/lab-builder/preview` | Plan a lab without generating it |
-| `POST` | `/api/lab-builder/generate` | Build a lab into `generated-labs/` (returns `complete`, `blocked`, or `cancelled`); optional `replaceLabId` replaces an existing generated lab once the new one is built |
-| `GET` | `/api/lab-builder/generated` | List generated labs (with saved selections, when recorded) |
-| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab (rendered HTML + branded Markdown) |
-| `GET` / `POST` | `/api/lab-builder/generated/:labId/export` | Export a generated lab as `.zip` (`?format=zip`, default) or `.md` (`?format=md`), applying configured Branding (also aliased at `/api/generated-labs/:labId/export`) |
+| `GET` | `/api/lab-builder/features` | Products (`6`), industries, roles, harnesses, levels, and the `195`-capability catalog |
+| `POST` | `/api/lab-builder/recommend` | Compute level-filtered topic recommendations, prerequisite recaps, and dependency reasons |
+| `GET` | `/api/lab-builder/topics` | Read discovered Microsoft Learn topics and snapshot freshness (optional `?product=<id>`) |
+| `POST` | `/api/lab-builder/topics/refresh` | Crawl Microsoft Learn to refresh discovered topics for a product (`{ "product": "<id>" }`) |
+| `POST` | `/api/lab-builder/preview` | Plan a lab (modules, recaps, estimated time, deliverable framing) without generating files |
+| `POST` | `/api/lab-builder/generate` | Build a lab into `generated-labs/` (returns `complete`, `blocked`, or `cancelled`); supports `includeKnowledgeCheck`, SharePoint site inputs, `decisions`, and optional `replaceLabId` |
+| `GET` | `/api/lab-builder/generated` | List generated labs (with saved selections, module counts, and per-topic document metadata) |
+| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab (rendered HTML, branded Markdown, `adminPrerequisites`, and `topicDocuments`) |
+| `GET` | `/api/lab-builder/generated/:labId/assets/:file` | Serve a generated lab screenshot or image asset (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`) |
+| `GET` / `POST` | `/api/lab-builder/generated/:labId/export` | Export a generated lab as `format=zip` (default; accepts `formats=all\|docx\|pptx\|pdf\|html` for per-module titled folders), `html` (standalone paged HTML), `docx`, `pptx`, `pdf`, or `md` (also aliased at `/api/generated-labs/:labId/export`) |
+| `GET` | `/api/lab-builder/generated/:labId/topics/:order/:format` | Download an individual module or recap handout/deck (`format=docx\|pptx`) named `<Lab Name> - Step NN - <Topic Name>.<ext>` (also aliased at `/api/generated-labs/:labId/topics/:order/:format`) |
 | `GET` | `/api/lab-builder/generated/:labId/validate` | Run structural validation against a generated lab (also aliased at `/api/generated-labs/:labId/validate`) |
-| `PATCH` | `/api/lab-builder/generated/:labId` | Change a generated lab's `title` and/or `notes` |
+| `PATCH` | `/api/lab-builder/generated/:labId` | Rename a generated lab (`title` and/or `notes`) and sync `index.html` + per-topic `.docx`/`.pptx` files |
 | `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab (never a hand-written one) |
 
 Request and response shapes are documented in [`docs/lab-builder.md`](../docs/lab-builder.md#api).
@@ -276,11 +326,15 @@ Request and response shapes are documented in [`docs/lab-builder.md`](../docs/la
 ## Architecture
 
 ```
+azure.yaml                 Azure Developer CLI (azd) service manifest (Container Apps)
+infra/
+├── main.bicep             Subscription-scoped resource group, monitoring, ACR, RBAC, and Container App
+└── modules/               Log Analytics + App Insights, ACR (adminUserEnabled: false), Managed Identity AcrPull, Container App
 portal/
-├── server.js              Express API + static file server
+├── server.js              Express API (/healthz + /api/*) and static file server (port 3005)
 ├── lib/
-│   ├── labs.js            Lab discovery and metadata extraction
-│   ├── exporter.js        ZIP/Markdown export for static and generated labs with branding
+│   ├── labs.js            Lab discovery and metadata extraction (40 hand-written labs)
+│   ├── exporter.js        ZIP, HTML, DOCX, PPTX, PDF, and Markdown export for static and generated labs
 │   ├── mailer.js          SMTP and Microsoft Graph email transport
 │   ├── validator.js       Lab documentation smoke tests (structural, static + generated labs)
 │   ├── step-validator/    Step-level accuracy check against Microsoft Learn (parser, claims, matcher, runner, jobs)
@@ -296,20 +350,21 @@ portal/
 │   ├── validate-id.js     Input validation for az CLI arguments
 │   ├── approvals.js       Environment approval workflow engine
 │   ├── agent-chat.js      Copilot Studio agent chat config
-│   └── lab-builder/       Lab builder: 6-product catalog, planner, Learn MCP grounding, composer
+│   └── lab-builder/       6-product catalog (195 capabilities), planner, Learn MCP grounding, canonical URL dedup,
+│                          admin-prereqs, interactive paged HTML, pure-Node DOCX/PDF/PPTX & per-topic document builders
 ├── test/                  Node test suites (npm test)
 ├── public/
 │   ├── index.html             Single-page app UI (tabs, forms, preview, print styles)
-│   ├── app.js                 Core portal frontend logic
+│   ├── app.js                 Core portal frontend logic (pagination, checklists, mini-quizzes)
 │   ├── lab-builder-wizard.js  8-step custom lab builder wizard UI
-│   ├── generated-labs.js      Generated lab manager, export, print, and validation UI
+│   ├── generated-labs.js      Generated lab manager, multi-format/per-topic export, print, and validation UI
 │   ├── step-validation.js     Step validation UI (progress and results)
 │   ├── step-validation.css    Step validation styles
 │   ├── theme.js               Light/dark color theme toggle and persistence
 │   └── vendor/
 │       └── mermaid.min.js     Mermaid diagram renderer
 ├── data/                  Runtime data (feedback, branding, approvals, agent config)
-├── Dockerfile             Production container build
-├── docker-compose.yml     Container orchestration
+├── Dockerfile             Production container build (node:24-alpine, port 3005, /healthz)
+├── docker-compose.yml     Local container orchestration
 └── .env.template          Configuration template
 ```
