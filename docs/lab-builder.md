@@ -43,10 +43,14 @@ generated-labs/<slug>/
   manifest.json   what was selected, what was grounded, the Learn sources used
                   and the HTTP status each returned when checked, when they were
                   verified, the vendor pages each module cites and whether each
-                  was read, where each module's steps came from, and any
-                  decisions a human made about a blocked build
+                  was read, where each module's steps came from, per-topic
+                  Word/PowerPoint metadata (topicDocuments), and any decisions a
+                  human made about a blocked build
   shots.json      capture manifest for the screenshots that could not be reused
   assets/         screenshots copied from existing labs in this repo
+  topics/         standalone Word (.docx) and PowerPoint (.pptx) files generated
+                  for each topic and prerequisite recap, named per lab
+                  (<Lab Name> - Step NN - <Topic Name>.docx / .pptx)
 ```
 
 ---
@@ -411,7 +415,7 @@ framing every lab as "Build an *X* Assistant". Under `### Solution Architecture`
 level, scenario profile, and `Step N` / `Recap K` modules to emit a structured
 ```` ```lab-architecture ```` blueprint that renders as a connected multi-layer visual
 overview in the portal preview and standalone `index.html` (with dark, light, and print
-themes) and as a formatted architecture table in `.docx` and `.pdf` exports.
+themes) and as a formatted architecture table in `.docx`, `.pptx`, and `.pdf` exports.
 
 **Manifests.** `manifest.json` records `generator`, `product` (the one most modules
 belong to), `products`, and each module's `product`. A manifest without them is a
@@ -1463,10 +1467,12 @@ the server log, never the manifest — and the output is exportable by design.
 | `POST` | `/api/lab-builder/topics/refresh` | Re-read the topic list from Microsoft Learn. Takes an empty `{}` body (anything else is HTTP 400). Limited to 6 refreshes per user per hour (`LAB_BUILDER_TOPICS_RATE_MAX`); answers 429 with `Retry-After` when rate limited, spaced too closely, or paused by the circuit breaker, 503 when refreshing is turned off, and 502 when Microsoft Learn failed. Every failure still returns the last good list. |
 | `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `recommended`, `required`, `thirdPartyConnector`, `optionalFor`, and `reasons`. Nothing is selected unless the vertical or a department points at it (`preselectedIds`); `recommendedIds` lists every 1st-party topic the rules suggest, selected or not (`thirdPartyConnector` modules remain `selected: false` and `recommended: false` unless explicitly included in `selected`). Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`). A `selected` list that names other levels is filtered, not trusted. Read-only. |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. With a `level`, topics from other levels are dropped (`droppedOutOfLevel`), and each module has a `role` of `level` or `prerequisite`. |
-| `POST` | `/api/lab-builder/generate` | Build the lab, write it to `generated-labs/`, return markdown + validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. |
+| `POST` | `/api/lab-builder/generate` | Build the lab, write it (including per-topic `.docx` and `.pptx` files in `topics/` named per lab) to `generated-labs/`, and return markdown, `topicDocuments`, and validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. |
 | `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, vertical, level, harness, estimated minutes, topic count, validation counts, and `selections` (null for labs built before choices were saved). |
-| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab as markdown and HTML. |
-| `PATCH` | `/api/lab-builder/generated/:labId` | Change `title` (1-160 characters, no line breaks) and/or `notes` (up to 1000 characters). No other field is accepted. Updates the manifest and the lab's single `#` heading; the folder name stays the same. |
+| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab as markdown and HTML, along with `topicDocuments` (synthesizing `topics/*.docx` and `topics/*.pptx` on demand for labs generated before `topics/` existed). |
+| `GET` | `/api/lab-builder/generated/:labId/topics/:order/:format` | Download a single topic's standalone Word document (`docx`) or PowerPoint slide deck (`pptx`) named per lab (`<Lab Name> - Step NN - <Topic Name>.docx` / `.pptx`). Also mounted at `/api/generated-labs/:labId/topics/:order/:format`. |
+| `GET` / `POST` | `/api/lab-builder/generated/:labId/export` | Export a generated lab as a per-module `zip` (`formats=all\|docx\|pptx\|pdf\|html`), `html`, `docx`, `pptx`, `pdf`, or `md`. |
+| `PATCH` | `/api/lab-builder/generated/:labId` | Change `title` (1-160 characters, no line breaks) and/or `notes` (up to 1000 characters). No other field is accepted. Updates the manifest, the lab's single `#` heading, and regenerates/renames the per-topic `.docx` and `.pptx` files inside `topics/` so their filenames match the updated lab title; the folder name stays the same. |
 | `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab folder. The id must match an existing folder directly under `generated-labs/` that holds a `manifest.json`, so hand-written labs under `labs/` can never be reached. Answers 400 for a bad id and 404 when it does not exist. |
 
 `PATCH` and `DELETE` are limited to 60 requests per user per hour

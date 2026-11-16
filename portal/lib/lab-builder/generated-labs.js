@@ -16,6 +16,16 @@ import { escapeMarkdown, scrubForbidden } from "./composer.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { capturedImage, capturedScreenshotsDir } from "./captured.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
+import { splitGeneratedLabModules } from "./module-samples.js";
+import {
+  ALLOWED_TOPIC_DOC_FORMATS,
+  TOPIC_DOC_MIME_TYPES,
+  buildAttachmentContentDisposition,
+  createLabImageResolver,
+  ensureGeneratedLabTopicDocuments,
+  renderSingleTopicBuffers,
+  writeGeneratedLabTopicDocuments,
+} from "./topic-documents.js";
 
 const LAB_ID = /^[a-z0-9-]{1,100}$/i;
 export const MAX_TITLE_LENGTH = 160;
@@ -281,27 +291,44 @@ export function updateGeneratedLabMeta(rootDir, rawId, body) {
 
     if (patch.title !== undefined) {
       const indexPath = join(found.labDir, "index.md");
+      let activeMarkdown = "";
       if (existsSync(indexPath)) {
-        const lines = readFileSync(indexPath, "utf-8").split("\n");
+        const currentMd = readFileSync(indexPath, "utf-8");
+        const lines = currentMd.split("\n");
         const h1 = lines.slice(0, 5).findIndex((line) => /^# /.test(line));
         if (h1 >= 0) {
           lines[h1] = `# ${escapeMarkdown(scrubForbidden(patch.title))}`;
-          const updatedMarkdown = lines.join("\n");
-          writeFileAtomic(indexPath, updatedMarkdown);
+          activeMarkdown = lines.join("\n");
+          writeFileAtomic(indexPath, activeMarkdown);
           writeFileAtomic(
             join(found.labDir, "index.html"),
-            renderStandaloneLabHtml(updatedMarkdown, { title: patch.title, labId: found.labId }),
+            renderStandaloneLabHtml(activeMarkdown, { title: patch.title, labId: found.labId }),
           );
+        } else {
+          activeMarkdown = currentMd;
         }
       }
       manifest.title = patch.title;
       // "Edit selections" prefills the Review title from here, so a rename survives a rebuild or replacement.
       manifest.options = { ...(manifest.options && typeof manifest.options === "object" ? manifest.options : {}), customTitle: patch.title };
+      if (activeMarkdown) {
+        writeGeneratedLabTopicDocuments(found.labDir, {
+          labId: found.labId,
+          markdown: activeMarkdown,
+          manifest,
+        });
+      }
     }
     if (patch.notes !== undefined) manifest.notes = patch.notes;
     manifest.updatedAt = new Date().toISOString();
     writeFileAtomic(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
-    return { status: 200, body: { lab: summarizeManifest(found.labId, manifest) } };
+    return {
+      status: 200,
+      body: {
+        lab: summarizeManifest(found.labId, manifest),
+        topicDocuments: manifest.topicDocuments || [],
+      },
+    };
   } catch (err) {
     return { status: 500, body: { error: `Could not update the lab: ${err.message}` } };
   }
@@ -346,11 +373,131 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown) {
     const markdown = readFileSync(indexPath, "utf-8");
     const manifestPath = join(labDir, "manifest.json");
     const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf-8")) : null;
+    const topicDocuments = ensureGeneratedLabTopicDocuments(labDir, {
+      labId,
+      markdown,
+      manifest: manifest || { title: labId },
+    });
     const adminPrerequisites = manifest?.adminPrerequisites || buildAdminPrerequisites({ manifest, markdown });
     const { html, pending } = decorateGeneratedHtml(renderMarkdown(markdown), labId, labDir);
     return {
       status: 200,
-      body: { labId, markdown, html, manifest, adminPrerequisites, pendingScreenshots: pending },
+      body: {
+        labId,
+        markdown,
+        html,
+        manifest,
+        adminPrerequisites,
+        topicDocuments,
+        pendingScreenshots: pending,
+      },
+    };
+  } catch (err) {
+    return { status: 500, body: { error: err.message } };
+  }
+}
+
+/**
+ * Resolve and read (or synthesize on demand for legacy labs) a single topic's
+ * Word (`.docx`) or PowerPoint (`.pptx`) document named per lab.
+ *
+ * @returns {{status: number, body?: object, labId?: string, topic?: object, fileName?: string, contentType?: string, contentDisposition?: string, buffer?: Buffer}}
+ */
+export function readGeneratedLabTopicDocument(rootDir, rawId, rawOrder, rawFormat, options = {}) {
+  const format = String(rawFormat || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^\./, "");
+  if (!ALLOWED_TOPIC_DOC_FORMATS.includes(format)) {
+    return {
+      status: 400,
+      body: { error: "Unsupported topic document format. Use 'docx' or 'pptx'." },
+    };
+  }
+
+  const orderStr = String(rawOrder ?? "").trim();
+  if (!/^\d+$/.test(orderStr) || Number.parseInt(orderStr, 10) < 1) {
+    return {
+      status: 400,
+      body: { error: "Topic order must be a positive integer." },
+    };
+  }
+  const order = Number.parseInt(orderStr, 10);
+
+  const labId = String(rawId || "");
+  if (!LAB_ID.test(labId)) {
+    return { status: 400, body: { error: "Invalid lab id" } };
+  }
+
+  const root = resolve(rootDir);
+  const labDir = resolve(root, labId);
+  const rel = relative(root, labDir);
+  const indexPath = join(labDir, "index.md");
+  if (!rel || rel.startsWith("..") || isAbsolute(rel) || rel !== labId || !existsSync(indexPath)) {
+    return { status: 404, body: { error: "Generated lab not found" } };
+  }
+  try {
+    const stat = lstatSync(labDir);
+    if (!stat.isDirectory() || stat.isSymbolicLink()) {
+      return { status: 404, body: { error: "Generated lab not found" } };
+    }
+  } catch {
+    return { status: 404, body: { error: "Generated lab not found" } };
+  }
+
+  try {
+    const markdown = readFileSync(indexPath, "utf-8");
+    const manifestPath = join(labDir, "manifest.json");
+    const manifest = existsSync(manifestPath)
+      ? JSON.parse(readFileSync(manifestPath, "utf-8"))
+      : { title: labId };
+
+    const topicDocuments = ensureGeneratedLabTopicDocuments(labDir, {
+      labId,
+      markdown,
+      manifest,
+    });
+
+    const doc = topicDocuments.find((item) => Number(item.order) === order);
+    if (!doc) {
+      return { status: 404, body: { error: `Topic ${order} not found in generated lab.` } };
+    }
+
+    const fileName = format === "docx" ? doc.docxFileName : doc.pptxFileName;
+    const relDocPath = format === "docx" ? doc.docxPath : doc.pptxPath;
+    let buffer;
+
+    if (options.branding && options.customBranding) {
+      const split = splitGeneratedLabModules(markdown, manifest, { labId, outputDir: labDir });
+      const mod = split.modules.find((m) => Number(m.order) === order);
+      if (mod) {
+        const rendered = renderSingleTopicBuffers(mod, {
+          labTitle: split.labTitle,
+          manifest,
+          branding: options.branding,
+          resolveImageBuffer: createLabImageResolver(labDir),
+        });
+        buffer = format === "docx" ? rendered.docxBuffer : rendered.pptxBuffer;
+      }
+    }
+
+    if (!buffer) {
+      const absDocPath = resolve(labDir, relDocPath);
+      const docRel = relative(labDir, absDocPath);
+      if (!docRel || docRel.startsWith("..") || isAbsolute(docRel) || !existsSync(absDocPath)) {
+        return { status: 404, body: { error: "Topic document file not found." } };
+      }
+      buffer = readFileSync(absDocPath);
+    }
+
+    return {
+      status: 200,
+      labId,
+      topic: doc,
+      fileName,
+      contentType: TOPIC_DOC_MIME_TYPES[format],
+      contentDisposition: buildAttachmentContentDisposition(fileName),
+      buffer,
     };
   } catch (err) {
     return { status: 500, body: { error: err.message } };

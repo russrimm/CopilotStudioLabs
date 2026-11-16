@@ -17,6 +17,10 @@ import { renderStandaloneLabHtml } from "./lab-builder/html-lab.js";
 import { renderMarkdownToDocxBuffer } from "./lab-builder/docx-builder.js";
 import { renderMarkdownToPdfBuffer } from "./lab-builder/pdf-builder.js";
 import {
+  renderMarkdownToPptxBuffer,
+  renderTopicToPptxBuffer,
+} from "./lab-builder/pptx-builder.js";
+import {
   buildModuleSampleFiles,
   sanitizeFilesystemTitle,
   splitGeneratedLabModules,
@@ -24,11 +28,11 @@ import {
 import { renderLabMarkdown } from "./markdown.js";
 
 const SAFE_GENERATED_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
-const ALLOWED_DOC_FORMATS = ["docx", "pdf", "html"];
+const ALLOWED_DOC_FORMATS = ["docx", "pptx", "pdf", "html"];
 
 /**
- * Normalize requested per-module export document formats (`all`, `docx`, `pdf`,
- * `html`, array, or comma-separated list). Throws a 400 error on unknown tokens.
+ * Normalize requested per-module export document formats (`all`, `docx`, `pptx`,
+ * `pdf`, `html`, array, or comma-separated list). Throws a 400 error on unknown tokens.
  */
 export function normalizeDocFormats(rawFormats) {
   if (rawFormats === undefined || rawFormats === null || rawFormats === "") {
@@ -40,7 +44,7 @@ export function normalizeDocFormats(rawFormats) {
   if (!tokens.length || tokens.includes("all")) {
     for (const tok of tokens) {
       if (tok !== "all" && !ALLOWED_DOC_FORMATS.includes(tok)) {
-        const err = new Error(`Unsupported document format '${tok}'. Allowed values: all, docx, pdf, html.`);
+        const err = new Error(`Unsupported document format '${tok}'. Allowed values: all, docx, pptx, pdf, html.`);
         err.status = 400;
         throw err;
       }
@@ -50,7 +54,7 @@ export function normalizeDocFormats(rawFormats) {
   const selected = [];
   for (const tok of tokens) {
     if (!ALLOWED_DOC_FORMATS.includes(tok)) {
-      const err = new Error(`Unsupported document format '${tok}'. Allowed values: all, docx, pdf, html.`);
+      const err = new Error(`Unsupported document format '${tok}'. Allowed values: all, docx, pptx, pdf, html.`);
       err.status = 400;
       throw err;
     }
@@ -371,6 +375,51 @@ export function renderGeneratedLabDocx(
 }
 
 /**
+ * Render a full generated lab as a single `.pptx` Buffer.
+ */
+export function renderGeneratedLabPptx(
+  generatedRoot,
+  rawLabId,
+  replacements = {},
+  { branding = loadBranding(), resolveAsset, logoSourcePath: explicitLogoPath } = {},
+) {
+  const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
+  if (found.status !== 200) return { status: found.status, error: found.error };
+
+  const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
+  let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
+  let brandedTitle = found.manifest?.title || found.labId;
+  for (const [search, replace] of replacementEntries) {
+    content = content.split(search).join(replace);
+    brandedTitle = brandedTitle.split(search).join(replace);
+  }
+  content = applyBrandingTokens(content, branding);
+  brandedTitle = applyBrandingTokens(brandedTitle, branding);
+
+  const customizedBranding = isCustomBranding(branding);
+  const logoPath = customizedBranding
+    ? explicitLogoPath || getBrandingLogoAbsolutePath(branding.logo)
+    : null;
+  const logoBuffer = logoPath && existsSync(logoPath) ? readFileSync(logoPath) : null;
+
+  const buffer = renderMarkdownToPptxBuffer(content, {
+    title: brandedTitle,
+    manifest: { ...(found.manifest || {}), title: brandedTitle },
+    branding: customizedBranding
+      ? {
+          companyName: branding.companyName,
+          tagline: branding.tagline,
+          primaryColor: branding.primaryColor,
+          logoBuffer,
+        }
+      : { primaryColor: branding.primaryColor },
+    resolveImageBuffer: (src) => resolveLabAssetBuffer(generatedRoot, found.labId, found.labDir, src, resolveAsset),
+  });
+
+  return { status: 200, labId: found.labId, buffer };
+}
+
+/**
  * Render a full generated lab as a single `.pdf` Buffer.
  */
 export function renderGeneratedLabPdf(
@@ -461,6 +510,11 @@ export function exportGeneratedLab(
         }
         if (stats.isSymbolicLink()) continue;
         if (stats.isDirectory()) {
+          const relDir = relative(labDir, fullPath).replace(/\\/g, "/");
+          if (relDir === "topics") {
+            // Per-topic documents are rendered per requested format and branding below.
+            continue;
+          }
           walkLab(fullPath);
           continue;
         }
@@ -563,7 +617,7 @@ export function exportGeneratedLab(
         }
       : null;
 
-    const appendFormattedDocs = (folderRelPath, baseFileName, docTitle, docMarkdown) => {
+    const appendFormattedDocs = (folderRelPath, baseFileName, docTitle, docMarkdown, topicContext = null) => {
       if (selectedFormats.includes("docx")) {
         const docxBuf = renderMarkdownToDocxBuffer(docMarkdown, {
           title: docTitle,
@@ -571,6 +625,22 @@ export function exportGeneratedLab(
           resolveImageBuffer: resolveImgBuffer,
         });
         archive.append(docxBuf, { name: posix.join(labId, folderRelPath, `${baseFileName}.docx`) });
+      }
+      if (selectedFormats.includes("pptx")) {
+        const pptxBuf = topicContext
+          ? renderTopicToPptxBuffer(docMarkdown, {
+              title: docTitle,
+              branding: docBranding,
+              resolveImageBuffer: resolveImgBuffer,
+              topic: topicContext,
+            })
+          : renderMarkdownToPptxBuffer(docMarkdown, {
+              title: docTitle,
+              manifest: found.manifest || {},
+              branding: docBranding,
+              resolveImageBuffer: resolveImgBuffer,
+            });
+        archive.append(pptxBuf, { name: posix.join(labId, folderRelPath, `${baseFileName}.pptx`) });
       }
       if (selectedFormats.includes("pdf")) {
         const pdfBuf = renderMarkdownToPdfBuffer(docMarkdown, {
@@ -592,7 +662,14 @@ export function exportGeneratedLab(
       }
     };
 
-    const split = splitGeneratedLabModules(htmlSourceMd, found.manifest || {});
+    let brandedLabTitle = found.manifest?.title || labId;
+    for (const [search, replace] of replacementEntries) {
+      brandedLabTitle = brandedLabTitle.split(search).join(replace);
+    }
+    brandedLabTitle = applyBrandingTokens(brandedLabTitle, branding);
+
+    const effectiveManifest = { ...(found.manifest || {}), title: brandedLabTitle };
+    const split = splitGeneratedLabModules(htmlSourceMd, effectiveManifest, { labId });
     appendFormattedDocs(
       split.overview.folderName,
       sanitizeFilesystemTitle(split.overview.fileBaseName, "Lab Overview and Admin Prerequisites"),
@@ -600,13 +677,34 @@ export function exportGeneratedLab(
       split.overview.markdown,
     );
 
+    const manifestMods = Array.isArray(effectiveManifest.modules) ? effectiveManifest.modules : [];
+    const productsText = Array.isArray(effectiveManifest.products)
+      ? effectiveManifest.products.join(", ")
+      : "";
+
     const exportedModules = [];
     for (const mod of split.modules) {
-      appendFormattedDocs(mod.folderName, mod.fileBaseName, `${mod.folderName} — ${found.manifest?.title || labId}`, mod.markdown);
+      const mMeta =
+        manifestMods.find((m) => Number(m.order) === Number(mod.order)) || {};
+      appendFormattedDocs(
+        mod.folderName,
+        mod.fileBaseName,
+        `${brandedLabTitle} - ${mod.stepLabel} - ${mod.title}`,
+        mod.markdown,
+        {
+          labTitle: brandedLabTitle,
+          stepLabel: mod.stepLabel,
+          topicTitle: mod.title,
+          levelText: mMeta.level ? `Level ${mMeta.level}` : "",
+          estimatedTime: mMeta.minutes ? `~${mMeta.minutes} min` : "",
+          products: productsText,
+          agentName: effectiveManifest?.options?.agentName || effectiveManifest?.request?.agentName || "",
+        },
+      );
 
       const sampleFiles = buildModuleSampleFiles(mod.moduleInfo, {
-        manifest: found.manifest || {},
-        labTitle: found.manifest?.title || labId,
+        manifest: effectiveManifest,
+        labTitle: brandedLabTitle,
         replacementEntries,
       });
       const sampleFileNames = [];
@@ -621,7 +719,9 @@ export function exportGeneratedLab(
       exportedModules.push({
         order: mod.order,
         id: mod.id,
+        stepLabel: mod.stepLabel,
         title: mod.title,
+        fileBaseName: mod.fileBaseName,
         folder: posix.join(labId, mod.folderName),
         documents: selectedFormats.map((fmt) => posix.join(labId, mod.folderName, `${mod.fileBaseName}.${fmt}`)),
         sampleFiles: sampleFileNames.map((fn) => posix.join(labId, mod.folderName, "sample-files", fn)),
@@ -632,7 +732,7 @@ export function exportGeneratedLab(
       exportedAt: new Date().toISOString(),
       source: "generated",
       labs: [labId],
-      title: found.manifest?.title || labId,
+      title: brandedLabTitle,
       formats: selectedFormats,
       overviewFolder: posix.join(labId, split.overview.folderName),
       modules: exportedModules,

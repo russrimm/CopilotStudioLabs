@@ -254,6 +254,8 @@ test("generated lab result body separates outer panels from preview-frame and av
     "\\.lab-page-btn-primary",
     "\\.lab-complete-badge",
     "\\.lb-admin-prereqs",
+    "\\.lb-topic-docs",
+    "\\.lb-topic-doc-item",
     "\\.lb-card-footer",
     "\\.lb-stat-total-row",
     "\\.lb-stat-level-grid",

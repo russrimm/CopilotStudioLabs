@@ -20,6 +20,7 @@ import {
   renderGeneratedLabHtml,
   renderGeneratedLabMarkdown,
   renderGeneratedLabPdf,
+  renderGeneratedLabPptx,
   resolveSafeGeneratedLabDir,
 } from "./lib/exporter.js";
 import { sendMail } from "./lib/mailer.js";
@@ -28,6 +29,7 @@ import {
   deleteBrandingLogo,
   ensureBrandingStorage,
   escapeHtml,
+  getBrandingLogoAbsolutePath,
   loadBranding,
   prependBrandingBanner,
   saveBranding,
@@ -48,6 +50,7 @@ import {
   generatedLabExists,
   listGeneratedLabs,
   readGeneratedLab,
+  readGeneratedLabTopicDocument,
   replaceGeneratedLab,
   resolveGeneratedAsset,
   updateGeneratedLabMeta,
@@ -622,6 +625,7 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       duration: result.plan.duration,
       markdown: result.markdown,
       manifest: result.manifest,
+      topicDocuments: result.topicDocuments || result.manifest?.topicDocuments || [],
       adminPrerequisites: result.adminPrerequisites,
       validation: result.validation,
       qa: result.qa,
@@ -665,9 +669,10 @@ async function handleGeneratedLabExport(req, res) {
     format !== "markdown" &&
     format !== "html" &&
     format !== "docx" &&
+    format !== "pptx" &&
     format !== "pdf"
   ) {
-    return res.status(400).json({ error: "format must be 'zip', 'html', 'docx', 'pdf', or 'md'." });
+    return res.status(400).json({ error: "format must be 'zip', 'html', 'docx', 'pptx', 'pdf', or 'md'." });
   }
 
   let selectedZipFormats = null;
@@ -723,6 +728,26 @@ async function handleGeneratedLabExport(req, res) {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       );
       res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.docx"`);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(rendered.buffer);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (format === "pptx") {
+    try {
+      const rendered = renderGeneratedLabPptx(GENERATED_LABS_DIR, found.labId, replacements, {
+        resolveAsset: resolveGeneratedAsset,
+      });
+      if (rendered.status !== 200) {
+        return res.status(rendered.status).json({ error: rendered.error });
+      }
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      );
+      res.setHeader("Content-Disposition", `attachment; filename="${found.labId}.pptx"`);
       res.setHeader("X-Content-Type-Options", "nosniff");
       return res.send(rendered.buffer);
     } catch (err) {
@@ -786,6 +811,42 @@ function handleGeneratedLabValidate(req, res) {
   const { status, body } = validateGeneratedLab(GENERATED_LABS_DIR, req.params.labId);
   res.status(status).json(body);
 }
+
+function handleGeneratedLabTopicDocument(req, res) {
+  const branding = loadBranding();
+  const customBranding = isCustomBranding(branding);
+  const logoPath = customBranding ? getBrandingLogoAbsolutePath(branding.logo) : null;
+  const logoBuffer = logoPath && existsSync(logoPath) ? readFileSync(logoPath) : null;
+
+  const result = readGeneratedLabTopicDocument(
+    GENERATED_LABS_DIR,
+    req.params.labId,
+    req.params.order,
+    req.params.format,
+    {
+      customBranding,
+      branding: customBranding
+        ? {
+            companyName: branding.companyName,
+            tagline: branding.tagline,
+            primaryColor: branding.primaryColor,
+            logoBuffer,
+          }
+        : null,
+    },
+  );
+  if (result.status !== 200) {
+    return res.status(result.status).json(result.body);
+  }
+  res.setHeader("Content-Type", result.contentType);
+  res.setHeader("Content-Disposition", result.contentDisposition);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  return res.send(result.buffer);
+}
+
+/** GET /api/lab-builder/generated/:labId/topics/:order/:format — Download a per-topic Word (.docx) or PowerPoint (.pptx) file named per lab */
+app.get("/api/lab-builder/generated/:labId/topics/:order/:format", handleGeneratedLabTopicDocument);
+app.get("/api/generated-labs/:labId/topics/:order/:format", handleGeneratedLabTopicDocument);
 
 /** GET|POST /api/lab-builder/generated/:labId/export — Download a generated lab as ZIP or Markdown */
 app.get("/api/lab-builder/generated/:labId/export", handleGeneratedLabExport);

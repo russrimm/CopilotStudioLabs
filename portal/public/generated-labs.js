@@ -83,8 +83,9 @@ function lbZipFormatSelectHtml(labId, title, scopePrefix) {
     <span class="lb-export-zip-group">
       <label class="sr-only" for="${selectId}">Export format for ${safeTitle}</label>
       <select id="${selectId}" class="lb-zip-format-select" data-zip-format-select data-lab-id="${safeId}" aria-label="Module document format for ${safeTitle} ZIP">
-        <option value="all">All formats (.docx, .pdf, .html)</option>
+        <option value="all">All formats (.docx, .pptx, .pdf, .html)</option>
         <option value="docx">Word (.docx)</option>
+        <option value="pptx">PowerPoint (.pptx)</option>
         <option value="pdf">PDF (.pdf)</option>
         <option value="html">HTML (.html)</option>
       </select>
@@ -101,6 +102,61 @@ function lbGeneratedActionButtonsHtml(labId, title) {
     <button type="button" class="btn btn-sm" data-gen-action="download" data-lab-id="${safeId}" aria-label="Download ${safeTitle} as Markdown">⬇️ Download .md</button>
     <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">🖨️ Print / Save PDF</button>
     <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>`;
+}
+
+function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
+  if (!labId || !Array.isArray(topicDocuments) || !topicDocuments.length) return "";
+  const safeLabId = escapeHtml(labId);
+  const encodedLabId = encodeURIComponent(labId);
+
+  const itemsHtml = topicDocuments
+    .map((doc) => {
+      const order = Number(doc.order) || 1;
+      const stepLabel = String(doc.stepLabel || `Step ${order}`);
+      const isRecap = /^recap\b/i.test(stepLabel);
+      const badgeMod = isRecap ? " lb-prereq-req-badge-recap" : "";
+      const title = String(doc.title || stepLabel);
+      const baseName = String(doc.fileBaseName || `${labId} - ${stepLabel} - ${title}`);
+      const docxFileName = String(doc.docxFileName || `${baseName}.docx`);
+      const pptxFileName = String(doc.pptxFileName || `${baseName}.pptx`);
+      const encodedOrder = encodeURIComponent(String(order));
+      const docxHref = `/api/lab-builder/generated/${encodedLabId}/topics/${encodedOrder}/docx`;
+      const pptxHref = `/api/lab-builder/generated/${encodedLabId}/topics/${encodedOrder}/pptx`;
+
+      return `
+        <li class="lb-topic-doc-item">
+          <div class="lb-topic-doc-info">
+            <div class="lb-topic-doc-head">
+              <span class="lb-prereq-req-badge${badgeMod}">${escapeHtml(stepLabel)}</span>
+              <strong class="lb-topic-doc-title">${escapeHtml(title)}</strong>
+            </div>
+            <div class="lb-topic-doc-files">
+              <code>${escapeHtml(docxFileName)}</code>
+              <span aria-hidden="true">·</span>
+              <code>${escapeHtml(pptxFileName)}</code>
+            </div>
+          </div>
+          <div class="lb-topic-doc-actions">
+            <a class="btn btn-sm lb-topic-doc-btn" href="${docxHref}" download="${escapeHtml(docxFileName)}" aria-label="Download Word document ${escapeHtml(docxFileName)}">📝 Word (.docx)</a>
+            <a class="btn btn-sm lb-topic-doc-btn" href="${pptxHref}" download="${escapeHtml(pptxFileName)}" aria-label="Download PowerPoint slides ${escapeHtml(pptxFileName)}">📊 Slides (.pptx)</a>
+          </div>
+        </li>`;
+    })
+    .join("");
+
+  return `
+    <section class="lb-topic-docs" aria-labelledby="lb-topic-docs-heading">
+      <div class="lb-topic-docs-header">
+        <h4 id="lb-topic-docs-heading">📄 Topic Word Documents &amp; PowerPoint Slides</h4>
+        <div class="scenario-pill-list">
+          <span class="scenario-pill">${topicDocuments.length} topic${topicDocuments.length === 1 ? "" : "s"} (${topicDocuments.length * 2} files named per lab)</span>
+        </div>
+      </div>
+      <p class="lb-topic-docs-intro">
+        Standalone Word handouts (<code>.docx</code>) and widescreen PowerPoint decks (<code>.pptx</code>) generated for each topic in <code>generated-labs/${safeLabId}/topics/</code> and named with this lab's title.
+      </p>
+      <ul class="lb-topic-docs-list" aria-label="Per-topic Word documents and PowerPoint slides">${itemsHtml}</ul>
+    </section>`;
 }
 
 const LB_PREREQ_STEP_PREFIX_RE = /^(Step|Recap)\s+(\d+)\s+[—–-]\s+(.+)$/i;
@@ -394,6 +450,7 @@ async function lbOpenGenerated(labId) {
     </div>`;
   body.innerHTML = `
     <div id="lb-result-validation" role="region" aria-label="Generated lab validation results" aria-live="polite"></div>
+    <div id="lb-result-topic-docs"></div>
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
     <div id="lb-result-admin-prereqs"></div>
     <details class="lb-advanced">

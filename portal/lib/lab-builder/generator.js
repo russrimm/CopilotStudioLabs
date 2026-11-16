@@ -16,6 +16,11 @@ import { createLlm } from "./llm.js";
 import { planScreenshots, copyScreenshots, writePlaceholders, buildShotsManifest, buildShotList } from "./screenshots.js";
 import { composeLab } from "./composer.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
+import {
+  applyTopicDocumentsToManifest,
+  buildTopicDocumentsMeta,
+  writeGeneratedLabTopicDocuments,
+} from "./topic-documents.js";
 import { assessLab } from "./qa.js";
 import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
@@ -1345,6 +1350,11 @@ export async function generateLab(request, opts = {}) {
     warnings: plan.warnings,
   };
 
+  const previewTopicDocs = buildTopicDocumentsMeta(markdown, manifest, {
+    labId: plan.slug,
+  }).topicDocuments;
+  applyTopicDocumentsToManifest(manifest, previewTopicDocs);
+
   const html = renderStandaloneLabHtml(markdown, { title: plan.title, labId: plan.slug });
 
   const result = {
@@ -1355,6 +1365,7 @@ export async function generateLab(request, opts = {}) {
     plan,
     manifest,
     adminPrerequisites: manifest.adminPrerequisites,
+    topicDocuments: manifest.topicDocuments,
     markdown,
     html,
     qa,
@@ -1376,6 +1387,14 @@ export async function generateLab(request, opts = {}) {
     writePlaceholders(screenshots.placeholders, path.join(outputDir, "assets"));
     fs.writeFileSync(path.join(outputDir, "index.md"), markdown, "utf8");
     fs.writeFileSync(path.join(outputDir, "index.html"), result.html, "utf8");
+
+    onProgress?.({ stage: "topics", message: "Generating per-topic Word documents and PowerPoint slides" });
+    result.topicDocuments = writeGeneratedLabTopicDocuments(outputDir, {
+      labId: savedLabId,
+      markdown,
+      manifest,
+    });
+
     fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
     if (screenshots.shots.length) {
       fs.writeFileSync(path.join(outputDir, "shots.json"), JSON.stringify(result.shots, null, 2) + "\n", "utf8");

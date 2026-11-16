@@ -4516,6 +4516,11 @@ function lbShowResult(data) {
     ${(data.warnings || []).map((w) => `<div class="lb-warning">${escapeHtml(w)}</div>`).join("")}
   `;
 
+  const topicDocs = data.topicDocuments || data.manifest?.topicDocuments || [];
+  const topicDocsHtml =
+    typeof lbRenderTopicDocumentsHtml === "function"
+      ? lbRenderTopicDocumentsHtml(data.labId, topicDocs)
+      : "";
   const adminPrereqs = data.adminPrerequisites || data.manifest?.adminPrerequisites || null;
   const adminPrereqsHtml =
     typeof lbRenderAdminPrerequisitesHtml === "function"
@@ -4525,6 +4530,7 @@ function lbShowResult(data) {
   body.innerHTML = `
     <div id="lb-result-validation" role="region" aria-label="Generated lab validation results" aria-live="polite"></div>
     ${lbQualityPanel(data.qa)}
+    <div id="lb-result-topic-docs">${topicDocsHtml}</div>
     <div id="lb-result-preview" class="preview-frame" aria-label="Lab preview"><p class="scenario-empty">Loading the preview...</p></div>
     <div id="lb-result-admin-prereqs">${adminPrereqsHtml}</div>
     <details class="lb-advanced">
@@ -4551,6 +4557,11 @@ async function lbLoadResultPreview(labId) {
     labBuilder.lastMarkdown = data.markdown;
     const source = document.getElementById("lb-result-source");
     if (source && !source.textContent) source.textContent = data.markdown;
+    const topicDocsHost = document.getElementById("lb-result-topic-docs");
+    if (topicDocsHost && typeof lbRenderTopicDocumentsHtml === "function") {
+      const topicDocs = data.topicDocuments || data.manifest?.topicDocuments || [];
+      topicDocsHost.innerHTML = lbRenderTopicDocumentsHtml(labId, topicDocs);
+    }
     const prereqHost = document.getElementById("lb-result-admin-prereqs");
     if (prereqHost && typeof lbRenderAdminPrerequisitesHtml === "function") {
       const prereqs = data.adminPrerequisites || data.manifest?.adminPrerequisites || null;

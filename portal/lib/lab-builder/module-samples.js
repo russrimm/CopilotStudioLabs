@@ -7,13 +7,18 @@
  */
 
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getFeature } from "./catalog.js";
 import { buildAdminPrerequisites, renderAdminPrerequisitesMarkdown } from "./admin-prereqs.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROFILES = JSON.parse(readFileSync(join(__dirname, "scenario-profiles.json"), "utf8"));
+
+const WINDOWS_RESERVED_NAME_RE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+const DEFAULT_LAB_SEGMENT_CAP = 46;
+const DEFAULT_TOPIC_SEGMENT_CAP = 46;
+const MAX_WINDOWS_TOPIC_FILE_PATH = 224;
 
 /**
  * Sanitize a human title for cross-platform ZIP and Windows/macOS/Linux folder
@@ -28,7 +33,130 @@ export function sanitizeFilesystemTitle(rawTitle, fallback = "Untitled") {
     .replace(/^[.\s-]+|[.\s-]+$/g, "")
     .slice(0, 90)
     .replace(/[.\s-]+$/g, "");
-  return cleaned || fallback;
+  if (!cleaned) return fallback;
+  if (WINDOWS_RESERVED_NAME_RE.test(cleaned)) return `${cleaned} Lab`;
+  return cleaned;
+}
+
+/**
+ * Cap a sanitized filename segment cleanly on a word boundary where possible
+ * without leaving trailing spaces, hyphens, or dots.
+ */
+export function capFilesystemSegment(rawText, maxChars = 46, fallback = "Untitled") {
+  const cap = Math.max(8, Number(maxChars) || 46);
+  const sanitized = sanitizeFilesystemTitle(rawText, fallback);
+  if (sanitized.length <= cap) return sanitized;
+  const sliced = sanitized.slice(0, cap);
+  const lastSpace = sliced.lastIndexOf(" ");
+  const cut = lastSpace >= Math.floor(cap * 0.55) ? sliced.slice(0, lastSpace) : sliced;
+  const cleaned = cut.replace(/[.\s-]+$/g, "");
+  if (!cleaned) {
+    return sanitizeFilesystemTitle(fallback, "Item").slice(0, cap).replace(/[.\s-]+$/g, "") || "Item";
+  }
+  return WINDOWS_RESERVED_NAME_RE.test(cleaned) ? `${cleaned.slice(0, Math.max(4, cap - 4))} Lab` : cleaned;
+}
+
+/**
+ * Format the zero-padded step or prerequisite recap label used in per-lab
+ * topic document filenames (`Step 01`, `Recap 01`).
+ * Accepts either an options object `{ stepLabel, order, stepOrder, recapOrder, isRecap }`
+ * or positional `(stepLabel, order)`.
+ */
+export function formatLabTopicStepTag(firstArg = {}, secondOrder = undefined) {
+  const opts =
+    typeof firstArg === "string" || typeof firstArg === "number"
+      ? { stepLabel: String(firstArg), order: secondOrder }
+      : firstArg || {};
+  const { stepLabel, order, stepOrder, recapOrder, isRecap } = opts;
+  const recap = Boolean(isRecap) || /^recap\b/i.test(String(stepLabel || "").trim());
+  const explicitNum = recap ? Number(recapOrder) : Number(stepOrder);
+  const labelNumMatch = String(stepLabel || "").match(/(\d+)/);
+  const resolvedNum =
+    (Number.isFinite(explicitNum) && explicitNum > 0 ? explicitNum : null) ||
+    (labelNumMatch ? Number.parseInt(labelNumMatch[1], 10) : null) ||
+    Math.max(1, Number(order) || 1);
+  const padded = String(resolvedNum).padStart(2, "0");
+  return recap ? `Recap ${padded}` : `Step ${padded}`;
+}
+
+/**
+ * Build the per-lab topic filename stem (`<Lab Name> - Step 01 - <Topic Name>`
+ * or `<Lab Name> - Recap 01 - <Topic Name>`), enforcing safe Windows `MAX_PATH`
+ * bounds and optional collision-safe disambiguation.
+ * Accepts either an options object or positional `(labTitle, stepLabel, order, topicTitle, extraOpts)`.
+ */
+export function formatLabTopicBaseName(
+  firstArg = {},
+  posStepLabel = undefined,
+  posOrder = undefined,
+  posTopicTitle = undefined,
+  posExtra = {},
+) {
+  const opts =
+    typeof firstArg === "string"
+      ? {
+          ...(posExtra || {}),
+          labTitle: firstArg,
+          stepLabel: posStepLabel,
+          order: posOrder,
+          topicTitle: posTopicTitle,
+        }
+      : firstArg || {};
+  const {
+    labTitle,
+    labId,
+    stepLabel,
+    order,
+    stepOrder,
+    recapOrder,
+    isRecap,
+    topicTitle,
+    outputDir,
+    usedBaseNames,
+  } = opts;
+
+  const stepTag = formatLabTopicStepTag({ stepLabel, order, stepOrder, recapOrder, isRecap });
+  let labCap = DEFAULT_LAB_SEGMENT_CAP;
+  let topicCap = DEFAULT_TOPIC_SEGMENT_CAP;
+
+  const rawFallbackLab = capFilesystemSegment(labId || "Generated Lab", labCap, "Generated Lab");
+  const labSource = String(labTitle || "").trim() ? labTitle : labId || "Generated Lab";
+  let labPart = capFilesystemSegment(labSource, labCap, rawFallbackLab);
+  let topicPart = capFilesystemSegment(topicTitle || stepTag, topicCap, stepTag);
+
+  if (outputDir) {
+    const topicsDirLen = resolve(String(outputDir), "topics").length;
+    // Account for path separator (1) + ".pptx" extension (5)
+    const maxBaseLen = Math.max(32, MAX_WINDOWS_TOPIC_FILE_PATH - (topicsDirLen + 1 + 5));
+    // Reserve a constant 18 chars (" - " + "Recap 99" + " - " + 4-char disambiguator)
+    // when sizing labPart so every topic in the same lab receives an identical lab prefix.
+    const uniformAvail = Math.max(20, maxBaseLen - 18);
+    if (uniformAvail < DEFAULT_LAB_SEGMENT_CAP + DEFAULT_TOPIC_SEGMENT_CAP) {
+      const minTopicReserve = Math.min(28, Math.max(10, Math.floor(uniformAvail * 0.42)));
+      labCap = Math.min(DEFAULT_LAB_SEGMENT_CAP, Math.max(10, uniformAvail - minTopicReserve));
+      labPart = capFilesystemSegment(labSource, labCap, rawFallbackLab);
+      const stepAvail = Math.max(20, maxBaseLen - (6 + stepTag.length) - 4);
+      topicCap = Math.min(DEFAULT_TOPIC_SEGMENT_CAP, Math.max(10, stepAvail - labPart.length));
+      topicPart = capFilesystemSegment(topicTitle || stepTag, topicCap, stepTag);
+    }
+  }
+
+  let candidate = `${labPart} - ${stepTag} - ${topicPart}`;
+  if (usedBaseNames instanceof Set) {
+    let suffixNum = 2;
+    while (usedBaseNames.has(candidate.toLowerCase())) {
+      const suffix = ` (${suffixNum})`;
+      const trimmedTopic = capFilesystemSegment(
+        topicTitle || stepTag,
+        Math.max(8, topicCap - suffix.length),
+        stepTag
+      );
+      candidate = `${labPart} - ${stepTag} - ${trimmedTopic}${suffix}`;
+      suffixNum += 1;
+    }
+    usedBaseNames.add(candidate.toLowerCase());
+  }
+  return candidate;
 }
 
 /**
@@ -649,11 +777,13 @@ export function buildModuleSampleFiles(moduleInfo, options = {}) {
  * @param {object} [manifest]
  * @returns {{ overview: { folderName: string, fileBaseName: string, title: string, markdown: string }, modules: Array<{ order: number, id: string|null, title: string, folderName: string, fileBaseName: string, markdown: string, moduleInfo: object }> }}
  */
-export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
+export function splitGeneratedLabModules(fullMarkdown, manifest = {}, options = {}) {
   const source = String(fullMarkdown ?? "").replace(/\r\n/g, "\n");
   const lines = source.split("\n");
   const labTitleMatch = source.match(/^#\s+(.+?)\s*$/m);
   const labTitle = (manifest?.title || (labTitleMatch ? labTitleMatch[1] : "Generated Lab")).trim();
+  const labId = options.labId || manifest?.labId || manifest?.slug || "";
+  const outputDir = options.outputDir || "";
 
   // Locate `## Step-by-Step` and every `### Step N - ...` module block inside it,
   // plus the first H2 after `## Step-by-Step` (typically `## Validation / Success Criteria`).
@@ -717,6 +847,7 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
   const hasLegacyRecap = stepStarts.some((s) => s.isLegacyRecap);
   let recapCounter = 0;
   let stepCounter = 0;
+  const usedBaseNames = new Set();
 
   const modules = stepStarts.map((entry, idx) => {
     const endLine = idx + 1 < stepStarts.length ? stepStarts[idx + 1].lineIndex : postStepsIdx;
@@ -741,10 +872,25 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
     const displayTitle = isRecap ? `Recap: ${cleanTitle}` : cleanTitle;
     const folderTitle = isRecap ? `Recap - ${cleanTitle}` : cleanTitle;
     const folderName = formatModuleBaseName(seqOrder, folderTitle);
-    const fileBaseName = folderName;
+    const fileBaseName = formatLabTopicBaseName({
+      labTitle,
+      labId,
+      stepLabel,
+      order: seqOrder,
+      stepOrder: isRecap ? null : roleNum,
+      recapOrder: isRecap ? roleNum : null,
+      isRecap,
+      topicTitle: cleanTitle,
+      outputDir,
+      usedBaseNames,
+    });
+
+    const productsLabel = Array.isArray(manifest?.products) && manifest.products.length
+      ? manifest.products.join(", ")
+      : null;
 
     const moduleMd = [
-      `# ${folderName}`,
+      `# ${labTitle} — ${stepLabel}: ${cleanTitle}`,
       "",
       `*Part of lab: ${labTitle}*`,
       "",
@@ -754,6 +900,7 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
       `| **MODULE** | ${stepLabel} — ${cleanTitle.replace(/\|/g, "\\|")} |`,
       matchedMeta.level ? `| **LEVEL** | Level ${matchedMeta.level}${isRecap ? " (Prerequisite Recap)" : ""} |` : null,
       matchedMeta.minutes ? `| **ESTIMATED TIME** | About ${matchedMeta.minutes} minutes |` : null,
+      productsLabel ? `| **PRODUCTS** | ${productsLabel.replace(/\|/g, "\\|")} |` : null,
       `| **SAMPLE FILES** | Included in \`sample-files/\` inside this module folder |`,
       "",
       "---",
@@ -770,6 +917,7 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
       order: seqOrder,
       stepOrder: isRecap ? null : roleNum,
       recapOrder: isRecap ? roleNum : null,
+      isRecap,
       stepLabel,
       id: matchedMeta.id || null,
       title: cleanTitle,
@@ -785,6 +933,7 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
         recapOrder: isRecap ? roleNum : null,
         stepLabel,
         folderName,
+        fileBaseName,
         role: isRecap ? "prerequisite" : matchedMeta.role || "level",
       },
     };
@@ -811,6 +960,7 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}) {
   ].filter(Boolean);
 
   return {
+    labTitle,
     overview: {
       folderName: "00 - Overview and Admin Prerequisites",
       fileBaseName: "Lab Overview and Admin Prerequisites",
