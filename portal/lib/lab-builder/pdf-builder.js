@@ -156,8 +156,9 @@ function parseInlineSegments(rawText, defaultStyle = "regular") {
       const safeHref = /^https?:\/\/|^mailto:/i.test(rawHref) ? rawHref : null;
       pushPlain(label, defaultStyle, safeHref);
     } else if (match[3] !== undefined) pushPlain(match[3], "code");
-    else if (match[4] !== undefined) pushPlain(match[4], "bold");
-    else if (match[5] !== undefined) pushPlain(match[5], "italic");
+    // Emphasis can wrap a link, so its content is parsed as inline Markdown rather than drawn as plain text.
+    else if (match[4] !== undefined) segments.push(...parseInlineSegments(match[4], "bold"));
+    else if (match[5] !== undefined) segments.push(...parseInlineSegments(match[5], "italic"));
     lastIdx = tokenRe.lastIndex;
   }
   if (lastIdx < cleanedImages.length) {
