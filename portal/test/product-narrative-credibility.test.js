@@ -180,7 +180,15 @@ test("all 11 product and capability deliverable modes frame titles, scenarios, d
       assert.match(result.plan.title, c.titleMatch, `${c.name}: title`);
       assert.doesNotMatch(result.markdown, SINGLE_AGENT_RE, `${c.name}: no 'a single agent'`);
       assert.doesNotMatch(result.markdown, FORBIDDEN_HARNESS_RE, `${c.name}: no forbidden harness name`);
-      assert.match(result.markdown, /### Solution Architecture\s+[\s\S]*```mermaid\s+flowchart LR/, `${c.name}: Mermaid architecture diagram`);
+      const archBlockMatch = result.markdown.match(
+        /### Solution Architecture\s+[\s\S]*?```lab-architecture\n([\s\S]*?)\n```/,
+      );
+      assert.ok(archBlockMatch, `${c.name}: dynamic lab-architecture block present`);
+      const archModel = JSON.parse(archBlockMatch[1]);
+      assert.equal(archModel.mode, c.expectedMode, `${c.name}: architecture model matches deliverable mode`);
+      assert.equal(archModel.lanes.length, 3, `${c.name}: 3 connected architecture lanes`);
+      assert.ok(archModel.foundation?.guardrails?.length >= 1, `${c.name}: governance foundation present`);
+      assert.ok(archModel.moduleSummary?.total >= c.features.length, `${c.name}: module summary reflects included features`);
 
       if (!c.isAgent) {
         for (const bad of NON_AGENT_CHATBOT_PATTERNS) {

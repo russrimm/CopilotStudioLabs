@@ -1,5 +1,36 @@
 import sanitizeHtml from "sanitize-html";
-import { marked } from "marked";
+import { Marked } from "marked";
+import {
+  ARCHITECTURE_FENCE_LANG,
+  renderArchitectureOverviewHtml,
+} from "./lab-builder/architecture-overview.js";
+
+export const labDiagramExtension = {
+  name: "labDiagrams",
+  renderer: {
+    code({ text, lang }) {
+      const normalized = String(lang || "").trim().toLowerCase();
+      if (normalized === "mermaid") {
+        const escaped = String(text ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;");
+        return `<div class="mermaid">${escaped}</div>`;
+      }
+      if (normalized === ARCHITECTURE_FENCE_LANG) {
+        return renderArchitectureOverviewHtml(text);
+      }
+      return false;
+    },
+  },
+};
+
+const labMarked = new Marked();
+labMarked.use(labDiagramExtension);
+
+const LAB_ARCH_CLASS_RE = /^lab-arch(?:-[a-z0-9-]+)?$/;
+const LAB_ARCH_SVG_CLASS_RE = /^lab-arch(?:-[a-z0-9-]+)?-svg$/;
 
 const SAFE_STYLE_PROPERTIES = {
   "align-items": [/^(?:baseline|center|flex-(?:end|start)|stretch)$/],
@@ -21,19 +52,69 @@ const SAFE_STYLE_PROPERTIES = {
 
 export function sanitizeLabHtml(html) {
   return sanitizeHtml(String(html ?? ""), {
-    allowedTags: [...sanitizeHtml.defaults.allowedTags, "details", "img", "input", "summary"],
+    allowedTags: [
+      ...sanitizeHtml.defaults.allowedTags,
+      "details",
+      "figcaption",
+      "figure",
+      "img",
+      "input",
+      "section",
+      "summary",
+      "svg",
+      "path",
+      "circle",
+      "ellipse",
+      "rect",
+      "line",
+      "polyline",
+      "polygon",
+    ],
     allowedAttributes: {
-      "*": ["style"],
+      "*": ["style", "aria-label", "aria-hidden", "role"],
       a: ["href", "name", "rel", "target"],
       img: sanitizeHtml.defaults.allowedAttributes.img,
       input: ["checked", "disabled", "type"],
+      svg: [
+        "viewBox",
+        "viewbox",
+        "fill",
+        "stroke",
+        "stroke-width",
+        "stroke-linecap",
+        "stroke-linejoin",
+        "width",
+        "height",
+        "aria-hidden",
+      ],
+      path: ["d", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"],
+      circle: ["cx", "cy", "r", "fill", "stroke", "stroke-width"],
+      ellipse: ["cx", "cy", "rx", "ry", "fill", "stroke", "stroke-width"],
+      rect: ["x", "y", "width", "height", "rx", "ry", "fill", "stroke", "stroke-width"],
+      line: ["x1", "y1", "x2", "y2", "stroke", "stroke-width", "stroke-linecap"],
+      polyline: ["points", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"],
+      polygon: ["points", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"],
     },
     allowedClasses: {
       code: [/^language-[a-z0-9_-]+$/],
-      div: ["mermaid", "lab-branding-banner", "lab-branding-title", "lab-branding-tagline"],
+      div: ["mermaid", "lab-branding-banner", "lab-branding-title", "lab-branding-tagline", LAB_ARCH_CLASS_RE],
+      figcaption: [LAB_ARCH_CLASS_RE],
+      figure: [LAB_ARCH_CLASS_RE],
       input: ["task-list-item-checkbox"],
-      li: ["task-list-item"],
-      ul: ["contains-task-list"],
+      li: ["task-list-item", LAB_ARCH_CLASS_RE],
+      pre: [LAB_ARCH_CLASS_RE],
+      section: [LAB_ARCH_CLASS_RE],
+      span: [LAB_ARCH_CLASS_RE],
+      strong: [LAB_ARCH_CLASS_RE],
+      svg: [LAB_ARCH_SVG_CLASS_RE],
+      ul: ["contains-task-list", LAB_ARCH_CLASS_RE],
+    },
+    exclusiveFilter: (frame) => {
+      if (frame.tag === "svg") {
+        const cls = String(frame.attribs?.class || "").trim();
+        return !LAB_ARCH_SVG_CLASS_RE.test(cls) || frame.attribs?.["aria-hidden"] !== "true";
+      }
+      return false;
     },
     allowedSchemes: ["http", "https", "mailto", "tel"],
     allowProtocolRelative: false,
@@ -50,10 +131,18 @@ export function sanitizeLabHtml(html) {
             : safeAttributes,
         };
       },
+      svg: (tagName, attribs) => {
+        const next = { ...attribs };
+        if (next.viewbox && !next.viewBox) {
+          next.viewBox = next.viewbox;
+          delete next.viewbox;
+        }
+        return { tagName, attribs: next };
+      },
     },
   });
 }
 
 export function renderLabMarkdown(markdown, transformHtml = (html) => html) {
-  return sanitizeLabHtml(transformHtml(marked.parse(String(markdown ?? ""))));
+  return sanitizeLabHtml(transformHtml(labMarked.parse(String(markdown ?? ""))));
 }

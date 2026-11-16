@@ -9,6 +9,10 @@
  */
 
 import { deflateRawSync } from "node:zlib";
+import {
+  ARCHITECTURE_FENCE_LANG,
+  renderArchitectureDocumentMarkdown,
+} from "./architecture-overview.js";
 
 // Precompute IEEE 802.3 CRC-32 lookup table.
 const CRC_TABLE = (() => {
@@ -382,6 +386,13 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
           i += 1;
         }
         if (i < lines.length) i += 1;
+        if (String(lang || "").trim().toLowerCase() === ARCHITECTURE_FENCE_LANG) {
+          const archMd = renderArchitectureDocumentMarkdown(codeLines.join("\n"));
+          if (archMd) {
+            blocks.push(...renderBlocks(archMd, blockOpts));
+            continue;
+          }
+        }
         if (lang) {
           blocks.push(
             makeParagraph(makeRun(`[${lang}]`, { bold: true, color: "57606A", sizeHalfPt: 18 }), {

@@ -54,30 +54,14 @@ import {
 } from "./lib/lab-builder/generated-labs.js";
 import { getTopicService } from "./lib/lab-builder/topic-service.js";
 import { learnContext, newTopicCounts, newTopicCountsByLevel, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
-import { renderLabMarkdown } from "./lib/markdown.js";
+import { labDiagramExtension, renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
-/* ── Mermaid extension for marked ───────────────────────────────────────────
- * Converts ```mermaid fenced code blocks into <div class="mermaid"> elements
- * so the client-side Mermaid library renders them as SVG diagrams.
- * GitHub also renders these blocks natively in markdown previews.           */
-const mermaidExtension = {
-  name: "mermaid",
-  renderer: {
-    code({ text, lang }) {
-      if (lang === "mermaid") {
-        const escaped = text
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;");
-        return `<div class="mermaid">${escaped}</div>`;
-      }
-      return false; // fall through to default renderer
-    },
-  },
-};
-marked.use(mermaidExtension);
+/* ── Diagram extension for marked (Mermaid + dynamic lab-architecture) ──────
+ * Keeps global marked aligned with `renderLabMarkdown()` in `./lib/markdown.js`:
+ * - ```mermaid blocks render as <div class="mermaid"> for static labs.
+ * - ```lab-architecture blocks render as <figure class="lab-arch"> blueprints. */
+marked.use(labDiagramExtension);
 import {
   getAllLabResources, getLabResources, checkPrerequisites,
   provision, deprovision, getProvisioningStatus,

@@ -10,6 +10,10 @@
  */
 
 import { deflateSync, inflateSync } from "node:zlib";
+import {
+  ARCHITECTURE_FENCE_LANG,
+  renderArchitectureDocumentMarkdown,
+} from "./architecture-overview.js";
 
 const PAGE_WIDTH = 612; // 8.5 in * 72 pt
 const PAGE_HEIGHT = 792; // 11.0 in * 72 pt
@@ -519,6 +523,7 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
       const fenceMatch = line.match(/^\s*(`{3,}|~{3,})\s*([a-zA-Z0-9_-]*)\s*$/);
       if (fenceMatch) {
         const fence = fenceMatch[1];
+        const lang = fenceMatch[2];
         const closeRe = new RegExp(`^\\s*${fence[0]}{${fence.length},}\\s*$`);
         const codeLines = [];
         i += 1;
@@ -527,6 +532,13 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
           i += 1;
         }
         if (i < lines.length) i += 1;
+        if (String(lang || "").trim().toLowerCase() === ARCHITECTURE_FENCE_LANG) {
+          const archMd = renderArchitectureDocumentMarkdown(codeLines.join("\n"));
+          if (archMd) {
+            renderMarkdownBlocks(archMd, nestedOpts);
+            continue;
+          }
+        }
 
         const codeSize = 8.5;
         const codeLineH = 11.5;

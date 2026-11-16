@@ -16,6 +16,11 @@
  */
 
 import { DEFAULT_PRODUCT, getProduct, productName, productOf, productsPhrase } from "./products.js";
+import {
+  ARCHITECTURE_FENCE_LANG,
+  buildArchitectureModel,
+  serializeArchitectureBlock,
+} from "./architecture-overview.js";
 
 export const DELIVERABLE_MODES = Object.freeze({
   COPILOT_STUDIO_AGENT: "copilot-studio-agent",
@@ -82,18 +87,6 @@ function baseScopeFromName(agentName) {
     .replace(/\s+Assistant$/i, "")
     .trim();
   return cleaned || "Enterprise";
-}
-
-/** Sanitize untrusted/scenario text before placing it inside a Mermaid node label. */
-function mermaidSafe(text, maxLen = 56) {
-  const clean = String(text || "")
-    .replace(/[`"'<>[\]{}()|\\;\r\n#*~_]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (clean.length <= maxLen) return clean;
-  const sliced = clean.slice(0, maxLen - 3);
-  const boundary = sliced.lastIndexOf(" ");
-  return `${(boundary > 20 ? sliced.slice(0, boundary) : sliced).replace(/[,;:\s]+$/, "")}...`;
 }
 
 /** Choose the dominant product from active modules, preserving product order on ties. */
@@ -770,161 +763,65 @@ export function describeDeliverable(plan) {
 }
 
 /**
- * Build a product- and capability-accurate Mermaid architecture diagram block
- * for `## The Scenario` (`### Solution Architecture`).
+ * Build a dynamic, plan-driven Solution Architecture Overview block
+ * (` ```lab-architecture `) for `## The Scenario` (`### Solution Architecture`).
  */
 export function buildArchitectureBlock(plan, u) {
   const info = describeDeliverable(plan);
   const profile = plan.profile || {};
-  const name = mermaidSafe(profile.agentName || "Solution");
-  const audience = mermaidSafe(profile.audience || "Users", 56);
-  const primarySource = mermaidSafe(profile.knowledgeSources?.[0] || "Enterprise data", 56);
-  const secondarySource = mermaidSafe(profile.knowledgeSources?.[2] || profile.knowledgeSources?.[1] || "Business records", 56);
-  const kpi = mermaidSafe(profile.kpi || "Operational outcome", 50);
+  const model = buildArchitectureModel({
+    ...plan,
+    deliverable: { ...(plan.deliverable || {}), mode: info.mode, isAgent: info.isAgent },
+  });
 
   let lead = "";
-  let diagram = [];
-
   switch (info.mode) {
     case DELIVERABLE_MODES.M365_COPILOT_GOVERNANCE:
       lead = `How **${u.esc(profile.agentName)}** governs Microsoft 365 Copilot access, data security, and adoption across your tenant:`;
-      diagram = [
-        "flowchart LR",
-        `  Admin["IT and AI Admins"] --> Hub["M365 Admin Center Copilot Hub"]`,
-        `  Hub --> Lic["Licenses and PAYG Billing"]`,
-        `  Hub --> Reg["Agent Registry and Access Rules"]`,
-        `  Purview["Microsoft Purview and SharePoint SAM"] --> Data["${primarySource}"]`,
-        `  Lic --> Users["${audience}"]`,
-        `  Reg --> Users`,
-        `  Data --> Users`,
-        `  Hub --> Metrics["Adoption Reports: ${kpi}"]`,
-      ];
       break;
-
     case DELIVERABLE_MODES.DECLARATIVE_AGENT_GOVERNANCE:
       lead = `How **${u.esc(profile.agentName)}** governs declarative agent readiness, review, and tenant availability:`;
-      diagram = [
-        "flowchart LR",
-        `  Makers["Agent Makers"] --> Submit["Declarative Agent Package"]`,
-        `  Submit --> Admin["M365 Admin Center Agent Registry"]`,
-        `  Conn["Copilot Connector Prerequisites"] --> Admin`,
-        `  Admin --> Scope["Scoped User and Group Access"]`,
-        `  Scope --> Users["${audience}"]`,
-      ];
       break;
-
     case DELIVERABLE_MODES.POWER_PLATFORM_AI_BUILDER:
       lead = `How **${u.esc(profile.agentName)}** processes incoming content with AI Builder prompts, models, and Power Platform workflows:`;
-      diagram = [
-        "flowchart LR",
-        `  Input["Incoming Docs and Requests"] --> Hub["Power Platform AI Hub"]`,
-        `  Source["${primarySource}"] --> Hub`,
-        `  Hub --> AI["AI Builder Prompts and Models"]`,
-        `  AI --> Flow["Power Automate Cloud Flows and Power Fx"]`,
-        `  Flow --> Data["${secondarySource}"]`,
-        `  Flow --> Users["${audience}"]`,
-      ];
       break;
-
     case DELIVERABLE_MODES.POWER_PLATFORM_AI_GOVERNANCE:
       lead = `How **${u.esc(profile.agentName)}** governs AI Builder capacity, security, monitoring, and ALM across environments:`;
-      diagram = [
-        "flowchart LR",
-        `  Admin["Power Platform Admins"] --> PPAC["Power Platform Admin Center"]`,
-        `  PPAC --> Credits["Copilot Credits and Capacity"]`,
-        `  PPAC --> Sec["Environment Roles and Data Policies"]`,
-        `  Sec --> AIHub["AI Builder Prompts and Models"]`,
-        `  Credits --> AIHub`,
-        `  AIHub --> ALM["Managed Solutions and Activity Logs"]`,
-      ];
       break;
-
     case DELIVERABLE_MODES.SHAREPOINT_CONTENT_AI:
       lead = `How **${u.esc(profile.agentName)}** extracts structured metadata and processes files in SharePoint libraries:`;
-      diagram = [
-        "flowchart LR",
-        `  Upload["Uploaded Library Documents"] --> Lib["${primarySource}"]`,
-        `  Lib --> SPAI["SharePoint AI Autofill and Document Processing"]`,
-        `  Credits["Copilot Credits Billing"] --> SPAI`,
-        `  SPAI --> Cols["Structured Library Columns and Views"]`,
-        `  Cols --> Users["${audience}"]`,
-      ];
       break;
-
     case DELIVERABLE_MODES.SHAREPOINT_GOVERNANCE:
       lead = `How **${u.esc(profile.agentName)}** enforces oversharing, lifecycle, and agent access controls across SharePoint sites:`;
-      diagram = [
-        "flowchart LR",
-        `  SPAdmin["SharePoint Admins"] --> SAM["SharePoint Advanced Management"]`,
-        `  SAM --> Assess["DAG Oversharing and Access Reviews"]`,
-        `  SAM --> Policy["RCD, RAC, and Site Lifecycle Policies"]`,
-        `  Policy --> Sites["${primarySource}"]`,
-        `  Sites --> Users["${audience}"]`,
-      ];
       break;
-
     case DELIVERABLE_MODES.SHAREPOINT_AGENT:
       lead = `How **${u.esc(profile.agentName)}** grounds answers strictly in permission-trimmed SharePoint site content:`;
-      diagram = [
-        "flowchart LR",
-        `  Users["${audience}"] --> Agent["${name}"]`,
-        `  Agent --> Perms["SharePoint Permission Trimming"]`,
-        `  Perms --> Lib["${primarySource}"]`,
-        `  Admin["SharePoint Site and SAM Controls"] --> Lib`,
-      ];
       break;
-
     case DELIVERABLE_MODES.DECLARATIVE_AGENT:
       lead = `How **${u.esc(profile.agentName)}** runs on the Microsoft 365 Copilot orchestrator with scoped grounding and actions:`;
-      diagram = [
-        "flowchart LR",
-        `  Users["${audience}"] --> M365["Microsoft 365 Copilot Chat"]`,
-        `  M365 --> Orch["M365 Copilot Orchestrator"]`,
-        `  Orch --> Decl["${name}: Instructions and Capabilities"]`,
-        `  Decl --> Know["${primarySource}"]`,
-        `  Decl --> Act["Governed Plugins and Connectors"]`,
-      ];
       break;
-
     case DELIVERABLE_MODES.FOUNDRY_MODELS_PLATFORM:
       lead = `How **${u.esc(profile.agentName)}** organizes models, guardrails, quota, and RBAC in Microsoft Foundry:`;
-      diagram = [
-        "flowchart LR",
-        `  Team["${audience}"] --> Proj["${name}"]`,
-        `  RBAC["Azure RBAC and Cost Budgets"] --> Proj`,
-        `  Proj --> Cat["Foundry Model Catalog and Quota"]`,
-        `  Cat --> Deploy["Model Deployment + Safety Guardrails"]`,
-        `  Deploy --> Eval["Playground Benchmark: ${kpi}"]`,
-      ];
       break;
-
     case DELIVERABLE_MODES.FOUNDRY_AGENT:
       lead = `How **${u.esc(profile.agentName)}** combines Microsoft Foundry model deployments, grounding, tools, and evaluation:`;
-      diagram = [
-        "flowchart LR",
-        `  Users["${audience}"] --> FAgent["${name}"]`,
-        `  FAgent --> Model["Deployed Foundry Model + Guardrails"]`,
-        `  FAgent --> Search["${primarySource}"]`,
-        `  FAgent --> Tools["Foundry Tools and Tracing"]`,
-        `  Tools --> Eval["Evaluations and Monitoring"]`,
-      ];
       break;
-
     case DELIVERABLE_MODES.COPILOT_STUDIO_AGENT:
     default:
       lead = `How **${u.esc(profile.agentName)}** connects channel users, orchestration, grounded knowledge, and enterprise actions:`;
-      diagram = [
-        "flowchart LR",
-        `  Users["${audience}"] --> Chan["Teams and M365 Channels"]`,
-        `  Chan --> Agent["${name}"]`,
-        `  Agent --> Know["${primarySource}"]`,
-        `  Agent --> Data["${secondarySource}"]`,
-        `  Gov["Authentication, DLP, and Analytics"] --> Agent`,
-      ];
       break;
   }
 
-  return ["", "### Solution Architecture", "", lead, "", "```mermaid", ...diagram, "```"];
+  return [
+    "",
+    "### Solution Architecture",
+    "",
+    lead,
+    "",
+    `\`\`\`${ARCHITECTURE_FENCE_LANG}`,
+    serializeArchitectureBlock(model),
+    "```",
+  ];
 }
 
 /**

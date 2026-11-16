@@ -387,7 +387,7 @@ them as a seed. `recommend` returns `products`, one summary per selected product
 with its topic counts per level and a sentence that says what exists when the chosen
 level has nothing, which is how the wizard avoids a dead end.
 
-**Product-accurate deliverables** (`portal/lib/lab-builder/deliverable.js`). Not every
+**Product-accurate deliverables** (`portal/lib/lab-builder/deliverable.js` and `architecture-overview.js`). Not every
 product or capability builds a conversational agent: `resolveDeliverable()` maps the
 selected products and modules to one of 11 `DELIVERABLE_MODES` (`copilot-studio-agent`,
 `declarative-agent`, `declarative-agent-governance`, `m365-copilot-governance`,
@@ -397,8 +397,13 @@ selected products and modules to one of 11 `DELIVERABLE_MODES` (`copilot-studio-
 QA checks use that descriptor so non-agent tracks (such as Microsoft 365 Copilot hub
 governance, AI Builder prompts and models, SharePoint content intelligence or
 SharePoint Advanced Management governance, and Microsoft Foundry model/platform
-provisioning) get accurate titles, architecture diagrams, sample inputs, and learning
-objectives instead of framing every lab as "Build an *X* Assistant".
+provisioning) get accurate titles, sample inputs, and learning objectives instead of
+framing every lab as "Build an *X* Assistant". Under `### Solution Architecture`,
+`buildArchitectureModel(plan)` inspects the lab's actual selected products, harness,
+level, scenario profile, and `Step N` / `Recap K` modules to emit a structured
+```` ```lab-architecture ```` blueprint that renders as a connected multi-layer visual
+overview in the portal preview and standalone `index.html` (with dark, light, and print
+themes) and as a formatted architecture table in `.docx` and `.pdf` exports.
 
 **Manifests.** `manifest.json` records `generator`, `product` (the one most modules
 belong to), `products`, and each module's `product`. A manifest without them is a
