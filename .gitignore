@@ -26,3 +26,6 @@ portal/public/uploads/
 
 # Feature tour site build output (tools/feature-tour/)
 _site/
+
+# Azure Developer CLI local environment & deployment plan state
+.azure/

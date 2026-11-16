@@ -383,6 +383,10 @@ app.use(["/uploads", LABS_ROUTE], (_req, res) => {
   res.status(404).json({ error: "Asset not found" });
 });
 
+app.get("/healthz", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
 // All /api/* routes require an Entra ID bearer token. The middleware
 // internally exempts capability-token callback paths (e.g. approval links
 // delivered by email) that authenticate themselves.
