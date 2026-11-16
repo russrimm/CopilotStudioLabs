@@ -543,6 +543,8 @@ app.post("/api/lab-builder/preview", (req, res) => {
         role: f.prerequisite ? "prerequisite" : "level",
         minutes: f.minutes,
         summary: f.summary,
+        docUrls: f.docUrls || [],
+        learnLinks: f.learnLinks || [],
       })),
       level: plan.level,
       products: plan.products,

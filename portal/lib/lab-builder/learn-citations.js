@@ -10,6 +10,131 @@
 
 const LEARN_HOSTS = new Set(["learn.microsoft.com", "docs.microsoft.com"]);
 
+const LEARN_TERM_CASE = new Map([
+  ["ai", "AI"],
+  ["mcp", "MCP"],
+  ["mcps", "MCPs"],
+  ["api", "API"],
+  ["apis", "APIs"],
+  ["sso", "SSO"],
+  ["dlp", "DLP"],
+  ["rbac", "RBAC"],
+  ["alm", "ALM"],
+  ["m365", "M365"],
+  ["rest", "REST"],
+  ["oauth", "OAuth"],
+  ["http", "HTTP"],
+  ["https", "HTTPS"],
+  ["json", "JSON"],
+  ["sql", "SQL"],
+  ["url", "URL"],
+  ["urls", "URLs"],
+  ["ui", "UI"],
+  ["ux", "UX"],
+  ["cli", "CLI"],
+  ["sdk", "SDK"],
+  ["sdks", "SDKs"],
+  ["ide", "IDE"],
+  ["ides", "IDEs"],
+  ["pr", "PR"],
+  ["prs", "PRs"],
+  ["gpt", "GPT"],
+  ["nlu", "NLU"],
+  ["faq", "FAQ"],
+  ["faqs", "FAQs"],
+  ["cua", "CUA"],
+  ["iva", "IVA"],
+  ["ivr", "IVR"],
+  ["sap", "SAP"],
+  ["fhir", "FHIR"],
+  ["a2a", "A2A"],
+  ["byom", "BYOM"],
+  ["vnet", "VNet"],
+  ["vnets", "VNets"],
+  ["entra", "Entra"],
+  ["id", "ID"],
+  ["sharepoint", "SharePoint"],
+  ["onedrive", "OneDrive"],
+  ["onenote", "OneNote"],
+  ["dataverse", "Dataverse"],
+  ["powerfx", "Power Fx"],
+  ["powershell", "PowerShell"],
+  ["github", "GitHub"],
+  ["openapi", "OpenAPI"],
+  ["graphql", "GraphQL"],
+  ["servicenow", "ServiceNow"],
+  ["dynamics365", "Dynamics 365"],
+  ["copilot", "Copilot"],
+  ["microsoft", "Microsoft"],
+  ["azure", "Azure"],
+  ["foundry", "Foundry"],
+  ["teams", "Teams"],
+  ["vscode", "VS Code"],
+  ["javascript", "JavaScript"],
+  ["typescript", "TypeScript"],
+  ["nodejs", "Node.js"],
+  ["yaml", "YAML"],
+  ["xml", "XML"],
+  ["csv", "CSV"],
+  ["html", "HTML"],
+  ["css", "CSS"],
+  ["pdf", "PDF"],
+  ["docx", "DOCX"],
+  ["pptx", "PPTX"],
+  ["jwt", "JWT"],
+  ["saml", "SAML"],
+  ["oidc", "OIDC"],
+  ["pii", "PII"],
+  ["phi", "PHI"],
+]);
+
+const MINOR_TITLE_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "as",
+  "at",
+  "by",
+  "for",
+  "from",
+  "in",
+  "into",
+  "nor",
+  "of",
+  "on",
+  "or",
+  "per",
+  "the",
+  "to",
+  "up",
+  "via",
+  "vs",
+  "with",
+]);
+
+const GENERIC_LEARN_SLUGS = new Set([
+  "overview",
+  "index",
+  "quickstart",
+  "get-started",
+  "getting-started",
+  "whats-new",
+  "faq",
+  "faqs",
+  "introduction",
+  "readme",
+]);
+
+const STRUCTURAL_PATH_SEGMENTS = new Set([
+  "concepts",
+  "how-to",
+  "quickstarts",
+  "tutorials",
+  "guidance",
+  "reference",
+  "includes",
+]);
+
 const TRACKING_QUERY_PARAMS = new Set([
   "wt.mc_id",
   "ocid",
@@ -424,4 +549,236 @@ export function selectRelevantLearnSource(sources, textHints = [], options = {})
     label: formatCitationLabel(best, scrub),
     url: best.url,
   };
+}
+
+/**
+ * Validate that a raw URL is strictly `https://learn.microsoft.com/...` with no
+ * credentials, custom port, or unsafe characters, then return its canonical
+ * Microsoft Learn URL. Rejects `http:`, `javascript:`, `docs.microsoft.com`,
+ * and all third-party domains.
+ */
+export function strictHttpsLearnUrl(rawUrl) {
+  if (typeof rawUrl !== "string") return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed || /[\s<>"'`\u0000-\u001f]/.test(trimmed)) return null;
+
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== "https:") return null;
+  if (parsed.username || parsed.password || parsed.port) return null;
+  if (parsed.hostname.toLowerCase() !== "learn.microsoft.com") return null;
+
+  const clean = canonicalLearnUrl(trimmed, { keepFragment: false });
+  if (!clean || !clean.startsWith("https://learn.microsoft.com/")) return null;
+  try {
+    const cleanParsed = new URL(clean);
+    if (!cleanParsed.pathname || cleanParsed.pathname === "/") return null;
+  } catch {
+    return null;
+  }
+  return clean;
+}
+
+function learnPathSegments(url) {
+  try {
+    const pathname = new URL(url).pathname
+      .replace(/^\/[a-z]{2}-[a-z]{2,4}(?=\/|$)/i, "")
+      .replace(/\/+$/, "");
+    return pathname
+      .split("/")
+      .filter(Boolean)
+      .map((seg) => {
+        try {
+          return decodeURIComponent(seg);
+        } catch {
+          return seg;
+        }
+      });
+  } catch {
+    return [];
+  }
+}
+
+function humanizeLearnSegment(segment) {
+  const cleaned = String(segment || "")
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[-_]+/g, " ")
+    .trim();
+  if (!cleaned) return "";
+  const words = cleaned.split(/\s+/);
+  return words
+    .map((word, idx) => {
+      const lower = word.toLowerCase();
+      if (LEARN_TERM_CASE.has(lower)) return LEARN_TERM_CASE.get(lower);
+      if (idx > 0 && idx < words.length - 1 && MINOR_TITLE_WORDS.has(lower)) return lower;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+}
+
+/**
+ * Derive a concise, human-readable US English article title from a Microsoft
+ * Learn URL slug, capitalizing known technical acronyms and product names.
+ */
+export function formatLearnSlugTitle(rawUrl) {
+  const segments = learnPathSegments(rawUrl);
+  if (!segments.length) return "Microsoft Learn Documentation";
+  const leaf = segments[segments.length - 1];
+  const leafClean = leaf.replace(/\.[a-z0-9]+$/i, "").toLowerCase();
+  const leafTitle = humanizeLearnSegment(leaf);
+  if (!leafTitle) return "Microsoft Learn Documentation";
+
+  if (GENERIC_LEARN_SLUGS.has(leafClean) && segments.length >= 2) {
+    let parentIdx = segments.length - 2;
+    while (parentIdx > 0 && STRUCTURAL_PATH_SEGMENTS.has(segments[parentIdx].toLowerCase())) {
+      parentIdx -= 1;
+    }
+    const parentTitle = humanizeLearnSegment(segments[parentIdx]);
+    if (parentTitle && parentTitle.toLowerCase() !== leafTitle.toLowerCase()) {
+      return `${parentTitle}: ${leafTitle}`;
+    }
+  }
+
+  return leafTitle;
+}
+
+/**
+ * Collect, validate, canonicalize, deduplicate, and label all
+ * `https://learn.microsoft.com/...` links associated with a catalog feature
+ * and/or dynamic Microsoft Learn topic.
+ *
+ * @param {object|null|undefined} feature
+ * @param {object|null|undefined} [dynamicTopic]
+ * @returns {Array<{url: string, title: string}>}
+ */
+export function extractFeatureLearnLinks(feature, dynamicTopic = null) {
+  const dyn = dynamicTopic || feature?.learnTopic || feature?.learn || null;
+  const rawCandidates = [];
+
+  const primaryDynUrl =
+    typeof dyn?.url === "string"
+      ? dyn.url
+      : Array.isArray(dyn?.urls) && typeof dyn.urls[0] === "string"
+      ? dyn.urls[0]
+      : null;
+  const primaryDynTitle =
+    dyn?.title ||
+    (primaryDynUrl && (dynamicTopic || feature?.learnTopic || feature?.source === "learn") ? feature?.name : "") ||
+    "";
+
+  if (primaryDynUrl) {
+    rawCandidates.push({ url: primaryDynUrl, title: primaryDynTitle });
+  }
+
+  if (Array.isArray(dyn?.subtopics)) {
+    for (const sub of dyn.subtopics) {
+      if (sub && typeof sub === "object" && sub.url) {
+        rawCandidates.push({ url: sub.url, title: sub.title || "" });
+      }
+    }
+  }
+
+  if (Array.isArray(dyn?.urls)) {
+    for (const url of dyn.urls) {
+      rawCandidates.push({ url, title: "" });
+    }
+  }
+
+  if (Array.isArray(feature?.learnLinks)) {
+    for (const link of feature.learnLinks) {
+      if (link && typeof link === "object" && link.url) {
+        rawCandidates.push({ url: link.url, title: link.title || "" });
+      }
+    }
+  }
+
+  if (Array.isArray(feature?.docUrls)) {
+    for (const url of feature.docUrls) {
+      rawCandidates.push({ url, title: "" });
+    }
+  }
+
+  if (typeof feature?.verifiedAgainst === "string" && feature.verifiedAgainst) {
+    rawCandidates.push({ url: feature.verifiedAgainst, title: "" });
+  }
+
+  const byPageKey = new Map();
+  const pageOrder = [];
+
+  for (const candidate of rawCandidates) {
+    const cleanUrl = strictHttpsLearnUrl(candidate?.url);
+    if (!cleanUrl) continue;
+    const pageKey = canonicalLearnPageKey(cleanUrl);
+    if (!pageKey) continue;
+
+    const explicitTitle = isExplicitHumanTitle(candidate.title, candidate.url)
+      ? stripLearnSuffix(candidate.title)
+      : "";
+
+    if (!byPageKey.has(pageKey)) {
+      byPageKey.set(pageKey, { url: cleanUrl, explicitTitle });
+      pageOrder.push(pageKey);
+    } else {
+      const prev = byPageKey.get(pageKey);
+      prev.url = chooseBetterUrl(prev.url, cleanUrl);
+      if (!prev.explicitTitle && explicitTitle) {
+        prev.explicitTitle = explicitTitle;
+      } else if (prev.explicitTitle && explicitTitle) {
+        prev.explicitTitle = chooseBetterTitle(prev.explicitTitle, prev.url, explicitTitle, cleanUrl);
+      }
+    }
+  }
+
+  const results = pageOrder.map((key) => {
+    const entry = byPageKey.get(key);
+    return {
+      url: entry.url,
+      title: entry.explicitTitle || formatLearnSlugTitle(entry.url),
+    };
+  });
+
+  // Disambiguate any distinct Learn URLs on the same topic that share the same visible title.
+  const groupsByTitle = new Map();
+  results.forEach((item, index) => {
+    const norm = item.title.toLowerCase();
+    if (!groupsByTitle.has(norm)) groupsByTitle.set(norm, []);
+    groupsByTitle.get(norm).push(index);
+  });
+
+  for (const indices of groupsByTitle.values()) {
+    if (indices.length < 2) continue;
+    const segLists = indices.map((idx) => learnPathSegments(results[idx].url).slice(0, -1));
+    for (let pos = 0; pos < indices.length; pos += 1) {
+      const idx = indices[pos];
+      const ownSegs = segLists[pos];
+      let qualifier = "";
+      for (let depth = ownSegs.length - 1; depth >= 0; depth -= 1) {
+        const candidateSeg = ownSegs[depth];
+        if (STRUCTURAL_PATH_SEGMENTS.has(candidateSeg.toLowerCase())) continue;
+        const differsFromSome = segLists.some(
+          (otherSegs, otherPos) =>
+            otherPos !== pos &&
+            (otherSegs[otherSegs.length - (ownSegs.length - depth)] || "").toLowerCase() !==
+              candidateSeg.toLowerCase(),
+        );
+        if (differsFromSome) {
+          qualifier = humanizeLearnSegment(candidateSeg);
+          break;
+        }
+      }
+      if (!qualifier && ownSegs.length) {
+        qualifier = ownSegs.map(humanizeLearnSegment).filter(Boolean).join(" / ");
+      }
+      if (qualifier) {
+        results[idx].title = `${results[idx].title} (${qualifier})`;
+      }
+    }
+  }
+
+  return results;
 }

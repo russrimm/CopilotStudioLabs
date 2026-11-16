@@ -12,6 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { expandPrereqs, getFeature, getFeatures, getHarnesses, orderFeatures, getCoreFeatures } from "./catalog.js";
+import { extractFeatureLearnLinks } from "./learn-citations.js";
 import { getProducts, productHasHarnesses, productName, productOf, productsPhrase } from "./products.js";
 import { defaultDifferencesFor } from "./differences.js";
 import { getIndustries, getRoles } from "../scenarios.js";
@@ -731,9 +732,11 @@ export function planLab(request = {}) {
   const features = numberFeatures(
     ordered.map((id) => {
       const feature = getFeature(id);
-      if (!isRecap(id)) return { ...feature };
+      const learnLinks = extractFeatureLearnLinks(feature);
+      if (!isRecap(id)) return { ...feature, learnLinks };
       return {
         ...feature,
+        learnLinks,
         prerequisite: true,
         fullMinutes: feature.minutes,
         minutes: Math.min(feature.minutes, PREREQ_RECAP_MINUTES),
@@ -898,6 +901,8 @@ export function dropModules(plan, ids, reason = "removed") {
       name: feature.name,
       minutes: feature.minutes,
       summary: feature.summary,
+      docUrls: feature.docUrls || [],
+      learnLinks: feature.learnLinks || extractFeatureLearnLinks(feature),
       requested: (plan.request.features || []).includes(feature.id),
       reason,
     })),

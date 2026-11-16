@@ -20,6 +20,7 @@
 import { getFeatures, getHarnesses, expandPrereqs } from "./catalog.js";
 import { getConcepts, getRecommendations, notApplicableReason } from "./concepts.js";
 import { conceptProducts } from "./coverage.js";
+import { extractFeatureLearnLinks } from "./learn-citations.js";
 import { DEFAULT_PRODUCT, getProduct, getProducts, productHasHarnesses, productName, productOf } from "./products.js";
 import { DIFFICULTY_BY_LEVEL, formatDuration } from "./planner.js";
 import { getIndustries, getRoles } from "../scenarios.js";
@@ -280,6 +281,8 @@ export function recommend(answers = {}, learn = {}) {
       source: discovered ? "learn" : "catalog",
       // `estimated` marks a Learn topic whose level came from the docs rubric rather than the snapshot.
       levelBasis: f.levelBasis || "declared",
+      docUrls: f.docUrls || [],
+      learnLinks: extractFeatureLearnLinks(f, discovered),
       // `new` topics come from Learn and are not in the catalog; `updated` and `stale` flag a catalog topic whose docs changed or moved.
       learn: discovered
         ? {
@@ -393,6 +396,8 @@ export function recommend(answers = {}, learn = {}) {
         requiresSharepointSite: featureRequiresSharepointSite(f),
         neededBy: needers,
         reason: `Needed by ${needers.join(", ")}. Included as a short Level ${f.level} recap, not a full module.`,
+        docUrls: f.docUrls || [],
+        learnLinks: extractFeatureLearnLinks(f, dynamicTopics.get(id)),
       };
     })
     .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
