@@ -515,7 +515,7 @@ test("Your lab so far reveals each wizard option progressively only after its st
 
 // ── Wizard card footer & prominent stat chips ───────────────────────────────
 
-test("Step 1 product cards, Step 4 level cards, and Step 5 harness cards separate bottom stats into scannable accessible stat chips", async () => {
+test("Step 1 product cards, Step 4 level cards, and Step 5 harness cards separate total counts from per-level breakdown rows", async () => {
   const { getFeaturesByCategory } = await import("../lib/lab-builder/catalog.js");
   const run = loadWizard();
   const catalogProducts = getProducts().map((p) => ({
@@ -545,19 +545,19 @@ test("Step 1 product cards, Step 4 level cards, and Step 5 harness cards separat
   );
   assert.equal(run('lbProductLevelCounts({ id: "empty-product" })'), "No topics yet");
 
-  // Product card separates description from .lb-card-footer containing stat chips and Learn link on its own line.
+  // Product card separates description from two-tier .lb-card-footer: Row 1 (.lb-stat-total-row) + Row 2 (.lb-stat-level-grid).
   assert.match(productHtml, /class="lb-card-body"/);
   assert.match(productHtml, /class="scenario-card-desc"[\s\S]*?<div class="lb-card-footer">/);
   assert.match(
     productHtml,
     new RegExp(
-      `<span class="lb-stat-chip lb-stat-chip-total"><strong>${csProduct.featureCount}<\\/strong> topics<span class="sr-only">\\.<\\/span><\\/span>`,
+      `<div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total"><strong>${csProduct.featureCount}<\\/strong> total topics<span class="sr-only">\\.<\\/span><\\/span><\\/div>`,
     ),
   );
   assert.match(
     productHtml,
     new RegExp(
-      `<span class="lb-stat-chip lb-stat-chip-level">Level 100: <strong>${csL100}<\\/strong><span class="sr-only">,<\\/span><\\/span>`,
+      `<div class="lb-stat-level-grid lb-stat-level-grid-3">[\\s\\S]*?<span class="lb-stat-chip lb-stat-chip-level"><span class="lb-stat-level-label">Level 100<span class="sr-only">:<\\/span><\\/span> <strong>${csL100}<\\/strong><span class="sr-only">,<\\/span><\\/span>`,
     ),
   );
   assert.match(
@@ -569,26 +569,37 @@ test("Step 1 product cards, Step 4 level cards, and Step 5 harness cards separat
   const plainText = productHtml.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
   assert.ok(
     plainText.includes(
-      `${csProduct.featureCount} topics. Level 100: ${csL100}, Level 200: ${csL200}, Level 300: ${csL300}. Microsoft Learn for Copilot Studio (opens in a new tab)`,
+      `${csProduct.featureCount} total topics. Level 100: ${csL100}, Level 200: ${csL200}, Level 300: ${csL300}. Microsoft Learn for Copilot Studio (opens in a new tab)`,
     ),
     `Expected natural screen-reader text in: ${plainText}`,
   );
 
-  // Checked state toggles .checked class on selected product card, plus singular "1 topic" and 0-topic "No topics yet" edge cases.
+  // Checked state toggles .checked class on selected product card, plus 1-level, 2-level, and 0-topic edge cases.
   run(`
     labBuilder.products = [
       { id: "solo", name: "Solo Product", shortName: "Solo", summary: "One topic.", featureCount: 1, learnHubUrl: "https://learn.microsoft.com/solo" },
+      { id: "duo", name: "Duo Product", shortName: "Duo", summary: "Two levels.", featureCount: 3 },
       { id: "zero", name: "Empty Product", shortName: "Empty", summary: "Coming soon.", featureCount: 0 }
     ];
-    labBuilder.categories = [{ id: "c", features: [{ id: "f1", product: "solo", level: 100 }] }];
+    labBuilder.categories = [{
+      id: "c",
+      features: [
+        { id: "f1", product: "solo", level: 100 },
+        { id: "f2", product: "duo", level: 100 },
+        { id: "f3", product: "duo", level: 200 },
+        { id: "f4", product: "duo", level: 200 }
+      ]
+    }];
     lbToggleProduct("solo", true);
   `);
   const edgeHtml = run.element("lb-product-options").innerHTML;
   assert.match(edgeHtml, /<label class="scenario-role checked">\s*<input[^>]*value="solo"[^>]*checked>/);
-  assert.match(edgeHtml, /<span class="lb-stat-chip lb-stat-chip-total"><strong>1<\/strong> topic<span class="sr-only">\.<\/span><\/span>/);
-  assert.match(edgeHtml, /<span class="lb-stat-chip lb-stat-chip-empty">No topics yet<span class="sr-only">\.<\/span><\/span>/);
+  assert.match(edgeHtml, /<div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total"><strong>1<\/strong> total topic<span class="sr-only">\.<\/span><\/span><\/div>/);
+  assert.match(edgeHtml, /<div class="lb-stat-level-grid lb-stat-level-grid-1"><span class="lb-stat-chip lb-stat-chip-level">/);
+  assert.match(edgeHtml, /<div class="lb-stat-level-grid lb-stat-level-grid-2"><span class="lb-stat-chip lb-stat-chip-level">/);
+  assert.match(edgeHtml, /<div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-empty">No topics yet<span class="sr-only">\.<\/span><\/span><\/div>/);
 
-  // Step 4 (levels) and Step 5 (harnesses) also render separated .lb-card-footer + .lb-product-stats chips.
+  // Step 4 (levels) and Step 5 (harnesses) also separate headline .lb-stat-total-row from secondary .lb-stat-detail-row.
   run(`
     labBuilder.products = ${JSON.stringify(catalogProducts)};
     labBuilder.categories = ${JSON.stringify(getFeaturesByCategory())};
@@ -601,12 +612,116 @@ test("Step 1 product cards, Step 4 level cards, and Step 5 harness cards separat
   run("lbRenderHarnesses()");
 
   const levelHtml = run.element("lb-level-options").innerHTML;
-  assert.match(levelHtml, /class="lb-card-footer"[\s\S]*?class="lb-product-stats"[\s\S]*?lb-stat-chip-total/);
+  assert.match(levelHtml, /class="lb-card-footer"[\s\S]*?class="lb-stat-total-row"[\s\S]*?lb-stat-chip-total[\s\S]*?class="lb-stat-detail-row"/);
   assert.match(levelHtml, /Around <strong>[^<]+<\/strong> \(estimate\)/);
 
   const harnessHtml = run.element("lb-harness-options").innerHTML;
-  assert.match(harnessHtml, /class="lb-card-footer"[\s\S]*?class="lb-product-stats"[\s\S]*?lb-stat-chip-total/);
+  assert.match(harnessHtml, /class="lb-card-footer"[\s\S]*?class="lb-stat-total-row"[\s\S]*?lb-stat-chip-total/);
   assert.match(harnessHtml, /class="lb-card-learn"><a href="https:\/\/learn\.microsoft\.com\//);
+});
+
+test("sticky top navigation and right-anchored step footers stay synchronized across visible and skipped steps", async () => {
+  const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
+  const html = read("../public/index.html");
+  const serverJs = read("../server.js");
+
+  // Static public assets set Cache-Control: no-cache so browsers validate fresh wizard JS/CSS on reload.
+  assert.match(
+    serverJs,
+    /express\.static\(resolve\(import\.meta\.dirname,\s*"public"\),\s*\{\s*setHeaders\(res\)\s*\{\s*res\.setHeader\("Cache-Control",\s*"no-cache"\);/,
+  );
+
+  // Sticky bar exposes persistent Back + Next controls alongside Start over, and Steps 1-5, 7, 8 use .lb-step-footer.
+  assert.match(html, /id="lb-wizard-sticky"[\s\S]*?id="lb-sticky-back"[^>]*hidden[\s\S]*?id="lb-sticky-next"[^>]*>Next: Vertical →<\/button>/);
+  for (const paneId of [1, 2, 3, 4, 5, 7, 8]) {
+    const paneMatch = html.match(
+      new RegExp(`id="lb-pane-${paneId}"[\\s\\S]*?(?=<!-- Step |<div class="panel" id="lb-result-panel")`),
+    );
+    assert.ok(paneMatch, `expected #lb-pane-${paneId}`);
+    assert.match(paneMatch[0], /class="lb-step-footer"/, `#lb-pane-${paneId} should use .lb-step-footer`);
+    assert.match(paneMatch[0], /class="btn btn-primary lb-nav-next"/, `#lb-pane-${paneId} should have prominent .lb-nav-next CTA`);
+  }
+  // Step 6 bottom bar is styled consistently via CSS without touching #lb-pane-6 inner markup.
+  assert.match(html, /#lb-pane-6\s*>\s*div:last-child\s*\{/);
+  assert.match(html, /\.lb-step-footer\s*>\s*\.lb-nav-next,\s*#lb-pane-6\s*>\s*div:last-child\s*>\s*\.btn-primary\s*\{\s*margin-left:\s*auto;/);
+
+  const { getFeaturesByCategory } = await import("../lib/lab-builder/catalog.js");
+  const run = loadWizard();
+  run(`labBuilder.categories = ${JSON.stringify(getFeaturesByCategory())};`);
+  run(`labBuilder.harnesses = ${JSON.stringify(getHarnesses())};`);
+  run("lbSyncNavControls()");
+  assert.equal(run.element("lb-sticky-back").hidden, true, "Step 1 hides sticky Back button");
+  assert.equal(run.element("lb-sticky-next").textContent, "Next: Vertical →");
+  assert.equal(run.element("lb-sticky-next").disabled, false);
+
+  // Select SharePoint AI (no harness): Step 4 sticky + footer Next should say "Next: Topics →" (skipping Harness).
+  run("lbToggleProduct('sharepoint-ai', true)");
+  await run("lbRefresh()");
+  run("lbStickyPrimaryAction()"); // 1 -> 2
+  assert.equal(run("labBuilder.step"), 2);
+  assert.equal(run.element("lb-sticky-back").hidden, false, "Step 2+ shows sticky Back button");
+  assert.equal(run.element("lb-sticky-next").textContent, "Next: Departments →");
+
+  run("lbStickyPrimaryAction()"); // 2 -> 3
+  assert.equal(run("labBuilder.step"), 3);
+  assert.equal(run.element("lb-sticky-next").textContent, "Next: Level →");
+
+  run("lbStickyPrimaryAction()"); // 3 -> 4
+  assert.equal(run("labBuilder.step"), 4);
+  assert.equal(run.element("lb-sticky-next").textContent, "Next: Topics →");
+  assert.equal(run.element("lb-next-from-level").textContent, "Next: Topics →");
+
+  // Adding Copilot Studio (has harnesses) updates Step 4 sticky + footer Next dynamically to "Next: Harness →".
+  run("lbToggleProduct('copilot-studio', true)");
+  await run("lbRefresh()");
+  assert.equal(run.element("lb-sticky-next").textContent, "Next: Harness →");
+  assert.equal(run.element("lb-next-from-level").textContent, "Next: Harness →");
+
+  run("lbStickyPrimaryAction()"); // 4 -> 5
+  assert.equal(run("labBuilder.step"), 5);
+  assert.equal(run.element("lb-sticky-next").textContent, "Next: Topics →");
+
+  run("lbStickyPrimaryAction()"); // 5 -> 6
+  assert.equal(run("labBuilder.step"), 6);
+  assert.equal(run.element("lb-sticky-next").textContent, "Next: Review →");
+
+  // Clearing selectedIds on Step 6 enforces the topic guard; picking a topic lets sticky Next advance 6 -> 7.
+  const firstTopicId = run("labBuilder.rec.concepts[0].topics[0].id");
+  run("labBuilder.rec.selectedIds = [];");
+  run("lbStickyPrimaryAction()");
+  assert.equal(run("labBuilder.step"), 6);
+  assert.equal(run.element("lb-topic-error").textContent, "Choose at least one topic before you review the lab.");
+
+  run(`lbOwnPicks().add(${JSON.stringify(firstTopicId)})`);
+  await run("lbRefresh()");
+  run("lbStickyPrimaryAction()"); // 6 -> 7
+  assert.equal(run("labBuilder.step"), 7);
+  assert.equal(run.element("lb-sticky-next").textContent, "Next: Generate →");
+
+  // Deselecting all topics on Step 7 disables sticky Next, footer Next, and Generate buttons.
+  const selectedIds = JSON.parse(run("JSON.stringify(labBuilder.rec.selectedIds)"));
+  assert.ok(selectedIds.length > 0, "expected recommended topics to be preselected");
+  run("labBuilder.rec.selectedIds = []; lbSyncReviewControls();");
+  assert.equal(run.element("lb-sticky-next").disabled, true);
+  assert.equal(run.element("lb-next-from-review").disabled, true);
+  assert.equal(run.element("lb-generate-btn").disabled, true);
+
+  // Re-selecting a topic re-enables navigation and advances to Step 8 where sticky primary triggers generateCustomLab().
+  run(`labBuilder.rec.selectedIds = ${JSON.stringify(selectedIds)}; lbSyncReviewControls();`);
+  assert.equal(run.element("lb-sticky-next").disabled, false);
+  run("lbStickyPrimaryAction()"); // 7 -> 8
+  assert.equal(run("labBuilder.step"), 8);
+  assert.equal(run.element("lb-sticky-next").textContent, "⚡ Generate Lab");
+
+  let generatedCount = 0;
+  run.context.lbGenerate = () => {
+    generatedCount += 1;
+    run("labBuilder.busy = true; lbSyncNavControls();");
+  };
+  run("lbStickyPrimaryAction()");
+  assert.equal(generatedCount, 1, "clicking sticky CTA on Step 8 triggers lab generation");
+  assert.equal(run.element("lb-sticky-next").disabled, true, "sticky CTA disables while generation is busy");
+  assert.equal(run.element("lb-sticky-back").disabled, true, "sticky Back disables while generation is busy");
 });
 
 // ── The rename ──────────────────────────────────────────────────────────────

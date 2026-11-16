@@ -788,6 +788,7 @@
     }
     .btn:hover { background: var(--surface-hover); }
     .btn:disabled { opacity: 0.65; cursor: not-allowed; }
+    .btn[hidden] { display: none; }
     .btn-primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
     .btn-primary:hover { background: var(--accent-hover); color: var(--accent-hover-contrast); box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent); transform: translateY(-1px); }
     .btn-success { background: var(--success); border-color: var(--success); color: var(--success-contrast); }
@@ -1100,17 +1101,40 @@
     }
     .lb-product-stats {
       display: flex;
-      flex-wrap: wrap;
-      align-items: center;
+      flex-direction: column;
+      align-items: stretch;
       gap: 6px;
+      width: 100%;
+    }
+    .lb-stat-total-row {
+      display: flex;
+      width: 100%;
+    }
+    .lb-stat-level-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+      width: 100%;
+    }
+    .lb-stat-level-grid-1 {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .lb-stat-level-grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .lb-stat-detail-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: 100%;
     }
     .lb-stat-chip {
       display: inline-block;
-      padding: 3px 9px;
-      border-radius: 999px;
+      padding: 4px 9px;
+      border-radius: 7px;
       font-size: 11.5px;
       font-weight: 500;
-      line-height: 1.4;
+      line-height: 1.35;
       font-variant-numeric: tabular-nums;
       background: var(--stat-chip-bg);
       border: 1px solid var(--stat-chip-border);
@@ -1121,16 +1145,53 @@
       color: var(--stat-chip-strong);
     }
     .lb-stat-chip-total {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      width: 100%;
+      padding: 5px 10px;
+      font-size: 12.5px;
       background: var(--stat-total-bg);
       border-color: var(--stat-total-border);
       color: var(--stat-total-text);
       font-weight: 600;
     }
     .lb-stat-chip-total strong {
+      font-size: 14.5px;
       font-weight: 700;
       color: var(--stat-total-strong);
     }
+    .lb-stat-chip-level {
+      background: var(--stat-chip-bg);
+      border-color: var(--stat-chip-border);
+      color: var(--stat-chip-text);
+    }
+    .lb-stat-level-grid .lb-stat-chip-level {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 2px;
+      padding: 5px 8px;
+      min-width: 0;
+    }
+    .lb-stat-level-label {
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      line-height: 1.2;
+      color: var(--stat-chip-text);
+    }
+    .lb-stat-level-grid .lb-stat-chip-level strong {
+      font-size: 13.5px;
+      line-height: 1.2;
+    }
+    .lb-stat-detail-row .lb-stat-chip-level {
+      flex: 1 1 auto;
+    }
     .lb-stat-chip-empty {
+      width: 100%;
       border-style: dashed;
     }
     .lb-card-meta-note {
@@ -1322,6 +1383,60 @@
     .lb-summary {
       margin: 0;
       flex: 1 1 260px;
+    }
+    .lb-sticky-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .lb-step-footer {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    #lb-pane-6 > div:last-child {
+      margin-top: 20px !important;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .lb-step-footer-secondary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .lb-step-footer-primary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .lb-nav-next,
+    #lb-pane-6 > div:last-child > .btn-primary {
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .lb-step-footer > .lb-nav-next,
+    #lb-pane-6 > div:last-child > .btn-primary {
+      margin-left: auto;
+    }
+    .lb-nav-next:focus-visible,
+    #lb-pane-6 > div:last-child > .btn-primary:focus-visible {
+      outline: 3px solid var(--accent-hover);
+      outline-offset: 2px;
     }
     .lb-wizard-stage {
       position: relative;
@@ -2851,7 +2966,10 @@
         display: none !important;
       }
 
-      .lab-pagination-controls {
+      .lab-pagination-controls,
+      .lb-wizard-sticky,
+      .lb-step-footer,
+      #lb-pane-6 > div:last-child {
         display: none !important;
       }
 
@@ -3348,7 +3466,11 @@
                 </nav>
                 <div class="lb-summary-bar">
                   <p id="lb-summary" class="lb-summary" role="status" aria-live="polite"><strong>Your lab so far:</strong> No products selected yet — choose one or more products in Step 1 to begin.</p>
-                  <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbStartNewLab()" hidden>Start over</button>
+                  <div class="lb-sticky-actions" role="group" aria-label="Wizard step navigation">
+                    <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbStartNewLab()" hidden>Start over</button>
+                    <button type="button" class="btn lb-nav-back" id="lb-sticky-back" onclick="lbPrevStep()" hidden>← Back</button>
+                    <button type="button" class="btn btn-primary lb-nav-next" id="lb-sticky-next" onclick="lbStickyPrimaryAction()">Next: Vertical →</button>
+                  </div>
                 </div>
                 <div id="lb-edit-banner" class="lb-edit-banner" hidden>
                   <span id="lb-edit-banner-text"></span>
@@ -3369,8 +3491,8 @@
                 </div>
               </fieldset>
               <p id="lb-product-error" class="lb-error" role="alert"></p>
-              <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Vertical →</button>
+              <div class="lb-step-footer">
+                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Vertical →</button>
               </div>
             </div>
 
@@ -3384,9 +3506,9 @@
               <div id="lb-industry-grid" class="scenario-grid">
                 <div class="scenario-empty">Loading industries...</div>
               </div>
-              <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Departments →</button>
+              <div class="lb-step-footer">
+                <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
+                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Departments →</button>
               </div>
             </div>
 
@@ -3400,9 +3522,9 @@
               <div id="lb-role-list" class="scenario-role-list">
                 <div class="scenario-empty">Loading departments...</div>
               </div>
-              <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Level →</button>
+              <div class="lb-step-footer">
+                <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
+                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Level →</button>
               </div>
             </div>
 
@@ -3419,9 +3541,9 @@
                 <div id="lb-level-options" class="scenario-role-list"></div>
               </fieldset>
               <div id="lb-level-notice-4" role="status" aria-live="polite"></div>
-              <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn btn-primary" type="button" id="lb-next-from-level" onclick="lbNextStep()">Next: Harness →</button>
+              <div class="lb-step-footer">
+                <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
+                <button class="btn btn-primary lb-nav-next" type="button" id="lb-next-from-level" onclick="lbNextStep()">Next: Harness →</button>
               </div>
             </div>
 
@@ -3444,9 +3566,9 @@
                 </p>
                 <div id="lb-differences-options" class="scenario-role-list"></div>
               </fieldset>
-              <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn btn-primary" type="button" onclick="lbNextStep()">Next: Topics →</button>
+              <div class="lb-step-footer">
+                <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
+                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Topics →</button>
               </div>
             </div>
 
@@ -3529,10 +3651,12 @@
                   </label>
                 </div>
               </details>
-              <div style="margin-top: 16px; display: flex; gap: 12px;">
-                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn" type="button" onclick="lbPreview()">Refresh outline</button>
-                <button class="btn btn-primary" type="button" id="lb-next-from-review" onclick="lbNextStep()">Next: Generate →</button>
+              <div class="lb-step-footer">
+                <div class="lb-step-footer-secondary">
+                  <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
+                  <button class="btn" type="button" onclick="lbPreview()">Refresh outline</button>
+                </div>
+                <button class="btn btn-primary lb-nav-next" type="button" id="lb-next-from-review" onclick="lbNextStep()">Next: Generate →</button>
               </div>
             </div>
 
@@ -3561,11 +3685,15 @@
                   </label>
                 </div>
               </fieldset>
-              <div style="margin-top: 16px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                <button class="btn" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn btn-primary" type="button" id="lb-generate-btn" onclick="lbGenerate()">🧬 Build my lab</button>
-                <button class="btn" type="button" id="lb-cancel-btn" onclick="lbCancelGenerate()" hidden>Cancel</button>
-                <span id="lb-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);"></span>
+              <div class="lb-step-footer">
+                <div class="lb-step-footer-secondary">
+                  <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
+                  <span id="lb-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);"></span>
+                </div>
+                <div class="lb-step-footer-primary">
+                  <button class="btn" type="button" id="lb-cancel-btn" onclick="lbCancelGenerate()" hidden>Cancel</button>
+                  <button class="btn btn-primary lb-nav-next" type="button" id="lb-generate-btn" onclick="lbGenerate()">⚡ Generate Lab</button>
+                </div>
               </div>
               <div id="lb-generating-card" class="lb-generating-card" hidden>
                 <div class="lb-generating-header">

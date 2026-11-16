@@ -255,9 +255,15 @@ test("generated lab result body separates outer panels from preview-frame and av
     "\\.lab-complete-badge",
     "\\.lb-admin-prereqs",
     "\\.lb-card-footer",
+    "\\.lb-stat-total-row",
+    "\\.lb-stat-level-grid",
     "\\.lb-stat-chip",
     "\\.lb-stat-chip-total",
+    "\\.lb-stat-chip-level",
+    "\\.lb-stat-level-label",
     "\\.lb-card-meta-note",
+    "\\.lb-sticky-actions",
+    "\\.lb-step-footer",
     "\\.preview-toc",
     "\\.preview-frame",
   ]) {
@@ -283,6 +289,9 @@ test("generated lab result body separates outer panels from preview-frame and av
     assert.match(body, /var\(--/);
     assert.doesNotMatch(body, /#(?:1a1a2e|f0f0f5|f4f6fb|fafafe|3d4560|1d4ed8)\b/i);
   }
+
+  assert.match(screenCss, /\.btn\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
+  assert.match(printCss, /\.lb-wizard-sticky,[\s\S]*?\.lb-step-footer[\s\S]*?display:\s*none !important;/);
 
   // Print stylesheet preserves generated-lab print target and ink-on-white rules.
   assert.match(printCss, /body\[data-print-target="generated"\]\s+#lb-result-preview/);
@@ -407,6 +416,8 @@ test("portal dark and light theme tokens meet WCAG AA contrast across previews, 
       [".lb-stat-chip text", tokens["--stat-chip-text"], tokens["--stat-chip-bg"]],
       [".lb-stat-chip strong", tokens["--stat-chip-strong"], tokens["--stat-chip-bg"]],
       [".lb-card-meta-note text", tokens["--stat-warn-text"], tokens["--stat-warn-bg"]],
+      [".lb-nav-next primary CTA", tokens["--accent-contrast"], tokens["--accent"]],
+      [".lb-nav-next hover CTA", tokens["--accent-hover-contrast"], tokens["--accent-hover"]],
     ]) {
       assert.ok(
         contrastRatio(fgToken, bgToken) >= 4.5,

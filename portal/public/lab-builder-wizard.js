@@ -381,23 +381,25 @@ function lbProductLevelCounts(product) {
   return entries.length ? entries.map((e) => `Level ${e.level}: ${e.count}`).join(", ") : "No topics yet";
 }
 
-/** Scannable stat badges for a product card, with natural screen-reader punctuation. */
+/** Scannable two-tier stat layout for a product card: headline total row + per-level breakdown grid. */
 function lbRenderProductStats(product) {
   const entries = lbProductLevelEntries(product);
   const derivedTotal = entries.reduce((sum, e) => sum + e.count, 0);
   const rawTotal = Number(product?.featureCount);
   const total = Number.isFinite(rawTotal) ? rawTotal : derivedTotal;
   if (total <= 0 && !entries.length) {
-    return `<div class="lb-product-stats"><span class="lb-stat-chip lb-stat-chip-empty">No topics yet<span class="sr-only">.</span></span></div>`;
+    return `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-empty">No topics yet<span class="sr-only">.</span></span></div></div>`;
   }
-  const chips = [
-    `<span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(total)}</strong> ${total === 1 ? "topic" : "topics"}<span class="sr-only">.</span></span>`,
-    ...entries.map((entry, idx) => {
-      const punct = idx === entries.length - 1 ? "." : ",";
-      return `<span class="lb-stat-chip lb-stat-chip-level">Level ${escapeHtml(entry.level)}: <strong>${escapeHtml(entry.count)}</strong><span class="sr-only">${punct}</span></span>`;
-    }),
-  ];
-  return `<div class="lb-product-stats">${chips.join(" ")}</div>`;
+  const totalRow = `<div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(total)}</strong> total ${total === 1 ? "topic" : "topics"}<span class="sr-only">.</span></span></div>`;
+  if (!entries.length) {
+    return `<div class="lb-product-stats">${totalRow}</div>`;
+  }
+  const cols = Math.min(entries.length, 3);
+  const levelTiles = entries.map((entry, idx) => {
+    const punct = idx === entries.length - 1 ? "." : ",";
+    return `<span class="lb-stat-chip lb-stat-chip-level"><span class="lb-stat-level-label">Level ${escapeHtml(entry.level)}<span class="sr-only">:</span></span> <strong>${escapeHtml(entry.count)}</strong><span class="sr-only">${punct}</span></span>`;
+  });
+  return `<div class="lb-product-stats">${totalRow} <div class="lb-stat-level-grid lb-stat-level-grid-${cols}">${levelTiles.join(" ")}</div></div>`;
 }
 
 function lbRenderProducts() {
@@ -574,22 +576,21 @@ async function lbRenderLevels() {
       if (levelStat) {
         const { totals, shown } = levelStat;
         if (totals.selectedCount > 0) {
-          const chips = [
-            `<span class="lb-stat-chip lb-stat-chip-total">About <strong>${escapeHtml(totals.selectedCount)}</strong> ${totals.selectedCount === 1 ? "topic" : "topics"} at this level<span class="sr-only">,</span></span>`,
-          ];
+          const totalRow = `<div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total">About <strong>${escapeHtml(totals.selectedCount)}</strong> ${totals.selectedCount === 1 ? "topic" : "topics"} at this level<span class="sr-only">.</span></span></div>`;
+          const detailChips = [];
           if (totals.prerequisiteCount) {
-            chips.push(
+            detailChips.push(
               `<span class="lb-stat-chip lb-stat-chip-level">+<strong>${escapeHtml(totals.prerequisiteCount)}</strong> short prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}<span class="sr-only">,</span></span>`
             );
           }
-          chips.push(
+          detailChips.push(
             `<span class="lb-stat-chip lb-stat-chip-level">Around <strong>${escapeHtml(totals.duration)}</strong> (estimate)<span class="sr-only">.</span></span>`
           );
-          statsHtml = `<div class="lb-product-stats">${chips.join(" ")}</div>`;
+          statsHtml = `<div class="lb-product-stats">${totalRow} <div class="lb-stat-detail-row">${detailChips.join(" ")}</div></div>`;
         } else if (shown > 0) {
-          statsHtml = `<div class="lb-product-stats"><span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(shown)}</strong> ${shown === 1 ? "topic" : "topics"} available<span class="sr-only">.</span></span></div>`;
+          statsHtml = `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(shown)}</strong> ${shown === 1 ? "topic" : "topics"} available<span class="sr-only">.</span></span></div></div>`;
         } else {
-          statsHtml = `<div class="lb-product-stats"><span class="lb-stat-chip lb-stat-chip-empty">No topics at this level yet<span class="sr-only">.</span></span></div>`;
+          statsHtml = `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-empty">No topics at this level yet<span class="sr-only">.</span></span></div></div>`;
         }
       }
       return `
@@ -653,19 +654,15 @@ function lbRenderHarnesses() {
       const learnHref = lbLearnUrl(h.learnUrl) || h.learnUrl;
       let statsHtml;
       if (unavailable) {
-        statsHtml = `<div class="lb-product-stats"><span class="lb-stat-chip lb-stat-chip-empty">No lab topics are available for this harness yet, so it cannot be selected<span class="sr-only">.</span></span></div>`;
+        statsHtml = `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-empty">No lab topics are available for this harness yet, so it cannot be selected<span class="sr-only">.</span></span></div></div>`;
       } else if (shown) {
-        const chips = [
-          `<span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(shown)}</strong> ${escapeHtml(lbLevelName(level))} ${shown === 1 ? "topic" : "topics"} available<span class="sr-only">${fromLearn ? "," : "."}</span></span>`,
-        ];
-        if (fromLearn) {
-          chips.push(
-            `<span class="lb-stat-chip lb-stat-chip-level"><strong>${escapeHtml(fromLearn)}</strong> new from Microsoft Learn<span class="sr-only">.</span></span>`
-          );
-        }
-        statsHtml = `<div class="lb-product-stats">${chips.join(" ")}</div>`;
+        const totalRow = `<div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(shown)}</strong> ${escapeHtml(lbLevelName(level))} ${shown === 1 ? "topic" : "topics"} available<span class="sr-only">.</span></span></div>`;
+        const detailRow = fromLearn
+          ? ` <div class="lb-stat-detail-row"><span class="lb-stat-chip lb-stat-chip-level"><strong>${escapeHtml(fromLearn)}</strong> new from Microsoft Learn<span class="sr-only">.</span></span></div>`
+          : "";
+        statsHtml = `<div class="lb-product-stats">${totalRow}${detailRow}</div>`;
       } else {
-        statsHtml = `<div class="lb-product-stats"><span class="lb-stat-chip lb-stat-chip-empty">No ${escapeHtml(lbLevelName(level))} topics are available for this harness yet<span class="sr-only">.</span></span></div>`;
+        statsHtml = `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-empty">No ${escapeHtml(lbLevelName(level))} topics are available for this harness yet<span class="sr-only">.</span></span></div></div>`;
       }
       return `
       <label class="scenario-role${unavailable ? " lb-unavailable" : ""}${checked ? " checked" : ""}">
@@ -1404,12 +1401,61 @@ function lbRenderStepper() {
   lbSyncReviewControls();
 }
 
+/** Label for the primary forward CTA from any wizard step. */
+function lbNextActionLabel(step) {
+  if (step === LB_STEP.generate) return "⚡ Generate Lab";
+  const nextId = lbAdjacentStep(step, 1);
+  const nextStep = LB_STEPS.find((s) => s.id === nextId);
+  return nextStep ? `Next: ${nextStep.label} →` : "Next →";
+}
+
+/** Keep sticky top navigation and bottom step footers synchronized across all steps. */
+function lbSyncNavControls() {
+  const step = labBuilder.step;
+  const afterLevel = document.getElementById("lb-next-from-level");
+  if (afterLevel) afterLevel.textContent = lbNextActionLabel(LB_STEP.level);
+
+  const empty = Boolean(labBuilder.rec) && lbSelectedCount() === 0;
+  const nextBtn = document.getElementById("lb-next-from-review");
+  if (nextBtn) nextBtn.disabled = empty;
+  const genBtn = document.getElementById("lb-generate-btn");
+  if (genBtn && !labBuilder.busy) genBtn.disabled = empty;
+
+  const stickyBack = document.getElementById("lb-sticky-back");
+  if (stickyBack) {
+    stickyBack.hidden = step <= LB_STEP.product;
+    stickyBack.disabled = Boolean(labBuilder.busy);
+  }
+  const stickyNext = document.getElementById("lb-sticky-next");
+  if (stickyNext) {
+    stickyNext.textContent = lbNextActionLabel(step);
+    stickyNext.disabled =
+      Boolean(labBuilder.busy) || ((step === LB_STEP.review || step === LB_STEP.generate) && empty);
+  }
+}
+
+function generateCustomLab() {
+  if (typeof lbGenerate === "function") return lbGenerate();
+  document.getElementById("lb-generate-btn")?.click?.();
+  return undefined;
+}
+
+function lbStickyPrimaryAction() {
+  if (labBuilder.step === LB_STEP.generate) {
+    return generateCustomLab();
+  }
+  return lbNextStep();
+}
+
 /** The step after or before the current one, skipping a step that does not apply. */
 function lbNextStep() {
   if (labBuilder.step === LB_STEP.product) {
     if (!labBuilder.selectedProducts.size) {
       const error = document.getElementById("lb-product-error");
-      if (error) error.textContent = "Choose at least one product to continue.";
+      if (error) {
+        error.textContent = "Choose at least one product to continue.";
+        error.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+      }
       return;
     }
     labBuilder.chosenSteps.add("product");
@@ -1427,7 +1473,10 @@ function lbNextStep() {
     labBuilder.chosenSteps.add("topics");
   } else if (labBuilder.step === LB_STEP.review && !lbSelectedCount()) {
     const error = document.getElementById("lb-review-error");
-    if (error) error.textContent = "Keep or re-select at least one module before generating your lab.";
+    if (error) {
+      error.textContent = "Keep or re-select at least one module before generating your lab.";
+      error.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }
     return;
   }
   lbRenderSummary();
@@ -1442,7 +1491,10 @@ function lbGoToStep(step) {
   step = Math.min(Math.max(step, 1), LB_STEPS.length);
   if (step > LB_STEP.product && !labBuilder.selectedProducts.size) {
     const error = document.getElementById("lb-product-error");
-    if (error) error.textContent = "Choose at least one product to continue.";
+    if (error) {
+      error.textContent = "Choose at least one product to continue.";
+      error.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+    }
     step = LB_STEP.product;
   }
   // The harness step does not exist for a lab with no harness product: land on the step after it.
@@ -1450,11 +1502,17 @@ function lbGoToStep(step) {
   if (step > LB_STEP.topics && !lbSelectedCount()) {
     if (labBuilder.step === LB_STEP.review) {
       const error = document.getElementById("lb-review-error");
-      if (error) error.textContent = "Keep or re-select at least one module before generating your lab.";
+      if (error) {
+        error.textContent = "Keep or re-select at least one module before generating your lab.";
+        error.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+      }
       step = LB_STEP.review;
     } else {
       const error = document.getElementById("lb-topic-error");
-      if (error) error.textContent = "Choose at least one topic before you review the lab.";
+      if (error) {
+        error.textContent = "Choose at least one topic before you review the lab.";
+        error.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+      }
       step = LB_STEP.topics;
     }
   }
@@ -1468,9 +1526,6 @@ function lbGoToStep(step) {
   lbRenderSummary();
   lbSyncResetButton();
   document.getElementById(`lb-heading-${step}`)?.focus();
-  // The Level step's next button names whichever step follows it.
-  const afterLevel = document.getElementById("lb-next-from-level");
-  if (afterLevel) afterLevel.textContent = lbHasHarnessProduct() ? "Next: Harness →" : "Next: Topics →";
   if (step === LB_STEP.level) lbRenderLevels();
   if (step === LB_STEP.topics) {
     lbRenderLevelNotice();
@@ -1668,10 +1723,7 @@ function lbRequest() {
 
 function lbSyncReviewControls() {
   const empty = Boolean(labBuilder.rec) && lbSelectedCount() === 0;
-  const nextBtn = document.getElementById("lb-next-from-review");
-  if (nextBtn) nextBtn.disabled = empty;
-  const genBtn = document.getElementById("lb-generate-btn");
-  if (genBtn && !labBuilder.busy) genBtn.disabled = empty;
+  lbSyncNavControls();
   if (!empty) {
     const reviewError = document.getElementById("lb-review-error");
     if (reviewError) reviewError.textContent = "";
