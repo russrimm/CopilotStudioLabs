@@ -539,6 +539,15 @@ app.post("/api/lab-builder/preview", (req, res) => {
       productNames: plan.productNames,
       harness: plan.harness,
       includeKnowledgeCheck: Boolean(plan.includeKnowledgeCheck),
+      requiresSharepointSite: Boolean(plan.requiresSharepointSite),
+      sharepointSite: plan.sharepointSite
+        ? {
+            name: plan.sharepointSite.name,
+            url: plan.sharepointSite.url,
+            label: plan.sharepointSite.label,
+            configured: Boolean(plan.sharepointSite.configured),
+          }
+        : { name: null, url: null, label: null, configured: false },
       droppedOutOfLevel: plan.request.droppedOutOfLevel || [],
       deferred: plan.deferred,
       assumedPrereqs: plan.assumedPrereqs,

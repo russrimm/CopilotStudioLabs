@@ -112,7 +112,22 @@ function stripMarkdownFormatting(text) {
 function truncateText(text, maxChars = 220) {
   const clean = sanitizeXmlChars(text).replace(/\s+/g, " ").trim();
   if (clean.length <= maxChars) return clean;
-  const sliced = clean.slice(0, Math.max(16, maxChars - 1));
+  let cut = Math.max(16, maxChars - 1);
+  // Never slice inside a Markdown `[label](url)` link — either include the complete
+  // link when we are already inside it, or trim cleanly before it.
+  const linkRe = /\[(?:\\.|[^\]])*\]\([^)\s]+\)/g;
+  let m;
+  while ((m = linkRe.exec(clean)) !== null) {
+    const start = m.index;
+    const end = start + m[0].length;
+    if (cut > start && cut < end) {
+      cut = end <= maxChars + 260 ? end : start;
+      break;
+    }
+  }
+  if (cut >= clean.length) return clean;
+  const sliced = clean.slice(0, cut);
+  if (sliced.endsWith(")")) return `${sliced}...`;
   const wordBoundary = sliced.lastIndexOf(" ");
   const trimmed = wordBoundary >= Math.floor(maxChars * 0.6) ? sliced.slice(0, wordBoundary) : sliced;
   return `${trimmed.replace(/[,:;.\-\s]+$/, "")}...`;
@@ -283,6 +298,7 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
   }
 
   // Parse optional top metadata table (`| **LAB** | ... |`, optionally preceded by `| Field | Details |`)
+  let tableSharepointSite = "";
   while (idx < lines.length && !lines[idx].trim()) idx += 1;
   if (
     idx + 1 < lines.length &&
@@ -296,7 +312,7 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
       tIdx += 1;
     }
     const looksLikeModuleMeta = candidateRows.some((r) =>
-      /^(LAB|MODULE|LEVEL|ESTIMATED TIME|PRODUCTS|DURATION|DIFFICULTY|SAMPLE FILES)$/i.test(
+      /^(LAB|MODULE|LEVEL|ESTIMATED TIME|PRODUCTS|SHAREPOINT SITE|DURATION|DIFFICULTY|SAMPLE FILES)$/i.test(
         stripMarkdownFormatting(r[0] || "")
       )
     );
@@ -305,6 +321,10 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
         const key = stripMarkdownFormatting(kRaw || "").toUpperCase();
         const val = stripMarkdownFormatting(vRaw || "");
         if (!val || key === "FIELD") continue;
+        if (key === "SHAREPOINT SITE" && vRaw) {
+          tableSharepointSite = String(vRaw).trim();
+          continue;
+        }
         if (key === "LAB" && !meta.labTitle) meta.labTitle = val;
         else if (key === "MODULE") {
           meta.moduleText = val;
@@ -394,6 +414,7 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
   let whyItMatters = "";
   let fromTheDocs = "";
   let inYourScenario = "";
+  let sharepointSite = typeof tableSharepointSite === "string" ? tableSharepointSite : "";
   let provenance = "";
   const concepts = [];
   const steps = [];
@@ -506,6 +527,8 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
           const boldMatch = inYourScenario.match(/\*\*([^*]{2,80})\*\*/);
           if (boldMatch) meta.agentName = boldMatch[1].trim();
         }
+      } else if (/^\*\*Target SharePoint site:\*\*/i.test(quoteText)) {
+        sharepointSite = quoteText.replace(/^\*\*Target SharePoint site:\*\*\s*/i, "").trim();
       } else {
         differenceNotes.push(quoteText);
       }
@@ -701,6 +724,7 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
     whyItMatters,
     fromTheDocs,
     inYourScenario,
+    sharepointSite,
     provenance,
     concepts,
     steps,
@@ -1950,6 +1974,24 @@ function appendStructuredTopicSlides(deck, parsedTopic) {
     leftOverviewParas.push({
       markdown: truncateText(parsedTopic.inYourScenario, 380),
       sizePt: 12,
+      colorHex: COLORS.body,
+      spaceAfterPt: 8,
+    });
+  }
+
+  if (parsedTopic.sharepointSite) {
+    leftOverviewParas.push({
+      text: "Target SharePoint site",
+      sizePt: 12.5,
+      bold: true,
+      colorHex: deck.primaryDarkHex,
+      font: FONT_HEADING,
+      spaceBeforePt: 4,
+      spaceAfterPt: 3,
+    });
+    leftOverviewParas.push({
+      markdown: truncateText(parsedTopic.sharepointSite, 340),
+      sizePt: 11.5,
       colorHex: COLORS.body,
       spaceAfterPt: 8,
     });

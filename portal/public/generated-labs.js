@@ -48,9 +48,60 @@ function lbGenProductNames(lab) {
 }
 
 function lbGenSearchText(lab) {
-  return [lab.title, lab.notes, lab.labId, lbGenIndustryName(lab.vertical), lbGenHarnessName(lab.harness), lbGenLevelName(lab.level), ...lbGenProductNames(lab)]
+  return [
+    lab.title,
+    lab.notes,
+    lab.labId,
+    lab.sharepointSite?.label || "",
+    lab.sharepointSite?.name || "",
+    lab.sharepointSite?.url || "",
+    lbGenIndustryName(lab.vertical),
+    lbGenHarnessName(lab.harness),
+    lbGenLevelName(lab.level),
+    ...lbGenProductNames(lab),
+  ]
     .join(" ")
     .toLowerCase();
+}
+
+function lbGenSafeExternalUrl(rawUrl) {
+  if (typeof rawUrl !== "string") return "";
+  const cleaned = rawUrl.trim();
+  if (!cleaned || /[\u0000-\u001F\u007F<>"`\s]/.test(cleaned)) return "";
+  try {
+    const parsed = new URL(cleaned);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return "";
+    if (parsed.username || parsed.password) return "";
+    return parsed.href;
+  } catch {
+    return "";
+  }
+}
+
+function lbRenderTextWithSafeLinks(rawText) {
+  const source = String(rawText ?? "");
+  if (!source) return "";
+  const linkRe = /\[((?:\\.|[^\]])+)\]\((https?:\/\/[^\s)]+)\)/gi;
+  let cursor = 0;
+  let html = "";
+  let match;
+  while ((match = linkRe.exec(source)) !== null) {
+    if (match.index > cursor) {
+      html += escapeHtml(source.slice(cursor, match.index));
+    }
+    const rawLabel = match[1].replace(/\\([[\]()\\])/g, "$1");
+    const safeUrl = lbGenSafeExternalUrl(match[2]);
+    if (safeUrl) {
+      html += `<a href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(rawLabel)}</a>`;
+    } else {
+      html += escapeHtml(match[0]);
+    }
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < source.length) {
+    html += escapeHtml(source.slice(cursor));
+  }
+  return html;
 }
 
 function lbGenVisible() {
@@ -203,6 +254,15 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
     return "";
   }
 
+  const spSite = prereqs.sharepointSite && typeof prereqs.sharepointSite === "object" ? prereqs.sharepointSite : null;
+  const spSafeUrl = lbGenSafeExternalUrl(spSite?.url || "");
+  const spDisplayLabel = spSite?.label || spSite?.name || spSafeUrl;
+  const spCalloutHtml = spSafeUrl
+    ? `<div class="lb-prereq-sp-callout"><strong>Target SharePoint Site:</strong> <a href="${escapeHtml(spSafeUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(spDisplayLabel)}</a> — open or provision this SharePoint site before starting the workshop.</div>`
+    : spSite?.name
+    ? `<div class="lb-prereq-sp-callout"><strong>Target SharePoint Site:</strong> ${escapeHtml(spSite.name)}</div>`
+    : "";
+
   const renderSettingItems = (items) =>
     items
       .map((item) => {
@@ -214,7 +274,7 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
             ${item.status ? `<span class="tag">${escapeHtml(item.status)}</span>` : ""}
           </div>
           ${item.adminPath ? `<div class="lb-prereq-path">Admin path: <code>${escapeHtml(item.adminPath)}</code></div>` : ""}
-          <p class="lb-prereq-detail">${escapeHtml(item.details || item.detail || "")}</p>
+          <p class="lb-prereq-detail">${lbRenderTextWithSafeLinks(item.details || item.detail || "")}</p>
           ${
             reqHtml
               ? `<div class="lb-prereq-card-req">
@@ -239,7 +299,7 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
         <td><span class="tag">${escapeHtml(c.classification || c.tier || "Standard")}</span></td>
         <td><code>${escapeHtml(c.dataGroup || "Business")}</code></td>
         <td class="lb-prereq-col-req">${reqHtml || '<span class="lb-prereq-req-empty">—</span>'}</td>
-        <td>${escapeHtml(c.details || c.purpose || "")}</td>
+        <td>${lbRenderTextWithSafeLinks(c.details || c.purpose || "")}</td>
       </tr>`;
     })
     .join("");
@@ -258,6 +318,7 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
       <p class="lb-admin-prereqs-intro">
         Share this checklist with your Power Platform, Microsoft Entra, Microsoft 365, and Azure administrators before running the workshop so every connector, DLP/ACP rule, environment toggle, and storage allocation is ready. It is also included inside the lab guide and packaged in <code>00 - Overview and Admin Prerequisites</code> when you export the Lab ZIP.
       </p>
+      ${spCalloutHtml}
 
       ${
         connectors.length
@@ -324,6 +385,13 @@ function lbGenItemHtml(lab) {
   const topics = Math.max((Number(lab.moduleCount) || 0) - recaps, 0);
   chips.push(`${topics} topic${topics === 1 ? "" : "s"}`);
   if (recaps) chips.push(`${recaps} prerequisite recap${recaps === 1 ? "" : "s"}`);
+  const spRowUrl = lbGenSafeExternalUrl(lab.sharepointSite?.url || "");
+  const spRowLabel = lab.sharepointSite?.label || lab.sharepointSite?.name || spRowUrl;
+  if (spRowUrl) {
+    chips.push(`SharePoint: <a href="${escapeHtml(spRowUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(spRowLabel)}</a>`);
+  } else if (lab.sharepointSite?.name) {
+    chips.push(`SharePoint: ${escapeHtml(lab.sharepointSite.name)}`);
+  }
   const chipHtml = chips.map((chip) => `<li>${chip}</li>`).join("");
   let validation = '<li>Checks not recorded</li>';
   if (lab.validation) {
@@ -434,12 +502,20 @@ async function lbOpenGenerated(labId) {
   if (!lab || !panel || !meta || !body) return;
   lbGen.opened = labId;
   lbGenRender(`Opened "${lab.title}".`);
+  const spOpenUrl = lbGenSafeExternalUrl(lab.sharepointSite?.url || "");
+  const spOpenLabel = lab.sharepointSite?.label || lab.sharepointSite?.name || spOpenUrl;
+  const spOpenPill = spOpenUrl
+    ? `<span class="scenario-pill">SharePoint site: <a href="${escapeHtml(spOpenUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(spOpenLabel)}</a></span>`
+    : lab.sharepointSite?.name
+    ? `<span class="scenario-pill">SharePoint site: ${escapeHtml(lab.sharepointSite.name)}</span>`
+    : "";
   meta.innerHTML = `
     <div style="font-size: 16px; font-weight: 600;">${escapeHtml(lab.title)}</div>
     <div class="scenario-pill-list">
       <span class="scenario-pill">${escapeHtml(lab.difficulty || "")}</span>
       <span class="scenario-pill">About ${escapeHtml(lbFormatMinutes(lab.totalMinutes || 0))}</span>
       <span class="scenario-pill">${Number(lab.moduleCount) || 0} topics</span>
+      ${spOpenPill}
     </div>
     ${lab.notes ? `<p class="lb-gen-notes" style="margin-top: 10px;">${escapeHtml(lab.notes)}</p>` : ""}
     <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">

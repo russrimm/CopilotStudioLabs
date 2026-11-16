@@ -18,6 +18,7 @@
 
 import { getFeature, getHarnesses } from "./catalog.js";
 import { DEFAULT_PRODUCT, productOf, productsPhrase } from "./products.js";
+import { featureRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
 
 function normalizeModules(input = {}) {
   if (Array.isArray(input.features) && input.features.length) {
@@ -140,6 +141,14 @@ export function buildAdminPrerequisites(input = {}) {
   const hasSharePointProduct = hasProduct("sharepoint-ai");
   const hasFoundry = hasProduct("ai-foundry");
   const hasM365Hub = hasProduct("m365-copilot-hub");
+  const sharepointSite = resolveSharepointSite(
+    input.sharepointSite ||
+      input.request ||
+      input.manifest?.sharepointSite ||
+      input.manifest?.request ||
+      input.manifest?.options ||
+      {},
+  );
 
   const connectors = [];
   const dlpAndAcp = [];
@@ -196,6 +205,7 @@ export function buildAdminPrerequisites(input = {}) {
   const sharePointMods = matchModules(
     modules,
     (m) =>
+      featureRequiresSharepointSite(m) ||
       hasId(null, m, [
         "knowledge-sharepoint",
         "dca-create-agent-builder",
@@ -206,6 +216,9 @@ export function buildAdminPrerequisites(input = {}) {
       m.product === "sharepoint-ai" ||
       /\bsharepoint|onedrive\b/i.test(m.name),
   );
+  const sharePointConnectorNote = sharepointSite.configured
+    ? ` Target SharePoint site: ${sharepointSite.markdownLink}.`
+    : "";
   addConnector(
     {
       id: "sharepoint",
@@ -214,8 +227,16 @@ export function buildAdminPrerequisites(input = {}) {
       dataGroup: "Business",
       adminPath: "Power Platform admin center > Policies > Data policies",
       details:
-        "Allow SharePoint read/search actions in the Business DLP group so delegated user identity or site-scoped grounding can retrieve library items.",
+        `Allow SharePoint read/search actions in the Business DLP group so delegated user identity or site-scoped grounding can retrieve library items.${sharePointConnectorNote}`,
       endpoints: ["*.sharepoint.com"],
+      ...(sharepointSite.hasUrl
+        ? {
+            portalUrl: sharepointSite.url,
+            siteName: sharepointSite.name,
+            siteUrl: sharepointSite.url,
+            siteLabel: sharepointSite.label,
+          }
+        : {}),
     },
     sharePointMods,
   );
@@ -936,6 +957,11 @@ export function buildAdminPrerequisites(input = {}) {
         /^spai-(?:restricted-|site-access-review|site-lifecycle-policies|content-management-assessment)/.test(m.id) ||
         /\bsharepoint advanced management|restricted content\b/i.test(m.name),
     );
+    const sharePointTargetDetail = sharepointSite.hasUrl
+      ? ` Target SharePoint site: ${sharepointSite.markdownLink} — open this site directly (or create it at this URL before running the lab).`
+      : sharepointSite.hasName
+      ? ` Target SharePoint site: ${sharepointSite.markdownLink}.`
+      : "";
     addItem(
       tenantAndCloud,
       {
@@ -947,9 +973,19 @@ export function buildAdminPrerequisites(input = {}) {
           ? "SharePoint admin center > Policies / Reports (SharePoint Advanced Management)"
           : "SharePoint site > Settings > Site permissions",
         status: "Required",
-        details: needsSam
-          ? "Assign the SharePoint Administrator role and confirm SharePoint Advanced Management (included with M365 Copilot licensing or SAM add-on) is active for oversharing reports, Restricted Content Discovery, and site lifecycle policies."
-          : "Provide a non-production SharePoint site with sample document libraries where learners hold Site Owner (for creating agents/columns/flows) or Member read access (for testing security-trimmed citations).",
+        details:
+          (needsSam
+            ? "Assign the SharePoint Administrator role and confirm SharePoint Advanced Management (included with M365 Copilot licensing or SAM add-on) is active for oversharing reports, Restricted Content Discovery, and site lifecycle policies."
+            : "Provide a non-production SharePoint site with sample document libraries where learners hold Site Owner (for creating agents/columns/flows) or Member read access (for testing security-trimmed citations).") +
+          sharePointTargetDetail,
+        ...(sharepointSite.configured
+          ? {
+              portalUrl: sharepointSite.url || null,
+              siteName: sharepointSite.name || null,
+              siteUrl: sharepointSite.url || null,
+              siteLabel: sharepointSite.label || null,
+            }
+          : {}),
       },
       sharePointMods,
     );
@@ -988,6 +1024,15 @@ export function buildAdminPrerequisites(input = {}) {
     products,
     harness: harness || null,
     harnessName: harnessInfo?.name || null,
+    sharepointSite:
+      (sharePointMods.length || hasSharePointProduct) && sharepointSite.configured
+        ? {
+            name: sharepointSite.name,
+            url: sharepointSite.url,
+            label: sharepointSite.label,
+            markdownLink: sharepointSite.markdownLink,
+          }
+        : null,
     summary,
     connectors,
     dlpAndAcp,

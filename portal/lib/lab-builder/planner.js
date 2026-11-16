@@ -24,6 +24,12 @@ import {
   resolveDeliverableMode,
   roleDesignNoteForDeliverable,
 } from "./deliverable.js";
+import {
+  labRequiresSharepointSite,
+  normalizeSharepointSiteName,
+  normalizeSharepointSiteUrl,
+  resolveSharepointSite,
+} from "./sharepoint-site.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const profiles = JSON.parse(fs.readFileSync(path.join(__dirname, "scenario-profiles.json"), "utf8"));
@@ -218,6 +224,16 @@ export function normalizeLabRequest(request = {}) {
   const rawRoles = stringList(request.roles, "roles", 50);
   const combinedRoles = [...new Set([...normalizedDepartments, ...rawRoles])];
 
+  if (
+    request.sharepointSiteName !== undefined &&
+    request.sharepointSiteName !== null &&
+    typeof request.sharepointSiteName !== "string"
+  ) {
+    throw new Error("sharepointSiteName must be a string.");
+  }
+  const sharepointSiteName = normalizeSharepointSiteName(request.sharepointSiteName) || undefined;
+  const sharepointSiteUrl = normalizeSharepointSiteUrl(request.sharepointSiteUrl, { strict: true }) || undefined;
+
   return {
     industry: optionalText(request.industry, "industry"),
     departments: normalizedDepartments,
@@ -235,6 +251,8 @@ export function normalizeLabRequest(request = {}) {
     title: optionalText(request.title, "title"),
     agentName: optionalText(request.agentName, "agentName"),
     audience: optionalText(request.audience, "audience"),
+    sharepointSiteName,
+    sharepointSiteUrl,
     includeCore: request.includeCore,
     includeKnowledgeCheck: request.includeKnowledgeCheck,
   };
@@ -703,6 +721,14 @@ export function planLab(request = {}) {
 
   const categories = [...new Set(features.map((f) => f.category))];
   const includeKnowledgeCheck = request.includeKnowledgeCheck !== false;
+  const requiresSharepointSite = labRequiresSharepointSite({ products: planProducts, features });
+  const sharepointSite = resolveSharepointSite(
+    {
+      sharepointSiteName: request.sharepointSiteName,
+      sharepointSiteUrl: request.sharepointSiteUrl,
+    },
+    { strict: true },
+  );
 
   return {
     request: {
@@ -717,8 +743,12 @@ export function planLab(request = {}) {
       differencesFor: request.differencesFor ?? null,
       targetMinutes: request.targetMinutes ?? null,
       includeKnowledgeCheck,
+      sharepointSiteName: sharepointSite.name,
+      sharepointSiteUrl: sharepointSite.url,
     },
     includeKnowledgeCheck,
+    requiresSharepointSite,
+    sharepointSite,
     title,
     slug: slugify(`${industry?.id || "custom"}-${finalAgentName}-${headline}`),
     industry,
@@ -821,6 +851,10 @@ export function dropModules(plan, ids, reason = "removed") {
   plan.categories = [...new Set(plan.features.map((feature) => feature.category))];
   const nextMode = resolveDeliverableMode(plan.products, plan.features);
   plan.deliverable = { mode: nextMode, isAgent: isAgentDeliverable(nextMode) };
+  plan.requiresSharepointSite = labRequiresSharepointSite({
+    products: plan.products,
+    features: plan.features,
+  });
   plan.relatedLabs = [...new Set(plan.features.flatMap((feature) => feature.relatedLabs || []))];
   plan.tags = [
     ...new Set([

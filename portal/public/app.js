@@ -4371,6 +4371,12 @@ function lbStopGeneratingAnimation() {
 
 async function lbGenerate() {
   if (labBuilder.busy) return;
+  if (
+    typeof lbValidateOrPromptSharepointSite === "function" &&
+    !lbValidateOrPromptSharepointSite("generate")
+  ) {
+    return;
+  }
   const btn = document.getElementById("lb-generate-btn");
   const status = document.getElementById("lb-status");
   const cancelBtn = document.getElementById("lb-cancel-btn");
@@ -4484,6 +4490,14 @@ function lbShowResult(data) {
   const g = data.manifest.grounding;
   const v = data.validation;
   const vd = data.manifest.vendorDocs;
+  const spSite = data.manifest?.sharepointSite || null;
+  const spUrl = spSite?.url && /^https?:\/\//i.test(String(spSite.url)) ? String(spSite.url) : "";
+  const spLabel = spSite?.label || spSite?.name || spUrl;
+  const spPillHtml = spUrl
+    ? `<span class="scenario-pill">SharePoint site: <a href="${escapeHtml(spUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(spLabel)}</a></span>`
+    : spSite?.name
+    ? `<span class="scenario-pill">SharePoint site: ${escapeHtml(spSite.name)}</span>`
+    : "";
   meta.innerHTML = `
     <div style="font-size: 16px; font-weight: 600;">${escapeHtml(data.title)}</div>
     <div class="scenario-pill-list">
@@ -4491,6 +4505,7 @@ function lbShowResult(data) {
       ${data.manifest.level ? `<span class="scenario-pill">${escapeHtml(data.manifest.levelName || `Level ${data.manifest.level}`)}</span>` : ""}
       ${data.manifest.prerequisites?.length ? `<span class="scenario-pill">${data.manifest.prerequisites.length} prerequisite recap${data.manifest.prerequisites.length === 1 ? "" : "s"}</span>` : ""}
       <span class="scenario-pill">${escapeHtml(data.duration)}</span>
+      ${spPillHtml}
       <span class="scenario-pill">${g.groundedModules}/${g.totalModules} modules grounded on Microsoft Learn</span>
       ${vd?.requested ? `<span class="scenario-pill">${Number(vd.read)}/${Number(vd.inLab)} vendor pages read</span>` : ""}
       <span class="scenario-pill">${v.passed} checks passed${v.failed ? `, ${v.failed} failed` : ""}</span>

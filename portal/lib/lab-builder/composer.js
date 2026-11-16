@@ -41,6 +41,11 @@ import {
 } from "./teaching.js";
 import { buildAdminPrerequisites, renderAdminPrerequisitesMarkdown } from "./admin-prereqs.js";
 import { canonicalLearnUrl, dedupeLearnSources, formatCitationLabel } from "./learn-citations.js";
+import {
+  featureRequiresSharepointSite,
+  labRequiresSharepointSite,
+  resolveSharepointSite,
+} from "./sharepoint-site.js";
 
 function bullets(items, prefix = "-") {
   return items.map((item) => `${prefix} ${item}`).join("\n");
@@ -191,6 +196,34 @@ function formatPartSpan(first, last) {
   return `${firstLabel} to ${lastLabel}`;
 }
 
+function sharepointSiteForPlan(plan) {
+  const requires =
+    typeof plan?.requiresSharepointSite === "boolean"
+      ? plan.requiresSharepointSite
+      : labRequiresSharepointSite({ products: plan?.products, features: plan?.features });
+  if (!requires) return null;
+  const site =
+    plan?.sharepointSite && typeof plan.sharepointSite === "object" && "markdownLink" in plan.sharepointSite
+      ? plan.sharepointSite
+      : resolveSharepointSite(plan?.sharepointSite || plan?.request || {});
+  return site?.configured ? site : null;
+}
+
+function sharepointModuleCalloutLines(feature, plan) {
+  const site = sharepointSiteForPlan(plan);
+  if (!site || !featureRequiresSharepointSite(feature)) return [];
+  if (site.hasUrl) {
+    return [
+      "",
+      `> **Target SharePoint site:** ${site.markdownLink} — click to open the site (or create it at this URL before continuing with the steps below).`,
+    ];
+  }
+  return [
+    "",
+    `> **Target SharePoint site:** ${site.markdownLink} — open or create this SharePoint site before continuing with the steps below.`,
+  ];
+}
+
 function overviewSection(plan, enrichment) {
   const profile = plan.profile;
   const d = describeDeliverable(plan);
@@ -219,6 +252,15 @@ function overviewSection(plan, enrichment) {
   const focus = mainModules.map(
     (f, idx) => `**Step ${f.stepOrder ?? idx + 1} - ${f.name}** - ${scrubForbidden(f.summary)}`,
   );
+  const spSite = sharepointSiteForPlan(plan);
+  const sharepointOverviewLines = spSite
+    ? [
+        "",
+        spSite.hasUrl
+          ? `**Target SharePoint Site:** ${spSite.markdownLink} — click to open the SharePoint site used in this lab (or create it at this URL before you begin).`
+          : `**Target SharePoint Site:** ${spSite.markdownLink}`,
+      ]
+    : [];
 
   return [
     "## Overview",
@@ -234,6 +276,7 @@ function overviewSection(plan, enrichment) {
           )}), because the ${levelName(plan.level)} modules build on them. A recap is a refresher, not new ${levelName(plan.level)} content: skip it if you already know the topic.`,
         ]
       : []),
+    ...sharepointOverviewLines,
     "",
     `**What this ${levelName(plan.level)} lab covers**`,
     "",
@@ -322,6 +365,15 @@ function prerequisitesSection(plan) {
   for (const id of ids.filter((pid) => pid !== DEFAULT_PRODUCT)) items.push(...(getProduct(id)?.labPrerequisites || []));
   items.push("A modern browser signed in with the account that owns that environment.");
 
+  const spSite = sharepointSiteForPlan(plan);
+  if (spSite) {
+    items.push(
+      spSite.hasUrl
+        ? `Target SharePoint site: ${spSite.markdownLink} — confirm you can open this site with the required permissions, or create the site at this URL before starting.`
+        : `Target SharePoint site: ${spSite.markdownLink} — confirm you can access or create this SharePoint site before starting.`,
+    );
+  }
+
   if (plan.features.some((f) => f.category === "knowledge")) {
     items.push(`Access to at least one knowledge source, for example: ${lowerFirst(profile.knowledgeSources[0])}.`);
   }
@@ -385,11 +437,13 @@ function scenarioSection(plan) {
   const profile = plan.profile;
   const d = describeDeliverable(plan);
   const roleNotes = plan.roles.filter((r) => r.designNote).map((r) => `**${r.name}:** ${r.designNote}`);
+  const spSite = sharepointSiteForPlan(plan);
 
   return [
     "## The Scenario",
     "",
     d.scenarioLead(escapeMarkdown(profile.agentName), escapeMarkdown(profile.audience)),
+    ...(spSite ? ["", `**Target SharePoint site:** ${spSite.markdownLink}.`] : []),
     "",
     `**The problem.** ${profile.problem}`,
     "",
@@ -654,6 +708,7 @@ function recapSection(feature, plan, grounding, stepsRecord, vendorRecords) {
     "",
     "**Do this**",
     ...stepProvenance(stepsRecord, feature),
+    ...sharepointModuleCalloutLines(feature, plan),
     "",
     steps.join("\n"),
     "",
@@ -693,6 +748,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     "",
     "**Do this**",
     ...stepProvenance(stepsRecord, feature),
+    ...sharepointModuleCalloutLines(feature, plan),
     "",
     steps.join("\n"),
     ...expectedResultBlock(feature, shots, TEACH),

@@ -26,6 +26,7 @@ import {
   renderSingleTopicBuffers,
   writeGeneratedLabTopicDocuments,
 } from "./topic-documents.js";
+import { labRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
 
 const LAB_ID = /^[a-z0-9-]{1,100}$/i;
 export const MAX_TITLE_LENGTH = 160;
@@ -119,6 +120,10 @@ export function selectionsFromManifest(manifest) {
   if (!features.length) return null;
   const options = manifest.options && typeof manifest.options === "object" ? manifest.options : {};
   const level = Number(request.level ?? manifest.level);
+  const resolvedSpSite = resolveSharepointSite({
+    sharepointSiteName: options.sharepointSiteName ?? request.sharepointSiteName ?? manifest?.sharepointSite?.name,
+    sharepointSiteUrl: options.sharepointSiteUrl ?? request.sharepointSiteUrl ?? manifest?.sharepointSite?.url,
+  });
   return {
     industry: shortText(request.industry),
     roles: textList(request.roles),
@@ -132,6 +137,8 @@ export function selectionsFromManifest(manifest) {
     targetMinutes: Number.isInteger(request.targetMinutes) && request.targetMinutes > 0 ? request.targetMinutes : null,
     customTitle: typeof options.customTitle === "string" ? options.customTitle.slice(0, MAX_TITLE_LENGTH) : null,
     agentName: typeof options.agentName === "string" ? options.agentName.slice(0, 128) : null,
+    sharepointSiteName: resolvedSpSite.name,
+    sharepointSiteUrl: resolvedSpSite.url,
     useLearnMcp: options.useLearnMcp !== false,
     useLlm: options.useLlm !== false,
     includeKnowledgeCheck: Boolean(options.includeKnowledgeCheck ?? request.includeKnowledgeCheck ?? false),
@@ -146,7 +153,19 @@ function validationSummary(manifest) {
 
 function summarizeManifest(labId, manifest) {
   const request = manifest.request && typeof manifest.request === "object" ? manifest.request : {};
+  const options = manifest.options && typeof manifest.options === "object" ? manifest.options : {};
   const selections = selectionsFromManifest(manifest);
+  const spSite = resolveSharepointSite({
+    sharepointSiteName: options.sharepointSiteName ?? request.sharepointSiteName ?? manifest?.sharepointSite?.name,
+    sharepointSiteUrl: options.sharepointSiteUrl ?? request.sharepointSiteUrl ?? manifest?.sharepointSite?.url,
+  });
+  const requiresSharepointSite =
+    typeof manifest.requiresSharepointSite === "boolean"
+      ? manifest.requiresSharepointSite
+      : labRequiresSharepointSite({
+          products: selections?.products ?? textList(manifest.products),
+          features: Array.isArray(manifest.modules) ? manifest.modules : selections?.features || [],
+        });
   return {
     labId,
     title: manifest.title,
@@ -162,6 +181,10 @@ function summarizeManifest(labId, manifest) {
     products: selections?.products ?? textList(manifest.products),
     product: shortText(manifest.product) || selections?.products?.[0] || "copilot-studio",
     harness: selections?.harness ?? null,
+    requiresSharepointSite,
+    sharepointSite: spSite.configured
+      ? { name: spSite.name, url: spSite.url, label: spSite.label }
+      : null,
     validation: validationSummary(manifest),
     selections,
   };
@@ -357,7 +380,7 @@ export function replaceGeneratedLab(rootDir, oldId, newId) {
  *
  * @returns {{status: number, body: object}} an HTTP-shaped result
  */
-export function readGeneratedLab(rootDir, rawId, renderMarkdown) {
+export function readGeneratedLab(rootDir, rawId, renderMarkdown = (md) => String(md ?? "")) {
   const labId = String(rawId);
   if (!LAB_ID.test(labId)) return { status: 400, body: { error: "Invalid lab id" } };
 
@@ -379,6 +402,7 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown) {
       manifest: manifest || { title: labId },
     });
     const adminPrerequisites = manifest?.adminPrerequisites || buildAdminPrerequisites({ manifest, markdown });
+    const summary = manifest ? summarizeManifest(labId, manifest) : null;
     const { html, pending } = decorateGeneratedHtml(renderMarkdown(markdown), labId, labDir);
     return {
       status: 200,
@@ -388,6 +412,8 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown) {
         html,
         manifest,
         adminPrerequisites,
+        requiresSharepointSite: Boolean(summary?.requiresSharepointSite),
+        sharepointSite: summary?.sharepointSite || null,
         topicDocuments,
         pendingScreenshots: pending,
       },

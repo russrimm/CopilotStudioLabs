@@ -2816,6 +2816,103 @@
       line-height: 1.5;
       color: var(--text-muted);
     }
+    .lb-sharepoint-site-card {
+      margin: 16px 0 14px;
+      padding: 16px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg);
+    }
+    .lb-sharepoint-site-card[hidden],
+    .lb-sharepoint-site-preview[hidden],
+    .lb-sharepoint-site-prompt[hidden],
+    .lb-step8-sharepoint-summary[hidden] {
+      display: none;
+    }
+    .lb-sharepoint-site-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .lb-sharepoint-site-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .lb-sharepoint-site-desc {
+      margin: 6px 0 12px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--text-muted);
+    }
+    .lb-sharepoint-site-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .lb-sharepoint-site-card .lb-error {
+      margin: 10px 0 0;
+    }
+    .lb-sharepoint-site-preview {
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--complete-border);
+      background: var(--complete-bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+    .lb-sharepoint-site-preview a,
+    .lb-step8-sharepoint-summary a,
+    .lb-prereq-sp-callout a,
+    .scenario-pill a,
+    .lb-gen-chips a {
+      color: var(--link-color);
+      font-weight: 600;
+      text-decoration: underline;
+      word-break: break-word;
+    }
+    .lb-sharepoint-site-preview a:hover,
+    .lb-step8-sharepoint-summary a:hover,
+    .lb-prereq-sp-callout a:hover,
+    .scenario-pill a:hover,
+    .lb-gen-chips a:hover {
+      color: var(--accent-hover);
+    }
+    .lb-sharepoint-site-prompt {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--stat-warn-border);
+      background: var(--stat-warn-bg);
+      color: var(--stat-warn-text);
+      font-size: 13px;
+      line-height: 1.5;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .lb-step8-sharepoint-summary,
+    .lb-prereq-sp-callout {
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--lb-reason-border);
+      background: var(--lb-reason-bg);
+      color: var(--lb-reason-text);
+      font-size: 13px;
+      line-height: 1.5;
+    }
     .preview-frame ul.contains-task-list {
       list-style: none;
       padding-left: 0;
@@ -3866,6 +3963,9 @@
       #lb-result-preview.preview-frame,
       .lb-admin-prereqs,
       .lb-prereq-card,
+      .lb-prereq-sp-callout,
+      .lb-sharepoint-site-card,
+      .lb-step8-sharepoint-summary,
       .lb-topic-docs,
       .lb-topic-doc-item {
         background: #fff !important;
@@ -3876,6 +3976,9 @@
 
       .lb-admin-prereqs,
       .lb-prereq-card,
+      .lb-prereq-sp-callout,
+      .lb-sharepoint-site-card,
+      .lb-step8-sharepoint-summary,
       .lb-topic-docs,
       .lb-topic-doc-item {
         border: 1px solid #bbb !important;
@@ -4581,6 +4684,34 @@
                   </span>
                 </label>
               </div>
+              <section id="lb-sharepoint-site-card" class="lb-sharepoint-site-card" data-sharepoint-prompt-card="true" aria-labelledby="lb-sharepoint-site-heading" hidden>
+                <div class="lb-sharepoint-site-head">
+                  <h4 id="lb-sharepoint-site-heading" class="lb-sharepoint-site-title">SharePoint Site Details</h4>
+                  <span class="lb-badge lb-badge-product">SharePoint site link</span>
+                </div>
+                <p id="lb-sharepoint-site-desc" class="lb-sharepoint-site-desc">
+                  This lab requires having or creating a SharePoint site. Enter the SharePoint site name and URL below so learners get a direct clickable hyperlink to open (or create and verify) the site in the lab overview, prerequisites, and SharePoint walkthrough steps.
+                </p>
+                <div class="lb-sharepoint-site-grid">
+                  <div class="form-group">
+                    <label for="lb-sharepoint-site-name">SharePoint site name</label>
+                    <input type="text" id="lb-sharepoint-site-name" maxlength="120" autocomplete="off" placeholder="Contoso Operations Hub" aria-describedby="lb-sharepoint-site-desc">
+                  </div>
+                  <div class="form-group">
+                    <label for="lb-sharepoint-site-url">SharePoint site URL</label>
+                    <input type="url" id="lb-sharepoint-site-url" autocomplete="off" placeholder="https://contoso.sharepoint.com/sites/OperationsHub" aria-describedby="lb-sharepoint-site-desc lb-sharepoint-site-error">
+                  </div>
+                </div>
+                <p id="lb-sharepoint-site-error" class="lb-error" role="alert"></p>
+                <div id="lb-sharepoint-site-preview" class="lb-sharepoint-site-preview" role="status" aria-live="polite" hidden>
+                  <span>Learner hyperlink preview:</span>
+                  <a id="lb-sharepoint-site-preview-link" href="https://contoso.sharepoint.com" target="_blank" rel="noopener noreferrer">Contoso Operations Hub</a>
+                </div>
+                <div id="lb-sharepoint-site-prompt" class="lb-sharepoint-site-prompt" role="alert" hidden>
+                  <span id="lb-sharepoint-site-prompt-text">Enter the SharePoint site name and URL above so learners can click directly into the site, or skip if you do not have a tenant URL yet.</span>
+                  <button type="button" class="btn btn-small" id="lb-sharepoint-site-skip">Skip &amp; use placeholder URL</button>
+                </div>
+              </section>
               <details class="lb-advanced">
                 <summary>Advanced options</summary>
                 <div class="form-grid">
@@ -4624,6 +4755,7 @@
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 We research each topic on Microsoft Learn and write the lab. This can take a minute. You can go back to any step first.
               </p>
+              <div id="lb-step8-sharepoint-summary" class="lb-step8-sharepoint-summary" role="status" aria-live="polite" hidden></div>
               <fieldset id="lb-save-mode" class="lb-fieldset lb-save-mode" hidden>
                 <legend class="lb-legend" id="lb-save-mode-legend">How should this be saved?</legend>
                 <div class="scenario-role-list">

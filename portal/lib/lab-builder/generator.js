@@ -1210,6 +1210,14 @@ export async function generateLab(request, opts = {}) {
     verifiedAt: linkCheckSummary.verifiedAt,
     durationMs: Date.now() - startedAt,
     request: plan.request,
+    requiresSharepointSite: Boolean(plan.requiresSharepointSite),
+    sharepointSite: plan.sharepointSite?.configured
+      ? {
+          name: plan.sharepointSite.name,
+          url: plan.sharepointSite.url,
+          label: plan.sharepointSite.label,
+        }
+      : null,
     // The wizard options that are not part of the plan, kept so "Edit selections"
     // can re-open this lab with the same answers. Labs built before this existed
     // simply lack the block.
