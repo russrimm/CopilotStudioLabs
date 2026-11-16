@@ -10,6 +10,7 @@ import {
   ARCHITECTURE_FENCE_LANG,
   renderArchitectureOverviewHtml,
 } from "./architecture-overview.js";
+import { enhanceInteractiveLabHtml } from "./interactive-elements.js";
 
 const ASSET_SRC_RE = /\bsrc="assets\/([A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|gif|svg|webp))"/gi;
 
@@ -93,7 +94,7 @@ function splitTableCells(line) {
  * Lightweight, zero-dependency Markdown-to-HTML renderer covering every
  * construct produced by `composer.js` while escaping untrusted HTML.
  */
-export function renderLabMarkdownFallback(markdown) {
+function renderLabMarkdownFallbackBlocks(markdown) {
   const lines = String(markdown ?? "").replace(/\r\n/g, "\n").split("\n");
   const out = [];
   let i = 0;
@@ -157,7 +158,7 @@ export function renderLabMarkdownFallback(markdown) {
         i += 1;
       }
       out.push(
-        `<details><summary>${renderInlineMarkdown(summaryText || "Details")}</summary>\n${renderLabMarkdownFallback(innerLines.join("\n"))}\n</details>`,
+        `<details><summary>${renderInlineMarkdown(summaryText || "Details")}</summary>\n${renderLabMarkdownFallbackBlocks(innerLines.join("\n"))}\n</details>`,
       );
       continue;
     }
@@ -208,7 +209,7 @@ export function renderLabMarkdownFallback(markdown) {
         quoteLines.push(lines[i].replace(/^\s*>\s?/, ""));
         i += 1;
       }
-      out.push(`<blockquote>${renderLabMarkdownFallback(quoteLines.join("\n"))}</blockquote>`);
+      out.push(`<blockquote>${renderLabMarkdownFallbackBlocks(quoteLines.join("\n"))}</blockquote>`);
       continue;
     }
 
@@ -235,7 +236,7 @@ export function renderLabMarkdownFallback(markdown) {
           const taskMatch = it.match(/^\[([ xX])\]\s+([\s\S]*)$/);
           if (taskMatch) {
             const checked = taskMatch[1].toLowerCase() === "x" ? " checked" : "";
-            return `<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox" disabled${checked} /> ${renderInlineMarkdown(taskMatch[2])}</li>`;
+            return `<li class="task-list-item"><input class="task-list-item-checkbox" type="checkbox"${checked} /> ${renderInlineMarkdown(taskMatch[2])}</li>`;
           }
           return `<li>${renderInlineMarkdown(it)}</li>`;
         })
@@ -285,6 +286,10 @@ export function renderLabMarkdownFallback(markdown) {
   }
 
   return out.join("\n");
+}
+
+export function renderLabMarkdownFallback(markdown) {
+  return enhanceInteractiveLabHtml(renderLabMarkdownFallbackBlocks(markdown));
 }
 
 function decodeBasicEntities(text) {
@@ -495,7 +500,7 @@ function pickButtonPair(rawHex, fallbackBg, fallbackFg) {
 
 export function renderStandaloneLabHtml(markdown, options = {}) {
   const renderMd = typeof options.renderMarkdown === "function" ? options.renderMarkdown : renderLabMarkdownFallback;
-  let bodyHtml = renderMd(String(markdown ?? ""));
+  let bodyHtml = enhanceInteractiveLabHtml(renderMd(String(markdown ?? "")));
   if (typeof options.resolveImageSrc === "function") {
     bodyHtml = bodyHtml.replace(ASSET_SRC_RE, (full, assetName) => {
       const resolved = options.resolveImageSrc(assetName);
@@ -511,6 +516,12 @@ export function renderStandaloneLabHtml(markdown, options = {}) {
     options.labId ||
     "Custom Lab";
   const safeTitle = escapeHtml(rawTitle);
+  const storageScope =
+    String(options.labId || rawTitle)
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "standalone-lab";
 
   const branding = options.branding && typeof options.branding === "object" ? options.branding : null;
   const customBrandHex =
@@ -582,8 +593,15 @@ ${page.html}
       --code-bg: #f1f5f9;
       --code-border: #d5dce9;
       --success-bg: #e6f6f0;
-      --success-border: #86efac;
+      --success-border: #0d7a58;
       --success-text: #0b6e4f;
+      --warn-bg: #fef3c7;
+      --warn-border: #b45309;
+      --warn-text: #78350f;
+      --callout-bg: #edf3fe;
+      --callout-border: #1d5bd6;
+      --callout-text: #162447;
+      --checked-card-bg: #e8effc;
       --arch-bg: #f6f8fc;
       --arch-header-bg: #edf2fb;
       --arch-lane-bg: #ffffff;
@@ -639,8 +657,15 @@ ${page.html}
         --code-bg: #111520;
         --code-border: #2c3447;
         --success-bg: #102a22;
-        --success-border: #1f6f54;
+        --success-border: #3dd6a3;
         --success-text: #6ee7b7;
+        --warn-bg: #332611;
+        --warn-border: #d99b26;
+        --warn-text: #fde68a;
+        --callout-bg: #182238;
+        --callout-border: #5b9bff;
+        --callout-text: #dce6fa;
+        --checked-card-bg: #151e2d;
         --arch-bg: #131826;
         --arch-header-bg: #192033;
         --arch-lane-bg: #171d2e;
@@ -696,8 +721,15 @@ ${page.html}
       --code-bg: #111520;
       --code-border: #2c3447;
       --success-bg: #102a22;
-      --success-border: #1f6f54;
+      --success-border: #3dd6a3;
       --success-text: #6ee7b7;
+      --warn-bg: #332611;
+      --warn-border: #d99b26;
+      --warn-text: #fde68a;
+      --callout-bg: #182238;
+      --callout-border: #5b9bff;
+      --callout-text: #dce6fa;
+      --checked-card-bg: #151e2d;
       --arch-bg: #131826;
       --arch-header-bg: #192033;
       --arch-lane-bg: #171d2e;
@@ -889,15 +921,61 @@ ${page.html}
       border: 1px solid var(--success-border);
       color: var(--success-text);
     }
-    .lab-article h1 { font-size: 28px; line-height: 1.25; margin: 0 0 16px; border-bottom: 2px solid var(--border); padding-bottom: 12px; color: var(--text); }
-    .lab-article h2 { font-size: 21px; line-height: 1.3; margin: 24px 0 12px; color: var(--text); }
-    .lab-article .lab-page > h2:first-child { margin-top: 0; }
-    .lab-article h3 { font-size: 17px; margin: 20px 0 8px; color: var(--text); }
-    .lab-article h4, .lab-article h5 { color: var(--text); }
-    .lab-article p { margin: 10px 0; }
-    .lab-article ul, .lab-article ol { padding-left: 24px; margin: 10px 0; }
-    .lab-article li { margin: 5px 0; }
-    .lab-article hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+    .lab-article h1 { font-size: 28px; line-height: 1.25; margin: 0 0 18px; border-bottom: 2px solid var(--border); padding-bottom: 12px; color: var(--text); }
+    .lab-article h2 { font-size: 21px; line-height: 1.3; margin: 32px 0 14px; padding-top: 18px; border-top: 1px solid var(--border); color: var(--text); }
+    .lab-article .lab-page > h2:first-child,
+    .lab-article h1 + h2 { margin-top: 0; padding-top: 0; border-top: 0; }
+    .lab-article h3 { font-size: 17.5px; line-height: 1.35; margin: 28px 0 10px; padding-top: 18px; border-top: 1px solid var(--border); color: var(--text); }
+    .lab-article h2 + h3,
+    .lab-article .lab-page > h3:first-child { margin-top: 12px; padding-top: 0; border-top: 0; }
+    .lab-article h4, .lab-article h5 { margin: 18px 0 8px; line-height: 1.35; color: var(--text); }
+    .lab-article p { margin: 0 0 14px; line-height: 1.72; max-width: 78ch; }
+    .lab-article ul, .lab-article ol { padding-left: 26px; margin: 8px 0 16px; }
+    .lab-article li { margin: 0 0 8px; line-height: 1.68; max-width: 76ch; }
+    .lab-article li:last-child { margin-bottom: 0; }
+    .lab-article li > ul,
+    .lab-article li > ol { margin: 6px 0 6px; }
+    .lab-article ol > li { padding-left: 4px; margin-bottom: 10px; }
+    .lab-article ol > li::marker { font-weight: 700; color: var(--link); }
+    .lab-article li > p,
+    .lab-article td > p:last-child,
+    .lab-article th > p:last-child,
+    .lab-article blockquote > p:last-child,
+    .lab-article details > :last-child { margin-bottom: 0; }
+    .lab-article blockquote > p + p,
+    .lab-article details > p + p { margin-top: 10px; }
+    .lab-article .lab-module-meta {
+      display: inline-block;
+      margin: 0 0 16px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: var(--surface-muted);
+      border: 1px solid var(--border-strong);
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.4;
+      max-width: none;
+    }
+    .lab-article .lab-module-meta em { font-style: normal; font-weight: 600; }
+    .lab-article .lab-subhead {
+      margin: 22px 0 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14.5px;
+      letter-spacing: 0.01em;
+      color: var(--text);
+      max-width: none;
+    }
+    .lab-article .lab-scenario-callout {
+      margin: 16px 0;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--callout-border);
+      background: var(--callout-bg);
+      color: var(--callout-text);
+      max-width: none;
+    }
+    .lab-article hr { border: 0; border-top: 1px solid var(--border); margin: 26px 0; }
     .lab-article a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
     .lab-article code {
       background: var(--code-bg);
@@ -916,10 +994,11 @@ ${page.html}
       overflow-x: auto;
       font-size: 13px;
       line-height: 1.55;
+      margin: 14px 0 18px;
     }
     .lab-article pre code { background: none; border: 0; padding: 0; }
     .lab-article blockquote {
-      margin: 14px 0;
+      margin: 16px 0;
       padding: 12px 16px;
       border: 1px solid var(--border-strong);
       background: var(--surface-muted);
@@ -929,12 +1008,12 @@ ${page.html}
     .lab-article table {
       width: 100%;
       border-collapse: collapse;
-      margin: 14px 0;
+      margin: 14px 0 20px;
       font-size: 14px;
     }
     .lab-article th, .lab-article td {
       border: 1px solid var(--border);
-      padding: 8px 12px;
+      padding: 9px 12px;
       text-align: left;
       vertical-align: top;
       color: var(--text);
@@ -948,20 +1027,20 @@ ${page.html}
       height: auto;
       border-radius: 8px;
       border: 1px solid var(--border-strong);
-      margin: 10px 0;
+      margin: 10px 0 6px;
     }
     .lab-article details {
-      margin: 14px 0;
-      padding: 10px 14px;
+      margin: 16px 0;
+      padding: 12px 16px;
       border: 1px solid var(--border-strong);
       border-radius: 8px;
       background: var(--surface-muted);
       color: var(--text);
     }
     .lab-article details[open] > summary {
-      margin-bottom: 8px;
+      margin-bottom: 10px;
       border-bottom: 1px solid var(--border);
-      padding-bottom: 6px;
+      padding-bottom: 8px;
     }
     .lab-article summary {
       cursor: pointer;
@@ -970,9 +1049,217 @@ ${page.html}
     }
     .lab-article summary:focus-visible,
     .lab-page-btn:focus-visible,
-    .lab-page-select:focus-visible {
+    .lab-page-select:focus-visible,
+    .lab-article .task-list-item-checkbox:focus-visible,
+    .lab-article .lab-quiz-radio:focus-visible,
+    .lab-article .lab-quiz-btn:focus-visible {
       outline: 3px solid var(--link);
       outline-offset: 2px;
+    }
+    .lab-article ul.contains-task-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 10px 0 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .lab-article li.task-list-item {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-width: none;
+    }
+    .lab-article .task-list-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface-muted);
+      color: var(--text);
+      cursor: pointer;
+      line-height: 1.55;
+    }
+    .lab-article .task-list-label:hover { border-color: var(--accent); }
+    .lab-article .task-list-item-checkbox {
+      width: 18px;
+      height: 18px;
+      margin: 3px 0 0;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .lab-article li.task-list-item.is-checked .task-list-label {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+    }
+    .lab-article li.task-list-item.is-checked .task-list-item-text {
+      text-decoration: line-through;
+      text-decoration-thickness: 1.5px;
+    }
+    .lab-article .lab-quiz {
+      margin: 22px 0 20px;
+      padding: 18px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface-muted);
+      color: var(--text);
+    }
+    .lab-article .lab-quiz-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .lab-article .lab-quiz-eyebrow {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--link);
+    }
+    .lab-article .lab-quiz-title {
+      margin: 2px 0 0;
+      font-size: 16px;
+      line-height: 1.35;
+      max-width: none;
+    }
+    .lab-article .lab-quiz-intro {
+      margin: 4px 0 0;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      max-width: none;
+    }
+    .lab-article .lab-quiz-score {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 700;
+      background: var(--callout-bg);
+      border: 1px solid var(--callout-border);
+      color: var(--callout-text);
+    }
+    .lab-article .lab-quiz-score.is-complete {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+      color: var(--success-text);
+    }
+    .lab-article .lab-quiz-question {
+      margin: 0 0 16px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      min-width: 0;
+    }
+    .lab-article .lab-quiz-legend {
+      padding: 0 4px;
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .lab-article .lab-quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .lab-article .lab-quiz-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface-muted);
+      color: var(--text);
+      cursor: pointer;
+      line-height: 1.5;
+    }
+    .lab-article .lab-quiz-option:hover { border-color: var(--accent); }
+    .lab-article .lab-quiz-option.is-selected {
+      border-color: var(--accent);
+      background: var(--checked-card-bg);
+    }
+    .lab-article .lab-quiz-option.is-correct-choice {
+      border-color: var(--success-border);
+      background: var(--success-bg);
+    }
+    .lab-article .lab-quiz-option.is-wrong-choice {
+      border-color: var(--warn-border);
+      background: var(--warn-bg);
+    }
+    .lab-article .lab-quiz-radio {
+      width: 17px;
+      height: 17px;
+      margin-top: 3px;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .lab-article .lab-quiz-option-letter {
+      font-weight: 700;
+      color: var(--link);
+      flex-shrink: 0;
+    }
+    .lab-article .lab-quiz-actions,
+    .lab-article .lab-quiz-footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .lab-article .lab-quiz-btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .lab-article .lab-quiz-btn:hover { border-color: var(--accent); }
+    .lab-article .lab-quiz-btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-contrast);
+    }
+    .lab-article .lab-quiz-status {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .lab-article .lab-quiz-question.is-correct .lab-quiz-status { color: var(--success-text); }
+    .lab-article .lab-quiz-question.is-incorrect .lab-quiz-status { color: var(--warn-text); }
+    .lab-article .lab-quiz-explanation {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--callout-border);
+      background: var(--callout-bg);
+      color: var(--callout-text);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .lab-article .lab-quiz-explanation[hidden] { display: none; }
+    .lab-article .lab-quiz-explanation p { max-width: none; }
+    .lab-article .lab-quiz-learn-ref {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      font-size: 13.5px;
     }
     .lab-article .mermaid {
       margin: 18px 0;
@@ -1324,7 +1611,18 @@ ${page.html}
       .lab-article .mermaid { background: #f6f8fa !important; border-color: #d0d7de !important; }
       .lab-article pre code { background: transparent !important; border: 0 !important; }
       .lab-article blockquote,
-      .lab-article details { background: #f8f9fa !important; border-color: #bbbbbb !important; }
+      .lab-article details,
+      .lab-article .lab-module-meta,
+      .lab-article .lab-scenario-callout,
+      .lab-article .task-list-label,
+      .lab-article .lab-quiz,
+      .lab-article .lab-quiz-question,
+      .lab-article .lab-quiz-option,
+      .lab-article .lab-quiz-explanation { background: #f8f9fa !important; border-color: #bbbbbb !important; color: #111111 !important; }
+      .lab-article .lab-quiz-actions,
+      .lab-article .lab-quiz-footer,
+      .lab-article .lab-quiz-score { display: none !important; }
+      .lab-article .lab-quiz-explanation[hidden] { display: block !important; }
       .lab-article .lab-arch,
       .lab-arch {
         --arch-bg: #ffffff;
@@ -1395,7 +1693,7 @@ ${page.html}
       </div>
     </nav>
 
-    <main id="lab-article" class="lab-article lab-paged-mode">
+    <main id="lab-article" class="lab-article lab-paged-mode" data-lab-scope="${escapeHtml(storageScope)}">
 ${pagesHtml}
     </main>
 
@@ -1410,6 +1708,200 @@ ${pagesHtml}
   <script>
     (function () {
       const article = document.getElementById("lab-article");
+      if (!article) return;
+
+      const scope = article.getAttribute("data-lab-scope") || "standalone-lab";
+      const taskStorageKey = "csl-lab-tasks:" + scope;
+      const quizStorageKey = "csl-lab-quizzes:" + scope;
+
+      function readStoredJson(key) {
+        try {
+          const raw = window.localStorage ? window.localStorage.getItem(key) : null;
+          const parsed = raw ? JSON.parse(raw) : null;
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch (_err) {
+          return {};
+        }
+      }
+
+      function writeStoredJson(key, value) {
+        try {
+          if (window.localStorage) window.localStorage.setItem(key, JSON.stringify(value));
+        } catch (_err) {
+          /* storage unavailable */
+        }
+      }
+
+      const savedTasks = readStoredJson(taskStorageKey);
+      function syncCheckboxRow(checkbox) {
+        checkbox.disabled = false;
+        checkbox.removeAttribute("disabled");
+        const li = checkbox.closest ? checkbox.closest(".task-list-item") : null;
+        const label = checkbox.closest ? checkbox.closest(".task-list-label") : null;
+        if (li) li.classList.toggle("is-checked", Boolean(checkbox.checked));
+        if (label) label.classList.toggle("is-checked", Boolean(checkbox.checked));
+      }
+
+      Array.from(article.querySelectorAll("input.task-list-item-checkbox")).forEach(function (checkbox) {
+        const key = checkbox.getAttribute("data-task-key");
+        if (key && Object.prototype.hasOwnProperty.call(savedTasks, key)) {
+          checkbox.checked = Boolean(savedTasks[key]);
+        }
+        syncCheckboxRow(checkbox);
+      });
+
+      const savedQuizzes = readStoredJson(quizStorageKey);
+
+      function syncOptionSelection(fieldset) {
+        Array.from(fieldset.querySelectorAll(".lab-quiz-option")).forEach(function (optLabel) {
+          const radio = optLabel.querySelector("input.lab-quiz-radio");
+          optLabel.classList.toggle("is-selected", Boolean(radio && radio.checked));
+        });
+      }
+
+      function clearQuestionGrade(fieldset) {
+        fieldset.removeAttribute("data-quiz-state");
+        fieldset.classList.remove("is-correct", "is-incorrect");
+        Array.from(fieldset.querySelectorAll(".lab-quiz-option")).forEach(function (optLabel) {
+          optLabel.classList.remove("is-correct", "is-incorrect");
+        });
+        const statusEl = fieldset.querySelector("[data-quiz-status]");
+        if (statusEl) statusEl.textContent = "";
+        const explanationEl = fieldset.querySelector("[data-quiz-explanation]");
+        if (explanationEl) explanationEl.hidden = true;
+      }
+
+      function gradeQuestion(fieldset) {
+        const correct = (fieldset.getAttribute("data-correct") || "").toUpperCase();
+        const checkedRadio = fieldset.querySelector("input.lab-quiz-radio:checked");
+        const statusEl = fieldset.querySelector("[data-quiz-status]");
+        const explanationEl = fieldset.querySelector("[data-quiz-explanation]");
+        Array.from(fieldset.querySelectorAll(".lab-quiz-option")).forEach(function (optLabel) {
+          optLabel.classList.remove("is-correct", "is-incorrect");
+        });
+        if (!checkedRadio) {
+          fieldset.removeAttribute("data-quiz-state");
+          fieldset.classList.remove("is-correct", "is-incorrect");
+          if (statusEl) statusEl.textContent = "Select an answer choice (A–D) first.";
+          if (explanationEl) explanationEl.hidden = true;
+          return false;
+        }
+        const chosen = (checkedRadio.value || "").toUpperCase();
+        const isRight = Boolean(correct) && chosen === correct;
+        fieldset.setAttribute("data-quiz-state", isRight ? "correct" : "incorrect");
+        fieldset.classList.toggle("is-correct", isRight);
+        fieldset.classList.toggle("is-incorrect", !isRight);
+        Array.from(fieldset.querySelectorAll(".lab-quiz-option")).forEach(function (optLabel) {
+          const letter = (optLabel.getAttribute("data-option-letter") || "").toUpperCase();
+          if (letter === correct) optLabel.classList.add("is-correct");
+          else if (letter === chosen && !isRight) optLabel.classList.add("is-incorrect");
+        });
+        if (statusEl) {
+          statusEl.textContent = isRight
+            ? "Correct — Option " + chosen + "."
+            : "Not quite — Option " + chosen + " is not right. Review the explanation and Microsoft Learn reference below, or try again.";
+        }
+        if (explanationEl) explanationEl.hidden = false;
+        return isRight;
+      }
+
+      function updateQuizScore(quizSection) {
+        const fieldsets = Array.from(quizSection.querySelectorAll(".lab-quiz-question"));
+        const rightCount = fieldsets.filter(function (fs) {
+          return fs.getAttribute("data-quiz-state") === "correct";
+        }).length;
+        const scoreEl = quizSection.querySelector("[data-quiz-score]");
+        if (scoreEl) scoreEl.textContent = rightCount + " / " + fieldsets.length + " correct";
+      }
+
+      function persistQuiz(quizSection) {
+        const quizId = quizSection.getAttribute("data-quiz-id");
+        if (!quizId) return;
+        const state = { answers: {}, checked: {} };
+        Array.from(quizSection.querySelectorAll(".lab-quiz-question")).forEach(function (fs, idx) {
+          const checkedRadio = fs.querySelector("input.lab-quiz-radio:checked");
+          if (checkedRadio) state.answers[String(idx)] = checkedRadio.value;
+          if (fs.getAttribute("data-quiz-state")) state.checked[String(idx)] = true;
+        });
+        savedQuizzes[quizId] = state;
+        writeStoredJson(quizStorageKey, savedQuizzes);
+      }
+
+      Array.from(article.querySelectorAll(".lab-quiz")).forEach(function (quizSection) {
+        const quizId = quizSection.getAttribute("data-quiz-id");
+        const stored = quizId && savedQuizzes[quizId] ? savedQuizzes[quizId] : null;
+        if (stored && stored.answers) {
+          Array.from(quizSection.querySelectorAll(".lab-quiz-question")).forEach(function (fs, idx) {
+            const val = stored.answers[String(idx)];
+            if (val) {
+              const targetRadio = fs.querySelector('input.lab-quiz-radio[value="' + val + '"]');
+              if (targetRadio) targetRadio.checked = true;
+            }
+            syncOptionSelection(fs);
+            if (stored.checked && stored.checked[String(idx)]) gradeQuestion(fs);
+          });
+        }
+        updateQuizScore(quizSection);
+      });
+
+      article.addEventListener("change", function (event) {
+        const target = event.target;
+        if (!target) return;
+        if (target.classList && target.classList.contains("task-list-item-checkbox")) {
+          syncCheckboxRow(target);
+          const key = target.getAttribute("data-task-key");
+          if (key) {
+            if (target.checked) savedTasks[key] = true;
+            else delete savedTasks[key];
+            writeStoredJson(taskStorageKey, savedTasks);
+          }
+          return;
+        }
+        if (target.classList && target.classList.contains("lab-quiz-radio")) {
+          const fs = target.closest ? target.closest(".lab-quiz-question") : null;
+          const quizSection = target.closest ? target.closest(".lab-quiz") : null;
+          if (fs) {
+            clearQuestionGrade(fs);
+            syncOptionSelection(fs);
+          }
+          if (quizSection) {
+            updateQuizScore(quizSection);
+            persistQuiz(quizSection);
+          }
+        }
+      });
+
+      article.addEventListener("click", function (event) {
+        const btn = event.target && event.target.closest ? event.target.closest("button.lab-quiz-btn") : null;
+        if (!btn) return;
+        const quizSection = btn.closest(".lab-quiz");
+        if (!quizSection) return;
+        if (btn.hasAttribute("data-quiz-check-one")) {
+          const fs = btn.closest(".lab-quiz-question");
+          if (fs) gradeQuestion(fs);
+          updateQuizScore(quizSection);
+          persistQuiz(quizSection);
+        } else if (btn.hasAttribute("data-quiz-check-all")) {
+          Array.from(quizSection.querySelectorAll(".lab-quiz-question")).forEach(gradeQuestion);
+          updateQuizScore(quizSection);
+          persistQuiz(quizSection);
+        } else if (btn.hasAttribute("data-quiz-reset")) {
+          Array.from(quizSection.querySelectorAll(".lab-quiz-question")).forEach(function (fs) {
+            Array.from(fs.querySelectorAll("input.lab-quiz-radio")).forEach(function (r) {
+              r.checked = false;
+            });
+            clearQuestionGrade(fs);
+            syncOptionSelection(fs);
+          });
+          updateQuizScore(quizSection);
+          const quizId = quizSection.getAttribute("data-quiz-id");
+          if (quizId) {
+            delete savedQuizzes[quizId];
+            writeStoredJson(quizStorageKey, savedQuizzes);
+          }
+        }
+      });
+
       const pages = Array.from(article.querySelectorAll(".lab-page"));
       if (pages.length <= 1) return;
 

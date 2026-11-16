@@ -130,31 +130,38 @@ function measureTextPt(text, fontSize, fontKey = "F1") {
 }
 
 function parseInlineSegments(rawText, defaultStyle = "regular") {
-  const cleanedLinks = String(rawText ?? "")
-    .replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_m, alt) => `[Figure: ${alt || "screenshot"}]`)
-    .replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (_m, label) => label);
+  const cleanedImages = String(rawText ?? "").replace(
+    /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g,
+    (_m, alt) => `[Figure: ${alt || "screenshot"}]`,
+  );
 
-  const tokenRe = /`([^`\n]+)`|\*\*([^*]+)\*\*|(?<!\*)\*([^*\n]+)\*(?!\*)/g;
+  const tokenRe =
+    /\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)|`([^`\n]+)`|\*\*([^*]+)\*\*|(?<!\*)\*([^*\n]+)\*(?!\*)/g;
   const segments = [];
   let lastIdx = 0;
   let match;
 
-  const pushPlain = (txt, style) => {
+  const pushPlain = (txt, style, href = null) => {
     const unescaped = txt.replace(/\\([\\`*_[\]<>|~#+-])/g, "$1");
-    if (unescaped) segments.push({ text: unescaped, style });
+    if (unescaped) segments.push(href ? { text: unescaped, style, href } : { text: unescaped, style });
   };
 
-  while ((match = tokenRe.exec(cleanedLinks)) !== null) {
+  while ((match = tokenRe.exec(cleanedImages)) !== null) {
     if (match.index > lastIdx) {
-      pushPlain(cleanedLinks.slice(lastIdx, match.index), defaultStyle);
+      pushPlain(cleanedImages.slice(lastIdx, match.index), defaultStyle);
     }
-    if (match[1] !== undefined) pushPlain(match[1], "code");
-    else if (match[2] !== undefined) pushPlain(match[2], "bold");
-    else if (match[3] !== undefined) pushPlain(match[3], "italic");
+    if (match[1] !== undefined && match[2] !== undefined) {
+      const label = match[1].replace(/[*_`]/g, "");
+      const rawHref = match[2].trim();
+      const safeHref = /^https?:\/\/|^mailto:/i.test(rawHref) ? rawHref : null;
+      pushPlain(label, defaultStyle, safeHref);
+    } else if (match[3] !== undefined) pushPlain(match[3], "code");
+    else if (match[4] !== undefined) pushPlain(match[4], "bold");
+    else if (match[5] !== undefined) pushPlain(match[5], "italic");
     lastIdx = tokenRe.lastIndex;
   }
-  if (lastIdx < cleanedLinks.length) {
-    pushPlain(cleanedLinks.slice(lastIdx), defaultStyle);
+  if (lastIdx < cleanedImages.length) {
+    pushPlain(cleanedImages.slice(lastIdx), defaultStyle);
   }
   return segments;
 }
@@ -215,7 +222,13 @@ function wrapSegments(segments, fontSize, maxWidthPt) {
     const parts = toWinAnsiString(seg.text).split(/(\s+)/);
     for (const part of parts) {
       if (!part) continue;
-      tokens.push({ text: part, style: seg.style, fontKey, isSpace: /^\s+$/.test(part) });
+      tokens.push({
+        text: part,
+        style: seg.style,
+        fontKey,
+        href: seg.href || null,
+        isSpace: /^\s+$/.test(part),
+      });
     }
   }
 
@@ -447,13 +460,19 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
   const accentRgb = parseHexRgb(options.branding?.primaryColor, [0.102, 0.337, 0.78]);
   const docTitle = String(options.title || "Lab Guide").trim();
   const pages = [];
+  const pageAnnots = [];
   const xObjects = new Map(); // cache key -> { name, img }
   let currentOps = [];
+  let currentAnnots = [];
   let cursorY = PAGE_HEIGHT - MARGIN_TOP;
 
   const startNewPage = () => {
-    if (currentOps.length) pages.push(currentOps);
+    if (currentOps.length) {
+      pages.push(currentOps);
+      pageAnnots.push(currentAnnots);
+    }
     currentOps = [];
+    currentAnnots = [];
     cursorY = PAGE_HEIGHT - MARGIN_TOP;
   };
 
@@ -473,12 +492,34 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
           )} ${(tok.size + 3.5).toFixed(2)} re f Q`,
         );
       }
-      const [r, g, b] = defaultColor;
+      const [r, g, b] = tok.href ? accentRgb : defaultColor;
       currentOps.push(
         `BT /${tok.fontKey} ${tok.size.toFixed(2)} Tf ${r} ${g} ${b} rg ${curX.toFixed(2)} ${baselineY.toFixed(
           2,
         )} Td ${pdfLiteralString(tok.text)} Tj ET`,
       );
+      if (tok.href && tok.width > 0) {
+        if (!tok.isSpace) {
+          currentOps.push(
+            `q ${r} ${g} ${b} RG 0.55 w ${curX.toFixed(2)} ${(baselineY - 1.3).toFixed(2)} m ${(
+              curX + tok.width
+            ).toFixed(2)} ${(baselineY - 1.3).toFixed(2)} l S Q`,
+          );
+        }
+        const prev = currentAnnots[currentAnnots.length - 1];
+        if (prev && prev.uri === tok.href && Math.abs(prev.baselineY - baselineY) < 0.5 && Math.abs(prev.x2 - curX) < 3) {
+          prev.x2 = curX + tok.width;
+        } else if (!tok.isSpace) {
+          currentAnnots.push({
+            uri: tok.href,
+            baselineY,
+            x1: curX,
+            y1: baselineY - 2,
+            x2: curX + tok.width,
+            y2: baselineY + tok.size + 1,
+          });
+        }
+      }
       curX += tok.width;
     }
   };
@@ -967,6 +1008,7 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
   renderMarkdownBlocks(markdown);
   if (currentOps.length || !pages.length) {
     pages.push(currentOps);
+    pageAnnots.push(currentAnnots);
   }
 
   // Assemble PDF 1.4 objects
@@ -1029,8 +1071,17 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
       dict: `<< /Filter /FlateDecode /Length ${compressed.length} >>`,
       stream: compressed,
     });
+    const annotsForPage = pageAnnots[idx] || [];
+    const annotIds = annotsForPage.map((annot) =>
+      addObject(
+        `<< /Type /Annot /Subtype /Link /Rect [${annot.x1.toFixed(2)} ${annot.y1.toFixed(2)} ${annot.x2.toFixed(
+          2,
+        )} ${annot.y2.toFixed(2)}] /Border [0 0 0] /A << /Type /Action /S /URI /URI ${pdfLiteralString(annot.uri)} >> >>`,
+      ),
+    );
+    const annotsEntry = annotIds.length ? ` /Annots [${annotIds.map((id) => `${id} 0 R`).join(" ")}]` : "";
     const pageId = addObject(
-      `<< /Type /Page /Parent 3 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources ${resourcesDict} /Contents ${contentId} 0 R >>`,
+      `<< /Type /Page /Parent 3 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] /Resources ${resourcesDict} /Contents ${contentId} 0 R${annotsEntry} >>`,
     );
     pageIds.push(pageId);
   });

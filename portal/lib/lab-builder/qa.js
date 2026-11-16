@@ -168,7 +168,13 @@ const MODULE_CHECKS = [
   { id: "expected-results", label: "Says what you should see after key steps", test: (m) => /\*\*(?:what you should see|expected result)/i.test(m.text) },
   { id: "verification", label: "Has a Check your work list", test: (m) => /\*\*check your work\*\*/i.test(m.text) && /\[ ]/.test(m.text) },
   { id: "troubleshooting", label: "Covers common mistakes and fixes", test: (m) => /troubleshooting|common mistakes/i.test(m.text) },
-  { id: "knowledge-check", label: "Has a knowledge check with an answer", test: (m) => /<summary>[^<]*(?:knowledge check|self-check)/i.test(m.text) },
+  {
+    id: "knowledge-check",
+    label: "Has a knowledge check with an answer",
+    test: (m) =>
+      /<summary>[^<]*(?:knowledge check|self-check)/i.test(m.text) ||
+      /\*\*Knowledge check:\s*Lesson mini-quiz\*\*/i.test(m.text),
+  },
   { id: "scenario-thread", label: "Ties the module to the lab scenario", test: (m) => /\*\*in your scenario/i.test(m.text) },
   { id: "screenshot", label: "Has a screenshot with alt text", test: (m) => m.images.some((i) => !altProblem(i)) },
   { id: "time-estimate", label: "States an estimated time", test: (m) => /about \d+ (?:minutes?|hours?)/i.test(m.text) },
@@ -187,7 +193,14 @@ const MODULE_CHECK_FIX = {
   sources: "Link the Microsoft Learn page the module is based on.",
 };
 
-function topicsOf(sections, lines) {
+function activeModuleChecks(options = {}) {
+  if (options?.includeKnowledgeCheck === false) {
+    return MODULE_CHECKS.filter((c) => c.id !== "knowledge-check");
+  }
+  return MODULE_CHECKS;
+}
+
+function topicsOf(sections, lines, moduleChecks = MODULE_CHECKS) {
   const moduleHeading = /^(Step|Recap)\s+(\d+)\s*[-–—:]\s*(.+)$/i;
   return sections
     .filter((s) => s.level === 3 && moduleHeading.test(s.text))
@@ -207,7 +220,7 @@ function topicsOf(sections, lines) {
         steps: s.body.filter((l) => /^\s*\d+\.\s+\S/.test(l)).length,
         images: imagesIn(s.body),
       };
-      const checklist = MODULE_CHECKS.map((c) => ({ id: c.id, label: c.label, pass: c.test(module) }));
+      const checklist = moduleChecks.map((c) => ({ id: c.id, label: c.label, pass: c.test(module) }));
       const passed = checklist.filter((c) => c.pass).length;
       const minutes = parseMinutes((body.match(/about (\d+ (?:minutes?|hours?)(?: \d+ minutes?)?)/i) || [])[1]);
       return {
@@ -231,13 +244,15 @@ function topicsOf(sections, lines) {
  * @param {string} markdown the lab's index.md
  * @param {object} [options]
  * @param {Array<{name: string}>} [options.expectedTopics] the modules the learner selected
+ * @param {boolean} [options.includeKnowledgeCheck] whether knowledge check mini-quizzes were enabled
  * @returns {{version: number, score: number, grade: string, stats: object, checks: object[], topics: object[], findings: object[]}}
  */
 export function assessLab(markdown, options = {}) {
   const source = String(markdown || "");
   const lines = stripFences(source);
   const sections = parseSections(lines);
-  const topics = topicsOf(sections, lines);
+  const moduleChecks = activeModuleChecks(options);
+  const topics = topicsOf(sections, lines, moduleChecks);
   const reviewed = topics.filter((t) => !t.recap);
   const findings = [];
   const checks = [];
@@ -321,7 +336,7 @@ export function assessLab(markdown, options = {}) {
   add("glossary", "Glossary of terms", 2, titled(/glossary|key terms/i) ? 1 : 0, "info", "The lab has no glossary of the terms it introduces.", "Add a short glossary of the product and domain terms used.");
 
   // Per-module completeness
-  for (const check of MODULE_CHECKS) {
+  for (const check of moduleChecks) {
     const failing = reviewed.filter((t) => !t.checklist.find((c) => c.id === check.id).pass);
     const ratio = reviewed.length ? 1 - failing.length / reviewed.length : 0;
     const weights = { "numbered-steps": 8, "expected-results": 9, verification: 6, troubleshooting: 6, "knowledge-check": 5, "scenario-thread": 5, screenshot: 6, "time-estimate": 3, sources: 5 };

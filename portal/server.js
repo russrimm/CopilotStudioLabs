@@ -535,6 +535,7 @@ app.post("/api/lab-builder/preview", (req, res) => {
       products: plan.products,
       productNames: plan.productNames,
       harness: plan.harness,
+      includeKnowledgeCheck: Boolean(plan.includeKnowledgeCheck),
       droppedOutOfLevel: plan.request.droppedOutOfLevel || [],
       deferred: plan.deferred,
       assumedPrereqs: plan.assumedPrereqs,

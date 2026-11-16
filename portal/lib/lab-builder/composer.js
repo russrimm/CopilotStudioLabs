@@ -40,6 +40,7 @@ import {
   troubleshootingBlock,
 } from "./teaching.js";
 import { buildAdminPrerequisites, renderAdminPrerequisitesMarkdown } from "./admin-prereqs.js";
+import { canonicalLearnUrl, dedupeLearnSources, formatCitationLabel } from "./learn-citations.js";
 
 function bullets(items, prefix = "-") {
   return items.map((item) => `${prefix} ${item}`).join("\n");
@@ -449,29 +450,17 @@ function screenshotBlock(shots) {
  * after the last segment of its path instead.
  */
 function citationLabel(source) {
-  const title = String(source.title || "").trim();
-  if (title && title !== source.url && !/^https?:\/\//i.test(title)) return scrubForbidden(title);
-
-  let slug = "";
-  try {
-    const path = new URL(source.url).pathname.replace(/\/+$/, "");
-    slug = decodeURIComponent(path.slice(path.lastIndexOf("/") + 1));
-  } catch {
-    /* an unparseable URL still gets a readable label below */
-  }
-  const words = slug.replace(/\.[a-z]+$/i, "").replace(/[-_]+/g, " ").trim();
-  return scrubForbidden(
-    words ? `Microsoft Learn: ${words.charAt(0).toUpperCase()}${words.slice(1)}` : "Microsoft Learn page",
-  );
+  return formatCitationLabel(source, scrubForbidden);
 }
 
 function citationBlock(grounding) {
-  if (!grounding?.sources?.length) return [];
+  const uniqueSources = dedupeLearnSources(grounding?.sources || [], { scrub: scrubForbidden });
+  if (!uniqueSources.length) return [];
   return [
     "",
     "**Microsoft Learn references**",
     "",
-    bullets(grounding.sources.map((s) => `[${citationLabel(s)}](${s.url})`)),
+    bullets(uniqueSources.map((s) => `[${citationLabel(s)}](${markdownUrl(s.url)})`)),
   ];
 }
 
@@ -496,7 +485,8 @@ function groundedInsight(grounding) {
   const best = [...usable].sort((a, b) => (b.relevance ?? -1) - (a.relevance ?? -1))[0];
   const quote = scrubForbidden(condense(best.excerpt));
   if (!quote) return [];
-  const attribution = best.url ? ` — [Microsoft Learn](${best.url})` : "";
+  const cleanUrl = best.url ? canonicalLearnUrl(best.url) || best.url : "";
+  const attribution = cleanUrl ? ` — [Microsoft Learn](${markdownUrl(cleanUrl)})` : "";
   return ["", "> **From the docs:** " + quote + attribution];
 }
 
@@ -715,8 +705,8 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     "**Check your work**",
     "",
     bullets(feature.validation.map((v) => `[ ] ${scrubForbidden(v)}`)),
-    ...troubleshootingBlock(feature, TEACH),
-    ...knowledgeCheckBlock(feature, plan, TEACH),
+    ...troubleshootingBlock(feature, TEACH, grounding),
+    ...knowledgeCheckBlock(feature, plan, TEACH, grounding),
     ...citationBlock(grounding),
     ...vendorBlock(vendorRecords),
   ].join("\n");

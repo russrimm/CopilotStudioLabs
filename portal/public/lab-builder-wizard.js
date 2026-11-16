@@ -69,6 +69,8 @@ const labBuilder = {
   // Whether the collapsed prerequisite and unknown-level groups are open; kept across re-renders.
   prereqOpen: false,
   unknownOpen: false,
+  // Opt-in per-lesson multiple-choice Knowledge Check mini-quiz (off by default on a fresh wizard start).
+  includeKnowledgeCheck: false,
 };
 
 function lbFormatMinutes(minutes) {
@@ -1130,6 +1132,10 @@ function lbBindTopicEvents() {
       lbJumpToPrerequisites();
     }
   });
+  document.getElementById("lb-include-knowledge-check")?.addEventListener("change", (event) => {
+    lbSetIncludeKnowledgeCheck(Boolean(event.target?.checked));
+  });
+  lbSetFormValue("lb-include-knowledge-check", Boolean(labBuilder.includeKnowledgeCheck));
 }
 
 /** Level as text, never color alone. A level worked out from the docs rubric says so. */
@@ -1490,6 +1496,9 @@ function lbRenderSummary() {
         : "Calculating topics...";
       parts.push(escapeHtml(time));
     }
+    if (lbIncludeKnowledgeCheck() || labBuilder.step >= LB_STEP.review) {
+      parts.push(escapeHtml(lbIncludeKnowledgeCheck() ? "Knowledge checks: mini-quizzes on" : "Knowledge checks: off"));
+    }
     summaryHtml = `<strong>Your lab so far:</strong> ${parts.join(" · ")}`;
   }
   if (el) el.innerHTML = summaryHtml;
@@ -1687,10 +1696,23 @@ function lbReplaceTarget() {
   return document.querySelector('input[name="lb-save-mode"]:checked')?.value === "replace" ? labBuilder.editing.labId : undefined;
 }
 
+function lbIncludeKnowledgeCheck() {
+  return Boolean(labBuilder.includeKnowledgeCheck);
+}
+
+function lbSetIncludeKnowledgeCheck(checked) {
+  lbSetFormValue("lb-include-knowledge-check", Boolean(checked));
+  lbRenderSummary();
+  if (labBuilder.step === LB_STEP.review) lbPreview();
+}
+
 function lbSetFormValue(id, value) {
+  if (id === "lb-include-knowledge-check") {
+    labBuilder.includeKnowledgeCheck = Boolean(value);
+  }
   const el = document.getElementById(id);
   if (!el) return;
-  if (el.type === "checkbox") el.checked = value;
+  if (el.type === "checkbox" || typeof value === "boolean") el.checked = Boolean(value);
   else el.value = value ?? "";
 }
 
@@ -1723,6 +1745,7 @@ function lbResetAnswers() {
   labBuilder.filter = "all";
   labBuilder.prereqOpen = false;
   labBuilder.unknownOpen = false;
+  labBuilder.includeKnowledgeCheck = false;
   labBuilder.step = LB_STEP.product;
   labBuilder.furthest = LB_STEP.product;
   labBuilder.levelNotice = null;
@@ -1739,6 +1762,7 @@ function lbResetAnswers() {
     ["lb-agent-name", ""],
     ["lb-use-learn", true],
     ["lb-use-llm", true],
+    ["lb-include-knowledge-check", false],
     ["lb-topic-search", ""],
     ["lb-topic-filter", "all"],
   ]) {
@@ -1806,6 +1830,7 @@ async function lbLoadSelections(lab) {
   lbSetFormValue("lb-agent-name", saved.agentName || "");
   lbSetFormValue("lb-use-learn", saved.useLearnMcp !== false);
   lbSetFormValue("lb-use-llm", saved.useLlm !== false);
+  lbSetFormValue("lb-include-knowledge-check", Boolean(saved.includeKnowledgeCheck));
   labBuilder.furthest = LB_STEP.review;
   lbRenderAllSteps();
   lbSetEditing(lab);
@@ -1837,6 +1862,7 @@ function lbRequest() {
     agentName: document.getElementById("lb-agent-name")?.value.trim() || undefined,
     useLearnMcp: document.getElementById("lb-use-learn")?.checked !== false,
     useLlm: document.getElementById("lb-use-llm")?.checked !== false,
+    includeKnowledgeCheck: lbIncludeKnowledgeCheck(),
     // A harness, and the notes comparing harnesses, only exist for a product that has harnesses.
     ...(lbHasHarnessProduct() ? { harness: labBuilder.harness, differencesFor: [...lbDifferencesFor()] } : {}),
   };
@@ -2142,6 +2168,7 @@ async function lbPreview(options = {}) {
         <span class="scenario-pill">About ${escapeHtml(data.duration)} (estimate, not a limit)</span>
         <span class="scenario-pill">${own} module${own === 1 ? "" : "s"}${recaps ? ` + ${recaps} prerequisite recap${recaps === 1 ? "" : "s"}` : ""}</span>
         <span class="scenario-pill">Agent: ${escapeHtml(data.agentName)}</span>
+        <span class="scenario-pill">${data.includeKnowledgeCheck ? "Lesson mini-quizzes included" : "Lesson mini-quizzes off"}</span>
       </div>
       <div style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">${escapeHtml(data.scenario.problem)}</div>
       <table class="lb-outline">

@@ -13,6 +13,7 @@
  */
 
 import { rankResults, DEFAULT_FLOOR, MAX_SOURCES } from "./relevance.js";
+import { dedupeLearnSources } from "./learn-citations.js";
 
 const DEFAULT_ENDPOINT = process.env.LEARN_MCP_URL || "https://learn.microsoft.com/api/mcp";
 const DEFAULT_TIMEOUT_MS = Number(process.env.LEARN_MCP_TIMEOUT_MS || 30000);
@@ -375,12 +376,14 @@ export async function groundFeature(session, feature, { perQuery = 4, floor = DE
 
   const learnSources = kept
     .filter((item) => item.url)
-    .map((item) => ({ title: item.title || item.url, url: item.url }));
+    .map((item) => ({ title: item.title || item.url, url: item.url, excerpt: item.excerpt }));
 
   // Curated links top up the list rather than replacing it: they are on-target
   // by construction, and they are the same pages `steps.js` reads.
   const fallbackSources = (feature.docUrls || []).map((url) => ({ title: url, url }));
-  const sources = dedupeByUrl([...learnSources, ...fallbackSources]).slice(0, MAX_SOURCES);
+  const sources = dedupeLearnSources([...learnSources, ...fallbackSources], { maxItems: MAX_SOURCES }).map(
+    ({ title, url }) => ({ title, url }),
+  );
 
   return {
     featureId: feature.id,

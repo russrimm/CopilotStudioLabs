@@ -216,14 +216,21 @@ function nearestUseCase(headings, position) {
 }
 
 const DIFFERENCE_NOTE_RE = /<details>\s*<summary>\s*How this differs on[\s\S]*?<\/details>/gi;
+const KNOWLEDGE_QUIZ_RE =
+  /\*\*Knowledge check:\s*Lesson mini-quiz\*\*[\s\S]*?(?=\n\*\*(?:Microsoft Learn references|Vendor documentation)\*\*|\n###?\s|\n---\s*$|$)/gi;
+const KNOWLEDGE_DETAILS_RE = /<details>\s*<summary>\s*(?:Knowledge check|Self-check)\b[\s\S]*?<\/details>/gi;
 
 /**
- * The expandable "How this differs on the <other> harness" notes describe a
- * different harness than the lab's steps, so their wording is not a claim about
- * the steps. Drop them before claims are extracted.
+ * The expandable "How this differs on the <other> harness" notes and lesson
+ * knowledge-check quizzes hold cross-harness comparisons or multiple-choice
+ * distractors, not claims about the lab's click-by-click steps. Drop them
+ * before claims are extracted.
  */
 export function withoutDifferenceNotes(markdown) {
-  return String(markdown || "").replace(DIFFERENCE_NOTE_RE, "");
+  return String(markdown || "")
+    .replace(DIFFERENCE_NOTE_RE, "")
+    .replace(KNOWLEDGE_QUIZ_RE, "")
+    .replace(KNOWLEDGE_DETAILS_RE, "");
 }
 
 /**

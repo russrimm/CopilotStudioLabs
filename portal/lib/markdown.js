@@ -4,6 +4,7 @@ import {
   ARCHITECTURE_FENCE_LANG,
   renderArchitectureOverviewHtml,
 } from "./lab-builder/architecture-overview.js";
+import { enhanceInteractiveLabHtml } from "./lab-builder/interactive-elements.js";
 
 export const labDiagramExtension = {
   name: "labDiagrams",
@@ -54,11 +55,15 @@ export function sanitizeLabHtml(html) {
   return sanitizeHtml(String(html ?? ""), {
     allowedTags: [
       ...sanitizeHtml.defaults.allowedTags,
+      "button",
       "details",
+      "fieldset",
       "figcaption",
       "figure",
       "img",
       "input",
+      "label",
+      "legend",
       "section",
       "summary",
       "svg",
@@ -71,10 +76,16 @@ export function sanitizeLabHtml(html) {
       "polygon",
     ],
     allowedAttributes: {
-      "*": ["style", "aria-label", "aria-hidden", "role"],
+      "*": ["style", "aria-label", "aria-hidden", "aria-live", "role"],
       a: ["href", "name", "rel", "target"],
+      button: ["type", "data-quiz-check-one", "data-quiz-check-all", "data-quiz-reset"],
+      div: ["hidden", "data-quiz-explanation"],
+      fieldset: ["data-question-index", "data-correct", "data-quiz-state"],
       img: sanitizeHtml.defaults.allowedAttributes.img,
-      input: ["checked", "disabled", "type"],
+      input: ["checked", "type", "name", "value", "data-task-key", "data-quiz-option"],
+      label: ["data-option-letter", "data-option-state"],
+      section: ["data-quiz-id"],
+      span: ["data-quiz-score", "data-quiz-status"],
       svg: [
         "viewBox",
         "viewbox",
@@ -96,15 +107,48 @@ export function sanitizeLabHtml(html) {
       polygon: ["points", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin"],
     },
     allowedClasses: {
+      button: ["lab-quiz-btn", "lab-quiz-check-one", "lab-quiz-btn-primary", "lab-quiz-btn-reset"],
       code: [/^language-[a-z0-9_-]+$/],
-      div: ["mermaid", "lab-branding-banner", "lab-branding-title", "lab-branding-tagline", LAB_ARCH_CLASS_RE],
+      div: [
+        "mermaid",
+        "lab-branding-banner",
+        "lab-branding-title",
+        "lab-branding-tagline",
+        "lab-quiz-header",
+        "lab-quiz-heading-group",
+        "lab-quiz-options",
+        "lab-quiz-question-actions",
+        "lab-quiz-explanation",
+        "lab-quiz-footer",
+        LAB_ARCH_CLASS_RE,
+      ],
+      fieldset: ["lab-quiz-question", "is-correct", "is-incorrect"],
       figcaption: [LAB_ARCH_CLASS_RE],
       figure: [LAB_ARCH_CLASS_RE],
-      input: ["task-list-item-checkbox"],
+      input: ["task-list-item-checkbox", "lab-quiz-radio"],
+      label: ["task-list-label", "lab-quiz-option", "is-selected", "is-correct", "is-incorrect"],
+      legend: ["lab-quiz-prompt"],
       li: ["task-list-item", LAB_ARCH_CLASS_RE],
+      p: [
+        "lab-subhead",
+        "lab-module-meta",
+        "lab-scenario-callout",
+        "lab-quiz-title",
+        "lab-quiz-intro",
+        "lab-quiz-learn-ref",
+        LAB_ARCH_CLASS_RE,
+      ],
       pre: [LAB_ARCH_CLASS_RE],
-      section: [LAB_ARCH_CLASS_RE],
-      span: [LAB_ARCH_CLASS_RE],
+      section: ["lab-quiz", LAB_ARCH_CLASS_RE],
+      span: [
+        "task-list-item-text",
+        "lab-quiz-eyebrow",
+        "lab-quiz-score",
+        "lab-quiz-option-badge",
+        "lab-quiz-option-text",
+        "lab-quiz-status",
+        LAB_ARCH_CLASS_RE,
+      ],
       strong: [LAB_ARCH_CLASS_RE],
       svg: [LAB_ARCH_SVG_CLASS_RE],
       ul: ["contains-task-list", LAB_ARCH_CLASS_RE],
@@ -113,6 +157,14 @@ export function sanitizeLabHtml(html) {
       if (frame.tag === "svg") {
         const cls = String(frame.attribs?.class || "").trim();
         return !LAB_ARCH_SVG_CLASS_RE.test(cls) || frame.attribs?.["aria-hidden"] !== "true";
+      }
+      if (frame.tag === "input") {
+        const inputType = String(frame.attribs?.type || "").trim().toLowerCase();
+        return inputType !== "checkbox" && inputType !== "radio";
+      }
+      if (frame.tag === "button") {
+        const cls = String(frame.attribs?.class || "");
+        return !/\blab-quiz-btn\b/.test(cls);
       }
       return false;
     },
@@ -131,6 +183,15 @@ export function sanitizeLabHtml(html) {
             : safeAttributes,
         };
       },
+      button: (tagName, attribs) => ({
+        tagName,
+        attribs: { ...attribs, type: "button" },
+      }),
+      input: (tagName, attribs) => {
+        const next = { ...attribs };
+        delete next.disabled;
+        return { tagName, attribs: next };
+      },
       svg: (tagName, attribs) => {
         const next = { ...attribs };
         if (next.viewbox && !next.viewBox) {
@@ -144,5 +205,6 @@ export function sanitizeLabHtml(html) {
 }
 
 export function renderLabMarkdown(markdown, transformHtml = (html) => html) {
-  return sanitizeLabHtml(transformHtml(labMarked.parse(String(markdown ?? ""))));
+  const rendered = enhanceInteractiveLabHtml(labMarked.parse(String(markdown ?? "")));
+  return sanitizeLabHtml(transformHtml(rendered));
 }

@@ -1186,6 +1186,7 @@ export async function generateLab(request, opts = {}) {
     expectedTopics: plan.features.filter((f) => !f.prerequisite),
     products: plan.products,
     isAgentDeliverable: plan.deliverable?.isAgent,
+    includeKnowledgeCheck: plan.includeKnowledgeCheck,
   });
   const differenceSummary = buildDifferenceBlocks({ ...plan, features: plan.features.filter((f) => !f.prerequisite) }, { harnesses: getHarnesses(), concepts: getConcepts() });
 

@@ -13,6 +13,13 @@
 import { getFeature } from "./catalog.js";
 import { getProduct } from "./products.js";
 import { DELIVERABLE_MODES, describeDeliverable } from "./deliverable.js";
+import {
+  canonicalLearnPageKey,
+  dedupeLearnSources,
+  formatCitationLabel,
+  normalizeCitationTitleKey,
+  selectRelevantLearnSource,
+} from "./learn-citations.js";
 
 const CAUTION = /\b(?:can't|cannot|can not|must|requires?|required|only|unavailable|isn't|aren't|not available|don't|doesn't|won't|might|may not|limits?)\b/i;
 
@@ -52,6 +59,42 @@ function trimStop(text) {
   return String(text || "").trim().replace(/[.!?]+$/, "");
 }
 
+function ensureStop(text) {
+  const clean = String(text || "").trim();
+  if (!clean) return "";
+  return /[.!?]$/.test(clean) ? clean : `${clean}.`;
+}
+
+function conciseSentence(text, maxChars = 160) {
+  const sentence = ensureStop(firstSentence(text).replace(/\s+/g, " ").trim());
+  if (sentence.length <= maxChars) return sentence;
+  const cut = sentence.slice(0, maxChars);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > 60 ? cut.slice(0, space) : cut).replace(/[,:;.\s]+$/, "")}.`;
+}
+
+function safeMarkdownUrl(url) {
+  return String(url || "").replace(/[()\s]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`);
+}
+
+function moduleLearnSources(feature, grounding, u) {
+  return dedupeLearnSources(
+    [
+      ...(grounding?.sources || []),
+      ...((feature?.docUrls || []).map((url) => ({ title: url, url }))),
+      ...(feature?.verifiedAgainst ? [{ title: feature.verifiedAgainst, url: feature.verifiedAgainst }] : []),
+    ],
+    { scrub: u.scrub },
+  );
+}
+
+function learnReferenceLink(sources, contextText, u) {
+  const chosen = selectRelevantLearnSource(sources, contextText);
+  if (!chosen?.url) return null;
+  const label = u.label ? u.label(chosen) : formatCitationLabel(chosen, u.scrub);
+  return `[${label}](${safeMarkdownUrl(chosen.url)})`;
+}
+
 /** The "What you should see" block: a screen to compare against and an outcome to confirm. */
 export function expectedResultBlock(feature, shots, u) {
   const items = [];
@@ -68,21 +111,30 @@ export function expectedResultBlock(feature, shots, u) {
 }
 
 /** Troubleshooting: authored items first, then cautions already in the concepts, then universal checks. */
-export function troubleshootingBlock(feature, u) {
+export function troubleshootingBlock(feature, u, grounding) {
   const items = [];
+  const learnSources = moduleLearnSources(feature, grounding, u);
   for (const entry of feature.troubleshooting || []) {
-    if (entry?.symptom && entry?.fix) items.push(`**${u.scrub(entry.symptom)}** ${u.scrub(entry.fix)}`);
+    if (entry?.symptom && entry?.fix) {
+      const ref = learnReferenceLink(learnSources, `${entry.symptom} ${entry.fix} ${feature.name}`, u);
+      items.push(
+        `**${u.scrub(entry.symptom)}** ${ensureStop(u.scrub(entry.fix))}${ref ? ` See ${ref} on Microsoft Learn.` : ""}`,
+      );
+    }
   }
 
   const cautions = (feature.concepts || []).filter((c) => CAUTION.test(c));
   for (const caution of cautions.slice(0, 2)) {
-    items.push(`**Watch for this.** ${u.scrub(caution)}`);
+    const ref = learnReferenceLink(learnSources, `${caution} ${feature.name}`, u);
+    items.push(
+      `**Watch for this.** ${ensureStop(u.scrub(caution))}${ref ? ` Review ${ref} on Microsoft Learn.` : ""}`,
+    );
   }
 
-  const doc = feature.docUrls?.[0];
+  const primaryRef = learnReferenceLink(learnSources, `${feature.name} ${feature.summary || ""}`, u);
   items.push(
     `**A step does not match your screen.** Product screens change often. Compare with ${
-      doc ? `[the ${u.scrub(feature.name)} documentation](${doc})` : "the Microsoft Learn page for this module"
+      primaryRef || "the Microsoft Learn page for this module"
     } and follow it where the two differ.`,
   );
   if (feature.validation?.length) {
@@ -96,31 +148,121 @@ export function troubleshootingBlock(feature, u) {
   return ["", "**Troubleshooting**", "", u.bullets(items)];
 }
 
-function details(summary, answer) {
-  return ["", "<details>", `<summary>${summary}</summary>`, "", answer, "", "</details>"];
+const OPTION_LETTERS = ["A", "B", "C", "D"];
+
+function placeCorrectOption(correctText, distractors, targetSlot) {
+  const pool = distractors.slice(0, 3);
+  const slot = ((targetSlot % 4) + 4) % 4;
+  const ordered = [...pool];
+  ordered.splice(slot, 0, correctText);
+  return {
+    correctLetter: OPTION_LETTERS[slot],
+    options: ordered.slice(0, 4).map((text, idx) => `**${OPTION_LETTERS[idx]}.** ${text}`),
+  };
 }
 
-/** Short self-check questions with expandable answers, from vetted catalog text. */
-export function knowledgeCheckBlock(feature, plan, u) {
+/**
+ * Per-lesson multiple-choice mini-quiz derived deterministically from vetted
+ * catalog content and linked to the module's Microsoft Learn references.
+ */
+export function knowledgeCheckBlock(feature, plan, u, grounding) {
+  if (plan?.includeKnowledgeCheck === false) return [];
+
   const agent = u.esc(plan.profile.agentName);
   const name = u.scrub(feature.name);
-  const lines = [];
+  const learnSources = moduleLearnSources(feature, grounding, u);
+  const stepSeed = Number(feature.stepOrder ?? feature.order ?? 1);
+  const questions = [];
 
-  const why = firstSentence(feature.whyItMatters);
-  lines.push(...details(`Knowledge check: why does ${name} matter for ${agent}?`, u.scrub(feature.whyItMatters || why)));
+  const whyFull = ensureStop(u.scrub(feature.whyItMatters || feature.summary));
+  const whyConcise = conciseSentence(whyFull, 160);
+  const whyRef = learnReferenceLink(learnSources, `${feature.name} ${feature.whyItMatters || feature.summary || ""}`, u);
+  questions.push({
+    prompt: `Why do you configure **${name}** for **${agent}** in this scenario?`,
+    correct: whyConcise,
+    distractors: [
+      `It bypasses environment permissions for ${name}.`,
+      `It skips validation checks for ${name} before rollout.`,
+      `It deletes prior settings configured in ${name}.`,
+    ],
+    explanation: `${whyFull}${whyRef ? ` Review how **${name}** works in ${whyRef}.` : ""}`,
+    learnRef: whyRef,
+  });
 
-  if (feature.validation?.length) {
-    lines.push(
-      ...details(
-        `Knowledge check: how will you know ${name} is working in your scenario?`,
-        u.bullets(feature.validation.map(u.scrub)),
-      ),
+  const verifyRaw = feature.validation?.[0] || feature.expectedResults?.[0];
+  if (verifyRaw) {
+    const verifyFull = ensureStop(u.scrub(verifyRaw));
+    const secondaryVerify = feature.validation?.[1] ? ` Also verify: ${ensureStop(u.scrub(feature.validation[1]))}` : "";
+    const verifyRef = learnReferenceLink(
+      learnSources,
+      `${feature.name} ${verifyRaw} ${feature.validation?.[1] || ""}`,
+      u,
     );
+    questions.push({
+      prompt: `Which check confirms that **${name}** is working as expected?`,
+      correct: conciseSentence(verifyFull, 160),
+      distractors: [
+        `Closing the tab right after opening ${name} without testing.`,
+        `Skipping the Check your work list for ${name}.`,
+        `Removing ${name} before running any scenario test.`,
+      ],
+      explanation: `Confirm **${name}** by checking this outcome: ${verifyFull}${secondaryVerify}${
+        verifyRef ? ` Compare expected results in ${verifyRef}.` : ""
+      }`,
+      learnRef: verifyRef,
+    });
   }
 
-  const used = new Set((feature.concepts || []).filter((c) => CAUTION.test(c)).slice(0, 2));
-  const spare = (feature.concepts || []).find((c) => !used.has(c));
-  if (spare) lines.push(...details(`Knowledge check: what should you remember about ${name} before you click?`, u.scrub(spare)));
+  const cautionConcept = (feature.concepts || []).find((c) => CAUTION.test(c));
+  const conceptRaw =
+    cautionConcept ||
+    (feature.concepts || [])[0] ||
+    (feature.troubleshooting?.[0]?.fix ? `${feature.troubleshooting[0].symptom} ${feature.troubleshooting[0].fix}` : null);
+  if (conceptRaw) {
+    const conceptFull = ensureStop(u.scrub(conceptRaw));
+    const conceptRef = learnReferenceLink(learnSources, `${feature.name} ${conceptRaw}`, u);
+    questions.push({
+      prompt: `Which point of interest applies when configuring **${name}**?`,
+      correct: conciseSentence(conceptFull, 160),
+      distractors: [
+        `${name} ignores tenant licensing and environment roles.`,
+        `Updates to ${name} never affect ${agent} behavior.`,
+        `Every change to ${name} requires a brand-new tenant.`,
+      ],
+      explanation: `Keep this **${name}** detail in mind: ${conceptFull}${
+        conceptRef ? ` Read more about this point of interest in ${conceptRef}.` : ""
+      }`,
+      learnRef: conceptRef,
+    });
+  }
+
+  if (!questions.length) return [];
+
+  const lines = [
+    "",
+    "**Knowledge check: Lesson mini-quiz**",
+    "",
+    `*Test your understanding of ${name} (${questions.length} multiple-choice question${questions.length === 1 ? "" : "s"}).*`,
+  ];
+
+  questions.forEach((question, index) => {
+    const number = index + 1;
+    const { correctLetter, options } = placeCorrectOption(question.correct, question.distractors, stepSeed + index);
+    lines.push(
+      "",
+      `**Question ${number}.** ${question.prompt}`,
+      "",
+      u.bullets(options),
+      "",
+      "<details>",
+      `<summary>Knowledge check: Question ${number} answer and Microsoft Learn reference</summary>`,
+      "",
+      `**Correct answer: ${correctLetter}.** ${question.explanation}`,
+      ...(question.learnRef ? ["", `**Microsoft Learn reference:** ${question.learnRef}`] : []),
+      "",
+      "</details>",
+    );
+  });
 
   return lines;
 }
@@ -363,15 +505,32 @@ export function licensingBlock(plan, u) {
 }
 
 /** Microsoft Learn pages already cited in the lab, gathered for further reading. */
-export function furtherLearningBlock(plan, groundingByFeature, u) {
-  const seen = new Set();
+export function furtherLearningBlock(plan, groundingByFeature, u = {}) {
+  const scrub = u?.scrub || ((s) => String(s ?? ""));
+  const esc = u?.esc || ((s) => String(s ?? ""));
+  const bullets = u?.bullets || ((items) => items.map((item) => `- ${item}`).join("\n"));
+  const seenPages = new Set();
+  const seenTitles = new Set();
   const rows = [];
-  for (const feature of plan.features) {
-    const grounded = groundingByFeature?.get(feature.id)?.sources?.[0];
-    const url = grounded?.url || feature.docUrls?.[0];
-    if (!url || seen.has(url)) continue;
-    seen.add(url);
-    rows.push(`**${u.esc(u.scrub(feature.name))}:** [${u.label(grounded || { title: "", url })}](${url})`);
+  for (const feature of plan?.features || []) {
+    const candidates = dedupeLearnSources(
+      [
+        ...(groundingByFeature?.get(feature.id)?.sources || []),
+        ...((feature.docUrls || []).map((url) => ({ title: url, url }))),
+      ],
+      { scrub },
+    );
+    const chosen = candidates.find((candidate) => {
+      const pageKey = canonicalLearnPageKey(candidate.url);
+      const label = u?.label ? u.label(candidate) : formatCitationLabel(candidate, scrub);
+      const titleKey = normalizeCitationTitleKey(label);
+      return pageKey && titleKey && !seenPages.has(pageKey) && !seenTitles.has(titleKey);
+    });
+    if (!chosen) continue;
+    const label = u?.label ? u.label(chosen) : formatCitationLabel(chosen, scrub);
+    seenPages.add(canonicalLearnPageKey(chosen.url));
+    seenTitles.add(normalizeCitationTitleKey(label));
+    rows.push(`**${esc(scrub(feature.name || feature.id || "Reference"))}:** [${label}](${chosen.url})`);
   }
-  return rows.length ? ["**Further reading on Microsoft Learn**", "", u.bullets(rows), ""] : [];
+  return rows.length ? ["**Further reading on Microsoft Learn**", "", bullets(rows), ""] : [];
 }

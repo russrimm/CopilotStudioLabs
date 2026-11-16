@@ -910,6 +910,7 @@ async function selectLab(labId) {
     }
 
     injectFeedbackButtons(preview);
+    enhanceLabInteractivity(preview, `lab:${labId}`);
     paginateLabElement(preview);
     injectReportIssueButton(preview);
   } catch (err) {
@@ -1698,6 +1699,223 @@ function paginateLabElement(container) {
 function revealPaginatedTarget(container, target) {
   if (!container || !target || !container._labPaginator) return false;
   return container._labPaginator.revealElement(target);
+}
+
+/**
+ * Enable interactive "Check your work" checkboxes and Lesson Mini-Quiz grading
+ * inside a rendered lab container, persisting progress per lab in localStorage.
+ */
+function enhanceLabInteractivity(container, scopeKey) {
+  if (!container) return;
+  const normalizedScope = String(scopeKey || container.id || "lab-preview");
+  container.dataset.labInteractiveScope = normalizedScope;
+
+  function readStoredMap(storageKey) {
+    try {
+      const raw = typeof localStorage !== "undefined" ? localStorage.getItem(storageKey) : null;
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function writeStoredMap(storageKey, value) {
+    try {
+      if (typeof localStorage !== "undefined") localStorage.setItem(storageKey, JSON.stringify(value));
+    } catch (_) {
+      // Ignore storage quota or private-mode restrictions.
+    }
+  }
+
+  function syncTaskRow(checkbox) {
+    checkbox.disabled = false;
+    checkbox.removeAttribute("disabled");
+    const li = checkbox.closest?.(".task-list-item");
+    const label = checkbox.closest?.(".task-list-label");
+    if (li) li.classList.toggle("is-checked", Boolean(checkbox.checked));
+    if (label) label.classList.toggle("is-checked", Boolean(checkbox.checked));
+  }
+
+  function syncQuizOptionSelection(fieldset) {
+    fieldset.querySelectorAll(".lab-quiz-option").forEach((optLabel) => {
+      const radio = optLabel.querySelector("input.lab-quiz-radio");
+      optLabel.classList.toggle("is-selected", Boolean(radio?.checked));
+    });
+  }
+
+  function clearQuizQuestionGrade(fieldset) {
+    fieldset.removeAttribute("data-quiz-state");
+    fieldset.classList.remove("is-correct", "is-incorrect");
+    fieldset.querySelectorAll(".lab-quiz-option").forEach((optLabel) => {
+      optLabel.classList.remove("is-correct", "is-incorrect");
+    });
+    const statusEl = fieldset.querySelector("[data-quiz-status]");
+    if (statusEl) statusEl.textContent = "";
+    const explanationEl = fieldset.querySelector("[data-quiz-explanation]");
+    if (explanationEl) explanationEl.hidden = true;
+  }
+
+  function gradeQuizQuestion(fieldset) {
+    const correct = String(fieldset.getAttribute("data-correct") || "").toUpperCase();
+    const checkedRadio = fieldset.querySelector("input.lab-quiz-radio:checked");
+    const statusEl = fieldset.querySelector("[data-quiz-status]");
+    const explanationEl = fieldset.querySelector("[data-quiz-explanation]");
+    fieldset.querySelectorAll(".lab-quiz-option").forEach((optLabel) => {
+      optLabel.classList.remove("is-correct", "is-incorrect");
+    });
+    if (!checkedRadio) {
+      fieldset.removeAttribute("data-quiz-state");
+      fieldset.classList.remove("is-correct", "is-incorrect");
+      if (statusEl) statusEl.textContent = "Select an answer choice (A–D) first.";
+      if (explanationEl) explanationEl.hidden = true;
+      return false;
+    }
+    const chosen = String(checkedRadio.value || "").toUpperCase();
+    const isRight = Boolean(correct) && chosen === correct;
+    fieldset.setAttribute("data-quiz-state", isRight ? "correct" : "incorrect");
+    fieldset.classList.toggle("is-correct", isRight);
+    fieldset.classList.toggle("is-incorrect", !isRight);
+    fieldset.querySelectorAll(".lab-quiz-option").forEach((optLabel) => {
+      const letter = String(optLabel.getAttribute("data-option-letter") || "").toUpperCase();
+      if (letter === correct) optLabel.classList.add("is-correct");
+      else if (letter === chosen && !isRight) optLabel.classList.add("is-incorrect");
+    });
+    if (statusEl) {
+      statusEl.textContent = isRight
+        ? `Correct — Option ${chosen}.`
+        : `Not quite — Option ${chosen} is not right. Review the explanation and Microsoft Learn reference below, or try again.`;
+    }
+    if (explanationEl) explanationEl.hidden = false;
+    return isRight;
+  }
+
+  function updateQuizScore(quizSection) {
+    const fieldsets = [...quizSection.querySelectorAll(".lab-quiz-question")];
+    const rightCount = fieldsets.filter((fs) => fs.getAttribute("data-quiz-state") === "correct").length;
+    const scoreEl = quizSection.querySelector("[data-quiz-score]");
+    if (scoreEl) scoreEl.textContent = `${rightCount} / ${fieldsets.length} correct`;
+  }
+
+  function persistQuizSection(quizSection, activeScope) {
+    const quizId = quizSection.getAttribute("data-quiz-id");
+    if (!quizId) return;
+    const storageKey = `csl-lab-quizzes:${activeScope}`;
+    const saved = readStoredMap(storageKey);
+    const state = { answers: {}, checked: {} };
+    [...quizSection.querySelectorAll(".lab-quiz-question")].forEach((fs, idx) => {
+      const checkedRadio = fs.querySelector("input.lab-quiz-radio:checked");
+      if (checkedRadio) state.answers[String(idx)] = checkedRadio.value;
+      if (fs.getAttribute("data-quiz-state")) state.checked[String(idx)] = true;
+    });
+    saved[quizId] = state;
+    writeStoredMap(storageKey, saved);
+  }
+
+  // Namespace radio group names per container so #preview-area and #lb-result-preview never collide.
+  const radioPrefix = (container.id || "lab").replace(/[^a-z0-9_-]/gi, "-");
+  container.querySelectorAll("input.lab-quiz-radio").forEach((radio) => {
+    const rawName = radio.getAttribute("name") || "quiz-q";
+    if (!rawName.startsWith(`${radioPrefix}-`)) {
+      radio.setAttribute("name", `${radioPrefix}-${rawName}`);
+    }
+  });
+
+  const savedTasks = readStoredMap(`csl-lab-tasks:${normalizedScope}`);
+  container.querySelectorAll("input.task-list-item-checkbox").forEach((checkbox) => {
+    const key = checkbox.getAttribute("data-task-key");
+    if (key && Object.prototype.hasOwnProperty.call(savedTasks, key)) {
+      checkbox.checked = Boolean(savedTasks[key]);
+    }
+    syncTaskRow(checkbox);
+  });
+
+  const savedQuizzes = readStoredMap(`csl-lab-quizzes:${normalizedScope}`);
+  container.querySelectorAll(".lab-quiz").forEach((quizSection) => {
+    const quizId = quizSection.getAttribute("data-quiz-id");
+    const stored = quizId && savedQuizzes[quizId] ? savedQuizzes[quizId] : null;
+    if (stored?.answers) {
+      [...quizSection.querySelectorAll(".lab-quiz-question")].forEach((fs, idx) => {
+        const val = stored.answers[String(idx)];
+        if (val) {
+          const targetRadio = fs.querySelector(`input.lab-quiz-radio[value="${val}"]`);
+          if (targetRadio) targetRadio.checked = true;
+        }
+        syncQuizOptionSelection(fs);
+        if (stored.checked?.[String(idx)]) gradeQuizQuestion(fs);
+      });
+    }
+    updateQuizScore(quizSection);
+  });
+
+  if (!container.dataset.labInteractiveBound) {
+    container.dataset.labInteractiveBound = "true";
+
+    container.addEventListener("change", (event) => {
+      const target = event.target;
+      if (!target) return;
+      const activeScope = container.dataset.labInteractiveScope || "lab-preview";
+      if (target.classList?.contains("task-list-item-checkbox")) {
+        syncTaskRow(target);
+        const key = target.getAttribute("data-task-key");
+        if (key) {
+          const storageKey = `csl-lab-tasks:${activeScope}`;
+          const saved = readStoredMap(storageKey);
+          if (target.checked) saved[key] = true;
+          else delete saved[key];
+          writeStoredMap(storageKey, saved);
+        }
+        return;
+      }
+      if (target.classList?.contains("lab-quiz-radio")) {
+        const fs = target.closest?.(".lab-quiz-question");
+        const quizSection = target.closest?.(".lab-quiz");
+        if (fs) {
+          clearQuizQuestionGrade(fs);
+          syncQuizOptionSelection(fs);
+        }
+        if (quizSection) {
+          updateQuizScore(quizSection);
+          persistQuizSection(quizSection, activeScope);
+        }
+      }
+    });
+
+    container.addEventListener("click", (event) => {
+      const btn = event.target?.closest?.("button.lab-quiz-btn");
+      if (!btn) return;
+      const quizSection = btn.closest(".lab-quiz");
+      if (!quizSection) return;
+      const activeScope = container.dataset.labInteractiveScope || "lab-preview";
+
+      if (btn.hasAttribute("data-quiz-check-one")) {
+        const fs = btn.closest(".lab-quiz-question");
+        if (fs) gradeQuizQuestion(fs);
+        updateQuizScore(quizSection);
+        persistQuizSection(quizSection, activeScope);
+      } else if (btn.hasAttribute("data-quiz-check-all")) {
+        quizSection.querySelectorAll(".lab-quiz-question").forEach(gradeQuizQuestion);
+        updateQuizScore(quizSection);
+        persistQuizSection(quizSection, activeScope);
+      } else if (btn.hasAttribute("data-quiz-reset")) {
+        quizSection.querySelectorAll(".lab-quiz-question").forEach((fs) => {
+          fs.querySelectorAll("input.lab-quiz-radio").forEach((r) => {
+            r.checked = false;
+          });
+          clearQuizQuestionGrade(fs);
+          syncQuizOptionSelection(fs);
+        });
+        updateQuizScore(quizSection);
+        const quizId = quizSection.getAttribute("data-quiz-id");
+        if (quizId) {
+          const storageKey = `csl-lab-quizzes:${activeScope}`;
+          const saved = readStoredMap(storageKey);
+          delete saved[quizId];
+          writeStoredMap(storageKey, saved);
+        }
+      }
+    });
+  }
 }
 
 // ── Scenarios ───────────────────────────────────────────────────────────────
@@ -4354,6 +4572,9 @@ async function lbLoadResultPreview(labId) {
         "afterbegin",
         `<p class="lb-warning" role="status">${data.pendingScreenshots.length} screenshot${data.pendingScreenshots.length === 1 ? " is" : "s are"} still pending. Each shows a placeholder until it is captured; see SHOTLIST.md in the lab folder.</p>`
       );
+    }
+    if (typeof enhanceLabInteractivity === "function") {
+      enhanceLabInteractivity(host, `generated:${labId}`);
     }
     if (typeof paginateLabElement === "function") {
       paginateLabElement(host);

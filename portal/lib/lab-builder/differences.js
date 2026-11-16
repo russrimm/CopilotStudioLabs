@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 
 import { getConceptForFeature } from "./concepts.js";
 import { productHasHarnesses, productOf } from "./products.js";
+import { dedupeLearnSources, formatCitationLabel } from "./learn-citations.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIFFERENCES_PATH = path.join(__dirname, "harness-differences.json");
@@ -176,8 +177,16 @@ export function renderDifferenceBlock({ record, concept, labHarness, otherHarnes
   if (record.confidence !== "documented" && record.uncertainNote) {
     lines.push(`**Not confirmed in Microsoft Learn.** ${clean(record.uncertainNote)}`, "");
   }
-  const sources = record.sources.map((s) => `[${clean(s.title)}](${s.url})`).join("; ");
-  lines.push(`**Sources (checked ${record.lastVerified}).** ${sources}`, "", "</details>");
+  const uniqueSources = dedupeLearnSources(record.sources || [], { scrub: clean });
+  if (uniqueSources.length) {
+    lines.push(
+      `**Sources (checked ${record.lastVerified}).**`,
+      "",
+      ...uniqueSources.map((s) => `- [${formatCitationLabel(s, clean)}](${s.url})`),
+      "",
+    );
+  }
+  lines.push("</details>");
   return lines;
 }
 

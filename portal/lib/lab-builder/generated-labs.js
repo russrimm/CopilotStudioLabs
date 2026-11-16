@@ -124,6 +124,7 @@ export function selectionsFromManifest(manifest) {
     agentName: typeof options.agentName === "string" ? options.agentName.slice(0, 128) : null,
     useLearnMcp: options.useLearnMcp !== false,
     useLlm: options.useLlm !== false,
+    includeKnowledgeCheck: Boolean(options.includeKnowledgeCheck ?? request.includeKnowledgeCheck ?? false),
   };
 }
 

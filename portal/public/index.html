@@ -2448,28 +2448,138 @@
     .preview-frame {
       background: var(--preview-bg);
       color: var(--text);
-      padding: 32px;
+      padding: 32px 36px;
       overflow-y: auto;
       font-size: 15px;
-      line-height: 1.7;
+      line-height: 1.72;
       flex: 1;
     }
     #lb-result-preview.preview-frame {
       border: 1px solid var(--border);
       border-radius: var(--radius);
     }
-    .preview-frame h1 { font-size: 24px; margin-bottom: 16px; color: var(--text); }
-    .preview-frame h2 { font-size: 20px; margin-top: 24px; margin-bottom: 12px; color: var(--text); }
-    .preview-frame h3 { font-size: 17px; margin-top: 20px; margin-bottom: 8px; color: var(--text); }
+    .preview-frame h1 {
+      font-size: 26px;
+      line-height: 1.25;
+      margin: 0 0 18px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--border);
+      color: var(--text);
+    }
+    .preview-frame h2 {
+      font-size: 20px;
+      line-height: 1.3;
+      margin: 32px 0 14px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      color: var(--text);
+    }
+    .preview-frame .lab-page > h2:first-child,
+    .preview-frame h1 + h2 {
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+    .preview-frame h3 {
+      font-size: 17.5px;
+      line-height: 1.35;
+      margin: 28px 0 10px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+      color: var(--text);
+    }
+    .preview-frame h2 + h3,
+    .preview-frame .lab-page > h3:first-child {
+      margin-top: 12px;
+      padding-top: 0;
+      border-top: 0;
+    }
     .preview-frame h4,
-    .preview-frame h5 { color: var(--text); }
+    .preview-frame h5 {
+      margin: 18px 0 8px;
+      line-height: 1.35;
+      color: var(--text);
+    }
+    .preview-frame p {
+      margin: 0 0 14px;
+      line-height: 1.72;
+      max-width: 78ch;
+    }
+    .preview-frame ul,
+    .preview-frame ol {
+      margin: 8px 0 16px;
+      padding-left: 26px;
+    }
+    .preview-frame li {
+      margin: 0 0 8px;
+      line-height: 1.68;
+      max-width: 76ch;
+    }
+    .preview-frame li:last-child { margin-bottom: 0; }
+    .preview-frame li > ul,
+    .preview-frame li > ol {
+      margin: 6px 0 6px;
+    }
+    .preview-frame ol > li {
+      padding-left: 4px;
+      margin-bottom: 10px;
+    }
+    .preview-frame ol > li::marker {
+      font-weight: 700;
+      color: var(--link-color);
+    }
+    .preview-frame li > p,
+    .preview-frame td > p:last-child,
+    .preview-frame th > p:last-child,
+    .preview-frame blockquote > p:last-child,
+    .preview-frame details > :last-child {
+      margin-bottom: 0;
+    }
+    .preview-frame blockquote > p + p,
+    .preview-frame details > p + p {
+      margin-top: 10px;
+    }
+    .preview-frame .lab-module-meta {
+      display: inline-block;
+      margin: 0 0 16px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: var(--preview-muted-bg);
+      border: 1px solid var(--border-strong);
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.4;
+      max-width: none;
+    }
+    .preview-frame .lab-module-meta em {
+      font-style: normal;
+      font-weight: 600;
+    }
+    .preview-frame .lab-subhead {
+      margin: 22px 0 10px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14.5px;
+      letter-spacing: 0.01em;
+      color: var(--text);
+      max-width: none;
+    }
+    .preview-frame .lab-scenario-callout {
+      margin: 16px 0;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--lb-reason-border);
+      background: var(--lb-reason-bg);
+      color: var(--lb-reason-text);
+      max-width: none;
+    }
     .preview-frame a {
       color: var(--link-color);
       text-decoration: underline;
       text-underline-offset: 2px;
     }
     .preview-frame a:hover { color: var(--accent-hover); }
-    .preview-frame hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
+    .preview-frame hr { border: 0; border-top: 1px solid var(--border); margin: 26px 0; }
     .preview-frame code {
       background: var(--code-bg);
       color: var(--text);
@@ -2485,7 +2595,7 @@
       padding: 16px;
       border-radius: 8px;
       overflow-x: auto;
-      margin: 12px 0;
+      margin: 14px 0 18px;
     }
     .preview-frame pre code {
       background: transparent;
@@ -2493,11 +2603,11 @@
       padding: 0;
       font-size: inherit;
     }
-    .preview-frame table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-    .preview-frame th, .preview-frame td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; color: var(--text); }
+    .preview-frame table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; }
+    .preview-frame th, .preview-frame td { border: 1px solid var(--border); padding: 9px 12px; text-align: left; vertical-align: top; color: var(--text); }
     .preview-frame details {
-      margin: 14px 0;
-      padding: 10px 14px;
+      margin: 16px 0;
+      padding: 12px 16px;
       border: 1px solid var(--border-strong);
       border-radius: 8px;
       background: var(--preview-muted-bg);
@@ -2510,14 +2620,286 @@
       padding: 2px 0;
     }
     .preview-frame details > summary:focus-visible { outline: 3px solid var(--link-color); outline-offset: 3px; border-radius: 4px; }
-    .preview-frame details[open] > summary { margin-bottom: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    .preview-frame details[open] > summary { margin-bottom: 10px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
     .preview-frame details a { color: var(--link-color); text-decoration: underline; }
-    .preview-frame img { max-width: 100%; height: auto; border: 1px solid var(--border-strong); border-radius: 4px; margin-top: 8px; }
+    .preview-frame img { max-width: 100%; height: auto; border: 1px solid var(--border-strong); border-radius: 6px; margin: 10px 0 6px; }
     .preview-frame .shot-pending { color: var(--text); }
     .preview-frame th { background: var(--preview-muted-bg); font-weight: 600; }
-    .preview-frame blockquote { border: 1px solid var(--border-strong); background: var(--preview-muted-bg); border-radius: 8px; padding: 10px 16px; color: var(--text); margin: 12px 0; }
+    .preview-frame blockquote { border: 1px solid var(--border-strong); background: var(--preview-muted-bg); border-radius: 8px; padding: 12px 16px; color: var(--text); margin: 16px 0; }
     .preview-frame .mermaid { margin: 20px 0; text-align: center; background: var(--preview-muted-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; }
     .preview-frame .lab-branding-tagline { color: var(--text-muted); }
+
+    /* ── Interactive Checklists & Lesson Mini-Quizzes ────────────────────── */
+    .lb-quiz-optin-card {
+      margin: 16px 0 14px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg);
+    }
+    .lb-quiz-optin-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      cursor: pointer;
+    }
+    .lb-quiz-optin-label input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin-top: 2px;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .lb-quiz-optin-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .lb-quiz-optin-copy strong {
+      font-size: 14px;
+      color: var(--text);
+    }
+    .lb-quiz-optin-copy span {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+    .preview-frame ul.contains-task-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 10px 0 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .preview-frame li.task-list-item {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-width: none;
+    }
+    .preview-frame .task-list-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      background: var(--preview-muted-bg);
+      color: var(--text);
+      cursor: pointer;
+      line-height: 1.55;
+      transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+    }
+    .preview-frame .task-list-label:hover {
+      border-color: var(--accent);
+    }
+    .preview-frame .task-list-item-checkbox {
+      width: 18px;
+      height: 18px;
+      margin: 3px 0 0;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .preview-frame .task-list-item-checkbox:focus-visible {
+      outline: 3px solid var(--link-color);
+      outline-offset: 2px;
+      border-radius: 3px;
+    }
+    .preview-frame li.task-list-item.is-checked .task-list-label {
+      background: var(--complete-bg);
+      border-color: var(--complete-border);
+    }
+    .preview-frame li.task-list-item.is-checked .task-list-item-text {
+      text-decoration: line-through;
+      text-decoration-thickness: 1.5px;
+    }
+    .preview-frame .lab-quiz {
+      margin: 22px 0 20px;
+      padding: 18px 20px;
+      border-radius: 12px;
+      border: 1px solid var(--border-strong);
+      background: var(--preview-muted-bg);
+      color: var(--text);
+    }
+    .preview-frame .lab-quiz-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .preview-frame .lab-quiz-eyebrow {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--link-color);
+    }
+    .preview-frame .lab-quiz-title {
+      margin: 2px 0 0;
+      font-size: 16px;
+      line-height: 1.35;
+      max-width: none;
+    }
+    .preview-frame .lab-quiz-intro {
+      margin: 4px 0 0;
+      font-size: 13.5px;
+      color: var(--text-muted);
+      max-width: none;
+    }
+    .preview-frame .lab-quiz-score {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 700;
+      background: var(--stat-total-bg);
+      border: 1px solid var(--stat-total-border);
+      color: var(--stat-total-text);
+    }
+    .preview-frame .lab-quiz-score.is-complete {
+      background: var(--complete-bg);
+      border-color: var(--complete-border);
+      color: var(--complete-text);
+    }
+    .preview-frame .lab-quiz-question {
+      margin: 0 0 16px;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--preview-bg);
+      min-width: 0;
+    }
+    .preview-frame .lab-quiz-legend {
+      padding: 0 4px;
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .preview-frame .lab-quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .preview-frame .lab-quiz-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      background: var(--preview-muted-bg);
+      color: var(--text);
+      cursor: pointer;
+      line-height: 1.5;
+    }
+    .preview-frame .lab-quiz-option:hover {
+      border-color: var(--accent);
+    }
+    .preview-frame .lab-quiz-option.is-selected {
+      border-color: var(--accent);
+      background: var(--lb-card-checked-bg);
+    }
+    .preview-frame .lab-quiz-option.is-correct-choice {
+      border-color: var(--complete-border);
+      background: var(--complete-bg);
+    }
+    .preview-frame .lab-quiz-option.is-wrong-choice {
+      border-color: var(--stat-warn-border);
+      background: var(--stat-warn-bg);
+    }
+    .preview-frame .lab-quiz-radio {
+      width: 17px;
+      height: 17px;
+      margin-top: 3px;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .preview-frame .lab-quiz-radio:focus-visible,
+    .preview-frame .lab-quiz-btn:focus-visible {
+      outline: 3px solid var(--link-color);
+      outline-offset: 2px;
+    }
+    .preview-frame .lab-quiz-option-letter {
+      font-weight: 700;
+      color: var(--link-color);
+      flex-shrink: 0;
+    }
+    .preview-frame .lab-quiz-actions,
+    .preview-frame .lab-quiz-footer {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    .preview-frame .lab-quiz-btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .preview-frame .lab-quiz-btn:hover {
+      border-color: var(--accent);
+    }
+    .preview-frame .lab-quiz-btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--accent-contrast);
+    }
+    .preview-frame .lab-quiz-btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+      color: var(--accent-hover-contrast);
+    }
+    .preview-frame .lab-quiz-status {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .preview-frame .lab-quiz-question.is-correct .lab-quiz-status {
+      color: var(--success);
+    }
+    .preview-frame .lab-quiz-question.is-incorrect .lab-quiz-status {
+      color: var(--warning);
+    }
+    .preview-frame .lab-quiz-explanation {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--lb-reason-border);
+      background: var(--lb-reason-bg);
+      color: var(--lb-reason-text);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .preview-frame .lab-quiz-explanation[hidden] {
+      display: none;
+    }
+    .preview-frame .lab-quiz-explanation p {
+      max-width: none;
+    }
+    .preview-frame .lab-quiz-learn-ref {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
+      font-size: 13.5px;
+    }
 
     /* ── Solution Architecture Blueprint (.lab-arch) ────────────────────────── */
     .lab-arch {
@@ -3468,6 +3850,25 @@
         background: #fff !important;
         border: 1px solid #d0d7de !important;
       }
+      .preview-frame .lab-module-meta,
+      .preview-frame .lab-scenario-callout,
+      .preview-frame .task-list-label,
+      .preview-frame .lab-quiz,
+      .preview-frame .lab-quiz-question,
+      .preview-frame .lab-quiz-option,
+      .preview-frame .lab-quiz-explanation {
+        background: #fff !important;
+        color: #000 !important;
+        border-color: #bbb !important;
+      }
+      .preview-frame .lab-quiz-actions,
+      .preview-frame .lab-quiz-footer,
+      .preview-frame .lab-quiz-score {
+        display: none !important;
+      }
+      .preview-frame .lab-quiz-explanation[hidden] {
+        display: block !important;
+      }
       .preview-frame .mermaid,
       .preview-frame svg {
         max-width: 100% !important;
@@ -4014,6 +4415,15 @@
               </p>
               <p id="lb-review-error" class="lb-error" role="alert"></p>
               <div id="lb-preview" class="scenario-empty">Choose topics to see the outline.</div>
+              <div class="lb-quiz-optin-card">
+                <label class="lb-quiz-optin-label" for="lb-include-knowledge-check">
+                  <input type="checkbox" id="lb-include-knowledge-check" autocomplete="off">
+                  <span class="lb-quiz-optin-copy">
+                    <strong>Include lesson Knowledge Check mini-quizzes</strong>
+                    <span>Add an interactive multiple-choice mini-quiz at the end of each lesson module, with answer explanations linked to Microsoft Learn references.</span>
+                  </span>
+                </label>
+              </div>
               <details class="lb-advanced">
                 <summary>Advanced options</summary>
                 <div class="form-grid">

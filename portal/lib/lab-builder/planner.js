@@ -138,6 +138,10 @@ export function normalizeLabRequest(request = {}) {
     throw new Error("includeCore must be a boolean.");
   }
 
+  if (request.includeKnowledgeCheck !== undefined && typeof request.includeKnowledgeCheck !== "boolean") {
+    throw new Error("includeKnowledgeCheck must be a boolean.");
+  }
+
   const rawExcluded = stringList(request.excluded, "excluded", maxTopicIds);
   const unknownExcluded = rawExcluded.filter((id) => !getFeature(id, { harness: harnessHint }));
   if (unknownExcluded.length) {
@@ -232,6 +236,7 @@ export function normalizeLabRequest(request = {}) {
     agentName: optionalText(request.agentName, "agentName"),
     audience: optionalText(request.audience, "audience"),
     includeCore: request.includeCore,
+    includeKnowledgeCheck: request.includeKnowledgeCheck,
   };
 }
 
@@ -697,6 +702,7 @@ export function planLab(request = {}) {
     });
 
   const categories = [...new Set(features.map((f) => f.category))];
+  const includeKnowledgeCheck = request.includeKnowledgeCheck !== false;
 
   return {
     request: {
@@ -710,7 +716,9 @@ export function planLab(request = {}) {
       droppedOutOfLevel,
       differencesFor: request.differencesFor ?? null,
       targetMinutes: request.targetMinutes ?? null,
+      includeKnowledgeCheck,
     },
+    includeKnowledgeCheck,
     title,
     slug: slugify(`${industry?.id || "custom"}-${finalAgentName}-${headline}`),
     industry,

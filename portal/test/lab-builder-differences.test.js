@@ -94,7 +94,10 @@ test("a Microsoft Copilot harness lab explains the Standard harness, and the rev
 test("each note names its sources, keeps headings in order, and states uncertainty plainly", async () => {
   const result = await lab({ features: ["vscode-authoring"], harness: "standard", differencesFor: ["microsoft-copilot", "customer-conversation"] });
   const md = result.markdown;
-  assert.match(md, /\*\*Sources \(checked 2026-11-12\)\.\*\* \[About agents powered by the Microsoft Copilot harness\]\(https:\/\/learn\.microsoft\.com\//);
+  assert.match(
+    md,
+    /\*\*Sources \(checked 2026-11-12\)\.\*\*\s*\n\n- \[About agents powered by the Microsoft Copilot harness\]\(https:\/\/learn\.microsoft\.com\//,
+  );
   assert.match(md, /\*\*Not confirmed in Microsoft Learn\.\*\*/);
   assert.match(md, /Not confirmed in Microsoft Learn\.\n/);
   const block = md.slice(md.indexOf("<details>"), md.indexOf("</details>"));
