@@ -362,14 +362,42 @@ async function lbLoadCatalog() {
 }
 
 // ── Step 1: product ─────────────────────────────────────────────────────────
-/** What a product offers at each level, in words: "Level 100: 2, Level 200: 3". */
-function lbProductLevelCounts(product) {
+/** Non-zero topic counts per catalog level for a product: [{ level: 100, count: 20 }, ...]. */
+function lbProductLevelEntries(product) {
   const counts = {};
   for (const feature of lbFeatureList()) {
-    if (feature.product === product.id) counts[feature.level] = (counts[feature.level] || 0) + 1;
+    if ((feature.product || LB_DEFAULT_PRODUCT) === product.id) {
+      counts[feature.level] = (counts[feature.level] || 0) + 1;
+    }
   }
-  const parts = labBuilder.levels.filter((l) => counts[l.level]).map((l) => `Level ${l.level}: ${counts[l.level]}`);
-  return parts.length ? parts.join(", ") : "No topics yet";
+  return labBuilder.levels
+    .filter((l) => counts[l.level])
+    .map((l) => ({ level: l.level, count: counts[l.level] }));
+}
+
+/** What a product offers at each level, in words: "Level 100: 2, Level 200: 3". */
+function lbProductLevelCounts(product) {
+  const entries = lbProductLevelEntries(product);
+  return entries.length ? entries.map((e) => `Level ${e.level}: ${e.count}`).join(", ") : "No topics yet";
+}
+
+/** Scannable stat badges for a product card, with natural screen-reader punctuation. */
+function lbRenderProductStats(product) {
+  const entries = lbProductLevelEntries(product);
+  const derivedTotal = entries.reduce((sum, e) => sum + e.count, 0);
+  const rawTotal = Number(product?.featureCount);
+  const total = Number.isFinite(rawTotal) ? rawTotal : derivedTotal;
+  if (total <= 0 && !entries.length) {
+    return `<div class="lb-product-stats"><span class="lb-stat-chip lb-stat-chip-empty">No topics yet<span class="sr-only">.</span></span></div>`;
+  }
+  const chips = [
+    `<span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(total)}</strong> ${total === 1 ? "topic" : "topics"}<span class="sr-only">.</span></span>`,
+    ...entries.map((entry, idx) => {
+      const punct = idx === entries.length - 1 ? "." : ",";
+      return `<span class="lb-stat-chip lb-stat-chip-level">Level ${escapeHtml(entry.level)}: <strong>${escapeHtml(entry.count)}</strong><span class="sr-only">${punct}</span></span>`;
+    }),
+  ];
+  return `<div class="lb-product-stats">${chips.join(" ")}</div>`;
 }
 
 function lbRenderProducts() {
@@ -381,15 +409,22 @@ function lbRenderProducts() {
       const checked = labBuilder.selectedProducts.has(p.id);
       const hub = lbLearnUrl(p.learnHubUrl);
       return `
-      <label class="scenario-role">
+      <label class="scenario-role${checked ? " checked" : ""}">
         <input type="checkbox" name="lb-product" value="${escapeHtml(p.id)}" autocomplete="off" ${checked ? "checked" : ""}>
-        <span>
-          <span style="font-weight: 600;">${escapeHtml(p.name)}</span>
-          ${p.hasHarnesses ? '<span class="lb-badge">Has harnesses</span>' : ""}
-          <div class="scenario-card-desc">${escapeHtml(p.summary)}</div>
-          <div class="scenario-card-desc">${escapeHtml(p.featureCount)} topics. ${escapeHtml(lbProductLevelCounts(p))}.${
-            hub ? ` <a href="${escapeHtml(hub)}" target="_blank" rel="noopener noreferrer">Microsoft Learn for ${escapeHtml(p.shortName)} (opens in a new tab)</a>` : ""
-          }</div>
+        <span class="lb-card-body">
+          <span class="lb-card-head">
+            <span class="lb-card-title">${escapeHtml(p.name)}<span class="sr-only">.</span></span>
+            ${p.hasHarnesses ? '<span class="lb-badge lb-badge-harness">Has harnesses<span class="sr-only">.</span></span>' : ""}
+          </span>
+          ${p.summary ? `<div class="scenario-card-desc">${escapeHtml(p.summary)}</div>` : ""}
+          <div class="lb-card-footer">
+            ${lbRenderProductStats(p)}
+            ${
+              hub
+                ? `<div class="lb-card-learn"><a href="${escapeHtml(hub)}" target="_blank" rel="noopener noreferrer">Microsoft Learn for ${escapeHtml(p.shortName)} (opens in a new tab)</a></div>`
+                : ""
+            }
+          </div>
         </span>
       </label>`;
     })
@@ -480,19 +515,23 @@ function lbRenderRoles() {
   const el = document.getElementById("lb-role-list");
   if (!el) return;
   el.innerHTML = labBuilder.roles
-    .map(
-      (r) => `
-      <label class="scenario-role">
-        <input type="checkbox" name="lb-role" value="${escapeHtml(r.id)}" autocomplete="off" ${labBuilder.selectedRoles.has(r.id) ? "checked" : ""}>
+    .map((r) => {
+      const checked = labBuilder.selectedRoles.has(r.id);
+      return `
+      <label class="scenario-role${checked ? " checked" : ""}">
+        <input type="checkbox" name="lb-role" value="${escapeHtml(r.id)}" autocomplete="off" ${checked ? "checked" : ""}>
         <span>
           <span style="font-weight: 600;"><span aria-hidden="true">${escapeHtml(r.icon || "")}</span> ${escapeHtml(r.name)}</span>
           <div class="scenario-card-desc">${escapeHtml(r.description || "")}</div>
         </span>
-      </label>`
-    )
+      </label>`;
+    })
     .join("");
   el.querySelectorAll("input[type=checkbox]").forEach((input) => {
-    input.addEventListener("change", () => lbToggleRole(input.value, input.checked));
+    input.addEventListener("change", () => {
+      input.closest(".scenario-role")?.classList.toggle("checked", input.checked);
+      lbToggleRole(input.value, input.checked);
+    });
   });
 }
 
@@ -506,15 +545,16 @@ function lbToggleRole(id, checked) {
 async function lbRenderLevels() {
   const el = document.getElementById("lb-level-options");
   if (!el) return;
-  const hint = {};
+  const stats = {};
   const gaps = {};
   if (lbSelectedProductList().length) {
     try {
       const recs = await Promise.all(labBuilder.levels.map((l) => lbRecommend({ level: l.level })));
       labBuilder.levels.forEach((l, i) => {
-        const totals = recs[i].totals;
-        const recaps = totals.prerequisiteCount ? `, plus ${totals.prerequisiteCount} short prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
-        hint[l.level] = `About ${totals.selectedCount} topics at this level${recaps}, around ${totals.duration} (an estimate)`;
+        stats[l.level] = {
+          totals: recs[i].totals,
+          shown: recs[i].filter?.shown ?? 0,
+        };
         // A selected product with nothing at this level is named, so a short list is never a mystery.
         gaps[l.level] = (recs[i].products || []).filter((p) => !p.atLevel).map((p) => p.shortName);
       });
@@ -525,21 +565,59 @@ async function lbRenderLevels() {
   const focused = el.contains(document.activeElement) ? document.activeElement.value : null;
   const levelChosen = lbIsStepChosen("level");
   el.innerHTML = labBuilder.levels
-    .map(
-      (l) => `
-      <label class="scenario-role">
-        <input type="radio" name="lb-level" value="${l.level}" autocomplete="off" ${levelChosen && labBuilder.level === l.level ? "checked" : ""}>
-        <span>
-          <span style="font-weight: 600;">Level ${l.level}: ${escapeHtml(l.label)}</span>
-          <div class="scenario-card-desc">${escapeHtml(l.description)}</div>
-          ${hint[l.level] ? `<div class="scenario-card-desc">${escapeHtml(hint[l.level])}</div>` : ""}
-          ${gaps[l.level]?.length ? `<div class="scenario-card-desc">No Level ${l.level} topics yet for ${escapeHtml(lbJoinNames(gaps[l.level]))}.</div>` : ""}
+    .map((l) => {
+      const checked = levelChosen && labBuilder.level === l.level;
+      const levelStat = stats[l.level];
+      const levelGaps = gaps[l.level] || [];
+      const hasFooter = Boolean(levelStat || levelGaps.length);
+      let statsHtml = "";
+      if (levelStat) {
+        const { totals, shown } = levelStat;
+        if (totals.selectedCount > 0) {
+          const chips = [
+            `<span class="lb-stat-chip lb-stat-chip-total">About <strong>${escapeHtml(totals.selectedCount)}</strong> ${totals.selectedCount === 1 ? "topic" : "topics"} at this level<span class="sr-only">,</span></span>`,
+          ];
+          if (totals.prerequisiteCount) {
+            chips.push(
+              `<span class="lb-stat-chip lb-stat-chip-level">+<strong>${escapeHtml(totals.prerequisiteCount)}</strong> short prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}<span class="sr-only">,</span></span>`
+            );
+          }
+          chips.push(
+            `<span class="lb-stat-chip lb-stat-chip-level">Around <strong>${escapeHtml(totals.duration)}</strong> (estimate)<span class="sr-only">.</span></span>`
+          );
+          statsHtml = `<div class="lb-product-stats">${chips.join(" ")}</div>`;
+        } else if (shown > 0) {
+          statsHtml = `<div class="lb-product-stats"><span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(shown)}</strong> ${shown === 1 ? "topic" : "topics"} available<span class="sr-only">.</span></span></div>`;
+        } else {
+          statsHtml = `<div class="lb-product-stats"><span class="lb-stat-chip lb-stat-chip-empty">No topics at this level yet<span class="sr-only">.</span></span></div>`;
+        }
+      }
+      return `
+      <label class="scenario-role${checked ? " checked" : ""}">
+        <input type="radio" name="lb-level" value="${l.level}" autocomplete="off" ${checked ? "checked" : ""}>
+        <span class="lb-card-body">
+          <span class="lb-card-head">
+            <span class="lb-card-title">Level ${l.level}: ${escapeHtml(l.label)}<span class="sr-only">.</span></span>
+          </span>
+          ${l.description ? `<div class="scenario-card-desc">${escapeHtml(l.description)}</div>` : ""}
+          ${
+            hasFooter
+              ? `<div class="lb-card-footer">
+                  ${statsHtml}
+                  ${levelGaps.length ? `<div class="lb-card-meta-note">No Level ${l.level} topics yet for <strong>${escapeHtml(lbJoinNames(levelGaps))}</strong>.</div>` : ""}
+                </div>`
+              : ""
+          }
         </span>
-      </label>`
-    )
+      </label>`;
+    })
     .join("");
   el.querySelectorAll("input[type=radio]").forEach((input) => {
-    input.addEventListener("change", () => lbSelectLevel(Number(input.value)));
+    input.addEventListener("change", () => {
+      el.querySelectorAll(".scenario-role").forEach((card) => card.classList.remove("checked"));
+      input.closest(".scenario-role")?.classList.add("checked");
+      lbSelectLevel(Number(input.value));
+    });
   });
   if (focused) el.querySelector(`input[value="${focused}"]`)?.focus();
   lbRenderLevelNotice();
@@ -571,25 +649,50 @@ function lbRenderHarnesses() {
       // A harness is only unavailable when it has no topic at any level; a level with none is explained instead.
       const unavailable = onHarness.length + lbLearnNewCount(h.id) === 0;
       const shown = atLevel + fromLearn;
+      const checked = harnessChosen && labBuilder.harness === h.id && !unavailable;
+      const learnHref = lbLearnUrl(h.learnUrl) || h.learnUrl;
+      let statsHtml;
+      if (unavailable) {
+        statsHtml = `<div class="lb-product-stats"><span class="lb-stat-chip lb-stat-chip-empty">No lab topics are available for this harness yet, so it cannot be selected<span class="sr-only">.</span></span></div>`;
+      } else if (shown) {
+        const chips = [
+          `<span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(shown)}</strong> ${escapeHtml(lbLevelName(level))} ${shown === 1 ? "topic" : "topics"} available<span class="sr-only">${fromLearn ? "," : "."}</span></span>`,
+        ];
+        if (fromLearn) {
+          chips.push(
+            `<span class="lb-stat-chip lb-stat-chip-level"><strong>${escapeHtml(fromLearn)}</strong> new from Microsoft Learn<span class="sr-only">.</span></span>`
+          );
+        }
+        statsHtml = `<div class="lb-product-stats">${chips.join(" ")}</div>`;
+      } else {
+        statsHtml = `<div class="lb-product-stats"><span class="lb-stat-chip lb-stat-chip-empty">No ${escapeHtml(lbLevelName(level))} topics are available for this harness yet<span class="sr-only">.</span></span></div>`;
+      }
       return `
-      <label class="scenario-role ${unavailable ? "lb-unavailable" : ""}">
-        <input type="radio" name="lb-harness" value="${escapeHtml(h.id)}" autocomplete="off" ${harnessChosen && labBuilder.harness === h.id ? "checked" : ""} ${unavailable ? "disabled" : ""}>
-        <span>
-          <span style="font-weight: 600;">${escapeHtml(h.name)}</span>
-          <div class="scenario-card-desc">${escapeHtml(h.description)}</div>
-          <div class="scenario-card-desc">${
-            unavailable
-              ? "No lab topics are available for this harness yet, so it cannot be selected."
-              : shown
-              ? `${shown} ${lbLevelName(level)} topics available${fromLearn ? `, ${fromLearn} of them new from Microsoft Learn` : ""}.`
-              : `No ${lbLevelName(level)} topics are available for this harness yet.`
-          } <a href="${escapeHtml(h.learnUrl)}" target="_blank" rel="noopener noreferrer">Learn about the ${escapeHtml(h.name)} (opens in a new tab)</a></div>
+      <label class="scenario-role${unavailable ? " lb-unavailable" : ""}${checked ? " checked" : ""}">
+        <input type="radio" name="lb-harness" value="${escapeHtml(h.id)}" autocomplete="off" ${checked ? "checked" : ""} ${unavailable ? "disabled" : ""}>
+        <span class="lb-card-body">
+          <span class="lb-card-head">
+            <span class="lb-card-title">${escapeHtml(h.name)}<span class="sr-only">.</span></span>
+          </span>
+          ${h.description ? `<div class="scenario-card-desc">${escapeHtml(h.description)}</div>` : ""}
+          <div class="lb-card-footer">
+            ${statsHtml}
+            ${
+              learnHref
+                ? `<div class="lb-card-learn"><a href="${escapeHtml(learnHref)}" target="_blank" rel="noopener noreferrer">Learn about the ${escapeHtml(h.name)} (opens in a new tab)</a></div>`
+                : ""
+            }
+          </div>
         </span>
       </label>`;
     })
     .join("");
   el.querySelectorAll("input[type=radio]").forEach((input) => {
-    input.addEventListener("change", () => lbSelectHarness(input.value));
+    input.addEventListener("change", () => {
+      el.querySelectorAll(".scenario-role").forEach((card) => card.classList.remove("checked"));
+      input.closest(".scenario-role")?.classList.add("checked");
+      lbSelectHarness(input.value);
+    });
   });
   lbRenderDifferenceOptions();
 }
@@ -620,16 +723,18 @@ function lbRenderDifferenceOptions() {
   const chosen = lbDifferencesFor();
   el.innerHTML = labBuilder.harnesses
     .filter((h) => h.id !== labBuilder.harness && (h.product || LB_DEFAULT_PRODUCT) === (lbHarnessOwner(labBuilder.harness) || LB_DEFAULT_PRODUCT))
-    .map(
-      (h) => `
-      <label class="scenario-role">
-        <input type="checkbox" name="lb-differences" value="${escapeHtml(h.id)}" autocomplete="off" ${chosen.has(h.id) ? "checked" : ""}>
+    .map((h) => {
+      const checked = chosen.has(h.id);
+      return `
+      <label class="scenario-role${checked ? " checked" : ""}">
+        <input type="checkbox" name="lb-differences" value="${escapeHtml(h.id)}" autocomplete="off" ${checked ? "checked" : ""}>
         <span><span style="font-weight: 600;">${escapeHtml(h.name)}</span></span>
-      </label>`
-    )
+      </label>`;
+    })
     .join("");
   el.querySelectorAll("input[type=checkbox]").forEach((input) => {
     input.addEventListener("change", () => {
+      input.closest(".scenario-role")?.classList.toggle("checked", input.checked);
       const next = new Set(lbDifferencesFor());
       if (input.checked) next.add(input.value);
       else next.delete(input.value);

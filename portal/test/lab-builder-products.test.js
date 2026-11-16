@@ -513,6 +513,102 @@ test("Your lab so far reveals each wizard option progressively only after its st
   );
 });
 
+// ── Wizard card footer & prominent stat chips ───────────────────────────────
+
+test("Step 1 product cards, Step 4 level cards, and Step 5 harness cards separate bottom stats into scannable accessible stat chips", async () => {
+  const { getFeaturesByCategory } = await import("../lib/lab-builder/catalog.js");
+  const run = loadWizard();
+  const catalogProducts = getProducts().map((p) => ({
+    id: p.id,
+    name: p.name,
+    shortName: p.shortName,
+    summary: p.summary,
+    hasHarnesses: p.hasHarnesses,
+    learnHubUrl: p.learnHubUrl,
+    featureCount: getFeatures().filter((f) => productOf(f) === p.id).length,
+  }));
+  run(`labBuilder.categories = ${JSON.stringify(getFeaturesByCategory())};`);
+  run(`labBuilder.products = ${JSON.stringify(catalogProducts)};`);
+  run(`labBuilder.harnesses = ${JSON.stringify(getHarnesses())};`);
+  run("lbRenderProducts()");
+
+  const productHtml = run.element("lb-product-options").innerHTML;
+  const csProduct = catalogProducts.find((p) => p.id === "copilot-studio");
+  const csL100 = idsOf("copilot-studio", 100).length;
+  const csL200 = idsOf("copilot-studio", 200).length;
+  const csL300 = idsOf("copilot-studio", 300).length;
+
+  // Helper keeps readable text format.
+  assert.equal(
+    run(`lbProductLevelCounts(${JSON.stringify(csProduct)})`),
+    `Level 100: ${csL100}, Level 200: ${csL200}, Level 300: ${csL300}`,
+  );
+  assert.equal(run('lbProductLevelCounts({ id: "empty-product" })'), "No topics yet");
+
+  // Product card separates description from .lb-card-footer containing stat chips and Learn link on its own line.
+  assert.match(productHtml, /class="lb-card-body"/);
+  assert.match(productHtml, /class="scenario-card-desc"[\s\S]*?<div class="lb-card-footer">/);
+  assert.match(
+    productHtml,
+    new RegExp(
+      `<span class="lb-stat-chip lb-stat-chip-total"><strong>${csProduct.featureCount}<\\/strong> topics<span class="sr-only">\\.<\\/span><\\/span>`,
+    ),
+  );
+  assert.match(
+    productHtml,
+    new RegExp(
+      `<span class="lb-stat-chip lb-stat-chip-level">Level 100: <strong>${csL100}<\\/strong><span class="sr-only">,<\\/span><\\/span>`,
+    ),
+  );
+  assert.match(
+    productHtml,
+    /<div class="lb-card-learn"><a href="https:\/\/learn\.microsoft\.com\/microsoft-copilot-studio\/"[^>]*>Microsoft Learn for Copilot Studio \(opens in a new tab\)<\/a><\/div>/,
+  );
+
+  // Stripping HTML tags yields natural screen-reader text with punctuation and spaces (never concatenated spans).
+  const plainText = productHtml.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  assert.ok(
+    plainText.includes(
+      `${csProduct.featureCount} topics. Level 100: ${csL100}, Level 200: ${csL200}, Level 300: ${csL300}. Microsoft Learn for Copilot Studio (opens in a new tab)`,
+    ),
+    `Expected natural screen-reader text in: ${plainText}`,
+  );
+
+  // Checked state toggles .checked class on selected product card, plus singular "1 topic" and 0-topic "No topics yet" edge cases.
+  run(`
+    labBuilder.products = [
+      { id: "solo", name: "Solo Product", shortName: "Solo", summary: "One topic.", featureCount: 1, learnHubUrl: "https://learn.microsoft.com/solo" },
+      { id: "zero", name: "Empty Product", shortName: "Empty", summary: "Coming soon.", featureCount: 0 }
+    ];
+    labBuilder.categories = [{ id: "c", features: [{ id: "f1", product: "solo", level: 100 }] }];
+    lbToggleProduct("solo", true);
+  `);
+  const edgeHtml = run.element("lb-product-options").innerHTML;
+  assert.match(edgeHtml, /<label class="scenario-role checked">\s*<input[^>]*value="solo"[^>]*checked>/);
+  assert.match(edgeHtml, /<span class="lb-stat-chip lb-stat-chip-total"><strong>1<\/strong> topic<span class="sr-only">\.<\/span><\/span>/);
+  assert.match(edgeHtml, /<span class="lb-stat-chip lb-stat-chip-empty">No topics yet<span class="sr-only">\.<\/span><\/span>/);
+
+  // Step 4 (levels) and Step 5 (harnesses) also render separated .lb-card-footer + .lb-product-stats chips.
+  run(`
+    labBuilder.products = ${JSON.stringify(catalogProducts)};
+    labBuilder.categories = ${JSON.stringify(getFeaturesByCategory())};
+    labBuilder.selectedProducts = new Set(["copilot-studio"]);
+    labBuilder.industry = "retail";
+    labBuilder.chosenSteps.add("level");
+    labBuilder.chosenSteps.add("harness");
+  `);
+  await run("lbRenderLevels()");
+  run("lbRenderHarnesses()");
+
+  const levelHtml = run.element("lb-level-options").innerHTML;
+  assert.match(levelHtml, /class="lb-card-footer"[\s\S]*?class="lb-product-stats"[\s\S]*?lb-stat-chip-total/);
+  assert.match(levelHtml, /Around <strong>[^<]+<\/strong> \(estimate\)/);
+
+  const harnessHtml = run.element("lb-harness-options").innerHTML;
+  assert.match(harnessHtml, /class="lb-card-footer"[\s\S]*?class="lb-product-stats"[\s\S]*?lb-stat-chip-total/);
+  assert.match(harnessHtml, /class="lb-card-learn"><a href="https:\/\/learn\.microsoft\.com\//);
+});
+
 // ── The rename ──────────────────────────────────────────────────────────────
 
 test("the product is named Microsoft AI Training Generator wherever a person sees its name", () => {

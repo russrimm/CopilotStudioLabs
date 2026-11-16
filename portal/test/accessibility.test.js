@@ -254,6 +254,10 @@ test("generated lab result body separates outer panels from preview-frame and av
     "\\.lab-page-btn-primary",
     "\\.lab-complete-badge",
     "\\.lb-admin-prereqs",
+    "\\.lb-card-footer",
+    "\\.lb-stat-chip",
+    "\\.lb-stat-chip-total",
+    "\\.lb-card-meta-note",
     "\\.preview-toc",
     "\\.preview-frame",
   ]) {
@@ -370,6 +374,66 @@ test("portal dark and light theme tokens meet WCAG AA contrast across previews, 
         `${themeName}: --border-strong (${tokens["--border-strong"]}) on ${hostBg} must be >= 3.0:1`,
       );
     }
+
+    // Wizard product, level, and harness card stat chips & checked card surfaces meet WCAG AA contrast.
+    for (const cardBg of [tokens["--bg"], tokens["--lb-card-checked-bg"], tokens["--surface-hover"]]) {
+      assert.ok(
+        contrastRatio(tokens["--text"], cardBg) >= 4.5,
+        `${themeName}: --text (${tokens["--text"]}) on card surface ${cardBg} must be >= 4.5:1`,
+      );
+      assert.ok(
+        contrastRatio(tokens["--text-muted"], cardBg) >= 4.5,
+        `${themeName}: --text-muted (${tokens["--text-muted"]}) on card surface ${cardBg} must be >= 4.5:1`,
+      );
+      assert.ok(
+        contrastRatio(tokens["--link-color"], cardBg) >= 4.5,
+        `${themeName}: --link-color (${tokens["--link-color"]}) on card surface ${cardBg} must be >= 4.5:1`,
+      );
+      for (const [borderName, borderToken] of [
+        ["--stat-total-border", tokens["--stat-total-border"]],
+        ["--stat-chip-border", tokens["--stat-chip-border"]],
+        ["--stat-warn-border", tokens["--stat-warn-border"]],
+      ]) {
+        assert.ok(
+          contrastRatio(borderToken, cardBg) >= 3.0,
+          `${themeName}: ${borderName} (${borderToken}) on card surface ${cardBg} must be >= 3.0:1`,
+        );
+      }
+    }
+
+    for (const [chipLabel, fgToken, bgToken] of [
+      [".lb-stat-chip-total text", tokens["--stat-total-text"], tokens["--stat-total-bg"]],
+      [".lb-stat-chip-total strong", tokens["--stat-total-strong"], tokens["--stat-total-bg"]],
+      [".lb-stat-chip text", tokens["--stat-chip-text"], tokens["--stat-chip-bg"]],
+      [".lb-stat-chip strong", tokens["--stat-chip-strong"], tokens["--stat-chip-bg"]],
+      [".lb-card-meta-note text", tokens["--stat-warn-text"], tokens["--stat-warn-bg"]],
+    ]) {
+      assert.ok(
+        contrastRatio(fgToken, bgToken) >= 4.5,
+        `${themeName}: ${chipLabel} (${fgToken}) on ${bgToken} must be >= 4.5:1`,
+      );
+    }
+  }
+
+  // OS prefers-color-scheme: light block defines the same stat chip tokens as explicit light theme.
+  const mediaLightBlock =
+    styleContent.match(/@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme="dark"\]\)\s*\{([^}]*)\}/)?.[1] || "";
+  const mediaLight = parseCssCustomProperties(mediaLightBlock);
+  for (const key of [
+    "--lb-card-checked-bg",
+    "--stat-total-bg",
+    "--stat-total-border",
+    "--stat-total-text",
+    "--stat-total-strong",
+    "--stat-chip-bg",
+    "--stat-chip-border",
+    "--stat-chip-text",
+    "--stat-chip-strong",
+    "--stat-warn-bg",
+    "--stat-warn-border",
+    "--stat-warn-text",
+  ]) {
+    assert.equal(mediaLight[key], light[key], `prefers-color-scheme light must match explicit light token ${key}`);
   }
 });
 

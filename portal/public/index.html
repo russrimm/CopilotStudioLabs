@@ -71,6 +71,18 @@
       --arch-outcome-border: #3dd6a3;
       --arch-outcome-label: #7ef2c8;
       --arch-outcome-text: #ecfdf5;
+      --lb-card-checked-bg: #151e2d;
+      --stat-total-bg: #183159;
+      --stat-total-border: #5b9bff;
+      --stat-total-text: #dcebff;
+      --stat-total-strong: #ffffff;
+      --stat-chip-bg: #20263a;
+      --stat-chip-border: #6f7c9f;
+      --stat-chip-text: #d5dcf0;
+      --stat-chip-strong: #ffffff;
+      --stat-warn-bg: #332611;
+      --stat-warn-border: #d99b26;
+      --stat-warn-text: #fde68a;
       --shadow-ink: #000;
       --radius: 10px;
       --radius-sm: 6px;
@@ -151,6 +163,18 @@
       --arch-outcome-border: #0d7a58;
       --arch-outcome-label: #08583f;
       --arch-outcome-text: #0b2e23;
+      --lb-card-checked-bg: #e8effc;
+      --stat-total-bg: #dce8fd;
+      --stat-total-border: #1d5bd6;
+      --stat-total-text: #0f3580;
+      --stat-total-strong: #0a2458;
+      --stat-chip-bg: #ffffff;
+      --stat-chip-border: #5c6c8c;
+      --stat-chip-text: #25304a;
+      --stat-chip-strong: #0f172a;
+      --stat-warn-bg: #fef3c7;
+      --stat-warn-border: #b45309;
+      --stat-warn-text: #78350f;
       --shadow-ink: #1a2340;
       --shadow: 0 4px 24px rgba(26, 35, 64, 0.12);
       color-scheme: light;
@@ -220,6 +244,18 @@
         --arch-outcome-border: #0d7a58;
         --arch-outcome-label: #08583f;
         --arch-outcome-text: #0b2e23;
+        --lb-card-checked-bg: #e8effc;
+        --stat-total-bg: #dce8fd;
+        --stat-total-border: #1d5bd6;
+        --stat-total-text: #0f3580;
+        --stat-total-strong: #0a2458;
+        --stat-chip-bg: #ffffff;
+        --stat-chip-border: #5c6c8c;
+        --stat-chip-text: #25304a;
+        --stat-chip-strong: #0f172a;
+        --stat-warn-bg: #fef3c7;
+        --stat-warn-border: #b45309;
+        --stat-warn-text: #78350f;
         --shadow-ink: #1a2340;
         --shadow: 0 4px 24px rgba(26, 35, 64, 0.12);
         color-scheme: light;
@@ -261,6 +297,19 @@
       transform: translateY(-150%);
     }
     .skip-link:focus { transform: translateY(0); }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+    }
 
     :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
       outline: 3px solid var(--accent-hover);
@@ -977,17 +1026,137 @@
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
     }
+    #lb-product-options.scenario-role-list,
+    #lb-level-options.scenario-role-list,
+    #lb-harness-options.scenario-role-list {
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+      gap: 12px;
+    }
     .scenario-role {
       display: flex;
       align-items: flex-start;
       gap: 10px;
-      padding: 12px;
+      padding: 12px 14px;
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: 8px;
       cursor: pointer;
+      transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
     }
-    .scenario-role input { margin-top: 3px; accent-color: var(--accent); }
+    .scenario-role:not(.lb-unavailable):hover {
+      border-color: var(--accent);
+      background: var(--surface-hover);
+    }
+    .scenario-role.checked,
+    .scenario-role:has(> input:checked) {
+      border-color: var(--accent);
+      background: var(--lb-card-checked-bg);
+    }
+    .scenario-role:has(> input:focus-visible) {
+      border-color: var(--accent-hover);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+    .scenario-role input { margin-top: 3px; accent-color: var(--accent); flex-shrink: 0; }
+    .scenario-role > .lb-card-body {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      align-self: stretch;
+      min-width: 0;
+    }
+    .lb-card-head {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 5px;
+    }
+    .lb-card-head .lb-badge {
+      margin-left: 0;
+    }
+    .lb-card-title {
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.35;
+    }
+    .lb-card-body > .scenario-card-desc {
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    .lb-card-body > .scenario-card-desc:last-child {
+      margin-bottom: 0;
+    }
+    .lb-card-footer {
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .scenario-role.checked .lb-card-footer,
+    .scenario-role:has(> input:checked) .lb-card-footer {
+      border-top-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+    }
+    .lb-product-stats {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .lb-stat-chip {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 500;
+      line-height: 1.4;
+      font-variant-numeric: tabular-nums;
+      background: var(--stat-chip-bg);
+      border: 1px solid var(--stat-chip-border);
+      color: var(--stat-chip-text);
+    }
+    .lb-stat-chip strong {
+      font-weight: 700;
+      color: var(--stat-chip-strong);
+    }
+    .lb-stat-chip-total {
+      background: var(--stat-total-bg);
+      border-color: var(--stat-total-border);
+      color: var(--stat-total-text);
+      font-weight: 600;
+    }
+    .lb-stat-chip-total strong {
+      font-weight: 700;
+      color: var(--stat-total-strong);
+    }
+    .lb-stat-chip-empty {
+      border-style: dashed;
+    }
+    .lb-card-meta-note {
+      font-size: 11.5px;
+      line-height: 1.45;
+      padding: 4px 9px;
+      border-radius: 6px;
+      background: var(--stat-warn-bg);
+      border: 1px solid var(--stat-warn-border);
+      color: var(--stat-warn-text);
+    }
+    .lb-card-meta-note strong {
+      font-weight: 700;
+    }
+    .lb-card-learn {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .lb-card-learn a {
+      color: var(--link-color);
+      font-weight: 500;
+      text-decoration: none;
+    }
+    .lb-card-learn a:hover {
+      text-decoration: underline;
+    }
     .scenario-metrics {
       display: grid;
       grid-template-columns: 1.2fr 1fr;
@@ -2704,6 +2873,20 @@
       .lb-admin-prereqs,
       .lb-prereq-card {
         border: 1px solid #bbb !important;
+      }
+
+      .lb-stat-chip,
+      .lb-stat-chip-total,
+      .lb-stat-chip-level,
+      .lb-stat-chip-empty,
+      .lb-card-meta-note {
+        background: #fff !important;
+        color: #000 !important;
+        border-color: #333 !important;
+      }
+      .lb-stat-chip strong,
+      .lb-card-meta-note strong {
+        color: #000 !important;
       }
 
       .preview-frame {
