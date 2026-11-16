@@ -237,13 +237,20 @@ arrow, Home, and End keys move among the tabs of the current area.
       the list: they sit in a collapsed group, **Prerequisites from lower levels
       (included automatically)**, each with the reason and a checkbox. If you
       uncheck one, you get a warning, and the lab assumes learners have already
-      done it. Concepts with no topic for your selection say whether the product or
+      done it. Every topic card—whether a reviewed catalog topic, a newly
+      discovered Microsoft Learn topic, a lower-level prerequisite recap, or a
+      *Level unknown* topic, and whether checked or unchecked—includes clickable
+      **Microsoft Learn** documentation hyperlinks (`opens in a new tab`) so you
+      can inspect the source articles without toggling the card's checkbox.
+      Concepts with no topic for your selection say whether the product or
       harness has no equivalent or the topic is not written yet, and a product with
       nothing at your level says what it does have and at which levels.
    7. **Review**: the outline with the estimated time for each module and a total.
       Every planned module—including both chosen modules and lower-level
       prerequisite recaps—has an **Include** checkbox so you can uncheck anything
-      you do not want right in the outline. Unchecking a module immediately removes
+      you do not want right in the outline, along with direct **Microsoft Learn**
+      reference links on both included outline rows and excluded **Removed from
+      curriculum** items. Unchecking a module immediately removes
       it from the curriculum, renumbers the remaining steps, updates **Your lab so
       far** and Step 6's checkboxes, and moves the removed module into a **Removed
       from curriculum** section below the outline where you can re-check individual

@@ -1310,8 +1310,446 @@ function lbRenderDifferenceOptions() {
 }
 
 // ── Microsoft Learn topic list: freshness, refresh, and badges ──────────────
-function lbLearnUrl(url) {
-  return typeof url === "string" && url.startsWith("https://learn.microsoft.com/") ? url : null;
+const LB_LEARN_TRACKING_PARAMS = new Set([
+  "wt.mc_id",
+  "ocid",
+  "tabs",
+  "pivots",
+  "source",
+  "ns-enrollment-type",
+  "ns-enrollment-id",
+]);
+
+const LB_LEARN_TERM_CASE = new Map([
+  ["ai", "AI"],
+  ["mcp", "MCP"],
+  ["mcps", "MCPs"],
+  ["api", "API"],
+  ["apis", "APIs"],
+  ["sso", "SSO"],
+  ["dlp", "DLP"],
+  ["rbac", "RBAC"],
+  ["alm", "ALM"],
+  ["m365", "M365"],
+  ["rest", "REST"],
+  ["oauth", "OAuth"],
+  ["http", "HTTP"],
+  ["https", "HTTPS"],
+  ["json", "JSON"],
+  ["sql", "SQL"],
+  ["url", "URL"],
+  ["urls", "URLs"],
+  ["ui", "UI"],
+  ["ux", "UX"],
+  ["cli", "CLI"],
+  ["sdk", "SDK"],
+  ["sdks", "SDKs"],
+  ["ide", "IDE"],
+  ["ides", "IDEs"],
+  ["pr", "PR"],
+  ["prs", "PRs"],
+  ["gpt", "GPT"],
+  ["nlu", "NLU"],
+  ["faq", "FAQ"],
+  ["faqs", "FAQs"],
+  ["cua", "CUA"],
+  ["iva", "IVA"],
+  ["ivr", "IVR"],
+  ["sap", "SAP"],
+  ["fhir", "FHIR"],
+  ["a2a", "A2A"],
+  ["byom", "BYOM"],
+  ["vnet", "VNet"],
+  ["vnets", "VNets"],
+  ["entra", "Entra"],
+  ["id", "ID"],
+  ["sharepoint", "SharePoint"],
+  ["onedrive", "OneDrive"],
+  ["onenote", "OneNote"],
+  ["dataverse", "Dataverse"],
+  ["powerfx", "Power Fx"],
+  ["powershell", "PowerShell"],
+  ["github", "GitHub"],
+  ["openapi", "OpenAPI"],
+  ["graphql", "GraphQL"],
+  ["servicenow", "ServiceNow"],
+  ["dynamics365", "Dynamics 365"],
+  ["copilot", "Copilot"],
+  ["microsoft", "Microsoft"],
+  ["azure", "Azure"],
+  ["foundry", "Foundry"],
+  ["teams", "Teams"],
+  ["vscode", "VS Code"],
+  ["javascript", "JavaScript"],
+  ["typescript", "TypeScript"],
+  ["nodejs", "Node.js"],
+  ["yaml", "YAML"],
+  ["xml", "XML"],
+  ["csv", "CSV"],
+  ["html", "HTML"],
+  ["css", "CSS"],
+  ["pdf", "PDF"],
+  ["docx", "DOCX"],
+  ["pptx", "PPTX"],
+  ["jwt", "JWT"],
+  ["saml", "SAML"],
+  ["oidc", "OIDC"],
+  ["pii", "PII"],
+  ["phi", "PHI"],
+]);
+
+const LB_MINOR_TITLE_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "as",
+  "at",
+  "by",
+  "for",
+  "from",
+  "in",
+  "into",
+  "nor",
+  "of",
+  "on",
+  "or",
+  "per",
+  "the",
+  "to",
+  "up",
+  "via",
+  "vs",
+  "with",
+]);
+
+const LB_GENERIC_LEARN_SLUGS = new Set([
+  "overview",
+  "index",
+  "quickstart",
+  "get-started",
+  "getting-started",
+  "whats-new",
+  "faq",
+  "faqs",
+  "introduction",
+  "readme",
+]);
+
+const LB_STRUCTURAL_SEGMENTS = new Set([
+  "concepts",
+  "how-to",
+  "quickstarts",
+  "tutorials",
+  "guidance",
+  "reference",
+  "includes",
+]);
+
+function lbParseLearnUrlParts(url) {
+  if (typeof url !== "string") return null;
+  const trimmed = url.trim();
+  if (!trimmed.startsWith("https://learn.microsoft.com/")) return null;
+  const match = /^https:\/\/learn\.microsoft\.com(\/[^\s<>"'`\\\u0000-\u001f]*)$/.exec(trimmed);
+  if (!match) return null;
+  const rawAfterHost = match[1];
+  const hashIdx = rawAfterHost.indexOf("#");
+  const withoutHash = hashIdx >= 0 ? rawAfterHost.slice(0, hashIdx) : rawAfterHost;
+  const queryIdx = withoutHash.indexOf("?");
+  const rawPath = queryIdx >= 0 ? withoutHash.slice(0, queryIdx) : withoutHash;
+  const rawQuery = queryIdx >= 0 ? withoutHash.slice(queryIdx + 1) : "";
+
+  const collapsedPath = rawPath.replace(/\/{2,}/g, "/");
+  if (collapsedPath.split("/").some((seg) => seg === "..")) return null;
+  const localeStripped = collapsedPath.replace(/^\/[a-z]{2}-[a-z]{2,4}(?=\/|$)/i, "") || "/";
+  const canonicalPath = localeStripped.replace(/\/+$/, "");
+  if (!canonicalPath || canonicalPath === "/") return null;
+  const hadTrailingSlash = localeStripped.endsWith("/");
+
+  const keptParams = [];
+  if (rawQuery) {
+    for (const part of rawQuery.split("&")) {
+      if (!part) continue;
+      const eqIdx = part.indexOf("=");
+      const rawKey = eqIdx >= 0 ? part.slice(0, eqIdx) : part;
+      const rawVal = eqIdx >= 0 ? part.slice(eqIdx + 1) : "";
+      let decodedKey = rawKey;
+      try {
+        decodedKey = decodeURIComponent(rawKey.replace(/\+/g, " "));
+      } catch {
+        /* keep raw key */
+      }
+      const lowerKey = decodedKey.toLowerCase();
+      if (lowerKey.startsWith("utm_") || LB_LEARN_TRACKING_PARAMS.has(lowerKey)) continue;
+      keptParams.push([lowerKey, rawKey, rawVal]);
+    }
+  }
+  keptParams.sort((a, b) => a[0].localeCompare(b[0]) || a[2].localeCompare(b[2]));
+  const cleanQuery = keptParams
+    .map(([, k, v]) => (v ? `${k}=${v}` : k))
+    .join("&");
+  const querySuffix = cleanQuery ? `?${cleanQuery}` : "";
+
+  return {
+    canonicalPath,
+    canonicalUrl: `https://learn.microsoft.com${canonicalPath}${querySuffix}`,
+    preservedUrl: `https://learn.microsoft.com${canonicalPath}${hadTrailingSlash ? "/" : ""}${querySuffix}`,
+    dedupeKey: `https://learn.microsoft.com${canonicalPath.toLowerCase()}${querySuffix.toLowerCase()}`,
+  };
+}
+
+function lbLearnUrl(url, options) {
+  const parts = lbParseLearnUrlParts(url);
+  if (!parts) return null;
+  return options && options.stripTrailingSlash ? parts.canonicalUrl : parts.preservedUrl;
+}
+
+function lbLearnPathSegments(url) {
+  const parts = lbParseLearnUrlParts(url);
+  if (!parts) return [];
+  return parts.canonicalPath
+    .split("/")
+    .filter(Boolean)
+    .map((seg) => {
+      try {
+        return decodeURIComponent(seg);
+      } catch {
+        return seg;
+      }
+    });
+}
+
+function lbHumanizeLearnSegment(segment) {
+  const cleaned = String(segment || "")
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/[-_]+/g, " ")
+    .trim();
+  if (!cleaned) return "";
+  const words = cleaned.split(/\s+/);
+  return words
+    .map((word, idx) => {
+      const lower = word.toLowerCase();
+      if (LB_LEARN_TERM_CASE.has(lower)) return LB_LEARN_TERM_CASE.get(lower);
+      if (idx > 0 && idx < words.length - 1 && LB_MINOR_TITLE_WORDS.has(lower)) return lower;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+}
+
+function lbLearnSlugTitle(url) {
+  const segments = lbLearnPathSegments(url);
+  if (!segments.length) return "Microsoft Learn Documentation";
+  const leaf = segments[segments.length - 1];
+  const leafClean = leaf.replace(/\.[a-z0-9]+$/i, "").toLowerCase();
+  const leafTitle = lbHumanizeLearnSegment(leaf);
+  if (!leafTitle) return "Microsoft Learn Documentation";
+  if (LB_GENERIC_LEARN_SLUGS.has(leafClean) && segments.length >= 2) {
+    let parentIdx = segments.length - 2;
+    while (parentIdx > 0 && LB_STRUCTURAL_SEGMENTS.has(segments[parentIdx].toLowerCase())) {
+      parentIdx -= 1;
+    }
+    const parentTitle = lbHumanizeLearnSegment(segments[parentIdx]);
+    if (parentTitle && parentTitle.toLowerCase() !== leafTitle.toLowerCase()) {
+      return `${parentTitle}: ${leafTitle}`;
+    }
+  }
+  return leafTitle;
+}
+
+function lbCollectRawLearnCandidates(source) {
+  if (!source || typeof source !== "object") return [];
+  const raw = [];
+  if (Array.isArray(source.learnLinks)) {
+    for (const link of source.learnLinks) {
+      if (link && typeof link === "object" && link.url) {
+        raw.push({ url: link.url, title: link.title || "" });
+      }
+    }
+  }
+  const dyn = source.learn || source.learnTopic || null;
+  const primaryDynUrl =
+    typeof dyn?.url === "string"
+      ? dyn.url
+      : Array.isArray(dyn?.urls) && typeof dyn.urls[0] === "string"
+      ? dyn.urls[0]
+      : null;
+  if (primaryDynUrl) {
+    const primaryTitle = dyn?.title || (source.source === "learn" ? source.name : "") || "";
+    raw.push({ url: primaryDynUrl, title: primaryTitle });
+  }
+  if (Array.isArray(dyn?.subtopics)) {
+    for (const sub of dyn.subtopics) {
+      if (sub && typeof sub === "object" && sub.url) {
+        raw.push({ url: sub.url, title: sub.title || "" });
+      }
+    }
+  }
+  if (Array.isArray(dyn?.urls)) {
+    for (const url of dyn.urls) {
+      raw.push({ url, title: "" });
+    }
+  }
+  if (Array.isArray(source.docUrls)) {
+    for (const url of source.docUrls) {
+      raw.push({ url, title: "" });
+    }
+  }
+  if (typeof source.verifiedAgainst === "string" && source.verifiedAgainst) {
+    raw.push({ url: source.verifiedAgainst, title: "" });
+  }
+  return raw;
+}
+
+function lbResolveLearnLinks(item) {
+  if (!item || typeof item !== "object") return [];
+  const rawCandidates = lbCollectRawLearnCandidates(item);
+  if (!rawCandidates.some((c) => lbLearnUrl(c.url)) && item.id) {
+    const recTopic = [
+      ...(labBuilder.rec?.concepts || []).flatMap((c) => c.topics),
+      ...(labBuilder.rec?.levelUnknown?.topics || []),
+    ].find((t) => t.id === item.id);
+    const recPrereq = (labBuilder.rec?.prerequisites?.topics || []).find((p) => p.id === item.id);
+    const catFeature = lbFeatureList().find((f) => f.id === item.id);
+    for (const fallback of [recTopic, recPrereq, catFeature]) {
+      rawCandidates.push(...lbCollectRawLearnCandidates(fallback));
+    }
+  }
+
+  const byKey = new Map();
+  const order = [];
+  for (const candidate of rawCandidates) {
+    const parts = lbParseLearnUrlParts(candidate?.url);
+    if (!parts) continue;
+    const cleanUrl = parts.canonicalUrl;
+    const key = parts.dedupeKey;
+    const rawTitle = String(candidate?.title || "")
+      .replace(/\s*[|—–-]\s*Microsoft Learn\s*$/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    const hasExplicitTitle = Boolean(rawTitle) && !/^https?:\/\//i.test(rawTitle);
+
+    if (!byKey.has(key)) {
+      byKey.set(key, { url: cleanUrl, explicitTitle: hasExplicitTitle ? rawTitle : "" });
+      order.push(key);
+    } else {
+      const prev = byKey.get(key);
+      if (!prev.url.includes("?view=") && cleanUrl.includes("?view=")) {
+        prev.url = cleanUrl;
+      }
+      if (!prev.explicitTitle && hasExplicitTitle) {
+        prev.explicitTitle = rawTitle;
+      }
+    }
+  }
+
+  const results = order.map((key) => {
+    const entry = byKey.get(key);
+    return {
+      url: entry.url,
+      title: entry.explicitTitle || lbLearnSlugTitle(entry.url),
+    };
+  });
+
+  const groupsByTitle = new Map();
+  results.forEach((entry, idx) => {
+    const norm = entry.title.toLowerCase();
+    if (!groupsByTitle.has(norm)) groupsByTitle.set(norm, []);
+    groupsByTitle.get(norm).push(idx);
+  });
+  for (const indices of groupsByTitle.values()) {
+    if (indices.length < 2) continue;
+    const segLists = indices.map((idx) => lbLearnPathSegments(results[idx].url).slice(0, -1));
+    for (let pos = 0; pos < indices.length; pos += 1) {
+      const idx = indices[pos];
+      const ownSegs = segLists[pos];
+      let qualifier = "";
+      for (let depth = ownSegs.length - 1; depth >= 0; depth -= 1) {
+        const candidateSeg = ownSegs[depth];
+        if (LB_STRUCTURAL_SEGMENTS.has(candidateSeg.toLowerCase())) continue;
+        const differs = segLists.some(
+          (otherSegs, otherPos) =>
+            otherPos !== pos &&
+            (otherSegs[otherSegs.length - (ownSegs.length - depth)] || "").toLowerCase() !==
+              candidateSeg.toLowerCase()
+        );
+        if (differs) {
+          qualifier = lbHumanizeLearnSegment(candidateSeg);
+          break;
+        }
+      }
+      if (!qualifier && ownSegs.length) {
+        qualifier = ownSegs.map(lbHumanizeLearnSegment).filter(Boolean).join(" / ");
+      }
+      if (qualifier) {
+        results[idx].title = `${results[idx].title} (${qualifier})`;
+      }
+    }
+  }
+
+  return results;
+}
+
+function lbRenderLearnLinks(item) {
+  const links = lbResolveLearnLinks(item);
+  if (!links.length) return "";
+  const anchors = links
+    .map(
+      (link) =>
+        `<a class="lb-learn-source" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(link.title)} — Microsoft Learn (opens in a new tab)">${escapeHtml(link.title)}<span class="lb-learn-ext" aria-hidden="true">↗</span></a>`
+    )
+    .join('<span class="lb-learn-sep" aria-hidden="true">·</span>');
+  return `<span class="lb-learn-links"><span class="lb-learn-links-label">Microsoft Learn:</span>${anchors}</span>`;
+}
+
+let lbGuardedCheckboxState = null;
+
+function lbClearGuardedCheckboxSoon() {
+  Promise.resolve().then(() => {
+    lbGuardedCheckboxState = null;
+  });
+}
+
+function lbShouldIgnoreGuardedChange(input) {
+  if (!input || !lbGuardedCheckboxState) return false;
+  if (lbGuardedCheckboxState.checkbox !== input) return false;
+  input.checked = lbGuardedCheckboxState.checked;
+  lbGuardedCheckboxState = null;
+  return true;
+}
+
+function lbBindLearnLinkGuard(container) {
+  if (!container || container._lbLearnGuardBound || typeof container.addEventListener !== "function") return;
+  container._lbLearnGuardBound = true;
+  container.addEventListener(
+    "click",
+    (event) => {
+      if (lbGuardedCheckboxState && event.target === lbGuardedCheckboxState.checkbox) {
+        lbGuardedCheckboxState.checkbox.checked = lbGuardedCheckboxState.checked;
+        event.preventDefault?.();
+        event.stopImmediatePropagation?.();
+        event.stopPropagation?.();
+        return;
+      }
+      const link = event.target?.closest?.("a.lb-learn-source");
+      if (!link) return;
+      const label = link.closest?.("label");
+      const checkbox = label?.querySelector?.('input[type="checkbox"]');
+      if (checkbox) {
+        lbGuardedCheckboxState = { checkbox, checked: Boolean(checkbox.checked) };
+        lbClearGuardedCheckboxSoon();
+      }
+    },
+    true
+  );
+  container.addEventListener("click", (event) => {
+    if (event.target?.closest?.("a.lb-learn-source")) {
+      event.stopPropagation?.();
+      return;
+    }
+    if (event.target?.closest?.(".lb-learn-links")) {
+      event.preventDefault?.();
+      event.stopPropagation?.();
+    }
+  });
 }
 
 function lbAgo(ms) {
@@ -1664,14 +2102,19 @@ function lbBindTopicEvents() {
   lbEnsurePreviewEvents(document.getElementById("lb-preview"));
   lbBindSharepointSiteControls();
   const groups = document.getElementById("lb-topic-groups");
+  lbBindLearnLinkGuard(groups);
   groups?.addEventListener("change", (event) => {
     const prerequisite = event.target.closest("input[data-prerequisite]");
     if (prerequisite) {
+      if (lbShouldIgnoreGuardedChange(prerequisite)) return;
       lbSetPrerequisite(prerequisite.dataset.prerequisite, prerequisite.checked);
       return;
     }
     const input = event.target.closest("input[data-topic]");
-    if (input) lbSetTopic(input.dataset.topic, input.checked, input.dataset.required === "true");
+    if (input) {
+      if (lbShouldIgnoreGuardedChange(input)) return;
+      lbSetTopic(input.dataset.topic, input.checked, input.dataset.required === "true");
+    }
   });
   groups?.addEventListener(
     "toggle",
@@ -1720,14 +2163,7 @@ function lbLevelBadge(t) {
 function lbTopicSubtopicsNote(t) {
   const subs = (t.learn?.subtopics || []).filter((s) => s && s.title);
   if (t.source !== "learn" || !subs.length) return "";
-  const rendered = subs
-    .map((s) => {
-      const href = lbLearnUrl(s.url);
-      return href
-        ? `<a class="lb-learn-source" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title)}</a>`
-        : escapeHtml(s.title);
-    })
-    .join(", ");
+  const rendered = subs.map((s) => escapeHtml(s.title)).join(", ");
   return `<span class="lb-feature-note lb-feature-subtopics">Includes: ${rendered}</span>`;
 }
 
@@ -1772,10 +2208,11 @@ function lbTopicCard(t) {
                 <span id="lb-topic-desc-${escapeHtml(t.id)}" class="lb-feature-summary">${escapeHtml(t.summary)}</span>
                 ${t.reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(t.reasons.join(". "))}</span>` : ""}
                 ${lbThirdPartyNote(t)}
-                ${t.source === "learn" && lbLearnUrl(t.learn?.url)
-                  ? `<span class="lb-feature-note">Source: Microsoft Learn, not yet reviewed for this repository. <a class="lb-learn-source" href="${escapeHtml(t.learn.url)}" target="_blank" rel="noopener noreferrer">Read the article (opens in a new tab)</a></span>`
+                ${t.source === "learn"
+                  ? '<span class="lb-feature-note">Source: Microsoft Learn, not yet reviewed for this repository.</span>'
                   : ""}
                 ${lbTopicSubtopicsNote(t)}
+                ${lbRenderLearnLinks(t)}
                 ${t.learn?.status === "stale" ? '<span class="lb-feature-note">The Microsoft Learn pages this topic cites could not be found. Its steps are checked against Learn when the lab is built.</span>' : ""}
                 ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(t.harnessNote)}</span>` : ""}
               </span>
@@ -1886,6 +2323,7 @@ function lbRenderTopics() {
                 <span class="lb-feature-badges"><span class="lb-badge lb-badge-level">Level ${p.level}</span><span class="lb-badge lb-badge-recap">Prerequisite recap</span><span class="lb-badge lb-badge-time">about ${p.minutes} min</span></span>
                 <span id="lb-prereq-desc-${escapeHtml(p.id)}" class="lb-feature-summary">${escapeHtml(p.summary)}</span>
                 <span class="lb-topic-reason">Why: ${escapeHtml(p.reason)}</span>
+                ${lbRenderLearnLinks(p)}
               </span>
             </label>`
             )
@@ -2587,10 +3025,14 @@ function lbLookupModuleMeta(id) {
         fromPreview.role ||
         ([100, 200, 300].includes(fromPreview.level) && fromPreview.level < labBuilder.level ? "prerequisite" : "level"),
       minutes: fromPreview.minutes ?? null,
+      docUrls: fromPreview.docUrls || [],
+      learnLinks: lbResolveLearnLinks(fromPreview),
     };
   }
   const fromRemoved = labBuilder.step7Removed.get(id);
-  if (fromRemoved) return { ...fromRemoved };
+  if (fromRemoved) {
+    return { ...fromRemoved, learnLinks: lbResolveLearnLinks(fromRemoved) };
+  }
   const recTopics = [
     ...(labBuilder.rec?.concepts || []).flatMap((c) => c.topics),
     ...(labBuilder.rec?.levelUnknown?.topics || []),
@@ -2604,6 +3046,8 @@ function lbLookupModuleMeta(id) {
       level: recTopic.level ?? null,
       role: "level",
       minutes: recTopic.minutes ?? null,
+      docUrls: recTopic.docUrls || [],
+      learnLinks: lbResolveLearnLinks(recTopic),
     };
   }
   const recPrereq = (labBuilder.rec?.prerequisites?.topics || []).find((p) => p.id === id);
@@ -2615,6 +3059,8 @@ function lbLookupModuleMeta(id) {
       level: recPrereq.level ?? null,
       role: "prerequisite",
       minutes: recPrereq.minutes ?? null,
+      docUrls: recPrereq.docUrls || [],
+      learnLinks: lbResolveLearnLinks(recPrereq),
     };
   }
   const catalogFeature = lbFeatureList().find((f) => f.id === id);
@@ -2627,9 +3073,11 @@ function lbLookupModuleMeta(id) {
       level: catalogFeature.level ?? null,
       role: isPrereq ? "prerequisite" : "level",
       minutes: catalogFeature.minutes ?? null,
+      docUrls: catalogFeature.docUrls || [],
+      learnLinks: lbResolveLearnLinks(catalogFeature),
     };
   }
-  return { id, name: id, summary: "", level: labBuilder.level, role: "level", minutes: null };
+  return { id, name: id, summary: "", level: labBuilder.level, role: "level", minutes: null, docUrls: [], learnLinks: [] };
 }
 
 function lbRemovedCurriculumItems() {
@@ -2640,7 +3088,9 @@ function lbRemovedCurriculumItems() {
   ]);
   const byId = new Map();
   for (const [id, item] of labBuilder.step7Removed.entries()) {
-    if (!activeIds.has(id)) byId.set(id, item);
+    if (!activeIds.has(id)) {
+      byId.set(id, { ...item, learnLinks: lbResolveLearnLinks(item) });
+    }
   }
   for (const prereq of rec?.prerequisites?.topics || []) {
     if (!prereq.selected && labBuilder.excluded.has(prereq.id) && !byId.has(prereq.id)) {
@@ -2651,11 +3101,16 @@ function lbRemovedCurriculumItems() {
         level: prereq.level ?? null,
         role: "prerequisite",
         minutes: prereq.minutes ?? null,
+        docUrls: prereq.docUrls || [],
+        learnLinks: lbResolveLearnLinks(prereq),
         wasPicked: false,
       });
     }
   }
-  for (const topic of (rec?.concepts || []).flatMap((c) => c.topics)) {
+  for (const topic of [
+    ...(rec?.concepts || []).flatMap((c) => c.topics),
+    ...(rec?.levelUnknown?.topics || []),
+  ]) {
     if (!topic.selected && labBuilder.excluded.has(topic.id) && !byId.has(topic.id)) {
       byId.set(topic.id, {
         id: topic.id,
@@ -2664,6 +3119,8 @@ function lbRemovedCurriculumItems() {
         level: topic.level ?? null,
         role: "level",
         minutes: topic.minutes ?? null,
+        docUrls: topic.docUrls || [],
+        learnLinks: lbResolveLearnLinks(topic),
         wasPicked: false,
       });
     }
@@ -2705,6 +3162,7 @@ function lbRenderRemovedSection() {
                   <span class="lb-feature-name">${item.role === "prerequisite" ? "Recap: " : ""}${escapeHtml(item.name)}</span>
                   <span class="lb-feature-badges">${levelBadge}${roleBadge}${timeBadge}</span>
                   <span id="lb-removed-desc-${escapeHtml(item.id)}" class="lb-feature-summary">${escapeHtml(note)}</span>
+                  ${lbRenderLearnLinks(item)}
                 </span>
               </label>`;
           })
@@ -2716,9 +3174,11 @@ function lbRenderRemovedSection() {
 function lbEnsurePreviewEvents(el) {
   if (!el || el._lbOutlineBound || typeof el.addEventListener !== "function") return;
   el._lbOutlineBound = true;
+  lbBindLearnLinkGuard(el);
   el.addEventListener("change", (event) => {
     const input = event.target?.closest?.("input[data-outline-module]");
     if (!input) return undefined;
+    if (lbShouldIgnoreGuardedChange(input)) return undefined;
     return lbSetOutlineModule(input.dataset.outlineModule, Boolean(input.checked));
   });
   el.addEventListener("click", (event) => {
@@ -2869,7 +3329,7 @@ async function lbPreview(options = {}) {
         const stepLabel =
           m.stepLabel ||
           (isRecap ? `Recap ${m.recapOrder ?? recapCount}` : `Step ${m.stepOrder ?? stepCount}`);
-        return `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"></td><td>${escapeHtml(stepLabel)}</td><th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${isRecap ? "Recap: " : ""}${escapeHtml(m.name)}</label><div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div></th><td>${m.level}${
+        return `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"></td><td>${escapeHtml(stepLabel)}</td><th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${isRecap ? "Recap: " : ""}${escapeHtml(m.name)}</label><div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div>${lbRenderLearnLinks(m)}</th><td>${m.level}${
           isRecap ? " (prerequisite recap)" : ""
         }</td><td>about ${m.minutes} min</td></tr>`;
       })

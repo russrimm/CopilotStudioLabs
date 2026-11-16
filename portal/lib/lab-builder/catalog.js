@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import { readCatalogFile } from "./catalog-source.js";
 import { getConcepts, getKnownCoverageGaps, getRecommendations, validateConcepts } from "./concepts.js";
+import { extractFeatureLearnLinks } from "./learn-citations.js";
 import { getProducts, harnessProduct, productOf, validateProducts } from "./products.js";
 import { getDifferences, validateDifferences } from "./differences.js";
 import { validateScreenshotSlots } from "./slots.js";
@@ -182,6 +183,8 @@ export function getFeaturesByCategory() {
         harnessNote: f.harnessNote || null,
         prereqs: f.prereqs || [],
         relatedLabs: f.relatedLabs || [],
+        docUrls: f.docUrls || [],
+        learnLinks: extractFeatureLearnLinks(f),
       })),
   }));
 }
