@@ -1,0 +1,4 @@
+Microsoft Learn: Authoring first bot | after=" (https://learn.microsoft.com/microsoft-copilot-studio/authoring-first-bot)" | target= rel=
+Microsoft Learn: Fundamentals get started | after=" (https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-get-started)" | target= rel=
+Microsoft Learn: Fundamentals what is copilot studio | after=" (https://learn.microsoft.com/microsoft-copilot-studio/fundamentals-what-is-copilot-studio)" | target= rel=
+Microsoft Learn: Agents overview | after=" (https://learn.microsoft.com/microsoft-copilot-studio/agents-overview)" | target= rel=

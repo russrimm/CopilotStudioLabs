@@ -1,0 +1,4 @@
+Microsoft Learn: Authoring first bot | after=none | target=_blank rel=noopener noreferrer
+Microsoft Learn: Fundamentals get started | after=none | target=_blank rel=noopener noreferrer
+Microsoft Learn: Fundamentals what is copilot studio | after=none | target=_blank rel=noopener noreferrer
+Microsoft Learn: Agents overview | after=none | target=_blank rel=noopener noreferrer
