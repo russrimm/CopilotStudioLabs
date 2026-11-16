@@ -1000,9 +1000,48 @@ function escapePipe(text) {
   return String(text || "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ").trim();
 }
 
+const MODULE_LABEL_RE = /^(Step|Recap)\s+(\d+)\s+[—–-]\s+(.+)$/i;
+
+function formatRequiredByMarkdownEntry(rawLabel, { bullet = false, escapePipes = false } = {}) {
+  const cleaned = String(rawLabel || "").replace(/\r?\n/g, " ").trim();
+  if (!cleaned) return "";
+  const safeText = escapePipes ? escapePipe(cleaned) : cleaned;
+  const match = safeText.match(MODULE_LABEL_RE);
+  const formatted = match
+    ? `**${match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase()} ${match[2]}:** ${match[3].trim()}`
+    : safeText;
+  return bullet ? `• ${formatted}` : formatted;
+}
+
+function renderRequiredByTableCell(requiredBy) {
+  const entries = (Array.isArray(requiredBy) ? requiredBy : [])
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+  if (entries.length === 0) return "—";
+  if (entries.length === 1) {
+    return formatRequiredByMarkdownEntry(entries[0], { bullet: false, escapePipes: true });
+  }
+  return entries
+    .map((entry) => formatRequiredByMarkdownEntry(entry, { bullet: true, escapePipes: true }))
+    .join("<br>");
+}
+
+function renderChecklistRequiredBy(requiredBy) {
+  const entries = (Array.isArray(requiredBy) ? requiredBy : [])
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+  if (entries.length === 0) return "";
+  if (entries.length === 1) {
+    return `<br>**Required by:** ${formatRequiredByMarkdownEntry(entries[0], { bullet: false })}`;
+  }
+  return `<br>**Required by:**<br>${entries
+    .map((entry) => formatRequiredByMarkdownEntry(entry, { bullet: true }))
+    .join("<br>")}`;
+}
+
 function renderChecklistItems(items) {
   return items.map((item) => {
-    const req = item.requiredBy?.length ? ` *(Required by: ${item.requiredBy.join("; ")})*` : "";
+    const req = renderChecklistRequiredBy(item.requiredBy);
     return `- [ ] **${item.title}** (*${item.status}* — \`${item.adminPath}\`): ${item.details}${req}`;
   });
 }
@@ -1034,8 +1073,8 @@ export function renderAdminPrerequisitesMarkdown(prereqs) {
       "|---|---|---|---|---|",
       ...prereqs.connectors.map((c) => {
         const endpoints = c.endpoints?.length ? ` Endpoints: \`${c.endpoints.join("`, `")}\`.` : "";
-        return `| **${escapePipe(c.name)}** | ${escapePipe(c.classification)} | ${escapePipe(c.dataGroup)} | ${escapePipe(
-          (c.requiredBy || []).join(", "),
+        return `| **${escapePipe(c.name)}** | ${escapePipe(c.classification)} | ${escapePipe(c.dataGroup)} | ${renderRequiredByTableCell(
+          c.requiredBy,
         )} | ${escapePipe(`${c.details}${endpoints}`)} |`;
       }),
       "",

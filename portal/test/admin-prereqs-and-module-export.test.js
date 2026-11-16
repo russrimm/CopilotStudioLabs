@@ -6,7 +6,7 @@ import { PassThrough } from "node:stream";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { deflateSync, inflateRawSync } from "node:zlib";
+import { deflateSync, inflateRawSync, inflateSync } from "node:zlib";
 import vm from "node:vm";
 
 import { planLab } from "../lib/lab-builder/planner.js";
@@ -20,6 +20,8 @@ import {
 } from "../lib/lab-builder/module-samples.js";
 import { renderMarkdownToDocxBuffer } from "../lib/lab-builder/docx-builder.js";
 import { renderMarkdownToPdfBuffer } from "../lib/lab-builder/pdf-builder.js";
+import { renderLabHtmlDocument, renderStandaloneLabHtml } from "../lib/lab-builder/html-lab.js";
+import { renderLabMarkdown } from "../lib/markdown.js";
 import { parseLabSteps } from "../lib/step-validator/steps.js";
 import { resolveGeneratedAsset, readGeneratedLab } from "../lib/lab-builder/generated-labs.js";
 import {
@@ -501,7 +503,7 @@ test("portal generated-labs UI renders format selector (all, docx, pdf, html) an
   };
   vm.createContext(context);
   vm.runInContext(
-    `${genLabsSrc}\nglobalThis.__genUi = { lbGeneratedActionButtonsHtml, lbRenderAdminPrerequisitesHtml };`,
+    `${genLabsSrc}\nglobalThis.__genUi = { lbGeneratedActionButtonsHtml, lbRenderAdminPrerequisitesHtml, lbRenderRequiredByHtml };`,
     context,
   );
 
@@ -514,21 +516,229 @@ test("portal generated-labs UI renders format selector (all, docx, pdf, html) an
   assert.match(buttonsHtml, /data-gen-action="export-zip"/);
   assert.match(buttonsHtml, /data-gen-action="export-html"/);
 
+  const manyModules = [
+    "Recap 1 - Create an agent",
+    "Recap 2 - Agent instructions & persona",
+    "Step 3 — Ground on SharePoint knowledge",
+    "Step 18 - Create, train, and use a document processing model",
+    "Step 19 - Connect a REST, GraphQL, or OpenAPI tool",
+    "Step 20 - Configure autonomous event triggers",
+    "Step 21 - Run evaluation test sets",
+  ];
+
+  const reqListHtml = context.__genUi.lbRenderRequiredByHtml(manyModules);
+  assert.match(reqListHtml, /class="lb-prereq-req-list"/);
+  assert.match(reqListHtml, /<span class="lb-prereq-req-badge lb-prereq-req-badge-recap">Recap 1<\/span>/);
+  assert.match(reqListHtml, /<span class="lb-prereq-req-badge">Step 18<\/span>/);
+  assert.match(
+    reqListHtml,
+    /<span class="lb-prereq-req-title">Create, train, and use a document processing model<\/span>/,
+  );
+  assert.match(reqListHtml, /<details class="lb-prereq-req-more">\s*<summary>\+3 more modules \(7 total\)<\/summary>/);
+  assert.doesNotMatch(reqListHtml, /Recap 1 - Create an agent,\s*Recap 2/);
+
+  assert.match(context.__genUi.lbRenderRequiredByHtml(["All modules"]), /<span class="lb-prereq-req-title">All modules<\/span>/);
+  assert.equal(context.__genUi.lbRenderRequiredByHtml([]), "");
+
   const prereqHtml = context.__genUi.lbRenderAdminPrerequisitesHtml({
     connectors: [
-      { name: "SharePoint", tier: "Standard", dataGroup: "Business", requiredBy: ["Ground on SharePoint"], purpose: "Read documents" },
+      {
+        name: "Microsoft Dataverse",
+        tier: "Standard",
+        dataGroup: "Business",
+        requiredBy: manyModules,
+        purpose: "Store agent configuration and transcripts.",
+      },
+      {
+        name: "Optional Connector",
+        tier: "Standard",
+        dataGroup: "Business",
+        requiredBy: [],
+        purpose: "No modules attached.",
+      },
     ],
     dlpAndAcp: [
-      { title: "Place required connectors in Business", adminPath: "PPAC > Policies", requiredBy: ["Ground on SharePoint"], detail: "Avoid blocked connector pairs." },
+      {
+        title: "Place required connectors in Business",
+        adminPath: "PPAC > Policies",
+        requiredBy: manyModules.slice(0, 5),
+        detail: "Avoid blocked connector pairs.",
+      },
     ],
     environmentSettings: [
-      { title: "Code apps and Power Apps component framework (PCF) for canvas apps", adminPath: "PPAC > Environments > Features", requiredBy: ["PCF component"], detail: "Enable Code apps and PCF." },
+      {
+        title: "Code apps and Power Apps component framework (PCF) for canvas apps",
+        adminPath: "PPAC > Environments > Features",
+        requiredBy: ["Step 12 - Build a PCF component"],
+        detail: "Enable Code apps and PCF.",
+      },
     ],
     tenantAndCloud: [
-      { title: "Microsoft Entra ID permissions", adminPath: "Entra admin center", requiredBy: ["All modules"], detail: "Configure SSO." },
+      {
+        title: "Microsoft Entra ID permissions",
+        adminPath: "Entra admin center",
+        requiredBy: ["All modules"],
+        detail: "Configure SSO.",
+      },
     ],
   });
   assert.match(prereqHtml, /Connectors, Environment, and Tenant Prerequisites/);
-  assert.match(prereqHtml, /SharePoint/);
+  assert.match(prereqHtml, /Microsoft Dataverse/);
+  assert.match(prereqHtml, /<td class="lb-prereq-col-req"><ul class="lb-prereq-req-list">/);
+  assert.match(prereqHtml, /<td class="lb-prereq-col-req"><span class="lb-prereq-req-empty">—<\/span><\/td>/);
+  assert.match(prereqHtml, /<div class="lb-prereq-card-req">\s*<span class="lb-prereq-card-req-label">Required by:<\/span>/);
+  assert.match(prereqHtml, /\+1 more module \(5 total\)/);
   assert.match(prereqHtml, /Code apps and Power Apps component framework \(PCF\) for canvas apps/);
+
+  const indexHtml = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.match(indexHtml, /\.lb-prereq-req-list\s*\{/);
+  assert.match(indexHtml, /\.lb-prereq-req-more\s*\{/);
+  assert.match(indexHtml, /@media print[\s\S]*?\.lb-admin-prereqs[\s\S]*?\.lb-prereq-req-more/);
+});
+
+test("multi-module Required By entries render real line breaks across Markdown, standalone HTML, DOCX, and PDF exports", () => {
+  const modulesWithCommasAndPipes = [
+    "Recap 1 - Create an agent",
+    "Recap 2 - Agent instructions, tone, and persona",
+    "Step 3 — Ground on SharePoint knowledge",
+    "Step 18 - Create, train, and use a document processing model",
+    "Step 19 - Connect REST | OpenAPI tool",
+    "Step 20 - Configure autonomous triggers",
+  ];
+
+  const prereqs = {
+    summary: "Review these environment and tenant prerequisites before starting the workshop.",
+    connectors: [
+      {
+        name: "Microsoft Dataverse",
+        classification: "Standard",
+        dataGroup: "Business",
+        requiredBy: modulesWithCommasAndPipes,
+        details: "Stores agent state and transcripts.",
+        endpoints: ["*.crm.dynamics.com"],
+      },
+      {
+        name: "SharePoint",
+        classification: "Standard",
+        dataGroup: "Business",
+        requiredBy: ["Step 3 — Ground on SharePoint knowledge"],
+        details: "Grounds responses on intranet sites.",
+        endpoints: [],
+      },
+    ],
+    dlpAndAcp: [
+      {
+        title: "Align Business data group",
+        status: "Required",
+        adminPath: "PPAC > Policies > Data policies",
+        details: "Keep Dataverse and SharePoint in the Business group.",
+        requiredBy: modulesWithCommasAndPipes.slice(0, 3),
+      },
+    ],
+    environmentSettings: [],
+    tenantAndCloud: [],
+  };
+
+  const md = renderAdminPrerequisitesMarkdown(prereqs);
+  assert.doesNotMatch(
+    md,
+    /Recap 1 - Create an agent,\s*Recap 2/,
+    "Connector Required By cell must not join modules with commas",
+  );
+  assert.match(
+    md,
+    /• \*\*Recap 1:\*\* Create an agent<br>• \*\*Recap 2:\*\* Agent instructions, tone, and persona<br>• \*\*Step 3:\*\* Ground on SharePoint knowledge<br>• \*\*Step 18:\*\* Create, train, and use a document processing model<br>• \*\*Step 19:\*\* Connect REST \\\| OpenAPI tool/,
+  );
+  assert.match(
+    md,
+    /<br>\*\*Required by:\*\*<br>• \*\*Recap 1:\*\* Create an agent<br>• \*\*Recap 2:\*\* Agent instructions, tone, and persona/,
+  );
+
+  // Portal live Markdown preview (#lb-result-preview / #preview-area)
+  const previewHtml = renderLabMarkdown(md);
+  assert.match(previewHtml, /<strong>Step 18:<\/strong> Create, train, and use a document processing model<br\s*\/?>/);
+  assert.doesNotMatch(previewHtml, /&lt;br\s*\/?&gt;/i);
+
+  // Standalone HTML export (html-lab.js) + inline code safety check
+  assert.equal(renderLabHtmlDocument, renderStandaloneLabHtml);
+  const mdWithInlineCodeBr = `${md}\n\nKeep literal \`<br>\` inside inline code spans untouched.\n`;
+  const standaloneHtml = renderLabHtmlDocument(mdWithInlineCodeBr, { title: "Prereq Line Break Test" });
+  assert.match(
+    standaloneHtml,
+    /<strong>Recap 1:<\/strong> Create an agent<br>• <strong>Recap 2:<\/strong> Agent instructions, tone, and persona/,
+  );
+  assert.match(standaloneHtml, /Connect REST \| OpenAPI tool/);
+  assert.match(standaloneHtml, /<code>&lt;br&gt;<\/code>/, "Inline code `<br>` stays escaped");
+  const htmlWithoutCode = standaloneHtml.replace(/<code>[\s\S]*?<\/code>/g, "");
+  assert.doesNotMatch(htmlWithoutCode, /&lt;br\s*\/?&gt;/i, "No escaped <br> leaks into table cells or checklist items");
+
+  // Word .docx export (docx-builder.js)
+  const docxBuf = renderMarkdownToDocxBuffer(mdWithInlineCodeBr, { title: "Prereq Line Break Test" });
+  const docxEntries = parseZipArchive(docxBuf);
+  const docXml = docxEntries.get("word/document.xml").toString("utf8");
+  assert.match(docXml, /<w:r><w:br\/><\/w:r>/, "DOCX emits real OOXML <w:br/> elements");
+  assert.match(docXml, /Create, train, and use a document processing model/);
+  assert.match(docXml, /Connect REST \| OpenAPI tool/);
+  // Only the inline `<code>` run should contain escaped &lt;br&gt;
+  const escapedBrMatches = docXml.match(/&lt;br&gt;/gi) || [];
+  assert.equal(escapedBrMatches.length, 1, "Only the backtick code span contains literal &lt;br&gt; in DOCX");
+
+  // Adobe .pdf export (pdf-builder.js) — verify real vertical line breaks + ultra-tall 40-module pagination
+  const fortyModules = Array.from(
+    { length: 40 },
+    (_, idx) => `Step ${idx + 1} - Configure module ${idx + 1}, policies, and validation`,
+  );
+  const tallMd = renderAdminPrerequisitesMarkdown({
+    ...prereqs,
+    connectors: [
+      ...prereqs.connectors,
+      {
+        name: "HTTP with Microsoft Entra ID",
+        classification: "Premium",
+        dataGroup: "Business",
+        requiredBy: fortyModules,
+        details: "Calls downstream enterprise APIs.",
+        endpoints: [],
+      },
+    ],
+  }) + "\n\nKeep literal `<br>` inside inline code spans untouched.\n";
+
+  const pdfBuf = renderMarkdownToPdfBuffer(tallMd, { title: "Prereq Line Break Test" });
+  const pdfLatin1 = pdfBuf.toString("latin1");
+  assert.match(pdfLatin1, /^%PDF-1\.4/);
+
+  // Decompress all /FlateDecode page content streams to inspect exact PDF text operators.
+  const decodedPages = [];
+  const flateRe = /<< \/Filter \/FlateDecode \/Length (\d+) >>\nstream\n/g;
+  let streamMatch;
+  while ((streamMatch = flateRe.exec(pdfLatin1)) !== null) {
+    const byteLen = Number(streamMatch[1]);
+    const startOffset = streamMatch.index + streamMatch[0].length;
+    const compressed = pdfBuf.subarray(startOffset, startOffset + byteLen);
+    decodedPages.push(inflateSync(compressed).toString("latin1"));
+  }
+  assert.ok(decodedPages.length >= 2, "40-module prerequisite table paginates cleanly across multiple PDF pages");
+  const pdfOps = decodedPages.join("\n");
+
+  assert.match(pdfOps, /\(\\225\) Tj/, "Bullet glyph renders as WinAnsi 0o225 in PDF");
+  assert.match(pdfOps, /\(18:\) Tj/);
+  assert.match(pdfOps, /\(40:\) Tj/);
+
+  // Extract baseline Y coordinates for 18: and 19: to prove they sit on distinct vertical rows,
+  // and verify no baseline drops below the bottom page margin (25pt footer, 54pt body margin).
+  const tdMatches = [...pdfOps.matchAll(/([0-9.]+) ([0-9.]+) Td \(([^)]*(?:\\\)[^)]*)*)\) Tj/g)];
+  const step18Op = tdMatches.find((m) => m[3] === "18:");
+  const step19Op = tdMatches.find((m) => m[3] === "19:");
+  assert.ok(step18Op && step19Op, "Both Step 18: and Step 19: appear as bold PDF runs");
+  assert.notEqual(step18Op[2], step19Op[2], "Step 18 and Step 19 render on distinct PDF baselines");
+
+  for (const m of tdMatches) {
+    const y = Number(m[2]);
+    assert.ok(y >= 20 && y <= 792, `PDF text baseline ${y} must stay within page bounds (token: ${m[3]})`);
+  }
+
+  // Only the Courier (/F4) code token may contain literal "<br>"
+  const literalBrOps = [...pdfOps.matchAll(/\/(F\d) [0-9.]+ Tf [^()]*\(([^)]*<br>[^)]*)\) Tj/gi)];
+  assert.equal(literalBrOps.length, 1, "Only inline code span renders literal <br> in PDF");
+  assert.equal(literalBrOps[0][1], "F4");
 });

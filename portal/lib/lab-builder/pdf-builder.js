@@ -49,9 +49,12 @@ const UNICODE_REPLACEMENTS = new Map([
   ["\uFE0F", ""],
 ]);
 
+const WINANSI_EXTENDED_CODES = new Set([0x80, 0x85, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97, 0x99]);
+
 /**
  * Normalize arbitrary UTF-8 Markdown prose to single-byte WinAnsi characters so
- * Type1 PDF text operators never render garbled bytes.
+ * Type1 PDF text operators never render garbled bytes. Idempotent if called
+ * again on already-normalized WinAnsi tokens.
  */
 function toWinAnsiString(raw) {
   const input = String(raw ?? "");
@@ -66,7 +69,7 @@ function toWinAnsiString(raw) {
       out += "  ";
     } else if (code >= 0x20 && code <= 0x7e) {
       out += ch;
-    } else if (code >= 0xa0 && code <= 0xff) {
+    } else if ((code >= 0xa0 && code <= 0xff) || WINANSI_EXTENDED_CODES.has(code)) {
       out += String.fromCharCode(code);
     } else if (code > 0xff) {
       // Skip unsupported emoji/pictographs cleanly instead of emitting '?' noise.
@@ -161,6 +164,45 @@ function fontForStyle(style) {
   if (style === "italic") return "F3";
   if (style === "code") return "F4";
   return "F1";
+}
+
+/**
+ * Split inline Markdown text on explicit `<br>` / `<br/>` tags while preserving
+ * literal `<br>` inside inline backtick code spans or backslash-escaped `\<br>`.
+ */
+function splitHtmlLineBreaks(rawText) {
+  const input = String(rawText ?? "");
+  if (!/<br\s*\/?>/i.test(input)) return [input];
+  const codeSpans = [];
+  const masked = input.replace(/`[^`\n]+`/g, (span) => {
+    const token = `\u0000C${codeSpans.length}\u0000`;
+    codeSpans.push(span);
+    return token;
+  });
+  return masked
+    .split(/(?<!\\)<br\s*\/?>/gi)
+    .map((part) => part.replace(/\u0000C(\d+)\u0000/g, (_m, idx) => codeSpans[Number(idx)] ?? "").trim());
+}
+
+function wrapInlineMarkdown(rawText, defaultStyle, fontSize, maxWidthPt) {
+  const logicalLines = splitHtmlLineBreaks(rawText);
+  if (logicalLines.length <= 1) {
+    return wrapSegments(parseInlineSegments(rawText, defaultStyle), fontSize, maxWidthPt);
+  }
+  const allWrapped = [];
+  for (const logicalLine of logicalLines) {
+    if (!logicalLine) {
+      allWrapped.push([]);
+      continue;
+    }
+    const wrapped = wrapSegments(parseInlineSegments(logicalLine, defaultStyle), fontSize, maxWidthPt);
+    if (wrapped.length) {
+      allWrapped.push(...wrapped);
+    } else {
+      allWrapped.push([]);
+    }
+  }
+  return allWrapped;
 }
 
 /**
@@ -448,8 +490,7 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
     const prefix = opts.prefix || "";
     const prefixWidth = prefix ? measureTextPt(prefix, fontSize, "F2") + 4 : 0;
     const availWidth = Math.max(80, CONTENT_WIDTH - indentLeft - prefixWidth - (opts.padRight || 0));
-    const segments = parseInlineSegments(rawText, opts.style || "regular");
-    const wrapped = wrapSegments(segments, fontSize, availWidth);
+    const wrapped = wrapInlineMarkdown(rawText, opts.style || "regular", fontSize, availWidth);
     const color = opts.color || [0.1, 0.13, 0.18];
 
     if (opts.spaceBefore) {
@@ -757,49 +798,58 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
 
         const drawTableRow = (cells, isHeader) => {
           const cellLines = headers.map((_h, idx) =>
-            wrapSegments(
-              parseInlineSegments(cells[idx] ?? "", isHeader ? "bold" : "regular"),
+            wrapInlineMarkdown(
+              cells[idx] ?? "",
+              isHeader ? "bold" : "regular",
               cellFontSize,
               Math.max(40, colW - 10),
             ),
           );
           const maxLines = Math.max(1, ...cellLines.map((cl) => cl.length));
-          const rowH = maxLines * cellLineH + 8;
-          ensureSpace(rowH + 4);
-          const topY = cursorY;
-          const bottomY = topY - rowH;
-
-          if (isHeader) {
-            currentOps.push(
-              `q 0.925 0.945 0.98 rg ${MARGIN_X.toFixed(2)} ${bottomY.toFixed(2)} ${CONTENT_WIDTH.toFixed(
-                2,
-              )} ${rowH.toFixed(2)} re f Q`,
-            );
-          }
-
-          currentOps.push(
-            `q 0.78 0.82 0.88 RG 0.6 w ${MARGIN_X.toFixed(2)} ${bottomY.toFixed(2)} ${CONTENT_WIDTH.toFixed(
-              2,
-            )} ${rowH.toFixed(2)} re S Q`,
+          const maxLinesPerPage = Math.max(
+            10,
+            Math.floor((PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM - 14) / cellLineH),
           );
 
-          for (let c = 0; c < colCount; c += 1) {
-            const cellX = MARGIN_X + c * colW;
-            if (c > 0) {
+          for (let offset = 0; offset < maxLines; offset += maxLinesPerPage) {
+            const sliceCount = Math.min(maxLinesPerPage, maxLines - offset);
+            const rowH = sliceCount * cellLineH + 8;
+            ensureSpace(rowH + 4);
+            const topY = cursorY;
+            const bottomY = topY - rowH;
+
+            if (isHeader) {
               currentOps.push(
-                `q 0.85 0.88 0.92 RG 0.5 w ${cellX.toFixed(2)} ${bottomY.toFixed(2)} m ${cellX.toFixed(
+                `q 0.925 0.945 0.98 rg ${MARGIN_X.toFixed(2)} ${bottomY.toFixed(2)} ${CONTENT_WIDTH.toFixed(
                   2,
-                )} ${topY.toFixed(2)} l S Q`,
+                )} ${rowH.toFixed(2)} re f Q`,
               );
             }
-            const linesInCell = cellLines[c];
-            linesInCell.forEach((lt, lIdx) => {
-              const baselineY = topY - 4 - cellFontSize - lIdx * cellLineH;
-              drawWrappedLine(lt, cellX + 5, baselineY);
-            });
-          }
 
-          cursorY = bottomY;
+            currentOps.push(
+              `q 0.78 0.82 0.88 RG 0.6 w ${MARGIN_X.toFixed(2)} ${bottomY.toFixed(2)} ${CONTENT_WIDTH.toFixed(
+                2,
+              )} ${rowH.toFixed(2)} re S Q`,
+            );
+
+            for (let c = 0; c < colCount; c += 1) {
+              const cellX = MARGIN_X + c * colW;
+              if (c > 0) {
+                currentOps.push(
+                  `q 0.85 0.88 0.92 RG 0.5 w ${cellX.toFixed(2)} ${bottomY.toFixed(2)} m ${cellX.toFixed(
+                    2,
+                  )} ${topY.toFixed(2)} l S Q`,
+                );
+              }
+              const linesInCell = cellLines[c].slice(offset, offset + sliceCount);
+              linesInCell.forEach((lt, lIdx) => {
+                const baselineY = topY - 4 - cellFontSize - lIdx * cellLineH;
+                drawWrappedLine(lt, cellX + 5, baselineY);
+              });
+            }
+
+            cursorY = bottomY;
+          }
         };
 
         cursorY -= 3;
