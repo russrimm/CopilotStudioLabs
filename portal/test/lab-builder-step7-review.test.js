@@ -215,7 +215,7 @@ function loadStep7Harness() {
 
 function activeOutlineModuleIds(previewHtml) {
   const tableHtml = previewHtml.match(/<table class="lb-outline">[\s\S]*?<\/table>/)?.[0] || "";
-  return [...tableHtml.matchAll(/data-outline-module="([^"]+)"/g)].map((m) => m[1]);
+  return [...tableHtml.matchAll(/<input\b[^>]*data-outline-module="([^"]+)"/g)].map((m) => m[1]);
 }
 
 function removedSectionModuleIds(previewHtml) {

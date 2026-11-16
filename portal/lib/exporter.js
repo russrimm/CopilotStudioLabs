@@ -715,6 +715,7 @@ export function exportGeneratedLab(
         `${brandedLabTitle} - ${mod.stepLabel} - ${mod.title}`,
         mod.markdown,
         {
+          featureId: mMeta.id || mod.id || null,
           labTitle: brandedLabTitle,
           stepLabel: mod.stepLabel,
           topicTitle: mod.title,
@@ -722,6 +723,12 @@ export function exportGeneratedLab(
           estimatedTime: mMeta.minutes ? `~${mMeta.minutes} min` : "",
           products: productsText,
           agentName: effectiveManifest?.options?.agentName || effectiveManifest?.request?.agentName || "",
+          harness:
+            effectiveManifest?.request?.harness ||
+            effectiveManifest?.differences?.labHarness ||
+            null,
+          trainingDigest: mMeta.trainingDigest || null,
+          manifest: effectiveManifest,
         },
       );
 
