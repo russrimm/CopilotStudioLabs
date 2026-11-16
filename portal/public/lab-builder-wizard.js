@@ -1273,7 +1273,7 @@ function lbRenderTopics() {
       if (!topics.length) return "";
       return `
       <fieldset class="lb-concept">
-        <legend class="lb-category-title">${escapeHtml(concept.name)}
+        <legend class="lb-category-title"><h4 class="lb-category-name">${escapeHtml(concept.name)}</h4>
           <span class="lb-concept-count${concept.selectedCount ? " lb-concept-count-active" : ""}">${concept.selectedCount} of ${concept.topics.length} selected${concept.minutes ? `, about ${lbFormatMinutes(concept.minutes)}` : ""}</span>
         </legend>
         <div class="lb-concept-toolbar">
@@ -1561,6 +1561,55 @@ function lbSyncNavControls() {
     stickyNext.disabled =
       Boolean(labBuilder.busy) || ((step === LB_STEP.review || step === LB_STEP.generate) && empty);
   }
+  lbObserveStepFooter();
+}
+
+/**
+ * Every step has its Back and Next in the step footer, which sticks to the bottom of the viewport.
+ * The sticky bar repeats them only as a fallback: while the footer is on screen the sticky copy is
+ * covered (invisible and not focusable) so one copy of each action shows; if the footer is ever out
+ * of view (for example a step scrolled far past) the sticky copy takes over.
+ */
+const lbNavCoverage = { observer: null, target: null, topInset: 0 };
+
+function lbSetStickyNavCovered(covered) {
+  const group = document.getElementById("lb-sticky-nav");
+  if (group?.classList) group.classList.toggle("lb-sticky-nav-covered", covered);
+}
+
+function lbObserveStepFooter() {
+  if (typeof IntersectionObserver === "undefined" || typeof document?.getElementById !== "function") {
+    lbSetStickyNavCovered(false);
+    return;
+  }
+  const pane = document.getElementById(`lb-pane-${labBuilder.step}`);
+  const footer = pane?.querySelector?.("[data-lb-step-footer]") || null;
+  // The portal header always overlays the top of the viewport, so the footer counts as visible below it.
+  const headerBottom = Math.max(0, Math.round(document.querySelector("header")?.getBoundingClientRect?.().bottom || 0));
+  // The summary bar sticks just below the header, whatever height the header wraps to.
+  document.documentElement?.style?.setProperty?.("--lb-header-h", `${headerBottom}px`);
+  const topInset = headerBottom;
+  if (lbNavCoverage.observer && lbNavCoverage.target === footer && Math.abs(lbNavCoverage.topInset - topInset) < 6) return;
+  lbNavCoverage.observer?.disconnect();
+  lbNavCoverage.observer = null;
+  lbNavCoverage.target = footer;
+  lbNavCoverage.topInset = topInset;
+  if (!footer) {
+    lbSetStickyNavCovered(false);
+    return;
+  }
+  lbNavCoverage.observer = new IntersectionObserver(
+    (entries) => {
+      const latest = entries[entries.length - 1];
+      if (latest) lbSetStickyNavCovered(latest.isIntersecting);
+    },
+    { rootMargin: `-${topInset}px 0px 0px 0px`, threshold: 0 }
+  );
+  lbNavCoverage.observer.observe(footer);
+}
+
+if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+  window.addEventListener("resize", lbObserveStepFooter);
 }
 
 function generateCustomLab() {

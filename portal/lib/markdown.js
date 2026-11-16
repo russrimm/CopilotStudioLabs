@@ -176,10 +176,12 @@ export function sanitizeLabHtml(html) {
     transformTags: {
       a: (tagName, attribs) => {
         const { target, ...safeAttributes } = attribs;
+        // External links, including Microsoft Learn references, open in a new tab so the wizard keeps its state.
+        const external = /^https?:\/\//i.test(String(safeAttributes.href || "").trim());
         return {
           tagName,
-          attribs: target === "_blank"
-            ? { ...safeAttributes, target, rel: "noopener noreferrer" }
+          attribs: target === "_blank" || external
+            ? { ...safeAttributes, target: "_blank", rel: "noopener noreferrer" }
             : safeAttributes,
         };
       },

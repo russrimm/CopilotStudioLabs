@@ -282,6 +282,20 @@ function lbGenItemHtml(lab) {
   const edit = editable
     ? `<button type="button" class="btn btn-sm" data-gen-action="edit" aria-label="Edit selections for ${title}">Edit selections</button>`
     : `<button type="button" class="btn btn-sm" data-gen-action="new" aria-label="Start a new lab in the wizard">Start a new lab</button>`;
+  // The lab shown in the result panel already offers open, export, print, and validate there.
+  // Repeating them on its row would show the same buttons twice, so the row only keeps what the panel lacks.
+  const isOpen = lbGen.opened === lab.labId;
+  const sharedActions = isOpen
+    ? `<button type="button" class="btn btn-sm" data-gen-action="close" aria-label="Close the preview of ${title}">Close preview</button>
+        ${edit}
+        <span class="lb-gen-open-note">Open above. Download, print, and validate are in the lab panel.</span>`
+    : `<button type="button" class="btn btn-sm" data-gen-action="open" aria-label="Open ${title}">Open</button>
+        ${edit}
+        ${lbZipFormatSelectHtml(lab.labId, lab.title || lab.labId, "lb-zip-fmt-item")}
+        <button type="button" class="btn btn-sm" data-gen-action="export-html" aria-label="Download ${title} as multi-page HTML">Download HTML</button>
+        <button type="button" class="btn btn-sm" data-gen-action="download" aria-label="Download ${title} as Markdown">Download .md</button>
+        <button type="button" class="btn btn-sm" data-gen-action="print" aria-label="Print or save ${title} as PDF">Print / Save PDF</button>
+        <button type="button" class="btn btn-sm" data-gen-action="validate" aria-label="Validate ${title}">Validate</button>`;
   return `
     <li class="lb-gen-item" data-lab-id="${id}">
       <h4 class="lb-gen-title">${title}</h4>
@@ -290,13 +304,7 @@ function lbGenItemHtml(lab) {
       ${lab.notes ? `<p class="lb-gen-notes">${escapeHtml(lab.notes)}</p>` : ""}
       ${legacy}
       <div class="lb-gen-actions">
-        <button type="button" class="btn btn-sm" data-gen-action="open" aria-label="Open ${title}">Open</button>
-        ${edit}
-        ${lbZipFormatSelectHtml(lab.labId, lab.title || lab.labId, "lb-zip-fmt-item")}
-        <button type="button" class="btn btn-sm" data-gen-action="export-html" aria-label="Download ${title} as multi-page HTML">Download HTML</button>
-        <button type="button" class="btn btn-sm" data-gen-action="download" aria-label="Download ${title} as Markdown">Download .md</button>
-        <button type="button" class="btn btn-sm" data-gen-action="print" aria-label="Print or save ${title} as PDF">Print / Save PDF</button>
-        <button type="button" class="btn btn-sm" data-gen-action="validate" aria-label="Validate ${title}">Validate</button>
+        ${sharedActions}
         <button type="button" class="btn btn-sm" data-gen-action="rename" aria-label="Rename ${title}">Rename</button>
         <button type="button" class="btn btn-sm" data-gen-action="delete" aria-label="Delete ${title}">Delete</button>
       </div>
@@ -369,6 +377,7 @@ async function lbOpenGenerated(labId) {
   const body = document.getElementById("lb-result-body");
   if (!lab || !panel || !meta || !body) return;
   lbGen.opened = labId;
+  lbGenRender(`Opened "${lab.title}".`);
   meta.innerHTML = `
     <div style="font-size: 16px; font-weight: 600;">${escapeHtml(lab.title)}</div>
     <div class="scenario-pill-list">
@@ -676,6 +685,11 @@ function lbGenBind() {
     const labId = button.closest("[data-lab-id]")?.dataset.labId || button.dataset.labId;
     switch (button.dataset.genAction) {
       case "open": lbOpenGenerated(labId); break;
+      case "close":
+        lbGenCloseOpened(labId);
+        lbGenRender(`Closed the preview.`);
+        lbGenFocusAction(labId, "open");
+        break;
       case "edit": lbEditGenerated(labId); break;
       case "export-zip": lbExportGeneratedZip(labId, button); break;
       case "export-html": lbDownloadGeneratedHtml(labId); break;

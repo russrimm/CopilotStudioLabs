@@ -271,6 +271,14 @@ arrow, Home, and End keys move among the tabs of the current area.
    **Preview** tab paginate labs section by section with **Previous** and **Next**
    controls (plus a **Show all pages** toggle and print rules that print every page).
 
+   Each wizard step has one **Back** and **Next** (or **Generate Lab**) button, in the
+   step footer, which stays at the bottom of the screen while the step is in view. The
+   summary bar at the top repeats them only when the footer is out of view, so you never
+   see the same button twice. A lab that is open in the result panel also lists its
+   download, print, and validate actions only there, not again in its
+   **Previously generated labs** row. The topic groups in Step 6 use a large, bold
+   heading with an accent bar so each group stands out from the cards beneath it.
+
    The level is chosen only in the Level step. The left-hand "Lab Chapters" pane that used to
    group the hand-written labs by level has been removed; choosing which hand-written
    labs are included now lives under **Lab chapters** on the **Lab setup** tab (no lab is included
@@ -1290,7 +1298,11 @@ Each module renders as:
   a check that is not true yet
 - **Knowledge check** — short self-check questions with expandable
   `<details>`/`<summary>` answers
-- **Microsoft Learn references** — citations, relevance-scored and link-checked
+- **Microsoft Learn references** — citations, relevance-scored and link-checked.
+  Each one is a link whose text is the page title and whose URL lives only in the
+  link target: `[Title](url)` in Markdown, a titled hyperlink in HTML, Word, and
+  PDF, and the same in the portal preview and its print view, which never appends the
+  raw URL. Links to other sites open in a new tab.
 - **Vendor documentation** — for modules whose catalog entry lists
   `thirdPartySources`: vendor, title link, stability note, and an optional quote
   attributed to the vendor

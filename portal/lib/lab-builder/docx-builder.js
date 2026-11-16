@@ -318,9 +318,10 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
       } else if (match[6] !== undefined) {
         out.push("<w:r><w:br/></w:r>");
       } else if (match[7] !== undefined) {
-        out.push(makeRun(match[7], { ...baseProps, bold: true }));
+        // Emphasis can wrap a link, so its content is rendered as inline Markdown rather than as plain text.
+        out.push(renderInlineRuns(match[7], { ...baseProps, bold: true }));
       } else if (match[8] !== undefined) {
-        out.push(makeRun(match[8], { ...baseProps, italic: true }));
+        out.push(renderInlineRuns(match[8], { ...baseProps, italic: true }));
       }
       lastIdx = tokenRe.lastIndex;
     }
