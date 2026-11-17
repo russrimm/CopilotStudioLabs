@@ -14,10 +14,11 @@ COPY portal/ ./portal/
 COPY README.md ./
 COPY template.config.json ./
 
-# Ensure runtime writable directories exist for non-root execution (including /mnt/portal-storage for volume mounts)
-RUN mkdir -p /mnt/portal-storage/generated-labs /mnt/portal-storage/data/lab-builder /mnt/portal-storage/uploads \
+# Ensure runtime writable directories exist for non-root execution (Azure Blob mirror root + optional volume mounts)
+RUN mkdir -p /app/portal-storage/generated-labs /app/portal-storage/data/lab-builder /app/portal-storage/uploads \
+    /mnt/portal-storage/generated-labs /mnt/portal-storage/data/lab-builder /mnt/portal-storage/uploads \
     /app/generated-labs /app/portal/data/lab-builder /app/portal/public/uploads \
-  && chown -R node:node /mnt/portal-storage /app/generated-labs /app/portal/data /app/portal/public/uploads
+  && chown -R node:node /app/portal-storage /mnt/portal-storage /app/generated-labs /app/portal/data /app/portal/public/uploads
 
 WORKDIR /app/portal
 

@@ -9,13 +9,19 @@ param location string
 @description('Resource tags')
 param tags object = {}
 
-@description('Azure Files share name for persistent portal state')
-param fileShareName string = 'portalstate'
+@description('Network Security Perimeter resource name securing the Storage account')
+param nspName string
 
-@description('Quota in GiB for the persistent portal state Azure Files share')
-@minValue(1)
-@maxValue(5120)
-param shareQuota int = 5
+@description('User-Assigned Managed Identity principal ID granted Storage Blob Data Contributor')
+param principalId string
+
+@description('Azure Blob container name for persistent portal state')
+param containerName string = 'portalstate'
+
+var storageBlobDataContributorRoleDefinitionId = subscriptionResourceId(
+  'Microsoft.Authorization/roleDefinitions',
+  'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+)
 
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: name
@@ -29,25 +35,61 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
     supportsHttpsTrafficOnly: true
-    // Azure Container Apps Managed Environment SMB Azure Files storage links require Shared Key authentication.
-    allowSharedKeyAccess: true
+    allowSharedKeyAccess: false
+    publicNetworkAccess: 'SecuredByPerimeter'
   }
 }
 
-resource fileServices 'Microsoft.Storage/storageAccounts/fileServices@2023-05-01' = {
+resource blobServices 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
   parent: storageAccount
   name: 'default'
 }
 
-resource portalStateShare 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-05-01' = {
-  parent: fileServices
-  name: fileShareName
+resource portalStateContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = {
+  parent: blobServices
+  name: containerName
   properties: {
-    shareQuota: shareQuota
-    enabledProtocols: 'SMB'
+    publicAccess: 'None'
+  }
+}
+
+resource networkSecurityPerimeter 'Microsoft.Network/networkSecurityPerimeters@2024-10-01' = {
+  name: nspName
+  location: location
+  properties: {}
+}
+
+resource defaultProfile 'Microsoft.Network/networkSecurityPerimeters/profiles@2024-10-01' = {
+  parent: networkSecurityPerimeter
+  name: 'defaultProfile'
+  properties: {}
+}
+
+resource storageAssociation 'Microsoft.Network/networkSecurityPerimeters/resourceAssociations@2024-10-01' = {
+  parent: networkSecurityPerimeter
+  name: 'storage-assoc'
+  properties: {
+    accessMode: 'Learning'
+    privateLinkResource: {
+      id: storageAccount.id
+    }
+    profile: {
+      id: defaultProfile.id
+    }
+  }
+}
+
+resource storageBlobRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, principalId, 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: storageBlobDataContributorRoleDefinitionId
+    principalId: principalId
+    principalType: 'ServicePrincipal'
   }
 }
 
 output storageAccountName string = storageAccount.name
 output storageAccountId string = storageAccount.id
-output fileShareName string = portalStateShare.name
+output blobEndpoint string = storageAccount.properties.primaryEndpoints.blob
+output blobContainerName string = portalStateContainer.name

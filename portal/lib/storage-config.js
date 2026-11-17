@@ -3,7 +3,8 @@
  *
  * Keeps generated labs, portal JSON state (`branding.json`, approvals,
  * agent-chat config, feedback, Learn topics cache), and uploaded branding
- * assets on a persistent mount (such as Azure Files at `/mnt/portal-storage`)
+ * assets under `PORTAL_STORAGE_ROOT` (mirrored to Azure Blob Storage via
+ * passwordless Managed Identity in Container Apps, or on a persistent volume)
  * when configured, while falling back to the repository's local layout for
  * offline CLI runs and local development.
  *
@@ -151,10 +152,29 @@ export function ensurePortalStorageDirs(env = process.env) {
   };
 }
 
+let blobSyncStatusProvider = null;
+
+/**
+ * Register (or clear with `null`) the process-wide Azure Blob sync diagnostics
+ * callback used by `getStorageDiagnostics()` for `/healthz` and `/api/config`.
+ */
+export function registerBlobSyncStatusProvider(provider) {
+  blobSyncStatusProvider = typeof provider === "function" ? provider : null;
+}
+
 function resolveStorageBackend(env = process.env) {
   const explicit = trimEnv(env?.PORTAL_STORAGE_BACKEND).toLowerCase();
-  if (explicit === "azure-files" || explicit === "custom-volume" || explicit === "local-disk") {
+  if (
+    explicit === "azure-blob" ||
+    explicit === "azure-files" ||
+    explicit === "custom-volume" ||
+    explicit === "local-disk"
+  ) {
     return explicit;
+  }
+
+  if (trimEnv(env?.AZURE_STORAGE_BLOB_ENDPOINT)) {
+    return "azure-blob";
   }
 
   const hasStorageRoot = Boolean(trimEnv(env?.PORTAL_STORAGE_ROOT));
@@ -178,10 +198,50 @@ function resolveStorageBackend(env = process.env) {
   return hasCustomVolume ? "custom-volume" : "local-disk";
 }
 
+function resolveBlobSyncDiagnostics(env, backend) {
+  const endpointConfigured = Boolean(trimEnv(env?.AZURE_STORAGE_BLOB_ENDPOINT));
+  const enabled = endpointConfigured || backend === "azure-blob";
+
+  if (env === process.env && typeof blobSyncStatusProvider === "function") {
+    const live = blobSyncStatusProvider();
+    if (live && typeof live === "object") {
+      return {
+        enabled: Boolean(live.enabled),
+        hydrated: Boolean(live.hydrated),
+        hydratedFiles: Number.isFinite(live.hydratedFiles) ? live.hydratedFiles : 0,
+        syncedFiles: Number.isFinite(live.syncedFiles) ? live.syncedFiles : 0,
+        lastSyncAt: typeof live.lastSyncAt === "string" ? live.lastSyncAt : null,
+        healthy: Boolean(live.healthy),
+      };
+    }
+  }
+
+  return {
+    enabled,
+    hydrated: false,
+    hydratedFiles: 0,
+    syncedFiles: 0,
+    lastSyncAt: null,
+    healthy: enabled ? endpointConfigured : true,
+  };
+}
+
 /**
  * Return safe, path-free storage metadata suitable for `/healthz` and `/api/config`.
  *
- * @returns {{ persistent: boolean, backend: "azure-files" | "custom-volume" | "local-disk", writable: boolean }}
+ * @returns {{
+ *   persistent: boolean,
+ *   backend: "azure-blob" | "azure-files" | "custom-volume" | "local-disk",
+ *   writable: boolean,
+ *   blobSync: {
+ *     enabled: boolean,
+ *     hydrated: boolean,
+ *     hydratedFiles: number,
+ *     syncedFiles: number,
+ *     lastSyncAt: string | null,
+ *     healthy: boolean,
+ *   }
+ * }}
  */
 export function getStorageDiagnostics(env = process.env) {
   const backend = resolveStorageBackend(env);
@@ -195,6 +255,7 @@ export function getStorageDiagnostics(env = process.env) {
     persistent: backend !== "local-disk",
     backend,
     writable,
+    blobSync: resolveBlobSyncDiagnostics(env, backend),
   };
 }
 
