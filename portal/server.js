@@ -61,6 +61,10 @@ import {
   getLabScreenshotsStatus,
   revalidateLabAgainstLearn,
 } from "./lib/lab-builder/lab-screenshots.js";
+import {
+  getFleetLearnDriftStatus,
+  scanAllGeneratedLabsAgainstLearn,
+} from "./lib/lab-builder/learn-drift-dashboard.js";
 import { getTopicService } from "./lib/lab-builder/topic-service.js";
 import { learnContext, newTopicCounts, newTopicCountsByLevel, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
 import { labDiagramExtension, renderLabMarkdown } from "./lib/markdown.js";
@@ -362,7 +366,10 @@ app.use((_req, res, next) => {
   next();
 });
 
-app.use(["/api/lab-builder"], express.json({ limit: process.env.LAB_BUILDER_BODY_LIMIT || "64kb" }));
+app.use(
+  ["/api/lab-builder", "/api/generated-labs/learn-drift"],
+  express.json({ limit: process.env.LAB_BUILDER_BODY_LIMIT || "64kb" }),
+);
 app.use(express.json({ limit: "10mb" }));
 // Express 5 leaves req.body undefined when no body was parsed; handlers
 // destructure it, so keep the empty-object default Express 4 provided.
@@ -952,6 +959,38 @@ async function handleGeneratedLabScreenshotsRevalidate(req, res) {
 }
 app.post("/api/lab-builder/generated/:labId/screenshots/revalidate", handleGeneratedLabScreenshotsRevalidate);
 app.post("/api/generated-labs/:labId/screenshots/revalidate", handleGeneratedLabScreenshotsRevalidate);
+
+/** GET /api/lab-builder/learn-drift — Cached fleet-wide MS Learn drift status across all saved generated labs */
+function handleFleetLearnDriftGet(_req, res) {
+  try {
+    return res.json(getFleetLearnDriftStatus(GENERATED_LABS_DIR));
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+app.get("/api/lab-builder/learn-drift", handleFleetLearnDriftGet);
+app.get("/api/generated-labs/learn-drift", handleFleetLearnDriftGet);
+
+/** POST /api/lab-builder/learn-drift/scan — Bulk re-validate & optionally auto-update saved labs against MS Learn */
+async function handleFleetLearnDriftScan(req, res) {
+  if (manageRateLimited(req, res)) return;
+  if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+    return res.status(400).json({ error: "Request body must be a JSON object." });
+  }
+  const body = req.body;
+  try {
+    const result = await scanAllGeneratedLabsAgainstLearn(GENERATED_LABS_DIR, {
+      labIds: body.labIds,
+      autoUpdate: Boolean(body.autoUpdate),
+      bypassCache: body.bypassCache !== false,
+    });
+    return res.status(result.status).json(result.body);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+app.post("/api/lab-builder/learn-drift/scan", handleFleetLearnDriftScan);
+app.post("/api/generated-labs/learn-drift/scan", handleFleetLearnDriftScan);
 
 /** POST /api/lab-builder/generated/:labId/screenshots/capture — Run Playwright step-through screenshot capture for an individual lab */
 async function handleGeneratedLabScreenshotsCapture(req, res) {

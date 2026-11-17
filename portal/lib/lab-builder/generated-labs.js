@@ -17,6 +17,7 @@ import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { capturedImage, capturedScreenshotsDir } from "./captured.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
 import { getLabScreenshotsStatus } from "./lab-screenshots.js";
+import { summarizeLabLearnDrift } from "./learn-drift-dashboard.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
 import {
   ALLOWED_TOPIC_DOC_FORMATS,
@@ -160,7 +161,7 @@ function validationSummary(manifest) {
   return { status: v.failed ? "failed" : "passed", passed: v.passed, failed: v.failed, checkedAt: v.checkedAt || null };
 }
 
-function summarizeManifest(labId, manifest) {
+function summarizeManifest(rootDir, labId, manifest) {
   const request = manifest.request && typeof manifest.request === "object" ? manifest.request : {};
   const options = manifest.options && typeof manifest.options === "object" ? manifest.options : {};
   const selections = selectionsFromManifest(manifest);
@@ -207,6 +208,7 @@ function summarizeManifest(labId, manifest) {
           learnSyncStatus: manifest.screenshots.learnSyncStatus || "up-to-date",
         }
       : null,
+    learnDrift: summarizeLabLearnDrift(rootDir, labId, manifest),
     selections,
   };
 }
@@ -221,7 +223,7 @@ export function listGeneratedLabs(rootDir) {
       const manifestPath = join(rootDir, entry.name, "manifest.json");
       if (!existsSync(manifestPath)) return null;
       try {
-        return summarizeManifest(entry.name, JSON.parse(readFileSync(manifestPath, "utf-8")));
+        return summarizeManifest(rootDir, entry.name, JSON.parse(readFileSync(manifestPath, "utf-8")));
       } catch {
         return null;
       }
@@ -369,7 +371,7 @@ export function updateGeneratedLabMeta(rootDir, rawId, body) {
     return {
       status: 200,
       body: {
-        lab: summarizeManifest(found.labId, manifest),
+        lab: summarizeManifest(rootDir, found.labId, manifest),
         topicDocuments: manifest.topicDocuments || [],
       },
     };
@@ -423,7 +425,7 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown = (md) => String
       manifest: manifest || { title: labId },
     });
     const adminPrerequisites = manifest?.adminPrerequisites || buildAdminPrerequisites({ manifest, markdown });
-    const summary = manifest ? summarizeManifest(labId, manifest) : null;
+    const summary = manifest ? summarizeManifest(rootDir, labId, manifest) : null;
     const { html, pending } = decorateGeneratedHtml(renderMarkdown(markdown), labId, labDir);
     const screenshotStatus = getLabScreenshotsStatus(rootDir, labId);
     return {

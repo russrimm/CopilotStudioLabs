@@ -2190,6 +2190,156 @@
       background: var(--complete-bg);
       border: 1px solid var(--complete-border);
     }
+    .lb-gen-drift-dashboard {
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .lb-gen-drift-dashboard[hidden] { display: none; }
+    .lb-gen-drift-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .lb-gen-drift-title-wrap {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .lb-gen-drift-heading {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .lb-gen-drift-last-scan {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .lb-gen-drift-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .lb-gen-drift-actions .btn:focus-visible,
+    .lb-gen-quick-drift-btn:focus-visible,
+    #lb-gen-drift-filter:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .lb-gen-drift-pills {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .lb-drift-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1.3;
+      border: 1px solid var(--stat-chip-border);
+      background: var(--stat-chip-bg);
+      color: var(--stat-chip-text);
+    }
+    .lb-drift-pill strong {
+      font-weight: 700;
+      color: var(--stat-chip-strong);
+    }
+    .lb-drift-pill-total {
+      background: var(--stat-total-bg);
+      border-color: var(--stat-total-border);
+      color: var(--stat-total-text);
+    }
+    .lb-drift-pill-total strong {
+      color: var(--stat-total-strong);
+    }
+    .lb-drift-pill-ok {
+      background: var(--complete-bg);
+      border-color: var(--complete-border);
+      color: var(--complete-text);
+    }
+    .lb-drift-pill-ok strong {
+      color: var(--complete-text);
+    }
+    .lb-drift-pill-warn {
+      background: var(--stat-warn-bg);
+      border-color: var(--stat-warn-border);
+      color: var(--stat-warn-text);
+    }
+    .lb-drift-pill-warn strong {
+      color: var(--stat-warn-text);
+    }
+    .lb-gen-drift-status {
+      margin: 0;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.4;
+      background: var(--lb-reason-bg);
+      border: 1px solid var(--lb-reason-border);
+      color: var(--lb-reason-text);
+    }
+    .lb-gen-drift-status[hidden] { display: none; }
+    .lb-gen-drift-status-ok {
+      background: var(--complete-bg);
+      border-color: var(--complete-border);
+      color: var(--complete-text);
+    }
+    .lb-gen-drift-status-warn {
+      background: var(--stat-warn-bg);
+      border-color: var(--stat-warn-border);
+      color: var(--stat-warn-text);
+    }
+    .lb-gen-drift-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 0 0 8px;
+    }
+    .lb-gen-drift-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.35;
+      border: 1px solid var(--stat-chip-border);
+      background: var(--stat-chip-bg);
+      color: var(--stat-chip-text);
+    }
+    .lb-gen-drift-badge-ok {
+      background: var(--complete-bg);
+      border-color: var(--complete-border);
+      color: var(--complete-text);
+    }
+    .lb-gen-drift-badge-warn {
+      background: var(--stat-warn-bg);
+      border-color: var(--stat-warn-border);
+      color: var(--stat-warn-text);
+    }
+    .lb-gen-drift-detail {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
     .lb-gen-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin: 0 0 10px; }
     .lb-gen-toolbar .form-group { flex: 1 1 220px; max-width: 360px; }
     .lb-gen-count { margin: 0 0 10px; font-size: 13px; color: var(--text-muted); min-height: 1.2em; }
@@ -4208,6 +4358,9 @@
       .lb-outline-order-bar,
       .lb-outline-order-col,
       .lb-outline-order-cell,
+      .lb-gen-drift-dashboard,
+      .lb-gen-toolbar,
+      .lb-gen-quick-drift-btn,
       nav,
       .report-issue-float,
       .feedback-widget {
@@ -5178,15 +5331,46 @@
                     </p>
                     <button type="button" class="btn btn-sm" id="lb-gen-start-new" data-gen-action="new">Start new lab</button>
                   </div>
+                  <div class="lb-gen-drift-dashboard" id="lb-gen-drift-dashboard" role="region" aria-labelledby="lb-gen-drift-heading" hidden>
+                    <div class="lb-gen-drift-top">
+                      <div class="lb-gen-drift-title-wrap">
+                        <h4 id="lb-gen-drift-heading" class="lb-gen-drift-heading">Microsoft Learn Drift Dashboard</h4>
+                        <span id="lb-gen-drift-last-scan" class="lb-gen-drift-last-scan">Last bulk scan: Not run yet</span>
+                      </div>
+                      <div class="lb-gen-drift-actions" role="group" aria-label="Bulk Microsoft Learn drift actions">
+                        <button type="button" class="btn btn-sm" id="lb-gen-drift-scan-btn" data-drift-action="scan-all" aria-label="Scan all saved labs against Microsoft Learn">🔄 Scan all labs against MS Learn</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="lb-gen-drift-update-btn" data-drift-action="update-drifted" aria-label="Update all drifted labs from Microsoft Learn" hidden disabled>⚡ Update all drifted labs (0)</button>
+                      </div>
+                    </div>
+                    <ul class="lb-gen-drift-pills" id="lb-gen-drift-pills" aria-label="Fleet Microsoft Learn sync summary">
+                      <li class="lb-drift-pill lb-drift-pill-total"><span>Total</span> <strong id="lb-drift-stat-total">0</strong></li>
+                      <li class="lb-drift-pill lb-drift-pill-ok"><span>Up to date</span> <strong id="lb-drift-stat-uptodate">0</strong></li>
+                      <li class="lb-drift-pill lb-drift-pill-warn"><span>Needs Learn update</span> <strong id="lb-drift-stat-drifted">0</strong></li>
+                      <li class="lb-drift-pill lb-drift-pill-shots"><span>Screenshots pending</span> <strong id="lb-drift-stat-shots">0</strong></li>
+                      <li class="lb-drift-pill lb-drift-pill-unchecked"><span>Not re-checked</span> <strong id="lb-drift-stat-unchecked">0</strong></li>
+                    </ul>
+                    <p id="lb-gen-drift-status" class="lb-gen-drift-status" role="status" aria-live="polite" hidden></p>
+                  </div>
                   <div class="lb-gen-toolbar" id="lb-gen-toolbar" hidden>
                     <div class="form-group">
                       <label for="lb-gen-search">Search generated labs</label>
                       <input type="search" id="lb-gen-search" autocomplete="off" placeholder="Title, notes, product, industry, level, or harness">
                     </div>
                     <div class="form-group">
+                      <label for="lb-gen-drift-filter">MS Learn status</label>
+                      <select id="lb-gen-drift-filter" autocomplete="off">
+                        <option value="all">All statuses</option>
+                        <option value="docs-updated">Needs update (MS Learn changed)</option>
+                        <option value="missing-screenshot">Missing screenshots</option>
+                        <option value="up-to-date">Up to date</option>
+                        <option value="not-checked">Not re-checked</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
                       <label for="lb-gen-sort">Sort by</label>
                       <select id="lb-gen-sort" autocomplete="off">
                         <option value="newest">Newest first</option>
+                        <option value="needs-update">Needs update first</option>
                         <option value="oldest">Oldest first</option>
                         <option value="title">Title (A to Z)</option>
                         <option value="longest">Longest estimated time</option>

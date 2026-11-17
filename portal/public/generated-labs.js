@@ -6,15 +6,78 @@ const lbGen = {
   labs: [],
   loaded: false,
   query: "",
+  driftFilter: "all",
   sort: "newest",
   bound: false,
   deleting: null,
   renaming: null,
   opened: null,
+  lastBulkScanAt: null,
+  driftBusy: false,
+  driftBusyLabId: null,
+  driftStatusMessage: "",
+  driftStatusVariant: "",
 };
+
+function lbNormalizeLabLearnDrift(lab) {
+  const d = lab?.learnDrift && typeof lab.learnDrift === "object" ? lab.learnDrift : null;
+  if (d && typeof d.status === "string") {
+    return {
+      status: d.status,
+      lastCheckedAt: typeof d.lastCheckedAt === "string" && d.lastCheckedAt ? d.lastCheckedAt : null,
+      driftedModuleCount: Math.max(0, Number(d.driftedModuleCount || 0)),
+      driftedModules: Array.isArray(d.driftedModules) ? d.driftedModules : [],
+      missingScreenshotCount: Math.max(0, Number(d.missingScreenshotCount || 0)),
+      moduleCount: Math.max(0, Number(d.moduleCount ?? lab?.moduleCount ?? 0)),
+    };
+  }
+  const shots = lab?.screenshots && typeof lab.screenshots === "object" ? lab.screenshots : null;
+  const stale = Math.max(0, Number(shots?.stale || 0));
+  const pending = Math.max(0, Number(shots?.pending || 0));
+  const rawStatus = shots?.learnSyncStatus || "";
+  let status = "not-checked";
+  if (rawStatus === "docs-updated" || stale > 0) status = "docs-updated";
+  else if (rawStatus === "ungrounded") status = "ungrounded";
+  else if (rawStatus === "missing-screenshot") status = "missing-screenshot";
+  else if (rawStatus === "up-to-date") status = pending > 0 ? "missing-screenshot" : "up-to-date";
+  return {
+    status,
+    lastCheckedAt: null,
+    driftedModuleCount: status === "docs-updated" ? Math.max(1, stale) : 0,
+    driftedModules: [],
+    missingScreenshotCount: pending,
+    moduleCount: Math.max(0, Number(lab?.moduleCount || 0)),
+  };
+}
+
+function lbDriftSortPriority(lab) {
+  const status = lbNormalizeLabLearnDrift(lab).status;
+  if (status === "docs-updated") return 0;
+  if (status === "missing-screenshot") return 1;
+  if (status === "not-checked" || status === "ungrounded") return 2;
+  return 3;
+}
+
+function lbDriftMatchesFilter(lab, filter) {
+  if (!filter || filter === "all") return true;
+  const drift = lbNormalizeLabLearnDrift(lab);
+  if (filter === "docs-updated") return drift.status === "docs-updated";
+  if (filter === "missing-screenshot") return drift.status === "missing-screenshot";
+  if (filter === "up-to-date") return drift.status === "up-to-date";
+  if (filter === "not-checked") return drift.status === "not-checked" || drift.status === "ungrounded";
+  return true;
+}
 
 const LB_GEN_SORTS = {
   newest: (a, b) => lbGenTime(b) - lbGenTime(a),
+  "needs-update": (a, b) => {
+    const prioDiff = lbDriftSortPriority(a) - lbDriftSortPriority(b);
+    if (prioDiff !== 0) return prioDiff;
+    const countDiff =
+      lbNormalizeLabLearnDrift(b).driftedModuleCount - lbNormalizeLabLearnDrift(a).driftedModuleCount;
+    if (countDiff !== 0) return countDiff;
+    return lbGenTime(b) - lbGenTime(a);
+  },
   oldest: (a, b) => lbGenTime(a) - lbGenTime(b),
   title: (a, b) => String(a.title).localeCompare(String(b.title), undefined, { sensitivity: "base" }),
   longest: (a, b) => (b.totalMinutes || 0) - (a.totalMinutes || 0),
@@ -106,7 +169,12 @@ function lbRenderTextWithSafeLinks(rawText) {
 
 function lbGenVisible() {
   const query = lbGen.query.trim().toLowerCase();
-  const labs = query ? lbGen.labs.filter((lab) => lbGenSearchText(lab).includes(query)) : [...lbGen.labs];
+  const filter = lbGen.driftFilter || "all";
+  const labs = lbGen.labs.filter((lab) => {
+    if (!lbDriftMatchesFilter(lab, filter)) return false;
+    if (query && !lbGenSearchText(lab).includes(query)) return false;
+    return true;
+  });
   return labs.sort(LB_GEN_SORTS[lbGen.sort] || LB_GEN_SORTS.newest);
 }
 
@@ -121,8 +189,11 @@ function lbGenAnnounce(message) {
 
 function lbGenCountMessage(shown) {
   const total = lbGen.labs.length;
-  if (lbGen.query.trim() && !shown) return `No generated labs match "${lbGen.query.trim()}". ${total} saved in all.`;
-  if (lbGen.query.trim()) return `Showing ${shown} of ${total} generated lab${total === 1 ? "" : "s"}.`;
+  const hasQuery = Boolean(lbGen.query.trim());
+  const hasDriftFilter = Boolean(lbGen.driftFilter && lbGen.driftFilter !== "all");
+  if (hasQuery && !hasDriftFilter && !shown) return `No generated labs match "${lbGen.query.trim()}". ${total} saved in all.`;
+  if ((hasQuery || hasDriftFilter) && !shown) return `No generated labs match the current filters. ${total} saved in all.`;
+  if (hasQuery || hasDriftFilter) return `Showing ${shown} of ${total} generated lab${total === 1 ? "" : "s"}.`;
   return `${total} generated lab${total === 1 ? "" : "s"}.`;
 }
 
@@ -400,6 +471,173 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
     </section>`;
 }
 
+function lbFormatDriftTimestamp(isoString) {
+  if (!isoString) return "";
+  const dt = new Date(isoString);
+  if (Number.isNaN(dt.getTime())) return "";
+  return dt.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function lbComputeFleetDriftCounts(labs) {
+  const counts = {
+    total: 0,
+    upToDate: 0,
+    docsUpdated: 0,
+    missingScreenshots: 0,
+    notChecked: 0,
+    ungrounded: 0,
+  };
+  for (const lab of Array.isArray(labs) ? labs : []) {
+    const status = lbNormalizeLabLearnDrift(lab).status;
+    counts.total += 1;
+    if (status === "up-to-date") counts.upToDate += 1;
+    else if (status === "docs-updated") counts.docsUpdated += 1;
+    else if (status === "missing-screenshot") counts.missingScreenshots += 1;
+    else if (status === "ungrounded") counts.ungrounded += 1;
+    else counts.notChecked += 1;
+  }
+  return counts;
+}
+
+function lbGenRenderDriftDashboard() {
+  const dashboard = document.getElementById("lb-gen-drift-dashboard");
+  if (!dashboard) return;
+  const hasLabs = lbGen.labs.length > 0;
+  dashboard.hidden = !hasLabs;
+  if (!hasLabs) return;
+
+  const counts = lbComputeFleetDriftCounts(lbGen.labs);
+  const uncheckedDisplay = counts.notChecked + counts.ungrounded;
+
+  const setStat = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(val);
+  };
+  setStat("lb-drift-stat-total", counts.total);
+  setStat("lb-drift-stat-uptodate", counts.upToDate);
+  setStat("lb-drift-stat-drifted", counts.docsUpdated);
+  setStat("lb-drift-stat-shots", counts.missingScreenshots);
+  setStat("lb-drift-stat-unchecked", uncheckedDisplay);
+
+  const lastScanEl = document.getElementById("lb-gen-drift-last-scan");
+  if (lastScanEl) {
+    const formatted = lbFormatDriftTimestamp(lbGen.lastBulkScanAt);
+    lastScanEl.textContent = formatted ? `Last bulk scan: ${formatted}` : "Last bulk scan: Not run yet";
+  }
+
+  const scanBtn = document.getElementById("lb-gen-drift-scan-btn");
+  if (scanBtn) {
+    scanBtn.disabled = Boolean(lbGen.driftBusy);
+    if (lbGen.driftBusy && !lbGen.driftBusyLabId) {
+      scanBtn.setAttribute("aria-busy", "true");
+      scanBtn.textContent = "⏳ Scanning labs against MS Learn...";
+    } else {
+      scanBtn.removeAttribute("aria-busy");
+      scanBtn.textContent = "🔄 Scan all labs against MS Learn";
+    }
+  }
+
+  const updateBtn = document.getElementById("lb-gen-drift-update-btn");
+  if (updateBtn) {
+    const hasDrifted = counts.docsUpdated > 0;
+    updateBtn.hidden = !hasDrifted;
+    updateBtn.disabled = Boolean(lbGen.driftBusy) || !hasDrifted;
+    if (lbGen.driftBusy && hasDrifted) {
+      updateBtn.setAttribute("aria-busy", "true");
+    } else {
+      updateBtn.removeAttribute("aria-busy");
+    }
+    updateBtn.textContent = `⚡ Update all drifted labs (${counts.docsUpdated})`;
+    updateBtn.setAttribute(
+      "aria-label",
+      `Update all ${counts.docsUpdated} drifted lab${counts.docsUpdated === 1 ? "" : "s"} from Microsoft Learn`,
+    );
+  }
+
+  const statusEl = document.getElementById("lb-gen-drift-status");
+  if (statusEl) {
+    if (lbGen.driftStatusMessage) {
+      statusEl.hidden = false;
+      statusEl.className = [
+        "lb-gen-drift-status",
+        lbGen.driftStatusVariant === "ok"
+          ? "lb-gen-drift-status-ok"
+          : lbGen.driftStatusVariant === "warn"
+          ? "lb-gen-drift-status-warn"
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      statusEl.textContent = lbGen.driftStatusMessage;
+    } else {
+      statusEl.hidden = true;
+      statusEl.textContent = "";
+    }
+  }
+}
+
+function lbRenderLabCardDriftHtml(lab, rawTitle) {
+  const drift = lbNormalizeLabLearnDrift(lab);
+  const safeId = escapeHtml(lab.labId);
+  const safeTitle = escapeHtml(rawTitle || "Untitled Lab");
+  const checkedText = lbFormatDriftTimestamp(drift.lastCheckedAt);
+
+  let badgeClass = "lb-gen-drift-badge";
+  let badgeText = "MS Learn not re-checked";
+  let ariaText = `Microsoft Learn sync status for ${rawTitle}: not re-checked since generation`;
+  let detailHtml = "";
+  let quickActionHtml = "";
+
+  if (drift.status === "docs-updated") {
+    const count = Math.max(1, Number(drift.driftedModuleCount || 1));
+    const topicWord = count === 1 ? "topic" : "topics";
+    badgeClass = "lb-gen-drift-badge lb-gen-drift-badge-warn";
+    badgeText = `⚠ ${count} ${topicWord} updated on MS Learn`;
+    const driftedNames = drift.driftedModules
+      .map((m) => String(m?.title || m?.moduleId || "").trim())
+      .filter(Boolean);
+    const namesSummary = driftedNames.length ? ` (${driftedNames.slice(0, 3).join(", ")}${driftedNames.length > 3 ? ", ..." : ""})` : "";
+    ariaText = `Microsoft Learn sync status for ${rawTitle}: ${count} ${topicWord} updated on Microsoft Learn${namesSummary}`;
+    if (driftedNames.length) {
+      detailHtml = `<span class="lb-gen-drift-detail">Updated: ${escapeHtml(driftedNames.slice(0, 3).join(", "))}${driftedNames.length > 3 ? ` +${driftedNames.length - 3} more` : ""}</span>`;
+    }
+    const isThisLabBusy = Boolean(lbGen.driftBusy && (!lbGen.driftBusyLabId || lbGen.driftBusyLabId === lab.labId));
+    quickActionHtml = `<button type="button" class="btn btn-sm btn-primary lb-gen-quick-drift-btn" data-gen-action="quick-learn-update" data-lab-id="${safeId}" ${
+      lbGen.driftBusy ? "disabled" : ""
+    }${isThisLabBusy ? ' aria-busy="true"' : ""} aria-label="Update ${safeTitle} from Microsoft Learn">${
+      isThisLabBusy && lbGen.driftBusyLabId === lab.labId ? "⏳ Updating..." : "⚡ Update from MS Learn"
+    }</button>`;
+  } else if (drift.status === "up-to-date") {
+    badgeClass = "lb-gen-drift-badge lb-gen-drift-badge-ok";
+    badgeText = "✓ MS Learn up to date";
+    ariaText = `Microsoft Learn sync status for ${rawTitle}: up to date${checkedText ? `, checked ${checkedText}` : ""}`;
+    if (checkedText) {
+      detailHtml = `<span class="lb-gen-drift-detail">Checked ${escapeHtml(checkedText)}</span>`;
+    }
+  } else if (drift.status === "missing-screenshot") {
+    const missing = Math.max(1, Number(drift.missingScreenshotCount || 1));
+    badgeClass = "lb-gen-drift-badge";
+    badgeText = `✓ MS Learn up to date · ${missing} screenshot${missing === 1 ? "" : "s"} pending`;
+    ariaText = `Microsoft Learn sync status for ${rawTitle}: documentation up to date, ${missing} screenshot${missing === 1 ? "" : "s"} pending`;
+  } else if (drift.status === "ungrounded") {
+    badgeClass = "lb-gen-drift-badge";
+    badgeText = "MS Learn ungrounded";
+    ariaText = `Microsoft Learn sync status for ${rawTitle}: no Microsoft Learn reference URLs recorded`;
+  }
+
+  return `
+      <div class="lb-gen-drift-row">
+        <span class="${badgeClass}" aria-label="${escapeHtml(ariaText)}">${escapeHtml(badgeText)}</span>
+        ${detailHtml}
+        ${quickActionHtml}
+      </div>`;
+}
+
 function lbGenItemHtml(lab) {
   const id = escapeHtml(lab.labId);
   const rawTitle = String(lab.title || "Untitled Lab").trim() || "Untitled Lab";
@@ -431,12 +669,9 @@ function lbGenItemHtml(lab) {
   }
   let screenshotChip = "";
   if (lab.screenshots && Number.isFinite(lab.screenshots.total) && lab.screenshots.total > 0) {
-    if (lab.screenshots.learnSyncStatus === "docs-updated" || Number(lab.screenshots.stale) > 0) {
-      screenshotChip = `<li class="lb-gen-chip-fail">MS Learn updated (${Number(lab.screenshots.stale || 1)} module${Number(lab.screenshots.stale || 1) === 1 ? "" : "s"})</li>`;
-    } else {
-      screenshotChip = `<li>Screenshots: ${Number(lab.screenshots.captured || 0)}/${Number(lab.screenshots.total)} captured</li>`;
-    }
+    screenshotChip = `<li>Screenshots: ${Number(lab.screenshots.captured || 0)}/${Number(lab.screenshots.total)} captured</li>`;
   }
+  const driftRowHtml = lbRenderLabCardDriftHtml(lab, rawTitle);
   const editable = Boolean(lab.selections);
   const legacy = editable
     ? ""
@@ -458,6 +693,7 @@ function lbGenItemHtml(lab) {
     <li class="lb-gen-item" data-lab-id="${id}">
       <h4 class="lb-gen-title">${title}</h4>
       <p class="lb-gen-meta">Created <time datetime="${escapeHtml(lab.generatedAt || "")}">${escapeHtml(createdText)}</time>${lab.updatedAt ? " · edited" : ""}</p>
+      ${driftRowHtml}
       <ul class="lb-gen-chips" aria-label="Details for ${title}">${chipHtml}${validation}${screenshotChip}</ul>
       ${lab.notes ? `<p class="lb-gen-notes">${escapeHtml(lab.notes)}</p>` : ""}
       ${legacy}
@@ -479,8 +715,9 @@ function lbGenRender(message) {
   const list = document.getElementById("lb-generated-list");
   const toolbar = document.getElementById("lb-gen-toolbar");
   lbGenSyncBadge();
+  lbGenRenderDriftDashboard();
   if (!list) return;
-  toolbar.hidden = !lbGen.labs.length;
+  if (toolbar) toolbar.hidden = !lbGen.labs.length;
   if (!lbGen.labs.length) {
     list.className = "scenario-empty";
     list.textContent = "None yet. Build one above and it will appear here.";
@@ -490,12 +727,43 @@ function lbGenRender(message) {
   const visible = lbGenVisible();
   if (!visible.length) {
     list.className = "scenario-empty";
-    list.textContent = "No generated labs match your search. Clear the search to see them all.";
+    list.textContent =
+      lbGen.driftFilter && lbGen.driftFilter !== "all"
+        ? "No generated labs match your search or MS Learn status filter. Reset the filters to see them all."
+        : "No generated labs match your search. Clear the search to see them all.";
   } else {
     list.className = "";
     list.innerHTML = `<ul class="lb-gen-list" aria-label="Generated labs">${visible.map(lbGenItemHtml).join("")}</ul>`;
   }
   lbGenAnnounce(message || lbGenCountMessage(visible.length));
+}
+
+async function lbLoadFleetDriftMeta() {
+  try {
+    const res = await fetch("/api/lab-builder/learn-drift");
+    if (!res.ok) return;
+    const data = await res.json().catch(() => null);
+    if (data && typeof data === "object") {
+      if (typeof data.lastBulkScanAt === "string" && data.lastBulkScanAt) {
+        lbGen.lastBulkScanAt = data.lastBulkScanAt;
+      }
+      if (Array.isArray(data.labs)) {
+        const driftById = new Map(
+          data.labs
+            .filter((item) => item && typeof item.labId === "string")
+            .map((item) => [item.labId, item.learnDrift || item]),
+        );
+        for (const lab of lbGen.labs) {
+          if (driftById.has(lab.labId)) {
+            lab.learnDrift = driftById.get(lab.labId);
+          }
+        }
+      }
+      lbGenRenderDriftDashboard();
+    }
+  } catch {
+    /* Optional metadata hydration; list already includes per-lab learnDrift */
+  }
 }
 
 async function lbLoadGenerated() {
@@ -509,8 +777,12 @@ async function lbLoadGenerated() {
     lbGen.labs = data.labs || [];
     lbGen.loaded = true;
     lbGenRender();
+    void lbLoadFleetDriftMeta();
   } catch (err) {
-    document.getElementById("lb-gen-toolbar").hidden = true;
+    const toolbar = document.getElementById("lb-gen-toolbar");
+    if (toolbar) toolbar.hidden = true;
+    const dashboard = document.getElementById("lb-gen-drift-dashboard");
+    if (dashboard) dashboard.hidden = true;
     lbGenAnnounce("");
     list.className = "scenario-empty";
     list.innerHTML = `<span role="alert">Could not list generated labs: ${escapeHtml(err.message)}</span> <button type="button" class="btn btn-sm" data-gen-action="retry">Try again</button>`;
@@ -853,6 +1125,21 @@ function lbGenBind() {
   if (!root) return;
   lbGen.bound = true;
   root.addEventListener("click", (event) => {
+    const driftBtn = event.target.closest("[data-drift-action]");
+    if (driftBtn) {
+      const action = driftBtn.dataset.driftAction;
+      if (action === "scan-all") {
+        lbScanFleetLearnDrift({ autoUpdate: false });
+      } else if (action === "update-drifted") {
+        const driftedIds = lbGen.labs
+          .filter((lab) => lbNormalizeLabLearnDrift(lab).status === "docs-updated")
+          .map((lab) => lab.labId);
+        if (driftedIds.length) {
+          lbScanFleetLearnDrift({ labIds: driftedIds, autoUpdate: true });
+        }
+      }
+      return;
+    }
     const button = event.target.closest("[data-gen-action]");
     if (!button) return;
     if (button.tagName === "A") event.preventDefault();
@@ -860,6 +1147,7 @@ function lbGenBind() {
     switch (button.dataset.genAction) {
       case "open": lbOpenGenerated(labId); break;
       case "screenshots": lbOpenGeneratedScreenshots(labId); break;
+      case "quick-learn-update": lbQuickUpdateLabFromLearn(labId); break;
       case "revalidate-learn": lbRevalidateLabLearn(labId, { autoUpdate: false }); break;
       case "revalidate-autoupdate": lbRevalidateLabLearn(labId, { autoUpdate: true }); break;
       case "capture-lab-shots": lbCaptureLabScreenshots(labId); break;
@@ -887,6 +1175,11 @@ function lbGenBind() {
   document.getElementById("lb-gen-search")?.addEventListener("input", (event) => {
     lbGen.query = event.target.value;
     lbGenRender();
+  });
+  document.getElementById("lb-gen-drift-filter")?.addEventListener("change", (event) => {
+    lbGen.driftFilter = event.target.value || "all";
+    const selectedLabel = event.target.selectedOptions?.[0]?.textContent || lbGen.driftFilter;
+    lbGenRender(`Filtered by MS Learn status: ${selectedLabel}.`);
   });
   document.getElementById("lb-gen-sort")?.addEventListener("change", (event) => {
     lbGen.sort = event.target.value;
@@ -1342,6 +1635,163 @@ async function lbOpenGeneratedScreenshots(labId) {
   document.getElementById("lb-result-screenshots")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
+function lbSyncSingleLabDriftFromState(labId, state, revalData = null) {
+  const lab = lbGenFind(labId);
+  if (!lab || !state || typeof state !== "object") return;
+  const summary = state.summary || {};
+  const modules = Array.isArray(state.modules) ? state.modules : [];
+  const driftedModules = modules
+    .filter((m) => (m?.status || m?.learnStatus) === "docs-updated")
+    .map((m) => ({
+      moduleId: String(m.featureId || ""),
+      title: String(m.moduleTitle || m.title || m.featureId || ""),
+      learnUrl: m.primaryUrl || (Array.isArray(m.urls) ? m.urls[0] : null) || null,
+    }));
+  const missingScreenshotCount = Math.max(0, Number(summary.missing || 0));
+  const rawSync = summary.learnSyncStatus || revalData?.overallStatus || "up-to-date";
+  let status = "up-to-date";
+  if (driftedModules.length > 0 || rawSync === "docs-updated") status = "docs-updated";
+  else if (rawSync === "ungrounded") status = "ungrounded";
+  else if (rawSync === "not-checked") status = "not-checked";
+  else if (missingScreenshotCount > 0 || rawSync === "missing-screenshot") status = "missing-screenshot";
+
+  lab.learnDrift = {
+    status,
+    lastCheckedAt: state.lastRevalidatedAt || revalData?.checkedAt || lab.learnDrift?.lastCheckedAt || new Date().toISOString(),
+    driftedModuleCount: driftedModules.length > 0 ? driftedModules.length : status === "docs-updated" ? Math.max(1, Number(summary.stale || 1)) : 0,
+    driftedModules,
+    missingScreenshotCount,
+    moduleCount: modules.length || Number(lab.moduleCount || 0),
+  };
+  if (lab.screenshots) {
+    lab.screenshots = {
+      ...lab.screenshots,
+      total: Number(summary.total ?? lab.screenshots.total ?? 0),
+      captured: Number(summary.captured ?? lab.screenshots.captured ?? 0),
+      pending: missingScreenshotCount,
+      stale: Number(summary.stale ?? 0),
+      learnSyncStatus: status,
+    };
+  }
+  lbGenRender();
+}
+
+async function lbScanFleetLearnDrift({ labIds = null, autoUpdate = false } = {}) {
+  if (lbGen.driftBusy) return;
+  const targetCount = Array.isArray(labIds) ? labIds.length : lbGen.labs.length;
+  if (!targetCount) return;
+
+  lbGen.driftBusy = true;
+  lbGen.driftBusyLabId = Array.isArray(labIds) && labIds.length === 1 ? labIds[0] : null;
+  lbGen.driftStatusVariant = "";
+  lbGen.driftStatusMessage = autoUpdate
+    ? targetCount === 1
+      ? `Updating "${lbGenFind(labIds[0])?.title || labIds[0]}" from Microsoft Learn...`
+      : `Updating ${targetCount} drifted labs from Microsoft Learn...`
+    : `Scanning ${targetCount} saved lab${targetCount === 1 ? "" : "s"} against live Microsoft Learn documentation...`;
+  lbGenRender();
+
+  try {
+    const payload = {
+      autoUpdate: Boolean(autoUpdate),
+      bypassCache: true,
+    };
+    if (Array.isArray(labIds)) payload.labIds = labIds;
+
+    const res = await fetch("/api/lab-builder/learn-drift/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Bulk scan failed (${res.status})`);
+
+    if (typeof data.scannedAt === "string" && data.scannedAt) {
+      lbGen.lastBulkScanAt = data.scannedAt;
+    } else if (typeof data.fleet?.lastBulkScanAt === "string" && data.fleet.lastBulkScanAt) {
+      lbGen.lastBulkScanAt = data.fleet.lastBulkScanAt;
+    }
+
+    const driftById = new Map();
+    for (const item of data.fleet?.labs || []) {
+      if (item?.labId) driftById.set(item.labId, item.learnDrift || item);
+    }
+    for (const resItem of data.results || []) {
+      if (resItem?.labId && resItem.learnDrift) driftById.set(resItem.labId, resItem.learnDrift);
+    }
+    for (const lab of lbGen.labs) {
+      if (driftById.has(lab.labId)) {
+        lab.learnDrift = driftById.get(lab.labId);
+      }
+    }
+
+    try {
+      const listRes = await fetch("/api/lab-builder/generated");
+      const listData = await listRes.json().catch(() => null);
+      if (listRes.ok && Array.isArray(listData?.labs)) {
+        lbGen.labs = listData.labs;
+      }
+    } catch {
+      /* In-memory drift state is already updated above */
+    }
+
+    const scannedCount = Number(data.scannedCount || 0);
+    const updatedCount = Number(data.updatedCount || 0);
+    const errorCount = Number(data.errorCount || 0);
+    const driftedRemaining = lbComputeFleetDriftCounts(lbGen.labs).docsUpdated;
+
+    let msg = "";
+    let variant = "ok";
+    if (autoUpdate) {
+      msg =
+        targetCount === 1 && Array.isArray(labIds)
+          ? `Updated "${lbGenFind(labIds[0])?.title || labIds[0]}" steps, HTML, and topic documents from Microsoft Learn.`
+          : `Updated ${updatedCount} lab${updatedCount === 1 ? "" : "s"} (steps, HTML, and per-topic Word/PowerPoint files) from Microsoft Learn.`;
+      if (errorCount > 0) {
+        variant = "warn";
+        msg += ` ${errorCount} lab${errorCount === 1 ? "" : "s"} could not be reached.`;
+      }
+    } else if (driftedRemaining > 0 || errorCount > 0) {
+      variant = "warn";
+      msg = `Scanned ${scannedCount} lab${scannedCount === 1 ? "" : "s"}: ${driftedRemaining} need${
+        driftedRemaining === 1 ? "s" : ""
+      } a Microsoft Learn update.`;
+      if (errorCount > 0) {
+        msg += ` ${errorCount} lab${errorCount === 1 ? "" : "s"} failed to check.`;
+      }
+    } else {
+      msg = `Scanned ${scannedCount} lab${scannedCount === 1 ? "" : "s"} — all grounded topics match live Microsoft Learn documentation.`;
+    }
+
+    lbGen.driftStatusVariant = variant;
+    lbGen.driftStatusMessage = msg;
+
+    if (
+      autoUpdate &&
+      lbGen.opened &&
+      (!Array.isArray(labIds) || labIds.includes(lbGen.opened)) &&
+      typeof lbLoadResultPreview === "function"
+    ) {
+      await lbLoadResultPreview(lbGen.opened);
+    }
+
+    toast(msg, variant === "warn" ? "info" : "success");
+  } catch (err) {
+    lbGen.driftStatusVariant = "warn";
+    lbGen.driftStatusMessage = `Microsoft Learn bulk scan failed: ${err.message}`;
+    toast(`MS Learn scan failed: ${err.message}`, "error");
+  } finally {
+    lbGen.driftBusy = false;
+    lbGen.driftBusyLabId = null;
+    lbGenRender();
+  }
+}
+
+async function lbQuickUpdateLabFromLearn(labId) {
+  if (!labId) return;
+  await lbScanFleetLearnDrift({ labIds: [labId], autoUpdate: true });
+}
+
 async function lbRevalidateLabLearn(labId, { autoUpdate = false } = {}) {
   if (!labId || lbShotUiState.busyLabId) return;
   lbShotUiState.busyLabId = labId;
@@ -1400,10 +1850,13 @@ async function lbRevalidateLabLearn(labId, { autoUpdate = false } = {}) {
     if (host && data.state) {
       lbRenderLabScreenshotsPanel(host, labId, data.state, outcome);
     }
+    if (data.state) {
+      lbSyncSingleLabDriftFromState(labId, data.state, data);
+    }
     if (autoUpdate) {
       await lbLoadResultPreview(labId);
     }
-    if (typeof lbLoadGenerated === "function") lbLoadGenerated();
+    if (typeof lbLoadGenerated === "function") await lbLoadGenerated();
     toast(message, variant === "warn" ? "info" : "success");
   } catch (err) {
     toast(`MS Learn re-validation failed: ${err.message}`, "error");
@@ -1455,8 +1908,11 @@ async function lbCaptureLabScreenshots(labId, { featureIds = null } = {}) {
     if (host && data.state) {
       lbRenderLabScreenshotsPanel(host, labId, data.state, outcome);
     }
+    if (data.state) {
+      lbSyncSingleLabDriftFromState(labId, data.state, data);
+    }
     await lbLoadResultPreview(labId);
-    if (typeof lbLoadGenerated === "function") lbLoadGenerated();
+    if (typeof lbLoadGenerated === "function") await lbLoadGenerated();
     toast(message, variant === "warn" ? "info" : "success");
   } catch (err) {
     toast(`Playwright capture failed: ${err.message}`, "error");
