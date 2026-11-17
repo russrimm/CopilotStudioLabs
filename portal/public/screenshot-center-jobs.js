@@ -55,7 +55,7 @@ function scJsonInit(method, body) {
 }
 
 function scAnnounce(message) {
-  const el = document.getElementById("lb-screenshots-live");
+  const el = document.getElementById("lb-screenshots-live") || document.getElementById("app-live");
   if (!el || !message) return;
   const flip = el.dataset.flip === "1";
   el.dataset.flip = flip ? "0" : "1";
@@ -100,6 +100,7 @@ function scLimits() {
 function scNotifyStatusChanged() {
   if (typeof scRerenderOpenCenter === "function") scRerenderOpenCenter();
   if (typeof scSyncCaptureOnBuild === "function") scSyncCaptureOnBuild({ fetch: false });
+  if (typeof rhOnStatusChanged === "function") rhOnStatusChanged();
 }
 
 // ── Pairing a computer ──────────────────────────────────────────────────────

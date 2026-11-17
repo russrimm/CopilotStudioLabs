@@ -12,6 +12,9 @@ portal/public/uploads
 portal/test
 tools/**/test
 tools/screenshot-capture/.auth
+**/.auth
+**/.companion.json
+**/.captures
 tools/lab-accuracy
 portal/.env
 portal/.env.*

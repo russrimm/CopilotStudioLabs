@@ -234,7 +234,7 @@ function lbZipFormatSelectHtml(labId, title, scopePrefix) {
         <option value="pdf">PDF (.pdf)</option>
         <option value="html">HTML (.html)</option>
       </select>
-      <button type="button" class="btn btn-sm btn-primary" data-gen-action="export-zip" data-lab-id="${safeId}" aria-label="Download Complete Lab Package (.zip) for ${safeTitle}">📦 Complete Lab Package (.zip)</button>
+      <button type="button" class="btn btn-sm" data-gen-action="export-zip" data-lab-id="${safeId}" aria-label="Download Complete Lab Package (.zip) for ${safeTitle}">📦 Complete Lab Package (.zip)</button>
     </span>`;
 }
 
@@ -428,7 +428,7 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
         connectors.length
           ? `<div class="lb-prereq-group">
               <h5>Connectors to Allow (DLP Allowlist)</h5>
-              <div class="lb-prereq-table-wrap">
+              <div class="lb-prereq-table-wrap" role="region" aria-label="Connectors to allow (scroll sideways to see every column)" tabindex="0">
                 <table class="lb-prereq-table">
                   <thead>
                     <tr>
@@ -539,10 +539,10 @@ function lbGenRenderDriftDashboard() {
     scanBtn.disabled = Boolean(lbGen.driftBusy);
     if (lbGen.driftBusy && !lbGen.driftBusyLabId) {
       scanBtn.setAttribute("aria-busy", "true");
-      scanBtn.textContent = "⏳ Scanning labs against MS Learn...";
+      scanBtn.textContent = "⏳ Checking labs against Microsoft Learn...";
     } else {
       scanBtn.removeAttribute("aria-busy");
-      scanBtn.textContent = "🔄 Scan all labs against MS Learn";
+      scanBtn.textContent = "🔄 Check all labs against Microsoft Learn";
     }
   }
 
@@ -556,10 +556,10 @@ function lbGenRenderDriftDashboard() {
     } else {
       updateBtn.removeAttribute("aria-busy");
     }
-    updateBtn.textContent = `⚡ Update all drifted labs (${counts.docsUpdated})`;
+    updateBtn.textContent = `⚡ Update all labs that changed (${counts.docsUpdated})`;
     updateBtn.setAttribute(
       "aria-label",
-      `Update all ${counts.docsUpdated} drifted lab${counts.docsUpdated === 1 ? "" : "s"} from Microsoft Learn`,
+      `Update all ${counts.docsUpdated} lab${counts.docsUpdated === 1 ? "" : "s"} that changed on Microsoft Learn`,
     );
   }
 
@@ -592,7 +592,7 @@ function lbRenderLabCardDriftHtml(lab, rawTitle) {
   const checkedText = lbFormatDriftTimestamp(drift.lastCheckedAt);
 
   let badgeClass = "lb-gen-drift-badge";
-  let badgeText = "Not checked against MS Learn yet";
+  let badgeText = "Not checked against Microsoft Learn yet";
   let ariaText = `Microsoft Learn sync status for ${rawTitle}: not checked yet`;
   let detailHtml = "";
   let quickActionHtml = "";
@@ -601,7 +601,7 @@ function lbRenderLabCardDriftHtml(lab, rawTitle) {
     const count = Math.max(1, Number(drift.driftedModuleCount || 1));
     const topicWord = count === 1 ? "topic" : "topics";
     badgeClass = "lb-gen-drift-badge lb-gen-drift-badge-warn";
-    badgeText = `⚠ ${count} ${topicWord} updated on MS Learn`;
+    badgeText = `⚠ ${count} ${topicWord} updated on Microsoft Learn`;
     const driftedNames = drift.driftedModules
       .map((m) => String(m?.title || m?.moduleId || "").trim())
       .filter(Boolean);
@@ -614,11 +614,11 @@ function lbRenderLabCardDriftHtml(lab, rawTitle) {
     quickActionHtml = `<button type="button" class="btn btn-sm btn-primary lb-gen-quick-drift-btn" data-gen-action="quick-learn-update" data-lab-id="${safeId}" ${
       lbGen.driftBusy ? "disabled" : ""
     }${isThisLabBusy ? ' aria-busy="true"' : ""} aria-label="Update ${safeTitle} from Microsoft Learn">${
-      isThisLabBusy && lbGen.driftBusyLabId === lab.labId ? "⏳ Updating..." : "⚡ Update from MS Learn"
+      isThisLabBusy && lbGen.driftBusyLabId === lab.labId ? "⏳ Updating..." : "⚡ Update from Microsoft Learn"
     }</button>`;
   } else if (drift.status === "up-to-date") {
     badgeClass = "lb-gen-drift-badge lb-gen-drift-badge-ok";
-    badgeText = "✓ MS Learn up to date";
+    badgeText = "✓ Microsoft Learn up to date";
     ariaText = `Microsoft Learn sync status for ${rawTitle}: up to date${checkedText ? `, checked ${checkedText}` : ""}`;
     if (checkedText) {
       detailHtml = `<span class="lb-gen-drift-detail">Checked ${escapeHtml(checkedText)}</span>`;
@@ -626,11 +626,11 @@ function lbRenderLabCardDriftHtml(lab, rawTitle) {
   } else if (drift.status === "missing-screenshot") {
     const missing = Math.max(1, Number(drift.missingScreenshotCount || 1));
     badgeClass = "lb-gen-drift-badge";
-    badgeText = `✓ MS Learn up to date · ${missing} screenshot${missing === 1 ? "" : "s"} pending`;
+    badgeText = `✓ Microsoft Learn up to date · ${missing} screenshot${missing === 1 ? "" : "s"} pending`;
     ariaText = `Microsoft Learn sync status for ${rawTitle}: documentation up to date, ${missing} screenshot${missing === 1 ? "" : "s"} pending`;
   } else if (drift.status === "ungrounded") {
     badgeClass = "lb-gen-drift-badge";
-    badgeText = "MS Learn ungrounded";
+    badgeText = "No Microsoft Learn sources to check";
     ariaText = `Microsoft Learn sync status for ${rawTitle}: no Microsoft Learn reference URLs recorded`;
   }
 
@@ -734,7 +734,7 @@ function lbGenRender(message) {
     list.className = "scenario-empty";
     list.textContent =
       lbGen.driftFilter && lbGen.driftFilter !== "all"
-        ? "No generated labs match your search or MS Learn status filter. Reset the filters to see them all."
+        ? "No generated labs match your search or Microsoft Learn status filter. Reset the filters to see them all."
         : "No generated labs match your search. Clear the search to see them all.";
   } else {
     list.className = "";
@@ -1185,7 +1185,7 @@ function lbGenBind() {
   document.getElementById("lb-gen-drift-filter")?.addEventListener("change", (event) => {
     lbGen.driftFilter = event.target.value || "all";
     const selectedLabel = event.target.selectedOptions?.[0]?.textContent || lbGen.driftFilter;
-    lbGenRender(`Filtered by MS Learn status: ${selectedLabel}.`);
+    lbGenRender(`Filtered by Microsoft Learn status: ${selectedLabel}.`);
   });
   document.getElementById("lb-gen-sort")?.addEventListener("change", (event) => {
     lbGen.sort = event.target.value;
@@ -1415,7 +1415,7 @@ async function lbScanFleetLearnDrift({ labIds = null, autoUpdate = false } = {})
   } catch (err) {
     lbGen.driftStatusVariant = "warn";
     lbGen.driftStatusMessage = `Microsoft Learn bulk scan failed: ${err.message}`;
-    toast(`MS Learn scan failed: ${err.message}`, "error");
+    toast(`Microsoft Learn check failed: ${err.message}`, "error");
   } finally {
     lbGen.driftBusy = false;
     lbGen.driftBusyLabId = null;

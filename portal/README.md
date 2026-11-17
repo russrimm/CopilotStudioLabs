@@ -24,6 +24,8 @@ A web-based lab operations portal for building, customizing, validating, preview
 - **🤖 Agent Chat** — Embed a Copilot Studio agent chat widget for real-time lab guidance and troubleshooting
 - **🧪 Validation** — Run documentation smoke tests across all labs or a single lab, plus a step-level accuracy check of every lab step against current Microsoft Learn content
 - **⚙️ Configuration** — Review Azure, Key Vault, SMTP, branding, and deployment settings in one place
+- **✅ Setup Checklist** — At the top of Configuration, eight plain-language setup tasks with live status and one fix-it button each: brand profile, learner links, tenant addresses, screenshot computer, product sign-ins, screenshot library, storage, and Microsoft Learn freshness. A short banner on the Build tab points to it until the recommended steps are done or you dismiss it. Nothing on it ever blocks building a lab (see [First-time setup](../docs/lab-builder.md#first-time-setup))
+- **📸 Screenshot Center** — Capture tenant screenshots on your own computer with the Local Capture Companion, or paste and upload them, then check each lab against Microsoft Learn (see [`tools/screenshot-capture/README.md`](../tools/screenshot-capture/README.md))
 - **🐳 Cloud & Container-Ready** — Run locally on port `3005`, in Docker (with `/healthz` readiness checks), on **Azure Container Apps** via `azd`, or in Azure App Service
 
 ## Quick Start
@@ -53,6 +55,8 @@ docker run -p 3005:3005 --env-file portal/.env copilot-labs-portal
 ```
 
 `portal/Dockerfile` builds on `node:24-alpine`, runs as the non-root `node` user on `HOST=0.0.0.0` and `PORT=3005`, and configures a container `HEALTHCHECK` against `http://127.0.0.1:3005/healthz`.
+
+The image copies `portal/`, `labs/`, `docs/feature-tour/screenshots/`, `tools/feature-tour/`, and `tools/screenshot-capture/`, minus what `.dockerignore` excludes (tests, `node_modules`, `.env` files, and a developer's `.auth/`, `.companion.json`, and `.captures/` folders, so no sign-in or pairing token can end up in an image). The portal builds the Local Capture Companion download (`GET /api/capture/companion.zip`) from those folders at request time. `portal/test/container-readiness.test.js` stages only those paths, boots the server, and checks that the Screenshot Center scripts, the brand profile routes, and a complete, secret-free companion download are served.
 
 ### Deploy to Azure (Azure Container Apps + `azd`)
 
@@ -350,6 +354,7 @@ portal/
 │   ├── branding.js        Single-brand API (reads and writes the active brand profile), banner, and {{TOKEN}} replacement
 │   ├── branding-profiles.js  Brand profiles, per-lab customization, and the CAPTURE_* environment mapping
 │   ├── branding-routes.js    Brand profile and per-lab customization routes
+│   ├── capture/           Screenshot capture platform: pairing, job queue, upload verification, companion download, routes
 │   ├── scenarios.js       Industry scenario templates
 │   ├── provisioner.js     Azure resource provisioning engine
 │   ├── keyvault.js        Azure Key Vault secret management
@@ -370,6 +375,9 @@ portal/
 │   ├── generated-labs.js      Generated lab manager, multi-format/per-topic export, print, and validation UI
 │   ├── brand-ui.js            Brand validation, contrast, and live preview helpers shared by the UI
 │   ├── lab-customize.js       Saved-lab Customize section (profile, overrides, Update from profile, Reset)
+│   ├── screenshot-center*.js  Screenshot Center: pure decisions, network calls (pairing, jobs, uploads), and rendering
+│   ├── lab-checklist.js       "Finish your lab" checklist and the "N of 5 ready" chip on saved-lab cards
+│   ├── readiness-hub.js       Setup checklist (Configuration) and first-run banner (Build)
 │   ├── step-validation.js     Step validation UI (progress and results)
 │   ├── step-validation.css    Step validation styles
 │   ├── theme.js               Light/dark color theme toggle and persistence

@@ -318,6 +318,49 @@ pauses and shows the decision inline — keyboard-navigable radios with the
 consequence and each option's tradeoff — and only resumes once you choose. The
 finished markdown appears with a download button and a record of any decisions.
 
+Step 8 ends with a short **What happens next** note (build, customize, capture screenshots, check against
+Microsoft Learn, download). After the build, **Finish your lab** at the top of the result lists the same steps
+with one button for each, and only the next step to do is a primary button.
+
+### First-time setup
+
+The first time you open the portal, a short banner at the top of **Build** reads **Set up your portal for your company**
+and opens the **Setup checklist**, the first card in **Settings > Configuration**. Everything on the checklist is
+optional: you can build a lab at any time and come back later. The banner goes away on its own once its three
+recommended steps are done, or when you select **Dismiss** (the portal remembers that in your browser).
+
+The recommended order is:
+
+1. **Brand profile.** Create a profile with your company name, logo, and primary color.
+2. **Tenant addresses.** Add your Copilot Studio, Power Platform, SharePoint, Microsoft 365 admin, and Foundry addresses.
+3. **Pair a screenshot computer.** Connect the computer that will take the screenshots.
+4. **Build** a lab.
+5. **Customize** it (Review step or **Finish your lab**).
+6. **Capture** its screenshots.
+7. **Check against Microsoft Learn.**
+8. **Download** or share it.
+
+The checklist shows "N of 8 ready", one sentence about where you stand, and eight rows. Each row has a status
+in words (Ready, To do, In progress, Needs attention, Waiting, Checking, or Problem), a plain explanation, and
+one button that fixes it. Recommended rows are labeled **Recommended**; the rest are labeled **Optional** and
+never nag. Only the first open row keeps a primary button.
+
+| Row | Ready when | Button |
+|---|---|---|
+| **Brand profile** (recommended) | The active profile has a company name, a logo, and a primary color of its own. | Create a brand profile, or Finish brand profile (opens the editor on the missing field) |
+| **Learner links** (recommended) | The active profile has a more information link and a support contact. | Add learner links |
+| **Tenant addresses** (optional) | All six tenant addresses are set on the active profile, or your administrator set defaults. | Add tenant addresses (opens the first missing address) |
+| **Screenshot computer** (recommended) | A Local Capture Companion checked in recently. | Connect your computer (the same pairing card as the Screenshot Center, shown in the row) |
+| **Signed in to products** (optional) | The connected computer is signed in to at least one product. Waits for a computer first. | Open Screenshot Center |
+| **Screenshot library** (optional) | Shared screenshots are saved somewhere that persists, none wait for review, and at least one is captured. | Open Screenshot Center |
+| **Storage** (optional) | Labs are saved permanently ("Your labs are saved permanently"). Otherwise it says "Labs are stored only on this computer" or "...only on this server". | Show how to fix this |
+| **Microsoft Learn freshness** (optional) | Every saved lab was checked and none changed. Waits for a first lab. | Check all labs now (the bulk check from the saved-labs list), and Show them when some changed |
+
+The checklist reads the brand profiles, `GET /api/capture/status`, `GET /healthz`, and
+`GET /api/lab-builder/learn-drift`. It refreshes when you open Configuration, select **Check again**, return to the
+browser window, connect a computer, or save a profile. A row that cannot be read says so and offers **Check again**.
+Status changes are announced to screen readers, and the checklist never prints.
+
 ---
 
 ## How it works
@@ -1904,15 +1947,16 @@ Each row has **Open**, **Edit selections**, **Rename**, and **Delete**:
 - Labs built before choices were saved (`selections` is `null`) cannot be edited. They can still be opened, renamed,
   or deleted, and the row offers **Start a new lab**.
 
-#### Bulk Microsoft Learn Drift Dashboard
+#### Bulk Microsoft Learn check (the Microsoft Learn freshness panel)
 
-When one or more generated labs are saved, the **Microsoft Learn Drift Dashboard** appears at the top of
-**🗂️ Previously generated labs** so workshop authors can monitor documentation freshness across the entire library at a glance:
+When one or more generated labs are saved, the **Microsoft Learn freshness** panel appears at the top of
+**🗂️ Previously generated labs** so workshop authors can monitor documentation freshness across the entire library at a glance.
+The Setup checklist's **Microsoft Learn freshness** row runs the same check:
 
-- **Fleet posture pills & timestamp**: Displays live counts for **Total**, **Up to date**, **Needs Learn update**, **Screenshots pending**, and **Not re-checked**, alongside the **Last bulk scan** timestamp persisted in `learn-drift-fleet.json`.
-- **One-click fleet scan (`🔄 Scan all labs against MS Learn`)**: Calls `POST /api/lab-builder/learn-drift/scan` with bounded concurrency (`3` labs at a time) so Microsoft Learn is never flooded. Per-lab fetch errors are isolated and reported without aborting the batch.
-- **Bulk & per-card auto-update (`⚡ Update all drifted labs (N)` / `⚡ Update from MS Learn`)**: Enabled whenever one or more labs have `status === "docs-updated"`. Refreshes drifted procedure steps in `index.md`, regenerates standalone `index.html` and per-topic Word (`.docx`) and PowerPoint (`.pptx`) files in `topics/`, and updates every card's Microsoft Learn drift badge (`✓ MS Learn up to date`, `⚠ N topic(s) updated on MS Learn`, or `Not checked against MS Learn yet`).
-- **Filtering & sorting**: Filter the saved library by **MS Learn status** (`All statuses`, `Needs update (MS Learn changed)`, `Missing screenshots`, `Up to date`, `Not re-checked`) or choose **Needs update first** in **Sort by** to surface drifted labs at the top. Checking a single lab in the **Screenshot Center** automatically synchronizes the card badges and fleet dashboard counts.
+- **Fleet posture pills & timestamp**: Displays live counts for **Total**, **Up to date**, **Need an update**, **Screenshots pending**, and **Not checked yet**, alongside the **Last bulk scan** timestamp persisted in `learn-drift-fleet.json`.
+- **One-click fleet check (`🔄 Check all labs against Microsoft Learn`)**: Calls `POST /api/lab-builder/learn-drift/scan` with bounded concurrency (`3` labs at a time) so Microsoft Learn is never flooded. Per-lab fetch errors are isolated and reported without aborting the batch.
+- **Bulk & per-card auto-update (`⚡ Update all labs that changed (N)` / `⚡ Update from Microsoft Learn`)**: Enabled whenever one or more labs have `status === "docs-updated"`. Refreshes changed procedure steps in `index.md`, regenerates standalone `index.html` and per-topic Word (`.docx`) and PowerPoint (`.pptx`) files in `topics/`, and updates every card's Microsoft Learn badge (`✓ Microsoft Learn up to date`, `⚠ N topic(s) updated on Microsoft Learn`, or `Not checked against Microsoft Learn yet`).
+- **Filtering & sorting**: Filter the saved library by **Microsoft Learn status** (`All statuses`, `Needs an update (Microsoft Learn changed)`, `Missing screenshots`, `Up to date`, `Not checked yet`) or choose **Needs update first** in **Sort by** to surface changed labs at the top. Checking a single lab in the **Screenshot Center** automatically synchronizes the card badges and the counts above.
 
 The manifest records the choices in `request` (industry, roles, features, excluded, harness, level, differencesFor,
 targetMinutes) and `options` (custom title, agent name, `useLearnMcp`, `useLlm`), plus `validation`
