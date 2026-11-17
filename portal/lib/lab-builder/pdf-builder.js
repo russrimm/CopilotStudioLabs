@@ -1130,3 +1130,6 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
 
   return Buffer.concat(chunks);
 }
+
+export const buildPdfFromLabMarkdown = renderMarkdownToPdfBuffer;
+

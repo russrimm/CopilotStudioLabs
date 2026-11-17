@@ -181,6 +181,8 @@ function lbGeneratedActionButtonsHtml(labId, title, options = {}) {
         <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pptx" download="${fileBase}.pptx" aria-label="Download PowerPoint Deck (.pptx) for ${safeTitle}">📊 PowerPoint Deck (.pptx)</a>
         <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=pdf" download="${fileBase}.pdf" aria-label="Download PDF Guide (.pdf) for ${safeTitle}">📕 PDF Guide (.pdf)</a>
         <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=md" download="${fileBase}.md" data-gen-action="download" data-lab-id="${safeId}" aria-label="Download Markdown (.md) for ${safeTitle}">📄 Markdown (.md)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=facilitator-docx" download="${fileBase} - Facilitator Guide.docx" aria-label="Download Facilitator Guide (.docx) for ${safeTitle}">🎓 Facilitator Guide (.docx)</a>
+        <a class="btn btn-sm lb-download-link" href="/api/lab-builder/generated/${encodedId}/export?format=facilitator-pdf" download="${fileBase} - Facilitator Guide.pdf" aria-label="Download Facilitator Guide (.pdf) for ${safeTitle}">🎓 Facilitator Guide (.pdf)</a>
         ${lbZipFormatSelectHtml(labId, displayTitle, scopePrefix)}
       </div>
     </div>
