@@ -1005,7 +1005,10 @@ test("every copy in the browser scripts goes through the confirmed path, and bui
     .filter((name) => name.endsWith(".js"))
     .map((name) => [name, publicFile(name)]);
   const writers = sources.filter(([, source]) => /clipboard\??\.writeText|execCommand\(\s*["']copy/.test(source)).map(([name]) => name);
-  assert.deepEqual(writers, ["screenshot-center.js"], "the only clipboard write is scCopyText");
+  assert.deepEqual(writers, ["screenshot-center.js", "use-case-builder.js"], "the only clipboard writes are scCopyText and ucCopyText, which both confirm visibly");
+  const builder = publicFile("use-case-builder.js");
+  assert.equal(builder.match(/clipboard\??\.writeText/g).length, 1, "the Use Case Builder writes to the clipboard in one place, ucCopyText");
+  assert.ok(builder.includes("ucShowCopyAck(ackEl, ok"), "ucCopyText always shows the visible confirmation");
   const center = publicFile("screenshot-center.js");
   assert.equal(center.match(/scCopyText\(/g).length, 2, "scCopyText is defined once and called once, from scCopyWithAck");
   assert.doesNotMatch(center, /scAnnounce\([^)]*copied/i, "no copy button announces on its own, without the visible confirmation");

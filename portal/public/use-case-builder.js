@@ -84,6 +84,55 @@ function ucAnnounce(message, { page = false } = {}) {
   el.textContent = flip ? String(message) : `${message}\u00a0`;
 }
 
+// ── Copy confirmation ───────────────────────────────────────────────────────
+// A copy click is acknowledged next to its button with a checkmark plus words (never color alone),
+// using the same .sc-copy-ack look as the Screenshot Center. Screen readers hear it through ucAnnounce.
+const UC_SVG_NS = "http://www.w3.org/2000/svg";
+const UC_COPY_OK_MS = 3000;
+const UC_COPY_FAIL_MS = 8000;
+const ucCopyTimers = new WeakMap();
+
+function ucCopyAckIcon(ok) {
+  const svg = document.createElementNS(UC_SVG_NS, "svg");
+  for (const [name, value] of Object.entries({ class: "sc-copy-ack-icon", viewBox: "0 0 16 16", width: "14", height: "14", "aria-hidden": "true", focusable: "false" })) {
+    svg.setAttribute(name, value);
+  }
+  const path = document.createElementNS(UC_SVG_NS, "path");
+  const shape = ok ? { d: "M3 8.5l3.2 3.2L13 4.8" } : { d: "M8 3.5v5.2M8 12.2v.1" };
+  for (const [name, value] of Object.entries({ ...shape, fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" })) {
+    path.setAttribute(name, value);
+  }
+  svg.appendChild(path);
+  return svg;
+}
+
+function ucShowCopyAck(el, ok, text) {
+  if (!el) return;
+  clearTimeout(ucCopyTimers.get(el));
+  el.className = `sc-copy-ack ${ok ? "sc-copy-ack-ok" : "sc-copy-ack-fail"}`;
+  el.replaceChildren(ucCopyAckIcon(ok), ucEl("span", { class: "sc-copy-ack-text", text }));
+  ucCopyTimers.set(
+    el,
+    setTimeout(() => {
+      el.className = "sc-copy-ack";
+      el.replaceChildren();
+    }, ok ? UC_COPY_OK_MS : UC_COPY_FAIL_MS),
+  );
+}
+
+/** Copies text and shows the visible confirmation (or a clear fallback) next to the button. */
+async function ucCopyText(text, ackEl, okText, failText) {
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch {
+    ok = false;
+  }
+  ucShowCopyAck(ackEl, ok, ok ? okText : failText);
+  return ok;
+}
+
 function ucPlural(count, one, many = `${one}s`) {
   return `${count} ${count === 1 ? one : many}`;
 }
@@ -430,6 +479,7 @@ function ucBuildShortlistPanel() {
       { class: "uc-shortlist-actions" },
       button("uc-build-lab", "Build a lab from my shortlist", () => ucStartLab(false), true),
       button("uc-copy-md", "Copy as Markdown", () => ucCopy()),
+      ucEl("span", { class: "sc-copy-ack", id: "uc-copy-md-ack" }),
       button("uc-download-md", "Download Markdown", () => ucDownloadAs("md")),
       button("uc-download-csv", "Download CSV", () => ucDownloadAs("csv")),
       button("uc-clear-shortlist", "Clear shortlist", ucClearShortlist),
@@ -826,13 +876,12 @@ function ucBullets(items) {
 function ucDetails(u, titleId) {
   const instructionsId = `uc-instructions-${u.id}`;
   const copy = ucEl("button", { type: "button", class: "btn btn-sm uc-code-copy", "aria-describedby": titleId, text: "Copy instructions" });
+  const copyAck = ucEl("span", { class: "sc-copy-ack" });
   copy.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(u.instructions);
-      ucAnnounce("Instructions copied.");
-    } catch {
-      ucAnnounce("Copy is not available here. Select the text to copy it.");
-    }
+    const okText = "Instructions copied to your clipboard";
+    const failText = "Couldn't copy. Select the instructions and press Ctrl+C.";
+    const ok = await ucCopyText(u.instructions, copyAck, okText, failText);
+    ucAnnounce(ok ? `${okText}.` : failText);
   });
   const blocks = [
     ucBlock("Why this product", ucEl("p", { text: u.whyProduct })),
@@ -844,7 +893,7 @@ function ucDetails(u, titleId) {
     ucBlock("Tools, connectors, and actions", u.toolsAndActions?.length ? ucBullets(u.toolsAndActions.map((t) => `${t.label}: ${t.note}${t.preview ? " (preview)" : ""}${t.thirdParty ? " (third-party)" : ""}`)) : ucEl("p", { text: "None needed." })),
   ];
   if (u.qualityAndGovernance?.length) blocks.push(ucBlock("Quality and governance", ucBullets(u.qualityAndGovernance.map((t) => `${t.label}: ${t.note}`))));
-  blocks.push(ucBlock("Starter instructions", ucEl("pre", { class: "uc-code", id: instructionsId, text: u.instructions }), copy));
+  blocks.push(ucBlock("Starter instructions", ucEl("pre", { class: "uc-code", id: instructionsId, text: u.instructions }), copy, copyAck));
   const before = [...(u.prerequisites || []), ...(u.harnessNotes || [])];
   if (before.length) blocks.push(ucBlock("Before you start", ucBullets(before)));
   blocks.push(ucBlock("Recommended lab topics", ucBullets((u.labTopics || []).map((t) => `${t.name} (${ucLevelText(t.level)}, about ${t.minutes} min)${t.preview ? ", preview" : ""}`))));
@@ -1080,14 +1129,11 @@ function ucBuildCsv(items) {
 async function ucCopy() {
   const items = ucShortlistItems();
   if (!items.length) return;
-  try {
-    await navigator.clipboard.writeText(ucBuildMarkdown(items));
-    ucSetStatus("Copied the shortlist as Markdown.");
-    ucAnnounce("Copied the shortlist as Markdown.");
-  } catch {
-    ucSetStatus("Copy is not available in this browser. Use Download Markdown instead.");
-    ucAnnounce("Copy is not available in this browser. Use Download Markdown instead.");
-  }
+  const failText = "Couldn't copy. Use Download Markdown instead.";
+  const ok = await ucCopyText(ucBuildMarkdown(items), ucById("uc-copy-md-ack"), "Shortlist copied to your clipboard", failText);
+  const message = ok ? "Copied the shortlist as Markdown." : "Copy is not available in this browser. Use Download Markdown instead.";
+  ucSetStatus(message);
+  ucAnnounce(message);
 }
 
 function ucDownloadAs(kind) {

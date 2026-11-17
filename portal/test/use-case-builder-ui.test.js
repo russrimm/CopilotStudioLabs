@@ -960,6 +960,55 @@ test("the Use Case Builder's colors meet WCAG AA in dark and light, and the OS-l
   }
 });
 
+test("Copy as Markdown and Copy instructions confirm visibly with a checkmark and words, fade after 3 seconds, and explain a blocked clipboard", async () => {
+  const h = await makeBuilder().open();
+  await h.choose("healthcare", ["customer-service"]);
+  const response = generateUseCases({ industry: "healthcare", departments: ["customer-service"] });
+  const first = h.cards()[0];
+  await h.click(h.addButton(first));
+
+  const ackText = (el) => (el.querySelector(".sc-copy-ack-text") || { textContent: "" }).textContent;
+  await h.click(h.byId("uc-copy-md"));
+  const shortlistAck = h.byId("uc-copy-md-ack");
+  assert.match(shortlistAck.className, /sc-copy-ack-ok/);
+  assert.equal(ackText(shortlistAck), "Shortlist copied to your clipboard");
+  assert.ok(shortlistAck.querySelector("svg.sc-copy-ack-icon"), "a checkmark icon sits next to the words");
+  assert.equal(shortlistAck.querySelector("svg").getAttribute("aria-hidden"), "true");
+  assert.equal(h.text("uc-handoff-status"), "Copied the shortlist as Markdown.", "the existing status line and announcement are unchanged");
+  h.advance(3100);
+  assert.equal(shortlistAck.className, "sc-copy-ack", "the confirmation clears after about 3 seconds");
+  assert.equal(shortlistAck.children.length, 0);
+
+  const instructionsButton = first.querySelector(".uc-code-copy");
+  assert.ok(instructionsButton, "the Copy instructions button is built with the card");
+  const instructionsAck = first.querySelector(".sc-copy-ack");
+  assert.ok(instructionsAck, "an empty confirmation element sits with the Copy instructions button");
+  assert.equal(instructionsAck.className, "sc-copy-ack");
+  await h.click(instructionsButton);
+  assert.match(instructionsAck.className, /sc-copy-ack-ok/);
+  assert.equal(ackText(instructionsAck), "Instructions copied to your clipboard");
+  assert.equal(h.copied.at(-1), response.useCases.find((u) => u.id === first.getAttribute("data-uc-id")).instructions);
+  assert.match(h.text("uc-announce"), /Instructions copied to your clipboard\./);
+
+  h.context.navigator.clipboard.writeText = async () => {
+    throw new Error("blocked");
+  };
+  await h.click(instructionsButton);
+  assert.match(instructionsAck.className, /sc-copy-ack-fail/);
+  assert.equal(ackText(instructionsAck), "Couldn't copy. Select the instructions and press Ctrl+C.");
+  assert.doesNotMatch(instructionsAck.className, /sc-copy-ack-ok/, "a failure is never green");
+  await h.click(h.byId("uc-copy-md"));
+  assert.match(h.byId("uc-copy-md-ack").className, /sc-copy-ack-fail/);
+  assert.match(h.text("uc-handoff-status"), /Copy is not available in this browser\. Use Download Markdown instead\./);
+});
+
+test("the Use Case Builder's copy confirmation reuses the shared confirmation styles and is hidden when printing", () => {
+  const css = HTML.slice(HTML.indexOf(".sc-copy-ack {"), HTML.indexOf("@keyframes sc-copy-ack-fade"));
+  assert.match(css, /\.sc-copy-ack-ok \{[^}]*--sc-ok-bg[^}]*--sc-ok-fg/s);
+  const printBlock = HTML.slice(HTML.indexOf("@media print"));
+  assert.match(printBlock.slice(0, printBlock.indexOf("</style>")), /\.sc-copy-ack\b/);
+});
+
 test("print rules for the Use Case Builder live in the one existing print block, and screen rules sit next to the scenario rules", () => {
   const style = HTML.match(/<style>([\s\S]*?)<\/style>/)[1];
   assert.equal((style.match(/@media print/g) || []).length, 1, "exactly one print block, so tests that split at it keep working");
