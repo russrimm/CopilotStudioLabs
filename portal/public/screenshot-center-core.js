@@ -111,6 +111,20 @@ function scCountdown(expiresAt, nowMs = Date.now()) {
   return { seconds, expired: seconds <= 0, text: scFormatDuration(seconds) };
 }
 
+// ── Copy confirmations ──────────────────────────────────────────────────────
+
+const SC_COPY_OK_MS = 3000;
+// A failure tells the person what to do next, so it stays long enough to read and act on.
+const SC_COPY_FAIL_MS = 8000;
+const SC_COPY_NOUN = Object.freeze({ "pair-copy-code": "code", "pair-copy-command": "command", "copy-cli": "command" });
+
+/** The words for a finished copy: `text` is shown next to the button, `announce` goes to the live region. */
+function scCopyMessage(key, ok) {
+  const noun = SC_COPY_NOUN[key] || "command";
+  const text = ok ? `${noun === "code" ? "Code" : "Command"} copied to your clipboard` : `Couldn't copy. Select the ${noun} and press Ctrl+C.`;
+  return { text, announce: ok ? `${text}.` : text };
+}
+
 // ── Honest Microsoft Learn check state ──────────────────────────────────────
 
 /** `not-checked`, `up-to-date`, or `docs-updated`. A lab nobody has checked is never "up-to-date". */

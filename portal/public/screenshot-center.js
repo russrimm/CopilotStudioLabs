@@ -57,6 +57,86 @@ async function scCopyText(text) {
   }
 }
 
+// ── Copy confirmation ───────────────────────────────────────────────────────
+// The acknowledgment lives in scState.copyAck (button key, message, expiry), not in the DOM,
+// so the periodic re-renders of the pairing card and the panel never wipe it. Every copy button
+// has an adjacent span.sc-copy-ack that is filled from that state whenever it is built or synced.
+// Screen readers hear the same words through the polite live region (scAnnounce).
+
+const SC_SVG_NS = "http://www.w3.org/2000/svg";
+
+function scCopyAckIcon(ok) {
+  const svg = document.createElementNS(SC_SVG_NS, "svg");
+  for (const [name, value] of Object.entries({ class: "sc-copy-ack-icon", viewBox: "0 0 16 16", width: "14", height: "14", "aria-hidden": "true", focusable: "false" })) {
+    svg.setAttribute(name, value);
+  }
+  const path = document.createElementNS(SC_SVG_NS, "path");
+  const shape = ok ? { d: "M3 8.5l3.2 3.2L13 4.8" } : { d: "M8 3.5v5.2M8 12.2v.1" };
+  for (const [name, value] of Object.entries({ ...shape, fill: "none", stroke: "currentColor", "stroke-width": "2", "stroke-linecap": "round", "stroke-linejoin": "round" })) {
+    path.setAttribute(name, value);
+  }
+  svg.appendChild(path);
+  return svg;
+}
+
+/** The acknowledgment that is still within its window, or null. */
+function scActiveCopyAck() {
+  const ack = scState.copyAck;
+  return ack && Date.now() < ack.expiresAt ? ack : null;
+}
+
+function scFillCopyAck(el) {
+  const ack = scActiveCopyAck();
+  const mine = ack && ack.key === el.dataset.scCopyAck;
+  el.className = `sc-copy-ack${mine ? (ack.ok ? " sc-copy-ack-ok" : " sc-copy-ack-fail") : ""}`;
+  el.style.animationDelay = "";
+  if (!mine) {
+    el.replaceChildren();
+    return;
+  }
+  // A re-render must continue the fade where it was, not restart it.
+  if (ack.ok) el.style.animationDelay = `-${Math.max(0, Date.now() - ack.startedAt)}ms`;
+  el.replaceChildren(scCopyAckIcon(ack.ok), scEl("span", { class: "sc-copy-ack-text", text: ack.text }));
+}
+
+/** The element that sits next to a copy button and shows its confirmation. */
+function scCopyAckEl(key) {
+  const el = scEl("span", { data: { scCopyAck: key } });
+  scFillCopyAck(el);
+  return el;
+}
+
+function scSyncCopyAck() {
+  for (const el of document.querySelectorAll("[data-sc-copy-ack]")) scFillCopyAck(el);
+}
+
+function scClearCopyAck() {
+  const ack = scState.copyAck;
+  if (!ack) return;
+  clearTimeout(ack.timer);
+  scState.copyAck = null;
+  scSyncCopyAck();
+}
+
+function scShowCopyAck(key, ok) {
+  const message = scCopyMessage(key, ok);
+  const ms = ok ? SC_COPY_OK_MS : SC_COPY_FAIL_MS;
+  const startedAt = Date.now();
+  const ack = { key, ok, text: message.text, startedAt, expiresAt: startedAt + ms, timer: null };
+  clearTimeout(scState.copyAck?.timer);
+  scState.copyAck = ack;
+  ack.timer = setTimeout(() => {
+    if (scState.copyAck === ack) scClearCopyAck();
+  }, ms);
+  ack.timer?.unref?.();
+  scSyncCopyAck();
+  scAnnounce(message.announce);
+}
+
+async function scCopyWithAck(key, text) {
+  scShowCopyAck(key, Boolean(text) && (await scCopyText(text)));
+}
+
 function scHostFor(labId) {
   const host = document.getElementById(SC_HOST_ID);
   return host && host.querySelector("[data-sc-root]")?.dataset.labId === labId ? host : null;
@@ -379,6 +459,7 @@ function scBuildPairingCard() {
   const codeRow = scEl("div", { class: "sc-code-row" });
   codeRow.appendChild(scEl("code", { class: "sc-code", text: p.code, attrs: { "aria-label": `Pairing code ${p.code.split("").join(" ")}` } }));
   codeRow.appendChild(scButton("Copy code", { action: "pair-copy-code", focus: "pair-copy-code" }));
+  codeRow.appendChild(scCopyAckEl("pair-copy-code"));
   codeItem.appendChild(codeRow);
   steps.appendChild(codeItem);
 
@@ -388,6 +469,7 @@ function scBuildPairingCard() {
     const cmdRow = scEl("div", { class: "sc-code-row" });
     cmdRow.appendChild(scEl("code", { class: "sc-command", text: p.command }));
     cmdRow.appendChild(scButton("Copy command", { action: "pair-copy-command", focus: "pair-copy-command" }));
+    cmdRow.appendChild(scCopyAckEl("pair-copy-command"));
     cmdItem.appendChild(cmdRow);
     steps.appendChild(cmdItem);
   }
@@ -664,6 +746,7 @@ function scBuildAdvanced(labId, model) {
   const cliRow = scEl("div", { class: "sc-code-row" });
   cliRow.appendChild(scEl("code", { class: "sc-command", text: command }));
   cliRow.appendChild(scButton("Copy command", { action: "copy-cli", data: { command }, focus: "copy-cli" }));
+  cliRow.appendChild(scCopyAckEl("copy-cli"));
   cli.appendChild(cliRow);
   body.appendChild(cli);
 
@@ -1187,10 +1270,10 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       await scStartPairing({ source: scState.pairing?.context?.source || "lab", onConnected: scState.pairing?.context?.onConnected });
       return;
     case "pair-copy-code":
-      scAnnounce((await scCopyText(scState.pairing?.code || "")) ? "Pairing code copied." : "Could not copy. Select the code and copy it yourself.");
+      await scCopyWithAck("pair-copy-code", scState.pairing?.code || "");
       return;
     case "pair-copy-command":
-      scAnnounce((await scCopyText(scState.pairing?.command || "")) ? "Command copied." : "Could not copy. Select the command and copy it yourself.");
+      await scCopyWithAck("pair-copy-command", scState.pairing?.command || "");
       return;
     case "disconnect-device":
       await scConfirmDisconnect(control);
@@ -1231,7 +1314,7 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       await scCancelJob(control.dataset.jobKey || labId);
       return;
     case "copy-cli":
-      scAnnounce((await scCopyText(control.dataset.command || "")) ? "Command copied." : "Could not copy. Select the command and copy it yourself.");
+      await scCopyWithAck("copy-cli", control.dataset.command || "");
       return;
     case "preview":
       scOpenLightbox(labId, filename);

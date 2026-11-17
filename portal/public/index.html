@@ -2991,6 +2991,26 @@
       color: var(--text);
       font-size: 12px;
     }
+    /* One click or tap selects the whole value, so Ctrl+C works when the Copy button cannot. */
+    .sc-code, .sc-command { -webkit-user-select: all; user-select: all; }
+    /* The confirmation next to a Copy button: an icon plus words, never color alone. The fade is
+       timed to match SC_COPY_OK_MS and is resumed (not restarted) when the panel re-renders. */
+    .sc-copy-ack {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .sc-copy-ack:empty { display: none; }
+    .sc-copy-ack-icon { flex: none; }
+    .sc-copy-ack-ok { background: var(--sc-ok-bg); color: var(--sc-ok-fg); border-color: var(--sc-ok-border); animation: sc-copy-ack-fade 3s linear forwards; }
+    .sc-copy-ack-fail { background: var(--sc-warn-bg); color: var(--sc-warn-fg); border-color: var(--sc-warn-border); }
+    @keyframes sc-copy-ack-fade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
     .sc-pair-timer, .sc-pair-wait { margin: 0 0 4px; font-size: 13px; color: var(--text-muted); }
     .sc-pair-success { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--sc-ok-fg); background: var(--sc-ok-bg); padding: 8px 10px; border-radius: 8px; }
     .sc-pair-error { margin: 0 0 8px; font-size: 13px; color: var(--sc-bad-fg); background: var(--sc-bad-bg); padding: 8px 10px; border-radius: 8px; }
@@ -3158,6 +3178,7 @@
     }
     @media (prefers-reduced-motion: reduce) {
       .sc-bar-fill { transition: none; }
+      .sc-copy-ack-ok { animation: none; }
     }
 
     /* ── Lab builder: blocked-build decisions ── */
@@ -4732,6 +4753,7 @@
       .lb-gen-toolbar,
       .lb-gen-quick-drift-btn,
       .sc-center,
+      .sc-copy-ack,
       .sc-lightbox,
       .lb-checklist,
       .rh-card,

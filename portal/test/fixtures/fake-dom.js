@@ -145,6 +145,7 @@ export function createFakeDom() {
     activeElement: null,
     listeners: {},
     createElement: (tag) => new FakeElement(tag, doc),
+    createElementNS: (namespace, tag) => Object.assign(new FakeElement(tag, doc), { namespaceURI: namespace }),
     createTextNode: (text) => new FakeText(text),
     addEventListener(type, fn) {
       (this.listeners[type] ||= []).push(fn);

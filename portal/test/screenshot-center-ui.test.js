@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import vm from "node:vm";
 
 import { createFakeDom } from "./fixtures/fake-dom.js";
@@ -728,7 +728,7 @@ test("pairing shows the code, a copy button, the command, a download link, and a
   await h.click(h.action("pair-copy-code"));
   await h.click(h.action("pair-copy-command"));
   assert.deepEqual(h.copied, ["ABCD-EFGH", "start-companion --portal=https://portal.example --code=ABCD-EFGH"]);
-  assert.equal(h.live(), "Command copied.");
+  assert.equal(h.live(), "Command copied to your clipboard.");
 
   h.advance(1000);
   assert.equal(h.center().querySelector("[data-sc-pair-timer]").textContent, "Code expires in 9:59");
@@ -796,6 +796,223 @@ test("a failed pairing request is explained, and a computer can be disconnected 
   await d.click(button);
   assert.equal(d.callsTo("DELETE", /devices\/dev_0123456789ab$/).length, 1);
   assert.match(d.live(), /Computer disconnected/);
+});
+
+// ── Copy confirmations ──────────────────────────────────────────────────────
+
+const OK_CODE = "Code copied to your clipboard";
+const OK_COMMAND = "Command copied to your clipboard";
+
+async function pairedHarness(options) {
+  const h = makeHarness(options);
+  h.route("POST", /\/api\/capture\/pair$/, PAIR_REPLY);
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  await h.click(h.action("primary-connect"));
+  return h;
+}
+
+/** The confirmation element that sits right after a Copy button. */
+const ackAfter = (button) => button.parentNode.children[button.parentNode.children.indexOf(button) + 1];
+const visibleAcks = (h) => h.host.querySelectorAll("[data-sc-copy-ack]").filter((el) => el.textContent !== "");
+
+test("Copy code shows a checkmark and 'Code copied to your clipboard' next to the button, and announces it", async () => {
+  const h = await pairedHarness();
+  const button = h.action("pair-copy-code");
+  assert.equal(button.tagName, "BUTTON", "a real button, so Enter and Space work");
+  assert.equal(button.type, "button");
+  assert.equal(ackAfter(button).getAttribute("data-sc-copy-ack"), "pair-copy-code", "the placeholder sits right next to the button");
+  assert.equal(ackAfter(button).textContent, "", "nothing is shown before a copy");
+
+  button.focus();
+  await h.click(button);
+  assert.deepEqual(h.copied, ["ABCD-EFGH"]);
+  const ack = ackAfter(h.action("pair-copy-code"));
+  assert.equal(ack.textContent, OK_CODE);
+  assert.ok(ack.classList.contains("sc-copy-ack-ok") && !ack.classList.contains("sc-copy-ack-fail"));
+  const icon = ack.querySelector("svg.sc-copy-ack-icon");
+  assert.ok(icon, "a checkmark icon");
+  assert.equal(icon.getAttribute("aria-hidden"), "true", "the icon is decorative");
+  assert.equal(icon.querySelector("path").getAttribute("stroke"), "currentColor", "the icon takes the theme's success color");
+  assert.equal(ack.querySelector(".sc-copy-ack-text").textContent, OK_CODE, "the words are real text");
+  assert.equal(ack.getAttribute("role"), null, "the live region announces it, so the visible text does not announce a second time");
+  assert.equal(h.live(), `${OK_CODE}.`);
+  assert.equal(h.action("pair-copy-code").textContent, "Copy code", "the button label never changes");
+  assert.equal(h.document.activeElement.dataset.scAction, "pair-copy-code", "focus stays on the clicked button");
+  assert.equal(visibleAcks(h).length, 1);
+
+  await h.click(h.action("pair-copy-code"));
+  assert.equal(h.live(), `${OK_CODE}.`, "a repeat click announces again");
+  assert.equal(h.document.activeElement.dataset.scAction, "pair-copy-code");
+});
+
+test("the command buttons confirm with 'Command copied to your clipboard', and only the latest copy is confirmed", async () => {
+  const h = await pairedHarness();
+  await h.click(h.action("pair-copy-code"));
+  assert.equal(visibleAcks(h)[0].textContent, OK_CODE);
+
+  await h.click(h.action("pair-copy-command"));
+  assert.deepEqual(h.copied, ["ABCD-EFGH", "start-companion --portal=https://portal.example --code=ABCD-EFGH"]);
+  const shown = visibleAcks(h);
+  assert.equal(shown.length, 1, "the earlier confirmation is replaced, not stacked");
+  assert.equal(shown[0], ackAfter(h.action("pair-copy-command")));
+  assert.equal(shown[0].textContent, OK_COMMAND);
+  assert.equal(h.live(), `${OK_COMMAND}.`);
+  assert.equal(ackAfter(h.action("pair-copy-code")).textContent, "");
+
+  const details = h.center().querySelector("[data-sc-advanced]");
+  const cli = details.querySelector('[data-sc-action="copy-cli"]');
+  await h.click(cli);
+  assert.deepEqual(h.copied.at(-1), `node tools/screenshot-capture/capture.js --generated-lab=${LAB} --headed`);
+  assert.equal(visibleAcks(h).length, 1);
+  assert.equal(ackAfter(h.action("copy-cli", details)).textContent, OK_COMMAND);
+  assert.equal(ackAfter(h.action("pair-copy-command")).textContent, "", "the pairing command is no longer confirmed");
+  assert.equal(h.action("copy-cli", details).textContent, "Copy command");
+});
+
+test("the confirmation clears after about three seconds, and a repeat click restarts the clock", async () => {
+  const h = await pairedHarness();
+  await h.click(h.action("pair-copy-code"));
+  h.advance(2900);
+  assert.equal(ackAfter(h.action("pair-copy-code")).textContent, OK_CODE, "still visible just before three seconds");
+  h.advance(100);
+  assert.equal(ackAfter(h.action("pair-copy-code")).textContent, "", "gone after three seconds");
+  assert.equal(h.live(), `${OK_CODE}.`, "clearing does not announce anything new");
+
+  await h.click(h.action("pair-copy-code"));
+  h.advance(2000);
+  await h.click(h.action("pair-copy-code"));
+  h.advance(2000);
+  assert.equal(ackAfter(h.action("pair-copy-code")).textContent, OK_CODE, "the second click restarted the three seconds");
+  h.advance(1000);
+  assert.equal(ackAfter(h.action("pair-copy-code")).textContent, "");
+
+  await h.click(h.action("pair-copy-code"));
+  h.advance(1000);
+  await h.click(h.action("pair-copy-command"));
+  h.advance(2000);
+  assert.equal(visibleAcks(h).length, 1, "the replaced confirmation's timer does not clear the new one early");
+  assert.equal(visibleAcks(h)[0].textContent, OK_COMMAND);
+  h.advance(1000);
+  assert.equal(visibleAcks(h).length, 0);
+});
+
+test("the confirmation survives re-renders while the window is open and is gone after it", async () => {
+  const h = await pairedHarness();
+  await h.click(h.action("pair-copy-code"));
+  h.advance(1000);
+
+  h.run("scRerender")(LAB);
+  const rebuilt = ackAfter(h.action("pair-copy-code"));
+  assert.equal(rebuilt.textContent, OK_CODE, "a panel re-render re-applies it to the same button");
+  assert.equal(rebuilt.style.animationDelay, "-1000ms", "and continues the fade instead of restarting it");
+  assert.equal(visibleAcks(h).length, 1);
+  h.run("scRefreshPairingUi")();
+  assert.equal(ackAfter(h.action("pair-copy-code")).textContent, OK_CODE, "so does the pairing card refreshing on its own");
+  h.advance(1000);
+  await h.run("scLoadStatus")(true);
+  h.run("scNotifyStatusChanged")();
+  assert.equal(ackAfter(h.action("pair-copy-code")).textContent, OK_CODE, "and a status change");
+
+  h.advance(1000);
+  assert.equal(visibleAcks(h).length, 0, "cleared on time");
+  h.run("scRerender")(LAB);
+  assert.equal(visibleAcks(h).length, 0, "a later re-render does not bring it back");
+  assert.deepEqual(
+    [...h.clock.timers.values()].filter((t) => !t.every),
+    [],
+    "no copy timer is left behind (only the pairing countdown interval keeps running)",
+  );
+  await h.click(h.action("pair-copy-code"));
+  h.advance(3500);
+  h.run("scRerender")(LAB);
+  assert.equal(visibleAcks(h).length, 0, "a render that runs after the window never shows a stale confirmation");
+});
+
+test("when copying is blocked, a visible non-green message says what to do next and is announced", async () => {
+  const h = await pairedHarness();
+  h.run("navigator").clipboard.writeText = async () => {
+    throw new Error("NotAllowedError");
+  };
+  h.action("pair-copy-code").focus();
+  await h.click(h.action("pair-copy-code"));
+  const ack = ackAfter(h.action("pair-copy-code"));
+  assert.equal(ack.textContent, "Couldn't copy. Select the code and press Ctrl+C.");
+  assert.ok(ack.classList.contains("sc-copy-ack-fail") && !ack.classList.contains("sc-copy-ack-ok"), "never styled as success");
+  assert.ok(ack.querySelector("svg[aria-hidden]"), "the warning icon is decorative");
+  assert.equal(h.live(), "Couldn't copy. Select the code and press Ctrl+C.");
+  assert.equal(h.document.activeElement.dataset.scAction, "pair-copy-code");
+  assert.equal(h.action("pair-copy-code").textContent, "Copy code");
+  assert.equal(ack.style.animationDelay, "", "no fade on the message that asks for action");
+  h.advance(3100);
+  assert.equal(ackAfter(h.action("pair-copy-code")).textContent, "Couldn't copy. Select the code and press Ctrl+C.", "it stays long enough to read and act on");
+  h.advance(5000);
+  assert.equal(visibleAcks(h).length, 0);
+
+  await h.click(h.action("pair-copy-command"));
+  assert.equal(ackAfter(h.action("pair-copy-command")).textContent, "Couldn't copy. Select the command and press Ctrl+C.");
+  assert.equal(h.live(), "Couldn't copy. Select the command and press Ctrl+C.");
+
+  const noClipboard = await pairedHarness();
+  noClipboard.run("navigator").clipboard = undefined;
+  await noClipboard.click(noClipboard.action("pair-copy-code"));
+  assert.equal(ackAfter(noClipboard.action("pair-copy-code")).textContent, "Couldn't copy. Select the code and press Ctrl+C.", "a missing clipboard API fails the same way");
+
+  const recovered = await pairedHarness();
+  recovered.run("navigator").clipboard.writeText = async () => {
+    throw new Error("blocked");
+  };
+  await recovered.click(recovered.action("pair-copy-code"));
+  recovered.run("navigator").clipboard.writeText = async (text) => recovered.copied.push(text);
+  await recovered.click(recovered.action("pair-copy-code"));
+  assert.equal(visibleAcks(recovered).length, 1);
+  assert.equal(ackAfter(recovered.action("pair-copy-code")).textContent, OK_CODE, "a later success replaces the failure message");
+});
+
+test("closing the card or getting a new code drops the confirmation and its timer", async () => {
+  const h = await pairedHarness();
+  await h.click(h.action("pair-copy-code"));
+  await h.click(h.action("pair-close"));
+  assert.equal(visibleAcks(h).length, 0);
+  assert.equal(h.clock.timers.size, 0, "no timers are left once the card is closed");
+
+  const again = await pairedHarness();
+  await again.click(again.action("pair-copy-code"));
+  await again.click(again.action("pair-new"));
+  assert.equal(visibleAcks(again).length, 0, "a new code starts without the old confirmation");
+  assert.equal(again.action("pair-copy-code") !== null, true);
+});
+
+test("the Step 8 pairing card confirms copies too, through the page live region", async () => {
+  const h = makeHarness();
+  const live = h.document.createElement("div");
+  live.id = "app-live";
+  h.document.body.appendChild(live);
+  h.route("POST", /\/api\/capture\/pair$/, PAIR_REPLY);
+  h.step8.setup.click();
+  await h.flush();
+  const button = h.step8.pairing.querySelector('[data-sc-action="pair-copy-code"]');
+  assert.ok(button, "Step 8 shows the same pairing card");
+  button.focus();
+  await h.run("scHandleAction")("", "pair-copy-code", button, "", null);
+  assert.equal(ackAfter(h.step8.pairing.querySelector('[data-sc-action="pair-copy-code"]')).textContent, OK_CODE);
+  assert.equal(live.textContent.replace(/\u00a0/g, ""), `${OK_CODE}.`);
+  h.advance(3000);
+  assert.equal(visibleAcks({ host: h.step8.pairing }).length, 0);
+});
+
+test("every copy in the browser scripts goes through the confirmed path, and builds DOM without markup strings", () => {
+  const sources = readdirSync(new URL("../public/", import.meta.url))
+    .filter((name) => name.endsWith(".js"))
+    .map((name) => [name, publicFile(name)]);
+  const writers = sources.filter(([, source]) => /clipboard\??\.writeText|execCommand\(\s*["']copy/.test(source)).map(([name]) => name);
+  assert.deepEqual(writers, ["screenshot-center.js"], "the only clipboard write is scCopyText");
+  const center = publicFile("screenshot-center.js");
+  assert.equal(center.match(/scCopyText\(/g).length, 2, "scCopyText is defined once and called once, from scCopyWithAck");
+  assert.doesNotMatch(center, /scAnnounce\([^)]*copied/i, "no copy button announces on its own, without the visible confirmation");
+  const ackCode = center.slice(center.indexOf("const SC_SVG_NS"), center.indexOf("async function scCopyWithAck"));
+  assert.ok(ackCode.length > 500);
+  assert.doesNotMatch(ackCode, /innerHTML|insertAdjacentHTML|outerHTML/);
+  assert.equal(INDEX_HTML.includes("lbCopyCaptureCommand") || publicFile("generated-labs.js").includes("copy-capture-cmd"), false, "the older Copy capture command button is gone");
 });
 
 // ── Live capture progress ───────────────────────────────────────────────────
@@ -1848,6 +2065,35 @@ test("new styles use theme tokens, respect reduced motion, and print rules sit i
   }
   const screenCss = STYLE.split("@media print")[0];
   assert.ok(screenCss.includes(".sc-card {") && screenCss.includes(".lb-checklist {"), "the new rules are screen CSS, before the print block");
+});
+
+test("the copy confirmation uses theme-aware tokens that meet WCAG AA in both themes, fades only when motion is allowed, and hides in print", () => {
+  for (const [name, t] of [["dark", DARK], ["light", LIGHT], ["light (system)", LIGHT_AUTO]]) {
+    for (const [tone, what] of [["ok", "success"], ["warn", "failure"]]) {
+      const text = contrast(t[`--sc-${tone}-fg`], t[`--sc-${tone}-bg`]);
+      assert.ok(text >= 4.5, `${name}: ${what} message text is ${text.toFixed(2)}:1, needs 4.5:1`);
+      assert.ok(text >= 3, `${name}: the ${what} icon needs 3:1`);
+    }
+    for (const surface of ["--surface", "--preview-muted-bg"]) {
+      assert.ok(contrast(t["--sc-ok-border"], t[surface]) >= 1.5, `${name}: the success pill edge is distinguishable on ${surface}`);
+    }
+  }
+  const rule = (selector) => STYLE.match(new RegExp(`${selector.replace(/[.]/g, "\\.")} \\{([^}]*)\\}`))?.[1] || "";
+  const ok = rule(".sc-copy-ack-ok");
+  assert.match(ok, /background: var\(--sc-ok-bg\)/);
+  assert.match(ok, /color: var\(--sc-ok-fg\)/);
+  assert.match(ok, /border-color: var\(--sc-ok-border\)/);
+  const fail = rule(".sc-copy-ack-fail");
+  assert.match(fail, /var\(--sc-warn-bg\)/);
+  assert.doesNotMatch(fail, /--sc-ok|--success/, "the failure message is never green");
+  assert.match(ok, /animation: sc-copy-ack-fade 3s /, "the fade matches the three-second window");
+  assert.match(STYLE, /@media \(prefers-reduced-motion: reduce\)\s*\{[^@]*\.sc-copy-ack-ok \{ animation: none; \}/, "reduced motion shows and hides without animating");
+  assert.match(rule(".sc-copy-ack:empty"), /display: none/, "nothing takes space before a copy");
+  assert.match(STYLE, /\.sc-code, \.sc-command \{[^}]*user-select: all/, "one click selects the whole code or command");
+
+  assert.equal(STYLE.split("@media print").length, 2, "there is exactly one print block");
+  assert.ok(STYLE.split("@media print")[1].includes(".sc-copy-ack,"), "the confirmation is hidden in the main print block");
+  assert.ok(!STYLE.split("@media print")[0].includes("@media print"), "and no earlier print rule was added");
 });
 
 test("the Screenshot Center scripts load in order and its live regions are announced politely", async () => {
