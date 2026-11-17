@@ -330,6 +330,9 @@
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* Keyboard focus scrolls a control clear of the pinned header and the pinned step footer. */
+    html { scroll-padding-top: 96px; scroll-padding-bottom: 120px; }
+
     body {
       font-family: var(--font-ui);
       background: var(--bg);
@@ -602,7 +605,7 @@
       transform-origin: center;
     }
     .tab:hover { color: var(--text); }
-    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab.active { color: var(--accent-text, var(--accent)); border-bottom-color: var(--accent); }
     .tab.active::after { transform: scaleX(1); opacity: 1; }
     .tab[hidden] { display: none; }
 
@@ -775,9 +778,9 @@
       flex: none;
       padding: 2px 8px;
       border-radius: 999px;
-      border: 1px solid color-mix(in srgb, var(--success) 45%, transparent);
-      background: color-mix(in srgb, var(--success) 16%, transparent);
-      color: var(--success);
+      border: 1px solid var(--sc-ok-border);
+      background: var(--sc-ok-bg);
+      color: var(--sc-ok-fg);
       font-size: 11px;
       font-weight: 600;
     }
@@ -2501,7 +2504,8 @@
       color: var(--text-muted);
     }
     .lb-gen-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin: 0 0 10px; }
-    .lb-gen-toolbar .form-group { flex: 1 1 220px; max-width: 360px; }
+    .lb-gen-toolbar .form-group { flex: 1 1 220px; max-width: 360px; min-width: 0; }
+    .lb-gen-toolbar select, .lb-gen-toolbar input { max-width: 100%; min-width: 0; }
     .lb-gen-count { margin: 0 0 10px; font-size: 13px; color: var(--text-muted); min-height: 1.2em; }
     .lb-gen-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
     .lb-gen-item { padding: 12px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
@@ -4622,6 +4626,57 @@
       .header-actions { gap: 6px; }
       .header-actions .btn { padding: 7px 9px; }
       .panel { padding: 18px 16px; }
+      header { flex-direction: column; align-items: stretch; }
+      .header-actions { justify-content: flex-start; }
+    }
+    /* A pinned header would fill much of a phone, a short window, or a page zoomed to 400 percent. */
+    @media (max-width: 560px), (max-height: 520px) {
+      header { position: static; }
+    }
+
+    /* ── Setup checklist (readiness hub) and first-run banner ── */
+    .rh-card { scroll-margin-top: 96px; }
+    .rh-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 6px; }
+    .rh-head h3 { margin: 0; scroll-margin-top: 96px; }
+    .rh-intro { margin: 0 0 12px; font-size: 14px; line-height: 1.55; color: var(--text-muted); }
+    .rh-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px; font-size: 14px; color: var(--text); }
+    .rh-count { font-size: 16px; }
+    .rh-progress { height: 8px; border-radius: 999px; background: var(--sc-track); overflow: hidden; margin-bottom: 12px; }
+    .rh-progress-fill { height: 100%; width: 0; background: var(--accent); border-radius: 999px; transition: width 0.3s ease; }
+    .rh-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .rh-row { display: flex; align-items: flex-start; gap: 10px 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+    .rh-row[data-state="done"] { border-color: var(--sc-ok-border); }
+    .rh-row[data-state="attention"], .rh-row[data-state="partial"] { border-color: var(--sc-warn-border); }
+    .rh-row[data-state="error"] { border-color: var(--sc-bad-border); }
+    .rh-icon { flex: none; width: 24px; height: 24px; margin-top: 1px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; background: var(--sc-neutral-bg); color: var(--sc-neutral-fg); border: 1px solid var(--sc-neutral-border); }
+    .rh-row[data-state="done"] .rh-icon { background: var(--sc-ok-bg); color: var(--sc-ok-fg); border-color: var(--sc-ok-border); }
+    .rh-row[data-state="attention"] .rh-icon, .rh-row[data-state="partial"] .rh-icon { background: var(--sc-warn-bg); color: var(--sc-warn-fg); border-color: var(--sc-warn-border); }
+    .rh-row[data-state="error"] .rh-icon { background: var(--sc-bad-bg); color: var(--sc-bad-fg); border-color: var(--sc-bad-border); }
+    .rh-body { flex: 1 1 280px; min-width: 0; }
+    .rh-row-title { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 14px; }
+    .rh-row-detail { margin: 4px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-muted); overflow-wrap: anywhere; }
+    .rh-help { margin: 8px 0 0; padding: 8px 10px; border: 1px solid var(--sc-info-border); border-radius: 6px; background: var(--sc-info-bg); color: var(--sc-info-fg); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+    .rh-help[hidden] { display: none; }
+    .rh-pairing { margin-top: 10px; }
+    .rh-pairing:empty { display: none; }
+    .rh-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .rh-banner { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--surface); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+    .rh-banner[hidden] { display: none; }
+    .rh-banner-copy { flex: 1 1 320px; min-width: 0; }
+    .rh-banner-title { margin: 0 0 2px; font-size: 15px; }
+    .rh-banner-text { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+    .rh-banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .lb-next { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+    .lb-next-title { margin: 0 0 6px; font-size: 14px; }
+    .lb-next-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+    .lb-next-list strong { color: var(--text); }
+    .lb-next-note { margin: 8px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+    @media (max-width: 560px) {
+      .rh-actions, .rh-banner-actions { width: 100%; }
+      .rh-row { padding: 10px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .rh-progress-fill { transition: none; }
     }
 
     @media print {
@@ -4660,6 +4715,8 @@
       .sc-center,
       .sc-lightbox,
       .lb-checklist,
+      .rh-card,
+      .rh-banner,
       .lb-capture-on-build-opt,
       nav,
       .report-issue-float,
@@ -5283,8 +5340,18 @@
 
           <!-- Lab Builder tab -->
           <div class="tab-panel active" id="panel-labbuilder" role="tabpanel" aria-labelledby="tab-labbuilder" aria-hidden="false">
+            <section class="rh-banner" id="rh-banner" aria-labelledby="rh-banner-title" hidden>
+              <div class="rh-banner-copy">
+                <h3 class="rh-banner-title" id="rh-banner-title">Set up your portal for your company</h3>
+                <p class="rh-banner-text" id="rh-banner-text"></p>
+              </div>
+              <div class="rh-banner-actions">
+                <button type="button" class="btn btn-sm" id="rh-banner-open">Open the setup checklist</button>
+                <button type="button" class="btn btn-sm" id="rh-banner-dismiss">Dismiss</button>
+              </div>
+            </section>
             <div class="panel">
-              <h3>🧬 Build a Custom Lab</h3>
+              <h3 id="lb-build-heading" tabindex="-1">🧬 Build a Custom Lab</h3>
               <p style="color: var(--text-muted); margin-bottom: 0; font-size: 14px;">
                 Answer one question at a time: product, industry, departments, level, harness (only for products that have
                 harnesses), then the topics. Each answer changes the topics we recommend next. Every module is grounded
@@ -5622,6 +5689,17 @@
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 We research each topic on Microsoft Learn and write the lab. This can take a minute. You can go back to any step first.
               </p>
+              <section class="lb-next" aria-labelledby="lb-next-heading">
+                <h4 id="lb-next-heading" class="lb-next-title">What happens next</h4>
+                <ol class="lb-next-list">
+                  <li><strong>Build.</strong> We write your lab. This takes about a minute.</li>
+                  <li><strong>Customize.</strong> Check the branding and links.</li>
+                  <li><strong>Capture screenshots.</strong> Do it on your own computer, or add images by hand.</li>
+                  <li><strong>Check against Microsoft Learn.</strong> Make sure the steps match the current documentation.</li>
+                  <li><strong>Download.</strong> Share it as a ZIP, Word, PowerPoint, PDF, or HTML file.</li>
+                </ol>
+                <p class="lb-next-note">When your lab is ready, <strong>Finish your lab</strong> at the top of the result lists these steps with one button for each.</p>
+              </section>
               <div id="lb-step8-sharepoint-summary" class="lb-step8-sharepoint-summary" role="status" aria-live="polite" hidden></div>
               <p id="lb-step8-customize-summary" class="lb-step8-customize-summary" role="status" aria-live="polite" hidden></p>
               <fieldset id="lb-save-mode" class="lb-fieldset lb-save-mode" hidden>
@@ -5720,20 +5798,20 @@
                   <div class="lb-gen-drift-dashboard" id="lb-gen-drift-dashboard" role="region" aria-labelledby="lb-gen-drift-heading" hidden>
                     <div class="lb-gen-drift-top">
                       <div class="lb-gen-drift-title-wrap">
-                        <h4 id="lb-gen-drift-heading" class="lb-gen-drift-heading">Microsoft Learn Drift Dashboard</h4>
+                        <h4 id="lb-gen-drift-heading" class="lb-gen-drift-heading">Microsoft Learn freshness</h4>
                         <span id="lb-gen-drift-last-scan" class="lb-gen-drift-last-scan">Last bulk scan: Not run yet</span>
                       </div>
-                      <div class="lb-gen-drift-actions" role="group" aria-label="Bulk Microsoft Learn drift actions">
-                        <button type="button" class="btn btn-sm" id="lb-gen-drift-scan-btn" data-drift-action="scan-all" aria-label="Scan all saved labs against Microsoft Learn">🔄 Scan all labs against MS Learn</button>
-                        <button type="button" class="btn btn-sm btn-primary" id="lb-gen-drift-update-btn" data-drift-action="update-drifted" aria-label="Update all drifted labs from Microsoft Learn" hidden disabled>⚡ Update all drifted labs (0)</button>
+                      <div class="lb-gen-drift-actions" role="group" aria-label="Check all labs against Microsoft Learn">
+                        <button type="button" class="btn btn-sm" id="lb-gen-drift-scan-btn" data-drift-action="scan-all" aria-label="Check all saved labs against Microsoft Learn">🔄 Check all labs against Microsoft Learn</button>
+                        <button type="button" class="btn btn-sm btn-primary" id="lb-gen-drift-update-btn" data-drift-action="update-drifted" aria-label="Update all labs that changed on Microsoft Learn" hidden disabled>⚡ Update all labs that changed (0)</button>
                       </div>
                     </div>
-                    <ul class="lb-gen-drift-pills" id="lb-gen-drift-pills" aria-label="Fleet Microsoft Learn sync summary">
+                    <ul class="lb-gen-drift-pills" id="lb-gen-drift-pills" aria-label="Microsoft Learn status of all saved labs">
                       <li class="lb-drift-pill lb-drift-pill-total"><span>Total</span> <strong id="lb-drift-stat-total">0</strong></li>
                       <li class="lb-drift-pill lb-drift-pill-ok"><span>Up to date</span> <strong id="lb-drift-stat-uptodate">0</strong></li>
-                      <li class="lb-drift-pill lb-drift-pill-warn"><span>Needs Learn update</span> <strong id="lb-drift-stat-drifted">0</strong></li>
+                      <li class="lb-drift-pill lb-drift-pill-warn"><span>Need an update</span> <strong id="lb-drift-stat-drifted">0</strong></li>
                       <li class="lb-drift-pill lb-drift-pill-shots"><span>Screenshots pending</span> <strong id="lb-drift-stat-shots">0</strong></li>
-                      <li class="lb-drift-pill lb-drift-pill-unchecked"><span>Not re-checked</span> <strong id="lb-drift-stat-unchecked">0</strong></li>
+                      <li class="lb-drift-pill lb-drift-pill-unchecked"><span>Not checked yet</span> <strong id="lb-drift-stat-unchecked">0</strong></li>
                     </ul>
                     <p id="lb-gen-drift-status" class="lb-gen-drift-status" role="status" aria-live="polite" hidden></p>
                   </div>
@@ -5743,13 +5821,13 @@
                       <input type="search" id="lb-gen-search" autocomplete="off" placeholder="Title, notes, product, industry, level, or harness">
                     </div>
                     <div class="form-group">
-                      <label for="lb-gen-drift-filter">MS Learn status</label>
+                      <label for="lb-gen-drift-filter">Microsoft Learn status</label>
                       <select id="lb-gen-drift-filter" autocomplete="off">
                         <option value="all">All statuses</option>
-                        <option value="docs-updated">Needs update (MS Learn changed)</option>
+                        <option value="docs-updated">Needs an update (Microsoft Learn changed)</option>
                         <option value="missing-screenshot">Missing screenshots</option>
                         <option value="up-to-date">Up to date</option>
-                        <option value="not-checked">Not re-checked</option>
+                        <option value="not-checked">Not checked yet</option>
                       </select>
                     </div>
                     <div class="form-group">
@@ -5824,7 +5902,7 @@
                 <div id="preview-area" class="preview-frame"></div>
               </div>
               <div id="preview-empty" style="text-align: center; padding: 60px; color: var(--text-muted);">
-                Choose a lab above to preview it, or use Preview on a card under Lab chapters.
+                Choose a lab above to preview it, or use Preview on a card under Lab chapters. A lab you built yourself opens under Build, in Previously generated labs.
               </div>
             </div>
           </div>
@@ -6240,6 +6318,20 @@
 
           <!-- Config tab -->
           <div class="tab-panel" id="panel-config" role="tabpanel" aria-labelledby="tab-config" aria-hidden="true">
+            <section class="panel rh-card" id="readiness-hub" aria-labelledby="rh-heading">
+              <div class="rh-head">
+                <h3 id="rh-heading" tabindex="-1">✅ Setup checklist</h3>
+                <button type="button" class="btn btn-sm" id="rh-refresh">Check again</button>
+              </div>
+              <p class="rh-intro">
+                A quick look at what is ready for your company. You can build labs at any time. Recommended steps make your labs look and work like yours; optional steps can wait.
+              </p>
+              <div id="rh-body">
+                <p class="rh-summary" id="rh-status" role="status" aria-live="polite" aria-atomic="true"><strong class="rh-count" id="rh-count">0 of 8 ready</strong> <span id="rh-message">Checking your setup.</span></p>
+                <div class="rh-progress" id="rh-progress" role="progressbar" aria-label="Setup progress" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" aria-valuetext="0 of 8 ready"><div class="rh-progress-fill" id="rh-progress-fill"></div></div>
+                <ol class="rh-list" id="rh-list" aria-label="Setup tasks"></ol>
+              </div>
+            </section>
             <div class="panel" id="brand-profiles-panel">
               <h3>🎨 Brand profiles</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
@@ -6579,6 +6671,7 @@
 
   <!-- Toasts -->
   <div class="toast-container" id="toast-container"></div>
+  <div id="app-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <!-- Lab screenshot lightbox -->
   <div id="image-lightbox" class="image-lightbox" role="dialog" aria-modal="true" aria-label="Expanded screenshot" hidden>
@@ -6599,5 +6692,6 @@
 <script src="screenshot-center.js" defer></script>
 <script src="lab-checklist.js" defer></script>
 <script src="lab-customize.js" defer></script>
+  <script src="readiness-hub.js" defer></script>
 </body>
 </html>

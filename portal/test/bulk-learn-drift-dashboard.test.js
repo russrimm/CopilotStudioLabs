@@ -835,7 +835,7 @@ test("index.html and generated-labs.js expose accessible Bulk MS Learn Drift Das
 
   // Explicit accessible label for #lb-gen-drift-filter and accessible button names
   assert.match(indexHtml, /id="lb-gen-drift-dashboard"[^>]*aria-labelledby="lb-gen-drift-heading"/);
-  assert.match(indexHtml, /<label\s+for="lb-gen-drift-filter">\s*MS Learn status\s*<\/label>/);
+  assert.match(indexHtml, /<label\s+for="lb-gen-drift-filter">\s*Microsoft Learn status\s*<\/label>/);
   assert.match(indexHtml, /<select\s+id="lb-gen-drift-filter"/);
   assert.match(indexHtml, /data-drift-action="scan-all"[^>]*aria-label="[^"]+"/);
   assert.match(indexHtml, /data-drift-action="update-drifted"[^>]*aria-label="[^"]+"/);
@@ -990,12 +990,12 @@ test("index.html and generated-labs.js expose accessible Bulk MS Learn Drift Das
   assert.equal(getEl("lb-drift-stat-unchecked").textContent, "1");
   assert.equal(getEl("lb-gen-drift-update-btn").hidden, false);
   assert.equal(getEl("lb-gen-drift-update-btn").disabled, false);
-  assert.match(getEl("lb-gen-drift-update-btn").textContent, /Update all drifted labs \(1\)/);
+  assert.match(getEl("lb-gen-drift-update-btn").textContent, /Update all labs that changed \(1\)/);
 
   const listHtmlAll = getEl("lb-generated-list").innerHTML;
-  assert.match(listHtmlAll, /✓ MS Learn up to date/);
-  assert.match(listHtmlAll, /⚠ 2 topics updated on MS Learn/);
-  assert.match(listHtmlAll, /Not checked against MS Learn yet/);
+  assert.match(listHtmlAll, /✓ Microsoft Learn up to date/);
+  assert.match(listHtmlAll, /⚠ 2 topics updated on Microsoft Learn/);
+  assert.match(listHtmlAll, /Not checked against Microsoft Learn yet/);
   assert.match(listHtmlAll, /data-gen-action="quick-learn-update"[^>]*data-lab-id="lab-drifted"/);
 
   // Sort by "needs-update" -> Beta Drifted Lab appears first despite older generatedAt!

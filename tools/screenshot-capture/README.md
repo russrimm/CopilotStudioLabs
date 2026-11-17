@@ -17,7 +17,7 @@ The Azure-hosted portal has no browser and no way to sign in to your tenant, so 
 
 ### Quick start
 
-1. In the portal, open the Screenshot Center, select **Connect your computer**, and download the companion (or use this folder from the repository). You need Node.js 20 or later.
+1. In the portal, open **Settings > Configuration > Setup checklist** and select **Connect your computer** on the **Screenshot computer** row (a lab's Screenshot Center has the same button). Download the companion from the pairing card (or use this folder from the repository). You need Node.js 20 or later.
 2. Run the launcher for your system. It installs what is missing the first time (`npm install` and `npx playwright install chromium`):
 
    ```powershell
@@ -29,7 +29,7 @@ The Azure-hosted portal has no browser and no way to sign in to your tenant, so 
    ```
 
    Or, from the repository: `cd tools/screenshot-capture && npm install && npx playwright install chromium && npm run companion -- --portal=<address> --code=<code>`. Without `--portal` and `--code` it asks for them. The pairing code works once and expires in 10 minutes.
-3. Leave the window open. The portal shows **Companion connected**. Queue a capture there for a lab or for the shared library; the companion picks it up within a few seconds.
+3. Leave the window open. The portal shows **Companion connected** (and the **Screenshot computer** row of the Setup checklist turns to Ready). Queue a capture there for a lab or for the shared library; the companion picks it up within a few seconds.
 4. The first time a product needs sign-in, a browser window opens. Sign in yourself; the profile is saved in `.auth/<product>/` and reused, so you sign in once per product. If a shot ends on a Microsoft sign-in page, the companion refuses it, tells the portal, and you queue the shot again after signing in.
 
 | Command | What it does |
@@ -43,7 +43,7 @@ The Azure-hosted portal has no browser and no way to sign in to your tenant, so 
 | `--headless` | No visible window. It cannot sign in, so use it only for public pages and automated checks. |
 | `--unpair` | Forget this computer's pairing. Select **Disconnect** in the portal to remove it there too. |
 
-Press Ctrl+C once to stop after the current screenshot; twice to quit now. Canceling a job in the portal also stops the companion between shots.
+Press Ctrl+C once to stop after the current screenshot; twice to quit now. Canceling a job in the portal also stops the companion between shots. If a companion stops without finishing a job (for example, the computer went to sleep), the portal gives up on that claim after 5 minutes of silence. After that you can queue the capture again.
 
 ### Security model
 

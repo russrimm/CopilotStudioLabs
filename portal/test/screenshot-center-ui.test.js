@@ -1648,9 +1648,9 @@ test("saved-lab badges and counts never show an unchecked lab as up to date", ()
   const card = (drift) => h.run("lbRenderLabCardDriftHtml")({ labId: LAB, learnDrift: drift }, "Test lab");
   const base = { lastCheckedAt: null, driftedModuleCount: 0, driftedModules: [], missingScreenshotCount: 0, moduleCount: 1 };
   const unchecked = card({ ...base, status: "not-checked" });
-  assert.match(unchecked, /Not checked against MS Learn yet/);
+  assert.match(unchecked, /Not checked against Microsoft Learn yet/);
   assert.doesNotMatch(unchecked, /up to date|lb-gen-drift-badge-ok/i);
-  assert.match(card({ ...base, status: "up-to-date", lastCheckedAt: "2026-05-02T10:00:00.000Z" }), /✓ MS Learn up to date/);
+  assert.match(card({ ...base, status: "up-to-date", lastCheckedAt: "2026-05-02T10:00:00.000Z" }), /✓ Microsoft Learn up to date/);
 
   h.run(`lbGen.labs = [{ labId: "${LAB}", title: "T", moduleCount: 1, screenshots: { total: 1, captured: 1, pending: 0, stale: 0, learnSyncStatus: "up-to-date" } }]`);
   h.run("lbSyncSingleLabDriftFromState")(LAB, { checkState: "not-checked", lastRevalidatedAt: null, summary: { total: 1, captured: 1, missing: 0, stale: 0, learnSyncStatus: "up-to-date", checkState: "not-checked" }, modules: [] });

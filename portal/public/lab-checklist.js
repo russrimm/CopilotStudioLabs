@@ -195,6 +195,8 @@ function lbBuildChecklist(labId, items) {
   section.appendChild(bar);
 
   const list = scEl("ol", { class: "lb-checklist-list" });
+  // Only the next thing to do is a primary button, so the result never shows several competing calls to action.
+  const next = items.find((item) => item.status === "attention") || items.find((item) => item.status !== "done");
   for (const item of items) {
     const li = scEl("li", { class: "lb-check-item", data: { status: item.status, item: item.id } });
     li.appendChild(scEl("span", { class: "lb-check-icon", text: LB_CHECKLIST_ICONS[item.status], attrs: { "aria-hidden": "true" } }));
@@ -208,7 +210,7 @@ function lbBuildChecklist(labId, items) {
     li.appendChild(body);
     li.appendChild(
       scEl("button", {
-        class: `btn btn-sm${item.status === "attention" ? " btn-primary" : ""}`,
+        class: `btn btn-sm${item === next ? " btn-primary" : ""}`,
         text: item.action,
         attrs: { type: "button", "aria-label": `${item.action}: ${item.title}` },
         data: { clAction: item.id, labId },

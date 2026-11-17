@@ -348,6 +348,8 @@ function setActiveTab(tabName, { updateHash = true } = {}) {
   if (tabName === "labbuilder") {
     lbLoadCatalog();
   }
+
+  if (typeof rhOnTabShown === "function") rhOnTabShown(tabName);
 }
 
 // ── Branding ────────────────────────────────────────────────────────────────
@@ -674,13 +676,24 @@ function computeContrastText(hex) {
   return whiteContrast >= darkContrast ? "#ffffff" : "#0f1117";
 }
 
+let currentThemeAccent = "";
+
+/** The brand color nudged until it reads as text (4.5:1) on the current theme's page background. */
+function readableAccentText(color) {
+  if (typeof brandReadableOn !== "function") return color;
+  const dark = (typeof window.getPortalTheme === "function" ? window.getPortalTheme() : "dark") === "dark";
+  return brandReadableOn(color, dark ? "#1a1d27" : "#f3f5fa", dark ? "#ffffff" : "#000000", 4.5);
+}
+
 function setThemeAccent(color) {
   const root = document.documentElement;
+  currentThemeAccent = color || "";
   if (!color || color.toLowerCase() === getDefaultBranding().primaryColor.toLowerCase()) {
     root.style.removeProperty("--accent");
     root.style.removeProperty("--accent-hover");
     root.style.removeProperty("--accent-contrast");
     root.style.removeProperty("--accent-hover-contrast");
+    root.style.removeProperty("--accent-text");
     return;
   }
   const hoverColor = computeAccentHover(color);
@@ -688,6 +701,13 @@ function setThemeAccent(color) {
   root.style.setProperty("--accent-hover", hoverColor);
   root.style.setProperty("--accent-contrast", computeContrastText(color));
   root.style.setProperty("--accent-hover-contrast", computeContrastText(hoverColor));
+  root.style.setProperty("--accent-text", readableAccentText(color));
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("portal-theme-change", () => {
+    if (currentThemeAccent) setThemeAccent(currentThemeAccent);
+  });
 }
 
 function updateFavicon(logoPath) {
@@ -749,6 +769,7 @@ async function loadBranding() {
     applyBranding(savedBranding);
     syncBrandingIntoCustomizationFields(savedBranding);
     updateBrandingPreview();
+    if (typeof rhOnBrandChanged === "function") rhOnBrandChanged();
   } catch (err) {
     toast(`Branding unavailable: ${err.message}`, "error");
   }
