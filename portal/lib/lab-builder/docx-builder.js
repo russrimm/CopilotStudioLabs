@@ -821,3 +821,6 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
 
   return buildZipBuffer(zipEntries);
 }
+
+export const buildDocxFromLabMarkdown = renderMarkdownToDocxBuffer;
+

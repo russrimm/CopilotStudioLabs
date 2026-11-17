@@ -17,6 +17,10 @@ import {
   isCustomBranding,
   normalizeDocFormats,
   renderGeneratedLabDocx,
+  renderGeneratedLabFacilitatorDocx,
+  renderGeneratedLabFacilitatorHtml,
+  renderGeneratedLabFacilitatorMarkdown,
+  renderGeneratedLabFacilitatorPdf,
   renderGeneratedLabHtml,
   renderGeneratedLabMarkdown,
   renderGeneratedLabPdf,
@@ -737,9 +741,17 @@ async function handleGeneratedLabExport(req, res) {
     format !== "html" &&
     format !== "docx" &&
     format !== "pptx" &&
-    format !== "pdf"
+    format !== "pdf" &&
+    format !== "facilitator-docx" &&
+    format !== "facilitator-pdf" &&
+    format !== "facilitator-md" &&
+    format !== "facilitator-markdown" &&
+    format !== "facilitator-html"
   ) {
-    return res.status(400).json({ error: "format must be 'zip', 'html', 'docx', 'pptx', 'pdf', or 'md'." });
+    return res.status(400).json({
+      error:
+        "format must be 'zip', 'html', 'docx', 'pptx', 'pdf', 'md', 'facilitator-docx', 'facilitator-pdf', 'facilitator-md', or 'facilitator-html'.",
+    });
   }
 
   let selectedZipFormats = null;
@@ -786,6 +798,125 @@ async function handleGeneratedLabExport(req, res) {
     );
     return `attachment; filename="${fallbackName}"; filename*=UTF-8''${encodedUtf8}`;
   };
+
+  const buildFacilitatorContentDisposition = (ext, renderedTitle = "") => {
+    let baseTitle = "";
+    if (renderedTitle && typeof renderedTitle === "string" && renderedTitle.trim()) {
+      baseTitle = capFilesystemSegment(sanitizeFilesystemTitle(renderedTitle, ""), 80, "");
+    }
+    if (!baseTitle) {
+      try {
+        const manifestPath = join(found.labDir, "manifest.json");
+        if (existsSync(manifestPath)) {
+          const manifest = JSON.parse(readFileSync(manifestPath, "utf-8"));
+          if (manifest && typeof manifest.title === "string" && manifest.title.trim()) {
+            baseTitle = capFilesystemSegment(sanitizeFilesystemTitle(manifest.title, ""), 80, "");
+          }
+        }
+      } catch {
+        baseTitle = "";
+      }
+    }
+    const cleanBase = baseTitle || found.labId;
+    const preferredName = `${cleanBase} - Facilitator Guide.${ext}`;
+    const asciiSafeName = preferredName.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
+    const encodedUtf8 = encodeURIComponent(preferredName).replace(
+      /['()*]/g,
+      (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`,
+    );
+    return `attachment; filename="${asciiSafeName}"; filename*=UTF-8''${encodedUtf8}`;
+  };
+
+  if (format === "facilitator-docx") {
+    try {
+      const rendered = renderGeneratedLabFacilitatorDocx(
+        GENERATED_LABS_DIR,
+        found.labId,
+        replacements,
+      );
+      if (rendered.status !== 200) {
+        return res.status(rendered.status).json({ error: rendered.error });
+      }
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      );
+      res.setHeader(
+        "Content-Disposition",
+        buildFacilitatorContentDisposition("docx", rendered.title),
+      );
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(rendered.buffer);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (format === "facilitator-pdf") {
+    try {
+      const rendered = renderGeneratedLabFacilitatorPdf(
+        GENERATED_LABS_DIR,
+        found.labId,
+        replacements,
+      );
+      if (rendered.status !== 200) {
+        return res.status(rendered.status).json({ error: rendered.error });
+      }
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader(
+        "Content-Disposition",
+        buildFacilitatorContentDisposition("pdf", rendered.title),
+      );
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(rendered.buffer);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (format === "facilitator-md" || format === "facilitator-markdown") {
+    try {
+      const rendered = renderGeneratedLabFacilitatorMarkdown(
+        GENERATED_LABS_DIR,
+        found.labId,
+        replacements,
+      );
+      if (rendered.status !== 200) {
+        return res.status(rendered.status).json({ error: rendered.error });
+      }
+      res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        buildFacilitatorContentDisposition("md", rendered.title),
+      );
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(rendered.markdown);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  if (format === "facilitator-html") {
+    try {
+      const rendered = renderGeneratedLabFacilitatorHtml(
+        GENERATED_LABS_DIR,
+        found.labId,
+        replacements,
+      );
+      if (rendered.status !== 200) {
+        return res.status(rendered.status).json({ error: rendered.error });
+      }
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        buildFacilitatorContentDisposition("html", rendered.title),
+      );
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(rendered.html);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
 
   if (format === "html") {
     try {

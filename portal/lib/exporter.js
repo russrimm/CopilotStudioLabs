@@ -24,9 +24,17 @@ import {
 } from "./lab-builder/pptx-builder.js";
 import {
   buildModuleSampleFiles,
+  capFilesystemSegment,
   sanitizeFilesystemTitle,
   splitGeneratedLabModules,
 } from "./lab-builder/module-samples.js";
+import {
+  buildFacilitatorGuideModel,
+  renderFacilitatorGuideDocxBuffer,
+  renderFacilitatorGuideHtml,
+  renderFacilitatorGuideMarkdown,
+  renderFacilitatorGuidePdfBuffer,
+} from "./lab-builder/facilitator-guide.js";
 import { renderLabMarkdown } from "./markdown.js";
 
 const SAFE_GENERATED_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
@@ -465,6 +473,143 @@ export function renderGeneratedLabPdf(
   return { status: 200, labId: found.labId, buffer };
 }
 
+function buildGeneratedLabFacilitatorContext(
+  generatedRoot,
+  rawLabId,
+  replacements = {},
+  { branding = loadBranding(), logoSourcePath: explicitLogoPath } = {},
+) {
+  const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
+  if (found.status !== 200) return { status: found.status, error: found.error };
+
+  const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
+  let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
+  let brandedTitle = found.manifest?.title || found.labId;
+  for (const [search, replace] of replacementEntries) {
+    content = content.split(search).join(replace);
+    brandedTitle = brandedTitle.split(search).join(replace);
+  }
+  content = applyBrandingTokens(content, branding);
+  brandedTitle = applyBrandingTokens(brandedTitle, branding);
+
+  const customizedBranding = isCustomBranding(branding);
+  const logoPath = customizedBranding
+    ? explicitLogoPath || getBrandingLogoAbsolutePath(branding.logo)
+    : null;
+  const logoBuffer = logoPath && existsSync(logoPath) ? readFileSync(logoPath) : null;
+  const logoUrl = customizedBranding && logoPath ? fileToDataUri(logoPath) : null;
+
+  const effectiveManifest = { ...(found.manifest || {}), title: brandedTitle };
+  const model = buildFacilitatorGuideModel({
+    labId: found.labId,
+    labDir: found.labDir,
+    manifest: effectiveManifest,
+    markdown: content,
+  });
+
+  return {
+    status: 200,
+    labId: found.labId,
+    labDir: found.labDir,
+    title: brandedTitle,
+    model,
+    customizedBranding,
+    branding,
+    docBranding: customizedBranding
+      ? {
+          companyName: branding.companyName,
+          tagline: branding.tagline,
+          primaryColor: branding.primaryColor,
+          logoBuffer,
+        }
+      : { primaryColor: branding.primaryColor },
+    htmlBranding: customizedBranding
+      ? {
+          companyName: branding.companyName,
+          tagline: branding.tagline,
+          primaryColor: branding.primaryColor,
+          logoUrl,
+        }
+      : null,
+  };
+}
+
+/**
+ * Render the Instructor / Facilitator Guide for a generated lab as Markdown.
+ */
+export function renderGeneratedLabFacilitatorMarkdown(
+  generatedRoot,
+  rawLabId,
+  replacements = {},
+  options = {},
+) {
+  const ctx = buildGeneratedLabFacilitatorContext(generatedRoot, rawLabId, replacements, options);
+  if (ctx.status !== 200) return { status: ctx.status, error: ctx.error };
+
+  let markdown = renderFacilitatorGuideMarkdown(ctx.model);
+  markdown = ctx.customizedBranding
+    ? prependBrandingBanner(markdown, ctx.branding, null)
+    : applyBrandingTokens(markdown, ctx.branding);
+
+  return { status: 200, labId: ctx.labId, title: ctx.title, markdown };
+}
+
+/**
+ * Render the Instructor / Facilitator Guide for a generated lab as standalone HTML.
+ */
+export function renderGeneratedLabFacilitatorHtml(
+  generatedRoot,
+  rawLabId,
+  replacements = {},
+  options = {},
+) {
+  const ctx = buildGeneratedLabFacilitatorContext(generatedRoot, rawLabId, replacements, options);
+  if (ctx.status !== 200) return { status: ctx.status, error: ctx.error };
+
+  const html = renderFacilitatorGuideHtml(ctx.model, {
+    branding: ctx.htmlBranding || { primaryColor: ctx.branding?.primaryColor },
+  });
+  return { status: 200, labId: ctx.labId, title: ctx.title, html };
+}
+
+/**
+ * Render the Instructor / Facilitator Guide for a generated lab as a `.docx` Buffer.
+ */
+export function renderGeneratedLabFacilitatorDocx(
+  generatedRoot,
+  rawLabId,
+  replacements = {},
+  options = {},
+) {
+  const ctx = buildGeneratedLabFacilitatorContext(generatedRoot, rawLabId, replacements, options);
+  if (ctx.status !== 200) return { status: ctx.status, error: ctx.error };
+
+  const buffer = renderFacilitatorGuideDocxBuffer(ctx.model, {
+    title: `${ctx.title} — Facilitator Guide`,
+    branding: ctx.docBranding,
+  });
+  return { status: 200, labId: ctx.labId, title: ctx.title, buffer };
+}
+
+/**
+ * Render the Instructor / Facilitator Guide for a generated lab as a `.pdf` Buffer.
+ */
+export function renderGeneratedLabFacilitatorPdf(
+  generatedRoot,
+  rawLabId,
+  replacements = {},
+  options = {},
+) {
+  const ctx = buildGeneratedLabFacilitatorContext(generatedRoot, rawLabId, replacements, options);
+  if (ctx.status !== 200) return { status: ctx.status, error: ctx.error };
+
+  const buffer = renderFacilitatorGuidePdfBuffer(ctx.model, {
+    title: `${ctx.title} — Facilitator Guide`,
+    branding: ctx.docBranding,
+  });
+  return { status: 200, labId: ctx.labId, title: ctx.title, buffer };
+}
+
 /**
  * Create a ZIP archive of a single generated lab, resolving captured assets
  * when available, applying custom branding when configured, and packaging each
@@ -758,6 +903,62 @@ export function exportGeneratedLab(
       });
     }
 
+    // Bundle dedicated Instructor / Facilitator Guide Pack inside `<labId>/Facilitator Guide/`
+    const facilitatorModel = buildFacilitatorGuideModel({
+      labId,
+      labDir,
+      manifest: effectiveManifest,
+      markdown: htmlSourceMd,
+    });
+    const facilitatorSafeTitle = capFilesystemSegment(
+      sanitizeFilesystemTitle(brandedLabTitle, "Lab"),
+      80,
+      "Lab",
+    );
+    const facilitatorBaseName = `${facilitatorSafeTitle} - Facilitator Guide`;
+    const facilitatorFolder = posix.join(labId, "Facilitator Guide");
+    const facilitatorFiles = [];
+
+    let facilitatorMd = renderFacilitatorGuideMarkdown(facilitatorModel);
+    if (customizedBranding) {
+      const facLogoRel = logoArchivePath
+        ? relative(facilitatorFolder, logoArchivePath).replace(/\\/g, "/")
+        : null;
+      facilitatorMd = prependBrandingBanner(facilitatorMd, branding, facLogoRel);
+    } else {
+      facilitatorMd = applyBrandingTokens(facilitatorMd, branding);
+    }
+    const facilitatorMdPath = posix.join(facilitatorFolder, `${facilitatorBaseName}.md`);
+    archive.append(facilitatorMd, { name: facilitatorMdPath });
+    facilitatorFiles.push(facilitatorMdPath);
+
+    if (selectedFormats.includes("docx")) {
+      const facDocx = renderFacilitatorGuideDocxBuffer(facilitatorModel, {
+        title: `${brandedLabTitle} — Facilitator Guide`,
+        branding: docBranding,
+      });
+      const facDocxPath = posix.join(facilitatorFolder, `${facilitatorBaseName}.docx`);
+      archive.append(facDocx, { name: facDocxPath });
+      facilitatorFiles.push(facDocxPath);
+    }
+    if (selectedFormats.includes("pdf")) {
+      const facPdf = renderFacilitatorGuidePdfBuffer(facilitatorModel, {
+        title: `${brandedLabTitle} — Facilitator Guide`,
+        branding: docBranding,
+      });
+      const facPdfPath = posix.join(facilitatorFolder, `${facilitatorBaseName}.pdf`);
+      archive.append(facPdf, { name: facPdfPath });
+      facilitatorFiles.push(facPdfPath);
+    }
+    if (selectedFormats.includes("html")) {
+      const facHtml = renderFacilitatorGuideHtml(facilitatorModel, {
+        branding: htmlBranding || { primaryColor: branding?.primaryColor },
+      });
+      const facHtmlPath = posix.join(facilitatorFolder, `${facilitatorBaseName}.html`);
+      archive.append(facHtml, { name: facHtmlPath });
+      facilitatorFiles.push(facHtmlPath);
+    }
+
     const manifest = {
       exportedAt: new Date().toISOString(),
       source: "generated",
@@ -765,6 +966,8 @@ export function exportGeneratedLab(
       title: brandedLabTitle,
       formats: selectedFormats,
       overviewFolder: posix.join(labId, split.overview.folderName),
+      facilitatorGuideFolder: facilitatorFolder,
+      facilitatorGuideFiles: facilitatorFiles,
       modules: exportedModules,
       customized: replacementEntries.length > 0 || customizedBranding,
       branding: {

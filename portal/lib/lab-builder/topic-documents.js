@@ -17,7 +17,7 @@ import { renderTopicToPptxBuffer } from "./pptx-builder.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
 
 export const ALLOWED_TOPIC_DOC_FORMATS = Object.freeze(["docx", "pptx"]);
-export const TOPIC_DOCUMENTS_SCHEMA_VERSION = 2;
+export const TOPIC_DOCUMENTS_SCHEMA_VERSION = 3;
 
 export const TOPIC_DOC_MIME_TYPES = Object.freeze({
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

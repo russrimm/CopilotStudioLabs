@@ -3,11 +3,12 @@
  * generated labs and standalone per-topic slide decks.
  *
  * Produces a spec-compliant PKZIP PresentationML archive with widescreen 16:9
- * slides (12192000 x 6858000 EMUs), theme accents honoring lab branding,
- * paginated click-by-click walkthrough slides, embedded PNG/JPEG screenshots,
- * DrawingML tables, copy-ready prompt/code cards, Check Your Work &
- * Troubleshooting cards, Knowledge Check quiz slides, and clickable external
- * Microsoft Learn hyperlinks.
+ * slides (12192000 x 6858000 EMUs), ECMA-376 Speaker Notes (`notesMaster1.xml`
+ * and `notesSlideN.xml`) for PowerPoint Presenter View, theme accents honoring
+ * lab branding, paginated click-by-click walkthrough slides, embedded PNG/JPEG
+ * screenshots, DrawingML tables, copy-ready prompt/code cards, Check Your Work
+ * & Troubleshooting cards, non-spoiler Knowledge Check quiz slides with answer
+ * keys in speaker notes, and clickable external Microsoft Learn hyperlinks.
  *
  * Strictly uses Node built-in modules and local lab-builder helpers only.
  */
@@ -530,6 +531,31 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
         }
       } else if (/^\*\*Target SharePoint site:\*\*/i.test(quoteText)) {
         sharepointSite = quoteText.replace(/^\*\*Target SharePoint site:\*\*\s*/i, "").trim();
+      } else if (
+        section === "quiz" &&
+        currentQuiz &&
+        /^\*\*(?:Correct\s+)?Answer:?\*\*/i.test(quoteText)
+      ) {
+        const inlineAns =
+          quoteText.match(/^\*\*(?:Correct\s+)?Answer:\s*([A-D])\.?\*\*\s*(.*)$/i) ||
+          quoteText.match(
+            /^\*\*(?:Correct\s+)?Answer:?\*\*\s*([A-D])\b(?:\s*[.):—–-]\s*|\s+)?(.*)$/i
+          );
+        if (inlineAns) {
+          currentQuiz.correctLetter = inlineAns[1].toUpperCase();
+          currentQuiz.explanation = inlineAns[2].trim();
+        } else {
+          currentQuiz.explanation = quoteText
+            .replace(/^\*\*(?:Correct\s+)?Answer:?\*\*\s*/i, "")
+            .trim();
+        }
+        const quoteLinks = extractMarkdownLinks(quoteText);
+        if (quoteLinks.length > 0) {
+          currentQuiz.learnLinks = dedupeLinks([
+            ...(currentQuiz.learnLinks || []),
+            ...quoteLinks,
+          ]);
+        }
       } else {
         differenceNotes.push(quoteText);
       }
@@ -609,9 +635,17 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
         knowledgeChecks.push(currentQuiz);
         continue;
       }
-      const optMatch = trimmed.match(/^[-*+]\s+([A-D][.)]\s+.+)$/);
+      const optMatch = trimmed.match(
+        /^[-*+]\s+(?:\*\*([A-D])[.)]\*\*|([A-D])[.)])\s+(.+)$/
+      );
       if (optMatch && currentQuiz) {
-        currentQuiz.options.push(optMatch[1].trim());
+        const optLetter = (optMatch[1] || optMatch[2] || "").toUpperCase();
+        const rawOptBody = optMatch[3].trim();
+        if (/\(\s*Correct\s*\)\s*$/i.test(rawOptBody) && !currentQuiz.correctLetter) {
+          currentQuiz.correctLetter = optLetter;
+        }
+        const cleanOptBody = rawOptBody.replace(/\s*\(\s*Correct\s*\)\s*$/i, "").trim();
+        currentQuiz.options.push(`${optLetter}. ${cleanOptBody}`);
         continue;
       }
       if (/^\*Test your understanding/i.test(trimmed)) {
@@ -828,18 +862,34 @@ class PptxDeckAssembler {
         cy: 2400000,
         paragraphs: [{ text: this.title, sizePt: 18, bold: true }],
       });
+      empty.setNotes([
+        `FACILITATOR OVERVIEW: ${this.title}`,
+        "PACING CUE: Confirm every attendee can sign in to the target environment before starting hands-on steps.",
+      ]);
     }
 
     const totalSlides = this.slides.length;
+    const notesEntries = [];
     this.slides.forEach((slide, idx) => {
-      slide.finalizeChrome(idx + 1, totalSlides);
+      const slideNum = idx + 1;
+      slide.finalizeChrome(slideNum, totalSlides);
+      if (slide.hasNotes()) {
+        notesEntries.push({
+          slide,
+          slideNum,
+          notesNum: notesEntries.length + 1,
+        });
+      }
     });
+    const notesNumBySlideNum = new Map(
+      notesEntries.map((entry) => [entry.slideNum, entry.notesNum])
+    );
 
     const entries = [
-      { name: "[Content_Types].xml", data: this.renderContentTypesXml() },
+      { name: "[Content_Types].xml", data: this.renderContentTypesXml(notesEntries) },
       { name: "_rels/.rels", data: this.renderRootRelsXml() },
       { name: "docProps/core.xml", data: this.renderCorePropsXml() },
-      { name: "docProps/app.xml", data: this.renderAppPropsXml() },
+      { name: "docProps/app.xml", data: this.renderAppPropsXml(notesEntries.length) },
       { name: "ppt/presentation.xml", data: this.renderPresentationXml() },
       { name: "ppt/_rels/presentation.xml.rels", data: this.renderPresentationRelsXml() },
       { name: "ppt/presProps.xml", data: this.renderPresPropsXml() },
@@ -850,13 +900,30 @@ class PptxDeckAssembler {
       { name: "ppt/slideMasters/_rels/slideMaster1.xml.rels", data: this.renderSlideMasterRelsXml() },
       { name: "ppt/slideLayouts/slideLayout1.xml", data: this.renderSlideLayoutXml() },
       { name: "ppt/slideLayouts/_rels/slideLayout1.xml.rels", data: this.renderSlideLayoutRelsXml() },
+      { name: "ppt/notesMasters/notesMaster1.xml", data: this.renderNotesMasterXml() },
+      { name: "ppt/notesMasters/_rels/notesMaster1.xml.rels", data: this.renderNotesMasterRelsXml() },
     ];
 
     this.slides.forEach((slide, idx) => {
       const num = idx + 1;
+      const notesNum = notesNumBySlideNum.get(num) || null;
       entries.push({ name: `ppt/slides/slide${num}.xml`, data: slide.renderXml() });
-      entries.push({ name: `ppt/slides/_rels/slide${num}.xml.rels`, data: slide.renderRelsXml() });
+      entries.push({
+        name: `ppt/slides/_rels/slide${num}.xml.rels`,
+        data: slide.renderRelsXml(notesNum),
+      });
     });
+
+    for (const entry of notesEntries) {
+      entries.push({
+        name: `ppt/notesSlides/notesSlide${entry.notesNum}.xml`,
+        data: entry.slide.renderNotesXml(entry.slideNum),
+      });
+      entries.push({
+        name: `ppt/notesSlides/_rels/notesSlide${entry.notesNum}.xml.rels`,
+        data: entry.slide.renderNotesRelsXml(entry.slideNum),
+      });
+    }
 
     for (const media of this.mediaItems) {
       entries.push({ name: `ppt/media/${media.fileName}`, data: media.data });
@@ -865,11 +932,12 @@ class PptxDeckAssembler {
     return buildZipBuffer(entries);
   }
 
-  renderContentTypesXml() {
+  renderContentTypesXml(notesEntries = []) {
     const overrides = [
       `<Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>`,
       `<Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>`,
       `<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>`,
+      `<Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"/>`,
       `<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>`,
       `<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>`,
       `<Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/>`,
@@ -879,6 +947,10 @@ class PptxDeckAssembler {
       ...this.slides.map(
         (_s, idx) =>
           `<Override PartName="/ppt/slides/slide${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`
+      ),
+      ...notesEntries.map(
+        (entry) =>
+          `<Override PartName="/ppt/notesSlides/notesSlide${entry.notesNum}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>`
       ),
     ];
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -918,14 +990,14 @@ class PptxDeckAssembler {
 </cp:coreProperties>`;
   }
 
-  renderAppPropsXml() {
+  renderAppPropsXml(notesCount = 0) {
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"
   xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
   <Application>Copilot Studio Labs Builder</Application>
   <PresentationFormat>Widescreen</PresentationFormat>
   <Slides>${this.slides.length}</Slides>
-  <Notes>0</Notes>
+  <Notes>${notesCount}</Notes>
   <HiddenSlides>0</HiddenSlides>
   <MMClips>0</MMClips>
   <ScaleCrop>false</ScaleCrop>
@@ -962,6 +1034,9 @@ class PptxDeckAssembler {
   <p:sldMasterIdLst>
     <p:sldMasterId id="2147483648" r:id="rIdMaster1"/>
   </p:sldMasterIdLst>
+  <p:notesMasterIdLst>
+    <p:notesMasterId r:id="rIdNotesMaster1"/>
+  </p:notesMasterIdLst>
   <p:sldIdLst>
     ${sldIds}
   </p:sldIdLst>
@@ -986,6 +1061,7 @@ class PptxDeckAssembler {
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rIdMaster1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>
+  <Relationship Id="rIdNotesMaster1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster" Target="notesMasters/notesMaster1.xml"/>
   <Relationship Id="rIdPresProps" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps" Target="presProps.xml"/>
   <Relationship Id="rIdViewProps" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps" Target="viewProps.xml"/>
   <Relationship Id="rIdTheme1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
@@ -1175,6 +1251,127 @@ class PptxDeckAssembler {
   <Relationship Id="rIdMaster1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
 </Relationships>`;
   }
+
+  renderNotesMasterXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:notesMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:bg>
+      <p:bgRef idx="1001">
+        <a:schemeClr val="bg1"/>
+      </p:bgRef>
+    </p:bg>
+    <p:spTree>
+      <p:nvGrpSpPr>
+        <p:cNvPr id="1" name=""/>
+        <p:cNvGrpSpPr/>
+        <p:nvPr/>
+      </p:nvGrpSpPr>
+      <p:grpSpPr>
+        <a:xfrm>
+          <a:off x="0" y="0"/>
+          <a:ext cx="0" cy="0"/>
+          <a:chOff x="0" y="0"/>
+          <a:chExt cx="0" cy="0"/>
+        </a:xfrm>
+      </p:grpSpPr>
+      <p:sp>
+        <p:nvSpPr>
+          <p:cNvPr id="2" name="Slide Image Placeholder 1"/>
+          <p:cNvSpPr>
+            <a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/>
+          </p:cNvSpPr>
+          <p:nvPr>
+            <p:ph type="sldImg"/>
+          </p:nvPr>
+        </p:nvSpPr>
+        <p:spPr>
+          <a:xfrm>
+            <a:off x="685800" y="685800"/>
+            <a:ext cx="5486400" cy="3086100"/>
+          </a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+        </p:spPr>
+      </p:sp>
+      <p:sp>
+        <p:nvSpPr>
+          <p:cNvPr id="3" name="Notes Placeholder 2"/>
+          <p:cNvSpPr>
+            <a:spLocks noGrp="1"/>
+          </p:cNvSpPr>
+          <p:nvPr>
+            <p:ph type="body" idx="1"/>
+          </p:nvPr>
+        </p:nvSpPr>
+        <p:spPr>
+          <a:xfrm>
+            <a:off x="685800" y="4000500"/>
+            <a:ext cx="5486400" cy="4343400"/>
+          </a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+        </p:spPr>
+        <p:txBody>
+          <a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/>
+          <a:lstStyle/>
+          <a:p>
+            <a:pPr lvl="0"/>
+            <a:endParaRPr lang="en-US"/>
+          </a:p>
+        </p:txBody>
+      </p:sp>
+      <p:sp>
+        <p:nvSpPr>
+          <p:cNvPr id="4" name="Slide Number Placeholder 3"/>
+          <p:cNvSpPr>
+            <a:spLocks noGrp="1"/>
+          </p:cNvSpPr>
+          <p:nvPr>
+            <p:ph type="sldNum" sz="quarter" idx="10"/>
+          </p:nvPr>
+        </p:nvSpPr>
+        <p:spPr>
+          <a:xfrm>
+            <a:off x="3884613" y="8685213"/>
+            <a:ext cx="2287587" cy="457200"/>
+          </a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+        </p:spPr>
+        <p:txBody>
+          <a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0" anchor="b"/>
+          <a:lstStyle/>
+          <a:p>
+            <a:fld id="{7F8B6D52-4A9E-4B1D-9C1E-2A4F8E3C0010}" type="slidenum">
+              <a:rPr lang="en-US" smtClean="0"/>
+              <a:t>#</a:t>
+            </a:fld>
+            <a:endParaRPr lang="en-US"/>
+          </a:p>
+        </p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+  <p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>
+  <p:notesStyle>
+    <a:lvl1pPr marL="0" algn="l" defTabSz="914400" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
+      <a:defRPr sz="1150" kern="1200">
+        <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
+        <a:latin typeface="+mn-lt"/>
+        <a:ea typeface="+mn-ea"/>
+        <a:cs typeface="+mn-cs"/>
+      </a:defRPr>
+    </a:lvl1pPr>
+  </p:notesStyle>
+</p:notesMaster>`;
+  }
+
+  renderNotesMasterRelsXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/>
+</Relationships>`;
+  }
 }
 
 class SlideBuilder {
@@ -1187,10 +1384,64 @@ class SlideBuilder {
     this.hyperlinksByUrl = new Map();
     this.imagesByMediaIndex = new Map();
     this.nextRelSeq = 2; // rId1 is reserved for slideLayout1.xml
+    this.notesParagraphs = [];
+
+    if (meta.notes) {
+      this.setNotes(meta.notes);
+    }
 
     if (!meta.isHero) {
       this.buildStandardHeader();
     }
+  }
+
+  setNotes(notesInput) {
+    this.notesParagraphs = [];
+    this.appendNotes(notesInput);
+    return this;
+  }
+
+  appendNotes(notesInput) {
+    const items = Array.isArray(notesInput)
+      ? notesInput
+      : String(notesInput ?? "").split(/\r?\n/);
+    for (const rawItem of items) {
+      if (rawItem === null || rawItem === undefined) continue;
+      if (typeof rawItem === "object") {
+        const text = sanitizeXmlChars(stripMarkdownFormatting(rawItem.text || "")).trim();
+        const heading = sanitizeXmlChars(stripMarkdownFormatting(rawItem.heading || "")).trim();
+        if (!text && !heading) continue;
+        this.notesParagraphs.push({
+          heading,
+          text,
+          bullet: Boolean(rawItem.bullet),
+        });
+        continue;
+      }
+      const cleaned = sanitizeXmlChars(stripMarkdownFormatting(String(rawItem))).trim();
+      if (!cleaned) continue;
+      const bulletMatch = cleaned.match(/^(?:[-•*])\s+(.+)$/);
+      const bodyLine = bulletMatch ? bulletMatch[1].trim() : cleaned;
+      const labelMatch = bodyLine.match(/^([A-Z][A-Z0-9 /&()'–—-]{2,48}:)\s*(.*)$/);
+      if (labelMatch) {
+        this.notesParagraphs.push({
+          heading: labelMatch[1],
+          text: labelMatch[2].trim(),
+          bullet: Boolean(bulletMatch),
+        });
+      } else {
+        this.notesParagraphs.push({
+          heading: "",
+          text: bodyLine,
+          bullet: Boolean(bulletMatch),
+        });
+      }
+    }
+    return this;
+  }
+
+  hasNotes() {
+    return this.notesParagraphs.length > 0;
   }
 
   allocateShapeId() {
@@ -1800,7 +2051,7 @@ class SlideBuilder {
 </p:sld>`;
   }
 
-  renderRelsXml() {
+  renderRelsXml(notesSlideNum = null) {
     const rels = [
       `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>`,
     ];
@@ -1814,9 +2065,156 @@ class SlideBuilder {
         `<Relationship Id="${rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${mediaEntry.fileName}"/>`
       );
     }
+    if (notesSlideNum) {
+      rels.push(
+        `<Relationship Id="rIdNotes${notesSlideNum}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide${notesSlideNum}.xml"/>`
+      );
+    }
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   ${rels.join("\n  ")}
+</Relationships>`;
+  }
+
+  renderNotesXml(slideNumber) {
+    const paragraphsXml =
+      this.notesParagraphs.length > 0
+        ? this.notesParagraphs
+            .map((p) => {
+              const runs = [];
+              if (p.bullet) {
+                runs.push(
+                  `<a:r><a:rPr lang="en-US" sz="1100" b="1" dirty="0"/><a:t>• </a:t></a:r>`
+                );
+              }
+              if (p.heading) {
+                const sep = p.text ? " " : "";
+                runs.push(
+                  `<a:r><a:rPr lang="en-US" sz="1100" b="1" dirty="0"/><a:t>${xmlEscape(
+                    `${p.heading}${sep}`
+                  )}</a:t></a:r>`
+                );
+              }
+              if (p.text) {
+                runs.push(
+                  `<a:r><a:rPr lang="en-US" sz="1100" dirty="0"/><a:t>${xmlEscape(
+                    p.text
+                  )}</a:t></a:r>`
+                );
+              }
+              return `<a:p>
+            <a:pPr algn="l" spcAft="400"><a:spcAft><a:spcPts val="400"/></a:spcAft></a:pPr>
+            ${runs.join("\n            ")}
+          </a:p>`.replace(
+                `<a:pPr algn="l" spcAft="400"><a:spcAft><a:spcPts val="400"/></a:spcAft></a:pPr>`,
+                `<a:pPr algn="l"><a:spcAft><a:spcPts val="400"/></a:spcAft></a:pPr>`
+              );
+            })
+            .join("\n          ")
+        : `<a:p><a:endParaRPr lang="en-US"/></a:p>`;
+
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:notes xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:spTree>
+      <p:nvGrpSpPr>
+        <p:cNvPr id="1" name=""/>
+        <p:cNvGrpSpPr/>
+        <p:nvPr/>
+      </p:nvGrpSpPr>
+      <p:grpSpPr>
+        <a:xfrm>
+          <a:off x="0" y="0"/>
+          <a:ext cx="0" cy="0"/>
+          <a:chOff x="0" y="0"/>
+          <a:chExt cx="0" cy="0"/>
+        </a:xfrm>
+      </p:grpSpPr>
+      <p:sp>
+        <p:nvSpPr>
+          <p:cNvPr id="2" name="Slide Image Placeholder 1"/>
+          <p:cNvSpPr>
+            <a:spLocks noGrp="1" noRot="1" noChangeAspect="1"/>
+          </p:cNvSpPr>
+          <p:nvPr>
+            <p:ph type="sldImg"/>
+          </p:nvPr>
+        </p:nvSpPr>
+        <p:spPr>
+          <a:xfrm>
+            <a:off x="685800" y="685800"/>
+            <a:ext cx="5486400" cy="3086100"/>
+          </a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+        </p:spPr>
+      </p:sp>
+      <p:sp>
+        <p:nvSpPr>
+          <p:cNvPr id="3" name="Notes Placeholder 2"/>
+          <p:cNvSpPr>
+            <a:spLocks noGrp="1"/>
+          </p:cNvSpPr>
+          <p:nvPr>
+            <p:ph type="body" idx="1"/>
+          </p:nvPr>
+        </p:nvSpPr>
+        <p:spPr>
+          <a:xfrm>
+            <a:off x="685800" y="4000500"/>
+            <a:ext cx="5486400" cy="4343400"/>
+          </a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+        </p:spPr>
+        <p:txBody>
+          <a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0"/>
+          <a:lstStyle/>
+          ${paragraphsXml}
+        </p:txBody>
+      </p:sp>
+      <p:sp>
+        <p:nvSpPr>
+          <p:cNvPr id="4" name="Slide Number Placeholder 3"/>
+          <p:cNvSpPr>
+            <a:spLocks noGrp="1"/>
+          </p:cNvSpPr>
+          <p:nvPr>
+            <p:ph type="sldNum" sz="quarter" idx="10"/>
+          </p:nvPr>
+        </p:nvSpPr>
+        <p:spPr>
+          <a:xfrm>
+            <a:off x="3884613" y="8685213"/>
+            <a:ext cx="2287587" cy="457200"/>
+          </a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+        </p:spPr>
+        <p:txBody>
+          <a:bodyPr vert="horz" lIns="91440" tIns="45720" rIns="91440" bIns="45720" rtlCol="0" anchor="b"/>
+          <a:lstStyle/>
+          <a:p>
+            <a:fld id="{7F8B6D52-4A9E-4B1D-9C1E-2A4F8E3C0010}" type="slidenum">
+              <a:rPr lang="en-US" smtClean="0"/>
+              <a:t>${slideNumber}</a:t>
+            </a:fld>
+            <a:endParaRPr lang="en-US"/>
+          </a:p>
+        </p:txBody>
+      </p:sp>
+    </p:spTree>
+  </p:cSld>
+  <p:clrMapOvr>
+    <a:masterClrMapping/>
+  </p:clrMapOvr>
+</p:notes>`;
+  }
+
+  renderNotesRelsXml(slideNumber) {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesMaster" Target="../notesMasters/notesMaster1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="../slides/slide${slideNumber}.xml"/>
 </Relationships>`;
   }
 }
@@ -1985,6 +2383,19 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
     });
   });
 
+  titleSlide.setNotes([
+    `FACILITATOR PACING CUE: Target ${meta.estimatedTime || "~15 min"} total for ${stepBadge} (${meta.topicTitle}). Spend 3–5 minutes on live framing and walkthrough orientation before releasing attendees for hands-on configuration.`,
+    `OPENING HOOK (WHY LEARNERS CARE): ${
+      training.whyItMatters ||
+      heroSummary ||
+      `Show how ${meta.topicTitle} moves an enterprise AI solution from prototype behavior to reliable, auditable runtime execution.`
+    }`,
+    `LIVE FRAMING TALKING POINTS:`,
+    `- Anchor ${meta.topicTitle} inside ${meta.agentName || training.domainLabel || "the workshop agent"} on ${meta.products || training.productLabel || "Microsoft Copilot Studio"}.`,
+    ...(training.learningObjectives || []).slice(0, 3).map((obj) => `- Outcome checkpoint: ${obj}`),
+    `COACHING TIP: Confirm everyone has their browser zoomed to 100%–125% and their target environment selected before advancing to the architecture slide.`,
+  ]);
+
   // 2. Core Concepts: What It Is & How It Works
   const conceptsSlide = deck.createSlide({
     kicker: `${stepBadge} • CORE CONCEPTS & ARCHITECTURE`,
@@ -2089,6 +2500,19 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
     paragraphs: rightConceptParas,
   });
 
+  conceptsSlide.setNotes([
+    `PACING & TEACHING GOAL: Spend ~2 minutes building the mental model for ${meta.topicTitle} before attendees start clicking in the portal.`,
+    `ARCHITECTURE WALKTHROUGH:`,
+    ...(Array.isArray(training.architectureFlow) && training.architectureFlow.length > 0
+      ? training.architectureFlow.slice(0, 4).map((stage, idx) => `- Stage ${idx + 1}: ${stage}`)
+      : [
+          `- Trace how user input enters ${meta.products || training.productLabel || "the agent"}, invokes ${meta.topicTitle}, and returns a grounded response.`,
+        ]),
+    `KEY CONCEPTS TO EMPHASIZE:`,
+    ...primaryCoreConcepts.slice(0, 3).map((c) => `- ${c}`),
+    `COACHING CALLOUT: Pause for 15 seconds and ask if any attendee uses a different term for this capability in another Microsoft AI surface before moving on.`,
+  ]);
+
   // 2b. Microsoft Learn Deep-Dive Takeaways & Additional Concepts Slide(s)
   const deepDiveEntries = [];
   for (const extraConcept of (training.coreConcepts || []).slice(4)) {
@@ -2177,6 +2601,16 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
           ],
         });
       }
+
+      learnSlide.setNotes([
+        `MICROSOFT LEARN DEEP-DIVE CUE: Highlight 1–2 official documentation facts rather than reading every bullet verbatim.`,
+        ...chunk.map((entry) =>
+          entry.kind === "learn"
+            ? `- ${entry.title}: ${entry.summary}${entry.url ? ` (Source: ${entry.url})` : ""}`
+            : `- Key takeaway: ${entry.markdown}`
+        ),
+        `FACILITATOR TIP: Remind attendees that portal blade names evolve across release waves; the linked Microsoft Learn articles remain the authoritative source post-workshop.`,
+      ]);
     });
   }
 
@@ -2326,6 +2760,18 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
       borderHex: deck.primaryBorderHex,
       paragraphs: rightScenarioParas,
     });
+
+    practiceSlide.setNotes([
+      `DESIGN COACHING CUE: Connect recommended design patterns directly to ${meta.agentName || training.domainLabel || "the customer scenario"}.`,
+      ...(training.whenToUse ? [`WHEN TO USE IT: ${training.whenToUse}`] : []),
+      `BEST-PRACTICE TALKING POINTS:`,
+      ...bestPracticeList.map((bp) => `- ${bp}`),
+      ...(parsedTopic.sharepointSite
+        ? [
+            `SHAREPOINT GROUNDING REMINDER: Verify attendees use ${parsedTopic.sharepointSite} and confirm signed-in test accounts have at least Read access so delegated ACL trimming returns citations.`,
+          ]
+        : []),
+    ]);
   }
 
   // 3b. Cross-Harness Surface Comparison Table Slide (when applicable)
@@ -2349,6 +2795,13 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
       colRatios: [0.22, 0.28, 0.5],
       cellMaxChars: 260,
     });
+    surfaceSlide.setNotes([
+      `CROSS-HARNESS COACHING CUE: Attendees with M365 Copilot, Copilot Studio, or Microsoft Foundry backgrounds often map the same concept to different UI labels.`,
+      ...surfaceRows
+        .slice(0, 4)
+        .map((row) => `- ${row[0]}: ${row[1]} — ${row[2]}`),
+      `PACING TIP: Spend 60 seconds clarifying which column applies to today's lab harness so learners do not hunt for settings from another portal.`,
+    ]);
   }
 
   // 4. Governance, Admin Prerequisites, Licensing & Guardrails Slide(s)
@@ -2438,6 +2891,11 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
             ],
             rows: gChunk,
           });
+          extraGovSlide.setNotes([
+            `ADDITIONAL GOVERNANCE TALKING POINTS: Walk enterprise architects and admins through these supplemental tenant controls.`,
+            ...gChunk.map((r) => `- ${r[0]} (${r[1]}): ${r[2]}`),
+            `RESCUE TIP: If a learner's tenant blocks a connector via DLP during class, pair them with your pre-provisioned backup maker account or inspect the pre-built reference agent.`,
+          ]);
         });
       }
     } else {
@@ -2475,6 +2933,16 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
         paragraphs: guardrailOnlyParas,
       });
     }
+
+    govSlide.setNotes([
+      `GOVERNANCE & ADMIN PRE-FLIGHT CUE: Emphasize that most enterprise rollout blockers happen here—DLP connector classification, Managed Environment / ACP toggles, and maker RBAC—not in the prompt text.`,
+      ...(training.availabilityGuidance
+        ? [`RELEASE TIER (${training.availabilityBadge || "GA"}): ${training.availabilityGuidance}`]
+        : []),
+      ...govRows.slice(0, 3).map((r) => `- ${r[0]} (${r[1]}): ${r[2]}`),
+      ...guardrails.slice(0, 2).map((g) => `- Guardrail callout: ${g}`),
+      `FAST RESCUE STEP: If an attendee sees a connector blocked by DLP or greyed-out preview toggle, confirm they selected the designated workshop sandbox environment rather than the tenant Default environment.`,
+    ]);
   }
 
   // 5. Configuration Reference Tables & Copy-Ready Prompt / Payload Assets
@@ -2496,6 +2964,13 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
           rows: rChunk,
           cellMaxChars: 260,
         });
+        tblSlide.setNotes([
+          `CONFIGURATION REFERENCE CUE: Keep this slide projected while learners fill in configuration fields for ${meta.topicTitle}.`,
+          ...rChunk
+            .slice(0, 4)
+            .map((row) => `- ${row.filter(Boolean).join(" -> ")}`),
+          `COACHING TIP: Direct attendees to copy exact field values from the module's sample-files/ starter sheet so typos in variable or schema names do not break downstream steps.`,
+        ]);
       });
     }
   } else if (
@@ -2517,6 +2992,13 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
       colRatios: [0.24, 0.28, 0.48],
       cellMaxChars: 240,
     });
+    refTblSlide.setNotes([
+      `CONFIGURATION SUMMARY CUE: Walk through the target scope and expected state before starting the click-by-click steps.`,
+      ...training.synthesizedConfigRows
+        .slice(0, 4)
+        .map((row) => `- ${row[0]} (${row[1]}): ${row[2]}`),
+      `PACING TIP: Leave this summary visible on a secondary screen or remind learners it is in their per-topic handout.`,
+    ]);
   }
 
   for (const snippet of parsedTopic.codeSnippets) {
@@ -2548,6 +3030,12 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
           lineSpacingPct: 112000,
         })),
       });
+      codeSlide.setNotes([
+        `COPY-READY ASSET CUE (${snippet.label}): Do NOT have attendees re-type this block from the projector.`,
+        `- Instruct attendees to copy this ${snippet.language || "prompt/payload"} block directly from their lab handout or the module sample-files/ folder.`,
+        `- Point out any placeholder tokens, URLs, or variable names that must match their tenant environment.`,
+        `RESCUE TIP: Paste the snippet into workshop chat (Teams / Zoom) right now so any learner on a split screen can copy it in one click.`,
+      ]);
     });
   }
 
@@ -2661,6 +3149,21 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
           })),
         });
       }
+
+      walkSlide.setNotes([
+        `LIVE DEMO & HANDS-ON PACING (Steps ${chunk[0].number}–${chunk[chunk.length - 1].number}): ${
+          chunkIdx === 0
+            ? "Demonstrate the navigation path on screen for 2–3 minutes at 125% browser zoom, then have learners execute Steps " +
+              `${chunk[0].number}–${chunk[chunk.length - 1].number} in their own environment.`
+            : "Coach learners through these steps while circulating or monitoring chat for thumbs-up completion signals."
+        }`,
+        `STEP-BY-STEP COACHING CUES:`,
+        ...chunk.map((step) => `- Step ${step.number}: ${truncateText(step.text, 220)}`),
+        ...(isLastWalkSlide && expectedOutcomes.length > 0
+          ? [`EXPECTED SCREEN RESULT: ${expectedOutcomes[0]}`]
+          : []),
+        `PACING CHECKPOINT: Ask for a quick reaction/thumbs-up once Step ${chunk[chunk.length - 1].number} is saved before advancing.`,
+      ]);
     });
   }
 
@@ -2683,6 +3186,10 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
         alt: img.alt,
         caption: img.caption || img.alt,
       });
+      figSlide.setNotes([
+        `VISUAL LANDMARK CALLOUT (Figure ${imgIdx + 1}): Point out the highlighted portal controls in "${img.caption || img.alt}".`,
+        `COACHING TIP: Help attendees orient by left-navigation rail and top command bar rather than pixel position, as responsive window widths shift panel layouts.`,
+      ]);
     }
   }
 
@@ -2791,10 +3298,39 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
           })),
         });
       }
+
+      const fallbackRefUrl =
+        (parsedTopic.references && parsedTopic.references[0]?.url) ||
+        (training.references && training.references[0]?.url) ||
+        "https://learn.microsoft.com/en-us/microsoft-copilot-studio/";
+      valSlide.setNotes([
+        `VALIDATION & FAST RESCUE PLAYBOOK: Confirm at least 85% of attendees pass these checks before moving past ${stepBadge}.`,
+        ...checks.map((item) => `- Verification check: ${item.text}`),
+        `FAST ATTENDEE RESCUE STEPS (DO NOT DERAIL CLASS PACING):`,
+        ...(troubles.length > 0
+          ? troubles.map((t) => `- Rescue cue: ${t}`)
+          : [
+              `- If a learner's test pane still shows stale behavior, have them click Save, wait 10 seconds for indexing/orchestration sync, and click Refresh in the Test pane.`,
+            ]),
+        `DEBRIEF DISCUSSION PROMPT: Ask the room: "Which guardrail or verification check in ${meta.topicTitle} would your security or operations team require before production rollout?"`,
+        ...(parsedTopic.knowledgeChecks.length === 0 && vIdx === totalValSlides - 1
+          ? [
+              `OPTIONAL LIVE KNOWLEDGE CHECK (ANSWER KEY & RATIONALE):`,
+              `- Question: Why do we validate ${meta.topicTitle} in the test harness before layering downstream modules?`,
+              `- Correct Answer: A — Isolating and verifying ${meta.topicTitle} now confirms authentication, connector permissions, and grounding citations work before downstream tools depend on them.`,
+              `- Rationale: ${
+                training.whyItMatters ||
+                `Verifying ${meta.topicTitle} in isolation prevents cascading troubleshooting across multi-step agent flows.`
+              } (Microsoft Learn: ${fallbackRefUrl})`,
+            ]
+          : []),
+      ]);
     }
   }
 
   // 8. Knowledge Check Slide(s) (when mini-quiz content is present)
+  // Keep the answer key & rationale strictly in Presenter View speaker notes so
+  // projecting the slide never spoils the quiz for learners!
   if (parsedTopic.knowledgeChecks.length > 0) {
     parsedTopic.knowledgeChecks.forEach((quiz, qIdx) => {
       const qSlide = deck.createSlide({
@@ -2804,6 +3340,10 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
         footerContext,
       });
 
+      const sanitizedSlideOptions = quiz.options.map((opt) =>
+        String(opt || "").replace(/\s*\(\s*Correct\s*\)\s*$/i, "").trim()
+      );
+
       qSlide.addCard({
         name: `Question ${quiz.number} Prompt`,
         heading: `Question ${quiz.number}`,
@@ -2811,7 +3351,7 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
         x: 640080,
         y: 1220000,
         cx: fullContentCx,
-        cy: 3180000,
+        cy: 3420000,
         fillHex: COLORS.cardBg,
         borderHex: COLORS.border,
         paragraphs: [
@@ -2822,7 +3362,7 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
             colorHex: COLORS.ink,
             spaceAfterPt: 10,
           },
-          ...quiz.options.map((opt) => ({
+          ...sanitizedSlideOptions.map((opt) => ({
             markdown: truncateText(opt, 220),
             sizePt: 12,
             colorHex: COLORS.body,
@@ -2831,42 +3371,81 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
         ],
       });
 
-      const answerParas = [];
-      if (quiz.correctLetter || quiz.explanation) {
-        answerParas.push({
-          markdown: `${quiz.correctLetter ? `**Correct answer: ${quiz.correctLetter}.** ` : ""}${truncateText(
-            quiz.explanation,
-            320
-          )}`,
+      const pollRefs =
+        quiz.learnLinks && quiz.learnLinks.length > 0
+          ? quiz.learnLinks.slice(0, 2)
+          : (training.references || []).slice(0, 1);
+      const pollParas = [
+        {
+          markdown:
+            "Select the single best option (**A–D**) for your lab scenario. Be ready to explain how your choice behaves at runtime before the instructor debriefs the answer.",
           sizePt: 11.5,
           colorHex: COLORS.body,
-          spaceAfterPt: 6,
-        });
-      }
-      for (const ref of quiz.learnLinks.slice(0, 2)) {
-        answerParas.push({
+          spaceAfterPt: pollRefs.length > 0 ? 6 : 2,
+        },
+      ];
+      for (const ref of pollRefs) {
+        if (!ref?.url) continue;
+        pollParas.push({
           runs: [
-            { text: "Microsoft Learn: ", bold: true, sizePt: 11, colorHex: COLORS.quizAccent },
-            { text: ref.title, url: ref.url, sizePt: 11, colorHex: deck.primaryHex },
+            {
+              text: "Microsoft Learn Reference: ",
+              bold: true,
+              sizePt: 10.5,
+              colorHex: COLORS.quizAccent,
+            },
+            {
+              text: truncateText(ref.title || ref.url, 110),
+              url: ref.url,
+              sizePt: 10.5,
+              colorHex: deck.primaryHex,
+            },
           ],
           spaceAfterPt: 3,
         });
       }
-      if (answerParas.length > 0) {
-        qSlide.addCard({
-          name: `Question ${quiz.number} Answer`,
-          heading: "Answer & Explanation",
-          headingColorHex: COLORS.quizAccent,
-          x: 640080,
-          y: 4540000,
-          cx: fullContentCx,
-          cy: 1660000,
-          fillHex: COLORS.quizBg,
-          borderHex: COLORS.quizBorder,
-          insets: { l: 182880, t: 114300, r: 182880, b: 114300 },
-          paragraphs: answerParas,
-        });
-      }
+
+      qSlide.addCard({
+        name: `Question ${quiz.number} Poll Prompt`,
+        heading: "Think, Vote & Discuss",
+        headingColorHex: COLORS.quizAccent,
+        x: 640080,
+        y: 4780000,
+        cx: fullContentCx,
+        cy: 1420000,
+        fillHex: COLORS.quizBg,
+        borderHex: COLORS.quizBorder,
+        insets: { l: 182880, t: 114300, r: 182880, b: 114300 },
+        paragraphs: pollParas,
+      });
+
+      const correctLetter = (quiz.correctLetter || "A").toUpperCase();
+      const matchedCorrectOpt = sanitizedSlideOptions.find((opt) =>
+        new RegExp(`^${correctLetter}[.)]\\s+`, "i").test(opt)
+      );
+      const distractorNotes = sanitizedSlideOptions
+        .filter((opt) => !new RegExp(`^${correctLetter}[.)]\\s+`, "i").test(opt))
+        .map(
+          (opt) =>
+            `- Distractor (${opt}): Explain why this choice either bypasses ${meta.topicTitle} governance/grounding or describes an anti-pattern.`
+        );
+      const primaryLearnRef =
+        (quiz.learnLinks && quiz.learnLinks[0]?.url) ||
+        (training.references && training.references[0]?.url) ||
+        "https://learn.microsoft.com/en-us/microsoft-copilot-studio/";
+
+      qSlide.setNotes([
+        `INSTRUCTOR ANSWER KEY — DO NOT REVEAL ON SCREEN BEFORE CLASS POLL:`,
+        `CORRECT ANSWER: ${matchedCorrectOpt || correctLetter}`,
+        `WHY ${correctLetter} IS CORRECT (RATIONALE): ${
+          quiz.explanation ||
+          training.whyItMatters ||
+          `${correctLetter} reflects the documented Microsoft architecture and runtime behavior for ${meta.topicTitle}.`
+        }`,
+        ...distractorNotes,
+        `MICROSOFT LEARN SOURCE: ${primaryLearnRef}`,
+        `FACILITATOR DELIVERY CUE: Give learners 30–45 seconds to vote in chat or by show of hands, ask one volunteer why they picked ${correctLetter}, then debrief any common distractor.`,
+      ]);
     });
   }
 
@@ -2947,6 +3526,12 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
         cy: 4980000,
         paragraphs: refParas,
       });
+
+      refSlide.setNotes([
+        `MODULE WRAP-UP & TRANSITION CUE: Summarize what learners accomplished in ${stepBadge} (${meta.topicTitle}) and point them to these official Microsoft Learn links for deeper post-workshop study.`,
+        ...rChunk.map((ref) => `- ${ref.title || "Reference"}: ${ref.url}`),
+        `TRANSITION BRIDGE: Confirm everyone saved their work in the portal before transitioning to the next module.`,
+      ]);
     });
   }
 }
@@ -3024,6 +3609,15 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
         alt: deck.organizationName || "Organization logo",
       });
     }
+    cover.setNotes([
+      `WORKSHOP WELCOME & 15-MINUTE PRE-FLIGHT BUFFER: Welcome attendees to "${docTitle}"${
+        options.subtitle ? ` (${options.subtitle})` : ""
+      }.`,
+      `PRE-FLIGHT CHECKLIST BEFORE STARTING MODULE 1:`,
+      `- Confirm every attendee is signed into the designated sandbox tenant/environment in an isolated browser profile.`,
+      `- Verify attendees have downloaded the Complete Lab Package or per-module sample-files/ starter pack.`,
+      `- Share the Run-of-Show agenda, demo-first then hands-on rhythm, and scheduled break times.`,
+    ]);
   }
 
   // Group content by H2/H3 headings
@@ -3198,6 +3792,19 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
           };
         }),
       });
+
+      const titleLower = String(sec.title || "").toLowerCase();
+      const genericCue = /prereq|admin|tenant|connector|license|environment/i.test(titleLower)
+        ? `PRE-DELIVERY & ADMIN READINESS CUE: Walk through these prerequisites carefully. Confirm tenant connectors are in the Business DLP group and test accounts have license + environment maker access.`
+        : /architect|topology|flow|overview|agenda/i.test(titleLower)
+          ? `ARCHITECTURE & AGENDA TALKING POINTS: Trace the end-to-end solution flow on screen so attendees see how each lab module builds toward the complete agent.`
+          : /validat|summary|next step|wrap|debrief/i.test(titleLower)
+            ? `END-OF-LAB VALIDATION & DEBRIEF CUE: Confirm attendees completed end-to-end testing and invite 1–2 takeaways on how they will apply this pattern in their own organization.`
+            : `FACILITATOR TALKING POINTS (${sec.title}): Highlight the key takeaways below in 1–2 minutes before advancing.`;
+      s.setNotes([
+        genericCue,
+        ...chunk.slice(0, 4).map((item) => `- ${truncateText(item.text, 220)}`),
+      ]);
     });
 
     for (const tbl of sec.tables) {
@@ -3215,6 +3822,12 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
           headers: tbl.headers,
           rows: rChunk,
         });
+        s.setNotes([
+          `REFERENCE TABLE WALKTHROUGH (${sec.title}): Call out the top rows that directly impact attendee setup and pacing.`,
+          ...rChunk
+            .slice(0, 4)
+            .map((row) => `- ${row.filter(Boolean).join(" -> ")}`),
+        ]);
       });
     }
 
@@ -3242,6 +3855,10 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
             spaceAfterPt: 2,
           })),
         });
+        s.setNotes([
+          `CODE / PROMPT WALKTHROUGH (${sec.title}): Have learners copy this snippet from the handout rather than typing manually from the slide.`,
+          `COACHING TIP: Point out key parameters or placeholders to customize for their environment.`,
+        ]);
       });
     }
 
@@ -3262,6 +3879,9 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
           alt: img.alt,
           caption: img.alt,
         });
+        s.setNotes([
+          `VISUAL CALLOUT (${sec.title}): Walk attendees through "${img.alt}" and highlight the primary UI landmarks.`,
+        ]);
       }
     }
   }
@@ -3423,3 +4043,6 @@ function appendGenericTopicOrMarkdown(deck, src, options) {
     kickerPrefix: "OVERVIEW",
   });
 }
+
+export const buildPptxFromLabMarkdown = renderMarkdownToPptxBuffer;
+export const buildTopicPptxFromMarkdown = renderTopicToPptxBuffer;
