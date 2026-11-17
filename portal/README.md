@@ -10,7 +10,7 @@ A web-based lab operations portal for building, customizing, validating, preview
 - **🗺️ Lab Flow Diagrams** — Render Mermaid diagrams inside lab previews to visualize architecture and process flow
 - **🗺️ Lab Dependency Map** — View a structured dependency and sequence map showing recommended lab order and independent tracks
 - **🎨 Customization** — Replace organization names, industry context, compliance terms, agent names, end-user roles, and branding
-- **🏢 Industry Scenario Planner** — Apply preconfigured industry and role templates to lab selection and content defaults
+- **💡 Use Case Builder** — Pick an industry, departments, goals, the data you already have, a platform, and a skill level, and get a live, ranked list of Copilot Studio and Agent Builder use cases (each with starter instructions, knowledge, tools, a product-fit rationale, lab topics, and Microsoft Learn links). Shortlist them, export Markdown or CSV, or pre-fill the lab builder wizard from your shortlist. The scenario setup for the provisioning labs is kept in a secondary section ([`docs/lab-builder.md`](../docs/lab-builder.md#use-case-builder))
 - **👁️ Lab Preview** — Read fully rendered paginated labs in the browser with table of contents, chapter jumper, image lightbox, print/save as PDF, and walkthrough PDF download links ([`tools/lab-pdf`](../tools/lab-pdf/README.md)) where available
 - **👍 Inline Feedback** — Capture thumbs up/down feedback on sections and checkpoints
 - **🐛 Issue Reporting** — Open a GitHub issue with current lab context in one click
@@ -306,13 +306,17 @@ In the **Validation** tab, **Run All Tests** runs the structural tests and then 
 | `POST` | `/api/provision/destroy` | Destroy deployed Azure resources |
 | `GET` | `/api/provision/status/:baseName` | Get current deployment status by base name |
 
-### Scenario Planner
+### Use Case Builder and scenario setup
 
 | Method | Path | Description |
 |--------|------|-------------|
+| `GET` | `/api/use-cases/options` | Use Case Builder inputs: industries, departments, goals, data sources, platforms, levels, limits, and whether AI polish is available |
+| `POST` | `/api/use-cases/generate` | Ranked Copilot Studio and Agent Builder use cases for `{ industry, departments[], goals[], dataSources[], platform, level, polish }` (strict validation, 64 KB body, rate limited per user) |
 | `GET` | `/api/scenarios` | List industry and role scenarios |
 | `GET` | `/api/scenarios/:type/:id` | Get a single industry or role scenario |
-| `POST` | `/api/scenarios/configure` | Build a suggested configuration overlay |
+| `POST` | `/api/scenarios/configure` | Build a suggested configuration overlay (used by **Apply scenario to Lab setup**) |
+
+The request and response are documented in [`docs/lab-builder.md`](../docs/lab-builder.md#use-case-builder-api).
 
 ### Lab Builder
 
@@ -355,7 +359,8 @@ portal/
 │   ├── branding-profiles.js  Brand profiles, per-lab customization, and the CAPTURE_* environment mapping
 │   ├── branding-routes.js    Brand profile and per-lab customization routes
 │   ├── capture/           Screenshot capture platform: pairing, job queue, upload verification, companion download, routes
-│   ├── scenarios.js       Industry scenario templates
+│   ├── scenarios.js       Industry and department scenario templates (also the Use Case Builder's industry and department lists)
+│   ├── use-cases/         Use Case Builder: JSON data (capabilities, patterns, industries), generator, ranking, optional AI wording, routes
 │   ├── provisioner.js     Azure resource provisioning engine
 │   ├── keyvault.js        Azure Key Vault secret management
 │   ├── powerplatform.js   Power Platform API (environments, Secure Score)
@@ -372,6 +377,7 @@ portal/
 │   ├── index.html             Single-page app UI (tabs, forms, preview, print styles)
 │   ├── app.js                 Core portal frontend logic (pagination, checklists, mini-quizzes)
 │   ├── lab-builder-wizard.js  8-step custom lab builder wizard UI (Step 7 includes Customize this lab)
+│   ├── use-case-builder.js    Use Case Builder: live inputs, ranked use case cards, shortlist, Markdown/CSV export, and the hand-off to the wizard
 │   ├── generated-labs.js      Generated lab manager, multi-format/per-topic export, print, and validation UI
 │   ├── brand-ui.js            Brand validation, contrast, and live preview helpers shared by the UI
 │   ├── lab-customize.js       Saved-lab Customize section (profile, overrides, Update from profile, Reset)

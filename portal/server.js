@@ -49,6 +49,7 @@ import {
   writeLabCustomization,
 } from "./lib/branding-profiles.js";
 import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/scenarios.js";
+import { registerUseCaseRoutes, USE_CASE_JSON_BODY_LIMIT, USE_CASE_JSON_PATHS } from "./lib/use-cases/routes.js";
 import { getFeaturesByCategory, getFeatures, getHarnesses, LEVELS, validateCatalog } from "./lib/lab-builder/catalog.js";
 import { planLab } from "./lib/lab-builder/planner.js";
 import { recommend } from "./lib/lab-builder/recommend.js";
@@ -394,6 +395,7 @@ app.use(
   express.json({ limit: process.env.LAB_BUILDER_BODY_LIMIT || "64kb" }),
 );
 app.use(BRANDING_JSON_PATHS, express.json({ limit: BRANDING_JSON_BODY_LIMIT }));
+app.use(USE_CASE_JSON_PATHS, express.json({ limit: USE_CASE_JSON_BODY_LIMIT }));
 app.use(express.json({ limit: "10mb" }));
 // Express 5 leaves req.body undefined when no body was parsed; handlers
 // destructure it, so keep the empty-object default Express 4 provided.
@@ -506,6 +508,9 @@ app.post("/api/scenarios/configure", (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Use Case Builder: GET /api/use-cases/options and POST /api/use-cases/generate (behind requireAuth above)
+registerUseCaseRoutes(app);
 
 // ── Lab Builder: generate a custom, Microsoft Learn-grounded lab ────────────
 const configuredLabBuilderConcurrency = Number(process.env.LAB_BUILDER_MAX_ACTIVE || 2);

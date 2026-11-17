@@ -1,0 +1,270 @@
+{
+  "$comment": "Copilot Studio use case patterns. A pattern becomes one use case per department and industry it covers: {who}, {topic}, {docs}, {work}, {data}, {kpi}, {ask}, {org}, {customer}, {customers}, {site}, {dept}, and {industry} come from the industry and department context, and {Name} capitalizes the first letter. Level, knowledge, tools, lab topics, Learn links, and product-fit wording are derived from capabilities.json, so a pattern only lists needs. The first goal is the primary goal. A pattern with no capability that forces Copilot Studio must carry its own fit sentence.",
+  "patterns": [
+    {
+      "id": "cs-knowledge-assistant", "product": "copilot-studio", "harness": "standard", "departments": ["*"], "effort": "hours",
+      "goals": ["knowledge-access", "reduce-handling-time"], "dataSources": ["sharepoint", "web", "teams"],
+      "needs": ["instructions", "knowledge-sharepoint", "knowledge-files-web", "test", "teams-channel"],
+      "titles": ["{Topic} assistant for {who}", "Ask-the-expert agent for {topic}"],
+      "description": "Give {who} one place to ask about {topic}. The agent answers from {docs}, cites the document it used, and says so when the documents do not cover a question. Publishing to Teams puts the answers where the work already happens.",
+      "instructions": "You are the {org}'s {topic} assistant for {who}. Answer only from the connected knowledge sources and cite the document you used. If the sources do not cover the question, say so and name the team to ask instead of guessing. Keep answers short and put steps in a numbered list. Example question: \"{ask}\"",
+      "fit": "Copilot Studio gives a team-owned assistant a managed lifecycle: Monitor analytics, evaluations, solutions, and room to add connector actions or channels later. If one team will only use its own documents, the Agent Builder version of this use case may be enough."
+    },
+    {
+      "id": "cs-public-faq-agent", "product": "copilot-studio", "harness": "standard", "departments": ["customer-service", "sales", "marketing", "communications", "accessibility"], "effort": "hours",
+      "goals": ["customer-experience", "knowledge-access"], "dataSources": ["web", "none"],
+      "needs": ["instructions", "knowledge-files-web", "test", "publish"],
+      "titles": ["Public FAQ agent for {topic}", "Public-website answers on {topic}"],
+      "description": "Start with what you already publish. The agent answers common {topic} questions from your public web pages and a few uploaded files, with no internal data to prepare first. It is a low-risk first agent for {who} and a way to learn which questions people ask most.",
+      "instructions": "You answer public questions about {topic} for the {org}. Use only the public website pages and uploaded files provided. Never give personal advice or share anything that is not in those sources. If you cannot answer, say so and offer the contact route. Example question: \"{ask}\"",
+      "fit": "Copilot Studio fits when the first agent should be published and measured: you can test it, publish it, and review Monitor analytics before adding tools or channels. For a quick personal helper, the Agent Builder version may be enough."
+    },
+    {
+      "id": "cs-guided-intake", "product": "copilot-studio", "harness": "standard", "departments": ["hr", "it", "legal", "finance", "operations", "customer-service", "accessibility", "sustainability", "communications"], "effort": "days",
+      "goals": ["reduce-handling-time", "speed-approvals"], "dataSources": ["teams", "dataverse", "none"],
+      "needs": ["instructions", "topics", "entities", "adaptive-cards", "agent-flows", "test", "teams-channel"],
+      "titles": ["Guided intake for {work}", "Request agent for {work}"],
+      "description": "Replace long email threads about {work} with a guided conversation. The agent asks one question at a time, checks each answer, and shows an Adaptive Card summary before it submits. {Who} get complete requests the first time. Measure the effect with {kpi}.",
+      "instructions": "You collect {work} for {who} at the {org}. Ask one question at a time and confirm each value before moving on. Required details: who is asking, what is needed, the due date, and any supporting reference. Show a summary card and ask for confirmation before you submit. Never submit with a missing required value. Example request: \"{ask}\"",
+      "toolNotes": { "agent-flows": "Submit the confirmed request and notify the owner of {work}" }
+    },
+    {
+      "id": "cs-record-lookup", "product": "copilot-studio", "harness": "standard", "departments": ["sales", "finance", "operations", "customer-service", "hr", "executives", "sustainability", "accessibility"], "effort": "days",
+      "goals": ["reduce-handling-time", "knowledge-access"], "dataSources": ["dataverse", "teams"],
+      "needs": ["instructions", "knowledge-dataverse", "knowledge-tuning", "test", "teams-channel"],
+      "titles": ["Ask-your-data agent for {data}", "Record-level answers on {data} for {who}"],
+      "description": "Let {who} ask plain-language questions about {data} that already live in Dataverse. The agent answers record-level questions, shows its citations so people can verify the result, and uses grounding settings to stay inside the data. It saves a trip to a report or an analyst.",
+      "instructions": "You answer questions about {data} for {who}. Use only the connected Dataverse tables. Quote the record you used. If the data does not answer the question, say so instead of estimating. Do not reveal fields the user did not ask about. Example question: \"{ask}\""
+    },
+    {
+      "id": "cs-approval-routing", "product": "copilot-studio", "harness": "standard", "departments": ["finance", "legal", "hr", "operations", "it", "executives", "sales", "communications", "sustainability", "accessibility"], "effort": "days",
+      "goals": ["speed-approvals", "reduce-cost"], "dataSources": ["dataverse", "email", "teams"],
+      "needs": ["instructions", "agent-flows", "connector-tools", "adaptive-cards", "teams-channel", "test"],
+      "titles": ["Approval routing agent for {work}", "Approvals in chat for {work}"],
+      "description": "Handle {work} in a conversation instead of an inbox. An agent flow sends each request to the right approver with a card in Teams, records the decision, and tells the requester the status. Connector actions update the system where {data} live. Measure the effect with {kpi}.",
+      "instructions": "You help {who} submit and track {work}. Collect the request details, confirm them, then start the approval flow. Tell the requester who must approve and what happens next. When asked for status, report only what the flow returns. Never approve on anyone's behalf. Example request: \"{ask}\"",
+      "toolNotes": { "agent-flows": "Route {work} to the right approver and record the decision", "connector-tools": "Update the system that holds {data}" }
+    },
+    {
+      "id": "cs-email-triage", "product": "copilot-studio", "harness": "standard", "departments": ["customer-service", "sales", "legal", "hr", "finance", "communications", "marketing"], "effort": "days",
+      "goals": ["reduce-handling-time", "customer-experience"], "dataSources": ["email", "sharepoint"],
+      "needs": ["instructions", "prompt-tools", "connector-tools", "test"],
+      "titles": ["Inbox triage and reply drafts for {work}", "Email summarizer for {who}"],
+      "description": "Summarize incoming email about {work} into one consistent structure and draft a reply for a person to review. A custom prompt tool keeps the summary format the same every time, and a connector action files the result where {who} track {data}. People stay in control: the agent drafts, they send.",
+      "instructions": "You triage email about {work} for {who}. For each message, return: the sender's request in one sentence, urgency, the policy or document that applies, and a draft reply. Never send anything. Flag anything that mentions a deadline, a complaint, or a legal or safety issue. Example message topic: \"{ask}\""
+    },
+    {
+      "id": "cs-document-extraction", "product": "copilot-studio", "harness": "standard", "departments": ["legal", "finance", "hr", "operations", "sustainability", "executives", "accessibility"], "effort": "days",
+      "goals": ["compliance-risk", "reduce-handling-time", "reduce-cost"], "dataSources": ["sharepoint", "none"],
+      "needs": ["instructions", "prompt-tools", "agent-flows", "flow-prompts", "knowledge-files-web", "test"],
+      "titles": ["Document review assistant for {docs}", "Structured extraction from {docs}"],
+      "description": "Turn long {docs} into a standard checklist or record in seconds. A Prompt Builder prompt reads the document and returns the same fields every time, so {who} scan results instead of reading every page. A reviewer confirms the result before anyone uses it.",
+      "instructions": "You review {docs} for {who}. Return the same fields every time: document type, key dates, obligations, exceptions, and anything unusual. Quote the passage behind each field. If a field is missing, write \"not found\". Never fill a field from guesswork. Example request: \"{ask}\""
+    },
+    {
+      "id": "cs-measured-assistant", "product": "copilot-studio", "harness": "standard", "departments": ["legal", "finance", "hr", "executives", "it", "customer-service", "operations", "sustainability"], "effort": "weeks",
+      "goals": ["compliance-risk", "knowledge-access"], "dataSources": ["sharepoint"],
+      "needs": ["instructions", "knowledge-sharepoint", "knowledge-tuning", "moderation", "evaluations", "analytics", "test"],
+      "titles": ["Evaluated {topic} assistant for {who}", "{Topic} assistant with release evidence"],
+      "description": "Launch a {topic} assistant that {who} can trust because you test it first. Evaluations run a fixed question set against {docs}, moderation settings keep answers in scope, and Monitor shows how it performs after release. Keep the test results as evidence for reviewers.",
+      "instructions": "You answer {topic} questions for {who} at the {org} using only the approved sources. Always cite the source. Refuse requests outside {topic}. When you are not sure, say so and send the person to the owning team. Never give a final decision where a policy requires a human. Example question: \"{ask}\"",
+      "fit": "Copilot Studio adds evaluations and Monitor analytics, so you can show repeatable quality evidence before and after release, and it includes content moderation settings. Those are the reasons to choose it over a quick personal agent."
+    },
+    {
+      "id": "cs-specialist-team", "product": "copilot-studio", "harness": "standard", "departments": ["executives", "operations", "it", "hr", "customer-service", "finance"], "effort": "weeks",
+      "goals": ["knowledge-access", "reduce-handling-time"], "dataSources": ["teams", "sharepoint"],
+      "needs": ["instructions", "orchestration", "connected-agents", "test", "teams-channel"],
+      "titles": ["Front-door agent that routes {work} to specialist agents", "Front-door agent for {topic}"],
+      "description": "Give {who} one front-door agent that hands {work} to the right specialist agent. Each specialist owns one domain and its own knowledge, so answers stay accurate as the number of topics grows. Generative orchestration picks the specialist from what the user asks.",
+      "instructions": "You are the first point of contact for {who} at the {org}. Work out which specialist agent owns the request and hand it over. Do not answer from memory. If no specialist fits, say so and list the closest ones. Example request: \"{ask}\""
+    },
+    {
+      "id": "cs-servicenow-tickets", "product": "copilot-studio", "harness": "standard", "departments": ["it", "hr", "operations", "customer-service"], "effort": "days",
+      "goals": ["reduce-handling-time", "customer-experience"], "dataSources": ["lob", "teams"],
+      "needs": ["instructions", "servicenow", "teams-channel", "test"],
+      "titles": ["ServiceNow ticket agent for {work}", "Self-service ITSM assistant for {who}"],
+      "description": "Let {who} check, create, and summarize ServiceNow records for {work} without opening the portal. The agent uses ServiceNow connector actions as tools, confirms details before it creates anything, and links back to the record. It is a third-party connector, so confirm the connection and licensing with ServiceNow.",
+      "instructions": "You help {who} with {work} in ServiceNow. Look up an existing record before you create a new one. Confirm the short description, category, and urgency with the user before creating a record. Report the record number after every change. Example request: \"{ask}\""
+    },
+    {
+      "id": "cs-salesforce-accounts", "product": "copilot-studio", "harness": "standard", "departments": ["sales", "customer-service", "marketing"], "effort": "days",
+      "goals": ["grow-revenue", "customer-experience"], "dataSources": ["lob"],
+      "needs": ["instructions", "salesforce", "test"],
+      "titles": ["CRM account assistant for {work}", "Salesforce answers for {who}"],
+      "description": "Answer CRM case and account questions for {who} with Salesforce as a real-time knowledge source (preview). Source permissions apply, so people see only what they can already see in Salesforce. Use it to prepare for conversations about {work} in seconds.",
+      "instructions": "You answer CRM questions for {who} about {work}. Use only the connected Salesforce data and say which account or case you used. If you cannot see a record, say the user may not have access. Never guess a value. Example question: \"{ask}\""
+    },
+    {
+      "id": "cs-sap-lookups", "product": "copilot-studio", "harness": "standard", "departments": ["finance", "operations"], "effort": "days",
+      "goals": ["reduce-handling-time", "reduce-cost"], "dataSources": ["lob"],
+      "needs": ["instructions", "sap", "test"],
+      "titles": ["SAP lookup agent for {data}", "Read-only ERP answers for {who}"],
+      "description": "Let {who} look up {data} in SAP by asking a question instead of running a transaction. The agent uses SAP connector actions as read-first tools, so the first release cannot change records. It is a third-party connector, so confirm the connection and licensing with SAP.",
+      "instructions": "You look up {data} in SAP for {who}. Use read-only tools. State which record you retrieved and its last update. If a lookup returns nothing, say so and suggest the field to check. Never offer to change data. Example question: \"{ask}\""
+    },
+    {
+      "id": "cs-snowflake-insights", "product": "copilot-studio", "harness": "standard", "departments": ["executives", "finance", "marketing", "sustainability", "sales"], "effort": "weeks",
+      "goals": ["knowledge-access", "reduce-cost"], "dataSources": ["lob"],
+      "needs": ["instructions", "snowflake", "test"],
+      "titles": ["Governed data answers on {data}", "Warehouse questions answered for {who}"],
+      "description": "Let {who} ask questions about {data} that sit in a Snowflake warehouse. The agent queries governed data through a Power Platform connection, so the warehouse stays the source of truth and its access rules still apply. Measure the effect with {kpi}.",
+      "instructions": "You answer questions about {data} for {who} from the governed Snowflake views you are connected to. Show the figures and the time period you used. If the question needs data you cannot query, say so. Never combine numbers across sources without saying how. Example question: \"{ask}\""
+    },
+    {
+      "id": "cs-jira-status", "product": "copilot-studio", "harness": "standard", "departments": ["it", "operations"], "effort": "days",
+      "goals": ["reduce-handling-time", "knowledge-access"], "dataSources": ["lob", "teams"],
+      "needs": ["instructions", "jira", "teams-channel", "test"],
+      "titles": ["Issue status agent for {work}", "Project status in chat for {who}"],
+      "description": "Answer 'where does this stand?' for {work} without a status meeting. The agent retrieves Jira issue and project status through connector actions and summarizes it for {who} in Teams. Jira is a third-party connector, so confirm the connection and licensing with Atlassian.",
+      "instructions": "You report the status of {work} for {who} from Jira. Give the issue key, status, owner, and last update. When asked for a summary, group issues by status. Do not change issues. Example question: \"{ask}\""
+    },
+    {
+      "id": "cs-signed-in-self-service", "product": "copilot-studio", "harness": "standard", "departments": ["hr", "it", "finance", "customer-service", "sales", "operations"], "effort": "weeks",
+      "goals": ["customer-experience", "reduce-handling-time"], "dataSources": ["dataverse", "teams"],
+      "needs": ["instructions", "authentication", "knowledge-dataverse", "connector-tools", "teams-channel", "test"],
+      "titles": ["Signed-in self-service for {work}", "My-requests agent for {who}"],
+      "description": "Give {who} a signed-in agent that knows who is asking. Microsoft Entra ID authentication lets it read only that person's {data} and act on their behalf through connector actions, so answers are personal and secure. Pair it with Monitor analytics to see which requests it resolves.",
+      "instructions": "You help signed-in {who} with their own {work}. Use only the signed-in user's records. Confirm before any change and report what changed. If the user asks about someone else's records, decline and explain why. Example request: \"{ask}\""
+    },
+    {
+      "id": "cs-custom-connector-api", "product": "copilot-studio", "harness": "standard", "departments": ["it", "operations", "finance", "sales", "customer-service", "executives"], "effort": "weeks",
+      "goals": ["reduce-handling-time", "reduce-cost"], "dataSources": ["lob", "dataverse"],
+      "needs": ["instructions", "custom-connectors", "authentication", "test"],
+      "titles": ["Internal API assistant for {data}", "Custom connector agent for {work}"],
+      "description": "Connect an agent to your own internal API so {who} can work with {data} in conversation. A custom connector built from the API's OpenAPI definition and secured with Microsoft Entra ID OAuth gives the agent a governed way in. Start read-only, then add write actions once the results are trusted.",
+      "instructions": "You help {who} work with {data} through the connected internal API. Call the read operations first and show what you found. Ask for confirmation before any operation that changes data. If the API returns an error, report it plainly and do not retry more than once. Example request: \"{ask}\""
+    },
+    {
+      "id": "cs-governed-rollout", "product": "copilot-studio", "harness": "standard", "departments": ["*"], "effort": "weeks",
+      "goals": ["compliance-risk"], "dataSources": ["sharepoint"],
+      "needs": ["instructions", "knowledge-sharepoint", "evaluations", "dlp", "alm", "inventory", "test"],
+      "titles": ["Governed rollout of the {topic} agent", "Production-ready {topic} agent with ALM and DLP"],
+      "description": "Move the {topic} agent from a maker's prototype to a managed release for {who}. Package it in a solution, move it between environments, apply data policies (DLP) to the connectors it uses, and record the agent and its owner in your inventory. Evaluations gate each release so quality does not slip."
+      ,
+      "instructions": "You are the {org}'s {topic} agent for {who}. Answer from the approved knowledge sources only and cite them. Follow the data-handling rules that apply to {docs}. If a request is outside scope, decline and name the owning team. Example question: \"{ask}\""
+    },
+    {
+      "id": "cs-voice-agent", "product": "copilot-studio", "harness": "standard", "departments": ["customer-service", "sales", "it", "operations"], "effort": "weeks",
+      "goals": ["customer-experience", "reduce-handling-time"], "dataSources": ["sharepoint", "none"],
+      "needs": ["instructions", "knowledge-sharepoint", "voice", "test"],
+      "titles": ["Voice agent for {work} calls", "Phone self-service for {work}"],
+      "description": "Answer routine phone calls about {work} with a real-time voice agent. Choose the voice model, tune speech sensitivity and hold-and-resume behavior, and add post-call actions so nothing is lost. Callers get an immediate answer on common questions, and {who} take the harder calls.",
+      "instructions": "You answer phone calls about {work} for the {org}. Speak in short sentences. Confirm what you heard before you act. Answer only from the connected knowledge. If the caller is upset or asks for a person, say you will connect them and end with a clear next step. Example question: \"{ask}\""
+    },
+    {
+      "id": "cs-computer-use", "product": "copilot-studio", "harness": "standard", "departments": ["finance", "operations", "hr", "it", "customer-service"], "effort": "weeks",
+      "goals": ["reduce-cost", "reduce-handling-time"], "dataSources": ["lob", "none"],
+      "needs": ["instructions", "computer-use", "test"],
+      "titles": ["Desktop automation for {work} (no API)", "Computer-using agent for {work}"],
+      "description": "Handle {work} in a legacy desktop or web app that has no API. A computer-using agent opens the app, reads or enters the values, and reports what it did. Use it as a bridge while a proper integration is built, and keep a person in the review loop.",
+      "instructions": "You complete {work} in the designated application for {who}. Follow the listed steps exactly. After each step, report what you saw. Stop and ask for help if a screen is not the one you expect. Never enter data you were not given. Example request: \"{ask}\""
+    },
+    {
+      "id": "cs-portal-embed", "product": "copilot-studio", "harness": "standard", "departments": ["customer-service", "sales", "marketing", "communications"], "effort": "weeks",
+      "goals": ["customer-experience", "knowledge-access"], "dataSources": ["web", "sharepoint"],
+      "needs": ["instructions", "knowledge-sharepoint", "knowledge-files-web", "authentication", "web-sdk", "test"],
+      "titles": ["Portal assistant for {topic}", "In-app agent for {topic}"],
+      "description": "Embed the {topic} assistant in your own site or app so visitors get answers without leaving it. The Microsoft 365 Agents SDK connects the web or native app to the agent, and authentication keeps personal data behind sign-in. Content stays current from {docs}.",
+      "instructions": "You help visitors to the {org}'s app with {topic}. Use only the connected knowledge. If the visitor is signed in, you may use their own records; otherwise answer general questions only. Offer a human contact route when you cannot resolve the question. Example question: \"{ask}\""
+    },
+    {
+      "id": "cs-external-agent-a2a", "product": "copilot-studio", "harness": "standard", "departments": ["executives", "it", "operations", "sales"], "effort": "weeks",
+      "goals": ["knowledge-access", "reduce-cost"], "dataSources": ["none"],
+      "needs": ["instructions", "connected-agents", "a2a", "test"],
+      "titles": ["Partner-agent collaboration for {work}", "Cross-organization agent for {topic}"],
+      "description": "Let your {topic} agent work with an external partner or vendor agent that implements the Agent2Agent (A2A) protocol. {Who} ask once, and the agent delegates the part that belongs to the partner. Agree on what data crosses the boundary before you connect.",
+      "instructions": "You coordinate {work} for {who}. Handle what you can from your own knowledge. Delegate only the part that belongs to the external agent, and tell the user when you do. Never send personal or confidential details to the external agent unless the user confirms. Example request: \"{ask}\""
+    },
+    {
+      "id": "cs-mcp-tools", "product": "copilot-studio", "harness": "standard", "departments": ["it", "operations", "finance", "sustainability"], "effort": "days",
+      "goals": ["reduce-handling-time", "knowledge-access"], "dataSources": ["lob", "none"],
+      "needs": ["instructions", "mcp-servers", "test"],
+      "titles": ["MCP tool agent for {work}", "Reuse existing tools for {work}"],
+      "description": "Reuse the tools an MCP server already exposes so {who} can work on {work} in conversation. Adding the server makes its tools and resources appear on the agent's Tools page, so you avoid rebuilding what exists. Check each tool's description so the agent picks the right one.",
+      "instructions": "You help {who} with {work} by calling the connected MCP tools. Pick the tool whose description matches the request. Show which tool you used and what it returned. If no tool fits, say so instead of improvising. Example request: \"{ask}\""
+    },
+    {
+      "id": "cs-mc-first-agent", "product": "copilot-studio", "harness": "microsoft-copilot", "departments": ["*"], "effort": "hours",
+      "goals": ["knowledge-access", "reduce-handling-time"], "dataSources": ["sharepoint", "web", "none"],
+      "needs": ["mc-knowledge", "mc-preview-test", "mc-publish"],
+      "titles": ["Quick-start assistant for {topic}", "First agent for {who}: {topic}"],
+      "description": "Build a first agent for {who} on the Microsoft Copilot harness: describe it in natural language, add {docs} as knowledge, and try it on the Preview tab. Publishing checks readiness and data-policy blocks for you. It is the shortest path from idea to a working agent.",
+      "instructions": "You help {who} at the {org} with {topic}. Answer from the added knowledge and name the source. If the knowledge does not cover the question, say so. Keep replies brief. Example question: \"{ask}\"",
+      "fit": "Copilot Studio's Microsoft Copilot harness gives a natural-language Build tab, a Preview tab, and a publish flow that checks readiness and data-policy blocks. If only you need it, the Agent Builder version may be enough."
+    },
+    {
+      "id": "cs-mc-skills", "product": "copilot-studio", "harness": "microsoft-copilot", "departments": ["it", "hr", "legal", "finance", "customer-service", "operations", "marketing", "communications", "sales"], "effort": "days",
+      "goals": ["reduce-handling-time", "knowledge-access"], "dataSources": ["sharepoint"],
+      "needs": ["mc-knowledge", "mc-skills", "mc-preview-test", "mc-publish"],
+      "titles": ["Skill-based agent for {work}", "Task skills for {who}"],
+      "description": "Package how {who} handle {work} as reusable skills. The agent activates the right skill when a request matches, so each task follows the same steps and cites {docs}. New skills can be added without rebuilding the agent.",
+      "instructions": "You help {who} with {work}. When a request matches a skill, follow that skill's steps exactly. Cite {docs} when you use them. If no skill matches, answer from the knowledge and say you are doing so. Example request: \"{ask}\""
+    },
+    {
+      "id": "cs-mc-work-iq-briefing", "product": "copilot-studio", "harness": "microsoft-copilot", "departments": ["executives", "sales", "hr", "communications", "operations", "marketing"], "effort": "days",
+      "goals": ["knowledge-access", "reduce-handling-time"], "dataSources": ["email", "teams", "sharepoint"],
+      "needs": ["work-iq", "mc-knowledge", "mc-preview-test"],
+      "titles": ["Daily briefing agent for {who}", "Work IQ briefing on {topic}"],
+      "description": "Prepare {who} for the day with a briefing built from mail, calendar, and Teams through Work IQ, plus {docs}. Scope the Microsoft 365 workloads the agent may use, so it sees only what the work needs. Ask follow-up questions in the same conversation.",
+      "instructions": "You prepare a short daily briefing on {topic} for {who}. Use only the Microsoft 365 workloads you have been scoped to and the added knowledge. List what needs attention first, then what changed. Never include personal messages unrelated to {topic}. Example follow-up: \"{ask}\""
+    },
+    {
+      "id": "cs-mc-event-trigger", "product": "copilot-studio", "harness": "microsoft-copilot", "departments": ["operations", "finance", "hr", "it", "customer-service", "legal"], "effort": "weeks",
+      "goals": ["reduce-handling-time", "speed-approvals"], "dataSources": ["email", "dataverse"],
+      "needs": ["mc-knowledge", "mc-workflows", "mc-triggers", "mc-monitor"],
+      "titles": ["Event-triggered agent for new {work} (preview)", "Autonomous agent that starts on {work} (preview)"],
+      "description": "Let an agent start on its own when an event occurs, such as a new item for {work}. A trigger starts the run, a workflow acts as a tool, and Monitor shows what it did and the credits it used. Triggers and workflows are preview capabilities, so begin with a low-risk step and keep a person in review.",
+      "instructions": "You handle new {work} for {who} when the trigger fires. Read the event, check the knowledge for the rule that applies, and run the workflow only when the rule clearly matches. Otherwise, flag it for a person with a one-line reason. Log what you did. Example event: \"{ask}\""
+    },
+    {
+      "id": "cs-mc-memory", "product": "copilot-studio", "harness": "microsoft-copilot", "departments": ["sales", "executives", "customer-service", "marketing"], "effort": "days",
+      "goals": ["knowledge-access", "customer-experience"], "dataSources": ["sharepoint"],
+      "needs": ["mc-knowledge", "mc-memory", "mc-preview-test", "mc-publish"],
+      "titles": ["Assistant that remembers preferences for {who}", "Personal {topic} assistant with memory (preview)"],
+      "description": "Make the {topic} assistant remember what each person prefers, such as format, focus areas, and past requests. Memory is a preview capability, and users can view and delete what is remembered. It helps {who} get consistent help without repeating themselves.",
+      "instructions": "You help {who} with {topic}. Remember stated preferences about format and focus, and apply them next time. Never store sensitive personal details. When asked what you remember, list it plainly. Example request: \"{ask}\"",
+      "fit": "Memory is a Microsoft Copilot harness capability in Copilot Studio, and users can view and delete what is remembered. The standard harness has no memory and keeps context in topics and variables instead."
+    },
+    {
+      "id": "cc-first-chat-agent", "product": "copilot-studio", "harness": "customer-conversation", "departments": ["customer-service", "sales", "marketing", "communications", "accessibility"], "effort": "hours",
+      "goals": ["customer-experience", "knowledge-access"], "dataSources": ["web", "sharepoint"],
+      "needs": ["cc-instructions", "cc-knowledge", "cc-preview-test", "cc-deploy"],
+      "titles": ["First customer-facing agent for {topic} (preview)", "Chat agent for {topic} (preview)"],
+      "description": "Stand up a customer-facing agent for {topic} on the Customer Conversation harness. Write the instructions once, with separate Speech and Chat guidance, add public websites or files as knowledge, and share the demo website with testers. It is a preview harness built for voice and chat with people outside your organization.",
+      "instructions": "You answer visitors' questions about {topic} for the {org}. Use only the connected knowledge. Keep chat answers short; in speech, use one idea per sentence. If you cannot help, offer a way to reach a person. Example question: \"{ask}\""
+    },
+    {
+      "id": "cc-chat-handoff", "product": "copilot-studio", "harness": "customer-conversation", "departments": ["customer-service", "sales", "marketing", "communications"], "effort": "days",
+      "goals": ["customer-experience", "reduce-handling-time"], "dataSources": ["web", "sharepoint"],
+      "needs": ["cc-instructions", "cc-knowledge", "cc-escalate", "cc-deploy", "cc-preview-test"],
+      "titles": ["Chat agent with human hand-off for {topic} (preview)", "Chat deflection with escalation for {topic} (preview)"],
+      "description": "Answer questions about {topic} on web chat, and hand the conversation to a person when the agent cannot resolve it. The prebuilt Escalate tool supports Teams Phone, email, and Customer Engagement paths. Test on the demo website before you embed the chat on your own site.",
+      "instructions": "You answer questions about {topic} for the {org}. If the question needs a decision you cannot make, or the visitor asks for a person, use the Escalate tool and summarize the conversation for the agent who takes over. Never promise an outcome. Example question: \"{ask}\""
+    },
+    {
+      "id": "cc-phone-agent", "product": "copilot-studio", "harness": "customer-conversation", "departments": ["customer-service", "sales"], "effort": "weeks",
+      "goals": ["customer-experience", "reduce-cost"], "dataSources": ["sharepoint", "none"],
+      "needs": ["cc-instructions", "cc-knowledge", "cc-voice", "cc-teams-phone", "cc-escalate", "cc-preview-test"],
+      "titles": ["Phone agent for {topic} on Teams Phone (preview)", "Call-handling agent for {topic} (preview)"],
+      "description": "Answer calls about {topic} on a Teams Phone number with a Customer Conversation agent. Tune voice settings such as speech sensitivity and silence detection, and escalate to a person when the caller needs one. The maker enables the channel, and a Teams admin provisions the number and license.",
+      "instructions": "You answer phone calls about {topic} for the {org}. Greet the caller, confirm their need, and answer from the connected knowledge in short sentences. If you cannot resolve it in two attempts, escalate to a person. Example caller question: \"{ask}\""
+    },
+    {
+      "id": "cc-self-service-actions", "product": "copilot-studio", "harness": "customer-conversation", "departments": ["customer-service", "sales"], "effort": "weeks",
+      "goals": ["reduce-handling-time", "customer-experience"], "dataSources": ["dataverse", "lob"],
+      "needs": ["cc-instructions", "cc-knowledge", "cc-tools", "cc-workflow-tool", "cc-evaluate"],
+      "titles": ["Self-service actions for {work} (preview)", "Requests handled end to end: {work} (preview)"],
+      "description": "Let people complete {work} in the conversation, not just ask about it. Tools and workflows read and update {data}, and an evaluation test set catches regressions before each change. Start with lookups, then add actions that change data.",
+      "instructions": "You help people with {work} for the {org}. Look up the record first and confirm the details with the person before you run an action that changes data. Report the outcome after each action. If a tool fails, apologize once and offer a person. Example request: \"{ask}\""
+    },
+    {
+      "id": "cc-contact-center", "product": "copilot-studio", "harness": "customer-conversation", "departments": ["customer-service"], "effort": "weeks",
+      "goals": ["customer-experience", "reduce-cost"], "dataSources": ["lob", "dataverse"],
+      "needs": ["cc-instructions", "cc-knowledge", "cc-escalate", "cc-contact-center", "cc-auth"],
+      "titles": ["Contact-center front line for {topic} (preview)", "Authenticated {customer} agent with Dynamics 365 hand-off for {topic} (preview)"],
+      "description": "Put an agent in front of your contact center for {topic}. It authenticates the {customer}, answers what it can, and hands the conversation to a person through Dynamics 365 Contact Center with the context already collected. A contact center admin sets up the voice path."
+      ,
+      "instructions": "You are the first line for {customers} contacting the {org} about {topic}. Verify identity before you discuss account details. Answer from the connected knowledge. When you hand off, pass a short summary so the {customer} does not repeat themselves. Example question: \"{ask}\""
+    }
+  ]
+}
