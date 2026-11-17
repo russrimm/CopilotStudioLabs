@@ -4726,7 +4726,8 @@ async function lbGenerate() {
       if (typeof lbStartGeneratingAnimation === "function") lbStartGeneratingAnimation();
       if (status) status.textContent = "Researching Microsoft Learn and composing your lab. This can take a minute...";
 
-      const captureScreenshots = Boolean(document.getElementById("lb-capture-on-build")?.checked);
+      const captureBox = document.getElementById("lb-capture-on-build");
+      const captureScreenshots = Boolean(captureBox?.checked && !captureBox?.disabled);
       const res = await fetch("/api/lab-builder/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -4773,7 +4774,12 @@ async function lbGenerate() {
       if (status) status.textContent = "";
       toast(data.replacedLabId ? `Rebuilt "${data.title}" and replaced the original` : `Built "${data.title}"`, "success");
       // The build button was disabled while the lab was built, so focus would otherwise fall back to the page.
-      document.getElementById("lb-result-heading")?.focus({ preventScroll: true });
+      // A capture queued during the build takes the learner straight to its live progress.
+      if (data.captureQueued && data.captureJobId && typeof scAttachBuildJob === "function") {
+        scAttachBuildJob(data.labId, data.captureJobId);
+      } else {
+        document.getElementById("lb-result-heading")?.focus({ preventScroll: true });
+      }
       return;
     }
   } catch (err) {
@@ -4881,6 +4887,7 @@ function lbShowResult(data) {
       : "";
 
   body.innerHTML = `
+    <div id="lb-result-checklist"></div>
     <div id="lb-result-validation" role="region" aria-label="Generated lab validation results" aria-live="polite"></div>
     <div id="lb-result-topic-docs">${topicDocsHtml}</div>
     ${lbQualityPanel(data.qa)}
@@ -4900,9 +4907,10 @@ function lbShowResult(data) {
       document.getElementById("lb-result-screenshots"),
       data.labId,
       data.screenshotState,
-      data.screenshotCapture ? { type: "capture", capture: data.screenshotCapture } : null,
+      typeof scBuildCaptureOutcome === "function" ? scBuildCaptureOutcome(data) : null,
     );
   }
+  if (typeof lbRenderLabChecklist === "function") lbRenderLabChecklist(data.labId);
   lbLoadResultPreview(data.labId);
 }
 

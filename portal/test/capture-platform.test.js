@@ -660,6 +660,10 @@ test("lab screenshot status reports an honest checkState instead of a false up-t
   assert.equal(body.summary.lastRevalidatedAt, null);
   assert.ok(body.modules.every((m) => m.checkState === "not-checked" || m.checkState === "up-to-date"));
   assert.ok(body.shots.every((s) => s.verification === null && s.needsReview === false));
+  assert.ok(
+    body.shots.every((s) => Array.isArray(s.instructions) && s.instructions.length > 0 && s.instructions.every((line) => typeof line === "string" && line.length <= 300)),
+    "every shot carries its 'what to show' lines for the Screenshot Center",
+  );
   assert.equal(body.captureCapabilities.companionConnected, false);
   assert.equal(body.captureCapabilities.tenantUrlsSet, false);
   assert.equal(typeof body.captureCapabilities.serverBrowserAvailable, "boolean");

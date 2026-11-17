@@ -904,6 +904,15 @@ function currentCaptureCapabilities() {
   }
 }
 
+/** "What to show" lines for a shot, as plain short strings the Screenshot Center can display. */
+function instructionList(value) {
+  const lines = Array.isArray(value) ? value : typeof value === "string" ? value.split(/\r?\n/) : [];
+  return lines
+    .map((line) => String(line ?? "").replace(/\s+/g, " ").trim().slice(0, 300))
+    .filter(Boolean)
+    .slice(0, 8);
+}
+
 const VERIFICATION_FILE = "verification.json";
 
 /** Per-shot verification records written when a screenshot is uploaded, pasted, or captured by the companion. */
@@ -1075,6 +1084,7 @@ export function getLabScreenshotsStatus(
       navHint: shot.navHint || null,
       alt: shot.alt,
       caption: shot.caption,
+      instructions: instructionList(shot.instructions),
       stepCount: Array.isArray(shot.steps) ? shot.steps.length : 0,
       captured: hasScreenshot,
       capturedInLab: perLabOk,

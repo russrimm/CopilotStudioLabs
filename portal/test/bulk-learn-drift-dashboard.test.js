@@ -995,7 +995,7 @@ test("index.html and generated-labs.js expose accessible Bulk MS Learn Drift Das
   const listHtmlAll = getEl("lb-generated-list").innerHTML;
   assert.match(listHtmlAll, /✓ MS Learn up to date/);
   assert.match(listHtmlAll, /⚠ 2 topics updated on MS Learn/);
-  assert.match(listHtmlAll, /MS Learn not re-checked/);
+  assert.match(listHtmlAll, /Not checked against MS Learn yet/);
   assert.match(listHtmlAll, /data-gen-action="quick-learn-update"[^>]*data-lab-id="lab-drifted"/);
 
   // Sort by "needs-update" -> Beta Drifted Lab appears first despite older generatedAt!
