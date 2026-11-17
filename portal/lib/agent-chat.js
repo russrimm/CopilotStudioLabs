@@ -3,17 +3,20 @@
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { resolve } from "path";
+import { resolvePortalDataDir } from "./storage-config.js";
 
-const dataRoot = resolve(import.meta.dirname, "..", "data");
-const configPath = resolve(dataRoot, "agent-chat-config.json");
+function getAgentChatConfigPath(env = process.env) {
+  return resolve(resolvePortalDataDir(env), "agent-chat-config.json");
+}
 
 const DEFAULT_CONFIG = {
   tokenEndpoint: "",
   agentName: "Lab Assistant",
 };
 
-export function loadAgentChatConfig() {
+export function loadAgentChatConfig(env = process.env) {
   try {
+    const configPath = getAgentChatConfigPath(env);
     if (!existsSync(configPath)) {
       return { ...DEFAULT_CONFIG, configured: false };
     }
@@ -37,7 +40,8 @@ export function loadAgentChatConfig() {
   }
 }
 
-export function saveAgentChatConfig(config) {
+export function saveAgentChatConfig(config, env = process.env) {
+  const dataRoot = resolvePortalDataDir(env);
   mkdirSync(dataRoot, { recursive: true });
 
   const sanitized = {
@@ -45,7 +49,7 @@ export function saveAgentChatConfig(config) {
     agentName: String(config?.agentName || DEFAULT_CONFIG.agentName).trim() || DEFAULT_CONFIG.agentName,
   };
 
-  writeFileSync(configPath, JSON.stringify(sanitized, null, 2));
+  writeFileSync(getAgentChatConfigPath(env), JSON.stringify(sanitized, null, 2));
 
   return {
     ...sanitized,

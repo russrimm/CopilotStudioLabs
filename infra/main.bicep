@@ -23,6 +23,7 @@ var abbrs = {
   logAnalyticsWorkspace: 'log-'
   applicationInsights: 'appi-'
   containerRegistry: 'crcslabs'
+  storageAccount: 'stcslabs'
   managedIdentity: 'id-'
   containerAppsEnvironment: 'cae-'
   containerApp: 'ca-portal-'
@@ -56,6 +57,16 @@ module containerRegistry './modules/container-registry.bicep' = {
   scope: rg
   params: {
     name: replace('${abbrs.containerRegistry}${resourceToken}', '-', '')
+    location: location
+    tags: tags
+  }
+}
+
+module storage './modules/storage.bicep' = {
+  name: 'storage'
+  scope: rg
+  params: {
+    name: take('${abbrs.storageAccount}${replace(resourceToken, '-', '')}', 24)
     location: location
     tags: tags
   }
@@ -104,6 +115,8 @@ module portal './modules/container-app.bicep' = {
     portalAuthDisabled: portalAuthDisabled
     azureSubscriptionId: subscription().subscriptionId
     azureTenantId: tenant().tenantId
+    storageAccountName: storage.outputs.storageAccountName
+    fileShareName: storage.outputs.fileShareName
   }
 }
 
@@ -123,6 +136,7 @@ output AZURE_TENANT_ID string = tenant().tenantId
 output AZURE_RESOURCE_GROUP string = rg.name
 output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
+output AZURE_STORAGE_ACCOUNT_NAME string = storage.outputs.storageAccountName
 output AZURE_CONTAINER_APPS_ENVIRONMENT_NAME string = portal.outputs.environmentName
 output SERVICE_PORTAL_NAME string = portal.outputs.name
 output SERVICE_PORTAL_URI string = portal.outputs.uri

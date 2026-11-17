@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "fs";
-import { resolve } from "path";
+import { isAbsolute, relative, resolve } from "path";
+import { PORTAL_ROOT, resolvePortalDataDir, resolvePortalUploadsDir } from "./storage-config.js";
 
 export const DEFAULT_BRANDING = Object.freeze({
   companyName: "Microsoft AI Training Generator",
@@ -8,11 +9,22 @@ export const DEFAULT_BRANDING = Object.freeze({
   tagline: "Provisioning Portal",
 });
 
-const PORTAL_ROOT = resolve(import.meta.dirname, "..");
-export const BRANDING_DATA_DIR = resolve(PORTAL_ROOT, "data");
 export const BRANDING_PUBLIC_DIR = resolve(PORTAL_ROOT, "public");
-export const BRANDING_UPLOADS_DIR = resolve(BRANDING_PUBLIC_DIR, "uploads");
+export const BRANDING_DATA_DIR = resolvePortalDataDir();
+export const BRANDING_UPLOADS_DIR = resolvePortalUploadsDir();
 export const BRANDING_FILE = resolve(BRANDING_DATA_DIR, "branding.json");
+
+export function getBrandingDataDir(env = process.env) {
+  return resolvePortalDataDir(env);
+}
+
+export function getBrandingUploadsDir(env = process.env) {
+  return resolvePortalUploadsDir(env);
+}
+
+export function getBrandingFilePath(env = process.env) {
+  return resolve(getBrandingDataDir(env), "branding.json");
+}
 
 function ensureDir(path) {
   mkdirSync(path, { recursive: true });
@@ -31,7 +43,12 @@ function normalizeText(value, fallback) {
 }
 
 function isUploadPath(value) {
-  return typeof value === "string" && /^\/uploads\/[^/]+$/i.test(value);
+  return (
+    typeof value === "string" &&
+    /^\/uploads\/[^/\\\0]+$/i.test(value) &&
+    !value.includes("..") &&
+    !/\.svgz?$/i.test(value)
+  );
 }
 
 export function escapeHtml(value) {
@@ -43,9 +60,9 @@ export function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
-export function ensureBrandingStorage() {
-  ensureDir(BRANDING_DATA_DIR);
-  ensureDir(BRANDING_UPLOADS_DIR);
+export function ensureBrandingStorage(env = process.env) {
+  ensureDir(getBrandingDataDir(env));
+  ensureDir(getBrandingUploadsDir(env));
 }
 
 export function normalizeBranding(input = {}, current = DEFAULT_BRANDING) {
@@ -57,36 +74,45 @@ export function normalizeBranding(input = {}, current = DEFAULT_BRANDING) {
   };
 }
 
-export function loadBranding() {
-  ensureBrandingStorage();
+export function loadBranding(env = process.env) {
+  ensureBrandingStorage(env);
+  const brandingFile = getBrandingFilePath(env);
 
-  if (!existsSync(BRANDING_FILE)) {
+  if (!existsSync(brandingFile)) {
     return { ...DEFAULT_BRANDING };
   }
 
   try {
-    const saved = JSON.parse(readFileSync(BRANDING_FILE, "utf-8"));
+    const saved = JSON.parse(readFileSync(brandingFile, "utf-8"));
     return normalizeBranding(saved, DEFAULT_BRANDING);
   } catch {
     return { ...DEFAULT_BRANDING };
   }
 }
 
-export function saveBranding(input = {}) {
-  ensureBrandingStorage();
-  const branding = normalizeBranding(input, loadBranding());
-  writeFileSync(BRANDING_FILE, `${JSON.stringify(branding, null, 2)}\n`, "utf-8");
+export function saveBranding(input = {}, env = process.env) {
+  ensureBrandingStorage(env);
+  const branding = normalizeBranding(input, loadBranding(env));
+  writeFileSync(getBrandingFilePath(env), `${JSON.stringify(branding, null, 2)}\n`, "utf-8");
   return branding;
 }
 
-export function getBrandingLogoAbsolutePath(logoPath) {
+export function getBrandingLogoAbsolutePath(logoPath, env = process.env) {
   if (!isUploadPath(logoPath)) return null;
-  return resolve(BRANDING_PUBLIC_DIR, `.${logoPath}`);
+  const fileName = logoPath.slice("/uploads/".length);
+  if (!fileName || fileName === "." || fileName === ".." || fileName.includes("..") || /[\\/\0]/.test(fileName)) {
+    return null;
+  }
+  const uploadsDir = getBrandingUploadsDir(env);
+  const targetPath = resolve(uploadsDir, fileName);
+  const rel = relative(uploadsDir, targetPath);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return null;
+  return targetPath;
 }
 
-export function deleteBrandingLogo() {
-  const current = loadBranding();
-  const existingLogoPath = getBrandingLogoAbsolutePath(current.logo);
+export function deleteBrandingLogo(env = process.env) {
+  const current = loadBranding(env);
+  const existingLogoPath = getBrandingLogoAbsolutePath(current.logo, env);
   if (existingLogoPath && existsSync(existingLogoPath)) {
     unlinkSync(existingLogoPath);
   }
@@ -95,14 +121,15 @@ export function deleteBrandingLogo() {
     ...current,
     logo: null,
   };
-  writeFileSync(BRANDING_FILE, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
+  writeFileSync(getBrandingFilePath(env), `${JSON.stringify(next, null, 2)}\n`, "utf-8");
   return next;
 }
 
-export function updateBrandingLogo(fileName) {
-  const current = loadBranding();
-  const previousLogoPath = getBrandingLogoAbsolutePath(current.logo);
-  const nextLogoPath = resolve(BRANDING_UPLOADS_DIR, fileName);
+export function updateBrandingLogo(fileName, env = process.env) {
+  ensureBrandingStorage(env);
+  const current = loadBranding(env);
+  const previousLogoPath = getBrandingLogoAbsolutePath(current.logo, env);
+  const nextLogoPath = resolve(getBrandingUploadsDir(env), fileName);
   const next = {
     ...current,
     logo: `/uploads/${fileName}`,
@@ -112,7 +139,7 @@ export function updateBrandingLogo(fileName) {
     unlinkSync(previousLogoPath);
   }
 
-  writeFileSync(BRANDING_FILE, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
+  writeFileSync(getBrandingFilePath(env), `${JSON.stringify(next, null, 2)}\n`, "utf-8");
   return next;
 }
 

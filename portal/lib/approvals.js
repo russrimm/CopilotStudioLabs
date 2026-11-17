@@ -5,14 +5,19 @@
 
 import { randomBytes, randomUUID } from "crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
 import { sendMail } from "./mailer.js";
 import { assertDisplayName, createEnvironment } from "./powerplatform.js";
 import { escapeHtml } from "./branding.js";
+import { resolvePortalDataDir } from "./storage-config.js";
 
-const dataRoot = resolve(import.meta.dirname, "..", "data");
-const approvalConfigPath = resolve(dataRoot, "approval-config.json");
-const approvalRequestsPath = resolve(dataRoot, "approval-requests.json");
+function getApprovalConfigPath(env = process.env) {
+  return resolve(resolvePortalDataDir(env), "approval-config.json");
+}
+
+function getApprovalRequestsPath(env = process.env) {
+  return resolve(resolvePortalDataDir(env), "approval-requests.json");
+}
 
 const DEFAULT_CONFIG = {
   approvalMethod: "none",
@@ -37,10 +42,6 @@ const VALID_APPROVAL_METHODS = new Set([
 
 const VALID_NOTIFICATION_CHANNELS = new Set(["teams", "email"]);
 
-function ensureDataRoot() {
-  mkdirSync(dataRoot, { recursive: true });
-}
-
 function readJson(path, fallback) {
   try {
     if (!existsSync(path)) return fallback;
@@ -53,7 +54,7 @@ function readJson(path, fallback) {
 }
 
 function writeJson(path, data) {
-  ensureDataRoot();
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(data, null, 2));
 }
 
@@ -99,13 +100,13 @@ function sanitizeConfig(config = {}) {
   };
 }
 
-function loadRequestsInternal() {
-  const data = readJson(approvalRequestsPath, []);
+function loadRequestsInternal(env = process.env) {
+  const data = readJson(getApprovalRequestsPath(env), []);
   return Array.isArray(data) ? data : [];
 }
 
-function saveRequestsInternal(requests) {
-  writeJson(approvalRequestsPath, requests);
+function saveRequestsInternal(requests, env = process.env) {
+  writeJson(getApprovalRequestsPath(env), requests);
 }
 
 function updateRequest(requestId, updater) {
@@ -233,27 +234,27 @@ async function postJson(url, body) {
   }
 }
 
-export function loadApprovalConfig() {
-  return sanitizeConfig(readJson(approvalConfigPath, DEFAULT_CONFIG));
+export function loadApprovalConfig(env = process.env) {
+  return sanitizeConfig(readJson(getApprovalConfigPath(env), DEFAULT_CONFIG));
 }
 
-export function saveApprovalConfig(config) {
+export function saveApprovalConfig(config, env = process.env) {
   const nextConfig = sanitizeConfig(config);
-  writeJson(approvalConfigPath, nextConfig);
+  writeJson(getApprovalConfigPath(env), nextConfig);
   return nextConfig;
 }
 
-export function listRequests(filter = {}) {
+export function listRequests(filter = {}, env = process.env) {
   const status = typeof filter === "string" ? filter : sanitizeString(filter.status);
-  const requests = loadRequestsInternal()
+  const requests = loadRequestsInternal(env)
     .filter((request) => !status || request.status === status)
     .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
 
   return requests;
 }
 
-export function getRequest(requestId) {
-  return loadRequestsInternal().find((request) => request.id === requestId) || null;
+export function getRequest(requestId, env = process.env) {
+  return loadRequestsInternal(env).find((request) => request.id === requestId) || null;
 }
 
 export function toPublicApprovalRequest(request) {

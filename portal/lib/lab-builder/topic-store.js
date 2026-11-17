@@ -16,12 +16,12 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { resolvePortalDataDir } from "../storage-config.js";
 import { listHash, readSnapshot, validateSnapshot, writeJsonAtomic } from "./topic-snapshot.js";
 import { consolidateSnapshot, resolveTopicAlias } from "./topic-consolidate.js";
 import { topicToFeature } from "./topic-feature.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORTAL_ROOT = path.resolve(__dirname, "..", "..");
 
 export const DAY_MS = 86400000;
 
@@ -33,7 +33,7 @@ function positiveInt(value, fallback) {
 /** All settings come from the environment so a deployment can move or tune them without code changes. */
 export function topicConfig(env = process.env) {
   return {
-    cachePath: env.LAB_BUILDER_TOPICS_CACHE || path.join(PORTAL_ROOT, "data", "lab-builder", "topics-cache.json"),
+    cachePath: env.LAB_BUILDER_TOPICS_CACHE || path.join(resolvePortalDataDir(env), "lab-builder", "topics-cache.json"),
     snapshotPath: env.LAB_BUILDER_TOPICS_SNAPSHOT || path.join(__dirname, "learn-topics.snapshot.json"),
     ttlMs: positiveInt(env.LAB_BUILDER_TOPICS_TTL_MS, DAY_MS),
     disabled: /^(1|true|yes|on)$/i.test(env.LAB_BUILDER_TOPICS_DISABLED || ""),
