@@ -12,6 +12,7 @@ import {
   renderBrandInfoHtml,
   renderBrandInfoMarkdown,
 } from "./lab-builder/brand-theme.js";
+import { compactHtml, embedHtmlBlock } from "./lab-builder/html-fragments.js";
 import {
   clearProfileLogo,
   getActiveBrand,
@@ -149,23 +150,27 @@ export function renderBrandingBannerHtml(branding = loadBranding(), logoPath = b
   const fontCss = getBrandFont(brand.font).css;
   const fontStyle = fontCss ? ` font-family: ${escapeHtml(fontCss)};` : "";
   const secondaryRule = secondary ? ` border-bottom: 4px solid ${secondary};` : "";
-  const subtitle = brand.coverSubtitle
-    ? `\n      <div class="lab-branding-subtitle" style="font-size: 13px;">${escapeHtml(brand.coverSubtitle)}</div>`
-    : "";
-  const logo = logoPath
-    ? `<img src="${escapeHtml(logoPath)}" alt="${title} logo" style="max-height: 48px; max-width: 180px; width: auto; display: block;" />`
-    : "";
 
-  return `
-<div class="lab-branding-banner" style="margin: 0 0 24px; border: 1px solid ${accent};${secondaryRule} border-radius: 14px; padding: 18px 20px; background: rgba(${hexToRgbTriplet(brand.primaryColor)}, 0.08);${fontStyle}">
-  <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-    ${logo}
-    <div>
-      <div class="lab-branding-title" style="font-size: 28px; font-weight: 700; color: ${accent};">${title}</div>
-      <div class="lab-branding-tagline" style="font-size: 14px;">${tagline}</div>${subtitle}
-    </div>
-  </div>
-</div>`.trim();
+  // Empty slots (no logo, tagline, or subtitle) are simply left out; compactHtml() guarantees
+  // the result has no blank or indented lines, which Markdown would turn into a code block.
+  return compactHtml(
+    [
+      `<div class="lab-branding-banner" style="margin: 0 0 24px; border: 1px solid ${accent};${secondaryRule} border-radius: 14px; padding: 18px 20px; background: rgba(${hexToRgbTriplet(brand.primaryColor)}, 0.08);${fontStyle}">`,
+      `<div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">`,
+      logoPath
+        ? `<img src="${escapeHtml(logoPath)}" alt="${title} logo" style="max-height: 48px; max-width: 180px; width: auto; display: block;" />`
+        : "",
+      `<div>`,
+      `<div class="lab-branding-title" style="font-size: 28px; font-weight: 700; color: ${accent};">${title}</div>`,
+      tagline ? `<div class="lab-branding-tagline" style="font-size: 14px;">${tagline}</div>` : "",
+      brand.coverSubtitle
+        ? `<div class="lab-branding-subtitle" style="font-size: 13px;">${escapeHtml(brand.coverSubtitle)}</div>`
+        : "",
+      `</div>`,
+      `</div>`,
+      `</div>`,
+    ].join("\n"),
+  );
 }
 
 /** Subject and HTML body for the lab-package email, branded with the active profile. */
@@ -212,5 +217,5 @@ export function applyBrandingToMarkdown(content, branding = loadBranding(), { in
  * Pass `{ infoBlocks: false }` to skip the closing blocks for sub-documents.
  */
 export function prependBrandingBanner(content, branding = loadBranding(), logoPath = branding.logo, { infoBlocks = true } = {}) {
-  return `${renderBrandingBannerHtml(branding, logoPath)}\n\n${applyBrandingToMarkdown(content, branding, { infoBlocks })}`;
+  return `${embedHtmlBlock(renderBrandingBannerHtml(branding, logoPath))}\n\n${applyBrandingToMarkdown(content, branding, { infoBlocks })}`;
 }

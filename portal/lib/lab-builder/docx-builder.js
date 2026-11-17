@@ -14,6 +14,7 @@ import {
   renderArchitectureDocumentMarkdown,
 } from "./architecture-overview.js";
 import { LIGHT_SURFACE, cleanText, ensureReadableColor, getBrandFont } from "./brand-theme.js";
+import { stripEmbeddedHtml } from "./html-fragments.js";
 
 // Precompute IEEE 802.3 CRC-32 lookup table.
 const CRC_TABLE = (() => {
@@ -667,7 +668,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
     }
   }
 
-  bodyBlocks.push(...renderBlocks(markdown));
+  bodyBlocks.push(...renderBlocks(stripEmbeddedHtml(markdown)));
 
   const footerRuleColor = secondaryHex || "D0D7DE";
   const footerXml = footerText

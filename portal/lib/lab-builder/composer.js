@@ -69,6 +69,8 @@ function sentenceList(items) {
 function condense(text, maxLength = 420) {
   const clean = String(text || "")
     .replace(/```[\s\S]*?```/g, " ")
+    // Learn tables carry <br> and similar tags; drop them before ">" is stripped below, which would leave "<br" behind.
+    .replace(/<\/?(?:br|hr|p|div|span|ul|ol|li|table|thead|tbody|tr|td|th|b|i|em|strong|code|pre|a|sup|sub|img|h[1-6])\b[^<>]*>/gi, " ")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/!\[[^\]]*]\([^)]*\)/g, " ")
     .replace(/\[([^\]]+)]\([^)]*\)/g, "$1")

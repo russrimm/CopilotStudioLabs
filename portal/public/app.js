@@ -3696,8 +3696,8 @@ function renderResourceManifest() {
             <div style="display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--bg); border-radius: 6px; margin-bottom: 4px;">
               <span style="font-size: 16px;">${typeIcon}</span>
               <div style="flex: 1;">
-                <div style="font-size: 13px; font-weight: 500;">${r.name}</div>
-                <div style="font-size: 11px; color: var(--text-muted);">${r.description}</div>
+                <div style="font-size: 13px; font-weight: 500;">${escapeHtml(r.name)}</div>
+                <div style="font-size: 11px; color: var(--text-muted);">${escapeHtml(r.description)}</div>
               </div>
               ${statusTag}
             </div>
@@ -3707,7 +3707,7 @@ function renderResourceManifest() {
 
       return `
         <div style="margin-bottom: 16px;">
-          <h4 style="font-size: 14px; margin-bottom: 8px;">Lab ${number}: ${lab.name}</h4>
+          <h4 style="font-size: 14px; margin-bottom: 8px;">Lab ${number}: ${escapeHtml(lab.name)}</h4>
           ${resources}
         </div>
       `;
@@ -3729,8 +3729,8 @@ async function checkPrereqs() {
         return `
           <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px;">
             <span>${icon}</span>
-            <strong>${c.label}</strong>
-            <span style="color: var(--text-muted);">— ${c.detail}</span>
+            <strong>${escapeHtml(c.label)}</strong>
+            <span style="color: var(--text-muted);">— ${escapeHtml(c.detail)}</span>
           </div>
         `;
       })
@@ -3742,7 +3742,7 @@ async function checkPrereqs() {
       toast("Some prerequisites are missing. See details above.", "error");
     }
   } catch (err) {
-    container.innerHTML = `<div style="color: var(--danger);">Failed: ${err.message}</div>`;
+    container.innerHTML = `<div style="color: var(--danger);">Failed: ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -3858,14 +3858,14 @@ async function checkDeployStatus() {
 
     logContainer.style.display = "block";
     logEntries.innerHTML = `
-      <div style="padding: 3px 0;">📁 <strong>Resource Group:</strong> ${data.resourceGroup.name} (${data.resourceGroup.state})</div>
-      <div style="padding: 3px 0;">📍 <strong>Location:</strong> ${data.resourceGroup.location}</div>
+      <div style="padding: 3px 0;">📁 <strong>Resource Group:</strong> ${escapeHtml(data.resourceGroup.name)} (${escapeHtml(data.resourceGroup.state)})</div>
+      <div style="padding: 3px 0;">📍 <strong>Location:</strong> ${escapeHtml(data.resourceGroup.location)}</div>
       <div style="padding: 3px 0; margin-top: 8px;"><strong>Resources (${data.resources.length}):</strong></div>
       ${data.resources
         .map((r) => {
           const icon = r.state === "Succeeded" ? "✅" : r.state === "Failed" ? "❌" : "🔄";
           const shortType = r.type.split("/").pop();
-          return `<div style="padding: 2px 0;">${icon} ${r.name} <span style="color: var(--text-muted);">(${shortType})</span></div>`;
+          return `<div style="padding: 2px 0;">${icon} ${escapeHtml(r.name)} <span style="color: var(--text-muted);">(${escapeHtml(shortType)})</span></div>`;
         })
         .join("")}
     `;
@@ -3897,17 +3897,17 @@ async function checkKeyVault() {
     const secrets = data.secretMap
       .map((s) => {
         const icon = s.hasEnvValue ? "✅" : "⬜";
-        return `<div style="padding: 2px 0; font-size: 13px;">${icon} <code>${s.envVar}</code> → <code>${s.secretName}</code></div>`;
+        return `<div style="padding: 2px 0; font-size: 13px;">${icon} <code>${escapeHtml(s.envVar)}</code> → <code>${escapeHtml(s.secretName)}</code></div>`;
       })
       .join("");
 
     container.innerHTML = `
       <div style="padding: 8px 12px; background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); border-radius: 6px; font-size: 13px;">
-        🔐 <strong>Key Vault:</strong> ${data.vaultName}<br/>
+        🔐 <strong>Key Vault:</strong> ${escapeHtml(data.vaultName)}<br/>
         <div style="margin-top: 8px;">${secrets}</div>
       </div>`;
   } catch (err) {
-    container.innerHTML = `<div style="color: var(--danger);">Failed: ${err.message}</div>`;
+    container.innerHTML = `<div style="color: var(--danger);">Failed: ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -3946,8 +3946,8 @@ function showDeviceCode(code) {
   const msg = document.getElementById("pp-device-code-msg");
   container.style.display = "block";
   msg.innerHTML = `
-    <p>To sign in, open <a href="${code.verificationUri}" target="_blank" style="color: var(--accent);">${code.verificationUri}</a> in your browser and enter code:</p>
-    <div style="font-size: 24px; font-weight: 700; letter-spacing: 4px; margin: 12px 0; color: var(--accent);">${code.userCode}</div>
+    <p>To sign in, open <a href="${escapeHtml(code.verificationUri)}" target="_blank" rel="noopener noreferrer" style="color: var(--accent);">${escapeHtml(code.verificationUri)}</a> in your browser and enter code:</p>
+    <div style="font-size: 24px; font-weight: 700; letter-spacing: 4px; margin: 12px 0; color: var(--accent);">${escapeHtml(code.userCode)}</div>
     <p style="font-size: 12px; color: var(--text-muted);">This code expires at ${new Date(code.expiresAt).toLocaleTimeString()}</p>
   `;
 }
@@ -4371,15 +4371,15 @@ async function ppLoadSecureScore() {
         ${checks.map((c) => `
           <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px;">
             <span>${c.ok ? "✅" : "❌"}</span>
-            <span>${c.label}</span>
+            <span>${escapeHtml(c.label)}</span>
           </div>
         `).join("")}
       `;
     } else {
-      container.innerHTML = `<pre style="font-size: 12px; color: var(--text-muted);">${JSON.stringify(data, null, 2)}</pre>`;
+      container.innerHTML = `<pre style="font-size: 12px; color: var(--text-muted);">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
     }
   } catch (err) {
-    container.innerHTML = `<div style="color: var(--danger);">Error: ${err.message}</div>`;
+    container.innerHTML = `<div style="color: var(--danger);">Error: ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -4405,19 +4405,19 @@ async function ppLoadRecommendations() {
       return `
         <div style="background: var(--bg); border: 1px solid var(--border); border-left: 3px solid ${sevColor}; border-radius: 8px; padding: 14px 16px; margin-bottom: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <div style="font-weight: 600; font-size: 14px;">${r.title}</div>
-            <span class="tag ${r.severity === "High" ? "tag-danger" : r.severity === "Medium" ? "tag-warning" : ""}">${r.severity}</span>
+            <div style="font-weight: 600; font-size: 14px;">${escapeHtml(r.title)}</div>
+            <span class="tag ${r.severity === "High" ? "tag-danger" : r.severity === "Medium" ? "tag-warning" : ""}">${escapeHtml(r.severity)}</span>
           </div>
-          <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">${r.description}</div>
-          <div style="font-size: 12px; margin-bottom: 8px;"><strong>Remediation:</strong> ${r.remediation || "N/A"}</div>
+          <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">${escapeHtml(r.description)}</div>
+          <div style="font-size: 12px; margin-bottom: 8px;"><strong>Remediation:</strong> ${escapeHtml(r.remediation || "N/A")}</div>
           ${r.canAutoRemediate
-            ? `<button class="btn btn-sm btn-primary" onclick="ppRemediate('${r.id}')">🔧 Auto-Remediate</button>`
+            ? `<button class="btn btn-sm btn-primary" data-rec-id="${escapeHtml(r.id)}" onclick="ppRemediate(this.dataset.recId)">🔧 Auto-Remediate</button>`
             : '<span class="tag tag-warning">Manual action required</span>'}
         </div>
       `;
     }).join("");
   } catch (err) {
-    container.innerHTML = `<div style="color: var(--danger);">Error: ${err.message}</div>`;
+    container.innerHTML = `<div style="color: var(--danger);">Error: ${escapeHtml(err.message)}</div>`;
   }
 }
 
@@ -4457,7 +4457,7 @@ function ppScheduleTask() {
   list.innerHTML += `
     <div id="sched-${id}" style="display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 4px; font-size: 13px;">
       <span>📅</span>
-      <span style="flex: 1;"><strong>${taskNames[task]}</strong> — ${freq}${email ? ` → ${email}` : ""}</span>
+      <span style="flex: 1;"><strong>${escapeHtml(taskNames[task])}</strong> — ${escapeHtml(freq)}${email ? ` → ${escapeHtml(email)}` : ""}</span>
       <span class="tag tag-success">Active</span>
       <button class="btn btn-sm" onclick="document.getElementById('sched-${id}').remove()">✗</button>
     </div>

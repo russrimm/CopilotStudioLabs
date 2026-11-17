@@ -12,6 +12,7 @@ import {
 } from "./architecture-overview.js";
 import { enhanceInteractiveLabHtml } from "./interactive-elements.js";
 import { ensureReadableColor, getBrandFont, normalizeHexColor6 } from "./brand-theme.js";
+import { stripEmbeddedHtml } from "./html-fragments.js";
 
 const ASSET_SRC_RE = /\bsrc="assets\/([A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|gif|svg|webp))"/gi;
 
@@ -292,8 +293,13 @@ function renderLabMarkdownFallbackBlocks(markdown) {
   return out.join("\n");
 }
 
+/**
+ * The fallback has no sanitizer, so trusted HTML fragments (the Markdown brand banner) are
+ * removed instead of rendered; the standalone page draws its own brand header from
+ * `options.branding`.
+ */
 export function renderLabMarkdownFallback(markdown) {
-  return enhanceInteractiveLabHtml(renderLabMarkdownFallbackBlocks(markdown));
+  return enhanceInteractiveLabHtml(renderLabMarkdownFallbackBlocks(stripEmbeddedHtml(markdown)));
 }
 
 function decodeBasicEntities(text) {

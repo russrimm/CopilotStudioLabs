@@ -21,6 +21,7 @@ import {
 import { splitGeneratedLabModules } from "./module-samples.js";
 import { resolveTopicTrainingDigest } from "./topic-training.js";
 import { getBrandFont, getBrandInfoModel } from "./brand-theme.js";
+import { stripEmbeddedHtml } from "./html-fragments.js";
 
 const SLIDE_CX = 12192000; // 13.333 in * 914400 EMU/in (16:9 widescreen)
 const SLIDE_CY = 6858000;  // 7.500 in * 914400 EMU/in
@@ -259,7 +260,7 @@ function isTableSeparator(line) {
  * multi-slide presentation rendering.
  */
 export function parseTopicMarkdownStructure(markdown, hints = {}) {
-  const expanded = expandArchitectureBlocks(markdown);
+  const expanded = expandArchitectureBlocks(stripEmbeddedHtml(markdown));
   const lines = expanded.replace(/\r\n/g, "\n").split("\n");
 
   const meta = {
@@ -4030,7 +4031,7 @@ export function renderTopicToPptxBuffer(topicMarkdown, options = {}) {
  * @returns {Buffer}
  */
 export function renderMarkdownToPptxBuffer(markdown, options = {}) {
-  const src = String(markdown || "");
+  const src = stripEmbeddedHtml(String(markdown || ""));
   if (options.topic) {
     return renderTopicToPptxBuffer(src, options);
   }

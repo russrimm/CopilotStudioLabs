@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { getFeature } from "./catalog.js";
 import { buildAdminPrerequisites, renderAdminPrerequisitesMarkdown } from "./admin-prereqs.js";
 import { featureRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
+import { stripEmbeddedHtml } from "./html-fragments.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROFILES = JSON.parse(readFileSync(join(__dirname, "scenario-profiles.json"), "utf8"));
@@ -786,7 +787,7 @@ export function buildModuleSampleFiles(moduleInfo, options = {}) {
  * @returns {{ overview: { folderName: string, fileBaseName: string, title: string, markdown: string }, modules: Array<{ order: number, id: string|null, title: string, folderName: string, fileBaseName: string, markdown: string, moduleInfo: object }> }}
  */
 export function splitGeneratedLabModules(fullMarkdown, manifest = {}, options = {}) {
-  const source = String(fullMarkdown ?? "").replace(/\r\n/g, "\n");
+  const source = stripEmbeddedHtml(String(fullMarkdown ?? "")).replace(/\r\n/g, "\n");
   const lines = source.split("\n");
   const labTitleMatch = source.match(/^#\s+(.+?)\s*$/m);
   const labTitle = (manifest?.title || (labTitleMatch ? labTitleMatch[1] : "Generated Lab")).trim();

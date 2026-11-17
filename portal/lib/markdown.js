@@ -6,6 +6,7 @@ import {
 } from "./lab-builder/architecture-overview.js";
 import { enhanceInteractiveLabHtml } from "./lab-builder/interactive-elements.js";
 import { BRAND_FONTS } from "./lab-builder/brand-theme.js";
+import { normalizeEmbeddedHtml } from "./lab-builder/html-fragments.js";
 
 export const labDiagramExtension = {
   name: "labDiagrams",
@@ -28,8 +29,33 @@ export const labDiagramExtension = {
   },
 };
 
+// Real HTML element names. A tag outside this list in running text is a placeholder such as
+// `<site-name>`, which the sanitizer would silently drop, so it is shown as literal text instead.
+const HTML_ELEMENT_NAMES = new Set(
+  (
+    "a abbr address area article aside audio b base bdi bdo blockquote body br button canvas caption cite code col colgroup " +
+    "data datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 " +
+    "head header hgroup hr html i iframe img input ins kbd label legend li link main map mark menu meta meter nav noscript " +
+    "object ol optgroup option output p param picture pre progress q rp rt ruby s samp script section select slot small " +
+    "source span strong style sub summary sup svg path circle ellipse rect line polyline polygon table tbody td template " +
+    "textarea tfoot th thead time title tr track u ul var video wbr"
+  ).split(" "),
+);
+
+const labPlaceholderExtension = {
+  renderer: {
+    html({ text, block }) {
+      if (block) return false;
+      const tag = /^<\/?([a-z][a-z0-9-]*)/i.exec(String(text ?? ""));
+      if (!tag || HTML_ELEMENT_NAMES.has(tag[1].toLowerCase())) return false;
+      return String(text).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    },
+  },
+};
+
 const labMarked = new Marked();
 labMarked.use(labDiagramExtension);
+labMarked.use(labPlaceholderExtension);
 
 const LAB_ARCH_CLASS_RE = /^lab-arch(?:-[a-z0-9-]+)?$/;
 const LAB_ARCH_SVG_CLASS_RE = /^lab-arch(?:-[a-z0-9-]+)?-svg$/;
@@ -216,6 +242,6 @@ export function sanitizeLabHtml(html) {
 }
 
 export function renderLabMarkdown(markdown, transformHtml = (html) => html) {
-  const rendered = enhanceInteractiveLabHtml(labMarked.parse(String(markdown ?? "")));
+  const rendered = enhanceInteractiveLabHtml(labMarked.parse(normalizeEmbeddedHtml(String(markdown ?? ""))));
   return sanitizeLabHtml(transformHtml(rendered));
 }

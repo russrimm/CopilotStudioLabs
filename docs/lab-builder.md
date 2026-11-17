@@ -1938,6 +1938,31 @@ reach learners. Other `{{...}}` text is left alone.
 `{{TENANT_SHAREPOINT_ADMIN_URL}}`, `{{TENANT_M365_ADMIN_URL}}`, and
 `{{TENANT_FOUNDRY_PROJECT_URL}}`.
 
+### Embedding HTML in lab Markdown
+
+Markdown ends an HTML block at the first blank or whitespace-only line, and the lines after it
+that are indented four or more spaces become a code block. A pretty-printed HTML template (a
+banner whose logo slot is empty leaves a blank line) therefore showed up to learners as a code
+block full of `<div>` text. Contributors who generate HTML inside Markdown must follow these rules:
+
+- **No blank lines and no leading indentation** inside the fragment. Build it as an array of lines,
+  leave empty slots (no logo, tagline, footer, or link) out entirely, and escape every value with
+  `escapeHtmlText()`.
+- **Compact and mark it.** Pass the lines through `compactHtml()` and wrap the result with
+  `embedHtmlBlock()` from `portal/lib/lab-builder/html-fragments.js`. The markers are HTML comments, so
+  they stay invisible on GitHub and in editors. `renderBrandingBannerHtml()` and
+  `prependBrandingBanner()` in `portal/lib/branding.js` are the reference.
+- **Nothing is trusted because of a marker.** `renderLabMarkdown()` only uses the markers to collapse
+  the fragment into one safe block before parsing, and the sanitizer still runs over everything.
+- **Formats that cannot show HTML** (DOCX, PDF, PPTX, and the zero-dependency standalone fallback)
+  call `stripEmbeddedHtml()`, so no markup or marker text reaches them. A new builder that parses lab
+  Markdown must do the same.
+- Plain placeholders such as `<site-name>` in running text render as literal text. Put real
+  `<details>` blocks on their own left-aligned lines, with a blank line after `</summary>`.
+
+`portal/test/html-fragments.test.js` checks every fragment builder for blank or indented lines and
+renders each output path. Add new fragment builders to its hygiene test.
+
 ### Capture environment
 
 `buildCaptureEnv(profileOrCustomization)` in `portal/lib/branding-profiles.js` maps a
