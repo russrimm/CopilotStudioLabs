@@ -186,9 +186,37 @@ function scProductsToSignIn(state) {
   const ids = new Set();
   for (const shot of Array.isArray(state?.shots) ? state.shots : []) {
     const { key } = scShotStatus(shot);
-    if (shot.product && (key === "pending" || key === "failed" || key === "outdated")) ids.add(String(shot.product));
+    if (shot.product && ["pending", "failed", "outdated", "needs-you", "paused"].includes(key)) ids.add(String(shot.product));
   }
   return [...ids].map((id) => ({ id, name: scProductName(id) }));
+}
+
+/** The job row that says why a screenshot is still missing after a capture: the running job first, then the last finished one. */
+function scLastAttempt(labId, filename) {
+  const lab = scLab(labId);
+  for (const job of [lab.job, lab.lastJob]) {
+    const row = (job?.shots || []).find((s) => s.filename === filename);
+    if (row && SC_ATTEMPT_STATUSES.includes(row.status)) return row;
+  }
+  return null;
+}
+
+/** The job row of a screenshot in the job that is running or finished last, with its outcome and path. */
+function scJobRow(labId, filename) {
+  const lab = scLab(labId);
+  for (const job of [lab.job, lab.lastJob]) {
+    const row = (job?.shots || []).find((s) => s.filename === filename);
+    if (row) return row;
+  }
+  return null;
+}
+
+/** What the lab's screenshots still need from the person, or null when nothing is known yet. */
+function scTargetsModel(lab) {
+  const data = lab.targets?.data || null;
+  if (!data && !lab.needsAddress?.length) return null;
+  const missing = scMissingRequirements(data, lab.needsAddress);
+  return { data, fields: scTargetFields(data), missing, waiting: missing.reduce((sum, view) => sum + view.count, 0) };
 }
 
 function scBuildModel(labId) {
@@ -197,10 +225,11 @@ function scBuildModel(labId) {
   const companion = scState.status?.companion || {};
   const devices = Array.isArray(companion.devices) ? companion.devices : [];
   const connected = Boolean(companion.connected);
+  const targets = scTargetsModel(lab);
   const model = {
     labId,
     state,
-    counts: scCounts(state),
+    counts: scCounts(state, (filename) => scLastAttempt(labId, filename)),
     checkState: scCheckStateOf(state),
     statusLoading: !scState.status && !scState.statusError,
     statusError: !scState.status && Boolean(scState.statusError),
@@ -209,6 +238,8 @@ function scBuildModel(labId) {
     signedIn: Array.isArray(companion.signedInProducts) ? companion.signedInProducts : [],
     products: scProductsToSignIn(state),
     tenant: scTenantModel(labId),
+    targets,
+    addressWaiting: targets?.waiting || 0,
     job: lab.job,
   };
   model.primary = scPrimaryAction(model);
@@ -264,7 +295,12 @@ function scRenderInto(host, labId) {
   section.appendChild(scBuildStrip(model));
   section.appendChild(scEl("div", { class: "sc-pairing-host", data: { scPairingHost: "lab" } }));
   section.appendChild(scBuildPrimary(model, lab));
+  section.appendChild(scBuildModeChoice(labId));
   section.appendChild(scEl("div", { class: "sc-progress-host", data: { scProgressHost: labId } }));
+  const needs = scBuildAddressPrompt(labId, model);
+  if (needs) section.appendChild(needs);
+  const settings = scBuildCaptureSettings(labId, model);
+  if (settings) section.appendChild(settings);
   section.appendChild(scBuildAdvanced(labId, model));
   section.appendChild(scBuildGallery(labId, model));
   section.appendChild(scBuildLightbox(labId));
@@ -312,6 +348,7 @@ function scEnsureSetup(labId) {
     });
   }
   if (!lab.brand) void scLoadLabBrand(labId);
+  if (!lab.targets || (lab.targets.loaded && Date.now() - lab.targets.loadedAt > 20000)) void scLoadTargets(labId, { force: true });
   const store = scProfileStore();
   if (!store && typeof bpEnsureLoaded === "function" && !scState.profilesRequested) {
     scState.profilesRequested = true;
@@ -332,6 +369,9 @@ function scBuildHeader(model) {
   if (waiting) pills.appendChild(scChip(`${waiting} waiting`, "warn"));
   if (counts.outdated) pills.appendChild(scChip(`${counts.outdated} outdated`, "warn"));
   if (counts.needsReview) pills.appendChild(scChip(`${counts.needsReview} need review`, "warn"));
+  if (counts.needsYou) pills.appendChild(scChip(`${counts.needsYou} need you`, "warn"));
+  if (counts.paused) pills.appendChild(scChip(`${counts.paused} paused`, "info"));
+  if (model.addressWaiting) pills.appendChild(scChip(`${model.addressWaiting} need an address`, "warn"));
   const changed = scCount(model.state?.summary?.docsUpdatedModules) || scCount(model.state?.summary?.stale);
   pills.appendChild(scChip(`Microsoft Learn: ${scCheckLabel(checkState, changed)}`, scCheckTone(checkState), "sc-chip-learn"));
   const checkedAt = model.state?.lastRevalidatedAt || model.state?.summary?.lastRevalidatedAt;
@@ -350,13 +390,70 @@ function scBuildBanner(labId) {
   const variant = outcome.variant === "ok" ? "ok" : outcome.variant === "warn" ? "warn" : "error";
   const banner = scEl("div", { class: `sc-banner sc-banner-${variant}`, data: { scBanner: "1" } });
   banner.appendChild(scEl("p", { class: "sc-banner-text", text: outcome.message }));
+  const causes = scBuildCauses(labId, outcome.causes);
+  if (causes) banner.appendChild(causes);
   const actions = scEl("div", { class: "sc-banner-actions" });
   for (const act of Array.isArray(outcome.actions) ? outcome.actions : []) {
-    actions.appendChild(scButton(act.label, { action: `banner-${act.id}`, data: { filenames: (act.filenames || []).join(",") } }));
+    actions.appendChild(scButton(act.label, { action: `banner-${act.id}`, primary: Boolean(act.primary), data: { filenames: (act.filenames || []).join(",") } }));
   }
   actions.appendChild(scButton("Dismiss", { action: "banner-dismiss", focus: "banner-dismiss", aria: { "aria-label": "Dismiss this message" } }));
   banner.appendChild(actions);
   return banner;
+}
+
+const SC_CAUSE_FIX_LABELS = Object.freeze({
+  settings: () => "Open capture settings",
+  retry: (count) => `Retake ${scPlural(count, "screenshot")}`,
+  guided: (count) => `Retake ${scPlural(count, "screenshot")} guided`,
+  upload: () => "Go to the first screenshot",
+});
+
+/** One group per cause: the title, how many screenshots, the one fix, and the file list on request. */
+function scBuildCauses(labId, causes) {
+  if (!Array.isArray(causes) || !causes.length) return null;
+  const lab = scLab(labId);
+  const shots = lab.state?.shots || [];
+  const list = scEl("ul", { class: "sc-causes", attrs: { "aria-label": "Why some screenshots were not captured" } });
+  for (const cause of causes) {
+    const open = lab.ui.causesOpen.has(cause.code);
+    const filesId = `sc-cause-files-${cause.code}`;
+    const item = scEl("li", { class: `sc-cause sc-cause-${cause.tone}`, data: { scCause: cause.code } });
+    const head = scEl("div", { class: "sc-cause-head" });
+    head.appendChild(scEl("strong", { class: "sc-cause-title", text: cause.title }));
+    head.appendChild(scChip(scPlural(cause.count, "screenshot"), cause.tone));
+    item.appendChild(head);
+    if (cause.fix) item.appendChild(scEl("p", { class: "sc-cause-fix", text: cause.fix }));
+    const actions = scEl("div", { class: "sc-cause-actions" });
+    actions.appendChild(
+      scButton(SC_CAUSE_FIX_LABELS[cause.fixAction](cause.count), {
+        action: "cause-fix",
+        data: { cause: cause.code },
+        focus: `cause:${cause.code}:fix`,
+        aria: { "aria-label": `${SC_CAUSE_FIX_LABELS[cause.fixAction](cause.count)}: ${cause.title}` },
+      }),
+    );
+    if (cause.filenames.length) {
+      actions.appendChild(
+        scButton(open ? "Hide the list" : "Show which ones", {
+          action: "cause-toggle",
+          data: { cause: cause.code },
+          focus: `cause:${cause.code}:toggle`,
+          aria: { "aria-expanded": open ? "true" : "false", "aria-controls": filesId, "aria-label": `${open ? "Hide" : "Show"} the screenshots for: ${cause.title}` },
+        }),
+      );
+    }
+    item.appendChild(actions);
+    if (cause.filenames.length) {
+      const files = scEl("ul", { id: filesId, class: "sc-cause-files", attrs: { hidden: !open } });
+      for (const filename of cause.filenames) {
+        const shot = shots.find((s) => s.filename === filename);
+        files.appendChild(scEl("li", { text: shot ? scShotLabel(shot) : filename }));
+      }
+      item.appendChild(files);
+    }
+    list.appendChild(item);
+  }
+  return list;
 }
 
 // Readiness strip ------------------------------------------------------------
@@ -365,7 +462,8 @@ const SC_STEP_STATE_LABEL = Object.freeze({ done: "Done", todo: "To do", optiona
 const SC_STEP_STATE_TONE = Object.freeze({ done: "ok", todo: "warn", optional: "neutral", locked: "neutral", loading: "info", error: "bad" });
 
 function scBuildStrip(model) {
-  const list = scEl("ol", { class: "sc-steps", attrs: { "aria-label": "Set up screenshot capture in three steps" } });
+  const words = { 3: "three", 4: "four" };
+  const list = scEl("ol", { class: "sc-steps", attrs: { "aria-label": `Set up screenshot capture in ${words[model.steps.length]} steps` }, data: { steps: model.steps.length } });
   model.steps.forEach((step, index) => {
     const li = scEl("li", { class: "sc-step", data: { state: step.state, step: step.id } });
     li.appendChild(scEl("span", { class: "sc-step-num", text: step.state === "done" ? "\u2713" : String(index + 1), attrs: { "aria-hidden": "true" } }));
@@ -527,6 +625,170 @@ function scBuildPrimary(model, lab) {
   return wrap;
 }
 
+// Capture mode ---------------------------------------------------------------
+
+/** "How should screenshots be captured?" Used by every capture the Center queues, and by Retake. */
+function scBuildModeChoice(labId) {
+  const lab = scLab(labId);
+  const fieldset = scEl("fieldset", { class: "sc-mode", data: { scModeGroup: "1" } });
+  fieldset.appendChild(scEl("legend", { text: "How should screenshots be captured?" }));
+  const options = scEl("div", { class: "sc-mode-options" });
+  for (const mode of SC_CAPTURE_MODES) {
+    const id = `sc-mode-${mode.id}`;
+    const row = scEl("div", { class: "sc-mode-option" });
+    const radio = scEl("input", {
+      id,
+      attrs: { type: "radio", name: "sc-capture-mode", value: mode.id, autocomplete: "off", "aria-describedby": `${id}-help` },
+      data: { scField: "mode", scMode: mode.id, scFocus: `mode:${mode.id}` },
+    });
+    radio.checked = lab.ui.mode === mode.id;
+    row.appendChild(radio);
+    row.appendChild(scLabel(id, mode.label));
+    row.appendChild(scEl("p", { id: `${id}-help`, class: "sc-mode-help", text: mode.help }));
+    options.appendChild(row);
+  }
+  fieldset.appendChild(options);
+  return fieldset;
+}
+
+// Capture settings: the address prompt and the full panel ---------------------
+
+/** A text box for one capture setting. Typed text is kept in `lab.ui.targetDraft`, so a re-render never loses it. */
+function scBuildTargetInput(labId, field, { scope, describedBy = "", showHelp = false, source = "" }) {
+  const ui = scLab(labId).ui;
+  const id = `sc-${scope}-${field.id}`;
+  const error = ui.targetErrors[field.id] || "";
+  const group = scEl("div", { class: "form-group sc-field" });
+  group.appendChild(scLabel(id, field.label));
+  const describedIds = [describedBy, showHelp && field.help ? `${id}-hint` : "", source ? `${id}-source` : "", error ? `${id}-error` : ""].filter(Boolean);
+  const input = scEl("input", {
+    id,
+    attrs: {
+      type: field.kind === "url" ? "url" : "text",
+      inputmode: field.kind === "url" ? "url" : "text",
+      autocomplete: "off",
+      spellcheck: "false",
+      placeholder: field.placeholder,
+      maxlength: field.kind === "url" ? 2048 : 80,
+      "aria-describedby": describedIds.join(" ") || false,
+      "aria-invalid": error ? "true" : false,
+    },
+    data: { scTargetField: field.id, scFocus: `target:${scope}:${field.id}` },
+  });
+  input.value = ui.targetDraft[field.id] ?? field.value;
+  group.appendChild(input);
+  if (showHelp && field.help) group.appendChild(scEl("span", { id: `${id}-hint`, class: "hint", text: field.help }));
+  if (source) group.appendChild(scEl("span", { id: `${id}-source`, class: "sc-field-source", text: source }));
+  if (error) group.appendChild(scEl("p", { id: `${id}-error`, class: "sc-field-error", text: error, attrs: { role: "alert" } }));
+  return group;
+}
+
+/** The error that belongs to a whole block (a failed request with no field to blame), or null. */
+function scFormError(labId, scope) {
+  const error = scLab(labId).ui.targetFormError;
+  return error?.scope === scope ? scEl("p", { class: "sc-field-error", text: error.message, attrs: { role: "alert" }, data: { scFormError: scope } }) : null;
+}
+
+/** One block per missing address: what is missing, how to find it, a box for it, and Save. */
+function scBuildNeedBlock(labId, requirement, fields) {
+  const ui = scLab(labId).ui;
+  const scope = `need-${requirement.id}`;
+  const titleId = `sc-need-${requirement.id}-title`;
+  const helpId = `sc-need-${requirement.id}-help`;
+  const block = scEl("div", { class: "sc-need", attrs: { role: "group", "aria-labelledby": titleId }, data: { scNeed: requirement.id, scScope: scope } });
+  block.appendChild(scEl("p", { id: titleId, class: "sc-need-title" }, [scEl("strong", { text: requirement.message })]));
+  if (requirement.prompt) block.appendChild(scEl("p", { id: helpId, class: "sc-need-help", text: requirement.prompt }));
+  const inputs = scEl("div", { class: "sc-need-fields" });
+  for (const id of requirement.fields) {
+    const field = fields.find((f) => f.id === id) || scFallbackField(id, requirement);
+    inputs.appendChild(scBuildTargetInput(labId, field, { scope, describedBy: requirement.prompt ? helpId : "" }));
+  }
+  block.appendChild(inputs);
+  const profileId = `sc-${scope}-profile`;
+  const profileRow = scEl("label", { class: "sc-check", attrs: { for: profileId } });
+  const profileBox = scEl("input", { id: profileId, attrs: { type: "checkbox", autocomplete: "off" }, data: { scField: "also-profile", scScope: scope } });
+  profileBox.checked = ui.alsoProfile.has(scope);
+  profileRow.appendChild(profileBox);
+  profileRow.appendChild(scEl("span", { text: "Use this for my other labs too" }));
+  block.appendChild(profileRow);
+  const form = scFormError(labId, scope);
+  if (form) block.appendChild(form);
+  block.appendChild(
+    scEl("div", { class: "sc-step-actions" }, [
+      scButton("Save", { action: "targets-save", data: { scope, fields: requirement.fields.join(",") }, focus: `targets-save:${scope}`, primary: true, aria: { "aria-label": `Save your ${requirement.noun}` } }),
+    ]),
+  );
+  return block;
+}
+
+/** The inline card above the gallery: every address the screenshots are waiting for. */
+function scBuildAddressPrompt(labId, model) {
+  const targets = model.targets;
+  if (!targets?.missing.length) return null;
+  const section = scEl("section", { class: "sc-needs", attrs: { "aria-labelledby": "sc-needs-heading" }, data: { scNeeds: "1" } });
+  section.appendChild(scEl("h5", { id: "sc-needs-heading", class: "sc-needs-heading", text: "Add what these screenshots need", attrs: { tabindex: "-1" }, data: { scFocus: "needs-heading" } }));
+  for (const requirement of targets.missing) section.appendChild(scBuildNeedBlock(labId, requirement, targets.fields));
+  section.appendChild(scEl("div", { class: "sc-step-actions" }, [scButton("Open all capture settings", { action: "targets-open-settings", focus: "needs-settings" })]));
+  return section;
+}
+
+/** Every capture setting, grouped by product, with where its value comes from. */
+function scBuildCaptureSettings(labId, model) {
+  if (!model.targets?.data) return null;
+  const { data, fields } = model.targets;
+  const ui = scLab(labId).ui;
+  const details = scEl("details", { class: "sc-settings", data: { scSettings: "1", scScope: "settings" } });
+  details.open = Boolean(ui.settingsOpen);
+  details.appendChild(scEl("summary", { text: "Capture settings: where should we capture?" }));
+  const body = scEl("div", { class: "sc-settings-body" });
+  const profile = scText(data.activeProfile?.name, 80);
+  body.appendChild(
+    scEl("p", {
+      class: "hint",
+      text: `These addresses and names tell your computer which environment and agent to open. A value saved for this lab is used before the brand profile's.${profile ? ` Active brand profile: ${profile}.` : ""}`,
+    }),
+  );
+  for (const group of scGroupTargetFields(fields)) {
+    const fieldset = scEl("fieldset", { class: "sc-settings-group" });
+    fieldset.appendChild(scEl("legend", { text: group.name }));
+    const grid = scEl("div", { class: "sc-adv-grid" });
+    for (const field of group.fields) {
+      const source = field.set ? (field.sourceLabel ? `From ${field.sourceLabel}.` : "Set.") : "Not set yet.";
+      grid.appendChild(scBuildTargetInput(labId, field, { scope: "settings", showHelp: true, source }));
+    }
+    fieldset.appendChild(grid);
+    body.appendChild(fieldset);
+  }
+  const fieldIds = fields.map((field) => field.id).join(",");
+  const form = scFormError(labId, "settings");
+  if (form) body.appendChild(form);
+  body.appendChild(
+    scEl("div", { class: "sc-step-actions" }, [
+      scButton("Save for this lab", { action: "targets-save", data: { scope: "settings", fields: fieldIds }, focus: "targets-save:settings", primary: true }),
+      scButton("Save for all labs (brand profile)", { action: "targets-save", data: { scope: "settings", fields: fieldIds, profile: "1" }, focus: "targets-save:settings-all" }),
+    ]),
+  );
+  details.appendChild(body);
+  return details;
+}
+
+function scFocusNeeds(labId) {
+  const heading = scHostFor(labId)?.querySelector("#sc-needs-heading");
+  if (!heading) return;
+  heading.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  heading.focus?.({ preventScroll: true });
+}
+
+function scOpenSettings(labId) {
+  const lab = scLab(labId);
+  const details = scHostFor(labId)?.querySelector("[data-sc-settings]");
+  if (!details) return;
+  lab.ui.settingsOpen = true;
+  details.open = true;
+  details.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
+  details.querySelector("input")?.focus?.({ preventScroll: true });
+}
+
 // Progress card --------------------------------------------------------------
 
 function scProgressView(key) {
@@ -590,6 +852,10 @@ function scFillCounts(list, c) {
   list.appendChild(scEl("li", {}, [scChip(`${c.captured} captured`, c.captured ? "ok" : "neutral")]));
   list.appendChild(scEl("li", {}, [scChip(`${c.needsReview} need review`, c.needsReview ? "warn" : "neutral")]));
   list.appendChild(scEl("li", {}, [scChip(`${c.failed} failed`, c.failed ? "bad" : "neutral")]));
+  // These only appear when there is something to say, so the usual three chips stay as they were.
+  if (scCount(c.needsYou)) list.appendChild(scEl("li", {}, [scChip(`${c.needsYou} need you`, "warn")]));
+  if (scCount(c.paused)) list.appendChild(scEl("li", {}, [scChip(`${c.paused} paused`, "info")]));
+  if (scCount(c.skipped)) list.appendChild(scEl("li", {}, [scChip(`${c.skipped} skipped`, "neutral")]));
 }
 
 /** Update the progress card in place; rebuild it only when the phase changes so focus is never lost. */
@@ -908,12 +1174,6 @@ function scShotLabel(shot) {
   return `${shot.figure ? `Figure ${shot.figure}` : "Screenshot"}: ${String(shot.caption || shot.alt || shot.filename)}`;
 }
 
-/** The failed row for this screenshot in the last finished capture, so the card can say why it failed. */
-function scLastAttempt(labId, filename) {
-  const row = (scLab(labId).lastJob?.shots || []).find((s) => s.filename === filename);
-  return row && (row.status === "failed" || row.status === "auth-required") ? row : null;
-}
-
 function scStatusFor(labId, shot, jobStatus = null) {
   const live = jobStatus === "running" || jobStatus === "pending" ? jobStatus : null;
   return scShotStatus(shot, live, shot.captured ? null : scLastAttempt(labId, shot.filename));
@@ -928,7 +1188,7 @@ function scShotImageUrl(labId, shot, status) {
   return "";
 }
 
-function scShotNote(shot, status, attempt = null) {
+function scShotNote(shot, status, attempt = null, waitingNouns = []) {
   switch (status.key) {
     case "needs-review": {
       const items = scVerificationSummary(shot.verification, scLimits()).items.filter((i) => i.level !== "pass");
@@ -940,12 +1200,18 @@ function scShotNote(shot, status, attempt = null) {
       if (attempt?.status === "auth-required" || shot.lastAttemptStatus === "auth-required") return "Sign-in was needed. Sign in on your computer, then try again.";
       return String(attempt?.error || attempt?.message || shot.lastError || "The last try did not finish. You can try again or add the image yourself.").slice(0, 200);
     }
+    case "needs-you":
+      return "This screen needs you. Select Retake guided, set up the screen yourself, and capture it.";
+    case "paused":
+      return "The capture paused before this one was captured. Resume the capture, or retake this one.";
     case "manual":
       return "This screen needs a person. Take it yourself, then paste or upload it.";
     case "outdated":
       return "Microsoft Learn changed this topic. Retake it so the picture matches.";
     case "pending":
     case "queued":
+      if (attempt?.status === "skipped") return scText(attempt.message, 200) || "This one was skipped. Retake it when you are ready.";
+      if (waitingNouns.length) return `Waiting for your ${scJoinNames(waitingNouns, 2)}. Add it above, then capture this one.`;
       return "Not captured yet.";
     case "captured": {
       const when = scTimeAgo(shot.capturedAt);
@@ -957,10 +1223,26 @@ function scShotNote(shot, status, attempt = null) {
   }
 }
 
+/** The nouns of the requirements a screenshot is waiting for ("agent address"), from the capture settings. */
+function scWaitingNouns(labId, capture) {
+  const requirements = Array.isArray(scLab(labId).targets?.data?.requirements) ? scLab(labId).targets.data.requirements : [];
+  return (capture?.missing || []).map((id) => scText(requirements.find((r) => r?.id === id)?.noun, 80) || "address");
+}
+
+/** "Copilot Studio > your agent > Settings", with words for a screen reader instead of the arrows. */
+function scBuildPath(path) {
+  return scEl("p", { class: "sc-path", data: { scPath: "1" } }, [
+    scEl("span", { class: "sr-only", text: `Path: ${path.join(", then ")}.` }),
+    scEl("span", { class: "sc-path-text", text: path.join(" > "), attrs: { "aria-hidden": "true" } }),
+  ]);
+}
+
 function scBuildCard(labId, shot, jobStatus) {
   const lab = scLab(labId);
   const status = scStatusFor(labId, shot, jobStatus);
   const attempt = shot.captured ? null : scLastAttempt(labId, shot.filename);
+  const capture = scShotCapture(shot);
+  const outcome = scText(scJobRow(labId, shot.filename)?.outcome);
   const label = scShotLabel(shot);
   const card = scEl("li", { class: `sc-card${lab.selected === shot.filename ? " sc-selected" : ""}`, attrs: { tabindex: "-1" }, data: { filename: shot.filename, status: status.key } });
   if (lab.selected === shot.filename) card.setAttribute("aria-current", "true");
@@ -995,10 +1277,14 @@ function scBuildCard(labId, shot, jobStatus) {
   const body = scEl("div", { class: "sc-card-body" });
   const top = scEl("div", { class: "sc-card-head" });
   top.appendChild(scStatusChip(status));
+  if (capture) top.appendChild(scChip(SC_SHOT_MODES[capture.mode].label, SC_SHOT_MODES[capture.mode].tone, "sc-mode-chip"));
   if (shot.figure) top.appendChild(scEl("span", { class: "sc-fig", text: `Figure ${shot.figure}` }));
   body.appendChild(top);
   body.appendChild(scEl("p", { class: "sc-caption", text: String(shot.caption || shot.alt || shot.filename) }));
-  body.appendChild(scEl("p", { class: "sc-note", text: scShotNote(shot, status, attempt), data: { scNote: "1" } }));
+  if (capture?.why) body.appendChild(scEl("p", { class: "sc-why", text: capture.why, data: { scWhy: "1" } }));
+  if (capture?.path.length) body.appendChild(scBuildPath(capture.path));
+  body.appendChild(scEl("p", { class: "sc-note", text: scShotNote(shot, status, attempt, scWaitingNouns(labId, capture)), data: { scNote: "1" } }));
+  if (outcome) body.appendChild(scEl("p", { class: "sc-outcome", text: outcome, data: { scOutcome: "1" } }));
   const feedback = scBuildFeedback(labId, shot.filename);
   if (feedback) body.appendChild(feedback);
   body.appendChild(scEl("div", { class: "sc-card-actions" }, scCardActions(labId, shot, status)));
@@ -1041,13 +1327,19 @@ function scCardActions(labId, shot, status, { idPrefix = "card" } = {}) {
         ...opts,
       }),
     );
+  const attempt = shot.captured ? null : scLastAttempt(labId, shot.filename);
+  const addRetakes = (guidedFirst) => {
+    add("Retake", "shot-retake", { primary: status.key === "outdated", disabled: jobActive || busyUpload, needsIdle: true });
+    add("Retake guided", "shot-retake-guided", { primary: guidedFirst, disabled: jobActive || busyUpload, needsIdle: true });
+  };
   if (status.key === "needs-review") {
     add("Accept", "shot-accept", { primary: true, disabled: busyUpload });
+    addRetakes(false);
     add("Discard", "shot-discard", { disabled: busyUpload });
-  } else if (status.key === "pending" || status.key === "failed" || status.key === "queued") {
+  } else if (["captured", "outdated", "failed", "needs-you", "paused"].includes(status.key) || (status.key === "pending" && attempt?.status === "skipped")) {
+    addRetakes(status.key === "needs-you");
+  } else if (status.key === "pending" || status.key === "queued") {
     add("Capture this one", "shot-capture", { disabled: jobActive || busyUpload, needsIdle: true });
-  } else if (status.key === "captured" || status.key === "outdated") {
-    add("Retake", "shot-retake", { primary: status.key === "outdated", disabled: jobActive || busyUpload, needsIdle: true });
   }
   add("Paste image", "shot-paste", { disabled: busyUpload });
   add("Upload image", "shot-upload", { disabled: busyUpload });
@@ -1186,7 +1478,26 @@ function scBindSection(section, labId) {
     } else if (field === "pick") {
       if (target.checked) lab.ui.picks.add(target.dataset.filename);
       else lab.ui.picks.delete(target.dataset.filename);
+    } else if (field === "mode") {
+      if (target.checked) lab.ui.mode = scCaptureModeOf(target.dataset.scMode);
+    } else if (field === "also-profile") {
+      if (target.checked) lab.ui.alsoProfile.add(target.dataset.scScope);
+      else lab.ui.alsoProfile.delete(target.dataset.scScope);
     }
+  });
+
+  section.addEventListener("input", (event) => {
+    const fieldId = event.target?.dataset?.scTargetField;
+    if (fieldId) lab.ui.targetDraft[fieldId] = event.target.value;
+  });
+
+  // Enter in an address box saves that block, like a form would.
+  section.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || !event.target?.dataset?.scTargetField) return;
+    const save = event.target.closest("[data-sc-scope]")?.querySelector('[data-sc-action="targets-save"]');
+    if (!save) return;
+    event.preventDefault?.();
+    save.click();
   });
 
   fileInput?.addEventListener("change", () => {
@@ -1231,6 +1542,9 @@ function scBindSection(section, labId) {
   section.querySelector("[data-sc-advanced]")?.addEventListener("toggle", (event) => {
     lab.ui.advancedOpen = Boolean(event.target.open);
   });
+  section.querySelector("[data-sc-settings]")?.addEventListener("toggle", (event) => {
+    lab.ui.settingsOpen = Boolean(event.target.open);
+  });
 }
 
 // ── Actions ─────────────────────────────────────────────────────────────────
@@ -1257,6 +1571,15 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
     case "step-add-addresses":
     case "step-edit-addresses":
       scOpenAddressSettings();
+      return;
+    case "step-fix-addresses":
+      scFocusNeeds(labId);
+      return;
+    case "targets-save":
+      await scSaveTargetsFrom(labId, control);
+      return;
+    case "targets-open-settings":
+      scOpenSettings(labId);
       return;
     case "step-use-profile":
       lab.ui.tenantSource = `profile:${control.dataset.profileId}`;
@@ -1306,6 +1629,17 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
     case "banner-retry-failed":
       await scQueueCapture(labId, { scope: "selected", filenames: String(control.dataset.filenames || "").split(",").filter(Boolean) });
       return;
+    case "banner-resume":
+      await scResumeCapture(labId, String(control.dataset.filenames || "").split(",").filter(Boolean));
+      return;
+    case "cause-fix":
+      await scApplyCauseFix(labId, control.dataset.cause);
+      return;
+    case "cause-toggle":
+      if (lab.ui.causesOpen.has(control.dataset.cause)) lab.ui.causesOpen.delete(control.dataset.cause);
+      else lab.ui.causesOpen.add(control.dataset.cause);
+      scRerender(labId);
+      return;
     case "banner-dismiss":
       lab.outcome = null;
       scRerender(labId);
@@ -1320,10 +1654,16 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       scOpenLightbox(labId, filename);
       return;
     case "shot-capture":
+      scCloseLightboxFor(labId, control);
       await scCaptureOne(labId, filename);
       return;
     case "shot-retake":
+      scCloseLightboxFor(labId, control);
       await scRetakeShot(labId, filename);
+      return;
+    case "shot-retake-guided":
+      scCloseLightboxFor(labId, control);
+      await scRetakeShot(labId, filename, { mode: "guided" });
       return;
     case "shot-paste":
       await scPasteFromClipboard(labId, filename);
@@ -1406,14 +1746,7 @@ async function scCaptureOne(labId, filename) {
 async function scRunAdvancedCapture(labId) {
   const lab = scLab(labId);
   const scope = lab.ui.scope;
-  const status = await scLoadStatus(true);
-  if (!status?.companion?.connected) {
-    lab.outcome = { type: "job", variant: "warn", message: "Connect your computer first. Capture runs on your computer.", jobId: null, actions: [] };
-    scAnnounce(lab.outcome.message);
-    scNotifyStatusChanged();
-    await scStartPairing({ source: "lab" });
-    return;
-  }
+  if (!(await scEnsureConnected(labId))) return;
   if (scope === "selected" && !lab.ui.picks.size) {
     lab.outcome = { type: "job", variant: "warn", message: "Tick at least one screenshot below, then try again.", jobId: null, actions: [] };
     scAnnounce(lab.outcome.message);
@@ -1421,6 +1754,75 @@ async function scRunAdvancedCapture(labId) {
     return;
   }
   await scQueueCapture(labId, { scope, filenames: [...lab.ui.picks] });
+}
+
+/** Close the preview dialog when the control that was pressed sits inside it, so the progress behind it can be seen. */
+function scCloseLightboxFor(labId, control) {
+  if (control?.closest?.("dialog")) scCloseLightbox(labId);
+}
+
+/** Save the settings a block or the settings panel asked for. Only what was typed is sent: an untouched box keeps its value. */
+async function scSaveTargetsFrom(labId, control) {
+  const lab = scLab(labId);
+  const ui = lab.ui;
+  const scope = control.dataset.scope || "settings";
+  const fieldIds = String(control.dataset.fields || "").split(",").filter(Boolean);
+  const alsoProfile = control.dataset.profile === "1" || ui.alsoProfile.has(scope);
+  const current = new Map(scTargetFields(lab.targets?.data).map((field) => [field.id, field.value]));
+  const targets = {};
+  for (const id of fieldIds) {
+    if (ui.targetDraft[id] === undefined) continue;
+    const value = ui.targetDraft[id].trim();
+    // A prompt only adds values; the settings panel can also clear one by saving it empty.
+    if (scope === "settings" ? value !== (current.get(id) || "") : value) targets[id] = value;
+  }
+  if (!Object.keys(targets).length) {
+    ui.targetErrors = {};
+    ui.targetFormError = { scope, message: scope === "settings" ? "Nothing has changed yet." : "Type or paste a value first." };
+    scAnnounce(ui.targetFormError.message);
+    scRerender(labId);
+    scFocusByKey(scHostFor(labId), scope === "settings" ? "targets-save:settings" : `target:${scope}:${fieldIds[0]}`);
+    return;
+  }
+  const { ok } = await scSaveTargets(labId, targets, { alsoProfile, scope });
+  const host = scHostFor(labId);
+  if (!host) return;
+  if (!ok) {
+    const invalid = host.querySelector('[data-sc-target-field][aria-invalid="true"]');
+    (invalid || host.querySelector(`[data-sc-form-error="${scope}"]`))?.focus?.({ preventScroll: true });
+    return;
+  }
+  if (scope !== "settings") {
+    const next = host.querySelector("[data-sc-needs] input");
+    if (next) next.focus?.({ preventScroll: true });
+    else scFocusByKey(host, "primary");
+  }
+}
+
+/** The one fix for a group of screenshots that were not captured. */
+async function scApplyCauseFix(labId, code) {
+  const lab = scLab(labId);
+  const cause = (lab.outcome?.causes || []).find((c) => c.code === code);
+  if (!cause) return;
+  switch (cause.fixAction) {
+    case "settings":
+      if (scHostFor(labId)?.querySelector("[data-sc-needs]")) scFocusNeeds(labId);
+      else scOpenSettings(labId);
+      return;
+    case "retry":
+      await scRetakeShots(labId, cause.filenames);
+      return;
+    case "guided":
+      await scRetakeShots(labId, cause.filenames, { mode: "guided" });
+      return;
+    case "upload": {
+      const upload = scHostFor(labId)?.querySelector(`.sc-card[data-filename="${cause.filenames[0]}"] [data-sc-action="shot-upload"]`);
+      upload?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+      upload?.focus?.({ preventScroll: true });
+      return;
+    }
+    default:
+  }
 }
 
 // ── Preview dialog ──────────────────────────────────────────────────────────
@@ -1523,6 +1925,41 @@ function scLbSection(title, content) {
   return wrap;
 }
 
+/** What the lab says to show for a shot, as a numbered list (or its navigation hint), or null. */
+function scLbInstructions(shot) {
+  if (Array.isArray(shot.instructions) && shot.instructions.length) {
+    const ol = scEl("ol", { class: "sc-lb-list" });
+    for (const line of shot.instructions) ol.appendChild(scEl("li", { text: scPlainInstruction(line) }));
+    return ol;
+  }
+  return shot.navHint ? scEl("p", { text: String(shot.navHint) }) : null;
+}
+
+/** A picture waiting for review, side by side with what the lab asks for, and why they differ when the screen was wrong. */
+function scBuildReviewCompare(shot, label, url) {
+  const wrap = scEl("div", { class: "sc-review", data: { scReview: "1" } });
+  const mismatch = scLandingSentence(shot.verification);
+  if (mismatch) wrap.appendChild(scEl("p", { class: "sc-review-mismatch", text: mismatch }));
+  const grid = scEl("div", { class: "sc-review-grid" });
+
+  const captured = scEl("section", { class: "sc-review-col", attrs: { "aria-labelledby": "sc-review-captured" } });
+  captured.appendChild(scEl("h6", { id: "sc-review-captured", text: "What we captured" }));
+  captured.appendChild(scEl("img", { class: "sc-lb-img", attrs: { src: url, alt: String(shot.alt || shot.caption || label) } }));
+  grid.appendChild(captured);
+
+  const asks = scEl("section", { class: "sc-review-col", attrs: { "aria-labelledby": "sc-review-asks" } });
+  asks.appendChild(scEl("h6", { id: "sc-review-asks", text: "What the lab asks for" }));
+  if (shot.caption) asks.appendChild(scEl("p", { class: "sc-review-caption", text: String(shot.caption) }));
+  const instructions = scLbInstructions(shot);
+  if (instructions) asks.appendChild(instructions);
+  const expected = scText(shot.verification?.landing?.expected, 120) || scShotCapture(shot)?.screenLabel;
+  if (expected) asks.appendChild(scEl("p", { class: "sc-review-expected", text: `Expected screen: ${expected}.` }));
+  grid.appendChild(asks);
+
+  wrap.appendChild(grid);
+  return wrap;
+}
+
 function scFillLightbox(labId, filename) {
   const lab = scLab(labId);
   const dialog = scLightboxDialog(labId);
@@ -1537,9 +1974,14 @@ function scFillLightbox(labId, filename) {
   const figure = dialog.querySelector("[data-sc-lb-figure]");
   figure.replaceChildren();
   const url = scShotImageUrl(labId, shot, status);
-  if (url) figure.appendChild(scEl("img", { class: "sc-lb-img", attrs: { src: url, alt: String(shot.alt || shot.caption || label) } }));
-  else figure.appendChild(scEl("div", { class: "sc-lb-empty", text: "Pending. This screenshot has not been captured yet." }));
-  figure.appendChild(scEl("figcaption", { class: "sc-lb-caption", text: String(shot.caption || "") }));
+  const comparing = status.key === "needs-review" && Boolean(url);
+  if (comparing) {
+    figure.appendChild(scBuildReviewCompare(shot, label, url));
+  } else {
+    if (url) figure.appendChild(scEl("img", { class: "sc-lb-img", attrs: { src: url, alt: String(shot.alt || shot.caption || label) } }));
+    else figure.appendChild(scEl("div", { class: "sc-lb-empty", text: "Pending. This screenshot has not been captured yet." }));
+    figure.appendChild(scEl("figcaption", { class: "sc-lb-caption", text: String(shot.caption || "") }));
+  }
 
   const info = dialog.querySelector("[data-sc-lb-info]");
   info.replaceChildren();
@@ -1549,13 +1991,9 @@ function scFillLightbox(labId, filename) {
   meta.appendChild(scEl("span", { text: ` Screenshot ${position} of ${shots.length}` }));
   info.appendChild(meta);
 
-  if (Array.isArray(shot.instructions) && shot.instructions.length) {
-    const ol = scEl("ol", { class: "sc-lb-list" });
-    for (const line of shot.instructions) ol.appendChild(scEl("li", { text: scPlainInstruction(line) }));
-    info.appendChild(scLbSection("What to show", ol));
-  } else if (shot.navHint) {
-    info.appendChild(scLbSection("What to show", scEl("p", { text: String(shot.navHint) })));
-  }
+  // A screenshot being reviewed already shows what the lab asks for next to the picture.
+  const instructions = comparing ? null : scLbInstructions(shot);
+  if (instructions) info.appendChild(scLbSection("What to show", instructions));
   info.appendChild(scLbSection("Alt text", scEl("p", { text: String(shot.alt || "") })));
 
   const summary = scVerificationSummary(shot.verification || (shot.captured ? null : scLastAttempt(labId, filename)?.verification), scLimits());

@@ -25,7 +25,7 @@ A web-based lab operations portal for building, customizing, validating, preview
 - **🧪 Validation** — Run documentation smoke tests across all labs or a single lab, plus a step-level accuracy check of every lab step against current Microsoft Learn content
 - **⚙️ Configuration** — Review Azure, Key Vault, SMTP, branding, and deployment settings in one place
 - **✅ Setup Checklist** — At the top of Configuration, eight plain-language setup tasks with live status and one fix-it button each: brand profile, learner links, tenant addresses, screenshot computer, product sign-ins, screenshot library, storage, and Microsoft Learn freshness. A short banner on the Build tab points to it until the recommended steps are done or you dismiss it. Nothing on it ever blocks building a lab (see [First-time setup](../docs/lab-builder.md#first-time-setup))
-- **📸 Screenshot Center** — Capture tenant screenshots on your own computer with the Local Capture Companion, or paste and upload them, then check each lab against Microsoft Learn (see [`tools/screenshot-capture/README.md`](../tools/screenshot-capture/README.md))
+- **📸 Screenshot Center** — Capture tenant screenshots on your own computer with the Local Capture Companion (saying once where to capture: your agent, SharePoint site, and so on; each shot runs automatically, or you set it up with an on-page toolbar), or paste and upload them, then check each lab against Microsoft Learn (see [`tools/screenshot-capture/README.md`](../tools/screenshot-capture/README.md))
 - **🐳 Cloud & Container-Ready** — Run locally on port `3005`, in Docker (with `/healthz` readiness checks), on **Azure Container Apps** via `azd`, or in Azure App Service
 
 ## Quick Start
@@ -358,7 +358,7 @@ portal/
 │   ├── branding.js        Single-brand API (reads and writes the active brand profile), banner, and {{TOKEN}} replacement
 │   ├── branding-profiles.js  Brand profiles, per-lab customization, and the CAPTURE_* environment mapping
 │   ├── branding-routes.js    Brand profile and per-lab customization routes
-│   ├── capture/           Screenshot capture platform: pairing, job queue, upload verification, companion download, routes
+│   ├── capture/           Screenshot capture platform: pairing, job queue, capture settings (targets.js), shot classification (classify.js), upload verification, companion download, routes
 │   ├── scenarios.js       Industry and department scenario templates (also the Use Case Builder's industry and department lists)
 │   ├── use-cases/         Use Case Builder: JSON data (capabilities, patterns, industries), generator, ranking, optional AI wording, routes
 │   ├── provisioner.js     Azure resource provisioning engine

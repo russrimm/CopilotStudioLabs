@@ -19,7 +19,8 @@ import {
 } from "../lab-builder/lab-screenshots.js";
 import { listFeatureManifests } from "../../../tools/screenshot-capture/manifests.mjs";
 import { blockedInstructionReason, blockedLabelReason } from "../../../tools/screenshot-capture/guard.mjs";
-import { readCaptureConfig, sectionConfig } from "../../../tools/feature-tour/lib/products.mjs";
+import { REQUIREMENTS, missingRequirements, targetField } from "../../../tools/screenshot-capture/targets.mjs";
+import { classifyShot, expectedLabelsForShot } from "./classify.js";
 
 const ALLOWED_ACTIONS = new Set([
   "navigate",
@@ -35,7 +36,6 @@ const ALLOWED_ACTIONS = new Set([
 const WAIT_UNTIL = new Set(["load", "domcontentloaded", "networkidle", "commit"]);
 const INTERACTIONS = new Set(["click-or-focus", "locate"]);
 const ROLES = new Set(["tab", "menuitem", "treeitem", "button", "link", "textbox", "combobox", "switch", "checkbox"]);
-const BOLD_LABEL_RE = /\*\*([^*]{1,80})\*\*/g;
 
 function text(value, max) {
   return String(value ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
@@ -91,21 +91,9 @@ export function sanitizePlanSteps(steps) {
   return out;
 }
 
+/** The labels the finished screenshot should show: the shot's own callouts and bold labels, never other screens' steps. */
 function expectedLabelsFor(shot) {
-  const labels = [];
-  const add = (value) => {
-    const label = text(value, 80);
-    if (label && !labels.some((l) => l.toLowerCase() === label.toLowerCase())) labels.push(label);
-  };
-  for (const step of shot.steps || []) {
-    for (const label of step.labels || []) add(label);
-    if (step.label) add(step.label);
-  }
-  for (const callout of shot.callouts || []) add(callout.text || callout.label);
-  for (const line of shot.instructions || []) {
-    for (const match of String(line).matchAll(BOLD_LABEL_RE)) add(match[1]);
-  }
-  return labels.slice(0, 20);
+  return expectedLabelsForShot({ callouts: shot.callouts || [], instructions: shot.instructions || [] }, { extra: shot.capture?.landmarks || [] });
 }
 
 function viewportOf(value) {
@@ -116,21 +104,19 @@ function viewportOf(value) {
     : { width: 1440, height: 900 };
 }
 
-let captureConfig = null;
-/** Whether a section can only be reached through a tenant address (its own environment variable, no public page). */
-function requiresTenantAddress(product, section, urlEnv) {
-  if (!urlEnv) return false;
-  try {
-    captureConfig ??= readCaptureConfig();
-    const config = sectionConfig(captureConfig, product, section);
-    return config.urlEnv === urlEnv && !config.url;
-  } catch {
-    return false;
-  }
-}
-
-function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, instructions }) {
+function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, instructions, values = {} }) {
   const urlEnv = /^CAPTURE_[A-Z0-9_]{1,80}$/.test(String(src.urlEnv || "")) ? src.urlEnv : null;
+  const capture = classifyShot({ ...src, product: product ?? src.product, callouts, instructions }, { values });
+  // A screen the settings already lead to is opened directly, so even a companion that follows only the address lands on it.
+  const directUrl = capture.mode !== "manual" ? capture.knownUrl || null : null;
+  const effectiveStart = directUrl || startUrl;
+  // The page-by-page clicks are gone from the plan: the `capture` descriptor says how to reach the screen, and a
+  // companion that does not know it still opens the best address and takes the picture.
+  const planSteps = capture.mode === "manual" ? steps : derivePlaywrightSteps({ uiSteps: [], startUrl: effectiveStart, callouts, filename: src.filename, outputPath: src.outputPath });
+  // An older companion skips a shot whose tenant address variable is unset, so name the one this shot is waiting for.
+  // (A companion that reads `capture` decides for itself; this keeps the older contract.)
+  const unmet = capture.mode !== "manual" ? missingRequirements(capture.needs, values) : [];
+  const waitingField = unmet.length ? REQUIREMENTS[unmet[0]].fields.map((id) => targetField(id)).find((f) => f?.env) : null;
   const shot = {
     filename: src.filename,
     shotId: src.shotId ?? null,
@@ -140,23 +126,49 @@ function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, inst
     section: text(src.section, 60) || null,
     moduleTitle: text(src.moduleTitle ?? src.featureName, 160) || null,
     caption: text(src.caption, 200) || null,
-    startUrl: isHttps(startUrl) ? startUrl : null,
+    startUrl: isHttps(effectiveStart) ? effectiveStart : null,
     urlEnv,
-    // A tenant address the shot cannot do without: the product's public page would be the wrong screen.
-    requiresEnv: requiresTenantAddress(product ?? src.product, src.section, urlEnv) ? urlEnv : null,
+    requiresEnv: waitingField?.env || null,
     navHint: text(src.navHint, 300) || null,
-    manual: Boolean(src.manual),
+    manual: Boolean(src.manual) || capture.mode === "manual",
     viewport: viewportOf(src.viewport),
-    steps: sanitizePlanSteps(steps),
+    steps: sanitizePlanSteps(planSteps),
     callouts: (Array.isArray(callouts) ? callouts : []).slice(0, 12).map((c, i) => ({
       n: Number.isInteger(c?.n) ? c.n : i + 1,
       label: text(c?.label ?? c?.text, 80),
       text: text(c?.text ?? c?.label, 120),
     })),
     instructions: (Array.isArray(instructions) ? instructions : []).slice(0, 6).map((i) => text(i, 300)),
+    capture: sanitizeCaptureDescriptor(capture),
   };
   shot.expectedLabels = expectedLabelsFor(shot);
   return shot;
+}
+
+/** The descriptor as a plan carries it: bounded text and known fields only, no internal helper values. */
+export function sanitizeCaptureDescriptor(capture) {
+  if (!capture || typeof capture !== "object") return null;
+  const list = (value, max, len = 80) => (Array.isArray(value) ? value.slice(0, max).map((v) => text(v, len)).filter(Boolean) : []);
+  const expect = capture.expect && typeof capture.expect === "object" ? capture.expect : null;
+  return {
+    version: capture.version,
+    mode: ["auto", "guided", "manual"].includes(capture.mode) ? capture.mode : "guided",
+    why: text(capture.why, 300),
+    product: text(capture.product, 60) || null,
+    section: text(capture.section, 60) || null,
+    needs: list(capture.needs, 4, 40).filter((id) => REQUIREMENTS[id]),
+    missing: list(capture.missing, 4, 40).filter((id) => REQUIREMENTS[id]),
+    ready: capture.ready !== false,
+    route: capture.route && typeof capture.route === "object" ? { kind: text(capture.route.kind, 20), screen: text(capture.route.screen, 30) || undefined, scope: text(capture.route.scope, 20) || undefined, url: isHttps(capture.route.url) ? capture.route.url : undefined, urlEnv: /^CAPTURE_[A-Z0-9_]{1,80}$/.test(String(capture.route.urlEnv || "")) ? capture.route.urlEnv : undefined, direct: capture.route.direct === true ? true : undefined } : { kind: "none" },
+    screen: capture.screen ? { id: text(capture.screen.id, 40), label: text(capture.screen.label, 120) } : null,
+    path: list(capture.path, 6, 60),
+    expect: expect
+      ? { family: text(expect.family, 20), scope: text(expect.scope, 20) || undefined, paths: list(expect.paths, 4, 40), host: text(expect.host, 120) || undefined, label: text(expect.label, 120), strict: expect.strict !== false }
+      : null,
+    reveal: (Array.isArray(capture.reveal) ? capture.reveal : []).slice(0, 3).map((s) => ({ action: "reveal", label: text(s.label, 80), required: Boolean(s.required) })).filter((s) => s.label),
+    landmarks: list(capture.landmarks, 8, 80),
+    guide: list(capture.guide, 6, 220),
+  };
 }
 
 function inScope(scope, { filename, featureId, missing, stale }) {
@@ -170,7 +182,7 @@ function inScope(scope, { filename, featureId, missing, stale }) {
 /**
  * The shots a lab job should capture. Returns `{status: 200, title, shots}` or `{status, error}`.
  */
-export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = capturedScreenshotsDirs() }) {
+export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = capturedScreenshotsDirs(), values = {} }) {
   const found = resolveGeneratedLabDir(generatedRoot, labId);
   if (found.status !== 200) return { status: found.status, error: found.error };
   const { shotsPlan, learnState } = ensurePerLabScreenshotPlan(found.labDir, { labId: found.labId, capturedDir });
@@ -203,6 +215,7 @@ export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = cap
         steps,
         callouts: shot.callouts,
         instructions: shot.instructions,
+        values,
       }),
     );
   }
@@ -248,7 +261,7 @@ export function listLibrarySlots({ manifestDir, capturedDir = capturedScreenshot
 }
 
 /** The shots a shared-library job should capture. Returns `{status: 200, shots}`. */
-export function buildLibraryJobPlan({ scope, products = [], manifestDir, capturedDir = capturedScreenshotsDirs() }) {
+export function buildLibraryJobPlan({ scope, products = [], manifestDir, capturedDir = capturedScreenshotsDirs(), values = {} }) {
   const productSet = products.length ? new Set(products) : null;
   const shots = [];
   const seen = new Set();
@@ -273,6 +286,7 @@ export function buildLibraryJobPlan({ scope, products = [], manifestDir, capture
         }),
         callouts: shot.callouts,
         instructions: shot.instructions,
+        values,
       }),
     );
   }

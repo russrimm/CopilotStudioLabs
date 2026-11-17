@@ -33,13 +33,30 @@ function scLab(key) {
       feedback: {},
       uploading: {},
       brand: null,
+      targets: null,
+      needsAddress: null,
       busy: "",
       resumeAt: 0,
       eventSource: null,
       pollTimer: null,
       tickTimer: null,
       finishing: false,
-      ui: { advancedOpen: false, scope: "missing", callouts: "sidecar", redact: true, tenantSource: "lab", onlyAttention: false, picks: new Set() },
+      ui: {
+        advancedOpen: false,
+        scope: "missing",
+        callouts: "sidecar",
+        redact: true,
+        tenantSource: "lab",
+        onlyAttention: false,
+        picks: new Set(),
+        mode: SC_DEFAULT_CAPTURE_MODE,
+        settingsOpen: false,
+        causesOpen: new Set(),
+        targetDraft: {},
+        targetErrors: {},
+        targetFormError: null,
+        alsoProfile: new Set(),
+      },
     };
   }
   return scState.labs[key];
@@ -247,7 +264,7 @@ function scStopTracking(key) {
   lab.tickTimer = null;
 }
 
-function scTrackJob(key, job, { announce = true } = {}) {
+function scTrackJob(key, job, { announce = true, note = "" } = {}) {
   const lab = scLab(key);
   scStopTracking(key);
   lab.job = job;
@@ -259,7 +276,7 @@ function scTrackJob(key, job, { announce = true } = {}) {
   lab.tickTimer?.unref?.();
   scApplyJob(key, job, { full: true, silent: !announce });
   scRerender(key);
-  if (announce) scAnnounce(`Capture started for ${scPlural(scCount(job.progress?.total ?? job.shots?.length), "screenshot")}.`);
+  if (announce) scAnnounce(`Capture started for ${scPlural(scCount(job.progress?.total ?? job.shots?.length), "screenshot")}.${note ? ` ${note}` : ""}`);
 }
 
 function scSubscribeJob(key, jobId) {
@@ -454,29 +471,40 @@ function scScopeBody(scope, filenames) {
 /**
  * Queue a capture for one lab. Returns true when a job is now being tracked.
  * @param {string} labId
- * @param {{ scope?: string, filenames?: string[] }} request
+ * @param {{ scope?: string, filenames?: string[], mode?: string }} request `mode` defaults to the lab's choice
  */
-async function scQueueCapture(labId, { scope = "missing", filenames = [] } = {}) {
+async function scQueueCapture(labId, { scope = "missing", filenames = [], mode } = {}) {
   const lab = scLab(labId);
   lab.outcome = null;
   lab.busy = "queue";
   scRerender(labId);
+  let needsAddress = false;
   try {
     const body = {
       target: { type: "lab", labId },
       scope: scScopeBody(scope, filenames),
-      options: { callouts: lab.ui.callouts, redact: lab.ui.redact },
+      options: { callouts: lab.ui.callouts, redact: lab.ui.redact, mode: scCaptureModeOf(mode ?? lab.ui.mode) },
       ...scTenantFields(labId),
     };
     const { ok, status, data } = await scFetchJson("/api/capture/jobs", scJsonInit("POST", body));
     if (!ok) {
       lab.outcome = { type: "job", variant: "error", message: `Could not start the capture. ${data.error || `Request failed (${status}).`}`, jobId: null, actions: [] };
+    } else if (data.needsAddress) {
+      // Nothing was queued: every selected screenshot waits for an address, so ask for it here.
+      needsAddress = true;
+      lab.needsAddress = Array.isArray(data.missing) ? data.missing : [];
+      lab.outcome = { type: "job", variant: "warn", message: String(data.message || "These screenshots need an address before they can be captured."), jobId: null, actions: [] };
+      void scLoadTargets(labId, { force: true });
     } else if (data.nothingToCapture) {
       lab.outcome = { type: "job", variant: "ok", message: "Nothing to capture. Every selected screenshot already exists.", jobId: null, actions: [] };
     } else if (data.job) {
       lab.busy = "";
+      const held = scMissingRequirements(null, data.missing);
+      lab.needsAddress = held.length ? data.missing : null;
+      if (held.length) void scLoadTargets(labId, { force: true });
+      const waiting = held.reduce((sum, view) => sum + view.count, 0);
       if (data.existing) scAnnounce("This capture is already running. Showing its progress.");
-      scTrackJob(labId, data.job, { announce: !data.existing });
+      scTrackJob(labId, data.job, { announce: !data.existing, note: waiting ? `${scPlural(waiting, "screenshot")} ${waiting === 1 ? "is" : "are"} waiting for an address.` : "" });
       if (typeof scFocusProgress === "function") scFocusProgress(labId);
       return true;
     }
@@ -486,6 +514,7 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [] } = {})
   lab.busy = "";
   scAnnounce(lab.outcome?.message || "");
   scRerender(labId);
+  if (needsAddress && typeof scFocusNeeds === "function") scFocusNeeds(labId);
   return false;
 }
 
@@ -605,20 +634,55 @@ async function scResetShot(labId, filename, { announce = "Screenshot removed. It
   return true;
 }
 
-async function scRetakeShot(labId, filename) {
+/** Retake screenshots: discard the picture a screenshot has now, then queue a new capture for all of them. */
+async function scRetakeShots(labId, filenames, { mode } = {}) {
+  const lab = scLab(labId);
   const status = await scLoadStatus(true);
   if (!status?.companion?.connected) {
-    scSetFeedback(labId, filename, {
-      variant: "warn",
-      headline: "Retake needs your computer.",
-      items: [{ level: "warn", text: "Connect your computer first, or paste or upload a new image instead. Your current image was not changed." }],
-    });
-    scAnnounce("Retake needs your computer. Connect it first, or paste or upload a new image instead.");
+    const many = filenames.length > 1;
+    const announce = `Retake needs your computer. Connect it first, or paste or upload ${many ? "new images" : "a new image"} instead.`;
+    if (many) {
+      lab.outcome = { type: "job", variant: "warn", message: `${announce} Your current images were not changed.`, jobId: null, actions: [] };
+      scRerender(labId);
+    } else {
+      scSetFeedback(labId, filenames[0], {
+        variant: "warn",
+        headline: "Retake needs your computer.",
+        items: [{ level: "warn", text: "Connect your computer first, or paste or upload a new image instead. Your current image was not changed." }],
+      });
+    }
+    scAnnounce(announce);
     scNotifyStatusChanged();
     return false;
   }
-  if (!(await scResetShot(labId, filename, { announce: "" }))) return false;
-  return scQueueCapture(labId, { scope: "selected", filenames: [filename] });
+  // Only a screenshot that has a picture (accepted or waiting for review) has something to discard.
+  const replace = filenames.filter((name) => (lab.state?.shots || []).some((s) => s.filename === name && (s.captured || s.needsReview)));
+  for (const name of replace) {
+    if (!(await scResetShot(labId, name, { announce: "" }))) return false;
+  }
+  return scQueueCapture(labId, { scope: "selected", filenames, mode });
+}
+
+function scRetakeShot(labId, filename, options) {
+  return scRetakeShots(labId, [filename], options);
+}
+
+/** Make sure a computer is connected before capture; when none is, say so and open the pairing card. */
+async function scEnsureConnected(labId) {
+  const status = await scLoadStatus(true);
+  if (status?.companion?.connected) return true;
+  const lab = scLab(labId);
+  lab.outcome = { type: "job", variant: "warn", message: "Connect your computer first. Capture runs on your computer.", jobId: null, actions: [] };
+  scAnnounce(lab.outcome.message);
+  scNotifyStatusChanged();
+  await scStartPairing({ source: "lab" });
+  return false;
+}
+
+/** Continue a paused capture: queue the screenshots that were waiting. */
+async function scResumeCapture(labId, filenames) {
+  if (!filenames.length || !(await scEnsureConnected(labId))) return false;
+  return scQueueCapture(labId, { scope: "selected", filenames });
 }
 
 // ── Keeping the lab in sync ─────────────────────────────────────────────────
@@ -698,6 +762,81 @@ async function scRecheck(labId, { autoUpdate = false } = {}) {
   }
 }
 
+// ── Capture settings: where should we capture? ──────────────────────────────
+
+function scTargetsUrl(labId) {
+  return `/api/lab-builder/generated/${encodeURIComponent(labId)}/capture-targets`;
+}
+
+/** Load the addresses and names this lab captures with, and what its screenshots still need. A failed reload keeps what was shown. */
+async function scLoadTargets(labId, { force = false } = {}) {
+  const lab = scLab(labId);
+  if (lab.targets?.loading || (lab.targets?.loaded && !force)) return;
+  const previous = lab.targets?.data || null;
+  lab.targets = { loading: true, loaded: false, loadedAt: 0, data: previous };
+  let data = previous;
+  try {
+    const result = await scFetchJson(scTargetsUrl(labId));
+    if (result.ok && Array.isArray(result.data.fields)) {
+      data = result.data;
+      // What the portal reports now is the truth; the refused request that came first was only a hint.
+      lab.needsAddress = null;
+    }
+  } catch {
+    /* the settings stay as they were */
+  }
+  lab.targets = { loading: false, loaded: true, loadedAt: Date.now(), data };
+  scRerender(labId);
+}
+
+/**
+ * Save addresses and names for this lab (and, with `alsoProfile`, on the active brand profile too).
+ * An empty string clears a setting. Returns `{ ok }`; field errors are kept in `lab.ui.targetErrors`,
+ * and an error with no field to blame in `lab.ui.targetFormError` for the block named by `scope`.
+ */
+async function scSaveTargets(labId, targets, { alsoProfile = false, scope = "settings" } = {}) {
+  const lab = scLab(labId);
+  lab.ui.targetErrors = {};
+  lab.ui.targetFormError = null;
+  const waitingBefore = scMissingRequirements(lab.targets?.data, lab.needsAddress).reduce((sum, view) => sum + view.count, 0);
+  let result;
+  try {
+    result = await scFetchJson(scTargetsUrl(labId), scJsonInit("PUT", { targets, alsoProfile }));
+  } catch (err) {
+    result = { ok: false, status: 0, data: { error: `Check your connection and try again. (${err.message})` } };
+  }
+  const { ok, status, data } = result;
+  if (!ok) {
+    const errors = data.errors && typeof data.errors === "object" ? data.errors : {};
+    for (const [field, message] of Object.entries(errors)) {
+      if (SC_TARGET_FIELD_ID.test(field) && scText(message, 300)) lab.ui.targetErrors[field] = scText(message, 300);
+    }
+    if (!Object.keys(lab.ui.targetErrors).length) {
+      lab.ui.targetFormError = { scope, message: scText(data.error, 300) || `Could not save (${status || "no connection"}). Try again.` };
+    }
+    scAnnounce("Could not save. Check the message next to the field.");
+    scRerender(labId);
+    return { ok: false };
+  }
+  for (const id of Object.keys(targets)) delete lab.ui.targetDraft[id];
+  lab.needsAddress = null;
+  lab.targets = { loading: false, loaded: true, loadedAt: Date.now(), data };
+  const waitingAfter = scMissingRequirements(data, null).reduce((sum, view) => sum + view.count, 0);
+  const ready = Math.max(0, waitingBefore - waitingAfter);
+  scAnnounce(
+    waitingAfter
+      ? `Saved. ${scPlural(waitingAfter, "screenshot")} still ${waitingAfter === 1 ? "needs" : "need"} an address.`
+      : ready
+        ? `Saved. ${scPlural(ready, "screenshot")} can be captured now.`
+        : "Saved.",
+  );
+  // The saved addresses change what each screenshot can do, what the strip says, and which names the tenant step lists.
+  lab.brand = null;
+  await Promise.all([scRefreshLabState(labId), scLoadLabBrand(labId), alsoProfile && typeof bpEnsureLoaded === "function" ? bpEnsureLoaded(true).catch(() => {}) : null]);
+  scRerender(labId);
+  return { ok: true };
+}
+
 // ── Lab branding (tenant addresses) ─────────────────────────────────────────
 
 async function scLoadLabBrand(labId) {
@@ -764,7 +903,7 @@ async function scQueueLibraryCapture(product) {
   const lab = scLab("library");
   lab.outcome = null;
   try {
-    const body = { target: { type: "library", products: [product] }, scope: { mode: "missing" }, options: { callouts: "sidecar", redact: true } };
+    const body = { target: { type: "library", products: [product] }, scope: { mode: "missing" }, options: { callouts: "sidecar", redact: true, mode: SC_DEFAULT_CAPTURE_MODE } };
     const { ok, status, data } = await scFetchJson("/api/capture/jobs", scJsonInit("POST", body));
     if (!ok) {
       lab.outcome = { type: "job", variant: "error", message: `Could not start the capture. ${data.error || `Request failed (${status}).`}`, jobId: null, actions: [] };

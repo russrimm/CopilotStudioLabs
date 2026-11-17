@@ -1051,7 +1051,7 @@ test("starting a capture shows a live progress card fed by server-sent events", 
   const queued = jobFor(state.shots);
   await startCapture(h, state, queued);
 
-  assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body), { target: { type: "lab", labId: LAB }, scope: { mode: "missing" }, options: { callouts: "sidecar", redact: true } });
+  assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body), { target: { type: "lab", labId: LAB }, scope: { mode: "missing" }, options: { callouts: "sidecar", redact: true, mode: "smart" } });
   assert.equal(h.FakeEventSource.instances.length, 1);
   const es = h.FakeEventSource.instances[0];
   assert.equal(es.url, `/api/capture/jobs/${queued.id}/events`);
@@ -1278,11 +1278,11 @@ test("the gallery groups thumbnails by step with a clear status chip and actions
   });
   assert.match(h.card("agent-home.png").textContent, /Figure 1\.1.*Agents page/);
 
-  assert.deepEqual(buttonTexts(h.card("agent-home.png")), ["Retake", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("agent-home.png")), ["Retake", "Retake guided", "Paste image", "Upload image"]);
   assert.deepEqual(buttonTexts(h.card("create-agent.png")), ["Capture this one", "Paste image", "Upload image"]);
-  assert.deepEqual(buttonTexts(h.card("agent-topics.png")), ["Retake", "Paste image", "Upload image"]);
-  assert.deepEqual(buttonTexts(h.card("agent-test.png")), ["Accept", "Discard", "Paste image", "Upload image"]);
-  assert.deepEqual(buttonTexts(h.card("agent-publish.png")), ["Capture this one", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("agent-topics.png")), ["Retake", "Retake guided", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("agent-test.png")), ["Accept", "Retake", "Retake guided", "Discard", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("agent-publish.png")), ["Retake", "Retake guided", "Paste image", "Upload image"]);
   assert.deepEqual(buttonTexts(h.card("agent-sharepoint.png")), ["Paste image", "Upload image"], "a manual shot is never auto-captured");
   assert.equal(h.cardAction("agent-home.png", "shot-retake").getAttribute("aria-label"), "Retake: Figure 1.1: Agents page");
 
@@ -1956,7 +1956,7 @@ test("advanced capture options are sent with the job, and 'selected' needs a tic
   assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body), {
     target: { type: "lab", labId: LAB },
     scope: { mode: "selected", filenames: ["a.png"] },
-    options: { callouts: "burn", redact: false },
+    options: { callouts: "burn", redact: false, mode: "smart" },
     useLabCustomization: false,
   });
   advanced.dispatchEvent(h.event("toggle", { bubbles: false }));

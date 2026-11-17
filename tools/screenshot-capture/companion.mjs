@@ -26,13 +26,17 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { createAuthGate, forgetSignIn, listSignedInProducts, productLabel, profileDir, readSignInStates, restoreSession, saveSession } from "./auth.mjs";
 import { browserLabel, chooseBrowsers, isMissingBrowserError, launchBrowser, missingBrowserMessage, parseBrowserChoice } from "./browsers.mjs";
+import { createCaptureSession } from "./capture-run.mjs";
+import { causeForVerification } from "./causes.mjs";
 import { blockedInstructionReason, blockedLabelReason } from "./guard.mjs";
 import { verifyImage } from "./image-verify.mjs";
 import { detectBrowserAvailability, executePlaywrightLabShot, loadPlaywrightModule } from "./lab-runner.mjs";
+import { briefError, classifyBrowserError, ensureLivePage, watchContext } from "./lifecycle.mjs";
 import { applyRedaction, burnCalloutMarkers, clearOverlays, collectVisibleLabels, scrubSensitiveText } from "./redact.mjs";
+import { effectiveModeFor, targetField, validateTargetValue } from "./targets.mjs";
 import { createTrace, traceFilePath } from "./trace.mjs";
 
-export const COMPANION_VERSION = "1.1.0";
+export const COMPANION_VERSION = "1.2.0";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";
@@ -69,6 +73,8 @@ Options:
   --device-name=<name>           Name shown in the portal (default: this computer's name)
   --interval=<seconds>           How often to ask the portal for jobs (default 4)
   --sign-in-wait=<seconds>       How long to wait for you to sign in (default 600)
+  --guided-wait=<seconds>        How long to wait for you at a screen you set up yourself (default 120), then it is marked "needs you"
+  --ready-wait=<seconds>         How long to wait for a page to finish loading before the picture (default 20)
   --home=<folder>                Where the pairing file and browser sign-ins live
   --debug                        Write a redacted trace (no cookies, tokens, page text, or account names) and print where it is
   --trace=<file>                 Same as --debug, writing to this file (a relative name is inside the --home folder)
@@ -119,6 +125,8 @@ export function parseArgs(argv = []) {
     else if ((v = valued("wait")) !== undefined) opts.waitSec = Math.max(0, Number(v) || 0);
     else if ((v = valued("interval")) !== undefined) opts.intervalSec = Math.max(1, Number(v) || 4);
     else if ((v = valued("sign-in-wait")) !== undefined) opts.signInWaitSec = Math.max(30, Number(v) || 600);
+    else if ((v = valued("guided-wait")) !== undefined) opts.guidedWaitSec = Math.max(5, Number(v) || DEFAULT_GUIDED_WAIT_SEC);
+    else if ((v = valued("ready-wait")) !== undefined) opts.readyWaitSec = Math.max(2, Number(v) || 20);
     else if ((v = valued("browser")) !== undefined) {
       const choice = parseBrowserChoice(v === true ? "" : v);
       if (choice.ok) opts.browser = choice.browser;
@@ -369,15 +377,22 @@ export async function openProfile({ playwright, home, profile, kinds, headless =
 }
 
 /**
- * Capture one shot in an open page: run its steps, hide account details, take the
- * picture, and verify it. Retries once when the picture comes out blank.
+ * Capture one shot in an open page: follow its plan, hide account details, take the picture, and verify it.
+ * Retries once, with longer waits, when the picture comes out blank or almost one color (a page that was still
+ * loading); a guided shot is never retried, because a person set it up.
  * `auth` is the product's sign-in gate (one per product per job); without one, this shot gets its own.
+ * `session` is what the job has learned about the product (the environment and agent); `effectiveMode` is
+ * "auto" or "guided" for a classified shot.
  */
-export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, redact, terms, calloutMode, log, signInWaitMs = SIGN_IN_WAIT_MS, sleepFn = sleep, headless = false, auth = null, trace = null }) {
+export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, redact, terms, calloutMode, log, signInWaitMs = SIGN_IN_WAIT_MS, sleepFn = sleep, headless = false, auth = null, trace = null, session = null, effectiveMode = null, readiness = {}, guided = {} }) {
   const steps = safeSteps(shot.steps);
-  for (let attempt = 1; attempt <= 2; attempt += 1) {
-    const evidence = { finalUrl: "", title: "", visibleText: [], redaction: null, capturedAt: null, executedSteps: 0 };
+  const classified = Boolean(shot.capture?.version);
+  const mode = classified ? effectiveMode || (shot.capture.mode === "guided" ? "guided" : "auto") : "legacy";
+  const attempts = mode === "guided" ? 1 : 2;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const evidence = { finalUrl: "", title: "", visibleText: [], redaction: null, capturedAt: null, executedSteps: 0, mode, routeSteps: [] };
     const hooks = {
+      collectLabels: (livePage) => collectVisibleLabels(livePage, { terms }),
       async beforeScreenshot({ page: livePage, viewport, callouts }) {
         evidence.finalUrl = typeof livePage.url === "function" ? livePage.url() : "";
         evidence.title = typeof livePage.title === "function" ? await livePage.title().catch(() => "") : "";
@@ -404,29 +419,37 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
       hooks,
       auth,
       trace,
+      session,
+      effectiveMode: classified ? mode : null,
+      readiness,
+      guided,
+      attempt,
+      sleep: sleepFn,
     });
     if (outcome.status !== "captured") return outcome;
 
     evidence.capturedAt = outcome.capturedAt;
     evidence.executedSteps = (outcome.executedSteps || []).length;
+    evidence.routeSteps = outcome.executedSteps || [];
     evidence.title = scrubSensitiveText(evidence.title, terms);
     const bytes = fs.readFileSync(outcome.filePath);
     const check = verifyImage(bytes, {
       filename: shot.filename,
       evidence,
-      expectedLabels: shot.expectedLabels,
+      expectedLabels: classified && shot.capture.landmarks?.length ? shot.capture.landmarks : shot.expectedLabels,
+      expect: classified && shot.capture.expect ? { ...shot.capture.expect, strict: mode === "auto" } : null,
       requireEvidence: true,
       requireRedaction: redact,
     });
-    if (check.reasons.some((r) => r.code === "blank") && attempt === 1) {
-      log("  The picture came out blank. Waiting a few seconds and trying once more.");
+    if (check.reasons.some((r) => r.code === "blank" || r.code === "near-uniform") && attempt < attempts) {
+      log("  The picture looks empty. The page may still have been loading. Waiting longer and trying once more.");
       await sleepFn(4000);
       continue;
     }
-    if (!check.ok) return { status: "failed", error: failureText(check), check };
-    return { status: "captured", bytes, check, evidence, callouts: outcome.callouts };
+    if (!check.ok) return { status: "failed", error: failureText(check), cause: causeForVerification(check.reasons) || "rejected", check, detail: outcome.detail };
+    return { status: "captured", bytes, check, evidence, callouts: outcome.callouts, detail: outcome.detail, executedSteps: outcome.executedSteps };
   }
-  return { status: "failed", error: "The screenshot could not be captured." };
+  return { status: "failed", cause: "unknown", error: "The screenshot could not be captured." };
 }
 
 /**
@@ -438,31 +461,38 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   const { job } = claimed;
   const shots = Array.isArray(claimed.shots) ? claimed.shots : [];
   const env = jobEnvironment(claimed.env);
+  const targets = jobTargets(claimed.targets);
   const jobOptions = job.options || {};
+  const jobMode = JOB_MODES.includes(options.mode) ? options.mode : JOB_MODES.includes(jobOptions.mode) ? jobOptions.mode : "smart";
   const calloutMode = options.callouts || jobOptions.callouts || "sidecar";
   const redact = options.redact !== false && jobOptions.redact !== false;
   const terms = [...(options.maskTerms || []), ...(jobOptions.maskTerms || [])];
   const workDir = path.join(home, ".captures", job.id);
   const assetsDir = path.join(workDir, "assets");
   const screenshotsDir = path.join(workDir, "screenshots");
-  const tally = { captured: 0, needsReview: 0, failed: 0, skipped: 0, manual: 0 };
-  const state = { cancelled: false };
+  const tally = { captured: 0, needsReview: 0, failed: 0, skipped: 0, manual: 0, needsYou: 0, paused: 0 };
+  const state = { cancelled: false, paused: null, guidedUnavailable: false };
   const stopRequested = () => state.cancelled || shouldStop();
   const where = job.target?.type === "lab" ? `lab ${job.target.labId}` : "the shared library";
   log(`\nJob ${job.id}: ${shots.length} screenshot${shots.length === 1 ? "" : "s"} for ${where}${claimed.job.resumed ? " (resuming)" : ""}.`);
+  if (shots.some((s) => s.capture?.version)) log(`  Mode: ${MODE_LABELS[jobMode]}.`);
 
   const trace = options.trace || null;
   const browserKinds = options.browserKinds?.length ? options.browserKinds : ["chromium"];
   const signInWaitMs = (options.signInWaitSec || SIGN_IN_WAIT_MS / 1000) * 1000;
+  const guidedWaitMs = (options.guidedWaitSec ?? DEFAULT_GUIDED_WAIT_SEC) * 1000;
+  const readiness = { ...(options.readiness || {}) };
+  // Someone is at the computer when the browser window is visible (a test can say so for a window nobody sees).
+  const attended = options.attended ?? !options.headless;
   const notRun = [];
   const signInFailures = [];
   const capturedProducts = new Set();
   const processed = new Set();
-  trace?.event("job-start", { shots: shots.length, browsers: browserKinds.join(","), headless: Boolean(options.headless) });
+  trace?.event("job-start", { shots: shots.length, browsers: browserKinds.join(","), headless: Boolean(options.headless), mode: jobMode, readyMs: readiness.maxMs ?? null, guidedWaitMs });
 
   const note = (message) => client.progress(job.id, { message }).then((r) => { if (r?.cancelRequested) state.cancelled = true; }).catch(() => {});
-  const report = async (shot, status, message, error = null) => {
-    const reply = await client.progress(job.id, { shot: { filename: shot.filename, status, message, error } });
+  const report = async (shot, status, message, error = null, extra = {}) => {
+    const reply = await client.progress(job.id, { shot: { filename: shot.filename, status, message, error, ...extra } });
     if (reply?.cancelRequested) state.cancelled = true;
   };
 
@@ -474,21 +504,24 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   }, heartbeatMs);
   heartbeat.unref?.();
 
+  // Each product gets its own browser profile. Inside one, shots that run by themselves go first and the ones that
+  // need the person come last, so unattended work is never held up by a waiting screen.
   const groups = new Map();
   for (const shot of shots) {
     const profile = /^[a-z0-9-]+$/i.test(String(shot.authProfile || "")) ? String(shot.authProfile) : "default";
     if (!groups.has(profile)) groups.set(profile, []);
-    groups.get(profile).push(shot);
+    groups.get(profile).push({ shot, effective: effectiveModeFor(shot, jobMode) });
   }
+  for (const [profile, items] of groups) groups.set(profile, [...items.filter((i) => i.effective !== "guided"), ...items.filter((i) => i.effective === "guided")]);
 
   let fatalError = null;
   let index = 0;
   try {
-    for (const [profile, profileShots] of groups) {
-      if (stopRequested()) break;
+    for (const [profile, items] of groups) {
+      if (stopRequested() || state.paused) break;
       const label = productLabel(profile);
-      const needsBrowserShot = (s) => !s.manual && !(s.requiresEnv && !env[s.requiresEnv]);
-      const browserShots = profileShots.filter(needsBrowserShot);
+      const needsBrowserShot = ({ shot, effective }) => effective !== "manual" && effective !== "needs-you" && !(effective === "legacy" && shot.requiresEnv && !env[shot.requiresEnv]);
+      const browserShots = items.filter(needsBrowserShot);
       let opened = null;
       try {
         if (browserShots.length) {
@@ -499,17 +532,18 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
         const text = String(err?.message || err);
         const message = err?.code === "BROWSER_MISSING" ? text : `The browser could not start: ${text.split("\n")[0]}`;
         log(`  ${message}`);
-        for (const shot of profileShots) {
+        for (const item of items) {
           index += 1;
-          processed.add(shot.filename);
-          if (!needsBrowserShot(shot)) continue;
+          processed.add(item.shot.filename);
+          if (!needsBrowserShot(item)) continue;
           tally.failed += 1;
-          notRun.push({ filename: shot.filename, why: message });
-          await report(shot, "failed", null, message).catch(() => {});
+          notRun.push({ filename: item.shot.filename, why: message });
+          await report(item.shot, "failed", null, message, { cause: "unknown" }).catch(() => {});
         }
         continue;
       }
       const { context, kind, dir } = opened || {};
+      const watcher = context ? watchContext(context) : null;
 
       // One gate per product per job: the person is asked to sign in once, and a failed sign-in stops the rest of this product.
       const gate = createAuthGate({
@@ -529,33 +563,54 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
       let profileCaptured = false;
       let signInMessage = null;
       let browserShotsStarted = 0;
+      const session = createCaptureSession({ env, targets });
 
       try {
-        const page = context ? context.pages()[0] || (await context.newPage()) : null;
+        let page = context ? context.pages()[0] || (await context.newPage()) : null;
+        watcher?.watchPage(page);
         await page?.bringToFront?.().catch(() => {});
-        for (const shot of profileShots) {
+        for (const { shot, effective } of items) {
+          if (state.paused) break;
           index += 1;
           if (stopRequested()) {
             log("Stopping: the job was canceled or the companion is closing.");
             break;
           }
           processed.add(shot.filename);
-          log(`\n[${index}/${shots.length}] ${shot.filename}${shot.moduleTitle ? `  (${shot.moduleTitle})` : ""}`);
+          const modeTag = effective === "guided" ? "  [you set it up]" : effective === "auto" ? "  [automatic]" : "";
+          log(`\n[${index}/${shots.length}] ${shot.filename}${shot.moduleTitle ? `  (${shot.moduleTitle})` : ""}${modeTag}`);
+          const common = { mode: effective === "guided" || effective === "auto" ? effective : shot.capture?.mode || null, path: shot.capture?.path || undefined };
 
-          if (shot.manual) {
+          if (effective === "manual") {
             tally.manual += 1;
             const message = "This screen is outside the browser. Capture it with an OS screenshot tool and upload it in the portal.";
             log(`  ${message}`);
             notRun.push({ filename: shot.filename, why: message });
-            await report(shot, "manual-required", "Capture this one with an OS screenshot tool and upload it in the portal.");
+            await report(shot, "manual-required", "Capture this one with an OS screenshot tool and upload it in the portal.", null, { cause: "manual", ...common });
             continue;
           }
-          if (shot.requiresEnv && !env[shot.requiresEnv]) {
+          if (effective === "needs-you") {
+            tally.needsYou += 1;
+            const message = "This screen needs you to set it up (a test conversation, a dialog, a result). Automatic mode skips it. Use “Retake guided”, or choose Smart.";
+            log(`  Not run: ${message}`);
+            notRun.push({ filename: shot.filename, why: "It needs you to set it up." });
+            await report(shot, "needs-you", message, null, { cause: "needs-you", ...common });
+            continue;
+          }
+          if (effective === "guided" && (!attended || state.guidedUnavailable)) {
+            tally.needsYou += 1;
+            const message = !attended ? "This screen needs you to set it up, and this companion has no visible window (--headless). Use “Retake guided” with a normal window." : "Nobody was here to set this screen up earlier in this job, so it is waiting for you. Use “Retake guided” when you are at the computer.";
+            log(`  Not run: ${message}`);
+            notRun.push({ filename: shot.filename, why: "It needs you at the computer." });
+            await report(shot, "needs-you", message, null, { cause: "needs-you", ...common });
+            continue;
+          }
+          if (effective === "legacy" && shot.requiresEnv && !env[shot.requiresEnv]) {
             tally.skipped += 1;
             const message = `This shot needs your tenant address in ${shot.requiresEnv}. Add it to the portal's brand profile, or set it on this computer before starting the companion.`;
             log(`  Skipped. ${message}`);
             notRun.push({ filename: shot.filename, why: `It needs your tenant address in ${shot.requiresEnv}.` });
-            await report(shot, "skipped", message);
+            await report(shot, "skipped", message, null, { cause: "no-address" });
             continue;
           }
 
@@ -565,18 +620,56 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             tally.failed += 1;
             log("  Not run: sign-in did not finish (see above).");
             notRun.push({ filename: shot.filename, why: signInMessage });
-            await report(shot, "auth-required", null, signInMessage);
+            await report(shot, "auth-required", null, signInMessage, { cause: "sign-in", ...common });
             continue;
           }
 
-          await report(shot, "running", "Capturing.");
+          await report(shot, "running", effective === "guided" ? "Waiting for you in the browser window." : "Capturing.", null, common);
           let result;
+          const attemptShot = async () => {
+            page = await ensureLivePage(context, page, { watcher, trace });
+            return captureShot({
+              page,
+              shot,
+              assetsDir,
+              screenshotsDir,
+              env,
+              redact,
+              terms,
+              calloutMode,
+              log,
+              signInWaitMs,
+              sleepFn,
+              headless: Boolean(options.headless),
+              auth: gate,
+              trace,
+              session,
+              effectiveMode: effective === "guided" || effective === "auto" ? effective : null,
+              readiness,
+              guided: { timeoutMs: guidedWaitMs, shouldStop: stopRequested, sleep: sleepFn, onWaiting: options.onGuidedWaiting },
+            });
+          };
           try {
-            result = await captureShot({ page, shot, assetsDir, screenshotsDir, env, redact, terms, calloutMode, log, signInWaitMs, sleepFn, headless: Boolean(options.headless), auth: gate, trace });
+            try {
+              result = await attemptShot();
+            } catch (err) {
+              // A tab that crashed is replaced by a new one in the same browser, and the shot is tried once more.
+              if (classifyBrowserError(err) !== "page-crashed" || watcher?.closed()) throw err;
+              log("  The browser tab crashed. Opening a new tab and trying this screenshot again.");
+              trace?.event("page-crash-retry", { shot: shot.filename });
+              page = await ensureLivePage(context, { isClosed: () => true }, { watcher, trace });
+              result = await attemptShot();
+            }
           } catch (err) {
-            result = { status: "failed", error: String(err?.message || err) };
+            if (classifyBrowserError(err) === "browser-closed" || watcher?.closed()) {
+              state.paused = { reason: "browser-closed" };
+              trace?.event("browser-closed", { shot: shot.filename });
+              break;
+            }
+            result = { status: "failed", cause: classifyBrowserError(err) === "transient" ? "navigation-failed" : "unknown", error: briefError(err) };
           }
-          trace?.event("shot-result", { shot: shot.filename, status: result.status, code: result.code });
+          trace?.event("shot-result", { shot: shot.filename, status: result.status, code: result.code, cause: result.cause || null });
+          const extra = { cause: result.cause || undefined, ...common, ...(result.detail?.path ? { path: result.detail.path } : {}), steps: summarizeSteps(result.executedSteps), outcome: result.status === "captured" ? plainOutcome(result.detail, result.executedSteps, effective) : undefined };
 
           // A page that looks like a sign-in page but was not recognized by its address (a company sign-in service) counts as not signed in.
           if (result.status === "failed" && result.check?.reasons?.some((r) => r.code === "sign-in-page") && !gate.failed) {
@@ -591,13 +684,40 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             tally.failed += 1;
             log(`  ${signInMessage}`);
             notRun.push({ filename: shot.filename, why: signInMessage });
-            await report(shot, "auth-required", null, signInMessage);
+            await report(shot, "auth-required", null, signInMessage, { ...extra, cause: "sign-in" });
             continue;
+          }
+          if (result.status === "skipped") {
+            tally.skipped += 1;
+            log(`  Skipped. ${result.error}`);
+            notRun.push({ filename: shot.filename, why: result.error });
+            await report(shot, "skipped", result.error, null, extra);
+            continue;
+          }
+          if (result.status === "needs-you") {
+            tally.needsYou += 1;
+            log(`  ${result.error}`);
+            notRun.push({ filename: shot.filename, why: "It needs you at the computer." });
+            if (result.timedOut && !state.guidedUnavailable) {
+              state.guidedUnavailable = true;
+              log("  Nobody answered, so I will not wait for the other screens that need you. They are marked “needs you”.");
+            }
+            await report(shot, "needs-you", result.error, null, extra);
+            continue;
+          }
+          if (result.status === "paused") {
+            state.paused = { reason: result.cause === "stopped" ? "stopped" : "browser-closed" };
+            break;
+          }
+          if (result.status === "cancelled") {
+            state.cancelled = true;
+            break;
           }
           if (result.status !== "captured") {
             tally.failed += 1;
             log(`  Could not capture: ${result.error}`);
-            await report(shot, "failed", null, result.error);
+            notRun.push({ filename: shot.filename, why: result.error });
+            await report(shot, "failed", null, result.error, extra);
             continue;
           }
 
@@ -612,7 +732,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           const outcome = uploaded.body?.outcome;
           if (outcome === "accepted") {
             tally.captured += 1;
-            log("  Captured, verified, and saved to the portal.");
+            log(`  Captured, verified, and saved to the portal. ${extra.outcome || ""}`.trimEnd());
           } else if (outcome === "needs-review") {
             tally.needsReview += 1;
             const why = (uploaded.body?.verification?.reasons || []).map((r) => r.message).join(" ");
@@ -623,7 +743,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           }
         }
         if (profileCaptured) {
-          if (context) await saveSession({ context, dir, product: profile, browser: kind, captured: true });
+          if (context) await saveSession({ context, dir, product: profile, browser: kind, captured: true }).catch(() => {});
           log(`\nThe sign-in for ${label} is saved on this computer, so you will not need to sign in again. The saved files in the .auth folder give access to your account: keep them private.`);
         }
       } finally {
@@ -641,11 +761,22 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   }
 
   for (const shot of shots) {
-    if (!processed.has(shot.filename)) notRun.push({ filename: shot.filename, why: "The job was canceled before this screenshot started." });
+    if (!processed.has(shot.filename)) notRun.push({ filename: shot.filename, why: state.paused ? "The capture was paused before this screenshot started." : "The job was canceled before this screenshot started." });
   }
-  const summary = `${tally.captured} captured, ${tally.needsReview} saved for review, ${tally.failed} failed, ${tally.skipped + tally.manual} not run.`;
+  // Everything that has not been reported by now is waiting: count it once, so one message covers all of it.
+  const reported = tally.captured + tally.needsReview + tally.failed + tally.skipped + tally.manual + tally.needsYou;
+  if (state.paused) tally.paused = Math.max(0, shots.length - reported);
+  let pausedNote = null;
+  if (state.paused) {
+    pausedNote =
+      state.paused.reason === "stopped"
+        ? `You stopped the capture. ${tally.paused} screenshot${tally.paused === 1 ? " is" : "s are"} paused. In the portal, select Resume to continue.`
+        : `You closed the browser window, so the capture is paused. ${tally.paused} screenshot${tally.paused === 1 ? " was" : "s were"} not captured yet. In the portal, select Resume to continue where it stopped.`;
+    log(`\n${pausedNote}`);
+  }
+  const summary = `${tally.captured} captured, ${tally.needsReview} saved for review, ${tally.failed} failed, ${tally.skipped + tally.manual} not run${tally.needsYou ? `, ${tally.needsYou} need you` : ""}${tally.paused ? `, ${tally.paused} paused` : ""}.`;
   try {
-    await client.complete(job.id, { message: summary, ...(fatalError ? { fatalError } : {}) });
+    await client.complete(job.id, { message: pausedNote || summary, ...(fatalError ? { fatalError } : {}), ...(state.paused ? { paused: { reason: state.paused.reason, message: pausedNote } } : {}) });
   } catch (err) {
     if (err instanceof PortalError && err.kind === "auth") throw err;
     log(`Could not tell the portal the job finished: ${err.message}`);
@@ -657,8 +788,54 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
     log("Why some screenshots did not run:");
     for (const [why, count] of reasons) log(`  - ${count} screenshot${count === 1 ? "" : "s"}: ${why}`);
   }
-  trace?.event("job-end", { captured: tally.captured, failed: tally.failed, notRun: notRun.length });
-  return { cancelled: state.cancelled, tally, fatalError, notRun, signInFailures, capturedProducts: [...capturedProducts] };
+  trace?.event("job-end", { captured: tally.captured, failed: tally.failed, notRun: notRun.length, paused: tally.paused, needsYou: tally.needsYou });
+  return { cancelled: state.cancelled, paused: state.paused, tally, fatalError, notRun, signInFailures, capturedProducts: [...capturedProducts] };
+}
+
+// ── Modes, plain-language outcomes ─────────────────────────────────────────
+
+export const JOB_MODES = Object.freeze(["auto", "guided", "smart"]);
+const MODE_LABELS = { auto: "let the computer do it", guided: "you set up each screen", smart: "smart (the computer does what it can, you set up the rest)" };
+export const DEFAULT_GUIDED_WAIT_SEC = 120;
+
+/**
+ * How one shot is run in a job of this mode: "auto", "guided", "needs-you" (automatic mode meets a screen that
+ * needs a person), "manual", or "legacy" (a plan from a portal that does not classify its shots).
+ */
+export { effectiveModeFor };
+
+/** Settings that are names rather than addresses travel with the job; keep only the known ones. */
+export function jobTargets(raw) {
+  const out = {};
+  for (const [id, value] of Object.entries(raw && typeof raw === "object" ? raw : {})) {
+    const field = targetField(id);
+    if (!field || field.kind !== "text") continue;
+    const checked = validateTargetValue(id, value);
+    if (checked.ok && checked.value) out[id] = checked.value;
+  }
+  return out;
+}
+
+/** "Opened Copilot Studio, then your agent, then Settings, then selected Generative AI." */
+export function plainOutcome(detail, steps, mode) {
+  const path = Array.isArray(detail?.path) ? detail.path.filter(Boolean) : [];
+  const selected = (Array.isArray(steps) ? steps : []).filter((s) => s?.action === "reveal" && s.ok && s.tried > 0).map((s) => s.label);
+  const opened = path.length ? `Opened ${path.join(", then ")}` : "Opened the page";
+  const picked = selected.length ? `, then selected ${selected.join(" and ")}` : "";
+  return `${opened}${picked}.${mode === "guided" ? " You set up the screen." : ""}`;
+}
+
+/** The steps taken, reduced to what the portal shows: no page text, only the labels the lab gave and masked addresses. */
+export function summarizeSteps(steps) {
+  return (Array.isArray(steps) ? steps : []).slice(0, 14).map((s) => ({
+    action: String(s.action || "").slice(0, 24),
+    label: s.label ? String(s.label).slice(0, 80) : undefined,
+    found: s.found === true,
+    ok: s.ok === true,
+    urlBefore: s.urlBefore ? String(s.urlBefore).slice(0, 200) : undefined,
+    urlAfter: s.urlAfter ? String(s.urlAfter).slice(0, 200) : undefined,
+    note: s.note ? String(s.note).slice(0, 80) : undefined,
+  }));
 }
 
 async function uploadWithRetry(client, jobId, shot, payload, { log, sleepFn }) {
@@ -820,7 +997,7 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
   };
   if (!deps.noSignals) process.on("SIGINT", onSigint);
 
-  const runnerOptions = { callouts: opts.callouts, maskTerms: opts.maskTerms, redact: opts.redact, signInWaitSec: opts.signInWaitSec, headless: opts.headless, browserKinds, trace, ...(deps.runnerOptions || {}) };
+  const runnerOptions = { callouts: opts.callouts, maskTerms: opts.maskTerms, redact: opts.redact, signInWaitSec: opts.signInWaitSec, headless: opts.headless, browserKinds, trace, guidedWaitSec: opts.guidedWaitSec, readiness: opts.readyWaitSec ? { maxMs: opts.readyWaitSec * 1000 } : {}, ...(deps.runnerOptions || {}) };
   const pollMs = (deps.pollMs ?? opts.intervalSec * 1000);
   let lastBeat = 0;
   let announced = false;

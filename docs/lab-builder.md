@@ -1612,8 +1612,17 @@ your credentials. Capture therefore runs on **your own computer**:
    | At most 8 MB, at least 5 KB, between 200 x 120 and 10000 x 10000 pixels, no corrupt data or trailing bytes | fail |
    | Blank or single-color image (a page that never loaded) | fail; "almost one color" is a warning |
    | The companion reported a Microsoft sign-in address (`login.microsoftonline.com`, `login.live.com`, `login.windows.net`), a sign-in page title, or sign-in text | fail |
-   | Fewer than a third of the expected UI labels are visible | warning |
+   | The picture is not the screen the plan expects (the address is a different page, for example the Copilot Studio home page instead of the agent's Instructions page) | warning (needs review, never accepted automatically) |
+   | Fewer than a third of the expected UI labels are visible, only when the plan has no expected screen to compare the address with | warning |
    | The companion did not report masking account details | warning |
+
+   The page **address is the main signal**. When the plan knows the screen it expects, the labels are
+   only a soft hint (a label from the lab text that never appears does not strand a correct picture);
+   when the address does not match, the warning names both pages in plain language (*This is the
+   Copilot Studio home page, not the agent's Settings page.*). Expected labels are cleaned first
+   (typos such as `Start building form scratch` corrected; stop words, generic words, placeholders, and
+   sentences dropped) and matched ignoring case, punctuation, plurals, and a one-letter typo. The portal
+   takes the expected screen from the job's own plan, never from what the companion reports.
 
    Anything the companion reports (address, title, visible text) can only add a failure or a
    warning, never remove one, and never chooses a file name or destination. A **fail** is
@@ -1628,6 +1637,84 @@ your credentials. Capture therefore runs on **your own computer**:
 6. **The lab updates itself.** Committing an image clears the shot's stale flag, marks the module
    up to date when all its shots are fresh, recomputes the lab's Learn sync status, and
    regenerates `index.html`, the Word and PowerPoint files, and `manifest.json`.
+
+**Where to capture (Capture settings).** A capture needs to know where to look. Each product has a
+small, validated settings model that lives with the active brand profile, can be overridden per
+lab (`manifest.customization.captureTargets`), and feeds every job:
+
+| Setting (field id) | Needed by | Carried as |
+|---|---|---|
+| `copilotStudioAgentUrl`, or `copilotStudioAgentName` | every agent screen in Copilot Studio (Overview, Knowledge, Tools, Settings...) | `CAPTURE_COPILOT_STUDIO_AGENT_URL`, or the job setting `copilotStudioAgentName` (opened from the Agents list by its exact name) |
+| `copilotStudioUrl` (optional) | the environment; the product's sign-in redirect finds the default one | `CAPTURE_COPILOT_STUDIO_START_URL` (an address that points at an agent also counts as the agent) |
+| `agentBuilderAgentName` | Agent Builder shots | job setting |
+| `sharepointSiteUrl` | SharePoint site shots. The lab's own site (Wizard Step 7, `manifest.sharepointSite.url`) fills it in automatically | `CAPTURE_SHAREPOINT_SITE_URL` |
+| `powerPlatformEnvUrl`, `foundryProjectUrl`, `sharepointAdminUrl`, `m365AdminUrl` | the matching product | `CAPTURE_POWER_PLATFORM_START_URL`, `CAPTURE_FOUNDRY_PROJECT_URL`, `CAPTURE_SHAREPOINT_ADMIN_URL`, `CAPTURE_M365_ADMIN_URL` |
+
+Order of precedence per setting: the capture request, the lab's own settings, the lab's own SharePoint site,
+the lab's brand profile (or the profile named in the request, or the active profile), then this portal's own
+`CAPTURE_*` environment. Addresses must be `https` without credentials; Copilot Studio addresses must be
+Copilot Studio, and the agent address must point at an agent; names are at most 80 characters. A job and its
+API response expose only the setting **names** (`envNames`, `targetNames`), never the values, and nothing logs a value.
+
+| Route | Purpose |
+|---|---|
+| `GET /api/generated-labs/:labId/capture-targets` (also `/api/lab-builder/generated/:labId/capture-targets`, and `GET /api/capture/targets?labId=`) | The settings in effect (`fields` with `set`, `value`, `source`), what each requirement needs (`requirements`, `missing`, with how many screenshots wait), and how each shot will be captured (`shots`) |
+| `PUT /api/generated-labs/:labId/capture-targets` `{ targets: {fieldId: value or ""}, alsoProfile? }` | Save a lab's own settings (and optionally also on the active brand profile). `400 { error, errors: {fieldId: message} }` when invalid |
+| `PUT /api/capture/targets` `{ targets, profileId? }` | Save on a brand profile (default: the active one) |
+
+The brand profile has three new fields next to the existing environment addresses:
+`copilotStudioAgentUrl`, `copilotStudioAgentName`, and `agentBuilderAgentName`.
+
+**Three capture modes per shot, three job modes.** `classifyShot()` (`portal/lib/capture/classify.js`)
+decides how each shot can honestly be captured and every plan shot carries the result as `capture`:
+`auto` (reachable by address and read-only navigation: the computer does it, then checks the address),
+`guided` (needs state the computer should not create: a dialog, a test conversation, a publish
+confirmation, a result, the details of one item; the companion opens the closest page and shows a small
+on-page toolbar with instructions and **Capture this screen**, **Skip**, and **Stop** buttons), or `manual`
+(outside the browser). The lab's screenshot status (`GET .../screenshots`) adds `capture` to every shot
+(`mode`, `why`, `path`, `needs`, `missing`, `ready`). A capture job takes `options.mode`: `auto` (only automatic
+shots run; guided shots are marked `needs-you`), `guided` (the person sets up every screen), or `smart`
+(default: automatic shots first, unattended, then guided shots; a guided shot nobody answers within
+`--guided-wait` seconds is marked `needs-you`, and so are the rest of the guided shots in that job). The
+Screenshot Center shows the choice as **Let the computer do it**, **I will set up each screen**, and **Smart
+(recommended)**.
+
+Shots that need an address the settings do not have are **held back and named** when the job is queued
+(`status: "skipped"`, `cause: "no-agent"` | `"no-site"` | `"no-address"`), and the response carries `missing`
+(`[{id, label, noun, prompt, count, filenames}]`) so the Screenshot Center can ask for the address inline
+(*8 screenshots need your SharePoint site address*). When every selected shot is waiting, nothing is queued:
+`200 { job: null, needsAddress: true, missing, message }`.
+
+**Reaching the right screen.** With the agent known, the companion opens the agent's screen directly
+(`/environments/<env>/bots/<agent>/<section>`, the way `tools/screenshot-capture/capture.js` already builds
+section addresses), so no shot starts from the generic start page and wanders. The environment is learned
+from where the product sends the browser; an agent is opened from its address or by its exact name. It
+then brings a labeled tab into view only when the lab's own callouts or bold instructions name one (a
+read-only click on an exact-name navigation item or tab, never a card or link in the page's content), waits
+until the page is ready, and photographs. When a required step cannot be done it stops with a plain reason
+and the shot is reported as failed with a `cause`, instead of being photographed on a wrong page. Per-step
+records (`steps`: action, label, found, ok, the masked address before and after) and a plain-language
+`outcome` (*Opened Copilot Studio, then your agent, then Settings, then selected Generative AI.*) come
+back with each shot.
+
+**Readiness.** Before every picture the companion waits for the page to load, for loading indicators
+(`aria-busy`, `role=progressbar`, skeleton and spinner classes) to go away, for a quiet window with no
+changes, and for two identical pictures in a row. A blank or almost-one-color picture is retried once with a
+longer wait. Budgets are configurable (`--ready-wait`) and logged in the trace.
+
+**Failures are grouped by cause.** A job (`GET /api/capture/jobs/:id`) carries `causes`:
+`[{ code, title, fix, fixAction, tone, count, filenames }]`, one group per cause with one fix
+(*No agent address set: 12 screenshots*), instead of one line per shot. Shot statuses added to the existing
+ones: `needs-you` (a screen that needs the person) and `paused` (the person closed the browser window or
+pressed **Stop**; the remaining shots are paused with one message, not failed, and `job.result` carries
+`paused`, `pausedReason`, and `resumable`). **Resume** queues exactly the paused shots as a new job
+(`scope: { mode: "selected", filenames }`). Cause codes: `no-agent`, `no-site`, `no-address`,
+`agent-not-found`, `sign-in`, `wrong-screen`, `control-not-found`, `blank-page`, `navigation-failed`,
+`browser-closed`, `needs-you`, `skipped-by-you`, `stopped`, `manual`, `rejected`, `unknown`.
+
+**Browser lifecycle.** An interrupted navigation (`net::ERR_ABORTED`, a timeout, a reset) is retried twice
+with a growing pause; a crashed tab is replaced by a new tab in the same browser; closing the window pauses
+the job once. The companion (version 1.2.0) still runs a plan from an older portal.
 
 **Paste or upload is the universal fallback.** Any image can be sent straight to a slot with the
 same verification and the same refresh (`PUT /api/lab-builder/generated/:labId/screenshots/:filename`,
@@ -1878,7 +1965,8 @@ that does not pick a profile follow the **active** profile.
 | Colors & fonts | `primaryColor`, `secondaryColor` (optional), `font` | Hex colors. `font` is one of `default`, `segoe-ui`, `arial`, `calibri`, `verdana`, `georgia`, `times-new-roman`. The profile reports the contrast ratio of each color against white and a dark (`#181c26`) background and warns below WCAG AA (4.5:1 for small text). |
 | Links & contact | `moreInfoLabel` (60), `moreInfoUrl`, `supportName` (80), `supportEmail`, `communityUrl` | URLs must be `https://`. Bare domains are normalized to `https://`; `http:`, `javascript:`, `data:`, protocol-relative URLs, embedded credentials, and spaces are rejected with the same rules as the SharePoint site validator. |
 | Default SharePoint site | `defaultSharepointSiteName` (120), `defaultSharepointSiteUrl` | Pre-fills Step 7 and feeds `{{SHAREPOINT_SITE_*}}`. |
-| Tenant environment URLs | `copilotStudioUrl`, `powerPlatformEnvUrl`, `sharepointSiteUrl`, `sharepointAdminUrl`, `m365AdminUrl`, `foundryProjectUrl` | `https://` only. Used by the `{{TENANT_*}}` tokens and the capture environment (below). |
+| Tenant environment URLs | `copilotStudioUrl`, `copilotStudioAgentUrl`, `powerPlatformEnvUrl`, `sharepointSiteUrl`, `sharepointAdminUrl`, `m365AdminUrl`, `foundryProjectUrl` | `https://` only. Used by the `{{TENANT_*}}` tokens and the capture environment (below). |
+| Capture names | `copilotStudioAgentName` (80), `agentBuilderAgentName` (80) | The exact name of the agent a capture opens from a list. Used only by screenshot capture (see **Where to capture** under the Screenshot Center). |
 
 Profiles are stored in `<portal data dir>/brand-profiles.json`, so the Azure Blob
 write-through sync that mirrors `data/` keeps them durable. The first time the portal
@@ -1967,12 +2055,17 @@ renders each output path. Add new fragment builders to its hygiene test.
 
 `buildCaptureEnv(profileOrCustomization)` in `portal/lib/branding-profiles.js` maps a
 profile, a lab manifest, or a `customization` record to the `CAPTURE_*` variables the
-screenshot capture tool already reads. Only `https://` values are returned and blank
+screenshot capture tool already reads. A lab manifest is read whole, so the lab's own SharePoint
+site (Wizard Step 7) is used even when the lab has no customization. Capture jobs use the fuller
+resolver in `portal/lib/capture/targets.js` (see **Where to capture** above), which also adds the lab's own
+capture settings and the names. Only `https://` values are returned and blank
 values are omitted:
 
 | Field | Variable |
 |---|---|
 | `copilotStudioUrl` | `CAPTURE_COPILOT_STUDIO_START_URL` |
+| `copilotStudioAgentUrl` | `CAPTURE_COPILOT_STUDIO_AGENT_URL` |
+| `copilotStudioAgentName`, `agentBuilderAgentName` | (names, not addresses: they travel as job settings, see Screenshot Center) |
 | `powerPlatformEnvUrl` | `CAPTURE_POWER_PLATFORM_START_URL` |
 | `sharepointSiteUrl` (the lab's own site and the profile default are used first) | `CAPTURE_SHAREPOINT_SITE_URL` |
 | `sharepointAdminUrl` | `CAPTURE_SHAREPOINT_ADMIN_URL` |
@@ -2249,7 +2342,10 @@ Browser-facing:
 | `GET` | `/api/capture/status` | What the Screenshot Center needs to decide what to offer (below). |
 | `GET` | `/api/capture/devices` | Paired computers: `{ devices: [{ id, name, platform, companionVersion, createdAt, lastSeenAt, connected, busy, signedInProducts, expiresAt, tokenHint }] }`. |
 | `DELETE` | `/api/capture/devices/:id` | Disconnect a computer. Its token stops working at once. |
-| `POST` | `/api/capture/jobs` | Queue a job (below). 201 with the job, 200 with `existing: true` when the same capture is already queued or running, or 200 with `nothingToCapture: true`. |
+| `POST` | `/api/capture/jobs` | Queue a job (below). 201 with the job, 200 with `existing: true` when the same capture is already queued or running, 200 with `nothingToCapture: true`, or 200 with `needsAddress: true` and `missing` when every selected shot is waiting for an address (nothing is queued). |
+| `GET` | `/api/capture/targets` | The capture settings in effect for the active brand profile (`?labId=` for a lab): `fields`, `requirements`, `missing`, and how each shot is captured. |
+| `PUT` | `/api/capture/targets` | Save capture settings on a brand profile: `{ targets: { fieldId: value }, profileId? }`. |
+| `GET` / `PUT` | `/api/generated-labs/:labId/capture-targets` | Read and save a lab's own capture settings (also under `/api/lab-builder/generated/:labId/`). `PUT { targets, alsoProfile? }`. |
 | `GET` | `/api/capture/jobs` | Recent jobs as summaries (no `shots` or `events`). Query: `limit` (max 200), `status`, `labId`. |
 | `GET` | `/api/capture/jobs/:id` | One job with per-shot status and the event log. Poll this. |
 | `GET` | `/api/capture/jobs/:id/events` | Server-sent events: `snapshot`, then `update` for each change, then `end`. Polling works just as well. |
@@ -2273,33 +2369,36 @@ A job request:
   "env": { "CAPTURE_SHAREPOINT_SITE_URL": "https://contoso.sharepoint.com/sites/x" },   // optional; https only
   "brandProfileId": "contoso",                            // optional: use that brand profile's tenant addresses
   "useLabCustomization": true,                            // optional, default true: a lab built with a brand profile uses its addresses; false ignores them
-  "options": { "callouts": "sidecar", "redact": true, "maskTerms": ["Contoso"] }          // callouts: sidecar | burn | none
+  "targets": { "copilotStudioAgentName": "My agent" },    // optional: capture settings for this job only (addresses and names; validated); they win over the lab's and the profile's
+  "options": { "callouts": "sidecar", "redact": true, "maskTerms": ["Contoso"], "mode": "smart" }   // callouts: sidecar | burn | none; mode: auto | guided | smart (default smart)
 }
 ```
 
-The tenant addresses of a job come from `brandProfileId` (or, for a lab target, the lab's own brand customization), built
-with `buildCaptureEnv` in `portal/lib/branding-profiles.js`; anything in `env` wins per variable. The response says where they
-came from in `envSource` (`profile`, `lab`, `request`, `profile+request`, `lab+request`, or `null`). Two jobs for the same lab and
-shots but different addresses are different jobs.
+The capture settings of a job come, per setting, from the request (`targets`, `env`), then the lab's own capture settings and its own SharePoint site, then the brand profile (`brandProfileId`, the lab's profile, or the active profile), then this portal's `CAPTURE_*` environment (`portal/lib/capture/targets.js`). The response says where they
+came from in `envSource` (`profile`, `lab`, `request`, `server`, `profile+request`, `lab+request`, or `null`). Two jobs for the same lab and
+shots but different addresses, names, or modes are different jobs.
 
-A job (`env` values are never returned to the browser, only `envNames`):
+A job (setting **values** are never returned to the browser, only `envNames` and `targetNames`):
 
 ```jsonc
 {
   "id": "job_0123456789abcdef", "status": "running",       // queued | claimed | running | done | failed | cancelled
   "createdAt": "…", "startedAt": "…", "finishedAt": null, "createdBy": "user@contoso.com",
   "target": { "type": "lab", "labId": "my-lab" }, "scope": { "mode": "missing", "filenames": [], "featureIds": [] },
-  "options": { "callouts": "sidecar", "redact": true, "maskTerms": [] }, "envNames": ["CAPTURE_SHAREPOINT_SITE_URL"],
+  "options": { "callouts": "sidecar", "redact": true, "maskTerms": [], "mode": "smart" }, "envNames": ["CAPTURE_SHAREPOINT_SITE_URL"], "targetNames": ["copilotStudioAgentName"],
   "claim": { "deviceId": "dev_…", "deviceName": "Ada PC", "claimedAt": "…", "lastActivityAt": "…" },
   "cancelRequested": false, "error": null,                 // `error` of a failed job: why (for a job that ended without a sign-in: "Sign in to <product> on your computer, then retry the N screenshots.")
   "needsSignIn": { "count": 3, "products": [ { "id": "copilot-studio", "label": "Microsoft Copilot Studio", "count": 3 } ],
                    "message": "Sign in to Microsoft Copilot Studio on your computer, then retry the 3 screenshots." },   // only when shots ended auth-required
-  "progress": { "total": 12, "done": 5, "captured": 4, "needsReview": 1, "failed": 0, "manual": 0, "skipped": 0, "running": 1, "pending": 6, "percent": 42 },
+  "progress": { "total": 12, "done": 5, "captured": 4, "needsReview": 1, "failed": 0, "manual": 0, "skipped": 0, "needsYou": 0, "paused": 0, "running": 1, "pending": 6, "percent": 42 },
+  "causes": [ { "code": "no-agent", "title": "No agent address set", "fix": "Add your agent's address or name in Capture settings, then retake.", "fixAction": "settings", "tone": "warn", "count": 12, "filenames": [ … ] } ],   // failures grouped by cause, one fix each
   "shots": [ { "filename": "…png", "shotId": "…", "featureId": "…", "product": "…",
-               "status": "captured",                       // pending | running | captured | needs-review | failed | auth-required | manual-required | skipped | cancelled
-               "attempts": 1, "startedAt": "…", "finishedAt": "…", "message": null, "error": null, "verification": { … } } ],
+               "status": "captured",                       // pending | running | captured | needs-review | failed | auth-required | manual-required | skipped | needs-you | paused | cancelled
+               "attempts": 1, "startedAt": "…", "finishedAt": "…", "message": null, "error": null, "verification": { … },
+               "mode": "auto", "modeWhy": "…", "path": ["Copilot Studio", "your agent", "Settings"], "cause": null,
+               "outcome": "Opened Copilot Studio, then your agent, then Settings.", "steps": [ { "action": "open", "found": true, "ok": true, "urlAfter": "copilotstudio.microsoft.com/environments/{id}/bots/{id}/settings" } ] } ],
   "events": [ { "at": "…", "type": "shot-captured", "message": "…png: Captured and verified." } ],
-  "result": null                                           // set when finished: the counts, `partial`, and the companion's message
+  "result": null                                           // set when finished: the counts, `partial`, the companion's message, and for a paused capture `paused`, `pausedReason`, `resumable`
 }
 ```
 
@@ -2357,10 +2456,10 @@ Companion routes (capture token; `pair` needs no token, only the code):
 |---|---|---|
 | `POST` | `/api/capture/companion/pair` | `{ code, deviceName, platform, companionVersion }` returns `{ token, device }` once. 401 `pair-invalid`, `pair-expired`; 429 after repeated wrong codes. |
 | `POST` | `/api/capture/companion/heartbeat` | `{ signedInProducts, busy, jobId?, companionVersion }` returns `{ ok, cancelRequested, tokenExpiresAt }`. `signedInProducts` lists products whose sign-in has worked on that computer (a screenshot was captured and the session saved), not products that merely have a profile folder. |
-| `GET` | `/api/capture/companion/next` | Claim the next job: `{ job: { id, target, scope, options, resumed }, env, shots: [{ filename, shotId, featureId, product, authProfile, startUrl, urlEnv, requiresEnv, manual, viewport, steps, callouts, expectedLabels }] }`, or 204. A companion that asks again while it holds a job gets that job back, but only three times in a row without finishing a shot: after that the job is closed as `failed` instead of being handed out again. |
-| `POST` | `/api/capture/companion/jobs/:id/progress` | `{ shot: { filename, status, message, error }, message }` returns `{ ok, cancelRequested }`. |
-| `PUT` | `/api/capture/companion/jobs/:id/shots/:filename` | The image (multipart `file`, `evidence`, `callouts`, or raw with an `X-Capture-Evidence` header holding base64url JSON under 8 KB). Same answers as a paste, plus `cancelRequested`. |
-| `POST` | `/api/capture/companion/jobs/:id/complete` | `{ message, fatalError? }` ends the job as `done`, `failed`, or `cancelled` and refreshes the lab's files. |
+| `GET` | `/api/capture/companion/next` | Claim the next job: `{ job: { id, target, scope, options, resumed }, env, targets, shots: [{ filename, shotId, featureId, product, authProfile, startUrl, urlEnv, requiresEnv, manual, viewport, steps, callouts, expectedLabels, capture }] }`, or 204. `targets` holds the capture settings that are names (never addresses); `capture` is the descriptor (`mode`, `why`, `needs`, `route`, `path`, `expect`, `reveal`, `landmarks`, `guide`) a companion follows; an older companion ignores it and opens `startUrl`. Only shots that still have to run are sent: shots settled at queue time (outside the browser, waiting for an address, needing a person in automatic mode) are not. A companion that asks again while it holds a job gets that job back, but only three times in a row without finishing a shot: after that the job is closed as `failed` instead of being handed out again. |
+| `POST` | `/api/capture/companion/jobs/:id/progress` | `{ shot: { filename, status, message, error, cause?, mode?, path?, outcome?, steps? }, message }` returns `{ ok, cancelRequested }`. `status` may also be `needs-you` or `paused`. |
+| `PUT` | `/api/capture/companion/jobs/:id/shots/:filename` | The image (multipart `file`, `evidence`, `callouts`, or raw with an `X-Capture-Evidence` header holding base64url JSON under 8 KB). `evidence` may carry `mode` (`auto` \| `guided` \| `legacy`) and a bounded `routeSteps` list; what the picture is judged against comes from the job's plan, not from the evidence. Same answers as a paste, plus `cancelRequested`. |
+| `POST` | `/api/capture/companion/jobs/:id/complete` | `{ message, fatalError?, paused?: { reason: "browser-closed" \| "stopped", message } }` ends the job as `done`, `failed`, or `cancelled` and refreshes the lab's files. With `paused`, the shots that did not run become `paused` (resumable) instead of `skipped`. |
 
 A token failure is 401 with `code` `token-missing`, `token-invalid`, `token-expired`, or `token-revoked`.
 

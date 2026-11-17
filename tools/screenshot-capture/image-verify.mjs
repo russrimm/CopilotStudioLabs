@@ -10,6 +10,9 @@
 import crypto from "node:crypto";
 import zlib from "node:zlib";
 
+import { cleanExpectedLabels, labelIsVisible, visibleWordSet } from "./labels.mjs";
+import { assessLanding } from "./targets.mjs";
+
 export const IMAGE_LIMITS = Object.freeze({
   maxBytes: 8 * 1024 * 1024,
   minBytes: 5 * 1024,
@@ -295,15 +298,30 @@ export function sanitizeEvidence(raw) {
       : null,
     capturedAt: cleanText(raw.capturedAt, 40),
     executedSteps: Number.isFinite(Number(raw.executedSteps)) ? Math.max(0, Math.min(1000, Number(raw.executedSteps))) : null,
+    mode: ["auto", "guided", "legacy"].includes(raw.mode) ? raw.mode : null,
+    routeSteps: (Array.isArray(raw.routeSteps) ? raw.routeSteps : []).slice(0, 14).map((step) => ({
+      action: cleanText(step?.action, 24),
+      label: cleanText(step?.label, 80),
+      found: step?.found === true,
+      ok: step?.ok === true,
+      urlBefore: cleanText(String(step?.urlBefore ?? "").split(/[?#]/)[0], 200),
+      urlAfter: cleanText(String(step?.urlAfter ?? "").split(/[?#]/)[0], 200),
+      note: cleanText(step?.note, 80),
+    })),
   };
 }
 
-/** Share of the expected UI labels that appear in the visible text. */
+/**
+ * Share of the expected UI labels that appear in the visible text. Labels are cleaned first (typos fixed, stop
+ * words, placeholders, and sentences dropped) and matched without caring about case, punctuation, plurals, or a
+ * one-letter typo, so a label like "Start building form scratch" still matches a screen that says "Start building
+ * from scratch".
+ */
 export function scoreLabels(expectedLabels, visibleText) {
-  const expected = [...new Set((expectedLabels || []).map((l) => cleanText(l, 120).toLowerCase()).filter(Boolean))].slice(0, 40);
+  const expected = cleanExpectedLabels(expectedLabels, { max: 40 });
   if (!expected.length || !Array.isArray(visibleText) || !visibleText.length) return null;
-  const haystack = visibleText.join("\n").toLowerCase();
-  const matched = expected.filter((label) => haystack.includes(label));
+  const words = visibleWordSet(visibleText);
+  const matched = expected.filter((label) => labelIsVisible(label, words));
   return { expected: expected.length, matched: matched.length, score: Math.round((matched.length / expected.length) * 100) / 100, missing: expected.filter((l) => !matched.includes(l)).slice(0, 10) };
 }
 
@@ -316,7 +334,8 @@ export function scoreLabels(expectedLabels, visibleText) {
  * @param {object} [options]
  * @param {string} [options.filename] the slot filename; its extension must match the bytes
  * @param {object} [options.evidence] what the companion saw (address, title, visible text)
- * @param {string[]} [options.expectedLabels] UI labels the shot should show
+ * @param {string[]} [options.expectedLabels] UI labels the shot should show (a soft hint when the address matches `expect`)
+ * @param {{family: string, scope?: string, paths?: string[], host?: string, label?: string, strict?: boolean}} [options.expect] the screen the plan expects; its address is the main signal
  * @param {boolean} [options.requireEvidence] warn when the page address was not reported
  * @param {Partial<typeof IMAGE_LIMITS>} [options.limits]
  * @returns {{ok: boolean, level: "pass"|"warn"|"fail", reasons: Array<{code: string, level: "fail"|"warn", message: string}>, format: string|null, width: number|null, height: number|null, bytes: number, sha256: string|null, analysis: object|null, labels: object|null, evidence: object|null}}
@@ -335,6 +354,7 @@ export function verifyImage(bytes, options = {}) {
     sha256: null,
     analysis: null,
     labels: null,
+    landing: null,
     evidence: null,
   };
   const finish = () => {
@@ -460,10 +480,20 @@ export function verifyImage(bytes, options = {}) {
       reasons.push(reason("sign-in-page", "fail", "The visible text looks like a sign-in page, not the product."));
     }
     result.labels = scoreLabels(options.expectedLabels, evidence.visibleText);
+    const landing = assessLanding(evidence.finalUrl, options.expect);
+    result.landing = landing;
+    const signIn = reasons.some((r) => r.code === "sign-in-page");
+    if (landing.state === "mismatch" && !signIn) {
+      reasons.push(reason("wrong-screen", "warn", `This is ${landing.page}, not ${landing.expected}. Retake it with “Retake guided”, or check the agent address in Capture settings.`));
+    }
     if (result.labels) {
       const { expected, matched } = result.labels;
-      if (matched === 0 || (expected >= 3 && result.labels.score < 0.34)) {
-        reasons.push(reason("labels-missing", "warn", `Only ${matched} of ${expected} expected UI labels are visible. Check that the screen is the one the lab describes.`));
+      // The address is the main signal. When it matches the screen the plan expects, labels are only a hint;
+      // when it does not match, the wrong-screen message already says what is wrong.
+      result.labels.soft = landing.state === "match";
+      if (landing.state === "unknown" && (matched === 0 || (expected >= 3 && result.labels.score < 0.34))) {
+        const missing = result.labels.missing.slice(0, 3).join(", ");
+        reasons.push(reason("labels-missing", "warn", `Only ${matched} of ${expected} expected UI labels are visible${missing ? ` (missing: ${missing})` : ""}. Check that the screen is the one the lab describes.`));
       }
     }
     if (options.requireRedaction && !(evidence.redaction && evidence.redaction.applied)) {
@@ -489,6 +519,8 @@ export function summarizeVerification(result, extra = {}) {
     sha256: result.sha256,
     analysis: result.analysis,
     labels: result.labels,
+    landing: result.landing ? { state: result.landing.state, page: result.landing.page, expected: result.landing.expected } : null,
+    capture: result.evidence?.mode ? { mode: result.evidence.mode, steps: result.evidence.routeSteps || [] } : null,
     finalUrl: result.evidence?.finalUrl || null,
     pageTitle: result.evidence?.title || null,
     redaction: result.evidence?.redaction || null,

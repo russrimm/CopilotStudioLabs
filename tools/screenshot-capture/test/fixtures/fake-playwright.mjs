@@ -14,8 +14,9 @@ import { makePng } from "./png.mjs";
  * @param {string[]} [options.pageLabels] text returned by the visible-labels evaluation
  * @param {Record<string, object>} [options.controlDetails] what a control looks like to the click guard (`{text, aria, title, href}`), by label
  * @param {Error|((dir: string, options: object) => Error|null)|null} [options.launchError] make opening a profile fail (for a missing browser)
+ * @param {((url: string, attempt: number) => Error|null)|null} [options.gotoFailure] make opening an address fail (an interrupted navigation, a closed window)
  */
-export function createFakePlaywright({ labels = ["Settings", "Memory", "Home"], rewriteUrl = (u) => u, screenshot = null, title = "Copilot Studio", pageLabels = ["Settings", "Memory", "Home", "Signed in as ada@contoso.com"], controlDetails = {}, launchError = null } = {}) {
+export function createFakePlaywright({ labels = ["Settings", "Memory", "Home"], rewriteUrl = (u) => u, screenshot = null, title = "Copilot Studio", pageLabels = ["Settings", "Memory", "Home", "Signed in as ada@contoso.com"], controlDetails = {}, launchError = null, gotoFailure = null } = {}) {
   const log = { launched: [], goto: [], clicks: [], evaluations: [], screenshots: 0, closed: 0, order: [] };
   let requestedUrl = "about:blank";
 
@@ -48,7 +49,10 @@ export function createFakePlaywright({ labels = ["Settings", "Memory", "Home"], 
 
   const page = {
     async goto(url) {
+      // A test can make the browser fail to open an address, for example an interrupted navigation or a closed window.
+      const failure = typeof gotoFailure === "function" ? gotoFailure(url, log.goto.length) : null;
       log.goto.push(url);
+      if (failure) throw failure;
       requestedUrl = url;
     },
     // Evaluated on every read, so a test can flip "signed in" while the page is open.
@@ -62,8 +66,17 @@ export function createFakePlaywright({ labels = ["Settings", "Memory", "Home"], 
     async waitForLoadState() {},
     async waitForTimeout() {},
     async bringToFront() {},
+    isClosed: () => false,
+    on() {},
+    once() {},
+    off() {},
+    async exposeFunction() {},
+    async addInitScript() {},
     getByRole(_role, opts) {
-      return locatorFor(opts?.name ? String(opts.name) : "");
+      const raw = opts?.name;
+      // The runner matches names exactly with a regular expression; the fake wants the plain label back.
+      const label = raw instanceof RegExp ? raw.source.replace(/^\^\\s\*/, "").replace(/\\s\*\$$/, "").replace(/\\(.)/g, "$1") : raw ? String(raw) : "";
+      return locatorFor(label);
     },
     getByText(text) {
       return locatorFor(String(text));
@@ -83,9 +96,12 @@ export function createFakePlaywright({ labels = ["Settings", "Memory", "Home"], 
       if (fn.name === "maskSensitiveInPage") return { masked: 3, controls: 1, texts: 2, selectors: arg?.selectors?.length ?? 0 };
       if (fn.name === "collectVisibleLabelsInPage") return pageLabels;
       if (fn.name === "drawCalloutMarkersInPage") return (arg?.callouts || []).filter((c) => c.rect).length;
+      if (fn.name === "readinessProbeInPage") return { state: "complete", busy: 0, quietFor: 60_000, changes: 0, text: 200 };
       return undefined;
     },
     async screenshot(options = {}) {
+      // The readiness check takes two small pictures to see that the page has stopped changing; they are not shots.
+      if (options.type === "jpeg") return Buffer.from("steady frame");
       log.screenshots += 1;
       log.order.push("screenshot");
       const bytes = screenshot ? screenshot(log.screenshots, page.url()) : makePng({ mode: "ui", seed: log.screenshots });
@@ -109,6 +125,7 @@ export function createFakePlaywright({ labels = ["Settings", "Memory", "Home"], 
           added: [],
           pages: () => [page],
           async newPage() {
+            log.newPages = (log.newPages || 0) + 1;
             return page;
           },
           async addCookies(cookies) {

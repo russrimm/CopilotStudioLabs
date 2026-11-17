@@ -21,6 +21,9 @@ const BRAND_FIELD_LABELS = {
   defaultSharepointSiteName: "SharePoint site name",
   defaultSharepointSiteUrl: "SharePoint site URL",
   copilotStudioUrl: "Copilot Studio URL",
+  copilotStudioAgentUrl: "Copilot Studio agent URL",
+  copilotStudioAgentName: "Copilot Studio agent name",
+  agentBuilderAgentName: "Agent Builder agent name",
   powerPlatformEnvUrl: "Power Platform environment URL",
   sharepointSiteUrl: "SharePoint site URL (tenant)",
   sharepointAdminUrl: "SharePoint admin center URL",
@@ -39,6 +42,8 @@ const BRAND_TEXT_LIMITS = {
   moreInfoLabel: 60,
   supportName: 80,
   defaultSharepointSiteName: 120,
+  copilotStudioAgentName: 80,
+  agentBuilderAgentName: 80,
 };
 
 const BRAND_URL_FIELDS = [
@@ -46,6 +51,7 @@ const BRAND_URL_FIELDS = [
   "communityUrl",
   "defaultSharepointSiteUrl",
   "copilotStudioUrl",
+  "copilotStudioAgentUrl",
   "powerPlatformEnvUrl",
   "sharepointSiteUrl",
   "sharepointAdminUrl",
@@ -86,6 +92,9 @@ const BRAND_DEFAULT_PROFILE = {
   defaultSharepointSiteName: "",
   defaultSharepointSiteUrl: "",
   copilotStudioUrl: "",
+  copilotStudioAgentUrl: "",
+  copilotStudioAgentName: "",
+  agentBuilderAgentName: "",
   powerPlatformEnvUrl: "",
   sharepointSiteUrl: "",
   sharepointAdminUrl: "",

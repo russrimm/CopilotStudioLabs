@@ -21,6 +21,13 @@ const SC_ADDRESS_FIELDS = Object.freeze([
   ["foundryProjectUrl", "Foundry project"],
 ]);
 
+const SC_TARGET_FIELD_ID = /^[A-Za-z][A-Za-z0-9]{0,40}$/;
+const SC_REQUIREMENT_ID = /^[a-z0-9][a-z0-9-]{0,40}$/;
+const SC_CAUSE_CODE = /^[a-z][a-z-]{0,30}$/;
+const SC_CAUSE_FIX_ACTIONS = Object.freeze(["settings", "retry", "guided", "resume", "upload"]);
+// Causes that mean "an address is missing": their screenshots wait for the person, they did not fail.
+const SC_ADDRESS_CAUSES = Object.freeze(["no-agent", "no-site", "no-address"]);
+
 function scCount(value) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
@@ -28,6 +35,15 @@ function scCount(value) {
 
 function scPlural(n, singular, plural) {
   return `${n} ${n === 1 ? singular : plural || `${singular}s`}`;
+}
+
+/** Text from the network: one line, trimmed, and never longer than `max`. */
+function scText(value, max = 300) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
+}
+
+function scSentenceCase(text) {
+  return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : "";
 }
 
 function scIsActiveJob(job) {
@@ -146,11 +162,46 @@ function scCheckLabel(checkState, changedCount = 0) {
   return "Not checked yet";
 }
 
+// ── Capture modes ───────────────────────────────────────────────────────────
+
+const SC_CAPTURE_MODES = Object.freeze([
+  { id: "auto", label: "Let the computer do it", help: "The computer opens each screen by itself and skips any screen that needs you." },
+  { id: "guided", label: "I will set up each screen", help: "The computer opens the closest page and waits while you set up the screen and capture it." },
+  { id: "smart", label: "Smart (recommended)", help: "The computer captures what it can and asks you only for the screens that need you." },
+]);
+const SC_DEFAULT_CAPTURE_MODE = "smart";
+// How one screenshot is captured, as the server classified it.
+const SC_SHOT_MODES = Object.freeze({
+  auto: { label: "Automatic", tone: "info" },
+  guided: { label: "You set it up", tone: "neutral" },
+  manual: { label: "Outside the browser", tone: "neutral" },
+});
+
+function scCaptureModeOf(value) {
+  return SC_CAPTURE_MODES.some((mode) => mode.id === value) ? value : SC_DEFAULT_CAPTURE_MODE;
+}
+
+/** The `capture` descriptor of a shot, trimmed to what the Center shows. Null when the server sent none. */
+function scShotCapture(shot) {
+  const capture = shot?.capture;
+  if (!capture || typeof capture !== "object" || !SC_SHOT_MODES[capture.mode]) return null;
+  const list = (value) => (Array.isArray(value) ? value.map((item) => scText(item, 80)).filter(Boolean) : []);
+  return {
+    mode: capture.mode,
+    why: scText(capture.why),
+    path: list(capture.path).slice(0, 6),
+    missing: list(capture.missing),
+    screenLabel: scText(capture.screen?.label, 120),
+  };
+}
+
 // ── Shot status ─────────────────────────────────────────────────────────────
 
 const SC_STATUS_LABELS = Object.freeze({
   captured: { label: "Captured", tone: "ok" },
   "needs-review": { label: "Needs review", tone: "warn" },
+  "needs-you": { label: "Needs you", tone: "warn" },
+  paused: { label: "Paused", tone: "info" },
   outdated: { label: "Outdated", tone: "warn" },
   pending: { label: "Pending", tone: "neutral" },
   failed: { label: "Failed", tone: "bad" },
@@ -158,13 +209,15 @@ const SC_STATUS_LABELS = Object.freeze({
   capturing: { label: "Capturing now", tone: "info" },
   queued: { label: "Queued", tone: "info" },
 });
+// The job rows that say why a screenshot is still missing after a capture.
+const SC_ATTEMPT_STATUSES = Object.freeze(["failed", "auth-required", "needs-you", "paused", "skipped"]);
 
 /**
- * The one status a screenshot shows: Captured, Needs review, Outdated, Pending, Failed,
- * Manual, and, while a capture job holds it, Capturing now or Queued.
+ * The one status a screenshot shows: Captured, Needs review, Needs you, Paused, Outdated, Pending,
+ * Failed, Manual, and, while a capture job holds it, Capturing now or Queued.
  * @param {object} shot a shot from `GET .../screenshots`
  * @param {string|null} [jobShotStatus] that shot's status in the active job
- * @param {object|null} [attempt] that shot's failed row in the last finished job
+ * @param {object|null} [attempt] that shot's row in a capture job that ended without capturing it
  */
 function scShotStatus(shot, jobShotStatus = null, attempt = null) {
   let key;
@@ -172,8 +225,9 @@ function scShotStatus(shot, jobShotStatus = null, attempt = null) {
   else if (jobShotStatus === "pending") key = "queued";
   else if (shot?.needsReview) key = "needs-review";
   else if (!shot?.captured) {
-    const last = shot?.lastAttemptStatus;
-    if (last === "failed" || last === "auth-required" || last === "browser-unavailable" || attempt) key = "failed";
+    const last = attempt?.status ?? shot?.lastAttemptStatus;
+    if (last === "needs-you" || last === "paused") key = last;
+    else if (last === "failed" || last === "auth-required" || last === "browser-unavailable") key = "failed";
     else key = shot?.manual ? "manual" : "pending";
   } else key = shot?.stale ? "outdated" : "captured";
   return { key, ...SC_STATUS_LABELS[key] };
@@ -188,10 +242,14 @@ function scPlainInstruction(line) {
     .trim();
 }
 
-/** Counts the primary action and the checklist decide from. Manual shots are never auto-captured. */
-function scCounts(state) {
+/**
+ * Counts the primary action and the checklist decide from. Manual shots are never auto-captured.
+ * @param {object} state `GET .../screenshots`
+ * @param {(filename: string) => object|null} [attemptFor] a job row that says why a screenshot is still missing
+ */
+function scCounts(state, attemptFor = null) {
   const shots = Array.isArray(state?.shots) ? state.shots : [];
-  const counts = { total: shots.length, captured: 0, upToDate: 0, toCapture: 0, manual: 0, outdated: 0, needsReview: 0, failed: 0 };
+  const counts = { total: shots.length, captured: 0, upToDate: 0, toCapture: 0, manual: 0, outdated: 0, needsReview: 0, failed: 0, needsYou: 0, paused: 0 };
   if (!shots.length) {
     const s = state?.summary || {};
     counts.total = scCount(s.total);
@@ -203,13 +261,19 @@ function scCounts(state) {
     return counts;
   }
   for (const shot of shots) {
-    const { key } = scShotStatus(shot);
+    const { key } = scShotStatus(shot, null, shot.captured ? null : attemptFor?.(shot.filename) ?? null);
     if (shot.captured) counts.captured += 1;
     if (key === "captured") counts.upToDate += 1;
     else if (key === "outdated") counts.outdated += 1;
     else if (key === "needs-review") counts.needsReview += 1;
     else if (key === "manual") counts.manual += 1;
-    else if (key === "failed") {
+    else if (key === "needs-you") {
+      counts.needsYou += 1;
+      counts.toCapture += 1;
+    } else if (key === "paused") {
+      counts.paused += 1;
+      counts.toCapture += 1;
+    } else if (key === "failed") {
       counts.failed += 1;
       if (shot.manual) counts.manual += 1;
       else counts.toCapture += 1;
@@ -219,6 +283,18 @@ function scCounts(state) {
 }
 
 // ── Plain-language verification feedback ────────────────────────────────────
+
+const SC_WRONG_SCREEN = "This is not the screen the lab asks for. Check that it is the screen the lab describes.";
+
+/** "This is the Copilot Studio home page, not the agent's Instructions page." when the browser ended on another screen. */
+function scLandingSentence(verification) {
+  const landing = verification?.landing;
+  const reasons = Array.isArray(verification?.reasons) ? verification.reasons : [];
+  if (landing?.state !== "mismatch" && !reasons.some((reason) => reason?.code === "wrong-screen")) return "";
+  const page = scText(landing?.page, 120);
+  const expected = scText(landing?.expected, 120);
+  return page && expected ? `This is ${page}, not ${expected}.` : SC_WRONG_SCREEN;
+}
 
 function scReasonText(reason, verification = null, limits = SC_DEFAULT_LIMITS) {
   const labels = verification?.labels;
@@ -266,6 +342,8 @@ function scReasonText(reason, verification = null, limits = SC_DEFAULT_LIMITS) {
       return "Account details may be visible. Check the image for names and email addresses.";
     case "no-page-address":
       return "We could not confirm which page this shows.";
+    case "wrong-screen":
+      return scLandingSentence(verification) || SC_WRONG_SCREEN;
     case "no-evidence":
       return "This image came without page details, so it was checked as a picture only.";
     default:
@@ -366,13 +444,16 @@ function scGroupShots(state) {
 }
 
 /**
- * The one button to show. `model`: counts, checkState, connected, statusLoading, job, and driftedModules.
+ * The one button to show. `model`: counts, checkState, connected, statusLoading, job, driftedModules, and
+ * addressWaiting (how many screenshots are held back until an address is added).
  * Order: connect, capture missing, retake outdated, review, add by hand, check, then "up to date".
  */
 function scPrimaryAction(model) {
   const c = model.counts || {};
   const retakeNeeded = scCount(c.outdated);
   const captureNeeded = scCount(c.toCapture);
+  const waiting = scCount(model.addressWaiting);
+  const waitingNote = waiting ? ` ${scPlural(waiting, "screenshot")} ${waiting === 1 ? "is" : "are"} waiting for an address and will be held back until you add it.` : "";
   if (scIsActiveJob(model.job)) {
     return { action: "busy", label: "Capturing screenshots", help: "Your computer is working. Progress is shown below.", disabled: true };
   }
@@ -391,7 +472,7 @@ function scPrimaryAction(model) {
     return {
       action: "capture-missing",
       label: `Capture ${scPlural(captureNeeded, "missing screenshot")}`,
-      help: "Your computer opens each screen, takes the picture, checks it, and adds it to this lab.",
+      help: `Your computer opens each screen, takes the picture, checks it, and adds it to this lab.${waitingNote}`,
       disabled: false,
     };
   }
@@ -399,7 +480,7 @@ function scPrimaryAction(model) {
     return {
       action: "capture-stale",
       label: `Retake ${scPlural(retakeNeeded, "outdated screenshot")}`,
-      help: "Microsoft Learn changed these topics. New pictures replace the old ones.",
+      help: `Microsoft Learn changed these topics. New pictures replace the old ones.${waitingNote}`,
       disabled: false,
     };
   }
@@ -443,6 +524,111 @@ function scPrimaryAction(model) {
   };
 }
 
+// ── Capture settings: what each screenshot needs ────────────────────────────
+
+/**
+ * One thing the person has to add before screenshots can be captured, from the capture settings
+ * (`requirement`) or from a queue request that was held back (`missing` item). Null when it is unusable.
+ */
+function scRequirementView(requirement) {
+  const id = String(requirement?.id || "");
+  if (!SC_REQUIREMENT_ID.test(id)) return null;
+  const filenames = (Array.isArray(requirement.filenames) ? requirement.filenames : []).filter((name) => SC_SAFE_FILENAME.test(String(name)));
+  const count = scCount(requirement.waitingCount ?? requirement.count) || filenames.length;
+  const noun = scText(requirement.noun, 80) || "address";
+  return {
+    id,
+    noun,
+    count,
+    filenames,
+    prompt: scText(requirement.prompt),
+    fields: (Array.isArray(requirement.fields) ? requirement.fields : []).filter((field) => SC_TARGET_FIELD_ID.test(String(field))),
+    message: scText(requirement.message, 200) || `${scPlural(count, "screenshot")} ${count === 1 ? "needs" : "need"} your ${noun}.`,
+  };
+}
+
+/** The requirements still to meet. A refused queue request (`queued`) is newer than the saved settings payload. */
+function scMissingRequirements(targets, queued) {
+  const source = Array.isArray(queued) && queued.length ? queued : Array.isArray(targets?.missing) ? targets.missing : [];
+  return source.map(scRequirementView).filter((view) => view && view.count > 0);
+}
+
+/** `Agent address: needed by 4 screenshots. SharePoint site address: needed by 8 screenshots.` */
+function scMissingSummary(views) {
+  return `${views.map((view) => `${scSentenceCase(view.noun)}: needed by ${scPlural(view.count, "screenshot")}`).join(". ")}.`;
+}
+
+/** Every capture setting from the payload, with only the text the Center shows. */
+function scTargetFields(targets) {
+  return (Array.isArray(targets?.fields) ? targets.fields : [])
+    .filter((field) => SC_TARGET_FIELD_ID.test(String(field?.id)))
+    .map((field) => ({
+      id: field.id,
+      label: scText(field.label, 120) || field.id,
+      kind: field.kind === "url" ? "url" : "text",
+      product: /^[a-z0-9-]{1,60}$/.test(String(field.product)) ? field.product : "other",
+      placeholder: scText(field.placeholder, 200),
+      help: scText(field.help),
+      value: typeof field.value === "string" ? field.value.slice(0, 2048) : "",
+      set: field.set === true,
+      sourceLabel: scText(field.sourceLabel, 80).replace(/^from\s+/i, ""),
+    }));
+}
+
+/** A setting the capture settings do not list (a refused queue request can arrive first), described from its requirement. */
+function scFallbackField(fieldId, requirement) {
+  const isName = /Name$/.test(fieldId);
+  const base = requirement.noun.replace(/\s*(address|name)$/i, "");
+  return {
+    id: fieldId,
+    label: scSentenceCase([base, isName ? "name" : "address"].filter(Boolean).join(" ")),
+    kind: isName ? "text" : "url",
+    product: "other",
+    placeholder: "",
+    help: "",
+    value: "",
+    set: false,
+    sourceLabel: "",
+  };
+}
+
+/** Settings grouped by product, in the order the server lists them. */
+function scGroupTargetFields(fields) {
+  const groups = new Map();
+  for (const field of fields) {
+    if (!groups.has(field.product)) groups.set(field.product, { product: field.product, name: field.product === "other" ? "Other" : scProductName(field.product), fields: [] });
+    groups.get(field.product).fields.push(field);
+  }
+  return [...groups.values()];
+}
+
+// ── Failure groups ──────────────────────────────────────────────────────────
+
+/** `job.causes` as the Center shows them: one group per cause with its one fix. The result banner carries the Resume button, so a group whose fix is Resume is left out. */
+function scCauseGroups(job) {
+  const groups = [];
+  for (const cause of Array.isArray(job?.causes) ? job.causes : []) {
+    const code = String(cause?.code || "");
+    const filenames = (Array.isArray(cause?.filenames) ? cause.filenames : []).filter((name) => SC_SAFE_FILENAME.test(String(name)));
+    if (!SC_CAUSE_CODE.test(code) || cause.fixAction === "resume") continue;
+    groups.push({
+      code,
+      title: scText(cause.title, 160) || "The capture did not finish",
+      fix: scText(cause.fix, 300),
+      fixAction: SC_CAUSE_FIX_ACTIONS.includes(cause.fixAction) ? cause.fixAction : "retry",
+      tone: cause.tone === "info" ? "info" : "warn",
+      count: scCount(cause.count) || filenames.length,
+      filenames,
+    });
+  }
+  return groups;
+}
+
+/** How many screenshots a job held back for a missing address. */
+function scAddressWaiting(job) {
+  return (Array.isArray(job?.causes) ? job.causes : []).filter((cause) => SC_ADDRESS_CAUSES.includes(cause?.code)).reduce((sum, cause) => sum + scCount(cause.count), 0);
+}
+
 // ── Readiness steps ─────────────────────────────────────────────────────────
 
 /** The tenant addresses a lab or profile has, as readable names. */
@@ -455,8 +641,10 @@ function scAddressNames(brand) {
 }
 
 /**
- * The three setup steps and their live state.
- * @param {object} m `statusLoading`, `statusError`, `connected`, `deviceNames`, `signedIn`, `products`, `needsComputer`, `tenant`
+ * The setup steps and their live state: connect, tenant addresses, (when the capture settings loaded) the addresses
+ * the screenshots need, and sign-in.
+ * @param {object} m `statusLoading`, `statusError`, `connected`, `deviceNames`, `signedIn`, `products`, `needsComputer`,
+ *   `tenant`, and `targets` (`{ missing: [requirement views] }`, or null before the capture settings are known)
  */
 function scBuildSteps(m) {
   const tenant = m.tenant || { names: [], serverSet: false, suggestion: null };
@@ -495,6 +683,14 @@ function scBuildSteps(m) {
     addresses.action = { id: "add-addresses", label: "Add addresses" };
   }
 
+  const needs = { id: "needs", title: "Addresses your screenshots need", state: "done", detail: "All set. Every screenshot has the addresses it needs.", action: null };
+  const missingViews = m.targets?.missing || [];
+  if (missingViews.length) {
+    needs.state = "todo";
+    needs.detail = scMissingSummary(missingViews);
+    needs.action = { id: "fix-addresses", label: missingViews.length === 1 ? "Add the address" : "Add the addresses" };
+  }
+
   const signIn = { id: "signin", title: "Sign in once per product", state: "todo", detail: "", action: null };
   const products = m.products || [];
   const signedIn = new Set(m.signedIn || []);
@@ -517,13 +713,13 @@ function scBuildSteps(m) {
         "The first time, a browser window opens on your computer. Sign in there and capture continues by itself.";
     }
   }
-  return [connect, addresses, signIn];
+  return m.targets ? [connect, addresses, needs, signIn] : [connect, addresses, signIn];
 }
 
 // ── Job progress ────────────────────────────────────────────────────────────
 
 function scProgressFromShots(shots) {
-  const counts = { total: 0, done: 0, captured: 0, needsReview: 0, failed: 0, manual: 0, skipped: 0, running: 0, pending: 0, cancelled: 0 };
+  const counts = { total: 0, done: 0, captured: 0, needsReview: 0, failed: 0, manual: 0, skipped: 0, running: 0, pending: 0, cancelled: 0, needsYou: 0, paused: 0 };
   for (const shot of Array.isArray(shots) ? shots : []) {
     counts.total += 1;
     switch (shot.status) {
@@ -534,6 +730,8 @@ function scProgressFromShots(shots) {
       case "manual-required": counts.manual += 1; break;
       case "skipped": counts.skipped += 1; break;
       case "cancelled": counts.cancelled += 1; break;
+      case "needs-you": counts.needsYou += 1; break;
+      case "paused": counts.paused += 1; break;
       case "running": counts.running += 1; break;
       default: counts.pending += 1;
     }
@@ -577,12 +775,24 @@ function scDescribeJob(job, { companionConnected = null, nowMs = Date.now(), onl
   const base = { percent: scCount(counts.percent), counts, currentFilename: current?.filename || null };
   const total = scCount(counts.total);
 
+  const finished = job?.status === "done" || job?.status === "failed";
+  if (finished && scCount(counts.paused) > 0) {
+    const paused = scCount(counts.paused);
+    const lead = job.result?.pausedReason === "stopped" ? "You pressed Stop" : "You closed the browser window";
+    return { ...base, phase: "paused", tone: "warn", headline: "Capture paused", detail: `${lead}, so the capture paused. ${scPlural(paused, "screenshot")} ${paused === 1 ? "is" : "are"} waiting.` };
+  }
   if (job?.status === "done") {
+    const waiting = scAddressWaiting(job);
+    const otherSkipped = Math.max(0, scCount(counts.skipped) - waiting);
     const parts = [`${scCount(counts.captured)} captured`];
     if (scCount(counts.needsReview)) parts.push(`${scCount(counts.needsReview)} need review`);
     if (scCount(counts.failed)) parts.push(`${scCount(counts.failed)} failed`);
+    if (scCount(counts.needsYou)) parts.push(`${scCount(counts.needsYou)} need you`);
+    if (waiting) parts.push(`${waiting} waiting for an address`);
+    if (otherSkipped) parts.push(`${otherSkipped} skipped`);
     if (scCount(counts.manual)) parts.push(`${scCount(counts.manual)} need to be added by hand`);
-    return { ...base, phase: "done", tone: scCount(counts.failed) || scCount(counts.needsReview) ? "warn" : "ok", headline: "Capture finished", detail: `${parts.join(", ")}.` };
+    const attention = scCount(counts.failed) || scCount(counts.needsReview) || scCount(counts.needsYou) || scCount(counts.skipped);
+    return { ...base, phase: "done", tone: attention ? "warn" : "ok", headline: "Capture finished", detail: `${parts.join(", ")}.` };
   }
   if (job?.status === "cancelled") {
     return { ...base, phase: "cancelled", tone: "neutral", headline: "Capture canceled", detail: `${scCount(counts.captured)} of ${total} were captured before you stopped it.` };
@@ -630,16 +840,17 @@ function scDescribeJob(job, { companionConnected = null, nowMs = Date.now(), onl
       detail: "A browser window should be open on your computer. Sign in there. Capture continues by itself, and any screenshot that was skipped can be retaken afterward.",
     };
   }
+  const waiting = scAddressWaiting(job);
   return {
     ...base,
     phase: job?.status === "claimed" ? "starting" : "running",
     tone: "info",
     headline: job?.status === "claimed" ? "Your computer is getting ready" : "Capturing screenshots",
-    detail: "Keep the browser window your computer opened until this finishes.",
+    detail: `Keep the browser window your computer opened until this finishes.${waiting ? ` ${scPlural(waiting, "screenshot")} ${waiting === 1 ? "is" : "are"} waiting for an address.` : ""}`,
   };
 }
 
-/** The result banner shown after a job ends. */
+/** The result banner shown after a job ends: the message, the failure groups with their one fix each, and the next actions. */
 function scOutcomeFromJob(job) {
   const view = scDescribeJob(job);
   const counts = view.counts;
@@ -649,14 +860,22 @@ function scOutcomeFromJob(job) {
   const message =
     view.phase === "done"
       ? `Capture finished: ${view.detail}`
-      : view.phase === "cancelled"
-        ? `Capture canceled. ${view.detail}`
-        : `${view.headline}. ${view.detail}`;
-  const failedFiles = (Array.isArray(job?.shots) ? job.shots : []).filter((s) => s.status === "failed" || s.status === "auth-required").map((s) => s.filename);
+      : view.phase === "paused"
+        ? view.detail
+        : view.phase === "cancelled"
+          ? `Capture canceled. ${view.detail}`
+          : `${view.headline}. ${view.detail}`;
+  const rows = Array.isArray(job?.shots) ? job.shots : [];
+  const filenamesWith = (...statuses) => rows.filter((s) => statuses.includes(s.status)).map((s) => s.filename);
+  const causes = scCauseGroups(job);
+  const failedFiles = filenamesWith("failed", "auth-required");
+  const pausedFiles = filenamesWith("paused");
   const actions = [];
-  if (failedFiles.length) actions.push({ id: "retry-failed", label: `Retry ${scPlural(failedFiles.length, "screenshot")}`, filenames: failedFiles });
+  if (view.phase === "paused" && pausedFiles.length) actions.push({ id: "resume", label: "Resume", primary: true, filenames: pausedFiles });
+  // The groups carry a fix for every failed shot, so the all-in-one retry is only for results that have no groups.
+  if (failedFiles.length && !causes.length) actions.push({ id: "retry-failed", label: `Retry ${scPlural(failedFiles.length, "screenshot")}`, filenames: failedFiles });
   if (scCount(counts.needsReview)) actions.push({ id: "review", label: `Review ${scPlural(scCount(counts.needsReview), "screenshot")}` });
-  return { type: "job", variant, message, jobId: job?.id || null, actions };
+  return { type: "job", variant, message, jobId: job?.id || null, actions, causes };
 }
 
 /** Plain explanation for why a build did not queue a capture. */

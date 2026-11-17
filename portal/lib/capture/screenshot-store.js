@@ -25,6 +25,7 @@ import {
   writeLabVerificationRecord,
 } from "../lab-builder/lab-screenshots.js";
 import { PLACEHOLDER_PATH } from "../lab-builder/slots.js";
+import { expectedLabelsForShot } from "./classify.js";
 import { findLibrarySlot, labSlotFilenames, listLibrarySlots } from "./plan.js";
 import { cleanText, readJson, writeBytesAtomic, writeJsonAtomic } from "./store-util.js";
 import { summarizeVerification, verifyUpload } from "./verify-upload.js";
@@ -83,10 +84,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       slot(filename) {
         const shot = slots.get(filename);
         if (!shot) return null;
-        const labels = new Set();
-        for (const step of shot.steps || []) for (const l of step.labels || []) labels.add(l);
-        for (const c of shot.callouts || []) if (c.text || c.label) labels.add(c.text || c.label);
-        return { expectedLabels: [...labels].slice(0, 20), feature: shot.featureId || shot.feature || null };
+        return { expectedLabels: expectedLabelsForShot(shot), feature: shot.featureId || shot.feature || null };
       },
       readRecords: () => readLabVerification(found.labDir),
       writeRecord: (filename, record) => writeLabVerificationRecord(found.labDir, filename, record),
@@ -271,14 +269,16 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
    *
    * @returns {{status: number, body: object}}
    */
-  function submit(target, filename, bytes, { evidence = null, source = "upload", acceptWarnings = false, defer = false, callouts = null, jobId = null, requireEvidence = false, requireRedaction = false } = {}) {
+  function submit(target, filename, bytes, { evidence = null, source = "upload", acceptWarnings = false, defer = false, callouts = null, jobId = null, requireEvidence = false, requireRedaction = false, expect = null, expectedLabels = null } = {}) {
     const slot = target.slot(filename);
     if (!slot) return { status: 404, body: { error: "That file name is not a screenshot slot here.", filename } };
+    const labels = Array.isArray(expectedLabels) && expectedLabels.length ? expectedLabels : slot.expectedLabels;
     const verification = verifyUpload({
       bytes,
       filename,
       evidence,
-      expectedLabels: slot.expectedLabels,
+      expectedLabels: labels,
+      expect,
       requireEvidence,
       requireRedaction,
     });
@@ -289,7 +289,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
 
     const capturedAt = new Date().toISOString();
     if (verification.level === "warn" && !acceptWarnings) {
-      stage(target, filename, bytes, { verification: record, evidence: verification.evidence, source, jobId, stagedAt: capturedAt, callouts: cleanCallouts(callouts) });
+      stage(target, filename, bytes, { verification: record, evidence: verification.evidence, source, jobId, stagedAt: capturedAt, callouts: cleanCallouts(callouts), expect, expectedLabels: labels });
       target.writeRecord(filename, { ...record, state: "needs-review", source, jobId, stagedAt: capturedAt });
       return {
         status: 202,
@@ -307,7 +307,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     const staged = readStaged(target, filename);
     if (!staged) return { status: 404, body: { error: "Nothing is waiting for review for this screenshot.", filename } };
     const slot = target.slot(filename);
-    const verification = verifyUpload({ bytes: staged.bytes, filename, evidence: staged.meta?.evidence || null, expectedLabels: slot.expectedLabels });
+    const verification = verifyUpload({ bytes: staged.bytes, filename, evidence: staged.meta?.evidence || null, expectedLabels: staged.meta?.expectedLabels || slot.expectedLabels, expect: staged.meta?.expect || null });
     if (verification.level === "fail") {
       clearStaged(target, filename);
       target.writeRecord(filename, null);

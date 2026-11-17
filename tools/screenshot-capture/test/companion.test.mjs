@@ -354,7 +354,7 @@ test("captureShot retries a blank picture once, then reports it instead of uploa
   const recovered = await captureShot({ page: flaky.page, shot: baseShot(), assetsDir: path.join(home, "a"), screenshotsDir: path.join(home, "s"), env: {}, redact: true, terms: [], calloutMode: "sidecar", log: () => {}, sleepFn: async (ms) => sleeps.push(ms) });
   assert.equal(recovered.status, "captured");
   assert.equal(flaky.log.screenshots, 2);
-  assert.equal(sleeps.length, 1);
+  assert.equal(sleeps.filter((ms) => ms >= 4000).length, 1, "one longer wait before the second try (the short ones are the page-ready checks)");
 
   const always = createFakePlaywright({ screenshot: () => blank });
   const failed = await captureShot({ page: always.page, shot: baseShot(), assetsDir: path.join(home, "a3"), screenshotsDir: path.join(home, "s3"), env: {}, redact: true, terms: [], calloutMode: "sidecar", log: () => {}, sleepFn: async () => {} });
@@ -391,7 +391,7 @@ test("runJob captures, verifies, uploads, and completes; skips manual and tenant
   ];
   const result = await runJob({ client, claimed: claimedJob(shots), home, playwright, options: {}, log, heartbeatMs: 60_000 });
 
-  assert.deepEqual(result.tally, { captured: 1, needsReview: 0, failed: 0, skipped: 1, manual: 1 });
+  assert.deepEqual(result.tally, { captured: 1, needsReview: 0, failed: 0, skipped: 1, manual: 1, needsYou: 0, paused: 0 });
   assert.equal(portal.uploads.length, 1);
   const upload = portal.uploads[0];
   assert.equal(upload.filename, "mc-memory-toggle.png");

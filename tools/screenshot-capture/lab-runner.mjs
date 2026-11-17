@@ -31,9 +31,13 @@ import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildSidecar, resolveCallouts, sidecarName } from "./callouts.mjs";
 import { classifyUrl, createAuthGate, redactedAddress } from "./auth.mjs";
-import { DESTRUCTIVE_LABEL_RE, blockedInstructionReason, blockedLabelReason, controlIsOffLimits, describeControlInPage } from "./guard.mjs";
+import { createCaptureSession, runCaptureShot } from "./capture-run.mjs";
+import { DESTRUCTIVE_LABEL_RE, blockedInstructionReason, blockedLabelReason } from "./guard.mjs";
 import { detectInstalledBrowsers } from "./browsers.mjs";
+import { gotoWithRetry } from "./lifecycle.mjs";
+import { NAVIGATION_ROLES, findControls } from "./locator.mjs";
 import { resolveShotUrl, resolveStartUrl } from "./manifests.mjs";
+import { readinessBudgets, waitUntilReady } from "./readiness.mjs";
 
 export { DESTRUCTIVE_LABEL_RE };
 
@@ -234,38 +238,21 @@ async function dismissCommonBanners(page) {
   }
 }
 
-async function findVisibleControlByLabel(page, label, roles = ["tab", "menuitem", "treeitem", "button", "link"]) {
+/**
+ * A visible control whose accessible name is exactly `label`, or null. Only an exact name counts (never text that
+ * merely contains the words), and a control that is off limits (delete, sign out, publish, create...) never does.
+ * `regions` limits where the control may be.
+ */
+async function findVisibleControlByLabel(page, label, roles = NAVIGATION_ROLES, { regions = null } = {}) {
   if (!label || typeof label !== "string") return null;
-  for (const role of roles) {
-    if (typeof page.getByRole === "function") {
-      try {
-        const exactLoc = page.getByRole(role, { name: label, exact: true });
-        const exactCount = Math.min(await exactLoc.count().catch(() => 0), 4);
-        for (let i = 0; i < exactCount; i += 1) {
-          const item = exactLoc.nth(i);
-          if (await item.isVisible().catch(() => false)) return item;
-        }
-      } catch {
-        // Ignore unsupported role query on custom drivers.
-      }
-    }
-  }
-  if (typeof page.getByText === "function") {
-    for (const exact of [true, false]) {
-      try {
-        const loc = page.getByText(label, { exact });
-        const count = Math.min(await loc.count().catch(() => 0), 4);
-        for (let i = 0; i < count; i += 1) {
-          const item = loc.nth(i);
-          if (await item.isVisible().catch(() => false)) return item;
-        }
-      } catch {
-        // Continue probing.
-      }
-    }
-  }
-  return null;
+  const found = await findControls(page, label, { roles: roles?.length ? roles : NAVIGATION_ROLES, regions });
+  return found.find((candidate) => !candidate.off)?.locator || null;
 }
+
+// A step from an older plan names a label from the lab's text, which can also be a card or a link in the page's
+// own content ("Knowledge" on the home page leads to a page that creates apps). Navigation and the page frame are
+// fine; content is not.
+const LEGACY_CLICK_REGIONS = ["nav", "header", "other"];
 
 /**
  * Execute structured Playwright step-through actions for a single lab shot.
@@ -284,7 +271,48 @@ export async function executePlaywrightLabShot({
   hooks = null,
   auth = null,
   trace = null,
+  session = null,
+  effectiveMode = null,
+  readiness = {},
+  guided = {},
+  attempt = 1,
+  sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }) {
+  // The sign-in gate decides whether a page is the product or a sign-in page. A caller that runs several shots
+  // passes one gate for the whole profile, so the person is asked to sign in once, not once per shot.
+  const gate =
+    auth ||
+    createAuthGate({
+      product: shot.authProfile || shot.product || "microsoft-365",
+      waitMs: authTimeoutMs,
+      allowWait: mode === "headed" && typeof page.url === "function",
+      notify: ({ message }) => logger?.(`  → ${message}`),
+      trace,
+    });
+
+  // A plan from a portal that classifies its shots carries a `capture` descriptor: follow it.
+  if (shot.capture?.version && shot.capture.mode !== "manual") {
+    return runCaptureShot({
+      page,
+      shot,
+      session: session || createCaptureSession({ env }),
+      effectiveMode: effectiveMode || (shot.capture.mode === "guided" ? "guided" : "auto"),
+      env,
+      gate,
+      assetsDir,
+      screenshotsDir,
+      hooks,
+      trace,
+      log: logger,
+      sleep,
+      readiness,
+      guided,
+      attempt,
+      verifyBuffer: verifyCapturedImageBuffer,
+      stepTimeoutMs: Math.max(stepTimeoutMs, 3000),
+    });
+  }
+
   const viewport = {
     width: Number(shot.viewport?.width || 1440),
     height: Number(shot.viewport?.height || 900),
@@ -301,17 +329,6 @@ export async function executePlaywrightLabShot({
     return { status: "failed", error: err.message, executedSteps: [] };
   }
 
-  // The sign-in gate decides whether a page is the product or a sign-in page. A caller that runs several shots
-  // passes one gate for the whole profile, so the person is asked to sign in once, not once per shot.
-  const gate =
-    auth ||
-    createAuthGate({
-      product: shot.authProfile || shot.product || "microsoft-365",
-      waitMs: authTimeoutMs,
-      allowWait: mode === "headed" && typeof page.url === "function",
-      notify: ({ message }) => logger?.(`  → ${message}`),
-      trace,
-    });
   const needsSignIn = (result, executedSteps) => ({
     status: "auth-required",
     error: result.error,
@@ -342,9 +359,12 @@ export async function executePlaywrightLabShot({
       const navUrl = targetUrl || step.url;
       if (navUrl && /^https?:\/\//i.test(navUrl)) {
         logger?.(`  → Navigating to ${redactedAddress(navUrl)}`);
-        await page.goto(navUrl, {
+        await gotoWithRetry(page, navUrl, {
           waitUntil: step.waitUntil || "domcontentloaded",
           timeout: Number(step.timeoutMs || 30_000),
+          sleep,
+          trace,
+          log: logger,
         });
         executedSteps.push({ action: "navigate", url: navUrl, ok: true });
 
@@ -391,15 +411,20 @@ export async function executePlaywrightLabShot({
           trace?.event("click-blocked", { label, reason: instructionReason ? `instruction is ${instructionReason}` : `label is ${reason}` });
           continue;
         }
-        const locator = await findVisibleControlByLabel(page, label, step.roles);
-        if (!locator) continue;
-        // The name matched something harmless, but the control itself may sign out or switch the account.
-        const offLimits = typeof locator.evaluate === "function" ? controlIsOffLimits(await locator.evaluate(describeControlInPage).catch(() => null)) : null;
-        if (offLimits) {
-          blocked.push(label);
-          trace?.event("click-blocked", { label, reason: `control ${offLimits.why} is ${offLimits.reason}` });
+        const candidates = await findControls(page, label, { roles: step.roles?.length ? step.roles : NAVIGATION_ROLES, regions: LEGACY_CLICK_REGIONS });
+        const allowed = candidates.find((candidate) => !candidate.off);
+        // The name matched something harmless, but the control itself may sign out, switch the account, or save something.
+        const refused = candidates.find((candidate) => candidate.off);
+        if (!allowed) {
+          if (refused) {
+            blocked.push(label);
+            trace?.event("click-blocked", { label, reason: `control ${refused.off.why} is ${refused.off.reason}` });
+          } else {
+            trace?.event("step", { action: "click", label, found: false, note: "no control with that exact name outside the page content" });
+          }
           continue;
         }
+        const locator = allowed.locator;
         try {
           if (typeof locator.scrollIntoViewIfNeeded === "function") {
             await locator.scrollIntoViewIfNeeded({ timeout: stepTimeoutMs }).catch(() => {});
@@ -482,6 +507,7 @@ export async function executePlaywrightLabShot({
       if (stillSignedIn.waited && typeof page.waitForLoadState === "function") {
         await page.waitForLoadState("networkidle", { timeout: 6000 }).catch(() => {});
       }
+      await waitUntilReady(page, { budgets: readinessBudgets(readiness, attempt), sleep, trace, shot: shot.filename, attempt });
       // The companion masks account details and places callouts here, right before the pixels are taken.
       if (typeof hooks?.beforeScreenshot === "function") {
         await hooks.beforeScreenshot({ page, shot, viewport, callouts: resolvedCalloutRects });

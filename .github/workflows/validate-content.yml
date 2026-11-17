@@ -93,6 +93,7 @@ jobs:
           node --check tools/screenshot-capture/image-verify.mjs
           node --check tools/screenshot-capture/redact.mjs
           node --check tools/screenshot-capture/lab-runner.mjs
+          for f in capture-run causes guided labels lifecycle locator readiness scan-labels targets; do node --check "tools/screenshot-capture/$f.mjs"; done
           node --check tools/screenshot-capture/test/capture.test.mjs
           node --check tools/screenshot-capture/test/companion.test.mjs
           node --check tools/feature-tour/build.mjs

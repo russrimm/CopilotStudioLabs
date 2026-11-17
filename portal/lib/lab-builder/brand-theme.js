@@ -34,6 +34,9 @@ export const DEFAULT_BRAND = Object.freeze({
   defaultSharepointSiteName: "",
   defaultSharepointSiteUrl: "",
   copilotStudioUrl: "",
+  copilotStudioAgentUrl: "",
+  copilotStudioAgentName: "",
+  agentBuilderAgentName: "",
   powerPlatformEnvUrl: "",
   sharepointSiteUrl: "",
   sharepointAdminUrl: "",
@@ -87,6 +90,8 @@ export const TEXT_FIELD_LIMITS = Object.freeze({
   moreInfoLabel: 60,
   supportName: 80,
   defaultSharepointSiteName: 120,
+  copilotStudioAgentName: 80,
+  agentBuilderAgentName: 80,
 });
 
 export const COLOR_FIELDS = Object.freeze(["primaryColor", "secondaryColor"]);
@@ -96,6 +101,7 @@ export const URL_FIELDS = Object.freeze([
   "communityUrl",
   "defaultSharepointSiteUrl",
   "copilotStudioUrl",
+  "copilotStudioAgentUrl",
   "powerPlatformEnvUrl",
   "sharepointSiteUrl",
   "sharepointAdminUrl",
@@ -107,6 +113,7 @@ export const EMAIL_FIELDS = Object.freeze(["supportEmail"]);
 
 export const ENVIRONMENT_URL_FIELDS = Object.freeze([
   "copilotStudioUrl",
+  "copilotStudioAgentUrl",
   "powerPlatformEnvUrl",
   "sharepointSiteUrl",
   "sharepointAdminUrl",
@@ -144,6 +151,9 @@ export const FIELD_LABELS = Object.freeze({
   defaultSharepointSiteName: "SharePoint site name",
   defaultSharepointSiteUrl: "SharePoint site URL",
   copilotStudioUrl: "Copilot Studio URL",
+  copilotStudioAgentUrl: "Copilot Studio agent address",
+  copilotStudioAgentName: "Copilot Studio agent name",
+  agentBuilderAgentName: "Agent Builder agent name",
   powerPlatformEnvUrl: "Power Platform environment URL",
   sharepointSiteUrl: "SharePoint site URL (tenant)",
   sharepointAdminUrl: "SharePoint admin center URL",
@@ -685,6 +695,7 @@ export function getBrandInfoLines(brand) {
 
 export const CAPTURE_ENV_MAP = Object.freeze({
   copilotStudioUrl: "CAPTURE_COPILOT_STUDIO_START_URL",
+  copilotStudioAgentUrl: "CAPTURE_COPILOT_STUDIO_AGENT_URL",
   powerPlatformEnvUrl: "CAPTURE_POWER_PLATFORM_START_URL",
   sharepointSiteUrl: "CAPTURE_SHAREPOINT_SITE_URL",
   sharepointAdminUrl: "CAPTURE_SHAREPOINT_ADMIN_URL",

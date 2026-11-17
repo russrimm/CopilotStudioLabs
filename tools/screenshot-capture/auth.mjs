@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { isSignInUrl } from "./image-verify.mjs";
+import { BrowserClosedError } from "./lifecycle.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -147,6 +148,7 @@ export function createAuthGate({
     while (info.kind !== "sign-in" && watched < budgetMs && !(info.kind === "app" && stableMs >= settleMs)) {
       await tick(poll);
       watched += poll;
+      if (typeof page.isClosed === "function" && page.isClosed()) throw new BrowserClosedError();
       const next = read(page);
       stableMs = next.address === address ? stableMs + poll : 0;
       address = next.address;
@@ -182,6 +184,8 @@ export function createAuthGate({
       await tick(poll);
       state.waitedMs += poll;
       episodeMs += poll;
+      // The person closed the window while we waited: stop waiting for a sign-in nobody can finish.
+      if (typeof page.isClosed === "function" && page.isClosed()) throw new BrowserClosedError();
       const next = read(page);
       stableMs = next.address === address ? stableMs + poll : 0;
       address = next.address;

@@ -8,16 +8,19 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { buildCaptureEnv, findProfile } from "../branding-profiles.js";
+import { findProfile, getActiveProfileId, updateLabCaptureTargets, updateProfile } from "../branding-profiles.js";
 import { capturedScreenshotsDir, capturedScreenshotsDirs } from "../lab-builder/captured.js";
-import { setCaptureCapabilitiesProvider } from "../lab-builder/lab-screenshots.js";
+import { setCaptureCapabilitiesProvider, setCaptureTargetsProvider } from "../lab-builder/lab-screenshots.js";
 import { BAKED_CAPTURED_SCREENSHOTS_DIR, getStorageDiagnostics, resolvePortalDataDir } from "../storage-config.js";
 import { detectBrowserAvailability } from "../../../tools/screenshot-capture/lab-runner.mjs";
 import { productLabel } from "../../../tools/screenshot-capture/auth.mjs";
+import { validateTargets } from "../../../tools/screenshot-capture/targets.mjs";
+import { summarizeMissing } from "./classify.js";
 import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "./jobs.js";
 import { COMPANION_ONLINE_MS, PAIRING_CODE_TTL_MS, createPairingStore } from "./pairing.js";
 import { buildLabJobPlan, buildLibraryJobPlan } from "./plan.js";
 import { createScreenshotStore } from "./screenshot-store.js";
+import { describeCaptureTargets, jobTargetsFrom, resolveCaptureTargets } from "./targets.js";
 import { MAX_UPLOAD_BYTES } from "./verify-upload.js";
 
 export const COMPANION_DOWNLOAD_URL = "/api/capture/companion.zip";
@@ -46,7 +49,7 @@ export function createCapturePlatform({
   dataDir = null,
   manifestDir = undefined,
   detectServerBrowser = () => detectBrowserAvailability(),
-  brand = { findProfile, buildCaptureEnv },
+  brand = { findProfile },
   logger = null,
 } = {}) {
   const captureDir = path.join(dataDir || resolvePortalDataDir(env), "capture");
@@ -93,6 +96,14 @@ export function createCapturePlatform({
     };
   }
   setCaptureCapabilitiesProvider(capabilities);
+  // The Screenshot Center asks how each shot of a lab will be captured: the same settings a capture job would use.
+  setCaptureTargetsProvider((labId) => {
+    try {
+      return resolveCaptureTargets({ manifest: readLabManifest(labId), env }).values;
+    } catch {
+      return {};
+    }
+  });
 
   /** `GET /api/capture/status`. */
   async function statusPayload() {
@@ -142,7 +153,7 @@ export function createCapturePlatform({
     };
   }
 
-  function activeDuplicate(norm, env) {
+  function activeDuplicate(norm, env, targetText = {}) {
     return jobs
       .list({ limit: 200 })
       .find(
@@ -154,38 +165,36 @@ export function createCapturePlatform({
           job.scope.mode === norm.scope.mode &&
           sameList(job.scope.filenames, norm.scope.filenames) &&
           sameList(job.scope.featureIds, norm.scope.featureIds) &&
-          sameEnv(jobs.getPlan(job.id)?.env, env),
+          (job.options?.mode || "smart") === norm.options.mode &&
+          sameEnv(jobs.getPlan(job.id)?.env, env) &&
+          sameEnv(jobs.getPlan(job.id)?.targets, targetText),
       );
   }
 
   /**
-   * The tenant addresses a job carries, from a stored brand profile (`brandProfileId`)
-   * or the lab's own brand customization, with explicit `env` entries winning per variable.
-   * @returns {{env: Record<string, string>, source: string|null, error?: {status: number, message: string}}}
+   * The capture settings a job carries: addresses (as CAPTURE_* variables) and names, resolved from the request,
+   * the lab's own settings and SharePoint site, the brand profile, and this server's own environment.
+   * @returns {{values: object, sources: object, env: Record<string, string>, text: Record<string, string>, source: string|null, error?: {status: number, message: string}}}
    */
-  function resolveJobEnv(norm, body) {
-    let derived = {};
-    let source = null;
+  function resolveJobTargets(norm, body) {
+    let profile = null;
     const requested = body?.brandProfileId;
     if (requested !== undefined && requested !== null && requested !== "") {
-      if (typeof requested !== "string") return { env: {}, source: null, error: { status: 400, message: "brandProfileId must be a brand profile id." } };
-      const profile = brand.findProfile(requested, env);
-      if (!profile) return { env: {}, source: null, error: { status: 404, message: "Brand profile not found." } };
-      derived = brand.buildCaptureEnv(profile, { env });
-      source = "profile";
-    } else if (norm.target.type === "lab" && body?.useLabCustomization !== false) {
-      const found = labSlotsDir(norm.target.labId);
-      const customization = found ? readLabCustomization(found) : null;
-      if (customization) {
-        derived = brand.buildCaptureEnv({ customization }, { env });
-        source = "lab";
-      }
+      if (typeof requested !== "string") return { values: {}, sources: {}, env: {}, text: {}, source: null, error: { status: 400, message: "brandProfileId must be a brand profile id." } };
+      profile = brand.findProfile(requested, env);
+      if (!profile) return { values: {}, sources: {}, env: {}, text: {}, source: null, error: { status: 404, message: "Brand profile not found." } };
     }
-    const merged = validateCaptureEnv({ ...derived, ...norm.env });
-    if (!merged.ok) return { env: {}, source, error: { status: 400, message: merged.errors[0] } };
-    if (Object.keys(norm.env).length && source) source = `${source}+request`;
-    else if (Object.keys(norm.env).length) source = "request";
-    return { env: merged.env, source };
+    const manifest = norm.target.type === "lab" && body?.useLabCustomization !== false ? readLabManifest(norm.target.labId) : null;
+    const resolved = resolveCaptureTargets({ manifest, profile, env, request: { targets: norm.targets, env: norm.env } });
+    const carried = jobTargetsFrom(resolved);
+    const merged = validateCaptureEnv(carried.env);
+    if (!merged.ok) return { values: {}, sources: {}, env: {}, text: {}, source: null, error: { status: 400, message: merged.errors[0] } };
+    const used = new Set(Object.values(resolved.sources));
+    const fromLab = used.has("lab") || used.has("lab-site") || Boolean(manifest?.customization && used.has("profile") && !profile);
+    const base = profile && used.has("profile") ? "profile" : fromLab ? "lab" : used.has("profile") ? "profile" : used.has("server") ? "server" : null;
+    const explicit = used.has("request");
+    const source = base ? (explicit ? `${base}+request` : base) : explicit ? "request" : null;
+    return { values: resolved.values, sources: resolved.sources, env: merged.env, text: carried.text, source };
   }
 
   function labSlotsDir(labId) {
@@ -193,13 +202,59 @@ export function createCapturePlatform({
     return /^[a-z0-9][a-z0-9-]{0,99}$/i.test(String(labId)) && existsSync(path.join(dir, "manifest.json")) ? dir : null;
   }
 
-  function readLabCustomization(labDir) {
+  function readLabManifest(labId) {
+    const found = labSlotsDir(labId);
+    if (!found) return null;
     try {
-      const manifest = JSON.parse(readFileSync(path.join(labDir, "manifest.json"), "utf8"));
-      return manifest?.customization && typeof manifest.customization === "object" ? manifest.customization : null;
+      const manifest = JSON.parse(readFileSync(path.join(found, "manifest.json"), "utf8"));
+      return manifest && typeof manifest === "object" ? manifest : null;
     } catch {
       return null;
     }
+  }
+
+  /**
+   * The capture settings in effect for a lab (or for the shared library), with what each shot is waiting for.
+   * @returns {{labId: string|null, activeProfile: object|null, fields: object[], requirements: object[], missing: object[], shots: object[]}}
+   */
+  function targetsPayload({ labId = null } = {}) {
+    const manifest = labId ? readLabManifest(labId) : null;
+    const resolved = resolveCaptureTargets({ manifest, env });
+    const shots = labId ? labShotCaptures(labId, resolved.values) : [];
+    const profile = brand.findProfile?.(getActiveProfileId(env), env) || null;
+    return { labId: labId || null, activeProfile: profile ? { id: profile.id, name: profile.name } : null, ...describeCaptureTargets(resolved, shots), shots: shots.map((s) => ({ filename: s.filename, mode: s.capture.mode, why: s.capture.why, path: s.capture.path, needs: s.capture.needs, missing: s.capture.missing, ready: s.capture.ready })) };
+  }
+
+  /** Each shot of a lab with how it will be captured under these settings. */
+  function labShotCaptures(labId, values) {
+    const plan = buildLabJobPlan({ generatedRoot, labId, scope: { mode: "all", filenames: [], featureIds: [] }, capturedDir: capturedDirs().search, values });
+    return plan.status === 200 ? plan.shots : [];
+  }
+
+  /** Save capture settings on a lab (and, when asked, on the active brand profile so other labs use them too). */
+  function saveLabTargets(labId, patch, { alsoProfile = false } = {}) {
+    const dir = labSlotsDir(labId);
+    if (!dir) return { status: 404, body: { error: `Generated lab "${labId}" not found.` } };
+    const saved = updateLabCaptureTargets(dir, patch);
+    if (!saved.ok) return { status: 400, body: { error: Object.values(saved.errors)[0], errors: saved.errors } };
+    if (alsoProfile) {
+      const profileSaved = saveProfileTargets(patch);
+      if (profileSaved.status >= 400) return profileSaved;
+    }
+    return { status: 200, body: { saved: true, ...targetsPayload({ labId }) } };
+  }
+
+  /** Save capture settings on the active brand profile. */
+  function saveProfileTargets(patch, { profileId = null } = {}) {
+    const checked = validateTargets(patch);
+    if (!checked.ok) return { status: 400, body: { error: Object.values(checked.errors)[0], errors: checked.errors } };
+    const id = profileId || getActiveProfileId(env);
+    try {
+      updateProfile(id, checked.values, env);
+    } catch (err) {
+      return { status: err.status || 400, body: { error: err.message, errors: err.errors || undefined } };
+    }
+    return { status: 200, body: { saved: true, ...targetsPayload({}) } };
   }
 
   /**
@@ -210,15 +265,15 @@ export function createCapturePlatform({
     const norm = normalizeJobRequest(body);
     if (!norm.ok) return { status: 400, body: { error: norm.errors[0], errors: norm.errors } };
 
+    const jobTargets = resolveJobTargets(norm, body);
+    if (jobTargets.error) return { status: jobTargets.error.status, body: { error: jobTargets.error.message } };
+
     const dirs = capturedDirs();
     const plan =
       norm.target.type === "lab"
-        ? buildLabJobPlan({ generatedRoot, labId: norm.target.labId, scope: norm.scope, capturedDir: dirs.search })
-        : buildLibraryJobPlan({ scope: norm.scope, products: norm.target.products, manifestDir, capturedDir: dirs.search });
+        ? buildLabJobPlan({ generatedRoot, labId: norm.target.labId, scope: norm.scope, capturedDir: dirs.search, values: jobTargets.values })
+        : buildLibraryJobPlan({ scope: norm.scope, products: norm.target.products, manifestDir, capturedDir: dirs.search, values: jobTargets.values });
     if (plan.status !== 200) return { status: plan.status, body: { error: plan.error } };
-
-    const jobEnv = resolveJobEnv(norm, body);
-    if (jobEnv.error) return { status: jobEnv.error.status, body: { error: jobEnv.error.message } };
 
     const companion = pairing.status();
     const companionInfo = { connected: companion.connected, lastSeenAt: companion.lastSeenAt };
@@ -228,19 +283,38 @@ export function createCapturePlatform({
         body: { job: null, nothingToCapture: true, companion: companionInfo, message: "Nothing to capture: every selected screenshot already exists." },
       };
     }
-    const existing = activeDuplicate(norm, jobEnv.env);
-    if (existing) {
-      return { status: 200, body: { job: jobs.get(existing.id), existing: true, envSource: jobEnv.source, companion: companionInfo, message: "This capture is already queued or running." } };
+
+    // Shots that cannot run without an address are held back and the person is asked for it, not told "skipped" afterwards.
+    const waiting = norm.options.mode === "guided" ? [] : plan.shots.filter((s) => s.capture?.mode === "auto" && s.capture.missing?.length);
+    const missing = summarizeMissing(waiting);
+    if (waiting.length === plan.shots.length) {
+      return {
+        status: 200,
+        body: {
+          job: null,
+          needsAddress: true,
+          missing,
+          companion: companionInfo,
+          message: `${waiting.length} screenshot${waiting.length === 1 ? " needs" : "s need"} ${missing.length === 1 ? `your ${missing[0].noun}` : "an address"} before they can be captured. Add it in Capture settings, then try again.`,
+        },
+      };
     }
-    const job = jobs.create({ target: norm.target, scope: norm.scope, env: jobEnv.env, options: norm.options, plan, createdBy });
+
+    const existing = activeDuplicate(norm, jobTargets.env, jobTargets.text);
+    if (existing) {
+      return { status: 200, body: { job: jobs.get(existing.id), existing: true, envSource: jobTargets.source, companion: companionInfo, message: "This capture is already queued or running." } };
+    }
+    const job = jobs.create({ target: norm.target, scope: norm.scope, env: jobTargets.env, targets: jobTargets.text, options: norm.options, plan, createdBy });
+    const runnable = plan.shots.length - waiting.length;
     return {
       status: 201,
       body: {
         job,
-        envSource: jobEnv.source,
+        envSource: jobTargets.source,
         companion: companionInfo,
+        ...(missing.length ? { missing } : {}),
         message: companion.connected
-          ? `Queued ${plan.shots.length} screenshot${plan.shots.length === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.`
+          ? `Queued ${runnable} screenshot${runnable === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.${waiting.length ? ` ${waiting.length} more need${waiting.length === 1 ? "s" : ""} an address first.` : ""}`
           : "Queued, but no Local Capture Companion is connected yet. Download it, pair it with a code, and it will pick this job up.",
       },
     };
@@ -266,6 +340,7 @@ export function createCapturePlatform({
     );
     if (result.status >= 400) return { ...base, queued: false, canQueue: true, reason: "not-queued", message: result.body.error };
     if (result.body.nothingToCapture) return { ...base, queued: false, canQueue: false, reason: "nothing-to-capture", message: result.body.message };
+    if (result.body.needsAddress) return { ...base, queued: false, canQueue: true, reason: "needs-address", message: result.body.message, missing: result.body.missing };
     return {
       ...base,
       queued: true,
@@ -283,6 +358,9 @@ export function createCapturePlatform({
     capabilities,
     statusPayload,
     queueJob,
+    targetsPayload,
+    saveLabTargets,
+    saveProfileTargets,
     companionFallbackForLab,
     refreshServerBrowser,
     capturedDirs,
