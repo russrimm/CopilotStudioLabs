@@ -1090,7 +1090,12 @@ export async function revalidateLabAgainstLearn(generatedRoot, rawLabId, options
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
   let markdown = fs.readFileSync(path.join(labDir, "index.md"), "utf8");
 
-  const session = await (options.connect || connect)({ signal: options.signal });
+  const customFetchDoc = typeof options.fetchDoc === "function" ? options.fetchDoc : null;
+  const bypassCache = options.bypassCache !== false;
+
+  const session = customFetchDoc && !options.connect
+    ? { ok: true, endpoint: "custom-fetchDoc", async close() {} }
+    : await (options.connect || connect)({ signal: options.signal });
   if (!session?.ok) {
     return {
       status: 503,
@@ -1101,10 +1106,33 @@ export async function revalidateLabAgainstLearn(generatedRoot, rawLabId, options
     };
   }
 
-  const readPage = options.fetchDocPage || fetchDocPage;
+  const readPage = customFetchDoc
+    ? async (_sess, url, pageOpts = {}) => {
+        const res = await customFetchDoc(url, {
+          ...pageOpts,
+          labId,
+          signal: options.signal,
+        });
+        if (typeof res === "string") {
+          return { url, markdown: res, fetchedAt: new Date().toISOString() };
+        }
+        if (res && typeof res === "object") {
+          return {
+            url,
+            markdown: typeof res.markdown === "string" ? res.markdown : "",
+            fetchedAt: res.fetchedAt || new Date().toISOString(),
+            error: res.error || null,
+          };
+        }
+        return { url, markdown: "", error: "Empty documentation response" };
+      }
+    : options.fetchDocPage || fetchDocPage;
   const checkedAt = new Date().toISOString();
   const moduleReports = [];
   const updatedFeatureIds = [];
+  let attemptedUrlCount = 0;
+  let succeededUrlCount = 0;
+  const fetchErrors = [];
 
   try {
     for (const modMeta of manifest.modules || []) {
@@ -1131,8 +1159,13 @@ export async function revalidateLabAgainstLearn(generatedRoot, rawLabId, options
       const livePageFingerprints = {};
 
       for (const url of candidateUrls) {
-        const page = await readPage(session, url, { bypassCache: true });
-        if (page.error || !page.markdown) continue;
+        attemptedUrlCount += 1;
+        const page = await readPage(session, url, { bypassCache });
+        if (page.error || !page.markdown) {
+          if (page.error) fetchErrors.push(String(page.error));
+          continue;
+        }
+        succeededUrlCount += 1;
         const fp = hashContentFingerprint(page.markdown);
         if (fp) livePageFingerprints[url] = fp;
         if (url === livePrimaryUrl || !livePrimaryMarkdown) {
@@ -1251,7 +1284,19 @@ export async function revalidateLabAgainstLearn(generatedRoot, rawLabId, options
           };
         }
 
-        modState.status = "docs-updated";
+        const stepsApplied = Boolean(shouldUpdateSteps && liveSteps?.length);
+        const baselineApplied = Boolean(shouldUpdateSteps && (liveSteps?.length || liveFingerprint));
+        const resolvedWithoutCapture = baselineApplied && !shouldAutoCapture;
+        const resolvedModStatus = resolvedWithoutCapture
+          ? allShotsCaptured
+            ? "up-to-date"
+            : "missing-screenshot"
+          : "docs-updated";
+
+        if (resolvedWithoutCapture) {
+          modState.diff = null;
+        }
+        modState.status = resolvedModStatus;
         for (const shot of moduleShots) {
           learnState.shots ??= {};
           learnState.shots[shot.filename] = {
@@ -1260,7 +1305,7 @@ export async function revalidateLabAgainstLearn(generatedRoot, rawLabId, options
             featureId,
             moduleOrder: modMeta.order,
             filename: shot.filename,
-            stale: true,
+            stale: !resolvedWithoutCapture,
           };
         }
         updatedFeatureIds.push(featureId);
@@ -1268,25 +1313,37 @@ export async function revalidateLabAgainstLearn(generatedRoot, rawLabId, options
           featureId,
           moduleOrder: modMeta.order,
           moduleTitle: modMeta.name,
-          status: "docs-updated",
-          stepsUpdated: Boolean(shouldUpdateSteps && liveSteps?.length),
-          diff,
+          status: resolvedModStatus,
+          stepsUpdated: stepsApplied,
+          baselineUpdated: baselineApplied,
+          diff: resolvedWithoutCapture ? null : diff,
         });
       } else {
         const previouslyStale = modState.status === "docs-updated";
-        const nextStatus = previouslyStale
+        const clearStaleWithoutCapture = Boolean(previouslyStale && shouldUpdateSteps && !shouldAutoCapture);
+        const keepStale = previouslyStale && !clearStaleWithoutCapture;
+        const nextStatus = keepStale
           ? "docs-updated"
           : allShotsCaptured
           ? "up-to-date"
           : "missing-screenshot";
-        if (!previouslyStale) modState.diff = null;
+        if (!keepStale) modState.diff = null;
         modState.status = nextStatus;
+        if (clearStaleWithoutCapture) {
+          for (const shot of moduleShots) {
+            if (learnState.shots?.[shot.filename]) {
+              learnState.shots[shot.filename].stale = false;
+            }
+          }
+          updatedFeatureIds.push(featureId);
+        }
         moduleReports.push({
           featureId,
           moduleOrder: modMeta.order,
           moduleTitle: modMeta.name,
           status: nextStatus,
           stepsUpdated: false,
+          baselineUpdated: clearStaleWithoutCapture,
           diff: modState.diff || null,
         });
       }
@@ -1295,16 +1352,29 @@ export async function revalidateLabAgainstLearn(generatedRoot, rawLabId, options
     await session.close?.().catch?.(() => {});
   }
 
+  if (attemptedUrlCount > 0 && succeededUrlCount === 0 && fetchErrors.length > 0) {
+    return {
+      status: 502,
+      body: {
+        error: `Failed to fetch Microsoft Learn documentation: ${fetchErrors[0]}`,
+        learnConnected: true,
+      },
+    };
+  }
+
   learnState.lastRevalidatedAt = checkedAt;
   learnState.updatedAt = checkedAt;
   shotsPlan.updatedAt = checkedAt;
 
+  const isUngrounded = (manifest.modules?.length || 0) > 0 && attemptedUrlCount === 0;
   const anyDocsUpdated = Object.values(learnState.modules || {}).some((m) => m.status === "docs-updated");
   const anyMissing = (shotsPlan.shots || []).some(
     (s) => !resolveLabScreenshot(labDir, s.filename, { capturedDir }),
   );
   learnState.learnSyncStatus = anyDocsUpdated
     ? "docs-updated"
+    : isUngrounded
+    ? "ungrounded"
     : anyMissing
     ? "missing-screenshot"
     : "up-to-date";
