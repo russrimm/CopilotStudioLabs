@@ -11,6 +11,7 @@ import {
   renderArchitectureOverviewHtml,
 } from "./architecture-overview.js";
 import { enhanceInteractiveLabHtml } from "./interactive-elements.js";
+import { ensureReadableColor, getBrandFont, normalizeHexColor6 } from "./brand-theme.js";
 
 const ASSET_SRC_RE = /\bsrc="assets\/([A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|gif|svg|webp))"/gi;
 
@@ -552,9 +553,28 @@ export function renderStandaloneLabHtml(markdown, options = {}) {
           <div class="lab-brand-text">
             ${branding.companyName ? `<strong>${escapeHtml(branding.companyName)}</strong>` : ""}
             ${branding.tagline ? `<span>${escapeHtml(branding.tagline)}</span>` : ""}
+            ${branding.coverSubtitle ? `<span class="lab-brand-subtitle">${escapeHtml(branding.coverSubtitle)}</span>` : ""}
           </div>
         </div>`
       : "";
+  const brandFooterText = branding?.footerText ? String(branding.footerText) : "";
+  const brandingFooter = brandFooterText
+    ? `<footer class="lab-brand-footer"><p>${escapeHtml(brandFooterText)}</p></footer>`
+    : "";
+
+  // Secondary color is decorative, but keep it visible (3:1) on both the light and dark surfaces.
+  const secondaryHex = normalizeHexColor6(branding?.secondaryColor);
+  const lightSecondary = secondaryHex
+    ? ensureReadableColor(secondaryHex, ["#ffffff", "#f8fafc"], "#123f9a", 3)
+    : null;
+  const darkSecondary = secondaryHex
+    ? ensureReadableColor(secondaryHex, ["#181c26", "#1f2533"], "#93c5fd", 3)
+    : null;
+  const brandFontCss = getBrandFont(branding?.font).css;
+  const lightSecondaryVar = lightSecondary ? `\n      --brand-secondary: ${lightSecondary};` : "";
+  const darkSecondaryVar = darkSecondary ? `\n      --brand-secondary: ${darkSecondary};` : "";
+  const bodyFontStack =
+    brandFontCss || '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
   const pageOptionsHtml = pages
     .map(
@@ -592,7 +612,7 @@ ${page.html}
       --text-muted: #526077;
       --accent: ${lightButton.bg};
       --accent-contrast: ${lightButton.fg};
-      --link: ${lightLinkColor};
+      --link: ${lightLinkColor};${lightSecondaryVar}
       --code-bg: #f1f5f9;
       --code-border: #d5dce9;
       --success-bg: #e6f6f0;
@@ -656,7 +676,7 @@ ${page.html}
         --text-muted: #9ba6bc;
         --accent: ${darkButton.bg};
         --accent-contrast: ${darkButton.fg};
-        --link: ${darkLinkColor};
+        --link: ${darkLinkColor};${darkSecondaryVar}
         --code-bg: #111520;
         --code-border: #2c3447;
         --success-bg: #102a22;
@@ -720,7 +740,7 @@ ${page.html}
       --text-muted: #9ba6bc;
       --accent: ${darkButton.bg};
       --accent-contrast: ${darkButton.fg};
-      --link: ${darkLinkColor};
+      --link: ${darkLinkColor};${darkSecondaryVar}
       --code-bg: #111520;
       --code-border: #2c3447;
       --success-bg: #102a22;
@@ -776,7 +796,7 @@ ${page.html}
     *, *::before, *::after { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: ${bodyFontStack};
       background: var(--bg);
       color: var(--text);
       line-height: 1.68;
@@ -807,6 +827,16 @@ ${page.html}
       font-size: 13px;
     }
     .lab-brand-text span { color: var(--text-muted); }
+    .lab-brand-text .lab-brand-subtitle { font-style: italic; }
+    .lab-brand-banner { border-bottom: 3px solid var(--brand-secondary, var(--border)); }
+    .lab-brand-footer {
+      margin-top: 18px;
+      padding-top: 12px;
+      border-top: 2px solid var(--brand-secondary, var(--border));
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+    .lab-brand-footer p { margin: 0; }
     .lab-pagination-controls {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -1590,6 +1620,7 @@ ${page.html}
       .lab-pagination-controls { display: none !important; }
       .lab-brand-banner { background: #ffffff !important; color: #111111 !important; border-color: #cccccc !important; }
       .lab-brand-text span { color: #333333 !important; }
+      .lab-brand-footer { color: #333333 !important; border-color: #cccccc !important; }
       .lab-article { background: #ffffff !important; color: #111111 !important; border: none; padding: 0; }
       .lab-article h1,
       .lab-article h2,
@@ -1706,6 +1737,7 @@ ${pagesHtml}
       <button type="button" id="lab-next-btn" data-nav="next" class="lab-page-btn lab-page-btn-primary"${pages.length <= 1 ? ' style="display:none"' : ""}>${nextInitialLabel}</button>
       <span id="lab-complete-badge" class="lab-complete-badge"${pages.length > 1 ? " hidden" : ""}>✓ Final page reached</span>
     </nav>
+    ${brandingFooter}
   </div>
 
   <script>

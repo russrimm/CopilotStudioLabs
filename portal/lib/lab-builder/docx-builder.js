@@ -13,6 +13,7 @@ import {
   ARCHITECTURE_FENCE_LANG,
   renderArchitectureDocumentMarkdown,
 } from "./architecture-overview.js";
+import { LIGHT_SURFACE, cleanText, ensureReadableColor, getBrandFont } from "./brand-theme.js";
 
 // Precompute IEEE 802.3 CRC-32 lookup table.
 const CRC_TABLE = (() => {
@@ -213,12 +214,22 @@ function splitTableCells(line) {
  * @param {string} markdown
  * @param {object} [options]
  * @param {string} [options.title]
- * @param {object} [options.branding] `{ companyName, tagline, primaryColor, logoBuffer }`
+ * @param {object} [options.branding] `{ companyName, tagline, primaryColor, secondaryColor, font, coverSubtitle, footerText, logoBuffer }`
  * @param {(src: string) => Buffer | null} [options.resolveImageBuffer]
  * @returns {Buffer}
  */
 export function renderMarkdownToDocxBuffer(markdown, options = {}) {
   const accentHex = normalizeHexColor(options.branding?.primaryColor, "1A56C7");
+  const secondaryHex = options.branding?.secondaryColor
+    ? normalizeHexColor(options.branding.secondaryColor, "")
+    : "";
+  // Brand-colored text must stay readable on the white page, so heading text uses a darkened variant.
+  const secondaryTextHex = secondaryHex
+    ? ensureReadableColor(`#${secondaryHex}`, [LIGHT_SURFACE], "#000000", 4.5).slice(1).toUpperCase()
+    : "";
+  const brandFontName = getBrandFont(options.branding?.font).office || "Segoe UI";
+  const footerText = cleanText(options.branding?.footerText);
+  const coverSubtitle = cleanText(options.branding?.coverSubtitle);
   const docTitle = String(options.title || "Lab Guide").trim();
   const hyperlinks = [];
   const images = [];
@@ -358,7 +369,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
       );
     }
     if (pProps.bottomRule) {
-      pPr.push(`<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="6" w:color="D0D7DE"/></w:pBdr>`);
+      pPr.push(`<w:pBdr><w:bottom w:val="single" w:sz="${secondaryHex ? 12 : 6}" w:space="6" w:color="${secondaryHex || "D0D7DE"}"/></w:pBdr>`);
     }
     const pPrXml = pPr.length ? `<w:pPr>${pPr.join("")}</w:pPr>` : "";
     return `<w:p>${pPrXml}${runsXml}</w:p>`;
@@ -644,11 +655,37 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
       );
     }
     if (brandRuns.length) {
-      bodyBlocks.push(makeParagraph(brandRuns.join(""), { bottomRule: true, spacingBefore: 0, spacingAfter: 180 }));
+      bodyBlocks.push(makeParagraph(brandRuns.join(""), { bottomRule: true, spacingBefore: 0, spacingAfter: coverSubtitle ? 60 : 180 }));
+      if (coverSubtitle) {
+        bodyBlocks.push(
+          makeParagraph(makeRun(coverSubtitle, { italic: true, color: "4A5568", sizeHalfPt: 20 }), {
+            spacingBefore: 0,
+            spacingAfter: 180,
+          }),
+        );
+      }
     }
   }
 
   bodyBlocks.push(...renderBlocks(markdown));
+
+  const footerRuleColor = secondaryHex || "D0D7DE";
+  const footerXml = footerText
+    ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+       xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:p>
+    <w:pPr><w:pBdr><w:top w:val="single" w:sz="6" w:space="6" w:color="${footerRuleColor}"/></w:pBdr><w:tabs><w:tab w:val="right" w:pos="9936"/></w:tabs></w:pPr>
+    <w:r><w:rPr><w:color w:val="4A5568"/><w:sz w:val="17"/><w:szCs w:val="17"/></w:rPr><w:t xml:space="preserve">${xmlEscape(footerText)}</w:t></w:r>
+    <w:r><w:rPr><w:color w:val="4A5568"/><w:sz w:val="17"/><w:szCs w:val="17"/></w:rPr><w:tab/><w:t xml:space="preserve">Page </w:t></w:r>
+    <w:r><w:rPr><w:color w:val="4A5568"/><w:sz w:val="17"/><w:szCs w:val="17"/></w:rPr><w:fldChar w:fldCharType="begin"/></w:r>
+    <w:r><w:rPr><w:color w:val="4A5568"/><w:sz w:val="17"/><w:szCs w:val="17"/></w:rPr><w:instrText xml:space="preserve"> PAGE </w:instrText></w:r>
+    <w:r><w:rPr><w:color w:val="4A5568"/><w:sz w:val="17"/><w:szCs w:val="17"/></w:rPr><w:fldChar w:fldCharType="separate"/></w:r>
+    <w:r><w:rPr><w:color w:val="4A5568"/><w:sz w:val="17"/><w:szCs w:val="17"/></w:rPr><w:t>1</w:t></w:r>
+    <w:r><w:rPr><w:color w:val="4A5568"/><w:sz w:val="17"/><w:szCs w:val="17"/></w:rPr><w:fldChar w:fldCharType="end"/></w:r>
+  </w:p>
+</w:ftr>`
+    : "";
 
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -657,6 +694,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
   <w:body>
     ${bodyBlocks.join("\n    ")}
     <w:sectPr>
+      ${footerXml ? '<w:footerReference w:type="default" r:id="rIdFooter1"/>' : ""}
       <w:pgSz w:w="12240" w:h="15840"/>
       <w:pgMar w:top="1152" w:right="1152" w:bottom="1152" w:left="1152" w:header="720" w:footer="720" w:gutter="0"/>
     </w:sectPr>
@@ -668,7 +706,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
   <w:docDefaults>
     <w:rPrDefault>
       <w:rPr>
-        <w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:cs="Segoe UI"/>
+        <w:rFonts w:ascii="${xmlEscape(brandFontName)}" w:hAnsi="${xmlEscape(brandFontName)}" w:cs="${xmlEscape(brandFontName)}"/>
         <w:sz w:val="21"/>
         <w:szCs w:val="21"/>
         <w:color w:val="1A202C"/>
@@ -693,14 +731,14 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
   <w:style w:type="paragraph" w:styleId="Heading2">
     <w:name w:val="heading 2"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:keepNext/><w:spacing w:before="260" w:after="120"/><w:pBdr><w:bottom w:val="single" w:sz="6" w:space="4" w:color="E2E8F0"/></w:pBdr></w:pPr>
+    <w:pPr><w:keepNext/><w:spacing w:before="260" w:after="120"/><w:pBdr><w:bottom w:val="single" w:sz="${secondaryHex ? 12 : 6}" w:space="4" w:color="${secondaryHex || "E2E8F0"}"/></w:pBdr></w:pPr>
     <w:rPr><w:b/><w:color w:val="${accentHex}"/><w:sz w:val="30"/><w:szCs w:val="30"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading3">
     <w:name w:val="heading 3"/>
     <w:basedOn w:val="Normal"/>
     <w:pPr><w:keepNext/><w:spacing w:before="200" w:after="80"/></w:pPr>
-    <w:rPr><w:b/><w:color w:val="1E293B"/><w:sz w:val="25"/><w:szCs w:val="25"/></w:rPr>
+    <w:rPr><w:b/><w:color w:val="${secondaryTextHex || "1E293B"}"/><w:sz w:val="25"/><w:szCs w:val="25"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading4">
     <w:name w:val="heading 4"/>
@@ -752,6 +790,9 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
           h.target,
         )}" TargetMode="External"/>`,
     ),
+    ...(footerXml
+      ? ['<Relationship Id="rIdFooter1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer1.xml"/>']
+      : []),
     ...images.map(
       (img) =>
         `<Relationship Id="${img.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${xmlEscape(
@@ -781,7 +822,11 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
   <Default Extension="jpeg" ContentType="image/jpeg"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
-  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
+  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>${
+    footerXml
+      ? '\n  <Override PartName="/word/footer1.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>'
+      : ""
+  }
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
 </Types>`;
@@ -812,6 +857,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
     { name: "word/_rels/document.xml.rels", data: docRelsXml },
     { name: "word/styles.xml", data: stylesXml },
     { name: "word/numbering.xml", data: numberingXml },
+    ...(footerXml ? [{ name: "word/footer1.xml", data: footerXml }] : []),
     ...images.map((img) => ({
       name: `word/media/${img.mediaName}`,
       data: img.data,

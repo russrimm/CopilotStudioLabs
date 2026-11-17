@@ -20,14 +20,20 @@ import {
 } from "./architecture-overview.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
 import { resolveTopicTrainingDigest } from "./topic-training.js";
+import { getBrandFont, getBrandInfoModel } from "./brand-theme.js";
 
 const SLIDE_CX = 12192000; // 13.333 in * 914400 EMU/in (16:9 widescreen)
 const SLIDE_CY = 6858000;  // 7.500 in * 914400 EMU/in
 const NOTES_CX = 6858000;
 const NOTES_CY = 9144000;
 
-const FONT_HEADING = "Segoe UI Semibold";
-const FONT_BODY = "Segoe UI";
+// Heading/body typefaces are module-level because dozens of slide builders reference them.
+// Deck assembly is fully synchronous, and every deck resets them in its constructor,
+// so a brand font never leaks from one render into the next.
+const DEFAULT_FONT_HEADING = "Segoe UI Semibold";
+const DEFAULT_FONT_BODY = "Segoe UI";
+let FONT_HEADING = DEFAULT_FONT_HEADING;
+let FONT_BODY = DEFAULT_FONT_BODY;
 const FONT_CODE = "Consolas";
 
 const COLORS = Object.freeze({
@@ -789,12 +795,19 @@ class PptxDeckAssembler {
     this.primaryDarkHex = blendHex(this.primaryHex, "0A2540", 0.38);
     this.primaryTintHex = blendHex(this.primaryHex, "FFFFFF", 0.9);
     this.primaryBorderHex = blendHex(this.primaryHex, "FFFFFF", 0.65);
+    this.secondaryHex = branding.secondaryColor ? normalizeHexColor(branding.secondaryColor, "") : "";
+    const brandFont = getBrandFont(branding.font).office;
+    this.brandFont = brandFont || null;
+    FONT_HEADING = brandFont || DEFAULT_FONT_HEADING;
+    FONT_BODY = brandFont || DEFAULT_FONT_BODY;
     this.organizationName = sanitizeXmlChars(
       branding.companyName || branding.organizationName || ""
     ).trim();
     this.footerText = sanitizeXmlChars(
-      branding.tagline || branding.footerText || ""
+      branding.footerText || branding.tagline || ""
     ).trim();
+    this.coverSubtitle = sanitizeXmlChars(branding.coverSubtitle || "").trim();
+    this.brandInfo = getBrandInfoModel(branding);
     this.title = sanitizeXmlChars(options.title || "Hands-On Lab").trim() || "Hands-On Lab";
     this.resolveImageBuffer =
       typeof options.resolveImageBuffer === "function" ? options.resolveImageBuffer : null;
@@ -1115,7 +1128,7 @@ class PptxDeckAssembler {
       <a:dk2><a:srgbClr val="${COLORS.body}"/></a:dk2>
       <a:lt2><a:srgbClr val="${COLORS.subtleBg}"/></a:lt2>
       <a:accent1><a:srgbClr val="${this.primaryHex}"/></a:accent1>
-      <a:accent2><a:srgbClr val="${this.primaryDarkHex}"/></a:accent2>
+      <a:accent2><a:srgbClr val="${this.secondaryHex || this.primaryDarkHex}"/></a:accent2>
       <a:accent3><a:srgbClr val="${COLORS.successAccent}"/></a:accent3>
       <a:accent4><a:srgbClr val="${COLORS.warnAccent}"/></a:accent4>
       <a:accent5><a:srgbClr val="${COLORS.quizAccent}"/></a:accent5>
@@ -1482,6 +1495,19 @@ class SlideBuilder {
         paragraphs: [{ text: "", sizePt: 4 }],
       })
     );
+    if (this.deck.secondaryHex) {
+      this.chromeXml.push(
+        this.renderShapeXml({
+          name: "Brand Bar Secondary",
+          x: 0,
+          y: 68580,
+          cx: SLIDE_CX,
+          cy: 27432,
+          fillHex: this.deck.secondaryHex,
+          paragraphs: [{ text: "", sizePt: 2 }],
+        })
+      );
+    }
 
     if (this.meta.kicker) {
       this.chromeXml.push(
@@ -1618,13 +1644,13 @@ class SlideBuilder {
     const text = sanitizeXmlChars(runSpec.text ?? "");
     if (!text) return "";
     const sz = Math.round((Number(runSpec.sizePt) || 13) * 100);
-    const boldAttr = runSpec.bold ? ` b="1"` : "";
+    const font = runSpec.font || FONT_BODY;
+    const boldAttr = runSpec.bold || (this.deck.brandFont && font === FONT_HEADING) ? ` b="1"` : "";
     const italicAttr = runSpec.italic ? ` i="1"` : "";
     const underlineAttr = runSpec.underline || runSpec.url ? ` u="sng"` : "";
     const colorHex = normalizeHexColor(
       runSpec.colorHex || (runSpec.url ? this.deck.primaryHex : COLORS.body)
     );
-    const font = runSpec.font || FONT_BODY;
     const hlinkId = runSpec.url ? this.registerHyperlink(runSpec.url) : null;
     const hlinkXml = hlinkId
       ? `<a:hlinkClick r:id="${hlinkId}" tooltip="${xmlEscape(runSpec.url)}"/>`
@@ -2289,6 +2315,17 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
         font: FONT_HEADING,
         spaceAfterPt: 8,
       },
+      ...(deck.coverSubtitle
+        ? [
+            {
+              text: truncateText(deck.coverSubtitle, 160),
+              sizePt: 12,
+              italic: true,
+              colorHex: COLORS.muted,
+              spaceAfterPt: 6,
+            },
+          ]
+        : []),
       ...(heroSummary
         ? [
             {
@@ -3594,6 +3631,17 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
                 markdown: truncateText(options.subtitle, 280),
                 sizePt: 14,
                 colorHex: COLORS.body,
+                spaceAfterPt: 6,
+              },
+            ]
+          : []),
+        ...(deck.coverSubtitle
+          ? [
+              {
+                text: truncateText(deck.coverSubtitle, 160),
+                sizePt: 13,
+                italic: true,
+                colorHex: COLORS.muted,
               },
             ]
           : []),
@@ -3888,6 +3936,57 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
 }
 
 /**
+ * Closing slide with the brand's "More information" link, support contact, and
+ * community link. Added only when the brand defines at least one of them.
+ */
+function appendBrandInfoSlide(deck, docTitle) {
+  const info = deck.brandInfo;
+  if (!info?.hasLinks) return;
+  const stripBrackets = (value) => String(value || "").replace(/[[\]]/g, "");
+  const slide = deck.createSlide({
+    kicker: "MORE INFORMATION",
+    title: "More information and support",
+    footerContext: docTitle,
+  });
+  const paragraphs = [];
+  if (info.moreInfo) {
+    paragraphs.push({
+      markdown: `**More information:** [${stripBrackets(info.moreInfo.label)}](${info.moreInfo.url})`,
+      sizePt: 15,
+      spaceAfterPt: 10,
+    });
+  }
+  if (info.support) {
+    const who = info.support.name || "your support contact";
+    paragraphs.push({
+      text: info.support.email ? `Need help? Contact ${who} at ${info.support.email}` : `Need help? Contact ${who}`,
+      sizePt: 15,
+      colorHex: COLORS.body,
+      spaceAfterPt: 10,
+    });
+  }
+  if (info.community) {
+    paragraphs.push({
+      markdown: `**${info.community.label}:** [${stripBrackets(info.community.url.replace(/^https:\/\//, ""))}](${info.community.url})`,
+      sizePt: 15,
+      spaceAfterPt: 10,
+    });
+  }
+  slide.addCard({
+    name: "Brand Information Card",
+    heading: "Where to go next",
+    x: 640080,
+    y: 1240000,
+    cx: SLIDE_CX - 1280160,
+    cy: 2600000,
+    fillHex: deck.primaryTintHex,
+    borderHex: deck.primaryBorderHex,
+    insets: { l: 320040, t: 228600, r: 320040, b: 205740 },
+    paragraphs,
+  });
+}
+
+/**
  * Render a standalone per-topic presentation (.pptx) buffer.
  *
  * @param {string} topicMarkdown - Standalone topic Markdown (or module slice)
@@ -4006,6 +4105,7 @@ export function renderMarkdownToPptxBuffer(markdown, options = {}) {
       });
     }
 
+    appendBrandInfoSlide(deck, labTitle);
     return deck.toPptxBuffer();
   }
 
@@ -4033,6 +4133,7 @@ export function renderMarkdownToPptxBuffer(markdown, options = {}) {
     resolveImageBuffer: options.resolveImageBuffer,
   });
   appendGenericTopicOrMarkdown(deck, src, options);
+  appendBrandInfoSlide(deck, deck.title);
   return deck.toPptxBuffer();
 }
 

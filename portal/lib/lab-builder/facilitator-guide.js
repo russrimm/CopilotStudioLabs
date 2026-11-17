@@ -33,6 +33,13 @@ import {
 } from "./sharepoint-site.js";
 import { createLabImageResolver } from "./topic-documents.js";
 import { resolveTopicTrainingDigest } from "./topic-training.js";
+import {
+  ensureReadableColor,
+  getBrandFont,
+  normalizeHexColor6,
+  renderBrandInfoHtml,
+  renderBrandInfoMarkdown,
+} from "./brand-theme.js";
 
 export const FACILITATOR_GUIDE_SCHEMA_VERSION = 1;
 
@@ -1160,8 +1167,8 @@ export function renderFacilitatorGuideMarkdown(modelOrContext, options = {}) {
  */
 export function renderFacilitatorGuideDocxBuffer(modelOrContext, options = {}) {
   const model = buildFacilitatorGuideModel(modelOrContext, options);
-  const markdown = renderFacilitatorGuideMarkdown(model, options);
   const branding = options.branding || modelOrContext?.branding || undefined;
+  const markdown = `${renderFacilitatorGuideMarkdown(model, options).replace(/\s+$/, "")}\n${renderBrandInfoMarkdown(branding)}`;
   const resolveImageBuffer =
     typeof options.resolveImageBuffer === "function"
       ? options.resolveImageBuffer
@@ -1181,8 +1188,8 @@ export function renderFacilitatorGuideDocxBuffer(modelOrContext, options = {}) {
  */
 export function renderFacilitatorGuidePdfBuffer(modelOrContext, options = {}) {
   const model = buildFacilitatorGuideModel(modelOrContext, options);
-  const markdown = renderFacilitatorGuideMarkdown(model, options);
   const branding = options.branding || modelOrContext?.branding || undefined;
+  const markdown = `${renderFacilitatorGuideMarkdown(model, options).replace(/\s+$/, "")}\n${renderBrandInfoMarkdown(branding)}`;
   const resolveImageBuffer =
     typeof options.resolveImageBuffer === "function"
       ? options.resolveImageBuffer
@@ -1209,6 +1216,12 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
     : "#0f6cbd";
   const companyName = cleanText(branding.companyName || "Microsoft AI Training Generator");
   const tagline = cleanText(branding.tagline || "Instructor & Facilitator Delivery Pack");
+  const coverSubtitle = cleanText(branding.coverSubtitle);
+  const secondaryHex = normalizeHexColor6(branding.secondaryColor);
+  const secondaryLight = secondaryHex ? ensureReadableColor(secondaryHex, ["#ffffff", "#f8fafc"], "#123f9a", 3) : "";
+  const secondaryDark = secondaryHex ? ensureReadableColor(secondaryHex, ["#1e293b", "#0f172a"], "#93c5fd", 3) : "";
+  const bodyFontStack = getBrandFont(branding.font).css || '"Segoe UI", system-ui, -apple-system, sans-serif';
+  const brandInfoHtml = renderBrandInfoHtml(branding, { className: "brand-info" });
 
   const pacingRowsHtml = model.pacing.rows
     .map(
@@ -1351,7 +1364,7 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
   <title>${escapeHtml(model.documentTitle)}</title>
   <style>
     :root {
-      --accent: ${primaryColor};
+      --accent: ${primaryColor};${secondaryLight ? `\n      --accent2: ${secondaryLight};` : ""}
       --bg: #f8fafc;
       --surface: #ffffff;
       --text: #0f172a;
@@ -1362,7 +1375,7 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
       --ok-bg: #ecfdf5;
       --ok-border: #10b981;
     }
-    html[data-theme="dark"] {
+    html[data-theme="dark"] {${secondaryDark ? `\n      --accent2: ${secondaryDark};` : ""}
       --bg: #0f172a;
       --surface: #1e293b;
       --text: #f1f5f9;
@@ -1376,7 +1389,7 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-family: ${bodyFontStack};
       background: var(--bg);
       color: var(--text);
       line-height: 1.55;
@@ -1385,6 +1398,7 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
     header.hero {
       background: var(--surface);
       border: 1px solid var(--border);
+      border-bottom: 4px solid var(--accent2, var(--border));
       border-radius: 10px;
       padding: 22px 24px;
       margin-bottom: 24px;
@@ -1454,6 +1468,10 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
     .kc-rationale { font-size: 0.86rem; color: var(--muted); margin-top: 4px; }
     .kc-ref { font-size: 0.85rem; margin-top: 6px; }
     a { color: var(--accent); }
+    .brand-info { margin-top: 40px; padding-top: 16px; border-top: 2px solid var(--accent2, var(--border)); }
+    .brand-info h2 { margin-top: 12px; font-size: 1.1rem; }
+    .brand-info p { margin: 6px 0; }
+    .brand-info-footer { color: var(--muted); font-size: 0.9rem; }
     @media print {
       body { background: #fff; color: #000; }
       .toolbar { display: none !important; }
@@ -1468,7 +1486,7 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
       <div>
         <div class="hero-kicker">${escapeHtml(companyName)} &middot; ${escapeHtml(tagline)}</div>
         <h1>${escapeHtml(model.title)} — Facilitator Guide</h1>
-        <div class="module-meta">${escapeHtml(model.productsLabel)} (${escapeHtml(model.harnessLabel)}) &middot; ${model.modules.length} Modules &middot; Total Window: ${model.pacing.totalWorkshopMinutes} min (includes ${model.pacing.preFlightBufferMinutes} min pre-flight)</div>
+        <div class="module-meta">${escapeHtml(model.productsLabel)} (${escapeHtml(model.harnessLabel)}) &middot; ${model.modules.length} Modules &middot; Total Window: ${model.pacing.totalWorkshopMinutes} min (includes ${model.pacing.preFlightBufferMinutes} min pre-flight)</div>${coverSubtitle ? `\n        <div class="module-meta"><em>${escapeHtml(coverSubtitle)}</em></div>` : ""}
       </div>
       <div class="toolbar">
         <button type="button" onclick="document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'">Toggle Theme</button>
@@ -1509,6 +1527,7 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
 
     <h2>3. Per-Module Facilitator Playbook</h2>
     ${modulesHtml}
+    ${brandInfoHtml}
   </div>
 </body>
 </html>
