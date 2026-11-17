@@ -20,7 +20,7 @@ import express from "express";
 
 import { generateLab } from "../lib/lab-builder/generator.js";
 import { capturedImage, capturedScreenshotsDir, capturedScreenshotsDirs, resolveLabScreenshot } from "../lib/lab-builder/captured.js";
-import { captureLabScreenshots, getLabScreenshotsStatus, revalidateLabAgainstLearn } from "../lib/lab-builder/lab-screenshots.js";
+import { captureLabScreenshots, derivePlaywrightSteps, getLabScreenshotsStatus, revalidateLabAgainstLearn } from "../lib/lab-builder/lab-screenshots.js";
 import { PLACEHOLDER_PATH } from "../lib/lab-builder/slots.js";
 import { createBlobPersistence, MANAGED_BLOB_PREFIXES, resolveSafeBlobLocalPath } from "../lib/blob-persistence.js";
 import {
@@ -571,6 +571,134 @@ test("shot plans carry safe steps, expected labels, and mark shots that need a t
   assert.deepEqual(cleaned[1].roles, ["button"]);
   assert.equal(cleaned[1].interaction, undefined);
 });
+// ── A job that ended without a sign-in ───────────────────────────────────────
+
+test("a job whose shots ended waiting for a sign-in says what to do and is not handed out again and again", () => {
+  let clock = 1_700_000_000_000;
+  const store = createJobStore({ dir: tmp("jobs-signin-"), now: () => clock, productLabel: (id) => ({ "copilot-studio": "Microsoft Copilot Studio", "ai-foundry": "Microsoft Foundry" })[id] || id });
+  const spec = { target: { type: "lab", labId: "lab-a" }, scope: { mode: "all", filenames: [], featureIds: [] }, options: {}, plan: { shots: [{ filename: "a.png", product: "copilot-studio", steps: [] }, { filename: "b.png", product: "copilot-studio", steps: [] }, { filename: "c.png", product: "ai-foundry", steps: [] }] } };
+  const device = { id: "dev_aaaaaaaaaaaa", name: "PC" };
+  const message = "Sign in to Microsoft Copilot Studio on your computer, then retry the 2 screenshots.";
+
+  // Nothing was captured: the job says to sign in, not that the computer stopped.
+  const job = store.create({ ...spec, plan: { shots: spec.plan.shots.slice(0, 2) } });
+  store.claimNext(device);
+  for (const name of ["a.png", "b.png"]) store.reportProgress(job.id, device.id, { shot: { filename: name, status: "auth-required", error: message } });
+  const failed = store.complete(job.id, device.id, { message: "0 captured" }).job;
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.error, message, "the Screenshot Center shows this instead of the generic 'stopped before any screenshot'");
+  assert.deepEqual(failed.needsSignIn, { count: 2, products: [{ id: "copilot-studio", label: "Microsoft Copilot Studio", count: 2 }], message });
+  assert.deepEqual(failed.shots.map((s) => [s.status, s.error]), [["auth-required", message], ["auth-required", message]], "each shot keeps the message");
+  assert.deepEqual(failed.result.needsSignIn.products.map((p) => p.id), ["copilot-studio"]);
+  assert.equal(store.list()[0].needsSignIn.count, 2, "the job list carries it too");
+  assert.equal(store.claimNext(device), null, "an ended job is never handed out again");
+
+  // Some shots were captured: the job is done, and still says what is left.
+  clock += 1000;
+  const partial = store.create(spec);
+  store.claimNext(device);
+  store.recordShotResult(partial.id, device.id, "a.png", { status: "captured" });
+  store.reportProgress(partial.id, device.id, { shot: { filename: "b.png", status: "auth-required", error: "x" } });
+  store.reportProgress(partial.id, device.id, { shot: { filename: "c.png", status: "auth-required", error: "x" } });
+  const done = store.complete(partial.id, device.id, {}).job;
+  assert.equal(done.status, "done");
+  assert.match(done.needsSignIn.message, /^Sign in to Microsoft Copilot Studio and Microsoft Foundry on your computer, then retry the 2 screenshots\.$/);
+  assert.match(done.events.at(-1).message, /Sign in to Microsoft Copilot Studio and Microsoft Foundry/);
+
+  // The need goes away when the companion reports the sign-in, and old needs expire.
+  assert.equal(store.latestSignInNeed({ signedInProducts: [] }).jobId, partial.id, "the newest job with a need wins");
+  assert.deepEqual(store.latestSignInNeed({ signedInProducts: ["copilot-studio"] }).products.map((p) => p.id), ["ai-foundry"]);
+  assert.equal(store.latestSignInNeed({ signedInProducts: ["ai-foundry"] }).message, "Sign in to Microsoft Copilot Studio on your computer, then retry the 1 screenshot.");
+  assert.equal(store.latestSignInNeed({ signedInProducts: ["copilot-studio", "ai-foundry"] }), null);
+  clock += 25 * 60 * 60 * 1000;
+  assert.equal(store.latestSignInNeed({ signedInProducts: [] }), null, "a day later nobody is waiting");
+
+  // A companion that keeps asking for the same job without finishing a shot is stopped, not served forever.
+  const stuck = store.create({ ...spec, plan: { shots: [{ filename: "a.png", product: "copilot-studio", steps: [] }, { filename: "b.png", product: "copilot-studio", steps: [] }] } });
+  assert.equal(store.claimNext(device).resumed, false);
+  for (let i = 0; i < 3; i += 1) {
+    assert.equal(store.claimNext(device).resumed, true);
+    clock += 1000;
+  }
+  assert.equal(store.claimNext(device), null, "after three resumes with no progress the job is closed");
+  const closed = store.get(stuck.id);
+  assert.equal(closed.status, "failed");
+  assert.match(closed.error, /picked this job up several times without finishing it/);
+  assert.ok(closed.shots.every((s) => s.status === "cancelled"));
+
+  // Progress resets the count, so a companion that restarts between shots is never cut off.
+  const steady = store.create({ ...spec, plan: { shots: ["a.png", "b.png", "c.png", "d.png", "e.png"].map((filename) => ({ filename, product: "copilot-studio", steps: [] })) } });
+  store.claimNext(device);
+  for (const name of ["a.png", "b.png", "c.png", "d.png"]) {
+    assert.equal(store.claimNext(device).resumed, true);
+    store.recordShotResult(steady.id, device.id, name, { status: "captured" });
+  }
+  assert.equal(store.get(steady.id).status, "running", "four restarts in a row, each after progress, are fine");
+});
+
+test("the portal status says which products still need a sign-in until the companion reports them signed in", async (t) => {
+  const storageRoot = tmp("capture-signin-status-");
+  const generatedRoot = join(storageRoot, "generated-labs");
+  mkdirSync(generatedRoot, { recursive: true });
+  const lab = await buildLab(generatedRoot, tmp("capture-signin-labs-"));
+  const server = await startPortal({ storageRoot });
+  const companion = new FakeCompanion(server.base);
+  assert.equal((await companion.pair((await call(server.base, "POST", "/api/capture/pair")).json.code)).status, 201);
+  assert.equal((await companion.heartbeat({ signedInProducts: [] })).status, 200);
+
+  const queued = await call(server.base, "POST", "/api/capture/jobs", { json: { target: { type: "lab", labId: lab.labId }, scope: "missing" } });
+  assert.equal(queued.status, 201, queued.text);
+  const claimed = (await companion.next()).json;
+  assert.ok(claimed.shots.length >= 2);
+  const message = `Sign in to Microsoft Copilot Studio on your computer, then retry the ${claimed.shots.length} screenshots.`;
+  for (const shot of claimed.shots) assert.equal((await companion.progress(claimed.job.id, { shot: { filename: shot.filename, status: "auth-required", message: null, error: message } })).status, 200);
+  assert.equal((await companion.complete(claimed.job.id, { message: "0 captured" })).status, 200);
+
+  const job = (await call(server.base, "GET", `/api/capture/jobs/${claimed.job.id}`)).json.job;
+  assert.equal(job.status, "failed");
+  assert.equal(job.error, message);
+  assert.equal(job.needsSignIn.count, claimed.shots.length);
+  assert.ok(job.shots.every((s) => s.status === "auth-required" && s.error === message));
+
+  const waiting = (await call(server.base, "GET", "/api/capture/status")).json;
+  assert.equal(waiting.jobs.needsSignIn.message, message);
+  assert.deepEqual(waiting.jobs.needsSignIn.products.map((p) => p.label), ["Microsoft Copilot Studio"]);
+  assert.deepEqual(waiting.companion.signedInProducts, []);
+
+  assert.equal((await companion.heartbeat({ signedInProducts: ["copilot-studio"] })).status, 200);
+  const signedIn = (await call(server.base, "GET", "/api/capture/status")).json;
+  assert.equal(signedIn.jobs.needsSignIn, undefined, "once the companion reports the sign-in, nothing is waiting");
+  assert.deepEqual(signedIn.companion.signedInProducts, ["copilot-studio"]);
+
+  assert.equal((await companion.next()).status, 204, "the portal does not hand the finished job to the companion again");
+  t.diagnostic("a job that ended without a sign-in is not served again, and the status clears once the companion reports the product signed in");
+});
+
+test("plans and step derivation never include a click that signs in or out, switches the account, or deletes", () => {
+  const cleaned = sanitizePlanSteps([
+    { action: "stepThrough", labels: ["Settings", "Sign out", "Switch account", "Sign in"], instruction: "Select **Settings**." },
+    { action: "stepThrough", labels: ["Profile"], instruction: "Select your profile, then select **Sign out**." },
+    { action: "click", label: "Use another account" },
+    { action: "click", label: "Memory" },
+    { action: "stepThrough", labels: ["Delete agent"], instruction: "Select **Delete agent**." },
+    { action: "stepThrough", instruction: "Look around." },
+  ]);
+  assert.deepEqual(cleaned.map((s) => s.labels ?? s.label), [["Settings"], "Memory", undefined], "only harmless clicks stay; a step that never named a control is kept as it was");
+  const derived = derivePlaywrightSteps({
+    uiSteps: [
+      "Select **Settings**.",
+      "Select **Sign in**.",
+      "Select your profile picture, then select **Sign out**.",
+      "Select **Switch account**, then **Use another account**.",
+      "Sign in to Copilot Studio, then select **Memory**.",
+      "Select **Delete agent**.",
+    ],
+    startUrl: "https://copilotstudio.microsoft.com/",
+    filename: "x.png",
+  });
+  assert.deepEqual(derived.filter((s) => s.action === "stepThrough").map((s) => s.labels), [["Settings"], ["Memory"]]);
+});
+
 // ── Shared library storage ───────────────────────────────────────────────────
 
 test("the shared library resolves explicit override, then persistent storage, then the baked folder", () => {
@@ -1195,7 +1323,7 @@ test("the shared companion download has the launchers and no secrets", async () 
   assert.match(res.headers.get("content-disposition"), /attachment; filename="copilot-studio-labs-capture-companion\.zip"/);
   const zip = readZip(Buffer.from(await res.arrayBuffer()));
   const names = [...zip.keys()];
-  for (const file of ["companion.mjs", "lab-runner.mjs", "callouts.mjs", "manifests.mjs", "image-verify.mjs", "redact.mjs", "package.json", "start-companion.cmd", "start-companion.ps1", "start-companion.sh"]) {
+  for (const file of ["companion.mjs", "lab-runner.mjs", "auth.mjs", "browsers.mjs", "guard.mjs", "trace.mjs", "callouts.mjs", "manifests.mjs", "image-verify.mjs", "redact.mjs", "package.json", "start-companion.cmd", "start-companion.ps1", "start-companion.sh"]) {
     assert.ok(names.includes(`capture-companion/tools/screenshot-capture/${file}`), `${file} is in the zip`);
   }
   assert.ok(names.includes("capture-companion/tools/feature-tour/lib/products.mjs"));

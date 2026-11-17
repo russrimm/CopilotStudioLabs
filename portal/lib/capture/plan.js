@@ -18,6 +18,7 @@ import {
   resolveGeneratedLabDir,
 } from "../lab-builder/lab-screenshots.js";
 import { listFeatureManifests } from "../../../tools/screenshot-capture/manifests.mjs";
+import { blockedInstructionReason, blockedLabelReason } from "../../../tools/screenshot-capture/guard.mjs";
 import { readCaptureConfig, sectionConfig } from "../../../tools/feature-tour/lib/products.mjs";
 
 const ALLOWED_ACTIONS = new Set([
@@ -77,6 +78,14 @@ export function sanitizePlanSteps(steps) {
       }));
     }
     if (action === "screenshot") step.fullPage = Boolean(raw.fullPage);
+    // A click that deletes something, signs in or out, or switches the account never goes into a plan.
+    if (["stepThrough", "click", "clickBestEffort"].includes(action)) {
+      if (blockedInstructionReason(step.instruction)) continue;
+      const hadLabels = Boolean(step.label) || Boolean(step.labels?.length);
+      if (step.labels) step.labels = step.labels.filter((l) => !blockedLabelReason(l));
+      if (step.label && blockedLabelReason(step.label)) delete step.label;
+      if (hadLabels && !step.label && !step.labels?.length) continue;
+    }
     out.push(step);
   }
   return out;

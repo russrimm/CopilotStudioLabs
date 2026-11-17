@@ -39,6 +39,9 @@ export const CALLOUT_MODES = Object.freeze(["sidecar", "burn", "none"]);
 export const CLAIM_STALE_MS = 5 * 60 * 1000;
 export const QUEUED_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const MAX_RETAINED_JOBS = 200;
+// A companion that keeps asking for the same unfinished job without finishing a shot is stuck: stop handing it the job.
+export const MAX_RESUMES = 3;
+const SIGN_IN_NEED_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_EVENTS = 300;
 const MAX_SHOTS = 400;
 const SAFE_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
@@ -158,15 +161,44 @@ function countShots(shots) {
   return counts;
 }
 
-function summarize(job) {
+function joinNames(names) {
+  const list = names.filter(Boolean);
+  if (list.length <= 1) return list[0] || "your Microsoft account";
+  return `${list.slice(0, -1).join(", ")} and ${list.at(-1)}`;
+}
+
+/**
+ * Which products need a sign-in on the person's computer, from the shots that ended `auth-required`.
+ * Returns null when no shot needs one. `message` is the sentence to show: what to do, then how many shots to retry.
+ */
+export function summarizeSignInNeeds(shots, labelFor = (id) => id) {
+  const waiting = (Array.isArray(shots) ? shots : []).filter((shot) => shot.status === "auth-required");
+  if (!waiting.length) return null;
+  const counts = new Map();
+  for (const shot of waiting) {
+    const id = shot.product || "microsoft-365";
+    counts.set(id, (counts.get(id) || 0) + 1);
+  }
+  const products = [...counts].map(([id, count]) => ({ id, label: cleanText(labelFor(id), 80) || id, count }));
+  const total = waiting.length;
+  return {
+    count: total,
+    products,
+    message: `Sign in to ${joinNames(products.map((p) => p.label))} on your computer, then retry the ${total} screenshot${total === 1 ? "" : "s"}.`,
+  };
+}
+
+function summarize(job, labelFor) {
   const { shots, events, ...rest } = job;
-  return { ...rest, progress: countShots(shots || []) };
+  const needsSignIn = summarizeSignInNeeds(shots, labelFor);
+  return { ...rest, progress: countShots(shots || []), ...(needsSignIn ? { needsSignIn } : {}) };
 }
 
 /**
  * @param {object} options
  * @param {string} options.dir the `<data dir>/capture` folder
  * @param {() => number} [options.now]
+ * @param {(product: string) => string} [options.productLabel] readable product names for sign-in messages
  */
 export function createJobStore({
   dir,
@@ -174,6 +206,7 @@ export function createJobStore({
   claimStaleMs = CLAIM_STALE_MS,
   queuedMaxAgeMs = QUEUED_MAX_AGE_MS,
   maxRetained = MAX_RETAINED_JOBS,
+  productLabel = (id) => id,
 } = {}) {
   const jobsDir = path.join(dir, "jobs");
   const emitter = new EventEmitter();
@@ -192,7 +225,7 @@ export function createJobStore({
   function persist(job, event = null) {
     job.updatedAt = iso();
     writeJsonAtomic(jobFile(job.id), job);
-    emitter.emit(job.id, { type: event?.type || "update", job: summarize(job), event });
+    emitter.emit(job.id, { type: event?.type || "update", job: summarize(job, productLabel), event });
   }
 
   function addEvent(job, type, message, data = null) {
@@ -301,7 +334,8 @@ export function createJobStore({
   }
 
   function summarizeFull(job) {
-    return { ...job, progress: countShots(job.shots) };
+    const needsSignIn = summarizeSignInNeeds(job.shots, productLabel);
+    return { ...job, progress: countShots(job.shots), ...(needsSignIn ? { needsSignIn } : {}) };
   }
 
   function get(id) {
@@ -324,7 +358,7 @@ export function createJobStore({
       .filter((job) => (!status || job.status === status) && (!labId || job.target?.labId === labId))
       .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
       .slice(0, Math.max(1, Math.min(200, Number(limit) || 25)));
-    return jobs.map(summarize);
+    return jobs.map((job) => summarize(job, productLabel));
   }
 
   /** Counts of jobs waiting and running, for the portal status. */
@@ -334,6 +368,32 @@ export function createJobStore({
       queued: jobs.filter((j) => j.status === "queued").length,
       active: jobs.filter((j) => j.status === "claimed" || j.status === "running").length,
     };
+  }
+
+  /**
+   * The most recent job that ended with shots waiting for a sign-in the person has not made yet.
+   * `signedInProducts` is what the companion reports: once a product shows up there, its need is gone.
+   * Returns `{ jobId, count, products, message }` or null.
+   */
+  function latestSignInNeed({ signedInProducts = [] } = {}) {
+    const signedIn = new Set(signedInProducts);
+    const cutoff = now() - SIGN_IN_NEED_MAX_AGE_MS;
+    for (const job of list({ limit: 20 })) {
+      const needs = job.needsSignIn;
+      if (!needs) continue;
+      const lastWord = Date.parse(job.finishedAt || job.updatedAt || job.createdAt);
+      if (Number.isFinite(lastWord) && lastWord < cutoff) continue;
+      const products = needs.products.filter((p) => !signedIn.has(p.id));
+      if (!products.length) continue;
+      const count = products.reduce((n, p) => n + p.count, 0);
+      return {
+        jobId: job.id,
+        count,
+        products,
+        message: `Sign in to ${joinNames(products.map((p) => p.label))} on your computer, then retry the ${count} screenshot${count === 1 ? "" : "s"}.`,
+      };
+    }
+    return null;
   }
 
   /**
@@ -349,17 +409,27 @@ export function createJobStore({
       .map(expireIfStale);
     const resumable = all.find((job) => (job.status === "claimed" || job.status === "running") && job.claim?.deviceId === device.id);
     let job = resumable;
+    if (resumable) {
+      resumable.claim.resumes = (resumable.claim.resumes || 0) + 1;
+      if (resumable.claim.resumes > MAX_RESUMES) {
+        // The same companion keeps asking for this job without finishing a shot. Stop the loop instead of resuming it again.
+        for (const shot of resumable.shots) if (!TERMINAL_SHOT_STATUSES.has(shot.status)) shot.status = "cancelled";
+        resumable.error = "The companion picked this job up several times without finishing it. Check the companion window for the reason, then queue the capture again.";
+        finalize(resumable, "failed", resumable.error);
+        job = null;
+      }
+    }
     if (!job) {
       job = all.filter((j) => j.status === "queued").sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))[0];
       if (!job) return null;
       job.status = "claimed";
-      job.claim = { deviceId: device.id, deviceName: cleanText(device.name, 80), claimedAt: iso(), lastActivityAt: iso() };
+      job.claim = { deviceId: device.id, deviceName: cleanText(device.name, 80), claimedAt: iso(), lastActivityAt: iso(), resumes: 0 };
       persist(job, addEvent(job, "claimed", `Picked up by ${job.claim.deviceName || "a companion"}.`));
     } else {
       job.claim.lastActivityAt = iso();
       persist(job, addEvent(job, "resumed", "The companion resumed this job."));
     }
-    return { job: summarizeFull(job), plan: getPlan(job.id), resumed: Boolean(resumable) };
+    return { job: summarizeFull(job), plan: getPlan(job.id), resumed: Boolean(job === resumable) };
   }
 
   function ownedBy(job, deviceId) {
@@ -391,6 +461,7 @@ export function createJobStore({
           row.startedAt = iso();
         } else if (TERMINAL_SHOT_STATUSES.has(status)) {
           row.finishedAt = iso();
+          job.claim.resumes = 0;
         }
         if (shot.error) row.error = cleanText(shot.error, 400);
         if (shot.message) row.message = cleanText(shot.message, 300);
@@ -420,6 +491,7 @@ export function createJobStore({
     row.message = message ? cleanText(message, 300) : null;
     row.error = error ? cleanText(error, 400) : null;
     job.claim.lastActivityAt = iso();
+    job.claim.resumes = 0;
     const event = addEvent(job, `shot-${status}`, `${filename}: ${cleanText(message || error || status, 300)}`);
     persist(job, event);
     return { ok: true, cancelRequested: job.cancelRequested, job: summarizeFull(job) };
@@ -448,17 +520,23 @@ export function createJobStore({
     }
     const counts = countShots(job.shots);
     const good = counts.captured + counts.needsReview;
+    const needsSignIn = summarizeSignInNeeds(job.shots, productLabel);
     job.result = {
       ...counts,
       partial: good > 0 && good < counts.total,
       message: cleanText(summary.message, 300) || null,
+      ...(needsSignIn ? { needsSignIn } : {}),
     };
     if (job.cancelRequested) finalize(job, "cancelled", "Canceled. The companion stopped between shots.");
     else if (summary.fatalError) {
       job.error = cleanText(summary.fatalError, 400);
       finalize(job, good > 0 ? "done" : "failed", `The companion stopped early: ${job.error}`);
     } else if (good > 0 || counts.total === 0 || counts.manual === counts.total) {
-      finalize(job, "done", `Finished: ${counts.captured} captured, ${counts.needsReview} need review, ${counts.failed} failed.`);
+      finalize(job, "done", `Finished: ${counts.captured} captured, ${counts.needsReview} need review, ${counts.failed} failed.${needsSignIn ? ` ${needsSignIn.message}` : ""}`);
+    } else if (needsSignIn && needsSignIn.count === counts.failed) {
+      // Every shot failed for the same reason: the browser was not signed in. Say what to do instead of "failed".
+      job.error = needsSignIn.message;
+      finalize(job, "failed", `Finished with no new screenshots. ${needsSignIn.message}`);
     } else {
       finalize(job, "failed", `Finished with no new screenshots: ${counts.failed} failed.`);
     }
@@ -487,5 +565,5 @@ export function createJobStore({
     return () => emitter.off(id, listener);
   }
 
-  return { create, get, getPlan, list, activity, claimNext, reportProgress, recordShotResult, touch, complete, cancel, subscribe };
+  return { create, get, getPlan, list, activity, latestSignInNeed, claimNext, reportProgress, recordShotResult, touch, complete, cancel, subscribe };
 }
