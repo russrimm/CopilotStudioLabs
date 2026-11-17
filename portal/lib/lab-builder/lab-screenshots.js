@@ -29,6 +29,7 @@ import {
   runGeneratedLabCapture,
   verifyCapturedImageFile,
 } from "../../../tools/screenshot-capture/lab-runner.mjs";
+import { blockedInstructionReason, blockedLabelReason } from "../../../tools/screenshot-capture/guard.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -188,8 +189,9 @@ export function derivePlaywrightSteps({
   (Array.isArray(uiSteps) ? uiSteps : []).forEach((rawStep, idx) => {
     const instruction = String(rawStep || "").replace(/\s+/g, " ").trim();
     if (!instruction) return;
-    const labels = extractBoldLabels(instruction);
-    if (!labels.length || DESTRUCTIVE_STEP_RE.test(instruction)) return;
+    // Never plan a click that signs in or out, switches the account, or deletes something: the person signs in themselves.
+    const labels = extractBoldLabels(instruction).filter((label) => !blockedLabelReason(label));
+    if (!labels.length || DESTRUCTIVE_STEP_RE.test(instruction) || blockedInstructionReason(instruction)) return;
 
     if (INPUT_STEP_RE.test(instruction) && !CLICK_STEP_RE.test(instruction)) {
       actions.push({

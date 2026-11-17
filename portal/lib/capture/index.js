@@ -13,6 +13,7 @@ import { capturedScreenshotsDir, capturedScreenshotsDirs } from "../lab-builder/
 import { setCaptureCapabilitiesProvider } from "../lab-builder/lab-screenshots.js";
 import { BAKED_CAPTURED_SCREENSHOTS_DIR, getStorageDiagnostics, resolvePortalDataDir } from "../storage-config.js";
 import { detectBrowserAvailability } from "../../../tools/screenshot-capture/lab-runner.mjs";
+import { productLabel } from "../../../tools/screenshot-capture/auth.mjs";
 import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "./jobs.js";
 import { COMPANION_ONLINE_MS, PAIRING_CODE_TTL_MS, createPairingStore } from "./pairing.js";
 import { buildLabJobPlan, buildLibraryJobPlan } from "./plan.js";
@@ -51,7 +52,7 @@ export function createCapturePlatform({
   const captureDir = path.join(dataDir || resolvePortalDataDir(env), "capture");
   const capturedDirs = () => ({ primary: capturedScreenshotsDir(env), search: capturedScreenshotsDirs(env) });
   const pairing = createPairingStore({ dir: captureDir, now });
-  const jobs = createJobStore({ dir: captureDir, now });
+  const jobs = createJobStore({ dir: captureDir, now, productLabel });
   const screenshots = createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger });
 
   let browser = { available: false, playwrightInstalled: false, chromiumInstalled: false, checkedAt: 0 };
@@ -102,6 +103,9 @@ export function createCapturePlatform({
     const location = env.FEATURE_TOUR_SCREENSHOTS_DIR ? "explicit" : primary === BAKED_CAPTURED_SCREENSHOTS_DIR ? "baked" : "persistent";
     const library = screenshots.libraryState();
     const tenantNames = tenantUrlNames();
+    // Shots waiting for a sign-in on the person's computer, until the companion reports that sign-in as done.
+    const needsSignIn = jobs.latestSignInNeed({ signedInProducts: companion.signedInProducts });
+    const signInNeed = needsSignIn ? { needsSignIn } : {};
     return {
       companion: {
         connected: companion.connected,
@@ -132,7 +136,7 @@ export function createCapturePlatform({
         missing: library.summary.missing,
         needsReview: library.summary.needsReview,
       },
-      jobs: jobs.activity(),
+      jobs: { ...jobs.activity(), ...signInNeed },
       pairing: { codeTtlSec: Math.round(PAIRING_CODE_TTL_MS / 1000) },
       limits: { maxUploadBytes: MAX_UPLOAD_BYTES, acceptedTypes: ["image/png", "image/jpeg", "image/webp"] },
     };

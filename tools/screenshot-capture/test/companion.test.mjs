@@ -11,9 +11,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  COMPANION_VERSION,
   EXIT,
   PortalError,
-  captureShot,
+  captureShot as captureShotReal,
   clearConfig,
   configPath,
   createPortalClient,
@@ -23,11 +24,12 @@ import {
   parseArgs,
   preflight,
   runCompanion,
-  runJob,
+  runJob as runJobReal,
   safeSteps,
   saveConfig,
   validatePortalUrl,
 } from "../companion.mjs";
+import { createAuthGate } from "../auth.mjs";
 import { detectBrowserAvailability, loadPlaywrightModule } from "../lab-runner.mjs";
 import {
   applyRedaction,
@@ -45,6 +47,11 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const TOOL_DIR = path.resolve(here, "..");
 const REPO_ROOT = path.resolve(TOOL_DIR, "..", "..");
 const TOKEN = "cap_FAKE_TOKEN_FOR_TESTS_0123456789abcdefghij";
+
+// The fake pages answer instantly, so the sign-in gate does not need to watch a page settle.
+const quickAuth = { authSettleMs: 0, authPollMs: 5, authGraceMs: 0 };
+const runJob = (args) => runJobReal({ ...args, options: { ...quickAuth, signInWaitSec: 0.05, ...args.options } });
+const captureShot = (args) => captureShotReal({ auth: createAuthGate({ product: "copilot-studio", waitMs: args.signInWaitMs ?? 50, settleMs: 0, pollMs: 5 }), ...args });
 
 function tmpDir(t, prefix = "companion-") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -264,13 +271,19 @@ test("the pairing file is kept out of git and holds the token only locally", (t)
   }
 });
 
-test("listSignedInProfiles reports products that already hold a browser sign-in", (t) => {
+test("listSignedInProfiles reports only products whose sign-in has worked, not profile folders the browser created", (t) => {
   const home = tmpDir(t);
   assert.deepEqual(listSignedInProfiles(home), []);
+  // A browser creates its profile folder the moment it opens, signed in or not.
+  fs.mkdirSync(path.join(home, ".auth", "edge", "copilot-studio"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".auth", "edge", "copilot-studio", "Cookies"), "x");
   fs.mkdirSync(path.join(home, ".auth", "copilot-studio"), { recursive: true });
   fs.writeFileSync(path.join(home, ".auth", "copilot-studio", "Cookies"), "x");
-  fs.mkdirSync(path.join(home, ".auth", "ai-foundry"), { recursive: true });
-  fs.mkdirSync(path.join(home, ".auth", "Bad Name"), { recursive: true });
+  fs.mkdirSync(path.join(home, ".auth", "chromium", "Bad Name"), { recursive: true });
+  assert.deepEqual(listSignedInProfiles(home), [], "a profile folder alone is not a sign-in");
+  const dir = path.join(home, ".auth", "edge", "copilot-studio");
+  fs.writeFileSync(path.join(dir, "companion-session.json"), JSON.stringify({ version: 1, cookies: [{ name: "a", value: "b" }] }));
+  fs.writeFileSync(path.join(dir, "companion-signin.json"), JSON.stringify({ version: 1, product: "copilot-studio", browser: "edge", lastCapturedAt: "2026-01-02T03:04:05.000Z" }));
   assert.deepEqual(listSignedInProfiles(home), ["copilot-studio"]);
 });
 
@@ -400,7 +413,7 @@ test("runJob captures, verifies, uploads, and completes; skips manual and tenant
   assert.match(portal.completes[0].message, /1 captured/);
   assert.equal(pw.launched.length, 1, "one browser profile per product");
   assert.equal(pw.launched[0].options.headless, false, "the browser is headed so you can sign in");
-  assert.equal(pw.launched[0].dir, path.join(home, ".auth", "copilot-studio"), "each product keeps its own sign-in under .auth/<product>");
+  assert.equal(pw.launched[0].dir, path.join(home, ".auth", "chromium", "copilot-studio"), "each product keeps its own sign-in under .auth/<browser>/<product>");
   assert.equal(pw.closed, 1);
   assert.ok(!fs.existsSync(path.join(home, ".captures", "job_0123456789abcdef")), "working files are cleaned up");
   assert.ok(portal.requests.every((r) => r.auth === `Bearer ${TOKEN}`));
@@ -422,7 +435,7 @@ test("a tenant address from the job unlocks shots that need it", async (t) => {
   });
   assert.equal(result.tally.captured, 1);
   assert.equal(pw.goto[0], "https://contoso.sharepoint.com/sites/training", "the job's address is where the browser goes");
-  assert.equal(pw.launched[0].dir, path.join(home, ".auth", "sharepoint-ai"));
+  assert.equal(pw.launched[0].dir, path.join(home, ".auth", "chromium", "sharepoint-ai"));
 });
 
 test("runJob stops between shots when the portal says the job was canceled", async (t) => {
@@ -464,7 +477,7 @@ test("runJob reports sign-in needs, rejected images, and missing browsers withou
     heartbeatMs: 60_000,
   });
   assert.equal(result.tally.failed, 2);
-  assert.match(log.text(), /not signed in/i);
+  assert.match(log.text(), /Sign in to Microsoft Copilot Studio on your computer, then retry the 1 screenshot/);
   assert.match(log.text(), /portal rejected the image: The image is blank/);
   const reported = portal.progress.filter((p) => p.shot).map((p) => `${p.shot.filename}:${p.shot.status}`);
   assert.ok(reported.includes("signin.png:auth-required"));
@@ -515,7 +528,7 @@ test("--portal and --code pair once, save the token locally, and --once reports 
   assert.match(log.text(), /Paired with .* as "Ada PC"/);
   assert.match(log.text(), /No capture jobs are waiting/);
   assert.ok(!log.text().includes(TOKEN));
-  assert.equal(portal.requests.at(-1).version, "1.0.0");
+  assert.equal(portal.requests.at(-1).version, COMPANION_VERSION);
 
   // A second run needs no code.
   const again = collectLog();
@@ -666,5 +679,5 @@ test("the companion never types into pages: its source has no fill, type, or pre
   }
   const runner = fs.readFileSync(path.join(TOOL_DIR, "lab-runner.mjs"), "utf8");
   const stepThrough = runner.slice(runner.indexOf('action === "stepThrough"'), runner.indexOf('action === "probeControl"'));
-  assert.match(stepThrough, /DESTRUCTIVE_LABEL_RE/);
+  assert.match(stepThrough, /blockedLabelReason/);
 });

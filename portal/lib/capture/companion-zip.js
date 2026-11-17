@@ -16,6 +16,10 @@ import { REPO_ROOT } from "../storage-config.js";
 export const COMPANION_FILES = Object.freeze([
   "tools/screenshot-capture/companion.mjs",
   "tools/screenshot-capture/lab-runner.mjs",
+  "tools/screenshot-capture/auth.mjs",
+  "tools/screenshot-capture/browsers.mjs",
+  "tools/screenshot-capture/guard.mjs",
+  "tools/screenshot-capture/trace.mjs",
   "tools/screenshot-capture/callouts.mjs",
   "tools/screenshot-capture/manifests.mjs",
   "tools/screenshot-capture/image-verify.mjs",

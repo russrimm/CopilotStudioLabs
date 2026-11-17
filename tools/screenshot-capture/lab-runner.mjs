@@ -30,7 +30,12 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { buildSidecar, resolveCallouts, sidecarName } from "./callouts.mjs";
+import { classifyUrl, createAuthGate, redactedAddress } from "./auth.mjs";
+import { DESTRUCTIVE_LABEL_RE, blockedInstructionReason, blockedLabelReason, controlIsOffLimits, describeControlInPage } from "./guard.mjs";
+import { detectInstalledBrowsers } from "./browsers.mjs";
 import { resolveShotUrl, resolveStartUrl } from "./manifests.mjs";
+
+export { DESTRUCTIVE_LABEL_RE };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,25 +47,12 @@ const SAFE_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
 const SAFE_ASSET_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|webp)$/i;
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
-const SIGN_IN_HOST_PATTERNS = [
-  /login\.microsoftonline\./i,
-  /login\.live\.com/i,
-  /login\.windows\.net/i,
-  /aadcdn\.msftauth\.net/i,
-  /aadcdn\.msauth\.net/i,
-  /\/oauth2\/(?:v2\.0\/)?authorize/i,
-];
-
-export const DESTRUCTIVE_LABEL_RE =
-  /\b(?:delete|remove|erase|purge|destroy|disconnect|unregister|revoke|reset all|delete all)\b/i;
-
 /**
- * Check whether a URL is a Microsoft Entra / MSA interactive sign-in redirect.
+ * Check whether a URL is a Microsoft Entra / MSA interactive sign-in page. Only the host and path count:
+ * a signed-in page whose query string mentions a sign-in address is still the product.
  */
 export function isSignInRedirectUrl(rawUrl) {
-  const value = String(rawUrl || "").trim();
-  if (!value) return false;
-  return SIGN_IN_HOST_PATTERNS.some((pattern) => pattern.test(value));
+  return classifyUrl(rawUrl).kind === "sign-in";
 }
 
 /**
@@ -197,18 +189,22 @@ function writeJsonAtomic(filePath, value) {
 
 /**
  * Whether this machine can run a capture browser: Playwright is installed and
- * its Chromium binary exists. Never launches a browser.
+ * either its Chromium binary or an installed Microsoft Edge / Google Chrome exists.
+ * Never launches a browser. `available` stays "the bundled Chromium is there".
  */
-export async function detectBrowserAvailability({ repoRoot = REPO_ROOT } = {}) {
+export async function detectBrowserAvailability({ repoRoot = REPO_ROOT, installedBrowsers = detectInstalledBrowsers } = {}) {
   const playwright = await loadPlaywrightModule(repoRoot);
-  if (!playwright?.chromium) return { playwrightInstalled: false, chromiumInstalled: false, available: false };
+  if (!playwright?.chromium) return { playwrightInstalled: false, chromiumInstalled: false, edgeInstalled: false, chromeInstalled: false, available: false, anyBrowser: false };
   let chromiumInstalled = false;
   try {
     chromiumInstalled = fs.existsSync(playwright.chromium.executablePath());
   } catch {
     chromiumInstalled = false;
   }
-  return { playwrightInstalled: true, chromiumInstalled, available: chromiumInstalled };
+  const installed = installedBrowsers();
+  const edgeInstalled = Boolean(installed.edge);
+  const chromeInstalled = Boolean(installed.chrome);
+  return { playwrightInstalled: true, chromiumInstalled, edgeInstalled, chromeInstalled, available: chromiumInstalled, anyBrowser: chromiumInstalled || edgeInstalled || chromeInstalled };
 }
 
 async function dismissCommonBanners(page) {
@@ -286,6 +282,8 @@ export async function executePlaywrightLabShot({
   stepTimeoutMs = 1800,
   logger = null,
   hooks = null,
+  auth = null,
+  trace = null,
 }) {
   const viewport = {
     width: Number(shot.viewport?.width || 1440),
@@ -303,6 +301,27 @@ export async function executePlaywrightLabShot({
     return { status: "failed", error: err.message, executedSteps: [] };
   }
 
+  // The sign-in gate decides whether a page is the product or a sign-in page. A caller that runs several shots
+  // passes one gate for the whole profile, so the person is asked to sign in once, not once per shot.
+  const gate =
+    auth ||
+    createAuthGate({
+      product: shot.authProfile || shot.product || "microsoft-365",
+      waitMs: authTimeoutMs,
+      allowWait: mode === "headed" && typeof page.url === "function",
+      notify: ({ message }) => logger?.(`  → ${message}`),
+      trace,
+    });
+  const needsSignIn = (result, executedSteps) => ({
+    status: "auth-required",
+    error: result.error,
+    code: result.code,
+    currentUrl: redactedAddress(typeof page.url === "function" ? page.url() : ""),
+    executedSteps,
+  });
+  // Sign-in already failed for this profile in this run: do not open the page just to fail again.
+  if (gate.failed) return needsSignIn({ error: gate.failed.message, code: gate.failed.code }, []);
+
   const executedSteps = [];
   const plannedSteps = Array.isArray(shot.steps) && shot.steps.length
     ? shot.steps
@@ -318,45 +337,19 @@ export async function executePlaywrightLabShot({
 
   for (const step of plannedSteps) {
     const action = step?.action;
+    trace?.event("step", { action, shot: shot.filename });
     if (action === "navigate") {
       const navUrl = targetUrl || step.url;
       if (navUrl && /^https?:\/\//i.test(navUrl)) {
-        logger?.(`  → Navigating to ${navUrl}`);
+        logger?.(`  → Navigating to ${redactedAddress(navUrl)}`);
         await page.goto(navUrl, {
           waitUntil: step.waitUntil || "domcontentloaded",
           timeout: Number(step.timeoutMs || 30_000),
         });
         executedSteps.push({ action: "navigate", url: navUrl, ok: true });
 
-        const currentUrl = typeof page.url === "function" ? page.url() : "";
-        if (isSignInRedirectUrl(currentUrl)) {
-          if (mode === "headed" && typeof page.waitForFunction === "function") {
-            logger?.("  → Waiting for interactive tenant sign-in to complete in browser window...");
-            const signedIn = await page
-              .waitForFunction(
-                () => !/login\.microsoftonline\.|login\.live\.com|login\.windows\.net|aadcdn\.ms/i.test(location.href),
-                null,
-                { timeout: authTimeoutMs },
-              )
-              .then(() => true)
-              .catch(() => false);
-            if (!signedIn) {
-              return {
-                status: "auth-required",
-                error: "Interactive tenant sign-in timed out before reaching the target portal.",
-                currentUrl: page.url(),
-                executedSteps,
-              };
-            }
-          } else {
-            return {
-              status: "auth-required",
-              error: "Tenant sign-in is required to capture this authenticated portal screen.",
-              currentUrl,
-              executedSteps,
-            };
-          }
-        }
+        const signedIn = await gate.ensureSignedIn(page, { phase: "navigate", target: navUrl });
+        if (!signedIn.ok) return needsSignIn(signedIn, executedSteps);
       }
       continue;
     }
@@ -368,6 +361,9 @@ export async function executePlaywrightLabShot({
           .catch(() => {});
       }
       executedSteps.push({ action: "waitForLoadState", state: step.state || "domcontentloaded", ok: true });
+      // Single-page apps send the browser to sign-in once they have loaded, so look again now.
+      const signedIn = await gate.ensureSignedIn(page, { phase: "loaded" });
+      if (!signedIn.ok) return needsSignIn(signedIn, executedSteps);
       continue;
     }
 
@@ -384,12 +380,26 @@ export async function executePlaywrightLabShot({
         ? [step.label]
         : [];
       const matchedLabels = [];
+      const blocked = [];
+      const readyToClick = await gate.ensureSignedIn(page, { phase: "check" });
+      if (!readyToClick.ok) return needsSignIn(readyToClick, executedSteps);
+      const instructionReason = blockedInstructionReason(step.instruction || "");
       for (const label of labels) {
-        if (!label || DESTRUCTIVE_LABEL_RE.test(label) || DESTRUCTIVE_LABEL_RE.test(step.instruction || "")) {
+        const reason = !label ? "empty" : instructionReason || blockedLabelReason(label);
+        if (reason) {
+          if (label) blocked.push(label);
+          trace?.event("click-blocked", { label, reason: instructionReason ? `instruction is ${instructionReason}` : `label is ${reason}` });
           continue;
         }
         const locator = await findVisibleControlByLabel(page, label, step.roles);
         if (!locator) continue;
+        // The name matched something harmless, but the control itself may sign out or switch the account.
+        const offLimits = typeof locator.evaluate === "function" ? controlIsOffLimits(await locator.evaluate(describeControlInPage).catch(() => null)) : null;
+        if (offLimits) {
+          blocked.push(label);
+          trace?.event("click-blocked", { label, reason: `control ${offLimits.why} is ${offLimits.reason}` });
+          continue;
+        }
         try {
           if (typeof locator.scrollIntoViewIfNeeded === "function") {
             await locator.scrollIntoViewIfNeeded({ timeout: stepTimeoutMs }).catch(() => {});
@@ -410,6 +420,7 @@ export async function executePlaywrightLabShot({
         stepIndex: step.stepIndex ?? null,
         labels,
         matchedLabels,
+        ...(blocked.length ? { blocked } : {}),
         ok: matchedLabels.length > 0 || step.optional !== false,
       });
       continue;
@@ -465,6 +476,12 @@ export async function executePlaywrightLabShot({
 
     if (action === "screenshot") {
       fs.mkdirSync(path.dirname(outputFile), { recursive: true });
+      // A page that loaded slowly may have sent the browser to sign-in after the last check. Never take a picture of that.
+      const stillSignedIn = await gate.ensureSignedIn(page, { phase: "screenshot" });
+      if (!stillSignedIn.ok) return needsSignIn(stillSignedIn, executedSteps);
+      if (stillSignedIn.waited && typeof page.waitForLoadState === "function") {
+        await page.waitForLoadState("networkidle", { timeout: 6000 }).catch(() => {});
+      }
       // The companion masks account details and places callouts here, right before the pixels are taken.
       if (typeof hooks?.beforeScreenshot === "function") {
         await hooks.beforeScreenshot({ page, shot, viewport, callouts: resolvedCalloutRects });
@@ -865,6 +882,13 @@ export async function runGeneratedLabCapture(options = {}) {
         }
 
         const page = context.pages()[0] || (await context.newPage());
+        // One sign-in gate per product profile: the person is asked once, and a failed sign-in stops the rest of this profile.
+        const signInGate = createAuthGate({
+          product: profile,
+          waitMs: 120_000,
+          allowWait: mode === "headed",
+          notify: ({ message }) => logger?.(`[${labId}] ${message}`),
+        });
         for (const shot of profileShots) {
           if (shot.manual && mode !== "headed") {
             results.push({
@@ -887,6 +911,7 @@ export async function runGeneratedLabCapture(options = {}) {
               mode,
               env,
               logger,
+              auth: signInGate,
             });
             results.push({
               shotId: shot.shotId,

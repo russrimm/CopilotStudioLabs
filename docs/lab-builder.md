@@ -1586,9 +1586,19 @@ your credentials. Capture therefore runs on **your own computer**:
    (`cap_...`) that only opens the companion endpoints. The portal stores a hash of it,
    shows the computer as **Companion connected** while it checks in, and lets you
    **Disconnect** it at any time (`DELETE /api/capture/devices/:id`).
-2. **Sign in once per product.** The first shot for a product opens a browser window; sign in
-   yourself. The sign-in is saved on your computer (in the companion's `.auth/<product>/` folder), so later runs
-   need no sign-in. The companion never types into tenant pages.
+2. **Sign in once per product.** The first shot for a product opens a browser window (the
+   installed Microsoft Edge, then Google Chrome, then Chromium; `--browser` chooses). The companion says
+   **Waiting for you to sign in to <product>**; sign in yourself and choose **Yes** on **Stay signed in?**
+   so the sign-in lasts. The sign-in is saved on your computer (in the companion's
+   `.auth/<browser>/<product>/` folder, with the browser's session cookies in `companion-session.json`), so
+   later shots, products, jobs, and runs need no sign-in again. The companion waits for a sign-in
+   once per product per job: if it does not finish, the product's remaining shots stop at once and are
+   reported as `auth-required` with **Sign in to <product> on your computer, then retry the N
+   screenshots**, and `--watch` mode pauses and then stops taking jobs instead of looping. The saved
+   files give access to the signed-in account and never leave the computer (`--forget-signin=<product|all>`
+   removes them). The companion never types into tenant pages and never clicks anything that signs in or
+   out, switches the account, or deletes. `--debug` writes a redacted trace for diagnosing a sign-in that
+   will not work. See [`tools/screenshot-capture/README.md`](../tools/screenshot-capture/README.md#signing-in-once-per-product).
 3. **Queue a job** (`POST /api/capture/jobs`) for one lab or for the shared library, choosing
    `missing`, `stale`, `all`, or `selected` shots. The companion picks it up, steps through
    each shot, and uploads the result. Progress, per-shot status, and a cancel button come from
@@ -2256,7 +2266,9 @@ A job (`env` values are never returned to the browser, only `envNames`):
   "target": { "type": "lab", "labId": "my-lab" }, "scope": { "mode": "missing", "filenames": [], "featureIds": [] },
   "options": { "callouts": "sidecar", "redact": true, "maskTerms": [] }, "envNames": ["CAPTURE_SHAREPOINT_SITE_URL"],
   "claim": { "deviceId": "dev_…", "deviceName": "Ada PC", "claimedAt": "…", "lastActivityAt": "…" },
-  "cancelRequested": false, "error": null,
+  "cancelRequested": false, "error": null,                 // `error` of a failed job: why (for a job that ended without a sign-in: "Sign in to <product> on your computer, then retry the N screenshots.")
+  "needsSignIn": { "count": 3, "products": [ { "id": "copilot-studio", "label": "Microsoft Copilot Studio", "count": 3 } ],
+                   "message": "Sign in to Microsoft Copilot Studio on your computer, then retry the 3 screenshots." },   // only when shots ended auth-required
   "progress": { "total": 12, "done": 5, "captured": 4, "needsReview": 1, "failed": 0, "manual": 0, "skipped": 0, "running": 1, "pending": 6, "percent": 42 },
   "shots": [ { "filename": "…png", "shotId": "…", "featureId": "…", "product": "…",
                "status": "captured",                       // pending | running | captured | needs-review | failed | auth-required | manual-required | skipped | cancelled
@@ -2277,7 +2289,8 @@ A job (`env` values are never returned to the browser, only `envNames`):
   "sharedLibrary": { "location": "persistent",             // persistent | explicit | baked
                      "persistent": true, "storage": { "persistent": true, "backend": "azure-blob", "writable": true, "blobSyncEnabled": true },
                      "total": 325, "captured": 12, "missing": 313, "needsReview": 0 },
-  "jobs": { "queued": 0, "active": 1 },
+  "jobs": { "queued": 0, "active": 1,
+            "needsSignIn": { "jobId": "job_…", "count": 3, "products": [ … ], "message": "Sign in to … on your computer, then retry the 3 screenshots." } },   // needsSignIn only while a recent job ended auth-required and the companion has not reported that product signed in
   "pairing": { "codeTtlSec": 600 },
   "limits": { "maxUploadBytes": 8388608, "acceptedTypes": ["image/png", "image/jpeg", "image/webp"] }
 }
@@ -2318,8 +2331,8 @@ Companion routes (capture token; `pair` needs no token, only the code):
 | Method | Route | Purpose |
 |---|---|---|
 | `POST` | `/api/capture/companion/pair` | `{ code, deviceName, platform, companionVersion }` returns `{ token, device }` once. 401 `pair-invalid`, `pair-expired`; 429 after repeated wrong codes. |
-| `POST` | `/api/capture/companion/heartbeat` | `{ signedInProducts, busy, jobId?, companionVersion }` returns `{ ok, cancelRequested, tokenExpiresAt }`. |
-| `GET` | `/api/capture/companion/next` | Claim the next job: `{ job: { id, target, scope, options, resumed }, env, shots: [{ filename, shotId, featureId, product, authProfile, startUrl, urlEnv, requiresEnv, manual, viewport, steps, callouts, expectedLabels }] }`, or 204. A companion that asks again while it holds a job gets that job back. |
+| `POST` | `/api/capture/companion/heartbeat` | `{ signedInProducts, busy, jobId?, companionVersion }` returns `{ ok, cancelRequested, tokenExpiresAt }`. `signedInProducts` lists products whose sign-in has worked on that computer (a screenshot was captured and the session saved), not products that merely have a profile folder. |
+| `GET` | `/api/capture/companion/next` | Claim the next job: `{ job: { id, target, scope, options, resumed }, env, shots: [{ filename, shotId, featureId, product, authProfile, startUrl, urlEnv, requiresEnv, manual, viewport, steps, callouts, expectedLabels }] }`, or 204. A companion that asks again while it holds a job gets that job back, but only three times in a row without finishing a shot: after that the job is closed as `failed` instead of being handed out again. |
 | `POST` | `/api/capture/companion/jobs/:id/progress` | `{ shot: { filename, status, message, error }, message }` returns `{ ok, cancelRequested }`. |
 | `PUT` | `/api/capture/companion/jobs/:id/shots/:filename` | The image (multipart `file`, `evidence`, `callouts`, or raw with an `X-Capture-Evidence` header holding base64url JSON under 8 KB). Same answers as a paste, plus `cancelRequested`. |
 | `POST` | `/api/capture/companion/jobs/:id/complete` | `{ message, fatalError? }` ends the job as `done`, `failed`, or `cancelled` and refreshes the lab's files. |
