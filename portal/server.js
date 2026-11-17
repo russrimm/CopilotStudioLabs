@@ -446,7 +446,7 @@ app.use("/api", requireAuth());
 
 const MUTATING_API_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 app.use("/api", (req, res, next) => {
-  if (MUTATING_API_METHODS.has(req.method)) {
+  if (MUTATING_API_METHODS.has(req.method) || req.path === "/pp/approval-callback") {
     res.on("finish", () => {
       scheduleBlobSync();
     });
