@@ -1,0 +1,491 @@
+/**
+ * Persisted screenshot capture job queue.
+ *
+ * A job is one request to capture a set of shots for a single lab or for the
+ * shared library. The portal queues it; the Local Capture Companion claims it,
+ * reports progress shot by shot, uploads each image, and completes it. Every job
+ * keeps per-shot results, progress counters, timestamps, and an event log.
+ *
+ * Files live in `<data dir>/capture/jobs/` (`<id>.json` for state, `<id>.plan.json`
+ * for the shot plan the companion runs), so they follow the Azure Blob mirror.
+ * State is read from disk on every call, so nothing is cached across a restart.
+ */
+
+import { EventEmitter } from "node:events";
+import { randomUUID } from "node:crypto";
+import { existsSync, readdirSync, rmSync } from "node:fs";
+import path from "node:path";
+
+import { cleanText, readJson, writeJsonAtomic } from "./store-util.js";
+
+export const JOB_STATUSES = Object.freeze(["queued", "claimed", "running", "done", "failed", "cancelled"]);
+export const TERMINAL_JOB_STATUSES = Object.freeze(["done", "failed", "cancelled"]);
+export const SHOT_STATUSES = Object.freeze([
+  "pending",
+  "running",
+  "captured",
+  "needs-review",
+  "failed",
+  "auth-required",
+  "manual-required",
+  "skipped",
+  "cancelled",
+]);
+const TERMINAL_SHOT_STATUSES = new Set(["captured", "needs-review", "failed", "auth-required", "manual-required", "skipped", "cancelled"]);
+export const SCOPE_MODES = Object.freeze(["missing", "stale", "all", "selected"]);
+export const TARGET_TYPES = Object.freeze(["lab", "library"]);
+export const CALLOUT_MODES = Object.freeze(["sidecar", "burn", "none"]);
+
+export const CLAIM_STALE_MS = 5 * 60 * 1000;
+export const QUEUED_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const MAX_RETAINED_JOBS = 200;
+const MAX_EVENTS = 300;
+const MAX_SHOTS = 400;
+const SAFE_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
+const SAFE_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}\.(?:png|jpe?g|webp)$/i;
+const SAFE_TOKEN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$/;
+const ENV_NAME_RE = /^CAPTURE_[A-Z0-9_]{1,80}$/;
+const JOB_ID_RE = /^job_[a-f0-9]{16}$/;
+
+/** Whether a job id has the shape the store generates (guards file paths). */
+export function isJobId(value) {
+  return JOB_ID_RE.test(String(value ?? ""));
+}
+
+/**
+ * Validate the CAPTURE_* environment a job may carry (tenant addresses).
+ * Names must start with CAPTURE_; values must be https URLs without credentials.
+ */
+export function validateCaptureEnv(env) {
+  if (env === undefined || env === null) return { ok: true, env: {}, errors: [] };
+  if (typeof env !== "object" || Array.isArray(env)) return { ok: false, env: {}, errors: ["env must be an object of CAPTURE_* variables."] };
+  const entries = Object.entries(env);
+  if (entries.length > 40) return { ok: false, env: {}, errors: ["env has too many variables (limit 40)."] };
+  const clean = {};
+  const errors = [];
+  for (const [name, value] of entries) {
+    if (!ENV_NAME_RE.test(name)) {
+      errors.push(`${cleanText(name, 60)} is not allowed: names must start with CAPTURE_ and use capital letters, digits, and underscores.`);
+      continue;
+    }
+    if (typeof value !== "string" || value.length > 2048 || !/^https:\/\/[^\s]+$/.test(value)) {
+      errors.push(`${name} must be an https URL.`);
+      continue;
+    }
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:" || url.username || url.password || !url.hostname) throw new Error("bad");
+    } catch {
+      errors.push(`${name} must be an https URL without a user name or password.`);
+      continue;
+    }
+    clean[name] = value;
+  }
+  return { ok: errors.length === 0, env: clean, errors };
+}
+
+function cleanList(value, { max, pattern }) {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) return null;
+  const out = [];
+  for (const item of value.slice(0, max)) {
+    const text = String(item ?? "").trim();
+    if (!pattern.test(text)) return null;
+    if (!out.includes(text)) out.push(text);
+  }
+  return out;
+}
+
+/**
+ * Validate a job request body into the normalized target, scope, and options.
+ * Returns `{ok: false, errors}` instead of throwing.
+ */
+export function normalizeJobRequest(body = {}) {
+  const errors = [];
+  const src = body && typeof body === "object" && !Array.isArray(body) ? body : {};
+  const targetIn = src.target && typeof src.target === "object" ? src.target : {};
+  const typeRaw = String(targetIn.type ?? (src.labId ? "lab" : "")).toLowerCase();
+  const type = typeRaw === "shared" || typeRaw === "shared-library" ? "library" : typeRaw;
+  if (!TARGET_TYPES.includes(type)) errors.push('target.type must be "lab" or "library".');
+  const target = { type };
+  if (type === "lab") {
+    const labId = String(targetIn.labId ?? src.labId ?? "").trim();
+    if (!SAFE_LAB_ID.test(labId)) errors.push("target.labId is required and must be a valid lab id.");
+    target.labId = labId;
+  } else if (type === "library") {
+    const products = cleanList(targetIn.products ?? (targetIn.product ? [targetIn.product] : src.products), { max: 12, pattern: /^[a-z0-9-]{1,60}$/ });
+    if (products === null) errors.push("target.products must be a list of product ids.");
+    target.products = products || [];
+  }
+
+  const scopeIn = src.scope && typeof src.scope === "object" ? src.scope : { mode: src.scope };
+  const mode = String(scopeIn.mode ?? "missing").toLowerCase();
+  if (!SCOPE_MODES.includes(mode)) errors.push(`scope must be one of: ${SCOPE_MODES.join(", ")}.`);
+  const filenames = cleanList(scopeIn.filenames ?? src.filenames, { max: MAX_SHOTS, pattern: SAFE_FILENAME });
+  const featureIds = cleanList(scopeIn.featureIds ?? src.featureIds, { max: 100, pattern: SAFE_TOKEN });
+  if (filenames === null) errors.push("filenames must be a list of valid screenshot file names.");
+  if (featureIds === null) errors.push("featureIds must be a list of feature ids.");
+  if (mode === "selected" && !(filenames?.length || featureIds?.length)) errors.push('scope "selected" needs filenames or featureIds.');
+  const scope = { mode, filenames: filenames || [], featureIds: featureIds || [] };
+
+  const envCheck = validateCaptureEnv(src.env);
+  errors.push(...envCheck.errors);
+
+  const optionsIn = src.options && typeof src.options === "object" ? src.options : {};
+  const callouts = String(optionsIn.callouts ?? "sidecar").toLowerCase();
+  if (!CALLOUT_MODES.includes(callouts)) errors.push(`options.callouts must be one of: ${CALLOUT_MODES.join(", ")}.`);
+  const maskTerms = cleanList(optionsIn.maskTerms, { max: 20, pattern: /^[^\u0000-\u001f]{3,80}$/ });
+  if (maskTerms === null) errors.push("options.maskTerms must be a list of text to hide (3 to 80 characters each).");
+  const options = { callouts, redact: optionsIn.redact !== false, maskTerms: maskTerms || [] };
+
+  return { ok: errors.length === 0, errors, target, scope, env: envCheck.env, options };
+}
+
+function countShots(shots) {
+  const counts = { total: shots.length, captured: 0, needsReview: 0, failed: 0, manual: 0, skipped: 0, running: 0, pending: 0, cancelled: 0 };
+  for (const shot of shots) {
+    if (shot.status === "captured") counts.captured += 1;
+    else if (shot.status === "needs-review") counts.needsReview += 1;
+    else if (shot.status === "failed" || shot.status === "auth-required") counts.failed += 1;
+    else if (shot.status === "manual-required") counts.manual += 1;
+    else if (shot.status === "skipped") counts.skipped += 1;
+    else if (shot.status === "cancelled") counts.cancelled += 1;
+    else if (shot.status === "running") counts.running += 1;
+    else counts.pending += 1;
+  }
+  counts.done = counts.total - counts.running - counts.pending;
+  counts.percent = counts.total ? Math.round((counts.done / counts.total) * 100) : 100;
+  return counts;
+}
+
+function summarize(job) {
+  const { shots, events, ...rest } = job;
+  return { ...rest, progress: countShots(shots || []) };
+}
+
+/**
+ * @param {object} options
+ * @param {string} options.dir the `<data dir>/capture` folder
+ * @param {() => number} [options.now]
+ */
+export function createJobStore({
+  dir,
+  now = () => Date.now(),
+  claimStaleMs = CLAIM_STALE_MS,
+  queuedMaxAgeMs = QUEUED_MAX_AGE_MS,
+  maxRetained = MAX_RETAINED_JOBS,
+} = {}) {
+  const jobsDir = path.join(dir, "jobs");
+  const emitter = new EventEmitter();
+  emitter.setMaxListeners(200);
+
+  const jobFile = (id) => path.join(jobsDir, `${id}.json`);
+  const planFile = (id) => path.join(jobsDir, `${id}.plan.json`);
+  const iso = () => new Date(now()).toISOString();
+
+  function readJob(id) {
+    if (!isJobId(id)) return null;
+    const job = readJson(jobFile(id), null);
+    return job && job.id === id ? job : null;
+  }
+
+  function persist(job, event = null) {
+    job.updatedAt = iso();
+    writeJsonAtomic(jobFile(job.id), job);
+    emitter.emit(job.id, { type: event?.type || "update", job: summarize(job), event });
+  }
+
+  function addEvent(job, type, message, data = null) {
+    const event = { at: iso(), type, message: cleanText(message, 400) };
+    if (data) event.data = data;
+    job.events.push(event);
+    if (job.events.length > MAX_EVENTS) job.events.splice(0, job.events.length - MAX_EVENTS);
+    return event;
+  }
+
+  function finalize(job, status, message) {
+    job.status = status;
+    job.finishedAt = iso();
+    job.progress = countShots(job.shots);
+    const event = addEvent(job, status, message);
+    persist(job, event);
+  }
+
+  function expireIfStale(job) {
+    if (TERMINAL_JOB_STATUSES.includes(job.status)) return job;
+    const t = now();
+    if (job.status === "queued") {
+      if (t - Date.parse(job.createdAt) > queuedMaxAgeMs) {
+        for (const shot of job.shots) if (!TERMINAL_SHOT_STATUSES.has(shot.status)) shot.status = "cancelled";
+        job.error = "No companion picked up this job within 24 hours.";
+        finalize(job, "failed", job.error);
+      }
+      return job;
+    }
+    const last = Date.parse(job.claim?.lastActivityAt || job.claim?.claimedAt || job.updatedAt);
+    if (t - last > claimStaleMs) {
+      for (const shot of job.shots) if (!TERMINAL_SHOT_STATUSES.has(shot.status)) shot.status = "cancelled";
+      if (job.cancelRequested) {
+        finalize(job, "cancelled", "Canceled. The companion had stopped responding.");
+      } else {
+        job.error = "The companion stopped responding. Start it again and queue a new job for the missing shots.";
+        finalize(job, "failed", job.error);
+      }
+    }
+    return job;
+  }
+
+  function prune() {
+    if (!existsSync(jobsDir)) return;
+    const ids = readdirSync(jobsDir)
+      .filter((name) => /^job_[a-f0-9]{16}\.json$/.test(name))
+      .map((name) => name.slice(0, -5));
+    if (ids.length <= maxRetained) return;
+    const jobs = ids.map((id) => readJson(jobFile(id), null)).filter(Boolean).sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+    let excess = jobs.length - maxRetained;
+    for (const job of jobs) {
+      if (excess <= 0) break;
+      if (!TERMINAL_JOB_STATUSES.includes(job.status)) continue;
+      rmSync(jobFile(job.id), { force: true });
+      rmSync(planFile(job.id), { force: true });
+      excess -= 1;
+    }
+  }
+
+  /**
+   * Queue a job. `request` is a validated `normalizeJobRequest()` result and
+   * `plan.shots` the shot plan the companion will run (filename, startUrl, steps...).
+   */
+  function create({ target, scope, env = {}, options = {}, plan, createdBy = null }) {
+    const shots = (plan?.shots || []).slice(0, MAX_SHOTS);
+    const id = `job_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    const t = iso();
+    const job = {
+      schema: 1,
+      id,
+      status: "queued",
+      createdAt: t,
+      updatedAt: t,
+      startedAt: null,
+      finishedAt: null,
+      createdBy: createdBy ? cleanText(createdBy, 120) : null,
+      target,
+      scope,
+      options,
+      envNames: Object.keys(env).sort(),
+      claim: null,
+      cancelRequested: false,
+      error: null,
+      result: null,
+      shots: shots.map((shot) => ({
+        filename: shot.filename,
+        shotId: shot.shotId ?? null,
+        featureId: shot.featureId ?? null,
+        product: shot.product ?? null,
+        status: shot.manual ? "manual-required" : "pending",
+        attempts: 0,
+        startedAt: null,
+        finishedAt: null,
+        message: shot.manual ? "This screen is outside the browser. Capture it with an OS screenshot tool and upload it." : null,
+        error: null,
+        verification: null,
+      })),
+      events: [],
+    };
+    job.progress = countShots(job.shots);
+    writeJsonAtomic(planFile(id), { schema: 1, id, env, shots, options });
+    const event = addEvent(job, "queued", `Queued ${shots.length} shot${shots.length === 1 ? "" : "s"}.`);
+    persist(job, event);
+    prune();
+    return summarizeFull(job);
+  }
+
+  function summarizeFull(job) {
+    return { ...job, progress: countShots(job.shots) };
+  }
+
+  function get(id) {
+    const job = readJob(id);
+    return job ? summarizeFull(expireIfStale(job)) : null;
+  }
+
+  /** The shot plan and CAPTURE_* environment, for the companion only. */
+  function getPlan(id) {
+    return isJobId(id) ? readJson(planFile(id), null) : null;
+  }
+
+  function list({ limit = 25, status = null, labId = null } = {}) {
+    if (!existsSync(jobsDir)) return [];
+    const jobs = readdirSync(jobsDir)
+      .filter((name) => /^job_[a-f0-9]{16}\.json$/.test(name))
+      .map((name) => readJob(name.slice(0, -5)))
+      .filter(Boolean)
+      .map(expireIfStale)
+      .filter((job) => (!status || job.status === status) && (!labId || job.target?.labId === labId))
+      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+      .slice(0, Math.max(1, Math.min(200, Number(limit) || 25)));
+    return jobs.map(summarize);
+  }
+
+  /** Counts of jobs waiting and running, for the portal status. */
+  function activity() {
+    const jobs = list({ limit: 200 });
+    return {
+      queued: jobs.filter((j) => j.status === "queued").length,
+      active: jobs.filter((j) => j.status === "claimed" || j.status === "running").length,
+    };
+  }
+
+  /**
+   * Give a device its next job. A device that asks again while it still holds
+   * an unfinished job gets that job back (a restarted companion resumes it).
+   */
+  function claimNext(device) {
+    if (!existsSync(jobsDir)) return null;
+    const all = readdirSync(jobsDir)
+      .filter((name) => /^job_[a-f0-9]{16}\.json$/.test(name))
+      .map((name) => readJob(name.slice(0, -5)))
+      .filter(Boolean)
+      .map(expireIfStale);
+    const resumable = all.find((job) => (job.status === "claimed" || job.status === "running") && job.claim?.deviceId === device.id);
+    let job = resumable;
+    if (!job) {
+      job = all.filter((j) => j.status === "queued").sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))[0];
+      if (!job) return null;
+      job.status = "claimed";
+      job.claim = { deviceId: device.id, deviceName: cleanText(device.name, 80), claimedAt: iso(), lastActivityAt: iso() };
+      persist(job, addEvent(job, "claimed", `Picked up by ${job.claim.deviceName || "a companion"}.`));
+    } else {
+      job.claim.lastActivityAt = iso();
+      persist(job, addEvent(job, "resumed", "The companion resumed this job."));
+    }
+    return { job: summarizeFull(job), plan: getPlan(job.id), resumed: Boolean(resumable) };
+  }
+
+  function ownedBy(job, deviceId) {
+    return Boolean(job && job.claim?.deviceId === deviceId && !TERMINAL_JOB_STATUSES.includes(job.status));
+  }
+
+  /** The companion says what it is doing; this updates one shot and the log. */
+  function reportProgress(id, deviceId, { shot = null, message = null } = {}) {
+    const job = readJob(id);
+    if (!job) return { ok: false, status: 404, error: "Job not found." };
+    expireIfStale(job);
+    if (!ownedBy(job, deviceId)) return { ok: false, status: 409, error: "This job is not assigned to this companion or has already finished." };
+    if (job.status === "claimed") {
+      job.status = "running";
+      job.startedAt = iso();
+    }
+    job.claim.lastActivityAt = iso();
+    let event = null;
+    if (shot && SAFE_FILENAME.test(String(shot.filename || ""))) {
+      const row = job.shots.find((s) => s.filename === shot.filename);
+      const status = SHOT_STATUSES.includes(shot.status) ? shot.status : null;
+      if (row && status) {
+        const wasTerminal = TERMINAL_SHOT_STATUSES.has(row.status);
+        if (!wasTerminal || status === row.status || status === "failed" || status === "auth-required") {
+          row.status = status;
+        }
+        if (status === "running") {
+          row.attempts += 1;
+          row.startedAt = iso();
+        } else if (TERMINAL_SHOT_STATUSES.has(status)) {
+          row.finishedAt = iso();
+        }
+        if (shot.error) row.error = cleanText(shot.error, 400);
+        if (shot.message) row.message = cleanText(shot.message, 300);
+        event = addEvent(job, `shot-${status}`, `${row.filename}: ${cleanText(shot.message || shot.error || status, 300)}`);
+      }
+    }
+    if (message) event = addEvent(job, "info", message);
+    persist(job, event);
+    return { ok: true, cancelRequested: job.cancelRequested, job: summarizeFull(job) };
+  }
+
+  /** Record the outcome of an uploaded image for one shot (`captured`, `needs-review`, or `failed`). */
+  function recordShotResult(id, deviceId, filename, { status, verification = null, message = null, error = null }) {
+    const job = readJob(id);
+    if (!job) return { ok: false, status: 404, error: "Job not found." };
+    expireIfStale(job);
+    if (!ownedBy(job, deviceId)) return { ok: false, status: 409, error: "This job is not assigned to this companion or has already finished." };
+    const row = job.shots.find((s) => s.filename === filename);
+    if (!row) return { ok: false, status: 404, error: "That screenshot is not part of this job." };
+    if (job.status === "claimed") {
+      job.status = "running";
+      job.startedAt = iso();
+    }
+    row.status = status;
+    row.finishedAt = iso();
+    row.verification = verification;
+    row.message = message ? cleanText(message, 300) : null;
+    row.error = error ? cleanText(error, 400) : null;
+    job.claim.lastActivityAt = iso();
+    const event = addEvent(job, `shot-${status}`, `${filename}: ${cleanText(message || error || status, 300)}`);
+    persist(job, event);
+    return { ok: true, cancelRequested: job.cancelRequested, job: summarizeFull(job) };
+  }
+
+  /** A heartbeat from a companion that is working on a job keeps the claim fresh. */
+  function touch(id, deviceId) {
+    const job = readJob(id);
+    if (!ownedBy(job, deviceId)) return { cancelRequested: false };
+    job.claim.lastActivityAt = iso();
+    writeJsonAtomic(jobFile(id), job);
+    return { cancelRequested: job.cancelRequested };
+  }
+
+  /** The companion is done: pick the final state from what happened. */
+  function complete(id, deviceId, summary = {}) {
+    const job = readJob(id);
+    if (!job) return { ok: false, status: 404, error: "Job not found." };
+    expireIfStale(job);
+    if (!ownedBy(job, deviceId)) return { ok: false, status: 409, error: "This job is not assigned to this companion or has already finished." };
+    for (const shot of job.shots) {
+      if (!TERMINAL_SHOT_STATUSES.has(shot.status)) {
+        shot.status = job.cancelRequested ? "cancelled" : "skipped";
+        shot.finishedAt = iso();
+      }
+    }
+    const counts = countShots(job.shots);
+    const good = counts.captured + counts.needsReview;
+    job.result = {
+      ...counts,
+      partial: good > 0 && good < counts.total,
+      message: cleanText(summary.message, 300) || null,
+    };
+    if (job.cancelRequested) finalize(job, "cancelled", "Canceled. The companion stopped between shots.");
+    else if (summary.fatalError) {
+      job.error = cleanText(summary.fatalError, 400);
+      finalize(job, good > 0 ? "done" : "failed", `The companion stopped early: ${job.error}`);
+    } else if (good > 0 || counts.total === 0 || counts.manual === counts.total) {
+      finalize(job, "done", `Finished: ${counts.captured} captured, ${counts.needsReview} need review, ${counts.failed} failed.`);
+    } else {
+      finalize(job, "failed", `Finished with no new screenshots: ${counts.failed} failed.`);
+    }
+    return { ok: true, job: summarizeFull(job) };
+  }
+
+  /** Ask for a job to stop. A queued job stops now; a running one stops between shots. */
+  function cancel(id) {
+    const job = readJob(id);
+    if (!job) return { ok: false, status: 404, error: "Job not found." };
+    expireIfStale(job);
+    if (TERMINAL_JOB_STATUSES.includes(job.status)) return { ok: false, status: 409, error: "This job has already finished.", job: summarizeFull(job) };
+    job.cancelRequested = true;
+    if (job.status === "queued") {
+      for (const shot of job.shots) if (!TERMINAL_SHOT_STATUSES.has(shot.status)) shot.status = "cancelled";
+      finalize(job, "cancelled", "Canceled before a companion picked it up.");
+    } else {
+      persist(job, addEvent(job, "cancel-requested", "Cancel requested. The companion stops after the current shot."));
+    }
+    return { ok: true, job: summarizeFull(job) };
+  }
+
+  /** Subscribe to one job's changes (server-sent events). Returns an unsubscribe function. */
+  function subscribe(id, listener) {
+    emitter.on(id, listener);
+    return () => emitter.off(id, listener);
+  }
+
+  return { create, get, getPlan, list, activity, claimNext, reportProgress, recordShotResult, touch, complete, cancel, subscribe };
+}

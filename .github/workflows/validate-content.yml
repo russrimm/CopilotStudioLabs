@@ -89,7 +89,12 @@ jobs:
           node --check tools/screenshot-capture/feature-shots-check.mjs
           node --check tools/screenshot-capture/manifests.mjs
           node --check tools/screenshot-capture/status.mjs
+          node --check tools/screenshot-capture/companion.mjs
+          node --check tools/screenshot-capture/image-verify.mjs
+          node --check tools/screenshot-capture/redact.mjs
+          node --check tools/screenshot-capture/lab-runner.mjs
           node --check tools/screenshot-capture/test/capture.test.mjs
+          node --check tools/screenshot-capture/test/companion.test.mjs
           node --check tools/feature-tour/build.mjs
           node --check tools/feature-tour/serve.mjs
           for f in tools/feature-tour/lib/*.mjs tools/feature-tour/site/assets/*.js; do node --check "$f"; done

@@ -11,6 +11,65 @@ Interactive Playwright script that helps you capture every screenshot referenced
 
 The script never types into Copilot Studio or configures the agent — you drive sign-in, UI setup, and final shot approval.
 
+## Local Capture Companion (capture from the portal)
+
+The Azure-hosted portal has no browser and no way to sign in to your tenant, so it cannot capture screenshots itself. The **Local Capture Companion** (`companion.mjs`) runs on your own computer instead: the portal queues a capture job, the companion steps through each shot in a headed Chromium window, checks every image, hides account details, and uploads it back. The portal verifies the image again, then updates the lab's HTML, Word, and PowerPoint files and its Microsoft Learn sync state automatically. Paste or upload in the portal is the fallback for any single shot.
+
+### Quick start
+
+1. In the portal, open the Screenshot Center, select **Connect a computer**, and download the companion (or use this folder from the repository). You need Node.js 20 or later.
+2. Run the launcher for your system. It installs what is missing the first time (`npm install` and `npx playwright install chromium`):
+
+   ```powershell
+   .\start-companion.cmd --portal=https://<your-portal> --code=ABCD-EFGH     # Windows (or start-companion.ps1)
+   ```
+
+   ```bash
+   ./start-companion.sh --portal=https://<your-portal> --code=ABCD-EFGH     # macOS and Linux
+   ```
+
+   Or, from the repository: `cd tools/screenshot-capture && npm install && npx playwright install chromium && npm run companion -- --portal=<address> --code=<code>`. Without `--portal` and `--code` it asks for them. The pairing code works once and expires in 10 minutes.
+3. Leave the window open. The portal shows **Companion connected**. Queue a capture there for a lab or for the shared library; the companion picks it up within a few seconds.
+4. The first time a product needs sign-in, a browser window opens. Sign in yourself; the profile is saved in `.auth/<product>/` and reused, so you sign in once per product. If a shot ends on a Microsoft sign-in page, the companion refuses it, tells the portal, and you queue the shot again after signing in.
+
+| Command | What it does |
+| --- | --- |
+| `node companion.mjs` or `--watch` | Keep polling the portal and run queued or stale jobs as they arrive (default). |
+| `node companion.mjs --once [--wait=60]` | Run one queued job, then exit. `--wait` keeps asking for that many seconds before giving up. |
+| `--status` | Show the connection, when the pairing expires, and which products you are signed in to. |
+| `--check` / `--install-browser` | Check this computer is ready (Node, Playwright, Chromium) / install Chromium. |
+| `--callouts=sidecar\|burn\|none` | Numbered callouts: positions saved next to the image (default), drawn on the image, or skipped. |
+| `--mask=Contoso,contoso.com` | Extra text to hide, such as your tenant name. `--no-redact` turns masking off (not recommended). |
+| `--headless` | No visible window. It cannot sign in, so use it only for public pages and automated checks. |
+| `--unpair` | Forget this computer's pairing. Select **Disconnect** in the portal to remove it there too. |
+
+Press Ctrl+C once to stop after the current screenshot; twice to quit now. Canceling a job in the portal also stops the companion between shots.
+
+### Security model
+
+- **Paired, scoped, revocable.** A one-time code is traded for a capture token (`cap_...`). The portal keeps only a hash of the code and the token, compares them in constant time, extends the token while you use it, and lets you disconnect the computer at any time. The token opens only the companion endpoints; it is not a portal sign-in and cannot read or change anything else. A revoked or expired token is refused and the companion tells you to pair again.
+- **Nothing secret in the download or in git.** The portal's download and this folder contain no tokens. The pairing file `.companion.json`, your browser sign-ins (`.auth/`), and in-progress captures (`.captures/`) stay on your computer and are git-ignored. The token is saved with owner-only permissions where the system supports it and is never printed.
+- **Your credentials never leave your computer.** You sign in yourself in a real browser window. Only screenshots, page addresses (without query strings), the page title, and visible control names are sent, and only to the portal you paired with. Portal addresses must be `https` (`http` is allowed for `localhost` only).
+- **It never types into tenant pages and never deletes.** Steps are limited to opening an `https` page, waiting, dismissing banners, and clicking or focusing a labeled control. It skips any control whose name says delete, remove, erase, purge, destroy, disconnect, unregister, revoke, or reset, whatever the portal asks for.
+- **Account details are hidden.** Before each picture it draws a solid block over the account control and over any email address, tenant host name (`*.onmicrosoft.com`, SharePoint admin and personal hosts), or `--mask` term on the page, then removes the blocks. Text sent to the portal as evidence is scrubbed the same way. Always look at a screenshot before you publish it.
+- **Verified twice.** Both the companion and the portal check magic bytes (PNG, JPEG, WebP), size (5 KB to 8 MB), dimensions, blank or sign-in pages, and a match with the expected control names. The portal never trusts what the companion reports for a security decision.
+- **Tenant addresses.** A job can carry `CAPTURE_*` addresses (https only) for your tenant, for example from the lab's brand profile. They override same-named variables on your computer for that job only.
+
+### Troubleshooting
+
+| What you see | What to do |
+| --- | --- |
+| `The Playwright package is not installed` or `The Chromium browser is not installed` | In this folder run `npm install` then `npx playwright install chromium`, or run with `--install-browser`. |
+| `Node.js 20 or later is required` | Install a current Node.js LTS from nodejs.org. |
+| `Cannot reach the portal at ...` | Check your internet connection or VPN and the portal address. In watch mode the companion keeps trying and backs off up to a minute. |
+| `That pairing code is not valid` or `expired` | Select **Connect a computer** in the portal for a new code. Codes work once and last 10 minutes. Several wrong codes in a row pause pairing for a few minutes. |
+| `This computer was disconnected in the portal` or `connection expired` | Pair again with a new code. The old token is deleted from `.companion.json`. |
+| A shot says you were not signed in | Sign in in the browser window the companion opened (it waits up to 10 minutes, `--sign-in-wait`), then queue the shot again. |
+| `The picture came out blank` | The page did not finish loading. The companion retries once; if it still fails, make sure the page opens for your account, then queue it again. |
+| A shot is `skipped` and names a `CAPTURE_...` variable | That screen needs your tenant address. Add it to the job (or set the variable on this computer) and queue it again. |
+| A shot is `manual` | It is outside the browser (a terminal or Visual Studio Code). Capture it with an OS screenshot tool and upload it in the portal. |
+| The portal shows a shot as `needs review` | The image passed the hard checks but has a warning (for example, few expected labels were visible). Look at it in the portal, then accept it or retake it. |
+
 ## One-time setup
 
 ```powershell
@@ -137,7 +196,7 @@ Public sign-in and portal addresses come from Microsoft Learn and live in [`tool
 
 ## Notes
 
-- Login state is stored in `tools/screenshot-capture/.auth/` (feature tour: `.auth/<product>/`). That directory is git-ignored — never commit it. The first Copilot Studio feature tour run after upgrading asks you to sign in again, because it now uses `.auth/copilot-studio/`.
+- Login state is stored in `tools/screenshot-capture/.auth/` (feature tour: `.auth/<product>/`). That directory is git-ignored — never commit it. The Local Capture Companion uses the same folder, so a sign-in made with either tool works for both. Its pairing file `.companion.json` and `.captures/` are git-ignored too. The first Copilot Studio feature tour run after upgrading asks you to sign in again, because it now uses `.auth/copilot-studio/`.
 - PNGs land directly in `labs/06-energy-weather-agent/assets/` with filenames declared in `shots.json`.
 - The default manifest is currently configured for Lab 06. Use `--manifest=<path>` for another lab instead of rewriting the default catalog.
 - Tests (`node --test "test/*.test.mjs"`) are hermetic: they run `--dry-run` and use temporary fixture images, so they need neither Playwright nor a tenant.

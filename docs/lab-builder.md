@@ -1232,8 +1232,9 @@ screenshot a well-written lab would show gets a slot instead:
   Markdown never has to change. The portal preview reads the files on disk each
   time and adds a visible "Screenshot pending." note after every image that is
   still a placeholder.
-- **Captured slots.** Screenshots captured for the feature tour (all six products)
-  land in `docs/feature-tour/screenshots/` under the catalog's filenames. When a
+- **Captured slots.** Screenshots captured for the feature tour (all six products) land in the shared
+  library (`docs/feature-tour/screenshots/`, or the persistent `screenshots/` storage folder in the
+  portal; see [Screenshot Center](#screenshot-center-the-local-capture-companion-and-paste-or-upload)) under the catalog's filenames. When a
   slot's file exists there as a real image (5 KB or more, the right file type), the
   generator copies it into the lab's `assets/` folder instead of the placeholder, marks
   the slot `captured` in `shots.json`, and leaves it off `SHOTLIST.md`; every other
@@ -1273,6 +1274,94 @@ The portal's result view renders the generated lab as HTML (images served from
 `/api/lab-builder/generated/:labId/assets/:file`, which only serves PNG, JPEG, GIF,
 and WebP files inside the lab's own `assets` folder) with the Markdown source one
 click away.
+
+#### Screenshot Center: the Local Capture Companion, and paste or upload
+
+The Azure-hosted portal cannot capture a tenant screenshot itself: its container has
+no browser and no way to sign in to your Microsoft 365 tenant, and it must never hold
+your credentials. Capture therefore runs on **your own computer**:
+
+```text
+ portal (Azure)                                    your computer
+ ───────────────                                   ─────────────
+ Screenshot Center  ── queues a capture job ──►    Local Capture Companion
+   job queue, progress, cancel                       headed Chromium, one saved sign-in per product
+   verification + accept/retake  ◄── images ───      hides account details, checks each image
+   updates HTML, Word, PowerPoint                    reports progress, stops when you cancel
+```
+
+1. **Connect once.** In the portal, ask for a pairing code (`POST /api/capture/pair`). It
+   works one time and expires in 10 minutes. Download the companion
+   (`GET /api/capture/companion.zip`; it holds no secrets), run its launcher, and enter the
+   portal address and the code. The companion trades the code for a scoped capture token
+   (`cap_...`) that only opens the companion endpoints. The portal stores a hash of it,
+   shows the computer as **Companion connected** while it checks in, and lets you
+   **Disconnect** it at any time (`DELETE /api/capture/devices/:id`).
+2. **Sign in once per product.** The first shot for a product opens a browser window; sign in
+   yourself. The profile is saved on your computer in `.auth/<product>/`, so later runs
+   need no sign-in. The companion never types into tenant pages.
+3. **Queue a job** (`POST /api/capture/jobs`) for one lab or for the shared library, choosing
+   `missing`, `stale`, `all`, or `selected` shots. The companion picks it up, steps through
+   each shot, and uploads the result. Progress, per-shot status, and a cancel button come from
+   the job (`GET /api/capture/jobs/:id`, or the `.../events` stream).
+4. **Every image is verified twice**, on your computer and again on the portal:
+
+   | Check | Result |
+   |---|---|
+   | Magic bytes are PNG, JPEG, or WebP (never trusting the file name or `Content-Type`); SVG and HTML are rejected even when named `.png` | fail |
+   | File name is on the slot allowlist (letters, digits, `.`, `-`, `_`) and the extension matches the bytes | fail |
+   | At most 8 MB, at least 5 KB, between 200 x 120 and 10000 x 10000 pixels, no corrupt data or trailing bytes | fail |
+   | Blank or single-color image (a page that never loaded) | fail; "almost one color" is a warning |
+   | The companion reported a Microsoft sign-in address (`login.microsoftonline.com`, `login.live.com`, `login.windows.net`), a sign-in page title, or sign-in text | fail |
+   | Fewer than a third of the expected UI labels are visible | warning |
+   | The companion did not report masking account details | warning |
+
+   Anything the companion reports (address, title, visible text) can only add a failure or a
+   warning, never remove one, and never chooses a file name or destination. A **fail** is
+   rejected and nothing is written. A **warning** is saved for review: you look at it
+   (`GET .../screenshots/:filename/staged`) and **Accept** it (`POST .../accept`) or retake it.
+   A **pass** is committed at once.
+5. **Account details are hidden before the picture.** The companion draws a solid block over the
+   account control and over any email address or tenant name on the page, takes the screenshot,
+   and removes the blocks. Add your own terms with `--mask=`. Numbered callouts are saved as
+   positions next to the image (`<name>.callouts.json`), or drawn on the image with
+   `--callouts=burn`.
+6. **The lab updates itself.** Committing an image clears the shot's stale flag, marks the module
+   up to date when all its shots are fresh, recomputes the lab's Learn sync status, and
+   regenerates `index.html`, the Word and PowerPoint files, and `manifest.json`.
+
+**Paste or upload is the universal fallback.** Any image can be sent straight to a slot with the
+same verification and the same refresh (`PUT /api/lab-builder/generated/:labId/screenshots/:filename`,
+raw image bytes or multipart). Add `?acceptWarnings=true` to use an image despite warnings.
+`DELETE` on the same route resets the slot to the "Screenshot pending" placeholder so you can
+retake it.
+
+**The shared library persists.** Captured images for the feature tour (all six products) go to one
+shared library that every lab reads: `FEATURE_TOUR_SCREENSHOTS_DIR` when set (exclusive), else
+`${PORTAL_STORAGE_ROOT}/screenshots` (mirrored to Azure Blob like the other storage), else the
+baked `docs/feature-tour/screenshots`. Reads check the persistent folder first and then the baked
+one, so an image captured once serves every lab, including labs generated earlier. Queue a job with
+`target: { "type": "library" }` to capture feature tour shots this way.
+
+**Honest freshness.** `GET .../screenshots` reports `checkState`: `not-checked` until the lab has
+been re-validated against Microsoft Learn (`lastRevalidatedAt` is `null`), then `up-to-date`, or
+`docs-updated` when Microsoft Learn changed. A lab nobody has checked is never shown as up to date.
+
+**Tenant addresses.** A job can carry an `env` map of `CAPTURE_*` variables (https URLs only, no
+credentials) for tenant-specific screens, such as `CAPTURE_SHAREPOINT_SITE_URL`. Names outside
+`CAPTURE_*` and any non-https value are rejected. The addresses can also come from a brand profile
+(`brandProfileId`) or from the lab's own brand customization, so a lab built with a brand profile
+captures against that tenant with no extra input. The addresses go only to the companion that claims the job.
+
+**Older paths still work.** `POST .../screenshots/capture` and `captureScreenshots` on `generate` keep
+working for a server that has a browser and for the CLI (`node tools/screenshot-capture/capture.js
+--generated-lab=<id>`). When the server has no browser they return a structured `companion` result
+(`queued`, `connected`, `jobId`, `message`, `downloadUrl`) next to the CLI command. `generate` with
+`captureScreenshots` never waits for a sign-in: it returns `captureQueued: true` and a `captureJobId`
+when a companion is connected, and `captureQueued: false` with a `captureReason` otherwise.
+
+See [`tools/screenshot-capture/README.md`](../tools/screenshot-capture/README.md) for the companion's quick
+start, security model, and troubleshooting, and the [Screenshot capture API](#screenshot-capture-api) for every route.
 
 ### 7. Composition and validation
 
@@ -1696,7 +1785,8 @@ start other workflows, so close and reopen the pull request to run checks on it.
 All routes sit under `/api/lab-builder` and follow the portal's normal auth rules:
 every call needs an Entra ID bearer token (the CLI does not use these routes, which
 is why it needs no sign-in). For local development without Entra, set
-`PORTAL_AUTH_DISABLED=true`; never do that outside a development machine.
+`PORTAL_AUTH_DISABLED=true`; never do that outside a development machine. The Screenshot Center
+routes under `/api/capture` are documented in [Screenshot capture API](#screenshot-capture-api).
 
 Limits, all configurable by environment variable:
 
@@ -1811,6 +1901,139 @@ Resuming is stateless: the client re-POSTs the same body with the accumulated
 `decisions`. The server holds nothing between requests, so there is no pending
 session to expire and no capability token to leak. An unknown blocker code or
 option id is rejected with HTTP 400.
+
+---
+
+## Screenshot capture API
+
+The Screenshot Center routes live in `portal/lib/capture/routes.js`, registered once from `portal/server.js`.
+Browser-facing routes follow the portal's normal rules (Entra sign-in, rate limits). **Only** the six
+`/api/capture/companion/...` routes skip Entra sign-in: they require a capture token
+(`Authorization: Bearer cap_...`) and a token opens nothing else. Limits: JSON bodies 64 KB
+(`LAB_BUILDER_BODY_LIMIT`), images 8 MB; job changes, disconnecting a computer, and resets share the
+lab-management limit (60 per hour); pairing codes 20 per hour (`CAPTURE_PAIR_RATE_MAX`); uploads 600 per
+hour (`CAPTURE_UPLOAD_RATE_MAX`); pairing attempts 10 per 10 minutes per address
+(`CAPTURE_EXCHANGE_RATE_MAX`). Every mutating route triggers the Azure Blob write-through sync. Jobs and
+paired devices are stored under `<data dir>/capture/` and are not shared between portal instances.
+
+Browser-facing:
+
+| Method | Route | Purpose |
+|---|---|---|
+| `POST` | `/api/capture/pair` | A one-time pairing code, valid 10 minutes: `{ code: "ABCD-EFGH", expiresAt, expiresInSec, portalUrl, command }`. |
+| `GET` | `/api/capture/status` | What the Screenshot Center needs to decide what to offer (below). |
+| `GET` | `/api/capture/devices` | Paired computers: `{ devices: [{ id, name, platform, companionVersion, createdAt, lastSeenAt, connected, busy, signedInProducts, expiresAt, tokenHint }] }`. |
+| `DELETE` | `/api/capture/devices/:id` | Disconnect a computer. Its token stops working at once. |
+| `POST` | `/api/capture/jobs` | Queue a job (below). 201 with the job, 200 with `existing: true` when the same capture is already queued or running, or 200 with `nothingToCapture: true`. |
+| `GET` | `/api/capture/jobs` | Recent jobs as summaries (no `shots` or `events`). Query: `limit` (max 200), `status`, `labId`. |
+| `GET` | `/api/capture/jobs/:id` | One job with per-shot status and the event log. Poll this. |
+| `GET` | `/api/capture/jobs/:id/events` | Server-sent events: `snapshot`, then `update` for each change, then `end`. Polling works just as well. |
+| `POST` | `/api/capture/jobs/:id/cancel` | Cancel. A queued job stops now; a running job stops after the current shot. 409 when already finished. |
+| `GET` | `/api/capture/companion.zip` | The companion download. An allowlist of files, no secrets or tokens. |
+| `GET` | `/api/capture/library` | Shared library slots: `{ summary: { total, captured, missing, needsReview }, shots: [{ product, feature, filename, captured, bytes, manual, verification, needsReview }] }`. Query `products=a,b`. |
+| `PUT` | `.../screenshots/:filename` | Paste or upload an image: raw bytes (`image/png`, `image/jpeg`, `image/webp`, or `application/octet-stream`) or multipart (`file`, optional `evidence` and `callouts` JSON). `?acceptWarnings=true` commits despite warnings. |
+| `GET` | `.../screenshots/:filename/staged` | The image waiting for review. |
+| `POST` | `.../screenshots/:filename/accept` | Commit the staged image. |
+| `DELETE` | `.../screenshots/:filename` | Discard a staged image, or reset the slot to the placeholder for a retake. |
+
+`...` is `/api/lab-builder/generated/:labId` (also `/api/generated-labs/:labId`) for a lab, or
+`/api/capture/library` for the shared library. The filename must be a screenshot slot of that lab or library.
+
+A job request:
+
+```jsonc
+{
+  "target": { "type": "lab", "labId": "my-lab" },        // or { "type": "library", "products": ["sharepoint-ai"] }
+  "scope": "missing",                                     // missing | stale | all | selected, or { "mode": "selected", "filenames": [...], "featureIds": [...] }
+  "env": { "CAPTURE_SHAREPOINT_SITE_URL": "https://contoso.sharepoint.com/sites/x" },   // optional; https only
+  "brandProfileId": "contoso",                            // optional: use that brand profile's tenant addresses
+  "useLabCustomization": true,                            // optional, default true: a lab built with a brand profile uses its addresses; false ignores them
+  "options": { "callouts": "sidecar", "redact": true, "maskTerms": ["Contoso"] }          // callouts: sidecar | burn | none
+}
+```
+
+The tenant addresses of a job come from `brandProfileId` (or, for a lab target, the lab's own brand customization), built
+with `buildCaptureEnv` in `portal/lib/branding-profiles.js`; anything in `env` wins per variable. The response says where they
+came from in `envSource` (`profile`, `lab`, `request`, `profile+request`, `lab+request`, or `null`). Two jobs for the same lab and
+shots but different addresses are different jobs.
+
+A job (`env` values are never returned to the browser, only `envNames`):
+
+```jsonc
+{
+  "id": "job_0123456789abcdef", "status": "running",       // queued | claimed | running | done | failed | cancelled
+  "createdAt": "…", "startedAt": "…", "finishedAt": null, "createdBy": "user@contoso.com",
+  "target": { "type": "lab", "labId": "my-lab" }, "scope": { "mode": "missing", "filenames": [], "featureIds": [] },
+  "options": { "callouts": "sidecar", "redact": true, "maskTerms": [] }, "envNames": ["CAPTURE_SHAREPOINT_SITE_URL"],
+  "claim": { "deviceId": "dev_…", "deviceName": "Ada PC", "claimedAt": "…", "lastActivityAt": "…" },
+  "cancelRequested": false, "error": null,
+  "progress": { "total": 12, "done": 5, "captured": 4, "needsReview": 1, "failed": 0, "manual": 0, "skipped": 0, "running": 1, "pending": 6, "percent": 42 },
+  "shots": [ { "filename": "…png", "shotId": "…", "featureId": "…", "product": "…",
+               "status": "captured",                       // pending | running | captured | needs-review | failed | auth-required | manual-required | skipped | cancelled
+               "attempts": 1, "startedAt": "…", "finishedAt": "…", "message": null, "error": null, "verification": { … } } ],
+  "events": [ { "at": "…", "type": "shot-captured", "message": "…png: Captured and verified." } ],
+  "result": null                                           // set when finished: the counts, `partial`, and the companion's message
+}
+```
+
+`GET /api/capture/status`:
+
+```jsonc
+{
+  "companion": { "connected": true, "lastSeenAt": "…", "connectedCount": 1, "deviceCount": 1, "busy": false,
+                 "signedInProducts": ["copilot-studio"], "devices": [ … ], "downloadUrl": "/api/capture/companion.zip", "onlineWindowSec": 90 },
+  "serverBrowser": { "available": false, "playwrightInstalled": false, "chromiumInstalled": false, "note": "…" },
+  "tenantUrls": { "set": false, "names": [] },             // CAPTURE_* variables set on the server (names only)
+  "sharedLibrary": { "location": "persistent",             // persistent | explicit | baked
+                     "persistent": true, "storage": { "persistent": true, "backend": "azure-blob", "writable": true, "blobSyncEnabled": true },
+                     "total": 325, "captured": 12, "missing": 313, "needsReview": 0 },
+  "jobs": { "queued": 0, "active": 1 },
+  "pairing": { "codeTtlSec": 600 },
+  "limits": { "maxUploadBytes": 8388608, "acceptedTypes": ["image/png", "image/jpeg", "image/webp"] }
+}
+```
+
+An upload answers with `outcome` and the verification result. 200 is `accepted` (with a refreshed `state` for
+a lab), 202 is `needs-review`, 422 is `rejected`, 404 is a name that is not a slot, 413 a body over the limit, and 415 an
+unsupported type:
+
+```jsonc
+{ "outcome": "needs-review", "filename": "…png",
+  "verification": { "ok": true, "level": "warn",           // pass | warn | fail
+                    "reasons": [ { "code": "near-uniform", "level": "warn", "message": "…" } ],
+                    "format": "png", "width": 1440, "height": 900, "bytes": 123456, "sha256": "…",
+                    "analysis": { "dominantFraction": 0.98 }, "labels": { "expected": 3, "matched": 1, "score": 0.33, "missing": [ … ] },
+                    "finalUrl": "https://…/path", "pageTitle": "…", "redaction": { "applied": true, "masked": 2 }, "checkedAt": "…" } }
+```
+
+Reason codes: `bad-filename`, `bad-signature`, `extension-mismatch`, `empty`, `too-large`, `too-small`, `corrupt`, `truncated`,
+`trailing-data`, `embedded-markup`, `dimensions-small`, `dimensions-large`, `blank`, `near-uniform`, `not-analyzed`,
+`sign-in-page`, `not-a-web-page`, `labels-missing`, `not-redacted`, `no-page-address`, `no-evidence`.
+
+`GET .../screenshots` (and every capture or revalidate result's `state`) now also carries:
+
+```jsonc
+{ "checkState": "not-checked",                             // not-checked | up-to-date | docs-updated (also in summary.checkState)
+  "captureCapabilities": { "companionConnected": true, "companionLastSeenAt": "…", "serverBrowserAvailable": false,
+                           "tenantUrlsSet": false, "signedInProducts": ["copilot-studio"] },
+  "summary": { …, "needsReview": 0 },
+  "shots": [ { …, "checkState": "not-checked", "captureSource": "companion", "needsReview": false,
+               "verification": { …the summary above plus "state": "accepted" | "needs-review", "source", "jobId" } } ],
+  "modules": [ { …, "checkState": "up-to-date" } ] }
+```
+
+Companion routes (capture token; `pair` needs no token, only the code):
+
+| Method | Route | Purpose |
+|---|---|---|
+| `POST` | `/api/capture/companion/pair` | `{ code, deviceName, platform, companionVersion }` returns `{ token, device }` once. 401 `pair-invalid`, `pair-expired`; 429 after repeated wrong codes. |
+| `POST` | `/api/capture/companion/heartbeat` | `{ signedInProducts, busy, jobId?, companionVersion }` returns `{ ok, cancelRequested, tokenExpiresAt }`. |
+| `GET` | `/api/capture/companion/next` | Claim the next job: `{ job: { id, target, scope, options, resumed }, env, shots: [{ filename, shotId, featureId, product, authProfile, startUrl, urlEnv, requiresEnv, manual, viewport, steps, callouts, expectedLabels }] }`, or 204. A companion that asks again while it holds a job gets that job back. |
+| `POST` | `/api/capture/companion/jobs/:id/progress` | `{ shot: { filename, status, message, error }, message }` returns `{ ok, cancelRequested }`. |
+| `PUT` | `/api/capture/companion/jobs/:id/shots/:filename` | The image (multipart `file`, `evidence`, `callouts`, or raw with an `X-Capture-Evidence` header holding base64url JSON under 8 KB). Same answers as a paste, plus `cancelRequested`. |
+| `POST` | `/api/capture/companion/jobs/:id/complete` | `{ message, fatalError? }` ends the job as `done`, `failed`, or `cancelled` and refreshes the lab's files. |
+
+A token failure is 401 with `code` `token-missing`, `token-invalid`, `token-expired`, or `token-revoked`.
 
 ---
 
@@ -1950,16 +2173,19 @@ By default in local development, the portal stores generated labs under `generat
 
 In Azure Container Apps (`infra/main.bicep`), `infra/modules/storage.bicep` provisions an SFI-compliant StorageV2 account (`Standard_LRS`, TLS 1.2+, HTTPS-only, `allowSharedKeyAccess: false`, `allowBlobPublicAccess: false`, `publicNetworkAccess: 'SecuredByPerimeter'`) with a private Blob container (`portalstate`), a Network Security Perimeter (`nsp-<token>`, `defaultProfile`, same-subscription `allow-same-subscription` Inbound access rule, and `storage-assoc` in `Learning` mode), and passwordless Microsoft Entra Managed Identity RBAC (`Storage Blob Data Contributor`). No storage account keys or SMB `AzureFile` mounts are used.
 
-When `AZURE_STORAGE_BLOB_ENDPOINT` is set, `portal/lib/blob-persistence.js` hydrates `generated-labs/`, `data/`, and `uploads/` into `PORTAL_STORAGE_ROOT` (`/app/portal-storage`, pre-created and owned by `node:node` in `portal/Dockerfile`) before the server starts listening, and coalesces mutating `/api` writes (`POST`, `PUT`, `PATCH`, `DELETE`) back to Azure Blob Storage in the background using Managed Identity bearer tokens (`IDENTITY_ENDPOINT` in Container Apps or Azure IMDS). If Azure RBAC is still propagating on first boot, startup proceeds non-fatally and never deletes pre-existing remote blobs while unhydrated.
+When `AZURE_STORAGE_BLOB_ENDPOINT` is set, `portal/lib/blob-persistence.js` hydrates `generated-labs/`, `data/`, `uploads/`, and `screenshots/` into `PORTAL_STORAGE_ROOT` (`/app/portal-storage`, pre-created and owned by `node:node` in `portal/Dockerfile`) before the server starts listening, and coalesces mutating `/api` writes (`POST`, `PUT`, `PATCH`, `DELETE`) back to Azure Blob Storage in the background using Managed Identity bearer tokens (`IDENTITY_ENDPOINT` in Container Apps or Azure IMDS). If Azure RBAC is still propagating on first boot, startup proceeds non-fatally and never deletes pre-existing remote blobs while unhydrated.
+
+The `screenshots/` prefix is the **shared captured-screenshot library**: images captured by the Local Capture Companion or pasted into the Screenshot Center are written to `<PORTAL_STORAGE_ROOT>/screenshots/` and mirrored like every other prefix, so they survive restarts and new revisions and serve every lab. Screenshot capture jobs and paired computers live under `data/capture/`. The library resolves in this order: `FEATURE_TOUR_SCREENSHOTS_DIR` (exclusive, for previews and tests), then `<PORTAL_STORAGE_ROOT>/screenshots`, then the baked `docs/feature-tour/screenshots` committed with the image. Reads search the persistent folder first and then the baked one. `/healthz` and `/api/config` stay path-free.
 
 Storage paths and path-free diagnostics (`GET /healthz` and `GET /api/config`, including `storage.blobSync`) are resolved centrally in `portal/lib/storage-config.js`:
 
 | Environment variable | Default fallback | Purpose |
 |---|---|---|
-| `PORTAL_STORAGE_ROOT` | *(unset)* | Shared local mirror or volume root (for example `/app/portal-storage` in Container Apps or `/mnt/portal-storage` for custom Docker volumes). Redirects generated labs, data, and uploads under `<root>/generated-labs`, `<root>/data`, and `<root>/uploads` unless overridden individually. |
+| `PORTAL_STORAGE_ROOT` | *(unset)* | Shared local mirror or volume root (for example `/app/portal-storage` in Container Apps or `/mnt/portal-storage` for custom Docker volumes). Redirects generated labs, data, uploads, and the shared screenshot library under `<root>/generated-labs`, `<root>/data`, `<root>/uploads`, and `<root>/screenshots` unless overridden individually. |
 | `PORTAL_STORAGE_BACKEND` | Auto-detected (`azure-blob`, `azure-files`, `custom-volume`, or `local-disk`) | Explicit backend label surfaced in path-free storage diagnostics (`GET /healthz` and `GET /api/config`). |
 | `AZURE_STORAGE_BLOB_ENDPOINT` | *(unset)* | Primary HTTPS Blob service endpoint (for example `https://<account>.blob.core.windows.net/`). Enables passwordless Managed Identity Blob hydration and write-through sync. |
-| `AZURE_STORAGE_BLOB_CONTAINER` | `portalstate` | Private Azure Blob container used to persist `generated-labs/`, `data/`, and `uploads/`. |
+| `AZURE_STORAGE_BLOB_CONTAINER` | `portalstate` | Private Azure Blob container used to persist `generated-labs/`, `data/`, `uploads/`, and `screenshots/`. |
+| `FEATURE_TOUR_SCREENSHOTS_DIR` | `${PORTAL_STORAGE_ROOT}/screenshots` or `docs/feature-tour/screenshots/` | The shared captured-screenshot library. When set it is used on its own (nothing else is searched); otherwise the persistent folder is searched first and the baked `docs/feature-tour/screenshots` second. Mirrored to Azure Blob under the `screenshots/` prefix. |
 | `AZURE_CLIENT_ID` | *(unset)* | User-Assigned Managed Identity client ID passed to `IDENTITY_ENDPOINT` / IMDS when acquiring `https://storage.azure.com/` tokens (also used as fallback Entra client ID when configured). |
 | `LAB_BUILDER_OUTPUT_DIR` | `${PORTAL_STORAGE_ROOT}/generated-labs` or `generated-labs/` | Directory where generated labs are written and served. |
 | `PORTAL_DATA_DIR` | `${PORTAL_STORAGE_ROOT}/data` or `portal/data/` | Directory for mutable portal JSON state and `lab-builder/topics-cache.json` (when `LAB_BUILDER_TOPICS_CACHE` is unset). |

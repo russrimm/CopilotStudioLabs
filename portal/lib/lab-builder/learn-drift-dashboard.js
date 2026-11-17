@@ -17,7 +17,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
-import { capturedScreenshotsDir, resolveLabScreenshot } from "./captured.js";
+import { capturedScreenshotsDirs, resolveLabScreenshot } from "./captured.js";
 import { getFeature } from "./catalog.js";
 import { listGeneratedLabs } from "./generated-labs.js";
 import { revalidateLabAgainstLearn } from "./lab-screenshots.js";
@@ -228,7 +228,7 @@ export function summarizeLabLearnDrift(rootDir, labId, manifest = null) {
 
   let missingScreenshotCount = 0;
   if (labDir && Array.isArray(shotsPlan?.shots)) {
-    const capturedDir = capturedScreenshotsDir();
+    const capturedDir = capturedScreenshotsDirs();
     missingScreenshotCount = shotsPlan.shots.filter(
       (shot) => !resolveLabScreenshot(labDir, shot?.filename, { capturedDir }),
     ).length;

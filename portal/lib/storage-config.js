@@ -2,8 +2,9 @@
  * Centralized storage path resolution and diagnostics for the portal.
  *
  * Keeps generated labs, portal JSON state (`branding.json`, approvals,
- * agent-chat config, feedback, Learn topics cache), and uploaded branding
- * assets under `PORTAL_STORAGE_ROOT` (mirrored to Azure Blob Storage via
+ * agent-chat config, feedback, Learn topics cache, screenshot capture jobs and
+ * paired devices), uploaded branding assets, and the shared captured-screenshot
+ * library under `PORTAL_STORAGE_ROOT` (mirrored to Azure Blob Storage via
  * passwordless Managed Identity in Container Apps, or on a persistent volume)
  * when configured, while falling back to the repository's local layout for
  * offline CLI runs and local development.
@@ -80,6 +81,32 @@ export function resolvePortalUploadsDir(env = process.env) {
   return storageRoot ? resolve(storageRoot, "uploads") : resolve(PORTAL_ROOT, "public", "uploads");
 }
 
+/** The feature tour's committed screenshots, baked into the container image. Read-only in production. */
+export const BAKED_CAPTURED_SCREENSHOTS_DIR = resolve(REPO_ROOT, "docs", "feature-tour", "screenshots");
+
+/**
+ * Resolve where the shared captured-screenshot library is written.
+ * Precedence: `FEATURE_TOUR_SCREENSHOTS_DIR` -> `${PORTAL_STORAGE_ROOT}/screenshots`
+ * -> the baked `docs/feature-tour/screenshots`.
+ */
+export function resolveCapturedScreenshotsDir(env = process.env) {
+  const explicit = trimEnv(env?.FEATURE_TOUR_SCREENSHOTS_DIR);
+  if (explicit) return resolve(explicit);
+  const storageRoot = trimEnv(env?.PORTAL_STORAGE_ROOT);
+  return storageRoot ? resolve(storageRoot, "screenshots") : BAKED_CAPTURED_SCREENSHOTS_DIR;
+}
+
+/**
+ * Every folder a captured screenshot may be read from, best first. An explicit
+ * `FEATURE_TOUR_SCREENSHOTS_DIR` is exclusive (previews and tests stay isolated);
+ * otherwise the persistent folder wins and the baked folder is the fallback.
+ */
+export function resolveCapturedScreenshotsSearchDirs(env = process.env) {
+  const primary = resolveCapturedScreenshotsDir(env);
+  if (trimEnv(env?.FEATURE_TOUR_SCREENSHOTS_DIR)) return [primary];
+  return primary === BAKED_CAPTURED_SCREENSHOTS_DIR ? [primary] : [primary, BAKED_CAPTURED_SCREENSHOTS_DIR];
+}
+
 function probeDirWriteReadiness(dirPath) {
   let probePath = null;
   try {
@@ -129,7 +156,10 @@ export function ensurePortalStorageDirs(env = process.env) {
   const dataDir = resolvePortalDataDir(env);
   const labBuilderDataDir = resolve(dataDir, "lab-builder");
   const uploadsDir = resolvePortalUploadsDir(env);
+  const screenshotsDir = resolveCapturedScreenshotsDir(env);
   const requiredDirs = [generatedLabsDir, dataDir, labBuilderDataDir, uploadsDir];
+  // The baked library is committed and read-only in the image; only a persistent or explicit one must be writable.
+  if (screenshotsDir !== BAKED_CAPTURED_SCREENSHOTS_DIR) requiredDirs.push(screenshotsDir);
 
   let writable = true;
   for (const dir of requiredDirs) {
@@ -148,6 +178,7 @@ export function ensurePortalStorageDirs(env = process.env) {
     dataDir,
     labBuilderDataDir,
     uploadsDir,
+    screenshotsDir,
     writable,
   };
 }
@@ -245,10 +276,12 @@ function resolveBlobSyncDiagnostics(env, backend) {
  */
 export function getStorageDiagnostics(env = process.env) {
   const backend = resolveStorageBackend(env);
+  const screenshotsDir = resolveCapturedScreenshotsDir(env);
   const writable = [
     resolveGeneratedLabsDir(env),
     resolvePortalDataDir(env),
     resolvePortalUploadsDir(env),
+    ...(screenshotsDir === BAKED_CAPTURED_SCREENSHOTS_DIR ? [] : [screenshotsDir]),
   ].every((dir) => isTargetDirWritable(dir));
 
   return {

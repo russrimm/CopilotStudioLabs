@@ -43,7 +43,9 @@ The build reads the screenshots folder. A shot counts as captured when its file 
 
 ### Captured images reach generated labs automatically
 
-A lab built with the lab builder (portal or `npm run build-lab`) uses the same filenames for its screenshot slots. When a slot's file exists in `docs/feature-tour/screenshots/` as a real image, the generator copies it into the lab's `assets/` folder instead of writing the "Screenshot pending" placeholder; every other slot keeps the placeholder. The lab's Markdown, alt text, and caption are the same either way, so nothing needs editing when an image arrives. The portal's lab preview also shows a captured image for a lab generated earlier, the next time the lab is opened. Set `FEATURE_TOUR_SCREENSHOTS_DIR` to read captures from another folder.
+A lab built with the lab builder (portal or `npm run build-lab`) uses the same filenames for its screenshot slots. When a slot's file exists in the shared library as a real image, the generator copies it into the lab's `assets/` folder instead of writing the "Screenshot pending" placeholder; every other slot keeps the placeholder. The lab's Markdown, alt text, and caption are the same either way, so nothing needs editing when an image arrives. The portal's lab preview also shows a captured image for a lab generated earlier, the next time the lab is opened.
+
+The shared library resolves in this order: `FEATURE_TOUR_SCREENSHOTS_DIR` (used on its own when set), then the portal's persistent `screenshots/` storage folder (`${PORTAL_STORAGE_ROOT}/screenshots`, mirrored to Azure Blob so captures survive restarts), then the committed `docs/feature-tour/screenshots/`. Reads check the persistent folder first and the committed folder second, so an image captured once serves every lab. In the portal, the **Local Capture Companion** and the Screenshot Center write to the persistent folder; the command-line tool writes to `docs/feature-tour/screenshots/` so you can commit the images.
 
 ## One-time setup: enable GitHub Pages
 
@@ -103,6 +105,10 @@ A Copilot Studio feature with no shot anywhere still gets a default slot (`<id>-
 ## Capture the real screenshots
 
 Capturing needs you, because it signs in to your own tenants. The tool never stores credentials in the repository; each browser profile lives in the git-ignored `tools/screenshot-capture/.auth/<product>` folder. Use test tenants and test environments, never production, and never show real customer data, tenant names, user names, or secrets in a screenshot.
+
+### Capture from the portal with the Local Capture Companion
+
+The Azure-hosted portal has no browser and cannot sign in to your tenant, so it never captures on its own. Instead, run the **Local Capture Companion** on your own computer (download it from the portal, or use `npm run companion` in `tools/screenshot-capture`). Pair it once with a code from the portal, sign in once per product in the browser window it opens, and then queue a **shared library** job in the portal for any product, section, or feature. The companion captures each shot with the same steps and callouts as the command-line tool, hides account details first, verifies every image, and uploads it to the portal's persistent shared library, where every lab picks it up. Paste or upload works for any single shot, including the manual ones (terminals and Visual Studio Code). See [`tools/screenshot-capture/README.md`](../tools/screenshot-capture/README.md) for the quick start, security model, and troubleshooting, and [Lab Builder: Screenshot Center](lab-builder.md#screenshot-center-the-local-capture-companion-and-paste-or-upload) for the details. The command-line tool below still works and writes to `docs/feature-tour/screenshots/` so you can commit the results.
 
 ### Set up the tool once
 

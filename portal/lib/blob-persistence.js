@@ -1,7 +1,7 @@
 /**
  * SFI-compliant passwordless Managed Identity Azure Blob persistence mirror.
  *
- * Mirrors `generated-labs/`, `data/`, and `uploads/` between local container
+ * Mirrors `generated-labs/`, `data/`, `uploads/`, and `screenshots/` between local container
  * disk (`PORTAL_STORAGE_ROOT`) and Azure Blob Storage over HTTPS using Entra
  * Managed Identity RBAC (`Storage Blob Data Contributor`) with zero storage
  * account keys and zero external npm dependencies (Node 24 built-ins only).
@@ -23,6 +23,7 @@ import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
 import {
   ensurePortalStorageDirs,
   registerBlobSyncStatusProvider,
+  resolveCapturedScreenshotsDir,
   resolveGeneratedLabsDir,
   resolvePortalDataDir,
   resolvePortalUploadsDir,
@@ -31,7 +32,7 @@ import {
 export const STORAGE_RESOURCE_AUDIENCE = "https://storage.azure.com/";
 export const BLOB_API_VERSION = "2023-11-03";
 export const DEFAULT_BLOB_CONTAINER = "portalstate";
-export const MANAGED_BLOB_PREFIXES = Object.freeze(["generated-labs", "data", "uploads"]);
+export const MANAGED_BLOB_PREFIXES = Object.freeze(["generated-labs", "data", "uploads", "screenshots"]);
 
 const TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000;
 const DEFAULT_SYNC_DEBOUNCE_MS = 250;
@@ -239,6 +240,7 @@ function resolvePrefixDirs(env) {
     "generated-labs": resolveGeneratedLabsDir(env),
     data: resolvePortalDataDir(env),
     uploads: resolvePortalUploadsDir(env),
+    screenshots: resolveCapturedScreenshotsDir(env),
   };
 }
 
@@ -273,8 +275,8 @@ function assertNoSymlinkAncestors(baseDir, targetPath) {
 }
 
 /**
- * Resolve a managed blob (`generated-labs/...`, `data/...`, `uploads/...`)
- * to a verified path inside the configured portal storage directories.
+ * Resolve a managed blob (`generated-labs/...`, `data/...`, `uploads/...`,
+ * `screenshots/...`) to a verified path inside the configured portal storage directories.
  */
 export function resolveSafeBlobLocalPath(blobName, env = process.env) {
   const segments = validateSafeBlobName(blobName, { requireManagedPrefix: true });
