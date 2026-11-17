@@ -65,6 +65,19 @@ resource defaultProfile 'Microsoft.Network/networkSecurityPerimeters/profiles@20
   properties: {}
 }
 
+resource allowSameSubscription 'Microsoft.Network/networkSecurityPerimeters/profiles/accessRules@2024-10-01' = {
+  parent: defaultProfile
+  name: 'allow-same-subscription'
+  properties: {
+    direction: 'Inbound'
+    subscriptions: [
+      {
+        id: subscription().id
+      }
+    ]
+  }
+}
+
 resource storageAssociation 'Microsoft.Network/networkSecurityPerimeters/resourceAssociations@2024-10-01' = {
   parent: networkSecurityPerimeter
   name: 'storage-assoc'

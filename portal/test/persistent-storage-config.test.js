@@ -1182,6 +1182,14 @@ test("infra/main.bicep compiles cleanly via az bicep build with SFI SecuredByPer
   );
   assert.ok(nspProfileRes, "Network Security Perimeter defaultProfile must exist");
 
+  const nspAccessRuleRes = storageResources.find(
+    (resource) => resource.type === "Microsoft.Network/networkSecurityPerimeters/profiles/accessRules",
+  );
+  assert.ok(nspAccessRuleRes, "Network Security Perimeter allow-same-subscription inbound rule must exist");
+  assert.equal(nspAccessRuleRes.properties?.direction, "Inbound");
+  assert.equal(Array.isArray(nspAccessRuleRes.properties?.subscriptions), true);
+  assert.equal(nspAccessRuleRes.properties?.subscriptions.length, 1);
+
   const nspAssocRes = storageResources.find(
     (resource) => resource.type === "Microsoft.Network/networkSecurityPerimeters/resourceAssociations",
   );
