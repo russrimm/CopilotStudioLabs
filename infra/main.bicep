@@ -62,16 +62,6 @@ module containerRegistry './modules/container-registry.bicep' = {
   }
 }
 
-module storage './modules/storage.bicep' = {
-  name: 'storage'
-  scope: rg
-  params: {
-    name: take('${abbrs.storageAccount}${replace(resourceToken, '-', '')}', 24)
-    location: location
-    tags: tags
-  }
-}
-
 module portalIdentity './modules/identity.bicep' = {
   name: 'portalIdentity'
   scope: rg
@@ -79,6 +69,18 @@ module portalIdentity './modules/identity.bicep' = {
     name: '${abbrs.managedIdentity}${resourceToken}'
     location: location
     tags: tags
+  }
+}
+
+module storage './modules/storage.bicep' = {
+  name: 'storage'
+  scope: rg
+  params: {
+    name: take('${abbrs.storageAccount}${replace(resourceToken, '-', '')}', 24)
+    location: location
+    tags: tags
+    nspName: 'nsp-${resourceToken}'
+    principalId: portalIdentity.outputs.principalId
   }
 }
 
@@ -92,7 +94,7 @@ module acrPullUser './modules/acr-pull-role.bicep' = {
   }
 }
 
-// Phase 1: Provision Container Apps Environment and Portal Container App with ACR UserAssigned identity
+// Phase 1: Provision Container Apps Environment and Portal Container App with ACR + Blob UserAssigned identity
 module portal './modules/container-app.bicep' = {
   name: 'portal'
   scope: rg
@@ -103,6 +105,7 @@ module portal './modules/container-app.bicep' = {
     appName: '${abbrs.containerApp}${resourceToken}'
     environmentName: '${abbrs.containerAppsEnvironment}${resourceToken}'
     userIdentityId: portalIdentity.outputs.id
+    userIdentityClientId: portalIdentity.outputs.clientId
     location: location
     tags: tags
     serviceName: 'portal'
@@ -115,12 +118,12 @@ module portal './modules/container-app.bicep' = {
     portalAuthDisabled: portalAuthDisabled
     azureSubscriptionId: subscription().subscriptionId
     azureTenantId: tenant().tenantId
-    storageAccountName: storage.outputs.storageAccountName
-    fileShareName: storage.outputs.fileShareName
+    blobEndpoint: storage.outputs.blobEndpoint
+    blobContainerName: storage.outputs.blobContainerName
   }
 }
 
-// Phase 2: Grant AcrPull to SystemAssigned Managed Identity as well (no circular dependency)
+// Phase 2: Grant AcrPull and Storage Blob Data Contributor to SystemAssigned Managed Identity as well (no circular dependency)
 module acrPullRole './modules/acr-pull-role.bicep' = {
   name: 'acrPullRole'
   scope: rg
@@ -128,6 +131,16 @@ module acrPullRole './modules/acr-pull-role.bicep' = {
     acrName: containerRegistry.outputs.name
     principalId: portal.outputs.systemAssignedMIPrincipalId
     roleSeed: 'acrpull-system'
+  }
+}
+
+module storageBlobRole './modules/storage-blob-role.bicep' = {
+  name: 'storageBlobRole'
+  scope: rg
+  params: {
+    storageAccountName: storage.outputs.storageAccountName
+    principalId: portal.outputs.systemAssignedMIPrincipalId
+    roleSeed: 'storage-blob-system'
   }
 }
 

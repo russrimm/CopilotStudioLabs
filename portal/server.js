@@ -54,6 +54,7 @@ import {
   resolvePortalDataDir,
   resolveSafeUploadFile,
 } from "./lib/storage-config.js";
+import { initBlobPersistence, scheduleBlobSync } from "./lib/blob-persistence.js";
 import { capFilesystemSegment, sanitizeFilesystemTitle } from "./lib/lab-builder/module-samples.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
@@ -442,6 +443,16 @@ app.get("/healthz", (_req, res) => {
 // internally exempts capability-token callback paths (e.g. approval links
 // delivered by email) that authenticate themselves.
 app.use("/api", requireAuth());
+
+const MUTATING_API_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+app.use("/api", (req, res, next) => {
+  if (MUTATING_API_METHODS.has(req.method)) {
+    res.on("finish", () => {
+      scheduleBlobSync();
+    });
+  }
+  next();
+});
 
 // ── API Routes ──────────────────────────────────────────────────────────────
 
@@ -2133,6 +2144,9 @@ app.use((err, _req, res, next) => {
 });
 
 // ── Start ───────────────────────────────────────────────────────────────────
+await initBlobPersistence();
+ensureBrandingStorage();
+
 app.listen(PORT, HOST, () => {
   const auth = authConfigSummary();
   console.log(`\n⚡ Microsoft AI Training Generator Portal running at http://${HOST}:${PORT}`);
