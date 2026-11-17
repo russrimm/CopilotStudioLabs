@@ -2986,6 +2986,62 @@ async function lbLoadSelections(lab) {
   );
 }
 
+// ── Starting a lab from the Use Case Builder ────────────────────────────────
+/**
+ * Pre-fill the wizard from a Use Case Builder shortlist and open the Topics step.
+ * The wizard's own rules stay in charge: the level is the single source of truth,
+ * so recommended topics from other levels are not selected (a lower-level topic a
+ * selected topic needs still arrives as a short recap), and a topic that does not
+ * belong to the chosen harness or to a chosen product is skipped. Everything stays
+ * changeable on the steps that follow.
+ *
+ * @param {{products: string[], industry?: string, departments?: string[], level?: number, harness?: string, topicIds?: string[], title?: string}} plan
+ * @returns {Promise<{selected: number, level: number, harness: string|null, skipped: {level: string[], harness: string[], product: string[], unknown: number}}>}
+ */
+async function lbPrefillFromUseCases(plan) {
+  if (typeof setActiveTab === "function") setActiveTab("labbuilder");
+  if (!labBuilder.loaded && !labBuilder.products.length) await lbLoadCatalog();
+  if (!labBuilder.loaded && !labBuilder.products.length) throw new Error("The lab builder catalog is not available.");
+
+  const products = (plan?.products || []).filter((id) => lbProduct(id));
+  if (!products.length) throw new Error("None of the shortlisted products can be built into a lab.");
+
+  lbStopEditing(true);
+  lbResetAnswers();
+  labBuilder.selectedProducts = new Set(products);
+  labBuilder.industry = labBuilder.industries.some((i) => i.id === plan.industry) ? plan.industry : null;
+  labBuilder.selectedRoles = new Set((plan.departments || []).filter((id) => labBuilder.roles.some((r) => r.id === id)));
+  labBuilder.level = [100, 200, 300].includes(plan.level) ? plan.level : 100;
+  const harnessUsable = lbHasHarnessProduct() && labBuilder.harnesses.some((h) => h.id === plan.harness && labBuilder.selectedProducts.has(lbHarnessOwner(h.id)));
+  labBuilder.harness = harnessUsable ? plan.harness : "standard";
+
+  const known = new Map(lbFeatureList().map((f) => [f.id, f]));
+  const skipped = { level: [], harness: [], product: [], unknown: 0 };
+  const keep = [];
+  for (const id of plan.topicIds || []) {
+    const feature = known.get(id);
+    if (!feature) {
+      skipped.unknown += 1;
+      continue;
+    }
+    const product = feature.product || LB_DEFAULT_PRODUCT;
+    if (!labBuilder.selectedProducts.has(product)) skipped.product.push(feature.name);
+    else if (lbProduct(product)?.hasHarnesses && !(feature.harness || []).includes(labBuilder.harness)) skipped.harness.push(feature.name);
+    else if (feature.level !== labBuilder.level) skipped.level.push(feature.name);
+    else keep.push(id);
+  }
+  labBuilder.picked = new Set(keep);
+  labBuilder.excluded = new Set();
+  labBuilder.chosenSteps = new Set(["product", "vertical", "departments", "level", ...(lbHasHarnessProduct() ? ["harness"] : []), "topics"]);
+  if (plan.title) lbSetFormValue("lb-title", String(plan.title).replace(LB_CONTROL_CHARS_RE, " ").trim().slice(0, 160));
+  labBuilder.furthest = LB_STEP.topics;
+  lbSaveSelections();
+  lbRenderAllSteps();
+  await lbRefresh();
+  lbGoToStep(LB_STEP.topics);
+  return { selected: keep.length, level: labBuilder.level, harness: lbHasHarnessProduct() ? labBuilder.harness : null, skipped };
+}
+
 // ── Review and request ──────────────────────────────────────────────────────
 function lbRequest() {
   const time = Number(document.getElementById("lb-time")?.value || 0);

@@ -1,0 +1,109 @@
+{
+  "$comment": "Agent Builder (Microsoft 365 Copilot) use case patterns. Every need must be a capability of the m365-copilot-agent-builder product, which the catalog limits to instructions, SharePoint and OneDrive content, public websites, Teams chats and meetings, email, embedded files, code interpreter, image generator, skills (preview), sharing, and the org catalog. No pattern may need an external-system action, workflow, or channel: those are Copilot Studio use cases. Template fields are described in patterns-copilot-studio.json.",
+  "patterns": [
+    {
+      "id": "ab-drafting-helper", "product": "m365-copilot-agent-builder", "departments": ["*"], "effort": "hours",
+      "goals": ["reduce-handling-time", "reduce-cost"], "dataSources": ["none"],
+      "needs": ["ab-templates"],
+      "titles": ["First-draft helper for {work}", "Drafting agent for {who}"],
+      "description": "Build an agent in one sitting that drafts, rewrites, or structures common content for {work}. It needs only instructions and a starting template, so {who} can build and test it themselves. Add knowledge later, once the instructions produce the output you want.",
+      "instructions": "You help {who} at the {org} draft content for {work}. First ask for what is missing: the audience, the purpose, and the deadline. Then write in plain language, in short paragraphs, and end with a short list of facts the author must verify. Never invent figures or names. Example request: \"{ask}\""
+    },
+    {
+      "id": "ab-checklist-coach", "product": "m365-copilot-agent-builder", "departments": ["*"], "effort": "hours",
+      "goals": ["speed-approvals", "knowledge-access"], "dataSources": ["none"],
+      "needs": ["ab-templates"],
+      "titles": ["Checklist coach for {work}", "Step-by-step guide for {who}"],
+      "description": "Turn what experienced people know about {work} into a coach that walks a newcomer through it. The steps live in the agent's instructions, so there is nothing to connect, and {who} can adjust them as the process changes. It is a good first agent and a way to find out which steps people ask about most.",
+      "instructions": "You coach {who} through {work}, one step at a time. Ask what stage they are at, give the next step, and say what a finished step looks like. If a question is about a policy you were not given, say so and name who to ask. Example question: \"{ask}\""
+    },
+    {
+      "id": "ab-sharepoint-guide", "product": "m365-copilot-agent-builder", "departments": ["*"], "effort": "hours",
+      "goals": ["knowledge-access", "reduce-handling-time"], "dataSources": ["sharepoint"],
+      "needs": ["ab-instructions", "ab-knowledge-sharepoint", "ab-licensing"],
+      "titles": ["{Topic} guide for {who}", "Ask-the-docs agent for {topic}"],
+      "description": "Point an agent at the SharePoint site or folder where {docs} live, and let {who} ask questions instead of searching. Answers come from the content you choose, and the agent cites where it looked. Check the licensing model first, because some knowledge sources depend on the license.",
+      "instructions": "You answer questions for {who} about {topic} using only the connected SharePoint content. Name the document you used. If the answer is not in the content, say so and do not guess. Keep answers short, with steps as a numbered list. Example question: \"{ask}\""
+    },
+    {
+      "id": "ab-public-source-watch", "product": "m365-copilot-agent-builder", "departments": ["marketing", "sales", "executives", "legal", "communications", "sustainability", "finance", "accessibility", "operations"], "effort": "hours",
+      "goals": ["grow-revenue", "compliance-risk", "knowledge-access"], "dataSources": ["web"],
+      "needs": ["ab-instructions", "ab-knowledge-web"],
+      "titles": ["Public-source watch for {topic}", "What changed this week in {topic}"],
+      "description": "Brief {who} on what changed in public sources about {topic}. The agent reads up to four public websites you choose, two levels deep, and summarizes what matters in a fixed format. Only public pages are used, which keeps the sources easy to audit.",
+      "instructions": "You brief {who} on {topic} using only the public websites provided. For each item give: what changed, why it matters to the {org}, and the page you used. Separate facts from your interpretation. If the websites do not say, write \"not stated\". Example question: \"{ask}\""
+    },
+    {
+      "id": "ab-team-memory", "product": "m365-copilot-agent-builder", "departments": ["*"], "effort": "hours",
+      "goals": ["knowledge-access", "reduce-handling-time"], "dataSources": ["teams"],
+      "needs": ["ab-instructions", "ab-knowledge-teams", "ab-licensing"],
+      "titles": ["What-did-we-decide agent for {work}", "Meeting and chat recall for {who}"],
+      "description": "Answer \"what did we decide?\" for {who} from the chats and meetings where {work} come up. Scope the agent to specific Teams chats and meetings, or use your own, and ask it for decisions, owners, and open questions. Check Microsoft Learn for known limitations on Teams data before you rely on it.",
+      "instructions": "You summarize decisions, owners, and open questions about {work} from the Teams chats and meetings provided. Quote who said it and when. If something was not discussed, say so. Never infer a decision that was not stated. Example question: \"{ask}\""
+    },
+    {
+      "id": "ab-email-follow-ups", "product": "m365-copilot-agent-builder", "departments": ["sales", "customer-service", "executives", "hr", "legal", "communications", "marketing", "finance"], "effort": "hours",
+      "goals": ["customer-experience", "reduce-handling-time"], "dataSources": ["email"],
+      "needs": ["ab-instructions", "ab-knowledge-email", "ab-licensing"],
+      "titles": ["Follow-up tracker for {work}", "Inbox follow-ups for {who}"],
+      "description": "Turn your own mail about {work} into a short list of follow-ups. The agent can use your emails as a knowledge source, lists open threads, and drafts replies for you to send. Because email cannot be scoped, treat this as a personal agent rather than a shared one.",
+      "instructions": "You help me follow up on {work} using my email. List open threads that wait on someone, oldest first, with one line on what is needed. Draft a reply when I ask, and never send it. If a thread is unclear, say what is missing. Example request: \"{ask}\""
+    },
+    {
+      "id": "ab-data-analyst", "product": "m365-copilot-agent-builder", "departments": ["finance", "operations", "sustainability", "executives", "marketing", "sales", "hr", "it"], "effort": "hours",
+      "goals": ["reduce-cost", "reduce-handling-time"], "dataSources": ["none", "sharepoint"],
+      "needs": ["ab-instructions", "ab-code-interpreter", "ab-knowledge-files"],
+      "titles": ["Spreadsheet analyst for {data}", "Chart-and-summary agent for {who}"],
+      "description": "Upload a spreadsheet of {data} and get charts, summaries, and a downloadable file back. The built-in code interpreter writes and runs the analysis, and you can open the code view to see how it got there. Download generated files before you end the session.",
+      "instructions": "You analyze the uploaded files about {data} for {who}. Start by describing the columns you found. Then answer the question with a chart or table and one paragraph of findings. State any assumption you made. If the data cannot support the question, say so. Example question: \"{ask}\""
+    },
+    {
+      "id": "ab-visual-content", "product": "m365-copilot-agent-builder", "departments": ["marketing", "communications", "hr", "sales", "sustainability", "accessibility"], "effort": "hours",
+      "goals": ["grow-revenue", "customer-experience"], "dataSources": ["none"],
+      "needs": ["ab-instructions", "ab-image-generator"],
+      "titles": ["Visuals and copy for {work}", "Image-and-caption agent for {who}"],
+      "description": "Draft visuals and matching copy for {work}. The built-in image generator creates images from a description, and the instructions keep each one on brand. Review every image for accuracy and rights before anyone uses it.",
+      "instructions": "You create a draft image idea and a short caption for {work}, for {who} at the {org}. Ask for the audience and message first. Describe the image in one sentence before you create it. Keep the tone plain and on brand. Never create images of real people. Example request: \"{ask}\""
+    },
+    {
+      "id": "ab-skill-playbook", "product": "m365-copilot-agent-builder", "departments": ["it", "legal", "operations", "customer-service", "hr", "finance", "marketing"], "effort": "days",
+      "goals": ["reduce-handling-time", "compliance-risk"], "dataSources": ["none"],
+      "needs": ["ab-instructions", "ab-skills"],
+      "titles": ["Repeatable playbook for {work} (preview)", "Skill-based agent for {who} (preview)"],
+      "description": "Package how your team handles {work} as a skill, so the steps run the same way every time. A skill holds repeatable instructions and scripts without pushing past the 8,000-character instruction limit. Skills are in preview, so confirm availability in your tenant first.",
+      "instructions": "You help {who} with {work}. When a request matches the skill, follow its steps exactly and show the result in the skill's format. If the request does not match, say what you can do instead. Example request: \"{ask}\""
+    },
+    {
+      "id": "ab-shared-team-agent", "product": "m365-copilot-agent-builder", "departments": ["*"], "effort": "days",
+      "goals": ["knowledge-access", "reduce-cost"], "dataSources": ["sharepoint"],
+      "needs": ["ab-instructions", "ab-knowledge-sharepoint", "ab-share"],
+      "titles": ["Shared {topic} agent with named owners", "Team agent for {who}: {topic}"],
+      "description": "Share the {topic} agent with the people on your team and manage its owners. If someone cannot open a source file, the share dialog reports it, so access to answers stays aligned with SharePoint permissions. Name more than one owner so the agent outlives any one person.",
+      "instructions": "You answer {who}'s questions about {topic} from the shared SharePoint content. Cite the document. If the person may not have access to a source, say so instead of paraphrasing it. Example question: \"{ask}\""
+    },
+    {
+      "id": "ab-org-catalog", "product": "m365-copilot-agent-builder", "departments": ["*"], "effort": "days",
+      "goals": ["compliance-risk", "knowledge-access"], "dataSources": ["sharepoint"],
+      "needs": ["ab-instructions", "ab-knowledge-sharepoint", "ab-share", "ab-catalog"],
+      "titles": ["Organization-approved {topic} agent", "Catalog-ready {topic} agent for {who}"],
+      "description": "Publish the {topic} agent for the whole organization through your org catalog. Submitting it for admin approval gives a reviewer the chance to check it before {who} and others find it in the Agent Store, and users keep the last approved version while an update is reviewed.",
+      "instructions": "You answer questions about {topic} for {who} and colleagues at the {org}, using only the connected SharePoint content. Cite the document. Decline requests outside {topic} and say who to ask. Example question: \"{ask}\""
+    },
+    {
+      "id": "ab-prototype-then-graduate", "product": "m365-copilot-agent-builder", "departments": ["*"], "effort": "days",
+      "goals": ["reduce-cost", "speed-approvals"], "dataSources": ["sharepoint"],
+      "needs": ["ab-instructions", "ab-knowledge-sharepoint", "ab-copy-to-cs"],
+      "titles": ["Prototype the {topic} agent, then move it to Copilot Studio", "Pilot-first {topic} agent for {who}"],
+      "description": "Start the {topic} agent in Agent Builder, prove it with {who}, and copy it to Copilot Studio when the pilot needs external actions, workflows, or channels. Copying creates a separate snapshot, and some items must be rebuilt: Copilot connectors, embedded files, and the Teams and Outlook connectors.",
+      "instructions": "You answer {who}'s questions about {topic} from the connected SharePoint content and note every question you could not answer. Those gaps tell us what the Copilot Studio version needs. Cite sources. Example question: \"{ask}\""
+    },
+    {
+      "id": "ab-governed-pilot", "product": "m365-copilot-agent-builder", "departments": ["it", "legal", "executives", "operations", "finance", "hr"], "effort": "weeks",
+      "goals": ["compliance-risk"], "dataSources": ["sharepoint"],
+      "needs": ["ab-instructions", "ab-knowledge-sharepoint", "ab-admin-settings", "ab-registry"],
+      "titles": ["Admin-governed pilot of the {topic} agent", "Controlled-sharing {topic} agent for {who}"],
+      "description": "Pilot the {topic} agent with admin controls in place. Your admin sets who can share and install agents and keeps the agent registry, so every agent has an accountable owner. It gives {who} a safe way to experiment while the organization keeps oversight.",
+      "instructions": "You answer {who}'s questions about {topic} using only the connected SharePoint content. Cite the document. If a question needs a decision, say a person must decide and name the role. Example question: \"{ask}\""
+    }
+  ]
+}

@@ -184,7 +184,7 @@ The portal groups its ten panels into four areas, and **Build** is where it open
 
 | Area | Tabs | Use it to |
 |---|---|---|
-| **Build** | Build a Lab, Industry scenarios | Create a lab, or browse industry scenarios and recommended labs. |
+| **Build** | Build a Lab, Use Case Builder | Create a lab, or build a live list of Copilot Studio and Agent Builder use cases for your scenario and turn it into a lab (see [Use Case Builder](#use-case-builder)). |
 | **Preview and validate** | Preview, Validation | Read a lab as learners see it, and check it against Microsoft Learn. |
 | **Deploy and share** | Lab setup, Azure resources, Power Platform, Email labs | Set up the lab environment and send labs to learners. |
 | **Settings** | Configuration | Brand profiles, identity, email, and deployment targets. |
@@ -360,6 +360,185 @@ The checklist reads the brand profiles, `GET /api/capture/status`, `GET /healthz
 `GET /api/lab-builder/learn-drift`. It refreshes when you open Configuration, select **Check again**, return to the
 browser window, connect a computer, or save a profile. A row that cannot be read says so and offers **Check again**.
 Status changes are announced to screen readers, and the checklist never prints.
+
+## Use Case Builder
+
+The **💡 Use Case Builder** tab (in **Build**, next to Build a Lab; open it at `/#usecases`,
+`/#use-case-builder`, or the unchanged `/#scenarios`) turns a scenario into a live, ranked list of **Copilot Studio**
+and **Agent Builder** (Microsoft 365 Copilot) use cases. It was formerly called Industry scenarios; the tab and
+panel ids (`tab-scenarios`, `panel-scenarios`) did not change, so older links still work.
+
+### Inputs
+
+Every choice updates the list as you make it (after a short pause), with no Generate button. The count line, for
+example "Showing 12 of 27 use cases for Healthcare, Customer Service.", is a polite live region.
+
+| Input | Choices |
+|---|---|
+| **Industry** (one) | Manufacturing, Retail, Financial Services, Healthcare, Energy & Resources, Education, Nonprofit. Required: with none chosen the page explains what to do and builds nothing. |
+| **Departments** (any number) | The portal's 12 departments (Executives, Sales, Marketing, Customer Service, Legal, Finance, HR, IT, Communications, Operations, Sustainability, Accessibility). These are the same ids the wizard and `scenarios.json` use, so there is one list. None chosen means every department. |
+| **Business goals** (any number) | Reduce handling time; speed up approvals and onboarding; improve customer experience; strengthen compliance and risk; grow revenue; knowledge access and self-service; reduce cost. |
+| **Data and channels you have** (any number) | SharePoint and OneDrive documents; Dataverse and Power Platform data; Microsoft Teams; Outlook and email; ServiceNow, Salesforce, SAP, and similar systems; public websites; none yet. |
+| **Platform focus** | Both (default), Copilot Studio, or Agent Builder. |
+| **Skill level** | Any (default), Beginner (100), Intermediate (200), or Advanced (300). |
+
+With only an industry selected you still get about 40 varied use cases spread across departments. **Polish wording
+with AI** appears only when a language model is configured (see [LLM enrichment](#5-llm-enrichment-optional)).
+
+### How use cases are generated and ranked
+
+Generation is server-side, deterministic, and offline: no network call, and no model unless you opt in to the
+polish pass. The data lives in JSON in `portal/lib/use-cases/data/`:
+
+- `capabilities.json` maps everything a use case can need (SharePoint knowledge, agent flows, a custom connector,
+  Teams publishing, and so on) to the **feature-catalog** topics that teach it, and says in one clause why it points to
+  Copilot Studio or Agent Builder.
+- `patterns-*.json` hold about 65 use case patterns (general, Agent Builder, and industry-specific). A pattern lists
+  the capabilities it needs and templates for its title, description, and starter instructions.
+- `industries/<id>.json` gives each of the 7 industries a vocabulary and, for each of the 12 departments, its own
+  audience, topic, documents, work items, data, KPI, and example question. The same pattern therefore reads differently
+  in each industry (a test checks that no wording repeats across industries).
+
+A pattern becomes one use case per department and industry it covers. Each use case has a stable id
+(`industry.department.pattern`), a title and 2-3 sentence description, the product and harness, departments, goals,
+a **level** (100/200/300, the highest level among its lab topics), a rough build effort (a few hours, days, or weeks),
+KPIs, starter instructions, knowledge sources, tools and actions, **why this product**, prerequisites and licensing
+notes, recommended **lab topics** (catalog feature ids), and 1-3 Microsoft Learn links.
+
+**Ranking** is a sum of explainable matches, each shown under "Why it matched": written for your industry (+12),
+built for a department you chose (+16), each goal (+16 for a use case's main goal, +10 for a secondary one), each data
+source you listed (+10), "None yet" favoring use cases that need no prepared data (+14), and a matching level (+12).
+Small penalties apply to Preview features (-4), third-party connectors unless you listed a line-of-business system
+(-4, or +6 when you did), and data you did not list (-10, marked "Needs data you did not list"). Ties break on level,
+then pattern order, then id. A variety pass spreads the list across patterns and departments so a broad selection is
+not twelve copies of one idea. The response has a **Best matches** strip (the top 3 per product), the use cases grouped
+by product, a facet summary, and **coverage notes**.
+
+**Level** is strict when it can be: a Level 200 request returns only Level 200 use cases. When a product has fewer
+than three exact matches, the nearest levels fill in, each marked "Nearby level", and a note says so. Results are
+capped at 40 (20 per product when both are shown); the page shows 12 per product with **Show more**, and says how many
+more matched.
+
+### The accuracy rule
+
+A use case never claims a capability the catalog does not teach, and a product never gets a capability it lacks:
+
+- Everything factual is **derived from the feature catalog** and the product-differences data
+  (`harness-differences.json`), not typed into the pattern: the lab topics, the level, the harness, Preview and
+  third-party flags, and the Learn links (taken from the catalog's own links, https on `learn.microsoft.com` only).
+- A pattern whose features are missing, retired, on the wrong product, or not on its harness (including a harness the
+  differences data marks not supported) does not resolve and is left out. `validateUseCaseData()` runs in the tests, so
+  a mistake fails in CI.
+- **Agent Builder** use cases may need only what the catalog documents for Agent Builder: instructions, SharePoint and
+  OneDrive content, public websites (up to four, two levels deep), Teams chats and meetings, email, uploaded files, the
+  code interpreter and image generator, skills (Preview), sharing, and the org catalog. Anything that calls an external
+  system, runs a workflow, or reaches a channel is a **Copilot Studio** use case, and its rationale says which
+  capability forces that choice. Data you list that Agent Builder cannot reach (Dataverse, line-of-business systems)
+  produces a coverage note and Copilot Studio use cases, never an Agent Builder one.
+- Copilot Studio use cases carry their **harness** (Standard, Microsoft Copilot, or Customer Conversation, which is
+  Preview) and a short note from the differences data when another harness names the same idea differently.
+
+### Polish wording with AI (optional)
+
+Off by default; the feature works fully without it. When a provider is configured and the box is ticked (`polish: true`),
+the model sees only ids, titles, and descriptions, and may rewrite only the titles and descriptions of use cases that were
+already generated. Products, harnesses, features, topics, tools, and links never change, and a rewrite that adds a link or
+markup, names another product, or has an odd length is rejected and the original wording stays. Rewritten cards say
+"Reworded with AI".
+
+### Shortlist and exports
+
+Each card has a **Shortlist** checkbox and a primary **Add to my lab plan** button; they are the same shortlist (up to
+40). The toolbar filters by product, level, department, and goal, searches, sorts (best match, level, effort), and has
+**Select all shown** and **Clear selection**. The shortlist panel can **Copy as Markdown**, **Download Markdown**, and
+**Download CSV**. Markdown escapes angle brackets and fences the starter instructions; CSV quotes every cell and defuses
+cells that start with `=`, `+`, `-`, or `@`. Your last choices and shortlist are saved in this browser
+(`localStorage`, validated on load: unknown ids, odd links, and corrupted data are dropped). Printing from the tab prints
+the results with every card expanded and without the controls.
+
+### Build a lab from my shortlist
+
+**Build a lab from my shortlist** opens **Build a Lab** at the **Topics** step, pre-filled and fully changeable. The
+wizard's own rules stay in charge:
+
+- **Products** come from the use cases (Copilot Studio, Agent Builder, or both). **Vertical** and **Departments** come
+  from the shortlist.
+- **Level** is the wizard's single source of truth, so the lab gets one level: the **Lab level** you pick in the
+  shortlist panel (each option shows how many of your recommended topics sit at that level), or **Automatic**, the level
+  most of your use cases are at (a tie goes to the higher level). Recommended topics from other levels are not selected,
+  and the page says how many; a lower-level topic your selection needs is added as a short recap, as always.
+- **Harness** (only with Copilot Studio) is the harness most Copilot Studio use cases share; topics for another harness
+  are skipped and reported.
+- The suggested **lab title** reads like "Healthcare Customer Service: Copilot Studio and Agent Builder use cases".
+- If the wizard already has answers, you are asked before they are replaced. An announcement and a notice say what was
+  pre-filled and what was skipped.
+
+The older capability is kept under **Also set up the provisioning labs for this scenario**: the hand-written provisioning
+labs the industry and departments suggest, and **Apply scenario to Lab setup**
+(`POST /api/scenarios/configure`, unchanged).
+
+### Use Case Builder API
+
+Both routes sit behind normal portal sign-in. Bodies are limited to 64 KB, `generate` is rate limited per user
+(120 requests a minute by default; `USE_CASE_RATE_MAX` and `USE_CASE_RATE_WINDOW_MS` change it), and the AI polish pass
+has its own stricter limit (10 every 10 minutes; `USE_CASE_POLISH_RATE_MAX` and `USE_CASE_POLISH_RATE_WINDOW_MS`).
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/use-cases/options` | Industries, departments, goals, data sources, platforms, levels, defaults, limits, and whether AI polish is available. |
+| `POST` | `/api/use-cases/generate` | The ranked use cases for a set of choices. |
+
+```http
+POST /api/use-cases/generate
+{ "industry": "healthcare", "departments": ["customer-service"], "goals": ["reduce-handling-time"],
+  "dataSources": ["sharepoint"], "platform": "both", "level": null, "polish": false }
+```
+
+```json
+{
+  "version": 1,
+  "query": { "industry": "healthcare", "departments": ["customer-service"], "goals": ["reduce-handling-time"], "dataSources": ["sharepoint"], "platform": "both", "level": null, "polish": false },
+  "labels": { "industry": "Healthcare", "departments": ["Customer Service"], "platform": "Both", "level": null },
+  "summary": { "matched": 35, "returned": 35, "capped": false, "byProduct": { "copilot-studio": { "matched": 26, "returned": 26 }, "m365-copilot-agent-builder": { "matched": 9, "returned": 9 } } },
+  "bestMatches": ["healthcare.customer-service.hc-prior-auth-checklist", "..."],
+  "groups": { "copilot-studio": ["..."], "m365-copilot-agent-builder": ["..."] },
+  "useCases": [
+    {
+      "id": "healthcare.customer-service.hc-prior-auth-checklist",
+      "title": "Prior-authorization checklist agent for patient access and member services agents",
+      "description": "Tell patient access and member services agents which documents a payer expects before a procedure, ...",
+      "product": "copilot-studio", "harness": "standard", "level": 200, "levelLabel": "Intermediate",
+      "effort": { "id": "days", "label": "A few days" },
+      "goals": ["speed-approvals", "reduce-handling-time"], "dataSources": ["sharepoint", "dataverse"],
+      "knowledgeSources": [{ "id": "knowledge-sharepoint", "label": "SharePoint sites and lists", "example": "scheduling rules, billing policies, ..." }],
+      "toolsAndActions": [{ "id": "adaptive-cards", "label": "Adaptive Cards", "kind": "tool", "note": "...", "preview": false, "thirdParty": false }],
+      "whyProduct": "Copilot Studio is the right fit because this agent answers record-level questions from Dataverse tables and shows rich, interactive Adaptive Cards. ...",
+      "labTopics": [{ "id": "create-agent", "name": "Create an agent", "level": 100, "minutes": 15, "base": true }, "..."],
+      "learnLinks": [{ "url": "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-sharepoint", "title": "Knowledge Add SharePoint" }],
+      "flags": { "preview": false, "thirdParty": false },
+      "match": { "rank": 1, "score": 70, "reasons": ["Written for Healthcare", "Built for Customer Service", "..."], "missingData": [], "levelFit": "exact" }
+    }
+  ],
+  "facets": { "products": {}, "levels": {}, "departments": {}, "goals": {}, "dataSources": {}, "harnesses": {}, "efforts": {} },
+  "coverage": { "notes": ["..."], "excludedPatterns": 0 },
+  "polish": { "requested": false, "applied": false }
+}
+```
+
+Validation is strict: `industry` is required; every id must be on the allowlist from `/options`; at most 12 departments,
+7 goals, and 7 data sources; `platform` is `both`, `copilot-studio`, or `agent-builder`; `level` is `null`, `100`,
+`200`, or `300`; `polish` is a boolean; unknown fields are refused. A bad request gets a `400` with a plain message
+(`Unknown department "sorcery". Valid values: ...`) that quotes only a short, safe slice of the bad value. A body over
+64 KB gets `413`, and the limit gets `429` with `Retry-After`.
+
+### Adding or changing use cases
+
+Add a pattern to the right `patterns-*.json`, naming only capabilities from `capabilities.json` (add one, with its
+catalog features, if needed). Run `npm --prefix portal test`: the data checks catch an unknown feature, a feature on the
+wrong product or harness, a template slot with no value, an Agent Builder pattern that needs a Copilot Studio capability,
+a Copilot Studio pattern with nothing that forces it and no fit sentence, repeated wording across industries, and UK
+spellings. To add an industry, add it to `portal/lib/scenarios.json`, add `data/industries/<id>.json` with all 12
+departments, and add its profile as described under [Extending the catalog](#extending-the-catalog).
 
 ---
 

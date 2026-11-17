@@ -105,6 +105,15 @@
       --sc-neutral-border: #6f7c9f;
       --sc-track: #343b57;
       --sc-drop: #1a2f55;
+      --uc-cs-bg: #183159;
+      --uc-cs-fg: #dcebff;
+      --uc-cs-border: #5b9bff;
+      --uc-ab-bg: #2b2448;
+      --uc-ab-fg: #ebe4ff;
+      --uc-ab-border: #a992ff;
+      --uc-chip-on-bg: #1d3f7a;
+      --uc-chip-on-fg: #ffffff;
+      --uc-chip-on-border: #8fb8ff;
       --shadow-ink: #000;
       --radius: 10px;
       --radius-sm: 6px;
@@ -219,6 +228,15 @@
       --sc-neutral-border: #5c6c8c;
       --sc-track: #cbd3e4;
       --sc-drop: #dce8fd;
+      --uc-cs-bg: #dce8fd;
+      --uc-cs-fg: #0f3580;
+      --uc-cs-border: #1d5bd6;
+      --uc-ab-bg: #f1ecff;
+      --uc-ab-fg: #4c1d95;
+      --uc-ab-border: #6d28d9;
+      --uc-chip-on-bg: #1a56c7;
+      --uc-chip-on-fg: #ffffff;
+      --uc-chip-on-border: #123f9a;
       --shadow-ink: #1a2340;
       --shadow: 0 4px 24px rgba(26, 35, 64, 0.12);
       color-scheme: light;
@@ -322,6 +340,15 @@
         --sc-neutral-border: #5c6c8c;
         --sc-track: #cbd3e4;
         --sc-drop: #dce8fd;
+        --uc-cs-bg: #dce8fd;
+        --uc-cs-fg: #0f3580;
+        --uc-cs-border: #1d5bd6;
+        --uc-ab-bg: #f1ecff;
+        --uc-ab-fg: #4c1d95;
+        --uc-ab-border: #6d28d9;
+        --uc-chip-on-bg: #1a56c7;
+        --uc-chip-on-fg: #ffffff;
+        --uc-chip-on-border: #123f9a;
         --shadow-ink: #1a2340;
         --shadow: 0 4px 24px rgba(26, 35, 64, 0.12);
         color-scheme: light;
@@ -1190,7 +1217,7 @@
       align-items: center;
     }
 
-    /* ── Scenario planner ─────────────────── */
+    /* ── Scenario cards and chips (shared by the Use Case Builder and the lab wizard) ─────────────────── */
     .scenario-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -1455,6 +1482,149 @@
       font-size: 12px;
     }
     .scenario-empty { color: var(--text-muted); font-size: 13px; }
+
+    /* ── Use Case Builder ─────────────────── */
+    .uc-intro { color: var(--text-muted); font-size: 14px; margin: 0; max-width: 78ch; }
+    .uc-hint { color: var(--text-muted); font-size: 12.5px; margin: 0 0 8px; }
+    .uc-subheading { font-size: 14px; margin: 16px 0 4px; }
+    .uc-panel-title { font-size: 16px; font-weight: 600; margin-bottom: 12px; font-family: var(--font-display); letter-spacing: -0.005em; }
+    .uc-fieldset { border: 0; padding: 0; margin: 0 0 20px; min-width: 0; }
+    .uc-fieldset > legend { font-weight: 600; font-size: 14px; padding: 0; margin-bottom: 4px; }
+    .uc-industry-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 10px; }
+    .uc-industry-grid .scenario-card { padding: 12px 14px; }
+    .uc-industry-grid .scenario-card[aria-pressed="true"] { border-color: var(--accent); background: var(--lb-card-checked-bg); box-shadow: inset 0 0 0 1px var(--accent); }
+    .uc-industry-grid .scenario-card-desc { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .uc-chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .uc-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 32px;
+      max-width: 100%;
+      padding: 5px 12px;
+      font: inherit;
+      font-size: 13px;
+      text-align: left;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border-strong);
+      border-radius: 999px;
+      cursor: pointer;
+      transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+    }
+    .uc-chip:hover { border-color: var(--accent); background: var(--surface-hover); }
+    .uc-chip[aria-pressed="true"] { color: var(--uc-chip-on-fg); background: var(--uc-chip-on-bg); border-color: var(--uc-chip-on-border); }
+    .uc-chip-mark { font-weight: 700; }
+    .uc-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 4px 24px; }
+    .uc-radio-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .uc-radio {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 36px;
+      padding: 6px 12px;
+      font-size: 13px;
+      background: var(--bg);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .uc-radio:hover { border-color: var(--accent); background: var(--surface-hover); }
+    .uc-radio:has(> input:checked) { border-color: var(--accent); background: var(--lb-card-checked-bg); box-shadow: inset 0 0 0 1px var(--accent); }
+    .uc-radio input { accent-color: var(--accent); margin: 0; }
+    .uc-input-actions { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+    .uc-inline-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+    .uc-inline-check input { accent-color: var(--accent); margin: 0; }
+    .uc-count { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+    .uc-toolbar { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-end; margin-bottom: 12px; }
+    .uc-toolbar .form-group { flex: 1 1 150px; min-width: 0; }
+    .uc-toolbar .form-group.uc-search { flex: 2 1 220px; }
+    .uc-toolbar-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+    .uc-notes { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .uc-note {
+      margin: 0;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--sc-info-fg);
+      background: var(--sc-info-bg);
+      border: 1px solid var(--sc-info-border);
+      border-radius: 8px;
+    }
+    .uc-note-warn { color: var(--sc-warn-fg); background: var(--sc-warn-bg); border-color: var(--sc-warn-border); }
+    .uc-best { margin-bottom: 18px; }
+    .uc-section-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; font-size: 15px; font-weight: 600; margin: 18px 0 8px; font-family: var(--font-display); }
+    .uc-section-sub { font-size: 12.5px; font-weight: 400; color: var(--text-muted); }
+    .uc-best-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 10px; }
+    .uc-best-item { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--lb-card-checked-bg); border: 1px solid var(--border-strong); border-radius: var(--radius); min-width: 0; }
+    .uc-best-item .uc-card-title { margin: 0; font-size: 14px; }
+    .uc-best-why { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+    .uc-list { display: grid; gap: 12px; }
+    .uc-card { min-width: 0; padding: 14px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+    .uc-card.is-shortlisted { border-color: var(--accent); background: var(--lb-card-checked-bg); }
+    .uc-card-top { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .uc-check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+    .uc-check input { accent-color: var(--accent); width: 18px; height: 18px; margin: 0; }
+    .uc-card-title { font-size: 15px; font-weight: 600; line-height: 1.35; margin: 4px 0 6px; overflow-wrap: anywhere; }
+    .uc-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+    .uc-badge {
+      display: inline-block;
+      padding: 2px 9px;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.5;
+      color: var(--stat-chip-text);
+      background: var(--stat-chip-bg);
+      border: 1px solid var(--stat-chip-border);
+      border-radius: 999px;
+    }
+    .uc-badge-cs { color: var(--uc-cs-fg); background: var(--uc-cs-bg); border-color: var(--uc-cs-border); }
+    .uc-badge-ab { color: var(--uc-ab-fg); background: var(--uc-ab-bg); border-color: var(--uc-ab-border); }
+    .uc-badge-warn { color: var(--sc-warn-fg); background: var(--sc-warn-bg); border-color: var(--sc-warn-border); border-style: dashed; }
+    .uc-desc { margin: 8px 0; font-size: 14px; }
+    .uc-goals { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; padding: 0; list-style: none; }
+    .uc-goal { padding: 2px 9px; font-size: 12px; color: var(--text); background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); border-radius: 999px; }
+    .uc-details { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+    .uc-details > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--link-color); padding: 4px 0; }
+    .uc-detail-block { margin: 12px 0 0; }
+    .uc-detail-block h5 { font-size: 13px; margin: 0 0 4px; }
+    .uc-detail-block p, .uc-detail-block li { font-size: 13px; }
+    .uc-detail-block ul { margin: 0; padding-left: 20px; }
+    .uc-detail-block li + li { margin-top: 3px; }
+    .uc-code {
+      margin: 0;
+      padding: 10px 12px;
+      font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--text);
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      border-radius: 8px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .uc-card a, .uc-shortlist a { color: var(--link-color); }
+    .uc-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; }
+    .uc-why-matched { margin: 8px 0 0; font-size: 12.5px; color: var(--text-muted); }
+    .uc-more { margin-top: 12px; }
+    .uc-empty { padding: 20px 16px; text-align: center; color: var(--text-muted); font-size: 14px; background: var(--bg); border: 1px dashed var(--border-strong); border-radius: var(--radius); }
+    .uc-empty .btn { margin-top: 10px; }
+    .uc-lab-level { max-width: 460px; margin: 0 0 12px; }
+    .uc-shortlist-list { display: grid; gap: 8px; margin: 0 0 12px; padding: 0; list-style: none; }
+    .uc-shortlist-item { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; padding: 8px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+    .uc-shortlist-item > span { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+    .uc-shortlist-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .uc-confirm { margin: 12px 0 0; padding: 12px 14px; color: var(--sc-warn-fg); background: var(--sc-warn-bg); border: 1px solid var(--sc-warn-border); border-radius: 8px; font-size: 13px; }
+    .uc-confirm-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .uc-status { margin: 8px 0 0; font-size: 13px; color: var(--text-muted); }
+    .uc-provision > summary { cursor: pointer; font-weight: 600; font-size: 15px; padding: 2px 0; }
+    .uc-provision[open] > summary { margin-bottom: 8px; }
+    @media (max-width: 560px) {
+      .uc-card { padding: 12px; }
+      .uc-toolbar .form-group { flex-basis: calc(50% - 6px); }
+      .uc-toolbar .form-group.uc-search { flex-basis: 100%; }
+      .uc-toolbar-buttons .btn, .uc-shortlist-actions .btn { flex: 1 1 100%; justify-content: center; }
+    }
 
     /* ── Lab builder wizard ─────────────── */
     .lb-steps {
@@ -4798,6 +4968,59 @@
         display: none !important;
       }
 
+      /* Use Case Builder print target: the results with every card expanded, without the inputs and controls */
+      body[data-print-target="usecases"] .tab-panel:not(#panel-scenarios) {
+        display: none !important;
+      }
+
+      body[data-print-target="usecases"] #panel-scenarios.tab-panel {
+        display: block !important;
+        width: 100% !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: #fff !important;
+      }
+
+      #panel-scenarios .uc-inputs,
+      #panel-scenarios .uc-toolbar,
+      #panel-scenarios .uc-card-actions,
+      #panel-scenarios .uc-check,
+      #panel-scenarios .uc-more,
+      #panel-scenarios .uc-best,
+      #panel-scenarios .uc-shortlist-actions,
+      #panel-scenarios .uc-provision,
+      #panel-scenarios .uc-code-copy {
+        display: none !important;
+      }
+
+      #panel-scenarios .uc-card,
+      #panel-scenarios .uc-shortlist-item,
+      #panel-scenarios .uc-note,
+      #panel-scenarios .uc-empty {
+        break-inside: avoid;
+        background: #fff !important;
+        color: #000 !important;
+        border: 1px solid #000 !important;
+      }
+
+      #panel-scenarios .uc-badge,
+      #panel-scenarios .uc-goal,
+      #panel-scenarios .uc-code {
+        background: #fff !important;
+        color: #000 !important;
+        border: 1px solid #000 !important;
+      }
+
+      #panel-scenarios .uc-code {
+        white-space: pre-wrap;
+      }
+
+      #panel-scenarios .uc-card a {
+        color: #000 !important;
+        text-decoration: underline;
+      }
+
       body[data-print-target="generated"] #panel-labbuilder,
       body[data-print-target="generated"] #lb-result-panel,
       body[data-print-target="generated"] #lb-result-body,
@@ -5133,7 +5356,7 @@
         <p id="tab-group-hint" class="tab-group-hint"></p>
         <div class="tabs" role="tablist" aria-label="Build">
           <button class="tab active" id="tab-labbuilder" role="tab" aria-selected="true" aria-controls="panel-labbuilder" data-tab="labbuilder" data-group="build">🧬 Build a Lab</button>
-          <button class="tab" id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1" data-tab="scenarios" data-group="build">🏢 Industry scenarios</button>
+          <button class="tab" id="tab-scenarios" role="tab" aria-selected="false" aria-controls="panel-scenarios" tabindex="-1" data-tab="scenarios" data-group="build">💡 Use Case Builder</button>
           <button class="tab" id="tab-preview" role="tab" aria-selected="false" aria-controls="panel-preview" tabindex="-1" data-tab="preview" data-group="check" hidden>👁️ Preview</button>
           <button class="tab" id="tab-validate" role="tab" aria-selected="false" aria-controls="panel-validate" tabindex="-1" data-tab="validate" data-group="check" hidden>🧪 Validation</button>
           <button class="tab" id="tab-provision" role="tab" aria-selected="false" aria-controls="panel-provision" tabindex="-1" data-tab="provision" data-group="deploy" hidden>🚀 Lab setup</button>
@@ -5332,27 +5555,25 @@
             </div>
           </div>
 
-          <!-- Industry Scenarios tab -->
+          <!-- Use Case Builder tab. The ids stay tab-scenarios and panel-scenarios so older links, #scenarios, and tests keep working. -->
           <div class="tab-panel" id="panel-scenarios" role="tabpanel" aria-labelledby="tab-scenarios" aria-hidden="true">
             <div class="panel">
-              <h3>🏢 Industry Scenario Planner</h3>
-              <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
-                Choose an industry and supporting roles to preconfigure recommended labs and scenario defaults.
+              <h3 id="uc-heading" tabindex="-1">💡 Use Case Builder</h3>
+              <p class="uc-intro">
+                Pick your scenario and get a live list of Microsoft Copilot Studio and Agent Builder use cases. The list updates
+                as you change any choice. Shortlist what you like, export it, or turn it into a lab.
               </p>
-              <div id="scenario-industry-grid" class="scenario-grid">
-                <div class="scenario-empty">Loading scenarios...</div>
-              </div>
             </div>
 
-            <div class="panel">
-              <h3>👥 Role Focus Areas</h3>
-              <div id="scenario-role-list" class="scenario-role-list">
-                <div class="scenario-empty">Loading roles...</div>
-              </div>
+            <div id="uc-root">
+              <div class="panel"><p class="scenario-empty" id="uc-loading">Loading the Use Case Builder...</p></div>
             </div>
 
-            <div class="panel">
-              <h3>📊 Scenario Details</h3>
+            <details class="panel uc-provision" id="uc-provision">
+              <summary>Also set up the provisioning labs for this scenario</summary>
+              <p class="uc-hint">
+                This pre-configures the portal's hand-written provisioning labs for the industry and departments you chose above. It does not change your use case list.
+              </p>
               <div class="scenario-metrics">
                 <div class="scenario-detail-box">
                   <div id="scenario-selected-title" style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Select an industry</div>
@@ -5364,19 +5585,13 @@
                   <div id="scenario-kpis" class="scenario-pill-list"></div>
                 </div>
               </div>
-            </div>
-
-            <div class="panel">
-              <h3>🧪 Recommended Labs</h3>
-              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                Labs are suggested from the selected industry plus any checked roles.
-              </p>
+              <h4 class="uc-subheading">Recommended provisioning labs</h4>
               <div id="scenario-labs-preview" class="scenario-lab-preview"></div>
               <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-                <button class="btn btn-primary" onclick="applyScenarioConfig()">✨ Apply to Lab Config</button>
-                <span id="scenario-apply-status" style="font-size: 13px; color: var(--text-muted);"></span>
+                <button type="button" class="btn" onclick="applyScenarioConfig()">Apply scenario to Lab setup</button>
+                <span id="scenario-apply-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);"></span>
               </div>
-            </div>
+            </details>
           </div>
 
           <!-- Lab Builder tab -->
@@ -6727,6 +6942,7 @@
   <script src="brand-ui.js" defer></script>
   <script src="app.js" defer></script>
 <script src="lab-builder-wizard.js" defer></script>
+<script src="use-case-builder.js" defer></script>
 <script src="generated-labs.js" defer></script>
 <script src="screenshot-center-core.js" defer></script>
 <script src="screenshot-center-jobs.js" defer></script>

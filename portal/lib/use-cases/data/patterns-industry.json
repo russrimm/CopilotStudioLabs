@@ -1,0 +1,173 @@
+{
+  "$comment": "Industry-specific patterns: use cases that only make sense in one industry, written with that industry's own vocabulary. They follow the same rules as the general patterns: needs come from capabilities.json, Copilot Studio patterns that use a third-party connector are optional integrations, and Agent Builder patterns use only what Agent Builder supports. Template fields are described in patterns-copilot-studio.json.",
+  "patterns": [
+    {
+      "id": "hc-epic-fhir-lookup", "product": "copilot-studio", "harness": "standard", "industries": ["healthcare"], "departments": ["customer-service", "operations"], "effort": "weeks",
+      "goals": ["reduce-handling-time", "customer-experience"], "dataSources": ["lob"],
+      "needs": ["instructions", "epic-fhir", "authentication", "test"],
+      "titles": ["Read-only Epic on FHIR lookup for {who}", "Patient context lookup for {work}"],
+      "description": "Give {who} a read-only way to look up patient context from Epic on FHIR while they handle {work}. The Microsoft FHIRlink connector keeps the first release to reads, and sign-in controls who can ask. Pilot with a small group, agree the access rules with your privacy office, and keep a person in the loop.",
+      "instructions": "You help {who} look up patient context for {work} from Epic on FHIR with read-only tools. Verify the person is signed in and authorized before every lookup. Return only the fields needed for the question. Never display a full record. Never offer to change data. Example question: \"{ask}\""
+    },
+    {
+      "id": "hc-prior-auth-checklist", "product": "copilot-studio", "harness": "standard", "industries": ["healthcare"], "departments": ["customer-service", "finance"], "effort": "days",
+      "goals": ["speed-approvals", "reduce-handling-time"], "dataSources": ["sharepoint", "dataverse"],
+      "needs": ["instructions", "knowledge-sharepoint", "knowledge-dataverse", "adaptive-cards", "test"],
+      "titles": ["Prior-authorization checklist agent for {who}", "Authorization requirements and status for {work}"],
+      "description": "Tell {who} which documents a payer expects before a procedure, and where each request stands. The agent reads payer policy documents in SharePoint and authorization status records in Dataverse, then shows a checklist card so nothing is missed. Fewer incomplete requests mean fewer denials and callbacks.",
+      "instructions": "You help {who} prepare prior-authorization requests. Ask for the payer, plan, and procedure, then list the required documents from the payer policy and cite the policy. For status questions, use only the authorization records provided. If the policy is silent, say so. Example question: \"{ask}\""
+    },
+    {
+      "id": "hc-patient-flow-analyst", "product": "m365-copilot-agent-builder", "industries": ["healthcare"], "departments": ["operations", "executives"], "effort": "hours",
+      "goals": ["reduce-cost", "reduce-handling-time"], "dataSources": ["none", "sharepoint"],
+      "needs": ["ab-instructions", "ab-code-interpreter", "ab-knowledge-files"],
+      "titles": ["Patient-flow trend analyst for {who}", "Census and throughput charts from a de-identified export"],
+      "description": "Upload a de-identified census or throughput export and get charts of {data} with a short narrative for {who}. The built-in code interpreter does the analysis and shows its code. Use de-identified data only, and download any generated files before you end the session.",
+      "instructions": "You analyze the uploaded de-identified export about {data} for {who}. Describe the columns, then chart the trend and call out the three largest changes. Do not try to identify individuals. If the export has identifiers, stop and ask for a de-identified copy. Example question: \"{ask}\""
+    },
+    {
+      "id": "rt-shopify-order-lookup", "product": "copilot-studio", "harness": "standard", "industries": ["retail"], "departments": ["customer-service", "operations", "sales"], "effort": "weeks",
+      "goals": ["customer-experience", "reduce-handling-time"], "dataSources": ["lob"],
+      "needs": ["instructions", "shopify", "test"],
+      "titles": ["Shopify order lookup for {who}", "Order status answers for {work}"],
+      "description": "Let {who} look up order details for {work} by asking. A governed custom connector to the Shopify Admin API exposes a read-first order lookup tool, so the first release cannot change orders. Shopify is a third-party system, so confirm the connection and licensing with the vendor.",
+      "instructions": "You look up orders for {who} while they handle {work}. Use the read-only order lookup. Ask for the order number or email, show status, items, and shipping details, and nothing else. Never change an order. Example question: \"{ask}\""
+    },
+    {
+      "id": "rt-return-refund-intake", "product": "copilot-studio", "harness": "standard", "industries": ["retail"], "departments": ["customer-service"], "effort": "days",
+      "goals": ["customer-experience", "reduce-handling-time"], "dataSources": ["dataverse", "teams"],
+      "needs": ["instructions", "topics", "entities", "adaptive-cards", "agent-flows", "test"],
+      "titles": ["Guided return and refund intake for {who}", "Return decisions in one conversation"],
+      "description": "Walk {who} through a return or refund the same way every time. The agent asks for the order, the item condition, and the reason, checks the return window, and shows a decision card before an agent flow records the outcome. Consistent decisions help {customers} and cut handling time.",
+      "instructions": "You help {who} process returns for the {org}. Ask for the order date, the item, its condition, and the reason, one question at a time. Apply the return policy, show the decision on a card, and ask for confirmation before you record it. Send exceptions to a person. Example request: \"{ask}\""
+    },
+    {
+      "id": "rt-promotion-briefing", "product": "m365-copilot-agent-builder", "industries": ["retail"], "departments": ["marketing", "sales", "operations"], "effort": "hours",
+      "goals": ["grow-revenue", "knowledge-access"], "dataSources": ["sharepoint"],
+      "needs": ["ab-instructions", "ab-knowledge-sharepoint", "ab-licensing"],
+      "titles": ["Promotion calendar briefing for {who}", "What's on promotion this week"],
+      "description": "Point an agent at the SharePoint folder with {docs} so {who} can ask what is on promotion, where, and with what rules. It turns the calendar and offer terms into a one-screen briefing before each store open or campaign send. Use only the current folder so old offers do not leak in.",
+      "instructions": "You brief {who} about current promotions using only the connected SharePoint content. List each promotion with dates, eligible items, and the offer terms. If two documents conflict, show both and say which is newer. Example question: \"{ask}\""
+    },
+    {
+      "id": "mf-sap-maintenance", "product": "copilot-studio", "harness": "standard", "industries": ["manufacturing"], "departments": ["operations", "finance"], "effort": "days",
+      "goals": ["reduce-handling-time", "reduce-cost"], "dataSources": ["lob"],
+      "needs": ["instructions", "sap", "teams-channel", "test"],
+      "titles": ["SAP maintenance and purchase lookups for {who}", "Plant ERP answers in Teams for {work}"],
+      "description": "Let {who} look up maintenance orders, spare-parts stock, and purchase-order status in SAP from Teams. Read-first connector actions keep the first release safe, and answers include the record they came from. SAP is a third-party system, so confirm the connection and licensing with the vendor.",
+      "instructions": "You look up {data} in SAP for {who}. Use read-only tools and show the order or part number you used. If stock or status is stale or missing, say so. Never offer to create or change an order. Example question: \"{ask}\""
+    },
+    {
+      "id": "mf-shift-handover", "product": "m365-copilot-agent-builder", "industries": ["manufacturing"], "departments": ["operations", "it"], "effort": "hours",
+      "goals": ["knowledge-access", "reduce-handling-time"], "dataSources": ["teams"],
+      "needs": ["ab-instructions", "ab-knowledge-teams", "ab-licensing"],
+      "titles": ["Shift handover summary for {who}", "What happened on the last shift"],
+      "description": "Start each shift with a summary of the previous shift's Teams chats and meetings: open issues, decisions, and who owns what. {Who} stop scrolling threads and start with the three things that matter. Scope the agent to the line or plant channel chats you choose.",
+      "instructions": "You summarize the previous shift for {who} from the Teams chats and meetings provided. Give open issues first, then decisions, then follow-ups with owners. Quote who said it. Never add details that were not in the chats. Example question: \"{ask}\""
+    },
+    {
+      "id": "mf-nonconformance-assistant", "product": "copilot-studio", "harness": "standard", "industries": ["manufacturing"], "departments": ["operations", "customer-service"], "effort": "days",
+      "goals": ["compliance-risk", "reduce-handling-time"], "dataSources": ["sharepoint", "dataverse"],
+      "needs": ["instructions", "knowledge-sharepoint", "knowledge-dataverse", "adaptive-cards", "test"],
+      "titles": ["Nonconformance report assistant for {who}", "Quality case lookup and checklist for {work}"],
+      "description": "Help {who} find similar past quality cases and the right corrective-action steps. The agent reads procedures in SharePoint and case records in Dataverse, then shows a checklist card for the next action. Consistent handling supports audits under {regulations}.",
+      "instructions": "You help {who} with quality cases. Look for similar past cases first and cite them. Then list the corrective-action steps from the approved procedure. If the cause is unclear, say so and name the quality owner. Example question: \"{ask}\""
+    },
+    {
+      "id": "fs-dispute-intake", "product": "copilot-studio", "harness": "standard", "industries": ["financial-services"], "departments": ["customer-service"], "effort": "days",
+      "goals": ["reduce-handling-time", "compliance-risk"], "dataSources": ["dataverse", "teams"],
+      "needs": ["instructions", "topics", "entities", "adaptive-cards", "agent-flows", "test"],
+      "titles": ["Card dispute intake for {who}", "Guided dispute capture with deadlines"],
+      "description": "Capture a card or account dispute in a guided conversation: transaction, date, amount, and what the {customer} says happened. The agent checks the filing deadline, shows a summary card, and starts an agent flow to open the case. Complete cases the first time help both handle time and conduct-risk evidence.",
+      "instructions": "You help {who} capture disputes for the {org}. Verify identity first. Ask for the transaction, date, amount, and the {customer}'s account of what happened, one question at a time. Check the deadline in the dispute procedure and show it. Confirm before you open the case. Example request: \"{ask}\""
+    },
+    {
+      "id": "fs-kyc-checklist", "product": "m365-copilot-agent-builder", "industries": ["financial-services"], "departments": ["operations", "legal", "customer-service"], "effort": "hours",
+      "goals": ["compliance-risk", "speed-approvals"], "dataSources": ["sharepoint"],
+      "needs": ["ab-instructions", "ab-knowledge-sharepoint", "ab-licensing"],
+      "titles": ["KYC document checklist coach for {who}", "Onboarding documents by client type"],
+      "description": "Tell {who} exactly which identity and ownership documents a new {customer} needs, by client type and risk tier. The agent reads your KYC and AML procedures from SharePoint and answers with the checklist and the procedure it came from. It supports {regulations} but never decides on its own.",
+      "instructions": "You help {who} choose the right onboarding documents. Ask for client type and risk tier, then list the required documents and cite the procedure. If the procedure does not cover the case, say a compliance officer must decide. Example question: \"{ask}\""
+    },
+    {
+      "id": "fs-risk-warehouse", "product": "copilot-studio", "harness": "standard", "industries": ["financial-services"], "departments": ["executives", "finance", "operations"], "effort": "weeks",
+      "goals": ["compliance-risk", "knowledge-access"], "dataSources": ["lob"],
+      "needs": ["instructions", "snowflake", "knowledge-tuning", "test"],
+      "titles": ["Risk metrics from the data warehouse for {who}", "Limit utilization questions answered in chat"],
+      "description": "Let {who} ask about exposure and limit utilization without waiting for a report. The agent queries governed Snowflake views through a Power Platform connection, shows the period it used, and refuses questions the views cannot answer. The warehouse stays the source of truth.",
+      "instructions": "You answer risk questions for {who} from the governed Snowflake views you are connected to. Show the figure, the as-of date, and the view you used. If the views cannot answer, say so. Never compute across views without describing how. Example question: \"{ask}\""
+    },
+    {
+      "id": "en-outage-trend-analyst", "product": "m365-copilot-agent-builder", "industries": ["energy-resources"], "departments": ["executives", "operations", "sustainability"], "effort": "hours",
+      "goals": ["reduce-cost", "knowledge-access"], "dataSources": ["none", "sharepoint"],
+      "needs": ["ab-instructions", "ab-code-interpreter", "ab-knowledge-files"],
+      "titles": ["Outage and emissions trend analyst for {who}", "Charts from an asset-performance export"],
+      "description": "Upload an export of {data} and get trend charts, the largest changes, and a short narrative for {who}. The built-in code interpreter writes and runs the analysis, and you can open the code view to check it. Download generated files before you end the session.",
+      "instructions": "You analyze the uploaded export about {data} for {who}. Describe the columns, then chart the trend by asset or site and call out the three biggest changes with likely drivers listed as hypotheses only. If a figure cannot be supported by the file, say so. Example question: \"{ask}\""
+    },
+    {
+      "id": "en-work-permit-intake", "product": "copilot-studio", "harness": "standard", "industries": ["energy-resources"], "departments": ["operations", "hr"], "effort": "days",
+      "goals": ["compliance-risk", "speed-approvals"], "dataSources": ["dataverse", "teams"],
+      "needs": ["instructions", "topics", "entities", "adaptive-cards", "agent-flows", "teams-channel", "test"],
+      "titles": ["Work-permit and lockout request intake for {who}", "Field permit requests in Teams"],
+      "description": "Collect a field work-permit request the same way every time: location, task, hazards, isolation steps, and crew. The agent checks that required fields and certifications are present, shows a summary card, and starts an agent flow that routes it to the permit authority. Complete requests support {regulations}.",
+      "instructions": "You collect work-permit requests for {who} at the {org}. Ask one question at a time: site, task, hazards, isolation steps, and crew certifications. Do not submit with a missing safety field. Show a summary card and ask for confirmation. Example request: \"{ask}\""
+    },
+    {
+      "id": "en-regulatory-bulletin-watch", "product": "m365-copilot-agent-builder", "industries": ["energy-resources"], "departments": ["legal", "sustainability", "executives"], "effort": "hours",
+      "goals": ["compliance-risk", "knowledge-access"], "dataSources": ["web"],
+      "needs": ["ab-instructions", "ab-knowledge-web"],
+      "titles": ["Regulatory bulletin watch for {who}", "What changed in the rules this week"],
+      "description": "Brief {who} on what changed in the public regulatory pages you track, such as environmental and reliability bulletins. The agent reads up to four public websites, two levels deep, and lists what changed and which of your obligations it might touch. A person decides what it means for {org}.",
+      "instructions": "You brief {who} on changes in the public regulatory pages provided. For each change give the page, what changed, and which of the {org}'s obligations it may affect, marked as a possibility. Use only the pages provided. Example question: \"{ask}\""
+    },
+    {
+      "id": "ed-advising-assistant", "product": "copilot-studio", "harness": "standard", "industries": ["education"], "departments": ["customer-service", "sales"], "effort": "weeks",
+      "goals": ["customer-experience", "reduce-handling-time"], "dataSources": ["dataverse", "sharepoint"],
+      "needs": ["instructions", "authentication", "knowledge-sharepoint", "knowledge-dataverse", "connector-tools", "teams-channel", "test"],
+      "titles": ["Signed-in student advising assistant for {who}", "Degree progress and next steps in one chat"],
+      "description": "Give {customers} a signed-in assistant that knows their own record. It combines program rules from SharePoint with their {data}, explains what is left and which holds apply, and books the next step through a connector action. Student data stays behind authentication to support {regulations}.",
+      "instructions": "You help signed-in {customers} of the {org} with {topic}. Use only the signed-in {customer}'s own record and the published program rules. Explain what remains and which holds apply. Offer to book an advisor when a decision is needed. Example question: \"{ask}\""
+    },
+    {
+      "id": "ed-accessible-materials-coach", "product": "m365-copilot-agent-builder", "industries": ["education"], "departments": ["accessibility", "it"], "effort": "hours",
+      "goals": ["compliance-risk", "knowledge-access"], "dataSources": ["sharepoint"],
+      "needs": ["ab-instructions", "ab-knowledge-sharepoint", "ab-licensing"],
+      "titles": ["Accessible course-material coach for {who}", "Checklist for captions, alt text, and document structure"],
+      "description": "Help instructors make course materials accessible before the semester starts. The agent reads your accessible-document guides and captioning standards from SharePoint and gives a checklist for the file or video type the instructor names. It supports {regulations} without replacing a review.",
+      "instructions": "You help instructors make {docs} accessible. Ask what file or media type they have, then give a short, ordered checklist and cite the standard. If a step needs a specialist, say who to contact. Example question: \"{ask}\""
+    },
+    {
+      "id": "ed-faculty-onboarding", "product": "copilot-studio", "harness": "standard", "industries": ["education"], "departments": ["hr"], "effort": "days",
+      "goals": ["speed-approvals", "reduce-handling-time"], "dataSources": ["teams", "dataverse"],
+      "needs": ["instructions", "topics", "entities", "adaptive-cards", "agent-flows", "teams-channel", "test"],
+      "titles": ["Faculty onboarding concierge for {who}", "New-faculty setup requests in Teams"],
+      "description": "Guide a new faculty member through setup in one conversation: accounts, parking, benefits enrollment, and course shells. The agent asks what they need, shows a summary card, and starts an agent flow that sends each request to the right office. {Who} can see what is still open at any time.",
+      "instructions": "You help new faculty at the {org} get set up. Ask which items they need: accounts, benefits, office, parking, or course access. Confirm the details, show a summary card, and start the request flow. When asked for status, report only what the flow returns. Example request: \"{ask}\""
+    },
+    {
+      "id": "np-grant-report-analyst", "product": "m365-copilot-agent-builder", "industries": ["nonprofit"], "departments": ["finance", "sustainability", "executives"], "effort": "hours",
+      "goals": ["reduce-cost", "compliance-risk"], "dataSources": ["none", "sharepoint"],
+      "needs": ["ab-instructions", "ab-code-interpreter", "ab-knowledge-files"],
+      "titles": ["Grant spending and outcomes analyst for {who}", "Funder-report charts from a spreadsheet"],
+      "description": "Upload a spreadsheet of {data} and get the charts and summary tables a funder report needs. The built-in code interpreter does the arithmetic and shows its code, so {who} can check it. Download generated files before you end the session, and keep the grant agreement in view for allowable costs.",
+      "instructions": "You prepare funder-report figures for {who} from the uploaded file about {data}. Describe the columns, produce the requested table or chart, and list any assumption. Flag any line that may not fit the grant's allowable costs. Example question: \"{ask}\""
+    },
+    {
+      "id": "np-volunteer-onboarding", "product": "copilot-studio", "harness": "standard", "industries": ["nonprofit"], "departments": ["hr", "operations"], "effort": "days",
+      "goals": ["speed-approvals", "reduce-handling-time"], "dataSources": ["dataverse", "teams"],
+      "needs": ["instructions", "topics", "entities", "adaptive-cards", "agent-flows", "teams-channel", "test"],
+      "titles": ["Volunteer onboarding agent for {who}", "From sign-up to first shift in one conversation"],
+      "description": "Take a new volunteer from sign-up to first shift: availability, role interest, required screening, and training. The agent collects the details, shows a summary card, and starts an agent flow that notifies the coordinator and schedules the next step. Fewer drop-offs mean more hours delivered.",
+      "instructions": "You welcome new volunteers to the {org} and collect what the coordinator needs: contact details, availability, role interest, and consent for screening where required. Ask one question at a time and confirm before you submit. Example request: \"{ask}\""
+    },
+    {
+      "id": "np-donor-stewardship-lookup", "product": "copilot-studio", "harness": "standard", "industries": ["nonprofit"], "departments": ["sales", "marketing", "customer-service"], "effort": "days",
+      "goals": ["grow-revenue", "customer-experience"], "dataSources": ["dataverse", "teams"],
+      "needs": ["instructions", "knowledge-dataverse", "knowledge-tuning", "test", "teams-channel"],
+      "titles": ["Donor stewardship lookup for {who}", "Know-the-donor briefing in Teams"],
+      "description": "Brief {who} before a call or an appeal with a donor's giving history, last contact, and stated interests from {data} in Dataverse. The agent cites the records it used and respects the privacy commitments you set for {regulations}. Better-prepared conversations support renewals.",
+      "instructions": "You brief {who} about a donor using only the records in Dataverse. Give giving history, last contact, and stated interests, and cite each record. Never speculate about a donor's wealth or personal life. If the record is thin, say so. Example question: \"{ask}\""
+    }
+  ]
+}

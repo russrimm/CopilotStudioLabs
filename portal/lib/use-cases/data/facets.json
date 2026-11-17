@@ -1,0 +1,31 @@
+{
+  "$comment": "Inputs the Use Case Builder offers besides the industry and department lists, which come from portal/lib/scenarios.json so the portal has one list of each. Labels are plain US English text; the UI never renders them as HTML.",
+  "goals": [
+    { "id": "reduce-handling-time", "label": "Reduce handling time", "outcome": "Fewer minutes spent on each repeat question, lookup, or request.", "description": "Shorten the time people spend on repeat questions, lookups, and requests." },
+    { "id": "speed-approvals", "label": "Speed up approvals and onboarding", "outcome": "Requests and new starters move through approvals faster, with fewer back-and-forth messages.", "description": "Move requests, approvals, and new-hire or new-customer onboarding along faster." },
+    { "id": "customer-experience", "label": "Improve customer experience", "outcome": "Faster, clearer answers for the people you serve.", "description": "Give customers, students, patients, or members faster and clearer answers." },
+    { "id": "compliance-risk", "label": "Strengthen compliance and risk", "outcome": "Policy is applied the same way every time, with sources and evidence to show for it.", "description": "Apply policy consistently, keep evidence, and catch risks earlier." },
+    { "id": "grow-revenue", "label": "Grow revenue", "outcome": "More time for the work that wins and keeps business or funding.", "description": "Help teams find, win, and keep more business or funding." },
+    { "id": "knowledge-access", "label": "Knowledge access and self-service", "outcome": "People find trusted answers themselves instead of asking around.", "description": "Let people find trusted answers themselves instead of asking around." },
+    { "id": "reduce-cost", "label": "Reduce cost", "outcome": "Less manual effort and rework on routine work.", "description": "Cut manual effort, rework, and spend on routine work." }
+  ],
+  "dataSources": [
+    { "id": "sharepoint", "label": "SharePoint and OneDrive documents", "description": "Policies, procedures, and files you already keep in SharePoint or OneDrive." },
+    { "id": "dataverse", "label": "Dataverse and Power Platform data", "description": "Tables and apps in a Power Platform environment." },
+    { "id": "teams", "label": "Microsoft Teams", "description": "Teams chats and meetings, or Teams as the place people work." },
+    { "id": "email", "label": "Outlook and email", "description": "Mailbox content and email-driven processes." },
+    { "id": "lob", "label": "ServiceNow, Salesforce, SAP, and similar systems", "description": "Line-of-business systems of record." },
+    { "id": "web", "label": "Public websites", "description": "Public web pages you can point an agent at." },
+    { "id": "none", "label": "None yet", "description": "No data prepared yet. Start from instructions, uploaded files, or public pages." }
+  ],
+  "platforms": [
+    { "id": "both", "label": "Both", "description": "Copilot Studio and Agent Builder side by side." },
+    { "id": "copilot-studio", "label": "Copilot Studio", "description": "Agents with custom actions, connectors, workflows, channels, and governance." },
+    { "id": "agent-builder", "label": "Agent Builder", "description": "Quick agents inside Microsoft 365 Copilot from instructions and supported knowledge." }
+  ],
+  "efforts": [
+    { "id": "hours", "label": "A few hours", "order": 1 },
+    { "id": "days", "label": "A few days", "order": 2 },
+    { "id": "weeks", "label": "A few weeks", "order": 3 }
+  ]
+}

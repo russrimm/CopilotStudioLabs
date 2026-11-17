@@ -9,8 +9,6 @@ let selectedLabId = null;
 let openLabLevels = new Set(); // which difficulty groups are expanded (collapsed by default)
 let recipients = [];
 let scenarios = { industries: [], roles: [] };
-let selectedIndustryId = "";
-let selectedRoleIds = new Set();
 let mermaidLoadPromise = null;
 let agentChatConfigLoaded = false;
 let validationResults = new Map();
@@ -236,7 +234,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // and share, Settings), each showing only its own tabs. The assistant is reached
 // from the header. Every panel keeps its id, so older links still work.
 const TAB_GROUPS = {
-  build: { label: "Build", hint: "Create a lab step by step, or browse industry scenarios." },
+  build: { label: "Build", hint: "Create a lab step by step, or build a list of use cases for your scenario." },
   check: { label: "Preview and validate", hint: "Read a lab the way learners see it, and check it against Microsoft Learn." },
   deploy: { label: "Deploy and share", hint: "Set up the lab environment, then send labs to the people taking them." },
   settings: { label: "Settings", hint: "Branding, identity, email, and deployment targets." },
@@ -275,12 +273,19 @@ function setupTabs() {
   });
 
   window.addEventListener("hashchange", () => {
-    const requested = window.location.hash.slice(1);
+    const requested = resolveTabAlias(window.location.hash.slice(1));
     if (document.getElementById(`panel-${requested}`)) setActiveTab(requested, { updateHash: false });
   });
 
-  const fromHash = window.location.hash.slice(1);
+  const fromHash = resolveTabAlias(window.location.hash.slice(1));
   setActiveTab(document.getElementById(`panel-${fromHash}`) ? fromHash : DEFAULT_TAB, { updateHash: false });
+}
+
+// Friendly addresses for panels whose ids stay stable: the Use Case Builder keeps the scenarios panel id.
+const TAB_ALIASES = { usecases: "scenarios", "use-case-builder": "scenarios" };
+
+function resolveTabAlias(name) {
+  return Object.hasOwn(TAB_ALIASES, name) ? TAB_ALIASES[name] : name;
 }
 
 const lastTabByGroup = {};
@@ -329,8 +334,9 @@ function setActiveTab(tabName, { updateHash = true } = {}) {
     ppLoadApprovalRequests().catch(() => {});
   }
 
-  if (tabName === "scenarios" && !scenarios.industries.length) {
-    loadScenarios();
+  if (tabName === "scenarios") {
+    if (typeof ucOnTabShown === "function") ucOnTabShown();
+    if (!scenarios.industries.length) loadScenarios();
   }
 
   if (tabName === "azure" && !resourceManifest.length) {
@@ -2233,7 +2239,10 @@ function enhanceLabInteractivity(container, scopeKey) {
   }
 }
 
-// ── Scenarios ───────────────────────────────────────────────────────────────
+// ── Provisioning scenario (secondary section of the Use Case Builder) ───────
+// The Use Case Builder owns the industry and department choices. This section
+// mirrors them: it lists the hand-written provisioning labs they suggest and can
+// apply them to Lab setup through POST /api/scenarios/configure.
 async function loadScenarios() {
   try {
     const res = await fetch("/api/scenarios");
@@ -2242,66 +2251,38 @@ async function loadScenarios() {
       industries: data.industries || [],
       roles: data.roles || [],
     };
-
-    renderIndustryCards();
-    renderRoleOptions();
-
-    if (scenarios.industries.length && !selectedIndustryId) {
-      selectIndustry(scenarios.industries[0].id);
-    }
+    scenarioSelectionChanged();
   } catch (err) {
-    document.getElementById("scenario-industry-grid").innerHTML = `<div class="scenario-empty">Failed to load scenarios: ${err.message}</div>`;
-    document.getElementById("scenario-role-list").innerHTML = '<div class="scenario-empty">Scenario roles unavailable.</div>';
+    const description = document.getElementById("scenario-description");
+    if (description) description.textContent = `Could not load the provisioning scenarios: ${err.message}`;
   }
 }
 
-function renderIndustryCards() {
-  const container = document.getElementById("scenario-industry-grid");
-  container.innerHTML = scenarios.industries
-    .map((industry) => `
-      <button type="button"
-              class="scenario-card ${industry.id === selectedIndustryId ? "active" : ""}"
-              data-industry-id="${escapeHtml(industry.id)}"
-              aria-pressed="${industry.id === selectedIndustryId}">
-        <div class="scenario-card-title">
-          <span style="font-size: 22px;">${escapeHtml(industry.icon)}</span>
-          <span>${escapeHtml(industry.name)}</span>
-        </div>
-        <div class="scenario-card-desc">${escapeHtml(industry.description)}</div>
-      </button>
-    `)
-    .join("");
-
-  container.querySelectorAll("[data-industry-id]").forEach((card) => {
-    card.addEventListener("click", () => selectIndustry(card.dataset.industryId));
-  });
+/** The Use Case Builder's current choices, which this section mirrors. */
+function scenarioIndustryId() {
+  return typeof ucSelectedIndustryId === "function" ? ucSelectedIndustryId() : "";
 }
 
-function renderRoleOptions() {
-  const container = document.getElementById("scenario-role-list");
-  container.innerHTML = scenarios.roles
-    .map((role) => `
-      <label class="scenario-role">
-        <input type="checkbox" data-role-id="${escapeHtml(role.id)}" ${selectedRoleIds.has(role.id) ? "checked" : ""} />
-        <div>
-          <div style="font-weight: 600;">${escapeHtml(role.icon)} ${escapeHtml(role.name)}</div>
-          <div style="font-size: 12px; color: var(--text-muted);">${escapeHtml(role.description)}</div>
-        </div>
-      </label>
-    `)
-    .join("");
+function scenarioRoleIds() {
+  return typeof ucSelectedDepartmentIds === "function" ? ucSelectedDepartmentIds() : [];
+}
 
-  container.querySelectorAll("input[data-role-id]").forEach((input) => {
-    input.addEventListener("change", () => toggleRole(input.dataset.roleId));
-  });
+/** Called by the Use Case Builder whenever the industry or departments change. */
+function scenarioSelectionChanged() {
+  renderScenarioDetails();
+  renderScenarioLabPreview();
+  const status = document.getElementById("scenario-apply-status");
+  if (status) status.textContent = "";
 }
 
 function getSelectedIndustry() {
-  return scenarios.industries.find((industry) => industry.id === selectedIndustryId) || null;
+  const id = scenarioIndustryId();
+  return scenarios.industries.find((industry) => industry.id === id) || null;
 }
 
 function getSelectedRoles() {
-  return scenarios.roles.filter((role) => selectedRoleIds.has(role.id));
+  const ids = new Set(scenarioRoleIds());
+  return scenarios.roles.filter((role) => ids.has(role.id));
 }
 
 function getSuggestedScenarioLabIds() {
@@ -2319,10 +2300,10 @@ function getSuggestedScenarioLabIds() {
 function renderScenarioDetails() {
   const industry = getSelectedIndustry();
   const roles = getSelectedRoles();
+  const title = document.getElementById("scenario-selected-title");
+  if (!title) return;
 
-  document.getElementById("scenario-selected-title").textContent = industry
-    ? `${industry.icon} ${industry.name}`
-    : "Select an industry";
+  title.textContent = industry ? `${industry.icon} ${industry.name}` : "Select an industry";
   document.getElementById("scenario-description").textContent = industry
     ? industry.description
     : "Scenario guidance will appear here.";
@@ -2346,7 +2327,7 @@ function renderScenarioLabPreview() {
 
   const suggestedLabIds = getSuggestedScenarioLabIds();
   if (!suggestedLabIds.length) {
-    container.innerHTML = '<div class="scenario-empty">Select an industry to see recommended labs.</div>';
+    container.innerHTML = '<div class="scenario-empty">Choose an industry above to see the provisioning labs it suggests.</div>';
     return;
   }
 
@@ -2358,30 +2339,10 @@ function renderScenarioLabPreview() {
     .join("");
 }
 
-function selectIndustry(id) {
-  selectedIndustryId = id;
-  renderIndustryCards();
-  renderScenarioDetails();
-  renderScenarioLabPreview();
-  document.getElementById("scenario-apply-status").textContent = "";
-}
-
-function toggleRole(id) {
-  if (selectedRoleIds.has(id)) {
-    selectedRoleIds.delete(id);
-  } else {
-    selectedRoleIds.add(id);
-  }
-
-  renderRoleOptions();
-  renderScenarioDetails();
-  renderScenarioLabPreview();
-  document.getElementById("scenario-apply-status").textContent = "";
-}
-
 async function applyScenarioConfig() {
-  if (!selectedIndustryId) {
-    toast("Select an industry first.", "error");
+  const industry = scenarioIndustryId();
+  if (!industry) {
+    toast("Choose an industry first.", "error");
     return;
   }
 
@@ -2393,8 +2354,8 @@ async function applyScenarioConfig() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        industry: selectedIndustryId,
-        roles: [...selectedRoleIds],
+        industry,
+        roles: scenarioRoleIds(),
       }),
     });
 
