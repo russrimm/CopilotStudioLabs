@@ -3092,6 +3092,7 @@
     .sc-banner-actions { margin-top: 0; }
 
     .sc-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    .sc-steps[data-steps="4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .sc-step {
       display: flex;
       gap: 10px;
@@ -3192,6 +3193,30 @@
     .sc-primary-btn[aria-busy="true"] { cursor: progress; }
     .sc-primary-help { margin: 0; font-size: 12.5px; color: var(--text-muted); }
 
+    .sc-mode { margin: 0; padding: 10px 14px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); min-width: 0; }
+    .sc-mode legend { padding: 0 6px; font-size: 13px; font-weight: 600; color: var(--text); }
+    .sc-mode-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 16px; }
+    .sc-mode-option { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; align-items: start; }
+    .sc-mode-option input { margin-top: 3px; accent-color: var(--accent); }
+    .sc-mode-option label { font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; }
+    .sc-mode-help { grid-column: 2; margin: 2px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--text-muted); }
+
+    .sc-needs { padding: 14px 16px; border: 1px solid var(--border); border-left: 4px solid var(--sc-warn-border); border-radius: 8px; background: var(--surface); display: flex; flex-direction: column; gap: 12px; }
+    .sc-needs-heading { margin: 0; font-size: 14px; color: var(--text); }
+    .sc-need { padding-top: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .sc-need-title { margin: 0; font-size: 13.5px; color: var(--text); }
+    .sc-need-help { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
+    .sc-need-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 14px; }
+    .sc-field input { border-color: var(--border-strong); }
+    .sc-field input[aria-invalid="true"] { border-color: var(--sc-bad-border); }
+    .sc-field-source { font-size: 12px; color: var(--text-muted); }
+    .sc-field-error { margin: 0; padding: 4px 8px; border-radius: 6px; font-size: 12.5px; font-weight: 600; background: var(--sc-bad-bg); color: var(--sc-bad-fg); }
+    .sc-settings { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+    .sc-settings > summary { padding: 10px 12px; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .sc-settings-body { padding: 4px 14px 14px; display: flex; flex-direction: column; gap: 14px; }
+    .sc-settings-group { margin: 0; padding: 10px 12px 12px; border: 1px solid var(--border); border-radius: 8px; min-width: 0; }
+    .sc-settings-group legend { padding: 0 6px; font-size: 13px; font-weight: 600; color: var(--text); }
+
     .sc-progress { padding: 12px 14px; border: 1px solid var(--border); border-left-width: 4px; border-radius: 8px; background: var(--surface); }
     .sc-progress-ok { border-left-color: var(--sc-ok-border); }
     .sc-progress-info { border-left-color: var(--sc-info-border); }
@@ -3281,6 +3306,19 @@
     .sc-feedback-head { margin: 0 0 4px; font-weight: 700; }
     .sc-feedback-list { margin: 0 0 6px 18px; padding: 0; }
     .sc-feedback .btn { color: inherit; border-color: currentColor; background: transparent; }
+    .sc-why, .sc-path { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-muted); overflow-wrap: anywhere; }
+    .sc-outcome { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text); overflow-wrap: anywhere; }
+
+    .sc-causes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+    .sc-cause { padding: 8px 10px; border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; background: var(--bg); }
+    .sc-cause-warn { border-left-color: var(--sc-warn-border); }
+    .sc-cause-info { border-left-color: var(--sc-info-border); }
+    .sc-cause-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+    .sc-cause-title { font-size: 13px; color: var(--text); }
+    .sc-cause-fix { margin: 4px 0 6px; font-size: 12.5px; line-height: 1.45; color: var(--text-muted); }
+    .sc-cause-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .sc-cause-files { margin: 8px 0 0 18px; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; color: var(--text); overflow-wrap: anywhere; }
+    .sc-cause-files[hidden] { display: none; }
 
     .sc-lightbox {
       width: min(1100px, 96vw);
@@ -3311,6 +3349,13 @@
     .sc-lb-verdict-fail { color: var(--sc-bad-fg); background: var(--sc-bad-bg); padding: 2px 8px; border-radius: 4px; display: inline-block; }
     .sc-lb-verdict-warn { color: var(--sc-warn-fg); background: var(--sc-warn-bg); padding: 2px 8px; border-radius: 4px; display: inline-block; }
     .sc-lb-verdict-pass { color: var(--sc-ok-fg); background: var(--sc-ok-bg); padding: 2px 8px; border-radius: 4px; display: inline-block; }
+    .sc-review { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+    .sc-review-mismatch { margin: 0; padding: 8px 10px; border-left: 4px solid var(--sc-warn-border); border-radius: 6px; background: var(--sc-warn-bg); color: var(--sc-warn-fg); font-size: 13.5px; font-weight: 600; }
+    .sc-review-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+    .sc-review-col { min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); display: flex; flex-direction: column; gap: 8px; }
+    .sc-review-col h6 { margin: 0; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+    .sc-review-col p { margin: 0; overflow-wrap: anywhere; }
+    .sc-review-caption { font-weight: 600; }
 
     .lb-capture-on-build-status { margin: 8px 0 0; font-size: 13px; color: var(--text-muted); }
     #lb-capture-on-build:disabled + span { opacity: 0.85; }
@@ -3338,6 +3383,8 @@
 
     @media (max-width: 900px) {
       .sc-steps { grid-template-columns: 1fr; }
+      .sc-steps[data-steps="4"] { grid-template-columns: 1fr; }
+      .sc-review-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 560px) {
       .sc-center { padding: 12px; }
@@ -6732,12 +6779,22 @@
 
                     <fieldset class="bp-fieldset">
                       <legend>Tenant environment URLs</legend>
-                      <p class="hint" style="margin: 0 0 10px;">https only. The screenshot capture tool uses these to open your own environments.</p>
+                      <p class="hint" style="margin: 0 0 10px;">Addresses must start with https. The screenshot capture tool uses these, and the agent names, to open your own environments and agents.</p>
                       <div class="form-grid">
                         <div class="form-group">
                           <label for="bp-copilotStudioUrl">Copilot Studio</label>
                           <input type="text" id="bp-copilotStudioUrl" data-bp-field="copilotStudioUrl" inputmode="url" autocomplete="off" placeholder="https://copilotstudio.microsoft.com/environments/…" aria-describedby="bp-copilotStudioUrl-error" />
                           <p class="bp-error" id="bp-copilotStudioUrl-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-copilotStudioAgentUrl">Copilot Studio agent URL</label>
+                          <input type="text" id="bp-copilotStudioAgentUrl" data-bp-field="copilotStudioAgentUrl" inputmode="url" autocomplete="off" placeholder="https://copilotstudio.microsoft.com/environments/…/bots/…/overview" aria-describedby="bp-copilotStudioAgentUrl-error" />
+                          <p class="bp-error" id="bp-copilotStudioAgentUrl-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-copilotStudioAgentName">Copilot Studio agent name</label>
+                          <input type="text" id="bp-copilotStudioAgentName" data-bp-field="copilotStudioAgentName" maxlength="80" autocomplete="off" placeholder="My agent" aria-describedby="bp-copilotStudioAgentName-error" />
+                          <p class="bp-error" id="bp-copilotStudioAgentName-error" role="alert"></p>
                         </div>
                         <div class="form-group">
                           <label for="bp-powerPlatformEnvUrl">Power Platform environment</label>
@@ -6763,6 +6820,11 @@
                           <label for="bp-foundryProjectUrl">Foundry project</label>
                           <input type="text" id="bp-foundryProjectUrl" data-bp-field="foundryProjectUrl" inputmode="url" autocomplete="off" placeholder="https://ai.azure.com/…" aria-describedby="bp-foundryProjectUrl-error" />
                           <p class="bp-error" id="bp-foundryProjectUrl-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-agentBuilderAgentName">Agent Builder agent name</label>
+                          <input type="text" id="bp-agentBuilderAgentName" data-bp-field="agentBuilderAgentName" maxlength="80" autocomplete="off" placeholder="My agent" aria-describedby="bp-agentBuilderAgentName-error" />
+                          <p class="bp-error" id="bp-agentBuilderAgentName-error" role="alert"></p>
                         </div>
                       </div>
                     </fieldset>

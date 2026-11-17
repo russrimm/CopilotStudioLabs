@@ -433,7 +433,8 @@ const BP_FIELD_KEYS = [
   "companyName", "tagline", "coverSubtitle", "footerText", "primaryColor", "secondaryColor", "font",
   "moreInfoLabel", "moreInfoUrl", "supportName", "supportEmail", "communityUrl",
   "defaultSharepointSiteName", "defaultSharepointSiteUrl",
-  "copilotStudioUrl", "powerPlatformEnvUrl", "sharepointSiteUrl", "sharepointAdminUrl", "m365AdminUrl", "foundryProjectUrl",
+  "copilotStudioUrl", "copilotStudioAgentUrl", "copilotStudioAgentName", "agentBuilderAgentName",
+  "powerPlatformEnvUrl", "sharepointSiteUrl", "sharepointAdminUrl", "m365AdminUrl", "foundryProjectUrl",
 ];
 
 const brandProfiles = { loaded: false, loading: null, activeProfileId: null, profiles: [], fonts: [], selectedId: null, isNew: false };

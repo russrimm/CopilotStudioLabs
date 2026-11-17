@@ -15,6 +15,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync, writeFileSync, copyFileSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import { resolveGeneratedLabsDir, resolvePortalDataDir, resolvePortalUploadsDir } from "./storage-config.js";
+import { validateTargets } from "../../tools/screenshot-capture/targets.mjs";
 import {
   BRAND_FONTS,
   CAPTURE_ENV_MAP,
@@ -601,18 +602,27 @@ export function buildCustomization({ profileId, overrides } = {}, env = process.
   };
 }
 
+/** Per-lab capture settings (addresses and names) stored with the lab's customization. Invalid entries are dropped. */
+function sanitizeCaptureTargets(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const checked = validateTargets(input);
+  return Object.fromEntries(Object.entries(checked.values).filter(([, value]) => value));
+}
+
 /** Read and sanitize `manifest.customization`; returns null when the lab has none. */
 export function readCustomization(manifest) {
   const raw = manifest && typeof manifest === "object" ? manifest.customization : null;
   if (!raw || typeof raw !== "object") return null;
   const snapshot = raw.profileSnapshot && typeof raw.profileSnapshot === "object" ? raw.profileSnapshot : null;
   const overrides = sanitizeOverrides(raw.overrides).values;
+  const captureTargets = sanitizeCaptureTargets(raw.captureTargets);
   return {
     version: 1,
     profileId: isValidProfileId(raw.profileId) ? raw.profileId : snapshot && isValidProfileId(snapshot.id) ? snapshot.id : null,
     profileName: cleanText(raw.profileName || snapshot?.name || ""),
     profileSnapshot: snapshot ? { ...pickProfileBrandFields(normalizeBrand(snapshot)), id: snapshot.id, name: cleanText(snapshot.name), snapshotAt: snapshot.snapshotAt || null } : null,
     overrides,
+    ...(Object.keys(captureTargets).length ? { captureTargets } : {}),
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
   };
 }
@@ -753,7 +763,7 @@ export function updateLabCustomization(labDir, patch = {}, env = process.env) {
   const keepSnapshot = Boolean(existing?.profileSnapshot) && !action && (!hasProfileId || profileId === existing.profileId);
   const customization = keepSnapshot
     ? { ...existing, version: 1, overrides, updatedAt: nowIso() }
-    : buildCustomization({ profileId, overrides }, env);
+    : { ...buildCustomization({ profileId, overrides }, env), ...(existing?.captureTargets ? { captureTargets: existing.captureTargets } : {}) };
   const manifest = mutateManifest(labDir, (m) => {
     m.customization = customization;
   });
@@ -771,10 +781,40 @@ export function writeLabCustomization(labDir, customization) {
   );
 }
 
+/**
+ * Save a lab's own capture settings (where its screenshots are captured). An empty value clears a setting.
+ * Only valid settings are stored; invalid ones are reported by field and nothing is written.
+ * @returns {{ok: boolean, errors: Record<string, string>, captureTargets: Record<string, string>}}
+ */
+export function updateLabCaptureTargets(labDir, patch = {}) {
+  const checked = validateTargets(patch);
+  if (!checked.ok) return { ok: false, errors: checked.errors, captureTargets: {} };
+  let saved = {};
+  mutateManifest(labDir, (manifest) => {
+    const existing = readCustomization(manifest);
+    const next = { ...(existing?.captureTargets || {}) };
+    for (const [id, value] of Object.entries(checked.values)) {
+      if (value) next[id] = value;
+      else delete next[id];
+    }
+    saved = next;
+    const base = manifest.customization && typeof manifest.customization === "object" ? manifest.customization : { version: 1, overrides: {} };
+    const customization = { ...base, updatedAt: nowIso() };
+    if (Object.keys(next).length) customization.captureTargets = next;
+    else delete customization.captureTargets;
+    manifest.customization = customization;
+  });
+  return { ok: true, errors: {}, captureTargets: saved };
+}
+
 // ── Capture environment ─────────────────────────────────────────────────────
 
 function looksLikeCustomization(value) {
   return Boolean(value && typeof value === "object" && ("profileSnapshot" in value || ("overrides" in value && !("companyName" in value))));
+}
+
+function looksLikeManifest(value) {
+  return Boolean(value && typeof value === "object" && (value.customization || value.sharepointSite || Array.isArray(value.modules) || value.slug));
 }
 
 /**
@@ -783,13 +823,15 @@ function looksLikeCustomization(value) {
  * Only https values are emitted and blanks are omitted. The lab's own
  * SharePoint site wins for CAPTURE_SHAREPOINT_SITE_URL, then the tenant
  * SharePoint site URL, then the profile's default SharePoint site.
+ * A lab manifest is read whole, so the lab's own SharePoint site (Step 7) is used even
+ * when the lab has no customization.
  *
  * @returns {Record<string, string>}
  */
 export function buildCaptureEnv(profileOrCustomization, { env = process.env } = {}) {
   let brand;
   const input = profileOrCustomization;
-  if (input && typeof input === "object" && input.customization && typeof input.customization === "object") {
+  if (looksLikeManifest(input)) {
     brand = resolveLabBrand(input, { env });
   } else if (looksLikeCustomization(input)) {
     brand = resolveCustomizationBrand(input, { env });

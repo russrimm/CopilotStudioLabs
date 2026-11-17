@@ -192,9 +192,20 @@ class FakeCompanion {
   }
 }
 
+/** The address a correct screenshot of this shot would be taken at, from what the plan expects. */
+function addressFor(shot) {
+  const expect = shot.capture?.expect;
+  if (expect?.family === "copilot-studio") {
+    const base = "https://copilotstudio.microsoft.com/environments/abc";
+    return expect.scope === "agent" ? `${base}/bots/def/${expect.paths[0]}` : `${base}/${expect.paths[0]}`;
+  }
+  if (expect?.family === "url" && expect.host) return `https://${expect.host}/`;
+  return "https://copilotstudio.microsoft.com/environments/abc/bots";
+}
+
 function goodEvidence(shot) {
   return {
-    finalUrl: "https://copilotstudio.microsoft.com/environments/abc/bots?token=SECRET#frag",
+    finalUrl: `${addressFor(shot)}?token=SECRET#frag`,
     title: "Copilot Studio",
     visibleText: shot.expectedLabels?.length ? shot.expectedLabels : ["Settings"],
     redaction: { applied: true, masked: 2 },
@@ -539,7 +550,9 @@ test("shot plans carry safe steps, expected labels, and mark shots that need a t
   assert.ok(sharepoint.shots.some((s) => s.manual), "terminal shots are marked manual");
   assert.ok(sharepoint.shots.every((s) => s.authProfile === "sharepoint-ai"));
   const copilotStudio = buildLibraryJobPlan({ scope: everything, products: ["copilot-studio"], capturedDir: [] });
-  assert.ok(copilotStudio.shots.every((s) => s.requiresEnv === null), "a public start page is never a requirement");
+  // A public page needs no address; an agent screen needs the agent (older companions are told which variable).
+  assert.ok(copilotStudio.shots.every((s) => s.requiresEnv === null || s.requiresEnv === "CAPTURE_COPILOT_STUDIO_AGENT_URL"));
+  assert.ok(copilotStudio.shots.filter((s) => s.section === "home").every((s) => s.requiresEnv === null), "a public start page is never a requirement");
 
   for (const shot of [...sharepoint.shots, ...copilotStudio.shots]) {
     assert.ok(shot.steps.every((s) => ["navigate", "waitForLoadState", "dismissBanners", "stepThrough", "click", "clickBestEffort", "probeControl", "probeCallouts", "screenshot"].includes(s.action)));
@@ -553,7 +566,7 @@ test("shot plans carry safe steps, expected labels, and mark shots that need a t
   assert.deepEqual(selected.shots.map((s) => s.filename), [missing.shots[0].filename]);
   const lab = buildLabJobPlan({ generatedRoot: ctx.generatedRoot, labId: ctx.lab.labId, scope: { mode: "missing", filenames: [], featureIds: [] }, capturedDir: [] });
   assert.equal(lab.status, 200);
-  assert.ok(lab.shots.length >= 2 && lab.shots.every((s) => s.requiresEnv === null));
+  assert.ok(lab.shots.length >= 2 && lab.shots.every((s) => s.requiresEnv === null || s.requiresEnv === "CAPTURE_COPILOT_STUDIO_AGENT_URL"));
   assert.equal(buildLabJobPlan({ generatedRoot: ctx.generatedRoot, labId: "no-such-lab", scope: everything }).status, 404);
   assert.equal(buildLabJobPlan({ generatedRoot: ctx.generatedRoot, labId: "../x", scope: everything }).status, 400);
 
@@ -976,7 +989,7 @@ test("a fake companion pairs, claims a job, uploads verified shots, and complete
   assert.equal(accepted.status, 200, accepted.text);
   assert.equal(accepted.json.outcome, "accepted");
   assert.equal(accepted.json.verification.level, "pass");
-  assert.equal(accepted.json.verification.finalUrl, "https://copilotstudio.microsoft.com/environments/abc/bots", "query strings are dropped");
+  assert.match(accepted.json.verification.finalUrl, /^https:\/\/copilotstudio\.microsoft\.com\/environments\/abc\/[a-z/]+$/, "query strings are dropped");
   assert.ok(!accepted.text.includes("SECRET"));
 
   const signedIn = await companion.upload(jobId, second.filename, makePng({ mode: "ui", seed: 6 }), { ...goodEvidence(second), finalUrl: "https://login.microsoftonline.com/common/oauth2/authorize" });
@@ -1039,7 +1052,8 @@ test("the real companion code drives a whole job against the real portal over HT
   assert.equal(claimed.shots.length, shots.length);
 
   const labels = [...new Set(claimed.shots.flatMap((s) => s.expectedLabels))];
-  const fake = createFakePlaywright({ labels, pageLabels: [...labels, "Home"] });
+  // The product sends the browser from its start page to the environment's home page.
+  const fake = createFakePlaywright({ labels, pageLabels: [...labels, "Home"], rewriteUrl: (u) => (u === "https://copilotstudio.microsoft.com/" ? "https://copilotstudio.microsoft.com/environments/abc/home" : u) });
   const home = tmp("e2e-companion-home-");
   const lines = [];
   const result = await runJob({ client, claimed, home, playwright: fake.playwright, log: (m) => lines.push(m), heartbeatMs: 60_000 });
@@ -1402,6 +1416,10 @@ test("generate with captureScreenshots never waits on a tenant sign-in: it queue
   const companion = new FakeCompanion(base);
   await companion.pair((await call(base, "POST", "/api/capture/pair")).json.code);
   await companion.heartbeat();
+  const held = await generate();
+  assert.equal(held.json.captureQueued, true, held.text);
+  const saved = await call(base, "PUT", "/api/capture/targets", { json: { targets: { copilotStudioAgentUrl: "https://copilotstudio.microsoft.com/environments/abc/bots/def/overview" } } });
+  assert.equal(saved.status, 200, saved.text);
   const withCompanion = await generate();
   assert.equal(withCompanion.status, 200, withCompanion.text);
   assert.equal(withCompanion.json.captureQueued, true);

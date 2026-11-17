@@ -30,6 +30,8 @@ import {
   verifyCapturedImageFile,
 } from "../../../tools/screenshot-capture/lab-runner.mjs";
 import { blockedInstructionReason, blockedLabelReason } from "../../../tools/screenshot-capture/guard.mjs";
+import { cleanExpectedLabel } from "../../../tools/screenshot-capture/labels.mjs";
+import { describeShotCapture } from "../capture/classify.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -130,7 +132,8 @@ function extractBoldLabels(stepText) {
   const seen = new Set();
   const labels = [];
   for (const m of matches) {
-    const cleaned = m[1].replace(/\s+/g, " ").trim();
+    // Labels come from Learn text, which has typos, sentences, and placeholders: keep only usable ones.
+    const cleaned = cleanExpectedLabel(m[1]);
     if (!cleaned || seen.has(cleaned.toLowerCase())) continue;
     seen.add(cleaned.toLowerCase());
     labels.push(cleaned);
@@ -891,10 +894,25 @@ const DEFAULT_CAPTURE_CAPABILITIES = Object.freeze({
   signedInProducts: [],
 });
 let captureCapabilitiesProvider = null;
+let captureTargetsProvider = null;
 
 /** The capture platform registers a callback so status payloads can say whether a companion is connected. */
 export function setCaptureCapabilitiesProvider(provider) {
   captureCapabilitiesProvider = typeof provider === "function" ? provider : null;
+}
+
+/** The capture platform registers a callback that returns the capture settings in effect for a lab (addresses and names). */
+export function setCaptureTargetsProvider(provider) {
+  captureTargetsProvider = typeof provider === "function" ? provider : null;
+}
+
+function currentCaptureTargets(labId) {
+  try {
+    const values = captureTargetsProvider?.(labId);
+    return values && typeof values === "object" ? values : {};
+  } catch {
+    return {};
+  }
 }
 
 function currentCaptureCapabilities() {
@@ -1049,6 +1067,7 @@ export function getLabScreenshotsStatus(
   const { labId, labDir } = found;
   const { shotsPlan, learnState } = ensurePerLabScreenshotPlan(labDir, { labId, capturedDir });
   const verificationRecords = readLabVerification(labDir);
+  const captureValues = currentCaptureTargets(labId);
 
   const shots = (shotsPlan.shots || []).map((shot) => {
     const perLabOk = verifyCapturedImageFile(path.join(labDir, "assets", shot.filename)).ok;
@@ -1101,6 +1120,8 @@ export function getLabScreenshotsStatus(
       verification,
       needsReview: verification?.state === "needs-review",
       learnBaseline: shot.learnBaseline || null,
+      // How this shot is captured under the settings in effect, so the Screenshot Center can say why.
+      capture: describeShotCapture({ ...shot, product: shot.product }, captureValues),
     };
   });
 

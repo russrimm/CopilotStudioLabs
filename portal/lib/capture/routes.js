@@ -246,6 +246,53 @@ export function registerCaptureRoutes(app, deps = {}) {
     return result.ok ? res.json({ job: result.job }) : res.status(result.status).json({ error: result.error, job: result.job });
   });
 
+  // ── Capture settings: where should we capture? ────────────────────────────
+
+  app.get("/api/capture/targets", (req, res) => {
+    const labId = typeof req.query.labId === "string" && req.query.labId ? req.query.labId : null;
+    if (labId && !SAFE_LAB_ID.test(labId)) return res.status(400).json({ error: "Invalid lab id." });
+    try {
+      return res.json(platform.targetsPayload({ labId }));
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put("/api/capture/targets", (req, res) => {
+    if (manageLimited(req, res)) return;
+    const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+    syncAfter(res);
+    try {
+      const result = platform.saveProfileTargets(body.targets, { profileId: typeof body.profileId === "string" ? body.profileId : null });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  for (const prefix of ["/api/lab-builder/generated/:labId", "/api/generated-labs/:labId"]) {
+    app.get(`${prefix}/capture-targets`, (req, res) => {
+      if (!SAFE_LAB_ID.test(req.params.labId)) return res.status(400).json({ error: "Invalid lab id." });
+      try {
+        return res.json(platform.targetsPayload({ labId: req.params.labId }));
+      } catch (err) {
+        return res.status(500).json({ error: err.message });
+      }
+    });
+    app.put(`${prefix}/capture-targets`, (req, res) => {
+      if (manageLimited(req, res)) return;
+      if (!SAFE_LAB_ID.test(req.params.labId)) return res.status(400).json({ error: "Invalid lab id." });
+      const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+      syncAfter(res);
+      try {
+        const result = platform.saveLabTargets(req.params.labId, body.targets, { alsoProfile: body.alsoProfile === true });
+        return res.status(result.status).json(result.body);
+      } catch (err) {
+        return res.status(500).json({ error: err.message });
+      }
+    });
+  }
+
   app.get("/api/capture/companion.zip", async (_req, res) => {
     try {
       const { buffer } = await buildCompanionZip(deps.repoRoot ? { repoRoot: deps.repoRoot } : undefined);
@@ -406,6 +453,7 @@ export function registerCaptureRoutes(app, deps = {}) {
     return res.json({
       job: { id: job.id, target: job.target, scope: job.scope, options: job.options, createdAt: job.createdAt, resumed },
       env: plan?.env || {},
+      targets: plan?.targets || {},
       shots: (plan?.shots || []).filter((shot) => pending.has(shot.filename)),
     });
   });
@@ -436,6 +484,8 @@ export function registerCaptureRoutes(app, deps = {}) {
       target = screenshots.library();
     }
     syncAfter(res);
+    // What the plan expects of this screen is the portal's own: it never comes from the companion's report.
+    const plannedShot = jobs.getPlan(job.id)?.shots?.find((s) => s.filename === req.params.filename) || null;
     try {
       const result = screenshots.submit(target, req.params.filename, req.upload.bytes, {
         evidence: req.upload.evidence,
@@ -445,6 +495,8 @@ export function registerCaptureRoutes(app, deps = {}) {
         requireEvidence: true,
         requireRedaction: job.options?.redact !== false,
         jobId: job.id,
+        expect: plannedShot?.capture?.expect || null,
+        expectedLabels: plannedShot?.capture?.version ? plannedShot.expectedLabels : null,
       });
       const outcome = result.body.outcome;
       const recorded = jobs.recordShotResult(job.id, req.captureDevice.id, req.params.filename, {
@@ -463,7 +515,7 @@ export function registerCaptureRoutes(app, deps = {}) {
     if (!isJobId(req.params.id)) return res.status(400).json({ error: "Invalid job id." });
     syncAfter(res);
     const body = req.body && typeof req.body === "object" ? req.body : {};
-    const result = jobs.complete(req.params.id, req.captureDevice.id, { message: body.message, fatalError: body.fatalError });
+    const result = jobs.complete(req.params.id, req.captureDevice.id, { message: body.message, fatalError: body.fatalError, paused: body.paused });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     if (result.job.target.type === "lab") screenshots.flushLab(result.job.target.labId);
     else void screenshots.flushLibrary().catch(() => {});

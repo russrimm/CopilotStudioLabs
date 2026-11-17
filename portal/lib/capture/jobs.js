@@ -17,6 +17,8 @@ import { existsSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 
 import { cleanText, readJson, writeJsonAtomic } from "./store-util.js";
+import { CAUSES, causeForVerification, describeCause } from "../../../tools/screenshot-capture/causes.mjs";
+import { REQUIREMENTS, effectiveModeFor, missingRequirements, targetValuesFromJob, validateTargets } from "../../../tools/screenshot-capture/targets.mjs";
 
 export const JOB_STATUSES = Object.freeze(["queued", "claimed", "running", "done", "failed", "cancelled"]);
 export const TERMINAL_JOB_STATUSES = Object.freeze(["done", "failed", "cancelled"]);
@@ -30,11 +32,15 @@ export const SHOT_STATUSES = Object.freeze([
   "manual-required",
   "skipped",
   "cancelled",
+  "needs-you",
+  "paused",
 ]);
-const TERMINAL_SHOT_STATUSES = new Set(["captured", "needs-review", "failed", "auth-required", "manual-required", "skipped", "cancelled"]);
+const TERMINAL_SHOT_STATUSES = new Set(["captured", "needs-review", "failed", "auth-required", "manual-required", "skipped", "cancelled", "needs-you", "paused"]);
 export const SCOPE_MODES = Object.freeze(["missing", "stale", "all", "selected"]);
 export const TARGET_TYPES = Object.freeze(["lab", "library"]);
 export const CALLOUT_MODES = Object.freeze(["sidecar", "burn", "none"]);
+/** How a capture runs: the computer does everything it can, the person sets up each screen, or the computer does what it can and the person does the rest. */
+export const CAPTURE_MODES = Object.freeze(["auto", "guided", "smart"]);
 
 export const CLAIM_STALE_MS = 5 * 60 * 1000;
 export const QUEUED_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -139,13 +145,20 @@ export function normalizeJobRequest(body = {}) {
   if (!CALLOUT_MODES.includes(callouts)) errors.push(`options.callouts must be one of: ${CALLOUT_MODES.join(", ")}.`);
   const maskTerms = cleanList(optionsIn.maskTerms, { max: 20, pattern: /^[^\u0000-\u001f]{3,80}$/ });
   if (maskTerms === null) errors.push("options.maskTerms must be a list of text to hide (3 to 80 characters each).");
-  const options = { callouts, redact: optionsIn.redact !== false, maskTerms: maskTerms || [] };
+  const modeRaw = String(optionsIn.mode ?? "smart").toLowerCase();
+  if (!CAPTURE_MODES.includes(modeRaw)) errors.push(`options.mode must be one of: ${CAPTURE_MODES.join(", ")}.`);
+  const options = { callouts, redact: optionsIn.redact !== false, maskTerms: maskTerms || [], mode: CAPTURE_MODES.includes(modeRaw) ? modeRaw : "smart" };
 
-  return { ok: errors.length === 0, errors, target, scope, env: envCheck.env, options };
+  const targetsIn = src.targets === undefined || src.targets === null ? {} : src.targets;
+  const targetsCheck = validateTargets(targetsIn);
+  if (typeof targetsIn !== "object" || Array.isArray(targetsIn)) errors.push("targets must be an object of capture settings.");
+  else errors.push(...Object.values(targetsCheck.errors));
+
+  return { ok: errors.length === 0, errors, target, scope, env: envCheck.env, targets: targetsCheck.values, options };
 }
 
 function countShots(shots) {
-  const counts = { total: shots.length, captured: 0, needsReview: 0, failed: 0, manual: 0, skipped: 0, running: 0, pending: 0, cancelled: 0 };
+  const counts = { total: shots.length, captured: 0, needsReview: 0, failed: 0, manual: 0, skipped: 0, running: 0, pending: 0, cancelled: 0, needsYou: 0, paused: 0 };
   for (const shot of shots) {
     if (shot.status === "captured") counts.captured += 1;
     else if (shot.status === "needs-review") counts.needsReview += 1;
@@ -153,12 +166,67 @@ function countShots(shots) {
     else if (shot.status === "manual-required") counts.manual += 1;
     else if (shot.status === "skipped") counts.skipped += 1;
     else if (shot.status === "cancelled") counts.cancelled += 1;
+    else if (shot.status === "needs-you") counts.needsYou += 1;
+    else if (shot.status === "paused") counts.paused += 1;
     else if (shot.status === "running") counts.running += 1;
     else counts.pending += 1;
   }
   counts.done = counts.total - counts.running - counts.pending;
   counts.percent = counts.total ? Math.round((counts.done / counts.total) * 100) : 100;
   return counts;
+}
+
+/** Why a shot ended the way it did: the cause the companion reported, or one worked out from its status and checks. */
+export function causeOf(row) {
+  if (row.cause && CAUSES[row.cause]) return row.cause;
+  if (row.status === "auth-required") return "sign-in";
+  if (row.status === "manual-required") return "manual";
+  if (row.status === "needs-you") return "needs-you";
+  if (row.status === "paused") return "browser-closed";
+  if (row.status === "needs-review") return causeForVerification(row.verification?.reasons);
+  if (row.status === "skipped") return "no-address";
+  if (row.status === "failed") return causeForVerification(row.verification?.reasons) || "unknown";
+  return null;
+}
+
+/**
+ * Group the shots that did not end well by cause, one entry per cause with the one thing to do about it:
+ * "No agent address set: 12 screenshots" instead of twelve separate lines.
+ * @returns {Array<{cause: string, title: string, fix: string, fixAction: string, tone: string, count: number, filenames: string[]}>}
+ */
+export function summarizeCauses(shots) {
+  const groups = new Map();
+  for (const row of Array.isArray(shots) ? shots : []) {
+    if (row.status === "captured" || row.status === "pending" || row.status === "running" || row.status === "cancelled") continue;
+    const code = causeOf(row);
+    if (!code) continue;
+    if (!groups.has(code)) groups.set(code, { ...describeCause(code), count: 0, filenames: [] });
+    const group = groups.get(code);
+    group.count += 1;
+    if (group.filenames.length < 100) group.filenames.push(row.filename);
+  }
+  return [...groups.values()].sort((a, b) => b.count - a.count);
+}
+
+/** The steps a companion reports for one shot, bounded: names the lab gave and masked addresses, never page text. */
+export function cleanSteps(steps) {
+  return (Array.isArray(steps) ? steps : []).slice(0, 14).map((s) => ({
+    action: cleanText(s?.action, 24),
+    label: s?.label ? cleanText(s.label, 80) : undefined,
+    found: s?.found === true,
+    ok: s?.ok === true,
+    urlBefore: s?.urlBefore ? cleanText(String(s.urlBefore).split(/[?#]/)[0], 200) : undefined,
+    urlAfter: s?.urlAfter ? cleanText(String(s.urlAfter).split(/[?#]/)[0], 200) : undefined,
+    note: s?.note ? cleanText(s.note, 80) : undefined,
+  }));
+}
+
+/** "Opened Copilot Studio, then your agent, then Settings, then selected Generative AI." */
+export function plainOutcome(path, steps, mode) {
+  const parts = Array.isArray(path) ? path.filter(Boolean) : [];
+  const picked = (Array.isArray(steps) ? steps : []).filter((s) => s?.action === "reveal" && s.ok && s.tried > 0).map((s) => s.label);
+  const opened = parts.length ? `Opened ${parts.join(", then ")}` : "Opened the page";
+  return `${opened}${picked.length ? `, then selected ${picked.join(" and ")}` : ""}.${mode === "guided" ? " You set up the screen." : ""}`;
 }
 
 function joinNames(names) {
@@ -191,7 +259,7 @@ export function summarizeSignInNeeds(shots, labelFor = (id) => id) {
 function summarize(job, labelFor) {
   const { shots, events, ...rest } = job;
   const needsSignIn = summarizeSignInNeeds(shots, labelFor);
-  return { ...rest, progress: countShots(shots || []), ...(needsSignIn ? { needsSignIn } : {}) };
+  return { ...rest, progress: countShots(shots || []), causes: summarizeCauses(shots), ...(needsSignIn ? { needsSignIn } : {}) };
 }
 
 /**
@@ -289,10 +357,12 @@ export function createJobStore({
    * Queue a job. `request` is a validated `normalizeJobRequest()` result and
    * `plan.shots` the shot plan the companion will run (filename, startUrl, steps...).
    */
-  function create({ target, scope, env = {}, options = {}, plan, createdBy = null }) {
+  function create({ target, scope, env = {}, targets = {}, options = {}, plan, createdBy = null }) {
     const shots = (plan?.shots || []).slice(0, MAX_SHOTS);
     const id = `job_${randomUUID().replace(/-/g, "").slice(0, 16)}`;
     const t = iso();
+    const mode = CAPTURE_MODES.includes(options.mode) ? options.mode : "smart";
+    const values = targetValuesFromJob(env, targets);
     const job = {
       schema: 1,
       id,
@@ -304,38 +374,74 @@ export function createJobStore({
       createdBy: createdBy ? cleanText(createdBy, 120) : null,
       target,
       scope,
-      options,
+      options: { ...options, mode },
       envNames: Object.keys(env).sort(),
+      targetNames: Object.keys(targets).sort(),
       claim: null,
       cancelRequested: false,
       error: null,
       result: null,
-      shots: shots.map((shot) => ({
-        filename: shot.filename,
-        shotId: shot.shotId ?? null,
-        featureId: shot.featureId ?? null,
-        product: shot.product ?? null,
-        status: shot.manual ? "manual-required" : "pending",
-        attempts: 0,
-        startedAt: null,
-        finishedAt: null,
-        message: shot.manual ? "This screen is outside the browser. Capture it with an OS screenshot tool and upload it." : null,
-        error: null,
-        verification: null,
-      })),
+      shots: shots.map((shot) => shotRow(shot, mode, values)),
       events: [],
     };
     job.progress = countShots(job.shots);
-    writeJsonAtomic(planFile(id), { schema: 1, id, env, shots, options });
+    writeJsonAtomic(planFile(id), { schema: 1, id, env, targets, shots, options: job.options });
     const event = addEvent(job, "queued", `Queued ${shots.length} shot${shots.length === 1 ? "" : "s"}.`);
     persist(job, event);
     prune();
     return summarizeFull(job);
   }
 
+  /**
+   * One shot's row. A shot that cannot run is settled at once and says why: outside the browser, waiting for an
+   * address, or a screen that needs the person in a mode that does not ask them.
+   */
+  function shotRow(shot, mode, values) {
+    const capture = shot.capture || null;
+    const row = {
+      filename: shot.filename,
+      shotId: shot.shotId ?? null,
+      featureId: shot.featureId ?? null,
+      product: shot.product ?? null,
+      status: "pending",
+      attempts: 0,
+      startedAt: null,
+      finishedAt: null,
+      message: null,
+      error: null,
+      verification: null,
+      mode: capture?.mode ?? null,
+      modeWhy: capture?.why ? cleanText(capture.why, 300) : null,
+      path: Array.isArray(capture?.path) ? capture.path.map((p) => cleanText(p, 60)).slice(0, 6) : [],
+      cause: null,
+      outcome: null,
+      steps: [],
+    };
+    const effective = effectiveModeFor(shot, mode);
+    if (effective === "manual") {
+      row.status = "manual-required";
+      row.cause = "manual";
+      row.message = "This screen is outside the browser. Capture it with an OS screenshot tool and upload it.";
+    } else if (effective === "needs-you") {
+      row.status = "needs-you";
+      row.cause = "needs-you";
+      row.message = "This screen needs you to set it up. Automatic mode skips it. Use “Retake guided”, or choose Smart.";
+    } else if (effective === "auto") {
+      const missing = missingRequirements(capture?.needs || [], values);
+      if (missing.length) {
+        const requirement = REQUIREMENTS[missing[0]];
+        row.status = "skipped";
+        row.cause = requirement.cause;
+        row.message = `This screenshot needs your ${requirement.noun}. Add it in Capture settings, then retake.`;
+      }
+    }
+    if (row.status !== "pending") row.finishedAt = iso();
+    return row;
+  }
+
   function summarizeFull(job) {
     const needsSignIn = summarizeSignInNeeds(job.shots, productLabel);
-    return { ...job, progress: countShots(job.shots), ...(needsSignIn ? { needsSignIn } : {}) };
+    return { ...job, progress: countShots(job.shots), causes: summarizeCauses(job.shots), ...(needsSignIn ? { needsSignIn } : {}) };
   }
 
   function get(id) {
@@ -465,6 +571,12 @@ export function createJobStore({
         }
         if (shot.error) row.error = cleanText(shot.error, 400);
         if (shot.message) row.message = cleanText(shot.message, 300);
+        // What the companion learned about how it went: the cause, how the screen was reached, and the steps.
+        if (typeof shot.cause === "string" && CAUSES[shot.cause]) row.cause = shot.cause;
+        if (["auto", "guided", "manual"].includes(shot.mode)) row.mode = shot.mode;
+        if (Array.isArray(shot.path)) row.path = shot.path.map((p) => cleanText(p, 60)).filter(Boolean).slice(0, 6);
+        if (typeof shot.outcome === "string") row.outcome = cleanText(shot.outcome, 300);
+        if (Array.isArray(shot.steps)) row.steps = cleanSteps(shot.steps);
         event = addEvent(job, `shot-${status}`, `${row.filename}: ${cleanText(shot.message || shot.error || status, 300)}`);
       }
     }
@@ -490,6 +602,15 @@ export function createJobStore({
     row.verification = verification;
     row.message = message ? cleanText(message, 300) : null;
     row.error = error ? cleanText(error, 400) : null;
+    // How the screen was reached, from what the companion reported with the picture (never from page text).
+    const route = verification?.capture;
+    if (route?.mode) {
+      row.mode = route.mode === "guided" ? "guided" : route.mode === "auto" ? "auto" : row.mode;
+      row.steps = cleanSteps(route.steps);
+      row.outcome = plainOutcome(row.path, row.steps, route.mode);
+    }
+    const cause = causeForVerification(verification?.reasons);
+    row.cause = status === "captured" ? null : cause || (status === "failed" ? "rejected" : null);
     job.claim.lastActivityAt = iso();
     job.claim.resumes = 0;
     const event = addEvent(job, `shot-${status}`, `${filename}: ${cleanText(message || error || status, 300)}`);
@@ -512,9 +633,14 @@ export function createJobStore({
     if (!job) return { ok: false, status: 404, error: "Job not found." };
     expireIfStale(job);
     if (!ownedBy(job, deviceId)) return { ok: false, status: 409, error: "This job is not assigned to this companion or has already finished." };
+    const paused = summary.paused && typeof summary.paused === "object" ? summary.paused : null;
+    const pausedCause = paused?.reason === "stopped" ? "stopped" : "browser-closed";
     for (const shot of job.shots) {
       if (!TERMINAL_SHOT_STATUSES.has(shot.status)) {
-        shot.status = job.cancelRequested ? "cancelled" : "skipped";
+        // A capture the person paused (closed the window, pressed Stop) is paused, not failed: it can be resumed.
+        shot.status = job.cancelRequested ? "cancelled" : paused ? "paused" : "skipped";
+        if (!job.cancelRequested) shot.cause = paused ? pausedCause : "unknown";
+        if (paused && !job.cancelRequested) shot.message = cleanText(paused.message, 300) || CAUSES[pausedCause].title;
         shot.finishedAt = iso();
       }
     }
@@ -526,13 +652,20 @@ export function createJobStore({
       partial: good > 0 && good < counts.total,
       message: cleanText(summary.message, 300) || null,
       ...(needsSignIn ? { needsSignIn } : {}),
+      ...(counts.paused ? { paused: counts.paused, pausedReason: pausedCause, resumable: true } : {}),
     };
+    // Nothing the companion had to do: every shot was settled when the job was queued (outside the browser, waiting for an address, needs a person).
+    const settledAtQueue = counts.failed === 0 && counts.paused === 0;
     if (job.cancelRequested) finalize(job, "cancelled", "Canceled. The companion stopped between shots.");
     else if (summary.fatalError) {
       job.error = cleanText(summary.fatalError, 400);
       finalize(job, good > 0 ? "done" : "failed", `The companion stopped early: ${job.error}`);
-    } else if (good > 0 || counts.total === 0 || counts.manual === counts.total) {
-      finalize(job, "done", `Finished: ${counts.captured} captured, ${counts.needsReview} need review, ${counts.failed} failed.${needsSignIn ? ` ${needsSignIn.message}` : ""}`);
+    } else if (counts.paused) {
+      const why = cleanText(paused?.message, 300) || CAUSES[pausedCause].title;
+      if (good === 0) job.error = why;
+      finalize(job, good > 0 ? "done" : "failed", `Paused. ${counts.captured} captured, ${counts.needsReview} need review, ${counts.paused} paused. ${why}`);
+    } else if (good > 0 || counts.total === 0 || counts.manual === counts.total || settledAtQueue) {
+      finalize(job, "done", `Finished: ${counts.captured} captured, ${counts.needsReview} need review, ${counts.failed} failed${counts.needsYou ? `, ${counts.needsYou} need you` : ""}${counts.skipped ? `, ${counts.skipped} skipped` : ""}.${needsSignIn ? ` ${needsSignIn.message}` : ""}`);
     } else if (needsSignIn && needsSignIn.count === counts.failed) {
       // Every shot failed for the same reason: the browser was not signed in. Say what to do instead of "failed".
       job.error = needsSignIn.message;
