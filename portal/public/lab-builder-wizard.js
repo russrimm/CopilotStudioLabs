@@ -2748,6 +2748,7 @@ function lbGoToStep(step) {
   if (step === LB_STEP.generate) {
     lbSyncSharepointSiteUi();
     lbSyncCustomizeSummary();
+    if (typeof scSyncCaptureOnBuild === "function") void scSyncCaptureOnBuild();
   }
 }
 

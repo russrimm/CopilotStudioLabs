@@ -17,7 +17,7 @@ The Azure-hosted portal has no browser and no way to sign in to your tenant, so 
 
 ### Quick start
 
-1. In the portal, open the Screenshot Center, select **Connect a computer**, and download the companion (or use this folder from the repository). You need Node.js 20 or later.
+1. In the portal, open the Screenshot Center, select **Connect your computer**, and download the companion (or use this folder from the repository). You need Node.js 20 or later.
 2. Run the launcher for your system. It installs what is missing the first time (`npm install` and `npx playwright install chromium`):
 
    ```powershell
@@ -62,7 +62,7 @@ Press Ctrl+C once to stop after the current screenshot; twice to quit now. Cance
 | `The Playwright package is not installed` or `The Chromium browser is not installed` | In this folder run `npm install` then `npx playwright install chromium`, or run with `--install-browser`. |
 | `Node.js 20 or later is required` | Install a current Node.js LTS from nodejs.org. |
 | `Cannot reach the portal at ...` | Check your internet connection or VPN and the portal address. In watch mode the companion keeps trying and backs off up to a minute. |
-| `That pairing code is not valid` or `expired` | Select **Connect a computer** in the portal for a new code. Codes work once and last 10 minutes. Several wrong codes in a row pause pairing for a few minutes. |
+| `That pairing code is not valid` or `expired` | Select **Connect your computer** in the portal for a new code (or **Get a new code** on the pairing card). Codes work once and last 10 minutes. Several wrong codes in a row pause pairing for a few minutes. |
 | `This computer was disconnected in the portal` or `connection expired` | Pair again with a new code. The old token is deleted from `.companion.json`. |
 | A shot says you were not signed in | Sign in in the browser window the companion opened (it waits up to 10 minutes, `--sign-in-wait`), then queue the shot again. |
 | `The picture came out blank` | The page did not finish loading. The companion retries once; if it still fails, make sure the page opens for your account, then queue it again. |

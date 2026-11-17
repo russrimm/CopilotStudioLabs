@@ -1,0 +1,1880 @@
+/**
+ * Screenshot Center UI, "Finish your lab" checklist, and capture-on-build tests.
+ * The real browser scripts run inside node:vm against a small fake DOM, with a fake
+ * fetch, a fake EventSource, and fake timers, so nothing touches a network or a browser.
+ */
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+
+import { createFakeDom } from "./fixtures/fake-dom.js";
+
+const publicFile = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url), "utf8");
+const CENTER_SOURCES = ["screenshot-center-core.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile);
+const GENERATED_LABS_SOURCE = publicFile("generated-labs.js");
+const INDEX_HTML = publicFile("index.html");
+const APP_SOURCE = publicFile("app.js");
+
+const LAB = "lab-test-1";
+const NOW = Date.parse("2026-06-01T12:00:00.000Z");
+const json = (value) => JSON.parse(JSON.stringify(value));
+
+// ── Fixtures ────────────────────────────────────────────────────────────────
+
+function shot(overrides = {}) {
+  return {
+    id: 1,
+    shotId: "shot-1",
+    moduleOrder: 1,
+    stepLabel: "Step 1",
+    featureId: "mod-a",
+    moduleTitle: "Create an agent",
+    product: "copilot-studio",
+    figure: "1.1",
+    kind: "ui-location",
+    filename: "agent-home.png",
+    alt: "The Copilot Studio agents page with the Create button highlighted",
+    caption: "Agents page",
+    instructions: ["Open Copilot Studio", "Select Agents"],
+    manual: false,
+    captured: false,
+    stale: false,
+    needsReview: false,
+    checkState: "not-checked",
+    lastAttemptStatus: null,
+    lastError: null,
+    verification: null,
+    capturedAt: null,
+    captureSource: null,
+    ...overrides,
+  };
+}
+
+function stateFor(shots, { lastRevalidatedAt = null, checkState } = {}) {
+  const captured = shots.filter((s) => s.captured).length;
+  const stale = shots.filter((s) => s.stale).length;
+  const needsReview = shots.filter((s) => s.needsReview).length;
+  const cs = checkState || (stale ? "docs-updated" : lastRevalidatedAt ? "up-to-date" : "not-checked");
+  const features = [...new Set(shots.map((s) => s.featureId))];
+  const modules = features.map((featureId, i) => {
+    const first = shots.find((s) => s.featureId === featureId);
+    return {
+      featureId,
+      moduleOrder: i + 1,
+      stepLabel: first.stepLabel,
+      moduleTitle: first.moduleTitle,
+      checkState: cs,
+      status: cs === "docs-updated" ? "docs-updated" : "up-to-date",
+      primaryUrl: "https://learn.microsoft.com/en-us/microsoft-copilot-studio/fundamentals-get-started",
+      diff: null,
+    };
+  });
+  return {
+    labId: LAB,
+    title: "Test lab",
+    checkState: cs,
+    lastRevalidatedAt,
+    cliCommand: `node tools/screenshot-capture/capture.js --generated-lab=${LAB} --headed`,
+    summary: {
+      total: shots.length,
+      captured,
+      missing: shots.length - captured,
+      stale,
+      needsReview,
+      upToDate: captured - stale,
+      docsUpdatedModules: stale ? 1 : 0,
+      learnSyncStatus: stale ? "docs-updated" : shots.length - captured ? "missing-screenshot" : "up-to-date",
+      checkState: cs,
+      lastRevalidatedAt,
+    },
+    modules,
+    shots,
+  };
+}
+
+const captured = (name, extra = {}) =>
+  shot({ filename: name, captured: true, capturedAt: "2026-06-01T11:00:00.000Z", captureSource: "companion", ...extra });
+
+function mixedState() {
+  return stateFor([
+    captured("agent-home.png", { figure: "1.1", caption: "Agents page" }),
+    shot({ filename: "create-agent.png", figure: "1.2", caption: "Create an agent", id: 2 }),
+    captured("agent-topics.png", { figure: "2.1", caption: "Topics list", featureId: "mod-b", moduleTitle: "Add topics", stepLabel: "Step 2", stale: true, id: 3 }),
+    shot({
+      filename: "agent-test.png",
+      figure: "2.2",
+      caption: "Test panel",
+      featureId: "mod-b",
+      moduleTitle: "Add topics",
+      stepLabel: "Step 2",
+      id: 4,
+      needsReview: true,
+      verification: {
+        level: "warn",
+        state: "needs-review",
+        reasons: [{ code: "labels-missing", level: "warn", message: "raw server text" }, { code: "near-uniform", level: "warn", message: "raw" }],
+        labels: { expected: 3, matched: 1 },
+      },
+    }),
+    shot({ filename: "agent-publish.png", figure: "2.3", caption: "Publish", featureId: "mod-b", moduleTitle: "Add topics", stepLabel: "Step 2", id: 5, lastAttemptStatus: "auth-required" }),
+    shot({ filename: "agent-sharepoint.png", figure: "2.4", caption: "SharePoint site", featureId: "mod-b", moduleTitle: "Add topics", stepLabel: "Step 2", id: 6, manual: true }),
+  ]);
+}
+
+function device(overrides = {}) {
+  return { id: "dev_0123456789ab", name: "Ada PC", platform: "win32", connected: true, busy: false, lastSeenAt: new Date(NOW - 5000).toISOString(), signedInProducts: [], ...overrides };
+}
+
+function statusPayload({ devices = [], signedIn = [], tenantSet = false, persistent = true } = {}) {
+  const connected = devices.filter((d) => d.connected);
+  return {
+    companion: {
+      connected: connected.length > 0,
+      lastSeenAt: connected.length ? new Date(NOW).toISOString() : null,
+      connectedCount: connected.length,
+      deviceCount: devices.length,
+      busy: false,
+      signedInProducts: signedIn,
+      devices,
+      downloadUrl: "/api/capture/companion.zip",
+      onlineWindowSec: 90,
+    },
+    serverBrowser: { available: false },
+    tenantUrls: { set: tenantSet, names: tenantSet ? ["CAPTURE_SHAREPOINT_SITE_URL"] : [] },
+    sharedLibrary: { location: persistent ? "persistent" : "baked", persistent, total: 325, captured: 12, missing: 313, needsReview: 1 },
+    jobs: { queued: 0, active: 0 },
+    pairing: { codeTtlSec: 600 },
+    limits: { maxUploadBytes: 8 * 1024 * 1024, acceptedTypes: ["image/png", "image/jpeg", "image/webp"] },
+  };
+}
+
+function jobFor(shots, overrides = {}) {
+  const rows = shots.map((s) => ({ filename: s.filename, status: "pending", attempts: 0 }));
+  return {
+    id: "job_0123456789abcdef",
+    status: "queued",
+    createdAt: new Date(NOW).toISOString(),
+    startedAt: null,
+    cancelRequested: false,
+    target: { type: "lab", labId: LAB },
+    claim: null,
+    error: null,
+    shots: rows,
+    events: [],
+    progress: { total: rows.length, done: 0, captured: 0, needsReview: 0, failed: 0, manual: 0, skipped: 0, running: 0, pending: rows.length, percent: 0 },
+    ...overrides,
+  };
+}
+
+function pngFile(name = "pasted.png", type = "image/png", size = 12000) {
+  return new File([new Uint8Array(size)], name, { type });
+}
+
+// ── Harness ─────────────────────────────────────────────────────────────────
+
+function makeHarness({ eventSource = true, generated = false, step8 = true } = {}) {
+  const { document, FakeEvent } = createFakeDom();
+  const body = document.body;
+  const add = (parent, tag, { id, attrs = {}, text } = {}) => {
+    const el = document.createElement(tag);
+    if (id) el.id = id;
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    if (text) el.textContent = text;
+    parent.appendChild(el);
+    return el;
+  };
+  const meta = add(body, "div", { id: "lb-result-meta" });
+  const actions = add(meta, "div", { attrs: { class: "lb-result-actions" } });
+  const downloadBtn = add(actions, "button", { text: "Download" });
+  add(body, "div", { id: "lb-result-checklist" });
+  const host = add(body, "div", { id: "lb-result-screenshots" });
+  const preview = add(body, "div", { id: "lb-result-preview" });
+  add(body, "div", { id: "lb-generated-list" });
+  add(body, "input", { id: "bp-copilotStudioUrl" });
+  let step8Els = null;
+  if (step8) {
+    const pane = add(body, "div", { id: "lb-pane-8" });
+    const box = add(pane, "input", { id: "lb-capture-on-build", attrs: { type: "checkbox", disabled: "" } });
+    const status = add(pane, "p", { id: "lb-capture-on-build-status" });
+    const setup = add(pane, "button", { id: "lb-capture-on-build-setup", attrs: { hidden: "" } });
+    const pairing = add(pane, "div", { id: "lb-capture-on-build-pairing", attrs: { "data-sc-pairing-host": "build" } });
+    step8Els = { pane, box, status, setup, pairing };
+  }
+
+  const clock = { now: NOW, seq: 1, timers: new Map() };
+  const addTimer = (fn, ms, every) => {
+    const id = clock.seq++;
+    clock.timers.set(id, { fn, at: clock.now + ms, every });
+    return { id, unref() {} };
+  };
+  const advance = (ms) => {
+    const target = clock.now + ms;
+    for (;;) {
+      let next = null;
+      for (const [id, t] of clock.timers) if (t.at <= target && (!next || t.at < next.t.at)) next = { id, t };
+      if (!next) break;
+      clock.now = next.t.at;
+      if (next.t.every) next.t.at += next.t.every;
+      else clock.timers.delete(next.id);
+      next.t.fn();
+    }
+    clock.now = target;
+  };
+  class FakeDate extends Date {
+    constructor(...args) {
+      if (args.length === 0) super(clock.now);
+      else super(...args);
+    }
+
+    static now() {
+      return clock.now;
+    }
+  }
+  class FakeURL extends URL {
+    static created = [];
+    static revoked = [];
+    static createObjectURL(file) {
+      FakeURL.created.push(file);
+      return `blob:fake/${FakeURL.created.length}`;
+    }
+
+    static revokeObjectURL(url) {
+      FakeURL.revoked.push(url);
+    }
+  }
+  class FakeEventSource {
+    static instances = [];
+    constructor(url) {
+      this.url = url;
+      this.closed = false;
+      this.handlers = {};
+      this.onerror = null;
+      FakeEventSource.instances.push(this);
+    }
+
+    addEventListener(type, fn) {
+      (this.handlers[type] ||= []).push(fn);
+    }
+
+    close() {
+      this.closed = true;
+    }
+
+    emit(type, payload) {
+      for (const fn of this.handlers[type] || []) fn({ data: JSON.stringify(payload) });
+    }
+  }
+
+  const h = {
+    document,
+    host,
+    preview,
+    downloadBtn,
+    step8: step8Els,
+    FakeEvent,
+    FakeEventSource,
+    FakeURL,
+    advance,
+    clock,
+    calls: [],
+    routes: [],
+    status: statusPayload(),
+    brand: { customized: false },
+    activeJobs: [],
+    copied: [],
+    clipboardItems: [],
+    spies: { preview: [], list: 0, tabs: [] },
+  };
+  h.route = (method, pattern, reply) => h.routes.unshift([method, pattern, reply]);
+  const fetchImpl = async (url, init = {}) => {
+    const method = String(init.method || "GET").toUpperCase();
+    let parsed = null;
+    if (typeof init.body === "string") {
+      try {
+        parsed = JSON.parse(init.body);
+      } catch {
+        parsed = init.body;
+      }
+    }
+    h.calls.push({ method, url: String(url), body: parsed, init });
+    let reply = null;
+    for (const [m, pattern, handler] of h.routes) {
+      if (m === method && pattern.test(String(url))) {
+        reply = typeof handler === "function" ? await handler(String(url), init) : handler;
+        break;
+      }
+    }
+    if (!reply) {
+      if (method === "GET" && /\/api\/capture\/status$/.test(url)) reply = { status: 200, body: h.status };
+      else if (method === "GET" && /\/customization$/.test(url)) reply = { status: 200, body: h.brand };
+      else if (method === "GET" && /\/api\/capture\/jobs\?labId=/.test(url)) reply = { status: 200, body: { jobs: h.activeJobs } };
+      else reply = { status: 404, body: { error: `No route for ${method} ${url}` } };
+    }
+    if (reply.throws) throw new Error(reply.throws);
+    return { ok: reply.status >= 200 && reply.status < 300, status: reply.status, json: async () => reply.body ?? {} };
+  };
+
+  const storage = new Map();
+  const windowListeners = {};
+  const context = {
+    document,
+    window: { addEventListener: (type, fn) => (windowListeners[type] ||= []).push(fn) },
+    fetch: fetchImpl,
+    EventSource: eventSource ? FakeEventSource : undefined,
+    setTimeout: (fn, ms) => addTimer(fn, ms, 0),
+    clearTimeout: (handle) => handle && clock.timers.delete(handle.id),
+    setInterval: (fn, ms) => addTimer(fn, ms, ms),
+    clearInterval: (handle) => handle && clock.timers.delete(handle.id),
+    Date: FakeDate,
+    URL: FakeURL,
+    File,
+    Blob,
+    navigator: {
+      clipboard: {
+        writeText: async (text) => {
+          h.copied.push(text);
+        },
+        read: async () => h.clipboardItems,
+      },
+    },
+    localStorage: { getItem: (k) => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, String(v)) },
+    console,
+    CSS: { escape: (s) => String(s) },
+    labBuilder: {
+      products: [
+        { id: "copilot-studio", shortName: "Copilot Studio" },
+        { id: "sharepoint-ai", shortName: "SharePoint AI" },
+      ],
+      industries: [],
+      levels: [],
+      harnesses: [],
+      editing: null,
+    },
+    escapeHtml: (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]),
+    toast() {},
+    lbFormatMinutes: (m) => `${m} min`,
+    lbLoadSelections: async () => {},
+    lbLoadResultPreview: async (labId) => {
+      h.spies.preview.push(labId);
+    },
+    lbLoadGenerated: async () => {
+      h.spies.list += 1;
+    },
+    setActiveTab: (tab) => h.spies.tabs.push(tab),
+  };
+  if (!generated) context.lbGen = { opened: LAB, labs: [], loaded: true };
+  vm.createContext(context);
+  if (generated) vm.runInContext(GENERATED_LABS_SOURCE, context);
+  for (const source of CENTER_SOURCES) vm.runInContext(source, context);
+  if (generated) vm.runInContext(`lbGen.opened = "${LAB}"`, context);
+
+  h.run = (code) => vm.runInContext(code, context);
+  h.setStatus = async (payload) => {
+    h.status = payload;
+    await h.run("scLoadStatus")(true);
+  };
+  h.windowListeners = windowListeners;
+  h.flush = async (rounds = 6) => {
+    for (let i = 0; i < rounds; i += 1) await new Promise((resolve) => setImmediate(resolve));
+  };
+  h.render = async (state, { outcome = null, labId = LAB } = {}) => {
+    h.run("scRenderCenter")(host, labId, state, outcome);
+    await h.flush();
+    return h;
+  };
+  h.center = () => host.querySelector("[data-sc-root]");
+  h.text = (selector) => host.querySelector(selector)?.textContent ?? null;
+  h.action = (name, root = host) => root.querySelector(`[data-sc-action="${name}"]`);
+  h.card = (filename) => host.querySelectorAll(".sc-card").find((c) => c.dataset.filename === filename) || null;
+  h.cardAction = (filename, name) => h.card(filename)?.querySelector(`[data-sc-action="${name}"]`) || null;
+  h.step = (id) => host.querySelector(`.sc-step[data-step="${id}"]`);
+  h.live = () => host.querySelector("#lb-screenshots-live")?.textContent.replace(/\u00a0/g, "").trim() ?? "";
+  h.callsTo = (method, pattern) => h.calls.filter((c) => c.method === method && pattern.test(c.url));
+  h.click = async (el) => {
+    assert.ok(el, "element to click must exist");
+    el.click();
+    await h.flush();
+  };
+  h.event = (type, init) => new FakeEvent(type, init);
+  return h;
+}
+
+// ── Pure decisions ──────────────────────────────────────────────────────────
+
+test("check state is honest: nothing checked is never reported as up to date", () => {
+  const h = makeHarness();
+  const check = (state) => h.run("scCheckStateOf")(state);
+  assert.equal(check({}), "not-checked");
+  assert.equal(check({ summary: { learnSyncStatus: "up-to-date", total: 2, captured: 2 } }), "not-checked");
+  assert.equal(check({ lastRevalidatedAt: "2026-05-01T00:00:00.000Z", summary: {} }), "up-to-date");
+  assert.equal(check({ summary: { stale: 2 } }), "docs-updated");
+  assert.equal(check({ checkState: "not-checked", lastRevalidatedAt: "2026-05-01T00:00:00.000Z" }), "not-checked");
+  assert.equal(check({ checkState: "up-to-date" }), "up-to-date");
+  assert.equal(h.run("scCheckLabel")("not-checked"), "Not checked yet");
+  assert.equal(h.run("scCheckLabel")("up-to-date"), "Up to date");
+  assert.equal(h.run("scCheckLabel")("docs-updated", 2), "2 modules changed");
+  assert.equal(h.run("scCheckTone")("not-checked"), "neutral");
+});
+
+test("the primary action adapts to the state, one action at a time", () => {
+  const h = makeHarness();
+  const primary = (counts, extra = {}) => json(h.run("scPrimaryAction")({ counts: { total: 6, toCapture: 0, outdated: 0, needsReview: 0, manual: 0, ...counts }, checkState: "up-to-date", connected: true, ...extra }));
+  assert.deepEqual([primary({ toCapture: 3 }, { connected: false }).action, primary({ toCapture: 3 }, { connected: false }).label], ["connect", "Connect your computer"]);
+  assert.equal(primary({ outdated: 2 }, { connected: false }).action, "connect");
+  assert.deepEqual([primary({ toCapture: 3 }).action, primary({ toCapture: 3 }).label], ["capture-missing", "Capture 3 missing screenshots"]);
+  assert.equal(primary({ toCapture: 1 }).label, "Capture 1 missing screenshot");
+  assert.deepEqual([primary({ outdated: 2 }).action, primary({ outdated: 2 }).label], ["capture-stale", "Retake 2 outdated screenshots"]);
+  assert.equal(primary({ needsReview: 1 }).label, "Review 1 screenshot");
+  assert.equal(primary({ manual: 2 }).action, "manual");
+  assert.deepEqual([primary({}, { checkState: "not-checked" }).action, primary({}, { checkState: "not-checked" }).label], ["check", "Check against Microsoft Learn"]);
+  assert.equal(primary({}, { checkState: "not-checked", connected: false }).action, "check");
+  assert.equal(primary({}, { checkState: "docs-updated" }).action, "update");
+  const done = primary({});
+  assert.deepEqual([done.action, done.label, done.disabled], ["done", "All screenshots up to date", true]);
+  assert.equal(primary({ toCapture: 3 }, { job: { status: "running" } }).action, "busy");
+  assert.equal(primary({ toCapture: 3 }, { connected: false, statusLoading: true }).action, "wait");
+});
+
+test("verification feedback is plain language, never raw codes", () => {
+  const h = makeHarness();
+  const summary = json(
+    h.run("scVerificationSummary")({
+      level: "warn",
+      reasons: [
+        { code: "labels-missing", level: "warn", message: "raw" },
+        { code: "sign-in-page", level: "fail", message: "raw" },
+        { code: "blank", level: "fail", message: "raw" },
+        { code: "something-new", level: "warn", message: "A brand new check said this." },
+      ],
+      labels: { expected: 4, matched: 1 },
+      redaction: { applied: true, masked: 2 },
+    }),
+  );
+  assert.equal(summary.level, "fail");
+  assert.equal(summary.headline, "This image cannot be used.");
+  const texts = summary.items.map((i) => i.text);
+  assert.ok(texts.includes("This looks like the Microsoft sign-in page, not the product."));
+  assert.ok(texts.includes("Only 1 of 4 expected labels are visible. Check that this is the screen the lab describes."));
+  assert.ok(texts.includes("A brand new check said this."));
+  assert.ok(summary.items[0].level === "fail", "failures come first");
+  assert.ok(!texts.includes("Account details were hidden before the picture was taken."), "no good news next to a failure");
+  const clean = json(h.run("scVerificationSummary")({ level: "warn", reasons: [{ code: "near-uniform", level: "warn" }], redaction: { applied: true, masked: 2 } }));
+  assert.ok(clean.items.some((i) => i.level === "pass" && /Account details were hidden/.test(i.text)), "a redaction pass is reported as good news");
+  for (const code of ["bad-filename", "bad-signature", "extension-mismatch", "empty", "too-large", "too-small", "corrupt", "truncated", "trailing-data", "embedded-markup", "dimensions-small", "dimensions-large", "near-uniform", "not-analyzed", "not-a-web-page", "not-redacted", "no-page-address", "no-evidence"]) {
+    const text = h.run("scReasonText")({ code, level: "warn", message: "RAW" });
+    assert.notEqual(text, "RAW", `${code} must be mapped to a plain sentence`);
+    if (code.includes("-")) assert.ok(!text.includes(code), `${code} must not leak into the sentence`);
+  }
+  assert.equal(json(h.run("scVerificationSummary")(null)).level, "none");
+  assert.equal(json(h.run("scVerificationSummary")({ level: "pass", reasons: [] })).headline, "This image passed every check.");
+});
+
+test("client-side file checks mirror the server limits", () => {
+  const h = makeHarness();
+  const check = (file, limits) => json(h.run("scValidateImageFile")(file, limits));
+  assert.equal(check(pngFile()).ok, true);
+  assert.equal(check(pngFile("a.webp", "image/webp")).ok, true);
+  assert.match(check(pngFile("a.svg", "image/svg+xml")).message, /PNG, JPEG, or WebP/);
+  assert.match(check(pngFile("a.png", "image/png", 0)).message, /empty/);
+  assert.match(check(pngFile("a.png", "image/png", 3000), { maxUploadBytes: 2048, acceptedTypes: ["image/png"] }).message, /limit is 0 MB|limit is/);
+  assert.equal(check(pngFile("a.png", "image/png", 3000), { maxUploadBytes: 4096, acceptedTypes: ["image/png"] }).ok, true);
+  assert.match(h.run("scUploadErrorText")(413, {}), /larger than 8 MB/);
+  assert.match(h.run("scUploadErrorText")(415, {}), /not supported/);
+  assert.match(h.run("scUploadErrorText")(404, {}), /no longer exists/);
+});
+
+test("links and image addresses are validated before they reach the DOM", () => {
+  const h = makeHarness();
+  const run = h.run;
+  assert.equal(run("scSafeHttpsUrl")("https://learn.microsoft.com/en-us/x"), "https://learn.microsoft.com/en-us/x");
+  for (const bad of ["javascript:alert(1)", "http://learn.microsoft.com/x", "https://user:pw@learn.microsoft.com/x", "data:text/html,hi", "https://a.com/<script>", "", null, "//evil.example"]) {
+    assert.equal(run("scSafeHttpsUrl")(bad), "", `must reject ${bad}`);
+  }
+  assert.equal(run("scSafeLearnUrl")("https://example.com/x"), "");
+  assert.equal(run("scAssetUrl")("lab-a", "x.png", "v1"), "/api/lab-builder/generated/lab-a/assets/x.png?v=v1");
+  assert.equal(run("scAssetUrl")("lab-a", "../x.png"), "");
+  assert.equal(run("scAssetUrl")("lab/../a", "x.png"), "");
+  assert.equal(run("scSafePortalPath")("https://evil.example/zip", "/api/capture/companion.zip"), "/api/capture/companion.zip");
+  assert.equal(run("scSafePortalPath")("/api/capture/companion.zip", "/x"), "/api/capture/companion.zip");
+});
+
+test("a job is described in words a person can act on", () => {
+  const h = makeHarness();
+  const describe = (job, ctx) => json(h.run("scDescribeJob")(job, { nowMs: NOW, ...ctx }));
+  const base = jobFor([shot({ filename: "a.png" }), shot({ filename: "b.png" })]);
+  assert.equal(describe(base, { companionConnected: true }).phase, "queued");
+  const offline = describe(base, { companionConnected: false });
+  assert.equal(offline.phase, "queued-offline");
+  assert.match(offline.headline, /Waiting for your computer/);
+  const running = {
+    ...base,
+    status: "running",
+    claim: { lastActivityAt: new Date(NOW - 1000).toISOString() },
+    shots: [{ filename: "a.png", status: "captured" }, { filename: "b.png", status: "running" }],
+    progress: { total: 2, done: 1, captured: 1, needsReview: 0, failed: 0, manual: 0, running: 1, pending: 0, percent: 50 },
+  };
+  const view = describe(running, { companionConnected: true });
+  assert.equal(view.phase, "running");
+  assert.equal(view.currentFilename, "b.png");
+  assert.equal(view.percent, 50);
+  const stale = { ...running, claim: { lastActivityAt: new Date(NOW - 5 * 60 * 1000).toISOString() } };
+  assert.equal(describe(stale, {}).phase, "offline");
+  assert.match(describe(stale, {}).headline, /stopped responding/);
+  const auth = { ...running, shots: [{ filename: "a.png", status: "auth-required" }, { filename: "b.png", status: "pending" }] };
+  assert.equal(describe(auth, {}).phase, "auth-required");
+  assert.equal(describe({ ...running, cancelRequested: true }, {}).phase, "cancelling");
+  const done = describe({ ...running, status: "done", shots: [{ filename: "a.png", status: "captured" }, { filename: "b.png", status: "needs-review" }], progress: { total: 2, done: 2, captured: 1, needsReview: 1, failed: 0, manual: 0, running: 0, pending: 0, percent: 100 } }, {});
+  assert.equal(done.phase, "done");
+  assert.match(done.detail, /1 captured, 1 need review/);
+  const merged = json(
+    h.run("scMergeJobUpdate")(running, { job: { id: running.id, status: "running", progress: { total: 2, done: 2, captured: 2, needsReview: 0, failed: 0, running: 0, pending: 0, percent: 100 } }, event: { type: "shot-captured", message: "b.png: Captured and verified." } }),
+  );
+  assert.equal(merged.shots.find((s) => s.filename === "b.png").status, "captured");
+  assert.equal(merged.progress.percent, 100);
+  assert.equal(merged.events.length, 1);
+});
+
+test("a build that queued a capture, or could not, is explained", () => {
+  const h = makeHarness();
+  const outcome = (data) => json(h.run("scBuildCaptureOutcome")(data));
+  const queued = outcome({ captureQueued: true, captureJobId: "job_0123456789abcdef", screenshotCapture: { status: "queued" } });
+  assert.equal(queued.jobId, "job_0123456789abcdef");
+  assert.match(queued.message, /being captured on your computer/);
+  const none = outcome({ captureQueued: false, captureReason: "no-companion", screenshotCapture: {} });
+  assert.match(none.message, /not connected/);
+  assert.equal(none.variant, "warn");
+  assert.equal(outcome({ captureQueued: false, captureReason: null }), null);
+  assert.equal(outcome({ captureQueued: true, captureJobId: "../../etc" }), null);
+});
+
+// ── The panel: honest state, plain language, one primary action ─────────────
+
+test("a lab nobody has checked shows 'Not checked yet', never a green 'up to date'", async () => {
+  const h = makeHarness();
+  await h.render(stateFor([captured("a.png"), captured("b.png")]));
+  const header = h.text(".sc-header");
+  assert.match(header, /Microsoft Learn: Not checked yet/);
+  const learnChip = h.center().querySelector(".sc-header .sc-chip-learn");
+  assert.ok(learnChip.classList.contains("sc-chip-neutral"), "not checked is neutral, not success");
+  for (const ok of h.center().querySelectorAll(".sc-chip-ok")) assert.doesNotMatch(ok.textContent, /Learn/, "no green Microsoft Learn chip");
+  assert.doesNotMatch(h.center().textContent, /MS Learn Up to Date|Learn Up to Date/i);
+  const moduleChip = h.center().querySelector(".sc-module .sc-chip-learn");
+  assert.match(moduleChip.textContent, /Not checked yet/);
+  assert.ok(moduleChip.classList.contains("sc-chip-neutral"));
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Check against Microsoft Learn");
+
+  const checked = makeHarness();
+  await checked.render(stateFor([captured("a.png")], { lastRevalidatedAt: "2026-05-30T10:00:00.000Z" }));
+  assert.match(checked.text(".sc-header"), /Microsoft Learn: Up to date/);
+  assert.ok(checked.center().querySelector(".sc-header .sc-chip-learn").classList.contains("sc-chip-ok"));
+  const primary = checked.center().querySelector(".sc-primary-btn");
+  assert.equal(primary.textContent, "\u2713 All screenshots up to date");
+  assert.equal(primary.disabled, true);
+
+  const drifted = makeHarness();
+  await drifted.render(mixedState());
+  assert.match(drifted.text(".sc-header"), /Microsoft Learn: 1 module changed/);
+  assert.match(drifted.text(".sc-header"), /1 outdated/);
+  assert.match(drifted.text(".sc-header"), /1 need review/);
+});
+
+test("the main path uses plain words; technical terms live only under Advanced", async () => {
+  const h = makeHarness();
+  await h.render(mixedState());
+  const main = h.center().children.filter((c) => !c.classList.contains("sc-advanced"));
+  const mainText = main.map((c) => c.textContent).join(" ");
+  assert.doesNotMatch(mainText, /Playwright|headed|\.auth|Learn Sync|headless|CLI/i);
+  assert.equal(h.center().querySelectorAll(".sc-primary-btn").length, 1, "one primary action at a time");
+  const advanced = h.center().querySelector(".sc-advanced");
+  assert.equal(advanced.open, false, "Advanced starts closed");
+  assert.match(advanced.querySelector(".sc-cli code").textContent, /capture\.js --generated-lab=lab-test-1/);
+  assert.ok(advanced.querySelector('[data-sc-action="copy-cli"]'), "the command has a Copy button");
+  const labels = advanced.querySelectorAll("label").map((l) => l.textContent);
+  for (const expected of ["Which screenshots", "Numbered markers", "Tenant addresses to use"]) assert.ok(labels.includes(expected), expected);
+  assert.ok(advanced.querySelector('[data-sc-action="recheck"]') && advanced.querySelector('[data-sc-action="recheck-update"]'));
+  assert.ok(advanced.querySelector("#sc-adv-redact"), "redaction toggle");
+  assert.ok(advanced.querySelector("[data-sc-library-host]"), "shared library target");
+});
+
+test("the primary button follows the setup: connect, capture, retake, review, check", async () => {
+  const h = makeHarness();
+  await h.render(stateFor([captured("a.png"), shot({ filename: "b.png" }), shot({ filename: "c.png" })]));
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Connect your computer");
+  assert.equal(h.center().querySelector(".sc-primary-btn").dataset.scAction, "primary-connect");
+
+  h.status = statusPayload({ devices: [device()] });
+  await h.run("scLoadStatus")(true);
+  h.run("scNotifyStatusChanged")();
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Capture 2 missing screenshots");
+  assert.equal(h.center().querySelector(".sc-primary-btn").dataset.scAction, "primary-capture-missing");
+
+  await h.render(stateFor([captured("a.png", { stale: true }), captured("b.png", { stale: true })]));
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Retake 2 outdated screenshots");
+
+  await h.render(stateFor([captured("a.png"), shot({ filename: "b.png", needsReview: true, verification: { level: "warn", reasons: [{ code: "near-uniform", level: "warn" }] } })]));
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Review 1 screenshot");
+});
+
+test("the readiness strip shows each step's live state", async () => {
+  const h = makeHarness();
+  const pending = stateFor([shot({ filename: "a.png" }), shot({ filename: "b.png", product: "sharepoint-ai", featureId: "mod-b" })]);
+  await h.render(pending);
+  assert.equal(h.center().querySelectorAll(".sc-step").length, 3);
+  assert.equal(h.step("connect").dataset.state, "todo");
+  assert.match(h.step("connect").textContent, /Step 1: Connect this computer/);
+  assert.match(h.step("connect").textContent, /Not connected yet/);
+  assert.equal(h.step("connect").querySelector('[data-sc-action="step-connect"]'), null, "the big button already says it, so the step does not repeat it");
+  assert.equal(h.center().querySelector(".sc-primary-btn").dataset.scAction, "primary-connect");
+  assert.equal(h.step("tenant").dataset.state, "optional");
+  assert.match(h.step("tenant").textContent, /Step 2: Add your tenant addresses/);
+  assert.equal(h.step("signin").dataset.state, "locked");
+  assert.match(h.step("signin").textContent, /Connect your computer first/);
+
+  await h.setStatus(statusPayload({ devices: [device()], signedIn: ["copilot-studio"] }));
+  await h.render(pending);
+  assert.equal(h.step("connect").dataset.state, "done");
+  assert.match(h.step("connect").textContent, /Connected: Ada PC/);
+  assert.equal(h.step("signin").dataset.state, "todo");
+  assert.match(h.step("signin").textContent, /Signed in to Copilot Studio/);
+  assert.match(h.step("signin").textContent, /Still to sign in: SharePoint AI/);
+  assert.match(h.step("signin").textContent, /browser window opens on your computer/);
+  assert.match(h.step("signin").textContent, /Sign in there and capture continues by itself/);
+
+  await h.setStatus(statusPayload({ devices: [device()], signedIn: ["copilot-studio", "sharepoint-ai"] }));
+  await h.render(pending);
+  assert.equal(h.step("signin").dataset.state, "done");
+  assert.match(h.step("signin").textContent, /Signed in to Copilot Studio and SharePoint AI/);
+
+  await h.setStatus(statusPayload({ devices: [device()], tenantSet: true }));
+  await h.render(pending);
+  assert.equal(h.step("tenant").dataset.state, "done");
+  assert.match(h.step("tenant").textContent, /portal administrator/);
+
+  h.brand = { customized: true, profileName: "Contoso", effective: { copilotStudioUrl: "https://copilotstudio.microsoft.com/environments/x", sharepointSiteUrl: "https://contoso.sharepoint.com/sites/labs", powerPlatformEnvUrl: "javascript:alert(1)" } };
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  h.advance(30000);
+  await h.render(pending);
+  await h.flush();
+  assert.equal(h.step("tenant").dataset.state, "done");
+  assert.match(h.step("tenant").textContent, /2 of 6 addresses are set: Copilot Studio and SharePoint site/);
+
+  const broken = makeHarness();
+  broken.route("GET", /\/api\/capture\/status$/, { status: 500, body: { error: "boom" } });
+  await broken.render(pending);
+  assert.equal(broken.step("connect").dataset.state, "error");
+  assert.ok(broken.action("step-retry-status"), "a failed check offers Try again");
+
+  const checkOnly = makeHarness();
+  await checkOnly.render(stateFor([captured("a.png")]));
+  assert.equal(checkOnly.center().querySelector(".sc-primary-btn").dataset.scAction, "primary-check");
+  assert.ok(checkOnly.step("connect").querySelector('[data-sc-action="step-connect"]'), "with nothing to capture the step offers to connect");
+});
+
+test("adding tenant addresses jumps to the brand profile addresses", async () => {
+  const h = makeHarness();
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  await h.click(h.action("step-add-addresses"));
+  assert.deepEqual(h.spies.tabs, ["config"]);
+  assert.equal(h.document.activeElement.id, "bp-copilotStudioUrl");
+});
+
+test("a lab's own addresses can be swapped for a brand profile in Advanced", async () => {
+  const h = makeHarness();
+  h.run("var brandProfiles = { loaded: true, activeProfileId: 'p1', profiles: [{ id: 'p1', name: 'Contoso', copilotStudioUrl: 'https://copilotstudio.microsoft.com/environments/c' }, { id: 'p2', name: 'Fabrikam' }] };");
+  h.status = statusPayload({ devices: [device()] });
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  assert.equal(h.step("tenant").dataset.state, "optional");
+  assert.match(h.step("tenant").textContent, /Your Contoso profile has 1 address\. Use them for this lab\./);
+  const options = h.center().querySelector("#sc-adv-tenant").querySelectorAll("option").map((o) => o.textContent);
+  assert.ok(options.includes("Brand profile: Fabrikam") && options.includes("Do not use saved addresses"));
+  await h.click(h.action("step-use-profile"));
+  assert.equal(h.step("tenant").dataset.state, "done");
+  await h.click(h.action("primary-capture-missing"));
+  assert.equal(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body.brandProfileId, "p1");
+});
+
+// ── Pairing a computer ──────────────────────────────────────────────────────
+
+const PAIR_REPLY = {
+  status: 201,
+  body: {
+    code: "ABCD-EFGH",
+    expiresAt: new Date(NOW + 10 * 60 * 1000).toISOString(),
+    expiresInSec: 600,
+    portalUrl: "https://portal.example",
+    command: "start-companion --portal=https://portal.example --code=ABCD-EFGH",
+  },
+};
+
+test("pairing shows the code, a copy button, the command, a download link, and a live countdown", async () => {
+  const h = makeHarness();
+  h.route("POST", /\/api\/capture\/pair$/, PAIR_REPLY);
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  await h.click(h.action("primary-connect"));
+  const card = h.center().querySelector(".sc-pairing");
+  assert.ok(card, "the pairing card opens in the panel");
+  assert.equal(card.querySelector(".sc-code").textContent, "ABCD-EFGH");
+  assert.match(card.querySelector(".sc-code").getAttribute("aria-label"), /Pairing code A B C D/);
+  assert.equal(card.querySelector(".sc-command").textContent, "start-companion --portal=https://portal.example --code=ABCD-EFGH");
+  const link = card.querySelector("a[download]");
+  assert.equal(link.getAttribute("href"), "/api/capture/companion.zip");
+  assert.match(link.textContent, /Download the companion/);
+  assert.equal(h.document.activeElement.id, "sc-pair-heading", "focus moves to the card");
+  assert.equal(card.querySelector("[data-sc-pair-timer]").textContent, "Code expires in 10:00");
+  assert.match(card.textContent, /Waiting for your computer/);
+
+  await h.click(h.action("pair-copy-code"));
+  await h.click(h.action("pair-copy-command"));
+  assert.deepEqual(h.copied, ["ABCD-EFGH", "start-companion --portal=https://portal.example --code=ABCD-EFGH"]);
+  assert.equal(h.live(), "Command copied.");
+
+  h.advance(1000);
+  assert.equal(h.center().querySelector("[data-sc-pair-timer]").textContent, "Code expires in 9:59");
+  h.advance(59000);
+  assert.equal(h.center().querySelector("[data-sc-pair-timer]").textContent, "Code expires in 9:00");
+});
+
+test("pairing notices the new computer on its own and says so", async () => {
+  const h = makeHarness();
+  h.route("POST", /\/api\/capture\/pair$/, PAIR_REPLY);
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  await h.click(h.action("primary-connect"));
+  assert.equal(h.step("connect").dataset.state, "todo");
+
+  h.advance(3000);
+  await h.flush();
+  assert.ok(h.center().querySelector(".sc-pairing .sc-code"), "still waiting while nothing new connected");
+
+  h.status = statusPayload({ devices: [device({ id: "dev_aaaaaaaaaaaa", name: "Grace Laptop" })] });
+  const statusCalls = h.callsTo("GET", /\/api\/capture\/status$/).length;
+  h.advance(3000);
+  await h.flush();
+  assert.ok(h.callsTo("GET", /\/api\/capture\/status$/).length > statusCalls, "it polls the status while the card is open");
+  assert.equal(h.center().querySelector(".sc-pair-success").textContent, "Connected: Grace Laptop. You are ready to capture screenshots.");
+  assert.match(h.live(), /Connected: Grace Laptop/);
+  assert.equal(h.step("connect").dataset.state, "done");
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Capture 1 missing screenshot");
+  assert.equal(h.clock.timers.size, 0, "no timers are left running once connected");
+
+  await h.click(h.action("pair-close"));
+  assert.equal(h.center().querySelector(".sc-pairing"), null);
+});
+
+test("an expired pairing code says so and offers a new one", async () => {
+  const h = makeHarness();
+  h.route("POST", /\/api\/capture\/pair$/, PAIR_REPLY);
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  await h.click(h.action("primary-connect"));
+  h.advance(10 * 60 * 1000 + 1000);
+  await h.flush();
+  const card = h.center().querySelector(".sc-pairing");
+  assert.match(card.querySelector(".sc-pair-error").textContent, /This code expired/);
+  assert.match(h.live(), /expired/);
+  await h.click(h.action("pair-new"));
+  assert.equal(h.callsTo("POST", /\/api\/capture\/pair$/).length, 2);
+});
+
+test("a failed pairing request is explained, and a computer can be disconnected after a confirmation", async () => {
+  const h = makeHarness();
+  h.route("POST", /\/api\/capture\/pair$/, { status: 429, body: { error: "Too many pairing codes requested. Try again in 60s." } });
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  await h.click(h.action("primary-connect"));
+  assert.match(h.center().querySelector(".sc-pair-error").textContent, /We could not get a pairing code\. Too many pairing codes requested/);
+  assert.ok(h.action("pair-new"));
+
+  const d = makeHarness();
+  await d.setStatus(statusPayload({ devices: [device()] }));
+  d.route("DELETE", /\/api\/capture\/devices\/dev_0123456789ab$/, { status: 200, body: { revoked: true } });
+  await d.render(stateFor([shot({ filename: "a.png" })]));
+  const button = d.action("disconnect-device");
+  assert.equal(button.getAttribute("aria-label"), "Disconnect Ada PC");
+  await d.click(button);
+  assert.equal(button.textContent, "Confirm disconnect");
+  assert.equal(d.callsTo("DELETE", /devices/).length, 0, "the first click only asks for confirmation");
+  await d.click(button);
+  assert.equal(d.callsTo("DELETE", /devices\/dev_0123456789ab$/).length, 1);
+  assert.match(d.live(), /Computer disconnected/);
+});
+
+// ── Live capture progress ───────────────────────────────────────────────────
+
+function threeShots() {
+  return stateFor([
+    shot({ filename: "a.png", figure: "1.1", caption: "Agents page" }),
+    shot({ filename: "b.png", figure: "1.2", caption: "Create an agent", id: 2 }),
+    shot({ filename: "c.png", figure: "1.3", caption: "Name the agent", id: 3 }),
+  ]);
+}
+
+const runningJob = (state, rows, progress, extra = {}) =>
+  jobFor(state.shots, {
+    status: "running",
+    startedAt: new Date(NOW).toISOString(),
+    claim: { deviceName: "Ada PC", lastActivityAt: new Date(NOW).toISOString() },
+    shots: rows.map(([filename, status]) => ({ filename, status })),
+    progress: { total: rows.length, manual: 0, skipped: 0, ...progress },
+    ...extra,
+  });
+
+async function startCapture(h, state, job) {
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job, envSource: null } });
+  await h.render(state);
+  await h.click(h.action("primary-capture-missing"));
+}
+
+test("starting a capture shows a live progress card fed by server-sent events", async () => {
+  const state = threeShots();
+  const h = makeHarness();
+  const queued = jobFor(state.shots);
+  await startCapture(h, state, queued);
+
+  assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body), { target: { type: "lab", labId: LAB }, scope: { mode: "missing" }, options: { callouts: "sidecar", redact: true } });
+  assert.equal(h.FakeEventSource.instances.length, 1);
+  const es = h.FakeEventSource.instances[0];
+  assert.equal(es.url, `/api/capture/jobs/${queued.id}/events`);
+  const bar = () => h.center().querySelector('.sc-progress [role="progressbar"]');
+  assert.equal(bar().getAttribute("aria-valuenow"), "0");
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Capturing screenshots");
+  assert.equal(h.center().querySelector(".sc-primary-btn").disabled, true);
+  assert.equal(h.document.activeElement.id, `sc-progress-heading-${LAB}`, "focus goes to the progress card");
+  assert.ok(h.action("job-cancel"), "a running capture can be canceled");
+  assert.equal(h.cardAction("a.png", "shot-capture").disabled, true, "per-shot capture waits for the running job");
+
+  es.emit("snapshot", { job: { ...queued, status: "claimed", claim: { lastActivityAt: new Date(NOW).toISOString() } } });
+  assert.equal(h.text(".sc-progress-heading"), "Your computer is getting ready");
+
+  const snapshot = runningJob(state, [["a.png", "captured"], ["b.png", "running"], ["c.png", "pending"]], { done: 1, captured: 1, needsReview: 0, failed: 0, running: 1, pending: 1, percent: 33 });
+  es.emit("snapshot", { job: snapshot });
+  assert.equal(h.text(".sc-progress-heading"), "Capturing screenshots", "the heading follows the job even when the card is only patched");
+  assert.equal(bar().getAttribute("aria-valuenow"), "33");
+  assert.match(bar().getAttribute("aria-valuetext"), /33 percent, 1 of 3 screenshots done/);
+  assert.match(h.text(".sc-progress-line"), /33% · 1 of 3 done · Elapsed 0:00/);
+  assert.equal(h.text(".sc-progress-now"), "Now capturing: Figure 1.2: Create an agent");
+  assert.deepEqual(h.center().querySelectorAll(".sc-progress-counts .sc-chip").map((c) => c.textContent), ["1 captured", "0 need review", "0 failed"]);
+  assert.equal(h.card("b.png").dataset.status, "capturing");
+  assert.match(h.live(), /Capturing screenshots/);
+
+  es.emit("update", {
+    job: { id: queued.id, status: "running", progress: { total: 3, done: 2, captured: 1, needsReview: 1, failed: 0, manual: 0, running: 0, pending: 1, percent: 67 } },
+    event: { type: "shot-needs-review", message: "b.png: Saved for review." },
+  });
+  assert.equal(bar().getAttribute("aria-valuenow"), "67");
+  assert.deepEqual(h.center().querySelectorAll(".sc-progress-counts .sc-chip").map((c) => c.textContent), ["1 captured", "1 need review", "0 failed"]);
+  assert.equal(h.live(), "2 of 3 screenshots done.");
+
+  h.advance(65000);
+  assert.match(h.text(".sc-progress-line"), /Elapsed 1:05/, "the elapsed time ticks");
+
+  const done = runningJob(state, [["a.png", "captured"], ["b.png", "needs-review"], ["c.png", "captured"]], { done: 3, captured: 2, needsReview: 1, failed: 0, running: 0, pending: 0, percent: 100 }, { status: "done" });
+  h.route("GET", new RegExp(`/api/capture/jobs/${queued.id}$`), { status: 200, body: { job: done } });
+  es.emit("end", { status: "done" });
+  await h.flush();
+  assert.equal(es.closed, true, "the stream is closed");
+  assert.equal(h.center().querySelector(".sc-progress"), null, "the progress card is replaced by the result");
+  assert.match(h.text(".sc-banner"), /Capture finished: 2 captured, 1 need review\./);
+  assert.deepEqual(h.spies.preview, [LAB], "the lab preview refreshes so new images appear");
+  assert.ok(h.spies.list >= 1, "the saved-lab list refreshes");
+  assert.ok(h.action("banner-review"), "the result offers to review what needs review");
+  assert.equal(h.clock.timers.size, 0, "no timers are left running");
+
+  es.emit("update", { job: { id: queued.id, status: "done", progress: done.progress }, event: { type: "done", message: "Finished." } });
+  await h.flush();
+  assert.equal(h.center().querySelector(".sc-progress"), null, "a late event about a finished job never brings its card back");
+  assert.equal(h.center().querySelector(".sc-primary-btn").disabled, false, "and the primary button is not stuck on 'Capturing'");
+});
+
+test("a screenshot that failed in the last capture says why, in plain words", async () => {
+  const state = threeShots();
+  const h = makeHarness();
+  const queued = jobFor(state.shots);
+  await startCapture(h, state, queued);
+  const es = h.FakeEventSource.instances[0];
+  const rejected = { level: "fail", reasons: [{ code: "sign-in-page", level: "fail", message: "raw" }] };
+  const failedJob = {
+    ...runningJob(state, [["a.png", "captured"], ["b.png", "failed"], ["c.png", "auth-required"]], { done: 3, captured: 1, needsReview: 0, failed: 2, running: 0, pending: 0, percent: 100 }, { status: "done" }),
+  };
+  failedJob.shots[1].verification = rejected;
+  failedJob.shots[2].message = "Sign in needed";
+  h.route("GET", new RegExp(`/api/capture/jobs/${queued.id}$`), { status: 200, body: { job: failedJob } });
+  es.emit("end", { status: "done" });
+  await h.flush();
+  assert.equal(h.card("b.png").dataset.status, "failed");
+  assert.equal(h.card("b.png").querySelector(".sc-status-chip").textContent, "Failed");
+  assert.match(h.card("b.png").querySelector(".sc-note").textContent, /^The last picture was not used\. This looks like the Microsoft sign-in page, not the product\.$/);
+  assert.match(h.card("c.png").querySelector(".sc-note").textContent, /Sign-in was needed\. Sign in on your computer, then try again\./);
+  assert.match(h.text(".sc-banner"), /1 captured, 2 failed\./);
+  await h.click(h.action("banner-retry-failed"));
+  assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[1].body.scope), { mode: "selected", filenames: ["b.png", "c.png"] });
+});
+
+test("instruction lines are shown as plain text, not Markdown", async () => {
+  const h = makeHarness();
+  await h.render(stateFor([shot({ filename: "a.png", instructions: ["Select the **Build** tab.", "Turn on `Memory` and *save*."] })]));
+  await h.click(h.cardAction("a.png", "preview"));
+  assert.deepEqual(h.center().querySelectorAll(".sc-lb-info ol li").map((li) => li.textContent), ["Select the Build tab.", "Turn on Memory and save."]);
+});
+
+test("progress falls back to polling when server-sent events are not available", async () => {
+  const state = threeShots();
+  const h = makeHarness({ eventSource: false });
+  const queued = jobFor(state.shots);
+  const running = runningJob(state, [["a.png", "captured"], ["b.png", "running"], ["c.png", "pending"]], { done: 1, captured: 1, needsReview: 0, failed: 0, running: 1, pending: 1, percent: 33 });
+  h.route("GET", new RegExp(`/api/capture/jobs/${queued.id}$`), { status: 200, body: { job: running } });
+  await startCapture(h, state, queued);
+  await h.flush();
+  assert.equal(h.FakeEventSource.instances.length, 0);
+  assert.equal(h.callsTo("GET", new RegExp(`/api/capture/jobs/${queued.id}$`)).length, 1, "it polls straight away");
+  assert.equal(h.center().querySelector('.sc-progress [role="progressbar"]').getAttribute("aria-valuenow"), "33");
+
+  const done = runningJob(state, [["a.png", "captured"], ["b.png", "captured"], ["c.png", "captured"]], { done: 3, captured: 3, needsReview: 0, failed: 0, running: 0, pending: 0, percent: 100 }, { status: "done" });
+  h.route("GET", new RegExp(`/api/capture/jobs/${queued.id}$`), { status: 200, body: { job: done } });
+  h.advance(2000);
+  await h.flush();
+  assert.equal(h.callsTo("GET", new RegExp(`/api/capture/jobs/${queued.id}$`)).length, 2, "and again every two seconds");
+  assert.match(h.text(".sc-banner"), /Capture finished: 3 captured\./);
+  assert.equal(h.clock.timers.size, 0);
+});
+
+test("a dropped event stream switches to polling without losing progress", async () => {
+  const state = threeShots();
+  const h = makeHarness();
+  const queued = jobFor(state.shots);
+  await startCapture(h, state, queued);
+  const es = h.FakeEventSource.instances[0];
+  const running = runningJob(state, [["a.png", "captured"], ["b.png", "running"], ["c.png", "pending"]], { done: 1, captured: 1, needsReview: 0, failed: 0, running: 1, pending: 1, percent: 33 });
+  h.route("GET", new RegExp(`/api/capture/jobs/${queued.id}$`), { status: 200, body: { job: running } });
+  es.onerror();
+  await h.flush();
+  assert.equal(es.closed, true);
+  assert.equal(h.center().querySelector('.sc-progress [role="progressbar"]').getAttribute("aria-valuenow"), "33");
+  h.advance(2000);
+  await h.flush();
+  assert.equal(h.callsTo("GET", new RegExp(`/api/capture/jobs/${queued.id}$`)).length, 2);
+});
+
+test("a running capture can be canceled and says what happens next", async () => {
+  const state = threeShots();
+  const h = makeHarness();
+  const queued = jobFor(state.shots);
+  await startCapture(h, state, queued);
+  const running = runningJob(state, [["a.png", "captured"], ["b.png", "running"], ["c.png", "pending"]], { done: 1, captured: 1, needsReview: 0, failed: 0, running: 1, pending: 1, percent: 33 });
+  h.FakeEventSource.instances[0].emit("snapshot", { job: running });
+  h.route("POST", new RegExp(`/api/capture/jobs/${queued.id}/cancel$`), { status: 200, body: { job: { ...running, cancelRequested: true } } });
+  await h.click(h.action("job-cancel"));
+  assert.equal(h.callsTo("POST", /\/cancel$/).length, 1);
+  assert.equal(h.text(".sc-progress-heading"), "Canceling");
+  assert.match(h.text(".sc-progress-detail"), /stops after the screenshot it is working on/);
+  assert.equal(h.action("job-cancel"), null, "cancel is only offered once");
+  assert.match(h.live(), /Canceling\. Your computer stops after the screenshot it is working on/);
+
+  const cancelled = { ...running, status: "cancelled", cancelRequested: true, shots: [{ filename: "a.png", status: "captured" }, { filename: "b.png", status: "cancelled" }, { filename: "c.png", status: "cancelled" }], progress: { total: 3, done: 3, captured: 1, needsReview: 0, failed: 0, manual: 0, running: 0, pending: 0, percent: 100 } };
+  h.route("GET", new RegExp(`/api/capture/jobs/${queued.id}$`), { status: 200, body: { job: cancelled } });
+  h.FakeEventSource.instances[0].emit("end", { status: "cancelled" });
+  await h.flush();
+  assert.match(h.text(".sc-banner"), /Capture canceled\. 1 of 3 were captured before you stopped it\./);
+});
+
+test("an offline computer, a sign-in prompt, and an unconnected queue each give a clear next step", async () => {
+  const state = threeShots();
+  const h = makeHarness();
+  const queued = jobFor(state.shots);
+  await startCapture(h, state, queued);
+  const es = h.FakeEventSource.instances[0];
+  const rows = [["a.png", "captured"], ["b.png", "running"], ["c.png", "pending"]];
+  const progress = { done: 1, captured: 1, needsReview: 0, failed: 0, running: 1, pending: 1, percent: 33 };
+
+  es.emit("snapshot", { job: runningJob(state, rows, progress, { claim: { lastActivityAt: new Date(NOW - 5 * 60 * 1000).toISOString() } }) });
+  assert.equal(h.text(".sc-progress-heading"), "Your computer stopped responding");
+  assert.match(h.text(".sc-progress-detail"), /still running and that the computer is awake/);
+  assert.match(h.live(), /Your computer stopped responding/);
+
+  es.emit("snapshot", { job: runningJob(state, [["a.png", "auth-required"], ["b.png", "pending"], ["c.png", "pending"]], { ...progress, failed: 1, running: 0, pending: 2 }) });
+  assert.equal(h.text(".sc-progress-heading"), "Sign-in needed on your computer");
+  assert.match(h.text(".sc-progress-detail"), /A browser window should be open on your computer\. Sign in there\./);
+
+  const queuedAlone = makeHarness();
+  await queuedAlone.render(state);
+  queuedAlone.run("scTrackJob")(LAB, queued, { announce: false });
+  await queuedAlone.flush();
+  assert.equal(queuedAlone.text(".sc-progress-heading"), "Waiting for your computer");
+  assert.match(queuedAlone.text(".sc-progress-detail"), /No computer is connected right now/);
+  assert.ok(queuedAlone.action("step-connect", queuedAlone.center().querySelector(".sc-progress")), "the card offers to connect");
+});
+
+test("a capture already running for this lab is picked up when the panel opens", async () => {
+  const state = threeShots();
+  const h = makeHarness();
+  const running = runningJob(state, [["a.png", "captured"], ["b.png", "running"], ["c.png", "pending"]], { done: 1, captured: 1, needsReview: 0, failed: 0, running: 1, pending: 1, percent: 33 });
+  h.activeJobs = [{ id: running.id, status: "running" }];
+  h.route("GET", new RegExp(`/api/capture/jobs/${running.id}$`), { status: 200, body: { job: running } });
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  await h.render(state);
+  assert.equal(h.center().querySelector('.sc-progress [role="progressbar"]').getAttribute("aria-valuenow"), "33");
+  assert.equal(h.FakeEventSource.instances.length, 1);
+  assert.equal(h.center().querySelector(".sc-primary-btn").disabled, true);
+});
+
+test("a capture queued during the build takes the learner straight to its progress", async () => {
+  const state = threeShots();
+  const h = makeHarness();
+  const queued = jobFor(state.shots);
+  h.route("GET", new RegExp(`/api/capture/jobs/${queued.id}$`), { status: 200, body: { job: queued } });
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  await h.render(state, { outcome: json(h.run("scBuildCaptureOutcome")({ captureQueued: true, captureJobId: queued.id, screenshotCapture: {} })) });
+  await h.flush();
+  assert.match(h.text(".sc-banner"), /being captured on your computer now/);
+  await h.run("scAttachBuildJob")(LAB, queued.id);
+  assert.ok(h.center().querySelector(".sc-progress"));
+  assert.equal(h.document.activeElement.id, `sc-progress-heading-${LAB}`);
+  assert.equal(h.callsTo("GET", new RegExp(`/api/capture/jobs/${queued.id}$`)).length, 1, "the job is fetched once, not once per caller");
+});
+
+// ── Gallery: thumbnails, status, and per-shot actions ───────────────────────
+
+const buttonTexts = (card) => card.querySelectorAll(".sc-card-actions button").map((b) => b.textContent);
+
+test("the gallery groups thumbnails by step with a clear status chip and actions on each screenshot", async () => {
+  const h = makeHarness();
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  await h.render(mixedState());
+  const modules = h.center().querySelectorAll(".sc-module");
+  assert.deepEqual(modules.map((m) => m.querySelector(".sc-module-title").textContent), ["Step 1 \u00b7 Create an agent", "Step 2 \u00b7 Add topics"]);
+  assert.match(modules[1].querySelector(".sc-chip-learn").textContent, /Microsoft Learn: 1 module changed/);
+  const learnLink = modules[0].querySelector('a[target="_blank"]');
+  assert.equal(learnLink.getAttribute("rel"), "noopener noreferrer");
+  assert.match(learnLink.getAttribute("href"), /^https:\/\/learn\.microsoft\.com\//);
+
+  const chips = Object.fromEntries(h.center().querySelectorAll(".sc-card").map((c) => [c.dataset.filename, [c.dataset.status, c.querySelector(".sc-status-chip").textContent]]));
+  assert.deepEqual(chips, {
+    "agent-home.png": ["captured", "Captured"],
+    "create-agent.png": ["pending", "Pending"],
+    "agent-topics.png": ["outdated", "Outdated"],
+    "agent-test.png": ["needs-review", "Needs review"],
+    "agent-publish.png": ["failed", "Failed"],
+    "agent-sharepoint.png": ["manual", "Manual"],
+  });
+  assert.match(h.card("agent-home.png").textContent, /Figure 1\.1.*Agents page/);
+
+  assert.deepEqual(buttonTexts(h.card("agent-home.png")), ["Retake", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("create-agent.png")), ["Capture this one", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("agent-topics.png")), ["Retake", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("agent-test.png")), ["Accept", "Discard", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("agent-publish.png")), ["Capture this one", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("agent-sharepoint.png")), ["Paste image", "Upload image"], "a manual shot is never auto-captured");
+  assert.equal(h.cardAction("agent-home.png", "shot-retake").getAttribute("aria-label"), "Retake: Figure 1.1: Agents page");
+
+  const captured = h.card("agent-home.png").querySelector("img");
+  assert.equal(captured.getAttribute("loading"), "lazy");
+  assert.equal(captured.getAttribute("alt"), "", "the thumbnail button carries the name");
+  assert.match(captured.getAttribute("src"), /^\/api\/lab-builder\/generated\/lab-test-1\/assets\/agent-home\.png\?v=/);
+  const pending = h.card("create-agent.png");
+  assert.equal(pending.querySelector("img"), null);
+  assert.equal(pending.querySelector(".sc-thumb-empty").textContent, "Pending");
+  assert.match(h.card("agent-test.png").querySelector("img").getAttribute("src"), /\/screenshots\/agent-test\.png\/staged\?t=/, "a screenshot waiting for review shows the staged image");
+  assert.match(h.cardAction("agent-home.png", "preview").getAttribute("aria-label"), /^Enlarge Figure 1\.1: Agents page\. Status: Captured\.$/);
+
+  assert.match(h.card("agent-test.png").querySelector(".sc-note").textContent, /Only 1 of 3 expected labels are visible\. Check that this is the screen the lab describes\./);
+  assert.match(h.card("agent-publish.png").querySelector(".sc-note").textContent, /Sign-in was needed\. Sign in on your computer, then try again\./);
+  assert.match(h.card("agent-sharepoint.png").querySelector(".sc-note").textContent, /needs a person/);
+  assert.match(h.card("agent-topics.png").querySelector(".sc-note").textContent, /Microsoft Learn changed this topic/);
+
+  const only = h.center().querySelector("#sc-only-attention");
+  only.checked = true;
+  only.dispatchEvent(h.event("change"));
+  assert.equal(h.card("agent-home.png"), null, "the filter hides screenshots that are fine");
+  assert.ok(h.card("create-agent.png"));
+});
+
+test("an image can be uploaded from the file picker, with a local preview while it is checked", async () => {
+  const h = makeHarness();
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  const before = stateFor([shot({ filename: "create-agent.png" }), captured("agent-home.png", { figure: "1.2", id: 2 })]);
+  const after = stateFor([captured("create-agent.png"), captured("agent-home.png", { figure: "1.2", id: 2 })]);
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  h.route("PUT", /\/screenshots\/create-agent\.png$/, async () => {
+    await gate;
+    return { status: 200, body: { outcome: "accepted", filename: "create-agent.png", verification: { level: "pass", reasons: [], redaction: { applied: true, masked: 1 } }, state: after } };
+  });
+  await h.render(before);
+  const file = pngFile("mine.png");
+  await h.click(h.cardAction("create-agent.png", "shot-upload"));
+  const input = h.center().querySelector(".sc-file");
+  assert.equal(input.clicked, 1, "the hidden file input opens");
+  assert.equal(input.getAttribute("accept"), "image/png,image/jpeg,image/webp");
+  input.files = [file];
+  input.dispatchEvent(h.event("change"));
+  await h.flush();
+
+  assert.equal(h.card("create-agent.png").querySelector("img").getAttribute("src"), "blob:fake/1", "the local image shows while it uploads");
+  assert.match(h.card("create-agent.png").textContent, /Uploading/);
+  assert.equal(h.cardAction("create-agent.png", "shot-upload").disabled, true);
+  release();
+  await h.flush();
+
+  const put = h.callsTo("PUT", /screenshots\/create-agent\.png$/);
+  assert.equal(put.length, 1);
+  assert.equal(put[0].url, "/api/lab-builder/generated/lab-test-1/screenshots/create-agent.png");
+  assert.equal(put[0].init.headers["Content-Type"], "image/png");
+  assert.equal(put[0].init.body, file);
+  assert.equal(h.card("create-agent.png").dataset.status, "captured");
+  assert.match(h.card("create-agent.png").querySelector(".sc-feedback").textContent, /Added to your lab\./);
+  assert.match(h.text(".sc-header"), /2 of 2 screenshots captured/);
+  assert.deepEqual(h.spies.preview, [LAB], "the lab preview reloads so the new image appears");
+  assert.deepEqual(json(h.FakeURL.revoked), ["blob:fake/1"], "the object URL is revoked");
+});
+
+test("an image that needs review shows plain-language reasons and can be accepted or discarded", async () => {
+  const h = makeHarness();
+  const before = stateFor([shot({ filename: "create-agent.png" })]);
+  const verification = { level: "warn", state: "needs-review", reasons: [{ code: "near-uniform", level: "warn" }, { code: "labels-missing", level: "warn" }], labels: { expected: 4, matched: 1 } };
+  const staged = stateFor([shot({ filename: "create-agent.png", needsReview: true, verification })]);
+  h.route("PUT", /\/screenshots\/create-agent\.png$/, { status: 202, body: { outcome: "needs-review", verification } });
+  h.route("GET", /\/screenshots$/, { status: 200, body: staged });
+  await h.render(before);
+  await h.click(h.cardAction("create-agent.png", "shot-upload"));
+  const input = h.center().querySelector(".sc-file");
+  input.files = [pngFile()];
+  input.dispatchEvent(h.event("change"));
+  await h.flush();
+  const card = h.card("create-agent.png");
+  assert.equal(card.dataset.status, "needs-review");
+  const feedback = card.querySelector(".sc-feedback").textContent;
+  assert.match(feedback, /Saved for review\. Check it, then accept or retake it\./);
+  assert.match(feedback, /Almost the whole image is one color/);
+  assert.match(feedback, /Only 1 of 4 expected labels are visible/);
+  assert.match(h.live(), /Image saved for review/);
+  assert.equal(h.callsTo("GET", /\/screenshots$/).length, 1, "the panel reloads the staged state");
+
+  const accepted = stateFor([captured("create-agent.png")]);
+  h.route("POST", /\/screenshots\/create-agent\.png\/accept$/, { status: 200, body: { outcome: "accepted", state: accepted } });
+  await h.click(h.cardAction("create-agent.png", "shot-accept"));
+  assert.equal(h.card("create-agent.png").dataset.status, "captured");
+  assert.match(h.live(), /accepted and added to your lab/);
+
+  const again = makeHarness();
+  again.route("DELETE", /\/screenshots\/create-agent\.png$/, { status: 200, body: { outcome: "reset", discardedStaged: true, state: before } });
+  await again.render(staged);
+  await again.click(again.cardAction("create-agent.png", "shot-discard"));
+  assert.equal(again.callsTo("DELETE", /create-agent\.png$/).length, 1);
+  assert.equal(again.card("create-agent.png").dataset.status, "pending");
+  assert.match(again.live(), /Staged image discarded/);
+});
+
+test("rejected and refused uploads explain themselves and change nothing", async () => {
+  const cases = [
+    [422, { outcome: "rejected", verification: { level: "fail", reasons: [{ code: "sign-in-page", level: "fail" }, { code: "blank", level: "fail" }] } }, [/This image was not accepted\./, /This looks like the Microsoft sign-in page, not the product\./, /blank or a single color/]],
+    [413, { error: "too big" }, [/larger than 8 MB/]],
+    [415, { error: "bad type" }, [/not supported\. Use a PNG, JPEG, or WebP image\./]],
+    [404, { error: "gone" }, [/no longer exists/]],
+    [429, { error: "Too many screenshot uploads. Try again in 30s." }, [/Too many screenshot uploads/]],
+  ];
+  for (const [status, body, patterns] of cases) {
+    const h = makeHarness();
+    h.route("PUT", /\/screenshots\/create-agent\.png$/, { status, body });
+    await h.render(stateFor([shot({ filename: "create-agent.png" })]));
+    await h.click(h.cardAction("create-agent.png", "shot-upload"));
+    const input = h.center().querySelector(".sc-file");
+    input.files = [pngFile()];
+    input.dispatchEvent(h.event("change"));
+    await h.flush();
+    const card = h.card("create-agent.png");
+    assert.equal(card.dataset.status, "pending", `${status} leaves the slot alone`);
+    for (const pattern of patterns) assert.match(card.querySelector(".sc-feedback").textContent, pattern, `${status}`);
+    assert.ok(card.querySelector(".sc-feedback-bad"), `${status} is styled as a problem`);
+    assert.equal(h.callsTo("GET", /\/screenshots$/).length, 0);
+  }
+  const offline = makeHarness();
+  offline.route("PUT", /\/screenshots\/create-agent\.png$/, { throws: "network down" });
+  await offline.render(stateFor([shot({ filename: "create-agent.png" })]));
+  await offline.click(offline.cardAction("create-agent.png", "shot-upload"));
+  const input = offline.center().querySelector(".sc-file");
+  input.files = [pngFile()];
+  input.dispatchEvent(offline.event("change"));
+  await offline.flush();
+  assert.match(offline.card("create-agent.png").querySelector(".sc-feedback").textContent, /Check your connection and try again/);
+});
+
+test("files that cannot be images are stopped before they are sent", async () => {
+  const h = makeHarness();
+  await h.render(stateFor([shot({ filename: "create-agent.png" })]));
+  for (const [file, pattern] of [
+    [pngFile("a.svg", "image/svg+xml"), /Use a PNG, JPEG, or WebP image\./],
+    [pngFile("a.png", "image/png", 0), /That file is empty\./],
+    [new File([new Uint8Array(9 * 1024 * 1024)], "huge.png", { type: "image/png" }), /The limit is 8 MB\./],
+  ]) {
+    await h.click(h.cardAction("create-agent.png", "shot-upload"));
+    const input = h.center().querySelector(".sc-file");
+    input.files = [file];
+    input.dispatchEvent(h.event("change"));
+    await h.flush();
+    assert.match(h.card("create-agent.png").querySelector(".sc-feedback").textContent, pattern);
+  }
+  assert.equal(h.callsTo("PUT", /screenshots/).length, 0, "nothing was uploaded");
+  assert.equal(h.FakeURL.created.length, 0, "no object URL was created for a rejected file");
+});
+
+test("Ctrl+V pastes an image into the selected screenshot, and only then", async () => {
+  const h = makeHarness();
+  const after = stateFor([captured("create-agent.png"), captured("agent-home.png", { id: 2, figure: "1.2" })]);
+  h.route("PUT", /\/screenshots\/create-agent\.png$/, { status: 200, body: { outcome: "accepted", verification: { level: "pass", reasons: [] }, state: after } });
+  await h.render(stateFor([shot({ filename: "create-agent.png", caption: "Create an agent" }), captured("agent-home.png", { id: 2, figure: "1.2" })]));
+  const file = pngFile();
+  const paste = (target, clipboardData) => {
+    const event = h.event("paste", { clipboardData });
+    target.dispatchEvent(event);
+    return event;
+  };
+
+  paste(h.center().querySelector(".sc-card button"), { files: [file], items: [] });
+  await h.flush();
+  assert.equal(h.callsTo("PUT", /screenshots/).length, 0, "no screenshot selected, so nothing is pasted");
+  assert.match(h.live(), /Select a screenshot first, then press Ctrl\+V/);
+
+  h.cardAction("create-agent.png", "shot-paste").focus();
+  assert.equal(h.card("create-agent.png").getAttribute("aria-current"), "true");
+  assert.match(h.text(".sc-selected-hint"), /^Selected: Figure 1\.1: Create an agent\. Press Ctrl\+V to paste an image from your clipboard\.$/);
+  assert.match(h.live(), /Selected: Figure 1\.1/);
+
+  const typed = h.document.createElement("input");
+  typed.setAttribute("type", "text");
+  h.center().appendChild(typed);
+  assert.equal(paste(typed, { files: [file], items: [] }).defaultPrevented, false, "pasting into a text box is left alone");
+  assert.equal(paste(h.center().querySelector(".sc-card button"), { files: [], items: [] }).defaultPrevented, false, "pasting plain text is left alone");
+
+  const event = paste(h.cardAction("create-agent.png", "shot-paste"), { files: [file], items: [] });
+  await h.flush();
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(h.callsTo("PUT", /screenshots\/create-agent\.png$/).length, 1);
+  assert.equal(h.card("create-agent.png").dataset.status, "captured");
+});
+
+test("Paste image reads the clipboard, and explains when the browser will not allow it", async () => {
+  const h = makeHarness();
+  const after = stateFor([captured("create-agent.png")]);
+  h.route("PUT", /\/screenshots\/create-agent\.png$/, { status: 200, body: { outcome: "accepted", verification: { level: "pass", reasons: [] }, state: after } });
+  await h.render(stateFor([shot({ filename: "create-agent.png" })]));
+
+  h.clipboardItems = [{ types: ["text/plain"], getType: async () => new Blob(["hi"]) }];
+  await h.click(h.cardAction("create-agent.png", "shot-paste"));
+  assert.match(h.card("create-agent.png").querySelector(".sc-feedback").textContent, /No image on the clipboard\./);
+
+  h.run("navigator").clipboard.read = async () => {
+    throw new Error("denied");
+  };
+  await h.click(h.cardAction("create-agent.png", "shot-paste"));
+  assert.match(h.card("create-agent.png").querySelector(".sc-feedback").textContent, /Click this screenshot, then press Ctrl\+V\./);
+
+  h.run("navigator").clipboard.read = async () => [{ types: ["image/png"], getType: async () => new Blob([new Uint8Array(12000)], { type: "image/png" }) }];
+  await h.click(h.cardAction("create-agent.png", "shot-paste"));
+  assert.equal(h.callsTo("PUT", /create-agent\.png$/).length, 1);
+  assert.equal(h.card("create-agent.png").dataset.status, "captured");
+});
+
+test("an image can be dropped onto a screenshot", async () => {
+  const h = makeHarness();
+  const after = stateFor([captured("create-agent.png")]);
+  h.route("PUT", /\/screenshots\/create-agent\.png$/, { status: 200, body: { outcome: "accepted", verification: { level: "pass", reasons: [] }, state: after } });
+  await h.render(stateFor([shot({ filename: "create-agent.png" })]));
+  const card = h.card("create-agent.png");
+  const thumb = card.querySelector(".sc-thumb");
+  const over = h.event("dragover", { dataTransfer: { types: ["Files"], files: [] } });
+  thumb.dispatchEvent(over);
+  assert.equal(over.defaultPrevented, true, "dropping is allowed");
+  assert.ok(card.classList.contains("sc-drop-active"));
+  assert.equal(card.querySelector(".sc-drop-hint").textContent, "Drop to replace");
+  thumb.dispatchEvent(h.event("dragleave"));
+  assert.ok(!card.classList.contains("sc-drop-active"));
+
+  const textDrag = h.event("dragover", { dataTransfer: { types: ["text/plain"], files: [] } });
+  thumb.dispatchEvent(textDrag);
+  assert.equal(textDrag.defaultPrevented, false, "only files are accepted");
+
+  const file = pngFile("dropped.png");
+  const drop = h.event("drop", { dataTransfer: { types: ["Files"], files: [file] } });
+  thumb.dispatchEvent(drop);
+  await h.flush();
+  assert.equal(drop.defaultPrevented, true);
+  assert.equal(h.callsTo("PUT", /create-agent\.png$/)[0].init.body, file);
+  assert.equal(h.card("create-agent.png").dataset.status, "captured");
+});
+
+test("Retake removes the old image and queues a new capture, and never throws away an image it cannot replace", async () => {
+  const state = stateFor([captured("agent-home.png"), shot({ filename: "create-agent.png", id: 2 })]);
+  const pendingAgain = stateFor([shot({ filename: "agent-home.png" }), shot({ filename: "create-agent.png", id: 2 })]);
+  const h = makeHarness();
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  const job = jobFor([{ filename: "agent-home.png" }]);
+  h.route("DELETE", /\/screenshots\/agent-home\.png$/, { status: 200, body: { outcome: "reset", removedImage: true, state: pendingAgain } });
+  h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job } });
+  await h.render(state);
+  h.calls.length = 0;
+  await h.click(h.cardAction("agent-home.png", "shot-retake"));
+  const order = h.calls.map((c) => `${c.method} ${c.url}`);
+  assert.deepEqual(order.filter((c) => /DELETE|POST/.test(c)), ["DELETE /api/lab-builder/generated/lab-test-1/screenshots/agent-home.png", "POST /api/capture/jobs"], "remove first, then queue");
+  assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body.scope), { mode: "selected", filenames: ["agent-home.png"] });
+  assert.ok(h.center().querySelector(".sc-progress"), "the retake shows live progress");
+
+  const offline = makeHarness();
+  await offline.render(state);
+  await offline.click(offline.cardAction("agent-home.png", "shot-retake"));
+  assert.equal(offline.callsTo("DELETE", /screenshots/).length, 0, "the old image stays when no computer is connected");
+  assert.match(offline.card("agent-home.png").querySelector(".sc-feedback").textContent, /Retake needs your computer\./);
+  assert.match(offline.card("agent-home.png").querySelector(".sc-feedback").textContent, /Your current image was not changed\./);
+});
+
+test("Capture this one starts pairing when no computer is connected", async () => {
+  const h = makeHarness();
+  h.route("POST", /\/api\/capture\/pair$/, PAIR_REPLY);
+  await h.render(stateFor([shot({ filename: "create-agent.png" })]));
+  await h.click(h.cardAction("create-agent.png", "shot-capture"));
+  assert.match(h.card("create-agent.png").querySelector(".sc-feedback").textContent, /Connect your computer first\./);
+  assert.ok(h.center().querySelector(".sc-pairing .sc-code"), "the pairing card opens");
+  assert.equal(h.callsTo("POST", /\/api\/capture\/jobs$/).length, 0);
+});
+
+// ── Preview dialog ──────────────────────────────────────────────────────────
+
+test("the preview dialog shows the image, alt text, instructions, and check results, and works from the keyboard", async () => {
+  const h = makeHarness();
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  await h.render(mixedState());
+  const dialog = h.center().querySelector("dialog.sc-lightbox");
+  assert.equal(dialog.open, false);
+  const opener = h.cardAction("agent-home.png", "preview");
+  opener.focus();
+  await h.click(opener);
+  assert.equal(dialog.open, true);
+  assert.equal(dialog.modal, true, "it is a real modal dialog");
+  assert.equal(dialog.getAttribute("aria-labelledby"), "sc-lb-title");
+  assert.equal(dialog.querySelector("#sc-lb-title").textContent, "Figure 1.1: Agents page");
+  assert.equal(dialog.querySelector(".sc-lb-img").getAttribute("alt"), "The Copilot Studio agents page with the Create button highlighted");
+  assert.deepEqual(dialog.querySelectorAll(".sc-lb-info ol li").map((li) => li.textContent), ["Open Copilot Studio", "Select Agents"]);
+  assert.match(dialog.querySelector(".sc-lb-info").textContent, /What to show/);
+  assert.match(dialog.querySelector(".sc-lb-info").textContent, /Screenshot 1 of 6/);
+  assert.equal(h.document.activeElement.dataset.scFocus, "lb-close", "focus lands inside the dialog");
+
+  const key = (name) => dialog.dispatchEvent(h.event("keydown", { key: name }));
+  key("ArrowRight");
+  assert.equal(dialog.querySelector("#sc-lb-title").textContent, "Figure 1.2: Create an agent");
+  assert.match(dialog.querySelector(".sc-lb-empty").textContent, /Pending\. This screenshot has not been captured yet\./);
+  key("ArrowLeft");
+  assert.equal(dialog.querySelector("#sc-lb-title").textContent, "Figure 1.1: Agents page");
+  key("ArrowLeft");
+  assert.equal(dialog.querySelector("#sc-lb-title").textContent, "Figure 2.4: SharePoint site", "navigation wraps around");
+  key("Home");
+  assert.equal(dialog.querySelector("#sc-lb-title").textContent, "Figure 1.1: Agents page");
+  key("End");
+  key("ArrowRight");
+  assert.equal(dialog.querySelector("#sc-lb-title").textContent, "Figure 1.1: Agents page");
+
+  for (let i = 0; i < 3; i += 1) key("ArrowRight");
+  assert.equal(dialog.querySelector("#sc-lb-title").textContent, "Figure 2.2: Test panel");
+  const info = dialog.querySelector(".sc-lb-info").textContent;
+  assert.match(info, /Check results/);
+  assert.match(info, /Please check this image before you use it\./);
+  assert.match(info, /Only 1 of 3 expected labels are visible/);
+  assert.ok(dialog.querySelector('[data-sc-action="shot-accept"]'), "the dialog offers the same actions");
+  assert.equal(h.card("agent-test.png").getAttribute("aria-current"), "true", "the card behind it follows along");
+
+  key("End");
+  key("Escape");
+  assert.equal(dialog.open, false, "Escape closes it");
+  assert.equal(h.document.activeElement.dataset.scFocus, "thumb:agent-sharepoint.png", "focus returns to the screenshot last viewed");
+
+  await h.click(h.cardAction("agent-home.png", "preview"));
+  await h.click(dialog.querySelector('[data-sc-action="lightbox-next"]'));
+  assert.equal(dialog.querySelector("#sc-lb-title").textContent, "Figure 1.2: Create an agent");
+  await h.click(dialog.querySelector('[data-sc-action="lightbox-close"]'));
+  assert.equal(dialog.open, false);
+});
+
+// ── Untrusted text never becomes markup ─────────────────────────────────────
+
+test("file names, captions, messages, and addresses from the network are shown as text only", async () => {
+  const h = makeHarness();
+  const payload = '<img src=x onerror="alert(1)">';
+  const evil = shot({
+    filename: "evil.png",
+    caption: payload,
+    alt: '"><script>alert(2)</script>',
+    instructions: ["<b>bold</b><script>alert(3)</script>"],
+    needsReview: true,
+    verification: { level: "warn", reasons: [{ code: "made-up-code", level: "warn", message: "<script>alert(4)</script>" }] },
+  });
+  const unsafeNames = [shot({ filename: "bad<name>.png", id: 2 }), shot({ filename: "../x.png", id: 3 }), shot({ filename: 'q".png', id: 4 })];
+  const state = stateFor([evil, ...unsafeNames, captured("fine.png", { id: 5, figure: "1.2" })]);
+  state.modules[0].primaryUrl = "javascript:alert(5)";
+  await h.setStatus({ ...statusPayload({ devices: [device({ name: payload })] }), limits: { maxUploadBytes: 8388608, acceptedTypes: ["image/png"] } });
+  await h.render(state);
+
+  assert.equal(h.card("bad<name>.png"), null);
+  assert.equal(h.center().querySelectorAll(".sc-card").length, 2, "slots with unsafe file names are skipped");
+  assert.equal(h.center().querySelectorAll("script").length, 0);
+  for (const img of h.center().querySelectorAll("img")) assert.match(img.getAttribute("src"), /^\/api\/lab-builder\/generated\/lab-test-1\//);
+  assert.ok(h.center().textContent.includes(payload), "the payload is visible as plain text");
+  assert.equal(h.center().querySelectorAll("a").filter((a) => /javascript:/i.test(a.getAttribute("href") || "")).length, 0);
+  assert.equal(h.center().querySelector("a[target]"), null, "an unsafe Learn address gets no link");
+  assert.match(h.step("connect").textContent, /Connected: <img src=x onerror="alert\(1\)">/);
+
+  await h.click(h.cardAction("evil.png", "preview"));
+  const dialog = h.center().querySelector("dialog.sc-lightbox");
+  assert.equal(dialog.querySelectorAll("script").length, 0);
+  assert.equal(dialog.querySelector(".sc-lb-img").getAttribute("alt"), evil.alt);
+  assert.ok(dialog.textContent.includes("<b>bold</b><script>alert(3)</script>"));
+  assert.ok(dialog.textContent.includes("<script>alert(4)</script>"), "an unknown reason's message is text");
+
+  for (const file of ["screenshot-center-core.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js"]) {
+    assert.doesNotMatch(publicFile(file), /\.innerHTML|insertAdjacentHTML|outerHTML|document\.write|eval\(|new Function/, `${file} must build DOM with textContent only`);
+  }
+});
+
+// ── Capture when the lab is built ───────────────────────────────────────────
+
+test("capture-on-build is enabled only while a computer is connected, and setup is one click away", async () => {
+  const h = makeHarness();
+  h.route("POST", /\/api\/capture\/pair$/, PAIR_REPLY);
+  const { box, status, setup, pairing, pane } = h.step8;
+  await h.run("scSyncCaptureOnBuild")();
+  assert.equal(box.disabled, true);
+  assert.equal(box.checked, false);
+  assert.match(status.textContent, /Your computer is not connected yet, so this is turned off\. You can connect it now/);
+  assert.equal(setup.hidden, false, "the setup link shows");
+
+  setup.click();
+  await h.flush();
+  assert.ok(pairing.querySelector(".sc-pairing .sc-code"), "pairing happens right in Step 8");
+  h.status = statusPayload({ devices: [device({ id: "dev_bbbbbbbbbbbb" })] });
+  h.advance(3000);
+  await h.flush();
+  assert.equal(box.disabled, false, "connecting turns the option on");
+  assert.equal(box.checked, true, "and checks it, since that is why the learner connected");
+  assert.match(status.textContent, /^Connected: Ada PC\. Screenshots are captured on your computer right after your lab is built\.$/);
+  assert.equal(setup.hidden, true);
+
+  await h.setStatus(statusPayload({ devices: [device({ connected: false })] }));
+  await h.run("scSyncCaptureOnBuild")({ fetch: false });
+  assert.equal(box.disabled, true, "disconnecting turns it off again");
+  assert.equal(box.checked, false);
+
+  const before = h.callsTo("GET", /\/api\/capture\/status$/).length;
+  h.windowListeners.focus.forEach((fn) => fn());
+  await h.flush();
+  assert.equal(h.callsTo("GET", /\/api\/capture\/status$/).length, before + 1, "returning to the tab re-reads the status while Step 8 is open");
+  pane.style.display = "none";
+  h.windowListeners.focus.forEach((fn) => fn());
+  await h.flush();
+  assert.equal(h.callsTo("GET", /\/api\/capture\/status$/).length, before + 1, "and not while another step is open");
+
+  const broken = makeHarness();
+  broken.route("GET", /\/api\/capture\/status$/, { status: 500, body: { error: "down" } });
+  await broken.run("scSyncCaptureOnBuild")();
+  assert.equal(broken.step8.box.disabled, true);
+  assert.match(broken.step8.status.textContent, /We could not check whether a computer is connected\. You can still build your lab/);
+});
+
+test("the build flow never waits on capture and hands a queued job to the live progress card", () => {
+  assert.match(APP_SOURCE, /const captureScreenshots = Boolean\(captureBox\?\.checked && !captureBox\?\.disabled\);/);
+  assert.match(APP_SOURCE, /data\.captureQueued && data\.captureJobId && typeof scAttachBuildJob === "function"[\s\S]{0,80}scAttachBuildJob\(data\.labId, data\.captureJobId\)/);
+  assert.match(APP_SOURCE, /scBuildCaptureOutcome\(data\)/);
+  const showResult = APP_SOURCE.slice(APP_SOURCE.indexOf("function lbShowResult"), APP_SOURCE.indexOf("async function lbLoadResultPreview"));
+  assert.match(showResult, /<div id="lb-result-checklist"><\/div>[\s\S]*<div id="lb-result-screenshots"><\/div>/, "the checklist sits above the screenshots in the result");
+  assert.match(showResult, /lbRenderLabChecklist\(data\.labId\)/);
+  assert.doesNotMatch(APP_SOURCE, /cliCommandHeaded|screenshotCapture\.cliCommand|Playwright/, "no command-line string is shown after a build");
+  const wizard = publicFile("lab-builder-wizard.js");
+  assert.match(wizard, /step === LB_STEP\.generate\)\s*\{[\s\S]{0,260}scSyncCaptureOnBuild\(\)/, "Step 8 reads the capture status when it opens");
+  const step8 = INDEX_HTML.slice(INDEX_HTML.indexOf('id="lb-pane-8"'), INDEX_HTML.indexOf('<div class="lb-step-footer"', INDEX_HTML.indexOf('id="lb-pane-8"')));
+  assert.match(step8, /<input type="checkbox" id="lb-capture-on-build" autocomplete="off" disabled aria-describedby="lb-capture-on-build-status">/);
+  assert.match(step8, /Capture screenshots when the lab is built/);
+  assert.match(step8, /<p id="lb-capture-on-build-status"[^>]*role="status" aria-live="polite"/);
+  assert.match(step8, /id="lb-capture-on-build-setup"[^>]*hidden>Set up screenshot capture<\/button>/);
+  assert.match(step8, /id="lb-capture-on-build-pairing" data-sc-pairing-host="build"/);
+  assert.match(step8, /never slows down or blocks building your lab/);
+  assert.doesNotMatch(step8, /Playwright|headed|\.auth|Learn Sync/i);
+});
+
+// ── Finish your lab ─────────────────────────────────────────────────────────
+
+const freshInput = () => ({ reviewed: false, shared: false, branding: { customized: false }, shots: { total: 3, toCapture: 3, manual: 0, outdated: 0, needsReview: 0 }, check: { state: "not-checked", changed: 0 } });
+
+test("the checklist has five steps, each todo, done, or needing attention", () => {
+  const h = makeHarness();
+  const items = (input) => json(h.run("lbChecklistItems")(input));
+  const fresh = items(freshInput());
+  assert.deepEqual(fresh.map((i) => i.id), ["review", "branding", "screenshots", "check", "share"]);
+  assert.deepEqual(fresh.map((i) => i.status), ["todo", "todo", "todo", "todo", "todo"]);
+  assert.equal(fresh[3].detail, "Not checked yet. Compare this lab with the current Microsoft Learn pages.");
+  assert.equal(fresh[2].detail, "3 pending. Capture them on your computer or add them by hand.");
+
+  const done = items({ reviewed: true, shared: true, branding: { customized: true, profileName: "Contoso" }, shots: { total: 3, toCapture: 0, manual: 0, outdated: 0, needsReview: 0 }, check: { state: "up-to-date" } });
+  assert.deepEqual(done.map((i) => i.status), ["done", "done", "done", "done", "done"]);
+  assert.equal(done[1].detail, "Using the Contoso brand profile.");
+  assert.equal(h.run("lbChecklistDoneCount")(done), 5);
+
+  const attention = items({ ...freshInput(), branding: { customized: true, profileName: "Contoso", profileChanged: true }, shots: { total: 3, toCapture: 0, manual: 0, outdated: 2, needsReview: 1 }, check: { state: "docs-updated", changed: 2 } });
+  assert.deepEqual(attention.map((i) => i.status), ["todo", "attention", "attention", "attention", "todo"]);
+  assert.match(attention[1].detail, /The Contoso profile changed after this lab was built/);
+  assert.equal(attention[2].detail, "2 outdated, 1 need review. Capture them on your computer or add them by hand.");
+  assert.equal(attention[3].detail, "2 modules changed on Microsoft Learn since this lab was built.");
+
+  assert.equal(items({ ...freshInput(), shots: { total: 0 } })[2].status, "done", "a lab with no screenshots has nothing to capture");
+  assert.equal(items({ ...freshInput(), shots: { unknown: true } })[2].status, "todo", "unknown screenshots are never shown as done");
+  assert.equal(items({ ...freshInput(), check: { state: "ungrounded" } })[3].status, "done");
+});
+
+test("an opened lab shows the checklist with a progress summary and buttons that move focus to the right section", async () => {
+  const h = makeHarness();
+  const customize = h.document.createElement("details");
+  customize.id = "lb-result-customize";
+  customize.appendChild(h.document.createElement("summary"));
+  h.document.body.appendChild(customize);
+  h.brand = { customized: true, profileName: "Contoso", profileChanged: false, effective: {} };
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  await h.render(stateFor([shot({ filename: "a.png" }), captured("b.png", { id: 2, figure: "1.2" })]));
+  await h.flush();
+
+  const checklist = h.document.getElementById("lb-result-checklist").querySelector("section.lb-checklist");
+  assert.equal(checklist.getAttribute("aria-labelledby"), "lb-checklist-heading");
+  const heading = checklist.querySelector("#lb-checklist-heading");
+  assert.equal(heading.textContent, "Finish your lab");
+  assert.equal(heading.getAttribute("tabindex"), "-1");
+  assert.equal(checklist.querySelector(".lb-checklist-summary").textContent, "1 of 5 done");
+  const bar = checklist.querySelector('[role="progressbar"]');
+  assert.deepEqual([bar.getAttribute("aria-valuenow"), bar.getAttribute("aria-valuemax"), bar.getAttribute("aria-valuetext"), bar.getAttribute("aria-labelledby")], ["1", "5", "1 of 5 steps done", "lb-checklist-heading"]);
+  const items = checklist.querySelectorAll(".lb-check-item");
+  assert.deepEqual(items.map((i) => [i.dataset.item, i.dataset.status]), [["review", "todo"], ["branding", "done"], ["screenshots", "todo"], ["check", "todo"], ["share", "todo"]]);
+  assert.match(checklist.textContent, /Brand: Contoso/, "the brand profile chip shows");
+  assert.match(items[2].textContent, /1 pending\./);
+  assert.match(items[3].textContent, /Not checked yet/);
+  for (const item of items) {
+    const button = item.querySelector("button");
+    assert.ok(button, "every step has a real button");
+    assert.match(button.getAttribute("aria-label"), new RegExp(`: ${item.querySelector("strong").textContent}$`));
+  }
+
+  const go = async (id) => h.click(checklist.querySelector(`[data-cl-action="${id}"]`));
+  await go("screenshots");
+  assert.equal(h.document.activeElement.id, "lb-screenshots-heading");
+  await go("check");
+  assert.equal(h.center().querySelector("[data-sc-advanced]").open, true, "Re-check lives in Advanced, so it opens");
+  assert.equal(h.document.activeElement.dataset.scAction, "recheck");
+  await go("branding");
+  assert.equal(customize.open, true);
+  assert.equal(h.document.activeElement.tagName, "SUMMARY");
+  await go("share");
+  assert.equal(h.document.activeElement, h.downloadBtn);
+  await go("review");
+  assert.equal(h.document.activeElement, h.preview);
+  const after = h.document.getElementById("lb-result-checklist");
+  assert.equal(after.querySelector('[data-item="review"]').dataset.status, "done", "reading the lab ticks it off");
+  assert.equal(after.querySelector(".lb-checklist-summary").textContent, "2 of 5 done");
+  assert.equal(h.run("localStorage").getItem("lb-lab-flag:lab-test-1:reviewed"), "1");
+
+  await h.render(stateFor([captured("a.png")]));
+  await h.click(h.document.getElementById("lb-result-checklist").querySelector('[data-cl-action="check"]'));
+  assert.equal(h.document.activeElement.dataset.scAction, "primary-check", "when checking is the next step, its button gets focus");
+});
+
+test("the checklist reacts to what the Screenshot Center learns", async () => {
+  const h = makeHarness();
+  h.brand = { customized: true, profileName: "Contoso", profileChangedSinceSnapshot: true, effective: {} };
+  await h.render(stateFor([captured("a.png", { stale: true }), shot({ filename: "b.png", id: 2, needsReview: true, verification: { level: "warn", reasons: [] } })]));
+  await h.flush();
+  const root = () => h.document.getElementById("lb-result-checklist");
+  assert.equal(root().querySelector('[data-item="branding"]').dataset.status, "attention");
+  assert.equal(root().querySelector('[data-item="screenshots"]').dataset.status, "attention");
+  assert.match(root().querySelector('[data-item="check"]').textContent, /1 module changed on Microsoft Learn/);
+  assert.equal(root().querySelector('[data-item="check"] button').textContent, "Update the lab");
+
+  await h.render(stateFor([captured("a.png"), captured("b.png", { id: 2 })], { lastRevalidatedAt: "2026-05-30T10:00:00.000Z" }));
+  assert.equal(root().querySelector('[data-item="screenshots"]').dataset.status, "done");
+  assert.equal(root().querySelector('[data-item="check"]').dataset.status, "done");
+});
+
+test("saved-lab cards carry a small 'N of 5' readiness chip that stays honest", () => {
+  const h = makeHarness({ generated: true });
+  const lab = {
+    labId: LAB,
+    title: "Test lab",
+    generatedAt: "2026-05-01T10:00:00.000Z",
+    totalMinutes: 60,
+    moduleCount: 2,
+    selections: { brandProfileId: "p1" },
+    screenshots: { total: 2, captured: 2, pending: 0, stale: 0, learnSyncStatus: "up-to-date" },
+    learnDrift: { status: "up-to-date", lastCheckedAt: "2026-05-02T10:00:00.000Z", driftedModuleCount: 0, driftedModules: [], missingScreenshotCount: 0, moduleCount: 2 },
+  };
+  const chip = (l) => /<li class="lb-gen-ready-chip"[^>]*aria-label="([^"]+)">([^<]+)<\/li>/.exec(h.run("lbGenItemHtml")(l));
+  assert.deepEqual(chip(lab).slice(1), ["Lab checklist: 3 of 5 steps done", "3 of 5 ready"]);
+  const unchecked = { ...lab, learnDrift: { ...lab.learnDrift, status: "not-checked", lastCheckedAt: null } };
+  assert.equal(chip(unchecked)[2], "2 of 5 ready", "a lab nobody has checked does not count as checked");
+  const pending = { ...lab, screenshots: { total: 2, captured: 0, pending: 2, stale: 0 }, selections: null };
+  assert.equal(chip(pending)[2], "1 of 5 ready");
+  const unknown = { ...lab, screenshots: null, selections: null, learnDrift: { ...lab.learnDrift, status: "not-checked" } };
+  assert.equal(chip(unknown)[2], "0 of 5 ready", "a lab with no screenshot record is not shown as done");
+
+  const list = h.document.getElementById("lb-generated-list");
+  const item = h.document.createElement("li");
+  item.setAttribute("data-lab-id", LAB);
+  const chipEl = h.document.createElement("li");
+  chipEl.className = "lb-gen-ready-chip";
+  item.appendChild(chipEl);
+  list.appendChild(item);
+  h.run(`lbGen.labs = [${JSON.stringify(lab)}]`);
+  h.run("lbChecklistMarkShared")(LAB);
+  assert.equal(chipEl.textContent, "4 of 5 ready", "downloading a lab updates its chip in place");
+  assert.equal(chipEl.getAttribute("aria-label"), "Lab checklist: 4 of 5 steps done");
+  const source = GENERATED_LABS_SOURCE;
+  for (const action of ["export-zip", "export-html", "download", "print"]) {
+    assert.match(source, new RegExp(`case "${action}": [^\\n]*lbChecklistShared\\(labId\\)`), `${action} counts as sharing`);
+  }
+});
+
+// ── Honest check state on saved labs ────────────────────────────────────────
+
+test("saved-lab badges and counts never show an unchecked lab as up to date", () => {
+  const h = makeHarness({ generated: true });
+  const norm = (lab) => json(h.run("lbNormalizeLabLearnDrift")(lab)).status;
+  const shots = (extra) => ({ screenshots: { total: 2, captured: 2, pending: 0, stale: 0, learnSyncStatus: "up-to-date", ...extra } });
+  assert.equal(norm(shots({})), "not-checked", "the old default of 'up to date' is gone");
+  assert.equal(norm(shots({ checkState: "up-to-date" })), "up-to-date");
+  assert.equal(norm(shots({ lastRevalidatedAt: "2026-05-01T00:00:00.000Z" })), "up-to-date");
+  assert.equal(norm(shots({ checkState: "up-to-date", pending: 1 })), "missing-screenshot");
+  assert.equal(norm(shots({ stale: 1 })), "docs-updated");
+  assert.equal(norm({}), "not-checked");
+
+  const card = (drift) => h.run("lbRenderLabCardDriftHtml")({ labId: LAB, learnDrift: drift }, "Test lab");
+  const base = { lastCheckedAt: null, driftedModuleCount: 0, driftedModules: [], missingScreenshotCount: 0, moduleCount: 1 };
+  const unchecked = card({ ...base, status: "not-checked" });
+  assert.match(unchecked, /Not checked against MS Learn yet/);
+  assert.doesNotMatch(unchecked, /up to date|lb-gen-drift-badge-ok/i);
+  assert.match(card({ ...base, status: "up-to-date", lastCheckedAt: "2026-05-02T10:00:00.000Z" }), /✓ MS Learn up to date/);
+
+  h.run(`lbGen.labs = [{ labId: "${LAB}", title: "T", moduleCount: 1, screenshots: { total: 1, captured: 1, pending: 0, stale: 0, learnSyncStatus: "up-to-date" } }]`);
+  h.run("lbSyncSingleLabDriftFromState")(LAB, { checkState: "not-checked", lastRevalidatedAt: null, summary: { total: 1, captured: 1, missing: 0, stale: 0, learnSyncStatus: "up-to-date", checkState: "not-checked" }, modules: [] });
+  const synced = json(h.run("lbGen.labs[0].learnDrift"));
+  assert.equal(synced.status, "not-checked");
+  assert.equal(synced.lastCheckedAt, null);
+  assert.equal(h.run("lbComputeFleetDriftCounts")(h.run("lbGen.labs")).notChecked, 1);
+  h.run("lbSyncSingleLabDriftFromState")(LAB, { checkState: "up-to-date", lastRevalidatedAt: "2026-05-30T10:00:00.000Z", summary: { total: 1, captured: 1, missing: 0, stale: 0, learnSyncStatus: "up-to-date", checkState: "up-to-date" }, modules: [] });
+  assert.equal(h.run("lbGen.labs[0].learnDrift.status"), "up-to-date");
+});
+
+// ── Shared library ──────────────────────────────────────────────────────────
+
+test("the shared library shows coverage and queues a capture for one product", async () => {
+  const h = makeHarness();
+  const libraryShots = [
+    { product: "sharepoint-ai", feature: "f1", filename: "a.png", captured: false, needsReview: false },
+    { product: "sharepoint-ai", feature: "f2", filename: "b.png", captured: false, needsReview: false },
+    { product: "sharepoint-ai", feature: "f3", filename: "c.png", captured: true, needsReview: false },
+    { product: "copilot-studio", feature: "f4", filename: "d.png", captured: true, needsReview: true },
+  ];
+  h.route("GET", /\/api\/capture\/library$/, { status: 200, body: { summary: { total: 4, captured: 2, missing: 2, needsReview: 1 }, shots: libraryShots } });
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  await h.render(stateFor([captured("a.png")], { lastRevalidatedAt: "2026-05-30T10:00:00.000Z" }));
+  const library = () => h.center().querySelector("[data-sc-library-host]");
+  assert.match(library().textContent, /Shared screenshot library/);
+  assert.match(library().textContent, /12 of 325 captured, 313 missing, 1 need review\./);
+  assert.match(library().textContent, /Saved: these pictures are kept when the portal restarts\./);
+
+  await h.setStatus(statusPayload({ devices: [device()], persistent: false }));
+  h.run("scRerender")(LAB);
+  assert.match(library().textContent, /Not saved: these pictures can be lost when the portal restarts/);
+
+  await h.click(h.action("library-load"));
+  const rows = library().querySelectorAll(".sc-library-row").map((r) => r.textContent);
+  assert.deepEqual(rows, ["Copilot Studio1 of 1 captured, 1 need review", "SharePoint AI1 of 3 captured" + "Capture 2 missing"]);
+  const capture = library().querySelector('[data-sc-action="library-capture"]');
+  assert.equal(capture.getAttribute("aria-label"), "Capture 2 missing screenshots for SharePoint AI in the shared library");
+  const job = jobFor([{ filename: "a.png" }, { filename: "b.png" }], { target: { type: "library", products: ["sharepoint-ai"] } });
+  h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job } });
+  await h.click(capture);
+  assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body.target), { type: "library", products: ["sharepoint-ai"] });
+  assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body.scope), { mode: "missing" });
+  assert.ok(library().querySelector('[data-sc-progress-host="library"] .sc-progress'), "its progress shows inside the library section");
+  assert.equal(h.FakeEventSource.instances.length, 1);
+  assert.equal(h.center().querySelector(".sc-primary-btn").disabled, true, "the lab's own primary action is unaffected");
+
+  const done = { ...job, status: "done", shots: [{ filename: "a.png", status: "captured" }, { filename: "b.png", status: "captured" }], progress: { total: 2, done: 2, captured: 2, needsReview: 0, failed: 0, manual: 0, running: 0, pending: 0, percent: 100 } };
+  h.route("GET", new RegExp(`/api/capture/jobs/${job.id}$`), { status: 200, body: { job: done } });
+  h.FakeEventSource.instances[0].emit("end", { status: "done" });
+  await h.flush();
+  assert.match(library().textContent, /Capture finished: 2 captured\./);
+  assert.equal(h.callsTo("GET", /\/api\/capture\/library$/).length, 2, "the coverage reloads when the capture ends");
+});
+
+test("advanced capture options are sent with the job, and 'selected' needs a tick", async () => {
+  const h = makeHarness();
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  const job = jobFor([{ filename: "a.png" }]);
+  h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job } });
+  await h.render(stateFor([shot({ filename: "a.png" }), captured("b.png", { id: 2, figure: "1.2" })]));
+  const advanced = h.center().querySelector("[data-sc-advanced]");
+  const setField = (id, value) => {
+    const el = h.center().querySelector(`#${id}`);
+    el.value = value;
+    el.dispatchEvent(h.event("change"));
+  };
+  setField("sc-adv-scope", "selected");
+  assert.ok(h.center().classList.contains("sc-selecting") || h.center().querySelector(".sc-center, [data-sc-root]").classList.contains("sc-selecting"));
+  await h.click(h.action("advanced-capture"));
+  assert.match(h.text(".sc-banner"), /Tick at least one screenshot below/);
+  assert.equal(h.callsTo("POST", /\/api\/capture\/jobs$/).length, 0);
+
+  const pick = h.card("a.png").querySelector('input[type="checkbox"]');
+  pick.checked = true;
+  pick.dispatchEvent(h.event("change"));
+  setField("sc-adv-callouts", "burn");
+  const redact = h.center().querySelector("#sc-adv-redact");
+  redact.checked = false;
+  redact.dispatchEvent(h.event("change"));
+  setField("sc-adv-tenant", "none");
+  await h.click(h.action("advanced-capture"));
+  assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body), {
+    target: { type: "lab", labId: LAB },
+    scope: { mode: "selected", filenames: ["a.png"] },
+    options: { callouts: "burn", redact: false },
+    useLabCustomization: false,
+  });
+  advanced.dispatchEvent(h.event("toggle", { bubbles: false }));
+});
+
+test("re-checking against Microsoft Learn reports honestly and offers the update", async () => {
+  const h = makeHarness();
+  const checked = stateFor([captured("a.png")], { lastRevalidatedAt: "2026-06-01T12:00:00.000Z" });
+  h.route("POST", /\/screenshots\/revalidate$/, { status: 200, body: { counts: { upToDate: 2, docsUpdated: 0 }, state: checked, checkState: "up-to-date" } });
+  await h.render(stateFor([captured("a.png")]));
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Check against Microsoft Learn");
+  await h.click(h.center().querySelector(".sc-primary-btn"));
+  const call = h.callsTo("POST", /revalidate$/)[0];
+  assert.deepEqual(json(call.body), { autoUpdate: false, updateSteps: false, autoCapture: false, onlyStale: true }, "the server never runs a browser for this");
+  assert.match(h.text(".sc-banner"), /Checked just now\. All 2 modules match live Microsoft Learn documentation\./);
+  assert.match(h.text(".sc-header"), /Microsoft Learn: Up to date/);
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "\u2713 All screenshots up to date");
+
+  const changed = makeHarness();
+  const drifted = stateFor([captured("a.png", { stale: true })]);
+  changed.route("POST", /\/screenshots\/revalidate$/, { status: 200, body: { counts: { upToDate: 0, docsUpdated: 1 }, state: drifted } });
+  await changed.render(stateFor([captured("a.png")]));
+  await changed.click(changed.action("recheck"));
+  assert.match(changed.text(".sc-banner"), /1 module changed on Microsoft Learn since this lab was built\. Update the steps, then retake the outdated screenshots\./);
+  changed.route("POST", /\/screenshots\/revalidate$/, { status: 200, body: { counts: { upToDate: 1, docsUpdated: 0 }, updatedModuleIds: ["mod-a"], state: drifted } });
+  await changed.click(changed.action("banner-recheck-update"));
+  assert.deepEqual(json(changed.callsTo("POST", /revalidate$/)[1].body), { autoUpdate: true, updateSteps: true, autoCapture: false, onlyStale: true });
+  assert.match(changed.text(".sc-banner"), /Updated 1 topic from Microsoft Learn\. Retake any outdated screenshots/);
+
+  const failed = makeHarness();
+  failed.route("POST", /\/screenshots\/revalidate$/, { status: 502, body: { error: "Learn is unreachable" } });
+  await failed.render(stateFor([captured("a.png")]));
+  await failed.click(failed.action("primary-check"));
+  assert.match(failed.text(".sc-banner"), /The Microsoft Learn check did not finish\. Learn is unreachable/);
+  assert.ok(failed.center().querySelector(".sc-banner-error"));
+});
+
+// ── Look, contrast, and print ───────────────────────────────────────────────
+
+function hexToRgb(hex) {
+  const raw = String(hex).trim().replace(/^#/, "");
+  return [0, 2, 4].map((i) => parseInt(raw.slice(i, i + 2), 16));
+}
+
+function luminance(rgb) {
+  const [r, g, b] = rgb.map((v) => {
+    const s = v / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a, b) {
+  const l1 = luminance(hexToRgb(a));
+  const l2 = luminance(hexToRgb(b));
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
+function tokens(block) {
+  const out = {};
+  for (const match of block.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/gi)) out[match[1]] = match[2].trim();
+  return out;
+}
+
+const STYLE = INDEX_HTML.match(/<style>([\s\S]*?)<\/style>/)[1];
+const DARK = tokens(STYLE.match(/:root\s*\{([^}]*)\}/)[1]);
+const LIGHT = tokens(STYLE.match(/:root\[data-theme="light"\],\s*body\[data-theme="light"\]\s*\{([^}]*)\}/)[1]);
+const LIGHT_AUTO = tokens(STYLE.match(/@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme="dark"\]\)\s*\{([^}]*)\}/)[1]);
+
+test("the new status colors meet WCAG AA in the dark and light themes", () => {
+  for (const [name, t] of [["dark", DARK], ["light", LIGHT], ["light (system)", LIGHT_AUTO]]) {
+    for (const tone of ["ok", "warn", "bad", "info", "neutral"]) {
+      const ratio = contrast(t[`--sc-${tone}-fg`], t[`--sc-${tone}-bg`]);
+      assert.ok(ratio >= 4.5, `${name}: ${tone} chip text is ${ratio.toFixed(2)}:1, needs 4.5:1`);
+    }
+    for (const surface of ["--bg", "--surface", "--preview-muted-bg", "--preview-bg"]) {
+      assert.ok(contrast(t["--text"], t[surface]) >= 4.5, `${name}: --text on ${surface}`);
+      assert.ok(contrast(t["--text-muted"], t[surface]) >= 4.5, `${name}: --text-muted on ${surface}`);
+    }
+    assert.ok(contrast(t["--link-color"], t["--surface"]) >= 4.5, `${name}: link text on the Advanced panel`);
+    assert.ok(contrast(t["--accent"], t["--sc-track"]) >= 3, `${name}: the progress fill must stand out from its track`);
+    assert.ok(contrast(t["--border-strong"], t["--preview-bg"]) >= 3, `${name}: the empty thumbnail outline`);
+    assert.ok(contrast(t["--accent"], t["--bg"]) >= 3, `${name}: the selected card outline`);
+    assert.ok(contrast(t["--accent-contrast"], t["--accent"]) >= 4.5, `${name}: the primary button label`);
+  }
+  for (const key of Object.keys(LIGHT).filter((k) => k.startsWith("--sc-"))) {
+    assert.equal(LIGHT_AUTO[key], LIGHT[key], `${key} must match in the system-light block`);
+  }
+  assert.ok(Object.keys(DARK).filter((k) => k.startsWith("--sc-")).length >= 17, "dark tokens exist");
+});
+
+test("new styles use theme tokens, respect reduced motion, and print rules sit in the one print block", () => {
+  const start = STYLE.indexOf("/* ── Lab builder: Screenshot Center");
+  const end = STYLE.indexOf("/* ── Lab builder: blocked-build decisions");
+  assert.ok(start > 0 && end > start);
+  const region = STYLE.slice(start, end);
+  assert.doesNotMatch(region, /#[0-9a-f]{3,8}\b(?!-)|(?<![\w-])(?:white|black)(?![\w-])/i, "no hard-coded colors in the new CSS");
+  assert.match(region, /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.sc-bar-fill \{ transition: none; \}/);
+  assert.match(region, /@media \(max-width: 900px\)[\s\S]*\.sc-steps \{ grid-template-columns: 1fr; \}/);
+  assert.match(region, /@media \(max-width: 560px\)[\s\S]*\.sc-grid \{ grid-template-columns: 1fr; \}/);
+  assert.match(region, /\.sc-grid \{[^}]*repeat\(auto-fill, minmax\(240px, 1fr\)\)/);
+  assert.match(STYLE, /:where\(a, button, input, select, textarea, summary, \[tabindex\]\):focus-visible/, "one visible focus ring for every control");
+  assert.match(region, /\.sc-primary-btn \{[^}]*min-height: 44px/);
+
+  assert.equal(STYLE.split("@media print").length, 2, "there is exactly one print block");
+  const printCss = STYLE.split("@media print")[1];
+  for (const selector of [".sc-center", ".sc-lightbox", ".lb-checklist", ".lb-capture-on-build-opt", "#lb-result-checklist"]) {
+    assert.ok(printCss.includes(selector), `${selector} is hidden in the print block`);
+  }
+  const screenCss = STYLE.split("@media print")[0];
+  assert.ok(screenCss.includes(".sc-card {") && screenCss.includes(".lb-checklist {"), "the new rules are screen CSS, before the print block");
+});
+
+test("the Screenshot Center scripts load in order and its live regions are announced politely", async () => {
+  const at = (name) => INDEX_HTML.indexOf(`<script src="${name}" defer></script>`);
+  const order = ["generated-labs.js", "screenshot-center-core.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js", "lab-customize.js"].map(at);
+  assert.ok(order.every((i) => i > 0), "every script tag exists and is deferred");
+  assert.deepEqual([...order].sort((a, b) => a - b), order, "generated-labs, then the center, then the checklist, then lab-customize");
+
+  const h = makeHarness();
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  const live = h.host.querySelector("#lb-screenshots-live");
+  assert.deepEqual([live.getAttribute("role"), live.getAttribute("aria-live"), live.getAttribute("aria-atomic")], ["status", "polite", "true"]);
+  assert.ok(live.classList.contains("sr-only"));
+  const sameNode = live;
+  h.run("scRerender")(LAB);
+  assert.equal(h.host.querySelector("#lb-screenshots-live"), sameNode, "the live region survives a re-render, so announcements are not lost");
+  assert.equal(h.center().getAttribute("aria-labelledby"), "lb-screenshots-heading");
+  assert.equal(h.center().querySelector("#lb-screenshots-heading").getAttribute("tabindex"), "-1");
+  for (const button of h.center().querySelectorAll("button")) {
+    assert.ok(button.textContent.trim() || button.getAttribute("aria-label"), "every button has a name");
+  }
+  for (const label of h.center().querySelectorAll("label[for]")) {
+    assert.ok(h.center().querySelector(`#${label.getAttribute("for")}`), `label for=${label.getAttribute("for")} points at a control`);
+  }
+
+  const centerSource = ["screenshot-center-core.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile).join("\n");
+  const withoutCli = centerSource.replace(/^.*--generated-lab=.*$/m, "");
+  assert.doesNotMatch(withoutCli, /Playwright|Learn Sync|\.auth|headed|headless/i, "technical terms only appear in the command-line fallback");
+  assert.doesNotMatch(centerSource, /\b(colour|behaviour|centre|licence|organis|catalogue|favourite)\w*/i, "US English only");
+});

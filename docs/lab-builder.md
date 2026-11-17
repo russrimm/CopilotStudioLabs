@@ -17,7 +17,7 @@ Which is which matters, because the two age differently:
 | Module set, ordering, prerequisites, concepts, **Check your work**, **Lesson mini-quiz** | The curated six-product, 195-capability catalog (`portal/lib/lab-builder/features.json` for Copilot Studio plus `portal/lib/lab-builder/catalog/<product-id>.json` for the other five products). Never live. |
 | **Connectors, Environment, and Tenant Prerequisites** (`Required By`) | Derived deterministically (`admin-prereqs.js`) from the planned products, harness, and modules, mapping every connector, DLP/ACP policy, environment setting, and tenant admin role to the exact `Step N` / `Recap N` modules that require it. |
 | Overview and per-module "In your scenario" narrative | A language model, when one is configured; otherwise the curated catalog. By default a model never writes the steps; see [step synthesis](#4b-opt-in-grounded-step-synthesis) for the opt-in exception. |
-| Screenshots | Reused from existing labs or `docs/feature-tour/screenshots/`, or written as a per-lab `shots.json` manifest for Playwright capture against your tenant. |
+| Screenshots | Reused from existing labs or `docs/feature-tour/screenshots/`, or written as a per-lab `shots.json` manifest that the portal's Screenshot Center captures on your own computer against your tenant. |
 
 The share of modules that get live steps is not a fixed property of the tool. It
 depends on what the documentation looks like on the day you build, and in the
@@ -49,7 +49,7 @@ generated-labs/<slug>/
                   was read, where each module's steps came from, per-topic
                   Word/PowerPoint metadata (topicDocuments), and any decisions a
                   human made about a blocked build
-  shots.json      Playwright capture manifest for pending screenshots
+  shots.json      Capture manifest for pending screenshots (the Screenshot Center reads it)
   assets/         screenshots copied from existing labs or feature-tour captures
   topics/         standalone Word (.docx) and PowerPoint (.pptx) files generated
                   for each topic and prerequisite recap, named per lab
@@ -1246,24 +1246,28 @@ screenshot a well-written lab would show gets a slot instead:
   `filename`, `section`, `instructions`, plus `alt`, `caption`, `kind`, `figure`,
   and `status`), and `SHOTLIST.md` lists the same for a human.
 
-#### Per-lab Playwright screenshot capture and Microsoft Learn re-validation
+#### Capturing, checking, and updating a lab's screenshots
 
-Every generated lab writes its own `shots.json` manifest so you can capture
-tenant-accurate screenshots for just that custom lab with Playwright (using
-cached per-product browser sign-in profiles under `tools/screenshot-capture/.auth/<product>/`;
- placeholders under 5 KB are automatically treated as missing and overwritten in place):
+Every generated lab writes its own `shots.json` manifest. You never have to read it: open
+the lab in the portal and use the **Screenshot Center** (next section). It captures
+tenant-accurate screenshots on your own computer, checks each one, and updates the lab's
+HTML, Word, and PowerPoint files for you. Placeholders under 5 KB are treated as missing
+and are overwritten in place.
+
+Because a generated lab is a point-in-time snapshot, you can also check its step-by-step UI
+labels, navigation paths, settings, and availability markers against current Microsoft Learn
+documentation at any time. The Screenshot Center's **Check against Microsoft Learn** button does
+this per lab, and the step-level validator (`portal/lib/step-validator/`, exposed in the
+portal's **Validation** tab and `tools/lab-accuracy/check-steps.mjs`; see
+[`docs/step-validation.md`](step-validation.md)) does it for the claims in each step.
+
+For scripts and CI, the same capture is available from a command line. This is an advanced
+path; the Screenshot Center does not need it:
 
 ```bash
 node tools/screenshot-capture/capture.js --manifest="generated-labs/<slug>/shots.json" --missing
 node tools/screenshot-capture/verify-shots.js
 ```
-
-Because a generated lab is a point-in-time snapshot, you can also re-validate its
-step-by-step UI labels, navigation paths, settings, and availability markers against
-current Microsoft Learn documentation at any time using the step-level validator
-(`portal/lib/step-validator/`, exposed in the portal's **Validation** tab and
-`tools/lab-accuracy/check-steps.mjs`; see [`docs/step-validation.md`](step-validation.md))
-to spot UI or documentation drift before delivering a workshop.
 
 A known limit: until an image is captured, a screen reader reads the alt text,
 which describes the finished screenshot, and the visible "Screenshot pending."
@@ -1275,6 +1279,66 @@ The portal's result view renders the generated lab as HTML (images served from
 and WebP files inside the lab's own `assets` folder) with the Markdown source one
 click away.
 
+#### Finish your lab, and the Screenshot Center walkthrough
+
+After a lab is built, and every time you open a saved lab, the top of the result shows
+**Finish your lab**: five steps, a progress summary such as "3 of 5 done", and one button per step that
+scrolls to and focuses the right section.
+
+| Step | Done when | Needs attention when | Button |
+|---|---|---|---|
+| Review the lab | You used **Go to the preview** | | Go to the preview |
+| Customize branding | The lab has a brand profile (the chip shows its name) | The profile changed after the lab was built | Open customization |
+| Capture screenshots | Every screenshot is captured and none is outdated or waiting for review | Some are outdated or need review | Open Screenshot Center |
+| Check against Microsoft Learn | The lab was checked and nothing changed | Microsoft Learn changed N modules | Check now |
+| Download or share | You downloaded or printed the lab | | Go to downloads |
+
+Each saved-lab card carries a small "N of 5 ready" chip from the same rules. A lab nobody has
+checked against Microsoft Learn is shown as **Not checked yet** everywhere (the Screenshot Center
+header, each step's chip, the saved-lab card, and the fleet dashboard). It is never shown as up to
+date until `checkState` says so.
+
+The **Screenshot Center** replaces the old multi-button panel. It shows what to do next and
+hides the rest:
+
+1. **Readiness strip.** Three steps, each with a live state:
+   *Connect this computer* (a pairing code with a Copy button, a ready-to-run command, a download
+   link, a countdown, and automatic detection of the new computer; the list of paired computers
+   lets you disconnect one after a confirmation), *Add your tenant addresses* (optional; shows which of
+   the six addresses come from the lab's branding or a brand profile, and links to **Configuration > Brand
+   profiles > Tenant environment URLs**), and *Sign in once per product* (shows the products your computer is
+   signed in to; a browser window opens the first time, you sign in, and capture continues by itself).
+2. **One primary button** that changes with the state: **Connect your computer**, then
+   **Capture N missing screenshots**, **Retake N outdated screenshots**, **Review N screenshots**,
+   **Add N screenshots by hand**, **Check against Microsoft Learn**, **Update this lab from Microsoft Learn**,
+   and finally **All screenshots up to date**.
+3. **Live progress.** After a capture starts, a card shows the percent, the screenshot being captured,
+   how many were captured, need review, or failed, and the elapsed time, with a **Cancel capture** button.
+   It follows the job's server-sent events and falls back to polling. A screen reader hears the important
+   changes through a polite live region. If your computer goes quiet, a sign-in is needed, or no computer is
+   connected yet, the card says so and offers the next step. When the job ends, the lab preview, the
+   saved-lab card, and the checklist refresh so new images appear at once. A capture queued during the build
+   (the Step 8 option) opens this card directly.
+4. **Thumbnail gallery by step.** Every screenshot shows its figure number, caption, and one status:
+   **Captured**, **Needs review**, **Outdated**, **Pending**, **Failed**, or **Manual**. Each has the actions
+   that make sense: **Capture this one**, **Retake** (removes the old image, then queues a new capture),
+   **Accept** or **Discard** for a screenshot waiting for review, **Paste image** (the clipboard, or Ctrl+V after
+   selecting a screenshot), and **Upload image** (a file picker, or drag and drop onto the thumbnail).
+   Files are checked in the browser (PNG, JPEG, or WebP, at most 8 MB) and again on the server.
+   A preview dialog shows the larger image, its alt text, a "What to show" list, and the check results.
+   Left and Right arrows move between screenshots, Home and End jump to the first and last, and Esc closes it.
+5. **Plain-language checks.** Check results never show codes. For example, a capture that landed on the
+   sign-in page says "This looks like the Microsoft sign-in page, not the product."
+6. **Advanced options** (closed by default): which screenshots (missing, outdated and missing, every one, or the ones
+   you tick), numbered markers (saved next to the image, drawn on it, or none), hiding account details, which tenant
+   addresses to use, **Re-check against Microsoft Learn** and **Re-check and update the steps**, the **Shared screenshot
+   library** (its coverage, whether it persists, and a button to capture the missing screenshots for one product), and
+   the command line for developers with a Copy button.
+
+On the last step of the wizard, **Capture screenshots when the lab is built** is available only while a computer
+is connected. Otherwise it is turned off, with a plain explanation and a **Set up screenshot capture** button that
+pairs a computer right there. Building a lab never waits for capture.
+
 #### Screenshot Center: the Local Capture Companion, and paste or upload
 
 The Azure-hosted portal cannot capture a tenant screenshot itself: its container has
@@ -1285,7 +1349,7 @@ your credentials. Capture therefore runs on **your own computer**:
  portal (Azure)                                    your computer
  ───────────────                                   ─────────────
  Screenshot Center  ── queues a capture job ──►    Local Capture Companion
-   job queue, progress, cancel                       headed Chromium, one saved sign-in per product
+   job queue, progress, cancel                       a browser window, one saved sign-in per product
    verification + accept/retake  ◄── images ───      hides account details, checks each image
    updates HTML, Word, PowerPoint                    reports progress, stops when you cancel
 ```
@@ -1298,7 +1362,7 @@ your credentials. Capture therefore runs on **your own computer**:
    shows the computer as **Companion connected** while it checks in, and lets you
    **Disconnect** it at any time (`DELETE /api/capture/devices/:id`).
 2. **Sign in once per product.** The first shot for a product opens a browser window; sign in
-   yourself. The profile is saved on your computer in `.auth/<product>/`, so later runs
+   yourself. The sign-in is saved on your computer (in the companion's `.auth/<product>/` folder), so later runs
    need no sign-in. The companion never types into tenant pages.
 3. **Queue a job** (`POST /api/capture/jobs`) for one lab or for the shared library, choosing
    `missing`, `stale`, `all`, or `selected` shots. The companion picks it up, steps through
@@ -1847,8 +1911,8 @@ When one or more generated labs are saved, the **Microsoft Learn Drift Dashboard
 
 - **Fleet posture pills & timestamp**: Displays live counts for **Total**, **Up to date**, **Needs Learn update**, **Screenshots pending**, and **Not re-checked**, alongside the **Last bulk scan** timestamp persisted in `learn-drift-fleet.json`.
 - **One-click fleet scan (`🔄 Scan all labs against MS Learn`)**: Calls `POST /api/lab-builder/learn-drift/scan` with bounded concurrency (`3` labs at a time) so Microsoft Learn is never flooded. Per-lab fetch errors are isolated and reported without aborting the batch.
-- **Bulk & per-card auto-update (`⚡ Update all drifted labs (N)` / `⚡ Update from MS Learn`)**: Enabled whenever one or more labs have `status === "docs-updated"`. Refreshes drifted procedure steps in `index.md`, regenerates standalone `index.html` and per-topic Word (`.docx`) and PowerPoint (`.pptx`) files in `topics/`, and updates every card's Microsoft Learn drift badge (`✓ MS Learn up to date`, `⚠ N topic(s) updated on MS Learn`, or `MS Learn not re-checked`).
-- **Filtering & sorting**: Filter the saved library by **MS Learn status** (`All statuses`, `Needs update (MS Learn changed)`, `Missing screenshots`, `Up to date`, `Not re-checked`) or choose **Needs update first** in **Sort by** to surface drifted labs at the top. Single-lab re-validation inside **📸 Screenshots & Learn Sync** automatically synchronizes the card badges and fleet dashboard counts.
+- **Bulk & per-card auto-update (`⚡ Update all drifted labs (N)` / `⚡ Update from MS Learn`)**: Enabled whenever one or more labs have `status === "docs-updated"`. Refreshes drifted procedure steps in `index.md`, regenerates standalone `index.html` and per-topic Word (`.docx`) and PowerPoint (`.pptx`) files in `topics/`, and updates every card's Microsoft Learn drift badge (`✓ MS Learn up to date`, `⚠ N topic(s) updated on MS Learn`, or `Not checked against MS Learn yet`).
+- **Filtering & sorting**: Filter the saved library by **MS Learn status** (`All statuses`, `Needs update (MS Learn changed)`, `Missing screenshots`, `Up to date`, `Not re-checked`) or choose **Needs update first** in **Sort by** to surface drifted labs at the top. Checking a single lab in the **Screenshot Center** automatically synchronizes the card badges and fleet dashboard counts.
 
 The manifest records the choices in `request` (industry, roles, features, excluded, harness, level, differencesFor,
 targetMinutes) and `options` (custom title, agent name, `useLearnMcp`, `useLlm`), plus `validation`
@@ -2018,6 +2082,7 @@ Reason codes: `bad-filename`, `bad-signature`, `extension-mismatch`, `empty`, `t
                            "tenantUrlsSet": false, "signedInProducts": ["copilot-studio"] },
   "summary": { …, "needsReview": 0 },
   "shots": [ { …, "checkState": "not-checked", "captureSource": "companion", "needsReview": false,
+               "instructions": ["Open the agent and select the Build tab."],   // the "what to show" lines
                "verification": { …the summary above plus "state": "accepted" | "needs-review", "source", "jobId" } } ],
   "modules": [ { …, "checkState": "up-to-date" } ] }
 ```
