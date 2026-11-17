@@ -1,0 +1,498 @@
+// Strict, dependency-free checks for a captured or pasted screenshot. The same
+// rules run twice: on the Local Capture Companion before it uploads, and on the
+// portal before anything is saved (portal/lib/capture/verify-upload.js wraps this).
+//
+// Trust model: the image bytes are the only thing the checks believe. Evidence
+// that the companion reports (page address, title, visible text) can add a
+// failure or a warning, never remove one, and never chooses a file name or a
+// destination.
+
+import crypto from "node:crypto";
+import zlib from "node:zlib";
+
+export const IMAGE_LIMITS = Object.freeze({
+  maxBytes: 8 * 1024 * 1024,
+  minBytes: 5 * 1024,
+  minWidth: 200,
+  minHeight: 120,
+  maxWidth: 10000,
+  maxHeight: 10000,
+  maxPixels: 25_000_000,
+  blankFail: 0.995,
+  blankWarn: 0.97,
+});
+
+const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+const SIGN_IN_HOSTS = [
+  "login.microsoftonline.com",
+  "login.microsoftonline.us",
+  "login.microsoft.com",
+  "login.live.com",
+  "login.windows.net",
+  "sts.windows.net",
+  "aadcdn.msftauth.net",
+  "aadcdn.msauth.net",
+];
+const SIGN_IN_TITLE_RE = /^\s*(?:sign in(?: to your account)?|pick an account|sign in to your microsoft account|stay signed in\??)\s*$/i;
+const SIGN_IN_TEXT_RES = [
+  /sign in to your account/i,
+  /pick an account/i,
+  /stay signed in\?/i,
+  /enter password/i,
+  /can.?t access your account\?/i,
+  /use another account/i,
+];
+const MARKUP_RE = /<\s*(?:script|svg|html|iframe|\?xml)\b/i;
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes, start, end) {
+  let c = 0xffffffff;
+  for (let i = start; i < end; i += 1) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+export function sha256Hex(bytes) {
+  return crypto.createHash("sha256").update(bytes).digest("hex");
+}
+
+/** "png", "jpeg", "webp", or null: decided from the first bytes, never from a file name or Content-Type. */
+export function detectImageFormat(bytes) {
+  if (!Buffer.isBuffer(bytes) || bytes.length < 12) return null;
+  if (PNG_MAGIC.every((b, i) => bytes[i] === b)) return "png";
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "jpeg";
+  if (bytes.subarray(0, 4).toString("latin1") === "RIFF" && bytes.subarray(8, 12).toString("latin1") === "WEBP") return "webp";
+  return null;
+}
+
+/** The file extension a format is allowed to carry. */
+export function extensionsForFormat(format) {
+  return format === "png" ? [".png"] : format === "jpeg" ? [".jpg", ".jpeg"] : format === "webp" ? [".webp"] : [];
+}
+
+function reason(code, level, message) {
+  return { code, level, message };
+}
+
+// ── PNG ────────────────────────────────────────────────────────────────────
+
+function readPng(bytes) {
+  const chunks = [];
+  let offset = 8;
+  while (offset + 12 <= bytes.length) {
+    const length = bytes.readUInt32BE(offset);
+    const type = bytes.toString("latin1", offset + 4, offset + 8);
+    const end = offset + 12 + length;
+    if (end > bytes.length) return { error: "The PNG is cut off: a data block runs past the end of the file." };
+    if (crc32(bytes, offset + 4, offset + 8 + length) !== bytes.readUInt32BE(offset + 8 + length)) {
+      return { error: `The PNG is corrupt: the ${type} block fails its checksum.` };
+    }
+    chunks.push({ type, start: offset + 8, length });
+    offset = end;
+    if (type === "IEND") break;
+  }
+  const ihdr = chunks[0];
+  if (!ihdr || ihdr.type !== "IHDR" || ihdr.length !== 13) return { error: "The PNG header is missing or malformed." };
+  const info = {
+    width: bytes.readUInt32BE(ihdr.start),
+    height: bytes.readUInt32BE(ihdr.start + 4),
+    bitDepth: bytes[ihdr.start + 8],
+    colorType: bytes[ihdr.start + 9],
+    interlace: bytes[ihdr.start + 12],
+    chunks,
+    hasEnd: chunks.some((c) => c.type === "IEND"),
+    trailingBytes: Math.max(0, bytes.length - offset),
+  };
+  return { info };
+}
+
+const PNG_CHANNELS = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+const PNG_DEPTHS = { 0: [1, 2, 4, 8, 16], 2: [8, 16], 3: [1, 2, 4, 8], 4: [8, 16], 6: [8, 16] };
+
+function paeth(a, b, c) {
+  const p = a + b - c;
+  const pa = Math.abs(p - a);
+  const pb = Math.abs(p - b);
+  const pc = Math.abs(p - c);
+  return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
+}
+
+/** Sample the pixels of a non-interlaced PNG and report how uniform the picture is. Returns null when it cannot be decoded. */
+function samplePng(bytes, info) {
+  const channels = PNG_CHANNELS[info.colorType];
+  if (!channels || !PNG_DEPTHS[info.colorType].includes(info.bitDepth) || info.interlace !== 0) return null;
+  const { width, height, bitDepth, colorType } = info;
+  const bitsPerPixel = channels * bitDepth;
+  const bpp = Math.max(1, bitsPerPixel >> 3);
+  const stride = Math.ceil((width * bitsPerPixel) / 8);
+  const expected = height * (stride + 1);
+
+  const idat = Buffer.concat(info.chunks.filter((c) => c.type === "IDAT").map((c) => bytes.subarray(c.start, c.start + c.length)));
+  let raw;
+  try {
+    raw = zlib.inflateSync(idat, { maxOutputLength: expected + 64 });
+  } catch {
+    return { corrupt: true };
+  }
+  if (raw.length < expected) return { corrupt: true };
+
+  const stepY = Math.max(1, Math.ceil(height / 500));
+  const stepX = Math.max(1, Math.ceil(width / 500));
+  const counts = new Map();
+  let sampled = 0;
+  let prev = Buffer.alloc(stride);
+  let row = Buffer.alloc(stride);
+  const quant = (v) => v >> 3;
+
+  for (let y = 0; y < height; y += 1) {
+    const base = y * (stride + 1);
+    const filter = raw[base];
+    for (let i = 0; i < stride; i += 1) {
+      const x = raw[base + 1 + i];
+      const a = i >= bpp ? row[i - bpp] : 0;
+      const b = prev[i];
+      const c = i >= bpp ? prev[i - bpp] : 0;
+      let value;
+      if (filter === 0) value = x;
+      else if (filter === 1) value = x + a;
+      else if (filter === 2) value = x + b;
+      else if (filter === 3) value = x + ((a + b) >> 1);
+      else if (filter === 4) value = x + paeth(a, b, c);
+      else return { corrupt: true };
+      row[i] = value & 0xff;
+    }
+    if (y % stepY === 0) {
+      for (let x = 0; x < width; x += stepX) {
+        let key;
+        if (bitDepth < 8) {
+          const bitOffset = x * bitDepth;
+          key = (row[bitOffset >> 3] >> (8 - bitDepth - (bitOffset & 7))) & ((1 << bitDepth) - 1);
+        } else {
+          const unit = bitDepth === 16 ? 2 : 1;
+          const at = x * channels * unit;
+          if (colorType === 2 || colorType === 6) {
+            key = (quant(row[at]) << 10) | (quant(row[at + unit]) << 5) | quant(row[at + 2 * unit]);
+          } else {
+            key = quant(row[at]);
+          }
+          if (colorType === 3) key = row[at];
+        }
+        const seen = counts.get(key);
+        if (seen !== undefined) counts.set(key, seen + 1);
+        else if (counts.size < 5000) counts.set(key, 1);
+        sampled += 1;
+      }
+    }
+    [prev, row] = [row, prev];
+  }
+  let top = 0;
+  for (const n of counts.values()) if (n > top) top = n;
+  return { sampled, distinctColors: counts.size, dominantFraction: sampled ? top / sampled : 1 };
+}
+
+// ── JPEG and WebP ──────────────────────────────────────────────────────────
+
+function readJpeg(bytes) {
+  let i = 2;
+  while (i + 4 <= bytes.length) {
+    if (bytes[i] !== 0xff) {
+      i += 1;
+      continue;
+    }
+    const marker = bytes[i + 1];
+    if (marker === 0xff) {
+      i += 1;
+      continue;
+    }
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd8)) {
+      i += 2;
+      continue;
+    }
+    if (marker === 0xd9 || marker === 0xda) break;
+    const length = bytes.readUInt16BE(i + 2);
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      if (i + 9 > bytes.length) break;
+      return { height: bytes.readUInt16BE(i + 5), width: bytes.readUInt16BE(i + 7) };
+    }
+    i += 2 + length;
+  }
+  return null;
+}
+
+function readWebp(bytes) {
+  const kind = bytes.toString("latin1", 12, 16);
+  if (kind === "VP8 " && bytes.length >= 30) {
+    return { width: bytes.readUInt16LE(26) & 0x3fff, height: bytes.readUInt16LE(28) & 0x3fff };
+  }
+  if (kind === "VP8L" && bytes.length >= 25 && bytes[20] === 0x2f) {
+    const b = bytes.readUInt32LE(21);
+    return { width: (b & 0x3fff) + 1, height: ((b >> 14) & 0x3fff) + 1 };
+  }
+  if (kind === "VP8X" && bytes.length >= 30) {
+    return { width: bytes.readUIntLE(24, 3) + 1, height: bytes.readUIntLE(27, 3) + 1 };
+  }
+  return null;
+}
+
+// ── Evidence from the companion ────────────────────────────────────────────
+
+/** Whether an address is a Microsoft interactive sign-in page. */
+export function isSignInUrl(rawUrl) {
+  const value = String(rawUrl || "").trim();
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (SIGN_IN_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))) return true;
+    return /\/oauth2\/(?:v2\.0\/)?authorize/i.test(url.pathname);
+  } catch {
+    return SIGN_IN_HOSTS.some((h) => value.toLowerCase().includes(h));
+  }
+}
+
+function cleanText(value, max) {
+  return String(value ?? "").replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+/** Keep the origin and path only: query strings and fragments can carry tokens. */
+function safeUrl(value) {
+  const text = String(value ?? "").trim().slice(0, 2048);
+  if (!text) return "";
+  try {
+    const url = new URL(text);
+    return `${url.protocol}//${url.host}${url.pathname}`;
+  } catch {
+    return cleanText(text.split(/[?#]/)[0], 200);
+  }
+}
+
+/** Bound and clean the evidence the companion reports before anything reads it. */
+export function sanitizeEvidence(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const textItems = Array.isArray(raw.visibleText)
+    ? raw.visibleText
+    : typeof raw.visibleText === "string"
+    ? raw.visibleText.split(/\n+/)
+    : [];
+  const redaction = raw.redaction && typeof raw.redaction === "object" ? raw.redaction : null;
+  return {
+    finalUrl: safeUrl(raw.finalUrl),
+    title: cleanText(raw.title, 200),
+    visibleText: textItems.slice(0, 300).map((t) => cleanText(t, 120)).filter(Boolean),
+    redaction: redaction
+      ? {
+          applied: redaction.applied === true,
+          masked: Number.isFinite(Number(redaction.masked)) ? Math.max(0, Math.min(10000, Number(redaction.masked))) : 0,
+        }
+      : null,
+    capturedAt: cleanText(raw.capturedAt, 40),
+    executedSteps: Number.isFinite(Number(raw.executedSteps)) ? Math.max(0, Math.min(1000, Number(raw.executedSteps))) : null,
+  };
+}
+
+/** Share of the expected UI labels that appear in the visible text. */
+export function scoreLabels(expectedLabels, visibleText) {
+  const expected = [...new Set((expectedLabels || []).map((l) => cleanText(l, 120).toLowerCase()).filter(Boolean))].slice(0, 40);
+  if (!expected.length || !Array.isArray(visibleText) || !visibleText.length) return null;
+  const haystack = visibleText.join("\n").toLowerCase();
+  const matched = expected.filter((label) => haystack.includes(label));
+  return { expected: expected.length, matched: matched.length, score: Math.round((matched.length / expected.length) * 100) / 100, missing: expected.filter((l) => !matched.includes(l)).slice(0, 10) };
+}
+
+// ── The check ──────────────────────────────────────────────────────────────
+
+/**
+ * Verify image bytes and optional capture evidence.
+ *
+ * @param {Buffer} bytes
+ * @param {object} [options]
+ * @param {string} [options.filename] the slot filename; its extension must match the bytes
+ * @param {object} [options.evidence] what the companion saw (address, title, visible text)
+ * @param {string[]} [options.expectedLabels] UI labels the shot should show
+ * @param {boolean} [options.requireEvidence] warn when the page address was not reported
+ * @param {Partial<typeof IMAGE_LIMITS>} [options.limits]
+ * @returns {{ok: boolean, level: "pass"|"warn"|"fail", reasons: Array<{code: string, level: "fail"|"warn", message: string}>, format: string|null, width: number|null, height: number|null, bytes: number, sha256: string|null, analysis: object|null, labels: object|null, evidence: object|null}}
+ */
+export function verifyImage(bytes, options = {}) {
+  const limits = { ...IMAGE_LIMITS, ...(options.limits || {}) };
+  const reasons = [];
+  const result = {
+    ok: false,
+    level: "fail",
+    reasons,
+    format: null,
+    width: null,
+    height: null,
+    bytes: Buffer.isBuffer(bytes) ? bytes.length : 0,
+    sha256: null,
+    analysis: null,
+    labels: null,
+    evidence: null,
+  };
+  const finish = () => {
+    result.level = reasons.some((r) => r.level === "fail") ? "fail" : reasons.length ? "warn" : "pass";
+    result.ok = result.level !== "fail";
+    return result;
+  };
+
+  if (!Buffer.isBuffer(bytes) || bytes.length === 0) {
+    reasons.push(reason("empty", "fail", "No image data was received."));
+    return finish();
+  }
+  if (bytes.length > limits.maxBytes) {
+    reasons.push(reason("too-large", "fail", `The image is ${(bytes.length / 1048576).toFixed(1)} MB; the limit is ${Math.round(limits.maxBytes / 1048576)} MB.`));
+    return finish();
+  }
+  const format = detectImageFormat(bytes);
+  if (!format) {
+    reasons.push(reason("bad-signature", "fail", "The file is not a PNG, JPEG, or WebP image. Its content does not match any supported image type."));
+    return finish();
+  }
+  result.format = format;
+  result.sha256 = sha256Hex(bytes);
+
+  const filename = String(options.filename || "");
+  if (filename) {
+    const ext = filename.slice(filename.lastIndexOf(".")).toLowerCase();
+    if (!extensionsForFormat(format).includes(ext)) {
+      reasons.push(reason("extension-mismatch", "fail", `The file content is ${format.toUpperCase()} but the slot name ends in ${ext || "no extension"}. Save it with the matching file type.`));
+      return finish();
+    }
+  }
+  if (bytes.length < limits.minBytes) {
+    reasons.push(reason("too-small", "fail", `The image is only ${bytes.length} bytes; a real screenshot is at least ${limits.minBytes} bytes. A placeholder does not count.`));
+    return finish();
+  }
+
+  let dims = null;
+  if (format === "png") {
+    const parsed = readPng(bytes);
+    if (parsed.error) {
+      reasons.push(reason("corrupt", "fail", parsed.error));
+      return finish();
+    }
+    const { info } = parsed;
+    dims = { width: info.width, height: info.height };
+    if (!info.hasEnd) reasons.push(reason("truncated", "fail", "The PNG is cut off before its end marker."));
+    if (info.trailingBytes > 0) reasons.push(reason("trailing-data", "fail", "The PNG has extra data after its end marker."));
+    for (const chunk of info.chunks) {
+      if (/^(?:tEXt|iTXt|zTXt)$/.test(chunk.type) && MARKUP_RE.test(bytes.toString("latin1", chunk.start, chunk.start + Math.min(chunk.length, 4096)))) {
+        reasons.push(reason("embedded-markup", "fail", "The image carries embedded script or markup."));
+        break;
+      }
+    }
+    result.width = info.width;
+    result.height = info.height;
+    if (info.width * info.height <= limits.maxPixels && info.width >= 1 && info.height >= 1) {
+      const sample = reasons.some((r) => r.level === "fail") ? null : samplePng(bytes, info);
+      if (sample?.corrupt) {
+        reasons.push(reason("corrupt", "fail", "The PNG image data is corrupt or cut off."));
+      } else if (sample) {
+        result.analysis = { sampled: sample.sampled, distinctColors: sample.distinctColors, dominantFraction: Math.round(sample.dominantFraction * 10000) / 10000 };
+      } else if (!reasons.length) {
+        reasons.push(reason("not-analyzed", "warn", "This PNG uses an interlaced or uncommon layout, so the blank-page check was skipped."));
+      }
+    }
+  } else if (format === "jpeg") {
+    dims = readJpeg(bytes);
+    if (!dims) {
+      reasons.push(reason("corrupt", "fail", "The JPEG header is missing or malformed."));
+      return finish();
+    }
+    const tail = bytes.subarray(Math.max(0, bytes.length - 64));
+    if (tail.lastIndexOf(Buffer.from([0xff, 0xd9])) === -1) reasons.push(reason("truncated", "warn", "The JPEG may be cut off before its end marker."));
+  } else {
+    dims = readWebp(bytes);
+    if (!dims) {
+      reasons.push(reason("corrupt", "fail", "The WebP header is missing or malformed."));
+      return finish();
+    }
+    if (bytes.readUInt32LE(4) + 8 !== bytes.length) reasons.push(reason("truncated", "warn", "The WebP size does not match its header; it may be cut off."));
+  }
+
+  result.width = dims.width;
+  result.height = dims.height;
+  if (dims.width < limits.minWidth || dims.height < limits.minHeight) {
+    reasons.push(reason("dimensions-small", "fail", `The image is ${dims.width} x ${dims.height} pixels; the minimum is ${limits.minWidth} x ${limits.minHeight}.`));
+  }
+  if (dims.width > limits.maxWidth || dims.height > limits.maxHeight || dims.width * dims.height > limits.maxPixels) {
+    reasons.push(reason("dimensions-large", "fail", `The image is ${dims.width} x ${dims.height} pixels; the maximum is ${limits.maxWidth} x ${limits.maxHeight} and ${Math.round(limits.maxPixels / 1e6)} megapixels.`));
+  }
+
+  if (result.analysis) {
+    if (result.analysis.dominantFraction >= limits.blankFail) {
+      reasons.push(reason("blank", "fail", "The image is blank or a single color. The page probably did not finish loading."));
+    } else if (result.analysis.dominantFraction >= limits.blankWarn) {
+      reasons.push(reason("near-uniform", "warn", "The image is almost one color. Check that the page finished loading."));
+    }
+  } else if (format !== "png") {
+    const bitsPerPixel = (bytes.length * 8) / Math.max(1, dims.width * dims.height);
+    result.analysis = { bitsPerPixel: Math.round(bitsPerPixel * 1000) / 1000 };
+    if (bitsPerPixel < 0.06) reasons.push(reason("blank", "fail", "The image compresses to almost nothing, so it is blank or a single color."));
+    else if (bitsPerPixel < 0.16) reasons.push(reason("near-uniform", "warn", "The image is almost one color. Check that the page finished loading."));
+  }
+
+  const evidence = sanitizeEvidence(options.evidence);
+  result.evidence = evidence;
+  if (evidence) {
+    if (evidence.finalUrl) {
+      if (isSignInUrl(evidence.finalUrl)) {
+        reasons.push(reason("sign-in-page", "fail", "The page was a Microsoft sign-in page, not the product. Sign in once in the companion window, then retake the shot."));
+      } else if (!/^https?:/i.test(evidence.finalUrl)) {
+        reasons.push(reason("not-a-web-page", "fail", "The browser was not on a web page when the shot was taken."));
+      }
+    } else if (options.requireEvidence) {
+      reasons.push(reason("no-page-address", "warn", "The companion did not report which page the screenshot shows."));
+    }
+    if (SIGN_IN_TITLE_RE.test(evidence.title) && !reasons.some((r) => r.code === "sign-in-page")) {
+      reasons.push(reason("sign-in-page", "fail", "The page title says this is a sign-in page, not the product."));
+    }
+    const signInHits = SIGN_IN_TEXT_RES.filter((re) => evidence.visibleText.some((line) => re.test(line))).length;
+    if (signInHits >= 2 && !reasons.some((r) => r.code === "sign-in-page")) {
+      reasons.push(reason("sign-in-page", "fail", "The visible text looks like a sign-in page, not the product."));
+    }
+    result.labels = scoreLabels(options.expectedLabels, evidence.visibleText);
+    if (result.labels) {
+      const { expected, matched } = result.labels;
+      if (matched === 0 || (expected >= 3 && result.labels.score < 0.34)) {
+        reasons.push(reason("labels-missing", "warn", `Only ${matched} of ${expected} expected UI labels are visible. Check that the screen is the one the lab describes.`));
+      }
+    }
+    if (options.requireRedaction && !(evidence.redaction && evidence.redaction.applied)) {
+      reasons.push(reason("not-redacted", "warn", "The companion did not report masking account details. Check the screenshot for names and email addresses."));
+    }
+  } else if (options.requireEvidence) {
+    reasons.push(reason("no-evidence", "warn", "The companion did not report what the page showed."));
+  }
+
+  return finish();
+}
+
+/** A short, storable summary of a verification result (no bytes, no evidence text). */
+export function summarizeVerification(result, extra = {}) {
+  return {
+    ok: result.ok,
+    level: result.level,
+    reasons: result.reasons.map((r) => ({ code: r.code, level: r.level, message: r.message })),
+    format: result.format,
+    width: result.width,
+    height: result.height,
+    bytes: result.bytes,
+    sha256: result.sha256,
+    analysis: result.analysis,
+    labels: result.labels,
+    finalUrl: result.evidence?.finalUrl || null,
+    pageTitle: result.evidence?.title || null,
+    redaction: result.evidence?.redaction || null,
+    checkedAt: new Date().toISOString(),
+    ...extra,
+  };
+}

@@ -29,3 +29,8 @@ _site/
 
 # Azure Developer CLI local environment & deployment plan state
 .azure/
+
+# Local Capture Companion: pairing token, browser sign-ins, and in-progress captures
+.companion.json
+.captures/
+.auth/

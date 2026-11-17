@@ -55,6 +55,7 @@ import {
   resolveSafeUploadFile,
 } from "./lib/storage-config.js";
 import { initBlobPersistence, scheduleBlobSync } from "./lib/blob-persistence.js";
+import { registerCaptureRoutes } from "./lib/capture/routes.js";
 import { capFilesystemSegment, sanitizeFilesystemTitle } from "./lib/lab-builder/module-samples.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
@@ -380,7 +381,7 @@ app.use((_req, res, next) => {
 });
 
 app.use(
-  ["/api/lab-builder", "/api/generated-labs/learn-drift"],
+  ["/api/lab-builder", "/api/generated-labs/learn-drift", "/api/capture"],
   express.json({ limit: process.env.LAB_BUILDER_BODY_LIMIT || "64kb" }),
 );
 app.use(express.json({ limit: "10mb" }));
@@ -523,6 +524,14 @@ function manageRateLimited(req, res) {
   return true;
 }
 
+// Screenshot Center: Local Capture Companion pairing, capture jobs, paste/upload, and the shared library.
+// Registered after the auth and Blob write-through middleware; only /api/capture/companion/* skips Entra sign-in.
+const capturePlatform = registerCaptureRoutes(app, {
+  generatedRoot: GENERATED_LABS_DIR,
+  scheduleBlobSync,
+  manageRateLimited,
+});
+
 /** GET /api/lab-builder/features — Catalog that drives the wizard */
 app.get("/api/lab-builder/features", (_req, res) => {
   try {
@@ -660,12 +669,15 @@ app.post("/api/lab-builder/generate", async (req, res) => {
   };
   req.once("aborted", cancel);
   res.once("close", cancel);
+  // Capturing needs a tenant sign-in, so it never runs inside this request:
+  // a Local Capture Companion job is queued afterward when one is connected.
+  const wantsCapture = Boolean(body.captureScreenshots);
   try {
-    const result = await generateLab(body, {
+    const result = await generateLab({ ...body, captureScreenshots: false }, {
       outputRoot: GENERATED_LABS_DIR,
       useLearnMcp: body.useLearnMcp !== false,
       useLlm: body.useLlm !== false,
-      captureScreenshots: Boolean(body.captureScreenshots),
+      captureScreenshots: false,
       captureMode: typeof body.captureMode === "string" ? body.captureMode : typeof body.screenshotMode === "string" ? body.screenshotMode : "auto",
       decisions,
       decisionSource: "portal",
@@ -695,6 +707,16 @@ app.post("/api/lab-builder/generate", async (req, res) => {
         ? replaceGeneratedLab(GENERATED_LABS_DIR, replaceLabId, result.labId).replaced
         : false;
 
+    const screenshotState = result.screenshotState || getLabScreenshotsStatus(GENERATED_LABS_DIR, result.labId).body || null;
+    let captureCompanion = null;
+    if (wantsCapture) {
+      captureCompanion = await capturePlatform.companionFallbackForLab({
+        labId: result.labId,
+        onlyMissing: true,
+        createdBy: req.user?.upn || req.user?.oid || null,
+      });
+    }
+
     res.json({
       status: "complete",
       labId: result.labId,
@@ -707,8 +729,20 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       manifest: result.manifest,
       topicDocuments: result.topicDocuments || result.manifest?.topicDocuments || [],
       adminPrerequisites: result.adminPrerequisites,
-      screenshotState: result.screenshotState || getLabScreenshotsStatus(GENERATED_LABS_DIR, result.labId).body || null,
-      screenshotCapture: result.screenshotCapture || null,
+      screenshotState,
+      screenshotCapture: wantsCapture
+        ? {
+            ok: false,
+            status: captureCompanion?.queued ? "queued" : "not-queued",
+            message: captureCompanion?.message || null,
+            cliCommand: screenshotState?.cliCommand || null,
+            cliCommandHeaded: screenshotState?.cliCommand || null,
+            companion: captureCompanion,
+          }
+        : result.screenshotCapture || null,
+      captureQueued: Boolean(captureCompanion?.queued),
+      captureJobId: captureCompanion?.jobId || null,
+      captureReason: wantsCapture && !captureCompanion?.queued ? captureCompanion?.reason || "not-queued" : null,
       validation: result.validation,
       qa: result.qa,
       warnings: result.plan.warnings,
@@ -1184,6 +1218,8 @@ async function handleGeneratedLabScreenshotsCapture(req, res) {
       onlyStale,
       featureIds,
       mode,
+      companionFallback: (info) =>
+        capturePlatform.companionFallbackForLab({ ...info, createdBy: req.user?.upn || req.user?.oid || null }),
     });
     return res.status(result.status).json(result.body);
   } catch (err) {

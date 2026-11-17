@@ -14,7 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getFeature } from "./catalog.js";
-import { capturedScreenshotsDir, resolveLabScreenshot } from "./captured.js";
+import { capturedScreenshotsDirs, resolveLabScreenshot } from "./captured.js";
 import { scrubForbidden } from "./composer.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
 import { connect, fetchDocPage } from "./learn-mcp.js";
@@ -298,7 +298,7 @@ export function buildPerLabScreenshotArtifacts({
   stepsByFeature = new Map(),
   groundingByFeature = new Map(),
   generatedAt = new Date().toISOString(),
-  capturedDir = capturedScreenshotsDir(),
+  capturedDir = capturedScreenshotsDirs(),
 }) {
   const primaryProd = plan.products?.[0] || DEFAULT_PRODUCT;
   const primaryCfg = resolveProductCaptureConfig(primaryProd, "home", plan.harness);
@@ -510,7 +510,7 @@ export function writePerLabScreenshotArtifacts(labDir, { shotsPlan, learnState, 
 export function applyScreenshotSummaryToManifest(
   manifest,
   labDir,
-  { shotsPlan = null, learnState = null, capturedDir = capturedScreenshotsDir() } = {},
+  { shotsPlan = null, learnState = null, capturedDir = capturedScreenshotsDirs() } = {},
 ) {
   if (!manifest || typeof manifest !== "object") return;
   const existing = manifest.screenshots && typeof manifest.screenshots === "object" ? manifest.screenshots : {};
@@ -558,7 +558,7 @@ export function applyScreenshotSummaryToManifest(
  * Reconstruct `screenshots/shots.json` and `screenshots/learn-state.json` on demand
  * for any generated lab built prior to per-lab screenshot state tracking.
  */
-export function ensurePerLabScreenshotPlan(labDir, { labId: explicitLabId, capturedDir = capturedScreenshotsDir() } = {}) {
+export function ensurePerLabScreenshotPlan(labDir, { labId: explicitLabId, capturedDir = capturedScreenshotsDirs() } = {}) {
   const resolvedDir = path.resolve(labDir);
   const labId = explicitLabId || path.basename(resolvedDir);
   const shotsJsonPath = path.join(resolvedDir, "screenshots", "shots.json");
@@ -782,7 +782,7 @@ function fileToDataUri(filePath) {
  */
 export function refreshGeneratedLabOutputs(
   labDir,
-  { labId: explicitLabId, markdown: explicitMarkdown, manifest: explicitManifest, capturedDir = capturedScreenshotsDir() } = {},
+  { labId: explicitLabId, markdown: explicitMarkdown, manifest: explicitManifest, capturedDir = capturedScreenshotsDirs() } = {},
 ) {
   const resolvedDir = path.resolve(labDir);
   const labId = explicitLabId || path.basename(resolvedDir);
@@ -878,6 +878,151 @@ function resolveSafeLabDir(generatedRoot, rawLabId) {
   return { status: 200, labId, labDir };
 }
 
+/** Validate a lab id and locate its folder: `{status: 200, labId, labDir}` or `{status, error}`. */
+export const resolveGeneratedLabDir = resolveSafeLabDir;
+
+const DEFAULT_CAPTURE_CAPABILITIES = Object.freeze({
+  companionConnected: false,
+  companionLastSeenAt: null,
+  serverBrowserAvailable: false,
+  tenantUrlsSet: false,
+  signedInProducts: [],
+});
+let captureCapabilitiesProvider = null;
+
+/** The capture platform registers a callback so status payloads can say whether a companion is connected. */
+export function setCaptureCapabilitiesProvider(provider) {
+  captureCapabilitiesProvider = typeof provider === "function" ? provider : null;
+}
+
+function currentCaptureCapabilities() {
+  try {
+    const live = captureCapabilitiesProvider?.();
+    return live && typeof live === "object" ? { ...DEFAULT_CAPTURE_CAPABILITIES, ...live } : { ...DEFAULT_CAPTURE_CAPABILITIES };
+  } catch {
+    return { ...DEFAULT_CAPTURE_CAPABILITIES };
+  }
+}
+
+const VERIFICATION_FILE = "verification.json";
+
+/** Per-shot verification records written when a screenshot is uploaded, pasted, or captured by the companion. */
+export function readLabVerification(labDir) {
+  try {
+    const file = path.join(labDir, "screenshots", VERIFICATION_FILE);
+    if (!fs.existsSync(file)) return {};
+    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+    return parsed && typeof parsed.shots === "object" && parsed.shots ? parsed.shots : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Store (or clear, with `null`) one shot's verification record. */
+export function writeLabVerificationRecord(labDir, filename, record) {
+  const shots = readLabVerification(labDir);
+  if (record) shots[filename] = record;
+  else delete shots[filename];
+  writeJsonAtomic(path.join(labDir, "screenshots", VERIFICATION_FILE), { schema: 1, updatedAt: new Date().toISOString(), shots });
+}
+
+function recomputeLearnSync(labDir, shotsPlan, learnState, capturedDir) {
+  const stillUpdated = Object.values(learnState.modules || {}).some((m) => m.status === "docs-updated");
+  const stillMissing = (shotsPlan.shots || []).some((s) => !resolveLabScreenshot(labDir, s.filename, { capturedDir }));
+  learnState.learnSyncStatus = stillUpdated ? "docs-updated" : stillMissing ? "missing-screenshot" : "up-to-date";
+}
+
+/**
+ * Record that a real image now sits at `assets/<filename>`: clear the shot's
+ * stale flag, mark its module up to date when every shot in it is fresh, and
+ * recompute the lab's Learn sync status. Call `refreshGeneratedLabOutputs` next.
+ */
+export function recordLabShotCaptured(
+  labDir,
+  { labId: explicitLabId, filename, source = "companion", capturedAt = new Date().toISOString(), capturedDir = capturedScreenshotsDirs() } = {},
+) {
+  const resolvedDir = path.resolve(labDir);
+  const labId = explicitLabId || path.basename(resolvedDir);
+  const { shotsPlan, learnState } = ensurePerLabScreenshotPlan(resolvedDir, { labId, capturedDir });
+  const shot = (shotsPlan.shots || []).find((s) => s.filename === filename);
+  if (!shot) return { ok: false, error: "That screenshot is not part of this lab." };
+  const featureId = shot.featureId || shot.feature;
+
+  shot.status = "captured";
+  shot.capturedAt = capturedAt;
+  learnState.shots ??= {};
+  learnState.shots[filename] = {
+    ...(learnState.shots[filename] || {}),
+    shotId: shot.shotId,
+    featureId,
+    moduleOrder: shot.moduleOrder ?? null,
+    filename,
+    captured: true,
+    capturedAt,
+    capturedStepHash: shot.learnBaseline?.stepHash || null,
+    capturedContentFingerprint: shot.learnBaseline?.contentFingerprint || null,
+    captureSource: source,
+    stale: false,
+    lastAttemptStatus: "captured",
+    lastAttemptAt: capturedAt,
+    lastError: null,
+  };
+
+  const mod = learnState.modules?.[featureId];
+  if (mod) {
+    const moduleShots = (shotsPlan.shots || []).filter((s) => (s.featureId || s.feature) === featureId);
+    const allFresh = moduleShots.every(
+      (s) => !learnState.shots?.[s.filename]?.stale && resolveLabScreenshot(resolvedDir, s.filename, { capturedDir }),
+    );
+    if (allFresh) {
+      mod.status = "up-to-date";
+      mod.diff = null;
+    } else if (mod.status !== "docs-updated") {
+      mod.status = "missing-screenshot";
+    }
+  }
+
+  recomputeLearnSync(resolvedDir, shotsPlan, learnState, capturedDir);
+  shotsPlan.updatedAt = capturedAt;
+  learnState.updatedAt = capturedAt;
+  writeJsonAtomic(path.join(resolvedDir, "screenshots", "shots.json"), shotsPlan);
+  writeJsonAtomic(path.join(resolvedDir, "screenshots", "learn-state.json"), learnState);
+  return { ok: true, featureId };
+}
+
+/** Record that a shot was reset to the placeholder so it can be retaken. */
+export function recordLabShotReset(labDir, { labId: explicitLabId, filename, capturedDir = capturedScreenshotsDirs() } = {}) {
+  const resolvedDir = path.resolve(labDir);
+  const labId = explicitLabId || path.basename(resolvedDir);
+  const { shotsPlan, learnState } = ensurePerLabScreenshotPlan(resolvedDir, { labId, capturedDir });
+  const shot = (shotsPlan.shots || []).find((s) => s.filename === filename);
+  if (!shot) return { ok: false, error: "That screenshot is not part of this lab." };
+  const featureId = shot.featureId || shot.feature;
+  const stillResolves = Boolean(resolveLabScreenshot(resolvedDir, filename, { capturedDir }));
+
+  shot.status = stillResolves ? "captured" : "pending";
+  learnState.shots ??= {};
+  learnState.shots[filename] = {
+    ...(learnState.shots[filename] || {}),
+    shotId: shot.shotId,
+    featureId,
+    filename,
+    captured: stillResolves,
+    capturedAt: stillResolves ? learnState.shots[filename]?.capturedAt || null : null,
+    captureSource: stillResolves ? learnState.shots[filename]?.captureSource || null : null,
+    lastAttemptStatus: "reset",
+    lastAttemptAt: new Date().toISOString(),
+  };
+  const mod = learnState.modules?.[featureId];
+  if (mod && !stillResolves && mod.status !== "docs-updated") mod.status = "missing-screenshot";
+
+  recomputeLearnSync(resolvedDir, shotsPlan, learnState, capturedDir);
+  shotsPlan.updatedAt = learnState.updatedAt = new Date().toISOString();
+  writeJsonAtomic(path.join(resolvedDir, "screenshots", "shots.json"), shotsPlan);
+  writeJsonAtomic(path.join(resolvedDir, "screenshots", "learn-state.json"), learnState);
+  return { ok: true, featureId, stillResolves };
+}
+
 /**
  * Inspect per-lab screenshot manifest, captured/missing/stale counts, and
  * Microsoft Learn sync status (`GET /api/lab-builder/generated/:labId/screenshots`).
@@ -885,13 +1030,14 @@ function resolveSafeLabDir(generatedRoot, rawLabId) {
 export function getLabScreenshotsStatus(
   generatedRoot,
   rawLabId,
-  { capturedDir = capturedScreenshotsDir() } = {},
+  { capturedDir = capturedScreenshotsDirs() } = {},
 ) {
   const found = resolveSafeLabDir(generatedRoot, rawLabId);
   if (found.status !== 200) return { status: found.status, body: { error: found.error } };
 
   const { labId, labDir } = found;
   const { shotsPlan, learnState } = ensurePerLabScreenshotPlan(labDir, { labId, capturedDir });
+  const verificationRecords = readLabVerification(labDir);
 
   const shots = (shotsPlan.shots || []).map((shot) => {
     const perLabOk = verifyCapturedImageFile(path.join(labDir, "assets", shot.filename)).ok;
@@ -900,6 +1046,7 @@ export function getLabScreenshotsStatus(
     const mState = learnState.modules?.[shot.featureId || shot.feature] || {};
     const docsUpdated = mState.status === "docs-updated" || Boolean(sState.stale);
     const hasScreenshot = Boolean(resolved);
+    const verification = verificationRecords[shot.filename] || null;
 
     const syncStatus = docsUpdated
       ? "docs-updated"
@@ -934,9 +1081,13 @@ export function getLabScreenshotsStatus(
       capturedSource: resolved?.source || null,
       stale: docsUpdated,
       syncStatus,
+      checkState: docsUpdated ? "docs-updated" : mState.lastCheckedAt ? "up-to-date" : "not-checked",
       capturedAt: sState.capturedAt || null,
+      captureSource: sState.captureSource || null,
       lastAttemptStatus: sState.lastAttemptStatus || null,
       lastError: sState.lastError || null,
+      verification,
+      needsReview: verification?.state === "needs-review",
       learnBaseline: shot.learnBaseline || null,
     };
   });
@@ -961,6 +1112,7 @@ export function getLabScreenshotsStatus(
         product: mod.product,
         harness: mod.harness,
         status,
+        checkState: anyDocsUpdated ? "docs-updated" : mod.lastCheckedAt ? "up-to-date" : "not-checked",
         lastCheckedAt: mod.lastCheckedAt || null,
         primaryUrl: mod.learnBaseline?.primaryUrl || null,
         stepHash: mod.learnBaseline?.stepHash || null,
@@ -976,6 +1128,7 @@ export function getLabScreenshotsStatus(
   const capturedInLabCount = shots.filter((s) => s.capturedInLab).length;
   const missingCount = shots.filter((s) => !s.captured).length;
   const staleCount = shots.filter((s) => s.stale).length;
+  const needsReviewCount = shots.filter((s) => s.needsReview).length;
   const docsUpdatedModules = modules.filter((m) => m.status === "docs-updated").length;
 
   const learnSyncStatus =
@@ -984,6 +1137,13 @@ export function getLabScreenshotsStatus(
       : missingCount > 0
       ? "missing-screenshot"
       : "up-to-date";
+  // Honest check state: a lab nobody has checked against Microsoft Learn is "not-checked", never "up-to-date".
+  const checkState =
+    docsUpdatedModules > 0 || staleCount > 0
+      ? "docs-updated"
+      : learnState.lastRevalidatedAt
+      ? "up-to-date"
+      : "not-checked";
 
   return {
     status: 200,
@@ -993,6 +1153,8 @@ export function getLabScreenshotsStatus(
       product: shotsPlan.product,
       products: shotsPlan.products,
       harness: shotsPlan.harness,
+      checkState,
+      captureCapabilities: currentCaptureCapabilities(),
       cliCommand: buildLabCaptureCliCommand(labId, { mode: "headed", onlyMissing: missingCount > 0 && staleCount === 0, onlyStale: staleCount > 0 }),
       cliAutoCommand: buildLabCaptureCliCommand(labId, { mode: "auto", onlyStale: staleCount > 0 }),
       summary: {
@@ -1002,10 +1164,12 @@ export function getLabScreenshotsStatus(
         capturedShared: Math.max(0, capturedCount - capturedInLabCount),
         missing: missingCount,
         stale: staleCount,
+        needsReview: needsReviewCount,
         upToDate: shots.filter((s) => s.syncStatus === "up-to-date").length,
         docsUpdatedModules,
         totalModules: modules.length,
         learnSyncStatus,
+        checkState,
         lastRevalidatedAt: learnState.lastRevalidatedAt || null,
       },
       modules,
@@ -1075,7 +1239,7 @@ export async function revalidateLabAgainstLearn(generatedRoot, rawLabId, options
   if (found.status !== 200) return { status: found.status, body: { error: found.error } };
 
   const { labId, labDir } = found;
-  const capturedDir = options.capturedDir || capturedScreenshotsDir();
+  const capturedDir = options.capturedDir || capturedScreenshotsDirs();
   const shouldUpdateSteps =
     options.updateSteps !== undefined
       ? Boolean(options.updateSteps)
@@ -1446,6 +1610,7 @@ export async function revalidateLabAgainstLearn(generatedRoot, rawLabId, options
       labId,
       checkedAt,
       overallStatus: latestStatus.body.summary?.learnSyncStatus || "up-to-date",
+      checkState: latestStatus.body.checkState,
       counts,
       updatedModules: updatedFeatureIds,
       updatedModuleIds: updatedFeatureIds,
@@ -1465,7 +1630,7 @@ export async function captureLabScreenshots(generatedRoot, rawLabId, options = {
   if (found.status !== 200) return { status: found.status, body: { error: found.error } };
 
   const { labId, labDir } = found;
-  const capturedDir = options.capturedDir || capturedScreenshotsDir();
+  const capturedDir = options.capturedDir || capturedScreenshotsDirs();
   ensurePerLabScreenshotPlan(labDir, { labId, capturedDir });
 
   const featureIds = Array.isArray(options.featureIds)
@@ -1485,6 +1650,27 @@ export async function captureLabScreenshots(generatedRoot, rawLabId, options = {
     env: options.env || process.env,
     onRefreshOutputs: (dir) => refreshGeneratedLabOutputs(dir, { labId, capturedDir }),
   });
+
+  // No browser (or no sign-in) on the server: point at the Local Capture Companion instead of only a CLI string.
+  if (
+    typeof options.companionFallback === "function" &&
+    (captureSummary.status === "browser-unavailable" || captureSummary.status === "auth-required")
+  ) {
+    try {
+      const companion = await options.companionFallback({
+        labId,
+        onlyMissing: Boolean(options.onlyMissing),
+        onlyStale: Boolean(options.onlyStale),
+        featureIds,
+      });
+      if (companion) {
+        captureSummary.companion = companion;
+        if (companion.message) captureSummary.message = companion.message;
+      }
+    } catch (err) {
+      captureSummary.companion = { queued: false, connected: false, message: `Could not queue a companion job: ${err.message}` };
+    }
+  }
 
   // Clear `docs-updated` once stale module screenshots have been freshly captured
   if (captureSummary.capturedCount > 0) {

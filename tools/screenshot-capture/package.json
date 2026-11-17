@@ -7,6 +7,8 @@
   "scripts": {
     "capture": "node capture.js",
     "capture:lab": "node capture.js",
+    "companion": "node companion.mjs",
+    "companion:once": "node companion.mjs --once",
     "list": "node capture.js --list",
     "capture:features": "node capture.js --features",
     "list:features": "node capture.js --features --list",

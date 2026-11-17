@@ -69,6 +69,23 @@ function isExempt(path) {
   return AUTH_EXEMPT_PREFIXES.some((p) => path === p || path.startsWith(p + "?") || path.startsWith(p + "/"));
 }
 
+/**
+ * The Local Capture Companion runs on a person's own computer and cannot sign
+ * in with Entra. Its endpoints authenticate with a scoped, revocable capture
+ * token (`Authorization: Bearer cap_...`) that portal/lib/capture/routes.js
+ * verifies itself. Only these exact routes skip the Entra check; a capture
+ * token is rejected everywhere else because it is not an Entra JWT.
+ */
+const CAPTURE_COMPANION_PREFIX = "/api/capture/companion/";
+const CAPTURE_COMPANION_METHODS = new Set(["GET", "POST", "PUT"]);
+const CAPTURE_COMPANION_PATH_RE = /^\/api\/capture\/companion\/[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_.-]+)*$/;
+
+export function isCaptureCompanionRequest(req) {
+  if (!CAPTURE_COMPANION_METHODS.has(String(req.method || "").toUpperCase())) return false;
+  const pathname = String(req.originalUrl || `${req.baseUrl || ""}${req.path || ""}`).split("?")[0];
+  return pathname.startsWith(CAPTURE_COMPANION_PREFIX) && CAPTURE_COMPANION_PATH_RE.test(pathname) && !pathname.includes("..");
+}
+
 export function authConfigSummary() {
   return {
     enabled: !AUTH_DISABLED,
@@ -95,7 +112,7 @@ export function requireAuth() {
       "(or AZURE_CLIENT_ID) are required. All /api/* requests will be rejected.",
     );
     return (req, res, next) => {
-      if (isExempt(req.path)) return next();
+      if (isExempt(req.path) || isCaptureCompanionRequest(req)) return next();
       res.status(500).json({ error: "Portal authentication is not configured on the server." });
     };
   }
@@ -104,7 +121,7 @@ export function requireAuth() {
   const jwkSet = getJwks();
 
   return async (req, res, next) => {
-    if (isExempt(req.path)) return next();
+    if (isExempt(req.path) || isCaptureCompanionRequest(req)) return next();
 
     const header = req.headers.authorization || "";
     const [scheme, token] = header.split(" ");

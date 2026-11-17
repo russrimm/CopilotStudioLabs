@@ -18,7 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { PLACEHOLDER_PATH, describeSlot, slotsForFeature } from "./slots.js";
-import { capturedImage, capturedScreenshotsDir } from "./captured.js";
+import { capturedImage, capturedScreenshotsDirs } from "./captured.js";
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** True when `child` resolves to a location strictly inside `root`. */
@@ -55,7 +55,7 @@ function uniqueFilename(filename, featureId, used) {
  *   `shots` lists every slot; a slot with a captured image has status "captured" and is copied
  *   instead of getting a placeholder, any other slot has status "pending".
  */
-export function planScreenshots(plan, { labsDir, capturedDir = capturedScreenshotsDir() }) {
+export function planScreenshots(plan, { labsDir, capturedDir = capturedScreenshotsDirs() }) {
   const byFeature = new Map();
   const copies = [];
   const shots = [];

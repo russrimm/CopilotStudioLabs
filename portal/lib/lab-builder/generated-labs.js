@@ -14,7 +14,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, s
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { escapeMarkdown, scrubForbidden } from "./composer.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
-import { capturedImage, capturedScreenshotsDir } from "./captured.js";
+import { capturedImage, capturedScreenshotsDirs } from "./captured.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
 import { getLabScreenshotsStatus } from "./lab-screenshots.js";
 import { summarizeLabLearnDrift } from "./learn-drift-dashboard.js";
@@ -52,7 +52,7 @@ const MIN_CAPTURED_BYTES = 5 * 1024;
  *
  * @returns {{html: string, pending: string[]}}
  */
-export function decorateGeneratedHtml(html, labId, labDir, { capturedDir = capturedScreenshotsDir() } = {}) {
+export function decorateGeneratedHtml(html, labId, labDir, { capturedDir = capturedScreenshotsDirs() } = {}) {
   const pending = [];
   const decorated = String(html).replace(/<img\b[^>]*>/gi, (tag) => {
     const src = tag.match(/\bsrc="assets\/([^"]+)"/i);
@@ -79,7 +79,7 @@ export function decorateGeneratedHtml(html, labId, labDir, { capturedDir = captu
  *
  * @returns {{status: number, path?: string, type?: string, error?: string}}
  */
-export function resolveGeneratedAsset(rootDir, rawId, rawName, { capturedDir = capturedScreenshotsDir() } = {}) {
+export function resolveGeneratedAsset(rootDir, rawId, rawName, { capturedDir = capturedScreenshotsDirs() } = {}) {
   const labId = String(rawId ?? "");
   const name = String(rawName ?? "");
   if (!LAB_ID.test(labId) || !ASSET_NAME.test(name) || name.includes("..")) {

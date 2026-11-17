@@ -51,7 +51,7 @@ const SIGN_IN_HOST_PATTERNS = [
   /\/oauth2\/(?:v2\.0\/)?authorize/i,
 ];
 
-const DESTRUCTIVE_LABEL_RE =
+export const DESTRUCTIVE_LABEL_RE =
   /\b(?:delete|remove|erase|purge|destroy|disconnect|unregister|revoke|reset all|delete all)\b/i;
 
 /**
@@ -159,7 +159,7 @@ export function resolveAuthStatePaths(authProfile = "copilot-studio", repoRoot =
  * Try to load `playwright` from the current package, `tools/screenshot-capture`,
  * `portal`, or the repo root. Returns `null` when Playwright is not installed.
  */
-async function loadPlaywrightModule(repoRoot = REPO_ROOT) {
+export async function loadPlaywrightModule(repoRoot = REPO_ROOT) {
   try {
     return await import("playwright");
   } catch {
@@ -193,6 +193,22 @@ function writeJsonAtomic(filePath, value) {
     fs.rmSync(tmpPath, { force: true });
     throw err;
   }
+}
+
+/**
+ * Whether this machine can run a capture browser: Playwright is installed and
+ * its Chromium binary exists. Never launches a browser.
+ */
+export async function detectBrowserAvailability({ repoRoot = REPO_ROOT } = {}) {
+  const playwright = await loadPlaywrightModule(repoRoot);
+  if (!playwright?.chromium) return { playwrightInstalled: false, chromiumInstalled: false, available: false };
+  let chromiumInstalled = false;
+  try {
+    chromiumInstalled = fs.existsSync(playwright.chromium.executablePath());
+  } catch {
+    chromiumInstalled = false;
+  }
+  return { playwrightInstalled: true, chromiumInstalled, available: chromiumInstalled };
 }
 
 async function dismissCommonBanners(page) {
@@ -269,6 +285,7 @@ export async function executePlaywrightLabShot({
   authTimeoutMs = 120_000,
   stepTimeoutMs = 1800,
   logger = null,
+  hooks = null,
 }) {
   const viewport = {
     width: Number(shot.viewport?.width || 1440),
@@ -448,10 +465,21 @@ export async function executePlaywrightLabShot({
 
     if (action === "screenshot") {
       fs.mkdirSync(path.dirname(outputFile), { recursive: true });
-      const raw = await page.screenshot({
-        path: outputFile,
-        fullPage: Boolean(step.fullPage),
-      });
+      // The companion masks account details and places callouts here, right before the pixels are taken.
+      if (typeof hooks?.beforeScreenshot === "function") {
+        await hooks.beforeScreenshot({ page, shot, viewport, callouts: resolvedCalloutRects });
+      }
+      let raw;
+      try {
+        raw = await page.screenshot({
+          path: outputFile,
+          fullPage: Boolean(step.fullPage),
+        });
+      } finally {
+        if (typeof hooks?.afterScreenshot === "function") {
+          await Promise.resolve(hooks.afterScreenshot({ page, shot })).catch(() => {});
+        }
+      }
       const check = Buffer.isBuffer(raw)
         ? verifyCapturedImageBuffer(raw, path.extname(outputFile))
         : verifyCapturedImageFile(outputFile);
@@ -484,6 +512,7 @@ export async function executePlaywrightLabShot({
     outputPath: shot.outputPath,
     filePath: outputFile,
     capturedAt: new Date().toISOString(),
+    finalUrl: typeof page.url === "function" ? page.url() : null,
     callouts: resolvedCalloutRects,
     executedSteps,
   };
