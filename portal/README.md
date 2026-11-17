@@ -354,7 +354,7 @@ portal/
 │   ├── mailer.js          SMTP and Microsoft Graph email transport
 │   ├── validator.js       Lab documentation smoke tests (structural, static + generated labs)
 │   ├── step-validator/    Step-level accuracy check against Microsoft Learn (parser, claims, matcher, runner, jobs)
-│   ├── markdown.js        Markdown rendering and HTML sanitization
+│   ├── markdown.js        Markdown rendering and HTML sanitization (HTML fragments embedded in Markdown: lab-builder/html-fragments.js, see docs/lab-builder.md)
 │   ├── branding.js        Single-brand API (reads and writes the active brand profile), banner, and {{TOKEN}} replacement
 │   ├── branding-profiles.js  Brand profiles, per-lab customization, and the CAPTURE_* environment mapping
 │   ├── branding-routes.js    Brand profile and per-lab customization routes

@@ -15,6 +15,7 @@ import {
   renderArchitectureDocumentMarkdown,
 } from "./architecture-overview.js";
 import { cleanText, getBrandFont } from "./brand-theme.js";
+import { stripEmbeddedHtml } from "./html-fragments.js";
 
 const PAGE_WIDTH = 612; // 8.5 in * 72 pt
 const PAGE_HEIGHT = 792; // 11.0 in * 72 pt
@@ -1019,7 +1020,7 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
     }
   };
 
-  renderMarkdownBlocks(markdown);
+  renderMarkdownBlocks(stripEmbeddedHtml(markdown));
   if (currentOps.length || !pages.length) {
     pages.push(currentOps);
     pageAnnots.push(currentAnnots);
