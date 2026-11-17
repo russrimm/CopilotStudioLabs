@@ -14,9 +14,10 @@ COPY portal/ ./portal/
 COPY README.md ./
 COPY template.config.json ./
 
-# Ensure runtime writable directories exist for non-root execution
-RUN mkdir -p /app/generated-labs /app/portal/data/lab-builder /app/portal/public/uploads \
-  && chown -R node:node /app/generated-labs /app/portal/data /app/portal/public/uploads
+# Ensure runtime writable directories exist for non-root execution (including /mnt/portal-storage for volume mounts)
+RUN mkdir -p /mnt/portal-storage/generated-labs /mnt/portal-storage/data/lab-builder /mnt/portal-storage/uploads \
+    /app/generated-labs /app/portal/data/lab-builder /app/portal/public/uploads \
+  && chown -R node:node /mnt/portal-storage /app/generated-labs /app/portal/data /app/portal/public/uploads
 
 WORKDIR /app/portal
 

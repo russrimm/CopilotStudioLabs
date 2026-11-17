@@ -42,7 +42,14 @@ import { recommend } from "./lib/lab-builder/recommend.js";
 import { getConcepts } from "./lib/lab-builder/concepts.js";
 import { defaultDifferencesFor } from "./lib/lab-builder/differences.js";
 import { getProducts, productOf } from "./lib/lab-builder/products.js";
-import { generateLab, OUTPUT_ROOT } from "./lib/lab-builder/generator.js";
+import { generateLab } from "./lib/lab-builder/generator.js";
+import {
+  ensurePortalStorageDirs,
+  getStorageDiagnostics,
+  resolveGeneratedLabsDir,
+  resolvePortalDataDir,
+  resolveSafeUploadFile,
+} from "./lib/storage-config.js";
 import { capFilesystemSegment, sanitizeFilesystemTitle } from "./lib/lab-builder/module-samples.js";
 import { normalizeDecisions } from "./lib/lab-builder/blockers.js";
 import { createRateLimiter, positiveIntFromEnv } from "./lib/rate-limit.js";
@@ -106,11 +113,12 @@ const PROVISION_JOB_RETENTION_MS = 60 * 60 * 1000;
 const LABS_ROUTE = "/labs";
 const labsRoot = resolve(import.meta.dirname, "..", "labs");
 const pdfRoot = resolve(import.meta.dirname, "..", "dist", "lab-pdfs");
-const dataRoot = resolve(import.meta.dirname, "data");
+const dataRoot = resolvePortalDataDir();
 const feedbackFilePath = resolve(dataRoot, "feedback.json");
 const provisionJobs = new Map();
 const BRANDING_MAX_FILE_SIZE = 2 * 1024 * 1024;
 
+ensurePortalStorageDirs();
 ensureBrandingStorage();
 
 const brandingUpload = multer({
@@ -370,12 +378,35 @@ app.use((req, _res, next) => {
   req.body ??= {};
   next();
 });
-// Harden user-uploaded content: block MIME sniffing so a file can't be
-// re-interpreted as HTML/SVG by the browser. Registered before the general
-// public static handler so it wins for /uploads/*.
-app.use("/uploads", (_req, res, next) => {
+// Harden user-uploaded content: serve strictly validated raster logos from
+// `resolvePortalUploadsDir()` (even when mounted outside `portal/public/uploads`),
+// blocking path traversal, SVG/HTML markup, and MIME sniffing.
+app.use("/uploads", (req, res) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  next();
+  res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+  res.setHeader("Cache-Control", "no-cache");
+
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const rawPath = String(req.originalUrl || "").split("?")[0];
+  const rawSuffix = rawPath.replace(/^\/uploads\/?/i, "");
+  if (!rawSuffix) {
+    return res.status(404).json({ error: "Asset not found" });
+  }
+  if (/(?:%2e%2e|%2f|%5c|%00|\.\.|[\\/])/i.test(rawSuffix)) {
+    return res.status(400).json({ error: "Invalid upload filename" });
+  }
+
+  const fileName = String(req.path || "").replace(/^\/+/, "");
+  const resolved = resolveSafeUploadFile(fileName);
+  if (resolved.status !== 200) {
+    return res.status(resolved.status).json({ error: resolved.error });
+  }
+
+  res.type(resolved.type);
+  return res.sendFile(resolved.path);
 });
 app.use(
   express.static(resolve(import.meta.dirname, "public"), {
@@ -385,12 +416,15 @@ app.use(
   }),
 );
 app.use(LABS_ROUTE, express.static(labsRoot));
-app.use(["/uploads", LABS_ROUTE], (_req, res) => {
+app.use(LABS_ROUTE, (_req, res) => {
   res.status(404).json({ error: "Asset not found" });
 });
 
 app.get("/healthz", (_req, res) => {
-  res.json({ status: "ok" });
+  res.json({
+    status: "ok",
+    storage: getStorageDiagnostics(),
+  });
 });
 
 // All /api/* routes require an Entra ID bearer token. The middleware
@@ -451,8 +485,8 @@ const labBuilderRateCheck = createRateLimiter({
   max: positiveIntFromEnv(process.env.LAB_BUILDER_RATE_MAX, 10),
 });
 
-// Where generated labs live. The override exists so tests never touch the real library.
-const GENERATED_LABS_DIR = process.env.LAB_BUILDER_OUTPUT_DIR ? resolve(process.env.LAB_BUILDER_OUTPUT_DIR) : OUTPUT_ROOT;
+// Where generated labs live. The override exists so tests and persistent volumes stay isolated.
+const GENERATED_LABS_DIR = resolveGeneratedLabsDir();
 // Deleting and renaming generated labs is cheap but destructive, so it has its own, looser window.
 const labBuilderManageRateCheck = createRateLimiter({
   windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_MANAGE_RATE_WINDOW_MS, 3600000),
@@ -1433,6 +1467,7 @@ app.get("/api/config", (_req, res) => {
       port: PORT,
       nodeVersion: process.version,
     },
+    storage: getStorageDiagnostics(),
     email: {
       transport: process.env.SMTP_HOST ? "smtp" : process.env.AZURE_TENANT_ID ? "graph" : "none",
       from: process.env.MAIL_FROM || "(not configured)",
