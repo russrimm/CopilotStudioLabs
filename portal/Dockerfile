@@ -6,10 +6,11 @@ WORKDIR /app
 COPY portal/package*.json ./portal/
 RUN cd portal && npm ci --omit=dev && npm cache clean --force
 
-# Copy lab catalog, captured product screenshots, slot overlay metadata, and portal app
+# Copy lab catalog, captured product screenshots, feature-tour & screenshot-capture modules, and portal app
 COPY labs/ ./labs/
 COPY docs/feature-tour/screenshots/ ./docs/feature-tour/screenshots/
-COPY tools/feature-tour/overlay.json ./tools/feature-tour/overlay.json
+COPY tools/feature-tour/ ./tools/feature-tour/
+COPY tools/screenshot-capture/ ./tools/screenshot-capture/
 COPY portal/ ./portal/
 COPY README.md ./
 COPY template.config.json ./

@@ -10,6 +10,9 @@ _site
 portal/data
 portal/public/uploads
 portal/test
+tools/**/test
+tools/screenshot-capture/.auth
+tools/lab-accuracy
 portal/.env
 portal/.env.*
 !portal/.env.template
