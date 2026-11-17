@@ -846,6 +846,7 @@ async function lbOpenGenerated(labId) {
   panel.style.display = "";
   panel.scrollIntoView({ behavior: "smooth", block: "start" });
   document.getElementById("lb-result-heading")?.focus({ preventScroll: true });
+  if (typeof lbRenderLabCustomizeSection === "function") lbRenderLabCustomizeSection(labId);
   await lbLoadResultPreview(labId);
 }
 

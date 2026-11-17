@@ -79,6 +79,9 @@ const labBuilder = {
   sharepointPromptPendingAction: null,
   sharepointPromptBound: false,
   previewRequiresSharepointSite: null,
+  // Brand profile and per-lab overrides chosen in Step 7 ("Customize this lab").
+  // profileId null follows the active profile; prefilled remembers the SharePoint default last copied into Step 7.
+  brand: { profileId: null, overrides: {}, prefilled: { name: "", url: "" }, bound: false },
 };
 
 const LB_SHAREPOINT_STORAGE_KEY = "cslabs.labBuilder.sharepointSite";
@@ -2518,6 +2521,8 @@ function lbRenderSummary() {
     if (spState.requiresSharepointSite && spState.configured) {
       parts.push(escapeHtml(`SharePoint site: ${spState.label || spState.name || spState.url}`));
     }
+    const brandChip = lbBrandSummaryChip();
+    if (brandChip) parts.push(brandChip);
     summaryHtml = `<strong>Your lab so far:</strong> ${parts.join(" · ")}`;
   }
   if (el) el.innerHTML = summaryHtml;
@@ -2737,10 +2742,12 @@ function lbGoToStep(step) {
   }
   if (step === LB_STEP.review) {
     lbSyncSharepointSiteUi();
+    lbSyncCustomizeCard();
     lbPreview();
   }
   if (step === LB_STEP.generate) {
     lbSyncSharepointSiteUi();
+    lbSyncCustomizeSummary();
   }
 }
 
@@ -2839,6 +2846,9 @@ function lbResetAnswers() {
   labBuilder.sharepointPromptSkipped = false;
   labBuilder.sharepointPromptPendingAction = null;
   labBuilder.previewRequiresSharepointSite = null;
+  labBuilder.brand.profileId = null;
+  labBuilder.brand.overrides = {};
+  labBuilder.brand.prefilled = { name: "", url: "" };
   labBuilder.step = LB_STEP.product;
   labBuilder.furthest = LB_STEP.product;
   labBuilder.levelNotice = null;
@@ -2954,6 +2964,9 @@ async function lbLoadSelections(lab) {
   lbSetFormValue("lb-use-learn", saved.useLearnMcp !== false);
   lbSetFormValue("lb-use-llm", saved.useLlm !== false);
   lbSetFormValue("lb-include-knowledge-check", Boolean(saved.includeKnowledgeCheck));
+  labBuilder.brand.profileId = typeof saved.brandProfileId === "string" ? saved.brandProfileId : null;
+  labBuilder.brand.overrides = saved.brandOverrides && typeof saved.brandOverrides === "object" ? { ...saved.brandOverrides } : {};
+  labBuilder.brand.prefilled = { name: "", url: "" };
   labBuilder.sharepointPromptSkipped = false;
   labBuilder.sharepointPromptPendingAction = null;
   labBuilder.previewRequiresSharepointSite = null;
@@ -3454,4 +3467,198 @@ async function lbPreview(options = {}) {
     if (labBuilder.previewToken !== token) return;
     el.innerHTML = `<div class="scenario-empty" role="alert">Could not plan the lab: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+// ── Step 7: brand profile and per-lab overrides ("Customize this lab") ─────
+const LB_OVERRIDE_KEYS = ["companyName", "tagline", "moreInfoUrl", "moreInfoLabel", "supportName", "supportEmail", "footerText"];
+
+/** The loaded profile list from the Configuration tab code, or null before it is available. */
+function lbBrandStore() {
+  return typeof brandProfiles !== "undefined" && brandProfiles && brandProfiles.loaded ? brandProfiles : null;
+}
+
+/** The profile this lab uses: the chosen one, else the active profile. */
+function lbBrandProfile() {
+  const store = lbBrandStore();
+  if (!store) return null;
+  return (
+    store.profiles.find((p) => p.id === labBuilder.brand.profileId) ||
+    store.profiles.find((p) => p.id === store.activeProfileId) ||
+    null
+  );
+}
+
+function lbBrandOverrides() {
+  const overrides = {};
+  for (const key of LB_OVERRIDE_KEYS) {
+    const value = typeof labBuilder.brand.overrides[key] === "string" ? labBuilder.brand.overrides[key].trim() : "";
+    if (value) overrides[key] = value;
+  }
+  return overrides;
+}
+
+function lbEffectiveBrand() {
+  const profile = lbBrandProfile();
+  if (!profile || typeof brandMergeOverrides !== "function") return null;
+  return brandMergeOverrides(profile, lbBrandOverrides());
+}
+
+/** HTML for the "Brand: <profile>" chip in the summary bar (empty until the profiles have loaded). */
+function lbBrandSummaryChip() {
+  const profile = lbBrandProfile();
+  if (!profile) return "";
+  return `<span class="lb-brand-chip">Brand: ${escapeHtml(profile.name)}</span>`;
+}
+
+/** The `brandProfileId` and `overrides` sent with the generate request (nothing until profiles have loaded). */
+function lbBrandRequestFields() {
+  const profile = lbBrandProfile();
+  if (!profile) return {};
+  return { brandProfileId: profile.id, overrides: lbBrandOverrides() };
+}
+
+/** Copy the profile's default SharePoint site into Step 7, unless the learner already chose a site. */
+function lbPrefillSharepointFromProfile(profile) {
+  const name = profile?.defaultSharepointSiteName || "";
+  const url = profile?.defaultSharepointSiteUrl || "";
+  const previous = labBuilder.brand.prefilled || { name: "", url: "" };
+  const nameEl = document.getElementById("lb-sharepoint-site-name");
+  const urlEl = document.getElementById("lb-sharepoint-site-url");
+  let changed = false;
+  if (nameEl) {
+    const current = String(nameEl.value || "").trim();
+    if ((!current || current === previous.name) && current !== name) {
+      lbSetFormValue("lb-sharepoint-site-name", name);
+      changed = true;
+    }
+  }
+  if (urlEl) {
+    const current = String(urlEl.value || "").trim();
+    if ((!current || current === previous.url) && current !== url) {
+      lbSetFormValue("lb-sharepoint-site-url", url);
+      changed = true;
+    }
+  }
+  labBuilder.brand.prefilled = { name, url };
+  if (changed) {
+    lbSyncSharepointSiteUi();
+    if (typeof lbSaveSelections === "function") lbSaveSelections();
+  }
+}
+
+function lbSyncCustomizeSummary() {
+  const el = document.getElementById("lb-step8-customize-summary");
+  if (!el) return;
+  const profile = lbBrandProfile();
+  if (!profile) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  const brand = lbEffectiveBrand();
+  const overrideNames = typeof brandOverrideNames === "function" ? brandOverrideNames(lbBrandOverrides()) : [];
+  const parts = [`Branding: ${profile.name} profile`, brand ? `Company: ${brand.companyName}` : ""];
+  parts.push(overrideNames.length ? `Overrides for this lab: ${overrideNames.join(", ")}` : "No overrides for this lab");
+  el.hidden = false;
+  el.textContent = parts.filter(Boolean).join(" · ");
+}
+
+function lbSyncCustomizeSite() {
+  const el = document.getElementById("lb-customize-site");
+  if (!el) return;
+  const state = lbResolveSharepointSiteState();
+  if (!state.requiresSharepointSite) {
+    el.textContent = "The topics you picked do not need a SharePoint site.";
+  } else if (state.name || state.url) {
+    el.textContent = `SharePoint site for this lab: ${state.label || state.name || state.url}. Change it in the SharePoint Site Details card above; the profile's default site pre-fills it.`;
+  } else {
+    el.textContent = "Add the SharePoint site in the SharePoint Site Details card above. The profile has no default site.";
+  }
+}
+
+function lbRenderCustomizePreview() {
+  const preview = document.getElementById("lb-customize-preview");
+  const brand = lbEffectiveBrand();
+  if (!preview || !brand || typeof renderBrandPreviewHtml !== "function") return;
+  preview.innerHTML = renderBrandPreviewHtml(brand, { labTitle: document.getElementById("lb-title")?.value?.trim() || "" });
+}
+
+function lbBindCustomizeControls() {
+  if (labBuilder.brand.bound) return;
+  const select = document.getElementById("lb-brand-profile");
+  if (!select || typeof select.addEventListener !== "function") return;
+  labBuilder.brand.bound = true;
+
+  select.addEventListener("change", () => {
+    labBuilder.brand.profileId = select.value || null;
+    lbSyncCustomizeCard();
+    lbRenderSummary();
+  });
+  for (const key of LB_OVERRIDE_KEYS) {
+    const input = document.getElementById(`lb-ov-${key}`);
+    input?.addEventListener?.("input", () => {
+      const value = String(input.value || "");
+      labBuilder.brand.overrides[key] = value;
+      const message = typeof brandValidateField === "function" ? brandValidateField(key, value) : "";
+      const errorEl = document.getElementById(`lb-ov-${key}-error`);
+      if (errorEl) errorEl.textContent = message;
+      if (message) input.setAttribute("aria-invalid", "true");
+      else input.removeAttribute("aria-invalid");
+      lbRenderCustomizePreview();
+      lbSyncCustomizeSummary();
+    });
+  }
+  document.getElementById("lb-manage-profiles")?.addEventListener?.("click", (event) => {
+    event.preventDefault();
+    if (typeof setActiveTab === "function") setActiveTab("config");
+    document.getElementById("bp-editor-heading")?.focus?.();
+  });
+  for (const id of ["lb-sharepoint-site-name", "lb-sharepoint-site-url", "lb-title"]) {
+    document.getElementById(id)?.addEventListener?.("input", () => {
+      lbSyncCustomizeSite();
+      lbRenderCustomizePreview();
+    });
+  }
+}
+
+/** Render the picker, the override fields, the cover preview, and the Step 8 summary from the current choices. */
+function lbSyncCustomizeCard() {
+  if (typeof bpEnsureLoaded !== "function") return;
+  const select = document.getElementById("lb-brand-profile");
+  if (!select) return;
+  lbBindCustomizeControls();
+  const store = lbBrandStore();
+  if (!store) {
+    bpEnsureLoaded()
+      .then(() => {
+        lbSyncCustomizeCard();
+        lbRenderSummary();
+      })
+      .catch(() => {});
+    return;
+  }
+
+  if (!store.profiles.some((p) => p.id === labBuilder.brand.profileId)) labBuilder.brand.profileId = store.activeProfileId;
+  select.innerHTML = store.profiles
+    .map(
+      (p) =>
+        `<option value="${escapeHtml(p.id)}"${p.id === labBuilder.brand.profileId ? " selected" : ""}>${escapeHtml(p.name)}${
+          p.id === store.activeProfileId ? " (active)" : ""
+        }</option>`,
+    )
+    .join("");
+  select.value = labBuilder.brand.profileId;
+
+  const profile = lbBrandProfile();
+  for (const key of LB_OVERRIDE_KEYS) {
+    const input = document.getElementById(`lb-ov-${key}`);
+    if (!input) continue;
+    input.value = labBuilder.brand.overrides[key] || "";
+    input.placeholder = profile?.[key] ? String(profile[key]) : "Uses the profile value";
+  }
+  lbPrefillSharepointFromProfile(profile);
+  lbSyncCustomizeSite();
+  lbRenderCustomizePreview();
+  lbSyncCustomizeSummary();
+  lbRenderSummary();
 }

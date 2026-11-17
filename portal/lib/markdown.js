@@ -5,6 +5,7 @@ import {
   renderArchitectureOverviewHtml,
 } from "./lab-builder/architecture-overview.js";
 import { enhanceInteractiveLabHtml } from "./lab-builder/interactive-elements.js";
+import { BRAND_FONTS } from "./lab-builder/brand-theme.js";
 
 export const labDiagramExtension = {
   name: "labDiagrams",
@@ -33,14 +34,21 @@ labMarked.use(labDiagramExtension);
 const LAB_ARCH_CLASS_RE = /^lab-arch(?:-[a-z0-9-]+)?$/;
 const LAB_ARCH_SVG_CLASS_RE = /^lab-arch(?:-[a-z0-9-]+)?-svg$/;
 
+// Brand fonts come from a fixed allowlist; only those exact stacks may appear in inline styles.
+const BRAND_FONT_STYLE_PATTERNS = Object.values(BRAND_FONTS)
+  .filter((font) => font.css)
+  .map((font) => new RegExp(`^${font.css.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"));
+
 const SAFE_STYLE_PROPERTIES = {
   "align-items": [/^(?:baseline|center|flex-(?:end|start)|stretch)$/],
   background: [/^rgba?\([\d\s.,%]+\)$/i, /^#[0-9a-f]{3,8}$/i, /^transparent$/i],
   border: [/^(?:0|1px solid #[0-9a-f]{3,8})$/i],
+  "border-bottom": [/^[1-6]px solid #[0-9a-f]{3,8}$/i],
   "border-radius": [/^\d+(?:\.\d+)?(?:px|rem|%)$/],
   color: [/^#[0-9a-f]{3,8}$/i],
   display: [/^(?:block|flex|inline|inline-block|none)$/],
   "flex-wrap": [/^(?:nowrap|wrap)$/],
+  "font-family": BRAND_FONT_STYLE_PATTERNS,
   "font-size": [/^\d+(?:\.\d+)?(?:px|rem|em|%)$/],
   "font-weight": [/^(?:[1-9]00|bold|normal)$/],
   gap: [/^\d+(?:\.\d+)?(?:px|rem)$/],
@@ -114,6 +122,7 @@ export function sanitizeLabHtml(html) {
         "lab-branding-banner",
         "lab-branding-title",
         "lab-branding-tagline",
+        "lab-branding-subtitle",
         "lab-quiz-header",
         "lab-quiz-heading-group",
         "lab-quiz-options",

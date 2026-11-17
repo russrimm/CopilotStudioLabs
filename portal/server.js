@@ -36,9 +36,18 @@ import {
   getBrandingLogoAbsolutePath,
   loadBranding,
   prependBrandingBanner,
+  renderLabEmail,
   saveBranding,
   updateBrandingLogo,
 } from "./lib/branding.js";
+import { BRANDING_JSON_BODY_LIMIT, BRANDING_JSON_PATHS, registerBrandingRoutes } from "./lib/branding-routes.js";
+import {
+  BrandProfileError,
+  buildCustomization,
+  resolveCustomizationBrand,
+  resolveLabBrand,
+  writeLabCustomization,
+} from "./lib/branding-profiles.js";
 import { getIndustries, getRoles, getScenario, getSuggestedConfig } from "./lib/scenarios.js";
 import { getFeaturesByCategory, getFeatures, getHarnesses, LEVELS, validateCatalog } from "./lib/lab-builder/catalog.js";
 import { planLab } from "./lib/lab-builder/planner.js";
@@ -383,6 +392,7 @@ app.use(
   ["/api/lab-builder", "/api/generated-labs/learn-drift"],
   express.json({ limit: process.env.LAB_BUILDER_BODY_LIMIT || "64kb" }),
 );
+app.use(BRANDING_JSON_PATHS, express.json({ limit: BRANDING_JSON_BODY_LIMIT }));
 app.use(express.json({ limit: "10mb" }));
 // Express 5 leaves req.body undefined when no body was parsed; handlers
 // destructure it, so keep the empty-object default Express 4 provided.
@@ -653,6 +663,26 @@ app.post("/api/lab-builder/generate", async (req, res) => {
     return res.status(400).json({ error: err.message });
   }
 
+  // Labs are born customized: snapshot the chosen brand profile and apply per-lab overrides.
+  const { brandProfileId, overrides: brandOverrides, ...generateRequest } = body;
+  let customization = null;
+  if (brandProfileId !== undefined || brandOverrides !== undefined) {
+    try {
+      customization = buildCustomization({ profileId: brandProfileId, overrides: brandOverrides });
+    } catch (err) {
+      const status = err instanceof BrandProfileError && err.status !== 404 ? err.status : 400;
+      return res.status(status).json({ error: err.message, ...(err.errors ? { errors: err.errors } : {}) });
+    }
+    // Pre-fill the SharePoint site from the brand default; a site chosen for this lab always wins.
+    const brand = resolveCustomizationBrand(customization);
+    const hasSite =
+      String(generateRequest.sharepointSiteName ?? "").trim() || String(generateRequest.sharepointSiteUrl ?? "").trim();
+    if (!hasSite) {
+      if (brand.defaultSharepointSiteName) generateRequest.sharepointSiteName = brand.defaultSharepointSiteName;
+      if (brand.defaultSharepointSiteUrl) generateRequest.sharepointSiteUrl = brand.defaultSharepointSiteUrl;
+    }
+  }
+
   activeLabGenerations += 1;
   const controller = new AbortController();
   const cancel = () => {
@@ -661,7 +691,7 @@ app.post("/api/lab-builder/generate", async (req, res) => {
   req.once("aborted", cancel);
   res.once("close", cancel);
   try {
-    const result = await generateLab(body, {
+    const result = await generateLab(generateRequest, {
       outputRoot: GENERATED_LABS_DIR,
       useLearnMcp: body.useLearnMcp !== false,
       useLlm: body.useLlm !== false,
@@ -694,6 +724,11 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       replaceLabId !== undefined && replaceLabId !== null
         ? replaceGeneratedLab(GENERATED_LABS_DIR, replaceLabId, result.labId).replaced
         : false;
+
+    if (customization) {
+      writeLabCustomization(result.outputDir, customization);
+      if (result.manifest && typeof result.manifest === "object") result.manifest.customization = customization;
+    }
 
     res.json({
       status: "complete",
@@ -735,7 +770,8 @@ app.get("/api/lab-builder/generated", (_req, res) => {
 
 /** GET /api/lab-builder/generated/:labId — Read a generated lab's markdown */
 app.get("/api/lab-builder/generated/:labId", (req, res) => {
-  const branding = loadBranding();
+  const found = resolveSafeGeneratedLabDir(GENERATED_LABS_DIR, req.params.labId);
+  const branding = resolveLabBrand(found.status === 200 ? found.manifest : null);
   const renderPreview = isCustomBranding(branding)
     ? (md) => renderLabMarkdown(prependBrandingBanner(md, branding))
     : renderLabMarkdown;
@@ -1044,7 +1080,8 @@ function handleGeneratedLabValidate(req, res) {
 }
 
 function handleGeneratedLabTopicDocument(req, res) {
-  const branding = loadBranding();
+  const found = resolveSafeGeneratedLabDir(GENERATED_LABS_DIR, req.params.labId);
+  const branding = resolveLabBrand(found.status === 200 ? found.manifest : null);
   const customBranding = isCustomBranding(branding);
   const logoPath = customBranding ? getBrandingLogoAbsolutePath(branding.logo) : null;
   const logoBuffer = logoPath && existsSync(logoPath) ? readFileSync(logoPath) : null;
@@ -1061,6 +1098,10 @@ function handleGeneratedLabTopicDocument(req, res) {
             companyName: branding.companyName,
             tagline: branding.tagline,
             primaryColor: branding.primaryColor,
+            secondaryColor: branding.secondaryColor,
+            font: branding.font,
+            coverSubtitle: branding.coverSubtitle,
+            footerText: branding.footerText,
             logoBuffer,
           }
         : null,
@@ -1369,6 +1410,9 @@ app.delete("/api/branding/logo", (_req, res) => {
   }
 });
 
+// Brand profiles (/api/branding/profiles/*) and per-lab customization (/api/.../:labId/customization)
+registerBrandingRoutes(app, { generatedLabsDir: GENERATED_LABS_DIR });
+
 /** GET /api/validate — Run validation against all labs */
 app.get("/api/validate", (_req, res) => {
   try {
@@ -1612,22 +1656,13 @@ app.post("/api/email", async (req, res) => {
 
     // Subject and body are templated server-side; the client cannot influence
     // them (only the lab selection and replacements, which flow through the
-    // existing lab export pipeline).
+    // existing lab export pipeline). The active brand profile only supplies
+    // validated, escaped text.
+    const email = renderLabEmail({ labCount: labIds.length, labListHtml: labList });
     const result = await sendMail({
       to: recipients,
-      subject: "Your Microsoft AI Training Generator Package",
-      html: `
-        <div style="font-family: Segoe UI, Arial, sans-serif; max-width: 600px;">
-          <h2>⚡ Your Microsoft AI Training Generator</h2>
-          <p>Attached is your customized lab package containing ${labIds.length} lab(s):</p>
-          <ul>${labList}</ul>
-          <p>Unzip the attachment and follow each lab's <code>index.md</code> to get started.</p>
-          <hr />
-          <p style="color: #666; font-size: 12px;">
-            Sent from the Microsoft AI Training Generator Provisioning Portal
-          </p>
-        </div>
-      `,
+      subject: email.subject,
+      html: email.html,
       attachments: [{
         filename: "copilot-studio-labs.zip",
         content: zipBuffer,

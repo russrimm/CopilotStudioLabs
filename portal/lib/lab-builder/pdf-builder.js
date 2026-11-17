@@ -14,6 +14,7 @@ import {
   ARCHITECTURE_FENCE_LANG,
   renderArchitectureDocumentMarkdown,
 } from "./architecture-overview.js";
+import { cleanText, getBrandFont } from "./brand-theme.js";
 
 const PAGE_WIDTH = 612; // 8.5 in * 72 pt
 const PAGE_HEIGHT = 792; // 11.0 in * 72 pt
@@ -453,12 +454,16 @@ function splitTableCells(line) {
  * @param {string} markdown
  * @param {object} [options]
  * @param {string} [options.title]
- * @param {object} [options.branding] `{ companyName, tagline, primaryColor }`
+ * @param {object} [options.branding] `{ companyName, tagline, primaryColor, secondaryColor, font, coverSubtitle, footerText }`
  * @param {(src: string) => Buffer | null} [options.resolveImageBuffer]
  * @returns {Buffer}
  */
 export function renderMarkdownToPdfBuffer(markdown, options = {}) {
   const accentRgb = parseHexRgb(options.branding?.primaryColor, [0.102, 0.337, 0.78]);
+  const secondaryRgb = options.branding?.secondaryColor ? parseHexRgb(options.branding.secondaryColor, null) : null;
+  const useSerifFont = getBrandFont(options.branding?.font).pdf === "serif";
+  const footerText = cleanText(options.branding?.footerText);
+  const coverSubtitle = cleanText(options.branding?.coverSubtitle);
   const docTitle = String(options.title || "Lab Guide").trim();
   const pages = [];
   const pageAnnots = [];
@@ -586,9 +591,17 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
       fontSize: 10.5,
       style: "bold",
       color: accentRgb,
-      underlineColor: [0.82, 0.86, 0.92],
-      spaceAfter: 10,
+      underlineColor: secondaryRgb || [0.82, 0.86, 0.92],
+      spaceAfter: coverSubtitle ? 4 : 10,
     });
+    if (coverSubtitle) {
+      emitStyledParagraph(coverSubtitle, {
+        fontSize: 9.5,
+        style: "italic",
+        color: [0.29, 0.33, 0.4],
+        spaceAfter: 10,
+      });
+    }
   }
 
   const renderMarkdownBlocks = (mdText, nestedOpts = {}) => {
@@ -1023,9 +1036,9 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
   addObject(""); // placeholder 1: Catalog
   addObject(""); // placeholder 2: Info
   addObject(""); // placeholder 3: Pages
-  const f1Id = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
-  const f2Id = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
-  const f3Id = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>");
+  const f1Id = addObject(`<< /Type /Font /Subtype /Type1 /BaseFont /${useSerifFont ? "Times-Roman" : "Helvetica"} /Encoding /WinAnsiEncoding >>`);
+  const f2Id = addObject(`<< /Type /Font /Subtype /Type1 /BaseFont /${useSerifFont ? "Times-Bold" : "Helvetica-Bold"} /Encoding /WinAnsiEncoding >>`);
+  const f3Id = addObject(`<< /Type /Font /Subtype /Type1 /BaseFont /${useSerifFont ? "Times-Italic" : "Helvetica-Oblique"} /Encoding /WinAnsiEncoding >>`);
   const f4Id = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>");
 
   const xObjIds = [];
@@ -1044,11 +1057,23 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
 
   pages.forEach((ops, idx) => {
     const pageNum = idx + 1;
+    const footerLeft = [options.branding?.companyName || "Copilot Studio Labs", footerText].filter(Boolean).join("  |  ");
+    const footerMaxWidth = CONTENT_WIDTH - 70;
+    let footerLabel = footerLeft;
+    while (footerLabel.length > 4 && measureTextPt(footerLabel, 8, "F1") > footerMaxWidth) {
+      footerLabel = `${footerLabel.slice(0, -4)}...`;
+    }
+    const footerRule = secondaryRgb || [0.85, 0.88, 0.92];
     const hfOps = [
-      // Top thin accent bar
+      // Top thin accent bar (primary), with an optional secondary stripe beneath it
       `q ${accentRgb[0]} ${accentRgb[1]} ${accentRgb[2]} rg 0 ${(PAGE_HEIGHT - 6).toFixed(2)} ${PAGE_WIDTH.toFixed(
         2,
       )} 6 re f Q`,
+      secondaryRgb
+        ? `q ${secondaryRgb[0]} ${secondaryRgb[1]} ${secondaryRgb[2]} rg 0 ${(PAGE_HEIGHT - 9).toFixed(2)} ${PAGE_WIDTH.toFixed(
+            2,
+          )} 3 re f Q`
+        : "",
       // Running header on pages 2+
       pageNum > 1
         ? `BT /F1 8 Tf 0.45 0.5 0.58 rg ${MARGIN_X.toFixed(2)} ${(PAGE_HEIGHT - 34).toFixed(
@@ -1056,10 +1081,8 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
           )} Td ${pdfLiteralString(headerLabel)} Tj ET`
         : "",
       // Footer rule + title + Page X of Y
-      `q 0.85 0.88 0.92 RG 0.5 w ${MARGIN_X.toFixed(2)} 38 m ${(MARGIN_X + CONTENT_WIDTH).toFixed(2)} 38 l S Q`,
-      `BT /F1 8 Tf 0.45 0.5 0.58 rg ${MARGIN_X.toFixed(2)} 25 Td ${pdfLiteralString(
-        options.branding?.companyName || "Copilot Studio Labs",
-      )} Tj ET`,
+      `q ${footerRule[0]} ${footerRule[1]} ${footerRule[2]} RG 0.5 w ${MARGIN_X.toFixed(2)} 38 m ${(MARGIN_X + CONTENT_WIDTH).toFixed(2)} 38 l S Q`,
+      `BT /F1 8 Tf 0.45 0.5 0.58 rg ${MARGIN_X.toFixed(2)} 25 Td ${pdfLiteralString(footerLabel)} Tj ET`,
       `BT /F1 8 Tf 0.45 0.5 0.58 rg ${(PAGE_WIDTH - MARGIN_X - 58).toFixed(2)} 25 Td ${pdfLiteralString(
         `Page ${pageNum} of ${totalPages}`,
       )} Tj ET`,

@@ -365,10 +365,33 @@ function normalizeBranding(input = {}) {
 function initBrandingControls() {
   const upload = document.getElementById("branding-upload");
   const fileInput = document.getElementById("branding-logo-file");
-  const brandInputs = ["branding-company-name", "branding-primary-color", "branding-tagline"];
+  const form = document.getElementById("bp-form");
 
-  brandInputs.forEach((id) => {
-    document.getElementById(id)?.addEventListener("input", updateBrandingPreview);
+  form?.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    syncBrandProfileColorControls(target);
+    const key = target.dataset?.bpField;
+    if (key) bpValidateFieldInline(key);
+    updateBrandingPreview();
+  });
+  form?.addEventListener("change", (event) => {
+    if (event.target?.id === "bp-font") updateBrandingPreview();
+  });
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveBranding();
+  });
+
+  document.getElementById("bp-new")?.addEventListener("click", bpNewProfile);
+  document.getElementById("bp-activate")?.addEventListener("click", bpActivateProfile);
+  document.getElementById("bp-duplicate")?.addEventListener("click", bpDuplicateProfile);
+  document.getElementById("bp-delete")?.addEventListener("click", bpDeleteProfile);
+  document.getElementById("bp-reset")?.addEventListener("click", resetBranding);
+  document.getElementById("branding-remove-logo")?.addEventListener("click", removeBrandingLogo);
+  document.getElementById("bp-list")?.addEventListener("click", (event) => {
+    const item = event.target.closest?.("[data-bp-id]");
+    if (item) bpSelectProfile(item.dataset.bpId);
   });
 
   fileInput?.addEventListener("change", (event) => {
@@ -397,41 +420,233 @@ function initBrandingControls() {
   });
 }
 
-function getBrandingDraft() {
-  const draft = normalizeBranding({
-    companyName: document.getElementById("branding-company-name")?.value,
-    primaryColor: document.getElementById("branding-primary-color")?.value,
-    tagline: document.getElementById("branding-tagline")?.value,
-    logo: brandingLogoPreviewUrl || savedBranding.logo || null,
-  });
+// ── Brand profiles (Configuration tab) ──────────────────────────────────────
+const BP_FIELD_KEYS = [
+  "companyName", "tagline", "coverSubtitle", "footerText", "primaryColor", "secondaryColor", "font",
+  "moreInfoLabel", "moreInfoUrl", "supportName", "supportEmail", "communityUrl",
+  "defaultSharepointSiteName", "defaultSharepointSiteUrl",
+  "copilotStudioUrl", "powerPlatformEnvUrl", "sharepointSiteUrl", "sharepointAdminUrl", "m365AdminUrl", "foundryProjectUrl",
+];
+
+const brandProfiles = { loaded: false, loading: null, activeProfileId: null, profiles: [], fonts: [], selectedId: null, isNew: false };
+
+function bpActiveProfile() {
+  return brandProfiles.profiles.find((p) => p.id === brandProfiles.activeProfileId) || null;
+}
+
+function bpSelectedProfile() {
+  return brandProfiles.isNew ? null : brandProfiles.profiles.find((p) => p.id === brandProfiles.selectedId) || null;
+}
+
+/** Load (once, or again when forced) the profile list; other tabs call this before they render a picker. */
+function bpEnsureLoaded(force = false) {
+  if (brandProfiles.loaded && !force) return Promise.resolve(brandProfiles);
+  if (brandProfiles.loading && !force) return brandProfiles.loading;
+  brandProfiles.loading = fetch("/api/branding/profiles")
+    .then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load brand profiles");
+      brandProfiles.activeProfileId = data.activeProfileId;
+      brandProfiles.profiles = Array.isArray(data.profiles) ? data.profiles : [];
+      brandProfiles.fonts = Array.isArray(data.fonts) ? data.fonts : [];
+      brandProfiles.loaded = true;
+      if (!brandProfiles.isNew && !brandProfiles.profiles.some((p) => p.id === brandProfiles.selectedId)) {
+        brandProfiles.selectedId = brandProfiles.activeProfileId;
+      }
+      return brandProfiles;
+    })
+    .finally(() => {
+      brandProfiles.loading = null;
+    });
+  return brandProfiles.loading;
+}
+
+function bpDefaultDraft() {
+  return { name: "", logo: null, ...BRAND_DEFAULT_PROFILE, companyName: "", tagline: "" };
+}
+
+function bpField(key) {
+  return document.getElementById(key === "primaryColor" || key === "secondaryColor" ? `bp-${key}-hex` : `bp-${key}`);
+}
+
+/** Read the editor into a plain draft object (raw text, not yet validated). */
+function bpReadForm() {
+  const draft = { name: document.getElementById("bp-name")?.value ?? "" };
+  for (const key of BP_FIELD_KEYS) draft[key] = bpField(key)?.value ?? "";
+  draft.logo = brandingLogoPreviewUrl || bpSelectedProfile()?.logo || null;
   return draft;
 }
 
-function setBrandingFormValues(nextBranding) {
-  document.getElementById("branding-company-name").value = nextBranding.companyName;
-  document.getElementById("branding-primary-color").value = nextBranding.primaryColor;
-  document.getElementById("branding-tagline").value = nextBranding.tagline;
-  renderBrandingLogoPreview(nextBranding.logo);
+function getBrandingDraft() {
+  const draft = bpReadForm();
+  return normalizeBranding({
+    companyName: draft.companyName,
+    primaryColor: draft.primaryColor,
+    tagline: draft.tagline,
+    logo: draft.logo,
+  });
+}
+
+function bpFillForm(profile) {
+  const source = profile || bpDefaultDraft();
+  const nameEl = document.getElementById("bp-name");
+  if (nameEl) nameEl.value = source.name || "";
+  for (const key of BP_FIELD_KEYS) {
+    const el = bpField(key);
+    if (el) el.value = source[key] ?? "";
+  }
+  const fontEl = document.getElementById("bp-font");
+  if (fontEl && !source.font) fontEl.value = "default";
+  syncBrandProfileColorControls(null);
+  bpClearErrors();
+  renderBrandingLogoPreview(source.logo || null);
+}
+
+/** Keep the color picker and the hex text box in step with each other. */
+function syncBrandProfileColorControls(changed) {
+  for (const key of ["primaryColor", "secondaryColor"]) {
+    const picker = document.getElementById(`bp-${key}`);
+    const text = document.getElementById(`bp-${key}-hex`);
+    if (!picker || !text) continue;
+    if (changed === picker) {
+      text.value = picker.value;
+    } else if (changed === text || changed === null) {
+      const hex = brandNormalizeHex(text.value);
+      if (hex) picker.value = hex;
+    }
+  }
+}
+
+function bpClearErrors() {
+  document.querySelectorAll("#bp-form .bp-error").forEach((node) => {
+    node.textContent = "";
+  });
+  document.querySelectorAll("#bp-form [aria-invalid]").forEach((node) => node.removeAttribute("aria-invalid"));
+}
+
+/** Show or clear the inline error for one field; returns true when the value is valid. */
+function bpValidateFieldInline(key) {
+  const el = key === "name" ? document.getElementById("bp-name") : bpField(key);
+  const errorEl = document.getElementById(`bp-${key}-error`);
+  if (!el) return true;
+  const message = key === "font" ? "" : brandValidateField(key, el.value);
+  if (errorEl) errorEl.textContent = message;
+  if (message) el.setAttribute("aria-invalid", "true");
+  else el.removeAttribute("aria-invalid");
+  return !message;
+}
+
+function bpValidateAll() {
+  let firstInvalid = null;
+  for (const key of ["name", ...BP_FIELD_KEYS]) {
+    if (!bpValidateFieldInline(key) && !firstInvalid) firstInvalid = key === "name" ? document.getElementById("bp-name") : bpField(key);
+  }
+  if (firstInvalid) firstInvalid.focus();
+  return !firstInvalid;
+}
+
+function bpApplyServerErrors(errors) {
+  let first = null;
+  for (const [key, message] of Object.entries(errors || {})) {
+    const el = key === "name" ? document.getElementById("bp-name") : bpField(key);
+    const errorEl = document.getElementById(`bp-${key}-error`);
+    if (errorEl) errorEl.textContent = message;
+    if (el) {
+      el.setAttribute("aria-invalid", "true");
+      if (!first) first = el;
+    }
+  }
+  first?.focus();
+}
+
+function bpRenderFontOptions() {
+  const select = document.getElementById("bp-font");
+  if (!select) return;
+  const current = select.value || "default";
+  const fonts = brandProfiles.fonts.length ? brandProfiles.fonts : [{ id: "default", label: "Portal default" }];
+  select.innerHTML = fonts.map((f) => `<option value="${escapeHtml(f.id)}">${escapeHtml(f.label)}</option>`).join("");
+  select.value = fonts.some((f) => f.id === current) ? current : "default";
+}
+
+function bpRenderList() {
+  const list = document.getElementById("bp-list");
+  if (!list) return;
+  const items = brandProfiles.profiles.map((profile) => {
+    const current = !brandProfiles.isNew && profile.id === brandProfiles.selectedId;
+    const active = profile.id === brandProfiles.activeProfileId;
+    const swatch = brandNormalizeHex(profile.primaryColor) || "#4f8ff7";
+    return `<li><button type="button" class="bp-item" data-bp-id="${escapeHtml(profile.id)}" aria-current="${current ? "true" : "false"}">
+      <span class="bp-swatch" style="background:${swatch}" aria-hidden="true"></span>
+      <span class="bp-item-name">${escapeHtml(profile.name)}</span>
+      ${active ? '<span class="bp-badge">Active</span>' : ""}
+    </button></li>`;
+  });
+  if (brandProfiles.isNew) {
+    items.push('<li><button type="button" class="bp-item" aria-current="true" disabled><span class="bp-swatch" aria-hidden="true"></span><span class="bp-item-name">New profile (unsaved)</span></button></li>');
+  }
+  list.innerHTML = items.join("");
+}
+
+function bpSyncToolbar() {
+  const selected = bpSelectedProfile();
+  const isNew = brandProfiles.isNew;
+  const activate = document.getElementById("bp-activate");
+  const duplicate = document.getElementById("bp-duplicate");
+  const del = document.getElementById("bp-delete");
+  if (activate) {
+    activate.disabled = isNew || !selected || selected.id === brandProfiles.activeProfileId;
+    activate.textContent = selected && selected.id === brandProfiles.activeProfileId ? "✔ Active profile" : "✔ Make active";
+  }
+  if (duplicate) duplicate.disabled = isNew || !selected;
+  if (del) del.disabled = isNew || !selected || brandProfiles.profiles.length <= 1;
+  const heading = document.getElementById("bp-editor-heading");
+  if (heading) heading.textContent = isNew ? "New profile" : selected ? `Edit profile: ${selected.name}` : "Edit profile";
+}
+
+function bpRenderAll() {
+  bpRenderFontOptions();
+  bpRenderList();
+  bpSyncToolbar();
+}
+
+function bpSelectProfile(id) {
+  brandProfiles.isNew = false;
+  brandProfiles.selectedId = id;
+  clearBrandingPreviewUrl();
+  brandingLogoFile = null;
+  bpRenderAll();
+  bpFillForm(bpSelectedProfile());
   updateBrandingPreview();
+  announceBrandStatus(`Editing ${bpSelectedProfile()?.name || "profile"}.`);
+}
+
+function bpNewProfile() {
+  brandProfiles.isNew = true;
+  clearBrandingPreviewUrl();
+  brandingLogoFile = null;
+  bpRenderAll();
+  bpFillForm(null);
+  updateBrandingPreview();
+  document.getElementById("bp-name")?.focus();
+  announceBrandStatus("New profile. Enter a name and a company name, then save.");
+}
+
+function announceBrandStatus(message) {
+  const status = document.getElementById("branding-status");
+  if (status) status.textContent = message;
 }
 
 function renderBrandingLogoPreview(logoPath) {
   const preview = document.getElementById("branding-logo-preview");
-  const previewLogo = document.getElementById("branding-preview-logo");
   const removeButton = document.getElementById("branding-remove-logo");
-  const nextLogo = logoPath || brandingLogoPreviewUrl || savedBranding.logo || null;
+  const nextLogo = logoPath || brandingLogoPreviewUrl || null;
 
-  if (nextLogo) {
-    preview.innerHTML = `<img src="${escapeHtml(nextLogo)}" alt="Logo preview" />`;
-    previewLogo.src = nextLogo;
-    previewLogo.style.display = "block";
-  } else {
-    preview.innerHTML = '<span style="color: var(--text-muted); font-size: 12px;">No logo uploaded</span>';
-    previewLogo.removeAttribute("src");
-    previewLogo.style.display = "none";
+  if (preview) {
+    preview.innerHTML = nextLogo
+      ? `<img src="${escapeHtml(nextLogo)}" alt="Logo preview" />`
+      : '<span style="color: var(--text-muted); font-size: 12px;">No logo uploaded</span>';
   }
-
-  removeButton.disabled = !nextLogo;
+  if (removeButton) removeButton.disabled = !nextLogo;
 }
 
 function computeAccentHover(hex) {
@@ -490,13 +705,9 @@ function applyBranding(nextBranding) {
   const titleEl = document.getElementById("portal-title");
   const taglineEl = document.getElementById("portal-tagline");
   const logoEl = document.getElementById("portal-logo");
-  const previewTitle = document.getElementById("branding-preview-title");
-  const previewTagline = document.getElementById("branding-preview-tagline");
 
   if (titleEl) titleEl.innerHTML = normalized.logo ? escapeHtml(normalized.companyName) : `<span class="accent">⚡</span> ${escapeHtml(normalized.companyName)}`;
   if (taglineEl) taglineEl.textContent = normalized.tagline;
-  if (previewTitle) previewTitle.textContent = normalized.companyName;
-  if (previewTagline) previewTagline.textContent = normalized.tagline;
 
   if (logoEl) {
     if (normalized.logo) {
@@ -508,7 +719,6 @@ function applyBranding(nextBranding) {
     }
   }
 
-  renderBrandingLogoPreview(normalized.logo);
   updateFavicon(normalized.logo);
 }
 
@@ -526,26 +736,56 @@ function syncBrandingIntoCustomizationFields(nextBranding, force = false) {
   }
 }
 
+/** Load the profile list, show the active brand in the portal header, and open the editor on the active profile. */
 async function loadBranding() {
   try {
-    const res = await fetch("/api/branding");
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to load branding");
-
-    savedBranding = normalizeBranding(data);
+    await bpEnsureLoaded(true);
+    const active = bpActiveProfile();
+    savedBranding = normalizeBranding(active || {});
     brandingLogoFile = null;
-    brandingLogoPreviewUrl = "";
-    setBrandingFormValues(savedBranding);
+    clearBrandingPreviewUrl();
+    bpRenderAll();
+    if (!brandProfiles.isNew) bpFillForm(bpSelectedProfile());
     applyBranding(savedBranding);
     syncBrandingIntoCustomizationFields(savedBranding);
+    updateBrandingPreview();
   } catch (err) {
     toast(`Branding unavailable: ${err.message}`, "error");
   }
 }
 
 function updateBrandingPreview() {
-  const draft = getBrandingDraft();
-  applyBranding(draft);
+  const draft = bpReadForm();
+  const preview = document.getElementById("bp-preview");
+  if (preview) {
+    preview.innerHTML = renderBrandPreviewHtml({ ...draft, logo: draft.logo });
+  }
+  const contrast = document.getElementById("bp-contrast");
+  if (contrast) {
+    const primary = brandNormalizeHex(draft.primaryColor);
+    const secondary = brandNormalizeHex(draft.secondaryColor);
+    const warnings = brandContrastWarnings(primary, secondary);
+    const summary = [primary, secondary]
+      .filter(Boolean)
+      .map((hex) => {
+        const report = brandContrastReport(hex);
+        return `${report.color}: ${report.onWhite}:1 on white, ${report.onDark}:1 on dark`;
+      })
+      .join(" · ");
+    contrast.classList.toggle("bp-contrast-warn", warnings.length > 0);
+    contrast.innerHTML = primary
+      ? `<strong>Contrast (WCAG AA needs 4.5:1 for small text):</strong> ${escapeHtml(summary)}${
+          warnings.length ? `<ul>${warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}</ul>` : " — passes on both backgrounds."
+        }`
+      : "Enter a hex color such as #0f6cbd to check its contrast.";
+  }
+  // The header follows the profile being edited only while that profile is the active one.
+  const selected = bpSelectedProfile();
+  if (selected && selected.id === brandProfiles.activeProfileId) {
+    applyBranding(getBrandingDraft());
+  } else {
+    applyBranding(savedBranding);
+  }
 }
 
 function clearBrandingPreviewUrl() {
@@ -573,125 +813,179 @@ function handleBrandingLogoFile(file) {
   updateBrandingPreview();
 }
 
+async function bpRequest(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const error = new Error(data.error || `Request failed (${res.status})`);
+    error.fieldErrors = data.errors || null;
+    throw error;
+  }
+  return data;
+}
+
+function bpPayloadFromForm() {
+  const draft = bpReadForm();
+  const payload = { name: draft.name.trim() };
+  for (const key of BP_FIELD_KEYS) payload[key] = String(draft[key] ?? "").trim();
+  if (!payload.font) payload.font = "default";
+  return payload;
+}
+
+/** Save the profile being edited (creating it first when new) and upload a pending logo. */
 async function saveBranding() {
   const status = document.getElementById("branding-status");
-  const draft = getBrandingDraft();
-  if (!draft.companyName) {
-    toast("Company name is required.", "error");
+  if (!bpValidateAll()) {
+    if (status) status.textContent = "❌ Fix the highlighted fields and try again.";
     return;
   }
 
-  status.innerHTML = '<span class="spinner"></span> Saving branding...';
-
+  if (status) status.innerHTML = '<span class="spinner"></span> Saving profile...';
   try {
-    let res = await fetch("/api/branding", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        companyName: draft.companyName,
-        primaryColor: draft.primaryColor,
-        tagline: draft.tagline,
-      }),
-    });
-    let data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to save branding");
+    const payload = bpPayloadFromForm();
+    let saved;
+    if (brandProfiles.isNew) {
+      saved = await bpRequest("POST", "/api/branding/profiles", payload);
+    } else {
+      const current = bpSelectedProfile();
+      if (!current) throw new Error("Choose a profile to save.");
+      saved = await bpRequest("PATCH", `/api/branding/profiles/${encodeURIComponent(current.id)}`, payload);
+    }
 
     if (brandingLogoFile) {
       const formData = new FormData();
       formData.append("logo", brandingLogoFile);
-      res = await fetch("/api/branding/logo", { method: "POST", body: formData });
-      data = await res.json();
+      const res = await fetch(`/api/branding/profiles/${encodeURIComponent(saved.id)}/logo`, { method: "POST", body: formData });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Failed to upload logo");
     }
 
-    savedBranding = normalizeBranding(data);
+    brandProfiles.isNew = false;
+    brandProfiles.selectedId = saved.id;
     brandingLogoFile = null;
     clearBrandingPreviewUrl();
-    setBrandingFormValues(savedBranding);
-    applyBranding(savedBranding);
-    syncBrandingIntoCustomizationFields(savedBranding, true);
-    status.textContent = "✅ Branding saved";
-    toast("Branding saved.", "success");
-
-    if (selectedLabId) {
-      selectLab(selectedLabId).catch(() => {});
-    }
+    await loadBranding();
+    announceBrandStatus("✅ Profile saved");
+    toast("Brand profile saved.", "success");
+    if (typeof lbSyncCustomizeCard === "function") lbSyncCustomizeCard();
+    if (selectedLabId) selectLab(selectedLabId).catch(() => {});
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
-    toast(`Branding save failed: ${err.message}`, "error");
+    if (err.fieldErrors) bpApplyServerErrors(err.fieldErrors);
+    if (status) status.textContent = `❌ ${err.message}`;
+    toast(`Profile save failed: ${err.message}`, "error");
   }
 }
 
 async function removeBrandingLogo() {
-  if (!savedBranding.logo && !brandingLogoFile && !brandingLogoPreviewUrl) {
-    return;
-  }
-
-  const status = document.getElementById("branding-status");
-  status.innerHTML = '<span class="spinner"></span> Removing logo...';
-
-  try {
-    if (savedBranding.logo) {
-      const res = await fetch("/api/branding/logo", { method: "DELETE" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to remove logo");
-      savedBranding = normalizeBranding(data);
-    } else {
-      savedBranding = normalizeBranding({ ...savedBranding, logo: null });
-    }
-
+  const selected = bpSelectedProfile();
+  if (brandingLogoFile || brandingLogoPreviewUrl) {
     brandingLogoFile = null;
     clearBrandingPreviewUrl();
-    savedBranding.logo = null;
-    setBrandingFormValues(savedBranding);
-    applyBranding(savedBranding);
-    status.textContent = "✅ Logo removed";
-    toast("Logo removed.", "success");
+    renderBrandingLogoPreview(selected?.logo || null);
+    updateBrandingPreview();
+    announceBrandStatus("Pending logo removed.");
+    return;
+  }
+  if (!selected?.logo) return;
 
-    if (selectedLabId) {
-      selectLab(selectedLabId).catch(() => {});
-    }
+  const status = document.getElementById("branding-status");
+  if (status) status.innerHTML = '<span class="spinner"></span> Removing logo...';
+  try {
+    await bpRequest("DELETE", `/api/branding/profiles/${encodeURIComponent(selected.id)}/logo`);
+    await loadBranding();
+    announceBrandStatus("✅ Logo removed");
+    toast("Logo removed.", "success");
+    if (selectedLabId) selectLab(selectedLabId).catch(() => {});
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
+    if (status) status.textContent = `❌ ${err.message}`;
     toast(`Logo removal failed: ${err.message}`, "error");
   }
 }
 
+/** Reset the profile being edited to the portal defaults (its name is kept). */
 async function resetBranding() {
+  const selected = bpSelectedProfile();
+  if (!selected) {
+    bpFillForm(null);
+    updateBrandingPreview();
+    return;
+  }
   const status = document.getElementById("branding-status");
-  status.innerHTML = '<span class="spinner"></span> Resetting branding...';
-
+  if (status) status.innerHTML = '<span class="spinner"></span> Resetting profile...';
   try {
-    if (savedBranding.logo) {
-      const deleteRes = await fetch("/api/branding/logo", { method: "DELETE" });
-      const deleteData = await deleteRes.json();
-      if (!deleteRes.ok) throw new Error(deleteData.error || "Failed to remove logo");
-    }
-
-    const defaults = getDefaultBranding();
-    const res = await fetch("/api/branding", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(defaults),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to reset branding");
-
+    if (selected.logo) await bpRequest("DELETE", `/api/branding/profiles/${encodeURIComponent(selected.id)}/logo`);
+    const defaults = { ...BRAND_DEFAULT_PROFILE };
+    await bpRequest("PATCH", `/api/branding/profiles/${encodeURIComponent(selected.id)}`, defaults);
     brandingLogoFile = null;
     clearBrandingPreviewUrl();
-    savedBranding = normalizeBranding(data);
-    setBrandingFormValues(savedBranding);
-    applyBranding(savedBranding);
-    syncBrandingIntoCustomizationFields(savedBranding, true);
-    status.textContent = "✅ Branding reset";
-    toast("Branding reset to default.", "success");
-
-    if (selectedLabId) {
-      selectLab(selectedLabId).catch(() => {});
-    }
+    await loadBranding();
+    announceBrandStatus("✅ Profile reset to the portal defaults");
+    toast("Profile reset to default.", "success");
+    if (typeof lbSyncCustomizeCard === "function") lbSyncCustomizeCard();
+    if (selectedLabId) selectLab(selectedLabId).catch(() => {});
   } catch (err) {
-    status.textContent = `❌ ${err.message}`;
-    toast(`Branding reset failed: ${err.message}`, "error");
+    if (status) status.textContent = `❌ ${err.message}`;
+    toast(`Profile reset failed: ${err.message}`, "error");
+  }
+}
+
+async function bpActivateProfile() {
+  const selected = bpSelectedProfile();
+  if (!selected) return;
+  try {
+    await bpRequest("POST", `/api/branding/profiles/${encodeURIComponent(selected.id)}/activate`);
+    await loadBranding();
+    announceBrandStatus(`✅ ${selected.name} is now the active profile.`);
+    toast(`${selected.name} is now the active brand profile.`, "success");
+    if (typeof lbSyncCustomizeCard === "function") lbSyncCustomizeCard();
+    if (selectedLabId) selectLab(selectedLabId).catch(() => {});
+  } catch (err) {
+    toast(`Could not activate the profile: ${err.message}`, "error");
+  }
+}
+
+async function bpDuplicateProfile() {
+  const selected = bpSelectedProfile();
+  if (!selected) return;
+  try {
+    const copy = await bpRequest("POST", `/api/branding/profiles/${encodeURIComponent(selected.id)}/duplicate`, {});
+    brandProfiles.isNew = false;
+    brandProfiles.selectedId = copy.id;
+    await loadBranding();
+    announceBrandStatus(`✅ Created ${copy.name}.`);
+    toast(`Created ${copy.name}.`, "success");
+    document.getElementById("bp-editor-heading")?.focus();
+  } catch (err) {
+    toast(`Could not duplicate the profile: ${err.message}`, "error");
+  }
+}
+
+async function bpDeleteProfile() {
+  const selected = bpSelectedProfile();
+  if (!selected) return;
+  if (brandProfiles.profiles.length <= 1) {
+    toast("You cannot delete the last brand profile.", "error");
+    return;
+  }
+  const wasActive = selected.id === brandProfiles.activeProfileId;
+  const message = wasActive
+    ? `Delete "${selected.name}"? It is the active profile, so another profile becomes active. Labs that used it keep their look.`
+    : `Delete "${selected.name}"? Labs that used it keep their look.`;
+  if (!window.confirm(message)) return;
+  try {
+    const result = await bpRequest("DELETE", `/api/branding/profiles/${encodeURIComponent(selected.id)}`);
+    brandProfiles.selectedId = result.activeProfileId;
+    await loadBranding();
+    announceBrandStatus(`✅ Deleted ${selected.name}.`);
+    toast(`Deleted ${selected.name}.`, "success");
+    if (typeof lbSyncCustomizeCard === "function") lbSyncCustomizeCard();
+    document.getElementById("bp-editor-heading")?.focus();
+  } catch (err) {
+    toast(`Could not delete the profile: ${err.message}`, "error");
   }
 }
 
@@ -4436,7 +4730,13 @@ async function lbGenerate() {
       const res = await fetch("/api/lab-builder/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...lbRequest(), replaceLabId: lbReplaceTarget(), captureScreenshots, decisions }),
+        body: JSON.stringify({
+          ...lbRequest(),
+          ...(typeof lbBrandRequestFields === "function" ? lbBrandRequestFields() : {}),
+          replaceLabId: lbReplaceTarget(),
+          captureScreenshots,
+          decisions,
+        }),
         signal: labBuilder.controller.signal,
       });
       const data = await res.json();
