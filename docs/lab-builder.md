@@ -1351,6 +1351,9 @@ hides the rest:
    the six addresses come from the lab's branding or a brand profile, and links to **Configuration > Brand
    profiles > Tenant environment URLs**), and *Sign in once per product* (shows the products your computer is
    signed in to; a browser window opens the first time, you sign in, and capture continues by itself).
+   Selecting **Copy code** or **Copy command** shows a green checkmark and "Code copied to your clipboard"
+   (or "Command copied to your clipboard") next to the button for about three seconds, and a screen reader
+   hears the same words. If the browser blocks copying, the message says to select the text and press Ctrl+C.
 2. **One primary button** that changes with the state: **Connect your computer**, then
    **Capture N missing screenshots**, **Retake N outdated screenshots**, **Review N screenshots**,
    **Add N screenshots by hand**, **Check against Microsoft Learn**, **Update this lab from Microsoft Learn**,

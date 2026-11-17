@@ -14,6 +14,7 @@ const scState = {
   statusPromise: null,
   labs: {},
   pairing: null,
+  copyAck: null,
   library: { loaded: false, loading: false, error: "", summary: null, shots: [] },
 };
 
@@ -116,11 +117,13 @@ function scStopPairingTimer() {
 function scClosePairing() {
   scStopPairingTimer();
   scState.pairing = null;
+  if (typeof scClearCopyAck === "function") scClearCopyAck();
   if (typeof scRefreshPairingUi === "function") scRefreshPairingUi();
 }
 
 async function scStartPairing(context = {}) {
   scStopPairingTimer();
+  if (typeof scClearCopyAck === "function") scClearCopyAck();
   const p = {
     status: "issuing",
     code: "",
