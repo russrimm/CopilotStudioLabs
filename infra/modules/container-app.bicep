@@ -168,9 +168,11 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           ]
         }
       ]
+      // Single replica: generated labs, capture jobs, and paired devices live on local disk and are
+      // mirrored to Azure Blob at startup and on write, so more than one replica would diverge.
       scale: {
         minReplicas: 1
-        maxReplicas: 3
+        maxReplicas: 1
         rules: [
           {
             name: 'http-scaling'
