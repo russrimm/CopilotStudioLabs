@@ -152,6 +152,16 @@ export function selectionsFromManifest(manifest) {
     useLearnMcp: options.useLearnMcp !== false,
     useLlm: options.useLlm !== false,
     includeKnowledgeCheck: Boolean(options.includeKnowledgeCheck ?? request.includeKnowledgeCheck ?? false),
+    // Re-opening a customized lab pre-selects its brand profile and per-lab overrides in Step 7.
+    ...(manifest.customization && typeof manifest.customization === "object" && typeof manifest.customization.profileId === "string"
+      ? {
+          brandProfileId: manifest.customization.profileId,
+          brandOverrides:
+            manifest.customization.overrides && typeof manifest.customization.overrides === "object"
+              ? { ...manifest.customization.overrides }
+              : {},
+        }
+      : {}),
   };
 }
 

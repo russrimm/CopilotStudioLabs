@@ -53,7 +53,7 @@ Press Ctrl+C once to stop after the current screenshot; twice to quit now. Cance
 - **It never types into tenant pages and never deletes.** Steps are limited to opening an `https` page, waiting, dismissing banners, and clicking or focusing a labeled control. It skips any control whose name says delete, remove, erase, purge, destroy, disconnect, unregister, revoke, or reset, whatever the portal asks for.
 - **Account details are hidden.** Before each picture it draws a solid block over the account control and over any email address, tenant host name (`*.onmicrosoft.com`, SharePoint admin and personal hosts), or `--mask` term on the page, then removes the blocks. Text sent to the portal as evidence is scrubbed the same way. Always look at a screenshot before you publish it.
 - **Verified twice.** Both the companion and the portal check magic bytes (PNG, JPEG, WebP), size (5 KB to 8 MB), dimensions, blank or sign-in pages, and a match with the expected control names. The portal never trusts what the companion reports for a security decision.
-- **Tenant addresses.** A job can carry `CAPTURE_*` addresses (https only) for your tenant. They override same-named variables on your computer for that job only.
+- **Tenant addresses.** A job can carry `CAPTURE_*` addresses (https only) for your tenant, for example from the lab's brand profile. They override same-named variables on your computer for that job only.
 
 ### Troubleshooting
 

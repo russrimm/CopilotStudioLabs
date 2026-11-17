@@ -5,13 +5,15 @@
  * the older capture and generate endpoints a Local Capture Companion fallback.
  */
 
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import { buildCaptureEnv, findProfile } from "../branding-profiles.js";
 import { capturedScreenshotsDir, capturedScreenshotsDirs } from "../lab-builder/captured.js";
 import { setCaptureCapabilitiesProvider } from "../lab-builder/lab-screenshots.js";
 import { BAKED_CAPTURED_SCREENSHOTS_DIR, getStorageDiagnostics, resolvePortalDataDir } from "../storage-config.js";
 import { detectBrowserAvailability } from "../../../tools/screenshot-capture/lab-runner.mjs";
-import { createJobStore, normalizeJobRequest } from "./jobs.js";
+import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "./jobs.js";
 import { COMPANION_ONLINE_MS, PAIRING_CODE_TTL_MS, createPairingStore } from "./pairing.js";
 import { buildLabJobPlan, buildLibraryJobPlan } from "./plan.js";
 import { createScreenshotStore } from "./screenshot-store.js";
@@ -22,6 +24,11 @@ const BROWSER_CACHE_MS = 60 * 1000;
 
 function sameList(a, b) {
   return JSON.stringify([...(a || [])].sort()) === JSON.stringify([...(b || [])].sort());
+}
+
+function sameEnv(a, b) {
+  const sorted = (env) => JSON.stringify(Object.entries(env || {}).sort(([x], [y]) => (x < y ? -1 : 1)));
+  return sorted(a) === sorted(b);
 }
 
 /**
@@ -38,6 +45,7 @@ export function createCapturePlatform({
   dataDir = null,
   manifestDir = undefined,
   detectServerBrowser = () => detectBrowserAvailability(),
+  brand = { findProfile, buildCaptureEnv },
   logger = null,
 } = {}) {
   const captureDir = path.join(dataDir || resolvePortalDataDir(env), "capture");
@@ -130,7 +138,7 @@ export function createCapturePlatform({
     };
   }
 
-  function activeDuplicate(norm) {
+  function activeDuplicate(norm, env) {
     return jobs
       .list({ limit: 200 })
       .find(
@@ -141,8 +149,53 @@ export function createCapturePlatform({
           sameList(job.target.products, norm.target.products) &&
           job.scope.mode === norm.scope.mode &&
           sameList(job.scope.filenames, norm.scope.filenames) &&
-          sameList(job.scope.featureIds, norm.scope.featureIds),
+          sameList(job.scope.featureIds, norm.scope.featureIds) &&
+          sameEnv(jobs.getPlan(job.id)?.env, env),
       );
+  }
+
+  /**
+   * The tenant addresses a job carries, from a stored brand profile (`brandProfileId`)
+   * or the lab's own brand customization, with explicit `env` entries winning per variable.
+   * @returns {{env: Record<string, string>, source: string|null, error?: {status: number, message: string}}}
+   */
+  function resolveJobEnv(norm, body) {
+    let derived = {};
+    let source = null;
+    const requested = body?.brandProfileId;
+    if (requested !== undefined && requested !== null && requested !== "") {
+      if (typeof requested !== "string") return { env: {}, source: null, error: { status: 400, message: "brandProfileId must be a brand profile id." } };
+      const profile = brand.findProfile(requested, env);
+      if (!profile) return { env: {}, source: null, error: { status: 404, message: "Brand profile not found." } };
+      derived = brand.buildCaptureEnv(profile, { env });
+      source = "profile";
+    } else if (norm.target.type === "lab" && body?.useLabCustomization !== false) {
+      const found = labSlotsDir(norm.target.labId);
+      const customization = found ? readLabCustomization(found) : null;
+      if (customization) {
+        derived = brand.buildCaptureEnv({ customization }, { env });
+        source = "lab";
+      }
+    }
+    const merged = validateCaptureEnv({ ...derived, ...norm.env });
+    if (!merged.ok) return { env: {}, source, error: { status: 400, message: merged.errors[0] } };
+    if (Object.keys(norm.env).length && source) source = `${source}+request`;
+    else if (Object.keys(norm.env).length) source = "request";
+    return { env: merged.env, source };
+  }
+
+  function labSlotsDir(labId) {
+    const dir = path.join(generatedRoot, String(labId));
+    return /^[a-z0-9][a-z0-9-]{0,99}$/i.test(String(labId)) && existsSync(path.join(dir, "manifest.json")) ? dir : null;
+  }
+
+  function readLabCustomization(labDir) {
+    try {
+      const manifest = JSON.parse(readFileSync(path.join(labDir, "manifest.json"), "utf8"));
+      return manifest?.customization && typeof manifest.customization === "object" ? manifest.customization : null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -160,6 +213,9 @@ export function createCapturePlatform({
         : buildLibraryJobPlan({ scope: norm.scope, products: norm.target.products, manifestDir, capturedDir: dirs.search });
     if (plan.status !== 200) return { status: plan.status, body: { error: plan.error } };
 
+    const jobEnv = resolveJobEnv(norm, body);
+    if (jobEnv.error) return { status: jobEnv.error.status, body: { error: jobEnv.error.message } };
+
     const companion = pairing.status();
     const companionInfo = { connected: companion.connected, lastSeenAt: companion.lastSeenAt };
     if (!plan.shots.length) {
@@ -168,15 +224,16 @@ export function createCapturePlatform({
         body: { job: null, nothingToCapture: true, companion: companionInfo, message: "Nothing to capture: every selected screenshot already exists." },
       };
     }
-    const existing = activeDuplicate(norm);
+    const existing = activeDuplicate(norm, jobEnv.env);
     if (existing) {
-      return { status: 200, body: { job: jobs.get(existing.id), existing: true, companion: companionInfo, message: "This capture is already queued or running." } };
+      return { status: 200, body: { job: jobs.get(existing.id), existing: true, envSource: jobEnv.source, companion: companionInfo, message: "This capture is already queued or running." } };
     }
-    const job = jobs.create({ target: norm.target, scope: norm.scope, env: norm.env, options: norm.options, plan, createdBy });
+    const job = jobs.create({ target: norm.target, scope: norm.scope, env: jobEnv.env, options: norm.options, plan, createdBy });
     return {
       status: 201,
       body: {
         job,
+        envSource: jobEnv.source,
         companion: companionInfo,
         message: companion.connected
           ? `Queued ${plan.shots.length} screenshot${plan.shots.length === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.`

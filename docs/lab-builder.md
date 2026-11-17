@@ -187,7 +187,7 @@ The portal groups its ten panels into four areas, and **Build** is where it open
 | **Build** | Build a Lab, Industry scenarios | Create a lab, or browse industry scenarios and recommended labs. |
 | **Preview and validate** | Preview, Validation | Read a lab as learners see it, and check it against Microsoft Learn. |
 | **Deploy and share** | Lab setup, Azure resources, Power Platform, Email labs | Set up the lab environment and send labs to learners. |
-| **Settings** | Configuration | Branding, identity, email, and deployment targets. |
+| **Settings** | Configuration | Brand profiles, identity, email, and deployment targets. |
 
 The **🤖 Assistant** button in the header opens the lab assistant (formerly the
 Agent Chat tab) from anywhere. Nothing was removed: each panel keeps its id, so a
@@ -1349,7 +1349,9 @@ been re-validated against Microsoft Learn (`lastRevalidatedAt` is `null`), then 
 
 **Tenant addresses.** A job can carry an `env` map of `CAPTURE_*` variables (https URLs only, no
 credentials) for tenant-specific screens, such as `CAPTURE_SHAREPOINT_SITE_URL`. Names outside
-`CAPTURE_*` and any non-https value are rejected. The addresses go only to the companion that claims the job.
+`CAPTURE_*` and any non-https value are rejected. The addresses can also come from a brand profile
+(`brandProfileId`) or from the lab's own brand customization, so a lab built with a brand profile
+captures against that tenant with no extra input. The addresses go only to the companion that claims the job.
 
 **Older paths still work.** `POST .../screenshots/capture` and `captureScreenshots` on `generate` keep
 working for a server that has a browser and for the CLI (`node tools/screenshot-capture/capture.js
@@ -1521,7 +1523,7 @@ or headless browser dependencies required at runtime) by `portal/lib/exporter.js
 | PowerPoint (`.pptx`) | `/export?format=pptx` | Widescreen 16:9 OOXML presentation (`pptx-builder.js`, 13.333" × 7.5") with ECMA-376 PresentationML Speaker Notes (`notesMaster1.xml` + `notesSlideN.xml`) for PowerPoint Presenter View, including pacing cues, live-demo talking points, coaching callouts, fast rescue tips, and non-spoiler Knowledge Check slides whose answer keys and rationales live exclusively in speaker notes. |
 | Per-topic `.docx` & `.pptx` | `generated-labs/<slug>/topics/` and `/topics/:order/:format` | Individual Word handout and 16:9 PowerPoint deck (complete with ECMA-376 Presenter View speaker notes) for each module or recap, named `<Lab Name> - Step NN - <Topic Name>.docx` / `.pptx` (or `<Lab Name> - Recap N - <Topic Name>.docx` / `.pptx`). Synthesized automatically at build time (and refreshed on demand for older generated labs) and renamed whenever the lab title is updated via `PATCH`. |
 | Facilitator Guide Pack (`.docx`, `.pdf`, `.md`, `.html`) | `/export?format=facilitator-docx` (`facilitator-pdf`, `facilitator-md`, `facilitator-html`) | Dedicated Instructor / Facilitator Guide (`facilitator-guide.js`, named `<Lab Title> - Facilitator Guide.<ext>`) containing a Run-of-Show pacing table with a 15-minute pre-flight buffer and >90-minute break cues, a T-24h tenant/DLP/SharePoint/sample-files readiness runbook, and a per-module facilitator playbook (opening hook, 3–5 minute live demo talking points, step coaching cues, common learner roadblocks & fast rescue steps, debrief prompt, and complete Knowledge Check Answer Key & distractor rationales even when learner quizzes are unchecked). |
-| Per-module ZIP (`.zip`) | `/export?format=zip&formats=all` (`all\|docx\|pptx\|pdf\|html`) | Complete workshop archive containing `<labId>/index.md`, `<labId>/index.html`, `<labId>/manifest.json`, `<labId>/shots.json`, `00 - Overview and Admin Prerequisites/`, `Facilitator Guide/` (`<Lab Title> - Facilitator Guide.md` plus matching `.docx`/`.pdf`/`.html`), titled `Module NN - <Title>/` folders in the requested formats, `sample-files/` starter artifacts, `export-manifest.json`, and optional `_branding/` assets. |
+| Per-module ZIP (`.zip`) | `/export?format=zip&formats=all` (`all\|docx\|pptx\|pdf\|html`) | Complete workshop archive containing `<labId>/index.md`, `<labId>/index.html`, `<labId>/manifest.json`, `<labId>/shots.json`, `00 - Overview and Admin Prerequisites/`, `Facilitator Guide/` (`<Lab Title> - Facilitator Guide.md` plus matching `.docx`/`.pdf`/`.html`), titled `Module NN - <Title>/` folders in the requested formats, `sample-files/` starter artifacts, a root `README.md`, `export-manifest.json`, and optional `_branding/` assets. |
 
 #### Lab quality review
 
@@ -1539,6 +1541,139 @@ the `/api/lab-builder/generate` response as `qa`, and as a summary in
 `manifest.json` (`quality`). The validators separately enforce the product name
 (`harness-terminology` in `validator.js`; inside `accessible-markdown` in
 `validate_labs.py`).
+
+---
+
+## Brand profiles and lab customization
+
+Branding used to be one global record. It is now a set of **reusable brand profiles**
+(for example one per customer) plus **per-lab overrides**, so every lab can carry the
+right company identity, links, and support contact. The portal header and any lab
+that does not pick a profile follow the **active** profile.
+
+### Where to manage it
+
+- **Settings → Configuration → Brand profiles.** A profile list (with an *Active*
+  marker), plus create, duplicate, delete, and *Make active*. The editor groups the
+  fields into Identity, Colors & fonts, Links & contact, Default SharePoint site,
+  and Tenant environment URLs. It validates as you type, shows WCAG contrast ratios
+  with warnings, accepts a PNG or JPG logo (max 2 MB, no SVG), and shows a live
+  preview of the lab banner, the *More information* and *Need help?* blocks, and the
+  footer. The three existing actions keep their names: `saveBranding()`,
+  `resetBranding()`, and `removeBrandingLogo()` now act on the profile being edited.
+- **Lab builder, Step 7, Customize this lab.** Pick a profile for the lab, override
+  the company, tagline, more-information link and label, support contact, and footer
+  for this lab only, and watch the cover preview. Leave a field blank to inherit the
+  profile value. If the profile has a default SharePoint site, Step 7 pre-fills the
+  SharePoint site card from it (a site you enter always wins). The wizard summary bar
+  shows a **Brand: <profile>** chip and Step 8 shows a one-line summary.
+- **Previously generated labs → Open → Customize this lab (branding).** Change the
+  profile or overrides of a saved lab, then **Update from profile** or **Reset to
+  profile**.
+
+### Profile fields
+
+| Group | Fields | Rules |
+|---|---|---|
+| Identity | `name` (1-60), `companyName` (required, 80), `tagline` (120), `coverSubtitle` (160), `footerText` (200, plain text), `logo` | Angle brackets and control characters are removed. Logos are PNG/JPEG only (magic bytes are checked), at most 2 MB, stored under the uploads directory and served from `/uploads/<file>`. |
+| Colors & fonts | `primaryColor`, `secondaryColor` (optional), `font` | Hex colors. `font` is one of `default`, `segoe-ui`, `arial`, `calibri`, `verdana`, `georgia`, `times-new-roman`. The profile reports the contrast ratio of each color against white and a dark (`#181c26`) background and warns below WCAG AA (4.5:1 for small text). |
+| Links & contact | `moreInfoLabel` (60), `moreInfoUrl`, `supportName` (80), `supportEmail`, `communityUrl` | URLs must be `https://`. Bare domains are normalized to `https://`; `http:`, `javascript:`, `data:`, protocol-relative URLs, embedded credentials, and spaces are rejected with the same rules as the SharePoint site validator. |
+| Default SharePoint site | `defaultSharepointSiteName` (120), `defaultSharepointSiteUrl` | Pre-fills Step 7 and feeds `{{SHAREPOINT_SITE_*}}`. |
+| Tenant environment URLs | `copilotStudioUrl`, `powerPlatformEnvUrl`, `sharepointSiteUrl`, `sharepointAdminUrl`, `m365AdminUrl`, `foundryProjectUrl` | `https://` only. Used by the `{{TENANT_*}}` tokens and the capture environment (below). |
+
+Profiles are stored in `<portal data dir>/brand-profiles.json`, so the Azure Blob
+write-through sync that mirrors `data/` keeps them durable. The first time the portal
+reads branding it migrates an existing `branding.json` into a profile named
+**Default** (one time). `branding.json` is still written with the active profile's
+four classic fields, so older readers and rollbacks keep working. Up to 50 profiles
+are allowed, names are unique, and the **last profile cannot be deleted**. Deleting
+the active profile activates another one. A logo file is removed only when no other
+profile and no lab snapshot still uses it.
+
+### How a lab resolves its brand
+
+Everywhere a lab is rendered, the brand is resolved in this order:
+
+1. **Per-lab overrides** (`manifest.customization.overrides`)
+2. **The lab's profile snapshot** (`manifest.customization.profileSnapshot`)
+3. **The active profile**
+4. **Defaults**
+
+A lab built with `brandProfileId` stores `manifest.customization = { profileId,
+profileName, profileSnapshot, overrides }`, so it keeps its look even if the profile
+is edited or deleted later. Labs saved before this feature have no customization and
+follow the active profile. The lab's own SharePoint site (Step 7) wins over the
+profile default for `{{SHAREPOINT_SITE_*}}` and the capture environment.
+
+- **Update from profile** takes a fresh snapshot of the lab's profile and keeps the
+  overrides.
+- **Reset to profile** takes a fresh snapshot and clears the overrides.
+- Changing only the overrides never refreshes the snapshot. Changing the profile
+  takes a new snapshot of the new profile.
+
+### Where it shows up
+
+| Output | What changes |
+|---|---|
+| Markdown and portal preview | Banner (logo, company, tagline, cover subtitle, secondary-color rule, font), then a closing **More information** block, **Need help?** block, and the footer line. |
+| Standalone HTML | The same banner, a brand footer, the secondary color on the banner and footer rules (adjusted to stay visible in light and dark themes), the brand font, and the closing blocks. |
+| Word | Company header, cover subtitle, brand font, secondary color on rules and subheadings (darkened to stay readable), a page footer with the footer text and page number, and the closing blocks. |
+| PDF | Company header, cover subtitle, footer text, a secondary-color stripe and footer rule, a serif or sans family for the chosen font, and the closing blocks. |
+| PowerPoint | Title slide (company, cover subtitle), footer text, theme accent colors, the brand typeface, and a closing **More information and support** slide for full-lab decks. Per-topic decks get the title, footer, and theme. |
+| Facilitator Guide (`.md`, `.docx`, `.pdf`, `.html`) | The same banner, colors, font, and closing blocks. |
+| ZIP bundle | A root `README.md` (title, company, contents, modules, SharePoint site, links and support, footer) and `export-manifest.json` branding with `profileId`, `profileName`, `secondaryColor`, and `font`. Contact details stay out of the manifest. |
+| Email | The package email uses the active profile's company name, color, font, closing blocks, and footer. |
+
+### Tokens
+
+`applyBrandingTokens()` replaces these tokens in lab Markdown. A token with no value
+renders nothing sensible: empty text becomes an empty string, and a Markdown link
+or autolink left empty by a missing URL collapses to its label, so raw braces never
+reach learners. Other `{{...}}` text is left alone.
+
+`{{COMPANY_NAME}}`, `{{TAGLINE}}`, `{{PRIMARY_COLOR}}`, `{{SECONDARY_COLOR}}`,
+`{{COMPANY_LOGO}}`, `{{COVER_SUBTITLE}}`, `{{MORE_INFO_URL}}`, `{{MORE_INFO_LABEL}}`,
+`{{SUPPORT_EMAIL}}`, `{{SUPPORT_NAME}}`, `{{FOOTER_TEXT}}`, `{{COMMUNITY_URL}}`,
+`{{SHAREPOINT_SITE_URL}}`, `{{SHAREPOINT_SITE_NAME}}`,
+`{{TENANT_COPILOT_STUDIO_URL}}`, `{{TENANT_POWER_PLATFORM_URL}}`,
+`{{TENANT_SHAREPOINT_ADMIN_URL}}`, `{{TENANT_M365_ADMIN_URL}}`, and
+`{{TENANT_FOUNDRY_PROJECT_URL}}`.
+
+### Capture environment
+
+`buildCaptureEnv(profileOrCustomization)` in `portal/lib/branding-profiles.js` maps a
+profile, a lab manifest, or a `customization` record to the `CAPTURE_*` variables the
+screenshot capture tool already reads. Only `https://` values are returned and blank
+values are omitted:
+
+| Field | Variable |
+|---|---|
+| `copilotStudioUrl` | `CAPTURE_COPILOT_STUDIO_START_URL` |
+| `powerPlatformEnvUrl` | `CAPTURE_POWER_PLATFORM_START_URL` |
+| `sharepointSiteUrl` (the lab's own site and the profile default are used first) | `CAPTURE_SHAREPOINT_SITE_URL` |
+| `sharepointAdminUrl` | `CAPTURE_SHAREPOINT_ADMIN_URL` |
+| `m365AdminUrl` | `CAPTURE_M365_ADMIN_URL` |
+| `foundryProjectUrl` | `CAPTURE_FOUNDRY_PROJECT_URL` |
+
+### Brand API
+
+The routes follow the portal's normal auth rules. The legacy `/api/branding`
+(`GET`, `POST`), `/api/branding/logo` (`POST`, `DELETE`) routes keep working and now
+read and write the active profile. Bodies on the new routes are capped at 64 KB
+(`BRANDING_BODY_LIMIT`), mutating calls are limited to 120 per user per hour
+(`BRANDING_RATE_MAX`, `BRANDING_RATE_WINDOW_MS`), logo uploads to 30 per hour
+(`BRANDING_LOGO_RATE_MAX`), and both answer 429 with `Retry-After`. Every mutating
+call triggers the Azure Blob write-through sync like the other `/api` writes.
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` / `POST` | `/api/branding/profiles` | List profiles (with `activeProfileId`, fonts, limits) or create one. `POST` returns 201. Validation errors return 400 with an `errors` map keyed by field; a duplicate name returns 409. |
+| `GET` / `PATCH` / `DELETE` | `/api/branding/profiles/:id` | Read, update, or delete a profile. Each profile includes a computed `contrast` report. Deleting the last profile returns 409. |
+| `POST` / `DELETE` | `/api/branding/profiles/:id/logo` | Upload (`multipart/form-data`, field `logo`) or remove a PNG/JPG logo. |
+| `POST` | `/api/branding/profiles/:id/activate` | Make the profile the active one. |
+| `POST` | `/api/branding/profiles/:id/duplicate` | Copy a profile, including its logo. Optional `{ "name": "..." }`. |
+| `GET` / `PATCH` | `/api/lab-builder/generated/:labId/customization` | Read or change a lab's customization (also at `/api/generated-labs/:labId/customization`). `PATCH` takes `{ profileId?, overrides? }` or `{ "action": "update-from-profile" \| "reset" }` and returns the profile, overrides, `effective` brand, `contrast`, and `profileChangedSinceSnapshot`. |
+| `POST` | `/api/lab-builder/generate` | Also accepts `brandProfileId` and `overrides` so labs are born customized. An invalid override returns 400. |
 
 ---
 
@@ -1672,7 +1807,7 @@ the server log, never the manifest — and the output is exportable by design.
 | `POST` | `/api/lab-builder/topics/refresh` | Re-read the topic list from Microsoft Learn. Takes an empty `{}` body (anything else is HTTP 400). Limited to 6 refreshes per user per hour (`LAB_BUILDER_TOPICS_RATE_MAX`); answers 429 with `Retry-After` when rate limited, spaced too closely, or paused by the circuit breaker, 503 when refreshing is turned off, and 502 when Microsoft Learn failed. Every failure still returns the last good list. |
 | `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `recommended`, `required`, `thirdPartyConnector`, `optionalFor`, and `reasons`. Nothing is selected unless the vertical or a department points at it (`preselectedIds`); `recommendedIds` lists every 1st-party topic the rules suggest, selected or not (`thirdPartyConnector` modules remain `selected: false` and `recommended: false` unless explicitly included in `selected`). Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`). A `selected` list that names other levels is filtered, not trusted. Read-only. |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. With a `level`, topics from other levels are dropped (`droppedOutOfLevel`), and each module has a `role` of `level` or `prerequisite`. |
-| `POST` | `/api/lab-builder/generate` | Build the lab, write it (including per-topic `.docx` and `.pptx` files in `topics/` named per lab) to `generated-labs/`, and return markdown, `topicDocuments`, and validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. |
+| `POST` | `/api/lab-builder/generate` | Build the lab, write it (including per-topic `.docx` and `.pptx` files in `topics/` named per lab) to `generated-labs/`, and return markdown, `topicDocuments`, and validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. Optional `brandProfileId` and `overrides` snapshot a [brand profile](#brand-profiles-and-lab-customization) into `manifest.customization` so the lab is born customized. |
 | `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, products, vertical, level, harness, estimated minutes, topic count, `topicDocumentCount`, validation counts, `screenshots`, `learnDrift` (`status`, `lastCheckedAt`, `driftedModuleCount`, `driftedModules`, `missingScreenshotCount`, `moduleCount`), and `selections` (null for labs built before choices were saved). |
 | `GET` | `/api/lab-builder/learn-drift` | Return cached fleet-wide Microsoft Learn drift posture across all saved generated labs (`lastBulkScanAt`, `counts`, and per-lab `learnDrift` summaries) without making network requests. Also mounted at `/api/generated-labs/learn-drift`. |
 | `POST` | `/api/lab-builder/learn-drift/scan` | Bulk scan saved generated labs (all labs or an explicit `labIds` subset) against live Microsoft Learn documentation with bounded concurrency (`concurrency = 3`), optionally refreshing drifted steps, standalone HTML, and per-topic `.docx`/`.pptx` files when `autoUpdate: true`, and persisting `learn-drift-fleet.json`. Also mounted at `/api/generated-labs/learn-drift/scan`. |
@@ -1811,9 +1946,16 @@ A job request:
   "target": { "type": "lab", "labId": "my-lab" },        // or { "type": "library", "products": ["sharepoint-ai"] }
   "scope": "missing",                                     // missing | stale | all | selected, or { "mode": "selected", "filenames": [...], "featureIds": [...] }
   "env": { "CAPTURE_SHAREPOINT_SITE_URL": "https://contoso.sharepoint.com/sites/x" },   // optional; https only
+  "brandProfileId": "contoso",                            // optional: use that brand profile's tenant addresses
+  "useLabCustomization": true,                            // optional, default true: a lab built with a brand profile uses its addresses; false ignores them
   "options": { "callouts": "sidecar", "redact": true, "maskTerms": ["Contoso"] }          // callouts: sidecar | burn | none
 }
 ```
+
+The tenant addresses of a job come from `brandProfileId` (or, for a lab target, the lab's own brand customization), built
+with `buildCaptureEnv` in `portal/lib/branding-profiles.js`; anything in `env` wins per variable. The response says where they
+came from in `envSource` (`profile`, `lab`, `request`, `profile+request`, `lab+request`, or `null`). Two jobs for the same lab and
+shots but different addresses are different jobs.
 
 A job (`env` values are never returned to the browser, only `envNames`):
 
@@ -2027,7 +2169,7 @@ you run the workflow by hand.
 
 ## Persistent storage (Managed Identity Azure Blob and custom volumes)
 
-By default in local development, the portal stores generated labs under `generated-labs/`, portal JSON state (`branding.json`, `approval-config.json`, `approval-requests.json`, `agent-chat-config.json`, `feedback.json`, and `lab-builder/topics-cache.json`) under `portal/data/`, and uploaded branding logos under `portal/public/uploads/`.
+By default in local development, the portal stores generated labs under `generated-labs/`, portal JSON state (`branding.json`, `brand-profiles.json`, `approval-config.json`, `approval-requests.json`, `agent-chat-config.json`, `feedback.json`, and `lab-builder/topics-cache.json`) under `portal/data/`, and uploaded branding logos under `portal/public/uploads/`.
 
 In Azure Container Apps (`infra/main.bicep`), `infra/modules/storage.bicep` provisions an SFI-compliant StorageV2 account (`Standard_LRS`, TLS 1.2+, HTTPS-only, `allowSharedKeyAccess: false`, `allowBlobPublicAccess: false`, `publicNetworkAccess: 'SecuredByPerimeter'`) with a private Blob container (`portalstate`), a Network Security Perimeter (`nsp-<token>`, `defaultProfile`, same-subscription `allow-same-subscription` Inbound access rule, and `storage-assoc` in `Learning` mode), and passwordless Microsoft Entra Managed Identity RBAC (`Storage Blob Data Contributor`). No storage account keys or SMB `AzureFile` mounts are used.
 

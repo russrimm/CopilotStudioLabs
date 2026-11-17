@@ -31,6 +31,7 @@ import {
   resolveCapturedScreenshotsSearchDirs,
 } from "../lib/storage-config.js";
 import { isCaptureCompanionRequest } from "../lib/require-auth.js";
+import { createProfile } from "../lib/branding-profiles.js";
 import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "../lib/capture/jobs.js";
 import { createPairingStore, normalizePairingCode } from "../lib/capture/pairing.js";
 import { buildLabJobPlan, buildLibraryJobPlan, sanitizePlanSteps } from "../lib/capture/plan.js";
@@ -923,6 +924,64 @@ test("the real companion code drives a whole job against the real portal over HT
   t.diagnostic(`companion log lines: ${lines.length}`);
 });
 
+test("a job carries the tenant addresses of a brand profile or of the lab's own brand customization", async () => {
+  const { base } = ctx;
+  const brandEnv = { PORTAL_STORAGE_ROOT: ctx.storageRoot };
+  const profile = createProfile(
+    {
+      name: "Contoso Training",
+      companyName: "Contoso",
+      sharepointSiteUrl: "https://contoso.sharepoint.com/sites/training",
+      copilotStudioUrl: "https://copilotstudio.preview.microsoft.com/environments/abc/home",
+      foundryProjectUrl: "https://ai.azure.com/projects/contoso",
+    },
+    brandEnv,
+  );
+  const companion = new FakeCompanion(base);
+  await companion.pair((await call(base, "POST", "/api/capture/pair")).json.code);
+  await companion.heartbeat();
+  const labId = ctx.lab.labId;
+  const queue = (extra) => call(base, "POST", "/api/capture/jobs", { json: { target: { type: "lab", labId }, scope: { mode: "all", filenames: [], featureIds: [] }, ...extra } });
+  const cancel = (id) => call(base, "POST", `/api/capture/jobs/${id}/cancel`);
+
+  const fromProfile = await queue({ brandProfileId: profile.id, env: { CAPTURE_SHAREPOINT_SITE_URL: "https://contoso.sharepoint.com/sites/override" } });
+  assert.equal(fromProfile.status, 201, fromProfile.text);
+  assert.equal(fromProfile.json.envSource, "profile+request");
+  assert.deepEqual(fromProfile.json.job.envNames, ["CAPTURE_COPILOT_STUDIO_START_URL", "CAPTURE_FOUNDRY_PROJECT_URL", "CAPTURE_SHAREPOINT_SITE_URL"]);
+  assert.ok(!fromProfile.text.includes("contoso.sharepoint.com"), "tenant addresses never go back to the browser");
+  const claimed = (await companion.next()).json;
+  assert.equal(claimed.env.CAPTURE_COPILOT_STUDIO_START_URL, "https://copilotstudio.preview.microsoft.com/environments/abc/home");
+  assert.equal(claimed.env.CAPTURE_SHAREPOINT_SITE_URL, "https://contoso.sharepoint.com/sites/override", "an explicit address wins per variable");
+  await cancel(claimed.job.id);
+  assert.equal((await companion.complete(claimed.job.id)).json.job.status, "cancelled");
+
+  const sameButOtherBrand = await queue({ env: { CAPTURE_SHAREPOINT_SITE_URL: "https://fabrikam.sharepoint.com/sites/x" } });
+  const sameAgain = await queue({ env: { CAPTURE_SHAREPOINT_SITE_URL: "https://fabrikam.sharepoint.com/sites/x" } });
+  assert.equal(sameAgain.json.existing, true);
+  const differentEnv = await queue({ env: { CAPTURE_SHAREPOINT_SITE_URL: "https://other.sharepoint.com/sites/x" } });
+  assert.equal(differentEnv.status, 201, "the same capture for another tenant is a different job");
+  for (const job of [sameButOtherBrand, differentEnv]) await cancel(job.json.job.id);
+
+  assert.equal((await queue({ brandProfileId: "no-such-profile" })).status, 404);
+  assert.equal((await queue({ brandProfileId: 42 })).status, 400);
+  assert.equal((await queue({ brandProfileId: "../x" })).status, 404);
+
+  const generated = await call(base, "POST", "/api/lab-builder/generate", {
+    json: { products: ["copilot-studio"], features: ["mc-memory"], harness: "microsoft-copilot", includeCore: false, useLearnMcp: false, useLlm: false, brandProfileId: profile.id },
+  });
+  assert.equal(generated.status, 200, generated.text);
+  const branded = generated.json.labId;
+  const queueBranded = (extra) => call(base, "POST", "/api/capture/jobs", { json: { target: { type: "lab", labId: branded }, scope: "all", ...extra } });
+  const automatic = await queueBranded({});
+  assert.equal(automatic.status, 201, automatic.text);
+  assert.equal(automatic.json.envSource, "lab", "a lab built with a brand profile uses its addresses automatically");
+  assert.ok(automatic.json.job.envNames.includes("CAPTURE_SHAREPOINT_SITE_URL"));
+  await cancel(automatic.json.job.id);
+  const ignored = await queueBranded({ useLabCustomization: false });
+  assert.equal(ignored.json.envSource, null);
+  assert.deepEqual(ignored.json.job.envNames, []);
+  await cancel(ignored.json.job.id);
+});
 test("cancel stops a queued job at once and a running job between shots", async () => {
   const { base } = ctx;
   const { labId, shots } = ctx.lab;

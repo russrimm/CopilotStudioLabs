@@ -201,14 +201,22 @@ All `/api/*` routes pass through `requireAuth()` unless `PORTAL_AUTH_DISABLED=tr
 | `POST` | `/api/feedback` | Save thumbs up/down feedback for a lab section |
 | `GET` | `/api/feedback/:labId` | Retrieve feedback entries for a lab |
 
-### Branding
+### Branding and brand profiles
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/branding` | Get current branding |
-| `POST` | `/api/branding` | Save company name, color, and tagline |
-| `POST` | `/api/branding/logo` | Upload a logo |
-| `DELETE` | `/api/branding/logo` | Remove the uploaded logo |
+| `GET` | `/api/branding` | Get the active profile's branding (company, tagline, color, logo, and the extended profile fields) |
+| `POST` | `/api/branding` | Save company name, color, and tagline on the active profile |
+| `POST` | `/api/branding/logo` | Upload a logo for the active profile |
+| `DELETE` | `/api/branding/logo` | Remove the active profile's logo |
+| `GET` / `POST` | `/api/branding/profiles` | List or create brand profiles |
+| `GET` / `PATCH` / `DELETE` | `/api/branding/profiles/:id` | Read, update, or delete a profile |
+| `POST` / `DELETE` | `/api/branding/profiles/:id/logo` | Upload or remove a profile logo |
+| `POST` | `/api/branding/profiles/:id/activate` | Make a profile the active one |
+| `POST` | `/api/branding/profiles/:id/duplicate` | Copy a profile |
+| `GET` / `PATCH` | `/api/lab-builder/generated/:labId/customization` | Read or change a generated lab's profile and overrides (also at `/api/generated-labs/:labId/customization`) |
+
+See [Brand profiles and lab customization](../docs/lab-builder.md#brand-profiles-and-lab-customization) for fields, tokens, and resolution order.
 
 ### Export / Email
 
@@ -339,7 +347,9 @@ portal/
 │   ├── validator.js       Lab documentation smoke tests (structural, static + generated labs)
 │   ├── step-validator/    Step-level accuracy check against Microsoft Learn (parser, claims, matcher, runner, jobs)
 │   ├── markdown.js        Markdown rendering and HTML sanitization
-│   ├── branding.js        Company branding management
+│   ├── branding.js        Single-brand API (reads and writes the active brand profile), banner, and {{TOKEN}} replacement
+│   ├── branding-profiles.js  Brand profiles, per-lab customization, and the CAPTURE_* environment mapping
+│   ├── branding-routes.js    Brand profile and per-lab customization routes
 │   ├── scenarios.js       Industry scenario templates
 │   ├── provisioner.js     Azure resource provisioning engine
 │   ├── keyvault.js        Azure Key Vault secret management
@@ -356,14 +366,16 @@ portal/
 ├── public/
 │   ├── index.html             Single-page app UI (tabs, forms, preview, print styles)
 │   ├── app.js                 Core portal frontend logic (pagination, checklists, mini-quizzes)
-│   ├── lab-builder-wizard.js  8-step custom lab builder wizard UI
+│   ├── lab-builder-wizard.js  8-step custom lab builder wizard UI (Step 7 includes Customize this lab)
 │   ├── generated-labs.js      Generated lab manager, multi-format/per-topic export, print, and validation UI
+│   ├── brand-ui.js            Brand validation, contrast, and live preview helpers shared by the UI
+│   ├── lab-customize.js       Saved-lab Customize section (profile, overrides, Update from profile, Reset)
 │   ├── step-validation.js     Step validation UI (progress and results)
 │   ├── step-validation.css    Step validation styles
 │   ├── theme.js               Light/dark color theme toggle and persistence
 │   └── vendor/
 │       └── mermaid.min.js     Mermaid diagram renderer
-├── data/                  Runtime data (feedback, branding, approvals, agent config)
+├── data/                  Runtime data (feedback, branding and brand profiles, approvals, agent config)
 ├── Dockerfile             Production container build (node:24-alpine, port 3005, /healthz)
 ├── docker-compose.yml     Local container orchestration
 └── .env.template          Configuration template

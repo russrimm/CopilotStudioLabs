@@ -638,12 +638,6 @@
       cursor: pointer;
     }
 
-    .branding-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.9fr);
-      gap: 20px;
-      align-items: start;
-    }
     .branding-actions {
       margin-top: 16px;
       display: flex;
@@ -689,40 +683,155 @@
       max-height: 72px;
       object-fit: contain;
     }
-    .branding-preview {
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, transparent), color-mix(in srgb, var(--accent) 3%, transparent));
-      padding: 18px;
+    /* Brand profiles: list, editor, and the live "paper" preview of a lab banner, cover, and footer. */
+    .bp-layout {
+      display: grid;
+      grid-template-columns: minmax(200px, 0.6fr) minmax(0, 1.8fr);
+      gap: 20px;
+      align-items: start;
     }
-    .branding-preview-header {
+    .bp-sidebar { display: flex; flex-direction: column; gap: 10px; }
+    .bp-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .bp-item {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .bp-item:hover { border-color: var(--accent); }
+    .bp-item[aria-current="true"] {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+    }
+    .bp-item-name { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+    .bp-swatch {
+      width: 14px;
+      height: 14px;
+      flex: none;
+      border-radius: 50%;
+      border: 1px solid var(--border-strong);
+    }
+    .bp-badge {
+      margin-left: auto;
+      flex: none;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--success) 45%, transparent);
+      background: color-mix(in srgb, var(--success) 16%, transparent);
+      color: var(--success);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .bp-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
+    .bp-fieldset {
+      min-width: 0;
+      margin: 0 0 14px;
+      padding: 14px 16px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .bp-fieldset legend { padding: 0 6px; font-size: 14px; font-weight: 600; }
+    .bp-fieldset > .hint { display: block; margin: 0 0 10px; font-size: 12px; color: var(--text-muted); }
+    .bp-fieldset > .form-grid + .hint { margin: 10px 0 0; }
+    .bp-color-row { display: flex; align-items: center; gap: 8px; }
+    .bp-color-row input[type="color"] { flex: 0 0 52px; }
+    .bp-color-row input[type="text"] { flex: 1 1 auto; min-width: 0; }
+    .bp-error { margin: 0; font-size: 12px; color: var(--danger-text); }
+    .bp-error:empty { display: none; }
+    .bp-fieldset input[aria-invalid="true"],
+    .bp-fieldset select[aria-invalid="true"],
+    .lb-customize-card input[aria-invalid="true"] { border-color: var(--danger); }
+    .bp-contrast {
+      margin: 10px 0 0;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .bp-contrast-warn { border-color: var(--warning); color: var(--text); }
+    .bp-contrast ul { margin: 6px 0 0; padding-left: 18px; }
+    .bp-pv-heading { margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+    .bp-pv {
+      border: 1px solid #cbd3e4;
+      border-radius: 12px;
+      background: #ffffff;
+      color: #1a1d27;
+      overflow: hidden;
+    }
+    .bp-pv-banner {
       display: flex;
       align-items: center;
       gap: 14px;
-      min-height: 74px;
+      padding: 14px 18px;
+      border-bottom: 4px solid var(--pv-secondary, #cbd3e4);
+      background: var(--pv-tint, #f4f6fb);
     }
-    .branding-preview-header img {
-      max-height: 38px;
-      max-width: 160px;
-      object-fit: contain;
-      display: none;
-      border-radius: 6px;
-      background: color-mix(in srgb, var(--text) 95%, transparent);
-      padding: 4px 8px;
-    }
-    .branding-preview-title {
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .branding-preview-tagline {
-      color: var(--text-muted);
-      font-size: 13px;
-    }
-    .branding-preview-note {
-      margin-top: 12px;
+    .bp-pv-logo { max-height: 40px; max-width: 150px; object-fit: contain; }
+    .bp-pv-company { font-size: 20px; font-weight: 700; color: var(--pv-title, #1a1d27); overflow-wrap: anywhere; }
+    .bp-pv-tagline { font-size: 13px; color: #3b4660; }
+    .bp-pv-subtitle { font-size: 12px; font-style: italic; color: #3b4660; }
+    .bp-pv-body { padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; }
+    .bp-pv-lab-title { font-size: 16px; font-weight: 700; color: #1a1d27; }
+    .bp-pv-line { height: 8px; border-radius: 4px; background: #dde3ef; }
+    .bp-pv-line.short { width: 60%; }
+    .bp-pv-info { font-size: 12px; line-height: 1.6; color: #1a1d27; }
+    .bp-pv-info a { color: #123f9a; text-decoration: underline; }
+    .bp-pv-info strong { color: #1a1d27; }
+    .bp-pv-footer {
+      padding: 10px 18px;
+      border-top: 2px solid var(--pv-secondary, #cbd3e4);
       font-size: 12px;
-      color: var(--text-muted);
+      color: #3b4660;
+    }
+    .bp-pv-footer:empty { display: none; }
+    .lb-customize-card {
+      margin: 16px 0 14px;
+      padding: 16px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg);
+    }
+    .lb-customize-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+    .lb-customize-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--text); }
+    .lb-customize-desc { margin: 6px 0 12px; font-size: 13px; line-height: 1.55; color: var(--text-muted); }
+    .lb-customize-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+    .lb-customize-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(220px, 1fr); gap: 16px; align-items: start; }
+    .lb-customize-card .bp-error { margin-top: 2px; }
+    .lb-customize-site { margin: 12px 0 0; font-size: 13px; color: var(--text-muted); }
+    .lb-customize-links { margin: 10px 0 0; font-size: 13px; }
+    .lb-customize-links a { color: var(--link-color); font-weight: 600; text-decoration: underline; }
+    .lb-brand-chip {
+      display: inline-block;
+      padding: 1px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      font-weight: 600;
+    }
+    .lb-step8-customize-summary {
+      margin: 0 0 14px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .lb-step8-customize-summary[hidden] { display: none; }
+    .gl-customize { margin: 12px 0; }
+    .gl-customize-body { display: grid; gap: 12px; padding-top: 10px; }
+    @media (max-width: 860px) {
+      .lb-customize-layout { grid-template-columns: 1fr; }
     }
     .agent-chat-container {
       border: 1px solid var(--border);
@@ -811,7 +920,7 @@
     .btn-sm { padding: 5px 10px; font-size: 12px; }
 
     @media (max-width: 1080px) {
-      .branding-grid {
+      .bp-layout {
         grid-template-columns: 1fr;
       }
     }
@@ -4462,6 +4571,25 @@
         border: 1px solid #bbb !important;
       }
 
+      .bp-sidebar,
+      .bp-editor-toolbar,
+      .lb-customize-card .btn,
+      .gl-customize .btn {
+        display: none !important;
+      }
+
+      .lb-customize-card,
+      .bp-fieldset,
+      .lb-step8-customize-summary {
+        background: #fff !important;
+        color: #000 !important;
+        border: 1px solid #bbb !important;
+      }
+
+      .bp-pv {
+        break-inside: avoid;
+      }
+
       .lb-stat-chip,
       .lb-stat-chip-total,
       .lb-stat-chip-level,
@@ -5199,6 +5327,66 @@
                   <button type="button" class="btn btn-small" id="lb-sharepoint-site-skip">Skip &amp; use placeholder URL</button>
                 </div>
               </section>
+              <section id="lb-customize-card" class="lb-customize-card" aria-labelledby="lb-customize-heading">
+                <div class="lb-customize-head">
+                  <h4 id="lb-customize-heading" class="lb-customize-title">Customize this lab</h4>
+                  <span class="lb-badge lb-badge-product">Branding</span>
+                </div>
+                <p id="lb-customize-desc" class="lb-customize-desc">
+                  Pick a brand profile for this lab, then override details for this lab only. Leave a field blank to use the profile's value. The lab keeps its own copy of the profile, so later profile edits never change it unless you update it.
+                </p>
+                <div class="lb-customize-layout">
+                  <div>
+                    <div class="lb-customize-grid">
+                      <div class="form-group">
+                        <label for="lb-brand-profile">Brand profile</label>
+                        <select id="lb-brand-profile" aria-describedby="lb-brand-profile-hint"></select>
+                        <span class="hint" id="lb-brand-profile-hint">Use <a href="#" id="lb-manage-profiles">Manage brand profiles</a> to add or edit profiles.</span>
+                      </div>
+                      <div class="form-group">
+                        <label for="lb-ov-companyName">Company name</label>
+                        <input type="text" id="lb-ov-companyName" data-lb-ov="companyName" maxlength="80" autocomplete="off" aria-describedby="lb-ov-companyName-error" />
+                        <p class="bp-error" id="lb-ov-companyName-error" role="alert"></p>
+                      </div>
+                      <div class="form-group">
+                        <label for="lb-ov-tagline">Tagline</label>
+                        <input type="text" id="lb-ov-tagline" data-lb-ov="tagline" maxlength="120" autocomplete="off" aria-describedby="lb-ov-tagline-error" />
+                        <p class="bp-error" id="lb-ov-tagline-error" role="alert"></p>
+                      </div>
+                      <div class="form-group">
+                        <label for="lb-ov-moreInfoUrl">More information URL</label>
+                        <input type="text" id="lb-ov-moreInfoUrl" data-lb-ov="moreInfoUrl" inputmode="url" autocomplete="off" aria-describedby="lb-ov-moreInfoUrl-error" />
+                        <p class="bp-error" id="lb-ov-moreInfoUrl-error" role="alert"></p>
+                      </div>
+                      <div class="form-group">
+                        <label for="lb-ov-moreInfoLabel">More information label</label>
+                        <input type="text" id="lb-ov-moreInfoLabel" data-lb-ov="moreInfoLabel" maxlength="60" autocomplete="off" aria-describedby="lb-ov-moreInfoLabel-error" />
+                        <p class="bp-error" id="lb-ov-moreInfoLabel-error" role="alert"></p>
+                      </div>
+                      <div class="form-group">
+                        <label for="lb-ov-supportName">Support contact name</label>
+                        <input type="text" id="lb-ov-supportName" data-lb-ov="supportName" maxlength="80" autocomplete="off" aria-describedby="lb-ov-supportName-error" />
+                        <p class="bp-error" id="lb-ov-supportName-error" role="alert"></p>
+                      </div>
+                      <div class="form-group">
+                        <label for="lb-ov-supportEmail">Support email</label>
+                        <input type="email" id="lb-ov-supportEmail" data-lb-ov="supportEmail" autocomplete="off" aria-describedby="lb-ov-supportEmail-error" />
+                        <p class="bp-error" id="lb-ov-supportEmail-error" role="alert"></p>
+                      </div>
+                      <div class="form-group">
+                        <label for="lb-ov-footerText">Footer text</label>
+                        <input type="text" id="lb-ov-footerText" data-lb-ov="footerText" maxlength="200" autocomplete="off" aria-describedby="lb-ov-footerText-error" />
+                        <p class="bp-error" id="lb-ov-footerText-error" role="alert"></p>
+                      </div>
+                    </div>
+                    <p id="lb-customize-site" class="lb-customize-site" role="status" aria-live="polite"></p>
+                  </div>
+                  <div>
+                    <h5 class="bp-pv-heading" id="lb-customize-preview-heading">Cover preview</h5>
+                    <div id="lb-customize-preview" aria-labelledby="lb-customize-preview-heading"></div>
+                  </div>
+                </div>
+              </section>
               <details class="lb-advanced">
                 <summary>Advanced options</summary>
                 <div class="form-grid">
@@ -5243,6 +5431,7 @@
                 We research each topic on Microsoft Learn and write the lab. This can take a minute. You can go back to any step first.
               </p>
               <div id="lb-step8-sharepoint-summary" class="lb-step8-sharepoint-summary" role="status" aria-live="polite" hidden></div>
+              <p id="lb-step8-customize-summary" class="lb-step8-customize-summary" role="status" aria-live="polite" hidden></p>
               <fieldset id="lb-save-mode" class="lb-fieldset lb-save-mode" hidden>
                 <legend class="lb-legend" id="lb-save-mode-legend">How should this be saved?</legend>
                 <div class="scenario-role-list">
@@ -5854,59 +6043,196 @@
 
           <!-- Config tab -->
           <div class="tab-panel" id="panel-config" role="tabpanel" aria-labelledby="tab-config" aria-hidden="true">
-            <div class="panel">
-              <h3>🎨 Branding</h3>
+            <div class="panel" id="brand-profiles-panel">
+              <h3>🎨 Brand profiles</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
-                Apply your company identity across the portal, previews, and exported lab documents.
+                Create a reusable brand profile per customer. The active profile styles the portal header and every lab that does not pick another one.
+                Each lab keeps a snapshot of its profile, and you can override details for a single lab in Step 7 of the lab builder.
               </p>
-              <div class="branding-grid">
-                <div>
-                  <div class="form-grid">
-                    <div class="form-group full">
-                      <label for="branding-company-name">Company Name</label>
-                      <input type="text" id="branding-company-name" placeholder="Contoso Energy" />
-                      <span class="hint">Required. Used in the portal header and lab document banner.</span>
-                    </div>
-                    <div class="form-group">
-                      <label for="branding-primary-color">Primary Color</label>
-                      <input type="color" id="branding-primary-color" value="#4f8ff7" />
-                      <span class="hint">Updates the portal accent color on dark backgrounds.</span>
-                    </div>
-                    <div class="form-group">
-                      <label for="branding-tagline">Tagline</label>
-                      <input type="text" id="branding-tagline" placeholder="Training Labs Portal" />
-                      <span class="hint">Shown beneath the company name in the portal header.</span>
-                    </div>
-                    <div class="form-group full">
-                      <label>Logo Upload</label>
-                      <label id="branding-upload" class="branding-upload" for="branding-logo-file">
-                        <input type="file" id="branding-logo-file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" />
-                        <div class="branding-upload-title">Drop a logo here or click to browse</div>
-                        <div class="branding-upload-subtitle">PNG or JPG • max 2 MB • used in the header and exported docs</div>
-                        <div id="branding-logo-preview" class="branding-logo-preview">
-                          <span style="color: var(--text-muted); font-size: 12px;">No logo uploaded</span>
+              <div class="bp-layout">
+                <nav class="bp-sidebar" aria-labelledby="bp-list-heading">
+                  <h4 id="bp-list-heading" style="margin: 0; font-size: 14px;">Profiles</h4>
+                  <ul id="bp-list" class="bp-list"></ul>
+                  <button type="button" class="btn btn-sm" id="bp-new">＋ New profile</button>
+                </nav>
+                <div class="bp-editor" id="bp-editor" aria-labelledby="bp-editor-heading">
+                  <h4 id="bp-editor-heading" tabindex="-1" style="margin: 0 0 10px; font-size: 15px;">Edit profile</h4>
+                  <div class="bp-editor-toolbar" role="group" aria-label="Profile actions">
+                    <button type="button" class="btn btn-sm" id="bp-activate">✔ Make active</button>
+                    <button type="button" class="btn btn-sm" id="bp-duplicate">⧉ Duplicate</button>
+                    <button type="button" class="btn btn-sm btn-danger" id="bp-delete">🗑️ Delete</button>
+                  </div>
+                  <form id="bp-form" novalidate>
+                    <fieldset class="bp-fieldset">
+                      <legend>Identity</legend>
+                      <div class="form-grid">
+                        <div class="form-group">
+                          <label for="bp-name">Profile name</label>
+                          <input type="text" id="bp-name" data-bp-field="name" maxlength="60" autocomplete="off" placeholder="Contoso Energy" aria-describedby="bp-name-hint bp-name-error" />
+                          <span class="hint" id="bp-name-hint">Required. Shown in the profile list and the lab builder.</span>
+                          <p class="bp-error" id="bp-name-error" role="alert"></p>
                         </div>
-                      </label>
+                        <div class="form-group">
+                          <label for="bp-companyName">Company name</label>
+                          <input type="text" id="bp-companyName" data-bp-field="companyName" maxlength="80" autocomplete="off" placeholder="Contoso Energy" aria-describedby="bp-companyName-hint bp-companyName-error" />
+                          <span class="hint" id="bp-companyName-hint">Required. Used in the header, the lab banner, and exports.</span>
+                          <p class="bp-error" id="bp-companyName-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-tagline">Tagline</label>
+                          <input type="text" id="bp-tagline" data-bp-field="tagline" maxlength="120" autocomplete="off" placeholder="Training Labs Portal" aria-describedby="bp-tagline-error" />
+                          <p class="bp-error" id="bp-tagline-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-coverSubtitle">Cover subtitle</label>
+                          <input type="text" id="bp-coverSubtitle" data-bp-field="coverSubtitle" maxlength="160" autocomplete="off" placeholder="Spring 2026 cohort" aria-describedby="bp-coverSubtitle-error" />
+                          <p class="bp-error" id="bp-coverSubtitle-error" role="alert"></p>
+                        </div>
+                        <div class="form-group full">
+                          <label for="bp-footerText">Footer text</label>
+                          <input type="text" id="bp-footerText" data-bp-field="footerText" maxlength="200" autocomplete="off" placeholder="Contoso internal training" aria-describedby="bp-footerText-hint bp-footerText-error" />
+                          <span class="hint" id="bp-footerText-hint">Plain text, up to 200 characters. Shown in the footer of every export.</span>
+                          <p class="bp-error" id="bp-footerText-error" role="alert"></p>
+                        </div>
+                        <div class="form-group full">
+                          <span class="label-like" id="bp-logo-label" style="font-weight: 600; font-size: 13px;">Logo</span>
+                          <label id="branding-upload" class="branding-upload" for="branding-logo-file">
+                            <input type="file" id="branding-logo-file" accept=".png,.jpg,.jpeg,image/png,image/jpeg" aria-describedby="bp-logo-hint" />
+                            <div class="branding-upload-title">Drop a logo here or click to browse</div>
+                            <div class="branding-upload-subtitle" id="bp-logo-hint">PNG or JPG • max 2 MB • used in the header and exported docs</div>
+                            <div id="branding-logo-preview" class="branding-logo-preview">
+                              <span style="color: var(--text-muted); font-size: 12px;">No logo uploaded</span>
+                            </div>
+                          </label>
+                        </div>
+                      </div>
+                    </fieldset>
+
+                    <fieldset class="bp-fieldset">
+                      <legend>Colors &amp; fonts</legend>
+                      <div class="form-grid">
+                        <div class="form-group">
+                          <label for="bp-primaryColor-hex">Primary color</label>
+                          <div class="bp-color-row">
+                            <input type="color" id="bp-primaryColor" aria-label="Primary color picker" value="#4f8ff7" />
+                            <input type="text" id="bp-primaryColor-hex" data-bp-field="primaryColor" maxlength="7" autocomplete="off" placeholder="#0f6cbd" aria-describedby="bp-primaryColor-error bp-contrast" />
+                          </div>
+                          <p class="bp-error" id="bp-primaryColor-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-secondaryColor-hex">Secondary color <span class="hint">(optional)</span></label>
+                          <div class="bp-color-row">
+                            <input type="color" id="bp-secondaryColor" aria-label="Secondary color picker" value="#c2410c" />
+                            <input type="text" id="bp-secondaryColor-hex" data-bp-field="secondaryColor" maxlength="7" autocomplete="off" placeholder="#c2410c" aria-describedby="bp-secondaryColor-error bp-contrast" />
+                          </div>
+                          <p class="bp-error" id="bp-secondaryColor-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-font">Font</label>
+                          <select id="bp-font" data-bp-field="font" aria-describedby="bp-font-hint"></select>
+                          <span class="hint" id="bp-font-hint">Used in the lab banner, HTML, Word, PDF, and PowerPoint output.</span>
+                        </div>
+                      </div>
+                      <div id="bp-contrast" class="bp-contrast" role="status" aria-live="polite"></div>
+                    </fieldset>
+
+                    <fieldset class="bp-fieldset">
+                      <legend>Links &amp; contact</legend>
+                      <div class="form-grid">
+                        <div class="form-group">
+                          <label for="bp-moreInfoLabel">More information label</label>
+                          <input type="text" id="bp-moreInfoLabel" data-bp-field="moreInfoLabel" maxlength="60" autocomplete="off" placeholder="Contoso AI portal" aria-describedby="bp-moreInfoLabel-error" />
+                          <p class="bp-error" id="bp-moreInfoLabel-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-moreInfoUrl">More information URL</label>
+                          <input type="text" id="bp-moreInfoUrl" data-bp-field="moreInfoUrl" inputmode="url" autocomplete="off" placeholder="https://learn.contoso.com/ai" aria-describedby="bp-moreInfoUrl-error" />
+                          <p class="bp-error" id="bp-moreInfoUrl-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-supportName">Support contact name</label>
+                          <input type="text" id="bp-supportName" data-bp-field="supportName" maxlength="80" autocomplete="off" placeholder="AI enablement team" aria-describedby="bp-supportName-error" />
+                          <p class="bp-error" id="bp-supportName-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-supportEmail">Support email</label>
+                          <input type="email" id="bp-supportEmail" data-bp-field="supportEmail" autocomplete="off" placeholder="ai-help@contoso.com" aria-describedby="bp-supportEmail-error" />
+                          <p class="bp-error" id="bp-supportEmail-error" role="alert"></p>
+                        </div>
+                        <div class="form-group full">
+                          <label for="bp-communityUrl">Community URL</label>
+                          <input type="text" id="bp-communityUrl" data-bp-field="communityUrl" inputmode="url" autocomplete="off" placeholder="https://teams.microsoft.com/l/team/…" aria-describedby="bp-communityUrl-hint bp-communityUrl-error" />
+                          <span class="hint" id="bp-communityUrl-hint">For example a Teams team or Viva Engage community.</span>
+                          <p class="bp-error" id="bp-communityUrl-error" role="alert"></p>
+                        </div>
+                      </div>
+                    </fieldset>
+
+                    <fieldset class="bp-fieldset">
+                      <legend>Default SharePoint site</legend>
+                      <div class="form-grid">
+                        <div class="form-group">
+                          <label for="bp-defaultSharepointSiteName">Site name</label>
+                          <input type="text" id="bp-defaultSharepointSiteName" data-bp-field="defaultSharepointSiteName" maxlength="120" autocomplete="off" placeholder="Contoso AI Hub" aria-describedby="bp-sharepoint-hint bp-defaultSharepointSiteName-error" />
+                          <p class="bp-error" id="bp-defaultSharepointSiteName-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-defaultSharepointSiteUrl">Site URL</label>
+                          <input type="text" id="bp-defaultSharepointSiteUrl" data-bp-field="defaultSharepointSiteUrl" inputmode="url" autocomplete="off" placeholder="https://contoso.sharepoint.com/sites/AIHub" aria-describedby="bp-sharepoint-hint bp-defaultSharepointSiteUrl-error" />
+                          <p class="bp-error" id="bp-defaultSharepointSiteUrl-error" role="alert"></p>
+                        </div>
+                      </div>
+                      <span class="hint" id="bp-sharepoint-hint">Pre-fills the SharePoint site in Step 7 of the lab builder. A site set for one lab always wins.</span>
+                    </fieldset>
+
+                    <fieldset class="bp-fieldset">
+                      <legend>Tenant environment URLs</legend>
+                      <p class="hint" style="margin: 0 0 10px;">https only. The screenshot capture tool uses these to open your own environments.</p>
+                      <div class="form-grid">
+                        <div class="form-group">
+                          <label for="bp-copilotStudioUrl">Copilot Studio</label>
+                          <input type="text" id="bp-copilotStudioUrl" data-bp-field="copilotStudioUrl" inputmode="url" autocomplete="off" placeholder="https://copilotstudio.microsoft.com/environments/…" aria-describedby="bp-copilotStudioUrl-error" />
+                          <p class="bp-error" id="bp-copilotStudioUrl-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-powerPlatformEnvUrl">Power Platform environment</label>
+                          <input type="text" id="bp-powerPlatformEnvUrl" data-bp-field="powerPlatformEnvUrl" inputmode="url" autocomplete="off" placeholder="https://make.powerapps.com/environments/…" aria-describedby="bp-powerPlatformEnvUrl-error" />
+                          <p class="bp-error" id="bp-powerPlatformEnvUrl-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-sharepointSiteUrl">SharePoint site</label>
+                          <input type="text" id="bp-sharepointSiteUrl" data-bp-field="sharepointSiteUrl" inputmode="url" autocomplete="off" placeholder="https://contoso.sharepoint.com/sites/Labs" aria-describedby="bp-sharepointSiteUrl-error" />
+                          <p class="bp-error" id="bp-sharepointSiteUrl-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-sharepointAdminUrl">SharePoint admin center</label>
+                          <input type="text" id="bp-sharepointAdminUrl" data-bp-field="sharepointAdminUrl" inputmode="url" autocomplete="off" placeholder="https://contoso-admin.sharepoint.com" aria-describedby="bp-sharepointAdminUrl-error" />
+                          <p class="bp-error" id="bp-sharepointAdminUrl-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-m365AdminUrl">Microsoft 365 admin center</label>
+                          <input type="text" id="bp-m365AdminUrl" data-bp-field="m365AdminUrl" inputmode="url" autocomplete="off" placeholder="https://admin.microsoft.com" aria-describedby="bp-m365AdminUrl-error" />
+                          <p class="bp-error" id="bp-m365AdminUrl-error" role="alert"></p>
+                        </div>
+                        <div class="form-group">
+                          <label for="bp-foundryProjectUrl">Foundry project</label>
+                          <input type="text" id="bp-foundryProjectUrl" data-bp-field="foundryProjectUrl" inputmode="url" autocomplete="off" placeholder="https://ai.azure.com/…" aria-describedby="bp-foundryProjectUrl-error" />
+                          <p class="bp-error" id="bp-foundryProjectUrl-error" role="alert"></p>
+                        </div>
+                      </div>
+                    </fieldset>
+
+                    <div class="branding-actions">
+                      <button type="submit" class="btn btn-primary" id="bp-save">💾 Save profile</button>
+                      <button type="button" class="btn" id="bp-reset">↺ Reset to default</button>
+                      <button type="button" class="btn" id="branding-remove-logo">🗑️ Remove logo</button>
+                      <span id="branding-status" role="status" aria-live="polite" style="font-size: 13px; color: var(--text-muted);"></span>
                     </div>
-                  </div>
-                  <div class="branding-actions">
-                    <button class="btn btn-primary" onclick="saveBranding()">💾 Save Branding</button>
-                    <button class="btn" onclick="resetBranding()">↺ Reset to Default</button>
-                    <button class="btn" id="branding-remove-logo" onclick="removeBrandingLogo()">🗑️ Remove Logo</button>
-                    <span id="branding-status" style="font-size: 13px; color: var(--text-muted);"></span>
-                  </div>
-                </div>
-                <div class="branding-preview">
-                  <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 12px;">Live Preview</div>
-                  <div id="branding-preview-header" class="branding-preview-header">
-                    <img id="branding-preview-logo" alt="Brand preview logo" />
-                    <div>
-                      <div id="branding-preview-title" class="branding-preview-title">Microsoft AI Training Generator</div>
-                      <div id="branding-preview-tagline" class="branding-preview-tagline">Provisioning Portal</div>
-                    </div>
-                  </div>
-                  <div class="branding-preview-note">
-                    This preview mirrors the portal header and the document banner added during export.
+                  </form>
+                  <div style="margin-top: 18px;">
+                    <h4 class="bp-pv-heading" id="bp-preview-heading">Live preview</h4>
+                    <div id="bp-preview" aria-labelledby="bp-preview-heading"></div>
+                    <p class="hint" style="margin-top: 8px;">The preview mirrors the lab banner, the "More information" and "Need help?" blocks, and the footer added to exports.</p>
                   </div>
                 </div>
               </div>
@@ -6067,8 +6393,10 @@
   </div>
 
   <script src="step-validation.js" defer></script>
+  <script src="brand-ui.js" defer></script>
   <script src="app.js" defer></script>
 <script src="lab-builder-wizard.js" defer></script>
 <script src="generated-labs.js" defer></script>
+<script src="lab-customize.js" defer></script>
 </body>
 </html>

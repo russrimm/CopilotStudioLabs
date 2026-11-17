@@ -7,12 +7,20 @@ import { dirname, extname, isAbsolute, join, posix, relative, resolve } from "pa
 import { ZipArchive } from "archiver";
 import { getLabPath, isValidLabId } from "./labs.js";
 import {
-   applyBrandingTokens,
-  DEFAULT_BRANDING,
+  applyBrandingToMarkdown,
+  applyBrandingTokens,
   getBrandingLogoAbsolutePath,
   loadBranding,
   prependBrandingBanner,
 } from "./branding.js";
+import { resolveLabBrand } from "./branding-profiles.js";
+import {
+  getBrandInfoLines,
+  getBrandSharepointSite,
+  hasBrandCustomization,
+  normalizeBrand,
+  renderBrandInfoMarkdown,
+} from "./lab-builder/brand-theme.js";
 import { renderStandaloneLabHtml } from "./lab-builder/html-lab.js";
 import { resolveLabScreenshot } from "./lab-builder/captured.js";
 import { MIN_CAPTURED_BYTES } from "./lab-builder/slots.js";
@@ -124,12 +132,87 @@ function fileToDataUri(filePath, explicitMime) {
 }
 
 export function isCustomBranding(branding = loadBranding()) {
-  return Boolean(
-    branding.logo ||
-    branding.companyName !== DEFAULT_BRANDING.companyName ||
-    branding.tagline !== DEFAULT_BRANDING.tagline ||
-    branding.primaryColor !== DEFAULT_BRANDING.primaryColor
-  );
+  return hasBrandCustomization(branding);
+}
+
+/** Visual and text brand fields every renderer understands (logo is attached per format). */
+function brandRenderOptions(brand) {
+  const b = normalizeBrand(brand);
+  return {
+    companyName: b.companyName,
+    tagline: b.tagline,
+    primaryColor: b.primaryColor,
+    secondaryColor: b.secondaryColor,
+    font: b.font,
+    coverSubtitle: b.coverSubtitle,
+    footerText: b.footerText,
+    moreInfoLabel: b.moreInfoLabel,
+    moreInfoUrl: b.moreInfoUrl,
+    supportName: b.supportName,
+    supportEmail: b.supportEmail,
+    communityUrl: b.communityUrl,
+  };
+}
+
+/** Branding handed to DOCX/PDF/PPTX builders; plain defaults stay unbranded apart from the accent color. */
+function buildDocBranding(brand, custom, logoBuffer = null) {
+  return custom
+    ? { ...brandRenderOptions(brand), logoBuffer }
+    : { primaryColor: normalizeBrand(brand).primaryColor };
+}
+
+/** Branding handed to the standalone HTML renderers. */
+function buildHtmlBranding(brand, custom, logoUrl = null) {
+  return custom ? { ...brandRenderOptions(brand), logoUrl } : null;
+}
+
+/** Brand details recorded in export manifests (no contact details). */
+function buildManifestBranding(brand, logoArchivePath = null) {
+  const b = normalizeBrand(brand);
+  return {
+    companyName: b.companyName,
+    logo: logoArchivePath,
+    primaryColor: b.primaryColor,
+    secondaryColor: b.secondaryColor || null,
+    font: b.font,
+    tagline: b.tagline,
+    profileId: brand?.profileId || null,
+    profileName: brand?.profileName || null,
+  };
+}
+
+function appendBrandInfo(markdown, brand) {
+  const info = renderBrandInfoMarkdown(brand);
+  return info ? `${String(markdown ?? "").replace(/\s+$/, "")}\n${info}` : markdown;
+}
+
+/** README.md placed at the root of every generated-lab bundle. */
+export function renderBundleReadme({ title, brand, formats = [], modules = [], hasFacilitatorGuide = true } = {}) {
+  const b = normalizeBrand(brand);
+  const site = getBrandSharepointSite(b);
+  const lines = [`# ${title || "Lab bundle"}`, ""];
+  lines.push(`${b.companyName}${b.tagline ? ` — ${b.tagline}` : ""}`, "");
+  if (b.coverSubtitle) lines.push(`_${b.coverSubtitle}_`, "");
+  lines.push("## What is in this bundle", "");
+  lines.push("- `index.md` and `index.html` — the complete lab guide (Markdown and a single-file web page).");
+  if (formats.length) {
+    lines.push(`- One folder per module with the guide in ${formats.map((f) => `.${f}`).join(", ")} and a \`sample-files/\` starter pack.`);
+  }
+  if (hasFacilitatorGuide) lines.push("- `Facilitator Guide/` — the instructor pack for delivering the lab.");
+  lines.push("- `assets/` — screenshots used by the guide.");
+  if (modules.length) {
+    lines.push("", "## Modules", "");
+    for (const mod of modules) lines.push(`${mod.order}. ${mod.title}`);
+  }
+  const resources = [];
+  if (site.url) resources.push(`SharePoint site: ${site.name ? `${site.name} — ` : ""}${site.url}`);
+  resources.push(...getBrandInfoLines(b));
+  if (resources.length) {
+    lines.push("", "## Links and support", "", ...resources.map((line) => `- ${line}`));
+  }
+  if (b.footerText) lines.push("", "---", "", b.footerText);
+  lines.push("");
+  return lines.join("\n");
 }
 
 export function resolveSafeGeneratedLabDir(generatedRoot, rawLabId) {
@@ -245,7 +328,7 @@ export function exportLabs(labIds, replacements = {}, outputStream) {
           ? relative(dirname(archiveName), logoArchivePath).replace(/\\/g, "/")
           : null;
 
-        content = prependBrandingBanner(content, branding, logoRelativePath);
+        content = prependBrandingBanner(content, branding, logoRelativePath, { infoBlocks: relativePath === "index.md" });
         archive.append(content, { name: archiveName });
       }
     }
@@ -255,12 +338,7 @@ export function exportLabs(labIds, replacements = {}, outputStream) {
       exportedAt: new Date().toISOString(),
       labs: labIds,
       customized: replacementEntries.length > 0 || isCustomBranding(branding),
-      branding: {
-        companyName: branding.companyName,
-        logo: logoArchivePath,
-        primaryColor: branding.primaryColor,
-        tagline: branding.tagline,
-      },
+      branding: buildManifestBranding(branding, logoArchivePath),
     };
     archive.append(JSON.stringify(manifest, null, 2), { name: "export-manifest.json" });
 
@@ -276,19 +354,20 @@ export function renderGeneratedLabMarkdown(
   generatedRoot,
   rawLabId,
   replacements = {},
-  { branding = loadBranding() } = {},
+  { branding } = {},
 ) {
   const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
   if (found.status !== 200) return { status: found.status, error: found.error };
 
+  const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
   let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
   }
-  content = isCustomBranding(branding)
-    ? prependBrandingBanner(content, branding, null)
-    : applyBrandingTokens(content, branding);
+  content = isCustomBranding(brand)
+    ? prependBrandingBanner(content, brand, null)
+    : applyBrandingTokens(content, brand);
 
   return { status: 200, labId: found.labId, markdown: content };
 }
@@ -302,30 +381,24 @@ export function renderGeneratedLabHtml(
   generatedRoot,
   rawLabId,
   replacements = {},
-  { branding = loadBranding(), resolveAsset, logoSourcePath: explicitLogoPath } = {},
+  { branding, resolveAsset, logoSourcePath: explicitLogoPath } = {},
 ) {
   const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
   if (found.status !== 200) return { status: found.status, error: found.error };
 
+  const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
   let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
   }
-  content = applyBrandingTokens(content, branding);
+  content = applyBrandingToMarkdown(content, brand);
 
-  const customizedBranding = isCustomBranding(branding);
+  const customizedBranding = isCustomBranding(brand);
   const logoPath = customizedBranding
-    ? explicitLogoPath || getBrandingLogoAbsolutePath(branding.logo)
+    ? explicitLogoPath || getBrandingLogoAbsolutePath(brand.logo)
     : null;
-  const brandingInfo = customizedBranding
-    ? {
-        companyName: branding.companyName,
-        tagline: branding.tagline,
-        primaryColor: branding.primaryColor,
-        logoUrl: fileToDataUri(logoPath),
-      }
-    : null;
+  const brandingInfo = buildHtmlBranding(brand, customizedBranding, fileToDataUri(logoPath));
 
   const html = renderStandaloneLabHtml(content, {
     title: found.manifest?.title || found.labId,
@@ -359,34 +432,28 @@ export function renderGeneratedLabDocx(
   generatedRoot,
   rawLabId,
   replacements = {},
-  { branding = loadBranding(), resolveAsset, logoSourcePath: explicitLogoPath } = {},
+  { branding, resolveAsset, logoSourcePath: explicitLogoPath } = {},
 ) {
   const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
   if (found.status !== 200) return { status: found.status, error: found.error };
 
+  const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
   let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
   }
-  content = applyBrandingTokens(content, branding);
+  content = applyBrandingToMarkdown(content, brand);
 
-  const customizedBranding = isCustomBranding(branding);
+  const customizedBranding = isCustomBranding(brand);
   const logoPath = customizedBranding
-    ? explicitLogoPath || getBrandingLogoAbsolutePath(branding.logo)
+    ? explicitLogoPath || getBrandingLogoAbsolutePath(brand.logo)
     : null;
   const logoBuffer = logoPath && existsSync(logoPath) ? readFileSync(logoPath) : null;
 
   const buffer = renderMarkdownToDocxBuffer(content, {
     title: found.manifest?.title || found.labId,
-    branding: customizedBranding
-      ? {
-          companyName: branding.companyName,
-          tagline: branding.tagline,
-          primaryColor: branding.primaryColor,
-          logoBuffer,
-        }
-      : { primaryColor: branding.primaryColor },
+    branding: buildDocBranding(brand, customizedBranding, logoBuffer),
     resolveImageBuffer: (src) => resolveLabAssetBuffer(generatedRoot, found.labId, found.labDir, src, resolveAsset),
   });
 
@@ -400,11 +467,12 @@ export function renderGeneratedLabPptx(
   generatedRoot,
   rawLabId,
   replacements = {},
-  { branding = loadBranding(), resolveAsset, logoSourcePath: explicitLogoPath } = {},
+  { branding, resolveAsset, logoSourcePath: explicitLogoPath } = {},
 ) {
   const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
   if (found.status !== 200) return { status: found.status, error: found.error };
 
+  const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
   let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
   let brandedTitle = found.manifest?.title || found.labId;
@@ -412,26 +480,19 @@ export function renderGeneratedLabPptx(
     content = content.split(search).join(replace);
     brandedTitle = brandedTitle.split(search).join(replace);
   }
-  content = applyBrandingTokens(content, branding);
-  brandedTitle = applyBrandingTokens(brandedTitle, branding);
+  content = applyBrandingTokens(content, brand);
+  brandedTitle = applyBrandingTokens(brandedTitle, brand);
 
-  const customizedBranding = isCustomBranding(branding);
+  const customizedBranding = isCustomBranding(brand);
   const logoPath = customizedBranding
-    ? explicitLogoPath || getBrandingLogoAbsolutePath(branding.logo)
+    ? explicitLogoPath || getBrandingLogoAbsolutePath(brand.logo)
     : null;
   const logoBuffer = logoPath && existsSync(logoPath) ? readFileSync(logoPath) : null;
 
   const buffer = renderMarkdownToPptxBuffer(content, {
     title: brandedTitle,
     manifest: { ...(found.manifest || {}), title: brandedTitle },
-    branding: customizedBranding
-      ? {
-          companyName: branding.companyName,
-          tagline: branding.tagline,
-          primaryColor: branding.primaryColor,
-          logoBuffer,
-        }
-      : { primaryColor: branding.primaryColor },
+    branding: buildDocBranding(brand, customizedBranding, logoBuffer),
     resolveImageBuffer: (src) => resolveLabAssetBuffer(generatedRoot, found.labId, found.labDir, src, resolveAsset),
   });
 
@@ -445,28 +506,23 @@ export function renderGeneratedLabPdf(
   generatedRoot,
   rawLabId,
   replacements = {},
-  { branding = loadBranding(), resolveAsset } = {},
+  { branding, resolveAsset } = {},
 ) {
   const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
   if (found.status !== 200) return { status: found.status, error: found.error };
 
+  const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
   let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
   }
-  content = applyBrandingTokens(content, branding);
+  content = applyBrandingToMarkdown(content, brand);
 
-  const customizedBranding = isCustomBranding(branding);
+  const customizedBranding = isCustomBranding(brand);
   const buffer = renderMarkdownToPdfBuffer(content, {
     title: found.manifest?.title || found.labId,
-    branding: customizedBranding
-      ? {
-          companyName: branding.companyName,
-          tagline: branding.tagline,
-          primaryColor: branding.primaryColor,
-        }
-      : { primaryColor: branding.primaryColor },
+    branding: buildDocBranding(brand, customizedBranding),
     resolveImageBuffer: (src) => resolveLabAssetBuffer(generatedRoot, found.labId, found.labDir, src, resolveAsset),
   });
 
@@ -477,11 +533,12 @@ function buildGeneratedLabFacilitatorContext(
   generatedRoot,
   rawLabId,
   replacements = {},
-  { branding = loadBranding(), logoSourcePath: explicitLogoPath } = {},
+  { branding, logoSourcePath: explicitLogoPath } = {},
 ) {
   const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
   if (found.status !== 200) return { status: found.status, error: found.error };
 
+  const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
   let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
   let brandedTitle = found.manifest?.title || found.labId;
@@ -489,12 +546,12 @@ function buildGeneratedLabFacilitatorContext(
     content = content.split(search).join(replace);
     brandedTitle = brandedTitle.split(search).join(replace);
   }
-  content = applyBrandingTokens(content, branding);
-  brandedTitle = applyBrandingTokens(brandedTitle, branding);
+  content = applyBrandingTokens(content, brand);
+  brandedTitle = applyBrandingTokens(brandedTitle, brand);
 
-  const customizedBranding = isCustomBranding(branding);
+  const customizedBranding = isCustomBranding(brand);
   const logoPath = customizedBranding
-    ? explicitLogoPath || getBrandingLogoAbsolutePath(branding.logo)
+    ? explicitLogoPath || getBrandingLogoAbsolutePath(brand.logo)
     : null;
   const logoBuffer = logoPath && existsSync(logoPath) ? readFileSync(logoPath) : null;
   const logoUrl = customizedBranding && logoPath ? fileToDataUri(logoPath) : null;
@@ -514,23 +571,9 @@ function buildGeneratedLabFacilitatorContext(
     title: brandedTitle,
     model,
     customizedBranding,
-    branding,
-    docBranding: customizedBranding
-      ? {
-          companyName: branding.companyName,
-          tagline: branding.tagline,
-          primaryColor: branding.primaryColor,
-          logoBuffer,
-        }
-      : { primaryColor: branding.primaryColor },
-    htmlBranding: customizedBranding
-      ? {
-          companyName: branding.companyName,
-          tagline: branding.tagline,
-          primaryColor: branding.primaryColor,
-          logoUrl,
-        }
-      : null,
+    branding: brand,
+    docBranding: buildDocBranding(brand, customizedBranding, logoBuffer),
+    htmlBranding: buildHtmlBranding(brand, customizedBranding, logoUrl),
   };
 }
 
@@ -621,7 +664,7 @@ export function exportGeneratedLab(
   rawLabId,
   replacements = {},
   outputStream,
-  { resolveAsset, branding = loadBranding(), logoSourcePath: explicitLogoPath, formats, docFormats } = {},
+  { resolveAsset, branding: brandingOption, logoSourcePath: explicitLogoPath, formats, docFormats } = {},
 ) {
   const selectedFormats = normalizeDocFormats(formats ?? docFormats ?? "all");
   const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
@@ -632,6 +675,8 @@ export function exportGeneratedLab(
   }
 
   const { labId, labDir } = found;
+  // Per-lab overrides > lab profile snapshot > active profile > defaults.
+  const branding = resolveLabBrand(found.manifest, { brand: brandingOption });
 
   return new Promise((resolveArchive, reject) => {
     const archive = new ZipArchive({ zlib: { level: 9 } });
@@ -693,7 +738,7 @@ export function exportGeneratedLab(
             const logoRelativePath = logoArchivePath
               ? relative(dirname(archiveName), logoArchivePath).replace(/\\/g, "/")
               : null;
-            content = prependBrandingBanner(content, branding, logoRelativePath);
+            content = prependBrandingBanner(content, branding, logoRelativePath, { infoBlocks: relPath === "index.md" });
           } else {
             content = applyBrandingTokens(content, branding);
           }
@@ -731,18 +776,11 @@ export function exportGeneratedLab(
     const htmlLogoRel = logoArchivePath
       ? relative(dirname(htmlArchiveName), logoArchivePath).replace(/\\/g, "/")
       : null;
-    const standaloneHtml = renderStandaloneLabHtml(htmlSourceMd, {
+    const standaloneHtml = renderStandaloneLabHtml(applyBrandingToMarkdown(htmlSourceMd, branding), {
       title: found.manifest?.title || labId,
       labId,
       renderMarkdown: renderLabMarkdown,
-      branding: customizedBranding
-        ? {
-            companyName: branding.companyName,
-            tagline: branding.tagline,
-            primaryColor: branding.primaryColor,
-            logoUrl: htmlLogoRel,
-          }
-        : null,
+      branding: buildHtmlBranding(branding, customizedBranding, htmlLogoRel),
     });
     archive.append(standaloneHtml, { name: htmlArchiveName });
 
@@ -767,27 +805,15 @@ export function exportGeneratedLab(
       return null;
     };
 
-    const docBranding = customizedBranding
-      ? {
-          companyName: branding.companyName,
-          tagline: branding.tagline,
-          primaryColor: branding.primaryColor,
-          logoBuffer,
-        }
-      : { primaryColor: branding.primaryColor };
-
-    const htmlBranding = customizedBranding
-      ? {
-          companyName: branding.companyName,
-          tagline: branding.tagline,
-          primaryColor: branding.primaryColor,
-          logoUrl: inlineLogoUri,
-        }
-      : null;
+    const docBranding = buildDocBranding(branding, customizedBranding, logoBuffer);
+    const htmlBranding = buildHtmlBranding(branding, customizedBranding, inlineLogoUri);
 
     const appendFormattedDocs = (folderRelPath, baseFileName, docTitle, docMarkdown, topicContext = null) => {
+      // DOCX, PDF, and HTML get the closing "More information" / "Need help?" blocks as Markdown;
+      // PPTX renders the same content as a dedicated closing slide instead.
+      const docMarkdownWithInfo = appendBrandInfo(docMarkdown, branding);
       if (selectedFormats.includes("docx")) {
-        const docxBuf = renderMarkdownToDocxBuffer(docMarkdown, {
+        const docxBuf = renderMarkdownToDocxBuffer(docMarkdownWithInfo, {
           title: docTitle,
           branding: docBranding,
           resolveImageBuffer: resolveImgBuffer,
@@ -811,7 +837,7 @@ export function exportGeneratedLab(
         archive.append(pptxBuf, { name: posix.join(labId, folderRelPath, `${baseFileName}.pptx`) });
       }
       if (selectedFormats.includes("pdf")) {
-        const pdfBuf = renderMarkdownToPdfBuffer(docMarkdown, {
+        const pdfBuf = renderMarkdownToPdfBuffer(docMarkdownWithInfo, {
           title: docTitle,
           branding: docBranding,
           resolveImageBuffer: resolveImgBuffer,
@@ -819,7 +845,7 @@ export function exportGeneratedLab(
         archive.append(pdfBuf, { name: posix.join(labId, folderRelPath, `${baseFileName}.pdf`) });
       }
       if (selectedFormats.includes("html")) {
-        const modHtml = renderStandaloneLabHtml(docMarkdown, {
+        const modHtml = renderStandaloneLabHtml(docMarkdownWithInfo, {
           title: docTitle,
           labId,
           renderMarkdown: renderLabMarkdown,
@@ -970,14 +996,18 @@ export function exportGeneratedLab(
       facilitatorGuideFiles: facilitatorFiles,
       modules: exportedModules,
       customized: replacementEntries.length > 0 || customizedBranding,
-      branding: {
-        companyName: branding.companyName,
-        logo: logoArchivePath,
-        primaryColor: branding.primaryColor,
-        tagline: branding.tagline,
-      },
+      branding: buildManifestBranding(branding, logoArchivePath),
     };
     archive.append(JSON.stringify(manifest, null, 2), { name: "export-manifest.json" });
+    archive.append(
+      renderBundleReadme({
+        title: brandedLabTitle,
+        brand: branding,
+        formats: selectedFormats,
+        modules: exportedModules,
+      }),
+      { name: "README.md" },
+    );
 
     archive.finalize();
   });
