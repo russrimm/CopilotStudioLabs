@@ -11,6 +11,7 @@
 
 import { cleanText, MAX_TITLE, MAX_SUMMARY } from "./topic-sanitize.js";
 import { resolveTopicLevel } from "./levels.js";
+import { TOPIC_BASE_MINUTES, subtopicMinutes, topicMinutes } from "./subtopics.js";
 
 const CATEGORY_BY_CONCEPT = {
   "choose-harness": "foundations",
@@ -38,7 +39,7 @@ const CATEGORY_BY_CONCEPT = {
   billing: "governance",
 };
 
-export const DEFAULT_MINUTES = 20;
+export const DEFAULT_MINUTES = TOPIC_BASE_MINUTES;
 
 const THIRD_PARTY_TITLE_RE =
   /\b(servicenow|service-now|salesforce|sap(?:\s+(?:erp|odata|hana|s\/4hana|bw))?|snowflake|jira|atlassian|confluence|epic\s+on\s+fhir|fhirlink|shopify|workday|zendesk|hubspot|netsuite|docusign|adobe\s+sign|pagerduty|splunk|coupa|ariba)\b|\b(box|dropbox|slack|asana|trello)\s+connector\b/i;
@@ -58,20 +59,57 @@ export function isThirdPartyConnectorTopic(topic) {
   return urls.some((u) => THIRD_PARTY_URL_RE.test(u));
 }
 
-/** The feature a discovered topic becomes. `learnTopic` marks it for the composer and generator. */
-export function topicToFeature(topic) {
+/** The one step a sub-topic shows when no procedure could be read from its article. */
+export function subtopicPlaceholderStep(title) {
+  const name = cleanText(title, MAX_TITLE) || "this sub-topic";
+  return (
+    `[Unverified] Open the Microsoft Learn article **${name}** (linked in this sub-topic) and follow its procedure. ` +
+    "No reviewed steps exist for it yet, and none could be read from the article during this build."
+  );
+}
+
+/** What step derivation needs to read one sub-topic's own article as if it were a small topic. */
+export function subtopicToFeature(sub) {
+  const title = cleanText(sub.title, MAX_TITLE) || sub.id;
+  return {
+    id: sub.id,
+    name: title,
+    summary: cleanText(sub.summary, MAX_SUMMARY) || `${title}: see the linked Microsoft Learn article.`,
+    steps: [subtopicPlaceholderStep(title)],
+    learnTopic: { url: sub.url, urls: [sub.url] },
+    docUrls: [sub.url],
+  };
+}
+
+/**
+ * The feature a discovered topic becomes. `learnTopic` marks it for the composer and generator.
+ *
+ * Every sub-topic is part of the feature unless it is named in `excludedSubtopics`. An excluded sub-topic is
+ * absent from the feature's pages, queries, concepts, estimate, and `learnTopic.subtopics`; it is listed only in
+ * `learnTopic.subtopicChoices` (as not included) so the lab can say what was left out.
+ */
+export function topicToFeature(topic, { excludedSubtopics = null } = {}) {
+  const excluded = excludedSubtopics instanceof Set ? excludedSubtopics : new Set(excludedSubtopics || []);
   const title = cleanText(topic.title, MAX_TITLE) || "Microsoft Learn topic";
   const summary = cleanText(topic.summary, MAX_SUMMARY) || `${title}: see the linked Microsoft Learn article.`;
   const url = topic.urls[0];
   const productLabel = topic.productName || "Microsoft Copilot Studio";
-  const subtopics = (topic.subtopics || [])
-    .filter((sub) => sub && typeof sub.url === "string")
+  const everySubtopic = (topic.subtopics || []).filter((sub) => sub && typeof sub.url === "string");
+  const eachMinutes = subtopicMinutes(everySubtopic.length);
+  const subtopics = everySubtopic
+    .filter((sub) => !excluded.has(sub.id))
     .map((sub) => ({
       id: sub.id,
       title: cleanText(sub.title, MAX_TITLE) || sub.id,
       url: sub.url,
       ...(sub.summary ? { summary: cleanText(sub.summary, MAX_SUMMARY) } : {}),
+      ...(sub.level ? { level: sub.level } : {}),
+      ...(sub.availability ? { availability: sub.availability } : {}),
+      minutes: eachMinutes,
     }));
+  const left = everySubtopic.filter((sub) => excluded.has(sub.id));
+  const leftUrls = new Set(left.map((sub) => sub.url));
+  const urls = topic.urls.filter((pageUrl, position) => position === 0 || !leftUrls.has(pageUrl));
   const companionConcepts = subtopics
     .filter((sub) => sub.summary && sub.summary !== summary)
     .slice(0, 2)
@@ -90,7 +128,7 @@ export function topicToFeature(topic) {
     category: CATEGORY_BY_CONCEPT[topic.conceptId] || "advanced",
     level,
     levelBasis: basis,
-    minutes: DEFAULT_MINUTES,
+    minutes: topicMinutes(everySubtopic.length, subtopics.length),
     core: false,
     thirdPartyConnector: isThirdPartyConnectorTopic(topic),
     // Only a topic of another product names its product; harness tags exist only for a product that has harnesses.
@@ -114,14 +152,26 @@ export function topicToFeature(topic) {
       "[Unverified] You completed the procedure in the linked Microsoft Learn article and the result matches what the article describes.",
     ],
     learnQueries,
-    docUrls: [...topic.urls],
+    docUrls: urls,
     prereqs: [],
     relatedLabs: [],
     concept: topic.conceptId,
     learnTopic: {
       url,
-      urls: [...topic.urls],
+      urls: [...urls],
       ...(subtopics.length ? { subtopics } : {}),
+      // Every sub-topic the topic has, in Learn order, with whether this lab includes it (`subtopics` lists only the included ones).
+      ...(everySubtopic.length
+        ? {
+            subtopicChoices: everySubtopic.map((sub) => ({
+              id: sub.id,
+              title: cleanText(sub.title, MAX_TITLE) || sub.id,
+              url: sub.url,
+              minutes: eachMinutes,
+              included: !excluded.has(sub.id),
+            })),
+          }
+        : {}),
       status: topic.status,
       lastSeen: topic.lastSeen,
     },

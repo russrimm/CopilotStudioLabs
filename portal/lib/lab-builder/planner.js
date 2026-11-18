@@ -16,7 +16,8 @@ import { extractFeatureLearnLinks } from "./learn-citations.js";
 import { getProducts, productHasHarnesses, productName, productOf, productsPhrase } from "./products.js";
 import { defaultDifferencesFor } from "./differences.js";
 import { getIndustries, getRoles } from "../scenarios.js";
-import { countNewTopics } from "./topic-store.js";
+import { countNewTopics, getSubtopicIndex } from "./topic-store.js";
+import { normalizeExcludedSubtopics } from "./subtopics.js";
 import { atLevel, isLevel, levelName, PREREQ_RECAP_MINUTES } from "./levels.js";
 import {
   adaptProfileForDeliverable,
@@ -156,6 +157,9 @@ export function normalizeLabRequest(request = {}) {
   }
   const excluded = [...new Set(rawExcluded.map((id) => getFeature(id, { harness: harnessHint }).id))];
 
+  // A sub-topic is left out by naming it here; omitted means every sub-topic of every selected topic is included.
+  const excludedSubtopics = normalizeExcludedSubtopics(request.excludedSubtopics, getSubtopicIndex());
+
   const rawModuleOrder = stringList(request.moduleOrder, "moduleOrder", maxTopicIds);
   const moduleOrder = [
     ...new Set(
@@ -251,6 +255,7 @@ export function normalizeLabRequest(request = {}) {
     products,
     features,
     excluded,
+    excludedSubtopics,
     moduleOrder: moduleOrder.length ? moduleOrder : undefined,
     harness,
     harnesses,
@@ -731,7 +736,7 @@ export function planLab(request = {}) {
   // prerequisite stays in the lab. A long lab only gets a suggestion to split.
   const features = numberFeatures(
     ordered.map((id) => {
-      const feature = getFeature(id);
+      const feature = getFeature(id, { excludedSubtopics: request.excludedSubtopics });
       const learnLinks = extractFeatureLearnLinks(feature);
       if (!isRecap(id)) return { ...feature, learnLinks };
       return {
@@ -747,6 +752,12 @@ export function planLab(request = {}) {
   const totalMinutes = features.reduce((sum, f) => sum + f.minutes, 0);
   const estimate = buildEstimate(features, request.targetMinutes);
   if (estimate.splitSuggestion) warnings.push(estimate.splitSuggestion);
+  const leftOut = features.flatMap((f) =>
+    (f.learnTopic?.subtopicChoices || []).filter((choice) => !choice.included).map((choice) => `${choice.title} (under ${f.name})`),
+  );
+  if (leftOut.length) {
+    warnings.push(`${leftOut.length} sub-topic${leftOut.length === 1 ? " was" : "s were"} left out of this lab, as you chose: ${leftOut.join("; ")}.`);
+  }
 
   // The harness the lab is written for: the one chosen, or the one most of its
   // single-harness modules belong to. Modules tagged for both stay neutral.
@@ -805,6 +816,7 @@ export function planLab(request = {}) {
       products: planProducts,
       features: requested,
       excluded: request.excluded,
+      ...(request.excludedSubtopics.length ? { excludedSubtopics: request.excludedSubtopics } : {}),
       moduleOrder: request.moduleOrder ? request.moduleOrder.filter((id) => ordered.includes(id)) : [],
       harness: request.harness || null,
       level: request.level || null,

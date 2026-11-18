@@ -141,6 +141,7 @@ export function selectionsFromManifest(manifest) {
     features,
     excluded: textList(request.excluded),
     moduleOrder: textList(request.moduleOrder),
+    excludedSubtopics: textList(request.excludedSubtopics),
     harness: shortText(request.harness) || shortText(manifest.harness),
     level: [100, 200, 300].includes(level) ? level : null,
     differencesFor: Array.isArray(request.differencesFor) ? textList(request.differencesFor) : null,

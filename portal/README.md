@@ -4,7 +4,7 @@ A web-based lab operations portal for building, customizing, validating, preview
 
 ## Features
 
-- **🧬 Lab Builder** — 8-step wizard across 6 Microsoft AI products and 195 capabilities (product, industry/vertical, departments, level, harness, topics, review, generate), grounded on Microsoft Learn with canonical URL deduplication, SharePoint site configuration, opt-in multiple-choice Knowledge Check mini-quizzes, and `Required By` admin prerequisites (see [`docs/lab-builder.md`](../docs/lab-builder.md))
+- **🧬 Lab Builder** — 8-step wizard across 6 Microsoft AI products and 195 capabilities (product, industry/vertical, departments, level, harness, topics, review, generate), grounded on Microsoft Learn with canonical URL deduplication, SharePoint site configuration, opt-in multiple-choice Knowledge Check mini-quizzes, and `Required By` admin prerequisites. Microsoft Learn topics list their merged sub-topics as individually selectable options, and **Export All Topics** writes every topic and sub-topic for your products as CSV (opens in Excel), Markdown, or JSON (see [`docs/lab-builder.md`](../docs/lab-builder.md))
 - **📚 Chapter Management** — Explicitly include or exclude hand-written lab chapters under **Lab chapters** on the Lab setup tab (nothing is auto-selected initially; the level for a generated lab is chosen in wizard Step 4)
 - **🗂️ Generated Lab Management & Multi-Format Exports** — Open, preview as interactive paged HTML (with `localStorage` checkable task lists and Knowledge Check mini-quizzes), export as `.zip` (`formats=all|docx|pptx|pdf|html`), `.html`, `.docx`, `.pdf`, `.pptx`, `.md`, or per-topic `.docx`/`.pptx` files (`<Lab Name> - Step NN - <Topic Name>`), print/save as PDF, run structural validation, rename, delete, or re-open saved selections
 - **🗺️ Lab Flow Diagrams** — Render Mermaid diagrams inside lab previews to visualize architecture and process flow
@@ -325,8 +325,9 @@ The request and response are documented in [`docs/lab-builder.md`](../docs/lab-b
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/api/lab-builder/features` | Products (`6`), industries, roles, harnesses, levels, and the `195`-capability catalog |
-| `POST` | `/api/lab-builder/recommend` | Compute level-filtered topic recommendations, prerequisite recaps, and dependency reasons |
-| `GET` | `/api/lab-builder/topics` | Read discovered Microsoft Learn topics and snapshot freshness (optional `?product=<id>`) |
+| `POST` | `/api/lab-builder/recommend` | Compute level-filtered topic recommendations, prerequisite recaps, and dependency reasons (accepts `excludedSubtopics`) |
+| `GET` | `/api/lab-builder/topics` | Read discovered Microsoft Learn topics (with complete sub-topic objects) and snapshot freshness (optional `?product=<id>`) |
+| `POST` | `/api/lab-builder/topics/export` | Export every topic and sub-topic for the chosen products at every level (`format=csv\|markdown\|json\|dataset`; see [Export All Topics](../docs/lab-builder.md#export-all-topics)) |
 | `POST` | `/api/lab-builder/topics/refresh` | Crawl Microsoft Learn to refresh discovered topics for a product (`{ "product": "<id>" }`) |
 | `POST` | `/api/lab-builder/preview` | Plan a lab (modules, recaps, estimated time, deliverable framing) without generating files |
 | `POST` | `/api/lab-builder/generate` | Build a lab into `generated-labs/` (returns `complete`, `blocked`, or `cancelled`); supports `includeKnowledgeCheck`, SharePoint site inputs, `decisions`, and optional `replaceLabId` |

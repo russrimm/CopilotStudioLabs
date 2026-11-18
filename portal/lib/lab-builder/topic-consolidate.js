@@ -15,9 +15,10 @@
  *      folded into curated features stop appearing as separate "New from Learn"
  *      cards even before the next live refresh.
  *   3. Merges duplicate and overview-plus-detail Learn topics (within the same
- *      product and compatible harnesses) into one canonical topic with up to
- *      five `urls` and `subtopics` metadata, keeping `urls[0]` aligned with
- *      `topic.id` so `validateSnapshot()` invariants hold.
+ *      product and compatible harnesses) into one canonical topic whose `urls`
+ *      and `subtopics` list every merged page (nothing is truncated; a group
+ *      beyond `MAX_SUBTOPICS` is split into more than one topic), keeping
+ *      `urls[0]` aligned with `topic.id` so `validateSnapshot()` invariants hold.
  *   4. Resolves legacy or merged `learn-*` IDs back to their canonical topic or
  *      covering catalog feature so saved selections and API requests keep working.
  *
@@ -33,7 +34,7 @@ import { fileURLToPath } from "node:url";
 import { readCatalogFile } from "./catalog-source.js";
 import { DEFAULT_PRODUCT, productOf } from "./products.js";
 import { MAX_SUMMARY, MAX_TITLE, cleanText, matchKey, normalizeLearnUrl, topicId } from "./topic-sanitize.js";
-import { DEFAULT_HARNESS_IDS, MAX_URLS, listHash } from "./topic-snapshot.js";
+import { AVAILABILITY_VALUES, DEFAULT_HARNESS_IDS, MAX_SUBTOPICS, SUBTOPIC_LEVELS, listHash } from "./topic-snapshot.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UNCATEGORIZED = "uncategorized";
@@ -379,8 +380,34 @@ function maxDate(dates) {
   return valid.length ? valid[valid.length - 1] : null;
 }
 
+function standaloneFromSubtopic(parent, sub) {
+  const level = SUBTOPIC_LEVELS.includes(sub.level) ? sub.level : parent.level;
+  return {
+    id: sub.id,
+    title: cleanText(sub.title || sub.id, MAX_TITLE),
+    ...(parent.product ? { product: parent.product } : {}),
+    summary: sub.summary ? cleanText(sub.summary, MAX_SUMMARY) : `${cleanText(sub.title || sub.id, MAX_TITLE)}: see the linked Microsoft Learn article.`,
+    urls: [sub.url],
+    harnesses: [...(parent.harnesses || [])],
+    conceptId: parent.conceptId || UNCATEGORIZED,
+    availability: AVAILABILITY_VALUES.includes(sub.availability) ? sub.availability : parent.availability ?? null,
+    status: "new",
+    featureIds: [],
+    ...(level !== undefined ? { level } : {}),
+    firstSeen: parent.firstSeen,
+    lastSeen: parent.lastSeen,
+    changedAt: parent.changedAt ?? null,
+    contentHash: hashHex(`${sub.id}:${sub.url}`),
+  };
+}
+
+/**
+ * Merge a group of related Learn topics into one primary topic whose companion pages become sub-topics.
+ * Returns the merged topic first. A group that holds more pages than a topic may carry (`MAX_URLS`) is split:
+ * the extra pages come back as standalone topics, so no page is ever dropped.
+ */
 function mergeGroup(members, explicitGroupIndex = null) {
-  if (members.length === 1) return members[0];
+  if (members.length === 1) return [members[0]];
 
   const ranked = [...members].sort((a, b) => {
     const rankA =
@@ -396,7 +423,6 @@ function mergeGroup(members, explicitGroupIndex = null) {
 
   const primary = ranked[0];
   const companions = ranked.slice(1);
-  const product = topicProduct(primary);
 
   const seenUrlKeys = new Set();
   const mergedUrls = [];
@@ -405,7 +431,7 @@ function mergeGroup(members, explicitGroupIndex = null) {
   const pushUrl = (rawUrl) => {
     const url = normalizeLearnUrl(rawUrl);
     const key = urlMatchKey(url);
-    if (!url || !key || seenUrlKeys.has(key) || mergedUrls.length >= MAX_URLS) return null;
+    if (!url || !key || seenUrlKeys.has(key)) return null;
     seenUrlKeys.add(key);
     mergedUrls.push(url);
     return url;
@@ -425,8 +451,17 @@ function mergeGroup(members, explicitGroupIndex = null) {
       title,
       url,
       ...(summary ? { summary } : {}),
+      ...(SUBTOPIC_LEVELS.includes(sub.level) ? { level: sub.level } : {}),
+      ...(AVAILABILITY_VALUES.includes(sub.availability) ? { availability: sub.availability } : {}),
     });
   };
+  const companionPage = (comp) => ({
+    url: comp.urls[0],
+    title: comp.title,
+    summary: comp.summary,
+    level: comp.level,
+    availability: comp.availability,
+  });
 
   for (const existingSub of primary.subtopics || []) registerSubtopic(existingSub);
   for (const extraUrl of primary.urls.slice(1)) {
@@ -435,7 +470,7 @@ function mergeGroup(members, explicitGroupIndex = null) {
     }
   }
   for (const comp of companions) {
-    registerSubtopic({ url: comp.urls[0], title: comp.title, summary: comp.summary });
+    registerSubtopic(companionPage(comp));
     for (const existingSub of comp.subtopics || []) registerSubtopic(existingSub);
     for (const extraUrl of comp.urls.slice(1)) {
       if (!seenUrlKeys.has(urlMatchKey(extraUrl))) {
@@ -454,7 +489,9 @@ function mergeGroup(members, explicitGroupIndex = null) {
     ? primary.level
     : companions.find((c) => validLevels.has(c.level))?.level;
 
-  const subtopics = [...subtopicMap.values()];
+  const allSubtopics = [...subtopicMap.values()];
+  const subtopics = allSubtopics.slice(0, MAX_SUBTOPICS);
+  const keptUrls = new Set([mergedUrls[0], ...subtopics.map((s) => s.url)]);
   const combinedHash = hashHex(
     ranked
       .map((t) => `${t.id}:${t.contentHash || ""}`)
@@ -462,11 +499,11 @@ function mergeGroup(members, explicitGroupIndex = null) {
       .join("|"),
   );
 
-  return {
+  const merged = {
     ...primary,
     title: cleanText(primary.title, MAX_TITLE),
     summary: pickSummary(ranked),
-    urls: mergedUrls,
+    urls: mergedUrls.filter((url) => keptUrls.has(url)),
     ...(subtopics.length ? { subtopics } : {}),
     harnesses: mergeHarnesses(ranked.map((t) => t.harnesses || [])),
     conceptId,
@@ -477,6 +514,9 @@ function mergeGroup(members, explicitGroupIndex = null) {
     changedAt: maxDate(ranked.map((t) => t.changedAt)),
     contentHash: combinedHash,
   };
+  if (!subtopics.length) delete merged.subtopics;
+  const overflow = allSubtopics.slice(MAX_SUBTOPICS).map((sub) => standaloneFromSubtopic(merged, sub));
+  return [merged, ...overflow];
 }
 
 function buildCatalogCoverageIndex(features, concepts) {
@@ -521,8 +561,10 @@ export function consolidateTopics(
     );
   }
 
-  // 1. Sync catalog docUrls coverage on canonical Learn topics when requested.
-  const prepared = topics.map((raw) => {
+  // 1. Sync catalog docUrls coverage on canonical Learn topics when requested. A merged topic is judged by its
+  // own (primary) page: when the catalog covers that page, the sub-topics the catalog does not cover leave the
+  // merged topic as standalone topics instead of vanishing with it.
+  const prepared = topics.flatMap((raw) => {
     const topic = {
       ...raw,
       ...(typeof raw.summary === "string" && raw.summary.length > MAX_SUMMARY
@@ -533,12 +575,14 @@ export function consolidateTopics(
       ...(Array.isArray(raw.featureIds) ? { featureIds: [...raw.featureIds] } : {}),
       ...(Array.isArray(raw.subtopics) ? { subtopics: raw.subtopics.map((s) => ({ ...s })) } : {}),
     };
+    const released = [];
     if (coverageIndex && isCanonicalLearnTopic(topic)) {
       const product = topicProduct(topic);
       const matchedFeatures = new Set(topic.featureIds || []);
       let matchedConcept = null;
-      for (const url of topic.urls) {
-        const hit = coverageIndex.get(urlMatchKey(url))?.byProduct.get(product);
+      const hitFor = (url) => coverageIndex.get(urlMatchKey(url))?.byProduct.get(product);
+      for (const url of topic.subtopics?.length ? [topic.urls[0]] : topic.urls) {
+        const hit = hitFor(url);
         if (!hit) continue;
         for (const id of hit.featureIds) matchedFeatures.add(id);
         if (!matchedConcept && hit.conceptId) matchedConcept = hit.conceptId;
@@ -549,10 +593,14 @@ export function consolidateTopics(
         if ((!topic.conceptId || topic.conceptId === UNCATEGORIZED) && matchedConcept) {
           topic.conceptId = matchedConcept;
         }
+        for (const sub of topic.subtopics || []) {
+          if (!hitFor(sub.url)) released.push(standaloneFromSubtopic(raw, sub));
+        }
+        if (topic.subtopics) topic.urls = [topic.urls[0]];
         delete topic.subtopics;
       }
     }
-    return topic;
+    return [topic, ...released];
   });
 
   // 2. Partition into mergeable (`new` canonical Learn topics) vs pass-through.
@@ -643,7 +691,7 @@ export function consolidateTopics(
   const mergedNew = [];
   for (const [root, members] of buckets) {
     const explicitIdx = explicitGroupOfRoot.get(root) ?? null;
-    mergedNew.push(mergeGroup(members, explicitIdx));
+    mergedNew.push(...mergeGroup(members, explicitIdx));
   }
 
   return [...passthrough, ...mergedNew].sort((a, b) => a.id.localeCompare(b.id));

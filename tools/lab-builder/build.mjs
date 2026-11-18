@@ -168,6 +168,9 @@ Flags:
   --harnesses <a,b>         Comma-separated harness ids for harness-aware products (for example standard,microsoft-copilot).
   --levels <100,200,300>    Comma-separated target levels (100, 200, 300).
   --features <a,b>          Comma-separated capability/feature ids (required unless interactive).
+  --exclude-subtopics <a,b> Comma-separated sub-topic ids to leave out. Every sub-topic of a Microsoft Learn
+                            topic is included unless it is named here; an unknown id is an error.
+                            See tools/lab-builder/export-topics.mjs for the ids.
   --time <minutes>          Preferred length in minutes. Guidance only: no module is removed; longer labs get a split suggestion.
   --title "<text>"          Override the generated lab title.
   --agent-name "<text>"     Override the scenario deliverable or agent name.
@@ -395,6 +398,7 @@ if (args.interactive) {
     harnesses,
     levels,
     features,
+    excludedSubtopics: args["exclude-subtopics"] !== undefined ? list(args["exclude-subtopics"]) : undefined,
     targetMinutes: args.time ? Number(args.time) : undefined,
     title: typeof args.title === "string" ? args.title : undefined,
     agentName: typeof args["agent-name"] === "string" ? args["agent-name"] : undefined,
