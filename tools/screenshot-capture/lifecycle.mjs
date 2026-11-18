@@ -62,6 +62,18 @@ export function watchContext(context) {
   };
 }
 
+const lastNavigation = new WeakMap();
+
+/** Whether the document of the page is still loading (a plain read; a page that cannot be asked counts as loaded). */
+async function stillLoading(page) {
+  if (typeof page?.evaluate !== "function") return false;
+  try {
+    return ["loading", "interactive"].includes(await page.evaluate(() => document.readyState));
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Go to an address, trying again when the navigation was interrupted (ERR_ABORTED), reset, or timed out.
  * A closed browser is never retried: it throws `BrowserClosedError` at once.
@@ -69,14 +81,27 @@ export function watchContext(context) {
  * It stays passive around sign-in: when the page is already on a sign-in host it does not navigate at all (it
  * returns `{ skipped: "sign-in" }`), and a navigation that ended on a sign-in host is never retried, because the
  * browser was sent there on purpose and a person may be typing. `reason` says why the navigation happens (for the trace).
+ *
+ * Navigation guard: an address that is already loading is never opened again (a restart only makes a slow page slower), and with
+ * `settleMs` the same address is not opened again within that many milliseconds of the last time. Both return `{ skipped: "same-address" }`
+ * and are written to the trace; `reload: true` is the one deliberate way to open the address again.
  */
-export async function gotoWithRetry(page, url, { waitUntil = "domcontentloaded", timeout = 30_000, retries = 2, backoffMs = [1000, 3000], sleep = (ms) => new Promise((r) => setTimeout(r, ms)), trace = null, log = null, reason = "open-address", force = false } = {}) {
+export async function gotoWithRetry(page, url, { waitUntil = "domcontentloaded", timeout = 30_000, retries = 2, backoffMs = [1000, 3000], sleep = (ms) => new Promise((r) => setTimeout(r, ms)), trace = null, log = null, reason = "open-address", force = false, settleMs = 0, reload = false } = {}) {
   const from = currentAddress(page);
   if (!force && classifyUrl(from).kind === "sign-in") {
     trace?.event("navigation-skipped", { reason, why: "the page is on a sign-in page, so the companion only watches", from: redactedAddress(from), to: redactedAddress(url) });
     return { skipped: "sign-in" };
   }
-  trace?.event("navigation", { reason, from: redactedAddress(from), to: redactedAddress(url) });
+  if (!reload && from && from !== "about:blank" && sameAddress(from, url)) {
+    const last = lastNavigation.get(page);
+    const recent = settleMs > 0 && last && sameAddress(last.url, url) && Date.now() - last.at < settleMs;
+    if (recent || (await stillLoading(page))) {
+      trace?.event("navigation-skipped", { reason, why: recent ? "the same address was opened a moment ago, so the page is given time instead of being opened again" : "the page is still loading", from: redactedAddress(from), to: redactedAddress(url) });
+      return { skipped: "same-address" };
+    }
+  }
+  trace?.event("navigation", { reason: reload ? `${reason} (reload)` : reason, from: redactedAddress(from), to: redactedAddress(url) });
+  lastNavigation.set(page, { url, at: Date.now() });
   let attempt = 0;
   for (;;) {
     try {
@@ -118,8 +143,8 @@ export async function gotoWithRetry(page, url, { waitUntil = "domcontentloaded",
  * opened once the sign-in is done.
  * @returns {Promise<{ok: true, waited: boolean} | {ok: false, signIn: object}>}
  */
-export async function navigateWithSignIn({ page, url, gate, sleep, trace = null, log = null, reason = "open-address", waitUntil = "domcontentloaded", timeout }) {
-  const first = await gotoWithRetry(page, url, { sleep, trace, log, waitUntil, reason, ...(timeout ? { timeout } : {}) });
+export async function navigateWithSignIn({ page, url, gate, sleep, trace = null, log = null, reason = "open-address", waitUntil = "domcontentloaded", timeout, settleMs = 0, reload = false }) {
+  const first = await gotoWithRetry(page, url, { sleep, trace, log, waitUntil, reason, settleMs, reload, ...(timeout ? { timeout } : {}) });
   let signedIn = await gate.ensureSignedIn(page, { phase: "navigate", target: url });
   if (!signedIn.ok) return { ok: false, signIn: signedIn };
   const skipped = first?.skipped === "sign-in";

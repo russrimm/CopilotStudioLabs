@@ -8,7 +8,7 @@
 // area it is in), so the same step works on a different language or layout, and a recorded recipe holds nothing
 // that identifies a tenant.
 
-import { ACTION_TIERS, TIER, checkTypedText, classifyControl, normalizeControlName } from "./guard.mjs";
+import { ACTION_TIERS, TIER, checkPublicWebsite, checkTypedText, classifyControl, normalizeControlName } from "./guard.mjs";
 
 export const SETUP_VERSION = 1;
 export const MAX_SETUP_STEPS = 24;
@@ -16,7 +16,7 @@ export const MAX_NAME = 80;
 export const SETUP_ACTIONS = Object.freeze(Object.keys(ACTION_TIERS));
 export const TARGET_ROLES = Object.freeze(["button", "link", "tab", "menuitem", "treeitem", "option", "radio", "checkbox", "switch", "textbox", "searchbox", "combobox", "listitem", "row", "heading", "dialog", "region", "log"]);
 export const TARGET_AREAS = Object.freeze(["any", "nav", "main", "header", "dialog", "tablist", "chat", "menu"]);
-export const SAMPLE_KINDS = Object.freeze(["question", "search", "description", "instruction"]);
+export const SAMPLE_KINDS = Object.freeze(["question", "search", "description", "instruction", "agentName", "instructions", "website", "outOfScope"]);
 export const INTENTS = Object.freeze(["navigate", "open", "choose", "type", "send", "close", "confirm"]);
 const SOURCES = Object.freeze(["recipe", "derived", "shared", "local", "builtin"]);
 
@@ -53,6 +53,8 @@ function sanitizeExpect(raw) {
     if (path) out.urlPath = path;
   }
   if (raw.selected === true) out.selected = true;
+  if (raw.disabled === true) out.disabled = true;
+  if (raw.noDialog === true) out.noDialog = true;
   if (raw.answer === true) out.answer = true;
   if (raw.panel === true) out.panel = true;
   return Object.keys(out).length ? out : undefined;
@@ -71,6 +73,7 @@ function sanitizeText(raw) {
 
 /** What the computer is doing right now, as a sentence for the live progress ("Asking the test pane a sample question"). */
 export function progressPhrase(step) {
+  if (step.say) return step.say;
   const name = step.target?.name || step.target?.alt?.[0] || "";
   switch (step.action) {
     case "open-nav":
@@ -127,7 +130,7 @@ export function describeStep(step) {
     case "click":
       return `Clicked ${name || "a control"}`;
     case "type":
-      return step.text?.sample === "question" ? "Typed a sample question" : step.text?.sample === "description" ? "Typed the scenario description (not submitted)" : step.text?.sample === "search" ? "Typed a search" : "Typed a sample";
+      return step.text?.sample === "question" ? "Typed a sample question" : step.text?.sample === "description" ? "Typed the scenario description (not submitted)" : step.text?.sample === "search" ? "Typed a search" : step.text?.sample === "instructions" ? "Typed the lab's instructions" : step.text?.sample === "agentName" ? "Typed the agent's name" : step.text?.sample === "website" ? "Typed the website address" : "Typed a sample";
     case "send":
       return "Sent it to the test pane";
     case "wait-answer":
@@ -146,6 +149,8 @@ export function describeStep(step) {
       return `Pressed ${step.key || "a key"}`;
     case "scroll":
       return "Scrolled to it";
+    case "verify":
+      return `Checked that ${name || "the screen"} is showing`;
     case "hover":
       return `Pointed at ${name || "it"}`;
     default:
@@ -202,13 +207,21 @@ export function sanitizeStep(raw, index = 0, product = "") {
   if (raw.optional === true) step.optional = true;
   if (raw.cleanup === true) step.cleanup = true;
   if (raw.practiceOnly === true) step.practiceOnly = true;
+  // A click whose result is checked by the next step (a save that shows nothing by itself), and a switch that is clicked only when it is off.
+  if (raw.soft === true) step.soft = true;
+  if (raw.onlyIfOff === true) step.onlyIfOff = true;
+  if (raw.onlyIfOn === true) step.onlyIfOn = true;
   const skipIfPresent = sanitizeTarget(raw.skipIfPresent);
   if (skipIfPresent) step.skipIfPresent = skipIfPresent;
   if (Number.isInteger(raw.retries) && raw.retries >= 0 && raw.retries <= 3) step.retries = raw.retries;
   if (Number.isFinite(Number(raw.timeoutMs))) step.timeoutMs = Math.max(500, Math.min(60_000, Number(raw.timeoutMs)));
   step.tier = plannedTier(step, product);
   if (step.tier >= TIER.NEVER) return null;
-  step.note = describeStep(step);
+  const say = clean(raw.say, 80);
+  if (say && !/https?:\/\/|[^\s@]+@[^\s@]+\.[^\s@]+/i.test(say)) step.say = say;
+  // A plain sentence for the created-items report ("Set the agent's instructions"): the step's own wording, not an address or an id.
+  const noted = safeName(clean(raw.note, 120));
+  step.note = noted || describeStep(step);
   return step;
 }
 
@@ -228,6 +241,26 @@ export function sanitizeSteps(list, { max = MAX_SETUP_STEPS, product = "" } = {}
   return out;
 }
 
+const INPUT_MAX = Object.freeze({ question: 200, search: 200, description: 300, instruction: 200, agentName: 80, instructions: 1500, outOfScope: 200 });
+
+/**
+ * The sample text a plan or a job carries, kind by kind, each checked again: short, plain, and free of anything that
+ * identifies a person or a tenant. A website must be a public Microsoft documentation address.
+ */
+export function sanitizeInputs(raw) {
+  const inputs = {};
+  for (const kind of SAMPLE_KINDS) {
+    if (kind === "website") {
+      const site = checkPublicWebsite(raw?.website);
+      if (site.ok) inputs.website = site.url;
+      continue;
+    }
+    const checked = checkTypedText(raw?.[kind], { max: INPUT_MAX[kind] || 200 });
+    if (checked.ok) inputs[kind] = checked.text;
+  }
+  return inputs;
+}
+
 /**
  * A setup plan as a job carries it: the steps, where they came from, and what a person can read about them.
  * Steps that need a practice agent are included only when `allowPractice` says the job may carry them.
@@ -243,11 +276,7 @@ export function sanitizeSetup(raw, { allowPractice = false, product = "" } = {})
   const carried = raw.limited && raw.limited.by === "practice-agent" ? { by: "practice-agent", skipped: (Array.isArray(raw.limited.skipped) ? raw.limited.skipped : []).slice(0, 6).map((s) => clean(s, 120)).filter(Boolean) } : null;
   const limited = !allowPractice && left.length ? { by: "practice-agent", skipped: left.map((s) => s.note).slice(0, 6) } : !allowPractice ? carried : null;
   const source = SOURCES.includes(String(raw.source || "").split(":")[0]) ? clean(raw.source, 60) : "derived";
-  const inputs = {};
-  for (const kind of SAMPLE_KINDS) {
-    const checked = checkTypedText(raw.inputs?.[kind]);
-    if (checked.ok) inputs[kind] = checked.text;
-  }
+  const inputs = sanitizeInputs(raw.inputs);
   const finalExpect = sanitizeExpect(raw.final);
   return {
     version: SETUP_VERSION,

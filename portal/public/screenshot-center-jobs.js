@@ -51,7 +51,11 @@ function scLab(key) {
         picks: new Set(),
         mode: SC_DEFAULT_CAPTURE_MODE,
         consentOpen: false,
-        consentDraft: { practice: false, url: "", agreed: false, error: "" },
+        consentDraft: { practice: false, scratch: false, url: "", agreed: false, error: "" },
+        // How the agent is obtained for this lab, this visit: built from scratch or the person's own. Nothing is kept in the browser: the consent (and a saved agent address) decide it next time.
+        agentChoice: null,
+        startFresh: false,
+        queueAfterConsent: false,
         shareRecipe: false,
         background: false,
         causesOpen: new Set(),
@@ -504,7 +508,7 @@ async function scCancelJob(key, { pause = false } = {}) {
 
 // ── Automatic capture: what the person allowed ──────────────────────────────
 
-/** Save the consent card: the one-time yes, and (only if they ticked it) the practice environment. */
+/** Save the consent card: the one-time yes, and (only if they chose it) a practice agent in the environment named here, or one built from scratch. */
 async function scSaveConsent(labId) {
   const lab = scLab(labId);
   const draft = lab.ui.consentDraft;
@@ -519,7 +523,8 @@ async function scSaveConsent(labId) {
     return false;
   }
   draft.error = "";
-  const body = { consented: true, level: draft.practice ? "practice" : "read-only", practiceEnvironmentUrl: draft.practice ? String(draft.url).trim() : "" };
+  const level = draft.scratch ? "scratch" : draft.practice ? "practice" : "read-only";
+  const body = { consented: true, level, practiceEnvironmentUrl: level === "read-only" ? "" : String(draft.url || "").trim() };
   const { ok, data } = await scFetchJson("/api/capture/consent", scJsonInit("PUT", body));
   if (!ok) {
     draft.error = String(data.error || "The choice could not be saved.");
@@ -529,9 +534,39 @@ async function scSaveConsent(labId) {
   await scLoadStatus(true);
   lab.ui.consentOpen = false;
   draft.agreed = false;
-  scAnnounce(draft.practice ? "Automatic capture is on. It may also create one practice agent." : "Automatic capture is on. It never creates anything.");
+  if (level === "scratch") lab.ui.agentChoice = "scratch";
+  scAnnounce(level === "scratch" ? "Automatic capture is on. It will build a practice agent from scratch and list what it made." : level === "practice" ? "Automatic capture is on. It may also create one practice agent." : "Automatic capture is on. It never creates anything.");
   scRerender(labId);
+  // The person chose "Build the agent from scratch": confirming it is the go-ahead, so the capture starts now.
+  if (level === "scratch" && lab.ui.queueAfterConsent) {
+    lab.ui.queueAfterConsent = false;
+    return scQueueCapture(labId, { scope: "missing" });
+  }
   return true;
+}
+
+/** "Build the agent from scratch" or "Use an existing agent": remember the choice for this lab, and carry on. */
+async function scChooseAgent(labId, choice) {
+  const lab = scLab(labId);
+  const consent = scConsentModel(scState.status?.autonomy);
+  if (choice === "existing") {
+    lab.ui.agentChoice = "existing";
+    scAnnounce("Using your own agent. Add its address or name below.");
+    scRerender(labId);
+    if (typeof scFocusNeeds === "function") scFocusNeeds(labId);
+    return;
+  }
+  lab.ui.agentChoice = "scratch";
+  if (consent.consented && consent.level === "scratch") {
+    await scQueueCapture(labId, { scope: "missing" });
+    return;
+  }
+  // The first time: show exactly what the computer will create and never do, and ask for the yes.
+  lab.ui.consentOpen = true;
+  lab.ui.queueAfterConsent = true;
+  lab.ui.consentDraft = { practice: false, scratch: true, url: consent.practiceEnvironmentUrl || "", agreed: false, error: "", touched: true };
+  scRerender(labId);
+  if (typeof scFocusConsent === "function") scFocusConsent(labId);
 }
 
 /** Turn automatic capture off. The computer asks again before the next automatic capture. */
@@ -606,12 +641,24 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, 
     const body = {
       target: { type: "lab", labId },
       scope: scScopeBody(scope, filenames),
-      options: { callouts: lab.ui.callouts, redact: lab.ui.redact, ...scModeRequest(mode ?? lab.ui.mode), ...(lab.ui.background === true ? { background: true } : {}), ...(record ? { record: { share: record.share === true } } : {}) },
+      options: {
+        callouts: lab.ui.callouts,
+        redact: lab.ui.redact,
+        ...scModeRequest(mode ?? lab.ui.mode),
+        ...(lab.ui.background === true ? { background: true } : {}),
+        ...(record ? { record: { share: record.share === true } } : {}),
+        // The person's own agent is used only when they chose it; otherwise a practice agent is built from scratch (when they allowed that). Said only when it matters.
+        ...(lab.ui.agentChoice === "existing" && scConsentModel(scState.status?.autonomy).scratch ? { agent: "existing" } : lab.ui.agentChoice === "scratch" ? { agent: "scratch" } : {}),
+        ...(lab.ui.startFresh === true ? { startFresh: true } : {}),
+      },
       ...scTenantFields(labId),
     };
     const { ok, status, data } = await scFetchJson("/api/capture/jobs", scJsonInit("POST", body));
     if (!ok) {
       lab.outcome = { type: "job", variant: "error", message: `Could not start the capture. ${data.error || `Request failed (${status}).`}`, jobId: null, actions: [] };
+    } else if (data.needsNewerCompanion) {
+      // Nothing was queued: this computer's companion is too old to build an agent from scratch.
+      lab.outcome = { type: "job", variant: "warn", message: scText(data.message, 400) || "Download the Local Capture Companion again to build the agent from scratch.", jobId: null, actions: [] };
     } else if (data.needsConsent) {
       // Nothing was queued: the person has not allowed automatic capture yet, so show the card that asks.
       lab.ui.consentOpen = true;
@@ -632,6 +679,11 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, 
       lab.outcome = { type: "job", variant: "ok", message: "Nothing to capture. Every selected screenshot already exists.", jobId: null, actions: [] };
     } else if (data.job) {
       lab.busy = "";
+      // A fresh practice agent was asked for once: it is now on its way, so the switch is off again.
+      if (lab.ui.startFresh) {
+        lab.ui.startFresh = false;
+        scAnnounce("The capture will build a new practice agent.");
+      }
       const held = scMissingRequirements(null, data.missing);
       lab.needsAddress = held.length ? data.missing : null;
       if (held.length) void scLoadTargets(labId, { force: true });

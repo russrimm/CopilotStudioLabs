@@ -24,13 +24,13 @@ import readline from "node:readline";
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { parseAccountMode, readEdgeSignInPolicy, readOsAccount } from "./account-source.mjs";
+import { parseAccountMode, readAccountRecord, readEdgeSignInPolicy, readOsAccount } from "./account-source.mjs";
 import { describeAccountState, describeAccount, browserShortName, verifyProductAccount } from "./account-guard.mjs";
 import { createAuthGate, forgetSignIn, listSignedInProducts, productLabel, profileDir, profileNamespace, readSignInStates, restoreSession, saveSession, SESSION_FILE } from "./auth.mjs";
 import { closeAllAttached, closeStrayTabs, fitWindow, launchAttached, parseLaunchChoice, wantsAttach } from "./attach.mjs";
 import { browserLabel, chooseBrowsers, detectInstalledBrowsers, isMissingBrowserError, launchBrowser, launchPolicy, missingBrowserMessage, parseBrowserChoice } from "./browsers.mjs";
 import { createCaptureSession } from "./capture-run.mjs";
-import { causeForVerification } from "./causes.mjs";
+import { causeForVerification, describeCause } from "./causes.mjs";
 import { createSignInDiagnoser, runCheckSignIn } from "./check-signin.mjs";
 import { runSetupAccount } from "./account-setup.mjs";
 import { diagnosticAdvice, writeDiagnostic } from "./diagnostics.mjs";
@@ -44,10 +44,11 @@ import { createPracticeRegistry, summarizeCreated, writePracticeReport } from ".
 import { createRecipeStore } from "./recipes.mjs";
 import { applyRedaction, burnCalloutMarkers, clearOverlays, collectVisibleLabels, scrubSensitiveText } from "./redact.mjs";
 import { diagnosisLines, signInReport } from "./signin-diagnosis.mjs";
-import { effectiveModeFor, targetField, targetValuesFromJob, validateTargetValue } from "./targets.mjs";
+import { effectiveModeFor, maskedAddress, targetField, targetValuesFromJob, validateTargetValue } from "./targets.mjs";
 import { createTrace, traceFilePath } from "./trace.mjs";
+import { classifyStage } from "./walkthrough.mjs";
 
-export const COMPANION_VERSION = "1.5.0";
+export const COMPANION_VERSION = "1.6.0";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";
@@ -89,8 +90,8 @@ Options:
   --no-redact                    Do not hide account details (not recommended)
   --headless                     No visible window. It cannot sign in, so use it only for public pages and automated checks
   --background                   Run in a hidden window when a sign-in is already saved; a visible window opens if the product asks you to sign in again
-  --allow-practice-writes        Let jobs that you allowed create and use a practice agent (named "Lab screenshots - ..."). Saved until you use --no-practice-writes
-  --no-practice-writes           Never create anything, whatever a job says
+  --allow-practice-writes        Advanced: let this computer build and use a practice agent for any job you allowed in the portal, without asking. Normally you do not need it: the first time a job asks to build a practice agent from scratch (or at the end of --setup-account) the companion asks you once. Saved until you use --no-practice-writes
+  --no-practice-writes           Never create anything, whatever a job says (also forgets an earlier yes)
   --device-name=<name>           Name shown in the portal (default: this computer's name)
   --interval=<seconds>           How often to ask the portal for jobs (default 4)
   --sign-in-wait=<seconds>       How long to wait for you to sign in (default 600)
@@ -271,20 +272,68 @@ export function clearConfig(home) {
 
 const SETTINGS_NAME = ".companion-settings.json";
 
-/** What this computer allows, whatever a job asks for. Today: whether a practice agent may be created. */
+/**
+ * What this computer allows, whatever a job asks for: whether a practice agent may be created (the advanced
+ * `--allow-practice-writes` switch), and the one-time local opt-in per product for building the practice agent from scratch.
+ */
 export function loadSettings(home) {
   try {
     const parsed = JSON.parse(fs.readFileSync(path.join(home, SETTINGS_NAME), "utf8"));
-    return { allowPracticeWrites: parsed?.allowPracticeWrites === true };
+    const optIn = parsed?.practiceOptIn && typeof parsed.practiceOptIn === "object" && !Array.isArray(parsed.practiceOptIn) ? parsed.practiceOptIn : {};
+    const clean = {};
+    for (const [product, at] of Object.entries(optIn)) if (/^[a-z0-9-]{1,60}$/i.test(product) && typeof at === "string") clean[product] = at.slice(0, 40);
+    return { allowPracticeWrites: parsed?.allowPracticeWrites === true, practiceOptIn: clean };
   } catch {
-    return { allowPracticeWrites: false };
+    return { allowPracticeWrites: false, practiceOptIn: {} };
   }
 }
 
-export function saveSettings(home, settings) {
+/** Save a change to the settings; what is not mentioned keeps its value. */
+export function saveSettings(home, patch) {
+  const current = loadSettings(home);
+  const next = { allowPracticeWrites: patch.allowPracticeWrites === undefined ? current.allowPracticeWrites : patch.allowPracticeWrites === true, practiceOptIn: patch.practiceOptIn === undefined ? current.practiceOptIn : patch.practiceOptIn };
   fs.mkdirSync(home, { recursive: true });
   const file = path.join(home, SETTINGS_NAME);
-  fs.writeFileSync(file, `${JSON.stringify({ allowPracticeWrites: settings.allowPracticeWrites === true }, null, 2)}\n`, { mode: 0o600 });
+  fs.writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`, { mode: 0o600 });
+  return next;
+}
+
+/** Whether this computer has agreed to build a practice agent for a product (the advanced switch counts for every product). */
+export function hasPracticeOptIn(settings, product = "copilot-studio") {
+  return settings?.allowPracticeWrites === true || Boolean(settings?.practiceOptIn?.[product]);
+}
+
+const ACCOUNT_CONFIRM_QUESTION = "\nYou are signed in in this window. Use THIS account for the practice agent and the screenshots? Only your yes is saved, never the account's name. Type yes to continue (anything else stops, and nothing is changed): ";
+
+const OPT_IN_QUESTION = [
+  "",
+  "The Screenshot Center asked this computer to BUILD A PRACTICE AGENT in your demo account and use it to take the lab's screenshots.",
+  "It will create one new agent named “Lab screenshots - <lab title>”, set its instructions, add a public website as knowledge, ask it a sample question,",
+  "and publish it to its own default channel only. It never deletes anything, never touches another agent, never shares or publishes to other channels,",
+  "and never changes tenant or admin settings. You can delete the practice agent yourself afterward.",
+  "Allow this computer to do that for Copilot Studio? (yes/no) ",
+].join("\n");
+
+/**
+ * The one-time local opt-in: the portal's consent alone is not enough for a computer to create things, so this asks once, in the
+ * console, and remembers the answer for the product. Without a person at the console (or an answer of yes) nothing is created.
+ * @returns {Promise<boolean>} whether this computer allows it now
+ */
+export async function ensurePracticeOptIn({ home, product = "copilot-studio", prompt = null, interactive = false, log = console.log } = {}) {
+  const settings = loadSettings(home);
+  if (hasPracticeOptIn(settings, product)) return true;
+  if (!interactive || typeof prompt !== "function") {
+    log("This job asks the computer to build a practice agent, but this computer has not agreed to that yet and nobody can be asked here. Run the companion in a normal console window and answer yes once, or run it once with --allow-practice-writes. Nothing was created.");
+    return false;
+  }
+  const answer = await prompt(OPT_IN_QUESTION).catch(() => "");
+  if (!/^y(?:es)?$/i.test(String(answer).trim())) {
+    log("Understood. Nothing will be created. Screens that need the practice agent are marked “needs you”.");
+    return false;
+  }
+  saveSettings(home, { practiceOptIn: { ...settings.practiceOptIn, [product]: new Date().toISOString() } });
+  log("Saved on this computer: jobs you allow in the portal may build and use a practice agent. Run with --no-practice-writes to take this back.");
+  return true;
 }
 
 /**
@@ -538,6 +587,8 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
   const steps = safeSteps(shot.steps);
   const classified = Boolean(shot.capture?.version);
   const mode = classified ? effectiveMode || (shot.capture.mode === "guided" ? "guided" : "auto") : "legacy";
+  // Built from scratch, the walkthrough proves each screen by its tabs and controls; the address alone cannot (the newer layout keeps /knowledge in the address while showing Build).
+  const scratchLenient = session?.autonomy?.scratch === true && classifyStage(shot).scoped;
   const attempts = mode === "guided" ? 1 : 2;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const evidence = { finalUrl: "", title: "", visibleText: [], redaction: null, capturedAt: null, executedSteps: 0, mode, routeSteps: [], setup: null };
@@ -545,6 +596,8 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
       collectLabels: (livePage) => collectVisibleLabels(livePage, { terms }),
       async beforeScreenshot({ page: livePage, viewport, callouts }) {
         evidence.finalUrl = typeof livePage.url === "function" ? livePage.url() : "";
+        // A practice agent's address names the person's environment and the agent: the portal is told the shape of the page only.
+        if (session?.autonomy?.scratch === true && evidence.finalUrl) evidence.finalUrl = maskedAddress(evidence.finalUrl) || "";
         evidence.title = typeof livePage.title === "function" ? await livePage.title().catch(() => "") : "";
         evidence.visibleText = await collectVisibleLabels(livePage, { terms });
         if (redact) evidence.redaction = await applyRedaction(livePage, { terms });
@@ -588,7 +641,7 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
       filename: shot.filename,
       evidence,
       expectedLabels: classified && shot.capture.landmarks?.length ? shot.capture.landmarks : shot.expectedLabels,
-      expect: classified && shot.capture.expect ? { ...shot.capture.expect, strict: mode === "auto" || mode === "autonomous" } : null,
+      expect: !(classified && shot.capture.expect) ? null : scratchLenient ? { family: "copilot-studio", scope: "agent", paths: [], label: "the practice agent", strict: false } : { ...shot.capture.expect, strict: mode === "auto" || mode === "autonomous" },
       requireEvidence: true,
       requireRedaction: redact,
     });
@@ -616,7 +669,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   const jobOptions = job.options || {};
   const jobMode = JOB_MODES.includes(options.mode) ? options.mode : JOB_MODES.includes(jobOptions.mode) ? jobOptions.mode : "smart";
   // What the computer may do on its own is what the job carries, limited by what this computer allows (see guard.mjs).
-  const autonomy = resolveAutonomy(jobOptions.autonomy, { allowPracticeWrites: options.allowPracticeWrites === true });
+  const autonomy = resolveAutonomy(jobOptions.autonomy, { allowPracticeWrites: options.allowPracticeWrites === true, localOptIn: options.localOptIn === true });
   const registry = createPracticeRegistry(home);
   const recipes = createRecipeStore(home);
   const calloutMode = options.callouts || jobOptions.callouts || "sidecar";
@@ -632,9 +685,10 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   log(`\nJob ${job.id}: ${shots.length} screenshot${shots.length === 1 ? "" : "s"} for ${where}${claimed.job.resumed ? " (resuming)" : ""}.`);
   if (shots.some((s) => s.capture?.version)) log(`  Mode: ${MODE_LABELS[jobMode]}.`);
   if (jobMode === "autonomous") {
-    log(`  The computer may look at screens and try things that change nothing (open dialogs, ask the test pane a sample question). ${autonomy.level === "practice" ? "It may also create and use one practice agent." : "It will not create or change anything."}`);
+    log(`  The computer may look at screens and try things that change nothing (open dialogs, ask the test pane a sample question). ${autonomy.level === "scratch" ? "It will also build one practice agent from scratch in your demo account and use it for the lab's screenshots. It never deletes anything." : autonomy.level === "practice" ? "It may also create and use one practice agent." : "It will not create or change anything."}`);
     if (autonomy.refusedPractice) log(`  ${autonomy.refusedPractice}`);
     if (!autonomy.consented) log("  This job did not carry your consent, so the computer will only look at screens, not open dialogs or ask questions.");
+    if (autonomy.scratch) log("  Stop it any time with Stop in the portal or Ctrl+C: nothing is changed after that.");
   }
 
   const trace = options.trace || null;
@@ -658,6 +712,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   const diagnosisShown = new Set();
   const keepOpen = [];
   const capturedProducts = new Set();
+  const scratchSessions = [];
   const processed = new Set();
   trace?.event("job-start", { shots: shots.length, browsers: browserKinds.join(","), headless: Boolean(options.headless), mode: jobMode, readyMs: readiness.maxMs ?? null, guidedWaitMs });
 
@@ -768,7 +823,8 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
       let profileCaptured = false;
       let signInMessage = null;
       let browserShotsStarted = 0;
-      const session = createCaptureSession({ env, targets, autonomy, registry, recipes, home, terms, companionVersion: COMPANION_VERSION });
+      const session = createCaptureSession({ env, targets, autonomy, registry, recipes, home, terms, companionVersion: COMPANION_VERSION, writeGapMs: options.writeGapMs, effectMs: options.effectMs, findMs: options.findMs });
+      scratchSessions.push(session);
       session.shouldStop = stopRequested;
       // "Show me once": the portal asked for a retake in which the computer learns what the person does.
       session.record = jobOptions.record && typeof jobOptions.record === "object" ? { share: jobOptions.record.share === true } : null;
@@ -787,8 +843,10 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           const first = browserShots[0].shot;
           const startUrl = (first.urlEnv && env[first.urlEnv]) || first.startUrl || first.capture?.route?.url || "https://copilotstudio.microsoft.com/";
           let check = null;
+          const automatic = browserShots.some(({ effective }) => effective === "autonomous");
+          if (automatic && dir && readAccountRecord(dir)?.confirmed !== true) log("  You sign in once in this window (only if it asks), then confirm here that it is the right account, and the capture carries on. You do not sign in twice.");
           try {
-            check = await verifyProductAccount({ page, gate, product: profile, values: session.values, startUrl, ctx: accountCtxFor(kind, opened.inPrivate === true), dir, autonomous: browserShots.some(({ effective }) => effective === "autonomous"), trace, log, sleep: sleepFn });
+            check = await verifyProductAccount({ page, gate, product: profile, values: session.values, startUrl, ctx: accountCtxFor(kind, opened.inPrivate === true), dir, autonomous: automatic, confirmAccount: options.confirmAccount || null, trace, log, sleep: sleepFn });
           } catch (err) {
             if (!(err instanceof BrowserClosedError) && classifyBrowserError(err) !== "browser-closed" && !watcher?.closed()) {
               trace?.event("account-check-error", { why: briefError(err) });
@@ -969,7 +1027,8 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             log(`  ${result.error}`);
             const failedFile = result.detail?.setup?.failedStep?.diagnostic;
             if (failedFile) log(`  ${diagnosticAdvice(failedFile)}`);
-            notRun.push({ filename: shot.filename, why: effective === "autonomous" ? "The computer could not set it up." : "It needs you at the computer." });
+            const cause = result.cause && result.cause !== "needs-you" && result.cause !== "automation-failed" ? describeCause(result.cause) : null;
+            notRun.push({ filename: shot.filename, why: cause && effective === "autonomous" ? `${cause.title}.` : effective === "autonomous" ? "The computer could not set it up." : "It needs you at the computer." });
             if (result.timedOut && !state.guidedUnavailable) {
               state.guidedUnavailable = true;
               log("  Nobody answered, so I will not wait for the other screens that need you. They are marked “needs you”.");
@@ -1062,12 +1121,22 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
       log("\nThe computer created items in your practice environment, but the report could not be saved.");
     }
   }
+  // What was built from scratch, as the portal may know it: a name, a date, and which steps are done. Never an address or an id.
+  const scratchSession = scratchSessions.find((s) => s.scratch?.agent) || null;
+  const stoppedSession = scratchSessions.find((s) => s.scratch?.halted) || null;
+  const scratchReport = autonomy.scratch
+    ? {
+        ...(scratchSession ? { name: scratchSession.scratch.agent.name, reused: scratchSession.scratch.agent.reused === true, createdAt: String(scratchSession.scratch.agent.createdAt || new Date().toISOString()).slice(0, 10), stages: [...scratchSession.scratch.done].slice(0, 12) } : {}),
+        environment: autonomy.practiceEnvironmentUrl ? "set" : "default",
+        ...(stoppedSession ? { stopped: String(stoppedSession.scratch.halted.message || "").slice(0, 200) } : {}),
+      }
+    : null;
   const signInDiagnosis = signInFailures.find((f) => f.diagnosis)?.diagnosis || null;
   const signInInfo = signInDiagnosis ? signInReport(signInDiagnosis, { product: signInFailures.find((f) => f.diagnosis).product }) : null;
   const finalAccount = accountReport || (accountInfo ? accountInfo() : null);
   const needsAccount = accountStops[0] ? { product: accountStops[0].product, code: accountStops[0].code, message: accountStops[0].message } : null;
   try {
-    await client.complete(job.id, { message: pausedNote || (needsAccount ? `${needsAccount.message} ${summary}` : summary), ...(fatalError ? { fatalError } : {}), ...(created.length ? { created } : {}), ...(signInInfo ? { signIn: signInInfo } : {}), ...(finalAccount ? { account: finalAccount } : {}), ...(needsAccount ? { needsAccount } : {}), ...(state.paused ? { paused: { reason: state.paused.reason, message: pausedNote } } : {}) });
+    await client.complete(job.id, { message: pausedNote || (needsAccount ? `${needsAccount.message} ${summary}` : summary), ...(fatalError ? { fatalError } : {}), ...(created.length ? { created } : {}), ...(scratchReport ? { scratch: scratchReport } : {}), ...(signInInfo ? { signIn: signInInfo } : {}), ...(finalAccount ? { account: finalAccount } : {}), ...(needsAccount ? { needsAccount } : {}), ...(state.paused ? { paused: { reason: state.paused.reason, message: pausedNote } } : {}) });
   } catch (err) {
     if (err instanceof PortalError && err.kind === "auth") throw err;
     log(`Could not tell the portal the job finished: ${err.message}`);
@@ -1324,7 +1393,7 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
     }
   }
   if (opts.allowPracticeWrites !== undefined) {
-    saveSettings(home, { allowPracticeWrites: opts.allowPracticeWrites });
+    saveSettings(home, { allowPracticeWrites: opts.allowPracticeWrites, ...(opts.allowPracticeWrites === false ? { practiceOptIn: {} } : {}) });
     log(opts.allowPracticeWrites ? "This computer now lets jobs that you allowed in the portal create and use one practice agent. Use --no-practice-writes to turn that off." : "This computer will never create anything, whatever a job says.");
   }
   const settings = loadSettings(home);
@@ -1361,6 +1430,11 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
     const driver = deps.playwright || (await loadPlaywrightModule(path.resolve(HERE, "..", "..")));
     const outcome = await (deps.setupAccount || runSetupAccount)({ home, product: opts.setupAccount, playwright: driver, kinds: browserKinds, launch: opts.launch, account, open: openProfile, log, signInWaitSec: opts.signInWaitSec, sleepFn, trace: opts.debug ? createTrace({ file: traceFilePath(home, opts.trace), terms: opts.maskTerms, header: { companion: COMPANION_VERSION, setup: "setup-account", product: opts.setupAccount, platform: process.platform } }) : null });
     await closeAllAttached();
+    // The one place to agree, on this computer, to building a practice agent from scratch (the portal's consent alone does not let a computer create things).
+    if (outcome.ok && interactive) {
+      const optedIn = await ensurePracticeOptIn({ home, product: opts.setupAccount, prompt: deps.ask || ask, interactive, log });
+      if (optedIn) log("You can now start “Capture all screenshots automatically” in the Screenshot Center and choose “Build the agent from scratch”.");
+    }
     return outcome.ok ? EXIT.ok : EXIT.signIn;
   }
   if (opts.checkSignin) {
@@ -1440,6 +1514,17 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
 
   const runnerOptions = { callouts: opts.callouts, maskTerms: opts.maskTerms, redact: opts.redact, signInWaitSec: opts.signInWaitSec, headless: opts.headless, background: opts.background === true, allowPracticeWrites: settings.allowPracticeWrites === true, browserKinds, launch: opts.launch, resolvedHome: resolved, trace, guidedWaitSec: opts.guidedWaitSec, readiness: opts.readyWaitSec ? { maxMs: opts.readyWaitSec * 1000 } : {}, account, ...(deps.runnerOptions || {}) };
   const pollMs = (deps.pollMs ?? opts.intervalSec * 1000);
+  // The one-time local opt-in for building a practice agent from scratch: asked in this console the first time a job needs it.
+  const optInFor = async (claimed) => {
+    // A caller that has already settled it (a test, a scripted run) is not asked again.
+    if (deps.runnerOptions?.localOptIn === true) return true;
+    const level = claimed?.job?.options?.autonomy?.level;
+    if (level !== "scratch" || claimed.job.options.autonomy.consented !== true) return false;
+    if (opts.allowPracticeWrites === false) return false;
+    return ensurePracticeOptIn({ home, product: "copilot-studio", prompt: deps.ask || ask, interactive, log });
+  };
+  // The one account question, asked in this same console right after the person signed in in the capture window, so nobody signs in twice.
+  const confirmAccountHere = interactive || deps.ask ? async () => /^y(?:es)?$/i.test(String(await (deps.ask || ask)(ACCOUNT_CONFIRM_QUESTION).catch(() => "")).trim()) : null;
   let lastBeat = 0;
   let announced = false;
   let waitedMs = 0;
@@ -1499,7 +1584,7 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
             await sleepFn(pollMs);
             continue;
           }
-          const outcome = await runJob({ client, claimed, home, playwright, options: runnerOptions, log, shouldStop: () => stopping, sleepFn });
+          const outcome = await runJob({ client, claimed, home, playwright, options: { ...runnerOptions, localOptIn: await optInFor(claimed), confirmAccount: confirmAccountHere }, log, shouldStop: () => stopping, sleepFn });
           lastBeat = 0;
           if (opts.once) break;
           const failedProducts = new Set(outcome.signInFailures.map((f) => f.product));

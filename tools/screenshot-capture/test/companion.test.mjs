@@ -255,6 +255,7 @@ test("account details are found and scrubbed from text", () => {
 
 test("the account menu of the newer Copilot Studio layout is covered before a picture", () => {
   assert.ok(ACCOUNT_CONTROL_SELECTORS.includes("[aria-label^='Open account menu' i]"), "that menu shows the signed-in person's name");
+  assert.ok(ACCOUNT_CONTROL_SELECTORS.includes("[aria-label^='Switch environment' i]"), "the environment picker shows the environment's name");
 });
 
 test("the pairing file is kept out of git and holds the token only locally", (t) => {

@@ -13,6 +13,7 @@ import path from "node:path";
 
 import { buildSidecar, resolveCallouts, sidecarName } from "./callouts.mjs";
 import { preparePractice, runShotSetup } from "./autonomous.mjs";
+import { prepareScratchShot } from "./scratch.mjs";
 import { resolveAutonomy } from "./guard.mjs";
 import { briefError, BrowserClosedError, classifyBrowserError, navigateWithSignIn, settleAddress } from "./lifecycle.mjs";
 import { recipeKeyForShot, toSharePayload, validateSharedRecipe } from "./recipes.mjs";
@@ -37,7 +38,7 @@ const DEFAULT_START = "https://copilotstudio.microsoft.com/";
 const sleepDefault = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** What a job knows about where it is capturing, shared by every shot of a product in the job. */
-export function createCaptureSession({ env = {}, targets = {}, autonomy = null, registry = null, recipes = null, home = null, terms = [], companionVersion = "" } = {}) {
+export function createCaptureSession({ env = {}, targets = {}, autonomy = null, registry = null, recipes = null, home = null, terms = [], companionVersion = "", writeGapMs = undefined, effectMs = undefined, findMs = undefined } = {}) {
   return {
     values: targetValuesFromJob(env, targets),
     cs: { envBase: null, agentBase: null, agentSource: null },
@@ -49,6 +50,10 @@ export function createCaptureSession({ env = {}, targets = {}, autonomy = null, 
     terms,
     companionVersion,
     practiceAgent: null,
+    // Test knobs: how long writes are spaced apart, and how long a click waits for its effect or a control to appear.
+    writeGapMs,
+    effectMs,
+    findMs,
   };
 }
 
@@ -335,11 +340,12 @@ export async function runCaptureShot({
     await setupRun?.executor?.cleanup?.().catch(() => {});
   };
 
-  // A page the practice agent needs is reached by address, with the same sign-in check as every other page.
-  const goTo = async (url, label) => {
-    log?.(`  → Opening ${redactedAddress(url)}`);
+  // A page the practice agent needs is reached by address, with the same sign-in check as every other page. From scratch, an address
+  // opened a moment ago is not opened again (the real pages take many seconds to draw), and `reload` is the one deliberate way to do it.
+  const goTo = async (url, label, { reload = false } = {}) => {
+    log?.(`  → ${reload ? "Opening again" : "Opening"} ${redactedAddress(url)}`);
     const before = maskedPath(page.url());
-    const nav = await navigateWithSignIn({ page, url, gate, sleep, trace, log, reason: "open-practice-screen" });
+    const nav = await navigateWithSignIn({ page, url, gate, sleep, trace, log, reason: "open-practice-screen", settleMs: session.autonomy?.scratch === true ? 45_000 : 0, reload });
     if (!nav.ok) return { signIn: nav.signIn };
     const after = await settleAddress(page, { sleep });
     record(steps, { action: "open", label, ok: true, found: true, urlBefore: before, urlAfter: maskedPath(after) });
@@ -349,10 +355,27 @@ export async function runCaptureShot({
   if (gate.failed) return needsSignIn({ error: gate.failed.message, code: gate.failed.code });
 
   // 0. Autonomous: a shot whose steps need a practice agent runs inside it (found or created), only when this job allows one.
+  // Building from scratch goes further: every agent screen of the lab is shown on a practice agent the computer builds itself.
   let practiceInfo = null;
   let practiceError = "";
   let routeSession = session;
-  if (autonomous) {
+  let scratchRun = null;
+  const scratchJob = session.autonomy?.scratch === true && String(capture.product || shot.product || "copilot-studio") === "copilot-studio";
+  if (scratchJob && (autonomous || effectiveMode === "guided")) {
+    const prepared = await prepareScratchShot({ page, shot, session, go: goTo, trace, log, sleep, terms: session.terms, home: session.home, companion: session.companionVersion, readiness, guided: effectiveMode === "guided" });
+    if (prepared.signIn) return needsSignIn(prepared.signIn);
+    if (!prepared.ok) {
+      trace?.event("scratch-stopped", { shot: shot.filename, cause: prepared.cause, blocker: prepared.blocker || "" });
+      if (effectiveMode === "guided") log?.(`  ${prepared.error}`);
+      else return done(failure("needs-you", prepared.cause, prepared.error, { detail: { ...detail, blocker: prepared.blocker || undefined }, currentUrl: maskedPath(page.url()), diagnostic: prepared.diagnostic ? { failedStep: { diagnostic: prepared.diagnostic } } : null }));
+    } else if (!prepared.passthrough) {
+      scratchRun = prepared;
+      practiceInfo = { ...prepared.agent, ok: true };
+      routeSession = { ...session, cs: { envBase: prepared.agent.envBase, agentBase: prepared.agent.agentBase, agentSource: "practice" } };
+      detail.practice = { name: prepared.agent.name, reused: prepared.agent.reused === true };
+      detail.scratch = { stage: prepared.stage, layout: prepared.layout };
+    }
+  } else if (autonomous) {
     const prepared = await preparePractice({ page, shot, session, go: goTo, trace, log, sleep, terms: session.terms, home: session.home, companion: session.companionVersion });
     practiceError = prepared.error;
     if (practiceError) log?.(`  ${practiceError}`);
@@ -374,10 +397,11 @@ export async function runCaptureShot({
     }
   }
 
-  // 2. Get to the screen.
+  // 2. Get to the screen. A from-scratch shot is already on the practice agent; its own steps open the screen and prove it by what the page shows.
   const controlOptions = { readiness };
   let opened;
-  if (capture.route?.kind === "copilot-studio") opened = await openCopilotStudio({ page, shot, session: routeSession, env, effectiveMode: strict ? "auto" : effectiveMode, gate, trace, log, sleep, steps, controlOptions });
+  if (scratchRun) opened = { ok: true, landing: null };
+  else if (capture.route?.kind === "copilot-studio") opened = await openCopilotStudio({ page, shot, session: routeSession, env, effectiveMode: strict ? "auto" : effectiveMode, gate, trace, log, sleep, steps, controlOptions });
   else if (capture.route?.kind === "url") opened = await openAddress({ page, shot, env, gate, trace, log, sleep, steps });
   else opened = { ok: true, partial: true };
   if (opened.signIn) return needsSignIn(opened.signIn);
@@ -386,7 +410,7 @@ export async function runCaptureShot({
 
   // 3a. Autonomous: put the screen into the state the shot needs (open a dialog, ask the test pane, select a tab).
   if (autonomous) {
-    setupRun = await runShotSetup({ page, shot, session, practiceInfo, practiceError, trace, log, sleep, terms: session.terms, home: session.home, companion: session.companionVersion, readiness });
+    setupRun = await runShotSetup({ page, shot, session, practiceInfo, practiceError, scratch: scratchRun, trace, log, sleep, terms: session.terms, home: session.home, companion: session.companionVersion, readiness });
     detail.setup = setupRun.setup;
     for (const step of setupRun.setup.steps || []) record(steps, { action: step.action, label: step.note || step.id, found: step.status !== "skipped", ok: step.status === "ok", note: step.why || step.strategy || "" });
     if (!setupRun.ok) {
@@ -428,7 +452,7 @@ export async function runCaptureShot({
       lines: recording ? ["Show me once: set the screen up the way you normally would.", "The computer records your clicks, never what you type, so it can do this itself next time.", "Then press Capture this screen."] : capture.guide || [],
     };
     let recorder = null;
-    if (recording) recorder = await startRecorder(page, { product: capture.product || shot.product || "", log, sleep }).catch((err) => {
+    if (recording) recorder = await startRecorder(page, { product: capture.product || shot.product || "", log, sleep, practiceAgentId: session.scratch?.agent?.botId || null }).catch((err) => {
       log?.(`  Recording could not start: ${briefError(err)}`);
       return null;
     });

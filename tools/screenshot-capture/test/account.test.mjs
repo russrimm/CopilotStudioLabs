@@ -729,7 +729,7 @@ test("automatic capture waits for the account, and an ordinary capture runs with
   assert.equal(fake.log.screenshots, 0, "automatic capture did not start");
   assert.equal(result.tally.failed, 1);
   assert.equal(client.calls.completes[0].needsAccount.code, "unverified");
-  assert.match(client.calls.statuses[0].message ?? client.calls.statuses.find((s) => s.status === "needs-account")?.message ?? "", /Run --setup-account once/);
+  assert.match(client.calls.statuses[0].message ?? client.calls.statuses.find((s) => s.status === "needs-account")?.message ?? "", /--setup-account once/);
 
   const ordinary = createFakePlaywright({ rewriteUrl: (u) => (/copilotstudio/.test(u) ? DEMO_HOME : u) });
   const client2 = recordingClient();
@@ -737,6 +737,45 @@ test("automatic capture waits for the account, and an ordinary capture runs with
   assert.equal(second.tally.captured, 1);
   assert.equal(client2.calls.completes[0].account.verified, false);
   assert.equal(client2.calls.completes[0].needsAccount, undefined);
+});
+
+test("one sign-in is enough: an automatic job asks once, in the same window's console, whether this is the account, and remembers a yes", async (t) => {
+  const autoShot = (filename) => ({ ...legacyShot(filename), capture: { version: 1, mode: "auto", product: "copilot-studio", route: { kind: "copilot-studio", screen: "home" }, screen: { id: "home", label: "the home page" }, path: ["Copilot Studio"], expect: { family: "copilot-studio", scope: "environment", paths: ["home"], label: "home" }, landmarks: [], reveal: [], needs: [] } });
+  const run = async (home, confirmAccount) => {
+    const fake = createFakePlaywright({ rewriteUrl: (u) => (/copilotstudio/.test(u) ? DEMO_HOME : u) });
+    const client = recordingClient();
+    const log = collectLog();
+    const result = await runJob({ client, claimed: claimedJob([autoShot("a.png")], { options: { mode: "autonomous", autonomy: { level: "read-only" } } }), home, playwright: fake.playwright, options: { ...fastGate, browserKinds: ["chromium"], account: { mode: "separate", explicitMode: false, os: JOINED }, confirmAccount }, log, sleepFn: async () => {}, heartbeatMs: 60_000 });
+    return { fake, client, log, result };
+  };
+  const home = tmpDir(t);
+  let asked = 0;
+  const no = await run(home, async () => {
+    asked += 1;
+    return false;
+  });
+  assert.equal(asked, 1);
+  assert.equal(no.fake.log.screenshots, 0, "a no (or no answer) stops before any picture");
+  assert.equal(no.client.calls.completes[0].needsAccount.code, "unverified");
+  assert.match(no.log.text(), /You sign in once in this window/);
+
+  const yes = await run(home, async () => {
+    asked += 1;
+    return true;
+  });
+  assert.equal(asked, 2);
+  assert.equal(yes.result.tally.failed, 0);
+  assert.equal(yes.client.calls.completes[0].needsAccount, undefined, "a yes lets the job go on");
+  assert.equal(yes.client.calls.completes[0].account.verified, true);
+  assert.match(yes.log.text(), /confirmed by you/);
+
+  const again = await run(home, async () => {
+    asked += 1;
+    return false;
+  });
+  assert.equal(asked, 2, "the person is not asked again");
+  assert.equal(again.client.calls.completes[0].needsAccount, undefined);
+  assert.doesNotMatch(again.log.text(), /You sign in once in this window/, "the one-sentence explanation is for the first time only");
 });
 
 test("a job without account options (an older caller) runs exactly as before", async (t) => {

@@ -29,6 +29,7 @@
 // can prove exactly what was and was not done.
 
 const LOGIN_HOST = "login.microsoftonline.com";
+import { handleNewerWrite, newerContent, newerExtraBody, newerState, newerTop } from "./fake-newer-layout.mjs";
 export const FAKE_HOSTS = Object.freeze({
   studio: "copilotstudio.microsoft.com",
   sharepoint: "contoso.sharepoint.com",
@@ -93,6 +94,12 @@ dialog::backdrop{background:rgba(15,23,42,.45)}
  * @param {boolean} [options.shadowDialog] the Add knowledge dialog is inside a shadow root
  * @param {boolean} [options.flakyKnowledge] the first click on Add knowledge does nothing
  * @param {string} [options.testButtonName] what the Test button is called (a renamed button the built-in steps do not know)
+ * @param {"classic"|"newer"} [options.layout] the agent layout: a side navigation (classic), or the Build, Preview, Evaluate, and Monitor tabs (newer)
+ * @param {boolean} [options.licenseOnPublish] (newer) Publish opens a "You need a license" alert dialog instead of the publish dialog
+ * @param {boolean} [options.quotaOnSave] (newer) saving shows an alert that the limit was reached
+ * @param {boolean} [options.createDisabled] (newer) the account cannot create agents: the Agents page has no New agent button
+ * @param {boolean} [options.stayOnNew] (newer) the new-agent page keeps its own address after Save (the agent is made, the page says Saved)
+ * @param {string} [options.knowledgeDialogTitle] (newer) the title of the Add knowledge dialog (an unknown title must never be confirmed)
  */
 export function createFakeProductSite(options = {}) {
   const config = {
@@ -114,6 +121,12 @@ export function createFakeProductSite(options = {}) {
     shadowDialog: false,
     flakyKnowledge: false,
     testButtonName: "",
+    layout: "classic",
+    licenseOnPublish: false,
+    quotaOnSave: false,
+    createDisabled: false,
+    stayOnNew: false,
+    knowledgeDialogTitle: "",
     ...options,
   };
   const stats = { pages: [], writes: [], dangers: [], blocked: [], aborted: 0, loginPages: 0, promoVisits: 0, appsNewVisits: 0, adminVisits: 0, answers: 0, cookieAccepts: 0, builderOpens: 0, directBuilderVisits: 0 };
@@ -125,6 +138,7 @@ export function createFakeProductSite(options = {}) {
   const envs = { [FAKE_ENV_ID]: { agents: [FAKE_AGENT, OTHER_AGENT] }, [FAKE_PRACTICE_ENV_ID]: { agents: [] } };
   const knowledge = new Set();
   const published = new Set();
+  const newer = newerState(published);
   const newBotId = () => `7a1c${(++nextId).toString(16).padStart(4, "0")}-5b3d-4e6f-8a9b-c0d1e2f3a4b5`;
 
   const envBase = (envId) => `https://${FAKE_HOSTS.studio}/environments/${envId}`;
@@ -231,16 +245,16 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
 })();`;
 
   /** A page whose main area shows a skeleton for `delay` ms, then the content (or, with `boot`, a bare spinner that is replaced whole). */
-  function shell({ title, agent = null, envId = FAKE_ENV_ID, sideNav, content, delay, boot = false, late = "", host = "studio", topHtml = null, extraBody = "" }) {
+  function shell({ title, agent = null, envId = FAKE_ENV_ID, sideNav, content, delay, boot = false, late = "", host = "studio", topHtml = null, extraBody = "", testPane: withTestPane = true }) {
     const top = topHtml ?? topBar(agent, envId);
-    const frame = (inner, busy) => `${top}<div class="layout">${sideNav}<main id="main"${busy ? ' aria-busy="true"' : ""}>${inner}</main></div>${agent ? testPane(agent) : ""}${extraBody}`;
+    const frame = (inner, busy) => `${top}<div class="layout">${sideNav}<main id="main"${busy ? ' aria-busy="true"' : ""}>${inner}</main></div>${agent && withTestPane ? testPane(agent) : ""}${extraBody}`;
     const skeleton = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
     const initial = boot ? `<div id="boot" role="progressbar" aria-label="Loading" class="spinner"></div>` : frame(skeleton, true);
     const fill = boot ? `document.body.innerHTML=${JSON.stringify(frame(content, false))}` : `var m=document.getElementById('main');m.innerHTML=${JSON.stringify(content)};m.removeAttribute('aria-busy')`;
     const lateJs = late ? `setTimeout(function(){${late}},${Number(config.lateTextMs) || 600});` : "";
     const cookieHtml = config.cookieBanner ? `<script>if(document.cookie.indexOf('cookies_ok=1')<0){document.body.insertAdjacentHTML('beforeend',${JSON.stringify(cookieBanner)})}</script>` : "";
     const data = ` data-bot="${esc(agent?.id || "")}" data-env="${esc(envId)}"`;
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>${STYLE}</head><body${data}>${initial}<script>window.__fake=${JSON.stringify({ chatDelayMs: config.chatDelayMs, chatStreamMs: config.chatStreamMs, leavePrompt: config.leavePrompt, flakyKnowledge: config.flakyKnowledge, shadowDialog: config.shadowDialog })}</script><script>${CLIENT}</script><script>setTimeout(function(){${fill};${lateJs}},${Number(delay) || 0})</script>${cookieHtml}</body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(title)}</title>${STYLE}</head><body${data}>${initial}<script>window.__fake=${JSON.stringify({ chatDelayMs: config.chatDelayMs, chatStreamMs: config.chatStreamMs, leavePrompt: config.leavePrompt, flakyKnowledge: config.flakyKnowledge, shadowDialog: config.shadowDialog, licenseOnPublish: config.licenseOnPublish, quotaOnSave: config.quotaOnSave, stayOnNew: config.stayOnNew })}</script><script>${CLIENT}</script><script>setTimeout(function(){${fill};${lateJs}},${Number(delay) || 0})</script>${cookieHtml}</body></html>`;
   }
   function delayFor(name) {
     return Number.isFinite(config.delays[name]) ? config.delays[name] : config.defaultDelayMs;
@@ -270,22 +284,29 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
       });
     }
     if (area === "agents" && segs[3] === "new") {
+      // The newer layout opens the unsaved agent (Name and Instructions, a Save button); the classic layout asks on a form.
+      const newer = config.layout === "newer";
       return shell({
-        title: "Create an agent",
+        title: newer ? "New agent" : "Create an agent",
         envId,
         sideNav: envNav("agents", envId),
         delay: delayFor("agents"),
-        content: `<h1>Create an agent</h1><label>Name <input id="agent-name" aria-label="Name" placeholder="Agent name"></label><p><button type="button" data-act="create-agent">Create</button></p>`,
+        content: newer
+          ? `<h1>New agent</h1><label>Name <input id="agent-name" aria-label="Name" placeholder="Agent name"></label><label>Instructions <textarea aria-label="Instructions" rows="4" cols="50"></textarea></label><p><button type="button" data-act="n-create-agent" aria-label="Save">Save</button></p>`
+          : `<h1>Create an agent</h1><label>Name <input id="agent-name" aria-label="Name" placeholder="Agent name"></label><p><button type="button" data-act="create-agent">Create</button></p>`,
+        extraBody: newer ? newerExtraBody({ config }) : "",
       });
     }
     if (area === "agents" && segs.length === 3) {
-      const rows = (envs[envId]?.agents || []).map((a) => `<div><a href="${agentBase(a, envId)}/overview"><b>${esc(a.name)}</b></a> Last edited today</div>`).join("");
+      const rows = (envs[envId]?.agents || []).map((a) => `<div><a href="${agentBase(a, envId)}/overview"><b>${esc(a.name)}</b></a> Last edited today <button type="button" data-act="danger" data-what="delete-listed-agent">Delete</button></div>`).join("");
+      const create = config.layout === "newer" ? `<p><input type="search" aria-label="Search agents by name" placeholder="Search agents by name">${config.createDisabled ? "" : ` <button type="button" id="new-agent" data-act="n-new-agent">New agent</button>`}</p>` : `<p><button type="button" id="create-blank" data-act="create-blank">Create blank agent</button></p>`;
       return shell({
         title: "Agents",
         envId,
         sideNav: envNav("agents", envId),
         delay: delayFor("agents"),
-        content: `<h1>Agents</h1>${rows || "<p>No agents yet.</p>"}<p><button type="button" id="create-blank" data-act="create-blank">Create blank agent</button></p>`,
+        content: `<h1>Agents</h1>${rows || "<p>No agents yet.</p>"}${create}`,
+        extraBody: config.layout === "newer" ? newerExtraBody({ config }) : "",
       });
     }
     if (area === "apps") {
@@ -303,6 +324,10 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
       });
     }
     if (area === "bots" && agent) {
+      // The newer layout: whatever the address says (/knowledge, /analytics...), the page opens on its Build tab and the tab strip decides what is shown.
+      if (config.layout === "newer") {
+        return shell({ title: `${agent.name} - Build`, agent, envId, sideNav: "", delay: delayFor("overview"), content: newerContent({ agent, envId, state: newer, config }), topHtml: newerTop(agent), extraBody: newerExtraBody({ config }), testPane: false });
+      }
       let section = segs[4] || "overview";
       const known = ["overview", "knowledge", toolsSegment(), "topics", "analytics", "settings"];
       if (!known.includes(section)) section = "overview";
@@ -403,7 +428,8 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     }
     if (url.pathname === "/__ask") {
       stats.answers += 1;
-      return json({ cited: knowledge.has(body().bot) });
+      newer.sessions.set(body().bot, (newer.sessions.get(body().bot) || 0) + 1);
+      return json({ cited: knowledge.has(body().bot) || (newer.knowledge.get(body().bot) || []).length > 0 });
     }
     if (url.pathname.startsWith("/__danger/")) {
       stats.dangers.push(url.pathname.replace("/__danger/", ""));
@@ -412,6 +438,8 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     if (url.pathname.startsWith("/__write/")) {
       const what = url.pathname.replace("/__write/", "");
       const data = body();
+      const handled = handleNewerWrite(what, data, { state: newer, stats, findKnown: (botId) => Object.values(envs).flatMap((e) => e.agents).find((a) => a.id === botId) || null });
+      if (handled) return json(handled);
       if (what === "create-agent") {
         const envId = envs[data.env] ? data.env : FAKE_ENV_ID;
         const agent = { id: newBotId(), name: String(data.name || "Untitled agent").slice(0, 80) };
@@ -469,6 +497,8 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
     envs,
     knowledge,
     published,
+    /** What was done to agents in the newer layout: instructions, knowledge sites, memory, evaluations, sessions. */
+    newer,
     agentUrl: (section = "overview") => `${agentBase()}/${section}`,
     /** The practice agents in the pretend practice environment (the ones a companion created). */
     practiceAgents: () => envs[FAKE_PRACTICE_ENV_ID].agents,

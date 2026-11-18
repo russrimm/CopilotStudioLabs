@@ -99,6 +99,35 @@ test("an interrupted navigation is retried with a pause, a closed browser never 
   assert.equal(landed.log.goto.length, 1, "an interrupted navigation that already landed counts as done");
 });
 
+test("a page that is loading, or was just opened, is never opened again unless that is asked for on purpose, and every skip is traced", async () => {
+  const events = [];
+  const trace = { event: (name, data) => events.push({ name, ...data }) };
+  const log = [];
+  const state = { url: "about:blank", readyState: "complete" };
+  const page = { url: () => state.url, goto: async (u) => { state.url = u; log.push(u); return null; }, evaluate: async () => state.readyState };
+  const url = "https://copilotstudio.microsoft.com/environments/x/agents/y";
+  await gotoWithRetry(page, url, { sleep: instant, trace, reason: "open-practice-screen" });
+  assert.deepEqual(log, [url], "a first visit navigates");
+
+  state.readyState = "loading";
+  assert.deepEqual(await gotoWithRetry(page, url, { sleep: instant, trace, reason: "open-practice-screen" }), { skipped: "same-address" }, "a page that is still loading is left alone");
+  state.readyState = "complete";
+  assert.deepEqual(await gotoWithRetry(page, url, { sleep: instant, trace, reason: "open-practice-screen", settleMs: 45_000 }), { skipped: "same-address" }, "an address opened a moment ago is given time");
+  assert.equal(log.length, 1, "no second navigation happened");
+  await gotoWithRetry(page, url, { sleep: instant, trace, reason: "open-practice-screen" });
+  assert.equal(log.length, 2, "without the settle window, the older behavior (open it again) is unchanged");
+  await gotoWithRetry(page, url, { sleep: instant, trace, reason: "open-practice-screen", settleMs: 45_000, reload: true });
+  assert.equal(log.length, 3, "a deliberate reload always goes through");
+  await gotoWithRetry(page, `${url}/other`, { sleep: instant, trace, reason: "open-practice-screen", settleMs: 45_000 });
+  assert.equal(log.length, 4, "another address is never held back");
+
+  const skips = events.filter((e) => e.name === "navigation-skipped");
+  assert.equal(skips.length, 2);
+  assert.ok(skips.every((e) => e.reason === "open-practice-screen" && e.why && e.from && e.to), "each skip says why and where");
+  assert.ok(events.filter((e) => e.name === "navigation").every((e) => e.reason), "every navigation says why");
+  assert.ok(events.some((e) => e.name === "navigation" && /reload/.test(e.reason)), "a reload is named as one");
+});
+
 test("a closed or crashed tab is replaced by a new one, and a closed browser is reported", async () => {
   const app = createFakeApp({ screens: {} });
   const watcher = watchContext({ on: () => {} });

@@ -16,7 +16,7 @@ export { recipeKeyForShot, stepsFromReveal };
  * The step lists to try for a shot, in order, each with where it came from.
  * @returns {Array<{source: string, steps: object[], limited: object|null, final?: object, inputs: object, recipeKey?: object}>}
  */
-export function setupCandidates(shot, { session, practiceAllowed }) {
+export function setupCandidates(shot, { session, practiceAllowed, scratch = null }) {
   const capture = shot.capture || {};
   const product = capture.product || shot.product || "copilot-studio";
   const out = [];
@@ -27,6 +27,11 @@ export function setupCandidates(shot, { session, practiceAllowed }) {
   if (local) {
     const steps = sanitizeSteps(local.steps, { product }).filter((s) => practiceAllowed || (s.tier < TIER.PRACTICE && !s.practiceOnly));
     if (steps.length) out.push({ source: "local", steps, limited: null, final: local.final, inputs, recipeKey: key });
+  }
+  // Building from scratch: the walkthrough's own steps for this shot's stage replace the recipes written for an agent that already exists.
+  if (scratch?.steps?.length) {
+    out.push({ source: `scratch:${scratch.stage}`, steps: scratch.steps, limited: null, inputs: { ...inputs, ...(scratch.inputs || {}) } });
+    return out;
   }
   if (planned && planned.steps.length) out.push({ source: planned.source, steps: planned.steps, limited: planned.limited || null, final: planned.final, inputs, needsPractice: planned.needsPractice });
   else if (planned?.limited) out.push({ source: planned.source, steps: [], limited: planned.limited, final: planned.final, inputs, needsPractice: true });
@@ -46,7 +51,11 @@ export function failureMessage(failed, { source = "" } = {}) {
     case "needs-practice":
       return `${what} needs a practice agent, which this job did not allow.`;
     case "unexpected-effect":
+    case "unexpected-prompt":
+    case "write-limit":
       return `${failed.why || "A click did something unexpected."} Nothing else was clicked.`;
+    case "cancelled":
+      return "You stopped the capture, so nothing else was changed.";
     case "left-allowed-site":
       return "The page left the product's own sites, so the capture stopped. Nothing else was clicked.";
     default:
@@ -72,15 +81,15 @@ export async function preparePractice({ page, shot, session, go, trace = null, l
  * @param {object} [options.practiceInfo] the practice agent from `preparePractice`, when the shot runs inside it
  * @returns {Promise<{ok: boolean, setup: object, failed?: object, executor: object, cause?: string, error?: string}>}
  */
-export async function runShotSetup({ page, shot, session, practiceInfo = null, practiceError = "", trace = null, log = null, sleep, terms = [], home = null, companion = "", readiness = {} }) {
+export async function runShotSetup({ page, shot, session, practiceInfo = null, practiceError = "", scratch = null, trace = null, log = null, sleep, terms = [], home = null, companion = "", readiness = {} }) {
   const autonomy = session.autonomy;
   const practiceAllowed = autonomy.maxTier >= TIER.PRACTICE;
   const product = shot.capture?.product || shot.product || "copilot-studio";
-  const candidates = setupCandidates(shot, { session, practiceAllowed });
+  const candidates = setupCandidates(shot, { session, practiceAllowed, scratch });
   const notes = practiceError ? [practiceError] : [];
 
-  const practice = { agentId: practiceInfo?.botId || null, creating: false };
-  const executor = createExecutor({ page, autonomy, product, practice, trace, log, sleep, terms, home, shot: shot.filename, companion, inputs: candidates[0]?.inputs || {}, answerMs: readiness.answerMs, onProgress: session.onProgress, shouldStop: session.shouldStop });
+  const practice = { agentId: practiceInfo?.botId || null, envId: practiceInfo?.envId || undefined, creating: false };
+  const executor = createExecutor({ page, autonomy, product, practice, trace, log, sleep, terms, home, shot: shot.filename, companion, inputs: { ...(candidates[0]?.inputs || {}), ...(scratch?.inputs || {}) }, answerMs: readiness.answerMs, onProgress: session.onProgress, shouldStop: session.shouldStop, writeBudget: session.scratch?.budget, effectMs: session.effectMs, findMs: session.findMs });
 
   const attempts = [];
   for (const [index, candidate] of candidates.entries()) {
@@ -118,11 +127,14 @@ export async function runShotSetup({ page, shot, session, practiceInfo = null, p
     }
     const failedRecord = result.steps.at(-1);
     const failed = { ...result.failed, step: failedRecord?.summary || result.failed?.id, diagnostic: result.diagnostic?.file || null, blockedBy: result.failed?.blockedBy || result.blocked?.[0]?.category || "" };
+    // Something nobody planned for (a license, a consent, a quota message) or the limit of changes: the whole from-scratch run stops here.
+    const runStopped = failed.code === "unexpected-prompt" || failed.code === "write-limit";
+    if (runStopped && session.scratch) session.scratch.halted = { kind: result.haltKind || failed.code, message: failed.why || "" };
     return {
       ok: false,
       executor,
       failed,
-      cause: failed.code === "blocked" ? "blocked-by-safety" : failed.code === "unexpected-effect" ? "unexpected-effect" : failed.code === "needs-practice" ? "needs-practice-agent" : "automation-failed",
+      cause: runStopped ? "run-stopped" : failed.code === "blocked" ? "blocked-by-safety" : failed.code === "unexpected-effect" ? "unexpected-effect" : failed.code === "needs-practice" ? "needs-practice-agent" : failed.code === "cancelled" ? "stopped" : "automation-failed",
       error: failureMessage(failed, { source: candidate.source }),
       setup: { source: candidate.source, steps: result.steps.map(trimStepRecord), summary: [], failedStep: { id: failed.id, action: failed.action, note: failed.step || "", why: failed.why || "", diagnostic: failed.diagnostic || null }, limitedBy: null, skipped: [], earlier: attempts.slice(0, -1).map((a) => ({ source: a.source, ok: a.ok })), notes },
     };

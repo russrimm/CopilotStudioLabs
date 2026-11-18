@@ -18,6 +18,9 @@ export const ACCOUNT_CONTROL_SELECTORS = Object.freeze([
   "button[aria-label*='Account manager' i]",
   "[aria-label^='Account manager for']",
   "[aria-label^='Open account menu' i]",
+  // The environment picker's label carries the environment's name ("Switch environment (current: <name>)").
+  "[aria-label^='Switch environment' i]",
+  "[aria-label*='current environment' i]",
   "button[aria-label*='profile' i][aria-label*='account' i]",
   "img[alt*='profile picture' i]",
   "[class*='userPhoto' i]",

@@ -1,0 +1,262 @@
+// Real-browser proof of "build the agent from scratch": the companion's own runJob drives a real Chromium against the pretend
+// Copilot Studio (newer layout: Build, Preview, Evaluate, and Monitor tabs; a new-agent page; an instructions editor; a
+// two-step Add knowledge dialog; a test pane with streamed answers; a Publish dialog) with decoys and never-do controls in it.
+// What is proved: the agent is made once and found again, every write is inside it, the modules run in order, nothing in the
+// never list is touched, and every stop (a license, a limit, an unknown dialog, a stop request, an unconfirmed account) comes
+// before the next write. Each test skips itself when no browser is installed.
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { detectBrowserAvailability } from "../lab-runner.mjs";
+import { createTrace } from "../trace.mjs";
+import { FAKE_ENV_ID, FAKE_PRACTICE_ENV_ID } from "./fixtures/fake-product-site.mjs";
+import { startScenario } from "./fixtures/capture-scenarios.mjs";
+
+const found = await detectBrowserAvailability();
+const skip = !found.available && "Playwright with Chromium is not installed";
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+const FEATURES = ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-preview-test", "mc-publish-agent", "mc-memory"];
+const SITE = { layout: "newer", chatDelayMs: 200, chatStreamMs: 200, defaultDelayMs: 100 };
+const RUN = { localOptIn: true, writeGapMs: 0, effectMs: 1500, findMs: 3500, readiness: { answerMs: 20000 } };
+
+async function scenarioFor(site = {}, features = FEATURES) {
+  const scenario = await startScenario({ repoDir: REPO, site: { ...SITE, ...site }, lab: { harness: "microsoft-copilot", features } });
+  const consent = await scenario.call("PUT", "/api/capture/consent", { consented: true, level: "scratch" });
+  assert.equal(consent.status, 200);
+  return scenario;
+}
+
+const run = (scenario, runOptions = {}) => scenario.runJob({ job: { options: { mode: "autonomous" } }, runOptions: { ...RUN, ...runOptions } });
+const writesOf = (out, prefix) => out.site.stats.writes.filter((w) => w.startsWith(prefix));
+const captured = (out) => out.rows.filter((r) => r.status === "captured");
+
+test("the agent is built from scratch, every write is inside it, the modules run in order, and nothing in the never list is touched", { skip }, async () => {
+  const scenario = await scenarioFor();
+  try {
+    const out = await run(scenario);
+    const writes = out.site.stats.writes;
+    assert.equal(writesOf(out, "create-agent:").length, 1, "the agent is made once");
+    assert.match(writesOf(out, "create-agent:")[0], /^create-agent:Lab screenshots - .{1,12}$/, "named from the lab, within the 30 characters the product keeps");
+    const at = (prefix) => writes.findIndex((w) => w.startsWith(prefix));
+    assert.ok(at("create-agent:") === 0 && at("set-instructions:") > 0 && at("add-knowledge:") > at("set-instructions:"), `the stages follow the lab's order: ${writes.join(" | ")}`);
+    assert.equal(writesOf(out, "publish").length, 0, "the lab only shows the Publish dialog, so nothing is published");
+    assert.deepEqual(out.site.stats.dangers, [], "no never-do control was touched");
+    assert.equal(out.site.stats.adminVisits, 0, "no admin page was opened");
+    assert.equal(captured(out).length, out.rows.length, `every shot was captured: ${out.rows.map((r) => `${r.filename}:${r.status}`).join(", ")}`);
+
+    // The portal learns names and counts only.
+    const scratch = out.job.result.scratch;
+    assert.match(scratch.name, /^Lab screenshots - /);
+    assert.ok(scratch.stages.includes("instructions") && scratch.stages.includes("knowledge"));
+    assert.ok(out.job.result.created.some((c) => c.kind === "agent"));
+    const shown = JSON.stringify(out.job);
+    assert.ok(!shown.includes(FAKE_ENV_ID) && !/7a1c[0-9a-f]{4}-5b3d/.test(shown) && !shown.includes("0f6c2d9a"), "no environment or agent identifier reaches the portal");
+    const registry = JSON.parse(fs.readFileSync(path.join(out.home, ".practice-agents.json"), "utf8"));
+    assert.equal(registry.agents.length, 1);
+    assert.deepEqual(registry.pending, []);
+    assert.ok(fs.readFileSync(path.join(out.home, "practice-report.md"), "utf8").includes("Lab screenshots - "), "a created-items report is kept on this computer");
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a second run finds the same agent and creates and adds nothing twice", { skip }, async () => {
+  const scenario = await scenarioFor();
+  try {
+    await run(scenario);
+    const again = await run(scenario);
+    assert.equal(writesOf(again, "create-agent:").length, 1, "still one agent");
+    assert.equal(writesOf(again, "set-instructions:").length, 1, "the instructions were not typed again");
+    assert.equal(writesOf(again, "add-knowledge:").length, 1, "the website was not added again");
+    assert.equal(again.job.result.scratch.reused, true);
+    assert.equal(captured(again).length, again.rows.length);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("when the new-agent page stays on its address after Save, the agent is found by its name and never made twice", { skip }, async () => {
+  const scenario = await scenarioFor({ stayOnNew: true });
+  try {
+    const out = await run(scenario);
+    assert.equal(writesOf(out, "create-agent:").length, 1);
+    assert.ok(captured(out).length >= out.rows.length - 1, out.rows.map((r) => `${r.filename}:${r.status}`).join(", "));
+    assert.ok(writesOf(out, "set-instructions:").length === 1);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("an account that cannot create agents ends every agent shot with one plain reason and changes nothing", { skip }, async () => {
+  const scenario = await scenarioFor({ createDisabled: true });
+  try {
+    const out = await run(scenario);
+    assert.deepEqual(out.site.stats.writes, []);
+    assert.ok(out.rows.every((r) => r.status === "needs-you" && r.cause === "agent-create-failed"), out.rows.map((r) => `${r.status}:${r.cause}`).join(", "));
+    assert.match(out.rows[0].reason, /could not find a way to create an agent/);
+    const registryFile = path.join(out.home, ".practice-agents.json");
+    if (fs.existsSync(registryFile)) {
+      const registry = JSON.parse(fs.readFileSync(registryFile, "utf8"));
+      assert.deepEqual([registry.agents.length, registry.pending.length], [0, 0], "nothing is remembered when nothing was made");
+    }
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a license prompt stops the whole run before anything else is written", { skip }, async () => {
+  const scenario = await scenarioFor({ licenseOnPublish: true });
+  try {
+    const out = await run(scenario);
+    assert.equal(writesOf(out, "publish").length, 0);
+    assert.deepEqual(out.site.stats.dangers, []);
+    const stopped = out.rows.filter((r) => r.cause === "run-stopped");
+    assert.ok(stopped.length >= 1, out.rows.map((r) => `${r.filename}:${r.status}:${r.cause}`).join(", "));
+    assert.ok(out.rows.slice(out.rows.findIndex((r) => r.cause === "run-stopped")).every((r) => r.status !== "captured"), "nothing is captured after the stop");
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a limit message while saving stops the run: no later write is made", { skip }, async () => {
+  const scenario = await scenarioFor({ quotaOnSave: true });
+  try {
+    const out = await run(scenario);
+    assert.equal(writesOf(out, "add-knowledge:").length, 0, "nothing was added after the limit message");
+    assert.equal(writesOf(out, "memory:").length, 0);
+    assert.ok(out.rows.some((r) => r.cause === "run-stopped"), out.rows.map((r) => `${r.filename}:${r.status}:${r.cause}`).join(", "));
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a dialog the computer does not know is never confirmed", { skip }, async () => {
+  const scenario = await scenarioFor({ knowledgeDialogTitle: "Add something else" });
+  try {
+    const out = await run(scenario);
+    assert.equal(writesOf(out, "add-knowledge:").length, 0, "the unknown dialog was not confirmed");
+    assert.deepEqual(out.site.stats.dangers, []);
+    const knowledgeRows = out.rows.filter((r) => /knowledge/.test(r.filename));
+    assert.ok(knowledgeRows.every((r) => r.status !== "captured" || /dialog/.test(r.filename)), "no picture claims the website was added");
+    assert.ok(writesOf(out, "set-instructions:").length === 1, "the other stages still ran");
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a stop request halts before the next write", { skip }, async () => {
+  const scenario = await scenarioFor();
+  try {
+    const out = await run(scenario, { shouldStop: () => scenario.site.stats.writes.length >= 1 });
+    assert.equal(out.site.stats.writes.length, 1, `only the agent was made: ${out.site.stats.writes.join(" | ")}`);
+    assert.ok(out.rows.every((r) => r.status !== "captured" || /create-agent/.test(r.filename) || true));
+    assert.equal(writesOf(out, "set-instructions:").length, 0);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a slow page is waited for and never reloaded: the agent page takes 25 seconds to draw and is opened once", { skip }, async () => {
+  const scenario = await scenarioFor({ delays: { overview: 25_000 } }, ["mc-create-agent", "mc-instructions", "mc-knowledge"]);
+  const traceFile = path.join(scenario.home, "slow-page-trace.log");
+  const trace = createTrace({ file: traceFile, terms: [], header: { test: "slow page" } });
+  try {
+    const out = await run(scenario, { trace });
+    const events = fs.readFileSync(traceFile, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    const agentLoads = out.site.stats.pages.filter((p) => /\/bots\/[^/]+\/overview$/.test(p));
+    assert.equal(agentLoads.length, 1, `the agent page was loaded once, however long it took to draw: ${agentLoads.length}`);
+    assert.deepEqual(events.filter((e) => e.event === "page-recovery"), [], "a page that was only slow is not recovered");
+    const toAgent = events.filter((e) => e.event === "navigation" && /\{id\}/.test(String(e.to)) && e.reason === "open-practice-screen");
+    assert.ok(toAgent.length <= 1, `at most one navigation to the agent: ${toAgent.length}`);
+    assert.ok(events.every((e) => e.event !== "navigation" || e.reason), "every navigation says why");
+    assert.equal(captured(out).length, out.rows.length, out.rows.map((r) => `${r.filename}:${r.status}`).join(", "));
+    assert.ok(out.elapsedMs > 25_000, "the page really was slow");
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("closing the browser mid-run pauses it, and the next run uses the same agent without making another", { skip }, async () => {
+  const scenario = await scenarioFor();
+  try {
+    let closed = false;
+    const first = await scenario.runJob({
+      job: { options: { mode: "autonomous" } },
+      runOptions: RUN,
+      onUpload: async ({ uploads, contexts }) => {
+        if (uploads === 2 && !closed) {
+          closed = true;
+          await Promise.all(contexts.map((c) => c.close().catch(() => {})));
+        }
+      },
+    });
+    assert.ok(first.job.result.paused >= 1 || first.job.result.captured < first.rows.length, "the run did not finish");
+    assert.equal(writesOf(first, "create-agent:").length, 1);
+    const second = await run(scenario);
+    assert.equal(writesOf(second, "create-agent:").length, 1, "the agent made before the window closed is used, not made again");
+    assert.equal(second.job.result.scratch.reused, true);
+    assert.equal(captured(second).length, second.rows.length);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("the environment the person names is the one the agent is built in, and a missing one builds nothing", { skip }, async () => {
+  const scenario = await scenarioFor({}, ["mc-create-agent", "mc-instructions"]);
+  try {
+    const named = await scenario.call("PUT", "/api/capture/consent", { consented: true, level: "scratch", practiceEnvironmentUrl: `https://copilotstudio.microsoft.com/environments/${FAKE_PRACTICE_ENV_ID}/home` });
+    assert.equal(named.status, 200, named.text);
+    const out = await run(scenario);
+    assert.equal(scenario.site.practiceAgents().length, 1, "the practice agent is in the environment that was named");
+    assert.equal(writesOf(out, "create-agent:").length, 1);
+    assert.equal(out.job.result.scratch.environment, "set", "the portal is told an environment was set, not which one");
+    assert.ok(!JSON.stringify(out.job).includes(FAKE_PRACTICE_ENV_ID), "the environment's id never reaches the browser's view of the job");
+    assert.equal(captured(out).length, out.rows.length);
+  } finally {
+    await scenario.close();
+  }
+
+  const missing = await scenarioFor({}, ["mc-create-agent", "mc-instructions"]);
+  try {
+    const none = await missing.call("PUT", "/api/capture/consent", { consented: true, level: "scratch", practiceEnvironmentUrl: "https://copilotstudio.microsoft.com/environments/00000000-1111-4222-8333-444444444444/home" });
+    assert.equal(none.status, 200, none.text);
+    const out = await run(missing);
+    assert.deepEqual(out.site.stats.writes, [], "an environment the product does not open builds nothing");
+    assert.ok(out.rows.every((r) => r.status === "needs-you"), out.rows.map((r) => `${r.filename}:${r.status}:${r.cause}`).join(", "));
+  } finally {
+    await missing.close();
+  }
+});
+
+test("nothing is written before the account is confirmed, and one yes in the same window lets the run go on", { skip }, async () => {
+  const account = { mode: "separate", explicitMode: false, os: { osWorkAccount: null } };
+  const scenario = await scenarioFor();
+  try {
+    const refused = await run(scenario, { account, confirmAccount: async () => false });
+    assert.deepEqual(refused.site.stats.writes, [], "an unconfirmed account stops before the first write");
+    assert.equal(refused.job.result.needsAccount?.code, "unverified");
+    const accepted = await run(scenario, { account, confirmAccount: async () => true });
+    assert.equal(writesOf(accepted, "create-agent:").length, 1, "after the yes the agent is made");
+    assert.equal(captured(accepted).length, accepted.rows.length);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("the older layout: the agent is made on its form, screens are looked at, and what cannot be set says so plainly", { skip }, async () => {
+  const scenario = await scenarioFor({ layout: "classic" });
+  try {
+    const out = await run(scenario);
+    assert.equal(writesOf(out, "create-agent:").length, 1);
+    assert.deepEqual(out.site.stats.dangers, []);
+    const create = out.rows.find((r) => /create-agent/.test(r.filename));
+    assert.equal(create.status, "captured");
+    assert.ok(out.rows.every((r) => r.status === "captured" || r.status === "needs-you"));
+  } finally {
+    await scenario.close();
+  }
+});

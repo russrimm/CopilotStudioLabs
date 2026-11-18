@@ -3,45 +3,48 @@
  * It is the only place a job's permission comes from: the portal builds a job's `autonomy` from this record and
  * never from the request, so a request cannot ask for more than the person allowed.
  *
- * Two levels: "read-only" (the computer looks at screens and tries things that change nothing) and "practice"
- * (it may also create and use one practice agent in the practice environment named here). Revoking removes it.
+ * Three levels: "read-only" (the computer looks at screens and tries things that change nothing), "practice" (it may
+ * also create and use one practice agent in the practice environment named here), and "scratch" (it builds a new
+ * practice agent from scratch, by following the lab, in the environment named here or the one the product opens).
+ * Revoking removes it.
  */
 
 import path from "node:path";
 
 import { validateTargetValue, parseCopilotStudioAddress } from "../../../tools/screenshot-capture/targets.mjs";
-import { describeTiers, NEVER_LIST } from "../../../tools/screenshot-capture/guard.mjs";
+import { describeTiers, NEVER_LIST, SCRATCH_CREATES_LIST } from "../../../tools/screenshot-capture/guard.mjs";
 import { cleanText, readJson, writeJsonAtomic } from "./store-util.js";
 
 export const CONSENT_VERSION = 1;
-export const CONSENT_LEVELS = Object.freeze(["read-only", "practice"]);
+export const CONSENT_LEVELS = Object.freeze(["read-only", "practice", "scratch"]);
 const KEY_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,80}$/;
 
 /** What the consent card shows: the tiers and the things that are never done, from the same source the companion enforces. */
 export function describeAutonomyRules() {
-  return { version: CONSENT_VERSION, tiers: describeTiers(), never: [...NEVER_LIST] };
+  return { version: CONSENT_VERSION, tiers: describeTiers(), never: [...NEVER_LIST], creates: [...SCRATCH_CREATES_LIST] };
 }
 
 /**
- * Check a consent request. `practiceEnvironmentUrl` must be a Copilot Studio environment address over https, and
- * the practice level needs one.
+ * Check a consent request. `practiceEnvironmentUrl` must be a Copilot Studio environment address over https. The
+ * practice level needs one; the scratch level takes one when the person wants a particular environment and otherwise
+ * uses the environment the product opens.
  * @returns {{ok: boolean, consent?: object, error?: string, field?: string}}
  */
 export function validateConsent(input) {
   const src = input && typeof input === "object" && !Array.isArray(input) ? input : {};
   if (src.consented !== true) return { ok: false, error: "Confirm that you agree before saving.", field: "consented" };
   const level = String(src.level ?? "read-only");
-  if (!CONSENT_LEVELS.includes(level)) return { ok: false, error: "The level must be read-only or practice.", field: "level" };
+  if (!CONSENT_LEVELS.includes(level)) return { ok: false, error: "The level must be read-only, practice, or scratch.", field: "level" };
   let practiceEnvironmentUrl = "";
   if (src.practiceEnvironmentUrl !== undefined && src.practiceEnvironmentUrl !== null && String(src.practiceEnvironmentUrl).trim() !== "") {
     const checked = validateTargetValue("copilotStudioUrl", src.practiceEnvironmentUrl);
     if (!checked.ok) return { ok: false, error: checked.error, field: "practiceEnvironmentUrl" };
     const parsed = parseCopilotStudioAddress(checked.value);
-    if (!parsed.envBase) return { ok: false, error: "That address does not point at a Copilot Studio environment. Open the practice environment in Copilot Studio and copy the address from the address bar.", field: "practiceEnvironmentUrl" };
+    if (!parsed.envBase) return { ok: false, error: "That address does not point at a Copilot Studio environment. Open the environment in Copilot Studio and copy the address from the address bar.", field: "practiceEnvironmentUrl" };
     practiceEnvironmentUrl = parsed.envBase;
   }
   if (level === "practice" && !practiceEnvironmentUrl) return { ok: false, error: "Add the address of the practice environment to allow a practice agent.", field: "practiceEnvironmentUrl" };
-  return { ok: true, consent: { version: CONSENT_VERSION, consented: true, level, practiceEnvironmentUrl: level === "practice" ? practiceEnvironmentUrl : "" } };
+  return { ok: true, consent: { version: CONSENT_VERSION, consented: true, level, practiceEnvironmentUrl: level === "read-only" ? "" : practiceEnvironmentUrl } };
 }
 
 /** Consent records in `<data dir>/capture/consent.json`, so they follow the Azure Blob mirror like the rest of the capture state. */
@@ -76,11 +79,12 @@ export function createConsentStore({ dir, now = () => Date.now() }) {
   };
 }
 
-/** The consent as the browser sees it: whether it exists, the level, and the practice environment (a Copilot Studio address, never a secret). */
+/** The consent as the browser sees it: whether it exists, the level, and the environment (a Copilot Studio address, never a secret). */
 export function describeConsent(record, { profile = null } = {}) {
   return {
     consented: Boolean(record),
     level: record?.level || null,
+    scratch: record?.level === "scratch",
     practiceEnvironmentUrl: record?.practiceEnvironmentUrl || "",
     consentedAt: record?.consentedAt || null,
     profile: profile ? { id: cleanText(profile.id, 80), name: cleanText(profile.name, 80) } : null,
@@ -90,12 +94,14 @@ export function describeConsent(record, { profile = null } = {}) {
 
 /**
  * The `autonomy` a job carries, from what was stored and what this request asks for. A request can ask for less
- * (read-only) and never for more.
+ * (read-only) and never for more. `agent: "existing"` means the person chose to use their own agent for this capture, so
+ * nothing is built from scratch.
  * @returns {{consented: boolean, level: string, practiceEnvironmentUrl: string, version: number}|null} null without consent
  */
 export function autonomyFor(record, requested = null) {
   if (!record) return null;
   const wantsReadOnly = requested?.level === "read-only";
+  if (record.level === "scratch" && !wantsReadOnly && requested?.agent !== "existing") return { version: CONSENT_VERSION, consented: true, level: "scratch", practiceEnvironmentUrl: record.practiceEnvironmentUrl || "" };
   const practice = record.level === "practice" && !wantsReadOnly && Boolean(record.practiceEnvironmentUrl);
   return { version: CONSENT_VERSION, consented: true, level: practice ? "practice" : "read-only", practiceEnvironmentUrl: practice ? record.practiceEnvironmentUrl : "" };
 }

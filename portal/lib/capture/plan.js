@@ -22,6 +22,7 @@ import { blockedInstructionReason, blockedLabelReason } from "../../../tools/scr
 import { REQUIREMENTS, missingRequirements, targetField } from "../../../tools/screenshot-capture/targets.mjs";
 import { classifyShot, expectedLabelsForShot } from "./classify.js";
 import { buildSetupPlan } from "./setup-plan.js";
+import { orderForWalkthrough, scratchDescriptor } from "../../../tools/screenshot-capture/walkthrough.mjs";
 
 const ALLOWED_ACTIONS = new Set([
   "navigate",
@@ -105,11 +106,13 @@ function viewportOf(value) {
     : { width: 1440, height: 900 };
 }
 
-function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, instructions, values = {}, allowPractice = false, sharedRecipes = null, labTitle = "" }) {
+function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, instructions, values = {}, allowPractice = false, sharedRecipes = null, labTitle = "", scratch = false }) {
   const urlEnv = /^CAPTURE_[A-Z0-9_]{1,80}$/.test(String(src.urlEnv || "")) ? src.urlEnv : null;
   const capture = classifyShot({ ...src, product: product ?? src.product, callouts, instructions }, { values });
   // What the computer sets up on the screen, in autonomous mode. Steps that need a practice agent are in the plan only when the job allows one.
-  const setup = buildSetupPlan({ ...src, product: product ?? src.product, callouts, instructions }, { capture, allowPractice, sharedRecipes, labTitle });
+  const setup = scratch ? null : buildSetupPlan({ ...src, product: product ?? src.product, callouts, instructions }, { capture, allowPractice, sharedRecipes, labTitle });
+  // Built from scratch: which stage of the lab the shot belongs to, and why it needs a person when the computer cannot do it.
+  const stage = scratch ? scratchDescriptor({ ...src, product: product ?? src.product, callouts, instructions }) : null;
   // A screen the settings already lead to is opened directly, so even a companion that follows only the address lands on it.
   const directUrl = capture.mode !== "manual" ? capture.knownUrl || null : null;
   const effectiveStart = directUrl || startUrl;
@@ -124,6 +127,8 @@ function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, inst
     filename: src.filename,
     shotId: src.shotId ?? null,
     featureId: src.featureId ?? src.feature ?? null,
+    kind: text(src.kind, 30) || null,
+    moduleOrder: Number.isInteger(src.moduleOrder) && src.moduleOrder >= 0 && src.moduleOrder < 1000 ? src.moduleOrder : null,
     product: product ?? src.product ?? null,
     authProfile,
     section: text(src.section, 60) || null,
@@ -142,11 +147,14 @@ function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, inst
       text: text(c?.text ?? c?.label, 120),
     })),
     instructions: (Array.isArray(instructions) ? instructions : []).slice(0, 6).map((i) => text(i, 300)),
-    capture: { ...sanitizeCaptureDescriptor(capture), ...(setup ? { setup } : {}), slot: text(String(src.filename || "").replace(/\.[a-z0-9]+$/i, "").toLowerCase(), 80) },
+    capture: { ...sanitizeCaptureDescriptor(capture), ...(setup ? { setup } : {}), ...(stage ? { scratch: stage, ...(stage.scoped && !stage.blocker ? { expect: SCRATCH_EXPECT } : {}) } : {}), slot: text(String(src.filename || "").replace(/\.[a-z0-9]+$/i, "").toLowerCase(), 80) },
   };
   shot.expectedLabels = expectedLabelsFor(shot);
   return shot;
 }
+
+// Built from scratch, the walkthrough proves each screen by its tabs and controls, not by its address: in the newer layout the address keeps /knowledge while the page shows Build.
+const SCRATCH_EXPECT = Object.freeze({ family: "copilot-studio", scope: "agent", paths: [], label: "the practice agent", strict: false });
 
 /** The descriptor as a plan carries it: bounded text and known fields only, no internal helper values. */
 export function sanitizeCaptureDescriptor(capture) {
@@ -187,7 +195,7 @@ function inScope(scope, { filename, featureId, missing, stale }) {
 /**
  * The shots a lab job should capture. Returns `{status: 200, title, shots}` or `{status, error}`.
  */
-export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null }) {
+export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null, scratch = false }) {
   const found = resolveGeneratedLabDir(generatedRoot, labId);
   if (found.status !== 200) return { status: found.status, error: found.error };
   const { shotsPlan, learnState } = ensurePerLabScreenshotPlan(found.labDir, { labId: found.labId, capturedDir });
@@ -224,10 +232,12 @@ export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = cap
         allowPractice,
         sharedRecipes,
         labTitle: shotsPlan.title || "",
+        scratch,
       }),
     );
   }
-  return { status: 200, title: shotsPlan.title || labId, labId: found.labId, shots };
+  // Built from scratch, the lab's modules are the order the agent is built in.
+  return { status: 200, title: shotsPlan.title || labId, labId: found.labId, labDir: found.labDir, shots: scratch ? orderForWalkthrough(shots) : shots };
 }
 
 /** Every filename a lab accepts uploads for. */
@@ -269,7 +279,7 @@ export function listLibrarySlots({ manifestDir, capturedDir = capturedScreenshot
 }
 
 /** The shots a shared-library job should capture. Returns `{status: 200, shots}`. */
-export function buildLibraryJobPlan({ scope, products = [], manifestDir, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null }) {
+export function buildLibraryJobPlan({ scope, products = [], manifestDir, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null, scratch = false }) {
   const productSet = products.length ? new Set(products) : null;
   const shots = [];
   const seen = new Set();
@@ -298,6 +308,7 @@ export function buildLibraryJobPlan({ scope, products = [], manifestDir, capture
         allowPractice,
         sharedRecipes,
         labTitle: shot.featureName || "",
+        scratch,
       }),
     );
   }

@@ -154,6 +154,16 @@ export const NEVER_LIST = Object.freeze([
   "Touch any agent that is not its own practice agent, or leave the Microsoft product sites",
 ]);
 
+/** What "build the agent from scratch" creates and changes, in plain words: the consent card lists exactly this. */
+export const SCRATCH_CREATES_LIST = Object.freeze([
+  "One new agent named “Lab screenshots - <short lab title>” in the environment you choose (or the one Copilot Studio opens for this account)",
+  "That agent's instructions and description, using the text from your lab",
+  "Knowledge sources it adds: a public website taken from the lab's Microsoft Learn links, or the SharePoint site you gave (it only reads it)",
+  "That agent's settings that the lab turns on or off",
+  "Test conversations in the agent's test pane, and one evaluation test set if the lab has one",
+  "Publishing the agent to its own default (internal) channel, and nothing else",
+]);
+
 /** What each tier allows, as plain objects the portal can send to the browser. */
 export function describeTiers() {
   return TIER_TABLE.map((row) => ({ tier: row.tier, id: row.id, label: row.label, allowed: row.allowed, summary: row.summary, examples: [...row.examples] }));
@@ -181,6 +191,8 @@ export const ACTION_TIERS = Object.freeze({
   click: 1,
   confirm: 2,
   create: 2,
+  // Looks for a control without touching it: the walkthrough uses it to prove a screen is the one it expects.
+  verify: 0,
 });
 
 const PROTECTED_BRANDS = /\b(?:SharePoint|OneDrive|OneNote|PowerPoint|PowerApps|PowerBI|PowerShell|PowerPlatform|LinkedIn|YouTube|GitHub|DevOps|ServiceNow|WhatsApp|OpenAI|Dataverse|ChatGPT|Salesforce)\b/gi;
@@ -211,10 +223,13 @@ function wordMatcher(terms, { start = false } = {}) {
 }
 
 const ACCOUNT_TERMS = ["sign out", "log out", "logout", "signout", "log off", "sign off", "switch account", "switch user", "use another account", "use a different account", "add account", "remove account", "forget account", "se deconnecter", "deconnexion", "abmelden", "ausloggen", "cerrar sesion", "disconnetti", "esci dall account", "terminar sessao", "sair da conta", "uitloggen", "afmelden", "サインアウト", "ログアウト", "ログオフ", "退出登录", "注销", "登出", "changer de compte", "konto wechseln", "cambiar de cuenta", "cambia account", "trocar de conta", "アカウントを切り替え", "切换账户"];
-const DESTRUCTIVE_TERMS = ["delete", "remove", "erase", "purge", "destroy", "disconnect", "unregister", "revoke", "uninstall", "wipe", "trash", "recycle bin", "reset all", "clear all data", "cancel subscription", "cancel plan", "cancel license", "cancel licence", "cancel order", "unsubscribe", "supprimer", "retirer", "effacer", "loschen", "löschen", "entfernen", "eliminar", "borrar", "quitar", "elimina", "rimuovi", "cancella", "excluir", "remover", "apagar", "verwijderen", "verwijder", "削除", "删除", "移除", "삭제"];
-const EXTERNAL_TERMS = ["share", "invite", "collaborate", "add people", "add members", "add collaborators", "manage access", "grant access", "request access", "send email", "send an email", "send invitation", "send invite", "send link", "email link", "submit for approval", "make available", "distribute", "partager", "teilen", "compartir", "condividi", "compartilhar", "delen", "共有", "共享", "inviter", "einladen", "invitar", "invita", "convidar", "uitnodigen", "招待", "邀请", "邀請"];
-const CHANNEL_PUBLISH_RE = /(?<![\p{L}\p{N}])(?:publish|deploy|turn on|connect|add)\s+(?:to|on|for)?\s*(?:the\s+)?(?:channels?|teams|microsoft teams|demo website|custom website|website|web chat|sharepoint|facebook|slack|telegram|line|twilio|whatsapp|sms|email|direct line|m365 copilot|microsoft 365 copilot|outlook|dynamics)(?![\p{L}\p{N}])/u;
+const DESTRUCTIVE_TERMS = ["delete", "remove", "erase", "purge", "destroy", "disconnect", "unregister", "revoke", "uninstall", "wipe", "trash", "recycle bin", "archive", "reset all", "clear all data", "cancel subscription", "cancel plan", "cancel license", "cancel licence", "cancel order", "unsubscribe", "supprimer", "retirer", "effacer", "loschen", "löschen", "entfernen", "eliminar", "borrar", "quitar", "elimina", "rimuovi", "cancella", "excluir", "remover", "apagar", "verwijderen", "verwijder", "削除", "删除", "移除", "삭제"];
+const EXTERNAL_TERMS = ["share", "sharing", "invite", "collaborate", "add people", "add members", "add collaborators", "manage access", "grant access", "request access", "send email", "send an email", "send invitation", "send invite", "send link", "email link", "submit for approval", "make available", "distribute", "partager", "teilen", "compartir", "condividi", "compartilhar", "delen", "共有", "共享", "inviter", "einladen", "invitar", "invita", "convidar", "uitnodigen", "招待", "邀请", "邀請"];
+const CHANNEL_PUBLISH_RE = /(?<![\p{L}\p{N}])(?:publish|deploy|turn on|connect|add)\s+(?:to|on|for)?\s*(?:the\s+)?(?:channels?|teams|microsoft teams|demo website|custom website|website|web chat|sharepoint|facebook|slack|telegram|line|twilio|whatsapp|sms|email|direct line|m365(?: copilot)?|microsoft 365(?: copilot)?|office 365|outlook|dynamics)(?![\p{L}\p{N}])/u;
 const CONSENT_TERMS = ["install", "consent", "authorize", "authorise", "allow access", "grant", "accept permissions", "add to teams", "add to outlook", "get it now", "uninstall"];
+// A name that begins with one of these asks for a connection, a permission, or a hand-off to another product: never done, whatever a lab says.
+const CONNECTION_START_TERMS = ["connect", "create connection", "new connection", "add connection", "add a connection", "sign in to", "allow", "allow all", "allow once", "always allow", "approve access", "accept and continue"];
+const LEAVE_PRODUCT_TERMS = ["open in power apps", "open in power automate", "open in teams", "open in microsoft teams", "open in vs code", "open in visual studio code", "open in excel", "open in sharepoint", "open in the admin center", "open admin center", "open in azure", "open in the azure portal", "open in dataverse", "open in outlook"];
 const CREDENTIAL_TERMS = ["password", "secret", "api key", "access key", "client secret", "token", "credential", "credentials", "connection string"];
 const FILE_TERMS = ["upload", "download", "export", "browse files", "choose file", "choose files", "select file", "select files", "attach file", "attach files", "import file"];
 const ENVIRONMENT_TERMS = ["switch environment", "change environment", "switch tenant", "change tenant", "switch directory", "change directory", "switch organization", "change organization"];
@@ -232,6 +247,14 @@ const isAccountName = wordMatcher(ACCOUNT_TERMS);
 const isDestructiveName = wordMatcher(DESTRUCTIVE_TERMS);
 const isExternalName = wordMatcher(EXTERNAL_TERMS);
 const isConsentName = wordMatcher(CONSENT_TERMS);
+// Links into the tenant's admin area (a path segment or host named admin): never followed by an action.
+const ADMIN_LINK_RE = /(?:^|\/\/)admin\.|\/(?:admin|tenantsettings|tenant-settings|billing|licenses?|security-center)(?:[/?#]|$)/i;
+
+// Known dialogs in which a write may be confirmed while building from scratch. A dialog with another title is never confirmed.
+const WRITE_DIALOG_TITLES = ["add knowledge", "add a knowledge", "knowledge source", "add website", "public website", "public websites", "website", "publish", "new agent", "create an agent", "create agent", "name your agent", "rename", "instructions", "new evaluation", "create evaluation", "evaluation", "test set", "test case", "add test", "generate", "agent details", "create blank agent"];
+const isKnownWriteDialog = wordMatcher(WRITE_DIALOG_TITLES);
+const isConnectionName = wordMatcher(CONNECTION_START_TERMS, { start: true });
+const isLeaveProductName = wordMatcher(LEAVE_PRODUCT_TERMS);
 const isCredentialName = wordMatcher(CREDENTIAL_TERMS);
 const isFileName = wordMatcher(FILE_TERMS, { start: true });
 const isEnvironmentName = wordMatcher(ENVIRONMENT_TERMS);
@@ -297,7 +320,11 @@ export function describeControlForGate(element) {
     }
   }
   const chatPattern = /\btest\s+(?:your\s+)?(?:agent|copilot|bot|chat)\b|\btest[-_ ]?(?:pane|panel)\b|\bplayground\b/i;
-  const inTestPane = landmarks.some((label) => chatPattern.test(label)) || chatPattern.test(String(closest("[data-testid],[id],[class]")?.getAttribute?.("data-testid") || ""));
+  // In the newer agent layout the test pane is a whole tab: Preview. A control on that tab, outside a dialog and the navigation, is in it.
+  const selectedTab = document.querySelector('[role=tab][aria-selected=true]');
+  const previewTab = Boolean(selectedTab && /^\s*(?:preview|test)\b/i.test(String(selectedTab.getAttribute("aria-label") || selectedTab.innerText || selectedTab.textContent || "")));
+  const onPreviewTab = previewTab && !dialog && !closest("nav, [role=navigation], [role=tablist], [role=menu], header, [role=banner]");
+  const inTestPane = landmarks.some((label) => chatPattern.test(label)) || chatPattern.test(String(closest("[data-testid],[id],[class]")?.getAttribute?.("data-testid") || "")) || onPreviewTab;
   const name = labelOf(element) || (tag === "input" || tag === "textarea" ? "" : textOf(element)) || String(element.getAttribute?.("title") || "") || String(element.getAttribute?.("alt") || "") || String(element.getAttribute?.("placeholder") || "") || String(element.getAttribute?.("value") || "");
   const link = closest("a, [href]");
   return {
@@ -319,6 +346,8 @@ export function describeControlForGate(element) {
     inForm: Boolean(closest("form")),
     hasPopup: Boolean(element.getAttribute?.("aria-haspopup") && element.getAttribute("aria-haspopup") !== "false"),
     expanded: element.getAttribute?.("aria-expanded") === "true",
+    selected: element.getAttribute?.("aria-selected") === "true" || element.getAttribute?.("aria-pressed") === "true" || (Boolean(element.getAttribute?.("aria-current")) && element.getAttribute?.("aria-current") !== "false"),
+    checked: element.getAttribute?.("aria-checked") === "true" || element.checked === true,
     editable: tag === "input" || tag === "textarea" || element.isContentEditable === true,
     disabled: Boolean(element.disabled) || element.getAttribute?.("aria-disabled") === "true",
   };
@@ -368,6 +397,9 @@ export function classifyControl(desc, { action = "click", intent = "", product =
   if (names.some(isExternalName) || names.some((n) => CHANNEL_PUBLISH_RE.test(n))) return verdict(TIER.NEVER, "external", "Sharing, inviting, sending to other people, or publishing to a channel is never done.");
   if (names.some(isEnvironmentName)) return verdict(TIER.NEVER, "environment", "Switching the environment or tenant is never done.");
   if (names.some(isConsentName) && !names.some((n) => /^(?:install(?:ed)? apps?|installed)$/.test(n))) return verdict(TIER.NEVER, "consent", "Installing or consenting to apps is never done.");
+  if (names.some(isConnectionName)) return verdict(TIER.NEVER, "connection", "Connections and permissions need a sign-in or a consent only you can give, so they are never created.");
+  if (names.some(isLeaveProductName)) return verdict(TIER.NEVER, "leaves-product", "This hands off to another product, which the computer never opens.");
+  if (desc.href && ADMIN_LINK_RE.test(String(desc.href))) return verdict(TIER.NEVER, "admin", "Admin pages are never opened or changed.");
   if (names.some(isFileName)) return verdict(TIER.NEVER, "file", "Uploading or downloading files is never done.");
 
   if (inDialog && dialogTitle && isHazardDialogTitle(dialogTitle) && !isText) {
@@ -440,6 +472,25 @@ export function checkTypedText(raw, { max = 200 } = {}) {
   return { ok: true, text };
 }
 
+/**
+ * A public website the computer may add as a knowledge source: https, a Microsoft documentation host, no sign-in
+ * details, no query (a query can carry a token), and nothing that identifies a person or a tenant.
+ * @returns {{ok: boolean, url: string, reason?: string}}
+ */
+export function checkPublicWebsite(raw) {
+  let url;
+  try {
+    url = new URL(String(raw ?? "").trim());
+  } catch {
+    return { ok: false, url: "", reason: "not-a-url" };
+  }
+  if (url.protocol !== "https:" || url.username || url.password || url.port) return { ok: false, url: "", reason: "not-https" };
+  if (!/(?:^|\.)(?:learn\.microsoft\.com|docs\.microsoft\.com|support\.microsoft\.com|microsoft\.com)$/i.test(url.hostname)) return { ok: false, url: "", reason: "not-public-docs" };
+  if (url.search || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(url.pathname)) return { ok: false, url: "", reason: "identifier" };
+  const clean = `${url.origin}${url.pathname}`.replace(/\/+$/, "");
+  return clean.length <= 200 ? { ok: true, url: clean } : { ok: false, url: "", reason: "too-long" };
+}
+
 // ── Hosts ───────────────────────────────────────────────────────────────────
 
 const SIGN_IN_HOSTS = ["login.microsoftonline.com", "login.live.com", "login.microsoft.com", "account.microsoft.com", "aadcdn.msauth.net", "aadcdn.msftauth.net"];
@@ -475,19 +526,41 @@ export function isAllowedUrl(rawUrl, product = "") {
 
 /**
  * What a job lets the computer do. `consented` is the person's one-time yes; `level` is "read-only" (tiers 0 and 1,
- * nothing is created) or "practice" (tier 2 too, only in a practice agent). Without consent nothing beyond tier 0 runs,
- * and tier 2 also needs the companion's own `--allow-practice-writes` setting.
+ * nothing is created), "practice" (tier 2 too, only in a practice agent in the practice environment the job names), or
+ * "scratch" (the same, in a practice agent the computer builds itself, in the environment the person chose or the one
+ * the product opens). Without consent nothing beyond tier 0 runs. Tier 2 also needs this computer's own say-so:
+ * `--allow-practice-writes`, or the one-time local opt-in (`localOptIn`) that is stored on this computer.
  */
-export function resolveAutonomy(raw, { allowPracticeWrites = false } = {}) {
+export function resolveAutonomy(raw, { allowPracticeWrites = false, localOptIn = false } = {}) {
   const src = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
   const consented = src.consented === true;
-  const wantsPractice = src.level === "practice";
+  const wantsScratch = src.level === "scratch";
+  const wantsPractice = src.level === "practice" || wantsScratch;
   const practiceEnvironmentUrl = typeof src.practiceEnvironmentUrl === "string" && /^https:\/\/\S+$/.test(src.practiceEnvironmentUrl) ? src.practiceEnvironmentUrl : "";
-  const practice = consented && wantsPractice && allowPracticeWrites === true && Boolean(practiceEnvironmentUrl);
+  const allowed = allowPracticeWrites === true || localOptIn === true;
+  // A from-scratch job may leave the environment open (the product's own default); a practice job must name one.
+  const practice = consented && wantsPractice && allowed && (wantsScratch || Boolean(practiceEnvironmentUrl));
   const maxTier = !consented ? TIER.LOOK : practice ? TIER.PRACTICE : TIER.TRY;
   let refusedPractice = null;
-  if (consented && wantsPractice && !practice) refusedPractice = !allowPracticeWrites ? "This job allows a practice agent, but this companion was not started with --allow-practice-writes, so nothing is created." : "This job allows a practice agent but did not say which environment to use, so nothing is created.";
-  return { consented, level: practice ? "practice" : "read-only", maxTier, practiceEnvironmentUrl: practice ? practiceEnvironmentUrl : "", refusedPractice };
+  if (consented && wantsPractice && !practice) {
+    refusedPractice = !allowed
+      ? wantsScratch
+        ? "This job asks the computer to build a practice agent, but this computer has not agreed to that yet, so nothing is created. Agree once when the companion asks, or run it with --allow-practice-writes."
+        : "This job allows a practice agent, but this companion was not started with --allow-practice-writes, so nothing is created."
+      : "This job allows a practice agent but did not say which environment to use, so nothing is created.";
+  }
+  const scratch = practice && wantsScratch;
+  return {
+    consented,
+    level: scratch ? "scratch" : practice ? "practice" : "read-only",
+    maxTier,
+    practiceEnvironmentUrl: practice ? practiceEnvironmentUrl : "",
+    scratch,
+    startFresh: scratch && src.startFresh === true,
+    // What the lab says about the agent (its name, instructions, sample questions): sanitized again where it is used.
+    scratchContext: scratch && src.scratchContext && typeof src.scratchContext === "object" && !Array.isArray(src.scratchContext) ? src.scratchContext : null,
+    refusedPractice,
+  };
 }
 
 /**
@@ -515,6 +588,8 @@ export function authorizeStep({ step, desc = null, autonomy, practice = {}, prod
   if (tier === TIER.PRACTICE) {
     if (autonomy.maxTier < TIER.PRACTICE) return { ...base, allowed: false, denied: "needs-practice" };
     if (!practice.onPracticeAgent && !practice.creatingPracticeAgent) return { ...base, allowed: false, tier: TIER.NEVER, denied: "not-practice-agent", reason: "This would change something outside the practice agent, so it is never done." };
+    // Building from scratch is stricter: a write is confirmed only in a dialog the computer knows. Anything else is never confirmed.
+    if (autonomy.scratch && desc.inDialog && !isKnownWriteDialog(normalizeControlName(desc.dialogTitle))) return { ...base, allowed: false, tier: TIER.NEVER, category: "unknown-dialog", denied: "unknown-dialog", reason: "This dialog is not one the computer knows, so it is never confirmed." };
     return { ...base, allowed: true };
   }
   if (tier > autonomy.maxTier) return { ...base, allowed: false, denied: "consent" };

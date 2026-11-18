@@ -211,12 +211,38 @@ function scJobRow(labId, filename) {
   return null;
 }
 
+/** Whether the capture settings already hold an agent address or name (the person's own agent). */
+function scAgentAddressSet(lab) {
+  const fields = lab.targets?.data?.fields;
+  return (Array.isArray(fields) ? fields : []).some((f) => ["copilotStudioAgentUrl", "copilotStudioAgentName"].includes(f?.id) && f.set === true);
+}
+
+/** The person's way of getting an agent for this lab: built from scratch, their own, or not chosen yet (null). */
+function scAgentChoiceOf(lab, consent) {
+  const stored = lab.ui.agentChoice;
+  if (stored === "existing") return "existing";
+  // "Scratch" is final only once the computer has been allowed to do it.
+  if (stored === "scratch") return consent.scratch ? "scratch" : null;
+  // Nothing chosen on this visit: an agent address the person saved is their choice; otherwise the consent they gave decides.
+  if (scAgentAddressSet(lab)) return "existing";
+  return consent.scratch ? "scratch" : null;
+}
+
 /** What the lab's screenshots still need from the person, or null when nothing is known yet. */
 function scTargetsModel(lab) {
   const data = lab.targets?.data || null;
   if (!data && !lab.needsAddress?.length) return null;
-  const missing = scMissingRequirements(data, lab.needsAddress);
-  return { data, fields: scTargetFields(data), missing, waiting: missing.reduce((sum, view) => sum + view.count, 0) };
+  const consent = scConsentModel(scState.status?.autonomy);
+  const choice = scAgentChoiceOf(lab, consent);
+  let missing = scMissingRequirements(data, lab.needsAddress);
+  // The agent is not an address the person must supply: it is built from scratch, or they choose to use their own.
+  let agentChoice = null;
+  const agentView = missing.find((view) => view.id === "copilot-studio-agent");
+  if (agentView && choice !== "existing") {
+    if (choice === null) agentChoice = { count: agentView.count };
+    missing = missing.filter((view) => view.id !== "copilot-studio-agent");
+  }
+  return { data, fields: scTargetFields(data), missing, agentChoice, choice, waiting: missing.reduce((sum, view) => sum + view.count, 0) };
 }
 
 function scBuildModel(labId) {
@@ -240,6 +266,7 @@ function scBuildModel(labId) {
     tenant: scTenantModel(labId),
     targets,
     addressWaiting: targets?.waiting || 0,
+    agentChoiceWaiting: targets?.agentChoice?.count || 0,
     mode: lab.ui.mode,
     job: lab.job,
   };
@@ -298,11 +325,15 @@ function scRenderInto(host, labId) {
   if (accountLine) section.appendChild(accountLine);
   const auto = scBuildAutonomyLine(labId);
   if (auto) section.appendChild(auto);
+  const agentLine = scBuildAgentLine(labId, model);
+  if (agentLine) section.appendChild(agentLine);
   section.appendChild(scEl("div", { class: "sc-pairing-host", data: { scPairingHost: "lab" } }));
   section.appendChild(scBuildPrimary(model, lab));
   section.appendChild(scBuildModeChoice(labId));
   section.appendChild(scBuildBackgroundChoice(labId));
   section.appendChild(scEl("div", { class: "sc-progress-host", data: { scProgressHost: labId } }));
+  const choice = scBuildAgentChoice(labId, model);
+  if (choice) section.appendChild(choice);
   const needs = scBuildAddressPrompt(labId, model);
   if (needs) section.appendChild(needs);
   const settings = scBuildCaptureSettings(labId, model);
@@ -398,7 +429,7 @@ function scBuildBanner(labId) {
   banner.appendChild(scEl("p", { class: "sc-banner-text", text: outcome.message }));
   const causes = scBuildCauses(labId, outcome.causes);
   if (causes) banner.appendChild(causes);
-  const created = scBuildCreatedItems(outcome.created);
+  const created = scBuildCreatedItems(outcome.created, outcome.scratch);
   if (created) banner.appendChild(created);
   const signIn = scBuildSignInVerdict(outcome.signIn);
   if (signIn) banner.appendChild(signIn);
@@ -451,15 +482,21 @@ function scBuildSignInVerdict(signIn) {
 }
 
 /** What the computer created in the practice environment, so the person can delete it themselves. The computer never deletes. */
-function scBuildCreatedItems(created) {
+function scBuildCreatedItems(created, scratch = null) {
   const items = (Array.isArray(created) ? created : []).filter((item) => item?.what);
-  if (!items.length) return null;
+  if (!items.length && !scratch?.name) return null;
   const box = scEl("section", { class: "sc-created", attrs: { "aria-labelledby": "sc-created-heading" }, data: { scCreated: "1" } });
   box.appendChild(scEl("h6", { id: "sc-created-heading", class: "sc-created-heading", text: "What the computer created" }));
-  box.appendChild(scEl("p", { class: "sc-created-help", text: "It never deletes anything. When you are done, delete the practice agent yourself in Copilot Studio. Its address is in practice-report.md next to the companion." }));
-  const list = scEl("ul", { class: "sc-created-list" });
-  for (const item of items) list.appendChild(scEl("li", { text: `${item.what}${item.reused ? " (reused)" : ""}` }));
-  box.appendChild(list);
+  if (scratch?.name) {
+    box.appendChild(scEl("p", { class: "sc-created-agent", text: `Practice agent: ${scratch.name}${scratch.createdAt ? ` (created ${scratch.createdAt}${scratch.reused ? ", reused this time" : ""})` : ""}.`, data: { scCreatedAgent: "1" } }));
+    if (scratch.stopped) box.appendChild(scEl("p", { class: "sc-created-help", text: `The run stopped early: ${scratch.stopped}` }));
+  }
+  box.appendChild(scEl("p", { class: "sc-created-help", text: "It never deletes anything. To remove the practice agent yourself, open Copilot Studio, find it in the Agents list, and delete it there. Its address and the full list of what the computer did are in practice-report.md next to the companion; nothing in that file ever comes to this page." }));
+  if (items.length) {
+    const list = scEl("ul", { class: "sc-created-list" });
+    for (const item of items) list.appendChild(scEl("li", { text: `${item.what}${item.reused ? " (reused)" : ""}` }));
+    box.appendChild(list);
+  }
   return box;
 }
 
@@ -781,18 +818,71 @@ function scBuildAutonomyLine(labId) {
   return wrap;
 }
 
+/** The practice agent the latest finished capture of this lab built or reused, as the companion reported it (a name and a date, never an address). */
+function scLastScratch(lab) {
+  for (const job of [lab.job, lab.lastJob]) {
+    const summary = scScratchSummary(job?.result?.scratch);
+    if (summary?.name) return summary;
+  }
+  return null;
+}
+
+/** The "Agent:" line of the readiness strip, with Start fresh and the way to switch to an existing agent. */
+function scBuildAgentLine(labId, model) {
+  const lab = scLab(labId);
+  if (!scIsAutomaticMode(lab.ui.mode)) return null;
+  const consent = scConsentModel(scState.status?.autonomy);
+  if (!consent.loaded || !consent.consented) return null;
+  const choice = scAgentChoiceOf(lab, consent);
+  const line = scAgentLine({ consent, scratchChosen: choice === "scratch", existingChosen: choice === "existing", last: scLastScratch(lab), startFresh: lab.ui.startFresh === true });
+  const wrap = scEl("div", { class: `sc-agent-line sc-agent-line-${line.state}`, data: { scAgentLine: line.state } });
+  wrap.appendChild(scEl("p", { class: "sc-agent-text", text: line.text, data: { scAgentText: "1" } }));
+  const actions = scEl("div", { class: "sc-step-actions" });
+  if (line.canStartFresh) {
+    actions.appendChild(scButton(line.fresh ? "Keep the same agent" : "Start fresh", { action: "agent-start-fresh", focus: "agent-start-fresh", aria: { "aria-pressed": line.fresh ? "true" : "false" } }));
+  }
+  if (choice === "scratch") actions.appendChild(scButton("Use an existing agent instead", { action: "agent-existing", focus: "agent-existing" }));
+  if (choice === "existing" && consent.scratch) actions.appendChild(scButton("Build the agent from scratch instead", { action: "agent-scratch", focus: "agent-scratch" }));
+  if (actions.childNodes.length) wrap.appendChild(actions);
+  return wrap;
+}
+
+/** The choice that replaces the old "your agent address" prompt: build the agent from scratch (recommended) or use your own. */
+function scBuildAgentChoice(labId, model) {
+  const choice = model.targets?.agentChoice;
+  if (!choice) return null;
+  const consent = scConsentModel(scState.status?.autonomy);
+  const section = scEl("section", { class: "sc-agent-choice", attrs: { "aria-labelledby": "sc-agent-choice-heading" }, data: { scAgentChoice: "1" } });
+  section.appendChild(scEl("h5", { id: "sc-agent-choice-heading", class: "sc-needs-heading", text: "Which agent should the screenshots use?", attrs: { tabindex: "-1" }, data: { scFocus: "agent-choice-heading" } }));
+  section.appendChild(scEl("p", { class: "sc-agent-choice-lead", text: `${scPlural(choice.count, "screenshot")} ${choice.count === 1 ? "shows" : "show"} an agent. You do not need to have one: the computer can build it by following the lab.` }));
+  const scratch = scEl("div", { class: "sc-agent-option" });
+  scratch.appendChild(scButton("Build the agent from scratch (recommended)", { action: "agent-scratch", focus: "agent-scratch", primary: true }));
+  scratch.appendChild(scEl("p", { id: "sc-agent-scratch-help", class: "hint", text: "The computer creates a new practice agent in your demo account, sets it up the way the lab does, and takes each screenshot as the lab reaches that state. You confirm once what it may create, and you can stop it at any time." }));
+  section.appendChild(scratch);
+  const existing = scEl("div", { class: "sc-agent-option" });
+  existing.appendChild(scButton("Use an existing agent", { action: "agent-existing", focus: "agent-existing" }));
+  existing.appendChild(scEl("p", { id: "sc-agent-existing-help", class: "hint", text: "Paste the address or type the name of an agent you already have, and the computer only looks at it." }));
+  section.appendChild(existing);
+  if (consent.loaded && !consent.scratchSupported) {
+    section.appendChild(scEl("p", { class: "sc-auto-warn", text: `Your Local Capture Companion is older than ${consent.scratchMinCompanion}, so it cannot build an agent from scratch yet. Download it again and replace the old one first.`, attrs: { role: "status" }, data: { scAutoOld: "scratch" } }));
+  }
+  return section;
+}
+
 /** The consent card: what the computer may do, what it never does, and the separate, unticked practice agent choice. */
 function scBuildConsentCard(labId, consent) {
   const lab = scLab(labId);
   const draft = lab.ui.consentDraft;
   if (!draft.touched) {
     draft.practice = consent.level === "practice";
+    draft.scratch = consent.level === "scratch";
     draft.url = consent.practiceEnvironmentUrl || scSuggestedPracticeUrl(labId);
     draft.touched = true;
   }
-  const card = scEl("section", { class: "sc-consent", attrs: { "aria-labelledby": "sc-consent-heading" }, data: { scConsent: "1" } });
-  card.appendChild(scEl("h5", { id: "sc-consent-heading", class: "sc-consent-heading", text: "Allow automatic capture", attrs: { tabindex: "-1" }, data: { scFocus: "consent-heading" } }));
-  card.appendChild(scEl("p", { text: "You sign in once. After that the computer takes the screenshots without you clicking anything. Here is exactly what it may and may not do." }));
+  const building = Boolean(draft.scratch);
+  const card = scEl("section", { class: `sc-consent${building ? " sc-consent-scratch" : ""}`, attrs: { "aria-labelledby": "sc-consent-heading" }, data: { scConsent: "1", scConsentMode: building ? "scratch" : draft.practice ? "practice" : "read-only" } });
+  card.appendChild(scEl("h5", { id: "sc-consent-heading", class: "sc-consent-heading", text: building ? "Build the agent from scratch" : "Allow automatic capture", attrs: { tabindex: "-1" }, data: { scFocus: "consent-heading" } }));
+  card.appendChild(scEl("p", { text: building ? "You sign in once. After that the computer builds a new practice agent in your demo account by following the lab, and takes each screenshot as the lab reaches that state, without you clicking anything. Here is exactly what it will create and change, and what it will never do." : "You sign in once. After that the computer takes the screenshots without you clicking anything. Here is exactly what it may and may not do." }));
   const accountModel = scAccountModel(scState.status?.companion);
   card.appendChild(
     scEl("p", {
@@ -806,10 +896,28 @@ function scBuildConsentCard(labId, consent) {
   const may = scEl("ul", { class: "sc-consent-list", data: { scMay: "1" } });
   for (const text of ["Open pages and sections, select tabs, and scroll", "Open dialogs and panels, and cancel them afterward", "Ask the test pane a sample question (it is not saved to your agent)", "Type a search, or fill in a dialog without confirming it"]) may.appendChild(scEl("li", { text }));
   card.appendChild(may);
+  if (building) {
+    card.appendChild(scEl("h6", { class: "sc-consent-sub", text: "To build the agent it will create and change" }));
+    const creates = scEl("ul", { class: "sc-consent-list", data: { scCreates: "1" } });
+    for (const text of consent.creates) creates.appendChild(scEl("li", { text }));
+    card.appendChild(creates);
+  }
   card.appendChild(scEl("h6", { class: "sc-consent-sub", text: "It never will" }));
   const never = scEl("ul", { class: "sc-consent-list", data: { scNever: "1" } });
   for (const text of consent.never) never.appendChild(scEl("li", { text }));
   card.appendChild(never);
+
+  // Build from scratch: the recommended way to get an agent. Where it builds is optional: it is the environment Copilot Studio opens for the account.
+  const scratchId = "sc-consent-scratch";
+  const scratchRow = scEl("div", { class: "sc-consent-practice sc-consent-scratch-row" });
+  const scratchLabel = scEl("label", { class: "sc-check", attrs: { for: scratchId } });
+  const scratchBox = scEl("input", { id: scratchId, attrs: { type: "checkbox", autocomplete: "off", "aria-describedby": "sc-consent-scratch-help" }, data: { scField: "consent-scratch" } });
+  scratchBox.checked = building;
+  scratchLabel.appendChild(scratchBox);
+  scratchLabel.appendChild(scEl("span", { text: "Build the agent from scratch (recommended): it creates one new practice agent and follows the lab on it" }));
+  scratchRow.appendChild(scratchLabel);
+  scratchRow.appendChild(scEl("p", { id: "sc-consent-scratch-help", class: "hint", text: "The agent is named “Lab screenshots - ” and a short title from your lab. It is the only agent the computer ever changes, it never deletes anything, and it lists what it made. The first time, your computer also asks you once to confirm this in its console window." }));
+  card.appendChild(scratchRow);
 
   const practiceId = "sc-consent-practice";
   const practiceRow = scEl("div", { class: "sc-consent-practice" });
@@ -817,34 +925,34 @@ function scBuildConsentCard(labId, consent) {
   const practiceBox = scEl("input", { id: practiceId, attrs: { type: "checkbox", autocomplete: "off", "aria-describedby": "sc-consent-practice-help" }, data: { scField: "consent-practice" } });
   practiceBox.checked = Boolean(draft.practice);
   practiceLabel.appendChild(practiceBox);
-  practiceLabel.appendChild(scEl("span", { text: "Also let it create a practice agent so it can capture screens that need one (it will not delete anything, and lists what it made)" }));
+  practiceLabel.appendChild(scEl("span", { text: "Or let it create a practice agent in an environment I name, only for screens that need one (it will not delete anything, and lists what it made)" }));
   practiceRow.appendChild(practiceLabel);
-  practiceRow.appendChild(scEl("p", { id: "sc-consent-practice-help", class: "hint", text: "The practice agent is named “Lab screenshots - ” and a short code. It is the only agent the computer ever changes. It never publishes to a channel or shares it with anyone. This also needs your computer to be started with --allow-practice-writes." }));
+  practiceRow.appendChild(scEl("p", { id: "sc-consent-practice-help", class: "hint", text: "The practice agent is named “Lab screenshots - ” and a short code. It is the only agent the computer ever changes. It never publishes to a channel or shares it with anyone. Your computer asks you once to confirm this too, or start it with --allow-practice-writes." }));
+  card.appendChild(practiceRow);
   const urlId = "sc-consent-url";
   const urlGroup = scEl("div", { class: "form-group sc-field" });
-  urlGroup.appendChild(scLabel(urlId, "Practice environment address"));
+  urlGroup.appendChild(scLabel(urlId, building ? "Where should it build? (optional)" : "Practice environment address"));
   const urlInput = scEl("input", {
     id: urlId,
     attrs: { type: "url", inputmode: "url", autocomplete: "off", spellcheck: "false", placeholder: "https://copilotstudio.microsoft.com/environments/<environment id>/home", maxlength: 2048, "aria-describedby": "sc-consent-url-hint" },
     data: { scField: "consent-url" },
   });
   urlInput.value = draft.url || "";
-  urlInput.disabled = !draft.practice;
+  urlInput.disabled = !(draft.practice || building);
   urlGroup.appendChild(urlInput);
-  urlGroup.appendChild(scEl("span", { id: "sc-consent-url-hint", class: "hint", text: "Use an environment you do not mind adding a test agent to. Copy the address from the address bar." }));
-  practiceRow.appendChild(urlGroup);
-  card.appendChild(practiceRow);
+  urlGroup.appendChild(scEl("span", { id: "sc-consent-url-hint", class: "hint", text: building ? "Leave this empty to use the environment Copilot Studio opens for your demo account. The computer never switches environments by itself. Use an environment you do not mind adding a test agent to." : "Use an environment you do not mind adding a test agent to. Copy the address from the address bar." }));
+  card.appendChild(urlGroup);
 
   const agreeId = "sc-consent-agree";
   const agreeLabel = scEl("label", { class: "sc-check", attrs: { for: agreeId } });
   const agreeBox = scEl("input", { id: agreeId, attrs: { type: "checkbox", autocomplete: "off" }, data: { scField: "consent-agree" } });
   agreeBox.checked = Boolean(draft.agreed);
   agreeLabel.appendChild(agreeBox);
-  agreeLabel.appendChild(scEl("span", { text: "I understand what the computer may and may not do" }));
+  agreeLabel.appendChild(scEl("span", { text: building ? "I understand what the computer will create and change, and what it will never do" : "I understand what the computer may and may not do" }));
   card.appendChild(agreeLabel);
   if (draft.error) card.appendChild(scEl("p", { class: "sc-field-error", text: draft.error, attrs: { role: "alert" }, data: { scConsentError: "1" } }));
   const actions = scEl("div", { class: "sc-step-actions" });
-  actions.appendChild(scButton("Allow automatic capture", { action: "consent-save", focus: "consent-save", primary: true }));
+  actions.appendChild(scButton(building ? (lab.ui.queueAfterConsent ? "Allow and build the agent" : "Allow building the agent") : "Allow automatic capture", { action: "consent-save", focus: "consent-save", primary: true }));
   actions.appendChild(scButton("Not now", { action: "consent-close", focus: "consent-close" }));
   card.appendChild(actions);
   return card;
@@ -1022,6 +1130,14 @@ function scCurrentShotName(key, view) {
   return `${shot.figure ? `Figure ${shot.figure}: ` : ""}${shot.caption || shot.filename}`;
 }
 
+/** The sentence the companion last reported for the screenshot it is working on, when it is one of its own progress phrases. */
+function scCurrentStepText(key, view) {
+  const row = (scLab(key).job?.shots || []).find((s) => s.filename === view.currentFilename);
+  const text = scText(row?.message, 120);
+  // Plain status words only: the first lines a companion sends ("Capturing.") say nothing a person can use.
+  return text && text !== "Capturing." && row?.status === "running" ? text : "";
+}
+
 function scProgressText(key, view) {
   const c = view.counts;
   const parts = [`${view.percent}%`, `${c.done} of ${c.total} done`, `Elapsed ${view.elapsed}`];
@@ -1047,6 +1163,9 @@ function scBuildProgressCard(key, view) {
   card.appendChild(scEl("p", { class: "sc-progress-line", text: scProgressText(key, view), data: { scProgressLine: "1" } }));
   const now = view.phase === "running" && view.currentFilename ? scCurrentShotName(key, view) : "";
   card.appendChild(scEl("p", { class: "sc-progress-now", text: now ? `Now capturing: ${now}` : "", attrs: { hidden: !now }, data: { scProgressNow: "1" } }));
+  // What the computer is doing this second ("Creating the agent", "Asking the test pane a sample question"), as it reports it.
+  const step = view.phase === "running" ? scCurrentStepText(key, view) : "";
+  card.appendChild(scEl("p", { class: "sc-progress-step", text: step, attrs: { hidden: !step, role: "status", "aria-live": "polite" }, data: { scProgressStep: "1" } }));
   const counts = scEl("ul", { class: "sc-progress-counts", data: { scProgressCounts: "1" } });
   scFillCounts(counts, view.counts);
   card.appendChild(counts);
@@ -1108,6 +1227,12 @@ function scUpdateProgress(key) {
   if (nowEl) {
     nowEl.textContent = now ? `Now capturing: ${now}` : "";
     nowEl.hidden = !now;
+  }
+  const stepEl = card.querySelector("[data-sc-progress-step]");
+  if (stepEl) {
+    const step = view.phase === "running" ? scCurrentStepText(key, view) : "";
+    if (stepEl.textContent !== step) stepEl.textContent = step;
+    stepEl.hidden = !step;
   }
   const counts = card.querySelector("[data-sc-progress-counts]");
   if (counts) scFillCounts(counts, view.counts);
@@ -1748,6 +1873,11 @@ function scBindSection(section, labId) {
       }
     } else if (field === "consent-practice") {
       lab.ui.consentDraft.practice = Boolean(target.checked);
+      if (target.checked) lab.ui.consentDraft.scratch = false;
+      scRerender(labId);
+    } else if (field === "consent-scratch") {
+      lab.ui.consentDraft.scratch = Boolean(target.checked);
+      if (target.checked) lab.ui.consentDraft.practice = false;
       scRerender(labId);
     } else if (field === "consent-agree") {
       lab.ui.consentDraft.agreed = Boolean(target.checked);
@@ -1929,6 +2059,7 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       return;
     case "consent-open":
       lab.ui.consentOpen = true;
+      lab.ui.queueAfterConsent = false;
       lab.ui.consentDraft.touched = false;
       lab.ui.consentDraft.error = "";
       scRerender(labId);
@@ -1936,6 +2067,7 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       return;
     case "consent-close":
       lab.ui.consentOpen = false;
+      lab.ui.queueAfterConsent = false;
       scRerender(labId);
       scFocusByKey(scHostFor(labId), "consent-open");
       return;
@@ -1944,6 +2076,17 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       return;
     case "consent-revoke":
       await scRevokeConsent(labId);
+      return;
+    case "agent-scratch":
+      await scChooseAgent(labId, "scratch");
+      return;
+    case "agent-existing":
+      await scChooseAgent(labId, "existing");
+      return;
+    case "agent-start-fresh":
+      lab.ui.startFresh = !lab.ui.startFresh;
+      scAnnounce(lab.ui.startFresh ? "The next capture builds a new practice agent. The earlier one stays in your tenant." : "The next capture reuses the practice agent.");
+      scRerender(labId);
       return;
     case "shot-record":
       scCloseLightboxFor(labId, control);
