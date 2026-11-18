@@ -35,6 +35,7 @@ import { createCapturePlatform } from "./index.js";
 import { isJobId } from "./jobs.js";
 import { TOKEN_PREFIX } from "./pairing.js";
 import { MAX_UPLOAD_BYTES } from "./verify-upload.js";
+import { parseRecipeKey } from "../../../tools/screenshot-capture/recipes.mjs";
 
 const SAFE_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
 const DEVICE_ID_RE = /^dev_[a-f0-9]{12}$/;
@@ -85,7 +86,7 @@ function parseEvidenceHeader(value) {
  */
 export function registerCaptureRoutes(app, deps = {}) {
   const platform = deps.platform ?? createCapturePlatform(deps);
-  const { pairing, jobs, screenshots } = platform;
+  const { pairing, jobs, screenshots, sharedRecipes } = platform;
   const scheduleBlobSync = typeof deps.scheduleBlobSync === "function" ? deps.scheduleBlobSync : () => {};
   const env = deps.env ?? process.env;
 
@@ -94,6 +95,7 @@ export function registerCaptureRoutes(app, deps = {}) {
   const uploadRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_UPLOAD_RATE_WINDOW_MS, 3600000), max: positiveIntFromEnv(env.CAPTURE_UPLOAD_RATE_MAX, 600) });
   const exchangeRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_EXCHANGE_RATE_WINDOW_MS, 600000), max: positiveIntFromEnv(env.CAPTURE_EXCHANGE_RATE_MAX, 10) });
   const companionRate = createRateLimiter({ windowMs: 60000, max: positiveIntFromEnv(env.CAPTURE_COMPANION_RATE_MAX, 600) });
+  const recipeRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_RECIPE_RATE_WINDOW_MS, 3600000), max: positiveIntFromEnv(env.CAPTURE_RECIPE_RATE_MAX, 30) });
 
   function limited(check, key, message) {
     return (req, res) => {
@@ -242,8 +244,47 @@ export function registerCaptureRoutes(app, deps = {}) {
     if (manageLimited(req, res)) return;
     if (!isJobId(req.params.id)) return res.status(400).json({ error: "Invalid job id." });
     syncAfter(res);
-    const result = jobs.cancel(req.params.id);
+    // "Pause" stops after the current screenshot and keeps the rest for Resume; plain cancel drops them.
+    const result = jobs.cancel(req.params.id, { pause: req.body?.pause === true });
     return result.ok ? res.json({ job: result.job }) : res.status(result.status).json({ error: result.error, job: result.job });
+  });
+
+  // ── Automatic capture: what the person agreed to, and the recipes people shared ──
+
+  app.get("/api/capture/consent", (req, res) => {
+    const brandProfileId = typeof req.query.brandProfileId === "string" ? req.query.brandProfileId : undefined;
+    return res.json(platform.consentPayload({ body: { brandProfileId } }));
+  });
+
+  app.put("/api/capture/consent", (req, res) => {
+    if (manageLimited(req, res)) return;
+    const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+    syncAfter(res);
+    try {
+      const result = platform.saveConsent(body, { body: { brandProfileId: typeof body.brandProfileId === "string" ? body.brandProfileId : undefined } });
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete("/api/capture/consent", (req, res) => {
+    if (manageLimited(req, res)) return;
+    const brandProfileId = typeof req.query.brandProfileId === "string" ? req.query.brandProfileId : undefined;
+    syncAfter(res);
+    return res.json(platform.revokeConsent({ body: { brandProfileId } }).body);
+  });
+
+  app.get("/api/capture/recipes", (_req, res) => {
+    res.json({ recipes: sharedRecipes.list() });
+  });
+
+  app.delete("/api/capture/recipes", (req, res) => {
+    if (manageLimited(req, res)) return;
+    const parsed = parseRecipeKey(typeof req.query.key === "string" ? req.query.key : "");
+    if (!parsed) return res.status(400).json({ error: "That is not a recipe key." });
+    syncAfter(res);
+    return sharedRecipes.remove(parsed) ? res.json({ removed: true }) : res.status(404).json({ error: "No shared recipe with that key." });
   });
 
   // ── Capture settings: where should we capture? ────────────────────────────
@@ -451,7 +492,8 @@ export function registerCaptureRoutes(app, deps = {}) {
     const { job, plan, resumed } = claimed;
     const pending = new Set(job.shots.filter((s) => s.status === "pending" || s.status === "running").map((s) => s.filename));
     return res.json({
-      job: { id: job.id, target: job.target, scope: job.scope, options: job.options, createdAt: job.createdAt, resumed },
+      // The practice environment (when the person allowed a practice agent) travels only here, never in the job the browser reads.
+      job: { id: job.id, target: job.target, scope: job.scope, options: { ...job.options, ...(plan?.autonomy ? { autonomy: plan.autonomy } : {}) }, createdAt: job.createdAt, resumed },
       env: plan?.env || {},
       targets: plan?.targets || {},
       shots: (plan?.shots || []).filter((shot) => pending.has(shot.filename)),
@@ -511,11 +553,25 @@ export function registerCaptureRoutes(app, deps = {}) {
     }
   });
 
+  // A recipe the person chose to share: validated here again, anonymous, and rate limited.
+  app.post(`${COMPANION_PREFIX}/recipes`, (req, res) => {
+    const rate = recipeRate(`token:${String(req.headers.authorization || "").slice(-24)}`);
+    if (!rate.allowed) {
+      res.setHeader("Retry-After", String(rate.retryAfterSec));
+      return res.status(429).json({ error: `Too many recipes shared. Try again in ${rate.retryAfterSec}s.` });
+    }
+    const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+    syncAfter(res);
+    const result = sharedRecipes.put(body.recipe);
+    if (!result.ok) return res.status(422).json({ error: result.errors[0] || "The recipe was not accepted.", errors: result.errors, code: "recipe-rejected" });
+    return res.status(result.replaced ? 200 : 201).json({ shared: true, replaced: result.replaced === true });
+  });
+
   app.post(`${COMPANION_PREFIX}/jobs/:id/complete`, (req, res) => {
     if (!isJobId(req.params.id)) return res.status(400).json({ error: "Invalid job id." });
     syncAfter(res);
     const body = req.body && typeof req.body === "object" ? req.body : {};
-    const result = jobs.complete(req.params.id, req.captureDevice.id, { message: body.message, fatalError: body.fatalError, paused: body.paused });
+    const result = jobs.complete(req.params.id, req.captureDevice.id, { message: body.message, fatalError: body.fatalError, paused: body.paused, created: body.created, signIn: body.signIn });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     if (result.job.target.type === "lab") screenshots.flushLab(result.job.target.labId);
     else void screenshots.flushLibrary().catch(() => {});

@@ -12,7 +12,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { buildSidecar, resolveCallouts, sidecarName } from "./callouts.mjs";
-import { briefError, BrowserClosedError, classifyBrowserError, gotoWithRetry } from "./lifecycle.mjs";
+import { preparePractice, runShotSetup } from "./autonomous.mjs";
+import { resolveAutonomy } from "./guard.mjs";
+import { briefError, BrowserClosedError, classifyBrowserError, navigateWithSignIn } from "./lifecycle.mjs";
+import { recipeKeyForShot, toSharePayload, validateSharedRecipe } from "./recipes.mjs";
+import { startRecorder } from "./recorder.mjs";
 import { findControls, openNavigationItem, revealLabel } from "./locator.mjs";
 import { removeGuidedToolbar, waitForGuidedAction } from "./guided.mjs";
 import { readinessBudgets, waitUntilReady } from "./readiness.mjs";
@@ -33,12 +37,59 @@ const DEFAULT_START = "https://copilotstudio.microsoft.com/";
 const sleepDefault = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** What a job knows about where it is capturing, shared by every shot of a product in the job. */
-export function createCaptureSession({ env = {}, targets = {} } = {}) {
-  return { values: targetValuesFromJob(env, targets), cs: { envBase: null, agentBase: null, agentSource: null } };
+export function createCaptureSession({ env = {}, targets = {}, autonomy = null, registry = null, recipes = null, home = null, terms = [], companionVersion = "" } = {}) {
+  return {
+    values: targetValuesFromJob(env, targets),
+    cs: { envBase: null, agentBase: null, agentSource: null },
+    // What the computer may do on its own in this job (see guard.mjs), and the local stores it may use.
+    autonomy: autonomy || resolveAutonomy(null),
+    registry,
+    recipes,
+    home,
+    terms,
+    companionVersion,
+    practiceAgent: null,
+  };
 }
 
 function failure(status, cause, error, extra = {}) {
   return { status, cause, error, ...extra };
+}
+
+/**
+ * Keep what the person showed: the recipe is stored on this computer, and sent to the portal only when the person
+ * chose to share it and it passes the same checks the portal runs.
+ */
+async function saveRecording({ shot, session, recorded, log, trace }) {
+  const out = { steps: recorded.steps.length, skipped: recorded.skipped.length, saved: false, shared: false };
+  if (!recorded.steps.length) {
+    log?.("  Nothing could be recorded from what you did, so the computer has nothing new to learn here.");
+    return out;
+  }
+  const key = recipeKeyForShot(shot);
+  const recipe = { key, title: `Set up ${shot.filename}`, steps: recorded.steps };
+  if (session.recipes?.put(recipe)) {
+    out.saved = true;
+    log?.(`  Saved ${recorded.steps.length} step${recorded.steps.length === 1 ? "" : "s"} on this computer. The computer will do this itself next time.`);
+  }
+  if (session.record?.share && session.shareRecipe) {
+    const payload = toSharePayload(recipe);
+    const checked = validateSharedRecipe(payload);
+    if (!checked.ok) {
+      log?.(`  This recipe was not shared: ${checked.errors[0]}`);
+    } else {
+      try {
+        await session.shareRecipe(checked.recipe);
+        session.recipes?.markShared(key);
+        out.shared = true;
+        log?.("  Shared the recipe anonymously (control names only), so every lab can use it.");
+      } catch (err) {
+        log?.(`  The recipe could not be shared: ${briefError(err)}`);
+      }
+    }
+  }
+  trace?.event("recipe-recorded", { shot: shot.filename, steps: out.steps, skipped: out.skipped, shared: out.shared });
+  return out;
 }
 
 /** Wait for the address to stop changing (single-page apps redirect after they load), and return it. */
@@ -89,9 +140,8 @@ async function openCopilotStudio({ page, shot, session, env, effectiveMode, gate
   const go = async (url, label) => {
     log?.(`  → Opening ${redactedAddress(url)}`);
     const before = maskedPath(page.url());
-    await gotoWithRetry(page, url, { sleep, trace, log, waitUntil: "domcontentloaded" });
-    const signedIn = await gate.ensureSignedIn(page, { phase: "navigate", target: url });
-    if (!signedIn.ok) return { signIn: signedIn };
+    const nav = await navigateWithSignIn({ page, url, gate, sleep, trace, log, reason: "open-copilot-studio-screen" });
+    if (!nav.ok) return { signIn: nav.signIn };
     const after = await settleAddress(page, { sleep });
     record(steps, { action: "open", label, ok: true, found: true, urlBefore: before, urlAfter: maskedPath(after) });
     return { url: after };
@@ -178,9 +228,8 @@ async function openAddress({ page, shot, env, gate, trace, log, sleep, steps }) 
   if (!url || !/^https:\/\//i.test(url)) return { ok: true, partial: true };
   log?.(`  → Opening ${redactedAddress(url)}`);
   const before = maskedPath(page.url());
-  await gotoWithRetry(page, url, { sleep, trace, log, waitUntil: "domcontentloaded" });
-  const signedIn = await gate.ensureSignedIn(page, { phase: "navigate", target: url });
-  if (!signedIn.ok) return { signIn: signedIn };
+  const nav = await navigateWithSignIn({ page, url, gate, sleep, trace, log, reason: "open-product-address" });
+  if (!nav.ok) return { signIn: nav.signIn };
   const landed = await settleAddress(page, { sleep });
   record(steps, { action: "open", label: shot.capture.path?.[0] || "the page", ok: true, found: true, urlBefore: before, urlAfter: maskedPath(landed) });
   let expect = shot.capture.expect;
@@ -232,29 +281,76 @@ export async function runCaptureShot({
   const done = (result) => ({ executedSteps: steps, ...result });
   const detail = { mode: effectiveMode, path: capture.path || [], screen: capture.screen?.label || null };
   trace?.event("shot-plan", { shot: shot.filename, mode: effectiveMode, classified: capture.mode, screen: capture.screen?.id || null, route: capture.route?.kind || null, attempt });
+  const autonomous = effectiveMode === "autonomous";
+  const strict = effectiveMode === "auto" || autonomous;
+  let setupRun = null;
+  const stopSetup = async () => {
+    await setupRun?.executor?.cleanup?.().catch(() => {});
+  };
 
-  // 1. What this shot cannot do without.
-  if (effectiveMode === "auto") {
-    const missing = missingRequirements(capture.needs, session.values);
+  // A page the practice agent needs is reached by address, with the same sign-in check as every other page.
+  const goTo = async (url, label) => {
+    log?.(`  → Opening ${redactedAddress(url)}`);
+    const before = maskedPath(page.url());
+    const nav = await navigateWithSignIn({ page, url, gate, sleep, trace, log, reason: "open-practice-screen" });
+    if (!nav.ok) return { signIn: nav.signIn };
+    const after = await settleAddress(page, { sleep });
+    record(steps, { action: "open", label, ok: true, found: true, urlBefore: before, urlAfter: maskedPath(after) });
+    return { url: after };
+  };
+
+  if (gate.failed) return needsSignIn({ error: gate.failed.message, code: gate.failed.code });
+
+  // 0. Autonomous: a shot whose steps need a practice agent runs inside it (found or created), only when this job allows one.
+  let practiceInfo = null;
+  let practiceError = "";
+  let routeSession = session;
+  if (autonomous) {
+    const prepared = await preparePractice({ page, shot, session, go: goTo, trace, log, sleep, terms: session.terms, home: session.home, companion: session.companionVersion });
+    practiceError = prepared.error;
+    if (practiceError) log?.(`  ${practiceError}`);
+    if (prepared.info) {
+      practiceInfo = prepared.info;
+      routeSession = { ...session, cs: { envBase: prepared.info.envBase, agentBase: prepared.info.agentBase, agentSource: "practice" } };
+      detail.practice = { name: prepared.info.name, reused: prepared.info.reused === true };
+    }
+  }
+
+  // 1. What this shot cannot do without. A shot that runs in the practice agent does not need the person's own agent.
+  if (strict) {
+    const needed = autonomous ? [...new Set([...(capture.needs || []), ...(capture.agentNeeds || [])])] : capture.needs;
+    const missing = missingRequirements(needed, session.values).filter((id) => !(practiceInfo && id === "copilot-studio-agent"));
     if (missing.length) {
       const cause = REQUIREMENTS[missing[0]]?.cause || "no-address";
       trace?.event("shot-skipped", { shot: shot.filename, cause, needs: missing.join(",") });
       return done(failure("skipped", cause, needMessage(missing), { needs: missing, detail }));
     }
   }
-  if (gate.failed) return needsSignIn({ error: gate.failed.message, code: gate.failed.code });
 
   // 2. Get to the screen.
   const controlOptions = { readiness };
   let opened;
-  if (capture.route?.kind === "copilot-studio") opened = await openCopilotStudio({ page, shot, session, env, effectiveMode, gate, trace, log, sleep, steps, controlOptions });
+  if (capture.route?.kind === "copilot-studio") opened = await openCopilotStudio({ page, shot, session: routeSession, env, effectiveMode: strict ? "auto" : effectiveMode, gate, trace, log, sleep, steps, controlOptions });
   else if (capture.route?.kind === "url") opened = await openAddress({ page, shot, env, gate, trace, log, sleep, steps });
   else opened = { ok: true, partial: true };
   if (opened.signIn) return needsSignIn(opened.signIn);
   if (opened.status) return done({ ...opened, detail: { ...detail, ...(opened.detail || {}) } });
   detail.landing = opened.landing ? { state: opened.landing.state, page: opened.landing.page } : null;
 
-  // 3. Bring the labels the lab points at into view (read-only: a tab, a navigation item).
+  // 3a. Autonomous: put the screen into the state the shot needs (open a dialog, ask the test pane, select a tab).
+  if (autonomous) {
+    setupRun = await runShotSetup({ page, shot, session, practiceInfo, practiceError, trace, log, sleep, terms: session.terms, home: session.home, companion: session.companionVersion, readiness });
+    detail.setup = setupRun.setup;
+    for (const step of setupRun.setup.steps || []) record(steps, { action: step.action, label: step.note || step.id, found: step.status !== "skipped", ok: step.status === "ok", note: step.why || step.strategy || "" });
+    if (!setupRun.ok) {
+      await stopSetup();
+      trace?.event("shot-needs-you", { shot: shot.filename, cause: setupRun.cause, step: setupRun.setup.failedStep?.id || "" });
+      return done(failure("needs-you", setupRun.cause, setupRun.error, { detail, currentUrl: maskedPath(page.url()), diagnostic: setupRun.setup.failedStep ? setupRun.setup : null }));
+    }
+    detail.landing = detail.landing || null;
+  }
+
+  // 3b. Bring the labels the lab points at into view (read-only: a tab, a navigation item).
   if (effectiveMode === "auto") {
     for (const step of capture.reveal || []) {
       const collect = async (p) => (hooks?.collectLabels ? hooks.collectLabels(p) : collectVisibleLabels(p, {}));
@@ -266,14 +362,27 @@ export async function runCaptureShot({
     }
   }
 
-  // 4. Guided: the person sets the screen up and captures it.
+  // 4. Guided: the person sets the screen up and captures it. With "Show me once" the computer also learns the steps.
   if (effectiveMode === "guided") {
-    const config = { title: shot.moduleTitle ? `${String(shot.moduleTitle).slice(0, 60)}: ${shot.filename}` : `Set up ${shot.filename}`, lines: capture.guide || [] };
+    const recording = Boolean(session.record);
+    const config = {
+      title: shot.moduleTitle ? `${String(shot.moduleTitle).slice(0, 60)}: ${shot.filename}` : `Set up ${shot.filename}`,
+      lines: recording ? ["Show me once: set the screen up the way you normally would.", "The computer records your clicks, never what you type, so it can do this itself next time.", "Then press Capture this screen."] : capture.guide || [],
+    };
+    let recorder = null;
+    if (recording) recorder = await startRecorder(page, { product: capture.product || shot.product || "", log, sleep }).catch((err) => {
+      log?.(`  Recording could not start: ${briefError(err)}`);
+      return null;
+    });
     log?.(`  Waiting for you in the browser window: set up the screen, then press Capture this screen (${shot.filename}).`);
     // A hook for tests and automation: something that plays the person while the toolbar is shown.
     if (typeof guided.onWaiting === "function") void Promise.resolve(guided.onWaiting({ shot, config, page })).catch(() => {});
     const action = await waitForGuidedAction(page, { config, timeoutMs: guided.timeoutMs ?? 120_000, shouldStop: guided.shouldStop, sleep: guided.sleep || sleep });
     trace?.event("guided-result", { shot: shot.filename, action });
+    if (recorder) {
+      const recorded = await recorder.stop().catch(() => ({ steps: [], skipped: [] }));
+      if (action === "capture") detail.recorded = await saveRecording({ shot, session, recorded, log, trace });
+    }
     if (action === "closed") throw new BrowserClosedError();
     if (action === "skip") return done(failure("skipped", "skipped-by-you", "You skipped this screen.", { detail }));
     if (action === "stop") return done(failure("paused", "stopped", "You stopped the capture.", { detail, stopJob: true }));
@@ -288,8 +397,11 @@ export async function runCaptureShot({
   }
 
   // 5. Ready, then the picture.
+  try {
   const stillSignedIn = await gate.ensureSignedIn(page, { phase: "screenshot" });
   if (!stillSignedIn.ok) return needsSignIn(stillSignedIn);
+  // A quiet screen: no blinking caret, no hover tooltip, and nothing half-loaded.
+  if (autonomous) await setupRun?.executor?.prepareForCapture({ keepPointer: (setupRun.setup.steps || []).at(-1)?.action === "hover" });
   await waitUntilReady(page, { budgets: readinessBudgets(readiness, attempt), sleep, trace, shot: shot.filename, attempt });
 
   let callouts = null;
@@ -326,4 +438,8 @@ export async function runCaptureShot({
     executedSteps: steps,
     detail,
   };
+  } finally {
+    // What the steps opened is closed again, so the next screen starts clean.
+    await stopSetup();
+  }
 }

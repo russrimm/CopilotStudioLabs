@@ -607,11 +607,11 @@ test("the primary button follows the setup: connect, capture, retake, review, ch
   h.status = statusPayload({ devices: [device()] });
   await h.run("scLoadStatus")(true);
   h.run("scNotifyStatusChanged")();
-  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Capture 2 missing screenshots");
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Capture all screenshots automatically");
   assert.equal(h.center().querySelector(".sc-primary-btn").dataset.scAction, "primary-capture-missing");
 
   await h.render(stateFor([captured("a.png", { stale: true }), captured("b.png", { stale: true })]));
-  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Retake 2 outdated screenshots");
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Retake 2 outdated screenshots automatically");
 
   await h.render(stateFor([captured("a.png"), shot({ filename: "b.png", needsReview: true, verification: { level: "warn", reasons: [{ code: "near-uniform", level: "warn" }] } })]));
   assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Review 1 screenshot");
@@ -755,7 +755,7 @@ test("pairing notices the new computer on its own and says so", async () => {
   assert.equal(h.center().querySelector(".sc-pair-success").textContent, "Connected: Grace Laptop. You are ready to capture screenshots.");
   assert.match(h.live(), /Connected: Grace Laptop/);
   assert.equal(h.step("connect").dataset.state, "done");
-  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Capture 1 missing screenshot");
+  assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Capture all screenshots automatically");
   assert.equal(h.clock.timers.size, 0, "no timers are left running once connected");
 
   await h.click(h.action("pair-close"));
@@ -1051,7 +1051,7 @@ test("starting a capture shows a live progress card fed by server-sent events", 
   const queued = jobFor(state.shots);
   await startCapture(h, state, queued);
 
-  assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body), { target: { type: "lab", labId: LAB }, scope: { mode: "missing" }, options: { callouts: "sidecar", redact: true, mode: "smart" } });
+  assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body), { target: { type: "lab", labId: LAB }, scope: { mode: "missing" }, options: { callouts: "sidecar", redact: true, mode: "autonomous" } });
   assert.equal(h.FakeEventSource.instances.length, 1);
   const es = h.FakeEventSource.instances[0];
   assert.equal(es.url, `/api/capture/jobs/${queued.id}/events`);
@@ -1956,7 +1956,7 @@ test("advanced capture options are sent with the job, and 'selected' needs a tic
   assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body), {
     target: { type: "lab", labId: LAB },
     scope: { mode: "selected", filenames: ["a.png"] },
-    options: { callouts: "burn", redact: false, mode: "smart" },
+    options: { callouts: "burn", redact: false, mode: "autonomous" },
     useLabCustomization: false,
   });
   advanced.dispatchEvent(h.event("toggle", { bubbles: false }));

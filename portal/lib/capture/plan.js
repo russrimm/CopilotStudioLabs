@@ -21,6 +21,7 @@ import { listFeatureManifests } from "../../../tools/screenshot-capture/manifest
 import { blockedInstructionReason, blockedLabelReason } from "../../../tools/screenshot-capture/guard.mjs";
 import { REQUIREMENTS, missingRequirements, targetField } from "../../../tools/screenshot-capture/targets.mjs";
 import { classifyShot, expectedLabelsForShot } from "./classify.js";
+import { buildSetupPlan } from "./setup-plan.js";
 
 const ALLOWED_ACTIONS = new Set([
   "navigate",
@@ -104,9 +105,11 @@ function viewportOf(value) {
     : { width: 1440, height: 900 };
 }
 
-function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, instructions, values = {} }) {
+function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, instructions, values = {}, allowPractice = false, sharedRecipes = null, labTitle = "" }) {
   const urlEnv = /^CAPTURE_[A-Z0-9_]{1,80}$/.test(String(src.urlEnv || "")) ? src.urlEnv : null;
   const capture = classifyShot({ ...src, product: product ?? src.product, callouts, instructions }, { values });
+  // What the computer sets up on the screen, in autonomous mode. Steps that need a practice agent are in the plan only when the job allows one.
+  const setup = buildSetupPlan({ ...src, product: product ?? src.product, callouts, instructions }, { capture, allowPractice, sharedRecipes, labTitle });
   // A screen the settings already lead to is opened directly, so even a companion that follows only the address lands on it.
   const directUrl = capture.mode !== "manual" ? capture.knownUrl || null : null;
   const effectiveStart = directUrl || startUrl;
@@ -139,7 +142,7 @@ function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, inst
       text: text(c?.text ?? c?.label, 120),
     })),
     instructions: (Array.isArray(instructions) ? instructions : []).slice(0, 6).map((i) => text(i, 300)),
-    capture: sanitizeCaptureDescriptor(capture),
+    capture: { ...sanitizeCaptureDescriptor(capture), ...(setup ? { setup } : {}), slot: text(String(src.filename || "").replace(/\.[a-z0-9]+$/i, "").toLowerCase(), 80) },
   };
   shot.expectedLabels = expectedLabelsFor(shot);
   return shot;
@@ -158,6 +161,8 @@ export function sanitizeCaptureDescriptor(capture) {
     section: text(capture.section, 60) || null,
     needs: list(capture.needs, 4, 40).filter((id) => REQUIREMENTS[id]),
     missing: list(capture.missing, 4, 40).filter((id) => REQUIREMENTS[id]),
+    agentNeeds: list(capture.agentNeeds, 4, 40).filter((id) => REQUIREMENTS[id]),
+    agentMissing: list(capture.agentMissing, 4, 40).filter((id) => REQUIREMENTS[id]),
     ready: capture.ready !== false,
     route: capture.route && typeof capture.route === "object" ? { kind: text(capture.route.kind, 20), screen: text(capture.route.screen, 30) || undefined, scope: text(capture.route.scope, 20) || undefined, url: isHttps(capture.route.url) ? capture.route.url : undefined, urlEnv: /^CAPTURE_[A-Z0-9_]{1,80}$/.test(String(capture.route.urlEnv || "")) ? capture.route.urlEnv : undefined, direct: capture.route.direct === true ? true : undefined } : { kind: "none" },
     screen: capture.screen ? { id: text(capture.screen.id, 40), label: text(capture.screen.label, 120) } : null,
@@ -182,7 +187,7 @@ function inScope(scope, { filename, featureId, missing, stale }) {
 /**
  * The shots a lab job should capture. Returns `{status: 200, title, shots}` or `{status, error}`.
  */
-export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = capturedScreenshotsDirs(), values = {} }) {
+export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null }) {
   const found = resolveGeneratedLabDir(generatedRoot, labId);
   if (found.status !== 200) return { status: found.status, error: found.error };
   const { shotsPlan, learnState } = ensurePerLabScreenshotPlan(found.labDir, { labId: found.labId, capturedDir });
@@ -216,6 +221,9 @@ export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = cap
         callouts: shot.callouts,
         instructions: shot.instructions,
         values,
+        allowPractice,
+        sharedRecipes,
+        labTitle: shotsPlan.title || "",
       }),
     );
   }
@@ -261,7 +269,7 @@ export function listLibrarySlots({ manifestDir, capturedDir = capturedScreenshot
 }
 
 /** The shots a shared-library job should capture. Returns `{status: 200, shots}`. */
-export function buildLibraryJobPlan({ scope, products = [], manifestDir, capturedDir = capturedScreenshotsDirs(), values = {} }) {
+export function buildLibraryJobPlan({ scope, products = [], manifestDir, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null }) {
   const productSet = products.length ? new Set(products) : null;
   const shots = [];
   const seen = new Set();
@@ -287,6 +295,9 @@ export function buildLibraryJobPlan({ scope, products = [], manifestDir, capture
         callouts: shot.callouts,
         instructions: shot.instructions,
         values,
+        allowPractice,
+        sharedRecipes,
+        labTitle: shot.featureName || "",
       }),
     );
   }

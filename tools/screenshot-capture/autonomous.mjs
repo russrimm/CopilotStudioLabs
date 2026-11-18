@@ -1,0 +1,131 @@
+// Autonomous setup for one shot: choose where its steps come from, run them through the executor, and say plainly
+// what happened. The order of trust is: the person's own recorded recipe for this shot (when it is not stale), then the
+// plan the portal sent (a shared recipe, a built-in recipe, or steps derived from the lab). A recipe that fails when
+// it is replayed is marked stale and the next source is tried at once, so a UI change costs one extra attempt, not a
+// shot. Whatever the source, every step is checked again here and by the gate before it touches the page.
+
+import { createExecutor } from "./executor.mjs";
+import { TIER } from "./guard.mjs";
+import { sanitizeSetup, sanitizeSteps, stepsFromReveal } from "./setup-steps.mjs";
+import { recipeKeyForShot } from "./recipes.mjs";
+import { ensurePracticeAgent } from "./practice.mjs";
+
+export { recipeKeyForShot, stepsFromReveal };
+
+/**
+ * The step lists to try for a shot, in order, each with where it came from.
+ * @returns {Array<{source: string, steps: object[], limited: object|null, final?: object, inputs: object, recipeKey?: object}>}
+ */
+export function setupCandidates(shot, { session, practiceAllowed }) {
+  const capture = shot.capture || {};
+  const product = capture.product || shot.product || "copilot-studio";
+  const out = [];
+  const key = recipeKeyForShot(shot);
+  const local = session.recipes?.get(key);
+  const planned = sanitizeSetup(capture.setup, { allowPractice: practiceAllowed, product });
+  const inputs = planned?.inputs || {};
+  if (local) {
+    const steps = sanitizeSteps(local.steps, { product }).filter((s) => practiceAllowed || (s.tier < TIER.PRACTICE && !s.practiceOnly));
+    if (steps.length) out.push({ source: "local", steps, limited: null, final: local.final, inputs, recipeKey: key });
+  }
+  if (planned && planned.steps.length) out.push({ source: planned.source, steps: planned.steps, limited: planned.limited || null, final: planned.final, inputs, needsPractice: planned.needsPractice });
+  else if (planned?.limited) out.push({ source: planned.source, steps: [], limited: planned.limited, final: planned.final, inputs, needsPractice: true });
+  if (!out.length) out.push({ source: "derived", steps: stepsFromReveal(capture.reveal, product), limited: null, inputs });
+  return out;
+}
+
+const trimStepRecord = (r) => ({ id: r.id, action: r.action, status: r.status, strategy: r.strategy || "", tier: r.tier, note: r.summary || "", why: r.note || "", ms: r.ms });
+
+/** One sentence that says what the computer could not do and what to do next. */
+export function failureMessage(failed, { source = "" } = {}) {
+  if (!failed) return "The computer could not set up this screen.";
+  const what = failed.step ? `“${failed.step}”` : "a step";
+  switch (failed.code) {
+    case "blocked":
+      return `The computer would not do ${what}, because it is something it never does on its own (${failed.blockedBy || "a safety rule"}). Set the screen up yourself with “Retake guided”.`;
+    case "needs-practice":
+      return `${what} needs a practice agent, which this job did not allow.`;
+    case "unexpected-effect":
+      return `${failed.why || "A click did something unexpected."} Nothing else was clicked.`;
+    case "left-allowed-site":
+      return "The page left the product's own sites, so the capture stopped. Nothing else was clicked.";
+    default:
+      return `The computer could not complete ${what}: ${failed.why || "the control was not found or did nothing"}. Use “Show me once” so it can learn this screen${source === "local" ? " again" : ""}, or set it up yourself with “Retake guided”.`;
+  }
+}
+
+/** Whether a shot's steps need a practice agent, and the practice agent (found or created) when this job allows one. */
+export async function preparePractice({ page, shot, session, go, trace = null, log = null, sleep, terms = [], home = null, companion = "" }) {
+  const autonomy = session.autonomy;
+  const practiceAllowed = autonomy.maxTier >= TIER.PRACTICE;
+  const product = shot.capture?.product || shot.product || "copilot-studio";
+  const needed = setupCandidates(shot, { session, practiceAllowed }).some((c) => c.needsPractice);
+  if (!needed) return { needed: false, info: null, error: "" };
+  if (!practiceAllowed || !session.registry) return { needed: true, info: null, error: "" };
+  const executorFor = (practice) => createExecutor({ page, autonomy, product, practice, trace, log, sleep, terms, home, shot: shot.filename, companion, onProgress: session.onProgress, shouldStop: session.shouldStop });
+  const ensured = await ensurePracticeAgent({ page, autonomy, registry: session.registry, session, executorFor, go, trace, log });
+  return ensured.ok ? { needed: true, info: ensured, error: "" } : { needed: true, info: null, error: ensured.error || "The practice agent could not be set up." };
+}
+
+/**
+ * Run the autonomous setup of a shot.
+ * @param {object} [options.practiceInfo] the practice agent from `preparePractice`, when the shot runs inside it
+ * @returns {Promise<{ok: boolean, setup: object, failed?: object, executor: object, cause?: string, error?: string}>}
+ */
+export async function runShotSetup({ page, shot, session, practiceInfo = null, practiceError = "", trace = null, log = null, sleep, terms = [], home = null, companion = "", readiness = {} }) {
+  const autonomy = session.autonomy;
+  const practiceAllowed = autonomy.maxTier >= TIER.PRACTICE;
+  const product = shot.capture?.product || shot.product || "copilot-studio";
+  const candidates = setupCandidates(shot, { session, practiceAllowed });
+  const notes = practiceError ? [practiceError] : [];
+
+  const practice = { agentId: practiceInfo?.botId || null, creating: false };
+  const executor = createExecutor({ page, autonomy, product, practice, trace, log, sleep, terms, home, shot: shot.filename, companion, inputs: candidates[0]?.inputs || {}, answerMs: readiness.answerMs, onProgress: session.onProgress, shouldStop: session.shouldStop });
+
+  const attempts = [];
+  for (const [index, candidate] of candidates.entries()) {
+    // A recipe that needs the practice agent is run in it; without one the steps that need it were already left out.
+    const steps = practiceInfo || !candidate.needsPractice ? candidate.steps : candidate.steps.filter((s) => s.tier < TIER.PRACTICE && !s.practiceOnly);
+    const finalStep = candidate.final?.text?.length ? [{ id: "final", action: "wait-for", expect: { text: candidate.final.text }, tier: 0, timeoutMs: 6000 }] : [];
+    const result = await executor.run([...steps, ...finalStep]);
+    attempts.push({ source: candidate.source, ok: result.ok, steps: result.steps.map(trimStepRecord) });
+    const changed = result.steps.filter((r) => r.status === "ok" && r.tier >= TIER.PRACTICE);
+    if (changed.length && practiceInfo && session.registry) for (const r of changed) session.registry.recordChange({ botId: practiceInfo.botId, what: r.summary || `${r.action} in the practice agent`, shot: shot.filename });
+    if (candidate.recipeKey) session.recipes?.markReplay(candidate.recipeKey, result.ok, result.failed?.why || "");
+    if (result.ok) {
+      const limited = (!practiceInfo && candidate.needsPractice) || candidate.limited ? candidate.limited || { by: "practice-agent", skipped: [] } : null;
+      return {
+        ok: true,
+        executor,
+        practice: practiceInfo,
+        setup: {
+          source: candidate.source,
+          steps: result.steps.map(trimStepRecord),
+          summary: result.steps.filter((r) => r.status === "ok" && r.effect !== "already there").map((r) => r.summary).filter(Boolean).slice(0, 10),
+          limitedBy: limited ? limited.by : null,
+          skipped: limited?.skipped || [],
+          practice: practiceInfo ? { name: practiceInfo.name, reused: practiceInfo.reused === true } : null,
+          earlier: attempts.slice(0, -1).map((a) => ({ source: a.source, ok: a.ok })),
+          notes,
+        },
+      };
+    }
+    trace?.event("setup-failed", { shot: shot.filename, source: candidate.source, step: result.failed?.id, code: result.failed?.code, next: index + 1 < candidates.length });
+    if (index + 1 < candidates.length) {
+      log?.(`  The ${candidate.source === "local" ? "recorded recipe" : "steps"} for this screen did not work. Trying another way.`);
+      await executor.cleanup().catch(() => {});
+      continue;
+    }
+    const failedRecord = result.steps.at(-1);
+    const failed = { ...result.failed, step: failedRecord?.summary || result.failed?.id, diagnostic: result.diagnostic?.file || null, blockedBy: result.failed?.blockedBy || result.blocked?.[0]?.category || "" };
+    return {
+      ok: false,
+      executor,
+      failed,
+      cause: failed.code === "blocked" ? "blocked-by-safety" : failed.code === "unexpected-effect" ? "unexpected-effect" : failed.code === "needs-practice" ? "needs-practice-agent" : "automation-failed",
+      error: failureMessage(failed, { source: candidate.source }),
+      setup: { source: candidate.source, steps: result.steps.map(trimStepRecord), summary: [], failedStep: { id: failed.id, action: failed.action, note: failed.step || "", why: failed.why || "", diagnostic: failed.diagnostic || null }, limitedBy: null, skipped: [], earlier: attempts.slice(0, -1).map((a) => ({ source: a.source, ok: a.ok })), notes },
+    };
+  }
+  return { ok: false, executor, cause: "automation-failed", error: failureMessage(null), setup: { source: "derived", steps: [], summary: [], notes } };
+}

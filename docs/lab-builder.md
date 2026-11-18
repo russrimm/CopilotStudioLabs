@@ -1713,8 +1713,90 @@ pressed **Stop**; the remaining shots are paused with one message, not failed, a
 `browser-closed`, `needs-you`, `skipped-by-you`, `stopped`, `manual`, `rejected`, `unknown`.
 
 **Browser lifecycle.** An interrupted navigation (`net::ERR_ABORTED`, a timeout, a reset) is retried twice
-with a growing pause; a crashed tab is replaced by a new tab in the same browser; closing the window pauses
-the job once. The companion (version 1.2.0) still runs a plan from an older portal.
+with a growing pause (never while the browser is on a sign-in page); a crashed tab is replaced by a new tab
+in the same browser; closing the window pauses the job once. The companion (version 1.4.0) still runs a plan
+from an older portal, and an older companion (before 1.4.0) gets a `smart` job with a message that it cannot capture on its own yet.
+
+**Automatic capture (autonomous mode, the default once you allow it).** The computer sets up the screen
+itself, so you do not click **Capture this screen**. Job `options.mode` gains `autonomous`
+(`auto`, `guided`, and `smart` stay available, in the Screenshot Center under **Advanced**). The Screenshot
+Center has one primary button, **Capture all screenshots automatically**, and the Step 8 capture-on-build checkbox
+uses the same mode when a computer is connected. The mode choices are **Automatic (recommended)**,
+**Automatic, read-only (never creates anything)**, and under Advanced **I will set up each screen** and **Smart**.
+A job without consent fields behaves as read-only, and a request can only lower, never raise, what the stored consent allows.
+
+- **Consent.** Before the first automatic job a plain-language consent card lists what the computer may do (open pages, open
+  dialogs, ask the test pane a sample question) and what it never does, with a separate, unchecked option
+  *Also let it create a practice agent so it can capture screens that need one (it will not delete anything,
+  and lists what it made)* and an `https` field for the practice environment address. The choice is stored
+  with the active brand profile (`<data dir>/capture/consent.json`) and shown in the readiness strip. Routes:
+  `GET/PUT/DELETE /api/capture/consent`. The portal never sends a Tier 2 step without consent; the job JSON the
+  browser reads never carries the practice environment address (only the plan the companion fetches does).
+- **The plan.** Every plan shot carries `capture.setup`: an ordered list of declarative steps (open a section, open an
+  item, open a dialog, type a sample question and wait for the answer, select a tab, expand a node) built from the
+  built-in recipes for the known product screens, the shot's own derived steps and callouts, and the recipes people
+  recorded (below). Test inputs come from the lab's own sample question or scenario text, capped in length, never personal data.
+  The Screenshot Center shows **Opened X, then Y** path summaries instead of *why guided*, and a short, specific
+  sentence for any shot that needs a practice agent.
+- **Progress and report.** Live progress says what is happening right now per shot (*Asking the test pane a
+  sample question*), with **Pause** and **Stop**. The end-of-job report groups outcomes (*36 captured, 4 saved for
+  your review, 2 need a practice agent, 1 could not be completed*), shows **Show me once** only on shots that failed,
+  and lists what the computer created.
+- **Background.** Once signed in and a session is saved, `--background` (the portal option **Run in the background when
+  already signed in**) uses a hidden window with the saved session. If the tenant rejects it (Conditional Access, a
+  sign-in redirect) a normal window opens with one message. The first sign-in is always in a visible window.
+
+**What the computer may and never does (the safety tiers).** One table in `tools/screenshot-capture/guard.mjs`
+(`TIER_TABLE`, shown in the consent card, used by the portal's classifier) is the single source of truth. Every click
+and every typed character goes through one gate that classifies the target control by role, accessible name, nearest
+dialog title, and ancestors before acting, denies unknown controls in Tier 2 and 3 contexts, and records the decision
+in the redacted trace. `node companion.mjs --dry-run-plan[=<job file>]` prints every step by tier without a browser.
+
+| Tier | Name | What it covers | Allowed |
+|---|---|---|---|
+| 0 | Look | Navigate, open sections, expand, select tabs, scroll, hover | Always |
+| 1 | Try | Open menus, dialogs, panels, and pickers; type into the test chat and send test messages (not persisted to the agent); type into search and filter boxes; fill dialog fields without confirming; cancel or close the dialog after the picture; discard unsaved edits | In automatic mode with consent. Never confirms a committing or destructive button |
+| 2 | Practice | Create, edit, save, and publish inside a practice agent the companion created itself (name starts with `Lab screenshots - `, recorded in `.practice-agents.json`), only for shots that need that state; only the default internal publish | Only with the consent option **and** the companion flag `--allow-practice-writes` (saved until `--no-practice-writes`). Without both, the shot is captured as far as Tier 1 allows (for example the Publish dialog before confirming) and labeled *needs practice agent* |
+| 3 | Never | Sign out; switch, add, or remove accounts; delete or remove anything (including cleanup); change tenant, environment, admin, billing, licensing, security, DLP, or permission settings; install or consent to apps; create connections with credentials; change anything in an environment or agent that is not the practice agent; send anything outside the test pane (messages, emails); upload or download user files; publish to external channels; share the agent; leave the allowed product hosts | Never, whatever the plan, the consent, or a recipe says |
+
+After a run, `practice-report.md` next to the companion lists every item it created (name, where) so you can delete the practice agent yourself; the portal names what was created and never links it. The companion never deletes.
+Hosts are allowlisted per product, and the companion never reads or uploads page text beyond what it already collects for verification (the labels list, the URL path without the query, the title), with redaction kept.
+
+**An adaptive executor.** Each setup step is a tiny verified state machine (`action`, `target`, `expect`, `timeout`,
+`retries`). A control is found by ranked strategies: role plus exact accessible name inside the expected area, role plus a
+normalized name, `aria-label` or `title`, visible text nearest an interactive ancestor, then a fuzzy match over the
+interactive controls only; every frame is searched and open shadow DOM is pierced. A click that changes nothing is not success: the next candidate or strategy is
+tried, and a step passes only when its expected evidence (a dialog, a label, an address, a finished answer) is on the page. A test answer is captured only after it has stopped streaming. Cookie, teaching, and
+what's-new pop-ups, toasts, and leave-the-page prompts are dismissed; label alternates cover renamed buttons. When a shot cannot be completed it
+ends `needs-you` with the exact failing step and a redacted **diagnostic bundle** (roles and accessible names of the visible
+controls around the failing step, the URL host and path, the step id, strategy attempts, and timings; no query strings, cookies, page text, account or tenant names)
+under `.captures/diagnostics/`. `node companion.mjs --diagnose[=<product>]` writes one for the page open in a live browser.
+
+**Show me once, and shared recipes.** When automation cannot complete a shot, **Show me once** lets you set the screen up by
+hand while the companion records the interactions as tier-checked declarative steps (role plus accessible name plus area; never
+coordinates, never typed values that look like secrets, never account information; Tier 3 interactions are skipped). The recipe is stored
+locally under `.recipes/` keyed by product, screen, and shot slot, and replays autonomously next time with the same self-healing;
+a replay that fails marks it stale. **Share this recipe** is an explicit choice: the portal validates it server-side
+(`POST /api/capture/companion/recipes`, rate limited, `422` for anything with a URL or query string, an email, a tenant or environment GUID, or
+text over the allowed length), stores it under `<data dir>/capture/recipes.json` (so Azure Blob sync mirrors it), and includes it in job plans for every lab and user
+(`GET/DELETE /api/capture/recipes`).
+
+**What was verified and what was assumed.** Everything above is proven against the deterministic pretend product site
+(`tools/screenshot-capture/test/fixtures/fake-product-site.mjs`: streaming test pane, add-knowledge dialog that must be
+canceled, publish dialog, a create-agent flow, Delete agent, Sign out, an admin page, iframes, shadow DOM, a cookie banner, a leave-page prompt,
+renamed controls, a slow skeleton, a flaky control, an Agent Builder page with no direct address, and a SharePoint site) with real Chromium and the installed Edge.
+**Real Copilot Studio, Agent Builder, and SharePoint pages have not been verified:** their control names, landmarks, test-pane markup, and timings are
+assumptions until a run on a real tenant, and the practice-agent creation steps are written against the pretend site.
+When a built-in step does not match the real page, the shot ends `needs-you` with a diagnostic bundle and **Show me once** teaches the companion the real step.
+
+**Sign-in that sticks (companion 1.4.0).** The companion keeps its data (pairing, browser profiles, traces, recipes) in a local folder of your user account,
+never in a synced folder, starts your installed Edge or Chrome the normal way and connects to it, only watches while you sign in, and stops
+and explains a sign-in that loops (`node companion.mjs --check-signin` prints the facts and a verdict). A live run against a real Copilot Studio sign-in
+showed that the product's own page stays up for about 6 seconds before it redirects to sign-in, and that a fresh sign-in takes about 13 seconds
+to reach the home page, so the first page of a product is watched for about 10 seconds before it is trusted, and the sign-in is confirmed over a
+longer quiet window. A job that ends on a failed sign-in carries
+`result.signIn` (`code`, `aadsts`, `summary`, `nextStep`, `checks`), which the Screenshot Center shows under **Why sign-in did not stick**. Details and troubleshooting:
+[`tools/screenshot-capture/README.md`](../tools/screenshot-capture/README.md#signing-in-once-per-product).
 
 **Paste or upload is the universal fallback.** Any image can be sent straight to a slot with the
 same verification and the same refresh (`PUT /api/lab-builder/generated/:labId/screenshots/:filename`,

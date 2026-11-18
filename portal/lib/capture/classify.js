@@ -169,8 +169,10 @@ export function classifyShot(shot, { values = {}, config = captureConfig() } = {
     const itemLevel = ["tools", "knowledge", "agents", "evaluations", "topics", "channels"].includes(id);
     const { mode, why } = modeFor(shot, { section, ambiguous, itemLevel });
     const needs = mode === "auto" && screen.scope === "agent" ? ["copilot-studio-agent"] : [];
+    // In autonomous mode every agent screen needs the agent, including the ones a person would have to set up by hand.
+    const agentNeeds = screen.scope === "agent" ? ["copilot-studio-agent"] : [];
     const missing = missingRequirements(needs, values);
-    const reveal = mode === "auto" ? revealStepsFor(shot, screen) : [];
+    const reveal = revealStepsFor(shot, screen);
     const path = describePath(id);
     const known = copilotStudioScreenUrl(id, parseCopilotStudioAddress(values.copilotStudioAgentUrl || values.copilotStudioUrl || ""));
     return {
@@ -179,6 +181,8 @@ export function classifyShot(shot, { values = {}, config = captureConfig() } = {
       why: mode === "auto" && reveal.length ? `${why} It also selects ${reveal.map((s) => s.label).join(", ")}.` : why,
       needs,
       missing,
+      agentNeeds,
+      agentMissing: missingRequirements(agentNeeds, values),
       ready: missing.length === 0,
       route: { kind: "copilot-studio", screen: id, scope: screen.scope },
       screen: { id, label: screen.label },
@@ -204,7 +208,9 @@ export function classifyShot(shot, { values = {}, config = captureConfig() } = {
   const agentBuilder = product === "m365-copilot-agent-builder";
   const mode = agentBuilder && rawMode === "auto" ? "guided" : rawMode;
   const modeWhy = agentBuilder && rawMode === "auto" ? "Agent Builder opens inside Microsoft 365 Copilot and has no direct address. I open Microsoft 365 Copilot and you open your agent and Agent Builder." : why;
-  const resolvedHost = hostOf(publicUrl);
+  // A section reached through the person's own address (a SharePoint site, a Foundry project) lands on that host, not the product's public one.
+  const tenantUrl = requirementId ? (REQUIREMENTS[requirementId]?.fields || []).map((field) => values[field]).find(Boolean) : null;
+  const resolvedHost = hostOf(tenantUrl) || hostOf(publicUrl);
   const path = [text(config.products?.[product]?.label || product, 80), ...(cfg.hint ? [] : [section.replace(/-/g, " ")].filter(Boolean))];
   return {
     ...base,
@@ -212,6 +218,8 @@ export function classifyShot(shot, { values = {}, config = captureConfig() } = {
     why: modeWhy,
     needs: mode === "auto" || requirementId ? needs : [],
     missing,
+    agentNeeds: requirementId ? needs : [],
+    agentMissing: requirementId ? missingRequirements(needs, values) : [],
     ready: missing.length === 0,
     route: { kind: "url", url: publicUrl, urlEnv: envName || startEnv || null, direct },
     screen: { id: section || "start", label: text(cfg.hint ? `the ${section.replace(/-/g, " ")} screen` : `the ${text(productCfg.label || product, 60)} page`) },

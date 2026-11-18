@@ -24,7 +24,7 @@ const SC_ADDRESS_FIELDS = Object.freeze([
 const SC_TARGET_FIELD_ID = /^[A-Za-z][A-Za-z0-9]{0,40}$/;
 const SC_REQUIREMENT_ID = /^[a-z0-9][a-z0-9-]{0,40}$/;
 const SC_CAUSE_CODE = /^[a-z][a-z-]{0,30}$/;
-const SC_CAUSE_FIX_ACTIONS = Object.freeze(["settings", "retry", "guided", "resume", "upload"]);
+const SC_CAUSE_FIX_ACTIONS = Object.freeze(["settings", "retry", "guided", "resume", "upload", "record", "consent"]);
 // Causes that mean "an address is missing": their screenshots wait for the person, they did not fail.
 const SC_ADDRESS_CAUSES = Object.freeze(["no-agent", "no-site", "no-address"]);
 
@@ -164,21 +164,37 @@ function scCheckLabel(checkState, changedCount = 0) {
 
 // ── Capture modes ───────────────────────────────────────────────────────────
 
+// Automatic is the way captures run now: the computer sets every screen up itself. The other choices stay under Advanced.
 const SC_CAPTURE_MODES = Object.freeze([
-  { id: "auto", label: "Let the computer do it", help: "The computer opens each screen by itself and skips any screen that needs you." },
-  { id: "guided", label: "I will set up each screen", help: "The computer opens the closest page and waits while you set up the screen and capture it." },
-  { id: "smart", label: "Smart (recommended)", help: "The computer captures what it can and asks you only for the screens that need you." },
+  { id: "autonomous", label: "Automatic (recommended)", help: "The computer sets up and captures every screen itself, including test conversations, dialogs, and Agent Builder, so there is nothing to do after you sign in once.", advanced: false },
+  { id: "autonomous-readonly", label: "Automatic, read-only (never creates anything)", help: "The same, but it never creates a practice agent, even if you allowed one.", advanced: false },
+  { id: "guided", label: "I will set up each screen", help: "The computer opens the closest page and waits while you set up the screen and capture it.", advanced: true },
+  { id: "smart", label: "Smart", help: "The computer captures what it can by address and asks you for the screens that need setup.", advanced: true },
+  { id: "auto", label: "Only what needs no setup", help: "The computer opens each screen by its address and skips any screen that needs setup.", advanced: true },
 ]);
-const SC_DEFAULT_CAPTURE_MODE = "smart";
+const SC_DEFAULT_CAPTURE_MODE = "autonomous";
 // How one screenshot is captured, as the server classified it.
 const SC_SHOT_MODES = Object.freeze({
   auto: { label: "Automatic", tone: "info" },
+  autonomous: { label: "Automatic", tone: "info" },
   guided: { label: "You set it up", tone: "neutral" },
   manual: { label: "Outside the browser", tone: "neutral" },
 });
 
 function scCaptureModeOf(value) {
   return SC_CAPTURE_MODES.some((mode) => mode.id === value) ? value : SC_DEFAULT_CAPTURE_MODE;
+}
+
+/** Whether a mode choice runs the computer on its own. */
+function scIsAutomaticMode(value) {
+  return value === "autonomous" || value === "autonomous-readonly";
+}
+
+/** The `options` a mode choice sends: Automatic, read-only is Automatic with a lower ceiling. */
+function scModeRequest(value) {
+  const mode = scCaptureModeOf(value);
+  if (mode === "autonomous-readonly") return { mode: "autonomous", autonomy: { level: "read-only" } };
+  return { mode };
 }
 
 /** The `capture` descriptor of a shot, trimmed to what the Center shows. Null when the server sent none. */
@@ -192,7 +208,91 @@ function scShotCapture(shot) {
     path: list(capture.path).slice(0, 6),
     missing: list(capture.missing),
     screenLabel: scText(capture.screen?.label, 120),
+    summary: (Array.isArray(capture.setup?.summary) ? capture.setup.summary : []).map((item) => scText(item, 120)).filter(Boolean).slice(0, 8),
+    needsPractice: capture.setup?.needsPractice === true,
   };
+}
+
+// ── Automatic capture: consent and the report ───────────────────────────────
+
+/** What the server says about automatic capture (`status.autonomy`), trimmed to what the Center shows. */
+function scConsentModel(autonomy) {
+  const rules = autonomy?.rules && typeof autonomy.rules === "object" ? autonomy.rules : {};
+  const never = (Array.isArray(rules.never) ? rules.never : []).map((item) => scText(item, 200)).filter(Boolean);
+  const tiers = (Array.isArray(rules.tiers) ? rules.tiers : []).map((tier) => ({ tier: scCount(tier?.tier), label: scText(tier?.label, 40), summary: scText(tier?.summary, 300), examples: (Array.isArray(tier?.examples) ? tier.examples : []).map((e) => scText(e, 120)).filter(Boolean) }));
+  return {
+    loaded: Boolean(autonomy),
+    consented: autonomy?.consented === true,
+    level: autonomy?.level === "practice" ? "practice" : autonomy?.level === "read-only" ? "read-only" : null,
+    practiceEnvironmentUrl: scSafeHttpsUrl(autonomy?.practiceEnvironmentUrl || ""),
+    companionSupported: autonomy?.companionSupported !== false,
+    minCompanion: scText(autonomy?.minCompanion, 20) || "1.4.0",
+    never: never.length ? never : SC_NEVER_FALLBACK,
+    tiers,
+  };
+}
+
+const SC_NEVER_FALLBACK = Object.freeze([
+  "Sign out, switch accounts, or sign in for you",
+  "Delete or remove anything, including cleaning up after itself",
+  "Share an agent, invite people, or send a message or email to anyone",
+  "Publish to a channel such as Teams or a website",
+  "Change tenant, environment, admin, billing, licensing, security, data policy, or permission settings",
+  "Install or consent to apps, or create connections with credentials",
+  "Upload or download your files",
+  "Touch any agent that is not its own practice agent, or leave the Microsoft product sites",
+]);
+
+/** The one line that says whether the computer may capture on its own, and how far. */
+function scAutonomyLine(consent) {
+  if (!consent.loaded) return { state: "loading", text: "Checking automatic capture." };
+  if (!consent.consented) return { state: "off", text: "Automatic capture is off. Allow it once and the computer sets up every screen by itself." };
+  if (consent.level === "practice") return { state: "practice", text: "Automatic capture is on. It may also create one practice agent in your practice environment, and it lists what it made." };
+  return { state: "readonly", text: "Automatic capture is on and read-only. It opens screens and tries things that change nothing, and it never creates anything." };
+}
+
+const SC_UNFINISHED_CAUSES = Object.freeze(["automation-failed", "blocked-by-safety", "unexpected-effect", "needs-you"]);
+// The causes where the computer tried and could not finish: only these get "Show me once".
+const SC_AUTOMATION_CAUSES = Object.freeze(["automation-failed", "blocked-by-safety", "unexpected-effect"]);
+
+/**
+ * The outcome of a finished automatic capture, grouped the way a person thinks about it: how many are done, how many wait
+ * for review, how many need a practice agent, and how many the computer could not finish (with the step it stopped at).
+ */
+function scAutomaticReport(job) {
+  const rows = Array.isArray(job?.shots) ? job.shots : [];
+  const report = { captured: 0, review: 0, practice: 0, unfinished: [], skipped: 0, manual: 0, paused: 0, failed: 0, total: rows.length, created: [] };
+  for (const row of rows) {
+    const needsPractice = row.cause === "needs-practice-agent" || row.setup?.limitedBy === "practice-agent";
+    if (row.status === "captured") report.captured += 1;
+    else if (row.status === "needs-review") {
+      if (needsPractice) report.practice += 1;
+      else report.review += 1;
+    } else if (row.status === "needs-you" || (row.status === "failed" && SC_UNFINISHED_CAUSES.includes(row.cause))) {
+      report.unfinished.push({ filename: String(row.filename || ""), step: scText(row.setup?.failedStep?.note, 120), cause: scText(row.cause, 30) });
+    } else if (row.status === "failed" || row.status === "auth-required") report.failed += 1;
+    else if (row.status === "skipped") report.skipped += 1;
+    else if (row.status === "manual-required") report.manual += 1;
+    else if (row.status === "paused") report.paused += 1;
+  }
+  report.created = (Array.isArray(job?.result?.created) ? job.result.created : []).map((item) => ({ kind: item?.kind === "agent" ? "agent" : "change", name: scText(item?.name, 80), what: scText(item?.what, 120), reused: item?.reused === true })).filter((item) => item.what);
+  return report;
+}
+
+/** "36 captured, 4 saved for your review, 2 need a practice agent, 1 could not be completed: Opened Add knowledge." */
+function scAutomaticReportText(report) {
+  const parts = [`${report.captured} captured`];
+  if (report.review) parts.push(`${report.review} saved for your review`);
+  if (report.practice) parts.push(`${report.practice} need a practice agent`);
+  if (report.unfinished.length) {
+    const first = report.unfinished[0].step;
+    parts.push(`${report.unfinished.length} could not be completed${first ? `: ${first}` : ""}`);
+  }
+  if (report.failed) parts.push(`${report.failed} failed`);
+  if (report.skipped) parts.push(`${report.skipped} skipped`);
+  if (report.manual) parts.push(`${report.manual} need to be added by hand`);
+  if (report.paused) parts.push(`${report.paused} paused`);
+  return `${parts.join(", ")}.`;
 }
 
 // ── Shot status ─────────────────────────────────────────────────────────────
@@ -469,17 +569,20 @@ function scPrimaryAction(model) {
     };
   }
   if (captureNeeded) {
+    const automatic = scIsAutomaticMode(model.mode);
     return {
       action: "capture-missing",
-      label: `Capture ${scPlural(captureNeeded, "missing screenshot")}`,
-      help: `Your computer opens each screen, takes the picture, checks it, and adds it to this lab.${waitingNote}`,
+      label: automatic ? "Capture all screenshots automatically" : `Capture ${scPlural(captureNeeded, "missing screenshot")}`,
+      help: automatic
+        ? `Your computer sets up every screen itself and takes the picture, then checks it. There is nothing to do after you sign in once.${waitingNote}`
+        : `Your computer opens each screen, takes the picture, checks it, and adds it to this lab.${waitingNote}`,
       disabled: false,
     };
   }
   if (retakeNeeded) {
     return {
       action: "capture-stale",
-      label: `Retake ${scPlural(retakeNeeded, "outdated screenshot")}`,
+      label: scIsAutomaticMode(model.mode) ? `Retake ${scPlural(retakeNeeded, "outdated screenshot")} automatically` : `Retake ${scPlural(retakeNeeded, "outdated screenshot")}`,
       help: `Microsoft Learn changed these topics. New pictures replace the old ones.${waitingNote}`,
       disabled: false,
     };
@@ -782,6 +885,12 @@ function scDescribeJob(job, { companionConnected = null, nowMs = Date.now(), onl
     return { ...base, phase: "paused", tone: "warn", headline: "Capture paused", detail: `${lead}, so the capture paused. ${scPlural(paused, "screenshot")} ${paused === 1 ? "is" : "are"} waiting.` };
   }
   if (job?.status === "done") {
+    // An automatic capture is reported the way a person thinks about it, with the step it stopped at.
+    if (job?.options?.mode === "autonomous") {
+      const report = scAutomaticReport(job);
+      const attention = report.review || report.practice || report.unfinished.length || report.failed;
+      return { ...base, phase: "done", tone: attention ? "warn" : "ok", headline: "Capture finished", detail: scAutomaticReportText(report) };
+    }
     const waiting = scAddressWaiting(job);
     const otherSkipped = Math.max(0, scCount(counts.skipped) - waiting);
     const parts = [`${scCount(counts.captured)} captured`];
@@ -875,7 +984,21 @@ function scOutcomeFromJob(job) {
   // The groups carry a fix for every failed shot, so the all-in-one retry is only for results that have no groups.
   if (failedFiles.length && !causes.length) actions.push({ id: "retry-failed", label: `Retry ${scPlural(failedFiles.length, "screenshot")}`, filenames: failedFiles });
   if (scCount(counts.needsReview)) actions.push({ id: "review", label: `Review ${scPlural(scCount(counts.needsReview), "screenshot")}` });
-  return { type: "job", variant, message, jobId: job?.id || null, actions, causes };
+  return { type: "job", variant, message, jobId: job?.id || null, actions, causes, created: Array.isArray(job?.result?.created) ? job.result.created : [], signIn: scSignInVerdict(job?.result?.signIn) };
+}
+
+/** Why a sign-in did not work, from what the companion reported: the sentence, the next step, and the checks that are likely or possible. */
+function scSignInVerdict(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const summary = scText(raw.summary, 400);
+  const nextStep = scText(raw.nextStep, 300);
+  if (!summary && !nextStep) return null;
+  const checks = (Array.isArray(raw.checks) ? raw.checks : [])
+    .map((check) => ({ level: check?.level === "likely" ? "likely" : "possible", title: scText(check?.title, 100), fix: scText(check?.fix, 260) }))
+    .filter((check) => check.title)
+    .slice(0, 8);
+  const product = /^[a-z0-9-]{1,60}$/i.test(String(raw.product || "")) ? String(raw.product) : "copilot-studio";
+  return { summary, nextStep, aadsts: /^AADSTS\d{3,7}$/.test(String(raw.aadsts || "")) ? raw.aadsts : null, checks, command: `node companion.mjs --check-signin=${product}` };
 }
 
 /** Plain explanation for why a build did not queue a capture. */

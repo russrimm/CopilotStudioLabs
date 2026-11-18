@@ -70,7 +70,9 @@ test("real browser: a signed-in page whose address mentions the sign-in host, an
 });
 
 test("real browser: the same headline scenario works in the installed Microsoft Edge", { skip: !found.playwrightInstalled ? "Playwright is not installed" : !edge && "Microsoft Edge is not installed", timeout: 90_000 }, async () => {
-  const out = await run("first shot works, then the next page asks for a fresh sign-in", { options: { browserKinds: ["edge"] } });
+  // Edge is normally started the normal way (see signin-attach-real.test.mjs). A normal Edge also talks to the real Microsoft
+  // sign-in service in the background, which would disturb a pretend tenant that borrows its host names, so this one pins the Playwright launcher.
+  const out = await run("first shot works, then the next page asks for a fresh sign-in", { options: { browserKinds: ["edge"], launch: "playwright" } });
   assert.equal(captured(out), 4);
   assert.equal(out.tenant.stats.interactivePages, 1);
   assert.equal(out.launches[0].options.channel, "msedge");

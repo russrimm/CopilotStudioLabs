@@ -277,6 +277,27 @@ function safeUrl(value) {
   }
 }
 
+/** What the setup that ran for a shot reports: step names and outcomes, never page text or addresses. */
+export function sanitizeSetupEvidence(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const word = (value, max) => cleanText(value, max);
+  return {
+    source: word(raw.source, 40),
+    steps: (Array.isArray(raw.steps) ? raw.steps : []).slice(0, 16).map((s) => ({
+      id: word(s?.id, 24),
+      action: word(s?.action, 24),
+      status: ["ok", "skipped", "failed"].includes(s?.status) ? s.status : "failed",
+      strategy: word(s?.strategy, 24),
+      tier: Number.isInteger(s?.tier) ? Math.max(0, Math.min(3, s.tier)) : 0,
+      note: word(s?.note, 120),
+    })),
+    summary: (Array.isArray(raw.summary) ? raw.summary : []).slice(0, 10).map((s) => word(s, 120)).filter(Boolean),
+    limitedBy: raw.limitedBy === "practice-agent" ? "practice-agent" : null,
+    skipped: (Array.isArray(raw.skipped) ? raw.skipped : []).slice(0, 6).map((s) => word(s, 120)).filter(Boolean),
+    practice: raw.practice && typeof raw.practice === "object" ? { name: word(raw.practice.name, 80), reused: raw.practice.reused === true } : null,
+  };
+}
+
 /** Bound and clean the evidence the companion reports before anything reads it. */
 export function sanitizeEvidence(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -298,7 +319,8 @@ export function sanitizeEvidence(raw) {
       : null,
     capturedAt: cleanText(raw.capturedAt, 40),
     executedSteps: Number.isFinite(Number(raw.executedSteps)) ? Math.max(0, Math.min(1000, Number(raw.executedSteps))) : null,
-    mode: ["auto", "guided", "legacy"].includes(raw.mode) ? raw.mode : null,
+    mode: ["auto", "guided", "legacy", "autonomous"].includes(raw.mode) ? raw.mode : null,
+    setup: sanitizeSetupEvidence(raw.setup),
     routeSteps: (Array.isArray(raw.routeSteps) ? raw.routeSteps : []).slice(0, 14).map((step) => ({
       action: cleanText(step?.action, 24),
       label: cleanText(step?.label, 80),
@@ -499,6 +521,9 @@ export function verifyImage(bytes, options = {}) {
     if (options.requireRedaction && !(evidence.redaction && evidence.redaction.applied)) {
       reasons.push(reason("not-redacted", "warn", "The companion did not report masking account details. Check the screenshot for names and email addresses."));
     }
+    if (evidence.setup?.limitedBy === "practice-agent") {
+      reasons.push(reason("needs-practice-agent", "warn", "This shows the screen as far as the computer could take it without a practice agent. Allow a practice agent, then retake it, to capture the final state."));
+    }
   } else if (options.requireEvidence) {
     reasons.push(reason("no-evidence", "warn", "The companion did not report what the page showed."));
   }
@@ -520,7 +545,7 @@ export function summarizeVerification(result, extra = {}) {
     analysis: result.analysis,
     labels: result.labels,
     landing: result.landing ? { state: result.landing.state, page: result.landing.page, expected: result.landing.expected } : null,
-    capture: result.evidence?.mode ? { mode: result.evidence.mode, steps: result.evidence.routeSteps || [] } : null,
+    capture: result.evidence?.mode ? { mode: result.evidence.mode, steps: result.evidence.routeSteps || [], setup: result.evidence.setup || null } : null,
     finalUrl: result.evidence?.finalUrl || null,
     pageTitle: result.evidence?.title || null,
     redaction: result.evidence?.redaction || null,

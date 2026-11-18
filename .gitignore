@@ -32,5 +32,9 @@ _site/
 
 # Local Capture Companion: pairing token, browser sign-ins, and in-progress captures
 .companion.json
+.companion-settings.json
+.practice-agents.json
+practice-report.md
+.recipes/
 .captures/
 .auth/

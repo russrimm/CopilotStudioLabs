@@ -24,19 +24,27 @@ import readline from "node:readline";
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { createAuthGate, forgetSignIn, listSignedInProducts, productLabel, profileDir, readSignInStates, restoreSession, saveSession } from "./auth.mjs";
-import { browserLabel, chooseBrowsers, isMissingBrowserError, launchBrowser, missingBrowserMessage, parseBrowserChoice } from "./browsers.mjs";
+import { createAuthGate, forgetSignIn, listSignedInProducts, productLabel, profileDir, readSignInStates, restoreSession, saveSession, SESSION_FILE } from "./auth.mjs";
+import { closeAllAttached, launchAttached, parseLaunchChoice, wantsAttach } from "./attach.mjs";
+import { browserLabel, chooseBrowsers, detectInstalledBrowsers, isMissingBrowserError, launchBrowser, missingBrowserMessage, parseBrowserChoice } from "./browsers.mjs";
 import { createCaptureSession } from "./capture-run.mjs";
 import { causeForVerification } from "./causes.mjs";
-import { blockedInstructionReason, blockedLabelReason } from "./guard.mjs";
+import { createSignInDiagnoser, runCheckSignIn } from "./check-signin.mjs";
+import { diagnosticAdvice, writeDiagnostic } from "./diagnostics.mjs";
+import { blockedInstructionReason, blockedLabelReason, resolveAutonomy } from "./guard.mjs";
+import { deleteOldSignIn, describeHomeState, migrateLegacyHome, oldSignInAdvice, resolveHome, syncedHomeMessage } from "./home.mjs";
 import { verifyImage } from "./image-verify.mjs";
 import { detectBrowserAvailability, executePlaywrightLabShot, loadPlaywrightModule } from "./lab-runner.mjs";
-import { briefError, classifyBrowserError, ensureLivePage, watchContext } from "./lifecycle.mjs";
+import { briefError, classifyBrowserError, ensureLivePage, gotoWithRetry, watchContext } from "./lifecycle.mjs";
+import { dryRunPlan } from "./dry-run.mjs";
+import { createPracticeRegistry, summarizeCreated, writePracticeReport } from "./practice.mjs";
+import { createRecipeStore } from "./recipes.mjs";
 import { applyRedaction, burnCalloutMarkers, clearOverlays, collectVisibleLabels, scrubSensitiveText } from "./redact.mjs";
+import { diagnosisLines, signInReport } from "./signin-diagnosis.mjs";
 import { effectiveModeFor, targetField, validateTargetValue } from "./targets.mjs";
 import { createTrace, traceFilePath } from "./trace.mjs";
 
-export const COMPANION_VERSION = "1.2.0";
+export const COMPANION_VERSION = "1.4.0";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";
@@ -60,22 +68,31 @@ Usage:
   node companion.mjs --portal=<address> --code=<pairing code>   Pair this computer, then wait for jobs
   node companion.mjs                                            Wait for jobs (after pairing)
   node companion.mjs --once [--wait=<seconds>]                  Run one queued job and exit
-  node companion.mjs --status                                   Show the connection and the sign-in state of each product
+  node companion.mjs --status                                   Show the connection, the data folder, and the sign-in state of each product
+  node companion.mjs --check-signin[=<product>]                  Open the product once, watch the sign-in, and say why it does or does not stick (default copilot-studio)
   node companion.mjs --forget-signin=<product|all>              Delete the saved sign-in for a product (you sign in again next time)
+  node companion.mjs --delete-old-signin                         Delete the old sign-in folder that earlier versions kept beside the code
+  node companion.mjs --dry-run-plan[=<job file>]                 Print every step the computer would take, tier by tier, without a browser
+  node companion.mjs --diagnose[=<product>]                      Write a redacted diagnostic file for the page open in a live browser
   node companion.mjs --unpair                                   Forget this computer's pairing
 
 Options:
   --browser=auto|edge|chrome|chromium   Which browser to open (default auto: Microsoft Edge, then Google Chrome, then Chromium)
+  --launch=auto|attach|playwright   How Edge or Chrome is started. attach (the default for them) starts your normal browser and connects to it, which keeps work sign-in working; playwright uses the automation launcher
   --callouts=sidecar|burn|none   Numbered callouts: save positions only (default), draw them on the image, or skip
   --mask=<text>[,<text>]         Extra text to hide (for example your tenant name)
   --no-redact                    Do not hide account details (not recommended)
   --headless                     No visible window. It cannot sign in, so use it only for public pages and automated checks
+  --background                   Run in a hidden window when a sign-in is already saved; a visible window opens if the product asks you to sign in again
+  --allow-practice-writes        Let jobs that you allowed create and use a practice agent (named "Lab screenshots - ..."). Saved until you use --no-practice-writes
+  --no-practice-writes           Never create anything, whatever a job says
   --device-name=<name>           Name shown in the portal (default: this computer's name)
   --interval=<seconds>           How often to ask the portal for jobs (default 4)
   --sign-in-wait=<seconds>       How long to wait for you to sign in (default 600)
   --guided-wait=<seconds>        How long to wait for you at a screen you set up yourself (default 120), then it is marked "needs you"
   --ready-wait=<seconds>         How long to wait for a page to finish loading before the picture (default 20)
-  --home=<folder>                Where the pairing file and browser sign-ins live
+  --home=<folder>                Where the pairing file and browser sign-ins live (default: a local folder of your user account, never a synced one)
+  --allow-synced-home            Use a --home that is inside OneDrive, Dropbox, iCloud Drive, or Google Drive anyway (not recommended: sign-in can loop)
   --debug                        Write a redacted trace (no cookies, tokens, page text, or account names) and print where it is
   --trace=<file>                 Same as --debug, writing to this file (a relative name is inside the --home folder)
   --install-browser              Install the Chromium browser, then exit
@@ -85,8 +102,10 @@ Options:
 `;
 }
 
+const parseDefaults = () => ({ watch: true, once: false, waitSec: 0, callouts: null, maskTerms: [], redact: true, intervalSec: 4, signInWaitSec: SIGN_IN_WAIT_MS / 1000, verbose: false, browser: "auto", launch: "auto", debug: false, trace: null, forgetSignin: null });
+
 export function parseArgs(argv = []) {
-  const opts = { watch: true, once: false, waitSec: 0, callouts: null, maskTerms: [], redact: true, intervalSec: 4, signInWaitSec: SIGN_IN_WAIT_MS / 1000, verbose: false, browser: "auto", debug: false, trace: null, forgetSignin: null };
+  const opts = parseDefaults();
   const take = (arg, name) => {
     if (arg === `--${name}`) return { value: true, usesNext: true };
     if (arg.startsWith(`--${name}=`)) return { value: arg.slice(name.length + 3), usesNext: false };
@@ -112,11 +131,36 @@ export function parseArgs(argv = []) {
     else if (arg === "--watch") opts.watch = true;
     else if (arg === "--no-redact") opts.redact = false;
     else if (arg === "--headless") opts.headless = true;
+    else if (arg === "--background") opts.background = true;
+    else if (arg === "--allow-practice-writes") opts.allowPracticeWrites = true;
+    else if (arg === "--no-practice-writes") opts.allowPracticeWrites = false;
+    else if (arg === "--dry-run-plan") opts.dryRunPlan = true;
+    else if (arg === "--diagnose") opts.diagnose = "copilot-studio";
+    else if (arg.startsWith("--dry-run-plan=")) opts.dryRunPlan = arg.slice("--dry-run-plan=".length) || true;
+    else if (arg.startsWith("--diagnose=")) {
+      const product = arg.slice("--diagnose=".length);
+      if (!/^[a-z0-9-]{1,60}$/i.test(product)) opts.error = "--diagnose needs a product name such as copilot-studio.";
+      else opts.diagnose = product;
+    }
     else if (arg === "--verbose") opts.verbose = true;
     else if (arg === "--debug") opts.debug = true;
     else if (arg === "--unpair") opts.unpair = true;
     else if (arg === "--status") opts.status = true;
     else if (arg === "--check") opts.check = true;
+    else if (arg === "--allow-synced-home") opts.allowSyncedHome = true;
+    else if (arg === "--delete-old-signin") opts.deleteOldSignin = true;
+    else if (arg === "--check-signin") {
+      // The product may follow as a separate word (--check-signin copilot-studio).
+      const next = list[i + 1];
+      if (next !== undefined && /^[a-z0-9-]{1,60}$/i.test(next) && !next.startsWith("--")) {
+        opts.checkSignin = next;
+        i += 1;
+      } else opts.checkSignin = "copilot-studio";
+    } else if (arg.startsWith("--check-signin=")) {
+      const product = arg.slice("--check-signin=".length);
+      if (!/^[a-z0-9-]{1,60}$/i.test(product)) opts.error = "--check-signin needs a product name such as copilot-studio.";
+      else opts.checkSignin = product;
+    }
     else if (arg === "--install-browser") opts.installBrowser = true;
     else if ((v = valued("portal")) !== undefined) opts.portal = v;
     else if ((v = valued("code")) !== undefined) opts.code = v;
@@ -130,6 +174,10 @@ export function parseArgs(argv = []) {
     else if ((v = valued("browser")) !== undefined) {
       const choice = parseBrowserChoice(v === true ? "" : v);
       if (choice.ok) opts.browser = choice.browser;
+      else opts.error = choice.error;
+    } else if ((v = valued("launch")) !== undefined) {
+      const choice = parseLaunchChoice(v === true ? "" : v);
+      if (choice.ok) opts.launch = choice.launch;
       else opts.error = choice.error;
     } else if ((v = valued("trace")) !== undefined) {
       if (!v || v === true) opts.error = "--trace needs a file name, for example --trace=signin-trace.log.";
@@ -196,6 +244,45 @@ export function saveConfig(home, config) {
 
 export function clearConfig(home) {
   fs.rmSync(configPath(home), { force: true });
+}
+
+// ── This computer's own settings ───────────────────────────────────────────
+
+const SETTINGS_NAME = ".companion-settings.json";
+
+/** What this computer allows, whatever a job asks for. Today: whether a practice agent may be created. */
+export function loadSettings(home) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(path.join(home, SETTINGS_NAME), "utf8"));
+    return { allowPracticeWrites: parsed?.allowPracticeWrites === true };
+  } catch {
+    return { allowPracticeWrites: false };
+  }
+}
+
+export function saveSettings(home, settings) {
+  fs.mkdirSync(home, { recursive: true });
+  const file = path.join(home, SETTINGS_NAME);
+  fs.writeFileSync(file, `${JSON.stringify({ allowPracticeWrites: settings.allowPracticeWrites === true }, null, 2)}\n`, { mode: 0o600 });
+}
+
+/**
+ * Open the product in a hidden window with the saved sign-in and check it does not ask to sign in again. A product that
+ * does (Conditional Access, a sign-in redirect) cannot run in the background: the caller opens a visible window instead.
+ */
+export async function probeBackground({ opened, profile, shot, env = {}, sleepFn = sleep, trace = null }) {
+  const { context } = opened;
+  const page = context.pages()[0] || (await context.newPage());
+  const target = (shot?.urlEnv && env[shot.urlEnv]) || shot?.startUrl || shot?.capture?.route?.url || "https://copilotstudio.microsoft.com/";
+  try {
+    await gotoWithRetry(page, target, { waitUntil: "domcontentloaded", sleep: sleepFn, retries: 1, trace });
+    const gate = createAuthGate({ product: profile, waitMs: 0, allowWait: false, pollMs: 100, settleMs: 800, graceMs: 1500, sleep: sleepFn, trace });
+    const result = await gate.ensureSignedIn(page, { phase: "probe", target });
+    return result.ok ? { ok: true } : { ok: false, why: "it needs you to sign in" };
+  } catch (err) {
+    if (classifyBrowserError(err) === "browser-closed") throw err;
+    return { ok: false, why: "the page did not open" };
+  }
 }
 
 /**
@@ -314,6 +401,10 @@ export function createPortalClient({ portal, token = null, fetchImpl = globalThi
     async complete(jobId, body = {}) {
       return must(await request("POST", `/api/capture/companion/jobs/${jobId}/complete`, { json: body }), "the job completion");
     },
+    /** Share a recipe (anonymous: control names only). The portal checks it again and refuses anything that could identify a tenant. */
+    async shareRecipe(recipe) {
+      return must(await request("POST", "/api/capture/companion/recipes", { json: { recipe } }), "the recipe");
+    },
   };
 }
 
@@ -356,19 +447,34 @@ function failureText(check) {
 
 /**
  * Open a product's browser profile in the first available browser of `kinds`, and put its saved session back.
- * A browser that is not installed is skipped; any other launch problem is reported as it is.
+ * Edge and Chrome are started the normal way and connected to (see attach.mjs) unless `launch` is "playwright"; if that
+ * cannot start, the automation launcher is used with one clear message. A browser that is not installed is skipped;
+ * any other launch problem is reported as it is.
  */
-export async function openProfile({ playwright, home, profile, kinds, headless = false, log = console.log, trace = null }) {
+export async function openProfile({ playwright, home, profile, kinds, headless = false, log = console.log, trace = null, launch = "auto", installed = null, attachOptions = {} }) {
+  const found = installed || detectInstalledBrowsers();
   for (const kind of kinds) {
     const dir = profileDir(home, kind, profile);
     try {
-      const context = await launchBrowser({ playwright, kind, dir, headless });
+      let context = null;
+      let how = "playwright";
+      if (wantsAttach({ launch, kind, playwright, executable: found[kind] })) {
+        try {
+          ({ context } = await launchAttached({ playwright, kind, dir, executable: found[kind], headless, trace, ...attachOptions }));
+          how = "attach";
+        } catch (err) {
+          if (launch === "attach" || err?.code === "PROFILE_IN_USE") throw err;
+          log(`  ${browserLabel(kind)} could not be started the normal way (${briefError(err)}). Opening it with the automation launcher instead. If your organization needs a managed browser, sign-in may not work.`);
+          trace?.event("attach-fallback", { browser: kind, why: err?.code || "error" });
+        }
+      }
+      if (!context) context = await launchBrowser({ playwright, kind, dir, headless });
       const restored = await restoreSession({ context, dir });
-      log(`  Opened ${browserLabel(kind)}.${restored.restored ? " Your saved sign-in was restored." : ""}`);
-      trace?.event("profile-open", { product: profile, browser: kind, restoredCookies: restored.restored, restoreReason: restored.reason });
-      return { context, kind, dir };
+      log(`  Opened ${browserLabel(kind)}${how === "attach" ? " (started the normal way)" : ""}.${restored.restored ? " Your saved sign-in was restored." : ""}`);
+      trace?.event("profile-open", { product: profile, browser: kind, launch: how, restoredCookies: restored.restored, restoreReason: restored.reason });
+      return { context, kind, dir, launch: how };
     } catch (err) {
-      if (!isMissingBrowserError(err)) throw err;
+      if (err?.code === "PROFILE_IN_USE" || !isMissingBrowserError(err)) throw err;
       trace?.event("browser-missing", { browser: kind });
       if (kinds.length > 1) log(`  ${browserLabel(kind)} was not found. Trying the next browser.`);
     }
@@ -390,7 +496,7 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
   const mode = classified ? effectiveMode || (shot.capture.mode === "guided" ? "guided" : "auto") : "legacy";
   const attempts = mode === "guided" ? 1 : 2;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const evidence = { finalUrl: "", title: "", visibleText: [], redaction: null, capturedAt: null, executedSteps: 0, mode, routeSteps: [] };
+    const evidence = { finalUrl: "", title: "", visibleText: [], redaction: null, capturedAt: null, executedSteps: 0, mode, routeSteps: [], setup: null };
     const hooks = {
       collectLabels: (livePage) => collectVisibleLabels(livePage, { terms }),
       async beforeScreenshot({ page: livePage, viewport, callouts }) {
@@ -431,13 +537,14 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
     evidence.capturedAt = outcome.capturedAt;
     evidence.executedSteps = (outcome.executedSteps || []).length;
     evidence.routeSteps = outcome.executedSteps || [];
+    evidence.setup = setupEvidence(outcome.detail?.setup);
     evidence.title = scrubSensitiveText(evidence.title, terms);
     const bytes = fs.readFileSync(outcome.filePath);
     const check = verifyImage(bytes, {
       filename: shot.filename,
       evidence,
       expectedLabels: classified && shot.capture.landmarks?.length ? shot.capture.landmarks : shot.expectedLabels,
-      expect: classified && shot.capture.expect ? { ...shot.capture.expect, strict: mode === "auto" } : null,
+      expect: classified && shot.capture.expect ? { ...shot.capture.expect, strict: mode === "auto" || mode === "autonomous" } : null,
       requireEvidence: true,
       requireRedaction: redact,
     });
@@ -464,6 +571,10 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   const targets = jobTargets(claimed.targets);
   const jobOptions = job.options || {};
   const jobMode = JOB_MODES.includes(options.mode) ? options.mode : JOB_MODES.includes(jobOptions.mode) ? jobOptions.mode : "smart";
+  // What the computer may do on its own is what the job carries, limited by what this computer allows (see guard.mjs).
+  const autonomy = resolveAutonomy(jobOptions.autonomy, { allowPracticeWrites: options.allowPracticeWrites === true });
+  const registry = createPracticeRegistry(home);
+  const recipes = createRecipeStore(home);
   const calloutMode = options.callouts || jobOptions.callouts || "sidecar";
   const redact = options.redact !== false && jobOptions.redact !== false;
   const terms = [...(options.maskTerms || []), ...(jobOptions.maskTerms || [])];
@@ -476,8 +587,14 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   const where = job.target?.type === "lab" ? `lab ${job.target.labId}` : "the shared library";
   log(`\nJob ${job.id}: ${shots.length} screenshot${shots.length === 1 ? "" : "s"} for ${where}${claimed.job.resumed ? " (resuming)" : ""}.`);
   if (shots.some((s) => s.capture?.version)) log(`  Mode: ${MODE_LABELS[jobMode]}.`);
+  if (jobMode === "autonomous") {
+    log(`  The computer may look at screens and try things that change nothing (open dialogs, ask the test pane a sample question). ${autonomy.level === "practice" ? "It may also create and use one practice agent." : "It will not create or change anything."}`);
+    if (autonomy.refusedPractice) log(`  ${autonomy.refusedPractice}`);
+    if (!autonomy.consented) log("  This job did not carry your consent, so the computer will only look at screens, not open dialogs or ask questions.");
+  }
 
   const trace = options.trace || null;
+  const launch = options.launch || "auto";
   const browserKinds = options.browserKinds?.length ? options.browserKinds : ["chromium"];
   const signInWaitMs = (options.signInWaitSec || SIGN_IN_WAIT_MS / 1000) * 1000;
   const guidedWaitMs = (options.guidedWaitSec ?? DEFAULT_GUIDED_WAIT_SEC) * 1000;
@@ -486,6 +603,8 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   const attended = options.attended ?? !options.headless;
   const notRun = [];
   const signInFailures = [];
+  const diagnosisShown = new Set();
+  const keepOpen = [];
   const capturedProducts = new Set();
   const processed = new Set();
   trace?.event("job-start", { shots: shots.length, browsers: browserKinds.join(","), headless: Boolean(options.headless), mode: jobMode, readyMs: readiness.maxMs ?? null, guidedWaitMs });
@@ -523,10 +642,31 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
       const needsBrowserShot = ({ shot, effective }) => effective !== "manual" && effective !== "needs-you" && !(effective === "legacy" && shot.requiresEnv && !env[shot.requiresEnv]);
       const browserShots = items.filter(needsBrowserShot);
       let opened = null;
+      // Hidden means no window is shown: either --headless, or --background with a sign-in that still works.
+      let hidden = Boolean(options.headless);
+      let backgroundHidden = false;
       try {
         if (browserShots.length) {
           log(`\nOpening the browser for ${label}.`);
-          opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: Boolean(options.headless), log, trace });
+          const wantsBackground = Boolean(options.background || jobOptions.background) && !options.headless;
+          if (wantsBackground && listSignedInProfiles(home).includes(profile)) {
+            log("  Running in the background: your saved sign-in is used and no window is shown.");
+            opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: true, log, trace, launch });
+            hidden = true;
+            backgroundHidden = true;
+            const probe = await probeBackground({ opened, profile, shot: browserShots[0].shot, env, sleepFn, trace });
+            trace?.event("background-probe", { product: profile, ok: probe.ok, why: probe.why || "" });
+            if (!probe.ok) {
+              await opened.context.close().catch(() => {});
+              log(`  ${label} asked for a sign-in again in the background (${probe.why}), so a window is opening for you instead.`);
+              opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: false, log, trace, launch });
+              hidden = false;
+              backgroundHidden = false;
+            }
+          } else {
+            if (wantsBackground) log(`  There is no saved sign-in for ${label} yet, so a window opens for you to sign in. Next time this can run in the background.`);
+            opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: Boolean(options.headless), log, trace, launch });
+          }
         }
       } catch (err) {
         const text = String(err?.message || err);
@@ -546,24 +686,32 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
       const watcher = context ? watchContext(context) : null;
 
       // One gate per product per job: the person is asked to sign in once, and a failed sign-in stops the rest of this product.
+      const diagnose = options.signInDiagnoser || createSignInDiagnoser({ synced: options.resolvedHome?.synced || null, launch: opened?.launch || null, profileDir: dir || null, savedSession: Boolean(dir && fs.existsSync(path.join(dir, SESSION_FILE))), ...(options.signInFacts || {}) });
       const gate = createAuthGate({
         product: profile,
         waitMs: signInWaitMs,
-        allowWait: !options.headless || Boolean(options.waitForSignIn),
+        allowWait: !hidden || Boolean(options.waitForSignIn),
         pollMs: options.authPollMs ?? 250,
         settleMs: options.authSettleMs ?? 1000,
         graceMs: options.authGraceMs ?? 2500,
+        confirmMs: options.authConfirmMs ?? 6000,
+        firstLoadMs: options.authFirstLoadMs ?? 10_000,
         sleep: sleepFn,
         notify: ({ message }) => {
           log(`\n${message}`);
           void note(message);
         },
         trace,
+        diagnose,
       });
       let profileCaptured = false;
       let signInMessage = null;
       let browserShotsStarted = 0;
-      const session = createCaptureSession({ env, targets });
+      const session = createCaptureSession({ env, targets, autonomy, registry, recipes, home, terms, companionVersion: COMPANION_VERSION });
+      session.shouldStop = stopRequested;
+      // "Show me once": the portal asked for a retake in which the computer learns what the person does.
+      session.record = jobOptions.record && typeof jobOptions.record === "object" ? { share: jobOptions.record.share === true } : null;
+      session.shareRecipe = session.record?.share && typeof client.shareRecipe === "function" ? (recipe) => client.shareRecipe(recipe) : null;
 
       try {
         let page = context ? context.pages()[0] || (await context.newPage()) : null;
@@ -577,9 +725,9 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             break;
           }
           processed.add(shot.filename);
-          const modeTag = effective === "guided" ? "  [you set it up]" : effective === "auto" ? "  [automatic]" : "";
+          const modeTag = effective === "guided" ? "  [you set it up]" : effective === "auto" || effective === "autonomous" ? "  [automatic]" : "";
           log(`\n[${index}/${shots.length}] ${shot.filename}${shot.moduleTitle ? `  (${shot.moduleTitle})` : ""}${modeTag}`);
-          const common = { mode: effective === "guided" || effective === "auto" ? effective : shot.capture?.mode || null, path: shot.capture?.path || undefined };
+          const common = { mode: ["guided", "auto", "autonomous"].includes(effective) ? effective : shot.capture?.mode || null, path: shot.capture?.path || undefined };
 
           if (effective === "manual") {
             tally.manual += 1;
@@ -597,9 +745,9 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             await report(shot, "needs-you", message, null, { cause: "needs-you", ...common });
             continue;
           }
-          if (effective === "guided" && (!attended || state.guidedUnavailable)) {
+          if (effective === "guided" && (!attended || backgroundHidden || state.guidedUnavailable)) {
             tally.needsYou += 1;
-            const message = !attended ? "This screen needs you to set it up, and this companion has no visible window (--headless). Use “Retake guided” with a normal window." : "Nobody was here to set this screen up earlier in this job, so it is waiting for you. Use “Retake guided” when you are at the computer.";
+            const message = !attended || backgroundHidden ? "This screen needs you to set it up, and this companion has no visible window (--headless or --background). Use “Retake guided” with a normal window." : "Nobody was here to set this screen up earlier in this job, so it is waiting for you. Use “Retake guided” when you are at the computer.";
             log(`  Not run: ${message}`);
             notRun.push({ filename: shot.filename, why: "It needs you at the computer." });
             await report(shot, "needs-you", message, null, { cause: "needs-you", ...common });
@@ -625,6 +773,14 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           }
 
           await report(shot, "running", effective === "guided" ? "Waiting for you in the browser window." : "Capturing.", null, common);
+          // What the computer is doing right now, for the portal's live progress (at most one message every two seconds).
+          let lastProgressAt = 0;
+          session.onProgress = (text) => {
+            const at = Date.now();
+            if (at - lastProgressAt < 2000) return;
+            lastProgressAt = at;
+            void report(shot, "running", text, null, common).catch(() => {});
+          };
           let result;
           const attemptShot = async () => {
             page = await ensureLivePage(context, page, { watcher, trace });
@@ -640,11 +796,11 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
               log,
               signInWaitMs,
               sleepFn,
-              headless: Boolean(options.headless),
+              headless: hidden,
               auth: gate,
               trace,
               session,
-              effectiveMode: effective === "guided" || effective === "auto" ? effective : null,
+              effectiveMode: ["guided", "auto", "autonomous"].includes(effective) ? effective : null,
               readiness,
               guided: { timeoutMs: guidedWaitMs, shouldStop: stopRequested, sleep: sleepFn, onWaiting: options.onGuidedWaiting },
             });
@@ -669,7 +825,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             result = { status: "failed", cause: classifyBrowserError(err) === "transient" ? "navigation-failed" : "unknown", error: briefError(err) };
           }
           trace?.event("shot-result", { shot: shot.filename, status: result.status, code: result.code, cause: result.cause || null });
-          const extra = { cause: result.cause || undefined, ...common, ...(result.detail?.path ? { path: result.detail.path } : {}), steps: summarizeSteps(result.executedSteps), outcome: result.status === "captured" ? plainOutcome(result.detail, result.executedSteps, effective) : undefined };
+          const extra = { cause: result.cause || undefined, ...common, ...(result.detail?.path ? { path: result.detail.path } : {}), steps: summarizeSteps(result.executedSteps), setup: setupEvidence(result.detail?.setup) || undefined, outcome: result.status === "captured" ? plainOutcome(result.detail, result.executedSteps, effective) : undefined };
 
           // A page that looks like a sign-in page but was not recognized by its address (a company sign-in service) counts as not signed in.
           if (result.status === "failed" && result.check?.reasons?.some((r) => r.code === "sign-in-page") && !gate.failed) {
@@ -680,9 +836,16 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             if (!gate.failed) gate.markFailed(result.code || "sign-in", result.error || `${label} needs a sign-in.`);
             const remaining = browserShots.length - (browserShotsStarted - 1);
             signInMessage = gate.describeFailure(remaining);
-            signInFailures.push({ product: profile, label, code: gate.failed.code });
+            signInFailures.push({ product: profile, label, code: gate.failed.code, diagnosis: gate.failed.diagnosis || null });
             tally.failed += 1;
             log(`  ${signInMessage}`);
+            if (gate.failed.diagnosis && !diagnosisShown.has(profile)) {
+              diagnosisShown.add(profile);
+              log("");
+              for (const line of diagnosisLines(gate.failed.diagnosis)) log(`  ${line}`);
+              log("  To see exactly what the browser did, run: node companion.mjs --check-signin=" + profile);
+              trace?.event("sign-in-diagnosis", { product: profile, code: gate.failed.code, aadsts: gate.failed.diagnosis.aadsts || null, likely: gate.failed.diagnosis.checks.filter((c) => c.level === "likely").map((c) => c.id).join(",") });
+            }
             notRun.push({ filename: shot.filename, why: signInMessage });
             await report(shot, "auth-required", null, signInMessage, { ...extra, cause: "sign-in" });
             continue;
@@ -697,7 +860,9 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           if (result.status === "needs-you") {
             tally.needsYou += 1;
             log(`  ${result.error}`);
-            notRun.push({ filename: shot.filename, why: "It needs you at the computer." });
+            const failedFile = result.detail?.setup?.failedStep?.diagnostic;
+            if (failedFile) log(`  ${diagnosticAdvice(failedFile)}`);
+            notRun.push({ filename: shot.filename, why: effective === "autonomous" ? "The computer could not set it up." : "It needs you at the computer." });
             if (result.timedOut && !state.guidedUnavailable) {
               state.guidedUnavailable = true;
               log("  Nobody answered, so I will not wait for the other screens that need you. They are marked “needs you”.");
@@ -747,7 +912,9 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           log(`\nThe sign-in for ${label} is saved on this computer, so you will not need to sign in again. The saved files in the .auth folder give access to your account: keep them private.`);
         }
       } finally {
-        await context?.close?.().catch(() => {});
+        // A sign-in that looped keeps its window open, so the person can look at it; the job is finished first and the window closes after.
+        if (context && gate.failed?.keepOpen && !hidden && attended) keepOpen.push({ context, watcher, label });
+        else await context?.close?.().catch(() => {});
       }
       if (stopRequested()) break;
     }
@@ -775,8 +942,23 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
     log(`\n${pausedNote}`);
   }
   const summary = `${tally.captured} captured, ${tally.needsReview} saved for review, ${tally.failed} failed, ${tally.skipped + tally.manual} not run${tally.needsYou ? `, ${tally.needsYou} need you` : ""}${tally.paused ? `, ${tally.paused} paused` : ""}.`;
+  // What the computer created (a practice agent, changes inside it): written to a report on this computer and named, never linked, to the portal.
+  const created = summarizeCreated(registry.jobLog);
+  let reportFile = null;
+  if (created.length) {
+    try {
+      reportFile = writePracticeReport(home, registry, { jobCreated: created });
+      log(`\nThe computer created ${created.length} item${created.length === 1 ? "" : "s"} in your practice environment. It never deletes anything: delete them yourself when you are done.`);
+      for (const item of created) log(`  - ${item.what}`);
+      log(`The report is saved at ${reportFile}`);
+    } catch {
+      log("\nThe computer created items in your practice environment, but the report could not be saved.");
+    }
+  }
+  const signInDiagnosis = signInFailures.find((f) => f.diagnosis)?.diagnosis || null;
+  const signInInfo = signInDiagnosis ? signInReport(signInDiagnosis, { product: signInFailures.find((f) => f.diagnosis).product }) : null;
   try {
-    await client.complete(job.id, { message: pausedNote || summary, ...(fatalError ? { fatalError } : {}), ...(state.paused ? { paused: { reason: state.paused.reason, message: pausedNote } } : {}) });
+    await client.complete(job.id, { message: pausedNote || summary, ...(fatalError ? { fatalError } : {}), ...(created.length ? { created } : {}), ...(signInInfo ? { signIn: signInInfo } : {}), ...(state.paused ? { paused: { reason: state.paused.reason, message: pausedNote } } : {}) });
   } catch (err) {
     if (err instanceof PortalError && err.kind === "auth") throw err;
     log(`Could not tell the portal the job finished: ${err.message}`);
@@ -789,13 +971,53 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
     for (const [why, count] of reasons) log(`  - ${count} screenshot${count === 1 ? "" : "s"}: ${why}`);
   }
   trace?.event("job-end", { captured: tally.captured, failed: tally.failed, notRun: notRun.length, paused: tally.paused, needsYou: tally.needsYou });
+  if (keepOpen.length) {
+    log(`\nThe browser window stays open so you can look at it (${keepOpen.map((k) => k.label).join(", ")}). Close it when you are done; it closes by itself after a few minutes.`);
+    for (let waited = 0; waited < (options.keepOpenMs ?? 5 * 60_000) && keepOpen.some((k) => !k.watcher?.closed()); waited += 1000) await sleepFn(1000);
+    for (const k of keepOpen) await k.context.close?.().catch(() => {});
+  }
   return { cancelled: state.cancelled, paused: state.paused, tally, fatalError, notRun, signInFailures, capturedProducts: [...capturedProducts] };
+}
+
+// ── Diagnose ───────────────────────────────────────────────────────────────
+
+/**
+ * `--diagnose`: open the product with the saved sign-in, let the person go to the page that gives trouble, and write the
+ * redacted diagnostic file for it (control roles and names, the page's host and path, nothing else).
+ */
+export async function runDiagnose({ home, product, playwright, kinds, log = console.log, ask: prompt = ask, terms = [], launch = "auto" }) {
+  let opened;
+  try {
+    opened = await openProfile({ playwright, home, profile: product, kinds, headless: false, log, launch });
+  } catch (err) {
+    log(String(err?.message || err).split("\n")[0]);
+    return EXIT.usage;
+  }
+  try {
+    const page = opened.context.pages()[0] || (await opened.context.newPage());
+    let start = "https://copilotstudio.microsoft.com/";
+    try {
+      const { readCaptureConfig } = await import("../feature-tour/lib/products.mjs");
+      start = readCaptureConfig().products?.[product]?.startUrl || start;
+    } catch {
+      // The default start page is fine.
+    }
+    await gotoWithRetry(page, start, { waitUntil: "domcontentloaded", reason: "diagnose-start" }).catch(() => {});
+    await prompt("Open the page that gives trouble in the browser window, then press Enter here. ");
+    const live = opened.context.pages().at(-1) || page;
+    const { file, bundle } = await writeDiagnostic({ page: live, home, product, shot: `diagnose-${product}`, terms, companion: COMPANION_VERSION, cause: "manual" });
+    log(`Found ${bundle.controls.length} visible control${bundle.controls.length === 1 ? "" : "s"} and ${bundle.dialogs.length} open dialog${bundle.dialogs.length === 1 ? "" : "s"}.`);
+    log(diagnosticAdvice(file));
+    return file ? EXIT.ok : EXIT.usage;
+  } finally {
+    await opened.context.close().catch(() => {});
+  }
 }
 
 // ── Modes, plain-language outcomes ─────────────────────────────────────────
 
-export const JOB_MODES = Object.freeze(["auto", "guided", "smart"]);
-const MODE_LABELS = { auto: "let the computer do it", guided: "you set up each screen", smart: "smart (the computer does what it can, you set up the rest)" };
+export const JOB_MODES = Object.freeze(["autonomous", "auto", "guided", "smart"]);
+const MODE_LABELS = { autonomous: "automatic (the computer sets up and captures every screen itself)", auto: "let the computer do it", guided: "you set up each screen", smart: "smart (the computer does what it can, you set up the rest)" };
 export const DEFAULT_GUIDED_WAIT_SEC = 120;
 
 /**
@@ -822,7 +1044,24 @@ export function plainOutcome(detail, steps, mode) {
   const selected = (Array.isArray(steps) ? steps : []).filter((s) => s?.action === "reveal" && s.ok && s.tried > 0).map((s) => s.label);
   const opened = path.length ? `Opened ${path.join(", then ")}` : "Opened the page";
   const picked = selected.length ? `, then selected ${selected.join(" and ")}` : "";
-  return `${opened}${picked}.${mode === "guided" ? " You set up the screen." : ""}`;
+  const did = Array.isArray(detail?.setup?.summary) && detail.setup.summary.length ? `, then ${detail.setup.summary.map((s) => String(s).replace(/^(\w)/, (c) => c.toLowerCase())).join(", then ")}` : "";
+  const limited = detail?.setup?.limitedBy === "practice-agent" ? " It needs a practice agent to show the final state." : "";
+  return `${opened}${picked}${did}.${mode === "guided" ? " You set up the screen." : ""}${limited}`;
+}
+
+/** The setup that ran for a shot, bounded for the portal: step names and outcomes, never page text or addresses. */
+export function setupEvidence(setup) {
+  if (!setup || typeof setup !== "object") return null;
+  const word = (value, max) => String(value ?? "").replace(/[\u0000-\u001f]+/g, " ").trim().slice(0, max);
+  return {
+    source: word(setup.source, 40),
+    steps: (Array.isArray(setup.steps) ? setup.steps : []).slice(0, 16).map((s) => ({ id: word(s.id, 24), action: word(s.action, 24), status: ["ok", "skipped", "failed"].includes(s.status) ? s.status : "failed", strategy: word(s.strategy, 24), tier: Number.isInteger(s.tier) ? s.tier : 0, note: word(s.note || s.summary, 120) })),
+    summary: (Array.isArray(setup.summary) ? setup.summary : []).slice(0, 10).map((s) => word(s, 120)).filter(Boolean),
+    limitedBy: setup.limitedBy === "practice-agent" ? "practice-agent" : null,
+    skipped: (Array.isArray(setup.skipped) ? setup.skipped : []).slice(0, 6).map((s) => word(s, 120)),
+    practice: setup.practice ? { name: word(setup.practice.name, 80), reused: setup.practice.reused === true } : null,
+    ...(setup.failedStep ? { failedStep: { id: word(setup.failedStep.id, 24), action: word(setup.failedStep.action, 24), note: word(setup.failedStep.note, 120) } } : {}),
+  };
 }
 
 /** The steps taken, reduced to what the portal shows: no page text, only the labels the lab gave and masked addresses. */
@@ -908,12 +1147,48 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
     log(opts.error);
     return EXIT.usage;
   }
-  const home = path.resolve(opts.home || process.env.COMPANION_HOME || HERE);
   const fetchImpl = deps.fetchImpl || globalThis.fetch;
   const sleepFn = deps.sleepFn || sleep;
+  const interactive = Boolean(process.stdin.isTTY) && !deps.nonInteractive;
 
   log(`Local Capture Companion ${COMPANION_VERSION}`);
 
+  if (opts.dryRunPlan) {
+    const plan = dryRunPlan(opts.dryRunPlan);
+    for (const line of plan.lines) log(line);
+    return plan.ok ? EXIT.ok : EXIT.usage;
+  }
+  if (opts.deleteOldSignin) {
+    const removed = deleteOldSignIn({ legacyDir: deps.codeDir || HERE });
+    log(removed ? `Deleted the old sign-in folder beside the companion's code (${path.join(deps.codeDir || HERE, ".auth")}). Sign in once more the next time a capture needs it.` : "There is no old sign-in folder beside the companion's code.");
+    return EXIT.ok;
+  }
+
+  // Where data lives: a local folder of this user, never a synced one (see home.mjs).
+  const codeDir = deps.codeDir || HERE;
+  const homeEnv = deps.homeEnv || {};
+  const resolved = (deps.resolveHome || resolveHome)({ explicit: opts.home, envHome: (homeEnv.env || process.env).COMPANION_HOME, codeDir, allowSynced: opts.allowSyncedHome === true, ...homeEnv });
+  const home = resolved.home;
+  const onlyRemoves = Boolean(opts.unpair || opts.forgetSignin);
+  if (opts.status || opts.checkSignin) for (const line of describeHomeState(resolved)) log(line);
+  else if (resolved.synced.synced && resolved.allowSynced) log(describeHomeState(resolved)[1] || "");
+  if (resolved.refused && !onlyRemoves && !opts.status) {
+    log(syncedHomeMessage(resolved));
+    return EXIT.usage;
+  }
+  if (resolved.legacy && !resolved.refused && !onlyRemoves) {
+    const moved = migrateLegacyHome({ legacy: resolved.legacy, home, log });
+    for (const line of oldSignInAdvice({ oldProfiles: moved.oldProfiles, synced: resolved.legacy.synced })) log(line);
+    if (moved.oldProfiles && resolved.legacy.synced?.synced && interactive) {
+      const answer = await (deps.ask || ask)("Delete the old sign-in folder now? (y/N) ").catch(() => "");
+      if (/^y/i.test(String(answer))) log(deleteOldSignIn({ legacyDir: resolved.legacy.dir }) ? "Deleted the old sign-in folder." : "The old sign-in folder could not be deleted. Delete it yourself.");
+    }
+  }
+  if (opts.allowPracticeWrites !== undefined) {
+    saveSettings(home, { allowPracticeWrites: opts.allowPracticeWrites });
+    log(opts.allowPracticeWrites ? "This computer now lets jobs that you allowed in the portal create and use one practice agent. Use --no-practice-writes to turn that off." : "This computer will never create anything, whatever a job says.");
+  }
+  const settings = loadSettings(home);
   if (opts.unpair) {
     clearConfig(home);
     log("This computer is no longer paired. To remove it from the portal list too, select Disconnect there.");
@@ -935,9 +1210,20 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
     log("This computer is ready.");
     return EXIT.ok;
   }
+  if (opts.checkSignin) {
+    const driver = deps.playwright || (await loadPlaywrightModule(path.resolve(HERE, "..", "..")));
+    const outcome = await (deps.checkSignin || runCheckSignIn)({ home, product: opts.checkSignin, playwright: driver, kinds: browserKinds, launch: opts.launch, open: openProfile, resolved, log, signInWaitSec: opts.signInWaitSec, sleepFn, terms: opts.maskTerms, companion: COMPANION_VERSION, ask: interactive ? deps.ask || ask : null });
+    await closeAllAttached();
+    return outcome.ok ? EXIT.ok : EXIT.signIn;
+  }
+  if (opts.diagnose) {
+    const driver = deps.playwright || (await loadPlaywrightModule(path.resolve(HERE, "..", "..")));
+    const code = await runDiagnose({ home, product: opts.diagnose, playwright: driver, kinds: browserKinds, log, ask: deps.ask || ask, terms: opts.maskTerms, launch: opts.launch });
+    await closeAllAttached();
+    return code;
+  }
 
   let config = loadConfig(home);
-  const interactive = Boolean(process.stdin.isTTY) && !deps.nonInteractive;
   if (opts.code || !config) {
     let portalText = opts.portal || config?.portal;
     let code = opts.code;
@@ -997,7 +1283,7 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
   };
   if (!deps.noSignals) process.on("SIGINT", onSigint);
 
-  const runnerOptions = { callouts: opts.callouts, maskTerms: opts.maskTerms, redact: opts.redact, signInWaitSec: opts.signInWaitSec, headless: opts.headless, browserKinds, trace, guidedWaitSec: opts.guidedWaitSec, readiness: opts.readyWaitSec ? { maxMs: opts.readyWaitSec * 1000 } : {}, ...(deps.runnerOptions || {}) };
+  const runnerOptions = { callouts: opts.callouts, maskTerms: opts.maskTerms, redact: opts.redact, signInWaitSec: opts.signInWaitSec, headless: opts.headless, background: opts.background === true, allowPracticeWrites: settings.allowPracticeWrites === true, browserKinds, launch: opts.launch, resolvedHome: resolved, trace, guidedWaitSec: opts.guidedWaitSec, readiness: opts.readyWaitSec ? { maxMs: opts.readyWaitSec * 1000 } : {}, ...(deps.runnerOptions || {}) };
   const pollMs = (deps.pollMs ?? opts.intervalSec * 1000);
   let lastBeat = 0;
   let announced = false;
@@ -1087,6 +1373,7 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
     }
   } finally {
     if (!deps.noSignals) process.off("SIGINT", onSigint);
+    await closeAllAttached();
     if (trace) log(`Debug trace saved: ${trace.file}`);
   }
   return EXIT.ok;

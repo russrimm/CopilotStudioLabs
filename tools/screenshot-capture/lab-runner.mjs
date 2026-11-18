@@ -34,7 +34,7 @@ import { classifyUrl, createAuthGate, redactedAddress } from "./auth.mjs";
 import { createCaptureSession, runCaptureShot } from "./capture-run.mjs";
 import { DESTRUCTIVE_LABEL_RE, blockedInstructionReason, blockedLabelReason } from "./guard.mjs";
 import { detectInstalledBrowsers } from "./browsers.mjs";
-import { gotoWithRetry } from "./lifecycle.mjs";
+import { navigateWithSignIn } from "./lifecycle.mjs";
 import { NAVIGATION_ROLES, findControls } from "./locator.mjs";
 import { resolveShotUrl, resolveStartUrl } from "./manifests.mjs";
 import { readinessBudgets, waitUntilReady } from "./readiness.mjs";
@@ -359,17 +359,9 @@ export async function executePlaywrightLabShot({
       const navUrl = targetUrl || step.url;
       if (navUrl && /^https?:\/\//i.test(navUrl)) {
         logger?.(`  → Navigating to ${redactedAddress(navUrl)}`);
-        await gotoWithRetry(page, navUrl, {
-          waitUntil: step.waitUntil || "domcontentloaded",
-          timeout: Number(step.timeoutMs || 30_000),
-          sleep,
-          trace,
-          log: logger,
-        });
-        executedSteps.push({ action: "navigate", url: navUrl, ok: true });
-
-        const signedIn = await gate.ensureSignedIn(page, { phase: "navigate", target: navUrl });
-        if (!signedIn.ok) return needsSignIn(signedIn, executedSteps);
+        const nav = await navigateWithSignIn({ page, url: navUrl, gate, sleep, trace, log: logger, reason: "open-lab-step", waitUntil: step.waitUntil || "domcontentloaded", timeout: Number(step.timeoutMs || 30_000) });
+        if (nav.ok) executedSteps.push({ action: "navigate", url: navUrl, ok: true });
+        else return needsSignIn(nav.signIn, executedSteps);
       }
       continue;
     }

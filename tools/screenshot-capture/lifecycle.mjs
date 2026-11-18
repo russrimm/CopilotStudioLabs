@@ -1,6 +1,12 @@
 // What goes wrong around the browser, not on the page: the person closes the window, a navigation is
 // interrupted, a tab crashes. Each is told apart from a page problem so the companion can stop once with one
 // clear message, retry what is worth retrying, or open a fresh tab, instead of failing every remaining shot.
+//
+// Navigation here is also where the companion stays out of the way of a sign-in: it never navigates a page that is
+// on a sign-in host, and never retries a navigation once the browser has been sent there. Every navigation is
+// written to the trace with its reason.
+
+import { classifyUrl, currentAddress, redactedAddress } from "./signin-url.mjs";
 
 const BROWSER_CLOSED_RE = /Target page, context or browser has been closed|Target closed|Browser has been closed|browser has been closed|has disconnected|Protocol error \([^)]*\): (?:Target|Session) closed|Connection closed|Browser closed/i;
 const PAGE_CRASH_RE = /Target crashed|Page crashed|page crashed|Aw, Snap/i;
@@ -44,7 +50,7 @@ export function watchContext(context) {
     // A driver without events: the next call that fails tells us.
   }
   return {
-    closed: () => state.closed,
+    closed: () => state.closed || context?.isCompanionClosed?.() === true,
     watchPage(page) {
       try {
         page?.on?.("crash", () => state.crashed.add(page));
@@ -59,8 +65,18 @@ export function watchContext(context) {
 /**
  * Go to an address, trying again when the navigation was interrupted (ERR_ABORTED), reset, or timed out.
  * A closed browser is never retried: it throws `BrowserClosedError` at once.
+ *
+ * It stays passive around sign-in: when the page is already on a sign-in host it does not navigate at all (it
+ * returns `{ skipped: "sign-in" }`), and a navigation that ended on a sign-in host is never retried, because the
+ * browser was sent there on purpose and a person may be typing. `reason` says why the navigation happens (for the trace).
  */
-export async function gotoWithRetry(page, url, { waitUntil = "domcontentloaded", timeout = 30_000, retries = 2, backoffMs = [1000, 3000], sleep = (ms) => new Promise((r) => setTimeout(r, ms)), trace = null, log = null } = {}) {
+export async function gotoWithRetry(page, url, { waitUntil = "domcontentloaded", timeout = 30_000, retries = 2, backoffMs = [1000, 3000], sleep = (ms) => new Promise((r) => setTimeout(r, ms)), trace = null, log = null, reason = "open-address", force = false } = {}) {
+  const from = currentAddress(page);
+  if (!force && classifyUrl(from).kind === "sign-in") {
+    trace?.event("navigation-skipped", { reason, why: "the page is on a sign-in page, so the companion only watches", from: redactedAddress(from), to: redactedAddress(url) });
+    return { skipped: "sign-in" };
+  }
+  trace?.event("navigation", { reason, from: redactedAddress(from), to: redactedAddress(url) });
   let attempt = 0;
   for (;;) {
     try {
@@ -72,18 +88,56 @@ export async function gotoWithRetry(page, url, { waitUntil = "domcontentloaded",
       if (kind !== "transient" || attempt >= retries) throw err;
       // An interrupted navigation can still have landed: a page that is already at the address is a success.
       try {
-        const now = typeof page.url === "function" ? page.url() : "";
+        const now = currentAddress(page);
         if (now && now !== "about:blank" && sameAddress(now, url)) return null;
+        // The browser was sent to a sign-in page (that is what interrupted the navigation): leave it alone.
+        if (classifyUrl(now).kind === "sign-in") {
+          trace?.event("navigation-retry-skipped", { reason, why: "the browser is on a sign-in page", at: redactedAddress(now) });
+          return { skipped: "sign-in" };
+        }
       } catch {
         // Fall through and retry.
       }
       const wait = backoffMs[Math.min(attempt, backoffMs.length - 1)] ?? 1000;
       attempt += 1;
-      trace?.event("navigation-retry", { attempt, why: briefError(err).replace(/Call log.*$/i, ""), waitMs: wait });
+      trace?.event("navigation-retry", { attempt, reason, why: briefError(err).replace(/Call log.*$/i, ""), waitMs: wait });
       log?.(`  The page did not open (${briefError(err).replace(/^page\.goto: /, "").replace(/ at https?:.*$/i, "")}). Trying again.`);
       await sleep(wait);
+      // Look again after the pause: a sign-in page may have opened meanwhile.
+      if (!force && classifyUrl(currentAddress(page)).kind === "sign-in") {
+        trace?.event("navigation-retry-skipped", { reason, why: "a sign-in page opened while waiting", at: redactedAddress(currentAddress(page)) });
+        return { skipped: "sign-in" };
+      }
     }
   }
+}
+
+/**
+ * Open an address and make sure the product (not a sign-in page) is showing, waiting for the person to sign in
+ * when it is not. When the navigation was skipped because sign-in was already in progress, the address is
+ * opened once the sign-in is done.
+ * @returns {Promise<{ok: true, waited: boolean} | {ok: false, signIn: object}>}
+ */
+export async function navigateWithSignIn({ page, url, gate, sleep, trace = null, log = null, reason = "open-address", waitUntil = "domcontentloaded", timeout }) {
+  const first = await gotoWithRetry(page, url, { sleep, trace, log, waitUntil, reason, ...(timeout ? { timeout } : {}) });
+  let signedIn = await gate.ensureSignedIn(page, { phase: "navigate", target: url });
+  if (!signedIn.ok) return { ok: false, signIn: signedIn };
+  const skipped = first?.skipped === "sign-in";
+  const deepTarget = (() => {
+    try {
+      return new URL(url).pathname.replace(/\/$/, "") !== "";
+    } catch {
+      return false;
+    }
+  })();
+  // Real products land on their home page after a fresh sign-in, not on the address that was asked for.
+  const landedElsewhere = signedIn.waited === true && deepTarget;
+  if ((skipped || landedElsewhere) && !sameAddress(currentAddress(page), url)) {
+    await gotoWithRetry(page, url, { sleep, trace, log, waitUntil, reason: `${reason} (after sign-in)`, ...(timeout ? { timeout } : {}) });
+    signedIn = await gate.ensureSignedIn(page, { phase: "navigate", target: url });
+    if (!signedIn.ok) return { ok: false, signIn: signedIn };
+  }
+  return { ok: true, waited: signedIn.waited === true };
 }
 
 function sameAddress(a, b) {

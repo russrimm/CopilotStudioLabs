@@ -136,18 +136,16 @@ export function judge(row) {
 }
 
 /**
- * Run one lab capture end to end.
+ * Start one scenario: a real portal with a temporary storage folder, a lab, the pretend product site, and a
+ * companion folder. Several jobs can then be run in it, which is how a recipe recorded in one job is replayed in the next.
  * @param {object} options
  * @param {string} options.repoDir the checkout to test
- * @param {object} [options.site] options for the pretend product site
+ * @param {object} [options.site] options for the pretend product site (or `siteInstance`, an existing one, to keep its tenant)
  * @param {object} [options.lab] options for buildFixtureLab
- * @param {object} [options.job] the POST /api/capture/jobs body (the lab target is added)
- * @param {object} [options.runOptions] companion options (headless is the default)
- * @param {(ctx: object) => Promise<void>} [options.prepare] runs after the lab and portal exist, before the job is queued (save settings here)
- * @param {(ctx: object) => void} [options.onUpload] called after each upload (close the browser from here)
  * @param {string} [options.channel] "msedge" to use the installed Edge
+ * @param {string} [options.home] a companion folder to reuse (it is not deleted when the scenario closes)
  */
-export async function runCaptureScenario({ repoDir, site: siteOptions = {}, lab: labOptions = {}, job: jobBody = {}, runOptions = {}, prepare = null, onUpload = null, onClient = null, channel = undefined, signInWaitSec = 8 }) {
+export async function startScenario({ repoDir, site: siteOptions = {}, siteInstance = null, lab: labOptions = {}, channel = undefined, home = null, signInWaitSec = 8 }) {
   const toolDir = path.join(repoDir, "tools", "screenshot-capture");
   const companion = await loadModule(toolDir, "companion.mjs");
   const labRunner = await loadModule(path.join(WORKTREE_ROOT, "tools", "screenshot-capture"), "lab-runner.mjs");
@@ -155,64 +153,93 @@ export async function runCaptureScenario({ repoDir, site: siteOptions = {}, lab:
   if (!playwright?.chromium) throw new Error("Playwright is not installed.");
 
   const storageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "capture-scenario-"));
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "capture-home-"));
-  const lines = [];
+  const ownHome = !home;
+  const companionHome = home || fs.mkdtempSync(path.join(os.tmpdir(), "capture-home-"));
   const portal = await startPortal({ repoDir, storageRoot });
-  const siteModel = createFakeProductSite(siteOptions);
+  const siteModel = siteInstance || createFakeProductSite(siteOptions);
   const wrapped = withFakeProductSite(playwright, siteModel, { forceChannel: channel });
-  const started = Date.now();
-  try {
-    const lab = await buildFixtureLab({ repoDir, storageRoot, ...labOptions });
-    const ctx = { repoDir, base: portal.base, lab, site: siteModel, call: (m, r, j) => call(portal.base, m, r, j) };
-    if (prepare) await prepare(ctx);
+  const lab = await buildFixtureLab({ repoDir, storageRoot, ...labOptions });
+  const api = (m, r, j) => call(portal.base, m, r, j);
+  const scenario = {
+    repoDir,
+    base: portal.base,
+    lab,
+    site: siteModel,
+    home: companionHome,
+    call: api,
+    launches: wrapped.launches,
+    /** Queue a job, hand it to a fresh companion, run it, and report what happened. */
+    async runJob({ job: jobBody = {}, runOptions = {}, onUpload = null, onClient = null } = {}) {
+      const lines = [];
+      const started = Date.now();
+      const queued = await api("POST", "/api/capture/jobs", { target: { type: "lab", labId: lab.labId }, scope: { mode: "all" }, ...jobBody });
+      if (queued.status >= 400 || !queued.body?.job) throw new Error(`The job was not queued (${queued.status}): ${queued.text.slice(0, 300)}`);
+      const code = (await api("POST", "/api/capture/pair")).body;
+      const paired = await companion.createPortalClient({ portal: portal.base }).pair({ code: code.code, deviceName: "TEST-PC" });
+      const real = companion.createPortalClient({ portal: portal.base, token: paired.token });
+      let uploads = 0;
+      const client = new Proxy(real, {
+        get(target, prop) {
+          if (prop === "upload") {
+            return async (...args) => {
+              const result = await target.upload(...args);
+              uploads += 1;
+              if (onUpload) await onUpload({ uploads, filename: args[1], result, contexts: wrapped.contexts, site: siteModel });
+              return result;
+            };
+          }
+          return typeof target[prop] === "function" ? target[prop].bind(target) : target[prop];
+        },
+      });
+      if (onClient) onClient(client);
 
-    const queued = await call(portal.base, "POST", "/api/capture/jobs", { target: { type: "lab", labId: lab.labId }, scope: { mode: "all" }, ...jobBody });
-    if (queued.status >= 400 || !queued.body?.job) throw new Error(`The job was not queued (${queued.status}): ${queued.text.slice(0, 300)}`);
-    const code = (await call(portal.base, "POST", "/api/capture/pair")).body;
-    const paired = await companion.createPortalClient({ portal: portal.base }).pair({ code: code.code, deviceName: "TEST-PC" });
-    const real = companion.createPortalClient({ portal: portal.base, token: paired.token });
-    let uploads = 0;
-    const client = new Proxy(real, {
-      get(target, prop) {
-        if (prop === "upload") {
-          return async (...args) => {
-            const result = await target.upload(...args);
-            uploads += 1;
-            if (onUpload) await onUpload({ uploads, filename: args[1], result, contexts: wrapped.contexts, site: siteModel });
-            return result;
-          };
+      const claimed = await client.next();
+      if (!claimed) throw new Error("The companion was given no job.");
+      const result = await companion.runJob({
+        client,
+        claimed,
+        home: companionHome,
+        playwright: wrapped,
+        options: { headless: true, waitForSignIn: true, signInWaitSec, callouts: "none", ...runOptions },
+        log: (line) => lines.push(String(line)),
+        heartbeatMs: 60_000,
+        sleepFn: runOptions.sleepFn,
+      });
+      const finished = (await api("GET", `/api/capture/jobs/${queued.body.job.id}`)).body.job;
+      const status = (await api("GET", `/api/generated-labs/${lab.labId}/screenshots`)).body;
+      const rows = finished.shots.map((s) => ({ filename: s.filename, status: s.status, finalUrl: s.verification?.finalUrl || null, reason: s.error || s.message || s.verification?.reasons?.[0]?.message || null, verification: s.verification, cause: s.cause || null, raw: s }));
+      return { job: finished, rows, result, lines, claimed, site: siteModel, launches: wrapped.launches, lab, labStatus: status, queued: queued.body, elapsedMs: Date.now() - started, uploads, home: companionHome };
+    },
+    async close() {
+      portal.stop();
+      await Promise.all(wrapped.contexts.map((c) => c.close().catch(() => {})));
+      for (const dir of [storageRoot, ...(ownHome ? [companionHome] : [])]) {
+        try {
+          fs.rmSync(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
+        } catch {
+          // A browser can hold a file a moment longer on Windows; the folder is in the temp directory.
         }
-        return typeof target[prop] === "function" ? target[prop].bind(target) : target[prop];
-      },
-    });
-    if (onClient) onClient(client);
-
-    const claimed = await client.next();
-    if (!claimed) throw new Error("The companion was given no job.");
-    const result = await companion.runJob({
-      client,
-      claimed,
-      home,
-      playwright: wrapped,
-      options: { headless: true, waitForSignIn: true, signInWaitSec, callouts: "none", ...runOptions },
-      log: (line) => lines.push(String(line)),
-      heartbeatMs: 60_000,
-      sleepFn: runOptions.sleepFn,
-    });
-    const finished = (await call(portal.base, "GET", `/api/capture/jobs/${queued.body.job.id}`)).body.job;
-    const status = (await call(portal.base, "GET", `/api/generated-labs/${lab.labId}/screenshots`)).body;
-    const rows = finished.shots.map((s) => ({ filename: s.filename, status: s.status, finalUrl: s.verification?.finalUrl || null, reason: s.error || s.message || s.verification?.reasons?.[0]?.message || null, verification: s.verification, cause: s.cause || null, raw: s }));
-    return { job: finished, rows, result, lines, claimed, site: siteModel, launches: wrapped.launches, lab, labStatus: status, queued: queued.body, elapsedMs: Date.now() - started, uploads };
-  } finally {
-    portal.stop();
-    await Promise.all(wrapped.contexts.map((c) => c.close().catch(() => {})));
-    for (const dir of [storageRoot, home]) {
-      try {
-        fs.rmSync(dir, { recursive: true, force: true, maxRetries: 8, retryDelay: 250 });
-      } catch {
-        // A browser can hold a file a moment longer on Windows; the folder is in the temp directory.
       }
-    }
+    },
+  };
+  return scenario;
+}
+
+/**
+ * Run one lab capture end to end.
+ * @param {object} options see `startScenario`, plus:
+ * @param {object} [options.job] the POST /api/capture/jobs body (the lab target is added)
+ * @param {object} [options.runOptions] companion options (headless is the default)
+ * @param {(ctx: object) => Promise<void>} [options.prepare] runs after the lab and portal exist, before the job is queued (save settings here)
+ * @param {(ctx: object) => void} [options.onUpload] called after each upload (close the browser from here)
+ */
+export async function runCaptureScenario({ job = {}, runOptions = {}, prepare = null, onUpload = null, onClient = null, ...startOptions }) {
+  const scenario = await startScenario(startOptions);
+  try {
+    if (prepare) await prepare(scenario);
+    return await scenario.runJob({ job, runOptions, onUpload, onClient });
+  } finally {
+    await scenario.close();
   }
 }
 
