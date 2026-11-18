@@ -567,7 +567,9 @@ test("the command line writes the same files, and says what is wrong with bad in
   try {
     const script = join(repoRoot, "tools", "lab-builder", "export-topics.mjs");
     const out = join(dir, "topics.csv");
-    const ok = spawnSync(process.execPath, [script, "--products", "copilot-studio,sharepoint-ai", "--format", "csv", "--out", out, "--selected", "mc-instructions"], { encoding: "utf8" });
+    // A runtime topic cache from a local portal run would add newer topics; the library side below uses the committed snapshot only.
+    const env = { ...process.env, LAB_BUILDER_TOPICS_CACHE: join(dir, "no-topics-cache.json") };
+    const ok = spawnSync(process.execPath, [script, "--products", "copilot-studio,sharepoint-ai", "--format", "csv", "--out", out, "--selected", "mc-instructions"], { encoding: "utf8", env });
     assert.equal(ok.status, 0, ok.stderr);
     assert.match(ok.stderr, /All topics and sub-topics for Copilot Studio and SharePoint AI \(Standard harness\), all levels: \d+ rows/);
     const csv = readFileSync(out);
@@ -575,7 +577,7 @@ test("the command line writes the same files, and says what is wrong with bad in
     const direct = toCsv(buildTopicExport({ products: ["copilot-studio", "sharepoint-ai"], harness: "standard", learn: learnOf(committed.topics), now: Date.now() }), { selectedIds: ["mc-instructions"] });
     assert.equal(csv.toString("utf8").split("\r\n").length, direct.split("\r\n").length, "same rows as the library builds");
 
-    const md = spawnSync(process.execPath, [script, "--products=sharepoint-ai", "--format=markdown", "--out", "-"], { encoding: "utf8" });
+    const md = spawnSync(process.execPath, [script, "--products=sharepoint-ai", "--format=markdown", "--out", "-"], { encoding: "utf8", env });
     assert.equal(md.status, 0);
     assert.match(md.stdout, /^# Topic export: SharePoint AI/);
 
