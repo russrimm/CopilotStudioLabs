@@ -57,7 +57,7 @@ function scriptedPage(script) {
   return { state, page: { url: () => urlAt(state.tick) }, sleep: async () => { state.tick += 1; } };
 }
 
-const gateOf = (extra = {}) => createAuthGate({ product: "copilot-studio", waitMs: 600, pollMs: 10, settleMs: 30, graceMs: 20, ...extra });
+const gateOf = (extra = {}) => createAuthGate({ product: "copilot-studio", waitMs: 600, pollMs: 10, settleMs: 30, graceMs: 20, confirmMs: 0, ...extra });
 
 // ── The captured address: host and path, never the query string ──────────────
 

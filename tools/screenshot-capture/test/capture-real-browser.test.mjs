@@ -148,7 +148,8 @@ test("real browser: with the agent address every screen is the right one, and no
 });
 
 test("real browser: the same headline scenario works in the installed Microsoft Edge", { skip: !found.playwrightInstalled ? "Playwright is not installed" : !edge && "Microsoft Edge is not installed", timeout: 120_000 }, async () => {
-  const out = await run({ shots: FOUR(), channel: "msedge", options: { browserKinds: ["edge"] } });
+  // Edge is normally started the normal way and connected to (see signin-attach-real.test.mjs); this test pins the Playwright launcher and its channel.
+  const out = await run({ shots: FOUR(), channel: "msedge", options: { browserKinds: ["edge"], launch: "playwright" } });
   assert.equal(out.result.tally.captured, 4, out.lines.join("\n"));
   assert.equal(out.launches[0].options.channel, "msedge");
   assert.deepEqual(out.site.stats.writes, []);
@@ -216,6 +217,8 @@ test("real browser: guided capture shows the toolbar, a person's click captures,
           await page.getByRole("button", { name: "Test", exact: true }).click();
           await page.getByLabel("Type your message").fill("What is our policy?");
           await page.getByRole("button", { name: "Send", exact: true }).click();
+          // The pretend test pane streams its answer now, like the real one: a person waits for it to finish.
+          await page.getByText(/Here is an answer/).waitFor({ state: "visible", timeout: 10_000 });
           await bar.click();
         } else if (shot.filename === "dialog.png") {
           await page.getByRole("button", { name: "Add knowledge", exact: true }).click();

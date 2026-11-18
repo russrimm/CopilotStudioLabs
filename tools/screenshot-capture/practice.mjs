@@ -1,0 +1,194 @@
+// The practice agent: the one agent the companion may change, and only after the person opted in. It is created
+// by the companion itself in the practice environment the person chose, named "Lab screenshots - <code>", and
+// recorded in a local registry so the next job reuses it. The companion never deletes anything: after a run it
+// writes a plain-language report of everything it created, so the person can delete the practice agent themselves.
+//
+// The registry and the report stay on this computer, under the companion folder. They hold the agent's address,
+// which is why they are never uploaded and never part of the companion download.
+
+import fs from "node:fs";
+import path from "node:path";
+import crypto from "node:crypto";
+
+import { parseCopilotStudioAddress } from "./targets.mjs";
+
+export const PRACTICE_PREFIX = "Lab screenshots - ";
+const REGISTRY_NAME = ".practice-agents.json";
+const REPORT_NAME = "practice-report.md";
+
+/** A new practice agent name: the fixed prefix and a short code, so two runs never collide. */
+export function practiceName(random = () => crypto.randomBytes(3).toString("hex")) {
+  return `${PRACTICE_PREFIX}${random()}`;
+}
+
+/** Whether a name is one the companion made itself. */
+export function isPracticeName(name) {
+  return String(name || "").startsWith(PRACTICE_PREFIX);
+}
+
+export function practiceRegistryPath(home) {
+  return path.join(home, REGISTRY_NAME);
+}
+
+export function practiceReportPath(home) {
+  return path.join(home, REPORT_NAME);
+}
+
+const emptyRegistry = () => ({ schema: 1, agents: [], changes: [] });
+
+/**
+ * The local record of what was created. `agents` hold the practice agents (environment id, agent id, name, address);
+ * `changes` hold what was done inside them (added knowledge, published), in order.
+ */
+export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
+  const file = practiceRegistryPath(home);
+  const iso = () => new Date(now()).toISOString();
+  const load = () => {
+    try {
+      const data = JSON.parse(fs.readFileSync(file, "utf8"));
+      return data && Array.isArray(data.agents) ? { ...emptyRegistry(), ...data } : emptyRegistry();
+    } catch {
+      return emptyRegistry();
+    }
+  };
+  const save = (data) => {
+    fs.mkdirSync(home, { recursive: true });
+    fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
+  };
+  return {
+    file,
+    load,
+    /** What a job did in the practice environment (in memory, for the job's report): the agent made or reused, and each change. */
+    jobLog: [],
+    /** The practice agent for an environment, or null. Only an agent whose name has the prefix counts. */
+    find(envId) {
+      return load().agents.find((a) => a.envId === envId && isPracticeName(a.name)) || null;
+    },
+    /** Remember a created practice agent. A second record for the same environment replaces the first. */
+    recordAgent({ envId, botId, name, address }) {
+      const data = load();
+      data.agents = data.agents.filter((a) => !(a.envId === envId));
+      data.agents.push({ envId, botId, name, address, createdAt: iso(), reusedCount: 0 });
+      save(data);
+      this.jobLog.push({ kind: "agent", name, what: `Created the practice agent “${name}”`, reused: false });
+    },
+    recordReuse(envId) {
+      const data = load();
+      const found = data.agents.find((a) => a.envId === envId);
+      if (found) {
+        found.reusedCount = (found.reusedCount || 0) + 1;
+        found.lastUsedAt = iso();
+        save(data);
+        this.jobLog.push({ kind: "agent", name: found.name, what: `Reused the practice agent “${found.name}”`, reused: true });
+      }
+    },
+    /** Something done inside a practice agent (a step that saved, added, or published). */
+    recordChange({ botId, what, shot }) {
+      const data = load();
+      data.changes.push({ botId, what: String(what || "").slice(0, 120), shot: String(shot || "").slice(0, 128), at: iso() });
+      data.changes = data.changes.slice(-200);
+      save(data);
+      const agent = data.agents.find((a) => a.botId === botId);
+      if (!/^Created the practice agent/.test(String(what || ""))) this.jobLog.push({ kind: "change", name: agent?.name || "", what: String(what || "").slice(0, 120), reused: false });
+    },
+    items() {
+      return load();
+    },
+  };
+}
+
+/**
+ * The plain-language report of what the companion created, as Markdown. It names where each item is and what was
+ * done in it, and says how to delete it: the companion never does.
+ */
+export function buildPracticeReport(registry, { jobCreated = [], now = () => new Date() } = {}) {
+  const lines = [
+    "# Practice agent report",
+    "",
+    `Written ${now().toISOString()} by the Local Capture Companion.`,
+    "",
+    "The companion created the items below so it could take screenshots that need an agent in a certain state. It never deletes anything, not even its own practice agent. When you no longer need them, delete them yourself in Copilot Studio.",
+    "",
+  ];
+  const agents = registry.agents || [];
+  if (!agents.length) lines.push("No practice agent has been created.", "");
+  for (const agent of agents) {
+    lines.push(`## ${agent.name}`, "", `- Where: your practice environment in Copilot Studio`, `- Link: ${agent.address || "(not recorded)"}`, `- Created: ${agent.createdAt}`, `- Reused in later jobs: ${agent.reusedCount || 0} time${agent.reusedCount === 1 ? "" : "s"}`);
+    const changes = (registry.changes || []).filter((c) => c.botId === agent.botId);
+    if (changes.length) {
+      lines.push("- What the companion did inside it:");
+      for (const change of changes.slice(-20)) lines.push(`  - ${change.what} (${change.at})`);
+    } else {
+      lines.push("- What the companion did inside it: nothing yet");
+    }
+    lines.push("");
+  }
+  if (jobCreated.length) lines.push("## This job", "", ...jobCreated.map((item) => `- ${item.what}`), "");
+  lines.push("To remove an agent: open its link, then use Delete in the agent's settings or in the Agents list.", "");
+  return lines.join("\n");
+}
+
+/** Write the report next to the registry and return its path. */
+export function writePracticeReport(home, registry, options = {}) {
+  const file = practiceReportPath(home);
+  fs.mkdirSync(home, { recursive: true });
+  fs.writeFileSync(file, buildPracticeReport(registry.items ? registry.items() : registry, options), { mode: 0o600 });
+  return file;
+}
+
+/** What the portal is told about a job's practice work: names and what was done, never an address or an id. */
+export function summarizeCreated(entries) {
+  return (Array.isArray(entries) ? entries : []).slice(0, 20).map((e) => ({ kind: String(e.kind || "change").slice(0, 20), name: String(e.name || "").slice(0, 80), what: String(e.what || "").slice(0, 120), reused: e.reused === true }));
+}
+
+/** The practice environment's base address, or null when the address is not a Copilot Studio environment. */
+export function practiceEnvironment(url) {
+  const parsed = parseCopilotStudioAddress(url);
+  return parsed.ok && parsed.envBase ? { envBase: parsed.envBase, envId: parsed.envId, origin: parsed.origin } : null;
+}
+
+/**
+ * Find the practice agent for the job's practice environment, or make it. Everything here is a tier 2 action
+ * that happens only in the practice environment, only for an agent whose name has the prefix, and only because the
+ * job (and this companion) allowed it.
+ * @returns {Promise<{ok: boolean, agentBase?: string, envBase?: string, botId?: string, name?: string, reused?: boolean, error?: string, cause?: string}>}
+ */
+export async function ensurePracticeAgent({ page, autonomy, registry, session, executorFor, go, trace = null, log = null, random }) {
+  const env = practiceEnvironment(autonomy.practiceEnvironmentUrl);
+  if (autonomy.maxTier < 2 || !env) return { ok: false, cause: "needs-practice-agent", error: "A practice agent is not allowed for this job." };
+  if (session.practiceAgent?.envId === env.envId) return { ...session.practiceAgent, reused: true };
+
+  const existing = registry.find(env.envId);
+  if (existing) {
+    const target = `${env.envBase}/bots/${existing.botId}/overview`;
+    await go(target, "your practice agent");
+    if (String(page.url()).includes(existing.botId)) {
+      registry.recordReuse(env.envId);
+      session.practiceAgent = { ok: true, envBase: env.envBase, envId: env.envId, botId: existing.botId, agentBase: `${env.envBase}/bots/${existing.botId}`, name: existing.name, reused: true };
+      trace?.event("practice-agent", { reused: true });
+      log?.("  Reusing your practice agent.");
+      return session.practiceAgent;
+    }
+    trace?.event("practice-agent-missing", {});
+    log?.("  The practice agent from an earlier job could not be opened, so a new one will be created.");
+  }
+
+  const name = practiceName(random);
+  await go(`${env.envBase}/agents`, "the list of agents in your practice environment");
+  const practice = { agentId: null, creating: (url) => String(url || "").startsWith(env.envBase) };
+  const executor = executorFor(practice);
+  const result = await executor.run([
+    { id: "create-open", action: "create", intent: "confirm", tier: 2, target: { role: "button", name: "Create blank agent", alt: ["Create agent", "New agent", "Create an agent"], within: "main" }, expect: { text: ["Name"] } },
+    { id: "create-name", action: "type", intent: "type", tier: 2, target: { role: "textbox", name: "Name", alt: ["Agent name", "Name your agent"], within: "main" }, text: { literal: name } },
+    { id: "create-confirm", action: "create", intent: "confirm", tier: 2, target: { role: "button", name: "Create", alt: ["Create agent"], within: "main" }, expect: { urlPath: "/bots/" } },
+  ].map((s) => ({ ...s, note: s.id === "create-name" ? "Named the practice agent" : "Created the practice agent" })));
+  if (!result.ok) return { ok: false, cause: "automation-failed", error: `The practice agent could not be created (${result.failed?.why || "a step failed"}).`, setup: result };
+  const created = parseCopilotStudioAddress(page.url());
+  if (!created.botId) return { ok: false, cause: "automation-failed", error: "The practice agent was created, but its address could not be read." };
+  registry.recordAgent({ envId: env.envId, botId: created.botId, name, address: `${env.envBase}/bots/${created.botId}/overview` });
+  registry.recordChange({ botId: created.botId, what: `Created the practice agent “${name}”`, shot: "" });
+  session.practiceAgent = { ok: true, envBase: env.envBase, envId: env.envId, botId: created.botId, agentBase: `${env.envBase}/bots/${created.botId}`, name, reused: false };
+  trace?.event("practice-agent", { reused: false });
+  log?.(`  Created the practice agent “${name}”. It is listed in the report at the end of the job.`);
+  return session.practiceAgent;
+}

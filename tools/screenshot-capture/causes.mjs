@@ -14,6 +14,10 @@ export const CAUSES = Object.freeze({
   "navigation-failed": { code: "navigation-failed", title: "The page could not be opened", fix: "Check your connection and retake.", fixAction: "retry", tone: "warn" },
   "browser-closed": { code: "browser-closed", title: "Paused: the browser window was closed", fix: "Select Resume to continue where it stopped.", fixAction: "resume", tone: "info" },
   "needs-you": { code: "needs-you", title: "This screen needs you", fix: "Use “Retake guided” to set up the screen and capture it yourself.", fixAction: "guided", tone: "info" },
+  "automation-failed": { code: "automation-failed", title: "The computer could not set this screen up", fix: "Use “Show me once” so it can learn the steps, or set the screen up yourself with “Retake guided”.", fixAction: "record", tone: "warn" },
+  "needs-practice-agent": { code: "needs-practice-agent", title: "Needs a practice agent", fix: "Allow a practice agent in the consent card, then retake. The picture shows the screen as far as the computer could go without one.", fixAction: "consent", tone: "info" },
+  "blocked-by-safety": { code: "blocked-by-safety", title: "The computer would not do this step", fix: "The step is something the computer never does on its own (for example deleting or sharing). Set the screen up yourself with “Retake guided”.", fixAction: "guided", tone: "info" },
+  "unexpected-effect": { code: "unexpected-effect", title: "A click did something unexpected", fix: "The capture stopped so nothing else was clicked. Set the screen up yourself with “Retake guided”.", fixAction: "guided", tone: "warn" },
   "skipped-by-you": { code: "skipped-by-you", title: "You skipped this screen", fix: "Retake it when you are ready.", fixAction: "retry", tone: "info" },
   stopped: { code: "stopped", title: "You stopped the capture", fix: "Select Resume to continue.", fixAction: "resume", tone: "info" },
   manual: { code: "manual", title: "Outside the browser", fix: "Capture it with an OS screenshot tool and upload it.", fixAction: "upload", tone: "info" },
@@ -31,5 +35,6 @@ export function causeForVerification(reasons) {
   if (codes.has("sign-in-page")) return "sign-in";
   if (codes.has("blank") || codes.has("near-uniform")) return "blank-page";
   if (codes.has("wrong-screen")) return "wrong-screen";
+  if (codes.has("needs-practice-agent")) return "needs-practice-agent";
   return null;
 }

@@ -911,7 +911,8 @@ test("a fake companion pairs, claims a job, uploads verified shots, and complete
 
   let status = (await call(base, "GET", "/api/capture/status")).json;
   assert.equal(status.companion.connected, false);
-  assert.equal(status.serverBrowser.available, false);
+  // Whether this machine happens to have Playwright's browser must not change the result: "available" means the bundled one is there.
+  assert.equal(status.serverBrowser.available, status.serverBrowser.chromiumInstalled);
   assert.equal(status.tenantUrls.set, false);
   assert.equal(status.sharedLibrary.location, "persistent");
   assert.equal(status.sharedLibrary.persistent, true);

@@ -50,7 +50,10 @@ function scLab(key) {
         onlyAttention: false,
         picks: new Set(),
         mode: SC_DEFAULT_CAPTURE_MODE,
-        settingsOpen: false,
+        consentOpen: false,
+        consentDraft: { practice: false, url: "", agreed: false, error: "" },
+        shareRecipe: false,
+        background: false,
         causesOpen: new Set(),
         targetDraft: {},
         targetErrors: {},
@@ -407,19 +410,62 @@ async function scFinishJob(key, job) {
   }
 }
 
-async function scCancelJob(key) {
+async function scCancelJob(key, { pause = false } = {}) {
   const lab = scLab(key);
   const job = lab.job;
   if (!job) return;
-  const { ok, status, data } = await scFetchJson(`/api/capture/jobs/${encodeURIComponent(job.id)}/cancel`, scJsonInit("POST", {}));
+  const { ok, status, data } = await scFetchJson(`/api/capture/jobs/${encodeURIComponent(job.id)}/cancel`, scJsonInit("POST", pause ? { pause: true } : {}));
   if (ok && data.job) {
-    scAnnounce(data.job.status === "cancelled" ? "Capture canceled." : "Cancel requested. Your computer stops after the screenshot it is working on.");
+    scAnnounce(data.job.status === "cancelled" ? "Capture canceled." : pause ? "Pause requested. Your computer stops after the screenshot it is working on, and the rest wait for Resume." : "Cancel requested. Your computer stops after the screenshot it is working on.");
     scApplyJob(key, { ...lab.job, ...data.job, shots: data.job.shots || lab.job.shots }, { full: true });
   } else if (status === 409) {
     await scPollJobOnce(key, job.id);
   } else {
     scAnnounce(data.error || `Could not cancel (${status}).`);
   }
+}
+
+// ── Automatic capture: what the person allowed ──────────────────────────────
+
+/** Save the consent card: the one-time yes, and (only if they ticked it) the practice environment. */
+async function scSaveConsent(labId) {
+  const lab = scLab(labId);
+  const draft = lab.ui.consentDraft;
+  if (!draft.agreed) {
+    draft.error = "Tick the box to confirm you understand what the computer may and may not do.";
+    scRerender(labId);
+    return false;
+  }
+  if (draft.practice && !String(draft.url || "").trim()) {
+    draft.error = "Add the address of the practice environment, or untick the practice agent option.";
+    scRerender(labId);
+    return false;
+  }
+  draft.error = "";
+  const body = { consented: true, level: draft.practice ? "practice" : "read-only", practiceEnvironmentUrl: draft.practice ? String(draft.url).trim() : "" };
+  const { ok, data } = await scFetchJson("/api/capture/consent", scJsonInit("PUT", body));
+  if (!ok) {
+    draft.error = String(data.error || "The choice could not be saved.");
+    scRerender(labId);
+    return false;
+  }
+  await scLoadStatus(true);
+  lab.ui.consentOpen = false;
+  draft.agreed = false;
+  scAnnounce(draft.practice ? "Automatic capture is on. It may also create one practice agent." : "Automatic capture is on. It never creates anything.");
+  scRerender(labId);
+  return true;
+}
+
+/** Turn automatic capture off. The computer asks again before the next automatic capture. */
+async function scRevokeConsent(labId) {
+  const { ok } = await scFetchJson("/api/capture/consent", { method: "DELETE" });
+  if (ok) {
+    await scLoadStatus(true);
+    scAnnounce("Automatic capture is off.");
+    scRerender(labId);
+  }
+  return ok;
 }
 
 async function scTrackJobById(key, jobId) {
@@ -473,7 +519,7 @@ function scScopeBody(scope, filenames) {
  * @param {string} labId
  * @param {{ scope?: string, filenames?: string[], mode?: string }} request `mode` defaults to the lab's choice
  */
-async function scQueueCapture(labId, { scope = "missing", filenames = [], mode } = {}) {
+async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, record = null } = {}) {
   const lab = scLab(labId);
   lab.outcome = null;
   lab.busy = "queue";
@@ -483,12 +529,22 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [], mode }
     const body = {
       target: { type: "lab", labId },
       scope: scScopeBody(scope, filenames),
-      options: { callouts: lab.ui.callouts, redact: lab.ui.redact, mode: scCaptureModeOf(mode ?? lab.ui.mode) },
+      options: { callouts: lab.ui.callouts, redact: lab.ui.redact, ...scModeRequest(mode ?? lab.ui.mode), ...(lab.ui.background === true ? { background: true } : {}), ...(record ? { record: { share: record.share === true } } : {}) },
       ...scTenantFields(labId),
     };
     const { ok, status, data } = await scFetchJson("/api/capture/jobs", scJsonInit("POST", body));
     if (!ok) {
       lab.outcome = { type: "job", variant: "error", message: `Could not start the capture. ${data.error || `Request failed (${status}).`}`, jobId: null, actions: [] };
+    } else if (data.needsConsent) {
+      // Nothing was queued: the person has not allowed automatic capture yet, so show the card that asks.
+      lab.ui.consentOpen = true;
+      lab.outcome = { type: "job", variant: "warn", message: String(data.message || "Allow automatic capture first."), jobId: null, actions: [] };
+      await scLoadStatus(true);
+      scAnnounce(lab.outcome.message);
+      lab.busy = "";
+      scRerender(labId);
+      if (typeof scFocusConsent === "function") scFocusConsent(labId);
+      return false;
     } else if (data.needsAddress) {
       // Nothing was queued: every selected screenshot waits for an address, so ask for it here.
       needsAddress = true;
@@ -504,7 +560,8 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [], mode }
       if (held.length) void scLoadTargets(labId, { force: true });
       const waiting = held.reduce((sum, view) => sum + view.count, 0);
       if (data.existing) scAnnounce("This capture is already running. Showing its progress.");
-      scTrackJob(labId, data.job, { announce: !data.existing, note: waiting ? `${scPlural(waiting, "screenshot")} ${waiting === 1 ? "is" : "are"} waiting for an address.` : "" });
+      if (data.downgraded?.message) scAnnounce(scText(data.downgraded.message, 300));
+      scTrackJob(labId, data.job, { announce: !data.existing, note: [waiting ? `${scPlural(waiting, "screenshot")} ${waiting === 1 ? "is" : "are"} waiting for an address.` : "", data.downgraded?.message ? scText(data.downgraded.message, 300) : ""].filter(Boolean).join(" ") });
       if (typeof scFocusProgress === "function") scFocusProgress(labId);
       return true;
     }
@@ -634,8 +691,8 @@ async function scResetShot(labId, filename, { announce = "Screenshot removed. It
   return true;
 }
 
-/** Retake screenshots: discard the picture a screenshot has now, then queue a new capture for all of them. */
-async function scRetakeShots(labId, filenames, { mode } = {}) {
+/** Retake screenshots: discard the picture a screenshot has now, then queue a new capture for all of them. `record` is "Show me once". */
+async function scRetakeShots(labId, filenames, { mode, record = null } = {}) {
   const lab = scLab(labId);
   const status = await scLoadStatus(true);
   if (!status?.companion?.connected) {
@@ -660,7 +717,7 @@ async function scRetakeShots(labId, filenames, { mode } = {}) {
   for (const name of replace) {
     if (!(await scResetShot(labId, name, { announce: "" }))) return false;
   }
-  return scQueueCapture(labId, { scope: "selected", filenames, mode });
+  return scQueueCapture(labId, { scope: "selected", filenames, mode, record });
 }
 
 function scRetakeShot(labId, filename, options) {

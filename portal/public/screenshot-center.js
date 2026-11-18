@@ -240,6 +240,7 @@ function scBuildModel(labId) {
     tenant: scTenantModel(labId),
     targets,
     addressWaiting: targets?.waiting || 0,
+    mode: lab.ui.mode,
     job: lab.job,
   };
   model.primary = scPrimaryAction(model);
@@ -293,9 +294,12 @@ function scRenderInto(host, labId) {
   const banner = scBuildBanner(labId);
   if (banner) section.appendChild(banner);
   section.appendChild(scBuildStrip(model));
+  const auto = scBuildAutonomyLine(labId);
+  if (auto) section.appendChild(auto);
   section.appendChild(scEl("div", { class: "sc-pairing-host", data: { scPairingHost: "lab" } }));
   section.appendChild(scBuildPrimary(model, lab));
   section.appendChild(scBuildModeChoice(labId));
+  section.appendChild(scBuildBackgroundChoice(labId));
   section.appendChild(scEl("div", { class: "sc-progress-host", data: { scProgressHost: labId } }));
   const needs = scBuildAddressPrompt(labId, model);
   if (needs) section.appendChild(needs);
@@ -392,6 +396,10 @@ function scBuildBanner(labId) {
   banner.appendChild(scEl("p", { class: "sc-banner-text", text: outcome.message }));
   const causes = scBuildCauses(labId, outcome.causes);
   if (causes) banner.appendChild(causes);
+  const created = scBuildCreatedItems(outcome.created);
+  if (created) banner.appendChild(created);
+  const signIn = scBuildSignInVerdict(outcome.signIn);
+  if (signIn) banner.appendChild(signIn);
   const actions = scEl("div", { class: "sc-banner-actions" });
   for (const act of Array.isArray(outcome.actions) ? outcome.actions : []) {
     actions.appendChild(scButton(act.label, { action: `banner-${act.id}`, primary: Boolean(act.primary), data: { filenames: (act.filenames || []).join(",") } }));
@@ -406,7 +414,47 @@ const SC_CAUSE_FIX_LABELS = Object.freeze({
   retry: (count) => `Retake ${scPlural(count, "screenshot")}`,
   guided: (count) => `Retake ${scPlural(count, "screenshot")} guided`,
   upload: () => "Go to the first screenshot",
+  record: (count) => `Show me once for ${scPlural(count, "screenshot")}`,
+  consent: () => "Allow a practice agent",
 });
+
+/** Why a sign-in did not work and the one next step, in plain language. Built with text nodes only. */
+function scBuildSignInVerdict(signIn) {
+  if (!signIn || (!signIn.summary && !signIn.nextStep)) return null;
+  const box = scEl("section", { class: "sc-signin-verdict", attrs: { "aria-labelledby": "sc-signin-heading" }, data: { scSigninVerdict: "1" } });
+  box.appendChild(scEl("h6", { id: "sc-signin-heading", class: "sc-created-heading", text: "Why sign-in did not stick" }));
+  if (signIn.summary) box.appendChild(scEl("p", { class: "sc-created-help", text: signIn.summary }));
+  if (signIn.nextStep) box.appendChild(scEl("p", { class: "sc-signin-next", text: `Next step: ${signIn.nextStep}` }));
+  const checks = Array.isArray(signIn.checks) ? signIn.checks : [];
+  if (checks.length) {
+    const details = scEl("details", { class: "sc-signin-checks" });
+    details.appendChild(scEl("summary", { text: `Things that can cause this (${checks.length})` }));
+    const list = scEl("ul", { class: "sc-created-list" });
+    for (const check of checks) list.appendChild(scEl("li", { text: `${check.title}${check.level === "likely" ? " (likely)" : ""}${check.fix ? `: ${check.fix}` : ""}` }));
+    details.appendChild(list);
+    box.appendChild(details);
+  }
+  if (signIn.command) {
+    const hint = scEl("p", { class: "sc-created-help" });
+    hint.appendChild(document.createTextNode("To see exactly what the browser did, run this on that computer and send the file it writes: "));
+    hint.appendChild(scEl("code", { text: signIn.command }));
+    box.appendChild(hint);
+  }
+  return box;
+}
+
+/** What the computer created in the practice environment, so the person can delete it themselves. The computer never deletes. */
+function scBuildCreatedItems(created) {
+  const items = (Array.isArray(created) ? created : []).filter((item) => item?.what);
+  if (!items.length) return null;
+  const box = scEl("section", { class: "sc-created", attrs: { "aria-labelledby": "sc-created-heading" }, data: { scCreated: "1" } });
+  box.appendChild(scEl("h6", { id: "sc-created-heading", class: "sc-created-heading", text: "What the computer created" }));
+  box.appendChild(scEl("p", { class: "sc-created-help", text: "It never deletes anything. When you are done, delete the practice agent yourself in Copilot Studio. Its address is in practice-report.md next to the companion." }));
+  const list = scEl("ul", { class: "sc-created-list" });
+  for (const item of items) list.appendChild(scEl("li", { text: `${item.what}${item.reused ? " (reused)" : ""}` }));
+  box.appendChild(list);
+  return box;
+}
 
 /** One group per cause: the title, how many screenshots, the one fix, and the file list on request. */
 function scBuildCauses(labId, causes) {
@@ -627,13 +675,12 @@ function scBuildPrimary(model, lab) {
 
 // Capture mode ---------------------------------------------------------------
 
-/** "How should screenshots be captured?" Used by every capture the Center queues, and by Retake. */
+/** "How should screenshots be captured?" Used by every capture the Center queues, and by Retake. Automatic is first; the rest is under Advanced. */
 function scBuildModeChoice(labId) {
   const lab = scLab(labId);
   const fieldset = scEl("fieldset", { class: "sc-mode", data: { scModeGroup: "1" } });
   fieldset.appendChild(scEl("legend", { text: "How should screenshots be captured?" }));
-  const options = scEl("div", { class: "sc-mode-options" });
-  for (const mode of SC_CAPTURE_MODES) {
+  const radioRow = (mode) => {
     const id = `sc-mode-${mode.id}`;
     const row = scEl("div", { class: "sc-mode-option" });
     const radio = scEl("input", {
@@ -645,10 +692,130 @@ function scBuildModeChoice(labId) {
     row.appendChild(radio);
     row.appendChild(scLabel(id, mode.label));
     row.appendChild(scEl("p", { id: `${id}-help`, class: "sc-mode-help", text: mode.help }));
-    options.appendChild(row);
-  }
+    return row;
+  };
+  const options = scEl("div", { class: "sc-mode-options" });
+  for (const mode of SC_CAPTURE_MODES.filter((m) => !m.advanced)) options.appendChild(radioRow(mode));
   fieldset.appendChild(options);
+  const advanced = scEl("details", { class: "sc-mode-advanced", data: { scModeAdvanced: "1" } });
+  // A choice made under Advanced keeps it open, so the selected radio is never hidden.
+  advanced.open = SC_CAPTURE_MODES.some((m) => m.advanced && m.id === lab.ui.mode);
+  advanced.appendChild(scEl("summary", { text: "Advanced: set up screens yourself" }));
+  const more = scEl("div", { class: "sc-mode-options" });
+  for (const mode of SC_CAPTURE_MODES.filter((m) => m.advanced)) more.appendChild(radioRow(mode));
+  advanced.appendChild(more);
+  fieldset.appendChild(advanced);
   return fieldset;
+}
+
+/** Background running: a hidden window with the saved sign-in. It is a choice about the window, not about what the computer may do, so it sits outside the mode group. */
+function scBuildBackgroundChoice(labId) {
+  const lab = scLab(labId);
+  const row = scEl("div", { class: "sc-mode-background" });
+  const box = scEl("input", { id: "sc-run-background", attrs: { type: "checkbox", autocomplete: "off", "aria-describedby": "sc-run-background-help" }, data: { scField: "background", scFocus: "background" } });
+  box.checked = lab.ui.background === true;
+  row.appendChild(box);
+  row.appendChild(scLabel("sc-run-background", "Run in the background when already signed in"));
+  row.appendChild(scEl("p", { id: "sc-run-background-help", class: "sc-mode-help", text: "A hidden window uses your saved sign-in, so you can start the capture and walk away. If Microsoft asks you to sign in again, a normal window opens instead." }));
+  return row;
+}
+
+// Automatic capture: what the computer may do, and the one-time yes ------------
+
+/** The line under the readiness strip: whether automatic capture is on, and the ways to change that. */
+function scBuildAutonomyLine(labId) {
+  const lab = scLab(labId);
+  if (!scIsAutomaticMode(lab.ui.mode)) return null;
+  const consent = scConsentModel(scState.status?.autonomy);
+  const line = scAutonomyLine(consent);
+  const wrap = scEl("div", { class: `sc-auto sc-auto-${line.state}`, data: { scAuto: line.state } });
+  wrap.appendChild(scEl("p", { class: "sc-auto-text", text: line.text, data: { scAutoText: "1" } }));
+  if (consent.loaded && !consent.companionSupported) {
+    wrap.appendChild(scEl("p", { class: "sc-auto-warn", text: `Your Local Capture Companion is older than ${consent.minCompanion}, so it cannot capture on its own yet. Download it again and replace the old one. Until then, captures run the older way.`, attrs: { role: "status" }, data: { scAutoOld: "1" } }));
+  }
+  const actions = scEl("div", { class: "sc-step-actions" });
+  if (consent.loaded && !consent.consented) actions.appendChild(scButton("Allow automatic capture", { action: "consent-open", focus: "consent-open", primary: !lab.ui.consentOpen }));
+  else if (consent.consented) {
+    actions.appendChild(scButton("Change what it may do", { action: "consent-open", focus: "consent-open" }));
+    actions.appendChild(scButton("Turn off", { action: "consent-revoke", focus: "consent-revoke" }));
+  }
+  if (actions.childNodes.length) wrap.appendChild(actions);
+  if (lab.ui.consentOpen) wrap.appendChild(scBuildConsentCard(labId, consent));
+  return wrap;
+}
+
+/** The consent card: what the computer may do, what it never does, and the separate, unticked practice agent choice. */
+function scBuildConsentCard(labId, consent) {
+  const lab = scLab(labId);
+  const draft = lab.ui.consentDraft;
+  if (!draft.touched) {
+    draft.practice = consent.level === "practice";
+    draft.url = consent.practiceEnvironmentUrl || scSuggestedPracticeUrl(labId);
+    draft.touched = true;
+  }
+  const card = scEl("section", { class: "sc-consent", attrs: { "aria-labelledby": "sc-consent-heading" }, data: { scConsent: "1" } });
+  card.appendChild(scEl("h5", { id: "sc-consent-heading", class: "sc-consent-heading", text: "Allow automatic capture", attrs: { tabindex: "-1" }, data: { scFocus: "consent-heading" } }));
+  card.appendChild(scEl("p", { text: "You sign in once. After that the computer takes the screenshots without you clicking anything. Here is exactly what it may and may not do." }));
+  card.appendChild(scEl("h6", { class: "sc-consent-sub", text: "It may" }));
+  const may = scEl("ul", { class: "sc-consent-list", data: { scMay: "1" } });
+  for (const text of ["Open pages and sections, select tabs, and scroll", "Open dialogs and panels, and cancel them afterward", "Ask the test pane a sample question (it is not saved to your agent)", "Type a search, or fill in a dialog without confirming it"]) may.appendChild(scEl("li", { text }));
+  card.appendChild(may);
+  card.appendChild(scEl("h6", { class: "sc-consent-sub", text: "It never will" }));
+  const never = scEl("ul", { class: "sc-consent-list", data: { scNever: "1" } });
+  for (const text of consent.never) never.appendChild(scEl("li", { text }));
+  card.appendChild(never);
+
+  const practiceId = "sc-consent-practice";
+  const practiceRow = scEl("div", { class: "sc-consent-practice" });
+  const practiceLabel = scEl("label", { class: "sc-check", attrs: { for: practiceId } });
+  const practiceBox = scEl("input", { id: practiceId, attrs: { type: "checkbox", autocomplete: "off", "aria-describedby": "sc-consent-practice-help" }, data: { scField: "consent-practice" } });
+  practiceBox.checked = Boolean(draft.practice);
+  practiceLabel.appendChild(practiceBox);
+  practiceLabel.appendChild(scEl("span", { text: "Also let it create a practice agent so it can capture screens that need one (it will not delete anything, and lists what it made)" }));
+  practiceRow.appendChild(practiceLabel);
+  practiceRow.appendChild(scEl("p", { id: "sc-consent-practice-help", class: "hint", text: "The practice agent is named “Lab screenshots - ” and a short code. It is the only agent the computer ever changes. It never publishes to a channel or shares it with anyone. This also needs your computer to be started with --allow-practice-writes." }));
+  const urlId = "sc-consent-url";
+  const urlGroup = scEl("div", { class: "form-group sc-field" });
+  urlGroup.appendChild(scLabel(urlId, "Practice environment address"));
+  const urlInput = scEl("input", {
+    id: urlId,
+    attrs: { type: "url", inputmode: "url", autocomplete: "off", spellcheck: "false", placeholder: "https://copilotstudio.microsoft.com/environments/<environment id>/home", maxlength: 2048, "aria-describedby": "sc-consent-url-hint" },
+    data: { scField: "consent-url" },
+  });
+  urlInput.value = draft.url || "";
+  urlInput.disabled = !draft.practice;
+  urlGroup.appendChild(urlInput);
+  urlGroup.appendChild(scEl("span", { id: "sc-consent-url-hint", class: "hint", text: "Use an environment you do not mind adding a test agent to. Copy the address from the address bar." }));
+  practiceRow.appendChild(urlGroup);
+  card.appendChild(practiceRow);
+
+  const agreeId = "sc-consent-agree";
+  const agreeLabel = scEl("label", { class: "sc-check", attrs: { for: agreeId } });
+  const agreeBox = scEl("input", { id: agreeId, attrs: { type: "checkbox", autocomplete: "off" }, data: { scField: "consent-agree" } });
+  agreeBox.checked = Boolean(draft.agreed);
+  agreeLabel.appendChild(agreeBox);
+  agreeLabel.appendChild(scEl("span", { text: "I understand what the computer may and may not do" }));
+  card.appendChild(agreeLabel);
+  if (draft.error) card.appendChild(scEl("p", { class: "sc-field-error", text: draft.error, attrs: { role: "alert" }, data: { scConsentError: "1" } }));
+  const actions = scEl("div", { class: "sc-step-actions" });
+  actions.appendChild(scButton("Allow automatic capture", { action: "consent-save", focus: "consent-save", primary: true }));
+  actions.appendChild(scButton("Not now", { action: "consent-close", focus: "consent-close" }));
+  card.appendChild(actions);
+  return card;
+}
+
+/** The practice environment from the capture settings, as a starting point for the consent card. */
+function scSuggestedPracticeUrl(labId) {
+  const fields = scLab(labId).targets?.data?.fields;
+  const field = Array.isArray(fields) ? fields.find((f) => f?.id === "copilotStudioUrl") : null;
+  return scSafeHttpsUrl(field?.value || "");
+}
+
+function scFocusConsent(labId) {
+  const heading = document.getElementById("sc-consent-heading");
+  if (!heading) return;
+  heading.scrollIntoView?.({ behavior: "smooth", block: "center" });
+  heading.focus?.({ preventScroll: true });
 }
 
 // Capture settings: the address prompt and the full panel ---------------------
@@ -842,7 +1009,11 @@ function scBuildProgressCard(key, view) {
   if (view.phase === "queued-offline" && key !== "library") {
     actions.appendChild(scButton("Connect your computer", { action: "step-connect", focus: "progress-connect" }));
   }
-  if (view.phase !== "cancelling") actions.appendChild(scButton("Cancel capture", { action: "job-cancel", data: { jobKey: key }, focus: "cancel" }));
+  if (view.phase !== "cancelling") {
+    // Pause stops after the current screenshot and keeps the rest for Resume; Stop drops them.
+    if (view.phase === "running" || view.phase === "starting") actions.appendChild(scButton("Pause", { action: "job-pause", data: { jobKey: key }, focus: "pause" }));
+    actions.appendChild(scButton(view.phase === "running" || view.phase === "starting" ? "Stop" : "Cancel capture", { action: "job-cancel", data: { jobKey: key }, focus: "cancel" }));
+  }
   card.appendChild(actions);
   return card;
 }
@@ -1201,6 +1372,8 @@ function scShotNote(shot, status, attempt = null, waitingNouns = []) {
       return String(attempt?.error || attempt?.message || shot.lastError || "The last try did not finish. You can try again or add the image yourself.").slice(0, 200);
     }
     case "needs-you":
+      // An automatic capture that could not finish says exactly where it stopped and offers "Show me once".
+      if (attempt && SC_AUTOMATION_CAUSES.includes(attempt.cause)) return scText(attempt.message || attempt.error, 300) || "The computer could not set this screen up. Use Show me once, or set it up yourself with Retake guided.";
       return "This screen needs you. Select Retake guided, set up the screen yourself, and capture it.";
     case "paused":
       return "The capture paused before this one was captured. Resume the capture, or retake this one.";
@@ -1235,6 +1408,23 @@ function scBuildPath(path) {
     scEl("span", { class: "sr-only", text: `Path: ${path.join(", then ")}.` }),
     scEl("span", { class: "sc-path-text", text: path.join(" > "), attrs: { "aria-hidden": "true" } }),
   ]);
+}
+
+/** "Opened Copilot Studio, then your agent, then Knowledge, then opened “Add knowledge”": what the computer will do, from the plan. */
+function scPlannedLine(capture) {
+  const parts = [...capture.path.filter(Boolean)];
+  if (!parts.length && !capture.summary.length) return "";
+  const first = parts.length ? `Will open ${parts.join(", then ")}` : "Will open the page";
+  const did = capture.summary.length ? `, then ${capture.summary.map((s) => s.replace(/^(\w)/, (c) => c.toLowerCase())).join(", then ")}` : "";
+  return `${first}${did}.`;
+}
+
+/** Why a shot needs a practice agent, and what happens without one. */
+function scPracticeNote(lab) {
+  const allowed = scConsentModel(scState.status?.autonomy).level === "practice";
+  return allowed && lab.ui.mode !== "autonomous-readonly"
+    ? "The final state needs a practice agent. The computer creates one once in your practice environment and reuses it."
+    : "The final state needs a practice agent. Without one, the picture shows this screen as far as the computer can go (for example the Publish dialog before it is confirmed) and is saved for review.";
 }
 
 function scBuildCard(labId, shot, jobStatus) {
@@ -1277,13 +1467,24 @@ function scBuildCard(labId, shot, jobStatus) {
   const body = scEl("div", { class: "sc-card-body" });
   const top = scEl("div", { class: "sc-card-head" });
   top.appendChild(scStatusChip(status));
-  if (capture) top.appendChild(scChip(SC_SHOT_MODES[capture.mode].label, SC_SHOT_MODES[capture.mode].tone, "sc-mode-chip"));
+  if (capture) {
+    const automatic = scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual";
+    const chip = automatic ? SC_SHOT_MODES.autonomous : SC_SHOT_MODES[capture.mode];
+    top.appendChild(scChip(chip.label, chip.tone, "sc-mode-chip"));
+  }
   if (shot.figure) top.appendChild(scEl("span", { class: "sc-fig", text: `Figure ${shot.figure}` }));
   body.appendChild(top);
   body.appendChild(scEl("p", { class: "sc-caption", text: String(shot.caption || shot.alt || shot.filename) }));
-  if (capture?.why) body.appendChild(scEl("p", { class: "sc-why", text: capture.why, data: { scWhy: "1" } }));
+  // In automatic mode nobody is told to set a screen up: the card says what the computer will do, and what it cannot do without a practice agent.
+  const plan = capture && scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual" ? scPlannedLine(capture) : "";
+  if (plan) {
+    body.appendChild(scEl("p", { class: "sc-why sc-plan", text: plan, data: { scPlan: "1" } }));
+    if (capture.needsPractice) body.appendChild(scEl("p", { class: "sc-practice-note", text: scPracticeNote(lab), data: { scPracticeNote: "1" } }));
+  } else if (capture?.why) body.appendChild(scEl("p", { class: "sc-why", text: capture.why, data: { scWhy: "1" } }));
   if (capture?.path.length) body.appendChild(scBuildPath(capture.path));
-  body.appendChild(scEl("p", { class: "sc-note", text: scShotNote(shot, status, attempt, scWaitingNouns(labId, capture)), data: { scNote: "1" } }));
+  // While the computer works on this shot, the live message from the job says what it is doing right now.
+  const running = status.key === "capturing" ? scText(scJobRow(labId, shot.filename)?.message, 200) : "";
+  body.appendChild(scEl("p", { class: "sc-note", text: running || scShotNote(shot, status, attempt, scWaitingNouns(labId, capture)), data: { scNote: "1" }, attrs: running ? { role: "status" } : {} }));
   if (outcome) body.appendChild(scEl("p", { class: "sc-outcome", text: outcome, data: { scOutcome: "1" } }));
   const feedback = scBuildFeedback(labId, shot.filename);
   if (feedback) body.appendChild(feedback);
@@ -1338,6 +1539,20 @@ function scCardActions(labId, shot, status, { idPrefix = "card" } = {}) {
     add("Discard", "shot-discard", { disabled: busyUpload });
   } else if (["captured", "outdated", "failed", "needs-you", "paused"].includes(status.key) || (status.key === "pending" && attempt?.status === "skipped")) {
     addRetakes(status.key === "needs-you");
+    // "Show me once" is only offered where the computer tried and could not finish: the person does it once and the computer learns it.
+    if (attempt && SC_AUTOMATION_CAUSES.includes(attempt.cause) && (status.key === "needs-you" || status.key === "failed")) {
+      add("Show me once", "shot-record", { primary: true, disabled: jobActive || busyUpload, needsIdle: true });
+      const shareId = `sc-share-${idPrefix}-${shot.filename}`;
+      const share = scEl("input", { id: shareId, attrs: { type: "checkbox", autocomplete: "off", "aria-describedby": `${shareId}-help` }, data: { scField: "share-recipe" } });
+      share.checked = Boolean(lab.ui.shareRecipe);
+      buttons.push(
+        scEl("label", { class: "sc-check sc-share", attrs: { for: shareId } }, [
+          share,
+          scEl("span", { text: "Share this recipe with every lab (anonymous: it holds control names only)" }),
+          scEl("span", { id: `${shareId}-help`, class: "sr-only", text: "The recipe is checked for anything that could identify you or your tenant before it is shared." }),
+        ]),
+      );
+    }
   } else if (status.key === "pending" || status.key === "queued") {
     add("Capture this one", "shot-capture", { disabled: jobActive || busyUpload, needsIdle: true });
   }
@@ -1478,8 +1693,20 @@ function scBindSection(section, labId) {
     } else if (field === "pick") {
       if (target.checked) lab.ui.picks.add(target.dataset.filename);
       else lab.ui.picks.delete(target.dataset.filename);
+    } else if (field === "background") {
+      lab.ui.background = Boolean(target.checked);
     } else if (field === "mode") {
-      if (target.checked) lab.ui.mode = scCaptureModeOf(target.dataset.scMode);
+      if (target.checked) {
+        lab.ui.mode = scCaptureModeOf(target.dataset.scMode);
+        scRerender(labId);
+      }
+    } else if (field === "consent-practice") {
+      lab.ui.consentDraft.practice = Boolean(target.checked);
+      scRerender(labId);
+    } else if (field === "consent-agree") {
+      lab.ui.consentDraft.agreed = Boolean(target.checked);
+    } else if (field === "share-recipe") {
+      lab.ui.shareRecipe = Boolean(target.checked);
     } else if (field === "also-profile") {
       if (target.checked) lab.ui.alsoProfile.add(target.dataset.scScope);
       else lab.ui.alsoProfile.delete(target.dataset.scScope);
@@ -1489,6 +1716,7 @@ function scBindSection(section, labId) {
   section.addEventListener("input", (event) => {
     const fieldId = event.target?.dataset?.scTargetField;
     if (fieldId) lab.ui.targetDraft[fieldId] = event.target.value;
+    if (event.target?.dataset?.scField === "consent-url") lab.ui.consentDraft.url = event.target.value;
   });
 
   // Enter in an address box saves that block, like a form would.
@@ -1646,6 +1874,31 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       return;
     case "job-cancel":
       await scCancelJob(control.dataset.jobKey || labId);
+      return;
+    case "job-pause":
+      await scCancelJob(control.dataset.jobKey || labId, { pause: true });
+      return;
+    case "consent-open":
+      lab.ui.consentOpen = true;
+      lab.ui.consentDraft.touched = false;
+      lab.ui.consentDraft.error = "";
+      scRerender(labId);
+      scFocusConsent(labId);
+      return;
+    case "consent-close":
+      lab.ui.consentOpen = false;
+      scRerender(labId);
+      scFocusByKey(scHostFor(labId), "consent-open");
+      return;
+    case "consent-save":
+      await scSaveConsent(labId);
+      return;
+    case "consent-revoke":
+      await scRevokeConsent(labId);
+      return;
+    case "shot-record":
+      scCloseLightboxFor(labId, control);
+      await scRetakeShot(labId, filename, { mode: "guided", record: { share: lab.ui.shareRecipe } });
       return;
     case "copy-cli":
       await scCopyWithAck("copy-cli", control.dataset.command || "");
@@ -1814,6 +2067,16 @@ async function scApplyCauseFix(labId, code) {
       return;
     case "guided":
       await scRetakeShots(labId, cause.filenames, { mode: "guided" });
+      return;
+    case "record":
+      // One Show me once at a time: the person does the first screen by hand and the computer learns it.
+      await scRetakeShots(labId, cause.filenames.slice(0, 1), { mode: "guided", record: { share: lab.ui.shareRecipe } });
+      return;
+    case "consent":
+      lab.ui.consentOpen = true;
+      lab.ui.consentDraft.touched = false;
+      scRerender(labId);
+      scFocusConsent(labId);
       return;
     case "upload": {
       const upload = scHostFor(labId)?.querySelector(`.sc-card[data-filename="${cause.filenames[0]}"] [data-sc-action="shot-upload"]`);

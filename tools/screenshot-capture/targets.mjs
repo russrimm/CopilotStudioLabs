@@ -319,6 +319,8 @@ export function landmarkLabels(list, max = 8) {
 export function effectiveModeFor(shot, jobMode = "smart") {
   if (shot.manual || shot.capture?.mode === "manual") return "manual";
   if (!shot.capture?.version) return "legacy";
+  // Autonomous: the computer sets every browser screen up itself. A person is asked only after automation failed.
+  if (jobMode === "autonomous") return "autonomous";
   if (jobMode === "guided") return "guided";
   if (shot.capture.mode === "guided") return jobMode === "auto" ? "needs-you" : "guided";
   return "auto";

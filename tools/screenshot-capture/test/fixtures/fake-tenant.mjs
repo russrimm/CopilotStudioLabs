@@ -34,9 +34,10 @@ const style =
  * @param {string[]} [options.stepUpHosts] product hosts that always ask for a fresh interactive sign-in (for example an admin center that wants MFA)
  * @param {string[]} [options.preSignedIn] product hosts the person is already signed in to; seeded once, into the first browser profile that opens, with session or persistent cookies per `sessionCookies`
  * @param {boolean} [options.staleApp] the seeded app sign-in has expired, so the product needs a silent single sign-on round trip
+ * @param {boolean} [options.bounceForever] the product never accepts the sign-in (its callback sets no session), so the browser bounces between the product and the login host for ever
  */
 export function createFakeTenant(options = {}) {
-  const config = { sessionCookies: true, userSignsInAfterMs: 2000, staySignedInPage: false, userChoosesYes: false, ssoHop: "redirect", hopDelayMs: 0, redirectDelayMs: 150, blockSignIn: false, stepUpHosts: [], preSignedIn: [], ...options };
+  const config = { sessionCookies: true, userSignsInAfterMs: 2000, staySignedInPage: false, userChoosesYes: false, ssoHop: "redirect", hopDelayMs: 0, redirectDelayMs: 150, blockSignIn: false, bounceForever: false, stepUpHosts: [], preSignedIn: [], ...options };
   const stats = { interactivePages: 0, silentHops: 0, signOuts: 0, forcedReauth: 0, kmsiPages: 0, productPages: [], loginVisits: [], blocked: [] };
   let generation = 1;
   let seeded = false;
@@ -129,7 +130,7 @@ export function createFakeTenant(options = {}) {
     // A product host.
     stats.productPages.push(`${url.hostname}${url.pathname}`);
     const cookies = await jar(context, url.href);
-    if (url.pathname === "/signin-callback") return redirect("/", { "set-cookie": cookieHeader("app_session", String(generation), !config.sessionCookies) });
+    if (url.pathname === "/signin-callback") return redirect("/", config.bounceForever ? {} : { "set-cookie": cookieHeader("app_session", String(generation), !config.sessionCookies) });
     if (url.pathname === "/signout") return redirect(`https://${LOGIN_HOST}/common/oauth2/logout`, { "set-cookie": clearHeader("app_session") });
     if (cookies.app_session !== String(generation)) {
       const callback = `https://${url.hostname}/signin-callback`;
@@ -177,6 +178,15 @@ export function withFakeTenant(playwright, tenant, { forceChannel = undefined } 
   const wrapType = (type, name) =>
     new Proxy(type, {
       get(target, prop) {
+        // A browser the companion started itself and connected to (see attach.mjs) gets the same fake tenant.
+        if (prop === "connectOverCDP") {
+          return async (...args) => {
+            const browser = await target.connectOverCDP(...args);
+            launches.push({ via: "attach", type: name });
+            await tenant.attach(browser.contexts()[0]);
+            return browser;
+          };
+        }
         if (prop !== "launchPersistentContext") return typeof target[prop] === "function" ? target[prop].bind(target) : target[prop];
         return async (dir, opts = {}) => {
           const options = forceChannel === undefined ? { ...opts } : { ...opts, ...(forceChannel ? { channel: forceChannel } : {}) };

@@ -448,34 +448,42 @@ test("the shared library capture sends the same default mode", async () => {
   h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: { ...queuedJob(["lib-a.png"]), target: { type: "library", products: ["sharepoint-ai"] } } } });
   await h.click(h.action("library-load"));
   await h.click(h.action("library-capture"));
-  assert.deepEqual(json(h.jobBodies()[0].options), { callouts: "sidecar", redact: true, mode: "smart" });
+  assert.deepEqual(json(h.jobBodies()[0].options), { callouts: "sidecar", redact: true, mode: "autonomous" });
 });
 
 // ── A. Capture mode choice ──────────────────────────────────────────────────
 
-test("the capture mode is a labeled radio group that defaults to Smart and rides on every queued capture", async () => {
+test("the capture mode is a labeled radio group that defaults to Automatic and rides on every queued capture", async () => {
   const h = await ready(stateFor([shot({ filename: "a.png" })]));
   const group = h.center().querySelector("fieldset.sc-mode");
   assert.equal(group.querySelector("legend").textContent, "How should screenshots be captured?");
   const radios = group.querySelectorAll('input[type="radio"]');
-  assert.deepEqual(radios.map((r) => r.dataset.scMode), ["auto", "guided", "smart"]);
-  assert.deepEqual(group.querySelectorAll("label").map((l) => l.textContent), ["Let the computer do it", "I will set up each screen", "Smart (recommended)"]);
+  assert.deepEqual(radios.map((r) => r.dataset.scMode), ["autonomous", "autonomous-readonly", "guided", "smart", "auto"]);
+  assert.deepEqual(group.querySelectorAll("label").map((l) => l.textContent), ["Automatic (recommended)", "Automatic, read-only (never creates anything)", "I will set up each screen", "Smart", "Only what needs no setup"]);
+  assert.ok(group.querySelector("details.sc-mode-advanced"), "guided, smart, and the address-only mode are under Advanced");
+  assert.deepEqual(group.querySelector("details.sc-mode-advanced").querySelectorAll('input[type="radio"]').map((r) => r.dataset.scMode), ["guided", "smart", "auto"]);
   for (const radio of radios) {
     assert.equal(radio.getAttribute("name"), "sc-capture-mode", "one group: arrow keys move between the choices");
     assert.equal(group.querySelector(`label[for="${radio.id}"]`).textContent.length > 0, true, "each radio has its label");
     const help = group.querySelector(`#${radio.getAttribute("aria-describedby")}`);
     assert.match(help.textContent, /^[A-Z][^.]+\.$/, "one plain sentence under each choice");
   }
-  assert.deepEqual(radios.map((r) => r.checked), [false, false, true]);
+  assert.deepEqual(radios.map((r) => r.checked), [true, false, false, false, false]);
 
   h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png"]) } });
   await h.click(h.action("primary-capture-missing"));
-  assert.equal(h.jobBodies()[0].options.mode, "smart");
+  assert.equal(h.jobBodies()[0].options.mode, "autonomous");
+
+  const readonly = await ready(stateFor([shot({ filename: "a.png" })]));
+  readonly.choose(readonly.center().querySelector("#sc-mode-autonomous-readonly"));
+  readonly.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png"]) } });
+  await readonly.click(readonly.action("primary-capture-missing"));
+  assert.deepEqual(json(readonly.jobBodies()[0].options), { callouts: "sidecar", redact: true, mode: "autonomous", autonomy: { level: "read-only" } }, "read-only is Automatic with a lower ceiling");
 
   const guided = await ready(stateFor([shot({ filename: "a.png" })]));
   guided.choose(guided.center().querySelector("#sc-mode-guided"));
   guided.run("scRerender")(LAB);
-  assert.deepEqual(guided.center().querySelectorAll('input[type="radio"]').map((r) => r.checked), [false, true, false], "a re-render keeps the choice");
+  assert.deepEqual(guided.center().querySelectorAll('input[type="radio"]').map((r) => r.checked), [false, false, true, false, false], "a re-render keeps the choice");
   guided.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png"]) } });
   await guided.click(guided.action("primary-capture-missing"));
   assert.equal(guided.jobBodies()[0].options.mode, "guided");
@@ -492,7 +500,7 @@ test("the capture mode is remembered per lab, in memory only", async () => {
   await h.render(stateFor([shot({ filename: "a.png" })]));
   h.choose(h.center().querySelector("#sc-mode-guided"));
   await h.render(stateFor([shot({ filename: "a.png" })]), { labId: "lab-other" });
-  assert.equal(h.center().querySelector("#sc-mode-smart").checked, true, "another lab starts with Smart");
+  assert.equal(h.center().querySelector("#sc-mode-autonomous").checked, true, "another lab starts with Automatic");
   await h.render(stateFor([shot({ filename: "a.png" })]));
   assert.equal(h.center().querySelector("#sc-mode-guided").checked, true, "and this lab keeps its own choice");
   assert.doesNotMatch(CENTER_SOURCES.join("\n"), /localStorage|sessionStorage|indexedDB/, "nothing is stored in the browser");
@@ -509,6 +517,9 @@ test("each card says how the shot is captured, why, and the way to the screen", 
       shot({ filename: "plain.png", id: 4 }),
     ]),
   );
+  // Automatic mode explains nothing about setting screens up; the older modes still say why.
+  h.choose(h.center().querySelector("#sc-mode-smart"));
+  h.run("scRerender")(LAB);
   const chip = (name) => h.card(name).querySelector(".sc-mode-chip");
   assert.deepEqual(["auto.png", "guided.png", "manual.png"].map((n) => chip(n).textContent), ["Automatic", "You set it up", "Outside the browser"]);
   assert.ok(chip("auto.png").classList.contains("sc-chip-info"));
@@ -598,7 +609,7 @@ test("Retake uses the chosen mode and Retake guided always uses guided, discardi
 
   const smart = await run("shot-retake", { state: withPicture, filename: "a.png" });
   assert.deepEqual(smart.order, deleteThenPost);
-  assert.deepEqual(json(smart.body), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["a.png"] }, options: { callouts: "sidecar", redact: true, mode: "smart" } });
+  assert.deepEqual(json(smart.body), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["a.png"] }, options: { callouts: "sidecar", redact: true, mode: "autonomous" } });
   assert.equal((await run("shot-retake", { choose: "auto", state: withPicture, filename: "a.png" })).body.options.mode, "auto");
   const guided = await run("shot-retake-guided", { choose: "auto", state: withPicture, filename: "a.png" });
   assert.equal(guided.body.options.mode, "guided", "Retake guided ignores the radio choice");
@@ -634,7 +645,7 @@ test("a paused capture shows one clear message and one Resume button that queues
 
   h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["b.png", "c.png"]) } });
   await h.click(resume[0]);
-  assert.deepEqual(json(h.jobBodies()[0]), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["b.png", "c.png"] }, options: { callouts: "sidecar", redact: true, mode: "smart" } });
+  assert.deepEqual(json(h.jobBodies()[0]), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["b.png", "c.png"] }, options: { callouts: "sidecar", redact: true, mode: "autonomous" } });
   assert.ok(h.center().querySelector(".sc-progress"), "the resumed capture shows live progress");
 
   const stopped = await ready(state);
@@ -710,7 +721,7 @@ test("each fix does what its action says", async () => {
   };
 
   const retry = await fix("sign-in");
-  assert.deepEqual(json(retry.jobBodies()[0]), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["c.png"] }, options: { callouts: "sidecar", redact: true, mode: "smart" } });
+  assert.deepEqual(json(retry.jobBodies()[0]), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["c.png"] }, options: { callouts: "sidecar", redact: true, mode: "autonomous" } });
   assert.equal(retry.callsTo("DELETE", /screenshots/).length, 0);
 
   const guided = await fix("wrong-screen");
@@ -1103,6 +1114,55 @@ test("text from the server never becomes markup, in any new field", async () => 
   assert.equal(h.host.querySelector("#lb-screenshots-live").children.length, 0, "the live region only ever holds text");
 });
 
+// ── A sign-in that did not stick ────────────────────────────────────────────
+
+const SIGN_IN_VERDICT = {
+  product: "copilot-studio",
+  code: "ping-pong",
+  aadsts: "AADSTS50196",
+  summary: "The browser went back and forth between the product and the Microsoft sign-in page 4 times without waiting for you to sign in.",
+  nextStep: "Use a local folder: run the companion with --home set to the local folder it prints, then sign in once.",
+  checks: [
+    { id: "synced-profile", level: "likely", title: "The sign-in files are in a synced folder", fix: "Use a local folder." },
+    { id: "stale-session", level: "possible", title: "The saved sign-in is stale", fix: "Run --forget-signin=copilot-studio." },
+  ],
+};
+
+test("a job that ends on a looping sign-in shows why, the next step, the likely causes, and the command that writes the diagnosis", async () => {
+  const state = stateFor([shot({ filename: "a.png", caption: "Agents page" }), shot({ filename: "b.png", id: 2, caption: "Overview" })]);
+  const h = await ready(state);
+  const job = jobWith([["a.png", "auth-required", { cause: "sign-in" }], ["b.png", "auth-required", { cause: "sign-in" }]], { status: "failed", causes: [cause("sign-in", ["a.png", "b.png"])], result: { signIn: SIGN_IN_VERDICT } });
+  await h.finish(job);
+  const verdict = h.center().querySelector("[data-sc-signin-verdict]");
+  assert.ok(verdict, "the verdict is part of the result banner");
+  assert.ok(h.center().querySelector(".sc-banner").contains(verdict));
+  assert.equal(verdict.querySelector("h6").textContent, "Why sign-in did not stick");
+  assert.equal(verdict.getAttribute("aria-labelledby"), verdict.querySelector("h6").id, "the section is named by its heading");
+  assert.match(verdict.textContent, /went back and forth between the product and the Microsoft sign-in page 4 times/);
+  assert.equal(verdict.querySelector(".sc-signin-next").textContent, `Next step: ${SIGN_IN_VERDICT.nextStep}`);
+  assert.equal(verdict.querySelector("summary").textContent, "Things that can cause this (2)");
+  assert.deepEqual(verdict.querySelectorAll("details li").map((li) => li.textContent), ["The sign-in files are in a synced folder (likely): Use a local folder.", "The saved sign-in is stale: Run --forget-signin=copilot-studio."]);
+  assert.equal(verdict.querySelector("code").textContent, "node companion.mjs --check-signin=copilot-studio");
+
+  const plain = await ready(state);
+  await plain.finish(jobWith([["a.png", "auth-required", { cause: "sign-in" }], ["b.png", "auth-required", { cause: "sign-in" }]], { status: "failed", causes: [cause("sign-in", ["a.png", "b.png"])] }));
+  assert.equal(plain.center().querySelector("[data-sc-signin-verdict]"), null, "a job without a verdict shows none");
+});
+
+test("the sign-in verdict is plain text, bounded, and safe even when the companion sends markup or a made-up command", async () => {
+  const bad = '<img src=x onerror="alert(1)">';
+  const h = await ready(stateFor([shot({ filename: "a.png", caption: "Agents page" })]));
+  const verdict = { ...SIGN_IN_VERDICT, product: "x; rm -rf /", aadsts: "not a code", summary: `${bad} ${"x".repeat(900)}`, nextStep: bad, checks: [{ level: "likely", title: bad, fix: bad }, ...Array.from({ length: 20 }, (_, i) => ({ level: "possible", title: `Check ${i}`, fix: "x" }))] };
+  await h.finish(jobWith([["a.png", "auth-required", { cause: "sign-in" }]], { status: "failed", causes: [cause("sign-in", ["a.png"])], result: { signIn: verdict } }));
+  const box = h.center().querySelector("[data-sc-signin-verdict]");
+  assert.equal(box.querySelectorAll("img").length, 0, "no element was created from the text");
+  assert.ok(box.textContent.includes(bad), "the text is shown as it came");
+  assert.equal(box.querySelector("code").textContent, "node companion.mjs --check-signin=copilot-studio", "an unsafe product name never reaches the command");
+  assert.ok(box.querySelector("summary").textContent.endsWith("(8)"), "at most eight checks");
+  assert.ok(box.querySelector("p.sc-created-help").textContent.length <= 400);
+  for (const el of box.querySelectorAll("*")) for (const name of el.attributes.keys()) assert.ok(!/^on/i.test(name), `${el.tagName} has no ${name} attribute`);
+});
+
 // ── Look: contrast, layout, print ───────────────────────────────────────────
 
 function hexToRgb(hex) {
@@ -1148,6 +1208,26 @@ function ruleBody(selector) {
 function token(body, property) {
   return body.match(new RegExp(`(?:^|[\\s;])${property}:\\s*var\\((--[a-z0-9-]+)\\)`))?.[1] || null;
 }
+
+test("the background option is a labeled checkbox outside the mode group, off by default, and rides on a queued capture only when ticked", async () => {
+  const h = await ready(stateFor([shot({ filename: "a.png" })]));
+  const box = h.center().querySelector("#sc-run-background");
+  assert.ok(box, "the checkbox exists");
+  assert.equal(box.checked, false);
+  assert.equal(h.center().querySelector("fieldset.sc-mode #sc-run-background"), null, "it is not one of the modes");
+  assert.equal(h.center().querySelector('label[for="sc-run-background"]').textContent, "Run in the background when already signed in");
+  assert.match(h.center().querySelector("#sc-run-background-help").textContent, /hidden window uses your saved sign-in/);
+  assert.equal(box.getAttribute("aria-describedby"), "sc-run-background-help");
+  h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png"]) } });
+  await h.click(h.action("primary-capture-missing"));
+  assert.equal(h.jobBodies()[0].options.background, undefined, "nothing is sent unless it is ticked");
+
+  const ticked = await ready(stateFor([shot({ filename: "a.png" })]));
+  ticked.choose(ticked.center().querySelector("#sc-run-background"));
+  ticked.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png"]) } });
+  await ticked.click(ticked.action("primary-capture-missing"));
+  assert.equal(ticked.jobBodies()[0].options.background, true);
+});
 
 test("the new chips, prompts, fields, groups, and review panel meet WCAG AA in the dark and light themes", () => {
   // [selector, text token, background token, minimum]: text needs 4.5:1, borders and outlines 3:1.

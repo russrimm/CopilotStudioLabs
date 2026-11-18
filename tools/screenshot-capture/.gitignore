@@ -2,4 +2,8 @@ node_modules/
 .auth/
 # Local Capture Companion: the pairing token and in-progress captures never go in git.
 .companion.json
+.companion-settings.json
+.practice-agents.json
+practice-report.md
+.recipes/
 .captures/
