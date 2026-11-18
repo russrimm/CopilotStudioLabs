@@ -13,9 +13,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { createAuthGate, productLabel, saveSession } from "./auth.mjs";
-import { gotoWithRetry } from "./lifecycle.mjs";
+import { BrowserClosedError, gotoWithRetry } from "./lifecycle.mjs";
 import { diagnoseSignIn, diagnosisLines, readAadstsCode, signInReport } from "./signin-diagnosis.mjs";
 import { classifyUrl, cleanPathForReport, maskTenantHost } from "./signin-url.mjs";
+import { createSurfaceWatch, describeSurface } from "./surface-watch.mjs";
 import { createTrace, traceFilePath } from "./trace.mjs";
 
 const DEFAULT_START = "https://copilotstudio.microsoft.com/";
@@ -169,6 +170,8 @@ export function describeVerdict(report) {
     lines.push(`Result: loop. The browser went back and forth between ${name} and the Microsoft sign-in page without staying on a sign-in page for you.`);
   } else if (o.result === "timeout") {
     lines.push(`Result: sign-in was not finished in ${o.durationSec} seconds.`);
+  } else if (o.result === "browser-closed") {
+    lines.push("Result: the browser window was closed before the sign-in finished.");
   } else {
     lines.push(`Result: ${o.result}.`);
   }
@@ -183,6 +186,7 @@ export function describeVerdict(report) {
   lines.push(`Cookie setting in this browser profile: ${report.cookieSetting}.`);
   lines.push(`Clock: ${report.clockSkewSec === null ? "could not be compared with Microsoft's" : Math.abs(report.clockSkewSec) <= 120 ? "within two minutes of Microsoft's" : `${Math.abs(report.clockSkewSec)} seconds ${report.clockSkewSec > 0 ? "ahead of" : "behind"} Microsoft's (too far)`}.`);
   if (report.aadsts) lines.push(`Microsoft error code on screen: ${report.aadsts}.`);
+  lines.push(...describeSurface(report.surface));
   if (report.diagnosis) lines.push(...diagnosisLines(report.diagnosis));
   return lines;
 }
@@ -207,14 +211,44 @@ export async function runCheckSignIn({ home, product, playwright, kinds, launch 
   }
   const synced = resolved?.synced || { synced: false, provider: null };
   const diagnose = createSignInDiagnoser({ synced, launch: opened.launch || "playwright", profileDir: opened.dir, savedSession: Boolean(fs.existsSync(path.join(opened.dir || "", "companion-session.json"))), ...(deps.diagnoser || {}) });
-  const gate = createAuthGate({ product, waitMs: signInWaitSec * 1000, pollMs: 250, settleMs: 3000, graceMs: 2500, confirmMs: 6000, firstLoadMs: 10_000, sleep: sleepFn, notify: ({ message }) => log(message), trace, diagnose, ...(deps.gate || {}) });
+  let surfaceWatch = null;
+  const gate = createAuthGate({
+    product,
+    waitMs: signInWaitSec * 1000,
+    pollMs: 250,
+    settleMs: 3000,
+    graceMs: 2500,
+    confirmMs: 6000,
+    firstLoadMs: 10_000,
+    sleep: sleepFn,
+    notify: ({ message }) => {
+      log(message);
+      if (surfaceWatch?.isCovered()) log("The sign-in window is behind other windows right now. Click the new browser window's icon on the taskbar to bring it forward.");
+    },
+    trace,
+    diagnose,
+    ...(deps.gate || {}),
+  });
   let result;
   let page;
   const startedAt = Date.now();
+  // Watches the window (tabs, popups, blank page, focus, sign-in broker windows) without touching it or reading page text.
+  surfaceWatch = deps.surface === false ? null : createSurfaceWatch({ context: opened.context, pid: opened.context.companionPid, trace, ...(deps.surface || {}) });
+  surfaceWatch?.start();
+  let surface = null;
   try {
     page = opened.context.pages()[0] || (await opened.context.newPage());
+    // Once, before sign-in begins (starting a browser normally puts its window in front); never again while a person signs in.
+    if (deps.raiseWindow !== false) {
+      await page.bringToFront?.().catch(() => {});
+      trace.event("window-raise", { reason: "startup", times: 1 });
+    }
     await gotoWithRetry(page, start, { waitUntil: "domcontentloaded", sleep: sleepFn, trace, reason: "check-signin-start" }).catch(() => {});
-    result = await gate.ensureSignedIn(page, { phase: "navigate", target: start });
+    result = await gate.ensureSignedIn(page, { phase: "navigate", target: start }).catch((err) => {
+      if (!(err instanceof BrowserClosedError)) throw err;
+      return { ok: false, status: "auth-required", code: "browser-closed", error: "The browser window was closed before the sign-in finished.", diagnosis: null };
+    });
+    surface = surfaceWatch ? await surfaceWatch.stop() : null;
     const durationSec = sec(gate.state.clockMs > 0 ? gate.state.clockMs : Date.now() - startedAt);
     const hops = gate.detector.hops();
     const needsPerson = gate.state.waits > 0 && gate.state.waitedMs >= 3000;
@@ -243,6 +277,7 @@ export async function runCheckSignIn({ home, product, playwright, kinds, launch 
       cookieSetting: cookieSettings.setting,
       clockSkewSec: skewSec,
       aadsts,
+      surface,
       diagnosis: result.ok ? null : result.diagnosis || diagnoseSignIn({ code: result.code, aadsts, synced, launch: opened.launch, cookies: cookieSettings, device, skewSec, product }),
     };
     const lines = describeVerdict(report);
@@ -260,6 +295,7 @@ export async function runCheckSignIn({ home, product, playwright, kinds, launch 
     if (!result.ok && typeof ask === "function") await ask("The browser window is still open so you can look at it. Press Enter here to close it. ").catch(() => {});
     return { ok: result.ok, report, lines, traceFile: trace.file, signIn: result.ok ? null : signInReport(report.diagnosis, { product }) };
   } finally {
+    await surfaceWatch?.stop().catch(() => {});
     await opened.context.close().catch(() => {});
   }
 }

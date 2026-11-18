@@ -137,8 +137,10 @@ export function wantsAttach({ launch = "auto", kind, playwright, executable }) {
   return attachSupported(playwright);
 }
 
-async function waitForEndpoint({ port, fetchFn, sleep, timeoutMs, pollMs, exited }) {
-  for (let waited = 0; waited <= timeoutMs; waited += pollMs) {
+async function waitForEndpoint({ port, fetchFn, sleep, timeoutMs, pollMs, exited, slackMs = 2000 }) {
+  // The wait is bounded by the real clock too: a port that accepts connections but never answers must not stretch it.
+  const startedAt = Date.now();
+  for (let waited = 0; waited <= timeoutMs && Date.now() - startedAt <= timeoutMs + slackMs; waited += pollMs) {
     const gone = exited();
     if (gone) {
       throw new AttachError("BROWSER_EXITED", `${gone.error ? "The browser could not be started." : "The browser closed right away."} It may have handed over to a window that is already open, or this computer does not allow a browser to listen on a debugging port.`);
@@ -164,11 +166,38 @@ async function waitForEndpoint({ port, fetchFn, sleep, timeoutMs, pollMs, exited
 }
 
 /**
+ * A browser with a brand-new profile opens, closes, and replaces its own first tabs during its first seconds. A page
+ * picked up in that moment can be closed under the companion ("Target page ... has been closed"). Wait until the number
+ * of open tabs has stopped changing, so the page the companion picks is one that stays.
+ */
+export async function settleTabs(context, { sleep = defaultSleep, stableMs = 1500, maxMs = 6000, stepMs = 250, trace = null } = {}) {
+  const count = () => {
+    try {
+      return context.pages().filter((p) => !(typeof p.isClosed === "function" && p.isClosed())).length;
+    } catch {
+      return -1;
+    }
+  };
+  let last = count();
+  let quiet = 0;
+  let waited = 0;
+  while (waited < maxMs && quiet < stableMs) {
+    await sleep(stepMs);
+    waited += stepMs;
+    const now = count();
+    quiet = now === last ? quiet + stepMs : 0;
+    last = now;
+  }
+  trace?.event("attach-tabs-settled", { tabs: last, waitedMs: waited, settled: quiet >= stableMs });
+  return { tabs: last, settled: quiet >= stableMs };
+}
+
+/**
  * Start the installed browser as a normal process and connect to it.
  * @returns {Promise<{context: object, browser: object, port: number, close: () => Promise<void>}>}
  *   `context.close()` closes the browser and ends its process.
  */
-export async function launchAttached({ playwright, kind, dir, executable, headless = false, spawnFn = nodeSpawn, fetchFn = globalThis.fetch, portFn = freeLoopbackPort, sleep = defaultSleep, timeoutMs = 25_000, pollMs = 150, trace = null, isAlive = pidIsAlive, exitWaitMs = 15_000 } = {}) {
+export async function launchAttached({ playwright, kind, dir, executable, headless = false, spawnFn = nodeSpawn, fetchFn = globalThis.fetch, portFn = freeLoopbackPort, sleep = defaultSleep, timeoutMs = 25_000, pollMs = 150, trace = null, isAlive = pidIsAlive, exitWaitMs = 15_000, tabSettle = {}, endpointSlackMs = 2000 } = {}) {
   if (!executable) throw new AttachError("NO_EXECUTABLE", "The browser program was not found.");
   if (!attachSupported(playwright)) throw new AttachError("UNSUPPORTED", "This Playwright cannot connect to a running browser.");
   installExitHook();
@@ -227,7 +256,7 @@ export async function launchAttached({ playwright, kind, dir, executable, headle
       exited = { error };
     });
     trace?.event("attach-start", { browser: kind, headless: Boolean(headless), port: "loopback" });
-    const { wsUrl } = await waitForEndpoint({ port, fetchFn, sleep, timeoutMs, pollMs, exited: () => exited });
+    const { wsUrl } = await waitForEndpoint({ port, fetchFn, sleep, timeoutMs, pollMs, exited: () => exited, slackMs: endpointSlackMs });
     browser = await playwright.chromium.connectOverCDP(wsUrl);
     const context = browser.contexts?.()[0];
     if (!context) throw new AttachError("NO_CONTEXT", "The browser opened without a profile to use.");
@@ -240,6 +269,7 @@ export async function launchAttached({ playwright, kind, dir, executable, headle
     context.isCompanionClosed = () => closed || disconnected || Boolean(exited);
     context.companionPid = child.pid;
     context.close = close;
+    await settleTabs(context, { sleep, trace, ...tabSettle });
     return { context, browser, port, close };
   } catch (err) {
     closed = false;

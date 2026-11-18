@@ -1794,7 +1794,8 @@ never in a synced folder, starts your installed Edge or Chrome the normal way an
 and explains a sign-in that loops (`node companion.mjs --check-signin` prints the facts and a verdict). A live run against a real Copilot Studio sign-in
 showed that the product's own page stays up for about 6 seconds before it redirects to sign-in, and that a fresh sign-in takes about 13 seconds
 to reach the home page, so the first page of a product is watched for about 10 seconds before it is trusted, and the sign-in is confirmed over a
-longer quiet window. A job that ends on a failed sign-in carries
+longer quiet window. The sign-in window can also open behind the window you are using (Windows does not let a background program take the screen), which
+looks like a login box that vanished; the companion says where to look (the taskbar) and `--check-signin` records whether the window was covered. A job that ends on a failed sign-in carries
 `result.signIn` (`code`, `aadsts`, `summary`, `nextStep`, `checks`), which the Screenshot Center shows under **Why sign-in did not stick**. Details and troubleshooting:
 [`tools/screenshot-capture/README.md`](../tools/screenshot-capture/README.md#signing-in-once-per-product).
 
