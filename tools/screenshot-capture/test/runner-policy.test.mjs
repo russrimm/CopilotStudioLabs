@@ -8,7 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { createCaptureSession, runCaptureShot } from "../capture-run.mjs";
+import { createCaptureSession, readAgentTabs, runCaptureShot } from "../capture-run.mjs";
 import { BrowserClosedError, classifyBrowserError, ensureLivePage, gotoWithRetry, watchContext } from "../lifecycle.mjs";
 import { findControls, openNavigationItem, revealLabel } from "../locator.mjs";
 import { readinessBudgets, waitUntilReady } from "../readiness.mjs";
@@ -342,6 +342,45 @@ test("a shot never clicks anything that creates, publishes, or deletes, even whe
   const result = await run(t, app, planShot({ reveal: [{ action: "reveal", label: "Publish", required: true }] }), { values: { agentUrl: `${agent}/overview` } });
   assert.equal(result.cause, "control-not-found");
   assert.ok(!app.log.clicks.includes("Publish"));
+});
+
+// The newer agent layout keeps an address such as .../knowledge in the address bar but shows the Build tab.
+const newerLayoutApp = () => {
+  const tabs = [
+    { role: "tab", name: "Build", region: "nav", selected: true },
+    { role: "tab", name: "Preview", region: "nav", select: true },
+    { role: "tab", name: "Evaluate", region: "nav", select: true },
+    { role: "tab", name: "Monitor", region: "nav", select: true },
+  ];
+  return createFakeApp({ screens: Object.fromEntries(["overview", "knowledge", "topics", "evaluations"].map((name) => [`${agent}/${name}`, { text: ["Build"], controls: tabs }])) });
+};
+const screenShot = (screen, short) => planShot({ route: { kind: "copilot-studio", screen, scope: "agent" }, screen: { id: screen, label: `the agent's ${short} page` }, expect: { family: "copilot-studio", scope: "agent", paths: [screen], label: `the agent's ${short} page`, strict: true } });
+
+test("in the newer agent layout a classic page that has no page of its own is reported, not photographed as Build", async (t) => {
+  const app = newerLayoutApp();
+  assert.deepEqual(await readAgentTabs(app.page), { newer: false, open: null }, "with no page open there is no tab strip");
+  const result = await run(t, app, screenShot("knowledge", "Knowledge"), { values: { agentUrl: `${agent}/overview` } });
+  assert.deepEqual([result.status, result.cause], ["failed", "wrong-screen"]);
+  assert.match(result.error, /newer Copilot Studio layout .* no separate Knowledge page/);
+  assert.equal(app.log.screenshots, 0, "the Build tab is never passed off as the Knowledge page");
+  assert.deepEqual(await readAgentTabs(app.page), { newer: true, open: "Build" });
+
+  const classic = settingsApp();
+  await classic.page.goto(`${agent}/knowledge`);
+  assert.deepEqual(await readAgentTabs(classic.page), { newer: false, open: null }, "a page without the tab strip is the classic layout and is left alone");
+});
+
+test("in the newer agent layout the Evaluate tab is opened for the Evaluation screen, and the overview stays on Build", async (t) => {
+  const app = newerLayoutApp();
+  const evaluation = await run(t, app, screenShot("evaluations", "Evaluation"), { values: { agentUrl: `${agent}/overview` } });
+  assert.equal(evaluation.status, "captured", evaluation.error);
+  assert.deepEqual(app.log.clicks, ["Evaluate"], "only the tab for that screen was selected");
+  assert.ok(evaluation.executedSteps.some((s) => s.action === "navigate" && s.label === "Evaluate" && s.ok));
+
+  const overviewApp = newerLayoutApp();
+  const overview = await run(t, overviewApp, screenShot("overview", "Overview"), { values: { agentUrl: `${agent}/overview` } });
+  assert.equal(overview.status, "captured", overview.error);
+  assert.deepEqual(overviewApp.log.clicks, [], "Build is already open");
 });
 
 test("sign-in is checked after every navigation and stops the shot with the sign-in reason", async (t) => {

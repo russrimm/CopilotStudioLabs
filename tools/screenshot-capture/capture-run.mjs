@@ -14,7 +14,7 @@ import path from "node:path";
 import { buildSidecar, resolveCallouts, sidecarName } from "./callouts.mjs";
 import { preparePractice, runShotSetup } from "./autonomous.mjs";
 import { resolveAutonomy } from "./guard.mjs";
-import { briefError, BrowserClosedError, classifyBrowserError, navigateWithSignIn } from "./lifecycle.mjs";
+import { briefError, BrowserClosedError, classifyBrowserError, navigateWithSignIn, settleAddress } from "./lifecycle.mjs";
 import { recipeKeyForShot, toSharePayload, validateSharedRecipe } from "./recipes.mjs";
 import { startRecorder } from "./recorder.mjs";
 import { findControls, openNavigationItem, revealLabel } from "./locator.mjs";
@@ -92,24 +92,30 @@ async function saveRecording({ shot, session, recorded, log, trace }) {
   return out;
 }
 
-/** Wait for the address to stop changing (single-page apps redirect after they load), and return it. */
-async function settleAddress(page, { sleep = sleepDefault, stableMs = 700, maxMs = 8000, stepMs = 150 } = {}) {
-  let last = typeof page.url === "function" ? page.url() : "";
-  let stable = 0;
-  let waited = 0;
-  while (waited < maxMs) {
-    await sleep(stepMs);
-    waited += stepMs;
-    const now = page.url();
-    if (now !== last) {
-      last = now;
-      stable = 0;
-    } else {
-      stable += stepMs;
-      if (stable >= stableMs) break;
-    }
+/**
+ * Take pictures at the same size in every browser: 1440 by 900 CSS pixels at a device pixel ratio of 1. Windows display
+ * scaling (125% or 150%) otherwise makes a window's pictures 1.25 or 1.5 times larger (measured: 1542 by 1362 pixels in Edge
+ * at 150%). Setting the viewport turns that scaling off for the page; this looks that it did, writes what it saw to the
+ * trace, and sets it once more when it did not.
+ */
+export async function normalizeViewport(page, viewport, trace = null) {
+  if (typeof page.setViewportSize !== "function") return null;
+  await page.setViewportSize(viewport).catch(() => {});
+  if (typeof page.evaluate !== "function") return null;
+  let seen = null;
+  try {
+    seen = await page.evaluate(() => ({ dpr: window.devicePixelRatio, width: window.innerWidth, height: window.innerHeight }));
+  } catch {
+    return null;
   }
-  return last;
+  if (!seen || typeof seen.dpr !== "number") return null;
+  const normalized = Math.abs(seen.dpr - 1) < 0.01 && seen.width === viewport.width && seen.height === viewport.height;
+  trace?.event("viewport", { width: seen.width, height: seen.height, dpr: Math.round(seen.dpr * 100) / 100, normalized });
+  if (!normalized) {
+    await page.setViewportSize({ width: viewport.width + 1, height: viewport.height }).catch(() => {});
+    await page.setViewportSize(viewport).catch(() => {});
+  }
+  return { ...seen, normalized };
 }
 
 function record(steps, entry) {
@@ -117,6 +123,46 @@ function record(steps, entry) {
   if (steps.length > 14) steps.shift();
   return entry;
 }
+
+const NEWER_LAYOUT_TABS = Object.freeze(["Build", "Preview", "Evaluate", "Monitor"]);
+/** In the newer agent layout only these screens are tabs. The other classic screens are cards on Build, not pages of their own. */
+const NEWER_LAYOUT_SCREEN_TAB = Object.freeze({ overview: "Build", evaluations: "Evaluate", analytics: "Monitor" });
+
+/**
+ * Whether an agent page has the newer layout's tab strip (Build, Preview, Evaluate, Monitor), and which tab is open.
+ * Measured on a real agent: an address such as `.../knowledge` is kept in the address bar but the page shows Build, so
+ * the address alone cannot prove which screen is showing. Only control roles and names are read, never page text.
+ */
+export async function readAgentTabs(page) {
+  let present = 0;
+  let open = null;
+  for (const name of NEWER_LAYOUT_TABS) {
+    const found = (await findControls(page, name, { roles: ["tab"] })).filter((c) => !c.off);
+    if (!found.length) continue;
+    present += 1;
+    if (!open && found.some((c) => c.selected)) open = name;
+  }
+  return present === NEWER_LAYOUT_TABS.length ? { newer: true, open } : { newer: false, open: null };
+}
+
+/** In the newer layout, open the tab the screen belongs to. `classicOnly` is true for a screen that has no page there. */
+async function alignAgentLayout({ page, screen, sleep, trace, steps, readiness, shot }) {
+  // The tab strip is drawn after the address settles: look once the page has been still.
+  await waitUntilReady(page, { budgets: readinessBudgets(readiness), sleep, trace, shot });
+  const layout = await readAgentTabs(page);
+  if (!layout.newer) return null;
+  const tab = NEWER_LAYOUT_SCREEN_TAB[screen.id];
+  trace?.event("agent-layout", { layout: "newer", screen: screen.id, tab: tab || null, open: layout.open });
+  if (!tab) return { newer: true, classicOnly: true, open: layout.open };
+  if (layout.open !== tab) {
+    const step = await openNavigationItem(page, tab, { roles: ["tab"], regions: ["nav", "header"], sleep, trace, action: "navigate" });
+    record(steps, step);
+  }
+  return { newer: true, classicOnly: false, open: tab };
+}
+
+const newerLayoutMessage = (screen) =>
+  `This agent uses the newer Copilot Studio layout (Build, Preview, Evaluate, and Monitor tabs), which has no separate ${screen.short} page: the picture would show the Build tab instead. Use “Retake guided”, or “Show me once” so the computer learns this screen.`;
 
 const needMessage = (ids) => {
   const nouns = ids.map((id) => REQUIREMENTS[id]?.noun).filter(Boolean);
@@ -217,7 +263,8 @@ async function openCopilotStudio({ page, shot, session, env, effectiveMode, gate
   if (landing.state === "mismatch" && effectiveMode === "auto") {
     return failure("failed", "wrong-screen", `The browser ended on ${landing.page}, not ${landing.expected}. ${wantsAgent ? "Check the agent address in Capture settings, or use “Retake guided”." : "Use “Retake guided”."}`, { currentUrl: maskedPath(page.url()), landing });
   }
-  return { ok: true, landing };
+  const layout = wantsAgent && effectiveMode === "auto" ? await alignAgentLayout({ page, screen, sleep, trace, steps, readiness: controlOptions.readiness, shot: shot.filename }) : null;
+  return { ok: true, landing, layout };
 }
 
 /** Open a screen that is an address of its own (admin centers, a SharePoint site, a project). */
@@ -275,7 +322,7 @@ export async function runCaptureShot({
   const capture = shot.capture;
   const steps = [];
   const viewport = { width: Number(shot.viewport?.width || 1440), height: Number(shot.viewport?.height || 900) };
-  if (typeof page.setViewportSize === "function") await page.setViewportSize(viewport).catch(() => {});
+  await normalizeViewport(page, viewport, trace);
   const outputFile = path.resolve(assetsDir, shot.filename);
   const needsSignIn = (result) => failure("auth-required", "sign-in", result.error, { code: result.code, currentUrl: redactedAddress(typeof page.url === "function" ? page.url() : ""), executedSteps: steps });
   const done = (result) => ({ executedSteps: steps, ...result });
@@ -344,8 +391,9 @@ export async function runCaptureShot({
     for (const step of setupRun.setup.steps || []) record(steps, { action: step.action, label: step.note || step.id, found: step.status !== "skipped", ok: step.status === "ok", note: step.why || step.strategy || "" });
     if (!setupRun.ok) {
       await stopSetup();
-      trace?.event("shot-needs-you", { shot: shot.filename, cause: setupRun.cause, step: setupRun.setup.failedStep?.id || "" });
-      return done(failure("needs-you", setupRun.cause, setupRun.error, { detail, currentUrl: maskedPath(page.url()), diagnostic: setupRun.setup.failedStep ? setupRun.setup : null }));
+      trace?.event("shot-needs-you", { shot: shot.filename, cause: setupRun.cause, step: setupRun.setup.failedStep?.id || "", layout: opened.layout?.classicOnly ? "newer" : null });
+      const layoutHint = opened.layout?.classicOnly ? `This agent uses the newer Copilot Studio layout, which has no separate ${COPILOT_STUDIO_SCREENS[capture.route.screen].short} page. ` : "";
+      return done(failure("needs-you", setupRun.cause, `${layoutHint}${setupRun.error}`, { detail, currentUrl: maskedPath(page.url()), diagnostic: setupRun.setup.failedStep ? setupRun.setup : null }));
     }
     detail.landing = detail.landing || null;
   }
@@ -359,6 +407,16 @@ export async function runCaptureShot({
       if (!result.ok && step.required) {
         return done(failure("failed", "control-not-found", `Could not find “${step.label}” ${capture.screen?.label ? `on ${capture.screen.label}` : "on the page"}. Use “Retake guided” and open it yourself.`, { currentUrl: maskedPath(page.url()), detail }));
       }
+    }
+  }
+
+  // 3c. A screen that has no page in the newer agent layout would be a picture of the Build tab. Say so instead of passing it off as the screen.
+  if (strict && opened.layout?.classicOnly) {
+    const changedScreen = autonomous ? (setupRun?.setup?.steps || []).some((s) => s.status === "ok") : (capture.reveal || []).some((r) => steps.some((s) => s.action === "reveal" && s.ok && s.tried > 0 && s.label === r.label));
+    if (!changedScreen) {
+      await stopSetup();
+      trace?.event("shot-wrong-layout", { shot: shot.filename, screen: capture.screen?.id || null });
+      return done(failure("failed", "wrong-screen", newerLayoutMessage(COPILOT_STUDIO_SCREENS[capture.route.screen]), { currentUrl: maskedPath(page.url()), detail }));
     }
   }
 

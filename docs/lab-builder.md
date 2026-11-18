@@ -1586,11 +1586,14 @@ your credentials. Capture therefore runs on **your own computer**:
    (`cap_...`) that only opens the companion endpoints. The portal stores a hash of it,
    shows the computer as **Companion connected** while it checks in, and lets you
    **Disconnect** it at any time (`DELETE /api/capture/devices/:id`).
-2. **Sign in once per product.** The first shot for a product opens a browser window (the
-   installed Microsoft Edge, then Google Chrome, then Chromium; `--browser` chooses). The companion says
+2. **Sign in once per product.** The first shot for a product opens a browser window (Microsoft Edge,
+   Google Chrome, or Chromium: on a PC joined to a work or school account it tries Chrome and Chromium first and
+   opens Edge InPrivate last, so a screenshot never silently comes from your work account; `--browser` and
+   `--account-mode=separate|windows` choose). The companion says
    **Waiting for you to sign in to <product>**; sign in yourself and choose **Yes** on **Stay signed in?**
    so the sign-in lasts. The sign-in is saved on your computer (in the companion's
-   `.auth/<browser>/<product>/` folder, with the browser's session cookies in `companion-session.json`), so
+   `.auth/<browser>/<product>/` folder, or `.auth/separate/<browser>/<product>/` for a separate sign-in on such a PC,
+   with the browser's session cookies in `companion-session.json`), so
    later shots, products, jobs, and runs need no sign-in again. The companion waits for a sign-in
    once per product per job: if it does not finish, the product's remaining shots stop at once and are
    reported as `auth-required` with **Sign in to <product> on your computer, then retry the N
@@ -1599,6 +1602,21 @@ your credentials. Capture therefore runs on **your own computer**:
    removes them). The companion never types into tenant pages and never clicks anything that signs in or
    out, switches the account, or deletes. `--debug` writes a redacted trace for diagnosing a sign-in that
    will not work. See [`tools/screenshot-capture/README.md`](../tools/screenshot-capture/README.md#signing-in-once-per-product).
+
+   **Which account is used (companion 1.5.0).** A screenshot comes from whatever account the browser is signed in
+   with, and on a PC joined to a work or school account Microsoft Edge can use that Windows work account instead of
+   your demo tenant, which would put corporate screenshots into your labs and exports. So the account is explicit:
+   `--account-mode=separate` (the default on such a PC) never takes the Windows work account on its own, `--browser=auto`
+   avoids a normal Edge window there, and a `separate` sign-in has its own profile folder. `--setup-account` (or **Choose
+   which account to use** in the Screenshot Center) opens the product so **you** sign in with the account you want and pick
+   it yourself in any account list; the companion only watches. Before the first screenshot of each product it works out
+   how the account was chosen (`windows-sso`, `manual`, `saved-session`, or `unknown`) from the sign-in and the landing
+   address, never from page text, compares tenant ids only in memory (they are never logged, uploaded, shown, or saved),
+   and checks the landing against your agent, environment, or site address. A wrong account stops the product with one
+   sentence and the shot status `needs-account`; automatic capture waits until the account is verified or you chose it
+   once. The Screenshot Center shows **Account: separate sign-in (browser: Chromium), verified for your agent.** or a
+   warning with a one-click fix, and **Account not reported (update the companion)** for an older companion. See
+   [Which account the screenshots come from](../tools/screenshot-capture/README.md#which-account-the-screenshots-come-from).
 3. **Queue a job** (`POST /api/capture/jobs`) for one lab or for the shared library, choosing
    `missing`, `stale`, `all`, or `selected` shots. The companion picks it up, steps through
    each shot, and uploads the result. Progress, per-shot status, and a cancel button come from
@@ -2481,8 +2499,9 @@ Browser-facing:
 |---|---|---|
 | `POST` | `/api/capture/pair` | A one-time pairing code, valid 10 minutes: `{ code: "ABCD-EFGH", expiresAt, expiresInSec, portalUrl, command }`. |
 | `GET` | `/api/capture/status` | What the Screenshot Center needs to decide what to offer (below). |
-| `GET` | `/api/capture/devices` | Paired computers: `{ devices: [{ id, name, platform, companionVersion, createdAt, lastSeenAt, connected, busy, signedInProducts, expiresAt, tokenHint }] }`. |
+| `GET` | `/api/capture/devices` | Paired computers: `{ devices: [{ id, name, platform, companionVersion, createdAt, lastSeenAt, connected, busy, signedInProducts, account, accountSetup, expiresAt, tokenHint }] }`. `account` and `accountSetup` are the flags a companion 1.5.0 or later reported (null from an older one). |
 | `DELETE` | `/api/capture/devices/:id` | Disconnect a computer. Its token stops working at once. |
+| `POST` | `/api/capture/account-setup` | `{ product?, labId? }` asks the connected companion (1.5.0 or later, not busy) to open the "choose which account to use" sign-in, with the lab's capture settings so the landing can be checked. 202 `{ requested, id, product, deviceName, message }`; 409 `no-companion`, `companion-too-old`, or `busy` with a plain `error`. The person signs in themselves; the companion never picks an account. `GET /api/capture/status` then carries `companion.account`, `companion.accountSetup`, `companion.accountSupported`, and `companion.accountMinCompanion`. |
 | `POST` | `/api/capture/jobs` | Queue a job (below). 201 with the job, 200 with `existing: true` when the same capture is already queued or running, 200 with `nothingToCapture: true`, or 200 with `needsAddress: true` and `missing` when every selected shot is waiting for an address (nothing is queued). |
 | `GET` | `/api/capture/targets` | The capture settings in effect for the active brand profile (`?labId=` for a lab): `fields`, `requirements`, `missing`, and how each shot is captured. |
 | `PUT` | `/api/capture/targets` | Save capture settings on a brand profile: `{ targets: { fieldId: value }, profileId? }`. |
@@ -2596,11 +2615,11 @@ Companion routes (capture token; `pair` needs no token, only the code):
 | Method | Route | Purpose |
 |---|---|---|
 | `POST` | `/api/capture/companion/pair` | `{ code, deviceName, platform, companionVersion }` returns `{ token, device }` once. 401 `pair-invalid`, `pair-expired`; 429 after repeated wrong codes. |
-| `POST` | `/api/capture/companion/heartbeat` | `{ signedInProducts, busy, jobId?, companionVersion }` returns `{ ok, cancelRequested, tokenExpiresAt }`. `signedInProducts` lists products whose sign-in has worked on that computer (a screenshot was captured and the session saved), not products that merely have a profile folder. |
-| `GET` | `/api/capture/companion/next` | Claim the next job: `{ job: { id, target, scope, options, resumed }, env, targets, shots: [{ filename, shotId, featureId, product, authProfile, startUrl, urlEnv, requiresEnv, manual, viewport, steps, callouts, expectedLabels, capture }] }`, or 204. `targets` holds the capture settings that are names (never addresses); `capture` is the descriptor (`mode`, `why`, `needs`, `route`, `path`, `expect`, `reveal`, `landmarks`, `guide`) a companion follows; an older companion ignores it and opens `startUrl`. Only shots that still have to run are sent: shots settled at queue time (outside the browser, waiting for an address, needing a person in automatic mode) are not. A companion that asks again while it holds a job gets that job back, but only three times in a row without finishing a shot: after that the job is closed as `failed` instead of being handed out again. |
-| `POST` | `/api/capture/companion/jobs/:id/progress` | `{ shot: { filename, status, message, error, cause?, mode?, path?, outcome?, steps? }, message }` returns `{ ok, cancelRequested }`. `status` may also be `needs-you` or `paused`. |
+| `POST` | `/api/capture/companion/heartbeat` | `{ signedInProducts, busy, jobId?, companionVersion, account?, accountSetup? }` returns `{ ok, cancelRequested, tokenExpiresAt, commands? }`. `signedInProducts` lists products whose sign-in has worked on that computer (a screenshot was captured and the session saved), not products that merely have a profile folder. `account` (companion 1.5.0 and later) is flags only: `{ mode: "separate" \| "windows", source: "windows-sso" \| "manual" \| "saved-session" \| "unknown", verified, verifiedFor?: "agent" \| "environment" \| "site" \| "project", osWorkAccountDetected, browser, inOsTenant, inPrivate }`; anything else is dropped, and an older companion simply sends none (the Screenshot Center then says **Account not reported (update the companion)**). `accountSetup` is the state of a "Choose which account to use" request: `{ id, product, state: "waiting-for-you" \| "done" \| "needs-account" \| "failed", message }`. `commands` appears once, right after a person selects **Choose which account to use** (`POST /api/capture/account-setup`): `[{ id, type: "setup-account", product, env, targets }]`. |
+| `GET` | `/api/capture/companion/next` | Claim the next job: `{ job: { id, target, scope, options, resumed }, env, targets, shots: [{ filename, shotId, featureId, product, authProfile, startUrl, urlEnv, requiresEnv, manual, viewport, steps, callouts, expectedLabels, capture }] }`, or 204 (with the header `X-Companion-Wake: 1` when a request for that computer is waiting, which tells a 1.5.0 companion to check in now; older companions ignore it). `targets` holds the capture settings that are names (never addresses); `capture` is the descriptor (`mode`, `why`, `needs`, `route`, `path`, `expect`, `reveal`, `landmarks`, `guide`) a companion follows; an older companion ignores it and opens `startUrl`. Only shots that still have to run are sent: shots settled at queue time (outside the browser, waiting for an address, needing a person in automatic mode) are not. A companion that asks again while it holds a job gets that job back, but only three times in a row without finishing a shot: after that the job is closed as `failed` instead of being handed out again. |
+| `POST` | `/api/capture/companion/jobs/:id/progress` | `{ shot: { filename, status, message, error, cause?, mode?, path?, outcome?, steps? }, message }` returns `{ ok, cancelRequested }`. `status` may also be `needs-you`, `paused`, or `needs-account` (the capture stopped before taking pictures because the browser is signed in with the wrong account; counted as failed, with the cause *Signed in to the wrong account* whose fix is **Choose which account to use**). |
 | `PUT` | `/api/capture/companion/jobs/:id/shots/:filename` | The image (multipart `file`, `evidence`, `callouts`, or raw with an `X-Capture-Evidence` header holding base64url JSON under 8 KB). `evidence` may carry `mode` (`auto` \| `guided` \| `legacy`) and a bounded `routeSteps` list; what the picture is judged against comes from the job's plan, not from the evidence. Same answers as a paste, plus `cancelRequested`. |
-| `POST` | `/api/capture/companion/jobs/:id/complete` | `{ message, fatalError?, paused?: { reason: "browser-closed" \| "stopped", message } }` ends the job as `done`, `failed`, or `cancelled` and refreshes the lab's files. With `paused`, the shots that did not run become `paused` (resumable) instead of `skipped`. |
+| `POST` | `/api/capture/companion/jobs/:id/complete` | `{ message, fatalError?, paused?: { reason: "browser-closed" \| "stopped", message }, account?, needsAccount?: { product, code: "windows-account" \| "wrong-account" \| "unverified", message } }` ends the job as `done`, `failed`, or `cancelled` and refreshes the lab's files. With `paused`, the shots that did not run become `paused` (resumable) instead of `skipped`. `account` and `needsAccount` are stored on the job's result (flags and one sentence, never an address or a name). |
 
 A token failure is 401 with `code` `token-missing`, `token-invalid`, `token-expired`, or `token-revoked`.
 

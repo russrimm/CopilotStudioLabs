@@ -294,6 +294,8 @@ function scRenderInto(host, labId) {
   const banner = scBuildBanner(labId);
   if (banner) section.appendChild(banner);
   section.appendChild(scBuildStrip(model));
+  const accountLine = scBuildAccountLine(labId);
+  if (accountLine) section.appendChild(accountLine);
   const auto = scBuildAutonomyLine(labId);
   if (auto) section.appendChild(auto);
   section.appendChild(scEl("div", { class: "sc-pairing-host", data: { scPairingHost: "lab" } }));
@@ -400,6 +402,10 @@ function scBuildBanner(labId) {
   if (created) banner.appendChild(created);
   const signIn = scBuildSignInVerdict(outcome.signIn);
   if (signIn) banner.appendChild(signIn);
+  // A capture that stopped because of the account says so in one plain sentence (it is also the first line of the message when nothing was captured).
+  if (outcome.needsAccount?.message && !String(outcome.message).includes(outcome.needsAccount.message)) {
+    banner.appendChild(scEl("p", { class: "sc-banner-account", text: outcome.needsAccount.message, data: { scNeedsAccount: outcome.needsAccount.code } }));
+  }
   const actions = scEl("div", { class: "sc-banner-actions" });
   for (const act of Array.isArray(outcome.actions) ? outcome.actions : []) {
     actions.appendChild(scButton(act.label, { action: `banner-${act.id}`, primary: Boolean(act.primary), data: { filenames: (act.filenames || []).join(",") } }));
@@ -416,6 +422,7 @@ const SC_CAUSE_FIX_LABELS = Object.freeze({
   upload: () => "Go to the first screenshot",
   record: (count) => `Show me once for ${scPlural(count, "screenshot")}`,
   consent: () => "Allow a practice agent",
+  account: () => "Choose which account to use",
 });
 
 /** Why a sign-in did not work and the one next step, in plain language. Built with text nodes only. */
@@ -502,6 +509,36 @@ function scBuildCauses(labId, causes) {
     list.appendChild(item);
   }
   return list;
+}
+
+// Which account the screenshots come from ------------------------------------
+
+/**
+ * One plain line about the account the computer will use, with a warning and the one-click fix when it is not what the
+ * person wants. It never shows a tenant, an account name, or an address: only what the companion reports as yes/no facts.
+ */
+function scBuildAccountLine(labId) {
+  const lab = scLab(labId);
+  const account = scAccountModel(scState.status?.companion);
+  if (!account) return null;
+  const wrap = scEl("div", { class: `sc-account sc-account-${account.tone}`, attrs: { role: "group", "aria-label": "Which account the screenshots come from" }, data: { scAccount: account.state } });
+  const head = scEl("div", { class: "sc-account-head" });
+  head.appendChild(scEl("p", { class: "sc-account-text", text: account.text, data: { scAccountText: "1" } }));
+  if (account.tone === "warn") head.appendChild(scChip("Check this", "warn"));
+  wrap.appendChild(head);
+  if (account.help) wrap.appendChild(scEl("p", { class: "hint", text: account.help, data: { scAccountHelp: "1" } }));
+  const setup = account.setup;
+  const message = lab.ui.accountMessage || "";
+  const status = scEl("p", { class: `sc-account-setup${setup?.state === "failed" || setup?.state === "needs-account" || message ? " sc-account-setup-warn" : ""}`, attrs: { role: "status", "aria-live": "polite", hidden: !(setup || message) }, data: { scAccountSetup: setup?.state || (message ? "message" : "") } });
+  status.textContent = message || setup?.text || "";
+  wrap.appendChild(status);
+  if (account.fix) {
+    const busy = Boolean(lab.ui.accountBusy) || Boolean(setup?.busy);
+    const actions = scEl("div", { class: "sc-step-actions" });
+    actions.appendChild(scButton(busy ? "Waiting for your computer" : account.fix.label, { action: "account-setup", focus: "account-setup", disabled: busy, primary: account.tone === "warn", aria: busy ? { "aria-busy": "true" } : {} }));
+    wrap.appendChild(actions);
+  }
+  return wrap;
 }
 
 // Readiness strip ------------------------------------------------------------
@@ -756,6 +793,15 @@ function scBuildConsentCard(labId, consent) {
   const card = scEl("section", { class: "sc-consent", attrs: { "aria-labelledby": "sc-consent-heading" }, data: { scConsent: "1" } });
   card.appendChild(scEl("h5", { id: "sc-consent-heading", class: "sc-consent-heading", text: "Allow automatic capture", attrs: { tabindex: "-1" }, data: { scFocus: "consent-heading" } }));
   card.appendChild(scEl("p", { text: "You sign in once. After that the computer takes the screenshots without you clicking anything. Here is exactly what it may and may not do." }));
+  const accountModel = scAccountModel(scState.status?.companion);
+  card.appendChild(
+    scEl("p", {
+      class: "sc-consent-account",
+      text: accountModel ? `The computer will use this account: ${scAccountSentence(accountModel)}` : "The computer will use the account you sign in with in its browser window. Connect your computer to see which account that is.",
+      data: { scConsentAccount: accountModel ? accountModel.state : "unknown" },
+    }),
+  );
+  card.appendChild(scEl("p", { class: "hint", text: "Automatic capture also waits until the account is verified against your own agent or site address, or you have chosen it once with “Choose which account to use”." }));
   card.appendChild(scEl("h6", { class: "sc-consent-sub", text: "It may" }));
   const may = scEl("ul", { class: "sc-consent-list", data: { scMay: "1" } });
   for (const text of ["Open pages and sections, select tabs, and scroll", "Open dialogs and panels, and cancel them afterward", "Ask the test pane a sample question (it is not saved to your agent)", "Type a search, or fill in a dialog without confirming it"]) may.appendChild(scEl("li", { text }));
@@ -1878,6 +1924,9 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
     case "job-pause":
       await scCancelJob(control.dataset.jobKey || labId, { pause: true });
       return;
+    case "account-setup":
+      await scRequestAccountSetup(labId);
+      return;
     case "consent-open":
       lab.ui.consentOpen = true;
       lab.ui.consentDraft.touched = false;
@@ -2077,6 +2126,9 @@ async function scApplyCauseFix(labId, code) {
       lab.ui.consentDraft.touched = false;
       scRerender(labId);
       scFocusConsent(labId);
+      return;
+    case "account":
+      await scRequestAccountSetup(labId);
       return;
     case "upload": {
       const upload = scHostFor(labId)?.querySelector(`.sc-card[data-filename="${cause.filenames[0]}"] [data-sc-action="shot-upload"]`);

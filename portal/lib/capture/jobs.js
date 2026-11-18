@@ -17,6 +17,7 @@ import { existsSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 
 import { cleanText, readJson, writeJsonAtomic } from "./store-util.js";
+import { cleanAccount, cleanNeedsAccount } from "./account.js";
 import { CAUSES, causeForVerification, describeCause } from "../../../tools/screenshot-capture/causes.mjs";
 import { sanitizeSetupEvidence } from "../../../tools/screenshot-capture/image-verify.mjs";
 import { REQUIREMENTS, effectiveModeFor, missingRequirements, targetValuesFromJob, validateTargets } from "../../../tools/screenshot-capture/targets.mjs";
@@ -30,13 +31,14 @@ export const SHOT_STATUSES = Object.freeze([
   "needs-review",
   "failed",
   "auth-required",
+  "needs-account",
   "manual-required",
   "skipped",
   "cancelled",
   "needs-you",
   "paused",
 ]);
-const TERMINAL_SHOT_STATUSES = new Set(["captured", "needs-review", "failed", "auth-required", "manual-required", "skipped", "cancelled", "needs-you", "paused"]);
+const TERMINAL_SHOT_STATUSES = new Set(["captured", "needs-review", "failed", "auth-required", "needs-account", "manual-required", "skipped", "cancelled", "needs-you", "paused"]);
 export const SCOPE_MODES = Object.freeze(["missing", "stale", "all", "selected"]);
 export const TARGET_TYPES = Object.freeze(["lab", "library"]);
 export const CALLOUT_MODES = Object.freeze(["sidecar", "burn", "none"]);
@@ -207,7 +209,7 @@ function countShots(shots) {
   for (const shot of shots) {
     if (shot.status === "captured") counts.captured += 1;
     else if (shot.status === "needs-review") counts.needsReview += 1;
-    else if (shot.status === "failed" || shot.status === "auth-required") counts.failed += 1;
+    else if (shot.status === "failed" || shot.status === "auth-required" || shot.status === "needs-account") counts.failed += 1;
     else if (shot.status === "manual-required") counts.manual += 1;
     else if (shot.status === "skipped") counts.skipped += 1;
     else if (shot.status === "cancelled") counts.cancelled += 1;
@@ -225,6 +227,7 @@ function countShots(shots) {
 export function causeOf(row) {
   if (row.cause && CAUSES[row.cause]) return row.cause;
   if (row.status === "auth-required") return "sign-in";
+  if (row.status === "needs-account") return "needs-account";
   if (row.status === "manual-required") return "manual";
   if (row.status === "needs-you") return "needs-you";
   if (row.status === "paused") return "browser-closed";
@@ -615,7 +618,7 @@ export function createJobStore({
       const status = SHOT_STATUSES.includes(shot.status) ? shot.status : null;
       if (row && status) {
         const wasTerminal = TERMINAL_SHOT_STATUSES.has(row.status);
-        if (!wasTerminal || status === row.status || status === "failed" || status === "auth-required") {
+        if (!wasTerminal || status === row.status || status === "failed" || status === "auth-required" || status === "needs-account") {
           row.status = status;
         }
         if (status === "running") {
@@ -625,8 +628,8 @@ export function createJobStore({
           row.finishedAt = iso();
           job.claim.resumes = 0;
         }
-        if (shot.error) row.error = cleanText(shot.error, 400);
-        if (shot.message) row.message = cleanText(shot.message, 300);
+        if (shot.error) row.error = status === "needs-account" ? plainText(shot.error, 400) : cleanText(shot.error, 400);
+        if (shot.message) row.message = status === "needs-account" ? plainText(shot.message, 300) : cleanText(shot.message, 300);
         // What the companion learned about how it went: the cause, how the screen was reached, and the steps.
         if (typeof shot.cause === "string" && CAUSES[shot.cause]) row.cause = shot.cause;
         if (["auto", "guided", "manual", "autonomous"].includes(shot.mode)) row.mode = shot.mode;
@@ -713,6 +716,9 @@ export function createJobStore({
     const needsSignIn = summarizeSignInNeeds(job.shots, productLabel);
     const created = cleanCreated(summary.created);
     const signIn = needsSignIn || counts.failed ? cleanSignIn(summary.signIn) : null;
+    // Which account the screenshots came from (flags only), and why a capture stopped before it started.
+    const account = cleanAccount(summary.account);
+    const stoppedAccount = job.shots.some((s) => s.status === "needs-account") ? cleanNeedsAccount(summary.needsAccount) : null;
     job.result = {
       ...counts,
       partial: good > 0 && good < counts.total,
@@ -720,6 +726,8 @@ export function createJobStore({
       ...(needsSignIn ? { needsSignIn } : {}),
       ...(created.length ? { created } : {}),
       ...(signIn ? { signIn } : {}),
+      ...(account ? { account } : {}),
+      ...(stoppedAccount ? { needsAccount: stoppedAccount } : {}),
       ...(counts.paused ? { paused: counts.paused, pausedReason: pausedCause, resumable: true } : {}),
     };
     // Nothing the companion had to do: every shot was settled when the job was queued (outside the browser, waiting for an address, needs a person).
@@ -738,6 +746,10 @@ export function createJobStore({
       // Every shot failed for the same reason: the browser was not signed in. Say what to do instead of "failed".
       job.error = needsSignIn.message;
       finalize(job, "failed", `Finished with no new screenshots. ${needsSignIn.message}`);
+    } else if (stoppedAccount) {
+      // The capture stopped on purpose before the first screenshot: the account was the wrong one. Say so.
+      job.error = stoppedAccount.message;
+      finalize(job, "failed", `Finished with no new screenshots. ${stoppedAccount.message}`);
     } else {
       finalize(job, "failed", `Finished with no new screenshots: ${counts.failed} failed.`);
     }

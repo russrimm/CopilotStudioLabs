@@ -140,6 +140,26 @@ export async function navigateWithSignIn({ page, url, gate, sleep, trace = null,
   return { ok: true, waited: signedIn.waited === true };
 }
 
+/** Wait for the address to stop changing (single-page apps redirect after they load), and return it. */
+export async function settleAddress(page, { sleep = (ms) => new Promise((r) => setTimeout(r, ms)), stableMs = 700, maxMs = 8000, stepMs = 150 } = {}) {
+  let last = typeof page.url === "function" ? page.url() : "";
+  let stable = 0;
+  let waited = 0;
+  while (waited < maxMs) {
+    await sleep(stepMs);
+    waited += stepMs;
+    const now = page.url();
+    if (now !== last) {
+      last = now;
+      stable = 0;
+    } else {
+      stable += stepMs;
+      if (stable >= stableMs) break;
+    }
+  }
+  return last;
+}
+
 function sameAddress(a, b) {
   try {
     const x = new URL(a);

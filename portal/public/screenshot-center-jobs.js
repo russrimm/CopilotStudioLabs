@@ -55,6 +55,8 @@ function scLab(key) {
         shareRecipe: false,
         background: false,
         causesOpen: new Set(),
+        accountBusy: false,
+        accountMessage: "",
         targetDraft: {},
         targetErrors: {},
         targetFormError: null,
@@ -239,6 +241,81 @@ async function scDisconnectDevice(deviceId) {
   scAnnounce("Computer disconnected.");
   scNotifyStatusChanged();
   return true;
+}
+
+// ── Choosing which account to use ───────────────────────────────────────────
+
+const SC_ACCOUNT_POLL_MS = 3000;
+const SC_ACCOUNT_POLL_MAX = 200;
+const SC_ACCOUNT_DONE = Object.freeze(["done", "failed", "needs-account"]);
+
+/** The product the account is chosen for: Copilot Studio when the lab uses it, otherwise the first product that needs a sign-in. */
+function scAccountProduct(labId) {
+  let products = [];
+  try {
+    products = scProductsToSignIn(scLab(labId).state || {});
+  } catch {
+    products = [];
+  }
+  if (products.some((p) => p.id === "copilot-studio")) return "copilot-studio";
+  return products[0]?.id || "copilot-studio";
+}
+
+/** Watch the computer's account setup until it ends, announcing each change once. The page notices it without a reload. */
+function scPollAccountSetup() {
+  clearTimeout(scState.accountTimer);
+  let attempts = 0;
+  let last = "";
+  const tick = async () => {
+    attempts += 1;
+    await scLoadStatus(true);
+    const setup = scState.status?.companion?.accountSetup || null;
+    const line = typeof scAccountSetupLine === "function" ? scAccountSetupLine(setup) : null;
+    const key = line ? `${line.state}:${line.text}` : "";
+    if (key && key !== last) {
+      last = key;
+      scAnnounce(line.text);
+    }
+    scNotifyStatusChanged();
+    if ((line && SC_ACCOUNT_DONE.includes(line.state)) || attempts >= SC_ACCOUNT_POLL_MAX) {
+      scState.accountTimer = null;
+      return;
+    }
+    scState.accountTimer = setTimeout(tick, SC_ACCOUNT_POLL_MS);
+    scState.accountTimer?.unref?.();
+  };
+  scState.accountTimer = setTimeout(tick, SC_ACCOUNT_POLL_MS);
+  scState.accountTimer?.unref?.();
+}
+
+/**
+ * "Choose which account to use": ask the connected computer to open the sign-in window. The person signs in themselves,
+ * with the account they want; nothing here picks an account.
+ */
+async function scRequestAccountSetup(labId) {
+  const lab = scLab(labId);
+  if (lab.ui.accountBusy) return;
+  lab.ui.accountBusy = true;
+  lab.ui.accountMessage = "";
+  scRerender(labId);
+  try {
+    const { ok, data, status } = await scFetchJson("/api/capture/account-setup", scJsonInit("POST", { product: scAccountProduct(labId), ...(SC_SAFE_LAB_ID.test(String(labId)) ? { labId } : {}) }));
+    if (!ok) {
+      lab.ui.accountMessage = data.error || `Could not ask your computer to open the sign-in window (${status}).`;
+      scAnnounce(lab.ui.accountMessage);
+      return;
+    }
+    scAnnounce(data.message || "Look for a new browser window on your computer.");
+    await scLoadStatus(true);
+    scPollAccountSetup();
+  } catch (err) {
+    lab.ui.accountMessage = "Could not ask your computer to open the sign-in window. Check your connection and try again.";
+    scAnnounce(lab.ui.accountMessage);
+  } finally {
+    lab.ui.accountBusy = false;
+    scRerender(labId);
+    scFocusByKey(scHostFor(labId), "account-setup");
+  }
 }
 
 // ── Capture jobs: live events with a polling fallback ───────────────────────

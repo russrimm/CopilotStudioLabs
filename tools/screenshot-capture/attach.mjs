@@ -50,14 +50,24 @@ export function freeLoopbackPort({ netModule = net } = {}) {
   });
 }
 
-/** The command-line switches for a browser that is started as a normal process with a debugging port. */
-export function attachArgs({ dir, port, headless = false }) {
+/**
+ * The command-line switches for a browser that is started as a normal process with a debugging port.
+ * The three "do not slow down hidden windows" switches are there because a window that another window covers is
+ * throttled, and a picture of a throttled window can hang (measured with Chrome; Edge was not affected). They change
+ * nothing about how the browser identifies itself. `--inprivate` opens Microsoft Edge InPrivate, which has no profile
+ * and so does not carry the Windows work account (see browsers.mjs).
+ */
+export function attachArgs({ dir, port, headless = false, inPrivate = false }) {
   return [
     `--user-data-dir=${dir}`,
     `--remote-debugging-port=${port}`,
     "--remote-debugging-address=127.0.0.1",
     "--no-first-run",
     "--no-default-browser-check",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-renderer-backgrounding",
+    "--disable-background-timer-throttling",
+    ...(inPrivate ? ["--inprivate"] : []),
     ...(headless ? ["--headless=new"] : []),
     "about:blank",
   ];
@@ -193,11 +203,71 @@ export async function settleTabs(context, { sleep = defaultSleep, stableMs = 150
 }
 
 /**
+ * Close the tabs a browser opened on its own (its welcome and what's-new pages, a new tab page) so the person and the
+ * capture only see the page the companion uses. It never closes a page of the web (a sign-in popup, a product tab):
+ * only pages whose address is the browser's own (edge:, chrome:, about:) and that are not `keep`.
+ */
+export async function closeStrayTabs(context, keep, { trace = null } = {}) {
+  let closed = 0;
+  let pages = [];
+  try {
+    pages = context.pages();
+  } catch {
+    return { closed };
+  }
+  for (const page of pages) {
+    if (page === keep) continue;
+    let address = "";
+    try {
+      address = String(page.url() || "");
+    } catch {
+      continue;
+    }
+    if (!/^(?:edge|chrome|about):/i.test(address)) continue;
+    try {
+      await page.close();
+      closed += 1;
+    } catch {
+      // Already gone.
+    }
+  }
+  if (closed) trace?.event("stray-tabs-closed", { count: closed });
+  return { closed };
+}
+
+/**
+ * Make the visible window big enough for the viewport the pictures are taken at (1440 by 900), as far as the screen
+ * allows. A browser that is started the normal way opens at the operating system's size, and the page is laid out at the
+ * larger size inside it, so a person setting up a screen would see it cropped. Best effort: a browser that will not
+ * resize is left alone.
+ */
+export async function fitWindow(context, { width = 1440, height = 900, trace = null } = {}) {
+  try {
+    const page = context.pages().find((p) => !(typeof p.isClosed === "function" && p.isClosed()));
+    if (!page) return { fitted: false };
+    const m = await page.evaluate(() => ({ ow: window.outerWidth, oh: window.outerHeight, iw: window.innerWidth, ih: window.innerHeight, aw: screen.availWidth, ah: screen.availHeight }));
+    if (![m.ow, m.oh, m.iw, m.ih, m.aw, m.ah].every((n) => Number.isFinite(n) && n > 0)) return { fitted: false };
+    const session = await context.newCDPSession(page);
+    try {
+      const { windowId } = await session.send("Browser.getWindowForTarget");
+      const want = { width: Math.round(Math.min(width + Math.max(0, m.ow - m.iw), m.aw)), height: Math.round(Math.min(height + Math.max(0, m.oh - m.ih), m.ah)) };
+      await session.send("Browser.setWindowBounds", { windowId, bounds: { windowState: "normal", ...want } });
+      trace?.event("window-fit", { width: want.width, height: want.height });
+      return { fitted: true, ...want };
+    } finally {
+      await session.detach?.().catch(() => {});
+    }
+  } catch {
+    return { fitted: false };
+  }
+}
+
+/**
  * Start the installed browser as a normal process and connect to it.
  * @returns {Promise<{context: object, browser: object, port: number, close: () => Promise<void>}>}
  *   `context.close()` closes the browser and ends its process.
  */
-export async function launchAttached({ playwright, kind, dir, executable, headless = false, spawnFn = nodeSpawn, fetchFn = globalThis.fetch, portFn = freeLoopbackPort, sleep = defaultSleep, timeoutMs = 25_000, pollMs = 150, trace = null, isAlive = pidIsAlive, exitWaitMs = 15_000, tabSettle = {}, endpointSlackMs = 2000 } = {}) {
+export async function launchAttached({ playwright, kind, dir, executable, headless = false, inPrivate = false, spawnFn = nodeSpawn, fetchFn = globalThis.fetch, portFn = freeLoopbackPort, sleep = defaultSleep, timeoutMs = 25_000, pollMs = 150, trace = null, isAlive = pidIsAlive, exitWaitMs = 15_000, tabSettle = {}, endpointSlackMs = 2000 } = {}) {
   if (!executable) throw new AttachError("NO_EXECUTABLE", "The browser program was not found.");
   if (!attachSupported(playwright)) throw new AttachError("UNSUPPORTED", "This Playwright cannot connect to a running browser.");
   installExitHook();
@@ -246,7 +316,7 @@ export async function launchAttached({ playwright, kind, dir, executable, headle
 
   try {
     port = await portFn();
-    child = spawnFn(executable, attachArgs({ dir, port, headless }), { stdio: "ignore", windowsHide: false });
+    child = spawnFn(executable, attachArgs({ dir, port, headless, inPrivate }), { stdio: "ignore", windowsHide: false });
     live.add(entry);
     child.once?.("exit", (code, signal) => {
       exited = { code, signal };
@@ -255,7 +325,7 @@ export async function launchAttached({ playwright, kind, dir, executable, headle
     child.once?.("error", (error) => {
       exited = { error };
     });
-    trace?.event("attach-start", { browser: kind, headless: Boolean(headless), port: "loopback" });
+    trace?.event("attach-start", { browser: kind, headless: Boolean(headless), inPrivate: Boolean(inPrivate), port: "loopback" });
     const { wsUrl } = await waitForEndpoint({ port, fetchFn, sleep, timeoutMs, pollMs, exited: () => exited, slackMs: endpointSlackMs });
     browser = await playwright.chromium.connectOverCDP(wsUrl);
     const context = browser.contexts?.()[0];

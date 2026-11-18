@@ -182,7 +182,7 @@ export const COPILOT_STUDIO_SCREENS = Object.freeze({
   topics: { id: "topics", scope: "agent", paths: ["topics"], label: "the agent's Topics page", short: "Topics", navLabels: ["Topics"] },
   analytics: { id: "analytics", scope: "agent", paths: ["analytics"], label: "the agent's Analytics page", short: "Analytics", navLabels: ["Analytics"] },
   channels: { id: "channels", scope: "agent", paths: ["channels"], label: "the agent's Channels page", short: "Channels", navLabels: ["Channels"] },
-  evaluations: { id: "evaluations", scope: "agent", paths: ["evaluations", "evaluation"], label: "the agent's Evaluation page", short: "Evaluation", navLabels: ["Evaluation", "Evaluations"] },
+  evaluations: { id: "evaluations", scope: "agent", paths: ["evaluations", "evaluation", "evaluate"], label: "the agent's Evaluation page", short: "Evaluation", navLabels: ["Evaluation", "Evaluations"] },
   settings: { id: "settings", scope: "agent", paths: ["settings"], label: "the agent's Settings page", short: "Settings", navLabels: ["Settings"] },
 });
 
@@ -226,7 +226,7 @@ export function copilotStudioScreenUrl(screenId, { envBase = null, agentBase = n
 
 // ── Where the browser actually is ──────────────────────────────────────────
 
-const SECTION_NAMES = { actions: "Tools", tools: "Tools", evaluation: "Evaluation", evaluations: "Evaluation" };
+const SECTION_NAMES = { actions: "Tools", tools: "Tools", evaluation: "Evaluation", evaluations: "Evaluation", evaluate: "Evaluation" };
 
 /** Mask ids in an address path so it is safe to show and to keep. */
 export function maskedPath(rawUrl) {

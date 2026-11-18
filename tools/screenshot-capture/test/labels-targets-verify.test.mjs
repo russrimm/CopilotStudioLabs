@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { cleanExpectedLabel, cleanExpectedLabels, labelIsVisible, visibleWordSet, wordsMatch } from "../labels.mjs";
 import { scoreLabels, verifyImage } from "../image-verify.mjs";
 import {
+  COPILOT_STUDIO_SCREENS,
   REQUIREMENTS,
   assessLanding,
   copilotStudioScreenUrl,
@@ -122,6 +123,9 @@ test("the landing check says plainly what was captured and what was expected", (
   assert.equal(assessLanding(`${base}/apps/new`, expectInstructions).page, "a page for creating an app");
   assert.equal(assessLanding(`${base}/bots/${BOT}/actions`, expectInstructions).page, "the agent's Tools page");
   assert.equal(assessLanding(`${base}/bots/${BOT}/actions`, { ...expectInstructions, paths: ["actions", "tools"] }).state, "match", "both address spellings of Tools count");
+  const evaluation = { ...expectInstructions, paths: COPILOT_STUDIO_SCREENS.evaluations.paths, label: "the agent's Evaluation page" };
+  assert.equal(assessLanding(`${base}/agents/${BOT}/evaluate`, evaluation).state, "match", "the newer layout's Evaluate tab is the Evaluation screen");
+  assert.equal(describePage(`${base}/agents/${BOT}/evaluate`), "the agent's Evaluation page");
   assert.equal(assessLanding("https://login.microsoftonline.com/common/oauth2/authorize", expectInstructions).page, "a Microsoft sign-in page");
   assert.equal(assessLanding(`${base}/home`, { family: "copilot-studio", scope: "environment", paths: ["home"], label: "x" }).state, "match");
   assert.equal(assessLanding(`${base}/bots/${BOT}/home`, { family: "copilot-studio", scope: "environment", paths: ["home"], label: "x" }).state, "mismatch");

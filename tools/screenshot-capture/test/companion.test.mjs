@@ -32,6 +32,7 @@ import {
 import { createAuthGate } from "../auth.mjs";
 import { detectBrowserAvailability, loadPlaywrightModule } from "../lab-runner.mjs";
 import {
+  ACCOUNT_CONTROL_SELECTORS,
   applyRedaction,
   buildSensitiveRegExp,
   burnCalloutMarkers,
@@ -250,6 +251,10 @@ test("account details are found and scrubbed from text", () => {
   assert.equal(scrubSensitiveText("Settings and Memory"), "Settings and Memory");
   assert.ok(buildSensitiveRegExp(["ab"]).source.includes("onmicrosoft"), "terms shorter than 3 characters are ignored");
   assert.ok(!buildSensitiveRegExp(["ab"]).source.includes("|ab"));
+});
+
+test("the account menu of the newer Copilot Studio layout is covered before a picture", () => {
+  assert.ok(ACCOUNT_CONTROL_SELECTORS.includes("[aria-label^='Open account menu' i]"), "that menu shows the signed-in person's name");
 });
 
 test("the pairing file is kept out of git and holds the token only locally", (t) => {
