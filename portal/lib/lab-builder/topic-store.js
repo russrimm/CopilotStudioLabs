@@ -20,6 +20,7 @@ import { resolvePortalDataDir } from "../storage-config.js";
 import { listHash, readSnapshot, validateSnapshot, writeJsonAtomic } from "./topic-snapshot.js";
 import { consolidateSnapshot, resolveTopicAlias } from "./topic-consolidate.js";
 import { topicToFeature } from "./topic-feature.js";
+import { buildSubtopicIndex } from "./subtopics.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -96,12 +97,17 @@ export function resolveLearnedTopicId(id, { harness = null, allowCoveredFeature 
 }
 
 /** The feature for a discovered topic id (including merged companion subtopic ids), or null. */
-export function getDynamicFeature(id) {
+export function getDynamicFeature(id, { excludedSubtopics = null } = {}) {
   if (typeof id !== "string" || !id.startsWith("learn-")) return null;
   const resolvedId = resolveLearnedTopicId(id);
   if (!resolvedId) return null;
   const topic = getNewTopics().find((entry) => entry.id === resolvedId);
-  return topic ? topicToFeature(topic) : null;
+  return topic ? topicToFeature(topic, { excludedSubtopics }) : null;
+}
+
+/** Every sub-topic of every discovered topic, by id: what a request may name in `excludedSubtopics`. */
+export function getSubtopicIndex() {
+  return buildSubtopicIndex(getNewTopics());
 }
 
 export function countNewTopics() {

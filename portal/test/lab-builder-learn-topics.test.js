@@ -699,8 +699,10 @@ test("the wizard renders Learn badges as text, announces refresh status, and esc
   assert.match(wizard, /aria-busy/);
   assert.match(wizard, /Last refreshed from Microsoft Learn/);
   assert.match(wizard, /startsWith\("https:\/\/learn\.microsoft\.com\/"\)/);
-  assert.match(wizard, /lbTopicSubtopicsNote/);
-  assert.match(wizard, /Includes:/);
+  // Sub-topics are real options: nested checkboxes with a group legend, not a plain "Includes:" note.
+  assert.match(wizard, /lbRenderSubtopics/);
+  assert.match(wizard, /data-subtopic="/);
+  assert.doesNotMatch(wizard, /Includes:/);
   assert.doesNotMatch(wizard, /innerHTML\s*=\s*[^;]*\b(learn\.lastError|data\.error)\b/);
 });
 

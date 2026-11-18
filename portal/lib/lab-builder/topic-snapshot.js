@@ -17,13 +17,17 @@ export const SNAPSHOT_SCHEMA_VERSION = 1;
 export const DEFAULT_HARNESS_IDS = ["standard", "microsoft-copilot", "customer-conversation"];
 export const UNCATEGORIZED = "uncategorized";
 export const MAX_TOPICS = 1000;
-export const MAX_URLS = 5;
+// A merged topic keeps every companion Learn page as a sub-topic. This bound only guards a tampered file:
+// consolidation never reaches it, because a group larger than the bound is split into several topics, not truncated.
+export const MAX_SUBTOPICS = 60;
+export const MAX_URLS = MAX_SUBTOPICS + 1;
+export const SUBTOPIC_LEVELS = [100, 200, 300];
 
 const ID = /^learn-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const HASH = /^[0-9a-f]{16}$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const STAMP = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/;
-const AVAILABILITY = ["ga", "preview", "retired"];
+export const AVAILABILITY_VALUES = ["ga", "preview", "retired"];
 const TOPIC_STATUS = ["covered", "new"];
 const CHECK_STATUS = ["current", "updated", "stale", "unknown"];
 
@@ -57,8 +61,8 @@ export function validateSnapshot(snapshot, { harnessIds = DEFAULT_HARNESS_IDS } 
     else if (topic.urls.some((url) => normalizeLearnUrl(url) !== url)) problems.push(`${label}: every url must be a canonical https learn.microsoft.com URL`);
     else if (typeof topic.id === "string" && topic.id.length <= 80 && topicId(topic.urls[0]) !== topic.id) problems.push(`${label}: id does not match its first url`);
     if (topic.subtopics !== undefined) {
-      if (!Array.isArray(topic.subtopics) || !topic.subtopics.length || topic.subtopics.length > MAX_URLS - 1) {
-        problems.push(`${label}: subtopics must list 1-${MAX_URLS - 1} merged Learn pages`);
+      if (!Array.isArray(topic.subtopics) || !topic.subtopics.length || topic.subtopics.length > MAX_SUBTOPICS) {
+        problems.push(`${label}: subtopics must list 1-${MAX_SUBTOPICS} merged Learn pages`);
       } else {
         topic.subtopics.forEach((sub, subIdx) => {
           const subLabel = `${label}.subtopics[${subIdx}]`;
@@ -79,6 +83,12 @@ export function validateSnapshot(snapshot, { harnessIds = DEFAULT_HARNESS_IDS } 
           if (sub.summary !== undefined && (typeof sub.summary !== "string" || sub.summary.length > MAX_SUMMARY)) {
             problems.push(`${subLabel}: summary must be at most ${MAX_SUMMARY} characters`);
           }
+          if (sub.level !== undefined && !SUBTOPIC_LEVELS.includes(sub.level)) {
+            problems.push(`${subLabel}: level must be 100, 200, or 300 when present`);
+          }
+          if (sub.availability !== undefined && !AVAILABILITY_VALUES.includes(sub.availability)) {
+            problems.push(`${subLabel}: availability must be ga, preview, or retired when present`);
+          }
         });
       }
     }
@@ -89,7 +99,7 @@ export function validateSnapshot(snapshot, { harnessIds = DEFAULT_HARNESS_IDS } 
     }
     if (topic.product !== undefined && !/^[a-z][a-z0-9-]*$/.test(String(topic.product))) problems.push(`${label}: product must be a slug`);
     if (typeof topic.conceptId !== "string" || !/^[a-z][a-z0-9-]*$/.test(topic.conceptId)) problems.push(`${label}: conceptId must be a slug`);
-    if (topic.availability !== null && !AVAILABILITY.includes(topic.availability)) problems.push(`${label}: availability must be ga, preview, retired, or null`);
+    if (topic.availability !== null && !AVAILABILITY_VALUES.includes(topic.availability)) problems.push(`${label}: availability must be ga, preview, retired, or null`);
     if (!TOPIC_STATUS.includes(topic.status)) problems.push(`${label}: status must be covered or new`);
     if (!Array.isArray(topic.featureIds) || topic.featureIds.some((id) => typeof id !== "string")) problems.push(`${label}: featureIds must be an array of strings`);
     if (![100, 200, 300].includes(topic.level)) problems.push(`${label}: level must be 100, 200, or 300`);

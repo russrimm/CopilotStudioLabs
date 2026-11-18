@@ -41,6 +41,7 @@ import {
 } from "./teaching.js";
 import { buildAdminPrerequisites, renderAdminPrerequisitesMarkdown } from "./admin-prereqs.js";
 import { canonicalLearnUrl, dedupeLearnSources, formatCitationLabel } from "./learn-citations.js";
+import { subtopicPlaceholderStep } from "./topic-feature.js";
 import {
   featureRequiresSharepointSite,
   labRequiresSharepointSite,
@@ -635,6 +636,12 @@ function catalogVerification(feature) {
  * last checked, and against which page.
  */
 function stepProvenance(record, feature) {
+  if (record?.stepsInSubtopics) {
+    return [
+      "",
+      "*This topic's own Microsoft Learn article has no step-by-step procedure, so its procedures are in the sub-topic sections below. Each one was read from its own Microsoft Learn article.*",
+    ];
+  }
   if (record?.source === "llm-verified") {
     const heading = record.sectionHeading ? scrubForbidden(record.sectionHeading) : "the current documentation";
     const day = record.fetchedAt ? String(record.fetchedAt).slice(0, 10) : null;
@@ -696,6 +703,48 @@ function stepProvenance(record, feature) {
 
 const TEACH = { scrub: scrubForbidden, esc: escapeMarkdown, lowerFirst, bullets, label: citationLabel };
 
+const SUBTOPIC_POINTER_STEP = "Work through the sub-topic sections below in order.";
+
+/** Text for a link label or a heading line: scrubbed, and unable to close a Markdown link early. */
+function inlineTitle(value) {
+  return scrubForbidden(String(value || "").replace(/[[\]\r\n]+/g, " ").trim());
+}
+
+/**
+ * One headed section per sub-topic the lab includes, inside its topic's module.
+ * Each carries its own steps (read from its own article), its own provenance line, and a link to that article.
+ * A sub-topic the lab leaves out has no section, no steps, and no link.
+ */
+function subtopicSections(feature, stepsRecord) {
+  const subs = feature.learnTopic?.subtopics || [];
+  if (!subs.length) return [];
+  const records = new Map((stepsRecord?.subtopics || []).map((record) => [record.id, record]));
+  const lines = [];
+  subs.forEach((sub, index) => {
+    const record = records.get(sub.id);
+    const source = record?.steps?.length ? record.steps : [subtopicPlaceholderStep(sub.title)];
+    const title = inlineTitle(sub.title) || sub.id;
+    const link = `[${title}](${markdownUrl(sub.url)})`;
+    const when = record?.fetchedAt ? ` on ${String(record.fetchedAt).slice(0, 10)}` : "";
+    const provenance =
+      record?.source === "doc-derived"
+        ? `*Read from ${record.sectionHeading ? `[${inlineTitle(record.sectionHeading)}](${markdownUrl(sub.url)})` : link}${when}.*`
+        : `*[Unverified] No procedure could be read from this sub-topic's article during this build. Follow ${link} on Microsoft Learn and trust it over anything written here.*`;
+    lines.push(
+      "",
+      `#### Sub-topic ${index + 1} of ${subs.length} - ${title}`,
+      "",
+      `*About ${sub.minutes ?? 5} minutes. Microsoft Learn article: ${link}.*`,
+      ...(sub.summary ? ["", `**What this sub-topic covers.** ${scrubForbidden(sub.summary)}`] : []),
+      "",
+      provenance,
+      "",
+      source.map((step, stepIndex) => `${stepIndex + 1}. ${scrubForbidden(step)}`).join("\n"),
+    );
+  });
+  return lines;
+}
+
 /** A prerequisite recap: the lower-level topic a selected topic builds on, kept short and clearly labeled. */
 function recapSection(feature, plan, grounding, stepsRecord, vendorRecords) {
   const source = stepsRecord?.steps?.length ? stepsRecord.steps : feature.steps;
@@ -730,7 +779,11 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
   // Doc-derived steps when the live page could be read, curated steps otherwise.
   // Both paths are scrubbed: derived steps are untrusted fetched content, and
   // the validator rejects TODO-style markers anywhere in a lab file.
-  const source = stepsRecord?.steps?.length ? stepsRecord.steps : feature.steps;
+  const source = stepsRecord?.stepsInSubtopics
+    ? [SUBTOPIC_POINTER_STEP]
+    : stepsRecord?.steps?.length
+    ? stepsRecord.steps
+    : feature.steps;
   const steps = source.map((step, index) => `${index + 1}. ${scrubForbidden(step)}`);
   const stepNum = feature.stepOrder ?? feature.order;
 
@@ -753,6 +806,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     ...sharepointModuleCalloutLines(feature, plan),
     "",
     steps.join("\n"),
+    ...subtopicSections(feature, stepsRecord),
     ...expectedResultBlock(feature, shots, TEACH),
     "",
     `**In your scenario.** ${scrubForbidden(applied)}`,

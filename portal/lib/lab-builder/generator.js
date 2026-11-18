@@ -29,6 +29,7 @@ import { GENERATOR_NAME, primaryProduct, productOf, productsPhrase } from "./pro
 import { buildDifferenceBlocks } from "./differences.js";
 import { describeDeliverable } from "./deliverable.js";
 import { deriveSteps, diffSteps, isVerifiedCanonicalArticle } from "./steps.js";
+import { attachSubtopicSteps, deriveSubtopicSteps, dropExcludedSources } from "./subtopic-steps.js";
 import { synthesizeSteps } from "./synthesis.js";
 import {
   DEFAULT_CONCURRENCY as LINK_CONCURRENCY,
@@ -273,13 +274,16 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
 
     // Amendment: try every curated URL, not just the first. The first entry is
     // not always the procedure page, and a later one often derives cleanly.
-    // For consolidated multi-URL Learn topics (`feature.learnTopic`), evaluate
+    // For consolidated multi-URL Learn topics (`feature.learnTopic`) with no sub-topics, evaluate
     // all merged URLs and pick the highest-confidence procedure so an overview
     // page at `urls[0]` never shadows a procedural companion page at `urls[1]`.
+    // A topic with sub-topics reads only its own page here: each included sub-topic
+    // is read from its own article into its own section (see `subtopic-steps.js`).
     const fetchedByUrl = new Map();
-    const isMultiUrlLearnTopic = Boolean(feature.learnTopic && (feature.docUrls || []).length > 1);
+    const ownUrls = feature.learnTopic?.subtopics?.length ? (feature.docUrls || []).slice(0, 1) : feature.docUrls || [];
+    const isMultiUrlLearnTopic = Boolean(feature.learnTopic && ownUrls.length > 1);
     let bestDerived = null;
-    for (const url of feature.docUrls || []) {
+    for (const url of ownUrls) {
       const page = await fetchDocPage(session, url);
       fetchedByUrl.set(url, page);
       if (page.error) {
@@ -348,6 +352,15 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
   }, signal);
 
   for (const [featureId, record] of derived) byFeature.set(featureId, record);
+
+  const withSubtopics = plan.features.filter((feature) => feature.learnTopic?.subtopics?.length);
+  if (withSubtopics.length) {
+    onProgress?.({ stage: "steps", message: "Reading the sub-topic articles" });
+    await mapLimit(withSubtopics, maxConcurrency, async (feature) => {
+      const subtopicRecords = await deriveSubtopicSteps(session, feature);
+      byFeature.set(feature.id, attachSubtopicSteps(byFeature.get(feature.id), subtopicRecords));
+    }, signal);
+  }
   return byFeature;
 }
 
@@ -577,7 +590,7 @@ export async function generateLab(request, opts = {}) {
 
   const grounding = await mapLimit(plan.features, maxConcurrency, async (feature) => {
     onProgress?.({ stage: "learn", message: `Researching ${feature.name}` });
-    return [feature.id, await groundFeature(session, feature)];
+    return [feature.id, dropExcludedSources(await groundFeature(session, feature), feature)];
   }, signal);
   for (const [featureId, result] of grounding) {
     groundingByFeature.set(featureId, result);
@@ -922,6 +935,7 @@ export async function generateLab(request, opts = {}) {
       const stepUrl = stepsByFeature.get(feature.id)?.url;
       if (stepUrl) embedded.push(stepUrl);
       for (const url of stepsByFeature.get(feature.id)?.sources || []) embedded.push(url);
+      for (const sub of stepsByFeature.get(feature.id)?.subtopics || []) embedded.push(sub.url);
       for (const source of vendorByFeature.get(feature.id) || []) vendorEmbedded.push(source.url);
     }
     const vendorSet = new Set(vendorEmbedded);
@@ -1319,6 +1333,30 @@ export async function generateLab(request, opts = {}) {
           lastVerified: f.lastVerified || null,
           verifiedAgainst: f.verifiedAgainst || null,
         },
+        // Every sub-topic of a Microsoft Learn topic, whether the lab includes it, and where an included one's steps came from.
+        ...(f.learnTopic?.subtopicChoices?.length
+          ? {
+              subtopics: f.learnTopic.subtopicChoices.map((choice) => {
+                const read = derived?.subtopics?.find((sub) => sub.id === choice.id);
+                return {
+                  ...choice,
+                  ...(read
+                    ? {
+                        steps: {
+                          source: read.source,
+                          reason: read.reason,
+                          url: read.url,
+                          fetchedAt: read.fetchedAt,
+                          sectionHeading: read.sectionHeading,
+                          confidence: read.confidence,
+                          count: read.steps.length,
+                        },
+                      }
+                    : {}),
+                };
+              }),
+            }
+          : {}),
         trainingDigest: buildModuleTrainingDigest({
           feature: f,
           plan,

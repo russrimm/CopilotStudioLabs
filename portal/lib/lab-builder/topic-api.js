@@ -8,6 +8,8 @@ import { getConcepts } from "./concepts.js";
 import { isThirdPartyConnectorTopic } from "./topic-feature.js";
 import { summarize } from "./topic-snapshot.js";
 import { resolveTopicLevel } from "./levels.js";
+import { describeSubtopics } from "./subtopics.js";
+import { EXPORT_MIME, buildTopicExport, exportFileName, normalizeExportRequest, serialize } from "./topic-export.js";
 
 const DAY_MS = 86400000;
 
@@ -111,15 +113,7 @@ export function topicsPayload(service, now = Date.now()) {
       availability: topic.availability,
       thirdPartyConnector: isThirdPartyConnectorTopic(topic),
       urls: topic.urls,
-      ...(topic.subtopics?.length
-        ? {
-            subtopics: topic.subtopics.map(({ id: subId, title, url }) => ({
-              id: subId,
-              title,
-              url,
-            })),
-          }
-        : {}),
+      ...(topic.subtopics?.length ? { subtopics: describeSubtopics(topic) } : {}),
       changedAt: topic.changedAt,
       firstSeen: topic.firstSeen,
       lastSeen: topic.lastSeen,
@@ -159,6 +153,10 @@ export function registerTopicRoutes(app, { getService, createRateLimiter, positi
     windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_TOPICS_RATE_WINDOW_MS, 3600000),
     max: positiveIntFromEnv(process.env.LAB_BUILDER_TOPICS_RATE_MAX, 6),
   });
+  const exportRateCheck = createRateLimiter({
+    windowMs: positiveIntFromEnv(process.env.LAB_BUILDER_TOPICS_EXPORT_RATE_WINDOW_MS, 3600000),
+    max: positiveIntFromEnv(process.env.LAB_BUILDER_TOPICS_EXPORT_RATE_MAX, 60),
+  });
 
   /** GET /api/lab-builder/topics: the static catalog plus topics discovered on Microsoft Learn, with freshness. */
   app.get("/api/lab-builder/topics", (_req, res) => {
@@ -188,6 +186,35 @@ export function registerTopicRoutes(app, { getService, createRateLimiter, positi
       res.status(status).json(payload);
     } catch (err) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/lab-builder/topics/export: every available topic and sub-topic for the chosen products, at every level,
+   * independent of any search, filter, or selection. `format` is csv, markdown, or json (a file) or dataset (the rows the
+   * wizard builds its own files from). `selectedIds`, `requiredIds`, and `excludedSubtopics` only fill "Selected in my lab".
+   */
+  app.post("/api/lab-builder/topics/export", (req, res) => {
+    const rate = exportRateCheck(String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase());
+    if (!rate.allowed) {
+      res.setHeader("Retry-After", String(rate.retryAfterSec));
+      return res.status(429).json({ error: `Export rate limit exceeded. Try again in ${rate.retryAfterSec}s.` });
+    }
+    let request;
+    try {
+      request = normalizeExportRequest(req.body);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    try {
+      const dataset = buildTopicExport({ ...request, learn: learnContext(getService()) });
+      if (request.format === "dataset") return res.json({ dataset });
+      res.setHeader("Content-Type", EXPORT_MIME[request.format]);
+      res.setHeader("Content-Disposition", `attachment; filename="${exportFileName(dataset, request.format)}"`);
+      res.setHeader("Cache-Control", "no-store");
+      return res.send(serialize(request.format, dataset, request.selection));
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
     }
   });
 }

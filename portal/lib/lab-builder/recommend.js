@@ -26,6 +26,7 @@ import { DIFFICULTY_BY_LEVEL, formatDuration } from "./planner.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 import { consolidateTopics, resolveTopicAlias } from "./topic-consolidate.js";
 import { topicToFeature } from "./topic-feature.js";
+import { buildSubtopicIndex, describeSubtopics, normalizeExcludedSubtopics } from "./subtopics.js";
 import { UNCATEGORIZED } from "./topic-snapshot.js";
 import { atLevel, isLevel, levelName, PREREQ_RECAP_MINUTES } from "./levels.js";
 import { featureRequiresSharepointSite, labRequiresSharepointSite } from "./sharepoint-site.js";
@@ -87,6 +88,7 @@ function summarizeProducts({ products, harness, level, features }) {
  * @param {number} [answers.level]          100, 200, or 300
  * @param {string} [answers.harness]        harness id; defaults to the Standard harness
  * @param {string[]} [answers.selected]     the learner's own selection; replaces the recommendation
+ * @param {string[]} [answers.excludedSubtopics] sub-topic ids left out of the lab; omitted means every sub-topic is included
  * @param {object} [learn]                  what Microsoft Learn discovery found; omit for the static catalog alone
  * @param {object[]} [learn.topics]         discovered topics (only those new to the catalog are offered)
  * @param {object[]} [learn.checks]         catalog freshness checks, for Updated and Docs moved flags
@@ -137,11 +139,14 @@ export function recommend(answers = {}, learn = {}) {
   const updatedWithin = (learn.updatedWindowDays ?? 30) * DAY_MS;
   const isRecent = (day) => Boolean(day) && learnNow - Date.parse(`${day}T00:00:00Z`) <= updatedWithin;
   const consolidatedTopics = consolidateTopics(learn.topics || []);
+  // Sub-topics are chosen by leaving some out: every sub-topic of a selected topic is included unless it is named here.
+  const excludedSubtopics = normalizeExcludedSubtopics(answers.excludedSubtopics, buildSubtopicIndex(consolidatedTopics));
+  const excludedSubtopicSet = new Set(excludedSubtopics);
   const dynamicByConcept = new Map();
   const dynamicTopics = new Map();
   for (const topic of consolidatedTopics) {
     if (topic.status !== "new" || features.has(topic.id)) continue;
-    features.set(topic.id, topicToFeature(topic));
+    features.set(topic.id, topicToFeature(topic, { excludedSubtopics: excludedSubtopicSet }));
     dynamicTopics.set(topic.id, topic);
     const concept = getConcepts().some((c) => c.id === topic.conceptId) ? topic.conceptId : UNCATEGORIZED;
     if (!dynamicByConcept.has(concept)) dynamicByConcept.set(concept, []);
@@ -288,16 +293,8 @@ export function recommend(answers = {}, learn = {}) {
         ? {
             status: "new",
             url: discovered.urls[0],
-            urls: discovered.urls,
-            ...(discovered.subtopics?.length
-              ? {
-                  subtopics: discovered.subtopics.map(({ id: subId, title, url }) => ({
-                    id: subId,
-                    title,
-                    url,
-                  })),
-                }
-              : {}),
+            urls: features.get(id).docUrls,
+            ...(discovered.subtopics?.length ? { subtopics: describeSubtopics(discovered, excludedSubtopicSet) } : {}),
             lastSeen: discovered.lastSeen,
             updated: isRecent(discovered.changedAt),
           }
@@ -405,7 +402,8 @@ export function recommend(answers = {}, learn = {}) {
 
   const unknownRows = [...dynamicTopics.keys()]
     .filter((id) => levelUnknown(id) && (applies(id) || selectedIds.has(id)))
-    .map(topicRow);
+    .map(topicRow)
+    .map((row) => ({ ...row, conceptId: dynamicTopics.get(row.id)?.conceptId || UNCATEGORIZED }));
 
   const levelMinutes =
     conceptRows.reduce((sum, c) => sum + c.minutes, 0) + unknownRows.filter((t) => t.selected).reduce((sum, t) => sum + t.minutes, 0);
@@ -415,8 +413,37 @@ export function recommend(answers = {}, learn = {}) {
     ...unknownRows.filter((t) => t.selected).map((t) => t.id),
   ];
   const listed = conceptRows.reduce((sum, c) => sum + c.topics.length, 0);
+  // Sub-topics of the topics that will be built: how many exist, and which of them the lab includes.
+  const selectedRows = [...conceptRows.flatMap((c) => c.topics), ...unknownRows].filter((t) => t.selected);
+  const subtopicsOfSelected = selectedRows.flatMap((t) => t.learn?.subtopics || []);
+  // The explicit relations between topics: what a topic requires, what requires it, and where each one shows up
+  // in this list, so a related topic is never invisible.
+  const relatedState = (relId) => {
+    const f = features.get(relId);
+    if (!selectedProducts.includes(productOf(f))) return "other-product";
+    if (selectedIds.has(relId)) return lowerLevel(relId) ? "recap" : "selected";
+    if (excluded.has(relId)) return "assumed";
+    if (!applies(relId)) return "other-harness";
+    return inLevel(relId) ? "available" : "other-level";
+  };
+  const describeRelated = (relId) => {
+    const rel = features.get(relId);
+    return { id: relId, name: rel.name, level: isLevel(rel.level) ? rel.level : null, state: relatedState(relId) };
+  };
+  const relatedTopics = (id) => ({
+    requires: (features.get(id).prereqs || []).filter((relId) => features.has(relId)).map(describeRelated),
+    requiredBy: [...features.values()]
+      .filter((other) => other.id !== id && (other.prereqs || []).includes(id) && (applies(other.id) || selectedIds.has(other.id)))
+      .map((other) => describeRelated(other.id)),
+  });
+  const relateTopics = (row) => {
+    row.related = relatedTopics(row.id);
+    return row;
+  };
+  conceptRows.forEach((c) => c.topics.forEach(relateTopics));
+  unknownRows.forEach(relateTopics);
   return {
-    answers: { industry: industry?.id || null, departments, products: selectedProducts, level, harness },
+    answers: { industry: industry?.id || null, departments, products: selectedProducts, level, harness, excludedSubtopics },
     products: summarizeProducts({ products: selectedProducts, harness, level, features }),
     concepts: conceptRows,
     prerequisites: {
@@ -439,12 +466,16 @@ export function recommend(answers = {}, learn = {}) {
         .map((id) => ({ id, name: features.get(id).name, level: features.get(id).level })),
     },
     selectedIds: selectedTopicIds,
+    // The sub-topics the lab includes under the selected topics (all of them unless some were excluded).
+    selectedSubtopicIds: subtopicsOfSelected.filter((s) => s.included).map((s) => s.id),
     // What the rules suggest for these answers, whether or not it is selected. Selecting it is the learner's act.
     recommendedIds: conceptRows.flatMap((c) => c.topics.filter((t) => t.recommended).map((t) => t.id)),
     // The part of the selection that came from an answer (vertical or department) rather than from the learner's own picks.
     preselectedIds: explicit ? [] : selectedTopicIds.filter((id) => preselected.has(id)),
     totals: {
       selectedCount: selectedTopicIds.length,
+      subtopicCount: subtopicsOfSelected.filter((s) => s.included).length,
+      subtopicTotal: subtopicsOfSelected.length,
       prerequisiteCount: prerequisiteSelected.length,
       minutes: totalMinutes,
       duration: formatDuration(totalMinutes),

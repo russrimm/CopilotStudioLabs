@@ -553,7 +553,8 @@ test("Step 6 renders clickable Microsoft Learn links on catalog topics, dynamic 
     }
   }
 
-  // Multi-URL dynamic topic renders both primary and companion subtopic links without duplication.
+  // A topic with sub-topics lists its own page on the card; each companion page is a nested, individually checkable
+  // sub-topic with its own Learn link beside the checkbox, so no link repeats.
   assert.deepEqual(
     multiLearnCard.anchors.map((a) => ({ href: a.href, text: a.text })),
     [
@@ -561,9 +562,19 @@ test("Step 6 renders clickable Microsoft Learn links on catalog topics, dynamic 
         href: "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp",
         text: "Connect to Microsoft Copilot Studio with MCP",
       },
+    ],
+  );
+  const subtopicRow = html.match(/<li class="lb-subtopic[^"]*">(?:(?!<\/li>)[\s\S])*data-subtopic="learn-mcp-multi-config"[\s\S]*?<\/li>/)?.[0];
+  assert.ok(subtopicRow, "Expected the companion page as a nested sub-topic row");
+  assert.deepEqual(
+    extractAnchors(subtopicRow)
+      .filter((a) => a.className.includes("lb-learn-source"))
+      .map((a) => ({ href: a.href, target: a.target, rel: a.rel })),
+    [
       {
         href: "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/copilot-studio-mcp-configure",
-        text: "Configure access to Copilot Studio MCP",
+        target: "_blank",
+        rel: "noopener noreferrer",
       },
     ],
   );

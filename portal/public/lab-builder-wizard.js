@@ -44,6 +44,15 @@ const labBuilder = {
   // null means "the recommendation as computed"; a Set is the learner's own picks.
   picked: null,
   excluded: new Set(),
+  // Sub-topic ids the learner left out. Every sub-topic of a selected topic is included unless it is named here.
+  excludedSubtopics: new Set(),
+  // Topics whose long sub-topic list is shown in full ("Show N more sub-topics").
+  expandedSubtopics: new Set(),
+  // Export All Topics: the full dataset for the chosen products, keyed by the answers it was built for.
+  exportData: null,
+  exportSignature: null,
+  exportBusy: false,
+  exportFailedSignature: null,
   rec: null,
   search: "",
   filter: "all",
@@ -386,6 +395,7 @@ function lbSaveSelections() {
     harness: lbHasHarnessProduct() ? labBuilder.harness : null,
     features: labBuilder.rec ? [...labBuilder.rec.selectedIds] : [...(labBuilder.picked || [])],
     excluded: [...labBuilder.excluded],
+    excludedSubtopics: lbExcludedSubtopicList(),
     moduleOrder: [...labBuilder.moduleOrder],
     includeKnowledgeCheck: Boolean(labBuilder.includeKnowledgeCheck),
     sharepointSiteName: name,
@@ -754,6 +764,8 @@ async function lbRefresh() {
     return;
   }
   const extra = { excluded: [...labBuilder.excluded] };
+  const leftOut = lbExcludedSubtopicList();
+  if (leftOut.length) extra.excludedSubtopics = leftOut;
   if (labBuilder.picked) extra.selected = [...labBuilder.picked];
   try {
     const rec = await lbRecommend(extra);
@@ -790,6 +802,13 @@ async function lbRefresh() {
     }
   } catch (err) {
     if (labBuilder.refreshToken !== token) return;
+    // A saved lab can name a sub-topic Microsoft Learn no longer lists. Drop what the server says is unknown and ask again.
+    const stale = /Unknown sub-topic id\(s\): ([^.]*)\./.exec(String(err.message));
+    if (stale) {
+      let removed = false;
+      for (const id of stale[1].split(",").map((part) => part.trim())) removed = labBuilder.excludedSubtopics.delete(id) || removed;
+      if (removed) return lbRefresh();
+    }
     labBuilder.pendingUncheckIds = [];
     labBuilder.rec = null;
     toast(`Could not update the topics: ${err.message}`, "error");
@@ -801,10 +820,12 @@ async function lbRefresh() {
 
 /** An answer in the first steps changed: topic choices start over from the new recommendation. */
 function lbAnswersChanged() {
-  const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0 || labBuilder.step7Removed.size > 0;
+  const hadOwnPicks =
+    Boolean(labBuilder.picked) || labBuilder.excluded.size > 0 || labBuilder.excludedSubtopics.size > 0 || labBuilder.step7Removed.size > 0;
   lbClearSharepointSkipFlag();
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.excludedSubtopics.clear();
   labBuilder.step7Removed.clear();
   labBuilder.previewModules = [];
   labBuilder.chosenSteps.delete("topics");
@@ -830,7 +851,8 @@ function lbSelectedNames(rec) {
  * them so one button restores them.
  */
 function lbLevelChanged(previous) {
-  const hadOwnPicks = Boolean(labBuilder.picked) || labBuilder.excluded.size > 0 || labBuilder.step7Removed.size > 0;
+  const hadOwnPicks =
+    Boolean(labBuilder.picked) || labBuilder.excluded.size > 0 || labBuilder.excludedSubtopics.size > 0 || labBuilder.step7Removed.size > 0;
   const removed = hadOwnPicks ? lbSelectedNames(labBuilder.rec) : [];
   labBuilder.levelNotice = hadOwnPicks
     ? {
@@ -840,12 +862,14 @@ function lbLevelChanged(previous) {
         stash: {
           picked: labBuilder.picked ? new Set(labBuilder.picked) : null,
           excluded: new Set(labBuilder.excluded),
+          excludedSubtopics: new Set(labBuilder.excludedSubtopics),
           step7Removed: new Map(labBuilder.step7Removed),
         },
       }
     : null;
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.excludedSubtopics.clear();
   labBuilder.step7Removed.clear();
   labBuilder.previewModules = [];
   labBuilder.chosenSteps.delete("topics");
@@ -866,6 +890,7 @@ function lbRestoreLevelChoices() {
   labBuilder.chosenSteps.add("level");
   labBuilder.picked = notice.stash.picked;
   labBuilder.excluded = notice.stash.excluded;
+  labBuilder.excludedSubtopics = notice.stash.excludedSubtopics || new Set();
   labBuilder.step7Removed = new Map(notice.stash.step7Removed || []);
   if (labBuilder.picked || labBuilder.excluded.size) labBuilder.chosenSteps.add("topics");
   labBuilder.levelNotice = null;
@@ -1693,8 +1718,10 @@ function lbResolveLearnLinks(item) {
   return results;
 }
 
-function lbRenderLearnLinks(item) {
-  const links = lbResolveLearnLinks(item);
+function lbRenderLearnLinks(item, options = {}) {
+  // A topic's sub-topics show their own links, so the topic's own list leaves them out instead of repeating them.
+  const hidden = new Set((options.hide || []).map((url) => lbParseLearnUrlParts(url)?.dedupeKey).filter(Boolean));
+  const links = lbResolveLearnLinks(item).filter((link) => !hidden.has(lbParseLearnUrlParts(link.url)?.dedupeKey));
   if (!links.length) return "";
   const anchors = links
     .map(
@@ -1969,6 +1996,14 @@ function lbRenderTopicScorecard(rec) {
     chips.push(`<span class="lb-stat-chip lb-stat-chip-empty"><strong>0</strong> selected</span>`);
   }
 
+  const subtopicTotal = rec.totals.subtopicTotal || 0;
+  if (subtopicTotal > 0) {
+    const included = rec.totals.subtopicCount || 0;
+    chips.push(
+      `<span class="lb-stat-chip lb-stat-chip-subtopics"><strong>${escapeHtml(included)}</strong> of ${escapeHtml(subtopicTotal)} sub-topic${subtopicTotal === 1 ? "" : "s"} included</span>`
+    );
+  }
+
   if (recommendedCount > 0) {
     chips.push(
       `<button type="button" class="lb-stat-chip lb-scorecard-btn${isRecommendedFilter ? " is-active" : ""}" data-scorecard-action="toggle-recommended" aria-pressed="${isRecommendedFilter}" title="Show only recommended topics"><strong>${escapeHtml(recommendedCount)}</strong> recommended${isRecommendedFilter ? " (filtered)" : ""}</button>`
@@ -1993,6 +2028,86 @@ function lbSelectedCount() {
   return labBuilder.rec ? labBuilder.rec.selectedIds.length : 0;
 }
 
+// ── Step 6: sub-topics ──────────────────────────────────────────────────────
+// A topic from Microsoft Learn can carry sub-topics: the companion articles merged under it. Each is its own
+// checkbox. Every sub-topic of a selected topic is included unless the learner unchecks it (`excludedSubtopics`).
+const LB_SUBTOPIC_PREVIEW = 6;
+
+/** Every topic row the Topics step can show, at the chosen level and with an unknown level. */
+function lbTopicRows() {
+  return [...(labBuilder.rec?.concepts || []).flatMap((c) => c.topics), ...(labBuilder.rec?.levelUnknown?.topics || [])];
+}
+
+/** The ids of every sub-topic Microsoft Learn lists, from the loaded topic list and the current recommendation. */
+function lbKnownSubtopicIds() {
+  const ids = new Set();
+  for (const topic of labBuilder.learn?.topics || []) for (const sub of topic.subtopics || []) ids.add(sub.id);
+  for (const row of lbTopicRows()) for (const sub of row.learn?.subtopics || []) ids.add(sub.id);
+  return ids;
+}
+
+/** Keep only ids that are still sub-topics, so a stale id from a saved lab can never make a request fail. Without a loaded list they all pass. */
+function lbKnownSubtopics(ids) {
+  const list = Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : [];
+  if (!labBuilder.learn && !labBuilder.rec) return list;
+  const known = lbKnownSubtopicIds();
+  return list.filter((id) => known.has(id));
+}
+
+/** The exclusions to send with a request. */
+function lbExcludedSubtopicList() {
+  return lbKnownSubtopics([...labBuilder.excludedSubtopics]).sort();
+}
+
+function lbClearSubtopicExclusions(topic) {
+  for (const sub of topic?.learn?.subtopics || []) labBuilder.excludedSubtopics.delete(sub.id);
+}
+
+/** What a topic card shows for its sub-topics, or null for a topic without any. */
+function lbSubtopicView(t) {
+  const subs = (t.learn?.subtopics || []).filter((s) => s && s.id && s.title);
+  if (t.source !== "learn" || !subs.length) return null;
+  const included = t.selected ? subs.filter((s) => s.included).length : 0;
+  return { subs, total: subs.length, included, state: !t.selected ? "none" : included === subs.length ? "all" : "some" };
+}
+
+function lbAnnounce(message) {
+  const el = document.getElementById("lb-topic-announce");
+  if (el) el.textContent = message;
+}
+
+/** Check or uncheck one sub-topic. Checking one under an unselected topic selects the topic with only that sub-topic. */
+function lbSetSubtopic(subId, parentId, checked) {
+  const parent = lbTopicRows().find((t) => t.id === parentId);
+  const sub = parent?.learn?.subtopics?.find((s) => s.id === subId);
+  if (!parent || !sub) return;
+  lbClearSharepointSkipFlag();
+  labBuilder.chosenSteps.add("topics");
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
+  if (checked) {
+    if (!parent.selected) {
+      lbOwnPicks().add(parentId);
+      labBuilder.excluded.delete(parentId);
+      for (const other of parent.learn.subtopics) if (other.id !== subId) labBuilder.excludedSubtopics.add(other.id);
+    }
+    labBuilder.excludedSubtopics.delete(subId);
+  } else {
+    labBuilder.excludedSubtopics.add(subId);
+  }
+  const total = parent.learn.subtopics.length;
+  const included = parent.learn.subtopics.filter((s) => !labBuilder.excludedSubtopics.has(s.id)).length;
+  lbAnnounce(`${sub.title} ${checked ? "included" : "left out"}. ${included} of ${total} sub-topic${total === 1 ? "" : "s"} included under ${parent.name}.`);
+  lbRefresh();
+}
+
+/** Show or hide the rest of a long sub-topic list. */
+function lbToggleSubtopicList(parentId) {
+  if (labBuilder.expandedSubtopics.has(parentId)) labBuilder.expandedSubtopics.delete(parentId);
+  else labBuilder.expandedSubtopics.add(parentId);
+  lbRenderTopics();
+}
+
 /** Make the learner's picks explicit, starting from what is currently selected. */
 function lbOwnPicks() {
   if (!labBuilder.picked) {
@@ -2007,6 +2122,8 @@ function lbSetTopic(id, checked, required) {
   labBuilder.chosenSteps.add("topics");
   const picks = lbOwnPicks();
   labBuilder.prereqNotice = null;
+  // Toggling a topic toggles all of its sub-topics: a selected topic starts with every sub-topic included.
+  lbClearSubtopicExclusions(lbTopicRows().find((t) => t.id === id));
   if (checked) {
     picks.add(id);
     labBuilder.excluded.delete(id);
@@ -2041,6 +2158,7 @@ function lbSetGroup(conceptId, checked) {
   const unchecked = [];
   const picks = lbOwnPicks();
   for (const topic of concept.topics) {
+    lbClearSubtopicExclusions(topic);
     if (checked) {
       picks.add(topic.id);
       labBuilder.excluded.delete(topic.id);
@@ -2061,6 +2179,7 @@ function lbSelectAllTopics() {
   const all = (labBuilder.rec?.concepts || []).flatMap((c) => c.topics.map((t) => t.id));
   labBuilder.picked = new Set(all);
   labBuilder.excluded.clear();
+  labBuilder.excludedSubtopics.clear();
   labBuilder.step7Removed.clear();
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
@@ -2072,6 +2191,7 @@ function lbClearTopics() {
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set();
   labBuilder.excluded.clear();
+  labBuilder.excludedSubtopics.clear();
   labBuilder.step7Removed.clear();
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
@@ -2084,6 +2204,7 @@ function lbSelectRecommended() {
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set(labBuilder.rec?.recommendedIds || []);
   labBuilder.excluded.clear();
+  labBuilder.excludedSubtopics.clear();
   labBuilder.step7Removed.clear();
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
@@ -2096,6 +2217,7 @@ function lbResetTopics() {
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = null;
   labBuilder.excluded.clear();
+  labBuilder.excludedSubtopics.clear();
   labBuilder.step7Removed.clear();
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
@@ -2104,6 +2226,7 @@ function lbResetTopics() {
 
 function lbBindTopicEvents() {
   lbEnsureThirdPartyFilterOption();
+  lbBindExportEvents();
   lbEnsurePreviewEvents(document.getElementById("lb-preview"));
   lbBindSharepointSiteControls();
   const groups = document.getElementById("lb-topic-groups");
@@ -2113,6 +2236,11 @@ function lbBindTopicEvents() {
     if (prerequisite) {
       if (lbShouldIgnoreGuardedChange(prerequisite)) return;
       lbSetPrerequisite(prerequisite.dataset.prerequisite, prerequisite.checked);
+      return;
+    }
+    const subtopic = event.target.closest("input[data-subtopic]");
+    if (subtopic) {
+      lbSetSubtopic(subtopic.dataset.subtopic, subtopic.dataset.parent, subtopic.checked);
       return;
     }
     const input = event.target.closest("input[data-topic]");
@@ -2130,6 +2258,11 @@ function lbBindTopicEvents() {
     true
   );
   groups?.addEventListener("click", (event) => {
+    const more = event.target.closest("button[data-subtopic-more]");
+    if (more) {
+      lbToggleSubtopicList(more.dataset.subtopicMore);
+      return;
+    }
     const button = event.target.closest("button[data-group-action]");
     if (button) lbSetGroup(button.dataset.concept, button.dataset.groupAction === "select");
   });
@@ -2165,20 +2298,21 @@ function lbLevelBadge(t) {
   return `<span class="lb-badge lb-badge-level">Level ${t.level}</span>${t.levelBasis === "estimated" ? '<span class="lb-badge lb-badge-warn">Estimated level</span>' : ""}`;
 }
 
-function lbTopicSubtopicsNote(t) {
-  const subs = (t.learn?.subtopics || []).filter((s) => s && s.title);
-  if (t.source !== "learn" || !subs.length) return "";
-  const rendered = subs.map((s) => escapeHtml(s.title)).join(", ");
-  return `<span class="lb-feature-note lb-feature-subtopics">Includes: ${rendered}</span>`;
-}
-
 function lbMatchesQuery(t, query) {
   if (!query) return true;
   if (t.name.toLowerCase().includes(query) || t.summary.toLowerCase().includes(query) || t.id.includes(query)) {
     return true;
   }
-  return (t.learn?.subtopics || []).some(
-    (s) => (s.title || "").toLowerCase().includes(query) || (s.id || "").includes(query),
+  return (t.learn?.subtopics || []).some((s) => lbSubtopicMatches(s, query));
+}
+
+/** A sub-topic matches a search by its title, summary, or id, so a search can reveal it under its topic. */
+function lbSubtopicMatches(s, query) {
+  if (!query) return false;
+  return (
+    (s.title || "").toLowerCase().includes(query) ||
+    (s.summary || "").toLowerCase().includes(query) ||
+    (s.id || "").includes(query)
   );
 }
 
@@ -2190,7 +2324,90 @@ function lbThirdPartyNote(t) {
   return `<span class="lb-feature-note">Optional 3rd-party connector${context} — not selected by default. Custom labs use 1st-party Microsoft connectors unless you select this topic.</span>`;
 }
 
+const LB_RELATED_STATE = {
+  selected: "selected",
+  recap: "included as a recap",
+  assumed: "turned off, so the lab assumes it is known",
+  available: "listed here, not selected",
+  "other-level": "taught at another level",
+  "other-harness": "for another harness",
+  "other-product": "in a product you did not choose",
+};
+
+/** The topics this one requires and the topics that require it, each with where it shows up, so none is invisible. */
+function lbRelatedNote(t) {
+  const related = t.related;
+  if (!related) return "";
+  const part = (label, list) => {
+    if (!list?.length) return "";
+    const shown = list.slice(0, 4).map((r) => `${escapeHtml(r.name)} (${escapeHtml(LB_RELATED_STATE[r.state] || r.state)})`);
+    const more = list.length > 4 ? `, and ${list.length - 4} more` : "";
+    return `${label} ${shown.join("; ")}${more}`;
+  };
+  const parts = [part("Requires:", related.requires), part("Required by:", related.requiredBy)].filter(Boolean);
+  return parts.length ? `<span class="lb-feature-note lb-feature-related">${parts.join(" · ")}</span>` : "";
+}
+
+function lbSubtopicBadges(s) {
+  const level = s.level
+    ? `<span class="lb-badge lb-badge-level">Level ${escapeHtml(s.level)}</span>${s.levelBasis === "estimated" ? '<span class="lb-badge lb-badge-warn">Estimated level</span>' : ""}`
+    : "";
+  const availability = s.availability
+    ? `<span class="lb-badge lb-badge-${escapeHtml(s.availability)}">${s.availability === "ga" ? "GA" : escapeHtml(s.availability.charAt(0).toUpperCase() + s.availability.slice(1))}</span>`
+    : "";
+  const time = s.minutes ? `<span class="lb-badge lb-badge-time">about ${escapeHtml(s.minutes)} min</span>` : "";
+  return `${level}${time}${availability}`;
+}
+
+/** One sub-topic as its own checkbox. Its Microsoft Learn link sits beside the label, so following it never toggles the checkbox. */
+function lbSubtopicRow(t, s, query) {
+  const checked = t.selected && s.included;
+  const match = lbSubtopicMatches(s, query);
+  const url = lbLearnUrl(s.url);
+  const describedBy = s.summary ? ` aria-describedby="lb-subtopic-desc-${escapeHtml(s.id)}"` : "";
+  const link = url
+    ? `<a class="lb-learn-source lb-subtopic-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(s.title)} on Microsoft Learn (opens in a new tab)">Microsoft Learn<span class="lb-learn-ext" aria-hidden="true">↗</span></a>`
+    : "";
+  return `
+              <li class="lb-subtopic${checked ? " checked" : ""}${match ? " lb-subtopic-match" : ""}">
+                <label class="lb-subtopic-label">
+                  <input type="checkbox" data-subtopic="${escapeHtml(s.id)}" data-parent="${escapeHtml(t.id)}" autocomplete="off" ${checked ? "checked" : ""}${describedBy}>
+                  <span class="lb-subtopic-body">
+                    <span class="lb-subtopic-name">${escapeHtml(s.title)}</span>
+                    <span class="lb-feature-badges">${lbSubtopicBadges(s)}</span>
+                    ${s.summary ? `<span id="lb-subtopic-desc-${escapeHtml(s.id)}" class="lb-feature-summary">${escapeHtml(s.summary)}</span>` : ""}
+                    ${match ? '<span class="lb-feature-note lb-subtopic-match-note">Matches your search</span>' : ""}
+                  </span>
+                </label>
+                ${link}
+              </li>`;
+}
+
+/** The nested, individually checkable sub-topics of a topic card. A long list shows its first few with a button for the rest; a search shows them all. */
+function lbRenderSubtopics(t, view, query) {
+  const expanded = labBuilder.expandedSubtopics.has(t.id) || Boolean(query);
+  const shown = expanded ? view.subs : view.subs.slice(0, LB_SUBTOPIC_PREVIEW);
+  const hidden = view.total - shown.length;
+  const plural = (n) => (n === 1 ? "" : "s");
+  const legend = `${view.total} sub-topic${plural(view.total)} from Microsoft Learn${
+    t.selected ? `: ${view.included} included` : ": select the topic or check one to include it"
+  }`;
+  const toggle = hidden
+    ? `<button type="button" class="btn btn-small lb-subtopic-more" data-subtopic-more="${escapeHtml(t.id)}" aria-expanded="false" aria-controls="lb-subtopics-${escapeHtml(t.id)}">Show ${hidden} more sub-topic${plural(hidden)}</button>`
+    : expanded && !query && view.total > LB_SUBTOPIC_PREVIEW
+    ? `<button type="button" class="btn btn-small lb-subtopic-more" data-subtopic-more="${escapeHtml(t.id)}" aria-expanded="true" aria-controls="lb-subtopics-${escapeHtml(t.id)}">Show fewer sub-topics</button>`
+    : "";
+  return `
+            <fieldset class="lb-subtopics" id="lb-subtopics-${escapeHtml(t.id)}">
+              <legend class="lb-subtopics-legend">${escapeHtml(legend)}</legend>
+              <ul class="lb-subtopic-list">${shown.map((s) => lbSubtopicRow(t, s, query)).join("")}
+              </ul>
+              ${toggle}
+            </fieldset>`;
+}
+
 function lbTopicCard(t) {
+  const view = lbSubtopicView(t);
   const badges = [
     t.productName ? `<span class="lb-badge lb-badge-product">${escapeHtml(lbProduct(t.product)?.shortName || t.productName)}</span>` : "",
     lbLevelBadge(t),
@@ -2203,10 +2420,7 @@ function lbTopicCard(t) {
       : "",
     lbLearnBadges(t),
   ].join("");
-  return `
-            <label class="lb-feature ${t.selected ? "checked" : ""}">
-              <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" autocomplete="off" ${t.selected ? "checked" : ""}
-                     aria-describedby="lb-topic-desc-${escapeHtml(t.id)}">
+  const body = `
               <span class="lb-feature-body">
                 <span class="lb-feature-name">${escapeHtml(t.name)}</span>
                 <span class="lb-feature-badges">${badges}</span>
@@ -2216,12 +2430,26 @@ function lbTopicCard(t) {
                 ${t.source === "learn"
                   ? '<span class="lb-feature-note">Source: Microsoft Learn, not yet reviewed for this repository.</span>'
                   : ""}
-                ${lbTopicSubtopicsNote(t)}
-                ${lbRenderLearnLinks(t)}
+                ${lbRelatedNote(t)}
+                ${lbRenderLearnLinks(t, view ? { hide: view.subs.map((s) => s.url) } : undefined)}
                 ${t.learn?.status === "stale" ? '<span class="lb-feature-note">The Microsoft Learn pages this topic cites could not be found. Its steps are checked against Learn when the lab is built.</span>' : ""}
                 ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(t.harnessNote)}</span>` : ""}
-              </span>
+              </span>`;
+  if (!view) {
+    return `
+            <label class="lb-feature ${t.selected ? "checked" : ""}">
+              <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" autocomplete="off" ${t.selected ? "checked" : ""}
+                     aria-describedby="lb-topic-desc-${escapeHtml(t.id)}">${body}
             </label>`;
+  }
+  // The topic's own checkbox is derived from its sub-topics: checked when all are included, mixed when some are left out.
+  return `
+            <div class="lb-feature lb-feature-parent ${t.selected ? "checked" : ""}">
+              <label class="lb-feature-main">
+                <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" data-subtopic-state="${view.state}" autocomplete="off" ${view.state === "all" ? "checked" : ""}
+                       aria-describedby="lb-topic-desc-${escapeHtml(t.id)}" aria-controls="lb-subtopics-${escapeHtml(t.id)}">${body}
+              </label>${lbRenderSubtopics(t, view, labBuilder.search)}
+            </div>`;
 }
 
 /** How many topic cards the current search and filter leave visible in the level's own concept groups. */
@@ -2236,12 +2464,25 @@ function lbVisibleTopicCount(rec, query) {
   );
 }
 
+/** How many sub-topics the visible cards list (a card lists all of its sub-topics). */
+function lbVisibleSubtopicCount(rec, query) {
+  return rec.concepts.reduce(
+    (sum, concept) =>
+      sum +
+      concept.topics
+        .filter((t) => lbMatchesFilter(t) && lbMatchesQuery(t, query))
+        .reduce((inner, t) => inner + (lbSubtopicView(t)?.total || 0), 0),
+    0
+  );
+}
+
 function lbRenderTopics() {
   lbEnsureThirdPartyFilterOption();
   const el = document.getElementById("lb-topic-groups");
   const rec = labBuilder.rec;
   const activeScorecardAction = document.activeElement?.dataset?.scorecardAction || null;
   lbRenderTopicScorecard(rec);
+  lbSyncExportScope();
   if (activeScorecardAction) {
     const safeAction =
       typeof CSS !== "undefined" && typeof CSS.escape === "function"
@@ -2262,6 +2503,8 @@ function lbRenderTopics() {
     return;
   }
   const activeId = document.activeElement?.dataset?.topic || null;
+  const activeSubtopic = document.activeElement?.dataset?.subtopic || null;
+  const activeMore = document.activeElement?.dataset?.subtopicMore || null;
   const activeAction = document.activeElement?.dataset?.groupAction
     ? `${document.activeElement.dataset.concept}:${document.activeElement.dataset.groupAction}`
     : null;
@@ -2353,10 +2596,12 @@ function lbRenderTopics() {
     : "";
 
   const shown = lbVisibleTopicCount(rec, query);
+  const shownSubtopics = lbVisibleSubtopicCount(rec, query);
   const narrowed = Boolean(query) || labBuilder.filter !== "all";
   const levelName = lbLevelName(rec.answers.level);
+  const shownLabel = `${shown} topic${shown === 1 ? "" : "s"}${shownSubtopics ? ` and ${shownSubtopics} sub-topic${shownSubtopics === 1 ? "" : "s"}` : ""}`;
   const countText = rec.filter.shown
-    ? `Showing ${shown} topic${shown === 1 ? "" : "s"} for ${levelName}${narrowed ? ` that match your search or filter (of ${rec.filter.shown})` : ""}.`
+    ? `Showing ${shownLabel} for ${levelName}${narrowed ? ` that match your search or filter (of ${rec.filter.shown})` : ""}.`
     : `No ${levelName} topics are available for ${scopeName} yet.`;
   const count = document.getElementById("lb-topic-count");
   if (count && count.textContent !== countText) count.textContent = countText;
@@ -2380,6 +2625,8 @@ function lbRenderTopics() {
         .map((p) => escapeHtml(p.message))
         .join(" ")} Go back and choose another level${onlyCopilotStudio ? " or harness" : ", product, or harness"}.`;
   el.innerHTML = html + prereqHtml + unknownHtml || `<div class="scenario-empty">${empty}</div>`;
+  // A topic with some of its sub-topics left out shows the mixed state, which only a script can set.
+  for (const box of el.querySelectorAll?.('input[data-subtopic-state="some"]') || []) box.indeterminate = true;
 
   const warnings = document.getElementById("lb-topic-warnings");
   if (warnings) {
@@ -2415,10 +2662,392 @@ function lbRenderTopics() {
   if (error && lbSelectedCount()) error.textContent = "";
 
   if (activeId) el.querySelector(`input[data-topic="${CSS.escape(activeId)}"]`)?.focus();
+  else if (activeSubtopic) el.querySelector(`input[data-subtopic="${CSS.escape(activeSubtopic)}"]`)?.focus();
+  else if (activeMore) el.querySelector(`button[data-subtopic-more="${CSS.escape(activeMore)}"]`)?.focus();
   else if (activeAction) {
     const [concept, action] = activeAction.split(":");
     el.querySelector(`button[data-concept="${CSS.escape(concept)}"][data-group-action="${action}"]`)?.focus();
   }
+}
+
+// ── Step 6: Export All Topics ───────────────────────────────────────────────
+// Every topic and sub-topic for the chosen products, at every level, whatever the search, filter, or selection.
+// The server builds the rows (POST /api/lab-builder/topics/export); the files are built here from those rows, so an
+// export keeps working offline once the rows are loaded. The same files come out of portal/lib/lab-builder/topic-export.js.
+const LB_EXPORT_COLUMNS = [
+  ["product", "Product"],
+  ["group", "Topic group"],
+  ["topic", "Topic"],
+  ["subtopic", "Sub-topic"],
+  ["type", "Type"],
+  ["level", "Level"],
+  ["levelBasis", "Level basis"],
+  ["minutes", "Approx. minutes"],
+  ["harnesses", "Harness applicability"],
+  ["availability", "Availability"],
+  ["learnStatus", "Learn status"],
+  ["thirdParty", "Optional 3rd-party connector"],
+  ["requiredPrerequisite", "Required prerequisite"],
+  ["recommended", "Recommended"],
+  ["recommendedWhy", "Why recommended"],
+  ["requires", "Prerequisites"],
+  ["requiredBy", "Required by"],
+  ["urls", "Microsoft Learn URL(s)"],
+  ["source", "Source"],
+  ["selected", "Selected in my lab"],
+];
+const LB_EXPORT_AVAILABILITY = { ga: "GA", preview: "Preview", retired: "Retired" };
+const LB_EXPORT_LEARN_STATUS = { new: "New from Learn", updated: "Updated", stale: "Docs moved" };
+const LB_EXPORT_BASIS = { declared: "Declared", estimated: "Estimated", unknown: "Unknown" };
+const LB_EXPORT_MIME = { csv: "text/csv;charset=utf-8", markdown: "text/markdown;charset=utf-8", json: "application/json;charset=utf-8" };
+const LB_EXPORT_EXTENSION = { csv: "csv", markdown: "md", json: "json" };
+const LB_EXPORT_FORMAT_NAMES = { csv: "CSV", markdown: "Markdown", json: "JSON" };
+const LB_EXPORT_CHUNK = 400;
+
+let lbExportInflight = null;
+
+function lbExportClean(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+/** The answers that decide which topics the export covers. The selection is not part of it. */
+function lbExportScopeRequest() {
+  const request = { products: lbSelectedProductList().map((p) => p.id), departments: [...labBuilder.selectedRoles].sort() };
+  if (lbHasHarnessProduct()) request.harness = labBuilder.harness;
+  if (labBuilder.industry) request.industry = labBuilder.industry;
+  return request;
+}
+
+/** What the export fills into "Selected in my lab": the topics and sub-topics the lab would build now. */
+function lbExportSelection() {
+  const rec = labBuilder.rec;
+  const recaps = rec?.prerequisites?.selectedIds || [];
+  return {
+    selectedIds: [...(rec?.selectedIds || []), ...recaps],
+    requiredIds: [...lbTopicRows().filter((t) => t.required && t.selected).map((t) => t.id), ...recaps],
+    excludedSubtopics: [...labBuilder.excludedSubtopics],
+  };
+}
+
+function lbExportApplySelection(rows, selection) {
+  const selected = new Set(selection.selectedIds || []);
+  const required = new Set(selection.requiredIds || []);
+  const left = new Set(selection.excludedSubtopics || []);
+  return rows.map((row) => {
+    const isSub = row.type === "sub-topic";
+    const picked = isSub ? selected.has(row.parentId) && !left.has(row.id) : selected.has(row.id);
+    return { ...row, selected: picked, requiredPrerequisite: !isSub && picked && required.has(row.id) };
+  });
+}
+
+function lbExportCell(row, key) {
+  switch (key) {
+    case "level":
+      return row.level ? String(row.level) : "";
+    case "levelBasis":
+      return LB_EXPORT_BASIS[row.levelBasis] || "";
+    case "minutes":
+      return row.minutes ? String(row.minutes) : "";
+    case "availability":
+      return LB_EXPORT_AVAILABILITY[row.availability] || "";
+    case "learnStatus":
+      return LB_EXPORT_LEARN_STATUS[row.learnStatus] || "";
+    case "thirdParty":
+    case "requiredPrerequisite":
+    case "recommended":
+    case "selected":
+      return row[key] ? "Yes" : "No";
+    case "urls":
+      return (row.urls || []).join(" ");
+    case "type":
+      return row.type === "topic" ? "Topic" : "Sub-topic";
+    default:
+      return lbExportClean(row[key]);
+  }
+}
+
+/** A cell that starts with =, +, -, @, a tab, or a carriage return is read as a formula by Excel; a leading apostrophe makes it text. */
+function lbExportProtect(text) {
+  return /^[\t\r]|^\s*[=+\-@]/.test(text) ? `'${text}` : text;
+}
+
+function lbCsvField(text) {
+  const safe = lbExportProtect(String(text));
+  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+function lbExportYield() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/** UTF-8 with a byte order mark, comma separated, CRLF line endings. Long exports give the page a turn between chunks. */
+async function lbExportCsv(dataset, selection) {
+  const rows = lbExportApplySelection(dataset.rows, selection);
+  const lines = [LB_EXPORT_COLUMNS.map(([, header]) => lbCsvField(header)).join(",")];
+  for (let i = 0; i < rows.length; i += 1) {
+    lines.push(LB_EXPORT_COLUMNS.map(([key]) => lbCsvField(lbExportCell(rows[i], key))).join(","));
+    if (i % LB_EXPORT_CHUNK === LB_EXPORT_CHUNK - 1) await lbExportYield();
+  }
+  return `\uFEFF${lines.join("\r\n")}\r\n`;
+}
+
+function lbMdText(value) {
+  return lbExportClean(value).replace(/[\\`*_{}[\]<>|#]/g, "\\$&");
+}
+
+function lbMdUrl(url) {
+  return String(url).replace(/[()\s]/g, (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase().padStart(2, "0")}`);
+}
+
+function lbMdFacts(row) {
+  const facts = [];
+  if (row.level) facts.push(`Level ${row.level}${row.levelBasis === "estimated" ? " (estimated)" : ""}`);
+  if (row.minutes) facts.push(`about ${row.minutes} min`);
+  if (LB_EXPORT_AVAILABILITY[row.availability]) facts.push(LB_EXPORT_AVAILABILITY[row.availability]);
+  if (LB_EXPORT_LEARN_STATUS[row.learnStatus]) facts.push(LB_EXPORT_LEARN_STATUS[row.learnStatus]);
+  if (row.thirdParty) facts.push("optional 3rd-party connector");
+  if (row.requiredPrerequisite) facts.push("required prerequisite");
+  if (row.recommended && row.type === "topic") facts.push(`recommended${row.recommendedWhy ? `: ${row.recommendedWhy}` : ""}`);
+  if (row.type === "topic") {
+    if (row.requires) facts.push(`requires ${row.requires}`);
+    if (row.requiredBy) facts.push(`required by ${row.requiredBy}`);
+  }
+  facts.push(`selected in my lab: ${row.selected ? "yes" : "no"}`);
+  return facts.map(lbMdText).join("; ");
+}
+
+/** A grouped outline: product, then topic group, then each topic with its sub-topics nested beneath it. */
+async function lbExportMarkdown(dataset, selection) {
+  const rows = lbExportApplySelection(dataset.rows, selection);
+  const names = dataset.scope.products.map((p) => p.shortName);
+  const lines = [`# Topic export: ${lbMdText(lbJoinNames(names))}`, "", lbMdText(dataset.scope.text), "", `Generated ${dataset.generatedAt.slice(0, 10)}.`];
+  let product = null;
+  let group = null;
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    if (row.productId !== product) {
+      product = row.productId;
+      group = null;
+      lines.push("", `## ${lbMdText(row.product)}`);
+    }
+    if (row.groupId !== group) {
+      group = row.groupId;
+      lines.push("", `### ${lbMdText(row.group)}`, "");
+    }
+    const name = row.type === "topic" ? row.topic : row.subtopic;
+    const label = row.urls[0] ? `[${lbMdText(name)}](${lbMdUrl(row.urls[0])})` : lbMdText(name);
+    lines.push(`${row.type === "topic" ? "-" : "  -"} ${row.type === "topic" ? "" : "Sub-topic: "}${label} - ${lbMdFacts(row)}`);
+    if (i % LB_EXPORT_CHUNK === LB_EXPORT_CHUNK - 1) await lbExportYield();
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/** Structured JSON: product, then topic group, then topic with its `subTopics`. */
+async function lbExportJson(dataset, selection) {
+  const rows = lbExportApplySelection(dataset.rows, selection);
+  const products = [];
+  const leaf = (row) => ({
+    id: row.id,
+    name: row.type === "topic" ? row.topic : row.subtopic,
+    type: row.type,
+    level: row.level,
+    levelBasis: row.levelBasis,
+    approxMinutes: row.minutes || null,
+    harnesses: row.harnesses,
+    availability: row.availability || null,
+    learnStatus: row.learnStatus || null,
+    optionalThirdPartyConnector: Boolean(row.thirdParty),
+    requiredPrerequisite: Boolean(row.requiredPrerequisite),
+    recommended: Boolean(row.recommended),
+    recommendedWhy: row.recommendedWhy || null,
+    prerequisites: row.requires,
+    requiredBy: row.requiredBy,
+    urls: row.urls,
+    source: row.source,
+    selected: Boolean(row.selected),
+  });
+  let topic = null;
+  for (let i = 0; i < rows.length; i += 1) {
+    const row = rows[i];
+    let productEntry = products.find((entry) => entry.id === row.productId);
+    if (!productEntry) products.push((productEntry = { id: row.productId, name: row.product, groups: [] }));
+    let groupEntry = productEntry.groups.find((entry) => entry.id === row.groupId);
+    if (!groupEntry) productEntry.groups.push((groupEntry = { id: row.groupId, name: row.group, topics: [] }));
+    if (row.type === "topic") {
+      topic = { ...leaf(row), subTopics: [] };
+      groupEntry.topics.push(topic);
+    } else if (topic && topic.id === row.parentId) {
+      topic.subTopics.push(leaf(row));
+    }
+    if (i % LB_EXPORT_CHUNK === LB_EXPORT_CHUNK - 1) await lbExportYield();
+  }
+  return `${JSON.stringify({ schemaVersion: dataset.schemaVersion, generatedAt: dataset.generatedAt, scope: dataset.scope, counts: dataset.counts, products }, null, 2)}\n`;
+}
+
+function lbExportFileName(dataset, format) {
+  const slug = dataset.scope.products.map((p) => p.id).join("-").replace(/[^a-z0-9-]+/g, "-").slice(0, 80);
+  return `all-topics-${slug}-${dataset.generatedAt.slice(0, 10)}.${LB_EXPORT_EXTENSION[format] || "json"}`;
+}
+
+/** The dataset for the chosen products, loaded once per set of answers and kept, so exporting works offline afterwards. */
+function lbLoadExportData() {
+  const request = lbExportScopeRequest();
+  const signature = JSON.stringify(request);
+  if (labBuilder.exportData && labBuilder.exportSignature === signature) return Promise.resolve(labBuilder.exportData);
+  if (lbExportInflight && lbExportInflight.signature === signature) return lbExportInflight.promise;
+  const promise = (async () => {
+    labBuilder.exportBusy = true;
+    lbRenderExportScope();
+    try {
+      const res = await fetch("/api/lab-builder/topics/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...request, format: "dataset" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+      labBuilder.exportData = data.dataset;
+      labBuilder.exportSignature = signature;
+      labBuilder.exportFailedSignature = null;
+      return data.dataset;
+    } catch (err) {
+      labBuilder.exportFailedSignature = signature;
+      throw err;
+    } finally {
+      labBuilder.exportBusy = false;
+      lbExportInflight = null;
+      lbRenderExportScope();
+    }
+  })();
+  lbExportInflight = { signature, promise };
+  return promise;
+}
+
+/** The scope note under the toolbar: exactly what Export All Topics will write. */
+function lbRenderExportScope() {
+  const note = document.getElementById("lb-export-scope");
+  const main = document.getElementById("lb-export-main");
+  const toggle = document.getElementById("lb-export-toggle");
+  const products = lbSelectedProductList();
+  const request = lbExportScopeRequest();
+  const signature = JSON.stringify(request);
+  const ready = Boolean(labBuilder.exportData) && labBuilder.exportSignature === signature;
+  let text;
+  if (!products.length) text = "Choose at least one product in Step 1 to export its topics.";
+  else if (ready) text = `${labBuilder.exportData.scope.text} It ignores your search, filter, and level, and marks what you selected.`;
+  else if (labBuilder.exportBusy) text = `Export scope: all topics and sub-topics for ${lbJoinNames(products.map((p) => p.shortName))}, all levels. Counting rows...`;
+  else if (labBuilder.exportFailedSignature === signature) text = "The full topic list could not be loaded, so Export All Topics is not ready. Choose it to try again.";
+  else text = `Export scope: all topics and sub-topics for ${lbJoinNames(products.map((p) => p.shortName))}, all levels.`;
+  if (note && note.textContent !== text) note.textContent = text;
+  const disabled = !products.length;
+  for (const button of [main, toggle]) {
+    if (!button) continue;
+    button.disabled = disabled;
+    button.setAttribute?.("aria-busy", String(Boolean(labBuilder.exportBusy)));
+  }
+}
+
+/** Called on every render of Step 6: updates the note and starts loading the rows when the answers changed. */
+function lbSyncExportScope() {
+  lbRenderExportScope();
+  if (!lbSelectedProductList().length) return;
+  const signature = JSON.stringify(lbExportScopeRequest());
+  const ready = labBuilder.exportData && labBuilder.exportSignature === signature;
+  if (ready || labBuilder.exportBusy || labBuilder.exportFailedSignature === signature) return;
+  lbLoadExportData().catch(() => {});
+}
+
+function lbDownloadText(fileName, text, mime) {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  link.rel = "noopener";
+  link.hidden = true;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+function lbSetExportMenu(open) {
+  const menu = document.getElementById("lb-export-menu");
+  const toggle = document.getElementById("lb-export-toggle");
+  if (!menu || !toggle) return;
+  menu.hidden = !open;
+  toggle.setAttribute("aria-expanded", String(open));
+}
+
+/** Build and download the export. CSV is the default; the menu offers Markdown and JSON. */
+async function lbExportAllTopics(format = "csv") {
+  const status = document.getElementById("lb-export-status");
+  const chosen = LB_EXPORT_MIME[format] ? format : "csv";
+  lbSetExportMenu(false);
+  if (!lbSelectedProductList().length) return;
+  if (status) status.textContent = `Preparing the ${LB_EXPORT_FORMAT_NAMES[chosen]} export...`;
+  try {
+    const dataset = await lbLoadExportData();
+    const selection = lbExportSelection();
+    const build = { csv: lbExportCsv, markdown: lbExportMarkdown, json: lbExportJson }[chosen];
+    const text = await build(dataset, selection);
+    const fileName = lbExportFileName(dataset, chosen);
+    lbDownloadText(fileName, text, LB_EXPORT_MIME[chosen]);
+    const { topics, subTopics, rows } = dataset.counts;
+    if (status) status.textContent = `Exported ${rows} rows (${topics} topic${topics === 1 ? "" : "s"} and ${subTopics} sub-topic${subTopics === 1 ? "" : "s"}) to ${fileName}.`;
+  } catch (err) {
+    if (status) status.textContent = `Could not export the topics: ${String(err.message || err).replace(/[.\s]*$/, ".")} Check your connection and try again.`;
+  }
+}
+
+function lbBindExportEvents() {
+  const root = document.getElementById("lb-export");
+  if (!root || root._lbExportBound || typeof root.addEventListener !== "function") return;
+  root._lbExportBound = true;
+  const items = () => [...(root.querySelectorAll?.("[data-export-format]") || [])];
+  root.addEventListener("click", (event) => {
+    const item = event.target?.closest?.("[data-export-format]");
+    if (item) {
+      lbExportAllTopics(item.dataset.exportFormat);
+      document.getElementById("lb-export-toggle")?.focus?.();
+      return;
+    }
+    if (event.target?.closest?.("#lb-export-main")) {
+      lbExportAllTopics("csv");
+      return;
+    }
+    if (event.target?.closest?.("#lb-export-toggle")) {
+      const menu = document.getElementById("lb-export-menu");
+      lbSetExportMenu(Boolean(menu?.hidden));
+      if (menu && !menu.hidden) items()[0]?.focus?.();
+    }
+  });
+  root.addEventListener("keydown", (event) => {
+    const menu = document.getElementById("lb-export-menu");
+    const open = Boolean(menu) && !menu.hidden;
+    if (event.key === "Escape" && open) {
+      event.preventDefault?.();
+      lbSetExportMenu(false);
+      document.getElementById("lb-export-toggle")?.focus?.();
+      return;
+    }
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const toggle = document.getElementById("lb-export-toggle");
+    if (event.target === toggle || event.target?.id === "lb-export-toggle") {
+      event.preventDefault?.();
+      lbSetExportMenu(true);
+      items()[event.key === "ArrowUp" ? items().length - 1 : 0]?.focus?.();
+      return;
+    }
+    const list = items();
+    const index = list.indexOf(event.target);
+    if (index < 0) return;
+    event.preventDefault?.();
+    list[(index + (event.key === "ArrowDown" ? 1 : list.length - 1)) % list.length]?.focus?.();
+  });
+  document.addEventListener?.("click", (event) => {
+    if (!root.contains?.(event.target)) lbSetExportMenu(false);
+  });
 }
 
 // ── Summary and stepper ─────────────────────────────────────────────────────
@@ -2462,6 +3091,7 @@ function lbHasProgress() {
     labBuilder.differencesFor !== null ||
     labBuilder.picked !== null ||
     labBuilder.excluded.size > 0 ||
+    labBuilder.excludedSubtopics.size > 0 ||
     Boolean(labBuilder.sharepointSiteName) ||
     Boolean(labBuilder.sharepointSiteUrl) ||
     labBuilder.furthest > 1 ||
@@ -2833,6 +3463,8 @@ function lbResetAnswers() {
   labBuilder.differencesFor = null;
   labBuilder.picked = null;
   labBuilder.excluded = new Set();
+  labBuilder.excludedSubtopics = new Set();
+  labBuilder.expandedSubtopics = new Set();
   labBuilder.step7Removed = new Map();
   labBuilder.moduleOrder = [];
   labBuilder.previewModules = [];
@@ -2941,6 +3573,8 @@ async function lbLoadSelections(lab) {
   labBuilder.differencesFor = saved.differencesFor ? new Set(saved.differencesFor) : null;
   labBuilder.picked = new Set(saved.features);
   labBuilder.excluded = new Set(saved.excluded);
+  // Restore the saved sub-topic choices. An id Microsoft Learn no longer lists as a sub-topic is dropped, so it cannot block the rebuild.
+  labBuilder.excludedSubtopics = new Set(lbKnownSubtopics(saved.excludedSubtopics));
   labBuilder.step7Removed = new Map();
   labBuilder.moduleOrder = Array.isArray(saved.moduleOrder) ? [...saved.moduleOrder] : [];
   labBuilder.previewModules = [];
@@ -3032,6 +3666,7 @@ async function lbPrefillFromUseCases(plan) {
   }
   labBuilder.picked = new Set(keep);
   labBuilder.excluded = new Set();
+  labBuilder.excludedSubtopics = new Set();
   labBuilder.chosenSteps = new Set(["product", "vertical", "departments", "level", ...(lbHasHarnessProduct() ? ["harness"] : []), "topics"]);
   if (plan.title) lbSetFormValue("lb-title", String(plan.title).replace(LB_CONTROL_CHARS_RE, " ").trim().slice(0, 160));
   labBuilder.furthest = LB_STEP.topics;
@@ -3058,6 +3693,7 @@ function lbRequest() {
     // What you see in the topic list is what gets built; prerequisites you turned off are assumed.
     features: labBuilder.rec ? labBuilder.rec.selectedIds : [],
     excluded: [...labBuilder.excluded],
+    ...(lbExcludedSubtopicList().length ? { excludedSubtopics: lbExcludedSubtopicList() } : {}),
     ...(labBuilder.moduleOrder.length ? { moduleOrder: [...labBuilder.moduleOrder] } : {}),
     includeCore: false,
     targetMinutes: time > 0 ? time : undefined,
@@ -3246,6 +3882,16 @@ function lbRenderRemovedSection() {
     </section>`;
 }
 
+/** A sub-topic under its module in the Review table: its own checkbox, so it can be left out here as well as in Step 6. */
+function lbRenderOutlineSubtopic(module, sub) {
+  const id = `lb-outline-sub-${escapeHtml(sub.id)}`;
+  const url = lbLearnUrl(sub.url);
+  const link = url
+    ? `<a class="lb-learn-source" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(sub.title)} on Microsoft Learn (opens in a new tab)">Microsoft Learn<span class="lb-learn-ext" aria-hidden="true">↗</span></a>`
+    : "";
+  return `<tr class="lb-outline-subrow${sub.included ? "" : " lb-outline-subrow-off"}"><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="${id}" data-outline-subtopic="${escapeHtml(sub.id)}" data-outline-parent="${escapeHtml(module.id)}" autocomplete="off" ${sub.included ? "checked" : ""}></td><td class="lb-outline-order-cell"></td><td>Sub-topic</td><th scope="row" class="lb-outline-subhead"><label class="lb-outline-module-label" for="${id}">${escapeHtml(sub.title)}</label> ${link}</th><td></td><td>${sub.included ? `about ${escapeHtml(sub.minutes || 5)} min` : "left out"}</td></tr>`;
+}
+
 function lbRenderOutlineOrderControls(moduleOrId, index, total, maybeName) {
   const mod =
     moduleOrId && typeof moduleOrId === "object"
@@ -3316,6 +3962,10 @@ function lbFocusOutlineAfterPreview(el, options = {}) {
       return;
     }
   }
+  if (options.focusSubtopicId) {
+    el.querySelector(`input[data-outline-subtopic="${cssEscape(options.focusSubtopicId)}"]`)?.focus?.();
+    return;
+  }
   if (options.focusModuleId) {
     el.querySelector(`input[data-outline-module="${cssEscape(options.focusModuleId)}"]`)?.focus?.();
   } else if (options.focusFirstModule) {
@@ -3328,6 +3978,8 @@ function lbEnsurePreviewEvents(el) {
   el._lbOutlineBound = true;
   lbBindLearnLinkGuard(el);
   el.addEventListener("change", (event) => {
+    const sub = event.target?.closest?.("input[data-outline-subtopic]");
+    if (sub) return lbSetOutlineSubtopic(sub.dataset.outlineSubtopic, Boolean(sub.checked));
     const input = event.target?.closest?.("input[data-outline-module]");
     if (!input) return undefined;
     if (lbShouldIgnoreGuardedChange(input)) return undefined;
@@ -3388,6 +4040,23 @@ async function lbSetOutlineModule(id, checked) {
   lbSyncReviewControls();
   if (labBuilder.step === LB_STEP.review) {
     await lbPreview({ focusModuleId: id });
+  }
+}
+
+/**
+ * Include or leave out one sub-topic from Step 7. It changes the same choice Step 6 holds, so the two steps never disagree.
+ */
+async function lbSetOutlineSubtopic(subId, checked) {
+  if (!subId) return;
+  lbClearSharepointSkipFlag();
+  labBuilder.chosenSteps.add("topics");
+  if (checked) labBuilder.excludedSubtopics.delete(subId);
+  else labBuilder.excludedSubtopics.add(subId);
+  await lbRefresh();
+  lbRenderStepper();
+  lbSyncReviewControls();
+  if (labBuilder.step === LB_STEP.review) {
+    await lbPreview({ focusSubtopicId: subId });
   }
 }
 
@@ -3489,9 +4158,11 @@ async function lbPreview(options = {}) {
           (isRecap ? `Recap ${m.recapOrder ?? recapCount}` : `Step ${m.stepOrder ?? stepCount}`);
         return `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"></td>${lbRenderOutlineOrderControls(m, idx, data.modules.length)}<td>${escapeHtml(stepLabel)}</td><th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${isRecap ? "Recap: " : ""}${escapeHtml(m.name)}</label><div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div>${lbRenderLearnLinks(m)}</th><td>${m.level}${
           isRecap ? " (prerequisite recap)" : ""
-        }</td><td>about ${m.minutes} min</td></tr>`;
+        }</td><td>about ${m.minutes} min</td></tr>${(m.subtopics || []).map((sub) => lbRenderOutlineSubtopic(m, sub)).join("")}`;
       })
       .join("");
+    const subtopicTotal = data.modules.reduce((sum, m) => sum + (m.subtopics || []).length, 0);
+    const subtopicIncluded = data.modules.reduce((sum, m) => sum + (m.subtopics || []).filter((s) => s.included).length, 0);
     el.innerHTML = `
       <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">${escapeHtml(data.title)}</div>
       <div class="scenario-pill-list">
@@ -3499,6 +4170,7 @@ async function lbPreview(options = {}) {
         <span class="scenario-pill">${escapeHtml(lbLevelName(data.level))}</span>
         <span class="scenario-pill">About ${escapeHtml(data.duration)} (estimate, not a limit)</span>
         <span class="scenario-pill">${own} module${own === 1 ? "" : "s"}${recaps ? ` + ${recaps} prerequisite recap${recaps === 1 ? "" : "s"}` : ""}</span>
+        ${subtopicTotal ? `<span class="scenario-pill">${subtopicIncluded} of ${subtopicTotal} sub-topic${subtopicTotal === 1 ? "" : "s"} included</span>` : ""}
         <span class="scenario-pill">Agent: ${escapeHtml(data.agentName)}</span>
         <span class="scenario-pill">${data.includeKnowledgeCheck ? "Lesson mini-quizzes included" : "Lesson mini-quizzes off"}</span>
         ${spPillHtml}

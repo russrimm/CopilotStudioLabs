@@ -91,6 +91,7 @@ Useful flags:
 | `--levels <100,200,300>` | Restrict planned modules to one or more catalog levels (`100`, `200`, `300`); `--level <n>` is accepted for a single level. Lower-level prerequisites are included automatically as short recaps. |
 | `--harnesses <a,b>` | Copilot Studio harness filter (`standard`, `microsoft-copilot`, `customer-conversation`); `--harness <id>` sets a single primary harness. Ignored for products without harnesses. |
 | `--features <a,b>` | Capability ids to teach; prerequisites within the product are added automatically unless listed in `--excluded <a,b>`. |
+| `--exclude-subtopics <a,b>` | Sub-topic ids to leave out of a Microsoft Learn topic. Every sub-topic is included unless it is named here; an unknown id is an error. List the ids with `npm run export-topics -- --format json` (see [Export All Topics](#export-all-topics)). |
 | `--time <minutes>` | Preferred lab length. Guidance only: no module is ever removed. A lab that runs longer gets a suggestion to split it into parts. |
 | `--core` | Also add the level 100 Copilot Studio foundation modules (create, instructions, and so on). Off by default: only the features you list, plus the prerequisites they need, are built. The older `--no-core` is still accepted and is now the default. |
 | `--no-learn` | Offline mode. Skips Microsoft Learn and vendor documentation reads, and uses the curated doc links. |
@@ -245,6 +246,34 @@ arrow, Home, and End keys move among the tabs of the current area.
       Concepts with no topic for your selection say whether the product or
       harness has no equivalent or the topic is not written yet, and a product with
       nothing at your level says what it does have and at which levels.
+
+      **Sub-topics are options, not notes.** A new topic from Microsoft Learn can
+      carry *sub-topics*: companion articles (an overview, an examples page, a
+      how-to) that Learn splits one capability across and the builder merges under
+      the topic. Each one is its own checkbox in a labeled group (**3 sub-topics from
+      Microsoft Learn: 3 included**) inside the topic's card, with its title, summary,
+      level and time when known, and its own **Microsoft Learn** link, which opens in
+      a new tab and never toggles the checkbox. Selecting a topic includes all of its
+      sub-topics. Unchecking one puts the topic's checkbox in the mixed state; with
+      every sub-topic unchecked the topic's own article is still built (uncheck the
+      topic to remove it). Clicking the mixed checkbox includes them all again; checking
+      a sub-topic under an unselected topic selects the topic with only that one.
+      A list longer than six shows the first six and **Show N more sub-topics**.
+      **Select all**, **Select recommended**, **Clear**, **Reset to my answers**, and the
+      group buttons all reset sub-topic choices with the topics. The scorecard adds
+      "N of M sub-topics included", the status line reads "Showing 20 topics and 47
+      sub-topics for Level 200 (Intermediate)", and each change is announced ("Alpha
+      trigger examples left out. 2 of 3 sub-topics included under Alpha trigger.").
+      A search also matches sub-topic titles and summaries and shows the matching
+      sub-topic under its topic. Reviewed catalog topics have no sub-topics; their
+      related topics are shown on the card as **Requires:** and **Required by:**, each
+      with where it shows up (selected, included as a lower-level recap, turned off,
+      listed here, or at another level or harness), so no related topic is invisible.
+
+      **Export All Topics** (in the toolbar beside the bulk buttons) exports every
+      topic and sub-topic for the products you chose in Step 1 at every level,
+      whatever the search, filter, level, or selection. See
+      [Export All Topics](#export-all-topics).
    7. **Review**: the outline with the estimated time for each module and a total.
       Every planned module—including both chosen modules and lower-level
       prerequisite recaps—has an **Include** checkbox so you can uncheck anything
@@ -256,7 +285,10 @@ arrow, Home, and End keys move among the tabs of the current area.
       from curriculum** section below the outline where you can re-check individual
       modules or **Restore all** without leaving Review. If every module is
       unchecked, Review stays open with a recovery prompt and disables **Next:
-      Generate** until at least one module is included. Review also exposes:
+      Generate** until at least one module is included. Under a module that has
+      sub-topics, Review lists each one as an indented row with its own checkbox,
+      so you can leave one out (or bring it back) here as well; it is the same
+      choice Step 6 holds, and the header says "2 of 3 sub-topics included". Review also exposes:
       - **Per-lesson Knowledge Check mini-quizzes (`includeKnowledgeCheck`)** — an
         opt-in toggle (unchecked by default on a fresh wizard start) that adds
         1–3 multiple-choice questions (`A`–`D`) per lesson with instant grading and
@@ -2202,8 +2234,7 @@ its URL matches the renamed catalog page) and `new` otherwise. When Microsoft
 Learn splits one capability across an overview or conceptual article and a
 procedural or examples article within the same product and compatible harnesses
 (for example, `/mcp-certification` alongside `/mcp-server-certification`), the
-pages are consolidated into one canonical topic with up to five `urls` and
-`subtopics` metadata rather than separate cards. Consolidation also runs when
+pages are consolidated into one canonical topic with `urls` and `subtopics` metadata rather than separate cards. Every merged page is kept: nothing is truncated, and a group larger than the safety bound (`MAX_SUBTOPICS`, 60) is split into more than one topic instead of dropping pages. If the catalog later covers a merged topic's own page, the sub-topics the catalog does not cover come back as topics of their own instead of disappearing with it. Consolidation also runs when
 reading cached snapshots from disk so older runtime caches stay deduplicated,
 and merged or newly covered `learn-*` IDs continue to resolve cleanly as aliases
 in recommendations, previews, and lab generation. Each catalog feature
@@ -2212,7 +2243,7 @@ from Learn, `updated` when a page it cites changed since the last run.
 
 **In the wizard.** The Topics step shows new topics at their own level inside their concept group (or
 in "New from Learn: not yet grouped") with a **New from Learn** badge and a link to
-the source article (plus an **Includes:** line naming any combined companion guides); a topic whose level could not be resolved goes in the collapsed **Level unknown** group (see [The level filter](#the-level-filter)). Catalog topics whose documentation changed get **Updated**, and
+the source article. A topic that carries merged companion guides lists them as nested, individually checkable [sub-topics](#sub-topics); a topic whose level could not be resolved goes in the collapsed **Level unknown** group (see [The level filter](#the-level-filter)). Catalog topics whose documentation changed get **Updated**, and
 ones whose pages disappeared get **Docs moved**. A status line says when the list
 was last refreshed and from where; **Refresh from Microsoft Learn** re-reads it, and
 the **Show** filter narrows the list to new, updated, or moved topics. New topics
@@ -2260,6 +2291,7 @@ string.
 | `LAB_BUILDER_TOPICS_MIN_REFRESH_MS` | `60000` | Minimum spacing between refreshes. |
 | `LAB_BUILDER_TOPICS_BREAKER_FAILURES`, `_BREAKER_COOLDOWN_MS` | `3`, `900000` | Circuit breaker. |
 | `LAB_BUILDER_TOPICS_RATE_MAX`, `_RATE_WINDOW_MS` | `6`, `3600000` | Per-user limit on the refresh route. |
+| `LAB_BUILDER_TOPICS_EXPORT_RATE_MAX`, `_EXPORT_RATE_WINDOW_MS` | `60`, `3600000` | Per-user limit on the Export All Topics route. |
 | `LAB_BUILDER_TOPICS_UPDATED_DAYS` | `30` | How long an Updated badge stays. |
 
 **Refreshing the committed snapshot.**
@@ -2277,6 +2309,117 @@ opens a pull request with the updated snapshot only when something changed. It n
 "Allow GitHub Actions to create and approve pull requests" enabled in the
 repository's Actions settings; pull requests opened with the default token do not
 start other workflows, so close and reopen the pull request to run checks on it.
+
+### Sub-topics
+
+A sub-topic is a companion Microsoft Learn article merged under a topic (see
+*Classification and consolidation* above). Each has an `id` (`learn-` plus its path),
+a `title`, a `url`, an optional `summary`, and optional `level` and `availability` the
+page declared. When a sub-topic has no level of its own it is shown with the level the
+docs rubric suggests for its page, marked *Estimated*; its level never moves it to
+another level's list, because the topic's level decides where the card appears.
+
+**What a choice does.** Every sub-topic of a selected topic is included unless a
+request names it in `excludedSubtopics`. The topic keeps its single outline entry, so
+numbering, the Review table, and the per-topic Word and PowerPoint files are unchanged
+in shape. Inside that module:
+
+- each **included** sub-topic becomes a headed section (`#### Sub-topic 1 of 2 - Title`)
+  with its own time, summary, link, and steps read from its own Learn article by the same
+  derivation as the topic's (with the same `[Unverified]` fallback and provenance line when
+  no procedure could be read). Its article is cited and grounded like the topic's;
+- each **excluded** sub-topic contributes nothing: its article is not fetched, cited, or
+  quoted (a search result that happens to be its page is dropped), and it has no steps,
+  no section, no time, no per-topic document content, and no row in the lab's references.
+  The plan says so in a warning, and `manifest.json` lists it with `included: false`;
+- the topic's own article is always read. If it has no procedure of its own but a
+  sub-topic's article does, the module counts as read from the documentation and points
+  to the sub-topic sections; if no article has a procedure, the existing
+  `steps-not-derived` decision still applies.
+
+**Time.** A topic with up to four sub-topics is estimated at 20 minutes with all of them
+included, exactly as before; each page is an equal share, and leaving one out removes its
+share (the topic never drops below 5 minutes). Beyond four sub-topics each page counts
+four minutes.
+
+**Requests.** `recommend`, `preview`, `generate`, and the CLI accept
+`excludedSubtopics`: an array of sub-topic ids (at most 5000). Omitting it, as every
+existing client does, includes every sub-topic. An id that is not a sub-topic of a
+discovered topic (including a topic's own id) is rejected with HTTP 400 and
+`Unknown sub-topic id(s): ...`; a non-array or non-string entry is a 400 too. The plan's
+`request.excludedSubtopics` (present only when something was left out) is saved in
+`manifest.json` and returned in `selections.excludedSubtopics`, so **Edit selections**
+restores the choice; an id Learn no longer lists as a sub-topic is dropped when a lab is
+re-opened instead of blocking the rebuild. `recommend` returns every topic's sub-topics
+with `included`, `minutes`, `level`, `levelBasis`, `availability`, and `summary`, plus
+`selectedSubtopicIds` and `totals.subtopicCount` and `subtopicTotal`. `preview` returns each
+module's `subtopics` (all of them, with `included`) and the saved `excludedSubtopics`. `GET
+/api/lab-builder/topics` returns the same complete sub-topic objects.
+
+**Reviewed catalog topics.** A catalog topic has no sub-topics of its own. Its related
+items are other topics: what it requires, what requires it, and the same idea on another
+harness. The completeness rule for them is that none is invisible: every prerequisite of a
+listed topic is listed at the chosen level or sits in **Prerequisites from lower levels**,
+and each card names its relatives with where they appear (`related.requires` and
+`related.requiredBy` in the `recommend` response). A test audits every product, harness, and
+level.
+
+**Snapshot.** `learn-topics.snapshot.json` stays valid and unchanged: sub-topic `level` and
+`availability` are optional, and the next scheduled `refresh-topics` run records them.
+
+### Export All Topics
+
+The **Export All Topics** button in the Step 6 toolbar writes every topic and sub-topic for
+the products chosen in Step 1 (for Copilot Studio, the harness chosen in Step 5), at every
+level including lower-level prerequisites, whatever the search, filter, level view, or
+selection. The note under the toolbar says exactly what it will write ("All topics and
+sub-topics for Copilot Studio and SharePoint AI (Standard harness), all levels: 214 rows
+(190 topics, 24 sub-topics)."). The main button writes CSV; the arrow beside it opens a
+menu (keyboard: Arrow Down, Arrow Up, Escape): **CSV (opens in Excel)**, **Markdown**, or **JSON**.
+The file is built in the browser and downloaded as `all-topics-<products>-<date>.<ext>`;
+a status line announces "Exported 214 rows (190 topics and 24 sub-topics) to ...". The
+rows are loaded once for the chosen answers, so exporting keeps working offline afterwards.
+Rows are what Step 6 lists at each level (it is built from the same `recommend` calls), so
+the two cannot disagree.
+
+| Column | Meaning |
+|---|---|
+| Product, Topic group | The product and its concept group (a topic with no resolvable level stays in its own group with a blank level). |
+| Topic, Sub-topic, Type | One row per topic (`Sub-topic` blank) and one per sub-topic right under it. |
+| Level, Level basis | 100, 200, or 300 and whether it was `Declared`, `Estimated` (docs rubric, or a sub-topic with no level of its own), or `Unknown`. |
+| Approx. minutes | The estimate with every sub-topic included. |
+| Harness applicability | The harnesses a Copilot Studio topic applies to; `Not harness-specific` for other products. |
+| Availability, Learn status | `GA`, `Preview`, or `Retired`; `New from Learn`, `Updated`, or `Docs moved`. |
+| Optional 3rd-party connector | Yes for 3rd-party SaaS, ERP, and CRM connector topics. |
+| Required prerequisite | Yes when the topic is in the lab only because a selected topic needs it. |
+| Recommended, Why recommended | The topics the rules suggest for the vertical and departments, with the reason. |
+| Prerequisites, Required by | The explicit relations between topics. |
+| Microsoft Learn URL(s) | `https` links only, separated by spaces. |
+| Source | `Reviewed catalog` or `Microsoft Learn`. |
+| Selected in my lab | Yes when the topic (or sub-topic) would be built with the current selection. |
+
+CSV is UTF-8 with a byte order mark, comma separated, with CRLF line endings and
+standard quoting. A cell that starts with `=`, `+`, `-`, `@`, a tab, or a carriage return
+gets a leading apostrophe, so a title can never run as a spreadsheet formula. Markdown is an
+outline (product, group, topic, nested sub-topics) with links. JSON is
+`products[] > groups[] > topics[] > subTopics[]` plus the scope and counts.
+
+The same export is available from `POST /api/lab-builder/topics/export` and
+`npm run export-topics` (`node tools/lab-builder/export-topics.mjs`).
+
+```bash
+node tools/lab-builder/export-topics.mjs --products copilot-studio,sharepoint-ai --harness standard
+node tools/lab-builder/export-topics.mjs --format markdown --out topics.md
+node tools/lab-builder/export-topics.mjs --format json --out - --selected mc-instructions
+```
+
+The route takes `{ products, harness?, industry?, departments?, format, selectedIds?,
+requiredIds?, excludedSubtopics? }` (a JSON body of at most 64 KB) and answers HTTP 400 for an
+unknown product, harness, or format, or a list over 2000 ids, and 429 after 60 exports per
+user per hour (`LAB_BUILDER_TOPICS_EXPORT_RATE_MAX`, `LAB_BUILDER_TOPICS_EXPORT_RATE_WINDOW_MS`).
+`format` is `csv`, `markdown`, or `json` (the file, with `Content-Disposition`) or `dataset`
+(the default: the rows the wizard builds its own files from). The three id lists only fill the
+"Selected in my lab" and "Required prerequisite" columns; they never change which rows exist.
 
 ---
 
@@ -2305,9 +2448,10 @@ the server log, never the manifest — and the output is exportable by design.
 | `GET` | `/api/lab-builder/features` | Industries, roles, concepts, and the feature catalog grouped by category. |
 | `GET` | `/api/lab-builder/topics` | The static catalog merged with topics discovered on Microsoft Learn: each entry has `source` (`catalog` or `learn`), `status` (`current`, `updated`, `stale`, `new`), harnesses, and URLs, plus `refreshedAt`, `ageMs`, `stale`, `offline`, and per-harness covered, new, and stale counts. Serves the cache or snapshot immediately and revalidates in the background when stale. |
 | `POST` | `/api/lab-builder/topics/refresh` | Re-read the topic list from Microsoft Learn. Takes an empty `{}` body (anything else is HTTP 400). Limited to 6 refreshes per user per hour (`LAB_BUILDER_TOPICS_RATE_MAX`); answers 429 with `Retry-After` when rate limited, spaced too closely, or paused by the circuit breaker, 503 when refreshing is turned off, and 502 when Microsoft Learn failed. Every failure still returns the last good list. |
-| `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded? }`, each with `selected`, `recommended`, `required`, `thirdPartyConnector`, `optionalFor`, and `reasons`. Nothing is selected unless the vertical or a department points at it (`preselectedIds`); `recommendedIds` lists every 1st-party topic the rules suggest, selected or not (`thirdPartyConnector` modules remain `selected: false` and `recommended: false` unless explicitly included in `selected`). Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`). A `selected` list that names other levels is filtered, not trusted. Read-only. |
-| `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. With a `level`, topics from other levels are dropped (`droppedOutOfLevel`), and each module has a `role` of `level` or `prerequisite`. |
-| `POST` | `/api/lab-builder/generate` | Build the lab, write it (including per-topic `.docx` and `.pptx` files in `topics/` named per lab) to `generated-labs/`, and return markdown, `topicDocuments`, and validation. Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. Optional `brandProfileId` and `overrides` snapshot a [brand profile](#brand-profiles-and-lab-customization) into `manifest.customization` so the lab is born customized. |
+| `POST` | `/api/lab-builder/topics/export` | Every topic and sub-topic for the chosen products at every level, as `csv`, `markdown`, or `json` (a file) or `dataset` (rows). Body `{ products, harness?, industry?, departments?, format, selectedIds?, requiredIds?, excludedSubtopics? }`, at most 64 KB; 400 for invalid input, 429 after 60 per user per hour. See [Export All Topics](#export-all-topics). |
+| `POST` | `/api/lab-builder/recommend` | Topics at the chosen level, grouped by concept, for `{ industry, departments, level, harness, selected?, excluded?, excludedSubtopics? }`, each with `selected`, `recommended`, `required`, `thirdPartyConnector`, `optionalFor`, `related` (`requires` and `requiredBy`, each with where it shows up), `reasons`, and, for a Microsoft Learn topic, its complete `learn.subtopics` (with `included`; see [Sub-topics](#sub-topics)). Nothing is selected unless the vertical or a department points at it (`preselectedIds`); `recommendedIds` lists every 1st-party topic the rules suggest, selected or not (`thirdPartyConnector` modules remain `selected: false` and `recommended: false` unless explicitly included in `selected`). Also returns `prerequisites` (lower-level topics included as recaps, with `neededBy`, `reason`, and recap `minutes`), `levelUnknown` (Learn topics whose level could not be resolved), `filter` (`level`, `label`, `shown`, `droppedSelections`), and `totals` (`selectedCount`, `prerequisiteCount`, `minutes`, `subtopicCount`, `subtopicTotal`), plus `selectedSubtopicIds`. A `selected` list that names other levels is filtered, not trusted. An unknown `excludedSubtopics` id is HTTP 400. Read-only. |
+| `POST` | `/api/lab-builder/preview` | Plan a lab (ordering, timing, warnings) without generating it. With a `level`, topics from other levels are dropped (`droppedOutOfLevel`), and each module has a `role` of `level` or `prerequisite`. Accepts `excludedSubtopics`; each module with sub-topics returns all of them under `subtopics` with `included`, and the response echoes `excludedSubtopics`. |
+| `POST` | `/api/lab-builder/generate` | Build the lab, write it (including per-topic `.docx` and `.pptx` files in `topics/` named per lab) to `generated-labs/`, and return markdown, `topicDocuments`, and validation. Accepts `excludedSubtopics` (saved in the manifest, see [Sub-topics](#sub-topics)). Optional `replaceLabId` (an existing generated lab) deletes that lab only after the new one was built and passed validation, and carries its notes over; a failed or canceled build leaves it alone. The response has `replacedLabId` when that happened. Optional `brandProfileId` and `overrides` snapshot a [brand profile](#brand-profiles-and-lab-customization) into `manifest.customization` so the lab is born customized. |
 | `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, products, vertical, level, harness, estimated minutes, topic count, `topicDocumentCount`, validation counts, `screenshots`, `learnDrift` (`status`, `lastCheckedAt`, `driftedModuleCount`, `driftedModules`, `missingScreenshotCount`, `moduleCount`), and `selections` (null for labs built before choices were saved). |
 | `GET` | `/api/lab-builder/learn-drift` | Return cached fleet-wide Microsoft Learn drift posture across all saved generated labs (`lastBulkScanAt`, `counts`, and per-lab `learnDrift` summaries) without making network requests. Also mounted at `/api/generated-labs/learn-drift`. |
 | `POST` | `/api/lab-builder/learn-drift/scan` | Bulk scan saved generated labs (all labs or an explicit `labIds` subset) against live Microsoft Learn documentation with bounded concurrency (`concurrency = 3`), optionally refreshing drifted steps, standalone HTML, and per-topic `.docx`/`.pptx` files when `autoUpdate: true`, and persisting `learn-drift-fleet.json`. Also mounted at `/api/generated-labs/learn-drift/scan`. |

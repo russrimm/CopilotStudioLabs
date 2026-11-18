@@ -147,11 +147,14 @@ export function getHarnesses() {
   return load().harnesses;
 }
 
-/** A catalog feature, or a topic discovered on Microsoft Learn (including merged companion IDs). */
-export function getFeature(id, { harness = null } = {}) {
+/**
+ * A catalog feature, or a topic discovered on Microsoft Learn (including merged companion IDs).
+ * `excludedSubtopics` leaves sub-topics out of a discovered topic; it has no effect on a catalog feature.
+ */
+export function getFeature(id, { harness = null, excludedSubtopics = null } = {}) {
   const data = load();
   if (data.byId.has(id)) return data.byId.get(id);
-  const dynamic = getDynamicFeature(id);
+  const dynamic = getDynamicFeature(id, { excludedSubtopics });
   if (dynamic) return dynamic;
   const coveredId = resolveLearnedTopicId(id, { harness, allowCoveredFeature: true });
   return coveredId ? data.byId.get(coveredId) || null : null;
