@@ -61,9 +61,26 @@ export function interactiveControlsInPage(max) {
   return { controls: out, dialogs: dialogs.slice(0, 4) };
 }
 
+const PERSONAL_NAME_PATTERNS = Object.freeze([
+  [/^(.*?\b(?:account|profile|user)\b.*?\bfor)\s+.+$/i, "$1 {name}"],
+  [/^(.*?\((?:current|selected|signed in as)\s*:?)\s*.+\)$/i, "$1 {name})"],
+  [/^(.*?\bsigned in as)\s+.+$/i, "$1 {name}"],
+]);
+
+/**
+ * Product menus name the signed-in person or the environment in the control's label ("Open account menu for <person>",
+ * "Switch environment (current: <name>)"). Those labels are kept without the name, so a diagnostic never carries it.
+ */
+export function genericControlName(raw) {
+  for (const [pattern, replacement] of PERSONAL_NAME_PATTERNS) {
+    if (pattern.test(raw)) return raw.replace(pattern, replacement);
+  }
+  return raw;
+}
+
 /** A control name is only kept when it is a UI label: never an address, an email, an id, or a long number. */
 export function cleanControlName(name, terms = []) {
-  const raw = String(name ?? "").replace(/\s+/g, " ").trim();
+  const raw = genericControlName(String(name ?? "").replace(/\s+/g, " ").trim());
   // A name that contained anything sensitive (an account, a tenant, a term to hide) is not a UI label: leave it out whole.
   if (!raw || scrubSensitiveText(raw, terms) !== raw) return "";
   if (/[^\s@]+@[^\s@]+/.test(raw) || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/i.test(raw) || /\d{6,}/.test(raw) || /https?:\/\//i.test(raw)) return "";

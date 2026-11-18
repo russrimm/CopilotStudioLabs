@@ -17,6 +17,7 @@ export const ACCOUNT_CONTROL_SELECTORS = Object.freeze([
   "[data-testid*='persona' i]",
   "button[aria-label*='Account manager' i]",
   "[aria-label^='Account manager for']",
+  "[aria-label^='Open account menu' i]",
   "button[aria-label*='profile' i][aria-label*='account' i]",
   "img[alt*='profile picture' i]",
   "[class*='userPhoto' i]",

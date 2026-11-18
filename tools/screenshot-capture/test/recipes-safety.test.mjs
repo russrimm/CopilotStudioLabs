@@ -136,6 +136,16 @@ test("a diagnostic file holds control names and page paths only", () => {
   assert.match(diagnosticAdvice(null), /could not be saved/);
 });
 
+test("a control label that names the signed-in person or the environment is kept without the name", () => {
+  assert.equal(cleanControlName("Open account menu for Ada Lovelace", []), "Open account menu for {name}");
+  assert.equal(cleanControlName("Switch environment (current: Contoso Dev)", []), "Switch environment (current: {name})");
+  assert.equal(cleanControlName("Signed in as Ada Lovelace", []), "Signed in as {name}");
+  assert.equal(cleanControlName("Open account menu", []), "Open account menu", "a label with no name is left alone");
+  const bundle = buildDiagnosticBundle({ frames: [{ index: 0, controls: [{ role: "button", name: "Open account menu for Ada Lovelace", area: "nav" }, { role: "button", name: "Switch environment (current: Contoso Dev)", area: "nav" }] }] });
+  const text = JSON.stringify(bundle);
+  for (const secret of ["Ada", "Lovelace", "Contoso"]) assert.equal(text.includes(secret), false, `${secret} is not in the file`);
+});
+
 test("the practice agent is the only thing the computer may change, it is named plainly, and everything it made is listed", () => {
   const home = temp();
   assert.match(practiceName(() => "ab12cd"), /^Lab screenshots - ab12cd$/);
