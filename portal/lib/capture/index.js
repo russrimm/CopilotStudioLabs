@@ -16,6 +16,7 @@ import { detectBrowserAvailability } from "../../../tools/screenshot-capture/lab
 import { productLabel } from "../../../tools/screenshot-capture/auth.mjs";
 import { validateTargets, missingRequirements } from "../../../tools/screenshot-capture/targets.mjs";
 import { summarizeMissing } from "./classify.js";
+import { ACCOUNT_MIN_COMPANION, PRODUCT_ID_RE } from "./account.js";
 import { autonomyFor, createConsentStore, describeConsent, validateConsent } from "./consent.js";
 import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "./jobs.js";
 import { COMPANION_ONLINE_MS, PAIRING_CODE_TTL_MS, createPairingStore } from "./pairing.js";
@@ -164,7 +165,49 @@ export function createCapturePlatform({
     return { connected: true, supported, version: online[0].companionVersion || null };
   }
 
-  /** `GET /api/capture/status`. */
+  /** The capture settings (addresses and names) in effect, as an account setup request carries them, so the landing can be checked. */
+  function setupTargets(labId) {
+    try {
+      const manifest = labId ? readLabManifest(labId) : null;
+      const activeId = getActiveProfileId(env);
+      const profile = activeId ? brand.findProfile?.(activeId, env) || null : null;
+      const resolved = resolveCaptureTargets({ manifest, profile, env, request: {} });
+      const carried = jobTargetsFrom(resolved);
+      const merged = validateCaptureEnv(carried.env);
+      return { env: merged.ok ? merged.env : {}, targets: carried.text || {} };
+    } catch {
+      return { env: {}, targets: {} };
+    }
+  }
+
+  /**
+   * "Choose which account to use": ask a connected computer to open the sign-in window so the person can sign in with the
+   * account they want. The request is given to the computer on its next check-in (see the heartbeat route).
+   * @returns {{status: number, body: object}}
+   */
+  function requestAccountSetup(body = {}) {
+    const product = typeof body.product === "string" && PRODUCT_ID_RE.test(body.product) ? body.product : "copilot-studio";
+    const labId = typeof body.labId === "string" && /^[a-z0-9][a-z0-9-]{0,99}$/i.test(body.labId) ? body.labId : null;
+    const online = (pairing.status().devices || []).filter((d) => d.connected);
+    if (!online.length) return { status: 409, body: { error: "No computer is connected. Connect your computer first, then choose the account.", code: "no-companion" } };
+    const capable = online.filter((d) => versionAtLeast(d.companionVersion, ACCOUNT_MIN_COMPANION));
+    if (!capable.length) {
+      return { status: 409, body: { error: `Your Local Capture Companion is older than ${ACCOUNT_MIN_COMPANION}, so it cannot choose an account yet. Download it again and replace the old one. Until then, run it with --browser=chromium to avoid your Windows work account.`, code: "companion-too-old" } };
+    }
+    const device = capable.find((d) => !d.busy);
+    if (!device) return { status: 409, body: { error: "Your computer is capturing right now. Choose the account when the capture has finished.", code: "busy" } };
+    const carried = setupTargets(labId);
+    const queued = pairing.queueCommand(device.id, { type: "setup-account", product, env: carried.env, targets: carried.targets });
+    return { status: 202, body: { requested: true, id: queued.id, product, deviceName: device.name, message: `Look for a new browser window on ${device.name}. Sign in there with the account you want your screenshots to come from. You choose the account yourself; the computer never clicks for you.` } };
+  }
+
+  /** Which companions can report and choose an account, for the Screenshot Center. */
+  function accountCapability() {
+    const online = (pairing.status().devices || []).filter((d) => d.connected);
+    return { connected: online.length > 0, supported: online.some((d) => versionAtLeast(d.companionVersion, ACCOUNT_MIN_COMPANION)), minCompanion: ACCOUNT_MIN_COMPANION };
+  }
+
+  /** `GET /api/capture/status`: what the portal shows (is a companion connected, since when, signed in to which products, and with which account). */
   async function statusPayload() {
     await refreshServerBrowser();
     const companion = pairing.status();
@@ -187,6 +230,11 @@ export function createCapturePlatform({
         devices: companion.devices,
         downloadUrl: COMPANION_DOWNLOAD_URL,
         onlineWindowSec: Math.round(COMPANION_ONLINE_MS / 1000),
+        // Where the screenshots come from (flags only). Null while no connected companion says (an older one does not).
+        account: companion.account,
+        accountSetup: companion.accountSetup,
+        accountMinCompanion: ACCOUNT_MIN_COMPANION,
+        accountSupported: accountCapability().supported,
       },
       serverBrowser: {
         available: browser.available,
@@ -457,6 +505,8 @@ export function createCapturePlatform({
     capabilities,
     statusPayload,
     queueJob,
+    requestAccountSetup,
+    accountCapability,
     consentPayload,
     saveConsent,
     revokeConsent,

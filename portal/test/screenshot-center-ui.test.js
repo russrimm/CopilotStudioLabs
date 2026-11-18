@@ -2127,3 +2127,267 @@ test("the Screenshot Center scripts load in order and its live regions are annou
   assert.doesNotMatch(withoutCli, /Playwright|Learn Sync|\.auth|headed|headless/i, "technical terms only appear in the command-line fallback");
   assert.doesNotMatch(centerSource, /\b(colour|behaviour|centre|licence|organis|catalogue|favourite)\w*/i, "US English only");
 });
+
+// ── Which account the screenshots come from ─────────────────────────────────
+
+const ACCOUNT_GOOD = { mode: "separate", source: "manual", verified: true, verifiedFor: "agent", osWorkAccountDetected: true, browser: "chromium", inOsTenant: false, inPrivate: false };
+const ACCOUNT_SSO = { mode: "separate", source: "windows-sso", verified: false, verifiedFor: null, osWorkAccountDetected: true, browser: "edge", inOsTenant: true, inPrivate: false };
+const FAKE_TENANT = "0a1b2c3d-1111-4222-8333-444455556666";
+const FAKE_UPN = "ada.fake@example.invalid";
+
+function accountStatus(account, { setup = null, supported = true, devices = [device()] } = {}) {
+  const status = statusPayload({ devices, signedIn: ["copilot-studio"] });
+  if (account !== undefined) status.companion.account = account;
+  status.companion.accountSupported = supported;
+  status.companion.accountMinCompanion = "1.5.0";
+  if (setup) status.companion.accountSetup = setup;
+  return status;
+}
+
+test("the account line says exactly which account the computer uses, in plain words and never an id", () => {
+  const h = makeHarness();
+  const model = (companion) => json(h.run("scAccountModel")(companion));
+  assert.equal(model(null), null);
+  assert.equal(model({ connected: false, account: ACCOUNT_GOOD }), null, "nothing to say before a computer is connected");
+
+  const old = model({ connected: true, account: null, accountMinCompanion: "1.5.0" });
+  assert.equal(old.state, "not-reported");
+  assert.equal(old.text, "Account not reported (update the companion)");
+  assert.match(old.help, /older than 1\.5\.0.*--browser=chromium/);
+  assert.equal(old.fix, null, "an older companion cannot choose an account, so there is no button");
+
+  const good = model({ connected: true, account: ACCOUNT_GOOD, accountSupported: true });
+  assert.deepEqual([good.state, good.tone, good.fix], ["verified", "ok", null]);
+  assert.equal(good.text, "Account: separate sign-in (browser: Chromium), verified for your agent.");
+
+  const sso = model({ connected: true, account: ACCOUNT_SSO, accountSupported: true });
+  assert.deepEqual([sso.state, sso.tone], ["windows-account", "warn"]);
+  assert.equal(sso.text, "Account: your Windows work account (Edge single sign-on). Screenshots will come from that account.");
+  assert.deepEqual(sso.fix, { id: "account-setup", label: "Choose which account to use" });
+
+  const unverified = model({ connected: true, account: { ...ACCOUNT_GOOD, verified: false, verifiedFor: null }, accountSupported: true });
+  assert.deepEqual([unverified.state, unverified.tone], ["unverified", "neutral"]);
+  assert.match(unverified.text, /^Account: separate sign-in \(browser: Chromium\)\. Account not verified\.$/);
+  assert.match(unverified.help, /Automatic capture waits until the account is chosen/);
+  assert.equal(unverified.fix.label, "Choose which account to use");
+
+  const confirmed = model({ connected: true, account: { ...ACCOUNT_GOOD, verifiedFor: null }, accountSupported: true });
+  assert.equal(confirmed.text, "Account: separate sign-in (browser: Chromium), confirmed by you.");
+
+  const same = model({ connected: true, account: { ...ACCOUNT_GOOD, inOsTenant: true }, accountSupported: true });
+  assert.deepEqual([same.state, same.tone], ["same-as-windows", "warn"]);
+  assert.match(same.text, /It is the same account Windows uses for work\.$/);
+  assert.ok(same.fix);
+
+  const inPrivate = model({ connected: true, account: { ...ACCOUNT_GOOD, browser: "edge", inPrivate: true }, accountSupported: true });
+  assert.match(inPrivate.text, /\(browser: Edge, InPrivate\)/);
+  const windows = model({ connected: true, account: { ...ACCOUNT_GOOD, mode: "windows", browser: "edge" }, accountSupported: true });
+  assert.match(windows.text, /with your Windows work account allowed \(browser: Edge\), verified for your agent\./);
+
+  // Junk from the network is trimmed to known words, and a sentence from the computer never carries an address, an account, or an id.
+  const junk = model({ connected: true, account: { mode: "x", source: FAKE_UPN, browser: "<img src=x onerror=alert(1)>", verifiedFor: FAKE_TENANT, verified: true }, accountSupported: true });
+  assert.doesNotMatch(junk.text, /img|onerror|ada\.fake|0a1b2c3d/);
+  const setup = model({ connected: true, account: ACCOUNT_GOOD, accountSetup: { state: "failed", message: `Went to https://copilotstudio.microsoft.com/environments/Default-${FAKE_TENANT}/home as ${FAKE_UPN}` } }).setup;
+  assert.equal(setup.text, "Went to as");
+  assert.deepEqual(json(h.run("scAccountSetupLine")({ state: "bogus" })), null);
+  assert.match(json(h.run("scAccountSetupLine")({ state: "waiting-for-you" })).text, /Sign in in the browser window on your computer, with the account you want\. You choose the account yourself\./);
+  assert.equal(json(h.run("scAccountSetupLine")({ state: "requested" })).busy, true);
+  assert.equal(json(h.run("scAccountSetupLine")({ state: "done" })).busy, false);
+});
+
+test("the account line shows under the setup steps with a warning and one button when it is not what the person wants", async () => {
+  const h = makeHarness();
+  await h.setStatus(accountStatus(ACCOUNT_SSO));
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  const line = h.host.querySelector("[data-sc-account]");
+  assert.ok(line, "the account line is on the page");
+  assert.equal(line.dataset.scAccount, "windows-account");
+  assert.ok(line.classList.contains("sc-account-warn"));
+  assert.equal(line.getAttribute("role"), "group");
+  assert.equal(line.getAttribute("aria-label"), "Which account the screenshots come from");
+  assert.equal(h.text("[data-sc-account-text]"), "Account: your Windows work account (Edge single sign-on). Screenshots will come from that account.");
+  assert.ok(line.querySelectorAll(".sc-chip").some((c) => c.textContent === "Check this"), "the warning is also in words, not only in color");
+  const button = h.action("account-setup", line);
+  assert.equal(button.tagName, "BUTTON", "a real button, reachable by keyboard");
+  assert.equal(button.textContent, "Choose which account to use");
+  assert.ok(button.classList.contains("btn-primary"), "the one-click fix is the highlighted action");
+  const status = line.querySelector("[data-sc-account-setup]");
+  assert.deepEqual([status.getAttribute("role"), status.getAttribute("aria-live")], ["status", "polite"], "progress is announced politely");
+  assert.equal(status.hasAttribute("hidden"), true, "nothing to say yet");
+
+  // Placed after the setup steps and before the automatic-capture line.
+  const html = h.center().children.map((c) => c.className);
+  assert.ok(html.findIndex((c) => /sc-steps/.test(c)) < html.findIndex((c) => /sc-account/.test(c)));
+
+  // A good account has no button and no warning.
+  await h.setStatus(accountStatus(ACCOUNT_GOOD));
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  const ok = h.host.querySelector("[data-sc-account]");
+  assert.equal(ok.dataset.scAccount, "verified");
+  assert.ok(ok.classList.contains("sc-account-ok"));
+  assert.equal(h.action("account-setup", ok), null);
+  assert.equal(h.text("[data-sc-account-text]"), "Account: separate sign-in (browser: Chromium), verified for your agent.");
+
+  // Before any computer is connected there is nothing to say.
+  await h.setStatus(statusPayload({ devices: [] }));
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  assert.equal(h.host.querySelector("[data-sc-account]"), null);
+});
+
+test("a companion from before account checks is told to update, with no button that could not work", async () => {
+  const h = makeHarness();
+  await h.setStatus(accountStatus(undefined, { supported: false, devices: [device({ companionVersion: "1.4.0" })] }));
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  const line = h.host.querySelector("[data-sc-account]");
+  assert.equal(line.dataset.scAccount, "not-reported");
+  assert.equal(h.text("[data-sc-account-text]"), "Account not reported (update the companion)");
+  assert.match(h.text("[data-sc-account-help]"), /Download it again and replace the old one/);
+  assert.equal(h.action("account-setup", line), null);
+});
+
+test("choosing the account asks the computer, announces what to do, follows the setup on the computer, and never types or clicks for the person", async () => {
+  const h = makeHarness();
+  await h.setStatus(accountStatus(ACCOUNT_SSO));
+  h.route("POST", /\/api\/capture\/account-setup$/, { status: 202, body: { requested: true, id: "cmd_0123456789ab", product: "copilot-studio", deviceName: "Ada PC", message: "Look for a new browser window on Ada PC. Sign in there with the account you want your screenshots to come from. You choose the account yourself; the computer never clicks for you." } });
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  await h.click(h.action("account-setup"));
+  const posts = h.callsTo("POST", /account-setup$/);
+  assert.equal(posts.length, 1);
+  assert.deepEqual(posts[0].body, { product: "copilot-studio", labId: LAB });
+  assert.match(h.live(), /Look for a new browser window on Ada PC/, "the instruction is announced");
+
+  // The computer reports that it is waiting for the person; the page notices without a reload.
+  h.status = accountStatus(ACCOUNT_SSO, { setup: { id: "cmd_0123456789ab", product: "copilot-studio", state: "waiting-for-you", message: "Sign in to Microsoft Copilot Studio in the browser window on your computer, with the account you want." } });
+  h.advance(3100);
+  await h.flush();
+  const status = h.host.querySelector("[data-sc-account-setup]");
+  assert.equal(status.dataset.scAccountSetup, "waiting-for-you");
+  assert.match(status.textContent, /Sign in to Microsoft Copilot Studio in the browser window on your computer/);
+  assert.equal(status.hasAttribute("hidden"), false);
+  const waiting = h.action("account-setup");
+  assert.equal(waiting.textContent, "Waiting for your computer");
+  assert.equal(waiting.hasAttribute("disabled"), true, "no second request while the first is open");
+
+  // The person chose their account; the page shows it and stops polling.
+  h.status = accountStatus(ACCOUNT_GOOD, { setup: { id: "cmd_0123456789ab", product: "copilot-studio", state: "done", message: "The account is chosen and saved." } });
+  h.advance(3100);
+  await h.flush();
+  assert.equal(h.text("[data-sc-account-text]"), "Account: separate sign-in (browser: Chromium), verified for your agent.");
+  assert.equal(h.host.querySelector("[data-sc-account-setup]").textContent, "The account is chosen and saved.");
+  assert.match(h.live(), /The account is chosen and saved\./);
+  const before = h.callsTo("GET", /\/api\/capture\/status$/).length;
+  h.advance(10_000);
+  await h.flush();
+  assert.equal(h.callsTo("GET", /\/api\/capture\/status$/).length, before, "polling stopped once the setup ended");
+});
+
+test("when the portal cannot ask the computer, the person is told why and can try again", async () => {
+  const h = makeHarness();
+  await h.setStatus(accountStatus(ACCOUNT_SSO));
+  h.route("POST", /\/api\/capture\/account-setup$/, { status: 409, body: { error: "Your computer is capturing right now. Choose the account when the capture has finished.", code: "busy" } });
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  await h.click(h.action("account-setup"));
+  const status = h.host.querySelector("[data-sc-account-setup]");
+  assert.equal(status.textContent, "Your computer is capturing right now. Choose the account when the capture has finished.");
+  assert.ok(status.classList.contains("sc-account-setup-warn"));
+  assert.equal(h.action("account-setup").hasAttribute("disabled"), false, "the person can try again");
+  assert.match(h.live(), /capturing right now/);
+
+  h.route("POST", /\/api\/capture\/account-setup$/, { throws: "offline" });
+  await h.click(h.action("account-setup"));
+  assert.match(h.host.querySelector("[data-sc-account-setup]").textContent, /Check your connection and try again/);
+});
+
+test("nothing the computer says about the account can add markup or show an id, and a made-up setup state is ignored", async () => {
+  const h = makeHarness();
+  const evil = "<img src=x onerror=alert(1)><b>bold</b>";
+  await h.setStatus(accountStatus({ ...ACCOUNT_SSO, browser: evil, source: evil, verifiedFor: evil }, { setup: { id: "cmd_0123456789ab", product: "copilot-studio", state: "failed", message: `${evil} https://x.example/${FAKE_TENANT} ${FAKE_UPN}` } }));
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  const line = h.host.querySelector("[data-sc-account]");
+  assert.equal(line.querySelectorAll("img").length, 0);
+  assert.equal(line.querySelectorAll("b").length, 0);
+  assert.doesNotMatch(line.textContent, /ada\.fake|0a1b2c3d|https?:/, "no tenant id, address, or account name on the page");
+  assert.match(line.querySelector("[data-sc-account-setup]").textContent, /^<img src=x onerror=alert\(1\)><b>bold<\/b>$/, "markup arrives as plain text, never as elements");
+  await h.setStatus(accountStatus(ACCOUNT_GOOD, { setup: { state: "hacked", message: "x" } }));
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  assert.equal(h.host.querySelector("[data-sc-account-setup]").hasAttribute("hidden"), true);
+});
+
+test("the consent card says which account the computer will use and that automatic capture waits for it", async () => {
+  const h = makeHarness();
+  await h.setStatus({ ...accountStatus(ACCOUNT_GOOD), autonomy: { loaded: true, consented: false, level: null, rules: { never: [], tiers: [] }, companionSupported: true, minCompanion: "1.4.0" } });
+  await h.render(stateFor([shot({ filename: "a.png" })]));
+  await h.click(h.action("consent-open"));
+  const card = h.host.querySelector("[data-sc-consent]");
+  assert.ok(card);
+  const account = card.querySelector("[data-sc-consent-account]");
+  assert.equal(account.textContent, "The computer will use this account: separate sign-in (browser: Chromium), verified for your agent.");
+  assert.equal(account.dataset.scConsentAccount, "verified");
+  assert.match(card.textContent, /Automatic capture also waits until the account is verified against your own agent or site address, or you have chosen it once/);
+
+  await h.setStatus({ ...accountStatus(ACCOUNT_SSO), autonomy: { loaded: true, consented: false, level: null, rules: { never: [], tiers: [] }, companionSupported: true, minCompanion: "1.4.0" } });
+  h.run("scRerender")(LAB);
+  assert.match(h.host.querySelector("[data-sc-consent-account]").textContent, /^The computer will use this account: your Windows work account \(Edge single sign-on\)\. Screenshots will come from that account\.$/);
+  const none = makeHarness();
+  await none.setStatus({ ...statusPayload({ devices: [] }), autonomy: { loaded: true, consented: false, level: null, rules: { never: [], tiers: [] }, companionSupported: true, minCompanion: "1.4.0" } });
+  await none.render(stateFor([shot({ filename: "a.png" })]));
+  await none.click(none.action("consent-open"));
+  assert.match(none.host.querySelector("[data-sc-consent-account]").textContent, /Connect your computer to see which account that is/);
+});
+
+test("a capture that stopped on the account gets one plain sentence and the same one-click fix", async () => {
+  const h = makeHarness();
+  await h.setStatus(accountStatus(ACCOUNT_SSO));
+  h.route("POST", /\/api\/capture\/account-setup$/, { status: 202, body: { requested: true, message: "Look for a new browser window." } });
+  const rows = [
+    { filename: "a.png", status: "needs-account", attempts: 1, cause: "needs-account" },
+    { filename: "b.png", status: "needs-account", attempts: 1, cause: "needs-account" },
+  ];
+  const sentence = "Edge signed in automatically with your Windows work account, not the account that owns this agent. Restart with --browser=chromium, or run --setup-account.";
+  const job = jobFor([shot({ filename: "a.png" }), shot({ filename: "b.png" })], {
+    status: "failed",
+    error: sentence,
+    shots: rows,
+    progress: { total: 2, done: 2, captured: 0, needsReview: 0, failed: 2, manual: 0, skipped: 0, running: 0, pending: 0, percent: 100 },
+    causes: [{ code: "needs-account", title: "Signed in to the wrong account", fix: "Choose which account to use: sign in with the account that owns your agent or site (for example your demo tenant), then retake.", fixAction: "account", tone: "warn", count: 2, filenames: ["a.png", "b.png"] }],
+    result: { needsAccount: { code: "windows-account", product: "copilot-studio", message: sentence }, account: ACCOUNT_SSO },
+  });
+  const outcome = json(h.run("scOutcomeFromJob")(job));
+  assert.equal(outcome.needsAccount.code, "windows-account");
+  assert.equal(outcome.causes[0].fixAction, "account");
+  assert.match(outcome.message, /Capture did not finish\. Edge signed in automatically with your Windows work account/);
+  assert.equal(json(h.run("scDescribeJob")(job)).phase, "failed");
+  const running = jobFor([shot({ filename: "a.png" })], { status: "running", claim: { lastActivityAt: new Date(NOW).toISOString() }, shots: [{ filename: "a.png", status: "needs-account", attempts: 1 }] });
+  assert.equal(json(h.run("scDescribeJob")(running)).phase, "needs-account");
+  assert.equal(json(h.run("scDescribeJob")(running)).headline, "Wrong account on your computer");
+
+  await h.render(stateFor([shot({ filename: "a.png" }), shot({ filename: "b.png", id: 2 })]), { outcome });
+  const banner = h.host.querySelector("[data-sc-banner]");
+  const fix = banner.querySelector('[data-sc-cause="needs-account"] [data-sc-action="cause-fix"]');
+  assert.equal(fix.textContent, "Choose which account to use");
+  await h.click(fix);
+  assert.equal(h.callsTo("POST", /account-setup$/).length, 1, "the cause's fix asks the computer to open the sign-in window");
+  assert.equal(json(h.run("scShotStatus")({ captured: false }, null, { status: "needs-account" })).key, "failed", "the shot shows as failed");
+  assert.equal(json(h.run("scProgressFromShots")(rows)).failed, 2);
+});
+
+test("the account styles use theme tokens, keep AA contrast in every theme, and add no print rules", () => {
+  for (const [name, t] of [["dark", DARK], ["light", LIGHT], ["light (system)", LIGHT_AUTO]]) {
+    assert.ok(contrast(t["--text"], t["--surface"]) >= 4.5, `${name}: the account line text on its surface`);
+    for (const tone of ["info", "warn"]) assert.ok(contrast(t[`--sc-${tone}-fg`], t[`--sc-${tone}-bg`]) >= 4.5, `${name}: the setup status (${tone})`);
+    for (const tone of ["ok", "warn", "neutral"]) assert.ok(contrast(t[`--sc-${tone}-border`], t["--surface"]) >= 1.5, `${name}: the ${tone} edge is visible on the surface`);
+  }
+  const screenCss = STYLE.split("@media print")[0];
+  const rule = (selector) => screenCss.match(new RegExp(`${selector.replace(/[.\[\]]/g, "\\$&")} \\{([^}]*)\\}`))?.[1] || "";
+  assert.match(rule(".sc-account"), /background: var\(--surface\)/);
+  assert.match(rule(".sc-account-ok"), /border-left-color: var\(--sc-ok-border\)/);
+  assert.match(rule(".sc-account-warn"), /border-left-color: var\(--sc-warn-border\)/);
+  assert.match(rule(".sc-account-text"), /color: var\(--text\)/);
+  assert.match(rule(".sc-account-setup"), /background: var\(--sc-info-bg\)[^}]*color: var\(--sc-info-fg\)/);
+  assert.match(rule(".sc-account-setup-warn"), /var\(--sc-warn-bg\)[^}]*var\(--sc-warn-fg\)/);
+  for (const selector of [".sc-account", ".sc-account-head", ".sc-account-setup", ".sc-banner-account"]) assert.ok(screenCss.includes(`${selector} {`), `${selector} is screen CSS`);
+  assert.equal(STYLE.split("@media print").length, 2, "there is still exactly one print block");
+  const printCss = STYLE.split("@media print")[1];
+  assert.doesNotMatch(printCss.split("\n    @media")[0], /\.sc-account/, "no account-specific print rule: the whole Center is already hidden in print");
+  assert.ok(printCss.includes(".sc-center,"), "the Center, and so the account line, is hidden in print");
+});

@@ -24,12 +24,15 @@ import readline from "node:readline";
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { createAuthGate, forgetSignIn, listSignedInProducts, productLabel, profileDir, readSignInStates, restoreSession, saveSession, SESSION_FILE } from "./auth.mjs";
-import { closeAllAttached, launchAttached, parseLaunchChoice, wantsAttach } from "./attach.mjs";
-import { browserLabel, chooseBrowsers, detectInstalledBrowsers, isMissingBrowserError, launchBrowser, missingBrowserMessage, parseBrowserChoice } from "./browsers.mjs";
+import { parseAccountMode, readEdgeSignInPolicy, readOsAccount } from "./account-source.mjs";
+import { describeAccountState, describeAccount, browserShortName, verifyProductAccount } from "./account-guard.mjs";
+import { createAuthGate, forgetSignIn, listSignedInProducts, productLabel, profileDir, profileNamespace, readSignInStates, restoreSession, saveSession, SESSION_FILE } from "./auth.mjs";
+import { closeAllAttached, closeStrayTabs, fitWindow, launchAttached, parseLaunchChoice, wantsAttach } from "./attach.mjs";
+import { browserLabel, chooseBrowsers, detectInstalledBrowsers, isMissingBrowserError, launchBrowser, launchPolicy, missingBrowserMessage, parseBrowserChoice } from "./browsers.mjs";
 import { createCaptureSession } from "./capture-run.mjs";
 import { causeForVerification } from "./causes.mjs";
 import { createSignInDiagnoser, runCheckSignIn } from "./check-signin.mjs";
+import { runSetupAccount } from "./account-setup.mjs";
 import { diagnosticAdvice, writeDiagnostic } from "./diagnostics.mjs";
 import { blockedInstructionReason, blockedLabelReason, resolveAutonomy } from "./guard.mjs";
 import { deleteOldSignIn, describeHomeState, migrateLegacyHome, oldSignInAdvice, resolveHome, syncedHomeMessage } from "./home.mjs";
@@ -41,10 +44,10 @@ import { createPracticeRegistry, summarizeCreated, writePracticeReport } from ".
 import { createRecipeStore } from "./recipes.mjs";
 import { applyRedaction, burnCalloutMarkers, clearOverlays, collectVisibleLabels, scrubSensitiveText } from "./redact.mjs";
 import { diagnosisLines, signInReport } from "./signin-diagnosis.mjs";
-import { effectiveModeFor, targetField, validateTargetValue } from "./targets.mjs";
+import { effectiveModeFor, targetField, targetValuesFromJob, validateTargetValue } from "./targets.mjs";
 import { createTrace, traceFilePath } from "./trace.mjs";
 
-export const COMPANION_VERSION = "1.4.0";
+export const COMPANION_VERSION = "1.5.0";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";
@@ -70,6 +73,7 @@ Usage:
   node companion.mjs --once [--wait=<seconds>]                  Run one queued job and exit
   node companion.mjs --status                                   Show the connection, the data folder, and the sign-in state of each product
   node companion.mjs --check-signin[=<product>]                  Open the product once, watch the sign-in, and say why it does or does not stick (default copilot-studio)
+  node companion.mjs --setup-account[=<product>]                 Choose which account the screenshots come from: opens the product so you sign in with the account you want (for example your demo tenant), then remembers it
   node companion.mjs --forget-signin=<product|all>              Delete the saved sign-in for a product (you sign in again next time)
   node companion.mjs --delete-old-signin                         Delete the old sign-in folder that earlier versions kept beside the code
   node companion.mjs --dry-run-plan[=<job file>]                 Print every step the computer would take, tier by tier, without a browser
@@ -77,7 +81,8 @@ Usage:
   node companion.mjs --unpair                                   Forget this computer's pairing
 
 Options:
-  --browser=auto|edge|chrome|chromium   Which browser to open (default auto: Microsoft Edge, then Google Chrome, then Chromium)
+  --browser=auto|edge|chrome|chromium   Which browser to open (default auto). On a PC with a Windows work account, auto tries Google Chrome, then Chromium, then Microsoft Edge (opened InPrivate), so a screenshot is not taken with your work account by accident. Otherwise: Edge, then Chrome, then Chromium
+  --account-mode=separate|windows   Which account the browser signs in with. separate (the default on a PC with a Windows work account): you sign in yourself, once, with the account you want, and Edge is never used with your Windows account. windows: allow Edge to sign in with your Windows work account on purpose (screenshots then come from that account)
   --launch=auto|attach|playwright   How Edge or Chrome is started. attach (the default for them) starts your normal browser and connects to it, which keeps work sign-in working; playwright uses the automation launcher
   --callouts=sidecar|burn|none   Numbered callouts: save positions only (default), draw them on the image, or skip
   --mask=<text>[,<text>]         Extra text to hide (for example your tenant name)
@@ -102,7 +107,7 @@ Options:
 `;
 }
 
-const parseDefaults = () => ({ watch: true, once: false, waitSec: 0, callouts: null, maskTerms: [], redact: true, intervalSec: 4, signInWaitSec: SIGN_IN_WAIT_MS / 1000, verbose: false, browser: "auto", launch: "auto", debug: false, trace: null, forgetSignin: null });
+const parseDefaults = () => ({ watch: true, once: false, waitSec: 0, callouts: null, maskTerms: [], redact: true, intervalSec: 4, signInWaitSec: SIGN_IN_WAIT_MS / 1000, verbose: false, browser: "auto", launch: "auto", debug: false, trace: null, forgetSignin: null, accountMode: null, setupAccount: null });
 
 export function parseArgs(argv = []) {
   const opts = parseDefaults();
@@ -162,6 +167,18 @@ export function parseArgs(argv = []) {
       else opts.checkSignin = product;
     }
     else if (arg === "--install-browser") opts.installBrowser = true;
+    else if (arg === "--setup-account") {
+      // The product may follow as a separate word (--setup-account copilot-studio).
+      const next = list[i + 1];
+      if (next !== undefined && /^[a-z0-9-]{1,60}$/i.test(next) && !next.startsWith("--")) {
+        opts.setupAccount = next;
+        i += 1;
+      } else opts.setupAccount = "copilot-studio";
+    } else if (arg.startsWith("--setup-account=")) {
+      const product = arg.slice("--setup-account=".length);
+      if (!/^[a-z0-9-]{1,60}$/i.test(product)) opts.error = "--setup-account needs a product name such as copilot-studio.";
+      else opts.setupAccount = product;
+    }
     else if ((v = valued("portal")) !== undefined) opts.portal = v;
     else if ((v = valued("code")) !== undefined) opts.code = v;
     else if ((v = valued("home")) !== undefined) opts.home = v;
@@ -174,6 +191,10 @@ export function parseArgs(argv = []) {
     else if ((v = valued("browser")) !== undefined) {
       const choice = parseBrowserChoice(v === true ? "" : v);
       if (choice.ok) opts.browser = choice.browser;
+      else opts.error = choice.error;
+    } else if ((v = valued("account-mode")) !== undefined) {
+      const choice = parseAccountMode(v === true ? "" : v);
+      if (choice.ok) opts.accountMode = choice.mode;
       else opts.error = choice.error;
     } else if ((v = valued("launch")) !== undefined) {
       const choice = parseLaunchChoice(v === true ? "" : v);
@@ -289,9 +310,11 @@ export async function probeBackground({ opened, profile, shot, env = {}, sleepFn
  * Products whose sign-in has worked on this computer: a screenshot was captured and the session was saved.
  * A profile folder alone does not count (the browser creates one the moment it opens, signed in or not).
  */
-export function listSignedInProfiles(home) {
-  return listSignedInProducts(home);
+export function listSignedInProfiles(home, { namespace } = {}) {
+  return listSignedInProducts(home, { namespace });
 }
+
+const ACCOUNT_SOURCE_WORDS = { "windows-sso": "your Windows work account signed in by itself", manual: "you signed in yourself", "saved-session": "a saved sign-in (made earlier)", unknown: "not checked yet" };
 
 /** Plain-language lines about each product's sign-in on this computer, for --status. */
 export function describeSignInState(home) {
@@ -304,10 +327,12 @@ export function describeSignInState(home) {
     lines.push(`  ${entry.label} (${entry.product}): ${verdict}`);
     for (const p of entry.profiles) {
       const last = p.lastCapturedAt ? p.lastCapturedAt.replace("T", " ").slice(0, 16) : "never";
-      lines.push(`    ${browserLabel(p.browser)}: profile saved ${yesNo(p.profilePresent)}, session saved ${yesNo(p.savedSession)}, last successful capture ${last}`);
+      const kind = p.namespace === "separate" ? " (separate sign-in)" : "";
+      lines.push(`    ${browserLabel(p.browser)}${kind}: profile saved ${yesNo(p.profilePresent)}, session saved ${yesNo(p.savedSession)}, last successful capture ${last}`);
+      if (p.accountSource) lines.push(`      Account: ${ACCOUNT_SOURCE_WORDS[p.accountSource] || p.accountSource}${p.accountVerified ? ", checked against your address" : p.accountConfirmed ? ", confirmed by you" : ", not verified"}${p.accountInOsTenant === true ? "; it is the same account Windows uses for work" : ""}.`);
     }
   }
-  lines.push("To make a product ask for sign-in again, run with --forget-signin=<product> (or all).");
+  lines.push("To make a product ask for sign-in again, run with --forget-signin=<product> (or all). To choose which account is used, run with --setup-account.");
   return lines;
 }
 
@@ -349,7 +374,7 @@ export function createPortalClient({ portal, token = null, fetchImpl = globalThi
     } catch (err) {
       throw new PortalError("unreachable", `Cannot reach the portal at ${portal}. Check your internet connection or VPN. (${err?.cause?.code || err?.name || "network error"})`);
     }
-    if (res.status === 204) return { status: 204, body: null };
+    if (res.status === 204) return { status: 204, body: null, wake: res.headers?.get?.("x-companion-wake") === "1" };
     let data = null;
     try {
       data = await res.json();
@@ -371,6 +396,9 @@ export function createPortalClient({ portal, token = null, fetchImpl = globalThi
     if (result.rejected) throw new PortalError("client", result.body?.error || `The portal refused ${what} (HTTP ${result.status}).`, { status: result.status, code: result.body?.code || null, body: result.body });
     return result.body;
   };
+  // The portal sets a header on an empty job reply when it has something to tell this computer (a request to choose the
+  // account). Older portals never do, and older companions ignore it.
+  let wake = false;
 
   return {
     async pair({ code, deviceName, platform = process.platform }) {
@@ -383,7 +411,14 @@ export function createPortalClient({ portal, token = null, fetchImpl = globalThi
     },
     async next() {
       const result = await request("GET", "/api/capture/companion/next");
+      wake = result.status === 204 && result.wake === true;
       return result.status === 204 ? null : must(result, "the job request");
+    },
+    /** Whether the last empty job reply said the portal has something waiting for this computer. Reading it clears it. */
+    takeWake() {
+      const value = wake;
+      wake = false;
+      return value;
     },
     async progress(jobId, body) {
       return must(await request("POST", `/api/capture/companion/jobs/${jobId}/progress`, { json: body }), "the progress update");
@@ -451,16 +486,20 @@ function failureText(check) {
  * cannot start, the automation launcher is used with one clear message. A browser that is not installed is skipped;
  * any other launch problem is reported as it is.
  */
-export async function openProfile({ playwright, home, profile, kinds, headless = false, log = console.log, trace = null, launch = "auto", installed = null, attachOptions = {} }) {
+export async function openProfile({ playwright, home, profile, kinds, headless = false, log = console.log, trace = null, launch = "auto", installed = null, attachOptions = {}, account = null }) {
   const found = installed || detectInstalledBrowsers();
+  // Where the profile lives and how Edge is opened depend on the account mode (see browsers.mjs and auth.mjs).
+  const osWorkAccount = account?.os?.osWorkAccount ?? null;
+  const namespace = account ? profileNamespace({ mode: account.mode, osWorkAccount }) : "";
   for (const kind of kinds) {
-    const dir = profileDir(home, kind, profile);
+    const dir = profileDir(home, kind, profile, namespace);
+    const { inPrivate } = account ? launchPolicy({ kind, accountMode: account.mode, osWorkAccount }) : { inPrivate: false };
     try {
       let context = null;
       let how = "playwright";
       if (wantsAttach({ launch, kind, playwright, executable: found[kind] })) {
         try {
-          ({ context } = await launchAttached({ playwright, kind, dir, executable: found[kind], headless, trace, ...attachOptions }));
+          ({ context } = await launchAttached({ playwright, kind, dir, executable: found[kind], headless, inPrivate, trace, ...attachOptions }));
           how = "attach";
         } catch (err) {
           if (launch === "attach" || err?.code === "PROFILE_IN_USE") throw err;
@@ -468,11 +507,16 @@ export async function openProfile({ playwright, home, profile, kinds, headless =
           trace?.event("attach-fallback", { browser: kind, why: err?.code || "error" });
         }
       }
-      if (!context) context = await launchBrowser({ playwright, kind, dir, headless });
+      if (!context) context = await launchBrowser({ playwright, kind, dir, headless, inPrivate });
+      if (how === "attach") {
+        const pages = typeof context.pages === "function" ? context.pages() : [];
+        await closeStrayTabs(context, pages.find((p) => /^about:blank/i.test(String(p.url?.() || ""))) || pages[0] || null, { trace });
+        if (!headless) await fitWindow(context, { trace });
+      }
       const restored = await restoreSession({ context, dir });
-      log(`  Opened ${browserLabel(kind)}${how === "attach" ? " (started the normal way)" : ""}.${how === "attach" && !headless ? " If another window covers it, click its icon on the taskbar." : ""}${restored.restored ? " Your saved sign-in was restored." : ""}`);
-      trace?.event("profile-open", { product: profile, browser: kind, launch: how, restoredCookies: restored.restored, restoreReason: restored.reason });
-      return { context, kind, dir, launch: how };
+      log(`  Opened ${browserLabel(kind)}${inPrivate ? " InPrivate" : ""}${how === "attach" ? " (started the normal way)" : ""}.${how === "attach" && !headless ? " If another window covers it, click its icon on the taskbar." : ""}${restored.restored ? " Your saved sign-in was restored." : ""}`);
+      trace?.event("profile-open", { product: profile, browser: kind, launch: how, inPrivate, namespace: namespace || "original", restoredCookies: restored.restored, restoreReason: restored.reason });
+      return { context, kind, dir, launch: how, inPrivate, namespace, restored: restored.restored };
     } catch (err) {
       if (err?.code === "PROFILE_IN_USE" || !isMissingBrowserError(err)) throw err;
       trace?.event("browser-missing", { browser: kind });
@@ -596,6 +640,14 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   const trace = options.trace || null;
   const launch = options.launch || "auto";
   const browserKinds = options.browserKinds?.length ? options.browserKinds : ["chromium"];
+  // Which account the screenshots come from (see account-source.mjs and account-guard.mjs). Without it (older callers, tests
+  // of other things) the original behavior is kept: no account check, original profile folders.
+  const account = options.account || null;
+  const accountNamespace = account ? profileNamespace({ mode: account.mode, osWorkAccount: account.os?.osWorkAccount ?? null }) : "";
+  const accountCtxFor = (kind, inPrivate) => ({ mode: account.mode, explicitMode: account.explicitMode === true, os: account.os, kind, inPrivate });
+  const accountInfo = account ? () => describeAccountState({ home, namespace: accountNamespace, mode: account.mode, osWorkAccount: account.os?.osWorkAccount ?? null, browser: browserKinds[0], inPrivate: launchPolicy({ kind: browserKinds[0], accountMode: account.mode, osWorkAccount: account.os?.osWorkAccount ?? null }).inPrivate }) : null;
+  const accountStops = [];
+  let accountReport = null;
   const signInWaitMs = (options.signInWaitSec || SIGN_IN_WAIT_MS / 1000) * 1000;
   const guidedWaitMs = (options.guidedWaitSec ?? DEFAULT_GUIDED_WAIT_SEC) * 1000;
   const readiness = { ...(options.readiness || {}) };
@@ -614,10 +666,19 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
     const reply = await client.progress(job.id, { shot: { filename: shot.filename, status, message, error, ...extra } });
     if (reply?.cancelRequested) state.cancelled = true;
   };
+  // A portal from before account checks does not know the status "needs-account": it is then shown as a failed shot with the same sentence.
+  const reportAccountStop = async (shot, message, extra = {}) => {
+    try {
+      await report(shot, "needs-account", message, null, { cause: "needs-account", ...extra });
+    } catch (err) {
+      if (!(err instanceof PortalError) || err.kind !== "client") throw err;
+      await report(shot, "failed", null, message, { cause: "unknown", ...extra });
+    }
+  };
 
   const heartbeat = setInterval(() => {
     client
-      .heartbeat({ jobId: job.id, busy: true, signedInProducts: listSignedInProfiles(home) })
+      .heartbeat({ jobId: job.id, busy: true, signedInProducts: listSignedInProfiles(home, { namespace: accountNamespace }), ...(accountInfo ? { account: accountInfo() } : {}) })
       .then((r) => { if (r?.cancelRequested) state.cancelled = true; })
       .catch(() => {});
   }, heartbeatMs);
@@ -649,9 +710,9 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
         if (browserShots.length) {
           log(`\nOpening the browser for ${label}.`);
           const wantsBackground = Boolean(options.background || jobOptions.background) && !options.headless;
-          if (wantsBackground && listSignedInProfiles(home).includes(profile)) {
+          if (wantsBackground && listSignedInProfiles(home, { namespace: accountNamespace }).includes(profile)) {
             log("  Running in the background: your saved sign-in is used and no window is shown.");
-            opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: true, log, trace, launch });
+            opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: true, log, trace, launch, account });
             hidden = true;
             backgroundHidden = true;
             const probe = await probeBackground({ opened, profile, shot: browserShots[0].shot, env, sleepFn, trace });
@@ -659,13 +720,13 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             if (!probe.ok) {
               await opened.context.close().catch(() => {});
               log(`  ${label} asked for a sign-in again in the background (${probe.why}), so a window is opening for you instead.`);
-              opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: false, log, trace, launch });
+              opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: false, log, trace, launch, account });
               hidden = false;
               backgroundHidden = false;
             }
           } else {
             if (wantsBackground) log(`  There is no saved sign-in for ${label} yet, so a window opens for you to sign in. Next time this can run in the background.`);
-            opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: Boolean(options.headless), log, trace, launch });
+            opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: Boolean(options.headless), log, trace, launch, account });
           }
         }
       } catch (err) {
@@ -718,6 +779,41 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
         watcher?.watchPage(page);
         await page?.bringToFront?.().catch(() => {});
         trace?.event("window-raise", { reason: "job-start", times: 1 });
+
+        // Which account is this? Checked once per product, before its first screenshot: a capture must never silently come
+        // from the Windows work account, or from an account that cannot see the person's own agent or site.
+        let accountStop = null;
+        if (account && context && page && browserShots.length && options.accountCheck !== false) {
+          const first = browserShots[0].shot;
+          const startUrl = (first.urlEnv && env[first.urlEnv]) || first.startUrl || first.capture?.route?.url || "https://copilotstudio.microsoft.com/";
+          let check = null;
+          try {
+            check = await verifyProductAccount({ page, gate, product: profile, values: session.values, startUrl, ctx: accountCtxFor(kind, opened.inPrivate === true), dir, autonomous: browserShots.some(({ effective }) => effective === "autonomous"), trace, log, sleep: sleepFn });
+          } catch (err) {
+            if (!(err instanceof BrowserClosedError) && classifyBrowserError(err) !== "browser-closed" && !watcher?.closed()) {
+              trace?.event("account-check-error", { why: briefError(err) });
+            } else state.paused = { reason: "browser-closed" };
+          }
+          if (check?.signIn) {
+            signInMessage = gate.describeFailure(browserShots.length);
+            signInFailures.push({ product: profile, label, code: gate.failed?.code || "sign-in", diagnosis: gate.failed?.diagnosis || null });
+            log(`  ${signInMessage}`);
+            if (gate.failed?.diagnosis && !diagnosisShown.has(profile)) {
+              diagnosisShown.add(profile);
+              log("");
+              for (const line of diagnosisLines(gate.failed.diagnosis)) log(`  ${line}`);
+              log(`  To see exactly what the browser did, run: node companion.mjs --check-signin=${profile}`);
+            }
+          } else if (check) {
+            accountReport = check.account;
+            if (check.decision.action === "stop") {
+              accountStop = { code: check.decision.code, message: check.decision.message };
+              accountStops.push({ product: profile, ...accountStop });
+              log(`\n  ${check.decision.message}`);
+              void note(check.decision.message);
+            } else log(`  Account: ${describeAccount(check.account)}`);
+          }
+        }
         for (const { shot, effective } of items) {
           if (state.paused) break;
           index += 1;
@@ -764,6 +860,14 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           }
 
           browserShotsStarted += 1;
+          if (accountStop && (accountStop.code !== "unverified" || effective === "autonomous")) {
+            // The account is not the right one (or not confirmed for automatic capture): do not open the page, report the shot once.
+            tally.failed += 1;
+            log("  Not run: the account is not the right one (see above).");
+            notRun.push({ filename: shot.filename, why: accountStop.message });
+            await reportAccountStop(shot, accountStop.message, common);
+            continue;
+          }
           if (gate.failed) {
             // Sign-in did not work earlier in this job. Do not open the page or ask again: report the shot once and move on.
             tally.failed += 1;
@@ -773,6 +877,8 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             continue;
           }
 
+          // Tabs the browser opened on its own since the last screen (a what's-new page, a stray new-tab page) are closed so they cannot take the window.
+          if (context && effective !== "guided" && opened?.launch === "attach") await closeStrayTabs(context, page, { trace });
           await report(shot, "running", effective === "guided" ? "Waiting for you in the browser window." : "Capturing.", null, common);
           // What the computer is doing right now, for the portal's live progress (at most one message every two seconds).
           let lastProgressAt = 0;
@@ -958,8 +1064,10 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   }
   const signInDiagnosis = signInFailures.find((f) => f.diagnosis)?.diagnosis || null;
   const signInInfo = signInDiagnosis ? signInReport(signInDiagnosis, { product: signInFailures.find((f) => f.diagnosis).product }) : null;
+  const finalAccount = accountReport || (accountInfo ? accountInfo() : null);
+  const needsAccount = accountStops[0] ? { product: accountStops[0].product, code: accountStops[0].code, message: accountStops[0].message } : null;
   try {
-    await client.complete(job.id, { message: pausedNote || summary, ...(fatalError ? { fatalError } : {}), ...(created.length ? { created } : {}), ...(signInInfo ? { signIn: signInInfo } : {}), ...(state.paused ? { paused: { reason: state.paused.reason, message: pausedNote } } : {}) });
+    await client.complete(job.id, { message: pausedNote || (needsAccount ? `${needsAccount.message} ${summary}` : summary), ...(fatalError ? { fatalError } : {}), ...(created.length ? { created } : {}), ...(signInInfo ? { signIn: signInInfo } : {}), ...(finalAccount ? { account: finalAccount } : {}), ...(needsAccount ? { needsAccount } : {}), ...(state.paused ? { paused: { reason: state.paused.reason, message: pausedNote } } : {}) });
   } catch (err) {
     if (err instanceof PortalError && err.kind === "auth") throw err;
     log(`Could not tell the portal the job finished: ${err.message}`);
@@ -986,10 +1094,10 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
  * `--diagnose`: open the product with the saved sign-in, let the person go to the page that gives trouble, and write the
  * redacted diagnostic file for it (control roles and names, the page's host and path, nothing else).
  */
-export async function runDiagnose({ home, product, playwright, kinds, log = console.log, ask: prompt = ask, terms = [], launch = "auto" }) {
+export async function runDiagnose({ home, product, playwright, kinds, log = console.log, ask: prompt = ask, terms = [], launch = "auto", account = null }) {
   let opened;
   try {
-    opened = await openProfile({ playwright, home, profile: product, kinds, headless: false, log, launch });
+    opened = await openProfile({ playwright, home, profile: product, kinds, headless: false, log, launch, account });
   } catch (err) {
     log(String(err?.message || err).split("\n")[0]);
     return EXIT.usage;
@@ -1037,6 +1145,36 @@ export function jobTargets(raw) {
     if (checked.ok && checked.value) out[id] = checked.value;
   }
   return out;
+}
+
+/** The capture settings an account-setup request carries: the same checked addresses and names a job carries. */
+export function commandValues(command) {
+  return targetValuesFromJob(jobEnvironment(command?.env, {}), jobTargets(command?.targets));
+}
+
+/**
+ * What the person is told, at the start, about which account the screenshots come from. Honest about what each choice
+ * does: no choice here hides which account is used.
+ */
+export function accountStartLines({ mode = "separate", explicitMode = false, os = null, kind = "chromium", requestedBrowser = "auto", edgeForced = false } = {}) {
+  const name = browserShortName(kind);
+  const lines = [];
+  if (os?.osWorkAccount === true) {
+    if (mode === "windows") {
+      lines.push(`Account: your Windows work account is allowed (--account-mode=windows). ${kind === "edge" ? "Microsoft Edge may sign in with it automatically, and screenshots will then come from that account, not from a separate demo tenant." : `${name} does not use it automatically, so you sign in once yourself.`}`);
+    } else if (kind === "edge") {
+      lines.push(`Account: a separate sign-in in Microsoft Edge, opened InPrivate. This PC has a Windows work account${edgeForced ? " and your organization makes Edge sign in with it" : ""}; an InPrivate window does not use it. You sign in once, yourself, with the account you want the screenshots to come from (for example your demo tenant), and this computer remembers it.`);
+      if (requestedBrowser !== "edge") lines.push("  Chrome and Chromium were not found. Chromium is the most reliable browser for captures: run npx playwright install chromium (or run this with --install-browser).");
+    } else {
+      lines.push(`Account: a separate sign-in. This PC has a Windows work account, and ${name} does not use it. You sign in once, yourself, with the account you want the screenshots to come from (for example your demo tenant); this computer remembers it.`);
+    }
+    lines.push(mode === "windows" ? "  To choose or change the account, run with --setup-account. To go back to a separate sign-in, run without --account-mode (or with --account-mode=separate)." : "  To choose or change the account, run with --setup-account. To allow the Windows work account on purpose, run with --account-mode=windows.");
+  } else if (explicitMode && mode === "windows") {
+    lines.push("Account: --account-mode=windows was given, but this PC has no Windows work account that a browser could use, so nothing changes: you sign in yourself.");
+  } else {
+    lines.push("Account: you sign in once, yourself, in the browser window, with the account you want the screenshots to come from. To choose or change it later, run with --setup-account.");
+  }
+  return lines;
 }
 
 /** "Opened Copilot Studio, then your agent, then Settings, then selected Generative AI." */
@@ -1093,14 +1231,14 @@ async function uploadWithRetry(client, jobId, shot, payload, { log, sleepFn }) {
 
 // ── Preflight ──────────────────────────────────────────────────────────────
 
-export async function preflight({ home, log = console.log, nodeVersion = process.versions.node, detect = detectBrowserAvailability, browser = "auto" } = {}) {
+export async function preflight({ home, log = console.log, nodeVersion = process.versions.node, detect = detectBrowserAvailability, browser = "auto", accountMode = "windows", osWorkAccount = null } = {}) {
   const problems = [];
   const major = Number.parseInt(String(nodeVersion).split(".")[0], 10);
   if (!Number.isFinite(major) || major < MIN_NODE_MAJOR) {
     problems.push(`Node.js ${MIN_NODE_MAJOR} or later is required (this is ${nodeVersion}). Install it from https://nodejs.org and run this again.`);
   }
   const found = await detect({ repoRoot: path.resolve(HERE, "..", "..") });
-  const choice = chooseBrowsers({ requested: browser, installed: { edge: found.edgeInstalled, chrome: found.chromeInstalled, chromium: found.chromiumInstalled } });
+  const choice = chooseBrowsers({ requested: browser, installed: { edge: found.edgeInstalled, chrome: found.chromeInstalled, chromium: found.chromiumInstalled }, accountMode, osWorkAccount });
   if (!found.playwrightInstalled) {
     problems.push(`The Playwright package is not installed. In this folder (${home}) run:\n    npm install\n    npx playwright install chromium`);
   } else if (!choice.ok) {
@@ -1202,24 +1340,39 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
     return EXIT.ok;
   }
 
-  const ready = await (deps.preflight || preflight)({ home, log, browser: opts.browser });
+  // Which account the screenshots come from: this PC's Windows work account (if any), and what the person asked for.
+  const osAccount = deps.osAccount || readOsAccount();
+  const account = { mode: opts.accountMode || "separate", explicitMode: opts.accountMode !== null, os: osAccount };
+  const ready = await (deps.preflight || preflight)({ home, log, browser: opts.browser, accountMode: account.mode, osWorkAccount: osAccount.osWorkAccount });
   if (!ready.ok) return EXIT.usage;
   const browserKinds = ready.kinds?.length ? ready.kinds : ["chromium"];
   const browserLine = `Browser: ${browserLabel(browserKinds[0])}${browserKinds.length > 1 ? `, or ${browserKinds.slice(1).map(browserLabel).join(" or ")} if that will not start` : ""}.`;
+  const accountNamespace = profileNamespace({ mode: account.mode, osWorkAccount: osAccount.osWorkAccount });
+  const accountLines = accountStartLines({ mode: account.mode, explicitMode: account.explicitMode, os: osAccount, kind: browserKinds[0], requestedBrowser: opts.browser, edgeForced: osAccount.osWorkAccount === true && browserKinds.includes("edge") ? (deps.edgePolicy || readEdgeSignInPolicy)()?.forced === true : false });
+  const accountHeartbeat = () => describeAccountState({ home, namespace: accountNamespace, mode: account.mode, osWorkAccount: osAccount.osWorkAccount, browser: browserKinds[0], inPrivate: launchPolicy({ kind: browserKinds[0], accountMode: account.mode, osWorkAccount: osAccount.osWorkAccount }).inPrivate });
   if (opts.check) {
     log(browserLine);
+    for (const line of accountLines) log(line);
     log("This computer is ready.");
     return EXIT.ok;
   }
-  if (opts.checkSignin) {
+  if (opts.setupAccount) {
+    for (const line of accountLines) log(line);
     const driver = deps.playwright || (await loadPlaywrightModule(path.resolve(HERE, "..", "..")));
-    const outcome = await (deps.checkSignin || runCheckSignIn)({ home, product: opts.checkSignin, playwright: driver, kinds: browserKinds, launch: opts.launch, open: openProfile, resolved, log, signInWaitSec: opts.signInWaitSec, sleepFn, terms: opts.maskTerms, companion: COMPANION_VERSION, ask: interactive ? deps.ask || ask : null });
+    const outcome = await (deps.setupAccount || runSetupAccount)({ home, product: opts.setupAccount, playwright: driver, kinds: browserKinds, launch: opts.launch, account, open: openProfile, log, signInWaitSec: opts.signInWaitSec, sleepFn, trace: opts.debug ? createTrace({ file: traceFilePath(home, opts.trace), terms: opts.maskTerms, header: { companion: COMPANION_VERSION, setup: "setup-account", product: opts.setupAccount, platform: process.platform } }) : null });
+    await closeAllAttached();
+    return outcome.ok ? EXIT.ok : EXIT.signIn;
+  }
+  if (opts.checkSignin) {
+    for (const line of accountLines) log(line);
+    const driver = deps.playwright || (await loadPlaywrightModule(path.resolve(HERE, "..", "..")));
+    const outcome = await (deps.checkSignin || runCheckSignIn)({ home, product: opts.checkSignin, playwright: driver, kinds: browserKinds, launch: opts.launch, open: openProfile, resolved, log, signInWaitSec: opts.signInWaitSec, sleepFn, terms: opts.maskTerms, companion: COMPANION_VERSION, ask: interactive ? deps.ask || ask : null, account });
     await closeAllAttached();
     return outcome.ok ? EXIT.ok : EXIT.signIn;
   }
   if (opts.diagnose) {
     const driver = deps.playwright || (await loadPlaywrightModule(path.resolve(HERE, "..", "..")));
-    const code = await runDiagnose({ home, product: opts.diagnose, playwright: driver, kinds: browserKinds, log, ask: deps.ask || ask, terms: opts.maskTerms, launch: opts.launch });
+    const code = await runDiagnose({ home, product: opts.diagnose, playwright: driver, kinds: browserKinds, log, ask: deps.ask || ask, terms: opts.maskTerms, launch: opts.launch, account });
     await closeAllAttached();
     return code;
   }
@@ -1261,9 +1414,10 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
   if (opts.status) {
     const signIn = describeSignInState(home);
     try {
-      const beat = await client.heartbeat({ busy: false, signedInProducts: listSignedInProfiles(home) });
+      const beat = await client.heartbeat({ busy: false, signedInProducts: listSignedInProfiles(home, { namespace: accountNamespace }), account: accountHeartbeat() });
       log(`Connected to ${config.portal} as "${config.deviceName}". Pairing valid until ${beat.tokenExpiresAt}.`);
       log(browserLine);
+      for (const line of accountLines) log(line);
       for (const line of signIn) log(line);
       return EXIT.ok;
     } catch (err) {
@@ -1284,7 +1438,7 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
   };
   if (!deps.noSignals) process.on("SIGINT", onSigint);
 
-  const runnerOptions = { callouts: opts.callouts, maskTerms: opts.maskTerms, redact: opts.redact, signInWaitSec: opts.signInWaitSec, headless: opts.headless, background: opts.background === true, allowPracticeWrites: settings.allowPracticeWrites === true, browserKinds, launch: opts.launch, resolvedHome: resolved, trace, guidedWaitSec: opts.guidedWaitSec, readiness: opts.readyWaitSec ? { maxMs: opts.readyWaitSec * 1000 } : {}, ...(deps.runnerOptions || {}) };
+  const runnerOptions = { callouts: opts.callouts, maskTerms: opts.maskTerms, redact: opts.redact, signInWaitSec: opts.signInWaitSec, headless: opts.headless, background: opts.background === true, allowPracticeWrites: settings.allowPracticeWrites === true, browserKinds, launch: opts.launch, resolvedHome: resolved, trace, guidedWaitSec: opts.guidedWaitSec, readiness: opts.readyWaitSec ? { maxMs: opts.readyWaitSec * 1000 } : {}, account, ...(deps.runnerOptions || {}) };
   const pollMs = (deps.pollMs ?? opts.intervalSec * 1000);
   let lastBeat = 0;
   let announced = false;
@@ -1296,15 +1450,34 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
   const jobRuns = new Map();
   const signInStreak = new Map();
   let holdMs = 0;
+  // The last account setup the portal asked for and how it went, so the portal can show it on the next check-in.
+  let accountSetupState = null;
+  const handledCommands = new Set();
   log(`Connected to ${config.portal}.`);
   log(browserLine);
+  for (const line of accountLines) log(line);
 
   try {
     while (!stopping && !deps.shouldStop?.()) {
       try {
-        if (Date.now() - lastBeat >= HEARTBEAT_MS || lastBeat === 0) {
-          await client.heartbeat({ busy: false, signedInProducts: listSignedInProfiles(home) });
+        if (Date.now() - lastBeat >= HEARTBEAT_MS || lastBeat === 0 || client.takeWake?.()) {
+          const beat = await client.heartbeat({ busy: false, signedInProducts: listSignedInProfiles(home, { namespace: accountNamespace }), account: accountHeartbeat(), ...(accountSetupState ? { accountSetup: accountSetupState } : {}) });
           lastBeat = Date.now();
+          // The portal can ask this computer to open the account setup (the "Choose which account to use" button).
+          const command = (Array.isArray(beat?.commands) ? beat.commands : []).find((c) => c?.type === "setup-account" && /^[a-z0-9-]{1,60}$/i.test(String(c.product || "")) && !handledCommands.has(c.id));
+          if (command) {
+            handledCommands.add(command.id);
+            log(`\nThe portal asked you to choose which account ${productLabel(command.product)} uses.`);
+            const sendState = (value) => {
+              accountSetupState = { id: String(command.id).slice(0, 60), product: command.product, state: value.state, message: String(value.message || "").slice(0, 300) };
+              client.heartbeat({ busy: true, signedInProducts: listSignedInProfiles(home, { namespace: accountNamespace }), account: accountHeartbeat(), accountSetup: accountSetupState }).catch(() => {});
+            };
+            const outcome = await (deps.setupAccount || runSetupAccount)({ home, product: command.product, playwright, kinds: browserKinds, launch: opts.launch, account, open: openProfile, values: commandValues(command), log, signInWaitSec: opts.signInWaitSec, sleepFn, trace, onState: sendState });
+            await closeAllAttached();
+            if (!outcome.ok && !accountSetupState) sendState({ state: "failed", message: outcome.message });
+            lastBeat = 0;
+            continue;
+          }
         }
         if (holdMs > 0) {
           holdMs -= pollMs;

@@ -12,6 +12,8 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
+import { accountPayload, classifyAccountSource, landedInOsTenant, readAccountRecord, signInPageShown, writeAccountRecord } from "./account-source.mjs";
+import { describeAccount } from "./account-guard.mjs";
 import { createAuthGate, productLabel, saveSession } from "./auth.mjs";
 import { BrowserClosedError, gotoWithRetry } from "./lifecycle.mjs";
 import { diagnoseSignIn, diagnosisLines, readAadstsCode, signInReport } from "./signin-diagnosis.mjs";
@@ -129,12 +131,12 @@ export function createSignInDiagnoser({ synced = null, launch = null, profileDir
 
 // ── The check ──────────────────────────────────────────────────────────────
 
-function startUrlFor(product, config = null) {
+export function startUrlFor(product, config = null) {
   const configured = config?.products?.[product]?.startUrl;
   return /^https:\/\//i.test(String(configured || "")) ? configured : DEFAULT_START;
 }
 
-async function readProductConfig() {
+export async function readProductConfig() {
   try {
     const { readCaptureConfig } = await import("../feature-tour/lib/products.mjs");
     return readCaptureConfig();
@@ -178,6 +180,7 @@ export function describeVerdict(report) {
   lines.push(`Browser: ${report.browser.label}${report.browser.major ? ` ${report.browser.major}` : ""}, started ${report.browser.launch === "attach" ? "the normal way (attach)" : "by the automation launcher (playwright)"}.`);
   if (report.device) lines.push(`This computer is joined to a work or school account: ${report.device.joined ? "yes" : "no"}${report.device.prt === null ? "" : `; single sign-on token present: ${report.device.prt ? "yes" : "no"}`}.`);
   else lines.push("Work or school account on this computer: not checked (Windows only).");
+  if (report.account) lines.push(`Account: ${describeAccount(report.account)}`);
   lines.push(`Data folder: ${report.home.synced ? `inside ${report.home.provider || "a synced folder"} (a likely cause of sign-in loops)` : "local, not synced"}.`);
   if (report.cookies) {
     const part = (list) => `${list.length} (${list.filter((c) => c.persistent).length} kept after the browser closes)`;
@@ -195,7 +198,7 @@ export function describeVerdict(report) {
  * Run the check. `open` is companion.openProfile (passed in to avoid a circular import).
  * @returns {Promise<{ok: boolean, report: object, lines: string[], traceFile: string|null}>}
  */
-export async function runCheckSignIn({ home, product, playwright, kinds, launch = "auto", open, resolved = null, log = console.log, signInWaitSec = 180, sleepFn = (ms) => new Promise((r) => setTimeout(r, ms)), terms = [], companion = "", ask = null, deps = {} }) {
+export async function runCheckSignIn({ home, product, playwright, kinds, launch = "auto", open, resolved = null, log = console.log, signInWaitSec = 180, sleepFn = (ms) => new Promise((r) => setTimeout(r, ms)), terms = [], companion = "", ask = null, deps = {}, account = null }) {
   const config = await readProductConfig();
   const start = startUrlFor(product, config);
   const startHost = new URL(start).hostname;
@@ -204,7 +207,7 @@ export async function runCheckSignIn({ home, product, playwright, kinds, launch 
   log(`Checking the sign-in for ${productLabel(product)}. A browser window opens; sign in there if it asks. Nothing is captured.`);
   let opened;
   try {
-    opened = await open({ playwright, home, profile: product, kinds, headless: false, log, trace, launch });
+    opened = await open({ playwright, home, profile: product, kinds, headless: false, log, trace, launch, account });
   } catch (err) {
     log(String(err?.message || err).split("\n")[0]);
     return { ok: false, report: null, lines: [], traceFile: trace.file };
@@ -252,6 +255,16 @@ export async function runCheckSignIn({ home, product, playwright, kinds, launch 
     const durationSec = sec(gate.state.clockMs > 0 ? gate.state.clockMs : Date.now() - startedAt);
     const hops = gate.detector.hops();
     const needsPerson = gate.state.waits > 0 && gate.state.waitedMs >= 3000;
+    // Which account this is, from how the sign-in went and where it landed (ids are compared in memory only).
+    let accountFacts = null;
+    if (account && result.ok) {
+      const landed = typeof page.url === "function" ? page.url() : "";
+      const inOsTenant = landedInOsTenant(landed, account.os);
+      const before = readAccountRecord(opened.dir);
+      const classified = classifyAccountSource({ signInShown: signInPageShown(hops), inOsTenant, osWorkAccount: account.os?.osWorkAccount ?? null, previous: before?.source || null });
+      writeAccountRecord(opened.dir, { source: classified.source, inOsTenant });
+      accountFacts = accountPayload({ mode: account.mode, source: classified.source, verified: before?.confirmed === true || before?.verified === true, osWorkAccountDetected: account.os?.osWorkAccount ?? null, browser: opened.kind, inOsTenant, inPrivate: opened.inPrivate === true });
+    }
     const cookies = await cookiePresence(opened.context, { productHost: startHost });
     const device = await Promise.resolve((deps.device || windowsDeviceState)()).catch(() => null);
     const skewSec = await Promise.resolve((deps.skew || measureClockSkew)()).catch(() => null);
@@ -272,6 +285,7 @@ export async function runCheckSignIn({ home, product, playwright, kinds, launch 
       home: { synced: synced.synced === true, provider: synced.provider || null, source: resolved?.source || "unknown" },
       device: device ? { joined: device.joined === true, prt: device.prt ?? null } : null,
       outcome: { result: result.ok ? "signed-in" : result.code || "failed", needsPerson, durationSec },
+      account: accountFacts,
       hops: describeHops(hops),
       cookies,
       cookieSetting: cookieSettings.setting,

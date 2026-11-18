@@ -24,7 +24,7 @@ const SC_ADDRESS_FIELDS = Object.freeze([
 const SC_TARGET_FIELD_ID = /^[A-Za-z][A-Za-z0-9]{0,40}$/;
 const SC_REQUIREMENT_ID = /^[a-z0-9][a-z0-9-]{0,40}$/;
 const SC_CAUSE_CODE = /^[a-z][a-z-]{0,30}$/;
-const SC_CAUSE_FIX_ACTIONS = Object.freeze(["settings", "retry", "guided", "resume", "upload", "record", "consent"]);
+const SC_CAUSE_FIX_ACTIONS = Object.freeze(["settings", "retry", "guided", "resume", "upload", "record", "consent", "account"]);
 // Causes that mean "an address is missing": their screenshots wait for the person, they did not fail.
 const SC_ADDRESS_CAUSES = Object.freeze(["no-agent", "no-site", "no-address"]);
 
@@ -251,6 +251,119 @@ function scAutonomyLine(consent) {
   return { state: "readonly", text: "Automatic capture is on and read-only. It opens screens and tries things that change nothing, and it never creates anything." };
 }
 
+// ── Which account the screenshots come from ─────────────────────────────────
+
+const SC_BROWSER_NAMES = Object.freeze({ edge: "Edge", chrome: "Chrome", chromium: "Chromium" });
+const SC_ACCOUNT_SOURCES = Object.freeze(["windows-sso", "manual", "saved-session", "unknown"]);
+const SC_ACCOUNT_SETUP_STATES = Object.freeze(["requested", "waiting-for-you", "done", "needs-account", "failed"]);
+const SC_VERIFIED_FOR = Object.freeze(["agent", "environment", "site", "project"]);
+const SC_ACCOUNT_FIX = Object.freeze({ id: "account-setup", label: "Choose which account to use" });
+
+/** The yes/no facts the companion reports about its account (never a name, a tenant, or an address), trimmed to what the Center shows. */
+function scAccountFacts(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  return {
+    mode: raw.mode === "windows" ? "windows" : "separate",
+    source: SC_ACCOUNT_SOURCES.includes(raw.source) ? raw.source : "unknown",
+    verified: raw.verified === true,
+    verifiedFor: SC_VERIFIED_FOR.includes(raw.verifiedFor) ? raw.verifiedFor : "",
+    osWorkAccountDetected: typeof raw.osWorkAccountDetected === "boolean" ? raw.osWorkAccountDetected : null,
+    browser: SC_BROWSER_NAMES[raw.browser] ? raw.browser : "",
+    inOsTenant: typeof raw.inOsTenant === "boolean" ? raw.inOsTenant : null,
+    inPrivate: raw.inPrivate === true,
+  };
+}
+
+/** A sentence from the companion with anything shaped like an address, an account, or an id taken out, so the page can never show one. */
+function scWithoutIds(text) {
+  return String(text ?? "")
+    .replace(/https?:\/\/\S+/gi, "")
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, "")
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** How the last "Choose which account to use" is going on the computer, in a sentence. */
+function scAccountSetupLine(raw) {
+  if (!raw || typeof raw !== "object" || !SC_ACCOUNT_SETUP_STATES.includes(raw.state)) return null;
+  const said = scWithoutIds(scText(raw.message, 300));
+  const fallback = {
+    requested: "Waiting for your computer to open the sign-in window.",
+    "waiting-for-you": "Sign in in the browser window on your computer, with the account you want. You choose the account yourself.",
+    done: "The account is chosen and saved.",
+    "needs-account": "That account does not fit your addresses. Choose which account to use and try again.",
+    failed: "The account could not be chosen. Try again.",
+  };
+  return { state: raw.state, busy: raw.state === "requested" || raw.state === "waiting-for-you", text: said || fallback[raw.state] };
+}
+
+/**
+ * The one line that says which account the computer will use, with its tone and the one-click fix.
+ * `null` until a computer is connected. A companion from before account checks says nothing, and that is said plainly.
+ * @param {object|null} companion `status.companion`
+ */
+function scAccountModel(companion) {
+  if (!companion || companion.connected !== true) return null;
+  const setup = scAccountSetupLine(companion.accountSetup);
+  const facts = scAccountFacts(companion.account);
+  const supported = companion.accountSupported !== false;
+  const min = scText(companion.accountMinCompanion, 20) || "1.5.0";
+  if (!facts) {
+    return {
+      state: "not-reported",
+      tone: "neutral",
+      text: "Account not reported (update the companion)",
+      help: `Your Local Capture Companion is older than ${min}, so it cannot say which account it uses. Download it again and replace the old one. Until then, start it with --browser=chromium so a screenshot is not taken with your Windows work account.`,
+      fix: null,
+      setup,
+      facts: null,
+    };
+  }
+  const where = `browser: ${SC_BROWSER_NAMES[facts.browser] || "unknown"}${facts.inPrivate ? ", InPrivate" : ""}`;
+  const fix = supported ? SC_ACCOUNT_FIX : null;
+  if (facts.source === "windows-sso") {
+    return {
+      state: "windows-account",
+      tone: "warn",
+      text: `Account: your Windows work account (${SC_BROWSER_NAMES[facts.browser] || "browser"} single sign-on). Screenshots will come from that account.`,
+      help: "If you want your demo tenant instead, choose which account to use and sign in with it yourself. Starting the companion with --browser=chromium also avoids this.",
+      fix,
+      setup,
+      facts,
+    };
+  }
+  const same = facts.inOsTenant === true;
+  if (facts.verified) {
+    const checked = facts.verifiedFor ? `verified for your ${facts.verifiedFor}` : "confirmed by you";
+    const lead = facts.mode === "windows" ? `Account: the account you signed in with, with your Windows work account allowed (${where}), ${checked}.` : `Account: separate sign-in (${where}), ${checked}.`;
+    return {
+      state: same ? "same-as-windows" : "verified",
+      tone: same ? "warn" : "ok",
+      text: same ? `${lead} It is the same account Windows uses for work.` : lead,
+      help: same ? "Screenshots will come from your Windows work account. If you want another account, choose it and sign in yourself." : "",
+      fix: same ? fix : null,
+      setup,
+      facts,
+    };
+  }
+  return {
+    state: "unverified",
+    tone: same ? "warn" : "neutral",
+    text: `Account: separate sign-in (${where}). Account not verified.${same ? " It is the same account Windows uses for work." : ""}`,
+    help: "Add your agent address in the capture settings so it can be checked each time, or choose the account once. Automatic capture waits until the account is chosen.",
+    fix,
+    setup,
+    facts,
+  };
+}
+
+/** The same line without its "Account:" lead, for a sentence that already says what it is (the consent card). */
+function scAccountSentence(model) {
+  if (!model) return "";
+  return String(model.text).replace(/^Account:\s*/i, "").replace(/^Account not reported/i, "an account that is not reported");
+}
+
 const SC_UNFINISHED_CAUSES = Object.freeze(["automation-failed", "blocked-by-safety", "unexpected-effect", "needs-you"]);
 // The causes where the computer tried and could not finish: only these get "Show me once".
 const SC_AUTOMATION_CAUSES = Object.freeze(["automation-failed", "blocked-by-safety", "unexpected-effect"]);
@@ -270,7 +383,7 @@ function scAutomaticReport(job) {
       else report.review += 1;
     } else if (row.status === "needs-you" || (row.status === "failed" && SC_UNFINISHED_CAUSES.includes(row.cause))) {
       report.unfinished.push({ filename: String(row.filename || ""), step: scText(row.setup?.failedStep?.note, 120), cause: scText(row.cause, 30) });
-    } else if (row.status === "failed" || row.status === "auth-required") report.failed += 1;
+    } else if (row.status === "failed" || row.status === "auth-required" || row.status === "needs-account") report.failed += 1;
     else if (row.status === "skipped") report.skipped += 1;
     else if (row.status === "manual-required") report.manual += 1;
     else if (row.status === "paused") report.paused += 1;
@@ -310,7 +423,7 @@ const SC_STATUS_LABELS = Object.freeze({
   queued: { label: "Queued", tone: "info" },
 });
 // The job rows that say why a screenshot is still missing after a capture.
-const SC_ATTEMPT_STATUSES = Object.freeze(["failed", "auth-required", "needs-you", "paused", "skipped"]);
+const SC_ATTEMPT_STATUSES = Object.freeze(["failed", "auth-required", "needs-account", "needs-you", "paused", "skipped"]);
 
 /**
  * The one status a screenshot shows: Captured, Needs review, Needs you, Paused, Outdated, Pending,
@@ -327,7 +440,7 @@ function scShotStatus(shot, jobShotStatus = null, attempt = null) {
   else if (!shot?.captured) {
     const last = attempt?.status ?? shot?.lastAttemptStatus;
     if (last === "needs-you" || last === "paused") key = last;
-    else if (last === "failed" || last === "auth-required" || last === "browser-unavailable") key = "failed";
+    else if (last === "failed" || last === "auth-required" || last === "needs-account" || last === "browser-unavailable") key = "failed";
     else key = shot?.manual ? "manual" : "pending";
   } else key = shot?.stale ? "outdated" : "captured";
   return { key, ...SC_STATUS_LABELS[key] };
@@ -829,7 +942,8 @@ function scProgressFromShots(shots) {
       case "captured": counts.captured += 1; break;
       case "needs-review": counts.needsReview += 1; break;
       case "failed":
-      case "auth-required": counts.failed += 1; break;
+      case "auth-required":
+      case "needs-account": counts.failed += 1; break;
       case "manual-required": counts.manual += 1; break;
       case "skipped": counts.skipped += 1; break;
       case "cancelled": counts.cancelled += 1; break;
@@ -940,6 +1054,15 @@ function scDescribeJob(job, { companionConnected = null, nowMs = Date.now(), onl
       detail: "Check that the companion is still running and that the computer is awake. If it comes back, capture continues. You can also cancel and queue the rest again.",
     };
   }
+  if (shots.some((s) => s.status === "needs-account")) {
+    return {
+      ...base,
+      phase: "needs-account",
+      tone: "warn",
+      headline: "Wrong account on your computer",
+      detail: "The capture stopped before taking pictures, because the browser is signed in to an account that does not match. Choose which account to use, then retake.",
+    };
+  }
   if (shots.some((s) => s.status === "auth-required")) {
     return {
       ...base,
@@ -977,14 +1100,22 @@ function scOutcomeFromJob(job) {
   const rows = Array.isArray(job?.shots) ? job.shots : [];
   const filenamesWith = (...statuses) => rows.filter((s) => statuses.includes(s.status)).map((s) => s.filename);
   const causes = scCauseGroups(job);
-  const failedFiles = filenamesWith("failed", "auth-required");
+  const failedFiles = filenamesWith("failed", "auth-required", "needs-account");
   const pausedFiles = filenamesWith("paused");
   const actions = [];
   if (view.phase === "paused" && pausedFiles.length) actions.push({ id: "resume", label: "Resume", primary: true, filenames: pausedFiles });
   // The groups carry a fix for every failed shot, so the all-in-one retry is only for results that have no groups.
   if (failedFiles.length && !causes.length) actions.push({ id: "retry-failed", label: `Retry ${scPlural(failedFiles.length, "screenshot")}`, filenames: failedFiles });
   if (scCount(counts.needsReview)) actions.push({ id: "review", label: `Review ${scPlural(scCount(counts.needsReview), "screenshot")}` });
-  return { type: "job", variant, message, jobId: job?.id || null, actions, causes, created: Array.isArray(job?.result?.created) ? job.result.created : [], signIn: scSignInVerdict(job?.result?.signIn) };
+  return { type: "job", variant, message, jobId: job?.id || null, actions, causes, created: Array.isArray(job?.result?.created) ? job.result.created : [], signIn: scSignInVerdict(job?.result?.signIn), needsAccount: scNeedsAccount(job?.result?.needsAccount) };
+}
+
+/** Why a capture stopped before taking pictures because of the account: one sentence from the companion, trimmed. */
+function scNeedsAccount(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const message = scWithoutIds(scText(raw.message, 400));
+  if (!message) return null;
+  return { code: ["windows-account", "wrong-account", "unverified"].includes(raw.code) ? raw.code : "wrong-account", message };
 }
 
 /** Why a sign-in did not work, from what the companion reported: the sentence, the next step, and the checks that are likely or possible. */

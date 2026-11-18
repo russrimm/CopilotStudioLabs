@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { BrowserClosedError } from "./lifecycle.mjs";
+import { readAccountRecord } from "./account-source.mjs";
 import { classifyUrl, redactedAddress } from "./signin-url.mjs";
 import { createPingPongDetector } from "./signin-diagnosis.mjs";
 
@@ -313,11 +314,31 @@ export function authRoot(home) {
   return path.join(home, ".auth");
 }
 
+/**
+ * Where profiles live. `""` is the original layout (`.auth/<browser>/<product>`): sign-ins made before account modes
+ * existed, and sign-ins made on purpose with the Windows work account allowed. `"separate"` keeps its own folder, so a
+ * profile that was signed in by the Windows work account is never reused as a separate sign-in.
+ */
+export const AUTH_NAMESPACES = Object.freeze(["", "separate"]);
+
+function namespaceRoot(home, namespace) {
+  if (!AUTH_NAMESPACES.includes(namespace)) throw new Error(`Unknown profile namespace "${namespace}".`);
+  return namespace ? path.join(authRoot(home), namespace) : authRoot(home);
+}
+
 /** One profile folder per browser and product, so an Edge sign-in and a Chromium sign-in never mix. */
-export function profileDir(home, browserKind, product) {
+export function profileDir(home, browserKind, product, namespace = "") {
   if (!BROWSER_KINDS.includes(browserKind)) throw new Error(`Unknown browser "${browserKind}".`);
   if (!SAFE_PRODUCT.test(String(product || ""))) throw new Error(`Unknown product "${product}".`);
-  return path.join(authRoot(home), browserKind, product);
+  return path.join(namespaceRoot(home, namespace), browserKind, product);
+}
+
+/**
+ * Which profile folders an account mode uses. A PC with a Windows work account keeps "separate" sign-ins in their own
+ * folder; any other PC (nothing silent to avoid) keeps using the original layout, so sign-ins already made still work.
+ */
+export function profileNamespace({ mode = "separate", osWorkAccount = null } = {}) {
+  return mode === "separate" && osWorkAccount === true ? "separate" : "";
 }
 
 function readJsonFile(file) {
@@ -385,7 +406,7 @@ export async function restoreSession({ context, dir, now = () => Date.now(), max
   }
 }
 
-function readProfile(dir, browser) {
+function readProfile(dir, browser, namespace = "") {
   let present = false;
   try {
     present = fs.readdirSync(dir).length > 0;
@@ -394,24 +415,31 @@ function readProfile(dir, browser) {
   }
   const meta = readJsonFile(path.join(dir, META_FILE)) || {};
   const savedSession = fs.existsSync(path.join(dir, SESSION_FILE));
-  return { browser, profilePresent: present, savedSession, savedAt: meta.savedAt || null, lastCapturedAt: meta.lastCapturedAt || null };
+  const account = readAccountRecord(dir);
+  return { browser, namespace, profilePresent: present, savedSession, savedAt: meta.savedAt || null, lastCapturedAt: meta.lastCapturedAt || null, accountSource: account?.source || null, accountConfirmed: account?.confirmed === true, accountVerified: account?.verified === true, accountVerifiedFor: account?.verifiedFor || null, accountInOsTenant: account?.inOsTenant ?? null };
 }
 
-/** Sign-in state per product: profile folder, saved session, and last successful capture, for every browser. */
-export function readSignInStates(home) {
-  const root = authRoot(home);
+/**
+ * Sign-in state per product: profile folder, saved session, and last successful capture, for every browser.
+ * `namespace` limits it to one folder layout (see `AUTH_NAMESPACES`); without it every layout is listed.
+ */
+export function readSignInStates(home, { namespace } = {}) {
   const products = new Map();
-  for (const kind of BROWSER_KINDS) {
-    let entries = [];
-    try {
-      entries = fs.readdirSync(path.join(root, kind), { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      if (!entry.isDirectory() || !SAFE_PRODUCT.test(entry.name)) continue;
-      if (!products.has(entry.name)) products.set(entry.name, []);
-      products.get(entry.name).push(readProfile(path.join(root, kind, entry.name), kind));
+  const namespaces = namespace === undefined ? AUTH_NAMESPACES : [namespace];
+  for (const ns of namespaces) {
+    const root = namespaceRoot(home, ns);
+    for (const kind of BROWSER_KINDS) {
+      let entries = [];
+      try {
+        entries = fs.readdirSync(path.join(root, kind), { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        if (!entry.isDirectory() || !SAFE_PRODUCT.test(entry.name)) continue;
+        if (!products.has(entry.name)) products.set(entry.name, []);
+        products.get(entry.name).push(readProfile(path.join(root, kind, entry.name), kind, ns));
+      }
     }
   }
   return [...products.entries()]
@@ -425,28 +453,33 @@ export function readSignInStates(home) {
     .sort((a, b) => a.product.localeCompare(b.product));
 }
 
-/** Products with a sign-in that has worked: the list the portal shows as "signed in". An empty profile folder does not count. */
-export function listSignedInProducts(home) {
-  return readSignInStates(home).filter((s) => s.signedIn).map((s) => s.product);
+/**
+ * Products with a sign-in that has worked: the list the portal shows as "signed in". An empty profile folder does not count.
+ * Pass `namespace` to count only the sign-ins that belong to the account mode in use.
+ */
+export function listSignedInProducts(home, { namespace } = {}) {
+  return readSignInStates(home, { namespace }).filter((s) => s.signedIn).map((s) => s.product);
 }
 
-/** Remove saved sign-ins (all browsers) for the given products, or every product with "all". Returns what was removed. */
+/** Remove saved sign-ins (all browsers, every account mode) for the given products, or every product with "all". Returns what was removed. */
 export function forgetSignIn(home, products) {
   const wanted = products === "all" ? null : new Set((Array.isArray(products) ? products : [products]).map(String));
-  const root = authRoot(home);
   const removed = [];
-  for (const kind of BROWSER_KINDS) {
-    let entries = [];
-    try {
-      entries = fs.readdirSync(path.join(root, kind), { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const entry of entries) {
-      if (!entry.isDirectory() || !SAFE_PRODUCT.test(entry.name)) continue;
-      if (wanted && !wanted.has(entry.name)) continue;
-      fs.rmSync(path.join(root, kind, entry.name), { recursive: true, force: true });
-      removed.push(`${kind}/${entry.name}`);
+  for (const ns of AUTH_NAMESPACES) {
+    const root = namespaceRoot(home, ns);
+    for (const kind of BROWSER_KINDS) {
+      let entries = [];
+      try {
+        entries = fs.readdirSync(path.join(root, kind), { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        if (!entry.isDirectory() || !SAFE_PRODUCT.test(entry.name)) continue;
+        if (wanted && !wanted.has(entry.name)) continue;
+        fs.rmSync(path.join(root, kind, entry.name), { recursive: true, force: true });
+        removed.push(`${ns ? `${ns}/` : ""}${kind}/${entry.name}`);
+      }
     }
   }
   return removed;

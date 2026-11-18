@@ -14,7 +14,7 @@ import path from "node:path";
 import { buildSidecar, resolveCallouts, sidecarName } from "./callouts.mjs";
 import { preparePractice, runShotSetup } from "./autonomous.mjs";
 import { resolveAutonomy } from "./guard.mjs";
-import { briefError, BrowserClosedError, classifyBrowserError, navigateWithSignIn } from "./lifecycle.mjs";
+import { briefError, BrowserClosedError, classifyBrowserError, navigateWithSignIn, settleAddress } from "./lifecycle.mjs";
 import { recipeKeyForShot, toSharePayload, validateSharedRecipe } from "./recipes.mjs";
 import { startRecorder } from "./recorder.mjs";
 import { findControls, openNavigationItem, revealLabel } from "./locator.mjs";
@@ -92,24 +92,30 @@ async function saveRecording({ shot, session, recorded, log, trace }) {
   return out;
 }
 
-/** Wait for the address to stop changing (single-page apps redirect after they load), and return it. */
-async function settleAddress(page, { sleep = sleepDefault, stableMs = 700, maxMs = 8000, stepMs = 150 } = {}) {
-  let last = typeof page.url === "function" ? page.url() : "";
-  let stable = 0;
-  let waited = 0;
-  while (waited < maxMs) {
-    await sleep(stepMs);
-    waited += stepMs;
-    const now = page.url();
-    if (now !== last) {
-      last = now;
-      stable = 0;
-    } else {
-      stable += stepMs;
-      if (stable >= stableMs) break;
-    }
+/**
+ * Take pictures at the same size in every browser: 1440 by 900 CSS pixels at a device pixel ratio of 1. Windows display
+ * scaling (125% or 150%) otherwise makes a window's pictures 1.25 or 1.5 times larger (measured: 1542 by 1362 pixels in Edge
+ * at 150%). Setting the viewport turns that scaling off for the page; this looks that it did, writes what it saw to the
+ * trace, and sets it once more when it did not.
+ */
+export async function normalizeViewport(page, viewport, trace = null) {
+  if (typeof page.setViewportSize !== "function") return null;
+  await page.setViewportSize(viewport).catch(() => {});
+  if (typeof page.evaluate !== "function") return null;
+  let seen = null;
+  try {
+    seen = await page.evaluate(() => ({ dpr: window.devicePixelRatio, width: window.innerWidth, height: window.innerHeight }));
+  } catch {
+    return null;
   }
-  return last;
+  if (!seen || typeof seen.dpr !== "number") return null;
+  const normalized = Math.abs(seen.dpr - 1) < 0.01 && seen.width === viewport.width && seen.height === viewport.height;
+  trace?.event("viewport", { width: seen.width, height: seen.height, dpr: Math.round(seen.dpr * 100) / 100, normalized });
+  if (!normalized) {
+    await page.setViewportSize({ width: viewport.width + 1, height: viewport.height }).catch(() => {});
+    await page.setViewportSize(viewport).catch(() => {});
+  }
+  return { ...seen, normalized };
 }
 
 function record(steps, entry) {
@@ -275,7 +281,7 @@ export async function runCaptureShot({
   const capture = shot.capture;
   const steps = [];
   const viewport = { width: Number(shot.viewport?.width || 1440), height: Number(shot.viewport?.height || 900) };
-  if (typeof page.setViewportSize === "function") await page.setViewportSize(viewport).catch(() => {});
+  await normalizeViewport(page, viewport, trace);
   const outputFile = path.resolve(assetsDir, shot.filename);
   const needsSignIn = (result) => failure("auth-required", "sign-in", result.error, { code: result.code, currentUrl: redactedAddress(typeof page.url === "function" ? page.url() : ""), executedSteps: steps });
   const done = (result) => ({ executedSteps: steps, ...result });

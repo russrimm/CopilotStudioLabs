@@ -16,6 +16,7 @@ import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypt
 import path from "node:path";
 
 import { cleanText, readJson, writeJsonAtomic } from "./store-util.js";
+import { cleanAccount, cleanAccountSetup } from "./account.js";
 
 export const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
 export const TOKEN_PREFIX = "cap_";
@@ -76,6 +77,9 @@ function publicDevice(device, { now, onlineMs, live }) {
     connected: !device.revokedAt && seenMs > 0 && now - seenMs <= onlineMs,
     busy: Boolean(live?.busy ?? device.busy),
     signedInProducts: live?.signedInProducts || device.signedInProducts || [],
+    // Where the screenshots come from, as the companion last said (flags only). Null from a companion that does not say.
+    account: live?.account !== undefined ? live.account : device.account || null,
+    accountSetup: live?.accountSetup !== undefined ? live.accountSetup : null,
     expiresAt: new Date(device.expiresAt).toISOString(),
     revokedAt: device.revokedAt || null,
     tokenHint: device.tokenHint,
@@ -213,6 +217,8 @@ export function createPairingStore({
       companionVersion: cleanText(info.companionVersion, 40) || previous.companionVersion || null,
       signedInProducts: info.signedInProducts === undefined ? previous.signedInProducts || [] : cleanProducts(info.signedInProducts),
       busy: info.busy === undefined ? Boolean(previous.busy) : Boolean(info.busy),
+      account: info.account === undefined ? previous.account ?? null : cleanAccount(info.account),
+      accountSetup: info.accountSetup === undefined ? previous.accountSetup ?? null : cleanAccountSetup(info.accountSetup),
     };
     live.set(deviceId, entry);
     const lastPersisted = persistedSeen.get(deviceId) || 0;
@@ -225,12 +231,52 @@ export function createPairingStore({
           companionVersion: entry.companionVersion || device.companionVersion,
           signedInProducts: entry.signedInProducts,
           busy: entry.busy,
+          account: entry.account,
         });
         save(state);
         persistedSeen.set(deviceId, t);
       }
     }
     return entry;
+  }
+
+  // ── Requests for a computer (choose the account) ───────────────────────────
+  // Kept in memory: a request is only useful for a few minutes, while the person is at the portal waiting for the window.
+
+  const commands = new Map();
+  const COMMAND_TTL_MS = 10 * 60 * 1000;
+
+  function freshCommands(deviceId) {
+    const t = now();
+    const list = (commands.get(deviceId) || []).filter((c) => t - c.createdAtMs <= COMMAND_TTL_MS);
+    commands.set(deviceId, list);
+    return list;
+  }
+
+  /** Ask one computer to run a request (today: `setup-account`). The next heartbeat or job check wakes it. */
+  function queueCommand(deviceId, command) {
+    const id = `cmd_${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+    const entry = { id, type: command.type, product: command.product, env: command.env || {}, targets: command.targets || {}, createdAtMs: now(), delivered: false };
+    // One request per computer and product: a second click replaces the first.
+    const list = freshCommands(deviceId).filter((c) => !(c.type === entry.type && c.product === entry.product));
+    list.push(entry);
+    commands.set(deviceId, list);
+    const known = live.get(deviceId) || listDevices({ includeRevoked: true }).find((d) => d.id === deviceId) || null;
+    const base = known ? { lastSeenAt: known.lastSeenAt, companionVersion: known.companionVersion, signedInProducts: known.signedInProducts, busy: known.busy, account: known.account ?? null } : {};
+    live.set(deviceId, { ...base, accountSetup: { id, product: entry.product, state: "requested", message: "Waiting for your computer to open the sign-in window." } });
+    return { id, product: entry.product };
+  }
+
+  /** Whether a computer has a request it has not been given yet (a header on the empty job reply tells it to check in). */
+  function hasPendingCommands(deviceId) {
+    return freshCommands(deviceId).some((c) => !c.delivered);
+  }
+
+  /** The requests this computer has not been given yet. Each is given once. */
+  function takeCommands(deviceId) {
+    const pending = freshCommands(deviceId).filter((c) => !c.delivered);
+    for (const c of pending) c.delivered = true;
+    return pending.map((c) => ({ id: c.id, type: c.type, product: c.product, env: c.env, targets: c.targets }));
   }
 
   function listDevices({ includeRevoked = false } = {}) {
@@ -256,6 +302,9 @@ export function createPairingStore({
     const devices = listDevices();
     const connected = devices.filter((d) => d.connected);
     const lastSeenAt = devices.map((d) => d.lastSeenAt).filter(Boolean).sort().pop() || null;
+    // Which account the screenshots come from, from the computer that checked in most recently and said (older companions do not).
+    const reporting = connected.filter((d) => d.account).sort((a, b) => String(b.lastSeenAt || "").localeCompare(String(a.lastSeenAt || "")))[0] || null;
+    const setup = connected.map((d) => d.accountSetup).filter(Boolean)[0] || null;
     return {
       connected: connected.length > 0,
       lastSeenAt,
@@ -264,8 +313,10 @@ export function createPairingStore({
       devices,
       signedInProducts: [...new Set(connected.flatMap((d) => d.signedInProducts))].sort(),
       busy: connected.some((d) => d.busy),
+      account: reporting?.account || null,
+      accountSetup: setup,
     };
   }
 
-  return { createCode, exchangeCode, authenticate, heartbeat, listDevices, revokeDevice, status };
+  return { createCode, exchangeCode, authenticate, heartbeat, listDevices, revokeDevice, status, queueCommand, takeCommands, hasPendingCommands };
 }

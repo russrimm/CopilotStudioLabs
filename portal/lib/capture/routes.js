@@ -7,6 +7,7 @@
  *     GET    /api/capture/devices                    paired computers
  *     DELETE /api/capture/devices/:id                disconnect a computer
  *     POST   /api/capture/jobs                       queue a capture job
+ *     POST   /api/capture/account-setup              ask the connected computer to open the "choose the account" sign-in
  *     GET    /api/capture/jobs                       recent jobs
  *     GET    /api/capture/jobs/:id                   one job with per-shot status and events
  *     GET    /api/capture/jobs/:id/events            server-sent events (polling works too)
@@ -185,6 +186,18 @@ export function registerCaptureRoutes(app, deps = {}) {
     const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
     try {
       const result = platform.queueJob(body, { createdBy: actor(req) });
+      res.status(result.status).json(result.body);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // "Choose which account to use": ask the connected computer to open the sign-in window. The person signs in themselves.
+  app.post("/api/capture/account-setup", (req, res) => {
+    if (manageLimited(req, res)) return;
+    const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+    try {
+      const result = platform.requestAccountSetup(body);
       res.status(result.status).json(result.body);
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -481,13 +494,19 @@ export function registerCaptureRoutes(app, deps = {}) {
     const body = req.body && typeof req.body === "object" ? req.body : {};
     pairing.heartbeat(req.captureDevice.id, body);
     const touched = typeof body.jobId === "string" && isJobId(body.jobId) ? jobs.touch(body.jobId, req.captureDevice.id) : { cancelRequested: false };
-    res.json({ ok: true, cancelRequested: touched.cancelRequested, serverTime: new Date().toISOString(), tokenExpiresAt: new Date(req.captureDevice.expiresAt).toISOString() });
+    // A request for this computer (choose the account) is given once, on the check-in that follows the click.
+    const commands = pairing.takeCommands(req.captureDevice.id);
+    res.json({ ok: true, cancelRequested: touched.cancelRequested, serverTime: new Date().toISOString(), tokenExpiresAt: new Date(req.captureDevice.expiresAt).toISOString(), ...(commands.length ? { commands } : {}) });
   });
 
   app.get(`${COMPANION_PREFIX}/next`, (req, res) => {
     pairing.heartbeat(req.captureDevice.id, { signedInProducts: undefined, busy: false, companionVersion: req.get("x-companion-version") });
     const claimed = jobs.claimNext(req.captureDevice);
-    if (!claimed) return res.status(204).end();
+    if (!claimed) {
+      // Nothing to capture. A header (ignored by older companions) tells a newer one to check in now: something is waiting for it.
+      if (pairing.hasPendingCommands(req.captureDevice.id)) res.setHeader("X-Companion-Wake", "1");
+      return res.status(204).end();
+    }
     scheduleBlobSync();
     const { job, plan, resumed } = claimed;
     const pending = new Set(job.shots.filter((s) => s.status === "pending" || s.status === "running").map((s) => s.filename));
@@ -571,7 +590,7 @@ export function registerCaptureRoutes(app, deps = {}) {
     if (!isJobId(req.params.id)) return res.status(400).json({ error: "Invalid job id." });
     syncAfter(res);
     const body = req.body && typeof req.body === "object" ? req.body : {};
-    const result = jobs.complete(req.params.id, req.captureDevice.id, { message: body.message, fatalError: body.fatalError, paused: body.paused, created: body.created, signIn: body.signIn });
+    const result = jobs.complete(req.params.id, req.captureDevice.id, { message: body.message, fatalError: body.fatalError, paused: body.paused, created: body.created, signIn: body.signIn, account: body.account, needsAccount: body.needsAccount });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     if (result.job.target.type === "lab") screenshots.flushLab(result.job.target.labId);
     else void screenshots.flushLibrary().catch(() => {});

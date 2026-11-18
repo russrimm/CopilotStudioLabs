@@ -8,6 +8,7 @@ export const CAUSES = Object.freeze({
   "no-address": { code: "no-address", title: "A tenant address is missing", fix: "Add the address in Capture settings, then retake.", fixAction: "settings", tone: "warn" },
   "agent-not-found": { code: "agent-not-found", title: "The agent was not found", fix: "Check the agent name or address in Capture settings. The name must match exactly.", fixAction: "settings", tone: "warn" },
   "sign-in": { code: "sign-in", title: "Sign-in needed", fix: "Sign in in the companion's browser window, then retake.", fixAction: "retry", tone: "warn" },
+  "needs-account": { code: "needs-account", title: "Signed in to the wrong account", fix: "Choose which account to use: sign in with the account that owns your agent or site (for example your demo tenant), then retake.", fixAction: "account", tone: "warn" },
   "wrong-screen": { code: "wrong-screen", title: "The wrong screen was open", fix: "Retake with “Retake guided”, or check the agent address in Capture settings.", fixAction: "guided", tone: "warn" },
   "control-not-found": { code: "control-not-found", title: "A control could not be found", fix: "Use “Retake guided” and open the screen yourself.", fixAction: "guided", tone: "warn" },
   "blank-page": { code: "blank-page", title: "The page did not finish loading", fix: "Retake it. If it keeps happening, check that the page opens in the companion's browser.", fixAction: "retry", tone: "warn" },

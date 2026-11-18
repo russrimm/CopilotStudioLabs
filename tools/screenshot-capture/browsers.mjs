@@ -1,7 +1,13 @@
-// Which browser the companion opens. People sign in themselves, so a normal installed browser
-// (Microsoft Edge, then Google Chrome) is preferred over Playwright's bundled Chromium: it is the
-// browser their organization already trusts, and some tenants refuse to sign in to an unmanaged one.
-// Nothing here hides that it is automated or changes how the browser identifies itself.
+// Which browser the companion opens. People sign in themselves, so a normal installed browser is preferred over
+// Playwright's bundled Chromium where that is safe: it is the browser their organization already trusts, and some
+// tenants refuse to sign in to an unmanaged one.
+//
+// There is one exception, and it is about WHICH ACCOUNT signs in. On a PC that is joined to a work or school account
+// (Microsoft Entra), Microsoft Edge signs its profiles in with that Windows work account, and a screenshot would then
+// come from the corporate tenant instead of the demo tenant the person wants. So when the PC has a work account and the
+// person has not asked for it ("--account-mode=windows"), the default order is Chrome, then Chromium, and Edge last, and
+// Edge is then opened InPrivate, which does not carry the Windows account (measured, see the README). Nothing here hides
+// that the browser is automated or changes how it identifies itself.
 
 import fs from "node:fs";
 
@@ -53,14 +59,31 @@ export function detectInstalledBrowsers({ platform = process.platform, env = pro
 }
 
 /**
+ * The order `--browser=auto` tries browsers in. With a Windows work account on this PC and a separate sign-in wanted,
+ * a browser that cannot sign in with that account comes first and Edge comes last; otherwise the original order.
+ */
+export function autoBrowserOrder({ accountMode = "windows", osWorkAccount = null } = {}) {
+  return accountMode === "separate" && osWorkAccount === true ? ["chrome", "chromium", "edge"] : ["edge", "chrome", "chromium"];
+}
+
+/**
  * The browsers to try, best first.
  * `installed` is `{edge, chrome, chromium}` (truthy when present). An explicit choice never falls back to another browser.
  */
-export function chooseBrowsers({ requested = "auto", installed = {} } = {}) {
-  const order = requested === "auto" ? ["edge", "chrome", "chromium"] : [requested];
+export function chooseBrowsers({ requested = "auto", installed = {}, accountMode = "windows", osWorkAccount = null } = {}) {
+  const order = requested === "auto" ? autoBrowserOrder({ accountMode, osWorkAccount }) : [requested];
   const kinds = order.filter((kind) => Boolean(installed[kind]));
   if (kinds.length) return { ok: true, kinds, requested };
   return { ok: false, kinds: [], requested, message: missingBrowserMessage(requested) };
+}
+
+/**
+ * How a browser is opened for an account mode. Edge on a PC with a Windows work account is opened InPrivate when a
+ * separate sign-in is wanted: an InPrivate window has no browser profile, so it does not carry the Windows account.
+ * Allowing the Windows account on purpose ("windows") opens Edge normally.
+ */
+export function launchPolicy({ kind, accountMode = "windows", osWorkAccount = null } = {}) {
+  return { inPrivate: kind === "edge" && accountMode === "separate" && osWorkAccount === true };
 }
 
 export function missingBrowserMessage(requested = "auto") {
@@ -80,8 +103,8 @@ export function browserLabel(kind) {
 }
 
 /** Open a persistent profile in the chosen browser. */
-export function launchBrowser({ playwright, kind, dir, headless = false, viewport = { width: 1440, height: 900 } }) {
+export function launchBrowser({ playwright, kind, dir, headless = false, viewport = { width: 1440, height: 900 }, inPrivate = false }) {
   const info = BROWSER_INFO[kind];
   if (!info) throw new Error(`Unknown browser "${kind}".`);
-  return playwright.chromium.launchPersistentContext(dir, { headless: Boolean(headless), viewport, ...(info.channel ? { channel: info.channel } : {}) });
+  return playwright.chromium.launchPersistentContext(dir, { headless: Boolean(headless), viewport, ...(info.channel ? { channel: info.channel } : {}), ...(inPrivate ? { args: ["--inprivate"] } : {}) });
 }
