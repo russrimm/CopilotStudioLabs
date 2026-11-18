@@ -1,7 +1,9 @@
 #!/usr/bin/env sh
 # Starts the Local Capture Companion on macOS or Linux.
 # Run: ./start-companion.sh --portal=<address> --code=<pairing code>
-cd "$(dirname "$0")" || exit 1
+# To run it from any folder, use its full path (in single quotes if the path has spaces).
+LAUNCHER_DIR="$(cd "$(dirname "$0")" && pwd)" || exit 1
+cd "$LAUNCHER_DIR" || exit 1
 
 if ! command -v node >/dev/null 2>&1; then
   echo "Node.js is not installed. Install Node.js 20 or later from https://nodejs.org and run this again."
@@ -18,4 +20,4 @@ if ! node companion.mjs --check >/dev/null 2>&1; then
   npx playwright install chromium
 fi
 
-exec node companion.mjs "$@"
+COMPANION_LAUNCHER="$LAUNCHER_DIR/$(basename "$0")" exec node companion.mjs "$@"

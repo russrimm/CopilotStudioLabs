@@ -12,7 +12,7 @@ import vm from "node:vm";
 import { createFakeDom } from "./fixtures/fake-dom.js";
 
 const publicFile = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url), "utf8");
-const SOURCES = ["brand-ui.js", "screenshot-center-core.js", "screenshot-center-jobs.js", "screenshot-center.js", "readiness-hub.js"].map(publicFile);
+const SOURCES = ["brand-ui.js", "screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center.js", "readiness-hub.js"].map(publicFile);
 const HUB_SOURCE = publicFile("readiness-hub.js");
 const INDEX_HTML = publicFile("index.html");
 const json = (value) => JSON.parse(JSON.stringify(value));
@@ -827,7 +827,7 @@ test("the banner and the checklist sit at the top of their tabs and load after t
   assert.match(INDEX_HTML, /<h3 id="lb-build-heading" tabindex="-1">/, "the Build heading can take focus after the banner is dismissed");
   assert.match(INDEX_HTML, /<div id="app-live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"><\/div>/);
   const at = (name) => INDEX_HTML.indexOf(`<script src="${name}" defer></script>`);
-  const order = ["generated-labs.js", "screenshot-center-core.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js", "lab-customize.js", "readiness-hub.js"].map(at);
+  const order = ["generated-labs.js", "screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js", "lab-customize.js", "readiness-hub.js"].map(at);
   assert.ok(order.every((i) => i > 0));
   assert.deepEqual([...order].sort((a, b) => a - b), order, "the hub loads last, so every helper it reuses exists");
   assert.equal(INDEX_HTML.match(/id="rh-banner-open"[^>]*>/)[0].includes("btn-primary"), false, "the banner leaves the wizard's Next button as the one primary action");

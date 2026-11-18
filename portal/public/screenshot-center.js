@@ -638,7 +638,7 @@ function scBuildPairingCard() {
   steps.appendChild(download);
 
   const codeItem = scEl("li");
-  codeItem.appendChild(scEl("span", { text: "Unzip it and run the launcher. When it asks for a pairing code, enter this one:" }));
+  codeItem.appendChild(scEl("span", { text: "Unzip it, then run the launcher in the capture-companion/tools/screenshot-capture folder (start-companion.cmd on Windows, start-companion.sh on macOS and Linux). When it asks for a pairing code, enter this one:" }));
   const codeRow = scEl("div", { class: "sc-code-row" });
   codeRow.appendChild(scEl("code", { class: "sc-code", text: p.code, attrs: { "aria-label": `Pairing code ${p.code.split("").join(" ")}` } }));
   codeRow.appendChild(scButton("Copy code", { action: "pair-copy-code", focus: "pair-copy-code" }));
@@ -646,7 +646,10 @@ function scBuildPairingCard() {
   codeItem.appendChild(codeRow);
   steps.appendChild(codeItem);
 
-  if (p.command) {
+  const commandItem = scBuildCommandItem(p);
+  if (commandItem) steps.appendChild(commandItem);
+  else if (p.command) {
+    // An older server sends only the command text.
     const cmdItem = scEl("li");
     cmdItem.appendChild(scEl("span", { text: "Or run this ready-made command:" }));
     const cmdRow = scEl("div", { class: "sc-code-row" });
@@ -1870,7 +1873,7 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       await scCopyWithAck("pair-copy-code", scState.pairing?.code || "");
       return;
     case "pair-copy-command":
-      await scCopyWithAck("pair-copy-command", scState.pairing?.command || "");
+      await scCopyWithAck("pair-copy-command", scPairingCommandText());
       return;
     case "disconnect-device":
       await scConfirmDisconnect(control);

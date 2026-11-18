@@ -1614,7 +1614,21 @@ your credentials. Capture therefore runs on **your own computer**:
 1. **Connect once.** In the portal, ask for a pairing code (`POST /api/capture/pair`). It
    works one time and expires in 10 minutes. Download the companion
    (`GET /api/capture/companion.zip`; it holds no secrets), run its launcher, and enter the
-   portal address and the code. The companion trades the code for a scoped capture token
+   portal address and the code. The launchers sit in `capture-companion/tools/screenshot-capture`
+   inside the ZIP (`start-companion.cmd`, `start-companion.ps1`, `start-companion.sh`). The pairing
+   card shows a ready-made command for the person's system (Windows PowerShell, Command Prompt, or macOS and
+   Linux, chosen from the browser and switchable) with the launcher's path relative to the unzip folder:
+   `.\capture-companion\tools\screenshot-capture\start-companion.cmd --portal=<address> --code=<code>` or
+   `./capture-companion/tools/screenshot-capture/start-companion.sh --portal=<address> --code=<code>`, with
+   "Run this from the folder where you unzipped the companion." The optional **Where did you unzip the
+   companion?** field (kept in the browser's `localStorage`, validated, at most 300 characters, never sent to the
+   portal and never run) turns it into the full path, quoted for the shell (`& '<path>'` for PowerShell,
+   `"<path>"` for Command Prompt, `'<path>'` for macOS and Linux). The API returns the same launcher pieces
+   (`launcher: { relativeDir, windows, powershell, posix }`, forward-slash paths inside the ZIP) beside the older
+   `command` string, which now carries the Windows relative path; only a plain host name and a `XXXX-XXXX` code are put
+   into a command. Each time it starts, the companion prints the full command to start it again from any folder
+   (it reads `COMPANION_LAUNCHER`, which the three launchers set, or names `node <path to companion.mjs>`), never
+   with the pairing code. The companion trades the code for a scoped capture token
    (`cap_...`) that only opens the companion endpoints. The portal stores a hash of it,
    shows the computer as **Companion connected** while it checks in, and lets you
    **Disconnect** it at any time (`DELETE /api/capture/devices/:id`).
@@ -2641,7 +2655,7 @@ Browser-facing:
 
 | Method | Route | Purpose |
 |---|---|---|
-| `POST` | `/api/capture/pair` | A one-time pairing code, valid 10 minutes: `{ code: "ABCD-EFGH", expiresAt, expiresInSec, portalUrl, command }`. |
+| `POST` | `/api/capture/pair` | A one-time pairing code, valid 10 minutes: `{ code: "ABCD-EFGH", expiresAt, expiresInSec, portalUrl, command, launcher }`. `command` is the Windows command with the launcher's relative path (`.\capture-companion\tools\screenshot-capture\start-companion.cmd --portal=<portalUrl> --code=<code>`) and is kept for older clients; `launcher` is `{ relativeDir, windows, powershell, posix }`, the launcher paths inside the ZIP with forward slashes, which the Screenshot Center turns into the command for the person's shell. A host or code that is not plain letters, digits, dots, and hyphens is left out of `command`. |
 | `GET` | `/api/capture/status` | What the Screenshot Center needs to decide what to offer (below). |
 | `GET` | `/api/capture/devices` | Paired computers: `{ devices: [{ id, name, platform, companionVersion, createdAt, lastSeenAt, connected, busy, signedInProducts, account, accountSetup, expiresAt, tokenHint }] }`. `account` and `accountSetup` are the flags a companion 1.5.0 or later reported (null from an older one). |
 | `DELETE` | `/api/capture/devices/:id` | Disconnect a computer. Its token stops working at once. |

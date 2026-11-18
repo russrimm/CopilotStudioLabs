@@ -1,5 +1,6 @@
 # Starts the Local Capture Companion on Windows (PowerShell).
 # Run: .\start-companion.ps1 --portal=<address> --code=<pairing code>
+# To run it from any folder, use its full path: & '<full path>\start-companion.ps1' --portal=<address> --code=<pairing code>
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 
@@ -23,5 +24,9 @@ if ($LASTEXITCODE -ne 0) {
   npx playwright install chromium
 }
 
+# The companion prints this path so the person can start it again from any folder.
+$env:COMPANION_LAUNCHER = $PSCommandPath
 node companion.mjs @args
-exit $LASTEXITCODE
+$exitCode = $LASTEXITCODE
+Remove-Item Env:COMPANION_LAUNCHER -ErrorAction SilentlyContinue
+exit $exitCode
