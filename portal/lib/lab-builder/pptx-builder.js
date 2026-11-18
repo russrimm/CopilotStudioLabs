@@ -13,7 +13,7 @@
  * Strictly uses Node built-in modules and local lab-builder helpers only.
  */
 
-import { buildZipBuffer, inspectImageDimensions } from "./docx-builder.js";
+import { buildZipBuffer, inspectImageDimensions, stripIllegalXmlChars } from "./docx-builder.js";
 import {
   ARCHITECTURE_FENCE_LANG,
   renderArchitectureDocumentMarkdown,
@@ -27,6 +27,8 @@ const SLIDE_CX = 12192000; // 13.333 in * 914400 EMU/in (16:9 widescreen)
 const SLIDE_CY = 6858000;  // 7.500 in * 914400 EMU/in
 const NOTES_CX = 6858000;
 const NOTES_CY = 9144000;
+const SLIDE_THEME_NAME = "Copilot Studio Lab Theme";
+const NOTES_THEME_NAME = "Copilot Studio Lab Notes Theme";
 
 // Heading/body typefaces are module-level because dozens of slide builders reference them.
 // Deck assembly is fully synchronous, and every deck resets them in its constructor,
@@ -62,7 +64,7 @@ const COLORS = Object.freeze({
 });
 
 function sanitizeXmlChars(value) {
-  return String(value ?? "").replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+  return stripIllegalXmlChars(value);
 }
 
 function xmlEscape(value) {
@@ -909,7 +911,9 @@ class PptxDeckAssembler {
       { name: "ppt/presProps.xml", data: this.renderPresPropsXml() },
       { name: "ppt/viewProps.xml", data: this.renderViewPropsXml() },
       { name: "ppt/tableStyles.xml", data: this.renderTableStylesXml() },
-      { name: "ppt/theme/theme1.xml", data: this.renderThemeXml() },
+      { name: "ppt/theme/theme1.xml", data: this.renderThemeXml(SLIDE_THEME_NAME) },
+      // PowerPoint rejects a package whose notes master shares the slide master's theme part.
+      { name: "ppt/theme/theme2.xml", data: this.renderThemeXml(NOTES_THEME_NAME) },
       { name: "ppt/slideMasters/slideMaster1.xml", data: this.renderSlideMasterXml() },
       { name: "ppt/slideMasters/_rels/slideMaster1.xml.rels", data: this.renderSlideMasterRelsXml() },
       { name: "ppt/slideLayouts/slideLayout1.xml", data: this.renderSlideLayoutXml() },
@@ -953,6 +957,7 @@ class PptxDeckAssembler {
       `<Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>`,
       `<Override PartName="/ppt/notesMasters/notesMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesMaster+xml"/>`,
       `<Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>`,
+      `<Override PartName="/ppt/theme/theme2.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>`,
       `<Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>`,
       `<Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/>`,
       `<Override PartName="/ppt/tableStyles.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"/>`,
@@ -1119,9 +1124,11 @@ class PptxDeckAssembler {
 <a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>`;
   }
 
-  renderThemeXml() {
+  renderThemeXml(themeName = SLIDE_THEME_NAME) {
+    const headingFont = xmlEscape(FONT_HEADING);
+    const bodyFont = xmlEscape(FONT_BODY);
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Copilot Studio Lab Theme">
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="${xmlEscape(themeName)}">
   <a:themeElements>
     <a:clrScheme name="Copilot Studio">
       <a:dk1><a:srgbClr val="${COLORS.ink}"/></a:dk1>
@@ -1139,12 +1146,12 @@ class PptxDeckAssembler {
     </a:clrScheme>
     <a:fontScheme name="Segoe UI">
       <a:majorFont>
-        <a:latin typeface="${FONT_HEADING}"/>
+        <a:latin typeface="${headingFont}"/>
         <a:ea typeface=""/>
         <a:cs typeface=""/>
       </a:majorFont>
       <a:minorFont>
-        <a:latin typeface="${FONT_BODY}"/>
+        <a:latin typeface="${bodyFont}"/>
         <a:ea typeface=""/>
         <a:cs typeface=""/>
       </a:minorFont>
@@ -1248,7 +1255,7 @@ class PptxDeckAssembler {
           <a:off x="0" y="0"/>
           <a:ext cx="0" cy="0"/>
           <a:chOff x="0" y="0"/>
-          <a:chExt cx="0" y="0" cy="0"/>
+          <a:chExt cx="0" cy="0"/>
         </a:xfrm>
       </p:grpSpPr>
     </p:spTree>
@@ -1256,7 +1263,7 @@ class PptxDeckAssembler {
   <p:clrMapOvr>
     <a:masterClrMapping/>
   </p:clrMapOvr>
-</p:sldLayout>`.replace('<a:chExt cx="0" y="0" cy="0"/>', '<a:chExt cx="0" cy="0"/>');
+</p:sldLayout>`;
   }
 
   renderSlideLayoutRelsXml() {
@@ -1383,7 +1390,7 @@ class PptxDeckAssembler {
   renderNotesMasterRelsXml() {
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme2.xml"/>
 </Relationships>`;
   }
 }

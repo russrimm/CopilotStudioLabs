@@ -123,9 +123,20 @@ export function buildZipBuffer(entries) {
   return Buffer.concat([...localChunks, ...centralChunks, eocd]);
 }
 
+const ILLEGAL_XML_CHARS =
+  /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+/**
+ * Remove characters that are illegal in XML 1.0 (C0 controls except tab/LF/CR,
+ * U+FFFE/U+FFFF and lone surrogates). Word and PowerPoint reject a package that
+ * contains any of them.
+ */
+export function stripIllegalXmlChars(value) {
+  return String(value ?? "").replace(ILLEGAL_XML_CHARS, "");
+}
+
 function xmlEscape(value) {
-  return String(value ?? "")
-    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+  return stripIllegalXmlChars(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -269,18 +280,16 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
   const makeRun = (text, props = {}) => {
     const cleaned = String(text ?? "").replace(/\\([\\`*_[\]<>|~#+-])/g, "$1");
     if (!cleaned) return "";
+    // Child order follows the WordprocessingML schema (rFonts, b, i, color, sz, szCs, u, shd).
     const rPr = [];
+    if (props.code) rPr.push('<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:cs="Consolas"/>');
     if (props.bold) rPr.push("<w:b/>");
     if (props.italic) rPr.push("<w:i/>");
-    if (props.underline) rPr.push('<w:u w:val="single"/>');
     if (props.color) rPr.push(`<w:color w:val="${props.color}"/>`);
-    if (props.code) {
-      rPr.push('<w:rFonts w:ascii="Consolas" w:hAnsi="Consolas" w:cs="Consolas"/>');
-      rPr.push('<w:sz w:val="19"/><w:szCs w:val="19"/>');
-      rPr.push('<w:shd w:val="clear" w:color="auto" w:fill="EEF1F7"/>');
-    } else if (props.sizeHalfPt) {
-      rPr.push(`<w:sz w:val="${props.sizeHalfPt}"/><w:szCs w:val="${props.sizeHalfPt}"/>`);
-    }
+    if (props.code) rPr.push('<w:sz w:val="19"/><w:szCs w:val="19"/>');
+    else if (props.sizeHalfPt) rPr.push(`<w:sz w:val="${props.sizeHalfPt}"/><w:szCs w:val="${props.sizeHalfPt}"/>`);
+    if (props.underline) rPr.push('<w:u w:val="single"/>');
+    if (props.code) rPr.push('<w:shd w:val="clear" w:color="auto" w:fill="EEF1F7"/>');
     const rPrXml = rPr.length ? `<w:rPr>${rPr.join("")}</w:rPr>` : "";
     return `<w:r>${rPrXml}<w:t xml:space="preserve">${xmlEscape(cleaned)}</w:t></w:r>`;
   };
@@ -346,6 +355,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
   };
 
   const makeParagraph = (runsXml, pProps = {}) => {
+    // Child order follows the WordprocessingML schema (pStyle, numPr, pBdr, shd, spacing, ind).
     const pPr = [];
     if (pProps.style) pPr.push(`<w:pStyle w:val="${pProps.style}"/>`);
     if (pProps.numId) {
@@ -355,23 +365,23 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
       pPr.push(
         `<w:pBdr><w:left w:val="single" w:sz="18" w:space="10" w:color="${accentHex}"/></w:pBdr>`,
         '<w:shd w:val="clear" w:color="auto" w:fill="F4F7FC"/>',
-        '<w:ind w:left="240" w:right="160"/>',
       );
-    }
-    if (pProps.codeBlock) {
+    } else if (pProps.codeBlock) {
       pPr.push(
         '<w:pBdr><w:top w:val="single" w:sz="4" w:space="4" w:color="D0D7DE"/><w:left w:val="single" w:sz="4" w:space="8" w:color="D0D7DE"/><w:bottom w:val="single" w:sz="4" w:space="4" w:color="D0D7DE"/><w:right w:val="single" w:sz="4" w:space="8" w:color="D0D7DE"/></w:pBdr>',
         '<w:shd w:val="clear" w:color="auto" w:fill="F6F8FA"/>',
-        '<w:spacing w:before="60" w:after="60" w:line="260" w:lineRule="auto"/>',
       );
+    } else if (pProps.bottomRule) {
+      pPr.push(`<w:pBdr><w:bottom w:val="single" w:sz="${secondaryHex ? 12 : 6}" w:space="6" w:color="${secondaryHex || "D0D7DE"}"/></w:pBdr>`);
+    }
+    if (pProps.codeBlock) {
+      pPr.push('<w:spacing w:before="60" w:after="60" w:line="260" w:lineRule="auto"/>');
     } else if (pProps.spacingBefore || pProps.spacingAfter) {
       pPr.push(
         `<w:spacing w:before="${pProps.spacingBefore || 0}" w:after="${pProps.spacingAfter || 120}"/>`,
       );
     }
-    if (pProps.bottomRule) {
-      pPr.push(`<w:pBdr><w:bottom w:val="single" w:sz="${secondaryHex ? 12 : 6}" w:space="6" w:color="${secondaryHex || "D0D7DE"}"/></w:pBdr>`);
-    }
+    if (pProps.callout) pPr.push('<w:ind w:left="240" w:right="160"/>');
     const pPrXml = pPr.length ? `<w:pPr>${pPr.join("")}</w:pPr>` : "";
     return `<w:p>${pPrXml}${runsXml}</w:p>`;
   };
@@ -708,9 +718,9 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
     <w:rPrDefault>
       <w:rPr>
         <w:rFonts w:ascii="${xmlEscape(brandFontName)}" w:hAnsi="${xmlEscape(brandFontName)}" w:cs="${xmlEscape(brandFontName)}"/>
+        <w:color w:val="1A202C"/>
         <w:sz w:val="21"/>
         <w:szCs w:val="21"/>
-        <w:color w:val="1A202C"/>
         <w:lang w:val="en-US"/>
       </w:rPr>
     </w:rPrDefault>
@@ -732,7 +742,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
   <w:style w:type="paragraph" w:styleId="Heading2">
     <w:name w:val="heading 2"/>
     <w:basedOn w:val="Normal"/>
-    <w:pPr><w:keepNext/><w:spacing w:before="260" w:after="120"/><w:pBdr><w:bottom w:val="single" w:sz="${secondaryHex ? 12 : 6}" w:space="4" w:color="${secondaryHex || "E2E8F0"}"/></w:pBdr></w:pPr>
+    <w:pPr><w:keepNext/><w:pBdr><w:bottom w:val="single" w:sz="${secondaryHex ? 12 : 6}" w:space="4" w:color="${secondaryHex || "E2E8F0"}"/></w:pBdr><w:spacing w:before="260" w:after="120"/></w:pPr>
     <w:rPr><w:b/><w:color w:val="${accentHex}"/><w:sz w:val="30"/><w:szCs w:val="30"/></w:rPr>
   </w:style>
   <w:style w:type="paragraph" w:styleId="Heading3">

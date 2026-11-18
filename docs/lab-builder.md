@@ -1994,6 +1994,64 @@ or headless browser dependencies required at runtime) by `portal/lib/exporter.js
 | Facilitator Guide Pack (`.docx`, `.pdf`, `.md`, `.html`) | `/export?format=facilitator-docx` (`facilitator-pdf`, `facilitator-md`, `facilitator-html`) | Dedicated Instructor / Facilitator Guide (`facilitator-guide.js`, named `<Lab Title> - Facilitator Guide.<ext>`) containing a Run-of-Show pacing table with a 15-minute pre-flight buffer and >90-minute break cues, a T-24h tenant/DLP/SharePoint/sample-files readiness runbook, and a per-module facilitator playbook (opening hook, 3–5 minute live demo talking points, step coaching cues, common learner roadblocks & fast rescue steps, debrief prompt, and complete Knowledge Check Answer Key & distractor rationales even when learner quizzes are unchecked). |
 | Per-module ZIP (`.zip`) | `/export?format=zip&formats=all` (`all\|docx\|pptx\|pdf\|html`) | Complete workshop archive containing `<labId>/index.md`, `<labId>/index.html`, `<labId>/manifest.json`, `<labId>/shots.json`, `00 - Overview and Admin Prerequisites/`, `Facilitator Guide/` (`<Lab Title> - Facilitator Guide.md` plus matching `.docx`/`.pdf`/`.html`), titled `Module NN - <Title>/` folders in the requested formats, `sample-files/` starter artifacts, a root `README.md`, `export-manifest.json`, and optional `_branding/` assets. |
 
+#### Validating Office exports (contributors)
+
+Word and PowerPoint enforce package rules that lenient readers do not. python-pptx,
+python-docx, and the Open XML SDK validator all opened decks that PowerPoint rejected with
+"The file or directory is corrupted and unreadable (0x80070570)", so a green run from those
+tools is not proof that Office opens the file. The invariants the builders must keep:
+
+- **One theme part per master.** The slide master relates to `ppt/theme/theme1.xml` and the
+  notes master to its own `ppt/theme/theme2.xml`. A notes master that shares the slide
+  master's theme was the cause of the "corrupted PPTX" reports; the Open XML SDK validator
+  reports zero errors for that defect, only PowerPoint (and the strict checks below) catch it.
+- **Ids.** Slide ids are unique and within 256..2147483647; slide master and layout ids are
+  unique across the whole package and at least 2147483648; shape ids are unique per part.
+- **Legal XML.** Only XML 1.0 characters (no C0 controls except tab, LF, CR; no U+FFFE or
+  U+FFFF; no lone surrogates), declared namespace prefixes, escaped `&`, no DTDs. Text passes
+  through `stripIllegalXmlChars()` in `docx-builder.js` before it is written.
+- **A closed package.** Every relationship target exists, every part has a content type, every
+  part is reachable from `_rels/.rels`, every `r:id`/`r:embed` resolves (never empty), image
+  parts match their extension and content type, `docProps/app.xml` slide and notes counts match.
+- **Schema order and ranges.** Child elements appear in schema order (for example `a:off` before
+  `a:ext`; `w:rPr` children `rFonts, b, i, color, sz, szCs, u, shd`; `w:pPr` children
+  `pBdr, shd, spacing, ind`), font sizes are 100..400000, EMU values are integers, extents are
+  not negative, and a table cell ends with a paragraph.
+- **ZIP container.** `[Content_Types].xml` is the first entry, entry names use forward slashes,
+  no directory entries, no duplicates, valid CRC-32.
+
+Check an export before you ship a change to a builder:
+
+```bash
+# Build a matrix (small, large, branded with PNG/JPEG logos, special characters, ZIP bundle
+# contents, facilitator guides) and run every available layer on it
+node tools/lab-builder/validate-office.mjs
+npm run validate:office -- --no-labs --skip-office     # fast, no real labs, no Office
+
+# Check specific files (for example a deck downloaded from the portal)
+node tools/lab-builder/validate-office.mjs "My Lab.pptx" "My Lab.docx"
+```
+
+The script runs three layers and prints PASS, FAIL, or SKIPPED for each:
+
+| Layer | Needs | What it does |
+|---|---|---|
+| `strict` | Node.js only | `tools/lab-builder/lib/ooxml-strict.mjs`: the invariants above, with no dependencies. |
+| `open-xml` | .NET SDK (and NuGet access on the first build) | Builds `tools/lab-builder/oxml-validator` into the OS temp folder and reports schema errors per part and XPath. Skipped when `dotnet` is missing or the build fails. |
+| `office` | Windows with PowerPoint and/or Word | `tools/lab-builder/office-open-test.ps1` opens each file through COM, read-only and hidden, with a no-progress timeout, and reports slide and speaker-notes counts. It never quits, kills, or reconfigures an application that was already running, and closes only the documents it opened. Skipped on other platforms. |
+
+Exit code 0 means every layer that ran passed. `portal/test/office-export-validity.test.js`
+runs the strict layer over the same matrix in `npm test` (including a lab generated before a
+fix, to prove cached decks regenerate) and runs the Open XML SDK layer when `dotnet` is
+available; set `LAB_BUILDER_OXML_VALIDATOR=off` to skip it. Real PowerPoint and Word are never
+needed for `npm test`.
+
+Per-topic decks are cached in each lab's `topics/` folder and refreshed when the manifest's
+`topicDocumentsVersion` differs from `TOPIC_DOCUMENTS_SCHEMA_VERSION` in `topic-documents.js`.
+Bump that constant whenever a builder change alters per-topic output so existing labs
+regenerate on their next download without being rebuilt. The full-lab export and the ZIP
+bundle render fresh on every request.
+
 #### Lab quality review
 
 After composition, `assessLab()` in `portal/lib/lab-builder/qa.js` scores the lab
@@ -2736,6 +2794,10 @@ staying inert, and validation of the committed snapshot.
 CLI with every npm package blocked, the way CI runs it before `npm ci`, and
 fails if the builder's import graph starts needing `portal/node_modules`. No
 network access is required.
+`portal/test/office-export-validity.test.js` checks the Word and PowerPoint exports
+against the package invariants that Office enforces (see "Validating Office exports"),
+including negative cases for each defect, a matrix of generated labs, and a lab built
+before a builder fix.
 
 The monthly catalog check is tested with the rest of the accuracy tooling:
 
