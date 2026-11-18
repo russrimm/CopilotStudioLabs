@@ -224,7 +224,8 @@ function assertValidPptxSpeakerNotes(pptxBuffer, label = "deck") {
     /Id="rIdNotesMaster1"\s+Type="http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/notesMaster"\s+Target="notesMasters\/notesMaster1\.xml"/,
   );
 
-  // notesMaster1.xml + rels -> ../theme/theme1.xml
+  // notesMaster1.xml + rels -> its OWN theme part (../theme/theme2.xml). PowerPoint rejects a package
+  // whose notes master shares the slide master's theme1.xml as "corrupted and unreadable".
   assert.ok(files.has("ppt/notesMasters/notesMaster1.xml"), `${label}: missing notesMaster1.xml`);
   const notesMasterXml = files.get("ppt/notesMasters/notesMaster1.xml").toString("utf8");
   assert.match(notesMasterXml, /<p:ph type="sldImg"\/>/);
@@ -234,7 +235,9 @@ function assertValidPptxSpeakerNotes(pptxBuffer, label = "deck") {
   const notesMasterRels = files
     .get("ppt/notesMasters/_rels/notesMaster1.xml.rels")
     .toString("utf8");
-  assert.match(notesMasterRels, /Target="\.\.\/theme\/theme1\.xml"/);
+  assert.match(notesMasterRels, /Target="\.\.\/theme\/theme2\.xml"/);
+  assert.doesNotMatch(notesMasterRels, /theme1\.xml/, `${label}: the notes master must not share theme1.xml`);
+  assert.ok(files.has("ppt/theme/theme2.xml"), `${label}: missing the notes master theme part`);
 
   // Verify slides and bidirectional notesSlides relationships
   const slideNames = [...files.keys()]
