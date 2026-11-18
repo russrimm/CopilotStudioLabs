@@ -11,14 +11,15 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { acquireProfileLock, AttachError, attachArgs, closeAllAttached, freeLoopbackPort, launchAttached, LOCK_FILE, parseLaunchChoice, wantsAttach } from "../attach.mjs";
+import { acquireProfileLock, AttachError, attachArgs, closeAllAttached, freeLoopbackPort, launchAttached, LOCK_FILE, parseLaunchChoice, settleTabs, wantsAttach } from "../attach.mjs";
 import { createAuthGate } from "../auth.mjs";
 import { cleanCookieName, cookiePresence, describeHops, measureClockSkew, readCookieSettings, runCheckSignIn, windowsDeviceState } from "../check-signin.mjs";
 import { COMPANION_VERSION, EXIT, openProfile, parseArgs, runCompanion, runJob, helpText } from "../companion.mjs";
 import { deleteOldSignIn, describeHomeState, detectSyncedFolder, localDataHome, migrateLegacyHome, resolveHome, syncedHomeMessage } from "../home.mjs";
 import { gotoWithRetry, navigateWithSignIn } from "../lifecycle.mjs";
 import { aadstsFromUrl, createPingPongDetector, diagnoseSignIn, extractAadstsCode, readAadstsCode, signInReport } from "../signin-diagnosis.mjs";
-import { classifyUrl, cleanPathForReport, maskTenantHost, redactedAddress } from "../signin-url.mjs";
+import { classifyUrl, cleanPathForReport, cleanPathSegment, maskTenantHost, redactedAddress } from "../signin-url.mjs";
+import { createSurfaceWatch, describeNativeSnapshot, describeSurface } from "../surface-watch.mjs";
 import { createTrace } from "../trace.mjs";
 import { createFakePlaywright } from "./fixtures/fake-playwright.mjs";
 
@@ -826,7 +827,7 @@ test("--check-signin opens the product once, only watches, and writes a plain ve
     ],
   });
   const log = collectLog();
-  const outcome = await runCheckSignIn({ home, product: "copilot-studio", playwright: {}, kinds: ["edge"], launch: "auto", open: world.open, resolved: { source: "default", synced: { synced: false } }, log, signInWaitSec: 600, sleepFn: world.flow.sleep, companion: COMPANION_VERSION, deps: { device: () => ({ joined: true, prt: true }), skew: async () => 3 } });
+  const outcome = await runCheckSignIn({ home, product: "copilot-studio", playwright: {}, kinds: ["edge"], launch: "auto", open: world.open, resolved: { source: "default", synced: { synced: false } }, log, signInWaitSec: 600, sleepFn: world.flow.sleep, companion: COMPANION_VERSION, deps: { device: () => ({ joined: true, prt: true }), skew: async () => 3, surface: false, raiseWindow: false } });
   assert.equal(outcome.ok, true);
   assert.deepEqual(world.gotos, [APP], "exactly one navigation: the start page");
   assert.deepEqual(world.flow.calls, [], "the sign-in itself was only watched");
@@ -858,7 +859,7 @@ test("--check-signin reports a loop with the diagnosis, the AADSTS code, and the
   world.flow.page.evaluate = async () => "AADSTS50196";
   const log = collectLog();
   const asked = [];
-  const outcome = await runCheckSignIn({ home, product: "copilot-studio", playwright: {}, kinds: ["edge"], open: world.open, resolved: { source: "option", synced: { synced: true, provider: "OneDrive" } }, log, signInWaitSec: 120, sleepFn: world.flow.sleep, ask: async (q) => asked.push(q), deps: { device: () => null, skew: async () => null } });
+  const outcome = await runCheckSignIn({ home, product: "copilot-studio", playwright: {}, kinds: ["edge"], open: world.open, resolved: { source: "option", synced: { synced: true, provider: "OneDrive" } }, log, signInWaitSec: 120, sleepFn: world.flow.sleep, ask: async (q) => asked.push(q), deps: { device: () => null, skew: async () => null, surface: false, raiseWindow: false } });
   assert.equal(outcome.ok, false);
   assert.equal(outcome.report.outcome.result, "ping-pong");
   assert.equal(outcome.report.aadsts, "AADSTS50196");
@@ -868,6 +869,193 @@ test("--check-signin reports a loop with the diagnosis, the AADSTS code, and the
   assert.match(log.text(), /Next step: /);
   assert.equal(outcome.signIn.code, "ping-pong");
   assert.equal(asked.length, 1, "the person is asked before the window closes");
+});
+
+// ── What the window did while a person signed in ─────────────────────────────
+
+const nextTurn = () => new Promise((resolve) => setImmediate(resolve));
+
+function fakeSurfaceWorld() {
+  const handlers = { page: {}, context: {} };
+  const calls = [];
+  const state = { url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize", title: "Sign in to your account", dom: { visibility: "visible", focused: true, ready: "complete", elements: 96, inputs: 3, buttons: 1, frames: 0 }, closed: false, opener: null };
+  const forbidden = (name) => async () => {
+    calls.push(name);
+  };
+  const makePage = () => ({
+    url: () => state.url,
+    isClosed: () => state.closed,
+    on(name, fn) {
+      handlers.page[name] = fn;
+    },
+    title: async () => state.title,
+    evaluate: async () => state.dom,
+    opener: async () => state.opener,
+    goto: forbidden("goto"),
+    reload: forbidden("reload"),
+    bringToFront: forbidden("bringToFront"),
+    click: forbidden("click"),
+    fill: forbidden("fill"),
+  });
+  const page = makePage();
+  const pages = [page];
+  const sent = [];
+  const context = {
+    pages: () => pages.filter((p) => !p.isClosed()),
+    on(name, fn) {
+      handlers.context[name] = fn;
+    },
+    browser: () => ({
+      async newBrowserCDPSession() {
+        return {
+          async send(method, args) {
+            sent.push(method);
+            if (method === "Target.getTargets") return { targetInfos: pages.map((_, i) => ({ type: "page", targetId: `t${i}`, title: "SECRET TITLE" })) };
+            if (method === "Browser.getWindowForTarget") return { windowId: args.targetId === "t0" ? 1 : 2, bounds: { windowState: "normal" } };
+            return {};
+          },
+          async detach() {},
+        };
+      },
+    }),
+  };
+  return { page, pages, context, state, handlers, calls, sent, makePage };
+}
+
+test("describeNativeSnapshot reports only the front window's role and sign-in broker names, never other programs", () => {
+  const seen = describeNativeSnapshot({ bw: 1, bmin: 0, fg: "notepad", others: ["CredentialUIBroker", "msedge", "Slack"] });
+  assert.deepEqual(seen, { browserWindows: 1, browserMinimized: 0, front: "another-app", brokerWindows: ["CredentialUIBroker"], otherEdgeWindows: 1 });
+  assert.ok(!JSON.stringify(seen).includes("notepad") && !JSON.stringify(seen).includes("Slack"));
+  assert.equal(describeNativeSnapshot({ bw: 1, bmin: 0, fg: "browser", others: [] }).front, "browser");
+  assert.equal(describeNativeSnapshot({ bw: 1, bmin: 0, fg: "msedge", others: "msedge" }).front, "another-edge-window");
+  assert.equal(describeNativeSnapshot({ bw: 0, bmin: 1, fg: "explorer", others: [] }).front, "desktop");
+  assert.equal(describeNativeSnapshot({ bw: 1, bmin: 0, fg: "LogonUI", others: [] }).front, "LogonUI");
+  assert.equal(describeNativeSnapshot(null), null);
+});
+
+test("the surface watch records tabs, popups, a blank sign-in page, focus, and sign-in broker windows without touching the page or reading its text", async () => {
+  const world = fakeSurfaceWorld();
+  const trace = createTrace({ file: null });
+  const native = { browserWindows: 1, browserMinimized: 0, front: "browser", brokerWindows: [], otherEdgeWindows: 0 };
+  let turn = 0;
+  const steps = [
+    () => {
+      native.front = "another-app"; // the window gets covered
+    },
+    () => {
+      world.state.opener = {}; // a popup opens
+      const popup = world.makePage();
+      world.pages.push(popup);
+      world.handlers.context.page(popup);
+    },
+    () => {
+      world.state.dom = { visibility: "visible", focused: true, ready: "complete", elements: 2, inputs: 0, buttons: 0, frames: 0 }; // the page empties
+    },
+    () => {},
+    () => {
+      native.brokerWindows = ["CredentialUIBroker"]; // a Windows account window appears
+    },
+    () => {},
+  ];
+  const sleep = async () => {
+    steps[turn]?.();
+    turn += 1;
+    await nextTurn();
+  };
+  const watch = createSurfaceWatch({ context: world.context, pid: 4242, trace, sleep, nativeProbe: () => ({ latest: () => ({ ...native }), stop() {} }) });
+  watch.start();
+  for (let i = 0; i < 200 && turn < steps.length; i += 1) await nextTurn();
+  assert.equal(watch.isCovered(), true, "the browser window is behind another program");
+  const summary = await watch.stop();
+
+  assert.deepEqual(world.calls, [], "the page was only observed: no navigation, reload, click, typing, or bringing it to the front");
+  assert.equal(summary.popupsOpened, 1);
+  assert.ok(summary.maxTabs >= 2 && summary.maxWindows >= 1);
+  assert.equal(summary.blankOnSignIn?.why, "blank-document");
+  assert.deepEqual(summary.brokers, ["CredentialUIBroker"]);
+  assert.ok(summary.covered.includes("another-app"));
+  assert.equal(summary.lostFocus, 1);
+  const written = trace.lines.join("\n");
+  for (const name of ["surface-tab-opened", "surface-windows", "surface-sign-in-surface-gone", "surface-native", "surface-watch-summary"]) assert.ok(written.includes(name), `the trace has ${name}`);
+  assert.ok(written.includes('"popup":true'));
+  assert.ok(!written.includes("SECRET TITLE") && !written.includes("Sign in to your account"), "titles and page text are never written, only whether the title is empty");
+  assert.match(written, /"titleEmpty":false/);
+  const lines = describeSurface(summary).join("\n");
+  assert.match(lines, /popup/);
+  assert.match(lines, /went blank \(an empty document\).*did not reload it/);
+  assert.match(lines, /Windows sign-in window was open \(CredentialUIBroker\)/);
+  assert.match(lines, /lost focus 1 time/);
+  await watch.stop();
+  assert.equal(trace.lines.filter((l) => l.includes("surface-watch-summary")).length, 1, "stopping twice writes one summary");
+});
+
+test("a page that only changes screens, or a sign-in form that comes back, is not reported as a vanished sign-in box", async () => {
+  const world = fakeSurfaceWorld();
+  const trace = createTrace({ file: null });
+  let turn = 0;
+  const steps = [
+    () => {
+      world.state.dom = { ...world.state.dom, inputs: 0, buttons: 0, elements: 2 }; // one empty sample
+    },
+    () => {
+      world.state.dom = { visibility: "visible", focused: true, ready: "complete", elements: 80, inputs: 2, buttons: 1, frames: 0 }; // and it is back
+    },
+    () => {},
+    () => {},
+  ];
+  const watch = createSurfaceWatch({ context: world.context, trace, nativeProbe: () => null, sleep: async () => { steps[turn]?.(); turn += 1; await nextTurn(); } });
+  watch.start();
+  for (let i = 0; i < 200 && turn < steps.length; i += 1) await nextTurn();
+  const summary = await watch.stop();
+  assert.equal(summary.blankOnSignIn, null);
+  assert.ok(!trace.lines.join("\n").includes("surface-sign-in-surface-gone"));
+});
+
+test("--check-signin brings the window forward once before sign-in begins, watches the window, and tells the person when it is behind other windows", async (t) => {
+  const home = tmpDir(t);
+  const dir = path.join(home, ".auth", "edge", "copilot-studio");
+  fs.mkdirSync(dir, { recursive: true });
+  const world = fakeOpen(SIGN_IN_FLOW, { dir });
+  const log = collectLog();
+  const covered = { browserWindows: 1, browserMinimized: 0, front: "another-app", brokerWindows: [], otherEdgeWindows: 0 };
+  const outcome = await runCheckSignIn({ home, product: "copilot-studio", playwright: {}, kinds: ["edge"], open: world.open, resolved: { source: "default", synced: { synced: false } }, log, signInWaitSec: 600, sleepFn: world.flow.sleep, deps: { device: () => null, skew: async () => null, surface: { nativeProbe: () => ({ latest: () => covered, stop() {} }) } } });
+  assert.equal(outcome.ok, true);
+  assert.deepEqual(world.flow.calls.filter((c) => c !== "evaluate"), ["bringToFront"], "one bring-to-front, at startup, and nothing else touched the page");
+  assert.deepEqual(world.gotos, [APP]);
+  const text = log.text();
+  assert.match(text, /behind other windows right now/, "the person is told where the window may be");
+  assert.match(text, /Window: up to 1 tab, no popups\./);
+  const trace = fs.readFileSync(outcome.traceFile, "utf8");
+  assert.equal((trace.match(/"event":"window-raise"/g) || []).length, 1);
+  assert.ok(trace.includes("surface-watch-summary"));
+});
+
+test("a browser that rearranges its first tabs is given a moment to settle, and a debug port that never answers is given up on in real time", async () => {
+  const states = [1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1];
+  let reads = 0;
+  const context = { pages: () => Array.from({ length: states[Math.min(reads++, states.length - 1)] }, () => ({ isClosed: () => false })) };
+  const trace = createTrace({ file: null });
+  const settled = await settleTabs(context, { sleep: instant, trace });
+  assert.deepEqual(settled, { tabs: 1, settled: true });
+  assert.ok(reads >= 8, "it kept looking until the number of tabs stopped changing");
+  assert.ok(trace.lines.join("\n").includes("attach-tabs-settled"));
+  assert.equal((await settleTabs({ pages: () => { throw new Error("gone"); } }, { sleep: instant })).tabs, -1, "a context that cannot be read is not a reason to fail");
+
+  const world = fakeBrowserWorld();
+  const slow = async () => {
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    throw new Error("connection reset");
+  };
+  const started = Date.now();
+  await assert.rejects(launchAttached({ playwright: world.playwright, kind: "edge", dir: fs.mkdtempSync(path.join(os.tmpdir(), "ep-")), executable: "C:\\edge.exe", ...world.options, fetchFn: slow, timeoutMs: 200, pollMs: 1, endpointSlackMs: 0 }), (err) => err.code === "NO_DEBUG_PORT");
+  assert.ok(Date.now() - started < 3000, "200 attempts of 60 ms each would take 12 seconds; the real clock ended it");
+  await closeAllAttached();
+});
+
+test("a path segment that holds an id (the default environment is Default- plus the tenant id) is masked", () => {
+  assert.equal(cleanPathSegment("Default-9a35777a-28ce-467a-92be-0cf503f7e030"), "Default-{id}");
+  assert.equal(cleanPathForReport("/environments/Default-9a35777a-28ce-467a-92be-0cf503f7e030/home"), "/environments/Default-{id}/home");
+  assert.equal(cleanPathSegment("~personal"), "~personal");
 });
 
 // ── Inside a job ─────────────────────────────────────────────────────────────

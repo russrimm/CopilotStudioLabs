@@ -212,7 +212,7 @@ export function createAuthGate({
       notify({
         product,
         label,
-        message: `Waiting for you to sign in to ${label} in the browser window. This computer remembers it afterwards. When it asks "Stay signed in?", choose Yes so the sign-in lasts.`,
+        message: `Waiting for you to sign in to ${label} in the browser window. This computer remembers it afterwards. When it asks "Stay signed in?", choose Yes so the sign-in lasts. If you do not see the window, it may be behind other windows: look for the new browser window on the taskbar.`,
       });
     };
     while (state.waitedMs < waitMs) {

@@ -46,6 +46,7 @@ export const COMPANION_FILES = Object.freeze([
   "tools/screenshot-capture/check-signin.mjs",
   "tools/screenshot-capture/signin-diagnosis.mjs",
   "tools/screenshot-capture/signin-url.mjs",
+  "tools/screenshot-capture/surface-watch.mjs",
   "tools/screenshot-capture/package.json",
   "tools/screenshot-capture/README.md",
   "tools/screenshot-capture/start-companion.cmd",

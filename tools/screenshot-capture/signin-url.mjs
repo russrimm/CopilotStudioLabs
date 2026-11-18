@@ -43,7 +43,8 @@ export function cleanPathSegment(part) {
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value) || /^[0-9a-f]{20,}$/i.test(value) || /@/.test(value)) return "{id}";
   // A tenant's domain name in a sign-in path (for example /contoso.onmicrosoft.com/oauth2/authorize).
   if (/^[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|net|org|edu|gov|io|us|uk|de|fr|cn|jp|in|au|ca)$/i.test(value)) return "{id}";
-  return value.slice(0, 60);
+  // An id inside a longer name (the default environment is "Default-" plus the tenant's id).
+  return value.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "{id}").slice(0, 60);
 }
 
 /** The host with a tenant's own name hidden (contoso.sharepoint.com becomes {tenant}.sharepoint.com). */

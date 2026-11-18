@@ -470,7 +470,7 @@ export async function openProfile({ playwright, home, profile, kinds, headless =
       }
       if (!context) context = await launchBrowser({ playwright, kind, dir, headless });
       const restored = await restoreSession({ context, dir });
-      log(`  Opened ${browserLabel(kind)}${how === "attach" ? " (started the normal way)" : ""}.${restored.restored ? " Your saved sign-in was restored." : ""}`);
+      log(`  Opened ${browserLabel(kind)}${how === "attach" ? " (started the normal way)" : ""}.${how === "attach" && !headless ? " If another window covers it, click its icon on the taskbar." : ""}${restored.restored ? " Your saved sign-in was restored." : ""}`);
       trace?.event("profile-open", { product: profile, browser: kind, launch: how, restoredCookies: restored.restored, restoreReason: restored.reason });
       return { context, kind, dir, launch: how };
     } catch (err) {
@@ -717,6 +717,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
         let page = context ? context.pages()[0] || (await context.newPage()) : null;
         watcher?.watchPage(page);
         await page?.bringToFront?.().catch(() => {});
+        trace?.event("window-raise", { reason: "job-start", times: 1 });
         for (const { shot, effective } of items) {
           if (state.paused) break;
           index += 1;
