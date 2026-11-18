@@ -12,7 +12,7 @@ import vm from "node:vm";
 import { createFakeDom } from "./fixtures/fake-dom.js";
 
 const publicFile = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url), "utf8");
-const CENTER_SOURCES = ["screenshot-center-core.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile);
+const CENTER_SOURCES = ["screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile);
 const GENERATED_LABS_SOURCE = publicFile("generated-labs.js");
 const INDEX_HTML = publicFile("index.html");
 const APP_SOURCE = publicFile("app.js");
@@ -1647,7 +1647,7 @@ test("file names, captions, messages, and addresses from the network are shown a
   assert.ok(dialog.textContent.includes("<b>bold</b><script>alert(3)</script>"));
   assert.ok(dialog.textContent.includes("<script>alert(4)</script>"), "an unknown reason's message is text");
 
-  for (const file of ["screenshot-center-core.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js"]) {
+  for (const file of ["screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js"]) {
     assert.doesNotMatch(publicFile(file), /\.innerHTML|insertAdjacentHTML|outerHTML|document\.write|eval\(|new Function/, `${file} must build DOM with textContent only`);
   }
 });
@@ -2101,7 +2101,7 @@ test("the copy confirmation uses theme-aware tokens that meet WCAG AA in both th
 
 test("the Screenshot Center scripts load in order and its live regions are announced politely", async () => {
   const at = (name) => INDEX_HTML.indexOf(`<script src="${name}" defer></script>`);
-  const order = ["generated-labs.js", "screenshot-center-core.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js", "lab-customize.js"].map(at);
+  const order = ["generated-labs.js", "screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js", "lab-customize.js"].map(at);
   assert.ok(order.every((i) => i > 0), "every script tag exists and is deferred");
   assert.deepEqual([...order].sort((a, b) => a - b), order, "generated-labs, then the center, then the checklist, then lab-customize");
 
@@ -2122,7 +2122,7 @@ test("the Screenshot Center scripts load in order and its live regions are annou
     assert.ok(h.center().querySelector(`#${label.getAttribute("for")}`), `label for=${label.getAttribute("for")} points at a control`);
   }
 
-  const centerSource = ["screenshot-center-core.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile).join("\n");
+  const centerSource = ["screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile).join("\n");
   const withoutCli = centerSource.replace(/^.*--generated-lab=.*$/m, "");
   assert.doesNotMatch(withoutCli, /Playwright|Learn Sync|\.auth|headed|headless/i, "technical terms only appear in the command-line fallback");
   assert.doesNotMatch(centerSource, /\b(colour|behaviour|centre|licence|organis|catalogue|favourite)\w*/i, "US English only");

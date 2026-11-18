@@ -18,15 +18,31 @@ The Azure-hosted portal has no browser and no way to sign in to your tenant, so 
 ### Quick start
 
 1. In the portal, open **Settings > Configuration > Setup checklist** and select **Connect your computer** on the **Screenshot computer** row (a lab's Screenshot Center has the same button). Download the companion from the pairing card (or use this folder from the repository). You need Node.js 20 or later.
-2. Run the launcher for your system. It installs what is missing the first time (`npm install` and `npx playwright install chromium`):
+2. Unzip it, then start the companion with a launcher. The launchers are in the `capture-companion/tools/screenshot-capture` folder of the download (or `tools/screenshot-capture` in the repository), next to this file: `start-companion.cmd` (Windows), `start-companion.ps1` (Windows PowerShell), and `start-companion.sh` (macOS and Linux). Double-click `start-companion.cmd` on Windows, or run it from a terminal. A launcher installs what is missing the first time (`npm install` and `npx playwright install chromium`).
+
+   Run this from the folder where you unzipped the companion (the folder that holds `capture-companion`). The portal shows the same command with your pairing code filled in, ready to copy:
 
    ```powershell
-   .\start-companion.cmd --portal=https://<your-portal> --code=ABCD-EFGH     # Windows (or start-companion.ps1)
+   .\capture-companion\tools\screenshot-capture\start-companion.cmd --portal=https://<your-portal> --code=ABCD-EFGH     # Windows PowerShell or Command Prompt
    ```
 
    ```bash
-   ./start-companion.sh --portal=https://<your-portal> --code=ABCD-EFGH     # macOS and Linux
+   ./capture-companion/tools/screenshot-capture/start-companion.sh --portal=https://<your-portal> --code=ABCD-EFGH     # macOS and Linux
    ```
+
+   **Run it from anywhere.** Use the launcher's full path. If you type the folder you unzipped into on the portal's pairing card (**Where did you unzip the companion?**), it shows the full path for you. The folder stays in your browser and is never sent to the portal. A path with spaces, such as a OneDrive folder, needs quotes. In Windows PowerShell, start with `&` and use single quotes; in Command Prompt, use double quotes without the `&`; in macOS and Linux shells, use single quotes:
+
+   ```powershell
+   & 'C:\Users\you\OneDrive - Contoso\Downloads\copilot-studio-labs-capture-companion\capture-companion\tools\screenshot-capture\start-companion.cmd' --portal=https://<your-portal> --code=ABCD-EFGH
+   ```
+
+   ```bash
+   '/Users/you/My Files/copilot-studio-labs-capture-companion/capture-companion/tools/screenshot-capture/start-companion.sh' --portal=https://<your-portal> --code=ABCD-EFGH
+   ```
+
+   **Next time you only need the launcher.** The pairing is remembered, so no `--portal` or `--code` is needed. Every time the companion starts it prints `Next time, start it from any folder with: ...` with the launcher's full path, quoted for your shell (never the pairing code), so you can copy it from there. Started with `node companion.mjs` directly, it prints the `node` form instead. The line stays on your computer: the path is never sent to the portal.
+
+   **Keep the code folder and the data folder apart.** The unzipped folder holds only the companion's code. Your pairing and browser sign-in live in a separate local folder of your user account (on Windows, `%LOCALAPPDATA%\CopilotStudioLabsCompanion`), so unzipping, moving, or deleting the code folder, even inside OneDrive, never loses or syncs your sign-in.
 
    Or, from the repository: `cd tools/screenshot-capture && npm install && npx playwright install chromium && npm run companion -- --portal=<address> --code=<code>`. Without `--portal` and `--code` it asks for them. The pairing code works once and expires in 10 minutes.
 3. Leave the window open. The portal shows **Companion connected** (and the **Screenshot computer** row of the Setup checklist turns to Ready). Queue a capture there for a lab or for the shared library; the companion picks it up within a few seconds.

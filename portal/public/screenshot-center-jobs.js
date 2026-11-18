@@ -171,6 +171,7 @@ async function scStartPairing(context = {}) {
     p.code = String(data.code || "");
     p.expiresAt = String(data.expiresAt || "");
     p.command = String(data.command || "");
+    p.launcher = data.launcher && typeof data.launcher === "object" ? data.launcher : null;
     p.portalUrl = String(data.portalUrl || "");
     p.status = "waiting";
     scAnnounce("Your pairing code is ready. Enter it in the companion on your computer.");

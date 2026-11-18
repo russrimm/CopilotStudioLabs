@@ -46,6 +46,7 @@ import { applyRedaction, burnCalloutMarkers, clearOverlays, collectVisibleLabels
 import { diagnosisLines, signInReport } from "./signin-diagnosis.mjs";
 import { effectiveModeFor, targetField, targetValuesFromJob, validateTargetValue } from "./targets.mjs";
 import { createTrace, traceFilePath } from "./trace.mjs";
+import { startAgainLines } from "./start-hint.mjs";
 
 export const COMPANION_VERSION = "1.5.0";
 export const MIN_NODE_MAJOR = 20;
@@ -1397,6 +1398,7 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
       config = { portal: checked.portal, token: paired.token, deviceId: paired.device.id, deviceName: paired.device.name, pairedAt: new Date().toISOString() };
       saveConfig(home, config);
       log(`Paired with ${checked.portal} as "${config.deviceName}".`);
+      for (const line of startAgainLines({ entry: path.join(HERE, "companion.mjs"), ...deps.startHint })) log(line);
     } catch (err) {
       log(err.message);
       return err instanceof PortalError && err.kind === "unreachable" ? EXIT.unreachable : EXIT.auth;
@@ -1454,6 +1456,7 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
   let accountSetupState = null;
   const handledCommands = new Set();
   log(`Connected to ${config.portal}.`);
+  if (!opts.code) for (const line of startAgainLines({ entry: path.join(HERE, "companion.mjs"), ...deps.startHint })) log(line);
   log(browserLine);
   for (const line of accountLines) log(line);
 
