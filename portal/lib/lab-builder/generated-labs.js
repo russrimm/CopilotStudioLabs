@@ -16,9 +16,11 @@ import { escapeMarkdown, scrubForbidden } from "./composer.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { capturedImage, capturedScreenshotsDirs } from "./captured.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
-import { getLabScreenshotsStatus } from "./lab-screenshots.js";
+import { getLabScreenshotsStatus, repairLabPlaceholders } from "./lab-screenshots.js";
 import { summarizeLabLearnDrift } from "./learn-drift-dashboard.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
+import { isPlaceholder } from "./placeholder-detect.js";
+import { PLACEHOLDER_PATH } from "./slots.js";
 import {
   ALLOWED_TOPIC_DOC_FORMATS,
   TOPIC_DOC_MIME_TYPES,
@@ -39,7 +41,10 @@ const ASSET_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|gif|webp)$/i;
 const CONTENT_TYPES = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp" };
 // Smaller than this is the "Screenshot pending" placeholder or another stub,
 // the same bar tools/screenshot-capture uses to decide a shot is still missing.
+// A placeholder picture (a captioned filler) is pending whatever its size.
 const MIN_CAPTURED_BYTES = 5 * 1024;
+// The lab list checks each lab for placeholder pictures at most this often; opening a lab always checks.
+const LIST_REPAIR_INTERVAL_MS = 30_000;
 
 /**
  * Point a generated lab's images at the asset route and mark pending ones.
@@ -59,13 +64,14 @@ export function decorateGeneratedHtml(html, labId, labDir, { capturedDir = captu
     if (!src || !ASSET_NAME.test(src[1])) return tag;
     const name = src[1];
     const next = tag.replace(src[0], `src="/api/lab-builder/generated/${labId}/assets/${name}"`);
+    const file = join(labDir, "assets", name);
     let size = 0;
     try {
-      size = statSync(join(labDir, "assets", name)).size;
+      size = statSync(file).size;
     } catch {
       /* a missing file is pending too */
     }
-    if (size >= MIN_CAPTURED_BYTES || capturedImage(capturedDir, name)) return next;
+    if ((size >= MIN_CAPTURED_BYTES && !isPlaceholder(file)) || capturedImage(capturedDir, name)) return next;
     pending.push(name);
     return `${next}<br><strong class="shot-pending">Screenshot pending.</strong> The image will appear here once it is captured.`;
   });
@@ -101,9 +107,13 @@ export function resolveGeneratedAsset(rootDir, rawId, rawName, { capturedDir = c
   } catch {
     /* fall through to the captured image */
   }
-  if (size >= MIN_CAPTURED_BYTES) return { status: 200, path: file, type };
+  // A placeholder picture is not a capture, whatever its size.
+  const placeholder = existsLocal && size >= MIN_CAPTURED_BYTES && isPlaceholder(file);
+  if (size >= MIN_CAPTURED_BYTES && !placeholder) return { status: 200, path: file, type };
   const captured = found.status === 200 ? capturedImage(capturedDir, name) : null;
   if (captured) return { status: 200, path: captured.file, type };
+  // A filler picture is served as the standard pending image, never as itself.
+  if (placeholder) return { status: 200, path: PLACEHOLDER_PATH, type: CONTENT_TYPES.png };
   return existsLocal ? { status: 200, path: file, type } : { status: 404, error: "Asset not found" };
 }
 
@@ -234,6 +244,8 @@ export function listGeneratedLabs(rootDir) {
       const manifestPath = join(rootDir, entry.name, "manifest.json");
       if (!existsSync(manifestPath)) return null;
       try {
+        // Counts come from the manifest, so a lab built with placeholder pictures is repaired before it is summarized.
+        repairLabPlaceholders(join(rootDir, entry.name), { labId: entry.name, maxAgeMs: LIST_REPAIR_INTERVAL_MS });
         return summarizeManifest(rootDir, entry.name, JSON.parse(readFileSync(manifestPath, "utf-8")));
       } catch {
         return null;
@@ -427,6 +439,8 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown = (md) => String
   }
 
   try {
+    // A lab built while placeholder pictures counted as captures repairs itself before anything is rendered from it.
+    repairLabPlaceholders(labDir, { labId });
     const markdown = readFileSync(indexPath, "utf-8");
     const manifestPath = join(labDir, "manifest.json");
     const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf-8")) : null;
@@ -509,6 +523,7 @@ export function readGeneratedLabTopicDocument(rootDir, rawId, rawOrder, rawForma
   }
 
   try {
+    repairLabPlaceholders(labDir, { labId });
     const markdown = readFileSync(indexPath, "utf-8");
     const manifestPath = join(labDir, "manifest.json");
     const manifest = existsSync(manifestPath)

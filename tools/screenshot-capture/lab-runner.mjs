@@ -38,6 +38,7 @@ import { navigateWithSignIn } from "./lifecycle.mjs";
 import { NAVIGATION_ROLES, findControls } from "./locator.mjs";
 import { resolveShotUrl, resolveStartUrl } from "./manifests.mjs";
 import { readinessBudgets, waitUntilReady } from "./readiness.mjs";
+import { PLACEHOLDER_MESSAGE, detectPlaceholder } from "./placeholder-detect.mjs";
 
 export { DESTRUCTIVE_LABEL_RE };
 
@@ -60,7 +61,8 @@ export function isSignInRedirectUrl(rawUrl) {
 }
 
 /**
- * Validate raw image bytes against the 5 KB minimum and format magic header.
+ * Validate raw image bytes against the 5 KB minimum, the format magic header, and the placeholder check: a
+ * placeholder picture (the pending image or a captioned filler) is never a captured screenshot, whatever its size.
  */
 export function verifyCapturedImageBuffer(bytes, ext = ".png") {
   if (!Buffer.isBuffer(bytes) || bytes.length < MIN_CAPTURED_BYTES) {
@@ -69,6 +71,7 @@ export function verifyCapturedImageBuffer(bytes, ext = ".png") {
       reason: `Captured image is ${bytes?.length || 0} bytes (minimum ${MIN_CAPTURED_BYTES} bytes).`,
     };
   }
+  if (detectPlaceholder(bytes).placeholder) return { ok: false, placeholder: true, reason: PLACEHOLDER_MESSAGE };
   const normalizedExt = String(ext || ".png").toLowerCase();
   if (normalizedExt === ".png") {
     const validHeader = PNG_MAGIC.every((b, idx) => bytes[idx] === b);

@@ -11,6 +11,7 @@ import crypto from "node:crypto";
 import zlib from "node:zlib";
 
 import { cleanExpectedLabels, labelIsVisible, visibleWordSet } from "./labels.mjs";
+import { PLACEHOLDER_MESSAGE, detectPlaceholder } from "./placeholder-detect.mjs";
 import { assessLanding } from "./targets.mjs";
 
 export const IMAGE_LIMITS = Object.freeze({
@@ -408,6 +409,11 @@ export function verifyImage(bytes, options = {}) {
       reasons.push(reason("extension-mismatch", "fail", `The file content is ${format.toUpperCase()} but the slot name ends in ${ext || "no extension"}. Save it with the matching file type.`));
       return finish();
     }
+  }
+  // A generated placeholder (the pending image, or a captioned filler picture) is never a screenshot, however big it is.
+  if (detectPlaceholder(bytes).placeholder) {
+    reasons.push(reason("placeholder", "fail", PLACEHOLDER_MESSAGE));
+    return finish();
   }
   if (bytes.length < limits.minBytes) {
     reasons.push(reason("too-small", "fail", `The image is only ${bytes.length} bytes; a real screenshot is at least ${limits.minBytes} bytes. A placeholder does not count.`));

@@ -254,7 +254,7 @@ The companion normalizes these so a picture is the same in every browser. Measur
 - **Your credentials never leave your computer.** You sign in yourself in a real browser window. Only screenshots, page addresses (without query strings), the page title, and visible control names are sent, and only to the portal you paired with. Portal addresses must be `https` (`http` is allowed for `localhost` only).
 - **It never types into tenant pages and never changes the tenant.** Steps are limited to opening an `https` page, waiting, dismissing banners, and clicking an exact-name navigation item or tab. It skips any control whose name says delete, remove, erase, purge, destroy, disconnect, unregister, revoke, or reset, any control that creates or changes something (Publish, Create, Save, Submit, Add, Edit, and similar, or a button that submits a form), and any control that signs in or out or switches the account (Sign in, Sign out, Switch account, Use another account, the account menu), whatever the portal asks for. It does not change how the browser identifies itself or hide that it is automated; it uses a normal installed browser that you sign in to yourself.
 - **Account details are hidden.** Before each picture it draws a solid block over the account control (including the account menu of the newer Copilot Studio layout) and over any email address, tenant host name (`*.onmicrosoft.com`, SharePoint admin and personal hosts), or `--mask` term on the page, then removes the blocks. Text sent to the portal as evidence is scrubbed the same way. A diagnostic file keeps control names but drops the person or environment named in a label such as *Open account menu for ...*. The environment name shown in the navigation is not hidden: look at a screenshot before you publish it, and use `--mask` for names you want covered.
-- **Verified twice.** Both the companion and the portal check magic bytes (PNG, JPEG, WebP), size (5 KB to 8 MB), dimensions, blank or sign-in pages, and a match with the expected control names. The portal never trusts what the companion reports for a security decision.
+- **Verified twice.** Both the companion and the portal check magic bytes (PNG, JPEG, WebP), size (5 KB to 8 MB), dimensions, blank or sign-in pages, placeholder pictures, and a match with the expected control names. The portal never trusts what the companion reports for a security decision.
 - **Tenant addresses.** A job can carry `CAPTURE_*` addresses (https only) for your tenant, for example from the lab's brand profile. They override same-named variables on your computer for that job only.
 
 ### Troubleshooting
@@ -332,13 +332,23 @@ node verify-shots.js --json
 node verify-shots.js --strict
 ```
 
-`verify-shots.js` scans lab markdown, `shots.json`, and lab assets for schema drift, missing or invalid image files, markdown/catalog mismatches, tiny placeholder-like PNGs, and orphan PNG/JPEG assets. It exits `0` when there are no critical findings, `1` when critical findings exist; `--strict` also fails on warnings.
+`verify-shots.js` scans lab markdown, `shots.json`, and lab assets for schema drift, missing or invalid image files, markdown/catalog mismatches, placeholder pictures, tiny placeholder-like PNGs, and orphan PNG/JPEG assets. It exits `0` when there are no critical findings, `1` when critical findings exist; `--strict` also fails on warnings.
 
-Use `node verify-shots.js --check-state` before committing Lab 06 screenshot work to add a byte-size denylist check for known placeholder PNG fingerprints. The heuristic reports CRITICAL `restored-placeholder` findings for Lab 06 PNGs whose file size exactly matches one of the known-bad placeholders. A false positive is possible if a real capture lands on the exact same byte size, but that is extremely unlikely; inspect and re-capture if it happens.
+A lab image that is a placeholder picture (the neutral "Screenshot pending" image, or a captioned filler such as the "PLACEHOLDER SCREENSHOT" pictures) is reported as a `placeholder-image` warning with the line that shows it. `node verify-shots.js --check-state` goes further and reports a CRITICAL `restored-placeholder` finding for any filler picture in any lab's `assets/` folder, so a restored or regenerated placeholder cannot be committed as if it were a capture. The pending image is the intended stand-in for a missing capture and stays a warning.
+
+### Placeholder detection
+
+`placeholder-detect.mjs` is the one detector every check here uses (`capture.js --missing`, `verifyCapturedImageBuffer` in `lab-runner.mjs`, `verifyImage` in `image-verify.mjs`, `verify-shots.js`, `status.mjs`, and the feature tour). It imports only Node built-ins and ships in the companion download, so the companion and the portal give the same answer. Run it on any file to see the verdict and the file's SHA-256:
+
+```powershell
+node placeholder-detect.mjs path\to\picture.png
+```
+
+A picture is a placeholder when it carries the `Software=cslabs-placeholder` PNG text entry (the scripts that draw placeholders stamp it), when its SHA-256 is in `KNOWN_PLACEHOLDER_SHA256`, when it is the neutral pending image, or when its layout matches a placeholder generator. The file size never decides it. To teach it a new file, add its SHA-256 to `KNOWN_PLACEHOLDER_SHA256` and the file to `test/fixtures/placeholders/`; see [Placeholder pictures never count as screenshots](../../docs/lab-builder.md#placeholder-pictures-never-count-as-screenshots).
 
 ## Heads-up: commit deletions promptly
 
-Deleted Lab 06 placeholder PNGs still exist in git history. `git restore`, VS Code **Discard Changes**, or **Discard All Changes** can restore them into the working tree; run the state check before committing screenshot changes.
+Deleted Lab 06 placeholder PNGs still exist in git history. `git restore`, VS Code **Discard Changes**, or **Discard All Changes** can restore them into the working tree; run `node verify-shots.js --check-state` before committing screenshot changes.
 
 > ⚠️ **Heads up:** npm 11 strips unknown flags like `--all` from `npm run capture -- --all`. Use the direct `node capture.js …` form when passing flags. `npm run capture` and `npm run list` are wired in `package.json` so they work as-is.
 

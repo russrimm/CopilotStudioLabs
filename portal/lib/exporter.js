@@ -23,6 +23,8 @@ import {
 } from "./lab-builder/brand-theme.js";
 import { renderStandaloneLabHtml } from "./lab-builder/html-lab.js";
 import { resolveLabScreenshot } from "./lab-builder/captured.js";
+import { repairLabPlaceholders } from "./lab-builder/lab-screenshots.js";
+import { isPlaceholder } from "./lab-builder/placeholder-detect.js";
 import { MIN_CAPTURED_BYTES } from "./lab-builder/slots.js";
 import { renderMarkdownToDocxBuffer } from "./lab-builder/docx-builder.js";
 import { renderMarkdownToPdfBuffer } from "./lab-builder/pdf-builder.js";
@@ -92,7 +94,8 @@ function resolveLabAssetBuffer(generatedRoot, labId, labDir, rawSrc, resolveAsse
       try {
         const buf = readFileSync(resolved.path);
         const resolvedAbs = resolve(resolved.path);
-        if (resolvedAbs !== localPath || buf.length >= MIN_CAPTURED_BYTES) {
+        // A placeholder picture (the pending image or a captioned filler) is no screenshot: fall through to the callout.
+        if (!isPlaceholder(buf) && (resolvedAbs !== localPath || buf.length >= MIN_CAPTURED_BYTES)) {
           return buf;
         }
       } catch {
@@ -243,6 +246,9 @@ export function resolveSafeGeneratedLabDir(generatedRoot, rawLabId) {
   if (!existsSync(indexPath) || !existsSync(manifestPath)) {
     return { status: 404, error: "Generated lab not found" };
   }
+
+  // Every preview and export starts here, so a lab built while placeholder pictures counted as captures is repaired first.
+  repairLabPlaceholders(labDir, { labId });
 
   let manifest = null;
   try {

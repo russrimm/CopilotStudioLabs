@@ -6,7 +6,8 @@
  *
  *  1. Reuses real screenshots already committed in this repo (`reuseScreenshots`
  *     in the feature catalog) by copying them into the generated lab's assets
- *     folder and emitting markdown image references.
+ *     folder and emitting markdown image references. A placeholder picture is
+ *     never reused: its slot stays a pending slot (see placeholder-detect.js).
  *  2. Gives every remaining screenshot a slot: a neutral "Screenshot pending"
  *     image at its final filename, alt text and a caption already written, and a
  *     `shots.json` entry plus `SHOTLIST.md` line for `tools/screenshot-capture`.
@@ -19,6 +20,7 @@ import path from "node:path";
 
 import { PLACEHOLDER_PATH, describeSlot, slotsForFeature } from "./slots.js";
 import { capturedImage, capturedScreenshotsDirs } from "./captured.js";
+import { isPlaceholder } from "./placeholder-detect.js";
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** True when `child` resolves to a location strictly inside `root`. */
@@ -73,14 +75,23 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
     const sectionLabel =
       feature.stepLabel || (feature.prerequisite ? `Recap ${sectionNum}` : `Step ${sectionNum}`);
 
+    // A committed picture that only stands in for a screenshot (a placeholder) is never copied in as a real
+    // capture. Its slot stays pending at the same file name, so it can still be captured later.
+    const demoted = [];
+
     for (const ref of feature.reuseScreenshots || []) {
       if (!isSafeName(ref.lab) || !isSafeName(ref.file)) continue;
       const assetsRoot = path.resolve(labsDir, ref.lab, "assets");
       const source = path.resolve(assetsRoot, ref.file);
       if (!isInside(assetsRoot, source) || !fs.existsSync(source)) continue;
 
-      const filename = uniqueFilename(ref.file, feature.id, usedFilenames);
       const caption = String(ref.caption || feature.name).replace(/\.$/, "");
+      if (isPlaceholder(source)) {
+        demoted.push({ filename: ref.file, caption, instructions: [`Capture ${caption}.`] });
+        continue;
+      }
+
+      const filename = uniqueFilename(ref.file, feature.id, usedFilenames);
 
       copies.push({ source, filename });
       figure += 1;
@@ -94,7 +105,7 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
       });
     }
 
-    for (const shot of slotsForFeature(feature)) {
+    for (const shot of [...demoted, ...slotsForFeature(feature)]) {
       if (!isSafeName(shot.filename)) continue;
       const filename = uniqueFilename(shot.filename, feature.id, usedFilenames);
       const described = describeSlot(feature, shot);
@@ -170,6 +181,8 @@ export function copyScreenshots(copies, assetsDir) {
   for (const copy of copies) {
     const target = path.resolve(root, copy.filename);
     if (!isSafeName(copy.filename) || !isInside(root, target)) continue;
+    // Never copy a placeholder picture in as if it were a screenshot.
+    if (isPlaceholder(copy.source)) continue;
     try {
       fs.copyFileSync(copy.source, target);
       count += 1;
