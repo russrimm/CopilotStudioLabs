@@ -4,6 +4,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { detectPlaceholder } from "../../screenshot-capture/placeholder-detect.mjs";
 
 export const MIN_IMAGE_BYTES = 5 * 1024;
 export const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"]);
@@ -65,6 +66,8 @@ export function inspectScreenshot(dir, filename) {
   const bytes = fs.readFileSync(file);
   if (bytes.length < MIN_IMAGE_BYTES) return { status: "pending", reason: "too-small", bytes: bytes.length };
   if (!hasSignature(bytes, ext)) return { status: "pending", reason: "not-an-image", bytes: bytes.length };
+  // A placeholder picture (a captioned filler, or the pending image) is not a capture, whatever its size.
+  if (detectPlaceholder(bytes).placeholder) return { status: "pending", reason: "placeholder", bytes: bytes.length };
   const size = ext === ".png" ? pngSize(bytes) : null;
   return {
     status: "ready",

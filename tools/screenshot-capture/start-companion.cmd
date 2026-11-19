@@ -1,7 +1,9 @@
 @echo off
 rem Starts the Local Capture Companion on Windows.
 rem Double-click this file, or run it with: start-companion.cmd --portal=<address> --code=<pairing code>
+rem To run it from any folder, use its full path (in quotes if the path has spaces).
 setlocal
+set "COMPANION_LAUNCHER=%~f0"
 cd /d "%~dp0"
 
 where node >nul 2>nul

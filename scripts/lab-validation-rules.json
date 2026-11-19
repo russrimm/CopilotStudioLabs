@@ -171,6 +171,13 @@
       "asymmetry": "A warning for the portal dashboard, not a gate. Python only has pass or fail."
     },
     {
+      "id": "no-placeholder-images",
+      "validators": ["python"],
+      "scope": "lab",
+      "checks": "Warns when a local image index.md shows is a placeholder picture (the neutral \"Screenshot pending\" image or a captioned filler such as the \"PLACEHOLDER SCREENSHOT\" pictures) rather than a screenshot of the product. Never fails.",
+      "asymmetry": "A warning that lists the pictures. A generated lab is held to the same bar by the portal, which marks each such slot pending (portal/lib/lab-builder/placeholder-detect.js)."
+    },
+    {
       "id": "has-metadata",
       "validators": ["python"],
       "scope": "lab",

@@ -1,8 +1,11 @@
 import contextlib
 import io
 import json
+import struct
 import tempfile
 import unittest
+import unittest.mock
+import zlib
 from pathlib import Path
 
 import validate_labs
@@ -203,6 +206,82 @@ def write_lab(root, markdown):
     lab.mkdir()
     (lab / "index.md").write_text(markdown, encoding="utf-8")
     return lab
+
+
+def make_png(width, height, text_chunks=()):
+    """A small valid RGB PNG, optionally with tEXt entries, built with the standard library only."""
+
+    def chunk(kind, data):
+        body = kind + data
+        return struct.pack(">I", len(data)) + body + struct.pack(">I", zlib.crc32(body) & 0xFFFFFFFF)
+
+    rows = b"".join(b"\x00" + bytes((x * 7 + y * 13) % 256 for x in range(width * 3)) for y in range(height))
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    texts = b"".join(chunk(b"tEXt", key + b"\0" + value) for key, value in text_chunks)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + texts + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b"")
+
+
+class PlaceholderImageTests(unittest.TestCase):
+    """A lab that shows a placeholder picture as a screenshot is listed, as a warning that never fails the build."""
+
+    FIXTURES = REPO_ROOT / "tools" / "screenshot-capture" / "test" / "fixtures" / "placeholders"
+    PENDING = REPO_ROOT / "portal" / "lib" / "lab-builder" / "assets" / "screenshot-pending.png"
+
+    def build_lab(self, directory):
+        lab = write_lab(directory, VALID_LAB.replace(
+            "### Step 1 - Configure\n\n",
+            "### Step 1 - Configure\n\n"
+            "![Topics page with the trigger node selected](assets/filler.png)\n\n"
+            "![Settings page that is still to be captured](assets/pending.png)\n\n"
+            "![Stamped by a generator script](assets/stamped.png)\n\n"
+            "![A real screenshot of the product settings](assets/real.png)\n\n"
+            "![An image on the web](https://example.com/logo.png)\n\n",
+        ).replace(
+            "```powershell\n",
+            "```markdown\n![Inside a code sample](assets/filler.png)\n```\n\n```powershell\n",
+        ))
+        assets = lab / "assets"
+        assets.mkdir()
+        (assets / "filler.png").write_bytes((self.FIXTURES / "light-topics-overview.png").read_bytes())
+        (assets / "pending.png").write_bytes(self.PENDING.read_bytes())
+        (assets / "stamped.png").write_bytes(make_png(64, 64, [(b"Software", b"cslabs-placeholder")]))
+        (assets / "real.png").write_bytes(make_png(64, 64, [(b"Software", b"Paint.NET 5.1")]))
+        return lab
+
+    def test_every_placeholder_is_listed_with_its_line_and_reason_and_real_images_are_not(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lab = self.build_lab(directory)
+            findings = validate_labs.check_placeholder_images([lab / "index.md"], REPO_ROOT)
+            listed = {Path(target).name: reason for _, _, target, reason in findings}
+            self.assertEqual(set(listed), {"filler.png", "pending.png", "stamped.png"})
+            self.assertEqual(listed["filler.png"], "known-hash")
+            self.assertEqual(listed["pending.png"], "pending-image")
+            self.assertEqual(listed["stamped.png"], "marker")
+            self.assertTrue(all(line > 0 for _, line, _, _ in findings))
+
+    def test_detection_works_without_node_through_the_known_hashes_and_the_marker(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lab = self.build_lab(directory)
+            with unittest.mock.patch.object(validate_labs.shutil, "which", return_value=None):
+                findings = validate_labs.check_placeholder_images([lab / "index.md"], REPO_ROOT)
+            self.assertEqual({Path(target).name for _, _, target, _ in findings}, {"filler.png", "pending.png", "stamped.png"})
+
+    def test_the_hash_list_is_the_one_in_the_shared_detector(self):
+        hashes = validate_labs.known_placeholder_hashes()
+        self.assertGreaterEqual(len(hashes), 20)
+        self.assertIn("1be866b32104910f4f855e00e570d42735d388b0c3313ad548eda8a70d006843", hashes)
+
+    def test_a_placeholder_is_a_warning_and_never_fails_the_lab(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lab = self.build_lab(directory)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                code = validate_lab_dir(lab)
+            self.assertEqual(code, 0, output.getvalue())
+            self.assertIn("Placeholder pictures (warnings only):", output.getvalue())
+            self.assertIn("WARN", output.getvalue())
+            self.assertIn("assets/filler.png", output.getvalue())
+            self.assertIn("RESULT: PASS", output.getvalue())
 
 
 class SingleTitleTests(unittest.TestCase):

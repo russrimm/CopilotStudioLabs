@@ -6,8 +6,13 @@ Usage: python3 scripts/make_placeholders.py
 """
 import os
 from PIL import Image, ImageDraw, ImageFont
+from PIL.PngImagePlugin import PngInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Every picture this script writes is a placeholder, never a real screenshot. The PNG text entry below is how the
+# portal and the capture companion recognize one exactly (tools/screenshot-capture/placeholder-detect.mjs).
+PLACEHOLDER_MARKER = ("Software", "cslabs-placeholder")
 
 W, H = 1200, 675
 BG = (241, 245, 249)
@@ -72,7 +77,9 @@ def make(path, lab, caption):
     sub_font = load_font(22)
     sw = d.textlength(sub, font=sub_font)
     d.text(((W - sw) / 2, cy + 135), sub, fill=SUBTEXT, font=sub_font)
-    img.save(path, "PNG")
+    meta = PngInfo()
+    meta.add_text(*PLACEHOLDER_MARKER)
+    img.save(path, "PNG", pnginfo=meta)
 
 
 def main():

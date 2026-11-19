@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkFeatureShots } from './feature-shots-check.mjs';
 import { listFeatureManifests } from './manifests.mjs';
+import { detectPlaceholder } from './placeholder-detect.mjs';
 
 const FEATURE_TOUR_LAB = 'feature-tour';
 const __filename = fileURLToPath(import.meta.url);
@@ -33,12 +34,6 @@ const labValue = labArg ? labArg.slice('--lab='.length) : null;
 let productFilter = productArg ? productArg.slice('--product='.length) : null;
 if (labValue && labValue.startsWith(FEATURE_TOUR_LAB + '-') && !productFilter) productFilter = labValue.slice(FEATURE_TOUR_LAB.length + 1);
 const scopedLab = productFilter || featuresOnly ? FEATURE_TOUR_LAB : (labValue && labValue.startsWith(FEATURE_TOUR_LAB + '-') ? FEATURE_TOUR_LAB : labValue);
-
-const LAB04_PLACEHOLDER_LAB = '06-energy-weather-agent';
-const LAB04_PLACEHOLDER_SIZE_DENYLIST = new Set([
-  30509, 20495, 19610, 24211, 23585, 28320, 30367, 23023,
-  31037, 21878, 30825, 28113, 23863, 32905, 26663, 27784
-]);
 
 const report = {
   ok: true,
@@ -275,7 +270,12 @@ function validateMarkdownImage(lab, image) {
     addFinding(lab, 'critical', 'invalid-image-signature', `${relPath} does not have a valid ${ext.slice(1).toUpperCase()} signature.`, { path: relPath, line: image.line });
   }
 
-  // TODO: Add image fingerprinting for known placeholder pixel hashes if drift recurs.
+  // A placeholder picture (the pending image or a captioned filler) is never a screenshot, whatever its size.
+  const verdict = detectPlaceholder(image.path);
+  if (verdict.placeholder) {
+    addFinding(lab, 'warning', 'placeholder-image', `${relPath} is a placeholder picture (${verdict.reason}), not a screenshot of the product. Capture it and save it over this file.`, { path: relPath, reason: verdict.reason, line: image.line });
+    return;
+  }
   if (ext === '.png' && stat.size <= 2048) {
     addFinding(lab, 'warning', 'tiny-suspect-placeholder', `${relPath} is ${stat.size} bytes; real Copilot Studio screenshots are usually much larger.`, { path: relPath, bytes: stat.size, line: image.line });
   }
@@ -298,13 +298,15 @@ function listAssetImages(lab) {
 }
 
 function checkRestoredPlaceholder(lab, assetPath) {
-  if (!checkState || lab !== LAB04_PLACEHOLDER_LAB || path.extname(assetPath).toLowerCase() !== '.png') return;
+  if (!checkState || path.extname(assetPath).toLowerCase() !== '.png') return;
+  // The pending image is the intended stand-in for a missing capture; a captioned filler picture is not.
+  const verdict = detectPlaceholder(assetPath);
+  if (!verdict.placeholder || verdict.reason === 'pending-image') return;
   const bytes = fs.statSync(assetPath).size;
-  if (!LAB04_PLACEHOLDER_SIZE_DENYLIST.has(bytes)) return;
-  addFinding(lab, 'critical', 'restored-placeholder', `${relativeToRoot(assetPath)} is ${bytes} bytes, matching a known Lab 04 placeholder fingerprint.`, {
+  addFinding(lab, 'critical', 'restored-placeholder', `${relativeToRoot(assetPath)} is a placeholder picture (${verdict.reason}), not a real screenshot.`, {
     path: relativeToRoot(assetPath),
     bytes,
-    heuristic: 'lab04-placeholder-byte-size'
+    heuristic: verdict.reason
   });
 }
 

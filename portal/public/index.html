@@ -3252,7 +3252,22 @@
     .sc-pair-timer, .sc-pair-wait { margin: 0 0 4px; font-size: 13px; color: var(--text-muted); }
     .sc-pair-success { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--sc-ok-fg); background: var(--sc-ok-bg); padding: 8px 10px; border-radius: 8px; }
     .sc-pair-error { margin: 0 0 8px; font-size: 13px; color: var(--sc-bad-fg); background: var(--sc-bad-bg); padding: 8px 10px; border-radius: 8px; }
-
+    /* The ready-made command: a shell choice, the command, and the optional unzip folder. A long path wraps instead of scrolling. */
+    .sc-command.sc-command-wrap { white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: visible; }
+    .sc-cmd-shells { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 14px; margin-top: 6px; }
+    .sc-cmd-shells-label { font-size: 12.5px; color: var(--text-muted); }
+    .sc-cmd-shell { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; }
+    .sc-cmd-shell input { margin: 0; accent-color: var(--accent); }
+    .sc-cmd-shell label { font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; }
+    .sc-cmd-note, .sc-cmd-help { margin: 6px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--text-muted); }
+    .sc-cmd-folder { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; }
+    .sc-cmd-folder label { font-size: 12.5px; font-weight: 600; }
+    .sc-cmd-folder input { width: 100%; box-sizing: border-box; background: var(--bg); color: var(--text); border: 1px solid var(--text-muted); border-radius: 6px; padding: 8px 10px; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
+    .sc-cmd-folder input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+    .sc-cmd-folder input[aria-invalid="true"] { border-color: var(--sc-bad-border); }
+    .sc-cmd-folder .sc-cmd-help { margin: 0; }
+    .sc-cmd-error { margin: 0; padding: 4px 8px; border-radius: 6px; font-size: 12.5px; font-weight: 600; background: var(--sc-bad-bg); color: var(--sc-bad-fg); }
+    .sc-cmd-error[hidden] { display: none; }
     .sc-primary { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
     .sc-primary-btn { font-size: 15px; font-weight: 600; padding: 11px 22px; min-height: 44px; }
     .sc-primary-btn:disabled { opacity: 1; cursor: default; background: var(--sc-neutral-bg); color: var(--sc-neutral-fg); border-color: var(--sc-neutral-border); transform: none; box-shadow: none; }
@@ -5096,6 +5111,7 @@
       .lb-gen-toolbar,
       .lb-gen-quick-drift-btn,
       .sc-center,
+      .sc-pairing,
       .sc-copy-ack,
       .sc-lightbox,
       .lb-checklist,
@@ -7147,6 +7163,7 @@
 <script src="use-case-builder.js" defer></script>
 <script src="generated-labs.js" defer></script>
 <script src="screenshot-center-core.js" defer></script>
+<script src="screenshot-center-command.js" defer></script>
 <script src="screenshot-center-jobs.js" defer></script>
 <script src="screenshot-center.js" defer></script>
 <script src="lab-checklist.js" defer></script>

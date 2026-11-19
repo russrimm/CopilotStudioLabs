@@ -35,6 +35,7 @@ import { buildCompanionZip, COMPANION_ZIP_NAME } from "./companion-zip.js";
 import { createCapturePlatform } from "./index.js";
 import { isJobId } from "./jobs.js";
 import { TOKEN_PREFIX } from "./pairing.js";
+import { buildPairingCommands } from "./start-command.js";
 import { MAX_UPLOAD_BYTES } from "./verify-upload.js";
 import { parseRecipeKey } from "../../../tools/screenshot-capture/recipes.mjs";
 
@@ -157,7 +158,7 @@ export function registerCaptureRoutes(app, deps = {}) {
     const issued = pairing.createCode({ createdBy: actor(req) });
     syncAfter(res);
     const portalUrl = `${req.protocol}://${req.get("host")}`;
-    res.status(201).json({ ...issued, portalUrl, command: `start-companion --portal=${portalUrl} --code=${issued.code}` });
+    res.status(201).json({ ...issued, portalUrl, ...buildPairingCommands({ portalUrl, code: issued.code }) });
   });
 
   app.get("/api/capture/status", async (_req, res) => {

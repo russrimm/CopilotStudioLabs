@@ -35,7 +35,7 @@ import { createProfile } from "../lib/branding-profiles.js";
 import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "../lib/capture/jobs.js";
 import { createPairingStore, normalizePairingCode } from "../lib/capture/pairing.js";
 import { buildLabJobPlan, buildLibraryJobPlan, sanitizePlanSteps } from "../lib/capture/plan.js";
-import { buildCompanionZip, COMPANION_FILES } from "../lib/capture/companion-zip.js";
+import { buildCompanionZip, COMPANION_FILES, COMPANION_LAUNCHER } from "../lib/capture/companion-zip.js";
 import { registerCaptureRoutes } from "../lib/capture/routes.js";
 import { isSafeUploadFilename, MAX_UPLOAD_BYTES, verifyUpload } from "../lib/capture/verify-upload.js";
 import { makeJpeg, makePng, makeWebp, pngChunk } from "../../tools/screenshot-capture/test/fixtures/png.mjs";
@@ -922,6 +922,8 @@ test("a fake companion pairs, claims a job, uploads verified shots, and complete
   assert.equal(pair.status, 201);
   assert.match(pair.json.code, /^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
   assert.match(pair.json.command, /--code=/);
+  assert.equal(pair.json.command, `.\\capture-companion\\tools\\screenshot-capture\\start-companion.cmd --portal=${pair.json.portalUrl} --code=${pair.json.code}`, "the compatible command now includes the launcher's relative path");
+  assert.deepEqual(pair.json.launcher, { ...COMPANION_LAUNCHER }, "the additive launcher paths are the ones inside the ZIP");
   const companion = new FakeCompanion(base);
   const paired = await companion.pair(pair.json.code);
   assert.equal(paired.status, 201);

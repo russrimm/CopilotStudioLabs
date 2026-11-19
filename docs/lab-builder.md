@@ -1463,7 +1463,9 @@ fresh screenshots on demand, and it never invents an image of the product. Every
 screenshot a well-written lab would show gets a slot instead:
 
 - **Reuse.** Real screenshots already committed in `labs/*/assets/` are copied into
-  the lab and captioned with their source lab.
+  the lab and captioned with their source lab. A placeholder picture (see
+  [Placeholder pictures never count as screenshots](#placeholder-pictures-never-count-as-screenshots))
+  is never reused: its slot stays pending, at the same file name, so it can still be captured.
 - **Slots.** Every other screenshot is a slot from the feature catalog
   (`screenshots` in `features.json`), or from the feature tour overlay
   (`tools/feature-tour/overlay.json`) for features the catalog gives none, such as
@@ -1482,14 +1484,16 @@ screenshot a well-written lab would show gets a slot instead:
   image (a 1-bit PNG, 532 bytes, made by
   `tools/lab-builder/make-pending-placeholder.mjs`) at its final filename. It shows
   no product UI. `tools/screenshot-capture` and the feature tour treat any image
-  under 5 KB as missing, so the capture tool overwrites it in place and the lab's
+  under 5 KB, and any placeholder picture whatever its size, as missing, so the
+  capture tool overwrites it in place and the lab's
   Markdown never has to change. The portal preview reads the files on disk each
   time and adds a visible "Screenshot pending." note after every image that is
   still a placeholder.
 - **Captured slots.** Screenshots captured for the feature tour (all six products) land in the shared
   library (`docs/feature-tour/screenshots/`, or the persistent `screenshots/` storage folder in the
   portal; see [Screenshot Center](#screenshot-center-the-local-capture-companion-and-paste-or-upload)) under the catalog's filenames. When a
-  slot's file exists there as a real image (5 KB or more, the right file type), the
+  slot's file exists there as a real image (5 KB or more, the right file type, and
+  not a placeholder picture), the
   generator copies it into the lab's `assets/` folder instead of the placeholder, marks
   the slot `captured` in `shots.json`, and leaves it off `SHOTLIST.md`; every other
   slot keeps the placeholder. Markdown, alt text, and caption are identical either
@@ -1500,13 +1504,90 @@ screenshot a well-written lab would show gets a slot instead:
   `filename`, `section`, `instructions`, plus `alt`, `caption`, `kind`, `figure`,
   and `status`), and `SHOTLIST.md` lists the same for a human.
 
+#### Placeholder pictures never count as screenshots
+
+A **placeholder** is any picture that stands in for a screenshot without being one. A file's size
+never decides it, because the filler pictures weigh about 20 KB, well above the 5 KB "missing" bar.
+Two kinds exist:
+
+- **The standard pending image.** The neutral "Screenshot pending" PNG the builder writes into every empty slot.
+- **Captioned filler pictures.** `scripts/make_placeholders.py` draws a blue header bar that reads
+  "PLACEHOLDER SCREENSHOT" inside a thin frame (Labs 02 and 12 once held six of them), and
+  `scripts/generate-lab4-screenshots.py` draws dark "Lab 04 Reference" mock-ups with a "Replace with
+  actual UI capture" footer (Lab 06 held one). Before the fix, the generator copied these into labs as
+  if they were real captures, so the Screenshot Center showed them as **Captured**.
+
+One detector decides, and every place that classifies or reuses a screenshot asks it:
+`detectPlaceholder(bytesOrPath)` in `tools/screenshot-capture/placeholder-detect.mjs` (the portal imports it
+through `portal/lib/lab-builder/placeholder-detect.js`; the Local Capture Companion ships the same file, so
+both sides run identical checks). It returns `{ placeholder, reason, confidence }` from four signals,
+strongest first:
+
+| Signal (`reason`) | What it checks | Confidence |
+|---|---|---|
+| `marker` | A PNG `tEXt` entry `Software=cslabs-placeholder`. Both generator scripts now stamp every file they write, so future files are recognized exactly. | 1 |
+| `known-hash` | The SHA-256 is in `KNOWN_PLACEHOLDER_SHA256`: every placeholder file ever committed, including removed ones. | 1 |
+| `pending-image` | The standard pending image (also matched by hash). | 1 |
+| `light-header-signature`, `banded-mock-signature` | The picture's layout (below), which also catches regenerated variants of the same generators. | 0.85 to 0.95 |
+
+The layout signatures decode the PNG with no dependencies and look at a coarse grid of pixels. They apply to
+8-bit PNGs of at most 128 KB and 1.5 megapixels, so real screenshots (which are larger) are skipped
+without being decoded, and a result is cached by content, so repeat checks are free:
+
+- **Light header** (`make_placeholders.py`): a full-width saturated header bar in the top 6 to 16 percent, a flat pale body
+  (at least 85 percent of the area below the bar), the bar's color used nowhere else, and a thin frame of one other color
+  down both sides and along the bottom. A white or gray header, a missing frame, or a busy body is not a match; the real
+  Lab 06 screenshots of a pale page with a white header are among the negative fixtures.
+- **Banded mock** (`generate-lab4-screenshots.py`): a column near either edge reads header bar, second bar, flat body, then a
+  footer bar in the header's color, and at least 80 percent of the rows are a single color. A real page has no
+  full-width footer that matches its header.
+
+Where it applies:
+
+- **Generator.** `planScreenshots` skips a placeholder source: the slot stays a pending slot with the standard pending
+  image, never `captured`, never credited as "Reused from lab". `copyScreenshots`, `capturedImage`, and `resolveLabScreenshot` refuse a placeholder
+  from a lab's `assets/` or from the shared library too.
+- **Status.** Captured, missing, and outdated counts, each shot's `captured` flag, `capturedSource`, `captureSource`, and the Learn sync state all
+  come from the same lookups, so a placeholder reads as pending. The Screenshot Center shows it as missing without any change to its UI.
+- **Uploads and captures.** `verifyImage` (used by the portal for every upload and by the companion before it uploads) fails a placeholder with the
+  reason code `placeholder` and the message "This is a placeholder picture, not a screenshot of the product." The companion's local check
+  (`verifyCapturedImageBuffer`), `capture.js --missing`, `verify-shots.js`, `status.mjs`, and the feature tour use the same detector.
+- **Preview and exports.** The preview adds the standard "Screenshot pending." note and serves the standard pending image; the HTML, Word,
+  PowerPoint, PDF, facilitator guide, and ZIP exports treat the slot exactly like any other pending slot.
+- **`validate_labs.py`.** Lists every placeholder picture a lab shows as a warning (rule `no-placeholder-images`). It never fails the build.
+
+**Adding a new known placeholder.** Stamp files from a new generator with the marker (Pillow:
+`PngInfo().add_text("Software", "cslabs-placeholder")`). To teach the detector about a file that already exists, run
+`node tools/screenshot-capture/placeholder-detect.mjs <file>` for its SHA-256, add it to `KNOWN_PLACEHOLDER_SHA256`, and add the
+file to `tools/screenshot-capture/test/fixtures/placeholders/`.
+
+**Hand-written labs.** The seven filler pictures that `labs/` held (six in Labs 02 and 12, one in Lab 06) were replaced with the standard
+pending image at the same file names. The Markdown, alt text, and captions are unchanged, so no link broke, and every tool now reports
+those figures as pending until a real capture is saved over the file (`validate_labs.py` and `verify-shots.js` list them as warnings).
+
+**Labs generated before the fix repair themselves.** The first time such a lab is opened, listed, exported, or asked for its screenshot
+status, the portal finds each filler picture in its `assets/`, turns the slot back into a pending slot in `screenshots/shots.json` and
+`learn-state.json`, drops the "Reused from lab" credit, regenerates `index.html` and the topic documents, and replaces the picture with the
+standard pending image. Real captures are untouched, nothing is written when a lab is already correct, every file is written atomically,
+and a lock file keeps two processes from repairing the same lab at once. To repair everything up front, or to see what would change:
+
+```bash
+node tools/lab-builder/repair-placeholders.mjs --dry-run   # counts per lab, changes nothing
+node tools/lab-builder/repair-placeholders.mjs --apply     # repair every affected lab
+node tools/lab-builder/repair-placeholders.mjs --apply --lab=<id> --root=<generated-labs folder>
+```
+
+A figure from a lab built before the plan tracked reused pictures has no slot in the plan, so it becomes a pending image in the
+lab but is not listed in the Screenshot Center; rebuilding the lab restores full tracking. The repair tool is not part of the
+container image: run it from a checkout, with `--root` (or `PORTAL_STORAGE_ROOT`) pointing at the lab data.
+
 #### Capturing, checking, and updating a lab's screenshots
 
 Every generated lab writes its own `shots.json` manifest. You never have to read it: open
 the lab in the portal and use the **Screenshot Center** (next section). It captures
 tenant-accurate screenshots on your own computer, checks each one, and updates the lab's
-HTML, Word, and PowerPoint files for you. Placeholders under 5 KB are treated as missing
-and are overwritten in place.
+HTML, Word, and PowerPoint files for you. Placeholders under 5 KB, and any placeholder
+picture whatever its size, are treated as missing and are overwritten in place.
 
 Because a generated lab is a point-in-time snapshot, you can also check its step-by-step UI
 labels, navigation paths, settings, and availability markers against current Microsoft Learn
@@ -1614,7 +1695,21 @@ your credentials. Capture therefore runs on **your own computer**:
 1. **Connect once.** In the portal, ask for a pairing code (`POST /api/capture/pair`). It
    works one time and expires in 10 minutes. Download the companion
    (`GET /api/capture/companion.zip`; it holds no secrets), run its launcher, and enter the
-   portal address and the code. The companion trades the code for a scoped capture token
+   portal address and the code. The launchers sit in `capture-companion/tools/screenshot-capture`
+   inside the ZIP (`start-companion.cmd`, `start-companion.ps1`, `start-companion.sh`). The pairing
+   card shows a ready-made command for the person's system (Windows PowerShell, Command Prompt, or macOS and
+   Linux, chosen from the browser and switchable) with the launcher's path relative to the unzip folder:
+   `.\capture-companion\tools\screenshot-capture\start-companion.cmd --portal=<address> --code=<code>` or
+   `./capture-companion/tools/screenshot-capture/start-companion.sh --portal=<address> --code=<code>`, with
+   "Run this from the folder where you unzipped the companion." The optional **Where did you unzip the
+   companion?** field (kept in the browser's `localStorage`, validated, at most 300 characters, never sent to the
+   portal and never run) turns it into the full path, quoted for the shell (`& '<path>'` for PowerShell,
+   `"<path>"` for Command Prompt, `'<path>'` for macOS and Linux). The API returns the same launcher pieces
+   (`launcher: { relativeDir, windows, powershell, posix }`, forward-slash paths inside the ZIP) beside the older
+   `command` string, which now carries the Windows relative path; only a plain host name and a `XXXX-XXXX` code are put
+   into a command. Each time it starts, the companion prints the full command to start it again from any folder
+   (it reads `COMPANION_LAUNCHER`, which the three launchers set, or names `node <path to companion.mjs>`), never
+   with the pairing code. The companion trades the code for a scoped capture token
    (`cap_...`) that only opens the companion endpoints. The portal stores a hash of it,
    shows the computer as **Companion connected** while it checks in, and lets you
    **Disconnect** it at any time (`DELETE /api/capture/devices/:id`).
@@ -1661,6 +1756,7 @@ your credentials. Capture therefore runs on **your own computer**:
    | File name is on the slot allowlist (letters, digits, `.`, `-`, `_`) and the extension matches the bytes | fail |
    | At most 8 MB, at least 5 KB, between 200 x 120 and 10000 x 10000 pixels, no corrupt data or trailing bytes | fail |
    | Blank or single-color image (a page that never loaded) | fail; "almost one color" is a warning |
+   | A placeholder picture (the "Screenshot pending" image, or a captioned filler such as a "PLACEHOLDER SCREENSHOT" picture), whatever its size: "This is a placeholder picture, not a screenshot of the product." | fail |
    | The companion reported a Microsoft sign-in address (`login.microsoftonline.com`, `login.live.com`, `login.windows.net`), a sign-in page title, or sign-in text | fail |
    | The picture is not the screen the plan expects (the address is a different page, for example the Copilot Studio home page instead of the agent's Instructions page) | warning (needs review, never accepted automatically) |
    | Fewer than a third of the expected UI labels are visible, only when the plan has no expected screen to compare the address with | warning |
@@ -2682,7 +2778,7 @@ Browser-facing:
 
 | Method | Route | Purpose |
 |---|---|---|
-| `POST` | `/api/capture/pair` | A one-time pairing code, valid 10 minutes: `{ code: "ABCD-EFGH", expiresAt, expiresInSec, portalUrl, command }`. |
+| `POST` | `/api/capture/pair` | A one-time pairing code, valid 10 minutes: `{ code: "ABCD-EFGH", expiresAt, expiresInSec, portalUrl, command, launcher }`. `command` is the Windows command with the launcher's relative path (`.\capture-companion\tools\screenshot-capture\start-companion.cmd --portal=<portalUrl> --code=<code>`) and is kept for older clients; `launcher` is `{ relativeDir, windows, powershell, posix }`, the launcher paths inside the ZIP with forward slashes, which the Screenshot Center turns into the command for the person's shell. A host or code that is not plain letters, digits, dots, and hyphens is left out of `command`. |
 | `GET` | `/api/capture/status` | What the Screenshot Center needs to decide what to offer (below). |
 | `GET` | `/api/capture/devices` | Paired computers: `{ devices: [{ id, name, platform, companionVersion, createdAt, lastSeenAt, connected, busy, signedInProducts, account, accountSetup, expiresAt, tokenHint }] }`. `account` and `accountSetup` are the flags a companion 1.5.0 or later reported (null from an older one). |
 | `DELETE` | `/api/capture/devices/:id` | Disconnect a computer. Its token stops working at once. |

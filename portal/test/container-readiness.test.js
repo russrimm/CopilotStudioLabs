@@ -266,7 +266,7 @@ test("a container built from only the Dockerfile COPY paths boots, serves the ap
       // (c) every script and stylesheet index.html references exists in the image and is served
       const assets = [...html.matchAll(/<script[^>]+src="([^"#?]+)"/g), ...html.matchAll(/<link[^>]+href="([^"#?]+\.css)"/g)].map((m) => m[1]).filter((src) => !/^(?:https?:)?\/\//.test(src));
       assert.ok(assets.length >= 10, "index.html loads its scripts");
-      for (const required of ["readiness-hub.js", "screenshot-center.js", "screenshot-center-core.js", "screenshot-center-jobs.js", "lab-checklist.js", "lab-customize.js", "brand-ui.js", "app.js"]) {
+      for (const required of ["readiness-hub.js", "screenshot-center.js", "screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "lab-checklist.js", "lab-customize.js", "brand-ui.js", "app.js"]) {
         assert.ok(assets.includes(required), `${required} is referenced by index.html`);
       }
       for (const asset of assets) {
