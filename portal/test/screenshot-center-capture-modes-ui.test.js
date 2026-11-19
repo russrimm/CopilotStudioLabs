@@ -407,6 +407,9 @@ test("a finished job is described with every outcome, an address wait, and a pau
   assert.equal(describe(paused).detail, "You closed the browser window, so the capture paused. 2 screenshots are waiting.");
   assert.equal(describe({ ...paused, shots: [{ filename: "b.png", status: "paused" }], progress: progressOf([{ status: "paused" }]), result: { pausedReason: "stopped" } }).detail, "You pressed Stop, so the capture paused. 1 screenshot is waiting.");
   assert.equal(describe({ ...paused, status: "failed" }).phase, "paused", "a paused job that captured nothing is still paused, not failed");
+  const busy = describe({ ...paused, result: { paused: 2, pausedReason: "browser-busy", resumable: true } });
+  assert.deepEqual([busy.phase, busy.headline], ["paused", "Waiting for the browser"]);
+  assert.equal(busy.detail, "A browser window from an earlier capture is still open on your computer, so the capture is waiting, not failed. Close that window, then select Resume. 2 screenshots are waiting.");
 
   const outcome = json(h.run("scOutcomeFromJob")({ ...paused, causes: [cause("browser-closed", ["b.png", "c.png"]), cause("sign-in", ["a.png"])] }));
   assert.equal(outcome.variant, "warn");

@@ -24,10 +24,10 @@ import readline from "node:readline";
 import { spawn } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { parseAccountMode, readAccountRecord, readEdgeSignInPolicy, readOsAccount } from "./account-source.mjs";
+import { parseAccountMode, readAccountRecord, readEdgeSignInPolicy, resolveOsAccount } from "./account-source.mjs";
 import { describeAccountState, describeAccount, browserShortName, verifyProductAccount } from "./account-guard.mjs";
 import { createAuthGate, forgetSignIn, listSignedInProducts, productLabel, profileDir, profileNamespace, readSignInStates, restoreSession, saveSession, SESSION_FILE } from "./auth.mjs";
-import { closeAllAttached, closeStrayTabs, fitWindow, launchAttached, parseLaunchChoice, wantsAttach } from "./attach.mjs";
+import { closeAllAttached, closeEarlierBrowser, closeStrayTabs, fitWindow, launchAttached, parseLaunchChoice, reconnectAttached, wantsAttach } from "./attach.mjs";
 import { browserLabel, chooseBrowsers, detectInstalledBrowsers, isMissingBrowserError, launchBrowser, launchPolicy, missingBrowserMessage, parseBrowserChoice } from "./browsers.mjs";
 import { createCaptureSession } from "./capture-run.mjs";
 import { causeForVerification, describeCause } from "./causes.mjs";
@@ -39,6 +39,7 @@ import { deleteOldSignIn, describeHomeState, migrateLegacyHome, oldSignInAdvice,
 import { verifyImage } from "./image-verify.mjs";
 import { detectBrowserAvailability, executePlaywrightLabShot, loadPlaywrightModule } from "./lab-runner.mjs";
 import { briefError, classifyBrowserError, ensureLivePage, gotoWithRetry, watchContext } from "./lifecycle.mjs";
+import { UNSAFE_PROFILE_MESSAGE, createProfileWaiter, isDefaultBrowserDir, isProfileInUseFailure } from "./profile-guard.mjs";
 import { dryRunPlan } from "./dry-run.mjs";
 import { createPracticeRegistry, summarizeCreated, writePracticeReport } from "./practice.mjs";
 import { createRecipeStore } from "./recipes.mjs";
@@ -49,7 +50,7 @@ import { createTrace, traceFilePath } from "./trace.mjs";
 import { resolveStage } from "./walkthrough.mjs";
 import { startAgainLines } from "./start-hint.mjs";
 
-export const COMPANION_VERSION = "1.6.0";
+export const COMPANION_VERSION = "1.6.1";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";
@@ -535,25 +536,56 @@ function failureText(check) {
  * Edge and Chrome are started the normal way and connected to (see attach.mjs) unless `launch` is "playwright"; if that
  * cannot start, the automation launcher is used with one clear message. A browser that is not installed is skipped;
  * any other launch problem is reported as it is.
+ *
+ * Before any browser is started the profile is checked (see profile-guard.mjs). A browser this companion started earlier that
+ * still answers is used again. A profile held by anything else is never touched: the person is told what to close, and the
+ * start waits (up to two minutes) for it to be free, then throws `PROFILE_BUSY`, which the job reports as "waiting", not "failed".
+ * The automation launcher is never tried for a profile that is in use, because it can only fail the same way.
+ * `profileWait` changes how the check and the wait run (tests); `onWaiting` hears each message while waiting.
  */
-export async function openProfile({ playwright, home, profile, kinds, headless = false, log = console.log, trace = null, launch = "auto", installed = null, attachOptions = {}, account = null }) {
+export async function openProfile({ playwright, home, profile, kinds, headless = false, log = console.log, trace = null, launch = "auto", installed = null, attachOptions = {}, account = null, profileWait = {}, onWaiting = null }) {
   const found = installed || detectInstalledBrowsers();
   // Where the profile lives and how Edge is opened depend on the account mode (see browsers.mjs and auth.mjs).
   const osWorkAccount = account?.os?.osWorkAccount ?? null;
   const namespace = account ? profileNamespace({ mode: account.mode, osWorkAccount }) : "";
   for (const kind of kinds) {
     const dir = profileDir(home, kind, profile, namespace);
+    // Never the folder a person's everyday browser uses (a browser ignores the debugging port there, and it is theirs).
+    if (isDefaultBrowserDir(dir)) throw Object.assign(new Error(UNSAFE_PROFILE_MESSAGE), { code: "UNSAFE_PROFILE" });
     const { inPrivate } = account ? launchPolicy({ kind, accountMode: account.mode, osWorkAccount }) : { inPrivate: false };
-    try {
+    const waiter = createProfileWaiter({
+      dir,
+      kind,
+      headless,
+      inPrivate,
+      log,
+      trace,
+      onWaiting,
+      closeEarlier: (record, wsUrl) => closeEarlierBrowser({ playwright, record, wsUrl, dir, trace, ...(attachOptions.sleep ? { sleep: attachOptions.sleep } : {}), ...(attachOptions.exitWaitMs ? { exitWaitMs: attachOptions.exitWaitMs } : {}) }),
+      ...profileWait,
+    });
+    const startOnce = async (turn) => {
       let context = null;
       let how = "playwright";
-      if (wantsAttach({ launch, kind, playwright, executable: found[kind] })) {
+      if (turn.action === "reuse") {
+        // A browser this companion started earlier is still running and answers: use it instead of starting another one.
+        try {
+          ({ context } = await reconnectAttached({ playwright, kind, dir, record: turn.ours, wsUrl: turn.wsUrl, trace, ...attachOptions }));
+        } catch (err) {
+          throw Object.assign(err, { profileInUse: true });
+        }
+        how = "attach";
+        log(`  Reconnected to the ${browserLabel(kind)} window that this companion opened earlier (it was still open).`);
+      } else if (wantsAttach({ launch, kind, playwright, executable: found[kind] })) {
         try {
           ({ context } = await launchAttached({ playwright, kind, dir, executable: found[kind], headless, inPrivate, trace, ...attachOptions }));
           how = "attach";
         } catch (err) {
-          if (launch === "attach" || err?.code === "PROFILE_IN_USE") throw err;
-          log(`  ${browserLabel(kind)} could not be started the normal way (${briefError(err)}). Opening it with the automation launcher instead. If your organization needs a managed browser, sign-in may not work.`);
+          if (isProfileInUseFailure(err)) throw err;
+          // "Closed right away" is a hand-over to a browser that already has the profile as often as it is a blocked debugging port: look before blaming the port.
+          if (err?.code === "BROWSER_EXITED" && (await waiter.inspect()).state !== "free") throw Object.assign(err, { profileInUse: true });
+          if (launch === "attach") throw err;
+          log(`  ${browserLabel(kind)} could not be started the normal way (${briefError(err)}). Opening it with the automation launcher instead.${osWorkAccount === true ? " If your organization needs a managed browser, sign-in may not work." : ""}`);
           trace?.event("attach-fallback", { browser: kind, why: err?.code || "error" });
         }
       }
@@ -564,16 +596,42 @@ export async function openProfile({ playwright, home, profile, kinds, headless =
         if (!headless) await fitWindow(context, { trace });
       }
       const restored = await restoreSession({ context, dir });
-      log(`  Opened ${browserLabel(kind)}${inPrivate ? " InPrivate" : ""}${how === "attach" ? " (started the normal way)" : ""}.${how === "attach" && !headless ? " If another window covers it, click its icon on the taskbar." : ""}${restored.restored ? " Your saved sign-in was restored." : ""}`);
-      trace?.event("profile-open", { product: profile, browser: kind, launch: how, inPrivate, namespace: namespace || "original", restoredCookies: restored.restored, restoreReason: restored.reason });
+      log(`  Opened ${browserLabel(kind)}${inPrivate ? " InPrivate" : ""}${how === "attach" ? (turn.action === "reuse" ? " (the window from before)" : " (started the normal way)") : ""}.${how === "attach" && !headless ? " If another window covers it, click its icon on the taskbar." : ""}${restored.restored ? " Your saved sign-in was restored." : ""}`);
+      trace?.event("profile-open", { product: profile, browser: kind, launch: how, reused: turn.action === "reuse", inPrivate, namespace: namespace || "original", restoredCookies: restored.restored, restoreReason: restored.reason });
       return { context, kind, dir, launch: how, inPrivate, namespace, restored: restored.restored };
+    };
+    try {
+      let startFailed = false;
+      for (;;) {
+        const turn = await waiter.next({ startFailed });
+        startFailed = false;
+        try {
+          return await startOnce(turn);
+        } catch (err) {
+          if (!isProfileInUseFailure(err)) throw err;
+          // The browser itself says the profile is taken. The raw words stay in the trace; the person gets the plain ones from the wait.
+          trace?.event("browser-start-failed", { browser: kind, why: "profile-in-use", detail: rawErrorLine(err) });
+          startFailed = true;
+        }
+      }
     } catch (err) {
-      if (err?.code === "PROFILE_IN_USE" || !isMissingBrowserError(err)) throw err;
+      if (err?.code === "PROFILE_BUSY" || !isMissingBrowserError(err)) throw err;
       trace?.event("browser-missing", { browser: kind });
       if (kinds.length > 1) log(`  ${browserLabel(kind)} was not found. Trying the next browser.`);
     }
   }
   throw Object.assign(new Error(missingBrowserMessage(kinds.length === 1 ? kinds[0] : "auto")), { code: "BROWSER_MISSING" });
+}
+
+/** The first line of a browser error with the user's folder name taken out, for the trace only. */
+function rawErrorLine(err) {
+  return String(err?.message || err || "").split("\n")[0].replace(/[A-Za-z]:\\Users\\[^\\\s]+/gi, "%USERPROFILE%").replace(/\/(?:home|Users)\/[^/\s]+/g, "~").slice(0, 240);
+}
+
+/** What a person reads when the browser could not start for a reason that is not "missing" or "in use". The raw text goes to the trace. */
+export function plainStartFailure(err) {
+  const first = String(err?.message || err || "").split("\n")[0].replace(/^browserType\.\w+:\s*/, "").replace(/\s+/g, " ").trim().slice(0, 200);
+  return `The browser could not start${first ? `: ${first}` : ""}. Run the companion with --debug to write a trace of what happened.`;
 }
 
 /**
@@ -718,6 +776,8 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   trace?.event("job-start", { shots: shots.length, browsers: browserKinds.join(","), headless: Boolean(options.headless), mode: jobMode, readyMs: readiness.maxMs ?? null, guidedWaitMs });
 
   const note = (message) => client.progress(job.id, { message }).then((r) => { if (r?.cancelRequested) state.cancelled = true; }).catch(() => {});
+  // What the person is told while the capture browser is busy also reaches the portal's live progress.
+  const waiting = (message) => void note(message);
   const report = async (shot, status, message, error = null, extra = {}) => {
     const reply = await client.progress(job.id, { shot: { filename: shot.filename, status, message, error, ...extra } });
     if (reply?.cancelRequested) state.cancelled = true;
@@ -768,7 +828,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
           const wantsBackground = Boolean(options.background || jobOptions.background) && !options.headless;
           if (wantsBackground && listSignedInProfiles(home, { namespace: accountNamespace }).includes(profile)) {
             log("  Running in the background: your saved sign-in is used and no window is shown.");
-            opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: true, log, trace, launch, account });
+            opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: true, log, trace, launch, account, profileWait: options.profileWait, onWaiting: waiting });
             hidden = true;
             backgroundHidden = true;
             const probe = await probeBackground({ opened, profile, shot: browserShots[0].shot, env, sleepFn, trace });
@@ -776,18 +836,32 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             if (!probe.ok) {
               await opened.context.close().catch(() => {});
               log(`  ${label} asked for a sign-in again in the background (${probe.why}), so a window is opening for you instead.`);
-              opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: false, log, trace, launch, account });
+              opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: false, log, trace, launch, account, profileWait: options.profileWait, onWaiting: waiting });
               hidden = false;
               backgroundHidden = false;
             }
           } else {
             if (wantsBackground) log(`  There is no saved sign-in for ${label} yet, so a window opens for you to sign in. Next time this can run in the background.`);
-            opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: Boolean(options.headless), log, trace, launch, account });
+            opened = await openProfile({ playwright, home, profile, kinds: browserKinds, headless: Boolean(options.headless), log, trace, launch, account, profileWait: options.profileWait, onWaiting: waiting });
           }
         }
       } catch (err) {
+        if (err?.code === "PROFILE_BUSY") {
+          // The capture browser is held by a window that is not ours to close. Nothing failed and nothing was started or used up:
+          // the screenshots wait, and Resume in the portal queues them again.
+          log(`  ${err.message}`);
+          trace?.event("browser-busy-pause", { state: err.state || "other", shots: items.length });
+          for (const item of items) {
+            if (!needsBrowserShot(item)) continue;
+            processed.add(item.shot.filename);
+            notRun.push({ filename: item.shot.filename, why: "The capture browser was still in use." });
+          }
+          state.paused = { reason: "browser-busy", message: err.short || err.message };
+          break;
+        }
         const text = String(err?.message || err);
-        const message = err?.code === "BROWSER_MISSING" ? text : `The browser could not start: ${text.split("\n")[0]}`;
+        trace?.event("browser-start-failed", { product: profile, why: err?.code || "error", detail: text.split("\n")[0].replace(/[A-Za-z]:\\Users\\[^\\\s]+/gi, "%USERPROFILE%").slice(0, 240) });
+        const message = err?.code === "BROWSER_MISSING" || err?.code === "UNSAFE_PROFILE" ? text : plainStartFailure(err);
         log(`  ${message}`);
         for (const item of items) {
           index += 1;
@@ -1102,13 +1176,16 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   if (state.paused) tally.paused = Math.max(0, shots.length - reported);
   let pausedNote = null;
   if (state.paused) {
+    const count = `${tally.paused} screenshot${tally.paused === 1 ? "" : "s"}`;
     pausedNote =
       state.paused.reason === "stopped"
         ? `You stopped the capture. ${tally.paused} screenshot${tally.paused === 1 ? " is" : "s are"} paused. In the portal, select Resume to continue.`
-        : `You closed the browser window, so the capture is paused. ${tally.paused} screenshot${tally.paused === 1 ? " was" : "s were"} not captured yet. In the portal, select Resume to continue where it stopped.`;
+        : state.paused.reason === "browser-busy"
+          ? `${state.paused.message} ${count} ${tally.paused === 1 ? "is" : "are"} waiting, not failed.`
+          : `You closed the browser window, so the capture is paused. ${tally.paused} screenshot${tally.paused === 1 ? " was" : "s were"} not captured yet. In the portal, select Resume to continue where it stopped.`;
     log(`\n${pausedNote}`);
   }
-  const summary = `${tally.captured} captured, ${tally.needsReview} saved for review, ${tally.failed} failed, ${tally.skipped + tally.manual} not run${tally.needsYou ? `, ${tally.needsYou} need you` : ""}${tally.paused ? `, ${tally.paused} paused` : ""}.`;
+  const summary = `${tally.captured} captured, ${tally.needsReview} saved for review, ${tally.failed} failed, ${tally.skipped + tally.manual} not run${tally.needsYou ? `, ${tally.needsYou} need you` : ""}${tally.paused ? `, ${tally.paused} ${state.paused?.reason === "browser-busy" ? "waiting for the browser" : "paused"}` : ""}.`;
   // What the computer created (a practice agent, changes inside it): written to a report on this computer and named, never linked, to the portal.
   const created = summarizeCreated(registry.jobLog);
   let reportFile = null;
@@ -1411,7 +1488,7 @@ export async function runCompanion(argv = process.argv.slice(2), deps = {}) {
   }
 
   // Which account the screenshots come from: this PC's Windows work account (if any), and what the person asked for.
-  const osAccount = deps.osAccount || readOsAccount();
+  const osAccount = deps.osAccount || resolveOsAccount({ home, log });
   const account = { mode: opts.accountMode || "separate", explicitMode: opts.accountMode !== null, os: osAccount };
   const ready = await (deps.preflight || preflight)({ home, log, browser: opts.browser, accountMode: account.mode, osWorkAccount: osAccount.osWorkAccount });
   if (!ready.ok) return EXIT.usage;

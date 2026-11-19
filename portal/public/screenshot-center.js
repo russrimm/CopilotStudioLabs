@@ -1550,6 +1550,7 @@ function scShotNote(shot, status, attempt = null, waitingNouns = []) {
       if (attempt && SC_AUTOMATION_CAUSES.includes(attempt.cause)) return scText(attempt.message || attempt.error, 300) || "The computer could not set this screen up. Use Show me once, or set it up yourself with Retake guided.";
       return "This screen needs you. Select Retake guided, set up the screen yourself, and capture it.";
     case "paused":
+      if (attempt?.cause === "browser-busy") return "Waiting for the browser: a window from an earlier capture is still open on your computer. Close it, then resume the capture, or retake this one.";
       return "The capture paused before this one was captured. Resume the capture, or retake this one.";
     case "manual":
       return "This screen needs a person. Take it yourself, then paste or upload it.";

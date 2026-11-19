@@ -390,6 +390,28 @@ test("a paused capture says so once, keeps its shots resumable, and is not count
   await drain();
 });
 
+test("a capture that waits because the capture browser is still open is paused with its own cause, not failed, and can be resumed", async () => {
+  await putProfile({ copilotStudioAgentUrl: AGENT_URL });
+  const queued = await labQueue(ctx.cs.labId, { options: { mode: "smart" } });
+  const claimed = await ctx.client.next();
+  assert.equal(claimed.job.id, queued.body.job.id);
+  const message = "Waiting for the browser: a Microsoft Edge window from an earlier run is still open. Close it, then select Resume.";
+  const waiting = await ctx.client.complete(claimed.job.id, { message, paused: { reason: "browser-busy", message } });
+  const job = waiting.job;
+  assert.equal(job.result.pausedReason, "browser-busy");
+  assert.equal(job.result.resumable, true);
+  assert.ok(job.progress.paused >= 1 && job.progress.failed === 0, "nothing is counted as failed");
+  const rows = job.shots.filter((s) => s.status === "paused");
+  assert.ok(rows.length > 0 && rows.every((s) => s.cause === "browser-busy" && /select Resume/i.test(s.message)));
+  const group = job.causes.find((c) => c.code === "browser-busy");
+  assert.equal(group.count, rows.length);
+  assert.equal(group.title, "Waiting for the browser");
+  assert.equal(group.fixAction, "resume");
+  const resumed = await queue({ target: { type: "lab", labId: ctx.cs.labId }, scope: { mode: "selected", filenames: rows.map((s) => s.filename) } });
+  assert.equal(resumed.status, 201, resumed.text);
+  await drain();
+});
+
 test("failure causes are grouped, with one fix per group and a cause even when the companion sent none", () => {
   const rows = [
     ...Array.from({ length: 12 }, (_, i) => ({ filename: `a${i}.png`, status: "skipped", cause: "no-agent" })),

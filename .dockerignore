@@ -15,6 +15,7 @@ tools/screenshot-capture/.auth
 **/.auth
 **/.companion.json
 **/.companion-settings.json
+**/.companion-os-account.json
 **/.practice-agents.json
 **/practice-report.md
 **/.recipes

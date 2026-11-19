@@ -1856,7 +1856,22 @@ pressed **Stop**; the remaining shots are paused with one message, not failed, a
 `paused`, `pausedReason`, and `resumable`). **Resume** queues exactly the paused shots as a new job
 (`scope: { mode: "selected", filenames }`). Cause codes: `no-agent`, `no-site`, `no-address`,
 `agent-not-found`, `sign-in`, `wrong-screen`, `control-not-found`, `blank-page`, `navigation-failed`,
-`browser-closed`, `needs-you`, `skipped-by-you`, `stopped`, `manual`, `rejected`, `unknown`.
+`browser-closed`, `browser-busy`, `needs-you`, `skipped-by-you`, `stopped`, `manual`, `rejected`, `unknown`.
+
+**The capture browser is already in use (companion 1.6.1).** A browser started on a profile folder that another
+browser process already has hands the request over and exits (Chromium's own message is "Opening in existing browser
+session"), so the companion used to see "the browser closed right away", fall back to the automation launcher, fail the
+same way, and report every shot as failed. Now it looks first (the running browser programs whose command line names the
+exact profile folder, the profile's lock, a `DevToolsActivePort` file, and its own `.companion-browser.json` record; no
+administrator rights), reconnects to a browser it can prove it started earlier and that still answers on its debugging
+port, and otherwise says in plain words which window to close and waits up to two minutes (a line every 15 seconds,
+also shown in the live progress). It never ends a browser it cannot prove it started, and never falls back to the
+automation launcher for a profile that is in use. When the wait ends, the job completes with
+`paused: { reason: "browser-busy", message }`: the shots that did not run become `paused` with the cause `browser-busy`
+(*Waiting for the browser*, fix **Resume**), not `failed`; nothing is created or published and the practice-agent
+records are untouched. The Screenshot Center says **Waiting for the browser** instead of "You closed the browser
+window". An older portal turns an unknown pause reason into `browser-closed`, so the shots still wait and resume. See
+[the companion's troubleshooting table](../tools/screenshot-capture/README.md#when-the-capture-browser-is-already-in-use).
 
 **Browser lifecycle.** An interrupted navigation (`net::ERR_ABORTED`, a timeout, a reset) is retried twice
 with a growing pause (never while the browser is on a sign-in page); a crashed tab is replaced by a new tab
@@ -2915,7 +2930,7 @@ Companion routes (capture token; `pair` needs no token, only the code):
 | `GET` | `/api/capture/companion/next` | Claim the next job: `{ job: { id, target, scope, options, resumed }, env, targets, shots: [{ filename, shotId, featureId, product, authProfile, startUrl, urlEnv, requiresEnv, manual, viewport, steps, callouts, expectedLabels, capture }] }`, or 204 (with the header `X-Companion-Wake: 1` when a request for that computer is waiting, which tells a 1.5.0 companion to check in now; older companions ignore it). `targets` holds the capture settings that are names (never addresses); `capture` is the descriptor (`mode`, `why`, `needs`, `route`, `path`, `expect`, `reveal`, `landmarks`, `guide`) a companion follows; an older companion ignores it and opens `startUrl`. Only shots that still have to run are sent: shots settled at queue time (outside the browser, waiting for an address, needing a person in automatic mode) are not. A companion that asks again while it holds a job gets that job back, but only three times in a row without finishing a shot: after that the job is closed as `failed` instead of being handed out again. |
 | `POST` | `/api/capture/companion/jobs/:id/progress` | `{ shot: { filename, status, message, error, cause?, mode?, path?, outcome?, steps? }, message }` returns `{ ok, cancelRequested }`. `status` may also be `needs-you`, `paused`, or `needs-account` (the capture stopped before taking pictures because the browser is signed in with the wrong account; counted as failed, with the cause *Signed in to the wrong account* whose fix is **Choose which account to use**). |
 | `PUT` | `/api/capture/companion/jobs/:id/shots/:filename` | The image (multipart `file`, `evidence`, `callouts`, or raw with an `X-Capture-Evidence` header holding base64url JSON under 8 KB). `evidence` may carry `mode` (`auto` \| `guided` \| `legacy`) and a bounded `routeSteps` list; what the picture is judged against comes from the job's plan, not from the evidence. Same answers as a paste, plus `cancelRequested`. |
-| `POST` | `/api/capture/companion/jobs/:id/complete` | `{ message, fatalError?, paused?: { reason: "browser-closed" \| "stopped", message }, account?, needsAccount?: { product, code: "windows-account" \| "wrong-account" \| "unverified", message } }` ends the job as `done`, `failed`, or `cancelled` and refreshes the lab's files. With `paused`, the shots that did not run become `paused` (resumable) instead of `skipped`. `account` and `needsAccount` are stored on the job's result (flags and one sentence, never an address or a name). |
+| `POST` | `/api/capture/companion/jobs/:id/complete` | `{ message, fatalError?, paused?: { reason: "browser-closed" \| "stopped" \| "browser-busy", message }, account?, needsAccount?: { product, code: "windows-account" \| "wrong-account" \| "unverified", message } }` ends the job as `done`, `failed`, or `cancelled` and refreshes the lab's files. With `paused`, the shots that did not run become `paused` (resumable) instead of `skipped`; `browser-busy` (companion 1.6.1: the capture browser's profile is held by a window the companion will not close) gives them the cause `browser-busy`. `account` and `needsAccount` are stored on the job's result (flags and one sentence, never an address or a name). |
 
 A token failure is 401 with `code` `token-missing`, `token-invalid`, `token-expired`, or `token-revoked`.
 

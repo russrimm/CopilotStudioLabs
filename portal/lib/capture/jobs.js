@@ -730,7 +730,7 @@ export function createJobStore({
     // Pause is a cancel that keeps the rest of the shots for Resume.
     const pausing = job.pauseRequested === true;
     const paused = summary.paused && typeof summary.paused === "object" ? summary.paused : pausing ? { reason: "stopped", message: "You paused the capture. Select Resume to continue where it stopped." } : null;
-    const pausedCause = paused?.reason === "stopped" ? "stopped" : "browser-closed";
+    const pausedCause = paused?.reason === "stopped" ? "stopped" : paused?.reason === "browser-busy" ? "browser-busy" : "browser-closed";
     const cancelled = job.cancelRequested && !pausing;
     for (const shot of job.shots) {
       if (!TERMINAL_SHOT_STATUSES.has(shot.status)) {
