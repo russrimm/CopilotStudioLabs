@@ -39,7 +39,7 @@ _site/                                                      generated site (not 
 docs/feature-tour/screenshots/         your captured PNGs and the <name>.callouts.json files the capture tool writes, for every product
 ```
 
-The build reads the screenshots folder. A shot counts as captured when its file is a real PNG, JPEG, or WebP of at least 5 KB, the same bar the capture tool applies. Anything else stays pending. After you commit real screenshots, the next build picks them up with no code changes. All products share one folder, so every screenshot filename belongs to exactly one shot.
+The build reads the screenshots folder. A shot counts as captured when its file is a real PNG, JPEG, or WebP of at least 5 KB, the same bar the capture tool applies, and is not a placeholder picture (the neutral "Screenshot pending" image or a captioned filler; see [Placeholder pictures never count as screenshots](lab-builder.md#placeholder-pictures-never-count-as-screenshots)). Anything else stays pending. After you commit real screenshots, the next build picks them up with no code changes. All products share one folder, so every screenshot filename belongs to exactly one shot.
 
 ### Captured images reach generated labs automatically
 

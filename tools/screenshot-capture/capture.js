@@ -27,6 +27,7 @@ import { spawnSync } from "node:child_process";
 import readline from "node:readline";
 import { resolveCallouts, sidecarName, writeSidecar } from "./callouts.mjs";
 import { listFeatureManifests, resolveShotUrl, resolveStartUrl } from "./manifests.mjs";
+import { detectPlaceholder } from "./placeholder-detect.mjs";
 import {
   DEFAULT_GENERATED_ROOT,
   runGeneratedLabCapture,
@@ -355,8 +356,9 @@ function shotExists(filename) {
   if (!existsSync(out)) return false;
   // The tour site treats a stub or non-PNG as pending, so --missing must too.
   // A generated lab's shot list marks each slot "pending" and parks a tiny
-  // placeholder at its final filename, so size, not existence, says whether it is captured.
-  return isFeatureTour || hasPendingShots ? verifyPng(out).ok : true;
+  // placeholder at its final filename, so size, not existence, says whether it is captured. A hand-written lab's
+  // own placeholder picture (the pending image or a captioned filler) is missing too.
+  return isFeatureTour || hasPendingShots ? verifyPng(out).ok : !detectPlaceholder(out).placeholder;
 }
 
 function resolvedViewport(shot) {
@@ -705,7 +707,8 @@ function verifyPng(out) {
     const bytes = readFileSync(out);
     const isPng = bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
     const size = statSync(out).size;
-    return { ok: isPng && size > MIN_PNG_BYTES, isPng, size };
+    // A placeholder picture is never a capture, however many bytes it weighs.
+    return { ok: isPng && size > MIN_PNG_BYTES && !detectPlaceholder(bytes).placeholder, isPng, size };
   } catch {
     return { ok: false, isPng: false, size: 0 };
   }

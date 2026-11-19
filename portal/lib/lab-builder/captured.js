@@ -18,6 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolveCapturedScreenshotsDir, resolveCapturedScreenshotsSearchDirs } from "../storage-config.js";
+import { isPlaceholder } from "./placeholder-detect.js";
 import { MIN_CAPTURED_BYTES } from "./slots.js";
 
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|webp)$/i;
@@ -44,9 +45,17 @@ function asDirList(dir) {
 }
 
 /**
+ * Whether `bytes` are a real screenshot of the type `ext` names: at least the minimum size, the right image format,
+ * and not a placeholder picture. The size alone never proves it, because the generated placeholders weigh about 20 KB.
+ */
+export function isRealScreenshotBytes(bytes, ext) {
+  return bytes.length >= MIN_CAPTURED_BYTES && hasSignature(bytes, ext) && !isPlaceholder(bytes);
+}
+
+/**
  * The captured image for a slot filename, or null when it is missing, a stub
- * smaller than a real screenshot, or not an image of its claimed type. `dir`
- * is one folder or a list searched in order.
+ * smaller than a real screenshot, a placeholder picture, or not an image of its
+ * claimed type. `dir` is one folder or a list searched in order.
  */
 export function capturedImage(dir, filename) {
   if (!SAFE_NAME.test(String(filename)) || String(filename).includes("..")) return null;
@@ -54,7 +63,7 @@ export function capturedImage(dir, filename) {
     const file = path.join(candidate, filename);
     try {
       const bytes = fs.readFileSync(file);
-      if (bytes.length < MIN_CAPTURED_BYTES || !hasSignature(bytes, path.extname(filename).toLowerCase())) continue;
+      if (!isRealScreenshotBytes(bytes, path.extname(filename).toLowerCase())) continue;
       return { file, size: bytes.length, dir: candidate };
     } catch {
       // Try the next location.
@@ -65,9 +74,9 @@ export function capturedImage(dir, filename) {
 
 /**
  * Resolve a real captured screenshot for a specific generated lab:
- *   1. `generated-labs/<labId>/assets/<filename>` when a real image (>= 5 KB) exists there
+ *   1. `generated-labs/<labId>/assets/<filename>` when a real image (>= 5 KB, not a placeholder) exists there
  *   2. The shared library (persistent folder first, then the baked `docs/feature-tour/screenshots`)
- *   3. `null` when only the "Screenshot pending" placeholder or nothing is present
+ *   3. `null` when only a placeholder (the "Screenshot pending" image or a captioned filler picture) or nothing is present
  */
 export function resolveLabScreenshot(labDir, filename, { capturedDir = capturedScreenshotsDirs() } = {}) {
   if (!SAFE_NAME.test(String(filename)) || String(filename).includes("..")) return null;

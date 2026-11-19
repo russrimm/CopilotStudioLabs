@@ -31,6 +31,7 @@ export const COMPANION_FILES = Object.freeze([
   "tools/screenshot-capture/callouts.mjs",
   "tools/screenshot-capture/manifests.mjs",
   "tools/screenshot-capture/image-verify.mjs",
+  "tools/screenshot-capture/placeholder-detect.mjs",
   "tools/screenshot-capture/redact.mjs",
   "tools/screenshot-capture/executor.mjs",
   "tools/screenshot-capture/setup-steps.mjs",

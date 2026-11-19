@@ -21,8 +21,11 @@ and there are no unexpected collisions; otherwise 1.
 """
 
 import argparse
+import hashlib
+import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -492,6 +495,127 @@ def check_authoring_markers(files=None, root=REPO_ROOT, cache=None):
     return findings
 
 
+PLACEHOLDER_DETECTOR = REPO_ROOT / "tools" / "screenshot-capture" / "placeholder-detect.mjs"
+PLACEHOLDER_MARKER = (b"Software", b"cslabs-placeholder")
+MARKDOWN_IMAGE = re.compile(r"!\[[^\]]*]\(\s*<?([^)\s>]+)>?(?:\s+[\"'][^)]*)?\)")
+
+
+def known_placeholder_hashes():
+    """SHA-256 of every known placeholder picture, read from the shared detector so there is one list."""
+    try:
+        return set(re.findall(r'"([0-9a-f]{64})":', PLACEHOLDER_DETECTOR.read_text(encoding="utf-8")))
+    except OSError:
+        return set()
+
+
+def png_has_placeholder_marker(data):
+    """True when a PNG carries the ``Software=cslabs-placeholder`` text entry the generator scripts write."""
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        return False
+    offset = 8
+    while offset + 12 <= len(data):
+        length = int.from_bytes(data[offset : offset + 4], "big")
+        kind = data[offset + 4 : offset + 8]
+        body = data[offset + 8 : offset + 8 + length]
+        if kind == b"tEXt":
+            keyword, _, text = body.partition(b"\0")
+            if keyword == PLACEHOLDER_MARKER[0] and text.strip().lower().startswith(PLACEHOLDER_MARKER[1]):
+                return True
+        if kind in (b"IDAT", b"IEND"):
+            break
+        offset += 12 + length
+    return False
+
+
+def placeholder_verdicts(paths):
+    """Map each image path that is a placeholder picture to the reason it is one.
+
+    Runs the shared detector (tools/screenshot-capture/placeholder-detect.mjs) when Node is available, so the
+    layout signature applies too; otherwise falls back to the known hashes and the PNG marker, which need no Node.
+    The detector always comes from this repository, whatever directory the lab being checked lives in.
+    """
+    paths = [Path(p) for p in paths]
+    found = {}
+    node = shutil.which("node")
+    detector = PLACEHOLDER_DETECTOR
+    if node and detector.exists() and paths:
+        try:
+            for start in range(0, len(paths), 40):
+                batch = paths[start : start + 40]
+                run = subprocess.run(
+                    [node, str(detector), *[str(p) for p in batch]],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    check=True,
+                )
+                for line in run.stdout.splitlines():
+                    verdict = json.loads(line)
+                    if verdict.get("placeholder"):
+                        found[Path(verdict["file"])] = verdict.get("reason") or "placeholder"
+            return found
+        except (OSError, ValueError, subprocess.SubprocessError):
+            found = {}
+    hashes = known_placeholder_hashes()
+    for path in paths:
+        try:
+            data = path.read_bytes()
+        except OSError:
+            continue
+        if len(data) > 256 * 1024:
+            continue
+        if hashlib.sha256(data).hexdigest() in hashes:
+            found[path] = "known-hash"
+        elif png_has_placeholder_marker(data):
+            found[path] = "marker"
+    return found
+
+
+def check_placeholder_images(files=None, root=REPO_ROOT, cache=None):
+    """Return (file, line, image, reason) for each placeholder picture a lab shows as if it were a screenshot.
+
+    A warning-level check: it lists the images but never fails the build. The picture may be the neutral
+    "Screenshot pending" image or a captioned filler; neither is a screenshot of the product.
+    """
+    files = files or [
+        path
+        for path in tracked_markdown_files(root)
+        if path.relative_to(root).parts[0].lower() == LABS_DIR
+    ]
+    references = []
+    for source in files:
+        lines = read_markdown(source, cache).splitlines()
+        for line_number, (line, fenced) in enumerate(zip(lines, fenced_line_mask(lines)), 1):
+            if fenced:
+                continue
+            for match in MARKDOWN_IMAGE.finditer(re.sub(r"`[^`]*`", "", line)):
+                target = unquote(match.group(1).split("#", 1)[0].split("?", 1)[0])
+                if not target or re.match(r"^[a-z][a-z0-9+.-]*:", target, re.IGNORECASE):
+                    continue
+                image = (source.parent / target).resolve()
+                if image.is_file():
+                    references.append((source, line_number, target, image))
+    verdicts = placeholder_verdicts(sorted({image for *_, image in references}))
+    return [
+        (source, line_number, target, verdicts[image])
+        for source, line_number, target, image in references
+        if image in verdicts
+    ]
+
+
+def print_placeholder_warnings(findings, root):
+    """Print the warning-only placeholder section."""
+    print("\nPlaceholder pictures (warnings only):")
+    for source, line, target, reason in findings:
+        try:
+            shown = source.relative_to(root)
+        except ValueError:
+            shown = source
+        print(f"  WARN  {shown}:{line}: {target} is a placeholder picture ({reason}), not a screenshot of the product")
+    if not findings:
+        print("  PASS  no lab shows a placeholder picture as a screenshot")
+
+
 def duration_minutes(value):
     """Normalize the primary duration in strings such as '1 hour 30 minutes'."""
     text = re.sub(r"[*_`]", "", str(value)).split("(", 1)[0].split("+", 1)[0].lower()
@@ -578,6 +702,7 @@ RULES_BY_CHECK = {
     "check_markdown_links": ("no-broken-local-links",),
     "check_markdown_accessibility": ("accessible-markdown",),
     "check_authoring_markers": ("no-todo-markers",),
+    "check_placeholder_images": ("no-placeholder-images",),
     "check_readme_catalog": ("readme-catalog",),
     "find_collisions": ("unique-lab-numbers",),
 }
@@ -648,6 +773,8 @@ def validate_lab_dir(lab_dir):
         print(f"  FAIL  {source.relative_to(root)}:{line}: {marker!r} is unfinished authoring text; {fix}")
     if not authoring_issues:
         print("  PASS  no TODO, FIXME, TBD, or XXX markers appear in rendered lab content")
+
+    print_placeholder_warnings(check_placeholder_images(files, root, cache) if files else [], root)
 
     ok = not failures and not broken and not accessibility_issues and not authoring_issues
     print(f"\nRESULT: {'PASS' if ok else 'FAIL'}")
@@ -720,6 +847,9 @@ def main(argv=None):
     else:
         print("  PASS  no TODO, FIXME, TBD, or XXX markers appear in rendered lab content")
 
+    placeholder_issues = check_placeholder_images(lab_markdown_files, cache=markdown_cache)
+    print_placeholder_warnings(placeholder_issues, REPO_ROOT)
+
     print("\nREADME catalog consistency:")
     catalog_issues = check_readme_catalog(cache=markdown_cache)
     if catalog_issues:
@@ -744,6 +874,7 @@ def main(argv=None):
     print(f"  Broken internal links: {len(broken)}")
     print(f"  Accessibility issues: {len(accessibility_issues)}")
     print(f"  Authoring markers:    {len(authoring_issues)}")
+    print(f"  Placeholder pictures: {len(placeholder_issues)} (warnings only)")
     print(f"  Catalog inconsistencies: {len(catalog_issues)}")
     print(f"  Unexpected collisions: {len(unexpected)}")
 

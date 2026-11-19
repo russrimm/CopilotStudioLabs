@@ -2,7 +2,8 @@
 //
 // Combines two signals per lab:
 //   1. Integrity — delegates to tools/screenshot-capture/verify-shots.js --json
-//      to detect missing files, bad signatures, placeholder-size PNGs, and
+//      to detect missing files, bad signatures, placeholder pictures (the
+//      pending image or a captioned filler, whatever its size), and
 //      markdown/shots.json mismatches.
 //   2. Staleness — uses `git log` to find each screenshot's last-changed date
 //      and flags images older than the staleness threshold (default 180 days).
@@ -81,7 +82,7 @@ function main() {
       critical: verify.summary?.critical ?? 0,
       warning: verify.summary?.warning ?? 0,
     },
-    summary: { labs: labs.length, labsNeedingRecapture: 0, missingImages: 0, staleImages: 0 },
+    summary: { labs: labs.length, labsNeedingRecapture: 0, missingImages: 0, staleImages: 0, placeholderImages: 0 },
     labs: [],
   };
 
@@ -92,6 +93,8 @@ function main() {
 
     const stale = [];
     const missing = [];
+    // A placeholder picture stands in for a capture that has not been taken yet, so it needs a re-capture too.
+    const placeholders = warning.filter((f) => f.code === "placeholder-image").map((f) => f.path);
     for (const imageRel of lab.images) {
       const abs = path.join(repoRoot, imageRel);
       if (!fs.existsSync(abs)) {
@@ -109,8 +112,9 @@ function main() {
 
     report.summary.missingImages += missing.length;
     report.summary.staleImages += stale.length;
+    report.summary.placeholderImages += placeholders.length;
 
-    const needsRecapture = missing.length > 0 || stale.length > 0 || critical.length > 0;
+    const needsRecapture = missing.length > 0 || stale.length > 0 || critical.length > 0 || placeholders.length > 0;
     if (needsRecapture) report.summary.labsNeedingRecapture += 1;
 
     report.labs.push({
@@ -120,6 +124,7 @@ function main() {
       imageCount: lab.images.length,
       missingImages: missing,
       staleImages: stale,
+      placeholderImages: placeholders,
       criticalFindings: critical,
       warningFindings: warning,
       needsRecapture,
@@ -128,7 +133,7 @@ function main() {
 
     if (needsRecapture) {
       console.log(
-        `• ${lab.name}: ${missing.length} missing, ${stale.length} stale, ${critical.length} critical`,
+        `• ${lab.name}: ${missing.length} missing, ${stale.length} stale, ${placeholders.length} placeholder, ${critical.length} critical`,
       );
     }
   }
@@ -137,7 +142,7 @@ function main() {
   console.log(`\nScreenshot audit written to ${relativeToRoot(target)}`);
   console.log(
     `Summary: ${report.summary.labsNeedingRecapture} lab(s) need re-capture ` +
-      `(${report.summary.missingImages} missing, ${report.summary.staleImages} stale).`,
+      `(${report.summary.missingImages} missing, ${report.summary.staleImages} stale, ${report.summary.placeholderImages} placeholder).`,
   );
 }
 

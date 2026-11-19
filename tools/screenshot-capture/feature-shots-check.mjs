@@ -113,7 +113,7 @@ export function checkFeatureShots({ repoRoot, manifestPath, strictMissing = fals
       result.captured += 1;
     } else {
       result.missing.push({ id: shot.id, feature: shot.feature, filename: shot.filename, reason: info.reason, product, ...(shot.manual ? { manual: true } : {}) });
-      if (info.reason === "too-small" || info.reason === "not-an-image") {
+      if (info.reason === "too-small" || info.reason === "not-an-image" || info.reason === "placeholder") {
         add("warning", "feature-shots-invalid-image", `${FEATURE_ASSETS_DIR}/${shot.filename} exists but is not a usable screenshot (${info.reason}); the site shows it as pending.`, { filename: shot.filename });
       } else if (strictMissing) {
         add("critical", "feature-shots-pending", `${shot.filename} (${shot.feature}) has not been captured.`, { filename: shot.filename });

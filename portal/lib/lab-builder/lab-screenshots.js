@@ -19,6 +19,7 @@ import { scrubForbidden } from "./composer.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
 import { connect, fetchDocPage } from "./learn-mcp.js";
 import { DEFAULT_PRODUCT, productOf } from "./products.js";
+import { repairGeneratedLabPlaceholders } from "./placeholder-repair.js";
 import { buildShotList } from "./screenshots.js";
 import { MIN_CAPTURED_BYTES, describeSlot, slotsForFeature } from "./slots.js";
 import { deriveSteps, diffSteps, isVerifiedCanonicalArticle } from "./steps.js";
@@ -860,6 +861,37 @@ export function refreshGeneratedLabOutputs(
   return { labId, manifest, validation };
 }
 
+const repairChecked = new Map();
+
+/**
+ * Repair a generated lab built while placeholder pictures counted as captured screenshots: each filler picture in
+ * `assets/` becomes the standard pending image, its slot becomes a pending slot, and the lab's derived outputs are
+ * regenerated. A lab with nothing to repair is not written. Never throws, so a read can always go on.
+ *
+ * @param {object} [options]
+ * @param {boolean} [options.dryRun] report what would change and write nothing
+ * @param {number} [options.maxAgeMs] skip the check when this lab was checked that recently (for list views)
+ */
+export function repairLabPlaceholders(labDir, { labId: explicitLabId, capturedDir = capturedScreenshotsDirs(), dryRun = false, maxAgeMs = 0 } = {}) {
+  const resolvedDir = path.resolve(labDir);
+  const labId = explicitLabId || path.basename(resolvedDir);
+  const none = { changed: false, placeholders: [], slots: [] };
+  if (maxAgeMs > 0) {
+    const last = repairChecked.get(resolvedDir);
+    if (last && Date.now() - last < maxAgeMs) return none;
+    repairChecked.set(resolvedDir, Date.now());
+  }
+  try {
+    return repairGeneratedLabPlaceholders(resolvedDir, {
+      dryRun,
+      loadPlan: () => ensurePerLabScreenshotPlan(resolvedDir, { labId, capturedDir }),
+      refreshOutputs: () => refreshGeneratedLabOutputs(resolvedDir, { labId, capturedDir }),
+    });
+  } catch (err) {
+    return { ...none, error: err.message };
+  }
+}
+
 function resolveSafeLabDir(generatedRoot, rawLabId) {
   const labId = String(rawLabId || "").trim();
   if (!SAFE_LAB_ID.test(labId)) return { status: 400, error: "Invalid lab id" };
@@ -1065,6 +1097,7 @@ export function getLabScreenshotsStatus(
   if (found.status !== 200) return { status: found.status, body: { error: found.error } };
 
   const { labId, labDir } = found;
+  repairLabPlaceholders(labDir, { labId, capturedDir });
   const { shotsPlan, learnState } = ensurePerLabScreenshotPlan(labDir, { labId, capturedDir });
   const verificationRecords = readLabVerification(labDir);
   const captureValues = currentCaptureTargets(labId);
@@ -1113,8 +1146,8 @@ export function getLabScreenshotsStatus(
       stale: docsUpdated,
       syncStatus,
       checkState: docsUpdated ? "docs-updated" : mState.lastCheckedAt ? "up-to-date" : "not-checked",
-      capturedAt: sState.capturedAt || null,
-      captureSource: sState.captureSource || null,
+      capturedAt: hasScreenshot ? sState.capturedAt || null : null,
+      captureSource: hasScreenshot ? sState.captureSource || null : null,
       lastAttemptStatus: sState.lastAttemptStatus || null,
       lastError: sState.lastError || null,
       verification,

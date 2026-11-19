@@ -1,5 +1,10 @@
-"""Generate instructional UI mockup screenshots for Lab 04."""
+"""Generate instructional UI mockup screenshots for Lab 04.
+
+These are mock-ups, not real captures: every file is stamped as a placeholder (a PNG text entry), so the portal and
+the capture companion never count one as a captured screenshot. Replace each with a live capture.
+"""
 from PIL import Image, ImageDraw
+from PIL.PngImagePlugin import PngInfo
 import textwrap
 import os
 import sys
@@ -95,7 +100,9 @@ def create_screenshot(filename, nav_title, description, content_lines):
     draw.text((16, H - 28), filename, fill=MUTED)
     draw.text((W - 300, H - 28), "Replace with actual UI capture", fill=WARNING)
 
-    img.save(filename)
+    meta = PngInfo()
+    meta.add_text("Software", "cslabs-placeholder")
+    img.save(filename, "PNG", pnginfo=meta)
     print(f"  Created {filename}")
 
 
