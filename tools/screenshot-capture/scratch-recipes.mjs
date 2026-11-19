@@ -109,8 +109,12 @@ export const OPEN_AGENT_SETTINGS = Object.freeze([
   { id: "settings-open", action: "choose", intent: "choose", say: "Opening the agent settings", target: T("menuitem", "Settings", ["Agent settings", "Open settings"], "any") },
 ]);
 
-/** The Memory switch of the Build tab, turned on only when it is off. */
-export const MEMORY_ON = Object.freeze([{ id: "memory-on", action: "choose", intent: "choose", say: "Turning Memory on", note: "Turned Memory on", target: T("switch", "Enable memory (preview)", ["Memory", "Enable memory", "Agent memory"], "main"), onlyIfOff: true }]);
+/** The Memory switch of the Build tab, turned on only when it is off, then saved when the product asks for a save (the switch alone did not persist in a real run). */
+export const MEMORY_ON = Object.freeze([
+  { id: "memory-on", action: "choose", intent: "choose", say: "Turning Memory on", note: "Turned Memory on", target: T("switch", "Enable memory (preview)", ["Memory", "Enable memory", "Agent memory"], "main"), onlyIfOff: true },
+  { id: "memory-save", action: "confirm", intent: "confirm", say: "Saving the agent", note: "Saved the agent", target: T("button", "Save", ["Save agent", "Save changes", "Save icon"], "any"), soft: true, optional: true },
+  { id: "memory-saved", action: "verify", say: "Checking that Memory was saved", target: T("button", "Save", ["Save agent", "Save changes", "Save icon"], "any"), expect: { disabled: true }, timeoutMs: 8000 },
+]);
 
 /** Generative orchestration in the classic layout's Settings page (a radio). */
 export const CLASSIC_ORCHESTRATION = Object.freeze([

@@ -91,7 +91,7 @@ function ask(text){
     },CFG.chatDelayMs||900);
   });
 }
-document.addEventListener('input',function(){var sb=$('n-save'); if(sb) sb.disabled=false});
+document.addEventListener('input',function(e){var id=e.target&&e.target.id; if(id!=='n-name'&&id!=='n-instr') return; var sb=$('n-save'); if(sb) sb.disabled=false});
 document.addEventListener('click',function(e){
   var path=e.composedPath?e.composedPath():[e.target]; var t=path[0]; t=t&&t.closest?t.closest('button,a'):null; if(!t) return;
   var act=t.getAttribute('data-act'); if(!act||act.indexOf('n-')!==0) return;

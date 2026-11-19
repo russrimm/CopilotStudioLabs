@@ -144,7 +144,7 @@ const ALL_RECIPES = { CREATE_AGENT_OPEN: R.CREATE_AGENT_OPEN, CREATE_AGENT_FILL:
 
 test("no step of any recipe is dropped by the safety rules, and only the steps that commit are tier 2", () => {
   // model-open and eval-new open a menu or a form behind a control that is not known to be safe, so they count as practice-agent steps.
-  const writes = new Set(["create-open", "create-name", "create-commit", "rename-type", "rename-save", "rename-saved", "instructions-type", "instructions-save", "instructions-saved", "knowledge-add-url", "knowledge-add", "publish-confirm", "memory-on", "genai-yes", "eval-new", "model-open", "sessions-open"]);
+  const writes = new Set(["create-open", "create-name", "create-commit", "rename-type", "rename-save", "rename-saved", "instructions-type", "instructions-save", "instructions-saved", "knowledge-add-url", "knowledge-add", "publish-confirm", "memory-on", "memory-save", "memory-saved", "genai-yes", "eval-new", "model-open", "sessions-open"]);
   for (const [name, list] of Object.entries(ALL_RECIPES)) {
     const { steps, missing } = strictSteps(list);
     assert.deepEqual(missing, [], `${name}: a step was dropped (an alternate name probably sounds like something never done)`);
@@ -174,7 +174,7 @@ test("each stage shows its screen on the layout the agent has, and a recipe neve
   assert.equal(showStepsFor({ stage: "model", shot: shot(), layout: "classic" }), null, "the classic layout has no model list: the shot says so");
   assert.deepEqual(ids("knowledge", { kind: "after" }, "classic"), ["knowledge-nav", "knowledge-nav-open"]);
   assert.deepEqual(ids("preview", {}, "classic"), ["test-open", "ask-type", "ask-send", "ask-wait"]);
-  assert.deepEqual(ids("settings", { caption: "The Memory toggle" }), ["build-tab", "build-tab-open", "memory-on"]);
+  assert.deepEqual(ids("settings", { caption: "The Memory toggle" }), ["build-tab", "build-tab-open", "memory-on", "memory-save", "memory-saved"]);
 });
 
 // ── The guard: what a write needs, and what is never done ───────────────────

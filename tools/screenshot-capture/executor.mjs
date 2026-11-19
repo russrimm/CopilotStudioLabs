@@ -1090,17 +1090,18 @@ export function createExecutor(ctx) {
     return { ok: !failed && !state.halted, steps: records, failed: state.halted ? { id: records.at(-1)?.id || "", action: records.at(-1)?.action || "", why: state.halted, code: haltCode } : failed, halted: state.halted, haltKind: state.haltKind, blocked: state.blocked.slice(0, 12), diagnostic };
   }
 
-  /** Close what the steps opened, so the next screen starts clean. Never throws. */
+  /** Close what the steps opened, so the next screen starts clean. Never throws. `left` is how many dialogs or menus are still open. */
   async function cleanup() {
     try {
       await dismissInterruptions();
       const open = (await readState(page)).dialogs.filter((d) => d.kind === "dialog" || d.kind === "menu");
-      if (!open.length) return { closed: false };
+      if (!open.length) return { closed: false, left: 0 };
       const record = await runStep({ id: "cleanup", action: "close", intent: "close", tier: 1, cleanup: true, note: "Closed it with Cancel" });
-      return { closed: record.status === "ok" };
+      const left = (await readState(page)).dialogs.filter((d) => d.kind === "dialog" || d.kind === "menu").length;
+      return { closed: record.status === "ok", left };
     } catch (err) {
       if (err instanceof BrowserClosedError || classifyBrowserError(err) === "browser-closed") throw err;
-      return { closed: false };
+      return { closed: false, left: 0 };
     }
   }
 

@@ -250,6 +250,26 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
   return { ok: true, agent: scratch.agent };
 }
 
+const MAX_LEFTOVER_RESETS = 6;
+
+/**
+ * A picture can leave a dialog or menu open (the page is no longer opened again for every picture). Close it the way a person would;
+ * only a page that is fully drawn and still shows something that will not close is opened once more, on purpose, and never in a loop.
+ */
+async function clearLeftovers({ page, session, go, sleep = sleepDefault, trace = null, target }) {
+  const scratch = scratchState(session);
+  if (!scratch.layout) return false;
+  const executor = makeExecutor({ page, session, practice: { agentId: scratch.agent.botId, envId: scratch.agent.envId }, trace, sleep, shot: "clean-start" });
+  const cleaned = await executor.cleanup().catch(() => ({ closed: false, left: 0 }));
+  if (!cleaned.left || (scratch.leftoverResets || 0) >= MAX_LEFTOVER_RESETS) return false;
+  const drawn = await page.evaluate(() => document.readyState === "complete").catch(() => false);
+  if (!drawn) return false;
+  scratch.leftoverResets = (scratch.leftoverResets || 0) + 1;
+  trace?.event("page-recovery", { why: "a dialog or menu from the last picture would not close", resets: scratch.leftoverResets });
+  await go(target, "your practice agent", { reload: true });
+  return true;
+}
+
 /** Open the practice agent's first page and learn which layout it has. */
 const LAYOUT_WAIT_MS = 45_000;
 
@@ -266,13 +286,18 @@ export async function openPracticeAgent({ page, session, go, sleep = sleepDefaul
     return Boolean(here.botId && here.botId.toLowerCase() === String(agent.botId).toLowerCase());
   };
   const target = agent.openUrl || `${agent.agentBase}/overview`;
-  if (insideAgent()) trace?.event("navigation-skipped", { reason: "open-practice-screen", why: "the browser is already inside the practice agent" });
-  else {
+  // A page that was just opened gets the whole wait to draw; a page that is already drawn answers at once.
+  let fresh = false;
+  if (insideAgent()) {
+    trace?.event("navigation-skipped", { reason: "open-practice-screen", why: "the browser is already inside the practice agent" });
+    fresh = await clearLeftovers({ page, session, go, sleep, trace, target });
+  } else {
     const opened = await go(target, "your practice agent");
     if (opened.signIn) return { ok: false, signIn: opened.signIn };
     if (!insideAgent()) return needsYou("agent-create-failed", "The practice agent could not be opened, so the computer stopped. It may have been deleted: choose Start fresh to build a new one.");
+    fresh = true;
   }
-  let layout = await detectLayout(page, { sleep, waitMs: scratch.layout === "newer" || scratch.layout === "classic" ? Math.min(layoutWaitMs, 20_000) : layoutWaitMs });
+  let layout = await detectLayout(page, { sleep, waitMs: !fresh && (scratch.layout === "newer" || scratch.layout === "classic") ? Math.min(layoutWaitMs, 20_000) : layoutWaitMs });
   if (layout === "unknown" && (scratch.recoveries || 0) < 2) {
     scratch.recoveries = (scratch.recoveries || 0) + 1;
     trace?.event("page-recovery", { why: "the agent page drew nothing for a long time", waitedMs: layoutWaitMs });

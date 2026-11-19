@@ -1053,8 +1053,8 @@ test("a browser that rearranges its first tabs is given a moment to settle, and 
 });
 
 test("a path segment that holds an id (the default environment is Default- plus the tenant id) is masked", () => {
-  assert.equal(cleanPathSegment("Default-9a35777a-28ce-467a-92be-0cf503f7e030"), "Default-{id}");
-  assert.equal(cleanPathForReport("/environments/Default-9a35777a-28ce-467a-92be-0cf503f7e030/home"), "/environments/Default-{id}/home");
+  assert.equal(cleanPathSegment("Default-5e5e5e5e-1234-4abc-8def-0123456789ab"), "Default-{id}");
+  assert.equal(cleanPathForReport("/environments/Default-5e5e5e5e-1234-4abc-8def-0123456789ab/home"), "/environments/Default-{id}/home");
   assert.equal(cleanPathSegment("~personal"), "~personal");
 });
 

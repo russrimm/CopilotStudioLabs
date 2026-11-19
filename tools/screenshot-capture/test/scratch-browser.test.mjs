@@ -180,6 +180,24 @@ test("a slow page is waited for and never reloaded: the agent page takes 25 seco
   }
 });
 
+test("a menu a picture left open is closed before the next step, and the page is opened again only when it will not close", { skip }, async () => {
+  const scenario = await scenarioFor({}, ["mc-create-agent", "mc-instructions", "mc-model-selection", "mc-knowledge", "mc-preview-test"]);
+  const traceFile = path.join(scenario.home, "leftover-trace.log");
+  const trace = createTrace({ file: traceFile, terms: [], header: { test: "leftover menu" } });
+  try {
+    const out = await run(scenario, { trace });
+    const events = fs.readFileSync(traceFile, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    assert.equal(captured(out).length, out.rows.length, out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", "));
+    assert.equal(writesOf(out, "add-knowledge:").length, 1, "the knowledge source is added once, not blocked by the open model list");
+    const resets = events.filter((e) => e.event === "page-recovery");
+    assert.ok(resets.length >= 1 && resets.length <= 6, `the stubborn menu was cleared by opening the page again, a few times at most: ${resets.length}`);
+    assert.ok(resets.every((e) => /would not close/.test(e.why)), "and every one says why");
+    assert.ok(events.every((e) => e.event !== "navigation" || e.reason), "every navigation says why");
+  } finally {
+    await scenario.close();
+  }
+});
+
 test("closing the browser mid-run pauses it, and the next run uses the same agent without making another", { skip }, async () => {
   const scenario = await scenarioFor();
   try {
