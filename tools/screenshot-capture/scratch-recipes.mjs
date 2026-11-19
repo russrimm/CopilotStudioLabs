@@ -52,13 +52,6 @@ export function findAgentSteps(name) {
   ];
 }
 
-/** An agent that was found by its name keeps the name the product cut short (30 characters): give it the full one. */
-export const RENAME_AGENT = Object.freeze([
-  { id: "rename-type", action: "type", intent: "type", say: "Giving the agent its full name", note: "Gave the practice agent its full name", target: T("textbox", "Name your agent", ["Agent name", "Name"], "main"), text: { sample: "agentName" } },
-  { id: "rename-save", action: "confirm", intent: "confirm", say: "Saving the name", target: T("button", "Save", ["Save agent", "Save changes", "Save icon"], "any"), soft: true },
-  { id: "rename-saved", action: "verify", say: "Checking that the name was saved", target: T("button", "Save", ["Save agent", "Save changes", "Save icon"], "any"), expect: { disabled: true }, timeoutMs: 8000 },
-]);
-
 export const SET_INSTRUCTIONS = Object.freeze([
   { id: "instructions-type", action: "type", intent: "type", say: "Setting the instructions", note: "Set the agent's instructions from the lab", target: T("textbox", "Agent instructions", ["Instructions", "Add instructions", "Edit instructions", "Give your agent instructions", "Instructions for your agent"], "main"), text: { sample: "instructions" } },
   { id: "instructions-save", action: "confirm", intent: "confirm", say: "Saving the instructions", note: "Saved the agent", target: T("button", "Save", ["Save agent", "Save changes", "Save icon"], "any"), soft: true },
@@ -78,11 +71,13 @@ export const ADD_WEBSITE_KNOWLEDGE = Object.freeze([
   { id: "knowledge-closed", action: "wait-for", say: "Waiting for the knowledge source to be added", timeoutMs: 15_000, expect: { noDialog: true } },
 ]);
 
-/** Publish to the agent's own default channel: open the dialog, confirm it, and wait for the confirmation. */
+/** Publish only the practice agent, once, to its default state: open the dialog, prove it is the plain one, click Publish agent a single time, and wait for the product's own confirmation. */
 export const PUBLISH_AGENT = Object.freeze([
-  { id: "publish-open", action: "open", intent: "open", say: "Publishing the practice agent", target: T("button", "Publish", ["Publish agent"], "header"), expect: { dialog: true } },
-  { id: "publish-confirm", action: "confirm", intent: "confirm", say: "Publishing the practice agent", note: "Published the agent to its default channel", target: T("button", "Publish", ["Publish agent", "Confirm"], "dialog"), soft: true },
-  { id: "publish-wait", action: "wait-for", say: "Waiting for the publish confirmation", expect: { text: ["published"] }, timeoutMs: 45_000 },
+  { id: "publish-open", action: "open", intent: "open", say: "Opening the Publish dialog", target: T("button", "Publish", [], "header"), expect: { dialog: true } },
+  // Only the plain dialog (an Add channel button and Publish agent, nothing chosen, no warning) is confirmed; any other control stops the run.
+  { id: "publish-plain", action: "verify", say: "Checking that the Publish dialog is the plain one", target: T("button", "Publish agent", [], "dialog"), expect: { dialogControls: ["Close", "Cancel", "Dismiss", "Close dialog", "Add channel", "Publish agent"], dialogRequired: ["Publish agent"] }, timeoutMs: 8000 },
+  { id: "publish-confirm", action: "confirm", intent: "confirm", say: "Publishing the practice agent", note: "Published the practice agent to its default state", target: T("button", "Publish agent", [], "dialog"), once: "publish", retries: 0, timeoutMs: 20_000, soft: true },
+  { id: "publish-wait", action: "wait-for", say: "Waiting for the publish confirmation", expect: { text: ["published"] }, timeoutMs: 60_000, retries: 0 },
 ]);
 
 // ── Show: the steps that put a screen into the state a picture needs ────────
@@ -129,13 +124,23 @@ export const OPEN_NEW_EVALUATION = Object.freeze([
 
 /** Monitor: the Sessions list, read only. */
 export const MONITOR_SESSIONS = Object.freeze([
-  { id: "sessions-open", action: "open", intent: "open", say: "Opening the sessions list", target: T("button", "See all", ["View activity history", "Sessions", "Conversations"], "main"), optional: true },
+  { id: "sessions-open", action: "open", intent: "open", say: "Opening the sessions list", target: T("button", "See all", ["View activity history", "Sessions", "Conversations"], "main") },
 ]);
 
-/** A tab inside the page open now (a settings tab such as Safety and access), selected by its own name. */
-export function innerTabSteps(names) {
+/** A tab inside the page open now (a settings tab such as Safety & access), selected by its own name. A tab that is asked for must be there: a picture of the wrong tab is not a picture of it. */
+export function innerTabSteps(names, { required = false } = {}) {
   const list = (Array.isArray(names) ? names : [names]).filter(Boolean);
   if (!list.length) return [];
   const [name, ...alt] = list;
-  return [{ id: "inner-tab", action: "select-tab", say: `Opening ${name}`, target: T("tab", name, alt, "any"), optional: true }];
+  return [{ id: "inner-tab", action: "select-tab", say: `Opening ${name}`, target: T(undefined, name, alt, "any"), ...(required ? {} : { optional: true }) }];
+}
+
+/** The tab of the Agent settings dialog a picture is about (the dialog opens on Agent details), from the words of the picture. */
+export function settingsTabFor(words) {
+  const text = String(words || "").toLowerCase();
+  if (/\b(?:safety|access|authentication|authenticate|security|sharing|privacy)\b/.test(text)) return ["Safety & access", "Safety and access"];
+  if (/\b(?:moderation|generative|orchestration|model|behavior|behaviour|web search|ai)\b/.test(text)) return ["AI + behavior", "AI and behavior", "Generative AI"];
+  if (/\b(?:greeting|prompts?|starters?)\b/.test(text)) return ["Greeting & prompts", "Greeting and prompts"];
+  if (/\b(?:advanced|solution|schema|language|telemetry)\b/.test(text)) return ["Advanced"];
+  return null;
 }

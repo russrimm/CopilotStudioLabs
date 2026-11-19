@@ -140,11 +140,11 @@ test("only a public Microsoft documentation address can be typed as knowledge", 
 
 // ── Every step of every recipe is checked ───────────────────────────────────
 
-const ALL_RECIPES = { CREATE_AGENT_OPEN: R.CREATE_AGENT_OPEN, CREATE_AGENT_FILL: R.CREATE_AGENT_FILL, CREATE_AGENT_COMMIT: R.CREATE_AGENT_COMMIT, RENAME_AGENT: R.RENAME_AGENT, SET_INSTRUCTIONS: R.SET_INSTRUCTIONS, ADD_WEBSITE_KNOWLEDGE: R.ADD_WEBSITE_KNOWLEDGE, PUBLISH_AGENT: R.PUBLISH_AGENT, OPEN_PUBLISH_DIALOG: R.OPEN_PUBLISH_DIALOG, OPEN_ADD_KNOWLEDGE: R.OPEN_ADD_KNOWLEDGE, OPEN_ADD_TOOL: R.OPEN_ADD_TOOL, OPEN_MODEL_LIST: R.OPEN_MODEL_LIST, OPEN_AGENT_SETTINGS: R.OPEN_AGENT_SETTINGS, MEMORY_ON: R.MEMORY_ON, CLASSIC_ORCHESTRATION: R.CLASSIC_ORCHESTRATION, OPEN_NEW_EVALUATION: R.OPEN_NEW_EVALUATION, MONITOR_SESSIONS: R.MONITOR_SESSIONS };
+const ALL_RECIPES = { CREATE_AGENT_OPEN: R.CREATE_AGENT_OPEN, CREATE_AGENT_FILL: R.CREATE_AGENT_FILL, CREATE_AGENT_COMMIT: R.CREATE_AGENT_COMMIT, SET_INSTRUCTIONS: R.SET_INSTRUCTIONS, ADD_WEBSITE_KNOWLEDGE: R.ADD_WEBSITE_KNOWLEDGE, PUBLISH_AGENT: R.PUBLISH_AGENT, OPEN_PUBLISH_DIALOG: R.OPEN_PUBLISH_DIALOG, OPEN_ADD_KNOWLEDGE: R.OPEN_ADD_KNOWLEDGE, OPEN_ADD_TOOL: R.OPEN_ADD_TOOL, OPEN_MODEL_LIST: R.OPEN_MODEL_LIST, OPEN_AGENT_SETTINGS: R.OPEN_AGENT_SETTINGS, MEMORY_ON: R.MEMORY_ON, CLASSIC_ORCHESTRATION: R.CLASSIC_ORCHESTRATION, OPEN_NEW_EVALUATION: R.OPEN_NEW_EVALUATION, MONITOR_SESSIONS: R.MONITOR_SESSIONS };
 
 test("no step of any recipe is dropped by the safety rules, and only the steps that commit are tier 2", () => {
   // model-open and eval-new open a menu or a form behind a control that is not known to be safe, so they count as practice-agent steps.
-  const writes = new Set(["create-open", "create-name", "create-commit", "rename-type", "rename-save", "rename-saved", "instructions-type", "instructions-save", "instructions-saved", "knowledge-add-url", "knowledge-add", "publish-confirm", "memory-on", "memory-save", "memory-saved", "genai-yes", "eval-new", "model-open", "sessions-open"]);
+  const writes = new Set(["create-open", "create-name", "create-commit", "instructions-type", "instructions-save", "instructions-saved", "knowledge-add-url", "knowledge-add", "publish-confirm", "memory-on", "memory-save", "memory-saved", "genai-yes", "eval-new", "model-open", "sessions-open"]);
   for (const [name, list] of Object.entries(ALL_RECIPES)) {
     const { steps, missing } = strictSteps(list);
     assert.deepEqual(missing, [], `${name}: a step was dropped (an alternate name probably sounds like something never done)`);
@@ -163,7 +163,7 @@ test("each stage shows its screen on the layout the agent has, and a recipe neve
   assert.deepEqual(ids("knowledge", { kind: "dialog" }), ["build-tab", "build-tab-open", "knowledge-open"]);
   assert.deepEqual(ids("knowledge", { kind: "after" }), ["build-tab", "build-tab-open"]);
   assert.deepEqual(ids("publish", { kind: "dialog" }), ["build-tab", "build-tab-open", "publish-open"], "the dialog shot opens the dialog and stops");
-  assert.deepEqual(ids("publish", { kind: "after", caption: "Your agent was published successfully", alt: "The publish confirmation" }), ["build-tab", "build-tab-open", "publish-open", "publish-confirm", "publish-wait"], "the confirmation shot publishes");
+  assert.deepEqual(ids("publish", { kind: "after", caption: "Your agent was published successfully", alt: "The publish confirmation" }), ["build-tab", "build-tab-open", "publish-open", "publish-plain", "publish-confirm", "publish-wait"], "the confirmation shot publishes");
   assert.deepEqual(ids("preview", { kind: "test-result", section: "preview" }), ["preview-tab", "preview-tab-open", "ask-type", "ask-send", "ask-wait"]);
   assert.deepEqual(ids("instructions", { kind: "test-result", caption: "An out-of-scope question redirected" }).slice(0, 2), ["preview-tab", "preview-tab-open"]);
   assert.equal(showStepsFor({ stage: "instructions", shot: shot({ kind: "test-result", caption: "An out-of-scope question redirected" }), layout: "newer" }).find((s) => s.id === "ask-type").text.sample, "outOfScope", "an out-of-scope question for an out-of-scope picture");
@@ -175,6 +175,11 @@ test("each stage shows its screen on the layout the agent has, and a recipe neve
   assert.deepEqual(ids("knowledge", { kind: "after" }, "classic"), ["knowledge-nav", "knowledge-nav-open"]);
   assert.deepEqual(ids("preview", {}, "classic"), ["test-open", "ask-type", "ask-send", "ask-wait"]);
   assert.deepEqual(ids("settings", { caption: "The Memory toggle" }), ["build-tab", "build-tab-open", "memory-on", "memory-save", "memory-saved"]);
+  // The Agent settings dialog opens on Agent details: the tab a picture is about is selected, and it must be there.
+  assert.deepEqual(ids("settings", { caption: "The Safety and access tab" }), ["build-tab", "build-tab-open", "settings-menu", "settings-open", "inner-tab"]);
+  assert.equal(showStepsFor({ stage: "settings", shot: shot({ caption: "Content moderation" }), layout: "newer" }).at(-1).target.name, "AI + behavior");
+  assert.equal(showStepsFor({ stage: "settings", shot: shot({ caption: "Content moderation" }), layout: "newer" }).at(-1).optional, undefined, "a tab that is asked for is required");
+  assert.deepEqual(ids("settings", { caption: "Agent details" }), ["build-tab", "build-tab-open", "settings-menu", "settings-open"], "Agent details is the tab the dialog opens on");
 });
 
 // ── The guard: what a write needs, and what is never done ───────────────────
@@ -273,6 +278,18 @@ test("the practice agent is made once per lab and environment, remembered, set a
     registry.markStage(BOT, "instructions");
     assert.equal(registry.stageDone(BOT, "instructions"), true);
     assert.equal(registry.stageDone(BOT, "publish"), false);
+    // A date written by an earlier build (a step that was tried, not proven) is not trusted.
+    const stored = JSON.parse(fs.readFileSync(registry.file, "utf8"));
+    stored.agents[0].stages.knowledge = "2026-11-18T10:00:00Z";
+    fs.writeFileSync(registry.file, JSON.stringify(stored));
+    assert.equal(registry.stageDone(BOT, "knowledge"), false, "an unproven stage is done again, and checked this time");
+    assert.equal(registry.stageDone(BOT, "instructions"), true);
+    // The one publish click is claimed once, ever.
+    assert.equal(registry.onceClaimed(BOT, "publish"), false);
+    assert.equal(registry.claimOnce(BOT, "publish"), true);
+    assert.equal(registry.claimOnce(BOT, "publish"), false, "never a second click");
+    assert.equal(registry.onceClaimed(BOT, "publish"), true);
+    assert.equal(registry.claimOnce("someone-else", "publish"), false, "an agent that is not recorded cannot be published");
     registry.recordChange({ botId: BOT, what: "Set the agent's instructions from the lab", shot: "a.png" });
     registry.recordReuse("env-1", "lab-a");
     assert.equal(registry.items().agents[0].reusedCount, 1);

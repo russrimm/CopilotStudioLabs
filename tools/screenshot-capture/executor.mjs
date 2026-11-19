@@ -171,6 +171,35 @@ export function dialogsInPage() {
   return out;
 }
 
+/** The controls of the open dialog of one frame, by their names, and whether any of them is a choice or an alert. Names only, never page text. */
+export function dialogControlsInPage() {
+  const deepAll = (selector, root, found) => {
+    for (const el of root.querySelectorAll(selector)) found.push(el);
+    for (const el of root.querySelectorAll("*")) if (el.shadowRoot) deepAll(selector, el.shadowRoot, found);
+    return found;
+  };
+  const visible = (el) => {
+    if (el.closest("[data-capture-ui]") || el.hasAttribute("hidden") || el.getAttribute("aria-hidden") === "true") return false;
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return rect.width >= 4 && rect.height >= 4 && style.visibility !== "hidden" && style.display !== "none";
+  };
+  const nameOf = (el) => String(el.getAttribute("aria-label") || el.getAttribute("title") || el.textContent || el.getAttribute("value") || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  const dialogs = deepAll("dialog[open], [role=dialog], [role=alertdialog], [aria-modal=true]", document, []).filter(visible);
+  if (dialogs.length !== 1) return { dialogs: dialogs.length, controls: [], alerts: 0 };
+  const root = dialogs[0];
+  const controls = [];
+  for (const el of deepAll("button, a[href], input, select, textarea, [role=button], [role=link], [role=checkbox], [role=radio], [role=switch], [role=combobox], [role=textbox], [role=menuitem], [role=option], [role=tab], [role=listbox], [contenteditable=true]", root, [])) {
+    if (!visible(el)) continue;
+    const role = String(el.getAttribute("role") || "").toLowerCase();
+    const tag = el.tagName.toLowerCase();
+    const choice = ["checkbox", "radio", "switch", "combobox", "textbox", "option", "listbox"].includes(role) || ["select", "textarea"].includes(tag) || (tag === "input" && !["button", "submit"].includes(String(el.getAttribute("type") || "text").toLowerCase())) || el.isContentEditable === true;
+    controls.push({ name: nameOf(el), kind: choice ? "choice" : "action" });
+  }
+  const alerts = deepAll("[role=alert], [role=alertdialog]", root, []).filter(visible).length + (root.matches("[role=alertdialog]") ? 1 : 0);
+  return { dialogs: 1, controls: controls.slice(0, 40), alerts };
+}
+
 /** The nearest container around a field that holds a conversation: where an answer will appear. */
 export function chatRootInPage(el) {
   let node = el.parentElement;
@@ -754,6 +783,12 @@ export function createExecutor(ctx) {
           record.note = "the capture was stopped, so nothing is changed";
           return false;
         }
+        // A step that must be done once per agent (publishing) is claimed, in the local record, before the click and never again.
+        if (step.once && !(practice.agentId && typeof ctx.claimOnce === "function" && ctx.claimOnce(step.once))) {
+          record.note = "this was already tried once on the practice agent, so it is not clicked again";
+          record.blocked = { category: "once", denied: "once-only", tier: decision.tier, reason: record.note };
+          return false;
+        }
         await paceWrite();
       }
       let outcome;
@@ -782,8 +817,43 @@ export function createExecutor(ctx) {
     return false;
   }
 
+  /**
+   * The open dialog is the plain one a step expects: exactly one dialog, and every control in it is one of the allowed names. A dialog
+   * with a choice (a channel, an audience, a checkbox, a field), an alert, or any other button is not the expected one, and nothing is clicked.
+   */
+  async function runVerifyDialogControls(step, record) {
+    const allowed = new Set((step.expect.dialogControls || []).map((n) => normalizeControlName(n)));
+    const required = (step.expect.dialogRequired || []).map((n) => normalizeControlName(n));
+    const deadline = now() + (step.timeoutMs ?? 6000);
+    for (;;) {
+      let seen = null;
+      for (const frame of framesOf(page)) {
+        try {
+          const found = await frame.evaluate(dialogControlsInPage);
+          if (found?.dialogs) seen = { dialogs: (seen?.dialogs || 0) + found.dialogs, controls: [...(seen?.controls || []), ...found.controls], alerts: (seen?.alerts || 0) + found.alerts };
+        } catch (err) {
+          if (isBrowserClosedError(err)) throw err;
+        }
+      }
+      if (seen && seen.dialogs === 1) {
+        const names = seen.controls.map((c) => normalizeControlName(c.name));
+        const unknown = seen.controls.filter((c) => c.kind === "choice" || !allowed.has(normalizeControlName(c.name)));
+        const missing = required.filter((n) => !names.includes(n));
+        if (!unknown.length && !missing.length && !seen.alerts) {
+          record.effect = "the dialog is the plain one";
+          return true;
+        }
+        record.note = unknown.length ? "the dialog has a control the computer does not know, so it was not confirmed" : seen.alerts ? "the dialog shows a warning, so it was not confirmed" : "the dialog is not the one expected";
+        trace?.event("dialog-not-plain", { step: step.id, controls: seen.controls.length, unknown: unknown.length, alerts: seen.alerts, missing: missing.length });
+      } else if (seen) record.note = seen.dialogs ? "more than one dialog is open, so nothing was confirmed" : "the expected dialog is not open";
+      if (now() >= deadline) return false;
+      await sleep(250);
+    }
+  }
+
   /** A control that must be on the page (and, for a tab, selected) without touching it: how a walkthrough proves it is on the screen it expects. */
   async function runVerify(step, record) {
+    if (step.expect?.dialogControls) return runVerifyDialogControls(step, record);
     const deadline = now() + (step.timeoutMs ?? 6000);
     const names = targetNames(step.target);
     const roles = step.target?.role ? [step.target.role] : ROLES_FOR.verify;

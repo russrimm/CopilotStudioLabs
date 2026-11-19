@@ -34,6 +34,7 @@ export function practiceReportPath(home) {
   return path.join(home, REPORT_NAME);
 }
 
+const STAGE_PROOF = 2;
 const emptyRegistry = () => ({ schema: 2, agents: [], changes: [], pending: [] });
 
 /**
@@ -118,17 +119,37 @@ export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
       if (count || data.pending.length !== load().pending.length) save(data);
       return count;
     },
-    /** Which stages of the walkthrough are done on an agent (instructions set, knowledge added, published), remembered so a rerun skips them. */
+    /**
+     * Which stages of the walkthrough are done on an agent (instructions set, knowledge added, published), remembered so a rerun skips them.
+     * Only a stage that was marked after the product proved it (a saved check, `proof` 2) counts: earlier builds wrote a plain date for a
+     * step that had only been tried, and that is not trusted any more.
+     */
     stageDone(botId, stage) {
       const agent = load().agents.find((a) => a.botId === botId);
-      return Boolean(agent?.stages?.[stage]);
+      return Number(agent?.stages?.[stage]?.proof) >= STAGE_PROOF;
     },
     markStage(botId, stage) {
       const data = load();
       const agent = data.agents.find((a) => a.botId === botId);
       if (!agent) return;
-      agent.stages = { ...(agent.stages || {}), [stage]: iso() };
+      agent.stages = { ...(agent.stages || {}), [stage]: { at: iso(), proof: STAGE_PROOF } };
       save(data);
+    },
+    /**
+     * A step that must never be clicked twice on one agent (publishing). The claim is written before the click and is never undone, so a
+     * crash, a slow confirmation, or a later run cannot lead to a second click: the permission is for this agent, once.
+     * @returns {boolean} true only for the first claim.
+     */
+    claimOnce(botId, key) {
+      const data = load();
+      const agent = data.agents.find((a) => a.botId === botId);
+      if (!agent || agent.once?.[key]) return false;
+      agent.once = { ...(agent.once || {}), [key]: iso() };
+      save(data);
+      return true;
+    },
+    onceClaimed(botId, key) {
+      return Boolean(load().agents.find((a) => a.botId === botId)?.once?.[key]);
     },
     /** Something done inside a practice agent (a step that saved, added, or published). */
     recordChange({ botId, what, shot }) {
@@ -162,7 +183,7 @@ export function buildPracticeReport(registry, { jobCreated = [], now = () => new
   if (!agents.length) lines.push("No practice agent has been created.", "");
   for (const agent of agents) {
     lines.push(`## ${agent.name}${agent.retired ? " (set aside by Start fresh)" : ""}`, "", `- Where: your practice environment in Copilot Studio`, `- Link: ${agent.address || "(not recorded)"}`, `- Created: ${agent.createdAt}`, `- Reused in later jobs: ${agent.reusedCount || 0} time${agent.reusedCount === 1 ? "" : "s"}`);
-    const stages = Object.entries(agent.stages || {});
+    const stages = Object.entries(agent.stages || {}).filter(([, value]) => Number(value?.proof) >= STAGE_PROOF);
     if (stages.length) lines.push(`- Steps of the lab walkthrough done on it: ${stages.map(([id]) => id).join(", ")}`);
     const changes = (registry.changes || []).filter((c) => c.botId === agent.botId);
     if (changes.length) {

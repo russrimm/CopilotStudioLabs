@@ -57,6 +57,11 @@ function sanitizeExpect(raw) {
   if (raw.noDialog === true) out.noDialog = true;
   if (raw.answer === true) out.answer = true;
   if (raw.panel === true) out.panel = true;
+  // The open dialog may hold only these controls (and must hold the required ones): how a walkthrough proves a dialog is the plain one before it confirms it.
+  const controls = (Array.isArray(raw.dialogControls) ? raw.dialogControls : []).map(safeName).filter(Boolean).slice(0, 12);
+  if (controls.length) out.dialogControls = controls;
+  const required = (Array.isArray(raw.dialogRequired) ? raw.dialogRequired : []).map(safeName).filter(Boolean).slice(0, 6);
+  if (controls.length && required.length) out.dialogRequired = required;
   return Object.keys(out).length ? out : undefined;
 }
 
@@ -163,6 +168,8 @@ export function describeStep(step) {
  * it, where it sits in the page). The executor checks again against the real control.
  */
 export function plannedTier(step, product = "") {
+  // A check looks at a control and never acts on it, whatever the control is called.
+  if (step.action === "verify") return TIER.LOOK;
   const base = ACTION_TIERS[step.action] ?? TIER.PRACTICE;
   if (!step.target?.name && !step.target?.alt?.length) return base;
   const area = step.target.within;
@@ -211,6 +218,8 @@ export function sanitizeStep(raw, index = 0, product = "") {
   if (raw.soft === true) step.soft = true;
   if (raw.onlyIfOff === true) step.onlyIfOff = true;
   if (raw.onlyIfOn === true) step.onlyIfOn = true;
+  // A click that is made once per practice agent, ever (publishing): the claim is written first and never undone.
+  if (typeof raw.once === "string" && /^[a-z][a-z-]{1,19}$/.test(raw.once)) step.once = raw.once;
   const skipIfPresent = sanitizeTarget(raw.skipIfPresent);
   if (skipIfPresent) step.skipIfPresent = skipIfPresent;
   if (Number.isInteger(raw.retries) && raw.retries >= 0 && raw.retries <= 3) step.retries = raw.retries;

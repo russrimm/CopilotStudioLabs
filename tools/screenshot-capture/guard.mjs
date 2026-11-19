@@ -161,7 +161,7 @@ export const SCRATCH_CREATES_LIST = Object.freeze([
   "Knowledge sources it adds: a public website taken from the lab's Microsoft Learn links, or the SharePoint site you gave (it only reads it)",
   "That agent's settings that the lab turns on or off",
   "Test conversations in the agent's test pane, and one evaluation test set if the lab has one",
-  "Publishing the agent to its own default (internal) channel, and nothing else",
+  "Publishing only its own practice agent, once, to its default (internal) state: no channels, no sharing, no audience changes",
 ]);
 
 /** What each tier allows, as plain objects the portal can send to the browser. */

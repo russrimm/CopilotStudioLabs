@@ -99,7 +99,8 @@ export async function detectLayout(page, { sleep = sleepDefault, waitMs = 10_000
 
 function makeExecutor({ page, session, practice, trace, log, sleep, terms, home, shot, companion, inputs, readiness }) {
   const scratch = scratchState(session);
-  return createExecutor({ page, autonomy: session.autonomy, product: "copilot-studio", practice, trace, log, sleep, terms, home, shot, companion, inputs: { ...scratch.inputs, ...(inputs || {}) }, answerMs: readiness?.answerMs, onProgress: session.onProgress, shouldStop: session.shouldStop, writeBudget: scratch.budget, effectMs: session.effectMs, findMs: session.findMs });
+  const claimOnce = (key) => Boolean(practice?.agentId) && session.registry.claimOnce(practice.agentId, key) === true;
+  return createExecutor({ page, autonomy: session.autonomy, product: "copilot-studio", practice, claimOnce, trace, log, sleep, terms, home, shot, companion, inputs: { ...scratch.inputs, ...(inputs || {}) }, answerMs: readiness?.answerMs, onProgress: session.onProgress, shouldStop: session.shouldStop, writeBudget: scratch.budget, effectMs: session.effectMs, findMs: session.findMs });
 }
 
 /** The address an agent is opened at: its own base, and the section when the address has one (the classic layout's /overview). */
@@ -177,7 +178,7 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
     const landed = parseCopilotStudioAddress(page.url());
     if (landed.botId && landed.botId.toLowerCase() === String(existing.botId).toLowerCase()) {
       registry.recordReuse(envId, key);
-      scratch.agent = { ...base, botId: existing.botId, agentBase: landed.agentBase, openUrl: addressOf(landed), name: existing.name, reused: true, createdAt: existing.createdAt, rename: !registry.stageDone(existing.botId, "renamed") };
+      scratch.agent = { ...base, botId: existing.botId, agentBase: landed.agentBase, openUrl: addressOf(landed), name: existing.name, reused: true, createdAt: existing.createdAt };
       trace?.event("practice-agent", { reused: true, scratch: true });
       log?.("  Reusing your practice agent.");
       return { ok: true, agent: scratch.agent };
@@ -194,7 +195,7 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
     if (adopt.signIn) return { ok: false, signIn: adopt.signIn };
     if (adopt.parsed) {
       registry.recordAgent({ ...base, botId: adopt.parsed.botId, name, address: addressOf(adopt.parsed), key });
-      scratch.agent = { ...base, botId: adopt.parsed.botId, agentBase: adopt.parsed.agentBase, openUrl: addressOf(adopt.parsed), name, reused: true, rename: true };
+      scratch.agent = { ...base, botId: adopt.parsed.botId, agentBase: adopt.parsed.agentBase, openUrl: addressOf(adopt.parsed), name, reused: true };
       log?.("  Found the practice agent that an earlier run started to create, and will use it.");
       return { ok: true, agent: scratch.agent };
     }
@@ -242,8 +243,6 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
   if (!UUID.test(created.botId || "")) return needsYou("agent-create-failed", "The computer clicked Save but could not find the new agent afterward, so it stopped. Look in your Agents list for one named “Lab screenshots - …”, then choose Start fresh and run again.", { detail: committed.failed?.why || "" });
   registry.recordAgent({ ...base, botId: created.botId, name, address: addressOf(created), key });
   registry.recordChange({ botId: created.botId, what: `Created the practice agent “${name}”`, shot: "" });
-  // The name was typed in full, so there is nothing to give it later.
-  registry.markStage(created.botId, "renamed");
   scratch.agent = { ...base, botId: created.botId, agentBase: created.agentBase, openUrl: addressOf(created), name, reused: false, createdAt: new Date().toISOString() };
   trace?.event("practice-agent", { reused: false, scratch: true });
   log?.(`  Created the practice agent “${name}”. It is listed in the report at the end of the job.`);
@@ -400,36 +399,10 @@ export function showStepsFor({ stage, shot, layout }) {
     case "settings":
       if (/\bmemory\b/.test(words)) return [...(newer ? R.tabSteps("Build") : []), ...R.MEMORY_ON];
       if (!newer) return [...nav("Settings"), ...(/\b(?:generative|orchestration)\b/.test(words) ? R.CLASSIC_ORCHESTRATION : [])];
-      return [...R.tabSteps("Build"), ...R.OPEN_AGENT_SETTINGS];
+      return [...R.tabSteps("Build"), ...R.OPEN_AGENT_SETTINGS, ...(R.settingsTabFor(words) ? R.innerTabSteps(R.settingsTabFor(words), { required: true }) : [])];
     default:
       return null;
   }
-}
-
-/**
- * An agent found by its name may carry a name the product cut short (30 characters): give it the full name once. It is only
- * a name, so a failure is noted and never fails a shot.
- */
-export async function renameAgentOnce({ page, session, go, trace = null, log = null, sleep = sleepDefault, terms = [], home = null, companion = "", readiness = {} }) {
-  const scratch = scratchState(session);
-  const agent = scratch.agent;
-  if (!agent?.rename || scratch.renameTried || session.registry.stageDone(agent.botId, "renamed")) return;
-  scratch.renameTried = true;
-  const opened = await openPracticeAgent({ page, session, go, sleep, trace });
-  if (!opened.ok || scratch.layout !== "newer") return;
-  const { steps, missing } = strictSteps([...R.tabSteps("Build"), ...R.RENAME_AGENT]);
-  if (missing.length) return;
-  const executor = makeExecutor({ page, session, practice: { agentId: agent.botId, envId: agent.envId }, trace, log, sleep, terms, home, shot: "rename-agent", companion, readiness });
-  const result = await executor.run(steps);
-  if (!result.ok) {
-    await executor.cleanup().catch(() => {});
-    if (result.halted) scratch.halted = { kind: result.haltKind, message: result.halted };
-    trace?.event("rename-skipped", { why: String(result.failed?.why || "").slice(0, 80) });
-    return;
-  }
-  session.registry.markStage(agent.botId, "renamed");
-  for (const r of result.steps.filter((s) => s.status === "ok" && s.tier >= TIER.PRACTICE)) session.registry.recordChange({ botId: agent.botId, what: r.summary || "Renamed the practice agent", shot: "" });
-  log?.("  Gave the practice agent its full name.");
 }
 
 /** The stages to bring into place before this shot's own screen. A dialog or the publish step itself leaves its own stage for the shot to show. */
@@ -466,7 +439,6 @@ export async function prepareScratchShot({ page, shot, session, go, trace = null
     if (ensured.cause === "run-stopped") scratch.halted = scratch.halted || { kind: "unexpected", message: ensured.error };
     return ensured;
   }
-  await renameAgentOnce({ page, session, go, trace, log, sleep, terms, home, companion, readiness });
   if (scratch.halted && !guided) return needsYou("run-stopped", `The run stopped earlier: ${scratch.halted.message}`);
   for (const stage of stagesToPrepare(found.stage, shot)) {
     const prepared = await prepareStage({ stage, page, session, go, trace, log, sleep, terms, home, companion, readiness, shot: shot.filename });

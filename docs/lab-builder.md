@@ -1816,7 +1816,7 @@ Hosts are allowlisted per product, and the companion never reads or uploads page
 address* is replaced by a choice, shown once per lab: **Build the agent from scratch (recommended)** or **Use an existing agent**
 (an address or a name, as before; a saved address counts as that choice). Choosing from scratch shows a consent card that lists what the
 computer creates and changes (one new agent named `Lab screenshots - <short lab title>`, its instructions, one public Microsoft Learn website as knowledge,
-the settings the lab turns on, test conversations, and publishing to the agent's own default channel) and what it never does,
+the settings the lab turns on, test conversations, and publishing only the practice agent, once, to its default state: no channels, no sharing) and what it never does,
 with an optional **Where should it build?** environment address (empty means the environment Copilot Studio opens for the account). The consent is stored as
 level `scratch` (`PUT /api/capture/consent`); a request can ask for less, and `options.agent: "existing"` downgrades it to read-only.
 Job options gain `agent` (`"scratch"` or `"existing"`) and `startFresh`. A companion older than 1.6.0 is asked to update before anything is queued

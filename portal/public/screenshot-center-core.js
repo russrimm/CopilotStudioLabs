@@ -243,7 +243,7 @@ const SC_CREATES_FALLBACK = Object.freeze([
   "Knowledge sources it adds: a public website taken from the lab's Microsoft Learn links, or the SharePoint site you gave (it only reads it)",
   "That agent's settings that the lab turns on or off",
   "Test conversations in the agent's test pane, and one evaluation test set if the lab has one",
-  "Publishing the agent to its own default (internal) channel, and nothing else",
+  "Publishing only its own practice agent, once, to its default (internal) state: no channels, no sharing, no audience changes",
 ]);
 
 const SC_NEVER_FALLBACK = Object.freeze([

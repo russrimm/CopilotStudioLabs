@@ -309,8 +309,8 @@ const OPT_IN_QUESTION = [
   "",
   "The Screenshot Center asked this computer to BUILD A PRACTICE AGENT in your demo account and use it to take the lab's screenshots.",
   "It will create one new agent named “Lab screenshots - <lab title>”, set its instructions, add a public website as knowledge, ask it a sample question,",
-  "and publish it to its own default channel only. It never deletes anything, never touches another agent, never shares or publishes to other channels,",
-  "and never changes tenant or admin settings. You can delete the practice agent yourself afterward.",
+  "and publish only that practice agent, once, to its default state (no channels, no sharing, no audience changes). It never deletes anything, never touches another agent,",
+  "never shares or publishes to channels, and never changes tenant or admin settings. You can delete the practice agent yourself afterward.",
   "Allow this computer to do that for Copilot Studio? (yes/no) ",
 ].join("\n");
 

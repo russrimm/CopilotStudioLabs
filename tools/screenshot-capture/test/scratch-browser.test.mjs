@@ -23,8 +23,8 @@ const FEATURES = ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-prev
 const SITE = { layout: "newer", chatDelayMs: 200, chatStreamMs: 200, defaultDelayMs: 100 };
 const RUN = { localOptIn: true, writeGapMs: 0, effectMs: 1500, findMs: 3500, readiness: { answerMs: 20000 } };
 
-async function scenarioFor(site = {}, features = FEATURES) {
-  const scenario = await startScenario({ repoDir: REPO, site: { ...SITE, ...site }, lab: { harness: "microsoft-copilot", features } });
+async function scenarioFor(site = {}, features = FEATURES, harness = "microsoft-copilot") {
+  const scenario = await startScenario({ repoDir: REPO, site: { ...SITE, ...site }, lab: { harness, features } });
   const consent = await scenario.call("PUT", "/api/capture/consent", { consented: true, level: "scratch" });
   assert.equal(consent.status, 200);
   return scenario;
@@ -117,6 +117,47 @@ test("a license prompt stops the whole run before anything else is written", { s
     const stopped = out.rows.filter((r) => r.cause === "run-stopped");
     assert.ok(stopped.length >= 1, out.rows.map((r) => `${r.filename}:${r.status}:${r.cause}`).join(", "));
     assert.ok(out.rows.slice(out.rows.findIndex((r) => r.cause === "run-stopped")).every((r) => r.status !== "captured"), "nothing is captured after the stop");
+  } finally {
+    await scenario.close();
+  }
+});
+
+const PUBLISH_FEATURES = ["create-agent", "agent-instructions", "knowledge-files-web", "publish-agent"];
+const publishRow = (out) => out.rows.find((r) => r.filename === "publish-confirmation.png");
+
+test("the practice agent is published once, only after its instructions and knowledge are proven and its dialog is the plain one, and never again", { skip }, async () => {
+  const scenario = await scenarioFor({}, PUBLISH_FEATURES, "standard");
+  try {
+    const out = await run(scenario);
+    const writes = out.site.stats.writes;
+    assert.equal(writesOf(out, "publish:").length, 1, `published exactly once: ${writes.join(" | ")}`);
+    assert.ok(writes.findIndex((w) => w.startsWith("publish:")) > writes.findIndex((w) => w.startsWith("add-knowledge:")) && writes.findIndex((w) => w.startsWith("add-knowledge:")) > writes.findIndex((w) => w.startsWith("set-instructions:")), `after the instructions and the knowledge: ${writes.join(" | ")}`);
+    assert.deepEqual(out.site.stats.dangers, [], "the Add channel button was never clicked");
+    assert.equal(publishRow(out)?.status, "captured", out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", "));
+    const registry = JSON.parse(fs.readFileSync(path.join(out.home, ".practice-agents.json"), "utf8"));
+    assert.ok(registry.agents[0].once.publish, "the one publish was claimed in the local record");
+    assert.ok(registry.agents[0].stages.published.proof >= 2, "and the published state was proven by the product's own message");
+    assert.match(fs.readFileSync(path.join(out.home, "practice-report.md"), "utf8"), /Published the practice agent to its default state/);
+
+    const again = await run(scenario);
+    assert.equal(writesOf(again, "publish:").length, 1, "a second run does not publish again");
+    assert.deepEqual(again.site.stats.dangers, []);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a Publish dialog with anything beyond Add channel and Publish agent is never confirmed, and says so plainly", { skip }, async () => {
+  const scenario = await scenarioFor({ publishExtra: true }, PUBLISH_FEATURES, "standard");
+  try {
+    const out = await run(scenario);
+    assert.equal(writesOf(out, "publish:").length, 0, "nothing was published");
+    assert.deepEqual(out.site.stats.dangers, []);
+    const row = publishRow(out);
+    assert.notEqual(row?.status, "captured");
+    assert.match(row?.reason || "", /Publish dialog shows something the computer does not know/);
+    const registry = JSON.parse(fs.readFileSync(path.join(out.home, ".practice-agents.json"), "utf8"));
+    assert.ok(!registry.agents[0].once?.publish, "no claim is made when nothing was clicked");
   } finally {
     await scenario.close();
   }
