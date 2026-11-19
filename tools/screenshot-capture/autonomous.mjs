@@ -16,7 +16,7 @@ export { recipeKeyForShot, stepsFromReveal };
  * The step lists to try for a shot, in order, each with where it came from.
  * @returns {Array<{source: string, steps: object[], limited: object|null, final?: object, inputs: object, recipeKey?: object}>}
  */
-export function setupCandidates(shot, { session, practiceAllowed }) {
+export function setupCandidates(shot, { session, practiceAllowed, scratch = null }) {
   const capture = shot.capture || {};
   const product = capture.product || shot.product || "copilot-studio";
   const out = [];
@@ -28,6 +28,11 @@ export function setupCandidates(shot, { session, practiceAllowed }) {
     const steps = sanitizeSteps(local.steps, { product }).filter((s) => practiceAllowed || (s.tier < TIER.PRACTICE && !s.practiceOnly));
     if (steps.length) out.push({ source: "local", steps, limited: null, final: local.final, inputs, recipeKey: key });
   }
+  // Building from scratch: the walkthrough's own steps for this shot's stage replace the recipes written for an agent that already exists.
+  if (scratch?.steps?.length) {
+    out.push({ source: `scratch:${scratch.stage}`, steps: scratch.steps, limited: null, inputs: { ...inputs, ...(scratch.inputs || {}) } });
+    return out;
+  }
   if (planned && planned.steps.length) out.push({ source: planned.source, steps: planned.steps, limited: planned.limited || null, final: planned.final, inputs, needsPractice: planned.needsPractice });
   else if (planned?.limited) out.push({ source: planned.source, steps: [], limited: planned.limited, final: planned.final, inputs, needsPractice: true });
   if (!out.length) out.push({ source: "derived", steps: stepsFromReveal(capture.reveal, product), limited: null, inputs });
@@ -36,9 +41,18 @@ export function setupCandidates(shot, { session, practiceAllowed }) {
 
 const trimStepRecord = (r) => ({ id: r.id, action: r.action, status: r.status, strategy: r.strategy || "", tier: r.tier, note: r.summary || "", why: r.note || "", ms: r.ms });
 
+/** Plain explanations for steps that are known to fail for a reason the person can understand and fix. */
+const PLAIN_FAILURES = Object.freeze({
+  "knowledge-add-url": "The product did not accept the website address (it allows a public website only up to two levels deep, and the Add button stays off), so no knowledge was added. Use “Retake guided”, or add a website yourself.",
+  "sessions-any": "The Sessions list has nothing to show yet: sessions appear only after people use the published agent in a channel, and the computer never adds channels or talks to the agent as a user. Use “Retake guided” once the agent has real sessions.",
+  "sessions-open": "The Sessions list has nothing to open yet: sessions appear only after the agent is published and people talk to it in a channel, and the computer never adds channels. Use “Retake guided” once the agent has real sessions.",
+  "publish-plain": "The Publish dialog shows something the computer does not know (a channel, an audience, a warning, or another button), so it did not publish anything. Look at the dialog yourself, then use “Retake guided”.",
+});
+
 /** One sentence that says what the computer could not do and what to do next. */
 export function failureMessage(failed, { source = "" } = {}) {
   if (!failed) return "The computer could not set up this screen.";
+  if (failed.code !== "blocked" && PLAIN_FAILURES[failed.id]) return PLAIN_FAILURES[failed.id];
   const what = failed.step ? `“${failed.step}”` : "a step";
   switch (failed.code) {
     case "blocked":
@@ -46,7 +60,11 @@ export function failureMessage(failed, { source = "" } = {}) {
     case "needs-practice":
       return `${what} needs a practice agent, which this job did not allow.`;
     case "unexpected-effect":
+    case "unexpected-prompt":
+    case "write-limit":
       return `${failed.why || "A click did something unexpected."} Nothing else was clicked.`;
+    case "cancelled":
+      return "You stopped the capture, so nothing else was changed.";
     case "left-allowed-site":
       return "The page left the product's own sites, so the capture stopped. Nothing else was clicked.";
     default:
@@ -72,15 +90,16 @@ export async function preparePractice({ page, shot, session, go, trace = null, l
  * @param {object} [options.practiceInfo] the practice agent from `preparePractice`, when the shot runs inside it
  * @returns {Promise<{ok: boolean, setup: object, failed?: object, executor: object, cause?: string, error?: string}>}
  */
-export async function runShotSetup({ page, shot, session, practiceInfo = null, practiceError = "", trace = null, log = null, sleep, terms = [], home = null, companion = "", readiness = {} }) {
+export async function runShotSetup({ page, shot, session, practiceInfo = null, practiceError = "", scratch = null, trace = null, log = null, sleep, terms = [], home = null, companion = "", readiness = {} }) {
   const autonomy = session.autonomy;
   const practiceAllowed = autonomy.maxTier >= TIER.PRACTICE;
   const product = shot.capture?.product || shot.product || "copilot-studio";
-  const candidates = setupCandidates(shot, { session, practiceAllowed });
+  const candidates = setupCandidates(shot, { session, practiceAllowed, scratch });
   const notes = practiceError ? [practiceError] : [];
 
-  const practice = { agentId: practiceInfo?.botId || null, creating: false };
-  const executor = createExecutor({ page, autonomy, product, practice, trace, log, sleep, terms, home, shot: shot.filename, companion, inputs: candidates[0]?.inputs || {}, answerMs: readiness.answerMs, onProgress: session.onProgress, shouldStop: session.shouldStop });
+  const practice = { agentId: practiceInfo?.botId || null, envId: practiceInfo?.envId || undefined, creating: false };
+  const claimOnce = (key) => Boolean(practiceInfo?.botId) && session.registry?.claimOnce?.(practiceInfo.botId, key) === true;
+  const executor = createExecutor({ page, autonomy, product, practice, claimOnce, trace, log, sleep, terms, home, shot: shot.filename, companion, inputs: { ...(candidates[0]?.inputs || {}), ...(scratch?.inputs || {}) }, answerMs: readiness.answerMs, onProgress: session.onProgress, shouldStop: session.shouldStop, writeBudget: session.scratch?.budget, effectMs: session.effectMs, findMs: session.findMs });
 
   const attempts = [];
   for (const [index, candidate] of candidates.entries()) {
@@ -93,6 +112,8 @@ export async function runShotSetup({ page, shot, session, practiceInfo = null, p
     if (changed.length && practiceInfo && session.registry) for (const r of changed) session.registry.recordChange({ botId: practiceInfo.botId, what: r.summary || `${r.action} in the practice agent`, shot: shot.filename });
     if (candidate.recipeKey) session.recipes?.markReplay(candidate.recipeKey, result.ok, result.failed?.why || "");
     if (result.ok) {
+      // The product showed its own confirmation after the one publish click: the agent is published, and Monitor can show sessions once people use it.
+      if (practiceInfo && session.registry && result.steps.some((r) => r.id === "publish-confirm" && r.status === "ok")) session.registry.markStage(practiceInfo.botId, "published");
       const limited = (!practiceInfo && candidate.needsPractice) || candidate.limited ? candidate.limited || { by: "practice-agent", skipped: [] } : null;
       return {
         ok: true,
@@ -118,11 +139,14 @@ export async function runShotSetup({ page, shot, session, practiceInfo = null, p
     }
     const failedRecord = result.steps.at(-1);
     const failed = { ...result.failed, step: failedRecord?.summary || result.failed?.id, diagnostic: result.diagnostic?.file || null, blockedBy: result.failed?.blockedBy || result.blocked?.[0]?.category || "" };
+    // Something nobody planned for (a license, a consent, a quota message) or the limit of changes: the whole from-scratch run stops here.
+    const runStopped = failed.code === "unexpected-prompt" || failed.code === "write-limit";
+    if (runStopped && session.scratch) session.scratch.halted = { kind: result.haltKind || failed.code, message: failed.why || "" };
     return {
       ok: false,
       executor,
       failed,
-      cause: failed.code === "blocked" ? "blocked-by-safety" : failed.code === "unexpected-effect" ? "unexpected-effect" : failed.code === "needs-practice" ? "needs-practice-agent" : "automation-failed",
+      cause: runStopped ? "run-stopped" : failed.code === "blocked" ? "blocked-by-safety" : failed.code === "unexpected-effect" ? "unexpected-effect" : failed.code === "needs-practice" ? "needs-practice-agent" : failed.code === "cancelled" ? "stopped" : "automation-failed",
       error: failureMessage(failed, { source: candidate.source }),
       setup: { source: candidate.source, steps: result.steps.map(trimStepRecord), summary: [], failedStep: { id: failed.id, action: failed.action, note: failed.step || "", why: failed.why || "", diagnostic: failed.diagnostic || null }, limitedBy: null, skipped: [], earlier: attempts.slice(0, -1).map((a) => ({ source: a.source, ok: a.ok })), notes },
     };

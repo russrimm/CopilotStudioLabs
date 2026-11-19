@@ -9,6 +9,7 @@
 import { classifyControl, describeControlForGate, TIER } from "./guard.mjs";
 import { sanitizeSteps } from "./setup-steps.mjs";
 import { readState } from "./executor.mjs";
+import { parseCopilotStudioAddress } from "./targets.mjs";
 
 const RECORDER_KEY = "__captureRecordEvent";
 const controllers = new WeakMap();
@@ -76,6 +77,16 @@ export function recorderInstallInPage() {
 
 const SEND_NAMES = /^(?:send|submit|ask)(?: message)?$/i;
 
+/** Whether the page is inside the given agent (its own address, not a page that mentions it). */
+export function insidePracticeAgent(page, botId) {
+  try {
+    const parsed = parseCopilotStudioAddress(typeof page.url === "function" ? page.url() : "");
+    return Boolean(parsed.ok && parsed.botId && parsed.botId.toLowerCase() === String(botId || "").toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 function areaOf(desc) {
   if (desc.inTestPane) return "chat";
   if (desc.inDialog) return "dialog";
@@ -108,7 +119,7 @@ export function stepFromEvent(event, { product = "", dialogOpened = false, panel
     // The text itself is never kept (only the kind of sample), so what was typed does not need to be clean to record that a question was asked.
     const sample = desc.inTestPane ? "question" : /search|filter|find/i.test(`${name} ${desc.placeholder}`) || desc.role === "searchbox" ? "search" : /describe|description|what would you like/i.test(`${name} ${desc.placeholder}`) ? "description" : /instruction/i.test(name) ? "instruction" : null;
     if (!sample) return { skipped: "Typed text is only recorded as a kind of sample (a question, a search), so this field was left out." };
-    return { step: { action: "type", intent: "type", target: { role: desc.role === "searchbox" ? "searchbox" : "textbox", name: name || undefined, within: areaOf(desc) }, text: { sample } } };
+    return { step: { action: "type", intent: "type", target: { role: desc.role === "searchbox" ? "searchbox" : "textbox", name: name || undefined, within: areaOf(desc) }, text: { sample } }, tier: seen.tier };
   }
   const name = nameOf(desc);
   const verdict = classifyControl(desc, { action: "click", intent: opened ? "open" : "click", product, expectsOverlay: opened });
@@ -121,18 +132,21 @@ export function stepFromEvent(event, { product = "", dialogOpened = false, panel
   }
   if (!name) return { skipped: "A control with no name cannot be recorded." };
   const target = { ...(role ? { role } : {}), name, within };
-  if (desc.role === "tab") return { step: { action: "select-tab", target } };
-  if (desc.inTestPane && SEND_NAMES.test(name)) return { step: { action: "send", intent: "send", target }, after: { action: "wait-answer" } };
-  if (verdict.category === "cancel") return { step: { action: "close", intent: "close", target } };
-  if (within === "nav" && verdict.tier === TIER.LOOK) return { step: { action: "open-nav", target } };
-  if (verdict.tier >= TIER.PRACTICE) return { step: { action: "confirm", intent: "confirm", target } };
-  if (within === "dialog") return { step: { action: "choose", intent: "choose", target } };
+  if (desc.role === "tab") return { step: { action: "select-tab", target }, tier: verdict.tier };
+  if (desc.inTestPane && SEND_NAMES.test(name)) return { step: { action: "send", intent: "send", target }, after: { action: "wait-answer" }, tier: verdict.tier };
+  if (verdict.category === "cancel") return { step: { action: "close", intent: "close", target }, tier: verdict.tier };
+  if (within === "nav" && verdict.tier === TIER.LOOK) return { step: { action: "open-nav", target }, tier: verdict.tier };
+  if (verdict.tier >= TIER.PRACTICE) return { step: { action: "confirm", intent: "confirm", target }, tier: verdict.tier };
+  if (within === "dialog") return { step: { action: "choose", intent: "choose", target }, tier: verdict.tier };
   const opens = opened || verdict.category === "opens-dialog";
-  return { step: { action: opens ? "open" : "click", intent: opens ? "open" : "click", target, ...(dialogOpened ? { expect: { dialog: true } } : panelOpened ? { expect: { panel: true } } : {}) } };
+  return { step: { action: opens ? "open" : "click", intent: opens ? "open" : "click", target, ...(dialogOpened ? { expect: { dialog: true } } : panelOpened ? { expect: { panel: true } } : {}) }, tier: verdict.tier };
 }
 
-/** Start recording what a person does in `page`. `stop()` returns the steps and what was left out and why. */
-export async function startRecorder(page, { product = "", log = null, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+/**
+ * Start recording what a person does in `page`. `stop()` returns the steps and what was left out and why. With a
+ * `practiceAgentId` (a from-scratch run), a step that changes something is recorded only while the page is inside that agent.
+ */
+export async function startRecorder(page, { product = "", log = null, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), practiceAgentId = null } = {}) {
   let controller = controllers.get(page);
   if (!controller) {
     controller = { handler: null };
@@ -162,6 +176,10 @@ export async function startRecorder(page, { product = "", log = null, sleep = (m
         before = after;
       }
       const made = stepFromEvent(event, { product, dialogOpened, panelOpened });
+      if (made.step && practiceAgentId && made.tier >= TIER.PRACTICE && !insidePracticeAgent(page, practiceAgentId)) {
+        made.step = undefined;
+        made.skipped = "This changes something, and the page is not inside the practice agent, so it was not recorded.";
+      }
       if (made.skipped) {
         skipped.push(made.skipped);
         log?.(`  Not recorded: ${made.skipped}`);

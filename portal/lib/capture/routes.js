@@ -591,7 +591,7 @@ export function registerCaptureRoutes(app, deps = {}) {
     if (!isJobId(req.params.id)) return res.status(400).json({ error: "Invalid job id." });
     syncAfter(res);
     const body = req.body && typeof req.body === "object" ? req.body : {};
-    const result = jobs.complete(req.params.id, req.captureDevice.id, { message: body.message, fatalError: body.fatalError, paused: body.paused, created: body.created, signIn: body.signIn, account: body.account, needsAccount: body.needsAccount });
+    const result = jobs.complete(req.params.id, req.captureDevice.id, { message: body.message, fatalError: body.fatalError, paused: body.paused, created: body.created, scratch: body.scratch, signIn: body.signIn, account: body.account, needsAccount: body.needsAccount });
     if (!result.ok) return res.status(result.status).json({ error: result.error });
     if (result.job.target.type === "lab") screenshots.flushLab(result.job.target.labId);
     else void screenshots.flushLibrary().catch(() => {});

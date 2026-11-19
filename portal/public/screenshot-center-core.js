@@ -219,18 +219,32 @@ function scShotCapture(shot) {
 function scConsentModel(autonomy) {
   const rules = autonomy?.rules && typeof autonomy.rules === "object" ? autonomy.rules : {};
   const never = (Array.isArray(rules.never) ? rules.never : []).map((item) => scText(item, 200)).filter(Boolean);
+  const creates = (Array.isArray(rules.creates) ? rules.creates : []).map((item) => scText(item, 260)).filter(Boolean);
   const tiers = (Array.isArray(rules.tiers) ? rules.tiers : []).map((tier) => ({ tier: scCount(tier?.tier), label: scText(tier?.label, 40), summary: scText(tier?.summary, 300), examples: (Array.isArray(tier?.examples) ? tier.examples : []).map((e) => scText(e, 120)).filter(Boolean) }));
   return {
     loaded: Boolean(autonomy),
     consented: autonomy?.consented === true,
-    level: autonomy?.level === "practice" ? "practice" : autonomy?.level === "read-only" ? "read-only" : null,
+    level: autonomy?.level === "scratch" ? "scratch" : autonomy?.level === "practice" ? "practice" : autonomy?.level === "read-only" ? "read-only" : null,
+    scratch: autonomy?.level === "scratch",
     practiceEnvironmentUrl: scSafeHttpsUrl(autonomy?.practiceEnvironmentUrl || ""),
     companionSupported: autonomy?.companionSupported !== false,
     minCompanion: scText(autonomy?.minCompanion, 20) || "1.4.0",
+    scratchSupported: autonomy?.scratchSupported !== false,
+    scratchMinCompanion: scText(autonomy?.scratchMinCompanion, 20) || "1.6.0",
     never: never.length ? never : SC_NEVER_FALLBACK,
+    creates: creates.length ? creates : SC_CREATES_FALLBACK,
     tiers,
   };
 }
+
+const SC_CREATES_FALLBACK = Object.freeze([
+  "One new agent named “Lab screenshots - <short lab title>” in the environment you choose (or the one Copilot Studio opens for this account)",
+  "That agent's instructions and description, using the text from your lab",
+  "Knowledge sources it adds: a public website taken from the lab's Microsoft Learn links, or the SharePoint site you gave (it only reads it)",
+  "That agent's settings that the lab turns on or off",
+  "Test conversations in the agent's test pane, and one evaluation test set if the lab has one",
+  "Publishing only its own practice agent, once, to its default (internal) state: no channels, no sharing, no audience changes",
+]);
 
 const SC_NEVER_FALLBACK = Object.freeze([
   "Sign out, switch accounts, or sign in for you",
@@ -247,8 +261,41 @@ const SC_NEVER_FALLBACK = Object.freeze([
 function scAutonomyLine(consent) {
   if (!consent.loaded) return { state: "loading", text: "Checking automatic capture." };
   if (!consent.consented) return { state: "off", text: "Automatic capture is off. Allow it once and the computer sets up every screen by itself." };
+  if (consent.level === "scratch") return { state: "scratch", text: "Automatic capture is on. It builds a practice agent from scratch by following the lab, and lists what it made. It never deletes anything." };
   if (consent.level === "practice") return { state: "practice", text: "Automatic capture is on. It may also create one practice agent in your practice environment, and it lists what it made." };
   return { state: "readonly", text: "Automatic capture is on and read-only. It opens screens and tries things that change nothing, and it never creates anything." };
+}
+
+const SC_STAGE_IDS = Object.freeze(["agent", "instructions", "knowledge", "publish", "conversation"]);
+
+/** What the companion reported about the practice agent it built (`job.result.scratch`): a name, a date, and what is done. Never an address. */
+function scScratchSummary(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const name = scText(raw.name, 80);
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(raw.createdAt || "")) ? String(raw.createdAt) : "";
+  return {
+    name,
+    createdAt: day,
+    reused: raw.reused === true,
+    environment: raw.environment === "set" ? "set" : "default",
+    stages: (Array.isArray(raw.stages) ? raw.stages : []).map((s) => String(s)).filter((s) => SC_STAGE_IDS.includes(s)),
+    stopped: scText(raw.stopped, 200),
+  };
+}
+
+/**
+ * The "Agent:" line of the readiness strip. `scratchChosen` is the person's choice for this lab; `last` is the latest practice
+ * agent a finished job reported. Before a run it says the agent will be built; after one it names it.
+ * @returns {{state: string, text: string, canStartFresh: boolean, fresh: boolean}}
+ */
+function scAgentLine({ consent, scratchChosen, existingChosen, last, startFresh = false }) {
+  if (!consent?.loaded) return { state: "loading", text: "Agent: checking.", canStartFresh: false, fresh: false };
+  if (existingChosen) return { state: "existing", text: "Agent: your own agent, from the address or name in Capture settings.", canStartFresh: false, fresh: false };
+  if (!scratchChosen) return { state: "choose", text: "Agent: not chosen yet. Build one from scratch, or use your own.", canStartFresh: false, fresh: false };
+  const environment = consent.practiceEnvironmentUrl ? "set" : "default";
+  if (startFresh) return { state: "fresh", text: `Agent: a new practice agent will be built from scratch on the next capture, in the ${environment === "set" ? "environment you set" : "default environment"}. The earlier one stays in your tenant; delete it yourself when you no longer need it.`, canStartFresh: true, fresh: true };
+  if (last?.name) return { state: "built", text: `Agent: ${last.name} (created ${last.createdAt || "earlier"}${last.reused ? ", reused" : ""}).`, canStartFresh: true, fresh: false };
+  return { state: "scratch", text: `Agent: will be built from scratch in ${environment === "set" ? "the environment you set" : "the default environment"}.`, canStartFresh: false, fresh: false };
 }
 
 // ── Which account the screenshots come from ─────────────────────────────────
@@ -666,7 +713,12 @@ function scPrimaryAction(model) {
   const retakeNeeded = scCount(c.outdated);
   const captureNeeded = scCount(c.toCapture);
   const waiting = scCount(model.addressWaiting);
-  const waitingNote = waiting ? ` ${scPlural(waiting, "screenshot")} ${waiting === 1 ? "is" : "are"} waiting for an address and will be held back until you add it.` : "";
+  const agentWaiting = scCount(model.agentChoiceWaiting);
+  const waitingNote = agentWaiting
+    ? ` ${scPlural(agentWaiting, "screenshot")} ${agentWaiting === 1 ? "needs" : "need"} an agent. Choose below how to get one: build it from scratch, or use your own.`
+    : waiting
+    ? ` ${scPlural(waiting, "screenshot")} ${waiting === 1 ? "is" : "are"} waiting for an address and will be held back until you add it.`
+    : "";
   if (scIsActiveJob(model.job)) {
     return { action: "busy", label: "Capturing screenshots", help: "Your computer is working. Progress is shown below.", disabled: true };
   }
@@ -1107,7 +1159,7 @@ function scOutcomeFromJob(job) {
   // The groups carry a fix for every failed shot, so the all-in-one retry is only for results that have no groups.
   if (failedFiles.length && !causes.length) actions.push({ id: "retry-failed", label: `Retry ${scPlural(failedFiles.length, "screenshot")}`, filenames: failedFiles });
   if (scCount(counts.needsReview)) actions.push({ id: "review", label: `Review ${scPlural(scCount(counts.needsReview), "screenshot")}` });
-  return { type: "job", variant, message, jobId: job?.id || null, actions, causes, created: Array.isArray(job?.result?.created) ? job.result.created : [], signIn: scSignInVerdict(job?.result?.signIn), needsAccount: scNeedsAccount(job?.result?.needsAccount) };
+  return { type: "job", variant, message, jobId: job?.id || null, actions, causes, created: Array.isArray(job?.result?.created) ? job.result.created : [], scratch: scScratchSummary(job?.result?.scratch), signIn: scSignInVerdict(job?.result?.signIn), needsAccount: scNeedsAccount(job?.result?.needsAccount) };
 }
 
 /** Why a capture stopped before taking pictures because of the account: one sentence from the companion, trimmed. */

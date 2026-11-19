@@ -19,7 +19,7 @@ import { BrowserClosedError, classifyBrowserError, isBrowserClosedError } from "
 import { readinessProbeInPage } from "./readiness.mjs";
 import { classifyUrl } from "./signin-url.mjs";
 import { progressPhrase } from "./setup-steps.mjs";
-import { maskedPath } from "./targets.mjs";
+import { maskedPath, parseCopilotStudioAddress } from "./targets.mjs";
 
 const sleepDefault = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const escapeRegex = (text) => String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -41,6 +41,7 @@ const ROLES_FOR = Object.freeze({
   discard: ["button", "link"],
   type: ["textbox", "searchbox", "combobox"],
   send: ["button"],
+  verify: ["button", "link", "tab", "menuitem", "treeitem", "textbox", "switch", "checkbox", "heading", "region"],
   hover: ["button", "link", "tab", "menuitem", "treeitem"],
 });
 
@@ -170,6 +171,48 @@ export function dialogsInPage() {
   return out;
 }
 
+/** The controls of the open dialog of one frame, by their names, and whether any of them is a choice or an alert. Names only, never page text. */
+export function dialogControlsInPage() {
+  const deepAll = (selector, root, found) => {
+    for (const el of root.querySelectorAll(selector)) found.push(el);
+    for (const el of root.querySelectorAll("*")) if (el.shadowRoot) deepAll(selector, el.shadowRoot, found);
+    return found;
+  };
+  const visible = (el) => {
+    if (el.closest("[data-capture-ui]") || el.hasAttribute("hidden") || el.getAttribute("aria-hidden") === "true") return false;
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return rect.width >= 4 && rect.height >= 4 && style.visibility !== "hidden" && style.display !== "none";
+  };
+  const nameOf = (el) => String(el.getAttribute("aria-label") || el.getAttribute("title") || el.textContent || el.getAttribute("value") || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  const dialogs = deepAll("dialog[open], [role=dialog], [role=alertdialog], [aria-modal=true]", document, []).filter(visible);
+  if (dialogs.length !== 1) return { dialogs: dialogs.length, controls: [], alerts: 0 };
+  const root = dialogs[0];
+  const controls = [];
+  for (const el of deepAll("button, a[href], input, select, textarea, [role=button], [role=link], [role=checkbox], [role=radio], [role=switch], [role=combobox], [role=textbox], [role=menuitem], [role=option], [role=tab], [role=listbox], [contenteditable=true]", root, [])) {
+    if (!visible(el)) continue;
+    const role = String(el.getAttribute("role") || "").toLowerCase();
+    const tag = el.tagName.toLowerCase();
+    const choice = ["checkbox", "radio", "switch", "combobox", "textbox", "option", "listbox"].includes(role) || ["select", "textarea"].includes(tag) || (tag === "input" && !["button", "submit"].includes(String(el.getAttribute("type") || "text").toLowerCase())) || el.isContentEditable === true;
+    controls.push({ name: nameOf(el), kind: choice ? "choice" : "action" });
+  }
+  const alerts = deepAll("[role=alert], [role=alertdialog]", root, []).filter(visible).length + (root.matches("[role=alertdialog]") ? 1 : 0);
+  return { dialogs: 1, controls: controls.slice(0, 40), alerts };
+}
+
+/** How many items that can be removed (a knowledge source or a tool, by its "Remove <name>" button) are listed, not counting the built-in Work IQ tool. Names only. */
+export function removableItemsInPage() {
+  let count = 0;
+  for (const el of document.querySelectorAll("button, [role=button]")) {
+    if (el.closest("[data-capture-ui], dialog, [role=dialog], [aria-modal=true]") || el.hasAttribute("hidden") || el.getAttribute("aria-hidden") === "true") continue;
+    const name = String(el.getAttribute("aria-label") || el.getAttribute("title") || el.textContent || "").replace(/\s+/g, " ").trim();
+    if (!/^remove\s+\S/i.test(name) || /work\s*iq/i.test(name)) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width >= 4 && rect.height >= 4) count += 1;
+  }
+  return count;
+}
+
 /** The nearest container around a field that holds a conversation: where an answer will appear. */
 export function chatRootInPage(el) {
   let node = el.parentElement;
@@ -215,6 +258,36 @@ export function findInterstitialsInPage(selector) {
 
 const INTERSTITIAL_SELECTOR = '[id*="cookie" i], [class*="cookie" i], [aria-label*="cookie" i], [class*="teaching" i], [class*="coachmark" i], [class*="whats-new" i], [class*="whatsnew" i], [class*="onboarding" i], [class*="toast" i], [class*="snackbar" i], [data-testid*="banner" i], [role=alert], [role=status], [role=dialog], [role=alertdialog], dialog[open]';
 const DISMISS_NAMES = new Set(["accept", "accept all", "got it", "ok", "okay", "dismiss", "close", "not now", "maybe later", "skip", "skip tour", "no thanks", "decline", "reject all", "remind me later", "leave", "leave page", "discard", "discard changes", "don t save", "leave without saving", "x", "close dialog", "dismiss notification"]);
+
+/**
+ * Runs in the page (it must stay self-contained): is a dialog or alert up that the computer did not expect (a license,
+ * a consent or permission request, a second sign-in or MFA prompt, an admin prompt, a quota or limit error, an error)?
+ * It returns only a kind, never the text: the words are matched here and not kept.
+ */
+export function unexpectedPromptInPage() {
+  const visible = (el) => {
+    if (el.closest("[data-capture-ui]") || el.hasAttribute("hidden") || el.getAttribute("aria-hidden") === "true") return false;
+    const rect = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    return rect.width >= 20 && rect.height >= 12 && style.visibility !== "hidden" && style.display !== "none";
+  };
+  const kinds = [
+    ["mfa", /verify your identity|multi-?factor|authenticator|approve sign.?in|enter (?:the )?code|stay signed in|keep me signed in/i],
+    ["consent", /permissions? requested|needs? your permission|grant (?:access|consent)|consent on behalf|allow (?:this )?app|accept (?:the )?(?:terms|permissions)/i],
+    ["license", /licen[sc]e|trial (?:has )?(?:ended|expired)|start (?:a )?(?:free )?trial|upgrade (?:your )?(?:plan|account)|purchase|subscribe|you need a (?:plan|license)/i],
+    ["quota", /quota|limit (?:has been )?reached|reached (?:the|your) limit|too many requests|throttl|capacity|rate limit|exceeded|try again later|credits? (?:have )?(?:run out|are used)|out of credits/i],
+    ["admin", /contact your (?:it )?admin|administrator|admin (?:approval|consent|required)|blocked by (?:your )?(?:organization|admin|policy)|data (?:loss prevention|policy)|not allowed by/i],
+    ["error", /something went wrong|unexpected error|an error (?:has )?occurred|couldn.?t (?:create|save|publish|load)|failed to (?:create|save|publish|load)|can.?t (?:create|save|publish)|access denied|forbidden|not authorized|you don.?t have (?:permission|access)/i],
+  ];
+  for (const el of document.querySelectorAll('dialog[open], [role=dialog], [role=alertdialog], [role=alert]')) {
+    if (!visible(el)) continue;
+    // A dialog is judged by its title and the start of its body (long option lists mention licenses in passing); an alert by its whole message.
+    const alert = el.getAttribute("role") === "alert";
+    const text = `${el.getAttribute("aria-label") || ""} ${(el.querySelector("h1,h2,h3,[role=heading]") || {}).textContent || ""} ${String(el.innerText || el.textContent || "").slice(0, alert ? 300 : 120)}`;
+    for (const [kind, re] of kinds) if (re.test(text)) return { kind };
+  }
+  return null;
+}
 
 /** The function names are `fuzzyListInPage`: interactive controls with the words in their names (self-contained). */
 export function fuzzyListInPage(selector) {
@@ -319,6 +392,8 @@ export async function locatorsForStrategy(page, strategy, step, { names, roles }
         for (const name of names) {
           const around = frame.getByText(new RegExp(`^\\s*${escapeRegex(String(name).trim())}\\s*$`, "i")).locator("xpath=ancestor-or-self::*[self::button or self::a or self::summary or @role='button' or @role='tab' or @role='menuitem' or @role='link' or @role='option' or @role='treeitem' or @tabindex][1]");
           found.push(...(await listFrom(around, strategy)));
+          // A row of a list is often a plain element with a click handler: "open an item" may click the text of the row itself.
+          if (step?.action === "open-item" && !found.length) found.push(...(await listFrom(frame.getByText(new RegExp(`^\\s*${escapeRegex(String(name).trim())}`, "i")), strategy)));
         }
       } else if (strategy === "fuzzy" && typeof frame.evaluate === "function") {
         const listed = await frame.evaluate(fuzzyListInPage, INTERACTIVE_SELECTOR);
@@ -370,10 +445,58 @@ export function createExecutor(ctx) {
   const effectMs = ctx.effectMs ?? 4000;
   const answerMs = ctx.answerMs ?? 45_000;
   const answerStableMs = ctx.answerStableMs ?? 900;
-  const state = { chatRoot: null, lastInput: null, lenAtSend: 0, halted: null, blocked: [], opened: [] };
+  // Writes are paced and counted across every executor of a job (`ctx.writeBudget` is shared), so a runaway loop cannot make changes quickly.
+  const budget = ctx.writeBudget || { count: 0, max: Infinity, gapMs: 0, last: 0 };
+  const state = { chatRoot: null, lastInput: null, lenAtSend: 0, halted: null, haltKind: null, blocked: [], opened: [], observed: new Set() };
 
-  const onPracticeAgent = () => Boolean(practice.agentId) && String(page.url?.() || "").toLowerCase().includes(String(practice.agentId).toLowerCase());
-  const gate = (step, desc) => authorizeStep({ step, desc, autonomy, product, practice: { onPracticeAgent: onPracticeAgent(), creatingPracticeAgent: typeof practice.creating === "function" ? Boolean(practice.creating(page.url?.() || "")) : Boolean(practice.creating) } });
+  /** Whether the page is inside the practice agent: its own address (environment and agent), not a page that merely mentions it. */
+  const onPracticeAgent = () => {
+    const wanted = String(practice.agentId || "").toLowerCase();
+    if (!wanted) return false;
+    const parsed = parseCopilotStudioAddress(page.url?.() || "");
+    if (!parsed.ok || !parsed.botId || parsed.botId.toLowerCase() !== wanted) return false;
+    return !practice.envId || String(parsed.envId || "").toLowerCase() === String(practice.envId).toLowerCase();
+  };
+  const gate = (step, desc) => {
+    const decision = authorizeStep({ step, desc, autonomy, product, practice: { onPracticeAgent: onPracticeAgent(), creatingPracticeAgent: typeof practice.creating === "function" ? Boolean(practice.creating(page.url?.() || "")) : Boolean(practice.creating) } });
+    // The kill switch: once the run is stopped (Stop in the portal, Ctrl+C), nothing that changes anything is done.
+    if (decision.allowed && decision.tier >= TIER.PRACTICE && ctx.shouldStop?.()) return { ...decision, allowed: false, denied: "stopped", reason: "The capture was stopped, so nothing is changed." };
+    if (decision.allowed && decision.tier >= TIER.PRACTICE && budget.count >= budget.max) {
+      state.halted = state.halted || "The computer reached the limit of changes it makes in one job, so it stopped. Nothing else was changed.";
+      state.haltKind = state.haltKind || "write-limit";
+      return { ...decision, allowed: false, denied: "write-limit", reason: "The limit of changes for one job was reached." };
+    }
+    return decision;
+  };
+
+  /** Space writes out: at least `gapMs` after the last one, whichever executor made it. */
+  async function paceWrite() {
+    const wait = budget.last + (budget.gapMs || 0) - now();
+    if (wait > 0) await sleep(wait);
+    budget.last = now();
+    budget.count += 1;
+  }
+
+  /** Stop the whole run when something nobody planned for is on the screen (a license, a consent, an MFA prompt, a quota or error message). */
+  async function checkUnexpectedPrompt() {
+    for (const frame of framesOf(page)) {
+      let found = null;
+      try {
+        found = await frame.evaluate(unexpectedPromptInPage);
+      } catch (err) {
+        if (isBrowserClosedError(err)) throw err;
+        continue;
+      }
+      if (found?.kind) {
+        const what = { mfa: "a sign-in or identity check", consent: "a permission or consent request", license: "a license or plan prompt", quota: "a quota or limit message", admin: "an admin or policy block", error: "an error message" }[found.kind] || "an unexpected prompt";
+        state.halted = `The product showed ${what} that the computer was not expecting, so it stopped instead of guessing. Nothing else was clicked.`;
+        state.haltKind = `unexpected-${found.kind}`;
+        trace?.event("unexpected-prompt", { kind: found.kind, shot });
+        return true;
+      }
+    }
+    return false;
+  }
 
   async function dismissInterruptions() {
     let dismissed = 0;
@@ -560,9 +683,28 @@ export function createExecutor(ctx) {
     return false;
   }
 
+  /** How much text the conversation holds now (its container, or the page when none was found): the base the answer is measured against. */
+  async function conversationLength() {
+    try {
+      const read = state.chatRoot ? await state.chatRoot.evaluate(conversationInPage) : await page.evaluate(conversationInPage, null);
+      return read.length;
+    } catch (err) {
+      if (isBrowserClosedError(err)) throw err;
+      return 0;
+    }
+  }
+
+  /** Whether the field the message was typed in is empty again (it was sent). Only what this step typed is looked at. */
+  async function inputIsEmpty(locator) {
+    const left = (await locator.inputValue({ timeout: 800 }).catch(() => null)) ?? (await locator.innerText({ timeout: 800 }).catch(() => ""));
+    return String(left).trim() === "";
+  }
+
   function sampleFor(step) {
     if (step.text?.literal) return step.text.literal;
     const kind = step.text?.sample || "question";
+    // A name, the instructions, or a website address is never replaced by some other sample: a wrong text in the wrong field changes the agent.
+    if (["agentName", "instructions", "website", "outOfScope"].includes(kind)) return ctx.inputs?.[kind] || "";
     return ctx.inputs?.[kind] || ctx.inputs?.question || "";
   }
 
@@ -577,25 +719,38 @@ export function createExecutor(ctx) {
         if (!text) return { ok: false, why: "there is no sample text for this step" };
         await locator.scrollIntoViewIfNeeded?.({ timeout: 1500 }).catch(() => {});
         await locator.click({ timeout: stepTimeoutMs }).catch(() => {});
-        await locator.fill(text, { timeout: stepTimeoutMs });
-        let typed = await locator.inputValue({ timeout: 1000 }).catch(() => null);
-        if (typed === null) typed = await locator.innerText({ timeout: 1000 }).catch(() => "");
-        if (!String(typed).includes(text.slice(0, 20))) {
+        const plain = ["input", "textarea"].includes(candidate.desc.tag);
+        const holds = async (settleMs = 0) => {
+          // A rich editor can drop text that was set behind its back a moment later: look again after it had time to.
+          if (settleMs) await sleep(settleMs);
+          const typed = (await locator.inputValue({ timeout: 1000 }).catch(() => null)) ?? (await locator.innerText({ timeout: 1000 }).catch(() => ""));
+          return String(typed).includes(text.slice(0, 20));
+        };
+        if (plain) await locator.fill(text, { timeout: stepTimeoutMs });
+        else {
+          // A rich editor takes real input events: select what is there and insert the text as typing does.
+          await page.keyboard.press("Control+A").catch(() => {});
+          await page.keyboard.insertText(text).catch(() => {});
+        }
+        let typedOk = await holds(plain ? 0 : 500);
+        if (!typedOk && plain) typedOk = await holds(300);
+        if (!typedOk) {
           await locator.click({ timeout: 1500 }).catch(() => {});
           await page.keyboard.press("Control+A").catch(() => {});
           await page.keyboard.type(text, { delay: 8 });
-          typed = (await locator.inputValue({ timeout: 1000 }).catch(() => null)) ?? (await locator.innerText({ timeout: 1000 }).catch(() => ""));
+          typedOk = await holds(plain ? 0 : 500);
         }
-        if (!String(typed).includes(text.slice(0, 20))) return { ok: false, why: "the text did not appear in the field" };
+        if (!typedOk) return { ok: false, why: "the text did not appear in the field" };
         state.lastInput = locator;
         state.chatRoot = (await locator.evaluateHandle(chatRootInPage, undefined, { timeout: 1500 }).catch(() => null)) || state.chatRoot;
         return { ok: true, why: "the field holds the text" };
       }
       case "send": {
-        const root = state.chatRoot;
-        state.lenAtSend = root ? (await root.evaluate(conversationInPage).catch(() => ({ length: 0 }))).length : before.text;
+        state.lenAtSend = await conversationLength();
         await locator.click({ timeout: stepTimeoutMs });
         const effect = await waitForEffect(step, before, candidate);
+        // A click that left the message in the field did not send it.
+        if (effect.ok && state.lastInput && !(await inputIsEmpty(state.lastInput))) return { ok: false, why: "the message is still in the field" };
         return effect;
       }
       case "hover": {
@@ -606,13 +761,17 @@ export function createExecutor(ctx) {
       default: {
         await locator.scrollIntoViewIfNeeded?.({ timeout: stepTimeoutMs }).catch(() => {});
         if (candidate.desc.expanded && step.action === "expand") return { ok: true, why: "already open", already: true };
-        if (candidate.desc.role === "tab" && candidate.desc.selected) return { ok: true, why: "already open", already: true };
+        if ((candidate.desc.role === "tab" || step.action === "open-nav") && candidate.desc.selected) return { ok: true, why: "already open", already: true };
+        if (step.onlyIfOff && candidate.desc.checked) return { ok: true, why: "already on", already: true };
+        if (step.onlyIfOn && !candidate.desc.checked) return { ok: true, why: "already off", already: true };
         await locator.click({ timeout: stepTimeoutMs });
         const effect = await waitForEffect(step, before, candidate);
         if (step.action === "open" || step.action === "choose") {
           const opened = (await readState(page)).dialogs;
           if (opened.length > before.dialogs.length) state.opened.push(step.id);
         }
+        // The click was made; what it did is checked by the step after it (a save has no visible effect of its own).
+        if (!effect.ok && step.soft) return { ok: true, why: "clicked (the result is checked next)", soft: true };
         return effect;
       }
     }
@@ -632,6 +791,19 @@ export function createExecutor(ctx) {
       }
       tries += 1;
       candidate.attempt.tried += 1;
+      if (decision.tier >= TIER.PRACTICE) {
+        if (ctx.shouldStop?.()) {
+          record.note = "the capture was stopped, so nothing is changed";
+          return false;
+        }
+        // A step that must be done once per agent (publishing) is claimed, in the local record, before the click and never again.
+        if (step.once && !(practice.agentId && typeof ctx.claimOnce === "function" && ctx.claimOnce(step.once))) {
+          record.note = "this was already tried once on the practice agent, so it is not clicked again";
+          record.blocked = { category: "once", denied: "once-only", tier: decision.tier, reason: record.note };
+          return false;
+        }
+        await paceWrite();
+      }
       let outcome;
       try {
         outcome = await actOnCandidate(step, candidate, record);
@@ -658,6 +830,80 @@ export function createExecutor(ctx) {
     return false;
   }
 
+  /**
+   * The open dialog is the plain one a step expects: exactly one dialog, and every control in it is one of the allowed names. A dialog
+   * with a choice (a channel, an audience, a checkbox, a field), an alert, or any other button is not the expected one, and nothing is clicked.
+   */
+  async function runVerifyDialogControls(step, record) {
+    const allowed = new Set((step.expect.dialogControls || []).map((n) => normalizeControlName(n)));
+    const required = (step.expect.dialogRequired || []).map((n) => normalizeControlName(n));
+    const deadline = now() + (step.timeoutMs ?? 6000);
+    for (;;) {
+      let seen = null;
+      for (const frame of framesOf(page)) {
+        try {
+          const found = await frame.evaluate(dialogControlsInPage);
+          if (found?.dialogs) seen = { dialogs: (seen?.dialogs || 0) + found.dialogs, controls: [...(seen?.controls || []), ...found.controls], alerts: (seen?.alerts || 0) + found.alerts };
+        } catch (err) {
+          if (isBrowserClosedError(err)) throw err;
+        }
+      }
+      if (seen && seen.dialogs === 1) {
+        const names = seen.controls.map((c) => normalizeControlName(c.name));
+        const unknown = seen.controls.filter((c) => c.kind === "choice" || !allowed.has(normalizeControlName(c.name)));
+        const missing = required.filter((n) => !names.includes(n));
+        if (!unknown.length && !missing.length && !seen.alerts) {
+          record.effect = "the dialog is the plain one";
+          return true;
+        }
+        record.note = unknown.length ? "the dialog has a control the computer does not know, so it was not confirmed" : seen.alerts ? "the dialog shows a warning, so it was not confirmed" : "the dialog is not the one expected";
+        trace?.event("dialog-not-plain", { step: step.id, controls: seen.controls.length, unknown: unknown.length, alerts: seen.alerts, missing: missing.length });
+      } else if (seen) record.note = seen.dialogs ? "more than one dialog is open, so nothing was confirmed" : "the expected dialog is not open";
+      if (now() >= deadline) return false;
+      await sleep(250);
+    }
+  }
+
+  /** A control that must be on the page (and, for a tab, selected) without touching it: how a walkthrough proves it is on the screen it expects. */
+  async function runVerify(step, record) {
+    if (step.expect?.dialogControls) return runVerifyDialogControls(step, record);
+    const deadline = now() + (step.timeoutMs ?? 6000);
+    const names = targetNames(step.target);
+    const roles = step.target?.role ? [step.target.role] : ROLES_FOR.verify;
+    for (;;) {
+      for (const strategy of ["role-exact", "role-name"]) {
+        const located = await locatorsForStrategy(page, strategy, { action: "verify" }, { names, roles });
+        for (const item of located) {
+          let visible = false;
+          try {
+            visible = await item.locator.isVisible();
+          } catch (err) {
+            if (isBrowserClosedError(err)) throw err;
+          }
+          if (!visible) continue;
+          const desc = await describeLocator(item.locator);
+          if (!desc || !fitsArea(desc, step.target?.within || "any")) continue;
+          if (step.expect?.selected && !desc.selected && !desc.expanded) continue;
+          if (step.expect?.disabled && !desc.disabled) continue;
+          record.strategy = strategy;
+          record.effect = "it is showing";
+          return true;
+        }
+      }
+      if (now() >= deadline) {
+        record.note = step.expect?.selected ? "the expected tab is not the one open" : step.expect?.disabled ? "the control is still available, so nothing was saved yet" : "the expected control is not on the page";
+        return false;
+      }
+      await sleep(250);
+    }
+  }
+
+  async function removableItems() {
+    let total = 0;
+    for (const frame of framesOf(page)) total += (await frame.evaluate(removableItemsInPage).catch(() => 0)) || 0;
+    return total;
+  }
+
   async function runWaitFor(step, record) {
     const deadline = now() + (step.timeoutMs ?? 8000);
     for (;;) {
@@ -666,7 +912,10 @@ export function createExecutor(ctx) {
       const textOk = !step.expect?.text?.length || (await textsVisible(step.expect.text));
       const absentOk = !step.expect?.absent?.length || !(await anyTextVisible(step.expect.absent));
       const dialogOk = !step.expect?.dialog || current.dialogs.some((d) => d.kind === "dialog" || d.kind === "menu");
-      if (textOk && absentOk && dialogOk && (verdict.ok || !step.expect?.urlPath)) {
+      const removableOk = !step.expect?.removable || (await removableItems()) > 0;
+      // The opposite: nothing is open any more (a dialog was confirmed and closed).
+      const closedOk = !step.expect?.noDialog || !current.dialogs.some((d) => d.kind === "dialog" || d.kind === "menu");
+      if (textOk && absentOk && dialogOk && closedOk && removableOk && (verdict.ok || !step.expect?.urlPath)) {
         record.effect = "the expected result is on the page";
         return true;
       }
@@ -782,7 +1031,7 @@ export function createExecutor(ctx) {
     const record = { id: step.id, action: step.action, tier: step.tier ?? 0, status: "failed", strategy: "", attempts: [], note: "", effect: "", ms: 0, blocked: null, summary: step.note };
     const started = now();
     const retries = step.retries ?? (step.action === "wait-answer" ? 0 : 1);
-    if (!step.cleanup) ctx.onProgress?.(progressPhrase(step));
+    if (!step.cleanup) ctx.onProgress?.(step.say || progressPhrase(step));
     // Never act on a sign-in page (no clicks, typing, or navigation): the person is signing in, and the sign-in check handles it.
     if (!step.cleanup && classifyUrl(typeof page.url === "function" ? page.url() : "").kind === "sign-in") {
       record.note = "the page is a sign-in page, so the computer does not touch it";
@@ -805,6 +1054,9 @@ export function createExecutor(ctx) {
       switch (step.action) {
         case "wait-for":
           ok = await runWaitFor(step, record);
+          break;
+        case "verify":
+          ok = await runVerify(step, record);
           break;
         case "wait-answer":
           ok = await runWaitAnswer(step, record);
@@ -859,7 +1111,7 @@ export function createExecutor(ctx) {
       return false;
     }
     const before = await readState(page);
-    state.lenAtSend = state.chatRoot ? (await state.chatRoot.evaluate(conversationInPage).catch(() => ({ length: 0 }))).length : before.text;
+    state.lenAtSend = await conversationLength();
     // A send button next to the field is the usual way; Enter is the fallback.
     const desc = await describeLocator(state.lastInput);
     const decision = gate({ ...step, action: "send" }, desc ? { ...desc, name: "Send", role: "button" } : null);
@@ -872,6 +1124,11 @@ export function createExecutor(ctx) {
     const effect = await waitForEffect({ ...step, timeoutMs: 3000 }, before, null);
     record.strategy = "enter";
     record.effect = effect.why;
+    // Enter that left the message in the field did not send it.
+    if (effect.ok && !(await inputIsEmpty(state.lastInput))) {
+      record.note = "the message is still in the field after Enter";
+      return false;
+    }
     return effect.ok;
   }
 
@@ -894,15 +1151,23 @@ export function createExecutor(ctx) {
         failed = { id: step.id, action: step.action, why: "the page is not on one of the product's own sites", code: "left-allowed-site" };
         break;
       }
+      if (!step.cleanup && (await checkUnexpectedPrompt())) break;
       const record = await runStep(step);
       records.push(record);
       trace?.event("setup-step", { shot, step: step.id, action: step.action, status: record.status, strategy: record.strategy, tier: record.tier, attempts: record.attempts.length, ms: record.ms });
+      if (!step.cleanup && !state.halted) await checkUnexpectedPrompt();
+      if (state.halted) break;
+      // The first time a step opens a dialog while building from scratch, its control names are kept locally (names only), so a recipe can be taught what the real dialog holds.
+      if (record.status === "ok" && step.expect?.dialog && ctx.autonomy?.scratch && !state.observed.has(step.id)) {
+        state.observed.add(step.id);
+        await writeDiagnostic({ page, home, step, attempts: [], product, shot, terms, companion, cause: "observed" }).catch(() => {});
+      }
       if (record.status !== "ok") {
         if (step.optional) {
           record.status = "skipped";
           continue;
         }
-        const code = record.blocked && !record.attempts.some((a) => a.tried) ? (record.blocked.denied === "needs-practice" ? "needs-practice" : "blocked") : "step-failed";
+        const code = record.blocked && !record.attempts.some((a) => a.tried) ? (record.blocked.denied === "needs-practice" ? "needs-practice" : record.blocked.denied === "stopped" ? "cancelled" : "blocked") : "step-failed";
         failed = { id: step.id, action: step.action, why: record.note || (record.blocked ? record.blocked.reason : "the control was not found or did nothing"), code, blockedBy: record.blocked?.category || "" };
         if (code === "step-failed" || code === "blocked") {
           const written = await writeDiagnostic({ page, home, step, attempts: record.attempts, product, shot, timings: { stepMs: record.ms }, terms, companion, cause: code }).catch(() => ({ file: null, bundle: null }));
@@ -911,20 +1176,22 @@ export function createExecutor(ctx) {
         break;
       }
     }
-    return { ok: !failed && !state.halted, steps: records, failed: state.halted ? { id: records.at(-1)?.id || "", action: records.at(-1)?.action || "", why: state.halted, code: "unexpected-effect" } : failed, halted: state.halted, blocked: state.blocked.slice(0, 12), diagnostic };
+    const haltCode = state.haltKind === "write-limit" ? "write-limit" : String(state.haltKind || "").startsWith("unexpected-") ? "unexpected-prompt" : "unexpected-effect";
+    return { ok: !failed && !state.halted, steps: records, failed: state.halted ? { id: records.at(-1)?.id || "", action: records.at(-1)?.action || "", why: state.halted, code: haltCode } : failed, halted: state.halted, haltKind: state.haltKind, blocked: state.blocked.slice(0, 12), diagnostic };
   }
 
-  /** Close what the steps opened, so the next screen starts clean. Never throws. */
+  /** Close what the steps opened, so the next screen starts clean. Never throws. `left` is how many dialogs or menus are still open. */
   async function cleanup() {
     try {
       await dismissInterruptions();
       const open = (await readState(page)).dialogs.filter((d) => d.kind === "dialog" || d.kind === "menu");
-      if (!open.length) return { closed: false };
+      if (!open.length) return { closed: false, left: 0 };
       const record = await runStep({ id: "cleanup", action: "close", intent: "close", tier: 1, cleanup: true, note: "Closed it with Cancel" });
-      return { closed: record.status === "ok" };
+      const left = (await readState(page)).dialogs.filter((d) => d.kind === "dialog" || d.kind === "menu").length;
+      return { closed: record.status === "ok", left };
     } catch (err) {
       if (err instanceof BrowserClosedError || classifyBrowserError(err) === "browser-closed") throw err;
-      return { closed: false };
+      return { closed: false, left: 0 };
     }
   }
 

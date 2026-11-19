@@ -249,12 +249,15 @@ test("account details are found and scrubbed from text", () => {
   assert.deepEqual(spans, ["ada.lovelace@contoso.com", "contoso.onmicrosoft.com", "fabrikam-admin.sharepoint.com", "Acme Corp"]);
   assert.equal(scrubSensitiveText(text, ["Acme Corp"]), "Signed in as [hidden] on [hidden]; site [hidden]; [hidden] rocks");
   assert.equal(scrubSensitiveText("Settings and Memory"), "Settings and Memory");
+  assert.equal(scrubSensitiveText("Hey Ada, ready to transform?"), "Hey [hidden], ready to transform?", "a greeting that names the signed-in person is hidden");
+  assert.equal(scrubSensitiveText("Hello world"), "Hello world", "a lower-case word after a greeting is not a name");
   assert.ok(buildSensitiveRegExp(["ab"]).source.includes("onmicrosoft"), "terms shorter than 3 characters are ignored");
   assert.ok(!buildSensitiveRegExp(["ab"]).source.includes("|ab"));
 });
 
 test("the account menu of the newer Copilot Studio layout is covered before a picture", () => {
   assert.ok(ACCOUNT_CONTROL_SELECTORS.includes("[aria-label^='Open account menu' i]"), "that menu shows the signed-in person's name");
+  assert.ok(ACCOUNT_CONTROL_SELECTORS.includes("[aria-label^='Switch environment' i]"), "the environment picker shows the environment's name");
 });
 
 test("the pairing file is kept out of git and holds the token only locally", (t) => {
@@ -659,15 +662,15 @@ test("in a real browser, account details are covered during the picture and noth
     const page = await browser.newPage({ viewport: { width: 800, height: 400 } });
     await page.setContent(
       `<body style="font:20px Arial"><button id="O365_MainLink_Me" style="position:absolute;right:10px;top:10px;width:40px;height:40px">AL</button>` +
-        `<h1>Settings</h1><p>Signed in as ada.lovelace@contoso.com (contoso.onmicrosoft.com)</p><input value="grace@fabrikam.com"><p>Acme Corp</p><button>Memory</button></body>`,
+        `<h1>Settings</h1><h2>Hey Ada, ready to build?</h2><p>Signed in as ada.lovelace@contoso.com (contoso.onmicrosoft.com)</p><input value="grace@fabrikam.com"><p>Acme Corp</p><button>Memory</button></body>`,
     );
     const before = await page.screenshot();
     const redaction = await applyRedaction(page, { terms: ["Acme Corp"] });
     assert.equal(redaction.applied, true);
-    assert.ok(redaction.masked >= 5, "the account control, the address, the tenant host, the field, and the term are covered");
+    assert.ok(redaction.masked >= 6, "the account control, the greeting name, the address, the tenant host, the field, and the term are covered");
     const covered = await page.screenshot();
     assert.ok(!before.equals(covered), "the picture taken while masked differs");
-    assert.deepEqual(await collectVisibleLabels(page, { terms: ["Acme Corp"] }), ["AL", "Settings", "Memory"]);
+    assert.deepEqual(await collectVisibleLabels(page, { terms: ["Acme Corp"] }), ["AL", "Settings", "Hey [hidden], ready to build?", "Memory"], "the heading that greets the person reaches the portal with the name hidden");
     assert.equal(await burnCalloutMarkers(page, [{ n: 1, label: "Memory", rect: { x: 0.1, y: 0.5, w: 0.2, h: 0.1 } }], { width: 800, height: 400 }), 1);
     await clearOverlays(page);
     assert.equal(await page.evaluate(() => document.querySelectorAll("[data-capture-overlay]").length), 0);

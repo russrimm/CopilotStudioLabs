@@ -34,11 +34,13 @@ export function practiceReportPath(home) {
   return path.join(home, REPORT_NAME);
 }
 
-const emptyRegistry = () => ({ schema: 1, agents: [], changes: [] });
+const STAGE_PROOF = 2;
+const emptyRegistry = () => ({ schema: 2, agents: [], changes: [], pending: [] });
 
 /**
- * The local record of what was created. `agents` hold the practice agents (environment id, agent id, name, address);
- * `changes` hold what was done inside them (added knowledge, published), in order.
+ * The local record of what was created. `agents` hold the practice agents (environment id, agent id, name, address, the
+ * lab it was built for, and which stages of the walkthrough are done); `changes` hold what was done inside them, in order;
+ * `pending` holds a create that was started and not yet written down, so a second agent is never made by mistake.
  */
 export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
   const file = practiceRegistryPath(home);
@@ -46,7 +48,7 @@ export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
   const load = () => {
     try {
       const data = JSON.parse(fs.readFileSync(file, "utf8"));
-      return data && Array.isArray(data.agents) ? { ...emptyRegistry(), ...data } : emptyRegistry();
+      return data && Array.isArray(data.agents) ? { ...emptyRegistry(), ...data, pending: Array.isArray(data.pending) ? data.pending : [] } : emptyRegistry();
     } catch {
       return emptyRegistry();
     }
@@ -55,32 +57,99 @@ export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
     fs.mkdirSync(home, { recursive: true });
     fs.writeFileSync(file, `${JSON.stringify(data, null, 2)}\n`, { mode: 0o600 });
   };
+  const live = (a) => !a.retired && isPracticeName(a.name);
   return {
     file,
     load,
     /** What a job did in the practice environment (in memory, for the job's report): the agent made or reused, and each change. */
     jobLog: [],
-    /** The practice agent for an environment, or null. Only an agent whose name has the prefix counts. */
-    find(envId) {
-      return load().agents.find((a) => a.envId === envId && isPracticeName(a.name)) || null;
+    /**
+     * The practice agent for an environment, or null. Only an agent whose name has the prefix counts, and one that was
+     * retired by "Start fresh" does not. With a `key` (the lab it was built for) only that lab's agent matches.
+     */
+    find(envId, key) {
+      return load().agents.find((a) => a.envId === envId && live(a) && (key === undefined || (a.key || "shared") === key)) || null;
     },
-    /** Remember a created practice agent. A second record for the same environment replaces the first. */
-    recordAgent({ envId, botId, name, address }) {
+    /** Remember a created practice agent. A second record for the same environment and lab replaces the first. */
+    recordAgent({ envId, botId, name, address, key = "shared" }) {
       const data = load();
-      data.agents = data.agents.filter((a) => !(a.envId === envId));
-      data.agents.push({ envId, botId, name, address, createdAt: iso(), reusedCount: 0 });
+      data.agents = data.agents.filter((a) => !(a.envId === envId && (a.key || "shared") === key && !a.retired));
+      data.agents.push({ envId, botId, name, address, key, createdAt: iso(), reusedCount: 0, stages: {} });
+      data.pending = data.pending.filter((p) => !(p.envId === envId && p.key === key));
       save(data);
       this.jobLog.push({ kind: "agent", name, what: `Created the practice agent “${name}”`, reused: false });
     },
-    recordReuse(envId) {
+    recordReuse(envId, key) {
       const data = load();
-      const found = data.agents.find((a) => a.envId === envId);
+      const found = data.agents.find((a) => a.envId === envId && live(a) && (key === undefined || (a.key || "shared") === key));
       if (found) {
         found.reusedCount = (found.reusedCount || 0) + 1;
         found.lastUsedAt = iso();
         save(data);
         this.jobLog.push({ kind: "agent", name: found.name, what: `Reused the practice agent “${found.name}”`, reused: true });
       }
+    },
+    /** A create is about to be clicked. Written first, so a crash between the click and the next write cannot lead to a second agent. */
+    markPending({ envId, key = "shared", name }) {
+      const data = load();
+      data.pending = data.pending.filter((p) => !(p.envId === envId && p.key === key));
+      data.pending.push({ envId, key, name, at: iso() });
+      save(data);
+    },
+    pending(envId, key = "shared") {
+      return load().pending.find((p) => p.envId === envId && p.key === key) || null;
+    },
+    clearPending(envId, key = "shared") {
+      const data = load();
+      data.pending = data.pending.filter((p) => !(p.envId === envId && p.key === key));
+      save(data);
+    },
+    /** "Start fresh": the next job makes a new practice agent. The old one is only set aside in this record; nothing is deleted. */
+    retire(envId, key) {
+      const data = load();
+      let count = 0;
+      for (const agent of data.agents) {
+        if (agent.envId === envId && !agent.retired && (key === undefined || (agent.key || "shared") === key)) {
+          agent.retired = true;
+          agent.retiredAt = iso();
+          count += 1;
+        }
+      }
+      data.pending = data.pending.filter((p) => !(p.envId === envId && (key === undefined || p.key === key)));
+      if (count || data.pending.length !== load().pending.length) save(data);
+      return count;
+    },
+    /**
+     * Which stages of the walkthrough are done on an agent (instructions set, knowledge added, published), remembered so a rerun skips them.
+     * Only a stage that was marked after the product proved it (a saved check, `proof` 2) counts: earlier builds wrote a plain date for a
+     * step that had only been tried, and that is not trusted any more.
+     */
+    stageDone(botId, stage) {
+      const agent = load().agents.find((a) => a.botId === botId);
+      return Number(agent?.stages?.[stage]?.proof) >= STAGE_PROOF;
+    },
+    markStage(botId, stage) {
+      const data = load();
+      const agent = data.agents.find((a) => a.botId === botId);
+      if (!agent) return;
+      agent.stages = { ...(agent.stages || {}), [stage]: { at: iso(), proof: STAGE_PROOF } };
+      save(data);
+    },
+    /**
+     * A step that must never be clicked twice on one agent (publishing). The claim is written before the click and is never undone, so a
+     * crash, a slow confirmation, or a later run cannot lead to a second click: the permission is for this agent, once.
+     * @returns {boolean} true only for the first claim.
+     */
+    claimOnce(botId, key) {
+      const data = load();
+      const agent = data.agents.find((a) => a.botId === botId);
+      if (!agent || agent.once?.[key]) return false;
+      agent.once = { ...(agent.once || {}), [key]: iso() };
+      save(data);
+      return true;
+    },
+    onceClaimed(botId, key) {
+      return Boolean(load().agents.find((a) => a.botId === botId)?.once?.[key]);
     },
     /** Something done inside a practice agent (a step that saved, added, or published). */
     recordChange({ botId, what, shot }) {
@@ -113,7 +182,9 @@ export function buildPracticeReport(registry, { jobCreated = [], now = () => new
   const agents = registry.agents || [];
   if (!agents.length) lines.push("No practice agent has been created.", "");
   for (const agent of agents) {
-    lines.push(`## ${agent.name}`, "", `- Where: your practice environment in Copilot Studio`, `- Link: ${agent.address || "(not recorded)"}`, `- Created: ${agent.createdAt}`, `- Reused in later jobs: ${agent.reusedCount || 0} time${agent.reusedCount === 1 ? "" : "s"}`);
+    lines.push(`## ${agent.name}${agent.retired ? " (set aside by Start fresh)" : ""}`, "", `- Where: your practice environment in Copilot Studio`, `- Link: ${agent.address || "(not recorded)"}`, `- Created: ${agent.createdAt}`, `- Reused in later jobs: ${agent.reusedCount || 0} time${agent.reusedCount === 1 ? "" : "s"}`);
+    const stages = Object.entries(agent.stages || {}).filter(([, value]) => Number(value?.proof) >= STAGE_PROOF);
+    if (stages.length) lines.push(`- Steps of the lab walkthrough done on it: ${stages.map(([id]) => id).join(", ")}`);
     const changes = (registry.changes || []).filter((c) => c.botId === agent.botId);
     if (changes.length) {
       lines.push("- What the companion did inside it:");
@@ -124,7 +195,7 @@ export function buildPracticeReport(registry, { jobCreated = [], now = () => new
     lines.push("");
   }
   if (jobCreated.length) lines.push("## This job", "", ...jobCreated.map((item) => `- ${item.what}`), "");
-  lines.push("To remove an agent: open its link, then use Delete in the agent's settings or in the Agents list.", "");
+  lines.push("To remove an agent: open its link, then use Delete in the agent's settings or in the Agents list. The companion never does this for you.", "To let the companion build a new practice agent next time without deleting the old one, choose Start fresh in the Screenshot Center.", "");
   return lines.join("\n");
 }
 

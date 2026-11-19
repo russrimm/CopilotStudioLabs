@@ -239,6 +239,22 @@ export function maskedPath(rawUrl) {
   }
 }
 
+const MASK_GUID = "00000000-0000-0000-0000-000000000000";
+
+/**
+ * An address with every id replaced by a zero id and no query or fragment: still a valid address of the same shape, so a page
+ * can be judged by it, but it names no environment and no agent. Used for what is sent to the portal about a practice agent.
+ */
+export function maskedAddress(rawUrl) {
+  try {
+    const url = new URL(String(rawUrl ?? ""));
+    const path = url.pathname.replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, MASK_GUID);
+    return `${url.protocol}//${url.host}${path}`;
+  } catch {
+    return "";
+  }
+}
+
 /** A plain-language name for the page an address is, for sentences like "This is the Copilot Studio home page". */
 export function describePage(rawUrl) {
   let url;

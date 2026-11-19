@@ -39,6 +39,7 @@ test("tier 3 is never allowed, whatever the label says, in any language or case"
     "Share", "Share agent", "Invite", "Invite people", "Add people", "Manage access", "Teilen", "Partager", "Compartir", "招待",
     "Publish to channel", "Publish to Teams", "Publish to website", "Turn on Teams",
     "Install", "Allow access", "Authorize", "Grant", "Upload", "Download", "Export", "Switch environment", "Change tenant",
+    "Add multi agent", "Add connected agent", "Add channel", "Add to Teams", "Open in Power Apps", "Connect", "Grant consent", "Upload a skill", "Remove Work IQ", "Publish to Microsoft 365 to enable sharing.",
   ];
   for (const name of never) assert.equal(tierOf(name).tier, TIER.NEVER, `${name} must be tier 3, got ${tierOf(name).category}`);
 });

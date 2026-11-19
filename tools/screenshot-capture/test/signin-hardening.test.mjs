@@ -1053,8 +1053,8 @@ test("a browser that rearranges its first tabs is given a moment to settle, and 
 });
 
 test("a path segment that holds an id (the default environment is Default- plus the tenant id) is masked", () => {
-  assert.equal(cleanPathSegment("Default-9a35777a-28ce-467a-92be-0cf503f7e030"), "Default-{id}");
-  assert.equal(cleanPathForReport("/environments/Default-9a35777a-28ce-467a-92be-0cf503f7e030/home"), "/environments/Default-{id}/home");
+  assert.equal(cleanPathSegment("Default-5e5e5e5e-1234-4abc-8def-0123456789ab"), "Default-{id}");
+  assert.equal(cleanPathForReport("/environments/Default-5e5e5e5e-1234-4abc-8def-0123456789ab/home"), "/environments/Default-{id}/home");
   assert.equal(cleanPathSegment("~personal"), "~personal");
 });
 
@@ -1122,7 +1122,7 @@ test("a sign-in that merely times out closes its window and reports a diagnosis 
 // ── The command line ─────────────────────────────────────────────────────────
 
 test("the new options parse, and the version and help describe them", () => {
-  assert.equal(COMPANION_VERSION, "1.5.0");
+  assert.equal(COMPANION_VERSION, "1.6.0");
   assert.equal(parseArgs(["--check-signin"]).checkSignin, "copilot-studio");
   assert.equal(parseArgs(["--check-signin", "ai-foundry"]).checkSignin, "ai-foundry");
   assert.equal(parseArgs(["--check-signin=sharepoint-ai", "--launch=attach"]).checkSignin, "sharepoint-ai");

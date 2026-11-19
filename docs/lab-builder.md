@@ -1902,11 +1902,67 @@ in the redacted trace. `node companion.mjs --dry-run-plan[=<job file>]` prints e
 |---|---|---|---|
 | 0 | Look | Navigate, open sections, expand, select tabs, scroll, hover | Always |
 | 1 | Try | Open menus, dialogs, panels, and pickers; type into the test chat and send test messages (not persisted to the agent); type into search and filter boxes; fill dialog fields without confirming; cancel or close the dialog after the picture; discard unsaved edits | In automatic mode with consent. Never confirms a committing or destructive button |
-| 2 | Practice | Create, edit, save, and publish inside a practice agent the companion created itself (name starts with `Lab screenshots - `, recorded in `.practice-agents.json`), only for shots that need that state; only the default internal publish | Only with the consent option **and** the companion flag `--allow-practice-writes` (saved until `--no-practice-writes`). Without both, the shot is captured as far as Tier 1 allows (for example the Publish dialog before confirming) and labeled *needs practice agent* |
+| 2 | Practice | Create, edit, save, and publish inside a practice agent the companion created itself (name starts with `Lab screenshots - `, recorded in `.practice-agents.json`), only for shots that need that state; only the default internal publish | Only with the consent option **and** this computer's own yes (asked once in the console, or the advanced `--allow-practice-writes`; saved until `--no-practice-writes`). Without both, the shot is captured as far as Tier 1 allows (for example the Publish dialog before confirming) and labeled *needs practice agent*. Building a whole lab from scratch is this tier (below) |
 | 3 | Never | Sign out; switch, add, or remove accounts; delete or remove anything (including cleanup); change tenant, environment, admin, billing, licensing, security, DLP, or permission settings; install or consent to apps; create connections with credentials; change anything in an environment or agent that is not the practice agent; send anything outside the test pane (messages, emails); upload or download user files; publish to external channels; share the agent; leave the allowed product hosts | Never, whatever the plan, the consent, or a recipe says |
 
 After a run, `practice-report.md` next to the companion lists every item it created (name, where) so you can delete the practice agent yourself; the portal names what was created and never links it. The companion never deletes.
 Hosts are allowlisted per product, and the companion never reads or uploads page text beyond what it already collects for verification (the labels list, the URL path without the query, the title), with redaction kept.
+
+**Build the agent from scratch (the default for shots that show an agent).** The old inline prompt *N screenshots need your agent
+address* is replaced by a choice, shown once per lab: **Build the agent from scratch (recommended)** or **Use an existing agent**
+(an address or a name, as before; a saved address counts as that choice). Choosing from scratch shows a consent card that lists what the
+computer creates and changes (one new agent named `Lab screenshots - <short lab title>`, its instructions, one public Microsoft Learn website as knowledge,
+the settings the lab turns on, test conversations, and publishing only the practice agent, once, to its default state: no channels, no sharing) and what it never does,
+with an optional **Where should it build?** environment address (empty means the environment Copilot Studio opens for the account). The consent is stored as
+level `scratch` (`PUT /api/capture/consent`); a request can ask for less, and `options.agent: "existing"` downgrades it to read-only.
+Job options gain `agent` (`"scratch"` or `"existing"`) and `startFresh`. A companion older than 1.6.0 is asked to update before anything is queued
+(`needsNewerCompanion`). The plan orders the shots by module, gives each a stage (`capture.scratch`: create the agent, instructions, knowledge, tools,
+model, preview, evaluate, publish, monitor, settings, or why it cannot be done), and carries the lab's own words to the companion only
+(`autonomy.scratchContext`: the agent name, instructions, sample questions, and a Learn website; the browser-visible job never has them). The companion needs
+its own one-time local yes (a console prompt; `--allow-practice-writes` is the advanced alias) and confirms the account once, in the same window where the
+person signed in. What comes back is names and counts only (`result.scratch`, `result.created`), with no address and no id; the page address sent with each
+picture has every id replaced by zeros. The Screenshot Center shows **Agent: will be built from scratch in the default environment** (then
+**Agent: Lab screenshots - <short name> (created <date>)** with **Start fresh**), live steps (*Creating the agent*, *Setting the instructions*, *Asking the test
+pane a sample question*), a **Stop** button, grouped outcomes with one fix each, and the created-items report. Everything the computer cannot do ends as
+*needs you* with a plain reason: a tool that needs a connection, sample files, a channel other than the default, an admin screen, another product, an error
+state, or an evaluation result (it uses Copilot Credits). To delete the practice agent, open Copilot Studio, go to **Agents**, and delete the agent named
+`Lab screenshots - ...` yourself; the companion never deletes it. See
+[Build the agent from scratch](../tools/screenshot-capture/README.md#build-the-agent-from-scratch) for the walkthrough, the safety rules, and troubleshooting.
+
+**Lab text versus the real product (findings from real-tenant runs).** The generated lab text does not always match the product's current layout, and
+the walkthrough follows the product, not the text:
+
+- A lab for the standard harness says to use **Overview**, **Instructions**, and **Publish** pages. The newer agent layout has four top-level tabs,
+  **Build**, **Preview**, **Evaluate**, and **Monitor**, and the address keeps `/knowledge` or `/analytics` while the tab strip decides the screen; Overview is
+  the Build tab, Evaluation lives on the Evaluate tab (`/evaluate`), and analytics is the Monitor tab (`/analytics`).
+- The lab says to test in a test pane beside the agent. In the newer layout testing is the **Preview** tab, with a **Debug mode** switch and a message box.
+- Adding a website as knowledge is **Add knowledge**, then **Public websites**, a switch **Search all websites** that must be turned off before a particular
+  address can be typed, the address (a public website may be at most **two levels deep**, for example `learn.microsoft.com/microsoft-copilot-studio/agents-experience`; a longer
+  address keeps **Add** off), **Add**, **Add to agent**, and then the header **Save**: the agent keeps the knowledge only after it is saved, and the website then appears
+  under Knowledge with a remove button.
+- The instructions are saved with the same header **Save**; it is available only while something is unsaved, and its going inactive is the proof of a save.
+- The agent's settings are a dialog from the header's **More options** menu, **Settings**, with the tabs **Agent details**, **AI + behavior**, **Safety & access**,
+  **Greeting & prompts**, and **Advanced**; it opens on Agent details. Moderation and orchestration are under AI + behavior; authentication and feedback under Safety & access.
+- **Publish** opens a small dialog with an **Add channel** button and **Publish agent**; publishing without a channel says *Your agent is published. It isn't on any
+  channels yet.* The Monitor tab shows *Monitor data starts after you publish*, and its Sessions list (**See all (0)**) stays empty until people use the published agent in a channel.
+- The agent's own menu and the Build tab hold the model (**Model: Auto**), Memory, channels, skills, and tools. **Add skill** opens a small menu (*Upload a skill*, *Create from
+  blank*, *Browse skills*); **Add tool** opens a dialog with the tabs *Featured*, *MCP*, *Connectors*, and *Workflows*. The product has no separate page for hooks, triggers, or
+  the files an agent creates that the computer has seen, so those pictures end as needs you instead of being guessed.
+- The Home page greets the signed-in person by first name (*Hey <name>, ready to transform?*) and lists the agents opened last; the greeting name is covered in the picture
+  and in the evidence, and the list is something to look at before a picture is used.
+- An agent's name is limited to 30 characters, so a lab that names its agent longer than that will show a shortened name in the product.
+- Evaluations: **Create your first evaluation** opens a form that asks for an evaluation name and a data set; generating a data set or running an evaluation uses
+  Copilot Credits, which the computer never spends.
+
+**Real-tenant status (what was seen on a real Copilot Studio of a demo tenant, with the person watching).** Verified end to end: sign-in with the saved session and the
+account guard, the default environment, creating the agent from the Agents page (**New agent**, the name, **Save**), finding it again by name, setting and saving the
+lab's instructions (proven by Save going inactive and the text showing in the editor), adding one public Microsoft Learn website as knowledge (proven by Save going inactive and a
+removable item under Knowledge), turning Memory on and saving it, asking the Preview tab the lab's question and waiting for the streamed answer, opening and cancelling the Publish
+dialog, publishing the practice agent once to its default state (the dialog was checked to hold only Add channel and Publish agent first; the product's own confirmation was
+waited for), and photographing the Build tab, the Add knowledge and Add tool dialogs, the model menu, the Monitor tab, the Agent settings tabs *Safety & access* and
+*AI + behavior*, the Add skill menu, the MCP tab of the Add tool dialog, the Home page (greeting name covered), and the publish confirmation, each on the right screen (checked by looking at the pictures, not only by the address). A full run of a 39-shot Microsoft Copilot harness lab on this one practice agent captured 21 on the right screen at first and, after the fixes it showed were needed (wrong dialogs for skills, MCP, and hooks, an unmasked greeting name, the first two start pages), the rest ended as *needs you* on the real
+product, with a plain reason: an error-state picture, evaluation results (Copilot Credits), the Monitor sessions list (empty until people use a published agent in a channel),
+tools that need a connection, connected agents (other agents are never touched), screens the computer has not seen (hooks, triggers, the files an agent creates), another product (Foundry, the Agents SDK), and tenant or admin screens. Not verified on the real product: the older (classic) layout, SharePoint knowledge, and evaluation set creation.
 
 **An adaptive executor.** Each setup step is a tiny verified state machine (`action`, `target`, `expect`, `timeout`,
 `retries`). A control is found by ranked strategies: role plus exact accessible name inside the expected area, role plus a
@@ -1931,7 +1987,7 @@ text over the allowed length), stores it under `<data dir>/capture/recipes.json`
 (`tools/screenshot-capture/test/fixtures/fake-product-site.mjs`: streaming test pane, add-knowledge dialog that must be
 canceled, publish dialog, a create-agent flow, Delete agent, Sign out, an admin page, iframes, shadow DOM, a cookie banner, a leave-page prompt,
 renamed controls, a slow skeleton, a flaky control, an Agent Builder page with no direct address, and a SharePoint site) with real Chromium and the installed Edge.
-**Real Copilot Studio, Agent Builder, and SharePoint pages have not been verified:** their control names, landmarks, test-pane markup, and timings are
+**Agent Builder and SharePoint pages have not been verified, and Copilot Studio only in part (see *Real-tenant status* above):** their control names, landmarks, test-pane markup, and timings are
 assumptions until a run on a real tenant, and the practice-agent creation steps are written against the pretend site.
 When a built-in step does not match the real page, the shot ends `needs-you` with a diagnostic bundle and **Show me once** teaches the companion the real step.
 

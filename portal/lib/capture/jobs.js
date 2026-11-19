@@ -21,6 +21,7 @@ import { cleanAccount, cleanNeedsAccount } from "./account.js";
 import { CAUSES, causeForVerification, describeCause } from "../../../tools/screenshot-capture/causes.mjs";
 import { sanitizeSetupEvidence } from "../../../tools/screenshot-capture/image-verify.mjs";
 import { REQUIREMENTS, effectiveModeFor, missingRequirements, targetValuesFromJob, validateTargets } from "../../../tools/screenshot-capture/targets.mjs";
+import { BLOCKERS, STAGES } from "../../../tools/screenshot-capture/walkthrough.mjs";
 
 export const JOB_STATUSES = Object.freeze(["queued", "claimed", "running", "done", "failed", "cancelled"]);
 export const TERMINAL_JOB_STATUSES = Object.freeze(["done", "failed", "cancelled"]);
@@ -152,7 +153,7 @@ export function normalizeJobRequest(body = {}) {
   if (modeRaw !== "default" && !CAPTURE_MODES.includes(modeRaw)) errors.push(`options.mode must be one of: ${CAPTURE_MODES.join(", ")}.`);
   // `mode: null` means "not said": the portal picks autonomous when the person has consented, and smart (the older behavior) otherwise.
   const autonomyIn = optionsIn.autonomy && typeof optionsIn.autonomy === "object" && !Array.isArray(optionsIn.autonomy) ? optionsIn.autonomy : null;
-  const options = { callouts, redact: optionsIn.redact !== false, maskTerms: maskTerms || [], mode: CAPTURE_MODES.includes(modeRaw) ? modeRaw : null, autonomy: autonomyIn?.level === "read-only" ? { level: "read-only" } : null, record: normalizeRecord(optionsIn.record), background: optionsIn.background === true };
+  const options = { callouts, redact: optionsIn.redact !== false, maskTerms: maskTerms || [], mode: CAPTURE_MODES.includes(modeRaw) ? modeRaw : null, autonomy: autonomyIn?.level === "read-only" ? { level: "read-only" } : null, record: normalizeRecord(optionsIn.record), background: optionsIn.background === true, agent: optionsIn.agent === "existing" ? "existing" : optionsIn.agent === "scratch" ? "scratch" : null, startFresh: optionsIn.startFresh === true };
 
   const targetsIn = src.targets === undefined || src.targets === null ? {} : src.targets;
   const targetsCheck = validateTargets(targetsIn);
@@ -166,6 +167,22 @@ export function normalizeJobRequest(body = {}) {
 function normalizeRecord(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   return { share: raw.share === true };
+}
+
+/** What was built from scratch, as the portal keeps it: a name, a date, the environment choice, and what is done. Never an address or an id. */
+export function cleanScratch(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const name = plainText(raw.name, 80);
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(raw.createdAt || "")) ? String(raw.createdAt) : null;
+  const stopped = plainText(raw.stopped, 200);
+  return {
+    ...(name ? { name } : {}),
+    ...(day ? { createdAt: day } : {}),
+    reused: raw.reused === true,
+    environment: raw.environment === "set" ? "set" : "default",
+    stages: (Array.isArray(raw.stages) ? raw.stages : []).map((s) => cleanText(s, 24)).filter((s) => /^[a-z-]{2,24}$/.test(s)).slice(0, 12),
+    ...(stopped ? { stopped } : {}),
+  };
 }
 
 /** What the companion made during a job, as the portal keeps it: a kind, a name, and a sentence. Never an address or an id. */
@@ -202,6 +219,17 @@ export function cleanSignIn(raw) {
       .filter((check) => check.title)
       .slice(0, 8),
   };
+}
+
+/** What the plan says the computer will do for one shot, in plain words: its stage of the lab, or why it needs a person. */
+function plannedSetupLines(capture) {
+  const scratch = capture?.scratch;
+  if (scratch?.blocker && BLOCKERS[scratch.blocker]) return [cleanText(BLOCKERS[scratch.blocker].reason, 160)];
+  if (scratch?.scoped) {
+    const stage = STAGES.find((s) => s.id === scratch.stage);
+    return [`Builds the practice agent as far as this step needs${stage ? `, then: ${stage.label.toLowerCase()}` : ""}`];
+  }
+  return Array.isArray(capture?.setup?.summary) ? capture.setup.summary.map((s) => cleanText(s, 120)).slice(0, 10) : [];
 }
 
 function countShots(shots) {
@@ -414,7 +442,8 @@ export function createJobStore({
     const mode = CAPTURE_MODES.includes(options.mode) ? options.mode : "smart";
     const values = targetValuesFromJob(env, targets);
     // What the job may do on its own. The job record keeps only the level; the practice environment address stays in the plan file, for the companion.
-    const carried = mode === "autonomous" && autonomy ? { version: autonomy.version || 1, consented: true, level: autonomy.level === "practice" ? "practice" : "read-only" } : null;
+    const carried = mode === "autonomous" && autonomy ? { version: autonomy.version || 1, consented: true, level: ["practice", "scratch"].includes(autonomy.level) ? autonomy.level : "read-only" } : null;
+    const withEnvironment = carried && carried.level !== "read-only";
     const job = {
       schema: 1,
       id,
@@ -437,7 +466,7 @@ export function createJobStore({
       events: [],
     };
     job.progress = countShots(job.shots);
-    writeJsonAtomic(planFile(id), { schema: 1, id, env, targets, shots, options: job.options, autonomy: carried ? { ...carried, practiceEnvironmentUrl: carried.level === "practice" ? autonomy.practiceEnvironmentUrl || "" : "" } : null });
+    writeJsonAtomic(planFile(id), { schema: 1, id, env, targets, shots, options: job.options, autonomy: carried ? { ...carried, practiceEnvironmentUrl: withEnvironment ? autonomy.practiceEnvironmentUrl || "" : "", ...(carried.level === "scratch" ? { scratchContext: autonomy.scratchContext || null, startFresh: autonomy.startFresh === true } : {}) } : null });
     const event = addEvent(job, "queued", `Queued ${shots.length} shot${shots.length === 1 ? "" : "s"}.`);
     persist(job, event);
     prune();
@@ -470,8 +499,8 @@ export function createJobStore({
       steps: [],
       setup: null,
       // What the plan says the computer will do, in plain words, before it does it.
-      plannedSetup: Array.isArray(capture?.setup?.summary) ? capture.setup.summary.map((s) => cleanText(s, 120)).slice(0, 10) : [],
-      needsPractice: capture?.setup?.needsPractice === true,
+      plannedSetup: plannedSetupLines(capture),
+      needsPractice: capture?.setup?.needsPractice === true || (capture?.scratch?.scoped === true && !capture.scratch.blocker),
     };
     const effective = effectiveModeFor(shot, mode);
     if (effective === "manual") {
@@ -483,8 +512,9 @@ export function createJobStore({
       row.cause = "needs-you";
       row.message = "This screen needs you to set it up. Automatic mode skips it. Use “Retake guided”, or choose Smart.";
     } else if (effective === "auto" || effective === "autonomous") {
-      // A shot that runs in the practice agent does not need the person's own agent.
-      const practiceRun = effective === "autonomous" && autonomy?.level === "practice" && capture?.setup?.needsPractice === true;
+      // A shot that runs in the practice agent does not need the person's own agent. Built from scratch, no shot does.
+      const scratchRun = effective === "autonomous" && autonomy?.level === "scratch";
+      const practiceRun = scratchRun || (effective === "autonomous" && autonomy?.level === "practice" && capture?.setup?.needsPractice === true);
       const needed = effective === "autonomous" ? [...new Set([...(capture?.needs || []), ...(capture?.agentNeeds || [])])] : capture?.needs || [];
       const missing = missingRequirements(needed, values).filter((id) => !(practiceRun && id === "copilot-studio-agent"));
       if (missing.length) {
@@ -715,6 +745,7 @@ export function createJobStore({
     const good = counts.captured + counts.needsReview;
     const needsSignIn = summarizeSignInNeeds(job.shots, productLabel);
     const created = cleanCreated(summary.created);
+    const scratch = cleanScratch(summary.scratch);
     const signIn = needsSignIn || counts.failed ? cleanSignIn(summary.signIn) : null;
     // Which account the screenshots came from (flags only), and why a capture stopped before it started.
     const account = cleanAccount(summary.account);
@@ -725,6 +756,7 @@ export function createJobStore({
       message: cleanText(summary.message, 300) || null,
       ...(needsSignIn ? { needsSignIn } : {}),
       ...(created.length ? { created } : {}),
+      ...(scratch ? { scratch } : {}),
       ...(signIn ? { signIn } : {}),
       ...(account ? { account } : {}),
       ...(stoppedAccount ? { needsAccount: stoppedAccount } : {}),

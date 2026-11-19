@@ -132,7 +132,7 @@ export function decideAccount({ mode = "separate", explicitMode = false, source 
     return { action: "stop", code: "wrong-account", verified: false, message: `You are signed in to a different account than the one that owns that ${what}. Run --setup-account and sign in with the account you want, then retake.` };
   }
   if (autonomous && !verified) {
-    return { action: "stop", code: "unverified", verified: false, message: "Automatic capture waits until you have chosen the account. Run --setup-account once and sign in with the account you want (add your agent address in Capture settings to have it checked every time), then retake." };
+    return { action: "stop", code: "unverified", verified: false, message: "Automatic capture waits until you have confirmed the account. Start the companion in a console window and answer yes when it asks, or run --setup-account once, then retake. (Adding your agent address in Capture settings checks it every time.)" };
   }
   return { action: "proceed", code: null, verified, message: "" };
 }
@@ -152,9 +152,11 @@ export function decideAccount({ mode = "separate", explicitMode = false, source 
  * @param {object} options.ctx `{mode, explicitMode, os, kind}`: how the account mode and this PC's work account were set
  * @param {string} options.dir the browser profile folder (the account classification is kept next to it)
  * @param {boolean} [options.autonomous]
+ * @param {(facts: {source: string}) => Promise<boolean>} [options.confirmAccount] asked once, right after the person signed in in this window, when
+ *   an automatic job has nothing to check the account against: a yes makes the account "confirmed by you" and the job goes on
  * @returns {Promise<{ok: boolean, signIn?: object, account: object, decision: object, source: string, landing: object}>}
  */
-export async function verifyProductAccount({ page, gate, product, values = {}, startUrl, ctx, dir, autonomous = false, trace = null, log = null, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), navigate = navigateWithSignIn }) {
+export async function verifyProductAccount({ page, gate, product, values = {}, startUrl, ctx, dir, autonomous = false, confirmAccount = null, trace = null, log = null, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), navigate = navigateWithSignIn }) {
   const expected = expectedFromValues(product, values);
   const target = expected.url || startUrl;
   const base = { mode: ctx.mode, osWorkAccountDetected: ctx.os?.osWorkAccount ?? null, browser: ctx.kind, inPrivate: ctx.inPrivate === true };
@@ -174,9 +176,16 @@ export async function verifyProductAccount({ page, gate, product, values = {}, s
   const shown = signInPageShown(gate.detector?.hops?.() || []);
   const classified = classifyAccountSource({ signInShown: shown, inOsTenant, osWorkAccount: ctx.os?.osWorkAccount ?? null, previous: record?.source || null });
   const landing = assessAccountLanding({ expected, finalUrl: landedUrl, title });
-  const decision = decideAccount({ mode: ctx.mode, explicitMode: ctx.explicitMode === true, source: classified.source, expected, landing, confirmed: record?.confirmed === true, autonomous, browser: ctx.kind });
+  let decision = decideAccount({ mode: ctx.mode, explicitMode: ctx.explicitMode === true, source: classified.source, expected, landing, confirmed: record?.confirmed === true, autonomous, browser: ctx.kind });
+  let confirmedNow = false;
+  // Nothing of the person's to check the account against, and it is not the Windows work account: ask once, in this same window's console.
+  if (decision.code === "unverified" && typeof confirmAccount === "function" && classified.source !== "windows-sso" && inOsTenant !== true) {
+    confirmedNow = (await confirmAccount({ source: classified.source }).catch(() => false)) === true;
+    trace?.event("account-confirm", { product, asked: true, confirmed: confirmedNow });
+    if (confirmedNow) decision = decideAccount({ mode: ctx.mode, explicitMode: ctx.explicitMode === true, source: classified.source, expected, landing, confirmed: true, autonomous, browser: ctx.kind });
+  }
   const verifiedFor = decision.verified && landing.state === "ok" ? expected.what : null;
-  if (dir) writeAccountRecord(dir, { source: classified.source, verified: decision.verified, verifiedFor, inOsTenant });
+  if (dir) writeAccountRecord(dir, { source: classified.source, verified: decision.verified, verifiedFor, inOsTenant, ...(confirmedNow ? { confirmed: true } : {}) });
   trace?.event("account-check", { product, source: classified.source, why: classified.why, mode: ctx.mode, browser: ctx.kind, signInShown: shown, inOsTenant, landing: landing.state, landingReason: landing.reason, hasAddress: expected.hasAddress, action: decision.action, code: decision.code, verified: decision.verified });
   return { ok: decision.action === "proceed", account: accountPayload({ ...base, source: classified.source, verified: decision.verified, inOsTenant, verifiedFor }), decision, source: classified.source, landing, verifiedFor };
 }

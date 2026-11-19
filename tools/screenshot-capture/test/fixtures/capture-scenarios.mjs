@@ -92,13 +92,13 @@ export async function startPortal({ repoDir, storageRoot, env = {} }) {
 }
 
 /** Build a small Copilot Studio lab offline (no Learn, no model) in `<storageRoot>/generated-labs`. */
-export async function buildFixtureLab({ repoDir, storageRoot, features = FIXTURE_FEATURES, products = ["copilot-studio"], sharepointSiteUrl = "", sharepointSiteName = "" }) {
+export async function buildFixtureLab({ repoDir, storageRoot, features = FIXTURE_FEATURES, products = ["copilot-studio"], harness = "standard", sharepointSiteUrl = "", sharepointSiteName = "" }) {
   const generatedRoot = path.join(storageRoot, "generated-labs");
   fs.mkdirSync(generatedRoot, { recursive: true });
   const emptyLabs = fs.mkdtempSync(path.join(os.tmpdir(), "capture-empty-labs-"));
   const { generateLab } = await import(pathToFileURL(path.join(repoDir, "portal", "lib", "lab-builder", "generator.js")).href);
   const build = await generateLab(
-    { products, features, harness: "standard", includeCore: false, ...(sharepointSiteUrl ? { sharepointSiteUrl } : {}), ...(sharepointSiteName ? { sharepointSiteName } : {}) },
+    { products, features, harness, includeCore: false, ...(sharepointSiteUrl ? { sharepointSiteUrl } : {}), ...(sharepointSiteName ? { sharepointSiteName } : {}) },
     { outputRoot: generatedRoot, labsDir: emptyLabs, useLearnMcp: false, useLlm: false },
   );
   fs.rmSync(emptyLabs, { recursive: true, force: true });
@@ -203,6 +203,7 @@ export async function startScenario({ repoDir, site: siteOptions = {}, siteInsta
         options: { headless: true, waitForSignIn: true, signInWaitSec, callouts: "none", ...runOptions },
         log: (line) => lines.push(String(line)),
         heartbeatMs: 60_000,
+        shouldStop: runOptions.shouldStop,
         sleepFn: runOptions.sleepFn,
       });
       const finished = (await api("GET", `/api/capture/jobs/${queued.body.job.id}`)).body.job;
