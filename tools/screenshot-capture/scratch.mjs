@@ -12,10 +12,10 @@
 // list. A step the computer cannot do ends the shot as "needs you" with a plain, specific reason. An unexpected prompt
 // (a license, a consent, a quota message) stops the whole run.
 
-import { createExecutor } from "./executor.mjs";
+import { createExecutor, removableItemsInPage } from "./executor.mjs";
 import { TIER } from "./guard.mjs";
 import { findControls } from "./locator.mjs";
-import { BLOCKERS, classifyStage, scratchInputs, stageById, stagesBefore, sanitizeScratchContext } from "./walkthrough.mjs";
+import { BLOCKERS, resolveStage, scratchInputs, stageById, stagesBefore, sanitizeScratchContext } from "./walkthrough.mjs";
 import * as R from "./scratch-recipes.mjs";
 import { sanitizeSteps } from "./setup-steps.mjs";
 import { parseCopilotStudioAddress } from "./targets.mjs";
@@ -73,6 +73,7 @@ function stepFailure(label, result) {
   if (result?.halted) return { cause: String(result.haltKind || "").startsWith("unexpected-") || result.haltKind === "write-limit" ? "run-stopped" : "unexpected-effect", error: `${result.halted}`, halted: true };
   if (failed?.code === "blocked") return { cause: "blocked-by-safety", error: `The computer would not ${label.toLowerCase()}, because ${failed.blockedBy ? `it is something it never does (${failed.blockedBy})` : "a safety rule stops it"}. Set the screen up yourself with “Retake guided”.` };
   if (failed?.code === "cancelled") return { cause: "stopped", error: "You stopped the capture, so nothing else was changed." };
+  if (failed?.id === "knowledge-add-url") return { cause: "automation-failed", error: "The product did not accept the website address (it allows a public website only up to two levels deep, and its Add button stays off), so no knowledge was added. Use “Retake guided”, or add a website yourself." };
   return { cause: "automation-failed", error: `The computer could not ${label.toLowerCase()}${failed?.why ? ` (${failed.why})` : ""}. Use “Show me once” so it can learn this step, or set the screen up yourself with “Retake guided”.` };
 }
 
@@ -136,14 +137,13 @@ export async function ensureScratchAgent(args) {
   return result;
 }
 
-async function buildScratchAgent({ page, session, go, trace = null, log = null, sleep = sleepDefault, terms = [], home = null, companion = "", readiness = {} }) {
-  const scratch = scratchState(session);
-  const { autonomy, registry } = session;
-  if (!autonomy.scratch || !registry) return needsYou("scratch-off", "This job did not allow the computer to build a practice agent.");
-  const key = scratch.context.key;
-
-  // The environment: the one the person chose, or the one the product opens for this account.
-  const chosen = parseCopilotStudioAddress(autonomy.practiceEnvironmentUrl || "");
+/**
+ * The environment a job works in: the one the person chose, or the one the product opens for this account (the first page is a
+ * personal home that moves on to the real environment, so the address is waited for, never trusted at once). Remembered on the session.
+ * @returns {Promise<{signIn?: object, env?: object}>} `env` is missing when the product opened none
+ */
+export async function ensureEnvironment({ page, session, go, sleep = sleepDefault }) {
+  const chosen = parseCopilotStudioAddress(session.autonomy?.practiceEnvironmentUrl || "");
   let env = chosen;
   if (!env.envBase && session.cs?.envBase) env = parseCopilotStudioAddress(`${session.cs.envBase}/home`);
   if (!env.envBase || isProvisionalEnv(env.envId)) {
@@ -153,7 +153,7 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
   if (!env.envBase) {
     const origin = parseCopilotStudioAddress(session.values?.copilotStudioUrl || "").origin || DEFAULT_START.replace(/\/$/, "");
     const opened = await go(`${origin}/`, "Copilot Studio");
-    if (opened.signIn) return { ok: false, signIn: opened.signIn };
+    if (opened.signIn) return { signIn: opened.signIn };
     env = await settledEnvironment(page, { sleep });
   }
   if (env.envBase && isProvisionalEnv(env.envId) && !chosen.envBase) {
@@ -161,8 +161,21 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
     await go(`${env.envBase}/agents`, "the list of agents");
     env = await settledEnvironment(page, { sleep });
   }
-  if (!env.envBase) return needsYou("no-environment", "Copilot Studio did not open an environment for this account, so there is nowhere to build the practice agent. Open Copilot Studio in the companion's window once, or give the environment's address in the consent card.");
+  if (!env.envBase) return {};
   session.cs = { ...(session.cs || {}), envBase: env.envBase };
+  return { env };
+}
+
+async function buildScratchAgent({ page, session, go, trace = null, log = null, sleep = sleepDefault, terms = [], home = null, companion = "", readiness = {} }) {
+  const scratch = scratchState(session);
+  const { autonomy, registry } = session;
+  if (!autonomy.scratch || !registry) return needsYou("scratch-off", "This job did not allow the computer to build a practice agent.");
+  const key = scratch.context.key;
+
+  const found = await ensureEnvironment({ page, session, go, sleep });
+  if (found.signIn) return { ok: false, signIn: found.signIn };
+  if (!found.env) return needsYou("no-environment", "Copilot Studio did not open an environment for this account, so there is nowhere to build the practice agent. Open Copilot Studio in the companion's window once, or give the environment's address in the consent card.");
+  const env = found.env;
   const envId = env.envId;
   const base = { envBase: env.envBase, envId };
 
@@ -351,7 +364,25 @@ export async function prepareStage({ stage, page, session, go, trace = null, log
   const { steps, missing } = strictSteps(raw);
   if (missing.length) return remember({ ok: false, cause: "blocked-by-safety", error: `${info.label}: a step of this recipe (${missing.join(", ")}) is something the safety rules never allow, so the stage was not run.` });
   const executor = makeExecutor({ page, session, practice: { agentId: agent.botId, envId: agent.envId }, trace, log, sleep, terms, home, shot: shot || `stage-${stage}`, companion, readiness });
-  const result = await executor.run(steps);
+  let toRun = steps;
+  // A knowledge source that is already listed is not added again: the Build tab is looked at first.
+  if (stage === "knowledge" && scratch.layout === "newer") {
+    const lead = steps.filter((s) => /^build-tab/.test(s.id));
+    const led = await executor.run(lead);
+    if (!led.ok) {
+      await executor.cleanup().catch(() => {});
+      const failure = stepFailure(info.label, led);
+      if (failure.halted) scratch.halted = { kind: led.haltKind, message: led.halted };
+      return remember({ ok: false, cause: failure.cause, error: `${info.label}: ${failure.error}`, halted: failure.halted === true, diagnostic: led.diagnostic?.file || null });
+    }
+    if ((await page.evaluate(removableItemsInPage).catch(() => 0)) > 0) {
+      scratch.done.add(stage);
+      session.registry.markStage(agent.botId, stage);
+      return { ok: true, ran: false, skipped: "A knowledge source is already listed, so none is added again." };
+    }
+    toRun = steps.filter((s) => !/^build-tab/.test(s.id));
+  }
+  const result = await executor.run(toRun);
   const changed = result.steps.filter((r) => r.status === "ok" && r.tier >= TIER.PRACTICE && r.effect !== "already there");
   for (const r of changed) session.registry.recordChange({ botId: agent.botId, what: r.summary || `${r.action} in the practice agent`, shot });
   if (!result.ok) {
@@ -368,7 +399,7 @@ export async function prepareStage({ stage, page, session, go, trace = null, log
 const wordsOf = (shot) => [shot?.caption, shot?.alt, ...(shot?.instructions || []), ...((shot?.callouts || []).map((c) => c.text || c.label))].map((t) => String(t || "").replace(/\*\*/g, "")).join(" ").toLowerCase();
 
 /** The steps that put the screen of a shot into the state its picture shows, on the layout the agent has. */
-export function showStepsFor({ stage, shot, layout }) {
+export function showStepsFor({ stage, shot, layout, website = "" }) {
   const kind = String(shot?.kind || "").toLowerCase();
   const words = wordsOf(shot);
   const dialog = kind === "dialog" || /\bdialog\b/.test(words);
@@ -383,8 +414,15 @@ export function showStepsFor({ stage, shot, layout }) {
       return newer ? R.tabSteps("Build") : nav("Overview");
     case "knowledge":
       return [...(newer ? R.tabSteps("Build") : nav("Knowledge")), ...(dialog ? R.OPEN_ADD_KNOWLEDGE : [])];
-    case "tools":
-      return [...(newer ? R.tabSteps("Build") : nav("Tools", ["Actions"])), ...(dialog ? R.OPEN_ADD_TOOL : [])];
+    case "tools": {
+      const base = newer ? R.tabSteps("Build") : nav("Tools", ["Actions"]);
+      if (!dialog) return base;
+      const feature = String(shot?.featureId || shot?.feature || "").toLowerCase();
+      if (newer && /(?:^|-)skills?$/.test(feature)) return [...base, ...R.OPEN_ADD_SKILL];
+      // The Add a tool dialog opens on Featured; the MCP picture is its MCP tab.
+      if (newer && /(?:^|-)(?:tools-mcp|mcp-servers?)$/.test(feature)) return [...base, ...R.OPEN_ADD_TOOL, ...R.innerTabSteps(["MCP"], { required: true })];
+      return [...base, ...R.OPEN_ADD_TOOL];
+    }
     case "model":
       return newer ? [...R.tabSteps("Build"), ...R.OPEN_MODEL_LIST] : null;
     case "preview":
@@ -393,12 +431,15 @@ export function showStepsFor({ stage, shot, layout }) {
       return [...(newer ? R.tabSteps("Evaluate") : nav("Evaluation", ["Evaluations"])), ...(newer && /\b(?:new evaluation|create (?:an? |your first )?evaluation|data set|dataset|test set|evaluation name)\b/.test(words) ? R.OPEN_NEW_EVALUATION : [])];
     case "publish":
       if (dialog || /\bdialog\b|\bpublish agent\b/.test(words) && !/\b(?:confirmation|success|published)\b/.test(words)) return [...(newer ? R.tabSteps("Build") : []), ...R.OPEN_PUBLISH_DIALOG];
-      return [...(newer ? R.tabSteps("Build") : []), ...R.PUBLISH_AGENT];
+      // Just before the one publish click, the agent must still look built: a knowledge source is listed and the instructions are not the empty placeholder.
+      return [...(newer ? R.tabSteps("Build") : []), ...(newer ? [{ id: "publish-built", action: "wait-for", say: "Checking that the agent is built before publishing it", expect: { ...(website ? { removable: true } : {}), absent: ["Instructions guide how your agent responds"] }, timeoutMs: 8000, retries: 0 }] : []), ...R.PUBLISH_AGENT];
     case "monitor":
       return [...(newer ? R.tabSteps("Monitor") : nav("Analytics")), ...(/\b(?:session|transcript|conversation)\b/.test(words) ? R.MONITOR_SESSIONS : [])];
     case "settings":
       if (/\bmemory\b/.test(words)) return [...(newer ? R.tabSteps("Build") : []), ...R.MEMORY_ON];
       if (!newer) return [...nav("Settings"), ...(/\b(?:generative|orchestration)\b/.test(words) ? R.CLASSIC_ORCHESTRATION : [])];
+      // The dialog opens on Agent details; a picture of any other setting must name its tab, or it is not guessed.
+      if (!R.settingsTabFor(words) && !/\b(?:agent details|identity|schema name|agent settings|settings dialog)\b/.test(words)) return null;
       return [...R.tabSteps("Build"), ...R.OPEN_AGENT_SETTINGS, ...(R.settingsTabFor(words) ? R.innerTabSteps(R.settingsTabFor(words), { required: true }) : [])];
     default:
       return null;
@@ -422,9 +463,16 @@ export function stagesToPrepare(stage, shot) {
  */
 export async function prepareScratchShot({ page, shot, session, go, trace = null, log = null, sleep = sleepDefault, terms = [], home = null, companion = "", readiness = {}, guided = false }) {
   const scratch = scratchState(session);
-  const found = classifyStage(shot);
+  const found = resolveStage(shot);
   if (String(shot.capture?.product || shot.product || "copilot-studio") !== "copilot-studio") return { ok: true, passthrough: true };
-  if (!found.scoped && !found.blocker) return { ok: true, passthrough: true };
+  if (!found.scoped && !found.blocker) {
+    // A screen the walkthrough does not build (the home page, the Agents list) still needs the real environment, which the product reaches through a personal home first.
+    if (!session.cs?.envBase) {
+      const environment = await ensureEnvironment({ page, session, go, sleep });
+      if (environment.signIn) return { ok: false, signIn: environment.signIn };
+    }
+    return { ok: true, passthrough: true };
+  }
   // A person who sets a screen up themselves ("Retake guided", "Show me once") is not stopped by what the computer cannot do.
   if (found.blocker && !guided) {
     const blocker = BLOCKERS[found.blocker];
@@ -461,8 +509,8 @@ export async function prepareScratchShot({ page, shot, session, go, trace = null
   const opened = await openPracticeAgent({ page, session, go, sleep, trace });
   if (opened.signIn) return { ok: false, signIn: opened.signIn };
   if (!opened.ok) return opened;
-  const raw = showStepsFor({ stage: found.stage, shot, layout: scratch.layout });
-  if (!raw) return needsYou("needs-you", `This screen is not in the layout this agent has (${scratch.layout === "classic" ? "the classic layout has no model list" : "it could not be recognized"}). Use “Show me once” so the computer learns it, or “Retake guided”.`);
+  const raw = showStepsFor({ stage: found.stage, shot, layout: scratch.layout, website: scratch.context.website });
+  if (!raw) return needsYou("needs-you", scratch.layout === "classic" && found.stage === "model" ? "The classic layout has no model list, so there is nothing to show." : "The computer has not seen how to put this screen on the practice agent in the real product, so it does not guess. Use “Show me once” so it learns the step, or “Retake guided”.");
   const compiled = strictSteps(raw);
   if (compiled.missing.length) return needsYou("blocked-by-safety", `A step for this screen (${compiled.missing.join(", ")}) is something the safety rules never allow, so it was not run. Set the screen up yourself with “Retake guided”.`);
   return { ok: true, agent: scratch.agent, layout: scratch.layout, stage: found.stage, steps: compiled.steps, inputs: scratch.inputs };

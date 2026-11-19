@@ -391,6 +391,11 @@ export async function runCaptureShot({
     const needed = autonomous ? [...new Set([...(capture.needs || []), ...(capture.agentNeeds || [])])] : capture.needs;
     const missing = missingRequirements(needed, session.values).filter((id) => !(practiceInfo && id === "copilot-studio-agent"));
     if (missing.length) {
+      // Built from scratch, a screen the walkthrough does not put on the practice agent is not held back for the person's own agent: it is left, with a plain reason.
+      if (scratchJob && !practiceInfo && missing.every((id) => id === "copilot-studio-agent")) {
+        trace?.event("scratch-stopped", { shot: shot.filename, cause: "needs-you", blocker: "not-built" });
+        return done(failure("needs-you", "needs-you", "This screen is about an agent but is not one the computer builds on the practice agent, so it was left. Use “Retake guided”, or upload the picture.", { detail }));
+      }
       const cause = REQUIREMENTS[missing[0]]?.cause || "no-address";
       trace?.event("shot-skipped", { shot: shot.filename, cause, needs: missing.join(",") });
       return done(failure("skipped", cause, needMessage(missing), { needs: missing, detail }));

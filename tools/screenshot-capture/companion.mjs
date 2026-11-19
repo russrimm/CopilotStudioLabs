@@ -46,7 +46,7 @@ import { applyRedaction, burnCalloutMarkers, clearOverlays, collectVisibleLabels
 import { diagnosisLines, signInReport } from "./signin-diagnosis.mjs";
 import { effectiveModeFor, maskedAddress, targetField, targetValuesFromJob, validateTargetValue } from "./targets.mjs";
 import { createTrace, traceFilePath } from "./trace.mjs";
-import { classifyStage } from "./walkthrough.mjs";
+import { resolveStage } from "./walkthrough.mjs";
 import { startAgainLines } from "./start-hint.mjs";
 
 export const COMPANION_VERSION = "1.6.0";
@@ -589,7 +589,7 @@ export async function captureShot({ page, shot, assetsDir, screenshotsDir, env, 
   const classified = Boolean(shot.capture?.version);
   const mode = classified ? effectiveMode || (shot.capture.mode === "guided" ? "guided" : "auto") : "legacy";
   // Built from scratch, the walkthrough proves each screen by its tabs and controls; the address alone cannot (the newer layout keeps /knowledge in the address while showing Build).
-  const scratchLenient = session?.autonomy?.scratch === true && classifyStage(shot).scoped;
+  const scratchLenient = session?.autonomy?.scratch === true && resolveStage(shot).scoped;
   const attempts = mode === "guided" ? 1 : 2;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     const evidence = { finalUrl: "", title: "", visibleText: [], redaction: null, capturedAt: null, executedSteps: 0, mode, routeSteps: [], setup: null };

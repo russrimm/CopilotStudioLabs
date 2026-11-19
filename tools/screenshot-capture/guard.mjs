@@ -224,7 +224,7 @@ function wordMatcher(terms, { start = false } = {}) {
 
 const ACCOUNT_TERMS = ["sign out", "log out", "logout", "signout", "log off", "sign off", "switch account", "switch user", "use another account", "use a different account", "add account", "remove account", "forget account", "se deconnecter", "deconnexion", "abmelden", "ausloggen", "cerrar sesion", "disconnetti", "esci dall account", "terminar sessao", "sair da conta", "uitloggen", "afmelden", "サインアウト", "ログアウト", "ログオフ", "退出登录", "注销", "登出", "changer de compte", "konto wechseln", "cambiar de cuenta", "cambia account", "trocar de conta", "アカウントを切り替え", "切换账户"];
 const DESTRUCTIVE_TERMS = ["delete", "remove", "erase", "purge", "destroy", "disconnect", "unregister", "revoke", "uninstall", "wipe", "trash", "recycle bin", "archive", "reset all", "clear all data", "cancel subscription", "cancel plan", "cancel license", "cancel licence", "cancel order", "unsubscribe", "supprimer", "retirer", "effacer", "loschen", "löschen", "entfernen", "eliminar", "borrar", "quitar", "elimina", "rimuovi", "cancella", "excluir", "remover", "apagar", "verwijderen", "verwijder", "削除", "删除", "移除", "삭제"];
-const EXTERNAL_TERMS = ["share", "sharing", "invite", "collaborate", "add people", "add members", "add collaborators", "manage access", "grant access", "request access", "send email", "send an email", "send invitation", "send invite", "send link", "email link", "submit for approval", "make available", "distribute", "partager", "teilen", "compartir", "condividi", "compartilhar", "delen", "共有", "共享", "inviter", "einladen", "invitar", "invita", "convidar", "uitnodigen", "招待", "邀请", "邀請"];
+const EXTERNAL_TERMS = ["share", "sharing", "invite", "collaborate", "add people", "add members", "add collaborators", "manage access", "grant access", "request access", "send email", "send an email", "send invitation", "send invite", "send link", "email link", "submit for approval", "make available", "distribute", "multi agent", "connected agent", "partager", "teilen", "compartir", "condividi", "compartilhar", "delen", "共有", "共享", "inviter", "einladen", "invitar", "invita", "convidar", "uitnodigen", "招待", "邀请", "邀請"];
 const CHANNEL_PUBLISH_RE = /(?<![\p{L}\p{N}])(?:publish|deploy|turn on|connect|add)\s+(?:to|on|for)?\s*(?:the\s+)?(?:channels?|teams|microsoft teams|demo website|custom website|website|web chat|sharepoint|facebook|slack|telegram|line|twilio|whatsapp|sms|email|direct line|m365(?: copilot)?|microsoft 365(?: copilot)?|office 365|outlook|dynamics)(?![\p{L}\p{N}])/u;
 const CONSENT_TERMS = ["install", "consent", "authorize", "authorise", "allow access", "grant", "accept permissions", "add to teams", "add to outlook", "get it now", "uninstall"];
 // A name that begins with one of these asks for a connection, a permission, or a hand-off to another product: never done, whatever a lab says.
@@ -489,6 +489,17 @@ export function checkPublicWebsite(raw) {
   if (url.search || /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(url.pathname)) return { ok: false, url: "", reason: "identifier" };
   const clean = `${url.origin}${url.pathname}`.replace(/\/+$/, "");
   return clean.length <= 200 ? { ok: true, url: clean } : { ok: false, url: "", reason: "too-long" };
+}
+
+/** The product accepts a public website only up to two levels deep ("learn.microsoft.com/a/b"): a longer address is cut to its first two parts. */
+export function limitWebsiteDepth(raw, levels = 2) {
+  try {
+    const url = new URL(String(raw ?? ""));
+    const parts = url.pathname.split("/").filter(Boolean).slice(0, levels);
+    return `${url.origin}${parts.length ? `/${parts.join("/")}` : ""}`;
+  } catch {
+    return "";
+  }
 }
 
 // ── Hosts ───────────────────────────────────────────────────────────────────

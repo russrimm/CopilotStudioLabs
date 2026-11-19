@@ -57,6 +57,8 @@ function sanitizeExpect(raw) {
   if (raw.noDialog === true) out.noDialog = true;
   if (raw.answer === true) out.answer = true;
   if (raw.panel === true) out.panel = true;
+  // An item that can be removed (an added knowledge source) is listed.
+  if (raw.removable === true) out.removable = true;
   // The open dialog may hold only these controls (and must hold the required ones): how a walkthrough proves a dialog is the plain one before it confirms it.
   const controls = (Array.isArray(raw.dialogControls) ? raw.dialogControls : []).map(safeName).filter(Boolean).slice(0, 12);
   if (controls.length) out.dialogControls = controls;

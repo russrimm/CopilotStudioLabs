@@ -8,16 +8,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { TIER, authorizeStep, checkPublicWebsite, classifyControl, resolveAutonomy } from "../guard.mjs";
+import { TIER, authorizeStep, checkPublicWebsite, classifyControl, limitWebsiteDepth, resolveAutonomy } from "../guard.mjs";
 import { ensurePracticeOptIn, hasPracticeOptIn, loadSettings, saveSettings } from "../companion.mjs";
 import { buildPracticeReport, createPracticeRegistry, practiceName } from "../practice.mjs";
 import { insidePracticeAgent, stepFromEvent } from "../recorder.mjs";
 import * as R from "../scratch-recipes.mjs";
 import { isCreateFlowUrl, showStepsFor, stagesToPrepare, strictSteps } from "../scratch.mjs";
 import { sanitizeSteps } from "../setup-steps.mjs";
-import { BLOCKERS, STAGES, classifyStage, orderForWalkthrough, sanitizeScratchContext, scratchAgentName, scratchInputs, stagesBefore, summarizeBlockers } from "../walkthrough.mjs";
+import { BLOCKERS, STAGES, classifyStage, orderForWalkthrough, resolveStage, sanitizeScratchContext, scratchAgentName, scratchInputs, stagesBefore, summarizeBlockers } from "../walkthrough.mjs";
 
-const ENV = "https://copilotstudio.microsoft.com/environments/6b988893-6c74-4e65-9d9a-f7f044be1d08";
+const ENV = "https://copilotstudio.microsoft.com/environments/5e5e5e5e-1234-4abc-8def-0123456789ab";
 const BOT = "7a1c0001-5b3d-4e6f-8a9b-c0d1e2f3a4b5";
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), "scratch-unit-"));
 const shot = (over = {}) => ({ filename: "a.png", featureId: "mc-instructions", section: "build", kind: "after", product: "copilot-studio", caption: "A caption", alt: "An alt", instructions: [], callouts: [], moduleOrder: 1, ...over });
@@ -49,7 +49,7 @@ test("a shot belongs to the stage its feature names, and the stages are built in
 
 test("environment pages, other products, and screens outside the agent are not built from scratch", () => {
   assert.deepEqual(classifyStage(shot({ section: "home", featureId: "create-agent" })), { stage: "other", order: 5, scoped: false, blocker: null });
-  assert.equal(classifyStage(shot({ section: "agents", featureId: "create-agent" })).scoped, false);
+  assert.equal(classifyStage(shot({ section: "agents", featureId: "create-agent", kind: "ui-location" })).scoped, false, "the list of agents is looked at as it is");
   assert.deepEqual(classifyStage(shot({ product: "sharepoint-ai", section: "sharepoint-site", featureId: "x" })), { stage: "other", order: 999, scoped: false, blocker: null }, "another product keeps its own screens");
   for (const [featureId, blocker] of [["dlp-governance", "admin"], ["channel-teams", "other-product"], ["voice-agents", "other-product"], ["mc-credit-billing", "admin"], ["servicenow-integration", "outside-agent"], ["topics", "outside-agent"]]) {
     const found = classifyStage(shot({ featureId, section: "settings" }));
@@ -73,6 +73,23 @@ test("a shot the computer cannot take says why in plain words, from what the pic
   }
   const groups = summarizeBlockers([{ capture: { scratch: { blocker: "connection" } } }, { capture: { scratch: { blocker: "connection" } } }, { capture: { scratch: { blocker: "files" } } }, { capture: { scratch: {} } }]);
   assert.deepEqual(groups.map((g) => [g.blocker, g.count]), [["connection", 2], ["files", 1]], "shots with the same reason are one group with one fix");
+});
+
+test("a dialog that starts from the Agents list belongs to its feature, a screen nobody has seen is never guessed, and the portal's own reading is used as it is", () => {
+  assert.equal(classifyStage(shot({ section: "agents", featureId: "mc-tools", kind: "dialog" })).stage, "tools", "a dialog is about its feature, not the list it starts from");
+  for (const featureId of ["connected-agents", "mc-connected-agents"]) assert.deepEqual([classifyStage(shot({ section: "agents", featureId, kind: "dialog" })).scoped, classifyStage(shot({ section: "agents", featureId, kind: "dialog" })).blocker], [false, "other-agent"], "other agents are never touched");
+  assert.equal(classifyStage(shot({ section: "agents", featureId: "create-agent", kind: "ui-location" })).scoped, false, "the list itself is looked at as it is");
+  for (const featureId of ["mc-hooks", "mc-triggers", "mc-created-files"]) {
+    const found = classifyStage(shot({ featureId, section: "build", kind: "dialog" }));
+    assert.deepEqual([found.scoped, found.blocker], [false, "unseen"], featureId);
+  }
+  assert.ok(BLOCKERS.unseen.reason.length > 40 && BLOCKERS.unseen.fix.length > 15);
+  assert.deepEqual([classifyStage(shot({ section: "agents", featureId: "mc-sdk-agent", kind: "settings" })).blocker, classifyStage(shot({ section: "agents", featureId: "mc-sdk-agent", kind: "after" })).blocker], ["other-product", "other-product"]);
+  const given = { stage: "tools", order: 40, scoped: true, blocker: "connection" };
+  assert.deepEqual(resolveStage(shot({ featureId: "mc-instructions", capture: { scratch: given } })), { ...given }, "what the portal showed is what the computer does");
+  assert.equal(resolveStage(shot({ featureId: "mc-instructions", capture: { scratch: { stage: "nonsense", scoped: true } } })).stage, "instructions", "a descriptor that does not fit is ignored");
+  assert.equal(resolveStage(shot({ featureId: "mc-instructions", capture: { scratch: { stage: "tools", scoped: true, blocker: "made-up" } } })).blocker, null, "an unknown reason is not trusted");
+  assert.equal(resolveStage(shot({ featureId: "mc-instructions" })).stage, "instructions", "without one, the shot is read as it is");
 });
 
 test("the shots are walked in the order of the lab's modules, and a stage's own steps come after the stages it needs", () => {
@@ -106,7 +123,7 @@ test("the agent's name, instructions, questions, and website come from the lab a
   assert.equal(context.agentName, "Lab screenshots - Team", "the product cuts a name at 30 characters, so the title is shortened at a word");
   assert.match(context.instructions, /^You are Team Assistant\. Help with everyday team operations\. Cite/, "the lab's own text, on one line");
   assert.deepEqual(context.questions, ["What is our policy on this?", "Who do I contact about this?"]);
-  assert.equal(context.website, "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-sources-overview");
+  assert.equal(context.website, "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience", "cut to the two levels the product accepts");
   assert.equal(context.sharepointUrl, "https://contoso.sharepoint.com/sites/training");
   const inputs = scratchInputs(context);
   assert.deepEqual([inputs.agentName, inputs.question, inputs.website], ["Lab screenshots - Team", "What is our policy on this?", context.website]);
@@ -135,16 +152,21 @@ test("the agent's name, instructions, questions, and website come from the lab a
 test("only a public Microsoft documentation address can be typed as knowledge", () => {
   for (const ok of ["https://learn.microsoft.com/microsoft-copilot-studio/", "https://learn.microsoft.com/en-us/microsoft-copilot-studio/agents-experience/overview/"]) assert.equal(checkPublicWebsite(ok).ok, true, ok);
   assert.equal(checkPublicWebsite("https://learn.microsoft.com/a/b/").url, "https://learn.microsoft.com/a/b", "a trailing slash is dropped");
-  for (const bad of ["http://learn.microsoft.com/a", "https://user:pw@learn.microsoft.com/a", "https://learn.microsoft.com/a?token=abc", "https://learn.microsoft.com.evil.example.com/a", "https://example.com/a", "https://learn.microsoft.com:8443/a", "https://learn.microsoft.com/x/6b988893-6c74-4e65-9d9a-f7f044be1d08", "ftp://learn.microsoft.com/a", "not a url", ""]) assert.equal(checkPublicWebsite(bad).ok, false, bad);
+  // The product takes a public website only up to two levels deep: a longer address is cut to its first two parts.
+  assert.equal(limitWebsiteDepth("https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-add-existing-copilot"), "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience");
+  assert.equal(limitWebsiteDepth("https://learn.microsoft.com/a"), "https://learn.microsoft.com/a");
+  assert.equal(limitWebsiteDepth("https://learn.microsoft.com/"), "https://learn.microsoft.com");
+  assert.equal(sanitizeScratchContext({ website: "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview" }).website, "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience");
+  for (const bad of ["http://learn.microsoft.com/a", "https://user:pw@learn.microsoft.com/a", "https://learn.microsoft.com/a?token=abc", "https://learn.microsoft.com.evil.example.com/a", "https://example.com/a", "https://learn.microsoft.com:8443/a", "https://learn.microsoft.com/x/5e5e5e5e-1234-4abc-8def-0123456789ab", "ftp://learn.microsoft.com/a", "not a url", ""]) assert.equal(checkPublicWebsite(bad).ok, false, bad);
 });
 
 // ── Every step of every recipe is checked ───────────────────────────────────
 
-const ALL_RECIPES = { CREATE_AGENT_OPEN: R.CREATE_AGENT_OPEN, CREATE_AGENT_FILL: R.CREATE_AGENT_FILL, CREATE_AGENT_COMMIT: R.CREATE_AGENT_COMMIT, SET_INSTRUCTIONS: R.SET_INSTRUCTIONS, ADD_WEBSITE_KNOWLEDGE: R.ADD_WEBSITE_KNOWLEDGE, PUBLISH_AGENT: R.PUBLISH_AGENT, OPEN_PUBLISH_DIALOG: R.OPEN_PUBLISH_DIALOG, OPEN_ADD_KNOWLEDGE: R.OPEN_ADD_KNOWLEDGE, OPEN_ADD_TOOL: R.OPEN_ADD_TOOL, OPEN_MODEL_LIST: R.OPEN_MODEL_LIST, OPEN_AGENT_SETTINGS: R.OPEN_AGENT_SETTINGS, MEMORY_ON: R.MEMORY_ON, CLASSIC_ORCHESTRATION: R.CLASSIC_ORCHESTRATION, OPEN_NEW_EVALUATION: R.OPEN_NEW_EVALUATION, MONITOR_SESSIONS: R.MONITOR_SESSIONS };
+const ALL_RECIPES = { CREATE_AGENT_OPEN: R.CREATE_AGENT_OPEN, CREATE_AGENT_FILL: R.CREATE_AGENT_FILL, CREATE_AGENT_COMMIT: R.CREATE_AGENT_COMMIT, SET_INSTRUCTIONS: R.SET_INSTRUCTIONS, ADD_WEBSITE_KNOWLEDGE: R.ADD_WEBSITE_KNOWLEDGE, PUBLISH_AGENT: R.PUBLISH_AGENT, OPEN_PUBLISH_DIALOG: R.OPEN_PUBLISH_DIALOG, OPEN_ADD_KNOWLEDGE: R.OPEN_ADD_KNOWLEDGE, OPEN_ADD_TOOL: R.OPEN_ADD_TOOL, OPEN_ADD_SKILL: R.OPEN_ADD_SKILL, OPEN_MODEL_LIST: R.OPEN_MODEL_LIST, OPEN_AGENT_SETTINGS: R.OPEN_AGENT_SETTINGS, MEMORY_ON: R.MEMORY_ON, CLASSIC_ORCHESTRATION: R.CLASSIC_ORCHESTRATION, OPEN_NEW_EVALUATION: R.OPEN_NEW_EVALUATION, MONITOR_SESSIONS: R.MONITOR_SESSIONS };
 
 test("no step of any recipe is dropped by the safety rules, and only the steps that commit are tier 2", () => {
   // model-open and eval-new open a menu or a form behind a control that is not known to be safe, so they count as practice-agent steps.
-  const writes = new Set(["create-open", "create-name", "create-commit", "instructions-type", "instructions-save", "instructions-saved", "knowledge-add-url", "knowledge-add", "publish-confirm", "memory-on", "memory-save", "memory-saved", "genai-yes", "eval-new", "model-open", "sessions-open"]);
+  const writes = new Set(["create-open", "create-name", "create-commit", "instructions-type", "instructions-save", "instructions-saved", "knowledge-add-url", "knowledge-add", "knowledge-save", "publish-confirm", "memory-on", "memory-save", "memory-saved", "genai-yes", "eval-new", "model-open", "sessions-open"]);
   for (const [name, list] of Object.entries(ALL_RECIPES)) {
     const { steps, missing } = strictSteps(list);
     assert.deepEqual(missing, [], `${name}: a step was dropped (an alternate name probably sounds like something never done)`);
@@ -163,11 +185,11 @@ test("each stage shows its screen on the layout the agent has, and a recipe neve
   assert.deepEqual(ids("knowledge", { kind: "dialog" }), ["build-tab", "build-tab-open", "knowledge-open"]);
   assert.deepEqual(ids("knowledge", { kind: "after" }), ["build-tab", "build-tab-open"]);
   assert.deepEqual(ids("publish", { kind: "dialog" }), ["build-tab", "build-tab-open", "publish-open"], "the dialog shot opens the dialog and stops");
-  assert.deepEqual(ids("publish", { kind: "after", caption: "Your agent was published successfully", alt: "The publish confirmation" }), ["build-tab", "build-tab-open", "publish-open", "publish-plain", "publish-confirm", "publish-wait"], "the confirmation shot publishes");
+  assert.deepEqual(ids("publish", { kind: "after", caption: "Your agent was published successfully", alt: "The publish confirmation" }), ["build-tab", "build-tab-open", "publish-built", "publish-open", "publish-plain", "publish-confirm", "publish-wait"], "the confirmation shot publishes, after a last look that the agent is built");
   assert.deepEqual(ids("preview", { kind: "test-result", section: "preview" }), ["preview-tab", "preview-tab-open", "ask-type", "ask-send", "ask-wait"]);
   assert.deepEqual(ids("instructions", { kind: "test-result", caption: "An out-of-scope question redirected" }).slice(0, 2), ["preview-tab", "preview-tab-open"]);
   assert.equal(showStepsFor({ stage: "instructions", shot: shot({ kind: "test-result", caption: "An out-of-scope question redirected" }), layout: "newer" }).find((s) => s.id === "ask-type").text.sample, "outOfScope", "an out-of-scope question for an out-of-scope picture");
-  assert.deepEqual(ids("monitor", { caption: "A session transcript" }), ["monitor-tab", "monitor-tab-open", "sessions-open"]);
+  assert.deepEqual(ids("monitor", { caption: "A session transcript" }), ["monitor-tab", "monitor-tab-open", "sessions-any", "sessions-open"]);
   assert.deepEqual(ids("evaluate", { kind: "ui-location" }), ["evaluate-tab", "evaluate-tab-open"], "opening the tab changes nothing");
   assert.ok(ids("evaluate", { kind: "dialog", caption: "Create your first evaluation" }).includes("eval-new"), "the new-evaluation form is opened for the shot that shows it");
   assert.ok(!ids("evaluate", { kind: "ui-location", caption: "The Evaluate tab" }).includes("eval-new"));
@@ -180,6 +202,11 @@ test("each stage shows its screen on the layout the agent has, and a recipe neve
   assert.equal(showStepsFor({ stage: "settings", shot: shot({ caption: "Content moderation" }), layout: "newer" }).at(-1).target.name, "AI + behavior");
   assert.equal(showStepsFor({ stage: "settings", shot: shot({ caption: "Content moderation" }), layout: "newer" }).at(-1).optional, undefined, "a tab that is asked for is required");
   assert.deepEqual(ids("settings", { caption: "Agent details" }), ["build-tab", "build-tab-open", "settings-menu", "settings-open"], "Agent details is the tab the dialog opens on");
+  assert.equal(showStepsFor({ stage: "settings", shot: shot({ caption: "Files the agent creates", featureId: "mc-created-files" }), layout: "newer" }), null, "a setting whose tab is not known is not guessed");
+  // The Add skill menu and the Add a tool dialog (and the MCP tab of the last) are each opened by their own button.
+  assert.deepEqual(ids("tools", { kind: "dialog", featureId: "mc-skills" }), ["build-tab", "build-tab-open", "skill-open"]);
+  assert.deepEqual(ids("tools", { kind: "dialog", featureId: "mc-tools-mcp" }), ["build-tab", "build-tab-open", "tool-open", "inner-tab"]);
+  assert.deepEqual(ids("tools", { kind: "dialog", featureId: "mc-tools" }), ["build-tab", "build-tab-open", "tool-open"]);
 });
 
 // ── The guard: what a write needs, and what is never done ───────────────────
@@ -258,7 +285,7 @@ test("the unknown-dialog rule needs the from-scratch level and the practice agen
   assert.equal(isCreateFlowUrl(`${ENV}/bots/${BOT}/overview`, ENV), false, "an agent's own pages are not the create flow");
   assert.equal(isCreateFlowUrl(`${ENV}/admin`, ENV), false);
   assert.equal(isCreateFlowUrl("https://copilotstudio.microsoft.com/environments/other-env/agents", ENV), false, "another environment is not the chosen one");
-  assert.equal(isCreateFlowUrl(`https://evil.example.com/environments/6b988893-6c74-4e65-9d9a-f7f044be1d08/agents`, ENV), false);
+  assert.equal(isCreateFlowUrl(`https://evil.example.com/environments/5e5e5e5e-1234-4abc-8def-0123456789ab/agents`, ENV), false);
 });
 
 // ── The practice registry, the report, and this computer's opt-in ───────────

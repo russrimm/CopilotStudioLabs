@@ -21,7 +21,7 @@ export function newerContent({ agent, envId, state, config }) {
   const memoryOn = state.memory.has(agent.id);
   const evalCount = state.evaluations.get(agent.id) || 0;
   const tab = (id, label, selected) => `<button role="tab" id="tab-${id}" aria-selected="${selected}" data-act="n-tab" data-tab="${id}">${label}</button>`;
-  const knowledgeItems = sites.length ? `<ul id="n-kn-list">${sites.map((s) => `<li><a href="#" data-act="item" data-title="${esc(s)}">${esc(s)}</a></li>`).join("")}</ul>` : `<ul id="n-kn-list"><li>No knowledge sources yet.</li></ul>`;
+  const knowledgeItems = sites.length ? `<ul id="n-kn-list">${sites.map((s) => `<li><a href="#" data-act="item" data-title="${esc(s)}">${esc(s)}</a> <button type="button" data-act="danger" data-what="remove-knowledge" aria-label="Remove ${esc(s)}">×</button></li>`).join("")}</ul>` : `<ul id="n-kn-list"><li>No knowledge sources yet.</li></ul>`;
   return (
     `<div role="tablist" aria-label="Agent sections">${tab("build", "Build", true)}${tab("preview", "Preview", false)}${tab("evaluate", "Evaluate", false)}${tab("monitor", "Monitor", false)}</div>` +
     `<section role="tabpanel" id="panel-build" aria-label="Build">` +
@@ -29,7 +29,7 @@ export function newerContent({ agent, envId, state, config }) {
     `<h2>Instructions</h2><textarea id="n-instr" aria-label="Agent instructions" rows="5" cols="60" placeholder="Add instructions">${esc(instructions)}</textarea>` +
     `<p><button type="button" id="n-save" data-act="n-save" aria-label="Save" disabled>Save</button> <span id="n-saved" role="status" aria-live="polite"></span></p>` +
     `<h2>Knowledge</h2><button type="button" id="n-kn-open" data-act="n-kn-open">Add knowledge</button>${knowledgeItems}` +
-    `<h2>Tools</h2><button type="button" id="n-tool-open" data-act="n-tool-open">Add tool</button>` +
+    `<h2>Tools</h2><button type="button" id="n-tool-open" data-act="n-tool-open">Add tool</button> <span>Work IQ <button type="button" data-act="danger" data-what="remove-tool" aria-label="Remove Work IQ">×</button></span>` +
     `<h2>Model</h2><button type="button" id="n-model-open" data-act="n-model-open" aria-haspopup="listbox">Model: Auto</button>` +
     `<div id="n-model-list" role="listbox" aria-label="Models" hidden><div role="option" aria-selected="true">Auto</div><div role="option" aria-selected="false">GPT-4.1</div><div role="option" aria-selected="false">Claude Sonnet</div></div>` +
     `<h2>Memory</h2><button type="button" role="switch" id="n-memory" data-act="n-memory" aria-checked="${memoryOn}" aria-label="Enable memory (preview)">Memory</button>` +
@@ -106,6 +106,7 @@ document.addEventListener('click',function(e){
   }
   else if(act==='n-save'){
     var name=$('n-name'); var instr=$('n-instr');
+    if(window.__knPending){ var pend=window.__knPending; window.__knPending=null; post('/__write/n-add-knowledge',{bot:bot(),url:pend}); }
     post('/__write/n-save',{bot:bot(),name:name?name.value:'',instructions:instr?instr.value:''}).then(function(d){
       if(CFG.quotaOnSave){toast('You have reached your limit for this environment.','alert');return}
       var s=$('n-saved'); if(s) s.textContent='Saved'; var title=$('agent-title'); if(title&&name&&name.value) title.textContent=name.value;
@@ -131,11 +132,14 @@ document.addEventListener('click',function(e){
   else if(act==='n-kn-add'){
     var items=document.querySelectorAll('#n-kn-pending li'); if(!items.length) return;
     var url=items[0].textContent;
-    post('/__write/n-add-knowledge',{bot:bot(),url:url}).then(function(){
-      var list=$('n-kn-list'); if(list){ if(list.textContent.indexOf('No knowledge')>=0) list.innerHTML=''; var li=document.createElement('li'); li.textContent=url; list.appendChild(li); }
+    var added=function(){
+      var list=$('n-kn-list'); if(list){ if(list.textContent.indexOf('No knowledge')>=0) list.innerHTML=''; var li=document.createElement('li'); li.innerHTML='<a href="#" data-act="item"></a> <button type="button" data-act="danger" data-what="remove-knowledge">×</button>'; li.querySelector('a').textContent=url; li.querySelector('button').setAttribute('aria-label','Remove '+url); list.appendChild(li); }
       $('n-kn-pending').innerHTML='';
       close('n-kn-dialog');
-    });
+    };
+    // The real product keeps the knowledge only after the agent is saved: the same Save as for the instructions.
+    if(CFG.knowledgeNeedsSave){ window.__knPending=url; var sbk=$('n-save'); if(sbk) sbk.disabled=false; added(); }
+    else post('/__write/n-add-knowledge',{bot:bot(),url:url}).then(added);
   }
   else if(act==='n-kn-cancel'){close('n-kn-dialog')}
   else if(act==='n-tool-open'){open('n-tool-dialog')}

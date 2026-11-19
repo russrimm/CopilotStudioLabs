@@ -1937,17 +1937,32 @@ the walkthrough follows the product, not the text:
   the Build tab, Evaluation lives on the Evaluate tab (`/evaluate`), and analytics is the Monitor tab (`/analytics`).
 - The lab says to test in a test pane beside the agent. In the newer layout testing is the **Preview** tab, with a **Debug mode** switch and a message box.
 - Adding a website as knowledge is **Add knowledge**, then **Public websites**, a switch **Search all websites** that must be turned off before a particular
-  address can be typed, **Add**, and **Add to agent**.
-- The agent's settings are not a Settings page of the side navigation; the agent's own menu and the Build tab hold the model (**Model: Auto**), Memory, channels, skills, and tools.
+  address can be typed, the address (a public website may be at most **two levels deep**, for example `learn.microsoft.com/microsoft-copilot-studio/agents-experience`; a longer
+  address keeps **Add** off), **Add**, **Add to agent**, and then the header **Save**: the agent keeps the knowledge only after it is saved, and the website then appears
+  under Knowledge with a remove button.
+- The instructions are saved with the same header **Save**; it is available only while something is unsaved, and its going inactive is the proof of a save.
+- The agent's settings are a dialog from the header's **More options** menu, **Settings**, with the tabs **Agent details**, **AI + behavior**, **Safety & access**,
+  **Greeting & prompts**, and **Advanced**; it opens on Agent details. Moderation and orchestration are under AI + behavior; authentication and feedback under Safety & access.
+- **Publish** opens a small dialog with an **Add channel** button and **Publish agent**; publishing without a channel says *Your agent is published. It isn't on any
+  channels yet.* The Monitor tab shows *Monitor data starts after you publish*, and its Sessions list (**See all (0)**) stays empty until people use the published agent in a channel.
+- The agent's own menu and the Build tab hold the model (**Model: Auto**), Memory, channels, skills, and tools. **Add skill** opens a small menu (*Upload a skill*, *Create from
+  blank*, *Browse skills*); **Add tool** opens a dialog with the tabs *Featured*, *MCP*, *Connectors*, and *Workflows*. The product has no separate page for hooks, triggers, or
+  the files an agent creates that the computer has seen, so those pictures end as needs you instead of being guessed.
+- The Home page greets the signed-in person by first name (*Hey <name>, ready to transform?*) and lists the agents opened last; the greeting name is covered in the picture
+  and in the evidence, and the list is something to look at before a picture is used.
 - An agent's name is limited to 30 characters, so a lab that names its agent longer than that will show a shortened name in the product.
 - Evaluations: **Create your first evaluation** opens a form that asks for an evaluation name and a data set; generating a data set or running an evaluation uses
   Copilot Credits, which the computer never spends.
 
-**Real-tenant status (what was seen on a real Copilot Studio of a demo tenant, with the person watching).** Verified: sign-in with the saved session and the
-account guard, the default environment, creating the agent from the Agents page (**New agent**, the name, **Save**), finding it again by name, and photographing the
-Build tab, the Preview tab, the Add knowledge dialog, the Add tool dialog, the model menu, the Monitor tab, and Memory switched on, each on the right screen.
-Not yet verified on the real product, and therefore ending as *needs you* with a diagnostic when they do not match: the Publish dialog and the publish confirmation,
-and the Settings screens.
+**Real-tenant status (what was seen on a real Copilot Studio of a demo tenant, with the person watching).** Verified end to end: sign-in with the saved session and the
+account guard, the default environment, creating the agent from the Agents page (**New agent**, the name, **Save**), finding it again by name, setting and saving the
+lab's instructions (proven by Save going inactive and the text showing in the editor), adding one public Microsoft Learn website as knowledge (proven by Save going inactive and a
+removable item under Knowledge), turning Memory on and saving it, asking the Preview tab the lab's question and waiting for the streamed answer, opening and cancelling the Publish
+dialog, publishing the practice agent once to its default state (the dialog was checked to hold only Add channel and Publish agent first; the product's own confirmation was
+waited for), and photographing the Build tab, the Add knowledge and Add tool dialogs, the model menu, the Monitor tab, the Agent settings tabs *Safety & access* and
+*AI + behavior*, the Add skill menu, the MCP tab of the Add tool dialog, the Home page (greeting name covered), and the publish confirmation, each on the right screen (checked by looking at the pictures, not only by the address). A full run of a 39-shot Microsoft Copilot harness lab on this one practice agent captured 21 on the right screen at first and, after the fixes it showed were needed (wrong dialogs for skills, MCP, and hooks, an unmasked greeting name, the first two start pages), the rest ended as *needs you* on the real
+product, with a plain reason: an error-state picture, evaluation results (Copilot Credits), the Monitor sessions list (empty until people use a published agent in a channel),
+tools that need a connection, connected agents (other agents are never touched), screens the computer has not seen (hooks, triggers, the files an agent creates), another product (Foundry, the Agents SDK), and tenant or admin screens. Not verified on the real product: the older (classic) layout, SharePoint knowledge, and evaluation set creation.
 
 **An adaptive executor.** Each setup step is a tiny verified state machine (`action`, `target`, `expect`, `timeout`,
 `retries`). A control is found by ranked strategies: role plus exact accessible name inside the expected area, role plus a

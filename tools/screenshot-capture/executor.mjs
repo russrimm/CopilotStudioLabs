@@ -200,6 +200,19 @@ export function dialogControlsInPage() {
   return { dialogs: 1, controls: controls.slice(0, 40), alerts };
 }
 
+/** How many items that can be removed (a knowledge source or a tool, by its "Remove <name>" button) are listed, not counting the built-in Work IQ tool. Names only. */
+export function removableItemsInPage() {
+  let count = 0;
+  for (const el of document.querySelectorAll("button, [role=button]")) {
+    if (el.closest("[data-capture-ui], dialog, [role=dialog], [aria-modal=true]") || el.hasAttribute("hidden") || el.getAttribute("aria-hidden") === "true") continue;
+    const name = String(el.getAttribute("aria-label") || el.getAttribute("title") || el.textContent || "").replace(/\s+/g, " ").trim();
+    if (!/^remove\s+\S/i.test(name) || /work\s*iq/i.test(name)) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width >= 4 && rect.height >= 4) count += 1;
+  }
+  return count;
+}
+
 /** The nearest container around a field that holds a conversation: where an answer will appear. */
 export function chatRootInPage(el) {
   let node = el.parentElement;
@@ -885,6 +898,12 @@ export function createExecutor(ctx) {
     }
   }
 
+  async function removableItems() {
+    let total = 0;
+    for (const frame of framesOf(page)) total += (await frame.evaluate(removableItemsInPage).catch(() => 0)) || 0;
+    return total;
+  }
+
   async function runWaitFor(step, record) {
     const deadline = now() + (step.timeoutMs ?? 8000);
     for (;;) {
@@ -893,9 +912,10 @@ export function createExecutor(ctx) {
       const textOk = !step.expect?.text?.length || (await textsVisible(step.expect.text));
       const absentOk = !step.expect?.absent?.length || !(await anyTextVisible(step.expect.absent));
       const dialogOk = !step.expect?.dialog || current.dialogs.some((d) => d.kind === "dialog" || d.kind === "menu");
+      const removableOk = !step.expect?.removable || (await removableItems()) > 0;
       // The opposite: nothing is open any more (a dialog was confirmed and closed).
       const closedOk = !step.expect?.noDialog || !current.dialogs.some((d) => d.kind === "dialog" || d.kind === "menu");
-      if (textOk && absentOk && dialogOk && closedOk && (verdict.ok || !step.expect?.urlPath)) {
+      if (textOk && absentOk && dialogOk && closedOk && removableOk && (verdict.ok || !step.expect?.urlPath)) {
         record.effect = "the expected result is on the page";
         return true;
       }

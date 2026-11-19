@@ -221,6 +221,22 @@ test("a slow page is waited for and never reloaded: the agent page takes 25 seco
   }
 });
 
+test("knowledge the product keeps only after Save is saved, and the list is checked before the stage counts as done", { skip }, async () => {
+  const scenario = await scenarioFor({ knowledgeNeedsSave: true }, ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-preview-test"]);
+  try {
+    const out = await run(scenario);
+    assert.equal(writesOf(out, "add-knowledge:").length, 1, `the website is in the agent once it was saved: ${out.site.stats.writes.join(" | ")}`);
+    assert.deepEqual(out.site.stats.dangers, [], "the Remove buttons that prove the list were only looked at");
+    assert.equal(captured(out).length, out.rows.length, out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", "));
+    const registry = JSON.parse(fs.readFileSync(path.join(out.home, ".practice-agents.json"), "utf8"));
+    assert.ok(registry.agents[0].stages.knowledge.proof >= 2);
+    const again = await run(scenario);
+    assert.equal(writesOf(again, "add-knowledge:").length, 1, "a rerun finds the listed website and adds nothing");
+  } finally {
+    await scenario.close();
+  }
+});
+
 test("a menu a picture left open is closed before the next step, and the page is opened again only when it will not close", { skip }, async () => {
   const scenario = await scenarioFor({}, ["mc-create-agent", "mc-instructions", "mc-model-selection", "mc-knowledge", "mc-preview-test"]);
   const traceFile = path.join(scenario.home, "leftover-trace.log");

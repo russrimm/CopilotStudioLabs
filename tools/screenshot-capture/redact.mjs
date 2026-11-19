@@ -53,9 +53,14 @@ export function findSensitiveSpans(text, terms = []) {
   return spans;
 }
 
+/** A greeting that names the signed-in person ("Hey Ada, ready to ..."): group 1 is the name. */
+export const GREETING_SOURCE = "\\b(?:[Hh]ey|[Hh]i|[Hh]ello|[Ww]elcome back|[Gg]ood (?:morning|afternoon|evening)),?\\s+(\\p{Lu}[\\p{L}'’.-]*(?:\\s+\\p{Lu}[\\p{L}'’.-]*)?)(?=\\s*[,!.?]|\\s*$)";
+
 /** Replace anything sensitive in a string (used before text is sent to the portal as evidence). */
 export function scrubSensitiveText(text, terms = []) {
-  return String(text ?? "").replace(buildSensitiveRegExp(terms), "[hidden]");
+  return String(text ?? "")
+    .replace(buildSensitiveRegExp(terms), "[hidden]")
+    .replace(new RegExp(GREETING_SOURCE, "gu"), (whole, name) => `${whole.slice(0, whole.lastIndexOf(name))}[hidden]`);
 }
 
 /**
@@ -63,7 +68,7 @@ export function scrubSensitiveText(text, terms = []) {
  * every piece of visible text that matches `pattern`, and returns how many it drew.
  * It must stay self-contained: Playwright serializes it into the browser.
  */
-export function maskSensitiveInPage({ selectors, pattern, flags }) {
+export function maskSensitiveInPage({ selectors, pattern, flags, greetingSource }) {
   const FILL = "#6b7280";
   let masked = 0;
   let controls = 0;
@@ -123,6 +128,21 @@ export function maskSensitiveInPage({ selectors, pattern, flags }) {
     re.lastIndex = 0;
     if (input.value && re.test(String(input.value))) {
       overlay(input.getBoundingClientRect(), "input");
+      texts += 1;
+    }
+  }
+  // A greeting that names the signed-in person ("Hey Ada, ready to ..."): the name is covered, the rest stays.
+  const greeting = new RegExp(greetingSource, "gu");
+  for (const node of nodes) {
+    const value = node.nodeValue;
+    greeting.lastIndex = 0;
+    let match;
+    while ((match = greeting.exec(value)) !== null) {
+      const at = match.index + match[0].lastIndexOf(match[1]);
+      const range = document.createRange();
+      range.setStart(node, at);
+      range.setEnd(node, at + match[1].length);
+      for (const rect of range.getClientRects()) overlay(rect, "text");
       texts += 1;
     }
   }
@@ -194,7 +214,7 @@ async function everyFrame(page, fn, arg) {
 /** Mask account controls and any email address or tenant name on the page. Returns what the companion reports as evidence. */
 export async function applyRedaction(page, { terms = [] } = {}) {
   const re = buildSensitiveRegExp(terms);
-  const results = await everyFrame(page, maskSensitiveInPage, { selectors: [...ACCOUNT_CONTROL_SELECTORS], pattern: re.source, flags: re.flags });
+  const results = await everyFrame(page, maskSensitiveInPage, { selectors: [...ACCOUNT_CONTROL_SELECTORS], pattern: re.source, flags: re.flags, greetingSource: GREETING_SOURCE });
   const masked = results.reduce((sum, r) => sum + Number(r?.masked || 0), 0);
   return { applied: results.length > 0, masked };
 }

@@ -8,7 +8,7 @@
 // Steps the computer must never do (add a tool that needs a connection, upload files, publish to a channel, change a tenant
 // setting) are named here with a plain reason, so the shot ends "needs you" with one fix instead of a failed click.
 
-import { checkPublicWebsite, checkTypedText } from "./guard.mjs";
+import { checkPublicWebsite, checkTypedText, limitWebsiteDepth } from "./guard.mjs";
 
 export const PRACTICE_NAME_PREFIX = "Lab screenshots - ";
 export const SCRATCH_CONTEXT_VERSION = 1;
@@ -44,6 +44,8 @@ export const BLOCKERS = Object.freeze({
   "other-product": { code: "needs-other-product", reason: "This screen is in another product (Power Automate, Teams, Microsoft Foundry, Visual Studio Code), not in the agent.", fix: "Capture it in that product with “Retake guided”." },
   "error-state": { code: "needs-you", reason: "This shows an error or a blocked state, and the computer never causes one on purpose.", fix: "Set the screen up yourself with “Retake guided”." },
   "outside-agent": { code: "needs-you", reason: "This screen is not part of building the agent in the browser.", fix: "Use “Retake guided”, or upload the picture." },
+  "other-agent": { code: "needs-you", reason: "Connected agents involve other agents, and the computer never touches an agent that is not its own practice agent.", fix: "Set up the connected agent yourself with “Retake guided”, or upload the picture." },
+  unseen: { code: "needs-you", reason: "The computer has not seen this screen in the real product yet, so it does not guess which controls to use.", fix: "Use “Show me once” so it learns the step, or “Retake guided”." },
 });
 
 // What the picture itself is about (its caption, description, and callouts), not every step of the module: a module that says "publish to your channels" can still have a picture of the default Publish dialog.
@@ -59,9 +61,13 @@ const FEATURE_STAGE = [
   [/(?:^|-)(?:evaluate|evaluations)$/, "evaluate"],
   [/(?:^|-)publish-agent$/, "publish"],
   [/(?:^|-)(?:monitor|analytics)$/, "monitor"],
-  [/(?:^|-)(?:memory|agent-settings-security|generative-orchestration|authentication|content-moderation|voice-settings|created-files)$/, "settings"],
-  [/(?:^|-)(?:tools?|add-tools|connector-tools|prompt-tools|custom-connectors|mcp-servers|tools-mcp|mcp-server|skills|hooks|workflows?-tool|triggers|connected-agents?|connected-agent|agent-to-agent|sub-agents|agent-flows|flow-prompt-nodes|flow-async)$/, "tools"],
+  [/(?:^|-)(?:memory|agent-settings-security|generative-orchestration|authentication|content-moderation|voice-settings)$/, "settings"],
+  [/(?:^|-)(?:tools?|add-tools|connector-tools|prompt-tools|custom-connectors|mcp-servers|tools-mcp|mcp-server|skills|workflows?-tool|agent-flows|flow-prompt-nodes|flow-async)$/, "tools"],
 ];
+// Screens whose controls have not been seen in the real product: they are never guessed.
+// Other agents are never touched, so a screen that connects one is left to the person.
+const FEATURE_OTHER_AGENT = /(?:^|-)(?:connected-agents?|agent-to-agent|sub-agents)$/;
+const FEATURE_UNSEEN = /(?:^|-)(?:hooks|triggers|created-files)$/;
 const FEATURE_OTHER = /(?:^|-)(?:dlp-governance|alm-solutions|agent-inventory|readiness-scorecard|entra-agent-identities|credit-billing|usage-credits|channel-teams|channel-web-sdk|deploy-channels|teams-phone|voice-agents|computer-use|vscode-authoring|onprem-data-gateway|vnet-private-connectivity|work-iq|sdk-agent|export-import|escalate-human|contact-center|events|foundry-iq|biometric-auth|upgrade-from-standard|[a-z]+-integration|topics|entities-variables|adaptive-cards|power-fx)$/;
 const SECTION_STAGE = { build: "agent", overview: "agent", knowledge: "knowledge", tools: "tools", actions: "tools", test: "preview", preview: "preview", evaluate: "evaluate", evaluation: "evaluate", evaluations: "evaluate", deploy: "publish", publish: "publish", analytics: "monitor", monitor: "monitor", settings: "settings", topics: "other" };
 
@@ -77,8 +83,11 @@ export function classifyStage(shot) {
   const product = String(shot?.product || "copilot-studio");
   // Non-Copilot-Studio products are not built from scratch; they keep their own screens.
   if (product !== "copilot-studio") return { stage: "other", order: 999, scoped: false, blocker: null };
-  if (["home", "agents"].includes(section)) return { stage: "other", order: 5, scoped: false, blocker: null };
+  // The home page and the list of agents are looked at as they are; a dialog or a setting that happens to start from the list belongs to its feature.
+  if (section === "home" || (section === "agents" && ["ui-location", "before", ""].includes(kind))) return { stage: "other", order: 5, scoped: false, blocker: null };
   if (["admin", "admin-center", "solutions", "custom"].includes(section) || /\b(?:admin center|power platform admin|tenant settings|dlp|purview|billing|licen[cs]es?)\b/.test(picture)) return { stage: "other", order: 999, scoped: false, blocker: "admin" };
+  if (FEATURE_OTHER_AGENT.test(feature)) return { stage: "other", order: 999, scoped: false, blocker: "other-agent" };
+  if (FEATURE_UNSEEN.test(feature)) return { stage: "other", order: 999, scoped: false, blocker: "unseen" };
   let stage = null;
   for (const [pattern, id] of FEATURE_STAGE) {
     if (pattern.test(feature)) {
@@ -181,7 +190,7 @@ export function sanitizeScratchContext(raw) {
     instructions: text(src.instructions, 1500, "Answer briefly and politely. Use only the knowledge you were given. If a question is outside that, say so and suggest who to ask."),
     questions: questions.length ? questions : [QUESTION_DEFAULT],
     outOfScope: text(src.outOfScope, 200, OUT_OF_SCOPE_DEFAULT),
-    website: website.ok ? website.url : "",
+    website: website.ok ? limitWebsiteDepth(website.url) : "",
     sharepointUrl: sharepoint,
   };
 }
@@ -205,6 +214,21 @@ export function summarizeBlockers(shots) {
     groups.get(blocker).count += 1;
   }
   return [...groups.values()];
+}
+
+/**
+ * The stage of a shot. The portal wrote its own reading of the full shot into the plan (`capture.scratch`), and the computer uses it as it is
+ * when it is well formed, so what the portal showed the person and what the computer does are the same; otherwise it reads the shot itself.
+ */
+export function resolveStage(shot) {
+  const given = shot?.capture?.scratch;
+  if (given && typeof given === "object" && typeof given.scoped === "boolean") {
+    const info = stageById(given.stage);
+    const stage = info ? given.stage : given.stage === "other" ? "other" : null;
+    const blocker = typeof given.blocker === "string" && BLOCKERS[given.blocker] ? given.blocker : null;
+    if (stage && (given.scoped ? Boolean(info) : true)) return { stage, order: info ? info.order : Number(given.order) || 999, scoped: given.scoped, blocker };
+  }
+  return classifyStage(shot);
 }
 
 /** The descriptor a plan carries for a shot in from-scratch mode: the stage and, when there is one, the reason it needs a person. */

@@ -69,6 +69,10 @@ export const ADD_WEBSITE_KNOWLEDGE = Object.freeze([
   { id: "knowledge-add-url", action: "confirm", intent: "confirm", say: "Adding the website to the list", target: T("button", "Add", [], "dialog"), soft: true },
   { id: "knowledge-add", action: "confirm", intent: "confirm", say: "Adding the knowledge source", note: "Added a public website as knowledge", target: T("button", "Add to agent", ["Add knowledge source"], "dialog") },
   { id: "knowledge-closed", action: "wait-for", say: "Waiting for the knowledge source to be added", timeoutMs: 15_000, expect: { noDialog: true } },
+  // The agent keeps the knowledge only after it is saved (the same Save as for the instructions): its going inactive is the proof, and the listed item is the second proof.
+  { id: "knowledge-save", action: "confirm", intent: "confirm", say: "Saving the agent", note: "Saved the agent", target: T("button", "Save", ["Save agent", "Save changes", "Save icon"], "any"), soft: true, optional: true },
+  { id: "knowledge-saved", action: "verify", say: "Checking that the knowledge was saved", target: T("button", "Save", ["Save agent", "Save changes", "Save icon"], "any"), expect: { disabled: true }, timeoutMs: 10_000 },
+  { id: "knowledge-listed", action: "wait-for", say: "Checking that the website is listed as knowledge", expect: { removable: true }, timeoutMs: 25_000, retries: 0 },
 ]);
 
 /** Publish only the practice agent, once, to its default state: open the dialog, prove it is the plain one, click Publish agent a single time, and wait for the product's own confirmation. */
@@ -85,6 +89,7 @@ export const PUBLISH_AGENT = Object.freeze([
 export const OPEN_PUBLISH_DIALOG = Object.freeze([{ id: "publish-open", action: "open", intent: "open", say: "Opening the Publish dialog", target: T("button", "Publish", ["Publish agent"], "header"), expect: { dialog: true } }]);
 export const OPEN_ADD_KNOWLEDGE = Object.freeze([{ id: "knowledge-open", action: "open", intent: "open", say: "Opening Add knowledge", target: T("button", "Add knowledge", ["Add knowledge source", "Add a knowledge source", "+ Add knowledge"], "main"), expect: { dialog: true } }]);
 export const OPEN_ADD_TOOL = Object.freeze([{ id: "tool-open", action: "open", intent: "open", say: "Opening Add a tool", target: T("button", "Add tool", ["Add a tool", "Add tools", "Add an action", "Add action"], "main"), expect: { dialog: true } }]);
+export const OPEN_ADD_SKILL = Object.freeze([{ id: "skill-open", action: "open", intent: "open", say: "Opening Add a skill", target: T("button", "Add skill", ["Add a skill", "Add skills"], "main"), expect: { dialog: true } }]);
 // The model list is a menu that opens beside the button, so the button being open is the proof.
 export const OPEN_MODEL_LIST = Object.freeze([{ id: "model-open", action: "open", intent: "open", say: "Opening the model list", target: T("button", "Model: Auto", ["Model", "Select a model", "Choose a model", "Model selector", "Change model", "Agent model"], "main") }]);
 
@@ -124,7 +129,9 @@ export const OPEN_NEW_EVALUATION = Object.freeze([
 
 /** Monitor: the Sessions list, read only. */
 export const MONITOR_SESSIONS = Object.freeze([
-  { id: "sessions-open", action: "open", intent: "open", say: "Opening the sessions list", target: T("button", "See all", ["View activity history", "Sessions", "Conversations"], "main") },
+  // "See all (0)" is off until people have used a published agent in a channel: an empty list is not a picture of sessions.
+  { id: "sessions-any", action: "wait-for", say: "Checking that the agent has sessions to show", expect: { absent: ["See all (0)"] }, timeoutMs: 3000, retries: 0 },
+  { id: "sessions-open", action: "open", intent: "open", say: "Opening the sessions list", target: T("button", "See all", [], "main") },
 ]);
 
 /** A tab inside the page open now (a settings tab such as Safety & access), selected by its own name. A tab that is asked for must be there: a picture of the wrong tab is not a picture of it. */

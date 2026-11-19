@@ -43,6 +43,8 @@ const trimStepRecord = (r) => ({ id: r.id, action: r.action, status: r.status, s
 
 /** Plain explanations for steps that are known to fail for a reason the person can understand and fix. */
 const PLAIN_FAILURES = Object.freeze({
+  "knowledge-add-url": "The product did not accept the website address (it allows a public website only up to two levels deep, and the Add button stays off), so no knowledge was added. Use “Retake guided”, or add a website yourself.",
+  "sessions-any": "The Sessions list has nothing to show yet: sessions appear only after people use the published agent in a channel, and the computer never adds channels or talks to the agent as a user. Use “Retake guided” once the agent has real sessions.",
   "sessions-open": "The Sessions list has nothing to open yet: sessions appear only after the agent is published and people talk to it in a channel, and the computer never adds channels. Use “Retake guided” once the agent has real sessions.",
   "publish-plain": "The Publish dialog shows something the computer does not know (a channel, an audience, a warning, or another button), so it did not publish anything. Look at the dialog yourself, then use “Retake guided”.",
 });
