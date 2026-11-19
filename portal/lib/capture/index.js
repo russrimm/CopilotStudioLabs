@@ -10,7 +10,7 @@ import path from "node:path";
 
 import { findProfile, getActiveProfileId, updateLabCaptureTargets, updateProfile } from "../branding-profiles.js";
 import { capturedScreenshotsDir, capturedScreenshotsDirs } from "../lab-builder/captured.js";
-import { setCaptureCapabilitiesProvider, setCaptureTargetsProvider } from "../lab-builder/lab-screenshots.js";
+import { setCaptureCapabilitiesProvider, setCaptureTargetsProvider, setSharedLibraryProvider } from "../lab-builder/lab-screenshots.js";
 import { BAKED_CAPTURED_SCREENSHOTS_DIR, getStorageDiagnostics, resolvePortalDataDir } from "../storage-config.js";
 import { detectBrowserAvailability } from "../../../tools/screenshot-capture/lab-runner.mjs";
 import { productLabel } from "../../../tools/screenshot-capture/auth.mjs";
@@ -19,8 +19,9 @@ import { summarizeMissing } from "./classify.js";
 import { ACCOUNT_MIN_COMPANION, PRODUCT_ID_RE } from "./account.js";
 import { autonomyFor, createConsentStore, describeConsent, validateConsent } from "./consent.js";
 import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "./jobs.js";
+import { readRecordsFile } from "./library-share.js";
 import { COMPANION_ONLINE_MS, PAIRING_CODE_TTL_MS, createPairingStore } from "./pairing.js";
-import { buildLabJobPlan, buildLibraryJobPlan } from "./plan.js";
+import { buildLabJobPlan, buildLibraryJobPlan, findLibrarySlot } from "./plan.js";
 import { readLabScratchContext } from "./scratch-context.js";
 import { createScreenshotStore } from "./screenshot-store.js";
 import { createSharedRecipeStore } from "./shared-recipes.js";
@@ -73,6 +74,7 @@ export function createCapturePlatform({
   detectServerBrowser = () => detectBrowserAvailability(),
   brand = { findProfile },
   logger = null,
+  scheduleBlobSync = null,
 } = {}) {
   const captureDir = path.join(dataDir || resolvePortalDataDir(env), "capture");
   const capturedDirs = () => ({ primary: capturedScreenshotsDir(env), search: capturedScreenshotsDirs(env) });
@@ -80,7 +82,12 @@ export function createCapturePlatform({
   const jobs = createJobStore({ dir: captureDir, now, productLabel });
   const consent = createConsentStore({ dir: captureDir, now });
   const sharedRecipes = createSharedRecipeStore({ dir: captureDir, now });
-  const screenshots = createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger });
+  const screenshots = createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger, onChange: typeof scheduleBlobSync === "function" ? scheduleBlobSync : null });
+  // Lab screenshot status says where each picture comes from and how it relates to the shared library.
+  setSharedLibraryProvider({
+    isSlot: (filename) => Boolean(findLibrarySlot(filename, { manifestDir })),
+    records: () => readRecordsFile(path.join(captureDir, "library-verification.json")),
+  });
 
   let browser = { available: false, playwrightInstalled: false, chromiumInstalled: false, checkedAt: 0 };
   let browserCheck = null;
@@ -257,6 +264,7 @@ export function createCapturePlatform({
         captured: library.summary.captured,
         missing: library.summary.missing,
         needsReview: library.summary.needsReview,
+        confirmed: library.summary.confirmed,
       },
       jobs: { ...jobs.activity(), ...signInNeed },
       autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: companionCanRunAutonomous().supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: companionCanRunAutonomous().scratchSupported, sharedRecipes: sharedRecipes.list().length },
@@ -280,6 +288,7 @@ export function createCapturePlatform({
           (job.options?.mode || "smart") === norm.options.mode &&
           (job.options?.autonomy?.level || null) === (autonomy?.level || null) &&
           Boolean(job.options?.record) === Boolean(norm.options.record) &&
+          Boolean(job.options?.retake) === Boolean(norm.options.retake) &&
           sameEnv(jobs.getPlan(job.id)?.env, env) &&
           sameEnv(jobs.getPlan(job.id)?.targets, targetText),
       );

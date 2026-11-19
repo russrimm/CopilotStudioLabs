@@ -329,6 +329,7 @@ function scRenderInto(host, labId) {
   if (agentLine) section.appendChild(agentLine);
   section.appendChild(scEl("div", { class: "sc-pairing-host", data: { scPairingHost: "lab" } }));
   section.appendChild(scBuildPrimary(model, lab));
+  if (lab.ui.ask?.kind === "retake" && !lab.ui.ask.filename) section.appendChild(scBuildAskPanel(labId, lab.ui.ask));
   section.appendChild(scBuildModeChoice(labId));
   section.appendChild(scBuildBackgroundChoice(labId));
   section.appendChild(scEl("div", { class: "sc-progress-host", data: { scProgressHost: labId } }));
@@ -1350,6 +1351,7 @@ function scBuildAdvanced(labId, model) {
   body.appendChild(learn);
 
   body.appendChild(scBuildLibrarySection());
+  body.appendChild(scBuildShareLabBlock(labId));
 
   const cli = scEl("details", { class: "sc-cli" });
   cli.appendChild(scEl("summary", { text: "Command line (for developers)" }));
@@ -1385,6 +1387,9 @@ function scLibraryContents() {
     out.push(
       scEl("p", { class: "sc-library-line", text: `${status.captured} of ${status.total} captured, ${status.missing} missing, ${status.needsReview} need review.` }),
     );
+    if (Number.isFinite(Number(status.confirmed))) {
+      out.push(scEl("p", { class: "sc-library-line", text: `${scCount(status.confirmed)} confirmed accurate.`, data: { scLibraryConfirmed: "1" } }));
+    }
     out.push(
       scEl("p", {
         class: "sc-library-line",
@@ -1405,7 +1410,7 @@ function scLibraryContents() {
     for (const row of rows) {
       const li = scEl("li", { class: "sc-library-row" });
       li.appendChild(scEl("span", { class: "sc-library-name", text: scProductName(row.product) }));
-      li.appendChild(scEl("span", { class: "sc-library-meta", text: `${row.captured} of ${row.total} captured${row.needsReview ? `, ${row.needsReview} need review` : ""}` }));
+      li.appendChild(scEl("span", { class: "sc-library-meta", text: `${row.captured} of ${row.total} captured${row.confirmed ? `, ${row.confirmed} confirmed` : ""}${row.needsReview ? `, ${row.needsReview} need review` : ""}` }));
       if (row.missing) {
         li.appendChild(
           scButton(`Capture ${row.missing} missing`, {
@@ -1443,13 +1448,31 @@ function scBuildGallery(labId, model) {
   const section = scEl("section", { class: "sc-gallery", attrs: { "aria-labelledby": "sc-gallery-heading" } });
   const head = scEl("div", { class: "sc-gallery-head" });
   head.appendChild(scEl("h5", { id: "sc-gallery-heading", class: "sc-gallery-title", text: "Screenshots by step" }));
+  const counts = scConfirmCounts(lab.state);
+  const filters = scEl("div", { class: "sc-filters" });
   const toggle = scEl("label", { class: "sc-check", attrs: { for: "sc-only-attention" } });
   const box = scEl("input", { id: "sc-only-attention", attrs: { type: "checkbox", autocomplete: "off" }, data: { scField: "only-attention" } });
   box.checked = Boolean(lab.ui.onlyAttention);
   toggle.appendChild(box);
   toggle.appendChild(scEl("span", { text: "Show only screenshots that need attention" }));
-  head.appendChild(toggle);
+  filters.appendChild(toggle);
+  const unconfirmedToggle = scEl("label", { class: "sc-check", attrs: { for: "sc-only-unconfirmed" } });
+  const unconfirmedBox = scEl("input", { id: "sc-only-unconfirmed", attrs: { type: "checkbox", autocomplete: "off" }, data: { scField: "only-unconfirmed", scFocus: "only-unconfirmed" } });
+  unconfirmedBox.checked = Boolean(lab.ui.onlyUnconfirmed);
+  unconfirmedToggle.appendChild(unconfirmedBox);
+  unconfirmedToggle.appendChild(scEl("span", { text: `Show only screenshots not confirmed yet (${counts.notConfirmed})`, data: { scUnconfirmedLabel: "1" } }));
+  filters.appendChild(unconfirmedToggle);
+  head.appendChild(filters);
   section.appendChild(head);
+  if (counts.captured) {
+    section.appendChild(
+      scEl("p", {
+        class: "sc-gallery-help sc-confirm-summary",
+        text: `${counts.confirmed} of ${scPlural(counts.captured, "captured screenshot")} confirmed accurate. Confirming is optional and never blocks your lab or its downloads.`,
+        data: { scConfirmSummary: "1" },
+      }),
+    );
+  }
   section.appendChild(
     scEl("p", {
       class: "sc-gallery-help",
@@ -1463,8 +1486,9 @@ function scBuildGallery(labId, model) {
   let shown = 0;
   for (const group of groups) {
     const shots = group.shots.filter((shot) => {
-      if (!lab.ui.onlyAttention) return true;
-      return !["captured"].includes(scShotStatus(shot).key);
+      if (lab.ui.onlyAttention && ["captured"].includes(scShotStatus(shot).key)) return false;
+      if (lab.ui.onlyUnconfirmed && !(shot.captured && !scShotConfirmed(shot))) return false;
+      return true;
     });
     if (!shots.length) continue;
     shown += shots.length;
@@ -1473,7 +1497,13 @@ function scBuildGallery(labId, model) {
   if (!groups.length) {
     section.appendChild(scEl("p", { class: "scenario-empty", text: "This lab has no screenshots to capture." }));
   } else if (!shown) {
-    section.appendChild(scEl("p", { class: "scenario-empty", text: "Every screenshot looks good. Clear the filter to see them all." }));
+    const onlyConfirmFilter = lab.ui.onlyUnconfirmed && !lab.ui.onlyAttention;
+    section.appendChild(
+      scEl("p", {
+        class: "scenario-empty",
+        text: onlyConfirmFilter ? "Every captured screenshot is confirmed. Clear the filter to see them all." : "Every screenshot looks good. Clear the filter to see them all.",
+      }),
+    );
   }
   return section;
 }
@@ -1562,8 +1592,11 @@ function scShotNote(shot, status, attempt = null, waitingNouns = []) {
       if (waitingNouns.length) return `Waiting for your ${scJoinNames(waitingNouns, 2)}. Add it above, then capture this one.`;
       return "Not captured yet.";
     case "captured": {
-      const when = scTimeAgo(shot.capturedAt);
+      // The source line says where the picture comes from and when it was captured, so the note only says how.
       const how = shot.captureSource === "companion" ? " on your computer" : shot.captureSource === "manual-upload" ? " by upload" : "";
+      if (shot.imageSource === "library") return "";
+      if (shot.imageSource === "lab") return how ? `Captured${how}.` : "";
+      const when = scTimeAgo(shot.capturedAt);
       return when ? `Captured ${when}${how}.` : "";
     }
     default:
@@ -1642,6 +1675,8 @@ function scBuildCard(labId, shot, jobStatus) {
   const body = scEl("div", { class: "sc-card-body" });
   const top = scEl("div", { class: "sc-card-head" });
   top.appendChild(scStatusChip(status));
+  const confirmed = scShotConfirmed(shot);
+  if (confirmed && ["captured", "outdated"].includes(status.key)) top.appendChild(scChip(confirmed.text, "ok", "sc-confirmed-chip"));
   if (capture) {
     const automatic = scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual";
     const chip = automatic ? SC_SHOT_MODES.autonomous : SC_SHOT_MODES[capture.mode];
@@ -1650,6 +1685,9 @@ function scBuildCard(labId, shot, jobStatus) {
   if (shot.figure) top.appendChild(scEl("span", { class: "sc-fig", text: `Figure ${shot.figure}` }));
   body.appendChild(top);
   body.appendChild(scEl("p", { class: "sc-caption", text: String(shot.caption || shot.alt || shot.filename) }));
+  // Where the picture comes from: the shared library (reused from an earlier lab) or this lab's own capture, and when it was captured.
+  const source = status.key === "needs-review" ? null : scShotSource(shot);
+  if (source) body.appendChild(scEl("p", { class: "sc-source", text: source.text, data: { scSource: source.key } }));
   // In automatic mode nobody is told to set a screen up: the card says what the computer will do, and what it cannot do without a practice agent.
   const plan = capture && scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual" ? scPlannedLine(capture) : "";
   if (plan) {
@@ -1663,6 +1701,8 @@ function scBuildCard(labId, shot, jobStatus) {
   if (outcome) body.appendChild(scEl("p", { class: "sc-outcome", text: outcome, data: { scOutcome: "1" } }));
   const feedback = scBuildFeedback(labId, shot.filename);
   if (feedback) body.appendChild(feedback);
+  const ask = lab.ui.ask && lab.ui.ask.filename === shot.filename ? scBuildAskPanel(labId, lab.ui.ask) : null;
+  if (ask) body.appendChild(ask);
   body.appendChild(scEl("div", { class: "sc-card-actions" }, scCardActions(labId, shot, status)));
   card.appendChild(body);
   return card;
@@ -1670,6 +1710,53 @@ function scBuildCard(labId, shot, jobStatus) {
 
 function scStatusChip(status) {
   return scChip(status.label, status.tone, "sc-status-chip");
+}
+
+/** A short question before something that affects other labs: what will happen, a yes button, and Cancel (focused first, Esc cancels). */
+function scBuildAskPanel(labId, ask) {
+  const suffix = ask.filename ? `:${ask.filename}` : "";
+  const box = scEl("div", { class: "sc-ask", attrs: { role: "group", "aria-label": ask.title }, data: { scAsk: ask.kind, filename: ask.filename || undefined } });
+  box.appendChild(scEl("p", { class: "sc-ask-title", text: ask.title }));
+  box.appendChild(scEl("p", { class: "sc-ask-text", text: ask.text }));
+  const row = scEl("div", { class: "sc-card-actions" });
+  row.appendChild(scButton(ask.yes, { action: "ask-yes", data: { filename: ask.filename || undefined }, primary: true, focus: `ask-yes${suffix}` }));
+  row.appendChild(scButton("Cancel", { action: "ask-cancel", data: { filename: ask.filename || undefined }, focus: `ask-cancel${suffix}` }));
+  box.appendChild(row);
+  box.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    void scHandleAction(labId, "ask-cancel", box, ask.filename || "", null);
+  });
+  return box;
+}
+
+/** "Share this lab's captured screenshots": the backfill for pictures a lab already has. */
+function scBuildShareLabBlock(labId) {
+  const lab = scLab(labId);
+  const result = lab.ui.shareLabResult;
+  const block = scEl("div", { class: "sc-share-lab sc-adv-block", data: { scShareLab: "1" } });
+  block.appendChild(scEl("h6", { text: "Share this lab's screenshots" }));
+  block.appendChild(
+    scEl("p", {
+      class: "hint",
+      text: "Pictures captured for this lab can be added to the shared library, so the next lab does not retake them. Only pictures with account details hidden are shared, and nothing in the library is replaced.",
+    }),
+  );
+  const nothing = scCount(lab.state?.summary?.capturedInLab) === 0;
+  block.appendChild(scButton("Share this lab's captured screenshots", { action: "share-lab", focus: "share-lab", disabled: Boolean(result?.busy) || nothing }));
+  if (lab.ui.ask?.kind === "share-lab") block.appendChild(scBuildAskPanel(labId, lab.ui.ask));
+  if (result?.message) {
+    const box = scEl("div", { class: `sc-feedback sc-feedback-${result.variant === "bad" ? "bad" : result.busy ? "warn" : "ok"}`, attrs: { role: "status" }, data: { scShareLabResult: "1" } });
+    box.appendChild(scEl("p", { class: "sc-feedback-head", text: result.message }));
+    if (Array.isArray(result.items) && result.items.length) {
+      const ul = scEl("ul", { class: "sc-feedback-list" });
+      for (const item of result.items) ul.appendChild(scEl("li", { text: item.text }));
+      box.appendChild(ul);
+    }
+    block.appendChild(box);
+  }
+  return block;
 }
 
 function scBuildFeedback(labId, filename) {
@@ -1730,6 +1817,12 @@ function scCardActions(labId, shot, status, { idPrefix = "card" } = {}) {
     }
   } else if (status.key === "pending" || status.key === "queued") {
     add("Capture this one", "shot-capture", { disabled: jobActive || busyUpload, needsIdle: true });
+  }
+  // Optional, and never required for anything: a person's "this picture is right".
+  if (shot.captured && ["captured", "outdated"].includes(status.key)) {
+    if (scShotConfirmed(shot)) add("Clear confirmation", "shot-unconfirm", { disabled: busyUpload });
+    else add("Mark as accurate", "shot-confirm", { disabled: busyUpload });
+    if (scShareOffer(shot)) add("Use this one for every lab", "shot-share", { disabled: busyUpload });
   }
   add("Paste image", "shot-paste", { disabled: busyUpload });
   add("Upload image", "shot-upload", { disabled: busyUpload });
@@ -1864,6 +1957,9 @@ function scBindSection(section, labId) {
       scRerender(labId);
     } else if (field === "only-attention") {
       lab.ui.onlyAttention = Boolean(target.checked);
+      scRerender(labId);
+    } else if (field === "only-unconfirmed") {
+      lab.ui.onlyUnconfirmed = Boolean(target.checked);
       scRerender(labId);
     } else if (field === "pick") {
       if (target.checked) lab.ui.picks.add(target.dataset.filename);
@@ -2012,9 +2108,13 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
     case "primary-capture-missing":
       await scQueueCapture(labId, { scope: "missing" });
       return;
-    case "primary-capture-stale":
-      await scQueueCapture(labId, { scope: "stale" });
+    case "primary-capture-stale": {
+      const stale = (lab.state?.shots || []).filter((s) => s.stale && s.captured).map((s) => s.filename);
+      const run = () => scQueueCapture(labId, { scope: "stale", retake: true });
+      if (await scAskBeforeRetake(labId, stale, run)) return;
+      await run();
       return;
+    }
     case "primary-review":
     case "banner-review":
       scFocusFirstWithStatus(labId, "needs-review");
@@ -2094,7 +2194,7 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       return;
     case "shot-record":
       scCloseLightboxFor(labId, control);
-      await scRetakeShot(labId, filename, { mode: "guided", record: { share: lab.ui.shareRecipe } });
+      await scRetakeWithAsk(labId, filename, { mode: "guided", record: { share: lab.ui.shareRecipe } });
       return;
     case "copy-cli":
       await scCopyWithAck("copy-cli", control.dataset.command || "");
@@ -2108,11 +2208,31 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       return;
     case "shot-retake":
       scCloseLightboxFor(labId, control);
-      await scRetakeShot(labId, filename);
+      await scRetakeWithAsk(labId, filename, undefined);
       return;
     case "shot-retake-guided":
       scCloseLightboxFor(labId, control);
-      await scRetakeShot(labId, filename, { mode: "guided" });
+      await scRetakeWithAsk(labId, filename, { mode: "guided" });
+      return;
+    case "shot-confirm":
+      await scConfirmShot(labId, filename);
+      return;
+    case "shot-unconfirm":
+      await scUnconfirmShot(labId, filename);
+      return;
+    case "shot-share":
+      scCloseLightboxFor(labId, control);
+      scAskShareShot(labId, filename);
+      return;
+    case "share-lab":
+      lab.ui.advancedOpen = true;
+      scAskShareLab(labId);
+      return;
+    case "ask-yes":
+      await scAnswerAsk(labId);
+      return;
+    case "ask-cancel":
+      scCancelAsk(labId);
       return;
     case "shot-paste":
       await scPasteFromClipboard(labId, filename);
@@ -2148,6 +2268,12 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       return;
     default:
   }
+}
+
+/** Retake one screenshot; first say so when other labs use the shared picture it would replace. */
+async function scRetakeWithAsk(labId, filename, options) {
+  if (await scAskBeforeRetake(labId, [filename], () => scRetakeShot(labId, filename, options))) return;
+  await scRetakeShot(labId, filename, options);
 }
 
 async function scConfirmDisconnect(button) {
@@ -2450,8 +2576,12 @@ function scFillLightbox(labId, filename) {
   const position = shots.findIndex((s) => s.filename === filename) + 1;
   const meta = scEl("p", { class: "sc-lb-meta" });
   meta.appendChild(scStatusChip(status));
+  const lbConfirmed = scShotConfirmed(shot);
+  if (lbConfirmed && ["captured", "outdated"].includes(status.key)) meta.appendChild(scChip(lbConfirmed.text, "ok", "sc-confirmed-chip"));
   meta.appendChild(scEl("span", { text: ` Screenshot ${position} of ${shots.length}` }));
   info.appendChild(meta);
+  const lbSource = status.key === "needs-review" ? null : scShotSource(shot);
+  if (lbSource) info.appendChild(scEl("p", { class: "sc-source sc-lb-source", text: lbSource.text, data: { scSource: lbSource.key } }));
 
   // A screenshot being reviewed already shows what the lab asks for next to the picture.
   const instructions = comparing ? null : scLbInstructions(shot);

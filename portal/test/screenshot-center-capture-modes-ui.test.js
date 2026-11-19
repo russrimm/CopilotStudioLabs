@@ -616,7 +616,7 @@ test("Retake uses the chosen mode and Retake guided always uses guided, discardi
 
   const smart = await run("shot-retake", { state: withPicture, filename: "a.png" });
   assert.deepEqual(smart.order, deleteThenPost);
-  assert.deepEqual(json(smart.body), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["a.png"] }, options: { callouts: "sidecar", redact: true, mode: "autonomous" } });
+  assert.deepEqual(json(smart.body), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["a.png"] }, options: { callouts: "sidecar", redact: true, mode: "autonomous", retake: true } });
   assert.equal((await run("shot-retake", { choose: "auto", state: withPicture, filename: "a.png" })).body.options.mode, "auto");
   const guided = await run("shot-retake-guided", { choose: "auto", state: withPicture, filename: "a.png" });
   assert.equal(guided.body.options.mode, "guided", "Retake guided ignores the radio choice");
@@ -728,7 +728,7 @@ test("each fix does what its action says", async () => {
   };
 
   const retry = await fix("sign-in");
-  assert.deepEqual(json(retry.jobBodies()[0]), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["c.png"] }, options: { callouts: "sidecar", redact: true, mode: "autonomous" } });
+  assert.deepEqual(json(retry.jobBodies()[0]), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["c.png"] }, options: { callouts: "sidecar", redact: true, mode: "autonomous", retake: true } });
   assert.equal(retry.callsTo("DELETE", /screenshots/).length, 0);
 
   const guided = await fix("wrong-screen");

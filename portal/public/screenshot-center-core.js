@@ -493,6 +493,57 @@ function scShotStatus(shot, jobShotStatus = null, attempt = null) {
   return { key, ...SC_STATUS_LABELS[key] };
 }
 
+// ── Where a picture comes from, and "Mark as accurate" ──────────────────────
+
+const SC_SOURCE_LABELS = Object.freeze({ library: "Shared library", lab: "This lab" });
+
+/** "Nov 12, 2026" (US English), or "" when the date is missing or not a date. */
+function scFormatDate(iso) {
+  const ms = Date.parse(iso || "");
+  return Number.isFinite(ms) ? new Date(ms).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
+}
+
+/** Where the picture a lab shows comes from: `{ key, label, date, text }`, or null when the shot has no picture. */
+function scShotSource(shot) {
+  const key = shot?.imageSource === "library" ? "library" : shot?.imageSource === "lab" ? "lab" : null;
+  if (!key || !shot?.captured) return null;
+  const date = scFormatDate(shot.imageCapturedAt);
+  return { key, label: SC_SOURCE_LABELS[key], date, text: date ? `${SC_SOURCE_LABELS[key]} \u00b7 captured ${date}` : SC_SOURCE_LABELS[key] };
+}
+
+/** The confirmation that still counts for a captured picture: `{ date, text }`, or null. */
+function scShotConfirmed(shot) {
+  if (!shot?.captured || !shot.confirmed || typeof shot.confirmed !== "object") return null;
+  const date = scFormatDate(shot.confirmed.at);
+  return { date, text: date ? `Confirmed ${date}` : "Confirmed" };
+}
+
+/** How many captured pictures are confirmed. Only a picture that exists can be confirmed, so a pending shot is never "not confirmed". */
+function scConfirmCounts(state) {
+  const shots = (Array.isArray(state?.shots) ? state.shots : []).filter((s) => s?.captured);
+  const confirmed = shots.filter((s) => scShotConfirmed(s)).length;
+  return { captured: shots.length, confirmed, notConfirmed: shots.length - confirmed };
+}
+
+/**
+ * Whether to offer "Use this one for every lab": a lab's own picture of a shared slot that the library does not have yet,
+ * or has a different picture of. `libraryConfirmed` says the library's picture is marked accurate (replacing it clears the mark).
+ */
+function scShareOffer(shot) {
+  const share = shot?.share;
+  if (!shot?.captured || shot.imageSource !== "lab" || !share || !["not-shared", "differs"].includes(share.state)) return null;
+  return { state: share.state, libraryConfirmed: share.libraryConfirmed === true };
+}
+
+/** The plain sentence a retake asks before it may replace a picture other labs use, or "" when nothing needs asking. */
+function scRetakeAskText({ otherLabs = 0, confirmed = 0, unknown = false, many = false } = {}) {
+  const these = many ? "These pictures are" : "This picture is";
+  if (confirmed) return `${many ? "Some of these shared pictures are" : "This shared picture is"} marked accurate, so other labs keep ${many ? "them" : "it"}. A new capture of ${many ? "those" : "it"} stays in this lab only.`;
+  if (otherLabs > 0) return `${these} shared. ${scPlural(otherLabs, "other lab")} ${otherLabs === 1 ? "uses" : "use"} ${many ? "them" : "it"}. A new capture replaces ${many ? "them" : "it"} for ${otherLabs === 1 ? "that lab" : "all of them"}. The old ${many ? "pictures are" : "picture is"} kept as a backup.`;
+  if (unknown) return `${these} shared, so other labs may use ${many ? "them" : "it"}. A new capture replaces ${many ? "them" : "it"} for them too. The old ${many ? "pictures are" : "picture is"} kept as a backup.`;
+  return "";
+}
+
 /** Instruction lines arrive as light Markdown; show them as plain text. */
 function scPlainInstruction(line) {
   return String(line ?? "")

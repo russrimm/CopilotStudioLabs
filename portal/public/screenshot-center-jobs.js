@@ -48,6 +48,10 @@ function scLab(key) {
         redact: true,
         tenantSource: "lab",
         onlyAttention: false,
+        onlyUnconfirmed: false,
+        // A question shown before something that affects other labs: `{ kind, filename|null, title, text, yes, run }`.
+        ask: null,
+        shareLabResult: null,
         picks: new Set(),
         mode: SC_DEFAULT_CAPTURE_MODE,
         consentOpen: false,
@@ -632,7 +636,7 @@ function scScopeBody(scope, filenames) {
  * @param {string} labId
  * @param {{ scope?: string, filenames?: string[], mode?: string }} request `mode` defaults to the lab's choice
  */
-async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, record = null } = {}) {
+async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, record = null, retake = false } = {}) {
   const lab = scLab(labId);
   lab.outcome = null;
   lab.busy = "queue";
@@ -648,6 +652,8 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, 
         ...scModeRequest(mode ?? lab.ui.mode),
         ...(lab.ui.background === true ? { background: true } : {}),
         ...(record ? { record: { share: record.share === true } } : {}),
+        // A retake may replace the shared library's picture (never one that is marked accurate); an ordinary capture never does.
+        ...(retake ? { retake: true } : {}),
         // The person's own agent is used only when they chose it; otherwise a practice agent is built from scratch (when they allowed that). Said only when it matters.
         ...(lab.ui.agentChoice === "existing" && scConsentModel(scState.status?.autonomy).scratch ? { agent: "existing" } : lab.ui.agentChoice === "scratch" ? { agent: "scratch" } : {}),
         ...(lab.ui.startFresh === true ? { startFresh: true } : {}),
@@ -847,11 +853,181 @@ async function scRetakeShots(labId, filenames, { mode, record = null } = {}) {
   for (const name of replace) {
     if (!(await scResetShot(labId, name, { announce: "" }))) return false;
   }
-  return scQueueCapture(labId, { scope: "selected", filenames, mode, record });
+  return scQueueCapture(labId, { scope: "selected", filenames, mode, record, retake: true });
 }
 
 function scRetakeShot(labId, filename, options) {
   return scRetakeShots(labId, [filename], options);
+}
+
+// ── "Mark as accurate", sharing, and the questions asked first ──────────────
+
+/** After a confirmation or a share, the shared library's counts changed: show them again. */
+function scRefreshLibraryNumbers() {
+  scState.library.loaded = false;
+  void scLoadStatus(true).then(() => {
+    if (typeof scRenderLibraryHost === "function") scRenderLibraryHost();
+  });
+}
+
+const scShotOf = (labId, filename) => (scLab(labId).state?.shots || []).find((s) => s.filename === filename) || null;
+
+/** "Mark as accurate": a person says this picture is right. Optional, and it never blocks the lab or an export. */
+async function scConfirmShot(labId, filename) {
+  const { ok, data, status } = await scFetchJson(scScreenshotApi(labId, filename, "/confirm"), scJsonInit("POST", {}));
+  if (!ok || data.outcome !== "confirmed") {
+    scSetFeedback(labId, filename, { variant: "bad", headline: "Could not mark it as accurate.", items: [{ level: "fail", text: String(data.error || `Request failed (${status}).`) }] });
+    scAnnounce("Could not mark this screenshot as accurate.");
+    return false;
+  }
+  scSetFeedback(labId, filename, null);
+  scAnnounce(data.scope === "library" ? "Marked as accurate for every lab that uses the shared picture." : "Marked as accurate.");
+  if (data.state) await scApplyNewState(labId, data.state);
+  else await scRefreshLabState(labId);
+  scRefreshLibraryNumbers();
+  return true;
+}
+
+/** "Clear confirmation". */
+async function scUnconfirmShot(labId, filename) {
+  const { ok, data, status } = await scFetchJson(scScreenshotApi(labId, filename, "/confirm"), { method: "DELETE" });
+  if (!ok) {
+    scSetFeedback(labId, filename, { variant: "bad", headline: "Could not clear the confirmation.", items: [{ level: "fail", text: String(data.error || `Request failed (${status}).`) }] });
+    return false;
+  }
+  scAnnounce("Confirmation cleared.");
+  if (data.state) await scApplyNewState(labId, data.state);
+  else await scRefreshLabState(labId);
+  scRefreshLibraryNumbers();
+  return true;
+}
+
+/** Show a question before something that affects other labs. `run` is what "yes" does. */
+function scOpenAsk(labId, ask) {
+  const lab = scLab(labId);
+  lab.ui.ask = ask;
+  scAnnounce(`${ask.title} ${ask.text}`);
+  scRerender(labId);
+  const host = typeof scHostFor === "function" ? scHostFor(labId) : null;
+  if (host && typeof scFocusByKey === "function") scFocusByKey(host, ask.filename ? `ask-cancel:${ask.filename}` : "ask-cancel");
+}
+
+function scCancelAsk(labId) {
+  const lab = scLab(labId);
+  const back = lab.ui.ask?.focusBack || "";
+  lab.ui.ask = null;
+  scRerender(labId);
+  const host = typeof scHostFor === "function" ? scHostFor(labId) : null;
+  if (host && back && typeof scFocusByKey === "function") scFocusByKey(host, back);
+}
+
+async function scAnswerAsk(labId) {
+  const lab = scLab(labId);
+  const ask = lab.ui.ask;
+  if (!ask) return;
+  lab.ui.ask = null;
+  scRerender(labId);
+  if (typeof ask.run === "function") await ask.run();
+}
+
+/**
+ * Before a retake replaces a picture other labs use, say so. Returns true when a question was opened (nothing happens until the
+ * person answers), false when the retake can go ahead now. `run` is what "yes" does.
+ */
+async function scAskBeforeRetake(labId, filenames, run) {
+  const shared = filenames.map((name) => scShotOf(labId, name)).filter((shot) => shot?.share && ["shared", "differs"].includes(shot.share.state));
+  if (!shared.length) return false;
+  let otherLabs = 0;
+  let confirmed = 0;
+  let unknown = false;
+  for (const shot of shared.slice(0, 20)) {
+    try {
+      const { ok, data } = await scFetchJson(`/api/capture/library/screenshots/${encodeURIComponent(shot.filename)}/usage?labId=${encodeURIComponent(labId)}`);
+      if (!ok) unknown = true;
+      else {
+        otherLabs = Math.max(otherLabs, scCount(data.otherLabs));
+        if (data.confirmed === true) confirmed += 1;
+      }
+    } catch {
+      unknown = true;
+    }
+  }
+  const text = scRetakeAskText({ otherLabs, confirmed, unknown, many: shared.length > 1 });
+  if (!text) return false;
+  const first = filenames.length === 1 ? filenames[0] : null;
+  scOpenAsk(labId, {
+    kind: "retake",
+    filename: first,
+    title: confirmed ? "This shared picture is marked accurate." : "Other labs use this picture.",
+    text,
+    yes: confirmed ? "Retake for this lab" : "Yes, retake it",
+    focusBack: first ? `card:${first}:shot-retake` : "primary",
+    run,
+  });
+  return true;
+}
+
+/** "Use this one for every lab": asks first, then puts this lab's own picture in the shared library. */
+function scAskShareShot(labId, filename) {
+  const shot = scShotOf(labId, filename);
+  const offer = shot ? scShareOffer(shot) : null;
+  if (!offer) return;
+  const replaces = offer.state === "differs";
+  scOpenAsk(labId, {
+    kind: "share",
+    filename,
+    title: offer.libraryConfirmed ? "This replaces a picture marked accurate." : "Use this picture for every lab?",
+    text: `${offer.libraryConfirmed ? "The shared picture is marked accurate. Replacing it clears that mark. " : ""}Every lab that has no picture of its own will show this one${replaces ? ", and the shared picture it replaces is kept as a backup" : ""}. Check that it shows no account names, email addresses, or customer data.`,
+    yes: "Yes, use it for every lab",
+    focusBack: `card:${filename}:shot-share`,
+    run: () => scShareShot(labId, filename, { replaceConfirmed: offer.libraryConfirmed }),
+  });
+}
+
+async function scShareShot(labId, filename, { replaceConfirmed = false } = {}) {
+  const { data, status } = await scFetchJson(scScreenshotApi(labId, filename, "/share"), scJsonInit("POST", { confirm: true, replaceConfirmed }));
+  const worked = status === 200 && ["shared", "replaced", "already-shared"].includes(data.outcome);
+  const message = worked ? (data.outcome === "already-shared" ? "The shared library already has this picture." : "Every lab can now use this picture.") : String(data.message || data.error || `Could not share it (${status}).`);
+  scSetFeedback(labId, filename, { variant: worked ? "ok" : "warn", headline: message, items: [] });
+  scAnnounce(message);
+  if (data.state) await scApplyNewState(labId, data.state);
+  else await scRefreshLabState(labId);
+  scRefreshLibraryNumbers();
+  return worked;
+}
+
+/** "Share this lab's captured screenshots": every eligible picture, nothing overwritten, a plain report of what was skipped. */
+function scAskShareLab(labId) {
+  scOpenAsk(labId, {
+    kind: "share-lab",
+    filename: null,
+    title: "Share this lab's screenshots with every lab?",
+    text: "This adds this lab's checked pictures to the shared library. Pictures that show account details, that the library already has, or that belong only to this lab are skipped. Nothing in the library is replaced.",
+    yes: "Yes, share them",
+    focusBack: "share-lab",
+    run: () => scShareLab(labId),
+  });
+}
+
+async function scShareLab(labId) {
+  const lab = scLab(labId);
+  lab.ui.shareLabResult = { busy: true, message: "Sharing this lab's screenshots.", items: [] };
+  scRerender(labId);
+  try {
+    const { ok, data, status } = await scFetchJson(`/api/lab-builder/generated/${encodeURIComponent(labId)}/screenshots/share`, scJsonInit("POST", {}));
+    if (!ok) throw new Error(String(data.error || `Request failed (${status}).`));
+    const counts = data.counts || {};
+    const items = (Array.isArray(data.skipped) ? data.skipped : []).slice(0, 12).map((s) => ({ text: `${scText(s.filename, 80)}: ${scText(s.message, 200)}` }));
+    const message = `${scPlural(scCount(counts.promoted), "screenshot")} shared. ${scCount(counts.alreadyShared)} already in the library. ${scCount(counts.skipped)} skipped.`;
+    lab.ui.shareLabResult = { busy: false, variant: "ok", message, items };
+    scAnnounce(message);
+    if (data.state) await scApplyNewState(labId, data.state);
+    scRefreshLibraryNumbers();
+  } catch (err) {
+    lab.ui.shareLabResult = { busy: false, variant: "bad", message: `Could not share the screenshots. ${err.message}`, items: [] };
+    scAnnounce(lab.ui.shareLabResult.message);
+  }
+  scRerender(labId);
 }
 
 /** Make sure a computer is connected before capture; when none is, say so and open the pairing card. */
@@ -1076,12 +1252,13 @@ function scLibraryByProduct(shots) {
   for (const shot of Array.isArray(shots) ? shots : []) {
     const product = String(shot.product || "");
     if (!/^[a-z0-9-]{1,60}$/.test(product)) continue;
-    if (!rows.has(product)) rows.set(product, { product, total: 0, captured: 0, missing: 0, needsReview: 0 });
+    if (!rows.has(product)) rows.set(product, { product, total: 0, captured: 0, missing: 0, needsReview: 0, confirmed: 0 });
     const row = rows.get(product);
     row.total += 1;
     if (shot.captured) row.captured += 1;
     else row.missing += 1;
     if (shot.needsReview) row.needsReview += 1;
+    if (shot.captured && shot.confirmed) row.confirmed += 1;
   }
   return [...rows.values()].sort((a, b) => a.product.localeCompare(b.product));
 }

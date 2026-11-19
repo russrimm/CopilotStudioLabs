@@ -1499,7 +1499,9 @@ screenshot a well-written lab would show gets a slot instead:
   slot keeps the placeholder. Markdown, alt text, and caption are identical either
   way. The portal preview also serves a captured image for a lab generated earlier
   that still holds a placeholder. `FEATURE_TOUR_SCREENSHOTS_DIR` points at another
-  folder. See [Feature tour site](feature-tour.md).
+  folder. A good capture made for one lab is shared too (see
+  [Capture once, reuse everywhere](#capture-once-reuse-everywhere)), so the next lab does not retake it.
+  See [Feature tour site](feature-tour.md).
 - **Shot list.** `shots.json` carries one entry per pending slot (numeric `id`,
   `filename`, `section`, `instructions`, plus `alt`, `caption`, `kind`, `figure`,
   and `status`), and `SHOTLIST.md` lists the same for a human.
@@ -1662,6 +1664,11 @@ hides the rest:
    that make sense: **Capture this one**, **Retake** (removes the old image, then queues a new capture),
    **Accept** or **Discard** for a screenshot waiting for review, **Paste image** (the clipboard, or Ctrl+V after
    selecting a screenshot), and **Upload image** (a file picker, or drag and drop onto the thumbnail).
+   Every picture also says where it comes from (**Shared library · captured Nov 12, 2026** or **This lab · captured
+   Nov 12, 2026**). A Captured picture has **Mark as accurate** (then a **Confirmed** badge with the date and **Clear
+   confirmation**) and, for a lab's own picture of a shared slot the library lacks or has differently, **Use this one for
+   every lab**. **Show only screenshots not confirmed yet** filters the gallery. These are optional and never block the
+   checklist or an export. **Retake** of a shared picture other labs use asks first.
    Files are checked in the browser (PNG, JPEG, or WebP, at most 8 MB) and again on the server.
    A preview dialog shows the larger image, its alt text, a "What to show" list, and the check results.
    Left and Right arrows move between screenshots, Home and End jump to the first and last, and Esc closes it.
@@ -1670,7 +1677,9 @@ hides the rest:
 6. **Advanced options** (closed by default): which screenshots (missing, outdated and missing, every one, or the ones
    you tick), numbered markers (saved next to the image, drawn on it, or none), hiding account details, which tenant
    addresses to use, **Re-check against Microsoft Learn** and **Re-check and update the steps**, the **Shared screenshot
-   library** (its coverage, whether it persists, and a button to capture the missing screenshots for one product), and
+   library** (its coverage, how many pictures are confirmed accurate, whether it persists, and a button to capture the
+   missing screenshots for one product), **Share this lab's screenshots** (adds this lab's checked pictures to the shared
+   library), and
    the command line for developers with a Copy button.
 
 On the last step of the wizard, **Capture screenshots when the lab is built** is available only while a computer
@@ -2027,7 +2036,77 @@ shared library that every lab reads: `FEATURE_TOUR_SCREENSHOTS_DIR` when set (ex
 `${PORTAL_STORAGE_ROOT}/screenshots` (mirrored to Azure Blob like the other storage), else the
 baked `docs/feature-tour/screenshots`. Reads check the persistent folder first and then the baked
 one, so an image captured once serves every lab, including labs generated earlier. Queue a job with
-`target: { "type": "library" }` to capture feature tour shots this way.
+`target: { "type": "library" }` to capture feature tour shots this way. A good picture captured for
+one lab also goes into this library (next section), so the next lab does not retake it.
+
+#### Capture once, reuse everywhere
+
+A picture captured, uploaded, pasted, or accepted for **one lab** is written to that lab's own
+`generated-labs/<labId>/assets/` folder first. When its file name is a **shared slot** (`findLibrarySlot` finds it in a
+feature tour shot list; every slot in the catalog is one), the same bytes are also placed in the shared library under
+the same file name, so every other lab shows it as **Captured** and the job plan queues only the shots that are still
+missing. A lab-specific slot stays in its lab.
+
+**What is shared.** A picture is shared only when all of these hold; otherwise it stays in its lab and the answer
+says why in plain words (`library: { outcome: "skipped", code, message }` in the upload response):
+
+| Rule | `code` when it fails |
+|---|---|
+| The file name is a shared slot | `lab-only` |
+| The bytes are a real screenshot: the right type, at least 5 KB, and not a placeholder picture (the same content detector as everywhere else) | `placeholder`, `not-real` |
+| The saved check (`screenshots/verification.json`) belongs to exactly these bytes (SHA-256), did not fail, and was passed or accepted by a person | `no-check`, `check-mismatch`, `failed`, `not-accepted` (a picture waiting for review is never shared) |
+| Account details are **proven hidden**: the check's `redaction.applied` is true. The library serves labs for other customers and brand profiles, so a picture must not carry customer-specific or personal data. A picture put in by hand carries no such proof | `masking-unproven` (stays in the lab; a person can still choose **Use this one for every lab**), `not-masked` (masking was requested and not applied: never shared, not even by a person) |
+| The library is not the committed `docs/feature-tour/screenshots` folder in the code repository (no `PORTAL_STORAGE_ROOT` or `FEATURE_TOUR_SCREENSHOTS_DIR`), so a customer's picture never lands in a Git-tracked folder on its own | `not-persistent` (**Use this one for every lab** and the backfill below still work) |
+
+**The library is never overwritten silently.** An empty slot is filled. The same picture again changes nothing, so
+sharing twice, or from two labs at once, is harmless. When the slot already has a real picture:
+
+| The library's picture | An ordinary capture, upload, or the backfill | An explicit **Retake**, or **Accept** of a newer capture | **Use this one for every lab** |
+|---|---|---|---|
+| Not confirmed | kept (`library-has-one`); the lab keeps its own | replaced | replaced, after a clear confirmation |
+| Marked accurate (**Confirmed**) | kept (`library-confirmed`) | kept (`library-confirmed`); the lab keeps its own | replaced only when the request also says `replaceConfirmed: true`, which clears the mark |
+
+A **Retake** is a capture job queued with `options.retake: true` (the Screenshot Center sets it for Retake, Retake
+guided, Show me once, and **Retake N outdated screenshots**). Before the replaced picture is overwritten, it is copied to
+`<library folder>/<file name>.previous` (the last one only; it is never served as a slot, never listed, and is mirrored to
+Azure Blob with the rest of the folder). Writes are atomic (temporary file, then rename), and a lock file with the
+`.blob-tmp-` marker (never uploaded) makes two processes sharing the same slot, such as the portal and the command-line
+tool, take turns (`busy`: nothing is changed, try again).
+
+After a promotion the library refreshes every generated lab that shows the library's picture for that slot (the same
+deferred refresh a library capture uses) and the Azure Blob write-through runs, so persistence stays correct.
+
+**Where each picture comes from.** The lab status (`GET .../screenshots`) says, per shot, `imageSource` (`"lab"` or
+`"library"`), `imageCapturedAt` (the date it was captured), `confirmed`, and `share`. The Screenshot Center writes it as
+**Shared library · captured Nov 12, 2026** or **This lab · captured Nov 12, 2026** on every picture. A picture a new lab
+reuses from the library is **Captured** (never **Pending**), and capturing the missing screenshots queues only the rest.
+**Retake** of a picture other labs show asks first (`GET /api/capture/library/screenshots/:filename/usage?labId=` says how
+many other labs show it): *This picture is shared. 2 other labs use it. A new capture replaces it for all of them. The old
+picture is kept as a backup.* A picture marked accurate says instead that a new capture stays in this lab only.
+
+**Mark as accurate (optional).** A person can confirm that a picture is right: **Mark as accurate** on a Captured
+picture (also in the preview dialog), a **Confirmed Nov 12, 2026** badge, and **Clear confirmation**. It is stored next to
+the verification records (`screenshots/verification.json` for the lab's own pictures, `library-verification.json` in the
+portal's data folder for the library's) as `confirmations[<file name>] = { sha256, at, by? }`. The SHA-256 ties the mark
+to the exact bytes: a retake, a replaced or re-uploaded picture, or a changed file is no longer confirmed, with nothing
+having to clear it. Marking a picture that comes from the library confirms the library's picture for every lab. It never
+blocks anything: the **Finish your lab** checklist, the lab files, and every export behave exactly as before. The gallery
+has **Show only screenshots not confirmed yet (N)** (only pictures that exist count), the lab status has
+`summary.confirmed` and `summary.notConfirmed`, and the shared library summary shows how many pictures are confirmed.
+
+**Sharing what a lab already has.** **Share this lab's captured screenshots** (Advanced options) shares every eligible
+picture a lab already holds, using the rules above and never overwriting; it answers with what was shared, what the
+library already had, and every skipped picture with its reason. The same thing from a command line, with a dry run first:
+
+```bash
+node tools/lab-builder/share-lab-screenshots.mjs --dry-run            # report only, change nothing
+node tools/lab-builder/share-lab-screenshots.mjs --apply              # share every eligible picture of every lab
+node tools/lab-builder/share-lab-screenshots.mjs --apply --lab=<id> --root=<generated-labs folder> --library=<folder>
+```
+
+The tool follows the portal's storage rules (`PORTAL_STORAGE_ROOT`, `FEATURE_TOUR_SCREENSHOTS_DIR`), so run it against the
+portal's storage folder; the Azure Blob mirror uploads what it wrote on its next sync. It is not part of the container
+image.
 
 **Honest freshness.** `GET .../screenshots` reports `checkState`: `not-checked` until the lab has
 been re-validated against Microsoft Learn (`lastRevalidatedAt` is `null`), then `up-to-date`, or
@@ -2801,7 +2880,7 @@ Browser-facing routes follow the portal's normal rules (Entra sign-in, rate limi
 (`LAB_BUILDER_BODY_LIMIT`), images 8 MB; job changes, disconnecting a computer, and resets share the
 lab-management limit (60 per hour); pairing codes 20 per hour (`CAPTURE_PAIR_RATE_MAX`); uploads 600 per
 hour (`CAPTURE_UPLOAD_RATE_MAX`); pairing attempts 10 per 10 minutes per address
-(`CAPTURE_EXCHANGE_RATE_MAX`). Every mutating route triggers the Azure Blob write-through sync. Jobs and
+(`CAPTURE_EXCHANGE_RATE_MAX`); marking pictures as accurate 600 per hour (`CAPTURE_CONFIRM_RATE_MAX`). Every mutating route triggers the Azure Blob write-through sync. Jobs and
 paired devices are stored under `<data dir>/capture/` and are not shared between portal instances.
 
 Browser-facing:
@@ -2822,11 +2901,16 @@ Browser-facing:
 | `GET` | `/api/capture/jobs/:id/events` | Server-sent events: `snapshot`, then `update` for each change, then `end`. Polling works just as well. |
 | `POST` | `/api/capture/jobs/:id/cancel` | Cancel. A queued job stops now; a running job stops after the current shot. 409 when already finished. |
 | `GET` | `/api/capture/companion.zip` | The companion download. An allowlist of files, no secrets or tokens. |
-| `GET` | `/api/capture/library` | Shared library slots: `{ summary: { total, captured, missing, needsReview }, shots: [{ product, feature, filename, captured, bytes, manual, verification, needsReview }] }`. Query `products=a,b`. |
+| `GET` | `/api/capture/library` | Shared library slots: `{ summary: { total, captured, missing, needsReview, confirmed }, shots: [{ product, feature, filename, captured, bytes, capturedAt, confirmed, manual, verification, needsReview }] }`. `confirmed` is `{ at }` while the confirmation still matches the picture, else `null`. Query `products=a,b`. |
+| `GET` | `/api/capture/library/screenshots/:filename/usage` | How many other labs show the library's picture for a slot, so a retake can ask first: `{ filename, hasPicture, otherLabs, confirmed }`. Query `labId` leaves that lab out. |
 | `PUT` | `.../screenshots/:filename` | Paste or upload an image: raw bytes (`image/png`, `image/jpeg`, `image/webp`, or `application/octet-stream`) or multipart (`file`, optional `evidence` and `callouts` JSON). `?acceptWarnings=true` commits despite warnings. |
 | `GET` | `.../screenshots/:filename/staged` | The image waiting for review. |
 | `POST` | `.../screenshots/:filename/accept` | Commit the staged image. |
 | `DELETE` | `.../screenshots/:filename` | Discard a staged image, or reset the slot to the placeholder for a retake. |
+| `POST` | `.../screenshots/:filename/confirm` | **Mark as accurate**: `{ outcome: "confirmed", scope: "lab" \| "library", confirmed: { at }, state }`. Tied to the picture's SHA-256. 409 when there is no captured picture (or one is waiting for review), 404 for a name that is not a slot. Optional; never blocks anything. |
+| `DELETE` | `.../screenshots/:filename/confirm` | **Clear confirmation**: `{ outcome: "unconfirmed", state }`. |
+| `POST` | `/api/lab-builder/generated/:labId/screenshots/:filename/share` | **Use this one for every lab**: `{ confirm: true, replaceConfirmed?: true }`. 400 without `confirm`; 409 `{ outcome: "skipped", code, message }` when it was not shared (`needsReplaceConfirmation: true` when the library's picture is marked accurate and `replaceConfirmed` was not sent); 200 `{ outcome: "shared" \| "replaced" \| "already-shared", state }`. A replaced picture is kept as `<file name>.previous`. |
+| `POST` | `/api/lab-builder/generated/:labId/screenshots/share` | **Share this lab's captured screenshots**: `{ dryRun?: true }`. `{ labId, dryRun, promoted: [file names], alreadyShared: [file names], skipped: [{ filename, code, message }], counts: { promoted, alreadyShared, skipped, noPicture }, state }`. Never overwrites. |
 
 `...` is `/api/lab-builder/generated/:labId` (also `/api/generated-labs/:labId`) for a lab, or
 `/api/capture/library` for the shared library. The filename must be a screenshot slot of that lab or library.
@@ -2841,7 +2925,7 @@ A job request:
   "brandProfileId": "contoso",                            // optional: use that brand profile's tenant addresses
   "useLabCustomization": true,                            // optional, default true: a lab built with a brand profile uses its addresses; false ignores them
   "targets": { "copilotStudioAgentName": "My agent" },    // optional: capture settings for this job only (addresses and names; validated); they win over the lab's and the profile's
-  "options": { "callouts": "sidecar", "redact": true, "maskTerms": ["Contoso"], "mode": "smart" }   // callouts: sidecar | burn | none; mode: auto | guided | smart (default smart)
+  "options": { "callouts": "sidecar", "redact": true, "maskTerms": ["Contoso"], "mode": "smart", "retake": false }   // callouts: sidecar | burn | none; mode: auto | guided | smart (default smart); retake: true says these shots are a Retake, so a verified result may replace the shared library's picture (never one marked accurate)
 }
 ```
 
@@ -2883,7 +2967,7 @@ A job (setting **values** are never returned to the browser, only `envNames` and
   "tenantUrls": { "set": false, "names": [] },             // CAPTURE_* variables set on the server (names only)
   "sharedLibrary": { "location": "persistent",             // persistent | explicit | baked
                      "persistent": true, "storage": { "persistent": true, "backend": "azure-blob", "writable": true, "blobSyncEnabled": true },
-                     "total": 325, "captured": 12, "missing": 313, "needsReview": 0 },
+                     "total": 325, "captured": 12, "missing": 313, "needsReview": 0, "confirmed": 3 },
   "jobs": { "queued": 0, "active": 1,
             "needsSignIn": { "jobId": "job_…", "count": 3, "products": [ … ], "message": "Sign in to … on your computer, then retry the 3 screenshots." } },   // needsSignIn only while a recent job ended auth-required and the companion has not reported that product signed in
   "pairing": { "codeTtlSec": 600 },
@@ -2892,7 +2976,8 @@ A job (setting **values** are never returned to the browser, only `envNames` and
 ```
 
 An upload answers with `outcome` and the verification result. 200 is `accepted` (with a refreshed `state` for
-a lab), 202 is `needs-review`, 422 is `rejected`, 404 is a name that is not a slot, 413 a body over the limit, and 415 an
+a lab, and, for a lab picture of a shared slot, `library: { outcome: "shared" | "replaced" | "already-shared" | "skipped", code?, message? }`
+that says what happened in the shared library), 202 is `needs-review`, 422 is `rejected`, 404 is a name that is not a slot, 413 a body over the limit, and 415 an
 unsupported type:
 
 ```jsonc
@@ -2914,8 +2999,12 @@ Reason codes: `bad-filename`, `bad-signature`, `extension-mismatch`, `empty`, `t
 { "checkState": "not-checked",                             // not-checked | up-to-date | docs-updated (also in summary.checkState)
   "captureCapabilities": { "companionConnected": true, "companionLastSeenAt": "…", "serverBrowserAvailable": false,
                            "tenantUrlsSet": false, "signedInProducts": ["copilot-studio"] },
-  "summary": { …, "needsReview": 0 },
+  "summary": { …, "needsReview": 0, "confirmed": 0, "notConfirmed": 3 },
   "shots": [ { …, "checkState": "not-checked", "captureSource": "companion", "needsReview": false,
+               "imageSource": "library",                    // where the picture shown comes from: "lab" | "library" | null (no picture)
+               "imageCapturedAt": "2026-11-12T16:04:00.000Z",  // when it was captured (the library's record for a shared picture)
+               "confirmed": null,                           // { at } while a person's "Mark as accurate" still matches the picture's bytes
+               "share": { "state": "shared", "libraryConfirmed": false },   // lab-only | not-shared | differs | shared; null when unknown
                "instructions": ["Open the agent and select the Build tab."],   // the "what to show" lines
                "verification": { …the summary above plus "state": "accepted" | "needs-review", "source", "jobId" } } ],
   "modules": [ { …, "checkState": "up-to-date" } ] }
@@ -3128,6 +3217,14 @@ network access is required.
 against the package invariants that Office enforces (see "Validating Office exports"),
 including negative cases for each defect, a matrix of generated labs, and a lab built
 before a builder fix.
+`portal/test/capture-share.test.js` covers "capture once, reuse everywhere": promotion to the shared library
+(capture and Accept), a lab-specific slot staying in its lab, a placeholder, a stub, an unaccepted warning, a failed
+check, and unmasked account details never being shared, no silent overwrite (a confirmed picture, an existing picture,
+the kept `.previous` copy, an explicit Retake or Accept), two processes sharing one slot at once, the committed-folder
+rule, Mark as accurate (tied to the bytes, never blocking), the backfill (API and command line), and the Azure Blob
+mirror. `portal/test/screenshot-center-browser.test.js` drives the Screenshot Center in headless Chromium against a
+throwaway server with fake data (it skips itself when Playwright or Chromium is missing; set `SC_DEMO_DIR` to also save
+screenshots of each step).
 
 The monthly catalog check is tested with the rest of the accuracy tooling:
 

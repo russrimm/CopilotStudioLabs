@@ -46,6 +46,8 @@ The Azure-hosted portal has no browser and no way to sign in to your tenant, so 
 
    Or, from the repository: `cd tools/screenshot-capture && npm install && npx playwright install chromium && npm run companion -- --portal=<address> --code=<code>`. Without `--portal` and `--code` it asks for them. The pairing code works once and expires in 10 minutes.
 3. Leave the window open. The portal shows **Companion connected** (and the **Screenshot computer** row of the Setup checklist turns to Ready). Queue a capture there for a lab or for the shared library; the companion picks it up within a few seconds.
+
+   A picture the companion captures for a lab (account details hidden, every check passed) is also added to the shared library when it is a shared slot, so the next lab reuses it instead of retaking it. The companion itself does not change: the portal decides, from the verification record, and never replaces a library picture that a person marked accurate. See [Capture once, reuse everywhere](../../docs/lab-builder.md#capture-once-reuse-everywhere).
 4. The first time a product needs sign-in, the browser window shows the Microsoft sign-in page and the companion says **Waiting for you to sign in to <product>**. Sign in yourself, and when it asks **Stay signed in?** choose **Yes** so the sign-in lasts. The companion remembers it on this computer, so you sign in once per product, not once per screenshot. See [Signing in](#signing-in-once-per-product) for what is saved and how to start over.
 
 | Command | What it does |
