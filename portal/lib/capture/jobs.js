@@ -153,7 +153,7 @@ export function normalizeJobRequest(body = {}) {
   if (modeRaw !== "default" && !CAPTURE_MODES.includes(modeRaw)) errors.push(`options.mode must be one of: ${CAPTURE_MODES.join(", ")}.`);
   // `mode: null` means "not said": the portal picks autonomous when the person has consented, and smart (the older behavior) otherwise.
   const autonomyIn = optionsIn.autonomy && typeof optionsIn.autonomy === "object" && !Array.isArray(optionsIn.autonomy) ? optionsIn.autonomy : null;
-  const options = { callouts, redact: optionsIn.redact !== false, maskTerms: maskTerms || [], mode: CAPTURE_MODES.includes(modeRaw) ? modeRaw : null, autonomy: autonomyIn?.level === "read-only" ? { level: "read-only" } : null, record: normalizeRecord(optionsIn.record), background: optionsIn.background === true, agent: optionsIn.agent === "existing" ? "existing" : optionsIn.agent === "scratch" ? "scratch" : null, startFresh: optionsIn.startFresh === true };
+  const options = { callouts, redact: optionsIn.redact !== false, maskTerms: maskTerms || [], mode: CAPTURE_MODES.includes(modeRaw) ? modeRaw : null, autonomy: autonomyIn?.level === "read-only" ? { level: "read-only" } : null, record: normalizeRecord(optionsIn.record), background: optionsIn.background === true, agent: optionsIn.agent === "existing" ? "existing" : optionsIn.agent === "scratch" ? "scratch" : null, startFresh: optionsIn.startFresh === true, retake: optionsIn.retake === true };
 
   const targetsIn = src.targets === undefined || src.targets === null ? {} : src.targets;
   const targetsCheck = validateTargets(targetsIn);

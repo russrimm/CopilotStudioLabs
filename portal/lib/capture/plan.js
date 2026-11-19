@@ -274,6 +274,7 @@ export function listLibrarySlots({ manifestDir, capturedDir = capturedScreenshot
       urlEnv: shot.urlEnv || null,
       captured: Boolean(image),
       bytes: image?.size ?? null,
+      file: image?.file ?? null,
     };
   });
 }

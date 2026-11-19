@@ -98,6 +98,7 @@ export function registerCaptureRoutes(app, deps = {}) {
   const exchangeRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_EXCHANGE_RATE_WINDOW_MS, 600000), max: positiveIntFromEnv(env.CAPTURE_EXCHANGE_RATE_MAX, 10) });
   const companionRate = createRateLimiter({ windowMs: 60000, max: positiveIntFromEnv(env.CAPTURE_COMPANION_RATE_MAX, 600) });
   const recipeRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_RECIPE_RATE_WINDOW_MS, 3600000), max: positiveIntFromEnv(env.CAPTURE_RECIPE_RATE_MAX, 30) });
+  const confirmRate = createRateLimiter({ windowMs: positiveIntFromEnv(env.CAPTURE_CONFIRM_RATE_WINDOW_MS, 3600000), max: positiveIntFromEnv(env.CAPTURE_CONFIRM_RATE_MAX, 600) });
 
   function limited(check, key, message) {
     return (req, res) => {
@@ -110,6 +111,7 @@ export function registerCaptureRoutes(app, deps = {}) {
   }
   const pairLimited = limited(pairRate, userKey, "Too many pairing codes requested.");
   const uploadLimited = limited(uploadRate, userKey, "Too many screenshot uploads.");
+  const confirmLimited = limited(confirmRate, userKey, "Too many confirmations.");
   const manageLimited = typeof deps.manageRateLimited === "function" ? deps.manageRateLimited : limited(manageRate, userKey, "Too many capture changes.");
 
   /** Run the Azure Blob write-through after a handler that changed stored state. */
@@ -412,6 +414,33 @@ export function registerCaptureRoutes(app, deps = {}) {
       }
     });
 
+    // "Mark as accurate" and "Clear confirmation": optional, tied to the picture's bytes, and never blocks anything.
+    app.post(base("/confirm"), (req, res) => {
+      if (confirmLimited(req, res)) return;
+      const target = resolveTarget(req, res);
+      if (!target) return;
+      syncAfter(res);
+      try {
+        const result = screenshots.confirm(target, req.params.filename, { by: actor(req) });
+        res.status(result.status).json(result.body);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    app.delete(base("/confirm"), (req, res) => {
+      if (confirmLimited(req, res)) return;
+      const target = resolveTarget(req, res);
+      if (!target) return;
+      syncAfter(res);
+      try {
+        const result = screenshots.unconfirm(target, req.params.filename);
+        res.status(result.status).json(result.body);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    });
+
     app.get(base("/staged"), (req, res) => {
       const target = resolveTarget(req, res);
       if (!target) return;
@@ -432,6 +461,58 @@ export function registerCaptureRoutes(app, deps = {}) {
     return target;
   });
   targetHandlers(["/api/capture/library"], () => screenshots.library());
+
+  // Sharing a lab's own pictures with every lab: one picture ("Use this one for every lab"), or every eligible one.
+  const labPrefixes = ["/api/lab-builder/generated/:labId", "/api/generated-labs/:labId"];
+  const resolveLab = (req, res) => {
+    const target = screenshots.lab(req.params.labId);
+    if (target.error) {
+      res.status(target.error.status).json(target.error.body);
+      return null;
+    }
+    return target;
+  };
+  const bodyOf = (req) => (req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {});
+  app.post(
+    labPrefixes.map((p) => `${p}/screenshots/:filename/share`),
+    (req, res) => {
+      if (manageLimited(req, res)) return;
+      const target = resolveLab(req, res);
+      if (!target) return;
+      syncAfter(res);
+      try {
+        const body = bodyOf(req);
+        const result = screenshots.shareLabPicture(target, req.params.filename, { confirm: body.confirm === true, replaceConfirmed: body.replaceConfirmed === true });
+        res.status(result.status).json(result.body);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+  app.post(
+    labPrefixes.map((p) => `${p}/screenshots/share`),
+    (req, res) => {
+      if (manageLimited(req, res)) return;
+      syncAfter(res);
+      try {
+        const result = screenshots.shareLabPictures(req.params.labId, { dryRun: bodyOf(req).dryRun === true });
+        res.status(result.status).json(result.body);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  // Who else shows the library's picture for a slot, so a retake can say who it affects.
+  app.get("/api/capture/library/screenshots/:filename/usage", (req, res) => {
+    const exceptLabId = typeof req.query.labId === "string" && SAFE_LAB_ID.test(req.query.labId) ? req.query.labId : null;
+    try {
+      const result = screenshots.libraryUsage(req.params.filename, { exceptLabId });
+      res.status(result.status).json(result.body);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   app.get("/api/capture/library", (req, res) => {
     const products = typeof req.query.products === "string" ? req.query.products.split(",").map((p) => p.trim()).filter(Boolean) : [];
@@ -557,6 +638,7 @@ export function registerCaptureRoutes(app, deps = {}) {
         requireEvidence: true,
         requireRedaction: job.options?.redact !== false,
         jobId: job.id,
+        retake: job.options?.retake === true,
         expect: plannedShot?.capture?.expect || null,
         expectedLabels: plannedShot?.capture?.version ? plannedShot.expectedLabels : null,
       });

@@ -7,7 +7,7 @@
  * portal server over real HTTP.
  */
 
-import { after, before, test } from "node:test";
+import { after, before, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
@@ -250,6 +250,12 @@ after(() => {
       /* best effort */
     }
   }
+});
+
+// Verified companion captures are shared with every lab, so each test starts with an empty shared library.
+beforeEach(() => {
+  rmSync(join(ctx.storageRoot, "screenshots"), { recursive: true, force: true });
+  rmSync(join(ctx.dataDir, "capture", "library-verification.json"), { force: true });
 });
 
 // ── Upload verification ──────────────────────────────────────────────────────

@@ -27,6 +27,10 @@ portal/public/uploads/
 # Feature tour site build output (tools/feature-tour/)
 _site/
 
+# The shared screenshot library keeps the last replaced picture beside it, and a lock while two writers take turns
+docs/feature-tour/screenshots/*.previous
+docs/feature-tour/screenshots/*.blob-tmp-*
+
 # Azure Developer CLI local environment & deployment plan state
 .azure/
 

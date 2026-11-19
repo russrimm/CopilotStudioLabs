@@ -1278,9 +1278,9 @@ test("the gallery groups thumbnails by step with a clear status chip and actions
   });
   assert.match(h.card("agent-home.png").textContent, /Figure 1\.1.*Agents page/);
 
-  assert.deepEqual(buttonTexts(h.card("agent-home.png")), ["Retake", "Retake guided", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("agent-home.png")), ["Retake", "Retake guided", "Mark as accurate", "Paste image", "Upload image"]);
   assert.deepEqual(buttonTexts(h.card("create-agent.png")), ["Capture this one", "Paste image", "Upload image"]);
-  assert.deepEqual(buttonTexts(h.card("agent-topics.png")), ["Retake", "Retake guided", "Paste image", "Upload image"]);
+  assert.deepEqual(buttonTexts(h.card("agent-topics.png")), ["Retake", "Retake guided", "Mark as accurate", "Paste image", "Upload image"]);
   assert.deepEqual(buttonTexts(h.card("agent-test.png")), ["Accept", "Retake", "Retake guided", "Discard", "Paste image", "Upload image"]);
   assert.deepEqual(buttonTexts(h.card("agent-publish.png")), ["Retake", "Retake guided", "Paste image", "Upload image"]);
   assert.deepEqual(buttonTexts(h.card("agent-sharepoint.png")), ["Paste image", "Upload image"], "a manual shot is never auto-captured");
@@ -2390,4 +2390,194 @@ test("the account styles use theme tokens, keep AA contrast in every theme, and 
   const printCss = STYLE.split("@media print")[1];
   assert.doesNotMatch(printCss.split("\n    @media")[0], /\.sc-account/, "no account-specific print rule: the whole Center is already hidden in print");
   assert.ok(printCss.includes(".sc-center,"), "the Center, and so the account line, is hidden in print");
+});
+
+// ── Capture once, reuse everywhere ──────────────────────────────────────────
+
+const reusedShot = (name, extra = {}) =>
+  captured(name, { imageSource: "library", imageCapturedAt: "2026-05-12T12:00:00.000Z", confirmed: null, share: { state: "shared", libraryConfirmed: false }, ...extra });
+const ownShot = (name, extra = {}) =>
+  captured(name, { imageSource: "lab", imageCapturedAt: "2026-05-20T12:00:00.000Z", confirmed: null, share: { state: "not-shared", libraryConfirmed: false }, ...extra });
+const confirmedAt = "2026-06-01T12:00:00.000Z";
+
+test("each picture says where it comes from: Shared library or This lab, with the date it was captured", async () => {
+  const h = makeHarness();
+  await h.render(stateFor([reusedShot("a.png"), ownShot("b.png", { id: 2 }), shot({ filename: "c.png", id: 3 })]));
+  assert.equal(h.card("a.png").querySelector(".sc-source").textContent, "Shared library \u00b7 captured May 12, 2026");
+  assert.equal(h.card("b.png").querySelector(".sc-source").textContent, "This lab \u00b7 captured May 20, 2026");
+  assert.equal(h.card("c.png").querySelector(".sc-source"), null, "a screenshot with no picture has no source");
+  assert.deepEqual(["a.png", "b.png", "c.png"].map((n) => h.card(n).querySelector(".sc-status-chip").textContent), ["Captured", "Captured", "Pending"], "a reused picture is Captured, never Pending");
+  assert.equal(h.card("a.png").querySelector(".sc-note").textContent, "", "the source line carries the date, so the note does not repeat a wrong one");
+  assert.match(h.card("b.png").querySelector(".sc-note").textContent, /^Captured on your computer\.$/);
+  assert.equal(h.host.querySelector(".sc-confirm-summary").textContent.startsWith("0 of 2 captured screenshots confirmed accurate."), true);
+  assert.match(h.host.querySelector(".sc-confirm-summary").textContent, /Confirming is optional and never blocks your lab or its downloads\./);
+});
+
+test("Mark as accurate, the Confirmed badge with its date, and Clear confirmation", async () => {
+  const h = makeHarness();
+  const before = stateFor([ownShot("a.png"), ownShot("b.png", { id: 2 })]);
+  const after = stateFor([ownShot("a.png", { confirmed: { at: confirmedAt } }), ownShot("b.png", { id: 2 })]);
+  await h.render(before);
+  assert.equal(h.card("a.png").querySelector(".sc-confirmed-chip"), null);
+  assert.equal(h.cardAction("a.png", "shot-confirm").getAttribute("aria-label"), "Mark as accurate: Figure 1.1: Agents page");
+  h.route("POST", /\/screenshots\/a\.png\/confirm$/, { status: 200, body: { outcome: "confirmed", filename: "a.png", scope: "lab", confirmed: { at: confirmedAt }, state: after } });
+  await h.click(h.cardAction("a.png", "shot-confirm"));
+  assert.equal(h.callsTo("POST", /\/screenshots\/a\.png\/confirm$/).length, 1);
+  assert.equal(h.card("a.png").querySelector(".sc-confirmed-chip").textContent, "Confirmed Jun 1, 2026");
+  assert.equal(h.cardAction("a.png", "shot-confirm"), null);
+  assert.equal(h.cardAction("a.png", "shot-unconfirm").textContent, "Clear confirmation");
+  assert.equal(h.card("b.png").querySelector(".sc-confirmed-chip"), null, "only the confirmed picture carries the badge");
+  assert.match(h.live(), /Marked as accurate\./);
+
+  h.route("DELETE", /\/screenshots\/a\.png\/confirm$/, { status: 200, body: { outcome: "unconfirmed", filename: "a.png", scope: "lab", state: before } });
+  await h.click(h.cardAction("a.png", "shot-unconfirm"));
+  assert.equal(h.card("a.png").querySelector(".sc-confirmed-chip"), null);
+  assert.ok(h.cardAction("a.png", "shot-confirm"));
+});
+
+test("the preview dialog has the same buttons and shows the source and the Confirmed badge", async () => {
+  const h = makeHarness();
+  await h.render(stateFor([ownShot("a.png", { confirmed: { at: confirmedAt } }), reusedShot("b.png", { id: 2 })]));
+  await h.click(h.cardAction("a.png", "preview"));
+  const dialog = h.center().querySelector("dialog.sc-lightbox");
+  assert.equal(dialog.querySelector(".sc-lb-source").textContent, "This lab \u00b7 captured May 20, 2026");
+  assert.equal(dialog.querySelector(".sc-confirmed-chip").textContent, "Confirmed Jun 1, 2026");
+  assert.ok(dialog.querySelector('[data-sc-action="shot-unconfirm"]'), "Clear confirmation is in the dialog too");
+  await h.click(dialog.querySelector('[data-sc-action="lightbox-next"]'));
+  assert.equal(dialog.querySelector(".sc-lb-source").textContent, "Shared library \u00b7 captured May 12, 2026");
+  assert.ok(dialog.querySelector('[data-sc-action="shot-confirm"]'), "Mark as accurate is in the dialog too");
+});
+
+test("Show only screenshots not confirmed yet filters the gallery and counts only pictures that exist", async () => {
+  const h = makeHarness();
+  await h.render(stateFor([ownShot("a.png", { confirmed: { at: confirmedAt } }), ownShot("b.png", { id: 2 }), reusedShot("c.png", { id: 3 }), shot({ filename: "d.png", id: 4 })]));
+  assert.equal(h.host.querySelector("[data-sc-unconfirmed-label]").textContent, "Show only screenshots not confirmed yet (2)", "a pending screenshot is not counted");
+  const box = h.center().querySelector("#sc-only-unconfirmed");
+  box.checked = true;
+  box.dispatchEvent(h.event("change"));
+  assert.deepEqual(h.host.querySelectorAll(".sc-card").map((c) => c.dataset.filename), ["b.png", "c.png"]);
+  box.checked = false;
+  box.dispatchEvent(h.event("change"));
+  assert.equal(h.host.querySelectorAll(".sc-card").length, 4);
+
+  const allConfirmed = makeHarness();
+  await allConfirmed.render(stateFor([ownShot("a.png", { confirmed: { at: confirmedAt } })]));
+  const only = allConfirmed.center().querySelector("#sc-only-unconfirmed");
+  only.checked = true;
+  only.dispatchEvent(allConfirmed.event("change"));
+  assert.equal(allConfirmed.host.querySelector(".scenario-empty").textContent, "Every captured screenshot is confirmed. Clear the filter to see them all.");
+});
+
+test("a confirmation never changes the checklist numbers, the primary button, or what is queued by default", async () => {
+  const plain = [ownShot("a.png"), reusedShot("b.png", { id: 2 }), shot({ filename: "c.png", id: 3 })];
+  const marked = [ownShot("a.png", { confirmed: { at: confirmedAt } }), reusedShot("b.png", { id: 2, confirmed: { at: confirmedAt } }), shot({ filename: "c.png", id: 3 })];
+  const view = async (shots) => {
+    const h = makeHarness();
+    await h.setStatus(statusPayload({ devices: [device()] }));
+    await h.render(stateFor(shots));
+    return { checklist: json(h.run("lbChecklistInput")(LAB)), counts: json(h.run("scCounts")(stateFor(shots))), primary: h.text(".sc-primary-btn") };
+  };
+  assert.deepEqual(await view(marked), await view(plain));
+  assert.equal((await view(plain)).counts.toCapture, 1, "only the screenshot with no picture is queued");
+  assert.equal((await view(plain)).counts.captured, 2, "a reused picture counts as captured");
+});
+
+test("Retake of a shared picture asks first when other labs use it, in plain words, and Cancel changes nothing", async () => {
+  const state = stateFor([reusedShot("a.png")]);
+  const h = makeHarness();
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  await h.render(state);
+  h.route("GET", /\/api\/capture\/library\/screenshots\/a\.png\/usage\?labId=lab-test-1$/, { status: 200, body: { filename: "a.png", hasPicture: true, otherLabs: 2, confirmed: false } });
+  h.route("DELETE", /\/screenshots\/a\.png$/, { status: 200, body: { outcome: "reset", state } });
+  h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: jobFor([state.shots[0]]) } });
+  h.calls.length = 0;
+
+  await h.click(h.cardAction("a.png", "shot-retake"));
+  const ask = h.card("a.png").querySelector(".sc-ask");
+  assert.equal(ask.querySelector(".sc-ask-title").textContent, "Other labs use this picture.");
+  assert.equal(ask.querySelector(".sc-ask-text").textContent, "This picture is shared. 2 other labs use it. A new capture replaces it for all of them. The old picture is kept as a backup.");
+  assert.equal(h.callsTo("DELETE", /screenshots/).length + h.callsTo("POST", /jobs/).length, 0, "nothing happens before the answer");
+  assert.equal(h.document.activeElement.textContent, "Cancel", "Cancel has the focus, so Enter does not replace anything by accident");
+
+  await h.click(ask.querySelector('[data-sc-action="ask-cancel"]'));
+  assert.equal(h.host.querySelector(".sc-ask"), null);
+  assert.equal(h.callsTo("DELETE", /screenshots/).length + h.callsTo("POST", /jobs/).length, 0);
+
+  await h.click(h.cardAction("a.png", "shot-retake"));
+  await h.click(h.host.querySelector('[data-sc-action="ask-yes"]'));
+  assert.equal(h.callsTo("DELETE", /screenshots\/a\.png$/).length, 1);
+  const body = h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body;
+  assert.equal(body.options.retake, true, "the capture may replace the shared picture");
+  assert.deepEqual(body.scope, { mode: "selected", filenames: ["a.png"] });
+
+  // A picture nobody else uses is retaken without a question; one marked accurate says it stays in this lab.
+  const alone = makeHarness();
+  await alone.setStatus(statusPayload({ devices: [device()] }));
+  await alone.render(state);
+  alone.route("GET", /\/usage\?labId=/, { status: 200, body: { filename: "a.png", hasPicture: true, otherLabs: 0, confirmed: false } });
+  alone.route("DELETE", /\/screenshots\/a\.png$/, { status: 200, body: { outcome: "reset", state } });
+  alone.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: jobFor([state.shots[0]]) } });
+  await alone.click(alone.cardAction("a.png", "shot-retake"));
+  assert.equal(alone.host.querySelector(".sc-ask"), null);
+  assert.equal(alone.callsTo("POST", /\/api\/capture\/jobs$/).length, 1);
+
+  const keeper = makeHarness();
+  await keeper.setStatus(statusPayload({ devices: [device()] }));
+  await keeper.render(state);
+  keeper.route("GET", /\/usage\?labId=/, { status: 200, body: { filename: "a.png", hasPicture: true, otherLabs: 3, confirmed: true } });
+  await keeper.click(keeper.cardAction("a.png", "shot-retake"));
+  assert.equal(keeper.host.querySelector(".sc-ask-text").textContent, "This shared picture is marked accurate, so other labs keep it. A new capture of it stays in this lab only.");
+  assert.equal(keeper.host.querySelector('[data-sc-action="ask-yes"]').textContent, "Retake for this lab");
+});
+
+test("Use this one for every lab asks for a clear confirmation, and says when it replaces a picture marked accurate", async () => {
+  const state = stateFor([ownShot("a.png", { share: { state: "differs", libraryConfirmed: true } }), ownShot("b.png", { id: 2, share: { state: "shared", libraryConfirmed: false } })]);
+  const h = makeHarness();
+  await h.render(state);
+  assert.equal(h.cardAction("b.png", "shot-share"), null, "a picture the library already has needs no sharing");
+  h.route("POST", /\/screenshots\/a\.png\/share$/, { status: 200, body: { outcome: "replaced", filename: "a.png", state } });
+  await h.click(h.cardAction("a.png", "shot-share"));
+  assert.equal(h.callsTo("POST", /\/share$/).length, 0, "a question comes first");
+  const ask = h.card("a.png").querySelector(".sc-ask");
+  assert.equal(ask.querySelector(".sc-ask-title").textContent, "This replaces a picture marked accurate.");
+  assert.match(ask.querySelector(".sc-ask-text").textContent, /Replacing it clears that mark\..*kept as a backup\. Check that it shows no account names, email addresses, or customer data\.$/);
+  await h.click(ask.querySelector('[data-sc-action="ask-yes"]'));
+  assert.deepEqual(h.callsTo("POST", /\/share$/)[0].body, { confirm: true, replaceConfirmed: true });
+  assert.match(h.card("a.png").querySelector(".sc-feedback").textContent, /Every lab can now use this picture\./);
+});
+
+test("Share this lab's captured screenshots asks first, then reports what was shared and why the rest was skipped", async () => {
+  const state = stateFor([ownShot("a.png"), ownShot("b.png", { id: 2 })]);
+  state.summary.capturedInLab = 2;
+  const h = makeHarness();
+  await h.render(state);
+  const button = h.action("share-lab");
+  assert.equal(button.textContent, "Share this lab's captured screenshots");
+  h.route("POST", /\/screenshots\/share$/, {
+    status: 200,
+    body: { labId: LAB, dryRun: false, promoted: ["a.png"], alreadyShared: [], skipped: [{ filename: "b.png", code: "masking-unproven", message: "We could not confirm that account details are hidden, so this picture stays in this lab." }], counts: { promoted: 1, alreadyShared: 0, skipped: 1, noPicture: 0 }, state },
+  });
+  await h.click(button);
+  assert.equal(h.callsTo("POST", /\/screenshots\/share$/).length, 0, "a question comes first");
+  const ask = h.host.querySelector('[data-sc-ask="share-lab"]');
+  assert.match(ask.querySelector(".sc-ask-text").textContent, /Nothing in the library is replaced\.$/);
+  await h.click(ask.querySelector('[data-sc-action="ask-yes"]'));
+  assert.deepEqual(h.callsTo("POST", /\/screenshots\/share$/)[0].body, {});
+  const result = h.host.querySelector("[data-sc-share-lab-result]");
+  assert.equal(result.querySelector(".sc-feedback-head").textContent, "1 screenshot shared. 0 already in the library. 1 skipped.");
+  assert.equal(result.querySelector("li").textContent, "b.png: We could not confirm that account details are hidden, so this picture stays in this lab.");
+
+  const empty = makeHarness();
+  await empty.render(stateFor([shot({ filename: "a.png" })]));
+  assert.equal(empty.action("share-lab").disabled, true, "nothing to share while the lab has no pictures of its own");
+});
+
+test("the shared library summary counts confirmed pictures", async () => {
+  const h = makeHarness();
+  await h.setStatus({ ...statusPayload({ devices: [device()] }), sharedLibrary: { location: "persistent", persistent: true, total: 325, captured: 12, missing: 313, needsReview: 1, confirmed: 4 } });
+  await h.render(stateFor([ownShot("a.png")]));
+  assert.equal(h.host.querySelector("[data-sc-library-confirmed]").textContent, "4 confirmed accurate.");
+  h.route("GET", /\/api\/capture\/library$/, { status: 200, body: { summary: { total: 2, captured: 2, missing: 0, needsReview: 0, confirmed: 1 }, shots: [{ product: "copilot-studio", filename: "x.png", captured: true, confirmed: { at: confirmedAt } }, { product: "copilot-studio", filename: "y.png", captured: true, confirmed: null }] } });
+  await h.click(h.action("library-load"));
+  assert.match(h.host.querySelector(".sc-library-meta").textContent, /^2 of 2 captured, 1 confirmed$/);
 });

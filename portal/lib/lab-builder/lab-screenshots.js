@@ -14,7 +14,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getFeature } from "./catalog.js";
-import { capturedScreenshotsDirs, resolveLabScreenshot } from "./captured.js";
+import { capturedImage, capturedScreenshotsDirs, resolveLabScreenshot } from "./captured.js";
 import { scrubForbidden } from "./composer.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
 import { connect, fetchDocPage } from "./learn-mcp.js";
@@ -33,6 +33,7 @@ import {
 import { blockedInstructionReason, blockedLabelReason } from "../../../tools/screenshot-capture/guard.mjs";
 import { cleanExpectedLabel } from "../../../tools/screenshot-capture/labels.mjs";
 import { describeShotCapture } from "../capture/classify.js";
+import { fileSha256, readRecordsFile, validConfirmation, writeRecordsFile } from "../capture/library-share.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -927,6 +928,7 @@ const DEFAULT_CAPTURE_CAPABILITIES = Object.freeze({
 });
 let captureCapabilitiesProvider = null;
 let captureTargetsProvider = null;
+let sharedLibraryProvider = null;
 
 /** The capture platform registers a callback so status payloads can say whether a companion is connected. */
 export function setCaptureCapabilitiesProvider(provider) {
@@ -936,6 +938,23 @@ export function setCaptureCapabilitiesProvider(provider) {
 /** The capture platform registers a callback that returns the capture settings in effect for a lab (addresses and names). */
 export function setCaptureTargetsProvider(provider) {
   captureTargetsProvider = typeof provider === "function" ? provider : null;
+}
+
+/**
+ * The capture platform registers the shared library's view for status payloads: `{ isSlot(filename), records() }`, where
+ * `records()` returns the library's `{ shots, confirmations }`. Without it, a lab's status carries no sharing details.
+ */
+export function setSharedLibraryProvider(provider) {
+  sharedLibraryProvider = provider && typeof provider.isSlot === "function" && typeof provider.records === "function" ? provider : null;
+}
+
+function currentSharedLibrary() {
+  try {
+    const records = sharedLibraryProvider?.records();
+    return sharedLibraryProvider ? { isSlot: (name) => Boolean(sharedLibraryProvider.isSlot(name)), shots: records?.shots || {}, confirmations: records?.confirmations || {} } : null;
+  } catch {
+    return null;
+  }
 }
 
 function currentCaptureTargets(labId) {
@@ -966,25 +985,43 @@ function instructionList(value) {
 }
 
 const VERIFICATION_FILE = "verification.json";
+const labRecordsFile = (labDir) => path.join(labDir, "screenshots", VERIFICATION_FILE);
 
 /** Per-shot verification records written when a screenshot is uploaded, pasted, or captured by the companion. */
 export function readLabVerification(labDir) {
   try {
-    const file = path.join(labDir, "screenshots", VERIFICATION_FILE);
-    if (!fs.existsSync(file)) return {};
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
-    return parsed && typeof parsed.shots === "object" && parsed.shots ? parsed.shots : {};
+    return readRecordsFile(labRecordsFile(labDir)).shots;
   } catch {
     return {};
   }
 }
 
-/** Store (or clear, with `null`) one shot's verification record. */
+/** Store (or clear, with `null`) one shot's verification record. Confirmations in the same file are kept. */
 export function writeLabVerificationRecord(labDir, filename, record) {
-  const shots = readLabVerification(labDir);
+  const file = labRecordsFile(labDir);
+  const { shots, confirmations } = readRecordsFile(file);
   if (record) shots[filename] = record;
   else delete shots[filename];
-  writeJsonAtomic(path.join(labDir, "screenshots", VERIFICATION_FILE), { schema: 1, updatedAt: new Date().toISOString(), shots });
+  writeRecordsFile(file, { shots, confirmations });
+}
+
+/** Per-shot "Mark as accurate" confirmations for the lab's own pictures: `{ [filename]: { sha256, at, by? } }`. */
+export function readLabConfirmations(labDir) {
+  try {
+    return readRecordsFile(labRecordsFile(labDir)).confirmations;
+  } catch {
+    return {};
+  }
+}
+
+/** Store (or clear, with `null`) one shot's confirmation. */
+export function writeLabConfirmation(labDir, filename, confirmation) {
+  const file = labRecordsFile(labDir);
+  const { shots, confirmations } = readRecordsFile(file);
+  if (confirmation) confirmations[filename] = confirmation;
+  else if (!(filename in confirmations)) return;
+  else delete confirmations[filename];
+  writeRecordsFile(file, { shots, confirmations });
 }
 
 function recomputeLearnSync(labDir, shotsPlan, learnState, capturedDir) {
@@ -1084,6 +1121,45 @@ export function recordLabShotReset(labDir, { labId: explicitLabId, filename, cap
   return { ok: true, featureId, stillResolves };
 }
 
+const firstDate = (...values) => values.find((v) => typeof v === "string" && Number.isFinite(Date.parse(v))) || null;
+
+/**
+ * Where a lab's picture comes from and how it is shared: `imageSource` ("lab" or "library"), the date it was captured,
+ * whether a person confirmed it, and how it relates to the shared library's picture for the same slot.
+ */
+function describePictureSharing({ shot, resolved, verification, learnShot, labConfirmations, library, capturedDir }) {
+  const none = { imageSource: null, imageCapturedAt: null, confirmed: null, share: null };
+  if (!resolved) return none;
+  const fromLibrary = resolved.source === "shared";
+  const record = fromLibrary ? library?.shots?.[shot.filename] : verification;
+  const confirmation = fromLibrary ? library?.confirmations?.[shot.filename] : labConfirmations?.[shot.filename];
+  let mtime = null;
+  try {
+    mtime = fs.statSync(resolved.file).mtime.toISOString();
+  } catch {
+    mtime = null;
+  }
+  const out = {
+    imageSource: fromLibrary ? "library" : "lab",
+    imageCapturedAt: firstDate(record?.acceptedAt, fromLibrary ? null : learnShot?.capturedAt, mtime),
+    confirmed: confirmation ? validConfirmation(confirmation, fileSha256(resolved.file)) : null,
+    share: null,
+  };
+  if (!library) return out;
+  if (!library.isSlot(shot.filename)) return { ...out, share: { state: "lab-only" } };
+  if (fromLibrary) return { ...out, share: { state: "shared", libraryConfirmed: Boolean(out.confirmed) } };
+  const libraryImage = capturedImage(capturedDir, shot.filename);
+  if (!libraryImage) return { ...out, share: { state: "not-shared", libraryConfirmed: false } };
+  const librarySha = fileSha256(libraryImage.file);
+  return {
+    ...out,
+    share: {
+      state: librarySha && librarySha === fileSha256(resolved.file) ? "shared" : "differs",
+      libraryConfirmed: Boolean(validConfirmation(library.confirmations?.[shot.filename], librarySha)),
+    },
+  };
+}
+
 /**
  * Inspect per-lab screenshot manifest, captured/missing/stale counts, and
  * Microsoft Learn sync status (`GET /api/lab-builder/generated/:labId/screenshots`).
@@ -1100,6 +1176,8 @@ export function getLabScreenshotsStatus(
   repairLabPlaceholders(labDir, { labId, capturedDir });
   const { shotsPlan, learnState } = ensurePerLabScreenshotPlan(labDir, { labId, capturedDir });
   const verificationRecords = readLabVerification(labDir);
+  const labConfirmations = readLabConfirmations(labDir);
+  const library = currentSharedLibrary();
   const captureValues = currentCaptureTargets(labId);
 
   const shots = (shotsPlan.shots || []).map((shot) => {
@@ -1110,6 +1188,7 @@ export function getLabScreenshotsStatus(
     const docsUpdated = mState.status === "docs-updated" || Boolean(sState.stale);
     const hasScreenshot = Boolean(resolved);
     const verification = verificationRecords[shot.filename] || null;
+    const sharing = describePictureSharing({ shot, resolved, verification, learnShot: sState, labConfirmations, library, capturedDir });
 
     const syncStatus = docsUpdated
       ? "docs-updated"
@@ -1152,6 +1231,7 @@ export function getLabScreenshotsStatus(
       lastError: sState.lastError || null,
       verification,
       needsReview: verification?.state === "needs-review",
+      ...sharing,
       learnBaseline: shot.learnBaseline || null,
       // How this shot is captured under the settings in effect, so the Screenshot Center can say why.
       capture: describeShotCapture({ ...shot, product: shot.product }, captureValues),
@@ -1195,6 +1275,7 @@ export function getLabScreenshotsStatus(
   const missingCount = shots.filter((s) => !s.captured).length;
   const staleCount = shots.filter((s) => s.stale).length;
   const needsReviewCount = shots.filter((s) => s.needsReview).length;
+  const confirmedCount = shots.filter((s) => s.captured && s.confirmed).length;
   const docsUpdatedModules = modules.filter((m) => m.status === "docs-updated").length;
 
   const learnSyncStatus =
@@ -1231,6 +1312,8 @@ export function getLabScreenshotsStatus(
         missing: missingCount,
         stale: staleCount,
         needsReview: needsReviewCount,
+        confirmed: confirmedCount,
+        notConfirmed: Math.max(0, capturedCount - confirmedCount),
         upToDate: shots.filter((s) => s.syncStatus === "up-to-date").length,
         docsUpdatedModules,
         totalModules: modules.length,
