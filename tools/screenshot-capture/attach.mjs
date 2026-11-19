@@ -11,15 +11,20 @@
 // any protection. It just does not add switches that change how a managed browser behaves.
 //
 // Safety: the port is random, bound to 127.0.0.1, and closed when the browser exits; a profile folder is used by one
-// companion at a time; and the browser process is ended when the companion closes it, stops, or crashes.
+// companion at a time; the browser process is ended when the companion closes it, stops, or crashes; and while it runs the
+// profile folder holds a small record of the browser's process number and port (see profile-guard.mjs), which is how a
+// browser left behind by a crash is recognized as this companion's own and used again instead of started twice.
 
 import { spawn as nodeSpawn } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 
+import { COMPANION_LOCK_FILE, PROFILE_IN_USE_EXIT_CODE, clearBrowserRecord, pidIsAlive, writeBrowserRecord } from "./profile-guard.mjs";
+
 export const LAUNCH_CHOICES = Object.freeze(["auto", "attach", "playwright"]);
-export const LOCK_FILE = ".companion-lock.json";
+export const LOCK_FILE = COMPANION_LOCK_FILE;
+export { pidIsAlive };
 
 export function parseLaunchChoice(value) {
   const text = String(value ?? "").trim().toLowerCase();
@@ -75,16 +80,6 @@ export function attachArgs({ dir, port, headless = false, inPrivate = false }) {
 
 // ── One companion per profile ──────────────────────────────────────────────
 
-export function pidIsAlive(pid) {
-  if (!Number.isInteger(pid) || pid <= 0) return false;
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (err) {
-    return err?.code === "EPERM";
-  }
-}
-
 /**
  * Claim a profile folder for this process. A second companion on the same profile is refused (a browser started on a
  * profile that is already open would just hand the request to the first one and exit).
@@ -132,6 +127,13 @@ function installExitHook() {
   process.on("exit", () => {
     for (const entry of [...live]) entry.killNow();
   });
+  // Closing the console window (SIGHUP on Windows) and a plain stop request (SIGTERM) end the process without a normal exit.
+  for (const [signal, code] of [["SIGHUP", 129], ["SIGTERM", 143]]) {
+    process.on(signal, () => {
+      for (const entry of [...live]) entry.killNow();
+      process.exit(code);
+    });
+  }
 }
 
 /** Whether this Playwright module can connect to a running browser. */
@@ -153,7 +155,7 @@ async function waitForEndpoint({ port, fetchFn, sleep, timeoutMs, pollMs, exited
   for (let waited = 0; waited <= timeoutMs && Date.now() - startedAt <= timeoutMs + slackMs; waited += pollMs) {
     const gone = exited();
     if (gone) {
-      throw new AttachError("BROWSER_EXITED", `${gone.error ? "The browser could not be started." : "The browser closed right away."} It may have handed over to a window that is already open, or this computer does not allow a browser to listen on a debugging port.`);
+      throw Object.assign(new AttachError("BROWSER_EXITED", `${gone.error ? "The browser could not be started." : "The browser closed right away."} This computer may not allow a browser to listen on a debugging port.`), { exitCode: gone.code ?? null, profileInUse: gone.code === PROFILE_IN_USE_EXIT_CODE });
     }
     try {
       const response = await fetchFn(`http://127.0.0.1:${port}/json/version`, { signal: AbortSignal.timeout?.(1500) });
@@ -284,6 +286,7 @@ export async function launchAttached({ playwright, kind, dir, executable, headle
       } catch {
         // Already gone.
       }
+      if (Number.isInteger(child?.pid)) clearBrowserRecord(dir, child.pid);
       lock.release();
     },
   };
@@ -318,8 +321,11 @@ export async function launchAttached({ playwright, kind, dir, executable, headle
     port = await portFn();
     child = spawnFn(executable, attachArgs({ dir, port, headless, inPrivate }), { stdio: "ignore", windowsHide: false });
     live.add(entry);
+    // The proof that this companion started this browser: its process number and debugging port, kept until it exits.
+    if (Number.isInteger(child.pid)) writeBrowserRecord(dir, { pid: child.pid, port, kind, headless: Boolean(headless), inPrivate: Boolean(inPrivate), companionPid: process.pid, startedAt: new Date().toISOString() });
     child.once?.("exit", (code, signal) => {
       exited = { code, signal };
+      if (Number.isInteger(child.pid)) clearBrowserRecord(dir, child.pid);
       trace?.event("attach-process-exit", { browser: kind, code: code ?? null, signal: signal ?? null });
     });
     child.once?.("error", (error) => {
@@ -350,6 +356,111 @@ export async function launchAttached({ playwright, kind, dir, executable, headle
     }
     throw err;
   }
+}
+
+/**
+ * Connect to a browser this companion started earlier and that is still running (it answered on its debugging port, and a
+ * record plus its command line prove the companion started it). Nothing is launched. Closing it later asks it to quit and
+ * waits; it is never ended by force while it is only being used again, and never unless it is still connected at exit.
+ * @returns {Promise<{context: object, browser: object, port: number, close: () => Promise<void>, reused: true}>}
+ */
+export async function reconnectAttached({ playwright, kind, dir, record, wsUrl, sleep = defaultSleep, trace = null, isAlive = pidIsAlive, exitWaitMs = 15_000 } = {}) {
+  if (!record || !wsUrl) throw new AttachError("NO_RECORD", "There is no earlier browser to connect to.");
+  if (!attachSupported(playwright)) throw new AttachError("UNSUPPORTED", "This Playwright cannot connect to a running browser.");
+  installExitHook();
+  const lock = acquireProfileLock(dir, { isAlive });
+  let browser = null;
+  let closed = false;
+  let disconnected = false;
+  const entry = {
+    killNow() {
+      // Only a browser that is still connected is the one that was proven; one that went away may have given its number to another program.
+      try {
+        if (!disconnected && isAlive(record.pid)) process.kill(record.pid);
+      } catch {
+        // Already gone.
+      }
+      clearBrowserRecord(dir, record.pid);
+      lock.release();
+    },
+  };
+  const close = async () => {
+    if (closed) return;
+    closed = true;
+    live.delete(entry);
+    try {
+      const session = await browser?.newBrowserCDPSession?.();
+      await Promise.race([session?.send?.("Browser.close"), sleep(2000)]);
+    } catch {
+      // The browser may already be closing.
+    }
+    try {
+      await browser?.close?.();
+    } catch {
+      // Disconnecting from a browser that is gone is fine.
+    }
+    let gone = !isAlive(record.pid);
+    for (let waited = 0; !gone && waited < exitWaitMs; waited += 50) {
+      await sleep(50);
+      gone = !isAlive(record.pid);
+    }
+    if (gone) clearBrowserRecord(dir, record.pid);
+    lock.release();
+    trace?.event("attach-closed", { browser: kind, reused: true, gone });
+  };
+  try {
+    browser = await playwright.chromium.connectOverCDP(wsUrl);
+    const context = browser.contexts?.()[0];
+    if (!context) throw new AttachError("NO_CONTEXT", "The browser has no profile to use.");
+    live.add(entry);
+    browser.on?.("disconnected", () => {
+      disconnected = true;
+      live.delete(entry);
+      lock.release();
+    });
+    context.isCompanionClosed = () => closed || disconnected || !isAlive(record.pid);
+    context.companionPid = record.pid;
+    context.close = close;
+    trace?.event("attach-reconnect", { browser: kind, port: "loopback" });
+    return { context, browser, port: record.port, close, reused: true };
+  } catch (err) {
+    lock.release();
+    try {
+      await browser?.close?.();
+    } catch {
+      // Not connected.
+    }
+    throw err;
+  }
+}
+
+/**
+ * Ask a browser this companion started earlier to quit (when it cannot be used as it is, for example a hidden one when a
+ * window is needed). It is asked, never ended by force. Returns whether it is gone.
+ */
+export async function closeEarlierBrowser({ playwright, record, wsUrl, dir, sleep = defaultSleep, isAlive = pidIsAlive, exitWaitMs = 15_000, trace = null } = {}) {
+  if (!record || !wsUrl || !attachSupported(playwright)) return false;
+  let browser = null;
+  try {
+    browser = await playwright.chromium.connectOverCDP(wsUrl);
+    const session = await browser.newBrowserCDPSession?.();
+    await Promise.race([session?.send?.("Browser.close"), sleep(2000)]);
+  } catch {
+    // The browser may already be closing.
+  }
+  try {
+    await browser?.close?.();
+  } catch {
+    // Disconnecting from a browser that is gone is fine.
+  }
+  let gone = !isAlive(record.pid);
+  for (let waited = 0; !gone && waited < exitWaitMs; waited += 50) {
+    await sleep(50);
+    gone = !isAlive(record.pid);
+  }
+  if (gone) clearBrowserRecord(dir, record.pid);
+  trace?.event("attach-closed-earlier", { gone });
+  return gone;
 }
 
 /** Close every browser this process started with attach. Safe to call more than once. */

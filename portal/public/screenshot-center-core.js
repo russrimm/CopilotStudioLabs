@@ -1047,6 +1047,9 @@ function scDescribeJob(job, { companionConnected = null, nowMs = Date.now(), onl
   const finished = job?.status === "done" || job?.status === "failed";
   if (finished && scCount(counts.paused) > 0) {
     const paused = scCount(counts.paused);
+    if (job.result?.pausedReason === "browser-busy") {
+      return { ...base, phase: "paused", tone: "warn", headline: "Waiting for the browser", detail: `A browser window from an earlier capture is still open on your computer, so the capture is waiting, not failed. Close that window, then select Resume. ${scPlural(paused, "screenshot")} ${paused === 1 ? "is" : "are"} waiting.` };
+    }
     const lead = job.result?.pausedReason === "stopped" ? "You pressed Stop" : "You closed the browser window";
     return { ...base, phase: "paused", tone: "warn", headline: "Capture paused", detail: `${lead}, so the capture paused. ${scPlural(paused, "screenshot")} ${paused === 1 ? "is" : "are"} waiting.` };
   }

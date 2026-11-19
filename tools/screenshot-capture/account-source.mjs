@@ -90,14 +90,70 @@ export function parseDsregcmd(output) {
 }
 
 /** What this computer has: on Windows from `dsregcmd`, elsewhere "unknown" (no work account is assumed, none is ruled out). */
-export function readOsAccount({ exec = execFileSync, platform = process.platform } = {}) {
+export function readOsAccount({ exec = execFileSync, platform = process.platform, timeoutMs = 8000 } = {}) {
   if (platform !== "win32") return withPrivateTenant({ known: false, osWorkAccount: null, azureAdJoined: null, domainJoined: null, workplaceJoined: null, prt: null }, null);
   try {
-    const out = String(exec("dsregcmd", ["/status"], { encoding: "utf8", timeout: 8000, windowsHide: true, stdio: ["ignore", "pipe", "ignore"] }) || "");
+    const out = String(exec("dsregcmd", ["/status"], { encoding: "utf8", timeout: timeoutMs, windowsHide: true, stdio: ["ignore", "pipe", "ignore"] }) || "");
     return parseDsregcmd(out);
   } catch {
     return parseDsregcmd("");
   }
+}
+
+export const OS_ACCOUNT_FILE = ".companion-os-account.json";
+
+function readRememberedOsAccount(home) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(path.join(home, OS_ACCOUNT_FILE), "utf8"));
+    return typeof raw?.osWorkAccount === "boolean" ? raw.osWorkAccount : null;
+  } catch {
+    return null;
+  }
+}
+
+function rememberOsAccount(home, osWorkAccount) {
+  try {
+    fs.mkdirSync(home, { recursive: true });
+    fs.writeFileSync(path.join(home, OS_ACCOUNT_FILE), `${JSON.stringify({ version: 1, osWorkAccount, checkedAt: new Date().toISOString() })}\n`, { mode: 0o600 });
+  } catch {
+    // Remembering is a convenience only.
+  }
+}
+
+/** Whether a separate sign-in was ever set up here (its folder exists), which only happens on a PC with a Windows work account. */
+function hasSeparateSignIn(home) {
+  try {
+    return fs.readdirSync(path.join(home, ".auth", "separate")).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * `readOsAccount`, made safe against one bad reading. A PC that has a Windows work account decides where the sign-in lives
+ * (the "separate" folder) and which browser comes first, so a `dsregcmd` that is slow or fails must not silently turn
+ * "work account" into "no work account" and send the capture to the shared sign-in. When it cannot be read: try once more
+ * with a longer wait, then use what an earlier start saw, then (a separate sign-in exists, so this PC had a work account).
+ * Only the yes or no is remembered, never an id.
+ * @returns {object} the same shape as `readOsAccount`; `source` says when the answer is not a fresh reading
+ */
+export function resolveOsAccount({ home, platform = process.platform, read = readOsAccount, log = () => {} } = {}) {
+  let found = read();
+  if (found.known) {
+    if (home) rememberOsAccount(home, found.osWorkAccount === true);
+    return found;
+  }
+  if (platform !== "win32") return found;
+  found = read({ timeoutMs: 30_000 });
+  if (found.known) {
+    if (home) rememberOsAccount(home, found.osWorkAccount === true);
+    return found;
+  }
+  const remembered = home ? readRememberedOsAccount(home) : null;
+  const inferred = remembered !== null ? remembered : home && hasSeparateSignIn(home) ? true : null;
+  if (inferred === null) return found;
+  log(`This PC would not say whether it has a Windows work account, so the answer from earlier is used (${inferred ? "it has one, so your separate sign-in is used" : "it does not"}).`);
+  return Object.defineProperty({ known: false, osWorkAccount: inferred, azureAdJoined: null, domainJoined: null, workplaceJoined: null, prt: null, source: "remembered" }, "osTenantId", { value: null, enumerable: false, writable: false });
 }
 
 /** The flags that may leave this computer (and nothing else). */
