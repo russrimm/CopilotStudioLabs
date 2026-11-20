@@ -21,6 +21,7 @@ import { summarizeLabLearnDrift } from "./learn-drift-dashboard.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
 import { isPlaceholder } from "./placeholder-detect.js";
 import { altOfTag, loadShotSlots, replacePendingPictures } from "./pending-shot-card.js";
+import { tidyMetaTable } from "./meta-table.js";
 import { PLACEHOLDER_PATH } from "./slots.js";
 import {
   ALLOWED_TOPIC_DOC_FORMATS,
@@ -71,7 +72,7 @@ export function decorateGeneratedHtml(html, labId, labDir, { capturedDir = captu
     return (size >= MIN_CAPTURED_BYTES && !isPlaceholder(join(labDir, "assets", name))) || Boolean(capturedImage(capturedDir, name));
   };
   // A pending picture becomes a "Screenshot to add" card with what it should show and how to capture it.
-  const withCards = replacePendingPictures(String(html), (tag) => {
+  const withCards = replacePendingPictures(tidyMetaTable(html), (tag) => {
     const src = tag.match(/\bsrc="assets\/([^"]+)"/i);
     if (!src || !ASSET_NAME.test(src[1]) || isCaptured(src[1])) return null;
     pending.push(src[1]);

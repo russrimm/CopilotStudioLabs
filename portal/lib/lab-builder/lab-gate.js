@@ -18,6 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { capturedScreenshotsDirs, resolveLabScreenshot } from "./captured.js";
+import { scopeProblem } from "./topic-scope.js";
 
 export const GATE_VERSION = 1;
 
@@ -187,6 +188,13 @@ function reviewModule(module, context) {
     if (missing.length) {
       add("missing-section", "gap", missing.length, `${where} is missing: ${missing.map(([name]) => name).join(", ")}.`, "Every module has the same sections in the same order.");
     }
+    const doing = lines.find((line) => /^\*\*What you are doing\.\*\*/.test(line));
+    const scope = doing ? scopeProblem(doing.replace(/^\*\*What you are doing\.\*\*\s*/, ""), context.harness) : null;
+    if (scope?.kind === "classic-only") {
+      add("topic-not-for-harness", "gap", 1, `${where}: Microsoft Learn says this topic applies to classic chatbots only, which is not what this lab builds.`, "Remove the module, or choose a topic for the kind of agent the lab builds.");
+    } else if (scope) {
+      add("topic-harness-limit", "polish", 1, `${where}: Microsoft Learn limits this topic for the lab's harness: "${scope.sentences[0]}"`, "Confirm it against the tenant before teaching it.");
+    }
     const trouble = section(lines, /^\*\*Troubleshooting\*\*/);
     const bullets = (trouble || []).filter((line) => /^\s*-\s+/.test(line));
     if (bullets.length && bullets.every((line) => TEMPLATE_TROUBLESHOOTING.some((pattern) => pattern.test(line.replace(/^\s*-\s+/, ""))))) {
@@ -278,6 +286,7 @@ export function scanLabMarkdown(markdown, options = {}) {
     labDir,
     capturedDir,
     microsoftCopilot,
+    harness: harnesses[0] || null,
     // Module ids line up with Step and Recap headings in order; without ids every module counts.
     isModuleOfMicrosoftCopilot: (module) => {
       if (!ids.length) return true;

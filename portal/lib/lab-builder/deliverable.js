@@ -886,6 +886,10 @@ export function buildFeatureScenarioNote(feature, plan, u) {
   const cat = String(feature.category || "");
   const id = String(feature.id || "");
 
+  if (feature.learnTopic && info.mode !== DELIVERABLE_MODES.LEARN_PRODUCT) {
+    return `Try **${u.esc(feature.name)}** in your own environment for ${name}. Use the scenario's sample content (${source}) wherever a step asks for your own data.`;
+  }
+
   if (info.mode === DELIVERABLE_MODES.LEARN_PRODUCT) {
     return `Try this in your own environment for ${name}: ${summaryClause}. Use the scenario's sample content (${source}) wherever a step asks for your own data.`;
   }

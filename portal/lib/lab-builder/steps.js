@@ -253,6 +253,66 @@ export function cleanStep(lines, docUrl) {
   return primary;
 }
 
+const CAUTION_LABEL = /^(?:important|warning|caution)$/i;
+const LIMITS_HEADING = /^#{2,4}\s+(?:known issues|known limitations|limitations|limits)\s*$/i;
+const MAX_CAUTION_LENGTH = 300;
+const MAX_CAUTIONS = 3;
+
+/**
+ * The cautions Microsoft Learn itself prints on a page: the paragraph under an Important, Warning, or Caution callout,
+ * and the bullets under a Limitations or Known issues heading. Each is the page's own sentence (links reduced to their
+ * text), never longer than one short paragraph, and never cut in the middle: a sentence that does not fit is left out.
+ * Plain Note and Tip callouts are skipped because they are mostly scope notes, not warnings.
+ * @returns {string[]} up to three
+ */
+export function extractLearnCautions(markdown, docUrl) {
+  const lines = String(markdown || "").split(/\r?\n/);
+  const found = [];
+  const add = (raw) => {
+    let text = inlineClean(String(raw).replace(/^[-*]\s+/, ""), docUrl).replace(/\[([^\]]+)]\([^)]*\)/g, "$1");
+    text = scrubForbidden(text).replace(/\s+/g, " ").trim();
+    if (text.length > MAX_CAUTION_LENGTH) {
+      const stop = text.slice(0, MAX_CAUTION_LENGTH).lastIndexOf(". ");
+      text = stop > 40 ? text.slice(0, stop + 1).trim() : "";
+    }
+    // "This article ..." is a note about the page's scope, not something a learner can act on.
+    if (text.length < 25 || /^\[!|^:::|\[!INCLUDE/i.test(text) || /^\W*$/.test(text) || /^This (?:article|topic|page|section)\b/i.test(text)) return;
+    if (!found.some((known) => known.toLowerCase() === text.toLowerCase())) found.push(text);
+  };
+
+  let fenced = false;
+  for (let i = 0; i < lines.length && found.length < MAX_CAUTIONS; i += 1) {
+    const line = lines[i].trim();
+    if (/^(?:```|~~~)/.test(line)) {
+      fenced = !fenced;
+      continue;
+    }
+    if (fenced) continue;
+    if (CAUTION_LABEL.test(line)) {
+      let j = i + 1;
+      while (j < lines.length && !lines[j].trim()) j += 1;
+      const paragraph = [];
+      while (j < lines.length && lines[j].trim() && !/^#{1,6}\s/.test(lines[j].trim())) {
+        paragraph.push(lines[j].trim());
+        j += 1;
+      }
+      add(paragraph.join(" "));
+    } else if (LIMITS_HEADING.test(line)) {
+      let taken = 0;
+      for (let j = i + 1; j < lines.length && taken < 2; j += 1) {
+        const next = lines[j].trim();
+        if (/^#{1,6}\s/.test(next)) break;
+        if (/^[-*]\s+/.test(next)) {
+          const before = found.length;
+          add(next);
+          if (found.length > before) taken += 1;
+        }
+      }
+    }
+  }
+  return found.slice(0, MAX_CAUTIONS);
+}
+
 /**
  * Find every numbered procedure in a page.
  *

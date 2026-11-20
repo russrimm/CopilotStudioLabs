@@ -42,6 +42,7 @@ import {
 import { buildAdminPrerequisites, renderAdminPrerequisitesMarkdown } from "./admin-prereqs.js";
 import { canonicalLearnUrl, dedupeLearnSources, formatCitationLabel } from "./learn-citations.js";
 import { subtopicPlaceholderStep } from "./topic-feature.js";
+import { scopeProblem } from "./topic-scope.js";
 import {
   featureRequiresSharepointSite,
   labRequiresSharepointSite,
@@ -83,6 +84,10 @@ function condense(text, maxLength = 420) {
     .replace(/\[([^\]]+)]\([^)]*\)/g, "$1")
     .replace(/[*_>`|]/g, " ")
     .replace(/\s+/g, " ")
+    // Learn prints a callout's label (Note, Important) on its own line; flattened, it would read as the first word of the quote.
+    .replace(/(^|[.!?]\s+)(?:Note|Important|Tip|Warning|Caution)\s+(?=[A-Z])/g, "$1")
+    .replace(/\s+([,;])/g, "$1")
+    .replace(/\s+\.(?=\s|$)/g, ".")
     .trim();
   if (clean.length <= maxLength) return clean;
   const cut = clean.slice(0, maxLength);
@@ -262,9 +267,8 @@ function overviewSection(plan, enrichment) {
   const moduleCount = mainModules.length;
   const stepRange = moduleCount === 1 ? "Step 1" : `Steps 1 to ${moduleCount}`;
   const recapRange = recaps.length === 1 ? "Recap 1" : `Recaps 1 to ${recaps.length}`;
-  const focus = mainModules.map(
-    (f, idx) => `**Step ${f.stepOrder ?? idx + 1} - ${f.name}** - ${scrubForbidden(f.summary)}`,
-  );
+  // Names only: the Learning Objectives below say what each module teaches, so repeating every summary here would show the same list twice.
+  const focus = mainModules.map((f, idx) => `**Step ${f.stepOrder ?? idx + 1} - ${scrubForbidden(f.name)}**`);
   const spSite = sharepointSiteForPlan(plan);
   const sharepointOverviewLines = spSite
     ? [
@@ -291,7 +295,7 @@ function overviewSection(plan, enrichment) {
       : []),
     ...sharepointOverviewLines,
     "",
-    `**What this ${levelName(plan.level)} lab covers**`,
+    `**What this ${levelName(plan.level)} lab covers** (the Learning Objectives below say what each module teaches)`,
     "",
     bullets(focus),
     "",
@@ -303,12 +307,17 @@ function overviewSection(plan, enrichment) {
   ].join("\n");
 }
 
-function objectivesSection(plan) {
+export function objectivesSection(plan) {
   const mainModules = plan.features.filter((f) => !f.prerequisite);
   const recaps = plan.features.filter((f) => f.prerequisite);
-  const objectives = mainModules.map(
-    (f, idx) => `**Step ${f.stepOrder ?? idx + 1} - ${f.name}:** ${scrubForbidden(f.summary)}`,
-  );
+  const objectives = mainModules.map((f, idx) => {
+    // A summary that says the article does not apply to this kind of agent is a warning, not something to learn.
+    const scope = f.learnTopic ? scopeProblem(f.summary, plan.harness || null) : null;
+    const text = scope
+      ? `Microsoft Learn says: "${scrubForbidden(scope.sentences[0])}" Confirm this fits your audience before you teach it.`
+      : scrubForbidden(f.summary);
+    return `**Step ${f.stepOrder ?? idx + 1} - ${f.name}:** ${text}`;
+  });
   const recapNote = recaps.length
     ? recaps.length === 1
       ? "Optional **Prerequisite Recap 1** appears at the start of *Step-by-Step* as a quick lower-level refresher before **Step 1**."
@@ -545,13 +554,16 @@ function citationBlock(grounding) {
  * sort is defensive: callers and fixtures may pass unranked results, and an
  * unscored result sorts last rather than winning by accident.
  */
-function groundedInsight(grounding) {
+function groundedInsight(grounding, summary = "") {
   const usable = (grounding?.results || []).filter((r) => r.excerpt && r.excerpt.length > 120);
   if (!usable.length) return [];
 
   const best = [...usable].sort((a, b) => (b.relevance ?? -1) - (a.relevance ?? -1))[0];
   const quote = scrubForbidden(condense(best.excerpt));
   if (!quote) return [];
+  // The page's opening lines are often the very sentence the module already shows as its summary; quoting it again adds noise.
+  const norm = (text) => String(text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  if (summary && norm(quote).startsWith(norm(summary).slice(0, 80))) return [];
   const cleanUrl = best.url ? canonicalLearnUrl(best.url) || best.url : "";
   const attribution = cleanUrl ? ` — [Microsoft Learn](${markdownUrl(cleanUrl)})` : "";
   return ["", "> **From the docs:** " + quote + attribution];
@@ -765,7 +777,7 @@ function recapSection(feature, plan, grounding, stepsRecord, vendorRecords) {
     `*Prerequisite recap from Level ${feature.level} · about ${feature.minutes} minutes. This is a refresher for a lower-level topic that the ${levelName(plan.level)} modules build on. Skip it if you already know it.*`,
     "",
     `**What you are doing.** ${scrubForbidden(feature.summary)}`,
-    ...groundedInsight(grounding),
+    ...groundedInsight(grounding, feature.summary),
     "",
     "**Do this**",
     ...stepProvenance(stepsRecord, feature),
@@ -779,6 +791,34 @@ function recapSection(feature, plan, grounding, stepsRecord, vendorRecords) {
     ...citationBlock(grounding),
     ...vendorBlock(vendorRecords),
   ].join("\n");
+}
+
+/** A topic's Learn summary is already the module's "What you are doing" line; as a concept bullet it would only repeat it. */
+const LEARN_SUMMARY_CONCEPT = /^Microsoft Learn describes this topic as:/;
+
+/**
+ * Check-your-work items. A topic found only on Learn has no reviewed check, so it would say "follow the article". When its
+ * steps were read from the article, the article's own last step is a better, specific thing to confirm.
+ */
+export function checkItems(feature, stepsRecord) {
+  const generic = (feature.validation || []).every((item) => /^\[Unverified\]/.test(String(item)));
+  const last = stepsRecord?.source === "doc-derived" && !stepsRecord.stepsInSubtopics ? stepsRecord.steps?.[stepsRecord.steps.length - 1] : null;
+  if (!feature.learnTopic || !generic || !last) return feature.validation;
+  return [`You finished the article's last step: ${String(last).replace(/[.\s]+$/, "")}. Nothing on screen reports an error.`];
+}
+
+/** A short warning when Learn says the topic does not apply to the lab's kind of agent. */
+function scopeNoteLines(feature, plan) {
+  if (!feature.learnTopic) return [];
+  const found = scopeProblem(feature.summary, plan.harness || null);
+  if (!found) return [];
+  const quoted = found.sentences.map((sentence) => scrubForbidden(sentence)).join(" ");
+  const harnessName = getHarnesses().find((h) => h.id === plan.harness)?.name;
+  const advice =
+    found.kind === "classic-only"
+      ? "The agent this lab builds is not a classic chatbot, so this module most likely does not apply. Remove it from the lab unless your audience uses classic chatbots."
+      : `Confirm this against your tenant, because this lab is built on the ${harnessName || "selected harness"}.`;
+  return ["", `**Check before you teach this.** Microsoft Learn says: "${quoted}" ${advice}`];
 }
 
 function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord, vendorRecords, differenceLines = []) {
@@ -803,13 +843,14 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     `*Level ${feature.level} · about ${feature.minutes} minutes*`,
     "",
     `**What you are doing.** ${scrubForbidden(feature.summary)}`,
+    ...scopeNoteLines(feature, plan),
     "",
     `**Why it matters.** ${scrubForbidden(feature.whyItMatters)}`,
-    ...groundedInsight(grounding),
+    ...groundedInsight(grounding, feature.summary),
     "",
     "**Concepts before you click**",
     "",
-    bullets(feature.concepts.map(scrubForbidden)),
+    bullets(feature.concepts.filter((concept) => !LEARN_SUMMARY_CONCEPT.test(concept)).map(scrubForbidden)),
     "",
     "**Do this**",
     ...stepProvenance(stepsRecord, feature),
@@ -826,8 +867,8 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     "",
     "**Check your work**",
     "",
-    bullets(feature.validation.map((v) => `[ ] ${scrubForbidden(v)}`)),
-    ...troubleshootingBlock(feature, TEACH, grounding),
+    bullets(checkItems(feature, stepsRecord).map((v) => `[ ] ${scrubForbidden(v)}`)),
+    ...troubleshootingBlock(feature, TEACH, grounding, stepsRecord?.source === "doc-derived" ? stepsRecord.cautions : []),
     ...knowledgeCheckBlock(feature, plan, TEACH, grounding),
     ...citationBlock(grounding),
     ...vendorBlock(vendorRecords),

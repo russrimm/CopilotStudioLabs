@@ -1108,6 +1108,16 @@ Review still wins. The Learning Objectives close with a sentence that ties them 
 selected departments. `recommendations.json` maps each department to topics for all six
 products, so the departments also change which topics are recommended.
 
+The first page says each thing once. The Overview's **What this lab covers** list names the modules (`Step N - Name`)
+and the **Learning Objectives** below it carry each module's one-sentence summary, so the two no longer repeat the same
+sentences. For a module found only on Learn whose summary says the article does not apply (see "Topics that do not apply"),
+the objective reads "Microsoft Learn says: ... Confirm this fits your audience before you teach it." instead of presenting
+the warning as something to learn.
+The details table at the top is shown without its "Field | Details" header, without the TAGS keyword row, and without a
+DIFFICULTY row that repeats LEVEL, each label as a row header (`tidyMetaTable()` in `meta-table.js`, applied in the portal
+preview and the standalone HTML). The Markdown keeps every row, because the validators and the lab list read DIFFICULTY,
+TIME, PRODUCTS, TAGS, and INDUSTRIES from it.
+
 ### 3. Microsoft Learn grounding
 
 `learn-mcp.js` is a small streamable-HTTP JSON-RPC client for the public
@@ -2244,16 +2254,26 @@ Each module renders as:
 - Screenshots (reused) and capture callouts (to fill in)
 - **Check your work** — per-module validation checklist (`- [ ]` items), from the
   curated catalog (rendered as persistent interactive checkboxes in HTML)
-- **Troubleshooting** — cautions taken from the module's own concepts, a pointer
+- **Troubleshooting** — cautions taken from the module's own concepts, up to two
+  **Microsoft Learn warns** items (the page's own Important, Warning, or Caution paragraph, or a bullet under a
+  Limitations or Known issues heading, read by `extractLearnCautions()` in `steps.js` from the page the steps
+  came from, whole sentences only, links reduced to their text, with the Learn link), a pointer
   to the relevance-matched cited Learn page when a step does not match the screen,
-  and recovery for a check that is not true yet
+  and recovery for a check that is not true yet. A module whose steps were not read from Learn shows none of the
+  Learn cautions, and the lab gate's `generic-troubleshooting` finding counts modules that have only the universal tips
 - **Knowledge check: Lesson mini-quiz** (when `includeKnowledgeCheck` is enabled:
   opt-in on Wizard Step 7; enabled unless `includeKnowledgeCheck: false` in direct
   API/CLI calls, and omitted on short `Recap N` modules) — 1 to 3 deterministic
   multiple-choice questions (`A`–`D`) built from vetted catalog `whyItMatters`,
   `validation`/`expectedResults`, and `concepts`/`troubleshooting` fields, each
   with an expandable `<details>`/`<summary>` explanation and a relevance-matched
-  Microsoft Learn reference link (`selectRelevantLearnSource()`)
+  Microsoft Learn reference link (`selectRelevantLearnSource()`).
+  **The wrong answers are real statements about the lab's other modules** (the matching
+  `whyItMatters`, first check, or caution of each other module, in the order `siblingDistractors()` in
+  `teaching.js` rotates through them), so a learner has to know which module they are in. Anything that reads like
+  the module's own answer, a repeat of another pick, or text about an unreviewed topic is skipped, and the explanation
+  names the modules the other answers came from. A lab with fewer than three other modules fills the rest with plain
+  wrong answers, and the lab gate's `quiz-filler-answers` finding counts those.
 - **Microsoft Learn references** — citations, relevance-scored, canonicalized and
   deduplicated (`dedupeLearnSources()`), and link-checked.
   Each one is a link whose text is the page title and whose URL lives only in the
@@ -2426,8 +2446,8 @@ the hand-written labs under `labs/`. Each finding has one of three severities:
 
 | Severity | Meaning | Examples |
 |---|---|---|
-| `gap` (shown as **Fix**) | A learner could be blocked or misled | A step cut off with `...` (`cut-off-step`), several sub-steps run together on one line (`fused-substeps`), a sentence cut in the middle of a word (`cut-off-text`), a module with no steps or no Check your work list, a quiz whose correct answer is the Learn-derived disclaimer (`quiz-teaches-disclaimer`), wording the Microsoft Copilot harness no longer uses (`stale-ui-wording`: Overview, Instructions, or Publish *page*) |
-| `polish` | Works, but looks unfinished | Pictures that are still placeholders (`pending-picture`, checked against the lab's assets and the shared library), a module with no picture, a Check your work list that only says to follow the article, generic-only troubleshooting, obviously wrong quiz answers (`quiz-filler-answers`), a title over 110 characters |
+| `gap` (shown as **Fix**) | A learner could be blocked or misled | A step cut off with `...` (`cut-off-step`), several sub-steps run together on one line (`fused-substeps`), a sentence cut in the middle of a word (`cut-off-text`), a module with no steps or no Check your work list, a quiz whose correct answer is the Learn-derived disclaimer (`quiz-teaches-disclaimer`), wording the Microsoft Copilot harness no longer uses (`stale-ui-wording`: Overview, Instructions, or Publish *page*), a Learn-only module that Learn says is for classic chatbots only (`topic-not-for-harness`) |
+| `polish` | Works, but looks unfinished | Pictures that are still placeholders (`pending-picture`, checked against the lab's assets and the shared library), a module with no picture, a Check your work list that only says to follow the article, generic-only troubleshooting, obviously wrong quiz answers (`quiz-filler-answers`), a limit Learn states for the lab's own harness (`topic-harness-limit`), a title over 110 characters |
 | `note` | An honest flag, expected on Learn-derived content | `[Unverified]` lines and passages marked "Not confirmed in Microsoft Learn" |
 
 The grade is **Ready to teach** (nothing found), **Almost ready** (polish only), **Needs fixes**
@@ -2674,6 +2694,24 @@ treats them as steps you do yourself, because the computer cannot know where an 
 module whose procedure could not be read gets no pictures. **How This Lab Was Built** lists every new-on-Learn module
 with how far to trust it ("steps read from its Learn article, not checked against the product" or "no procedure could
 be read, so follow the linked article").
+**How a Learn-only module reads.** It is kept short and says each thing once. The Learn summary is the "What you are
+doing" line, so it is not repeated as a concept, as a "Watch for this" caution, or as a pull quote (a quote that begins
+with the summary is left out, and the callout labels Note, Important, Tip, Warning, and Caution that Learn prints on their
+own line never become the first word of a quote). "In your scenario" is a plain "Try *topic* in your own environment" line
+and there is no sample prompt, because a prompt written for the lab's scenario says nothing about a topic it was not written
+for. "What you should see" and "Troubleshooting" never repeat the `[Unverified]` check. When the steps were read from the
+article, **Check your work** is the article's own last step ("You finished the article's last step: ...") instead of "follow the
+article", and Troubleshooting carries the page's own warnings (see the Learn cautions under Troubleshooting above).
+**Topics that do not apply.** When the summary says the article "applies to classic chatbots only", or says the feature
+"isn't available" for the harness the lab is built on, the module shows **Check before you teach this** with Learn's own
+sentence (`scopeProblem()` in `topic-scope.js`), and the lab gate reports it: `topic-not-for-harness` is a **Fix**
+(a classic-chatbot-only module in a lab for the current harnesses) and `topic-harness-limit` is **polish** (a limit on the
+lab's own harness, which can depend on the tenant).
+A saved lab that cites a Learn topic which has since left the list (Learn moved or renamed its article) cannot be
+rebuilt as it was; the error names the topic id and says to refresh the list from Microsoft Learn, select the topics
+again, and rebuild.
+Troubleshooting headings always end their sentence (`**The source is not in the list.** ...`) and quote a check without
+nesting bold markers inside the bold heading.
 The Learn title and summary are always quoted as untrusted
 data in any model prompt and never placed in its instructions.
 

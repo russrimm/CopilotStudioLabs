@@ -20,6 +20,7 @@ import {
 import { condense } from "../lib/lab-builder/composer.js";
 import { renderLabMarkdown } from "../lib/markdown.js";
 import { renderStandaloneLabHtml } from "../lib/lab-builder/html-lab.js";
+import { tidyMetaTable } from "../lib/lab-builder/meta-table.js";
 import { renderMarkdownToDocxBuffer } from "../lib/lab-builder/docx-builder.js";
 import { renderMarkdownToPdfBuffer } from "../lib/lab-builder/pdf-builder.js";
 import { renderMarkdownToPptxBuffer } from "../lib/lab-builder/pptx-builder.js";
@@ -297,6 +298,49 @@ test("placeholders such as <site-name> stay visible while real HTML and unsafe t
   assert.match(html, /\.\.\.\/sites\/&lt;site-name&gt;\/\.\.\./);
   assert.match(html, /Line<br \/>break|Line<br>break/);
   assert.doesNotMatch(html, /<script|alert\(1\)/);
+});
+
+test("the lab details table is shown without its header, its keyword row, and a difficulty that repeats the level", () => {
+  const md = [
+    "# A lab",
+    "",
+    "| Field | Details |",
+    "|---|---|",
+    "| ⭐ **DIFFICULTY** | Beginner |",
+    "| 🎚️ **LEVEL** | Level 100 (Beginner) |",
+    "| ⏱️ **TIME** | About 1 hour |",
+    "| 🏷️ **TAGS** | foundations, knowledge |",
+    "| 🏭 **INDUSTRIES** | Retail |",
+    "",
+    "## Overview",
+    "",
+    "Text.",
+    "",
+    "| Step | Module |",
+    "|---|---|",
+    "| Step 1 | Create an agent |",
+  ].join("\n");
+  for (const html of [renderStandaloneLabHtml(md, { title: "A lab", renderMarkdown: renderLabMarkdown }), renderStandaloneLabHtml(md, { title: "A lab" })]) {
+    assert.ok(html.includes('<table class="lab-meta">'));
+    assert.ok(!/<th>Field<\/th>/.test(html), "no Field | Details header");
+    assert.ok(!html.includes("TAGS") && !html.includes("foundations, knowledge"), "keywords are not shown");
+    assert.ok(!html.includes("DIFFICULTY"), "difficulty repeated the level");
+    for (const kept of ["LEVEL", "TIME", "INDUSTRIES", "Level 100 (Beginner)", "Retail"]) assert.ok(html.includes(kept), kept);
+    assert.match(html, /<th scope="row">[^<]*<strong>LEVEL<\/strong><\/th>/);
+    assert.ok(html.includes("<th>Step</th>"), "other tables keep their headers");
+  }
+  const handWritten = tidyMetaTable('<table><thead><tr><th>Field</th><th>Details</th></tr></thead><tbody><tr><td>⭐ <strong>DIFFICULTY</strong></td><td>Beginner</td></tr></tbody></table>');
+  assert.ok(handWritten.includes("DIFFICULTY"), "without a LEVEL row the difficulty stays");
+  const untouched = "<table><thead><tr><th>Step</th><th>Module</th></tr></thead><tbody><tr><td>1</td><td>A</td></tr></tbody></table>";
+  assert.equal(tidyMetaTable(untouched), untouched);
+});
+
+test("the Learn pull quote drops callout labels and the space a removed link leaves before a comma", () => {
+  const quote = condense("Note This article applies to classic chatbots only. Important This article includes information about Azure Bot Service skills , a code-based way to extend an agent. Note that lowercase prose stays.");
+  assert.ok(!/(?:^|\.\s)(?:Note|Important)\s+This/.test(quote), quote);
+  assert.match(quote, /^This article applies to classic chatbots only\./);
+  assert.match(quote, /skills, a code-based way/);
+  assert.match(quote, /Note that lowercase prose stays/);
 });
 
 test("the Learn pull quote drops table markup instead of leaving a stray '<br'", () => {

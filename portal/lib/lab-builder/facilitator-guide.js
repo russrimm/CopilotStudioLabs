@@ -179,7 +179,7 @@ function buildDistractorWhyWrong(distractorText, moduleName, correctText) {
   if (/deletes prior|removing .* before|brand-new tenant|never affect/.test(lower)) {
     return `Incorrect because configuring ${moduleName} updates scoped behavior inside the active environment without wiping unrelated settings or requiring a new tenant.`;
   }
-  return `Incorrect because this statement contradicts documented ${moduleName} behavior; the expected outcome is: ${stripMarkdownFormatting(correctText)}`;
+  return `Incorrect because this statement is true of a different module in this lab, not ${moduleName}; for ${moduleName} the expected outcome is: ${stripMarkdownFormatting(correctText)}`;
 }
 
 /**
