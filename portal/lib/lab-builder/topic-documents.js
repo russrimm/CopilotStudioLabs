@@ -19,7 +19,9 @@ import { splitGeneratedLabModules } from "./module-samples.js";
 export const ALLOWED_TOPIC_DOC_FORMATS = Object.freeze(["docx", "pptx"]);
 // Bump whenever the per-topic .docx/.pptx output changes so cached `topics/` files regenerate on demand.
 // 4: PPTX notes master gets its own theme part (PowerPoint rejected decks that shared theme1.xml); DOCX schema order.
-export const TOPIC_DOCUMENTS_SCHEMA_VERSION = 4;
+// 5: Learner documents no longer carry administrator settings: the Admin Prerequisites, DLP & Guardrails slides
+//    are gone and the overview has no admin section.
+export const TOPIC_DOCUMENTS_SCHEMA_VERSION = 5;
 
 export const TOPIC_DOC_MIME_TYPES = Object.freeze({
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

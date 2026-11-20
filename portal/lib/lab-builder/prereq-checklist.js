@@ -475,6 +475,15 @@ function workshopWording(text) {
     .replace(/\bLab\b/g, "Workshop");
 }
 
+/** The administrator model says "learners"; an administrator's document says "attendees". */
+function adminWording(text) {
+  return workshopWording(text)
+    .replace(/\blearners\b/g, "attendees")
+    .replace(/\bLearners\b/g, "Attendees")
+    .replace(/\blearner\b/g, "attendee")
+    .replace(/\bLearner\b/g, "Attendee");
+}
+
 function readLabPrerequisites(markdown) {
   const result = { main: [], data: [], licensing: [], dataNote: "" };
   let state = "main";
@@ -669,6 +678,12 @@ export function buildPrerequisitesChecklist({ manifest = {}, markdown = "", bran
       confirm: item.confirm || "",
       condition: item.condition || "",
       where: item.where || "",
+      // Extra fields for the Administrator setup guide. The checklist writers ignore them.
+      phase: item.phase || sectionId,
+      detail: item.detail || "",
+      endpoints: item.endpoints || [],
+      ownSystem: Boolean(item.ownSystem),
+      adminId: item.adminId || "",
       order: item.order ?? 50,
     });
   };
@@ -712,6 +727,17 @@ export function buildPrerequisitesChecklist({ manifest = {}, markdown = "", bran
       item.where = cleanChecklistText(entry.adminPath);
       item.neededFor = neededForFrom(entry.requiredBy);
       item.condition = conditionFor(entry.status);
+      item.adminId = entry.id;
+      if (group === admin.dlpAndAcp) item.phase = "policies";
+      const fullDetail = ensurePeriod(adminWording(stripOtherLinks(cleanChecklistText(entry.details))));
+      item.detail = fullDetail && !UNCONFIRMED_RE.test(fullDetail) ? fullDetail : "";
+      const entryHosts = [];
+      for (const endpoint of Array.isArray(entry.endpoints) ? entry.endpoints : []) {
+        const host = hostOf(endpoint);
+        if (host) entryHosts.push(host);
+        else if (/[<>]/.test(String(endpoint))) item.ownSystem = true;
+      }
+      item.endpoints = entryHosts;
       if (entry.id === "dlp-business-group-alignment" && Array.isArray(admin.connectors) && admin.connectors.length) {
         const names = admin.connectors.filter((c) => c.dataGroup === "Business").map((c) => cleanChecklistText(c.name));
         if (names.length) item.text = `${item.text} Connectors in this workshop: ${joinNames(names)}.`;

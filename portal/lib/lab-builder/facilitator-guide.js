@@ -14,6 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
+import { buildAdministratorSetupGuide } from "./admin-guide.js";
+import { ADMIN_GUIDE_TITLE } from "./learner-guide.js";
 import { getFeature, getHarnesses } from "./catalog.js";
 import { buildDocxFromLabMarkdown } from "./docx-builder.js";
 import {
@@ -850,6 +852,14 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
     products: rawProducts,
     harness: harnessId,
   });
+  // The settings themselves are in the Administrator setup guide. The host only needs to know who must finish what.
+  const adminGuide = buildAdministratorSetupGuide({ manifest: { ...manifest, title: labTitle }, markdown });
+  const adminReadiness = {
+    guideTitle: ADMIN_GUIDE_TITLE,
+    itemCount: adminGuide.itemCount,
+    roles: adminGuide.roles.map((role) => ({ label: role.label, does: role.does, itemCount: role.items.length })),
+    connectorNames: (adminPrerequisites.connectors || []).map((c) => c.name),
+  };
 
   const modulePlaybooks = split.modules.map((mod, idx) => {
     const matchedMeta =
@@ -921,10 +931,12 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
 
   const twentyFourHourChecklist = [
     `Provision and test at least 2 non-production attendee accounts plus 1 clean instructor demo account in a dedicated InPrivate / Incognito browser profile.`,
-    `Confirm target environment capacity, maker security roles, and active licensing / Copilot Studio message capacity for ${productsLabel}.`,
-    `Verify all required connectors (${
-      (adminPrerequisites.connectors || []).map((c) => c.name).join(", ") || "platform default connectors"
-    }) sit in the **Business** data group of the active Power Platform DLP policy and none are Blocked.`,
+    `Confirm the administrator has finished every item in the ${ADMIN_GUIDE_TITLE} and returned the signed-off Prerequisites checklist${
+      adminReadiness.itemCount ? ` (${adminReadiness.itemCount} item${adminReadiness.itemCount === 1 ? "" : "s"} for ${adminReadiness.roles.length} role${adminReadiness.roles.length === 1 ? "" : "s"})` : ""
+    }. Those settings are the administrator's to make; do not change them yourself.`,
+    `Sign in with a non-admin attendee test account and confirm you can create an agent in the workshop environment and open each connector this workshop uses (${
+      adminReadiness.connectorNames.join(", ") || "platform default connectors"
+    }). Tell the administrator about anything that is blocked.`,
     requiresSharepoint
       ? `Validate SharePoint site permissions and search indexing (${spSite.url || spSite.name || "target workshop SharePoint site"}) with a non-admin attendee account.`
       : `Confirm sandbox sample data and starter prompts open cleanly without external network blocks.`,
@@ -952,7 +964,7 @@ export function buildFacilitatorGuideModel(labDirOrContext, options = {}) {
     readinessRunbook: {
       leadTimeHours: 24,
       twentyFourHourChecklist,
-      adminPrerequisites,
+      adminReadiness,
       sharepointReadiness,
       sampleFilesInventory,
     },
@@ -1023,43 +1035,19 @@ export function renderFacilitatorGuideMarkdown(modelOrContext, options = {}) {
     lines.push(`- [ ] ${item}`);
   }
 
-  const prereqs = model.readinessRunbook.adminPrerequisites || {};
-  if (Array.isArray(prereqs.connectors) && prereqs.connectors.length > 0) {
+  const readiness = model.readinessRunbook.adminReadiness || { roles: [], connectorNames: [], itemCount: 0 };
+  if (readiness.roles.length > 0) {
     lines.push(
       "",
-      "### Required Connectors & DLP Data Groups",
+      "### Administrator Readiness (Owned by the Administrator)",
       "",
-      "| Connector | Required DLP Group | Auth / Scope | Admin Center Path & Notes |",
-      "| --- | --- | --- | --- |",
+      `The connectors, data policies, environment, tenant, and cloud settings are the administrator's work. They are in the **${readiness.guideTitle}** and the **Prerequisites checklist**, and this guide does not repeat them. Ask each person below to finish their items and return the signed-off checklist before the workshop.`,
+      "",
+      "| Who | What they do | Items |",
+      "| --- | --- | --- |",
     );
-    for (const c of prereqs.connectors) {
-      const endpoints =
-        Array.isArray(c.endpoints) && c.endpoints.length
-          ? ` Endpoints: \`${c.endpoints.slice(0, 2).join("`, `")}\`.`
-          : "";
-      lines.push(
-        `| **${escapeMarkdownTableCell(c.name)}** | ${escapeMarkdownTableCell(c.dataGroup || "Business")} | ${escapeMarkdownTableCell(c.authType || "Delegated user / OAuth")} | ${escapeMarkdownTableCell(`${c.details || ""}${endpoints} (${c.adminPath || "Power Platform admin center"})`)} |`,
-      );
-    }
-  }
-
-  const govItems = [
-    ...(prereqs.dlpAndAcp || []).map((g) => ({ category: "DLP & ACP", ...g })),
-    ...(prereqs.environmentSettings || []).map((e) => ({ category: "Environment", ...e })),
-    ...(prereqs.tenantAndCloud || []).map((t) => ({ category: "Tenant & RBAC", ...t })),
-  ];
-  if (govItems.length > 0) {
-    lines.push(
-      "",
-      "### DLP, ACP, Environment & Tenant Guardrails",
-      "",
-      "| Area | Control | Status | Verification Guidance & Admin Path |",
-      "| --- | --- | --- | --- |",
-    );
-    for (const item of govItems) {
-      lines.push(
-        `| ${escapeMarkdownTableCell(item.category)} | **${escapeMarkdownTableCell(item.title)}** | ${escapeMarkdownTableCell(item.status || "Required")} | ${escapeMarkdownTableCell(`${item.details || ""} (${item.adminPath || "Admin center"})`)} |`,
-      );
+    for (const role of readiness.roles) {
+      lines.push(`| **${escapeMarkdownTableCell(role.label)}** | ${escapeMarkdownTableCell(role.does)} | ${role.itemCount} |`);
     }
   }
 
@@ -1244,20 +1232,20 @@ export function renderFacilitatorGuideHtml(modelOrContext, options = {}) {
     .map((item) => `<li><label><input type="checkbox"> <span>${escapeHtml(item)}</span></label></li>`)
     .join("\n");
 
-  const prereqs = model.readinessRunbook.adminPrerequisites || {};
+  const readiness = model.readinessRunbook.adminReadiness || { roles: [], guideTitle: ADMIN_GUIDE_TITLE };
   const connectorsHtml =
-    Array.isArray(prereqs.connectors) && prereqs.connectors.length > 0
-      ? `<h3>Required Connectors &amp; DLP Data Groups</h3>
+    readiness.roles.length > 0
+      ? `<h3>Administrator Readiness (Owned by the Administrator)</h3>
+      <p>The connectors, data policies, environment, tenant, and cloud settings are the administrator's work. They are in the <strong>${escapeHtml(readiness.guideTitle)}</strong> and the <strong>Prerequisites checklist</strong>, and this guide does not repeat them. Ask each person below to finish their items and return the signed-off checklist before the workshop.</p>
       <table>
-        <thead><tr><th>Connector</th><th>Required DLP Group</th><th>Auth / Scope</th><th>Admin Path &amp; Notes</th></tr></thead>
+        <thead><tr><th>Who</th><th>What they do</th><th>Items</th></tr></thead>
         <tbody>
-          ${prereqs.connectors
+          ${readiness.roles
             .map(
-              (c) => `<tr>
-                <td><strong>${escapeHtml(c.name)}</strong></td>
-                <td>${escapeHtml(c.dataGroup || "Business")}</td>
-                <td>${escapeHtml(c.authType || "Delegated / OAuth")}</td>
-                <td>${escapeHtml(`${c.details || ""} (${c.adminPath || "Power Platform admin center"})`)}</td>
+              (role) => `<tr>
+                <td><strong>${escapeHtml(role.label)}</strong></td>
+                <td>${escapeHtml(role.does)}</td>
+                <td>${role.itemCount}</td>
               </tr>`,
             )
             .join("\n")}

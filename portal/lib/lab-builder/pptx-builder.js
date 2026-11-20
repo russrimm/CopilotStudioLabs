@@ -22,6 +22,7 @@ import { splitGeneratedLabModules } from "./module-samples.js";
 import { resolveTopicTrainingDigest } from "./topic-training.js";
 import { getBrandFont, getBrandInfoModel } from "./brand-theme.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
+import { learnerGuideMarkdown } from "./learner-guide.js";
 
 const SLIDE_CX = 12192000; // 13.333 in * 914400 EMU/in (16:9 widescreen)
 const SLIDE_CY = 6858000;  // 7.500 in * 914400 EMU/in
@@ -2849,144 +2850,57 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
     ]);
   }
 
-  // 4. Governance, Admin Prerequisites, Licensing & Guardrails Slide(s)
-  const govRows = training.governanceRows || [];
+  // 4. Availability and cautions. The administrator's own settings for a topic (data policies, connectors,
+  // environment, tenant) are in the Administrator setup guide and never appear in a learner deck.
   const guardrails = training.guardrails || [];
-  if (govRows.length > 0 || guardrails.length > 0) {
+  if (training.availabilityGuidance || guardrails.length > 0) {
     const govSlide = deck.createSlide({
-      kicker: `${stepBadge} • GOVERNANCE, LICENSING & GUARDRAILS`,
-      badge: training.availabilityBadge || "Governance",
-      title: `${meta.topicTitle} — Admin Prerequisites, DLP & Guardrails`,
+      kicker: `${stepBadge} • AVAILABILITY & CAUTIONS`,
+      badge: training.availabilityBadge || "Availability",
+      title: `${meta.topicTitle} — Availability & Cautions`,
       footerContext,
     });
 
-    if (govRows.length > 0) {
-      govSlide.addTable({
-        x: 640080,
-        y: 1200000,
-        cx: fullContentCx,
-        maxCy: 2800000,
-        rowHeight: 420000,
-        colRatios: [0.22, 0.28, 0.5],
-        cellMaxChars: 240,
-        headers: [
-          "Governance Area",
-          "Required Role / Connector / Policy",
-          "Admin Center & Implementation Guidance",
-        ],
-        rows: govRows.slice(0, 4),
-      });
-
-      const guardrailParas = [];
-      if (training.availabilityGuidance) {
-        guardrailParas.push({
-          markdown: `**Availability (${training.availabilityBadge || "GA"}):** ${truncateText(
-            training.availabilityGuidance,
-            280
-          )}`,
-          sizePt: 10.5,
-          colorHex: COLORS.body,
-          spaceAfterPt: 4,
-        });
-      }
-      for (const g of guardrails.slice(0, 3)) {
-        guardrailParas.push({
-          markdown: truncateText(g, 300),
-          sizePt: 10.5,
-          bulletChar: "⚠",
-          bulletColorHex: COLORS.warnAccent,
-          spaceAfterPt: 4,
-        });
-      }
-      if (guardrailParas.length > 0) {
-        govSlide.addCard({
-          name: "Guardrails Card",
-          heading: "Production Guardrails, Quotas & Availability",
-          headingColorHex: COLORS.warnAccent,
-          x: 640080,
-          y: 4160000,
-          cx: fullContentCx,
-          cy: 2040000,
-          fillHex: COLORS.warnBg,
-          borderHex: COLORS.warnBorder,
-          insets: { l: 182880, t: 114300, r: 182880, b: 114300 },
-          paragraphs: guardrailParas,
-        });
-      }
-
-      if (govRows.length > 4) {
-        const extraGovChunks = chunkItems(govRows.slice(4), 5);
-        extraGovChunks.forEach((gChunk, gIdx) => {
-          const extraGovSlide = deck.createSlide({
-            kicker: `${stepBadge} • GOVERNANCE & PREREQUISITES (CONTINUED)`,
-            badge: `Admin (${gIdx + 2})`,
-            title: `${meta.topicTitle} — Additional Admin & DLP Controls`,
-            footerContext,
-          });
-          extraGovSlide.addTable({
-            x: 640080,
-            y: 1260000,
-            cx: fullContentCx,
-            colRatios: [0.22, 0.28, 0.5],
-            cellMaxChars: 240,
-            headers: [
-              "Governance Area",
-              "Required Role / Connector / Policy",
-              "Admin Center & Implementation Guidance",
-            ],
-            rows: gChunk,
-          });
-          extraGovSlide.setNotes([
-            `ADDITIONAL GOVERNANCE TALKING POINTS: Walk enterprise architects and admins through these supplemental tenant controls.`,
-            ...gChunk.map((r) => `- ${r[0]} (${r[1]}): ${r[2]}`),
-            `RESCUE TIP: If a learner's tenant blocks a connector via DLP during class, pair them with your pre-provisioned backup maker account or inspect the pre-built reference agent.`,
-          ]);
-        });
-      }
-    } else {
-      const guardrailOnlyParas = [];
-      if (training.availabilityGuidance) {
-        guardrailOnlyParas.push({
-          markdown: `**Availability (${training.availabilityBadge || "GA"}):** ${truncateText(
-            training.availabilityGuidance,
-            320
-          )}`,
-          sizePt: 11.5,
-          colorHex: COLORS.body,
-          spaceAfterPt: 8,
-        });
-      }
-      for (const g of guardrails.slice(0, 5)) {
-        guardrailOnlyParas.push({
-          markdown: truncateText(g, 340),
-          sizePt: 11.5,
-          bulletChar: "⚠",
-          bulletColorHex: COLORS.warnAccent,
-          spaceAfterPt: 7,
-        });
-      }
-      govSlide.addCard({
-        name: "Guardrails Card",
-        heading: "Production Guardrails, Quotas & Availability",
-        headingColorHex: COLORS.warnAccent,
-        x: 640080,
-        y: 1220000,
-        cx: fullContentCx,
-        cy: 4980000,
-        fillHex: COLORS.warnBg,
-        borderHex: COLORS.warnBorder,
-        paragraphs: guardrailOnlyParas,
+    const guardrailParas = [];
+    if (training.availabilityGuidance) {
+      guardrailParas.push({
+        markdown: `**Availability (${training.availabilityBadge || "GA"}):** ${truncateText(
+          training.availabilityGuidance,
+          320
+        )}`,
+        sizePt: 11.5,
+        colorHex: COLORS.body,
+        spaceAfterPt: 8,
       });
     }
+    for (const g of guardrails.slice(0, 5)) {
+      guardrailParas.push({
+        markdown: truncateText(g, 340),
+        sizePt: 11.5,
+        bulletChar: "⚠",
+        bulletColorHex: COLORS.warnAccent,
+        spaceAfterPt: 7,
+      });
+    }
+    govSlide.addCard({
+      name: "Cautions Card",
+      heading: "Cautions, Quotas & Availability",
+      headingColorHex: COLORS.warnAccent,
+      x: 640080,
+      y: 1220000,
+      cx: fullContentCx,
+      cy: 4980000,
+      fillHex: COLORS.warnBg,
+      borderHex: COLORS.warnBorder,
+      paragraphs: guardrailParas,
+    });
 
     govSlide.setNotes([
-      `GOVERNANCE & ADMIN PRE-FLIGHT CUE: Emphasize that most enterprise rollout blockers happen here—DLP connector classification, Managed Environment / ACP toggles, and maker RBAC—not in the prompt text.`,
       ...(training.availabilityGuidance
         ? [`RELEASE TIER (${training.availabilityBadge || "GA"}): ${training.availabilityGuidance}`]
         : []),
-      ...govRows.slice(0, 3).map((r) => `- ${r[0]} (${r[1]}): ${r[2]}`),
-      ...guardrails.slice(0, 2).map((g) => `- Guardrail callout: ${g}`),
-      `FAST RESCUE STEP: If an attendee sees a connector blocked by DLP or greyed-out preview toggle, confirm they selected the designated workshop sandbox environment rather than the tenant Default environment.`,
+      ...guardrails.slice(0, 2).map((g) => `- Caution: ${g}`),
+      `If something in this topic is not available to an attendee, note it and tell the workshop host.`,
     ]);
   }
 
@@ -3851,7 +3765,7 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
 
       const titleLower = String(sec.title || "").toLowerCase();
       const genericCue = /prereq|admin|tenant|connector|license|environment/i.test(titleLower)
-        ? `PRE-DELIVERY & ADMIN READINESS CUE: Walk through these prerequisites carefully. Confirm tenant connectors are in the Business DLP group and test accounts have license + environment maker access.`
+        ? `PRE-DELIVERY READINESS CUE: Walk through these prerequisites carefully. Confirm every attendee has the account, license, and environment access listed here before the first step.`
         : /architect|topology|flow|overview|agenda/i.test(titleLower)
           ? `ARCHITECTURE & AGENDA TALKING POINTS: Trace the end-to-end solution flow on screen so attendees see how each lab module builds toward the complete agent.`
           : /validat|summary|next step|wrap|debrief/i.test(titleLower)
@@ -4038,7 +3952,8 @@ export function renderTopicToPptxBuffer(topicMarkdown, options = {}) {
  * @returns {Buffer}
  */
 export function renderMarkdownToPptxBuffer(markdown, options = {}) {
-  const src = stripEmbeddedHtml(String(markdown || ""));
+  // A learner deck never carries administrator setup, even when handed an older lab's full text.
+  const src = learnerGuideMarkdown(stripEmbeddedHtml(String(markdown || "")));
   if (options.topic) {
     return renderTopicToPptxBuffer(src, options);
   }
@@ -4050,7 +3965,7 @@ export function renderMarkdownToPptxBuffer(markdown, options = {}) {
       options.title ||
       split.labTitle ||
       options.manifest?.title ||
-      split.overview?.title?.replace(/\s+—\s+Overview and Admin Prerequisites$/, "") ||
+      split.overview?.title?.replace(/\s+—\s+Overview$/, "") ||
       "Hands-On Lab";
     const deck = new PptxDeckAssembler({
       title: labTitle,
@@ -4134,7 +4049,7 @@ export function renderMarkdownToPptxBuffer(markdown, options = {}) {
     return deck.toPptxBuffer();
   }
 
-  // Generic Markdown fallback (e.g. `00 - Overview and Admin Prerequisites` or custom Markdown)
+  // Generic Markdown fallback (e.g. `00 - Overview` or custom Markdown)
   const deck = new PptxDeckAssembler({
     title: options.title || candidateTopic.meta.topicTitle || "Presentation",
     branding: options.branding,

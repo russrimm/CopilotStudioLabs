@@ -301,6 +301,8 @@ export async function buildOfficeMatrix({ labs = true, largeLab = true, log = ()
         if (fac.buffer) add(`${id}-facilitator-${tag}`, "docx", `${id} facilitator guide (${tag})`, fac.buffer);
         const prerequisites = exporter.renderGeneratedLabPrerequisites(root, built.labId, "docx", {}, opts);
         if (prerequisites.buffer) add(`${id}-prerequisites-${tag}`, "docx", `${id} standalone prerequisites checklist (${tag})`, prerequisites.buffer);
+        const adminGuide = exporter.renderGeneratedLabAdminGuide(root, built.labId, "docx", {}, opts);
+        if (adminGuide.buffer) add(`${id}-admin-guide-${tag}`, "docx", `${id} Administrator setup guide (${tag})`, adminGuide.buffer);
       }
 
       if (id !== "lab-large") {

@@ -8,8 +8,8 @@
  *      concepts + Microsoft Learn documentation takeaways)
  *   3. When to use it, design best practices, domain scenario application &
  *      cross-harness / edition surface comparisons
- *   4. Governance, licensing, DLP/ACP policies, environment settings, RBAC
- *      roles & production guardrails (derived from `admin-prereqs.js`)
+ *   4. Availability, cautions, and production guardrails (the administrator's own
+ *      settings are not here: they are in the Administrator setup guide)
  *   5. Configuration quick-reference tables & copy-ready prompts/payloads
  *   6. Common pitfalls & `Symptom -> Resolution` troubleshooting diagnostics
  *   7. Curated Microsoft Learn deep-dive takeaways & study review prompts
@@ -24,7 +24,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildAdminPrerequisites } from "./admin-prereqs.js";
 import { getCategories, getFeature, getFeatures, getHarnesses, LEVELS } from "./catalog.js";
 import { getConceptForFeature } from "./concepts.js";
 import { getDifference } from "./differences.js";
@@ -39,7 +38,7 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LEARN_SNAPSHOT_PATH = path.join(__dirname, "learn-topics.snapshot.json");
 
-export const TRAINING_DIGEST_VERSION = 1;
+export const TRAINING_DIGEST_VERSION = 2;
 
 const CAUTION_RE =
   /\b(?:can't|cannot|can not|must|requires?|required|only|unavailable|isn't|aren't|not available|don't|doesn't|won't|might not|may not|limits?|quotas?|blocked|never|preview)\b/i;
@@ -392,18 +391,22 @@ function buildSurfaceComparisons(feature, labHarness = null) {
   };
 }
 
-function buildTopicGovernance(feature, { harness = null, sharepointSite = null } = {}) {
+/**
+ * What a learner deck says about a topic's availability and cautions. It never lists the administrator's
+ * settings (data policies, connectors, environment, tenant): those are in the Administrator setup guide.
+ * `rows` stays an empty list so older saved digests keep their shape.
+ */
+function buildTopicGovernance(feature) {
   if (!feature) {
     return {
-      availabilityBadge: "Verify tenant settings",
+      availabilityBadge: "Verify availability",
       availabilityGuidance:
-        "Confirm environment permissions, connector DLP classifications, and channel policies in a non-production environment before rollout.",
+        "Confirm this capability is available in your environment before you rely on it, and note anything that is missing.",
       rows: [],
       guardrails: [],
     };
   }
 
-  const prodId = productOf(feature);
   const availRaw = String(feature.availability || "ga").toLowerCase();
   const availabilityBadge =
     availRaw === "preview"
@@ -413,61 +416,13 @@ function buildTopicGovernance(feature, { harness = null, sharepointSite = null }
         : "Generally Available (GA)";
   const availabilityGuidance =
     availRaw === "preview"
-      ? "Preview capabilities are subject to supplemental terms, regional rollout schedules, and admin opt-in toggles; validate thoroughly in a sandbox before enabling for business users."
-      : "Supported for production deployments when environment DLP policies, licensing, and RBAC prerequisites below are satisfied.";
-
-  let prereqs = null;
-  try {
-    prereqs = buildAdminPrerequisites({
-      features: [{ ...feature, order: 1 }],
-      products: [prodId],
-      harness: harness || (Array.isArray(feature.harness) && feature.harness[0]) || null,
-      sharepointSite: sharepointSite || undefined,
-    });
-  } catch {
-    prereqs = null;
-  }
-
-  const rows = [];
-  if (prereqs) {
-    for (const c of prereqs.connectors || []) {
-      const endpointHint =
-        Array.isArray(c.endpoints) && c.endpoints.length
-          ? ` Endpoints: ${c.endpoints.slice(0, 2).join(", ")}.`
-          : "";
-      rows.push([
-        `Connector (${c.dataGroup || "Business"})`,
-        c.name,
-        `${ensurePeriod(c.details)}${endpointHint} Admin path: ${c.adminPath}.`,
-      ]);
-    }
-    for (const d of prereqs.dlpAndAcp || []) {
-      rows.push([
-        `Governance (${d.status || "Required"})`,
-        d.title,
-        `${ensurePeriod(d.details)} Admin path: ${d.adminPath}.`,
-      ]);
-    }
-    for (const e of prereqs.environmentSettings || []) {
-      rows.push([
-        `Environment (${e.status || "Required"})`,
-        e.title,
-        `${ensurePeriod(e.details)} Admin path: ${e.adminPath}.`,
-      ]);
-    }
-    for (const t of prereqs.tenantAndCloud || []) {
-      rows.push([
-        `Tenant / RBAC (${t.status || "Required"})`,
-        t.title,
-        `${ensurePeriod(t.details)} Admin path: ${t.adminPath}.`,
-      ]);
-    }
-  }
+      ? "Preview capabilities are subject to supplemental terms and regional rollout schedules, and they can change before general availability. Validate them in a sandbox before you use them with business users."
+      : "Supported for production deployments, with the licensing and access listed in the lab's prerequisites.";
 
   const guardrails = [];
   if (availRaw === "preview") {
     guardrails.push(
-      "**Preview readiness:** Confirm the preview feature toggle is enabled in your target region and environment before scheduling live workshops or production cutover."
+      "**Preview feature:** This capability might not be available in every region or environment yet, and it can change before general availability."
     );
   }
   for (const c of feature.concepts || []) {
@@ -489,10 +444,11 @@ function buildTopicGovernance(feature, { harness = null, sharepointSite = null }
   return {
     availabilityBadge,
     availabilityGuidance,
-    rows: rows.slice(0, 8),
+    rows: [],
     guardrails: dedupeStrings(guardrails),
   };
 }
+
 
 function buildConfigReferenceRows(feature, parsedTopic, productLabel, agentName) {
   const rows = [];
@@ -605,10 +561,7 @@ export function buildModuleTrainingDigest({
       summary: cleanLearnExcerpt(v.excerpt) || ensurePeriod(v.excerpt),
     }));
 
-  const governance = buildTopicGovernance(feature, {
-    harness,
-    sharepointSite: plan?.sharepointSite || null,
-  });
+  const governance = buildTopicGovernance(feature);
 
   const surfaceComparisons = buildSurfaceComparisons(feature, harness);
 
@@ -771,7 +724,7 @@ export function resolveTopicTrainingDigest(parsedTopic, hints = {}) {
         "Write action and parameter descriptions in business language so the orchestrator populates inputs accurately without extra clarifying turns.",
         "Test error responses, missing permissions, and boundary inputs before enabling actions in shared channels."
       );
-    } else if (feature?.category === "governance" || /dlp|auth|governance|security|purview/i.test(topicTitle)) {
+    } else if (feature?.category === "governance" || /dlp|governance|purview/i.test(topicTitle)) {
       bestPractices.push(
         "Validate DLP, authentication, and Managed Environment rules in a dedicated sandbox environment before applying tenant-wide enforcement.",
         "Pair preventive connector controls with ongoing audit and transcript review so policy exceptions are caught early."
@@ -794,16 +747,9 @@ export function resolveTopicTrainingDigest(parsedTopic, hints = {}) {
     ...(parsedTopic?.differenceNotes || []),
   ]);
 
-  // Governance, licensing, DLP & guardrails
-  const governance =
-    persisted?.governance?.rows?.length
-      ? persisted.governance
-      : buildTopicGovernance(feature, {
-          harness,
-          sharepointSite:
-            hints.manifest?.sharepointSite ||
-            (parsedTopic?.sharepointSite ? { label: parsedTopic.sharepointSite } : null),
-        });
+  // Availability and cautions are rebuilt every time: a digest saved before administrator settings moved
+  // out of the learner documents still carries their rows and wording.
+  const governance = buildTopicGovernance(feature);
 
   const guardrails = dedupeStrings([
     ...(governance.guardrails || []),
@@ -820,7 +766,7 @@ export function resolveTopicTrainingDigest(parsedTopic, hints = {}) {
     `Explain how **${topicTitle}** works in **${productLabel}** and why it matters for **${stripMarkdownPlain(agentName)}**.`,
     `Evaluate architectural best practices, ${
       surfaceComparisons?.rows?.length ? "cross-harness differences, " : ""
-    }licensing/DLP prerequisites, and production guardrails.`,
+    }and production guardrails.`,
     `Configure **${topicTitle}** step by step${
       parsedTopic?.codeSnippets?.length ? " using grounded prompts and structured inputs" : ""
     }.`,

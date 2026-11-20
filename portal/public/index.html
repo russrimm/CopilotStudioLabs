@@ -3127,6 +3127,10 @@
     .lb-prereq-group { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
     .lb-gen-actions .lb-prereq-group { flex: 1 1 100%; padding: 10px 12px; }
     .lb-prereq-note { margin: 0; font-size: 13px; color: var(--text-muted); }
+    .lb-admin-docs { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); }
+    .lb-gen-actions .lb-admin-docs { flex: 1 1 100%; }
+    .lb-admin-guide-group { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+    .lb-admin-note { margin: 0; font-size: 13px; color: var(--text-muted); }
     .lb-prereq-dialog { max-width: min(980px, calc(100vw - 32px)); }
     .lb-prereq-frame { display: block; width: 100%; height: min(62vh, 680px); border: 1px solid var(--border); border-radius: 8px; background: #fff; }
     .lb-edit-banner { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 8px; background: rgba(79, 143, 247, 0.1); font-size: 13px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
@@ -5289,6 +5293,7 @@
       body[data-print-target="generated"] #lb-result-checklist,
       body[data-print-target="generated"] #lb-result-screenshots,
       body[data-print-target="generated"] #lb-result-topic-docs,
+      body[data-print-target="generated"] #lb-result-admin-prereqs,
       body[data-print-target="generated"] #lb-result-body > details.lb-advanced,
       body[data-print-target="generated"] #lb-result-preview > .lb-warning {
         display: none !important;

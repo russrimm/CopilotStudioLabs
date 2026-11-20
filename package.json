@@ -14,6 +14,7 @@
     "lab-gate": "node tools/lab-builder/lab-gate.mjs",
     "export-topics": "node tools/lab-builder/export-topics.mjs",
     "export-prerequisites": "node tools/lab-builder/export-prerequisites.mjs",
+    "export-admin-guide": "node tools/lab-builder/export-admin-guide.mjs",
     "capture": "cd tools/screenshot-capture && npm run capture",
     "capture:lab": "node tools/screenshot-capture/capture.js",
     "feature-tour:build": "node tools/feature-tour/build.mjs",

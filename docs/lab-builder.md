@@ -15,7 +15,7 @@ Which is which matters, because the two age differently:
 | **Vendor documentation** links and their quote | Specifications published outside Microsoft Learn (MCP, A2A, OpenAPI, Adaptive Cards), listed per feature in the catalog and read live at build time from an allowlist of hosts. See [Vendor documentation](#3b-vendor-documentation). |
 | **Do this** walk-through steps | Read from the module's live documentation page **when a procedure on it matches the module confidently enough** — otherwise the curated catalog steps, labeled as such in that module. |
 | Module set, ordering, prerequisites, concepts, **Check your work**, **Lesson mini-quiz** | The curated six-product, 195-capability catalog (`portal/lib/lab-builder/features.json` for Copilot Studio plus `portal/lib/lab-builder/catalog/<product-id>.json` for the other five products). Never live. |
-| **Connectors, Environment, and Tenant Prerequisites** (`Required By`) | Derived deterministically (`admin-prereqs.js`) from the planned products, harness, and modules, mapping every connector, DLP/ACP policy, environment setting, and tenant admin role to the exact `Step N` / `Recap N` modules that require it. |
+| **Administrator setup** (connectors, data policies, environment, tenant, identity, and cloud settings, each with `Required By` topics) | Derived deterministically (`admin-prereqs.js`) from the planned products, harness, and modules. It is written **only** to the [Administrator setup guide and Prerequisites checklist](#administrator-setup-guide-and-prerequisites-checklist-kept-separate-from-learner-guides), never into the learner guides. |
 | Overview and per-module "In your scenario" narrative | A language model, when one is configured; otherwise the curated catalog. By default a model never writes the steps; see [step synthesis](#4b-opt-in-grounded-step-synthesis) for the opt-in exception. |
 | Screenshots | Reused from existing labs or `docs/feature-tour/screenshots/`, or written as a per-lab `shots.json` manifest that the portal's Screenshot Center captures on your own computer against your tenant. |
 
@@ -42,7 +42,7 @@ generated-labs/<slug>/
                   with Previous/Next navigation, section jumper, Show all pages
                   toggle, light/dark theme toggle, localStorage checkable task
                   lists, opt-in multiple-choice Knowledge Check mini-quizzes,
-                  Required By prerequisite cards, and print styles for all pages
+                  and print styles for all pages
   manifest.json   what was selected, what was grounded, the Learn sources used
                   and the HTTP status each returned when checked, when they were
                   verified, the vendor pages each module cites and whether each
@@ -2342,11 +2342,13 @@ Each module renders as:
   `thirdPartySources`: vendor, title link, stability note, and an optional quote
   attributed to the vendor
 
-The lab as a whole adds **Licensing and permissions** to Prerequisites, a
-curriculum-specific **Connectors, Environment, and Tenant Prerequisites** section
-(`admin-prereqs.js`), objectives that name the step teaching them, **Cleanup**
+The lab as a whole adds **Licensing and permissions** to Prerequisites, objectives
+that name the step teaching them, **Cleanup**
 (conditioned on the modules present), a **Glossary**, and **Further reading on
-Microsoft Learn**. When a SharePoint target site name and URL are configured,
+Microsoft Learn**. The administrator's settings (connectors, data policies,
+environment, tenant) are **not** in the lab: `index.md` ends the Prerequisites
+section with one plain line, "Your administrator has completed the setup for this
+lab (see the Administrator setup guide)." When a SharePoint target site name and URL are configured,
 SharePoint references link directly to that site. Every one of these blocks is
 built from text the catalog already vets, so none invents a UI path, a limit, or a
 URL. A catalog feature may supply `expectedResults` (list of strings) or
@@ -2368,9 +2370,11 @@ the tenant never go in the catalog.
 Before a workshop runs, environment and tenant administrators need an exact
 pre-flight list rather than generic product boilerplate. `buildAdminPrerequisites()`
 inspects the lab's selected products, Copilot Studio harness, and `Step N` /
-`Recap N` modules to emit `## Connectors, Environment, and Tenant Prerequisites`
-(also returned as structured JSON in `adminPrerequisites` from
-`GET /api/lab-builder/generated/:labId`):
+`Recap N` modules and returns the structured model (`adminPrerequisites` in
+`manifest.json` and in `GET /api/lab-builder/generated/:labId`). It is the single
+source for the [Administrator setup guide and Prerequisites checklist](#administrator-setup-guide-and-prerequisites-checklist-kept-separate-from-learner-guides);
+`renderAdminPrerequisitesMarkdown()` still renders the four groups as Markdown but
+the lab no longer includes that Markdown. The four groups:
 
 1. **Connectors and Endpoints to Allow** — a 5-column Markdown table (`Connector / Endpoint`, `Classification`, `Target Policy Scope`, `Required By`, `Configuration Notes`) naming every `Step N` / `Recap N` module that depends on Dataverse, SharePoint, Microsoft Teams/Outlook, Approvals, Power Automate/Agent Flows, prebuilt or custom OpenAPI connectors, MCP endpoints, Microsoft 365 Copilot / Graph connectors, On-Premises Data Gateway, Microsoft Foundry project connections, or optional 3rd-party enterprise connectors.
 2. **DLP, Agent Control Plane (ACP), and Governance Policies** — checkable `- [ ]` pre-flight items for Business data-group co-location, connector endpoint filtering, Managed Environments, and Agent Control Plane rules, each tagged with `**Required by:**`.
@@ -2413,13 +2417,69 @@ or headless browser dependencies required at runtime) by `portal/lib/exporter.js
 |---|---|---|
 | Markdown (`.md`) | `generated-labs/<slug>/index.md` or `/export?format=md` | Complete lab Markdown with optional organization/term replacements and custom branding banner. |
 | Standalone HTML (`.html`) | `generated-labs/<slug>/index.html` or `/export?format=html` | Self-contained multi-page interactive HTML with `localStorage` checklists, interactive mini-quizzes, theme toggle, embedded base64/asset images, and full-lab `@media print` styling. |
-| Word (`.docx`) | `/export?format=docx` | OOXML Word handout (`docx-builder.js`) with cover metadata, architecture overview table, `Required By` prerequisite tables, embedded screenshots, callouts, checklists, printable quiz & answer key, and clickable titled hyperlinks. |
-| PDF (`.pdf`) | `/export?format=pdf` | Multi-page printable PDF guide (`pdf-builder.js`) with typography hierarchy, architecture overview, prerequisite tables, embedded PNG/JPEG figures, callout boxes, and clickable link annotations. |
+| Word (`.docx`) | `/export?format=docx` | OOXML Word handout (`docx-builder.js`) with cover metadata, architecture overview table, embedded screenshots, callouts, checklists, printable quiz & answer key, and clickable titled hyperlinks. No administrator settings. |
+| PDF (`.pdf`) | `/export?format=pdf` | Multi-page printable PDF guide (`pdf-builder.js`) with typography hierarchy, architecture overview, embedded PNG/JPEG figures, callout boxes, and clickable link annotations. No administrator settings. |
 | PowerPoint (`.pptx`) | `/export?format=pptx` | Widescreen 16:9 OOXML presentation (`pptx-builder.js`, 13.333" × 7.5") with ECMA-376 PresentationML Speaker Notes (`notesMaster1.xml` + `notesSlideN.xml`) for PowerPoint Presenter View, including pacing cues, live-demo talking points, coaching callouts, fast rescue tips, and non-spoiler Knowledge Check slides whose answer keys and rationales live exclusively in speaker notes. |
 | Per-topic `.docx` & `.pptx` | `generated-labs/<slug>/topics/` and `/topics/:order/:format` | Individual Word handout and 16:9 PowerPoint deck (complete with ECMA-376 Presenter View speaker notes) for each module or recap, named `<Lab Name> - Step NN - <Topic Name>.docx` / `.pptx` (or `<Lab Name> - Recap N - <Topic Name>.docx` / `.pptx`). Synthesized automatically at build time (and refreshed on demand for older generated labs) and renamed whenever the lab title is updated via `PATCH`. |
-| Facilitator Guide Pack (`.docx`, `.pdf`, `.md`, `.html`) | `/export?format=facilitator-docx` (`facilitator-pdf`, `facilitator-md`, `facilitator-html`) | Dedicated Instructor / Facilitator Guide (`facilitator-guide.js`, named `<Lab Title> - Facilitator Guide.<ext>`) containing a Run-of-Show pacing table with a 15-minute pre-flight buffer and >90-minute break cues, a T-24h tenant/DLP/SharePoint/sample-files readiness runbook, and a per-module facilitator playbook (opening hook, 3–5 minute live demo talking points, step coaching cues, common learner roadblocks & fast rescue steps, debrief prompt, and complete Knowledge Check Answer Key & distractor rationales even when learner quizzes are unchecked). |
+| Facilitator Guide Pack (`.docx`, `.pdf`, `.md`, `.html`) | `/export?format=facilitator-docx` (`facilitator-pdf`, `facilitator-md`, `facilitator-html`) | Dedicated Instructor / Facilitator Guide (`facilitator-guide.js`, named `<Lab Title> - Facilitator Guide.<ext>`) containing a Run-of-Show pacing table with a 15-minute pre-flight buffer and >90-minute break cues, a T-24h readiness runbook (an **Administrator Readiness** pointer to the Administrator setup guide and the Prerequisites checklist, a SharePoint check, and the sample-files inventory; it does not repeat the administrator's settings), and a per-module facilitator playbook (opening hook, 3–5 minute live demo talking points, step coaching cues, common learner roadblocks & fast rescue steps, debrief prompt, and complete Knowledge Check Answer Key & distractor rationales even when learner quizzes are unchecked). |
+| Administrator setup guide (`.docx`, `.pdf`, `.html`, `.md`) | `/export?format=admin-guide-docx` (`admin-guide-pdf`, `admin-guide-html`, `admin-guide-md`) | Every administrator setting the lab needs, for the administrator only (`admin-guide.js` plus `admin-guide-docx.js`, `-html.js`, `-pdf.js`, `-render.js`; named `<Lab Title> - Administrator setup guide.<ext>`). Cover, summary, an **Order of work** table, **Who does what**, then one section per role with a checkbox per item: the exact portal location as steps, what to set up, why, the Microsoft Learn link, and a Done by / date box. See [Administrator setup guide and prerequisites checklist](#administrator-setup-guide-and-prerequisites-checklist-kept-separate-from-learner-guides). |
 | Prerequisites checklist (`.docx`, `.pdf`, `.html`, `.md`) | `/export?format=prerequisites-docx` (`prerequisites-pdf`, `prerequisites-html`, `prerequisites-md`) | The prerequisites by themselves, written for the customer hosting the workshop (`prereq-checklist.js` plus `prereq-checklist-docx.js`, `-html.js`, `-pdf.js`; named `<Lab Title> - Prerequisites checklist.<ext>`). Cover, summary, who needs to be involved, then a checklist table per section (empty box, what to have ready, who does it, why it is needed, a Microsoft Learn link where there is one, and a Done by / date column). No lab steps, quizzes, facilitator content, screenshots, builder notes, or tenant identifiers. See [Send the prerequisites to the customer](#send-the-prerequisites-to-the-customer). |
-| Per-module ZIP (`.zip`) | `/export?format=zip&formats=all` (`all\|docx\|pptx\|pdf\|html`) | Complete workshop archive containing one top-level `Send to Customer - Prerequisites Checklist - <Lab Title>.docx` (`.pdf` or `.html` when `formats` leaves out Word), `<labId>/index.md`, `<labId>/index.html`, `<labId>/manifest.json`, `<labId>/shots.json`, `00 - Overview and Admin Prerequisites/`, `Facilitator Guide/` (`<Lab Title> - Facilitator Guide.md` plus matching `.docx`/`.pdf`/`.html`), titled `Module NN - <Title>/` folders in the requested formats, `sample-files/` starter artifacts, a root `README.md`, `export-manifest.json`, and optional `_branding/` assets. |
+| Per-module ZIP (`.zip`) | `/export?format=zip&formats=all` (`all\|docx\|pptx\|pdf\|html`) | Complete workshop archive containing one top-level `Send to Customer - Prerequisites Checklist - <Lab Title>.docx` (`.pdf` or `.html` when `formats` leaves out Word), a top-level `For the administrator/` folder (the Administrator setup guide and the Prerequisites checklist in Word, PDF, web page, and Markdown, limited to the requested formats; Word when only PowerPoint was asked for), `<labId>/index.md`, `<labId>/index.html`, `<labId>/manifest.json` (without the administrator model), `<labId>/shots.json`, `<labId>/00 - Overview/` (the learner overview, no administrator settings), `Facilitator Guide/` (`<Lab Title> - Facilitator Guide.md` plus matching `.docx`/`.pdf`/`.html`), titled `Module NN - <Title>/` folders in the requested formats, `sample-files/` starter artifacts, a root `README.md`, `export-manifest.json` (with `administratorFolder` and `administratorFiles`), and optional `_branding/` assets. |
+
+#### Administrator setup guide and prerequisites checklist: kept separate from learner guides
+
+The administrator's settings (connectors and connections, data loss prevention and connector policies,
+Agent Control Plane and Managed Environment rules, environment settings, tenant, identity, and cloud settings,
+required admin roles and licenses) are a different job for a different person than the lab. They live
+**only** in two documents for the administrator and the customer's admin contact. A learner guide gets one plain
+line at the end of **Prerequisites**: *Your administrator has completed the setup for this lab (see the
+Administrator setup guide).* The line lists no setting and asks the learner to do nothing.
+
+| Document | For | What it is |
+|---|---|---|
+| **Administrator setup guide** | The administrator who does the work | The full version: grouped by role, ordered by the work order (licenses and capacity, then tenant, identity, and cloud settings, then environment settings, then data policies and governance, then connectors and connections, then data and content, then network), with the exact portal location as steps, the reason, the topics that need it, the Microsoft Learn link, and checkboxes. |
+| **Prerequisites checklist** | The customer's admin contact | The short version (see [Send the prerequisites to the customer](#send-the-prerequisites-to-the-customer)). It also lists what attendees need, which the guide leaves out. |
+
+Both read the same data (`buildAdminPrerequisites()` in `admin-prereqs.js`, the saved manifest, and the lab's
+own Prerequisites text) through `buildPrerequisitesChecklist()`, so they cannot disagree. The administrator wording
+(`ADMIN_COPY` in `prereq-checklist.js`) is shared; `admin-guide.js` regroups the items, adds the portal-location
+steps, and phrases anything Microsoft Learn does not confirm for an administrator: **Not confirmed in Microsoft Learn: ...
+Check this in your own tenant, or with your Microsoft representative, before you rely on it.** The brand profile
+(company, logo, colors, font, footer, support contact) is applied the same way as for the checklist.
+
+**What stays out of learner outputs.** The learner guide (`index.md`, `index.html`, the preview, the Markdown, web page,
+Word, PDF, and PowerPoint exports), the per-topic Word and PowerPoint files, the module folders in the ZIP, and the ZIP's
+copy of `manifest.json` carry no administrator setting. The per-topic decks have an **Availability & Cautions** slide
+(release tier and cautions from the catalog) in place of the old **Admin Prerequisites, DLP & Guardrails** slides. The facilitator
+guide keeps a short **Administrator Readiness** table (who must finish what, and where it is written) and a spot check with a
+non-admin account, but not the settings: the host is not the person who changes them.
+
+**Topics a person selects on purpose.** Separate two things: (1) the lab-setup settings the generator adds
+(connector policies, environment toggles, tenant roles) move to the administrator documents; (2) a topic the author
+selected, even an administrator topic such as `dlp-governance`, `alm-solutions`, `agent-inventory`, `entra-agent-identities`,
+`vnet-private-connectivity`, or anything in the `copilot-admin` or `administration` categories, stays a lab module with its
+own steps. It is labeled **Audience: administrators** under its heading (and **AUDIENCE: Administrators** in the module
+document's table) so a learner knows who it is for. `isAdminAudienceTopic()` in `learner-guide.js` is the list.
+
+**Labs built before the split.** Their saved `index.md` still has the old `## Connectors, Environment, and Tenant Prerequisites`
+section. Nothing in the owner's folders is rewritten. `learnerGuideMarkdown()` (`learner-guide.js`) takes that section out
+whenever a lab is read for a learner (preview, Markdown, web page, Word, PDF, PowerPoint, ZIP, topic documents), adds the one-line
+pointer, and does nothing to a guide that no longer has the section (so running it twice changes nothing). The administrator
+documents are built from the saved manifest and Markdown, as before. `TOPIC_DOCUMENTS_SCHEMA_VERSION` is 5, so per-topic files
+saved with the administrator slides are rebuilt the next time they are asked for.
+
+**Get it.**
+
+- **Portal:** on a generated lab (under **Previously generated labs**, the opened lab panel, and the last wizard step), the group
+  **For the administrator** (*Admin settings only. Not part of the learner guides.*) has **Download administrator setup guide**
+  with a format list (**Word (.docx), recommended**, **PDF (.pdf)**, **Web page (.html)**, **Markdown (.md)**), **Preview**, and the
+  **Prerequisites checklist** controls.
+- **API:** `GET` or `POST /api/lab-builder/generated/:labId/export?format=admin-guide-docx` (also `admin-guide-pdf`, `admin-guide-html`,
+  `admin-guide-md`, and `admin-guide-markdown` as an alias for Markdown). `GET .../:labId/admin-guide` returns the preview (`title`,
+  `baseName`, `itemCount`, `sections`, `roles`, and the page as `html`). Both are also mounted under `/api/generated-labs`.
+- **Command line:** `npm run export-admin-guide -- --lab <id|folder> [--root <dir>] [--format docx|pdf|html|md] [--out <file|dir|->]`
+  (`node tools/lab-builder/export-admin-guide.mjs`). It needs no `npm ci`, reads only `manifest.json` and `index.md`, and writes nothing to the lab.
+- **ZIP:** the `For the administrator/` folder at the top of the archive. Hand that folder to the administrator and the rest to learners.
 
 #### Send the prerequisites to the customer
 
@@ -3082,11 +3142,12 @@ the server log, never the manifest — and the output is exportable by design.
 | `GET` | `/api/lab-builder/generated` | List previously generated labs: title, notes, dates, products, vertical, level, harness, estimated minutes, topic count, `topicDocumentCount`, validation counts, `screenshots`, `learnDrift` (`status`, `lastCheckedAt`, `driftedModuleCount`, `driftedModules`, `missingScreenshotCount`, `moduleCount`), and `selections` (null for labs built before choices were saved). |
 | `GET` | `/api/lab-builder/learn-drift` | Return cached fleet-wide Microsoft Learn drift posture across all saved generated labs (`lastBulkScanAt`, `counts`, and per-lab `learnDrift` summaries) without making network requests. Also mounted at `/api/generated-labs/learn-drift`. |
 | `POST` | `/api/lab-builder/learn-drift/scan` | Bulk scan saved generated labs (all labs or an explicit `labIds` subset) against live Microsoft Learn documentation with bounded concurrency (`concurrency = 3`), optionally refreshing drifted steps, standalone HTML, and per-topic `.docx`/`.pptx` files when `autoUpdate: true`, and persisting `learn-drift-fleet.json`. Also mounted at `/api/generated-labs/learn-drift/scan`. |
-| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab as markdown and HTML, along with `adminPrerequisites` and `topicDocuments` (synthesizing `topics/*.docx` and `topics/*.pptx` on demand for labs generated before `topics/` existed). |
+| `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab as markdown and HTML (learner version: any older administrator section is hidden on read), along with `adminPrerequisites` (for the owner's panel; never part of the learner `markdown` or `html`) and `topicDocuments` (synthesizing `topics/*.docx` and `topics/*.pptx` on demand for labs generated before `topics/` existed). |
 | `GET` | `/api/lab-builder/generated/:labId/assets/:file` | Serve a generated lab's screenshot or image asset (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`) from its `assets/` directory. |
 | `GET` | `/api/lab-builder/generated/:labId/topics/:order/:format` | Download a single topic's standalone Word document (`docx`) or PowerPoint slide deck (`pptx`) named per lab (`<Lab Name> - Step NN - <Topic Name>.docx` / `.pptx`). Also mounted at `/api/generated-labs/:labId/topics/:order/:format`. |
-| `GET` / `POST` | `/api/lab-builder/generated/:labId/export` | Export a generated lab as a per-module `zip` (`formats=all\|docx\|pptx\|pdf\|html`, including `Facilitator Guide/` and a top-level customer prerequisites checklist), `html`, `docx`, `pptx`, `pdf`, `md`, `facilitator-docx`, `facilitator-pdf`, `facilitator-md`, `facilitator-html`, `prerequisites-docx`, `prerequisites-pdf`, `prerequisites-html`, or `prerequisites-md` (the [prerequisites checklist](#send-the-prerequisites-to-the-customer) by itself; an unknown format is HTTP 400). Also mounted at `/api/generated-labs/:labId/export`. |
+| `GET` / `POST` | `/api/lab-builder/generated/:labId/export` | Export a generated lab as a per-module `zip` (`formats=all\|docx\|pptx\|pdf\|html`, including `Facilitator Guide/`, a top-level `For the administrator/` folder, and a top-level customer prerequisites checklist), `html`, `docx`, `pptx`, `pdf`, `md`, `facilitator-docx`, `facilitator-pdf`, `facilitator-md`, `facilitator-html`, `prerequisites-docx`, `prerequisites-pdf`, `prerequisites-html`, `prerequisites-md` (the [prerequisites checklist](#send-the-prerequisites-to-the-customer) by itself), or `admin-guide-docx`, `admin-guide-pdf`, `admin-guide-html`, `admin-guide-md` (the [Administrator setup guide](#administrator-setup-guide-and-prerequisites-checklist-kept-separate-from-learner-guides) by itself; an unknown format is HTTP 400). Also mounted at `/api/generated-labs/:labId/export`. |
 | `GET` | `/api/lab-builder/generated/:labId/prerequisites` | Preview of the prerequisites checklist: `title`, `baseName`, `itemCount`, `sections` (title and item count), `roles` (label and item count), and the whole page as `html`. 404 for a lab that does not exist. Also mounted at `/api/generated-labs/:labId/prerequisites`. |
+| `GET` | `/api/lab-builder/generated/:labId/admin-guide` | Preview of the Administrator setup guide, with the same keys as the prerequisites preview. 404 for a lab that does not exist. Also mounted at `/api/generated-labs/:labId/admin-guide`. |
 | `GET` | `/api/lab-builder/generated/:labId/validate` | Run structural validation (`validator.js`) against a generated lab. Also mounted at `/api/generated-labs/:labId/validate`. |
 | `PATCH` | `/api/lab-builder/generated/:labId` | Change `title` (1-160 characters, no line breaks) and/or `notes` (up to 1000 characters). No other field is accepted. Updates the manifest, the lab's single `#` heading, `index.html`, and regenerates/renames the per-topic `.docx` and `.pptx` files inside `topics/` so their filenames match the updated lab title; the folder name stays the same. |
 | `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab folder. The id must match an existing folder directly under `generated-labs/` that holds a `manifest.json`, so hand-written labs under `labs/` can never be reached. Answers 400 for a bad id and 404 when it does not exist. |

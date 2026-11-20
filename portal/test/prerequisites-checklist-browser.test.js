@@ -207,3 +207,67 @@ test("the last wizard step's success state offers the same checklist download ne
   assert.deepEqual(problems, []);
   await context.close();
 });
+
+test("the 'For the administrator' group downloads the Administrator setup guide and previews it, with the keyboard", async (t) => {
+  if (!ctx.browser) return t.skip("no browser");
+  const context = await ctx.browser.newContext({ viewport: { width: 1280, height: 1600 }, acceptDownloads: true });
+  const page = await context.newPage();
+  const problems = [];
+  page.on("pageerror", (err) => problems.push(err.message));
+  page.on("console", (message) => message.type() === "error" && problems.push(message.text()));
+
+  await page.goto(ctx.base);
+  await page.evaluate(async (labId) => {
+    await lbLoadGenerated();
+    await lbOpenGenerated(labId);
+  }, ctx.labId);
+  const admin = page.locator("#lb-result-meta .lb-admin-docs");
+  await admin.waitFor({ timeout: 20000 });
+  assert.equal(await admin.getAttribute("role"), "group");
+  assert.match(await admin.innerText(), /for the administrator/i);
+  assert.match(await admin.innerText(), /Admin settings only\. Not part of the learner guides\./);
+  assert.equal(await admin.locator(".lb-prereq-group").count(), 1, "the checklist sits in the same group");
+  const guide = admin.locator(".lb-admin-guide-group");
+  const picker = guide.getByLabel(/^Format of the administrator setup guide for/);
+  assert.deepEqual(await picker.locator("option").allTextContents(), ["Word (.docx), recommended", "PDF (.pdf)", "Web page (.html)", "Markdown (.md)"]);
+  if (DEMO_DIR) await admin.screenshot({ path: join(DEMO_DIR, "3-administrator-group.png") });
+
+  const download = guide.getByRole("button", { name: /^Download administrator setup guide for/ });
+  await download.focus();
+  const [docx] = await Promise.all([page.waitForEvent("download"), page.keyboard.press("Enter")]);
+  assert.match(docx.suggestedFilename(), / - Administrator setup guide\.docx$/);
+  const docxPath = join(tmp("admin-guide-dl-"), "guide.docx");
+  await docx.saveAs(docxPath);
+  assert.equal(readFileSync(docxPath).subarray(0, 2).toString(), "PK");
+
+  await picker.selectOption("pdf");
+  const [pdf] = await Promise.all([page.waitForEvent("download"), download.click()]);
+  assert.match(pdf.suggestedFilename(), / - Administrator setup guide\.pdf$/);
+
+  const preview = guide.getByRole("button", { name: /^Preview the administrator setup guide for/ });
+  await preview.focus();
+  await page.keyboard.press("Enter");
+  const dialog = page.locator("#lb-prereq-preview-dialog");
+  await dialog.waitFor({ state: "visible" });
+  assert.equal(await dialog.locator("#lb-prereq-preview-title").textContent(), "Administrator setup guide preview");
+  assert.equal(await page.evaluate(() => document.activeElement?.id), "lb-prereq-preview-close", "the focus moves into the dialog");
+  const frame = page.frameLocator("#lb-prereq-preview-frame");
+  await frame.getByText("For the administrator. Not part of the learner guides.").waitFor({ timeout: 10000 });
+  assert.match(await dialog.locator("#lb-prereq-preview-desc").textContent(), /^This is the administrator's copy: \d+ items across \d+ roles\. Admin settings only\. It is not part of the learner guides\.$/);
+  assert.ok((await frame.locator("article.item").count()) > 5, "the items are there");
+  assert.ok((await frame.locator("input[type=checkbox]").count()) > 5, "each item has a checkbox");
+  if (DEMO_DIR) await dialog.screenshot({ path: join(DEMO_DIR, "4-administrator-preview.png") });
+  const [fromDialog] = await Promise.all([page.waitForEvent("download"), dialog.getByRole("button", { name: "Download administrator setup guide" }).click()]);
+  assert.match(fromDialog.suggestedFilename(), / - Administrator setup guide\.pdf$/, "the dialog downloads the format that was picked");
+  await page.keyboard.press("Escape");
+  await dialog.waitFor({ state: "hidden" });
+  assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("data-gen-action")), "preview-admin-guide", "the focus returns to Preview");
+
+  // The learner preview in the same panel has no administrator settings.
+  const learnerPreview = await page.locator("#lb-result-preview").textContent();
+  assert.doesNotMatch(learnerPreview, /Connectors, Environment, and Tenant Prerequisites/);
+  assert.match(learnerPreview, /Your administrator has completed the setup for this lab/);
+
+  assert.deepEqual(problems, [], "no console errors or page errors");
+  await context.close();
+});

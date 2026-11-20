@@ -10,12 +10,15 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getFeature } from "./catalog.js";
-import { buildAdminPrerequisites, renderAdminPrerequisitesMarkdown } from "./admin-prereqs.js";
+import { learnerGuideMarkdown, isAdminAudienceTopic } from "./learner-guide.js";
 import { featureRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROFILES = JSON.parse(readFileSync(join(__dirname, "scenario-profiles.json"), "utf8"));
+
+/** The learner overview folder in the ZIP. It holds no administrator setup. */
+export const OVERVIEW_FOLDER_NAME = "00 - Overview";
 
 const WINDOWS_RESERVED_NAME_RE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 const DEFAULT_LAB_SEGMENT_CAP = 46;
@@ -776,8 +779,8 @@ export function buildModuleSampleFiles(moduleInfo, options = {}) {
 /**
  * Split a generated lab's full `index.md` into:
  *   - `overview`: Overview, Learning Objectives, Time Estimate, Prerequisites,
- *     Scenario, Validation, Cleanup, Glossary, and the end-of-lab Connectors,
- *     Environment, and Tenant Prerequisites section.
+ *     Scenario, Validation, Cleanup, and Glossary. It never carries administrator setup:
+ *     that lives in the Administrator setup guide (see `learner-guide.js`).
  *   - `modules`: One standalone Markdown document per `### Step N - <Title>`
  *     module, promoted cleanly so each module stands on its own when rendered
  *     to `.docx`, `.pdf`, or `.html`.
@@ -787,7 +790,7 @@ export function buildModuleSampleFiles(moduleInfo, options = {}) {
  * @returns {{ overview: { folderName: string, fileBaseName: string, title: string, markdown: string }, modules: Array<{ order: number, id: string|null, title: string, folderName: string, fileBaseName: string, markdown: string, moduleInfo: object }> }}
  */
 export function splitGeneratedLabModules(fullMarkdown, manifest = {}, options = {}) {
-  const source = stripEmbeddedHtml(String(fullMarkdown ?? "")).replace(/\r\n/g, "\n");
+  const source = learnerGuideMarkdown(stripEmbeddedHtml(String(fullMarkdown ?? ""))).replace(/\r\n/g, "\n");
   const lines = source.split("\n");
   const labTitleMatch = source.match(/^#\s+(.+?)\s*$/m);
   const labTitle = (manifest?.title || (labTitleMatch ? labTitleMatch[1] : "Generated Lab")).trim();
@@ -843,10 +846,6 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}, options = 
       }
     }
   }
-
-  const adminPrereqs = manifest?.adminPrerequisites || buildAdminPrerequisites({ manifest, markdown: source });
-  const hasPrereqHeadingInSource = /^##\s+Connectors,\s*Environment,\s*and\s*Tenant\s*Prerequisites\b/im.test(source);
-  const prereqMd = renderAdminPrerequisitesMarkdown(adminPrereqs);
 
   const preStepsText = stepByStepIdx !== -1 ? lines.slice(0, stepByStepIdx).join("\n").trim() : source.trim();
   const postStepsText = stepByStepIdx !== -1 && postStepsIdx < lines.length ? lines.slice(postStepsIdx).join("\n").trim() : "";
@@ -918,6 +917,7 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}, options = 
       `| **MODULE** | ${stepLabel} — ${cleanTitle.replace(/\|/g, "\\|")} |`,
       matchedMeta.level ? `| **LEVEL** | Level ${matchedMeta.level}${isRecap ? " (Prerequisite Recap)" : ""} |` : null,
       matchedMeta.minutes ? `| **ESTIMATED TIME** | About ${matchedMeta.minutes} minutes |` : null,
+      isAdminAudienceTopic(catalogMod || matchedMeta) ? `| **AUDIENCE** | Administrators |` : null,
       productsLabel ? `| **PRODUCTS** | ${productsLabel.replace(/\|/g, "\\|")} |` : null,
       modNeedsSharepoint ? `| **SHAREPOINT SITE** | ${spSite.markdownLink} |` : null,
       `| **SAMPLE FILES** | Included in \`sample-files/\` inside this module folder |`,
@@ -971,22 +971,16 @@ export function splitGeneratedLabModules(fullMarkdown, manifest = {}, options = 
       ].join("\n")
     : "";
 
-  const overviewParts = [
-    preStepsText,
-    moduleIndexRows,
-    postStepsText,
-    !hasPrereqHeadingInSource && prereqMd ? prereqMd : "",
-  ].filter(Boolean);
+  const overviewParts = [preStepsText, moduleIndexRows, postStepsText].filter(Boolean);
 
   return {
     labTitle,
     overview: {
-      folderName: "00 - Overview and Admin Prerequisites",
-      fileBaseName: "Lab Overview and Admin Prerequisites",
-      title: `${labTitle} — Overview and Admin Prerequisites`,
+      folderName: OVERVIEW_FOLDER_NAME,
+      fileBaseName: "Lab Overview",
+      title: `${labTitle} — Overview`,
       markdown: overviewParts.join("\n\n").trim() + "\n",
     },
     modules,
-    adminPrerequisites: adminPrereqs,
   };
 }
