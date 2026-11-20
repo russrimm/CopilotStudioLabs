@@ -47,10 +47,10 @@ import { applyRedaction, burnCalloutMarkers, clearOverlays, collectVisibleLabels
 import { diagnosisLines, signInReport } from "./signin-diagnosis.mjs";
 import { effectiveModeFor, maskedAddress, targetField, targetValuesFromJob, validateTargetValue } from "./targets.mjs";
 import { createTrace, traceFilePath } from "./trace.mjs";
-import { resolveStage } from "./walkthrough.mjs";
+import { normalizeAgentSource, orderCreationFirst, resolveStage } from "./walkthrough.mjs";
 import { startAgainLines } from "./start-hint.mjs";
 
-export const COMPANION_VERSION = "1.6.1";
+export const COMPANION_VERSION = "1.6.2";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";
@@ -727,6 +727,8 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
   const targets = jobTargets(claimed.targets);
   const jobOptions = job.options || {};
   const jobMode = JOB_MODES.includes(options.mode) ? options.mode : JOB_MODES.includes(jobOptions.mode) ? jobOptions.mode : "smart";
+  // Which agent the screenshots use: the one created earlier in this job ("created"), or the person's own ("own"). A portal that does not say keeps the older behavior.
+  const agentSource = normalizeAgentSource(jobOptions.agentSource);
   // What the computer may do on its own is what the job carries, limited by what this computer allows (see guard.mjs).
   const autonomy = resolveAutonomy(jobOptions.autonomy, { allowPracticeWrites: options.allowPracticeWrites === true, localOptIn: options.localOptIn === true });
   const registry = createPracticeRegistry(home);
@@ -748,6 +750,8 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
     if (autonomy.refusedPractice) log(`  ${autonomy.refusedPractice}`);
     if (!autonomy.consented) log("  This job did not carry your consent, so the computer will only look at screens, not open dialogs or ask questions.");
     if (autonomy.scratch) log("  Stop it any time with Stop in the portal or Ctrl+C: nothing is changed after that.");
+    if (agentSource === "created" && autonomy.level !== "read-only") log("  Every screenshot that shows an agent uses the practice agent created first in this capture (or the one reused from earlier). No other agent is opened.");
+    else if (agentSource === "own") log("  Every screenshot that shows an agent uses the agent whose address or name you gave.");
   }
 
   const trace = options.trace || null;
@@ -808,7 +812,11 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
     if (!groups.has(profile)) groups.set(profile, []);
     groups.get(profile).push({ shot, effective: effectiveModeFor(shot, jobMode) });
   }
-  for (const [profile, items] of groups) groups.set(profile, [...items.filter((i) => i.effective !== "guided"), ...items.filter((i) => i.effective === "guided")]);
+  for (const [profile, items] of groups) {
+    // Unattended shots go first, the ones that need the person last. Inside the unattended ones, the shots that create the agent come before the first shot that needs it.
+    const unattended = items.filter((i) => i.effective !== "guided");
+    groups.set(profile, [...(agentSource === "created" ? orderCreationFirst(unattended, (i) => i.shot) : unattended), ...items.filter((i) => i.effective === "guided")]);
+  }
 
   let fatalError = null;
   let index = 0;
@@ -898,7 +906,7 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
       let profileCaptured = false;
       let signInMessage = null;
       let browserShotsStarted = 0;
-      const session = createCaptureSession({ env, targets, autonomy, registry, recipes, home, terms, companionVersion: COMPANION_VERSION, writeGapMs: options.writeGapMs, effectMs: options.effectMs, findMs: options.findMs });
+      const session = createCaptureSession({ env, targets, autonomy, registry, recipes, home, terms, companionVersion: COMPANION_VERSION, agentSource, writeGapMs: options.writeGapMs, effectMs: options.effectMs, findMs: options.findMs });
       scratchSessions.push(session);
       session.shouldStop = stopRequested;
       // "Show me once": the portal asked for a retake in which the computer learns what the person does.
@@ -947,6 +955,8 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
             } else log(`  Account: ${describeAccount(check.account)}`);
           }
         }
+        // Which sign-in this is, as a random marker kept next to the browser profile (never who it is): a practice agent is used again only under the sign-in that made it.
+        session.accountId = (dir ? readAccountRecord(dir)?.signInId : null) || null;
         for (const { shot, effective } of items) {
           if (state.paused) break;
           index += 1;
@@ -1209,12 +1219,17 @@ export async function runJob({ client, claimed, home, playwright, options = {}, 
         ...(stoppedSession ? { stopped: String(stoppedSession.scratch.halted.message || "").slice(0, 200) } : {}),
       }
     : null;
+  // A practice agent handed over to the shots outside "build from scratch": the same summary (a name and a date), never an address.
+  const handedOver = !autonomy.scratch && agentSource === "created" ? scratchSessions.find((s) => s.practiceAgent?.ok) : null;
+  const handoffReport = handedOver
+    ? { name: handedOver.practiceAgent.name, reused: handedOver.practiceAgent.reused === true, createdAt: String(registry.find(handedOver.practiceAgent.envId)?.createdAt || new Date().toISOString()).slice(0, 10), environment: "set", stages: [] }
+    : null;
   const signInDiagnosis = signInFailures.find((f) => f.diagnosis)?.diagnosis || null;
   const signInInfo = signInDiagnosis ? signInReport(signInDiagnosis, { product: signInFailures.find((f) => f.diagnosis).product }) : null;
   const finalAccount = accountReport || (accountInfo ? accountInfo() : null);
   const needsAccount = accountStops[0] ? { product: accountStops[0].product, code: accountStops[0].code, message: accountStops[0].message } : null;
   try {
-    await client.complete(job.id, { message: pausedNote || (needsAccount ? `${needsAccount.message} ${summary}` : summary), ...(fatalError ? { fatalError } : {}), ...(created.length ? { created } : {}), ...(scratchReport ? { scratch: scratchReport } : {}), ...(signInInfo ? { signIn: signInInfo } : {}), ...(finalAccount ? { account: finalAccount } : {}), ...(needsAccount ? { needsAccount } : {}), ...(state.paused ? { paused: { reason: state.paused.reason, message: pausedNote } } : {}) });
+    await client.complete(job.id, { message: pausedNote || (needsAccount ? `${needsAccount.message} ${summary}` : summary), ...(fatalError ? { fatalError } : {}), ...(created.length ? { created } : {}), ...(scratchReport || handoffReport ? { scratch: scratchReport || handoffReport } : {}), ...(signInInfo ? { signIn: signInInfo } : {}), ...(finalAccount ? { account: finalAccount } : {}), ...(needsAccount ? { needsAccount } : {}), ...(state.paused ? { paused: { reason: state.paused.reason, message: pausedNote } } : {}) });
   } catch (err) {
     if (err instanceof PortalError && err.kind === "auth") throw err;
     log(`Could not tell the portal the job finished: ${err.message}`);

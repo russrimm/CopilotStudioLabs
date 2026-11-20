@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import { detectBrowserAvailability } from "../lab-runner.mjs";
 import { createTrace } from "../trace.mjs";
-import { FAKE_ENV_ID, FAKE_PRACTICE_ENV_ID } from "./fixtures/fake-product-site.mjs";
+import { FAKE_AGENT_URL, FAKE_ENV_ID, FAKE_PRACTICE_ENV_ID } from "./fixtures/fake-product-site.mjs";
 import { startScenario } from "./fixtures/capture-scenarios.mjs";
 
 const found = await detectBrowserAvailability();
@@ -331,6 +331,98 @@ test("the older layout: the agent is made on its form, screens are looked at, an
     const create = out.rows.find((r) => /create-agent/.test(r.filename));
     assert.equal(create.status, "captured");
     assert.ok(out.rows.every((r) => r.status === "captured" || r.status === "needs-you"));
+  } finally {
+    await scenario.close();
+  }
+});
+
+// ── Which agent the screenshots use: the one created first in the capture ─────────────────────────────────
+
+const botIdsOpened = (out) => [...new Set(out.site.stats.pages.map((p) => /\/bots\/([^/]+)/.exec(p)?.[1]).filter(Boolean))];
+const madeAgentIds = (site) => Object.values(site.envs).flatMap((e) => e.agents).filter((a) => a.name.startsWith("Lab screenshots - ")).map((a) => a.id);
+const NON_ZERO_GUID = /\b(?!0{8}-0{4}-0{4}-0{4}-0{12}\b)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+
+/** Every text file under a folder, with the ones named `skip` left out. */
+function textFilesUnder(dir, skip = () => false) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...textFilesUnder(file, skip));
+    else if (/\.(?:json|jsonl|md|txt|log|html|csv)$/i.test(entry.name) && !skip(file)) out.push(file);
+  }
+  return out;
+}
+
+test("the agent created first is used by every later shot with no address supplied, no other agent is opened even one whose address is saved, and no address or id is stored anywhere it should not be", { skip }, async () => {
+  const scenario = await scenarioFor();
+  const traceFile = path.join(scenario.home, "handoff-trace.log");
+  const trace = createTrace({ file: traceFile, terms: [], header: { test: "agent hand-off" } });
+  try {
+    // An agent the person saved earlier exists in the tenant and its address is in the lab's settings, but the choice is the created agent.
+    const out = await scenario.runJob({ job: { targets: { copilotStudioAgentUrl: FAKE_AGENT_URL }, options: { mode: "autonomous", agentSource: "created" } }, runOptions: { ...RUN, trace } });
+    assert.equal(out.job.options.agentSource, "created");
+    assert.equal(out.claimed.env.CAPTURE_COPILOT_STUDIO_AGENT_URL, undefined, "the saved agent's address is not even sent to the computer");
+    const dependents = out.claimed.shots.filter((s) => s.capture.agent?.needs && !s.capture.agent.creates);
+    assert.ok(dependents.length >= 3 && dependents.every((s) => s.capture.agent.via === "created" && !s.capture.missing.includes("copilot-studio-agent")), "the shots that show an agent are ready, not waiting for an address");
+    assert.equal(writesOf(out, "create-agent:").length, 1, "one agent was made");
+    assert.equal(out.rows.filter((r) => r.status === "skipped" || r.cause === "no-agent").length, 0, "nothing waited for an address");
+    assert.equal(captured(out).length, out.rows.length, out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", "));
+    const made = madeAgentIds(out.site);
+    assert.equal(made.length, 1);
+    assert.deepEqual(botIdsOpened(out), made, "the only agent page that was opened is the agent the computer made");
+    assert.equal(out.job.result.scratch.name.startsWith("Lab screenshots - "), true);
+
+    // Nothing that identifies the tenant, the environment, or the agent is kept outside this computer's own practice-agent record.
+    const storage = path.dirname(scenario.lab.generatedRoot);
+    const stored = textFilesUnder(storage, (file) => /\.plan\.json$/.test(file));
+    assert.ok(stored.length >= 3, "the lab, the job, and the library records were scanned");
+    for (const file of stored) {
+      const text = fs.readFileSync(file, "utf8");
+      assert.deepEqual(text.match(NON_ZERO_GUID) || [], [], `no id in ${path.basename(file)}`);
+      assert.ok(!text.includes(FAKE_ENV_ID) && !text.includes(made[0]), `no environment or agent id in ${path.basename(file)}`);
+    }
+    const shared = [JSON.stringify(out.job), JSON.stringify(out.labStatus), out.lines.join("\n"), fs.readFileSync(traceFile, "utf8")];
+    for (const text of shared) {
+      assert.deepEqual(text.match(NON_ZERO_GUID) || [], [], "no id in the job, the lab status, the companion's log, or its trace");
+      assert.ok(!text.includes(made[0]));
+    }
+    const registry = JSON.parse(fs.readFileSync(path.join(out.home, ".practice-agents.json"), "utf8"));
+    assert.equal(registry.agents[0].botId, made[0], "the address lives only in the companion's own record");
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a practice agent made under a different sign-in is not used and nothing is made in its place, and it is used again under the same sign-in", { skip }, async () => {
+  const account = { mode: "separate", explicitMode: false, os: { osWorkAccount: null } };
+  const scenario = await scenarioFor();
+  const accepted = { account, confirmAccount: async () => true };
+  try {
+    const first = await run(scenario, accepted);
+    assert.equal(captured(first).length, first.rows.length, "the first run made the agent and captured everything");
+    const file = path.join(first.home, ".practice-agents.json");
+    const registry = JSON.parse(fs.readFileSync(file, "utf8"));
+    const marker = registry.agents[0].accountId;
+    assert.match(marker, /^[0-9a-f]{12}$/, "the agent is tied to a random marker of the sign-in that made it");
+
+    registry.agents[0].accountId = "ffffffffffff";
+    fs.writeFileSync(file, JSON.stringify(registry));
+    const writes = scenario.site.stats.writes.length;
+    const pages = scenario.site.stats.pages.length;
+    const other = await run(scenario, accepted);
+    assert.equal(scenario.site.stats.writes.length, writes, "nothing was made or changed");
+    assert.deepEqual(scenario.site.stats.pages.slice(pages).filter((p) => /\/bots\//.test(p)), [], "the agent made under the other sign-in was never opened");
+    const stopped = other.rows.filter((r) => r.cause === "agent-unavailable");
+    assert.ok(stopped.length >= 1, other.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", "));
+    assert.match(stopped[0].reason, /made under a different sign-in and was not used/);
+    assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).agents.length, 1, "no second agent, and the first one is kept");
+
+    registry.agents[0].accountId = marker;
+    fs.writeFileSync(file, JSON.stringify(registry));
+    const same = await run(scenario, accepted);
+    assert.equal(captured(same).length, same.rows.length, "under the same sign-in the agent is reused");
+    assert.equal(same.job.result.scratch.reused, true);
+    assert.equal(madeAgentIds(scenario.site).length, 1);
   } finally {
     await scenario.close();
   }

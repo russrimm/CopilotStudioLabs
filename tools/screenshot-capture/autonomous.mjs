@@ -72,17 +72,25 @@ export function failureMessage(failed, { source = "" } = {}) {
   }
 }
 
-/** Whether a shot's steps need a practice agent, and the practice agent (found or created) when this job allows one. */
+/** Whether a shot needs an agent that the person's own address would otherwise have to supply. */
+export const needsAgent = (shot) => (shot?.capture?.agentNeeds || []).includes("copilot-studio-agent");
+
+/**
+ * Whether a shot's steps need a practice agent, and the practice agent (found or created) when this job allows one. When the job hands
+ * the agent over from the creation step (`agentSource: "created"`), every shot that needs an agent needs this one, so the agent is made
+ * (or reused) once, for the first of them, and the rest find it in the session.
+ */
 export async function preparePractice({ page, shot, session, go, trace = null, log = null, sleep, terms = [], home = null, companion = "" }) {
   const autonomy = session.autonomy;
   const practiceAllowed = autonomy.maxTier >= TIER.PRACTICE;
   const product = shot.capture?.product || shot.product || "copilot-studio";
-  const needed = setupCandidates(shot, { session, practiceAllowed }).some((c) => c.needsPractice);
+  const handoff = session.agentSource === "created" && product === "copilot-studio" && needsAgent(shot);
+  const needed = handoff || setupCandidates(shot, { session, practiceAllowed }).some((c) => c.needsPractice);
   if (!needed) return { needed: false, info: null, error: "" };
-  if (!practiceAllowed || !session.registry) return { needed: true, info: null, error: "" };
+  if (!practiceAllowed || !session.registry) return { needed: true, info: null, error: handoff ? autonomy.refusedPractice || "The practice agent could not be created, because this job does not allow it" : "" };
   const executorFor = (practice) => createExecutor({ page, autonomy, product, practice, trace, log, sleep, terms, home, shot: shot.filename, companion, onProgress: session.onProgress, shouldStop: session.shouldStop });
   const ensured = await ensurePracticeAgent({ page, autonomy, registry: session.registry, session, executorFor, go, trace, log });
-  return ensured.ok ? { needed: true, info: ensured, error: "" } : { needed: true, info: null, error: ensured.error || "The practice agent could not be set up." };
+  return ensured.ok ? { needed: true, info: ensured, error: "" } : { needed: true, info: null, error: ensured.error || "The practice agent could not be set up.", cause: ensured.cause || "" };
 }
 
 /**

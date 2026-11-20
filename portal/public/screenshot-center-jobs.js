@@ -56,8 +56,10 @@ function scLab(key) {
         mode: SC_DEFAULT_CAPTURE_MODE,
         consentOpen: false,
         consentDraft: { practice: false, scratch: false, url: "", agreed: false, error: "" },
-        // How the agent is obtained for this lab, this visit: built from scratch or the person's own. Nothing is kept in the browser: the consent (and a saved agent address) decide it next time.
-        agentChoice: null,
+        // Which agent the lab's screenshots use, this visit: "created" (the practice agent the computer creates first) or "own" (an agent the person chose). Null until chosen here:
+        // the choice saved with the lab decides, then the default. Only the word is saved (with the lab's capture settings), never an address.
+        agentSource: null,
+        agentSwitched: "",
         startFresh: false,
         queueAfterConsent: false,
         shareRecipe: false,
@@ -539,7 +541,7 @@ async function scSaveConsent(labId) {
   await scLoadStatus(true);
   lab.ui.consentOpen = false;
   draft.agreed = false;
-  if (level === "scratch") lab.ui.agentChoice = "scratch";
+  if (level === "scratch") lab.ui.agentSource = "created";
   scAnnounce(level === "scratch" ? "Automatic capture is on. It will build a practice agent from scratch and list what it made." : level === "practice" ? "Automatic capture is on. It may also create one practice agent." : "Automatic capture is on. It never creates anything.");
   scRerender(labId);
   // The person chose "Build the agent from scratch": confirming it is the go-ahead, so the capture starts now.
@@ -550,23 +552,54 @@ async function scSaveConsent(labId) {
   return true;
 }
 
-/** "Build the agent from scratch" or "Use an existing agent": remember the choice for this lab, and carry on. */
-async function scChooseAgent(labId, choice) {
+// The fields where a person gives their own agent: typing in one while the created agent is selected switches the choice to "An agent I choose".
+const SC_OWN_AGENT_FIELDS = Object.freeze(["copilotStudioAgentUrl", "copilotStudioAgentName"]);
+
+/** Remember which agent the lab's screenshots use, with the lab's capture settings. A failed save keeps the choice for this visit. */
+async function scSaveAgentSource(labId, source) {
+  const lab = scLab(labId);
+  try {
+    const result = await scFetchJson(scTargetsUrl(labId), scJsonInit("PUT", { agentSource: source }));
+    if (result.ok && Array.isArray(result.data.fields)) {
+      lab.targets = { loading: false, loaded: true, loadedAt: Date.now(), data: result.data };
+      scRerender(labId);
+    }
+  } catch {
+    /* the choice still applies to this visit */
+  }
+}
+
+/** "The agent created earlier in this capture" or "An agent I choose": the person picked one of the two. */
+async function scChooseAgentSource(labId, source) {
+  const lab = scLab(labId);
+  const next = scAgentSourceOrNull(source);
+  if (!next) return;
+  lab.ui.agentSource = next;
+  lab.ui.agentSwitched = "";
+  scAnnounce(next === "own" ? "Using an agent you choose. Add its address or name below." : "Using the practice agent the computer creates first. There is nothing to type.");
+  scRerender(labId);
+  if (next === "own" && typeof scFocusNeeds === "function") scFocusNeeds(labId);
+  await scSaveAgentSource(labId, next);
+}
+
+/** The person typed their own agent's address or name while the created agent was selected: switch to "An agent I choose", and say so. */
+function scSwitchToOwnAgent(labId) {
+  const lab = scLab(labId);
+  lab.ui.agentSource = "own";
+  lab.ui.agentSwitched = "Switched to An agent I choose, because you added your own agent's address or name.";
+  scAnnounce(lab.ui.agentSwitched);
+  scRerender(labId);
+}
+
+/** The created agent needs the computer's one-time OK to create it: show exactly what it will create and never do, and start the capture once the person agrees. */
+async function scAllowAgentCreation(labId) {
   const lab = scLab(labId);
   const consent = scConsentModel(scState.status?.autonomy);
-  if (choice === "existing") {
-    lab.ui.agentChoice = "existing";
-    scAnnounce("Using your own agent. Add its address or name below.");
-    scRerender(labId);
-    if (typeof scFocusNeeds === "function") scFocusNeeds(labId);
-    return;
-  }
-  lab.ui.agentChoice = "scratch";
+  lab.ui.agentSource = "created";
   if (consent.consented && consent.level === "scratch") {
     await scQueueCapture(labId, { scope: "missing" });
     return;
   }
-  // The first time: show exactly what the computer will create and never do, and ask for the yes.
   lab.ui.consentOpen = true;
   lab.ui.queueAfterConsent = true;
   lab.ui.consentDraft = { practice: false, scratch: true, url: consent.practiceEnvironmentUrl || "", agreed: false, error: "", touched: true };
@@ -654,8 +687,8 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, 
         ...(record ? { record: { share: record.share === true } } : {}),
         // A retake may replace the shared library's picture (never one that is marked accurate); an ordinary capture never does.
         ...(retake ? { retake: true } : {}),
-        // The person's own agent is used only when they chose it; otherwise a practice agent is built from scratch (when they allowed that). Said only when it matters.
-        ...(lab.ui.agentChoice === "existing" && scConsentModel(scState.status?.autonomy).scratch ? { agent: "existing" } : lab.ui.agentChoice === "scratch" ? { agent: "scratch" } : {}),
+        // Which agent the screenshots use, when the person chose here (the created practice agent is the default, and the lab's saved choice applies when nothing is said).
+        ...(scAgentSourceOrNull(lab.ui.agentSource) ? { agentSource: lab.ui.agentSource } : {}),
         ...(lab.ui.startFresh === true ? { startFresh: true } : {}),
       },
       ...scTenantFields(labId),
@@ -667,8 +700,12 @@ async function scQueueCapture(labId, { scope = "missing", filenames = [], mode, 
       // Nothing was queued: this computer's companion is too old to build an agent from scratch.
       lab.outcome = { type: "job", variant: "warn", message: scText(data.message, 400) || "Download the Local Capture Companion again to build the agent from scratch.", jobId: null, actions: [] };
     } else if (data.needsConsent) {
-      // Nothing was queued: the person has not allowed automatic capture yet, so show the card that asks.
+      // Nothing was queued: the person has not allowed automatic capture yet, so show the card that asks. With the created agent chosen, it asks for exactly that.
       lab.ui.consentOpen = true;
+      if (scAgentSourceOf(lab) === "created" && lab.ui.mode === "autonomous") {
+        lab.ui.consentDraft = { practice: false, scratch: true, url: scConsentModel(scState.status?.autonomy).practiceEnvironmentUrl || "", agreed: false, error: "", touched: true };
+        lab.ui.queueAfterConsent = true;
+      }
       lab.outcome = { type: "job", variant: "warn", message: String(data.message || "Allow automatic capture first."), jobId: null, actions: [] };
       await scLoadStatus(true);
       scAnnounce(lab.outcome.message);
@@ -1163,8 +1200,10 @@ async function scSaveTargets(labId, targets, { alsoProfile = false, scope = "set
   lab.ui.targetFormError = null;
   const waitingBefore = scMissingRequirements(lab.targets?.data, lab.needsAddress).reduce((sum, view) => sum + view.count, 0);
   let result;
+  // The person gave their own agent: that is the agent these screenshots use, and it is remembered with the lab's other capture settings.
+  const ownAgentGiven = SC_OWN_AGENT_FIELDS.some((id) => String(targets[id] || "").trim());
   try {
-    result = await scFetchJson(scTargetsUrl(labId), scJsonInit("PUT", { targets, alsoProfile }));
+    result = await scFetchJson(scTargetsUrl(labId), scJsonInit("PUT", { targets, alsoProfile, ...(ownAgentGiven ? { agentSource: "own" } : {}) }));
   } catch (err) {
     result = { ok: false, status: 0, data: { error: `Check your connection and try again. (${err.message})` } };
   }
@@ -1182,6 +1221,7 @@ async function scSaveTargets(labId, targets, { alsoProfile = false, scope = "set
     return { ok: false };
   }
   for (const id of Object.keys(targets)) delete lab.ui.targetDraft[id];
+  if (ownAgentGiven) lab.ui.agentSource = "own";
   lab.needsAddress = null;
   lab.targets = { loading: false, loaded: true, loadedAt: Date.now(), data };
   const waitingAfter = scMissingRequirements(data, null).reduce((sum, view) => sum + view.count, 0);

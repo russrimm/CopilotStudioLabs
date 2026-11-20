@@ -21,7 +21,8 @@ import { cleanAccount, cleanNeedsAccount } from "./account.js";
 import { CAUSES, causeForVerification, describeCause } from "../../../tools/screenshot-capture/causes.mjs";
 import { sanitizeSetupEvidence } from "../../../tools/screenshot-capture/image-verify.mjs";
 import { REQUIREMENTS, effectiveModeFor, missingRequirements, targetValuesFromJob, validateTargets } from "../../../tools/screenshot-capture/targets.mjs";
-import { BLOCKERS, STAGES } from "../../../tools/screenshot-capture/walkthrough.mjs";
+import { BLOCKERS, STAGES, normalizeAgentSource } from "../../../tools/screenshot-capture/walkthrough.mjs";
+import { fallbackReason } from "./agent-source.js";
 
 export const JOB_STATUSES = Object.freeze(["queued", "claimed", "running", "done", "failed", "cancelled"]);
 export const TERMINAL_JOB_STATUSES = Object.freeze(["done", "failed", "cancelled"]);
@@ -151,9 +152,11 @@ export function normalizeJobRequest(body = {}) {
   if (maskTerms === null) errors.push("options.maskTerms must be a list of text to hide (3 to 80 characters each).");
   const modeRaw = String(optionsIn.mode ?? "default").toLowerCase();
   if (modeRaw !== "default" && !CAPTURE_MODES.includes(modeRaw)) errors.push(`options.mode must be one of: ${CAPTURE_MODES.join(", ")}.`);
+  // Which agent the screenshots use: said ("created" or "own") or not said (null: the lab's saved choice, then the default, decide).
+  if (optionsIn.agentSource !== undefined && optionsIn.agentSource !== null && !normalizeAgentSource(optionsIn.agentSource)) errors.push('options.agentSource must be "created" or "own".');
   // `mode: null` means "not said": the portal picks autonomous when the person has consented, and smart (the older behavior) otherwise.
   const autonomyIn = optionsIn.autonomy && typeof optionsIn.autonomy === "object" && !Array.isArray(optionsIn.autonomy) ? optionsIn.autonomy : null;
-  const options = { callouts, redact: optionsIn.redact !== false, maskTerms: maskTerms || [], mode: CAPTURE_MODES.includes(modeRaw) ? modeRaw : null, autonomy: autonomyIn?.level === "read-only" ? { level: "read-only" } : null, record: normalizeRecord(optionsIn.record), background: optionsIn.background === true, agent: optionsIn.agent === "existing" ? "existing" : optionsIn.agent === "scratch" ? "scratch" : null, startFresh: optionsIn.startFresh === true, retake: optionsIn.retake === true };
+  const options = { callouts, redact: optionsIn.redact !== false, maskTerms: maskTerms || [], mode: CAPTURE_MODES.includes(modeRaw) ? modeRaw : null, autonomy: autonomyIn?.level === "read-only" ? { level: "read-only" } : null, record: normalizeRecord(optionsIn.record), background: optionsIn.background === true, agent: optionsIn.agent === "existing" ? "existing" : optionsIn.agent === "scratch" ? "scratch" : null, agentSource: normalizeAgentSource(optionsIn.agentSource), startFresh: optionsIn.startFresh === true, retake: optionsIn.retake === true };
 
   const targetsIn = src.targets === undefined || src.targets === null ? {} : src.targets;
   const targetsCheck = validateTargets(targetsIn);
@@ -229,7 +232,8 @@ function plannedSetupLines(capture) {
     const stage = STAGES.find((s) => s.id === scratch.stage);
     return [`Builds the practice agent as far as this step needs${stage ? `, then: ${stage.label.toLowerCase()}` : ""}`];
   }
-  return Array.isArray(capture?.setup?.summary) ? capture.setup.summary.map((s) => cleanText(s, 120)).slice(0, 10) : [];
+  const handedOver = capture?.agent?.via === "created" ? ["Uses the practice agent created for this capture"] : [];
+  return [...handedOver, ...(Array.isArray(capture?.setup?.summary) ? capture.setup.summary.map((s) => cleanText(s, 120)).slice(0, 10) : [])];
 }
 
 function countShots(shots) {
@@ -512,16 +516,20 @@ export function createJobStore({
       row.cause = "needs-you";
       row.message = "This screen needs you to set it up. Automatic mode skips it. Use “Retake guided”, or choose Smart.";
     } else if (effective === "auto" || effective === "autonomous") {
-      // A shot that runs in the practice agent does not need the person's own agent. Built from scratch, no shot does.
+      // A shot that runs in the practice agent does not need the person's own agent. Built from scratch, no shot does. A shot whose agent
+      // comes from the creation step (`capture.agent.via === "created"`) does not wait for an address either.
       const scratchRun = effective === "autonomous" && autonomy?.level === "scratch";
-      const practiceRun = scratchRun || (effective === "autonomous" && autonomy?.level === "practice" && capture?.setup?.needsPractice === true);
+      const handedOver = effective === "autonomous" && capture?.agent?.via === "created";
+      const practiceRun = scratchRun || handedOver || (effective === "autonomous" && autonomy?.level === "practice" && capture?.setup?.needsPractice === true);
       const needed = effective === "autonomous" ? [...new Set([...(capture?.needs || []), ...(capture?.agentNeeds || [])])] : capture?.needs || [];
       const missing = missingRequirements(needed, values).filter((id) => !(practiceRun && id === "copilot-studio-agent"));
       if (missing.length) {
         const requirement = REQUIREMENTS[missing[0]];
         row.status = "skipped";
         row.cause = requirement.cause;
-        row.message = `This screenshot needs your ${requirement.noun}. Add it in Capture settings, then retake.`;
+        row.message = missing[0] === "copilot-studio-agent" && capture?.agent?.fallback
+          ? `The practice agent could not be created (${fallbackReason(capture.agent.fallback)}), so this screenshot needs an agent address. Add it in Capture settings, then retake.`
+          : `This screenshot needs your ${requirement.noun}. Add it in Capture settings, then retake.`;
       }
     }
     if (row.status !== "pending") row.finishedAt = iso();

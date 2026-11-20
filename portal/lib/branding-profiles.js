@@ -16,6 +16,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, u
 import { isAbsolute, relative, resolve } from "node:path";
 import { resolveGeneratedLabsDir, resolvePortalDataDir, resolvePortalUploadsDir } from "./storage-config.js";
 import { validateTargets } from "../../tools/screenshot-capture/targets.mjs";
+import { normalizeAgentSource } from "../../tools/screenshot-capture/walkthrough.mjs";
 import {
   BRAND_FONTS,
   CAPTURE_ENV_MAP,
@@ -616,6 +617,7 @@ export function readCustomization(manifest) {
   const snapshot = raw.profileSnapshot && typeof raw.profileSnapshot === "object" ? raw.profileSnapshot : null;
   const overrides = sanitizeOverrides(raw.overrides).values;
   const captureTargets = sanitizeCaptureTargets(raw.captureTargets);
+  const captureAgentSource = normalizeAgentSource(raw.captureAgentSource);
   return {
     version: 1,
     profileId: isValidProfileId(raw.profileId) ? raw.profileId : snapshot && isValidProfileId(snapshot.id) ? snapshot.id : null,
@@ -623,6 +625,7 @@ export function readCustomization(manifest) {
     profileSnapshot: snapshot ? { ...pickProfileBrandFields(normalizeBrand(snapshot)), id: snapshot.id, name: cleanText(snapshot.name), snapshotAt: snapshot.snapshotAt || null } : null,
     overrides,
     ...(Object.keys(captureTargets).length ? { captureTargets } : {}),
+    ...(captureAgentSource ? { captureAgentSource } : {}),
     updatedAt: typeof raw.updatedAt === "string" ? raw.updatedAt : null,
   };
 }
@@ -763,7 +766,7 @@ export function updateLabCustomization(labDir, patch = {}, env = process.env) {
   const keepSnapshot = Boolean(existing?.profileSnapshot) && !action && (!hasProfileId || profileId === existing.profileId);
   const customization = keepSnapshot
     ? { ...existing, version: 1, overrides, updatedAt: nowIso() }
-    : { ...buildCustomization({ profileId, overrides }, env), ...(existing?.captureTargets ? { captureTargets: existing.captureTargets } : {}) };
+    : { ...buildCustomization({ profileId, overrides }, env), ...(existing?.captureTargets ? { captureTargets: existing.captureTargets } : {}), ...(existing?.captureAgentSource ? { captureAgentSource: existing.captureAgentSource } : {}) };
   const manifest = mutateManifest(labDir, (m) => {
     m.customization = customization;
   });
@@ -805,6 +808,21 @@ export function updateLabCaptureTargets(labDir, patch = {}) {
     manifest.customization = customization;
   });
   return { ok: true, errors: {}, captureTargets: saved };
+}
+
+/**
+ * Remember which agent a lab's screenshots use: "created" (the practice agent the computer creates first in the capture, the default) or "own"
+ * (an agent the person chose). It is a word kept next to the lab's capture settings; no address or id is ever kept here.
+ * @returns {{ok: boolean, error?: string, agentSource?: string}}
+ */
+export function updateLabAgentSource(labDir, source) {
+  const value = normalizeAgentSource(source);
+  if (!value) return { ok: false, error: 'The agent choice must be "created" or "own".' };
+  mutateManifest(labDir, (manifest) => {
+    const base = manifest.customization && typeof manifest.customization === "object" ? manifest.customization : { version: 1, overrides: {} };
+    manifest.customization = { ...base, captureAgentSource: value, updatedAt: nowIso() };
+  });
+  return { ok: true, agentSource: value };
 }
 
 // ── Capture environment ─────────────────────────────────────────────────────

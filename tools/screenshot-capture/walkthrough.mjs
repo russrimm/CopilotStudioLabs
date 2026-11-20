@@ -124,6 +124,40 @@ export function orderForWalkthrough(shots) {
     .map((item) => item.shot);
 }
 
+// ── Which agent the screenshots use ─────────────────────────────────────────
+
+/**
+ * Where the agent for the screenshots comes from: "created" is the practice agent the computer creates (or reuses) first in the same
+ * capture and then uses for every shot that needs an agent (the default); "own" is an agent the person chose and gave an address or a name.
+ */
+export const AGENT_SOURCES = Object.freeze(["created", "own"]);
+
+/** A known agent source, or null when none was said. */
+export const normalizeAgentSource = (raw) => (AGENT_SOURCES.includes(raw) ? raw : null);
+
+const FEATURE_CREATES_AGENT = /(?:^|-)(?:create-agent|harness-choice)$/;
+
+/** Whether a shot belongs to the part of a lab that creates the agent (its "create an agent" slots). */
+export function createsAgent(shot) {
+  return FEATURE_CREATES_AGENT.test(String(shot?.featureId || shot?.feature || "").toLowerCase());
+}
+
+/**
+ * Put the shots that create the agent ahead of the first shot that needs it. Every other shot keeps its place, so the lab's own order
+ * is the order of everything else. Only the order changes: a plan's `capture.agent` flags are read here and nowhere else.
+ */
+export function orderCreationFirst(shots, pick = (shot) => shot) {
+  const list = Array.isArray(shots) ? [...shots] : [];
+  const needs = (item) => pick(item)?.capture?.agent?.needs === true;
+  const creates = (item) => pick(item)?.capture?.agent?.creates === true;
+  const firstDependent = list.findIndex((shot) => needs(shot) && !creates(shot));
+  if (firstDependent < 0) return list;
+  const late = list.slice(firstDependent).filter(creates);
+  if (!late.length) return list;
+  const lateSet = new Set(late);
+  return [...list.slice(0, firstDependent), ...late, ...list.slice(firstDependent).filter((shot) => !lateSet.has(shot))];
+}
+
 // ── The agent's own content, from the lab ───────────────────────────────────
 
 /** The product cuts an agent's name at 30 characters, so the practice agent's whole name is kept within that. */

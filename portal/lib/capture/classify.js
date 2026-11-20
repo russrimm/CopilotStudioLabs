@@ -23,6 +23,7 @@ import {
   missingRequirements,
   parseCopilotStudioAddress,
 } from "../../../tools/screenshot-capture/targets.mjs";
+import { createsAgent } from "../../../tools/screenshot-capture/walkthrough.mjs";
 
 export const CAPTURE_DESCRIPTOR_VERSION = 1;
 
@@ -231,10 +232,22 @@ export function classifyShot(shot, { values = {}, config = captureConfig() } = {
   };
 }
 
-/** The settings (addresses and names) that apply to a plan, as classification input. */
+/**
+ * The settings (addresses and names) that apply to a plan, as classification input. `agent` says what the shot has to do with the lab's
+ * agent whatever the person chose: whether it shows one (`needs`) and whether it belongs to the part that creates it (`creates`).
+ */
 export function describeShotCapture(shot, values) {
   const capture = classifyShot(shot, { values });
-  return { mode: capture.mode, why: capture.why, path: capture.path, needs: capture.needs, missing: capture.missing, ready: capture.ready, screen: capture.screen || null };
+  return {
+    mode: capture.mode,
+    why: capture.why,
+    path: capture.path,
+    needs: capture.needs,
+    missing: capture.missing,
+    ready: capture.ready,
+    screen: capture.screen || null,
+    agent: { needs: (capture.agentNeeds || []).includes("copilot-studio-agent"), creates: createsAgent(shot) },
+  };
 }
 
 /** Group the shots that cannot run for a missing setting: `[{id, label, noun, cause, prompt, product, count, filenames}]`. */

@@ -22,7 +22,7 @@ import { blockedInstructionReason, blockedLabelReason } from "../../../tools/scr
 import { REQUIREMENTS, missingRequirements, targetField } from "../../../tools/screenshot-capture/targets.mjs";
 import { classifyShot, expectedLabelsForShot } from "./classify.js";
 import { buildSetupPlan } from "./setup-plan.js";
-import { orderForWalkthrough, scratchDescriptor } from "../../../tools/screenshot-capture/walkthrough.mjs";
+import { createsAgent, orderCreationFirst, orderForWalkthrough, scratchDescriptor } from "../../../tools/screenshot-capture/walkthrough.mjs";
 
 const ALLOWED_ACTIONS = new Set([
   "navigate",
@@ -106,13 +106,16 @@ function viewportOf(value) {
     : { width: 1440, height: 900 };
 }
 
-function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, instructions, values = {}, allowPractice = false, sharedRecipes = null, labTitle = "", scratch = false }) {
+function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, instructions, values = {}, allowPractice = false, sharedRecipes = null, labTitle = "", scratch = false, agentSource = null, agentFallback = null }) {
   const urlEnv = /^CAPTURE_[A-Z0-9_]{1,80}$/.test(String(src.urlEnv || "")) ? src.urlEnv : null;
   const capture = classifyShot({ ...src, product: product ?? src.product, callouts, instructions }, { values });
   // What the computer sets up on the screen, in autonomous mode. Steps that need a practice agent are in the plan only when the job allows one.
   const setup = scratch ? null : buildSetupPlan({ ...src, product: product ?? src.product, callouts, instructions }, { capture, allowPractice, sharedRecipes, labTitle });
   // Built from scratch: which stage of the lab the shot belongs to, and why it needs a person when the computer cannot do it.
   const stage = scratch ? scratchDescriptor({ ...src, product: product ?? src.product, callouts, instructions }) : null;
+  const agent = agentDescriptor(src, capture, { agentSource, agentFallback, stage });
+  // A shot that uses the agent created earlier in this capture is not waiting for an address: the agent arrives from the creation step.
+  const unmetNeeds = agent?.via === "created" ? (capture.needs || []).filter((id) => id !== "copilot-studio-agent") : capture.needs;
   // A screen the settings already lead to is opened directly, so even a companion that follows only the address lands on it.
   const directUrl = capture.mode !== "manual" ? capture.knownUrl || null : null;
   const effectiveStart = directUrl || startUrl;
@@ -121,7 +124,7 @@ function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, inst
   const planSteps = capture.mode === "manual" ? steps : derivePlaywrightSteps({ uiSteps: [], startUrl: effectiveStart, callouts, filename: src.filename, outputPath: src.outputPath });
   // An older companion skips a shot whose tenant address variable is unset, so name the one this shot is waiting for.
   // (A companion that reads `capture` decides for itself; this keeps the older contract.)
-  const unmet = capture.mode !== "manual" ? missingRequirements(capture.needs, values) : [];
+  const unmet = capture.mode !== "manual" ? missingRequirements(unmetNeeds, values) : [];
   const waitingField = unmet.length ? REQUIREMENTS[unmet[0]].fields.map((id) => targetField(id)).find((f) => f?.env) : null;
   const shot = {
     filename: src.filename,
@@ -147,10 +150,39 @@ function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, inst
       text: text(c?.text ?? c?.label, 120),
     })),
     instructions: (Array.isArray(instructions) ? instructions : []).slice(0, 6).map((i) => text(i, 300)),
-    capture: { ...sanitizeCaptureDescriptor(capture), ...(setup ? { setup } : {}), ...(stage ? { scratch: stage, ...(stage.scoped && !stage.blocker ? { expect: SCRATCH_EXPECT } : {}) } : {}), slot: text(String(src.filename || "").replace(/\.[a-z0-9]+$/i, "").toLowerCase(), 80) },
+    capture: { ...withAgentHandoff(sanitizeCaptureDescriptor(capture), agent), ...(setup ? { setup } : {}), ...(stage ? { scratch: stage, ...(stage.scoped && !stage.blocker ? { expect: SCRATCH_EXPECT } : {}) } : {}), slot: text(String(src.filename || "").replace(/\.[a-z0-9]+$/i, "").toLowerCase(), 80) },
   };
   shot.expectedLabels = expectedLabelsFor(shot);
   return shot;
+}
+
+/**
+ * What a shot has to do with the lab's agent, in this plan. `needs`: it shows an agent. `creates`: it belongs to the part of the lab that creates
+ * one. `via`: where its agent comes from: "created" (the practice agent the computer creates, or reuses, earlier in this capture: nothing to type),
+ * "own" (the agent the person chose and gave an address or a name for) or "address" (the person's address is the only way left, because the
+ * agent cannot be created now: `fallback` says why). A shot that shows no agent has `via: null`.
+ * @param {{agentSource: "created"|"own"|null, agentFallback: string|null, stage: object|null}} options `agentSource` is the person's choice; `agentFallback` is why the agent cannot be created now (null when it can)
+ */
+function agentDescriptor(src, capture, { agentSource = null, agentFallback = null, stage = null } = {}) {
+  if (!agentSource) return null;
+  const needs = (capture.agentNeeds || []).includes("copilot-studio-agent");
+  const creates = createsAgent(src);
+  if (!needs && !creates) return null;
+  // Built from scratch, only a shot the walkthrough puts on the practice agent uses it; the rest are left to the person with a plain reason.
+  const onPractice = !stage || (stage.scoped && !stage.blocker);
+  const via = !needs ? null : agentSource === "created" ? (!agentFallback && onPractice ? "created" : "address") : "own";
+  return { needs, creates, via, ...(agentFallback && via === "address" ? { fallback: agentFallback } : {}) };
+}
+
+const AGENT_VIA = new Set(["created", "own", "address"]);
+
+/** The descriptor with the agent hand-off applied: a shot whose agent comes from the creation step is ready, not waiting for an address. */
+function withAgentHandoff(descriptor, agent) {
+  if (!descriptor || !agent) return descriptor;
+  const clean = { needs: agent.needs === true, creates: agent.creates === true, via: AGENT_VIA.has(agent.via) ? agent.via : null, ...(agent.fallback ? { fallback: text(agent.fallback, 80) } : {}) };
+  if (agent.via !== "created") return { ...descriptor, agent: clean };
+  const missing = (descriptor.missing || []).filter((id) => id !== "copilot-studio-agent");
+  return { ...descriptor, missing, agentMissing: (descriptor.agentMissing || []).filter((id) => id !== "copilot-studio-agent"), ready: missing.length === 0, agent: clean };
 }
 
 // Built from scratch, the walkthrough proves each screen by its tabs and controls, not by its address: in the newer layout the address keeps /knowledge while the page shows Build.
@@ -181,6 +213,9 @@ export function sanitizeCaptureDescriptor(capture) {
     reveal: (Array.isArray(capture.reveal) ? capture.reveal : []).slice(0, 3).map((s) => ({ action: "reveal", label: text(s.label, 80), required: Boolean(s.required) })).filter((s) => s.label),
     landmarks: list(capture.landmarks, 8, 80),
     guide: list(capture.guide, 6, 220),
+    ...(capture.agent && typeof capture.agent === "object"
+      ? { agent: { needs: capture.agent.needs === true, creates: capture.agent.creates === true, via: AGENT_VIA.has(capture.agent.via) ? capture.agent.via : null, ...(capture.agent.fallback ? { fallback: text(capture.agent.fallback, 80) } : {}) } }
+      : {}),
   };
 }
 
@@ -195,7 +230,7 @@ function inScope(scope, { filename, featureId, missing, stale }) {
 /**
  * The shots a lab job should capture. Returns `{status: 200, title, shots}` or `{status, error}`.
  */
-export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null, scratch = false }) {
+export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null, scratch = false, agentSource = null, agentFallback = null }) {
   const found = resolveGeneratedLabDir(generatedRoot, labId);
   if (found.status !== 200) return { status: found.status, error: found.error };
   const { shotsPlan, learnState } = ensurePerLabScreenshotPlan(found.labDir, { labId: found.labId, capturedDir });
@@ -233,11 +268,14 @@ export function buildLabJobPlan({ generatedRoot, labId, scope, capturedDir = cap
         sharedRecipes,
         labTitle: shotsPlan.title || "",
         scratch,
+        agentSource,
+        agentFallback,
       }),
     );
   }
-  // Built from scratch, the lab's modules are the order the agent is built in.
-  return { status: 200, title: shotsPlan.title || labId, labId: found.labId, labDir: found.labDir, shots: scratch ? orderForWalkthrough(shots) : shots };
+  // Built from scratch, the lab's modules are the order the agent is built in. When the agent comes from the creation step, that step goes first.
+  const ordered = scratch ? orderForWalkthrough(shots) : shots;
+  return { status: 200, title: shotsPlan.title || labId, labId: found.labId, labDir: found.labDir, shots: agentSource === "created" && !agentFallback ? orderCreationFirst(ordered) : ordered };
 }
 
 /** Every filename a lab accepts uploads for. */
@@ -280,7 +318,7 @@ export function listLibrarySlots({ manifestDir, capturedDir = capturedScreenshot
 }
 
 /** The shots a shared-library job should capture. Returns `{status: 200, shots}`. */
-export function buildLibraryJobPlan({ scope, products = [], manifestDir, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null, scratch = false }) {
+export function buildLibraryJobPlan({ scope, products = [], manifestDir, capturedDir = capturedScreenshotsDirs(), values = {}, allowPractice = false, sharedRecipes = null, scratch = false, agentSource = null, agentFallback = null }) {
   const productSet = products.length ? new Set(products) : null;
   const shots = [];
   const seen = new Set();
@@ -310,10 +348,12 @@ export function buildLibraryJobPlan({ scope, products = [], manifestDir, capture
         sharedRecipes,
         labTitle: shot.featureName || "",
         scratch,
+        agentSource,
+        agentFallback,
       }),
     );
   }
-  return { status: 200, shots };
+  return { status: 200, shots: agentSource === "created" && !agentFallback ? orderCreationFirst(shots) : shots };
 }
 
 /** Resolve one library slot by filename, or null when no feature shot list names it. */
