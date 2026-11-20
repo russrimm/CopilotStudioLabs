@@ -650,7 +650,8 @@ test("a discovered topic plans and generates a lab that marks everything unverif
   const id = "learn-agents-experience-memory-overview";
   assert.equal(getFeature(id).learnTopic.status, "new");
   assert.equal(getFeature("learn-never-seen"), null);
-  assert.throws(() => planLab({ features: ["learn-never-seen"] }), /Unknown feature/);
+  assert.throws(() => planLab({ features: ["learn-never-seen"] }), /Unknown feature.*Refresh from Microsoft Learn/);
+  assert.throws(() => planLab({ features: ["create-agent", "no-such-topic"] }), (error) => /Unknown feature id\(s\): no-such-topic\.$/.test(error.message), "a mistyped catalog id gets no Learn advice");
 
   const plan = planLab({ features: [id], harness: "microsoft-copilot", includeCore: false });
   assert.deepEqual(plan.features.map((f) => f.id), [id]);

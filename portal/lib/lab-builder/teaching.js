@@ -127,7 +127,7 @@ export function troubleshootingBlock(feature, u, grounding, learnCautions = []) 
     if (entry?.symptom && entry?.fix) {
       const ref = learnReferenceLink(learnSources, `${entry.symptom} ${entry.fix} ${feature.name}`, u);
       items.push(
-        `**${u.scrub(entry.symptom)}** ${ensureStop(u.scrub(entry.fix))}${ref ? ` See ${ref} on Microsoft Learn.` : ""}`,
+        `**${ensureStop(u.scrub(entry.symptom).replace(/\*\*/g, ""))}** ${ensureStop(u.scrub(entry.fix))}${ref ? ` See ${ref} on Microsoft Learn.` : ""}`,
       );
     }
   }
@@ -155,7 +155,7 @@ export function troubleshootingBlock(feature, u, grounding, learnCautions = []) 
   );
   if (feature.validation?.length && !isUnreviewedText(feature.validation[0])) {
     items.push(
-      `**"${trimStop(u.scrub(feature.validation[0]))}" is not true yet.** Repeat the numbered steps in order, and confirm you are working in the environment you chose at the start of the lab.`,
+      `**"${trimStop(u.scrub(feature.validation[0]).replace(/\*\*/g, ""))}" is not true yet.** Repeat the numbered steps in order, and confirm you are working in the environment you chose at the start of the lab.`,
     );
   }
   if (feature.availability === "preview") {

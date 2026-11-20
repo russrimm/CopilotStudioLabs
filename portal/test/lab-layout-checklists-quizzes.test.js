@@ -506,6 +506,15 @@ test("troubleshooting adds the cautions Microsoft Learn printed on the page, onc
   assert.equal((repeated.match(/Sessions appear only after real users chat/g) || []).length, 1, "a caution already in the concepts is not repeated");
 });
 
+test("troubleshooting headings end their sentence and never nest bold markers", () => {
+  const u = { esc: (s) => s, scrub: (s) => s, bullets: (items) => items.map((i) => `- ${i}`).join("\n"), lowerFirst: (s) => s };
+  const feature = { ...getFeature("mc-monitor"), troubleshooting: [{ symptom: "The list is empty after you select **Add**", fix: "Select Save in the header" }], validation: ["The source appears on the **Build** tab."], concepts: [] };
+  const text = troubleshootingBlock(feature, u, null).join("\n");
+  assert.match(text, /- \*\*The list is empty after you select Add\.\*\* Select Save in the header\./);
+  assert.match(text, /- \*\*"The source appears on the Build tab" is not true yet\.\*\*/);
+  assert.ok(!/\*\*[^*\n]*\*\*[^*\n]*\*\*[^*\n]*\*\*\s*\w/.test(text.split("\n").find((line) => line.includes("is not true yet"))), "no bold inside bold");
+});
+
 test("quiz wrong answers are real statements about the lab's other modules, never filler, and never an unreviewed disclaimer", () => {
   const ids = ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-preview-test", "mc-publish-agent"];
   const features = ids.map((id, index) => ({ ...getFeature(id), stepOrder: index + 1 }));

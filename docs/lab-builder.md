@@ -2707,6 +2707,11 @@ article", and Troubleshooting carries the page's own warnings (see the Learn cau
 sentence (`scopeProblem()` in `topic-scope.js`), and the lab gate reports it: `topic-not-for-harness` is a **Fix**
 (a classic-chatbot-only module in a lab for the current harnesses) and `topic-harness-limit` is **polish** (a limit on the
 lab's own harness, which can depend on the tenant).
+A saved lab that cites a Learn topic which has since left the list (Learn moved or renamed its article) cannot be
+rebuilt as it was; the error names the topic id and says to refresh the list from Microsoft Learn, select the topics
+again, and rebuild.
+Troubleshooting headings always end their sentence (`**The source is not in the list.** ...`) and quote a check without
+nesting bold markers inside the bold heading.
 The Learn title and summary are always quoted as untrusted
 data in any model prompt and never placed in its instructions.
 

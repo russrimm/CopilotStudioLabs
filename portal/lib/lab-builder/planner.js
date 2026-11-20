@@ -128,7 +128,13 @@ export function normalizeLabRequest(request = {}) {
   }
   const unknownFeatures = rawFeatures.filter((id) => !getFeature(id, { harness: harnessHint }));
   if (unknownFeatures.length) {
-    throw new Error(`Unknown feature id(s): ${unknownFeatures.join(", ")}.`);
+    const fromLearn = unknownFeatures.some((id) => id.startsWith("learn-"));
+    throw new Error(
+      `Unknown feature id(s): ${unknownFeatures.join(", ")}.` +
+        (fromLearn
+          ? " A topic that came from Microsoft Learn leaves the list when Learn moves or renames its article. Open the Topics step, choose Refresh from Microsoft Learn, select the topics again, and rebuild."
+          : ""),
+    );
   }
   const features = [...new Set(rawFeatures.map((id) => getFeature(id, { harness: harnessHint }).id))];
 
