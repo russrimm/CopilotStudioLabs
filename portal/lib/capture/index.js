@@ -22,6 +22,7 @@ import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "./jobs.
 import { readRecordsFile } from "./library-share.js";
 import { COMPANION_ONLINE_MS, PAIRING_CODE_TTL_MS, createPairingStore } from "./pairing.js";
 import { buildLabJobPlan, buildLibraryJobPlan, findLibrarySlot } from "./plan.js";
+import { buildLabChecklist, renderChecklistMarkdown } from "./checklist.js";
 import { readLabScratchContext } from "./scratch-context.js";
 import { createScreenshotStore } from "./screenshot-store.js";
 import { createSharedRecipeStore } from "./shared-recipes.js";
@@ -348,6 +349,13 @@ export function createCapturePlatform({
     return { labId: labId || null, activeProfile: profile ? { id: profile.id, name: profile.name } : null, ...describeCaptureTargets(resolved, shots), shots: shots.map((s) => ({ filename: s.filename, mode: s.capture.mode, why: s.capture.why, path: s.capture.path, needs: s.capture.needs, missing: s.capture.missing, ready: s.capture.ready })) };
   }
 
+  /** What is left to capture for a lab, who can do it, and the steps for the ones only a person can (JSON, plus Markdown to print). */
+  function labChecklist(labId) {
+    const resolved = resolveCaptureTargets({ manifest: readLabManifest(labId), env });
+    const list = buildLabChecklist({ generatedRoot, labId, values: resolved.values, capturedDir: capturedDirs().search });
+    return list.status === 200 ? { ...list, markdown: renderChecklistMarkdown(list) } : list;
+  }
+
   /** Each shot of a lab with how it will be captured under these settings. */
   function labShotCaptures(labId, values) {
     const plan = buildLabJobPlan({ generatedRoot, labId, scope: { mode: "all", filenames: [], featureIds: [] }, capturedDir: capturedDirs().search, values });
@@ -535,6 +543,7 @@ export function createCapturePlatform({
     saveConsent,
     revokeConsent,
     targetsPayload,
+    labChecklist,
     saveLabTargets,
     saveProfileTargets,
     companionFallbackForLab,

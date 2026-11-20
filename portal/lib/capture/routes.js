@@ -336,6 +336,15 @@ export function registerCaptureRoutes(app, deps = {}) {
         return res.status(500).json({ error: err.message });
       }
     });
+    app.get(`${prefix}/screenshots/checklist`, (req, res) => {
+      if (!SAFE_LAB_ID.test(req.params.labId)) return res.status(400).json({ error: "Invalid lab id." });
+      try {
+        const list = platform.labChecklist(req.params.labId);
+        return list.status === 200 ? res.json(list) : res.status(list.status).json({ error: list.error });
+      } catch (err) {
+        return res.status(500).json({ error: err.message });
+      }
+    });
     app.put(`${prefix}/capture-targets`, (req, res) => {
       if (manageLimited(req, res)) return;
       if (!SAFE_LAB_ID.test(req.params.labId)) return res.status(400).json({ error: "Invalid lab id." });

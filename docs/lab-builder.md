@@ -1842,6 +1842,17 @@ API response expose only the setting **names** (`envNames`, `targetNames`), neve
 The brand profile has three new fields next to the existing environment addresses:
 `copilotStudioAgentUrl`, `copilotStudioAgentName`, and `agentBuilderAgentName`.
 
+**The screenshot to-do list ("Screenshots left").** A generated lab's panel has a **📋 Screenshots left** button. It lists
+exactly which pictures are still missing, split into the ones your computer can capture (select the main capture button in
+the Screenshot Center) and the ones only a person can do, each with the figure number, the module, what the picture should
+show, why it needs you, and numbered steps. **Download checklist (.md)** gives the same list as Markdown
+for a ticket or for the morning. It is built from the same plan a capture job runs (`buildLabJobPlan`, mode `missing`) in
+`portal/lib/capture/checklist.js`, so the list and the jobs never disagree about what is left, and a picture drops off the
+list the moment it is captured. A lead of "Open your agent, then Overview." is shown as "Open your agent in Copilot Studio."
+because the agent page has the top tabs Build, Preview, Evaluate, and Monitor, not an Overview page. Nothing in the list
+starts a capture or touches a browser. `GET /api/lab-builder/generated/:labId/screenshots/checklist` (also under
+`/api/generated-labs/`) returns `{ labId, title, counts: { missing, computer, you }, computer[], you[], markdown }`.
+
 **Three capture modes per shot, three job modes.** `classifyShot()` (`portal/lib/capture/classify.js`)
 decides how each shot can honestly be captured and every plan shot carries the result as `capture`:
 `auto` (reachable by address and read-only navigation: the computer does it, then checks the address),
@@ -3044,6 +3055,7 @@ Browser-facing:
 | `GET` | `/api/capture/targets` | The capture settings in effect for the active brand profile (`?labId=` for a lab): `fields`, `requirements`, `missing`, and how each shot is captured. |
 | `PUT` | `/api/capture/targets` | Save capture settings on a brand profile: `{ targets: { fieldId: value }, profileId? }`. |
 | `GET` / `PUT` | `/api/generated-labs/:labId/capture-targets` | Read and save a lab's own capture settings (also under `/api/lab-builder/generated/:labId/`). `PUT { targets, alsoProfile? }`. |
+| `GET` | `/api/generated-labs/:labId/screenshots/checklist` | The screenshot to-do list: `{ labId, title, counts: { missing, computer, you }, computer[], you[], markdown }`. Each `you` item has `filename`, `figure`, `module`, `caption`, `shows`, `why`, and `steps[]`. Also under `/api/lab-builder/generated/:labId/`. |
 | `GET` | `/api/capture/jobs` | Recent jobs as summaries (no `shots` or `events`). Query: `limit` (max 200), `status`, `labId`. |
 | `GET` | `/api/capture/jobs/:id` | One job with per-shot status and the event log. Poll this. |
 | `GET` | `/api/capture/jobs/:id/events` | Server-sent events: `snapshot`, then `update` for each change, then `end`. Polling works just as well. |
