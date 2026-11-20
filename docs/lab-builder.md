@@ -1498,9 +1498,10 @@ screenshot a well-written lab would show gets a slot instead:
   no product UI. `tools/screenshot-capture` and the feature tour treat any image
   under 5 KB, and any placeholder picture whatever its size, as missing, so the
   capture tool overwrites it in place and the lab's
-  Markdown never has to change. The portal preview reads the files on disk each
-  time and adds a visible "Screenshot pending." note after every image that is
-  still a placeholder.
+  Markdown never has to change. The portal preview and the standalone HTML read the files on disk each
+  time and show a **Screenshot to add** card in place of every image that is still a placeholder: the figure
+  number, what the picture should show (its alt text), and the capture steps from the slot in `shots.json`
+  (`pending-shot-card.js`). The Markdown, Word, PowerPoint, and PDF files keep the neutral placeholder picture.
 - **Captured slots.** Screenshots captured for the feature tour (all six products) land in the shared
   library (`docs/feature-tour/screenshots/`, or the persistent `screenshots/` storage folder in the
   portal; see [Screenshot Center](#screenshot-center-the-local-capture-companion-and-paste-or-upload)) under the catalog's filenames. When a
@@ -1566,8 +1567,8 @@ Where it applies:
 - **Uploads and captures.** `verifyImage` (used by the portal for every upload and by the companion before it uploads) fails a placeholder with the
   reason code `placeholder` and the message "This is a placeholder picture, not a screenshot of the product." The companion's local check
   (`verifyCapturedImageBuffer`), `capture.js --missing`, `verify-shots.js`, `status.mjs`, and the feature tour use the same detector.
-- **Preview and exports.** The preview adds the standard "Screenshot pending." note and serves the standard pending image; the HTML, Word,
-  PowerPoint, PDF, facilitator guide, and ZIP exports treat the slot exactly like any other pending slot.
+- **Preview and exports.** The preview and the standalone HTML show the **Screenshot to add** card (a filler picture is never shown); the Word,
+  PowerPoint, PDF, facilitator guide, and ZIP exports use the standard pending image and treat the slot exactly like any other pending slot.
 - **`validate_labs.py`.** Lists every placeholder picture a lab shows as a warning (rule `no-placeholder-images`). It never fails the build.
 
 **Adding a new known placeholder.** Stamp files from a new generator with the marker (Pillow:

@@ -23,6 +23,7 @@ import {
 } from "./lab-builder/brand-theme.js";
 import { renderStandaloneLabHtml } from "./lab-builder/html-lab.js";
 import { resolveLabScreenshot } from "./lab-builder/captured.js";
+import { altOfTag, loadShotSlots } from "./lab-builder/pending-shot-card.js";
 import { repairLabPlaceholders } from "./lab-builder/lab-screenshots.js";
 import { isPlaceholder } from "./lab-builder/placeholder-detect.js";
 import { MIN_CAPTURED_BYTES } from "./lab-builder/slots.js";
@@ -405,12 +406,18 @@ export function renderGeneratedLabHtml(
     ? explicitLogoPath || getBrandingLogoAbsolutePath(brand.logo)
     : null;
   const brandingInfo = buildHtmlBranding(brand, customizedBranding, fileToDataUri(logoPath));
+  const shotSlots = loadShotSlots(found.labDir);
 
   const html = renderStandaloneLabHtml(content, {
     title: found.manifest?.title || found.labId,
     labId: found.labId,
     branding: brandingInfo,
     renderMarkdown: renderLabMarkdown,
+    pendingShotFor: (tag) => {
+      const src = /\bsrc="assets\/([^"]+)"/i.exec(tag);
+      if (!src || resolveLabScreenshot(found.labDir, src[1])) return null;
+      return { filename: src[1], slot: shotSlots.get(src[1]) || null, alt: altOfTag(tag) };
+    },
     resolveImageSrc: (assetName) => {
       if (typeof resolveAsset === "function") {
         const resolved = resolveAsset(generatedRoot, found.labId, assetName);

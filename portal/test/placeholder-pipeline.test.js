@@ -192,7 +192,7 @@ test("opening a lab built before the fix repairs it: pending slots, the pending 
   }
   const decorated = decorateGeneratedHtml(SLOTS.map((n) => `<img alt="x" src="assets/${n}">`).join(""), labId, labDir, { capturedDir: ISOLATED_SHARED_SHOTS });
   assert.deepEqual(decorated.pending, SLOTS);
-  assert.equal((decorated.html.match(/Screenshot pending\./g) || []).length, 2);
+  assert.equal((decorated.html.match(/class="shot-pending lab-shot-card"/g) || []).length, 2);
 
   // The first read repairs everything.
   const status = getLabScreenshotsStatus(outputRoot, labId, { capturedDir: ISOLATED_SHARED_SHOTS }).body;
@@ -240,7 +240,7 @@ test("opening a lab built before the fix repairs it: pending slots, the pending 
   const preview = readGeneratedLab(outputRoot, labId, renderLabMarkdown);
   assert.equal(preview.status, 200);
   for (const name of SLOTS) assert.ok(preview.body.pendingScreenshots.includes(name), `${name} is pending in the preview`);
-  assert.ok((preview.body.html.match(/Screenshot pending\./g) || []).length >= 2);
+  assert.ok((preview.body.html.match(/class="shot-pending lab-shot-card"/g) || []).length >= 2);
   assert.equal(preview.body.screenshotState.summary.captured, 1);
   const listed = listGeneratedLabs(outputRoot).labs.find((l) => l.labId === labId);
   assert.equal(listed.screenshots.captured, manifest.screenshots.captured);
@@ -265,7 +265,7 @@ test("the preview, the topic documents, the lab list, and every export repair a 
   const html = renderGeneratedLabHtml(run.root, run.id, {}, { resolveAsset: resolveGeneratedAsset });
   assert.equal(html.status, 200);
   noFiller(Buffer.from(html.html), "HTML");
-  assert.ok(html.html.includes(PENDING.toString("base64").slice(0, 120)), "HTML shows the standard pending image for the slot");
+  assert.match(html.html, /class="shot-pending lab-shot-card"/, "HTML shows a Screenshot to add card for the slot");
 
   for (const [label, render] of [["DOCX", renderGeneratedLabDocx], ["PPTX", renderGeneratedLabPptx], ["PDF", renderGeneratedLabPdf]]) {
     const result = render(run.root, run.id, {}, { resolveAsset: resolveGeneratedAsset });
@@ -387,7 +387,7 @@ test("over HTTP: the status, the preview, the asset, and an upload of a placehol
 
   const preview = await (await fetch(`${base}/api/lab-builder/generated/${labId}`)).json();
   assert.ok(SLOTS.every((n) => preview.pendingScreenshots.includes(n)));
-  assert.match(preview.html, /Screenshot pending\./);
+  assert.match(preview.html, /Screenshot to add/);
 
   const asset = await fetch(`${base}/api/lab-builder/generated/${labId}/assets/${SLOTS[0]}`);
   assert.equal(asset.status, 200);
