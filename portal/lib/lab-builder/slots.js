@@ -69,11 +69,57 @@ export function describeSlot(feature, slot) {
   const meta = getSlotMeta()[slot.filename];
   const fallback = plain(slot.caption || slot.instructions?.[0] || `${feature.name} in ${getProduct(productOf(feature))?.shortName || "the product"}`).replace(/\.$/, "");
   return {
-    kind: meta?.kind || "ui-location",
+    kind: meta?.kind || (SLOT_KINDS.includes(slot.kind) ? slot.kind : "ui-location"),
     caption: meta?.caption || plain(slot.caption || fallback),
-    alt: meta?.alt || `${fallback}.`,
+    alt: meta?.alt || slot.alt || `${fallback}.`,
     curated: Boolean(meta),
   };
+}
+
+const STEP_LINK = /\[([^\]]+)\]\([^)]*\)/g;
+
+/** One step as plain words for a capture instruction: no emphasis, no link targets, cut at a word. */
+function stepWords(step, max = 170) {
+  const text = plain(String(step).replace(STEP_LINK, "$1")).replace(/^\[Unverified\]\s*/, "");
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max);
+  return `${cut.slice(0, cut.lastIndexOf(" ") > 60 ? cut.lastIndexOf(" ") : max).replace(/[\s,;:(-]+$/, "")}`;
+}
+
+/**
+ * Slots for a topic that came from Microsoft Learn and has none in the catalog: where its procedure starts and
+ * what it ends on, written from the steps read from its article. Nothing is guessed about the screen itself,
+ * so the instructions point at the lab's own first and last step. Empty when no procedure could be read.
+ *
+ * @param {object} feature
+ * @param {{source?: string, steps?: string[]}|null} derived the step record for the feature
+ */
+export function derivedSlotsForTopic(feature, derived) {
+  if (!feature?.learnTopic || slotsForFeature(feature).length) return [];
+  const steps = Array.isArray(derived?.steps) ? derived.steps : [];
+  if (derived?.source !== "doc-derived" || steps.length < 2) return [];
+  const title = plain(feature.name);
+  const product = productOf(feature) === "copilot-studio" ? {} : { product: productOf(feature) };
+  return [
+    {
+      filename: `${feature.id}-start.png`,
+      section: "learn",
+      ...product,
+      kind: "ui-location",
+      caption: `Where "${title}" starts`,
+      alt: `The screen where the "${title}" procedure starts, with the control named in its first step visible.`,
+      instructions: [`Follow step 1 of this module: ${stepWords(steps[0])}`, "Stop on the screen it opens and capture it."],
+    },
+    {
+      filename: `${feature.id}-result.png`,
+      section: "learn",
+      ...product,
+      kind: "after",
+      caption: `The result of "${title}"`,
+      alt: `The screen after the last step of "${title}", showing the result of the procedure.`,
+      instructions: ["Complete every numbered step of this module.", `Capture the screen after the last step: ${stepWords(steps[steps.length - 1])}`],
+    },
+  ];
 }
 
 const NAME_LIKE = /\.(?:png|jpe?g|gif|webp|svg)\b/i;

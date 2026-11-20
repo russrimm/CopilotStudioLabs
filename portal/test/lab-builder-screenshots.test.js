@@ -9,6 +9,8 @@ import { decorateGeneratedHtml, resolveGeneratedAsset } from "../lib/lab-builder
 import { generateLab } from "../lib/lab-builder/generator.js";
 import { planLab } from "../lib/lab-builder/planner.js";
 import { loadShotSlots, replacePendingPictures } from "../lib/lab-builder/pending-shot-card.js";
+import { derivedSlotsForTopic } from "../lib/lab-builder/slots.js";
+import { topicToFeature } from "../lib/lab-builder/topic-feature.js";
 import { planScreenshots } from "../lib/lab-builder/screenshots.js";
 import {
   MIN_CAPTURED_BYTES,
@@ -321,4 +323,33 @@ test("a pending picture becomes a Screenshot to add card with the expected view 
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("a topic found on Learn gets a start and a result slot from the steps read from its article, and none when no procedure was read", () => {
+  const feature = topicToFeature({
+    id: "learn-add-agent-child-agent",
+    title: "Add a child agent",
+    summary: "A child agent is a lightweight agent inside your main agent.",
+    urls: ["https://learn.microsoft.com/microsoft-copilot-studio/add-agent-child-agent"],
+    harnesses: ["standard"],
+    conceptId: "uncategorized",
+    status: "new",
+  });
+  const derived = {
+    source: "doc-derived",
+    steps: ["Go to the **Agents** page for your main agent and select **Add**.", "Select **New child agent**.", "Select **Save**."],
+  };
+  const slots = derivedSlotsForTopic(feature, derived);
+  assert.deepEqual(slots.map((s) => s.filename), ["learn-add-agent-child-agent-start.png", "learn-add-agent-child-agent-result.png"]);
+  for (const slot of slots) assert.deepEqual(altProblems(slot.alt), [], slot.alt);
+  assert.match(slots[0].instructions[0], /Go to the Agents page for your main agent and select Add\.$/);
+  assert.match(slots[1].instructions[1], /Select Save\.$/);
+  assert.deepEqual(derivedSlotsForTopic(feature, { source: "catalog-fallback", steps: derived.steps }), []);
+  assert.deepEqual(derivedSlotsForTopic(feature, { source: "doc-derived", steps: ["Only one."] }), []);
+
+  const plan = { features: [{ ...feature, order: 1, stepOrder: 1 }] };
+  const planned = planScreenshots(plan, { labsDir: join(tmpdir(), "no-labs"), capturedDir: join(tmpdir(), "no-captures"), stepsByFeature: new Map([[feature.id, derived]]) });
+  assert.equal(planned.shots.length, 2);
+  assert.ok(planned.shots.every((s) => s.status === "pending" && s.section === "learn" && s.feature === feature.id));
+  assert.equal(planScreenshots(plan, { labsDir: join(tmpdir(), "no-labs"), capturedDir: join(tmpdir(), "no-captures") }).shots.length, 0);
 });

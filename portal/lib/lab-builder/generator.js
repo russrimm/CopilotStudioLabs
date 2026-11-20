@@ -1184,7 +1184,7 @@ export async function generateLab(request, opts = {}) {
   }
 
   // ── 4. Screenshots ────────────────────────────────────────────────────────
-  const screenshots = planScreenshots(plan, { labsDir: LABS_DIR });
+  const screenshots = planScreenshots(plan, { labsDir: LABS_DIR, stepsByFeature });
 
   // ── 5. Compose ────────────────────────────────────────────────────────────
   onProgress?.({ stage: "compose", message: "Composing the lab" });

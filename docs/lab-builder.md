@@ -2636,6 +2636,14 @@ when nothing can be derived the module tells the learner to follow the article.
 Nothing is invented. A module for a new topic has **no quiz**: the knowledge check is built only from reviewed
 content (why it matters, a verified outcome, a reviewed concept), so a Learn-only module says "No quiz for this
 topic" instead of asking about its own disclaimer, and the facilitator guide's answer key leaves it out too.
+**Pictures and trust.** When steps could be read from the article, the module gets two screenshot slots,
+`<topic-id>-start.png` (where the procedure starts) and `<topic-id>-result.png` (what it ends on), with the capture
+instructions pointing at the module's own first and last step (`derivedSlotsForTopic()` in `slots.js`). Nothing is
+guessed about the screen, the slots are in `shots.json` and the shot list like any other, and the Screenshot Center
+treats them as steps you do yourself, because the computer cannot know where an unreviewed topic's screen is. A
+module whose procedure could not be read gets no pictures. **How This Lab Was Built** lists every new-on-Learn module
+with how far to trust it ("steps read from its Learn article, not checked against the product" or "no procedure could
+be read, so follow the linked article").
 The Learn title and summary are always quoted as untrusted
 data in any model prompt and never placed in its instructions.
 

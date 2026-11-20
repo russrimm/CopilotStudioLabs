@@ -18,7 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { PLACEHOLDER_PATH, describeSlot, slotsForFeature } from "./slots.js";
+import { PLACEHOLDER_PATH, derivedSlotsForTopic, describeSlot, slotsForFeature } from "./slots.js";
 import { capturedImage, capturedScreenshotsDirs } from "./captured.js";
 import { isPlaceholder } from "./placeholder-detect.js";
 const SAFE_SEGMENT = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -57,7 +57,7 @@ function uniqueFilename(filename, featureId, used) {
  *   `shots` lists every slot; a slot with a captured image has status "captured" and is copied
  *   instead of getting a placeholder, any other slot has status "pending".
  */
-export function planScreenshots(plan, { labsDir, capturedDir = capturedScreenshotsDirs() }) {
+export function planScreenshots(plan, { labsDir, capturedDir = capturedScreenshotsDirs(), stepsByFeature = null }) {
   const byFeature = new Map();
   const copies = [];
   const shots = [];
@@ -105,7 +105,9 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
       });
     }
 
-    for (const shot of [...demoted, ...slotsForFeature(feature)]) {
+    const own = slotsForFeature(feature);
+    const slots = own.length ? own : derivedSlotsForTopic(feature, stepsByFeature?.get?.(feature.id));
+    for (const shot of [...demoted, ...slots]) {
       if (!isSafeName(shot.filename)) continue;
       const filename = uniqueFilename(shot.filename, feature.id, usedFilenames);
       const described = describeSlot(feature, shot);
@@ -131,6 +133,7 @@ export function planScreenshots(plan, { labsDir, capturedDir = capturedScreensho
         status: captured ? "captured" : "pending",
       };
       if (shot.url) entry.url = shot.url;
+      if (shot.product) entry.product = shot.product;
       if (shot.viewport) entry.viewport = shot.viewport;
 
       shots.push(entry);
