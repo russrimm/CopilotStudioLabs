@@ -2360,7 +2360,55 @@ or headless browser dependencies required at runtime) by `portal/lib/exporter.js
 | PowerPoint (`.pptx`) | `/export?format=pptx` | Widescreen 16:9 OOXML presentation (`pptx-builder.js`, 13.333" × 7.5") with ECMA-376 PresentationML Speaker Notes (`notesMaster1.xml` + `notesSlideN.xml`) for PowerPoint Presenter View, including pacing cues, live-demo talking points, coaching callouts, fast rescue tips, and non-spoiler Knowledge Check slides whose answer keys and rationales live exclusively in speaker notes. |
 | Per-topic `.docx` & `.pptx` | `generated-labs/<slug>/topics/` and `/topics/:order/:format` | Individual Word handout and 16:9 PowerPoint deck (complete with ECMA-376 Presenter View speaker notes) for each module or recap, named `<Lab Name> - Step NN - <Topic Name>.docx` / `.pptx` (or `<Lab Name> - Recap N - <Topic Name>.docx` / `.pptx`). Synthesized automatically at build time (and refreshed on demand for older generated labs) and renamed whenever the lab title is updated via `PATCH`. |
 | Facilitator Guide Pack (`.docx`, `.pdf`, `.md`, `.html`) | `/export?format=facilitator-docx` (`facilitator-pdf`, `facilitator-md`, `facilitator-html`) | Dedicated Instructor / Facilitator Guide (`facilitator-guide.js`, named `<Lab Title> - Facilitator Guide.<ext>`) containing a Run-of-Show pacing table with a 15-minute pre-flight buffer and >90-minute break cues, a T-24h tenant/DLP/SharePoint/sample-files readiness runbook, and a per-module facilitator playbook (opening hook, 3–5 minute live demo talking points, step coaching cues, common learner roadblocks & fast rescue steps, debrief prompt, and complete Knowledge Check Answer Key & distractor rationales even when learner quizzes are unchecked). |
-| Per-module ZIP (`.zip`) | `/export?format=zip&formats=all` (`all\|docx\|pptx\|pdf\|html`) | Complete workshop archive containing `<labId>/index.md`, `<labId>/index.html`, `<labId>/manifest.json`, `<labId>/shots.json`, `00 - Overview and Admin Prerequisites/`, `Facilitator Guide/` (`<Lab Title> - Facilitator Guide.md` plus matching `.docx`/`.pdf`/`.html`), titled `Module NN - <Title>/` folders in the requested formats, `sample-files/` starter artifacts, a root `README.md`, `export-manifest.json`, and optional `_branding/` assets. |
+| Prerequisites checklist (`.docx`, `.pdf`, `.html`, `.md`) | `/export?format=prerequisites-docx` (`prerequisites-pdf`, `prerequisites-html`, `prerequisites-md`) | The prerequisites by themselves, written for the customer hosting the workshop (`prereq-checklist.js` plus `prereq-checklist-docx.js`, `-html.js`, `-pdf.js`; named `<Lab Title> - Prerequisites checklist.<ext>`). Cover, summary, who needs to be involved, then a checklist table per section (empty box, what to have ready, who does it, why it is needed, a Microsoft Learn link where there is one, and a Done by / date column). No lab steps, quizzes, facilitator content, screenshots, builder notes, or tenant identifiers. See [Send the prerequisites to the customer](#send-the-prerequisites-to-the-customer). |
+| Per-module ZIP (`.zip`) | `/export?format=zip&formats=all` (`all\|docx\|pptx\|pdf\|html`) | Complete workshop archive containing one top-level `Send to Customer - Prerequisites Checklist - <Lab Title>.docx` (`.pdf` or `.html` when `formats` leaves out Word), `<labId>/index.md`, `<labId>/index.html`, `<labId>/manifest.json`, `<labId>/shots.json`, `00 - Overview and Admin Prerequisites/`, `Facilitator Guide/` (`<Lab Title> - Facilitator Guide.md` plus matching `.docx`/`.pdf`/`.html`), titled `Module NN - <Title>/` folders in the requested formats, `sample-files/` starter artifacts, a root `README.md`, `export-manifest.json`, and optional `_branding/` assets. |
+
+#### Send the prerequisites to the customer
+
+The customer who hosts a workshop needs one thing in advance: what has to be ready. The
+**Prerequisites checklist** is that, and only that. It is built from the same data as the lab's
+`Prerequisites` block and the `Required By` administrator model (`admin-prereqs.js`), but it is
+written for the people who host the workshop, not for the learner and not for the facilitator.
+
+What the customer gets, in this order (a section with nothing in it is left out):
+
+| Part | What it says |
+|---|---|
+| Cover | Lab title, products, audience, date, the customer or brand name and logo, and **Please complete before the workshop**. |
+| Summary and **How to use this checklist** | One paragraph an executive can read, and a short box that explains the boxes, **Done by / date**, and any **Confirm with your Microsoft representative** or **Only if** item. |
+| **Who needs to be involved** | One row per role (tenant admin, identity admin, Power Platform admin, SharePoint admin, security and compliance admin, Azure subscription owner, network contact, content owner, workshop host, each attendee) with the item numbers that role owns, so an IT admin can be sent only their part. The web page also has a **Show items for** list that hides every other role before printing. |
+| Licenses and subscriptions; Tenant, identity, and cloud admin settings; Environment and data loss prevention settings; Connectors and connections; Data and content for the workshop; What each attendee needs; What attendees should already know; Network and allow-list needs | A table per section, sorted by who does it and then by the order the work should happen. Each row has an empty checkbox, what to have ready, who does it, why it is needed (with the topics that need it), a Microsoft Learn link where the data has one, and a blank **Done by / date** cell. |
+| **Confirm and return** | Where to send it back (the brand's support name and email when the lab has them), plus blank name and date lines. |
+
+Items Microsoft Learn does not confirm keep the honest flavor, phrased for a customer:
+**Confirm with your Microsoft representative (not confirmed in Microsoft Learn): ...**.
+
+**Get it.**
+
+- **Portal:** on a generated lab (under **Previously generated labs**, in the opened lab panel, and on the last wizard step),
+  **Download prerequisites checklist** with a format list (**Word (.docx), recommended**, **PDF (.pdf)**, **Web page (.html)**,
+  **Markdown (.md)**), and **Preview** to see exactly what the customer will get before sending it. The line under the heading
+  says **Only the prerequisites, safe to send to the customer.**
+- **API:** `GET` or `POST /api/lab-builder/generated/:labId/export?format=prerequisites-docx` (also `prerequisites-pdf`,
+  `prerequisites-html`, `prerequisites-md`, and `prerequisites-markdown` as an alias for Markdown). `GET .../:labId/prerequisites` returns
+  the preview (`title`, `itemCount`, `sections`, `roles`, and the page as `html`). Both are also mounted under `/api/generated-labs`.
+- **Command line:** `npm run export-prerequisites -- --lab <id|folder> [--root <dir>] [--format docx|pdf|html|md] [--out <file|dir|->]`
+  (`node tools/lab-builder/export-prerequisites.mjs`). It needs no `npm ci`, reads only `manifest.json` and `index.md`, and writes nothing to the lab.
+- **ZIP:** the all-formats workshop ZIP carries the Word version as its one top-level file, named
+  `Send to Customer - Prerequisites Checklist - <Lab Title>.docx`, and records it as `customerPrerequisitesChecklist` in `export-manifest.json`.
+
+**Brand and older labs.** The lab's brand is applied the same way as for every other export (see
+[Where it shows up](#where-it-shows-up)): company name and logo on the cover, the primary color on headings and the cover band
+(darkened where needed so text stays readable), the brand font, the footer text, and the support contact. Environment addresses
+and SharePoint site addresses from the brand are never used. A lab built before this document existed works without a rebuild: the
+document is read from the saved manifest and `index.md`, and the administrator model is rebuilt from the saved modules when
+`manifest.adminPrerequisites` is missing.
+
+**Contributors.** The customer wording for each administrator prerequisite lives in one table (`ADMIN_COPY` in `prereq-checklist.js`,
+keyed by the ids `buildAdminPrerequisites()` emits); an id that is not in the table still appears, with its own title and details. Free-text
+prerequisites from the lab are sorted into sections and roles by `BULLET_RULES` in the same file. Every Microsoft Learn link in that file was
+opened when it was added; add a link only after checking the page. Never put a real tenant, environment, user, or customer name in this
+file, in tests, or in fixtures. The Word writer is in the Office validation matrix (`npm run validate:office`).
 
 #### Validating Office exports (contributors)
 
@@ -2551,6 +2599,7 @@ profile default for `{{SHAREPOINT_SITE_*}}` and the capture environment.
 | PDF | Company header, cover subtitle, footer text, a secondary-color stripe and footer rule, a serif or sans family for the chosen font, and the closing blocks. |
 | PowerPoint | Title slide (company, cover subtitle), footer text, theme accent colors, the brand typeface, and a closing **More information and support** slide for full-lab decks. Per-topic decks get the title, footer, and theme. |
 | Facilitator Guide (`.md`, `.docx`, `.pdf`, `.html`) | The same banner, colors, font, and closing blocks. |
+| Prerequisites checklist (`.docx`, `.pdf`, `.html`, `.md`) | Company name and logo on the cover, the primary color on headings and the cover band, the brand font, the footer text, and the support contact on **Confirm and return**. No other closing blocks. |
 | ZIP bundle | A root `README.md` (title, company, contents, modules, SharePoint site, links and support, footer) and `export-manifest.json` branding with `profileId`, `profileName`, `secondaryColor`, and `font`. Contact details stay out of the manifest. |
 | Email | The package email uses the active profile's company name, color, font, closing blocks, and footer. |
 
@@ -2977,7 +3026,8 @@ the server log, never the manifest — and the output is exportable by design.
 | `GET` | `/api/lab-builder/generated/:labId` | Read one generated lab as markdown and HTML, along with `adminPrerequisites` and `topicDocuments` (synthesizing `topics/*.docx` and `topics/*.pptx` on demand for labs generated before `topics/` existed). |
 | `GET` | `/api/lab-builder/generated/:labId/assets/:file` | Serve a generated lab's screenshot or image asset (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`) from its `assets/` directory. |
 | `GET` | `/api/lab-builder/generated/:labId/topics/:order/:format` | Download a single topic's standalone Word document (`docx`) or PowerPoint slide deck (`pptx`) named per lab (`<Lab Name> - Step NN - <Topic Name>.docx` / `.pptx`). Also mounted at `/api/generated-labs/:labId/topics/:order/:format`. |
-| `GET` / `POST` | `/api/lab-builder/generated/:labId/export` | Export a generated lab as a per-module `zip` (`formats=all\|docx\|pptx\|pdf\|html`, including `Facilitator Guide/`), `html`, `docx`, `pptx`, `pdf`, `md`, `facilitator-docx`, `facilitator-pdf`, `facilitator-md`, or `facilitator-html`. Also mounted at `/api/generated-labs/:labId/export`. |
+| `GET` / `POST` | `/api/lab-builder/generated/:labId/export` | Export a generated lab as a per-module `zip` (`formats=all\|docx\|pptx\|pdf\|html`, including `Facilitator Guide/` and a top-level customer prerequisites checklist), `html`, `docx`, `pptx`, `pdf`, `md`, `facilitator-docx`, `facilitator-pdf`, `facilitator-md`, `facilitator-html`, `prerequisites-docx`, `prerequisites-pdf`, `prerequisites-html`, or `prerequisites-md` (the [prerequisites checklist](#send-the-prerequisites-to-the-customer) by itself; an unknown format is HTTP 400). Also mounted at `/api/generated-labs/:labId/export`. |
+| `GET` | `/api/lab-builder/generated/:labId/prerequisites` | Preview of the prerequisites checklist: `title`, `baseName`, `itemCount`, `sections` (title and item count), `roles` (label and item count), and the whole page as `html`. 404 for a lab that does not exist. Also mounted at `/api/generated-labs/:labId/prerequisites`. |
 | `GET` | `/api/lab-builder/generated/:labId/validate` | Run structural validation (`validator.js`) against a generated lab. Also mounted at `/api/generated-labs/:labId/validate`. |
 | `PATCH` | `/api/lab-builder/generated/:labId` | Change `title` (1-160 characters, no line breaks) and/or `notes` (up to 1000 characters). No other field is accepted. Updates the manifest, the lab's single `#` heading, `index.html`, and regenerates/renames the per-topic `.docx` and `.pptx` files inside `topics/` so their filenames match the updated lab title; the folder name stays the same. |
 | `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab folder. The id must match an existing folder directly under `generated-labs/` that holds a `manifest.json`, so hand-written labs under `labs/` can never be reached. Answers 400 for a bad id and 404 when it does not exist. |
@@ -3413,8 +3463,14 @@ fails if the builder's import graph starts needing `portal/node_modules`. No
 network access is required.
 `portal/test/office-export-validity.test.js` checks the Word and PowerPoint exports
 against the package invariants that Office enforces (see "Validating Office exports"),
-including negative cases for each defect, a matrix of generated labs, and a lab built
-before a builder fix.
+including negative cases for each defect, a matrix of generated labs (the standalone prerequisites
+checklist among them), and a lab built before a builder fix.
+`portal/test/prerequisites-checklist.test.js` covers the customer prerequisites checklist: the sections and none of the
+lab, quiz, facilitator, or builder content (and no GUID or tenant address) in every format, an empty section left out,
+the "confirm with your Microsoft representative" wording, brand profile and logo, labs without a saved administrator model,
+the export and preview routes with their error codes, the ZIP file, the lab panel markup, and the command line.
+`portal/test/prerequisites-checklist-browser.test.js` drives the button, format list, download, and preview dialog in
+headless Chromium (it skips itself when Playwright or Chromium is missing; set `PREREQ_DEMO_DIR` to also save screenshots).
 `portal/test/capture-share.test.js` covers "capture once, reuse everywhere": promotion to the shared library
 (capture and Accept), a lab-specific slot staying in its lab, a placeholder, a stub, an unaccepted warning, a failed
 check, and unmasked account details never being shared, no silent overwrite (a confirmed picture, an existing picture,

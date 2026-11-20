@@ -585,6 +585,19 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
     cursorY -= opts.spaceAfter ?? 5;
   };
 
+  // Opt-in brand logo above the banner (other exports keep the text-only banner).
+  if (options.drawLogo && options.branding?.logoBuffer) {
+    const logo = preparePdfImage(options.branding.logoBuffer);
+    if (logo) {
+      const drawH = Math.min(34, logo.height * 0.75, (150 * logo.height) / logo.width);
+      const drawW = (drawH * logo.width) / logo.height;
+      const entry = { name: `Im${xObjects.size + 1}`, img: logo };
+      xObjects.set("__brand-logo__", entry);
+      currentOps.push(`q ${drawW.toFixed(2)} 0 0 ${drawH.toFixed(2)} ${MARGIN_X.toFixed(2)} ${(cursorY - drawH).toFixed(2)} cm /${entry.name} Do Q`);
+      cursorY -= drawH + 8;
+    }
+  }
+
   // Optional branding banner at top of Page 1
   if (options.branding && (options.branding.companyName || options.branding.tagline)) {
     const label = [options.branding.companyName, options.branding.tagline].filter(Boolean).join(" — ");
@@ -785,7 +798,7 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
             spaceAfter: 10,
           });
         } else if (level === 2) {
-          ensureSpace(34);
+          ensureSpace(options.keepHeadingWithNext ? 120 : 34);
           emitStyledParagraph(text, {
             fontSize: 13.5,
             lineHeight: 18.5,
@@ -848,7 +861,11 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
           i += 1;
         }
         const colCount = Math.max(1, headers.length);
-        const colW = CONTENT_WIDTH / colCount;
+        // Opt-in column weights (for example { 5: [6, 40, 14, 26, 14] }); every other table keeps equal columns.
+        const weights = options.tableColumnWeights?.[colCount];
+        const weightTotal = Array.isArray(weights) && weights.length === colCount ? weights.reduce((a, b) => a + b, 0) : 0;
+        const colWidths = weightTotal > 0 ? weights.map((w) => (w / weightTotal) * CONTENT_WIDTH) : Array.from({ length: colCount }, () => CONTENT_WIDTH / colCount);
+        const colOffsets = colWidths.map((_w, idx) => colWidths.slice(0, idx).reduce((a, b) => a + b, 0));
         const cellFontSize = colCount >= 5 ? 8.2 : 9;
         const cellLineH = cellFontSize * 1.35;
 
@@ -858,7 +875,7 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
               cells[idx] ?? "",
               isHeader ? "bold" : "regular",
               cellFontSize,
-              Math.max(40, colW - 10),
+              Math.max(40, colWidths[idx] - 10),
             ),
           );
           const maxLines = Math.max(1, ...cellLines.map((cl) => cl.length));
@@ -870,7 +887,9 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
           for (let offset = 0; offset < maxLines; offset += maxLinesPerPage) {
             const sliceCount = Math.min(maxLinesPerPage, maxLines - offset);
             const rowH = sliceCount * cellLineH + 8;
+            const pagesBefore = pages.length;
             ensureSpace(rowH + 4);
+            if (options.repeatTableHeader && !isHeader && pages.length !== pagesBefore) drawTableRow(headers, true);
             const topY = cursorY;
             const bottomY = topY - rowH;
 
@@ -889,13 +908,18 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
             );
 
             for (let c = 0; c < colCount; c += 1) {
-              const cellX = MARGIN_X + c * colW;
+              const cellX = MARGIN_X + colOffsets[c];
               if (c > 0) {
                 currentOps.push(
                   `q 0.85 0.88 0.92 RG 0.5 w ${cellX.toFixed(2)} ${bottomY.toFixed(2)} m ${cellX.toFixed(
                     2,
                   )} ${topY.toFixed(2)} l S Q`,
                 );
+              }
+              if (options.drawCheckboxCells && !isHeader && String(cells[c] ?? "").trim() === "\u2610") {
+                const boxX = cellX + (colWidths[c] - 10) / 2;
+                currentOps.push(`q 0.2 0.25 0.33 RG 1 w ${boxX.toFixed(2)} ${(topY - 17).toFixed(2)} 10 10 re S Q`);
+                continue;
               }
               const linesInCell = cellLines[c].slice(offset, offset + sliceCount);
               linesInCell.forEach((lt, lIdx) => {
@@ -1058,7 +1082,10 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
 
   pages.forEach((ops, idx) => {
     const pageNum = idx + 1;
-    const footerLeft = [options.branding?.companyName || "Copilot Studio Labs", footerText].filter(Boolean).join("  |  ");
+    const footerLeft =
+      typeof options.footerLabel === "string" && options.footerLabel
+        ? options.footerLabel
+        : [options.branding?.companyName || "Copilot Studio Labs", footerText].filter(Boolean).join("  |  ");
     const footerMaxWidth = CONTENT_WIDTH - 70;
     let footerLabel = footerLeft;
     while (footerLabel.length > 4 && measureTextPt(footerLabel, 8, "F1") > footerMaxWidth) {
