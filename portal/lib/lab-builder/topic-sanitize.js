@@ -52,8 +52,37 @@ export function cleanText(value, max = MAX_SUMMARY) {
     .replace(/\s+/g, " ")
     .trim();
   text = normalizeTerminology(text);
-  if (text.length > max) text = `${text.slice(0, max - 1).trimEnd()}\u2026`;
-  return text;
+  return shortenText(text, max);
+}
+
+/**
+ * Shorten `text` to at most `max` characters without cutting a sentence or a word in half: at the last
+ * sentence end that fits when there is one (no mark added), otherwise at a word end followed by an ellipsis.
+ */
+export function shortenText(text, max) {
+  const value = String(text ?? "");
+  if (value.length <= max) return value;
+  const head = value.slice(0, max);
+  const floor = Math.min(60, Math.floor(max / 2));
+  const ends = [...head.matchAll(/[.!?](?=\s|$)/g)].map((m) => m.index + 1).filter((index) => index >= floor);
+  if (ends.length) return head.slice(0, ends[ends.length - 1]).trim();
+  const space = head.lastIndexOf(" ");
+  const body = space > max * 0.5 ? head.slice(0, space) : head.slice(0, max - 1);
+  return `${body.replace(/[\s,;:(-]+$/, "")}\u2026`;
+}
+
+/**
+ * Repair a summary an earlier build cut off in the middle of a word (it ends with an ellipsis): keep the
+ * complete sentences before the cut, or the whole words before it when there is no sentence end.
+ */
+export function tidySummary(text) {
+  const value = String(text ?? "").trim();
+  if (!/(?:\u2026|\.\.\.)$/.test(value)) return value;
+  const body = value.replace(/\s*(?:\u2026|\.\.\.)$/, "").trim();
+  const ends = [...body.matchAll(/[.!?](?=\s|$)/g)].map((m) => m.index + 1).filter((index) => index >= 40);
+  if (ends.length) return body.slice(0, ends[ends.length - 1]).trim();
+  const space = body.lastIndexOf(" ");
+  return space > 20 ? `${body.slice(0, space).replace(/[\s,;:(-]+$/, "")}\u2026` : "";
 }
 
 /**

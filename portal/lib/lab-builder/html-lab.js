@@ -13,6 +13,7 @@ import {
 import { enhanceInteractiveLabHtml } from "./interactive-elements.js";
 import { ensureReadableColor, getBrandFont, normalizeHexColor6 } from "./brand-theme.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
+import { PENDING_SHOT_CSS, replacePendingPictures } from "./pending-shot-card.js";
 
 const ASSET_SRC_RE = /\bsrc="assets\/([A-Za-z0-9][A-Za-z0-9._-]*\.(?:png|jpe?g|gif|svg|webp))"/gi;
 
@@ -511,6 +512,10 @@ function pickButtonPair(rawHex, fallbackBg, fallbackFg) {
 export function renderStandaloneLabHtml(markdown, options = {}) {
   const renderMd = typeof options.renderMarkdown === "function" ? options.renderMarkdown : renderLabMarkdownFallback;
   let bodyHtml = enhanceInteractiveLabHtml(renderMd(String(markdown ?? "")));
+  // A picture that has not been captured yet becomes a "Screenshot to add" card instead of a placeholder image.
+  if (typeof options.pendingShotFor === "function") {
+    bodyHtml = replacePendingPictures(bodyHtml, options.pendingShotFor);
+  }
   if (typeof options.resolveImageSrc === "function") {
     bodyHtml = bodyHtml.replace(ASSET_SRC_RE, (full, assetName) => {
       const resolved = options.resolveImageSrc(assetName);
@@ -1068,6 +1073,7 @@ ${page.html}
       border: 1px solid var(--border-strong);
       margin: 10px 0 6px;
     }
+    ${PENDING_SHOT_CSS}
     .lab-article details {
       margin: 16px 0;
       padding: 12px 16px;

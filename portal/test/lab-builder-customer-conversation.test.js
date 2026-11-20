@@ -10,6 +10,7 @@ import { generateLab } from "../lib/lab-builder/generator.js";
 import { planLab } from "../lib/lab-builder/planner.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
 import { validateLabDir } from "../lib/validator.js";
+import { stripHarnessSuffix } from "../lib/lab-builder/module-names.js";
 
 process.env.LAB_BUILDER_LINK_CHECK = "off";
 process.env.LAB_BUILDER_VENDOR_DOCS = "off";
@@ -99,7 +100,7 @@ test("a full Customer Conversation lab generates and passes the lab validator", 
   const markdown = readFileSync(join(result.outputDir, "index.md"), "utf8");
   assert.match(markdown, /written for the Customer Conversation harness/);
   assert.match(markdown, /How this differs on the Microsoft Copilot harness/);
-  for (const f of ccFeatures()) assert.ok(markdown.includes(f.name), `${f.name} is in the lab`);
+  for (const f of ccFeatures()) assert.ok(markdown.includes(stripHarnessSuffix(f.name)), `${f.name} is in the lab`);
 
   const again = validateLabDir(result.outputDir, { labId: "cc-sample", title: "cc-sample" });
   assert.equal(again.failed, 0, JSON.stringify(again.tests.filter((x) => x.status === "fail")));

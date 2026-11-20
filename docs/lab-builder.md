@@ -1358,6 +1358,18 @@ the signal that a catalog entry has gone stale. The manifest also carries each
 module's `catalog: { lastVerified, verifiedAgainst }`, so a reviewer can see how
 old the curated entry behind a module is, whichever path its steps took.
 
+**A step is never cut in the middle.** A Learn step that lists choices under it (a bulleted list
+under "You can:") becomes one line with lettered choices: "...add a source. You can: (a) Drag and
+drop files...; (b) Search for a knowledge source...". Choices that do not fit within
+`MAX_STEP_LENGTH` (700 characters) are left out whole, never half-written, and the step says
+"more in the linked article". A step that is longer than the limit ends at its last full sentence.
+Summaries follow the same rule: `cleanText()` shortens at a sentence end when one fits (or at a word
+end with an ellipsis), and `tidySummary()` repairs a summary an earlier build cut off in the middle
+of a word, so topic caches and the committed snapshot never put a half-sentence into a lab. The
+"From the docs" quote is the first prose of the page excerpt (not a heading or a run-together
+numbered list) and ends at a sentence. The lab gate (see [Lab gate](#lab-gate-what-a-teacher-would-trip-over))
+reports any that slip through.
+
 ### 4b. Opt-in: grounded step synthesis
 
 > **Prototype.** Off unless you pass `--synthesize-steps` (CLI) or
@@ -1486,9 +1498,10 @@ screenshot a well-written lab would show gets a slot instead:
   no product UI. `tools/screenshot-capture` and the feature tour treat any image
   under 5 KB, and any placeholder picture whatever its size, as missing, so the
   capture tool overwrites it in place and the lab's
-  Markdown never has to change. The portal preview reads the files on disk each
-  time and adds a visible "Screenshot pending." note after every image that is
-  still a placeholder.
+  Markdown never has to change. The portal preview and the standalone HTML read the files on disk each
+  time and show a **Screenshot to add** card in place of every image that is still a placeholder: the figure
+  number, what the picture should show (its alt text), and the capture steps from the slot in `shots.json`
+  (`pending-shot-card.js`). The Markdown, Word, PowerPoint, and PDF files keep the neutral placeholder picture.
 - **Captured slots.** Screenshots captured for the feature tour (all six products) land in the shared
   library (`docs/feature-tour/screenshots/`, or the persistent `screenshots/` storage folder in the
   portal; see [Screenshot Center](#screenshot-center-the-local-capture-companion-and-paste-or-upload)) under the catalog's filenames. When a
@@ -1554,8 +1567,8 @@ Where it applies:
 - **Uploads and captures.** `verifyImage` (used by the portal for every upload and by the companion before it uploads) fails a placeholder with the
   reason code `placeholder` and the message "This is a placeholder picture, not a screenshot of the product." The companion's local check
   (`verifyCapturedImageBuffer`), `capture.js --missing`, `verify-shots.js`, `status.mjs`, and the feature tour use the same detector.
-- **Preview and exports.** The preview adds the standard "Screenshot pending." note and serves the standard pending image; the HTML, Word,
-  PowerPoint, PDF, facilitator guide, and ZIP exports treat the slot exactly like any other pending slot.
+- **Preview and exports.** The preview and the standalone HTML show the **Screenshot to add** card (a filler picture is never shown); the Word,
+  PowerPoint, PDF, facilitator guide, and ZIP exports use the standard pending image and treat the slot exactly like any other pending slot.
 - **`validate_labs.py`.** Lists every placeholder picture a lab shows as a warning (rule `no-placeholder-images`). It never fails the build.
 
 **Adding a new known placeholder.** Stamp files from a new generator with the marker (Pillow:
@@ -2144,6 +2157,15 @@ with no language label (`code-fence-language`).
 [`scripts/lab-validation-rules.json`](../scripts/lab-validation-rules.json) records
 which validator owns each rule.
 
+**Titles and module names.** A lab title names one or two modules ("Retail: Build a Store Support
+Assistant with Create an agent and Agent details and instructions") and otherwise the product
+("... with Microsoft Copilot Studio on the Microsoft Copilot harness"); it never lists harness-suffixed
+catalog names and stays under about 100 characters (`module-names.js`). Inside a lab written for one
+harness, module names drop the catalog's "(Microsoft Copilot harness)" suffix, because every Copilot Studio
+lab has a **HARNESS** row in its header table. A mixed-harness lab, or one where dropping the suffix would make
+two modules share a name, keeps the suffix. Grounding and step reading still use the catalog names;
+only the composed lab, the quality review, and `manifest.json` use the plain ones.
+
 Before composition, every URL the lab is about to embed is requested once
 (`linkcheck.js`). This is the liveness check `validateLabDir()` cannot do — it is
 structural, and `parseImageRefs` skips anything with an `http:` scheme, so until
@@ -2232,6 +2254,16 @@ built from text the catalog already vets, so none invents a UI path, a limit, or
 URL. A catalog feature may supply `expectedResults` (list of strings) or
 `troubleshooting` (list of `{ symptom, fix }`) to override the defaults. Time
 estimates stay guidance only: no block is dropped to fit a time.
+
+**What a real tenant showed.** Live Learn steps cannot say everything the product does. When a check against a
+real tenant shows something Learn does not state, record it as a `troubleshooting` entry that names it as seen in a
+check against a real tenant and ends with "Not confirmed in Microsoft Learn": for the Microsoft Copilot harness
+that covers the **Search all websites** switch, the two-level limit for public website addresses, the **Add to
+agent** then header **Save** order, the **AI + behavior** and **Advanced** settings tabs, the first-publish dialog
+that shows only **Add channel** and **Publish agent**, 30-character agent names, and the empty Monitor list. Never
+put such a fact in `concepts` or `steps`: concepts feed the quiz and the "Watch for this" cautions, and a quiz never
+asks about text that says "Not confirmed in Microsoft Learn" (`isUnreviewedText()` in `teaching.js`). Identifiers from
+the tenant never go in the catalog.
 
 #### `Required By` administrator prerequisites (`admin-prereqs.js`)
 
@@ -2364,6 +2396,40 @@ the `/api/lab-builder/generate` response as `qa`, and as a summary in
 `manifest.json` (`quality`). The validators separately enforce the product name
 (`harness-terminology` in `validator.js`; inside `accessible-markdown` in
 `validate_labs.py`).
+
+#### Lab gate (what a teacher would trip over)
+
+The quality review above scores structure, so a lab with cut-off steps can still score 98. The lab
+gate (`portal/lib/lab-builder/lab-gate.js`) reads the substance of every module and reports it in
+plain language. It is deterministic, never touches the network, and works on generated labs and on
+the hand-written labs under `labs/`. Each finding has one of three severities:
+
+| Severity | Meaning | Examples |
+|---|---|---|
+| `gap` (shown as **Fix**) | A learner could be blocked or misled | A step cut off with `...` (`cut-off-step`), several sub-steps run together on one line (`fused-substeps`), a sentence cut in the middle of a word (`cut-off-text`), a module with no steps or no Check your work list, a quiz whose correct answer is the Learn-derived disclaimer (`quiz-teaches-disclaimer`), wording the Microsoft Copilot harness no longer uses (`stale-ui-wording`: Overview, Instructions, or Publish *page*) |
+| `polish` | Works, but looks unfinished | Pictures that are still placeholders (`pending-picture`, checked against the lab's assets and the shared library), a module with no picture, a Check your work list that only says to follow the article, generic-only troubleshooting, obviously wrong quiz answers (`quiz-filler-answers`), a title over 110 characters |
+| `note` | An honest flag, expected on Learn-derived content | `[Unverified]` lines and passages marked "Not confirmed in Microsoft Learn" |
+
+The grade is **Ready to teach** (nothing found), **Almost ready** (polish only), **Needs fixes**
+(gaps in fewer than half of the modules), or **Not ready** (gaps in half or more).
+
+Where to see it:
+
+- **Portal:** **Validate** on a generated lab shows **Lab health** above the structural checks, with the first
+  ten items to fix and the not-confirmed notes folded away. `GET /api/lab-builder/generated/:labId/gate`
+  returns the full report; `GET .../validate` returns it as `health`.
+- **Manifest:** `manifest.json` records `gate` (`grade`, `gaps`, `polish`, `notes`, `pendingPictures`) at build time.
+  The CLI build prints the same line.
+- **CLI:** `npm run lab-gate` scans `labs/` and `generated-labs/`; pass a lab folder or a folder of labs,
+  `--all` to include the notes, `--json` for the full report, and `--fail-on gap` to exit 1 when any lab has a gap.
+
+```bash
+npm run lab-gate -- generated-labs
+npm run lab-gate -- labs/12-content-moderation-responsible-ai --all
+```
+
+Fix what it finds in the generator or the catalog, not by editing single labs: a pattern that shows up in
+many labs (for example cut-off steps) is a generator bug.
 
 ---
 
@@ -2577,7 +2643,18 @@ steps, so the lab says so: the module is marked **[Unverified]**, its steps are 
 from the Learn article by the same derivation path as catalog features (and by the
 opt-in model synthesis, which keeps only steps that verify against the page), and
 when nothing can be derived the module tells the learner to follow the article.
-Nothing is invented. The Learn title and summary are always quoted as untrusted
+Nothing is invented. A module for a new topic has **no quiz**: the knowledge check is built only from reviewed
+content (why it matters, a verified outcome, a reviewed concept), so a Learn-only module says "No quiz for this
+topic" instead of asking about its own disclaimer, and the facilitator guide's answer key leaves it out too.
+**Pictures and trust.** When steps could be read from the article, the module gets two screenshot slots,
+`<topic-id>-start.png` (where the procedure starts) and `<topic-id>-result.png` (what it ends on), with the capture
+instructions pointing at the module's own first and last step (`derivedSlotsForTopic()` in `slots.js`). Nothing is
+guessed about the screen, the slots are in `shots.json` and the shot list like any other, and the Screenshot Center
+treats them as steps you do yourself, because the computer cannot know where an unreviewed topic's screen is. A
+module whose procedure could not be read gets no pictures. **How This Lab Was Built** lists every new-on-Learn module
+with how far to trust it ("steps read from its Learn article, not checked against the product" or "no procedure could
+be read, so follow the linked article").
+The Learn title and summary are always quoted as untrusted
 data in any model prompt and never placed in its instructions.
 
 **Where the list comes from, and what happens offline.** In order: the runtime

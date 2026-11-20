@@ -23,7 +23,8 @@ import {
   isBoilerplateSummary,
   resolveTopicAlias,
 } from "../lib/lab-builder/topic-consolidate.js";
-import { cleanText, normalizeLearnUrl, topicId } from "../lib/lab-builder/topic-sanitize.js";
+import { cleanText, normalizeLearnUrl, tidySummary, topicId } from "../lib/lab-builder/topic-sanitize.js";
+import { knowledgeCheckBlock } from "../lib/lab-builder/teaching.js";
 import { listHash, summarize, validateSnapshot } from "../lib/lab-builder/topic-snapshot.js";
 import { createTopicService, resetTopicSource, setTopicSource, topicConfig } from "../lib/lab-builder/topic-store.js";
 import { registerTopicRoutes, topicsPayload } from "../lib/lab-builder/topic-api.js";
@@ -1023,4 +1024,40 @@ test("committed learn-topics.snapshot.json is consolidated, valid, and free of b
   assert.ok(mcpCert.subtopics.some((sub) => sub.id === "learn-mcp-certification"));
   const reConsolidated = consolidateSnapshot(snap);
   assert.equal(reConsolidated.listHash, snap.listHash);
+});
+
+test("summaries are cut at a sentence end, and one an earlier build cut mid-word is repaired", () => {
+  const long = `${"A child agent is a lightweight agent inside your main agent. ".repeat(3)}They are ideal for single use cases that respond to a single intent or complete a single task and are described in this article`;
+  const cut = cleanText(long, 200);
+  assert.ok(cut.length <= 200);
+  assert.match(cut, /\.$/);
+  assert.doesNotMatch(cut, /\u2026/);
+  assert.equal(tidySummary("A child agent is a lightweight agent inside your main agent. This articl\u2026"), "A child agent is a lightweight agent inside your main agent.");
+  assert.equal(tidySummary("Short and complete."), "Short and complete.");
+  const feature = topicToFeature({
+    id: "learn-x",
+    title: "Add a child agent",
+    summary: "A child agent is a lightweight agent inside your main agent. This articl\u2026",
+    urls: ["https://learn.microsoft.com/microsoft-copilot-studio/x"],
+    harnesses: ["standard"],
+    conceptId: "uncategorized",
+    status: "new",
+  });
+  assert.equal(feature.summary, "A child agent is a lightweight agent inside your main agent.");
+});
+
+test("a Learn-only topic never gets a quiz whose answers are its own disclaimer", () => {
+  const feature = topicToFeature({
+    id: "learn-x",
+    title: "Add a child agent",
+    summary: "A child agent is a lightweight agent inside your main agent.",
+    urls: ["https://learn.microsoft.com/microsoft-copilot-studio/x"],
+    harnesses: ["standard"],
+    conceptId: "uncategorized",
+    status: "new",
+  });
+  const u = { esc: (s) => s, scrub: (s) => s, bullets: (items) => items.map((i) => `- ${i}`).join("\n"), lowerFirst: (s) => s };
+  const lines = knowledgeCheckBlock({ ...feature, stepOrder: 1 }, { profile: { agentName: "Helper" }, includeKnowledgeCheck: true }, u, null).join("\n");
+  assert.doesNotMatch(lines, /Question \d|Correct answer|was found on Microsoft Learn/);
+  assert.match(lines, /No quiz for this topic/);
 });

@@ -26,6 +26,7 @@ import { buildPdfFromLabMarkdown } from "./pdf-builder.js";
 import { parseTopicMarkdownStructure } from "./pptx-builder.js";
 import { DEFAULT_PRODUCT, productName, productOf, productsPhrase } from "./products.js";
 import { parseMinutes } from "./qa.js";
+import { isUnreviewedText } from "./teaching.js";
 import {
   featureRequiresSharepointSite,
   labRequiresSharepointSite,
@@ -300,7 +301,7 @@ export function synthesizeModuleKnowledgeChecks({
   );
   const whyConcise = conciseSentence(whyFull, 160);
   const whySource = pickLearnSource(`${cleanName} ${whyFull}`);
-  rawQuestions.push({
+  if (!isUnreviewedText(feature?.whyItMatters || feature?.summary)) rawQuestions.push({
     prompt: `Why do you configure ${cleanName} for ${cleanAgent} in this scenario?`,
     correct: whyConcise,
     distractors: [
@@ -318,7 +319,7 @@ export function synthesizeModuleKnowledgeChecks({
     parsedTopic?.checkYourWork?.[0]?.text ||
     parsedTopic?.expectedResults?.[0] ||
     `Verify ${cleanName} responds accurately in the interactive test pane.`;
-  if (verifyRaw) {
+  if (verifyRaw && !isUnreviewedText(verifyRaw)) {
     const verifyFull = ensurePeriod(verifyRaw);
     const secondaryVerify = feature?.validation?.[1]
       ? ` Also verify: ${ensurePeriod(feature.validation[1])}`
@@ -341,16 +342,18 @@ export function synthesizeModuleKnowledgeChecks({
     ...(feature?.concepts || []),
     ...(manifestMod?.trainingDigest?.concepts || []),
     ...(parsedTopic?.concepts || []),
-  ];
+  ].filter((c) => !isUnreviewedText(c));
   const cautionConcept = conceptsPool.find((c) => CAUTION_RE.test(c));
   const conceptRaw =
     cautionConcept ||
     conceptsPool[0] ||
     (feature?.troubleshooting?.[0]?.fix
       ? `${feature.troubleshooting[0].symptom} ${feature.troubleshooting[0].fix}`
-      : `Scope ${cleanName} permissions and environment settings before publishing to end users.`);
+      : feature?.learnTopic
+        ? null
+        : `Scope ${cleanName} permissions and environment settings before publishing to end users.`);
 
-  if (conceptRaw) {
+  if (conceptRaw && !isUnreviewedText(conceptRaw)) {
     const conceptFull = ensurePeriod(conceptRaw);
     const conceptSource = pickLearnSource(`${cleanName} ${conceptFull}`);
     rawQuestions.push({

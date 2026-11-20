@@ -3950,6 +3950,14 @@
     .preview-frame details a { color: var(--link-color); text-decoration: underline; }
     .preview-frame img { max-width: 100%; height: auto; border: 1px solid var(--border-strong); border-radius: 6px; margin: 10px 0 6px; }
     .preview-frame .shot-pending { color: var(--text); }
+    /* "Screenshot to add" card: shown in place of a picture that has not been captured yet. */
+    .lab-shot-card { display: block; margin: 14px 0; padding: 14px 16px; border: 1px dashed var(--border-strong); border-radius: 10px; background: var(--preview-muted-bg, var(--surface-alt, transparent)); color: var(--text); font-size: 0.95rem; line-height: 1.55; }
+    .lab-shot-card > span { display: block; }
+    .lab-shot-card .lab-shot-card-label { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-weight: 600; color: var(--text-muted); }
+    .lab-shot-card .lab-shot-card-figure { font-weight: 400; margin-left: 6px; }
+    .lab-shot-card .lab-shot-card-how { margin-top: 8px; }
+    .lab-shot-card .lab-shot-card-steps { margin: 4px 0 0; padding-left: 22px; }
+    .lab-shot-card .lab-shot-card-steps li { margin: 2px 0; }
     .preview-frame th { background: var(--preview-muted-bg); font-weight: 600; }
     .preview-frame blockquote { border: 1px solid var(--border-strong); background: var(--preview-muted-bg); border-radius: 8px; padding: 12px 16px; color: var(--text); margin: 16px 0; }
     .preview-frame .mermaid { margin: 20px 0; text-align: center; background: var(--preview-muted-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 16px; overflow-x: auto; }

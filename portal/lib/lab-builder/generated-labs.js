@@ -20,6 +20,7 @@ import { getLabScreenshotsStatus, repairLabPlaceholders } from "./lab-screenshot
 import { summarizeLabLearnDrift } from "./learn-drift-dashboard.js";
 import { splitGeneratedLabModules } from "./module-samples.js";
 import { isPlaceholder } from "./placeholder-detect.js";
+import { altOfTag, loadShotSlots, replacePendingPictures } from "./pending-shot-card.js";
 import { PLACEHOLDER_PATH } from "./slots.js";
 import {
   ALLOWED_TOPIC_DOC_FORMATS,
@@ -59,21 +60,27 @@ const LIST_REPAIR_INTERVAL_MS = 30_000;
  */
 export function decorateGeneratedHtml(html, labId, labDir, { capturedDir = capturedScreenshotsDirs() } = {}) {
   const pending = [];
-  const decorated = String(html).replace(/<img\b[^>]*>/gi, (tag) => {
-    const src = tag.match(/\bsrc="assets\/([^"]+)"/i);
-    if (!src || !ASSET_NAME.test(src[1])) return tag;
-    const name = src[1];
-    const next = tag.replace(src[0], `src="/api/lab-builder/generated/${labId}/assets/${name}"`);
-    const file = join(labDir, "assets", name);
+  const slots = loadShotSlots(labDir);
+  const isCaptured = (name) => {
     let size = 0;
     try {
-      size = statSync(file).size;
+      size = statSync(join(labDir, "assets", name)).size;
     } catch {
       /* a missing file is pending too */
     }
-    if ((size >= MIN_CAPTURED_BYTES && !isPlaceholder(file)) || capturedImage(capturedDir, name)) return next;
-    pending.push(name);
-    return `${next}<br><strong class="shot-pending">Screenshot pending.</strong> The image will appear here once it is captured.`;
+    return (size >= MIN_CAPTURED_BYTES && !isPlaceholder(join(labDir, "assets", name))) || Boolean(capturedImage(capturedDir, name));
+  };
+  // A pending picture becomes a "Screenshot to add" card with what it should show and how to capture it.
+  const withCards = replacePendingPictures(String(html), (tag) => {
+    const src = tag.match(/\bsrc="assets\/([^"]+)"/i);
+    if (!src || !ASSET_NAME.test(src[1]) || isCaptured(src[1])) return null;
+    pending.push(src[1]);
+    return { filename: src[1], slot: slots.get(src[1]) || null, alt: altOfTag(tag) };
+  });
+  const decorated = withCards.replace(/<img\b[^>]*>/gi, (tag) => {
+    const src = tag.match(/\bsrc="assets\/([^"]+)"/i);
+    if (!src || !ASSET_NAME.test(src[1])) return tag;
+    return tag.replace(src[0], `src="/api/lab-builder/generated/${labId}/assets/${src[1]}"`);
   });
   return { html: decorated, pending };
 }

@@ -68,8 +68,14 @@ function sentenceList(items) {
 
 /** Trim a Learn excerpt down to a quotable, single-paragraph snippet. */
 function condense(text, maxLength = 420) {
-  const clean = String(text || "")
-    .replace(/```[\s\S]*?```/g, " ")
+  const stripped = String(text || "").replace(/```[\s\S]*?```/g, " ");
+  // A quote is prose. Headings, numbered steps, callouts, and table rows run together read as noise.
+  const prose = stripped
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !/^(?:#{1,6}\s|>|\||(?:\d+(?:\.\d+)*\.|[-*+])\s)/.test(line))
+    .join(" ");
+  const clean = String(prose.length >= 60 ? prose : stripped)
     // Learn tables carry <br> and similar tags; drop them before ">" is stripped below, which would leave "<br" behind.
     .replace(/<\/?(?:br|hr|p|div|span|ul|ol|li|table|thead|tbody|tr|td|th|b|i|em|strong|code|pre|a|sup|sub|img|h[1-6])\b[^<>]*>/gi, " ")
     .replace(/^#{1,6}\s+/gm, "")
@@ -80,8 +86,11 @@ function condense(text, maxLength = 420) {
     .trim();
   if (clean.length <= maxLength) return clean;
   const cut = clean.slice(0, maxLength);
-  const lastStop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("; "));
-  return `${(lastStop > 120 ? cut.slice(0, lastStop) : cut).trim()}...`;
+  const stops = [...cut.matchAll(/[.!?](?=\s|$)/g)].map((match) => match.index + 1);
+  const lastStop = stops.length ? stops[stops.length - 1] : -1;
+  if (lastStop > 60) return cut.slice(0, lastStop).trim();
+  const space = cut.lastIndexOf(" ");
+  return `${cut.slice(0, space > 60 ? space : maxLength).replace(/[\s,;:(-]+$/, "")}...`;
 }
 
 /**
@@ -171,6 +180,7 @@ function metadataTable(plan, generation = {}) {
     `| 🎚️ **LEVEL** | ${levelName(plan.level)} |`,
     `| ⏱️ **TIME** | About ${plan.duration} (estimate, not a limit) |`,
     `| 🧩 **PRODUCTS** | ${productsRow(plan)} |`,
+    plan.harness ? `| 🧭 **HARNESS** | ${getHarnesses().find((h) => h.id === plan.harness)?.name || plan.harness} |` : null,
     `| 🏷️ **TAGS** | ${tags} |`,
     `| 🏭 **INDUSTRIES** | ${industries} |`,
     freshnessRow(generation),
@@ -970,7 +980,20 @@ function vendorParagraph(vendor, plan) {
   ].join(" ");
 }
 
-function howToUseSection(plan, generation) {
+/** Which modules cover a topic that is new on Microsoft Learn, and how far to trust each one's steps. */
+function unreviewedTopicsParagraph(plan, stepsByFeature) {
+  const topics = plan.features.filter((f) => f.learnTopic && !f.prerequisite);
+  if (!topics.length) return null;
+  const items = topics.map((f) => {
+    const record = stepsByFeature?.get?.(f.id);
+    const label = f.stepLabel || `Step ${f.stepOrder ?? f.order}`;
+    const read = record?.source === "doc-derived" || record?.stepsInSubtopics || record?.source === "llm-verified";
+    return `${label} (${scrubForbidden(f.name)}): ${read ? "steps read from its Learn article, not checked against the product" : "no procedure could be read, so follow the linked article"}`;
+  });
+  return `**Topics that are new on Microsoft Learn.** ${topics.length} of ${plan.features.length} module${plan.features.length === 1 ? "" : "s"} cover a topic that is not in this repository's reviewed catalog yet: ${items.join("; ")}. They have no quiz, and nothing in them has been checked against the product by hand, so try each one in your own environment before you teach it.`;
+}
+
+function howToUseSection(plan, generation, stepsByFeature) {
   const grounded = generation.groundedFeatures;
   const derived = generation.docDerivedFeatures ?? 0;
   const verifiedCurated = generation.verifiedCuratedFeatures ?? 0;
@@ -1034,6 +1057,7 @@ function howToUseSection(plan, generation) {
     "",
     narrativeParagraph({ provider, grounded, synthesized, total, plural, generation }),
     "",
+    ...(unreviewedTopicsParagraph(plan, stepsByFeature) ? [unreviewedTopicsParagraph(plan, stepsByFeature), ""] : []),
     // Issue #41's second half. Generated labs live outside `labs/`, are
     // git-ignored, and are therefore never seen by the monthly accuracy audit
     // that re-checks the hand-written labs. Rather than imply a recurring check
@@ -1142,7 +1166,7 @@ export function composeLab(
     "",
     completeSection(plan),
     "",
-    howToUseSection(plan, generation),
+    howToUseSection(plan, generation, stepsByFeature),
     "",
     renderAdminPrerequisitesMarkdown(adminPrereqs),
     "",

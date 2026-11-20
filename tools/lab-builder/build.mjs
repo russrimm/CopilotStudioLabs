@@ -556,6 +556,12 @@ for (const test of validation.tests.filter((t) => t.status !== "pass")) {
 }
 
 console.log(`\n${formatQaReport(result.qa)}`);
+const gateSummary = result.manifest.gate;
+if (gateSummary) {
+  console.log(
+    `Lab gate    ${gateSummary.grade}: ${gateSummary.gaps} gap(s), ${gateSummary.polish} polish item(s), ${gateSummary.pendingPictures} pending picture(s), ${gateSummary.notes} not-confirmed note(s). Details: node tools/lab-builder/lab-gate.mjs "${result.outputDir}"`,
+  );
+}
 console.log(`\nOpen ${path.join(result.outputDir, "index.md")} to start the lab.`);
 if (result.manifest.screenshots.toCapture) {
   console.log(

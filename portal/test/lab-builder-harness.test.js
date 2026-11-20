@@ -6,6 +6,8 @@ import { join } from "node:path";
 
 import { getFeature, getFeatures, getFeaturesByCategory, getHarnesses, LEVELS, validateCatalog } from "../lib/lab-builder/catalog.js";
 import { planLab } from "../lib/lab-builder/planner.js";
+import { plainModuleNames, stripHarnessSuffix } from "../lib/lab-builder/module-names.js";
+import { knowledgeCheckBlock } from "../lib/lab-builder/teaching.js";
 import { containsPhrase, normalizeText } from "../lib/step-validator/text.js";
 
 process.env.LAB_BUILDER_LINK_CHECK = "off";
@@ -158,6 +160,37 @@ test("every harness's full module set generates a complete lab that passes the p
     }
     assert.equal(lab.status, "complete", `${harness}: ${lab.blockers.map((b) => b.code)}`);
     assert.equal(lab.validation.failed, 0, `${harness}: ${lab.validation.tests.filter((t) => t.status === "fail").map((t) => t.name)}`);
-    for (const f of features) assert.ok(lab.markdown.includes(getFeature(f).name), `${harness}: ${f} is missing from the lab`);
+    for (const f of features) assert.ok(lab.markdown.includes(stripHarnessSuffix(getFeature(f).name)), `${harness}: ${f} is missing from the lab`);
   }
+});
+test("lab titles name the product, not a list of harness-suffixed modules, and module names drop a repeated harness suffix", () => {
+  const five = ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-preview-test", "mc-publish-agent"];
+  const many = planLab({ features: five, harness: "microsoft-copilot", products: ["copilot-studio"] });
+  assert.match(many.title, /^Cross-industry: Build an? .+ with Microsoft Copilot Studio on the Microsoft Copilot harness$/);
+  assert.ok(many.title.length <= 110, `title is ${many.title.length} characters`);
+
+  const two = planLab({ features: ["mc-create-agent", "mc-instructions"], harness: "microsoft-copilot", products: ["copilot-studio"] });
+  assert.doesNotMatch(two.title, /harness\)/);
+  assert.match(two.title, /with Create an agent and Agent details and instructions$/);
+
+  const plain = plainModuleNames(many.features, many.harness).map((f) => f.name);
+  assert.ok(plain.every((name) => !/\(.*harness\)/.test(name)), plain.join(" | "));
+  assert.equal(plainModuleNames(many.features, "standard"), many.features, "a different harness leaves names alone");
+  const clash = [{ name: "Create an agent" }, { name: "Create an agent (Microsoft Copilot harness)" }];
+  assert.equal(plainModuleNames(clash, "microsoft-copilot"), clash, "never make two modules share one name");
+});
+
+test("Microsoft Copilot harness modules carry what a real tenant showed, flagged as not confirmed, and never quiz on it", () => {
+  const knowledge = JSON.stringify(getFeature("mc-knowledge").troubleshooting);
+  for (const phrase of [/Search all websites/, /two levels/, /Add to agent/, /Save\*\* in the agent header/]) assert.match(knowledge, phrase);
+  assert.match(JSON.stringify(getFeature("mc-agent-settings-security").troubleshooting), /AI \+ behavior/);
+  assert.match(JSON.stringify(getFeature("mc-publish-agent").troubleshooting), /Add channel/);
+  for (const id of ["mc-knowledge", "mc-instructions", "mc-create-agent", "mc-agent-settings-security", "mc-publish-agent", "mc-monitor"]) {
+    const observed = getFeature(id).troubleshooting.filter((entry) => /real tenant/.test(entry.fix));
+    assert.ok(observed.length, `${id} records what the tenant showed`);
+    for (const entry of observed) assert.match(entry.fix, /Not confirmed in Microsoft Learn/, `${id}: ${entry.symptom}`);
+  }
+  const u = { esc: (s) => s, scrub: (s) => s, bullets: (items) => items.map((i) => `- ${i}`).join("\n"), lowerFirst: (s) => s };
+  const quiz = knowledgeCheckBlock({ ...getFeature("mc-publish-agent"), stepOrder: 1 }, { profile: { agentName: "Helper" }, includeKnowledgeCheck: true }, u, null).join("\n");
+  assert.doesNotMatch(quiz, /real tenant|Not confirmed in Microsoft Learn/);
 });

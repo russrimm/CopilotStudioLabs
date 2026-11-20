@@ -50,6 +50,11 @@ function firstSentence(text) {
   return (match ? match[0] : String(text || "")).trim();
 }
 
+/** True for text that only says a topic is unreviewed or restates its Learn summary; none of it can be a quiz answer. */
+export function isUnreviewedText(text) {
+  return /^\s*\[Unverified\]|^\s*Microsoft Learn describes this topic as\b|was found on Microsoft Learn and is not yet part of|Not confirmed in Microsoft Learn/i.test(String(text || ""));
+}
+
 /** Caller-supplied text inside a code fence: it must not be able to close the fence or add markup. */
 function plain(text) {
   return String(text ?? "").replace(/[`<>*_~|\[\]\\\r\n]+/g, " ").replace(/\s+/g, " ").trim();
@@ -177,7 +182,8 @@ export function knowledgeCheckBlock(feature, plan, u, grounding) {
   const whyFull = ensureStop(u.scrub(feature.whyItMatters || feature.summary));
   const whyConcise = conciseSentence(whyFull, 160);
   const whyRef = learnReferenceLink(learnSources, `${feature.name} ${feature.whyItMatters || feature.summary || ""}`, u);
-  questions.push({
+  // Text about an unreviewed topic is a disclaimer, not content: a quiz must never ask for it as the right answer.
+  if (!isUnreviewedText(feature.whyItMatters || feature.summary)) questions.push({
     prompt: `Why do you configure **${name}** for **${agent}** in this scenario?`,
     correct: whyConcise,
     distractors: [
@@ -190,7 +196,7 @@ export function knowledgeCheckBlock(feature, plan, u, grounding) {
   });
 
   const verifyRaw = feature.validation?.[0] || feature.expectedResults?.[0];
-  if (verifyRaw) {
+  if (verifyRaw && !isUnreviewedText(verifyRaw)) {
     const verifyFull = ensureStop(u.scrub(verifyRaw));
     const secondaryVerify = feature.validation?.[1] ? ` Also verify: ${ensureStop(u.scrub(feature.validation[1]))}` : "";
     const verifyRef = learnReferenceLink(
@@ -213,12 +219,12 @@ export function knowledgeCheckBlock(feature, plan, u, grounding) {
     });
   }
 
-  const cautionConcept = (feature.concepts || []).find((c) => CAUTION.test(c));
+  const cautionConcept = (feature.concepts || []).find((c) => CAUTION.test(c) && !isUnreviewedText(c));
   const conceptRaw =
     cautionConcept ||
-    (feature.concepts || [])[0] ||
+    (feature.concepts || []).find((c) => !isUnreviewedText(c)) ||
     (feature.troubleshooting?.[0]?.fix ? `${feature.troubleshooting[0].symptom} ${feature.troubleshooting[0].fix}` : null);
-  if (conceptRaw) {
+  if (conceptRaw && !isUnreviewedText(conceptRaw)) {
     const conceptFull = ensureStop(u.scrub(conceptRaw));
     const conceptRef = learnReferenceLink(learnSources, `${feature.name} ${conceptRaw}`, u);
     questions.push({
@@ -236,7 +242,16 @@ export function knowledgeCheckBlock(feature, plan, u, grounding) {
     });
   }
 
-  if (!questions.length) return [];
+  if (!questions.length) {
+    return feature.learnTopic
+      ? [
+          "",
+          "**Knowledge check: Lesson mini-quiz**",
+          "",
+          "*No quiz for this topic. It is new on Microsoft Learn and not in the reviewed catalog yet, so there is no verified content to ask about. Use the Check your work list instead.*",
+        ]
+      : [];
+  }
 
   const lines = [
     "",
