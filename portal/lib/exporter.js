@@ -47,6 +47,15 @@ import {
   renderFacilitatorGuidePdfBuffer,
 } from "./lab-builder/facilitator-guide.js";
 import { renderLabMarkdown } from "./markdown.js";
+import { buildPrerequisitesChecklist } from "./lab-builder/prereq-checklist.js";
+import { renderPrerequisitesChecklistHtml } from "./lab-builder/prereq-checklist-html.js";
+import { renderPrerequisitesChecklistDocxBuffer } from "./lab-builder/prereq-checklist-docx.js";
+import { renderPrerequisitesChecklistPdfBuffer } from "./lab-builder/prereq-checklist-pdf.js";
+import {
+  PREREQUISITES_FORMATS,
+  normalizePrerequisitesFormat,
+  renderPrerequisitesChecklistFile,
+} from "./lab-builder/prereq-checklist-render.js";
 
 const SAFE_GENERATED_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
 const ALLOWED_DOC_FORMATS = ["docx", "pptx", "pdf", "html"];
@@ -191,7 +200,7 @@ function appendBrandInfo(markdown, brand) {
 }
 
 /** README.md placed at the root of every generated-lab bundle. */
-export function renderBundleReadme({ title, brand, formats = [], modules = [], hasFacilitatorGuide = true } = {}) {
+export function renderBundleReadme({ title, brand, formats = [], modules = [], hasFacilitatorGuide = true, customerChecklistFile = null } = {}) {
   const b = normalizeBrand(brand);
   const site = getBrandSharepointSite(b);
   const lines = [`# ${title || "Lab bundle"}`, ""];
@@ -202,6 +211,7 @@ export function renderBundleReadme({ title, brand, formats = [], modules = [], h
   if (formats.length) {
     lines.push(`- One folder per module with the guide in ${formats.map((f) => `.${f}`).join(", ")} and a \`sample-files/\` starter pack.`);
   }
+  if (customerChecklistFile) lines.push(`- \`${customerChecklistFile}\` — only the prerequisites, safe to send to the customer hosting the workshop.`);
   if (hasFacilitatorGuide) lines.push("- `Facilitator Guide/` — the instructor pack for delivering the lab.");
   lines.push("- `assets/` — screenshots used by the guide.");
   if (modules.length) {
@@ -666,6 +676,33 @@ export function renderGeneratedLabFacilitatorPdf(
   return { status: 200, labId: ctx.labId, title: ctx.title, buffer };
 }
 
+export { PREREQUISITES_FORMATS, normalizePrerequisitesFormat };
+
+/**
+ * The standalone "Prerequisites checklist" for a generated lab: only what the customer must have ready,
+ * in Word (`docx`), `pdf`, a single-file web page (`html`), or Markdown (`md`). Works for labs built
+ * before this document existed, because it reads only the saved manifest and `index.md`.
+ */
+export function renderGeneratedLabPrerequisites(
+  generatedRoot,
+  rawLabId,
+  format = "docx",
+  replacements = {},
+  { branding, logoSourcePath, now } = {},
+) {
+  if (!normalizePrerequisitesFormat(format)) return renderPrerequisitesChecklistFile({ format });
+  const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
+  if (found.status !== 200) return { status: found.status, error: found.error };
+  return renderPrerequisitesChecklistFile({
+    manifest: found.manifest,
+    markdown: readFileSync(join(found.labDir, "index.md"), "utf-8"),
+    format,
+    replacements,
+    branding,
+    logoSourcePath,
+    now,
+  });
+}
 /**
  * Create a ZIP archive of a single generated lab, resolving captured assets
  * when available, applying custom branding when configured, and packaging each
@@ -998,6 +1035,24 @@ export function exportGeneratedLab(
       facilitatorFiles.push(facHtmlPath);
     }
 
+    // The one file that is safe to send to the customer: only the prerequisites, at the top of the archive.
+    const checklistFormat = selectedFormats.includes("docx") ? "docx" : selectedFormats.includes("pdf") ? "pdf" : "html";
+    const checklistModel = buildPrerequisitesChecklist({
+      manifest: effectiveManifest,
+      markdown: htmlSourceMd,
+      brand: customizedBranding ? branding : null,
+      replacements,
+    });
+    const customerChecklistFile = `Send to Customer - Prerequisites Checklist - ${facilitatorSafeTitle}.${checklistFormat}`;
+    archive.append(
+      checklistFormat === "docx"
+        ? renderPrerequisitesChecklistDocxBuffer(checklistModel, { branding: docBranding })
+        : checklistFormat === "pdf"
+          ? renderPrerequisitesChecklistPdfBuffer(checklistModel, { branding: docBranding })
+          : renderPrerequisitesChecklistHtml(checklistModel, { branding: htmlBranding || { primaryColor: branding?.primaryColor } }),
+      { name: customerChecklistFile },
+    );
+
     const manifest = {
       exportedAt: new Date().toISOString(),
       source: "generated",
@@ -1007,6 +1062,7 @@ export function exportGeneratedLab(
       overviewFolder: posix.join(labId, split.overview.folderName),
       facilitatorGuideFolder: facilitatorFolder,
       facilitatorGuideFiles: facilitatorFiles,
+      customerPrerequisitesChecklist: customerChecklistFile,
       modules: exportedModules,
       customized: replacementEntries.length > 0 || customizedBranding,
       branding: buildManifestBranding(branding, logoArchivePath),
@@ -1018,6 +1074,7 @@ export function exportGeneratedLab(
         brand: branding,
         formats: selectedFormats,
         modules: exportedModules,
+        customerChecklistFile,
       }),
       { name: "README.md" },
     );

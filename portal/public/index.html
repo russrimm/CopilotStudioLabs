@@ -3124,6 +3124,11 @@
     .lb-gen-dialog h4 { margin: 0 0 10px; font-size: 17px; }
     .lb-gen-dialog p { margin: 0 0 12px; font-size: 14px; }
     .lb-gen-dialog .lb-gen-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 14px; }
+    .lb-prereq-group { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+    .lb-gen-actions .lb-prereq-group { flex: 1 1 100%; padding: 10px 12px; }
+    .lb-prereq-note { margin: 0; font-size: 13px; color: var(--text-muted); }
+    .lb-prereq-dialog { max-width: min(980px, calc(100vw - 32px)); }
+    .lb-prereq-frame { display: block; width: 100%; height: min(62vh, 680px); border: 1px solid var(--border); border-radius: 8px; background: #fff; }
     .lb-edit-banner { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--accent); border-radius: 8px; background: rgba(79, 143, 247, 0.1); font-size: 13px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
     .lb-save-mode { margin: 16px 0 0; }
     .lb-capture-on-build-opt { margin: 14px 0 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
@@ -6389,6 +6394,17 @@
                 <div class="lb-gen-dialog-actions">
                   <button type="button" class="btn" id="lb-gen-delete-cancel">Cancel</button>
                   <button type="button" class="btn btn-danger" id="lb-gen-delete-confirm">Delete lab</button>
+                </div>
+              </dialog>
+
+              <dialog id="lb-prereq-preview-dialog" class="lb-gen-dialog lb-prereq-dialog" aria-labelledby="lb-prereq-preview-title" aria-describedby="lb-prereq-preview-desc">
+                <h4 id="lb-prereq-preview-title">Prerequisites checklist preview</h4>
+                <p id="lb-prereq-preview-desc"></p>
+                <p id="lb-prereq-preview-error" class="lb-error" role="alert"></p>
+                <iframe id="lb-prereq-preview-frame" class="lb-prereq-frame" title="Preview of the prerequisites checklist" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"></iframe>
+                <div class="lb-gen-dialog-actions">
+                  <button type="button" class="btn" id="lb-prereq-preview-close">Close</button>
+                  <button type="button" class="btn btn-primary" id="lb-prereq-preview-download">Download prerequisites checklist</button>
                 </div>
               </dialog>
 

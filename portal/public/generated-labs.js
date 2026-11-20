@@ -238,6 +238,29 @@ function lbZipFormatSelectHtml(labId, title, scopePrefix) {
     </span>`;
 }
 
+/** The prerequisites checklist on its own: one download with a format picker, and a preview of what the customer gets. */
+function lbPrerequisitesGroupHtml(labId, title, scopePrefix) {
+  const safeId = escapeHtml(labId);
+  const safeTitle = escapeHtml(title || "Lab");
+  const base = `${scopePrefix}-prereq-${safeId}`;
+  return `
+    <div class="lb-prereq-group" role="group" aria-label="Prerequisites checklist for ${safeTitle}" aria-describedby="${base}-note">
+      <span class="lb-download-files-label">Prerequisites checklist</span>
+      <p class="lb-prereq-note" id="${base}-note">Only the prerequisites, safe to send to the customer.</p>
+      <div class="lb-download-files-links">
+        <label class="sr-only" for="${base}-format">Format of the prerequisites checklist for ${safeTitle}</label>
+        <select id="${base}-format" class="lb-zip-format-select" data-prereq-format-select data-lab-id="${safeId}">
+          <option value="docx">Word (.docx), recommended</option>
+          <option value="pdf">PDF (.pdf)</option>
+          <option value="html">Web page (.html)</option>
+          <option value="md">Markdown (.md)</option>
+        </select>
+        <button type="button" class="btn btn-sm btn-primary" data-gen-action="export-prereqs" data-lab-id="${safeId}" aria-label="Download prerequisites checklist for ${safeTitle}">Download prerequisites checklist</button>
+        <button type="button" class="btn btn-sm" data-gen-action="preview-prereqs" data-lab-id="${safeId}" aria-label="Preview the prerequisites checklist for ${safeTitle}">Preview</button>
+      </div>
+    </div>`;
+}
+
 function lbGeneratedActionButtonsHtml(labId, title, options = {}) {
   const safeId = escapeHtml(labId);
   const encodedId = encodeURIComponent(labId);
@@ -259,6 +282,7 @@ function lbGeneratedActionButtonsHtml(labId, title, options = {}) {
         ${lbZipFormatSelectHtml(labId, displayTitle, scopePrefix)}
       </div>
     </div>
+    ${lbPrerequisitesGroupHtml(labId, displayTitle, scopePrefix)}
     <div class="lb-result-utility-actions" role="group" aria-label="Lab tools for ${safeTitle}">
       <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">🖨️ Print</button>
       <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>
@@ -921,6 +945,62 @@ async function lbExportGeneratedZip(labId, triggerEl) {
   }
 }
 
+// ── Prerequisites checklist ─────────────────────────────────────────────────
+const LB_PREREQ_FORMATS = ["docx", "pdf", "html", "md"];
+const lbPrereq = { labId: null, format: "docx", trigger: null };
+
+function lbPrereqFormatFor(triggerEl) {
+  const select = triggerEl?.closest?.(".lb-prereq-group")?.querySelector?.("[data-prereq-format-select]");
+  const value = String(select?.value || "docx").toLowerCase();
+  return LB_PREREQ_FORMATS.includes(value) ? value : "docx";
+}
+
+/** Download the prerequisites checklist (Word, PDF, web page, or Markdown) with no other lab content. */
+async function lbDownloadPrerequisites(labId, format = "docx") {
+  if (!labId) return;
+  const kind = LB_PREREQ_FORMATS.includes(format) ? format : "docx";
+  try {
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=prerequisites-${kind}`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Download failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const labTitle = lbResolveDisplayLabTitle(labId);
+    lbDownloadText(`${lbSanitizeFileBase(labTitle, labId)} - Prerequisites checklist.${kind}`, blob, blob.type || "application/octet-stream");
+    toast(`Downloaded the prerequisites checklist for "${labTitle}"`, "success");
+  } catch (err) {
+    toast(`Could not download the prerequisites checklist: ${err.message}`, "error");
+  }
+}
+
+/** Show exactly what the customer will receive, in a dialog, before it is sent. */
+async function lbPreviewPrerequisites(labId, triggerEl) {
+  const dialog = document.getElementById("lb-prereq-preview-dialog");
+  if (!labId || !dialog) return;
+  const frame = document.getElementById("lb-prereq-preview-frame");
+  const desc = document.getElementById("lb-prereq-preview-desc");
+  const error = document.getElementById("lb-prereq-preview-error");
+  lbPrereq.labId = labId;
+  lbPrereq.format = lbPrereqFormatFor(triggerEl);
+  lbPrereq.trigger = triggerEl || null;
+  error.textContent = "";
+  desc.textContent = "Loading the preview...";
+  frame.srcdoc = "";
+  if (!dialog.open) dialog.showModal();
+  document.getElementById("lb-prereq-preview-close")?.focus();
+  try {
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/prerequisites`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    desc.textContent = `This is what the customer gets: ${Number(data.itemCount) || 0} item${Number(data.itemCount) === 1 ? "" : "s"} across ${(data.roles || []).length} role${(data.roles || []).length === 1 ? "" : "s"}, and nothing else from the lab.`;
+    frame.srcdoc = String(data.html || "");
+  } catch (err) {
+    desc.textContent = "";
+    error.textContent = `Could not load the preview: ${err.message}`;
+  }
+}
+
 async function lbPrintGenerated(labId) {
   if (!labId) return;
   const preview = document.getElementById("lb-result-preview");
@@ -1260,6 +1340,8 @@ function lbGenBind() {
       case "edit": lbEditGenerated(labId); break;
       case "export-zip": lbExportGeneratedZip(labId, button); lbChecklistShared(labId); break;
       case "export-html": lbDownloadGeneratedHtml(labId); lbChecklistShared(labId); break;
+      case "export-prereqs": lbDownloadPrerequisites(labId, lbPrereqFormatFor(button)); break;
+      case "preview-prereqs": lbPreviewPrerequisites(labId, button); break;
       case "download": lbDownload(labId); lbChecklistShared(labId); break;
       case "print": lbPrintGenerated(labId); lbChecklistShared(labId); break;
       case "validate": lbValidateGenerated(labId); break;
@@ -1283,6 +1365,14 @@ function lbGenBind() {
   document.getElementById("lb-gen-sort")?.addEventListener("change", (event) => {
     lbGen.sort = event.target.value;
     lbGenRender(`Sorted: ${event.target.selectedOptions[0].textContent}.`);
+  });
+  document.getElementById("lb-prereq-preview-close")?.addEventListener("click", () => document.getElementById("lb-prereq-preview-dialog").close());
+  document.getElementById("lb-prereq-preview-download")?.addEventListener("click", () => lbDownloadPrerequisites(lbPrereq.labId, lbPrereq.format));
+  // Closing with Esc skips the Close button, so focus returns to the button that opened the preview either way.
+  document.getElementById("lb-prereq-preview-dialog")?.addEventListener("close", () => {
+    document.getElementById("lb-prereq-preview-frame").srcdoc = "";
+    lbPrereq.trigger?.focus?.();
+    lbPrereq.trigger = null;
   });
   document.getElementById("lb-gen-delete-cancel")?.addEventListener("click", () => document.getElementById("lb-gen-delete-dialog").close());
   document.getElementById("lb-gen-delete-confirm")?.addEventListener("click", lbGenConfirmDelete);

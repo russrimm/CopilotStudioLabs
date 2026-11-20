@@ -26,6 +26,7 @@ import {
   renderGeneratedLabMarkdown,
   renderGeneratedLabPdf,
   renderGeneratedLabPptx,
+  renderGeneratedLabPrerequisites,
   resolveSafeGeneratedLabDir,
 } from "./lib/exporter.js";
 import { sendMail } from "./lib/mailer.js";
@@ -825,6 +826,9 @@ app.get("/api/lab-builder/generated/:labId", (req, res) => {
   res.status(status).json(body);
 });
 
+/** The standalone prerequisites checklist: `prerequisites-docx`, `-pdf`, `-html`, `-md` (or `-markdown`). */
+const PREREQUISITES_EXPORT_FORMAT = /^prerequisites-(?:docx|pdf|html|md|markdown)$/;
+
 async function handleGeneratedLabExport(req, res) {
   const format = String(req.query?.format ?? req.body?.format ?? "zip").trim().toLowerCase();
   if (
@@ -839,11 +843,12 @@ async function handleGeneratedLabExport(req, res) {
     format !== "facilitator-pdf" &&
     format !== "facilitator-md" &&
     format !== "facilitator-markdown" &&
-    format !== "facilitator-html"
+    format !== "facilitator-html" &&
+    !PREREQUISITES_EXPORT_FORMAT.test(format)
   ) {
     return res.status(400).json({
       error:
-        "format must be 'zip', 'html', 'docx', 'pptx', 'pdf', 'md', 'facilitator-docx', 'facilitator-pdf', 'facilitator-md', or 'facilitator-html'.",
+        "format must be 'zip', 'html', 'docx', 'pptx', 'pdf', 'md', 'facilitator-docx', 'facilitator-pdf', 'facilitator-md', 'facilitator-html', 'prerequisites-docx', 'prerequisites-pdf', 'prerequisites-html', or 'prerequisites-md'.",
     });
   }
 
@@ -919,6 +924,32 @@ async function handleGeneratedLabExport(req, res) {
     );
     return `attachment; filename="${asciiSafeName}"; filename*=UTF-8''${encodedUtf8}`;
   };
+
+  if (PREREQUISITES_EXPORT_FORMAT.test(format)) {
+    try {
+      const rendered = renderGeneratedLabPrerequisites(
+        GENERATED_LABS_DIR,
+        found.labId,
+        format.slice("prerequisites-".length),
+        replacements,
+      );
+      if (rendered.status !== 200) {
+        return res.status(rendered.status).json({ error: rendered.error });
+      }
+      const preferredName = `${rendered.baseName}.${rendered.ext}`;
+      const asciiSafeName = preferredName.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
+      const encodedUtf8 = encodeURIComponent(preferredName).replace(
+        /['()*]/g,
+        (ch) => `%${ch.charCodeAt(0).toString(16).toUpperCase()}`,
+      );
+      res.setHeader("Content-Type", rendered.contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${asciiSafeName}"; filename*=UTF-8'${encodedUtf8}`);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      return res.send(rendered.buffer ?? rendered.text);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
 
   if (format === "facilitator-docx") {
     try {
@@ -1165,6 +1196,29 @@ function handleGeneratedLabTopicDocument(req, res) {
 /** GET /api/lab-builder/generated/:labId/topics/:order/:format — Download a per-topic Word (.docx) or PowerPoint (.pptx) file named per lab */
 app.get("/api/lab-builder/generated/:labId/topics/:order/:format", handleGeneratedLabTopicDocument);
 app.get("/api/generated-labs/:labId/topics/:order/:format", handleGeneratedLabTopicDocument);
+
+/** GET /api/lab-builder/generated/:labId/prerequisites — Preview of the standalone prerequisites checklist (what the customer receives) */
+function handleGeneratedLabPrerequisitesPreview(req, res) {
+  try {
+    const rendered = renderGeneratedLabPrerequisites(GENERATED_LABS_DIR, req.params.labId, "html");
+    if (rendered.status !== 200) {
+      return res.status(rendered.status).json({ error: rendered.error });
+    }
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    return res.json({
+      title: rendered.title,
+      baseName: rendered.baseName,
+      itemCount: rendered.model.itemCount,
+      sections: rendered.model.sections.map((s) => ({ title: s.title, itemCount: s.items.length })),
+      roles: rendered.model.roles.map((r) => ({ label: r.label, itemCount: r.items.length })),
+      html: rendered.text,
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+app.get("/api/lab-builder/generated/:labId/prerequisites", handleGeneratedLabPrerequisitesPreview);
+app.get("/api/generated-labs/:labId/prerequisites", handleGeneratedLabPrerequisitesPreview);
 
 /** GET|POST /api/lab-builder/generated/:labId/export — Download a generated lab as ZIP or Markdown */
 app.get("/api/lab-builder/generated/:labId/export", handleGeneratedLabExport);
