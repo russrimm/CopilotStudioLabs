@@ -202,6 +202,11 @@ function levelFor({ url, conceptId }, conceptLevels) {
   return conceptLevels.get(conceptId) || 200;
 }
 
+/** The level a page's address suggests (the same rule discovery uses when no concept level is known). */
+export function levelForUrl(url, conceptId = UNCATEGORIZED) {
+  return levelFor({ url, conceptId }, new Map());
+}
+
 function parseSearch(result) {
   const text = (result?.content || []).filter((p) => p?.type === "text" && typeof p.text === "string").map((p) => p.text).join("\n");
   try {

@@ -174,6 +174,7 @@ export function topicToFeature(topic, { excludedSubtopics = null } = {}) {
         : {}),
       status: topic.status,
       lastSeen: topic.lastSeen,
+      ...(topic.userAdded ? { userAdded: true } : {}),
     },
   };
 }

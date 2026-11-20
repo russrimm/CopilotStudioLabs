@@ -22,6 +22,7 @@ import { consolidateSnapshot, resolveTopicAlias } from "./topic-consolidate.js";
 import { topicToFeature } from "./topic-feature.js";
 import { buildSubtopicIndex } from "./subtopics.js";
 import { DEFAULT_PRODUCT, getProducts } from "./products.js";
+import { MAX_USER_TOPICS, readUserTopics, writeUserTopics } from "./user-topics.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +40,7 @@ export function topicConfig(env = process.env) {
   return {
     cachePath,
     snapshotPath,
+    userTopicsPath: env.LAB_BUILDER_USER_TOPICS || path.join(path.dirname(cachePath), "user-topics.json"),
     // Every other product keeps its own cache and committed snapshot next to the Copilot Studio ones unless a folder is named.
     ...(env.LAB_BUILDER_TOPICS_PRODUCT_CACHE_DIR ? { productCacheDir: env.LAB_BUILDER_TOPICS_PRODUCT_CACHE_DIR } : {}),
     ...(env.LAB_BUILDER_TOPICS_PRODUCT_SNAPSHOT_DIR ? { productSnapshotDir: env.LAB_BUILDER_TOPICS_PRODUCT_SNAPSHOT_DIR } : {}),
@@ -68,6 +70,8 @@ let loaded = null;
 let override;
 let loadedExtras = null;
 let overrideExtras;
+let loadedUser = null;
+let overrideUser;
 
 /** Where a product's own cache and committed snapshot live. Copilot Studio keeps the original file names. */
 export function productPaths(config, product = DEFAULT_PRODUCT) {
@@ -107,9 +111,33 @@ function currentExtras() {
   return loadedExtras.value;
 }
 
-/** Every topic of every product's list: Copilot Studio first, then the other products. */
+/** The topics a person added from Microsoft Learn (see user-topics.js). */
+function currentUserTopics() {
+  if (overrideUser !== undefined) return overrideUser;
+  // A test that injects the Copilot Studio list sees no saved topics unless it injects those too.
+  if (override !== undefined) return [];
+  if (!loadedUser) loadedUser = { value: readUserTopics(topicConfig().userTopicsPath) };
+  return loadedUser.value;
+}
+
+/** Set the saved topics in memory (the service does after every change). Pass undefined to read the file again. */
+export function setUserTopicsSource(list) {
+  overrideUser = list;
+  loadedUser = null;
+}
+
+/** The saved topics, for the API and for tests. */
+export function getUserTopics() {
+  return currentUserTopics();
+}
+
+/** Every topic of every list: Copilot Studio first, then the other products, then the ones a person added. */
 function allTopics() {
-  return [...(current()?.snapshot?.topics || []), ...[...currentExtras().values()].flatMap((entry) => entry.snapshot?.topics || [])];
+  return [
+    ...(current()?.snapshot?.topics || []),
+    ...[...currentExtras().values()].flatMap((entry) => entry.snapshot?.topics || []),
+    ...currentUserTopics(),
+  ];
 }
 
 /** Tests and the service use this to set or clear the in-memory view. Pass undefined to reload from disk. */
@@ -135,6 +163,8 @@ export function resetTopicSource() {
   loaded = null;
   overrideExtras = undefined;
   loadedExtras = null;
+  overrideUser = undefined;
+  loadedUser = null;
 }
 
 /** Topics found on Learn that the static catalog does not cover. */
@@ -305,7 +335,36 @@ export function createTopicService({ discover, config = topicConfig(), now = Dat
     timer = null;
   }
 
-  return { view, views, refresh, revalidateIfStale, startAutoRefresh, stop, config };
+  /** The topics a person added from Microsoft Learn: the file when one is configured, otherwise memory only. */
+  let memoryUserTopics = [];
+  function userTopics() {
+    return config.userTopicsPath ? readUserTopics(config.userTopicsPath) : memoryUserTopics;
+  }
+
+  function saveUserTopics(list) {
+    if (config.userTopicsPath) writeUserTopics(config.userTopicsPath, list);
+    else memoryUserTopics = list;
+    setUserTopicsSource(list);
+  }
+
+  /** Save one topic. Returns false when it is already saved (the same id). */
+  function addUserTopic(topic) {
+    const list = userTopics();
+    if (list.some((entry) => entry.id === topic.id)) return false;
+    if (list.length >= MAX_USER_TOPICS) throw new Error(`You can keep up to ${MAX_USER_TOPICS} topics of your own. Remove one first.`);
+    saveUserTopics([...list, topic]);
+    return true;
+  }
+
+  /** Remove a saved topic. Returns false when there was none with that id. */
+  function removeUserTopic(id) {
+    const list = userTopics();
+    if (!list.some((entry) => entry.id === id)) return false;
+    saveUserTopics(list.filter((entry) => entry.id !== id));
+    return true;
+  }
+
+  return { view, views, refresh, revalidateIfStale, startAutoRefresh, stop, config, userTopics, addUserTopic, removeUserTopic };
 }
 
 export { listHash };

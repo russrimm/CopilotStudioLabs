@@ -155,3 +155,9 @@ test("the validate route returns the lab health with the structural report", () 
   assert.equal(scanLabDirectory(dir).lab, "demo-lab");
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("a Recap module is a short refresher and is not asked for a check, quiz, or troubleshooting", () => {
+  const recap = `### Recap 1 - Create an agent\n\n**What you are doing.** Refresh the basics.\n\n1. Select **Create**.\n2. Name it.\n`;
+  const result = scanLabMarkdown(`# Lab\n\n## Step-by-Step\n\n${recap}\n${GOOD}`, { moduleIds: ["create-agent", "create-agent"] });
+  assert.deepEqual(result.findings.filter((f) => f.module === "Recap 1"), []);
+});

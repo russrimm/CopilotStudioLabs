@@ -2721,6 +2721,32 @@ opens a pull request with the updated snapshots only when something changed. It 
 repository's Actions settings; pull requests opened with the default token do not
 start other workflows, so close and reopen the pull request to run checks on it.
 
+### Add a topic from Microsoft Learn
+
+Discovery cannot list every page (it reads within a budget), so the Topics step has an **Add a topic from
+Microsoft Learn** panel under the "last refreshed" line. Type a few words and **Search** (the portal asks the Learn
+MCP server, `microsoft_docs_search`) or paste a `https://learn.microsoft.com/...` link. Each result names the
+product it belongs to; **Add to my topics** reads the page (`microsoft_docs_fetch`), builds a topic from its title and
+summary, saves it, and selects it at the level and harness you are building for. A result already in the list says so
+and offers **Select it**. A page outside every product's Learn roots is shown but cannot be added, because the
+product decides which labs a topic can join.
+
+An added topic is the same shape as a discovered one, so it builds into a lab the same way (steps read from its
+article, start and result screenshot slots, no quiz, flagged as not yet reviewed) and carries an **Added by you**
+badge. It is saved in `user-topics.json` next to the topic caches (`LAB_BUILDER_USER_TOPICS` moves it; up to 100
+topics) and is read again on every start, so it is there next time. **Remove** in the panel deletes it; labs already
+built from it do not change.
+
+| Route | Purpose |
+|---|---|
+| `POST /api/lab-builder/topics/mine/search` `{ query }` | Search Learn: `results[]` with `title`, `url`, `summary`, `product`, `addable`, and `inList` when the page is already a topic. |
+| `POST /api/lab-builder/topics/mine` `{ url, level?, harness? }` | Add a page. 201 with the topic; 400 for a link that is not https on learn.microsoft.com; 409 when it is already listed; 422 outside the products' roots; 404/502 when Learn has no readable page or cannot be reached. |
+| `DELETE /api/lab-builder/topics/mine/:id` | Remove a topic you added. |
+
+Safety: the address is normalized (https, `learn.microsoft.com`, no credentials or port), the page is read only
+through the Learn MCP server, text is stripped of markup and length-capped, and the routes share a per-user limit
+(`LAB_BUILDER_USER_TOPICS_RATE_MAX`, default 60 per hour).
+
 ### Sub-topics
 
 A sub-topic is a companion Microsoft Learn article merged under a topic (see

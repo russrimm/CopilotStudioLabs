@@ -1819,6 +1819,7 @@ function lbApplyLearn(data) {
   labBuilder.learnNew = lbLearnNewByHarness(data.topics);
   lbRenderLearnBar();
   lbRenderHarnesses();
+  if (typeof lbMineRender === "function") lbMineRender();
 }
 
 function lbRenderLearnBar() {
@@ -1922,7 +1923,7 @@ function lbLearnBadges(topic) {
   const learn = topic.learn;
   if (!learn) return "";
   if (learn.status === "new") {
-    return `<span class="lb-badge lb-badge-new">New from Learn</span>${learn.updated ? '<span class="lb-badge lb-badge-updated">Updated</span>' : ""}`;
+    return `<span class="lb-badge lb-badge-new">${learn.userAdded ? "Added by you" : "New from Learn"}</span>${learn.updated ? '<span class="lb-badge lb-badge-updated">Updated</span>' : ""}`;
   }
   if (learn.status === "updated") return '<span class="lb-badge lb-badge-updated">Updated</span>';
   if (learn.status === "stale") return '<span class="lb-badge lb-badge-moved">Docs moved</span>';
