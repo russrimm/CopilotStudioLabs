@@ -109,7 +109,8 @@ export function expectedResultBlock(feature, shots, u) {
   if (!authored.length) {
     const shown = shots?.capture?.length ? shots.capture[shots.capture.length - 1] : null;
     if (shown) items.push(`Compare your screen with Figure ${shown.figure}: ${u.lowerFirst(trimStop(shown.alt))}.`);
-    if (feature.validation?.length) items.push(`Expected outcome: ${u.scrub(feature.validation[0])}`);
+    // "Follow the article" is not an outcome; the Check your work list already carries it.
+    if (feature.validation?.length && !isUnreviewedText(feature.validation[0])) items.push(`Expected outcome: ${u.scrub(feature.validation[0])}`);
   }
   if (!items.length) return [];
   return ["", "**What you should see.** After the last numbered step:", "", u.bullets(items)];
@@ -131,7 +132,7 @@ export function troubleshootingBlock(feature, u, grounding, learnCautions = []) 
     }
   }
 
-  const cautions = (feature.concepts || []).filter((c) => CAUTION.test(c));
+  const cautions = (feature.concepts || []).filter((c) => CAUTION.test(c) && !isUnreviewedText(c));
   for (const caution of cautions.slice(0, 2)) {
     const ref = learnReferenceLink(learnSources, `${caution} ${feature.name}`, u);
     items.push(
@@ -152,7 +153,7 @@ export function troubleshootingBlock(feature, u, grounding, learnCautions = []) 
       primaryRef || "the Microsoft Learn page for this module"
     } and follow it where the two differ.`,
   );
-  if (feature.validation?.length) {
+  if (feature.validation?.length && !isUnreviewedText(feature.validation[0])) {
     items.push(
       `**"${trimStop(u.scrub(feature.validation[0]))}" is not true yet.** Repeat the numbered steps in order, and confirm you are working in the environment you chose at the start of the lab.`,
     );
@@ -361,7 +362,8 @@ export function sampleInputBlock(feature, plan, index, u) {
   const d = describeDeliverable(plan);
   const fence = (label, text) => ["", label, "", "```text", text, "```"];
 
-  if (d.mode === DELIVERABLE_MODES.LEARN_PRODUCT) return [];
+  // A sample prompt written for the lab's scenario says nothing about a topic found only on Learn.
+  if (d.mode === DELIVERABLE_MODES.LEARN_PRODUCT || feature.learnTopic) return [];
 
   if (d.mode === DELIVERABLE_MODES.M365_COPILOT_GOVERNANCE) {
     return fence(

@@ -2436,8 +2436,8 @@ the hand-written labs under `labs/`. Each finding has one of three severities:
 
 | Severity | Meaning | Examples |
 |---|---|---|
-| `gap` (shown as **Fix**) | A learner could be blocked or misled | A step cut off with `...` (`cut-off-step`), several sub-steps run together on one line (`fused-substeps`), a sentence cut in the middle of a word (`cut-off-text`), a module with no steps or no Check your work list, a quiz whose correct answer is the Learn-derived disclaimer (`quiz-teaches-disclaimer`), wording the Microsoft Copilot harness no longer uses (`stale-ui-wording`: Overview, Instructions, or Publish *page*) |
-| `polish` | Works, but looks unfinished | Pictures that are still placeholders (`pending-picture`, checked against the lab's assets and the shared library), a module with no picture, a Check your work list that only says to follow the article, generic-only troubleshooting, obviously wrong quiz answers (`quiz-filler-answers`), a title over 110 characters |
+| `gap` (shown as **Fix**) | A learner could be blocked or misled | A step cut off with `...` (`cut-off-step`), several sub-steps run together on one line (`fused-substeps`), a sentence cut in the middle of a word (`cut-off-text`), a module with no steps or no Check your work list, a quiz whose correct answer is the Learn-derived disclaimer (`quiz-teaches-disclaimer`), wording the Microsoft Copilot harness no longer uses (`stale-ui-wording`: Overview, Instructions, or Publish *page*), a Learn-only module that Learn says is for classic chatbots only (`topic-not-for-harness`) |
+| `polish` | Works, but looks unfinished | Pictures that are still placeholders (`pending-picture`, checked against the lab's assets and the shared library), a module with no picture, a Check your work list that only says to follow the article, generic-only troubleshooting, obviously wrong quiz answers (`quiz-filler-answers`), a limit Learn states for the lab's own harness (`topic-harness-limit`), a title over 110 characters |
 | `note` | An honest flag, expected on Learn-derived content | `[Unverified]` lines and passages marked "Not confirmed in Microsoft Learn" |
 
 The grade is **Ready to teach** (nothing found), **Almost ready** (polish only), **Needs fixes**
@@ -2684,6 +2684,19 @@ treats them as steps you do yourself, because the computer cannot know where an 
 module whose procedure could not be read gets no pictures. **How This Lab Was Built** lists every new-on-Learn module
 with how far to trust it ("steps read from its Learn article, not checked against the product" or "no procedure could
 be read, so follow the linked article").
+**How a Learn-only module reads.** It is kept short and says each thing once. The Learn summary is the "What you are
+doing" line, so it is not repeated as a concept, as a "Watch for this" caution, or as a pull quote (a quote that begins
+with the summary is left out, and the callout labels Note, Important, Tip, Warning, and Caution that Learn prints on their
+own line never become the first word of a quote). "In your scenario" is a plain "Try *topic* in your own environment" line
+and there is no sample prompt, because a prompt written for the lab's scenario says nothing about a topic it was not written
+for. "What you should see" and "Troubleshooting" never repeat the `[Unverified]` check. When the steps were read from the
+article, **Check your work** is the article's own last step ("You finished the article's last step: ...") instead of "follow the
+article", and Troubleshooting carries the page's own warnings (see the Learn cautions under Troubleshooting above).
+**Topics that do not apply.** When the summary says the article "applies to classic chatbots only", or says the feature
+"isn't available" for the harness the lab is built on, the module shows **Check before you teach this** with Learn's own
+sentence (`scopeProblem()` in `topic-scope.js`), and the lab gate reports it: `topic-not-for-harness` is a **Fix**
+(a classic-chatbot-only module in a lab for the current harnesses) and `topic-harness-limit` is **polish** (a limit on the
+lab's own harness, which can depend on the tenant).
 The Learn title and summary are always quoted as untrusted
 data in any model prompt and never placed in its instructions.
 

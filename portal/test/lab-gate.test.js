@@ -95,6 +95,18 @@ test("a module with a placeholder-only check, generic troubleshooting, or no ste
   assert.deepEqual(["no-steps", "generic-check", "generic-troubleshooting", "unverified"].filter((c) => !codes.includes(c)), []);
 });
 
+test("a module Learn says is for classic chatbots only is a gap in a harness lab, and a harness limit is only polish", () => {
+  const classic = module("Step 1", "Use a classic chatbot as a skill", { steps: "1. Open the allow list.\n2. Add the bot.\n3. Save.", extra: "\n![The allow list](assets/allow.png)\n" }).replace("Do the thing.", "This article applies to classic chatbots only. This feature isn't available for Copilot Studio agents powered by the standard or Microsoft Copilot harness.");
+  const found = scanLabMarkdown(lab([classic]), { moduleIds: ["learn-skill"], manifest: { request: { harness: "microsoft-copilot" }, modules: [{ id: "learn-skill" }] } });
+  assert.ok(found.findings.some((f) => f.code === "topic-not-for-harness" && f.severity === "gap"));
+  const limited = module("Step 1", "Share a tool", { steps: "1. Open it.\n2. Share it.\n3. Save.", extra: "\n![The tool](assets/tool.png)\n" }).replace("Do the thing.", "This feature isn't available for agents in the Microsoft Copilot harness.");
+  const poly = scanLabMarkdown(lab([limited]), { moduleIds: ["x"], manifest: { request: { harness: "microsoft-copilot" }, modules: [{ id: "x" }] } });
+  assert.ok(poly.findings.some((f) => f.code === "topic-harness-limit" && f.severity === "polish"));
+  assert.ok(!poly.findings.some((f) => f.code === "topic-not-for-harness"));
+  const standard = scanLabMarkdown(lab([limited]), { moduleIds: ["x"], manifest: { request: { harness: "standard" }, modules: [{ id: "x" }] } });
+  assert.ok(!standard.findings.some((f) => /^topic-/.test(f.code)), "a limit on another harness is not reported");
+});
+
 test("Microsoft Copilot harness modules are checked for wording the product no longer uses", () => {
   const stale = module("Step 1", "Instructions", { steps: "1. Open the **Overview page** and select **Edit**." });
   const mc = scanLabMarkdown(lab([stale]), { moduleIds: ["mc-instructions"] });

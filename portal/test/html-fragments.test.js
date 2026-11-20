@@ -299,6 +299,14 @@ test("placeholders such as <site-name> stay visible while real HTML and unsafe t
   assert.doesNotMatch(html, /<script|alert\(1\)/);
 });
 
+test("the Learn pull quote drops callout labels and the space a removed link leaves before a comma", () => {
+  const quote = condense("Note This article applies to classic chatbots only. Important This article includes information about Azure Bot Service skills , a code-based way to extend an agent. Note that lowercase prose stays.");
+  assert.ok(!/(?:^|\.\s)(?:Note|Important)\s+This/.test(quote), quote);
+  assert.match(quote, /^This article applies to classic chatbots only\./);
+  assert.match(quote, /skills, a code-based way/);
+  assert.match(quote, /Note that lowercase prose stays/);
+});
+
 test("the Learn pull quote drops table markup instead of leaving a stray '<br'", () => {
   const quote = condense("Output: The list of purchased items <br>- Name : Name of the purchased item<br />- Price : Price <p>Done</p> with <your-env-url> kept");
   assert.doesNotMatch(quote, /<br|<p|<\/p/);

@@ -24,7 +24,10 @@ import {
   resolveTopicAlias,
 } from "../lib/lab-builder/topic-consolidate.js";
 import { cleanText, normalizeLearnUrl, tidySummary, topicId } from "../lib/lab-builder/topic-sanitize.js";
-import { knowledgeCheckBlock } from "../lib/lab-builder/teaching.js";
+import { expectedResultBlock, knowledgeCheckBlock, sampleInputBlock, troubleshootingBlock } from "../lib/lab-builder/teaching.js";
+import { buildFeatureScenarioNote } from "../lib/lab-builder/deliverable.js";
+import { scopeProblem } from "../lib/lab-builder/topic-scope.js";
+import { checkItems } from "../lib/lab-builder/composer.js";
 import { listHash, summarize, validateSnapshot } from "../lib/lab-builder/topic-snapshot.js";
 import { createTopicService, resetTopicSource, setTopicSource, topicConfig } from "../lib/lab-builder/topic-store.js";
 import { refreshResponse, registerTopicRoutes, topicsPayload } from "../lib/lab-builder/topic-api.js";
@@ -1172,4 +1175,50 @@ test("the Topics step offers an Add a topic from Microsoft Learn panel that is l
   const wizard = fs.readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
   assert.match(wizard, /lbMineRender\(\)/);
   assert.match(wizard, /Added by you/);
+});
+
+test("a topic Learn says is for classic chatbots only is named as a scope problem, and a harness limit only for its own harness", () => {
+  const classic = "This article applies to classic chatbots only. This feature isn't available for Copilot Studio agents powered by the standard or Microsoft Copilot harness.";
+  const found = scopeProblem(classic, "microsoft-copilot");
+  assert.equal(found.kind, "classic-only");
+  assert.equal(found.sentences.length, 2);
+  assert.equal(scopeProblem(classic, null).kind, "classic-only", "classic-only needs no harness");
+
+  const limit = "This feature isn't available for agents in the Microsoft Copilot harness.";
+  assert.equal(scopeProblem(limit, "microsoft-copilot").kind, "harness-limit");
+  assert.equal(scopeProblem(limit, "standard"), null, "a limit on another harness is not this lab's problem");
+  assert.equal(scopeProblem("Create an agent from a template, then add knowledge.", "standard"), null);
+  assert.equal(scopeProblem("", "standard"), null);
+});
+
+test("a Learn-only module whose steps were read is checked against the article's own last step", () => {
+  const feature = topicToFeature({ id: "learn-x", title: "Add a child agent", summary: "A child agent is a lightweight agent.", urls: ["https://learn.microsoft.com/microsoft-copilot-studio/x"], harnesses: ["standard"], conceptId: "uncategorized", status: "new" });
+  const read = { source: "doc-derived", steps: ["Open the agent.", "Select **Add**.", "Confirm the child agent shows in the list."] };
+  assert.deepEqual(checkItems(feature, read), ["You finished the article's last step: Confirm the child agent shows in the list. Nothing on screen reports an error."]);
+  assert.deepEqual(checkItems(feature, null), feature.validation, "no steps read, so the reviewed-or-not check stays as it was");
+  assert.deepEqual(checkItems(feature, { ...read, stepsInSubtopics: true }), feature.validation);
+  const reviewed = { id: "mc-x", validation: ["The agent appears on the Agents page."] };
+  assert.deepEqual(checkItems(reviewed, read), reviewed.validation, "a reviewed module keeps its own checks");
+});
+
+test("a Learn-only module has no unrelated sample prompt, no repeated disclaimer, and no empty expected outcome", () => {
+  const feature = topicToFeature({
+    id: "learn-x",
+    title: "Add a child agent",
+    summary: "A child agent is a lightweight agent inside your main agent.",
+    urls: ["https://learn.microsoft.com/microsoft-copilot-studio/x"],
+    harnesses: ["standard"],
+    conceptId: "uncategorized",
+    status: "new",
+  });
+  const u = { esc: (s) => s, scrub: (s) => s, bullets: (items) => items.map((i) => `- ${i}`).join("\n"), lowerFirst: (s) => s.charAt(0).toLowerCase() + s.slice(1) };
+  const plan = { profile: { agentName: "Helper", sampleQuestions: ["How do I reset my password?"], knowledgeSources: ["a public product website"] }, level: 100, features: [feature] };
+  assert.deepEqual(sampleInputBlock(feature, plan, 0, u), [], "no scenario prompt for a topic it says nothing about");
+  assert.match(buildFeatureScenarioNote(feature, plan, u), /^Try \*\*Add a child agent\*\* in your own environment for \*\*Helper\*\*/);
+  const expected = expectedResultBlock(feature, { capture: [{ figure: "1.2", alt: "The result" }] }, u).join("\n");
+  assert.match(expected, /Compare your screen with Figure 1\.2/);
+  assert.doesNotMatch(expected, /Expected outcome|Unverified/);
+  const trouble = troubleshootingBlock(feature, u, null).join("\n");
+  assert.doesNotMatch(trouble, /Unverified|Microsoft Learn describes this topic|is not true yet/);
+  assert.match(trouble, /A step does not match your screen/);
 });
