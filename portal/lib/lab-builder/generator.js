@@ -23,6 +23,7 @@ import {
   writeGeneratedLabTopicDocuments,
 } from "./topic-documents.js";
 import { assessLab } from "./qa.js";
+import { scanLabMarkdown, summarizeGate } from "./lab-gate.js";
 import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
 import { GENERATOR_NAME, primaryProduct, productOf, productsPhrase } from "./products.js";
@@ -1221,6 +1222,12 @@ export async function generateLab(request, opts = {}) {
     includeKnowledgeCheck: plan.includeKnowledgeCheck,
   });
   const differenceSummary = buildDifferenceBlocks({ ...plan, features: plan.features.filter((f) => !f.prerequisite) }, { harnesses: getHarnesses(), concepts: getConcepts() });
+  // Counts what the learner will hit; unlike the QA score above it reads the substance of every module.
+  const labGate = scanLabMarkdown(markdown, {
+    moduleIds: plan.features.map((f) => f.id),
+    manifest: { title: plan.title, request: plan.request },
+    pendingPictureCount: screenshots.shots.filter((s) => s.status !== "captured").length,
+  });
 
   const manifest = {
     slug: plan.slug,
@@ -1231,6 +1238,7 @@ export async function generateLab(request, opts = {}) {
     products: plan.products,
     deliverable: plan.deliverable || null,
     quality: { score: qa.score, grade: qa.grade, findings: qa.findings.length, version: qa.version },
+    gate: summarizeGate(labGate),
     generatedAt: generation.generatedAt,
     // When every embedded URL was last confirmed to resolve. Null when checking
     // was switched off — an unearned timestamp reads as assurance.

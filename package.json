@@ -11,6 +11,7 @@
     "build-lab:list": "node tools/lab-builder/build.mjs --list",
     "refresh-topics": "node tools/lab-builder/refresh-topics.mjs",
     "validate:office": "node tools/lab-builder/validate-office.mjs",
+    "lab-gate": "node tools/lab-builder/lab-gate.mjs",
     "export-topics": "node tools/lab-builder/export-topics.mjs",
     "capture": "cd tools/screenshot-capture && npm run capture",
     "capture:lab": "node tools/screenshot-capture/capture.js",

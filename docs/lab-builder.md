@@ -2365,6 +2365,40 @@ the `/api/lab-builder/generate` response as `qa`, and as a summary in
 (`harness-terminology` in `validator.js`; inside `accessible-markdown` in
 `validate_labs.py`).
 
+#### Lab gate (what a teacher would trip over)
+
+The quality review above scores structure, so a lab with cut-off steps can still score 98. The lab
+gate (`portal/lib/lab-builder/lab-gate.js`) reads the substance of every module and reports it in
+plain language. It is deterministic, never touches the network, and works on generated labs and on
+the hand-written labs under `labs/`. Each finding has one of three severities:
+
+| Severity | Meaning | Examples |
+|---|---|---|
+| `gap` (shown as **Fix**) | A learner could be blocked or misled | A step cut off with `...` (`cut-off-step`), several sub-steps run together on one line (`fused-substeps`), a sentence cut in the middle of a word (`cut-off-text`), a module with no steps or no Check your work list, a quiz whose correct answer is the Learn-derived disclaimer (`quiz-teaches-disclaimer`), wording the Microsoft Copilot harness no longer uses (`stale-ui-wording`: Overview, Instructions, or Publish *page*) |
+| `polish` | Works, but looks unfinished | Pictures that are still placeholders (`pending-picture`, checked against the lab's assets and the shared library), a module with no picture, a Check your work list that only says to follow the article, generic-only troubleshooting, obviously wrong quiz answers (`quiz-filler-answers`), a title over 110 characters |
+| `note` | An honest flag, expected on Learn-derived content | `[Unverified]` lines and passages marked "Not confirmed in Microsoft Learn" |
+
+The grade is **Ready to teach** (nothing found), **Almost ready** (polish only), **Needs fixes**
+(gaps in fewer than half of the modules), or **Not ready** (gaps in half or more).
+
+Where to see it:
+
+- **Portal:** **Validate** on a generated lab shows **Lab health** above the structural checks, with the first
+  ten items to fix and the not-confirmed notes folded away. `GET /api/lab-builder/generated/:labId/gate`
+  returns the full report; `GET .../validate` returns it as `health`.
+- **Manifest:** `manifest.json` records `gate` (`grade`, `gaps`, `polish`, `notes`, `pendingPictures`) at build time.
+  The CLI build prints the same line.
+- **CLI:** `npm run lab-gate` scans `labs/` and `generated-labs/`; pass a lab folder or a folder of labs,
+  `--all` to include the notes, `--json` for the full report, and `--fail-on gap` to exit 1 when any lab has a gap.
+
+```bash
+npm run lab-gate -- generated-labs
+npm run lab-gate -- labs/12-content-moderation-responsible-ai --all
+```
+
+Fix what it finds in the generator or the catalog, not by editing single labs: a pattern that shows up in
+many labs (for example cut-off steps) is a generator bug.
+
 ---
 
 ## Brand profiles and lab customization

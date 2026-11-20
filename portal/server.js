@@ -10,6 +10,7 @@ import multer from "multer";
 import { extname, join, resolve } from "path";
 import { discoverLabs, getLabContent, isValidLabId } from "./lib/labs.js";
 import { validateLab, validateAllLabs, validateGeneratedLab } from "./lib/validator.js";
+import { scanLabDirectory } from "./lib/lab-builder/lab-gate.js";
 import { createStepValidationService, JobConflictError } from "./lib/step-validator/index.js";
 import {
   exportGeneratedLab,
@@ -1170,6 +1171,19 @@ app.post("/api/generated-labs/:labId/export", handleGeneratedLabExport);
 /** GET /api/lab-builder/generated/:labId/validate — Run structural validation against a generated lab */
 app.get("/api/lab-builder/generated/:labId/validate", handleGeneratedLabValidate);
 app.get("/api/generated-labs/:labId/validate", handleGeneratedLabValidate);
+
+/** GET /api/lab-builder/generated/:labId/gate — Lab gate: gaps a teacher would hit (cut-off steps, pending pictures, generic checks) */
+function handleGeneratedLabGate(req, res) {
+  const found = resolveSafeGeneratedLabDir(GENERATED_LABS_DIR, req.params.labId);
+  if (found.status !== 200) return res.status(found.status).json({ error: found.error });
+  try {
+    res.json({ labId: found.labId, ...scanLabDirectory(found.labDir) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
+app.get("/api/lab-builder/generated/:labId/gate", handleGeneratedLabGate);
+app.get("/api/generated-labs/:labId/gate", handleGeneratedLabGate);
 
 /** PATCH /api/lab-builder/generated/:labId — Rename a generated lab or change its notes */
 app.patch("/api/lab-builder/generated/:labId", (req, res) => {

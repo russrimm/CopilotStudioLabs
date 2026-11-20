@@ -2,6 +2,7 @@ import { readFileSync, existsSync, readdirSync, lstatSync } from "fs";
 import { isAbsolute, join, relative, resolve } from "path";
 import { discoverLabs, getLabPath } from "./labs.js";
 import { altProblems } from "./lab-builder/slots.js";
+import { scanLabDirectory } from "./lab-builder/lab-gate.js";
 const IMAGE_EXT_RE = /\.(png|jpe?g|gif|svg|webp|bmp|avif)$/i;
 const TODO_RE = /\b(?:TODO|FIXME|TBD|XXX)\b/i;
 
@@ -656,7 +657,7 @@ export function validateGeneratedLab(generatedRoot, rawLabId) {
     /* fall back to labId or H1 title */
   }
 
-  return { status: 200, body: validateLabDir(labDir, { labId, title }) };
+  return { status: 200, body: { ...validateLabDir(labDir, { labId, title }), health: scanLabDirectory(labDir) } };
 }
 
 export function validateAllLabs() {

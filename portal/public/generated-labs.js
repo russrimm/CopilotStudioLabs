@@ -955,6 +955,32 @@ async function lbPrintGenerated(labId) {
   window.print();
 }
 
+const LB_GATE_BADGE = { ready: "tag tag-success", almost: "tag tag-warning", "needs-work": "tag tag-warning", "not-ready": "tag tag-danger" };
+const LB_GATE_SEVERITY = { gap: "Fix", polish: "Polish", note: "Note" };
+
+// The lab gate report: what a teacher would trip over, in plain language. Notes stay folded away.
+function lbRenderLabHealthHtml(health) {
+  if (!health || !health.grade) return "";
+  const important = (health.findings || []).filter((item) => item.severity !== "note");
+  const notes = (health.findings || []).filter((item) => item.severity === "note");
+  const row = (item) =>
+    `<li><strong>${escapeHtml(LB_GATE_SEVERITY[item.severity] || item.severity)}.</strong> ${escapeHtml(item.message)} <span class="lb-learn-status">${escapeHtml(item.fix || "")}</span></li>`;
+  const shown = important.slice(0, 10).map(row).join("");
+  const more = important.length > 10 ? `<li>${important.length - 10} more items. Run <code>npm run lab-gate</code> for the full list.</li>` : "";
+  const noteList = notes.length
+    ? `<details style="margin-top: 8px;"><summary>${notes.length} passage${notes.length === 1 ? " is" : "s are"} flagged as not confirmed</summary><ul style="padding-left: 20px;">${notes.map(row).join("")}</ul></details>`
+    : "";
+  return `
+    <section class="lb-lab-health" aria-label="Lab health" style="margin-bottom: 16px;">
+      <p style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 6px;">
+        <span class="${LB_GATE_BADGE[health.grade] || "tag"}">Lab health: ${escapeHtml(health.label || health.grade)}</span>
+        <span style="font-size: 13px; color: var(--text-muted);">${escapeHtml(health.summary || "")}</span>
+      </p>
+      ${important.length ? `<ul style="margin: 6px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.65;">${shown}${more}</ul>` : ""}
+      ${noteList}
+    </section>`;
+}
+
 function lbRenderGeneratedValidationHtml(report) {
   const failed = Number(report.failed) || 0;
   const warnings = Number(report.warnings) || 0;
@@ -972,7 +998,7 @@ function lbRenderGeneratedValidationHtml(report) {
       return `<li>${icon} <code>${escapeHtml(item.name)}</code> — ${escapeHtml(item.message || "")}</li>`;
     })
     .join("");
-  return `
+  return `${lbRenderLabHealthHtml(report.health)}
     <details class="lb-advanced" style="margin-bottom: 16px;" ${failed || warnings ? "open" : ""}>
       <summary style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
         <span class="${badgeClass}">${escapeHtml(summaryLabel)}</span>
