@@ -2253,7 +2253,13 @@ Each module renders as:
   multiple-choice questions (`A`–`D`) built from vetted catalog `whyItMatters`,
   `validation`/`expectedResults`, and `concepts`/`troubleshooting` fields, each
   with an expandable `<details>`/`<summary>` explanation and a relevance-matched
-  Microsoft Learn reference link (`selectRelevantLearnSource()`)
+  Microsoft Learn reference link (`selectRelevantLearnSource()`).
+  **The wrong answers are real statements about the lab's other modules** (the matching
+  `whyItMatters`, first check, or caution of each other module, in the order `siblingDistractors()` in
+  `teaching.js` rotates through them), so a learner has to know which module they are in. Anything that reads like
+  the module's own answer, a repeat of another pick, or text about an unreviewed topic is skipped, and the explanation
+  names the modules the other answers came from. A lab with fewer than three other modules fills the rest with plain
+  wrong answers, and the lab gate's `quiz-filler-answers` finding counts those.
 - **Microsoft Learn references** — citations, relevance-scored, canonicalized and
   deduplicated (`dedupeLearnSources()`), and link-checked.
   Each one is a link whose text is the page title and whose URL lives only in the

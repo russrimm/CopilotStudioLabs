@@ -16,6 +16,8 @@ import { composeLab } from "../lib/lab-builder/composer.js";
 import { renderDifferenceBlock } from "../lib/lab-builder/differences.js";
 import { furtherLearningBlock, knowledgeCheckBlock, troubleshootingBlock } from "../lib/lab-builder/teaching.js";
 import { planLab } from "../lib/lab-builder/planner.js";
+import { getFeature } from "../lib/lab-builder/catalog.js";
+import { FILLER_DISTRACTORS } from "../lib/lab-builder/lab-gate.js";
 import { assessLab } from "../lib/lab-builder/qa.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
 import { selectionsFromManifest } from "../lib/lab-builder/generated-labs.js";
@@ -489,4 +491,31 @@ test("per-lesson multiple-choice mini-quizzes honor includeKnowledgeCheck, link 
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("quiz wrong answers are real statements about the lab's other modules, never filler, and never an unreviewed disclaimer", () => {
+  const ids = ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-preview-test", "mc-publish-agent"];
+  const features = ids.map((id, index) => ({ ...getFeature(id), stepOrder: index + 1 }));
+  const u = { esc: (s) => s, scrub: (s) => s, bullets: (items) => items.map((i) => `- ${i}`).join("\n"), lowerFirst: (s) => s };
+  const plan = { profile: { agentName: "Helper" }, includeKnowledgeCheck: true, features };
+  const quiz = (feature, p = plan) => knowledgeCheckBlock(feature, p, u, null).join("\n");
+
+  const text = quiz(features[1]);
+  const groups = text.split(/\*\*Question \d+\.\*\*/).slice(1);
+  assert.equal(groups.length, 3, "all three questions are still asked");
+  for (const group of groups) {
+    const options = [...group.matchAll(/^- \*\*([A-D])\.\*\* (.+)$/gm)].map((m) => m[2]);
+    assert.equal(options.length, 4);
+    assert.equal(new Set(options).size, 4, "no two answers are the same");
+    assert.ok(!options.some((option) => FILLER_DISTRACTORS.some((pattern) => pattern.test(option))), "no filler answer");
+    assert.match(group, /The other answers describe \*\*/, "the explanation says where the wrong answers came from");
+    assert.ok(!group.includes(features[1].name + "**, not this module"), "a module is never listed as its own wrong answer");
+  }
+
+  const solo = quiz(features[0], { ...plan, features: [features[0]] });
+  assert.match(solo, /bypasses environment permissions/, "a lab with no other module falls back to the plain wrong answers");
+  assert.doesNotMatch(solo, /The other answers describe/);
+
+  const unreviewed = features.map((f) => (f.id === "mc-knowledge" ? { ...f, whyItMatters: "Microsoft Learn describes this topic as a preview.", summary: "Microsoft Learn describes this topic as a preview." } : f));
+  assert.doesNotMatch(quiz(unreviewed[1], { ...plan, features: unreviewed }), /Microsoft Learn describes this topic as/);
 });

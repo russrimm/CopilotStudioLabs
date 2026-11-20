@@ -155,6 +155,49 @@ export function troubleshootingBlock(feature, u, grounding) {
 
 const OPTION_LETTERS = ["A", "B", "C", "D"];
 
+const words = (text) => new Set(String(text || "").toLowerCase().match(/[a-z0-9]{4,}/g) || []);
+
+/** True when two answers say nearly the same thing, so one of them could be mistaken for the other. */
+function similarAnswers(a, b) {
+  const left = words(a);
+  const right = words(b);
+  if (!left.size || !right.size) return false;
+  let shared = 0;
+  for (const word of left) if (right.has(word)) shared += 1;
+  return shared / (left.size + right.size - shared) >= 0.5;
+}
+
+/**
+ * Wrong answers for a quiz question: the matching statement from other modules of the same lab. Each one is true of
+ * another module and not of this one, so a learner has to know which module they are in. Anything that reads like the
+ * correct answer, or like another pick, is skipped, as is text about a topic that is not reviewed.
+ * @returns {{text: string, from: string}[]} up to three, fewer when the lab has too few other modules
+ */
+function siblingDistractors(feature, plan, u, pick, correctText, seed, avoid = []) {
+  const others = (plan?.features || []).filter((other) => other && other !== feature && other.id !== feature.id && other.name !== feature.name);
+  if (!others.length) return [];
+  const start = ((seed % others.length) + others.length) % others.length;
+  const picked = [];
+  for (let i = 0; i < others.length && picked.length < 3; i += 1) {
+    const other = others[(start + i) % others.length];
+    const raw = pick(other);
+    if (!raw || isUnreviewedText(raw)) continue;
+    const text = conciseSentence(u.scrub(raw), 160);
+    if (!text || [correctText, ...avoid].some((own) => own && similarAnswers(text, own)) || picked.some((p) => similarAnswers(p.text, text))) continue;
+    picked.push({ text, from: u.scrub(other.name) });
+  }
+  return picked;
+}
+
+/** The three wrong answers for a question, with a sentence for the explanation that says where the real ones came from. */
+function withSiblingAnswers(feature, plan, u, pick, correctText, seed, filler, avoid = []) {
+  const siblings = siblingDistractors(feature, plan, u, pick, correctText, seed, avoid);
+  const distractors = [...siblings.map((s) => s.text), ...filler].slice(0, 3);
+  const names = [...new Set(siblings.map((s) => s.from))].map((n) => `**${n}**`);
+  const note = names.length ? ` The other answers describe ${names.join(", ")}, not this module.` : "";
+  return { distractors, note };
+}
+
 function placeCorrectOption(correctText, distractors, targetSlot) {
   const pool = distractors.slice(0, 3);
   const slot = ((targetSlot % 4) + 4) % 4;
@@ -183,17 +226,20 @@ export function knowledgeCheckBlock(feature, plan, u, grounding) {
   const whyConcise = conciseSentence(whyFull, 160);
   const whyRef = learnReferenceLink(learnSources, `${feature.name} ${feature.whyItMatters || feature.summary || ""}`, u);
   // Text about an unreviewed topic is a disclaimer, not content: a quiz must never ask for it as the right answer.
-  if (!isUnreviewedText(feature.whyItMatters || feature.summary)) questions.push({
-    prompt: `Why do you configure **${name}** for **${agent}** in this scenario?`,
-    correct: whyConcise,
-    distractors: [
+  if (!isUnreviewedText(feature.whyItMatters || feature.summary)) {
+    const wrong = withSiblingAnswers(feature, plan, u, (other) => other.whyItMatters || other.summary, whyConcise, stepSeed, [
       `It bypasses environment permissions for ${name}.`,
       `It skips validation checks for ${name} before rollout.`,
       `It deletes prior settings configured in ${name}.`,
-    ],
-    explanation: `${whyFull}${whyRef ? ` Review how **${name}** works in ${whyRef}.` : ""}`,
-    learnRef: whyRef,
-  });
+    ], [feature.summary, feature.whyItMatters]);
+    questions.push({
+      prompt: `What is the main reason to configure **${name}** for **${agent}** in this scenario?`,
+      correct: whyConcise,
+      distractors: wrong.distractors,
+      explanation: `${whyFull}${whyRef ? ` Review how **${name}** works in ${whyRef}.` : ""}${wrong.note}`,
+      learnRef: whyRef,
+    });
+  }
 
   const verifyRaw = feature.validation?.[0] || feature.expectedResults?.[0];
   if (verifyRaw && !isUnreviewedText(verifyRaw)) {
@@ -204,17 +250,19 @@ export function knowledgeCheckBlock(feature, plan, u, grounding) {
       `${feature.name} ${verifyRaw} ${feature.validation?.[1] || ""}`,
       u,
     );
+    const verifyConcise = conciseSentence(verifyFull, 160);
+    const wrong = withSiblingAnswers(feature, plan, u, (other) => other.validation?.[0] || other.expectedResults?.[0], verifyConcise, stepSeed + 1, [
+      `Closing the tab right after opening ${name} without testing.`,
+      `Skipping the Check your work list for ${name}.`,
+      `Removing ${name} before running any scenario test.`,
+    ], [...(feature.validation || []), ...(feature.expectedResults || [])]);
     questions.push({
       prompt: `Which check confirms that **${name}** is working as expected?`,
-      correct: conciseSentence(verifyFull, 160),
-      distractors: [
-        `Closing the tab right after opening ${name} without testing.`,
-        `Skipping the Check your work list for ${name}.`,
-        `Removing ${name} before running any scenario test.`,
-      ],
+      correct: verifyConcise,
+      distractors: wrong.distractors,
       explanation: `Confirm **${name}** by checking this outcome: ${verifyFull}${secondaryVerify}${
         verifyRef ? ` Compare expected results in ${verifyRef}.` : ""
-      }`,
+      }${wrong.note}`,
       learnRef: verifyRef,
     });
   }
@@ -227,17 +275,28 @@ export function knowledgeCheckBlock(feature, plan, u, grounding) {
   if (conceptRaw && !isUnreviewedText(conceptRaw)) {
     const conceptFull = ensureStop(u.scrub(conceptRaw));
     const conceptRef = learnReferenceLink(learnSources, `${feature.name} ${conceptRaw}`, u);
-    questions.push({
-      prompt: `Which point of interest applies when configuring **${name}**?`,
-      correct: conciseSentence(conceptFull, 160),
-      distractors: [
+    const conceptConcise = conciseSentence(conceptFull, 160);
+    const wrong = withSiblingAnswers(
+      feature,
+      plan,
+      u,
+      (other) => (other.concepts || []).find((c) => CAUTION.test(c) && !isUnreviewedText(c)) || (other.concepts || []).find((c) => !isUnreviewedText(c)),
+      conceptConcise,
+      stepSeed + 2,
+      [
         `${name} ignores tenant licensing and environment roles.`,
         `Updates to ${name} never affect ${agent} behavior.`,
         `Every change to ${name} requires a brand-new tenant.`,
       ],
+      feature.concepts || [],
+    );
+    questions.push({
+      prompt: `Which of these applies to **${name}**?`,
+      correct: conceptConcise,
+      distractors: wrong.distractors,
       explanation: `Keep this **${name}** detail in mind: ${conceptFull}${
-        conceptRef ? ` Read more about this point of interest in ${conceptRef}.` : ""
-      }`,
+        conceptRef ? ` Read more in ${conceptRef}.` : ""
+      }${wrong.note}`,
       learnRef: conceptRef,
     });
   }
