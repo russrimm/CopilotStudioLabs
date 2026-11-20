@@ -261,6 +261,37 @@ function lbPrerequisitesGroupHtml(labId, title, scopePrefix) {
     </div>`;
 }
 
+/**
+ * Everything meant for the administrator, together and clearly named: the Administrator setup guide and the
+ * Prerequisites checklist. Admin settings never appear in the learner guides, so this is the only place they are offered.
+ */
+function lbAdministratorGroupHtml(labId, title, scopePrefix) {
+  const safeId = escapeHtml(labId);
+  const safeTitle = escapeHtml(title || "Lab");
+  const base = `${scopePrefix}-admin-${safeId}`;
+  return `
+    <div class="lb-admin-docs" role="group" aria-labelledby="${base}-title" aria-describedby="${base}-note">
+      <span class="lb-download-files-label" id="${base}-title">For the administrator</span>
+      <p class="lb-admin-note" id="${base}-note">Admin settings only. Not part of the learner guides.</p>
+      <div class="lb-admin-guide-group" role="group" aria-label="Administrator setup guide for ${safeTitle}">
+        <span class="lb-download-files-label">Administrator setup guide</span>
+        <p class="lb-admin-note">Every administrator setting, grouped by role and in the order to do the work.</p>
+        <div class="lb-download-files-links">
+          <label class="sr-only" for="${base}-format">Format of the administrator setup guide for ${safeTitle}</label>
+          <select id="${base}-format" class="lb-zip-format-select" data-admin-guide-format-select data-lab-id="${safeId}">
+            <option value="docx">Word (.docx), recommended</option>
+            <option value="pdf">PDF (.pdf)</option>
+            <option value="html">Web page (.html)</option>
+            <option value="md">Markdown (.md)</option>
+          </select>
+          <button type="button" class="btn btn-sm btn-primary" data-gen-action="export-admin-guide" data-lab-id="${safeId}" aria-label="Download administrator setup guide for ${safeTitle}">Download administrator setup guide</button>
+          <button type="button" class="btn btn-sm" data-gen-action="preview-admin-guide" data-lab-id="${safeId}" aria-label="Preview the administrator setup guide for ${safeTitle}">Preview</button>
+        </div>
+      </div>
+      ${lbPrerequisitesGroupHtml(labId, title, scopePrefix)}
+    </div>`;
+}
+
 function lbGeneratedActionButtonsHtml(labId, title, options = {}) {
   const safeId = escapeHtml(labId);
   const encodedId = encodeURIComponent(labId);
@@ -282,7 +313,7 @@ function lbGeneratedActionButtonsHtml(labId, title, options = {}) {
         ${lbZipFormatSelectHtml(labId, displayTitle, scopePrefix)}
       </div>
     </div>
-    ${lbPrerequisitesGroupHtml(labId, displayTitle, scopePrefix)}
+    ${lbAdministratorGroupHtml(labId, displayTitle, scopePrefix)}
     <div class="lb-result-utility-actions" role="group" aria-label="Lab tools for ${safeTitle}">
       <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">🖨️ Print</button>
       <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>
@@ -445,7 +476,7 @@ function lbRenderAdminPrerequisitesHtml(prereqs) {
         </div>
       </div>
       <p class="lb-admin-prereqs-intro">
-        Share this checklist with your Power Platform, Microsoft Entra, Microsoft 365, and Azure administrators before running the workshop so every connector, DLP/ACP rule, environment toggle, and storage allocation is ready. It is also included inside the lab guide and packaged in <code>00 - Overview and Admin Prerequisites</code> when you export the Lab ZIP.
+        <strong>For the administrator.</strong> These settings are not part of the learner guides. Hand them to your Power Platform, Microsoft Entra, Microsoft 365, and Azure administrators before the workshop so every connector, DLP/ACP rule, environment toggle, and storage allocation is ready. Download the Administrator setup guide or the Prerequisites checklist from <strong>For the administrator</strong> above; the Lab ZIP carries both in its <code>For the administrator</code> folder.
       </p>
       ${spCalloutHtml}
 
@@ -945,12 +976,19 @@ async function lbExportGeneratedZip(labId, triggerEl) {
   }
 }
 
-// ── Prerequisites checklist ─────────────────────────────────────────────────
+// ── Prerequisites checklist and Administrator setup guide ───────────────────
+// Both are for the administrator. They share one preview dialog.
 const LB_PREREQ_FORMATS = ["docx", "pdf", "html", "md"];
-const lbPrereq = { labId: null, format: "docx", trigger: null };
+const lbPrereq = { labId: null, format: "docx", kind: "checklist", trigger: null };
 
 function lbPrereqFormatFor(triggerEl) {
   const select = triggerEl?.closest?.(".lb-prereq-group")?.querySelector?.("[data-prereq-format-select]");
+  const value = String(select?.value || "docx").toLowerCase();
+  return LB_PREREQ_FORMATS.includes(value) ? value : "docx";
+}
+
+function lbAdminGuideFormatFor(triggerEl) {
+  const select = triggerEl?.closest?.(".lb-admin-guide-group")?.querySelector?.("[data-admin-guide-format-select]");
   const value = String(select?.value || "docx").toLowerCase();
   return LB_PREREQ_FORMATS.includes(value) ? value : "docx";
 }
@@ -974,31 +1012,70 @@ async function lbDownloadPrerequisites(labId, format = "docx") {
   }
 }
 
-/** Show exactly what the customer will receive, in a dialog, before it is sent. */
-async function lbPreviewPrerequisites(labId, triggerEl) {
+/** Download the Administrator setup guide (Word, PDF, web page, or Markdown): admin settings only. */
+async function lbDownloadAdminGuide(labId, format = "docx") {
+  if (!labId) return;
+  const kind = LB_PREREQ_FORMATS.includes(format) ? format : "docx";
+  try {
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/export?format=admin-guide-${kind}`);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Download failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const labTitle = lbResolveDisplayLabTitle(labId);
+    lbDownloadText(`${lbSanitizeFileBase(labTitle, labId)} - Administrator setup guide.${kind}`, blob, blob.type || "application/octet-stream");
+    toast(`Downloaded the administrator setup guide for "${labTitle}"`, "success");
+  } catch (err) {
+    toast(`Could not download the administrator setup guide: ${err.message}`, "error");
+  }
+}
+
+/** Show the document in a dialog before it is sent: the customer's checklist, or the administrator's guide. */
+async function lbOpenAdminPreview(kind, labId, triggerEl) {
   const dialog = document.getElementById("lb-prereq-preview-dialog");
   if (!labId || !dialog) return;
+  const isGuide = kind === "admin-guide";
   const frame = document.getElementById("lb-prereq-preview-frame");
   const desc = document.getElementById("lb-prereq-preview-desc");
   const error = document.getElementById("lb-prereq-preview-error");
+  const heading = document.getElementById("lb-prereq-preview-title");
+  const download = document.getElementById("lb-prereq-preview-download");
   lbPrereq.labId = labId;
-  lbPrereq.format = lbPrereqFormatFor(triggerEl);
+  lbPrereq.kind = isGuide ? "admin-guide" : "checklist";
+  lbPrereq.format = isGuide ? lbAdminGuideFormatFor(triggerEl) : lbPrereqFormatFor(triggerEl);
   lbPrereq.trigger = triggerEl || null;
+  if (heading) heading.textContent = isGuide ? "Administrator setup guide preview" : "Prerequisites checklist preview";
+  if (download) download.textContent = isGuide ? "Download administrator setup guide" : "Download prerequisites checklist";
+  if (frame) frame.title = isGuide ? "Preview of the administrator setup guide" : "Preview of the prerequisites checklist";
   error.textContent = "";
   desc.textContent = "Loading the preview...";
   frame.srcdoc = "";
   if (!dialog.open) dialog.showModal();
   document.getElementById("lb-prereq-preview-close")?.focus();
   try {
-    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/prerequisites`);
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/${isGuide ? "admin-guide" : "prerequisites"}`);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
-    desc.textContent = `This is what the customer gets: ${Number(data.itemCount) || 0} item${Number(data.itemCount) === 1 ? "" : "s"} across ${(data.roles || []).length} role${(data.roles || []).length === 1 ? "" : "s"}, and nothing else from the lab.`;
+    const items = `${Number(data.itemCount) || 0} item${Number(data.itemCount) === 1 ? "" : "s"} across ${(data.roles || []).length} role${(data.roles || []).length === 1 ? "" : "s"}`;
+    desc.textContent = isGuide
+      ? `This is the administrator's copy: ${items}. Admin settings only. It is not part of the learner guides.`
+      : `This is what the customer gets: ${items}, and nothing else from the lab.`;
     frame.srcdoc = String(data.html || "");
   } catch (err) {
     desc.textContent = "";
     error.textContent = `Could not load the preview: ${err.message}`;
   }
+}
+
+/** Show exactly what the customer will receive, in a dialog, before it is sent. */
+function lbPreviewPrerequisites(labId, triggerEl) {
+  return lbOpenAdminPreview("checklist", labId, triggerEl);
+}
+
+/** Show the Administrator setup guide in a dialog before it is handed over. */
+function lbPreviewAdminGuide(labId, triggerEl) {
+  return lbOpenAdminPreview("admin-guide", labId, triggerEl);
 }
 
 async function lbPrintGenerated(labId) {
@@ -1342,6 +1419,8 @@ function lbGenBind() {
       case "export-html": lbDownloadGeneratedHtml(labId); lbChecklistShared(labId); break;
       case "export-prereqs": lbDownloadPrerequisites(labId, lbPrereqFormatFor(button)); break;
       case "preview-prereqs": lbPreviewPrerequisites(labId, button); break;
+      case "export-admin-guide": lbDownloadAdminGuide(labId, lbAdminGuideFormatFor(button)); break;
+      case "preview-admin-guide": lbPreviewAdminGuide(labId, button); break;
       case "download": lbDownload(labId); lbChecklistShared(labId); break;
       case "print": lbPrintGenerated(labId); lbChecklistShared(labId); break;
       case "validate": lbValidateGenerated(labId); break;
@@ -1367,7 +1446,9 @@ function lbGenBind() {
     lbGenRender(`Sorted: ${event.target.selectedOptions[0].textContent}.`);
   });
   document.getElementById("lb-prereq-preview-close")?.addEventListener("click", () => document.getElementById("lb-prereq-preview-dialog").close());
-  document.getElementById("lb-prereq-preview-download")?.addEventListener("click", () => lbDownloadPrerequisites(lbPrereq.labId, lbPrereq.format));
+  document.getElementById("lb-prereq-preview-download")?.addEventListener("click", () =>
+    lbPrereq.kind === "admin-guide" ? lbDownloadAdminGuide(lbPrereq.labId, lbPrereq.format) : lbDownloadPrerequisites(lbPrereq.labId, lbPrereq.format),
+  );
   // Closing with Esc skips the Close button, so focus returns to the button that opened the preview either way.
   document.getElementById("lb-prereq-preview-dialog")?.addEventListener("close", () => {
     document.getElementById("lb-prereq-preview-frame").srcdoc = "";

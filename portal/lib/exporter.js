@@ -47,7 +47,8 @@ import {
   renderFacilitatorGuidePdfBuffer,
 } from "./lab-builder/facilitator-guide.js";
 import { renderLabMarkdown } from "./markdown.js";
-import { buildPrerequisitesChecklist } from "./lab-builder/prereq-checklist.js";
+import { ADMIN_FOLDER_NAME, ADMIN_GUIDE_TITLE, learnerGuideMarkdown, learnerSafeManifest } from "./lab-builder/learner-guide.js";
+import { buildPrerequisitesChecklist, checklistBaseName, renderPrerequisitesChecklistMarkdown } from "./lab-builder/prereq-checklist.js";
 import { renderPrerequisitesChecklistHtml } from "./lab-builder/prereq-checklist-html.js";
 import { renderPrerequisitesChecklistDocxBuffer } from "./lab-builder/prereq-checklist-docx.js";
 import { renderPrerequisitesChecklistPdfBuffer } from "./lab-builder/prereq-checklist-pdf.js";
@@ -56,6 +57,15 @@ import {
   normalizePrerequisitesFormat,
   renderPrerequisitesChecklistFile,
 } from "./lab-builder/prereq-checklist-render.js";
+import { adminGuideBaseName, buildAdministratorSetupGuide, renderAdministratorSetupGuideMarkdown } from "./lab-builder/admin-guide.js";
+import { renderAdministratorSetupGuideDocxBuffer } from "./lab-builder/admin-guide-docx.js";
+import { renderAdministratorSetupGuideHtml } from "./lab-builder/admin-guide-html.js";
+import { renderAdministratorSetupGuidePdfBuffer } from "./lab-builder/admin-guide-pdf.js";
+import {
+  ADMIN_GUIDE_FORMATS,
+  normalizeAdminGuideFormat,
+  renderAdministratorSetupGuideFile,
+} from "./lab-builder/admin-guide-render.js";
 
 const SAFE_GENERATED_LAB_ID = /^[a-z0-9][a-z0-9-]{0,99}$/i;
 const ALLOWED_DOC_FORMATS = ["docx", "pptx", "pdf", "html"];
@@ -200,7 +210,7 @@ function appendBrandInfo(markdown, brand) {
 }
 
 /** README.md placed at the root of every generated-lab bundle. */
-export function renderBundleReadme({ title, brand, formats = [], modules = [], hasFacilitatorGuide = true, customerChecklistFile = null } = {}) {
+export function renderBundleReadme({ title, brand, formats = [], modules = [], hasFacilitatorGuide = true, customerChecklistFile = null, hasAdministratorFolder = false } = {}) {
   const b = normalizeBrand(brand);
   const site = getBrandSharepointSite(b);
   const lines = [`# ${title || "Lab bundle"}`, ""];
@@ -210,6 +220,9 @@ export function renderBundleReadme({ title, brand, formats = [], modules = [], h
   lines.push("- `index.md` and `index.html` — the complete lab guide (Markdown and a single-file web page).");
   if (formats.length) {
     lines.push(`- One folder per module with the guide in ${formats.map((f) => `.${f}`).join(", ")} and a \`sample-files/\` starter pack.`);
+  }
+  if (hasAdministratorFolder) {
+    lines.push(`- \`${ADMIN_FOLDER_NAME}/\` — the ${ADMIN_GUIDE_TITLE} and the Prerequisites checklist. Admin settings only: hand this folder to your administrator and keep it out of the learner materials.`);
   }
   if (customerChecklistFile) lines.push(`- \`${customerChecklistFile}\` — only the prerequisites, safe to send to the customer hosting the workshop.`);
   if (hasFacilitatorGuide) lines.push("- `Facilitator Guide/` — the instructor pack for delivering the lab.");
@@ -378,7 +391,7 @@ export function renderGeneratedLabMarkdown(
 
   const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
-  let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
+  let content = learnerGuideMarkdown(readFileSync(join(found.labDir, "index.md"), "utf-8"));
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
   }
@@ -405,7 +418,7 @@ export function renderGeneratedLabHtml(
 
   const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
-  let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
+  let content = learnerGuideMarkdown(readFileSync(join(found.labDir, "index.md"), "utf-8"));
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
   }
@@ -462,7 +475,7 @@ export function renderGeneratedLabDocx(
 
   const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
-  let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
+  let content = learnerGuideMarkdown(readFileSync(join(found.labDir, "index.md"), "utf-8"));
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
   }
@@ -497,7 +510,7 @@ export function renderGeneratedLabPptx(
 
   const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
-  let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
+  let content = learnerGuideMarkdown(readFileSync(join(found.labDir, "index.md"), "utf-8"));
   let brandedTitle = found.manifest?.title || found.labId;
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
@@ -536,7 +549,7 @@ export function renderGeneratedLabPdf(
 
   const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
-  let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
+  let content = learnerGuideMarkdown(readFileSync(join(found.labDir, "index.md"), "utf-8"));
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
   }
@@ -563,7 +576,7 @@ function buildGeneratedLabFacilitatorContext(
 
   const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
-  let content = readFileSync(join(found.labDir, "index.md"), "utf-8");
+  let content = learnerGuideMarkdown(readFileSync(join(found.labDir, "index.md"), "utf-8"));
   let brandedTitle = found.manifest?.title || found.labId;
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
@@ -676,7 +689,34 @@ export function renderGeneratedLabFacilitatorPdf(
   return { status: 200, labId: ctx.labId, title: ctx.title, buffer };
 }
 
-export { PREREQUISITES_FORMATS, normalizePrerequisitesFormat };
+export { PREREQUISITES_FORMATS, normalizePrerequisitesFormat, ADMIN_GUIDE_FORMATS, normalizeAdminGuideFormat };
+
+/**
+ * The Administrator setup guide for a generated lab: every administrator setting, grouped by role and in the
+ * order of work, in Word (`docx`), `pdf`, a single-file web page (`html`), or Markdown (`md`). Works for labs
+ * built before this document existed, because it reads only the saved manifest and `index.md` (the old
+ * administrator section in it is never read: the settings come from the manifest's modules).
+ */
+export function renderGeneratedLabAdminGuide(
+  generatedRoot,
+  rawLabId,
+  format = "docx",
+  replacements = {},
+  { branding, logoSourcePath, now } = {},
+) {
+  if (!normalizeAdminGuideFormat(format)) return renderAdministratorSetupGuideFile({ format });
+  const found = resolveSafeGeneratedLabDir(generatedRoot, rawLabId);
+  if (found.status !== 200) return { status: found.status, error: found.error };
+  return renderAdministratorSetupGuideFile({
+    manifest: found.manifest,
+    markdown: readFileSync(join(found.labDir, "index.md"), "utf-8"),
+    format,
+    replacements,
+    branding,
+    logoSourcePath,
+    now,
+  });
+}
 
 /**
  * The standalone "Prerequisites checklist" for a generated lab: only what the customer must have ready,
@@ -779,8 +819,20 @@ export function exportGeneratedLab(
           continue;
         }
 
+        if (relPath === "manifest.json") {
+          // The administrator model is not part of the learner folder; the Administrator setup guide rebuilds it.
+          try {
+            const safe = learnerSafeManifest(JSON.parse(readFileSync(fullPath, "utf-8")));
+            archive.append(`${JSON.stringify(safe, null, 2)}\n`, { name: archiveName });
+            continue;
+          } catch {
+            // An unreadable manifest is copied as it is.
+          }
+        }
+
         if (entry.name.endsWith(".md")) {
           let content = readFileSync(fullPath, "utf-8");
+          if (relPath === "index.md") content = learnerGuideMarkdown(content);
           for (const [search, replace] of replacementEntries) {
             content = content.split(search).join(replace);
           }
@@ -817,11 +869,14 @@ export function exportGeneratedLab(
 
     walkLab(labDir);
 
-    let htmlSourceMd = readFileSync(join(labDir, "index.md"), "utf-8");
+    // The saved text with replacements and branding tokens applied. The administrator documents read this as it is;
+    // every learner-facing file below reads `htmlSourceMd`, which has the administrator section taken out.
+    let rawSourceMd = readFileSync(join(labDir, "index.md"), "utf-8");
     for (const [search, replace] of replacementEntries) {
-      htmlSourceMd = htmlSourceMd.split(search).join(replace);
+      rawSourceMd = rawSourceMd.split(search).join(replace);
     }
-    htmlSourceMd = applyBrandingTokens(htmlSourceMd, branding);
+    rawSourceMd = applyBrandingTokens(rawSourceMd, branding);
+    const htmlSourceMd = learnerGuideMarkdown(rawSourceMd);
     const htmlArchiveName = posix.join(labId, "index.html");
     const htmlLogoRel = logoArchivePath
       ? relative(dirname(htmlArchiveName), logoArchivePath).replace(/\\/g, "/")
@@ -835,7 +890,7 @@ export function exportGeneratedLab(
     archive.append(standaloneHtml, { name: htmlArchiveName });
 
     // Build per-module titled folders (`Module NN - <Module Title>/`) + sample files +
-    // `00 - Overview and Admin Prerequisites/` in the requested format(s).
+    // `00 - Overview/` in the requested format(s).
     const logoBuffer = logoSourcePath && existsSync(logoSourcePath) ? readFileSync(logoSourcePath) : null;
     const inlineLogoUri = logoSourcePath ? fileToDataUri(logoSourcePath) : null;
     const resolveImgBuffer = (src) => resolveLabAssetBuffer(generatedRoot, labId, labDir, src, resolveAsset);
@@ -916,7 +971,7 @@ export function exportGeneratedLab(
     const split = splitGeneratedLabModules(htmlSourceMd, effectiveManifest, { labId });
     appendFormattedDocs(
       split.overview.folderName,
-      sanitizeFilesystemTitle(split.overview.fileBaseName, "Lab Overview and Admin Prerequisites"),
+      sanitizeFilesystemTitle(split.overview.fileBaseName, "Lab Overview"),
       split.overview.title,
       split.overview.markdown,
     );
@@ -1039,7 +1094,7 @@ export function exportGeneratedLab(
     const checklistFormat = selectedFormats.includes("docx") ? "docx" : selectedFormats.includes("pdf") ? "pdf" : "html";
     const checklistModel = buildPrerequisitesChecklist({
       manifest: effectiveManifest,
-      markdown: htmlSourceMd,
+      markdown: rawSourceMd,
       brand: customizedBranding ? branding : null,
       replacements,
     });
@@ -1053,6 +1108,48 @@ export function exportGeneratedLab(
       { name: customerChecklistFile },
     );
 
+    // Everything for the administrator in one folder at the top of the archive, so it can be handed over on its
+    // own: the Administrator setup guide and the Prerequisites checklist, in the requested formats plus Markdown.
+    const adminFormats = ["docx", "pdf", "html"].filter((fmt) => selectedFormats.includes(fmt));
+    if (!adminFormats.length) adminFormats.push("docx");
+    const guideModel = buildAdministratorSetupGuide({
+      manifest: effectiveManifest,
+      markdown: rawSourceMd,
+      brand: customizedBranding ? branding : null,
+      replacements,
+    });
+    const adminFolderFiles = [];
+    const addAdminFile = (fileName, data) => {
+      const archivePath = posix.join(ADMIN_FOLDER_NAME, fileName);
+      archive.append(data, { name: archivePath });
+      adminFolderFiles.push(archivePath);
+    };
+    const guideBase = adminGuideBaseName(facilitatorSafeTitle);
+    const checklistBase = checklistBaseName(facilitatorSafeTitle);
+    const htmlOptions = { branding: htmlBranding || { primaryColor: branding?.primaryColor } };
+    for (const fmt of adminFormats) {
+      addAdminFile(
+        `${guideBase}.${fmt}`,
+        fmt === "docx"
+          ? renderAdministratorSetupGuideDocxBuffer(guideModel, { branding: docBranding })
+          : fmt === "pdf"
+            ? renderAdministratorSetupGuidePdfBuffer(guideModel, { branding: docBranding })
+            : renderAdministratorSetupGuideHtml(guideModel, htmlOptions),
+      );
+    }
+    addAdminFile(`${guideBase}.md`, renderAdministratorSetupGuideMarkdown(guideModel));
+    for (const fmt of adminFormats) {
+      addAdminFile(
+        `${checklistBase}.${fmt}`,
+        fmt === "docx"
+          ? renderPrerequisitesChecklistDocxBuffer(checklistModel, { branding: docBranding })
+          : fmt === "pdf"
+            ? renderPrerequisitesChecklistPdfBuffer(checklistModel, { branding: docBranding })
+            : renderPrerequisitesChecklistHtml(checklistModel, htmlOptions),
+      );
+    }
+    addAdminFile(`${checklistBase}.md`, renderPrerequisitesChecklistMarkdown(checklistModel));
+
     const manifest = {
       exportedAt: new Date().toISOString(),
       source: "generated",
@@ -1060,6 +1157,8 @@ export function exportGeneratedLab(
       title: brandedLabTitle,
       formats: selectedFormats,
       overviewFolder: posix.join(labId, split.overview.folderName),
+      administratorFolder: ADMIN_FOLDER_NAME,
+      administratorFiles: adminFolderFiles,
       facilitatorGuideFolder: facilitatorFolder,
       facilitatorGuideFiles: facilitatorFiles,
       customerPrerequisitesChecklist: customerChecklistFile,
@@ -1075,6 +1174,7 @@ export function exportGeneratedLab(
         formats: selectedFormats,
         modules: exportedModules,
         customerChecklistFile,
+        hasAdministratorFolder: true,
       }),
       { name: "README.md" },
     );

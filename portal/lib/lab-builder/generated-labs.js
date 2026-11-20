@@ -14,6 +14,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync, renameSync, rmSync, s
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { escapeMarkdown, scrubForbidden } from "./composer.js";
 import { buildAdminPrerequisites } from "./admin-prereqs.js";
+import { learnerGuideMarkdown } from "./learner-guide.js";
 import { capturedImage, capturedScreenshotsDirs } from "./captured.js";
 import { renderStandaloneLabHtml } from "./html-lab.js";
 import { getLabScreenshotsStatus, repairLabPlaceholders } from "./lab-screenshots.js";
@@ -379,7 +380,7 @@ export function updateGeneratedLabMeta(rootDir, rawId, body) {
           writeFileAtomic(indexPath, activeMarkdown);
           writeFileAtomic(
             join(found.labDir, "index.html"),
-            renderStandaloneLabHtml(activeMarkdown, { title: patch.title, labId: found.labId }),
+            renderStandaloneLabHtml(learnerGuideMarkdown(activeMarkdown), { title: patch.title, labId: found.labId }),
           );
         } else {
           activeMarkdown = currentMd;
@@ -449,7 +450,7 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown = (md) => String
   try {
     // A lab built while placeholder pictures counted as captures repairs itself before anything is rendered from it.
     repairLabPlaceholders(labDir, { labId });
-    const markdown = readFileSync(indexPath, "utf-8");
+    const markdown = learnerGuideMarkdown(readFileSync(indexPath, "utf-8"));
     const manifestPath = join(labDir, "manifest.json");
     const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf-8")) : null;
     const topicDocuments = ensureGeneratedLabTopicDocuments(labDir, {

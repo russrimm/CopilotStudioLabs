@@ -39,7 +39,7 @@ import {
   sampleInputBlock,
   troubleshootingBlock,
 } from "./teaching.js";
-import { buildAdminPrerequisites, renderAdminPrerequisitesMarkdown } from "./admin-prereqs.js";
+import { ADMIN_AUDIENCE_LABEL, LEARNER_SETUP_NOTE, isAdminAudienceTopic } from "./learner-guide.js";
 import { canonicalLearnUrl, dedupeLearnSources, formatCitationLabel } from "./learn-citations.js";
 import { subtopicPlaceholderStep } from "./topic-feature.js";
 import { scopeProblem } from "./topic-scope.js";
@@ -452,6 +452,8 @@ function prerequisitesSection(plan) {
     "",
     "You do not need production data. Sample documents and a handful of test records are enough to make every module work end to end.",
     ...licensingBlock(plan, TEACH),
+    "",
+    LEARNER_SETUP_NOTE,
   ].join("\n");
 }
 
@@ -840,7 +842,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
   return [
     `### Step ${stepNum} - ${feature.name}`,
     "",
-    `*Level ${feature.level} · about ${feature.minutes} minutes*`,
+    `*Level ${feature.level} · about ${feature.minutes} minutes${isAdminAudienceTopic(feature) ? ` · ${ADMIN_AUDIENCE_LABEL}` : ""}*`,
     "",
     `**What you are doing.** ${scrubForbidden(feature.summary)}`,
     ...scopeNoteLines(feature, plan),
@@ -1194,8 +1196,6 @@ export function composeLab(
     );
   }
 
-  const adminPrereqs = buildAdminPrerequisites(plan);
-
   sections.push(
     validationSection(plan),
     "",
@@ -1208,8 +1208,6 @@ export function composeLab(
     completeSection(plan),
     "",
     howToUseSection(plan, generation, stepsByFeature),
-    "",
-    renderAdminPrerequisitesMarkdown(adminPrereqs),
     "",
   );
 

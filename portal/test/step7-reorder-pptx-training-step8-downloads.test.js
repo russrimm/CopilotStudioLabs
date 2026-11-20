@@ -564,7 +564,8 @@ What is our store manager approval threshold for cash refunds without a receipt,
   assert.ok(digest, "Expected topic training digest for knowledge-sharepoint");
   assert.ok(digest.learningObjectives.length >= 3, "Expected >= 3 learning objectives");
   assert.ok(digest.architectureFlow.length >= 3, "Expected >= 3 runtime architecture steps");
-  assert.ok(digest.governanceRows.length >= 2, "Expected governance & admin prerequisite rows");
+  assert.deepEqual(digest.governanceRows, [], "administrator settings are never part of a learner deck");
+  assert.doesNotMatch(digest.availabilityGuidance, /DLP|RBAC|polic/i, "availability wording lists no administrator settings");
 
   const pptxBuffer = renderTopicToPptxBuffer(sampleTopicMarkdown, {
     labTitle: "Contoso Retail Knowledge Workshop",
@@ -605,7 +606,8 @@ What is our store manager approval threshold for cash refunds without a receipt,
   assert.match(allSlideXml, /Core Concepts/);
   assert.match(allSlideXml, /Runtime Execution Lifecycle/);
   assert.match(allSlideXml, /When to Use It &amp; Design Best Practices|Implementation Best Practices/);
-  assert.match(allSlideXml, /Admin Prerequisites, DLP &amp; Guardrails/);
+  assert.match(allSlideXml, /Availability &amp; Cautions/);
+  assert.doesNotMatch(allSlideXml, /Admin Prerequisites|DLP &amp; Guardrails|Additional Admin/, "the administrator's settings are in the Administrator setup guide, not in the learner deck");
   assert.match(allSlideXml, /Prompt to try|Configuration Summary/);
   assert.match(allSlideXml, /HANDS-ON WALKTHROUGH|Step-by-Step Instructions/);
   assert.match(allSlideXml, /VERIFICATION &amp; TROUBLESHOOTING|Check Your Work &amp; Troubleshooting/);

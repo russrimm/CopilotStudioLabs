@@ -261,7 +261,8 @@ test("Foundry-only labs generate cloud/Foundry prerequisites with zero QA errors
       built.adminPrerequisites.tenantAndCloud.some((item) => item.id === "azure-foundry-rbac-and-quota"),
       "Foundry lab includes Azure & Microsoft Foundry RBAC + model quota prerequisite",
     );
-    assert.match(built.markdown, /## Connectors, Environment, and Tenant Prerequisites/);
+    assert.doesNotMatch(built.markdown, /Connectors, Environment, and Tenant Prerequisites/, "learner guides carry no administrator section");
+    assert.match(built.markdown, /Your administrator has completed the setup for this lab \(see the Administrator setup guide\)\./);
   } finally {
     cleanup();
   }
@@ -403,8 +404,8 @@ test("per-module ZIP export creates titled module folders, scenario sample-files
     assert.deepEqual(exportManifest.formats, ["docx", "pptx", "pdf", "html"]);
     assert.equal(exportManifest.modules.length, built.manifest.modules.length);
 
-    // Overview folder has all 4 formats
-    const overviewPrefix = `${built.labId}/00 - Overview and Admin Prerequisites/Lab Overview and Admin Prerequisites`;
+    // Overview folder has all 4 formats, and no administrator setup (that is in "For the administrator/")
+    const overviewPrefix = `${built.labId}/00 - Overview/Lab Overview`;
     assert.ok(allZip.has(`${overviewPrefix}.docx`));
     assert.ok(allZip.has(`${overviewPrefix}.pptx`));
     assert.ok(allZip.has(`${overviewPrefix}.pdf`));
