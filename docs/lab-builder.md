@@ -1113,6 +1113,10 @@ and the **Learning Objectives** below it carry each module's one-sentence summar
 sentences. For a module found only on Learn whose summary says the article does not apply (see "Topics that do not apply"),
 the objective reads "Microsoft Learn says: ... Confirm this fits your audience before you teach it." instead of presenting
 the warning as something to learn.
+The details table at the top is shown without its "Field | Details" header, without the TAGS keyword row, and without a
+DIFFICULTY row that repeats LEVEL, each label as a row header (`tidyMetaTable()` in `meta-table.js`, applied in the portal
+preview and the standalone HTML). The Markdown keeps every row, because the validators and the lab list read DIFFICULTY,
+TIME, PRODUCTS, TAGS, and INDUSTRIES from it.
 
 ### 3. Microsoft Learn grounding
 
