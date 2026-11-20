@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { cleanStep, deriveSteps, extractLearnCautions, extractProcedures, isVerifiedCanonicalArticle } from "../lib/lab-builder/steps.js";
 import { BLOCKER_CODES, MAX_VERIFIED_CURATED_DAYS, isCuratedFresh } from "../lib/lab-builder/blockers.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
+import { joinStep, splitStep } from "../lib/lab-builder/sub-steps.js";
 
 test("extractProcedures keeps ordered lists intact across unindented screenshots, callouts, blockquotes, and tables", () => {
   const md = [
@@ -267,7 +268,7 @@ test("live conceptual canonical Learn page with fresh curated steps (<= 180 days
   );
 });
 
-test("a step's sub-bullets become lettered choices and a long step is never cut in the middle", () => {
+test("a step's sub-bullets become lettered sub-steps on their own lines and a long step is never cut in the middle", () => {
   const link = "https://learn.microsoft.com/microsoft-copilot-studio/x";
   const step = cleanStep(
     [
@@ -279,17 +280,39 @@ test("a step's sub-bullets become lettered choices and a long step is never cut 
   );
   assert.equal(
     step,
-    "Use the **Add knowledge** dialog to add a source. You can: (a) Drag and drop files or select the upload area to upload documents directly; (b) Search for a knowledge source by using the search box.",
+    "Use the **Add knowledge** dialog to add a source. You can:\na. Drag and drop files or select the upload area to upload documents directly.\nb. Search for a knowledge source by using the search box.",
   );
-  assert.doesNotMatch(step, /\.\.\.|\u2026|\.;/);
+  assert.doesNotMatch(step, /\.\.\.|\u2026|\.;|\(a\)/);
 
   const wide = cleanStep(
     ["Pick a source:", ...Array.from({ length: 6 }, (_, i) => `   - Option ${i + 1} ${"explains the whole choice in a long sentence ".repeat(4).trim()}.`)],
     link,
   );
   assert.ok(wide.length < 760, "bounded");
-  assert.match(wide, /; more in the linked article\.$/);
+  assert.ok(wide.endsWith("\nMore choices are in the linked article."), "the note is its own last line");
   assert.doesNotMatch(wide, /\.\.\.|\u2026/);
+});
+
+test("a step keeps Learn's wording, its links, and the letter order in each sub-step", () => {
+  const step = cleanStep(
+    [
+      "Depending on your agent's purposes, you can:",
+      "   - [Change your agent's primary AI model](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-select-agent-model);",
+      "   - Add triggers;",
+      "   - Add [knowledge sources](/en-us/microsoft-copilot-studio/knowledge-copilot-studio).",
+    ],
+    "https://learn.microsoft.com/en-us/microsoft-copilot-studio/fundamentals-get-started",
+  );
+  const { lead, subSteps, note } = splitStep(step);
+  assert.equal(lead, "Depending on your agent's purposes, you can:");
+  assert.deepEqual(subSteps, [
+    "[Change your agent's primary AI model](https://learn.microsoft.com/en-us/microsoft-copilot-studio/authoring-select-agent-model).",
+    "Add triggers.",
+    "Add [knowledge sources](https://learn.microsoft.com/en-us/microsoft-copilot-studio/knowledge-copilot-studio).",
+  ]);
+  assert.equal(note, "");
+  assert.equal(joinStep(lead, subSteps, note), step, "splitStep and joinStep are inverses");
+  assert.equal(cleanStep(["Select **Save**."], "https://learn.microsoft.com/x"), "Select **Save**.", "a step with no list stays one line");
 });
 
 test("cautions are the page's own Important, Warning, and Limitations sentences, whole and without links", () => {

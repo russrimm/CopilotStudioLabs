@@ -16,6 +16,7 @@ import {
 } from "./architecture-overview.js";
 import { cleanText, getBrandFont } from "./brand-theme.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
+import { isSubStepStart, normalizeSubSteps, subStepLabel, takeSubSteps } from "./sub-steps.js";
 
 const PAGE_WIDTH = 612; // 8.5 in * 72 pt
 const PAGE_HEIGHT = 792; // 11.0 in * 72 pt
@@ -998,18 +999,40 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
             i < lines.length &&
             lines[i].trim() &&
             !/^\s*(?:[-*+]|\d+\.)\s+/.test(lines[i]) &&
-            !/^(?:#{1,6}\s+|```|~~~|>\s?|<details>|\s*(?:[-*_]\s*){3,})/i.test(lines[i])
+            !/^(?:#{1,6}\s+|```|~~~|>\s?|<details>|\s*(?:[-*_]\s*){3,})/i.test(lines[i]) &&
+            !isSubStepStart(lines, i)
           ) {
             itemText += ` ${lines[i].trim()}`;
             i += 1;
           }
+          const sub = takeSubSteps(lines, i);
+          i = sub.next;
+          const stepIndent = nestedOpts.callout ? 14 : 10;
           emitStyledParagraph(itemText, {
             fontSize: 9.8,
-            indentLeft: nestedOpts.callout ? 14 : 10,
+            indentLeft: stepIndent,
             prefix: `${stepNum}.`,
             callout: nestedOpts.callout,
-            spaceAfter: 4,
+            spaceAfter: sub.items.length ? 2 : 4,
           });
+          sub.items.forEach((text, subIndex) => {
+            emitStyledParagraph(text, {
+              fontSize: 9.6,
+              indentLeft: stepIndent + 18,
+              prefix: `${subStepLabel(subIndex)}.`,
+              callout: nestedOpts.callout,
+              spaceAfter: subIndex === sub.items.length - 1 && !sub.note ? 4 : 2,
+            });
+          });
+          if (sub.note) {
+            emitStyledParagraph(sub.note, {
+              fontSize: 9.2,
+              indentLeft: stepIndent + 18,
+              style: "italic",
+              callout: nestedOpts.callout,
+              spaceAfter: 4,
+            });
+          }
           stepNum += 1;
         }
         cursorY -= 3;
@@ -1044,7 +1067,7 @@ export function renderMarkdownToPdfBuffer(markdown, options = {}) {
     }
   };
 
-  renderMarkdownBlocks(stripEmbeddedHtml(markdown));
+  renderMarkdownBlocks(stripEmbeddedHtml(normalizeSubSteps(markdown)));
   if (currentOps.length || !pages.length) {
     pages.push(currentOps);
     pageAnnots.push(currentAnnots);

@@ -23,6 +23,7 @@ import { repairGeneratedLabPlaceholders } from "./placeholder-repair.js";
 import { buildShotList } from "./screenshots.js";
 import { MIN_CAPTURED_BYTES, describeSlot, slotsForFeature } from "./slots.js";
 import { deriveSteps, diffSteps, isVerifiedCanonicalArticle } from "./steps.js";
+import { flattenStepLegacy, joinStep, repairRunOnStep, stepLeadSentence, stepPlainLines, stepToMarkdown, takeSubSteps } from "./sub-steps.js";
 import { writeGeneratedLabTopicDocuments } from "./topic-documents.js";
 import { validateLabDir } from "../validator.js";
 import {
@@ -104,8 +105,9 @@ export function hashContentFingerprint(markdown) {
 }
 
 export function hashSteps(steps) {
+  // Sub-steps hash in their old one-sentence form, so a lab built before they had their own lines does not look changed.
   const normalized = (Array.isArray(steps) ? steps : [])
-    .map((step) => String(step || "").replace(/\s+/g, " ").trim())
+    .map((step) => flattenStepLegacy(step).replace(/\s+/g, " ").trim())
     .filter(Boolean)
     .join("\n");
   return hashText(normalized);
@@ -408,7 +410,7 @@ export function buildPerLabScreenshotArtifacts({
         instructions:
           item.instructions ||
           legacy?.instructions ||
-          learnBaseline.steps.slice(0, 5) ||
+          learnBaseline.steps.slice(0, 5).map(stepLeadSentence) ||
           [`Capture the ${feature.name} screen.`],
         callouts,
         steps: pwSteps,
@@ -695,7 +697,10 @@ export function extractModuleStepsFromMarkdown(markdown, mod) {
     const m = trimmed.match(/^\d+\.\s+(.+)$/);
     if (m) {
       startedList = true;
-      steps.push(m[1].trim());
+      // A step's lettered sub-steps (indented lines under it) are part of the step.
+      const sub = takeSubSteps(lines, i + 1);
+      steps.push(joinStep(m[1].trim(), sub.items, sub.note));
+      i = sub.next - 1;
       continue;
     }
     if (startedList && !trimmed) break;
@@ -726,6 +731,8 @@ export function updateLabModuleStepsInMarkdown(
     const trimmed = lines[i].trim();
     if (/^\d+\.\s+/.test(trimmed)) {
       if (firstStepIdx < 0) firstStepIdx = i;
+      // The step's lettered sub-steps go with it, so they are replaced and never left behind.
+      i = takeSubSteps(lines, i + 1).next - 1;
       afterStepsIdx = i + 1;
       continue;
     }
@@ -748,7 +755,7 @@ export function updateLabModuleStepsInMarkdown(
     "",
     `*Read from ${link} on ${day}.*`,
     "",
-    ...newSteps.map((s, idx) => `${idx + 1}. ${scrubForbidden(s)}`),
+    ...newSteps.map((s, idx) => stepToMarkdown(scrubForbidden(s), idx + 1)),
   ];
 
   const updated = [
@@ -976,9 +983,15 @@ function currentCaptureCapabilities() {
 }
 
 /** "What to show" lines for a shot, as plain short strings the Screenshot Center can display. */
-function instructionList(value) {
+export function instructionList(value) {
   const lines = Array.isArray(value) ? value : typeof value === "string" ? value.split(/\r?\n/) : [];
-  return lines
+  // A step with lettered sub-steps (or the old one-sentence form of it) shows each sub-step on its own line.
+  const expanded = lines.flatMap((line) => {
+    const text = String(line ?? "");
+    const fixed = repairRunOnStep(text) ?? text;
+    return fixed.includes("\n") ? stepPlainLines(fixed) : [text];
+  });
+  return expanded
     .map((line) => String(line ?? "").replace(/\s+/g, " ").trim().slice(0, 300))
     .filter(Boolean)
     .slice(0, 8);
@@ -1330,15 +1343,13 @@ export function getLabScreenshotsStatus(
 function summarizeStepAndHeadingDiff(baseline, live) {
   const beforeSteps = Array.isArray(baseline?.steps) ? baseline.steps : [];
   const afterSteps = Array.isArray(live?.steps) ? live.steps : beforeSteps;
-  const beforeNorm = new Set(beforeSteps.map((s) => s.replace(/\s+/g, " ").trim().toLowerCase()));
-  const afterNorm = new Set(afterSteps.map((s) => s.replace(/\s+/g, " ").trim().toLowerCase()));
+  // Steps compare in their old one-sentence form, so a baseline saved before sub-steps had their own lines matches.
+  const flat = (s) => flattenStepLegacy(s).replace(/\s+/g, " ").trim().toLowerCase();
+  const beforeNorm = new Set(beforeSteps.map(flat));
+  const afterNorm = new Set(afterSteps.map(flat));
 
-  const addedSteps = afterSteps.filter(
-    (s) => !beforeNorm.has(s.replace(/\s+/g, " ").trim().toLowerCase()),
-  );
-  const removedSteps = beforeSteps.filter(
-    (s) => !afterNorm.has(s.replace(/\s+/g, " ").trim().toLowerCase()),
-  );
+  const addedSteps = afterSteps.filter((s) => !beforeNorm.has(flat(s)));
+  const removedSteps = beforeSteps.filter((s) => !afterNorm.has(flat(s)));
 
   const beforeHeadings = Array.isArray(baseline?.headings) ? baseline.headings : [];
   const afterHeadings = Array.isArray(live?.headings) ? live.headings : [];
