@@ -165,6 +165,22 @@ export function missingRequirements(ids, values) {
   return [...new Set(ids || [])].filter((id) => REQUIREMENTS[id] && !requirementMet(id, values));
 }
 
+/**
+ * The settings without the person's own agent: its address and name are left out, and a Copilot Studio address that points into an agent is cut
+ * back to its environment. Used when the agent comes from the creation step, so no other agent can be reached from what a job carries.
+ */
+export function withoutOwnAgent(values) {
+  const out = { ...(values || {}) };
+  delete out.copilotStudioAgentUrl;
+  delete out.copilotStudioAgentName;
+  const parsed = parseCopilotStudioAddress(out.copilotStudioUrl || "");
+  if (parsed.botId) {
+    if (parsed.envBase) out.copilotStudioUrl = parsed.envBase;
+    else delete out.copilotStudioUrl;
+  }
+  return out;
+}
+
 // ── Copilot Studio addresses ───────────────────────────────────────────────
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

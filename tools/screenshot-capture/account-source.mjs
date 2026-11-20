@@ -16,6 +16,7 @@
 // property that does not show up in JSON, spreads, or console output, so it cannot leak by accident.
 
 import { execFileSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -279,7 +280,13 @@ export function classifyAccountSource({ signInShown = false, inOsTenant = null, 
 
 // ── What is kept on this computer about a profile's account ────────────────
 
-/** `{source, confirmed, verified, verifiedFor, inOsTenant, classifiedAt}` for a profile folder, or null. Flags only: no account names, no ids. */
+const SIGN_IN_ID_RE = /^[0-9a-f]{12}$/;
+
+/**
+ * `{source, confirmed, verified, verifiedFor, inOsTenant, classifiedAt, signInId}` for a profile folder, or null. Flags only: no account
+ * names, no ids. `signInId` is a random marker made when the profile's first record is written; a profile that is cleared (choosing the
+ * account again) loses its record, so the next sign-in gets a new marker. It says "the same sign-in as before", never who it is.
+ */
 export function readAccountRecord(dir) {
   try {
     const raw = JSON.parse(fs.readFileSync(path.join(dir, ACCOUNT_FILE), "utf8"));
@@ -291,6 +298,7 @@ export function readAccountRecord(dir) {
       verifiedFor: VERIFIED_FOR.includes(raw.verifiedFor) ? raw.verifiedFor : null,
       inOsTenant: typeof raw.inOsTenant === "boolean" ? raw.inOsTenant : null,
       classifiedAt: typeof raw.classifiedAt === "string" ? raw.classifiedAt : null,
+      signInId: SIGN_IN_ID_RE.test(String(raw.signInId || "")) ? raw.signInId : null,
     };
   } catch {
     return null;
@@ -312,6 +320,7 @@ export function writeAccountRecord(dir, { source, confirmed, verified, verifiedF
     verifiedFor: isVerified ? (VERIFIED_FOR.includes(verifiedFor) ? verifiedFor : verifiedFor === undefined ? previous?.verifiedFor ?? null : null) : null,
     inOsTenant: inOsTenant === undefined ? previous?.inOsTenant ?? null : typeof inOsTenant === "boolean" ? inOsTenant : null,
     classifiedAt: new Date(now()).toISOString(),
+    signInId: previous?.signInId || crypto.randomBytes(6).toString("hex"),
   };
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, ACCOUNT_FILE);

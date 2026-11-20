@@ -18,6 +18,7 @@ import { findControls } from "./locator.mjs";
 import { BLOCKERS, resolveStage, scratchInputs, stageById, stagesBefore, sanitizeScratchContext } from "./walkthrough.mjs";
 import * as R from "./scratch-recipes.mjs";
 import { sanitizeSteps } from "./setup-steps.mjs";
+import { AGENT_ACCOUNT_MESSAGE, agentAccountState } from "./practice.mjs";
 import { parseCopilotStudioAddress } from "./targets.mjs";
 
 const DEFAULT_START = "https://copilotstudio.microsoft.com/";
@@ -187,10 +188,16 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
 
   const existing = registry.find(envId, key);
   if (existing) {
+    // A practice agent made while another sign-in was active is not used, and nothing is built in its place: the person decides what happens next.
+    if (agentAccountState(existing, session.accountId) === "different") {
+      trace?.event("practice-agent-account", { state: "different", scratch: true });
+      log?.("  The practice agent from an earlier run was made under a different sign-in, so it is not used.");
+      return needsYou("agent-unavailable", AGENT_ACCOUNT_MESSAGE);
+    }
     await go(existing.address || `${env.envBase}/bots/${existing.botId}/overview`, "your practice agent");
     const landed = parseCopilotStudioAddress(page.url());
     if (landed.botId && landed.botId.toLowerCase() === String(existing.botId).toLowerCase()) {
-      registry.recordReuse(envId, key);
+      registry.recordReuse(envId, key, { accountId: session.accountId });
       scratch.agent = { ...base, botId: existing.botId, agentBase: landed.agentBase, openUrl: addressOf(landed), name: existing.name, reused: true, createdAt: existing.createdAt };
       trace?.event("practice-agent", { reused: true, scratch: true });
       log?.("  Reusing your practice agent.");
@@ -207,7 +214,7 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
     const adopt = await findAgentByName(lookup);
     if (adopt.signIn) return { ok: false, signIn: adopt.signIn };
     if (adopt.parsed) {
-      registry.recordAgent({ ...base, botId: adopt.parsed.botId, name, address: addressOf(adopt.parsed), key });
+      registry.recordAgent({ ...base, botId: adopt.parsed.botId, name, address: addressOf(adopt.parsed), key, accountId: session.accountId });
       scratch.agent = { ...base, botId: adopt.parsed.botId, agentBase: adopt.parsed.agentBase, openUrl: addressOf(adopt.parsed), name, reused: true };
       log?.("  Found the practice agent that an earlier run started to create, and will use it.");
       return { ok: true, agent: scratch.agent };
@@ -254,7 +261,7 @@ async function buildScratchAgent({ page, session, go, trace = null, log = null, 
     if (found.parsed) created = found.parsed;
   }
   if (!UUID.test(created.botId || "")) return needsYou("agent-create-failed", "The computer clicked Save but could not find the new agent afterward, so it stopped. Look in your Agents list for one named “Lab screenshots - …”, then choose Start fresh and run again.", { detail: committed.failed?.why || "" });
-  registry.recordAgent({ ...base, botId: created.botId, name, address: addressOf(created), key });
+  registry.recordAgent({ ...base, botId: created.botId, name, address: addressOf(created), key, accountId: session.accountId });
   registry.recordChange({ botId: created.botId, what: `Created the practice agent “${name}”`, shot: "" });
   scratch.agent = { ...base, botId: created.botId, agentBase: created.agentBase, openUrl: addressOf(created), name, reused: false, createdAt: new Date().toISOString() };
   trace?.event("practice-agent", { reused: false, scratch: true });

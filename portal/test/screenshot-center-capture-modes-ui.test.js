@@ -352,13 +352,13 @@ function makeHarness() {
 }
 
 /**
- * A harness with a connected computer, the capture settings loaded, and the lab rendered. By default the person has chosen
- * "Use an existing agent", so the address prompt is what these tests look at; pass `agent: null` for a choice not made yet.
+ * A harness with a connected computer, the capture settings loaded, and the lab rendered. By default the lab has saved
+ * "An agent I choose", so the address prompt is what these tests look at; pass `agent: null` for no saved choice (the default
+ * is then the agent created in the capture).
  */
 async function ready(state, { targets = null, agent = "existing" } = {}) {
   const h = makeHarness();
-  h.targets = targets;
-  h.run("scLab")(LAB).ui.agentChoice = agent;
+  h.targets = targets && agent ? { ...targets, agentSource: { source: agent === "existing" ? "own" : "created", from: "lab", saved: true } } : targets;
   await h.connect();
   await h.render(state);
   return h;
@@ -811,7 +811,7 @@ test("Save sends only what was typed, then refreshes the lab, the strip, and the
   const put = h.callsTo("PUT", /\/capture-targets$/);
   assert.equal(put.length, 1);
   assert.equal(put[0].url, "/api/lab-builder/generated/lab-test-1/capture-targets");
-  assert.deepEqual(json(put[0].body), { targets: { copilotStudioAgentName: "Contoso Support" }, alsoProfile: false }, "the empty address box is not sent, so nothing is cleared");
+  assert.deepEqual(json(put[0].body), { targets: { copilotStudioAgentName: "Contoso Support" }, alsoProfile: false, agentSource: "own" }, "the empty address box is not sent, so nothing is cleared; giving an agent chooses An agent I choose");
   assert.equal(h.callsTo("GET", /\/screenshots$/).length, 1, "the lab status is refreshed");
   assert.equal(h.center().querySelector('[data-sc-need="copilot-studio-agent"]'), null, "the block for the saved address is gone");
   assert.ok(h.center().querySelector('[data-sc-need="sharepoint-site"]'), "the other one stays");
@@ -1009,7 +1009,7 @@ test("the settings panel saves only what changed, can clear a value, and can sav
 
   h.type(panel().querySelector("#sc-settings-copilotStudioAgentName"), "Support bot");
   await h.click(save("Save for all labs (brand profile)"));
-  assert.deepEqual(json(h.callsTo("PUT", /capture-targets/)[1].body), { targets: { copilotStudioAgentName: "Support bot" }, alsoProfile: true });
+  assert.deepEqual(json(h.callsTo("PUT", /capture-targets/)[1].body), { targets: { copilotStudioAgentName: "Support bot" }, alsoProfile: true, agentSource: "own" });
 
   h.route("PUT", /\/capture-targets$/, { status: 400, body: { error: "Use https.", errors: { foundryProjectUrl: "The Foundry project address must start with https." } } });
   h.type(panel().querySelector("#sc-settings-foundryProjectUrl"), "http://ai.azure.com/p");
@@ -1364,40 +1364,155 @@ test("the brand profile form has the agent address and both agent names, labeled
 
 // ── Build the agent from scratch ─────────────────────────────────────────────
 
-const AUTONOMY_OFF = { loaded: true, consented: false, level: null, rules: { never: ["Delete anything"], creates: ["One new agent named “Lab screenshots - <short lab title>”"], tiers: [] }, companionSupported: true, minCompanion: "1.4.0", scratchSupported: true, scratchMinCompanion: "1.6.0" };
+const AUTONOMY_OFF = { loaded: true, consented: false, level: null, rules: { never: ["Delete anything"], creates: ["One new agent named “Lab screenshots - <short lab title>”"], tiers: [] }, companionSupported: true, minCompanion: "1.4.0", scratchSupported: true, scratchMinCompanion: "1.6.0", handoffSupported: true, handoffMinCompanion: "1.6.2" };
 const AUTONOMY_SCRATCH = { ...AUTONOMY_OFF, consented: true, level: "scratch", practiceEnvironmentUrl: "" };
+const AUTONOMY_READONLY = { ...AUTONOMY_OFF, consented: true, level: "read-only", practiceEnvironmentUrl: "" };
+const AUTONOMY_PRACTICE = { ...AUTONOMY_OFF, consented: true, level: "practice", practiceEnvironmentUrl: "https://copilotstudio.microsoft.com/environments/x" };
 
-/** A harness with an agent-scoped lab whose agent the person has not chosen yet, and the consent the test names. */
-async function scratchReady({ autonomy = AUTONOMY_OFF, agent = null, waiting = 11, shots = [shot({ filename: "a.png" })] } = {}) {
+/** A harness with an agent-scoped lab (its shots show an agent), the consent the test names, and the lab's saved agent choice (`agent`: "own", "created", or none). */
+async function scratchReady({ autonomy = AUTONOMY_OFF, agent = null, waiting = 11, shots = [shot({ filename: "a.png", capture: capture({ needs: ["copilot-studio-agent"], missing: ["copilot-studio-agent"], agent: { needs: true, creates: false } }) })] } = {}) {
   const h = makeHarness();
-  h.targets = targetsPayload({ missing: [requirement("copilot-studio-agent", waiting)] });
-  h.run("scLab")(LAB).ui.agentChoice = agent;
+  h.targets = { ...targetsPayload({ missing: [requirement("copilot-studio-agent", waiting)] }), ...(agent ? { agentSource: { source: agent, from: "lab", saved: true } } : {}) };
   h.status = { ...statusPayload({ devices: [device()] }), autonomy };
   await h.run("scLoadStatus")(true);
   await h.render(stateFor(shots));
   return h;
 }
 
-test("the prompt for an agent address is replaced by a choice, and the address comes back only for an existing agent", async () => {
-  const h = await scratchReady();
-  const choice = h.host.querySelector("[data-sc-agent-choice]");
-  assert.ok(choice, "the choice is shown once");
-  assert.equal(choice.querySelector("#sc-agent-choice-heading").textContent, "Which agent should the screenshots use?");
-  assert.equal(h.action("agent-scratch").textContent, "Build the agent from scratch (recommended)");
-  assert.ok(h.action("agent-scratch").classList.contains("primary") || /primary/.test(h.action("agent-scratch").className), "building from scratch is the primary choice");
-  assert.equal(h.action("agent-existing").textContent, "Use an existing agent");
-  assert.doesNotMatch(h.host.textContent, /need your agent address/, "nobody is asked for an address they do not have");
+/** The radio the person picks for the agent choice. */
+const agentRadio = (h, value) => h.host.querySelector(`[data-sc-agent-source="${value}"]`);
 
-  await h.click(h.action("agent-existing"));
-  assert.equal(h.host.querySelector("[data-sc-agent-choice]"), null, "the choice is gone once made");
-  assert.match(h.host.textContent, /needs? your agent address/, "an existing agent brings the address prompt back");
+test("by default the screenshots use the agent created earlier in the capture, and nobody is asked for an address", async () => {
+  const h = await scratchReady({ autonomy: AUTONOMY_SCRATCH });
+  const choice = h.host.querySelector("[data-sc-agent-choice]");
+  assert.ok(choice, "the choice is shown");
+  assert.equal(choice.dataset.scAgentChoice, "created", "the created agent is the default");
+  assert.equal(choice.querySelector("#sc-agent-choice-heading").textContent, "Which agent should these screenshots use?");
+  assert.equal(agentRadio(h, "created").checked, true);
+  assert.equal(agentRadio(h, "own").checked, false);
+  assert.equal(h.text('label[for="sc-agent-source-created"]'), "The agent created earlier in this capture (recommended)");
+  assert.equal(h.text('label[for="sc-agent-source-own"]'), "An agent I choose");
+  assert.match(h.text("#sc-agent-source-created-help"), /By default, the computer creates one practice agent in your demo tenant and uses it for every screenshot that needs an agent\. Choose An agent I choose to use your own\./);
+  assert.doesNotMatch(h.host.textContent, /need your agent address/, "nobody is asked for an address they do not have");
+  assert.ok(!h.host.querySelector("#sc-needs-heading"), "no address prompt");
+  assert.equal(h.card("a.png").querySelector(".sc-note").textContent, "Will use the practice agent the computer creates first.");
+  assert.doesNotMatch(h.host.querySelector(".sc-pills").textContent, /need an address/, "these screenshots are ready, not waiting");
+  assert.equal(h.host.querySelector(".sc-pills").textContent.includes("need the practice agent"), false);
 });
 
-test("choosing to build from scratch shows exactly what is created and never done, and building starts only after the yes", async () => {
-  const h = await scratchReady({ shots: [shot({ filename: "a.png" }), shot({ filename: "b.png" })] });
+test("An agent I choose brings the address prompt back, exactly as it worked before, and the choice is remembered with the lab", async () => {
+  const h = await scratchReady({ autonomy: AUTONOMY_SCRATCH });
+  h.route("PUT", /\/capture-targets$/, { status: 200, body: { ...json(h.targets), agentSource: { source: "own", from: "lab", saved: true } } });
+  await h.click(agentRadio(h, "own").checked ? agentRadio(h, "created") : agentRadio(h, "own"));
+  h.choose(agentRadio(h, "own"));
+  await h.flush();
+  assert.equal(agentRadio(h, "own").checked, true);
+  assert.match(h.host.textContent, /needs? your agent address/, "the address prompt is back");
+  assert.equal(h.card("a.png").querySelector(".sc-note").textContent, "Waiting for your agent address. Add it above, then capture this one.", "the old note applies only to this choice");
+  const saves = h.callsTo("PUT", /\/capture-targets$/).map((c) => json(c.body));
+  assert.deepEqual(saves[saves.length - 1], { agentSource: "own" }, "only the word is saved, never an address");
+});
+
+test("typing an agent address while the created agent is selected switches to An agent I choose, and says so", async () => {
+  const h = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "created" });
+  h.route("PUT", /\/capture-targets$/, { status: 200, body: { ...json(h.targets), agentSource: { source: "own", from: "lab", saved: true } } });
+  assert.ok(!h.host.querySelector("[data-sc-needs]"), "there is nothing to type while the created agent is selected");
+  // The capture settings panel always has the address box: typing in it is the person saying they want their own agent.
+  h.run("scLab")(LAB).ui.settingsOpen = true;
+  h.run("scRerender")(LAB);
+  const box = h.host.querySelector('[data-sc-scope="settings"] [data-sc-target-field="copilotStudioAgentUrl"]');
+  assert.ok(box, "the settings panel has the address box");
+  assert.equal(agentRadio(h, "created").checked, true);
+  h.type(box, "https://copilotstudio.microsoft.com/environments/contoso/bots/fabrikam/overview");
+  await h.flush();
+  assert.equal(agentRadio(h, "own").checked, true, "the choice follows the typing");
+  assert.equal(h.text("[data-sc-agent-switched]"), "Switched to An agent I choose, because you added your own agent's address or name.");
+  assert.match(h.live(), /Switched to An agent I choose/);
+});
+
+test("a capture says which agent it uses only when the person chose here, and saving an agent address chooses An agent I choose", async () => {
+  const h = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "created" });
+  h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png"]), mode: "autonomous", autonomy: { level: "scratch" } } });
+  await h.run("scQueueCapture")(LAB, { scope: "missing" });
+  assert.equal(json(h.jobBodies()[0].options).agentSource, undefined, "the lab's saved choice decides on the server");
+  const own = await scratchReady({ autonomy: AUTONOMY_SCRATCH });
+  own.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png"]), mode: "autonomous", autonomy: { level: "read-only" } } });
+  own.choose(agentRadio(own, "own"));
+  await own.flush();
+  await own.run("scQueueCapture")(LAB, { scope: "missing" });
+  assert.equal(json(own.jobBodies()[0].options).agentSource, "own", "a choice made here rides on the capture");
+});
+
+test("when nothing may be created yet, the choice says why and offers the one-time OK; a read-only capture asks for the agent's address", async () => {
+  const off = await scratchReady({ autonomy: AUTONOMY_OFF });
+  assert.equal(off.host.querySelector("[data-sc-agent-choice]").dataset.scAgentCreation, "needs-consent");
+  assert.match(off.text("[data-sc-agent-source-status]"), /needs your one-time OK before it creates a practice agent/);
+  assert.equal(off.action("agent-create-allow").textContent, "Allow the computer to create it");
+  assert.match(off.card("a.png").querySelector(".sc-note").textContent, /cannot be created yet, so this screenshot needs an agent address/);
+  assert.match(off.host.querySelector(".sc-pills").textContent, /11 need the practice agent/);
+
+  const readonly = await scratchReady({ autonomy: AUTONOMY_READONLY });
+  readonly.run("scLab")(LAB).ui.mode = "autonomous-readonly";
+  readonly.run("scRerender")(LAB);
+  assert.match(readonly.text("[data-sc-agent-source-status]"), /read-only never creates anything/);
+  assert.match(readonly.host.textContent, /needs? your agent address/, "the address is asked for, as before");
+  assert.equal(readonly.card("a.png").querySelector(".sc-note").textContent, "Waiting for your agent address. Add it above, then capture this one.");
+});
+
+test("an older companion is told, before anything is queued, that it cannot hand the practice agent over", async () => {
+  const old = await scratchReady({ autonomy: { ...AUTONOMY_PRACTICE, handoffSupported: false } });
+  assert.match(old.text("[data-sc-handoff-old]"), /older than 1\.6\.2, so it cannot hand the practice agent to the other screenshots yet/);
+  assert.match(old.card("a.png").querySelector(".sc-note").textContent, /older than 1\.6\.2/);
+  const current = await scratchReady({ autonomy: AUTONOMY_PRACTICE });
+  assert.ok(!current.host.querySelector("[data-sc-handoff-old]"));
+});
+
+test("once the practice agent exists, the screenshots say they use it, and a screenshot that waited for it says so with one Retry", async () => {
+  const h = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "created" });
+  h.run("scLab")(LAB).job = jobWith([["a.png", "captured"]], { result: { scratch: { name: "Lab screenshots - Team", createdAt: "2026-11-18", reused: false, environment: "default", stages: ["agent"] } } });
+  h.run("scRerender")(LAB);
+  assert.equal(h.card("a.png").querySelector(".sc-note").textContent, "Using the practice agent created for this lab.");
+  assert.equal(h.text("[data-sc-agent-source-status]"), "Using the practice agent created for this lab.");
+
+  const waited = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "created" });
+  waited.run("scLab")(LAB).lastJob = jobWith([["a.png", "skipped", { cause: "agent-unavailable", message: "The practice agent could not be created, so this screenshot needs an agent address." }]], {});
+  waited.run("scRerender")(LAB);
+  const card = waited.card("a.png");
+  assert.equal(card.querySelector(".sc-status-chip").textContent, "Waiting for the agent");
+  assert.equal(card.querySelector(".sc-note").textContent, "The practice agent could not be created, so this screenshot needs an agent address.");
+  assert.equal(waited.cardAction("a.png", "shot-capture").textContent, "Retry");
+  assert.ok(!waited.cardAction("a.png", "shot-retake"), "one clear way forward");
+});
+
+test("the readiness strip says where the agent will be created, shows the practice agent afterward, and Start fresh is a toggle the job carries", async () => {
+  const h = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "created" });
+  assert.equal(h.host.querySelector("[data-sc-agent-line]").dataset.scAgentLine, "scratch");
+  assert.equal(h.text("[data-sc-agent-text]"), "Agent: the practice agent the computer creates first, in the default environment.");
+  assert.ok(!h.action("agent-start-fresh"), "there is nothing to start fresh from before an agent exists");
+
+  const set = await scratchReady({ autonomy: { ...AUTONOMY_SCRATCH, practiceEnvironmentUrl: "https://copilotstudio.microsoft.com/environments/x" }, agent: "created" });
+  assert.equal(set.text("[data-sc-agent-text]"), "Agent: the practice agent the computer creates first, in the environment you set.");
+
+  const own = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "own" });
+  assert.equal(own.text("[data-sc-agent-text]"), "Agent: the agent you choose, from the address or name in Capture settings.");
+
+  const built = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "created" });
+  built.run("scLab")(LAB).job = jobWith([["a.png", "captured"]], { result: { scratch: { name: "Lab screenshots - Team", createdAt: "2026-11-18", reused: false, environment: "default", stages: ["agent"] } } });
+  built.run("scRerender")(LAB);
+  assert.equal(built.text("[data-sc-agent-text]"), "Agent: Lab screenshots - Team (created 2026-11-18).");
+  const fresh = built.action("agent-start-fresh");
+  assert.equal(fresh.textContent, "Start fresh");
+  assert.equal(fresh.getAttribute("aria-pressed"), "false");
+  await built.click(fresh);
+  assert.equal(built.action("agent-start-fresh").getAttribute("aria-pressed"), "true");
+  assert.match(built.text("[data-sc-agent-text]"), /a new practice agent will be created on the next capture.*The earlier one stays in your tenant/);
+});
+
+test("allowing the computer to create the practice agent shows exactly what is created and never done, and building starts only after the yes", async () => {
+  const h = await scratchReady({ autonomy: AUTONOMY_OFF, agent: "created", shots: [shot({ filename: "a.png", capture: capture({ needs: ["copilot-studio-agent"], missing: ["copilot-studio-agent"], agent: { needs: true, creates: false } }) }), shot({ filename: "b.png", capture: capture({ needs: ["copilot-studio-agent"], missing: ["copilot-studio-agent"], agent: { needs: true, creates: false } }) })] });
   h.route("PUT", /\/api\/capture\/consent$/, { status: 200, body: { consented: true, level: "scratch" } });
   h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["a.png", "b.png"]), mode: "autonomous", autonomy: { level: "scratch" } } });
-  await h.click(h.action("agent-scratch"));
+  await h.click(h.action("agent-create-allow"));
   const card = h.host.querySelector("[data-sc-consent]");
   assert.equal(card.dataset.scConsentMode, "scratch");
   assert.equal(card.querySelector("#sc-consent-heading").textContent, "Build the agent from scratch");
@@ -1416,35 +1531,12 @@ test("choosing to build from scratch shows exactly what is created and never don
   await h.click(h.action("consent-save"));
   assert.deepEqual(json(h.callsTo("PUT", /\/consent$/)[0].body), { consented: true, level: "scratch", practiceEnvironmentUrl: "" });
   const options = json(h.jobBodies()[0].options);
-  assert.equal(options.agent, "scratch", "the job asks for the agent to be built from scratch");
-});
-
-test("the readiness strip says where the agent will be built, shows the practice agent afterward, and Start fresh is a toggle the job carries", async () => {
-  const h = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "scratch" });
-  assert.equal(h.host.querySelector("[data-sc-agent-choice]"), null, "no choice once consent is given");
-  assert.equal(h.host.querySelector("[data-sc-agent-line]").dataset.scAgentLine, "scratch");
-  assert.equal(h.text("[data-sc-agent-text]"), "Agent: will be built from scratch in the default environment.");
-  assert.equal(h.action("agent-start-fresh"), null, "there is nothing to start fresh from before an agent exists");
-
-  const set = await scratchReady({ autonomy: { ...AUTONOMY_SCRATCH, practiceEnvironmentUrl: "https://copilotstudio.microsoft.com/environments/x" }, agent: "scratch" });
-  assert.equal(set.text("[data-sc-agent-text]"), "Agent: will be built from scratch in the environment you set.");
-
-  const built = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "scratch" });
-  built.run("scLab")(LAB).job = jobWith([["a.png", "captured"]], { result: { scratch: { name: "Lab screenshots - Team", createdAt: "2026-11-18", reused: false, environment: "default", stages: ["agent"] } } });
-  built.run("scRerender")(LAB);
-  assert.equal(built.text("[data-sc-agent-text]"), "Agent: Lab screenshots - Team (created 2026-11-18).");
-  const fresh = built.action("agent-start-fresh");
-  assert.equal(fresh.textContent, "Start fresh");
-  assert.equal(fresh.getAttribute("aria-pressed"), "false");
-  await built.click(fresh);
-  assert.equal(built.action("agent-start-fresh").getAttribute("aria-pressed"), "true");
-  assert.match(built.text("[data-sc-agent-text]"), /a new practice agent will be built from scratch on the next capture.*The earlier one stays in your tenant/);
-  assert.equal(built.action("agent-existing").textContent, "Use an existing agent instead");
+  assert.equal(options.agentSource, "created", "the capture asks for the agent created in it");
 });
 
 test("a practice agent's name and what was made are shown as plain text, never as markup", async () => {
   const evil = "<img src=x onerror=alert(1)><b>bold</b>";
-  const h = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "scratch" });
+  const h = await scratchReady({ autonomy: AUTONOMY_SCRATCH, agent: "created" });
   h.run("scLab")(LAB).job = jobWith([["a.png", "captured"]], { result: { scratch: { name: evil, createdAt: "2026-11-18", stages: [] }, created: [{ kind: "agent", name: evil, what: evil, reused: false }] } });
   h.run("scRerender")(LAB);
   assert.equal(h.host.querySelectorAll("img").length, 0);

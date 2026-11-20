@@ -38,6 +38,21 @@ const STAGE_PROOF = 2;
 const emptyRegistry = () => ({ schema: 2, agents: [], changes: [], pending: [] });
 
 /**
+ * Whether a recorded practice agent was made under the sign-in that is active now: "same", "different", or "unknown" when either side
+ * has no marker (a record from before markers, or a run with no account check). Only "different" keeps the agent from being used.
+ */
+export function agentAccountState(entry, accountId) {
+  if (!entry?.accountId || !accountId) return "unknown";
+  return entry.accountId === accountId ? "same" : "different";
+}
+
+/** Why a practice agent that was made under another sign-in is not used (a clause, so it reads on its own and inside a longer sentence). */
+export const AGENT_ACCOUNT_REASON = "The practice agent for this lab was made under a different sign-in and was not used";
+
+/** The plain sentence for it, with what to do next. */
+export const AGENT_ACCOUNT_MESSAGE = `${AGENT_ACCOUNT_REASON}. Sign in with the account that made it, or choose Start fresh to build a new practice agent.`;
+
+/**
  * The local record of what was created. `agents` hold the practice agents (environment id, agent id, name, address, the
  * lab it was built for, and which stages of the walkthrough are done); `changes` hold what was done inside them, in order;
  * `pending` holds a create that was started and not yet written down, so a second agent is never made by mistake.
@@ -70,21 +85,23 @@ export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
     find(envId, key) {
       return load().agents.find((a) => a.envId === envId && live(a) && (key === undefined || (a.key || "shared") === key)) || null;
     },
-    /** Remember a created practice agent. A second record for the same environment and lab replaces the first. */
-    recordAgent({ envId, botId, name, address, key = "shared" }) {
+    /** Remember a created practice agent. A second record for the same environment and lab replaces the first. `accountId` is the sign-in marker it was made under (see `agentAccountState`). */
+    recordAgent({ envId, botId, name, address, key = "shared", accountId = null }) {
       const data = load();
       data.agents = data.agents.filter((a) => !(a.envId === envId && (a.key || "shared") === key && !a.retired));
-      data.agents.push({ envId, botId, name, address, key, createdAt: iso(), reusedCount: 0, stages: {} });
+      data.agents.push({ envId, botId, name, address, key, ...(accountId ? { accountId } : {}), createdAt: iso(), reusedCount: 0, stages: {} });
       data.pending = data.pending.filter((p) => !(p.envId === envId && p.key === key));
       save(data);
       this.jobLog.push({ kind: "agent", name, what: `Created the practice agent “${name}”`, reused: false });
     },
-    recordReuse(envId, key) {
+    recordReuse(envId, key, { accountId = null } = {}) {
       const data = load();
       const found = data.agents.find((a) => a.envId === envId && live(a) && (key === undefined || (a.key || "shared") === key));
       if (found) {
         found.reusedCount = (found.reusedCount || 0) + 1;
         found.lastUsedAt = iso();
+        // An agent recorded before sign-in markers existed is tied to the sign-in that reuses it first.
+        if (accountId && !found.accountId) found.accountId = accountId;
         save(data);
         this.jobLog.push({ kind: "agent", name: found.name, what: `Reused the practice agent “${found.name}”`, reused: true });
       }
@@ -228,13 +245,26 @@ export async function ensurePracticeAgent({ page, autonomy, registry, session, e
   const env = practiceEnvironment(autonomy.practiceEnvironmentUrl);
   if (autonomy.maxTier < 2 || !env) return { ok: false, cause: "needs-practice-agent", error: "A practice agent is not allowed for this job." };
   if (session.practiceAgent?.envId === env.envId) return { ...session.practiceAgent, reused: true };
+  // When the agent is handed over from the creation step (`agentSource: "created"`), a failure is remembered for the rest of the job: every later
+  // shot that needs the agent gets the same plain reason, and the Create control is never clicked again and again.
+  if (session.agentSource === "created" && session.practiceFailure?.envId === env.envId) return session.practiceFailure.result;
+  const failed = (result) => {
+    if (session.agentSource === "created") session.practiceFailure = { envId: env.envId, result };
+    return result;
+  };
 
   const existing = registry.find(env.envId);
   if (existing) {
+    // An agent made while another account was signed in is not used, and nothing is made in its place.
+    if (agentAccountState(existing, session.accountId) === "different") {
+      trace?.event("practice-agent-account", { state: "different" });
+      log?.("  The practice agent from an earlier job was made under a different sign-in, so it is not used.");
+      return failed({ ok: false, cause: "agent-unavailable", error: AGENT_ACCOUNT_REASON });
+    }
     const target = `${env.envBase}/bots/${existing.botId}/overview`;
     await go(target, "your practice agent");
     if (String(page.url()).includes(existing.botId)) {
-      registry.recordReuse(env.envId);
+      registry.recordReuse(env.envId, undefined, { accountId: session.accountId });
       session.practiceAgent = { ok: true, envBase: env.envBase, envId: env.envId, botId: existing.botId, agentBase: `${env.envBase}/bots/${existing.botId}`, name: existing.name, reused: true };
       trace?.event("practice-agent", { reused: true });
       log?.("  Reusing your practice agent.");
@@ -253,10 +283,10 @@ export async function ensurePracticeAgent({ page, autonomy, registry, session, e
     { id: "create-name", action: "type", intent: "type", tier: 2, target: { role: "textbox", name: "Name", alt: ["Agent name", "Name your agent"], within: "main" }, text: { literal: name } },
     { id: "create-confirm", action: "create", intent: "confirm", tier: 2, target: { role: "button", name: "Create", alt: ["Create agent"], within: "main" }, expect: { urlPath: "/bots/" } },
   ].map((s) => ({ ...s, note: s.id === "create-name" ? "Named the practice agent" : "Created the practice agent" })));
-  if (!result.ok) return { ok: false, cause: "automation-failed", error: `The practice agent could not be created (${result.failed?.why || "a step failed"}).`, setup: result };
+  if (!result.ok) return failed({ ok: false, cause: "automation-failed", error: `The practice agent could not be created (${result.failed?.why || "a step failed"}).`, setup: result });
   const created = parseCopilotStudioAddress(page.url());
-  if (!created.botId) return { ok: false, cause: "automation-failed", error: "The practice agent was created, but its address could not be read." };
-  registry.recordAgent({ envId: env.envId, botId: created.botId, name, address: `${env.envBase}/bots/${created.botId}/overview` });
+  if (!created.botId) return failed({ ok: false, cause: "automation-failed", error: "The practice agent was created, but its address could not be read." });
+  registry.recordAgent({ envId: env.envId, botId: created.botId, name, address: `${env.envBase}/bots/${created.botId}/overview`, accountId: session.accountId || null });
   registry.recordChange({ botId: created.botId, what: `Created the practice agent “${name}”`, shot: "" });
   session.practiceAgent = { ok: true, envBase: env.envBase, envId: env.envId, botId: created.botId, agentBase: `${env.envBase}/bots/${created.botId}`, name, reused: false };
   trace?.event("practice-agent", { reused: false });

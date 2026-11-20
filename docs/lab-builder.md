@@ -1951,6 +1951,35 @@ API response expose only the setting **names** (`envNames`, `targetNames`), neve
 The brand profile has three new fields next to the existing environment addresses:
 `copilotStudioAgentUrl`, `copilotStudioAgentName`, and `agentBuilderAgentName`.
 
+**Which agent should these screenshots use?** Each lab also remembers one choice for the shots that show an agent
+(Instructions, Knowledge, Tools, Settings, Test, Publish, Analytics...), as a radio group in the Screenshot Center above the
+capture settings:
+
+- **The agent created earlier in this capture (recommended).** The default. The computer creates one practice agent in your
+  demo tenant (or reuses the one it made for this lab before) and uses it for every screenshot that needs an agent. There is
+  nothing to type, and those screenshots are never shown as *Waiting for your agent address*. The Screenshot Center says
+  **Will use the practice agent the computer creates first.**, and once the agent exists **Using the practice agent created
+  for this lab.** The plan runs the shots that create the agent (`create-agent`, `harness-choice`) before the first shot that
+  needs it.
+- **An agent I choose.** Exactly as it worked before: the agent address or name from the settings above is required
+  (validation, masking, `values` handling, and the wizard hand-off are unchanged), the shots wait for it, and the old note
+  *Waiting for your agent address. Add it above, then capture this one.* applies. Typing an address or name while the default
+  is selected switches the choice to **An agent I choose** and says so.
+
+The choice is saved with the lab's own capture settings as one word (`manifest.customization.captureAgentSource`:
+`"created"` or `"own"`). A lab from before the choice existed that already has an agent address means **An agent I choose**;
+otherwise the default is the created agent. The portal never stores the address or id of an agent the computer created: it
+stays in the companion's local practice-agent record (`.practice-agents.json`), and the portal learns only a name, a date, and
+which stages are done. When the created agent cannot be used (automatic capture is read-only or off, or this computer's
+companion is older than 1.6.2 for the practice level, or the agent cannot be created or opened), the shots that need it say so
+in plain words (*The practice agent could not be created (...), so this screenshot needs an agent address.*), show **Waiting for
+the agent** with one **Retry**, and never run on a guessed page or another agent.
+
+| Route | Purpose |
+|---|---|
+| `GET .../capture-targets` | Also returns `agentSource: { source: "created" \| "own", from: "lab" \| "address" \| "default", saved }` |
+| `PUT .../capture-targets` `{ targets?, alsoProfile?, agentSource? }` | `agentSource` (`"created"` or `"own"`) saves the choice for the lab; anything else is `400`. Saving an agent address from the Screenshot Center sends `agentSource: "own"` |
+
 **The screenshot to-do list ("Screenshots left").** A generated lab's panel has a **📋 Screenshots left** button. It lists
 exactly which pictures are still missing, split into the ones your computer can capture (select the main capture button in
 the Screenshot Center) and the ones only a person can do, each with the figure number, the module, what the picture should
@@ -2075,25 +2104,35 @@ After a run, `practice-report.md` next to the companion lists every item it crea
 Hosts are allowlisted per product, and the companion never reads or uploads page text beyond what it already collects for verification (the labels list, the URL path without the query, the title), with redaction kept.
 
 **Build the agent from scratch (the default for shots that show an agent).** The old inline prompt *N screenshots need your agent
-address* is replaced by a choice, shown once per lab: **Build the agent from scratch (recommended)** or **Use an existing agent**
-(an address or a name, as before; a saved address counts as that choice). Choosing from scratch shows a consent card that lists what the
+address* is replaced by one choice per lab, **Which agent should these screenshots use?** (see *Capture settings* above): **The agent created earlier in this capture
+(recommended)** or **An agent I choose** (an address or a name, as before; a saved address counts as that choice). The created agent is the practice agent the
+computer builds from scratch (or the one it made for this lab before), and from companion 1.6.2 it is handed to every later screenshot that shows an agent, at
+both the scratch and the practice consent levels. The first time, a consent card lists what the
 computer creates and changes (one new agent named `Lab screenshots - <short lab title>`, its instructions, one public Microsoft Learn website as knowledge,
 the settings the lab turns on, test conversations, and publishing only the practice agent, once, to its default state: no channels, no sharing) and what it never does,
 with an optional **Where should it build?** environment address (empty means the environment Copilot Studio opens for the account). The consent is stored as
-level `scratch` (`PUT /api/capture/consent`); a request can ask for less, and `options.agent: "existing"` downgrades it to read-only.
-Job options gain `agent` (`"scratch"` or `"existing"`) and `startFresh`. A companion older than 1.6.0 is asked to update before anything is queued
-(`needsNewerCompanion`). The plan orders the shots by module, gives each a stage (`capture.scratch`: create the agent, instructions, knowledge, tools,
+level `scratch` (`PUT /api/capture/consent`); a request can ask for less, and choosing **An agent I choose** (`options.agentSource: "own"`, or the older `options.agent: "existing"`) downgrades it to read-only.
+Job options gain `agentSource` (`"created"` or `"own"`), the older `agent` (`"scratch"` or `"existing"`, still read), and `startFresh`. A companion older than 1.6.0 is asked to update before anything is queued
+(`needsNewerCompanion`); at the practice level a companion older than 1.6.2 keeps the older behavior and the portal says so in plain words (`agentHandoff`).
+The plan orders the shots by module, puts the shots that create the agent before the first one that needs it, gives each a stage (`capture.scratch`: create the agent, instructions, knowledge, tools,
 model, preview, evaluate, publish, monitor, settings, or why it cannot be done), and carries the lab's own words to the companion only
 (`autonomy.scratchContext`: the agent name, instructions, sample questions, and a Learn website; the browser-visible job never has them). The companion needs
 its own one-time local yes (a console prompt; `--allow-practice-writes` is the advanced alias) and confirms the account once, in the same window where the
-person signed in. What comes back is names and counts only (`result.scratch`, `result.created`), with no address and no id; the page address sent with each
-picture has every id replaced by zeros. The Screenshot Center shows **Agent: will be built from scratch in the default environment** (then
+person signed in. A practice agent is tied to the sign-in that made it (a random marker next to the browser profile, never a name or an id): a later job under a different sign-in does not use it,
+creates nothing in its place, and says so. What comes back is names and counts only (`result.scratch`, `result.created`), with no address and no id; the page address sent with each
+picture has every id replaced by zeros. The Screenshot Center shows **Agent: the practice agent the computer creates first, in the default environment** (then
 **Agent: Lab screenshots - <short name> (created <date>)** with **Start fresh**), live steps (*Creating the agent*, *Setting the instructions*, *Asking the test
 pane a sample question*), a **Stop** button, grouped outcomes with one fix each, and the created-items report. Everything the computer cannot do ends as
 *needs you* with a plain reason: a tool that needs a connection, sample files, a channel other than the default, an admin screen, another product, an error
 state, or an evaluation result (it uses Copilot Credits). To delete the practice agent, open Copilot Studio, go to **Agents**, and delete the agent named
 `Lab screenshots - ...` yourself; the companion never deletes it. See
 [Build the agent from scratch](../tools/screenshot-capture/README.md#build-the-agent-from-scratch) for the walkthrough, the safety rules, and troubleshooting.
+
+**Screenshot Center notes and counters for shots that show an agent.** With the created agent selected, these screenshots read **Will use the practice agent the computer creates first.**
+and then **Using the practice agent created for this lab.**; they are counted as ready, so *N need an address* and the *Capture N missing screenshots* button never treat them as blocked.
+If the computer may not create anything yet, the note is *The practice agent cannot be created yet, so this screenshot needs an agent address. Allow the computer to create it, or choose An agent I choose.*
+with the one-time **Allow the computer to create it** button, and a *N need the practice agent* chip. A screenshot that waited for the agent after a run shows **Waiting for the agent**, the plain reason, and one **Retry**.
+Troubleshooting *Waiting for your agent address*: the note appears only for **An agent I choose** (or when no agent can be created); add the address or name in Capture settings, or choose **The agent created earlier in this capture**.
 
 **Lab text versus the real product (findings from real-tenant runs).** The generated lab text does not always match the product's current layout, and
 the walkthrough follows the product, not the text:
@@ -3348,9 +3387,17 @@ A job request:
   "brandProfileId": "contoso",                            // optional: use that brand profile's tenant addresses
   "useLabCustomization": true,                            // optional, default true: a lab built with a brand profile uses its addresses; false ignores them
   "targets": { "copilotStudioAgentName": "My agent" },    // optional: capture settings for this job only (addresses and names; validated); they win over the lab's and the profile's
-  "options": { "callouts": "sidecar", "redact": true, "maskTerms": ["Contoso"], "mode": "smart", "retake": false }   // callouts: sidecar | burn | none; mode: auto | guided | smart (default smart); retake: true says these shots are a Retake, so a verified result may replace the shared library's picture (never one marked accurate)
+  "options": { "callouts": "sidecar", "redact": true, "maskTerms": ["Contoso"], "mode": "smart", "retake": false, "agentSource": "created" }   // callouts: sidecar | burn | none; mode: auto | guided | smart (default smart); retake: true says these shots are a Retake, so a verified result may replace the shared library's picture (never one marked accurate); agentSource (optional): "created" | "own", the agent the screenshots use (not said: the lab's saved choice, then "own" when an agent address is already set, then "created"); an invalid value is a 400. The older `agent: "scratch" | "existing"` is still read and means "created" | "own"
 }
 ```
+
+The job the portal queues records what was actually used in `options.agentSource` (`"created"` only when automatic capture can create the agent
+for this capture; otherwise `"own"`), and the response carries `agentSource: { choice, effective, fallback? }` (`fallback`: `"consent"` or `"companion"` says why the
+created agent could not be used) and, for a companion older than 1.6.2 at the practice level, `agentHandoff: { supported: false, min, version, message }`
+(the Screenshot Center also reads `autonomy.handoffSupported` and `autonomy.handoffMinCompanion` from the status). Every plan shot's `capture.agent` is
+`{ needs, creates, via, fallback? }` (`via`: `"created"`, `"own"`, or `"address"` when the created agent is not available). A shot whose agent comes from the
+creation step carries no `copilot-studio-agent` in `capture.missing`, and the job carries no other agent's address or name. A companion that does not know
+these fields ignores them and runs the job the older way.
 
 The capture settings of a job come, per setting, from the request (`targets`, `env`), then the lab's own capture settings and its own SharePoint site, then the brand profile (`brandProfileId`, the lab's profile, or the active profile), then this portal's `CAPTURE_*` environment (`portal/lib/capture/targets.js`). The response says where they
 came from in `envSource` (`profile`, `lab`, `request`, `server`, `profile+request`, `lab+request`, or `null`). Two jobs for the same lab and

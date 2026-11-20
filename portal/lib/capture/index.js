@@ -8,7 +8,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
-import { findProfile, getActiveProfileId, updateLabCaptureTargets, updateProfile } from "../branding-profiles.js";
+import { findProfile, getActiveProfileId, readCustomization, updateLabAgentSource, updateLabCaptureTargets, updateProfile } from "../branding-profiles.js";
 import { capturedScreenshotsDir, capturedScreenshotsDirs } from "../lab-builder/captured.js";
 import { setCaptureCapabilitiesProvider, setCaptureTargetsProvider, setSharedLibraryProvider } from "../lab-builder/lab-screenshots.js";
 import { BAKED_CAPTURED_SCREENSHOTS_DIR, getStorageDiagnostics, resolvePortalDataDir } from "../storage-config.js";
@@ -17,6 +17,7 @@ import { productLabel } from "../../../tools/screenshot-capture/auth.mjs";
 import { validateTargets, missingRequirements } from "../../../tools/screenshot-capture/targets.mjs";
 import { summarizeMissing } from "./classify.js";
 import { ACCOUNT_MIN_COMPANION, PRODUCT_ID_RE } from "./account.js";
+import { HANDOFF_MIN_COMPANION, creationState, requestedAgentSource, resolveAgentSource, withoutOwnAgentTargets } from "./agent-source.js";
 import { autonomyFor, createConsentStore, describeConsent, validateConsent } from "./consent.js";
 import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "./jobs.js";
 import { readRecordsFile } from "./library-share.js";
@@ -171,10 +172,11 @@ export function createCapturePlatform({
   function companionCanRunAutonomous() {
     const status = pairing.status();
     const online = (status.devices || []).filter((d) => d.connected);
-    if (!online.length) return { connected: false, supported: true, version: null, scratchSupported: true };
+    if (!online.length) return { connected: false, supported: true, version: null, scratchSupported: true, handoffSupported: true };
     const supported = online.some((d) => versionAtLeast(d.companionVersion, AUTONOMOUS_MIN_COMPANION));
     const scratchSupported = online.some((d) => versionAtLeast(d.companionVersion, SCRATCH_MIN_COMPANION));
-    return { connected: true, supported, version: online[0].companionVersion || null, scratchSupported };
+    const handoffSupported = online.some((d) => versionAtLeast(d.companionVersion, HANDOFF_MIN_COMPANION));
+    return { connected: true, supported, version: online[0].companionVersion || null, scratchSupported, handoffSupported };
   }
 
   /** The capture settings (addresses and names) in effect, as an account setup request carries them, so the landing can be checked. */
@@ -268,7 +270,7 @@ export function createCapturePlatform({
         confirmed: library.summary.confirmed,
       },
       jobs: { ...jobs.activity(), ...signInNeed },
-      autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: companionCanRunAutonomous().supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: companionCanRunAutonomous().scratchSupported, sharedRecipes: sharedRecipes.list().length },
+      autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: companionCanRunAutonomous().supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: companionCanRunAutonomous().scratchSupported, handoffMinCompanion: HANDOFF_MIN_COMPANION, handoffSupported: companionCanRunAutonomous().handoffSupported, sharedRecipes: sharedRecipes.list().length },
       pairing: { codeTtlSec: Math.round(PAIRING_CODE_TTL_MS / 1000) },
       limits: { maxUploadBytes: MAX_UPLOAD_BYTES, acceptedTypes: ["image/png", "image/jpeg", "image/webp"] },
     };
@@ -288,6 +290,7 @@ export function createCapturePlatform({
           sameList(job.scope.featureIds, norm.scope.featureIds) &&
           (job.options?.mode || "smart") === norm.options.mode &&
           (job.options?.autonomy?.level || null) === (autonomy?.level || null) &&
+          (job.options?.agentSource || null) === (norm.options.agentSource || null) &&
           Boolean(job.options?.record) === Boolean(norm.options.record) &&
           Boolean(job.options?.retake) === Boolean(norm.options.retake) &&
           sameEnv(jobs.getPlan(job.id)?.env, env) &&
@@ -346,7 +349,9 @@ export function createCapturePlatform({
     const resolved = resolveCaptureTargets({ manifest, env });
     const shots = labId ? labShotCaptures(labId, resolved.values) : [];
     const profile = brand.findProfile?.(getActiveProfileId(env), env) || null;
-    return { labId: labId || null, activeProfile: profile ? { id: profile.id, name: profile.name } : null, ...describeCaptureTargets(resolved, shots), shots: shots.map((s) => ({ filename: s.filename, mode: s.capture.mode, why: s.capture.why, path: s.capture.path, needs: s.capture.needs, missing: s.capture.missing, ready: s.capture.ready })) };
+    // Which agent the lab's screenshots use: a word only. The address of an agent the computer created stays on that computer.
+    const pick = resolveAgentSource({ saved: manifest ? readCustomization(manifest)?.captureAgentSource : null, agentSupplied: missingRequirements(["copilot-studio-agent"], resolved.values).length === 0 });
+    return { labId: labId || null, activeProfile: profile ? { id: profile.id, name: profile.name } : null, agentSource: { source: pick.source, from: pick.from, saved: pick.from === "lab" }, ...describeCaptureTargets(resolved, shots), shots: shots.map((s) => ({ filename: s.filename, mode: s.capture.mode, why: s.capture.why, path: s.capture.path, needs: s.capture.needs, missing: s.capture.missing, ready: s.capture.ready })) };
   }
 
   /** What is left to capture for a lab, who can do it, and the steps for the ones only a person can (JSON, plus Markdown to print). */
@@ -362,12 +367,14 @@ export function createCapturePlatform({
     return plan.status === 200 ? plan.shots : [];
   }
 
-  /** Save capture settings on a lab (and, when asked, on the active brand profile so other labs use them too). */
-  function saveLabTargets(labId, patch, { alsoProfile = false } = {}) {
+  /** Save capture settings on a lab (and, when asked, on the active brand profile so other labs use them too), and which agent the lab's screenshots use. */
+  function saveLabTargets(labId, patch, { alsoProfile = false, agentSource = undefined } = {}) {
     const dir = labSlotsDir(labId);
     if (!dir) return { status: 404, body: { error: `Generated lab "${labId}" not found.` } };
+    if (agentSource !== undefined && agentSource !== null && !["created", "own"].includes(agentSource)) return { status: 400, body: { error: 'The agent choice must be "created" or "own".' } };
     const saved = updateLabCaptureTargets(dir, patch);
     if (!saved.ok) return { status: 400, body: { error: Object.values(saved.errors)[0], errors: saved.errors } };
+    if (agentSource) updateLabAgentSource(dir, agentSource);
     if (alsoProfile) {
       const profileSaved = saveProfileTargets(patch);
       if (profileSaved.status >= 400) return profileSaved;
@@ -396,8 +403,14 @@ export function createCapturePlatform({
     const norm = normalizeJobRequest(body);
     if (!norm.ok) return { status: 400, body: { error: norm.errors[0], errors: norm.errors } };
 
-    const jobTargets = resolveJobTargets(norm, body);
+    let jobTargets = resolveJobTargets(norm, body);
     if (jobTargets.error) return { status: jobTargets.error.status, body: { error: jobTargets.error.message } };
+
+    // Which agent the screenshots use: the request's choice, else the lab's saved one, else the agent created in this capture (an agent address that is already set keeps meaning "my own").
+    const agentSupplied = missingRequirements(["copilot-studio-agent"], jobTargets.values).length === 0;
+    const savedAgentSource = norm.target.type === "lab" ? readCustomization(readLabManifest(norm.target.labId))?.captureAgentSource || null : null;
+    const agentPick = resolveAgentSource({ requested: requestedAgentSource(norm.options), saved: savedAgentSource, agentSupplied });
+    let support = { connected: false, supported: true, scratchSupported: true, handoffSupported: true, version: null };
 
     // What the computer may do comes from what the person agreed to, never from the request. A request can only ask for less.
     const stored = consent.get(consentScope(body).key);
@@ -408,30 +421,37 @@ export function createCapturePlatform({
       if (!stored) {
         return { status: 200, body: { job: null, needsConsent: true, consent: consentPayload({ body }), message: "Allow automatic capture first. It takes one minute and you decide what the computer may do." } };
       }
-      const support = companionCanRunAutonomous();
+      support = companionCanRunAutonomous();
       if (support.connected && !support.supported) {
         mode = "smart";
         downgraded = { to: "smart", companionVersion: support.version, needs: AUTONOMOUS_MIN_COMPANION, message: `Your Local Capture Companion${support.version ? ` (${support.version})` : ""} is older than ${AUTONOMOUS_MIN_COMPANION}, so it cannot capture on its own yet. Download the companion again to get automatic capture. This capture runs the older way for now.` };
       } else {
-        // The person's own agent wins when they saved its address or name and did not ask for a build from scratch in this request.
-        const agentSupplied = missingRequirements(["copilot-studio-agent"], jobTargets.values).length === 0;
-        const agentPreference = norm.options.agent || (agentSupplied ? "existing" : null);
-        autonomy = autonomyFor(stored, { ...norm.options.autonomy, agent: agentPreference });
+        // The person's own agent is used when they chose it (or saved its address and chose nothing else); the practice agent created in this capture is the default.
+        autonomy = autonomyFor(stored, { ...norm.options.autonomy, agent: agentPick.source === "own" ? "existing" : "scratch" });
         // Building from scratch needs a companion that can; an older one would only look at screens, so say so before queuing anything.
         if (autonomy?.level === "scratch" && support.connected && !support.scratchSupported) {
           return { status: 200, body: { job: null, needsNewerCompanion: { min: SCRATCH_MIN_COMPANION, version: support.version }, message: `Your Local Capture Companion${support.version ? ` (${support.version})` : ""} is older than ${SCRATCH_MIN_COMPANION}, so it cannot build the agent from scratch yet. Download the companion again, replace the old one, and try again.` } };
         }
       }
     }
-    norm.options = { ...norm.options, mode, autonomy: autonomy ? { level: autonomy.level } : null };
+    // Whether the agent can come from the creation step in this job. Only automatic capture creates anything: the other modes never do, so the choice does not apply to them.
+    // When automatic capture cannot create the agent (read-only, or a companion that cannot hand it over), the shots that show an agent need an agent address, with a plain reason.
+    const createdChoice = agentPick.source === "created" && mode === "autonomous";
+    const creation = createdChoice ? creationState({ autonomy, mode, support }) : { possible: false, fallback: null };
+    const agentFallback = createdChoice ? creation.fallback : null;
+    const effectiveAgentSource = createdChoice && creation.possible ? "created" : "own";
+    const planAgentSource = mode === "autonomous" ? agentPick.source : null;
+    // The agent comes from the creation step: no other agent's address or name travels with the job.
+    if (effectiveAgentSource === "created") jobTargets = withoutOwnAgentTargets(jobTargets);
+    norm.options = { ...norm.options, mode, autonomy: autonomy ? { level: autonomy.level } : null, agentSource: effectiveAgentSource };
     const allowPractice = autonomy?.level === "practice";
     const scratch = autonomy?.level === "scratch";
 
     const dirs = capturedDirs();
     const plan =
       norm.target.type === "lab"
-        ? buildLabJobPlan({ generatedRoot, labId: norm.target.labId, scope: norm.scope, capturedDir: dirs.search, values: jobTargets.values, allowPractice, sharedRecipes, scratch })
-        : buildLibraryJobPlan({ scope: norm.scope, products: norm.target.products, manifestDir, capturedDir: dirs.search, values: jobTargets.values, allowPractice, sharedRecipes, scratch });
+        ? buildLabJobPlan({ generatedRoot, labId: norm.target.labId, scope: norm.scope, capturedDir: dirs.search, values: jobTargets.values, allowPractice, sharedRecipes, scratch, agentSource: planAgentSource, agentFallback })
+        : buildLibraryJobPlan({ scope: norm.scope, products: norm.target.products, manifestDir, capturedDir: dirs.search, values: jobTargets.values, allowPractice, sharedRecipes, scratch, agentSource: planAgentSource, agentFallback });
     if (plan.status !== 200) return { status: plan.status, body: { error: plan.error } };
     // The lab's own words for the agent (name, instructions, sample questions, a public website) travel with the job, to the companion only.
     if (scratch) autonomy = { ...autonomy, scratchContext: readLabScratchContext(plan.labDir || null, { labId: norm.target.type === "lab" ? norm.target.labId : "", title: plan.title || "" }), startFresh: norm.options.startFresh === true };
@@ -448,15 +468,15 @@ export function createCapturePlatform({
     // Shots that cannot run without an address are held back and the person is asked for it, not told "skipped" afterwards.
     const stillMissing = (shot) => {
       if (mode === "autonomous") {
-        // A shot that runs in the practice agent (any agent screen, when it is built from scratch) does not need the person's own agent.
-        const practiceRun = scratch || (allowPractice && shot.capture?.setup?.needsPractice === true);
+        // A shot that runs in the practice agent (any agent screen, when it is built from scratch; any shot whose agent comes from the creation step) does not need the person's own agent.
+        const practiceRun = scratch || shot.capture?.agent?.via === "created" || (allowPractice && shot.capture?.setup?.needsPractice === true);
         const needed = [...new Set([...(shot.capture?.needs || []), ...(shot.capture?.agentNeeds || [])])];
         return shot.capture?.mode !== "manual" && missingRequirements(needed, jobTargets.values).filter((id) => !(practiceRun && id === "copilot-studio-agent")).length > 0;
       }
       return shot.capture?.mode === "auto" && shot.capture.missing?.length > 0;
     };
     const waiting = mode === "guided" ? [] : plan.shots.filter(stillMissing);
-    const missing = summarizeMissing(waiting.map((s) => (mode === "autonomous" ? { ...s, capture: { ...s.capture, missing: missingRequirements([...new Set([...(s.capture.needs || []), ...(s.capture.agentNeeds || [])])], jobTargets.values).filter((id) => !(scratch && id === "copilot-studio-agent")) } } : s)));
+    const missing = summarizeMissing(waiting.map((s) => (mode === "autonomous" ? { ...s, capture: { ...s.capture, missing: missingRequirements([...new Set([...(s.capture.needs || []), ...(s.capture.agentNeeds || [])])], jobTargets.values).filter((id) => !((scratch || s.capture?.agent?.via === "created") && id === "copilot-studio-agent")) } } : s)));
     if (waiting.length === plan.shots.length) {
       return {
         status: 200,
@@ -476,6 +496,8 @@ export function createCapturePlatform({
     }
     const job = jobs.create({ target: norm.target, scope: norm.scope, env: jobTargets.env, targets: jobTargets.text, options: norm.options, plan, createdBy, autonomy });
     const runnable = plan.shots.length - waiting.length;
+    // The companion is too old to hand the practice agent to the other screenshots: say so in plain words, and name what to do.
+    const agentHandoff = agentFallback === "companion" ? { supported: false, min: HANDOFF_MIN_COMPANION, version: support.version, message: `Your Local Capture Companion${support.version ? ` (${support.version})` : ""} is older than ${HANDOFF_MIN_COMPANION}, so it cannot hand the practice agent to the other screenshots yet. Download the companion again and replace the old one. Until then, screenshots that show an agent need an agent address.` } : null;
     return {
       status: 201,
       body: {
@@ -483,11 +505,13 @@ export function createCapturePlatform({
         envSource: jobTargets.source,
         companion: companionInfo,
         mode,
+        agentSource: { choice: agentPick.source, effective: effectiveAgentSource, ...(agentFallback ? { fallback: agentFallback } : {}) },
+        ...(agentHandoff ? { agentHandoff } : {}),
         ...(autonomy ? { autonomy: { level: autonomy.level } } : {}),
         ...(downgraded ? { downgraded } : {}),
         ...(missing.length ? { missing } : {}),
         message: companion.connected
-          ? `Queued ${runnable} screenshot${runnable === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.${waiting.length ? ` ${waiting.length} more need${waiting.length === 1 ? "s" : ""} an address first.` : ""}${downgraded ? ` ${downgraded.message}` : ""}`
+          ? `Queued ${runnable} screenshot${runnable === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.${waiting.length ? ` ${waiting.length} more need${waiting.length === 1 ? "s" : ""} an address first.` : ""}${downgraded ? ` ${downgraded.message}` : ""}${agentHandoff ? ` ${agentHandoff.message}` : ""}`
           : "Queued, but no Local Capture Companion is connected yet. Download it, pair it with a code, and it will pick this job up.",
       },
     };

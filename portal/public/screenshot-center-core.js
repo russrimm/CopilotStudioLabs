@@ -210,6 +210,8 @@ function scShotCapture(shot) {
     screenLabel: scText(capture.screen?.label, 120),
     summary: (Array.isArray(capture.setup?.summary) ? capture.setup.summary : []).map((item) => scText(item, 120)).filter(Boolean).slice(0, 8),
     needsPractice: capture.setup?.needsPractice === true,
+    // What the shot has to do with the lab's agent: it shows one (`needs`), and it belongs to the part of the lab that creates one (`creates`).
+    agent: { needs: capture.agent?.needs === true, creates: capture.agent?.creates === true },
   };
 }
 
@@ -231,6 +233,9 @@ function scConsentModel(autonomy) {
     minCompanion: scText(autonomy?.minCompanion, 20) || "1.4.0",
     scratchSupported: autonomy?.scratchSupported !== false,
     scratchMinCompanion: scText(autonomy?.scratchMinCompanion, 20) || "1.6.0",
+    // Handing the practice agent to the other screenshots (the practice level needs this companion; building from scratch has always done it).
+    handoffSupported: autonomy?.handoffSupported !== false,
+    handoffMinCompanion: scText(autonomy?.handoffMinCompanion, 20) || "1.6.2",
     never: never.length ? never : SC_NEVER_FALLBACK,
     creates: creates.length ? creates : SC_CREATES_FALLBACK,
     tiers,
@@ -284,18 +289,54 @@ function scScratchSummary(raw) {
 }
 
 /**
- * The "Agent:" line of the readiness strip. `scratchChosen` is the person's choice for this lab; `last` is the latest practice
- * agent a finished job reported. Before a run it says the agent will be built; after one it names it.
+ * The "Agent:" line of the readiness strip. `source` is the person's choice for this lab ("created" or "own"); `last` is the latest practice
+ * agent a finished job reported. Before a run it says the agent will be created first; after one it names it.
  * @returns {{state: string, text: string, canStartFresh: boolean, fresh: boolean}}
  */
-function scAgentLine({ consent, scratchChosen, existingChosen, last, startFresh = false }) {
+function scAgentLine({ consent, source = "created", last, startFresh = false, mode = "autonomous" }) {
   if (!consent?.loaded) return { state: "loading", text: "Agent: checking.", canStartFresh: false, fresh: false };
-  if (existingChosen) return { state: "existing", text: "Agent: your own agent, from the address or name in Capture settings.", canStartFresh: false, fresh: false };
-  if (!scratchChosen) return { state: "choose", text: "Agent: not chosen yet. Build one from scratch, or use your own.", canStartFresh: false, fresh: false };
+  if (source === "own" || ["readonly", "not-automatic"].includes(scAgentCreation(consent, mode).state)) return { state: "existing", text: "Agent: the agent you choose, from the address or name in Capture settings.", canStartFresh: false, fresh: false };
+  if (scAgentCreation(consent, mode).state === "needs-consent") return { state: "choose", text: "Agent: the practice agent the computer creates first, once you allow it.", canStartFresh: false, fresh: false };
   const environment = consent.practiceEnvironmentUrl ? "set" : "default";
-  if (startFresh) return { state: "fresh", text: `Agent: a new practice agent will be built from scratch on the next capture, in the ${environment === "set" ? "environment you set" : "default environment"}. The earlier one stays in your tenant; delete it yourself when you no longer need it.`, canStartFresh: true, fresh: true };
+  if (startFresh) return { state: "fresh", text: `Agent: a new practice agent will be created on the next capture, in the ${environment === "set" ? "environment you set" : "default environment"}. The earlier one stays in your tenant; delete it yourself when you no longer need it.`, canStartFresh: true, fresh: true };
   if (last?.name) return { state: "built", text: `Agent: ${last.name} (created ${last.createdAt || "earlier"}${last.reused ? ", reused" : ""}).`, canStartFresh: true, fresh: false };
-  return { state: "scratch", text: `Agent: will be built from scratch in ${environment === "set" ? "the environment you set" : "the default environment"}.`, canStartFresh: false, fresh: false };
+  return { state: "scratch", text: `Agent: the practice agent the computer creates first, in ${environment === "set" ? "the environment you set" : "the default environment"}.`, canStartFresh: false, fresh: false };
+}
+
+// ── Which agent the screenshots use ─────────────────────────────────────────
+
+/**
+ * The two ways a lab's screenshots get their agent: "created" (the practice agent the computer creates, or reuses, first in the capture; the default) and
+ * "own" (an agent the person chooses). Only the word is kept; the address of a created agent never leaves the computer that made it.
+ */
+const SC_AGENT_SOURCES = Object.freeze(["created", "own"]);
+const scAgentSourceOrNull = (value) => (SC_AGENT_SOURCES.includes(value) ? value : null);
+
+/**
+ * Whether the practice agent can be created in the next capture, from what the person allowed and how the capture runs: `ready`; `needs-consent`
+ * (automatic capture is off, or allowed to look only, so nothing may be created yet); `companion-old` (the connected companion cannot hand the
+ * agent to the other screenshots); `readonly` and `not-automatic` (this capture mode never creates anything, so the agent address is asked for).
+ * @returns {{state: "loading"|"ready"|"needs-consent"|"companion-old"|"readonly"|"not-automatic", min?: string}}
+ */
+function scAgentCreation(consent, mode = "autonomous") {
+  if (mode === "autonomous-readonly") return { state: "readonly" };
+  if (mode !== "autonomous") return { state: "not-automatic" };
+  if (!consent?.loaded) return { state: "loading" };
+  if (!consent.consented || !["scratch", "practice"].includes(consent.level)) return { state: "needs-consent" };
+  if (consent.level === "practice" && !consent.handoffSupported) return { state: "companion-old", min: consent.handoffMinCompanion };
+  return { state: "ready" };
+}
+
+/**
+ * What a shot that shows an agent says about where its agent comes from, or "" when it shows none or has nothing to add. `created` is the person's
+ * choice, `creation` is `scAgentCreation`, and `existing` says a practice agent was already created for this lab.
+ */
+function scAgentShotNote({ source, creation, existing }) {
+  if (source !== "created") return "";
+  if (creation.state === "ready") return existing ? "Using the practice agent created for this lab." : "Will use the practice agent the computer creates first.";
+  if (creation.state === "companion-old") return `Your Local Capture Companion is older than ${creation.min}, so it cannot hand a practice agent to this screenshot yet. Download it again, or choose An agent I choose.`;
+  if (creation.state === "needs-consent") return "The practice agent cannot be created yet, so this screenshot needs an agent address. Allow the computer to create it, or choose An agent I choose.";
+  return "";
 }
 
 // ── Which account the screenshots come from ─────────────────────────────────
@@ -471,16 +512,20 @@ const SC_STATUS_LABELS = Object.freeze({
 });
 // The job rows that say why a screenshot is still missing after a capture.
 const SC_ATTEMPT_STATUSES = Object.freeze(["failed", "auth-required", "needs-account", "needs-you", "paused", "skipped"]);
+// Why a screenshot that should use the practice agent is waiting for it: the agent was not created, could not be opened, or was made under another sign-in.
+const SC_AGENT_WAIT_CAUSES = Object.freeze(["agent-unavailable", "agent-create-failed", "no-environment", "scratch-off"]);
 
 /**
  * The one status a screenshot shows: Captured, Needs review, Needs you, Paused, Outdated, Pending,
- * Failed, Manual, and, while a capture job holds it, Capturing now or Queued.
+ * Failed, Manual, and, while a capture job holds it, Capturing now or Queued. A screenshot that waited for the practice agent
+ * says so ("Waiting for the agent") whatever else it is.
  * @param {object} shot a shot from `GET .../screenshots`
  * @param {string|null} [jobShotStatus] that shot's status in the active job
  * @param {object|null} [attempt] that shot's row in a capture job that ended without capturing it
  */
 function scShotStatus(shot, jobShotStatus = null, attempt = null) {
   let key;
+  let agentWait = false;
   if (jobShotStatus === "running") key = "capturing";
   else if (jobShotStatus === "pending") key = "queued";
   else if (shot?.needsReview) key = "needs-review";
@@ -489,8 +534,9 @@ function scShotStatus(shot, jobShotStatus = null, attempt = null) {
     if (last === "needs-you" || last === "paused") key = last;
     else if (last === "failed" || last === "auth-required" || last === "needs-account" || last === "browser-unavailable") key = "failed";
     else key = shot?.manual ? "manual" : "pending";
+    agentWait = SC_AGENT_WAIT_CAUSES.includes(attempt?.cause) && ["needs-you", "pending", "failed"].includes(key);
   } else key = shot?.stale ? "outdated" : "captured";
-  return { key, ...SC_STATUS_LABELS[key] };
+  return agentWait ? { key, label: "Waiting for the agent", tone: "warn", agentWait: true } : { key, ...SC_STATUS_LABELS[key] };
 }
 
 // ── Where a picture comes from, and "Mark as accurate" ──────────────────────
@@ -766,7 +812,7 @@ function scPrimaryAction(model) {
   const waiting = scCount(model.addressWaiting);
   const agentWaiting = scCount(model.agentChoiceWaiting);
   const waitingNote = agentWaiting
-    ? ` ${scPlural(agentWaiting, "screenshot")} ${agentWaiting === 1 ? "needs" : "need"} an agent. Choose below how to get one: build it from scratch, or use your own.`
+    ? ` ${scPlural(agentWaiting, "screenshot")} ${agentWaiting === 1 ? "shows" : "show"} an agent. The computer creates a practice agent for ${agentWaiting === 1 ? "it" : "them"} once you allow it, or choose An agent I choose below.`
     : waiting
     ? ` ${scPlural(waiting, "screenshot")} ${waiting === 1 ? "is" : "are"} waiting for an address and will be held back until you add it.`
     : "";

@@ -299,16 +299,18 @@ test("an account record keeps flags only, and a value left out keeps what was sa
   assert.equal(readAccountRecord(dir), null);
   writeAccountRecord(dir, { source: "manual", verified: true, verifiedFor: "agent", inOsTenant: false });
   const first = readAccountRecord(dir);
-  assert.deepEqual({ ...first, classifiedAt: null }, { source: "manual", confirmed: false, verified: true, verifiedFor: "agent", inOsTenant: false, classifiedAt: null });
+  assert.deepEqual({ ...first, classifiedAt: null, signInId: null }, { source: "manual", confirmed: false, verified: true, verifiedFor: "agent", inOsTenant: false, classifiedAt: null, signInId: null });
+  assert.match(first.signInId, /^[0-9a-f]{12}$/, "plus a random marker for 'the same sign-in as before'");
   writeAccountRecord(dir, { source: "saved-session", confirmed: true });
   const second = readAccountRecord(dir);
   assert.equal(second.confirmed, true);
   assert.equal(second.verified, true, "kept");
   assert.equal(second.verifiedFor, "agent", "kept while verified");
+  assert.equal(second.signInId, first.signInId, "the marker is kept");
   writeAccountRecord(dir, { source: "saved-session", verified: false });
   assert.equal(readAccountRecord(dir).verifiedFor, null, "no longer verified: no word either");
   const raw = fs.readFileSync(path.join(dir, "companion-account.json"), "utf8");
-  assert.deepEqual(Object.keys(JSON.parse(raw)).sort(), ["classifiedAt", "confirmed", "inOsTenant", "source", "verified", "verifiedFor", "version"]);
+  assert.deepEqual(Object.keys(JSON.parse(raw)).sort(), ["classifiedAt", "confirmed", "inOsTenant", "signInId", "source", "verified", "verifiedFor", "version"]);
   assert.deepEqual(accountPayload({ mode: "x", source: "nope", browser: "firefox", verifiedFor: "tenant" }), { mode: "separate", source: "unknown", verified: false, osWorkAccountDetected: null, browser: null, inOsTenant: null, inPrivate: false, verifiedFor: null });
 });
 

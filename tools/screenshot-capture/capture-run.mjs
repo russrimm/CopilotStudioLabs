@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { buildSidecar, resolveCallouts, sidecarName } from "./callouts.mjs";
-import { preparePractice, runShotSetup } from "./autonomous.mjs";
+import { needsAgent, preparePractice, runShotSetup } from "./autonomous.mjs";
 import { prepareScratchShot } from "./scratch.mjs";
 import { resolveAutonomy } from "./guard.mjs";
 import { briefError, BrowserClosedError, classifyBrowserError, navigateWithSignIn, settleAddress } from "./lifecycle.mjs";
@@ -23,6 +23,7 @@ import { removeGuidedToolbar, waitForGuidedAction } from "./guided.mjs";
 import { readinessBudgets, waitUntilReady } from "./readiness.mjs";
 import { collectVisibleLabels } from "./redact.mjs";
 import { redactedAddress } from "./auth.mjs";
+import { normalizeAgentSource } from "./walkthrough.mjs";
 import {
   COPILOT_STUDIO_SCREENS,
   REQUIREMENTS,
@@ -32,15 +33,23 @@ import {
   missingRequirements,
   parseCopilotStudioAddress,
   targetValuesFromJob,
+  withoutOwnAgent,
 } from "./targets.mjs";
 
 const DEFAULT_START = "https://copilotstudio.microsoft.com/";
 const sleepDefault = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** What a job knows about where it is capturing, shared by every shot of a product in the job. */
-export function createCaptureSession({ env = {}, targets = {}, autonomy = null, registry = null, recipes = null, home = null, terms = [], companionVersion = "", writeGapMs = undefined, effectMs = undefined, findMs = undefined } = {}) {
+/**
+ * What a job knows about where it is capturing, shared by every shot of a product in the job.
+ * `agentSource` is the job's choice of agent ("created": the practice agent made or reused first in this job, "own": the person's own agent; `null`
+ * from a portal that does not say, which keeps the older behavior). `accountId` is the sign-in marker of the browser profile (see `agentAccountState`).
+ */
+export function createCaptureSession({ env = {}, targets = {}, autonomy = null, registry = null, recipes = null, home = null, terms = [], companionVersion = "", agentSource = null, accountId = null, writeGapMs = undefined, effectMs = undefined, findMs = undefined } = {}) {
+  const source = normalizeAgentSource(agentSource);
+  // With the agent handed over from the creation step, no other agent is ever reachable: the person's own agent address and name are not kept at all.
+  const values = source === "created" ? withoutOwnAgent(targetValuesFromJob(env, targets)) : targetValuesFromJob(env, targets);
   return {
-    values: targetValuesFromJob(env, targets),
+    values,
     cs: { envBase: null, agentBase: null, agentSource: null },
     // What the computer may do on its own in this job (see guard.mjs), and the local stores it may use.
     autonomy: autonomy || resolveAutonomy(null),
@@ -49,6 +58,8 @@ export function createCaptureSession({ env = {}, targets = {}, autonomy = null, 
     home,
     terms,
     companionVersion,
+    agentSource: source,
+    accountId: typeof accountId === "string" && accountId ? accountId : null,
     practiceAgent: null,
     // Test knobs: how long writes are spaced apart, and how long a click waits for its effect or a control to appear.
     writeGapMs,
@@ -174,6 +185,9 @@ const needMessage = (ids) => {
   const list = nouns.length > 1 ? `${nouns.slice(0, -1).join(", ")} and ${nouns.at(-1)}` : nouns[0] || "an address";
   return `This screenshot needs your ${list}. Add it in Capture settings, then retake.`;
 };
+
+/** Why a shot that should have used the practice agent is waiting: the reason the agent is not there, then what the person can do. */
+const waitingForAgent = (reason) => `${String(reason || "").trim().replace(/\.+$/, "") || "The practice agent could not be created"}, so this screenshot needs an agent address.`;
 
 /** Open a Copilot Studio screen. Returns `{ok, ...}` or a failure result. */
 async function openCopilotStudio({ page, shot, session, env, effectiveMode, gate, trace, log, sleep, steps, controlOptions }) {
@@ -390,6 +404,12 @@ export async function runCaptureShot({
   if (strict) {
     const needed = autonomous ? [...new Set([...(capture.needs || []), ...(capture.agentNeeds || [])])] : capture.needs;
     const missing = missingRequirements(needed, session.values).filter((id) => !(practiceInfo && id === "copilot-studio-agent"));
+    // The agent is handed over from the creation step: when it is not there, the shot waits with a plain reason. It never goes to another agent, even one whose address is known.
+    const handedOver = autonomous && !scratchJob && !practiceInfo && session.agentSource === "created" && String(capture.product || shot.product || "copilot-studio") === "copilot-studio" && needsAgent(shot);
+    if (handedOver) {
+      trace?.event("shot-skipped", { shot: shot.filename, cause: "agent-unavailable", needs: "copilot-studio-agent" });
+      return done(failure("skipped", "agent-unavailable", waitingForAgent(practiceError), { needs: ["copilot-studio-agent"], detail }));
+    }
     if (missing.length) {
       // Built from scratch, a screen the walkthrough does not put on the practice agent is not held back for the person's own agent: it is left, with a plain reason.
       if (scratchJob && !practiceInfo && missing.every((id) => id === "copilot-studio-agent")) {

@@ -103,6 +103,83 @@ test("with consent and the flag a practice agent is created once, reused by the 
   }
 });
 
+const botIdsOpened = (out) => [...new Set(out.site.stats.pages.map((p) => /\/bots\/([^/]+)/.exec(p)?.[1]).filter(Boolean))];
+
+test("with no agent address given, the practice agent is created first and every shot that shows an agent uses it, and no other agent in the tenant is opened", { skip, timeout: 300_000 }, async () => {
+  const scenario = await startScenario({ repoDir: REPO });
+  try {
+    await scenario.call("PUT", "/api/capture/consent", PRACTICE);
+    const out = await scenario.runJob({ job: { options: { mode: "autonomous" } }, runOptions: { allowPracticeWrites: true } });
+    assertClean(out, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
+    assert.equal(out.job.options.agentSource, "created", "the created agent is the default when no address is given");
+    assert.equal(count(out.rows, "skipped"), 0, "nothing waited for an address");
+    assert.equal(count(out.rows, "captured"), 10, out.lines.join("\n"));
+    const made = scenario.site.practiceAgents();
+    assert.equal(made.length, 1, "one practice agent");
+    assert.deepEqual(botIdsOpened(out), [made[0].id], "the only agent page that was opened is the one the computer made");
+    // The plan runs the shots that create the agent before the first shot that needs it, and says so.
+    const order = out.claimed.shots.map((s) => s.filename);
+    const creators = out.claimed.shots.filter((s) => s.capture.agent?.creates).map((s) => order.indexOf(s.filename));
+    const dependents = out.claimed.shots.filter((s) => s.capture.agent?.needs && !s.capture.agent.creates).map((s) => order.indexOf(s.filename));
+    assert.ok(creators.length >= 1 && dependents.length >= 3 && Math.max(...creators) < Math.min(...dependents), `creation first: ${order.join(", ")}`);
+    assert.match(out.lines.join("\n"), /uses the practice agent created first in this capture/);
+
+    // A second job for the lab reuses it without being told anything about it.
+    const second = await scenario.runJob({ job: { options: { mode: "autonomous" } }, runOptions: { allowPracticeWrites: true } });
+    assertClean(second, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
+    assert.equal(scenario.site.practiceAgents().length, 1, "reused, not created again");
+    assert.equal(count(second.rows, "captured"), 10);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("when the practice agent cannot be created, the shots that show an agent wait with one plain reason, nothing is guessed, and no other agent is opened", { skip, timeout: 300_000 }, async () => {
+  // The newer layout has no "Create blank agent" button, so the practice agent cannot be made on this site.
+  const scenario = await startScenario({ repoDir: REPO, site: { layout: "newer" } });
+  try {
+    await scenario.call("PUT", "/api/capture/consent", PRACTICE);
+    const out = await scenario.runJob({ job: { options: { mode: "autonomous" } }, runOptions: { allowPracticeWrites: true } });
+    assert.deepEqual(out.site.stats.dangers, []);
+    assert.deepEqual(out.site.stats.writes, [], "nothing was made or changed");
+    assert.deepEqual(botIdsOpened(out), [], "no agent page was opened: the shots did not go to a guessed or saved agent");
+    const waiting = out.rows.filter((r) => r.cause === "agent-unavailable");
+    assert.ok(waiting.length >= 3, out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", "));
+    assert.ok(waiting.every((r) => r.status === "skipped" && /^The practice agent could not be created \(.+\), so this screenshot needs an agent address\.$/.test(r.reason)), waiting.map((r) => r.reason).join(" | "));
+    assert.equal(out.job.causes.find((c) => c.code === "agent-unavailable")?.title, "Waiting for the agent");
+    assert.equal(scenario.site.practiceAgents().length, 0);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a job from an older portal, with no agent source and no hand-off fields, behaves exactly as before", { skip, timeout: 300_000 }, async () => {
+  const scenario = await startScenario({ repoDir: REPO });
+  try {
+    await scenario.call("PUT", "/api/capture/consent", PRACTICE);
+    const out = await scenario.runJob({
+      job: JOB(),
+      runOptions: { allowPracticeWrites: true },
+      onClient: (client) => {
+        const next = client.next;
+        client.next = async () => {
+          const claimed = await next();
+          delete claimed.job.options.agentSource;
+          for (const shot of claimed.shots) delete shot.capture.agent;
+          return claimed;
+        };
+      },
+    });
+    assertClean(out, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
+    assert.equal(out.claimed.job.options.agentSource, undefined);
+    assert.equal(count(out.rows, "captured"), 10, out.lines.join("\n"));
+    assert.equal(scenario.site.practiceAgents().length, 1);
+    assert.doesNotMatch(out.lines.join("\n"), /uses the practice agent created first|uses the agent whose address/, "the older way says nothing new");
+  } finally {
+    await scenario.close();
+  }
+});
+
 const VARIANTS = [
   ["labels that are aria-labels and icons", { labelVariants: true }],
   ["a cookie banner and an unsaved-changes prompt", { cookieBanner: true, leavePrompt: true }],

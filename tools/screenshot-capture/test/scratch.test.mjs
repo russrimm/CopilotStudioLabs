@@ -10,12 +10,14 @@ import path from "node:path";
 
 import { TIER, authorizeStep, checkPublicWebsite, classifyControl, limitWebsiteDepth, resolveAutonomy } from "../guard.mjs";
 import { ensurePracticeOptIn, hasPracticeOptIn, loadSettings, saveSettings } from "../companion.mjs";
-import { buildPracticeReport, createPracticeRegistry, practiceName } from "../practice.mjs";
+import { readAccountRecord, writeAccountRecord } from "../account-source.mjs";
+import { createCaptureSession } from "../capture-run.mjs";
+import { AGENT_ACCOUNT_REASON, agentAccountState, buildPracticeReport, createPracticeRegistry, ensurePracticeAgent, practiceName } from "../practice.mjs";
 import { insidePracticeAgent, stepFromEvent } from "../recorder.mjs";
 import * as R from "../scratch-recipes.mjs";
 import { isCreateFlowUrl, showStepsFor, stagesToPrepare, strictSteps } from "../scratch.mjs";
 import { sanitizeSteps } from "../setup-steps.mjs";
-import { BLOCKERS, STAGES, classifyStage, orderForWalkthrough, resolveStage, sanitizeScratchContext, scratchAgentName, scratchInputs, stagesBefore, summarizeBlockers } from "../walkthrough.mjs";
+import { BLOCKERS, STAGES, classifyStage, createsAgent, normalizeAgentSource, orderCreationFirst, orderForWalkthrough, resolveStage, sanitizeScratchContext, scratchAgentName, scratchInputs, stagesBefore, summarizeBlockers } from "../walkthrough.mjs";
 
 const ENV = "https://copilotstudio.microsoft.com/environments/5e5e5e5e-1234-4abc-8def-0123456789ab";
 const BOT = "7a1c0001-5b3d-4e6f-8a9b-c0d1e2f3a4b5";
@@ -386,4 +388,98 @@ test("a recorded step that changes something is kept only while the page is insi
   const nav = stepFromEvent({ type: "click", desc: { name: "Knowledge", role: "link", inNav: true } });
   assert.equal(nav.tier, TIER.LOOK);
   for (const name of ["Delete", "Share", "Connect", "Upload", "Allow"]) assert.ok(stepFromEvent({ type: "click", desc: { name, role: "button" } }).skipped, `${name} is never recorded`);
+});
+
+// ── Which agent the screenshots use: the one created earlier in the capture, or the person's own ──
+
+test("the agent source is a known word or nothing, and the shots that create the agent go ahead of the first shot that needs it", () => {
+  assert.deepEqual(["created", "own", "somebody", "", null, undefined].map(normalizeAgentSource), ["created", "own", null, null, null, null]);
+  assert.equal(createsAgent({ featureId: "mc-create-agent" }), true);
+  assert.equal(createsAgent({ feature: "harness-choice" }), true);
+  assert.equal(createsAgent({ featureId: "mc-instructions" }), false);
+
+  const planned = (filename, agent) => ({ filename, capture: { agent } });
+  const flags = (needs, creates) => ({ needs, creates });
+  const shots = [planned("home.png", flags(false, false)), planned("instr.png", flags(true, false)), planned("create.png", flags(false, true)), planned("overview.png", flags(true, true)), planned("tools.png", flags(true, false))];
+  assert.deepEqual(orderCreationFirst(shots).map((s) => s.filename), ["home.png", "create.png", "overview.png", "instr.png", "tools.png"], "creation first; everything else keeps its place");
+  const inOrder = [planned("create.png", flags(false, true)), planned("instr.png", flags(true, false))];
+  assert.deepEqual(orderCreationFirst(inOrder).map((s) => s.filename), ["create.png", "instr.png"], "an order that is already right is left alone");
+  const older = [{ filename: "b.png", capture: {} }, { filename: "a.png" }];
+  assert.deepEqual(orderCreationFirst(older).map((s) => s.filename), ["b.png", "a.png"], "a plan with no agent flags (an older portal) is not reordered");
+  const wrapped = [{ shot: shots[1] }, { shot: shots[2] }];
+  assert.deepEqual(orderCreationFirst(wrapped, (item) => item.shot).map((item) => item.shot.filename), ["create.png", "instr.png"], "the companion orders its own wrapped items the same way");
+  assert.deepEqual(orderCreationFirst(null), []);
+});
+
+test("a job that hands over the agent keeps no other agent's address or name, and a job without the field keeps everything as before", () => {
+  const agentUrl = `${ENV}/bots/${BOT}/overview`;
+  const env = { CAPTURE_COPILOT_STUDIO_AGENT_URL: agentUrl, CAPTURE_COPILOT_STUDIO_START_URL: agentUrl };
+  const targets = { copilotStudioAgentName: "Fabrikam Support" };
+  const created = createCaptureSession({ env, targets, agentSource: "created" });
+  assert.equal(created.agentSource, "created");
+  assert.equal(created.values.copilotStudioAgentUrl, undefined);
+  assert.equal(created.values.copilotStudioAgentName, undefined);
+  assert.equal(created.values.copilotStudioUrl, ENV, "an address that points into an agent is cut back to its environment");
+  for (const agentSource of ["own", null, undefined, "somebody"]) {
+    const kept = createCaptureSession({ env, targets, agentSource });
+    assert.equal(kept.values.copilotStudioAgentUrl, agentUrl, `${agentSource}: the person's own agent is kept`);
+    assert.equal(kept.values.copilotStudioAgentName, "Fabrikam Support");
+  }
+  assert.equal(createCaptureSession({ env, targets }).agentSource, null, "an older job says nothing, and the older behavior applies");
+});
+
+test("a practice agent made under another sign-in is not used and nothing is made in its place; one from before sign-in markers is tied to the sign-in that reuses it", async () => {
+  const envId = ENV.split("/").pop();
+  const autonomy = resolveAutonomy({ consented: true, level: "practice", practiceEnvironmentUrl: `${ENV}/home` }, { allowPracticeWrites: true });
+  const here = { url: () => `${ENV}/bots/${BOT}/overview` };
+  const noCreate = () => {
+    throw new Error("nothing may be created");
+  };
+  const open = (accountId, registry) => {
+    const visited = [];
+    const session = createCaptureSession({ autonomy, registry, agentSource: "created", accountId });
+    const go = async (url) => {
+      visited.push(url);
+      return { url };
+    };
+    return { visited, session, run: () => ensurePracticeAgent({ page: here, autonomy, registry, session, go, executorFor: noCreate }) };
+  };
+
+  const registry = createPracticeRegistry(tmp());
+  registry.recordAgent({ envId, botId: BOT, name: "Lab screenshots - 1a2b3c", address: `${ENV}/bots/${BOT}/overview`, accountId: "aaaaaaaaaaaa" });
+  const other = open("bbbbbbbbbbbb", registry);
+  const refused = await other.run();
+  assert.deepEqual([refused.ok, refused.cause, refused.error], [false, "agent-unavailable", AGENT_ACCOUNT_REASON]);
+  assert.deepEqual(other.visited, [], "the agent made under the other sign-in was never opened");
+  assert.equal(await other.run(), refused, "the answer is remembered for the rest of the job, so every later shot gets the same plain reason");
+  assert.equal(registry.find(envId).reusedCount, 0);
+  assert.equal(registry.items().agents.length, 1, "nothing was made or retired");
+
+  const same = open("aaaaaaaaaaaa", registry);
+  const used = await same.run();
+  assert.equal(used.ok, true);
+  assert.equal(used.botId, BOT);
+  assert.equal(same.visited.length, 1, "under the same sign-in the agent is opened and used");
+
+  const legacy = createPracticeRegistry(tmp());
+  legacy.recordAgent({ envId, botId: BOT, name: "Lab screenshots - 1a2b3c", address: `${ENV}/bots/${BOT}/overview` });
+  assert.equal(agentAccountState(legacy.find(envId), "cccccccccccc"), "unknown", "no marker on either side is never a reason to refuse");
+  assert.equal((await open("cccccccccccc", legacy).run()).ok, true);
+  assert.equal(legacy.find(envId).accountId, "cccccccccccc", "the record is tied to the sign-in that reused it");
+  assert.equal(agentAccountState(legacy.find(envId), "dddddddddddd"), "different");
+  assert.equal(agentAccountState(legacy.find(envId), null), "unknown");
+});
+
+test("a profile's sign-in marker is random, stable, and says nothing about who signed in", () => {
+  const dir = tmp();
+  assert.equal(readAccountRecord(dir), null);
+  writeAccountRecord(dir, { source: "manual", verified: true, verifiedFor: "agent" });
+  const first = readAccountRecord(dir).signInId;
+  assert.match(first, /^[0-9a-f]{12}$/);
+  writeAccountRecord(dir, { source: "saved-session", confirmed: true });
+  assert.equal(readAccountRecord(dir).signInId, first, "later records keep the marker");
+  fs.rmSync(dir, { recursive: true, force: true });
+  writeAccountRecord(dir, { source: "manual" });
+  assert.notEqual(readAccountRecord(dir).signInId, first, "choosing the account again (a cleared profile) makes a new marker");
+  assert.ok(!/[@/]|https?:|[0-9a-f]{8}-[0-9a-f]{4}/i.test(JSON.stringify(readAccountRecord(dir))), "no name, address, or tenant id");
 });

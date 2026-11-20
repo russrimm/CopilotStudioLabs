@@ -351,7 +351,7 @@ export function registerCaptureRoutes(app, deps = {}) {
       const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
       syncAfter(res);
       try {
-        const result = platform.saveLabTargets(req.params.labId, body.targets, { alsoProfile: body.alsoProfile === true });
+        const result = platform.saveLabTargets(req.params.labId, body.targets, { alsoProfile: body.alsoProfile === true, agentSource: typeof body.agentSource === "string" ? body.agentSource : undefined });
         return res.status(result.status).json(result.body);
       } catch (err) {
         return res.status(500).json({ error: err.message });

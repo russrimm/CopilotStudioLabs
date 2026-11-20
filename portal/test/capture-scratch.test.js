@@ -3,13 +3,13 @@
 
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, mkdirSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { createCapturePlatform, SCRATCH_MIN_COMPANION } from "../lib/capture/index.js";
 import { autonomyFor, createConsentStore, describeConsent, validateConsent } from "../lib/capture/consent.js";
-import { cleanScratch } from "../lib/capture/jobs.js";
+import { cleanScratch, normalizeJobRequest } from "../lib/capture/jobs.js";
 import { knowledgeWebsite, readLabScratchContext, sampleInputsFromMarkdown, scenarioQuestions } from "../lib/capture/scratch-context.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
 
@@ -161,3 +161,146 @@ test("the lab's own words are read from its Markdown and manifest, and a website
   assert.equal(knowledgeWebsite({ modules: [{ id: "knowledge", sources: [{ url: "https://evil.example.com/a" }] }] }), "");
   assert.ok(md.length > 100);
 });
+
+// ── Which agent the screenshots use: the agent created earlier in the capture (the default), or one the person chooses ──
+
+const PRACTICE = { consented: true, level: "practice", practiceEnvironmentUrl: ENV_URL };
+const pairedAt = (p, version) => {
+  const code = p.pairing.createCode({ createdBy: "test" });
+  const paired = p.pairing.exchangeCode(code.code, { deviceName: "PC", companionVersion: version });
+  p.pairing.heartbeat(paired.device.id, { companionVersion: version });
+  return paired.device;
+};
+const needsAgent = (shot) => shot.capture?.agent?.needs === true;
+const createsAgent = (shot) => shot.capture?.agent?.creates === true;
+const GUID_OR_URL = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|https?:\/\//i;
+
+test("by default the agent created earlier in the capture is used: shots that show an agent are ready, not waiting, and run after the creation shots", (t) => {
+  const p = platform(t);
+  assert.equal(p.saveConsent(PRACTICE).status, 200);
+  const queued = p.queueJob(labJob());
+  assert.equal(queued.status, 201, JSON.stringify(queued.body).slice(0, 300));
+  assert.notEqual(queued.body.needsAddress, true);
+  assert.deepEqual(queued.body.agentSource, { choice: "created", effective: "created" });
+  assert.equal(queued.body.job.options.agentSource, "created");
+
+  const plan = p.jobs.getPlan(queued.body.job.id);
+  const dependents = plan.shots.filter((s) => needsAgent(s) && !createsAgent(s));
+  const creators = plan.shots.filter(createsAgent);
+  assert.ok(dependents.length >= 3 && creators.length >= 1, "the lab has shots that show an agent and shots that create one");
+  assert.ok(dependents.every((s) => s.capture.agent.via === "created" && !s.capture.missing.includes("copilot-studio-agent") && s.capture.ready !== false), "none of them waits for an address");
+  assert.ok(dependents.every((s) => !s.requiresEnv), "an older companion is not told to wait for an address either");
+  const lastCreator = Math.max(...creators.map((s) => plan.shots.indexOf(s)));
+  const firstDependent = Math.min(...dependents.map((s) => plan.shots.indexOf(s)));
+  assert.ok(lastCreator < firstDependent, "the creation shots come before the first shot that needs the agent");
+
+  const rows = p.jobs.get(queued.body.job.id).shots;
+  const byName = new Map(rows.map((r) => [r.filename, r]));
+  assert.ok(dependents.every((s) => byName.get(s.filename).status === "pending" && byName.get(s.filename).cause === null), "ready to run, not skipped");
+  assert.ok(dependents.every((s) => byName.get(s.filename).plannedSetup.includes("Uses the practice agent created for this capture")));
+  assert.equal(p.jobs.get(queued.body.job.id).causes.length, 0, "nothing is grouped as waiting for an agent address");
+  p.jobs.cancel(queued.body.job.id);
+});
+
+test("An agent I choose works as it does today: no address means waiting, an address means running on that agent only", (t) => {
+  const p = platform(t);
+  p.saveConsent(PRACTICE);
+  const none = p.queueJob(labJob({ options: { mode: "autonomous", agentSource: "own" } }));
+  assert.equal(none.status, 201);
+  const waiting = p.jobs.get(none.body.job.id).shots.filter((r) => r.status === "skipped");
+  assert.ok(waiting.length >= 3 && waiting.every((r) => r.cause === "no-agent" && /needs your agent address\. Add it in Capture settings/.test(r.message)), "the old wording stays for this choice");
+  assert.equal(none.body.missing[0].id, "copilot-studio-agent");
+  assert.equal(none.body.job.options.agentSource, "own");
+  p.jobs.cancel(none.body.job.id);
+
+  const given = p.queueJob(labJob({ targets: { copilotStudioAgentUrl: AGENT_URL }, options: { mode: "autonomous", agentSource: "own" } }));
+  assert.equal(given.status, 201);
+  assert.ok(p.jobs.get(given.body.job.id).shots.every((r) => r.status !== "skipped"), "with an address every shot runs");
+  const plan = p.jobs.getPlan(given.body.job.id);
+  assert.equal(plan.env.CAPTURE_COPILOT_STUDIO_AGENT_URL, AGENT_URL, "the companion gets the address the person gave");
+  assert.ok(plan.shots.filter(needsAgent).every((s) => s.capture.agent.via === "own"));
+  p.jobs.cancel(given.body.job.id);
+});
+
+test("when the agent cannot be created, the shots that show one wait for an address with a plain reason, and never run on a guess", (t) => {
+  const p = platform(t);
+  p.saveConsent({ consented: true, level: "read-only" });
+  const readonly = p.queueJob(labJob());
+  assert.equal(readonly.status, 201);
+  assert.deepEqual(readonly.body.agentSource, { choice: "created", effective: "own", fallback: "consent" });
+  const row = p.jobs.get(readonly.body.job.id).shots.find((r) => r.status === "skipped");
+  assert.equal(row.message, "The practice agent could not be created (automatic capture is not allowed to create anything yet), so this screenshot needs an agent address. Add it in Capture settings, then retake.");
+  assert.equal(row.cause, "no-agent");
+  assert.ok(p.jobs.getPlan(readonly.body.job.id).shots.filter(needsAgent).every((s) => s.capture.agent.via === "address" && s.capture.agent.fallback === "consent"));
+  p.jobs.cancel(readonly.body.job.id);
+});
+
+test("a companion older than 1.6.2 is told in plain words that it cannot hand the practice agent over, and keeps working the old way", async (t) => {
+  const p = platform(t);
+  p.saveConsent(PRACTICE);
+  pairedAt(p, "1.6.1");
+  const old = p.queueJob(labJob());
+  assert.equal(old.status, 201);
+  assert.equal(old.body.agentHandoff.supported, false);
+  assert.equal(old.body.agentHandoff.min, "1.6.2");
+  assert.match(old.body.agentHandoff.message, /older than 1\.6\.2, so it cannot hand the practice agent to the other screenshots yet/);
+  assert.match(old.body.message, /cannot hand the practice agent/);
+  assert.equal(old.body.job.options.agentSource, "own", "the older behavior: the person's own agent");
+  assert.ok(p.jobs.get(old.body.job.id).shots.some((r) => r.status === "skipped" && /older than 1\.6\.2/.test(r.message)));
+  p.jobs.cancel(old.body.job.id);
+  const status = await p.statusPayload();
+  assert.deepEqual([status.autonomy.handoffMinCompanion, status.autonomy.handoffSupported], ["1.6.2", false], "the Screenshot Center reads the same hint from the status");
+});
+
+test("the choice is saved with the lab as a word only, an agent address already set still means An agent I choose, and a bad value is refused", (t) => {
+  const p = platform(t);
+  assert.deepEqual(p.targetsPayload({ labId: ctx.labId }).agentSource, { source: "created", from: "default", saved: false });
+  const saved = p.saveLabTargets(ctx.labId, {}, { agentSource: "own" });
+  assert.equal(saved.status, 200);
+  assert.deepEqual(saved.body.agentSource, { source: "own", from: "lab", saved: true });
+  const manifest = JSON.parse(readFileSync(join(ctx.labDir, "manifest.json"), "utf8"));
+  assert.equal(manifest.customization.captureAgentSource, "own");
+  assert.ok(!GUID_OR_URL.test(JSON.stringify(manifest.customization.captureAgentSource)), "no address or id is kept for the choice");
+  assert.equal(p.saveLabTargets(ctx.labId, {}, { agentSource: "somebody" }).status, 400);
+  assert.equal(p.saveLabTargets(ctx.labId, {}, { agentSource: "created" }).body.agentSource.source, "created");
+
+  // A lab from before the choice existed: a saved agent address means the person's own agent.
+  const manifestPath = join(ctx.labDir, "manifest.json");
+  const bare = JSON.parse(readFileSync(manifestPath, "utf8"));
+  delete bare.customization.captureAgentSource;
+  writeFileSync(manifestPath, JSON.stringify(bare));
+  const withAddress = p.saveLabTargets(ctx.labId, { copilotStudioAgentUrl: AGENT_URL });
+  assert.deepEqual(withAddress.body.agentSource, { source: "own", from: "address", saved: false });
+  p.saveLabTargets(ctx.labId, { copilotStudioAgentUrl: "" }, { agentSource: "created" });
+});
+
+test("a job request may say which agent it uses, an old request without it still works, and the older agent option maps onto it", () => {
+  const norm = (options) => normalizeJobRequest({ target: { type: "lab", labId: "a-lab" }, options });
+  assert.equal(norm({}).ok, true);
+  assert.equal(norm({}).options.agentSource, null, "not said: the lab's choice and then the default decide");
+  assert.equal(norm({ agentSource: "created" }).options.agentSource, "created");
+  assert.equal(norm({ agentSource: "own" }).options.agentSource, "own");
+  assert.equal(norm({ agentSource: "anyone" }).ok, false);
+  assert.match(norm({ agentSource: "anyone" }).errors[0], /agentSource must be "created" or "own"/);
+  assert.equal(norm({ agent: "existing" }).options.agent, "existing", "the older option is still read");
+});
+
+test("no agent address or id of the created agent, or of the person's own agent, reaches the browser or the stored lab and job data", (t) => {
+  const p = platform(t);
+  p.saveConsent(PRACTICE);
+  p.saveLabTargets(ctx.labId, { copilotStudioAgentUrl: AGENT_URL, copilotStudioAgentName: "Fabrikam Support" }, { agentSource: "created" });
+  const queued = p.queueJob(labJob());
+  assert.equal(queued.status, 201);
+  const plan = p.jobs.getPlan(queued.body.job.id);
+  assert.equal(plan.env.CAPTURE_COPILOT_STUDIO_AGENT_URL, undefined, "the agent the person did not choose is not carried");
+  assert.equal(plan.targets.copilotStudioAgentName, undefined);
+  assert.equal(plan.autonomy.practiceEnvironmentUrl, `https://copilotstudio.microsoft.com/environments/${ENV_ID}`);
+  const browserView = JSON.stringify(queued.body) + JSON.stringify(p.jobs.get(queued.body.job.id)) + JSON.stringify(p.targetsPayload({ labId: ctx.labId }).agentSource);
+  assert.ok(!browserView.includes(AGENT_URL.split("/bots/")[1].split("/")[0]), "no agent id");
+  assert.ok(!browserView.includes(ENV_ID) && !browserView.includes("Fabrikam Support") && !/bots\//.test(browserView), "no environment, name, or agent path");
+  const jobFile = readFileSync(join(p.captureDir, "jobs", `${queued.body.job.id}.json`), "utf8");
+  assert.ok(!jobFile.includes(ENV_ID) && !jobFile.includes("0000000000a1"), "the stored job record holds neither");
+  p.jobs.cancel(queued.body.job.id);
+  p.saveLabTargets(ctx.labId, { copilotStudioAgentUrl: "", copilotStudioAgentName: "" }, { agentSource: "created" });
+});
+
