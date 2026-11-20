@@ -353,7 +353,7 @@ export function synthesizeModuleKnowledgeChecks({
         ? null
         : `Scope ${cleanName} permissions and environment settings before publishing to end users.`);
 
-  if (conceptRaw) {
+  if (conceptRaw && !isUnreviewedText(conceptRaw)) {
     const conceptFull = ensurePeriod(conceptRaw);
     const conceptSource = pickLearnSource(`${cleanName} ${conceptFull}`);
     rawQuestions.push({

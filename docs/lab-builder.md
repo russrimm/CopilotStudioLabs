@@ -2255,6 +2255,16 @@ URL. A catalog feature may supply `expectedResults` (list of strings) or
 `troubleshooting` (list of `{ symptom, fix }`) to override the defaults. Time
 estimates stay guidance only: no block is dropped to fit a time.
 
+**What a real tenant showed.** Live Learn steps cannot say everything the product does. When a check against a
+real tenant shows something Learn does not state, record it as a `troubleshooting` entry that names it as seen in a
+check against a real tenant and ends with "Not confirmed in Microsoft Learn": for the Microsoft Copilot harness
+that covers the **Search all websites** switch, the two-level limit for public website addresses, the **Add to
+agent** then header **Save** order, the **AI + behavior** and **Advanced** settings tabs, the first-publish dialog
+that shows only **Add channel** and **Publish agent**, 30-character agent names, and the empty Monitor list. Never
+put such a fact in `concepts` or `steps`: concepts feed the quiz and the "Watch for this" cautions, and a quiz never
+asks about text that says "Not confirmed in Microsoft Learn" (`isUnreviewedText()` in `teaching.js`). Identifiers from
+the tenant never go in the catalog.
+
 #### `Required By` administrator prerequisites (`admin-prereqs.js`)
 
 Before a workshop runs, environment and tenant administrators need an exact

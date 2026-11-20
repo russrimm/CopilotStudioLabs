@@ -52,7 +52,7 @@ function firstSentence(text) {
 
 /** True for text that only says a topic is unreviewed or restates its Learn summary; none of it can be a quiz answer. */
 export function isUnreviewedText(text) {
-  return /^\s*\[Unverified\]|^\s*Microsoft Learn describes this topic as\b|was found on Microsoft Learn and is not yet part of/i.test(String(text || ""));
+  return /^\s*\[Unverified\]|^\s*Microsoft Learn describes this topic as\b|was found on Microsoft Learn and is not yet part of|Not confirmed in Microsoft Learn/i.test(String(text || ""));
 }
 
 /** Caller-supplied text inside a code fence: it must not be able to close the fence or add markup. */
@@ -224,7 +224,7 @@ export function knowledgeCheckBlock(feature, plan, u, grounding) {
     cautionConcept ||
     (feature.concepts || []).find((c) => !isUnreviewedText(c)) ||
     (feature.troubleshooting?.[0]?.fix ? `${feature.troubleshooting[0].symptom} ${feature.troubleshooting[0].fix}` : null);
-  if (conceptRaw) {
+  if (conceptRaw && !isUnreviewedText(conceptRaw)) {
     const conceptFull = ensureStop(u.scrub(conceptRaw));
     const conceptRef = learnReferenceLink(learnSources, `${feature.name} ${conceptRaw}`, u);
     questions.push({

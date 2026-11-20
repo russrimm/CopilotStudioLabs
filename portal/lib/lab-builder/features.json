@@ -575,7 +575,13 @@
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/build-new-agent",
       "prereqs": [],
       "relatedLabs": [],
-      "reuseScreenshots": []
+      "reuseScreenshots": [],
+      "troubleshooting": [
+        {
+          "symptom": "The agent name looks cut off",
+          "fix": "Keep the name short. In a check against a real tenant, agent names were cut at 30 characters. A name length limit is Not confirmed in Microsoft Learn."
+        }
+      ]
     },
     {
       "id": "mc-publish-agent",
@@ -618,13 +624,19 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-fundamentals-publish-channels",
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-channels-overview"
       ],
-      "lastVerified": "2026-11-12",
+      "lastVerified": "2026-11-19",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/publication-publish-agent",
       "prereqs": [
         "mc-preview-test"
       ],
       "relatedLabs": [],
-      "reuseScreenshots": []
+      "reuseScreenshots": [],
+      "troubleshooting": [
+        {
+          "symptom": "The Publish agent dialog shows no channel list",
+          "fix": "Learn says to select and configure each channel in the dialog. A check against a real tenant, with an agent that had never been published, showed only **Add channel** and **Publish agent** and a message that the agent is not on any channels yet, so select **Add channel** first. The exact first-publish wording is Not confirmed in Microsoft Learn."
+        }
+      ]
     },
     {
       "id": "mc-upgrade-from-standard",
@@ -1252,15 +1264,26 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview",
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-copilot-studio",
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-sources-overview",
-        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-edit-source"
+        "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-edit-source",
+        "https://learn.microsoft.com/microsoft-copilot-studio/knowledge-add-public-website"
       ],
-      "lastVerified": "2026-11-12",
+      "lastVerified": "2026-11-19",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/knowledge-add-existing-copilot",
       "prereqs": [
         "mc-create-agent"
       ],
       "relatedLabs": [],
-      "reuseScreenshots": []
+      "reuseScreenshots": [],
+      "troubleshooting": [
+        {
+          "symptom": "The source is not in the list after you select Add",
+          "fix": "Learn says to select **Save** or **Add** to confirm. In a check against a real tenant, the public websites page also had a **Search all websites** switch that had to be turned off before an address was accepted, and the source stayed only after **Add**, then **Add to agent**, then **Save** in the agent header. That exact order for the Microsoft Copilot harness is Not confirmed in Microsoft Learn."
+        },
+        {
+          "symptom": "A public website address is not accepted",
+          "fix": "Use an address with at most two levels of depth, such as www.fabrikam.com/engines/rotary. A longer address kept **Add** unavailable in a check against a real tenant, and the standard harness article lists it as not valid. Whether the Microsoft Copilot harness article applies the same limit is Not confirmed in Microsoft Learn."
+        }
+      ]
     },
     {
       "id": "mc-foundry-iq",
@@ -4320,7 +4343,13 @@
         "mc-create-agent"
       ],
       "relatedLabs": [],
-      "reuseScreenshots": []
+      "reuseScreenshots": [],
+      "troubleshooting": [
+        {
+          "symptom": "Your instructions are gone after you leave the Build tab",
+          "fix": "Select **Save** in the agent header after you edit the instructions. In a check against a real tenant, an edit was kept only after that Save. Learn says to select **Save** without naming where it sits, so the location is Not confirmed in Microsoft Learn."
+        }
+      ]
     },
     {
       "id": "mc-model-selection",
@@ -4630,7 +4659,13 @@
         "mc-publish-agent"
       ],
       "relatedLabs": [],
-      "reuseScreenshots": []
+      "reuseScreenshots": [],
+      "troubleshooting": [
+        {
+          "symptom": "The Monitor sessions list is empty",
+          "fix": "Sessions appear after people use the published agent on a channel, and Learn says data can take up to an hour to show. A check against a real tenant, with an agent no channel users had used, showed an empty list. Anything beyond that is Not confirmed in Microsoft Learn."
+        }
+      ]
     },
     {
       "id": "mc-agent-settings-security",
@@ -4687,13 +4722,19 @@
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-overview",
         "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/overview"
       ],
-      "lastVerified": "2026-11-13",
+      "lastVerified": "2026-11-19",
       "verifiedAgainst": "https://learn.microsoft.com/microsoft-copilot-studio/agents-experience/settings-overview",
       "prereqs": [
         "mc-create-agent"
       ],
       "relatedLabs": [],
-      "reuseScreenshots": []
+      "reuseScreenshots": [],
+      "troubleshooting": [
+        {
+          "symptom": "A tab in the Agent settings dialog is named differently from the steps",
+          "fix": "Learn lists four tabs: Agent details, AI & behavior, Safety & access, and Greeting & prompts. A check against a real tenant showed an extra **Advanced** tab and the second tab labeled **AI + behavior**. Which labels your tenant shows is Not confirmed in Microsoft Learn."
+        }
+      ]
     },
     {
       "id": "cc-harness-choice",
