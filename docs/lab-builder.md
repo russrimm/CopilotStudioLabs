@@ -1358,6 +1358,18 @@ the signal that a catalog entry has gone stale. The manifest also carries each
 module's `catalog: { lastVerified, verifiedAgainst }`, so a reviewer can see how
 old the curated entry behind a module is, whichever path its steps took.
 
+**A step is never cut in the middle.** A Learn step that lists choices under it (a bulleted list
+under "You can:") becomes one line with lettered choices: "...add a source. You can: (a) Drag and
+drop files...; (b) Search for a knowledge source...". Choices that do not fit within
+`MAX_STEP_LENGTH` (700 characters) are left out whole, never half-written, and the step says
+"more in the linked article". A step that is longer than the limit ends at its last full sentence.
+Summaries follow the same rule: `cleanText()` shortens at a sentence end when one fits (or at a word
+end with an ellipsis), and `tidySummary()` repairs a summary an earlier build cut off in the middle
+of a word, so topic caches and the committed snapshot never put a half-sentence into a lab. The
+"From the docs" quote is the first prose of the page excerpt (not a heading or a run-together
+numbered list) and ends at a sentence. The lab gate (see [Lab gate](#lab-gate-what-a-teacher-would-trip-over))
+reports any that slip through.
+
 ### 4b. Opt-in: grounded step synthesis
 
 > **Prototype.** Off unless you pass `--synthesize-steps` (CLI) or
@@ -2611,7 +2623,10 @@ steps, so the lab says so: the module is marked **[Unverified]**, its steps are 
 from the Learn article by the same derivation path as catalog features (and by the
 opt-in model synthesis, which keeps only steps that verify against the page), and
 when nothing can be derived the module tells the learner to follow the article.
-Nothing is invented. The Learn title and summary are always quoted as untrusted
+Nothing is invented. A module for a new topic has **no quiz**: the knowledge check is built only from reviewed
+content (why it matters, a verified outcome, a reviewed concept), so a Learn-only module says "No quiz for this
+topic" instead of asking about its own disclaimer, and the facilitator guide's answer key leaves it out too.
+The Learn title and summary are always quoted as untrusted
 data in any model prompt and never placed in its instructions.
 
 **Where the list comes from, and what happens offline.** In order: the runtime

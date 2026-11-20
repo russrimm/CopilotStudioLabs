@@ -68,8 +68,14 @@ function sentenceList(items) {
 
 /** Trim a Learn excerpt down to a quotable, single-paragraph snippet. */
 function condense(text, maxLength = 420) {
-  const clean = String(text || "")
-    .replace(/```[\s\S]*?```/g, " ")
+  const stripped = String(text || "").replace(/```[\s\S]*?```/g, " ");
+  // A quote is prose. Headings, numbered steps, callouts, and table rows run together read as noise.
+  const prose = stripped
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !/^(?:#{1,6}\s|>|\||(?:\d+(?:\.\d+)*\.|[-*+])\s)/.test(line))
+    .join(" ");
+  const clean = String(prose.length >= 60 ? prose : stripped)
     // Learn tables carry <br> and similar tags; drop them before ">" is stripped below, which would leave "<br" behind.
     .replace(/<\/?(?:br|hr|p|div|span|ul|ol|li|table|thead|tbody|tr|td|th|b|i|em|strong|code|pre|a|sup|sub|img|h[1-6])\b[^<>]*>/gi, " ")
     .replace(/^#{1,6}\s+/gm, "")
@@ -80,8 +86,11 @@ function condense(text, maxLength = 420) {
     .trim();
   if (clean.length <= maxLength) return clean;
   const cut = clean.slice(0, maxLength);
-  const lastStop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("; "));
-  return `${(lastStop > 120 ? cut.slice(0, lastStop) : cut).trim()}...`;
+  const stops = [...cut.matchAll(/[.!?](?=\s|$)/g)].map((match) => match.index + 1);
+  const lastStop = stops.length ? stops[stops.length - 1] : -1;
+  if (lastStop > 60) return cut.slice(0, lastStop).trim();
+  const space = cut.lastIndexOf(" ");
+  return `${cut.slice(0, space > 60 ? space : maxLength).replace(/[\s,;:(-]+$/, "")}...`;
 }
 
 /**

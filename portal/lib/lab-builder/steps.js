@@ -34,7 +34,7 @@ export const DEFAULT_THRESHOLD = 0.34;
 const MIN_LABEL_COVERAGE = 0.34;
 
 const MAX_STEPS = 15;
-const MAX_STEP_LENGTH = 400;
+const MAX_STEP_LENGTH = 700;
 const MAX_OPTIONS = 6;
 const MIN_STEPS = 3;
 
@@ -222,7 +222,21 @@ export function cleanStep(lines, docUrl) {
   }
 
   if (options.length) {
-    primary = `${primary.replace(/[::]\s*$/, "")}: ${options.join("; ")}.`;
+    const lead = primary.replace(/[::]\s*$/, "").trim();
+    // A lead that already ends a sentence gets a short label so the choices never follow a stray colon.
+    const intro = /[.!?]$/.test(lead) ? `${lead} Choose from:` : `${lead}:`;
+    const choices = [];
+    let used = intro.length;
+    for (const [index, option] of options.entries()) {
+      const piece = `(${String.fromCharCode(97 + index)}) ${option.replace(/[.;]+\s*$/, "")}`;
+      if (used + piece.length + 2 > MAX_STEP_LENGTH) break;
+      choices.push(piece);
+      used += piece.length + 2;
+    }
+    const left = options.length - choices.length;
+    primary = choices.length
+      ? `${intro} ${choices.join("; ")}${left > 0 ? "; more in the linked article" : ""}.`
+      : `${lead}${/[.!?]$/.test(lead) ? "" : "."} The choices are in the linked article.`;
   } else {
     // A colon with nothing after it is a dangling reference to content we
     // dropped (a screenshot, a code sample, a table). Close the sentence.
@@ -230,10 +244,11 @@ export function cleanStep(lines, docUrl) {
   }
 
   primary = scrubForbidden(primary).replace(/\s+/g, " ").trim();
+  // A step is never cut in the middle: past the limit it ends at its last full sentence, and one with no
+  // sentence break stays whole rather than losing its end.
   if (primary.length > MAX_STEP_LENGTH) {
-    const cut = primary.slice(0, MAX_STEP_LENGTH);
-    const stop = cut.lastIndexOf(". ");
-    primary = `${(stop > 120 ? cut.slice(0, stop) : cut).trim()}...`;
+    const stop = primary.slice(0, MAX_STEP_LENGTH).lastIndexOf(". ");
+    if (stop > 120) primary = primary.slice(0, stop + 1).trim();
   }
   return primary;
 }

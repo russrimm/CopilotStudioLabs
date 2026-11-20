@@ -843,7 +843,10 @@ export function buildFeatureScenarioNote(feature, plan, u) {
   const entityList = entities.slice(0, 3).join(", ");
   const terms = (profile.terms || []).slice(0, 3).join(", ");
   const kpi = profile.kpi || "operational efficiency";
-  const summaryClause = u.lowerFirst(String(feature.summary || feature.name).replace(/\.$/, ""));
+  // Only the first sentence of a long summary belongs in a scenario line; the whole paragraph reads as a dump.
+  const summaryClause = u.lowerFirst(
+    String(/^[^.!?]*[.!?](?=\s|$)/.exec(String(feature.summary || ""))?.[0] || feature.summary || feature.name).replace(/\.$/, ""),
+  );
   const cat = String(feature.category || "");
   const id = String(feature.id || "");
 

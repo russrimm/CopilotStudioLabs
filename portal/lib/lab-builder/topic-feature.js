@@ -9,7 +9,7 @@
  * say plainly that the topic is new and unreviewed.
  */
 
-import { cleanText, MAX_TITLE, MAX_SUMMARY } from "./topic-sanitize.js";
+import { cleanText, tidySummary, MAX_TITLE, MAX_SUMMARY } from "./topic-sanitize.js";
 import { resolveTopicLevel } from "./levels.js";
 import { TOPIC_BASE_MINUTES, subtopicMinutes, topicMinutes } from "./subtopics.js";
 
@@ -74,7 +74,7 @@ export function subtopicToFeature(sub) {
   return {
     id: sub.id,
     name: title,
-    summary: cleanText(sub.summary, MAX_SUMMARY) || `${title}: see the linked Microsoft Learn article.`,
+    summary: tidySummary(cleanText(sub.summary, MAX_SUMMARY)) || `${title}: see the linked Microsoft Learn article.`,
     steps: [subtopicPlaceholderStep(title)],
     learnTopic: { url: sub.url, urls: [sub.url] },
     docUrls: [sub.url],
@@ -91,7 +91,7 @@ export function subtopicToFeature(sub) {
 export function topicToFeature(topic, { excludedSubtopics = null } = {}) {
   const excluded = excludedSubtopics instanceof Set ? excludedSubtopics : new Set(excludedSubtopics || []);
   const title = cleanText(topic.title, MAX_TITLE) || "Microsoft Learn topic";
-  const summary = cleanText(topic.summary, MAX_SUMMARY) || `${title}: see the linked Microsoft Learn article.`;
+  const summary = tidySummary(cleanText(topic.summary, MAX_SUMMARY)) || `${title}: see the linked Microsoft Learn article.`;
   const url = topic.urls[0];
   const productLabel = topic.productName || "Microsoft Copilot Studio";
   const everySubtopic = (topic.subtopics || []).filter((sub) => sub && typeof sub.url === "string");
@@ -102,7 +102,7 @@ export function topicToFeature(topic, { excludedSubtopics = null } = {}) {
       id: sub.id,
       title: cleanText(sub.title, MAX_TITLE) || sub.id,
       url: sub.url,
-      ...(sub.summary ? { summary: cleanText(sub.summary, MAX_SUMMARY) } : {}),
+      ...(sub.summary ? { summary: tidySummary(cleanText(sub.summary, MAX_SUMMARY)) } : {}),
       ...(sub.level ? { level: sub.level } : {}),
       ...(sub.availability ? { availability: sub.availability } : {}),
       minutes: eachMinutes,

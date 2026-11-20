@@ -7,6 +7,7 @@ import { getFeatures, getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
 import { isThirdPartyConnectorTopic } from "./topic-feature.js";
 import { summarize } from "./topic-snapshot.js";
+import { tidySummary } from "./topic-sanitize.js";
 import { resolveTopicLevel } from "./levels.js";
 import { describeSubtopics } from "./subtopics.js";
 import { EXPORT_MIME, buildTopicExport, exportFileName, normalizeExportRequest, serialize } from "./topic-export.js";
@@ -104,7 +105,7 @@ export function topicsPayload(service, now = Date.now()) {
     .map((topic) => ({
       id: topic.id,
       title: topic.title,
-      summary: topic.summary,
+      summary: tidySummary(topic.summary),
       source: "learn",
       status: recent(topic.changedAt) ? "updated" : "new",
       conceptId: topic.conceptId,

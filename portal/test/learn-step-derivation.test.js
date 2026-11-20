@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { deriveSteps, extractProcedures, isVerifiedCanonicalArticle } from "../lib/lab-builder/steps.js";
+import { cleanStep, deriveSteps, extractProcedures, isVerifiedCanonicalArticle } from "../lib/lab-builder/steps.js";
 import { BLOCKER_CODES, MAX_VERIFIED_CURATED_DAYS, isCuratedFresh } from "../lib/lab-builder/blockers.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
 
@@ -265,4 +265,29 @@ test("live conceptual canonical Learn page with fresh curated steps (<= 180 days
     }),
     false,
   );
+});
+
+test("a step's sub-bullets become lettered choices and a long step is never cut in the middle", () => {
+  const link = "https://learn.microsoft.com/microsoft-copilot-studio/x";
+  const step = cleanStep(
+    [
+      "Use the **Add knowledge** dialog to add a source. You can:",
+      "   - Drag and drop files or select the upload area to upload documents directly.",
+      "   - Search for a knowledge source by using the search box.",
+    ],
+    link,
+  );
+  assert.equal(
+    step,
+    "Use the **Add knowledge** dialog to add a source. You can: (a) Drag and drop files or select the upload area to upload documents directly; (b) Search for a knowledge source by using the search box.",
+  );
+  assert.doesNotMatch(step, /\.\.\.|\u2026|\.;/);
+
+  const wide = cleanStep(
+    ["Pick a source:", ...Array.from({ length: 6 }, (_, i) => `   - Option ${i + 1} ${"explains the whole choice in a long sentence ".repeat(4).trim()}.`)],
+    link,
+  );
+  assert.ok(wide.length < 760, "bounded");
+  assert.match(wide, /; more in the linked article\.$/);
+  assert.doesNotMatch(wide, /\.\.\.|\u2026/);
 });
