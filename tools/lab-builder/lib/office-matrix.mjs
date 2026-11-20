@@ -72,7 +72,7 @@ function quizBlock(n, question) {
 }
 
 /** Structured topic Markdown shaped like generated module output. */
-export function buildTopicMarkdown({ steps = 7, tableRows = 2, tableCols = 2, quizzes = 1, references = 2, codeLines = 1, special = false, longParagraph = 0 } = {}) {
+export function buildTopicMarkdown({ steps = 7, tableRows = 2, tableCols = 2, quizzes = 1, references = 2, codeLines = 1, special = false, longParagraph = 0, subSteps = false } = {}) {
   const flavor = (text) => (special ? `${text} ${NASTY_TEXT}` : text);
   const lines = [
     `# ${flavor("Ground on SharePoint knowledge")}`,
@@ -100,7 +100,17 @@ export function buildTopicMarkdown({ steps = 7, tableRows = 2, tableCols = 2, qu
     "",
     "**Do this:**",
     "",
-    ...Array.from({ length: steps }, (_v, i) => `${i + 1}. ${flavor(`Perform action ${i + 1} in **Microsoft Copilot Studio** and select [Learn](${LEARN_URL}).`)}`),
+    ...Array.from({ length: steps }, (_v, i) => {
+      const line = `${i + 1}. ${flavor(`Perform action ${i + 1} in **Microsoft Copilot Studio** and select [Learn](${LEARN_URL}).`)}`;
+      if (!subSteps || i % 2) return [line];
+      // Lettered sub-steps, as the lab composer writes them: indented under the step, with a note on the last line.
+      return [
+        `${line} Choose from:  `,
+        `   a. ${flavor(`Select **Agent** under [Start building from scratch](${LEARN_URL}).`)}  `,
+        `   b. ${flavor("Select **Create blank agent**, enter a name for the agent, and select **Create**.")}  `,
+        "   More choices are in the linked article.",
+      ];
+    }).flat(),
     "",
     "![SharePoint knowledge source configuration](assets/02-sharepoint-knowledge.png)",
     "",
@@ -238,6 +248,7 @@ export async function buildOfficeMatrix({ labs = true, largeLab = true, log = ()
     ["rich-large-image", "rich topic, large PNG screenshot", buildTopicMarkdown(), { primaryColor: "#0F6CBD" }, () => bigPng],
     ["rich-unbranded", "rich topic, no branding, image missing", buildTopicMarkdown(), undefined, () => null],
     ["special-characters", "topic with XML specials, control characters, emoji and RTL", buildTopicMarkdown({ special: true }), { ...BRANDS.branded, companyName: NASTY_TEXT.slice(0, 70), logoBuffer: png }, () => png],
+    ["lettered-substeps", "topic whose steps have lettered sub-steps", buildTopicMarkdown({ steps: 12, subSteps: true }), richBranding, () => png],
     [
       "large-topic",
       "topic with 80 steps, 60x9 table, long code, 12 quizzes, 40 references",

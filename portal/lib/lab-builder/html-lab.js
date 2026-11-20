@@ -13,6 +13,7 @@ import {
 import { enhanceInteractiveLabHtml } from "./interactive-elements.js";
 import { ensureReadableColor, getBrandFont, normalizeHexColor6 } from "./brand-theme.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
+import { isSubStepStart, normalizeSubSteps, takeSubSteps } from "./sub-steps.js";
 import { PENDING_SHOT_CSS, replacePendingPictures } from "./pending-shot-card.js";
 import { META_TABLE_CSS, tidyMetaTable } from "./meta-table.js";
 
@@ -95,6 +96,14 @@ function splitTableCells(line) {
     .replace(/\|$/, "")
     .split(/(?<!\\)\|/)
     .map((cell) => cell.replace(/\\\|/g, "|").trim());
+}
+
+/** A step's lettered sub-steps as a nested ordered list, plus the "more choices" note when there is one. */
+function renderSubStepsHtml(sub) {
+  if (!sub?.items?.length) return "";
+  const list = sub.items.map((text) => `<li>${renderInlineMarkdown(text)}</li>`).join("");
+  const note = sub.note ? `<p class="lab-substeps-note">${escapeHtml(sub.note)}</p>` : "";
+  return `<ol type="a" class="lab-substeps">${list}</ol>${note}`;
 }
 
 /**
@@ -255,6 +264,7 @@ function renderLabMarkdownFallbackBlocks(markdown) {
     // Ordered list
     if (/^\s*\d+\.\s+/.test(line)) {
       const items = [];
+      const subs = [];
       while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
         let itemText = lines[i].replace(/^\s*\d+\.\s+/, "");
         i += 1;
@@ -262,14 +272,18 @@ function renderLabMarkdownFallbackBlocks(markdown) {
           i < lines.length &&
           lines[i].trim() &&
           !/^\s*(?:[-*+]|\d+\.)\s+/.test(lines[i]) &&
-          !/^(?:#{1,6}\s+|```|~~~|>\s?|<details>|\s*(?:[-*_]\s*){3,})/i.test(lines[i])
+          !/^(?:#{1,6}\s+|```|~~~|>\s?|<details>|\s*(?:[-*_]\s*){3,})/i.test(lines[i]) &&
+          !isSubStepStart(lines, i)
         ) {
           itemText += ` ${lines[i].trim()}`;
           i += 1;
         }
+        const sub = takeSubSteps(lines, i);
+        i = sub.next;
         items.push(itemText);
+        subs.push(sub);
       }
-      out.push(`<ol>${items.map((it) => `<li>${renderInlineMarkdown(it)}</li>`).join("")}</ol>`);
+      out.push(`<ol>${items.map((it, n) => `<li>${renderInlineMarkdown(it)}${renderSubStepsHtml(subs[n])}</li>`).join("")}</ol>`);
       continue;
     }
 
@@ -301,7 +315,7 @@ function renderLabMarkdownFallbackBlocks(markdown) {
  * `options.branding`.
  */
 export function renderLabMarkdownFallback(markdown) {
-  return enhanceInteractiveLabHtml(renderLabMarkdownFallbackBlocks(stripEmbeddedHtml(markdown)));
+  return enhanceInteractiveLabHtml(renderLabMarkdownFallbackBlocks(stripEmbeddedHtml(normalizeSubSteps(markdown))));
 }
 
 function decodeBasicEntities(text) {
@@ -982,6 +996,10 @@ ${page.html}
     .lab-article li > ol { margin: 6px 0 6px; }
     .lab-article ol > li { padding-left: 4px; margin-bottom: 10px; }
     .lab-article ol > li::marker { font-weight: 700; color: var(--link); }
+    .lab-article ol.lab-substeps { margin: 6px 0 2px; padding-left: 22px; list-style-type: lower-alpha; }
+    .lab-article ol.lab-substeps > li { margin: 0 0 4px; line-height: 1.6; break-inside: avoid; }
+    .lab-article ol.lab-substeps > li::marker { font-weight: 600; }
+    .lab-article .lab-substeps-note { margin: 2px 0 0; font-size: 0.92em; color: var(--text-muted); }
     .lab-article li > p,
     .lab-article td > p:last-child,
     .lab-article th > p:last-child,

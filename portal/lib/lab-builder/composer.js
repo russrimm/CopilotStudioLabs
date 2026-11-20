@@ -43,6 +43,7 @@ import { ADMIN_AUDIENCE_LABEL, LEARNER_SETUP_NOTE, isAdminAudienceTopic } from "
 import { canonicalLearnUrl, dedupeLearnSources, formatCitationLabel } from "./learn-citations.js";
 import { subtopicPlaceholderStep } from "./topic-feature.js";
 import { scopeProblem } from "./topic-scope.js";
+import { stepLeadSentence, stepToMarkdown } from "./sub-steps.js";
 import {
   featureRequiresSharepointSite,
   labRequiresSharepointSite,
@@ -763,7 +764,7 @@ function subtopicSections(feature, stepsRecord) {
       "",
       provenance,
       "",
-      source.map((step, stepIndex) => `${stepIndex + 1}. ${scrubForbidden(step)}`).join("\n"),
+      source.map((step, stepIndex) => stepToMarkdown(scrubForbidden(step), stepIndex + 1)).join("\n"),
     );
   });
   return lines;
@@ -772,7 +773,7 @@ function subtopicSections(feature, stepsRecord) {
 /** A prerequisite recap: the lower-level topic a selected topic builds on, kept short and clearly labeled. */
 function recapSection(feature, plan, grounding, stepsRecord, vendorRecords) {
   const source = stepsRecord?.steps?.length ? stepsRecord.steps : feature.steps;
-  const steps = source.map((step, index) => `${index + 1}. ${scrubForbidden(step)}`);
+  const steps = source.map((step, index) => stepToMarkdown(scrubForbidden(step), index + 1));
   return [
     `### Recap ${feature.recapOrder ?? feature.order} - ${feature.name}`,
     "",
@@ -806,7 +807,7 @@ export function checkItems(feature, stepsRecord) {
   const generic = (feature.validation || []).every((item) => /^\[Unverified\]/.test(String(item)));
   const last = stepsRecord?.source === "doc-derived" && !stepsRecord.stepsInSubtopics ? stepsRecord.steps?.[stepsRecord.steps.length - 1] : null;
   if (!feature.learnTopic || !generic || !last) return feature.validation;
-  return [`You finished the article's last step: ${String(last).replace(/[.\s]+$/, "")}. Nothing on screen reports an error.`];
+  return [`You finished the article's last step: ${stepLeadSentence(last).replace(/[.\s]+$/, "")}. Nothing on screen reports an error.`];
 }
 
 /** A short warning when Learn says the topic does not apply to the lab's kind of agent. */
@@ -836,7 +837,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     : stepsRecord?.steps?.length
     ? stepsRecord.steps
     : feature.steps;
-  const steps = source.map((step, index) => `${index + 1}. ${scrubForbidden(step)}`);
+  const steps = source.map((step, index) => stepToMarkdown(scrubForbidden(step), index + 1));
   const stepNum = feature.stepOrder ?? feature.order;
 
   return [

@@ -1436,16 +1436,57 @@ module's `catalog: { lastVerified, verifiedAgainst }`, so a reviewer can see how
 old the curated entry behind a module is, whichever path its steps took.
 
 **A step is never cut in the middle.** A Learn step that lists choices under it (a bulleted list
-under "You can:") becomes one line with lettered choices: "...add a source. You can: (a) Drag and
-drop files...; (b) Search for a knowledge source...". Choices that do not fit within
-`MAX_STEP_LENGTH` (700 characters) are left out whole, never half-written, and the step says
-"more in the linked article". A step that is longer than the limit ends at its last full sentence.
+under "You can:") keeps its lead sentence and shows each choice on its own lettered line
+(`a.`, `b.`, `c.`), in Learn's own words, with only the trailing semicolon or period tidied so each
+line ends cleanly. See [Lettered sub-steps](#lettered-sub-steps) below. Choices that do not fit within
+`MAX_STEP_LENGTH` (700 characters) are left out whole, never half-written, and a last line says
+"More choices are in the linked article." A step that is longer than the limit ends at its last full sentence.
 Summaries follow the same rule: `cleanText()` shortens at a sentence end when one fits (or at a word
 end with an ellipsis), and `tidySummary()` repairs a summary an earlier build cut off in the middle
 of a word, so topic caches and the committed snapshot never put a half-sentence into a lab. The
 "From the docs" quote is the first prose of the page excerpt (not a heading or a run-together
 numbered list) and ends at a sentence. The lab gate (see [Lab gate](#lab-gate-what-a-teacher-would-trip-over))
 reports any that slip through.
+
+#### Lettered sub-steps
+
+A step that has choices under it is a lead sentence plus an ordered list of sub-steps, lettered `a`,
+`b`, `c` (then `aa`, `ab` past 26, which the 700-character cap makes theoretical). Every output shows
+each sub-step on its own line under its step, never as one run-on `(a) ...; (b) ...` sentence.
+
+**Data shape.** A step stays a plain string, so the manifest, `learn-state.json`, `shots.json`, the
+step records of a Learn re-check, and every consumer that stores or compares steps keep working. A step
+with sub-steps is a newline-separated block: the lead, one `a. ...` line per choice, and, when Learn lists
+more than fit, a final line `More choices are in the linked article.` `portal/lib/lab-builder/sub-steps.js`
+owns the shape (`splitStep`, `joinStep`, `stepToMarkdown`, `takeSubSteps`) and has no dependencies, so the
+Markdown renderers, the Office builders, and the lab gate all share it.
+
+**Where each output shows them**
+
+| Output | How the sub-steps appear |
+|---|---|
+| `index.md` | Indented under the number, `   a. ...`. Every line but the last ends in two spaces (a hard break), so GitHub, which has no lettered lists, still shows one line each. |
+| HTML (portal preview, `index.html`, standalone page) | A real nested `<ol type="a" class="lab-substeps">` inside the step's `<li>`, with compact spacing, kept together when printed. The portal's Markdown renderer (`markdown.js`) and the built-in fallback renderer (`html-lab.js`) both emit it. |
+| Word (combined handout, per-topic, per-module, facilitator guide) | A second list level (`w:ilvl="1"`, `lowerLetter`) of the same list, so the letters restart under each step. They are never typed letters. |
+| PDF | Indented lines drawn with their letter, wrapped lines hanging under the text. |
+| PowerPoint | Each sub-step is its own indented paragraph on the walkthrough slide. A step with sub-steps counts for the rows it fills when slides are split, so a long step moves to the next slide instead of overflowing. The speaker notes list them too. |
+| Screenshot Center | The "what to show" list shows each sub-step as its own plain line. `shots.json` keeps the step's lead sentence only. |
+
+Links inside a sub-step stay links in every output that has links.
+
+**Labs built before this change.** Labs written while the one-sentence form was in use contain
+`lead: (a) X; (b) Y; (c) Z.` inside `index.md`. They are repaired as they are read, never rewritten on
+disk: `repairRunOnSteps()` splits a numbered step into the lead plus lettered sub-steps whenever the lead ends
+with a colon, "can", or "Choose from", the choices start at `(a)`, follow the alphabet, and are separated by
+semicolons, and there are at least two. An ordinary "(a) cat" in other text, a single `(a)`, a gap in the
+letters, and fenced code are left alone, and applying it twice changes nothing. It runs in the portal
+preview, `index.html`, the Markdown download, the ZIP, and every Word, PDF, and PowerPoint export, so an
+old lab shows the same lists without being rebuilt. The Learn change check hashes steps in their old
+one-sentence form (`flattenStepLegacy()`), so the change of layout never reports Learn as updated. The lab
+gate still reports the old form (`run-on-substeps`, below) so you know to rebuild the lab.
+
+`TOPIC_DOCUMENTS_SCHEMA_VERSION` is 5, so cached per-topic Word and PowerPoint files regenerate the next
+time they are downloaded.
 
 ### 4b. Opt-in: grounded step synthesis
 
@@ -2613,7 +2654,7 @@ the hand-written labs under `labs/`. Each finding has one of three severities:
 | Severity | Meaning | Examples |
 |---|---|---|
 | `gap` (shown as **Fix**) | A learner could be blocked or misled | A step cut off with `...` (`cut-off-step`), several sub-steps run together on one line (`fused-substeps`), a sentence cut in the middle of a word (`cut-off-text`), a module with no steps or no Check your work list, a quiz whose correct answer is the Learn-derived disclaimer (`quiz-teaches-disclaimer`), wording the Microsoft Copilot harness no longer uses (`stale-ui-wording`: Overview, Instructions, or Publish *page*), a Learn-only module that Learn says is for classic chatbots only (`topic-not-for-harness`) |
-| `polish` | Works, but looks unfinished | Pictures that are still placeholders (`pending-picture`, checked against the lab's assets and the shared library), a module with no picture, a Check your work list that only says to follow the article, generic-only troubleshooting, obviously wrong quiz answers (`quiz-filler-answers`), a limit Learn states for the lab's own harness (`topic-harness-limit`), a title over 110 characters |
+| `polish` | Works, but looks unfinished | Pictures that are still placeholders (`pending-picture`, checked against the lab's assets and the shared library), a module with no picture, a Check your work list that only says to follow the article, generic-only troubleshooting, obviously wrong quiz answers (`quiz-filler-answers`), a limit Learn states for the lab's own harness (`topic-harness-limit`), a step whose choices are one run-on sentence, "(a) ...; (b) ..." (`run-on-substeps`: rebuild the lab so each choice has its own lettered line), a title over 110 characters |
 | `note` | An honest flag, expected on Learn-derived content | `[Unverified]` lines and passages marked "Not confirmed in Microsoft Learn" |
 
 The grade is **Ready to teach** (nothing found), **Almost ready** (polish only), **Needs fixes**

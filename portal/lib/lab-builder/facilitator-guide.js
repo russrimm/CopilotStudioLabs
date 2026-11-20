@@ -26,6 +26,7 @@ import {
 import { buildModuleSampleFiles, splitGeneratedLabModules } from "./module-samples.js";
 import { buildPdfFromLabMarkdown } from "./pdf-builder.js";
 import { parseTopicMarkdownStructure } from "./pptx-builder.js";
+import { closeLead } from "./sub-steps.js";
 import { DEFAULT_PRODUCT, productName, productOf, productsPhrase } from "./products.js";
 import { parseMinutes } from "./qa.js";
 import { isUnreviewedText } from "./teaching.js";
@@ -589,10 +590,10 @@ function buildModulePlaybookEntry({
   // 2. Live Demo Talking Points (3-5 minutes)
   const steps = parsedTopic?.steps || [];
   const firstStepText = steps[0]?.text
-    ? stripMarkdownFormatting(steps[0].text)
+    ? closeLead(stripMarkdownFormatting(steps[0].text))
     : `Open ${prodLabel} and navigate to the ${mod.title} configuration surface.`;
   const midStepText = steps[Math.min(1, steps.length - 1)]?.text
-    ? stripMarkdownFormatting(steps[Math.min(1, steps.length - 1)].text)
+    ? closeLead(stripMarkdownFormatting(steps[Math.min(1, steps.length - 1)].text))
     : "";
   const archFlowSummary =
     Array.isArray(digest?.architectureFlow) && digest.architectureFlow.length >= 2
@@ -627,7 +628,7 @@ function buildModulePlaybookEntry({
   );
   if (steps.length > 0) {
     const checkpointIdx = Math.max(0, Math.floor((steps.length - 1) / 2));
-    const checkpointStep = stripMarkdownFormatting(steps[checkpointIdx].text);
+    const checkpointStep = closeLead(stripMarkdownFormatting(steps[checkpointIdx].text));
     coachingAndPacingCues.push(
       `Mid-Module Pacing Check (~Minute ${split.demoMinutes + Math.max(2, Math.floor(split.handsOnMinutes / 2))}): Ask for a quick thumbs-up once learners complete Step ${checkpointIdx + 1} ("${conciseSentence(checkpointStep, 110)}").`,
     );

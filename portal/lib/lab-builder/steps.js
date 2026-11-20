@@ -26,6 +26,7 @@
  */
 
 import { scrubForbidden } from "./composer.js";
+import { SUB_STEP_NOTE, endSubStep, joinStep } from "./sub-steps.js";
 
 /** A derived step list is refused below this score. */
 export const DEFAULT_THRESHOLD = 0.34;
@@ -203,7 +204,8 @@ const CALLOUT = /^(note|important|tip|caution|warning)$/i;
  * Continuation prose is dropped — Learn uses it for caveats and cross-links that
  * bloat a click instruction. Continuation *bullets* are kept, because they are
  * usually the enumerated choices the step is telling the learner to pick from,
- * and the step is incomplete without them.
+ * and the step is incomplete without them. They become lettered sub-steps, one
+ * per line, in Learn's own words (see `sub-steps.js` for the string shape).
  */
 export function cleanStep(lines, docUrl) {
   const [first, ...rest] = lines;
@@ -230,13 +232,16 @@ export function cleanStep(lines, docUrl) {
     for (const [index, option] of options.entries()) {
       const piece = `(${String.fromCharCode(97 + index)}) ${option.replace(/[.;]+\s*$/, "")}`;
       if (used + piece.length + 2 > MAX_STEP_LENGTH) break;
-      choices.push(piece);
+      choices.push(option);
       used += piece.length + 2;
     }
     const left = options.length - choices.length;
-    primary = choices.length
-      ? `${intro} ${choices.join("; ")}${left > 0 ? "; more in the linked article" : ""}.`
-      : `${lead}${/[.!?]$/.test(lead) ? "" : "."} The choices are in the linked article.`;
+    if (choices.length) {
+      // Each choice keeps Learn's wording on its own line; see sub-steps.js for the shape.
+      const clean = (text) => scrubForbidden(text).replace(/\s+/g, " ").trim();
+      return joinStep(clean(intro), choices.map((choice) => endSubStep(clean(choice))), left > 0 ? SUB_STEP_NOTE : "");
+    }
+    primary = `${lead}${/[.!?]$/.test(lead) ? "" : "."} The choices are in the linked article.`;
   } else {
     // A colon with nothing after it is a dangling reference to content we
     // dropped (a screenshot, a code sample, a table). Close the sentence.

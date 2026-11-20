@@ -15,6 +15,10 @@ import {
 } from "./architecture-overview.js";
 import { LIGHT_SURFACE, cleanText, ensureReadableColor, getBrandFont } from "./brand-theme.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
+import { isSubStepStart, normalizeSubSteps, takeSubSteps } from "./sub-steps.js";
+
+// Left edge of a lettered sub-step's text: the step's own text starts at 540, so the sub-steps sit one level in.
+const SUB_STEP_INDENT_DXA = 1000;
 
 // Precompute IEEE 802.3 CRC-32 lookup table.
 const CRC_TABLE = (() => {
@@ -359,7 +363,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
     const pPr = [];
     if (pProps.style) pPr.push(`<w:pStyle w:val="${pProps.style}"/>`);
     if (pProps.numId) {
-      pPr.push(`<w:numPr><w:ilvl w:val="0"/><w:numId w:val="${pProps.numId}"/></w:numPr>`);
+      pPr.push(`<w:numPr><w:ilvl w:val="${pProps.ilvl || 0}"/><w:numId w:val="${pProps.numId}"/></w:numPr>`);
     }
     if (pProps.callout) {
       pPr.push(
@@ -382,6 +386,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
       );
     }
     if (pProps.callout) pPr.push('<w:ind w:left="240" w:right="160"/>');
+    else if (pProps.indentLeft) pPr.push(`<w:ind w:left="${pProps.indentLeft}"/>`);
     const pPrXml = pPr.length ? `<w:pPr>${pPr.join("")}</w:pPr>` : "";
     return `<w:p>${pPrXml}${runsXml}</w:p>`;
   };
@@ -599,19 +604,45 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
             i < lines.length &&
             lines[i].trim() &&
             !/^\s*(?:[-*+]|\d+\.)\s+/.test(lines[i]) &&
-            !/^(?:#{1,6}\s+|```|~~~|>\s?|<details>|\s*(?:[-*_]\s*){3,})/i.test(lines[i])
+            !/^(?:#{1,6}\s+|```|~~~|>\s?|<details>|\s*(?:[-*_]\s*){3,})/i.test(lines[i]) &&
+            !isSubStepStart(lines, i)
           ) {
             itemText += ` ${lines[i].trim()}`;
             i += 1;
           }
+          const sub = takeSubSteps(lines, i);
+          i = sub.next;
           blocks.push(
             makeParagraph(renderInlineRuns(itemText), {
               numId: listNumId,
               callout: blockOpts.callout,
               spacingBefore: 40,
-              spacingAfter: 80,
+              spacingAfter: sub.items.length ? 40 : 80,
             }),
           );
+          // Sub-steps are a real second list level (lettered a, b, c in numbering.xml), not typed letters.
+          sub.items.forEach((text, subIndex) => {
+            const last = subIndex === sub.items.length - 1 && !sub.note;
+            blocks.push(
+              makeParagraph(renderInlineRuns(text), {
+                numId: listNumId,
+                ilvl: 1,
+                callout: blockOpts.callout,
+                spacingBefore: 0,
+                spacingAfter: last ? 80 : 30,
+              }),
+            );
+          });
+          if (sub.note) {
+            blocks.push(
+              makeParagraph(renderInlineRuns(sub.note, { italic: true }), {
+                callout: blockOpts.callout,
+                indentLeft: SUB_STEP_INDENT_DXA,
+                spacingBefore: 0,
+                spacingAfter: 80,
+              }),
+            );
+          }
         }
         continue;
       }
@@ -678,7 +709,7 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
     }
   }
 
-  bodyBlocks.push(...renderBlocks(stripEmbeddedHtml(markdown)));
+  bodyBlocks.push(...renderBlocks(stripEmbeddedHtml(normalizeSubSteps(markdown))));
 
   const footerRuleColor = secondaryHex || "D0D7DE";
   const footerXml = footerText
@@ -786,6 +817,13 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
       <w:lvlJc w:val="left"/>
       <w:pPr><w:ind w:left="540" w:hanging="280"/></w:pPr>
       <w:rPr><w:b/></w:rPr>
+    </w:lvl>
+    <w:lvl w:ilvl="1">
+      <w:start w:val="1"/>
+      <w:numFmt w:val="lowerLetter"/>
+      <w:lvlText w:val="%2."/>
+      <w:lvlJc w:val="left"/>
+      <w:pPr><w:ind w:left="${SUB_STEP_INDENT_DXA}" w:hanging="300"/></w:pPr>
     </w:lvl>
   </w:abstractNum>
   <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>

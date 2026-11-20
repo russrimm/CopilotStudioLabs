@@ -23,6 +23,7 @@ import { resolveTopicTrainingDigest } from "./topic-training.js";
 import { getBrandFont, getBrandInfoModel } from "./brand-theme.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
 import { learnerGuideMarkdown } from "./learner-guide.js";
+import { normalizeSubSteps, subStepLabel, takeSubSteps } from "./sub-steps.js";
 
 const SLIDE_CX = 12192000; // 13.333 in * 914400 EMU/in (16:9 widescreen)
 const SLIDE_CY = 6858000;  // 7.500 in * 914400 EMU/in
@@ -156,6 +157,80 @@ function chunkItems(items, maxPerSlide = 5) {
   return chunks;
 }
 
+/**
+ * Text rows a step takes on a slide. An ordinary step counts as three rows (what the five-per-slide split always assumed);
+ * a step with lettered sub-steps counts for the rows its lead, sub-steps, and note actually fill at the card's width.
+ */
+function stepRows(step, charsPerLine) {
+  const subs = step.subSteps || [];
+  if (!subs.length) return 3;
+  // Rows follow what is drawn: a link shows its label, not its address.
+  const rows = (text, width) => Math.max(1, Math.ceil(stripMarkdownFormatting(text).length / width));
+  let total = rows(step.text, charsPerLine) + 1;
+  for (const sub of subs) total += rows(sub, Math.max(20, charsPerLine - 8));
+  if (step.note) total += 1;
+  return total;
+}
+
+/**
+ * Split steps across slides like `chunkItems`, but a step with lettered sub-steps counts for the rows it fills, so a long
+ * step never pushes its text off the card. A step taller than a slide still gets a slide of its own.
+ */
+function chunkStepsByRows(items, maxPerSlide, maxRows, charsPerLine) {
+  const list = Array.isArray(items) ? items : [];
+  const chunks = [];
+  let chunk = [];
+  let rows = 0;
+  for (const item of list) {
+    const itemRows = stepRows(item, charsPerLine);
+    if (chunk.length && (chunk.length >= maxPerSlide || rows + itemRows > maxRows)) {
+      chunks.push(chunk);
+      chunk = [];
+      rows = 0;
+    }
+    chunk.push(item);
+    rows += itemRows;
+  }
+  if (chunk.length) chunks.push(chunk);
+  return chunks;
+}
+
+/** The slide paragraphs for one numbered step: the step, its lettered sub-steps indented under it, and its note. */
+function stepParagraphs(step, { numberText, primaryHex, sizePt, leadChars, subChars, spaceAfterPt }) {
+  const subs = step.subSteps || [];
+  const out = [
+    {
+      prefix: numberText,
+      prefixColorHex: primaryHex,
+      markdown: truncateText(step.text, leadChars),
+      sizePt,
+      spaceAfterPt: subs.length ? 3 : spaceAfterPt,
+    },
+  ];
+  subs.forEach((sub, index) => {
+    const last = index === subs.length - 1 && !step.note;
+    out.push({
+      prefix: `${subStepLabel(index)}. `,
+      prefixColorHex: primaryHex,
+      markdown: truncateText(sub, subChars),
+      sizePt: Math.max(10, sizePt - 1),
+      marginLeftEmu: 320040,
+      spaceAfterPt: last ? spaceAfterPt : 2,
+    });
+  });
+  if (step.note) {
+    out.push({
+      markdown: step.note,
+      italic: true,
+      sizePt: Math.max(9.5, sizePt - 1.5),
+      marginLeftEmu: 525780,
+      hangEmu: 0,
+      spaceAfterPt,
+    });
+  }
+  return out;
+}
+
 function expandArchitectureBlocks(markdown) {
   const fenceRe = new RegExp(
     "```" + ARCHITECTURE_FENCE_LANG + "\\s*\\r?\\n([\\s\\S]*?)\\r?\\n```",
@@ -263,7 +338,7 @@ function isTableSeparator(line) {
  * multi-slide presentation rendering.
  */
 export function parseTopicMarkdownStructure(markdown, hints = {}) {
-  const expanded = expandArchitectureBlocks(stripEmbeddedHtml(markdown));
+  const expanded = expandArchitectureBlocks(stripEmbeddedHtml(normalizeSubSteps(markdown)));
   const lines = expanded.replace(/\r\n/g, "\n").split("\n");
 
   const meta = {
@@ -690,10 +765,20 @@ export function parseTopicMarkdownStructure(markdown, hints = {}) {
     // Numbered steps
     const orderedMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
     if (orderedMatch) {
-      steps.push({
+      const step = {
         number: Number.parseInt(orderedMatch[1], 10),
         text: orderedMatch[2].trim(),
-      });
+        subSteps: [],
+        note: "",
+      };
+      // Lettered sub-steps under the step belong to it; they are never separate steps or prose.
+      const sub = takeSubSteps(remLines, i + 1);
+      if (sub.items.length) {
+        step.subSteps = sub.items;
+        step.note = sub.note;
+        i = sub.next - 1;
+      }
+      steps.push(step);
       section = "steps";
       continue;
     }
@@ -1691,6 +1776,12 @@ class SlideBuilder {
     let marLAttr = "";
     let indentAttr = "";
     let bulletXml = `<a:buNone/>`;
+    if (pSpec.marginLeftEmu) {
+      // A lettered sub-step: indented under its step, with the letter hanging so wrapped lines align.
+      const hang = pSpec.hangEmu ?? 205740;
+      marLAttr = ` marL="${Math.round(pSpec.marginLeftEmu + hang)}"`;
+      indentAttr = hang ? ` indent="-${Math.round(hang)}"` : "";
+    }
     if (pSpec.bulletChar) {
       marLAttr = ` marL="251460"`;
       indentAttr = ` indent="-251460"`;
@@ -3012,7 +3103,13 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
         parsedTopic.steps.length
       : 0;
   const maxStepsPerSlide = resolvedImages.length > 0 || avgStepLen > 170 ? 4 : 5;
-  const stepChunks = chunkItems(parsedTopic.steps, maxStepsPerSlide);
+  const stepsBesideImage = resolvedImages.length > 0;
+  const stepChunks = chunkStepsByRows(
+    parsedTopic.steps,
+    maxStepsPerSlide,
+    stepsBesideImage ? 16 : 15,
+    stepsBesideImage ? 70 : 110,
+  );
   const expectedOutcomes =
     parsedTopic.expectedResults.length > 0
       ? parsedTopic.expectedResults
@@ -3045,13 +3142,16 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
         y: 1220000,
         cx: stepCardCx,
         cy: stepCardCy,
-        paragraphs: chunk.map((step) => ({
-          prefix: `${step.number}. `,
-          prefixColorHex: deck.primaryHex,
-          markdown: truncateText(step.text, hasVisual ? 320 : 440),
-          sizePt: hasVisual ? 11.5 : 12,
-          spaceAfterPt: 8,
-        })),
+        paragraphs: chunk.flatMap((step) =>
+          stepParagraphs(step, {
+            numberText: `${step.number}. `,
+            primaryHex: deck.primaryHex,
+            sizePt: hasVisual ? 11.5 : 12,
+            leadChars: hasVisual ? 320 : 440,
+            subChars: hasVisual ? 300 : 440,
+            spaceAfterPt: 8,
+          }),
+        ),
       });
 
       if (hasVisual) {
@@ -3117,7 +3217,10 @@ function appendStructuredTopicSlides(deck, parsedTopic, topicHints = {}) {
             : "Coach learners through these steps while circulating or monitoring chat for thumbs-up completion signals."
         }`,
         `STEP-BY-STEP COACHING CUES:`,
-        ...chunk.map((step) => `- Step ${step.number}: ${truncateText(step.text, 220)}`),
+        ...chunk.flatMap((step) => [
+          `- Step ${step.number}: ${truncateText(step.text, 220)}`,
+          ...step.subSteps.map((sub, subIndex) => `    ${subStepLabel(subIndex)}. ${truncateText(sub, 200)}`),
+        ]),
         ...(isLastWalkSlide && expectedOutcomes.length > 0
           ? [`EXPECTED SCREEN RESULT: ${expectedOutcomes[0]}`]
           : []),
@@ -3687,10 +3790,14 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
 
     const ordered = trimmed.match(/^(\d+)\.\s+(.+)$/);
     if (ordered) {
+      const sub = takeSubSteps(cleanDetails, i + 1);
+      if (sub.items.length) i = sub.next - 1;
       current.items.push({
         kind: "ordered",
         number: ordered[1],
         text: ordered[2],
+        subSteps: sub.items,
+        note: sub.note,
       });
       continue;
     }
@@ -3727,39 +3834,44 @@ function appendGenericMarkdownSlides(deck, markdown, options = {}) {
         y: 1220000,
         cx: SLIDE_CX - 1280160,
         cy: 4980000,
-        paragraphs: chunk.map((item) => {
+        paragraphs: chunk.flatMap((item) => {
           if (item.kind === "ordered") {
-            return {
-              prefix: `${item.number}. `,
-              markdown: truncateText(item.text, 280),
-              sizePt: 12.5,
-              spaceAfterPt: 8,
-            };
+            return stepParagraphs(
+              { text: item.text, subSteps: item.subSteps || [], note: item.note || "" },
+              {
+                numberText: `${item.number}. `,
+                primaryHex: deck.primaryHex,
+                sizePt: 12.5,
+                leadChars: 280,
+                subChars: 280,
+                spaceAfterPt: 8,
+              },
+            );
           }
           if (item.kind === "task") {
-            return {
+            return [{
               markdown: truncateText(item.text, 280),
               bulletChar: item.checked ? "☑" : "☐",
               bulletColorHex: COLORS.successAccent,
               sizePt: 12.5,
               spaceAfterPt: 8,
-            };
+            }];
           }
           if (item.kind === "bullet") {
-            return {
+            return [{
               markdown: truncateText(item.text, 280),
               bulletChar: "•",
               bulletColorHex: deck.primaryHex,
               sizePt: 12.5,
               spaceAfterPt: 8,
-            };
+            }];
           }
-          return {
+          return [{
             markdown: truncateText(item.text, 320),
             sizePt: 12.5,
             italic: item.kind === "callout",
             spaceAfterPt: 9,
-          };
+          }];
         }),
       });
 
@@ -3953,7 +4065,7 @@ export function renderTopicToPptxBuffer(topicMarkdown, options = {}) {
  */
 export function renderMarkdownToPptxBuffer(markdown, options = {}) {
   // A learner deck never carries administrator setup, even when handed an older lab's full text.
-  const src = learnerGuideMarkdown(stripEmbeddedHtml(String(markdown || "")));
+  const src = learnerGuideMarkdown(stripEmbeddedHtml(normalizeSubSteps(String(markdown || ""))));
   if (options.topic) {
     return renderTopicToPptxBuffer(src, options);
   }

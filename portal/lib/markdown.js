@@ -7,6 +7,7 @@ import {
 import { enhanceInteractiveLabHtml } from "./lab-builder/interactive-elements.js";
 import { BRAND_FONTS } from "./lab-builder/brand-theme.js";
 import { normalizeEmbeddedHtml } from "./lab-builder/html-fragments.js";
+import { normalizeSubSteps, takeSubSteps } from "./lab-builder/sub-steps.js";
 
 export const labDiagramExtension = {
   name: "labDiagrams",
@@ -56,6 +57,51 @@ const labPlaceholderExtension = {
 const labMarked = new Marked();
 labMarked.use(labDiagramExtension);
 labMarked.use(labPlaceholderExtension);
+
+/**
+ * A step's lettered sub-steps (`a.`, `b.`, ... lines under it) become a real nested ordered list, lettered a, b, c.
+ * Markdown has no lettered list, so without this the lines would run together into one paragraph. The run must start
+ * at "a" and follow the alphabet (sub-steps.js), so prose that merely starts a line with "a." is left alone.
+ */
+const labSubStepsExtension = {
+  extensions: [
+    {
+      name: "labSubSteps",
+      level: "block",
+      start(src) {
+        const found = /(?:^|\n)([ \t]*a\.[ \t]+\S[^\n]*\n[ \t]*b\.[ \t])/.exec(src);
+        return found ? found.index + (found[0].startsWith("\n") ? 1 : 0) : undefined;
+      },
+      tokenizer(src) {
+        if (!/^[ \t]*a\.[ \t]+\S/.test(src)) return undefined;
+        const lines = [];
+        let offset = 0;
+        const offsets = [0];
+        while (lines.length < 60 && offset < src.length) {
+          const newline = src.indexOf("\n", offset);
+          const end = newline < 0 ? src.length : newline;
+          lines.push(src.slice(offset, end));
+          offset = newline < 0 ? src.length : newline + 1;
+          offsets.push(offset);
+        }
+        const run = takeSubSteps(lines, 0, { indented: false });
+        if (!run.items.length) return undefined;
+        return {
+          type: "labSubSteps",
+          raw: src.slice(0, offsets[run.next]),
+          items: run.items.map((text) => ({ text, tokens: this.lexer.inlineTokens(text) })),
+          note: run.note,
+        };
+      },
+      renderer(token) {
+        const items = token.items.map((item) => `<li>${this.parser.parseInline(item.tokens)}</li>`).join("");
+        const note = token.note ? `<p class="lab-substeps-note">${token.note}</p>` : "";
+        return `<ol type="a" class="lab-substeps">${items}</ol>${note}\n`;
+      },
+    },
+  ],
+};
+labMarked.use(labSubStepsExtension);
 
 const LAB_ARCH_CLASS_RE = /^lab-arch(?:-[a-z0-9-]+)?$/;
 const LAB_ARCH_SVG_CLASS_RE = /^lab-arch(?:-[a-z0-9-]+)?-svg$/;
@@ -118,6 +164,7 @@ export function sanitizeLabHtml(html) {
       img: sanitizeHtml.defaults.allowedAttributes.img,
       input: ["checked", "type", "name", "value", "data-task-key", "data-quiz-option"],
       label: ["data-option-letter", "data-option-state"],
+      ol: [{ name: "type", values: ["a"] }],
       section: ["data-quiz-id"],
       span: ["data-quiz-score", "data-quiz-status"],
       svg: [
@@ -164,8 +211,10 @@ export function sanitizeLabHtml(html) {
       label: ["task-list-label", "lab-quiz-option", "is-selected", "is-correct", "is-incorrect"],
       legend: ["lab-quiz-prompt"],
       li: ["task-list-item", LAB_ARCH_CLASS_RE],
+      ol: ["lab-substeps"],
       p: [
         "lab-subhead",
+        "lab-substeps-note",
         "lab-module-meta",
         "lab-scenario-callout",
         "lab-quiz-title",
@@ -242,6 +291,6 @@ export function sanitizeLabHtml(html) {
 }
 
 export function renderLabMarkdown(markdown, transformHtml = (html) => html) {
-  const rendered = enhanceInteractiveLabHtml(labMarked.parse(normalizeEmbeddedHtml(String(markdown ?? ""))));
+  const rendered = enhanceInteractiveLabHtml(labMarked.parse(normalizeEmbeddedHtml(normalizeSubSteps(String(markdown ?? "")))));
   return sanitizeLabHtml(transformHtml(rendered));
 }

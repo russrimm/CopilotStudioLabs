@@ -48,6 +48,7 @@ import {
 } from "./lab-builder/facilitator-guide.js";
 import { renderLabMarkdown } from "./markdown.js";
 import { ADMIN_FOLDER_NAME, ADMIN_GUIDE_TITLE, learnerGuideMarkdown, learnerSafeManifest } from "./lab-builder/learner-guide.js";
+import { repairRunOnSteps } from "./lab-builder/sub-steps.js";
 import { buildPrerequisitesChecklist, checklistBaseName, renderPrerequisitesChecklistMarkdown } from "./lab-builder/prereq-checklist.js";
 import { renderPrerequisitesChecklistHtml } from "./lab-builder/prereq-checklist-html.js";
 import { renderPrerequisitesChecklistDocxBuffer } from "./lab-builder/prereq-checklist-docx.js";
@@ -348,6 +349,8 @@ export function exportLabs(labIds, replacements = {}, outputStream) {
 
       for (const mdFile of findMdFiles(labDir)) {
         let content = readFileSync(mdFile, "utf-8");
+        // A lab built while sub-steps were one sentence is repaired as it is exported; the file on disk is not touched.
+        if (relative(labDir, mdFile) === "index.md") content = repairRunOnSteps(content);
         for (const [search, replace] of replacementEntries) {
           content = content.split(search).join(replace);
         }
@@ -391,7 +394,7 @@ export function renderGeneratedLabMarkdown(
 
   const brand = resolveLabBrand(found.manifest, { brand: branding });
   const replacementEntries = Object.entries(replacements || {}).filter(([k, v]) => k && v && k !== v);
-  let content = learnerGuideMarkdown(readFileSync(join(found.labDir, "index.md"), "utf-8"));
+  let content = repairRunOnSteps(learnerGuideMarkdown(readFileSync(join(found.labDir, "index.md"), "utf-8")));
   for (const [search, replace] of replacementEntries) {
     content = content.split(search).join(replace);
   }

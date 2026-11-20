@@ -23,6 +23,7 @@ import { splitGeneratedLabModules } from "./module-samples.js";
 import { isPlaceholder } from "./placeholder-detect.js";
 import { altOfTag, loadShotSlots, replacePendingPictures } from "./pending-shot-card.js";
 import { tidyMetaTable } from "./meta-table.js";
+import { repairRunOnSteps } from "./sub-steps.js";
 import { PLACEHOLDER_PATH } from "./slots.js";
 import {
   ALLOWED_TOPIC_DOC_FORMATS,
@@ -450,7 +451,8 @@ export function readGeneratedLab(rootDir, rawId, renderMarkdown = (md) => String
   try {
     // A lab built while placeholder pictures counted as captures repairs itself before anything is rendered from it.
     repairLabPlaceholders(labDir, { labId });
-    const markdown = learnerGuideMarkdown(readFileSync(indexPath, "utf-8"));
+    // A lab built while sub-steps were one sentence is shown with its sub-steps on their own lines; the file is not rewritten.
+    const markdown = repairRunOnSteps(learnerGuideMarkdown(readFileSync(indexPath, "utf-8")));
     const manifestPath = join(labDir, "manifest.json");
     const manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf-8")) : null;
     const topicDocuments = ensureGeneratedLabTopicDocuments(labDir, {

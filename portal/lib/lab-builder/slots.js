@@ -19,6 +19,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { getProduct, productOf } from "./products.js";
+import { stepLeadSentence } from "./sub-steps.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SLOTS_PATH = path.join(__dirname, "screenshot-slots.json");
@@ -80,7 +81,8 @@ const STEP_LINK = /\[([^\]]+)\]\([^)]*\)/g;
 
 /** One step as plain words for a capture instruction: no emphasis, no link targets, cut at a word. */
 function stepWords(step, max = 170) {
-  const text = plain(String(step).replace(STEP_LINK, "$1")).replace(/^\[Unverified\]\s*/, "");
+  // Only the step's own sentence: a capture instruction points at the screen, not at the step's list of choices.
+  const text = plain(stepLeadSentence(step).replace(STEP_LINK, "$1")).replace(/^\[Unverified\]\s*/, "");
   if (text.length <= max) return text;
   const cut = text.slice(0, max);
   return `${cut.slice(0, cut.lastIndexOf(" ") > 60 ? cut.lastIndexOf(" ") : max).replace(/[\s,;:(-]+$/, "")}`;

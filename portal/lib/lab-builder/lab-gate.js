@@ -19,6 +19,7 @@ import path from "node:path";
 
 import { capturedScreenshotsDirs, resolveLabScreenshot } from "./captured.js";
 import { scopeProblem } from "./topic-scope.js";
+import { RUN_ON_SUB_STEPS } from "./sub-steps.js";
 
 export const GATE_VERSION = 1;
 
@@ -167,6 +168,10 @@ function reviewModule(module, context) {
   }
   if (fusedSteps.length) {
     add("fused-substeps", "gap", fusedSteps.length, `${where}: ${fusedSteps.length} step${fusedSteps.length === 1 ? " runs" : "s run"} several sub-steps together on one line, which is hard to follow.`, "Show sub-steps as an indented list under the step.");
+  }
+  const runOnChoices = lines.filter((line) => RUN_ON_SUB_STEPS.test(line));
+  if (runOnChoices.length) {
+    add("run-on-substeps", "polish", runOnChoices.length, `${where}: ${runOnChoices.length} step${runOnChoices.length === 1 ? " lists its" : "s list their"} choices as one long sentence, "(a) ...; (b) ...", instead of one lettered line each.`, "Rebuild the lab so each choice sits on its own lettered line under the step.");
   }
   if (cutOffText.length) {
     add("cut-off-text", "gap", cutOffText.length, `${where}: ${cutOffText.length} sentence${cutOffText.length === 1 ? " is" : "s are"} cut off in the middle of a word.`, "Shorten text at a sentence end, never in the middle of a word.");
