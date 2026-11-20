@@ -24,6 +24,7 @@ import {
 } from "./topic-documents.js";
 import { assessLab } from "./qa.js";
 import { scanLabMarkdown, summarizeGate } from "./lab-gate.js";
+import { plainModuleNames } from "./module-names.js";
 import { getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
 import { GENERATOR_NAME, primaryProduct, productOf, productsPhrase } from "./products.js";
@@ -1187,6 +1188,9 @@ export async function generateLab(request, opts = {}) {
 
   // ── 5. Compose ────────────────────────────────────────────────────────────
   onProgress?.({ stage: "compose", message: "Composing the lab" });
+  // Grounding and step reading are done with the catalog names; the lab itself uses plain module names
+  // (no repeated "(Microsoft Copilot harness)"), because its HARNESS row already says which one it is.
+  plan = { ...plan, features: plainModuleNames(plan.features, plan.harness) };
   // Credit the model with the narrative only if some of its narrative survived.
   // Choosing the catalog narrative after a partial failure discards all of it,
   // and the lab must not then claim the narrative was model-drafted.

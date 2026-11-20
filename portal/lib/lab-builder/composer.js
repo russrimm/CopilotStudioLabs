@@ -180,6 +180,7 @@ function metadataTable(plan, generation = {}) {
     `| 🎚️ **LEVEL** | ${levelName(plan.level)} |`,
     `| ⏱️ **TIME** | About ${plan.duration} (estimate, not a limit) |`,
     `| 🧩 **PRODUCTS** | ${productsRow(plan)} |`,
+    plan.harness ? `| 🧭 **HARNESS** | ${getHarnesses().find((h) => h.id === plan.harness)?.name || plan.harness} |` : null,
     `| 🏷️ **TAGS** | ${tags} |`,
     `| 🏭 **INDUSTRIES** | ${industries} |`,
     freshnessRow(generation),

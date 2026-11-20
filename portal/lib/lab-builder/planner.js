@@ -15,6 +15,7 @@ import { expandPrereqs, getFeature, getFeatures, getHarnesses, orderFeatures, ge
 import { extractFeatureLearnLinks } from "./learn-citations.js";
 import { getProducts, productHasHarnesses, productName, productOf, productsPhrase } from "./products.js";
 import { defaultDifferencesFor } from "./differences.js";
+import { titleHeadline } from "./module-names.js";
 import { getIndustries, getRoles } from "../scenarios.js";
 import { countNewTopics, getSubtopicIndex } from "./topic-store.js";
 import { normalizeExcludedSubtopics } from "./subtopics.js";
@@ -788,7 +789,10 @@ export function planLab(request = {}) {
 
   const finalAgentName = request.agentName || profile.agentName;
   const industryName = industry?.name || "Cross-industry";
-  const headline = focusNames.slice(0, 2).join(" and ") || productsPhrase(planProducts) || "Microsoft AI";
+  const titlePrefixLength = `${industryName}: Build a ${finalAgentName} with `.length;
+  const harnessLabel = getHarnesses().find((h) => h.id === labHarness)?.name;
+  const productsTitle = `${productsPhrase(planProducts) || "Microsoft AI"}${labHarness && labHarness !== "standard" && harnessLabel ? ` on the ${harnessLabel}` : ""}`;
+  const headline = titleHeadline(focusNames, productsTitle, { prefixLength: titlePrefixLength });
   const title =
     request.title ||
     buildDeliverableTitle({

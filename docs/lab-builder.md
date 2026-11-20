@@ -2156,6 +2156,15 @@ with no language label (`code-fence-language`).
 [`scripts/lab-validation-rules.json`](../scripts/lab-validation-rules.json) records
 which validator owns each rule.
 
+**Titles and module names.** A lab title names one or two modules ("Retail: Build a Store Support
+Assistant with Create an agent and Agent details and instructions") and otherwise the product
+("... with Microsoft Copilot Studio on the Microsoft Copilot harness"); it never lists harness-suffixed
+catalog names and stays under about 100 characters (`module-names.js`). Inside a lab written for one
+harness, module names drop the catalog's "(Microsoft Copilot harness)" suffix, because every Copilot Studio
+lab has a **HARNESS** row in its header table. A mixed-harness lab, or one where dropping the suffix would make
+two modules share a name, keeps the suffix. Grounding and step reading still use the catalog names;
+only the composed lab, the quality review, and `manifest.json` use the plain ones.
+
 Before composition, every URL the lab is about to embed is requested once
 (`linkcheck.js`). This is the liveness check `validateLabDir()` cannot do — it is
 structural, and `parseImageRefs` skips anything with an `http:` scheme, so until
