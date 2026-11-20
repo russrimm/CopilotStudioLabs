@@ -951,6 +951,7 @@ async function lbLoadCatalog() {
     lbRefresh();
     lbLoadLearn();
     lbLoadGenerated();
+    if (typeof lbDraftsInit === "function") lbDraftsInit();
   } catch (err) {
     document.getElementById("lb-industry-grid").innerHTML =
       `<div class="scenario-empty" role="alert">Could not load the feature catalog: ${escapeHtml(err.message)}</div>`;
@@ -3548,6 +3549,8 @@ function lbResetAnswers() {
     lbSetFormValue(id, value);
   }
   lbSyncSharepointSiteUi();
+  // A fresh start is no longer the draft that was open, and there is nothing left to autosave.
+  if (typeof lbDraftsOnReset === "function") lbDraftsOnReset();
 }
 
 function lbResetWizard() {
@@ -3578,41 +3581,48 @@ function lbSavedLevel(saved) {
   return Math.max(100, ...saved.features.map((id) => levels.get(id) || 0));
 }
 
-/** Pre-fill every step from a generated lab's saved choices and jump to Review. */
-async function lbLoadSelections(lab) {
-  const saved = lab?.selections;
-  if (!saved) throw new Error("This lab has no saved selections.");
-  if (typeof setActiveTab === "function") setActiveTab("labbuilder");
-  if (!labBuilder.loaded && !labBuilder.products.length) await lbLoadCatalog();
-  if (!labBuilder.loaded && !labBuilder.products.length) throw new Error("The lab builder catalog is not available.");
-
+/**
+ * Put saved choices into the wizard's state and form fields. A built lab's saved selections ("Edit selections") and a
+ * saved draft share this path. `draft` is passed only for a draft: it restores the learner's own topic picks, the
+ * answered steps, and the furthest step exactly, instead of working them out from the topic list.
+ * Returns what could not be restored, so the caller can say so in plain words.
+ */
+function lbApplySavedSelections(saved, draft = null) {
   const knownRoles = new Set(labBuilder.roles.map((r) => r.id));
   const industryKnown = labBuilder.industries.some((i) => i.id === saved.industry);
   const harnessKnown = labBuilder.harnesses.some((h) => h.id === saved.harness);
-  // A lab saved before products existed is a Copilot Studio lab.
-  const savedProducts = (saved.products || []).filter((id) => lbProduct(id));
-  labBuilder.selectedProducts = new Set(savedProducts.length ? savedProducts : [LB_DEFAULT_PRODUCT]);
+  const requestedProducts = saved.products || [];
+  const savedProducts = requestedProducts.filter((id) => lbProduct(id));
+  const dropped = { products: requestedProducts.filter((id) => !lbProduct(id)), industry: null, roles: [], harness: null };
+  // A lab saved before products existed is a Copilot Studio lab. A draft whose products are all gone asks again.
+  labBuilder.selectedProducts = new Set(savedProducts.length || draft ? savedProducts : [LB_DEFAULT_PRODUCT]);
   labBuilder.industry = industryKnown ? saved.industry : null;
+  if (saved.industry && !industryKnown) dropped.industry = saved.industry;
   labBuilder.selectedRoles = new Set(saved.roles.filter((id) => knownRoles.has(id)));
+  dropped.roles = saved.roles.filter((id) => !knownRoles.has(id));
   labBuilder.level = lbSavedLevel(saved);
   labBuilder.levelNotice = null;
-  labBuilder.harness = harnessKnown ? saved.harness : "standard";
+  // A draft keeps its harness only while the product that owns it is still chosen.
+  const harnessUsable = harnessKnown && (!draft || labBuilder.selectedProducts.has(lbHarnessOwner(saved.harness)));
+  if (draft && lbHasHarnessProduct() && !harnessUsable) {
+    labBuilder.harness = labBuilder.harnesses.find((h) => labBuilder.selectedProducts.has(h.product || LB_DEFAULT_PRODUCT))?.id || "standard";
+    if (saved.harness) dropped.harness = saved.harness;
+  } else {
+    labBuilder.harness = harnessUsable ? saved.harness : "standard";
+  }
   labBuilder.differencesFor = saved.differencesFor ? new Set(saved.differencesFor) : null;
-  labBuilder.picked = new Set(saved.features);
+  labBuilder.picked = draft ? (draft.picked ? new Set(draft.picked) : null) : new Set(saved.features);
   labBuilder.excluded = new Set(saved.excluded);
   // Restore the saved sub-topic choices. An id Microsoft Learn no longer lists as a sub-topic is dropped, so it cannot block the rebuild.
   labBuilder.excludedSubtopics = new Set(lbKnownSubtopics(saved.excludedSubtopics));
   labBuilder.step7Removed = new Map();
   labBuilder.moduleOrder = Array.isArray(saved.moduleOrder) ? [...saved.moduleOrder] : [];
   labBuilder.previewModules = [];
-  labBuilder.chosenSteps = new Set([
-    "product",
-    "vertical",
-    "departments",
-    "level",
-    ...(lbHasHarnessProduct() ? ["harness"] : []),
-    "topics",
-  ]);
+  labBuilder.chosenSteps = new Set(
+    draft
+      ? draft.chosenSteps
+      : ["product", "vertical", "departments", "level", ...(lbHasHarnessProduct() ? ["harness"] : []), "topics"]
+  );
   labBuilder.rec = null;
   lbSetFormValue("lb-time", saved.targetMinutes || "");
   lbSetFormValue("lb-title", saved.customTitle || "");
@@ -3620,7 +3630,8 @@ async function lbLoadSelections(lab) {
   const loadedSpName = lbNormalizeSharepointSiteName(saved.sharepointSiteName || "");
   const loadedSpUrlCheck = lbValidateSharepointSiteUrl(saved.sharepointSiteUrl || "");
   labBuilder.sharepointSiteName = loadedSpName;
-  labBuilder.sharepointSiteUrl = loadedSpUrlCheck.valid ? loadedSpUrlCheck.url : "";
+  // A draft keeps a half-typed address exactly as it was; a built lab only ever saved a valid one.
+  labBuilder.sharepointSiteUrl = loadedSpUrlCheck.valid ? loadedSpUrlCheck.url : draft ? String(saved.sharepointSiteUrl || "").trim() : "";
   lbSetFormValue("lb-sharepoint-site-name", loadedSpName);
   lbSetFormValue("lb-sharepoint-site-url", labBuilder.sharepointSiteUrl);
   lbSetFormValue("lb-use-learn", saved.useLearnMcp !== false);
@@ -3633,7 +3644,20 @@ async function lbLoadSelections(lab) {
   labBuilder.sharepointPromptPendingAction = null;
   labBuilder.previewRequiresSharepointSite = null;
   lbSaveSelections();
-  labBuilder.furthest = LB_STEP.review;
+  labBuilder.furthest = draft ? draft.furthest : LB_STEP.review;
+  return dropped;
+}
+
+/** Pre-fill every step from a generated lab's saved choices and jump to Review. */
+async function lbLoadSelections(lab) {
+  const saved = lab?.selections;
+  if (!saved) throw new Error("This lab has no saved selections.");
+  if (typeof setActiveTab === "function") setActiveTab("labbuilder");
+  if (!labBuilder.loaded && !labBuilder.products.length) await lbLoadCatalog();
+  if (!labBuilder.loaded && !labBuilder.products.length) throw new Error("The lab builder catalog is not available.");
+
+  if (typeof lbDraftsOnReplace === "function") lbDraftsOnReplace();
+  lbApplySavedSelections(saved);
   lbRenderAllSteps();
   lbSetEditing(lab);
   await lbRefresh();

@@ -202,6 +202,9 @@ arrow, Home, and End keys move among the tabs of the current area.
       you are teaching — for example SharePoint AI alone, Copilot Studio alone, or both
       together. Use **Start over** in the summary bar (or **Start new lab** under
       *Previously generated labs*) at any time to clear your selections and start fresh.
+      **Start over** only clears the wizard: it never deletes a saved draft or a generated
+      lab. To keep your choices instead, use **Save and finish later**
+      (see [Save your progress and resume later](#save-your-progress-and-resume-later)).
       Each product shows how many topics it has at each level and links to its Microsoft
       Learn hub. See [Products](#products).
    2. **Vertical** (industry). Cross-industry is the default.
@@ -353,6 +356,61 @@ finished markdown appears with a download button and a record of any decisions.
 Step 8 ends with a short **What happens next** note (build, customize, capture screenshots, check against
 Microsoft Learn, download). After the build, **Finish your lab** at the top of the result lists the same steps
 with one button for each, and only the next step to do is a primary button.
+
+### Save your progress and resume later
+
+You do not have to finish a lab in one sitting. **Save and finish later** sits in the summary bar at the top of
+every step (and **Ctrl+S**, or **Command+S**, does the same while focus is inside the wizard). It keeps the whole
+partly configured lab as a named **draft**, and **📝 Saved drafts** (next to *Previously generated labs*, collapsed by
+default with a live count) brings it back exactly as you left it.
+
+**Saving.** A small dialog asks for a name, offered from your products and the date (for example *Copilot Studio · Nov 20*)
+and up to 80 characters long. The page then says **Saved. You can pick this up later under Saved drafts.** and when. A draft may
+be incomplete (no topics yet is fine), but it needs at least one product. A draft holds every choice from every step: the
+products, vertical, departments, level, harness and the harness comparison notes, the topics you picked, the sub-topics you left
+out, the prerequisites you turned off, the modules you removed in Review, the module order, the lab title, agent name, preferred
+length, SharePoint site, brand profile and overrides, the Microsoft Learn and language model options, the Knowledge Check option,
+topics and products you added from Microsoft Learn (by their ids), the step you were on, and how far you had got. Search text is
+not kept. A draft stores choices, not a lab: it does not keep the link to a lab you opened with **Edit selections**, so resuming
+it builds a new lab.
+
+**Resuming.** Each draft in **Saved drafts** shows its name, products, level, how far it got (for example *Step 5 of 7: Topics*),
+the number of topics, and when it was saved, with **Resume**, **Rename**, **Duplicate**, and **Delete** (which asks first). Empty
+state: *No saved drafts yet.* **Resume** opens the wizard on the step you left, with every choice restored, including each sub-topic
+check, the order, and the removed modules, and moves keyboard focus to that step's heading. A notice under the summary bar says
+where you are, and a screen reader hears it too. If the wizard holds choices that are not saved, Resume asks before it replaces
+them. Going back and forth works as usual. The draft stays until you delete it. **Save and finish later** on a resumed draft
+updates that draft (or offers **Save as a new draft**).
+
+**When a lab is built from a resumed draft**, the draft is marked **Built**, keeps its place in the list with an **Open the lab**
+link while that lab exists, and can still be resumed, duplicated, or deleted. Nothing is removed automatically, so an
+experiment never costs you a draft.
+
+**If something changed since you saved.** A draft saved last week can name a topic that Microsoft Learn or the catalog no longer
+lists, a topic that moved to another level, a product, industry, department, harness or brand profile that was removed, or a
+sub-topic Microsoft Learn dropped. On resume the wizard drops only what no longer exists and says so in plain words, in the same
+calm style as the level-change notice, for example: *1 topic you chose is no longer listed in the catalog or on Microsoft Learn, so
+it was left out: "Name".* Everything that still exists is exactly as you saved it, and nothing is changed silently. If no
+topic is left on a late step, the draft opens on **Topics** and says why. If every product is gone it opens on **Product** and asks
+you to choose one. A draft file that cannot be read, or that a newer version of the portal wrote, is listed with a plain message and
+cannot be resumed; its file is never changed, and you can delete it.
+
+**Unsaved work (autosave).** While you work, the page quietly keeps one copy of the wizard, about two seconds after you stop
+changing things. It never saves an empty wizard, never blocks the page, and never writes over a draft you saved on purpose. The
+copy is its own slot, not a draft. After a refresh, a crash, or an accidental close, one calm banner says **You have unsaved work
+from <time>. Resume or discard.** Until you choose, autosave waits so it cannot overwrite the work the banner offers. Saving a
+draft, building a lab, **Start over**, and **Discard** clear the slot. Moving between steps alone does not count as unsaved work
+once a draft or lab holds the same choices.
+
+**Where drafts live and who sees them.** One JSON file per draft under `<data dir>/lab-builder/drafts/<owner>/`, written atomically
+(a temp file, then a rename), so they survive restarts and new revisions with the rest of the portal's data and are mirrored to
+Blob storage like it (see [Persistent storage](#persistent-storage-managed-identity-azure-blob-and-custom-volumes)). `<owner>` is a
+one-way hash of the signed-in person's identity (Entra `oid`, with the tenant id), so drafts are private to each person, and no
+name or address is written to disk. With portal sign-in off (local use, or a demo deployment with `PORTAL_AUTH_DISABLED=true`),
+everyone who opens the portal shares one local space. Each person can keep up to 50 drafts, and a draft can be up to 256 KB. Two tabs
+saving at once resolve by last write wins, and the response and the list show the saved time. Each file records a schema version.
+A newer file is refused with a message, an older one is migrated step by step when it is read, and neither is rewritten by reading.
+The draft routes are listed in the [API](#api) table.
 
 ### First-time setup
 
@@ -2952,7 +3010,8 @@ routes under `/api/capture` are documented in [Screenshot capture API](#screensh
 
 Limits, all configurable by environment variable:
 
-- Request bodies on these routes are capped at 64 KB (`LAB_BUILDER_BODY_LIMIT`).
+- Request bodies on these routes are capped at 64 KB (`LAB_BUILDER_BODY_LIMIT`), except the saved-draft
+  routes, which take up to 320 KB (`LAB_BUILDER_DRAFT_BODY_LIMIT`).
 - `generate` allows 10 builds per user per hour (`LAB_BUILDER_RATE_MAX`,
   `LAB_BUILDER_RATE_WINDOW_MS`) and two builds at once per process
   (`LAB_BUILDER_MAX_ACTIVE`). Both answer HTTP 429 with `Retry-After`. The windows
@@ -2981,6 +3040,20 @@ the server log, never the manifest — and the output is exportable by design.
 | `GET` | `/api/lab-builder/generated/:labId/validate` | Run structural validation (`validator.js`) against a generated lab. Also mounted at `/api/generated-labs/:labId/validate`. |
 | `PATCH` | `/api/lab-builder/generated/:labId` | Change `title` (1-160 characters, no line breaks) and/or `notes` (up to 1000 characters). No other field is accepted. Updates the manifest, the lab's single `#` heading, `index.html`, and regenerates/renames the per-topic `.docx` and `.pptx` files inside `topics/` so their filenames match the updated lab title; the folder name stays the same. |
 | `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab folder. The id must match an existing folder directly under `generated-labs/` that holds a `manifest.json`, so hand-written labs under `labs/` can never be reached. Answers 400 for a bad id and 404 when it does not exist. |
+| `GET` | `/api/lab-builder/drafts` | The caller's saved drafts, newest first: `id`, `name`, `createdAt`, `updatedAt`, `builtAt`, `builtLabId`, `products`, `industry`, `level`, `harness`, `step`, and `topicCount`, plus `limit` (50) and `unsaved` (the autosave slot's `updatedAt`, `basedOn`, `products`, and `step`, or `null`). A file that cannot be read is listed with `unavailable: true`, a `reason` (`unreadable`, `newer-version`, or `older-version`), and a plain `message`; it never hides the other drafts. See [Save your progress and resume later](#save-your-progress-and-resume-later). |
+| `POST` | `/api/lab-builder/drafts` | Save a new draft: `{ name?, content }`, where `content` is `{ selections, wizard, labels }`. `selections` use the same fields as a built lab's saved selections (see `selectionsFromManifest` in `generated-labs.js`); `wizard` is `{ step, furthest, chosenSteps, picked, removed }`; `labels` maps ids to display names so a later resume can name what it dropped. Answers 201 with `{ draft }`, 400 with a plain message for invalid input (including no product), 409 when the caller already has 50 drafts, and 413 when the draft is over 256 KB. |
+| `GET` / `PUT` / `DELETE` | `/api/lab-builder/drafts/unsaved` | The autosave slot, one per caller. `PUT { content, basedOn? }` replaces it (never a named draft), `GET` returns `{ unsaved }` or `{ unsaved: null }`, and `DELETE` discards it. |
+| `GET` | `/api/lab-builder/drafts/:id` | One draft with every choice in it. Answers 404 when it does not exist (or belongs to someone else), 422 when its file cannot be read, and 409 when a newer version wrote it. |
+| `PUT` | `/api/lab-builder/drafts/:id` | Rename and/or replace the content: `{ name?, content? }` (one of them is required). The last save wins; the response carries `updatedAt`. A file that cannot be read is refused and left as it is. |
+| `POST` | `/api/lab-builder/drafts/:id/duplicate` | Copy a draft as `Copy of <name>`. Counts toward the 50-draft limit. |
+| `POST` | `/api/lab-builder/drafts/:id/built` | Mark a draft as built into a lab: `{ labId }`. The wizard calls it after a build from a resumed draft. The draft stays listed. |
+| `DELETE` | `/api/lab-builder/drafts/:id` | Delete a draft, including one whose file cannot be read. Labs already built from it are not changed. |
+
+The draft routes keep every draft private to the signed-in caller (`req.user`, keyed by the Entra `oid` and tenant id, or the
+UPN when there is no `oid`); with sign-in off there is one local space, and with sign-in on but no identity they answer 401.
+A draft id is always `draft-` plus 24 lowercase hex digits, so no id can name another path. Their bodies may be up to 320 KB
+(`LAB_BUILDER_DRAFT_BODY_LIMIT`), larger than the 64 KB of the other lab builder routes, because a draft can list thousands of
+sub-topic ids. Writes are limited to 600 per caller per 10 minutes (`LAB_BUILDER_DRAFTS_RATE_MAX`, `LAB_BUILDER_DRAFTS_RATE_WINDOW_MS`).
 
 `PATCH` and `DELETE` are limited to 60 requests per user per hour
 (`LAB_BUILDER_MANAGE_RATE_MAX`, `LAB_BUILDER_MANAGE_RATE_WINDOW_MS`) and answer 429
@@ -3355,7 +3428,7 @@ you run the workflow by hand.
 
 ## Persistent storage (Managed Identity Azure Blob and custom volumes)
 
-By default in local development, the portal stores generated labs under `generated-labs/`, portal JSON state (`branding.json`, `brand-profiles.json`, `approval-config.json`, `approval-requests.json`, `agent-chat-config.json`, `feedback.json`, and `lab-builder/topics-cache.json`) under `portal/data/`, and uploaded branding logos under `portal/public/uploads/`.
+By default in local development, the portal stores generated labs under `generated-labs/`, portal JSON state (`branding.json`, `brand-profiles.json`, `approval-config.json`, `approval-requests.json`, `agent-chat-config.json`, `feedback.json`, and `lab-builder/topics-cache.json`) under `portal/data/`, and uploaded branding logos under `portal/public/uploads/`. A person's [saved drafts](#save-your-progress-and-resume-later) are one JSON file each under `lab-builder/drafts/<owner>/` in that data folder (`<owner>` is a one-way hash of the signed-in identity, or `local` with sign-in off), plus an `unsaved.json` autosave slot, so they follow the same persistence, Blob mirror, and backups as everything else there.
 
 In Azure Container Apps (`infra/main.bicep`), `infra/modules/storage.bicep` provisions an SFI-compliant StorageV2 account (`Standard_LRS`, TLS 1.2+, HTTPS-only, `allowSharedKeyAccess: false`, `allowBlobPublicAccess: false`, `publicNetworkAccess: 'SecuredByPerimeter'`) with a private Blob container (`portalstate`), a Network Security Perimeter (`nsp-<token>`, `defaultProfile`, same-subscription `allow-same-subscription` Inbound access rule, and `storage-assoc` in `Learning` mode), and passwordless Microsoft Entra Managed Identity RBAC (`Storage Blob Data Contributor`). No storage account keys or SMB `AzureFile` mounts are used.
 
@@ -3374,7 +3447,7 @@ Storage paths and path-free diagnostics (`GET /healthz` and `GET /api/config`, i
 | `FEATURE_TOUR_SCREENSHOTS_DIR` | `${PORTAL_STORAGE_ROOT}/screenshots` or `docs/feature-tour/screenshots/` | The shared captured-screenshot library. When set it is used on its own (nothing else is searched); otherwise the persistent folder is searched first and the baked `docs/feature-tour/screenshots` second. Mirrored to Azure Blob under the `screenshots/` prefix. |
 | `AZURE_CLIENT_ID` | *(unset)* | User-Assigned Managed Identity client ID passed to `IDENTITY_ENDPOINT` / IMDS when acquiring `https://storage.azure.com/` tokens (also used as fallback Entra client ID when configured). |
 | `LAB_BUILDER_OUTPUT_DIR` | `${PORTAL_STORAGE_ROOT}/generated-labs` or `generated-labs/` | Directory where generated labs are written and served. |
-| `PORTAL_DATA_DIR` | `${PORTAL_STORAGE_ROOT}/data` or `portal/data/` | Directory for mutable portal JSON state and `lab-builder/topics-cache.json` (when `LAB_BUILDER_TOPICS_CACHE` is unset). |
+| `PORTAL_DATA_DIR` | `${PORTAL_STORAGE_ROOT}/data` or `portal/data/` | Directory for mutable portal JSON state, `lab-builder/topics-cache.json` (when `LAB_BUILDER_TOPICS_CACHE` is unset), and saved wizard drafts under `lab-builder/drafts/`. |
 | `PORTAL_UPLOADS_DIR` | `${PORTAL_STORAGE_ROOT}/uploads` or `portal/public/uploads/` | Directory for uploaded raster branding logos (`.png` / `.jpg`), served from `/uploads/:file` with strict filename and `nosniff` protections. |
 
 For local Docker persistence without Azure Blob Storage, mount a named volume at `/mnt/portal-storage` (also pre-created and owned by `node:node` in `portal/Dockerfile`) and set `-e PORTAL_STORAGE_ROOT=/mnt/portal-storage`.
@@ -3423,6 +3496,15 @@ rule, Mark as accurate (tied to the bytes, never blocking), the backfill (API an
 mirror. `portal/test/screenshot-center-browser.test.js` drives the Screenshot Center in headless Chromium against a
 throwaway server with fake data (it skips itself when Playwright or Chromium is missing; set `SC_DEMO_DIR` to also save
 screenshots of each step).
+Saved drafts have three test files. `portal/test/lab-builder-drafts.test.js` covers the store and the routes: create, list, read,
+rename, change, duplicate, and delete; the same selections as a built lab; per-person isolation with a fake identity; path-like ids
+refused; the size and 50-draft limits; atomic writes (a failed write leaves the file as it was); a damaged file, a newer schema, and an
+older schema; last write wins; and the autosave slot never touching a named draft. `portal/test/lab-builder-drafts-ui.test.js` runs the
+real wizard and drafts scripts against the fake DOM and the real routes: a round trip over a rich state, what a resume drops and says,
+the Saved drafts panel and its dialogs, focus and announcements, autosave and the unsaved-work banner, and a build marking its draft
+Built. `portal/test/lab-builder-drafts-browser.test.js` configures a lab in headless Chromium against a throwaway server (no language
+model, no Microsoft Learn), saves, reloads, resumes, checks every choice, and builds (it skips itself when Playwright or Chromium is
+missing; set `DRAFTS_DEMO_DIR` to also save screenshots of each moment).
 
 The monthly catalog check is tested with the rest of the accuracy tooling:
 

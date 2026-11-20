@@ -3129,6 +3129,16 @@
     .lb-capture-on-build-opt { margin: 14px 0 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface2); }
     .lb-edit-banner[hidden], .lb-gen-toolbar[hidden] { display: none; }
 
+    /* ── Lab builder: saved drafts ── */
+    .lb-draft-status { margin: 8px 0 0; font-size: 12px; color: var(--text-muted); min-height: 0; }
+    .lb-draft-status:empty { display: none; }
+    .lb-draft-banner-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+    .lb-draft-notice { margin: 14px 0 0; padding: 10px 12px; border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--bg); font-size: 13px; }
+    .lb-draft-notice[hidden] { display: none; }
+    .lb-draft-notice p { margin: 0 0 6px; }
+    .lb-draft-notice ul { margin: 6px 0; padding-left: 20px; }
+    .lb-draft-notice-warn { border-left-color: var(--warning); }
+    .lb-draft-built { margin-left: 6px; }
     /* ── Lab builder: Screenshot Center and "Finish your lab" checklist ── */
     .sc-center {
       padding: 16px 18px;
@@ -5865,15 +5875,27 @@
                 <div class="lb-summary-bar">
                   <p id="lb-summary" class="lb-summary" role="status" aria-live="polite"><strong>Your lab so far:</strong> No products selected yet — choose one or more products in Step 1 to begin.</p>
                   <div class="lb-sticky-actions" id="lb-sticky-nav" role="group" aria-label="Wizard step navigation">
-                    <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbStartNewLab()" hidden>Start over</button>
+                    <button type="button" class="btn btn-sm" id="lb-save-draft" onclick="lbDraftOpenSave()" title="Saves every choice you have made so far. You can pick it up later under Saved drafts.">Save and finish later</button>
+                    <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbStartNewLab()" hidden title="Clears your choices in the wizard. Your saved drafts are never deleted." aria-describedby="lb-start-over-hint">Start over</button>
+                    <span id="lb-start-over-hint" class="sr-only">Clears your choices in the wizard. Your saved drafts are never deleted.</span>
                     <button type="button" class="btn lb-nav-back" id="lb-sticky-back" onclick="lbPrevStep()" hidden>← Back</button>
                     <button type="button" class="btn btn-primary lb-nav-next" id="lb-sticky-next" onclick="lbStickyPrimaryAction()">Next: Vertical →</button>
                   </div>
                 </div>
+                <p id="lb-draft-status" class="lb-draft-status" role="status" aria-live="polite"></p>
+                <p id="lb-draft-announce" class="sr-only" role="status" aria-live="polite"></p>
                 <div id="lb-edit-banner" class="lb-edit-banner" hidden>
                   <span id="lb-edit-banner-text"></span>
                   <button type="button" class="btn btn-sm" id="lb-edit-banner-stop" onclick="lbStopEditing()">Stop editing this lab</button>
                 </div>
+                <div id="lb-unsaved-banner" class="lb-edit-banner" role="region" aria-label="Unsaved work" hidden>
+                  <span id="lb-unsaved-banner-text"></span>
+                  <span class="lb-draft-banner-actions">
+                    <button type="button" class="btn btn-sm btn-primary" id="lb-unsaved-resume" aria-label="Resume your unsaved work">Resume</button>
+                    <button type="button" class="btn btn-sm" id="lb-unsaved-discard" aria-label="Discard your unsaved work">Discard</button>
+                  </span>
+                </div>
+                <div id="lb-draft-notice" class="lb-draft-notice" role="region" aria-label="Resumed draft" hidden></div>
               </div>
 
             <!-- Step 1: product -->
@@ -6312,6 +6334,62 @@
               <div id="lb-result-meta" style="margin-bottom: 16px;"></div>
               <div id="lb-result-body" class="lb-result-body"></div>
             </div>
+
+            <section class="panel lb-generated-section" id="lb-drafts-section" aria-labelledby="lb-drafts-heading">
+              <details class="lb-generated-details" id="lb-drafts-details">
+                <summary class="lb-gen-summary">
+                  <span class="lb-gen-summary-title">
+                    <h3 id="lb-drafts-heading" tabindex="-1">📝 Saved drafts</h3>
+                    <span id="lb-drafts-badge" class="tag lb-gen-badge" aria-hidden="true">0</span>
+                  </span>
+                  <span class="lb-gen-summary-chevron" aria-hidden="true">▸</span>
+                </summary>
+                <div class="lb-gen-body">
+                  <p style="color: var(--text-muted); margin: 0 0 12px; font-size: 14px;">
+                    A draft is a lab you have only partly set up. Choose <strong>Save and finish later</strong> on any step to keep every choice you have made so far,
+                    then pick it up again here with <strong>Resume</strong>. A draft stays until you delete it. Building a lab from a resumed draft marks the draft as Built and keeps it.
+                  </p>
+                  <p id="lb-drafts-count" class="lb-gen-count" role="status" aria-live="polite"></p>
+                  <div id="lb-drafts-list" class="scenario-empty">Loading saved drafts...</div>
+                </div>
+              </details>
+
+              <dialog id="lb-draft-name-dialog" class="lb-gen-dialog" aria-labelledby="lb-draft-name-heading">
+                <form id="lb-draft-name-form" method="dialog" novalidate>
+                  <h4 id="lb-draft-name-heading">Save and finish later</h4>
+                  <div class="form-group">
+                    <label for="lb-draft-name">Draft name</label>
+                    <input type="text" id="lb-draft-name" maxlength="80" required autocomplete="off" aria-describedby="lb-draft-name-hint lb-draft-name-error">
+                    <span class="hint" id="lb-draft-name-hint">Up to 80 characters. You can pick this up later under Saved drafts.</span>
+                  </div>
+                  <p id="lb-draft-name-error" class="lb-error" role="alert"></p>
+                  <div class="lb-gen-dialog-actions">
+                    <button type="button" class="btn" id="lb-draft-name-cancel">Cancel</button>
+                    <button type="button" class="btn" id="lb-draft-name-copy" hidden>Save as a new draft</button>
+                    <button type="submit" class="btn btn-primary" id="lb-draft-name-save">Save draft</button>
+                  </div>
+                </form>
+              </dialog>
+
+              <dialog id="lb-draft-delete-dialog" class="lb-gen-dialog" role="alertdialog" aria-labelledby="lb-draft-delete-title" aria-describedby="lb-draft-delete-desc">
+                <h4 id="lb-draft-delete-title">Delete this draft?</h4>
+                <p id="lb-draft-delete-desc"></p>
+                <p id="lb-draft-delete-error" class="lb-error" role="alert"></p>
+                <div class="lb-gen-dialog-actions">
+                  <button type="button" class="btn" id="lb-draft-delete-cancel">Cancel</button>
+                  <button type="button" class="btn btn-danger" id="lb-draft-delete-confirm">Delete draft</button>
+                </div>
+              </dialog>
+
+              <dialog id="lb-draft-replace-dialog" class="lb-gen-dialog" role="alertdialog" aria-labelledby="lb-draft-replace-title" aria-describedby="lb-draft-replace-desc">
+                <h4 id="lb-draft-replace-title">Replace your current choices?</h4>
+                <p id="lb-draft-replace-desc">The choices in the wizard right now are not saved. Resuming this draft replaces them.</p>
+                <div class="lb-gen-dialog-actions">
+                  <button type="button" class="btn" id="lb-draft-replace-cancel">Keep my current choices</button>
+                  <button type="button" class="btn btn-primary" id="lb-draft-replace-confirm">Replace and resume</button>
+                </div>
+              </dialog>
+            </section>
 
             <section class="panel lb-generated-section" aria-labelledby="lb-generated-heading">
               <details class="lb-generated-details" id="lb-generated-details">
@@ -7236,6 +7314,7 @@
   <script src="brand-ui.js" defer></script>
   <script src="app.js" defer></script>
 <script src="lab-builder-wizard.js" defer></script>
+  <script src="lab-builder-drafts.js" defer></script>
   <script src="lab-builder-my-topics.js" defer></script>
   <script src="lab-builder-my-products.js" defer></script>
 <script src="use-case-builder.js" defer></script>
