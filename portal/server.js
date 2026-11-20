@@ -93,6 +93,7 @@ import {
 import { getTopicService } from "./lib/lab-builder/topic-service.js";
 import { learnContext, newTopicCounts, newTopicCountsByLevel, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
 import { registerProductRoutes } from "./lib/lab-builder/product-api.js";
+import { registerDraftRoutes } from "./lib/lab-builder/drafts-api.js";
 import { labDiagramExtension, renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
@@ -393,6 +394,9 @@ app.use((_req, res, next) => {
   next();
 });
 
+// A saved draft can list thousands of sub-topic ids, so its routes take a larger body than the rest of /api/lab-builder.
+// This parser must come first: the one below skips a request that is already parsed.
+app.use("/api/lab-builder/drafts", express.json({ limit: process.env.LAB_BUILDER_DRAFT_BODY_LIMIT || "320kb" }));
 app.use(
   ["/api/lab-builder", "/api/generated-labs/learn-drift", "/api/capture"],
   express.json({ limit: process.env.LAB_BUILDER_BODY_LIMIT || "64kb" }),
@@ -586,6 +590,8 @@ app.get("/api/lab-builder/features", (_req, res) => {
 registerTopicRoutes(app, { getService: getTopicService, createRateLimiter, positiveIntFromEnv });
 // Products a person adds from a Microsoft Learn documentation hub: /api/lab-builder/products/picklist and /products/mine
 registerProductRoutes(app, { getService: getTopicService, createRateLimiter, positiveIntFromEnv });
+// Saved drafts of a partly configured lab: /api/lab-builder/drafts (private per signed-in person, one local space with sign-in off)
+registerDraftRoutes(app, { dataDir: dataRoot, authEnabled: authConfigSummary().enabled, createRateLimiter, positiveIntFromEnv });
 
 /**
  * POST /api/lab-builder/recommend — Topics for the chosen vertical, departments,

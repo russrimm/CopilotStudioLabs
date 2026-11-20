@@ -4754,6 +4754,7 @@ async function lbGenerate() {
       }
       lbStopEditing(true);
       lbLoadGenerated();
+      if (typeof lbDraftsAfterBuild === "function") void lbDraftsAfterBuild(data);
       if (status) status.textContent = "";
       toast(data.replacedLabId ? `Rebuilt "${data.title}" and replaced the original` : `Built "${data.title}"`, "success");
       // The build button was disabled while the lab was built, so focus would otherwise fall back to the page.

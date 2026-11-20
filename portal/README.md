@@ -4,7 +4,7 @@ A web-based lab operations portal for building, customizing, validating, preview
 
 ## Features
 
-- **🧬 Lab Builder** — 8-step wizard across 6 Microsoft AI products and 195 capabilities (product, industry/vertical, departments, level, harness, topics, review, generate), grounded on Microsoft Learn with canonical URL deduplication, SharePoint site configuration, opt-in multiple-choice Knowledge Check mini-quizzes, and `Required By` admin prerequisites. Microsoft Learn topics list their merged sub-topics as individually selectable options, and **Export All Topics** writes every topic and sub-topic for your products as CSV (opens in Excel), Markdown, or JSON (see [`docs/lab-builder.md`](../docs/lab-builder.md))
+- **🧬 Lab Builder** — 8-step wizard across 6 Microsoft AI products and 195 capabilities (product, industry/vertical, departments, level, harness, topics, review, generate), grounded on Microsoft Learn with canonical URL deduplication, SharePoint site configuration, opt-in multiple-choice Knowledge Check mini-quizzes, and `Required By` admin prerequisites. Microsoft Learn topics list their merged sub-topics as individually selectable options, and **Export All Topics** writes every topic and sub-topic for your products as CSV (opens in Excel), Markdown, or JSON. **Save and finish later** keeps a partly configured lab as a named draft you can **Resume** from **Saved drafts**, with a quiet autosave as a safety net (see [`docs/lab-builder.md`](../docs/lab-builder.md))
 - **📚 Chapter Management** — Explicitly include or exclude hand-written lab chapters under **Lab chapters** on the Lab setup tab (nothing is auto-selected initially; the level for a generated lab is chosen in wizard Step 4)
 - **🗂️ Generated Lab Management & Multi-Format Exports** — Open, preview as interactive paged HTML (with `localStorage` checkable task lists and Knowledge Check mini-quizzes), export as `.zip` (`formats=all|docx|pptx|pdf|html`), `.html`, `.docx`, `.pdf`, `.pptx`, `.md`, per-topic `.docx`/`.pptx` files (`<Lab Name> - Step NN - <Topic Name>`), or the prerequisites checklist by itself (`.docx`, `.pdf`, `.html`, `.md`) to send to the customer hosting the workshop, print/save as PDF, run structural validation, rename, delete, or re-open saved selections
 - **🗺️ Lab Flow Diagrams** — Render Mermaid diagrams inside lab previews to visualize architecture and process flow
@@ -155,6 +155,9 @@ All configuration is provided through environment variables (see `.env.template`
 | `LAB_BUILDER_MANAGE_RATE_MAX` | No | Generated-lab export/validate/rename/delete calls allowed per window (default: `60`) |
 | `LAB_BUILDER_MANAGE_RATE_WINDOW_MS` | No | Generated-lab management rate-limit window (default: `3600000`) |
 | `LAB_BUILDER_BODY_LIMIT` | No | Maximum JSON body size on `/api/lab-builder` routes (default: `64kb`) |
+| `LAB_BUILDER_DRAFT_BODY_LIMIT` | No | Maximum JSON body size on the saved-draft routes (default: `320kb`) |
+| `LAB_BUILDER_DRAFTS_RATE_MAX` | No | Draft changes (save, autosave, rename, delete) allowed per person per window (default: `600`) |
+| `LAB_BUILDER_DRAFTS_RATE_WINDOW_MS` | No | Draft change rate-limit window (default: `600000`) |
 | `LAB_BUILDER_CONCURRENCY` | No | Modules grounded, derived, and enriched in parallel within one build (default: `4`) |
 | `LAB_BUILDER_LINK_CHECK` | No | Set to `off` to skip citation liveness checks |
 | `LAB_BUILDER_LINK_TIMEOUT_MS` | No | Citation liveness check timeout (default: `8000`) |
@@ -339,6 +342,11 @@ The request and response are documented in [`docs/lab-builder.md`](../docs/lab-b
 | `GET` | `/api/lab-builder/generated/:labId/validate` | Run structural validation against a generated lab (also aliased at `/api/generated-labs/:labId/validate`) |
 | `PATCH` | `/api/lab-builder/generated/:labId` | Rename a generated lab (`title` and/or `notes`) and sync `index.html` + per-topic `.docx`/`.pptx` files |
 | `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab (never a hand-written one) |
+| `GET` / `POST` | `/api/lab-builder/drafts` | List the caller's saved drafts, or save a new one (`{ name, content }`; at most 50 per person, 256 KB each) |
+| `GET` / `PUT` / `DELETE` | `/api/lab-builder/drafts/unsaved` | The one autosave slot behind the unsaved-work banner (never a named draft) |
+| `GET` / `PUT` / `DELETE` | `/api/lab-builder/drafts/:id` | Read, rename or change (last save wins), or delete one draft |
+| `POST` | `/api/lab-builder/drafts/:id/duplicate` | Copy a draft |
+| `POST` | `/api/lab-builder/drafts/:id/built` | Mark a draft as built into a lab (`{ labId }`); the draft stays listed |
 
 Request and response shapes are documented in [`docs/lab-builder.md`](../docs/lab-builder.md#api).
 
@@ -380,6 +388,7 @@ portal/
 │   ├── index.html             Single-page app UI (tabs, forms, preview, print styles)
 │   ├── app.js                 Core portal frontend logic (pagination, checklists, mini-quizzes)
 │   ├── lab-builder-wizard.js  8-step custom lab builder wizard UI (Step 7 includes Customize this lab)
+│   ├── lab-builder-drafts.js  Save and finish later, Saved drafts, Resume, and the autosave banner
 │   ├── use-case-builder.js    Use Case Builder: live inputs, ranked use case cards, shortlist, Markdown/CSV export, and the hand-off to the wizard
 │   ├── generated-labs.js      Generated lab manager, multi-format/per-topic export, print, and validation UI
 │   ├── brand-ui.js            Brand validation, contrast, and live preview helpers shared by the UI
@@ -392,7 +401,7 @@ portal/
 │   ├── theme.js               Light/dark color theme toggle and persistence
 │   └── vendor/
 │       └── mermaid.min.js     Mermaid diagram renderer
-├── data/                  Runtime data (feedback, branding and brand profiles, approvals, agent config)
+├── data/                  Runtime data (feedback, branding and brand profiles, approvals, agent config, saved lab drafts)
 ├── Dockerfile             Production container build (node:24-alpine, port 3005, /healthz)
 ├── docker-compose.yml     Local container orchestration
 └── .env.template          Configuration template
