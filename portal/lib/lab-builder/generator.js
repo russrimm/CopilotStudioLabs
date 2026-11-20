@@ -30,7 +30,7 @@ import { getConcepts } from "./concepts.js";
 import { GENERATOR_NAME, primaryProduct, productOf, productsPhrase } from "./products.js";
 import { buildDifferenceBlocks } from "./differences.js";
 import { describeDeliverable } from "./deliverable.js";
-import { deriveSteps, diffSteps, isVerifiedCanonicalArticle } from "./steps.js";
+import { deriveSteps, diffSteps, extractLearnCautions, isVerifiedCanonicalArticle } from "./steps.js";
 import { attachSubtopicSteps, deriveSubtopicSteps, dropExcludedSources } from "./subtopic-steps.js";
 import { synthesizeSteps } from "./synthesis.js";
 import {
@@ -311,6 +311,7 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
         canonicalVerified: true,
         contentFingerprint: hashContentFingerprint(page.markdown),
         pageHeadings: extractDocHeadings(page.markdown),
+        cautions: extractLearnCautions(page.markdown, url),
         drift: diffSteps(feature.steps, result.steps),
         attempts: catalogEntry.attempts,
         synthesis: catalogEntry.synthesis,

@@ -115,8 +115,11 @@ export function expectedResultBlock(feature, shots, u) {
   return ["", "**What you should see.** After the last numbered step:", "", u.bullets(items)];
 }
 
-/** Troubleshooting: authored items first, then cautions already in the concepts, then universal checks. */
-export function troubleshootingBlock(feature, u, grounding) {
+/**
+ * Troubleshooting: authored items first, then cautions already in the concepts, then the cautions Microsoft Learn prints
+ * on the page the steps came from (`learnCautions`, read by `extractLearnCautions()`), then universal checks.
+ */
+export function troubleshootingBlock(feature, u, grounding, learnCautions = []) {
   const items = [];
   const learnSources = moduleLearnSources(feature, grounding, u);
   for (const entry of feature.troubleshooting || []) {
@@ -134,6 +137,13 @@ export function troubleshootingBlock(feature, u, grounding) {
     items.push(
       `**Watch for this.** ${ensureStop(u.scrub(caution))}${ref ? ` Review ${ref} on Microsoft Learn.` : ""}`,
     );
+  }
+
+  const known = items.join(" ").toLowerCase();
+  for (const caution of (Array.isArray(learnCautions) ? learnCautions : []).slice(0, 2)) {
+    if (!caution || known.includes(String(caution).toLowerCase().slice(0, 40))) continue;
+    const ref = learnReferenceLink(learnSources, `${caution} ${feature.name}`, u);
+    items.push(`**Microsoft Learn warns.** ${ensureStop(u.scrub(caution))}${ref ? ` See ${ref}.` : ""}`);
   }
 
   const primaryRef = learnReferenceLink(learnSources, `${feature.name} ${feature.summary || ""}`, u);

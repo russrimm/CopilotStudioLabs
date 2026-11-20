@@ -493,6 +493,19 @@ test("per-lesson multiple-choice mini-quizzes honor includeKnowledgeCheck, link 
   }
 });
 
+test("troubleshooting adds the cautions Microsoft Learn printed on the page, once, and still ends with the universal tips", () => {
+  const u = { esc: (s) => s, scrub: (s) => s, bullets: (items) => items.map((i) => `- ${i}`).join("\n"), lowerFirst: (s) => s };
+  const feature = { ...getFeature("mc-monitor"), troubleshooting: [], concepts: [] };
+  const plain = troubleshootingBlock(feature, u, null).join("\n");
+  assert.doesNotMatch(plain, /Microsoft Learn warns/);
+  const text = troubleshootingBlock(feature, u, null, ["Sessions appear only after real users chat with a published agent.", "Second caution from the page here.", "A third caution that is left out."]).join("\n");
+  assert.equal((text.match(/\*\*Microsoft Learn warns\.\*\*/g) || []).length, 2, "at most two");
+  assert.match(text, /Sessions appear only after real users chat/);
+  assert.ok(text.indexOf("Microsoft Learn warns") < text.indexOf("A step does not match your screen"), "specific cautions come before the universal tips");
+  const repeated = troubleshootingBlock({ ...feature, concepts: ["Sessions appear only after real users chat with a published agent and must be published first."] }, u, null, ["Sessions appear only after real users chat with a published agent."]).join("\n");
+  assert.equal((repeated.match(/Sessions appear only after real users chat/g) || []).length, 1, "a caution already in the concepts is not repeated");
+});
+
 test("quiz wrong answers are real statements about the lab's other modules, never filler, and never an unreviewed disclaimer", () => {
   const ids = ["mc-create-agent", "mc-instructions", "mc-knowledge", "mc-preview-test", "mc-publish-agent"];
   const features = ids.map((id, index) => ({ ...getFeature(id), stepOrder: index + 1 }));

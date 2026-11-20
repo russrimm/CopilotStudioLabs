@@ -827,7 +827,7 @@ function featureSection(feature, plan, grounding, shots, enrichment, stepsRecord
     "**Check your work**",
     "",
     bullets(feature.validation.map((v) => `[ ] ${scrubForbidden(v)}`)),
-    ...troubleshootingBlock(feature, TEACH, grounding),
+    ...troubleshootingBlock(feature, TEACH, grounding, stepsRecord?.source === "doc-derived" ? stepsRecord.cautions : []),
     ...knowledgeCheckBlock(feature, plan, TEACH, grounding),
     ...citationBlock(grounding),
     ...vendorBlock(vendorRecords),

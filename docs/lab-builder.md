@@ -2244,9 +2244,13 @@ Each module renders as:
 - Screenshots (reused) and capture callouts (to fill in)
 - **Check your work** — per-module validation checklist (`- [ ]` items), from the
   curated catalog (rendered as persistent interactive checkboxes in HTML)
-- **Troubleshooting** — cautions taken from the module's own concepts, a pointer
+- **Troubleshooting** — cautions taken from the module's own concepts, up to two
+  **Microsoft Learn warns** items (the page's own Important, Warning, or Caution paragraph, or a bullet under a
+  Limitations or Known issues heading, read by `extractLearnCautions()` in `steps.js` from the page the steps
+  came from, whole sentences only, links reduced to their text, with the Learn link), a pointer
   to the relevance-matched cited Learn page when a step does not match the screen,
-  and recovery for a check that is not true yet
+  and recovery for a check that is not true yet. A module whose steps were not read from Learn shows none of the
+  Learn cautions, and the lab gate's `generic-troubleshooting` finding counts modules that have only the universal tips
 - **Knowledge check: Lesson mini-quiz** (when `includeKnowledgeCheck` is enabled:
   opt-in on Wizard Step 7; enabled unless `includeKnowledgeCheck: false` in direct
   API/CLI calls, and omitted on short `Recap N` modules) — 1 to 3 deterministic

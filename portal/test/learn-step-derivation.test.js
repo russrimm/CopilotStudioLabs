@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { cleanStep, deriveSteps, extractProcedures, isVerifiedCanonicalArticle } from "../lib/lab-builder/steps.js";
+import { cleanStep, deriveSteps, extractLearnCautions, extractProcedures, isVerifiedCanonicalArticle } from "../lib/lab-builder/steps.js";
 import { BLOCKER_CODES, MAX_VERIFIED_CURATED_DAYS, isCuratedFresh } from "../lib/lab-builder/blockers.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
 
@@ -290,4 +290,43 @@ test("a step's sub-bullets become lettered choices and a long step is never cut 
   assert.ok(wide.length < 760, "bounded");
   assert.match(wide, /; more in the linked article\.$/);
   assert.doesNotMatch(wide, /\.\.\.|\u2026/);
+});
+
+test("cautions are the page's own Important, Warning, and Limitations sentences, whole and without links", () => {
+  const page = [
+    "# Publish an agent",
+    "",
+    "Note",
+    "",
+    "This article describes features used in agents powered by the standard harness.",
+    "",
+    "Important",
+    "",
+    "Changes you make after publishing don't take effect until you publish again. See [the guide](https://example.invalid/guide) for more.",
+    "",
+    "Warning",
+    "",
+    "This article includes information about a different feature.",
+    "",
+    "## Limitations",
+    "",
+    "- Each agent can have at most 20 channels connected at the same time in this example.",
+    "- Short.",
+    "",
+    "```",
+    "Important",
+    "",
+    "A caution inside a code sample is not a caution.",
+    "```",
+    "",
+    "Caution",
+    "",
+    "A sentence that runs far past the limit " + "and keeps going ".repeat(30) + "without ever stopping",
+  ].join("\n");
+  const cautions = extractLearnCautions(page, "https://learn.microsoft.com/en-us/x/y");
+  assert.deepEqual(cautions, [
+    "Changes you make after publishing don't take effect until you publish again. See the guide for more.",
+    "Each agent can have at most 20 channels connected at the same time in this example.",
+  ]);
+  assert.deepEqual(extractLearnCautions("", "https://learn.microsoft.com/x"), []);
 });
