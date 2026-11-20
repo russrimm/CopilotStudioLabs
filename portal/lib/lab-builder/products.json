@@ -53,6 +53,7 @@
         "https://learn.microsoft.com/microsoft-365/documentprocessing",
         "https://learn.microsoft.com/microsoft-365/copilot/extensibility"
       ],
+      "topicKeywords": ["copilot", "agent", "ai", "autofill", "document processing", "knowledge", "advanced management", "intelligence", "syntex", "extractor", "classifier"],
       "levels": [100, 200, 300],
       "hasHarnesses": false,
       "agentNoun": "agent",

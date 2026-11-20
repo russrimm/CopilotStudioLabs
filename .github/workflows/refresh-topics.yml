@@ -1,8 +1,8 @@
 name: Refresh Microsoft Learn topics
 
-# Weekly check of the Copilot Studio documentation on Microsoft Learn. When the
+# Weekly check of the documentation on Microsoft Learn for every product (Copilot Studio and the others). When the
 # topic list changed, this opens a pull request with the updated snapshot
-# (portal/lib/lab-builder/learn-topics.snapshot.json); when nothing changed it
+# (portal/lib/lab-builder/learn-topics*.snapshot.json, one per product); when nothing changed it
 # does nothing. Needs "Allow GitHub Actions to create and approve pull requests"
 # turned on under Settings > Actions > General.
 
@@ -22,7 +22,7 @@ jobs:
   refresh:
     name: Refresh topic snapshot
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     permissions:
       contents: write
       pull-requests: write
@@ -37,7 +37,7 @@ jobs:
 
       - name: Refresh the snapshot from Microsoft Learn
         id: refresh
-        run: node tools/lab-builder/refresh-topics.mjs --summary "$RUNNER_TEMP/summary.md"
+        run: node tools/lab-builder/refresh-topics.mjs --all --summary "$RUNNER_TEMP/summary.md"
 
       - name: Open or update the pull request
         if: steps.refresh.outputs.changed == 'true'
@@ -48,7 +48,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -B "$branch"
-          git add portal/lib/lab-builder/learn-topics.snapshot.json
+          git add "portal/lib/lab-builder/learn-topics*.snapshot.json"
           git commit -m "chore(lab-builder): refresh Microsoft Learn topic snapshot"
           git push --force origin "$branch"
           open_pr="$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')"

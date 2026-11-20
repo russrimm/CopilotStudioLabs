@@ -14,6 +14,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readUserProducts, userProductsPath } from "./user-products.js";
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PRODUCTS_PATH = path.join(__dirname, "products.json");
 
@@ -27,13 +29,36 @@ const SLUG = /^[a-z][a-z0-9-]*$/;
 const EMOJI = /\p{Extended_Pictographic}/u;
 
 let cached = null;
+let combined = null;
+let customLoaded = null;
+let customOverride;
 
-export function getProducts() {
+/** The products in products.json: the ones this repository reviewed and curated. */
+export function getBuiltInProducts() {
   if (!cached) {
     const raw = JSON.parse(fs.readFileSync(PRODUCTS_PATH, "utf8"));
     cached = [...(raw.products || [])].sort((a, b) => a.order - b.order);
   }
   return cached;
+}
+
+function customProducts() {
+  if (customOverride !== undefined) return customOverride;
+  if (!customLoaded) customLoaded = { value: readUserProducts(userProductsPath()) };
+  return customLoaded.value;
+}
+
+/** Set the products a person added (the product routes do after every change; tests too). Pass undefined to read the file again. */
+export function setCustomProducts(list) {
+  customOverride = list;
+  customLoaded = null;
+  combined = null;
+}
+
+/** Every product: the reviewed ones first, then the ones a person added from Microsoft Learn (marked `custom`). */
+export function getProducts() {
+  if (!combined) combined = [...getBuiltInProducts(), ...customProducts()];
+  return combined;
 }
 
 export function getProduct(id) {

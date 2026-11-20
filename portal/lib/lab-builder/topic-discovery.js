@@ -202,6 +202,11 @@ function levelFor({ url, conceptId }, conceptLevels) {
   return conceptLevels.get(conceptId) || 200;
 }
 
+/** The level a page's address suggests (the same rule discovery uses when no concept level is known). */
+export function levelForUrl(url, conceptId = UNCATEGORIZED) {
+  return levelFor({ url, conceptId }, new Map());
+}
+
 function parseSearch(result) {
   const text = (result?.content || []).filter((p) => p?.type === "text" && typeof p.text === "string").map((p) => p.text).join("\n");
   try {
@@ -335,6 +340,9 @@ export async function discoverSnapshot({
 }) {
   if (!session?.ok) throw new DiscoveryError(`Microsoft Learn is not reachable${session?.error ? `: ${session.error}` : ""}`, "unreachable");
   const productDef = getProduct(product);
+  const keywordRule = productDef?.topicKeywords?.length
+    ? new RegExp(`\\b(?:${productDef.topicKeywords.map((word) => String(word).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?:s|es)?\\b`, "i")
+    : null;
   if (!productDef) throw new DiscoveryError(`Unknown product "${product}".`, "unknown-product");
   const isDefault = product === DEFAULT_PRODUCT;
   const roots = productDef.learnRoots.map((root) => normalizeLearnUrl(root)).filter(Boolean);
@@ -407,7 +415,10 @@ export async function discoverSnapshot({
         ]),
         ...CUSTOMER_CONVERSATION_QUERIES,
       ]
-    : concepts.map((concept) => `${productDef.name} ${concept.name}`);
+    : concepts.length
+    ? concepts.map((concept) => `${productDef.name} ${concept.name}`)
+    : // A product added from Learn has no concepts of its own, so a few general searches stand in for them.
+      [`${productDef.name} overview`, `${productDef.name} get started`, `${productDef.name} AI and Copilot`];
   const found = await mapLimit(queries, limits.concurrency, (query) => ctx.search(query));
   found.forEach((items) => {
     for (const item of items) {
@@ -481,6 +492,8 @@ export async function discoverSnapshot({
     const summary = parsed?.summary || (!isBoilerplateSummary(candidate.excerpt) ? candidate.excerpt : "") || `${title}: see the linked Microsoft Learn article.`;
     const harnesses = productDef.hasHarnesses ? harnessesFor({ url: candidate.url, title: parsed?.rawTitle || title, hints: candidate.hints }) : [];
     const coveredBy = [...(featuresByPage.get(matchKey(candidate.url)) || [])];
+    // A product whose Learn roots are broader than its AI features (SharePoint) keeps only pages that mention them.
+    if (!coveredBy.length && keywordRule && !keywordRule.test(`${title} ${summary} ${candidate.url}`)) continue;
     const conceptId = coveredBy.length ? conceptOfFeature.get(coveredBy[0]) || UNCATEGORIZED : conceptFor({ url: candidate.url, title });
     const hash = page?.state === "ok" ? page.hash : contentHash(`${title}\n${summary}`);
     const before = previousTopics.get(id);

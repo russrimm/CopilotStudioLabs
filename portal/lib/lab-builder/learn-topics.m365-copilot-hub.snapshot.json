@@ -1,0 +1,1844 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-20T05:55:34.774Z",
+  "source": "microsoft-learn-mcp",
+  "product": "m365-copilot-hub",
+  "catalogVersion": 1,
+  "partial": false,
+  "partialReason": null,
+  "stats": {
+    "calls": 112,
+    "errors": 0,
+    "pagesRead": 67,
+    "searches": 8
+  },
+  "topics": [
+    {
+      "id": "learn-copilot-implement-configure-copilot-admin-center",
+      "title": "Configure Microsoft Copilot settings in the Microsoft 365 admin center",
+      "product": "m365-copilot-hub",
+      "summary": "As an administrator, you can manage many Microsoft Copilot settings from Copilot Settings in the Microsoft 365 admin center. Some settings you configure there, and others link to the admin center or policy service where you make the change.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-control-agent-availability",
+        "m365h-control-web-search",
+        "m365h-pin-copilot-chat",
+        "m365h-restrict-copilot-chat-access",
+        "m365h-secure-copilot-data",
+        "m365h-tour-copilot-settings",
+        "m365h-troubleshoot-copilot-access"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ca51f7fad0147110"
+    },
+    {
+      "id": "learn-copilot-implement-connect-to-ai-subprocessor",
+      "title": "Claude models from Anthropic in Microsoft Online Services",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft is introducing a new offering with Claude models from Anthropic as part of Microsoft Online Services, delivering enterprise-grade commitments and safeguards to ensure secure and responsible use of Claude models within your organization.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/connect-to-ai-subprocessor"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b61037bc8bd9ed62"
+    },
+    {
+      "id": "learn-copilot-implement-copilot-controls-management",
+      "title": "Copilot controls for management",
+      "product": "m365-copilot-hub",
+      "summary": "Copilot controls help you decide how to deploy and customize your Microsoft Copilot licenses and agents to fit your organization's unique needs. You can find related management settings mainly in the Microsoft 365 admin center, Power Platform admin center, and Copilot Studio.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-management"
+      ],
+      "harnesses": [],
+      "conceptId": "copilot-controls",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-copilot-controls-overview",
+        "m365h-pay-as-you-go-billing",
+        "m365h-tour-copilot-settings"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "e23ffa8aa7454388"
+    },
+    {
+      "id": "learn-copilot-implement-copilot-controls-measurement-reporting",
+      "title": "Copilot controls measurement and reporting",
+      "product": "m365-copilot-hub",
+      "summary": "Copilot controls measurement and reporting capabilities help you understand the adoption and organizational impact of Microsoft Copilot, Copilot Chat, and agents. These capabilities primarily come together as part of Copilot Analytics.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-measurement-reporting"
+      ],
+      "harnesses": [],
+      "conceptId": "monitor",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-copilot-controls-overview",
+        "m365h-measure-copilot-adoption"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "c81c4663cf9a07d0"
+    },
+    {
+      "id": "learn-copilot-implement-copilot-controls-overview",
+      "title": "Copilot controls overview",
+      "product": "m365-copilot-hub",
+      "summary": "Copilot controls provide an integrated framework for Microsoft Copilot and agents. Use them to help secure data that Copilot and agents create or reference, manage Copilot and agent experiences, and measure and analyze adoption and impact across your organization.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "copilot-controls",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-copilot-controls-overview"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "e9029bd58186e77c"
+    },
+    {
+      "id": "learn-copilot-implement-copilot-controls-security-governance",
+      "title": "Copilot controls security and governance",
+      "product": "m365-copilot-hub",
+      "summary": "When you implement Microsoft Copilot and agents, you might face new and amplified risks related to security, compliance, privacy, and governance. This security and governance framework helps you mitigate these issues in the following components:",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance"
+      ],
+      "harnesses": [],
+      "conceptId": "security",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-audit-copilot-interactions",
+        "m365h-copilot-controls-overview",
+        "m365h-data-access-governance-reports",
+        "m365h-dlp-for-copilot",
+        "m365h-restricted-content-discovery",
+        "m365h-secure-copilot-data"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ccf325e82b652d1f"
+    },
+    {
+      "id": "learn-copilot-implement-discovery-setting-ai-experiences",
+      "title": "Discovery setting for AI experiences enabled by usage-based billing",
+      "product": "m365-copilot-hub",
+      "summary": "The AI experiences enabled by usage-based billing setting is deprecated. This setting will be replaced by a new setting that allows admins to control whether users or groups can request access to experiences that require usage-based billing.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/discovery-setting-ai-experiences"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "e535797a2a9fa7ab"
+    },
+    {
+      "id": "learn-copilot-implement-openai-subprocessor",
+      "title": "OpenAI as a subprocessor in Microsoft Online Services",
+      "product": "m365-copilot-hub",
+      "summary": "This setting doesn't turn OpenAI models on or off in Copilot. It controls only whether OpenAI models operated by OpenAI (provided by OpenAI as a subprocessor) can be used. OpenAI models operated by Microsoft (Azure OpenAI) aren't affected and remain available in Copilot regardless of this setting.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/openai-subprocessor"
+      ],
+      "harnesses": [],
+      "conceptId": "uncategorized",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "896e211c4f494760"
+    },
+    {
+      "id": "learn-copilot-implement-pin-copilot-chat-navbar",
+      "title": "Pin Microsoft Copilot Chat in the Microsoft 365 apps",
+      "product": "m365-copilot-hub",
+      "summary": "You can pin Microsoft Copilot Chat in Microsoft 365 apps across web, desktop, and mobile platforms. For example, Microsoft Teams and Microsoft Outlook. This article explains how to configure pinning settings to improve user access to Copilot Chat as your organization's secure and compliant generative AI solution.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar"
+      ],
+      "harnesses": [],
+      "conceptId": "copilot-controls",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-pin-copilot-chat",
+        "m365h-restrict-copilot-chat-access",
+        "m365h-troubleshoot-copilot-access"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "2b2ab6f654d4fa65"
+    },
+    {
+      "id": "learn-copilot-implement-request-access-usage-based-billing-experiences",
+      "title": "Access requests to usage-based billing experiences",
+      "product": "m365-copilot-hub",
+      "summary": "Use Copilot Settings in the Microsoft 365 admin center to control how users interact with Copilot usage-based billing experiences, such as Cowork, when they don't have a spending policy assigned.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/request-access-usage-based-billing-experiences"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "687e882c27f0386a"
+    },
+    {
+      "id": "learn-copilot-implement-usage-based-billing-copilot-credits-monitor-spending",
+      "title": "Monitor Copilot Credit spending",
+      "product": "m365-copilot-hub",
+      "summary": "Use the Overview and Consumption tabs in the Cost Management dashboard to review Copilot Credit usage, funding sources, spending policies, users, groups, agents, and services.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/usage-based-billing-copilot-credits-monitor-spending"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "1fe54786212f1748"
+    },
+    {
+      "id": "learn-copilot-implement-usage-based-billing-copilot-credits-setup",
+      "title": "Set up usage-based billing for Copilot Credits",
+      "product": "m365-copilot-hub",
+      "summary": "Use the Cost Management dashboard in the Microsoft 365 admin center to enable usage-based billing, activate the default spending policy, create identity-based and resource-based spending policies.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/usage-based-billing-copilot-credits-setup"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "73c716aa77668f17"
+    },
+    {
+      "id": "learn-copilot-implement-usage-based-billing-manage-copilot-credits",
+      "title": "Managing AI experiences enabled by usage-based billing",
+      "product": "m365-copilot-hub",
+      "summary": "Use spending policies in the Cost Management dashboard to control access and Copilot Credit spending for AI experiences enabled by usage-based billing.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/usage-based-billing-manage-copilot-credits"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ddfa0802e3158925"
+    },
+    {
+      "id": "learn-copilot-implement-usage-based-billing-manage-copilot-studio-costs",
+      "title": "Manage Copilot Studio costs in the Microsoft 365 admin center",
+      "product": "m365-copilot-hub",
+      "summary": "Manage Copilot Studio spending in the Microsoft 365 admin center by creating policies for environments or individual agents. You can set spending limits, choose a billing method, and monitor Copilot Credit usage.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/implement/usage-based-billing-manage-copilot-studio-costs"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "697c84d9406b6f78"
+    },
+    {
+      "id": "learn-copilot-plan-ai-models-overview",
+      "title": "Understanding AI functionality and models in Microsoft Online Services",
+      "product": "m365-copilot-hub",
+      "summary": "Some Microsoft Online Services offer features that use AI models and functionalities to deliver intelligent capabilities (collectively, AI Functionalities). AI Functionalities may be operated and provided by Microsoft or by third-parties.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/ai-models-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "592b59086ad90c19"
+    },
+    {
+      "id": "learn-copilot-plan-architecture-data-protection-auditing",
+      "title": "Data protection and auditing for Microsoft Copilot",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft Copilot works within the Microsoft 365 service boundary. It uses the same data protection, access control, and compliance capabilities that already apply across Microsoft 365.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/architecture-data-protection-auditing"
+      ],
+      "harnesses": [],
+      "conceptId": "uncategorized",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "8738d72d87499f57"
+    },
+    {
+      "id": "learn-copilot-plan-compare-copilot-e3-e5-e7",
+      "title": "Compare Microsoft Copilot in Microsoft 365 E3, E5, and E7",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft 365 E3, E5, and E7 provide different levels of security, compliance, governance, and AI capabilities. Use this article to compare the capabilities that help prepare your Microsoft 365 data for Microsoft Copilot and determine which license best supports your organization's requirements.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/compare-copilot-e3-e5-e7"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "1a1ad918a0abf9dd"
+    },
+    {
+      "id": "learn-copilot-plan-copilot-license-options",
+      "title": "License options for Microsoft Copilot",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft Copilot is available with Microsoft 365 E7 or as an add-on for eligible commercial, US Government, and education subscription plans. Use this article to identify an eligible prerequisite license and find setup resources.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/copilot-license-options"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-assign-copilot-licenses"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "c8aa89e323c82ab8"
+    },
+    {
+      "id": "learn-copilot-plan-copilot-overview",
+      "title": "Microsoft Copilot overview",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft Copilot is available in many regions worldwide. However, it might not be accessible in certain markets. Some organizations might gain access through an account support escalation process, but access is subject to approval. For more information, see International availability.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/copilot-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "0f251c04083bba1a"
+    },
+    {
+      "id": "learn-copilot-plan-copilot-prompt-defense-in-depth",
+      "title": "Microsoft Copilot prompt defense in depth",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft Copilot applies layered protections at multiple stages of prompt processing. These protections help reduce security, privacy, compliance, and data-protection risks before a prompt reaches a language model, while organizational data is being grounded, and before responses are delivered to users.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/copilot-prompt-defense-in-depth"
+      ],
+      "harnesses": [],
+      "conceptId": "uncategorized",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "7404a26521b7e000"
+    },
+    {
+      "id": "learn-copilot-plan-enterprise-data-protection",
+      "title": "Enterprise data protection in Microsoft Copilot and Microsoft Copilot Chat",
+      "product": "m365-copilot-hub",
+      "summary": "The use of Microsoft Copilot and Microsoft Copilot Chat, as used by organizations, is covered by the terms of the Microsoft Products and Services Data Protection Addendum (DPA) and Microsoft Product Terms, with Microsoft acting as a data processor.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/enterprise-data-protection"
+      ],
+      "harnesses": [],
+      "conceptId": "uncategorized",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "225fffccae92e93f"
+    },
+    {
+      "id": "learn-copilot-plan-gov-overview",
+      "title": "Understand Microsoft U.S. government cloud environments for Microsoft 365 and Microsoft Copilot",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft provides dedicated government cloud environments to meet U.S. government requirements for security, compliance, and data handling. These environments are the result of a long-running evolution of Microsoft cloud architecture driven by increasing regulatory and sovereignty needs.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/gov-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "a4156fde70244186"
+    },
+    {
+      "id": "learn-copilot-plan-manage-public-web-access",
+      "title": "Data, privacy, and security for web search in Microsoft Copilot and Microsoft Copilot Chat",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft Copilot and Microsoft Copilot Chat have an optional feature that allows Copilot to reference web content when responding to user prompts.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/manage-public-web-access"
+      ],
+      "harnesses": [],
+      "conceptId": "copilot-controls",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-control-web-search"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "d6211b3ebb92a758"
+    },
+    {
+      "id": "learn-copilot-plan-microsoft-365-copilot-application-card",
+      "title": "Application card: Microsoft Copilot (for organizations)",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft's Application and Platform cards are intended to help you understand how our AI technology works, the choices application owners can make that influence application performance and behavior, and the importance of considering the whole application, including the technology, the people, and the environment.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/microsoft-365-copilot-application-card"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "f13b85631276f876"
+    },
+    {
+      "id": "learn-copilot-plan-microsoft-365-copilot-privacy",
+      "title": "Data, Privacy, and Security for Microsoft Copilot",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft Copilot is a sophisticated processing and orchestration engine that provides AI-powered productivity capabilities by coordinating the following components:",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/microsoft-365-copilot-privacy"
+      ],
+      "harnesses": [],
+      "conceptId": "security",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "2ee5e6c08c1ba77d"
+    },
+    {
+      "id": "learn-copilot-plan-microsoft-copilot-requirements",
+      "title": "Microsoft Copilot requirements",
+      "product": "m365-copilot-hub",
+      "summary": "Before you deploy Microsoft Copilot or make Microsoft Copilot Chat available in your organization, review the requirements in this article. Requirements vary based on the Copilot experience and Microsoft 365 app that your users access.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/microsoft-copilot-requirements"
+      ],
+      "harnesses": [],
+      "conceptId": "uncategorized",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "15ad79bc9e033226"
+    },
+    {
+      "id": "learn-copilot-plan-pay-as-you-go-meters",
+      "title": "Meters for Microsoft Copilot pay-as-you-go services",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Copilot pay-as-you-go service offers a consumption-based option for organizations to access Copilot services, like Microsoft Copilot Chat and SharePoint agents. To learn more about the pay-as-you-go service, see Microsoft Copilot pay-as-you-go overview.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/pay-as-you-go-meters"
+      ],
+      "harnesses": [],
+      "conceptId": "uncategorized",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "68d4f5eefd53f78e"
+    },
+    {
+      "id": "learn-copilot-plan-pay-as-you-go-overview",
+      "title": "Microsoft Copilot pay-as-you-go service overview",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Copilot pay-as-you-go service lets organizations access Copilot features with flexible, usage-based billing. This article explains how to set up pay-as-you-go billing, manage costs, and take advantage of scalable AI services for your organization.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/pay-as-you-go-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "copilot-metering",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-pay-as-you-go-billing"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "03b8bb6ff326e182"
+    },
+    {
+      "id": "learn-copilot-plan-secure-govern-copilot-foundational-deployment-guidance",
+      "title": "Secure and govern Microsoft Copilot: Foundational deployment guidance",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft Copilot can accelerate how people find information, summarize content, and get work done by grounding responses in the data users already have permission to access.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/secure-govern-copilot-foundational-deployment-guidance"
+      ],
+      "harnesses": [],
+      "conceptId": "security",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-secure-copilot-data"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "2e12d9cf78b6be7e"
+    },
+    {
+      "id": "learn-copilot-plan-security-microsoft-copilot",
+      "title": "Security for Microsoft Copilot",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft 365 Copilot app is now called Microsoft Copilot . The primary URL for accessing the updated Copilot app is changing to copilot.cloud.microsoft . To help ensure users' connections aren't blocked, make sure to:",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/security-microsoft-copilot"
+      ],
+      "harnesses": [],
+      "conceptId": "security",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "2b07360148c12e86"
+    },
+    {
+      "id": "learn-copilot-plan-usage-based-billing-overview-copilot-credits",
+      "title": "Understand usage-based billing and cost management for Copilot Credits",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft's usage-based billing model charges customers based on actual usage, measured in Copilot Credits. This model complements fixed subscription licensing with a flexible payment option that aligns to actual usage.",
+      "urls": [
+        "https://learn.microsoft.com/copilot/plan/usage-based-billing-overview-copilot-credits"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "119bf2dae489a47f"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports",
+      "title": "Microsoft 365 admin center usage reports overview",
+      "product": "m365-copilot-hub",
+      "summary": "Check out Microsoft 365 small business help on YouTube.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports",
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/activity-reports"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "09dbbbe74da0fbe5",
+      "subtopics": [
+        {
+          "id": "learn-microsoft-365-admin-activity-reports-activity-reports",
+          "title": "Microsoft 365 admin center usage reports overview",
+          "url": "https://learn.microsoft.com/microsoft-365/admin/activity-reports/activity-reports",
+          "summary": "Check out Microsoft 365 small business help on YouTube.",
+          "level": 300
+        }
+      ]
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-active-users-ww",
+      "title": "Microsoft 365 apps Active users report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft 365 apps Active users provides details about how many product licenses people in your organization use. You can drill into the report for information about which users are using what products.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/active-users-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "6cb76ff67cec52b6"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-browser-usage-report",
+      "title": "Microsoft Browser usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Browser usage report shows if users access Microsoft 365 online services through Microsoft Edge. This report insight can help you migrate your organization to Microsoft Edge.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/browser-usage-report"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "beef52b1ad994fcf"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-cowork-usage-report",
+      "title": "Copilot Cowork usage",
+      "product": "m365-copilot-hub",
+      "summary": "The Cowork usage dashboard provides visibility into how users in your organization engage with Cowork. Use this dashboard to track usage, adoption trends, and monitor user retention. Use the dashboard to:",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/cowork-usage-report"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "fc37195f71213457"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-email-activity-ww",
+      "title": "Exchange email activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The Exchange email activity report provides a high-level view of email traffic within your organization. Use the Exchange email activity report to understand the trends and per-user level details of the email activity within your organization.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/email-activity-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "c9ff6d9c3aa912e8"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-email-apps-usage-ww",
+      "title": "Exchange email app usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Exchange email app usage report provides details about how many email apps connect to Exchange Online. You can view the version information of Outlook apps that users are using. This information helps you follow up with those users who are using unsupported versions to install supported versions of Outlook.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/email-apps-usage-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "df83af5f93e44233"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-forms-activity-ww",
+      "title": "Forms activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The Forms activity report provides details about user interaction with forms for every user licensed to use Microsoft Forms. The report also helps you understand the level of collaboration by showing the number of forms created and the number of forms the user responded to.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/forms-activity-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "183bab31cfad82d9"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-forms-pro-activity-ww",
+      "title": "Dynamics 365 Customer Voice activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The Dynamics 365 Customer Voice activity report provides insight into the activity of every user licensed to use it by looking at their interactions with it.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/forms-pro-activity-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "e913c7e1fca77a51"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-mailbox-usage",
+      "title": "Exchange Mailbox usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Exchange Mailbox usage report provides information about users with a user mailbox and the level of activity by each user. Activity is based on the email send, read, create appointment, send meeting, accept meeting, decline meeting, and cancel meeting activity.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/mailbox-usage"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "d5caf8f0ae8405c3"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-365-copilot-agents",
+      "title": "Microsoft Copilot Agent usage report",
+      "product": "m365-copilot-hub",
+      "summary": "In the Microsoft Copilot Agent usage report, you can view the adoption of agents in Microsoft Copilot in your organization. For agent activity on a given day, the report becomes available within 72 hours of the end of that day (in UTC).",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-agents"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "79b7a766c79d66fd"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-365-copilot-connect-e5a133",
+      "title": "Microsoft 365 Copilot Connectors usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Copilot Connectors usage report is currently in public preview. Deployment processes and functionality might change before the product becomes generally available. During the public preview phase, you might encounter occasional errors or unexpected behavior.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-connectors-usage"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "737ebec8519af9d5"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-365-copilot-credits",
+      "title": "Microsoft Copilot Credits report",
+      "product": "m365-copilot-hub",
+      "summary": "For the most complete and up-to-date Copilot Credit licensing and billing information, see the Copilot Credit Guide.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-credits"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "f923c559a0ca59bb"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-365-copilot-readiness",
+      "title": "Microsoft Copilot readiness report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Copilot readiness report helps you identify which users are technically eligible for Copilot and streamline your organization's rollout. From the report, you can assign licenses and monitor usage of Microsoft 365 apps that Copilot integrates best with.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-readiness"
+      ],
+      "harnesses": [],
+      "conceptId": "monitor",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-measure-copilot-adoption"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "c3d5555aedddaa68"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-365-copilot-search-usage",
+      "title": "Microsoft Copilot Search usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Copilot Search usage report is currently in public preview. Deployment processes and functionality might change before this report becomes generally available. During the public preview phase, you might notice some unexpected behaviors.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-search-usage"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "174226980bddf417"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-365-copilot-usage",
+      "title": "Microsoft Copilot usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Copilot usage report provides a summary of how users adopt, retain, and engage with Microsoft Copilot and its associated enabled apps. For Copilot activity on a given day, the report typically becomes available within 48 hours of the end of that day (in UTC).",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-usage"
+      ],
+      "harnesses": [],
+      "conceptId": "monitor",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-measure-copilot-adoption"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "0d621633df604b47"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-copilot-usage",
+      "title": "Microsoft Copilot Chat usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Copilot Chat usage report provides insights into active usage of Microsoft Copilot Chat. The report includes total active users, average daily active users, total prompts submitted, and average prompts submitted per user.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-copilot-usage"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "217d24fcc44696c0"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-office-activations-ww",
+      "title": "Microsoft 365 Apps Activations report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft 365 Apps Activations report provides details about which users activated their Office subscription on at least one device.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-office-activations-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b8add8b4e99eda9c"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-teams-device-usage-preview",
+      "title": "Microsoft Teams device usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Teams device usage report provides an overview of device usage activity in Teams, including the number of daily active users by device type. You can quickly see what devices licensed users across your organization are using to access Teams.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-teams-device-usage-preview"
+      ],
+      "harnesses": [],
+      "conceptId": "testing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "08b2599a661019dc"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-teams-usage-activity",
+      "title": "Microsoft Teams Team usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Teams Team usage report provides an overview of the usage activity in Teams, including the number of active users, channels, and messages. You can quickly see how many users across your organization are using Teams to communicate and collaborate.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-teams-usage-activity"
+      ],
+      "harnesses": [],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b9806c68ee8687a5"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft-teams-user-activity-preview",
+      "title": "Microsoft Teams User activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Teams User activity report provides insights into the Microsoft Teams activity in your organization.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-teams-user-activity-preview"
+      ],
+      "harnesses": [],
+      "conceptId": "testing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "568b9116fb9bba3d"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-microsoft365-apps-usage-ww",
+      "title": "Microsoft 365 apps Usage report",
+      "product": "m365-copilot-hub",
+      "summary": "Use the Microsoft 365 apps Usage report to understand how licensed users engage with core Microsoft 365 apps across Windows, Mac, web, and mobile.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft365-apps-usage-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "66a73b54f1cc6738"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-office-365-groups-ww",
+      "title": "Microsoft 365 apps Groups activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft 365 apps Groups activity report provides insight into the activity of groups in your organization. It includes details about how many groups are created and used.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/office-365-groups-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "319ff4a5e53819fc"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-onedrive-for-business-activity-ww",
+      "title": "OneDrive Activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The OneDrive Activity report provides insight for every user licensed to use OneDrive by looking at their interaction with files on OneDrive. It also helps you understand the level of collaboration by looking at the number of files shared.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/onedrive-for-business-activity-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "e10fbc1dab3ffd6e"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-onedrive-for-business-usage-ww",
+      "title": "OneDrive Usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The OneDrive Usage report provides a high-level view of the value you get from OneDrive. The report includes details about the total number of accounts, files, and storage used across your organization.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/onedrive-for-business-usage-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "beff4ab29c7af29c"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-planner-activity",
+      "title": "Microsoft Planner usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Planner usage report gives you a view of how people in your organization are using Planner. You can see the number of active users across your tenant, how that number trends over time, and per-user activity details such as how many days each person was active and when they were last active.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/planner-activity"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "c9b5413fbe96d47d"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-project-activity",
+      "title": "Project Activity report",
+      "product": "m365-copilot-hub",
+      "summary": "Use the Project Activity report to quickly answer three questions:",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/project-activity"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "a1a36c4382d76a5d"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-sharepoint-activity-ww",
+      "title": "SharePoint Activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The SharePoint Activity report provides details about the activity of every licensed SharePoint user by looking at their interaction with files. The report helps you understand the level of collaboration by showing the number of files shared.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/sharepoint-activity-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "00cd780a10a77334"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-sharepoint-site-usage-ww",
+      "title": "SharePoint Site usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The SharePoint Site usage report provides a high-level view of the value you get from SharePoint. The report includes details about the total number of files that users store in SharePoint sites, how many files are actively used, and the storage consumed across all these sites.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/sharepoint-site-usage-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "a685e85f6db81bbf"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-sharepoint-storage-reports",
+      "title": "SharePoint Storage report",
+      "product": "m365-copilot-hub",
+      "summary": "The SharePoint Storage report provides an overview of your tenant's storage usage. It also offers suggestions for storage optimization and future proofing your organization's file growth capacity.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/sharepoint-storage-reports"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b83d9a61038429b6"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-visio-activity",
+      "title": "Visio Activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The Visio Activity report provides insight into the activity of every Visio user in your organization.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/visio-activity"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b3d5fe5451edd92e"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-viva-engage-activity-report-ww",
+      "title": "Viva Engage Activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The Viva Engage Activity report helps you understand the level of engagement of your organization with Viva Engage by looking at the number of unique users who use Viva Engage to post, like, or read a message and the amount of activity generated across the organization.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-engage-activity-report-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "6e631f8d167e9ff9"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-viva-engage-device-usage-report-ww",
+      "title": "Viva Engage Device usage report",
+      "product": "m365-copilot-hub",
+      "summary": "The Viva Engage Device usage report helps you understand which devices your users prefer for accessing Viva Engage. Use this data to identify adoption patterns across web, mobile, and other platforms—so you can optimize your deployment strategy and support for each device type.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-engage-device-usage-report-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "10a264ba0fc70c0e"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-viva-engage-groups-activity-report-ww",
+      "title": "Viva Engage groups activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The Viva Engage groups activity report provides insights into the activity of Viva Engage groups in your organization. You can also see how many Viva Engage groups are created and used.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-engage-groups-activity-report-ww"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "e6ff815de1cdf9d3"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-viva-goals-activity",
+      "title": "Viva Goals activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The Viva Goals report helps you understand the activity and usage of Viva Goals in your organization. It also helps you understand the level of collaboration by showing the active usage and the number of objectives and key results (OKRs) created.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-goals-activity"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "66b6349c6aac7f7d"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-viva-insights-activity",
+      "title": "Viva Insights activity report in the Microsoft 365 admin center",
+      "product": "m365-copilot-hub",
+      "summary": "Use the Viva Insights activity report to measure Viva Insights adoption in your organization.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-insights-activity"
+      ],
+      "harnesses": [],
+      "conceptId": "monitor",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "507bf6d4707d4d28"
+    },
+    {
+      "id": "learn-microsoft-365-admin-activity-reports-viva-learning-activity",
+      "title": "Viva Learning Activity report",
+      "product": "m365-copilot-hub",
+      "summary": "The Viva Learning Activity report helps you understand the activity of your licensed Viva Learning users by looking at their interactions. It also helps you understand the type of features being used within the Learning App.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-learning-activity"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "51a8fda5b6145236"
+    },
+    {
+      "id": "learn-microsoft-365-admin-manage",
+      "title": "Microsoft 365 admin center help",
+      "product": "m365-copilot-hub",
+      "summary": "Explore resources for working in the Microsoft 365 admin center.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "d0e3187302d8ec59"
+    },
+    {
+      "id": "learn-microsoft-365-admin-manage-agent-map",
+      "title": "Use Agent Map in the Microsoft 365 admin center",
+      "product": "m365-copilot-hub",
+      "summary": "This feature is available within Microsoft 365 admin center based on your licensed subscription. To view your licensed subscriptions in the Microsoft 365 admin center, select Billing Licenses Subscriptions . For more information, see Licensing for agent management.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-map"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "fdde52f5b84168e7"
+    },
+    {
+      "id": "learn-microsoft-365-admin-manage-configure-release-options",
+      "title": "Configure new Standard and Deferred release options for Microsoft 365",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft 365 delivers updates continuously, enabling organizations to adopt new capabilities without large, infrequent upgrades.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/configure-release-options"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "1e7ce399f8888195"
+    },
+    {
+      "id": "learn-microsoft-365-admin-manage-get-started-frontier",
+      "title": "Get started with the Microsoft Frontier Program",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft Frontier program gives organizations preview access to innovative and emerging capabilities in Microsoft 365 before those features reach general availability (GA).",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/get-started-frontier"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "aca258984829961c"
+    },
+    {
+      "id": "learn-microsoft-365-admin-manage-message-center",
+      "title": "Track new and changed features in the Microsoft 365 Message center",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft 365 Message center helps IT admins track upcoming changes, feature updates, and required actions across services. Use Message center to plan for change, prevent disruptions, and stay informed about Microsoft 365 updates that affect your organization.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/message-center"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b433aa65ca4b30ad"
+    },
+    {
+      "id": "learn-microsoft-365-admin-manage-share-calendars-with-external-users",
+      "title": "Share Microsoft 365 calendars with people outside your organization",
+      "product": "m365-copilot-hub",
+      "summary": "Your users might need to schedule meetings with people outside your organization. To simplify the process of finding mutually agreeable meeting times, Microsoft 365 enables you to make calendars available to people outside your organization.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/share-calendars-with-external-users"
+      ],
+      "harnesses": [],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "1c2f1002c2bb7590"
+    },
+    {
+      "id": "learn-microsoft-365-admin-manage-stay-on-top-of-updates",
+      "title": "Stay on top of Microsoft 365 product and feature changes",
+      "product": "m365-copilot-hub",
+      "summary": "With Microsoft 365, you receive new product updates and features as they become available instead of scheduled updates that are months or years apart. As a result, you and your users will routinely experience new and improved ways to complete your work rather than a costly and time-consuming company-wide upgrade.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/stay-on-top-of-updates"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ae2106c88772a9ac"
+    },
+    {
+      "id": "learn-microsoft-agent-365",
+      "title": "Microsoft Agent 365 documentation",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft Agent 365 is the observability platform for AI. Manage every agent from one place, wherever it was built. Give each agent a clear owner and the right permissions, understand AI risk and keep agents protected, and turn your AI investment into business value.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-agent-365"
+      ],
+      "harnesses": [],
+      "conceptId": "uncategorized",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "396e1eee00d367fe"
+    },
+    {
+      "id": "learn-microsoft-agent-365-admin-agent-365-overview",
+      "title": "Agent management in Microsoft 365 admin center",
+      "product": "m365-copilot-hub",
+      "summary": "Agents are powerful AI companions that can handle a range of interactions and tasks. An agent can resolve issues that require complex conversations and autonomously determine the best action to take based on its instructions and context.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-365-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-review-agent-inventory"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "c48f612a041f0226"
+    },
+    {
+      "id": "learn-microsoft-agent-365-admin-agent-actions",
+      "title": "Governance and lifecycle actions for agents available in Microsoft 365 admin center",
+      "product": "m365-copilot-hub",
+      "summary": "The Microsoft 365 admin center provides governance and lifecycle management capabilities for agents through the Agent Registry. These capabilities enable administrators to manage agent visibility, access, distribution, and retirement across the tenant.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-agent-lifecycle-actions",
+        "m365h-agent-management-rules",
+        "m365h-approve-agent-requests",
+        "m365h-control-agent-availability"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b41881e0ed241bd5"
+    },
+    {
+      "id": "learn-microsoft-agent-365-admin-agent-details",
+      "title": "Understand agent details in Microsoft 365 admin center",
+      "product": "m365-copilot-hub",
+      "summary": "You can view and manage agent details for each agent listed in the agent registry within Microsoft 365 admin center. When you select an agent from the list, you can view these details in a fly-out pane. The Details pane provides information and actions, as well as additional information provided within tabs.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-details"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "f5bc2e5158c45337"
+    },
+    {
+      "id": "learn-microsoft-agent-365-admin-agent-roles-perms",
+      "title": "Agent management roles and permissions in Microsoft 365 admin center",
+      "product": "m365-copilot-hub",
+      "summary": "Access to agent management in Microsoft 365 admin center is controlled by Microsoft Entra admin roles.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/agent-roles-perms"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-review-agent-inventory"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "545c2a7eb1078c5c"
+    },
+    {
+      "id": "learn-microsoft-agent-365-admin-manage-copilot-agents-integrated-apps",
+      "title": "Manage agents in the Microsoft 365 admin center",
+      "product": "m365-copilot-hub",
+      "summary": "Microsoft Copilot combines the power of large language models with your data and apps in Microsoft 365. It captures natural language commands to produce content and analyze data. It enables access to and use of other apps, such as Jira, Dynamics 365, or Bing Web Search.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-agent-365/admin/manage-copilot-agents-integrated-apps"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "m365h-agent-lifecycle-actions",
+        "m365h-control-agent-availability"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "811fac926605d28b"
+    }
+  ],
+  "catalog": [
+    {
+      "featureId": "m365h-agent-lifecycle-actions",
+      "status": "current",
+      "contentHash": "a56e7258c46cb60f",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-agent-management-rules",
+      "status": "current",
+      "contentHash": "185aba4dfbb680a7",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-approve-agent-requests",
+      "status": "current",
+      "contentHash": "66619c921800ca44",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-assign-copilot-licenses",
+      "status": "current",
+      "contentHash": "124df9251ae2e957",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-audit-copilot-interactions",
+      "status": "current",
+      "contentHash": "ed402193e63d637e",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-control-agent-availability",
+      "status": "current",
+      "contentHash": "96c5263a8370d839",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-control-web-search",
+      "status": "current",
+      "contentHash": "76e4a3bb54c09b67",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-copilot-controls-overview",
+      "status": "current",
+      "contentHash": "05e282a1193fba24",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-data-access-governance-reports",
+      "status": "current",
+      "contentHash": "55e5e76c095c2c2c",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-dlp-for-copilot",
+      "status": "current",
+      "contentHash": "500e31dddd850587",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-dspm-copilot-risk",
+      "status": "current",
+      "contentHash": "a923808c9256a07d",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-measure-copilot-adoption",
+      "status": "current",
+      "contentHash": "a90937b56962e161",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-pay-as-you-go-billing",
+      "status": "current",
+      "contentHash": "6faf19c8490664e1",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-pin-copilot-chat",
+      "status": "current",
+      "contentHash": "b58085b50333f3a9",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-restrict-copilot-chat-access",
+      "status": "current",
+      "contentHash": "b58085b50333f3a9",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-restricted-content-discovery",
+      "status": "current",
+      "contentHash": "4dbbb0453838aef7",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-review-agent-inventory",
+      "status": "current",
+      "contentHash": "f2ab066728f84926",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-secure-copilot-data",
+      "status": "current",
+      "contentHash": "0d0f1ddb7f20a2ad",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-tour-copilot-settings",
+      "status": "current",
+      "contentHash": "bdd857ccad301944",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "m365h-troubleshoot-copilot-access",
+      "status": "current",
+      "contentHash": "b58085b50333f3a9",
+      "changedAt": null,
+      "missing": []
+    }
+  ],
+  "pageHashes": {
+    "https://learn.microsoft.com/copilot/adopt/enable-users": "a3f7b438f03f1ffc",
+    "https://learn.microsoft.com/copilot/implement": "ceb089a2ae7c6811",
+    "https://learn.microsoft.com/copilot/implement/configure-copilot-admin-center": "ca51f7fad0147110",
+    "https://learn.microsoft.com/copilot/implement/connect-to-ai-subprocessor": "b61037bc8bd9ed62",
+    "https://learn.microsoft.com/copilot/implement/copilot-controls-management": "e23ffa8aa7454388",
+    "https://learn.microsoft.com/copilot/implement/copilot-controls-measurement-reporting": "c81c4663cf9a07d0",
+    "https://learn.microsoft.com/copilot/implement/copilot-controls-overview": "e9029bd58186e77c",
+    "https://learn.microsoft.com/copilot/implement/copilot-controls-security-governance": "ccf325e82b652d1f",
+    "https://learn.microsoft.com/copilot/implement/discovery-setting-ai-experiences": "e535797a2a9fa7ab",
+    "https://learn.microsoft.com/copilot/implement/openai-subprocessor": "896e211c4f494760",
+    "https://learn.microsoft.com/copilot/implement/pin-copilot-chat-navbar": "2b2ab6f654d4fa65",
+    "https://learn.microsoft.com/copilot/implement/request-access-usage-based-billing-experiences": "687e882c27f0386a",
+    "https://learn.microsoft.com/copilot/implement/setup-pay-as-you-go": "2acb6eb702e65ad8",
+    "https://learn.microsoft.com/copilot/implement/usage-based-billing-copilot-credits-monitor-spending": "1fe54786212f1748",
+    "https://learn.microsoft.com/copilot/implement/usage-based-billing-copilot-credits-setup": "73c716aa77668f17",
+    "https://learn.microsoft.com/copilot/implement/usage-based-billing-manage-copilot-credits": "ddfa0802e3158925",
+    "https://learn.microsoft.com/copilot/implement/usage-based-billing-manage-copilot-studio-costs": "697c84d9406b6f78",
+    "https://learn.microsoft.com/copilot/manage/manage-copilot-chat": "be0eac7d053806ec",
+    "https://learn.microsoft.com/copilot/plan": "ceb089a2ae7c6811",
+    "https://learn.microsoft.com/copilot/plan/ai-models-overview": "592b59086ad90c19",
+    "https://learn.microsoft.com/copilot/plan/architecture-data-protection-auditing": "8738d72d87499f57",
+    "https://learn.microsoft.com/copilot/plan/compare-copilot-e3-e5-e7": "1a1ad918a0abf9dd",
+    "https://learn.microsoft.com/copilot/plan/copilot-license-options": "c8aa89e323c82ab8",
+    "https://learn.microsoft.com/copilot/plan/copilot-overview": "0f251c04083bba1a",
+    "https://learn.microsoft.com/copilot/plan/copilot-prompt-defense-in-depth": "7404a26521b7e000",
+    "https://learn.microsoft.com/copilot/plan/enterprise-data-protection": "225fffccae92e93f",
+    "https://learn.microsoft.com/copilot/plan/gov-overview": "a4156fde70244186",
+    "https://learn.microsoft.com/copilot/plan/manage-public-web-access": "d6211b3ebb92a758",
+    "https://learn.microsoft.com/copilot/plan/microsoft-365-copilot-application-card": "f13b85631276f876",
+    "https://learn.microsoft.com/copilot/plan/microsoft-365-copilot-privacy": "2ee5e6c08c1ba77d",
+    "https://learn.microsoft.com/copilot/plan/microsoft-copilot-requirements": "15ad79bc9e033226",
+    "https://learn.microsoft.com/copilot/plan/pay-as-you-go-meters": "68d4f5eefd53f78e",
+    "https://learn.microsoft.com/copilot/plan/pay-as-you-go-overview": "03b8bb6ff326e182",
+    "https://learn.microsoft.com/copilot/plan/secure-govern-copilot-foundational-deployment-guidance": "2e12d9cf78b6be7e",
+    "https://learn.microsoft.com/copilot/plan/security-microsoft-copilot": "2b07360148c12e86",
+    "https://learn.microsoft.com/copilot/plan/usage-based-billing-overview-copilot-credits": "119bf2dae489a47f",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports": "57c3fdec8b414d39",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/active-users-ww": "6cb76ff67cec52b6",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/activity-reports": "57c3fdec8b414d39",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/browser-usage-report": "beef52b1ad994fcf",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/cowork-usage-report": "fc37195f71213457",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/email-activity-ww": "c9ff6d9c3aa912e8",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/email-apps-usage-ww": "df83af5f93e44233",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/forms-activity-ww": "183bab31cfad82d9",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/forms-pro-activity-ww": "e913c7e1fca77a51",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/mailbox-usage": "d5caf8f0ae8405c3",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-agents": "79b7a766c79d66fd",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-connectors-usage": "737ebec8519af9d5",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-credits": "f923c559a0ca59bb",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-readiness": "c3d5555aedddaa68",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-search-usage": "174226980bddf417",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-365-copilot-usage": "0d621633df604b47",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-copilot-usage": "217d24fcc44696c0",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-office-activations-ww": "b8add8b4e99eda9c",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-teams-device-usage-preview": "08b2599a661019dc",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-teams-usage-activity": "b9806c68ee8687a5",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft-teams-user-activity-preview": "568b9116fb9bba3d",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/microsoft365-apps-usage-ww": "66a73b54f1cc6738",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/office-365-groups-ww": "319ff4a5e53819fc",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/onedrive-for-business-activity-ww": "e10fbc1dab3ffd6e",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/onedrive-for-business-usage-ww": "beff4ab29c7af29c",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/planner-activity": "c9b5413fbe96d47d",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/project-activity": "a1a36c4382d76a5d",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/sharepoint-activity-ww": "00cd780a10a77334",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/sharepoint-site-usage-ww": "a685e85f6db81bbf",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/sharepoint-storage-reports": "b83d9a61038429b6",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/visio-activity": "b3d5fe5451edd92e",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-engage-activity-report-ww": "6e631f8d167e9ff9",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-engage-device-usage-report-ww": "10a264ba0fc70c0e",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-engage-groups-activity-report-ww": "e6ff815de1cdf9d3",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-goals-activity": "66b6349c6aac7f7d",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-insights-activity": "507bf6d4707d4d28",
+    "https://learn.microsoft.com/microsoft-365/admin/activity-reports/viva-learning-activity": "51a8fda5b6145236",
+    "https://learn.microsoft.com/microsoft-365/admin/manage": "d0e3187302d8ec59",
+    "https://learn.microsoft.com/microsoft-365/admin/manage/agent-map": "fdde52f5b84168e7",
+    "https://learn.microsoft.com/microsoft-365/admin/manage/assign-licenses-to-users": "4c7270f717aecf8c",
+    "https://learn.microsoft.com/microsoft-365/admin/manage/configure-release-options": "1e7ce399f8888195",
+    "https://learn.microsoft.com/microsoft-365/admin/manage/get-started-frontier": "aca258984829961c",
+    "https://learn.microsoft.com/microsoft-365/admin/manage/message-center": "b433aa65ca4b30ad",
+    "https://learn.microsoft.com/microsoft-365/admin/manage/share-calendars-with-external-users": "1c2f1002c2bb7590",
+    "https://learn.microsoft.com/microsoft-365/admin/manage/stay-on-top-of-updates": "ae2106c88772a9ac",
+    "https://learn.microsoft.com/microsoft-agent-365": "396e1eee00d367fe",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-365-overview": "c48f612a041f0226",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions": "b41881e0ed241bd5",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-details": "f5bc2e5158c45337",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview": "d22c0afe756d263b",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-requests": "995df7fd4a66adb4",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-roles-perms": "545c2a7eb1078c5c",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings": "6e35325a8f073c97",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/manage-copilot-agents-integrated-apps": "811fac926605d28b",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/policy-template": "6ae7408d5d87be0c",
+    "https://learn.microsoft.com/purview/ai-m365-copilot": "d8ecb5971ab2b885",
+    "https://learn.microsoft.com/purview/audit-copilot": "b37fc7dc91604173",
+    "https://learn.microsoft.com/purview/data-security-posture-management-learn-about": "bc3a50780ffb891c",
+    "https://learn.microsoft.com/purview/dlp-microsoft365-copilot-location-learn-about": "d6b84c48abedd71f",
+    "https://learn.microsoft.com/purview/dspm-for-ai": "b5a8088fb3ba3844",
+    "https://learn.microsoft.com/sharepoint/data-access-governance-reports": "2f52b9b8c3036807",
+    "https://learn.microsoft.com/sharepoint/restricted-content-discovery": "ff70069fab3b739b",
+    "https://learn.microsoft.com/viva/insights/org-team-insights/copilot-dashboard": "3fefb99fadf1a0e3"
+  },
+  "listHash": "dc4a669613e38314",
+  "endpoint": "https://learn.microsoft.com/api/mcp"
+}

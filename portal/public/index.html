@@ -2222,6 +2222,16 @@
     .lb-badge-moved { border-style: double; border-width: 3px; padding: 0.5px 7px; font-weight: 600; }
     .lb-learn-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; justify-content: space-between; margin: 0 0 10px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 12px; color: var(--text-muted); }
     .lb-learn-status { flex: 1 1 260px; margin: 0; }
+    .lb-mine { margin: 0 0 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+    .lb-mine > summary { cursor: pointer; padding: 8px 12px; font-weight: 600; font-size: 13px; }
+    .lb-mine-body { padding: 4px 12px 12px; }
+    .lb-mine-help { margin: 0 0 8px; font-size: 12px; color: var(--text-muted); }
+    .lb-mine-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .lb-mine-label { font-size: 12px; font-weight: 600; }
+    .lb-mine-input { flex: 1 1 280px; min-width: 0; padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
+    .lb-mine-results { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+    .lb-mine-result { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+    .lb-mine-heading { margin: 12px 0 0; font-size: 13px; }
     .lb-learn-links {
       display: flex;
       flex-wrap: wrap;
@@ -2840,6 +2850,18 @@
       flex-wrap: wrap;
       align-items: center;
     }
+    .lb-checklist { font-size: 14px; line-height: 1.6; color: var(--text); }
+    .lb-checklist h4 { margin: 18px 0 8px; font-size: 15px; }
+    .lb-checklist-lead { margin: 0 0 10px; }
+    .lb-checklist-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+    .lb-checklist-list { margin: 0; padding-left: 20px; }
+    .lb-checklist-list > li { margin: 6px 0; }
+    .lb-checklist-list summary { cursor: pointer; font-weight: 600; }
+    .lb-checklist-list details[open] { padding-bottom: 6px; }
+    .lb-checklist-list details > p { margin: 6px 0 0 4px; }
+    .lb-checklist-list details > ol { margin: 6px 0 0; padding-left: 22px; }
+    .lb-checklist-file { color: var(--text-muted); font-size: 13px; }
+    .lb-checklist-done { margin: 0; font-weight: 600; }
     .lb-result-body {
       display: flex;
       flex-direction: column;
@@ -5863,6 +5885,25 @@
                 </div>
               </fieldset>
               <p id="lb-product-error" class="lb-error" role="alert"></p>
+              <details class="lb-mine" id="lb-addprod">
+                <summary>Add another Microsoft product from Microsoft Learn</summary>
+                <div class="lb-mine-body">
+                  <p class="lb-mine-help">Pick a product's documentation from the list, or search Microsoft Learn. It joins the products above, is saved for next time, and its topics are read from Microsoft Learn. Nothing about it is reviewed here, so its labs say so.</p>
+                  <div class="lb-mine-row">
+                    <label for="lb-addprod-pick" class="lb-mine-label">Choose a product</label>
+                    <select id="lb-addprod-pick" class="lb-mine-input"><option value="">Choose a product...</option></select>
+                    <button type="button" class="btn btn-sm btn-primary" id="lb-addprod-add">Add product</button>
+                  </div>
+                  <div class="lb-mine-row">
+                    <label for="lb-addprod-input" class="lb-mine-label">Or search Microsoft Learn</label>
+                    <input id="lb-addprod-input" type="text" class="lb-mine-input" maxlength="200" autocomplete="off" placeholder="For example: Dynamics 365 Customer Service">
+                    <button type="button" class="btn btn-sm" id="lb-addprod-go">Search</button>
+                  </div>
+                  <p id="lb-addprod-status" class="lb-learn-status" role="status" aria-live="polite"></p>
+                  <ul id="lb-addprod-results" class="lb-mine-results"></ul>
+                  <div id="lb-addprod-saved"></div>
+                </div>
+              </details>
               <div class="lb-step-footer" data-lb-step-footer>
                 <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Vertical →</button>
               </div>
@@ -5964,6 +6005,20 @@
                 <button class="btn btn-sm" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
               </div>
               <p id="lb-learn-error" class="lb-error" role="alert"></p>
+              <details class="lb-mine" id="lb-mine">
+                <summary>Add a topic from Microsoft Learn</summary>
+                <div class="lb-mine-body">
+                  <p class="lb-mine-help">Search Microsoft Learn, or paste a link to an article. It joins this list, is saved for next time, and is selected for you.</p>
+                  <div class="lb-mine-row">
+                    <label for="lb-mine-input" class="lb-mine-label">Search or paste a link</label>
+                    <input id="lb-mine-input" type="text" class="lb-mine-input" maxlength="300" autocomplete="off" placeholder="For example: autofill columns, or https://learn.microsoft.com/...">
+                    <button type="button" class="btn btn-sm btn-primary" id="lb-mine-go">Search</button>
+                  </div>
+                  <p id="lb-mine-status" class="lb-learn-status" role="status" aria-live="polite"></p>
+                  <ul id="lb-mine-results" class="lb-mine-results"></ul>
+                  <div id="lb-mine-saved"></div>
+                </div>
+              </details>
               <div class="lb-topic-scorebar">
                 <div id="lb-topic-scorecard" class="lb-topic-scorecard" role="group" aria-label="Topic selection summary"></div>
                 <p id="lb-topic-count" class="lb-topic-count" role="status" aria-live="polite"></p>
@@ -7177,6 +7232,8 @@
   <script src="brand-ui.js" defer></script>
   <script src="app.js" defer></script>
 <script src="lab-builder-wizard.js" defer></script>
+  <script src="lab-builder-my-topics.js" defer></script>
+  <script src="lab-builder-my-products.js" defer></script>
 <script src="use-case-builder.js" defer></script>
 <script src="generated-labs.js" defer></script>
 <script src="screenshot-center-core.js" defer></script>

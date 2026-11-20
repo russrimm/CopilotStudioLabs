@@ -27,7 +27,7 @@ import { cleanText, normalizeLearnUrl, tidySummary, topicId } from "../lib/lab-b
 import { knowledgeCheckBlock } from "../lib/lab-builder/teaching.js";
 import { listHash, summarize, validateSnapshot } from "../lib/lab-builder/topic-snapshot.js";
 import { createTopicService, resetTopicSource, setTopicSource, topicConfig } from "../lib/lab-builder/topic-store.js";
-import { registerTopicRoutes, topicsPayload } from "../lib/lab-builder/topic-api.js";
+import { refreshResponse, registerTopicRoutes, topicsPayload } from "../lib/lab-builder/topic-api.js";
 import { topicToFeature } from "../lib/lab-builder/topic-feature.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
 import { planLab } from "../lib/lab-builder/planner.js";
@@ -509,14 +509,14 @@ test("scheduled refresh is off unless enabled, and its timer never keeps the pro
 
 // ── API routes ──────────────────────────────────────────────────────────────
 
-async function startApi(t, service, { max = 2 } = {}) {
+async function startApi(t, service, { max = 2, learn = null } = {}) {
   const app = express();
   app.use(express.json({ limit: "1kb" }));
   // Stands in for requireAuth: no bearer token, no access.
   app.use("/api", (req, res, next) => (req.headers.authorization ? ((req.user = { oid: req.headers.authorization }), next()) : res.status(401).json({ error: "Authentication required" })));
   const limit = createRateLimiter;
   process.env.LAB_BUILDER_TOPICS_RATE_MAX = String(max);
-  registerTopicRoutes(app, { getService: () => service, createRateLimiter: limit, positiveIntFromEnv });
+  registerTopicRoutes(app, { getService: () => service, createRateLimiter: limit, positiveIntFromEnv, learn });
   delete process.env.LAB_BUILDER_TOPICS_RATE_MAX;
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -573,6 +573,7 @@ test("POST refresh validates input, rate limits, and reports failures without lo
 
   assert.equal((await call("/api/lab-builder/topics/refresh", { method: "POST", body: { force: true } })).status, 400);
   assert.equal((await call("/api/lab-builder/topics/refresh", { method: "POST", body: [1] })).status, 400);
+  assert.equal((await call("/api/lab-builder/topics/refresh", { method: "POST", body: { products: ["nope"] } })).status, 400);
   assert.equal((await call("/api/lab-builder/topics/refresh", { method: "POST", raw: "{ nope" })).status, 400);
   assert.equal((await call("/api/lab-builder/topics/refresh", { method: "POST", body: { pad: "x".repeat(4000) } })).status, 413);
 
@@ -1060,4 +1061,115 @@ test("a Learn-only topic never gets a quiz whose answers are its own disclaimer"
   const lines = knowledgeCheckBlock({ ...feature, stepOrder: 1 }, { profile: { agentName: "Helper" }, includeKnowledgeCheck: true }, u, null).join("\n");
   assert.doesNotMatch(lines, /Question \d|Correct answer|was found on Microsoft Learn/);
   assert.match(lines, /No quiz for this topic/);
+});
+
+test("each product has its own Learn list: refreshing one writes its own cache, reaches the catalog, and reports its own freshness", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "product-topics-"));
+  t.after(() => {
+    resetTopicSource();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const url = "https://learn.microsoft.com/sharepoint/copilot-tips";
+  const make = (extra) => {
+    const snapshot = { schemaVersion: 1, generatedAt: "2026-11-13T12:00:00Z", source: "test", catalogVersion: "test", topics: [], catalog: [], pageHashes: {}, ...extra };
+    snapshot.listHash = listHash(snapshot);
+    return snapshot;
+  };
+  const sharepoint = make({
+    product: "sharepoint-ai",
+    topics: [{ id: topicId(url), title: "Copilot tips for SharePoint", product: "sharepoint-ai", summary: "Tips for working with Copilot in SharePoint sites.", urls: [url], harnesses: [], conceptId: "uncategorized", availability: null, status: "new", featureIds: [], level: 200, firstSeen: "2026-11-13", lastSeen: "2026-11-13", changedAt: null, contentHash: "0123456789abcdef" }],
+  });
+  const main = make({});
+  setTopicSource({ source: "cache", snapshot: main });
+  const calls = [];
+  const service = createTopicService({
+    config: { ...config(), cachePath: path.join(dir, "cs.json"), snapshotPath: path.join(dir, "cs-baseline.json"), minRefreshIntervalMs: 0 },
+    now: () => NOW,
+    discover: async (ctx) => {
+      calls.push(ctx.product ?? "copilot-studio");
+      return ctx.product ? sharepoint : main;
+    },
+  });
+  const first = await service.refresh({ product: "sharepoint-ai" });
+  assert.equal(first.ok, true, JSON.stringify(first));
+  assert.deepEqual(calls, ["sharepoint-ai"]);
+  assert.ok(fs.existsSync(path.join(dir, "topics-cache-sharepoint-ai.json")), "its own cache file");
+  assert.ok(!fs.existsSync(path.join(dir, "cs.json")), "the Copilot Studio cache is untouched");
+  assert.equal(getFeature(topicId(url))?.product, "sharepoint-ai", "the lab builder can build a lab for it");
+
+  const payload = topicsPayload(service);
+  assert.equal(payload.products["sharepoint-ai"].newTopics, 1);
+  assert.equal(payload.products["sharepoint-ai"].source, "cache");
+  assert.equal(payload.products["copilot-studio"].source, "catalog");
+  assert.ok(payload.topics.some((topic) => topic.id === topicId(url) && topic.source === "learn" && topic.product === "sharepoint-ai"));
+
+  const both = await refreshResponse(service, ["copilot-studio", "sharepoint-ai"]);
+  assert.deepEqual(Object.keys(both.body.refresh.products), ["copilot-studio", "sharepoint-ai"]);
+  assert.equal(both.status, 200);
+});
+
+test("a person can add a Microsoft Learn page to their topics: search, add, list, build, remove, and keep it across a restart", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "my-topics-"));
+  t.after(() => {
+    resetTopicSource();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const main = { schemaVersion: 1, generatedAt: "2026-11-13T12:00:00Z", source: "test", catalogVersion: "test", topics: [], catalog: [], pageHashes: {} };
+  main.listHash = listHash(main);
+  setTopicSource({ source: "cache", snapshot: main });
+  const file = path.join(dir, "user-topics.json");
+  const cfg = { ...config(), cachePath: path.join(dir, "c.json"), snapshotPath: path.join(dir, "s.json"), userTopicsPath: file };
+  const service = createTopicService({ config: cfg, now: () => NOW, discover: async () => assert.fail("no refresh here") });
+  const page = "https://learn.microsoft.com/sharepoint/create-sites-with-ai";
+  const learn = {
+    search: async () => [
+      { title: "Create sites with AI", url: page, excerpt: "Use AI to create a SharePoint site from a description." },
+      { title: "Something else", url: "https://learn.microsoft.com/azure/other-product/x", excerpt: "Not a product this builder covers." },
+      { title: "Not Learn", url: "http://evil.example/x", excerpt: "dropped" },
+    ],
+    page: async (url) => ({ url, error: null, markdown: "# Create sites with AI\n\nUse Copilot to create a SharePoint site from a short description in a few minutes.\n\n1. Select **Create site**.\n2. Describe the site.\n" }),
+  };
+  const { call } = await startApi(t, service, { max: 50, learn });
+  const post = (route, body) => call(route, { method: "POST", body });
+
+  const found = await (await post("/api/lab-builder/topics/mine/search", { query: "sites with ai" })).json();
+  assert.equal(found.results.length, 2, "an address that is not on Learn is dropped");
+  assert.deepEqual([found.results[0].product, found.results[0].addable], ["sharepoint-ai", true]);
+  assert.deepEqual([found.results[1].product, found.results[1].addable], [null, false]);
+  assert.equal((await post("/api/lab-builder/topics/mine/search", { query: "ab" })).status, 400);
+
+  const added = await post("/api/lab-builder/topics/mine", { url: page });
+  assert.equal(added.status, 201);
+  const topic = (await added.json()).topic;
+  assert.equal(topic.userAdded, true);
+  assert.equal(topic.product, "sharepoint-ai");
+  assert.equal(topic.title, "Create sites with AI");
+  assert.equal((await post("/api/lab-builder/topics/mine", { url: page })).status, 409);
+  assert.equal((await post("/api/lab-builder/topics/mine", { url: "https://learn.microsoft.com/azure/other-product/x" })).status, 422);
+  assert.equal((await post("/api/lab-builder/topics/mine", { url: "http://learn.microsoft.com/sharepoint/x" })).status, 400);
+
+  const listed = (await (await call("/api/lab-builder/topics")).json()).topics.find((entry) => entry.id === topic.id);
+  assert.equal(listed.userAdded, true);
+  assert.equal(getFeature(topic.id).learnTopic.userAdded, true, "the lab builder can build a lab for it");
+  const recommended = recommend({ products: ["sharepoint-ai"], level: 200 }, { topics: service.userTopics(), checks: [], updatedWindowDays: 30 });
+  assert.ok(recommended.concepts.flatMap((c) => c.topics).some((entry) => entry.id === topic.id && entry.learn?.userAdded === true));
+
+  const again = createTopicService({ config: cfg, now: () => NOW, discover: async () => assert.fail("no refresh here") });
+  assert.deepEqual(again.userTopics().map((entry) => entry.id), [topic.id], "saved on disk, so it survives a restart");
+
+  assert.equal((await call(`/api/lab-builder/topics/mine/${topic.id}`, { method: "DELETE" })).status, 200);
+  assert.equal((await call(`/api/lab-builder/topics/mine/${topic.id}`, { method: "DELETE" })).status, 404);
+  assert.equal((await call("/api/lab-builder/topics/mine/not-an-id", { method: "DELETE" })).status, 400);
+  assert.equal(again.userTopics().length, 0);
+});
+test("the Topics step offers an Add a topic from Microsoft Learn panel that is labeled, loads after the wizard, and shows what you added", () => {
+  const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.match(html, /<details class="lb-mine" id="lb-mine">/);
+  assert.match(html, /<label for="lb-mine-input"/);
+  assert.ok(html.indexOf("lab-builder-wizard.js") < html.indexOf("lab-builder-my-topics.js"), "the panel script loads after the wizard");
+  const panel = fs.readFileSync(new URL("../public/lab-builder-my-topics.js", import.meta.url), "utf8");
+  for (const route of ["/api/lab-builder/topics/mine/search", "/api/lab-builder/topics/mine"]) assert.ok(panel.includes(route), route);
+  const wizard = fs.readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
+  assert.match(wizard, /lbMineRender\(\)/);
+  assert.match(wizard, /Added by you/);
 });

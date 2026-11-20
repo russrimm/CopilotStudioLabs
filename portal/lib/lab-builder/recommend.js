@@ -297,6 +297,7 @@ export function recommend(answers = {}, learn = {}) {
             ...(discovered.subtopics?.length ? { subtopics: describeSubtopics(discovered, excludedSubtopicSet) } : {}),
             lastSeen: discovered.lastSeen,
             updated: isRecent(discovered.changedAt),
+            ...(discovered.userAdded ? { userAdded: true } : {}),
           }
         : check?.status === "stale"
         ? { status: "stale", missing: check.missing }

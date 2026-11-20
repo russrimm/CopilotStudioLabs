@@ -1,0 +1,1002 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-20T05:59:44.097Z",
+  "source": "microsoft-learn-mcp",
+  "product": "sharepoint-ai",
+  "catalogVersion": 1,
+  "partial": false,
+  "partialReason": null,
+  "stats": {
+    "calls": 194,
+    "errors": 0,
+    "pagesRead": 156,
+    "searches": 9
+  },
+  "topics": [
+    {
+      "id": "learn-microsoft-365-copilot-extensibility",
+      "title": "Extend Microsoft 365 Copilot with Plugins",
+      "product": "sharepoint-ai",
+      "summary": "Build and manage plugins for Microsoft 365 Copilot, from planning through publishing and retirement.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "3b60b43202fae2f5"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing",
+      "title": "Document processing for Microsoft 365 documentation",
+      "product": "sharepoint-ai",
+      "summary": "Document processing for Microsoft 365 is a set of pay-as-you-go services that uses advanced content AI to provide end-to-end intelligent document processing solutions for your organization.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "160b170a318641e7"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing-autofill-overview",
+      "title": "Overview of autofill columns",
+      "product": "sharepoint-ai",
+      "summary": "Through June 2026, you can try out a limited amount of autofill columns and other selected content services at no cost if you have pay-as-you-go billing set up. For information and limitations, see Try out pay-as-you-go services.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "content-ai",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "spai-autofill-columns"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "2319b47401f6eb9d"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing-create-a-classifier",
+      "title": "Train an unstructured document processing model",
+      "product": "sharepoint-ai",
+      "summary": "^ Applies to: ✓ Unstructured document processing ^",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/create-a-classifier"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b523cca351ebe5e6"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing-create-an-extractor",
+      "title": "Create an extractor for document processing",
+      "product": "sharepoint-ai",
+      "summary": "^ Applies to: ✓ Unstructured document processing ^",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/create-an-extractor"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ba9e7a89194640a7"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing-create-syntex-model",
+      "title": "Create an enterprise model for document processing",
+      "product": "sharepoint-ai",
+      "summary": "^ Applies to: ✓ All custom models ✓ All prebuilt models^",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/create-syntex-model"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "cf466f6e3ed61ef3"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing-document-understanding-overview",
+      "title": "Overview of unstructured document processing",
+      "product": "sharepoint-ai",
+      "summary": "Through June 2026, you can try out a limited amount of unstructured document processing and other selected content services at no cost if you have pay-as-you-go billing set up. For information and limitations, see Try out pay-as-you-go services.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/document-understanding-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "75780baa1c28f581"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing-form-processing-overview",
+      "title": "Overview of structured and freeform document processing",
+      "product": "sharepoint-ai",
+      "summary": "Through June 2026, you can try out a limited amount of structured and freeform document processing and other selected content services at no cost if you have pay-as-you-go billing set up. For information and limitations, see Try out pay-as-you-go services.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/form-processing-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "fd3808f3e948c673"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing-promo-syntex",
+      "title": "Try out pay-as-you-go services for document processing",
+      "product": "sharepoint-ai",
+      "summary": "Document processing for Microsoft 365 provides powerful content management and productivity services that let you do more with your documents. You can process, analyze, create, sign, manage, and enhance them with ease.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/promo-syntex"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "efd3a44658c0e03c"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing-requirements-and-limitations",
+      "title": "Requirements and limitations for unstructured document processing",
+      "product": "sharepoint-ai",
+      "summary": "The following table outlines key factors to consider when planning to use an unstructured document processing model.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/requirements-and-limitations"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "487e09f5d86b136b"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing-structured-freeform-requirements",
+      "title": "Requirements and limitations for structured and freeform document processing in SharePoint",
+      "product": "sharepoint-ai",
+      "summary": "The following sections outline key factors to consider when planning to use a structured or freeform document processing model.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/structured-freeform-requirements"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "1ea3b39b64c6cbd4"
+    },
+    {
+      "id": "learn-microsoft-365-documentprocessing-syntex-azure-billing",
+      "title": "Set up pay-as-you-go billing for document processing",
+      "product": "sharepoint-ai",
+      "summary": "Document processing services are billed on a pay-as-you-go basis. These services use an Azure subscription for billing and track usage and cost with a meter. Read the pay-as-you-go terms of service before you configure pay-as-you-go.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/documentprocessing/syntex-azure-billing"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "1031408349ea768b"
+    },
+    {
+      "id": "learn-sharepoint-advanced-management",
+      "title": "What is SharePoint Advanced Management?",
+      "product": "sharepoint-ai",
+      "summary": "SharePoint Advanced Management (SAM) provides administrative governance controls for SharePoint and OneDrive that help organizations:",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/advanced-management"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "spai-sam-overview-and-licensing",
+        "spai-site-access-review"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "5198dbd19b3e08e8"
+    },
+    {
+      "id": "learn-sharepoint-ai-insights",
+      "title": "Generate AI insights for SharePoint Advanced Management",
+      "product": "sharepoint-ai",
+      "summary": "The AI insights feature for SharePoint Advanced Management uses a language model to identify patterns and potential issues from reporting and receive actionable recommendations to solve issues.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/ai-insights"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "79cb2e1088b6e4c2"
+    },
+    {
+      "id": "learn-sharepoint-content-governance-agent",
+      "title": "What is the SharePoint Admin Agent?",
+      "product": "sharepoint-ai",
+      "summary": "The SharePoint Admin Agent is an AI-powered governance experience that helps your administrators assess and remediate content-related risks across your SharePoint and OneDrive environments.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/content-governance-agent"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "spai-sharepoint-admin-agent"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b5c2174ec98e4df1"
+    },
+    {
+      "id": "learn-sharepoint-copilot-in-sharepoint-create-document-library",
+      "title": "Create document library with AI",
+      "product": "sharepoint-ai",
+      "summary": "By using Copilot in SharePoint to create a document library, you can go from a simple description to a well configured, metadata-rich document library. Instead of manually creating a library, defining columns, and setting up tagging rules, describe what the library is for and optionally provide a sample file.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-create-document-library"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "cea0a4d48763a93e"
+    },
+    {
+      "id": "learn-sharepoint-copilot-in-sharepoint-get-started",
+      "title": "Get started with Copilot in SharePoint",
+      "product": "sharepoint-ai",
+      "summary": "Copilot in SharePoint brings agentic capabilities into SharePoint so teams can ask questions, run workflows, and create sites, pages, interactive reports, and Office files from their SharePoint content by using natural language. Videos, prompt guides, and other getting started materials are available here.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started"
+      ],
+      "harnesses": [],
+      "conceptId": "copilot-in-app",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "spai-copilot-credits-advanced-work",
+        "spai-copilot-in-sharepoint-overview",
+        "spai-manage-copilot-availability"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "99dde831e4a96cc0"
+    },
+    {
+      "id": "learn-sharepoint-create-sites-with-ai",
+      "title": "Create sites with AI",
+      "product": "sharepoint-ai",
+      "summary": "Copilot in Microsoft SharePoint makes it faster and easier to create SharePoint sites and solutions using natural language. Describe what you need, and Copilot in SharePoint recommends a structure—including pages, lists, libraries, and more.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/create-sites-with-ai"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "43fa774864e02830"
+    },
+    {
+      "id": "learn-sharepoint-dev",
+      "title": "SharePoint developer documentation",
+      "product": "sharepoint-ai",
+      "summary": "Build Copilot UX components, web parts, extensions, and business solutions with SharePoint Framework and Microsoft 365.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/dev"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b77584b2af93c504"
+    },
+    {
+      "id": "learn-sharepoint-dev-spfx-copilot-development-and-deployment",
+      "title": "Develop and deploy Copilot UX components",
+      "product": "sharepoint-ai",
+      "summary": "A Copilot UX component solution has two related deployment surfaces: its SPFx components and its baseline declarative agent. Sync to Teams is required for the initial agent deployment and changes to the baseline agent configuration. It isn't required for every component update.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/dev/spfx/copilot/development-and-deployment"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ea638e1f768e96b9"
+    },
+    {
+      "id": "learn-sharepoint-dev-spfx-copilot-get-started-build-your-first-copilot-app",
+      "title": "Build your first Copilot UX component",
+      "product": "sharepoint-ai",
+      "summary": "In this tutorial, you build a baseline Copilot UX component from scratch, test it locally in the Copilot Workbench, package it, deploy it to the SharePoint app catalog, and use it inside Microsoft 365 Copilot. This gives you the complete end-to-end path for the model: create, test, package, deploy, and use.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/dev/spfx/copilot/get-started/build-your-first-copilot-app"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "8342865dc9987ff5"
+    },
+    {
+      "id": "learn-sharepoint-dev-spfx-copilot-overview-copilot-apps",
+      "title": "Overview of Copilot UX components",
+      "product": "sharepoint-ai",
+      "summary": "Copilot UX components are generally available with SharePoint Framework 1.24 , released on October 28, 2026 . For licensing, supported clients, and distribution, see Availability. Review the GA limitations before deployment.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/dev/spfx/copilot/overview-copilot-apps"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "3f5b03a7f2888adb"
+    },
+    {
+      "id": "learn-sharepoint-dev-spfx-copilot-provide-context-to-copilot",
+      "title": "Provide Copilot with context from your component",
+      "product": "sharepoint-ai",
+      "summary": "Rendering an interactive component doesn't by itself tell Copilot what the user is looking at. Provide a concise textual description of the current visible state so Copilot can explain the UX in natural language and use the information in subsequent conversation turns.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/dev/spfx/copilot/provide-context-to-copilot"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "8473475969b3cc47"
+    },
+    {
+      "id": "learn-sharepoint-dev-spfx-publish-to-marketplace-overview",
+      "title": "Publish SharePoint Framework applications to the marketplace",
+      "product": "sharepoint-ai",
+      "summary": "Publish SharePoint Framework solutions through Microsoft AppSource and the SharePoint Store so other organizations can discover and install them in their Microsoft 365 tenants. This guidance covers web parts, extensions, and Copilot UX components , which are supported in the SharePoint Store starting with SPFx 1.24 GA.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/dev/spfx/publish-to-marketplace-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "1fb28142506548e5"
+    },
+    {
+      "id": "learn-sharepoint-dev-spfx-release-1-24-0",
+      "title": "SharePoint Framework v1.24.0 release notes",
+      "product": "sharepoint-ai",
+      "summary": "SharePoint Framework (SPFx) 1.24.0 is generally available on October 28, 2026 . This release makes Copilot UX components generally available, updates the React runtime to React 18.3.1 , and adds support for Node.js 24 and 26 , alongside Node.js 22.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/dev/spfx/release-1.24.0"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "21943515648a34c9"
+    },
+    {
+      "id": "learn-sharepoint-enable-new-sharepoint-experience",
+      "title": "New SharePoint Experience",
+      "product": "sharepoint-ai",
+      "summary": "SharePoint is redesigned for simplicity and clarity, centered on discovering, publishing, and building—now with flexible workflows and AI-first capabilities built in.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/enable-new-sharepoint-experience"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "dad8440e61c49c4e"
+    },
+    {
+      "id": "learn-sharepoint-insights-on-sharepoint-agents",
+      "title": "Insights report on agents in SharePoint",
+      "product": "sharepoint-ai",
+      "summary": "The insights report on agents in SharePoint provides SharePoint administrators with rich information on the recently created agents across all SharePoint sites and OneDrive sites within their organization. This report helps admins learn about the sites with the highest number of agents created.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/insights-on-sharepoint-agents"
+      ],
+      "harnesses": [],
+      "conceptId": "monitor",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "spai-agent-insights-reports"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "11d3aca8b2426583"
+    },
+    {
+      "id": "learn-sharepoint-introduction",
+      "title": "Introduction to SharePoint and OneDrive in Microsoft 365 for administrators",
+      "product": "sharepoint-ai",
+      "summary": "SharePoint and OneDrive in Microsoft 365 are cloud-based services that help organizations share and manage content, knowledge, and applications to:",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/introduction"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "0b305603db5c58d2"
+    },
+    {
+      "id": "learn-sharepoint-monitor-agent-usage",
+      "title": "Monitor agent usage in SharePoint",
+      "product": "sharepoint-ai",
+      "summary": "Microsoft is upgrading the agent experience (.agent files) in SharePoint to better align with the Microsoft Copilot extensibility ecosystem. By using the new agent experience, agents in SharePoint can be part of the Copilot app home experience and the Microsoft plugin registry.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/monitor-agent-usage"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "5df403efac751836"
+    },
+    {
+      "id": "learn-sharepoint-sharepoint-advanced-management-features-copilot-license",
+      "title": "SharePoint Advanced Management features in Microsoft Copilot licenses",
+      "product": "sharepoint-ai",
+      "summary": "If your organization assigns at least one Microsoft Copilot license to a user, SharePoint administrators get access to the SharePoint Advanced Management (SAM) features that support your Copilot deployment. This article summarizes those features and availability across business and government cloud environments.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/sharepoint-advanced-management-features-copilot-license"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "spai-restricted-content-discovery",
+        "spai-sam-overview-and-licensing"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "8950cdcccf511f82"
+    },
+    {
+      "id": "learn-sharepoint-sharepoint-advanced-management-prerequisites",
+      "title": "Prerequisites for SharePoint Advanced Management",
+      "product": "sharepoint-ai",
+      "summary": "To use SharePoint Advanced Management capabilities, make sure your organization meets specific licensing, role, and setup requirements.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/sharepoint-advanced-management-prerequisites"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "spai-sam-overview-and-licensing"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "1fc86becfef5f938"
+    },
+    {
+      "id": "learn-sharepoint-sharepoint-agents-azure-billing",
+      "title": "Use agents with pay-as-you-go billing",
+      "product": "sharepoint-ai",
+      "summary": "Microsoft is upgrading the agent experience (.agent files) in SharePoint to better align with the Microsoft Copilot extensibility ecosystem. By using the new agent experience, agents in SharePoint can be part of the Copilot app home experience and the Microsoft plugin registry.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/sharepoint-agents-azure-billing"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b7a417a2ec9106cd"
+    },
+    {
+      "id": "learn-sharepoint-sharepoint-knowledge-base",
+      "title": "Plan and set up SharePoint Knowledge Base (preview)",
+      "product": "sharepoint-ai",
+      "summary": "SharePoint Knowledge Base gives a project team a single source of truth for its guidance, decisions, and procedures, organized as connected Knowledge Base (KB) pages on a SharePoint site.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/sharepoint-knowledge-base"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": "preview",
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "51a31e29256d9554"
+    },
+    {
+      "id": "learn-sharepoint-sites-document-intelligence",
+      "title": "Document Intelligence",
+      "product": "sharepoint-ai",
+      "summary": "This article describes the \"Document Intelligence\" feature, which is one of the new features introduced in the SharePoint Server Subscription Edition Version 25H2 feature update.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/sites/document-intelligence"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "78159f9993a0238f"
+    },
+    {
+      "id": "learn-sharepoint-upgrade-sharepoint-agents",
+      "title": "Upgrade agents in SharePoint and OneDrive",
+      "product": "sharepoint-ai",
+      "summary": "Learn how to upgrade your agent experiences in SharePoint and OneDrive. By upgrading, your agents can leverage Copilot in SharePoint and all the functionality of the Microsoft Copilot plugins ecosystem.",
+      "urls": [
+        "https://learn.microsoft.com/sharepoint/upgrade-sharepoint-agents"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "spai-build-agent-sharepoint-content",
+        "spai-upgrade-agent-files"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "bcc0e856e7f57b02"
+    }
+  ],
+  "catalog": [
+    {
+      "featureId": "spai-agent-insights-reports",
+      "status": "current",
+      "contentHash": "b0467c47742967ca",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-agent-sharepoint-knowledge-sources",
+      "status": "current",
+      "contentHash": "bdc29e70b807badb",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-autofill-columns",
+      "status": "current",
+      "contentHash": "de3b663d68f44faa",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-build-agent-sharepoint-content",
+      "status": "current",
+      "contentHash": "dc8b2ff5a3b7bbe1",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-content-management-assessment",
+      "status": "current",
+      "contentHash": "f44df74d259c59ed",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-control-agent-access",
+      "status": "current",
+      "contentHash": "2498b66bb06b4bfd",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-copilot-credits-advanced-work",
+      "status": "current",
+      "contentHash": "699198f050aedf43",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-copilot-in-sharepoint-overview",
+      "status": "current",
+      "contentHash": "699198f050aedf43",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-manage-copilot-availability",
+      "status": "current",
+      "contentHash": "699198f050aedf43",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-prebuilt-document-processing",
+      "status": "current",
+      "contentHash": "f14fefc71ddb3fca",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-restricted-access-control",
+      "status": "current",
+      "contentHash": "2498b66bb06b4bfd",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-restricted-content-discovery",
+      "status": "current",
+      "contentHash": "d5fc058002d5b5a5",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-sam-overview-and-licensing",
+      "status": "current",
+      "contentHash": "4ca0f5a90536906d",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-share-agent-and-manage-access",
+      "status": "current",
+      "contentHash": "be3e7d0dd9bbf371",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-sharepoint-admin-agent",
+      "status": "current",
+      "contentHash": "ba209355c14e638e",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-site-access-review",
+      "status": "current",
+      "contentHash": "deab6de5cc7d5d3c",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-site-lifecycle-policies",
+      "status": "current",
+      "contentHash": "8c210627c30e53e4",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "spai-upgrade-agent-files",
+      "status": "current",
+      "contentHash": "c64636262cc734c7",
+      "changedAt": null,
+      "missing": []
+    }
+  ],
+  "pageHashes": {
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility": "3b60b43202fae2f5",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-add-knowledge": "29d0991b3fd9df52",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-build-agents": "7a41fb6ffd189d74",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents": "7d72f4ca4ad4eea9",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing": "160b170a318641e7",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill": "c0a60afeccf17f40",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill-overview": "2319b47401f6eb9d",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/autofill-setup": "3699a2ab547d7a76",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/create-a-classifier": "b523cca351ebe5e6",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/create-an-extractor": "ba9e7a89194640a7",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/create-syntex-model": "cf466f6e3ed61ef3",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/document-understanding-overview": "75780baa1c28f581",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/form-processing-overview": "fd3808f3e948c673",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/model-types-overview": "20f8e271a78cc941",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/prebuilt-setup": "37fd3a4610482cd3",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/promo-syntex": "efd3a44658c0e03c",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/requirements-and-limitations": "487e09f5d86b136b",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/structured-freeform-requirements": "1ea3b39b64c6cbd4",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/syntex-azure-billing": "1031408349ea768b",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/syntex-licensing": "ad0ac964a4db7ad0",
+    "https://learn.microsoft.com/microsoft-365/documentprocessing/syntex-overview": "87a1a2df2fda5f62",
+    "https://learn.microsoft.com/sharepoint": "2e974e592d6c429d",
+    "https://learn.microsoft.com/sharepoint/administration/change-web-application-bindings": "0ef63cc85a511a24",
+    "https://learn.microsoft.com/sharepoint/administration/configure-cross-site-publishing": "04e2f417b45e7a11",
+    "https://learn.microsoft.com/sharepoint/administration/configure-search-web-parts": "caaead62e1dc7e79",
+    "https://learn.microsoft.com/sharepoint/administration/edit-general-settings-on-a-web-application": "c27d981121a2a98c",
+    "https://learn.microsoft.com/sharepoint/administration/enhanced-people-picker-for-trusted-authentication-method": "6d999c0f0ecf5f74",
+    "https://learn.microsoft.com/sharepoint/administration/outgoing-email-planning": "17cc3f099f221775",
+    "https://learn.microsoft.com/sharepoint/administration/overview-of-managed-navigation": "e539206ec67afd71",
+    "https://learn.microsoft.com/sharepoint/administration/share-service-applications-across-farms": "c74275b7c7b1a1fa",
+    "https://learn.microsoft.com/sharepoint/administration/view-usage-reports": "1eac754f1d5fe9f8",
+    "https://learn.microsoft.com/sharepoint/advanced-management": "5198dbd19b3e08e8",
+    "https://learn.microsoft.com/sharepoint/ai-insights": "79cb2e1088b6e4c2",
+    "https://learn.microsoft.com/sharepoint/authentication": "2ba704a8fe2cfcd9",
+    "https://learn.microsoft.com/sharepoint/compliant-environment": "cf010a7a110015b0",
+    "https://learn.microsoft.com/sharepoint/content-governance-agent": "b5c2174ec98e4df1",
+    "https://learn.microsoft.com/sharepoint/content-management-assessment": "0cbc88b160cac7e0",
+    "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-create-document-library": "cea0a4d48763a93e",
+    "https://learn.microsoft.com/sharepoint/copilot-in-sharepoint-get-started": "99dde831e4a96cc0",
+    "https://learn.microsoft.com/sharepoint/create-sites-with-ai": "43fa774864e02830",
+    "https://learn.microsoft.com/sharepoint/data-access-governance-reports": "2f52b9b8c3036807",
+    "https://learn.microsoft.com/sharepoint/deploy-and-configure-on-macos": "cd5534ca1a7b654e",
+    "https://learn.microsoft.com/sharepoint/deploy-file-collaboration": "3730b040b3a7ee3a",
+    "https://learn.microsoft.com/sharepoint/dev": "b77584b2af93c504",
+    "https://learn.microsoft.com/sharepoint/dev/apis/alm-api-for-spfx-add-ins": "3ae1868c4d5ae403",
+    "https://learn.microsoft.com/sharepoint/dev/apis/webhooks/get-started-webhooks": "8a93bb1a3b8d7115",
+    "https://learn.microsoft.com/sharepoint/dev/apis/webhooks/lists/overview-sharepoint-list-webhooks": "d5352f0372290d69",
+    "https://learn.microsoft.com/sharepoint/dev/apis/webhooks/overview-sharepoint-webhooks": "da1e5e2505aaafd4",
+    "https://learn.microsoft.com/sharepoint/dev/business-apps/introduction-to-sharepoint-business-process-integration": "ce2750d638bcbe7d",
+    "https://learn.microsoft.com/sharepoint/dev/business-apps/power-automate/sharepoint-connector-actions-triggers": "1378105a59134b8b",
+    "https://learn.microsoft.com/sharepoint/dev/declarative-customization/column-formatting": "86e63d4b07c442eb",
+    "https://learn.microsoft.com/sharepoint/dev/declarative-customization/site-design-overview": "c301b032e6a572b2",
+    "https://learn.microsoft.com/sharepoint/dev/declarative-customization/site-theming/sharepoint-site-theming-overview": "8ed851aedc5b4391",
+    "https://learn.microsoft.com/sharepoint/dev/declarative-customization/view-formatting": "1814f52d184a864b",
+    "https://learn.microsoft.com/sharepoint/dev/embedded/getting-started/enable-sharepoint-embedded": "aabd42aa13686a63",
+    "https://learn.microsoft.com/sharepoint/dev/embedded/overview": "aabd42aa13686a63",
+    "https://learn.microsoft.com/sharepoint/dev/features/embed-pages-to-teams": "4ff96a57e708c7d2",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/authentication-authorization-and-security-in-sharepoint": "e125e3c53e01a9ad",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/claims-based-identity-and-concepts-in-sharepoint": "919731f3d2be5496",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/claims-provider-in-sharepoint": "485557691dc11d4b",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/content-search-web-part-in-sharepoint": "c5b3b15deba6d14d",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/cross-site-publishing-in-sharepoint": "04f508b24e820c51",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/how-to-add-a-device-channel-panel-snippet-in-sharepoint": "ce4f3dcda7478228",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/how-to-add-a-security-trim-snippet-in-sharepoint": "b58d2a06e8546252",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/how-to-add-a-web-part-zone-snippet-in-sharepoint": "dc7e4376c75495dd",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/how-to-apply-a-master-page-to-a-site-in-sharepoint": "34d98749136755a1",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/how-to-avoid-getting-throttled-or-blocked-in-sharepoint-online": "f077ab3f5569522c",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/how-to-brand-snippets-by-using-css-in-sharepoint": "36a0b8d08d4a092b",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/how-to-convert-an-html-file-into-a-master-page-in-sharepoint": "aeb58a041054a9ce",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/how-to-create-a-page-layout-in-sharepoint": "5046bfdca26a5125",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/how-to-map-a-network-drive-to-the-sharepoint-master-page-gallery": "892d693597f6c90b",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/how-to-use-code-to-pin-terms-to-navigation-term-sets-in-sharepoint": "ff3351fbc4e9e70c",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/incoming-claims-signing-into-sharepoint": "ceb12cb9d50b3bca",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/managed-metadata-and-navigation-in-sharepoint": "c3c1b63cdcb46ed0",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/managed-navigation-in-sharepoint": "0258668fda060835",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/overview-of-design-manager-in-sharepoint": "75a98d9e7460a31b",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/overview-of-sharepoint-and-the-volume-shadow-copy-service": "6f3513d92203630b",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/overview-of-the-sharepoint-page-model": "c60183346cd2ad7b",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/set-up-a-general-development-environment-for-sharepoint": "e9ccb3403193f5be",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/sharepoint-design-manager-design-packages": "16c932145c3599e7",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/sharepoint-design-manager-device-channels": "74d26e2ff82431fb",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/sharepoint-design-manager-display-templates": "e493bea055ea557d",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/sharepoint-design-manager-image-renditions": "4ee83e8ab564e047",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/sharepoint-design-manager-snippets": "33f098a56cf6dbb1",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/sharepoint-development-overview": "d8415a5e89f288bc",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/sharepoint-server-application-lifecycle-management": "a471ac7dbe529d3d",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/site-collection-app-catalog": "f9556bfc8b3e341e",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/the-xliff-interchange-file-format-in-sharepoint": "91f34348dd8231b8",
+    "https://learn.microsoft.com/sharepoint/dev/general-development/what-s-new-with-sharepoint-site-development": "3f6b4b1552089ea3",
+    "https://learn.microsoft.com/sharepoint/dev/scenario-guidance/application-lifecycle-management": "5a0ea3f3dec94a99",
+    "https://learn.microsoft.com/sharepoint/dev/solution-guidance/sharepoint-metadata-site-navigation-and-publishing-site-features": "b6e25e1bd6e3112b",
+    "https://learn.microsoft.com/sharepoint/dev/solution-guidance/synchronize-term-groups-sample-app-for-sharepoint": "ca79f8475ef81ef1",
+    "https://learn.microsoft.com/sharepoint/dev/solution-guidance/use-remote-provisioning-to-brand-sharepoint-pages": "2def1488cd0ed602",
+    "https://learn.microsoft.com/sharepoint/dev/sp-add-ins-modernize/sp-add-in-modernize": "885bd131bae1e1c2",
+    "https://learn.microsoft.com/sharepoint/dev/sp-add-ins/authorization-and-authentication-of-sharepoint-add-ins": "5ca547f1dbc7681b",
+    "https://learn.microsoft.com/sharepoint/dev/sp-add-ins/complete-basic-operations-using-sharepoint-rest-endpoints": "57351c66a6a63f11",
+    "https://learn.microsoft.com/sharepoint/dev/sp-add-ins/get-to-know-the-sharepoint-rest-service": "d3583bc50bc1ebdc",
+    "https://learn.microsoft.com/sharepoint/dev/sp-add-ins/retirement-announcement-for-add-ins": "c424703f8b73abe0",
+    "https://learn.microsoft.com/sharepoint/dev/sp-add-ins/set-up-a-development-environment-for-sharepoint-add-ins-on-office-365": "002813ed2ef2d3fe",
+    "https://learn.microsoft.com/sharepoint/dev/sp-add-ins/sharepoint-net-server-csom-jsom-and-rest-api-index": "8014b69ea40278c1",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/copilot/development-and-deployment": "ea638e1f768e96b9",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/copilot/get-started/build-your-first-copilot-app": "8342865dc9987ff5",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/copilot/overview-copilot-apps": "3f5b03a7f2888adb",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/copilot/provide-context-to-copilot": "8473475969b3cc47",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/debug-toolbar": "27800ac6dc9e5a28",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/enterprise-guidance": "b037848f734258c7",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/extensions/get-started/build-a-hello-world-extension": "06a8a19a2d39771a",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/publish-to-marketplace-overview": "1fb28142506548e5",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/release-1.24.0": "21943515648a34c9",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/release-1.24.1": "8857d9b4442691e9",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/roadmap": "7425dd7d89af87fe",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/set-up-your-developer-tenant": "f3a8302cf227638c",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/set-up-your-development-environment": "471ef48f9c8495ac",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/sharepoint-framework-overview": "089a2ab928a06ab5",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/team-based-development-on-sharepoint-framework": "66eee3d8ee53b7c4",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/viva/get-started/build-first-sharepoint-adaptive-card-extension": "98c23ff15c9ce090",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/web-parts/get-started/build-a-hello-world-web-part": "12c67aa61ed07f8c",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/web-parts/get-started/using-microsoft-graph-apis": "93cd704e4b958b43",
+    "https://learn.microsoft.com/sharepoint/dev/spfx/web-parts/get-started/using-web-part-as-ms-teams-tab": "054c5a77ece3f8e4",
+    "https://learn.microsoft.com/sharepoint/dev/transform/modernize-classic-sites": "f962148c717adcbb",
+    "https://learn.microsoft.com/sharepoint/enable-new-sharepoint-experience": "dad8440e61c49c4e",
+    "https://learn.microsoft.com/sharepoint/extend-and-develop": "adb299e18546bbf5",
+    "https://learn.microsoft.com/sharepoint/external-sharing-overview": "ef67eb6fcdc4ccf9",
+    "https://learn.microsoft.com/sharepoint/hybrid/the-building-blocks-of-office-365-hybrid": "bed6ff7ddf585783",
+    "https://learn.microsoft.com/sharepoint/inactive-site-policy": "f8067e02847df0f6",
+    "https://learn.microsoft.com/sharepoint/insights-on-agent-access": "c043803f5ab8a1cc",
+    "https://learn.microsoft.com/sharepoint/insights-on-sharepoint-agents": "11d3aca8b2426583",
+    "https://learn.microsoft.com/sharepoint/install/install-overview-spserver-se": "1da3845b4951e8b9",
+    "https://learn.microsoft.com/sharepoint/install/installing-sharepoint-server-subscription-edition-on-windows-server-core": "a296a53f8b1b9603",
+    "https://learn.microsoft.com/sharepoint/intro-to-file-collaboration": "c8fe9cd7cb046068",
+    "https://learn.microsoft.com/sharepoint/introduction": "0b305603db5c58d2",
+    "https://learn.microsoft.com/sharepoint/manage-access-agents-in-sharepoint": "cad6eae0fcf9ede4",
+    "https://learn.microsoft.com/sharepoint/manage-site-creation": "9653958a27973c98",
+    "https://learn.microsoft.com/sharepoint/manage-teams-sharepoint-experiences": "bf55a14044c3a577",
+    "https://learn.microsoft.com/sharepoint/monitor-agent-usage": "5df403efac751836",
+    "https://learn.microsoft.com/sharepoint/plan-for-sharepoint-onedrive": "9dbb4276b68fdd20",
+    "https://learn.microsoft.com/sharepoint/plan-intranet": "e5c2001e8d40feeb",
+    "https://learn.microsoft.com/sharepoint/plan-rollout-migration": "0824c5eb5fe87507",
+    "https://learn.microsoft.com/sharepoint/planning-hub-sites": "0c2bb4169e60d2af",
+    "https://learn.microsoft.com/sharepoint/redirect-known-folders": "848b988de597e84a",
+    "https://learn.microsoft.com/sharepoint/redirect-known-folders-macos": "98fc6178b1d3f9b9",
+    "https://learn.microsoft.com/sharepoint/restricted-access-control": "d40b0a5f83fab5d4",
+    "https://learn.microsoft.com/sharepoint/restricted-content-discovery": "ff70069fab3b739b",
+    "https://learn.microsoft.com/sharepoint/retention-and-deletion": "4b59bc809284a5e5",
+    "https://learn.microsoft.com/sharepoint/search/configure-properties-of-the-refinement-web-part": "21a6fddf466bdb22",
+    "https://learn.microsoft.com/sharepoint/search/overview-of-analytics-processing": "f692a3a5bc59df3d",
+    "https://learn.microsoft.com/sharepoint/security-for-sharepoint-server/oidc-1-0-authentication": "86f78cdbab0d54f5",
+    "https://learn.microsoft.com/sharepoint/security-for-sharepoint-server/strong-tls-encryption": "409442e599b73962",
+    "https://learn.microsoft.com/sharepoint/security-for-sharepoint-server/tls-support-1.3": "d1103d893ce7574a",
+    "https://learn.microsoft.com/sharepoint/set-default-storage-space": "4b203648b8fa454f",
+    "https://learn.microsoft.com/sharepoint/sharepoint-advanced-management-features-copilot-license": "8950cdcccf511f82",
+    "https://learn.microsoft.com/sharepoint/sharepoint-advanced-management-prerequisites": "1fc86becfef5f938",
+    "https://learn.microsoft.com/sharepoint/sharepoint-agents-azure-billing": "b7a417a2ec9106cd",
+    "https://learn.microsoft.com/sharepoint/sharepoint-knowledge-base": "51a31e29256d9554",
+    "https://learn.microsoft.com/sharepoint/site-access-review": "b37f97cb9d240f15",
+    "https://learn.microsoft.com/sharepoint/site-lifecycle-management": "68af39799781b5cb",
+    "https://learn.microsoft.com/sharepoint/sites/document-intelligence": "78159f9993a0238f",
+    "https://learn.microsoft.com/sharepoint/teams-connected-sites": "1ef2f4e20e4989e7",
+    "https://learn.microsoft.com/sharepoint/technical-reference/display-template-reference-in-sharepoint-server": "b21787e229ad967d",
+    "https://learn.microsoft.com/sharepoint/training-change-management": "d3e4bfc5cd8e62c5",
+    "https://learn.microsoft.com/sharepoint/upgrade-and-update/migrate-from-classic-mode-to-claims-based-authentication-in-sharepoint-2013": "df7b62edd6a6f50b",
+    "https://learn.microsoft.com/sharepoint/upgrade-and-update/upgrade-to-sharepoint-server-subscription-edition": "5f8098c63f707f34",
+    "https://learn.microsoft.com/sharepoint/upgrade-sharepoint-agents": "bcc0e856e7f57b02",
+    "https://learn.microsoft.com/sharepoint/use-group-policy": "12a48714eeba36e9",
+    "https://learn.microsoft.com/sharepoint/what-s-new/new-and-improved-features-in-sharepoint-server-subscription-edition": "68324a73f8f0aa00",
+    "https://learn.microsoft.com/sharepoint/what-s-new/new-and-improved-features-in-sharepoint-server-subscription-edition-22h2-release": "0d08aea3687da849",
+    "https://learn.microsoft.com/sharepoint/what-s-new/new-and-improved-features-in-sharepoint-server-subscription-edition-23h1-release": "a07d770b4fb22752"
+  },
+  "listHash": "fe9ffdb68e4b98fd",
+  "endpoint": "https://learn.microsoft.com/api/mcp"
+}

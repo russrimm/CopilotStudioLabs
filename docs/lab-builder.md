@@ -699,9 +699,18 @@ Copilot Studio lab. The Previously generated labs list shows a chip per product.
 
 **Topic discovery** is scoped per product: `discoverSnapshot({ product })` starts at
 the product's `learnHubUrl`, follows only links under its `learnRoots`, compares only
-that product's catalog features, and tags its topics with the product. The portal's
-refresh runs Copilot Studio discovery; the other products use the curated catalog
-until their snapshots are added.
+that product's catalog features, and tags its topics with the product. Every product has
+its own list: Copilot Studio keeps `learn-topics.snapshot.json`, and each other product has
+`learn-topics.<product-id>.snapshot.json` (committed, the offline baseline) and a runtime
+cache `topics-cache-<product-id>.json` next to the Copilot Studio cache. A product whose Learn
+roots are broader than its AI features can list `topicKeywords` in `products.json`
+(SharePoint AI does): a discovered page is kept only when its title, summary, or address
+mentions one of them, unless a catalog feature already covers it. The wizard's Topics step
+shows each chosen product's own "last refreshed" line and **Refresh from Microsoft Learn**
+refreshes the products you chose; `POST /api/lab-builder/topics/refresh` takes an optional
+`{ "products": ["sharepoint-ai", ...] }` (default: Copilot Studio), and `GET /api/lab-builder/topics`
+reports `products[<id>]` (`refreshedAt`, `source`, `stale`, `newTopics`). A topic from any product's
+list builds into a lab the same way a Copilot Studio one does.
 
 #### Adding a product
 
@@ -1833,6 +1842,17 @@ API response expose only the setting **names** (`envNames`, `targetNames`), neve
 The brand profile has three new fields next to the existing environment addresses:
 `copilotStudioAgentUrl`, `copilotStudioAgentName`, and `agentBuilderAgentName`.
 
+**The screenshot to-do list ("Screenshots left").** A generated lab's panel has a **📋 Screenshots left** button. It lists
+exactly which pictures are still missing, split into the ones your computer can capture (select the main capture button in
+the Screenshot Center) and the ones only a person can do, each with the figure number, the module, what the picture should
+show, why it needs you, and numbered steps. **Download checklist (.md)** gives the same list as Markdown
+for a ticket or for the morning. It is built from the same plan a capture job runs (`buildLabJobPlan`, mode `missing`) in
+`portal/lib/capture/checklist.js`, so the list and the jobs never disagree about what is left, and a picture drops off the
+list the moment it is captured. A lead of "Open your agent, then Overview." is shown as "Open your agent in Copilot Studio."
+because the agent page has the top tabs Build, Preview, Evaluate, and Monitor, not an Overview page. Nothing in the list
+starts a capture or touches a browser. `GET /api/lab-builder/generated/:labId/screenshots/checklist` (also under
+`/api/generated-labs/`) returns `{ labId, title, counts: { missing, computer, you }, computer[], you[], markdown }`.
+
 **Three capture modes per shot, three job modes.** `classifyShot()` (`portal/lib/capture/classify.js`)
 decides how each shot can honestly be captured and every plan shot carries the result as `capture`:
 `auto` (reachable by address and read-only navigation: the computer does it, then checks the address),
@@ -2683,6 +2703,8 @@ string.
 | `LAB_BUILDER_TOPICS_DISABLED` | `false` | Never contact Microsoft Learn; use the cache or snapshot. |
 | `LAB_BUILDER_TOPICS_CACHE` | `portal/data/lab-builder/topics-cache.json` | Cache file (inside the git-ignored `portal/data/`). |
 | `LAB_BUILDER_TOPICS_SNAPSHOT` | the committed snapshot | Offline baseline file. |
+| `LAB_BUILDER_TOPICS_PRODUCT_CACHE_DIR`, `_PRODUCT_SNAPSHOT_DIR` | next to the Copilot Studio cache and snapshot | Where the other products keep `topics-cache-<product-id>.json` and `learn-topics.<product-id>.snapshot.json`. |
+| `LAB_BUILDER_USER_TOPICS`, `LAB_BUILDER_USER_PRODUCTS` | `user-topics.json` and `user-products.json` next to the topic cache | The files that keep topics and products a person added from Microsoft Learn. |
 | `LAB_BUILDER_TOPICS_TTL_MS` | `86400000` | How long the list counts as fresh. |
 | `LAB_BUILDER_TOPICS_AUTO_REFRESH` | `false` | Refresh on a timer while the server runs (the timer never keeps the process alive). |
 | `LAB_BUILDER_TOPICS_REFRESH_MS` | `86400000` | Timer interval. |
@@ -2696,18 +2718,78 @@ string.
 **Refreshing the committed snapshot.**
 
 ```bash
-npm run refresh-topics               # discover and write the snapshot if the topics changed
+npm run refresh-topics               # discover and write the Copilot Studio snapshot if the topics changed
 npm run refresh-topics -- --check    # discover and report, write nothing
+npm run refresh-topics -- --product sharepoint-ai   # one other product
+npm run refresh-topics -- --all      # every product, one after another
 ```
 
 The CLI prints a covered, new, and stale count per harness and exits non-zero (writing
 nothing) if Learn is unreachable or the run was cut short. It rewrites the snapshot
 only when the topic list changed, so a run that finds nothing new leaves the working
-tree clean. `.github/workflows/refresh-topics.yml` runs it weekly and on demand and
-opens a pull request with the updated snapshot only when something changed. It needs
+tree clean. `.github/workflows/refresh-topics.yml` runs it for every product weekly and on demand and
+opens a pull request with the updated snapshots only when something changed. It needs
 "Allow GitHub Actions to create and approve pull requests" enabled in the
 repository's Actions settings; pull requests opened with the default token do not
 start other workflows, so close and reopen the pull request to run checks on it.
+
+### Add a topic from Microsoft Learn
+
+Discovery cannot list every page (it reads within a budget), so the Topics step has an **Add a topic from
+Microsoft Learn** panel under the "last refreshed" line. Type a few words and **Search** (the portal asks the Learn
+MCP server, `microsoft_docs_search`) or paste a `https://learn.microsoft.com/...` link. Each result names the
+product it belongs to; **Add to my topics** reads the page (`microsoft_docs_fetch`), builds a topic from its title and
+summary, saves it, and selects it at the level and harness you are building for. A result already in the list says so
+and offers **Select it**. A page outside every product's Learn roots is shown but cannot be added, because the
+product decides which labs a topic can join.
+
+An added topic is the same shape as a discovered one, so it builds into a lab the same way (steps read from its
+article, start and result screenshot slots, no quiz, flagged as not yet reviewed) and carries an **Added by you**
+badge. It is saved in `user-topics.json` next to the topic caches (`LAB_BUILDER_USER_TOPICS` moves it; up to 100
+topics) and is read again on every start, so it is there next time. **Remove** in the panel deletes it; labs already
+built from it do not change.
+
+| Route | Purpose |
+|---|---|
+| `POST /api/lab-builder/topics/mine/search` `{ query }` | Search Learn: `results[]` with `title`, `url`, `summary`, `product`, `addable`, and `inList` when the page is already a topic. |
+| `POST /api/lab-builder/topics/mine` `{ url, level?, harness? }` | Add a page. 201 with the topic; 400 for a link that is not https on learn.microsoft.com; 409 when it is already listed; 422 outside the products' roots; 404/502 when Learn has no readable page or cannot be reached. |
+| `DELETE /api/lab-builder/topics/mine/:id` | Remove a topic you added. |
+
+Safety: the address is normalized (https, `learn.microsoft.com`, no credentials or port), the page is read only
+through the Learn MCP server, text is stripped of markup and length-capped, and the routes share a per-user limit
+(`LAB_BUILDER_USER_TOPICS_RATE_MAX`, default 60 per hour).
+
+### Add a product from Microsoft Learn
+
+The Product step ends with **Add another Microsoft product from Microsoft Learn**, so a product that is not one of the
+six reviewed ones needs no code or catalog edit. Pick one of 19 documentation hubs from the picklist
+(`product-picklist.json`: Power Automate, Power Apps, Power BI, Microsoft Fabric, Microsoft Purview, three Dynamics 365 products,
+the Teams platform, Entra Agent ID, five Azure AI services, Azure AI Bot Service, Semantic Kernel, and Microsoft Agent
+Framework; every root was confirmed to exist through the Learn MCP server on 2026-11-20), or search Learn and choose
+where the product's documentation starts (each path prefix of the result's address is offered). A documentation hub
+that overlaps a reviewed product's Learn roots is refused, and the picklist marks it as already covered.
+
+The product is saved in `user-products.json` next to the topic caches (`LAB_BUILDER_USER_PRODUCTS` moves it; up to 10)
+as a definition shaped like a `products.json` entry with `custom: true`, and it is selected and refreshed at once:
+discovery reads the hub page and its links under that root, plus a few general searches, and keeps the product's own list
+(`topics-cache-custom-<name>.json`) like any other product. It has no curated catalog, so it is left out of the catalog
+and coverage checks (`getBuiltInProducts()`), and everything it teaches is marked not reviewed: its prerequisites and license
+note say "Not confirmed in Microsoft Learn by this builder", topics added by link or found by discovery follow the
+[new topic rules](#dynamic-topics-from-microsoft-learn) (steps read from the article, start and result screenshot slots,
+no quiz), and the lab is the neutral `learn-product` deliverable: "Hands-on *topic* for a *Scenario* Pilot", with no
+agent, no architecture drawing, and no agent-style sample prompts. **Remove** deletes the product and its cached list;
+labs already built from it do not change.
+
+| Route | Purpose |
+|---|---|
+| `GET /api/lab-builder/products/picklist` | The reviewed hubs (`addedId`, `coveredBy`) and the products already added. |
+| `POST /api/lab-builder/products/mine/search` `{ query }` | Search Learn; each result lists the roots it could start from. |
+| `POST /api/lab-builder/products/mine` `{ root, name? }` | Add a product. 201; 400 for an address that is not https on learn.microsoft.com or a full list; 409 when a reviewed or added product already covers it; 404/502 when Learn has no readable page or cannot be reached. |
+| `DELETE /api/lab-builder/products/mine/:id` | Remove a product you added. |
+
+Refresh its topic list with **Refresh from Microsoft Learn** in the Topics step (`POST /api/lab-builder/topics/refresh` with its
+id). The weekly snapshot workflow and `npm run refresh-topics` only cover the six reviewed products, so a product you
+added has a runtime cache and no committed snapshot.
 
 ### Sub-topics
 
@@ -2973,6 +3055,7 @@ Browser-facing:
 | `GET` | `/api/capture/targets` | The capture settings in effect for the active brand profile (`?labId=` for a lab): `fields`, `requirements`, `missing`, and how each shot is captured. |
 | `PUT` | `/api/capture/targets` | Save capture settings on a brand profile: `{ targets: { fieldId: value }, profileId? }`. |
 | `GET` / `PUT` | `/api/generated-labs/:labId/capture-targets` | Read and save a lab's own capture settings (also under `/api/lab-builder/generated/:labId/`). `PUT { targets, alsoProfile? }`. |
+| `GET` | `/api/generated-labs/:labId/screenshots/checklist` | The screenshot to-do list: `{ labId, title, counts: { missing, computer, you }, computer[], you[], markdown }`. Each `you` item has `filename`, `figure`, `module`, `caption`, `shows`, `why`, and `steps[]`. Also under `/api/lab-builder/generated/:labId/`. |
 | `GET` | `/api/capture/jobs` | Recent jobs as summaries (no `shots` or `events`). Query: `limit` (max 200), `status`, `labId`. |
 | `GET` | `/api/capture/jobs/:id` | One job with per-shot status and the event log. Poll this. |
 | `GET` | `/api/capture/jobs/:id/events` | Server-sent events: `snapshot`, then `update` for each change, then `end`. Polling works just as well. |

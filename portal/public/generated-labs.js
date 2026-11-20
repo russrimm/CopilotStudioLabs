@@ -262,6 +262,7 @@ function lbGeneratedActionButtonsHtml(labId, title, options = {}) {
     <div class="lb-result-utility-actions" role="group" aria-label="Lab tools for ${safeTitle}">
       <button type="button" class="btn btn-sm" data-gen-action="print" data-lab-id="${safeId}" aria-label="Print or save ${safeTitle} as PDF">🖨️ Print</button>
       <button type="button" class="btn btn-sm" data-gen-action="validate" data-lab-id="${safeId}" aria-label="Validate ${safeTitle}">🧪 Validate</button>
+      <button type="button" class="btn btn-sm" data-gen-action="shot-checklist" data-lab-id="${safeId}" aria-label="Show the screenshots still to capture for ${safeTitle}">📋 Screenshots left</button>
     </div>`;
 }
 
@@ -1008,6 +1009,70 @@ function lbRenderGeneratedValidationHtml(report) {
     </details>`;
 }
 
+function lbRenderChecklistHtml(list) {
+  const total = Number(list?.counts?.missing) || 0;
+  if (!total) {
+    return `<div class="lb-checklist"><p class="lb-checklist-done">Nothing is left. Every picture in this lab is a real screenshot.</p></div>`;
+  }
+  const item = (entry, withSteps) => {
+    const name = `${entry.figure ? `Figure ${escapeHtml(entry.figure)}: ` : ""}${escapeHtml(entry.caption || entry.filename)}`;
+    if (!withSteps) return `<li>${name} <code>${escapeHtml(entry.filename)}</code></li>`;
+    const steps = (entry.steps || []).map((step) => `<li>${escapeHtml(step)}</li>`).join("");
+    return `<li><details><summary>${name}</summary>
+      ${entry.shows ? `<p><strong>It should show:</strong> ${escapeHtml(entry.shows)}</p>` : ""}
+      ${entry.why ? `<p><strong>Why it needs you:</strong> ${escapeHtml(entry.why)}</p>` : ""}
+      ${steps ? `<ol>${steps}</ol>` : ""}
+      <p class="lb-checklist-file">File: <code>${escapeHtml(entry.filename)}</code></p></details></li>`;
+  };
+  const you = (list.you || []).map((entry) => item(entry, true)).join("");
+  const computer = (list.computer || []).map((entry) => item(entry, false)).join("");
+  return `<div class="lb-checklist">
+    <p class="lb-checklist-lead"><strong>${total} picture${total === 1 ? "" : "s"} still to capture.</strong> ${list.counts.computer ? `Your computer can capture ${list.counts.computer} of them. ` : ""}${list.counts.you ? `${list.counts.you} need${list.counts.you === 1 ? "s" : ""} you.` : ""}</p>
+    <div class="lb-checklist-actions">
+      <button type="button" class="btn btn-sm" data-gen-action="shot-checklist-download" data-lab-id="${escapeHtml(list.labId)}">Download checklist (.md)</button>
+      <button type="button" class="btn btn-sm" data-gen-action="screenshots" data-lab-id="${escapeHtml(list.labId)}">📸 Open the Screenshot Center</button>
+    </div>
+    ${you ? `<h4>Only you can do these (${list.counts.you})</h4><ul class="lb-checklist-list">${you}</ul>` : ""}
+    ${computer ? `<h4>Your computer will capture these (${list.counts.computer})</h4><ul class="lb-checklist-list">${computer}</ul>` : ""}
+  </div>`;
+}
+
+async function lbShowScreenshotChecklist(labId) {
+  if (!labId) return;
+  const panel = document.getElementById("lb-result-panel");
+  if ((lbGen.opened !== labId || !panel || panel.style.display === "none") && lbGenFind(labId)) {
+    await lbOpenGenerated(labId);
+  }
+  const host = document.getElementById("lb-result-validation");
+  if (host) host.innerHTML = '<p class="lb-learn-status">Checking which screenshots are left...</p>';
+  try {
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/screenshots/checklist`);
+    const list = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(list.error || `Checklist failed (${res.status})`);
+    lbGen.checklist = { labId, markdown: list.markdown || "" };
+    if (host) {
+      host.innerHTML = lbRenderChecklistHtml(list);
+      host.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  } catch (err) {
+    if (host) host.innerHTML = `<p class="lb-error" role="alert">Could not build the checklist: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+function lbDownloadScreenshotChecklist(labId) {
+  const markdown = lbGen.checklist?.labId === labId ? lbGen.checklist.markdown : "";
+  if (!markdown) return;
+  const fileBase = lbSanitizeFileBase(lbResolveDisplayLabTitle(labId), labId);
+  const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${fileBase} - screenshot checklist.md`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 async function lbValidateGenerated(labId) {
   if (!labId) return;
   const panel = document.getElementById("lb-result-panel");
@@ -1198,6 +1263,8 @@ function lbGenBind() {
       case "download": lbDownload(labId); lbChecklistShared(labId); break;
       case "print": lbPrintGenerated(labId); lbChecklistShared(labId); break;
       case "validate": lbValidateGenerated(labId); break;
+      case "shot-checklist": lbShowScreenshotChecklist(labId); break;
+      case "shot-checklist-download": lbDownloadScreenshotChecklist(labId); break;
       case "rename": lbGenAskRename(labId); break;
       case "delete": lbGenAskDelete(labId); break;
       case "retry": lbLoadGenerated(); break;
