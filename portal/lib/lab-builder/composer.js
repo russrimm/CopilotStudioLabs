@@ -267,9 +267,8 @@ function overviewSection(plan, enrichment) {
   const moduleCount = mainModules.length;
   const stepRange = moduleCount === 1 ? "Step 1" : `Steps 1 to ${moduleCount}`;
   const recapRange = recaps.length === 1 ? "Recap 1" : `Recaps 1 to ${recaps.length}`;
-  const focus = mainModules.map(
-    (f, idx) => `**Step ${f.stepOrder ?? idx + 1} - ${f.name}** - ${scrubForbidden(f.summary)}`,
-  );
+  // Names only: the Learning Objectives below say what each module teaches, so repeating every summary here would show the same list twice.
+  const focus = mainModules.map((f, idx) => `**Step ${f.stepOrder ?? idx + 1} - ${scrubForbidden(f.name)}**`);
   const spSite = sharepointSiteForPlan(plan);
   const sharepointOverviewLines = spSite
     ? [
@@ -296,7 +295,7 @@ function overviewSection(plan, enrichment) {
       : []),
     ...sharepointOverviewLines,
     "",
-    `**What this ${levelName(plan.level)} lab covers**`,
+    `**What this ${levelName(plan.level)} lab covers** (the Learning Objectives below say what each module teaches)`,
     "",
     bullets(focus),
     "",
@@ -308,12 +307,17 @@ function overviewSection(plan, enrichment) {
   ].join("\n");
 }
 
-function objectivesSection(plan) {
+export function objectivesSection(plan) {
   const mainModules = plan.features.filter((f) => !f.prerequisite);
   const recaps = plan.features.filter((f) => f.prerequisite);
-  const objectives = mainModules.map(
-    (f, idx) => `**Step ${f.stepOrder ?? idx + 1} - ${f.name}:** ${scrubForbidden(f.summary)}`,
-  );
+  const objectives = mainModules.map((f, idx) => {
+    // A summary that says the article does not apply to this kind of agent is a warning, not something to learn.
+    const scope = f.learnTopic ? scopeProblem(f.summary, plan.harness || null) : null;
+    const text = scope
+      ? `Microsoft Learn says: "${scrubForbidden(scope.sentences[0])}" Confirm this fits your audience before you teach it.`
+      : scrubForbidden(f.summary);
+    return `**Step ${f.stepOrder ?? idx + 1} - ${f.name}:** ${text}`;
+  });
   const recapNote = recaps.length
     ? recaps.length === 1
       ? "Optional **Prerequisite Recap 1** appears at the start of *Step-by-Step* as a quick lower-level refresher before **Step 1**."

@@ -1108,6 +1108,12 @@ Review still wins. The Learning Objectives close with a sentence that ties them 
 selected departments. `recommendations.json` maps each department to topics for all six
 products, so the departments also change which topics are recommended.
 
+The first page says each thing once. The Overview's **What this lab covers** list names the modules (`Step N - Name`)
+and the **Learning Objectives** below it carry each module's one-sentence summary, so the two no longer repeat the same
+sentences. For a module found only on Learn whose summary says the article does not apply (see "Topics that do not apply"),
+the objective reads "Microsoft Learn says: ... Confirm this fits your audience before you teach it." instead of presenting
+the warning as something to learn.
+
 ### 3. Microsoft Learn grounding
 
 `learn-mcp.js` is a small streamable-HTTP JSON-RPC client for the public

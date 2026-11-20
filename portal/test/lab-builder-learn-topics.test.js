@@ -27,7 +27,7 @@ import { cleanText, normalizeLearnUrl, tidySummary, topicId } from "../lib/lab-b
 import { expectedResultBlock, knowledgeCheckBlock, sampleInputBlock, troubleshootingBlock } from "../lib/lab-builder/teaching.js";
 import { buildFeatureScenarioNote } from "../lib/lab-builder/deliverable.js";
 import { scopeProblem } from "../lib/lab-builder/topic-scope.js";
-import { checkItems } from "../lib/lab-builder/composer.js";
+import { checkItems, objectivesSection } from "../lib/lab-builder/composer.js";
 import { listHash, summarize, validateSnapshot } from "../lib/lab-builder/topic-snapshot.js";
 import { createTopicService, resetTopicSource, setTopicSource, topicConfig } from "../lib/lab-builder/topic-store.js";
 import { refreshResponse, registerTopicRoutes, topicsPayload } from "../lib/lab-builder/topic-api.js";
@@ -1189,6 +1189,15 @@ test("a topic Learn says is for classic chatbots only is named as a scope proble
   assert.equal(scopeProblem(limit, "standard"), null, "a limit on another harness is not this lab's problem");
   assert.equal(scopeProblem("Create an agent from a template, then add knowledge.", "standard"), null);
   assert.equal(scopeProblem("", "standard"), null);
+});
+
+test("a learning objective is never a Learn warning that the topic does not apply", () => {
+  const make = (id, title, summary) => topicToFeature({ id, title, summary, urls: ["https://learn.microsoft.com/microsoft-copilot-studio/" + id], harnesses: ["standard"], conceptId: "uncategorized", status: "new" });
+  const classic = make("learn-skill", "Use a classic chatbot as a skill", "This article applies to classic chatbots only. This feature isn't available for Copilot Studio agents powered by the standard or Microsoft Copilot harness.");
+  const normal = make("learn-child", "Add a child agent", "A child agent is a lightweight agent inside your main agent.");
+  const text = objectivesSection({ features: [{ ...normal, stepOrder: 1 }, { ...classic, stepOrder: 2 }], roles: [], harness: "microsoft-copilot", profile: { agentName: "Helper" } });
+  assert.match(text, /\*\*Step 1 - Add a child agent:\*\* A child agent is a lightweight agent inside your main agent\./);
+  assert.match(text, /\*\*Step 2 - Use a classic chatbot as a skill:\*\* Microsoft Learn says: "This article applies to classic chatbots only\." Confirm this fits your audience before you teach it\./);
 });
 
 test("a Learn-only module whose steps were read is checked against the article's own last step", () => {
