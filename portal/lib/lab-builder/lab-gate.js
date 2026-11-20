@@ -151,6 +151,8 @@ function reviewModule(module, context) {
   const add = (code, severity, count, message, fix) =>
     findings.push({ code, severity, module: module.label, moduleTitle: module.title, count, message, fix });
   const where = `${module.label} (${module.title})`;
+  // A Recap is a short refresher of a lower-level module: steps only, with no check, quiz, or troubleshooting by design.
+  const full = context.isGenerated && !module.label.startsWith("Recap");
 
   const cutOffSteps = steps.filter((line) => /(?:\.\.\.|\u2026)\s*$/.test(line.replace(/\*+$/, "")));
   const fusedSteps = steps.filter((line) => /[.!?];\s+[A-Z]/.test(line));
@@ -169,7 +171,7 @@ function reviewModule(module, context) {
     add("cut-off-text", "gap", cutOffText.length, `${where}: ${cutOffText.length} sentence${cutOffText.length === 1 ? " is" : "s are"} cut off in the middle of a word.`, "Shorten text at a sentence end, never in the middle of a word.");
   }
 
-  if (context.isGenerated) {
+  if (full) {
     const check = section(lines, /^\*\*Check your work\*\*/);
     const items = (check || []).filter((line) => /^\s*-\s+\[ \]/.test(line));
     if (!check || !items.length) {
@@ -207,7 +209,7 @@ function reviewModule(module, context) {
   if (pending.length) {
     add("pending-picture", "polish", pending.length, `${where}: ${pending.length} picture${pending.length === 1 ? " is" : "s are"} still a placeholder.`, "Capture the screenshots in the Screenshot Center.");
   }
-  if (context.isGenerated && pictures.length === 0) {
+  if (full && pictures.length === 0) {
     add("no-picture", "polish", 1, `${where} has no screenshot at all.`, "Add a screenshot slot for the screen this module is about.");
   }
 

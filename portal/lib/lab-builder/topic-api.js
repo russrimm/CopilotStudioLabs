@@ -7,6 +7,7 @@ import { getFeatures, getHarnesses } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
 import { isThirdPartyConnectorTopic } from "./topic-feature.js";
 import { summarize } from "./topic-snapshot.js";
+import { DEFAULT_PRODUCT, getProducts } from "./products.js";
 import { tidySummary } from "./topic-sanitize.js";
 import { resolveTopicLevel } from "./levels.js";
 import { describeSubtopics } from "./subtopics.js";
@@ -14,13 +15,24 @@ import { EXPORT_MIME, buildTopicExport, exportFileName, normalizeExportRequest, 
 
 const DAY_MS = 86400000;
 
+/** The view of every product that has a list: Copilot Studio (service.view()), then the others. */
+function viewsOf(service) {
+  const others = typeof service.views === "function" ? service.views().filter((v) => v.product && v.product !== DEFAULT_PRODUCT) : [];
+  return [service.view(), ...others];
+}
+
+/** Every product's snapshot that has one. */
+function snapshotsOf(service) {
+  return viewsOf(service).map((v) => v.snapshot).filter(Boolean);
+}
+
 /** What `recommend` needs from discovery. Also nudges a stale list to refresh in the background. */
 export function learnContext(service) {
   service.revalidateIfStale();
-  const { snapshot } = service.view();
+  const snapshots = snapshotsOf(service);
   return {
-    topics: snapshot?.topics || [],
-    checks: snapshot?.catalog || [],
+    topics: snapshots.flatMap((snapshot) => snapshot.topics || []),
+    checks: snapshots.flatMap((snapshot) => snapshot.catalog || []),
     updatedWindowDays: service.config.updatedWindowDays,
   };
 }
@@ -69,6 +81,28 @@ function freshness(service) {
   };
 }
 
+/** How fresh each product's topic list is, so the wizard can say it for the products the lab covers. */
+function productFreshness(service) {
+  const result = {};
+  const byProduct = new Map(viewsOf(service).map((v, index) => [index === 0 ? DEFAULT_PRODUCT : v.product, v]));
+  for (const { id, shortName } of getProducts()) {
+    const view = byProduct.get(id);
+    if (!view) continue;
+    result[id] = {
+      name: shortName,
+      source: view.source,
+      refreshedAt: view.refreshedAt,
+      ageMs: view.ageMs,
+      stale: view.stale,
+      refreshing: view.refreshing,
+      offline: view.offline,
+      partial: Boolean(view.snapshot?.partial),
+      newTopics: (view.snapshot?.topics || []).filter((topic) => topic.status === "new").length,
+    };
+  }
+  return result;
+}
+
 /**
  * The merged topic list: every static catalog feature, then every topic that
  * is new on Microsoft Learn. Each says where it came from and what state it is in.
@@ -76,7 +110,8 @@ function freshness(service) {
 export function topicsPayload(service, now = Date.now()) {
   const view = service.view();
   const snapshot = view.snapshot;
-  const checks = new Map((snapshot?.catalog || []).map((c) => [c.featureId, c]));
+  const snapshots = snapshotsOf(service);
+  const checks = new Map(snapshots.flatMap((s) => s.catalog || []).map((c) => [c.featureId, c]));
   const windowMs = service.config.updatedWindowDays * DAY_MS;
   const recent = (day) => Boolean(day) && now - Date.parse(`${day}T00:00:00Z`) <= windowMs;
   const conceptOf = new Map(getConcepts().flatMap((c) => c.features.map((id) => [id, c.id])));
@@ -100,13 +135,15 @@ export function topicsPayload(service, now = Date.now()) {
     };
   });
 
-  const discovered = (snapshot?.topics || [])
+  const discovered = snapshots
+    .flatMap((s) => s.topics || [])
     .filter((topic) => topic.status === "new")
     .map((topic) => ({
       id: topic.id,
       title: topic.title,
       summary: tidySummary(topic.summary),
       source: "learn",
+      ...(topic.product && topic.product !== DEFAULT_PRODUCT ? { product: topic.product } : {}),
       status: recent(topic.changedAt) ? "updated" : "new",
       conceptId: topic.conceptId,
       harnesses: topic.harnesses,
@@ -122,6 +159,7 @@ export function topicsPayload(service, now = Date.now()) {
 
   return {
     ...freshness(service),
+    products: productFreshness(service),
     harnesses: getHarnesses().map((h) => h.id),
     counts: snapshot ? summarize(snapshot, getFeatures()) : {},
     topics: [...catalog, ...discovered],
@@ -134,8 +172,16 @@ const STATUS_BY_REASON = { disabled: 503, "too-soon": 429, "circuit-open": 429, 
  * Run a refresh and shape the response. A failed refresh still returns the
  * list in use, so the wizard keeps working on the last good data.
  */
-export async function refreshResponse(service) {
-  const result = await service.refresh();
+export async function refreshResponse(service, products = [DEFAULT_PRODUCT]) {
+  const wanted = [...new Set(products.length ? products : [DEFAULT_PRODUCT])];
+  const results = {};
+  for (const product of wanted) results[product] = await service.refresh(product === DEFAULT_PRODUCT ? {} : { product });
+  // One result keeps the original shape; several report each product and succeed only when every one did.
+  const failed = Object.entries(results).find(([, r]) => !r.ok);
+  const result =
+    wanted.length === 1
+      ? results[wanted[0]]
+      : { ok: !failed, changed: Object.values(results).some((r) => r.changed), products: results, ...(failed ? { reason: failed[1].reason, error: failed[1].error, retryAfterSec: failed[1].retryAfterSec } : {}) };
   const body = { ...topicsPayload(service), refresh: result };
   if (result.ok) return { status: 200, headers: {}, body };
   const headers = result.retryAfterSec ? { "Retry-After": String(result.retryAfterSec) } : {};
@@ -173,8 +219,12 @@ export function registerTopicRoutes(app, { getService, createRateLimiter, positi
   /** POST /api/lab-builder/topics/refresh: re-read the topic list from Microsoft Learn. */
   app.post("/api/lab-builder/topics/refresh", async (req, res) => {
     const body = req.body;
-    if (body !== undefined && body !== null && (typeof body !== "object" || Array.isArray(body) || Object.keys(body).length)) {
-      return res.status(400).json({ error: "The refresh request takes no parameters." });
+    const known = new Set(getProducts().map((p) => p.id));
+    const keys = body && typeof body === "object" && !Array.isArray(body) ? Object.keys(body) : [];
+    const bad = body !== undefined && body !== null && (typeof body !== "object" || Array.isArray(body) || keys.some((key) => key !== "products"));
+    const products = body?.products;
+    if (bad || (products !== undefined && (!Array.isArray(products) || products.length > known.size || products.some((id) => !known.has(id))))) {
+      return res.status(400).json({ error: "The refresh request takes only an optional list of product ids (products)." });
     }
     const rate = rateCheck(String(req.user?.oid || req.user?.upn || req.ip || "anonymous").toLowerCase());
     if (!rate.allowed) {
@@ -182,7 +232,7 @@ export function registerTopicRoutes(app, { getService, createRateLimiter, positi
       return res.status(429).json({ error: `Refresh rate limit exceeded. Try again in ${rate.retryAfterSec}s.` });
     }
     try {
-      const { status, headers, body: payload } = await refreshResponse(getService());
+      const { status, headers, body: payload } = await refreshResponse(getService(), products || [DEFAULT_PRODUCT]);
       for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
       res.status(status).json(payload);
     } catch (err) {

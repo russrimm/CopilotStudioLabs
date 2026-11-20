@@ -1,0 +1,1386 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-20T05:55:44.770Z",
+  "source": "microsoft-learn-mcp",
+  "product": "power-platform-ai-hub",
+  "catalogVersion": 1,
+  "partial": false,
+  "partialReason": null,
+  "stats": {
+    "calls": 91,
+    "errors": 0,
+    "pagesRead": 34,
+    "searches": 12
+  },
+  "topics": [
+    {
+      "id": "learn-ai-builder",
+      "title": "AI Builder documentation",
+      "product": "power-platform-ai-hub",
+      "summary": "AI Builder is a Microsoft Power Platform capability you can use to bring the power of Microsoft AI to your organization, without the need for coding or data science skills.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "5ac69ae830edc9ea"
+    },
+    {
+      "id": "learn-ai-builder-activity-monitoring",
+      "title": "Monitor AI Builder models and prompts activity",
+      "product": "power-platform-ai-hub",
+      "summary": "As you use your AI models and prompts, you might have to access data to monitor their activity or consumption.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/activity-monitoring"
+      ],
+      "harnesses": [],
+      "conceptId": "monitor",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-monitor-ai-activity"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "49fa4e861256b9b1"
+    },
+    {
+      "id": "learn-ai-builder-administer",
+      "title": "Administer AI Builder",
+      "product": "power-platform-ai-hub",
+      "summary": "Microsoft Power Platform administrators can use the Power Apps admin center and the Power Platform admin center to manage environments and settings for Power Apps and AI Builder.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/administer"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-admin-governance-security",
+        "ppai-alm-distribute-models"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "d0455d207accf675"
+    },
+    {
+      "id": "learn-ai-builder-administer-licensing",
+      "title": "Overview of licensing",
+      "product": "power-platform-ai-hub",
+      "summary": "In Copilot Studio, AI Builder features always consume Copilot Credits . Learn more in Licensing and Copilot Credits.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/administer-licensing"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-credits-licensing-transition"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "f2ca8d7346a1d27c"
+    },
+    {
+      "id": "learn-ai-builder-ai-builder-architecture",
+      "title": "AI Builder architecture",
+      "product": "power-platform-ai-hub",
+      "summary": "This article explains how AI Builder processes, uses, and stores the data you provide. AI Builder stores and processes data to provide the service and to let you monitor its use.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/ai-builder-architecture"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "fa2b5e6a3adf2792"
+    },
+    {
+      "id": "learn-ai-builder-availability-region",
+      "title": "Feature availability by region",
+      "product": "power-platform-ai-hub",
+      "summary": "AI Builder was initially released in Europe and the United States. Other regions continue to be added; however, the availability and release status of AI Builder features vary by location.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/availability-region"
+      ],
+      "harnesses": [],
+      "conceptId": "ai-capability-selection",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-check-region-and-prerequisites",
+        "ppai-document-processing-model",
+        "ppai-prebuilt-sentiment-analysis",
+        "ppai-prompt-inputs-and-model-settings"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "fc048c75de5a9e0b"
+    },
+    {
+      "id": "learn-ai-builder-build-model",
+      "title": "Build a model in AI Builder",
+      "product": "power-platform-ai-hub",
+      "summary": "AI Builder guides you through each step to create your AI model.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/build-model"
+      ],
+      "harnesses": [],
+      "conceptId": "ai-capability-selection",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-check-region-and-prerequisites",
+        "ppai-explore-ai-hub-models"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "0f0108330f69d5ab"
+    },
+    {
+      "id": "learn-ai-builder-collect-images",
+      "title": "Collect images",
+      "product": "power-platform-ai-hub",
+      "summary": "To train an object detection model to recognize your objects, you have to gather images that contain those objects. Adhere to guidelines for image quantity and quality for better results.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/collect-images"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "3ab73734be9bee9c"
+    },
+    {
+      "id": "learn-ai-builder-create-form-processing-model",
+      "title": "Create a document processing custom model",
+      "product": "power-platform-ai-hub",
+      "summary": "After you review the requirements, you can get started creating your document processing model.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/create-form-processing-model"
+      ],
+      "harnesses": [],
+      "conceptId": "content-ai",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-document-processing-model"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "5402a0d4d67fe0ae"
+    },
+    {
+      "id": "learn-ai-builder-create-text-classification-model",
+      "title": "Create a category classification custom model",
+      "product": "power-platform-ai-hub",
+      "summary": "Now that you have your training data in Microsoft Dataverse, you can create a new model and configure it.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/create-text-classification-model"
+      ],
+      "harnesses": [],
+      "conceptId": "custom-ai-models",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-category-classification-model"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b25315635f1c21b5"
+    },
+    {
+      "id": "learn-ai-builder-credit-management",
+      "title": "Licensing and AI Builder credits",
+      "product": "power-platform-ai-hub",
+      "summary": "This article focuses on AI Builder credits management.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/credit-management"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-credits-licensing-transition"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "3f817d9dfff704e8"
+    },
+    {
+      "id": "learn-ai-builder-endofaibcredits",
+      "title": "End of AI Builder credits",
+      "product": "power-platform-ai-hub",
+      "summary": "In October 2025, Microsoft announced a progressive end of AI Builder credits. This article explains the change.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/endofaibcredits"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-credits-licensing-transition"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b6be2950d679c783"
+    },
+    {
+      "id": "learn-ai-builder-entity-extraction-create",
+      "title": "Create an entity extraction custom model",
+      "product": "power-platform-ai-hub",
+      "summary": "To create your custom entity extraction model:",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/entity-extraction-create"
+      ],
+      "harnesses": [],
+      "conceptId": "tools",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "74ec453668adefb8"
+    },
+    {
+      "id": "learn-ai-builder-entity-extraction-overview",
+      "title": "Overview of the entity extraction custom model (preview)",
+      "product": "power-platform-ai-hub",
+      "summary": "AI Builder entity extraction models recognize specific data in text that you target based on your business needs. The model identifies key elements in the text and then classifies them into predefined categories. This can help you transform unstructured data into structured data that's machine-readable.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/entity-extraction-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "tools",
+      "availability": "preview",
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "1d42317d4d567b99"
+    },
+    {
+      "id": "learn-ai-builder-entity-extraction-sample-data",
+      "title": "Use sample data to do entity extraction",
+      "product": "power-platform-ai-hub",
+      "summary": "You can get started with the entity extraction model using sample data. The sample data provided refers to feedback or conversations related to travel.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/entity-extraction-sample-data"
+      ],
+      "harnesses": [],
+      "conceptId": "tools",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "70127e53b360a62f"
+    },
+    {
+      "id": "learn-ai-builder-entity-extraction-train",
+      "title": "Train and publish your entity extraction custom model",
+      "product": "power-platform-ai-hub",
+      "summary": "After you create your entity extraction model, you can train and publish it to make it available.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/entity-extraction-train"
+      ],
+      "harnesses": [],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "6f31ee06ba2786b2"
+    },
+    {
+      "id": "learn-ai-builder-form-processing-faq",
+      "title": "FAQ for document processing",
+      "product": "power-platform-ai-hub",
+      "summary": "This article consists of frequently asked questions about the document processing model in AI Builder. If you don't find your question here, review Overview of the document processing AI model or submit your question to the Power Automate Community for AI Builder.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/form-processing-faq"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "aca93d8b79cc16e0"
+    },
+    {
+      "id": "learn-ai-builder-form-processing-model-in-flow",
+      "title": "Use a document processing model in Power Automate",
+      "product": "power-platform-ai-hub",
+      "summary": "Since May 2025, the Extract information from documents action name is Process documents .",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow"
+      ],
+      "harnesses": [],
+      "conceptId": "content-ai",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-document-processing-model",
+        "ppai-migrate-from-text-generation",
+        "ppai-predict-action-dynamic-model"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "6cf20f34ff2232f8"
+    },
+    {
+      "id": "learn-ai-builder-form-processing-model-overview",
+      "title": "Document processing model overview",
+      "product": "power-platform-ai-hub",
+      "summary": "Document processing lets you read and save information from standard documents such as invoices or tax documents. When you automate this process, you can save valuable time by reviewing, extracting, organizing, and saving the data automatically by using Power Automate and Power Apps.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/form-processing-model-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "content-ai",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-document-processing-model"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "8b3aa3aead1cbefd"
+    },
+    {
+      "id": "learn-ai-builder-form-processing-sample-data",
+      "title": "Use sample data to do document processing",
+      "product": "power-platform-ai-hub",
+      "summary": "To explore the possibilities of document processing, you can get started by building and training a document processing model that uses sample invoices.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/form-processing-sample-data"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "52090c9dd8f1797d"
+    },
+    {
+      "id": "learn-ai-builder-form-processing-train",
+      "title": "Train and publish your document processing model",
+      "product": "power-platform-ai-hub",
+      "summary": "After you create your document processing model, you can train, test, and publish it to make it available.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/form-processing-train"
+      ],
+      "harnesses": [],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "62e94ce987fcc59d"
+    },
+    {
+      "id": "learn-ai-builder-get-started-with-object-detection",
+      "title": "Build your object detection custom model",
+      "product": "power-platform-ai-hub",
+      "summary": "(Optional) To keep AI models permanently on the menu for easy access, select the pin icon.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/get-started-with-object-detection"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "e06d6c54457fad8a"
+    },
+    {
+      "id": "learn-ai-builder-improve-form-processing-performance",
+      "title": "Improve the performance of your document processing model",
+      "product": "power-platform-ai-hub",
+      "summary": "If your model performance isn't where you want it to be, for example you're getting bad results or low confidence scores, there are some things you can try.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/improve-form-processing-performance"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "df51ec8525a1404e"
+    },
+    {
+      "id": "learn-ai-builder-learn-ai-builder",
+      "title": "AI Builder labs",
+      "product": "power-platform-ai-hub",
+      "summary": "Use AI Builder labs to gain experience with AI Builder and learn more about it. Links are added here as new resources become available.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/learn-ai-builder"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "420078ca19a468a5"
+    },
+    {
+      "id": "learn-ai-builder-model-types",
+      "title": "AI models and business scenarios",
+      "product": "power-platform-ai-hub",
+      "summary": "In AI Builder, you can choose from several model types that are suited to different business scenarios. Here are some examples:",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/model-types"
+      ],
+      "harnesses": [],
+      "conceptId": "ai-capability-selection",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-explore-ai-hub-models",
+        "ppai-powerfx-ai-models-in-canvas-app",
+        "ppai-prebuilt-sentiment-analysis"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "9cfcaab404e91b7b"
+    },
+    {
+      "id": "learn-ai-builder-object-detection-sample-data",
+      "title": "Use sample data to do object detection",
+      "product": "power-platform-ai-hub",
+      "summary": "To explore the possibilities of object detection in AI Builder, you can get started by building and training an object detection model using sample pictures and labels.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/object-detection-sample-data"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "5a5e5d73aea8c78a"
+    },
+    {
+      "id": "learn-ai-builder-overview",
+      "title": "Overview of AI Builder",
+      "product": "power-platform-ai-hub",
+      "summary": "With AI Builder, a Microsoft Power Platform feature, you can create and use AI models that optimize your business processes. You can either use a prebuilt model that is ready for many common business scenarios, or create a custom model that meets your needs.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/overview"
+      ],
+      "harnesses": [],
+      "conceptId": "ai-capability-selection",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-check-region-and-prerequisites",
+        "ppai-explore-ai-hub-models"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "7d9132be981c55c3"
+    },
+    {
+      "id": "learn-ai-builder-powerfx-in-powerapps",
+      "title": "Use AI Builder models in Power Apps",
+      "product": "power-platform-ai-hub",
+      "summary": "With the use of Power Fx, the open-source low-code formulas, you can add more powerful and flexible integrations of AI models into your Power App. AI model prediction formulas can be integrated with any controls in canvas app.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/powerfx-in-powerapps"
+      ],
+      "harnesses": [],
+      "conceptId": "ai-consumption",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-powerfx-ai-models-in-canvas-app"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "77a5f1e941d22929"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-azure-openai",
+      "title": "Text generation model (preview) (deprecated)",
+      "product": "power-platform-ai-hub",
+      "summary": "[This topic is prerelease documentation and is subject to change.]",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai"
+      ],
+      "harnesses": [],
+      "conceptId": "instructions",
+      "availability": "retired",
+      "status": "covered",
+      "featureIds": [
+        "ppai-build-custom-prompt",
+        "ppai-migrate-from-text-generation"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "a787e9f549908450"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-business-card",
+      "title": "Business card prebuilt model",
+      "product": "power-platform-ai-hub",
+      "summary": "You can use the business card prebuilt model to extract information from business card images. If it detects a business card in the image, the AI model extracts information such as the person's name, job title, address, email, company, and phone numbers.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-business-card"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "9c1f4bff6b32fca2"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-category-classification",
+      "title": "Category classification prebuilt model",
+      "product": "power-platform-ai-hub",
+      "summary": "The prebuilt category classification model is a ready to use AI model that's configured to classify your text into categories that are useful for a specific business scenario. The first prebuilt category classification AI model is built around customer feedback uses.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-category-classification"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "e6b628fd8cf7cda8"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-category-classification-pwr-automate",
+      "title": "Use the category classification prebuilt model in Power Automate",
+      "product": "power-platform-ai-hub",
+      "summary": "Congratulations! You've created a flow that uses an AI Builder prebuilt category classification model. Select Save on the top right and then select Test to try out your flow.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-category-classification-pwr-automate"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "2ab8c49b9da10bfe"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-contract-processing",
+      "title": "Contract processing prebuilt model (preview)",
+      "product": "power-platform-ai-hub",
+      "summary": "[This topic is prerelease documentation and is subject to change.]",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-contract-processing"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": "preview",
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "6e830aeff67f7c92"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-entity-extraction",
+      "title": "Entity extraction prebuilt model",
+      "product": "power-platform-ai-hub",
+      "summary": "The prebuilt entity extraction model recognizes specific data from text that's of interest to your business. The model identifies key elements from text, and then classifies them into predefined categories. This can help to transform unstructured data into structured data that's machine-readable.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-entity-extraction"
+      ],
+      "harnesses": [],
+      "conceptId": "tools",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "fab031d93b3c192e"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-entity-extraction-pwr-automate",
+      "title": "Use the entity extraction prebuilt model in Power Automate",
+      "product": "power-platform-ai-hub",
+      "summary": "Congratulations! You created a cloud flow that uses an entity extraction model. Select Save on the top right, and then select Test to try out your cloud flow.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-entity-extraction-pwr-automate"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "7ceed56d8ca62113"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-id-reader",
+      "title": "ID reader prebuilt model",
+      "product": "power-platform-ai-hub",
+      "summary": "You can use the identity document (ID) reader prebuilt model to extract information from passports and US driver licenses, social security, and green cards. The model extracts information such as the person’s first name, date of birth, or gender.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-id-reader"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "7f82e8a5f0bb6ce8"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-image-description",
+      "title": "Image description prebuilt model (preview)",
+      "product": "power-platform-ai-hub",
+      "summary": "[This topic is prerelease documentation and is subject to change.]",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-image-description"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": "preview",
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "4fb414df8525bf6e"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-invoice-processing",
+      "title": "Invoice processing prebuilt AI model",
+      "product": "power-platform-ai-hub",
+      "summary": "The invoice processing prebuilt AI model extracts key invoice data to help automate the processing of invoices. The invoice processing model is optimized to recognize common invoice elements like invoice ID, invoice date, amount due, and more.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-invoice-processing"
+      ],
+      "harnesses": [],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b0029a0b2941c5e7"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-key-phrase",
+      "title": "Key phrase extraction prebuilt model",
+      "product": "power-platform-ai-hub",
+      "summary": "The key phrase extraction prebuilt model identifies the main points in a text document. For example, given input text \"The food was delicious and there was great service!\", the model returns the main talking points: \"food\" and \"great service\".",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-key-phrase"
+      ],
+      "harnesses": [],
+      "conceptId": "tools",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "aa72784993d2fbce"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-language-detection",
+      "title": "Language detection prebuilt model",
+      "product": "power-platform-ai-hub",
+      "summary": "The language detection prebuilt model identifies the predominant language of a text document. The model analyzes the text and returns the detected language and a numeric score from 0 through 1. Scores close to 1 indicate higher confidence in the result. The detected language is returned as the \"script\" of the language.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-language-detection"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "36d247f9ea9ecd7e"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-overview",
+      "title": "Overview of prebuilt AI models",
+      "product": "power-platform-ai-hub",
+      "summary": "AI Builder prebuilt models help you add intelligence to apps and flows without having to gather data and then build, train, and publish your own models. For example, in Power Apps, you can add a component based on a prebuilt model that recognizes contact information from business cards.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "e54a71980be414cc"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-receipt-processing",
+      "title": "Receipt processing prebuilt model",
+      "product": "power-platform-ai-hub",
+      "summary": "Receipt processing is a prebuilt model that uses state-of-the-art optical character recognition (OCR) to detect printed and handwritten text and extract key information from receipts.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-receipt-processing"
+      ],
+      "harnesses": [],
+      "conceptId": "prebuilt-ai-models",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-prebuilt-receipt-processing-flow"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b89a23326fbb48ab"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-sentiment-analysis",
+      "title": "Sentiment analysis prebuilt model",
+      "product": "power-platform-ai-hub",
+      "summary": "The sentiment analysis prebuilt model detects positive or negative sentiment in text data. You can use it to analyze social media, customer reviews, or any text data you're interested in. Sentiment analysis evaluates text input, and gives scores and labels at a sentence and document level.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-sentiment-analysis"
+      ],
+      "harnesses": [],
+      "conceptId": "prebuilt-ai-models",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-prebuilt-sentiment-analysis"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "fae8d6e7efb3ffdc"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-text-recognition",
+      "title": "Text recognition prebuilt model",
+      "product": "power-platform-ai-hub",
+      "summary": "The text recognition prebuilt model extracts words from documents and images into machine-readable character streams. It uses state-of-the-art optical character recognition (OCR) to detect printed and handwritten text in images.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-text-recognition"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ec90392a0f4e7abf"
+    },
+    {
+      "id": "learn-ai-builder-prebuilt-text-translation",
+      "title": "Text translation prebuilt model",
+      "product": "power-platform-ai-hub",
+      "summary": "The text translation prebuilt model translates your text data in real time across more than 60 languages. This prebuilt model could help remove language barriers within your company. The text translation model can also detect the language of the text data you want to translate.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prebuilt-text-translation"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "3b8f0e930d3c2685"
+    },
+    {
+      "id": "learn-ai-builder-prediction-create-model",
+      "title": "Create a prediction model",
+      "product": "power-platform-ai-hub",
+      "summary": "This example creates a Power Apps prediction AI model that uses the Online Shopper Intention table in Microsoft Dataverse. To get this sample data into your Microsoft Power Platform environment, enable the Deploy sample apps and data setting when you create an environment as described in Build a model in AI Builder.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prediction-create-model"
+      ],
+      "harnesses": [],
+      "conceptId": "custom-ai-models",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-prediction-model"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "cc9e970020c50d46"
+    },
+    {
+      "id": "learn-ai-builder-prediction-sample-data",
+      "title": "Use sample data to do prediction",
+      "product": "power-platform-ai-hub",
+      "summary": "To explore the possibilities of prediction in AI Builder, you can get started by building and training a prediction model that uses sample data provided by Microsoft.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/prediction-sample-data"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "df70177da77accc0"
+    },
+    {
+      "id": "learn-ai-builder-samples",
+      "title": "Start using AI Builder with sample data",
+      "product": "power-platform-ai-hub",
+      "summary": "Don't have any data of your own to create a model? No problem! We've got you covered.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/samples"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "0258b73ed5e0ce1c"
+    },
+    {
+      "id": "learn-ai-builder-security",
+      "title": "Roles and security in AI Builder",
+      "product": "power-platform-ai-hub",
+      "summary": "AI Builder relies on environment security and Microsoft Dataverse security roles and privileges to grant access to AI features in Power Apps, Power Automate, and Microsoft Copilot Studio. For more information, go to Security overview.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/security"
+      ],
+      "harnesses": [],
+      "conceptId": "custom-ai-models",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-admin-governance-security",
+        "ppai-category-classification-model",
+        "ppai-monitor-ai-activity",
+        "ppai-prediction-model"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "6ecc82de2acd3b27"
+    },
+    {
+      "id": "learn-ai-builder-teams-templates",
+      "title": "Use AI Builder in Teams",
+      "product": "power-platform-ai-hub",
+      "summary": "You can use Power Automate templates in Teams that solve a specific business purpose using AI Builder actions.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/teams-templates"
+      ],
+      "harnesses": [],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "63630e2935855c8b"
+    },
+    {
+      "id": "learn-ai-builder-text-classification-overview",
+      "title": "Overview of the category classification custom model",
+      "product": "power-platform-ai-hub",
+      "summary": "The volume of text data is increasing exponentially for organizations. Channels such as email, documents, and social media contribute increasing amounts of text data. This data carries valuable information that—when extracted and acted on—helps you provide better products and services to your customers.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/text-classification-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "custom-ai-models",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-category-classification-model"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "3f92f44a2dc08954"
+    },
+    {
+      "id": "learn-ai-builder-text-classification-sample-data",
+      "title": "Use sample data to do category classification",
+      "product": "power-platform-ai-hub",
+      "summary": "Get started exploring AI Builder category classification by using sample data to build and train a category classification model. The sample data uses customer feedback for a hospital. The goal is to train a model that can predict the category of newly received feedback.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/text-classification-sample-data"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "9dc71299cbdfc62c"
+    },
+    {
+      "id": "learn-ai-builder-use-a-prompt-to-read-document-identity",
+      "title": "Create a canvas app to develop a document identity reader that utilizes prompts",
+      "product": "power-platform-ai-hub",
+      "summary": "This sample allows you to explore a canvas app that extracts information from identity documents, such as a U.S. passport or a French identity card, using a prompt and a Dataverse table.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/use-a-prompt-to-read-document-identity"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "40ef8ea65750b719"
+    },
+    {
+      "id": "learn-ai-builder-use-in-flow-overview",
+      "title": "AI Builder in Power Automate overview",
+      "product": "power-platform-ai-hub",
+      "summary": "Power Automate is a service that helps you create automated workflows between your favorite apps and services to synchronize files, get notifications, collect data, and more. More information: Power Automate docs",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/use-in-flow-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "ai-consumption",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-prebuilt-receipt-processing-flow",
+        "ppai-predict-action-dynamic-model",
+        "ppai-use-prompt-in-flow-and-app"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "d39137601da361f0"
+    },
+    {
+      "id": "learn-ai-builder-use-in-powerapps-overview",
+      "title": "AI Builder in Power Apps overview",
+      "product": "power-platform-ai-hub",
+      "summary": "You can use AI Builder in Microsoft Power Apps in one of two ways, depending on the model you will be using. You can:",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/use-in-powerapps-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "ai-consumption",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "ppai-powerfx-ai-models-in-canvas-app",
+        "ppai-use-prompt-in-flow-and-app"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "5e97d90486ed6768"
+    },
+    {
+      "id": "learn-ai-builder-use-model",
+      "title": "Use your AI model",
+      "product": "power-platform-ai-hub",
+      "summary": "After you publish your model, you can use it across Microsoft Power Platform to create end-to-end solutions that meet your business needs.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/use-model"
+      ],
+      "harnesses": [],
+      "conceptId": "model-orchestration",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "337babdcd0fd29fa"
+    },
+    {
+      "id": "learn-ai-builder-use-prompt-to-read-a-receipt",
+      "title": "Create a canvas app to develop a receipt reader that utilizes prompts",
+      "product": "power-platform-ai-hub",
+      "summary": "This sample demonstrates how to use a canvas app to extract information from a receipt with the help of a prompt and a Dataverse table.",
+      "urls": [
+        "https://learn.microsoft.com/ai-builder/use-prompt-to-read-a-receipt"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "baef7af72a746789"
+    }
+  ],
+  "catalog": [
+    {
+      "featureId": "ppai-admin-governance-security",
+      "status": "current",
+      "contentHash": "e90cbd8bb171f928",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-alm-distribute-models",
+      "status": "current",
+      "contentHash": "a5db04fca8a03eb8",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-build-custom-prompt",
+      "status": "current",
+      "contentHash": "d550516b9aaf299e",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-category-classification-model",
+      "status": "current",
+      "contentHash": "28478abc3720d9f8",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-check-region-and-prerequisites",
+      "status": "current",
+      "contentHash": "12b0924708524b4c",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-code-interpreter-prompts",
+      "status": "current",
+      "contentHash": "9a915ff9a83ef589",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-credits-licensing-transition",
+      "status": "current",
+      "contentHash": "9c4dc0cd0bb7738f",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-document-processing-model",
+      "status": "current",
+      "contentHash": "254e576e0a7cd7f2",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-evaluate-version-retrain-models",
+      "status": "current",
+      "contentHash": "9307429b0351caa0",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-explore-ai-hub-models",
+      "status": "current",
+      "contentHash": "55d4b13bebb8c732",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-human-review-prompt-output",
+      "status": "current",
+      "contentHash": "2ba9c95761b3358b",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-migrate-from-text-generation",
+      "status": "current",
+      "contentHash": "38ccf7faed72ee1d",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-monitor-ai-activity",
+      "status": "current",
+      "contentHash": "1378c567fbb545e8",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-powerfx-ai-models-in-canvas-app",
+      "status": "current",
+      "contentHash": "a1ae2beed56bf6ac",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-prebuilt-receipt-processing-flow",
+      "status": "current",
+      "contentHash": "4f01d39417a233f1",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-prebuilt-sentiment-analysis",
+      "status": "current",
+      "contentHash": "ea18dfbd1865f124",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-predict-action-dynamic-model",
+      "status": "current",
+      "contentHash": "5e12e772e3fd2e2e",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-prediction-model",
+      "status": "current",
+      "contentHash": "9563806bf1638d1a",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-prompt-inputs-and-model-settings",
+      "status": "current",
+      "contentHash": "fcd257fc06a53522",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "ppai-use-prompt-in-flow-and-app",
+      "status": "current",
+      "contentHash": "19455d15438c29dd",
+      "changedAt": null,
+      "missing": []
+    }
+  ],
+  "pageHashes": {
+    "https://learn.microsoft.com/ai-builder": "5ac69ae830edc9ea",
+    "https://learn.microsoft.com/ai-builder/activity-monitoring": "49fa4e861256b9b1",
+    "https://learn.microsoft.com/ai-builder/administer": "d0455d207accf675",
+    "https://learn.microsoft.com/ai-builder/administer-consumption-report": "75cafee612d91901",
+    "https://learn.microsoft.com/ai-builder/administer-licensing": "f2ca8d7346a1d27c",
+    "https://learn.microsoft.com/ai-builder/ai-builder-architecture": "fa2b5e6a3adf2792",
+    "https://learn.microsoft.com/ai-builder/availability-region": "fc048c75de5a9e0b",
+    "https://learn.microsoft.com/ai-builder/build-model": "0f0108330f69d5ab",
+    "https://learn.microsoft.com/ai-builder/collect-images": "3ab73734be9bee9c",
+    "https://learn.microsoft.com/ai-builder/create-form-processing-model": "5402a0d4d67fe0ae",
+    "https://learn.microsoft.com/ai-builder/create-text-classification-model": "b25315635f1c21b5",
+    "https://learn.microsoft.com/ai-builder/credit-management": "3f817d9dfff704e8",
+    "https://learn.microsoft.com/ai-builder/distribute-model": "7201ddff4f1b019c",
+    "https://learn.microsoft.com/ai-builder/endofaibcredits": "b6be2950d679c783",
+    "https://learn.microsoft.com/ai-builder/entity-extraction-create": "74ec453668adefb8",
+    "https://learn.microsoft.com/ai-builder/entity-extraction-overview": "1d42317d4d567b99",
+    "https://learn.microsoft.com/ai-builder/entity-extraction-sample-data": "70127e53b360a62f",
+    "https://learn.microsoft.com/ai-builder/entity-extraction-train": "6f31ee06ba2786b2",
+    "https://learn.microsoft.com/ai-builder/flow-receipt-processing": "8fc3e366fc875276",
+    "https://learn.microsoft.com/ai-builder/form-processing-faq": "aca93d8b79cc16e0",
+    "https://learn.microsoft.com/ai-builder/form-processing-model-in-flow": "6cf20f34ff2232f8",
+    "https://learn.microsoft.com/ai-builder/form-processing-model-overview": "8b3aa3aead1cbefd",
+    "https://learn.microsoft.com/ai-builder/form-processing-sample-data": "52090c9dd8f1797d",
+    "https://learn.microsoft.com/ai-builder/form-processing-train": "62e94ce987fcc59d",
+    "https://learn.microsoft.com/ai-builder/get-started-with-object-detection": "e06d6c54457fad8a",
+    "https://learn.microsoft.com/ai-builder/improve-form-processing-performance": "df51ec8525a1404e",
+    "https://learn.microsoft.com/ai-builder/learn-ai-builder": "420078ca19a468a5",
+    "https://learn.microsoft.com/ai-builder/manage-model": "37907efce566437d",
+    "https://learn.microsoft.com/ai-builder/model-types": "9cfcaab404e91b7b",
+    "https://learn.microsoft.com/ai-builder/object-detection-sample-data": "5a5e5d73aea8c78a",
+    "https://learn.microsoft.com/ai-builder/overview": "7d9132be981c55c3",
+    "https://learn.microsoft.com/ai-builder/powerfx-in-powerapps": "77a5f1e941d22929",
+    "https://learn.microsoft.com/ai-builder/prebuilt-azure-openai": "a787e9f549908450",
+    "https://learn.microsoft.com/ai-builder/prebuilt-business-card": "9c1f4bff6b32fca2",
+    "https://learn.microsoft.com/ai-builder/prebuilt-category-classification": "e6b628fd8cf7cda8",
+    "https://learn.microsoft.com/ai-builder/prebuilt-category-classification-pwr-automate": "2ab8c49b9da10bfe",
+    "https://learn.microsoft.com/ai-builder/prebuilt-contract-processing": "6e830aeff67f7c92",
+    "https://learn.microsoft.com/ai-builder/prebuilt-entity-extraction": "fab031d93b3c192e",
+    "https://learn.microsoft.com/ai-builder/prebuilt-entity-extraction-pwr-automate": "7ceed56d8ca62113",
+    "https://learn.microsoft.com/ai-builder/prebuilt-id-reader": "7f82e8a5f0bb6ce8",
+    "https://learn.microsoft.com/ai-builder/prebuilt-image-description": "4fb414df8525bf6e",
+    "https://learn.microsoft.com/ai-builder/prebuilt-invoice-processing": "b0029a0b2941c5e7",
+    "https://learn.microsoft.com/ai-builder/prebuilt-key-phrase": "aa72784993d2fbce",
+    "https://learn.microsoft.com/ai-builder/prebuilt-language-detection": "36d247f9ea9ecd7e",
+    "https://learn.microsoft.com/ai-builder/prebuilt-overview": "e54a71980be414cc",
+    "https://learn.microsoft.com/ai-builder/prebuilt-prompts": "08aa2da901835200",
+    "https://learn.microsoft.com/ai-builder/prebuilt-receipt-processing": "b89a23326fbb48ab",
+    "https://learn.microsoft.com/ai-builder/prebuilt-sentiment-analysis": "fae8d6e7efb3ffdc",
+    "https://learn.microsoft.com/ai-builder/prebuilt-text-recognition": "ec90392a0f4e7abf",
+    "https://learn.microsoft.com/ai-builder/prebuilt-text-translation": "3b8f0e930d3c2685",
+    "https://learn.microsoft.com/ai-builder/predict-action-pwr-automate": "575effaf30bf7ee4",
+    "https://learn.microsoft.com/ai-builder/prediction-create-model": "cc9e970020c50d46",
+    "https://learn.microsoft.com/ai-builder/prediction-overview": "2bee0287c7db3e02",
+    "https://learn.microsoft.com/ai-builder/prediction-prereq": "61cc18f043262a23",
+    "https://learn.microsoft.com/ai-builder/prediction-sample-data": "df70177da77accc0",
+    "https://learn.microsoft.com/ai-builder/prediction-train-model": "228a02ca0379ed4e",
+    "https://learn.microsoft.com/ai-builder/publish-model": "49ba86ed48767617",
+    "https://learn.microsoft.com/ai-builder/publish-text-classification-model": "a4cc195cf77039f5",
+    "https://learn.microsoft.com/ai-builder/samples": "0258b73ed5e0ce1c",
+    "https://learn.microsoft.com/ai-builder/security": "6ecc82de2acd3b27",
+    "https://learn.microsoft.com/ai-builder/teams-templates": "63630e2935855c8b",
+    "https://learn.microsoft.com/ai-builder/text-classification-model-in-flow": "d8aa534630952644",
+    "https://learn.microsoft.com/ai-builder/text-classification-overview": "3f92f44a2dc08954",
+    "https://learn.microsoft.com/ai-builder/text-classification-sample-data": "9dc71299cbdfc62c",
+    "https://learn.microsoft.com/ai-builder/train-model": "1421b5dfe001046b",
+    "https://learn.microsoft.com/ai-builder/train-text-classification-model": "dc38549d5884f0d5",
+    "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-app": "0f9863275d16a11b",
+    "https://learn.microsoft.com/ai-builder/use-a-custom-prompt-in-flow": "97eb3017b76d3309",
+    "https://learn.microsoft.com/ai-builder/use-a-prompt-to-read-document-identity": "40ef8ea65750b719",
+    "https://learn.microsoft.com/ai-builder/use-in-flow-overview": "d39137601da361f0",
+    "https://learn.microsoft.com/ai-builder/use-in-powerapps-overview": "5e97d90486ed6768",
+    "https://learn.microsoft.com/ai-builder/use-model": "337babdcd0fd29fa",
+    "https://learn.microsoft.com/ai-builder/use-prompt-to-read-a-receipt": "baef7af72a746789",
+    "https://learn.microsoft.com/microsoft-copilot-studio/add-inputs-prompt": "cdac58864713c022",
+    "https://learn.microsoft.com/microsoft-copilot-studio/azure-openai-human-review": "0e47d4e7136c9964",
+    "https://learn.microsoft.com/microsoft-copilot-studio/code-interpreter-for-prompts": "87c0d5379675d4cb",
+    "https://learn.microsoft.com/microsoft-copilot-studio/create-custom-prompt": "63a89a9843fefbdb",
+    "https://learn.microsoft.com/microsoft-copilot-studio/prompt-model-settings": "53550e30beb81a9c",
+    "https://learn.microsoft.com/microsoft-copilot-studio/prompts-overview": "18fba6ae7bc5f717"
+  },
+  "listHash": "4f47693c85455b6a",
+  "endpoint": "https://learn.microsoft.com/api/mcp"
+}

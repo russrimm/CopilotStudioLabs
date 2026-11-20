@@ -699,9 +699,18 @@ Copilot Studio lab. The Previously generated labs list shows a chip per product.
 
 **Topic discovery** is scoped per product: `discoverSnapshot({ product })` starts at
 the product's `learnHubUrl`, follows only links under its `learnRoots`, compares only
-that product's catalog features, and tags its topics with the product. The portal's
-refresh runs Copilot Studio discovery; the other products use the curated catalog
-until their snapshots are added.
+that product's catalog features, and tags its topics with the product. Every product has
+its own list: Copilot Studio keeps `learn-topics.snapshot.json`, and each other product has
+`learn-topics.<product-id>.snapshot.json` (committed, the offline baseline) and a runtime
+cache `topics-cache-<product-id>.json` next to the Copilot Studio cache. A product whose Learn
+roots are broader than its AI features can list `topicKeywords` in `products.json`
+(SharePoint AI does): a discovered page is kept only when its title, summary, or address
+mentions one of them, unless a catalog feature already covers it. The wizard's Topics step
+shows each chosen product's own "last refreshed" line and **Refresh from Microsoft Learn**
+refreshes the products you chose; `POST /api/lab-builder/topics/refresh` takes an optional
+`{ "products": ["sharepoint-ai", ...] }` (default: Copilot Studio), and `GET /api/lab-builder/topics`
+reports `products[<id>]` (`refreshedAt`, `source`, `stale`, `newTopics`). A topic from any product's
+list builds into a lab the same way a Copilot Studio one does.
 
 #### Adding a product
 
@@ -2683,6 +2692,7 @@ string.
 | `LAB_BUILDER_TOPICS_DISABLED` | `false` | Never contact Microsoft Learn; use the cache or snapshot. |
 | `LAB_BUILDER_TOPICS_CACHE` | `portal/data/lab-builder/topics-cache.json` | Cache file (inside the git-ignored `portal/data/`). |
 | `LAB_BUILDER_TOPICS_SNAPSHOT` | the committed snapshot | Offline baseline file. |
+| `LAB_BUILDER_TOPICS_PRODUCT_CACHE_DIR`, `_PRODUCT_SNAPSHOT_DIR` | next to the Copilot Studio cache and snapshot | Where the other products keep `topics-cache-<product-id>.json` and `learn-topics.<product-id>.snapshot.json`. |
 | `LAB_BUILDER_TOPICS_TTL_MS` | `86400000` | How long the list counts as fresh. |
 | `LAB_BUILDER_TOPICS_AUTO_REFRESH` | `false` | Refresh on a timer while the server runs (the timer never keeps the process alive). |
 | `LAB_BUILDER_TOPICS_REFRESH_MS` | `86400000` | Timer interval. |
@@ -2696,15 +2706,17 @@ string.
 **Refreshing the committed snapshot.**
 
 ```bash
-npm run refresh-topics               # discover and write the snapshot if the topics changed
+npm run refresh-topics               # discover and write the Copilot Studio snapshot if the topics changed
 npm run refresh-topics -- --check    # discover and report, write nothing
+npm run refresh-topics -- --product sharepoint-ai   # one other product
+npm run refresh-topics -- --all      # every product, one after another
 ```
 
 The CLI prints a covered, new, and stale count per harness and exits non-zero (writing
 nothing) if Learn is unreachable or the run was cut short. It rewrites the snapshot
 only when the topic list changed, so a run that finds nothing new leaves the working
-tree clean. `.github/workflows/refresh-topics.yml` runs it weekly and on demand and
-opens a pull request with the updated snapshot only when something changed. It needs
+tree clean. `.github/workflows/refresh-topics.yml` runs it for every product weekly and on demand and
+opens a pull request with the updated snapshots only when something changed. It needs
 "Allow GitHub Actions to create and approve pull requests" enabled in the
 repository's Actions settings; pull requests opened with the default token do not
 start other workflows, so close and reopen the pull request to run checks on it.

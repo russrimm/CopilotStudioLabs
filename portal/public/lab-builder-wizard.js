@@ -1829,16 +1829,20 @@ function lbRenderLearnBar() {
   button.disabled = labBuilder.learnBusy || Boolean(learn?.disabled);
   button.setAttribute("aria-busy", String(labBuilder.learnBusy));
   if (labBuilder.learnBusy) {
-    status.textContent = "Refreshing the topic list from Microsoft Learn. This can take up to a minute.";
+    status.textContent = `Refreshing the topic list from Microsoft Learn${lbSelectedProductList().length > 1 ? " for each product you chose" : ""}. This can take up to a minute for each product.`;
     return;
   }
   if (!learn) {
     status.textContent = "Checking when the topic list was last refreshed from Microsoft Learn...";
     return;
   }
-  const newCount = learn.topics.filter((t) => t.source === "learn").length;
+  const newCount = learn.topics.filter((t) => t.source === "learn" && !t.product).length;
   const parts = [];
-  if (!learn.refreshedAt) {
+  // The Copilot Studio list is described only when Copilot Studio is part of the lab (or nothing is chosen yet).
+  const showCopilotStudio = lbHasHarnessProduct() || !lbSelectedProductList().length;
+  if (!showCopilotStudio) {
+    /* the chosen products are described one by one below */
+  } else if (!learn.refreshedAt) {
     parts.push("Microsoft Learn topics are not available, so only the built-in catalog is shown.");
   } else {
     const when = new Date(learn.refreshedAt);
@@ -1847,9 +1851,19 @@ function lbRenderLearnBar() {
     parts.push(`${label}: ${stamp} (${lbAgo(learn.ageMs)}).`);
     if (lbHasHarnessProduct()) {
       parts.push(`${newCount} new topic${newCount === 1 ? "" : "s"} from Learn, ${lbLearnNewCount(labBuilder.harness, labBuilder.level)} at ${lbLevelName(labBuilder.level)}.`);
-    } else {
-      parts.push("Live discovery of new Microsoft Learn topics covers Copilot Studio only so far; the other products use the built-in catalog.");
     }
+  }
+  // Every other selected product has its own list from Microsoft Learn, with its own refresh time.
+  const others = lbSelectedProductList().filter((p) => !p.hasHarnesses);
+  for (const product of others) {
+    const info = learn.products?.[product.id];
+    if (!info?.refreshedAt) {
+      parts.push(`${product.shortName}: no Microsoft Learn topic list yet, so only the built-in catalog is shown. Refresh to read one.`);
+      continue;
+    }
+    const stamp = new Date(info.refreshedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    const label = info.source === "cache" ? "Last refreshed from Microsoft Learn" : "Built-in Microsoft Learn snapshot";
+    parts.push(`${product.shortName}: ${label}: ${stamp} (${lbAgo(info.ageMs)}). ${info.newTopics} new topic${info.newTopics === 1 ? "" : "s"} from Learn.`);
   }
   if (learn.disabled) parts.push("Refreshing is turned off on this server.");
   else if (learn.refreshing) parts.push("A refresh is running in the background.");
@@ -1880,7 +1894,7 @@ async function lbRefreshLearn() {
     const res = await fetch("/api/lab-builder/topics/refresh", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(lbSelectedProductList().length ? { products: lbSelectedProductList().map((p) => p.id) } : {}),
     });
     let data = null;
     try {

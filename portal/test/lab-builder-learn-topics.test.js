@@ -27,7 +27,7 @@ import { cleanText, normalizeLearnUrl, tidySummary, topicId } from "../lib/lab-b
 import { knowledgeCheckBlock } from "../lib/lab-builder/teaching.js";
 import { listHash, summarize, validateSnapshot } from "../lib/lab-builder/topic-snapshot.js";
 import { createTopicService, resetTopicSource, setTopicSource, topicConfig } from "../lib/lab-builder/topic-store.js";
-import { registerTopicRoutes, topicsPayload } from "../lib/lab-builder/topic-api.js";
+import { refreshResponse, registerTopicRoutes, topicsPayload } from "../lib/lab-builder/topic-api.js";
 import { topicToFeature } from "../lib/lab-builder/topic-feature.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
 import { planLab } from "../lib/lab-builder/planner.js";
@@ -573,6 +573,7 @@ test("POST refresh validates input, rate limits, and reports failures without lo
 
   assert.equal((await call("/api/lab-builder/topics/refresh", { method: "POST", body: { force: true } })).status, 400);
   assert.equal((await call("/api/lab-builder/topics/refresh", { method: "POST", body: [1] })).status, 400);
+  assert.equal((await call("/api/lab-builder/topics/refresh", { method: "POST", body: { products: ["nope"] } })).status, 400);
   assert.equal((await call("/api/lab-builder/topics/refresh", { method: "POST", raw: "{ nope" })).status, 400);
   assert.equal((await call("/api/lab-builder/topics/refresh", { method: "POST", body: { pad: "x".repeat(4000) } })).status, 413);
 
@@ -1060,4 +1061,49 @@ test("a Learn-only topic never gets a quiz whose answers are its own disclaimer"
   const lines = knowledgeCheckBlock({ ...feature, stepOrder: 1 }, { profile: { agentName: "Helper" }, includeKnowledgeCheck: true }, u, null).join("\n");
   assert.doesNotMatch(lines, /Question \d|Correct answer|was found on Microsoft Learn/);
   assert.match(lines, /No quiz for this topic/);
+});
+
+test("each product has its own Learn list: refreshing one writes its own cache, reaches the catalog, and reports its own freshness", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "product-topics-"));
+  t.after(() => {
+    resetTopicSource();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+  const url = "https://learn.microsoft.com/sharepoint/copilot-tips";
+  const make = (extra) => {
+    const snapshot = { schemaVersion: 1, generatedAt: "2026-11-13T12:00:00Z", source: "test", catalogVersion: "test", topics: [], catalog: [], pageHashes: {}, ...extra };
+    snapshot.listHash = listHash(snapshot);
+    return snapshot;
+  };
+  const sharepoint = make({
+    product: "sharepoint-ai",
+    topics: [{ id: topicId(url), title: "Copilot tips for SharePoint", product: "sharepoint-ai", summary: "Tips for working with Copilot in SharePoint sites.", urls: [url], harnesses: [], conceptId: "uncategorized", availability: null, status: "new", featureIds: [], level: 200, firstSeen: "2026-11-13", lastSeen: "2026-11-13", changedAt: null, contentHash: "0123456789abcdef" }],
+  });
+  const main = make({});
+  setTopicSource({ source: "cache", snapshot: main });
+  const calls = [];
+  const service = createTopicService({
+    config: { ...config(), cachePath: path.join(dir, "cs.json"), snapshotPath: path.join(dir, "cs-baseline.json"), minRefreshIntervalMs: 0 },
+    now: () => NOW,
+    discover: async (ctx) => {
+      calls.push(ctx.product ?? "copilot-studio");
+      return ctx.product ? sharepoint : main;
+    },
+  });
+  const first = await service.refresh({ product: "sharepoint-ai" });
+  assert.equal(first.ok, true, JSON.stringify(first));
+  assert.deepEqual(calls, ["sharepoint-ai"]);
+  assert.ok(fs.existsSync(path.join(dir, "topics-cache-sharepoint-ai.json")), "its own cache file");
+  assert.ok(!fs.existsSync(path.join(dir, "cs.json")), "the Copilot Studio cache is untouched");
+  assert.equal(getFeature(topicId(url))?.product, "sharepoint-ai", "the lab builder can build a lab for it");
+
+  const payload = topicsPayload(service);
+  assert.equal(payload.products["sharepoint-ai"].newTopics, 1);
+  assert.equal(payload.products["sharepoint-ai"].source, "cache");
+  assert.equal(payload.products["copilot-studio"].source, "catalog");
+  assert.ok(payload.topics.some((topic) => topic.id === topicId(url) && topic.source === "learn" && topic.product === "sharepoint-ai"));
+
+  const both = await refreshResponse(service, ["copilot-studio", "sharepoint-ai"]);
+  assert.deepEqual(Object.keys(both.body.refresh.products), ["copilot-studio", "sharepoint-ai"]);
+  assert.equal(both.status, 200);
 });

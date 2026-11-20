@@ -1,0 +1,1210 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-20T05:54:35.229Z",
+  "source": "microsoft-learn-mcp",
+  "product": "m365-copilot-agent-builder",
+  "catalogVersion": 1,
+  "partial": false,
+  "partialReason": null,
+  "stats": {
+    "calls": 89,
+    "errors": 0,
+    "pagesRead": 44,
+    "searches": 13
+  },
+  "topics": [
+    {
+      "id": "learn-microsoft-365-admin-manage-agent-registry",
+      "title": "Manage agent registry in Microsoft 365 admin center",
+      "product": "m365-copilot-agent-builder",
+      "summary": "The agent registry in Microsoft 365 admin center provides a centralized view of all agents available for your organization. This list helps you monitor, manage, and govern agents for your organization.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/admin/manage/agent-registry"
+      ],
+      "harnesses": [],
+      "conceptId": "governance",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "d22c0afe756d263b"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility",
+      "title": "Extend Microsoft 365 Copilot with Plugins",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Build and manage plugins for Microsoft 365 Copilot, from planning through publishing and retirement.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility",
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agents-are-apps"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "be3e2485417d0d1f",
+      "subtopics": [
+        {
+          "id": "learn-microsoft-365-copilot-extensibility-agents-are-apps",
+          "title": "What is a Microsoft 365 Copilot plugin?",
+          "url": "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agents-are-apps",
+          "summary": "A plugin is an installable package that adds new capabilities to Microsoft 365 Copilot and other Microsoft AI experiences. It brings together the skills, tools, and optional agents needed for a job in one unit that people can find, install, share, and manage.",
+          "level": 200
+        }
+      ]
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-agent-builder",
+      "title": "Agent Builder overview",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Agent Builder provides an easy way to build declarative agents for Microsoft 365. Agent Builder offers an immediate, interactive AI development experience that suits quick and straightforward projects.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder"
+      ],
+      "harnesses": [],
+      "conceptId": "choose-approach",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-agent-builder-first-agent",
+        "dca-agent-builder-knowledge",
+        "dca-agent-builder-share-agent",
+        "dca-agent-builder-troubleshooting",
+        "dca-declarative-agents-overview",
+        "dca-licensing-and-environment"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "bb6ded986043095f"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-agent-builder-add-skills",
+      "title": "Add skills to your declarative agent in Agent Builder",
+      "product": "m365-copilot-agent-builder",
+      "summary": "A skill is a modular, reusable component that you add to a declarative agent to help it perform a specific packaged task. A skill is a directory that contains a required SKILL.md file with instructions, plus optional resource files and scripts.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-add-skills"
+      ],
+      "harnesses": [],
+      "conceptId": "skills",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-agent-builder-skills"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "9d5807b4e757340a"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-agents-overview",
+      "title": "Compare declarative and custom engine agents",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Microsoft 365 Copilot is an AI-powered productivity tool that enhances workflows across Microsoft 365 applications like Copilot Chat, Outlook, Teams, and Word, using enterprise data from Microsoft Graph.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agents-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ee8fe9840f0ecb58"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-api-ai-services-chat-overview",
+      "title": "Overview of the Microsoft 365 Copilot Chat API (preview)",
+      "product": "m365-copilot-agent-builder",
+      "summary": "The Microsoft 365 Copilot APIs provide access to components that power Copilot experiences, unlocking the ability to enhance your custom engine agents and generative AI solutions with Microsoft 365 Copilot capabilities.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/api/ai-services/chat/overview"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": "preview",
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "260bc51a728e935f"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-api-ai-services-meeting-insigh-681d5e",
+      "title": "List aiInsights",
+      "product": "m365-copilot-agent-builder",
+      "summary": "APIs under the /beta version are subject to change. Use of these APIs in production applications is not supported.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/api/ai-services/meeting-insights/onlinemeeting-list-aiinsights"
+      ],
+      "harnesses": [],
+      "conceptId": "monitor",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "547465316abdf0a7"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-api-ai-services-meeting-insigh-6c3e1e",
+      "title": "Get callAiInsight",
+      "product": "m365-copilot-agent-builder",
+      "summary": "APIs under the /beta version are subject to change. Use of these APIs in production applications is not supported.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/api/ai-services/meeting-insights/callaiinsight-get"
+      ],
+      "harnesses": [],
+      "conceptId": "monitor",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "12afa6c1ef507467"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-api-ai-services-retrieval-overview",
+      "title": "Overview of the Microsoft 365 Copilot Retrieval API",
+      "product": "m365-copilot-agent-builder",
+      "summary": "The Microsoft 365 Copilot APIs provide access to components that power Copilot experiences, unlocking the ability to enhance your custom engine agents and generative AI solutions with Microsoft 365 Copilot capabilities.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/api/ai-services/retrieval/overview"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "24f410875fcf070e"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-api-ai-services-search-overview",
+      "title": "Overview of the Microsoft 365 Copilot Search API (preview)",
+      "product": "m365-copilot-agent-builder",
+      "summary": "The Microsoft 365 Copilot APIs provide access to components that power Copilot experiences. With these APIs, you can enhance your custom engine agents and generative AI solutions with Copilot capabilities.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/api/ai-services/search/overview"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": "preview",
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "27a34962ab1afe35"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-apps-agents-overview",
+      "title": "Build Copilot-powered apps",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Use APIs when people interact with an application that you host and operate. This path gives you control over the user experience, runtime, deployment, and application lifecycle.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/apps-agents-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "7794e08f2cfd5cca"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-build-declarative-agents",
+      "title": "Tutorial: Create declarative agents by using Microsoft 365 Agents Toolkit and JSON",
+      "product": "m365-copilot-agent-builder",
+      "summary": "A declarative agent provides a goal-directed conversational experience powered by Microsoft 365 Copilot. You define its purpose, instructions, knowledge, and actions. This guide provides information about how to build a declarative agent by using Microsoft 365 Agents Toolkit.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-toolkit-json-capabilities-action",
+        "dca-toolkit-typespec-agent"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ca7268621c744194"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-build-declarative-agents-typespec",
+      "title": "Create declarative agents by using Microsoft 365 Agents Toolkit and TypeSpec",
+      "product": "m365-copilot-agent-builder",
+      "summary": "A declarative agent provides a goal-directed conversational experience powered by Microsoft 365 Copilot. You define its purpose, instructions, knowledge, and actions. This guide shows how to build a declarative agent by using TypeSpec and Microsoft 365 Agents Toolkit.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents-typespec"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-toolkit-knowledge-capabilities",
+        "dca-toolkit-typespec-agent"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "f65c2306944d410c"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-build-mcp-plugins",
+      "title": "Build a plugin for a declarative agent from an MCP server",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Recommended: Start with Work IQ Dev Tools for supported pro-code declarative-agent and plugin scenarios. See the WIQD quickstart. Toolkit-based instructions remain available for existing projects and workflows that require them.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-mcp-plugins"
+      ],
+      "harnesses": [],
+      "conceptId": "mcp",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-toolkit-mcp-plugin"
+      ],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "73e9bef2bd380e64"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-build-your-first-connector",
+      "title": "Build your first synced Copilot connector with Microsoft 365 Agents Toolkit",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Recommended: Start with Work IQ Dev Tools for supported pro-code declarative-agent and plugin scenarios. See the WIQD quickstart. Toolkit-based instructions remain available for existing projects and workflows that require them.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-your-first-connector"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "01a4a9e2c0a1098d"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-choose-plugin-components",
+      "title": "Choose capabilities for your plugin",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Use your plugin plan to choose the capabilities that meet your users' needs. A plugin can include skills, tools, and optional agents. It doesn't need all three, and a single packaged skill is also a plugin.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/choose-plugin-components"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "7b5c0d16f4ed68e9"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-choose-plugin-development-tools",
+      "title": "Choose development tools for your plugin",
+      "product": "m365-copilot-agent-builder",
+      "summary": "During Prepare , turn your capability choices into a build plan. Start with Work IQ Dev Tools for professional development, choose a documented environment, and add Microsoft 365 Agents Toolkit or an SDK only when the scenario needs it.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/choose-plugin-development-tools"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "9794d88429ccbab6"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-convert-declarative-agent",
+      "title": "Convert your declarative agent to a custom engine agent",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Recommended: Start with Work IQ Dev Tools for supported pro-code declarative-agent and plugin scenarios. See the WIQD quickstart. Toolkit-based instructions remain available for existing projects and workflows that require them.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/convert-declarative-agent"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "2734e573c368920f"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-copilot-apis-overview",
+      "title": "Microsoft 365 Copilot APIs overview",
+      "product": "m365-copilot-agent-builder",
+      "summary": "The Microsoft 365 Copilot APIs enable you to securely access Microsoft 365 Copilot capabilities in your own applications and custom engine agents, while aligning with compliance standards of Microsoft 365.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-apis-overview"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "03342d6146d42e72"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-cost-considerations",
+      "title": "Plan licensing and cost",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Use this article while you plan your plugin or another Microsoft 365 Copilot extensibility solution. Costs vary by product and distribution route. Don't assume that a plugin is free to use in every product or that a user license covers every component and external service.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/cost-considerations"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "fd521d2a70e21695"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-create-deploy-agents-sdk",
+      "title": "Create and deploy an agent with Microsoft 365 Agents SDK",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Recommended: Start with Work IQ Dev Tools for supported pro-code declarative-agent and plugin scenarios. See the WIQD quickstart. Toolkit-based instructions remain available for existing projects and workflows that require them.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/create-deploy-agents-sdk"
+      ],
+      "harnesses": [],
+      "conceptId": "publish",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "255f2925fcadb801"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-custom-engine-agent-asynchronous-flow",
+      "title": "Implement asynchronous and proactive messaging in custom engine agents",
+      "product": "m365-copilot-agent-builder",
+      "summary": "This article describes how to implement asynchronous and proactive messaging patterns in custom engine agents that you build with the Microsoft Bot Framework. These patterns allow your agents to respond to users after a delay or without a user-initiated message.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/custom-engine-agent-asynchronous-flow"
+      ],
+      "harnesses": [],
+      "conceptId": "workflows",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "e15a89c59fd24cde"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-data-privacy-security",
+      "title": "Plan data, privacy, and security",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Use this article while you plan your plugin. Identify the applicable requirements now, and confirm the component-specific implementation after you choose capabilities and development tools.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/data-privacy-security"
+      ],
+      "harnesses": [],
+      "conceptId": "security",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "cb470bd59e0fb1f0"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-declarative-agent-architecture",
+      "title": "Declarative agent architecture",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Declarative agents run on Microsoft 365 Copilot's managed orchestration and language-model infrastructure. You configure the agent's instructions, knowledge sources, and supported capabilities rather than implementing and hosting your own conversational runtime.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-architecture"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "766a7c66d9b7dea9"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-declarative-agent-connected-agent",
+      "title": "Connect to other agents from a declarative agent",
+      "product": "m365-copilot-agent-builder",
+      "summary": "When users interact with a declarative agent in Microsoft 365 Copilot Chat, it can connect to other agents to retrieve extra information or perform actions. You declare these connections in the agent manifest by listing agent title IDs in the worker agents property.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-connected-agent"
+      ],
+      "harnesses": [],
+      "conceptId": "subagents",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "afe30b9691de457f"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-declarative-agent-document-interaction",
+      "title": "Interact with documents in Microsoft 365 apps with a declarative agent",
+      "product": "m365-copilot-agent-builder",
+      "summary": "When declarative agents are used in the Copilot experience in Microsoft 365 apps, they're able to interact with the open document. By default, agents can read the entire open document. Users can provide just a selected section of the open document to the agent, and agents can insert images into the open document.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-document-interaction"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "73dae455d28b37c6"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-declarative-agent-manifest-1-2",
+      "title": "Declarative agent schema 1.2 for Microsoft 365 Copilot",
+      "product": "m365-copilot-agent-builder",
+      "summary": "This article describes the 1.2 schema used by the declarative agent manifest. The manifest is a machine-readable document that provides a Large Language Model (LLM) with the necessary instructions, knowledge, and actions to specialize in addressing a select set of user problems.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.2"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "7b2c356fa8df81eb"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-declarative-agent-manifest-1-3",
+      "title": "Declarative agent schema 1.3 for Microsoft 365 Copilot",
+      "product": "m365-copilot-agent-builder",
+      "summary": "This article describes the 1.3 schema used by the declarative agent manifest. The manifest is a machine-readable document that provides a Large Language Model (LLM) with the necessary instructions, knowledge, and actions to specialize in addressing a select set of user problems.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.3"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "c59a8945157c4e30"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-declarative-agent-manifest-1-4",
+      "title": "Declarative agent schema 1.4 for Microsoft 365 Copilot",
+      "product": "m365-copilot-agent-builder",
+      "summary": "This article describes the 1.4 schema used by the declarative agent manifest. The manifest is a machine-readable document that provides a Large Language Model (LLM) with the necessary instructions, knowledge, and actions to specialize in addressing a select set of user problems.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.4"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "d01428b854608b9b"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-declarative-agent-manifest-1-5",
+      "title": "Declarative agent schema 1.5 for Microsoft 365 Copilot",
+      "product": "m365-copilot-agent-builder",
+      "summary": "This article describes the 1.5 schema used by the declarative agent manifest. The manifest is a machine-readable document that provides a Large Language Model (LLM) with the necessary instructions, knowledge, and actions to specialize in addressing a select set of user problems.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.5"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "a2bf7aebe18c01d0"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-declarative-agent-manifest-1-9",
+      "title": "Declarative agent schema 1.9 for Microsoft 365 Copilot",
+      "product": "m365-copilot-agent-builder",
+      "summary": "This article describes the 1.9 schema used by the declarative agent manifest. The manifest is a machine-readable document that provides a Large Language Model (LLM) with the necessary instructions, knowledge, and actions to specialize in addressing a select set of user problems.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.9"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-toolkit-knowledge-capabilities",
+        "dca-toolkit-typespec-agent"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ff882803dbb5b007"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-declarative-agent-skills",
+      "title": "Skills in declarative agents",
+      "product": "m365-copilot-agent-builder",
+      "summary": "This article covers skills attached to a declarative agent. To author a skill for use directly in Microsoft 365 Copilot Chat without creating an agent, see Build skills for Copilot Chat. The support matrix in this article applies to agent-scoped skills, not to all skills or plugin packages.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-skills"
+      ],
+      "harnesses": [],
+      "conceptId": "skills",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-agent-builder-skills"
+      ],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "179b34a001067f7e"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-instructions-api-plugins",
+      "title": "Write effective instructions for declarative agents with API plugins",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Declarative agents tailor Microsoft 365 Copilot to meet the specific needs of an organization. You can add custom actions through API plugins. For supported pro-code scenarios, Work IQ Dev Tools is recommended.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/instructions-api-plugins"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "03ea54bd299a1437"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-integrate-test-plugin-components",
+      "title": "Test your plugin components together",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Test what your plugin package contains or references: skills, remote MCP connectors, and a declarative agent if you include one. This Package & test task establishes component behavior and integration before you create the release artifact.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/integrate-test-plugin-components"
+      ],
+      "harnesses": [],
+      "conceptId": "testing",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "fc1270069c125959"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-knowledge-sources",
+      "title": "Add knowledge sources to your declarative agent",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Recommended: Start with Work IQ Dev Tools for supported pro-code declarative-agent and plugin scenarios. See the WIQD quickstart. Toolkit-based instructions remain available for existing projects and workflows that require them.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/knowledge-sources"
+      ],
+      "harnesses": [],
+      "conceptId": "knowledge",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "c561b2fe992b7ab9"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-optimize-content-retrieval",
+      "title": "Optimize content retrieval",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Declarative agents extend Microsoft 365 Copilot to customize the experience for users. When you build declarative agents, you can add SharePoint content and upload files as knowledge sources.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/optimize-content-retrieval"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "d0843a997bc7826d"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-overview",
+      "title": "Ways to extend Microsoft 365 Copilot",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Choose the path that matches where people will use your solution. This article compares the two paths so you can select the right starting point before Prepare .",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "1bfbcc0c9ff17750"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-overview-custom-engine-agent",
+      "title": "Custom engine agents for Microsoft 365 overview",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Work IQ Dev Tools is recommended for supported pro-code declarative-agent and plugin scenarios, but it doesn't target custom engine agents. This article covers the separate SDK, hosting, and integration choices for custom engine agents.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-custom-engine-agent"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ecba0322e0462eb2"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-overview-declarative-agent",
+      "title": "Declarative agents for Microsoft 365 Copilot",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Declarative agents provide a goal-directed conversational experience that's powered by Microsoft 365 Copilot. You define the agent's purpose, instructions, knowledge, and supported actions to address a business scenario.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent"
+      ],
+      "harnesses": [],
+      "conceptId": "choose-approach",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-agent-builder-first-agent",
+        "dca-declarative-agents-overview"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ae1bd923ebdc85e1"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-overview-plugins",
+      "title": "MCP and API plugins for declarative agents",
+      "product": "m365-copilot-agent-builder",
+      "summary": "MCP and API plugins are custom actions that enable declarative agents in Microsoft 365 Copilot to interact with Model Context Protocol (MCP) servers or REST APIs that have an OpenAPI description.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-plugins"
+      ],
+      "harnesses": [],
+      "conceptId": "tools",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-toolkit-api-plugin-typespec",
+        "dca-toolkit-mcp-plugin"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "3661f33263e5bfc2"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-plugin-ci-cd",
+      "title": "Integrate Work IQ Dev Tools into Microsoft 365 Copilot plugin CI/CD",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Use Work IQ Dev Tools (WIQD) to add continuous integration and continuous delivery (CI/CD) checks to your Microsoft 365 Copilot plugin project. This article separates inexpensive pull-request checks from authenticated candidate testing and approved release submission.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-ci-cd"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "b27c7840fbf7ef02"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-plugin-confirmation-prompts",
+      "title": "Confirmation prompts for MCP and API plugins for Microsoft 365 Copilot",
+      "product": "m365-copilot-agent-builder",
+      "summary": "MCP and API plugins provide actions within declarative agents. They're not standalone installable plugin packages: only the containing agent can access their functions and tools. For information about the package and action manifest relationship, see Plugins and declarative agent actions.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-confirmation-prompts"
+      ],
+      "harnesses": [],
+      "conceptId": "mcp",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "8eb4420e2c3eb2da"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-plugin-manifest-2-2",
+      "title": "API plugin manifest schema 2.2 for Microsoft 365 Copilot",
+      "product": "m365-copilot-agent-builder",
+      "summary": "This schema describes an API plugin that provides actions to a declarative agent. It isn't the Microsoft 365 app manifest for the installable plugin package. See Plugins and declarative agent actions for the manifest relationship.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-manifest-2.2"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "9636f365c0e43227"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-plugin-manifest-2-4",
+      "title": "API and MCP plugin manifest schema 2.4 for Microsoft 365 Copilot",
+      "product": "m365-copilot-agent-builder",
+      "summary": "This schema describes API and MCP plugins that provide actions to a declarative agent. It isn't the Microsoft 365 app manifest for the installable plugin package. See Plugins and declarative agent actions for the manifest relationship. To assemble the installable package, see Package your plugin.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-manifest-2.4"
+      ],
+      "harnesses": [],
+      "conceptId": "mcp",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 300,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "7132c3f99f91e64a"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-prerequisites",
+      "title": "Set up your development environment for your plugin",
+      "product": "m365-copilot-agent-builder",
+      "summary": "During Prepare , use the development plan from Choose development tools to set up the environments, accounts, tools, identities, permissions, connections, and services required by your plugin components. You finish with verified access and tool prerequisites so you can return to Build or reuse .",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites"
+      ],
+      "harnesses": [],
+      "conceptId": "billing",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-agent-builder-knowledge",
+        "dca-licensing-and-environment",
+        "dca-toolkit-developer-mode",
+        "dca-toolkit-json-capabilities-action",
+        "dca-toolkit-knowledge-capabilities",
+        "dca-toolkit-typespec-agent"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "15d986ba14f3821f"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-samples",
+      "title": "Microsoft 365 Copilot extensibility samples",
+      "product": "m365-copilot-agent-builder",
+      "summary": "This article provides links to code samples to help you develop Copilot extensibility solutions, including agents, Microsoft 365 Copilot connectors, and plugins.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/samples"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "432578f3c7f7be2c"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-sdks-api-libraries",
+      "title": "Microsoft 365 Copilot APIs client libraries",
+      "product": "m365-copilot-agent-builder",
+      "summary": "The Microsoft 365 Copilot APIs client libraries are designed to facilitate the development of high-quality, efficient, and resilient AI solutions that access the Copilot APIs. These libraries include service and core libraries.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/sdks/api-libraries"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "415dd841ad7b61e0"
+    },
+    {
+      "id": "learn-microsoft-365-copilot-extensibility-whats-new-history",
+      "title": "What's new history for Microsoft 365 Copilot extensibility",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Find historical information about additions and updates to Microsoft 365 Copilot extensibility options.",
+      "urls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/extensibility/whats-new-history"
+      ],
+      "harnesses": [],
+      "conceptId": "integrations",
+      "availability": null,
+      "status": "new",
+      "featureIds": [],
+      "level": 200,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "d5fafd73dea331fe"
+    },
+    {
+      "id": "learn-microsoftteams-platform-toolkit-overview-agents-toolkit",
+      "title": "Microsoft 365 Agents Toolkit",
+      "product": "m365-copilot-agent-builder",
+      "summary": "Microsoft 365 Agents Toolkit is a suite of tools for building enterprise-ready agents and apps that work across Microsoft 365 Copilot, Teams, Office, web, and other third-party messaging channels.",
+      "urls": [
+        "https://learn.microsoft.com/microsoftteams/platform/toolkit/overview-agents-toolkit"
+      ],
+      "harnesses": [],
+      "conceptId": "create-agent",
+      "availability": null,
+      "status": "covered",
+      "featureIds": [
+        "dca-toolkit-typespec-agent"
+      ],
+      "level": 100,
+      "firstSeen": "2026-11-20",
+      "lastSeen": "2026-11-20",
+      "changedAt": null,
+      "contentHash": "ed453663dd598406"
+    }
+  ],
+  "catalog": [
+    {
+      "featureId": "dca-admin-agent-registry",
+      "status": "current",
+      "contentHash": "e7a98efd7b4a7568",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-admin-agent-settings",
+      "status": "current",
+      "contentHash": "83e8dddf69fbca1b",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-agent-builder-capabilities",
+      "status": "current",
+      "contentHash": "48c0c658344829c2",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-agent-builder-first-agent",
+      "status": "current",
+      "contentHash": "9dac9c6947a1593c",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-agent-builder-knowledge",
+      "status": "current",
+      "contentHash": "e096a97cbb3085e2",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-agent-builder-share-agent",
+      "status": "current",
+      "contentHash": "82c2c351ca3e157e",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-agent-builder-share-and-catalog",
+      "status": "current",
+      "contentHash": "9b949a9ea5af118b",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-agent-builder-skills",
+      "status": "current",
+      "contentHash": "c76c867a61c5cf2a",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-agent-builder-templates-icon-mode",
+      "status": "current",
+      "contentHash": "0920dff7a75cd38d",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-agent-builder-troubleshooting",
+      "status": "current",
+      "contentHash": "648f7ac01800e3b8",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-agent-builder-vs-copilot-studio",
+      "status": "current",
+      "contentHash": "fcaf7b0c745fc21b",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-declarative-agents-overview",
+      "status": "current",
+      "contentHash": "c7c89e11783690c1",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-licensing-and-environment",
+      "status": "current",
+      "contentHash": "79204cbe8b355bab",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-toolkit-api-plugin-typespec",
+      "status": "current",
+      "contentHash": "18d27a738cb89873",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-toolkit-developer-mode",
+      "status": "current",
+      "contentHash": "037e14b116f69a76",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-toolkit-json-capabilities-action",
+      "status": "current",
+      "contentHash": "d801bd79094536a5",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-toolkit-knowledge-capabilities",
+      "status": "current",
+      "contentHash": "9b131ea1d2db7f34",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-toolkit-mcp-plugin",
+      "status": "current",
+      "contentHash": "feba9743829e2131",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-toolkit-typespec-agent",
+      "status": "current",
+      "contentHash": "95ddf00b226d1ce1",
+      "changedAt": null,
+      "missing": []
+    },
+    {
+      "featureId": "dca-write-agent-instructions",
+      "status": "current",
+      "contentHash": "40acb4ef5e3655fe",
+      "changedAt": null,
+      "missing": []
+    }
+  ],
+  "pageHashes": {
+    "https://learn.microsoft.com/microsoft-365/admin/manage/agent-registry": "d22c0afe756d263b",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility": "3b60b43202fae2f5",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder": "bb6ded986043095f",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-add-knowledge": "29d0991b3fd9df52",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-add-skills": "9d5807b4e757340a",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-build-agents": "7a41fb6ffd189d74",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-share-manage-agents": "7d72f4ca4ad4eea9",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-builder-submit-to-org-catalog": "0ab7fcd86433ca5a",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agent-templates-overview": "330708a15d87e48b",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agents-are-apps": "e5351a33c3e0c49b",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/agents-overview": "ee8fe9840f0ecb58",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/api/ai-services/chat/overview": "260bc51a728e935f",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/api/ai-services/meeting-insights/callaiinsight-get": "12afa6c1ef507467",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/api/ai-services/meeting-insights/onlinemeeting-list-aiinsights": "547465316abdf0a7",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/api/ai-services/retrieval/overview": "24f410875fcf070e",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/api/ai-services/search/overview": "27a34962ab1afe35",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/apps-agents-overview": "7794e08f2cfd5cca",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-api-plugins-typespec": "b917d04d1dc9ca98",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents": "ca7268621c744194",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents-add-capabilities": "130a164b9b175627",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-declarative-agents-typespec": "f65c2306944d410c",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-mcp-plugins": "73e9bef2bd380e64",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/build-your-first-connector": "01a4a9e2c0a1098d",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/choose-plugin-components": "7b5c0d16f4ed68e9",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/choose-plugin-development-tools": "9794d88429ccbab6",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/code-interpreter": "be43df5f3aa94826",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/convert-declarative-agent": "2734e573c368920f",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-apis-overview": "03342d6146d42e72",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copilot-studio-experience": "e892982561bc9741",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/copy-agent-to-copilot-studio": "2203ed44f5551508",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/cost-considerations": "fd521d2a70e21695",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/create-deploy-agents-sdk": "255f2925fcadb801",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/custom-engine-agent-asynchronous-flow": "e15a89c59fd24cde",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/data-privacy-security": "cb470bd59e0fb1f0",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/debugging-agents-vscode": "e8b798768f17d991",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-architecture": "766a7c66d9b7dea9",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-connected-agent": "afe30b9691de457f",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-document-interaction": "73dae455d28b37c6",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-instructions": "2293e2222076f8fa",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.2": "7b2c356fa8df81eb",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.3": "c59a8945157c4e30",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.4": "d01428b854608b9b",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.5": "a2bf7aebe18c01d0",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-manifest-1.9": "ff882803dbb5b007",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/declarative-agent-skills": "179b34a001067f7e",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/instructions-api-plugins": "03ea54bd299a1437",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/integrate-test-plugin-components": "fc1270069c125959",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/knowledge-sources": "c561b2fe992b7ab9",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/optimize-content-retrieval": "d0843a997bc7826d",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview": "1bfbcc0c9ff17750",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-custom-engine-agent": "ecba0322e0462eb2",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-declarative-agent": "ae1bd923ebdc85e1",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/overview-plugins": "3661f33263e5bfc2",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-authentication": "e04e8f712736b702",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-ci-cd": "b27c7840fbf7ef02",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-confirmation-prompts": "8eb4420e2c3eb2da",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-manifest-2.2": "9636f365c0e43227",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/plugin-manifest-2.4": "7132c3f99f91e64a",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/prerequisites": "15d986ba14f3821f",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/rai-validation": "8047782198748aed",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/samples": "432578f3c7f7be2c",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/sdks/api-libraries": "415dd841ad7b61e0",
+    "https://learn.microsoft.com/microsoft-365/copilot/extensibility/whats-new-history": "d5fafd73dea331fe",
+    "https://learn.microsoft.com/microsoft-agent-365/admin": "ceb089a2ae7c6811",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-actions": "b41881e0ed241bd5",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-registry-overview": "d22c0afe756d263b",
+    "https://learn.microsoft.com/microsoft-agent-365/admin/agent-settings": "6e35325a8f073c97",
+    "https://learn.microsoft.com/microsoftteams/platform/toolkit": "ceb089a2ae7c6811",
+    "https://learn.microsoft.com/microsoftteams/platform/toolkit/overview-agents-toolkit": "ed453663dd598406"
+  },
+  "listHash": "c1fc43e2fbdab5a7",
+  "endpoint": "https://learn.microsoft.com/api/mcp"
+}

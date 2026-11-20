@@ -22,6 +22,7 @@ const lib = (name) => import(new URL(`../../portal/lib/lab-builder/${name}`, imp
 const { discoverFromLearn } = await lib("topic-service.js");
 const { readSnapshot, summarize, validateSnapshot, writeJsonAtomic } = await lib("topic-snapshot.js");
 const { getFeatures } = await lib("catalog.js");
+const { getProducts, DEFAULT_PRODUCT } = await lib("products.js");
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
@@ -30,7 +31,15 @@ const option = (name) => {
   return index >= 0 ? args[index + 1] : undefined;
 };
 
-const snapshotPath = path.resolve(option("--out") || path.join(root, "portal", "lib", "lab-builder", "learn-topics.snapshot.json"));
+// `--product <id>` refreshes one product's snapshot; `--all` refreshes every product, one after another.
+const requestedProducts = flag("--all") ? getProducts().map((p) => p.id) : [option("--product") || DEFAULT_PRODUCT];
+const unknownProduct = requestedProducts.find((id) => !getProducts().some((p) => p.id === id));
+if (unknownProduct) {
+  console.error(`[refresh-topics] Unknown product "${unknownProduct}". Known: ${getProducts().map((p) => p.id).join(", ")}.`);
+  process.exit(1);
+}
+const snapshotFile = (product) =>
+  product === DEFAULT_PRODUCT ? "learn-topics.snapshot.json" : `learn-topics.${product}.snapshot.json`;
 const summaryPath = option("--summary");
 const check = flag("--check");
 
@@ -57,32 +66,42 @@ function summaryMarkdown(snapshot, previous, changed) {
   ].join("\n");
 }
 
-const previous = readSnapshot(snapshotPath);
-let snapshot;
-try {
-  snapshot = await discoverFromLearn({ previous, onProgress: (message) => console.error(`[refresh-topics] ${message}`) });
-} catch (err) {
-  console.error(`[refresh-topics] ${err.message}`);
-  process.exit(1);
+let anyChanged = false;
+const summaries = [];
+for (const product of requestedProducts) {
+  // `--out` overrides the file only when one product is refreshed.
+  const snapshotPath = path.resolve(
+    requestedProducts.length === 1 && option("--out") ? option("--out") : path.join(root, "portal", "lib", "lab-builder", snapshotFile(product)),
+  );
+  const previous = readSnapshot(snapshotPath);
+  let snapshot;
+  try {
+    snapshot = await discoverFromLearn({ previous, product: product === DEFAULT_PRODUCT ? undefined : product, onProgress: (message) => console.error(`[refresh-topics] ${product}: ${message}`) });
+  } catch (err) {
+    console.error(`[refresh-topics] ${product}: ${err.message}`);
+    process.exit(1);
+  }
+
+  const problems = validateSnapshot(snapshot);
+  if (problems.length) {
+    console.error(`[refresh-topics] The discovered ${product} snapshot is invalid, so nothing was written:\n- ${problems.slice(0, 10).join("\n- ")}`);
+    process.exit(1);
+  }
+  if (snapshot.partial && !flag("--allow-partial")) {
+    console.error(`[refresh-topics] The ${product} run was cut short (${snapshot.partialReason}), so nothing was written. Raise the limits or pass --allow-partial.`);
+    process.exit(1);
+  }
+
+  const changed = !previous || previous.listHash !== snapshot.listHash;
+  const markdown = summaryMarkdown(snapshot, previous, changed);
+  console.log(`${requestedProducts.length > 1 ? `## ${product}\n\n` : ""}${markdown}`);
+  summaries.push(requestedProducts.length > 1 ? `## ${product}\n\n${markdown}` : markdown);
+  if (changed && !check) {
+    writeJsonAtomic(snapshotPath, snapshot);
+    anyChanged = true;
+    console.error(`[refresh-topics] Wrote ${path.relative(root, snapshotPath)}`);
+  }
 }
 
-const problems = validateSnapshot(snapshot);
-if (problems.length) {
-  console.error(`[refresh-topics] The discovered snapshot is invalid, so nothing was written:\n- ${problems.slice(0, 10).join("\n- ")}`);
-  process.exit(1);
-}
-if (snapshot.partial && !flag("--allow-partial")) {
-  console.error(`[refresh-topics] The run was cut short (${snapshot.partialReason}), so nothing was written. Raise the limits or pass --allow-partial.`);
-  process.exit(1);
-}
-
-const changed = !previous || previous.listHash !== snapshot.listHash;
-const markdown = summaryMarkdown(snapshot, previous, changed);
-console.log(markdown);
-
-if (summaryPath) fs.writeFileSync(path.resolve(summaryPath), markdown, "utf8");
-if (changed && !check) {
-  writeJsonAtomic(snapshotPath, snapshot);
-  console.error(`[refresh-topics] Wrote ${path.relative(root, snapshotPath)}`);
-}
-if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `changed=${changed && !check}\n`);
+if (summaryPath) fs.writeFileSync(path.resolve(summaryPath), summaries.join("\n"), "utf8");
+if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, `changed=${anyChanged && !check}\n`);

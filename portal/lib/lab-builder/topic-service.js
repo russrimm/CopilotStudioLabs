@@ -18,11 +18,12 @@ function envInt(name, fallback) {
 }
 
 /** Run discovery against the live Learn MCP server and the shipped catalog. */
-export async function discoverFromLearn({ previous = null, signal, onProgress, endpoint = LEARN_MCP_ENDPOINT } = {}) {
+export async function discoverFromLearn({ previous = null, signal, onProgress, endpoint = LEARN_MCP_ENDPOINT, product } = {}) {
   const session = await connect({ endpoint, timeoutMs: envInt("LAB_BUILDER_TOPICS_CALL_TIMEOUT_MS", 20000), signal });
   const catalog = getCatalog();
   const snapshot = await discoverSnapshot({
     session,
+    ...(product ? { product } : {}),
     catalog: { features: catalog.features, concepts: getConcepts(), version: catalog.version },
     previous,
     signal,

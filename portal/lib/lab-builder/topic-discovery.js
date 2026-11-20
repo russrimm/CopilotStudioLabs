@@ -335,6 +335,9 @@ export async function discoverSnapshot({
 }) {
   if (!session?.ok) throw new DiscoveryError(`Microsoft Learn is not reachable${session?.error ? `: ${session.error}` : ""}`, "unreachable");
   const productDef = getProduct(product);
+  const keywordRule = productDef?.topicKeywords?.length
+    ? new RegExp(`\\b(?:${productDef.topicKeywords.map((word) => String(word).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?:s|es)?\\b`, "i")
+    : null;
   if (!productDef) throw new DiscoveryError(`Unknown product "${product}".`, "unknown-product");
   const isDefault = product === DEFAULT_PRODUCT;
   const roots = productDef.learnRoots.map((root) => normalizeLearnUrl(root)).filter(Boolean);
@@ -481,6 +484,8 @@ export async function discoverSnapshot({
     const summary = parsed?.summary || (!isBoilerplateSummary(candidate.excerpt) ? candidate.excerpt : "") || `${title}: see the linked Microsoft Learn article.`;
     const harnesses = productDef.hasHarnesses ? harnessesFor({ url: candidate.url, title: parsed?.rawTitle || title, hints: candidate.hints }) : [];
     const coveredBy = [...(featuresByPage.get(matchKey(candidate.url)) || [])];
+    // A product whose Learn roots are broader than its AI features (SharePoint) keeps only pages that mention them.
+    if (!coveredBy.length && keywordRule && !keywordRule.test(`${title} ${summary} ${candidate.url}`)) continue;
     const conceptId = coveredBy.length ? conceptOfFeature.get(coveredBy[0]) || UNCATEGORIZED : conceptFor({ url: candidate.url, title });
     const hash = page?.state === "ok" ? page.hash : contentHash(`${title}\n${summary}`);
     const before = previousTopics.get(id);
