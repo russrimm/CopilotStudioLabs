@@ -11,6 +11,7 @@ import { getCatalog } from "./catalog.js";
 import { getConcepts } from "./concepts.js";
 import { discoverSnapshot, DEFAULT_LIMITS } from "./topic-discovery.js";
 import { createTopicService, topicConfig } from "./topic-store.js";
+import { getProduct } from "./products.js";
 
 function envInt(name, fallback) {
   const parsed = Number.parseInt(String(process.env[name] ?? ""), 10);
@@ -32,6 +33,8 @@ export async function discoverFromLearn({ previous = null, signal, onProgress, e
       maxCalls: envInt("LAB_BUILDER_TOPICS_MAX_CALLS", DEFAULT_LIMITS.maxCalls),
       maxTopicPages: envInt("LAB_BUILDER_TOPICS_MAX_PAGES", DEFAULT_LIMITS.maxTopicPages),
       deadlineMs: envInt("LAB_BUILDER_TOPICS_DEADLINE_MS", DEFAULT_LIMITS.deadlineMs),
+      // A product a person added from Learn can be small; the usual floor is for the reviewed products.
+      ...(product && getProduct(product)?.custom ? { minTopics: 3 } : {}),
     },
   });
   snapshot.endpoint = endpoint;

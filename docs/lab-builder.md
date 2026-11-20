@@ -2692,7 +2692,8 @@ string.
 | `LAB_BUILDER_TOPICS_DISABLED` | `false` | Never contact Microsoft Learn; use the cache or snapshot. |
 | `LAB_BUILDER_TOPICS_CACHE` | `portal/data/lab-builder/topics-cache.json` | Cache file (inside the git-ignored `portal/data/`). |
 | `LAB_BUILDER_TOPICS_SNAPSHOT` | the committed snapshot | Offline baseline file. |
-| `LAB_BUILDER_TOPICS_PRODUCT_CACHE_DIR`, `_PRODUCT_SNAPSHOT_DIR` | next to the Copilot Studio cache and snapshot | Where the other products keep `topics-cache-<product-id>.json` and `learn-topics.<product-id>.snapshot.json`. |
+| `LAB_BUILDER_TOPICS_PRODUCT_CACHE_DIR`, `_PRODUCT_SNAPSHOT_DIR` | next to the Copilot Studio cache and snapshot | Where the other products keep `topics-cache-<product-id>.json` and `learn-topics.<product-id>.snapshot.json`. |
+| `LAB_BUILDER_USER_TOPICS`, `LAB_BUILDER_USER_PRODUCTS` | `user-topics.json` and `user-products.json` next to the topic cache | The files that keep topics and products a person added from Microsoft Learn. |
 | `LAB_BUILDER_TOPICS_TTL_MS` | `86400000` | How long the list counts as fresh. |
 | `LAB_BUILDER_TOPICS_AUTO_REFRESH` | `false` | Refresh on a timer while the server runs (the timer never keeps the process alive). |
 | `LAB_BUILDER_TOPICS_REFRESH_MS` | `86400000` | Timer interval. |
@@ -2746,6 +2747,38 @@ built from it do not change.
 Safety: the address is normalized (https, `learn.microsoft.com`, no credentials or port), the page is read only
 through the Learn MCP server, text is stripped of markup and length-capped, and the routes share a per-user limit
 (`LAB_BUILDER_USER_TOPICS_RATE_MAX`, default 60 per hour).
+
+### Add a product from Microsoft Learn
+
+The Product step ends with **Add another Microsoft product from Microsoft Learn**, so a product that is not one of the
+six reviewed ones needs no code or catalog edit. Pick one of 19 documentation hubs from the picklist
+(`product-picklist.json`: Power Automate, Power Apps, Power BI, Microsoft Fabric, Microsoft Purview, three Dynamics 365 products,
+the Teams platform, Entra Agent ID, five Azure AI services, Azure AI Bot Service, Semantic Kernel, and Microsoft Agent
+Framework; every root was confirmed to exist through the Learn MCP server on 2026-11-20), or search Learn and choose
+where the product's documentation starts (each path prefix of the result's address is offered). A documentation hub
+that overlaps a reviewed product's Learn roots is refused, and the picklist marks it as already covered.
+
+The product is saved in `user-products.json` next to the topic caches (`LAB_BUILDER_USER_PRODUCTS` moves it; up to 10)
+as a definition shaped like a `products.json` entry with `custom: true`, and it is selected and refreshed at once:
+discovery reads the hub page and its links under that root, plus a few general searches, and keeps the product's own list
+(`topics-cache-custom-<name>.json`) like any other product. It has no curated catalog, so it is left out of the catalog
+and coverage checks (`getBuiltInProducts()`), and everything it teaches is marked not reviewed: its prerequisites and license
+note say "Not confirmed in Microsoft Learn by this builder", topics added by link or found by discovery follow the
+[new topic rules](#dynamic-topics-from-microsoft-learn) (steps read from the article, start and result screenshot slots,
+no quiz), and the lab is the neutral `learn-product` deliverable: "Hands-on *topic* for a *Scenario* Pilot", with no
+agent, no architecture drawing, and no agent-style sample prompts. **Remove** deletes the product and its cached list;
+labs already built from it do not change.
+
+| Route | Purpose |
+|---|---|
+| `GET /api/lab-builder/products/picklist` | The reviewed hubs (`addedId`, `coveredBy`) and the products already added. |
+| `POST /api/lab-builder/products/mine/search` `{ query }` | Search Learn; each result lists the roots it could start from. |
+| `POST /api/lab-builder/products/mine` `{ root, name? }` | Add a product. 201; 400 for an address that is not https on learn.microsoft.com or a full list; 409 when a reviewed or added product already covers it; 404/502 when Learn has no readable page or cannot be reached. |
+| `DELETE /api/lab-builder/products/mine/:id` | Remove a product you added. |
+
+Refresh its topic list with **Refresh from Microsoft Learn** in the Topics step (`POST /api/lab-builder/topics/refresh` with its
+id). The weekly snapshot workflow and `npm run refresh-topics` only cover the six reviewed products, so a product you
+added has a runtime cache and no committed snapshot.
 
 ### Sub-topics
 

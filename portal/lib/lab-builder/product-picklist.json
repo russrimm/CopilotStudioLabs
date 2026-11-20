@@ -1,0 +1,26 @@
+{
+  "$comment": "Microsoft products a person can add to the Product step with one click. Each root is a documentation hub on Microsoft Learn, confirmed to exist through the Learn MCP server on 2026-11-20; names are the hub titles on Learn. The summary only says where the documentation is, because nothing else about a product added this way is curated here. Re-confirm a root before changing it, and keep every root an https address on learn.microsoft.com.",
+  "version": 1,
+  "verifiedOn": "2026-11-20",
+  "products": [
+    { "name": "Microsoft Power Automate", "root": "https://learn.microsoft.com/power-automate" },
+    { "name": "Microsoft Power Apps", "root": "https://learn.microsoft.com/power-apps" },
+    { "name": "Power BI", "root": "https://learn.microsoft.com/power-bi" },
+    { "name": "Microsoft Fabric", "root": "https://learn.microsoft.com/fabric" },
+    { "name": "Microsoft Purview", "root": "https://learn.microsoft.com/purview" },
+    { "name": "Dynamics 365 Customer Service", "root": "https://learn.microsoft.com/dynamics365/customer-service" },
+    { "name": "Dynamics 365 Sales", "root": "https://learn.microsoft.com/dynamics365/sales" },
+    { "name": "Dynamics 365 Contact Center", "root": "https://learn.microsoft.com/dynamics365/contact-center" },
+    { "name": "Microsoft Teams platform", "root": "https://learn.microsoft.com/microsoftteams/platform" },
+    { "name": "Microsoft Entra Agent ID", "root": "https://learn.microsoft.com/entra/agent-id" },
+    { "name": "Foundry IQ (Azure AI Search)", "root": "https://learn.microsoft.com/azure/search" },
+    { "name": "Azure Document Intelligence", "root": "https://learn.microsoft.com/azure/ai-services/document-intelligence" },
+    { "name": "Azure Language", "root": "https://learn.microsoft.com/azure/ai-services/language-service" },
+    { "name": "Azure Speech", "root": "https://learn.microsoft.com/azure/ai-services/speech-service" },
+    { "name": "Azure Vision", "root": "https://learn.microsoft.com/azure/ai-services/computer-vision" },
+    { "name": "Azure AI Content Safety", "root": "https://learn.microsoft.com/azure/ai-services/content-safety" },
+    { "name": "Azure AI Bot Service", "root": "https://learn.microsoft.com/azure/bot-service" },
+    { "name": "Semantic Kernel", "root": "https://learn.microsoft.com/semantic-kernel" },
+    { "name": "Microsoft Agent Framework", "root": "https://learn.microsoft.com/agent-framework" }
+  ]
+}

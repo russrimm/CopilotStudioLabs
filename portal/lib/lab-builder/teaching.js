@@ -292,6 +292,8 @@ export function sampleInputBlock(feature, plan, index, u) {
   const d = describeDeliverable(plan);
   const fence = (label, text) => ["", label, "", "```text", text, "```"];
 
+  if (d.mode === DELIVERABLE_MODES.LEARN_PRODUCT) return [];
+
   if (d.mode === DELIVERABLE_MODES.M365_COPILOT_GOVERNANCE) {
     return fence(
       "**Sample rollout configuration note.** Record these pilot parameters in your admin change log as you complete this step:",

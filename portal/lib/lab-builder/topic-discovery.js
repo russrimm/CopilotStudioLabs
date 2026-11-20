@@ -415,7 +415,10 @@ export async function discoverSnapshot({
         ]),
         ...CUSTOMER_CONVERSATION_QUERIES,
       ]
-    : concepts.map((concept) => `${productDef.name} ${concept.name}`);
+    : concepts.length
+    ? concepts.map((concept) => `${productDef.name} ${concept.name}`)
+    : // A product added from Learn has no concepts of its own, so a few general searches stand in for them.
+      [`${productDef.name} overview`, `${productDef.name} get started`, `${productDef.name} AI and Copilot`];
   const found = await mapLimit(queries, limits.concurrency, (query) => ctx.search(query));
   found.forEach((items) => {
     for (const item of items) {

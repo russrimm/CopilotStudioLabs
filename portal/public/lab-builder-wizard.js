@@ -998,6 +998,15 @@ function lbRenderProductStats(product) {
   return `<div class="lb-product-stats">${totalRow} <div class="lb-stat-level-grid lb-stat-level-grid-${cols}">${levelTiles.join(" ")}</div></div>`;
 }
 
+/** A product added from Learn has no reviewed topics: say how many topics Microsoft Learn gave it, or how to get them. */
+function lbRenderCustomProductStats(product) {
+  const info = labBuilder.learn?.products?.[product.id];
+  const text = info?.newTopics
+    ? `<strong>${escapeHtml(info.newTopics)}</strong> ${info.newTopics === 1 ? "topic" : "topics"} from Microsoft Learn, not reviewed`
+    : "No Microsoft Learn topics read yet. Choose Refresh from Microsoft Learn in the Topics step.";
+  return `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total">${text}<span class="sr-only">.</span></span></div></div>`;
+}
+
 function lbRenderProducts() {
   const el = document.getElementById("lb-product-options");
   if (!el) return;
@@ -1013,10 +1022,11 @@ function lbRenderProducts() {
           <span class="lb-card-head">
             <span class="lb-card-title">${escapeHtml(p.name)}<span class="sr-only">.</span></span>
             ${p.hasHarnesses ? '<span class="lb-badge lb-badge-harness">Has harnesses<span class="sr-only">.</span></span>' : ""}
+            ${p.custom ? '<span class="lb-badge lb-badge-new">Added by you<span class="sr-only">.</span></span>' : ""}
           </span>
           ${p.summary ? `<div class="scenario-card-desc">${escapeHtml(p.summary)}</div>` : ""}
           <div class="lb-card-footer">
-            ${lbRenderProductStats(p)}
+            ${p.custom ? lbRenderCustomProductStats(p) : lbRenderProductStats(p)}
             ${
               hub
                 ? `<div class="lb-card-learn"><a href="${escapeHtml(hub)}" target="_blank" rel="noopener noreferrer">Microsoft Learn for ${escapeHtml(p.shortName)} (opens in a new tab)</a></div>`
@@ -1819,6 +1829,8 @@ function lbApplyLearn(data) {
   labBuilder.learnNew = lbLearnNewByHarness(data.topics);
   lbRenderLearnBar();
   lbRenderHarnesses();
+  // A product added from Learn shows how many topics Microsoft Learn gave it, so its card follows the list.
+  if (labBuilder.products.some((p) => p.custom)) lbRenderProducts();
   if (typeof lbMineRender === "function") lbMineRender();
 }
 

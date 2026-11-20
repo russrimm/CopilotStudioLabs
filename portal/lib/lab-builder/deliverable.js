@@ -34,6 +34,8 @@ export const DELIVERABLE_MODES = Object.freeze({
   SHAREPOINT_GOVERNANCE: "sharepoint-governance",
   FOUNDRY_AGENT: "foundry-agent",
   FOUNDRY_MODELS_PLATFORM: "foundry-models-platform",
+  // A product a person added from Microsoft Learn: neutral wording, because nothing about it is curated here.
+  LEARN_PRODUCT: "learn-product",
 });
 
 const AGENT_MODES = new Set([
@@ -170,6 +172,8 @@ export function resolveDeliverableMode(productIds = [DEFAULT_PRODUCT], features 
     return DELIVERABLE_MODES.FOUNDRY_MODELS_PLATFORM;
   }
 
+  if (getProduct(primary)?.custom) return DELIVERABLE_MODES.LEARN_PRODUCT;
+
   return DELIVERABLE_MODES.COPILOT_STUDIO_AGENT;
 }
 
@@ -203,6 +207,8 @@ export function formatDeliverableName(baseAgentName, mode) {
       return `${scope} Foundry Agent`;
     case DELIVERABLE_MODES.FOUNDRY_MODELS_PLATFORM:
       return `${scope} Foundry Model Workspace`;
+    case DELIVERABLE_MODES.LEARN_PRODUCT:
+      return `${scope} Pilot`;
     default:
       return `${scope} Assistant`;
   }
@@ -235,6 +241,8 @@ export function buildDeliverableTitle({ mode, industryName, deliverableName, hea
       return `${prefix}: Build ${art} ${deliverableName} in Microsoft Foundry — ${headline}`;
     case DELIVERABLE_MODES.FOUNDRY_MODELS_PLATFORM:
       return `${prefix}: Deploy ${art} ${deliverableName} in Microsoft Foundry — ${headline}`;
+    case DELIVERABLE_MODES.LEARN_PRODUCT:
+      return `${prefix}: Hands-on ${headline} for ${art} ${deliverableName}`;
     default:
       return `${prefix}: Build ${art} ${deliverableName} with ${headline}`;
   }
@@ -349,6 +357,13 @@ export function adaptProfileForDeliverable(baseProfile, mode) {
           `a governed Microsoft Foundry project and model deployment for ${domain} with verified model selection, quota and cost guardrails, content safety filters, and role-based access control`,
       };
 
+    case DELIVERABLE_MODES.LEARN_PRODUCT:
+      return {
+        ...baseProfile,
+        agentName: deliverableName,
+        outcome: `a working pilot of the capabilities you choose for ${domain}, checked against the Microsoft Learn documentation as you go`,
+      };
+
     default:
       return { ...baseProfile, agentName: deliverableName };
   }
@@ -419,7 +434,7 @@ const ROLE_NOTES_NON_AGENT = {
 
 /** Return a role design note matched to the deliverable mode rather than assuming a chat bot. */
 export function roleDesignNoteForDeliverable(role, mode) {
-  if (!role) return "";
+  if (!role || mode === DELIVERABLE_MODES.LEARN_PRODUCT) return "";
   if (isAgentDeliverable(mode)) {
     if (mode === DELIVERABLE_MODES.DECLARATIVE_AGENT && role.id === "it") {
       return "Validate manifest capabilities, Copilot connector permissions, and admin center publishing scope early.";
@@ -729,6 +744,25 @@ export function describeDeliverable(plan) {
         "More importantly, you can now explain how projects, model deployments, grounding indices, traces, and evaluations work together in Microsoft Foundry.",
       llmNoun: "Microsoft Foundry agent",
     },
+    [DELIVERABLE_MODES.LEARN_PRODUCT]: {
+      mode,
+      isAgent: false,
+      kindLabel: `a hands-on pilot of ${phrase}`,
+      actionVerb: "trying",
+      pastVerb: "tried",
+      progressionNoun: "pilot",
+      overviewLead: (name) => `In this lab you try ${phrase} in a pilot called **${name}**`,
+      subtitle: (name) => `Try ${phrase} in the ${name}, one module at a time, with every step read from Microsoft Learn.`,
+      progressionClause: "trying each capability in the same pilot, one after another",
+      scenarioLead: (name, audience) => `You are running **${name}** for ${audience}.`,
+      sampleQuestionsHeading: "Requests to try once the pilot is set up",
+      validationLead: (questions) =>
+        questions.map((q) => `Try "${q}" in ${phrase} and confirm the result matches what the Microsoft Learn article for that module describes.`),
+      cleanupLead: (name) => [`Remove or switch off anything you created in ${phrase} only for **${name}**, following the cleanup guidance in the product's documentation.`],
+      nextStepsExtension: `Extend this pilot with the next topics in the ${phrase} documentation on Microsoft Learn.`,
+      closingTakeaway: `More importantly, you can now explain how the ${phrase} capabilities you tried fit together.`,
+      llmNoun: `pilot (${shortProduct})`,
+    },
     [DELIVERABLE_MODES.FOUNDRY_MODELS_PLATFORM]: {
       mode,
       isAgent: false,
@@ -768,6 +802,8 @@ export function describeDeliverable(plan) {
  */
 export function buildArchitectureBlock(plan, u) {
   const info = describeDeliverable(plan);
+  // Nothing about a product added from Learn is curated here, so no architecture is drawn for it.
+  if (info.mode === DELIVERABLE_MODES.LEARN_PRODUCT) return [];
   const profile = plan.profile || {};
   const model = buildArchitectureModel({
     ...plan,
@@ -849,6 +885,10 @@ export function buildFeatureScenarioNote(feature, plan, u) {
   );
   const cat = String(feature.category || "");
   const id = String(feature.id || "");
+
+  if (info.mode === DELIVERABLE_MODES.LEARN_PRODUCT) {
+    return `Try this in your own environment for ${name}: ${summaryClause}. Use the scenario's sample content (${source}) wherever a step asks for your own data.`;
+  }
 
   if (info.mode === DELIVERABLE_MODES.M365_COPILOT_GOVERNANCE) {
     if (cat === "m365h-licensing" || /license|pay-as-you-go|payg|billing/.test(id)) {

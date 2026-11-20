@@ -5873,6 +5873,25 @@
                 </div>
               </fieldset>
               <p id="lb-product-error" class="lb-error" role="alert"></p>
+              <details class="lb-mine" id="lb-addprod">
+                <summary>Add another Microsoft product from Microsoft Learn</summary>
+                <div class="lb-mine-body">
+                  <p class="lb-mine-help">Pick a product's documentation from the list, or search Microsoft Learn. It joins the products above, is saved for next time, and its topics are read from Microsoft Learn. Nothing about it is reviewed here, so its labs say so.</p>
+                  <div class="lb-mine-row">
+                    <label for="lb-addprod-pick" class="lb-mine-label">Choose a product</label>
+                    <select id="lb-addprod-pick" class="lb-mine-input"><option value="">Choose a product...</option></select>
+                    <button type="button" class="btn btn-sm btn-primary" id="lb-addprod-add">Add product</button>
+                  </div>
+                  <div class="lb-mine-row">
+                    <label for="lb-addprod-input" class="lb-mine-label">Or search Microsoft Learn</label>
+                    <input id="lb-addprod-input" type="text" class="lb-mine-input" maxlength="200" autocomplete="off" placeholder="For example: Dynamics 365 Customer Service">
+                    <button type="button" class="btn btn-sm" id="lb-addprod-go">Search</button>
+                  </div>
+                  <p id="lb-addprod-status" class="lb-learn-status" role="status" aria-live="polite"></p>
+                  <ul id="lb-addprod-results" class="lb-mine-results"></ul>
+                  <div id="lb-addprod-saved"></div>
+                </div>
+              </details>
               <div class="lb-step-footer" data-lb-step-footer>
                 <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Vertical →</button>
               </div>
@@ -7202,6 +7221,7 @@
   <script src="app.js" defer></script>
 <script src="lab-builder-wizard.js" defer></script>
   <script src="lab-builder-my-topics.js" defer></script>
+  <script src="lab-builder-my-products.js" defer></script>
 <script src="use-case-builder.js" defer></script>
 <script src="generated-labs.js" defer></script>
 <script src="screenshot-center-core.js" defer></script>

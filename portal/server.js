@@ -91,6 +91,7 @@ import {
 } from "./lib/lab-builder/learn-drift-dashboard.js";
 import { getTopicService } from "./lib/lab-builder/topic-service.js";
 import { learnContext, newTopicCounts, newTopicCountsByLevel, registerTopicRoutes } from "./lib/lab-builder/topic-api.js";
+import { registerProductRoutes } from "./lib/lab-builder/product-api.js";
 import { labDiagramExtension, renderLabMarkdown } from "./lib/markdown.js";
 import { marked } from "marked";
 
@@ -563,6 +564,7 @@ app.get("/api/lab-builder/features", (_req, res) => {
         levels: p.levels,
         hasHarnesses: p.hasHarnesses,
         learnHubUrl: p.learnHubUrl,
+        custom: Boolean(p.custom),
         featureCount: getFeatures().filter((f) => productOf(f) === p.id).length,
       })),
       harnesses: getHarnesses(),
@@ -581,6 +583,8 @@ app.get("/api/lab-builder/features", (_req, res) => {
 
 // Learn topic list: GET /api/lab-builder/topics and POST /api/lab-builder/topics/refresh (behind requireAuth above)
 registerTopicRoutes(app, { getService: getTopicService, createRateLimiter, positiveIntFromEnv });
+// Products a person adds from a Microsoft Learn documentation hub: /api/lab-builder/products/picklist and /products/mine
+registerProductRoutes(app, { getService: getTopicService, createRateLimiter, positiveIntFromEnv });
 
 /**
  * POST /api/lab-builder/recommend — Topics for the chosen vertical, departments,

@@ -10,7 +10,18 @@ import { readCatalogFile } from "../lib/lab-builder/catalog-source.js";
 import { getConcepts, getKnownCoverageGaps, validateConcepts } from "../lib/lab-builder/concepts.js";
 import { buildCoverageMatrix, renderCoverageMarkdown, validateCoverage } from "../lib/lab-builder/coverage.js";
 import { discoverSnapshot } from "../lib/lab-builder/topic-discovery.js";
-import { getProduct, getProducts, productOf, primaryProduct, validateProducts } from "../lib/lab-builder/products.js";
+import { getBuiltInProducts, getProduct, getProducts, productOf, primaryProduct, setCustomProducts, validateProducts } from "../lib/lab-builder/products.js";
+import { once } from "node:events";
+import express from "express";
+import { DELIVERABLE_MODES, resolveDeliverableMode } from "../lib/lab-builder/deliverable.js";
+import { generateLab } from "../lib/lab-builder/generator.js";
+import { getFeature } from "../lib/lab-builder/catalog.js";
+import { registerProductRoutes } from "../lib/lab-builder/product-api.js";
+import { buildUserProduct, readUserProducts } from "../lib/lab-builder/user-products.js";
+import { buildUserTopic, productForUrl } from "../lib/lab-builder/user-topic-build.js";
+import { listHash } from "../lib/lab-builder/topic-snapshot.js";
+import { resetTopicSource, setTopicSource, setUserTopicsSource } from "../lib/lab-builder/topic-store.js";
+import { createRateLimiter, positiveIntFromEnv } from "../lib/rate-limit.js";
 import { planLab } from "../lib/lab-builder/planner.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
 import { buildDifferenceBlocks } from "../lib/lab-builder/differences.js";
@@ -736,4 +747,113 @@ test("the product is named Microsoft AI Training Generator wherever a person see
   }
   assert.match(read("../lib/branding.js"), /companyName: "Microsoft AI Training Generator"/);
   assert.match(read("../../README.md"), /^# ⚡ Microsoft AI Training Generator/m);
+});
+
+// ── Products added from Microsoft Learn ─────────────────────────────────────
+
+function customProductFixture(t) {
+  const dir = mkdtempSync(join(tmpdir(), "my-products-"));
+  const root = "https://learn.microsoft.com/power-automate";
+  const product = buildUserProduct({ name: "Microsoft Power Automate", root, summary: "Microsoft Power Automate documentation on Microsoft Learn." });
+  setCustomProducts([product]);
+  const main = { schemaVersion: 1, generatedAt: "2026-11-13T12:00:00Z", source: "test", catalogVersion: "test", topics: [], catalog: [], pageHashes: {} };
+  main.listHash = listHash(main);
+  setTopicSource({ source: "cache", snapshot: main });
+  t.after(() => {
+    setCustomProducts(undefined);
+    resetTopicSource();
+    rmSync(dir, { recursive: true, force: true });
+  });
+  return { dir, product, root };
+}
+
+test("a product added from Learn joins the product list without touching the reviewed catalog or its checks", (t) => {
+  const { product } = customProductFixture(t);
+  assert.ok(getProducts().some((p) => p.id === product.id && p.custom === true));
+  assert.deepEqual(getBuiltInProducts().filter((p) => p.custom), []);
+  assert.deepEqual(validateCatalog(), [], "the coverage and product checks only judge the reviewed products");
+  assert.equal(product.hasHarnesses, false);
+  assert.match(product.labPrerequisites[0], /Not confirmed in Microsoft Learn/);
+  assert.equal(buildUserProduct({ name: "x", root: "http://evil.example/x" }), null);
+  assert.equal(buildUserProduct({ name: "Name", root: "https://learn.microsoft.com/" }), null);
+});
+
+test("a lab for a product added from Learn is neutral: a pilot, no agent, no architecture, no quiz", async (t) => {
+  const { dir, product, root } = customProductFixture(t);
+  const url = `${root}/getting-started`;
+  const topic = buildUserTopic({
+    url,
+    product: product.id,
+    markdown: "# Get started with flows\n\nA flow runs a series of steps when something happens.\n\n1. Select **Create**.\n2. Select **Instant cloud flow**.\n",
+    now: Date.parse("2026-11-13T12:00:00Z"),
+  });
+  setUserTopicsSource([topic]);
+  t.after(() => setUserTopicsSource(undefined));
+  assert.equal(productForUrl(url), product.id);
+  assert.equal(topic.product, product.id);
+  assert.equal(resolveDeliverableMode([product.id], [getFeature(topic.id)]), DELIVERABLE_MODES.LEARN_PRODUCT);
+  const lab = await generateLab({ products: [product.id], features: [topic.id], level: 200 }, { outputRoot: dir, useLearnMcp: false, useLlm: false });
+  assert.equal(lab.status, "complete", JSON.stringify(lab.blockers?.map((b) => b.code)));
+  assert.equal(lab.validation.failed, 0, JSON.stringify(lab.validation.tests.filter((x) => x.status === "fail")));
+  assert.match(lab.plan.title, /^Cross-industry: Hands-on /);
+  assert.doesNotMatch(lab.markdown, /lab-architecture|Copilot Studio|Assistant\b/);
+  assert.match(lab.markdown, /Microsoft Power Automate/);
+});
+
+test("the product routes: picklist, search, add, refuse an overlap, and remove, saved on disk", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "product-routes-"));
+  setCustomProducts([]);
+  t.after(() => {
+    setCustomProducts(undefined);
+    rmSync(dir, { recursive: true, force: true });
+  });
+  const file = join(dir, "user-products.json");
+  const service = { config: { userProductsPath: file, cachePath: join(dir, "c.json"), snapshotPath: join(dir, "s.json") } };
+  const learn = {
+    search: async () => [{ title: "Get started", url: "https://learn.microsoft.com/dynamics365/sales/get-started", excerpt: "x" }, { title: "Not Learn", url: "http://evil.example/x", excerpt: "y" }],
+    page: async (url) => ({ url, error: null, markdown: "# Dynamics 365 Sales documentation\n\nLearn about the product and how to use it every day.\n" }),
+  };
+  const app = express();
+  app.use(express.json());
+  registerProductRoutes(app, { getService: () => service, createRateLimiter, positiveIntFromEnv, learn });
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const call = (route, method = "GET", body) => fetch(`${base}${route}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+
+  const picklist = await (await call("/api/lab-builder/products/picklist")).json();
+  assert.ok(picklist.products.length >= 15 && picklist.products.every((p) => p.root.startsWith("https://learn.microsoft.com/")));
+  assert.ok(picklist.products.find((p) => p.name === "Microsoft Teams platform").coveredBy, "an overlap with a reviewed product is flagged");
+
+  const found = await (await call("/api/lab-builder/products/mine/search", "POST", { query: "dynamics sales" })).json();
+  assert.equal(found.results.length, 1);
+  assert.deepEqual(found.results[0].roots.map((r) => r.root), ["https://learn.microsoft.com/dynamics365", "https://learn.microsoft.com/dynamics365/sales", "https://learn.microsoft.com/dynamics365/sales/get-started"]);
+
+  const root = "https://learn.microsoft.com/dynamics365/sales";
+  const added = await call("/api/lab-builder/products/mine", "POST", { root });
+  assert.equal(added.status, 201);
+  const product = (await added.json()).product;
+  assert.deepEqual([product.id, product.name, product.custom], ["custom-dynamics-365-sales", "Dynamics 365 Sales", true]);
+  assert.ok(getProducts().some((p) => p.id === product.id));
+  assert.deepEqual(readUserProducts(file).map((p) => p.id), [product.id], "saved on disk");
+  assert.equal((await call("/api/lab-builder/products/mine", "POST", { root })).status, 409);
+  assert.equal((await call("/api/lab-builder/products/mine", "POST", { root: "https://learn.microsoft.com/copilot/plan" })).status, 409, "inside a reviewed product's documentation");
+  assert.equal((await call("/api/lab-builder/products/mine", "POST", { root: "http://learn.microsoft.com/x" })).status, 400);
+
+  assert.equal((await call(`/api/lab-builder/products/mine/${product.id}`, "DELETE")).status, 200);
+  assert.equal((await call(`/api/lab-builder/products/mine/${product.id}`, "DELETE")).status, 404);
+  assert.equal(getProducts().some((p) => p.custom), false);
+});
+
+test("the Product step offers an Add another Microsoft product panel, labeled, with its script after the wizard, and marks what you added", () => {
+  const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
+  assert.match(html, /<details class="lb-mine" id="lb-addprod">/);
+  for (const id of ["lb-addprod-pick", "lb-addprod-input"]) assert.match(html, new RegExp(`<label for="${id}"`));
+  assert.ok(html.indexOf("lab-builder-wizard.js") < html.indexOf("lab-builder-my-products.js"), "the panel script loads after the wizard");
+  const panel = readFileSync(new URL("../public/lab-builder-my-products.js", import.meta.url), "utf8");
+  for (const route of ["/api/lab-builder/products/picklist", "/api/lab-builder/products/mine/search", "/api/lab-builder/products/mine"]) assert.ok(panel.includes(route), route);
+  const wizard = readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
+  assert.match(wizard, /lbRenderCustomProductStats/);
+  assert.match(wizard, /Added by you/);
 });

@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { readCatalogFile } from "./catalog-source.js";
 import { getConcepts, getKnownCoverageGaps, getRecommendations, validateConcepts } from "./concepts.js";
 import { extractFeatureLearnLinks } from "./learn-citations.js";
-import { getProducts, harnessProduct, productOf, validateProducts } from "./products.js";
+import { getBuiltInProducts, harnessProduct, productOf, validateProducts } from "./products.js";
 import { getDifferences, validateDifferences } from "./differences.js";
 import { validateScreenshotSlots } from "./slots.js";
 import { getDynamicFeature, resolveLearnedTopicId } from "./topic-store.js";
@@ -343,7 +343,7 @@ function validateVendorSources(features, vendorHosts, problems) {
  * not checked, so the tag stays optional until a catalog opts in. Once it
  * opts in, every feature must say which harness its steps and checks apply to.
  */
-function validateHarnesses(features, harnesses, problems, products = getProducts()) {
+function validateHarnesses(features, harnesses, problems, products = getBuiltInProducts()) {
   if (!Array.isArray(harnesses) || !harnesses.length) return;
   const productsById = new Map(products.map((p) => [p.id, p]));
   const ids = new Set();
@@ -483,14 +483,14 @@ export function validateCatalog(raw, { now = Date.now() } = {}) {
   // The concept layer describes the shipped catalog, so a parsed fixture is not held to it.
   if (!raw) {
     problems.push(
-      ...validateProducts({ products: getProducts(), features, harnesses }),
-      ...validateCategories({ categories: load().categories, features, products: getProducts() }),
+      ...validateProducts({ products: getBuiltInProducts(), features, harnesses }),
+      ...validateCategories({ categories: load().categories, features, products: getBuiltInProducts() }),
       ...validateConcepts({
         concepts: getConcepts(),
         recommendations: getRecommendations(),
         features,
         harnesses,
-        products: getProducts(),
+        products: getBuiltInProducts(),
         knownGaps: getKnownCoverageGaps(),
       }),
       ...validateDifferences({ records: getDifferences(), concepts: getConcepts(), harnesses }),
