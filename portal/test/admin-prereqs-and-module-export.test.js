@@ -528,6 +528,8 @@ test("portal generated-labs UI renders format selector (all, docx, pdf, html) an
     toast: () => {},
   };
   vm.createContext(context);
+  // The portal's scripts share one page: the shared helpers load first and give the lab's own module labels their portal wording.
+  vm.runInContext(readFileSync(new URL("../public/screenshot-center-core.js", import.meta.url), "utf8"), context);
   vm.runInContext(
     `${genLabsSrc}\nglobalThis.__genUi = { lbGeneratedActionButtonsHtml, lbRenderAdminPrerequisitesHtml, lbRenderRequiredByHtml };`,
     context,
@@ -555,8 +557,10 @@ test("portal generated-labs UI renders format selector (all, docx, pdf, html) an
 
   const reqListHtml = context.__genUi.lbRenderRequiredByHtml(manyModules);
   assert.match(reqListHtml, /class="lb-prereq-req-list"/);
-  assert.match(reqListHtml, /<span class="lb-prereq-req-badge lb-prereq-req-badge-recap">Recap 1<\/span>/);
-  assert.match(reqListHtml, /<span class="lb-prereq-req-badge">Step 18<\/span>/);
+  // The lab's own headings stay "Recap 1" and "Step 18"; the portal shows "Refresher 1" and "Part 18", because "Step" means a wizard step there.
+  assert.match(reqListHtml, /<span class="lb-prereq-req-badge lb-prereq-req-badge-recap">Refresher 1<\/span>/);
+  assert.match(reqListHtml, /<span class="lb-prereq-req-badge">Part 18<\/span>/);
+  assert.doesNotMatch(reqListHtml.replace(/<[^>]+>/g, " "), /\b(?:Recap|Step) \d/);
   assert.match(
     reqListHtml,
     /<span class="lb-prereq-req-title">Create, train, and use a document processing model<\/span>/,

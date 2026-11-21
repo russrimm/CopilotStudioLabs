@@ -650,6 +650,8 @@ test("portal UI renders accessible Topic Word Documents & PowerPoint Slides card
     toast: () => {},
   };
   vm.createContext(context);
+  // The portal's scripts share one page: the shared helpers load first and give the lab's own module labels their portal wording.
+  vm.runInContext(readFileSync(new URL("../public/screenshot-center-core.js", import.meta.url), "utf8"), context);
   vm.runInContext(
     `${genLabsSrc}\nglobalThis.__topicUi = { lbRenderTopicDocumentsHtml };`,
     context,
@@ -683,7 +685,12 @@ test("portal UI renders accessible Topic Word Documents & PowerPoint Slides card
   assert.doesNotMatch(html, /files named per lab/);
   assert.doesNotMatch(html, /generated-labs\//);
   assert.doesNotMatch(html, /lb-topic-doc-files/);
-  assert.match(html, /lb-prereq-req-badge-recap">Recap 1<\/span>/);
+  // The files and the lab keep "Recap 01" and "Step 01"; the portal shows "Refresher 1" and "Part 1".
+  assert.match(html, /lb-prereq-req-badge-recap">Refresher 1<\/span>/);
+  assert.match(html, /<span class="lb-prereq-req-badge">Part 1<\/span>/);
+  assert.match(html, /aria-label="Download Word guide for Refresher 1: Create an agent"/);
+  assert.match(html, /aria-label="Download PowerPoint deck for Part 1: Ground on SharePoint"/);
+  assert.doesNotMatch(visibleText, /\b(?:Recap|Step) \d/);
   assert.match(html, /download="Healthcare Lab - Recap 01 - Create an agent\.docx"/);
   assert.match(html, /download="Healthcare Lab - Step 01 - Ground on SharePoint\.pptx"/);
   assert.doesNotMatch(visibleText, /Healthcare Lab - Recap 01 - Create an agent\.docx/);

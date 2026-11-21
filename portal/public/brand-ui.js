@@ -1,5 +1,5 @@
 /**
- * Brand helpers shared by the Configuration tab, the lab builder's Step 7
+ * Brand helpers shared by the Configuration tab, the lab builder's Review and build
  * "Customize this lab" card, and the saved-lab Customize section.
  *
  * Pure functions only (no DOM access at load time) so every page and the unit

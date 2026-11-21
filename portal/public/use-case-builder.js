@@ -472,7 +472,7 @@ function ucBuildShortlistPanel() {
           ucState.labLevel = value;
         }),
       ),
-      ucEl("p", { class: "uc-hint", text: "The lab builder builds one level. Recommended topics from other levels are not selected; lower-level topics they need are added as short recaps." }),
+      ucEl("p", { class: "uc-hint", text: "The lab builder builds one level. Recommended topics from other levels are not selected; lower-level topics they need are added as short refreshers." }),
     ),
     ucEl(
       "div",
@@ -1167,7 +1167,7 @@ function ucMostCommon(values, order, fallback) {
   return order ? [...top].sort((a, b) => order.indexOf(a) - order.indexOf(b))[0] : top[0];
 }
 
-/** The level most shortlisted use cases are at; a tie goes to the higher level, since lower-level topics arrive as recaps. */
+/** The level most shortlisted use cases are at; a tie goes to the higher level, since lower-level topics arrive as refreshers. */
 function ucBestLevel(items) {
   const counts = new Map(UC_LEVELS.map((level) => [level, 0]));
   for (const item of items) counts.set(item.level, (counts.get(item.level) || 0) + 1);
@@ -1245,10 +1245,10 @@ function ucHandoffMessage(plan, result) {
   const skipped = result.skipped.level.length + result.skipped.harness.length + result.skipped.product.length;
   const parts = [`Lab builder pre-filled from your shortlist: ${names}, ${ucLevelText(result.level)}, ${ucPlural(result.selected, "topic")} selected.`];
   if (result.skipped.level.length) {
-    parts.push(`${ucPlural(result.skipped.level.length, "recommended topic")} from other levels ${result.skipped.level.length === 1 ? "was" : "were"} not selected. Lower-level topics your selection needs are added as short recaps.`);
+    parts.push(`${ucPlural(result.skipped.level.length, "recommended topic")} from other levels ${result.skipped.level.length === 1 ? "was" : "were"} not selected. Lower-level topics your selection needs are added as short refreshers.`);
   }
-  if (result.skipped.harness.length) parts.push(`${ucPlural(result.skipped.harness.length, "topic")} for another harness ${result.skipped.harness.length === 1 ? "was" : "were"} skipped.`);
-  if (!result.selected && skipped) parts.push("Choose a different level or harness on the next steps to see them.");
+  if (result.skipped.harness.length) parts.push(`${ucPlural(result.skipped.harness.length, "topic")} for another agent experience (harness) ${result.skipped.harness.length === 1 ? "was" : "were"} skipped.`);
+  if (!result.selected && skipped) parts.push("On the Tailor it step, choose a different level or agent experience to see them.");
   parts.push("You are on the Topics step. Change anything before you build.");
   return parts.join(" ");
 }

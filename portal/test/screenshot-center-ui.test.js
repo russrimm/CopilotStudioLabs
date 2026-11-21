@@ -438,6 +438,136 @@ test("the primary action adapts to the state, one action at a time", () => {
   assert.equal(primary({ toCapture: 3 }, { connected: false, statusLoading: true }).action, "wait");
 });
 
+// ── One screenshot count, one wording ───────────────────────────────────────
+
+const twentyEightSlots = () =>
+  stateFor(Array.from({ length: 28 }, (_, i) => (i === 0 ? captured("slot-1.png", { id: 1, figure: "1.1", imageSource: "library" }) : shot({ filename: `slot-${i + 1}.png`, id: i + 1, figure: `1.${i + 1}` }))));
+
+/** The result panel shown right after a build, rendered by the real lbShowResult from app.js. Returns the pills' HTML. */
+function renderBuildResult(manifest) {
+  const nodes = { "lb-result-panel": { style: {}, scrollIntoView() {} }, "lb-result-meta": { innerHTML: "" }, "lb-result-body": { innerHTML: "" } };
+  const context = {
+    document: { getElementById: (id) => nodes[id] || null },
+    labBuilder: {},
+    escapeHtml: (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]),
+    lbLoadResultPreview() {},
+    console,
+  };
+  vm.createContext(context);
+  vm.runInContext(CENTER_SOURCES[0], context);
+  vm.runInContext(APP_SOURCE.slice(APP_SOURCE.indexOf("function lbQualityPanel"), APP_SOURCE.indexOf("async function lbLoadResultPreview")), context);
+  context.lbShowResult({
+    labId: LAB,
+    title: "Contoso lab",
+    difficulty: "Intermediate",
+    duration: "about 2 hours",
+    markdown: "# Contoso lab",
+    warnings: [],
+    validation: { passed: 12, failed: 0 },
+    manifest: { level: 200, grounding: { groundedModules: 4, totalModules: 5 }, prerequisites: [], screenshots: { total: 0, reused: 0, captured: 0, pending: 0 }, ...manifest },
+  });
+  return nodes["lb-result-meta"].innerHTML;
+}
+
+test("the screenshot count is one function: 'N of M captured', and a reused picture counts as captured", () => {
+  const h = makeHarness();
+  const progress = (source) => json(h.run("scCaptureProgress")(source));
+  assert.deepEqual(progress({ total: 28, captured: 0, missing: 28 }), { total: 28, captured: 0, pending: 28, reused: 0, complete: false, text: "0 of 28 captured", detail: "0 of 28 captured" }, "none captured");
+  assert.equal(progress({ total: 28, captured: 5, missing: 23 }).text, "5 of 28 captured", "some captured");
+  // The saved-lab list keeps reused pictures out of `captured`, but they are still pictures in their slots.
+  assert.equal(progress({ total: 28, captured: 0, pending: 27, stale: 0 }).text, "1 of 28 captured", "a reused picture counts");
+  const manifest = progress({ reused: 1, captured: 0, pending: 27, toCapture: 27, total: 28 });
+  assert.deepEqual([manifest.text, manifest.detail, manifest.reused], ["1 of 28 captured", "1 of 28 captured (1 reused)", 1], "reused is only a secondary phrase");
+  assert.equal(progress({ reused: 2, toCapture: 26, total: 28 }).text, "2 of 28 captured", "an older manifest that only has toCapture");
+  const one = progress({ total: 1, captured: 1, pending: 0 });
+  assert.deepEqual([one.text, one.complete], ["1 of 1 captured", true], "one of one");
+  assert.equal(progress({ total: 1, captured: 0, missing: 1 }).text, "0 of 1 captured");
+  for (const none of [{}, { total: 0 }, null, undefined]) {
+    const empty = progress(none);
+    assert.deepEqual([empty.total, empty.captured, empty.pending, empty.complete, empty.text], [0, 0, 0, false, "No screenshots"], "zero slots");
+  }
+  // The Screenshot Center's own counts carry `toCapture`, which is not the same as "no picture": `captured` decides there.
+  assert.equal(progress({ total: 3, captured: 2, toCapture: 1, manual: 0, outdated: 1 }).text, "2 of 3 captured");
+  assert.equal(progress({ total: 2, captured: 5 }).text, "2 of 2 captured", "never more pictures than slots");
+  assert.equal(progress({ total: 2, pending: 9 }).text, "0 of 2 captured");
+  assert.equal(progress({ total: 2, captured: 1, reused: 5 }).reused, 1, "reused pictures are part of captured");
+});
+
+test("the lab card, its Learn badge, the Screenshot Center, Finish your lab, and the build result all say '1 of 28 captured' for the same lab", async () => {
+  const state = twentyEightSlots();
+  const COUNT = "1 of 28 captured";
+  // What the server lists for this lab: `captured` leaves out the one reused picture, and `pending` is every slot with no picture.
+  const lab = {
+    labId: LAB,
+    title: "Test lab",
+    generatedAt: "2026-05-01T10:00:00.000Z",
+    totalMinutes: 60,
+    moduleCount: 2,
+    selections: null,
+    screenshots: { total: 28, captured: 0, pending: 27, stale: 0, learnSyncStatus: "missing-screenshot", checkState: "up-to-date" },
+    learnDrift: { status: "missing-screenshot", lastCheckedAt: "2026-05-02T10:00:00.000Z", driftedModuleCount: 0, driftedModules: [], missingScreenshotCount: 27, moduleCount: 2 },
+  };
+  const h = makeHarness({ generated: true });
+  h.run(`lbGen.labs = [${JSON.stringify(lab)}]`);
+
+  assert.match(h.run("lbGenItemHtml")(lab), /<li>Screenshots: 1 of 28 captured<\/li>/, "the lab card");
+  assert.match(h.run("lbRenderLabCardDriftHtml")(lab, "Test lab"), /Microsoft Learn up to date · 1 of 28 captured/, "the Learn badge on the card");
+  const listed = json(h.run("lbChecklistItems")(h.run("lbChecklistInputFromListLab")(lab))).find((i) => i.id === "screenshots");
+  assert.ok(listed.detail.startsWith(`${COUNT}. 27 pending.`), `Finish your lab from the list data: ${listed.detail}`);
+
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  await h.render(state);
+  await h.flush();
+  assert.equal(h.center().querySelector(".sc-pills .sc-chip").textContent, COUNT, "the Screenshot Center header");
+  assert.doesNotMatch(h.text(".sc-header"), /screenshots captured|reused/);
+  const opened = h.document.getElementById("lb-result-checklist").querySelector('[data-item="screenshots"] .lb-check-detail').textContent;
+  assert.ok(opened.startsWith(`${COUNT}. 27 pending.`), `Finish your lab above an opened lab: ${opened}`);
+
+  // Opening the lab syncs the card from the live state; the count it shows must not change.
+  h.run("lbSyncSingleLabDriftFromState")(LAB, state);
+  assert.match(h.run("lbGenItemHtml")(h.run("lbGen.labs[0]")), /<li>Screenshots: 1 of 28 captured<\/li>/, "the card after the Screenshot Center synced it");
+
+  const result = renderBuildResult({ screenshots: { reused: 1, captured: 0, pending: 27, toCapture: 27, total: 28 } });
+  assert.match(result, /<span class="scenario-pill">Screenshots: 1 of 28 captured \(1 reused\)<\/span>/, "the build result");
+  assert.doesNotMatch(result, /screenshots? reused|screenshots pending/);
+});
+
+test("counts in the build result and on the lab card use the right singular and plural, and the portal says refresher and checked against Microsoft Learn", () => {
+  const one = renderBuildResult({ prerequisites: [{}], grounding: { groundedModules: 1, totalModules: 1 }, screenshots: { reused: 1, captured: 0, pending: 0, total: 1 } });
+  assert.match(one, />1 refresher</);
+  assert.match(one, />1 of 1 module checked against Microsoft Learn</);
+  assert.match(one, />Screenshots: 1 of 1 captured \(1 reused\)</, "never '1 screenshots reused'");
+  const many = renderBuildResult({ prerequisites: [{}, {}], grounding: { groundedModules: 3, totalModules: 5 }, screenshots: { reused: 0, captured: 2, pending: 3, total: 5 } });
+  assert.match(many, />2 refreshers</);
+  assert.match(many, />3 of 5 modules checked against Microsoft Learn</);
+  assert.match(many, />Screenshots: 2 of 5 captured</);
+  assert.doesNotMatch(`${one}${many}`, /recap|grounded|screenshots? (reused|pending)/i);
+  assert.match(renderBuildResult({}), />No screenshots to capture</, "a lab with no screenshots says so");
+
+  const h = makeHarness({ generated: true });
+  const card = (extra) => h.run("lbGenItemHtml")({ labId: LAB, title: "T", generatedAt: "2026-05-01T10:00:00.000Z", totalMinutes: 60, ...extra });
+  assert.match(card({ moduleCount: 3, prerequisiteCount: 1 }), /<li>2 topics<\/li><li>1 refresher<\/li>/);
+  assert.match(card({ moduleCount: 5, prerequisiteCount: 2 }), /<li>3 topics<\/li><li>2 refreshers<\/li>/);
+  assert.doesNotMatch(card({ moduleCount: 5, prerequisiteCount: 2 }), /recap/i);
+
+  const detail = (shots) => json(h.run("lbChecklistItems")({ shots, check: { state: "up-to-date" } })).find((i) => i.id === "screenshots").detail;
+  assert.equal(detail({ total: 1, captured: 1, toCapture: 0 }), "1 of 1 captured. Nothing is left to capture.", "no 'All 1 screenshots are in place'");
+  assert.equal(detail({ total: 4, captured: 4, toCapture: 0 }), "4 of 4 captured. Nothing is left to capture.");
+});
+
+test("the portal shows a lab's module labels as Part and Refresher, and the lab's own labels stay Step and Recap", async () => {
+  const h = makeHarness();
+  const label = (value) => h.run("scModuleLabel")(value);
+  assert.deepEqual(["Step 3", "step 12", "Recap 1", "Recap 02", "Step 2 - Add topics"].map(label), ["Part 3", "Part 12", "Refresher 1", "Refresher 02", "Part 2 - Add topics"]);
+  assert.deepEqual(["Stepwise", "Recap", "Overview", "", null, undefined].map(label), ["Stepwise", "Recap", "Overview", "", "", ""], "only a numbered Step or Recap is mapped");
+  assert.deepEqual(json(h.run("scGroupShots")(mixedState())).map((g) => g.stepLabel), ["Step 1", "Step 2"], "the data keeps the lab's own labels");
+
+  await h.setStatus(statusPayload({ devices: [device()] }));
+  await h.render(mixedState());
+  assert.doesNotMatch(h.center().textContent, /\b(?:Step|Recap) \d/, "the Screenshot Center never shows a lab's Step N or Recap N");
+  assert.match(h.center().textContent, /Part 2 \u00b7 Add topics/);
+});
+
 test("verification feedback is plain language, never raw codes", () => {
   const h = makeHarness();
   const summary = json(
@@ -618,18 +748,19 @@ test("the primary button follows the setup: connect, capture, retake, review, ch
   assert.equal(h.center().querySelector(".sc-primary-btn").textContent, "Review 1 screenshot");
 });
 
-test("the readiness strip shows each step's live state", async () => {
+test("the readiness strip shows each part's live state", async () => {
   const h = makeHarness();
   const pending = stateFor([shot({ filename: "a.png" }), shot({ filename: "b.png", product: "sharepoint-ai", featureId: "mod-b" })]);
   await h.render(pending);
   assert.equal(h.center().querySelectorAll(".sc-step").length, 3);
   assert.equal(h.step("connect").dataset.state, "todo");
-  assert.match(h.step("connect").textContent, /Step 1: Connect this computer/);
+  assert.match(h.step("connect").textContent, /Part 1: Connect this computer/);
+  assert.doesNotMatch(h.center().querySelector(".sc-steps").textContent, /\bStep \d/, "Step means a wizard step only");
   assert.match(h.step("connect").textContent, /Not connected yet/);
   assert.equal(h.step("connect").querySelector('[data-sc-action="step-connect"]'), null, "the big button already says it, so the step does not repeat it");
   assert.equal(h.center().querySelector(".sc-primary-btn").dataset.scAction, "primary-connect");
   assert.equal(h.step("tenant").dataset.state, "optional");
-  assert.match(h.step("tenant").textContent, /Step 2: Add your tenant addresses/);
+  assert.match(h.step("tenant").textContent, /Part 2: Add your tenant addresses/);
   assert.equal(h.step("signin").dataset.state, "locked");
   assert.match(h.step("signin").textContent, /Connect your computer first/);
 
@@ -1257,12 +1388,15 @@ test("a capture queued during the build takes the learner straight to its progre
 
 const buttonTexts = (card) => card.querySelectorAll(".sc-card-actions button").map((b) => b.textContent);
 
-test("the gallery groups thumbnails by step with a clear status chip and actions on each screenshot", async () => {
+test("the gallery groups thumbnails by part with a clear status chip and actions on each screenshot", async () => {
   const h = makeHarness();
   await h.setStatus(statusPayload({ devices: [device()] }));
   await h.render(mixedState());
   const modules = h.center().querySelectorAll(".sc-module");
-  assert.deepEqual(modules.map((m) => m.querySelector(".sc-module-title").textContent), ["Step 1 \u00b7 Create an agent", "Step 2 \u00b7 Add topics"]);
+  // The lab's own labels stay "Step 1" and "Step 2" in the lab; the portal shows them as parts.
+  assert.deepEqual(modules.map((m) => m.querySelector(".sc-module-title").textContent), ["Part 1 \u00b7 Create an agent", "Part 2 \u00b7 Add topics"]);
+  assert.equal(h.center().querySelector("#sc-gallery-heading").textContent, "Screenshots by part");
+  assert.deepEqual(modules.map((m) => m.querySelector(".sc-pills .sc-chip").textContent), ["1 of 2 captured", "1 of 4 captured"]);
   assert.match(modules[1].querySelector(".sc-chip-learn").textContent, /Microsoft Learn: 1 module changed/);
   const learnLink = modules[0].querySelector('a[target="_blank"]');
   assert.equal(learnLink.getAttribute("rel"), "noopener noreferrer");
@@ -1343,7 +1477,7 @@ test("an image can be uploaded from the file picker, with a local preview while 
   assert.equal(put[0].init.body, file);
   assert.equal(h.card("create-agent.png").dataset.status, "captured");
   assert.match(h.card("create-agent.png").querySelector(".sc-feedback").textContent, /Added to your lab\./);
-  assert.match(h.text(".sc-header"), /2 of 2 screenshots captured/);
+  assert.match(h.text(".sc-header"), /2 of 2 captured/);
   assert.deepEqual(h.spies.preview, [LAB], "the lab preview reloads so the new image appears");
   assert.deepEqual(json(h.FakeURL.revoked), ["blob:fake/1"], "the object URL is revoked");
 });
@@ -1724,7 +1858,7 @@ test("the build flow never waits on capture and hands a queued job to the live p
 
 // ── Finish your lab ─────────────────────────────────────────────────────────
 
-const freshInput = () => ({ reviewed: false, shared: false, branding: { customized: false }, shots: { total: 3, toCapture: 3, manual: 0, outdated: 0, needsReview: 0 }, check: { state: "not-checked", changed: 0 } });
+const freshInput = () => ({ reviewed: false, shared: false, branding: { customized: false }, shots: { total: 3, captured: 0, toCapture: 3, manual: 0, outdated: 0, needsReview: 0 }, check: { state: "not-checked", changed: 0 } });
 
 test("the checklist has five steps, each todo, done, or needing attention", () => {
   const h = makeHarness();
@@ -1733,17 +1867,18 @@ test("the checklist has five steps, each todo, done, or needing attention", () =
   assert.deepEqual(fresh.map((i) => i.id), ["review", "branding", "screenshots", "check", "share"]);
   assert.deepEqual(fresh.map((i) => i.status), ["todo", "todo", "todo", "todo", "todo"]);
   assert.equal(fresh[3].detail, "Not checked yet. Compare this lab with the current Microsoft Learn pages.");
-  assert.equal(fresh[2].detail, "3 pending. Capture them on your computer or add them by hand.");
+  assert.equal(fresh[2].detail, "0 of 3 captured. 3 pending. Capture them on your computer or add them by hand.");
 
-  const done = items({ reviewed: true, shared: true, branding: { customized: true, profileName: "Contoso" }, shots: { total: 3, toCapture: 0, manual: 0, outdated: 0, needsReview: 0 }, check: { state: "up-to-date" } });
+  const done = items({ reviewed: true, shared: true, branding: { customized: true, profileName: "Contoso" }, shots: { total: 3, captured: 3, toCapture: 0, manual: 0, outdated: 0, needsReview: 0 }, check: { state: "up-to-date" } });
   assert.deepEqual(done.map((i) => i.status), ["done", "done", "done", "done", "done"]);
+  assert.equal(done[2].detail, "3 of 3 captured. Nothing is left to capture.");
   assert.equal(done[1].detail, "Using the Contoso brand profile.");
   assert.equal(h.run("lbChecklistDoneCount")(done), 5);
 
-  const attention = items({ ...freshInput(), branding: { customized: true, profileName: "Contoso", profileChanged: true }, shots: { total: 3, toCapture: 0, manual: 0, outdated: 2, needsReview: 1 }, check: { state: "docs-updated", changed: 2 } });
+  const attention = items({ ...freshInput(), branding: { customized: true, profileName: "Contoso", profileChanged: true }, shots: { total: 3, captured: 2, toCapture: 0, manual: 0, outdated: 2, needsReview: 1 }, check: { state: "docs-updated", changed: 2 } });
   assert.deepEqual(attention.map((i) => i.status), ["todo", "attention", "attention", "attention", "todo"]);
   assert.match(attention[1].detail, /The Contoso profile changed after this lab was built/);
-  assert.equal(attention[2].detail, "2 outdated, 1 need review. Capture them on your computer or add them by hand.");
+  assert.equal(attention[2].detail, "2 of 3 captured. 2 outdated, 1 need review. Capture them on your computer or add them by hand.");
   assert.equal(attention[3].detail, "2 modules changed on Microsoft Learn since this lab was built.");
 
   assert.equal(items({ ...freshInput(), shots: { total: 0 } })[2].status, "done", "a lab with no screenshots has nothing to capture");
@@ -1773,7 +1908,7 @@ test("an opened lab shows the checklist with a progress summary and buttons that
   const items = checklist.querySelectorAll(".lb-check-item");
   assert.deepEqual(items.map((i) => [i.dataset.item, i.dataset.status]), [["review", "todo"], ["branding", "done"], ["screenshots", "todo"], ["check", "todo"], ["share", "todo"]]);
   assert.match(checklist.textContent, /Brand: Contoso/, "the brand profile chip shows");
-  assert.match(items[2].textContent, /1 pending\./);
+  assert.match(items[2].textContent, /1 of 2 captured\. 1 pending\./);
   assert.match(items[3].textContent, /Not checked yet/);
   for (const item of items) {
     const button = item.querySelector("button");

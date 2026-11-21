@@ -279,16 +279,30 @@ function loadWizard(extra = {}) {
   return { run: (code) => vm.runInContext(code, context), element, context };
 }
 
-test("every topic group renders its name as a heading inside the fieldset legend", () => {
+test("every topic group renders its name as a heading inside the summary of a collapsed details group", () => {
   const { run, element } = loadWizard();
   const rec = recommend({ harness: "standard", level: 100 });
   run(`labBuilder.selectedProducts = new Set([LB_DEFAULT_PRODUCT]); labBuilder.levels = [{ level: 100, label: "Beginner" }]; labBuilder.harnesses = [{ id: "standard", name: "Standard harness" }]; labBuilder.level = 100; labBuilder.rec = ${JSON.stringify(rec)};`);
   run("lbRenderTopics()");
   const html = element("lb-topic-groups").innerHTML;
-  const legends = [...html.matchAll(/<legend class="lb-category-title"><h4 class="lb-category-name">([^<]+)<\/h4>\s*<span class="lb-concept-count[^"]*">([^<]+)<\/span>\s*<\/legend>/g)];
-  assert.ok(legends.length >= 3, "several groups render");
-  for (const [, , count] of legends) assert.match(count, /^\d+ of \d+ selected/, "the selected-count pill stays");
-  assert.equal([...html.matchAll(/<fieldset class="lb-concept">/g)].length, legends.length, "no group lost its heading");
+  const groups = [...html.matchAll(/<details class="lb-concept" data-concept="([^"]+)"( open)?>\s*<summary class="lb-category-title"><h4 class="lb-category-name">([^<]+)<\/h4>\s*<span class="lb-concept-count[^"]*">([^<]+)<\/span>\s*<\/summary>/g)];
+  assert.ok(groups.length >= 3, "several groups render");
+  for (const [, , open, , count] of groups) {
+    assert.equal(open, undefined, "groups start collapsed");
+    assert.match(count, /^\d+ of \d+ selected(, about .+)?$/, "the selected-count pill stays");
+  }
+  assert.equal([...html.matchAll(/<details class="lb-concept" data-concept=/g)].length, groups.length, "no group lost its heading");
+  assert.doesNotMatch(html, /<fieldset class="lb-concept">|<legend class="lb-category-title">/);
+  const names = groups.map((g) => g[3]);
+  assert.equal(new Set(names).size, names.length, "each group is listed once");
+
+  // A group is open while the person opened it, and its pill reports the selection and the time.
+  const picked = rec.concepts.find((c) => c.topics.length >= 2);
+  const withPicks = recommend({ harness: "standard", level: 100, selected: picked.topics.slice(0, 2).map((t) => t.id) });
+  run(`labBuilder.rec = ${JSON.stringify(withPicks)}; labBuilder.openGroups = new Set([${JSON.stringify(picked.id)}]); lbRenderTopics();`);
+  const opened = element("lb-topic-groups").innerHTML;
+  assert.match(opened, new RegExp(`<details class="lb-concept" data-concept="${picked.id}" open>`));
+  assert.match(opened, new RegExp(`<h4 class="lb-category-name">${picked.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}</h4>\\s*<span class="lb-concept-count lb-concept-count-active">2 of ${picked.topics.length} selected, about [^<]+</span>`));
 });
 
 // ── 2. One copy of each action ──────────────────────────────────────────────

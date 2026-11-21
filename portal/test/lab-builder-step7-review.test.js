@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 
-import { getHarnesses, getFeaturesByCategory } from "../lib/lab-builder/catalog.js";
+import { getFeatures, getHarnesses, getFeaturesByCategory } from "../lib/lab-builder/catalog.js";
 import { LEVEL_VALUES, LEVEL_LABELS } from "../lib/lab-builder/levels.js";
 import { getProducts } from "../lib/lab-builder/products.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
@@ -27,6 +27,14 @@ function previewPayload(request) {
     harness: plan.harness,
     products: plan.products,
     productNames: plan.productNames,
+    includeKnowledgeCheck: Boolean(plan.includeKnowledgeCheck),
+    requiresSharepointSite: plan.requiresSharepointSite,
+    sharepointSite: {
+      name: plan.sharepointSite.name,
+      url: plan.sharepointSite.url,
+      label: plan.sharepointSite.label,
+      configured: plan.sharepointSite.configured,
+    },
     agentName: plan.profile.agentName,
     scenario: {
       problem: plan.profile.problem,
@@ -49,6 +57,8 @@ function previewPayload(request) {
       role: f.prerequisite ? "prerequisite" : "level",
       minutes: f.minutes,
       summary: f.summary,
+      docUrls: f.docUrls || [],
+      learnLinks: f.learnLinks || [],
     })),
     warnings: plan.warnings,
   };
@@ -93,7 +103,17 @@ function loadReviewHarness() {
         get lastFocused() {
           return focused;
         },
+        clearFocus: () => {
+          focused = null;
+        },
         querySelector: (selector) => {
+          if (selector === 'button[data-outline-action="toggle-edit"]' && node.innerHTML.includes('data-outline-action="toggle-edit"')) {
+            return {
+              focus: () => {
+                focused = "toggle-edit";
+              },
+            };
+          }
           const matchMod = selector.match(/input\[data-outline-module="([^"]+)"\]/);
           if (matchMod) {
             const modId = matchMod[1];
@@ -223,6 +243,13 @@ function removedSectionModuleIds(previewHtml) {
   return [...sectionHtml.matchAll(/data-outline-module="([^"]+)"/g)].map((m) => m[1]);
 }
 
+/** Press the Edit order / Done button the way the delegated click handler on #lb-preview sees it. */
+async function clickEditOrder(element) {
+  await element("lb-preview").dispatch("click", {
+    closest: (sel) => (sel === "button[data-outline-action]" ? { dataset: { outlineAction: "toggle-edit" } } : null),
+  });
+}
+
 test("Review and build markup explains module deselection, clarifies time guidance, and exposes accessible review controls", () => {
   assert.ok(reviewPane, "the Review and build pane exists");
   assert.match(reviewPane, /Uncheck any module you do not want\. Then build\./);
@@ -239,6 +266,8 @@ test("deselecting modules and prerequisite recaps on Review and build removes th
   // Start with Level 200 Connector tools, which pulls in Generative orchestration (200)
   // plus two Level 100 prerequisite recaps (Create an agent, Write agent instructions).
   run(`labBuilder.picked = new Set(["connector-tools"]);`);
+  // Part and Refresher numbers live in the Part column, which only Edit order shows.
+  run("labBuilder.editOrder = true");
   element("lb-time").value = "30";
   await context.lbRefresh();
   context.lbGoToStep(4);
@@ -252,10 +281,9 @@ test("deselecting modules and prerequisite recaps on Review and build removes th
     "connector-tools",
   ]);
   const initialStepLabels = [...previewHtml.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
-  assert.deepEqual(initialStepLabels, ["Recap 1", "Recap 2", "Step 1", "Step 2"]);
-  assert.match(previewHtml, /2 modules \+ 2 prerequisite recaps/);
-  assert.match(previewHtml, /About 55 minutes/);
-  assert.match(previewHtml, /Optional part 2:/, "55 min against 30 min target suggests a split initially");
+  assert.deepEqual(initialStepLabels, ["Refresher 1", "Refresher 2", "Part 1", "Part 2"]);
+  assert.match(previewHtml, /2 modules \+ 2 refreshers, about 55 minutes/);
+  assert.match(previewHtml, /Optional session 2:/, "55 min against 30 min target suggests a split initially");
   assert.equal(removedSectionModuleIds(previewHtml).length, 0);
 
   // 1) Uncheck same-level required module "generative-orchestration" via delegated change event on #lb-preview.
@@ -272,17 +300,22 @@ test("deselecting modules and prerequisite recaps on Review and build removes th
     ["create-agent", "agent-instructions", "connector-tools"],
     "single uncheck removes generative-orchestration while keeping un-excluded transitive recaps",
   );
-  // Recaps stay Recap 1..2 while remaining main module renumbers cleanly to Step 1.
+  // Refreshers stay Refresher 1..2 while the remaining main module renumbers cleanly to Part 1.
   const stepCellsAfterFirst = [...previewHtml.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
-  assert.deepEqual(stepCellsAfterFirst, ["Recap 1", "Recap 2", "Step 1"]);
-  assert.match(previewHtml, /1 module \+ 2 prerequisite recaps/);
+  assert.deepEqual(stepCellsAfterFirst, ["Refresher 1", "Refresher 2", "Part 1"]);
+  assert.match(previewHtml, /1 module \+ 2 refreshers, about 35 minutes/);
   assert.match(previewHtml, /Total \(estimate\)<\/th><td>about 35 minutes<\/td>/);
   assert.deepEqual(removedSectionModuleIds(previewHtml), ["generative-orchestration"]);
   assert.equal(element("lb-preview").lastFocused, "generative-orchestration", "keyboard focus stays on the toggled module");
 
-  // Sticky summary bar, step summary mirror, and the Topics checkboxes all match Review and build.
-  assert.match(element("lb-summary").innerHTML, /1 topic \+ 2 prerequisite recaps, about 35 min/);
+  // Sticky summary bar and its step summary mirror agree. Topics and Review and build say the count on the screen itself, so the bar
+  // repeats it only on the other steps (it says "refreshers" there too); the Topics checkboxes match Review and build.
+  assert.doesNotMatch(element("lb-summary").innerHTML, /topic|refresher/i, "the bar does not repeat the count on Review and build");
   assert.equal(summaryMirror.innerHTML, element("lb-summary").innerHTML);
+  run("labBuilder.step = LB_STEP.tailor; lbRenderSummary()");
+  assert.match(element("lb-summary").innerHTML, /1 topic \+ 2 refreshers, about 35 min/);
+  assert.equal(summaryMirror.innerHTML, element("lb-summary").innerHTML);
+  run("labBuilder.step = LB_STEP.review; lbRenderSummary()");
   context.lbRenderTopics();
   const topicsHtmlAfterFirst = element("lb-topic-groups").innerHTML;
   assert.match(topicsHtmlAfterFirst, /data-topic="connector-tools"[^>]*checked/);
@@ -293,12 +326,14 @@ test("deselecting modules and prerequisite recaps on Review and build removes th
   previewHtml = element("lb-preview").innerHTML;
   assert.deepEqual(activeOutlineModuleIds(previewHtml), ["create-agent", "connector-tools"]);
   const stepCellsAfterSecond = [...previewHtml.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
-  assert.deepEqual(stepCellsAfterSecond, ["Recap 1", "Step 1"]);
-  assert.match(previewHtml, /1 module \+ 1 prerequisite recap/);
+  assert.deepEqual(stepCellsAfterSecond, ["Refresher 1", "Part 1"]);
+  assert.match(previewHtml, /1 module \+ 1 refresher, about 30 minutes/);
   assert.match(previewHtml, /Total \(estimate\)<\/th><td>about 30 minutes<\/td>/);
-  assert.doesNotMatch(previewHtml, /Optional part 2:/, "30 min now fits the 30 min target without split parts");
+  assert.doesNotMatch(previewHtml, /Optional session 2:/, "30 min now fits the 30 min target without split parts");
   assert.deepEqual(removedSectionModuleIds(previewHtml), ["generative-orchestration", "agent-instructions"]);
-  assert.match(element("lb-summary").innerHTML, /1 topic \+ 1 prerequisite recap, about 30 min/);
+  run("labBuilder.step = LB_STEP.tailor; lbRenderSummary()");
+  assert.match(element("lb-summary").innerHTML, /1 topic \+ 1 refresher, about 30 min/);
+  run("labBuilder.step = LB_STEP.review; lbRenderSummary()");
 
   context.lbRenderTopics();
   const topicsHtmlAfterSecond = element("lb-topic-groups").innerHTML;
@@ -364,7 +399,10 @@ test("unchecking the last remaining module on Review and build keeps the learner
   assert.match(emptyHtml, /No modules remain in your curriculum\./);
   assert.match(emptyHtml, /Re-select at least one module below or go back to Topics\./);
   assert.deepEqual(removedSectionModuleIds(emptyHtml), ["connector-tools"]);
-  assert.match(element("lb-summary").innerHTML, /No topics selected yet/);
+  assert.doesNotMatch(element("lb-summary").innerHTML, /topic/i, "the outline says so; the bar does not repeat it on Review and build");
+  run("labBuilder.step = LB_STEP.tailor; lbRenderSummary()");
+  assert.match(element("lb-summary").innerHTML, /No topics selected yet/, "the other steps' bar still says so");
+  run("labBuilder.step = LB_STEP.review; lbRenderSummary()");
   assert.equal(element("lb-generate-btn").disabled, true, "Build my lab is blocked while 0 modules remain");
   assert.equal(element("lb-sticky-next").textContent, "Build my lab");
   assert.equal(element("lb-sticky-next").disabled, true, "the sticky copy of Build my lab is blocked too");
@@ -402,7 +440,7 @@ test("unchecking the last remaining module on Review and build keeps the learner
   ]);
 });
 
-test("deselecting prerequisite recaps on Review and build preserves Step 1..M numbering for all main modules", async () => {
+test("deselecting prerequisite refreshers on Review and build preserves Part 1..M numbering for all main modules", async () => {
   const { context, element, run } = loadReviewHarness();
 
   run(`labBuilder.picked = new Set(["generative-orchestration", "connector-tools"]);`);
@@ -413,22 +451,181 @@ test("deselecting prerequisite recaps on Review and build preserves Step 1..M nu
   const stepCellsOf = (htmlSnippet) =>
     [...htmlSnippet.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
 
-  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Recap 1", "Recap 2", "Step 1", "Step 2"]);
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), [], "the Part column is hidden until Edit order is on");
+  await clickEditOrder(element);
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Refresher 1", "Refresher 2", "Part 1", "Part 2"]);
 
-  // Uncheck first prerequisite recap: remaining recap becomes Recap 1, main modules stay Step 1, Step 2.
+  // Uncheck first refresher: the remaining one becomes Refresher 1, main modules stay Part 1, Part 2.
   await context.lbSetOutlineModule("create-agent", false);
   assert.deepEqual(activeOutlineModuleIds(element("lb-preview").innerHTML), [
     "agent-instructions",
     "generative-orchestration",
     "connector-tools",
   ]);
-  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Recap 1", "Step 1", "Step 2"]);
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Refresher 1", "Part 1", "Part 2"]);
 
-  // Uncheck second prerequisite recap too: main modules still stay Step 1, Step 2.
+  // Uncheck second refresher too: main modules still stay Part 1, Part 2.
   await context.lbSetOutlineModule("agent-instructions", false);
   assert.deepEqual(activeOutlineModuleIds(element("lb-preview").innerHTML), [
     "generative-orchestration",
     "connector-tools",
   ]);
-  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Step 1", "Step 2"]);
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Part 1", "Part 2"]);
+});
+
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+const escaped = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const headerTexts = (previewHtml) =>
+  [...(previewHtml.match(/<thead>[\s\S]*?<\/thead>/)?.[0] || "").matchAll(/<th\b[^>]*>([^<]*)<\/th>/g)].map((m) => m[1]);
+
+test("Review rows show only Include, the title, and the time; Edit order adds order, part, description, and Learn links, and Done hides them again with focus on the toggle", async () => {
+  const { run, context, element } = loadReviewHarness();
+  const summary = getFeatures().find((f) => f.id === "connector-tools").summary;
+
+  run(`labBuilder.picked = new Set(["connector-tools"]);`);
+  await context.lbRefresh();
+  context.lbGoToStep(4);
+  await settle();
+  const preview = element("lb-preview");
+
+  // Default: Include, Module, Estimated time, and nothing else.
+  let previewHtml = preview.innerHTML;
+  assert.deepEqual(headerTexts(previewHtml), ["Include", "Module", "Estimated time"]);
+  assert.equal(run("labBuilder.editOrder"), false);
+  assert.doesNotMatch(previewHtml, /data-outline-move|lb-outline-order-controls|lb-outline-order-col/, "no move buttons");
+  assert.doesNotMatch(previewHtml, /<td>(?:Part|Refresher) \d+<\/td>/, "no Part column");
+  assert.doesNotMatch(previewHtml, /lb-learn-source|lb-learn-links/, "no Microsoft Learn links");
+  assert.doesNotMatch(previewHtml, /lb-feature-summary|lb-outline-desc-/, "no description");
+  assert.ok(!previewHtml.includes(escaped(summary)), "the module description is not in the row");
+  assert.match(previewHtml, /<td>about \d+ min<\/td>/);
+  assert.match(previewHtml, /<th scope="row" colspan="2">Total \(estimate\)<\/th>/);
+  assert.match(previewHtml, /data-outline-action="toggle-edit" aria-expanded="false">Edit order<\/button>/);
+
+  // Edit order brings back the Order and Part columns, each module's description, and its Microsoft Learn links.
+  preview.clearFocus();
+  await clickEditOrder(element);
+  previewHtml = preview.innerHTML;
+  assert.equal(run("labBuilder.editOrder"), true);
+  assert.deepEqual(headerTexts(previewHtml), ["Include", "Order", "Part", "Module", "Estimated time"]);
+  assert.match(previewHtml, /data-outline-move="up"[^>]*data-outline-module="create-agent"/);
+  assert.match(previewHtml, /data-outline-move="down"[^>]*data-outline-module="connector-tools"/);
+  assert.match(previewHtml, /<td>Refresher 1<\/td>/);
+  assert.match(previewHtml, /<td>Part 1<\/td>/);
+  assert.doesNotMatch(previewHtml, /<td>(?:Step|Recap) \d+<\/td>/, "the manifest's Step and Recap labels are not shown as they are");
+  assert.match(previewHtml, /id="lb-outline-desc-connector-tools" class="lb-feature-summary"/);
+  assert.ok(previewHtml.includes(escaped(summary)), "the module description is shown");
+  assert.match(previewHtml, /class="lb-learn-source"/, "Microsoft Learn links are shown");
+  assert.match(previewHtml, /<th scope="row" colspan="4">Total \(estimate\)<\/th>/);
+  assert.match(previewHtml, /data-outline-action="toggle-edit" aria-expanded="true">Done<\/button>/);
+  assert.equal(preview.lastFocused, "toggle-edit", "focus stays on the toggle after the table changes");
+
+  // Done hides them again, and focus is still on the toggle.
+  preview.clearFocus();
+  await clickEditOrder(element);
+  previewHtml = preview.innerHTML;
+  assert.equal(run("labBuilder.editOrder"), false);
+  assert.deepEqual(headerTexts(previewHtml), ["Include", "Module", "Estimated time"]);
+  assert.doesNotMatch(previewHtml, /data-outline-move|lb-learn-source|lb-feature-summary|<td>(?:Part|Refresher) \d+<\/td>/);
+  assert.match(previewHtml, /data-outline-action="toggle-edit" aria-expanded="false">Edit order<\/button>/);
+  assert.equal(preview.lastFocused, "toggle-edit");
+});
+
+test("a custom module order still shows 'Custom module order active' with Reset default order while Edit order is off", async () => {
+  const { run, context, element, previewCalls } = loadReviewHarness();
+
+  run(`labBuilder.picked = new Set(["generative-orchestration", "connector-tools"]);`);
+  await context.lbRefresh();
+  context.lbGoToStep(4);
+  await settle();
+  assert.doesNotMatch(element("lb-preview").innerHTML, /lb-outline-order-bar|Custom module order active/, "the default order shows no bar");
+
+  // Moving a module is an Edit order action, but the order it leaves behind is shown whether or not Edit order is open.
+  await context.lbMoveOutlineModule("connector-tools", "up");
+  await settle();
+  assert.equal(run("labBuilder.editOrder"), false);
+  const order = JSON.parse(run("JSON.stringify(labBuilder.moduleOrder)"));
+  assert.ok(order.indexOf("connector-tools") < order.indexOf("generative-orchestration"), "the order was changed");
+  assert.deepEqual(JSON.parse(JSON.stringify(previewCalls.at(-1).moduleOrder)), order, "and is sent with the preview");
+  let previewHtml = element("lb-preview").innerHTML;
+  assert.match(previewHtml, /<div class="lb-outline-order-bar"><span class="lb-outline-order-status">Custom module order active<\/span>/);
+  assert.match(previewHtml, /data-outline-action="reset-order">Reset default order<\/button>/);
+  assert.doesNotMatch(previewHtml, /data-outline-move/, "the move buttons stay hidden");
+
+  await element("lb-preview").dispatch("click", {
+    closest: (sel) => (sel === "button[data-outline-action]" ? { dataset: { outlineAction: "reset-order" } } : null),
+  });
+  previewHtml = element("lb-preview").innerHTML;
+  assert.deepEqual(JSON.parse(run("JSON.stringify(labBuilder.moduleOrder)")), []);
+  assert.doesNotMatch(previewHtml, /lb-outline-order-bar|Custom module order active/, "Reset default order puts the default order back");
+});
+
+test("the outline is a title and one facts line, without the old pills or the scenario paragraph", async () => {
+  const { run, context, element, previewCalls } = loadReviewHarness();
+
+  // Everything the old pills reported is on: a knowledge check, an agent name, and a SharePoint site.
+  run(`labBuilder.level = 100; labBuilder.picked = new Set(["create-agent", "knowledge-sharepoint"]); labBuilder.includeKnowledgeCheck = true;`);
+  element("lb-agent-name").value = "Contoso Assistant";
+  element("lb-sharepoint-site-name").value = "Contoso Team";
+  element("lb-sharepoint-site-url").value = "https://contoso.sharepoint.com/sites/team";
+  await context.lbRefresh();
+  context.lbGoToStep(4);
+  await settle();
+  const request = previewCalls.at(-1);
+  assert.equal(request.includeKnowledgeCheck, true);
+  assert.equal(request.sharepointSiteName, "Contoso Team");
+  assert.equal(request.agentName, "Contoso Assistant");
+
+  const previewHtml = element("lb-preview").innerHTML;
+  assert.match(previewHtml, /<div class="lb-outline-title">[^<]+<\/div>/);
+  assert.match(
+    previewHtml,
+    /<p class="lb-outline-facts">\d+ modules?(?: \+ \d+ refreshers?)?, about [^<·]+ · Level 100 \(Beginner\)\. Times are estimates, not limits\.<\/p>/,
+  );
+  assert.doesNotMatch(previewHtml, /scenario-pill/, "no pills");
+  assert.doesNotMatch(previewHtml, /Agent: |mini-quizzes|SharePoint site:|estimate, not a limit/);
+  assert.doesNotMatch(previewHtml, /<th scope="col">Level<\/th>/, "no Level column");
+  const problem = planLab(JSON.parse(JSON.stringify(request))).profile.problem;
+  assert.ok(problem && !previewHtml.includes(escaped(problem)), "no scenario paragraph");
+});
+
+test("sub-topic rows read 'Sub-topic: title', say 'left out' when unchecked, and show their Microsoft Learn link only with Edit order", async () => {
+  const { run, context, element } = loadReviewHarness();
+  const learn = "https://learn.microsoft.com/microsoft-copilot-studio";
+  const realFetch = context.fetch;
+  context.fetch = async (url, init) => {
+    const res = await realFetch(url, init);
+    if (url !== "/api/lab-builder/preview") return res;
+    const payload = await res.json();
+    payload.modules.find((m) => m.id === "connector-tools").subtopics = [
+      { id: "learn-sub-overview", title: "Connector tools overview", url: `${learn}/connector-tools-overview`, included: true, minutes: 5 },
+      { id: "learn-sub-limits", title: "Connector tools limits", url: `${learn}/connector-tools-limits`, included: false, minutes: 5 },
+    ];
+    return { ok: true, status: 200, json: async () => payload };
+  };
+
+  run(`labBuilder.picked = new Set(["connector-tools"]);`);
+  await context.lbRefresh();
+  context.lbGoToStep(4);
+  await settle();
+
+  const subRowTexts = (previewHtml) =>
+    [...previewHtml.matchAll(/<tr class="lb-outline-subrow[^"]*">[\s\S]*?<\/tr>/g)].map((m) => m[0].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+  let previewHtml = element("lb-preview").innerHTML;
+  assert.deepEqual(subRowTexts(previewHtml), [
+    "Sub-topic: Connector tools overview about 5 min",
+    "Sub-topic: Connector tools limits left out",
+  ]);
+  assert.match(previewHtml, /<tr class="lb-outline-subrow lb-outline-subrow-off">/, "a left-out sub-topic is dimmed");
+  assert.match(previewHtml, /data-outline-subtopic="learn-sub-overview"[^>]*checked/);
+  assert.doesNotMatch(previewHtml, /data-outline-subtopic="learn-sub-limits"[^>]*checked/);
+  assert.match(previewHtml, /1 of 2 sub-topics included/);
+  assert.doesNotMatch(previewHtml, /lb-learn-source/, "no Microsoft Learn links until Edit order");
+
+  await clickEditOrder(element);
+  previewHtml = element("lb-preview").innerHTML;
+  assert.deepEqual(subRowTexts(previewHtml).map((text) => text.replace(/ Microsoft Learn ↗$/, "").replace(/ Microsoft Learn ↗ /, " ")), [
+    "Sub-topic: Connector tools overview about 5 min",
+    "Sub-topic: Connector tools limits left out",
+  ]);
+  assert.match(previewHtml, new RegExp(`href="${learn.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/connector-tools-overview"`));
 });

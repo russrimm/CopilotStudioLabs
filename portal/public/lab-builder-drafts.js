@@ -25,6 +25,7 @@ const lbDraft = {
   slotExists: false,
   unsaved: null,
   bannerOpen: false,
+  rescueFailed: false,
   busy: false,
   mode: "save",
   targetId: null,
@@ -141,9 +142,47 @@ function lbDraftProductNames(ids) {
   return known;
 }
 
+/** "Copilot Studio · Nov 20". When a draft already has that name, the time is added, then a counter, so every default name is unique. */
 function lbDraftDefaultName() {
-  const date = new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return `${lbProductsLabel()} · ${date}`.slice(0, 80);
+  const now = new Date();
+  const date = now.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const time = now.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const label = lbProductsLabel();
+  const taken = new Set((lbDraft.drafts || []).map((draft) => String(draft.name || "").trim().toLowerCase()));
+  const fit = (suffix) => `${label.slice(0, Math.max(10, 80 - suffix.length))}${suffix}`;
+  for (const suffix of [` · ${date}`, ` · ${date}, ${time}`]) {
+    const name = fit(suffix);
+    if (!taken.has(name.toLowerCase())) return name;
+  }
+  for (let count = 2; ; count += 1) {
+    const name = fit(` · ${date}, ${time} (${count})`);
+    if (!taken.has(name.toLowerCase())) return name;
+  }
+}
+
+/** A name no other draft has: the base itself, or the base with a counter. */
+function lbDraftUniqueName(base) {
+  const clipped = String(base || "").slice(0, 70).trim();
+  if (!lbDraftNameTaken(clipped)) return clipped;
+  for (let count = 2; ; count += 1) {
+    const name = `${clipped} (${count})`;
+    if (!lbDraftNameTaken(name)) return name;
+  }
+}
+
+/** True when another saved draft already has this name. The draft being renamed or updated does not count. */
+function lbDraftNameTaken(name, exceptId = null) {
+  const wanted = String(name || "").trim().toLowerCase();
+  return Boolean(wanted) && (lbDraft.drafts || []).some((draft) => draft.id !== exceptId && String(draft.name || "").trim().toLowerCase() === wanted);
+}
+
+/** A gentle note under the name field when it matches another draft. It never blocks saving. */
+function lbDraftSyncNameNote() {
+  const note = document.getElementById("lb-draft-name-note");
+  const input = document.getElementById("lb-draft-name");
+  if (!note || !input) return;
+  const except = lbDraft.mode === "rename" ? lbDraft.targetId : lbDraft.activeId;
+  note.textContent = lbDraftNameTaken(input.value, except) ? "Another draft already has this name. You can keep it, or add a few words to tell them apart." : "";
 }
 
 function lbDraftPlural(count, one, many) {
@@ -298,6 +337,7 @@ function lbDraftShowDialog(mode, draft) {
   document.getElementById("lb-draft-name-error").textContent = "";
   input.removeAttribute?.("aria-invalid");
   input.value = renaming ? draft?.name || "" : lbDraft.activeName || lbDraftDefaultName();
+  lbDraftSyncNameNote();
   dialog.showModal();
   input.focus();
   input.select?.();
@@ -318,7 +358,9 @@ async function lbDraftSubmitName(event, asNew = false) {
   event?.preventDefault?.();
   const input = document.getElementById("lb-draft-name");
   const error = document.getElementById("lb-draft-name-error");
-  const name = String(input.value || "").trim();
+  const typed = String(input.value || "").trim();
+  // Saving the resumed draft's own name as a new draft would make two identical rows, so the offered name gets a counter.
+  const name = asNew && typed === String(lbDraft.activeName || "").trim() && lbDraftNameTaken(typed) ? lbDraftUniqueName(typed) : typed;
   if (!name) {
     error.textContent = "Give the draft a name.";
     input.setAttribute("aria-invalid", "true");
@@ -628,9 +670,40 @@ function lbDraftSendAutosave(content, signature, keepalive) {
   });
 }
 
+/** Work began while the banner still offered older unsaved work: keep the older work as a draft, then close the banner so autosave can carry on. */
+async function lbDraftKeepOfferedWork() {
+  if (lbDraft.busy || lbDraft.rescueFailed) return;
+  lbDraft.busy = true;
+  try {
+    const data = await lbDraftCall("/unsaved");
+    let name = "";
+    if (data.unsaved) {
+      name = lbDraftUniqueName(`Recovered work, ${lbDraftTimeText(data.unsaved.updatedAt)}`);
+      await lbDraftCall("", "POST", { name, content: data.unsaved.content });
+    }
+    await lbDraftClearSlot();
+    lbDraft.bannerOpen = false;
+    const banner = document.getElementById("lb-unsaved-banner");
+    if (banner) banner.hidden = true;
+    lbDraftAnnounce(name ? `Your earlier unsaved work was kept as "${name}" under Saved drafts.` : "");
+    await lbDraftReload();
+  } catch {
+    // The offer stays until the person chooses Resume or Discard, and autosave stays paused rather than overwrite it.
+    lbDraft.rescueFailed = true;
+    lbDraftAnnounce("Your earlier unsaved work could not be kept as a draft yet. Choose Resume or Discard above to continue autosaving.");
+  } finally {
+    lbDraft.busy = false;
+  }
+}
+
 /** Runs every couple of seconds: saves the wizard once it has held still, and never while the wizard is empty. */
 function lbDraftAutosaveTick() {
-  if (!lbDraft.loaded || lbDraft.bannerOpen || lbDraft.busy) return;
+  if (!lbDraft.loaded || lbDraft.busy) return;
+  // The banner offers older work only while the wizard is empty. Once someone starts something new, the older work is kept as a draft and the banner goes.
+  if (lbDraft.bannerOpen) {
+    if (lbDraftHasWork()) void lbDraftKeepOfferedWork();
+    return;
+  }
   if (!lbDraftHasWork()) {
     lbDraft.lastSeen = null;
     return;
@@ -765,6 +838,7 @@ function lbDraftsBind() {
   });
   const byId = (id) => document.getElementById(id);
   byId("lb-draft-name-form")?.addEventListener("submit", (event) => lbDraftSubmitName(event, false));
+  byId("lb-draft-name")?.addEventListener("input", lbDraftSyncNameNote);
   byId("lb-draft-name-copy")?.addEventListener("click", () => lbDraftSubmitName(null, true));
   byId("lb-draft-name-cancel")?.addEventListener("click", () => byId("lb-draft-name-dialog").close());
   byId("lb-draft-delete-cancel")?.addEventListener("click", () => byId("lb-draft-delete-dialog").close());

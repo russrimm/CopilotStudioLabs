@@ -918,16 +918,6 @@
       background: var(--surface);
       font-weight: 600;
     }
-    .lb-step8-customize-summary {
-      margin: 0 0 14px;
-      padding: 10px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .lb-step8-customize-summary[hidden] { display: none; }
     .gl-customize { margin: 12px 0; }
     .gl-customize-body { display: grid; gap: 12px; padding-top: 10px; }
     @media (max-width: 860px) {
@@ -1873,6 +1863,7 @@
       background: var(--bg);
       font-size: 13px;
     }
+    .lb-summary-bar[hidden] { display: none; }
     .lb-summary {
       margin: 0;
       flex: 1 1 260px;
@@ -1969,6 +1960,15 @@
     @media (max-width: 720px), (max-height: 759px) {
       .lb-wizard-sticky { position: static; }
     }
+    /* Four steps fit on one row on a phone: every step keeps its number, and only the current one keeps its words. */
+    @media (max-width: 560px) {
+      .lb-build-lead { display: none; }
+      #lb-build-heading { margin-bottom: 0; }
+      .lb-steps { flex-wrap: nowrap; gap: 6px; }
+      .lb-steps li { flex: 0 0 auto; }
+      .lb-step { padding: 6px 8px; }
+      .lb-step:not(.active) { font-size: 0; gap: 0; }
+    }
     .lb-pane { scroll-margin-top: 190px; }
     .lb-pane h3 { scroll-margin-top: 190px; }
     .lb-pane h3:focus { outline: none; }
@@ -2063,12 +2063,6 @@
     }
     .lb-inline-label { font-size: 13px; font-weight: 600; }
     .lb-unavailable { opacity: 0.75; }
-    .lb-topic-header {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
     .lb-topic-intro {
       color: var(--text-muted);
       font-size: 13.5px;
@@ -2099,32 +2093,6 @@
       line-height: 1.5;
     }
     .lb-topic-help-body p { margin: 0; }
-    .lb-topic-scorebar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px 12px;
-      margin: 0 0 10px;
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg);
-    }
-    .lb-topic-scorecard {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 6px;
-    }
-    .lb-scorecard-btn {
-      font-family: inherit;
-      cursor: pointer;
-      transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
-    }
-    .lb-scorecard-btn:hover { border-color: var(--accent-hover); }
-    .lb-scorecard-btn:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
-    .lb-scorecard-btn.is-active { box-shadow: 0 0 0 2px var(--accent); }
     .lb-stat-chip-recap {
       background: var(--arch-recap-bg);
       border-color: var(--arch-recap-border);
@@ -2137,18 +2105,6 @@
       font-size: 12.5px;
       color: var(--text-muted);
       font-variant-numeric: tabular-nums;
-    }
-    .lb-topic-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px 14px;
-      padding: 10px 12px;
-      margin: 0 0 14px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--bg);
     }
     .lb-toolbar-find {
       display: flex;
@@ -2318,6 +2274,54 @@
     .lb-mine-results { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
     .lb-mine-result { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
     .lb-mine-heading { margin: 12px 0 0; font-size: 13px; }
+    /* ── Topics step: summary line, collapsed groups, compact rows, More ways to add topics ── */
+    .lb-link-btn { padding: 4px 6px; border: 0; border-radius: 4px; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--link-color); text-decoration: underline; cursor: pointer; }
+    .lb-link-btn:hover { color: var(--accent-hover); }
+    .lb-link-btn:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
+    .lb-topic-summary-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 12px; }
+    .lb-topic-summary { margin: 0; font-size: 16px; font-weight: 600; color: var(--text); }
+    .lb-topic-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; margin: 0 0 12px; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .lb-topic-tools[hidden] { display: none; }
+    details.lb-concept, details.lb-concept:has(.lb-feature.checked) { margin: 0; padding: 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
+    details.lb-concept > summary.lb-category-title { display: flex; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; padding: 12px 2px; border-bottom: 0; font-size: 15px; font-weight: 600; letter-spacing: 0; cursor: pointer; list-style: none; }
+    details.lb-concept > summary.lb-category-title::-webkit-details-marker { display: none; }
+    details.lb-concept > summary.lb-category-title::before { content: "▸"; width: auto; height: auto; margin: 0; border-radius: 0; background: none; color: var(--text-muted); vertical-align: baseline; }
+    details.lb-concept[open] > summary.lb-category-title::before { content: "▾"; }
+    details.lb-concept > summary.lb-category-title:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; border-radius: 6px; }
+    details.lb-concept .lb-category-name { margin: 0; font-size: inherit; font-weight: inherit; }
+    details.lb-concept .lb-category-name::before { content: none; }
+    details.lb-concept > summary .lb-concept-count { margin-left: auto; }
+    details.lb-concept[open] { padding-bottom: 12px; }
+    details.lb-concept[open] > summary.lb-category-title { margin-bottom: 4px; }
+    details.lb-concept > .lb-category-desc { margin: 0 0 8px 20px; }
+    .lb-concept-muted-group > summary.lb-category-title .lb-category-name { color: var(--text-muted); font-weight: 400; }
+    .lb-concept-muted-list { display: grid; gap: 8px; margin: 0; padding: 0 0 4px 20px; list-style: none; font-size: 13px; color: var(--text-muted); }
+    .lb-concept-muted-list .lb-concept-muted { padding: 0; border: 0; background: none; }
+    .lb-feature-grid:has(> .lb-row) { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .lb-feature.lb-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px; padding: 2px 8px; border-color: transparent; background: transparent; cursor: default; }
+    .lb-feature.lb-row:hover { border-color: var(--border); }
+    .lb-feature.lb-row.checked { border-color: transparent; background: var(--lb-card-checked-bg); }
+    .lb-row-main { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; min-width: 0; padding: 6px 0; cursor: pointer; }
+    .lb-row-title { flex: 1 1 14em; min-width: 0; font-size: 13.5px; font-weight: 600; }
+    .lb-row-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+    .lb-row-toggle { padding: 6px 8px; border: 0; border-radius: 4px; background: none; font: inherit; font-size: 12px; color: var(--link-color); text-decoration: underline; cursor: pointer; }
+    .lb-row-toggle:hover { color: var(--accent-hover); }
+    .lb-row-toggle:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
+    .lb-row-details { grid-column: 1 / -1; padding: 0 0 10px 26px; }
+    .lb-row-details[hidden] { display: none; }
+    .lb-more { margin: 18px 0 0; border-top: 1px solid var(--border); }
+    .lb-more > summary { padding: 12px 2px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .lb-more > summary:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; border-radius: 6px; }
+    .lb-more-body { display: grid; gap: 18px; padding: 4px 2px 8px; }
+    .lb-more-heading { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+    .lb-more-note { margin: 0; font-size: 13px; color: var(--text-muted); }
+    .lb-more .lb-mine { margin: 0; border: 0; background: none; }
+    .lb-more .lb-mine-body { padding: 0; }
+    .lb-more .lb-learn-bar { margin: 0; padding: 0; border: 0; background: none; }
+    .lb-outline-title { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+    .lb-outline-facts { margin: 0 0 6px; font-size: 13px; color: var(--text-muted); }
+    .lb-outline-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+    .lb-outline-subtag { font-weight: 400; color: var(--text-muted); }
     .lb-learn-links {
       display: flex;
       flex-wrap: wrap;
@@ -2457,7 +2461,7 @@
     .lb-gen-header { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
     .lb-gen-header h3 { margin: 0; }
 
-    /* ── Lab builder: generation animation (Step 8) ── */
+    /* ── Lab builder: generation animation (Review and build) ── */
     @keyframes lb-orbit-spin {
       to { transform: rotate(360deg); }
     }
@@ -4158,9 +4162,7 @@
       background: var(--bg);
     }
     .lb-sharepoint-site-card[hidden],
-    .lb-sharepoint-site-preview[hidden],
-    .lb-sharepoint-site-prompt[hidden],
-    .lb-step8-sharepoint-summary[hidden] {
+    .lb-sharepoint-site-preview[hidden] {
       display: none;
     }
     .lb-sharepoint-site-head {
@@ -4205,7 +4207,6 @@
       gap: 8px;
     }
     .lb-sharepoint-site-preview a,
-    .lb-step8-sharepoint-summary a,
     .lb-prereq-sp-callout a,
     .scenario-pill a,
     .lb-gen-chips a {
@@ -4215,28 +4216,11 @@
       word-break: break-word;
     }
     .lb-sharepoint-site-preview a:hover,
-    .lb-step8-sharepoint-summary a:hover,
     .lb-prereq-sp-callout a:hover,
     .scenario-pill a:hover,
     .lb-gen-chips a:hover {
       color: var(--accent-hover);
     }
-    .lb-sharepoint-site-prompt {
-      margin-top: 12px;
-      padding: 12px 14px;
-      border-radius: 8px;
-      border: 1px solid var(--stat-warn-border);
-      background: var(--stat-warn-bg);
-      color: var(--stat-warn-text);
-      font-size: 13px;
-      line-height: 1.5;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    }
-    .lb-step8-sharepoint-summary,
     .lb-prereq-sp-callout {
       margin: 0 0 14px;
       padding: 12px 14px;
@@ -5229,11 +5213,6 @@
     .rh-banner-title { margin: 0 0 2px; font-size: 15px; }
     .rh-banner-text { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
     .rh-banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-    .lb-next { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-    .lb-next-title { margin: 0 0 6px; font-size: 14px; }
-    .lb-next-list { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 2px; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
-    .lb-next-list strong { color: var(--text); }
-    .lb-next-note { margin: 8px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text-muted); }
     @media (max-width: 560px) {
       .rh-actions, .rh-banner-actions { width: 100%; }
       .rh-row { padding: 10px; }
@@ -5423,7 +5402,6 @@
       .lb-prereq-card,
       .lb-prereq-sp-callout,
       .lb-sharepoint-site-card,
-      .lb-step8-sharepoint-summary,
       .lb-topic-docs,
       .lb-topic-doc-item {
         background: #fff !important;
@@ -5436,7 +5414,6 @@
       .lb-prereq-card,
       .lb-prereq-sp-callout,
       .lb-sharepoint-site-card,
-      .lb-step8-sharepoint-summary,
       .lb-topic-docs,
       .lb-topic-doc-item {
         border: 1px solid #bbb !important;
@@ -5450,8 +5427,7 @@
       }
 
       .lb-customize-card,
-      .bp-fieldset,
-      .lb-step8-customize-summary {
+      .bp-fieldset {
         background: #fff !important;
         color: #000 !important;
         border: 1px solid #bbb !important;
@@ -5966,9 +5942,8 @@
             </section>
             <div class="panel">
               <h3 id="lb-build-heading" tabindex="-1">🧬 Build a Custom Lab</h3>
-              <p style="color: var(--text-muted); margin-bottom: 0; font-size: 14px;">
-                Four steps: pick the product, tailor it, choose the topics, then build. Every module is checked against
-                Microsoft Learn, and times are estimates, never limits.
+              <p class="lb-build-lead" style="color: var(--text-muted); margin-bottom: 0; font-size: 14px;">
+                Every module is checked against Microsoft Learn, and times are estimates, never limits.
               </p>
             </div>
 
@@ -5985,12 +5960,19 @@
                 <div class="lb-summary-bar">
                   <p id="lb-summary" class="lb-summary" role="status" aria-live="polite"><strong>Your lab so far:</strong> nothing yet.</p>
                   <div class="lb-sticky-actions" id="lb-sticky-nav" role="group" aria-label="Wizard step navigation">
-                    <button type="button" class="btn btn-sm" id="lb-save-draft" onclick="lbDraftOpenSave()" title="Saves every choice you have made so far. You can pick it up later under Saved drafts.">Save and finish later</button>
-                    <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbStartNewLab()" hidden title="Clears your choices in the wizard. Your saved drafts are never deleted." aria-describedby="lb-start-over-hint">Start over</button>
-                    <span id="lb-start-over-hint" class="sr-only">Clears your choices in the wizard. Your saved drafts are never deleted.</span>
+                    <button type="button" class="btn btn-sm" id="lb-save-draft" onclick="lbDraftOpenSave()" hidden title="Saves every choice you have made so far. You can pick it up later under Saved drafts.">Save and finish later</button>
+                    <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbAskStartOver()" hidden title="Asks first, then clears your choices in the wizard. Your saved drafts are never deleted." aria-describedby="lb-start-over-hint" aria-expanded="false" aria-controls="lb-start-over-confirm">Start over</button>
+                    <span id="lb-start-over-hint" class="sr-only">Asks first, then clears your choices in the wizard. Your saved drafts are never deleted.</span>
                     <button type="button" class="btn lb-nav-back" id="lb-sticky-back" onclick="lbPrevStep()" hidden>← Back</button>
                     <button type="button" class="btn btn-primary lb-nav-next" id="lb-sticky-next" onclick="lbStickyPrimaryAction()">Next: Tailor it →</button>
                   </div>
+                </div>
+                <div id="lb-start-over-confirm" class="lb-edit-banner" role="group" aria-labelledby="lb-start-over-confirm-text" onkeydown="if (event.key === 'Escape') lbCancelStartOver()" hidden>
+                  <span id="lb-start-over-confirm-text"><strong>Start over?</strong> This clears your choices. Your saved drafts are kept.</span>
+                  <span class="lb-draft-banner-actions">
+                    <button type="button" class="btn btn-sm" id="lb-start-over-yes" onclick="lbConfirmStartOver()">Start over</button>
+                    <button type="button" class="btn btn-sm" id="lb-start-over-keep" onclick="lbCancelStartOver()">Keep working</button>
+                  </span>
                 </div>
                 <p id="lb-draft-status" class="lb-draft-status" role="status" aria-live="polite"></p>
                 <p id="lb-draft-announce" class="sr-only" role="status" aria-live="polite"></p>
@@ -6096,42 +6078,12 @@
             <!-- Step 3: topics -->
             <div class="panel lb-pane" id="lb-pane-3" style="display: none;">
               <h3 id="lb-heading-3" tabindex="-1">Step 3 of 4: Which topics should the lab cover?</h3>
-              <div class="lb-topic-header">
-                <p id="lb-topic-intro" class="lb-topic-intro"></p>
-                <details class="lb-topic-help">
-                  <summary>How recommendations, levels, and prerequisite recaps work</summary>
-                  <div class="lb-topic-help-body">
-                    <p>Topics are pre-selected only when they follow directly from the vertical or departments you chose, and each card shows why. With no vertical or department, nothing is pre-selected — check individual topics or choose <strong>Select recommended</strong> to add our suggested baseline.</p>
-                    <p>Only topics at the level you chose in Step 2 appear in the main groups. Lower-level prerequisites required by your selections are added automatically as short recaps in their own collapsible section at the bottom; uncheck a recap if learners already know it. Optional 3rd-party connectors stay unchecked unless you explicitly select them.</p>
-                  </div>
-                </details>
+              <p id="lb-topic-intro" class="lb-topic-intro"></p>
+              <div class="lb-topic-summary-row">
+                <p id="lb-topic-summary" class="lb-topic-summary" role="status" aria-live="polite"></p>
+                <button type="button" class="lb-link-btn" id="lb-topic-change" aria-expanded="false" aria-controls="lb-topic-tools" onclick="lbToggleTopicTools()">Change</button>
               </div>
-              <div id="lb-product-notes" role="status" aria-live="polite"></div>
-              <div id="lb-level-notice-3" role="status" aria-live="polite"></div>
-              <div class="lb-learn-bar" id="lb-learn-bar">
-                <p id="lb-learn-status" class="lb-learn-status" role="status" aria-live="polite">Checking when the topic list was last refreshed from Microsoft Learn...</p>
-                <button class="btn btn-sm" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
-              </div>
-              <p id="lb-learn-error" class="lb-error" role="alert"></p>
-              <details class="lb-mine" id="lb-mine">
-                <summary>Add a topic from Microsoft Learn</summary>
-                <div class="lb-mine-body">
-                  <p class="lb-mine-help">Search Microsoft Learn, or paste a link to an article. It joins this list, is saved for next time, and is selected for you.</p>
-                  <div class="lb-mine-row">
-                    <label for="lb-mine-input" class="lb-mine-label">Search or paste a link</label>
-                    <input id="lb-mine-input" type="text" class="lb-mine-input" maxlength="300" autocomplete="off" placeholder="For example: autofill columns, or https://learn.microsoft.com/...">
-                    <button type="button" class="btn btn-sm btn-primary" id="lb-mine-go">Search</button>
-                  </div>
-                  <p id="lb-mine-status" class="lb-learn-status" role="status" aria-live="polite"></p>
-                  <ul id="lb-mine-results" class="lb-mine-results"></ul>
-                  <div id="lb-mine-saved"></div>
-                </div>
-              </details>
-              <div class="lb-topic-scorebar">
-                <div id="lb-topic-scorecard" class="lb-topic-scorecard" role="group" aria-label="Topic selection summary"></div>
-                <p id="lb-topic-count" class="lb-topic-count" role="status" aria-live="polite"></p>
-              </div>
-              <div class="lb-topic-toolbar" role="region" aria-label="Filter and bulk-select topics">
+              <div id="lb-topic-tools" class="lb-topic-tools" role="region" aria-label="Search, filter, and choose topics" hidden>
                 <div class="lb-toolbar-find">
                   <div class="lb-toolbar-field lb-toolbar-search-field">
                     <label for="lb-topic-search" class="lb-inline-label">Search topics</label>
@@ -6142,7 +6094,7 @@
                     <select id="lb-topic-filter" class="lb-filter" autocomplete="off">
                       <option value="all">All topics</option>
                       <option value="selected">Selected topics</option>
-                      <option value="recommended">Recommended topics</option>
+                      <option value="recommended">Suggested topics</option>
                       <option value="new">New from Learn</option>
                       <option value="updated">Updated</option>
                       <option value="moved">Docs moved</option>
@@ -6150,30 +6102,69 @@
                     </select>
                   </div>
                 </div>
-                <div class="lb-toolbar-actions" role="group" aria-label="Bulk selection actions">
-                  <button class="btn btn-sm lb-btn-recommend" type="button" onclick="lbSelectRecommended()">Select recommended</button>
+                <div class="lb-toolbar-actions" role="group" aria-label="Choose topics">
+                  <button class="btn btn-sm lb-btn-recommend" type="button" onclick="lbSelectRecommended()">Back to suggested</button>
                   <button class="btn btn-sm" type="button" onclick="lbSelectAllTopics()">Select all</button>
                   <button class="btn btn-sm lb-btn-subtle" type="button" onclick="lbClearTopics()">Clear</button>
-                  <button class="btn btn-sm lb-btn-subtle" type="button" onclick="lbResetTopics()">Reset to my answers</button>
-                </div>
-                <div class="lb-export" id="lb-export" role="group" aria-label="Export topics">
-                  <div class="lb-export-split">
-                    <button class="btn btn-sm lb-export-main" type="button" id="lb-export-main" title="Export every topic and sub-topic for your chosen products as a CSV file that opens in Excel">Export All Topics</button>
-                    <button class="btn btn-sm lb-export-toggle" type="button" id="lb-export-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="lb-export-menu" aria-label="Choose an export format"><span aria-hidden="true">&#9662;</span></button>
-                  </div>
-                  <div class="lb-export-menu" id="lb-export-menu" role="menu" aria-label="Export format" hidden>
-                    <button type="button" role="menuitem" data-export-format="csv">CSV (opens in Excel)</button>
-                    <button type="button" role="menuitem" data-export-format="markdown">Markdown</button>
-                    <button type="button" role="menuitem" data-export-format="json">JSON</button>
-                  </div>
                 </div>
               </div>
-              <p id="lb-export-scope" class="lb-export-scope"></p>
-              <p id="lb-export-status" class="lb-export-status" role="status" aria-live="polite"></p>
+              <details class="lb-topic-help">
+                <summary>How suggestions work</summary>
+                <div class="lb-topic-help-body">
+                  <p>We suggest the usual topics for your level, plus any that follow from your industry or departments. Lower-level topics that a chosen topic builds on come as short refreshers. Optional 3rd-party connectors are never selected for you.</p>
+                </div>
+              </details>
+              <div id="lb-product-notes" role="status" aria-live="polite"></div>
+              <div id="lb-level-notice-3" role="status" aria-live="polite"></div>
+              <p id="lb-topic-count" class="lb-topic-count" role="status" aria-live="polite"></p>
               <p id="lb-topic-announce" class="sr-only" role="status" aria-live="polite"></p>
               <div id="lb-topic-warnings"></div>
               <p id="lb-topic-error" class="lb-error" role="alert"></p>
               <div id="lb-topic-groups"><div class="scenario-empty">Loading topics...</div></div>
+              <details class="lb-more" id="lb-more-ways">
+                <summary>More ways to add topics</summary>
+                <div class="lb-more-body">
+                  <section class="lb-more-section" aria-labelledby="lb-learn-heading">
+                    <h4 class="lb-more-heading" id="lb-learn-heading">Refresh from Microsoft Learn</h4>
+                    <div class="lb-learn-bar" id="lb-learn-bar">
+                      <p id="lb-learn-status" class="lb-learn-status" role="status" aria-live="polite">Checking when the topic list was last refreshed from Microsoft Learn...</p>
+                      <button class="btn btn-sm" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
+                    </div>
+                    <p id="lb-learn-error" class="lb-error" role="alert"></p>
+                  </section>
+                  <section class="lb-more-section lb-mine" id="lb-mine" aria-labelledby="lb-mine-heading">
+                    <h4 class="lb-more-heading" id="lb-mine-heading">Add a topic from Microsoft Learn</h4>
+                    <div class="lb-mine-body">
+                      <p class="lb-mine-help">Search Microsoft Learn, or paste a link to an article. It joins this list, is saved for next time, and is selected for you.</p>
+                      <div class="lb-mine-row">
+                        <label for="lb-mine-input" class="lb-mine-label">Search or paste a link</label>
+                        <input id="lb-mine-input" type="text" class="lb-mine-input" maxlength="300" autocomplete="off" placeholder="For example: autofill columns, or https://learn.microsoft.com/...">
+                        <button type="button" class="btn btn-sm btn-primary" id="lb-mine-go">Search</button>
+                      </div>
+                      <p id="lb-mine-status" class="lb-learn-status" role="status" aria-live="polite"></p>
+                      <ul id="lb-mine-results" class="lb-mine-results"></ul>
+                      <div id="lb-mine-saved"></div>
+                    </div>
+                  </section>
+                  <section class="lb-more-section" aria-labelledby="lb-export-heading">
+                    <h4 class="lb-more-heading" id="lb-export-heading">Export all topics</h4>
+                    <div class="lb-export" id="lb-export" role="group" aria-label="Export topics">
+                      <div class="lb-export-split">
+                        <button class="btn btn-sm lb-export-main" type="button" id="lb-export-main" title="Export every topic and sub-topic for your chosen products as a CSV file that opens in Excel">Export All Topics</button>
+                        <button class="btn btn-sm lb-export-toggle" type="button" id="lb-export-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="lb-export-menu" aria-label="Choose an export format"><span aria-hidden="true">&#9662;</span></button>
+                      </div>
+                      <div class="lb-export-menu" id="lb-export-menu" role="menu" aria-label="Export format" hidden>
+                        <button type="button" role="menuitem" data-export-format="csv">CSV (opens in Excel)</button>
+                        <button type="button" role="menuitem" data-export-format="markdown">Markdown</button>
+                        <button type="button" role="menuitem" data-export-format="json">JSON</button>
+                      </div>
+                    </div>
+                    <p id="lb-export-scope" class="lb-export-scope"></p>
+                    <p id="lb-export-status" class="lb-export-status" role="status" aria-live="polite"></p>
+                  </section>
+                  <p class="lb-more-note">Need topics from a product that is not listed? Add it in <button type="button" class="lb-link-btn" onclick="lbGoToStep(1)">Step 1</button>, under Add another Microsoft product.</p>
+                </div>
+              </details>
               <div data-lb-step-footer style="margin-top: 16px; display: flex; gap: 12px;">
                 <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
                 <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Review and build →</button>
@@ -6412,8 +6403,9 @@
                   <h4 id="lb-draft-name-heading">Save and finish later</h4>
                   <div class="form-group">
                     <label for="lb-draft-name">Draft name</label>
-                    <input type="text" id="lb-draft-name" maxlength="80" required autocomplete="off" aria-describedby="lb-draft-name-hint lb-draft-name-error">
+                    <input type="text" id="lb-draft-name" maxlength="80" required autocomplete="off" aria-describedby="lb-draft-name-hint lb-draft-name-note lb-draft-name-error">
                     <span class="hint" id="lb-draft-name-hint">Up to 80 characters. You can pick this up later under Saved drafts.</span>
+                    <span class="hint" id="lb-draft-name-note" role="status" aria-live="polite"></span>
                   </div>
                   <p id="lb-draft-name-error" class="lb-error" role="alert"></p>
                   <div class="lb-gen-dialog-actions">
@@ -6476,7 +6468,7 @@
                       <li class="lb-drift-pill lb-drift-pill-total"><span>Total</span> <strong id="lb-drift-stat-total">0</strong></li>
                       <li class="lb-drift-pill lb-drift-pill-ok"><span>Up to date</span> <strong id="lb-drift-stat-uptodate">0</strong></li>
                       <li class="lb-drift-pill lb-drift-pill-warn"><span>Need an update</span> <strong id="lb-drift-stat-drifted">0</strong></li>
-                      <li class="lb-drift-pill lb-drift-pill-shots"><span>Screenshots pending</span> <strong id="lb-drift-stat-shots">0</strong></li>
+                      <li class="lb-drift-pill lb-drift-pill-shots"><span>Need screenshots</span> <strong id="lb-drift-stat-shots">0</strong></li>
                       <li class="lb-drift-pill lb-drift-pill-unchecked"><span>Not checked yet</span> <strong id="lb-drift-stat-unchecked">0</strong></li>
                     </ul>
                     <p id="lb-gen-drift-status" class="lb-gen-drift-status" role="status" aria-live="polite" hidden></p>
@@ -7013,7 +7005,7 @@
               <h3>🎨 Brand profiles</h3>
               <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 14px;">
                 Create a reusable brand profile per customer. The active profile styles the portal header and every lab that does not pick another one.
-                Each lab keeps a snapshot of its profile, and you can override details for a single lab in Step 7 of the lab builder.
+                Each lab keeps a snapshot of its profile, and you can override details for a single lab on Review and build in the lab builder.
               </p>
               <div class="bp-layout">
                 <nav class="bp-sidebar" aria-labelledby="bp-list-heading">
@@ -7148,7 +7140,7 @@
                           <p class="bp-error" id="bp-defaultSharepointSiteUrl-error" role="alert"></p>
                         </div>
                       </div>
-                      <span class="hint" id="bp-sharepoint-hint">Pre-fills the SharePoint site in Step 7 of the lab builder. A site set for one lab always wins.</span>
+                      <span class="hint" id="bp-sharepoint-hint">Pre-fills the SharePoint site on Review and build in the lab builder. A site set for one lab always wins.</span>
                     </fieldset>
 
                     <fieldset class="bp-fieldset">

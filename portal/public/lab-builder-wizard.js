@@ -44,6 +44,13 @@ const labBuilder = {
   excludedSubtopics: new Set(),
   // Topics whose long sub-topic list is shown in full ("Show N more sub-topics").
   expandedSubtopics: new Set(),
+  // The concept groups and topic rows the person opened on the Topics step, kept across re-renders.
+  openGroups: new Set(),
+  openRows: new Set(),
+  // Review and build: whether the order controls, step numbers, and Microsoft Learn links are shown on the outline.
+  editOrder: false,
+  // True while the picks are the suggestion and have not been touched (see lbIsSuggestedSelection).
+  pickedAuto: false,
   // Export All Topics: the full dataset for the chosen products, keyed by the answers it was built for.
   exportData: null,
   exportSignature: null,
@@ -678,6 +685,11 @@ async function lbRefresh() {
     const rec = await lbRecommend(extra);
     if (labBuilder.refreshToken !== token) return;
     labBuilder.rec = rec;
+    // Arriving on Topics (or answering while there) with nothing chosen yet: start from the suggestion.
+    if (labBuilder.step >= LB_STEP.topics && lbNeedsSuggestion()) {
+      lbPickSuggested();
+      return lbRefresh();
+    }
     const activeIds = new Set([
       ...(rec?.selectedIds || []),
       ...(rec?.prerequisites?.selectedIds || []),
@@ -728,9 +740,13 @@ async function lbRefresh() {
 /** An answer in the first steps changed: topic choices start over from the new recommendation. */
 function lbAnswersChanged() {
   const hadOwnPicks =
-    Boolean(labBuilder.picked) || labBuilder.excluded.size > 0 || labBuilder.excludedSubtopics.size > 0 || labBuilder.step7Removed.size > 0;
+    (Boolean(labBuilder.picked) && !labBuilder.pickedAuto) ||
+    labBuilder.excluded.size > 0 ||
+    labBuilder.excludedSubtopics.size > 0 ||
+    labBuilder.step7Removed.size > 0;
   lbInvalidateSharepointPreview();
   labBuilder.picked = null;
+  labBuilder.pickedAuto = false;
   labBuilder.excluded.clear();
   labBuilder.excludedSubtopics.clear();
   labBuilder.step7Removed.clear();
@@ -759,7 +775,10 @@ function lbSelectedNames(rec) {
  */
 function lbLevelChanged(previous) {
   const hadOwnPicks =
-    Boolean(labBuilder.picked) || labBuilder.excluded.size > 0 || labBuilder.excludedSubtopics.size > 0 || labBuilder.step7Removed.size > 0;
+    (Boolean(labBuilder.picked) && !labBuilder.pickedAuto) ||
+    labBuilder.excluded.size > 0 ||
+    labBuilder.excludedSubtopics.size > 0 ||
+    labBuilder.step7Removed.size > 0;
   const removed = hadOwnPicks ? lbSelectedNames(labBuilder.rec) : [];
   labBuilder.levelNotice = hadOwnPicks
     ? {
@@ -775,6 +794,7 @@ function lbLevelChanged(previous) {
       }
     : null;
   labBuilder.picked = null;
+  labBuilder.pickedAuto = false;
   labBuilder.excluded.clear();
   labBuilder.excludedSubtopics.clear();
   labBuilder.step7Removed.clear();
@@ -796,6 +816,7 @@ function lbRestoreLevelChoices() {
   labBuilder.level = notice.from;
   labBuilder.chosenSteps.add("tailor");
   labBuilder.picked = notice.stash.picked;
+  labBuilder.pickedAuto = false;
   labBuilder.excluded = notice.stash.excluded;
   labBuilder.excludedSubtopics = notice.stash.excludedSubtopics || new Set();
   labBuilder.step7Removed = new Map(notice.stash.step7Removed || []);
@@ -931,7 +952,7 @@ function lbRenderProducts() {
         <span class="lb-card-body">
           <span class="lb-card-head">
             <span class="lb-card-title">${escapeHtml(p.name)}<span class="sr-only">.</span></span>
-            ${p.hasHarnesses ? '<span class="lb-badge lb-badge-harness">Has harnesses<span class="sr-only">.</span></span>' : ""}
+            ${p.hasHarnesses ? '<span class="lb-badge lb-badge-harness" title="This product comes in more than one agent experience, called a harness. You choose one on the next step.">Choose an agent experience<span class="sr-only">.</span></span>' : ""}
             ${p.custom ? '<span class="lb-badge lb-badge-new">Added by you<span class="sr-only">.</span></span>' : ""}
           </span>
           ${p.summary ? `<div class="scenario-card-desc">${escapeHtml(p.summary)}</div>` : ""}
@@ -1858,80 +1879,40 @@ function lbMatchesFilter(topic) {
   return true;
 }
 
-function lbSetTopicFilter(nextFilter) {
-  labBuilder.filter = nextFilter;
-  const select = document.getElementById("lb-topic-filter");
-  if (select) select.value = nextFilter;
-  lbRenderTopics();
+/** True while the picks are exactly what the rules suggest and the person has not changed them. */
+function lbIsSuggestedSelection() {
+  return Boolean(labBuilder.pickedAuto) && Boolean(labBuilder.picked);
 }
 
-function lbJumpToPrerequisites() {
-  if (labBuilder.filter !== "all" && labBuilder.filter !== "selected") {
-    labBuilder.filter = "all";
-    const select = document.getElementById("lb-topic-filter");
-    if (select) select.value = "all";
-  }
-  if (labBuilder.search) {
-    labBuilder.search = "";
-    const search = document.getElementById("lb-topic-search");
-    if (search) search.value = "";
-  }
-  labBuilder.prereqOpen = true;
-  lbRenderTopics();
-  const prereqEl = document.getElementById("lb-prereq-group");
-  const summary = prereqEl?.querySelector?.("summary");
-  summary?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
-  summary?.focus?.();
-}
-
-function lbRenderTopicScorecard(rec) {
-  const scorecard = document.getElementById("lb-topic-scorecard");
-  if (!scorecard) return;
+/** "Suggested lab: 8 topics + 2 refreshers, about 2 h 20 min." The one line that says what the lab is right now. */
+function lbRenderTopicSummary(rec) {
+  const summary = document.getElementById("lb-topic-summary");
+  if (!summary) return;
   if (!rec || !lbSelectedProductList().length) {
-    scorecard.innerHTML = "";
+    summary.textContent = "";
     return;
   }
-  const selectedCount = rec.totals.selectedCount;
-  const recommendedCount = (rec.recommendedIds || []).length;
-  const prereqCount = rec.totals.prerequisiteCount;
-  const totalPrereqs = (rec.prerequisites?.topics || []).length;
-  const isSelectedFilter = labBuilder.filter === "selected";
-  const isRecommendedFilter = labBuilder.filter === "recommended";
-  const chips = [];
-
-  if (selectedCount > 0 || isSelectedFilter) {
-    chips.push(
-      `<button type="button" class="lb-stat-chip lb-stat-chip-total lb-scorecard-btn${isSelectedFilter ? " is-active" : ""}" data-scorecard-action="toggle-selected" aria-pressed="${isSelectedFilter}" title="Show only selected topics"><strong>${escapeHtml(selectedCount)}</strong> selected${isSelectedFilter ? " (filtered)" : ""}</button>`
-    );
-  } else {
-    chips.push(`<span class="lb-stat-chip lb-stat-chip-empty"><strong>0</strong> selected</span>`);
+  const { selectedCount, prerequisiteCount, duration, subtopicTotal, subtopicCount } = rec.totals;
+  if (!selectedCount) {
+    summary.textContent = "No topics selected yet. Choose Change to pick some.";
+    return;
   }
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const refreshers = prerequisiteCount ? ` + ${plural(prerequisiteCount, "refresher", "refreshers")}` : "";
+  const subs = subtopicTotal ? `, ${subtopicCount} of ${plural(subtopicTotal, "sub-topic", "sub-topics")} included` : "";
+  const label = lbIsSuggestedSelection() ? "Suggested lab" : "Your lab";
+  summary.textContent = `${label}: ${plural(selectedCount, "topic", "topics")}${refreshers}, about ${duration}${subs}.`;
+}
 
-  const subtopicTotal = rec.totals.subtopicTotal || 0;
-  if (subtopicTotal > 0) {
-    const included = rec.totals.subtopicCount || 0;
-    chips.push(
-      `<span class="lb-stat-chip lb-stat-chip-subtopics"><strong>${escapeHtml(included)}</strong> of ${escapeHtml(subtopicTotal)} sub-topic${subtopicTotal === 1 ? "" : "s"} included</span>`
-    );
-  }
-
-  if (recommendedCount > 0) {
-    chips.push(
-      `<button type="button" class="lb-stat-chip lb-scorecard-btn${isRecommendedFilter ? " is-active" : ""}" data-scorecard-action="toggle-recommended" aria-pressed="${isRecommendedFilter}" title="Show only recommended topics"><strong>${escapeHtml(recommendedCount)}</strong> recommended${isRecommendedFilter ? " (filtered)" : ""}</button>`
-    );
-  }
-
-  if (totalPrereqs > 0) {
-    chips.push(
-      `<button type="button" class="lb-stat-chip lb-stat-chip-recap lb-scorecard-btn" data-scorecard-action="jump-prereqs" title="Jump to prerequisite recaps">+<strong>${escapeHtml(prereqCount)}</strong> prerequisite recap${prereqCount === 1 ? "" : "s"}</button>`
-    );
-  }
-
-  if (selectedCount > 0 || prereqCount > 0) {
-    chips.push(`<span class="lb-stat-chip">About <strong>${escapeHtml(rec.totals.duration)}</strong> est.</span>`);
-  }
-
-  scorecard.innerHTML = chips.join("");
+/** One sentence that says why the suggestion looks the way it does, so no row has to repeat it. */
+function lbSuggestionReason(rec) {
+  const level = lbLevelName(rec.answers.level);
+  const industry = labBuilder.industries.find((i) => i.id === labBuilder.industry);
+  const departments = labBuilder.roles.filter((r) => labBuilder.selectedRoles.has(r.id)).map((r) => r.name);
+  const follows = [industry?.name, departments.length ? lbJoinNames(departments) : ""].filter(Boolean);
+  return follows.length
+    ? `Suggested for ${level}, with topics that follow ${lbJoinNames(follows)}.`
+    : `Suggested for ${level}: the usual starting topics.`;
 }
 
 // ── Topics step ─────────────────────────────────────────────────────────────
@@ -2019,12 +2000,13 @@ function lbToggleSubtopicList(parentId) {
   lbRenderTopics();
 }
 
-/** Make the learner's picks explicit, starting from what is currently selected. */
+/** Make the learner's picks explicit, starting from what is currently selected. Touching a pick makes it theirs, not the suggestion. */
 function lbOwnPicks() {
   if (!labBuilder.picked) {
     const rows = [...(labBuilder.rec?.concepts || []).flatMap((c) => c.topics), ...(labBuilder.rec?.levelUnknown?.topics || [])];
     labBuilder.picked = new Set(rows.filter((t) => t.selected && !t.required).map((t) => t.id));
   }
+  labBuilder.pickedAuto = false;
   return labBuilder.picked;
 }
 
@@ -2089,6 +2071,7 @@ function lbSelectAllTopics() {
   labBuilder.chosenSteps.add("topics");
   const all = (labBuilder.rec?.concepts || []).flatMap((c) => c.topics.map((t) => t.id));
   labBuilder.picked = new Set(all);
+  labBuilder.pickedAuto = false;
   labBuilder.excluded.clear();
   labBuilder.excludedSubtopics.clear();
   labBuilder.step7Removed.clear();
@@ -2101,6 +2084,7 @@ function lbClearTopics() {
   lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set();
+  labBuilder.pickedAuto = false;
   labBuilder.excluded.clear();
   labBuilder.excludedSubtopics.clear();
   labBuilder.step7Removed.clear();
@@ -2109,30 +2093,49 @@ function lbClearTopics() {
   lbRefresh();
 }
 
-/** Select every topic the rules recommend for these answers. Only this deliberate action adds the level's baseline picks. */
+/** Choose the suggested topics (what the rules recommend for these answers) and drop every other choice. */
+function lbPickSuggested() {
+  labBuilder.picked = new Set(labBuilder.rec?.recommendedIds || []);
+  labBuilder.pickedAuto = true;
+  labBuilder.excluded.clear();
+  labBuilder.excludedSubtopics.clear();
+  labBuilder.step7Removed.clear();
+  labBuilder.prereqNotice = null;
+  labBuilder.pendingUncheckIds = [];
+}
+
+/** "Back to suggested": the suggested topics again, whatever was changed since. This also replaces the old Reset to my answers. */
 function lbSelectRecommended() {
   lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
-  labBuilder.picked = new Set(labBuilder.rec?.recommendedIds || []);
-  labBuilder.excluded.clear();
-  labBuilder.excludedSubtopics.clear();
-  labBuilder.step7Removed.clear();
-  labBuilder.prereqNotice = null;
-  labBuilder.pendingUncheckIds = [];
+  lbPickSuggested();
   lbRefresh();
 }
 
-/** Back to what the learner's answers pre-select (nothing, unless a vertical or department points at a topic). */
-function lbResetTopics() {
-  lbInvalidateSharepointPreview();
-  labBuilder.chosenSteps.add("topics");
-  labBuilder.picked = null;
-  labBuilder.excluded.clear();
-  labBuilder.excludedSubtopics.clear();
-  labBuilder.step7Removed.clear();
-  labBuilder.prereqNotice = null;
-  labBuilder.pendingUncheckIds = [];
-  lbRefresh();
+/**
+ * Topics arrives with the suggested topics already selected, unless the person already made choices (a saved draft,
+ * Edit selections, a restored level, or their own picks): those are never replaced.
+ */
+function lbNeedsSuggestion() {
+  return (
+    !labBuilder.picked &&
+    !labBuilder.chosenSteps.has("topics") &&
+    labBuilder.excluded.size === 0 &&
+    labBuilder.excludedSubtopics.size === 0 &&
+    labBuilder.step7Removed.size === 0 &&
+    (labBuilder.rec?.recommendedIds || []).length > 0
+  );
+}
+
+/** Show or hide the search, filter, and choose-topics tools behind the Change button. */
+function lbToggleTopicTools(force) {
+  const tools = document.getElementById("lb-topic-tools");
+  const button = document.getElementById("lb-topic-change");
+  if (!tools || !button) return;
+  const open = typeof force === "boolean" ? force : tools.hidden;
+  tools.hidden = !open;
+  button.setAttribute("aria-expanded", String(open));
+  if (open) document.getElementById("lb-topic-search")?.focus?.();
 }
 
 function lbBindTopicEvents() {
@@ -2165,8 +2168,14 @@ function lbBindTopicEvents() {
   groups?.addEventListener(
     "toggle",
     (event) => {
-      if (event.target.id === "lb-prereq-group") labBuilder.prereqOpen = event.target.open;
-      if (event.target.id === "lb-unknown-group") labBuilder.unknownOpen = event.target.open;
+      const id = event.target.id;
+      if (id === "lb-prereq-group") labBuilder.prereqOpen = event.target.open;
+      else if (id === "lb-unknown-group") labBuilder.unknownOpen = event.target.open;
+      else if (event.target.dataset?.concept && !lbForceGroupsOpen()) {
+        // A group opened by a search or filter is not the person's choice, so it is not remembered.
+        if (event.target.open) labBuilder.openGroups.add(event.target.dataset.concept);
+        else labBuilder.openGroups.delete(event.target.dataset.concept);
+      }
     },
     true
   );
@@ -2174,6 +2183,11 @@ function lbBindTopicEvents() {
     const more = event.target.closest("button[data-subtopic-more]");
     if (more) {
       lbToggleSubtopicList(more.dataset.subtopicMore);
+      return;
+    }
+    const rowToggle = event.target.closest("button[data-row-toggle]");
+    if (rowToggle) {
+      lbToggleRowDetails(rowToggle.dataset.rowToggle);
       return;
     }
     const button = event.target.closest("button[data-group-action]");
@@ -2186,18 +2200,6 @@ function lbBindTopicEvents() {
   document.getElementById("lb-topic-filter")?.addEventListener("change", (event) => {
     labBuilder.filter = event.target.value;
     lbRenderTopics();
-  });
-  document.getElementById("lb-topic-scorecard")?.addEventListener("click", (event) => {
-    const btn = event.target?.closest?.("button[data-scorecard-action]");
-    if (!btn) return;
-    const action = btn.dataset.scorecardAction;
-    if (action === "toggle-selected") {
-      lbSetTopicFilter(labBuilder.filter === "selected" ? "all" : "selected");
-    } else if (action === "toggle-recommended") {
-      lbSetTopicFilter(labBuilder.filter === "recommended" ? "all" : "recommended");
-    } else if (action === "jump-prereqs") {
-      lbJumpToPrerequisites();
-    }
   });
   document.getElementById("lb-include-knowledge-check")?.addEventListener("change", (event) => {
     lbSetIncludeKnowledgeCheck(Boolean(event.target?.checked));
@@ -2239,7 +2241,7 @@ function lbThirdPartyNote(t) {
 
 const LB_RELATED_STATE = {
   selected: "selected",
-  recap: "included as a recap",
+  recap: "included as a refresher",
   assumed: "turned off, so the lab assumes it is known",
   available: "listed here, not selected",
   "other-level": "taught at another level",
@@ -2319,49 +2321,86 @@ function lbRenderSubtopics(t, view, query) {
             </fieldset>`;
 }
 
+/** True while a search or a filter is on: every group that has a match opens, so the matches are on screen. */
+function lbForceGroupsOpen() {
+  return Boolean(labBuilder.search) || labBuilder.filter !== "all";
+}
+
+/** The one status chip a compact row carries. Everything else about the topic is in its details. */
+function lbRowChip(t) {
+  if (t.required) return { cls: "lb-badge-required", text: "Required prerequisite" };
+  if (t.learn?.status === "new") return { cls: "lb-badge-new", text: t.learn.userAdded ? "Added by you" : "New from Learn" };
+  if (t.learn?.status === "updated") return { cls: "lb-badge-updated", text: "Updated" };
+  if (t.learn?.status === "stale") return { cls: "lb-badge-moved", text: "Docs moved" };
+  if (!t.level) return { cls: "lb-badge-warn", text: "Level unknown" };
+  if (t.thirdPartyConnector) return { cls: "", text: "Optional 3rd-party connector" };
+  if (t.recommended) return { cls: "lb-badge-recommended", text: t.selected ? "Suggested" : "Suggested, not selected" };
+  return null;
+}
+
+/** Open or close one row's details without drawing the list again. */
+function lbToggleRowDetails(topicId) {
+  const open = !labBuilder.openRows.has(topicId);
+  if (open) labBuilder.openRows.add(topicId);
+  else labBuilder.openRows.delete(topicId);
+  const panel = document.getElementById(`lb-row-details-${topicId}`);
+  const button = document.querySelector(`#lb-topic-groups button[data-row-toggle="${CSS.escape(topicId)}"]`);
+  if (panel) panel.hidden = !open;
+  if (button) {
+    button.setAttribute("aria-expanded", String(open));
+    button.textContent = open ? "Hide details" : "Details";
+  }
+}
+
+/**
+ * Catalog and server sentences name a topic by its internal id ("see mc-knowledge") and use the lab's own word "recap".
+ * The portal says it in plain words instead; the catalog ids, the generated lab, and the exports keep their wording.
+ */
+function lbPlainText(text) {
+  const names = new Map(lbFeatureList().map((feature) => [feature.id, feature.name]));
+  return String(text || "")
+    .replace(/\bmc-[a-z0-9]+(?:-[a-z0-9]+)*\b/g, (id) => (names.has(id) ? `"${names.get(id)}"` : "the matching topic"))
+    .replace(/\b(?:prerequisite )?recap\(s\)/gi, (m) => (m[0] === m[0].toUpperCase() ? "Refresher(s)" : "refresher(s)"))
+    .replace(/\b(?:prerequisite )?recap(s)?\b/gi, (m, plural) => `${m[0] === m[0].toUpperCase() ? "Refresher" : "refresher"}${plural ? "s" : ""}`)
+    .replace(/this repository's reviewed catalog/gi, (m) => (m[0] === "T" ? "The reviewed catalog" : "the reviewed catalog"));
+}
+
+/** A topic as one compact row: checkbox, title, time, and one status chip, with everything else behind Details. */
 function lbTopicCard(t) {
   const view = lbSubtopicView(t);
-  const badges = [
-    t.productName ? `<span class="lb-badge lb-badge-product">${escapeHtml(lbProduct(t.product)?.shortName || t.productName)}</span>` : "",
-    lbLevelBadge(t),
-    `<span class="lb-badge lb-badge-time">about ${t.minutes} min</span>`,
-    t.thirdPartyConnector ? '<span class="lb-badge">Optional 3rd-party connector</span>' : "",
-    t.required ? '<span class="lb-badge lb-badge-required">Required prerequisite</span>' : "",
-    t.recommended && !t.selected ? '<span class="lb-badge lb-badge-recommended">Recommended, not selected</span>' : "",
-    t.availability
-      ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>`
-      : "",
-    lbLearnBadges(t),
-  ].join("");
-  const body = `
-              <span class="lb-feature-body">
-                <span class="lb-feature-name">${escapeHtml(t.name)}</span>
-                <span class="lb-feature-badges">${badges}</span>
-                <span id="lb-topic-desc-${escapeHtml(t.id)}" class="lb-feature-summary">${escapeHtml(t.summary)}</span>
-                ${t.reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(t.reasons.join(". "))}</span>` : ""}
-                ${lbThirdPartyNote(t)}
-                ${t.source === "learn"
-                  ? '<span class="lb-feature-note">Source: Microsoft Learn, not yet reviewed for this repository.</span>'
-                  : ""}
-                ${lbRelatedNote(t)}
-                ${lbRenderLearnLinks(t, view ? { hide: view.subs.map((s) => s.url) } : undefined)}
-                ${t.learn?.status === "stale" ? '<span class="lb-feature-note">The Microsoft Learn pages this topic cites could not be found. Its steps are checked against Learn when the lab is built.</span>' : ""}
-                ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(t.harnessNote)}</span>` : ""}
-              </span>`;
-  if (!view) {
-    return `
-            <label class="lb-feature ${t.selected ? "checked" : ""}">
-              <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" autocomplete="off" ${t.selected ? "checked" : ""}
-                     aria-describedby="lb-topic-desc-${escapeHtml(t.id)}">${body}
-            </label>`;
-  }
-  // The topic's own checkbox is derived from its sub-topics: checked when all are included, mixed when some are left out.
+  const query = labBuilder.search;
+  const chip = lbRowChip(t);
+  const id = escapeHtml(t.id);
+  const open = labBuilder.openRows.has(t.id) || Boolean(view && query && view.subs.some((s) => lbSubtopicMatches(s, query)));
+  // The generic "Recommended for level N" reason is said once, in the suggestion sentence, not on every row.
+  const reasons = (t.reasons || []).filter((reason) => !/^Recommended for level \d+/i.test(reason));
+  const subtitle = view ? ` · ${view.included} of ${view.total} sub-topics` : "";
+  const details = `
+              <div class="lb-row-details" id="lb-row-details-${id}"${open ? "" : " hidden"}>
+                <span class="lb-feature-body">
+                  <span class="lb-feature-badges">${!t.level || t.levelBasis === "estimated" ? lbLevelBadge(t) : ""}${t.availability ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>` : ""}${lbLearnBadges(t)}</span>
+                  <span id="lb-topic-desc-${id}" class="lb-feature-summary">${escapeHtml(t.summary)}</span>
+                  ${reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(lbPlainText(reasons.join(". ")))}</span>` : ""}
+                  ${lbThirdPartyNote(t)}
+                  ${t.source === "learn" ? '<span class="lb-feature-note">Source: Microsoft Learn. Check each article before you teach it.</span>' : ""}
+                  ${lbRelatedNote(t)}
+                  ${lbRenderLearnLinks(t, view ? { hide: view.subs.map((s) => s.url) } : undefined)}
+                  ${t.learn?.status === "stale" ? '<span class="lb-feature-note">The Microsoft Learn pages this topic cites could not be found. Its steps are checked against Learn when the lab is built.</span>' : ""}
+                  ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(lbPlainText(t.harnessNote))}</span>` : ""}
+                </span>${view ? lbRenderSubtopics(t, view, query) : ""}
+              </div>`;
+  const checkbox = view
+    ? `<input type="checkbox" data-topic="${id}" data-required="${t.required}" data-subtopic-state="${view.state}" autocomplete="off" ${view.state === "all" ? "checked" : ""} aria-describedby="lb-topic-desc-${id}" aria-controls="lb-subtopics-${id}">`
+    : `<input type="checkbox" data-topic="${id}" data-required="${t.required}" autocomplete="off" ${t.selected ? "checked" : ""} aria-describedby="lb-topic-desc-${id}">`;
   return `
-            <div class="lb-feature lb-feature-parent ${t.selected ? "checked" : ""}">
-              <label class="lb-feature-main">
-                <input type="checkbox" data-topic="${escapeHtml(t.id)}" data-required="${t.required}" data-subtopic-state="${view.state}" autocomplete="off" ${view.state === "all" ? "checked" : ""}
-                       aria-describedby="lb-topic-desc-${escapeHtml(t.id)}" aria-controls="lb-subtopics-${escapeHtml(t.id)}">${body}
-              </label>${lbRenderSubtopics(t, view, labBuilder.search)}
+            <div class="lb-feature lb-row${t.selected ? " checked" : ""}${view ? " lb-feature-parent" : ""}">
+              <label class="lb-feature-main lb-row-main">
+                ${checkbox}
+                <span class="lb-feature-name lb-row-title">${escapeHtml(t.name)}</span>
+                <span class="lb-row-meta">about ${escapeHtml(t.minutes)} min${escapeHtml(subtitle)}</span>
+                ${chip ? `<span class="lb-badge ${chip.cls}">${escapeHtml(chip.text)}</span>` : ""}
+              </label>
+              <button type="button" class="lb-row-toggle" data-row-toggle="${id}" aria-expanded="${open}" aria-controls="lb-row-details-${id}">${open ? "Hide details" : "Details"}</button>${details}
             </div>`;
 }
 
@@ -2393,19 +2432,8 @@ function lbRenderTopics() {
   lbEnsureThirdPartyFilterOption();
   const el = document.getElementById("lb-topic-groups");
   const rec = labBuilder.rec;
-  const activeScorecardAction = document.activeElement?.dataset?.scorecardAction || null;
-  lbRenderTopicScorecard(rec);
+  lbRenderTopicSummary(rec);
   lbSyncExportScope();
-  if (activeScorecardAction) {
-    const safeAction =
-      typeof CSS !== "undefined" && typeof CSS.escape === "function"
-        ? CSS.escape(activeScorecardAction)
-        : activeScorecardAction;
-    document
-      .getElementById("lb-topic-scorecard")
-      ?.querySelector?.(`button[data-scorecard-action="${safeAction}"]`)
-      ?.focus?.();
-  }
   if (!el) return;
   if (!lbSelectedProductList().length) {
     el.innerHTML = '<div class="scenario-empty">Choose at least one product in Step 1 to see available topics.</div>';
@@ -2418,35 +2446,41 @@ function lbRenderTopics() {
   const activeId = document.activeElement?.dataset?.topic || null;
   const activeSubtopic = document.activeElement?.dataset?.subtopic || null;
   const activeMore = document.activeElement?.dataset?.subtopicMore || null;
+  const activeRowToggle = document.activeElement?.dataset?.rowToggle || null;
   const activeAction = document.activeElement?.dataset?.groupAction
     ? `${document.activeElement.dataset.concept}:${document.activeElement.dataset.groupAction}`
     : null;
   const query = labBuilder.search;
+  const forceOpen = lbForceGroupsOpen();
   const onlyCopilotStudio = (rec.answers.products || [LB_DEFAULT_PRODUCT]).every((id) => id === LB_DEFAULT_PRODUCT);
   // Copilot Studio alone is described by its harness, as before; any other selection is described by its products.
   const scopeName = onlyCopilotStudio && rec.answers.harness ? `the ${lbHarnessName(rec.answers.harness)}` : lbJoinNames((rec.products || []).map((p) => p.shortName));
 
-  const html = rec.concepts
+  // Groups with no topic for these answers share one closed disclosure, so they never push the real groups down.
+  const mutedItems = [];
+  const groupHtml = rec.concepts
     .map((concept) => {
       if (!concept.topics.length) {
         if (query || labBuilder.filter !== "all") return "";
         const others = concept.otherHarnessTopics.map((t) => t.name).join(", ");
         const where = onlyCopilotStudio ? "on this harness" : "for these products";
-        return `
-        <section class="lb-concept lb-concept-muted" aria-label="${escapeHtml(concept.name)} (${concept.notYetAvailable ? "not available yet" : "not applicable"})">
-          <div class="lb-category-title">${escapeHtml(concept.name)} <span class="lb-badge">${concept.notYetAvailable ? `Not available yet ${where}` : `Not applicable ${where}`}</span></div>
-          <div class="lb-category-desc">${escapeHtml(concept.notApplicable || "")}${others ? ` Available at other levels or for other harnesses: ${escapeHtml(others)}.` : ""}</div>
-        </section>`;
+        mutedItems.push(`
+          <li class="lb-concept-muted" aria-label="${escapeHtml(concept.name)} (${concept.notYetAvailable ? "not available yet" : "not applicable"})">
+            <strong>${escapeHtml(concept.name)}</strong> <span class="lb-badge">${concept.notYetAvailable ? `Not available yet ${where}` : `Not applicable ${where}`}</span>
+            <span class="lb-category-desc">${escapeHtml(concept.notApplicable || "")}${others ? ` Available at other levels or for other harnesses: ${escapeHtml(others)}.` : ""}</span>
+          </li>`);
+        return "";
       }
       const topics = concept.topics.filter(
         (t) => lbMatchesFilter(t) && lbMatchesQuery(t, query)
       );
       if (!topics.length) return "";
+      const open = forceOpen || labBuilder.openGroups.has(concept.id);
       return `
-      <fieldset class="lb-concept">
-        <legend class="lb-category-title"><h4 class="lb-category-name">${escapeHtml(concept.name)}</h4>
+      <details class="lb-concept" data-concept="${escapeHtml(concept.id)}"${open ? " open" : ""}>
+        <summary class="lb-category-title"><h4 class="lb-category-name">${escapeHtml(concept.name)}</h4>
           <span class="lb-concept-count${concept.selectedCount ? " lb-concept-count-active" : ""}">${concept.selectedCount} of ${concept.topics.length} selected${concept.minutes ? `, about ${lbFormatMinutes(concept.minutes)}` : ""}</span>
-        </legend>
+        </summary>
         <div class="lb-concept-toolbar">
           <div class="lb-category-desc">${escapeHtml(concept.summary)}</div>
           <div class="lb-group-actions${concept.topics.length === 1 ? " lb-group-actions-single" : ""}">
@@ -2457,9 +2491,18 @@ function lbRenderTopics() {
         <div class="lb-feature-grid">
           ${topics.map(lbTopicCard).join("")}
         </div>
-      </fieldset>`;
+      </details>`;
     })
     .join("");
+  const html =
+    groupHtml +
+    (mutedItems.length
+      ? `
+      <details class="lb-concept lb-concept-muted-group">
+        <summary class="lb-category-title"><span class="lb-category-name">${mutedItems.length} more ${mutedItems.length === 1 ? "group has" : "groups have"} nothing for these answers</span></summary>
+        <ul class="lb-concept-muted-list">${mutedItems.join("")}</ul>
+      </details>`
+      : "");
 
   // Lower-level topics that the selected topics need: separate, collapsed, and each one can be turned off.
   const prereqs = rec.prerequisites?.topics || [];
@@ -2469,41 +2512,48 @@ function lbRenderTopics() {
   const prereqHtml = showPrereqs
     ? `
       <details class="lb-concept lb-prereq-group" id="lb-prereq-group" ${labBuilder.prereqOpen ? "open" : ""}>
-        <summary class="lb-category-title">Prerequisites from lower levels (included automatically)
+        <summary class="lb-category-title"><span class="lb-category-name">Refreshers from lower levels (included automatically)</span>
           <span class="lb-concept-count${rec.prerequisites.selectedCount ? " lb-concept-count-active" : ""}">${rec.prerequisites.selectedCount} of ${prereqs.length} included${rec.prerequisites.minutes ? `, about ${lbFormatMinutes(rec.prerequisites.minutes)}` : ""}</span>
         </summary>
-        <p class="lb-category-desc">These are not ${escapeHtml(lbLevelName(rec.answers.level))} topics. Topics you selected build on them, so the lab includes each one as a short, labeled recap. Uncheck one if your learners already know it: the lab then assumes it.</p>
+        <p class="lb-category-desc">These are not ${escapeHtml(lbLevelName(rec.answers.level))} topics. Topics you selected build on them, so the lab includes each one as a short refresher. Uncheck one if your learners already know it: the lab then assumes it.</p>
         <div class="lb-feature-grid">
           ${visiblePrereqs
-            .map(
-              (p) => `
-            <label class="lb-feature ${p.selected ? "checked" : ""}">
-              <input type="checkbox" data-prerequisite="${escapeHtml(p.id)}" autocomplete="off" ${p.selected ? "checked" : ""} aria-describedby="lb-prereq-desc-${escapeHtml(p.id)}">
-              <span class="lb-feature-body">
-                <span class="lb-feature-name">${escapeHtml(p.name)}</span>
-                <span class="lb-feature-badges"><span class="lb-badge lb-badge-level">Level ${p.level}</span><span class="lb-badge lb-badge-recap">Prerequisite recap</span><span class="lb-badge lb-badge-time">about ${p.minutes} min</span></span>
-                <span id="lb-prereq-desc-${escapeHtml(p.id)}" class="lb-feature-summary">${escapeHtml(p.summary)}</span>
-                <span class="lb-topic-reason">Why: ${escapeHtml(p.reason)}</span>
-                ${lbRenderLearnLinks(p)}
-              </span>
-            </label>`
-            )
+            .map((p) => {
+              const open = labBuilder.openRows.has(p.id);
+              return `
+            <div class="lb-feature lb-row${p.selected ? " checked" : ""}">
+              <label class="lb-feature-main lb-row-main">
+                <input type="checkbox" data-prerequisite="${escapeHtml(p.id)}" autocomplete="off" ${p.selected ? "checked" : ""} aria-describedby="lb-prereq-desc-${escapeHtml(p.id)}">
+                <span class="lb-feature-name lb-row-title">${escapeHtml(p.name)}</span>
+                <span class="lb-row-meta">about ${escapeHtml(p.minutes)} min</span>
+                <span class="lb-badge lb-badge-recap">Refresher</span>
+              </label>
+              <button type="button" class="lb-row-toggle" data-row-toggle="${escapeHtml(p.id)}" aria-expanded="${open}" aria-controls="lb-row-details-${escapeHtml(p.id)}">${open ? "Hide details" : "Details"}</button>
+              <div class="lb-row-details" id="lb-row-details-${escapeHtml(p.id)}"${open ? "" : " hidden"}>
+                <span class="lb-feature-body">
+                  <span id="lb-prereq-desc-${escapeHtml(p.id)}" class="lb-feature-summary">${escapeHtml(p.summary)}</span>
+                  <span class="lb-topic-reason">Why: ${escapeHtml(lbPlainText(p.reason))}</span>
+                  ${lbRenderLearnLinks(p)}
+                </span>
+              </div>
+            </div>`;
+            })
             .join("")}
         </div>
       </details>`
     : "";
 
-  // Learn topics whose level could not be worked out. They are never recommended and stay collapsed.
+  // Learn topics whose level could not be worked out. They are never suggested and stay collapsed.
   const unknown = (rec.levelUnknown?.topics || []).filter(
     (t) => lbMatchesFilter(t) && lbMatchesQuery(t, query)
   );
   const unknownHtml = unknown.length
     ? `
       <details class="lb-concept lb-unknown-group" id="lb-unknown-group" ${labBuilder.unknownOpen ? "open" : ""}>
-        <summary class="lb-category-title">Level unknown (${unknown.length})
+        <summary class="lb-category-title"><span class="lb-category-name">Level unknown (${unknown.length})</span>
           <span class="lb-concept-count${rec.levelUnknown.selectedCount ? " lb-concept-count-active" : ""}">${rec.levelUnknown.selectedCount} selected</span>
         </summary>
-        <p class="lb-category-desc">These topics were found on Microsoft Learn, but we could not tell which level they belong to, so they are not recommended for ${escapeHtml(lbLevelName(rec.answers.level))}. Add one only if you have checked its article and want it in this lab.</p>
+        <p class="lb-category-desc">These topics were found on Microsoft Learn, but we could not tell which level they belong to, so they are not suggested for ${escapeHtml(lbLevelName(rec.answers.level))}. Add one only if you have checked its article and want it in this lab.</p>
         <div class="lb-feature-grid">${unknown.map(lbTopicCard).join("")}</div>
       </details>`
     : "";
@@ -2514,7 +2564,9 @@ function lbRenderTopics() {
   const levelName = lbLevelName(rec.answers.level);
   const shownLabel = `${shown} topic${shown === 1 ? "" : "s"}${shownSubtopics ? ` and ${shownSubtopics} sub-topic${shownSubtopics === 1 ? "" : "s"}` : ""}`;
   const countText = rec.filter.shown
-    ? `Showing ${shownLabel} for ${levelName}${narrowed ? ` that match your search or filter (of ${rec.filter.shown})` : ""}.`
+    ? narrowed
+      ? `Showing ${shownLabel} for ${levelName} that match your search or filter (of ${rec.filter.shown}).`
+      : `${shownLabel} for ${levelName}.`
     : `No ${levelName} topics are available for ${scopeName} yet.`;
   const count = document.getElementById("lb-topic-count");
   if (count && count.textContent !== countText) count.textContent = countText;
@@ -2528,9 +2580,9 @@ function lbRenderTopics() {
 
   const empty = rec.filter.shown
     ? labBuilder.filter === "selected" && !query
-      ? "No topics are currently selected. Switch Show back to All topics to browse, or choose Select recommended to add our suggested baseline."
+      ? "No topics are currently selected. Switch Show back to All topics to browse, or choose Back to suggested."
       : labBuilder.filter === "recommended" && !query
-      ? `No topics are marked as recommended for your current answers at ${escapeHtml(levelName)}. Switch Show back to All topics to browse all available topics.`
+      ? `No topics are suggested for your current answers at ${escapeHtml(levelName)}. Switch Show back to All topics to browse all available topics.`
       : labBuilder.filter === "third-party" && !query
       ? `No optional 3rd-party connector topics are listed at ${escapeHtml(levelName)}. Custom labs use 1st-party Microsoft connectors by default; optional 3rd-party connector topics are available at Level 200 and Level 300.`
       : "No topics match that search or filter."
@@ -2555,21 +2607,14 @@ function lbRenderTopics() {
               .join(", ")}.</div>`,
           ]
         : []),
-      ...rec.dependencyWarnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(w.message)}</div>`),
-      ...rec.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(w)}</div>`),
+      ...rec.dependencyWarnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(lbPlainText(w.message))}</div>`),
+      ...rec.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(lbPlainText(w))}</div>`),
     ].join("");
   }
   const intro = document.getElementById("lb-topic-intro");
   if (intro) {
-    const pre = (rec.preselectedIds || []).length;
-    const origin = rec.totals.selectedCount
-      ? labBuilder.picked
-        ? " Adjust your picks below — time is an estimate, not a limit."
-        : pre
-        ? ` ${pre} ${pre === 1 ? "topic was" : "topics were"} pre-selected because of the vertical or departments you chose; uncheck any you do not want.`
-        : " Time shown is an estimate, not a limit."
-      : " Nothing is selected yet: check the topics you want, or choose Select recommended.";
-    intro.textContent = `${levelName} topics for ${scopeName}, grouped by concept.${origin} Custom labs use 1st-party Microsoft connectors by default; optional 3rd-party connectors stay unchecked unless you select them.`;
+    const lead = lbIsSuggestedSelection() ? `${lbSuggestionReason(rec)} Uncheck anything you do not need.` : `${levelName} topics for ${scopeName}.`;
+    intro.textContent = lead;
   }
   const error = document.getElementById("lb-topic-error");
   if (error && lbSelectedCount()) error.textContent = "";
@@ -2577,6 +2622,7 @@ function lbRenderTopics() {
   if (activeId) el.querySelector(`input[data-topic="${CSS.escape(activeId)}"]`)?.focus();
   else if (activeSubtopic) el.querySelector(`input[data-subtopic="${CSS.escape(activeSubtopic)}"]`)?.focus();
   else if (activeMore) el.querySelector(`button[data-subtopic-more="${CSS.escape(activeMore)}"]`)?.focus();
+  else if (activeRowToggle) el.querySelector(`button[data-row-toggle="${CSS.escape(activeRowToggle)}"]`)?.focus();
   else if (activeAction) {
     const [concept, action] = activeAction.split(":");
     el.querySelector(`button[data-concept="${CSS.escape(concept)}"][data-group-action="${action}"]`)?.focus();
@@ -3013,7 +3059,12 @@ function lbHasProgress() {
 
 function lbSyncResetButton() {
   const btn = document.getElementById("lb-start-over");
-  if (btn) btn.hidden = !lbHasProgress();
+  const progress = lbHasProgress();
+  if (btn) btn.hidden = !progress;
+  if (!progress) lbHideStartOverConfirm();
+  // Saving needs a product, so the button waits for one instead of answering with a refusal.
+  const save = document.getElementById("lb-save-draft");
+  if (save) save.hidden = labBuilder.selectedProducts.size === 0;
 }
 
 function lbSyncStepSummaryMirrors(summaryHtml) {
@@ -3039,9 +3090,11 @@ function lbRenderSummary() {
       parts.push(escapeHtml(lbLevelName(labBuilder.level)));
       if (lbHasHarnessProduct()) parts.push(escapeHtml(lbHarnessName(labBuilder.harness)));
     }
-    if (lbIsStepChosen("topics")) {
+    // Topics and Review and build say the topic count, the time, the quiz choice, and the SharePoint site on the screen itself, so the bar does not repeat them there.
+    const onTopicsOrReview = labBuilder.step === LB_STEP.topics || labBuilder.step === LB_STEP.review;
+    if (lbIsStepChosen("topics") && !onTopicsOrReview) {
       const totals = labBuilder.rec?.totals;
-      const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
+      const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} refresher${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
       const time = totals
         ? totals.selectedCount
           ? `${totals.selectedCount} topic${totals.selectedCount === 1 ? "" : "s"}${recaps}, about ${totals.duration} (estimate, not a limit)`
@@ -3049,11 +3102,11 @@ function lbRenderSummary() {
         : "Calculating topics...";
       parts.push(escapeHtml(time));
     }
-    if (lbIncludeKnowledgeCheck() || labBuilder.step >= LB_STEP.review) {
-      parts.push(escapeHtml(lbIncludeKnowledgeCheck() ? "Knowledge checks: mini-quizzes on" : "Knowledge checks: off"));
+    if (lbIncludeKnowledgeCheck() && labBuilder.step !== LB_STEP.review) {
+      parts.push(escapeHtml("Knowledge checks: mini-quizzes on"));
     }
     const spState = lbResolveSharepointSiteState();
-    if (spState.requiresSharepointSite && spState.configured) {
+    if (spState.requiresSharepointSite && spState.configured && labBuilder.step !== LB_STEP.review) {
       parts.push(escapeHtml(`SharePoint site: ${spState.label || spState.name || spState.url}`));
     }
     const brandChip = lbBrandSummaryChip();
@@ -3061,6 +3114,9 @@ function lbRenderSummary() {
     summaryHtml = `<strong>Your lab so far:</strong> ${parts.join(" · ")}`;
   }
   if (el) el.innerHTML = summaryHtml;
+  // With no product chosen there is nothing to summarize, so the bar stays out of the way until there is.
+  const bar = el?.closest?.(".lb-summary-bar");
+  if (bar) bar.hidden = !lbIsStepChosen("product");
   lbSyncStepSummaryMirrors(summaryHtml);
   lbSyncSharepointSiteUi();
 }
@@ -3245,6 +3301,10 @@ function lbGoToStep(step) {
   if (step === LB_STEP.topics) {
     lbRenderLevelNotice();
     lbRenderTopics();
+    if (lbNeedsSuggestion()) {
+      lbPickSuggested();
+      lbRefresh();
+    }
   }
   if (step === LB_STEP.review) {
     lbSyncSharepointSiteUi();
@@ -3335,9 +3395,13 @@ function lbResetAnswers() {
   labBuilder.harness = "standard";
   labBuilder.differencesFor = null;
   labBuilder.picked = null;
+  labBuilder.pickedAuto = false;
   labBuilder.excluded = new Set();
   labBuilder.excludedSubtopics = new Set();
   labBuilder.expandedSubtopics = new Set();
+  labBuilder.openGroups = new Set();
+  labBuilder.openRows = new Set();
+  labBuilder.editOrder = false;
   labBuilder.step7Removed = new Map();
   labBuilder.moduleOrder = [];
   labBuilder.previewModules = [];
@@ -3405,6 +3469,7 @@ function lbResetWizard() {
 async function lbStartNewLab() {
   if (typeof setActiveTab === "function") setActiveTab("labbuilder");
   if (!labBuilder.loaded && !labBuilder.products.length) await lbLoadCatalog();
+  lbHideStartOverConfirm();
   lbStopEditing(true);
   lbResetAnswers();
   lbRenderAllSteps();
@@ -3412,6 +3477,39 @@ async function lbStartNewLab() {
   lbGoToStep(LB_STEP.product);
   document.getElementById("lb-pane-1")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
   toast("Started a fresh lab. Choose one or more products to begin.", "info");
+}
+
+// ── Start over asks first ───────────────────────────────────────────────────
+// The summary bar's Start over opens a small inline question. Nothing is cleared, and the autosave slot is left alone,
+// until the person confirms; Keep working (or Esc) closes it and puts focus back on Start over.
+function lbHideStartOverConfirm() {
+  const box = document.getElementById("lb-start-over-confirm");
+  if (box) box.hidden = true;
+  document.getElementById("lb-start-over")?.setAttribute?.("aria-expanded", "false");
+}
+
+function lbAskStartOver() {
+  const box = document.getElementById("lb-start-over-confirm");
+  if (!box) {
+    void lbStartNewLab();
+    return;
+  }
+  box.hidden = false;
+  document.getElementById("lb-start-over")?.setAttribute?.("aria-expanded", "true");
+  // The question is already on screen, so only a screen reader is told: the confirm group is named by its own text.
+  if (typeof lbDraftSay === "function") lbDraftSay("Start over? This clears your choices. Your saved drafts are kept.");
+  document.getElementById("lb-start-over-keep")?.focus();
+}
+
+function lbCancelStartOver() {
+  lbHideStartOverConfirm();
+  if (typeof lbDraftAnnounce === "function") lbDraftAnnounce("Kept your choices.");
+  document.getElementById("lb-start-over")?.focus();
+}
+
+async function lbConfirmStartOver() {
+  await lbStartNewLab();
+  if (typeof lbDraftAnnounce === "function") lbDraftAnnounce("Started over. Your saved drafts are kept.");
 }
 
 /**
@@ -3455,6 +3553,7 @@ function lbApplySavedSelections(saved, draft = null) {
   }
   labBuilder.differencesFor = saved.differencesFor ? new Set(saved.differencesFor) : null;
   labBuilder.picked = draft ? (draft.picked ? new Set(draft.picked) : null) : new Set(saved.features);
+  labBuilder.pickedAuto = false;
   labBuilder.excluded = new Set(saved.excluded);
   // Restore the saved sub-topic choices. An id Microsoft Learn no longer lists as a sub-topic is dropped, so it cannot block the rebuild.
   labBuilder.excludedSubtopics = new Set(lbKnownSubtopics(saved.excludedSubtopics));
@@ -3513,7 +3612,7 @@ async function lbLoadSelections(lab) {
  * Pre-fill the wizard from a Use Case Builder shortlist and open the Topics step.
  * The wizard's own rules stay in charge: the level is the single source of truth,
  * so recommended topics from other levels are not selected (a lower-level topic a
- * selected topic needs still arrives as a short recap), and a topic that does not
+ * selected topic needs still arrives as a short refresher), and a topic that does not
  * belong to the chosen harness or to a chosen product is skipped. Everything stays
  * changeable on the steps that follow.
  *
@@ -3747,18 +3846,18 @@ function lbRenderRemovedSection() {
         ${removed
           .map((item) => {
             const levelBadge = item.level ? `<span class="lb-badge lb-badge-level">Level ${item.level}</span>` : '<span class="lb-badge lb-badge-warn">Level unknown</span>';
-            const roleBadge = item.role === "prerequisite" ? '<span class="lb-badge lb-badge-recap">Prerequisite recap</span>' : "";
+            const roleBadge = item.role === "prerequisite" ? '<span class="lb-badge lb-badge-recap">Refresher</span>' : "";
             const timeBadge = item.minutes ? `<span class="lb-badge lb-badge-time">about ${item.minutes} min</span>` : "";
             const note = item.canRestoreAlone
               ? item.summary
-              : `Included as a recap once a dependent Level ${labBuilder.level} module is selected, or select Restore all.`;
+              : `Included as a refresher once a dependent Level ${labBuilder.level} module is selected, or select Restore all.`;
             return `
               <label class="lb-removed-item ${item.canRestoreAlone ? "" : "lb-removed-disabled"}">
                 <input type="checkbox" data-outline-module="${escapeHtml(item.id)}" data-outline-role="${escapeHtml(item.role)}" autocomplete="off" ${
                   item.canRestoreAlone ? "" : "disabled"
                 } aria-describedby="lb-removed-desc-${escapeHtml(item.id)}">
                 <span class="lb-feature-body">
-                  <span class="lb-feature-name">${item.role === "prerequisite" ? "Recap: " : ""}${escapeHtml(item.name)}</span>
+                  <span class="lb-feature-name">${item.role === "prerequisite" ? "Refresher: " : ""}${escapeHtml(item.name)}</span>
                   <span class="lb-feature-badges">${levelBadge}${roleBadge}${timeBadge}</span>
                   <span id="lb-removed-desc-${escapeHtml(item.id)}" class="lb-feature-summary">${escapeHtml(note)}</span>
                   ${lbRenderLearnLinks(item)}
@@ -3773,11 +3872,20 @@ function lbRenderRemovedSection() {
 /** A sub-topic under its module in the Review table: its own checkbox, so it can be left out here as well as on the Topics step. */
 function lbRenderOutlineSubtopic(module, sub) {
   const id = `lb-outline-sub-${escapeHtml(sub.id)}`;
+  const edit = Boolean(labBuilder.editOrder);
   const url = lbLearnUrl(sub.url);
-  const link = url
+  const link = edit && url
     ? `<a class="lb-learn-source" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(sub.title)} on Microsoft Learn (opens in a new tab)">Microsoft Learn<span class="lb-learn-ext" aria-hidden="true">↗</span></a>`
     : "";
-  return `<tr class="lb-outline-subrow${sub.included ? "" : " lb-outline-subrow-off"}"><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="${id}" data-outline-subtopic="${escapeHtml(sub.id)}" data-outline-parent="${escapeHtml(module.id)}" autocomplete="off" ${sub.included ? "checked" : ""}></td><td class="lb-outline-order-cell"></td><td>Sub-topic</td><th scope="row" class="lb-outline-subhead"><label class="lb-outline-module-label" for="${id}">${escapeHtml(sub.title)}</label> ${link}</th><td></td><td>${sub.included ? `about ${escapeHtml(sub.minutes || 5)} min` : "left out"}</td></tr>`;
+  const spacer = edit ? '<td class="lb-outline-order-cell"></td><td></td>' : "";
+  return `<tr class="lb-outline-subrow${sub.included ? "" : " lb-outline-subrow-off"}"><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="${id}" data-outline-subtopic="${escapeHtml(sub.id)}" data-outline-parent="${escapeHtml(module.id)}" autocomplete="off" ${sub.included ? "checked" : ""}></td>${spacer}<th scope="row" class="lb-outline-subhead"><label class="lb-outline-module-label" for="${id}"><span class="lb-outline-subtag">Sub-topic:</span> ${escapeHtml(sub.title)}</label> ${link}</th><td>${sub.included ? `about ${escapeHtml(sub.minutes || 5)} min` : "left out"}</td></tr>`;
+}
+
+/** A lab module's label as the portal shows it: "Step" belongs to the wizard alone, so a module is "Part 3" and a recap is "Refresher 1". The lab file keeps its own headings. */
+function lbModuleLabel(label) {
+  return String(label || "")
+    .replace(/^\s*Step\s+(\d+)/i, "Part $1")
+    .replace(/^\s*Recap\s+(\d+)/i, "Refresher $1");
 }
 
 function lbRenderOutlineOrderControls(moduleOrId, index, total, maybeName) {
@@ -3831,6 +3939,10 @@ function lbFocusOutlineAfterPreview(el, options = {}) {
     typeof CSS !== "undefined" && typeof CSS.escape === "function"
       ? CSS.escape.bind(CSS)
       : (val) => String(val).replace(/["\\]/g, "\\$&");
+  if (options.focusEditToggle) {
+    el.querySelector('button[data-outline-action="toggle-edit"]')?.focus?.();
+    return;
+  }
   if (options.focusMove?.id) {
     const { id, direction } = options.focusMove;
     const escapedId = cssEscape(id);
@@ -3882,6 +3994,10 @@ function lbEnsurePreviewEvents(el) {
     const actionBtn = event.target?.closest?.("button[data-outline-action]");
     if (!actionBtn) return undefined;
     const action = actionBtn.dataset.outlineAction;
+    if (action === "toggle-edit") {
+      labBuilder.editOrder = !labBuilder.editOrder;
+      return lbPreview({ focusEditToggle: true });
+    }
     if (action === "reset-order") return lbResetModuleOrder();
     if (action === "restore-all") return lbRestoreRemovedModules();
     if (action === "back-to-topics") return lbGoToStep(LB_STEP.topics);
@@ -4020,20 +4136,9 @@ async function lbPreview(options = {}) {
     labBuilder.previewRequiresSharepointSite =
       typeof data.requiresSharepointSite === "boolean" ? data.requiresSharepointSite : null;
     lbSyncSharepointSiteUi();
-    const spPreview = data.sharepointSite || lbResolveSharepointSiteState();
-    const spRequires = Boolean(data.requiresSharepointSite || lbRequiresSharepointSite());
-    const spPreviewUrl =
-      spPreview?.url && /^https?:\/\//i.test(String(spPreview.url)) ? String(spPreview.url) : "";
-    const spPreviewLabel = spPreview?.label || spPreview?.name || spPreviewUrl;
-    const spPillHtml = !spRequires
-      ? ""
-      : spPreviewUrl
-      ? `<span class="scenario-pill">SharePoint site: <a href="${escapeHtml(spPreviewUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(spPreviewLabel)}</a></span>`
-      : spPreview?.name
-      ? `<span class="scenario-pill">SharePoint site: ${escapeHtml(spPreview.name)}</span>`
-      : '<span class="scenario-pill">SharePoint site required</span>';
     const recaps = data.modules.filter((m) => m.role === "prerequisite").length;
     const own = data.modules.length - recaps;
+    const edit = Boolean(labBuilder.editOrder);
     let recapCount = 0;
     let stepCount = 0;
     const moduleRowsHtml = data.modules
@@ -4041,42 +4146,44 @@ async function lbPreview(options = {}) {
         const isRecap = m.role === "prerequisite";
         if (isRecap) recapCount += 1;
         else stepCount += 1;
-        const stepLabel =
+        const stepLabel = lbModuleLabel(
           m.stepLabel ||
-          (isRecap ? `Recap ${m.recapOrder ?? recapCount}` : `Step ${m.stepOrder ?? stepCount}`);
-        return `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"></td>${lbRenderOutlineOrderControls(m, idx, data.modules.length)}<td>${escapeHtml(stepLabel)}</td><th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${isRecap ? "Recap: " : ""}${escapeHtml(m.name)}</label><div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div>${lbRenderLearnLinks(m)}</th><td>${m.level}${
-          isRecap ? " (prerequisite recap)" : ""
-        }</td><td>about ${m.minutes} min</td></tr>${(m.subtopics || []).map((sub) => lbRenderOutlineSubtopic(m, sub)).join("")}`;
+            (isRecap ? `Recap ${m.recapOrder ?? recapCount}` : `Step ${m.stepOrder ?? stepCount}`),
+        );
+        // Rows are the checkbox, the title, and the time. The order controls, step numbers, descriptions, and Microsoft Learn links come with Edit order.
+        const orderCells = edit ? `${lbRenderOutlineOrderControls(m, idx, data.modules.length)}<td>${escapeHtml(stepLabel)}</td>` : "";
+        const detail = edit ? `<div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div>${lbRenderLearnLinks(m)}` : "";
+        const describedBy = edit ? ` aria-describedby="lb-outline-desc-${escapeHtml(m.id)}"` : "";
+        return `<tr><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="lb-outline-mod-${escapeHtml(m.id)}" data-outline-module="${escapeHtml(m.id)}" data-outline-role="${escapeHtml(m.role)}" autocomplete="off" checked${describedBy}></td>${orderCells}<th scope="row"><label class="lb-outline-module-label" for="lb-outline-mod-${escapeHtml(m.id)}">${isRecap ? "Refresher: " : ""}${escapeHtml(m.name)}</label>${detail}</th><td>about ${m.minutes} min</td></tr>${(m.subtopics || []).map((sub) => lbRenderOutlineSubtopic(m, sub)).join("")}`;
       })
       .join("");
     const subtopicTotal = data.modules.reduce((sum, m) => sum + (m.subtopics || []).length, 0);
     const subtopicIncluded = data.modules.reduce((sum, m) => sum + (m.subtopics || []).filter((s) => s.included).length, 0);
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const facts = [
+      `${plural(own, "module", "modules")}${recaps ? ` + ${plural(recaps, "refresher", "refreshers")}` : ""}, about ${data.duration}`,
+      lbLevelName(data.level),
+      ...(subtopicTotal ? [`${subtopicIncluded} of ${plural(subtopicTotal, "sub-topic", "sub-topics")} included`] : []),
+    ];
     el.innerHTML = `
-      <div style="font-size: 16px; font-weight: 600; margin-bottom: 6px;">${escapeHtml(data.title)}</div>
-      <div class="scenario-pill-list">
-        <span class="scenario-pill">${escapeHtml(data.difficulty)}</span>
-        <span class="scenario-pill">${escapeHtml(lbLevelName(data.level))}</span>
-        <span class="scenario-pill">About ${escapeHtml(data.duration)} (estimate, not a limit)</span>
-        <span class="scenario-pill">${own} module${own === 1 ? "" : "s"}${recaps ? ` + ${recaps} prerequisite recap${recaps === 1 ? "" : "s"}` : ""}</span>
-        ${subtopicTotal ? `<span class="scenario-pill">${subtopicIncluded} of ${subtopicTotal} sub-topic${subtopicTotal === 1 ? "" : "s"} included</span>` : ""}
-        <span class="scenario-pill">Agent: ${escapeHtml(data.agentName)}</span>
-        <span class="scenario-pill">${data.includeKnowledgeCheck ? "Lesson mini-quizzes included" : "Lesson mini-quizzes off"}</span>
-        ${spPillHtml}
+      <div class="lb-outline-title">${escapeHtml(data.title)}</div>
+      <p class="lb-outline-facts">${escapeHtml(facts.join(" · "))}. Times are estimates, not limits.</p>
+      <div class="lb-outline-tools">
+        ${lbRenderOutlineOrderToolbar()}
+        <button type="button" class="lb-link-btn" data-outline-action="toggle-edit" aria-expanded="${edit}">${edit ? "Done" : "Edit order"}</button>
       </div>
-      <div style="margin-top: 14px; font-size: 13px; color: var(--text-muted);">${escapeHtml(data.scenario.problem)}</div>
-      ${lbRenderOutlineOrderToolbar()}
       <table class="lb-outline">
         <caption>Lab outline with estimated time per module</caption>
-        <thead><tr><th scope="col" class="lb-outline-include-col">Include</th><th scope="col" class="lb-outline-order-col">Order</th><th scope="col">Step</th><th scope="col">Module</th><th scope="col">Level</th><th scope="col">Estimated time</th></tr></thead>
+        <thead><tr><th scope="col" class="lb-outline-include-col">Include</th>${edit ? '<th scope="col" class="lb-outline-order-col">Order</th><th scope="col">Part</th>' : ""}<th scope="col">Module</th><th scope="col">Estimated time</th></tr></thead>
         <tbody>
           ${moduleRowsHtml}
         </tbody>
-        <tfoot><tr><th scope="row" colspan="5">Total (estimate)</th><td>about ${escapeHtml(data.duration)}</td></tr></tfoot>
+        <tfoot><tr><th scope="row" colspan="${edit ? 4 : 2}">Total (estimate)</th><td>about ${escapeHtml(data.duration)}</td></tr></tfoot>
       </table>
       ${(data.estimate?.suggestedParts || [])
-        .map((part) => `<div class="lb-feature-note">Optional part ${part.part}: ${part.ids.length} module${part.ids.length === 1 ? "" : "s"}, about ${escapeHtml(part.duration)}</div>`)
+        .map((part) => `<div class="lb-feature-note">Optional session ${part.part}: ${part.ids.length} module${part.ids.length === 1 ? "" : "s"}, about ${escapeHtml(part.duration)}</div>`)
         .join("")}
-      ${data.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(w)}</div>`).join("")}
+      ${data.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(lbPlainText(w))}</div>`).join("")}
       ${lbRenderRemovedSection()}
     `;
     lbFocusOutlineAfterPreview(el, options);
@@ -4120,10 +4227,11 @@ function lbEffectiveBrand() {
   return brandMergeOverrides(profile, lbBrandOverrides());
 }
 
-/** HTML for the "Brand: <profile>" chip in the summary bar (empty until the profiles have loaded). */
+/** HTML for the "Brand: <profile>" chip in the summary bar. Empty until the profiles have loaded, for the built-in Default, and on Review and build, where the brand line is already on screen. */
 function lbBrandSummaryChip() {
   const profile = lbBrandProfile();
-  if (!profile) return "";
+  if (!profile || labBuilder.step === LB_STEP.review) return "";
+  if (profile.id === "default" && !Object.keys(lbBrandOverrides()).length) return "";
   return `<span class="lb-brand-chip">Brand: ${escapeHtml(profile.name)}</span>`;
 }
 

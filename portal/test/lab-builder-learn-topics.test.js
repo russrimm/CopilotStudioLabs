@@ -1166,10 +1166,17 @@ test("a person can add a Microsoft Learn page to their topics: search, add, list
   assert.equal((await call("/api/lab-builder/topics/mine/not-an-id", { method: "DELETE" })).status, 400);
   assert.equal(again.userTopics().length, 0);
 });
-test("the Topics step offers an Add a topic from Microsoft Learn panel that is labeled, loads after the wizard, and shows what you added", () => {
+test("the Topics step offers an Add a topic from Microsoft Learn panel under More ways to add topics that is labeled, loads after the wizard, and shows what you added", () => {
   const html = fs.readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-  assert.match(html, /<details class="lb-mine" id="lb-mine">/);
-  assert.match(html, /<label for="lb-mine-input"/);
+  const moreAt = html.indexOf('<details class="lb-more" id="lb-more-ways">');
+  assert.ok(moreAt > 0, "More ways to add topics is a closed details at the end of the Topics pane");
+  const more = html.slice(moreAt, html.indexOf("data-lb-step-footer", moreAt));
+  assert.match(more, /^<details class="lb-more" id="lb-more-ways">\s*<summary>More ways to add topics<\/summary>/);
+  assert.match(more, /<section class="lb-more-section lb-mine" id="lb-mine" aria-labelledby="lb-mine-heading">\s*<h4 class="lb-more-heading" id="lb-mine-heading">Add a topic from Microsoft Learn<\/h4>/);
+  assert.doesNotMatch(html, /<details class="lb-mine" id="lb-mine">/, "the panel is a section with a heading, not a nested details");
+  assert.match(more, /<label for="lb-mine-input"/);
+  assert.match(html, /<details class="lb-mine" id="lb-addprod">/, "Add another Microsoft product stays in Step 1");
+  assert.ok(html.indexOf('id="lb-addprod"') < html.indexOf('id="lb-pane-2"'));
   assert.ok(html.indexOf("lab-builder-wizard.js") < html.indexOf("lab-builder-my-topics.js"), "the panel script loads after the wizard");
   const panel = fs.readFileSync(new URL("../public/lab-builder-my-topics.js", import.meta.url), "utf8");
   for (const route of ["/api/lab-builder/topics/mine/search", "/api/lab-builder/topics/mine"]) assert.ok(panel.includes(route), route);

@@ -1,7 +1,7 @@
 // Screenshot Center: the panel in an opened lab that captures, checks, and updates its screenshots.
 // It renders the readiness strip, the one adaptive primary action, live capture
 // progress, the thumbnail gallery with per-shot actions, the preview dialog, the
-// Advanced options, and the capture-on-build checkbox in Step 8.
+// Advanced options, and the capture-on-build checkbox on the Review and build step.
 // All DOM is built with createElement and textContent; nothing from the network
 // (file names, captions, messages) is ever parsed as HTML.
 // Network calls live in screenshot-center-jobs.js, pure decisions in screenshot-center-core.js.
@@ -420,7 +420,8 @@ function scBuildHeader(model) {
   const header = scEl("div", { class: "sc-header" });
   header.appendChild(scEl("h4", { id: "lb-screenshots-heading", class: "sc-heading", text: "Screenshot Center", attrs: { tabindex: "-1" } }));
   const pills = scEl("div", { class: "sc-pills" });
-  pills.appendChild(scChip(`${counts.captured} of ${counts.total} screenshots captured`, counts.total > 0 && counts.captured === counts.total && !counts.outdated ? "ok" : "neutral"));
+  const progress = scCaptureProgress(counts);
+  pills.appendChild(scChip(progress.text, progress.complete && !counts.outdated ? "ok" : "neutral"));
   const waiting = counts.toCapture + counts.manual;
   if (waiting) pills.appendChild(scChip(`${waiting} waiting`, "warn"));
   if (counts.outdated) pills.appendChild(scChip(`${counts.outdated} outdated`, "warn"));
@@ -605,13 +606,13 @@ const SC_STEP_STATE_TONE = Object.freeze({ done: "ok", todo: "warn", optional: "
 
 function scBuildStrip(model) {
   const words = { 3: "three", 4: "four" };
-  const list = scEl("ol", { class: "sc-steps", attrs: { "aria-label": `Set up screenshot capture in ${words[model.steps.length]} steps` }, data: { steps: model.steps.length } });
+  const list = scEl("ol", { class: "sc-steps", attrs: { "aria-label": `Set up screenshot capture in ${words[model.steps.length]} parts` }, data: { steps: model.steps.length } });
   model.steps.forEach((step, index) => {
     const li = scEl("li", { class: "sc-step", data: { state: step.state, step: step.id } });
     li.appendChild(scEl("span", { class: "sc-step-num", text: step.state === "done" ? "\u2713" : String(index + 1), attrs: { "aria-hidden": "true" } }));
     const body = scEl("div", { class: "sc-step-body" });
     const title = scEl("h5", { class: "sc-step-title" });
-    title.appendChild(scEl("span", { text: `Step ${index + 1}: ${step.title}` }));
+    title.appendChild(scEl("span", { text: `Part ${index + 1}: ${step.title}` }));
     title.appendChild(scChip(SC_STEP_STATE_LABEL[step.state] || "To do", SC_STEP_STATE_TONE[step.state] || "neutral"));
     body.appendChild(title);
     body.appendChild(scEl("p", { class: "sc-step-detail", text: step.detail }));
@@ -1498,7 +1499,7 @@ function scBuildGallery(labId, model) {
   const lab = scLab(labId);
   const section = scEl("section", { class: "sc-gallery", attrs: { "aria-labelledby": "sc-gallery-heading" } });
   const head = scEl("div", { class: "sc-gallery-head" });
-  head.appendChild(scEl("h5", { id: "sc-gallery-heading", class: "sc-gallery-title", text: "Screenshots by step" }));
+  head.appendChild(scEl("h5", { id: "sc-gallery-heading", class: "sc-gallery-title", text: "Screenshots by part" }));
   const counts = scConfirmCounts(lab.state);
   const filters = scEl("div", { class: "sc-filters" });
   const toggle = scEl("label", { class: "sc-check", attrs: { for: "sc-only-attention" } });
@@ -1563,9 +1564,10 @@ function scBuildModule(labId, group, shots, jobShots, model) {
   const wrap = scEl("section", { class: "sc-module", attrs: { "aria-labelledby": `sc-module-${group.featureId}` } });
   const head = scEl("div", { class: "sc-module-head" });
   const captured = group.shots.filter((s) => s.captured).length;
-  head.appendChild(scEl("h5", { id: `sc-module-${group.featureId}`, class: "sc-module-title", text: `${group.stepLabel ? `${group.stepLabel} \u00b7 ` : ""}${group.title}` }));
+  const groupProgress = scCaptureProgress({ total: group.shots.length, captured });
+  head.appendChild(scEl("h5", { id: `sc-module-${group.featureId}`, class: "sc-module-title", text: `${group.stepLabel ? `${scModuleLabel(group.stepLabel)} \u00b7 ` : ""}${group.title}` }));
   const chips = scEl("div", { class: "sc-pills" });
-  chips.appendChild(scChip(`${captured} of ${group.shots.length} captured`, captured === group.shots.length && group.shots.every((s) => !s.stale) ? "ok" : "neutral"));
+  chips.appendChild(scChip(groupProgress.text, groupProgress.complete && group.shots.every((s) => !s.stale) ? "ok" : "neutral"));
   chips.appendChild(scChip(`Microsoft Learn: ${scCheckLabel(group.checkState, 1)}`, scCheckTone(group.checkState), "sc-chip-learn"));
   head.appendChild(chips);
   const learnUrl = scSafeLearnUrl(group.learnUrl);

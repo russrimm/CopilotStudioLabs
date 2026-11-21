@@ -897,9 +897,9 @@ test("the readiness strip names each missing address and how many screenshots ne
   const targets = targetsPayload({ missing: [requirement("sharepoint-site", 8), requirement("copilot-studio-agent", 4)] });
   const h = await ready(addressState(), { targets });
   assert.equal(h.center().querySelectorAll(".sc-step").length, 4);
-  assert.equal(h.center().querySelector(".sc-steps").getAttribute("aria-label"), "Set up screenshot capture in four steps");
+  assert.equal(h.center().querySelector(".sc-steps").getAttribute("aria-label"), "Set up screenshot capture in four parts");
   assert.deepEqual(h.center().querySelectorAll(".sc-step").map((s) => s.dataset.step), ["connect", "tenant", "needs", "signin"]);
-  assert.match(h.step("needs").querySelector(".sc-step-title").textContent, /^Step 3: Addresses your screenshots need/);
+  assert.match(h.step("needs").querySelector(".sc-step-title").textContent, /^Part 3: Addresses your screenshots need/);
   assert.equal(h.step("needs").dataset.state, "todo");
   assert.equal(h.step("needs").querySelector(".sc-step-detail").textContent, "SharePoint site address: needed by 8 screenshots. Agent address: needed by 4 screenshots.");
   assert.equal(h.step("needs").querySelector(".sc-chip").textContent, "To do");
@@ -915,8 +915,8 @@ test("the readiness strip names each missing address and how many screenshots ne
   assert.equal(allSet.action("step-fix-addresses"), null);
 
   const older = await ready(addressState());
-  assert.equal(older.center().querySelectorAll(".sc-step").length, 3, "without capture settings the strip is the three steps it was");
-  assert.equal(older.center().querySelector(".sc-steps").getAttribute("aria-label"), "Set up screenshot capture in three steps");
+  assert.equal(older.center().querySelectorAll(".sc-step").length, 3, "without capture settings the strip is the three parts it was");
+  assert.equal(older.center().querySelector(".sc-steps").getAttribute("aria-label"), "Set up screenshot capture in three parts");
 });
 
 // ── C. A queue request that was held back ───────────────────────────────────

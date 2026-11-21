@@ -679,8 +679,8 @@ test("the hand-off reports skipped topics and a failing wizard without losing th
   await h.click(h.byId("uc-build-lab"));
   const status = h.text("uc-handoff-status");
   assert.match(status, /2 topics selected\./);
-  assert.match(status, /3 recommended topics from other levels were not selected\. Lower-level topics your selection needs are added as short recaps\./);
-  assert.match(status, /1 topic for another harness was skipped\./);
+  assert.match(status, /3 recommended topics from other levels were not selected\. Lower-level topics your selection needs are added as short refreshers\./);
+  assert.match(status, /1 topic for another agent experience \(harness\) was skipped\./);
 
   const failing = await makeBuilder({ wizard: { fail: "The lab builder catalog is not available." } }).open();
   await failing.choose("retail", ["sales"]);

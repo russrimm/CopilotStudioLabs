@@ -41,11 +41,75 @@ test("each pane heading can take focus so a step change is announced", () => {
 
 test("a running total, reset affordances, and the time-as-guidance message are always shown", () => {
   assert.match(builderPanel, /id="lb-summary"[^>]*aria-live="polite"/);
-  assert.match(builderPanel, /id="lb-start-over"[^>]*onclick="lbStartNewLab\(\)"[^>]*hidden[^>]*>Start over<\/button>/);
+  assert.match(builderPanel, /id="lb-start-over"[^>]*onclick="lbAskStartOver\(\)"[^>]*hidden[^>]*aria-expanded="false" aria-controls="lb-start-over-confirm">Start over<\/button>/, "Start over asks first");
+  assert.match(builderPanel, /id="lb-start-over-confirm"[^>]*role="group"[^>]*onkeydown="if \(event\.key === 'Escape'\) lbCancelStartOver\(\)" hidden>/);
+  assert.match(builderPanel, /id="lb-start-over-yes" onclick="lbConfirmStartOver\(\)">Start over<\/button>/);
+  assert.match(builderPanel, /id="lb-start-over-keep" onclick="lbCancelStartOver\(\)">Keep working<\/button>/);
   assert.match(builderPanel, /id="lb-gen-start-new"[^>]*data-gen-action="new"[^>]*>Start new lab<\/button>/);
   assert.match(wizard, /estimate, not a limit/);
   assert.doesNotMatch(builderPanel, /Time budget/i);
   assert.doesNotMatch(wizard + app, /timeBudget/);
+});
+
+test("the Build a Custom Lab intro is one short sentence, and a 560px rule keeps the four-step stepper on one row", () => {
+  const intro = builderPanel.match(/<p class="lb-build-lead"[^>]*>\s*([\s\S]*?)\s*<\/p>/)?.[1];
+  assert.equal(intro, "Every module is checked against Microsoft Learn, and times are estimates, never limits.");
+  assert.doesNotMatch(builderPanel, /Four steps/i, "the intro no longer announces the step count; the stepper does");
+
+  // The block that starts at .lb-build-lead's phone rule, read to its closing brace.
+  const css = html.slice(0, html.indexOf("@media print"));
+  const at = css.indexOf(".lb-build-lead { display: none; }");
+  assert.ok(at > 0, "the phone rule for the intro exists");
+  const open = css.lastIndexOf("@media", at);
+  let depth = 0;
+  let end = css.indexOf("{", open);
+  for (let i = end; i < css.length; i += 1) {
+    if (css[i] === "{") depth += 1;
+    if (css[i] === "}") depth -= 1;
+    if (depth === 0) {
+      end = i + 1;
+      break;
+    }
+  }
+  const block = css.slice(open, end);
+  assert.match(block, /^@media \(max-width: 560px\) \{/);
+  assert.match(block, /\.lb-steps \{ flex-wrap: nowrap;/, "the four steps stay on one row");
+  assert.match(block, /\.lb-step:not\(\.active\) \{ font-size: 0; gap: 0; \}/, "a step that is not current shows only its number");
+  assert.match(css, /\.lb-step span \{[^}]*font-size: 11px/, "and the number has its own size, so font-size: 0 on the button never hides it");
+  assert.equal([...builderPanel.matchAll(/<button type="button" class="lb-step[^"]*" data-lb-step="\d"[^>]*><span aria-hidden="true">\d<\/span> [^<]+<\/button>/g)].length, 4, "every step has a number and words");
+  assert.match(css, /\.lb-summary-bar\[hidden\] \{ display: none; \}/, "the summary bar can be hidden until there is something to summarize");
+
+  // Focus rings and the click size of the small text buttons.
+  for (const selector of [".lb-more > summary", ".lb-link-btn", ".lb-row-toggle"]) {
+    const escaped = selector.replace(/[.>]/g, "\\$&");
+    assert.match(css, new RegExp(`${escaped}:focus-visible \\{ outline: 3px solid var\\(--accent-hover\\);`), `${selector} has a visible focus ring`);
+  }
+  // A small text button keeps at least 4px above and below and 6px at the sides, so it is easier to hit than bare text.
+  for (const selector of [".lb-link-btn", ".lb-row-toggle"]) {
+    const padding = css.match(new RegExp(`${selector.replace(".", "\\.")} \\{ padding: (\\d+)px (\\d+)px;`));
+    assert.ok(padding, `${selector} sets its padding`);
+    assert.ok(Number(padding[1]) >= 4 && Number(padding[2]) >= 6, `${selector} padding ${padding[1]}px ${padding[2]}px is too small`);
+  }
+});
+
+test("no visible text or script string still names Step 7 or Step 8 of the old eight-step flow", () => {
+  // Visible text: the page without its style blocks, scripts, and comments (attributes such as title and aria-label are visible too).
+  const visible = html
+    .replace(/<style[\s\S]*?<\/style>/g, "")
+    .replace(/<script[\s\S]*?<\/script>/g, "")
+    .replace(/<!--[\s\S]*?-->/g, "");
+  assert.doesNotMatch(visible, /\bSteps? [5-8]\b/i, "index.html text names no step beyond Step 4");
+  assert.match(visible, /Review and build/, "the last step is called by its name");
+
+  // Strings in the browser scripts: comments are not shown to anyone, so only code is read.
+  for (const name of ["lab-builder-wizard.js", "lab-builder-drafts.js", "generated-labs.js", "app.js", "screenshot-center.js", "use-case-builder.js", "lab-checklist.js"]) {
+    const code = readFileSync(new URL(`../public/${name}`, import.meta.url), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .split("\n")
+      .filter((line) => !/^\s*\/\//.test(line))
+      .join("\n");
+    assert.doesNotMatch(code, /\bSteps? [5-8]\b/i, `${name} names no step beyond Step 4`);
+  }
 });
 
 test("Your lab so far stays sticky at the top of the wizard stage, Previously generated labs starts collapsed, and Review and build has an accessible generation progress card", () => {
@@ -77,11 +141,19 @@ test("wizard inputs disable browser form autocomplete restoration across soft re
   assert.match(wizard, /data-outline-module=[^>]*autocomplete="off"/);
 });
 
-test("topics are checkboxes with Select recommended, Select all, Clear, Reset, and group actions", () => {
-  for (const label of ["Select recommended", "Select all", "Clear", "Reset to my answers"]) assert.match(builderPanel, new RegExp(`>${label}<`));
+test("topics are checkboxes, and Back to suggested, Select all, Clear, and group actions sit behind Change", () => {
+  const pane = builderPanel.match(/id="lb-pane-3"[\s\S]*?<!-- Step 4: review and build -->/)?.[0] || "";
+  assert.match(pane, /<button[^>]*id="lb-topic-change"[^>]*aria-expanded="false"[^>]*aria-controls="lb-topic-tools"[^>]*>Change<\/button>/);
+  const tools = pane.match(/<div id="lb-topic-tools"[^>]*>[\s\S]*?<details class="lb-topic-help"/)?.[0] || "";
+  assert.match(tools, /^<div id="lb-topic-tools"[^>]*\shidden>/, "the tools start hidden");
+  for (const label of ["Back to suggested", "Select all", "Clear"]) assert.match(tools, new RegExp(`>${label}<`), `${label} is inside the tools`);
+  assert.match(tools, /onclick="lbSelectRecommended\(\)">Back to suggested</);
+  assert.doesNotMatch(builderPanel, /Select recommended|Reset to my answers/, "Back to suggested replaces both");
+  assert.doesNotMatch(wizard, /function lbResetTopics|lbResetTopics\(/);
   assert.match(wizard, /type="checkbox" data-topic=/);
   assert.match(wizard, /data-group-action="select"/);
-  assert.match(wizard, /<fieldset class="lb-concept">/);
+  assert.match(wizard, /<details class="lb-concept" data-concept=/);
+  assert.doesNotMatch(wizard, /<fieldset class="lb-concept">/);
   assert.match(wizard, /Why: /);
 });
 
@@ -207,31 +279,31 @@ test("the Topics step badges 3rd-party connectors as optional, offers a 3rd-part
   assert.equal(filterOptions.filter((o) => o.value === "third-party").length, 1);
   assert.equal(filterOptions.find((o) => o.value === "third-party").textContent, "Optional 3rd-party connectors");
 
-  // Intro explains 1st-party defaults and optional 3rd-party connectors.
-  assert.match(element("lb-topic-intro").textContent, /1st-party Microsoft connectors by default/);
+  // Intro is one sentence about the suggestion; the optional 3rd-party rule lives in the closed help and in each row's details.
+  assert.equal(element("lb-topic-intro").textContent, "Suggested for Level 200: the usual starting topics. Uncheck anything you do not need.");
+  assert.match(builderPanel, /<summary>How suggestions work<\/summary>[\s\S]*?Optional 3rd-party connectors are never selected for you\./);
 
-  // Neither default selection, Select recommended, nor Reset selects SAP or Salesforce.
+  // Neither the default suggestion nor Back to suggested selects SAP or Salesforce.
   const thirdPartyIds = ["sap-integration", "salesforce-integration", "servicenow-integration", "snowflake-integration", "jira-integration"];
   const currentFeatures = () => JSON.parse(vm.runInContext("JSON.stringify(lbRequest().features)", context));
+  assert.equal(vm.runInContext("labBuilder.pickedAuto", context), true, "Topics arrives with the suggestion selected");
+  assert.ok(currentFeatures().length > 0, "the suggestion is not empty");
   for (const id of thirdPartyIds) assert.equal(currentFeatures().includes(id), false, `${id} must not be selected by default`);
 
   vm.runInContext("lbSelectRecommended()", context);
   await settle();
-  for (const id of thirdPartyIds) assert.equal(currentFeatures().includes(id), false, `${id} must not be selected by Select recommended`);
+  for (const id of thirdPartyIds) assert.equal(currentFeatures().includes(id), false, `${id} must not be selected by Back to suggested`);
 
-  vm.runInContext("lbResetTopics()", context);
-  await settle();
-  for (const id of thirdPartyIds) assert.equal(currentFeatures().includes(id), false, `${id} must not be selected by Reset`);
-
-  // Filtering to "third-party" shows only the 5 Level 200 optional 3rd-party connector cards with badges and relevance notes.
+  // Filtering to "third-party" shows only the 5 Level 200 optional 3rd-party connector rows with one chip and a relevance note in the details.
   vm.runInContext('labBuilder.filter = "third-party"; lbRenderTopics();', context);
   const filteredHtml = element("lb-topic-groups").innerHTML;
   assert.match(element("lb-topic-count").textContent, /Showing 5 topics for Level 200 that match your search or filter \(of 24\)\./);
-  assert.match(filteredHtml, /<span class="lb-badge">Optional 3rd-party connector<\/span>/);
+  assert.match(filteredHtml, /<span class="lb-badge ?">Optional 3rd-party connector<\/span>/);
   assert.match(filteredHtml, /Optional 3rd-party connector \(relevant to Retail, Sales, and Customer Service\) — not selected by default/);
+  assert.match(filteredHtml, /Custom labs use 1st-party Microsoft connectors unless you select this topic/);
   assert.doesNotMatch(filteredHtml, /lb-concept-muted/);
   assert.doesNotMatch(filteredHtml, /data-topic="connector-tools"/);
-  assert.doesNotMatch(filteredHtml, /\schecked\s/);
+  assert.doesNotMatch(filteredHtml, /\schecked[\s">]/);
 
   // At Level 100, the "third-party" filter explains that optional 3rd-party connectors live at Levels 200 and 300.
   vm.runInContext("labBuilder.level = 100; lbRefresh();", context);
@@ -249,27 +321,34 @@ test("the Topics step badges 3rd-party connectors as optional, offers a 3rd-part
   assert.equal(currentFeatures().includes("salesforce-integration"), true);
 });
 
-test("the Topics step uses collapsible help, unclipped two-zone toolbar, live selection scorecard, Selected/Recommended filters, and multi-row topic cards", async () => {
+test("the Topics step uses closed help, one summary line, search and filters behind Change, Selected/Suggested filters, and compact rows with details", async () => {
   const pane6 = builderPanel.match(/id="lb-pane-3"[\s\S]*?<!-- Step 4: review and build -->/)?.[0] || "";
   assert.ok(pane6, "the Topics pane must exist");
 
-  // Collapsible progressive-disclosure help replaces redundant top paragraph.
+  // Collapsible progressive-disclosure help replaces the long explainer.
   const helpDetails = pane6.match(/<details class="lb-topic-help"[^>]*>/)?.[0];
-  assert.ok(helpDetails, "Step 6 must include collapsible <details class=\"lb-topic-help\">");
-  assert.doesNotMatch(helpDetails, /\bopen\b/, "Step 6 help details must start collapsed");
-  assert.match(pane6, /<summary>How recommendations, levels, and prerequisite recaps work<\/summary>/);
+  assert.ok(helpDetails, "Topics must include collapsible <details class=\"lb-topic-help\">");
+  assert.doesNotMatch(helpDetails, /\bopen\b/, "Topics help details must start collapsed");
+  assert.match(pane6, /<summary>How suggestions work<\/summary>/);
 
-  // Scorebar pairs interactive scorecard chips with #lb-topic-count live region.
-  assert.match(pane6, /class="lb-topic-scorebar"[\s\S]*?id="lb-topic-scorecard"[\s\S]*?id="lb-topic-count"/);
+  // One summary line replaces the scorecard; #lb-topic-count stays a live region.
+  assert.match(pane6, /<p id="lb-topic-summary" class="lb-topic-summary" role="status" aria-live="polite"><\/p>/);
+  assert.match(pane6, /id="lb-topic-count"[^>]*aria-live="polite"/);
+  assert.doesNotMatch(pane6, /lb-topic-scorecard|lb-topic-scorebar|data-scorecard-action/);
+  assert.doesNotMatch(wizard, /lbRenderTopicScorecard|lbJumpToPrerequisites|lbSetTopicFilter|data-scorecard-action/);
 
-  // Two-zone toolbar separates Find & Filter from Bulk Selection Actions and prevents search clipping.
-  assert.match(pane6, /class="lb-topic-toolbar"[\s\S]*?class="lb-toolbar-find"[\s\S]*?class="lb-toolbar-actions"/);
+  // Search, filters, and bulk actions are one tools region, hidden until Change is pressed, in two zones so the search never clips.
+  assert.match(pane6, /<button[^>]*id="lb-topic-change"[^>]*aria-expanded="false"[^>]*aria-controls="lb-topic-tools"/);
+  const tools = pane6.match(/<div id="lb-topic-tools"[\s\S]*?<details class="lb-topic-help"/)?.[0] || "";
+  assert.match(tools, /^<div id="lb-topic-tools" class="lb-topic-tools" role="region" aria-label="Search, filter, and choose topics" hidden>/);
+  assert.match(tools, /class="lb-toolbar-find"[\s\S]*?class="lb-toolbar-actions"/);
   for (const val of ["all", "selected", "recommended", "new", "updated", "moved", "third-party"]) {
-    assert.match(pane6, new RegExp(`<option value="${val}">`), `#lb-topic-filter should offer ${val}`);
+    assert.match(tools, new RegExp(`<option value="${val}">`), `#lb-topic-filter should offer ${val}`);
   }
+  assert.match(tools, /<option value="recommended">Suggested topics<\/option>/);
   assert.match(html, /\.lb-toolbar-search-field\s*\{[^}]*min-width:\s*220px/);
 
-  // Multi-row card CSS ensures block hierarchy rather than inline run-on spans.
+  // Block hierarchy for the details panel, and the compact row's own layout.
   assert.match(html, /\.lb-feature-body\s*\{[^}]*display:\s*flex;\s*flex-direction:\s*column/);
   assert.match(html, /\.lb-feature-name\s*\{[^}]*display:\s*block/);
   assert.match(html, /\.lb-feature-badges\s*\{[^}]*display:\s*flex;\s*flex-wrap:\s*wrap/);
@@ -277,6 +356,8 @@ test("the Topics step uses collapsible help, unclipped two-zone toolbar, live se
   assert.match(html, /\.lb-feature-note\s*\{[^}]*display:\s*block/);
   assert.match(html, /\.lb-topic-reason\s*\{[^}]*display:\s*block/);
   assert.match(html, /\.lb-concept-toolbar\s*\{[^}]*display:\s*flex/);
+  assert.match(html, /\.lb-row-details\[hidden\]\s*\{\s*display:\s*none/);
+  assert.match(html, /\.lb-topic-tools\[hidden\]\s*\{\s*display:\s*none/);
 
   const vm = await import("node:vm");
   const elements = new Map();
@@ -358,43 +439,57 @@ test("the Topics step uses collapsible help, unclipped two-zone toolbar, live se
   for (const val of ["selected", "recommended", "third-party"]) {
     assert.equal(filterOptions.filter((o) => o.value === val).length, 1, `${val} option should be present once`);
   }
+  vm.runInContext("lbRenderTopics(); lbRenderTopics();", context);
+  for (const val of ["selected", "recommended", "third-party"]) {
+    assert.equal(filterOptions.filter((o) => o.value === val).length, 1, `${val} option stays single after re-rendering`);
+  }
 
-  // Multi-row card structure keeps badges outside .lb-feature-name and inside .lb-feature-badges.
+  // Compact rows: the visible label holds the checkbox, title, time, and at most one chip; everything longer is in the row's details.
   const allHtml = element("lb-topic-groups").innerHTML;
-  assert.match(allHtml, /<span class="lb-feature-body">\s*<span class="lb-feature-name">[^<]+<\/span>\s*<span class="lb-feature-badges">/);
+  const firstRow = allHtml.match(/<div class="lb-feature lb-row[^"]*">\s*<label class="lb-feature-main lb-row-main">([\s\S]*?)<\/label>\s*<button type="button" class="lb-row-toggle"[^>]*>Details<\/button>\s*<div class="lb-row-details" id="lb-row-details-[^"]+" hidden>([\s\S]*?)<\/div>\s*<\/div>/);
+  assert.ok(firstRow, "a row is the label, a Details button, and a hidden details panel");
+  assert.match(firstRow[1], /<input type="checkbox" data-topic=/);
+  assert.match(firstRow[1], /<span class="lb-feature-name lb-row-title">[^<]+<\/span>\s*<span class="lb-row-meta">about \d+ min<\/span>/);
+  assert.ok([...firstRow[1].matchAll(/class="lb-badge/g)].length <= 1, "one status chip at most");
+  assert.doesNotMatch(firstRow[1], /lb-feature-summary|lb-topic-reason|lb-feature-body|Why:/);
+  assert.match(firstRow[2], /<span class="lb-feature-body">[\s\S]*?<span id="lb-topic-desc-[^"]+" class="lb-feature-summary">/);
+  assert.match(allHtml, /<details class="lb-concept" data-concept="[^"]+">\s*<summary class="lb-category-title"><h4 class="lb-category-name">[^<]+<\/h4>/, "concept groups start collapsed");
   assert.match(allHtml, /<div class="lb-concept-toolbar">/);
 
-  // Scorecard shows selected count, recommended count, prerequisite recaps, and estimated time.
-  const scorecardHtml = element("lb-topic-scorecard").innerHTML;
-  assert.match(scorecardHtml, /data-scorecard-action="toggle-selected"/);
-  assert.match(scorecardHtml, /data-scorecard-action="toggle-recommended"/);
-  assert.match(scorecardHtml, /data-scorecard-action="jump-prereqs"/);
-  assert.match(scorecardHtml, /About <strong>/);
+  // One summary line says what the lab is; the count line stays a plain count while nothing narrows the list.
+  const totals = JSON.parse(vm.runInContext("JSON.stringify(labBuilder.rec.totals)", context));
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  assert.equal(
+    element("lb-topic-summary").textContent,
+    `Suggested lab: ${plural(totals.selectedCount, "topic", "topics")}${totals.prerequisiteCount ? ` + ${plural(totals.prerequisiteCount, "refresher", "refreshers")}` : ""}, about ${totals.duration}.`,
+  );
+  assert.match(element("lb-topic-count").textContent, /^\d+ topics( and \d+ sub-topics?)? for Level 200\.$/);
 
-  // Clicking the Selected scorecard chip filters to only selected cards.
-  const scorecardClick = listeners.get("lb-topic-scorecard:click");
-  assert.ok(scorecardClick, "scorecard click listener must be registered");
-  scorecardClick({
-    target: {
-      closest: () => ({ dataset: { scorecardAction: "toggle-selected" } }),
-    },
-  });
-  assert.equal(element("lb-topic-filter").value, "selected");
+  // The Show filter narrows to selected rows only and says so in the live count.
+  const filterChange = listeners.get("lb-topic-filter:change");
+  assert.ok(filterChange, "the filter listener must be registered");
+  filterChange({ target: { value: "selected" } });
+  assert.equal(vm.runInContext("labBuilder.filter", context), "selected");
   const selectedHtml = element("lb-topic-groups").innerHTML;
-  assert.match(selectedHtml, /class="lb-feature checked"/);
-  assert.doesNotMatch(selectedHtml, /class="lb-feature "\s*>/);
+  assert.match(selectedHtml, /class="lb-feature lb-row checked"/);
+  assert.doesNotMatch(selectedHtml, /class="lb-feature lb-row"/);
   assert.match(element("lb-topic-count").textContent, /that match your search or filter/);
+  assert.match(selectedHtml, /<details class="lb-concept" data-concept="[^"]+" open>/, "a filter opens the groups that match");
 
-  // Jumping to prerequisites opens #lb-prereq-group.
-  vm.runInContext('labBuilder.filter = "recommended"; labBuilder.search = "mcp"; lbJumpToPrerequisites();', context);
-  assert.equal(element("lb-topic-filter").value, "all");
-  assert.equal(element("lb-topic-search").value, "");
-  assert.match(element("lb-topic-groups").innerHTML, /id="lb-prereq-group" open/);
+  // The scorecard is gone with its jump and filter helpers.
+  for (const name of ["lbRenderTopicScorecard", "lbJumpToPrerequisites", "lbSetTopicFilter", "lbResetTopics"]) {
+    assert.equal(vm.runInContext(`typeof ${name}`, context), "undefined", `${name} no longer exists`);
+  }
 
-  // Clearing all selections while on "selected" filter renders a clear, helpful empty message.
+  // Clearing all selections while on "selected" filter renders a clear, helpful empty message; the summary says how to start.
   vm.runInContext("lbClearTopics()", context);
   await new Promise((resolve) => setTimeout(resolve, 25));
-  vm.runInContext('lbSetTopicFilter("selected")', context);
-  assert.match(element("lb-topic-groups").innerHTML, /No topics are currently selected/);
+  assert.equal(element("lb-topic-summary").textContent, "No topics selected yet. Choose Change to pick some.");
+  assert.match(element("lb-topic-groups").innerHTML, /No topics are currently selected\. Switch Show back to All topics to browse, or choose Back to suggested\./);
+
+  // Back to suggested restores the suggestion and the summary says so again.
+  vm.runInContext("lbSelectRecommended()", context);
+  await new Promise((resolve) => setTimeout(resolve, 25));
+  assert.match(element("lb-topic-summary").textContent, /^Suggested lab: /);
 });
 

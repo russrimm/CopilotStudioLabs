@@ -288,10 +288,16 @@ test("every sub-topic of every listed topic is its own checkbox inside a labeled
     assert.equal(group.querySelectorAll("input[type=checkbox]").length, topicRow.subtopics.length);
     for (const sub of topicRow.subtopics) assert.ok(h.sub(sub.id), `${sub.title} is a checkbox`);
   }
-  assert.equal(h.q(`fieldset#lb-subtopics-${PLAIN.id}`), null, "a topic without sub-topics keeps its plain card");
-  assert.ok(h.parent(PLAIN.id).closest("label.lb-feature"), "and its checkbox is still the whole card's label");
-  const parentCard = h.parent(ALPHA.id).closest(".lb-feature-parent");
-  assert.ok(parentCard.contains(h.sub(subIds(ALPHA)[0])));
+  assert.equal(h.q(`fieldset#lb-subtopics-${PLAIN.id}`), null, "a topic without sub-topics has no sub-topic group");
+  assert.ok(h.parent(PLAIN.id).closest("label.lb-feature-main"), "and its checkbox is still its row's label");
+  const parentRow = h.parent(ALPHA.id).closest(".lb-feature-parent");
+  assert.ok(parentRow.contains(h.sub(subIds(ALPHA)[0])));
+  // The sub-topics sit in the row's details, closed until Details is pressed; the topic checkbox stays in the visible label.
+  const details = h.sub(subIds(ALPHA)[0]).closest(".lb-row-details");
+  assert.equal(details.id, `lb-row-details-${ALPHA.id}`);
+  assert.equal(details.hidden, true);
+  assert.equal(h.parent(ALPHA.id).closest(".lb-row-details"), null);
+  assert.equal(h.parent(ALPHA.id).getAttribute("aria-controls"), `lb-subtopics-${ALPHA.id}`);
   for (const input of h.qa("input[data-subtopic]")) {
     assert.ok(input.closest("label"), "each sub-topic checkbox has a label");
     const described = input.getAttribute("aria-describedby");
@@ -320,14 +326,16 @@ test("a long sub-topic list shows its first few and says how many more, and noth
 test("selecting a topic selects all of its sub-topics, and the topic's checkbox is checked", async (t) => {
   const h = makeWizard(t);
   await h.refresh();
+  const suggested = h.state("labBuilder.rec.recommendedIds");
   await h.toggle(h.parent(ALPHA.id));
   assert.equal(h.parent(ALPHA.id).checked, true);
   assert.equal(h.parent(ALPHA.id).indeterminate === true, false);
   assert.equal(h.parent(ALPHA.id).getAttribute("data-subtopic-state"), "all");
   for (const sub of ALPHA.subtopics) assert.equal(h.sub(sub.id).checked, true);
-  assert.deepEqual(h.recommendCalls.at(-1).selected, [ALPHA.id]);
+  assert.deepEqual(h.recommendCalls.at(-1).selected, [...suggested, ALPHA.id], "the person's pick joins the suggestion they started from");
   assert.equal(h.recommendCalls.at(-1).excludedSubtopics, undefined, "no exclusion is sent when every sub-topic is included");
   assert.equal(h.state("labBuilder.rec.totals.subtopicCount"), 3);
+  assert.equal(h.state("labBuilder.pickedAuto"), false, "touching a pick makes the selection the person's own");
 });
 
 test("unchecking a sub-topic leaves the topic in the mixed state and sends the exclusion", async (t) => {
@@ -361,6 +369,7 @@ test("unchecking a sub-topic leaves the topic in the mixed state and sends the e
 test("toggling the topic toggles all of its sub-topics; checking one under an unselected topic selects the topic with only that one", async (t) => {
   const h = makeWizard(t);
   await h.refresh();
+  const suggested = h.state("labBuilder.rec.recommendedIds");
   const [first, second, third] = subIds(ALPHA);
   await h.toggle(h.sub(second));
   assert.equal(h.parent(ALPHA.id).checked, false);
@@ -368,7 +377,7 @@ test("toggling the topic toggles all of its sub-topics; checking one under an un
   assert.equal(h.sub(second).checked, true);
   assert.equal(h.sub(first).checked, false);
   assert.deepEqual(h.recommendCalls.at(-1).excludedSubtopics, [first, third].sort());
-  assert.deepEqual(h.recommendCalls.at(-1).selected, [ALPHA.id]);
+  assert.deepEqual(h.recommendCalls.at(-1).selected, [...suggested, ALPHA.id]);
 
   await h.toggle(h.parent(ALPHA.id));
   assert.equal(h.parent(ALPHA.id).checked, true, "a click on a mixed checkbox selects all");
@@ -380,7 +389,7 @@ test("toggling the topic toggles all of its sub-topics; checking one under an un
   assert.equal(h.state("labBuilder.excludedSubtopics.size"), 0, "and starts it clean for next time");
 });
 
-test("Select all, Clear, Select recommended, Reset, and the group buttons all understand sub-topics", async (t) => {
+test("Select all, Clear, Back to suggested, and the group buttons all understand sub-topics", async (t) => {
   const h = makeWizard(t);
   await h.refresh();
   await h.toggle(h.sub(subIds(ALPHA)[0]));
@@ -400,13 +409,12 @@ test("Select all, Clear, Select recommended, Reset, and the group buttons all un
   assert.equal(h.state("labBuilder.rec.totals.subtopicCount"), 0);
 
   await h.toggle(h.sub(subIds(ALPHA)[2]));
+  assert.equal(h.state("labBuilder.excludedSubtopics.size") > 0, true);
   h.run("lbSelectRecommended()");
   await h.settle();
-  assert.equal(h.state("labBuilder.excludedSubtopics.size"), 0);
-  h.run("lbResetTopics()");
-  await h.settle();
-  assert.equal(h.state("labBuilder.excludedSubtopics.size"), 0);
-
+  assert.equal(h.state("labBuilder.excludedSubtopics.size"), 0, "Back to suggested forgets sub-topic choices too");
+  assert.equal(h.sub(subIds(ALPHA)[0]).checked, false, "and the suggestion holds no sub-topic of an unsuggested topic");
+  assert.equal(h.state("labBuilder.pickedAuto"), true);
   await h.toggle(h.sub(subIds(ALPHA)[0]));
   await h.toggle(h.sub(subIds(ALPHA)[1]));
   const group = h.state(`labBuilder.rec.concepts.find((c) => c.topics.some((x) => x.id === ${JSON.stringify(ALPHA.id)})).id`);
@@ -419,20 +427,25 @@ test("Select all, Clear, Select recommended, Reset, and the group buttons all un
   assert.equal(h.state("labBuilder.excludedSubtopics.size"), 0);
 });
 
-test("the scorecard, the status line, and the live region count sub-topics", async (t) => {
+test("the summary line, the count line, and the live region count sub-topics", async (t) => {
   const h = makeWizard(t);
   await h.refresh();
   const shown = h.state("labBuilder.rec.filter.shown");
-  assert.equal(h.byId("lb-topic-count").textContent, `Showing ${shown} topics and ${SUBTOPIC_TOTAL} sub-topics for Level 200 (Intermediate).`);
+  assert.equal(h.byId("lb-topic-count").textContent, `${shown} topics and ${SUBTOPIC_TOTAL} sub-topics for Level 200 (Intermediate).`, "the count line counts all of them while nothing narrows the list");
   assert.equal(h.byId("lb-topic-count").getAttribute("aria-live"), "polite");
-  assert.equal(h.byId("lb-topic-scorecard").textContent.includes("sub-topics included"), false, "no sub-topic chip until a topic with sub-topics is selected");
+  assert.equal(h.byId("lb-topic-summary").getAttribute("aria-live"), "polite");
+  assert.match(h.byId("lb-topic-summary").textContent, /^Suggested lab: \d+ topics?( \+ \d+ refreshers?)?, about .+\.$/);
+  assert.equal(h.byId("lb-topic-summary").textContent.includes("sub-topics included"), false, "no sub-topic count until a topic with sub-topics is selected");
+  assert.doesNotMatch(PANES, /lb-topic-scorecard|lb-topic-scorebar/, "the scorecard is not part of the page");
 
+  const before = h.state("labBuilder.rec.totals.selectedCount");
   await h.toggle(h.parent(BIG.id));
-  assert.match(h.byId("lb-topic-scorecard").textContent, /1\s*selected/);
-  assert.match(h.byId("lb-topic-scorecard").textContent, /9 of 9 sub-topics included/);
+  assert.equal(h.byId("lb-topic-summary").textContent.startsWith("Your lab: "), true, "the label changes once the person changes a pick");
+  assert.match(h.byId("lb-topic-summary").textContent, new RegExp(`^Your lab: ${before + 1} topics`));
+  assert.match(h.byId("lb-topic-summary").textContent, /, 9 of 9 sub-topics included\.$/);
 
   await h.toggle(h.sub(subIds(BIG)[0]));
-  assert.match(h.byId("lb-topic-scorecard").textContent, /8 of 9 sub-topics included/);
+  assert.match(h.byId("lb-topic-summary").textContent, /, 8 of 9 sub-topics included\.$/);
   assert.equal(h.byId("lb-topic-announce").textContent, "Big topic part 1 left out. 8 of 9 sub-topics included under Big topic.");
   assert.equal(h.byId("lb-topic-announce").getAttribute("aria-live"), "polite");
 
@@ -493,14 +506,338 @@ test("sub-topic titles, summaries, and links are escaped, and an unsafe link is 
   assert.ok(!h.byId("lb-topic-groups").innerHTML.includes("<img src=x"));
 });
 
-test("a topic card lists its own Microsoft Learn page, and its sub-topics keep their links to themselves", async (t) => {
+test("a topic row lists its own Microsoft Learn page in its details, and its sub-topics keep their links to themselves", async (t) => {
   const h = makeWizard(t);
   await h.refresh();
-  const card = h.parent(ALPHA.id).closest(".lb-feature-main");
-  const own = [...card.querySelectorAll("a.lb-learn-source")].map((a) => a.getAttribute("href"));
+  const label = h.parent(ALPHA.id).closest("label.lb-feature-main");
+  assert.equal(label.querySelectorAll("a").length, 0, "the visible row has no link; they sit in the details");
+  const details = h.byId(`lb-row-details-${ALPHA.id}`);
+  const own = [...details.querySelectorAll("a.lb-learn-source")].filter((a) => !a.closest(".lb-subtopics")).map((a) => a.getAttribute("href"));
   assert.deepEqual(own, [ALPHA.urls[0]]);
   const row = h.sub(subIds(ALPHA)[0]).closest("li");
   assert.deepEqual([...row.querySelectorAll("a")].map((a) => a.getAttribute("href")), [ALPHA.subtopics[0].url]);
+});
+
+// ── Topics: the suggestion, collapsed groups, compact rows, and More ways ───
+
+test("Topics arrives with the suggested topics already selected, marked as the suggestion", async (t) => {
+  const h = makeWizard(t);
+  h.run("labBuilder.step = LB_STEP.tailor");
+  await h.refresh();
+  assert.equal(h.state("labBuilder.picked"), null, "nothing is chosen while the person is still on Tailor it");
+  assert.equal(h.recommendCalls.at(-1).selected, undefined);
+
+  h.run("lbGoToStep(LB_STEP.topics)");
+  await h.settle();
+  const suggested = h.state("labBuilder.rec.recommendedIds");
+  assert.ok(suggested.length > 0, "the rules suggest something at Level 200");
+  assert.equal(h.state("labBuilder.pickedAuto"), true);
+  assert.deepEqual(h.state("[...labBuilder.picked]"), suggested, "the picks are exactly the suggestion");
+  assert.deepEqual(h.recommendCalls.at(-1).selected, suggested, "and the lab is planned from it");
+  for (const id of suggested) assert.equal(h.state(`labBuilder.rec.selectedIds.includes(${JSON.stringify(id)})`), true, `${id} is selected`);
+  const checked = new Set([...h.qa("input[data-topic]")].filter((input) => input.checked).map((input) => input.dataset.topic));
+  for (const id of suggested) assert.ok(checked.has(id), `${id} is checked on arrival`);
+  assert.match(h.byId("lb-topic-summary").textContent, /^Suggested lab: /);
+  assert.equal(h.byId("lb-topic-intro").textContent, "Suggested for Level 200 (Intermediate): the usual starting topics. Uncheck anything you do not need.");
+  assert.equal(h.q("div.lb-row.checked label .lb-badge-recommended").textContent, "Suggested");
+
+  // Arriving again, or answering again on the same step, never replaces what is there.
+  const calls = h.recommendCalls.length;
+  h.run("lbGoToStep(LB_STEP.tailor); lbGoToStep(LB_STEP.topics)");
+  await h.settle();
+  assert.equal(h.state("labBuilder.pickedAuto"), true);
+  assert.deepEqual(h.state("[...labBuilder.picked]"), suggested);
+  assert.ok(h.recommendCalls.length >= calls);
+});
+
+test("the person's own picks are not replaced when Topics opens", async (t) => {
+  const h = makeWizard(t);
+  await h.refresh();
+  // A saved lab (Edit selections) or a restored draft brings its own picks.
+  await h.run(`lbLoadSelections({ title: "Saved lab", selections: { industry: null, roles: [], products: ["copilot-studio"], features: [${JSON.stringify(ALPHA.id)}], excluded: [], moduleOrder: [], excludedSubtopics: [], harness: "standard", level: 200, differencesFor: null, targetMinutes: null, customTitle: null, agentName: null, sharepointSiteName: "", sharepointSiteUrl: "", useLearnMcp: false, useLlm: false, includeKnowledgeCheck: false } })`);
+  await h.settle();
+  h.run("lbGoToStep(LB_STEP.topics)");
+  await h.settle();
+  assert.equal(h.state("labBuilder.pickedAuto"), false);
+  assert.deepEqual(h.state("[...labBuilder.picked]"), [ALPHA.id], "the saved pick stays, and the suggestion is not added to it");
+  assert.equal(h.state("labBuilder.rec.selectedIds.includes(" + JSON.stringify(ALPHA.id) + ")"), true);
+  assert.match(h.byId("lb-topic-summary").textContent, /^Your lab: /);
+
+  // Clearing on purpose is a choice too: leaving and coming back does not bring the suggestion back.
+  h.run("lbClearTopics()");
+  await h.settle();
+  h.run("lbGoToStep(LB_STEP.tailor); lbGoToStep(LB_STEP.topics)");
+  await h.settle();
+  assert.deepEqual(h.state("[...labBuilder.picked]"), []);
+  assert.equal(h.byId("lb-topic-summary").textContent, "No topics selected yet. Choose Change to pick some.");
+  assert.equal(h.byId("lb-topic-intro").textContent, "Level 200 (Intermediate) topics for the Standard harness.", "the intro stops calling it the suggestion");
+});
+
+test("changing the level after an untouched suggestion shows no removed-picks notice, but does after the person edits a pick", async (t) => {
+  const h = makeWizard(t);
+  await h.refresh();
+  assert.equal(h.state("labBuilder.pickedAuto"), true);
+  const noticeText = () => `${h.byId("lb-level-notice-2").innerHTML}${h.byId("lb-level-notice-3").innerHTML}`;
+
+  h.run("lbSelectLevel(100)");
+  await h.settle();
+  assert.equal(h.state("labBuilder.levelNotice"), null, "an untouched suggestion has nothing of the person's to remove");
+  assert.equal(noticeText().includes("The level changed"), false);
+  assert.equal(h.state("labBuilder.pickedAuto"), true, "the new level starts from its own suggestion");
+  assert.equal(h.state("labBuilder.rec.answers.level"), 100);
+  assert.deepEqual(h.state("[...labBuilder.picked]"), h.state("labBuilder.rec.recommendedIds"));
+
+  // Edit one pick: now the selection is the person's own, and a level change says what it drops.
+  const box = [...h.qa("input[data-topic]")].find((input) => input.checked && input.dataset.required === "false");
+  assert.ok(box, "a suggested topic can be unchecked");
+  await h.toggle(box);
+  assert.equal(h.state("labBuilder.pickedAuto"), false);
+  assert.match(h.byId("lb-topic-summary").textContent, /^Your lab: /);
+  h.run("lbSelectLevel(200)");
+  await h.settle();
+  const notice = h.state("labBuilder.levelNotice");
+  assert.deepEqual([notice.from, notice.to], [100, 200]);
+  assert.ok(notice.removed.length > 0, "the topics that were dropped are named");
+  for (const id of ["lb-level-notice-2", "lb-level-notice-3"]) {
+    assert.match(h.byId(id).innerHTML, /The level changed from Level 100 \(Beginner\) to Level 200 \(Intermediate\)/);
+    assert.match(h.byId(id).innerHTML, /Restore my Level 100 \(Beginner\) choices/);
+  }
+
+  // Restoring brings the person's own picks back as theirs.
+  h.run("lbRestoreLevelChoices()");
+  await h.settle();
+  assert.equal(h.state("labBuilder.level"), 100);
+  assert.equal(h.state("labBuilder.pickedAuto"), false);
+  assert.equal(h.state("labBuilder.picked.has(" + JSON.stringify(box.dataset.topic) + ")"), false, "the topic they unchecked stays unchecked");
+});
+
+test("concept groups start collapsed with 'k of n selected, about T min', open when the person opens them, and open while a search is on", async (t) => {
+  const h = makeWizard(t);
+  await h.refresh();
+  const groups = () => h.qa("details[data-concept]");
+  assert.ok(groups().length >= 3, "several groups render");
+  assert.equal(groups().every((group) => group.open === false), true, "every group starts collapsed");
+  assert.equal(h.qa("fieldset.lb-concept").length, 0);
+
+  const concepts = h.state("labBuilder.rec.concepts.filter((c) => c.topics.length).map((c) => ({ id: c.id, selected: c.selectedCount, total: c.topics.length, minutes: c.minutes }))");
+  for (const concept of concepts) {
+    const group = h.q(`details[data-concept="${concept.id}"]`);
+    if (!group) continue;
+    const minutes = concept.minutes ? `, about ${h.run(`lbFormatMinutes(${concept.minutes})`)}` : "";
+    assert.equal(group.querySelector(".lb-concept-count").textContent, `${concept.selected} of ${concept.total} selected${minutes}`);
+    assert.equal(group.querySelector("summary h4.lb-category-name").textContent.length > 0, true);
+  }
+  assert.ok(concepts.some((c) => c.selected > 0 && c.minutes), "a group with suggested topics shows its time");
+
+  // Groups with no topic for these answers share one closed disclosure, not separate sections.
+  const muted = h.q("details.lb-concept-muted-group");
+  assert.ok(muted, "the empty groups are listed together");
+  assert.equal(muted.open, false);
+  assert.match(muted.querySelector("summary").textContent, /^\d+ more groups? (has|have) nothing for these answers$/);
+  assert.equal(h.qa("li.lb-concept-muted").length > 0, true);
+  assert.equal(h.qa("li.lb-concept-muted").every((item) => item.closest("details.lb-concept-muted-group")), true, "each one is inside it");
+  assert.equal(h.qa("section.lb-concept-muted, div.lb-concept-muted").length, 0);
+
+  // Opening a group is remembered across a redraw; closing it forgets it.
+  const first = groups()[0];
+  const id = first.dataset.concept;
+  first.open = true;
+  first.dispatchEvent(new h.FakeEvent("toggle"));
+  assert.equal(h.state(`labBuilder.openGroups.has(${JSON.stringify(id)})`), true);
+  h.run("lbRenderTopics()");
+  assert.equal(h.q(`details[data-concept="${id}"]`).open, true, "it is still open after the list redraws");
+  assert.equal(groups().filter((group) => group.open).length, 1, "and only that one");
+  h.q(`details[data-concept="${id}"]`).open = false;
+  h.q(`details[data-concept="${id}"]`).dispatchEvent(new h.FakeEvent("toggle"));
+  assert.equal(h.state("labBuilder.openGroups.size"), 0);
+
+  // A search opens every group that has a match, without remembering any of them.
+  const search = h.byId("lb-topic-search");
+  search.value = "trigger";
+  search.dispatchEvent(new h.FakeEvent("input"));
+  await h.settle();
+  assert.ok(groups().length >= 1);
+  assert.equal(groups().every((group) => group.open), true, "every group with a match is open");
+  groups()[0].dispatchEvent(new h.FakeEvent("toggle"));
+  assert.equal(h.state("labBuilder.openGroups.size"), 0, "a group a search opened is not the person's choice");
+  search.value = "";
+  search.dispatchEvent(new h.FakeEvent("input"));
+  await h.settle();
+  assert.equal(groups().every((group) => group.open === false), true, "clearing the search closes them again");
+});
+
+test("a row shows only the checkbox, title, time, and one status chip; the long text lives in its details", async (t) => {
+  const h = makeWizard(t);
+  await h.refresh();
+  const rows = h.qa("div.lb-row");
+  assert.ok(rows.length >= 5, "rows render");
+  for (const row of rows) {
+    const label = row.querySelector("label.lb-feature-main");
+    assert.ok(label, "every row has its label");
+    assert.equal(label.querySelectorAll("input[type=checkbox]").length, 1);
+    assert.equal(label.querySelectorAll(".lb-row-title").length, 1);
+    assert.match(label.querySelector(".lb-row-meta").textContent, /^about \d+ min( · \d+ of \d+ sub-topics)?$/);
+    assert.ok(label.querySelectorAll(".lb-badge").length <= 1, "one chip at most");
+    assert.equal(label.querySelectorAll(".lb-badge-level, .lb-badge-time, .lb-badge-ga, .lb-badge-preview, .lb-feature-summary, .lb-topic-reason, a").length, 0, "no level or time pill, text, reason, or link in the visible row");
+    const toggle = row.querySelector("button.lb-row-toggle");
+    assert.equal(toggle.textContent, "Details");
+    assert.equal(toggle.getAttribute("aria-expanded"), "false");
+    const panel = row.querySelector(".lb-row-details");
+    assert.equal(toggle.getAttribute("aria-controls"), panel.id);
+    assert.equal(panel.hidden, true, "details start closed");
+    assert.ok(panel.querySelector(".lb-feature-summary"), "the description is in the details");
+  }
+  assert.doesNotMatch(h.byId("lb-topic-groups").innerHTML, /Recommended for level \d+/, "the generic level reason is said once, in the intro");
+  assert.doesNotMatch(h.byId("lb-topic-groups").innerHTML, /lb-badge-product|lb-product-pill/);
+
+  // The chip is the single most important status: Learn status, then Suggested.
+  const chipOf = (id) => h.parent(id).closest("label.lb-feature-main").querySelector(".lb-badge")?.textContent ?? null;
+  assert.equal(chipOf(ALPHA.id), "New from Learn");
+  const suggested = h.state("labBuilder.rec.recommendedIds").find((id) => h.parent(id));
+  assert.equal(chipOf(suggested), "Suggested");
+  const alphaDetails = h.byId(`lb-row-details-${ALPHA.id}`);
+  assert.match(alphaDetails.textContent, /Source: Microsoft Learn\. Check each article before you teach it\./);
+  assert.match(h.byId(`lb-topic-desc-${ALPHA.id}`).textContent, /Alpha trigger is a topic from Microsoft Learn\./);
+  assert.equal(h.parent(ALPHA.id).closest("label").querySelector(".lb-row-meta").textContent.endsWith("· 0 of 3 sub-topics"), true);
+
+  // A topic the suggestion left out says so when it is shown, so the chip never hides a recommendation.
+  let dropped = null;
+  for (const id of h.state("labBuilder.rec.recommendedIds").filter((candidate) => h.parent(candidate))) {
+    await h.toggle(h.parent(id));
+    if (chipOf(id) === "Suggested, not selected") {
+      dropped = id;
+      break;
+    }
+    await h.toggle(h.parent(id));
+  }
+  assert.ok(dropped, "a suggested topic that nothing else needs can be unchecked");
+  assert.equal(chipOf(dropped), "Suggested, not selected");
+});
+
+test("Details opens and closes a row, keeps its state across a redraw, and a search opens the row that holds a sub-topic match", async (t) => {
+  const h = makeWizard(t);
+  await h.refresh();
+  const toggle = () => h.q(`button[data-row-toggle="${ALPHA.id}"]`);
+  const panel = () => h.byId(`lb-row-details-${ALPHA.id}`);
+  assert.equal(panel().hidden, true);
+  toggle().dispatchEvent(new h.FakeEvent("click"));
+  assert.equal(panel().hidden, false);
+  assert.equal(toggle().textContent, "Hide details");
+  assert.equal(toggle().getAttribute("aria-expanded"), "true");
+  assert.equal(h.state(`labBuilder.openRows.has(${JSON.stringify(ALPHA.id)})`), true);
+
+  // A redraw (a checkbox change anywhere) keeps it open, and keyboard focus stays on the button.
+  await h.toggle(h.parent(PLAIN.id));
+  assert.equal(panel().hidden, false);
+  assert.equal(toggle().textContent, "Hide details");
+  toggle().focus();
+  h.run("lbRenderTopics()");
+  assert.equal(h.document.activeElement.dataset.rowToggle, ALPHA.id, "focus returns to the same Details button");
+  assert.equal(panel().hidden, false);
+
+  toggle().dispatchEvent(new h.FakeEvent("click"));
+  assert.equal(panel().hidden, true);
+  assert.equal(toggle().textContent, "Details");
+  assert.equal(toggle().getAttribute("aria-expanded"), "false");
+  assert.equal(h.state("labBuilder.openRows.size"), 0);
+
+  // A search that matches one of its sub-topics opens the row without making that the person's choice.
+  const search = h.byId("lb-topic-search");
+  search.value = "examples";
+  search.dispatchEvent(new h.FakeEvent("input"));
+  await h.settle();
+  assert.equal(panel().hidden, false, "the matching sub-topic is visible");
+  assert.equal(h.state("labBuilder.openRows.size"), 0);
+  search.value = "";
+  search.dispatchEvent(new h.FakeEvent("input"));
+  await h.settle();
+  assert.equal(panel().hidden, true);
+
+  // The same compact row serves the refreshers from lower levels.
+  const refresher = h.q("#lb-prereq-group");
+  if (refresher) {
+    const row = refresher.querySelector("div.lb-row");
+    assert.equal(row.querySelector(".lb-badge-recap").textContent, "Refresher");
+    assert.equal(row.querySelector("button.lb-row-toggle").textContent, "Details");
+    assert.match(row.querySelector(".lb-row-details").textContent, /^[\s\S]*Why: /);
+  }
+});
+
+test("More ways to add topics holds Export All Topics, the Learn refresh bar, and Add a topic, and the export still writes the same CSV", async (t) => {
+  const h = makeWizard(t);
+  await h.refresh();
+  const more = h.byId("lb-more-ways");
+  assert.equal(more.tagName.toLowerCase(), "details");
+  assert.equal(more.open, false);
+  assert.equal(more.querySelector("summary").textContent, "More ways to add topics");
+  for (const id of ["lb-export-main", "lb-export-toggle", "lb-export-menu", "lb-export-scope", "lb-export-status", "lb-learn-bar", "lb-learn-status", "lb-learn-refresh", "lb-learn-error", "lb-mine", "lb-mine-input", "lb-mine-go", "lb-mine-results"]) {
+    assert.ok(more.contains(h.byId(id)), `${id} is inside More ways to add topics`);
+  }
+  const mine = h.byId("lb-mine");
+  assert.equal(mine.tagName.toLowerCase(), "section", "Add a topic is a section with a heading, not a nested details");
+  assert.equal(mine.querySelector("h4").textContent, "Add a topic from Microsoft Learn");
+  assert.match(more.textContent, /Add it in\s*Step 1, under Add another Microsoft product/);
+  assert.equal(PANES.includes('id="lb-addprod"'), false, "Add another Microsoft product stays in Step 1");
+  assert.equal(HTML.slice(HTML.indexOf('id="lb-pane-1"'), HTML.indexOf('id="lb-pane-2"')).includes('id="lb-addprod"'), true);
+
+  // The suggestion is what the export marks as selected, and the file is still the server's file byte for byte.
+  h.byId("lb-export-main").dispatchEvent(new h.FakeEvent("click"));
+  await h.settle();
+  const dataset = h.state("labBuilder.exportData");
+  const selection = h.state("lbExportSelection()");
+  const text = await exportedText(h);
+  assert.equal(text, toCsv(dataset, selection));
+  const rows = parseCsv(text.slice(1));
+  const suggested = h.state("labBuilder.rec.recommendedIds");
+  for (const id of suggested) {
+    const row = dataset.rows.findIndex((r) => r.id === id && r.type === "topic");
+    assert.equal(rows[row + 1][19], "Yes", `${id} is marked as selected in my lab`);
+  }
+});
+
+test("Change opens and closes the search, filter, and choose-topics tools, and Back to suggested restores the suggestion", async (t) => {
+  const h = makeWizard(t);
+  await h.refresh();
+  const tools = h.byId("lb-topic-tools");
+  const change = h.byId("lb-topic-change");
+  assert.equal(tools.hidden, true, "the tools start closed");
+  assert.equal(change.getAttribute("aria-expanded"), "false");
+  assert.equal(change.getAttribute("aria-controls"), "lb-topic-tools");
+  h.run("lbToggleTopicTools()");
+  assert.equal(tools.hidden, false);
+  assert.equal(change.getAttribute("aria-expanded"), "true");
+  assert.equal(h.document.activeElement, h.byId("lb-topic-search"), "focus moves to the search");
+  assert.deepEqual([...tools.querySelectorAll("button")].map((b) => b.textContent), ["Back to suggested", "Select all", "Clear"]);
+  assert.equal(tools.querySelector("select#lb-topic-filter option[value=recommended]").textContent, "Suggested topics");
+  h.run("lbToggleTopicTools()");
+  assert.equal(tools.hidden, true);
+  assert.equal(change.getAttribute("aria-expanded"), "false");
+
+  const suggested = h.state("labBuilder.rec.recommendedIds");
+  const summary = h.byId("lb-topic-summary").textContent;
+  assert.match(summary, /^Suggested lab: /);
+
+  // Change a lot: add a topic, drop a suggested one, leave a sub-topic out.
+  await h.toggle(h.parent(ALPHA.id));
+  await h.toggle(h.sub(subIds(ALPHA)[0]));
+  const dropped = [...h.qa("input[data-topic]")].find((input) => input.checked && input.dataset.required === "false" && suggested.includes(input.dataset.topic));
+  await h.toggle(dropped);
+  assert.match(h.byId("lb-topic-summary").textContent, /^Your lab: /);
+  assert.notEqual(h.byId("lb-topic-summary").textContent, summary);
+
+  h.run("lbClearTopics()");
+  await h.settle();
+  assert.equal(h.byId("lb-topic-summary").textContent, "No topics selected yet. Choose Change to pick some.");
+
+  h.run("lbSelectRecommended()");
+  await h.settle();
+  assert.deepEqual(h.state("[...labBuilder.picked]"), suggested, "the suggestion again, whatever was changed");
+  assert.equal(h.state("labBuilder.pickedAuto"), true);
+  assert.equal(h.state("labBuilder.excluded.size"), 0);
+  assert.equal(h.state("labBuilder.excludedSubtopics.size"), 0);
+  assert.equal(h.parent(ALPHA.id).checked, false);
+  assert.equal(h.byId("lb-topic-summary").textContent, summary, "the summary reads exactly as it did on arrival");
+  assert.equal(typeof h.context.lbResetTopics, "undefined", "there is no separate Reset any more");
 });
 
 // ── The request, saved selections, and Edit and rebuild ─────────────────────
@@ -619,12 +956,17 @@ function parseCsv(text) {
 // Blob.text() drops a byte order mark, so read the bytes: the BOM is part of the file.
 const exportedText = async (h, index = h.blobs.length - 1) => Buffer.from(await h.blobs[index].arrayBuffer()).toString("utf8");
 
-test("Export All Topics sits in the Topics toolbar with a format menu, CSV by default", async (t) => {
+test("Export All Topics sits under More ways to add topics with a format menu, CSV by default", async (t) => {
   const h = makeWizard(t);
   await h.refresh();
   const main = h.byId("lb-export-main");
   assert.equal(main.textContent, "Export All Topics");
-  assert.equal(main.closest(".lb-topic-toolbar") !== null, true, "it is in the toolbar next to the bulk buttons");
+  const more = main.closest("details#lb-more-ways");
+  assert.ok(more, "it is inside More ways to add topics");
+  assert.equal(more.open, false, "which is closed by default");
+  assert.equal(more.querySelector("summary").textContent, "More ways to add topics");
+  assert.equal(main.closest("#lb-topic-tools"), null, "and not in the search and filter tools");
+  for (const id of ["lb-learn-bar", "lb-learn-refresh", "lb-mine", "lb-export-scope"]) assert.ok(more.contains(h.byId(id)), `${id} is in More ways to add topics too`);
   const toggle = h.byId("lb-export-toggle");
   assert.equal(toggle.getAttribute("aria-haspopup"), "menu");
   assert.equal(toggle.getAttribute("aria-expanded"), "false");
@@ -750,7 +1092,8 @@ test("the export ignores the search, the filter, and the level, and every sub-to
   const baseline = await exportedText(h, 0);
   const calls = h.exportCalls.length;
 
-  h.run('labBuilder.search = "zzzz-no-match"; labBuilder.filter = "selected"; labBuilder.level = 100; labBuilder.rec = null');
+  // The rows do not depend on the list's search, filter, or level. The "selected in my lab" marks come from the lab's own picks, which stay.
+  h.run('labBuilder.search = "zzzz-no-match"; labBuilder.filter = "selected"; labBuilder.level = 100');
   h.run("lbExportAllTopics('json')");
   await h.settle();
   const narrowed = await exportedText(h, 1);
