@@ -264,7 +264,7 @@ test("Review and build moduleOrder reorders modules, renumbers steps/recaps, per
 
 // ── 2. Review and build: UI controls, persistence & keyboard focus ──────────
 
-test("Review and build wizard renders accessible Move up/down controls, disables boundaries, persists moduleOrder, and restores focus", async () => {
+test("Review and build wizard hides Move up/down controls until Edit order is on, then renders them accessibly, disables boundaries, persists moduleOrder, and restores focus", async () => {
   const wizardSource = readFileSync(join(PUBLIC_DIR, "lab-builder-wizard.js"), "utf8");
   const storage = new Map();
   let focusedSelector = null;
@@ -439,9 +439,19 @@ test("Review and build wizard renders accessible Move up/down controls, disables
   wiz.labBuilder.rec = { selectedIds: baseModules.map((m) => m.id), concepts: [] };
 
   await wiz.lbPreview();
+  const defaultHtml = elements.get("lb-preview").innerHTML;
+
+  // The rows stay quiet until Edit order is on: no Move up / Move down controls yet.
+  assert.equal(wiz.labBuilder.editOrder, false);
+  assert.doesNotMatch(defaultHtml, /data-outline-move|lb-outline-order-controls|aria-label="Move /);
+  assert.match(defaultHtml, /data-outline-action="toggle-edit" aria-expanded="false">Edit order<\/button>/);
+
+  wiz.labBuilder.editOrder = true;
+  await wiz.lbPreview();
   const initialHtml = elements.get("lb-preview").innerHTML;
 
   // Verify accessible Move up / Move down buttons and disabled boundary states
+  assert.match(initialHtml, /data-outline-action="toggle-edit" aria-expanded="true">Done<\/button>/);
   assert.match(initialHtml, /aria-label="Move Create an agent up"[^>]*disabled/);
   assert.doesNotMatch(
     initialHtml.match(/<button[^>]*aria-label="Move Create an agent down"[^>]*>/)?.[0] || "",

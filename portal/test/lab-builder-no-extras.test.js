@@ -8,6 +8,7 @@ import { getCoreFeatures, expandPrereqs } from "../lib/lab-builder/catalog.js";
 import { recommend } from "../lib/lab-builder/recommend.js";
 import { planLab } from "../lib/lab-builder/planner.js";
 import { generateLab } from "../lib/lab-builder/generator.js";
+import { getIndustries, getRoles } from "../lib/scenarios.js";
 
 const LEVELS = [100, 200, 300];
 const answersFor = (product, level, extra = {}) => ({
@@ -124,7 +125,7 @@ function loadWizard() {
   const elements = new Map();
   const element = (id) => {
     if (!elements.has(id)) {
-      elements.set(id, { id, innerHTML: "", textContent: "", value: "", checked: true, hidden: false, style: {}, contains: () => false, querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, setAttribute() {}, removeAttribute() {}, classList: { toggle() {}, add() {}, remove() {} } });
+      elements.set(id, { id, innerHTML: "", textContent: "", value: "", checked: true, hidden: false, style: {}, contains: () => false, querySelector: () => null, querySelectorAll: () => [], addEventListener() {}, setAttribute() {}, removeAttribute() {}, focus() {}, scrollIntoView() {}, classList: { toggle() {}, add() {}, remove() {} } });
     }
     return elements.get(id);
   };
@@ -144,39 +145,66 @@ function loadWizard() {
 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
-test("the wizard builds nothing until the learner chooses topics, then Select recommended, Clear, and Reset behave", async () => {
+test("the wizard builds nothing before Topics, then arrives with the suggestion; Back to suggested restores it, Clear empties it, and there is no Reset", async () => {
   const { run, element } = loadWizard();
   run("lbRefresh()");
   await settle();
-  assert.deepEqual(JSON.parse(run("JSON.stringify(lbRequest().features)")), [], "a fresh wizard sends no topics");
+  assert.deepEqual(JSON.parse(run("JSON.stringify(lbRequest().features)")), [], "a wizard that has not reached Topics sends no topics");
   assert.equal(run("lbSelectedCount()"), 0);
 
-  run("lbRenderTopics()");
-  assert.match(element("lb-topic-intro").textContent, /Nothing is selected yet/);
-  assert.match(element("lb-topic-groups").innerHTML, /Recommended, not selected/);
-  assert.doesNotMatch(element("lb-topic-groups").innerHTML, /\schecked\s/);
-
-  run("lbSelectRecommended()");
+  // Arriving on Topics selects the suggestion, so the person starts from something and unchecks what they do not need.
+  run("lbGoToStep(LB_STEP.topics)");
   await settle();
   const recommended = JSON.parse(run("JSON.stringify(labBuilder.rec.recommendedIds)"));
   assert.ok(recommended.length > 0);
+  assert.equal(run("labBuilder.pickedAuto"), true);
   assert.deepEqual(JSON.parse(run("JSON.stringify(labBuilder.rec.selectedIds)")).sort(), [...recommended].sort());
+  assert.deepEqual(JSON.parse(run("JSON.stringify(lbRequest().features)")).sort(), [...recommended].sort(), "and the lab builds exactly what the list shows");
+  assert.equal(element("lb-topic-intro").textContent, "Suggested for Level 100: the usual starting topics. Uncheck anything you do not need.");
+  assert.match(element("lb-topic-summary").textContent, /^Suggested lab: \d+ topics?, about /);
+  assert.match(element("lb-topic-groups").innerHTML, /<span class="lb-badge lb-badge-recommended">Suggested<\/span>/);
+  assert.match(element("lb-topic-groups").innerHTML, /\schecked\s/);
 
+  // Clear is a choice: nothing is selected, and the suggested topics say they are suggested but not selected.
   run("lbClearTopics()");
   await settle();
   assert.equal(run("lbSelectedCount()"), 0);
   assert.deepEqual(JSON.parse(run("JSON.stringify(lbRequest().features)")), []);
+  assert.equal(element("lb-topic-summary").textContent, "No topics selected yet. Choose Change to pick some.");
+  assert.match(element("lb-topic-groups").innerHTML, /Suggested, not selected/);
+  assert.doesNotMatch(element("lb-topic-groups").innerHTML, /\schecked\s/);
 
-  run("lbSelectRecommended(); lbResetTopics()");
+  run("lbSelectRecommended()");
   await settle();
-  assert.equal(run("lbSelectedCount()"), 0, "Reset returns to what the answers pre-select, which is nothing here");
+  assert.equal(run("labBuilder.pickedAuto"), true);
+  assert.deepEqual(JSON.parse(run("JSON.stringify(labBuilder.rec.selectedIds)")).sort(), [...recommended].sort(), "Back to suggested selects exactly the suggestion");
+
+  assert.equal(run("typeof lbResetTopics"), "undefined", "Back to suggested replaces both Select recommended and Reset to my answers");
 });
 
-test("choosing a vertical pre-selects its topics and the topics step says where they came from", async () => {
+test("choosing an industry and a department adds their topics to the suggestion, with the reason in the row details and the intro naming them", async () => {
   const { run, element } = loadWizard();
-  run('labBuilder.industry = "healthcare"; labBuilder.level = 300; lbRefresh()');
+  const roles = getRoles();
+  const department = roles.find((r) => r.id === "it");
+  run(`labBuilder.industries = ${JSON.stringify(getIndustries())}; labBuilder.roles = ${JSON.stringify(roles)};`);
+  run('labBuilder.industry = "healthcare"; labBuilder.selectedRoles = new Set(["it"]); labBuilder.level = 300; labBuilder.step = LB_STEP.topics; lbRefresh()');
   await settle();
-  assert.ok(run("lbSelectedCount()") > 0);
-  run("lbRenderTopics()");
-  assert.match(element("lb-topic-intro").textContent, /pre-selected because of the vertical or departments you chose/);
+
+  // What the answers add on top of the level baseline, as the server computes it.
+  const added = recommend({ harness: "standard", industry: "healthcare", departments: ["it"], level: 300 }).preselectedIds;
+  assert.ok(added.length > 0, "healthcare and IT point at topics at Level 300");
+  assert.equal(run("labBuilder.pickedAuto"), true);
+  const selected = new Set(JSON.parse(run("JSON.stringify(labBuilder.rec.selectedIds)")));
+  for (const id of added) assert.ok(selected.has(id), `${id} is in the suggestion`);
+
+  // The intro says once what the suggestion follows; no row repeats the generic level reason.
+  assert.equal(element("lb-topic-intro").textContent, `Suggested for Level 300, with topics that follow Healthcare and ${department.name}. Uncheck anything you do not need.`);
+  const html = element("lb-topic-groups").innerHTML;
+  assert.doesNotMatch(html, /Recommended for level \d+/);
+  const row = html.split('<div class="lb-feature lb-row').find((chunk) => chunk.includes(`data-topic="${added[0]}"`));
+  assert.ok(row, "the topic the industry adds is listed");
+  const visible = row.slice(0, row.indexOf("</label>"));
+  const details = row.slice(row.indexOf('<div class="lb-row-details"'));
+  assert.doesNotMatch(visible, /Why:|Recommended for/, "the reason is not in the visible row");
+  assert.match(details, /<span class="lb-topic-reason">Why: [^<]*Recommended for (Healthcare|IT)/, "it is in the row's details");
 });

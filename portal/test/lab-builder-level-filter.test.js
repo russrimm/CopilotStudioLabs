@@ -456,12 +456,13 @@ test("the topics step lists the level's topics, announces the count, and collaps
   const [main, afterMain] = html.split('<details class="lb-concept lb-prereq-group"');
   assert.ok(afterMain, "the prerequisites group is rendered");
   assert.doesNotMatch(main, /Level 100|Level 300/, "no other level in the main list");
-  assert.match(main, /Level 200/);
+  assert.match(main, /<div class="lb-feature lb-row/, "topics are compact rows");
   assert.match(afterMain, /^ id="lb-prereq-group" >/, "the group starts collapsed");
-  assert.match(afterMain, /Prerequisites from lower levels \(included automatically\)/);
+  assert.match(afterMain, /Refreshers from lower levels \(included automatically\)/);
   assert.match(afterMain, /data-prerequisite="agent-instructions"/);
-  assert.match(afterMain, /Prerequisite recap/);
-  assert.equal(element("lb-topic-count").textContent, `Showing ${rec.filter.shown} topics for Level 200 (Intermediate).`);
+  assert.match(afterMain, /<span class="lb-badge lb-badge-recap">Refresher<\/span>/);
+  assert.doesNotMatch(afterMain, /Prerequisite recap/);
+  assert.equal(element("lb-topic-count").textContent, `${rec.filter.shown} topics for Level 200 (Intermediate).`);
   assert.match(element("lb-topic-intro").textContent, /Level 200 \(Intermediate\) topics/);
 });
 
@@ -475,7 +476,7 @@ test("a Learn topic of unknown level renders in its own collapsed group with a t
   assert.ok(unknown, "the unknown-level group is rendered");
   assert.match(unknown, /^ >/, "collapsed by default");
   assert.match(unknown, /Level unknown/);
-  assert.match(unknown, /not recommended for Level 100 \(Beginner\)/);
+  assert.match(unknown, /not suggested for Level 100 \(Beginner\)/);
   assert.doesNotMatch(html.split('id="lb-unknown-group"')[0], /learn-unknown/);
 });
 

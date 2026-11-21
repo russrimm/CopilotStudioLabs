@@ -92,7 +92,7 @@ function createWizardHarness({ extraTopics = [], now = "2026-04-16T12:00:00Z" } 
   const recommendCalls = [];
   const previewCalls = [];
 
-  const stepButtons = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => {
+  const stepButtons = [1, 2, 3, 4].map((n) => {
     const li = { hidden: false };
     const span = { textContent: String(n) };
     return {
@@ -112,7 +112,7 @@ function createWizardHarness({ extraTopics = [], now = "2026-04-16T12:00:00Z" } 
     const node = {
       id,
       innerHTML: "",
-      textContent: id.startsWith("lb-heading-") ? `Step ${id.slice(-1)} of 8: Heading` : "",
+      textContent: id.startsWith("lb-heading-") ? `Step ${id.slice(-1)} of 4: Heading` : "",
       value: "",
       type: id === "lb-use-learn" || id === "lb-use-llm" ? "checkbox" : "text",
       checked: id === "lb-use-learn" || id === "lb-use-llm",
@@ -512,18 +512,30 @@ test("Topics renders clickable Microsoft Learn links on catalog topics, dynamic 
 
   let html = element("lb-topic-groups").innerHTML;
 
-  // Match each `<label class="lb-feature ...">...</label>` card in Topics.
-  const cardRegex = /<label class="lb-feature([^"]*)">([\s\S]*?)<\/label>/g;
-  const cards = [];
-  let match;
-  while ((match = cardRegex.exec(html))) {
-    const isChecked = match[1].includes("checked");
-    const body = match[2];
-    const topicId = body.match(/data-topic="([^"]+)"/)?.[1] || null;
-    const prereqId = body.match(/data-prerequisite="([^"]+)"/)?.[1] || null;
-    const anchors = extractAnchors(body).filter((a) => a.className.includes("lb-learn-source"));
-    cards.push({ topicId, prereqId, isChecked, anchors, body });
-  }
+  // Each topic is a compact row: a label (checkbox, title, time, one chip), a Details button, and a details panel.
+  // The Microsoft Learn links live in the details, outside the label, so following one can never toggle the checkbox.
+  const rowOf = (chunk) => {
+    const cls = chunk.slice(0, chunk.indexOf('">'));
+    const body = chunk.slice(chunk.indexOf('">') + 2).split("</details>")[0];
+    const label = body.slice(0, body.indexOf("</label>"));
+    const detailsAt = body.indexOf('<div class="lb-row-details"');
+    const details = detailsAt >= 0 ? body.slice(detailsAt) : "";
+    const [ownHtml, subtopicHtml = ""] = details.split('<fieldset class="lb-subtopics"');
+    const learn = (fragment) => extractAnchors(fragment).filter((a) => a.className.includes("lb-learn-source"));
+    return {
+      isChecked: /\bchecked\b/.test(cls),
+      topicId: body.match(/data-topic="([^"]+)"/)?.[1] || null,
+      prereqId: body.match(/data-prerequisite="([^"]+)"/)?.[1] || null,
+      label,
+      hasDetails: detailsAt >= 0,
+      hidden: /^<div class="lb-row-details" id="[^"]+" hidden>/.test(details),
+      anchors: learn(ownHtml),
+      subtopicAnchors: learn(subtopicHtml),
+      visibleAnchors: extractAnchors(label),
+      body,
+    };
+  };
+  const cards = html.split('<div class="lb-feature lb-row').slice(1).map(rowOf);
 
   const checkedCatalog = cards.filter((c) => c.topicId && !c.topicId.startsWith("learn-") && c.isChecked);
   const uncheckedCatalog = cards.filter((c) => c.topicId && !c.topicId.startsWith("learn-") && !c.isChecked);
@@ -537,23 +549,28 @@ test("Topics renders clickable Microsoft Learn links on catalog topics, dynamic 
   assert.ok(multiLearnCard, "Expected dynamic multi-URL Learn topic card in Topics");
   assert.ok(unknownCard, "Expected level-unknown Learn topic card in Topics");
 
-  // Every single card in Topics (checked & unchecked, catalog, learn, prereq, level-unknown) must render valid Learn links!
+  // Every single row in Topics (checked & unchecked, catalog, learn, prereq, level-unknown) must render valid Learn links in its details!
   for (const card of cards) {
     const id = card.topicId || card.prereqId;
-    assert.ok(card.anchors.length >= 1, `Expected >= 1 .lb-learn-source link on Topics card ${id}`);
+    assert.ok(card.hasDetails, `Expected a details panel on Topics row ${id}`);
+    assert.equal(card.visibleAnchors.length, 0, `The visible row ${id} holds no link; they sit in its details`);
+    assert.ok(card.anchors.length >= 1, `Expected >= 1 .lb-learn-source link in the details of Topics row ${id}`);
     const hrefs = new Set();
-    for (const anchor of card.anchors) {
+    for (const anchor of [...card.anchors, ...card.subtopicAnchors]) {
       assert.match(anchor.href, /^https:\/\/learn\.microsoft\.com\/.+/);
       assert.equal(anchor.target, "_blank");
       assert.equal(anchor.rel, "noopener noreferrer");
       assert.ok(anchor.text.length >= 2);
-      assert.ok(anchor.ariaLabel?.startsWith(anchor.text), `WCAG 2.5.3 Label in Name on ${id}: ${anchor.ariaLabel}`);
-      assert.ok(!hrefs.has(anchor.href), `Duplicate Learn link ${anchor.href} on Topics card ${id}`);
+      // A sub-topic's link reads "Microsoft Learn" beside its checkbox, and its name says which sub-topic.
+      const ownLink = card.anchors.includes(anchor);
+      assert.ok(ownLink ? anchor.ariaLabel?.startsWith(anchor.text) : anchor.ariaLabel?.includes(anchor.text), `WCAG 2.5.3 Label in Name on ${id}: ${anchor.ariaLabel}`);
+      assert.ok(!hrefs.has(anchor.href), `Duplicate Learn link ${anchor.href} on Topics row ${id}`);
       hrefs.add(anchor.href);
     }
   }
+  assert.ok(cards.filter((c) => c.hasDetails && c.hidden).length >= 1, "the details start closed, so the links are one Details click away");
 
-  // A topic with sub-topics lists its own page on the card; each companion page is a nested, individually checkable
+  // A topic with sub-topics lists its own page in its details; each companion page is a nested, individually checkable
   // sub-topic with its own Learn link beside the checkbox, so no link repeats.
   assert.deepEqual(
     multiLearnCard.anchors.map((a) => ({ href: a.href, text: a.text })),
@@ -579,18 +596,20 @@ test("Topics renders clickable Microsoft Learn links on catalog topics, dynamic 
     ],
   );
 
-  // Now uncheck a prerequisite in Topics and verify unchecked prerequisite cards STILL render Microsoft Learn links!
+  // Now uncheck a prerequisite in Topics and verify unchecked refresher rows STILL render Microsoft Learn links in their details!
   const firstPrereqId = checkedPrereqs[0].prereqId;
   await vm.runInContext(`lbSetPrerequisite(${JSON.stringify(firstPrereqId)}, false)`, context);
+  await new Promise((resolve) => setTimeout(resolve, 25));
   html = element("lb-topic-groups").innerHTML;
-  const uncheckedPrereqMatch = new RegExp(
-    `<label class="lb-feature\\s*">[\\s\\S]*?data-prerequisite="${firstPrereqId}"[\\s\\S]*?<\\/label>`,
-  ).exec(html);
-  assert.ok(uncheckedPrereqMatch, `Expected unchecked prerequisite card for ${firstPrereqId}`);
-  const uncheckedPrereqAnchors = extractAnchors(uncheckedPrereqMatch[0]).filter((a) =>
-    a.className.includes("lb-learn-source"),
-  );
-  assert.ok(uncheckedPrereqAnchors.length >= 1, "Unchecked prerequisite card must still show Microsoft Learn links");
+  const uncheckedPrereq = html
+    .split('<div class="lb-feature lb-row')
+    .slice(1)
+    .map(rowOf)
+    .find((row) => row.prereqId === firstPrereqId);
+  assert.ok(uncheckedPrereq, `Expected unchecked refresher row for ${firstPrereqId}`);
+  assert.equal(uncheckedPrereq.isChecked, false);
+  assert.ok(uncheckedPrereq.anchors.length >= 1, "Unchecked refresher row must still show Microsoft Learn links");
+  assert.match(uncheckedPrereq.label, /<span class="lb-badge lb-badge-recap">Refresher<\/span>/);
 });
 
 test("Review and build renders clickable Microsoft Learn links on included outline rows and excluded Removed from curriculum items", async () => {
@@ -607,21 +626,40 @@ test("Review and build renders clickable Microsoft Learn links on included outli
   );
   await vm.runInContext("labBuilder.step = LB_STEP.review; lbPreview()", context);
 
+  // The outline starts compact: include checkbox, module, and time. Descriptions and Learn links come with Edit order.
   let previewHtml = element("lb-preview").innerHTML;
-  const rowMatches = [...previewHtml.matchAll(/<tr><td class="lb-outline-include-cell">[\s\S]*?<\/tr>/g)];
-  assert.ok(rowMatches.length >= 2, "Expected included outline rows in Review and build");
+  const outlineRows = () => [...element("lb-preview").innerHTML.matchAll(/<tr><td class="lb-outline-include-cell">[\s\S]*?<\/tr>/g)];
+  const learnLinksIn = (html) => extractAnchors(html).filter((a) => a.className.includes("lb-learn-source"));
+  assert.ok(outlineRows().length >= 2, "Expected included outline rows in Review and build");
+  for (const [rowHtml] of outlineRows()) assert.equal(learnLinksIn(rowHtml).length, 0, "no Learn link in a compact outline row");
+  assert.match(previewHtml, /<button type="button" class="lb-link-btn" data-outline-action="toggle-edit" aria-expanded="false">Edit order<\/button>/);
+  assert.doesNotMatch(previewHtml, /lb-outline-desc-/);
 
-  for (const [rowHtml] of rowMatches) {
+  // Edit order shows the descriptions and Microsoft Learn links, with the Step column and the move buttons.
+  const pressEditOrder = async () => {
+    element("lb-preview").dispatchClick({
+      closest: (sel) => (sel === "button[data-outline-action]" ? { dataset: { outlineAction: "toggle-edit" } } : null),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  };
+  await pressEditOrder();
+  assert.equal(vm.runInContext("labBuilder.editOrder", context), true);
+  previewHtml = element("lb-preview").innerHTML;
+  assert.match(previewHtml, /data-outline-action="toggle-edit" aria-expanded="true">Done<\/button>/);
+  assert.match(previewHtml, /<th scope="col" class="lb-outline-order-col">Order<\/th><th scope="col">Step<\/th>/);
+
+  for (const [rowHtml] of outlineRows()) {
     const modId = rowHtml.match(/data-outline-module="([^"]+)"/)?.[1];
-    const anchors = extractAnchors(rowHtml).filter((a) => a.className.includes("lb-learn-source"));
-    assert.ok(anchors.length >= 1, `Expected Microsoft Learn links on Review and build outline row ${modId}`);
+    assert.match(rowHtml, /<td>(Step|Recap) \d+<\/td>/, `Expected a step label on outline row ${modId}`);
+    const anchors = learnLinksIn(rowHtml);
+    assert.ok(anchors.length >= 1, `Expected Microsoft Learn links on Review and build outline row ${modId} in Edit order`);
     for (const anchor of anchors) {
       assert.match(anchor.href, /^https:\/\/learn\.microsoft\.com\/.+/);
       assert.equal(anchor.target, "_blank");
       assert.equal(anchor.rel, "noopener noreferrer");
     }
   }
-
+  previewHtml = element("lb-preview").innerHTML;
   // Uncheck both a prerequisite recap and a Level 200 module in Review and build so both move to Removed from curriculum.
   const firstRecapId = previewHtml.match(/data-outline-module="([^"]+)"\s+data-outline-role="prerequisite"/)?.[1];
   const firstLevelModId = previewHtml.match(/data-outline-module="([^"]+)"\s+data-outline-role="level"/)?.[1];
@@ -669,8 +707,9 @@ test("clicking a .lb-learn-source link inside a <label> preserves native link na
   const initialPrereqCount = vm.runInContext("labBuilder.rec.prerequisites.selectedIds.length", context);
   const recCallsBefore = recommendCalls.length;
 
-  // Simulate clicking a `.lb-learn-source` link inside a checked Topics topic `<label>`, INCLUDING
-  // simulating a hostile/legacy DOM that attempts to synthesize a click + change on the sibling checkbox!
+  // Topic rows keep their links in the details, outside the label. The guard still covers a link inside a <label> (the Removed
+  // list, and any markup that puts one there): simulate a hostile/legacy DOM that attempts to synthesize a click + change on the
+  // sibling checkbox!
   const topicCheckbox = {
     type: "checkbox",
     checked: true,

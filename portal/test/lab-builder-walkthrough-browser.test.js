@@ -20,7 +20,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const PORTAL_ROOT = resolve(here, "..");
 const PLAYWRIGHT = resolve(PORTAL_ROOT, "..", "tools", "screenshot-capture", "node_modules", "playwright", "index.mjs");
-const CLICK_BUDGET = 6;
+const CLICK_BUDGET = 5;
 const cleanups = [];
 const ctx = {};
 
@@ -107,7 +107,7 @@ after(() => {
   }
 });
 
-test("a default lab for one product builds in at most six clicks, with every default visible", async (t) => {
+test("a default lab for one product builds in five clicks, with every default visible", async (t) => {
   if (ctx.skipReason) return t.skip(ctx.skipReason);
   const context = await ctx.browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
@@ -152,14 +152,19 @@ test("a default lab for one product builds in at most six clicks, with every def
     // 3. Next (nothing to change on Tailor it).
     await click("#lb-pane-2 .lb-nav-next");
     await page.waitForSelector("#lb-pane-3", { state: "visible" });
+    // Topics arrives with the suggestion selected and every group collapsed, so there is nothing to click to accept it.
     assert.match(await page.textContent("#lb-heading-3"), /^Step 3 of 4:/);
-    await page.waitForSelector("#lb-topic-groups .lb-feature");
+    await page.waitForSelector("#lb-topic-groups details.lb-concept");
+    await page.waitForFunction(() => /^Suggested lab: \d+ topics?/.test(document.getElementById("lb-topic-summary").textContent));
+    assert.ok((await page.$$eval("#lb-pane-3 input[data-topic]:checked", (els) => els.length)) > 0, "the suggested topics are already selected");
+    assert.equal(
+      await page.$$eval("#lb-pane-3 #lb-topic-groups input[data-topic]", (els) => els.filter((el) => !el.closest("details:not([open])")).length),
+      0,
+      "every group starts collapsed",
+    );
+    assert.equal(await visible("#lb-topic-tools"), false, "the search and bulk tools stay behind Change");
 
-    // 4. Accept the suggested topics (a click only while Topics does not arrive with them selected).
-    if ((await page.$$eval("#lb-pane-3 input[data-topic]:checked", (els) => els.length)) === 0) await click("#lb-pane-3 .lb-btn-recommend");
-    await page.waitForFunction(() => document.querySelectorAll("#lb-pane-3 input[data-topic]:checked").length > 0);
-
-    // 5. Next. Review and build is one screen with one primary action.
+    // 4. Next. Review and build is one screen with one primary action.
     await click("#lb-pane-3 .lb-nav-next");
     await page.waitForSelector("#lb-pane-4", { state: "visible" });
     assert.match(await page.textContent("#lb-heading-4"), /^Step 4 of 4: Review and build/);
@@ -175,7 +180,7 @@ test("a default lab for one product builds in at most six clicks, with every def
       document.getElementById("lb-use-llm").checked = false;
     });
 
-    // 6. Build my lab.
+    // 5. Build my lab.
     await click("#lb-generate-btn");
     await page.waitForSelector("#lb-result-panel", { state: "visible", timeout: 120000 });
     await page.waitForSelector(".lb-result-title");

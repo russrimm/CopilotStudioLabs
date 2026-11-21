@@ -256,15 +256,48 @@ test("every Tailor answer refreshes the recommendation, and the summary follows"
   assert.deepEqual([request.industry, request.roles, request.level, request.harness], ["retail", [], 200, "microsoft-copilot"]);
 });
 
-test("changing the level in Tailor it still announces what was removed and restores on request", async () => {
+test("Topics arrives with the suggestion selected, and a level change only announces the person's own picks", async () => {
   const h = makeWizard();
   await h.chooseProducts("copilot-studio");
   await h.run("lbNextStep()");
   await h.settle();
-  await h.run("lbGoToStep(3); lbSelectRecommended()");
+
+  // Arriving on Topics with nothing chosen yet selects the suggestion; nobody clicked Select recommended.
+  await h.run("lbNextStep()");
   await h.settle();
-  const picked = h.state("[...labBuilder.picked]");
-  assert.ok(picked.length > 0, "the recommended topics were chosen");
+  assert.equal(await h.step(), 3);
+  const suggested = h.state("labBuilder.rec.recommendedIds");
+  assert.ok(suggested.length > 0);
+  assert.deepEqual(h.state("[...labBuilder.picked]"), suggested);
+  assert.equal(h.state("labBuilder.pickedAuto"), true);
+  assert.match(h.text("lb-topic-summary"), /^Suggested lab: \d+ topics?/);
+
+  // An untouched suggestion is not "the person's choices": changing the level just recomputes it, with no notice.
+  await h.run("lbGoToStep(2)");
+  await h.settle();
+  await h.change(radiosOf(h, "lb-level").find((input) => valueOf(input) === "200"), (el) => {
+    el.checked = true;
+  });
+  assert.equal(h.byId("lb-level-notice-2").textContent, "");
+  assert.equal(h.state("labBuilder.picked"), null);
+  await h.run("lbNextStep()");
+  await h.settle();
+  assert.deepEqual(h.state("[...labBuilder.picked]"), h.state("labBuilder.rec.recommendedIds"), "Level 200 starts from its own suggestion");
+
+  // Back to Level 100, then change one pick: now there is something of the person's to announce and restore.
+  await h.run("lbGoToStep(2)");
+  await h.settle();
+  await h.change(radiosOf(h, "lb-level").find((input) => valueOf(input) === "100"), (el) => {
+    el.checked = true;
+  });
+  await h.run("lbNextStep()");
+  await h.settle();
+  const own = h.state("[...labBuilder.picked]");
+  await h.run(`lbSetTopic(${JSON.stringify(own[0])}, false, false)`);
+  await h.settle();
+  assert.equal(h.state("labBuilder.pickedAuto"), false);
+  assert.match(h.text("lb-topic-summary"), /^Your lab: /);
+  const expected = h.state("[...labBuilder.picked]");
 
   await h.run("lbGoToStep(2)");
   await h.settle();
@@ -279,7 +312,7 @@ test("changing the level in Tailor it still announces what was removed and resto
   await h.click(notice.querySelector("[data-level-restore]"));
   assert.equal(await h.state("labBuilder.level"), 100);
   assert.equal(checkedValue(h, "lb-level"), "100", "Tailor it shows the restored level");
-  assert.deepEqual(h.state("[...labBuilder.picked]"), picked);
+  assert.deepEqual(h.state("[...labBuilder.picked]"), expected, "the person's own picks come back exactly");
 });
 
 test("Review and build is one screen with one primary button, and the harness-era controls are gone", async () => {

@@ -2318,6 +2318,53 @@
     .lb-mine-results { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
     .lb-mine-result { display: grid; gap: 4px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
     .lb-mine-heading { margin: 12px 0 0; font-size: 13px; }
+    /* ── Topics step: summary line, collapsed groups, compact rows, More ways to add topics ── */
+    .lb-link-btn { padding: 2px 4px; border: 0; border-radius: 4px; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--link-color); text-decoration: underline; cursor: pointer; }
+    .lb-link-btn:hover { color: var(--accent-hover); }
+    .lb-link-btn:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
+    .lb-topic-summary-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 12px; }
+    .lb-topic-summary { margin: 0; font-size: 16px; font-weight: 600; color: var(--text); }
+    .lb-topic-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; margin: 0 0 12px; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .lb-topic-tools[hidden] { display: none; }
+    details.lb-concept, details.lb-concept:has(.lb-feature.checked) { margin: 0; padding: 0; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: transparent; }
+    details.lb-concept > summary.lb-category-title { display: flex; align-items: baseline; gap: 4px 12px; flex-wrap: wrap; padding: 12px 2px; border-bottom: 0; font-size: 15px; font-weight: 600; letter-spacing: 0; cursor: pointer; list-style: none; }
+    details.lb-concept > summary.lb-category-title::-webkit-details-marker { display: none; }
+    details.lb-concept > summary.lb-category-title::before { content: "▸"; width: auto; height: auto; margin: 0; border-radius: 0; background: none; color: var(--text-muted); vertical-align: baseline; }
+    details.lb-concept[open] > summary.lb-category-title::before { content: "▾"; }
+    details.lb-concept > summary.lb-category-title:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; border-radius: 6px; }
+    details.lb-concept .lb-category-name { margin: 0; font-size: inherit; font-weight: inherit; }
+    details.lb-concept .lb-category-name::before { content: none; }
+    details.lb-concept > summary .lb-concept-count { margin-left: auto; }
+    details.lb-concept[open] { padding-bottom: 12px; }
+    details.lb-concept[open] > summary.lb-category-title { margin-bottom: 4px; }
+    details.lb-concept > .lb-category-desc { margin: 0 0 8px 20px; }
+    .lb-concept-muted-group > summary.lb-category-title .lb-category-name { color: var(--text-muted); font-weight: 400; }
+    .lb-concept-muted-list { display: grid; gap: 8px; margin: 0; padding: 0 0 4px 20px; list-style: none; font-size: 13px; color: var(--text-muted); }
+    .lb-concept-muted-list .lb-concept-muted { padding: 0; border: 0; background: none; }
+    .lb-feature-grid:has(> .lb-row) { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    .lb-feature.lb-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px; padding: 2px 8px; border-color: transparent; background: transparent; cursor: default; }
+    .lb-feature.lb-row:hover { border-color: var(--border); }
+    .lb-feature.lb-row.checked { border-color: transparent; background: var(--lb-card-checked-bg); }
+    .lb-row-main { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; min-width: 0; padding: 6px 0; cursor: pointer; }
+    .lb-row-title { flex: 1 1 14em; min-width: 0; font-size: 13.5px; font-weight: 600; }
+    .lb-row-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+    .lb-row-toggle { padding: 4px 6px; border: 0; border-radius: 4px; background: none; font: inherit; font-size: 12px; color: var(--link-color); text-decoration: underline; cursor: pointer; }
+    .lb-row-toggle:hover { color: var(--accent-hover); }
+    .lb-row-toggle:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 2px; }
+    .lb-row-details { grid-column: 1 / -1; padding: 0 0 10px 26px; }
+    .lb-row-details[hidden] { display: none; }
+    .lb-more { margin: 18px 0 0; border-top: 1px solid var(--border); }
+    .lb-more > summary { padding: 12px 2px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .lb-more-body { display: grid; gap: 18px; padding: 4px 2px 8px; }
+    .lb-more-heading { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+    .lb-more-note { margin: 0; font-size: 13px; color: var(--text-muted); }
+    .lb-more .lb-mine { margin: 0; border: 0; background: none; }
+    .lb-more .lb-mine-body { padding: 0; }
+    .lb-more .lb-learn-bar { margin: 0; padding: 0; border: 0; background: none; }
+    .lb-outline-title { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+    .lb-outline-facts { margin: 0 0 6px; font-size: 13px; color: var(--text-muted); }
+    .lb-outline-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
+    .lb-outline-subtag { font-weight: 400; color: var(--text-muted); }
     .lb-learn-links {
       display: flex;
       flex-wrap: wrap;
@@ -6096,42 +6143,12 @@
             <!-- Step 3: topics -->
             <div class="panel lb-pane" id="lb-pane-3" style="display: none;">
               <h3 id="lb-heading-3" tabindex="-1">Step 3 of 4: Which topics should the lab cover?</h3>
-              <div class="lb-topic-header">
-                <p id="lb-topic-intro" class="lb-topic-intro"></p>
-                <details class="lb-topic-help">
-                  <summary>How recommendations, levels, and prerequisite recaps work</summary>
-                  <div class="lb-topic-help-body">
-                    <p>Topics are pre-selected only when they follow directly from the vertical or departments you chose, and each card shows why. With no vertical or department, nothing is pre-selected — check individual topics or choose <strong>Select recommended</strong> to add our suggested baseline.</p>
-                    <p>Only topics at the level you chose in Step 2 appear in the main groups. Lower-level prerequisites required by your selections are added automatically as short recaps in their own collapsible section at the bottom; uncheck a recap if learners already know it. Optional 3rd-party connectors stay unchecked unless you explicitly select them.</p>
-                  </div>
-                </details>
+              <p id="lb-topic-intro" class="lb-topic-intro"></p>
+              <div class="lb-topic-summary-row">
+                <p id="lb-topic-summary" class="lb-topic-summary" role="status" aria-live="polite"></p>
+                <button type="button" class="lb-link-btn" id="lb-topic-change" aria-expanded="false" aria-controls="lb-topic-tools" onclick="lbToggleTopicTools()">Change</button>
               </div>
-              <div id="lb-product-notes" role="status" aria-live="polite"></div>
-              <div id="lb-level-notice-3" role="status" aria-live="polite"></div>
-              <div class="lb-learn-bar" id="lb-learn-bar">
-                <p id="lb-learn-status" class="lb-learn-status" role="status" aria-live="polite">Checking when the topic list was last refreshed from Microsoft Learn...</p>
-                <button class="btn btn-sm" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
-              </div>
-              <p id="lb-learn-error" class="lb-error" role="alert"></p>
-              <details class="lb-mine" id="lb-mine">
-                <summary>Add a topic from Microsoft Learn</summary>
-                <div class="lb-mine-body">
-                  <p class="lb-mine-help">Search Microsoft Learn, or paste a link to an article. It joins this list, is saved for next time, and is selected for you.</p>
-                  <div class="lb-mine-row">
-                    <label for="lb-mine-input" class="lb-mine-label">Search or paste a link</label>
-                    <input id="lb-mine-input" type="text" class="lb-mine-input" maxlength="300" autocomplete="off" placeholder="For example: autofill columns, or https://learn.microsoft.com/...">
-                    <button type="button" class="btn btn-sm btn-primary" id="lb-mine-go">Search</button>
-                  </div>
-                  <p id="lb-mine-status" class="lb-learn-status" role="status" aria-live="polite"></p>
-                  <ul id="lb-mine-results" class="lb-mine-results"></ul>
-                  <div id="lb-mine-saved"></div>
-                </div>
-              </details>
-              <div class="lb-topic-scorebar">
-                <div id="lb-topic-scorecard" class="lb-topic-scorecard" role="group" aria-label="Topic selection summary"></div>
-                <p id="lb-topic-count" class="lb-topic-count" role="status" aria-live="polite"></p>
-              </div>
-              <div class="lb-topic-toolbar" role="region" aria-label="Filter and bulk-select topics">
+              <div id="lb-topic-tools" class="lb-topic-tools" role="region" aria-label="Search, filter, and choose topics" hidden>
                 <div class="lb-toolbar-find">
                   <div class="lb-toolbar-field lb-toolbar-search-field">
                     <label for="lb-topic-search" class="lb-inline-label">Search topics</label>
@@ -6142,7 +6159,7 @@
                     <select id="lb-topic-filter" class="lb-filter" autocomplete="off">
                       <option value="all">All topics</option>
                       <option value="selected">Selected topics</option>
-                      <option value="recommended">Recommended topics</option>
+                      <option value="recommended">Suggested topics</option>
                       <option value="new">New from Learn</option>
                       <option value="updated">Updated</option>
                       <option value="moved">Docs moved</option>
@@ -6150,30 +6167,69 @@
                     </select>
                   </div>
                 </div>
-                <div class="lb-toolbar-actions" role="group" aria-label="Bulk selection actions">
-                  <button class="btn btn-sm lb-btn-recommend" type="button" onclick="lbSelectRecommended()">Select recommended</button>
+                <div class="lb-toolbar-actions" role="group" aria-label="Choose topics">
+                  <button class="btn btn-sm lb-btn-recommend" type="button" onclick="lbSelectRecommended()">Back to suggested</button>
                   <button class="btn btn-sm" type="button" onclick="lbSelectAllTopics()">Select all</button>
                   <button class="btn btn-sm lb-btn-subtle" type="button" onclick="lbClearTopics()">Clear</button>
-                  <button class="btn btn-sm lb-btn-subtle" type="button" onclick="lbResetTopics()">Reset to my answers</button>
-                </div>
-                <div class="lb-export" id="lb-export" role="group" aria-label="Export topics">
-                  <div class="lb-export-split">
-                    <button class="btn btn-sm lb-export-main" type="button" id="lb-export-main" title="Export every topic and sub-topic for your chosen products as a CSV file that opens in Excel">Export All Topics</button>
-                    <button class="btn btn-sm lb-export-toggle" type="button" id="lb-export-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="lb-export-menu" aria-label="Choose an export format"><span aria-hidden="true">&#9662;</span></button>
-                  </div>
-                  <div class="lb-export-menu" id="lb-export-menu" role="menu" aria-label="Export format" hidden>
-                    <button type="button" role="menuitem" data-export-format="csv">CSV (opens in Excel)</button>
-                    <button type="button" role="menuitem" data-export-format="markdown">Markdown</button>
-                    <button type="button" role="menuitem" data-export-format="json">JSON</button>
-                  </div>
                 </div>
               </div>
-              <p id="lb-export-scope" class="lb-export-scope"></p>
-              <p id="lb-export-status" class="lb-export-status" role="status" aria-live="polite"></p>
+              <details class="lb-topic-help">
+                <summary>How suggestions work</summary>
+                <div class="lb-topic-help-body">
+                  <p>We suggest the usual topics for your level, plus any that follow from your industry or departments. Lower-level topics that a chosen topic builds on come as short refreshers. Optional 3rd-party connectors are never selected for you.</p>
+                </div>
+              </details>
+              <div id="lb-product-notes" role="status" aria-live="polite"></div>
+              <div id="lb-level-notice-3" role="status" aria-live="polite"></div>
+              <p id="lb-topic-count" class="lb-topic-count" role="status" aria-live="polite"></p>
               <p id="lb-topic-announce" class="sr-only" role="status" aria-live="polite"></p>
               <div id="lb-topic-warnings"></div>
               <p id="lb-topic-error" class="lb-error" role="alert"></p>
               <div id="lb-topic-groups"><div class="scenario-empty">Loading topics...</div></div>
+              <details class="lb-more" id="lb-more-ways">
+                <summary>More ways to add topics</summary>
+                <div class="lb-more-body">
+                  <section class="lb-more-section" aria-labelledby="lb-learn-heading">
+                    <h4 class="lb-more-heading" id="lb-learn-heading">Refresh from Microsoft Learn</h4>
+                    <div class="lb-learn-bar" id="lb-learn-bar">
+                      <p id="lb-learn-status" class="lb-learn-status" role="status" aria-live="polite">Checking when the topic list was last refreshed from Microsoft Learn...</p>
+                      <button class="btn btn-sm" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
+                    </div>
+                    <p id="lb-learn-error" class="lb-error" role="alert"></p>
+                  </section>
+                  <section class="lb-more-section lb-mine" id="lb-mine" aria-labelledby="lb-mine-heading">
+                    <h4 class="lb-more-heading" id="lb-mine-heading">Add a topic from Microsoft Learn</h4>
+                    <div class="lb-mine-body">
+                      <p class="lb-mine-help">Search Microsoft Learn, or paste a link to an article. It joins this list, is saved for next time, and is selected for you.</p>
+                      <div class="lb-mine-row">
+                        <label for="lb-mine-input" class="lb-mine-label">Search or paste a link</label>
+                        <input id="lb-mine-input" type="text" class="lb-mine-input" maxlength="300" autocomplete="off" placeholder="For example: autofill columns, or https://learn.microsoft.com/...">
+                        <button type="button" class="btn btn-sm btn-primary" id="lb-mine-go">Search</button>
+                      </div>
+                      <p id="lb-mine-status" class="lb-learn-status" role="status" aria-live="polite"></p>
+                      <ul id="lb-mine-results" class="lb-mine-results"></ul>
+                      <div id="lb-mine-saved"></div>
+                    </div>
+                  </section>
+                  <section class="lb-more-section" aria-labelledby="lb-export-heading">
+                    <h4 class="lb-more-heading" id="lb-export-heading">Export all topics</h4>
+                    <div class="lb-export" id="lb-export" role="group" aria-label="Export topics">
+                      <div class="lb-export-split">
+                        <button class="btn btn-sm lb-export-main" type="button" id="lb-export-main" title="Export every topic and sub-topic for your chosen products as a CSV file that opens in Excel">Export All Topics</button>
+                        <button class="btn btn-sm lb-export-toggle" type="button" id="lb-export-toggle" aria-haspopup="menu" aria-expanded="false" aria-controls="lb-export-menu" aria-label="Choose an export format"><span aria-hidden="true">&#9662;</span></button>
+                      </div>
+                      <div class="lb-export-menu" id="lb-export-menu" role="menu" aria-label="Export format" hidden>
+                        <button type="button" role="menuitem" data-export-format="csv">CSV (opens in Excel)</button>
+                        <button type="button" role="menuitem" data-export-format="markdown">Markdown</button>
+                        <button type="button" role="menuitem" data-export-format="json">JSON</button>
+                      </div>
+                    </div>
+                    <p id="lb-export-scope" class="lb-export-scope"></p>
+                    <p id="lb-export-status" class="lb-export-status" role="status" aria-live="polite"></p>
+                  </section>
+                  <p class="lb-more-note">Need topics from a product that is not listed? Add it in <button type="button" class="lb-link-btn" onclick="lbGoToStep(1)">Step 1</button>, under Add another Microsoft product.</p>
+                </div>
+              </details>
               <div data-lb-step-footer style="margin-top: 16px; display: flex; gap: 12px;">
                 <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
                 <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Review and build →</button>

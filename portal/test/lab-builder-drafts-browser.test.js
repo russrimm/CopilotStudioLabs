@@ -162,7 +162,7 @@ async function recommendPicks() {
   const rows = res.body.concepts.flatMap((c) => c.topics);
   const catalog = rows.filter((t) => t.source !== "learn").slice(0, 3).map((t) => t.id);
   const withSub = rows.find((t) => t.source === "learn" && (t.learn?.subtopics || []).length >= 1);
-  return { catalog, parent: withSub.id, sub: withSub.learn.subtopics[0].id };
+  return { catalog, parent: withSub.id, parentName: withSub.name, sub: withSub.learn.subtopics[0].id };
 }
 
 async function shot(page, name) {
@@ -209,21 +209,58 @@ test("configure a partial lab, save and finish later, reload, resume, find every
   await next(page, 2);
   await stepIs(page, 3);
 
-  // Step 3: topics, and one sub-topic left out.
-  await page.waitForSelector("input[data-topic]");
+  // Step 3: Topics arrives with the suggestion already selected, so there is nothing to click to get it.
+  await page.waitForSelector("#lb-topic-groups details.lb-concept");
+  assert.match(await page.textContent("#lb-topic-summary"), /^Suggested lab: \d+ topics?/);
+  assert.equal(await page.evaluate(() => labBuilder.pickedAuto), true, "the picks are the suggestion until the person changes one");
+  const suggested = await page.evaluate(() => [...labBuilder.picked].sort());
+  assert.ok(suggested.length > 0, "the suggestion is not empty");
+
+  // The search, Show filter, and bulk actions are behind Change.
+  assert.equal(await page.isHidden("#lb-topic-tools"), true, "the tools start closed");
+  await page.click("#lb-topic-change");
+  assert.equal(await page.isVisible("#lb-topic-tools"), true);
+  assert.equal(await page.getAttribute("#lb-topic-change", "aria-expanded"), "true");
+  for (const name of ["Back to suggested", "Select all", "Clear"]) assert.equal(await page.isVisible(`#lb-topic-tools button:text-is("${name}")`), true, name);
+  assert.equal(await page.locator('#lb-pane-3 button:has-text("Select recommended")').count(), 0, "Select recommended is gone");
+  assert.equal(await page.locator('#lb-pane-3 button:has-text("Reset to my answers")').count(), 0, "so is Reset to my answers");
+
+  // Pick a topic by hand that the suggestion left out: the groups are collapsed, so open them first.
+  await page.evaluate(() => document.querySelectorAll("#lb-topic-groups details.lb-concept").forEach((d) => (d.open = true)));
+  const extra = await page.evaluate(() => lbTopicRows().find((t) => !t.selected && !t.required && !t.thirdPartyConnector && !(t.learn?.subtopics || []).length)?.id);
+  assert.ok(extra, "the suggestion leaves at least one topic out");
+  await page.check(`input[data-topic="${extra}"]`);
+  await page.waitForSelector(`input[data-topic="${extra}"]:checked`);
+  await page.waitForFunction(() => /^Your lab: \d+ topics?/.test(document.getElementById("lb-topic-summary").textContent));
+  assert.equal(await page.evaluate(() => labBuilder.pickedAuto), false, "after a change the line says Your lab");
+
+  // Back to suggested puts the suggestion back, whatever was changed since.
+  await page.click('#lb-topic-tools button:text-is("Back to suggested")');
+  await page.waitForFunction(() => labBuilder.pickedAuto === true && /^Suggested lab: /.test(document.getElementById("lb-topic-summary").textContent));
+  assert.deepEqual(await page.evaluate(() => [...labBuilder.picked].sort()), suggested);
+  assert.equal(await page.isChecked(`input[data-topic="${extra}"]`), false, "the topic added by hand is out again");
+
+  // The lab is built on the suggestion plus the topics this test needs, and one sub-topic is left out.
+  await page.evaluate(() => document.querySelectorAll("#lb-topic-groups details.lb-concept").forEach((d) => (d.open = true)));
   for (const id of picks.catalog) {
     await page.check(`input[data-topic="${id}"]`);
     await page.waitForSelector(`input[data-topic="${id}"]:checked`);
   }
+  await page.fill("#lb-topic-search", picks.parentName);
+  await page.waitForSelector(`input[data-topic="${picks.parent}"]`, { state: "visible" });
   await page.check(`input[data-topic="${picks.parent}"]`);
+  await page.click(`button[data-row-toggle="${picks.parent}"][aria-expanded="false"]`);
   await page.waitForSelector(`input[data-subtopic="${picks.sub}"]:checked`);
   await page.uncheck(`input[data-subtopic="${picks.sub}"]`);
   await page.waitForSelector(`input[data-topic="${picks.parent}"][data-subtopic-state="some"]`);
+  await page.fill("#lb-topic-search", "");
 
   // Step 4: take a module out, move one, and set the lab's name, agent, and time.
   await next(page, 3);
   await stepIs(page, 4);
   await page.waitForSelector("#lb-preview table");
+  assert.equal(await page.locator("#lb-preview button[data-outline-move]").count(), 0, "the move buttons wait for Edit order");
+  await page.click('#lb-preview button[data-outline-action="toggle-edit"]');
   await page.uncheck(`#lb-preview input[data-outline-module="${picks.catalog[1]}"]`);
   await page.waitForSelector(".lb-removed-section");
   await page.click(`#lb-preview button[data-outline-move="down"][data-outline-module="${picks.catalog[0]}"]`);

@@ -232,71 +232,89 @@ arrow, Home, and End keys move among the tabs of the current area.
       page says so if it resets your own topic choices).
    3. **Topics**: every topic at your level that applies to your products (and, for
       Copilot Studio, your harness), grouped by
-      concept (Instructions, Knowledge, Tools, Skills, MCP servers, and so on), each
-      labeled with its product.
-      A topic is pre-selected only when it follows from an answer you gave: the
-      industry or a department you chose points at it, and it says why. **With no
-      industry and no department, nothing is selected**: the level alone never
-      selects a topic. **Custom labs default strictly to 1st-party Microsoft
-      connectors**: 3rd-party SaaS, ERP, CRM, EHR, and ticketing connector modules
-      (such as SAP, Salesforce, ServiceNow, Snowflake, Jira, Epic on FHIR, and
-      Shopify) carry an *Optional 3rd-party connector* badge, can be narrowed with
-      the **Optional 3rd-party connectors** filter, and remain unchecked unless you
-      explicitly select them (neither industry/department defaults nor **Select
-      recommended** adds them automatically). The 1st-party topics the rules suggest
-      for your answers carry a *Recommended, not selected* badge and a reason;
-      **Select recommended** adds them on purpose. Check or uncheck anything; use
-      **Select all**, **Clear**, **Reset to my answers** (back to what your vertical
-      and departments pre-select), or the per-group buttons. A line above the list
-      says how many topics were pre-selected and from which answer. A status line
-      announces the count ("Showing 20 topics for Level 100 (Beginner)"). Prerequisites at the same level are marked
-      *Required prerequisite*. Prerequisites from lower levels are not mixed into
-      the list: they sit in a collapsed group, **Prerequisites from lower levels
-      (included automatically)**, each with the reason and a checkbox. If you
-      uncheck one, you get a warning, and the lab assumes learners have already
-      done it. Every topic card—whether a reviewed catalog topic, a newly
-      discovered Microsoft Learn topic, a lower-level prerequisite recap, or a
-      *Level unknown* topic, and whether checked or unchecked—includes clickable
-      **Microsoft Learn** documentation hyperlinks (`opens in a new tab`) so you
-      can inspect the source articles without toggling the card's checkbox.
-      Concepts with no topic for your selection say whether the product or
-      harness has no equivalent or the topic is not written yet, and a product with
-      nothing at your level says what it does have and at which levels.
+      concept (Instructions, Knowledge, Tools, Skills, MCP servers, and so on). The step
+      **arrives with the suggested topics already selected**, so **Next** accepts them:
+      the topics the rules recommend for your level, plus any that follow from the
+      industry or departments you chose. A saved draft, **Edit selections**, or a restored
+      level choice keeps the topics you picked and is never replaced by the suggestion. One
+      sentence says why ("Suggested for Level 100 (Beginner): the usual starting topics."), and
+      one line leads the step: **Suggested lab: 8 topics + 2 refreshers, about 2 h 20 min.**
+      (it reads **Your lab: ...** once you change a pick, and **No topics selected yet.** when
+      nothing is chosen, which keeps **Next** blocked with a plain message).
+
+      **Change** opens the topic tools: **Search topics**, **Show** (All, Selected, Suggested,
+      New from Learn, Updated, Docs moved, Optional 3rd-party connectors), and the three bulk
+      buttons **Back to suggested** (the suggested topics again; it also replaces the old
+      *Reset to my answers*, which no longer exists), **Select all**, and **Clear**.
+
+      The groups are **collapsed**, each showing *k of n selected, about T min* with its own
+      **Select group** and **Clear group** inside. Groups with no topic for your answers share
+      one closed line ("2 more groups have nothing for these answers") that says, when opened,
+      whether the product or harness has no equivalent or the topic is not written yet. A
+      search or a filter opens every group that has a match. Opening a group shows
+      **compact rows**: a checkbox, the title, the time, and one status chip
+      (*Required prerequisite*, *Added by you*, *New from Learn*, *Updated*, *Docs moved*,
+      *Level unknown*, *Optional 3rd-party connector*, or *Suggested*). Everything else is behind
+      each row's **Details**: the description, why it was suggested for your industry or
+      departments, **Requires:** and **Required by:**, the **Microsoft Learn** documentation
+      hyperlinks (`opens in a new tab`, which never toggle the row's checkbox), notes, and the
+      sub-topics. Details stay open or closed as you work.
+
+      **Custom labs default strictly to 1st-party Microsoft connectors**: 3rd-party SaaS, ERP,
+      CRM, EHR, and ticketing connector modules (such as SAP, Salesforce, ServiceNow, Snowflake,
+      Jira, Epic on FHIR, and Shopify) carry an *Optional 3rd-party connector* chip, can be
+      narrowed with the **Optional 3rd-party connectors** filter, and are never selected for
+      you (neither the suggestion nor **Back to suggested** adds them). A status line announces
+      the count ("16 topics and 1 sub-topic for Level 100 (Beginner)"). Prerequisites at the
+      same level are marked *Required prerequisite*. Prerequisites from lower levels are not
+      mixed into the list: they sit in a collapsed group, **Refreshers from lower levels
+      (included automatically)**, each with a checkbox, its time, and its reason under
+      **Details**. If you uncheck one, you get a warning, and the lab assumes learners have
+      already done it. A product with nothing at your level says what it does have and at
+      which levels.
 
       **Sub-topics are options, not notes.** A new topic from Microsoft Learn can
       carry *sub-topics*: companion articles (an overview, an examples page, a
       how-to) that Learn splits one capability across and the builder merges under
-      the topic. Each one is its own checkbox in a labeled group (**3 sub-topics from
-      Microsoft Learn: 3 included**) inside the topic's card, with its title, summary,
+      the topic. They sit under the topic's **Details**, each as its own checkbox in a labeled
+      group (**3 sub-topics from Microsoft Learn: 3 included**), with its title, summary,
       level and time when known, and its own **Microsoft Learn** link, which opens in
-      a new tab and never toggles the checkbox. Selecting a topic includes all of its
+      a new tab and never toggles the checkbox; the row itself says "· 2 of 3 sub-topics".
+      Selecting a topic includes all of its
       sub-topics. Unchecking one puts the topic's checkbox in the mixed state; with
       every sub-topic unchecked the topic's own article is still built (uncheck the
       topic to remove it). Clicking the mixed checkbox includes them all again; checking
       a sub-topic under an unselected topic selects the topic with only that one.
       A list longer than six shows the first six and **Show N more sub-topics**.
-      **Select all**, **Select recommended**, **Clear**, **Reset to my answers**, and the
-      group buttons all reset sub-topic choices with the topics. The scorecard adds
-      "N of M sub-topics included", the status line reads "Showing 20 topics and 47
-      sub-topics for Level 200 (Intermediate)", and each change is announced ("Alpha
+      **Select all**, **Back to suggested**, **Clear**, and the
+      group buttons all reset sub-topic choices with the topics. The summary line adds
+      ", 2 of 5 sub-topics included", the status line reads "Showing 20 topics and 47
+      sub-topics for Level 200 (Intermediate)" while a search or filter narrows the list, and each change is announced ("Alpha
       trigger examples left out. 2 of 3 sub-topics included under Alpha trigger.").
-      A search also matches sub-topic titles and summaries and shows the matching
-      sub-topic under its topic. Reviewed catalog topics have no sub-topics; their
-      related topics are shown on the card as **Requires:** and **Required by:**, each
-      with where it shows up (selected, included as a lower-level recap, turned off,
+      A search also matches sub-topic titles and summaries and opens the matching
+      row's details to show the sub-topic under its topic. Reviewed catalog topics have no sub-topics; their
+      related topics are shown in **Details** as **Requires:** and **Required by:**, each
+      with where it shows up (selected, included as a lower-level refresher, turned off,
       listed here, or at another level or harness), so no related topic is invisible.
 
-      **Export All Topics** (in the toolbar beside the bulk buttons) exports every
-      topic and sub-topic for the products you chose in Step 1 at every level,
-      whatever the search, filter, level, or selection. See
-      [Export All Topics](#export-all-topics).
+      **More ways to add topics** (one closed line at the end of the step) holds the
+      rest: **Refresh from Microsoft Learn** with its "Last refreshed" line, **Add a topic
+      from Microsoft Learn** (see [Add a topic from Microsoft Learn](#add-a-topic-from-microsoft-learn)),
+      and **Export All Topics**, which exports every topic and sub-topic for the products you
+      chose in Step 1 at every level, whatever the search, filter, level, or selection. See
+      [Export All Topics](#export-all-topics). A product that is not listed is added in Step 1,
+      under **Add another Microsoft product**, because it joins the product list.
    4. **Review and build**: one screen with the outline, the optional extras, and the
-      build. The outline lists every planned module with the estimated time for each and a
-      total. Every planned module—including both chosen modules and lower-level
-      prerequisite recaps—has an **Include** checkbox so you can uncheck anything
-      you do not want right in the outline, along with direct **Microsoft Learn**
-      reference links on both included outline rows and excluded **Removed from
-      curriculum** items. Unchecking a module immediately removes
+      build. The outline names the lab and says, in one line, how many modules and
+      refreshers it has and about how long it takes, then lists every planned module
+      with the estimated time for each and a total. Every planned module—including both
+      chosen modules and lower-level
+      prerequisite refreshers—has an **Include** checkbox so you can uncheck anything
+      you do not want right in the outline. Rows show only the checkbox, the title, and
+      the time. **Edit order** reveals the rest: the move up and move down buttons, the
+      step numbers, each module's description, and the direct **Microsoft Learn**
+      reference links (on included rows and on excluded **Removed from
+      curriculum** items too); **Done** hides them again. Unchecking a module immediately removes
       it from the curriculum, renumbers the remaining steps, updates **Your lab so
       far** and the Topics step's checkboxes, and moves the removed module into a **Removed
       from curriculum** section below the outline where you can re-check individual
@@ -363,8 +381,8 @@ arrow, Home, and End keys move among the tabs of the current area.
    summary bar at the top repeats them only when the footer is out of view, so you never
    see the same button twice. A lab that is open in the result panel also lists its
    download, print, and validate actions only there, not again in its
-   **Previously generated labs** row. The topic groups in the Topics step use a large, bold
-   heading with an accent bar so each group stands out from the cards beneath it.
+   **Previously generated labs** row. The topic groups in the Topics step are separated by thin
+   rules, each with an arrow that opens it.
 
    The level is chosen only in **Tailor it**. The left-hand "Lab Chapters" pane that used to
    group the hand-written labs by level has been removed; choosing which hand-written
@@ -372,8 +390,8 @@ arrow, Home, and End keys move among the tabs of the current area.
 until you include it; **Include all labs** and **Apply scenario** are explicit actions), and the
    **Preview** tab has its own lab picker. Open `/#labbuilder` to start the wizard.
 
-   A default lab for one product takes six clicks: choose the product, **Next**, **Next**
-   (accept the Tailor it defaults), **Select recommended**, **Next**, **Build my lab**.
+   A default lab for one product takes five clicks: choose the product, **Next**, **Next**
+   (accept the Tailor it defaults), **Next** (accept the suggested topics), **Build my lab**.
 
 The wizard previews the module outline (with prerequisites resolved and an
 estimated time for every module and for the whole lab) before you commit to a
@@ -973,7 +991,7 @@ rules pre-select a topic; the level's own list is recommended but never selected
 the learner. Non-Microsoft 3rd-party connector modules (`"thirdPartyConnector": true`
 in `features.json`, or discovered 3rd-party vendor connector topics from Microsoft
 Learn) are never listed in `levels` or `topics` (`validateConcepts()` enforces this),
-so every industry, department, and **Select recommended** combination produces a
+so every industry, department, and **Back to suggested** combination produces a
 100% 1st-party Microsoft connector curriculum unless the user explicitly checks an
 optional 3rd-party connector module. A vertical or department may list relevant
 3rd-party modules in `optionalThirdParty` so the Topics step can surface domain context on
@@ -3050,7 +3068,7 @@ start other workflows, so close and reopen the pull request to run checks on it.
 ### Add a topic from Microsoft Learn
 
 Discovery cannot list every page (it reads within a budget), so the Topics step has an **Add a topic from
-Microsoft Learn** panel under the "last refreshed" line. Type a few words and **Search** (the portal asks the Learn
+Microsoft Learn** panel inside **More ways to add topics**, under the "last refreshed" line. Type a few words and **Search** (the portal asks the Learn
 MCP server, `microsoft_docs_search`) or paste a `https://learn.microsoft.com/...` link. Each result names the
 product it belongs to; **Add to my topics** reads the page (`microsoft_docs_fetch`), builds a topic from its title and
 summary, saves it, and selects it at the level and harness you are building for. A result already in the list says so
@@ -3101,7 +3119,7 @@ labs already built from it do not change.
 | `POST /api/lab-builder/products/mine` `{ root, name? }` | Add a product. 201; 400 for an address that is not https on learn.microsoft.com or a full list; 409 when a reviewed or added product already covers it; 404/502 when Learn has no readable page or cannot be reached. |
 | `DELETE /api/lab-builder/products/mine/:id` | Remove a product you added. |
 
-Refresh its topic list with **Refresh from Microsoft Learn** in the Topics step (`POST /api/lab-builder/topics/refresh` with its
+Refresh its topic list with **Refresh from Microsoft Learn** (under **More ways to add topics**) in the Topics step (`POST /api/lab-builder/topics/refresh` with its
 id). The weekly snapshot workflow and `npm run refresh-topics` only cover the six reviewed products, so a product you
 added has a runtime cache and no committed snapshot.
 
@@ -3164,10 +3182,10 @@ level.
 
 ### Export All Topics
 
-The **Export All Topics** button in the Topics step toolbar writes every topic and sub-topic for
+The **Export All Topics** button under **More ways to add topics** in the Topics step writes every topic and sub-topic for
 the products chosen in Step 1 (for Copilot Studio, the harness chosen in Tailor it), at every
 level including lower-level prerequisites, whatever the search, filter, level view, or
-selection. The note under the toolbar says exactly what it will write ("All topics and
+selection. The note under the button says exactly what it will write ("All topics and
 sub-topics for Copilot Studio and SharePoint AI (Standard harness), all levels: 214 rows
 (190 topics, 24 sub-topics)."). The main button writes CSV; the arrow beside it opens a
 menu (keyboard: Arrow Down, Arrow Up, Escape): **CSV (opens in Excel)**, **Markdown**, or **JSON**.
