@@ -300,7 +300,7 @@ function pane(id) {
 }
 
 test("each wizard step has one footer, and no action appears twice inside it", () => {
-  for (let step = 1; step <= 8; step += 1) {
+  for (let step = 1; step <= 4; step += 1) {
     const html = pane(step);
     assert.equal([...html.matchAll(/data-lb-step-footer/g)].length, 1, `step ${step} has one footer`);
     const footer = html.slice(html.indexOf("data-lb-step-footer"));
@@ -312,7 +312,7 @@ test("each wizard step has one footer, and no action appears twice inside it", (
       `step ${step} has no Back, Next, or Generate button outside its footer`,
     );
   }
-  assert.equal([...indexHtml.matchAll(/id="lb-generate-btn"/g)].length, 1, "Generate Lab exists once");
+  assert.equal([...indexHtml.matchAll(/id="lb-generate-btn"/g)].length, 1, "Build my lab exists once");
 });
 
 test("the step footer stays reachable and the sticky bar copy yields to it", () => {

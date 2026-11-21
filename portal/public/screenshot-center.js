@@ -2670,9 +2670,9 @@ function scFillLightbox(labId, filename) {
   info.appendChild(scEl("div", { class: "sc-card-actions" }, scCardActions(labId, shot, status, { idPrefix: "lb" })));
 }
 
-// ── Step 8: capture when the lab is built ───────────────────────────────────
+// ── Review and build: capture when the lab is built ─────────────────────────
 
-/** Enable the "Capture screenshots" checkbox only while a computer is connected. */
+/** Show the "Capture screenshots" checkbox only while a computer is connected; otherwise say in one line how to turn it on. */
 async function scSyncCaptureOnBuild({ fetch: refresh = true } = {}) {
   const box = document.getElementById("lb-capture-on-build");
   if (!box) return;
@@ -2680,15 +2680,17 @@ async function scSyncCaptureOnBuild({ fetch: refresh = true } = {}) {
   const connected = scIsConnected();
   const statusEl = document.getElementById("lb-capture-on-build-status");
   const setup = document.getElementById("lb-capture-on-build-setup");
+  const label = document.getElementById("lb-capture-on-build-label");
   box.disabled = !connected;
   if (!connected) box.checked = false;
+  if (label) label.hidden = !connected;
   if (statusEl) {
     const names = (scState.status?.companion?.devices || []).filter((d) => d.connected).map((d) => d.name);
     statusEl.textContent = connected
       ? `${names.length ? `Connected: ${scJoinNames(names, 2)}. ` : "Your computer is connected. "}Screenshots are captured on your computer right after your lab is built.`
       : scState.statusError && !scState.status
         ? "We could not check whether a computer is connected. You can still build your lab and capture screenshots afterward."
-        : "Your computer is not connected yet, so this is turned off. You can connect it now (about two minutes), or capture screenshots after the lab is built.";
+        : "Want screenshots taken as the lab is built? Connect your computer (about two minutes). Or capture them after the build.";
   }
   if (setup) setup.hidden = connected;
 }
@@ -2697,6 +2699,7 @@ function scStartBuildPairing() {
   return scStartPairing({
     source: "build",
     onConnected: () => {
+      void scSyncCaptureOnBuild({ fetch: false });
       const box = document.getElementById("lb-capture-on-build");
       if (box && !box.disabled) box.checked = true;
     },
@@ -2713,7 +2716,7 @@ function scInitBuildCapture() {
     void scHandleAction("", control.dataset.scAction, control, "", null);
   });
   const stepVisible = () => {
-    const pane = document.getElementById("lb-pane-8");
+    const pane = document.getElementById("lb-pane-4");
     return Boolean(pane) && pane.style.display !== "none";
   };
   window.addEventListener("focus", () => {

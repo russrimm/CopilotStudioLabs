@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import express from "express";
 
-import { MAX_DRAFTS, MAX_DRAFT_BYTES, ownerKeyFor, createDraftStore, draftsDirFor as routeDraftsDir, DraftError, normalizeDraftContent, isDraftId } from "../lib/lab-builder/drafts.js";
+import { MAX_DRAFTS, MAX_DRAFT_BYTES, DRAFT_SCHEMA_VERSION, ownerKeyFor, createDraftStore, draftsDirFor as routeDraftsDir, DraftError, normalizeDraftContent, isDraftId } from "../lib/lab-builder/drafts.js";
 import { registerDraftRoutes } from "../lib/lab-builder/drafts-api.js";
 import { selectionsFromManifest } from "../lib/lab-builder/generated-labs.js";
 import { createRateLimiter, positiveIntFromEnv } from "../lib/rate-limit.js";
@@ -57,7 +57,7 @@ function rich(overrides = {}) {
       brandOverrides: { companyName: "Contoso", tagline: "Learn by doing" },
       ...overrides.selections,
     },
-    wizard: { step: 6, furthest: 7, chosenSteps: ["product", "vertical", "departments", "level", "harness", "topics"], picked: ["alpha"], removed: [{ id: "gamma", wasPicked: true }], ...overrides.wizard },
+    wizard: { step: 3, furthest: 4, chosenSteps: ["product", "tailor", "topics"], picked: ["alpha"], removed: [{ id: "gamma", wasPicked: true }], ...overrides.wizard },
     labels: { alpha: "Alpha trigger", gamma: "Gamma topic", "copilot-studio": "Copilot Studio", ...overrides.labels },
   };
 }
@@ -89,7 +89,7 @@ test("a draft can be created, listed, read, renamed, changed, duplicated, and de
   assert.deepEqual(listed.drafts.map((d) => d.id), [created.id]);
   assert.deepEqual(listed.drafts[0].products, ["copilot-studio", "sharepoint-ai"]);
   assert.equal(listed.drafts[0].level, 200);
-  assert.equal(listed.drafts[0].step, 6);
+  assert.equal(listed.drafts[0].step, 3);
   assert.equal(listed.drafts[0].topicCount, 2);
 
   const read = store.get("local", created.id);
@@ -135,7 +135,7 @@ test("a draft file uses the same selections as a built lab's saved selections", 
     options: { customTitle: "Contoso lab", agentName: "Contoso Assistant", useLearnMcp: true, useLlm: false, includeKnowledgeCheck: true },
   };
   const saved = selectionsFromManifest(manifest);
-  const accepted = normalizeDraftContent({ selections: saved, wizard: { step: 7 } }).selections;
+  const accepted = normalizeDraftContent({ selections: saved, wizard: { step: 4 } }).selections;
   for (const key of Object.keys(saved)) assert.deepEqual(accepted[key], saved[key], `${key} means the same thing in a draft and in a built lab`);
 });
 
@@ -151,8 +151,8 @@ test("names and text are cleaned, and what is not valid is refused with a plain 
   bad({ features: "alpha" }, /not a list/);
   bad({ features: ["fine", "../escape"] }, /not valid/);
   bad({ features: Array.from({ length: 1001 }, (_, i) => `topic-${i}`) }, /more topics than can be saved/);
-  assert.throws(() => normalizeDraftContent({ selections: { products: ["copilot-studio"] }, wizard: { step: 9 } }), /not a wizard step/);
-  assert.throws(() => normalizeDraftContent({ selections: { products: ["copilot-studio"] }, wizard: { chosenSteps: ["nope"] } }), /answered steps/);
+  assert.throws(() => normalizeDraftContent({ selections: { products: ["copilot-studio"] }, wizard: { step: 5 } }), /not a wizard step/);
+  assert.throws(() => normalizeDraftContent({ selections: { products: ["copilot-studio"] }, wizard: { chosenSteps: ["vertical"] } }), /answered steps/);
   const clean = normalizeDraftContent({ selections: { products: ["copilot-studio"], customTitle: "A\u0000 title\nwith   breaks", unknownField: "ignored", brandOverrides: { companyName: " Contoso ", sneaky: "x" } } });
   assert.equal(clean.selections.customTitle, "A title with breaks");
   assert.equal(clean.selections.unknownField, undefined);
@@ -314,6 +314,87 @@ test("an older file is migrated step by step when it is read, and a missing step
 
   const stuck = createDraftStore({ dir, schema: { currentVersion: 3, migrations: { 2: (r) => r } } });
   assert.throws(() => stuck.get("local", draft.id), (err) => err.status === 409 && /older version that can no longer be opened.*has not been changed/.test(err.message));
+});
+
+/** Rewrite a saved draft's file the way portal version 1 wrote it: eight wizard steps and the old answered-step names. */
+function asVersionOne(dir, id, wizard, { unsaved = false } = {}) {
+  const file = path.join(draftsDirFor(dir), "local", `${unsaved ? "unsaved" : id}.json`);
+  const record = JSON.parse(readFileSync(file, "utf8"));
+  writeFileSync(file, JSON.stringify({ ...record, schemaVersion: 1, content: { ...record.content, wizard: { picked: ["alpha"], removed: [], ...wizard } } }));
+  return file;
+}
+
+test("a version 1 draft is moved onto the four version 2 steps when it is read, with every choice intact", () => {
+  const dir = tmp();
+  const store = createDraftStore({ dir });
+  const everything = ["product", "vertical", "departments", "level", "harness", "topics"];
+  const expectations = [
+    // [old step, old furthest, old answered steps, new step, new furthest, new answered steps]
+    [1, 1, ["product"], 1, 1, ["product"]],
+    [2, 2, ["product"], 2, 2, ["product"]],
+    [3, 4, ["product", "vertical"], 2, 2, ["product", "tailor"]],
+    [4, 4, ["product", "vertical", "departments"], 2, 2, ["product", "tailor"]],
+    [5, 5, ["product", "vertical", "departments", "level", "harness"], 2, 2, ["product", "tailor"]],
+    [6, 7, everything, 3, 4, ["product", "tailor", "topics"]],
+    [7, 7, everything, 4, 4, ["product", "tailor", "topics"]],
+    [8, 8, everything, 4, 4, ["product", "tailor", "topics"]],
+    // The Harness step could be hidden: such a draft went from Level (4) straight to Topics (6).
+    [6, 6, ["product", "vertical", "departments", "level", "topics"], 3, 3, ["product", "tailor", "topics"]],
+  ];
+  for (const [step, furthest, chosenSteps, newStep, newFurthest, newChosen] of expectations) {
+    const draft = store.create("local", { name: `Old step ${step}`, content: rich() });
+    const original = store.get("local", draft.id).content.selections;
+    const file = asVersionOne(dir, draft.id, { step, furthest, chosenSteps });
+    const before = readFileSync(file, "utf8");
+
+    const read = store.get("local", draft.id);
+    assert.equal(read.schemaVersion, DRAFT_SCHEMA_VERSION);
+    assert.deepEqual([read.content.wizard.step, read.content.wizard.furthest, read.content.wizard.chosenSteps], [newStep, newFurthest, newChosen], `old step ${step}`);
+    assert.deepEqual(read.content.wizard.picked, ["alpha"], "the person's own picks are untouched");
+    assert.deepEqual(read.content.selections, original, "every selection is untouched");
+    assert.equal(store.list("local").drafts.find((d) => d.id === draft.id).step, newStep, "the Saved drafts list reads the new step");
+    assert.equal(readFileSync(file, "utf8"), before, "reading never rewrites the file");
+  }
+});
+
+test("a version 1 draft keeps every selection, and saving it again writes version 2", () => {
+  const dir = tmp();
+  const store = createDraftStore({ dir });
+  const draft = store.create("local", { name: "Old and rich", content: rich() });
+  const original = store.get("local", draft.id).content.selections;
+  asVersionOne(dir, draft.id, { step: 6, furthest: 7, chosenSteps: ["product", "vertical", "departments", "level", "harness", "topics"] });
+  const migrated = store.get("local", draft.id);
+  assert.deepEqual(migrated.content.selections, original);
+  assert.deepEqual(migrated.content.labels, rich().labels);
+  const renamed = store.update("local", draft.id, { name: "Renamed" });
+  assert.equal(renamed.schemaVersion, DRAFT_SCHEMA_VERSION);
+  assert.equal(JSON.parse(readFileSync(path.join(draftsDirFor(dir), "local", `${draft.id}.json`), "utf8")).schemaVersion, DRAFT_SCHEMA_VERSION);
+});
+
+test("the autosave slot of version 1 resumes on the right new step", () => {
+  const dir = tmp();
+  const store = createDraftStore({ dir });
+  store.saveUnsaved("local", { content: rich() });
+  asVersionOne(dir, null, { step: 8, furthest: 8, chosenSteps: ["product", "vertical", "departments", "level", "harness", "topics"] }, { unsaved: true });
+  const slot = store.getUnsaved("local");
+  assert.deepEqual([slot.content.wizard.step, slot.content.wizard.furthest], [4, 4]);
+  assert.deepEqual(slot.content.wizard.chosenSteps, ["product", "tailor", "topics"]);
+});
+
+test("a version 1 draft with a step that never existed is still reported as unreadable, and a version 3 file stays refused", () => {
+  const dir = tmp();
+  const store = createDraftStore({ dir });
+  const draft = store.create("local", { name: "Broken old draft", content: rich() });
+  const file = asVersionOne(dir, draft.id, { step: 9, furthest: 9, chosenSteps: ["product"] });
+  const entry = store.list("local").drafts.find((d) => d.id === draft.id);
+  assert.equal(entry.unavailable, true);
+  assert.equal(entry.reason, "unreadable");
+  const before = readFileSync(file, "utf8");
+
+  const future = { ...JSON.parse(before), schemaVersion: DRAFT_SCHEMA_VERSION + 1 };
+  writeFileSync(file, JSON.stringify(future));
+  assert.throws(() => store.get("local", draft.id), (err) => err.status === 409 && err.code === "newer-version");
+  assert.equal(JSON.parse(readFileSync(file, "utf8")).schemaVersion, DRAFT_SCHEMA_VERSION + 1, "the newer file is left as it was");
 });
 
 test("the last save wins, and the response says when it happened", () => {

@@ -130,7 +130,7 @@ const draftFiles = () => {
 
 test("the real server keeps drafts under the data folder, takes a large draft, and refuses an oversized body in plain words", async () => {
   const sub = (i) => `learn-sub-${String(i).padStart(5, "0")}-${"x".repeat(60)}`;
-  const content = (count) => ({ selections: { products: ["copilot-studio"], excludedSubtopics: Array.from({ length: count }, (_, i) => sub(i)) }, wizard: { step: 6 } });
+  const content = (count) => ({ selections: { products: ["copilot-studio"], excludedSubtopics: Array.from({ length: count }, (_, i) => sub(i)) }, wizard: { step: 3 } });
 
   // About 130 KB: over the 64 KB every other lab builder route allows, under the 256 KB a draft may hold.
   const large = await api("/api/lab-builder/drafts", { method: "POST", body: JSON.stringify({ name: "Large draft", content: content(1800) }) });
@@ -198,20 +198,18 @@ test("configure a partial lab, save and finish later, reload, resume, find every
   await page.waitForSelector('input[name="lb-product"]');
   await shot(page, "01-wizard-before-saving");
 
-  // Steps 1 to 5.
+  // Steps 1 and 2: the product, then everything on Tailor it in one step.
   await page.check('input[name="lb-product"][value="copilot-studio"]');
   await next(page, 1);
-  await page.click(`#lb-industry-grid [data-industry="${industry}"]`);
-  await next(page, 2);
+  await stepIs(page, 2);
+  await page.selectOption("#lb-industry-select", industry);
   for (const role of roles) await page.check(`input[name="lb-role"][value="${role}"]`);
-  await next(page, 3);
   await page.check('input[name="lb-level"][value="200"]');
-  await next(page, 4);
   await page.check('input[name="lb-harness"][value="standard"]');
-  await next(page, 5);
-  await stepIs(page, 6);
+  await next(page, 2);
+  await stepIs(page, 3);
 
-  // Step 6: topics, and one sub-topic left out.
+  // Step 3: topics, and one sub-topic left out.
   await page.waitForSelector("input[data-topic]");
   for (const id of picks.catalog) {
     await page.check(`input[data-topic="${id}"]`);
@@ -222,15 +220,15 @@ test("configure a partial lab, save and finish later, reload, resume, find every
   await page.uncheck(`input[data-subtopic="${picks.sub}"]`);
   await page.waitForSelector(`input[data-topic="${picks.parent}"][data-subtopic-state="some"]`);
 
-  // Step 7: take a module out, move one, and set the lab's name, agent, and time.
-  await next(page, 6);
-  await stepIs(page, 7);
+  // Step 4: take a module out, move one, and set the lab's name, agent, and time.
+  await next(page, 3);
+  await stepIs(page, 4);
   await page.waitForSelector("#lb-preview table");
   await page.uncheck(`#lb-preview input[data-outline-module="${picks.catalog[1]}"]`);
   await page.waitForSelector(".lb-removed-section");
   await page.click(`#lb-preview button[data-outline-move="down"][data-outline-module="${picks.catalog[0]}"]`);
   await page.waitForSelector(".lb-outline-order-bar");
-  await page.evaluate(() => document.querySelectorAll("#lb-pane-7 details").forEach((d) => (d.open = true)));
+  await page.evaluate(() => document.querySelectorAll("#lb-pane-4 details").forEach((d) => (d.open = true)));
   await page.fill("#lb-title", "Contoso e2e lab");
   await page.fill("#lb-agent-name", "Contoso Assistant");
   await page.fill("#lb-time", "150");
@@ -249,7 +247,7 @@ test("configure a partial lab, save and finish later, reload, resume, find every
   await page.waitForFunction(() => /^Saved\. You can pick this up later under Saved drafts\./.test(document.getElementById("lb-draft-status").textContent));
   await shot(page, "03-after-saving");
   const before = await page.evaluate(() => JSON.parse(JSON.stringify(lbDraftContent())));
-  assert.equal(before.wizard.step, 7);
+  assert.equal(before.wizard.step, 4);
   assert.deepEqual(before.wizard.removed.map((r) => r.id), [picks.catalog[1]]);
   assert.deepEqual(before.selections.excludedSubtopics, [picks.sub]);
   assert.equal(before.selections.sharepointSiteName, "Contoso Team");
@@ -267,18 +265,18 @@ test("configure a partial lab, save and finish later, reload, resume, find every
   await page.click("#lb-drafts-details > summary");
   await page.waitForSelector("#lb-drafts-list .lb-gen-item");
   await shot(page, "04-saved-drafts-panel");
-  assert.match(await page.textContent("#lb-drafts-list .lb-gen-item"), /Contoso e2e draft.*Copilot Studio · Level 200 \(Intermediate\) · Step 7 of 8: Review · \d+ topics?/s);
+  assert.match(await page.textContent("#lb-drafts-list .lb-gen-item"), /Contoso e2e draft.*Copilot Studio · Level 200 \(Intermediate\) · Step 4 of 4: Review and build · \d+ topics?/s);
 
   // Resume.
   await page.click('#lb-drafts-list button[aria-label="Resume Contoso e2e draft"]');
-  await stepIs(page, 7);
+  await stepIs(page, 4);
   await page.waitForSelector("#lb-preview table");
   await shot(page, "05-after-resume");
   const after = await page.evaluate(() => JSON.parse(JSON.stringify(lbDraftContent())));
   assert.deepEqual(after.selections, before.selections, "every choice is the same");
   assert.deepEqual(after.wizard, before.wizard, "and so are the step, the picks, and the removed modules");
-  assert.match(await page.textContent("#lb-draft-announce"), /^Resumed "Contoso e2e draft"\. You are on Step 7 of 8: Review\.$/);
-  assert.match(await page.textContent("#lb-draft-notice"), /Resumed "Contoso e2e draft"\. You are on Step 7 of 8: Review\./);
+  assert.match(await page.textContent("#lb-draft-announce"), /^Resumed "Contoso e2e draft"\. You are on Step 4 of 4: Review and build\.$/);
+  assert.match(await page.textContent("#lb-draft-notice"), /Resumed "Contoso e2e draft"\. You are on Step 4 of 4: Review and build\./);
   assert.equal(await page.inputValue("#lb-title"), "Contoso e2e lab");
   assert.equal(await page.inputValue("#lb-agent-name"), "Contoso Assistant");
   assert.equal(await page.inputValue("#lb-time"), "150");
@@ -286,21 +284,20 @@ test("configure a partial lab, save and finish later, reload, resume, find every
   assert.equal(await page.isVisible(".lb-outline-order-bar"), true, "the custom module order is still active");
 
   // Back and forth still works, and Topics shows the same ticks.
-  await back(page, 7);
-  await stepIs(page, 6);
+  await back(page, 4);
+  await stepIs(page, 3);
   assert.equal(await page.isChecked(`input[data-topic="${picks.catalog[0]}"]`), true);
   assert.equal(await page.isChecked(`input[data-topic="${picks.catalog[1]}"]`), false, "the module removed in Review is still out");
   assert.equal(await page.isChecked(`input[data-subtopic="${picks.sub}"]`), false, "the left-out sub-topic is still left out");
   assert.equal(await page.getAttribute(`input[data-topic="${picks.parent}"]`, "data-subtopic-state"), "some");
-  await next(page, 6);
-  await stepIs(page, 7);
+  await next(page, 3);
+  await stepIs(page, 4);
 
-  // Carry on to the end and build.
-  await page.evaluate(() => document.querySelectorAll("#lb-pane-7 details").forEach((d) => (d.open = true)));
+  // Carry on to the end and build: Review and build has one primary button.
+  await page.evaluate(() => document.querySelectorAll("#lb-pane-4 details").forEach((d) => (d.open = true)));
   await page.uncheck("#lb-use-learn");
   await page.uncheck("#lb-use-llm");
-  await next(page, 7);
-  await stepIs(page, 8);
+  assert.equal(await page.textContent("#lb-generate-btn"), "Build my lab");
   await page.click("#lb-generate-btn");
   await page.waitForFunction(() => document.getElementById("lb-result-panel").style.display !== "none", null, { timeout: 120000 });
   const labs = (await api("/api/lab-builder/generated")).body.labs;
@@ -334,7 +331,7 @@ test("a refresh in the middle of a lab brings up one calm banner, and Resume put
   await page.waitForFunction(() => lbDraft.loaded);
   await page.check('input[name="lb-product"][value="sharepoint-ai"]');
   await next(page, 1);
-  await page.click(`#lb-industry-grid [data-industry="${industry}"]`);
+  await page.selectOption("#lb-industry-select", industry);
 
   // Autosave waits for a quiet moment, then writes the one unsaved copy.
   await page.waitForResponse((res) => res.url().endsWith("/api/lab-builder/drafts/unsaved") && res.request().method() === "PUT", { timeout: 20000 });

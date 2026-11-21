@@ -344,7 +344,7 @@ function loadWizard() {
 
 test("a fresh wizard starts on Step 1 with no products selected and requires at least one product before advancing", async () => {
   const run = loadWizard();
-  assert.deepEqual(JSON.parse(run("JSON.stringify(LB_STEPS.map((s) => s.label))")), ["Product", "Vertical", "Departments", "Level", "Harness", "Topics", "Review", "Generate"]);
+  assert.deepEqual(JSON.parse(run("JSON.stringify(LB_STEPS.map((s) => s.label))")), ["Product", "Tailor it", "Topics", "Review and build"]);
   assert.equal(run("labBuilder.step"), 1);
   assert.deepEqual(JSON.parse(run("JSON.stringify([...labBuilder.selectedProducts])")), []);
   assert.deepEqual(JSON.parse(run("JSON.stringify(lbSelectedProductList())")), []);
@@ -354,7 +354,7 @@ test("a fresh wizard starts on Step 1 with no products selected and requires at 
   await run("lbRefresh()");
   assert.equal(run("labBuilder.rec"), null);
   assert.equal(run.recommendCalls.length, 0, "does not call /api/lab-builder/recommend when 0 products are selected");
-  assert.match(run.element("lb-summary").innerHTML, /No products selected yet/);
+  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> nothing yet.");
   assert.equal(run.element("lb-start-over").hidden, true, "Start over stays hidden when nothing has been selected yet");
 
   run("lbNextStep()");
@@ -378,27 +378,34 @@ test("selecting SharePoint AI alone selects only SharePoint AI and never auto-in
   assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> SharePoint AI");
   assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio|Cross-industry|All departments|Level 100/);
 
-  run("lbNextStep()"); // Step 1 -> Step 2
-  run("lbNextStep()"); // Step 2 -> Step 3 (confirms Cross-industry)
-  run("lbNextStep()"); // Step 3 -> Step 4 (confirms All departments)
-  run("lbNextStep()"); // Step 4 -> Step 6 (confirms Level 100, skips Harness)
-  assert.match(run.element("lb-summary").innerHTML, /SharePoint AI · Cross-industry · All departments · Level 100 \(Beginner\)/);
-  assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio/);
+  run("lbNextStep()"); // Product -> Tailor it: the defaults are on screen, so the summary names them (no harness for this product)
+  assert.equal(run("labBuilder.step"), 2);
+  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> SharePoint AI · Cross-industry · All departments · Level 100 (Beginner)");
+  assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio|harness/i);
 });
 
-test("the Harness step appears only when a selected product has harnesses", () => {
+test("the harness choice on Tailor it appears only when a selected product has harnesses", async () => {
+  const { getFeaturesByCategory } = await import("../lib/lab-builder/catalog.js");
   const run = loadWizard();
+  run(`labBuilder.categories = ${JSON.stringify(getFeaturesByCategory())};`);
+  run(`labBuilder.harnesses = ${JSON.stringify(getHarnesses())};`);
   run("labBuilder.selectedProducts = new Set(['sharepoint-ai'])");
-  assert.deepEqual(JSON.parse(run("JSON.stringify(lbVisibleStepIds())")), [1, 2, 3, 4, 6, 7, 8]);
-  assert.equal(run("lbAdjacentStep(4, 1)"), 6, "Level goes straight to Topics");
-  assert.equal(run("lbAdjacentStep(6, -1)"), 4, "Topics goes straight back to Level");
+  assert.deepEqual(JSON.parse(run("JSON.stringify(lbVisibleStepIds())")), [1, 2, 3, 4], "the step count stays four");
+  assert.equal(run("lbAdjacentStep(2, 1)"), 3, "Tailor it goes straight to Topics");
+  assert.equal(run("lbAdjacentStep(3, -1)"), 2, "Topics goes straight back to Tailor it");
+  run("lbRenderHarnesses()");
+  assert.equal(run.element("lb-harness-row").hidden, true, "no harness choice without a product that has harnesses");
+  assert.equal(run.element("lb-harness-options").innerHTML, "");
   assert.equal(run("'harness' in lbAnswers()"), false);
   assert.equal(run("'harness' in lbRequest()"), false);
   assert.deepEqual(JSON.parse(run("JSON.stringify(lbRequest().products)")), ["sharepoint-ai"]);
 
   run("labBuilder.selectedProducts = new Set(['sharepoint-ai', 'copilot-studio'])");
-  assert.deepEqual(JSON.parse(run("JSON.stringify(lbVisibleStepIds())")), [1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.equal(run("lbAdjacentStep(4, 1)"), 5);
+  run("lbRenderHarnesses()");
+  assert.deepEqual(JSON.parse(run("JSON.stringify(lbVisibleStepIds())")), [1, 2, 3, 4], "the step count does not change");
+  assert.equal(run("lbAdjacentStep(2, 1)"), 3);
+  assert.equal(run.element("lb-harness-row").hidden, false, "Tailor it shows the harness choice once a product has harnesses");
+  assert.match(run.element("lb-harness-options").innerHTML, /<input type="radio" name="lb-harness" value="standard"[^>]*\bchecked\b[^>]*>/);
   assert.deepEqual(JSON.parse(run("JSON.stringify(lbRequest().products)")), ["copilot-studio", "sharepoint-ai"], "products keep catalog order");
   assert.equal(run("lbRequest().harness"), "standard");
 });
@@ -417,7 +424,7 @@ test("unchecking all products clears selectedProducts cleanly without calling re
   assert.equal(run.element("lb-product-error").textContent, "");
   assert.equal(run("labBuilder.rec"), null);
   assert.equal(run.recommendCalls.length, callsBeforeClear, "no /api/lab-builder/recommend call is made with empty products");
-  assert.match(run.element("lb-summary").innerHTML, /No products selected yet/);
+  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> nothing yet.");
 
   run("labBuilder.selectedProducts = new Set(['sharepoint-ai', 'ai-foundry', 'copilot-studio'])");
   assert.equal(run("lbProductsLabel()"), "Copilot Studio, SharePoint AI, and Foundry");
@@ -436,8 +443,8 @@ test("lbStartNewLab clears carryover state back to a blank Step 1 while lbLoadSe
     labBuilder.harness = "standard";
     labBuilder.picked = new Set(["connector-tools"]);
     labBuilder.excluded = new Set(["agent-instructions"]);
-    labBuilder.step = 6;
-    labBuilder.furthest = 6;
+    labBuilder.step = LB_STEP.topics;
+    labBuilder.furthest = LB_STEP.topics;
   `);
   await run("lbRefresh()");
   assert.match(run.element("lb-summary").innerHTML, /Copilot Studio and SharePoint AI · Manufacturing · Departments: Sales · Level 200 \(Intermediate\)/);
@@ -456,7 +463,7 @@ test("lbStartNewLab clears carryover state back to a blank Step 1 while lbLoadSe
   assert.equal(run("labBuilder.excluded.size"), 0);
   assert.equal(run("labBuilder.rec"), null);
   assert.equal(run.recommendCalls.length, callsBeforeReset, "resetting to 0 products does not call recommend");
-  assert.match(run.element("lb-summary").innerHTML, /No products selected yet/);
+  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> nothing yet.");
   assert.equal(run.element("lb-start-over").hidden, true);
   assert.ok(run.toasts.some((t) => t.msg === "Started a fresh lab. Choose one or more products to begin."));
 
@@ -479,54 +486,61 @@ test("Your lab so far reveals each wizard option progressively only after its st
     lbRenderSummary();
   `);
 
-  // Step 0 state: nothing chosen at all
-  assert.match(run.element("lb-summary").innerHTML, /No products selected yet/);
+  // Nothing chosen at all
+  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> nothing yet.");
   assert.doesNotMatch(run.element("lb-summary").innerHTML, /Copilot Studio|Cross-industry|All departments|Level 100|Standard harness|topic/);
 
-  // Step 1: choose Copilot Studio -> ONLY product appears
+  // Product step: choose Copilot Studio -> ONLY the product appears, and the Tailor defaults stay out of sight
   run("lbToggleProduct('copilot-studio', true)");
   await new Promise((r) => setTimeout(r, 20));
+  assert.equal(run("labBuilder.step"), 1);
   assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> Copilot Studio");
 
-  // Advance Step 1 -> Step 2 (Vertical not chosen yet!)
+  // Reach Tailor it: industry, departments, level, and harness appear together, defaults included. No topics yet.
   run("lbNextStep()");
   assert.equal(run("labBuilder.step"), 2);
-  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> Copilot Studio");
+  assert.equal(
+    run.element("lb-summary").innerHTML,
+    "<strong>Your lab so far:</strong> Copilot Studio · Cross-industry · All departments · Level 100 (Beginner) · Standard harness",
+  );
 
-  // Choose Healthcare in Step 2 -> Vertical now appears, still no Departments/Level/Harness/Topics
+  // Changing a Tailor choice updates the line in place.
   run("lbSelectIndustry('healthcare')");
   await new Promise((r) => setTimeout(r, 20));
-  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> Copilot Studio · Healthcare");
-
-  // Advance Step 2 -> Step 3 -> Step 4 (confirming All departments via Next)
-  run("lbNextStep()");
-  assert.equal(run("labBuilder.step"), 3);
-  run("lbNextStep()");
-  assert.equal(run("labBuilder.step"), 4);
-  assert.equal(run.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> Copilot Studio · Healthcare · All departments");
-
-  // Choose Level 200 in Step 4 -> Level appears, still no Harness or Topics
+  assert.equal(
+    run.element("lb-summary").innerHTML,
+    "<strong>Your lab so far:</strong> Copilot Studio · Healthcare · All departments · Level 100 (Beginner) · Standard harness",
+  );
   run("lbSelectLevel(200)");
   await new Promise((r) => setTimeout(r, 20));
   assert.equal(
     run.element("lb-summary").innerHTML,
-    "<strong>Your lab so far:</strong> Copilot Studio · Healthcare · All departments · Level 200 (Intermediate)",
+    "<strong>Your lab so far:</strong> Copilot Studio · Healthcare · All departments · Level 200 (Intermediate) · Standard harness",
   );
+  assert.doesNotMatch(run.element("lb-summary").innerHTML, /topic|Knowledge checks/i, "topics stay out until the Topics step is reached");
 
-  // Advance Step 4 -> Step 5 -> Step 6 (confirming Standard harness via Next and entering Topics)
+  // Reach Topics: the topic count joins the line.
   run("lbNextStep()");
-  assert.equal(run("labBuilder.step"), 5);
-  run("lbNextStep()");
-  assert.equal(run("labBuilder.step"), 6);
+  assert.equal(run("labBuilder.step"), 3);
   assert.match(
     run.element("lb-summary").innerHTML,
     /^<strong>Your lab so far:<\/strong> Copilot Studio · Healthcare · All departments · Level 200 \(Intermediate\) · Standard harness · /,
   );
+  assert.match(run.element("lb-summary").innerHTML, /topic/);
+
+  // Confirming the Tailor step shows its answers even while the person is still on the Product step.
+  const confirmed = loadWizard();
+  confirmed("lbToggleProduct('sharepoint-ai', true)");
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(confirmed.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> SharePoint AI");
+  confirmed("labBuilder.chosenSteps.add('tailor'); lbRenderSummary()");
+  assert.equal(confirmed("labBuilder.step"), 1);
+  assert.equal(confirmed.element("lb-summary").innerHTML, "<strong>Your lab so far:</strong> SharePoint AI · Cross-industry · All departments · Level 100 (Beginner)");
 });
 
 // ── Wizard card footer & prominent stat chips ───────────────────────────────
 
-test("Step 1 product cards, Step 4 level cards, and Step 5 harness cards separate total counts from per-level breakdown rows", async () => {
+test("Step 1 product cards separate total counts from per-level breakdown rows, and the Tailor it level and harness choices show their counts inline", async () => {
   const { getFeaturesByCategory } = await import("../lib/lab-builder/catalog.js");
   const run = loadWizard();
   const catalogProducts = getProducts().map((p) => ({
@@ -610,28 +624,58 @@ test("Step 1 product cards, Step 4 level cards, and Step 5 harness cards separat
   assert.match(edgeHtml, /<div class="lb-stat-level-grid lb-stat-level-grid-2"><span class="lb-stat-chip lb-stat-chip-level">/);
   assert.match(edgeHtml, /<div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-empty">No topics yet<span class="sr-only">\.<\/span><\/span><\/div>/);
 
-  // Step 4 (levels) and Step 5 (harnesses) also separate headline .lb-stat-total-row from secondary .lb-stat-detail-row.
+  // Tailor it: the level choice is a compact segmented control and the harness choice a radio list. Both show their
+  // counts inline, next to the label, and neither uses the stat chips that product cards keep.
   run(`
     labBuilder.products = ${JSON.stringify(catalogProducts)};
     labBuilder.categories = ${JSON.stringify(getFeaturesByCategory())};
     labBuilder.selectedProducts = new Set(["copilot-studio"]);
     labBuilder.industry = "retail";
-    labBuilder.chosenSteps.add("level");
-    labBuilder.chosenSteps.add("harness");
   `);
   await run("lbRenderLevels()");
   run("lbRenderHarnesses()");
 
   const levelHtml = run.element("lb-level-options").innerHTML;
-  assert.match(levelHtml, /class="lb-card-footer"[\s\S]*?class="lb-stat-total-row"[\s\S]*?lb-stat-chip-total[\s\S]*?class="lb-stat-detail-row"/);
-  assert.match(levelHtml, /Around <strong>[^<]+<\/strong> \(estimate\)/);
+  assert.doesNotMatch(levelHtml, /lb-stat-chip|lb-stat-total-row|lb-stat-detail-row|lb-card-footer|lb-card-learn/);
+  const levelLabels = { 100: "Beginner", 200: "Intermediate", 300: "Advanced" };
+  for (const level of [100, 200, 300]) {
+    const shown = recommend({ industry: "retail", departments: [], products: ["copilot-studio"], level, harness: "standard" }).filter.shown;
+    const count = shown > 0 ? `${shown} ${shown === 1 ? "topic" : "topics"}` : "No topics yet";
+    assert.match(
+      levelHtml,
+      new RegExp(
+        `<label class="lb-seg-option">\\s*<input type="radio" name="lb-level" value="${level}" autocomplete="off" ${level === 100 ? "checked" : ""}>\\s*<span class="lb-seg-title">Level ${level}<\\/span>\\s*<span class="lb-seg-count">${levelLabels[level]} · ${count}<\\/span>`,
+      ),
+      `Level ${level} shows its label and topic count inline`,
+    );
+  }
+  assert.equal([...levelHtml.matchAll(/\schecked>/g)].length, 1, "exactly one level is checked");
 
-  const harnessHtml = run.element("lb-harness-options").innerHTML;
-  assert.match(harnessHtml, /class="lb-card-footer"[\s\S]*?class="lb-stat-total-row"[\s\S]*?lb-stat-chip-total/);
-  assert.match(harnessHtml, /class="lb-card-learn"><a href="https:\/\/learn\.microsoft\.com\//);
+  const harnessLevel = (level) => {
+    run(`labBuilder.level = ${level};`);
+    run("lbRenderHarnesses()");
+    return run.element("lb-harness-options").innerHTML;
+  };
+  const csHarnesses = getHarnesses().filter((h) => (h.product || "copilot-studio") === "copilot-studio");
+  assert.ok(csHarnesses.length >= 2);
+  for (const level of [100, 200]) {
+    const harnessHtml = harnessLevel(level);
+    assert.doesNotMatch(harnessHtml, /lb-stat-chip|lb-stat-total-row|lb-card-footer|lb-card-learn/);
+    for (const harness of csHarnesses) {
+      const shown = getFeatures().filter((f) => productOf(f) === "copilot-studio" && (f.harness || []).includes(harness.id) && f.level === level).length;
+      const levelName = `Level ${level} (${levelLabels[level]})`;
+      const meta = shown ? `${shown} ${levelName} ${shown === 1 ? "topic" : "topics"}` : `No ${levelName} topics yet`;
+      const escaped = meta.replace(/[()]/g, "\\$&");
+      assert.match(
+        harnessHtml,
+        new RegExp(`<label class="lb-radio-option">\\s*<input type="radio" name="lb-harness" value="${harness.id}"[^>]*>\\s*<span class="lb-radio-name">[^<]*(?:<span[^>]*>[^<]*<\\/span>)?[^<]*<span class="lb-seg-count">· ${escaped}<\\/span>`),
+        `${harness.id} shows its ${levelName} count inline`,
+      );
+    }
+  }
 });
 
-test("sticky top navigation and right-anchored step footers stay synchronized across visible and skipped steps", async () => {
+test("sticky top navigation and right-anchored step footers stay synchronized across all four steps, with the harness row appearing on Tailor it without changing any label", async () => {
   const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
   const html = read("../public/index.html");
   const serverJs = read("../server.js");
@@ -642,19 +686,23 @@ test("sticky top navigation and right-anchored step footers stay synchronized ac
     /express\.static\(resolve\(import\.meta\.dirname,\s*"public"\),\s*\{\s*setHeaders\(res\)\s*\{\s*res\.setHeader\("Cache-Control",\s*"no-cache"\);/,
   );
 
-  // Sticky bar exposes persistent Back + Next controls alongside Start over, and Steps 1-5, 7, 8 use .lb-step-footer.
-  assert.match(html, /id="lb-wizard-sticky"[\s\S]*?id="lb-sticky-back"[^>]*hidden[\s\S]*?id="lb-sticky-next"[^>]*>Next: Vertical →<\/button>/);
-  for (const paneId of [1, 2, 3, 4, 5, 7, 8]) {
+  // Sticky bar exposes persistent Back + Next controls alongside Start over, and every pane ends in a footer with a prominent Next (or Build).
+  assert.match(html, /id="lb-wizard-sticky"[\s\S]*?id="lb-sticky-back"[^>]*hidden[\s\S]*?id="lb-sticky-next"[^>]*>Next: Tailor it →<\/button>/);
+  const footerLabels = { 1: "Next: Tailor it →", 2: "Next: Topics →", 3: "Next: Review and build →", 4: "Build my lab" };
+  for (const paneId of [1, 2, 3, 4]) {
     const paneMatch = html.match(
       new RegExp(`id="lb-pane-${paneId}"[\\s\\S]*?(?=<!-- Step |<div class="panel" id="lb-result-panel")`),
     );
     assert.ok(paneMatch, `expected #lb-pane-${paneId}`);
-    assert.match(paneMatch[0], /class="lb-step-footer"/, `#lb-pane-${paneId} should use .lb-step-footer`);
-    assert.match(paneMatch[0], /class="btn btn-primary lb-nav-next"/, `#lb-pane-${paneId} should have prominent .lb-nav-next CTA`);
+    assert.match(paneMatch[0], /data-lb-step-footer/, `#lb-pane-${paneId} should have a step footer`);
+    const primary = paneMatch[0].match(/<button class="btn btn-primary lb-nav-next"[^>]*>([^<]*)<\/button>/);
+    assert.ok(primary, `#lb-pane-${paneId} should have prominent .lb-nav-next CTA`);
+    assert.equal(primary[1], footerLabels[paneId], `#lb-pane-${paneId} footer label`);
   }
-  // Step 6 bottom bar is styled consistently via CSS without touching #lb-pane-6 inner markup.
-  assert.match(html, /#lb-pane-6\s*>\s*div:last-child\s*\{/);
-  assert.match(html, /\.lb-step-footer\s*>\s*\.lb-nav-next,\s*#lb-pane-6\s*>\s*div:last-child\s*>\s*\.btn-primary\s*\{\s*margin-left:\s*auto;/);
+  assert.match(html, /<button class="btn btn-primary lb-nav-next" type="button" id="lb-generate-btn" onclick="lbGenerate\(\)">Build my lab<\/button>/);
+  // The Topics bottom bar is styled consistently via CSS without touching #lb-pane-3 inner markup.
+  assert.match(html, /#lb-pane-3\s*>\s*div:last-child\s*\{/);
+  assert.match(html, /\.lb-step-footer\s*>\s*\.lb-nav-next,\s*#lb-pane-3\s*>\s*div:last-child\s*>\s*\.btn-primary\s*\{\s*margin-left:\s*auto;/);
 
   const { getFeaturesByCategory } = await import("../lib/lab-builder/catalog.js");
   const run = loadWizard();
@@ -662,67 +710,57 @@ test("sticky top navigation and right-anchored step footers stay synchronized ac
   run(`labBuilder.harnesses = ${JSON.stringify(getHarnesses())};`);
   run("lbSyncNavControls()");
   assert.equal(run.element("lb-sticky-back").hidden, true, "Step 1 hides sticky Back button");
-  assert.equal(run.element("lb-sticky-next").textContent, "Next: Vertical →");
+  assert.equal(run.element("lb-sticky-next").textContent, footerLabels[1]);
   assert.equal(run.element("lb-sticky-next").disabled, false);
 
-  // Select SharePoint AI (no harness): Step 4 sticky + footer Next should say "Next: Topics →" (skipping Harness).
+  // Select SharePoint AI (no harness): Tailor it has no harness row, and the sticky label already says "Next: Topics →".
   run("lbToggleProduct('sharepoint-ai', true)");
   await run("lbRefresh()");
   run("lbStickyPrimaryAction()"); // 1 -> 2
   assert.equal(run("labBuilder.step"), 2);
   assert.equal(run.element("lb-sticky-back").hidden, false, "Step 2+ shows sticky Back button");
-  assert.equal(run.element("lb-sticky-next").textContent, "Next: Departments →");
+  assert.equal(run.element("lb-sticky-next").textContent, footerLabels[2]);
+  assert.equal(run.element("lb-harness-row").hidden, true, "no harness row for a product without harnesses");
+
+  // Adding Copilot Studio (has harnesses) shows the harness row on Tailor it while every label stays the same.
+  run("lbToggleProduct('copilot-studio', true)");
+  await run("lbRefresh()");
+  assert.equal(run("labBuilder.step"), 2);
+  assert.equal(run.element("lb-harness-row").hidden, false, "the harness row appears on Tailor it");
+  assert.match(run.element("lb-harness-options").innerHTML, /name="lb-harness"/);
+  assert.equal(run.element("lb-sticky-next").textContent, footerLabels[2], "the sticky label does not change when the harness row appears");
+  assert.equal(run("lbNextActionLabel(1)"), footerLabels[1]);
+  assert.equal(run("lbNextActionLabel(3)"), footerLabels[3]);
+  assert.equal(run("lbNextActionLabel(4)"), footerLabels[4]);
 
   run("lbStickyPrimaryAction()"); // 2 -> 3
   assert.equal(run("labBuilder.step"), 3);
-  assert.equal(run.element("lb-sticky-next").textContent, "Next: Level →");
+  assert.equal(run.element("lb-sticky-next").textContent, footerLabels[3]);
 
-  run("lbStickyPrimaryAction()"); // 3 -> 4
-  assert.equal(run("labBuilder.step"), 4);
-  assert.equal(run.element("lb-sticky-next").textContent, "Next: Topics →");
-  assert.equal(run.element("lb-next-from-level").textContent, "Next: Topics →");
-
-  // Adding Copilot Studio (has harnesses) updates Step 4 sticky + footer Next dynamically to "Next: Harness →".
-  run("lbToggleProduct('copilot-studio', true)");
-  await run("lbRefresh()");
-  assert.equal(run.element("lb-sticky-next").textContent, "Next: Harness →");
-  assert.equal(run.element("lb-next-from-level").textContent, "Next: Harness →");
-
-  run("lbStickyPrimaryAction()"); // 4 -> 5
-  assert.equal(run("labBuilder.step"), 5);
-  assert.equal(run.element("lb-sticky-next").textContent, "Next: Topics →");
-
-  run("lbStickyPrimaryAction()"); // 5 -> 6
-  assert.equal(run("labBuilder.step"), 6);
-  assert.equal(run.element("lb-sticky-next").textContent, "Next: Review →");
-
-  // Clearing selectedIds on Step 6 enforces the topic guard; picking a topic lets sticky Next advance 6 -> 7.
+  // Clearing selectedIds on Topics enforces the topic guard; picking a topic lets sticky Next advance 3 -> 4.
   const firstTopicId = run("labBuilder.rec.concepts[0].topics[0].id");
   run("labBuilder.rec.selectedIds = [];");
   run("lbStickyPrimaryAction()");
-  assert.equal(run("labBuilder.step"), 6);
+  assert.equal(run("labBuilder.step"), 3);
   assert.equal(run.element("lb-topic-error").textContent, "Choose at least one topic before you review the lab.");
 
   run(`lbOwnPicks().add(${JSON.stringify(firstTopicId)})`);
   await run("lbRefresh()");
-  run("lbStickyPrimaryAction()"); // 6 -> 7
-  assert.equal(run("labBuilder.step"), 7);
-  assert.equal(run.element("lb-sticky-next").textContent, "Next: Generate →");
+  run("lbStickyPrimaryAction()"); // 3 -> 4
+  assert.equal(run("labBuilder.step"), 4);
+  assert.equal(run.element("lb-sticky-next").textContent, "Build my lab");
 
-  // Deselecting all topics on Step 7 disables sticky Next, footer Next, and Generate buttons.
+  // Deselecting all topics on Review and build disables the sticky primary and the Build button.
   const selectedIds = JSON.parse(run("JSON.stringify(labBuilder.rec.selectedIds)"));
   assert.ok(selectedIds.length > 0, "expected recommended topics to be preselected");
   run("labBuilder.rec.selectedIds = []; lbSyncReviewControls();");
   assert.equal(run.element("lb-sticky-next").disabled, true);
-  assert.equal(run.element("lb-next-from-review").disabled, true);
   assert.equal(run.element("lb-generate-btn").disabled, true);
 
-  // Re-selecting a topic re-enables navigation and advances to Step 8 where sticky primary triggers generateCustomLab().
+  // Re-selecting a topic re-enables both, and the sticky primary on step 4 triggers lab generation.
   run(`labBuilder.rec.selectedIds = ${JSON.stringify(selectedIds)}; lbSyncReviewControls();`);
   assert.equal(run.element("lb-sticky-next").disabled, false);
-  run("lbStickyPrimaryAction()"); // 7 -> 8
-  assert.equal(run("labBuilder.step"), 8);
-  assert.equal(run.element("lb-sticky-next").textContent, "⚡ Generate Lab");
+  assert.equal(run.element("lb-generate-btn").disabled, false);
 
   let generatedCount = 0;
   run.context.lbGenerate = () => {
@@ -730,8 +768,9 @@ test("sticky top navigation and right-anchored step footers stay synchronized ac
     run("labBuilder.busy = true; lbSyncNavControls();");
   };
   run("lbStickyPrimaryAction()");
-  assert.equal(generatedCount, 1, "clicking sticky CTA on Step 8 triggers lab generation");
-  assert.equal(run.element("lb-sticky-next").disabled, true, "sticky CTA disables while generation is busy");
+  assert.equal(generatedCount, 1, "clicking the sticky primary on step 4 triggers lab generation");
+  assert.equal(run("labBuilder.step"), 4, "building does not move to another step");
+  assert.equal(run.element("lb-sticky-next").disabled, true, "sticky primary disables while generation is busy");
   assert.equal(run.element("lb-sticky-back").disabled, true, "sticky Back disables while generation is busy");
 });
 

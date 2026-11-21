@@ -8,7 +8,7 @@
 
 const LB_DRAFT_API = "/api/lab-builder/drafts";
 const LB_DRAFT_AUTOSAVE_MS = 2000;
-const LB_DRAFT_CHOSEN_ORDER = ["product", "vertical", "departments", "level", "harness", "topics"];
+const LB_DRAFT_CHOSEN_ORDER = ["product", "tailor", "topics"];
 
 const lbDraft = {
   drafts: [],
@@ -128,17 +128,10 @@ function lbDraftTimeText(iso) {
   return `${when.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} at ${time}`;
 }
 
-function lbDraftSteps(products) {
-  const hasHarness = (products || []).some((id) => lbProduct(id)?.hasHarnesses);
-  return LB_STEPS.filter((s) => s.id !== LB_STEP.harness || hasHarness);
-}
-
-/** "Step 5 of 7: Topics" for a draft's step, numbered the way the wizard numbers its visible steps. */
-function lbDraftProgress(step, products) {
-  const steps = lbDraftSteps(products);
-  const index = Math.max(0, steps.findIndex((s) => s.id >= step));
-  const entry = steps[index] || steps[steps.length - 1];
-  return `Step ${steps.indexOf(entry) + 1} of ${steps.length}: ${entry.label}`;
+/** "Step 3 of 4: Topics" for a draft's step, numbered the way the wizard numbers its steps. */
+function lbDraftProgress(step) {
+  const entry = LB_STEPS.find((s) => s.id >= step) || LB_STEPS[LB_STEPS.length - 1];
+  return `Step ${LB_STEPS.indexOf(entry) + 1} of ${LB_STEPS.length}: ${entry.label}`;
 }
 
 function lbDraftProductNames(ids) {
@@ -230,7 +223,7 @@ function lbDraftItemHtml(draft) {
   const parts = [
     lbJoinNames(lbDraftProductNames(draft.products)) || "No products",
     draft.level ? lbLevelName(draft.level) : "",
-    lbDraftProgress(draft.step, draft.products),
+    lbDraftProgress(draft.step),
     draft.topicCount ? lbDraftPlural(draft.topicCount, "topic", "topics") : "No topics yet",
   ].filter(Boolean);
   const labExists = Boolean(draft.builtLabId) && typeof lbGen !== "undefined" && (lbGen.labs || []).some((lab) => lab.labId === draft.builtLabId);
@@ -404,7 +397,7 @@ function lbDraftDriftMessages(report, labels) {
   }
   if (report.offLevel.length) {
     const names = report.offLevel.map((topic) => `"${topic.name}"`).slice(0, 5).join(", ");
-    lines.push(`${lbDraftPlural(report.offLevel.length, "topic you chose now belongs", "topics you chose now belong")} to a different level than ${lbLevelName(labBuilder.level)} and ${report.offLevel.length === 1 ? "is" : "are"} not included: ${names}. Change the level in Step 4 or choose other topics in Step 6.`);
+    lines.push(`${lbDraftPlural(report.offLevel.length, "topic you chose now belongs", "topics you chose now belong")} to a different level than ${lbLevelName(labBuilder.level)} and ${report.offLevel.length === 1 ? "is" : "are"} not included: ${names}. Change the level in Step 2 or choose other topics in Step 3.`);
   }
   if (report.removed.length) {
     const names = named(report.removed);
@@ -503,11 +496,10 @@ async function lbDraftApply(content, { id = null, name = "", headline = "" } = {
   let target = labBuilder.selectedProducts.size ? wizard.step : LB_STEP.product;
   if (target > LB_STEP.topics && !lbSelectedCount()) {
     target = LB_STEP.topics;
-    report.fallback = `This draft was on ${lbDraftProgress(wizard.step, [...labBuilder.selectedProducts])}, but none of its topics are left, so it opened on the Topics step.`;
+    report.fallback = `This draft was on ${lbDraftProgress(wizard.step)}, but none of its topics are left, so it opened on the Topics step.`;
   }
   lbGoToStep(target);
   if (labBuilder.step !== target) {
-    lbClearSharepointSkipFlag();
     lbGoToStep(LB_STEP.review);
   }
   for (const errorId of ["lb-topic-error", "lb-review-error"]) {
@@ -521,7 +513,7 @@ async function lbDraftApply(content, { id = null, name = "", headline = "" } = {
   lbDraft.lastSeen = lbDraftSignature();
   lbDraft.autosaved = null;
   const lines = lbDraftDriftMessages(report, labels);
-  const where = lbDraftProgress(labBuilder.step, [...labBuilder.selectedProducts]);
+  const where = lbDraftProgress(labBuilder.step);
   const summary = `${headline} You are on ${where}.`;
   lbDraftShowNotice(summary, lines);
   lbDraftAnnounce("");

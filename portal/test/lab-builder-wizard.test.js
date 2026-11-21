@@ -12,12 +12,12 @@ const app = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
 
 const builderPanel = html.match(/id="panel-labbuilder"[\s\S]*?<!-- Preview tab -->/)?.[0] || "";
 
-test("the wizard asks one question per step, in the required order", () => {
+test("the wizard has four steps, in the required order", () => {
   const headings = [...builderPanel.matchAll(/id="lb-heading-(\d)"[^>]*>([^<]+)</g)].map((m) => [Number(m[1]), m[2]]);
-  assert.deepEqual(headings.map(([n]) => n), [1, 2, 3, 4, 5, 6, 7, 8]);
-  const order = ["products", "industry", "departments", "level", "harness", "topics", "Review", "Generate"];
+  assert.deepEqual(headings.map(([n]) => n), [1, 2, 3, 4]);
+  const order = ["products", "Tailor it", "topics", "Review and build"];
   headings.forEach(([n, text], i) => {
-    assert.match(text, new RegExp(`Step ${n} of 8`));
+    assert.match(text, new RegExp(`Step ${n} of 4`));
     assert.match(text, new RegExp(order[i], "i"));
   });
 });
@@ -25,7 +25,8 @@ test("the wizard asks one question per step, in the required order", () => {
 test("the step list is real buttons with the current step announced", () => {
   const list = builderPanel.match(/<ol class="lb-steps"[\s\S]*?<\/ol>/)?.[0];
   assert.ok(list, "the stepper is an ordered list");
-  assert.equal([...list.matchAll(/<button\b/g)].length, 8);
+  assert.equal([...list.matchAll(/<button\b/g)].length, 4);
+  assert.deepEqual([...list.matchAll(/<\/span> ([^<]+)<\/button>/g)].map((m) => m[1]), ["Product", "Tailor it", "Topics", "Review and build"]);
   assert.match(list, /aria-current="step"/);
   assert.match(builderPanel, /<nav aria-label="Lab builder steps">/);
   assert.match(wizard, /setAttribute\("aria-current", "step"\)/);
@@ -33,7 +34,7 @@ test("the step list is real buttons with the current step announced", () => {
 });
 
 test("each pane heading can take focus so a step change is announced", () => {
-  for (let n = 1; n <= 8; n += 1) {
+  for (let n = 1; n <= 4; n += 1) {
     assert.match(builderPanel, new RegExp(`id="lb-heading-${n}" tabindex="-1"`));
   }
 });
@@ -47,7 +48,7 @@ test("a running total, reset affordances, and the time-as-guidance message are a
   assert.doesNotMatch(wizard + app, /timeBudget/);
 });
 
-test("Your lab so far stays sticky at the top of the wizard stage, Previously generated labs starts collapsed, and Step 8 has an accessible generation progress card", () => {
+test("Your lab so far stays sticky at the top of the wizard stage, Previously generated labs starts collapsed, and Review and build has an accessible generation progress card", () => {
   assert.match(builderPanel, /id="lb-wizard-stage"[\s\S]*?id="lb-wizard-sticky"[\s\S]*?id="lb-summary"/);
   assert.match(html, /\.lb-wizard-sticky\s*\{[^}]*position:\s*sticky;/);
 
@@ -120,7 +121,7 @@ test("a concept with no topic yet is reported as not available yet, not as not a
   assert.match(hooksOnStandard.notApplicable, /topics/);
 });
 
-test("Step 6 badges 3rd-party connectors as optional, offers a 3rd-party filter, keeps them unchecked by default, and includes them only when checked", async () => {
+test("the Topics step badges 3rd-party connectors as optional, offers a 3rd-party filter, keeps them unchecked by default, and includes them only when checked", async () => {
   const vm = await import("node:vm");
   const elements = new Map();
   const filterOptions = [
@@ -192,7 +193,7 @@ test("Step 6 badges 3rd-party connectors as optional, offers a 3rd-party filter,
     labBuilder.selectedRoles = new Set(["sales", "finance", "operations", "customer-service", "it"]);
     labBuilder.level = 200;
     labBuilder.harness = "standard";
-    labBuilder.step = 6;
+    labBuilder.step = 3;
     lbBindTopicEvents();
     `,
     context,
@@ -237,7 +238,7 @@ test("Step 6 badges 3rd-party connectors as optional, offers a 3rd-party filter,
   await settle();
   assert.match(element("lb-topic-groups").innerHTML, /No optional 3rd-party connector topics are listed at Level 100/);
 
-  // Explicitly checking SAP and Salesforce on Step 6 at Level 200 adds them to lbRequest().features.
+  // Explicitly checking SAP and Salesforce on the Topics step at Level 200 adds them to lbRequest().features.
   vm.runInContext('labBuilder.level = 200; labBuilder.filter = "all"; lbRefresh();', context);
   await settle();
   vm.runInContext('lbSetTopic("sap-integration", true, false);', context);
@@ -248,9 +249,9 @@ test("Step 6 badges 3rd-party connectors as optional, offers a 3rd-party filter,
   assert.equal(currentFeatures().includes("salesforce-integration"), true);
 });
 
-test("Step 6 uses collapsible help, unclipped two-zone toolbar, live selection scorecard, Selected/Recommended filters, and multi-row topic cards", async () => {
-  const pane6 = builderPanel.match(/id="lb-pane-6"[\s\S]*?<!-- Step 7: review -->/)?.[0] || "";
-  assert.ok(pane6, "Step 6 pane must exist");
+test("the Topics step uses collapsible help, unclipped two-zone toolbar, live selection scorecard, Selected/Recommended filters, and multi-row topic cards", async () => {
+  const pane6 = builderPanel.match(/id="lb-pane-3"[\s\S]*?<!-- Step 4: review and build -->/)?.[0] || "";
+  assert.ok(pane6, "the Topics pane must exist");
 
   // Collapsible progressive-disclosure help replaces redundant top paragraph.
   const helpDetails = pane6.match(/<details class="lb-topic-help"[^>]*>/)?.[0];
@@ -346,7 +347,7 @@ test("Step 6 uses collapsible help, unclipped two-zone toolbar, live selection s
     labBuilder.selectedRoles = new Set(["sales", "operations"]);
     labBuilder.level = 200;
     labBuilder.harness = "standard";
-    labBuilder.step = 6;
+    labBuilder.step = 3;
     lbBindTopicEvents();
     `,
     context,

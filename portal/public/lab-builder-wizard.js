@@ -1,24 +1,20 @@
 // ── Guided lab builder wizard ───────────────────────────────────────────────
-// One question per step: product, vertical, departments, level, harness (only
-// when a selected product has harnesses), topics, review, generate. Each answer
-// feeds the topic recommendations through /api/lab-builder/recommend, so the
+// Four steps: product, tailor it (industry, departments, level, and the harness only when a
+// selected product has harnesses, every default visibly selected), topics, then review and build.
+// Each answer feeds the topic recommendations through /api/lab-builder/recommend, so the
 // server owns every rule and this file only renders. Time is guidance
 // everywhere: nothing here limits a lab.
 // The generate, decision, and result functions live in app.js.
 
 const LB_STEPS = [
   { id: 1, label: "Product" },
-  { id: 2, label: "Vertical" },
-  { id: 3, label: "Departments" },
-  { id: 4, label: "Level" },
-  { id: 5, label: "Harness" },
-  { id: 6, label: "Topics" },
-  { id: 7, label: "Review" },
-  { id: 8, label: "Generate" },
+  { id: 2, label: "Tailor it" },
+  { id: 3, label: "Topics" },
+  { id: 4, label: "Review and build" },
 ];
 
 // Named step ids, so no rule below depends on a bare number.
-const LB_STEP = { product: 1, vertical: 2, departments: 3, level: 4, harness: 5, topics: 6, review: 7, generate: 8 };
+const LB_STEP = { product: 1, tailor: 2, topics: 3, review: 4 };
 const LB_DEFAULT_PRODUCT = "copilot-studio";
 
 const labBuilder = {
@@ -71,7 +67,7 @@ const labBuilder = {
   // Set when unchecking a topic keeps it checked as a required prerequisite of another selected topic.
   prereqNotice: null,
   pendingUncheckIds: [],
-  // Modules deselected on Step 7 so learners can re-select them right in Review.
+  // Modules deselected on the review step so people can re-select them right in the outline.
   step7Removed: new Map(),
   moduleOrder: [],
   previewModules: [],
@@ -81,15 +77,13 @@ const labBuilder = {
   unknownOpen: false,
   // Opt-in per-lesson multiple-choice Knowledge Check mini-quiz (off by default on a fresh wizard start).
   includeKnowledgeCheck: false,
-  // SharePoint training target site details & interactive prompt state.
+  // SharePoint training target site details (optional; a blank site builds with placeholder instructions).
   sharepointSiteName: "",
   sharepointSiteUrl: "",
-  sharepointPromptSkipped: false,
-  sharepointPromptPendingAction: null,
   sharepointPromptBound: false,
   previewRequiresSharepointSite: null,
-  // Brand profile and per-lab overrides chosen in Step 7 ("Customize this lab").
-  // profileId null follows the active profile; prefilled remembers the SharePoint default last copied into Step 7.
+  // Brand profile and per-lab overrides chosen in "Review and build" (Brand: ... Change).
+  // profileId null follows the active profile; prefilled remembers the SharePoint default last copied into the field.
   brand: { profileId: null, overrides: {}, prefilled: { name: "", url: "" }, bound: false },
 };
 
@@ -372,12 +366,9 @@ function lbResolveSharepointSiteState() {
   };
 }
 
-function lbClearSharepointSkipFlag() {
-  labBuilder.sharepointPromptSkipped = false;
-  labBuilder.sharepointPromptPendingAction = null;
+/** Forget what the last preview said about SharePoint, so the next answer is worked out again from the topics. */
+function lbInvalidateSharepointPreview() {
   labBuilder.previewRequiresSharepointSite = null;
-  const promptEl = document.getElementById("lb-sharepoint-site-prompt");
-  if (promptEl) promptEl.hidden = true;
 }
 
 function lbSaveSelections() {
@@ -439,12 +430,6 @@ function lbRestoreSavedSharepointSite() {
   }
 }
 
-function lbIsSharepointPromptMounted() {
-  const card = document.getElementById("lb-sharepoint-site-card");
-  if (!card) return false;
-  return Boolean(card.dataset?.sharepointPromptCard === "true" || labBuilder.sharepointPromptBound);
-}
-
 function lbSyncSharepointSiteUi() {
   const state = lbResolveSharepointSiteState();
   const card = document.getElementById("lb-sharepoint-site-card");
@@ -468,114 +453,38 @@ function lbSyncSharepointSiteUi() {
     state.urlEl?.removeAttribute?.("aria-invalid");
   }
 
-  const promptEl = document.getElementById("lb-sharepoint-site-prompt");
-  if (promptEl && (!state.requiresSharepointSite || (state.name && state.validUrl && state.url))) {
-    promptEl.hidden = true;
-  }
-
-  const step8El = document.getElementById("lb-step8-sharepoint-summary");
-  if (step8El) {
-    if (!state.requiresSharepointSite) {
-      step8El.hidden = true;
-      step8El.innerHTML = "";
-    } else if (state.validUrl && state.url) {
-      step8El.hidden = false;
-      step8El.innerHTML = `<strong>Target SharePoint site:</strong> <a href="${escapeHtml(state.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(state.label || state.url)}</a> — clickable link included in the lab overview, prerequisites, and SharePoint walkthrough steps.`;
-    } else if (state.name) {
-      step8El.hidden = false;
-      step8El.innerHTML = `<strong>Target SharePoint site:</strong> ${escapeHtml(state.name)} (no URL configured — go back to Step 7 to add a clickable SharePoint URL).`;
-    } else {
-      step8El.hidden = false;
-      step8El.innerHTML = "<strong>SharePoint site URL not set:</strong> Learners will see placeholder SharePoint site instructions. Go back to Step 7 to add a site name and clickable URL.";
-    }
-  }
+  // The one calm hint under the field goes away once a site is entered.
+  const hintEl = document.getElementById("lb-sharepoint-site-hint");
+  if (hintEl) hintEl.hidden = state.configured;
 }
 
-function lbValidateOrPromptSharepointSite(action = "next") {
+/**
+ * The SharePoint site is optional: a blank site builds with placeholder instructions and never blocks a build.
+ * Only an address that was typed and cannot be used stops the build, so it is never sent by mistake.
+ */
+function lbValidateSharepointSiteForBuild() {
   const state = lbResolveSharepointSiteState();
   if (!state.requiresSharepointSite) {
     lbSyncSharepointSiteUi();
     return true;
   }
-
   const card = document.getElementById("lb-sharepoint-site-card");
   const errEl = document.getElementById("lb-sharepoint-site-error");
-  const promptEl = document.getElementById("lb-sharepoint-site-prompt");
-  const promptTextEl = document.getElementById("lb-sharepoint-site-prompt-text");
-
   if (!state.validUrl) {
-    if (labBuilder.step !== LB_STEP.review) {
-      lbGoToStep(LB_STEP.review);
-    }
+    if (labBuilder.step !== LB_STEP.review) lbGoToStep(LB_STEP.review);
     if (card) card.hidden = false;
-    if (errEl) errEl.textContent = state.urlError || "Enter a valid https:// SharePoint site URL.";
+    if (errEl) errEl.textContent = state.urlError || "Enter a valid https:// SharePoint site URL, or clear the field to use a placeholder.";
     state.urlEl?.setAttribute?.("aria-invalid", "true");
     card?.scrollIntoView?.({ behavior: "smooth", block: "center" });
     state.urlEl?.focus?.();
     return false;
   }
-
   if (errEl) errEl.textContent = "";
   state.urlEl?.removeAttribute?.("aria-invalid");
-
-  if (state.url && state.urlEl && state.urlEl.value !== state.url) {
-    state.urlEl.value = state.url;
-  }
+  if (state.url && state.urlEl && state.urlEl.value !== state.url) state.urlEl.value = state.url;
   lbSaveSelections();
   lbSyncSharepointSiteUi();
-
-  const missingName = !state.name;
-  const missingUrl = !state.url;
-  if ((missingName || missingUrl) && !labBuilder.sharepointPromptSkipped && lbIsSharepointPromptMounted()) {
-    labBuilder.sharepointPromptPendingAction = action;
-    if (labBuilder.step !== LB_STEP.review) {
-      lbGoToStep(LB_STEP.review);
-    }
-    if (card) card.hidden = false;
-    if (promptTextEl) {
-      promptTextEl.textContent =
-        missingName && missingUrl
-          ? "Enter the SharePoint site name and URL above so learners get a clickable hyperlink to open or create the site, or skip to use a placeholder URL."
-          : missingName
-          ? "Enter the SharePoint site name above for the learner hyperlink label, or skip to continue."
-          : "Enter the SharePoint site URL (https://...) above so learners can click directly to the site, or skip to use a placeholder URL.";
-    }
-    if (promptEl) promptEl.hidden = false;
-    card?.scrollIntoView?.({ behavior: "smooth", block: "center" });
-    if (missingName) state.nameEl?.focus?.();
-    else state.urlEl?.focus?.();
-    return false;
-  }
-
-  if (promptEl) promptEl.hidden = true;
   return true;
-}
-
-function lbSkipSharepointSitePrompt() {
-  const state = lbResolveSharepointSiteState();
-  if (!state.validUrl) {
-    lbSetFormValue("lb-sharepoint-site-url", "");
-  }
-  const errEl = document.getElementById("lb-sharepoint-site-error");
-  if (errEl) errEl.textContent = "";
-  state.urlEl?.removeAttribute?.("aria-invalid");
-  labBuilder.sharepointPromptSkipped = true;
-  const promptEl = document.getElementById("lb-sharepoint-site-prompt");
-  if (promptEl) promptEl.hidden = true;
-  lbSaveSelections();
-  lbSyncSharepointSiteUi();
-  lbRenderSummary();
-
-  const pending = labBuilder.sharepointPromptPendingAction;
-  labBuilder.sharepointPromptPendingAction = null;
-  if (pending === "generate") {
-    lbGoToStep(LB_STEP.generate);
-    return generateCustomLab();
-  }
-  if (labBuilder.step === LB_STEP.review) {
-    return lbNextStep();
-  }
-  return undefined;
 }
 
 function lbBindSharepointSiteControls() {
@@ -585,7 +494,6 @@ function lbBindSharepointSiteControls() {
 
   const nameEl = document.getElementById("lb-sharepoint-site-name");
   const urlEl = document.getElementById("lb-sharepoint-site-url");
-  const skipBtn = document.getElementById("lb-sharepoint-site-skip");
 
   nameEl?.addEventListener("input", (event) => {
     labBuilder.sharepointSiteName = lbNormalizeSharepointSiteName(event?.target?.value ?? nameEl.value);
@@ -647,7 +555,6 @@ function lbBindSharepointSiteControls() {
     if (labBuilder.step === LB_STEP.review) lbPreview();
   });
 
-  skipBtn?.addEventListener("click", () => lbSkipSharepointSitePrompt());
   lbSyncSharepointSiteUi();
 }
 
@@ -694,9 +601,9 @@ function lbHasHarnessProduct() {
   return lbSelectedProductList().some((p) => p.hasHarnesses);
 }
 
-/** The steps the learner walks through, in order. The harness step is skipped when no selected product has harnesses. */
+/** The steps the person walks through, in order. The harness choice lives inside Tailor it, so every step always applies. */
 function lbVisibleStepIds() {
-  return LB_STEPS.map((s) => s.id).filter((id) => id !== LB_STEP.harness || lbHasHarnessProduct());
+  return LB_STEPS.map((s) => s.id);
 }
 
 /** The next (direction 1) or previous (direction -1) visible step, or the same step at either end. */
@@ -822,7 +729,7 @@ async function lbRefresh() {
 function lbAnswersChanged() {
   const hadOwnPicks =
     Boolean(labBuilder.picked) || labBuilder.excluded.size > 0 || labBuilder.excludedSubtopics.size > 0 || labBuilder.step7Removed.size > 0;
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   labBuilder.picked = null;
   labBuilder.excluded.clear();
   labBuilder.excludedSubtopics.clear();
@@ -846,7 +753,7 @@ function lbSelectedNames(rec) {
 }
 
 /**
- * Step 4 is the single source of truth for level. Changing it drops the learner's own
+ * Level (on Tailor it) is the single source of truth for level. Changing it drops the learner's own
  * topic picks (they belonged to the old level), says exactly what was removed, and keeps
  * them so one button restores them.
  */
@@ -887,7 +794,7 @@ function lbRestoreLevelChoices() {
   const notice = labBuilder.levelNotice;
   if (!notice) return;
   labBuilder.level = notice.from;
-  labBuilder.chosenSteps.add("level");
+  labBuilder.chosenSteps.add("tailor");
   labBuilder.picked = notice.stash.picked;
   labBuilder.excluded = notice.stash.excluded;
   labBuilder.excludedSubtopics = notice.stash.excludedSubtopics || new Set();
@@ -903,10 +810,10 @@ function lbRestoreLevelChoices() {
   lbRefresh();
 }
 
-/** The visible, announced notice shown on the level and topics steps. */
+/** The visible, announced notice shown on the Tailor it and Topics steps. */
 function lbRenderLevelNotice(restoredMessage) {
   const notice = labBuilder.levelNotice;
-  for (const id of ["lb-level-notice-4", "lb-level-notice-6"]) {
+  for (const id of ["lb-level-notice-2", "lb-level-notice-3"]) {
     const el = document.getElementById(id);
     if (!el) continue;
     if (!notice) {
@@ -953,8 +860,10 @@ async function lbLoadCatalog() {
     lbLoadGenerated();
     if (typeof lbDraftsInit === "function") lbDraftsInit();
   } catch (err) {
-    document.getElementById("lb-industry-grid").innerHTML =
-      `<div class="scenario-empty" role="alert">Could not load the feature catalog: ${escapeHtml(err.message)}</div>`;
+    const target = document.getElementById("lb-product-options");
+    if (target) {
+      target.innerHTML = `<div class="scenario-empty" role="alert">Could not load the feature catalog: ${escapeHtml(err.message)}</div>`;
+    }
   }
 }
 
@@ -1060,12 +969,9 @@ function lbToggleProduct(id, checked) {
   lbProductsChanged();
 }
 
-/** The product choice changed: the harness step may appear or disappear, and every list below restarts from the new products. */
+/** The product choice changed: the harness choice may appear or disappear, and every list below restarts from the new products. */
 function lbProductsChanged() {
-  lbClearSharepointSkipFlag();
-  if (!lbHasHarnessProduct()) {
-    labBuilder.chosenSteps.delete("harness");
-  }
+  lbInvalidateSharepointPreview();
   lbRenderProducts();
   lbRenderHarnesses();
   lbRenderLevels();
@@ -1074,181 +980,167 @@ function lbProductsChanged() {
   lbAnswersChanged();
 }
 
-// ── Step 2: vertical ────────────────────────────────────────────────────────
+// ── Step 2: tailor it (industry) ────────────────────────────────────────────
 function lbRenderIndustries() {
-  const el = document.getElementById("lb-industry-grid");
-  if (!el) return;
-  const cards = [
-    { id: "", name: "Cross-industry", icon: "🌐", description: "A general scenario that is not tied to one industry." },
-    ...labBuilder.industries,
-  ];
-  el.innerHTML = cards
-    .map((i) => {
-      const active = lbIsStepChosen("vertical") && (i.id || null) === labBuilder.industry;
-      return `
-      <button type="button" class="scenario-card ${active ? "active" : ""}" data-industry="${escapeHtml(i.id)}" aria-pressed="${active}">
-        <div class="scenario-card-title">
-          <span style="font-size: 22px;" aria-hidden="true">${escapeHtml(i.icon || "")}</span>
-          <span>${escapeHtml(i.name)}</span>
-        </div>
-        <div class="scenario-card-desc">${escapeHtml(i.description || "")}</div>
-      </button>`;
-    })
-    .join("");
-  el.querySelectorAll("[data-industry]").forEach((button) => {
-    button.addEventListener("click", () => lbSelectIndustry(button.dataset.industry));
-  });
+  const select = document.getElementById("lb-industry-select");
+  if (!select) return;
+  const options = [{ id: "", name: "Cross-industry" }, ...labBuilder.industries];
+  select.innerHTML = options.map((i) => `<option value="${escapeHtml(i.id)}">${escapeHtml(i.name)}</option>`).join("");
+  select.value = labBuilder.industry || "";
+  const hint = document.getElementById("lb-industry-hint");
+  if (hint) {
+    const industry = labBuilder.industries.find((i) => i.id === labBuilder.industry);
+    hint.textContent = industry
+      ? `${industry.name} is selected. The scenario, sample questions, and vocabulary follow it.`
+      : "Cross-industry is selected. Not sure? Keep it.";
+  }
 }
 
 function lbSelectIndustry(id) {
   const next = id || null;
-  const wasChosen = lbIsStepChosen("vertical");
-  labBuilder.chosenSteps.add("vertical");
+  labBuilder.chosenSteps.add("tailor");
   if (next === labBuilder.industry) {
-    if (!wasChosen) {
-      lbRenderIndustries();
-      const pressed = document.querySelector(`#lb-industry-grid [data-industry="${CSS.escape(id)}"]`);
-      pressed?.focus();
-      lbRenderSummary();
-    }
+    lbRenderIndustries();
+    lbRenderSummary();
     return;
   }
   labBuilder.industry = next;
   lbRenderIndustries();
-  const pressed = document.querySelector(`#lb-industry-grid [data-industry="${CSS.escape(id)}"]`);
-  pressed?.focus();
   lbAnswersChanged();
 }
 
-// ── Step 3: departments ─────────────────────────────────────────────────────
+// ── Step 2: tailor it (departments) ─────────────────────────────────────────
 function lbRenderRoles() {
   const el = document.getElementById("lb-role-list");
   if (!el) return;
-  el.innerHTML = labBuilder.roles
-    .map((r) => {
+  const active = el.contains?.(document.activeElement) ? document.activeElement : null;
+  const focusKey = active ? (active.id === "lb-role-all" ? "" : active.value ?? null) : null;
+  const none = labBuilder.selectedRoles.size === 0;
+  el.innerHTML = [
+    `<label class="lb-chip lb-chip-all"><input type="checkbox" id="lb-role-all" autocomplete="off" ${none ? "checked" : ""}><span>All departments</span></label>`,
+    ...labBuilder.roles.map((r) => {
       const checked = labBuilder.selectedRoles.has(r.id);
-      return `
-      <label class="scenario-role${checked ? " checked" : ""}">
-        <input type="checkbox" name="lb-role" value="${escapeHtml(r.id)}" autocomplete="off" ${checked ? "checked" : ""}>
-        <span>
-          <span style="font-weight: 600;"><span aria-hidden="true">${escapeHtml(r.icon || "")}</span> ${escapeHtml(r.name)}</span>
-          <div class="scenario-card-desc">${escapeHtml(r.description || "")}</div>
-        </span>
-      </label>`;
-    })
-    .join("");
-  el.querySelectorAll("input[type=checkbox]").forEach((input) => {
-    input.addEventListener("change", () => {
-      input.closest(".scenario-role")?.classList.toggle("checked", input.checked);
-      lbToggleRole(input.value, input.checked);
-    });
+      return `<label class="lb-chip"><input type="checkbox" name="lb-role" value="${escapeHtml(r.id)}" autocomplete="off" ${checked ? "checked" : ""}><span>${escapeHtml(r.name)}</span></label>`;
+    }),
+  ].join("");
+  el.querySelector("#lb-role-all")?.addEventListener("change", (event) => {
+    if (event.target.checked) lbClearRoles();
+    // With no department chosen, All departments is the answer: it cannot be unchecked on its own.
+    else lbRenderRoles();
   });
+  el.querySelectorAll("input[name=lb-role]").forEach((input) => {
+    input.addEventListener("change", () => lbToggleRole(input.value, input.checked));
+  });
+  if (focusKey !== null) {
+    const target = focusKey === "" ? el.querySelector("#lb-role-all") : el.querySelector(`input[value="${CSS.escape(focusKey)}"]`);
+    target?.focus?.();
+  }
+  const hint = document.getElementById("lb-role-hint");
+  if (hint) {
+    const names = labBuilder.roles.filter((r) => labBuilder.selectedRoles.has(r.id)).map((r) => r.name);
+    hint.textContent = names.length
+      ? `${lbJoinNames(names)} ${names.length === 1 ? "is" : "are"} selected. Their topics and design guidance are added. Choose All departments to go back to a general lab.`
+      : "All departments is selected. Not sure? Keep it. Choose departments to add the topics their teams use most.";
+  }
 }
 
 function lbToggleRole(id, checked) {
   if (checked) labBuilder.selectedRoles.add(id);
   else labBuilder.selectedRoles.delete(id);
+  labBuilder.chosenSteps.add("tailor");
+  lbRenderRoles();
   lbAnswersChanged();
 }
 
-// ── Step 4: level ───────────────────────────────────────────────────────────
+function lbClearRoles() {
+  labBuilder.chosenSteps.add("tailor");
+  if (!labBuilder.selectedRoles.size) {
+    lbRenderRoles();
+    return;
+  }
+  labBuilder.selectedRoles.clear();
+  lbRenderRoles();
+  lbAnswersChanged();
+}
+
+// ── Step 2: tailor it (level) ───────────────────────────────────────────────
 async function lbRenderLevels() {
   const el = document.getElementById("lb-level-options");
   if (!el) return;
-  const stats = {};
+  const token = Symbol("levels");
+  labBuilder.levelsToken = token;
+  const counts = {};
   const gaps = {};
   if (lbSelectedProductList().length) {
     try {
       const recs = await Promise.all(labBuilder.levels.map((l) => lbRecommend({ level: l.level })));
+      if (labBuilder.levelsToken !== token) return;
       labBuilder.levels.forEach((l, i) => {
-        stats[l.level] = {
-          totals: recs[i].totals,
-          shown: recs[i].filter?.shown ?? 0,
-        };
+        counts[l.level] = recs[i].filter?.shown ?? 0;
         // A selected product with nothing at this level is named, so a short list is never a mystery.
         gaps[l.level] = (recs[i].products || []).filter((p) => !p.atLevel).map((p) => p.shortName);
       });
     } catch {
-      /* the hint is a nicety; the choice still works without it */
+      /* the counts are a nicety; the choice still works without them */
     }
   }
+  labBuilder.levelGaps = gaps;
   const focused = el.contains(document.activeElement) ? document.activeElement.value : null;
-  const levelChosen = lbIsStepChosen("level");
   el.innerHTML = labBuilder.levels
     .map((l) => {
-      const checked = levelChosen && labBuilder.level === l.level;
-      const levelStat = stats[l.level];
-      const levelGaps = gaps[l.level] || [];
-      const hasFooter = Boolean(levelStat || levelGaps.length);
-      let statsHtml = "";
-      if (levelStat) {
-        const { totals, shown } = levelStat;
-        if (totals.selectedCount > 0) {
-          const totalRow = `<div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total">About <strong>${escapeHtml(totals.selectedCount)}</strong> ${totals.selectedCount === 1 ? "topic" : "topics"} at this level<span class="sr-only">.</span></span></div>`;
-          const detailChips = [];
-          if (totals.prerequisiteCount) {
-            detailChips.push(
-              `<span class="lb-stat-chip lb-stat-chip-level">+<strong>${escapeHtml(totals.prerequisiteCount)}</strong> short prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}<span class="sr-only">,</span></span>`
-            );
-          }
-          detailChips.push(
-            `<span class="lb-stat-chip lb-stat-chip-level">Around <strong>${escapeHtml(totals.duration)}</strong> (estimate)<span class="sr-only">.</span></span>`
-          );
-          statsHtml = `<div class="lb-product-stats">${totalRow} <div class="lb-stat-detail-row">${detailChips.join(" ")}</div></div>`;
-        } else if (shown > 0) {
-          statsHtml = `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(shown)}</strong> ${shown === 1 ? "topic" : "topics"} available<span class="sr-only">.</span></span></div></div>`;
-        } else {
-          statsHtml = `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-empty">No topics at this level yet<span class="sr-only">.</span></span></div></div>`;
-        }
-      }
+      const checked = labBuilder.level === l.level;
+      const count = counts[l.level];
+      const countText = count === undefined ? "" : count > 0 ? `${count} ${count === 1 ? "topic" : "topics"}` : "No topics yet";
+      const detail = [l.label, countText].filter(Boolean).join(" · ");
       return `
-      <label class="scenario-role${checked ? " checked" : ""}">
+      <label class="lb-seg-option">
         <input type="radio" name="lb-level" value="${l.level}" autocomplete="off" ${checked ? "checked" : ""}>
-        <span class="lb-card-body">
-          <span class="lb-card-head">
-            <span class="lb-card-title">Level ${l.level}: ${escapeHtml(l.label)}<span class="sr-only">.</span></span>
-          </span>
-          ${l.description ? `<div class="scenario-card-desc">${escapeHtml(l.description)}</div>` : ""}
-          ${
-            hasFooter
-              ? `<div class="lb-card-footer">
-                  ${statsHtml}
-                  ${levelGaps.length ? `<div class="lb-card-meta-note">No Level ${l.level} topics yet for <strong>${escapeHtml(lbJoinNames(levelGaps))}</strong>.</div>` : ""}
-                </div>`
-              : ""
-          }
-        </span>
+        <span class="lb-seg-title">Level ${l.level}</span>
+        <span class="lb-seg-count">${escapeHtml(detail)}</span>
       </label>`;
     })
     .join("");
   el.querySelectorAll("input[type=radio]").forEach((input) => {
-    input.addEventListener("change", () => {
-      el.querySelectorAll(".scenario-role").forEach((card) => card.classList.remove("checked"));
-      input.closest(".scenario-role")?.classList.add("checked");
-      lbSelectLevel(Number(input.value));
-    });
+    input.addEventListener("change", () => lbSelectLevel(Number(input.value)));
   });
   if (focused) el.querySelector(`input[value="${focused}"]`)?.focus();
+  lbRenderLevelHint();
   lbRenderLevelNotice();
+}
+
+/** One line under the level choice: what is selected, and which chosen product has nothing at it. */
+function lbRenderLevelHint() {
+  const hint = document.getElementById("lb-level-hint");
+  if (!hint) return;
+  const gaps = labBuilder.levelGaps?.[labBuilder.level] || [];
+  const gap = gaps.length ? ` No ${lbLevelName(labBuilder.level)} topics yet for ${lbJoinNames(gaps)}.` : "";
+  hint.textContent = `${lbLevelName(labBuilder.level)} is selected. The lab lists and builds only this level, and a topic that builds on a lower level gets a short refresher you can turn off.${gap}`;
 }
 
 function lbSelectLevel(level) {
   const nextLevel = Number(level);
   const previous = labBuilder.level;
-  const wasChosen = lbIsStepChosen("level");
-  labBuilder.chosenSteps.add("level");
+  labBuilder.chosenSteps.add("tailor");
   labBuilder.level = nextLevel;
+  lbRenderLevelHint();
   if (labBuilder.level !== previous) lbLevelChanged(previous);
-  else if (!wasChosen) lbRenderSummary();
+  else lbRenderSummary();
 }
 
-// ── Step 5: harness (only for products that have harnesses) ────────────────
+// ── Step 2: tailor it (harness, only for products that have harnesses) ─────
 function lbRenderHarnesses() {
+  const row = document.getElementById("lb-harness-row");
+  const hasHarness = lbHasHarnessProduct();
+  if (row) row.hidden = !hasHarness;
   const el = document.getElementById("lb-harness-options");
   if (!el) return;
+  if (!hasHarness) {
+    el.innerHTML = "";
+    lbRenderDifferenceOptions();
+    return;
+  }
   const features = lbFeatureList();
   const level = labBuilder.level;
-  const harnessChosen = lbIsStepChosen("harness");
   el.innerHTML = labBuilder.harnesses
     .filter((h) => labBuilder.selectedProducts.has(h.product || LB_DEFAULT_PRODUCT))
     .map((h) => {
@@ -1258,61 +1150,49 @@ function lbRenderHarnesses() {
       // A harness is only unavailable when it has no topic at any level; a level with none is explained instead.
       const unavailable = onHarness.length + lbLearnNewCount(h.id) === 0;
       const shown = atLevel + fromLearn;
-      const checked = harnessChosen && labBuilder.harness === h.id && !unavailable;
-      const learnHref = lbLearnUrl(h.learnUrl) || h.learnUrl;
-      let statsHtml;
-      if (unavailable) {
-        statsHtml = `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-empty">No lab topics are available for this harness yet, so it cannot be selected<span class="sr-only">.</span></span></div></div>`;
-      } else if (shown) {
-        const totalRow = `<div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-total"><strong>${escapeHtml(shown)}</strong> ${escapeHtml(lbLevelName(level))} ${shown === 1 ? "topic" : "topics"} available<span class="sr-only">.</span></span></div>`;
-        const detailRow = fromLearn
-          ? ` <div class="lb-stat-detail-row"><span class="lb-stat-chip lb-stat-chip-level"><strong>${escapeHtml(fromLearn)}</strong> new from Microsoft Learn<span class="sr-only">.</span></span></div>`
-          : "";
-        statsHtml = `<div class="lb-product-stats">${totalRow}${detailRow}</div>`;
-      } else {
-        statsHtml = `<div class="lb-product-stats"><div class="lb-stat-total-row"><span class="lb-stat-chip lb-stat-chip-empty">No ${escapeHtml(lbLevelName(level))} topics are available for this harness yet<span class="sr-only">.</span></span></div></div>`;
-      }
+      const checked = labBuilder.harness === h.id && !unavailable;
+      const meta = unavailable
+        ? "No lab topics yet, so it cannot be selected"
+        : shown
+          ? `${shown} ${lbLevelName(level)} ${shown === 1 ? "topic" : "topics"}`
+          : `No ${lbLevelName(level)} topics yet`;
+      const description = String(h.description || "");
+      const lead = description.split(/(?<=\.)\s+/)[0] || "";
+      const preview = /\bPreview\b\./.test(description) ? ' <span class="lb-badge lb-badge-warn">Preview</span>' : "";
       return `
-      <label class="scenario-role${unavailable ? " lb-unavailable" : ""}${checked ? " checked" : ""}">
+      <label class="lb-radio-option${unavailable ? " lb-unavailable" : ""}">
         <input type="radio" name="lb-harness" value="${escapeHtml(h.id)}" autocomplete="off" ${checked ? "checked" : ""} ${unavailable ? "disabled" : ""}>
-        <span class="lb-card-body">
-          <span class="lb-card-head">
-            <span class="lb-card-title">${escapeHtml(h.name)}<span class="sr-only">.</span></span>
-          </span>
-          ${h.description ? `<div class="scenario-card-desc">${escapeHtml(h.description)}</div>` : ""}
-          <div class="lb-card-footer">
-            ${statsHtml}
-            ${
-              learnHref
-                ? `<div class="lb-card-learn"><a href="${escapeHtml(learnHref)}" target="_blank" rel="noopener noreferrer">Learn about the ${escapeHtml(h.name)} (opens in a new tab)</a></div>`
-                : ""
-            }
-          </div>
-        </span>
+        <span class="lb-radio-name">${escapeHtml(h.name)}${preview} <span class="lb-seg-count">· ${escapeHtml(meta)}</span></span>
+        <span class="lb-radio-desc">${escapeHtml(lead)}</span>
       </label>`;
     })
     .join("");
   el.querySelectorAll("input[type=radio]").forEach((input) => {
-    input.addEventListener("change", () => {
-      el.querySelectorAll(".scenario-role").forEach((card) => card.classList.remove("checked"));
-      input.closest(".scenario-role")?.classList.add("checked");
-      lbSelectHarness(input.value);
-    });
+    input.addEventListener("change", () => lbSelectHarness(input.value));
   });
+  lbRenderHarnessHint();
   lbRenderDifferenceOptions();
+}
+
+function lbRenderHarnessHint() {
+  const hint = document.getElementById("lb-harness-hint");
+  if (!hint) return;
+  hint.textContent = labBuilder.harness === "standard"
+    ? `${lbHarnessName(labBuilder.harness)} is selected. Not sure? Keep it.`
+    : `${lbHarnessName(labBuilder.harness)} is selected.`;
 }
 
 function lbSelectHarness(id) {
   const previous = labBuilder.harness;
-  const wasChosen = lbIsStepChosen("harness");
-  labBuilder.chosenSteps.add("harness");
+  labBuilder.chosenSteps.add("tailor");
   labBuilder.harness = id;
   if (labBuilder.harness !== previous) {
     labBuilder.differencesFor = null;
+    lbRenderHarnessHint();
     lbRenderDifferenceOptions();
     lbRenderLearnBar();
     lbAnswersChanged();
-  } else if (!wasChosen) {
+  } else {
     lbRenderSummary();
   }
 }
@@ -1325,26 +1205,29 @@ function lbDifferencesFor() {
 function lbRenderDifferenceOptions() {
   const el = document.getElementById("lb-differences-options");
   if (!el) return;
+  if (!lbHasHarnessProduct()) {
+    el.innerHTML = "";
+    return;
+  }
   const chosen = lbDifferencesFor();
   el.innerHTML = labBuilder.harnesses
     .filter((h) => h.id !== labBuilder.harness && (h.product || LB_DEFAULT_PRODUCT) === (lbHarnessOwner(labBuilder.harness) || LB_DEFAULT_PRODUCT))
     .map((h) => {
       const checked = chosen.has(h.id);
       return `
-      <label class="scenario-role${checked ? " checked" : ""}">
+      <label class="lb-check-option">
         <input type="checkbox" name="lb-differences" value="${escapeHtml(h.id)}" autocomplete="off" ${checked ? "checked" : ""}>
-        <span><span style="font-weight: 600;">${escapeHtml(h.name)}</span></span>
+        <span>Compare with <strong>${escapeHtml(h.name)}</strong></span>
       </label>`;
     })
     .join("");
   el.querySelectorAll("input[type=checkbox]").forEach((input) => {
     input.addEventListener("change", () => {
-      input.closest(".scenario-role")?.classList.toggle("checked", input.checked);
       const next = new Set(lbDifferencesFor());
       if (input.checked) next.add(input.value);
       else next.delete(input.value);
       labBuilder.differencesFor = next;
-      labBuilder.chosenSteps.add("harness");
+      labBuilder.chosenSteps.add("tailor");
       lbRenderSummary();
     });
   });
@@ -2051,12 +1934,12 @@ function lbRenderTopicScorecard(rec) {
   scorecard.innerHTML = chips.join("");
 }
 
-// ── Step 6: topics ──────────────────────────────────────────────────────────
+// ── Topics step ─────────────────────────────────────────────────────────────
 function lbSelectedCount() {
   return labBuilder.rec ? labBuilder.rec.selectedIds.length : 0;
 }
 
-// ── Step 6: sub-topics ──────────────────────────────────────────────────────
+// ── Topics step: sub-topics ─────────────────────────────────────────────────
 // A topic from Microsoft Learn can carry sub-topics: the companion articles merged under it. Each is its own
 // checkbox. Every sub-topic of a selected topic is included unless the learner unchecks it (`excludedSubtopics`).
 const LB_SUBTOPIC_PREVIEW = 6;
@@ -2109,7 +1992,7 @@ function lbSetSubtopic(subId, parentId, checked) {
   const parent = lbTopicRows().find((t) => t.id === parentId);
   const sub = parent?.learn?.subtopics?.find((s) => s.id === subId);
   if (!parent || !sub) return;
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
@@ -2146,7 +2029,7 @@ function lbOwnPicks() {
 }
 
 function lbSetTopic(id, checked, required) {
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
   const picks = lbOwnPicks();
   labBuilder.prereqNotice = null;
@@ -2168,7 +2051,7 @@ function lbSetTopic(id, checked, required) {
 
 /** A lower-level prerequisite is never a pick of its own: turning it off marks it as already known. */
 function lbSetPrerequisite(id, checked) {
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
   labBuilder.prereqNotice = null;
   labBuilder.pendingUncheckIds = [];
@@ -2180,7 +2063,7 @@ function lbSetPrerequisite(id, checked) {
 function lbSetGroup(conceptId, checked) {
   const concept = labBuilder.rec?.concepts.find((c) => c.id === conceptId);
   if (!concept) return;
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
   labBuilder.prereqNotice = null;
   const unchecked = [];
@@ -2202,7 +2085,7 @@ function lbSetGroup(conceptId, checked) {
 
 function lbSelectAllTopics() {
   // Only the level's own topics; "Level unknown" topics are never added in bulk.
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
   const all = (labBuilder.rec?.concepts || []).flatMap((c) => c.topics.map((t) => t.id));
   labBuilder.picked = new Set(all);
@@ -2215,7 +2098,7 @@ function lbSelectAllTopics() {
 }
 
 function lbClearTopics() {
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set();
   labBuilder.excluded.clear();
@@ -2228,7 +2111,7 @@ function lbClearTopics() {
 
 /** Select every topic the rules recommend for these answers. Only this deliberate action adds the level's baseline picks. */
 function lbSelectRecommended() {
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = new Set(labBuilder.rec?.recommendedIds || []);
   labBuilder.excluded.clear();
@@ -2241,7 +2124,7 @@ function lbSelectRecommended() {
 
 /** Back to what the learner's answers pre-select (nothing, unless a vertical or department points at a topic). */
 function lbResetTopics() {
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
   labBuilder.picked = null;
   labBuilder.excluded.clear();
@@ -2255,6 +2138,8 @@ function lbResetTopics() {
 function lbBindTopicEvents() {
   lbEnsureThirdPartyFilterOption();
   lbBindExportEvents();
+  lbBindBrandToggle();
+  document.getElementById("lb-industry-select")?.addEventListener("change", (event) => lbSelectIndustry(event.target.value));
   lbEnsurePreviewEvents(document.getElementById("lb-preview"));
   lbBindSharepointSiteControls();
   const groups = document.getElementById("lb-topic-groups");
@@ -2698,7 +2583,7 @@ function lbRenderTopics() {
   }
 }
 
-// ── Step 6: Export All Topics ───────────────────────────────────────────────
+// ── Topics step: Export All Topics ──────────────────────────────────────────
 // Every topic and sub-topic for the chosen products, at every level, whatever the search, filter, or selection.
 // The server builds the rows (POST /api/lab-builder/topics/export); the files are built here from those rows, so an
 // export keeps working offline once the rows are loaded. The same files come out of portal/lib/lab-builder/topic-export.js.
@@ -2975,7 +2860,7 @@ function lbRenderExportScope() {
   }
 }
 
-/** Called on every render of Step 6: updates the note and starts loading the rows when the answers changed. */
+/** Called on every render of the Topics step: updates the note and starts loading the rows when the answers changed. */
 function lbSyncExportScope() {
   lbRenderExportScope();
   if (!lbSelectedProductList().length) return;
@@ -3083,18 +2968,16 @@ function lbIsStepChosen(stepKey) {
   switch (stepKey) {
     case "product":
       return lbSelectedProductList().length > 0;
-    case "vertical":
-      return labBuilder.chosenSteps.has("vertical") || labBuilder.industry !== null;
-    case "departments":
-      return labBuilder.chosenSteps.has("departments") || labBuilder.selectedRoles.size > 0;
-    case "level":
-      return labBuilder.chosenSteps.has("level") || labBuilder.level !== 100;
-    case "harness":
+    case "tailor":
+      // Tailor it shows every default selected, so once it has been seen the summary can name them all.
       return (
-        lbHasHarnessProduct() &&
-        (labBuilder.chosenSteps.has("harness") ||
-          labBuilder.harness !== "standard" ||
-          labBuilder.differencesFor !== null)
+        labBuilder.chosenSteps.has("tailor") ||
+        labBuilder.step >= LB_STEP.tailor ||
+        labBuilder.furthest >= LB_STEP.tailor ||
+        labBuilder.industry !== null ||
+        labBuilder.selectedRoles.size > 0 ||
+        labBuilder.level !== 100 ||
+        (lbHasHarnessProduct() && (labBuilder.harness !== "standard" || labBuilder.differencesFor !== null))
       );
     case "topics":
       return (
@@ -3145,22 +3028,16 @@ function lbRenderSummary() {
   const el = document.getElementById("lb-summary");
   let summaryHtml;
   if (!lbIsStepChosen("product")) {
-    summaryHtml = "<strong>Your lab so far:</strong> No products selected yet — choose one or more products in Step 1 to begin.";
+    summaryHtml = "<strong>Your lab so far:</strong> nothing yet.";
   } else {
     const parts = [escapeHtml(lbProductsLabel())];
-    if (lbIsStepChosen("vertical")) {
+    if (lbIsStepChosen("tailor")) {
       const industry = labBuilder.industries.find((i) => i.id === labBuilder.industry);
       parts.push(escapeHtml(industry ? industry.name : "Cross-industry"));
-    }
-    if (lbIsStepChosen("departments")) {
       const departments = labBuilder.roles.filter((r) => labBuilder.selectedRoles.has(r.id)).map((r) => r.name);
       parts.push(escapeHtml(departments.length ? `Departments: ${departments.join(", ")}` : "All departments"));
-    }
-    if (lbIsStepChosen("level")) {
       parts.push(escapeHtml(lbLevelName(labBuilder.level)));
-    }
-    if (lbIsStepChosen("harness")) {
-      parts.push(escapeHtml(lbHarnessName(labBuilder.harness)));
+      if (lbHasHarnessProduct()) parts.push(escapeHtml(lbHarnessName(labBuilder.harness)));
     }
     if (lbIsStepChosen("topics")) {
       const totals = labBuilder.rec?.totals;
@@ -3188,7 +3065,7 @@ function lbRenderSummary() {
   lbSyncSharepointSiteUi();
 }
 
-/** Number the visible steps again, hide the harness step when it does not apply, and keep each heading's "Step n of m" true. */
+/** Keep every heading's "Step n of m" true and mark which steps are current, done, and reachable. */
 function lbRenderStepper() {
   const visible = lbVisibleStepIds();
   document.querySelectorAll("#lb-steps [data-lb-step]").forEach((button) => {
@@ -3198,8 +3075,7 @@ function lbRenderStepper() {
     if (item) item.hidden = !shown;
     const number = button.querySelector("span[aria-hidden]");
     if (number && shown) number.textContent = String(visible.indexOf(step) + 1);
-    const blockedGenerate = step === LB_STEP.generate && Boolean(labBuilder.rec) && lbSelectedCount() === 0;
-    const reachable = step === LB_STEP.product || (labBuilder.selectedProducts.size > 0 && step <= labBuilder.furthest && !blockedGenerate);
+    const reachable = step === LB_STEP.product || (labBuilder.selectedProducts.size > 0 && step <= labBuilder.furthest);
     button.disabled = !reachable;
     button.classList.toggle("active", step === labBuilder.step);
     button.classList.toggle("done", step < labBuilder.step);
@@ -3215,7 +3091,7 @@ function lbRenderStepper() {
 
 /** Label for the primary forward CTA from any wizard step. */
 function lbNextActionLabel(step) {
-  if (step === LB_STEP.generate) return "⚡ Generate Lab";
+  if (step === LB_STEP.review) return "Build my lab";
   const nextId = lbAdjacentStep(step, 1);
   const nextStep = LB_STEPS.find((s) => s.id === nextId);
   return nextStep ? `Next: ${nextStep.label} →` : "Next →";
@@ -3224,12 +3100,7 @@ function lbNextActionLabel(step) {
 /** Keep sticky top navigation and bottom step footers synchronized across all steps. */
 function lbSyncNavControls() {
   const step = labBuilder.step;
-  const afterLevel = document.getElementById("lb-next-from-level");
-  if (afterLevel) afterLevel.textContent = lbNextActionLabel(LB_STEP.level);
-
   const empty = Boolean(labBuilder.rec) && lbSelectedCount() === 0;
-  const nextBtn = document.getElementById("lb-next-from-review");
-  if (nextBtn) nextBtn.disabled = empty;
   const genBtn = document.getElementById("lb-generate-btn");
   if (genBtn && !labBuilder.busy) genBtn.disabled = empty;
 
@@ -3241,8 +3112,7 @@ function lbSyncNavControls() {
   const stickyNext = document.getElementById("lb-sticky-next");
   if (stickyNext) {
     stickyNext.textContent = lbNextActionLabel(step);
-    stickyNext.disabled =
-      Boolean(labBuilder.busy) || ((step === LB_STEP.review || step === LB_STEP.generate) && empty);
+    stickyNext.disabled = Boolean(labBuilder.busy) || (step === LB_STEP.review && empty);
   }
   lbObserveStepFooter();
 }
@@ -3302,13 +3172,13 @@ function generateCustomLab() {
 }
 
 function lbStickyPrimaryAction() {
-  if (labBuilder.step === LB_STEP.generate) {
+  if (labBuilder.step === LB_STEP.review) {
     return generateCustomLab();
   }
   return lbNextStep();
 }
 
-/** The step after or before the current one, skipping a step that does not apply. */
+/** Move forward one step, saving what the current one decided. The last step builds instead (see lbStickyPrimaryAction). */
 function lbNextStep() {
   if (labBuilder.step === LB_STEP.product) {
     if (!labBuilder.selectedProducts.size) {
@@ -3320,28 +3190,10 @@ function lbNextStep() {
       return;
     }
     labBuilder.chosenSteps.add("product");
-  } else if (labBuilder.step === LB_STEP.vertical) {
-    labBuilder.chosenSteps.add("vertical");
-    lbRenderIndustries();
-  } else if (labBuilder.step === LB_STEP.departments) {
-    labBuilder.chosenSteps.add("departments");
-  } else if (labBuilder.step === LB_STEP.level) {
-    labBuilder.chosenSteps.add("level");
-  } else if (labBuilder.step === LB_STEP.harness && lbHasHarnessProduct()) {
-    labBuilder.chosenSteps.add("harness");
-    lbRenderHarnesses();
+  } else if (labBuilder.step === LB_STEP.tailor) {
+    labBuilder.chosenSteps.add("tailor");
   } else if (labBuilder.step === LB_STEP.topics && lbSelectedCount() > 0) {
     labBuilder.chosenSteps.add("topics");
-  } else if (labBuilder.step === LB_STEP.review) {
-    if (!lbSelectedCount()) {
-      const error = document.getElementById("lb-review-error");
-      if (error) {
-        error.textContent = "Keep or re-select at least one module before generating your lab.";
-        error.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
-      }
-      return;
-    }
-    if (!lbValidateOrPromptSharepointSite("next")) return;
   }
   lbRenderSummary();
   lbGoToStep(lbAdjacentStep(labBuilder.step, 1));
@@ -3361,13 +3213,12 @@ function lbGoToStep(step) {
     }
     step = LB_STEP.product;
   }
-  // The harness step does not exist for a lab with no harness product: land on the step after it.
-  if (step === LB_STEP.harness && !lbHasHarnessProduct()) step = LB_STEP.topics;
   if (step > LB_STEP.topics && !lbSelectedCount()) {
     if (labBuilder.step === LB_STEP.review) {
+      // Already on Review and build with every module unchecked: stay, so the modules can be re-selected right there.
       const error = document.getElementById("lb-review-error");
       if (error) {
-        error.textContent = "Keep or re-select at least one module before generating your lab.";
+        error.textContent = "Keep or re-select at least one module before building your lab.";
         error.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
       }
       step = LB_STEP.review;
@@ -3380,9 +3231,6 @@ function lbGoToStep(step) {
       step = LB_STEP.topics;
     }
   }
-  if (step === LB_STEP.generate && !lbValidateOrPromptSharepointSite("next")) {
-    return;
-  }
   labBuilder.step = step;
   labBuilder.furthest = Math.max(labBuilder.furthest, step);
   for (const { id } of LB_STEPS) {
@@ -3393,7 +3241,7 @@ function lbGoToStep(step) {
   lbRenderSummary();
   lbSyncResetButton();
   document.getElementById(`lb-heading-${step}`)?.focus();
-  if (step === LB_STEP.level) lbRenderLevels();
+  if (step === LB_STEP.tailor) lbRenderLevels();
   if (step === LB_STEP.topics) {
     lbRenderLevelNotice();
     lbRenderTopics();
@@ -3401,11 +3249,8 @@ function lbGoToStep(step) {
   if (step === LB_STEP.review) {
     lbSyncSharepointSiteUi();
     lbSyncCustomizeCard();
-    lbPreview();
-  }
-  if (step === LB_STEP.generate) {
-    lbSyncSharepointSiteUi();
     lbSyncCustomizeSummary();
+    lbPreview();
     if (typeof scSyncCaptureOnBuild === "function") void scSyncCaptureOnBuild();
   }
 }
@@ -3504,8 +3349,6 @@ function lbResetAnswers() {
   labBuilder.includeKnowledgeCheck = false;
   labBuilder.sharepointSiteName = "";
   labBuilder.sharepointSiteUrl = "";
-  labBuilder.sharepointPromptSkipped = false;
-  labBuilder.sharepointPromptPendingAction = null;
   labBuilder.previewRequiresSharepointSite = null;
   labBuilder.brand.profileId = null;
   labBuilder.brand.overrides = {};
@@ -3618,11 +3461,7 @@ function lbApplySavedSelections(saved, draft = null) {
   labBuilder.step7Removed = new Map();
   labBuilder.moduleOrder = Array.isArray(saved.moduleOrder) ? [...saved.moduleOrder] : [];
   labBuilder.previewModules = [];
-  labBuilder.chosenSteps = new Set(
-    draft
-      ? draft.chosenSteps
-      : ["product", "vertical", "departments", "level", ...(lbHasHarnessProduct() ? ["harness"] : []), "topics"]
-  );
+  labBuilder.chosenSteps = new Set(draft ? draft.chosenSteps : ["product", "tailor", "topics"]);
   labBuilder.rec = null;
   lbSetFormValue("lb-time", saved.targetMinutes || "");
   lbSetFormValue("lb-title", saved.customTitle || "");
@@ -3640,8 +3479,6 @@ function lbApplySavedSelections(saved, draft = null) {
   labBuilder.brand.profileId = typeof saved.brandProfileId === "string" ? saved.brandProfileId : null;
   labBuilder.brand.overrides = saved.brandOverrides && typeof saved.brandOverrides === "object" ? { ...saved.brandOverrides } : {};
   labBuilder.brand.prefilled = { name: "", url: "" };
-  labBuilder.sharepointPromptSkipped = false;
-  labBuilder.sharepointPromptPendingAction = null;
   labBuilder.previewRequiresSharepointSite = null;
   lbSaveSelections();
   labBuilder.furthest = draft ? draft.furthest : LB_STEP.review;
@@ -3718,7 +3555,7 @@ async function lbPrefillFromUseCases(plan) {
   labBuilder.picked = new Set(keep);
   labBuilder.excluded = new Set();
   labBuilder.excludedSubtopics = new Set();
-  labBuilder.chosenSteps = new Set(["product", "vertical", "departments", "level", ...(lbHasHarnessProduct() ? ["harness"] : []), "topics"]);
+  labBuilder.chosenSteps = new Set(["product", "tailor", "topics"]);
   if (plan.title) lbSetFormValue("lb-title", String(plan.title).replace(LB_CONTROL_CHARS_RE, " ").trim().slice(0, 160));
   labBuilder.furthest = LB_STEP.topics;
   lbSaveSelections();
@@ -3933,7 +3770,7 @@ function lbRenderRemovedSection() {
     </section>`;
 }
 
-/** A sub-topic under its module in the Review table: its own checkbox, so it can be left out here as well as in Step 6. */
+/** A sub-topic under its module in the Review table: its own checkbox, so it can be left out here as well as on the Topics step. */
 function lbRenderOutlineSubtopic(module, sub) {
   const id = `lb-outline-sub-${escapeHtml(sub.id)}`;
   const url = lbLearnUrl(sub.url);
@@ -4053,13 +3890,13 @@ function lbEnsurePreviewEvents(el) {
 }
 
 /**
- * Toggle a planned curriculum module directly on Step 7 (Review your lab).
+ * Toggle a planned curriculum module directly on the Review and build step.
  * A single uncheck removes the module immediately from the curriculum and marks it
  * excluded so prerequisite expansion does not add it back.
  */
 async function lbSetOutlineModule(id, checked) {
   if (!id) return;
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   const meta = lbLookupModuleMeta(id);
   const picks = lbOwnPicks();
   const wasPicked = picks.has(id);
@@ -4095,11 +3932,11 @@ async function lbSetOutlineModule(id, checked) {
 }
 
 /**
- * Include or leave out one sub-topic from Step 7. It changes the same choice Step 6 holds, so the two steps never disagree.
+ * Include or leave out one sub-topic from Review and build. It changes the same choice the Topics step holds, so the two steps never disagree.
  */
 async function lbSetOutlineSubtopic(subId, checked) {
   if (!subId) return;
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   labBuilder.chosenSteps.add("topics");
   if (checked) labBuilder.excludedSubtopics.delete(subId);
   else labBuilder.excludedSubtopics.add(subId);
@@ -4114,7 +3951,7 @@ async function lbSetOutlineSubtopic(subId, checked) {
 async function lbRestoreRemovedModules() {
   const removed = lbRemovedCurriculumItems();
   if (!removed.length) return;
-  lbClearSharepointSkipFlag();
+  lbInvalidateSharepointPreview();
   const picks = lbOwnPicks();
   labBuilder.chosenSteps.add("topics");
   labBuilder.prereqNotice = null;
@@ -4249,7 +4086,7 @@ async function lbPreview(options = {}) {
   }
 }
 
-// ── Step 7: brand profile and per-lab overrides ("Customize this lab") ─────
+// ── Review and build: brand profile and per-lab overrides ("Brand: ... Change") ──
 const LB_OVERRIDE_KEYS = ["companyName", "tagline", "moreInfoUrl", "moreInfoLabel", "supportName", "supportEmail", "footerText"];
 
 /** The loaded profile list from the Configuration tab code, or null before it is available. */
@@ -4297,7 +4134,7 @@ function lbBrandRequestFields() {
   return { brandProfileId: profile.id, overrides: lbBrandOverrides() };
 }
 
-/** Copy the profile's default SharePoint site into Step 7, unless the learner already chose a site. */
+/** Copy the profile's default SharePoint site into the SharePoint field, unless the person already chose a site. */
 function lbPrefillSharepointFromProfile(profile) {
   const name = profile?.defaultSharepointSiteName || "";
   const url = profile?.defaultSharepointSiteUrl || "";
@@ -4327,20 +4164,17 @@ function lbPrefillSharepointFromProfile(profile) {
 }
 
 function lbSyncCustomizeSummary() {
-  const el = document.getElementById("lb-step8-customize-summary");
+  const el = document.getElementById("lb-brand-summary");
   if (!el) return;
   const profile = lbBrandProfile();
   if (!profile) {
-    el.hidden = true;
-    el.textContent = "";
+    el.textContent = "Brand: Default";
     return;
   }
-  const brand = lbEffectiveBrand();
   const overrideNames = typeof brandOverrideNames === "function" ? brandOverrideNames(lbBrandOverrides()) : [];
-  const parts = [`Branding: ${profile.name} profile`, brand ? `Company: ${brand.companyName}` : ""];
-  parts.push(overrideNames.length ? `Overrides for this lab: ${overrideNames.join(", ")}` : "No overrides for this lab");
-  el.hidden = false;
-  el.textContent = parts.filter(Boolean).join(" · ");
+  el.textContent = overrideNames.length
+    ? `Brand: ${profile.name} (changed for this lab: ${overrideNames.join(", ")})`
+    : `Brand: ${profile.name}`;
 }
 
 function lbSyncCustomizeSite() {
@@ -4350,9 +4184,9 @@ function lbSyncCustomizeSite() {
   if (!state.requiresSharepointSite) {
     el.textContent = "The topics you picked do not need a SharePoint site.";
   } else if (state.name || state.url) {
-    el.textContent = `SharePoint site for this lab: ${state.label || state.name || state.url}. Change it in the SharePoint Site Details card above; the profile's default site pre-fills it.`;
+    el.textContent = `SharePoint site for this lab: ${state.label || state.name || state.url}. Change it in the SharePoint site field above; the profile's default site pre-fills it.`;
   } else {
-    el.textContent = "Add the SharePoint site in the SharePoint Site Details card above. The profile has no default site.";
+    el.textContent = "Add the SharePoint site in the SharePoint site field above. The profile has no default site.";
   }
 }
 
@@ -4361,6 +4195,20 @@ function lbRenderCustomizePreview() {
   const brand = lbEffectiveBrand();
   if (!preview || !brand || typeof renderBrandPreviewHtml !== "function") return;
   preview.innerHTML = renderBrandPreviewHtml(brand, { labTitle: document.getElementById("lb-title")?.value?.trim() || "" });
+}
+
+/** "Brand: Default [Change]" opens and closes the brand card; it works even before the brand profiles have loaded. */
+function lbBindBrandToggle() {
+  const button = document.getElementById("lb-brand-change");
+  if (!button || button._lbBound) return;
+  button._lbBound = true;
+  button.addEventListener("click", () => {
+    const card = document.getElementById("lb-customize-card");
+    if (!card) return;
+    card.hidden = !card.hidden;
+    button.setAttribute("aria-expanded", String(!card.hidden));
+    button.textContent = card.hidden ? "Change" : "Hide";
+  });
 }
 
 function lbBindCustomizeControls() {
@@ -4401,7 +4249,7 @@ function lbBindCustomizeControls() {
   }
 }
 
-/** Render the picker, the override fields, the cover preview, and the Step 8 summary from the current choices. */
+/** Render the picker, the override fields, the cover preview, and the brand line from the current choices. */
 function lbSyncCustomizeCard() {
   if (typeof bpEnsureLoaded !== "function") return;
   const select = document.getElementById("lb-brand-profile");

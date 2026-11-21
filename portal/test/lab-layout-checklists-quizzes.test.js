@@ -303,12 +303,12 @@ test("generated lab typography CSS restores paragraph, list, heading, checklist,
   assert.ok(contrastRatio("#3dd6a3", "#181c26") >= 3.0, "dark success border contrast >= 3.0:1");
 });
 
-test("wizard Step 7 exposes Knowledge Check opt-in above Advanced options, defaults to false, and round-trips through manifests", () => {
+test("wizard Review and build exposes Knowledge Check opt-in above Advanced options, defaults to false, and round-trips through manifests", () => {
   const indexHtml = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
-  const pane7Start = indexHtml.indexOf('id="lb-pane-7"');
-  const quizToggleIdx = indexHtml.indexOf('id="lb-include-knowledge-check"', pane7Start);
-  const advancedIdx = indexHtml.indexOf('<details class="lb-advanced">', pane7Start);
-  assert.ok(pane7Start > 0 && quizToggleIdx > pane7Start, "Step 7 must contain #lb-include-knowledge-check");
+  const reviewPaneStart = indexHtml.indexOf('id="lb-pane-4"');
+  const quizToggleIdx = indexHtml.indexOf('id="lb-include-knowledge-check"', reviewPaneStart);
+  const advancedIdx = indexHtml.indexOf('<details class="lb-advanced">', reviewPaneStart);
+  assert.ok(reviewPaneStart > 0 && quizToggleIdx > reviewPaneStart, "Review and build must contain #lb-include-knowledge-check");
   assert.ok(quizToggleIdx < advancedIdx, "#lb-include-knowledge-check must appear above <details class=\"lb-advanced\">");
   assert.doesNotMatch(
     indexHtml.slice(quizToggleIdx - 40, quizToggleIdx + 220),

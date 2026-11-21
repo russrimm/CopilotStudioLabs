@@ -4685,10 +4685,7 @@ function lbStopGeneratingAnimation() {
 
 async function lbGenerate() {
   if (labBuilder.busy) return;
-  if (
-    typeof lbValidateOrPromptSharepointSite === "function" &&
-    !lbValidateOrPromptSharepointSite("generate")
-  ) {
+  if (typeof lbValidateSharepointSiteForBuild === "function" && !lbValidateSharepointSiteForBuild()) {
     return;
   }
   const btn = document.getElementById("lb-generate-btn");

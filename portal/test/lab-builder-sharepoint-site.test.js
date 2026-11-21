@@ -101,9 +101,7 @@ function createWizardVm({ withGenerate = false } = {}) {
         hidden:
           id === "lb-start-over" ||
           id === "lb-sharepoint-site-card" ||
-          id === "lb-sharepoint-site-preview" ||
-          id === "lb-sharepoint-site-prompt" ||
-          id === "lb-step8-sharepoint-summary",
+          id === "lb-sharepoint-site-preview",
         innerHTML: "",
         textContent: "",
         href: "",
@@ -147,7 +145,7 @@ function createWizardVm({ withGenerate = false } = {}) {
     return elements.get(id);
   }
 
-  // Pre-mount the SharePoint prompt card so lbIsSharepointPromptMounted() sees it immediately.
+  // Pre-mount the SharePoint site card so it starts hidden, as it does in the markup.
   element("lb-sharepoint-site-card");
 
   const context = {
@@ -401,87 +399,125 @@ test("SharePoint URL validation normalizes bare hostnames, derives labels, escap
   }
 });
 
-test("Step 7 SharePoint prompt card visibility, validation, interactive prompt, skip reset, and persistence work end to end", async () => {
-  // 1. Static HTML structure: card is inside #lb-pane-7 directly BEFORE <details class="lb-advanced"> (not hidden inside <details>).
-  const pane7Start = INDEX_HTML.indexOf('id="lb-pane-7"');
-  const pane8Start = INDEX_HTML.indexOf('id="lb-pane-8"');
-  assert.ok(pane7Start > 0 && pane8Start > pane7Start);
-  const pane7Html = INDEX_HTML.slice(pane7Start, pane8Start);
-  const spCardIdx = pane7Html.indexOf('id="lb-sharepoint-site-card"');
-  const advancedIdx = pane7Html.indexOf('<details class="lb-advanced">');
-  assert.ok(spCardIdx > 0, "Expected #lb-sharepoint-site-card inside #lb-pane-7");
+test("Review and build SharePoint site card is optional: visibility, no prompt, a typed bad URL still blocks, and the site is passed through and persisted end to end", async () => {
+  // 1. Static HTML structure: card is inside #lb-pane-4 directly BEFORE <details class="lb-advanced"> (not hidden inside <details>).
+  const pane4Start = INDEX_HTML.indexOf('id="lb-pane-4"');
+  const resultStart = INDEX_HTML.indexOf('id="lb-result-panel"');
+  assert.ok(pane4Start > 0 && resultStart > pane4Start);
+  const pane4Html = INDEX_HTML.slice(pane4Start, resultStart);
+  const spCardIdx = pane4Html.indexOf('id="lb-sharepoint-site-card"');
+  const advancedIdx = pane4Html.indexOf('<details class="lb-advanced">');
+  assert.ok(spCardIdx > 0, "Expected #lb-sharepoint-site-card inside #lb-pane-4");
   assert.ok(spCardIdx < advancedIdx, "Expected #lb-sharepoint-site-card above <details class=\"lb-advanced\">");
-  assert.match(INDEX_HTML, /id="lb-step8-sharepoint-summary"/);
+  assert.match(pane4Html, /SharePoint site \(optional\)/);
+  assert.match(pane4Html, /id="lb-sharepoint-site-hint"/);
+  for (const removed of ["lb-sharepoint-site-prompt", "lb-sharepoint-site-skip", "lb-step8-sharepoint-summary", "lb-step8-customize-summary"]) {
+    assert.ok(!INDEX_HTML.includes(`id="${removed}"`), `#${removed} is gone: the site is optional, so there is no prompt and no second summary`);
+  }
   assert.match(INDEX_HTML, /@media print[\s\S]*\.lb-sharepoint-site-card/);
 
-  // 2. Non-SharePoint selection hides #lb-sharepoint-site-card and allows advancing 7 -> 8 freely.
+  // 2. Non-SharePoint selection hides #lb-sharepoint-site-card and never asks about a site.
   const { context, run, element, getFocusedId, resetFocusTracking } = createWizardVm({ withGenerate: true });
+  const generateCalls = [];
+  const previewCalls = [];
+  const stubbedFetch = context.fetch;
+  context.fetch = async (url, init) => {
+    if (String(url).includes("/api/lab-builder/generate")) {
+      generateCalls.push(JSON.parse(init.body));
+      return { ok: true, json: async () => ({ status: "cancelled" }) };
+    }
+    if (String(url).includes("/api/lab-builder/preview")) previewCalls.push(JSON.parse(init.body));
+    return stubbedFetch(url, init);
+  };
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
   run("lbToggleProduct('copilot-studio', true)");
   await run("lbRefresh()");
   run("labBuilder.picked = new Set(['create-agent']); labBuilder.rec.selectedIds = ['create-agent'];");
-  run("lbGoToStep(7)");
-  assert.equal(run("labBuilder.step"), 7);
+  run("lbGoToStep(4)");
+  assert.equal(run("labBuilder.step"), 4);
   assert.equal(element("lb-sharepoint-site-card").hidden, true);
-  run("lbGoToStep(8)");
-  assert.equal(run("labBuilder.step"), 8, "Non-SharePoint labs must advance from Step 7 to Step 8 without prompting");
+  assert.equal(run("lbValidateSharepointSiteForBuild()"), true, "Non-SharePoint labs build without a word about a site");
+  assert.equal(run("lbNextActionLabel(4)"), "Build my lab");
 
-  // 3. Selecting a SharePoint topic reveals #lb-sharepoint-site-card and prompts when blank on Step 7 -> Step 8.
-  run("lbGoToStep(7)");
+  // 3. Selecting a SharePoint topic reveals #lb-sharepoint-site-card. The site is optional: a blank site never blocks and nothing prompts.
   run("labBuilder.level = 100; labBuilder.picked = new Set(['create-agent', 'knowledge-sharepoint']);");
   await run("lbRefresh()");
   run("lbSyncSharepointSiteUi()");
   assert.equal(element("lb-sharepoint-site-card").hidden, false);
+  assert.equal(element("lb-sharepoint-site-hint").hidden, false, "A calm hint says a blank site is fine while the field is empty");
+  assert.equal(run("typeof lbValidateOrPromptSharepointSite"), "undefined", "The blocking prompt is gone");
+  assert.equal(run("typeof lbClearSharepointSkipFlag"), "undefined", "So is the skip flag");
+  assert.equal(run("'sharepointPromptSkipped' in labBuilder"), false);
+  assert.equal(run("'sharepointPromptPendingAction' in labBuilder"), false);
 
   resetFocusTracking();
-  run("lbGoToStep(8)");
-  assert.equal(run("labBuilder.step"), 7, "Blank SharePoint fields must pause on Step 7 and prompt the lab builder");
-  assert.equal(element("lb-sharepoint-site-prompt").hidden, false);
-  assert.equal(getFocusedId(), "lb-sharepoint-site-name");
+  assert.equal(run("lbValidateSharepointSiteForBuild()"), true, "Blank SharePoint fields never block a build");
+  assert.equal(run("labBuilder.step"), 4);
+  assert.equal(getFocusedId(), null, "Nothing steals focus to ask about the site");
+  assert.equal(element("lb-sharepoint-site-error").textContent, "");
 
-  // Clicking Generate while blank also prompts instead of silently building without asking.
-  resetFocusTracking();
+  // Build my lab with both fields blank goes straight to the build, with no site in the request, and no second warning.
   await context.lbGenerate();
-  assert.equal(element("lb-sharepoint-site-prompt").hidden, false);
-  assert.equal(getFocusedId(), "lb-sharepoint-site-name");
+  assert.equal(generateCalls.length, 1);
+  assert.equal(generateCalls[0].sharepointSiteName, undefined);
+  assert.equal(generateCalls[0].sharepointSiteUrl, undefined);
+  assert.equal(getFocusedId(), null);
+  assert.equal(element("lb-sharepoint-site-error").textContent, "");
 
-  // If name is filled and URL is still blank, focus moves straight to #lb-sharepoint-site-url.
+  // The sticky primary on this step builds the same way, and Next from Topics opens this step without asking.
+  await run("lbStickyPrimaryAction()");
+  assert.equal(generateCalls.length, 2);
+  run("lbGoToStep(3)");
+  resetFocusTracking();
+  run("lbNextStep()");
+  assert.equal(run("labBuilder.step"), 4, "Next from Topics opens Review and build while the site is blank");
+  assert.equal(getFocusedId(), "lb-heading-4");
+
+  // A name with no URL is still fine, and the hint goes away once something is entered.
   element("lb-sharepoint-site-name").value = "Contoso Operations Hub";
   element("lb-sharepoint-site-name").dispatch("input");
+  assert.equal(element("lb-sharepoint-site-hint").hidden, true);
   resetFocusTracking();
-  run("lbGoToStep(8)");
-  assert.equal(run("labBuilder.step"), 7);
-  assert.equal(getFocusedId(), "lb-sharepoint-site-url");
+  assert.equal(run("lbValidateSharepointSiteForBuild()"), true, "A name alone never blocks");
+  assert.equal(getFocusedId(), null);
 
-  // 4. Invalid/XSS URL triggers inline error alert and blocks even if skip was clicked.
+  // 4. A typed invalid/XSS URL still blocks the build with the inline error, marks the field, and focuses it.
   element("lb-sharepoint-site-url").value = "javascript:alert(1)";
   element("lb-sharepoint-site-url").dispatch("input");
   resetFocusTracking();
-  run("lbGoToStep(8)");
-  assert.equal(run("labBuilder.step"), 7);
+  const callsBeforeBlocked = generateCalls.length;
+  await context.lbGenerate();
+  assert.equal(generateCalls.length, callsBeforeBlocked, "An address that cannot be used never reaches the build");
+  assert.equal(run("labBuilder.step"), 4);
   assert.ok(element("lb-sharepoint-site-error").textContent.length > 0);
   assert.equal(element("lb-sharepoint-site-url").getAttribute("aria-invalid"), "true");
   assert.equal(getFocusedId(), "lb-sharepoint-site-url");
+  resetFocusTracking();
+  await run("lbStickyPrimaryAction()");
+  assert.equal(generateCalls.length, callsBeforeBlocked, "The sticky primary is blocked the same way");
+  assert.equal(getFocusedId(), "lb-sharepoint-site-url");
 
-  // 5. Clearing invalid URL and clicking "Skip & use placeholder URL" allows advancing to Step 8.
+  // 5. Clearing the invalid URL lifts the block with no skip step: the build goes ahead with the name only.
   element("lb-sharepoint-site-url").value = "";
   element("lb-sharepoint-site-url").dispatch("input");
-  element("lb-sharepoint-site-skip").dispatch("click");
-  assert.equal(run("labBuilder.sharepointPromptSkipped"), true);
-  assert.equal(element("lb-sharepoint-site-prompt").hidden, true);
-  assert.equal(run("labBuilder.step"), 8, "Skip action resumes the pending Step 7 -> Step 8 navigation");
-  assert.equal(element("lb-step8-sharepoint-summary").hidden, false);
-  assert.match(element("lb-step8-sharepoint-summary").innerHTML, /Contoso Operations Hub/);
+  assert.equal(element("lb-sharepoint-site-error").textContent, "");
+  assert.equal(element("lb-sharepoint-site-url").getAttribute("aria-invalid"), null);
+  await context.lbGenerate();
+  assert.equal(generateCalls.length, callsBeforeBlocked + 1);
+  assert.equal(generateCalls.at(-1).sharepointSiteName, "Contoso Operations Hub");
+  assert.equal(generateCalls.at(-1).sharepointSiteUrl, undefined);
 
-  // Changing products resets the skip flag so new SharePoint selections prompt cleanly again.
+  // Changing products or topics never raises a SharePoint prompt either.
   const firstSpAiId = getFeatures().find((f) => f.product === "sharepoint-ai" && f.level === 100).id;
   run("lbToggleProduct('sharepoint-ai', true)");
   run(`labBuilder.picked = new Set(['create-agent', 'knowledge-sharepoint', '${firstSpAiId}']);`);
   await run("lbRefresh()");
-  assert.equal(run("labBuilder.sharepointPromptSkipped"), false);
+  assert.equal(run("lbValidateSharepointSiteForBuild()"), true);
+  assert.equal(run("'sharepointPromptSkipped' in labBuilder"), false);
 
-  // 6. Entering bare hostname auto-normalizes on blur, renders live clickable preview + Step 8 link, and persists.
-  run("lbGoToStep(7)");
-  assert.equal(run("labBuilder.step"), 7);
+  // 6. Entering bare hostname auto-normalizes on blur, renders a live clickable preview, is sent with the preview and the build, and persists.
+  run("lbGoToStep(4)");
+  assert.equal(run("labBuilder.step"), 4);
   element("lb-sharepoint-site-url").value = "contoso.sharepoint.com/sites/OperationsHub";
   element("lb-sharepoint-site-url").dispatch("blur");
   assert.equal(element("lb-sharepoint-site-url").value, "https://contoso.sharepoint.com/sites/OperationsHub");
@@ -490,17 +526,20 @@ test("Step 7 SharePoint prompt card visibility, validation, interactive prompt, 
     element("lb-sharepoint-site-preview-link").href,
     "https://contoso.sharepoint.com/sites/OperationsHub",
   );
+  assert.equal(element("lb-sharepoint-site-preview-link").textContent, "Contoso Operations Hub");
+  await settle();
+  assert.equal(previewCalls.at(-1).sharepointSiteName, "Contoso Operations Hub");
+  assert.equal(previewCalls.at(-1).sharepointSiteUrl, "https://contoso.sharepoint.com/sites/OperationsHub");
 
   const reqPayload = context.lbCollectRequest();
   assert.equal(reqPayload.sharepointSiteName, "Contoso Operations Hub");
   assert.equal(reqPayload.sharepointSiteUrl, "https://contoso.sharepoint.com/sites/OperationsHub");
 
-  run("lbGoToStep(8)");
-  assert.equal(run("labBuilder.step"), 8);
-  assert.match(
-    element("lb-step8-sharepoint-summary").innerHTML,
-    /<a href="https:\/\/contoso\.sharepoint\.com\/sites\/OperationsHub" target="_blank" rel="noopener noreferrer">Contoso Operations Hub<\/a>/,
-  );
+  const callsBeforeValid = generateCalls.length;
+  await context.lbGenerate();
+  assert.equal(generateCalls.length, callsBeforeValid + 1, "A valid site never blocks the build");
+  assert.equal(generateCalls.at(-1).sharepointSiteName, "Contoso Operations Hub");
+  assert.equal(generateCalls.at(-1).sharepointSiteUrl, "https://contoso.sharepoint.com/sites/OperationsHub");
 
   // Verify reset + lbLoadSelections round-trip
   context.lbResetWizard();
