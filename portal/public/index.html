@@ -3590,7 +3590,15 @@
     .sc-ask-text { margin: 0; }
     .sc-ask .btn:not(.btn-primary) { color: inherit; border-color: currentColor; background: transparent; }
     .sc-share-lab .sc-feedback { margin-top: 8px; }
-
+    .sc-share-note, .sc-retake-note { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-muted); overflow-wrap: anywhere; }
+    .sc-retake-note { color: var(--text); font-weight: 600; }
+    .sc-keep .sc-ask, .sc-keep-move .sc-feedback { margin-top: 8px; }
+    .sc-keep-entry { margin-top: 10px; }
+    .sc-keep-entry-head { margin: 0 0 4px; font-size: 12.5px; font-weight: 600; }
+    .sc-keep-row .btn { flex: 0 0 auto; }
+    .sc-keep-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+    .sc-keep-notice p { margin: 0; }
+    .lb-gen-delete-pictures { margin: 0 0 8px; font-weight: 600; }
     .sc-causes { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
     .sc-cause { padding: 8px 10px; border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; background: var(--bg); }
     .sc-cause-warn { border-left-color: var(--sc-warn-border); }
@@ -6505,9 +6513,10 @@
                 </div>
               </details>
 
-              <dialog id="lb-gen-delete-dialog" class="lb-gen-dialog" role="alertdialog" aria-labelledby="lb-gen-delete-title" aria-describedby="lb-gen-delete-desc">
+              <dialog id="lb-gen-delete-dialog" class="lb-gen-dialog" role="alertdialog" aria-labelledby="lb-gen-delete-title" aria-describedby="lb-gen-delete-desc lb-gen-delete-pictures">
                 <h4 id="lb-gen-delete-title">Delete this lab?</h4>
                 <p id="lb-gen-delete-desc"></p>
+                <p id="lb-gen-delete-pictures" class="lb-gen-delete-pictures" role="status"></p>
                 <p id="lb-gen-delete-error" class="lb-error" role="alert"></p>
                 <div class="lb-gen-dialog-actions">
                   <button type="button" class="btn" id="lb-gen-delete-cancel">Cancel</button>
@@ -7378,6 +7387,7 @@
 <script src="screenshot-center-core.js" defer></script>
 <script src="screenshot-center-command.js" defer></script>
 <script src="screenshot-center-jobs.js" defer></script>
+<script src="screenshot-center-keep.js" defer></script>
 <script src="screenshot-center.js" defer></script>
 <script src="lab-checklist.js" defer></script>
 <script src="lab-customize.js" defer></script>

@@ -149,6 +149,7 @@ All configuration is provided through environment variables (see `.env.template`
 | `LEARN_MCP_URL` | No | Microsoft Learn MCP endpoint (default: `https://learn.microsoft.com/api/mcp`) |
 | `LEARN_MCP_TIMEOUT_MS` | No | Learn MCP request timeout (default: `30000`) |
 | `LAB_BUILDER_OUTPUT_DIR` | No | Output directory for generated labs (default: `../generated-labs`) |
+| `FEATURE_TOUR_SCREENSHOTS_DIR` | No | The shared screenshot library, used on its own when set. Default: `${PORTAL_STORAGE_ROOT}/screenshots`, else a per-user folder outside the repository: `%LOCALAPPDATA%\CopilotStudioLabsPortal\screenshots` on Windows, `~/Library/Application Support/CopilotStudioLabsPortal/screenshots` on macOS, `$XDG_DATA_HOME` or `~/.local/share/CopilotStudioLabsPortal/screenshots` elsewhere. The committed `docs/feature-tour/screenshots` stays a read-only fallback and is never written to. Pictures kept from deleted labs sit in its `.kept/` folder (see [Where the shared library lives](../docs/lab-builder.md#where-the-shared-library-lives)) |
 | `LAB_BUILDER_MAX_ACTIVE` | No | Concurrent lab generations before the API returns HTTP 429 (default: `2`) |
 | `LAB_BUILDER_RATE_MAX` | No | Lab generations allowed per user per window (default: `10`) |
 | `LAB_BUILDER_RATE_WINDOW_MS` | No | Lab generation rate-limit window (default: `3600000`) |
@@ -342,7 +343,9 @@ The request and response are documented in [`docs/lab-builder.md`](../docs/lab-b
 | `GET` | `/api/lab-builder/generated/:labId/topics/:order/:format` | Download an individual module or recap handout/deck (`format=docx\|pptx`) named `<Lab Name> - Step NN - <Topic Name>.<ext>` (also aliased at `/api/generated-labs/:labId/topics/:order/:format`) |
 | `GET` | `/api/lab-builder/generated/:labId/validate` | Run structural validation against a generated lab (also aliased at `/api/generated-labs/:labId/validate`) |
 | `PATCH` | `/api/lab-builder/generated/:labId` | Rename a generated lab (`title` and/or `notes`) and sync `index.html` + per-topic `.docx`/`.pptx` files |
-| `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab (never a hand-written one) |
+| `DELETE` | `/api/lab-builder/generated/:labId` | Delete a generated lab (never a hand-written one). Its real screenshots are shared or kept for 90 days first; `GET /api/lab-builder/generated/:labId/pictures` says how many in advance |
+| `GET` / `POST` / `DELETE` | `/api/capture/kept` | Pictures kept from deleted or replaced labs: list, `POST .../:entry/:file/restore`, `DELETE .../:entry/:file?confirm=true`, `POST /api/capture/kept/purge` |
+| `GET` / `POST` | `/api/capture/library/export`, `/api/capture/library/import` | Move the shared screenshot library between computers as a ZIP (see [Move the shared library between computers](../docs/lab-builder.md#move-the-shared-library-between-computers)) |
 | `GET` / `POST` | `/api/lab-builder/drafts` | List the caller's saved drafts, or save a new one (`{ name, content }`; at most 50 per person, 256 KB each) |
 | `GET` / `PUT` / `DELETE` | `/api/lab-builder/drafts/unsaved` | The one autosave slot behind the unsaved-work banner (never a named draft) |
 | `GET` / `PUT` / `DELETE` | `/api/lab-builder/drafts/:id` | Read, rename or change (last save wins), or delete one draft |

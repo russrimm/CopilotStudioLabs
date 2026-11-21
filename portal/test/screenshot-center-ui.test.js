@@ -12,7 +12,7 @@ import vm from "node:vm";
 import { createFakeDom } from "./fixtures/fake-dom.js";
 
 const publicFile = (name) => readFileSync(new URL(`../public/${name}`, import.meta.url), "utf8");
-const CENTER_SOURCES = ["screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile);
+const CENTER_SOURCES = ["screenshot-center-core.js", "screenshot-center-command.js", "screenshot-center-jobs.js", "screenshot-center-keep.js", "screenshot-center.js", "lab-checklist.js"].map(publicFile);
 const GENERATED_LABS_SOURCE = publicFile("generated-labs.js");
 const INDEX_HTML = publicFile("index.html");
 const APP_SOURCE = publicFile("app.js");
@@ -1514,9 +1514,24 @@ test("an image that needs review shows plain-language reasons and can be accepte
   again.route("DELETE", /\/screenshots\/create-agent\.png$/, { status: 200, body: { outcome: "reset", discardedStaged: true, state: before } });
   await again.render(staged);
   await again.click(again.cardAction("create-agent.png", "shot-discard"));
+  assert.equal(again.callsTo("DELETE", /create-agent\.png$/).length, 0, "Discard asks first");
+  const ask = again.card("create-agent.png").querySelector(".sc-ask");
+  assert.equal(ask.querySelector(".sc-ask-title").textContent, "Discard this picture?");
+  assert.equal(ask.querySelector(".sc-ask-text").textContent, "This picture exists only here, waiting for your review. If you discard it, it is gone and you would need to capture or upload it again.");
+  await again.click(ask.querySelector('[data-sc-action="ask-cancel"]'));
+  assert.equal(again.callsTo("DELETE", /create-agent\.png$/).length, 0, "Cancel changes nothing");
+  await again.click(again.cardAction("create-agent.png", "shot-discard"));
+  await again.click(again.host.querySelector('[data-sc-action="ask-yes"]'));
   assert.equal(again.callsTo("DELETE", /create-agent\.png$/).length, 1);
   assert.equal(again.card("create-agent.png").dataset.status, "pending");
-  assert.match(again.live(), /Staged image discarded/);
+  assert.match(again.live(), /Picture discarded/);
+
+  // With a picture already in the slot, the question says it stays.
+  const inPlace = makeHarness();
+  await inPlace.render(stateFor([shot({ filename: "create-agent.png", captured: true, needsReview: true, verification })]));
+  await inPlace.click(inPlace.cardAction("create-agent.png", "shot-discard"));
+  assert.equal(inPlace.host.querySelector(".sc-ask-title").textContent, "Discard the picture waiting for review?");
+  assert.match(inPlace.host.querySelector(".sc-ask-text").textContent, /^The picture now in this slot stays\./);
 });
 
 test("rejected and refused uploads explain themselves and change nothing", async () => {
@@ -1657,21 +1672,31 @@ test("an image can be dropped onto a screenshot", async () => {
   assert.equal(h.card("create-agent.png").dataset.status, "captured");
 });
 
-test("Retake removes the old image and queues a new capture, and never throws away an image it cannot replace", async () => {
+test("Retake keeps the old image in place while it queues a new capture, says so, and keeps the old image when the retake does not work", async () => {
   const state = stateFor([captured("agent-home.png"), shot({ filename: "create-agent.png", id: 2 })]);
-  const pendingAgain = stateFor([shot({ filename: "agent-home.png" }), shot({ filename: "create-agent.png", id: 2 })]);
   const h = makeHarness();
   await h.setStatus(statusPayload({ devices: [device()] }));
-  const job = jobFor([{ filename: "agent-home.png" }]);
-  h.route("DELETE", /\/screenshots\/agent-home\.png$/, { status: 200, body: { outcome: "reset", removedImage: true, state: pendingAgain } });
+  const job = { ...jobFor([{ filename: "agent-home.png" }]), options: { retake: true } };
+  h.route("DELETE", /\/screenshots\/agent-home\.png$/, { status: 200, body: { outcome: "reset", removedImage: true, state } });
   h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job } });
   await h.render(state);
   h.calls.length = 0;
   await h.click(h.cardAction("agent-home.png", "shot-retake"));
   const order = h.calls.map((c) => `${c.method} ${c.url}`);
-  assert.deepEqual(order.filter((c) => /DELETE|POST/.test(c)), ["DELETE /api/lab-builder/generated/lab-test-1/screenshots/agent-home.png", "POST /api/capture/jobs"], "remove first, then queue");
+  assert.deepEqual(order.filter((c) => /DELETE|POST/.test(c)), ["POST /api/capture/jobs"], "the old image is never removed first");
   assert.deepEqual(json(h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body.scope), { mode: "selected", filenames: ["agent-home.png"] });
   assert.ok(h.center().querySelector(".sc-progress"), "the retake shows live progress");
+  assert.equal(h.card("agent-home.png").querySelector("img").getAttribute("src").startsWith("/api/lab-builder/generated/lab-test-1/assets/agent-home.png"), true, "the old picture is still shown");
+  assert.equal(h.card("agent-home.png").querySelector("[data-sc-retake-note]").textContent, "Retake in progress. Your current picture stays until the new one passes its check.");
+
+  // A retake that ends without a new picture leaves the old one and says so.
+  const failedJob = { ...job, status: "done", shots: [{ filename: "agent-home.png", status: "failed", attempts: 1, error: "The page did not open." }], progress: { total: 1, done: 1, captured: 0, needsReview: 0, failed: 1, manual: 0, skipped: 0, running: 0, pending: 0, percent: 100 } };
+  h.route("GET", new RegExp(`/api/capture/jobs/${job.id}$`), { status: 200, body: { job: failedJob } });
+  h.FakeEventSource.instances[0].emit("end", { status: "done" });
+  await h.flush();
+  const note = h.card("agent-home.png").querySelector("[data-sc-retake-note]");
+  assert.equal(note.textContent, "The retake did not work, so your current picture was kept. The page did not open.");
+  assert.equal(h.card("agent-home.png").dataset.status, "captured", "the slot is never left empty");
 
   const offline = makeHarness();
   await offline.render(state);
@@ -2541,17 +2566,28 @@ const ownShot = (name, extra = {}) =>
   captured(name, { imageSource: "lab", imageCapturedAt: "2026-05-20T12:00:00.000Z", confirmed: null, share: { state: "not-shared", libraryConfirmed: false }, ...extra });
 const confirmedAt = "2026-06-01T12:00:00.000Z";
 
-test("each picture says where it comes from: Shared library or This lab, with the date it was captured", async () => {
+test("each picture says where it lives: the shared library for every lab, or this lab only, with the date it was captured", async () => {
   const h = makeHarness();
+  const SHARED = "Shared library (every lab can use it)";
+  const LAB_ONLY = "This lab only (will be kept for 90 days if you delete or replace this lab)";
   await h.render(stateFor([reusedShot("a.png"), ownShot("b.png", { id: 2 }), shot({ filename: "c.png", id: 3 })]));
-  assert.equal(h.card("a.png").querySelector(".sc-source").textContent, "Shared library \u00b7 captured May 12, 2026");
-  assert.equal(h.card("b.png").querySelector(".sc-source").textContent, "This lab \u00b7 captured May 20, 2026");
+  assert.equal(h.card("a.png").querySelector(".sc-source").textContent, `${SHARED} \u00b7 captured May 12, 2026`);
+  assert.equal(h.card("b.png").querySelector(".sc-source").textContent, `${LAB_ONLY} \u00b7 captured May 20, 2026`);
   assert.equal(h.card("c.png").querySelector(".sc-source"), null, "a screenshot with no picture has no source");
   assert.deepEqual(["a.png", "b.png", "c.png"].map((n) => h.card(n).querySelector(".sc-status-chip").textContent), ["Captured", "Captured", "Pending"], "a reused picture is Captured, never Pending");
   assert.equal(h.card("a.png").querySelector(".sc-note").textContent, "", "the source line carries the date, so the note does not repeat a wrong one");
   assert.match(h.card("b.png").querySelector(".sc-note").textContent, /^Captured on your computer\.$/);
   assert.equal(h.host.querySelector(".sc-confirm-summary").textContent.startsWith("0 of 2 captured screenshots confirmed accurate."), true);
   assert.match(h.host.querySelector(".sc-confirm-summary").textContent, /Confirming is optional and never blocks your lab or its downloads\./);
+
+  // A lab-only picture that could be shared says what sharing does; one the library already holds is shared, and says so.
+  assert.match(h.card("b.png").querySelector(".sc-share-note").textContent, /^Other labs cannot use this picture yet\. Use this one for every lab lets every lab that has no picture of its own show it\./);
+  assert.equal(h.card("a.png").querySelector(".sc-share-note"), null);
+  const held = makeHarness();
+  await held.render(stateFor([ownShot("d.png", { share: { state: "shared", libraryConfirmed: false } }), ownShot("e.png", { id: 2, share: { state: "lab-only" } })]));
+  assert.equal(held.card("d.png").querySelector(".sc-source").textContent, `${SHARED} \u00b7 captured May 20, 2026`, "the lab's own copy of a shared picture is shared too");
+  assert.equal(held.card("e.png").querySelector(".sc-source").textContent, `${LAB_ONLY} \u00b7 captured May 20, 2026`);
+  assert.equal(held.card("e.png").querySelector(".sc-share-note"), null, "a picture that cannot be shared has no offer to explain");
 });
 
 test("Mark as accurate, the Confirmed badge with its date, and Clear confirmation", async () => {
@@ -2581,11 +2617,11 @@ test("the preview dialog has the same buttons and shows the source and the Confi
   await h.render(stateFor([ownShot("a.png", { confirmed: { at: confirmedAt } }), reusedShot("b.png", { id: 2 })]));
   await h.click(h.cardAction("a.png", "preview"));
   const dialog = h.center().querySelector("dialog.sc-lightbox");
-  assert.equal(dialog.querySelector(".sc-lb-source").textContent, "This lab \u00b7 captured May 20, 2026");
+  assert.equal(dialog.querySelector(".sc-lb-source").textContent, "This lab only (will be kept for 90 days if you delete or replace this lab) \u00b7 captured May 20, 2026");
   assert.equal(dialog.querySelector(".sc-confirmed-chip").textContent, "Confirmed Jun 1, 2026");
   assert.ok(dialog.querySelector('[data-sc-action="shot-unconfirm"]'), "Clear confirmation is in the dialog too");
   await h.click(dialog.querySelector('[data-sc-action="lightbox-next"]'));
-  assert.equal(dialog.querySelector(".sc-lb-source").textContent, "Shared library \u00b7 captured May 12, 2026");
+  assert.equal(dialog.querySelector(".sc-lb-source").textContent, "Shared library (every lab can use it) \u00b7 captured May 12, 2026");
   assert.ok(dialog.querySelector('[data-sc-action="shot-confirm"]'), "Mark as accurate is in the dialog too");
 });
 
@@ -2646,7 +2682,7 @@ test("Retake of a shared picture asks first when other labs use it, in plain wor
 
   await h.click(h.cardAction("a.png", "shot-retake"));
   await h.click(h.host.querySelector('[data-sc-action="ask-yes"]'));
-  assert.equal(h.callsTo("DELETE", /screenshots\/a\.png$/).length, 1);
+  assert.equal(h.callsTo("DELETE", /screenshots\/a\.png$/).length, 0, "the picture is never removed first");
   const body = h.callsTo("POST", /\/api\/capture\/jobs$/)[0].body;
   assert.equal(body.options.retake, true, "the capture may replace the shared picture");
   assert.deepEqual(body.scope, { mode: "selected", filenames: ["a.png"] });
@@ -2687,13 +2723,13 @@ test("Use this one for every lab asks for a clear confirmation, and says when it
   assert.match(h.card("a.png").querySelector(".sc-feedback").textContent, /Every lab can now use this picture\./);
 });
 
-test("Share this lab's captured screenshots asks first, then reports what was shared and why the rest was skipped", async () => {
+test("Share all of this lab's eligible pictures asks first, then reports what was shared and why the rest was skipped", async () => {
   const state = stateFor([ownShot("a.png"), ownShot("b.png", { id: 2 })]);
   state.summary.capturedInLab = 2;
   const h = makeHarness();
   await h.render(state);
   const button = h.action("share-lab");
-  assert.equal(button.textContent, "Share this lab's captured screenshots");
+  assert.equal(button.textContent, "Share all of this lab's eligible pictures");
   h.route("POST", /\/screenshots\/share$/, {
     status: 200,
     body: { labId: LAB, dryRun: false, promoted: ["a.png"], alreadyShared: [], skipped: [{ filename: "b.png", code: "masking-unproven", message: "We could not confirm that account details are hidden, so this picture stays in this lab." }], counts: { promoted: 1, alreadyShared: 0, skipped: 1, noPicture: 0 }, state },
@@ -2711,6 +2747,137 @@ test("Share this lab's captured screenshots asks first, then reports what was sh
   const empty = makeHarness();
   await empty.render(stateFor([shot({ filename: "a.png" })]));
   assert.equal(empty.action("share-lab").disabled, true, "nothing to share while the lab has no pictures of its own");
+});
+
+test("the shared library says where its pictures are saved, announces found pictures once, and lists kept pictures with Restore and Delete forever", async () => {
+  const folder = "C:\\Users\\contoso\\AppData\\Local\\CopilotStudioLabsPortal\\screenshots";
+  const library = { location: "persistent", kind: "user-folder", persistent: true, summary: `Shared screenshots are saved on this computer in ${folder}`, folder, total: 325, captured: 12, missing: 313, needsReview: 0, confirmed: 0, kept: { entries: 1, pictures: 2, retentionDays: 90 }, notice: { id: "found-library", count: 12, text: `Found your shared screenshots in ${folder}: 12 pictures are ready to reuse in every lab.` } };
+  const h = makeHarness();
+  await h.setStatus({ ...statusPayload({ devices: [device()] }), sharedLibrary: library });
+  await h.render(stateFor([ownShot("a.png")]));
+  assert.equal(h.host.querySelector("[data-sc-library-where]").textContent, `Shared screenshots are saved on this computer in ${folder}`);
+  assert.equal(h.host.querySelector(".sc-keep-notice p").textContent, `Found your shared screenshots in ${folder}: 12 pictures are ready to reuse in every lab.`);
+  h.route("POST", /\/api\/capture\/library\/notice\/dismiss$/, { status: 200, body: { dismissed: true } });
+  await h.click(h.action("keep-notice-dismiss"));
+  assert.equal(h.callsTo("POST", /notice\/dismiss$/).length, 1);
+  assert.equal(h.host.querySelector(".sc-keep-notice"), null, "the notice is shown once");
+
+  assert.equal(h.host.querySelector("[data-sc-kept-count]").textContent, "2 pictures kept.");
+  const entry = {
+    id: "contoso-labs-20260301000000-ab12",
+    labId: "contoso-labs",
+    labTitle: "Contoso Labs",
+    reason: "deleted",
+    keptAt: "2026-03-01T12:00:00.000Z",
+    daysLeft: 62,
+    pictures: [
+      { filename: "mc-memory-toggle.png", base: "mc-memory-toggle.png", why: "masking-unproven", message: "We could not confirm that account details are hidden.", earlierVersion: false, restore: [{ type: "library" }] },
+      { filename: "notes.png", base: "notes.png", why: "lab-only", message: "", earlierVersion: false, restore: [] },
+    ],
+  };
+  h.route("GET", /\/api\/capture\/kept$/, { status: 200, body: { retentionDays: 90, entries: [entry] } });
+  await h.click(h.action("keep-load"));
+  assert.equal(h.host.querySelector(".sc-keep-entry-head").textContent, "From \u201cContoso Labs\u201d (deleted Mar 1, 2026). 62 days left.");
+  const rows = h.host.querySelectorAll(".sc-keep-row");
+  assert.equal(rows.length, 2);
+  assert.match(rows[0].textContent, /We could not confirm that account details are hidden\./);
+  assert.match(rows[0].textContent, /Restore to the shared library/);
+  assert.match(rows[1].textContent, /Specific to that lab\./);
+  assert.match(rows[1].textContent, /Nowhere to put it back right now, so download it instead\./);
+  assert.equal(h.host.querySelectorAll('[data-sc-action="keep-restore"]').length, 1, "a picture with nowhere to go has no Restore");
+  assert.equal(rows[1].querySelector("a").getAttribute("href"), `/api/capture/kept/${entry.id}/notes.png?download=1`);
+
+  // Restoring to the shared library asks first (every lab will show it); nothing is sent until the answer.
+  h.route("POST", /\/api\/capture\/kept\/[^/]+\/mc-memory-toggle\.png\/restore$/, { status: 200, body: { outcome: "restored", to: "library" } });
+  await h.click(h.action("keep-restore"));
+  assert.equal(h.callsTo("POST", /\/restore$/).length, 0);
+  assert.equal(h.host.querySelector(".sc-keep .sc-ask-title").textContent, "Use this picture for every lab?");
+  await h.click(h.action("keep-ask-cancel"));
+  assert.equal(h.callsTo("POST", /\/restore$/).length, 0);
+  await h.click(h.action("keep-restore"));
+  h.route("GET", /\/api\/capture\/kept$/, { status: 200, body: { retentionDays: 90, entries: [{ ...entry, pictures: [entry.pictures[1]] }] } });
+  await h.click(h.action("keep-ask-yes"));
+  assert.deepEqual(h.callsTo("POST", /\/restore$/)[0].body, { to: "library", confirm: true });
+  assert.match(h.host.querySelector(".sc-keep .sc-banner").textContent, /^Restored to the shared library\. Every lab can use it\.$/);
+
+  // Delete forever asks first, in words that say it cannot be undone.
+  h.route("DELETE", /\/api\/capture\/kept\/[^/]+\/notes\.png\?confirm=true$/, { status: 200, body: { outcome: "removed" } });
+  await h.click(h.action("keep-delete"));
+  assert.equal(h.host.querySelector(".sc-keep .sc-ask-text").textContent, "It is removed from the kept pictures and cannot be restored.");
+  assert.equal(h.callsTo("DELETE", /kept/).length, 0);
+  h.route("GET", /\/api\/capture\/kept$/, { status: 200, body: { retentionDays: 90, entries: [] } });
+  await h.click(h.action("keep-ask-yes"));
+  assert.equal(h.callsTo("DELETE", /kept/).length, 1);
+  assert.equal(h.host.querySelector("[data-sc-kept-none]").textContent, "No pictures are being kept right now.");
+});
+
+test("export is one link, and import sends the ZIP, with Replace as a choice, and reports what was imported, skipped, and rejected", async () => {
+  const h = makeHarness();
+  await h.setStatus({ ...statusPayload({ devices: [device()] }), sharedLibrary: { location: "persistent", kind: "storage-root", persistent: true, summary: "Shared screenshots are saved in Azure storage.", total: 325, captured: 12, missing: 313, needsReview: 0, confirmed: 0 } });
+  await h.render(stateFor([ownShot("a.png")]));
+  assert.equal(h.host.querySelector("[data-sc-library-where]").textContent, "Shared screenshots are saved in Azure storage.");
+  const exportLink = h.host.querySelector("[data-sc-keep-export]");
+  assert.equal(exportLink.getAttribute("href"), "/api/capture/library/export");
+  assert.equal(exportLink.textContent, "Export shared screenshots");
+  assert.match(h.host.querySelector("[data-sc-move-host] .hint").textContent, /no picture shows account names, email addresses, or customer data/);
+
+  h.route("POST", /\/api\/capture\/library\/import(\?replace=true)?$/, {
+    status: 200,
+    body: { message: "2 pictures imported. 1 skipped because the library already has it. 1 rejected.", counts: { imported: 2 }, skipped: [{ filename: "a.png", message: "The library already has exactly this picture." }], rejected: [{ filename: "b.png", message: "This is a placeholder picture, so it is not shared." }], needsReview: [] },
+  });
+  const zip = pngFile("shared-screenshots.zip", "application/zip");
+  const input = h.host.querySelector("[data-sc-keep-file]");
+  input.files = [zip];
+  input.dispatchEvent(h.event("change"));
+  await h.flush();
+  const call = h.callsTo("POST", /library\/import/)[0];
+  assert.equal(call.url, "/api/capture/library/import", "existing pictures are not replaced unless chosen");
+  assert.equal(call.init.body, zip);
+  assert.equal(call.init.headers["Content-Type"], "application/zip");
+  const result = h.host.querySelector("[data-sc-import-result]");
+  assert.equal(result.querySelector(".sc-feedback-head").textContent, "2 pictures imported. 1 skipped because the library already has it. 1 rejected.");
+  assert.deepEqual(result.querySelectorAll("li").map((li) => li.textContent), ["a.png: The library already has exactly this picture.", "b.png: This is a placeholder picture, so it is not shared."]);
+
+  const replace = h.host.querySelector("[data-sc-keep-replace]");
+  replace.checked = true;
+  replace.dispatchEvent(h.event("change"));
+  const again = h.host.querySelector("[data-sc-keep-file]");
+  again.files = [zip];
+  again.dispatchEvent(h.event("change"));
+  await h.flush();
+  assert.equal(h.callsTo("POST", /library\/import/)[1].url, "/api/capture/library/import?replace=true");
+});
+
+test("the retake note appears only for a picture that exists, while it runs, and when the retake did not work", async () => {
+  const note = makeHarness().run("scRetakeNote");
+  const withPicture = { captured: true };
+  const running = { options: { retake: true } };
+  assert.equal(note({ shot: { captured: false }, status: { key: "capturing" }, active: running }), "", "a slot with no picture has nothing to keep");
+  assert.equal(note({ shot: withPicture, status: { key: "queued" }, active: running }), "Retake in progress. Your current picture stays until the new one passes its check.");
+  assert.equal(note({ shot: withPicture, status: { key: "capturing" }, active: { options: {} } }), "", "an ordinary capture is not a retake");
+  assert.equal(note({ shot: withPicture, status: { key: "captured" }, last: running, row: { status: "failed", error: "The page did not open." } }), "The retake did not work, so your current picture was kept. The page did not open.");
+  assert.equal(note({ shot: withPicture, status: { key: "captured" }, last: running, row: { status: "captured" } }), "", "a retake that worked needs no note");
+  assert.equal(note({ shot: withPicture, status: { key: "captured" }, last: { options: {} }, row: { status: "failed" } }), "");
+});
+
+test("deleting a lab says in plain words what happens to its pictures, and a replaced lab says where each one went", async () => {
+  const h = makeHarness({ generated: true });
+  const text = h.run("lbGenDeletePicturesText");
+  assert.equal(
+    text({ total: 14, alreadyShared: 12, toShare: 0, shared: 12, carried: 0, kept: 2, earlierVersions: 0, retentionDays: 90 }),
+    "12 pictures are already shared and stay available to other labs. 2 pictures exist only in this lab and will be kept for 90 days so you can restore them.",
+  );
+  assert.equal(
+    text({ total: 3, alreadyShared: 1, toShare: 1, kept: 1, earlierVersions: 2, retentionDays: 90 }),
+    "1 picture is already shared and stays available to other labs. 1 more picture will be shared with every lab first. 1 picture exists only in this lab and will be kept for 90 days so you can restore it. 2 earlier versions of replaced pictures will be kept for 90 days too.",
+  );
+  assert.equal(text({ total: 0 }), "", "a lab with no real picture has nothing to say");
+  assert.equal(text(null), "");
+
+  const done = h.run("lbGenPicturesDoneText");
+  assert.equal(done({ total: 5, carried: 1, shared: 2, kept: 2, retentionDays: 90 }), "Your pictures are safe: 1 picture moved to the new lab, 2 pictures shared with every lab, 2 pictures kept for 90 days. Restore kept pictures in the Screenshot Center, under Advanced.");
+  assert.equal(done({ total: 2, carried: 0, shared: 2, kept: 0, retentionDays: 90 }), "Your pictures are safe: 2 pictures shared with every lab.");
+  assert.equal(done({ total: 0 }), "");
 });
 
 test("the shared library summary counts confirmed pictures", async () => {

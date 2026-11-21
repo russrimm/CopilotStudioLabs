@@ -35,6 +35,7 @@ import {
   writeGeneratedLabTopicDocuments,
 } from "./topic-documents.js";
 import { labRequiresSharepointSite, resolveSharepointSite } from "./sharepoint-site.js";
+import { guardLabPictures } from "./picture-guard.js";
 
 const LAB_ID = /^[a-z0-9-]{1,100}$/i;
 export const MAX_TITLE_LENGTH = 160;
@@ -298,17 +299,27 @@ export function generatedLabExists(rootDir, rawId) {
 /**
  * Delete one generated lab. Hand-written labs live elsewhere and are never reachable here.
  *
+ * Before the folder goes, the lab's real pictures are kept (shared, or saved to the kept-pictures archive; see
+ * `guardLabPictures`). When they cannot be kept the lab is left exactly as it was.
+ *
+ * @param {string} rootDir
+ * @param {string} rawId
+ * @param {{reason?: "deleted"|"replaced", newLabId?: string|null}} [options]
  * @returns {{status: number, body: object}}
  */
-export function deleteGeneratedLab(rootDir, rawId) {
+export function deleteGeneratedLab(rootDir, rawId, { reason = "deleted", newLabId = null } = {}) {
   const found = locateGeneratedLab(rootDir, rawId);
   if (found.status !== 200) return { status: found.status, body: { error: found.error } };
+  const kept = guardLabPictures({ rootDir, labId: found.labId, reason, newLabId });
+  if (!kept.ok) {
+    return { status: kept.status && kept.status >= 400 ? kept.status : 409, body: { error: kept.error, picturesKept: false, labKept: true } };
+  }
   try {
     rmSync(found.labDir, { recursive: true, force: true });
   } catch (err) {
     return { status: 500, body: { error: `Could not delete the lab: ${err.message}` } };
   }
-  return { status: 200, body: { deleted: true, labId: found.labId } };
+  return { status: 200, body: { deleted: true, labId: found.labId, ...(kept.counts ? { pictures: kept.counts } : {}) } };
 }
 
 /**
@@ -414,8 +425,11 @@ export function updateGeneratedLabMeta(rootDir, rawId, body) {
 }
 
 /**
- * After a replacement lab was built, carry the old lab's notes across and
- * remove the old one. The old lab is only touched once the new one exists.
+ * After a replacement lab was built, carry the old lab's notes and real pictures across
+ * and remove the old one. The old lab is only touched once the new one exists, and it
+ * is kept (with `error` saying why) when its pictures could not be carried over or kept.
+ *
+ * @returns {{replaced: boolean, pictures?: object, error?: string}}
  */
 export function replaceGeneratedLab(rootDir, oldId, newId) {
   const old = locateGeneratedLab(rootDir, oldId);
@@ -428,7 +442,9 @@ export function replaceGeneratedLab(rootDir, oldId, newId) {
   } catch {
     /* notes are a convenience; replacement still proceeds */
   }
-  return { replaced: deleteGeneratedLab(rootDir, oldId).status === 200 };
+  const removed = deleteGeneratedLab(rootDir, oldId, { reason: "replaced", newLabId: newId });
+  if (removed.status !== 200) return { replaced: false, error: removed.body.error || "The original lab could not be removed." };
+  return { replaced: true, ...(removed.body.pictures ? { pictures: removed.body.pictures } : {}) };
 }
 
 /**

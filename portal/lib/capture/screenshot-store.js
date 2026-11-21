@@ -20,7 +20,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { capturedImage, capturedScreenshotsDirs, resolveLabScreenshot } from "../lab-builder/captured.js";
+import { capturedImage, capturedScreenshotsDirs, isRealScreenshotBytes, resolveLabScreenshot } from "../lab-builder/captured.js";
 import {
   getLabScreenshotsStatus,
   readLabConfirmations,
@@ -32,8 +32,10 @@ import {
   writeLabVerificationRecord,
 } from "../lab-builder/lab-screenshots.js";
 import { PLACEHOLDER_PATH } from "../lab-builder/slots.js";
-import { BAKED_CAPTURED_SCREENSHOTS_DIR } from "../storage-config.js";
+import { isPlaceholder } from "../lab-builder/placeholder-detect.js";
+import { BAKED_CAPTURED_SCREENSHOTS_DIR, resolveKeptScreenshotsDir } from "../storage-config.js";
 import { expectedLabelsForShot } from "./classify.js";
+import { baseFilename, createKeptStore, isKeptPictureName, isRestorable } from "./kept-pictures.js";
 import {
   PREVIOUS_SUFFIX,
   SHARE_MESSAGES,
@@ -59,6 +61,50 @@ function sidecarName(filename) {
   return `${filename.replace(/\.[^.]+$/, "")}.callouts.json`;
 }
 
+/** Where a lab keeps the picture a newer one replaced (hidden, so a lab export never carries it). */
+const labPreviousDir = (labDir) => path.join(labDir, "screenshots", ".previous");
+
+/**
+ * Keep the lab's current real picture for `filename` as its one-deep backup before it is replaced or discarded.
+ * A picture identical to the one replacing it needs no backup.
+ */
+function keepLabPrevious(labDir, filename, nextBytes = null) {
+  let bytes;
+  try {
+    bytes = fs.readFileSync(path.join(labDir, "assets", filename));
+  } catch {
+    return false;
+  }
+  if (!isRealScreenshotBytes(bytes, path.extname(filename).toLowerCase())) return false;
+  if (nextBytes && sha256Hex(nextBytes) === sha256Hex(bytes)) return false;
+  writeBytesAtomic(path.join(labPreviousDir(labDir), filename), bytes);
+  return true;
+}
+
+/** A lab's real pictures (and its earlier versions), read from its folder: `[{ filename, bytes, earlier }]`. */
+function readLabPictures(labDir) {
+  const out = [];
+  for (const [dir, earlier] of [[path.join(labDir, "assets"), false], [labPreviousDir(labDir), true]]) {
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.isFile() || entry.isSymbolicLink() || !isKeptPictureName(entry.name) || /\.previous$/i.test(entry.name)) continue;
+      let bytes;
+      try {
+        bytes = fs.readFileSync(path.join(dir, entry.name));
+      } catch (err) {
+        throw new Error(`Could not read the picture ${entry.name}: ${err.message}`);
+      }
+      if (isRealScreenshotBytes(bytes, path.extname(entry.name).toLowerCase())) out.push({ filename: entry.name, bytes, earlier });
+    }
+  }
+  return out;
+}
+
 function cleanCallouts(callouts) {
   if (!Array.isArray(callouts)) return null;
   const items = callouts.slice(0, 12).map((c, i) => {
@@ -80,7 +126,7 @@ function cleanCallouts(callouts) {
  * @param {() => {primary: string, search: string[]}} options.capturedDirs the shared library's write folder and search path
  * @param {() => void} [options.onChange] called after the shared library changed on disk (the Azure Blob write-through)
  */
-export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger = null, onChange = null }) {
+export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger = null, onChange = null, keptDir = null, now = () => Date.now() }) {
   const stagedRoot = path.join(captureDir, "staged");
   const libraryRecordsFile = path.join(captureDir, "library-verification.json");
   const labTimers = new Map();
@@ -92,6 +138,9 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     const resolved = capturedDirs?.() ?? { primary: capturedScreenshotsDirs()[0], search: capturedScreenshotsDirs() };
     return resolved;
   };
+  /** The archive for pictures of deleted or replaced labs; it follows the library folder (see `resolveKeptScreenshotsDir`). */
+  const keptFolder = () => (typeof keptDir === "function" ? keptDir() : keptDir || resolveKeptScreenshotsDir({ FEATURE_TOUR_SCREENSHOTS_DIR: dirs().primary, PORTAL_DATA_DIR: path.dirname(captureDir) }));
+  const kept = () => createKeptStore({ keptDir: keptFolder(), now, logger });
   const libraryChanged = () => {
     try {
       onChange?.();
@@ -128,6 +177,7 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
         fs.mkdirSync(assets, { recursive: true });
         const target = path.join(assets, filename);
         if (fs.existsSync(target) && fs.lstatSync(target).isSymbolicLink()) throw new Error("Refusing to write through a symbolic link.");
+        keepLabPrevious(found.labDir, filename, bytes);
         writeBytesAtomic(target, bytes);
         if (callouts) writeJsonAtomic(path.join(found.labDir, "screenshots", sidecarName(filename)), { schema: 1, filename, callouts });
       },
@@ -139,6 +189,8 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
       resetImage(filename) {
         const target = path.join(found.labDir, "assets", filename);
         if (fs.existsSync(target) && fs.lstatSync(target).isSymbolicLink()) throw new Error("Refusing to write through a symbolic link.");
+        // The picture being discarded stays as a backup until a new one replaces it.
+        keepLabPrevious(found.labDir, filename);
         writeBytesAtomic(target, fs.readFileSync(PLACEHOLDER_PATH));
         fs.rmSync(path.join(found.labDir, "screenshots", sidecarName(filename)), { force: true });
         recordLabShotReset(found.labDir, { labId: found.labId, filename, capturedDir: dirs().search });
@@ -424,7 +476,10 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     const capturedAt = new Date().toISOString();
     if (verification.level === "warn" && !acceptWarnings) {
       stage(target, filename, bytes, { verification: record, evidence: verification.evidence, source, jobId, stagedAt: capturedAt, callouts: cleanCallouts(callouts), expect, expectedLabels: labels });
-      target.writeRecord(filename, { ...record, state: "needs-review", source, jobId, stagedAt: capturedAt });
+      // A picture already in place keeps its own check, so discarding this one later puts it back.
+      const before = target.readRecords()[filename];
+      const priorRecord = before?.state === "accepted" ? before : before?.priorRecord || null;
+      target.writeRecord(filename, { ...record, state: "needs-review", source, jobId, stagedAt: capturedAt, ...(priorRecord ? { priorRecord } : {}) });
       return {
         status: 202,
         body: { outcome: "needs-review", filename, verification: record, message: "The image was saved for review. Check it, then accept it or retake it." },
@@ -463,16 +518,25 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     return { status: 200, body: { outcome: "accepted", filename, ...(sharing ? { library: sharing } : {}), state: defer ? null : target.state() } };
   }
 
-  /** Throw away a staged image, or reset a committed one to the placeholder so it can be retaken. */
+  /**
+   * Discard a picture that is waiting for review, or reset a committed one to the placeholder so it can be retaken.
+   * Discarding a waiting picture never touches the picture already in place (or its check). Resetting a committed picture
+   * keeps it as a backup (a library picture beside it as `.previous`, a lab picture in the lab's hidden `.previous` folder).
+   */
   function reset(target, filename) {
     if (!target.slot(filename)) return { status: 404, body: { error: "That file name is not a screenshot slot here.", filename } };
-    const hadStaged = Boolean(readStaged(target, filename));
+    const staged = readStaged(target, filename);
+    if (staged) {
+      const record = target.readRecords()[filename];
+      clearStaged(target, filename);
+      target.writeRecord(filename, record?.priorRecord || null);
+      return { status: 200, body: { outcome: "reset", filename, discardedStaged: true, removedImage: false, state: target.state() } };
+    }
     const hadOwn = target.hasOwnImage(filename);
-    clearStaged(target, filename);
     target.writeRecord(filename, null);
     target.writeConfirmation(filename, null);
     if (hadOwn || target.kind === "lab") target.resetImage(filename);
-    return { status: 200, body: { outcome: "reset", filename, discardedStaged: hadStaged, removedImage: hadOwn, state: target.state() } };
+    return { status: 200, body: { outcome: "reset", filename, discardedStaged: false, removedImage: hadOwn, state: target.state() } };
   }
 
   // ── Sharing a lab's pictures, and confirming them ────────────────────────
@@ -598,9 +662,321 @@ export function createScreenshotStore({ generatedRoot, captureDir, capturedDirs,
     return { status: 200, body: { filename, hasPicture: Boolean(picture), otherLabs, confirmed: Boolean(picture && validConfirmation(confirmation, fileSha256(picture.file))) } };
   }
 
+  // ── Keeping a lab's pictures before the lab is deleted or replaced ───────
+
+  const LAB_FOLDER = /^[a-z0-9][a-z0-9-]{0,99}$/i;
+
+  /** The folder of a lab that may be removed: a real folder straight inside the generated-labs folder (a half-built lab counts too). */
+  function labFolder(labId) {
+    if (!LAB_FOLDER.test(String(labId))) return null;
+    const root = path.resolve(generatedRoot);
+    const dir = path.resolve(root, String(labId));
+    if (path.relative(root, dir) !== String(labId)) return null;
+    try {
+      const info = fs.lstatSync(dir);
+      return info.isDirectory() && !info.isSymbolicLink() ? dir : null;
+    } catch {
+      return null;
+    }
+  }
+
+  const labTitleOf = (labDir) => cleanText(readJson(path.join(labDir, "manifest.json"), null)?.title, 200);
+  const labCalloutsOf = (labDir, filename) => cleanCallouts(readJson(path.join(labDir, "screenshots", sidecarName(filename)), null)?.callouts);
+
+  /**
+   * What would happen to each real picture of a lab that is removed (and replaced by `newLabId`, when there is one). Writes nothing.
+   *   shared  the library already holds exactly this picture
+   *   present the replacing lab already has exactly this picture
+   *   carry   the replacing lab has this slot and no picture of its own, so it is copied there
+   *   share   the picture may enter the shared library (the same rules as "Use this one for every lab", never replacing one)
+   *   keep    anything else goes to the kept-pictures archive
+   */
+  function planLabPictures(labId, { newLabId = null } = {}) {
+    const labDir = labFolder(labId);
+    if (!labDir) return { status: 404, error: "Generated lab not found" };
+    const fresh = newLabId ? labTarget(newLabId) : null;
+    if (fresh?.error) return { status: fresh.error.status, error: fresh.error.body.error };
+    const freshNames = new Set(fresh?.filenames || []);
+    const records = readLabVerification(labDir);
+    const confirmations = readLabConfirmations(labDir);
+    const pictures = readLabPictures(labDir);
+    const current = new Set(pictures.filter((p) => !p.earlier).map((p) => `${p.filename}:${sha256Hex(p.bytes)}`));
+    const items = [];
+    for (const picture of pictures) {
+      const sha = sha256Hex(picture.bytes);
+      const item = { filename: picture.filename, bytes: picture.bytes, sha, earlier: picture.earlier, record: records[picture.filename] || null, confirmation: confirmations[picture.filename] || null, plan: null };
+      const existing = capturedImage(dirs().search, picture.filename);
+      const inLibrary = Boolean(existing && fileSha256(existing.file) === sha);
+      if (picture.earlier) {
+        item.plan = inLibrary || current.has(`${picture.filename}:${sha}`) ? "shared" : "keep";
+        if (item.plan === "keep") Object.assign(item, { code: "previous-version", message: "An earlier version of a picture, kept when it was replaced." });
+      } else if (inLibrary) item.plan = "shared";
+      else if (fresh && freshNames.has(picture.filename)) {
+        const own = capturedImage(path.join(fresh.labDir, "assets"), picture.filename);
+        if (!own) item.plan = "carry";
+        else if (fileSha256(own.file) === sha) item.plan = "present";
+      }
+      if (!item.plan) {
+        const check = promoteFromLab(null, picture.filename, { bytes: picture.bytes, record: item.record, intent: "carry", dryRun: true });
+        if (check.outcome === "would-share") item.plan = "share";
+        else if (check.outcome === "already-shared") item.plan = "shared";
+        else Object.assign(item, { plan: "keep", code: check.code, message: check.message });
+      }
+      items.push(item);
+    }
+    return { labId, labDir, items };
+  }
+
+  const PLAN_VIEW = ({ filename, plan, code, message, earlier }) => ({ filename, plan, earlier, ...(code ? { code, message } : {}) });
+
+  /** The numbers the delete and replace messages use. `outcome` is the final answer for each picture. */
+  function countPictures(items) {
+    const real = items.filter((i) => !i.earlier);
+    const n = (...names) => real.filter((i) => names.includes(i.outcome || i.plan)).length;
+    const alreadyShared = n("shared");
+    const toShare = n("share", "newly-shared");
+    return {
+      total: real.length,
+      alreadyShared,
+      toShare,
+      shared: alreadyShared + toShare,
+      carried: n("carry", "carried", "present"),
+      kept: n("keep", "kept"),
+      earlierVersions: items.filter((i) => i.earlier && (i.outcome || i.plan) !== "shared").length,
+      retentionDays: kept().retentionDays,
+    };
+  }
+
+  /** What deleting or replacing this lab would do to its pictures, without doing it (for the confirmation and the notices). */
+  function previewLabPictures(labId, { newLabId = null } = {}) {
+    const plan = planLabPictures(labId, { newLabId });
+    if (plan.error) return { status: plan.status, body: { error: plan.error } };
+    return { status: 200, body: { labId, counts: countPictures(plan.items), pictures: plan.items.map(PLAN_VIEW) } };
+  }
+
+  /**
+   * Keep a lab's real pictures before its folder is removed. Every picture ends up in exactly one safe place:
+   * the shared library, the replacing lab, or the kept-pictures archive. Nothing is overwritten and nothing is deleted;
+   * running it again changes nothing more. Returns `{ok: false, error}` (and the lab must stay) when anything could not be kept.
+   *
+   * @param {string} labId
+   * @param {{newLabId?: string|null, reason?: "deleted"|"replaced"|"failed-build"}} [options]
+   */
+  function carryLabPictures(labId, { newLabId = null, reason = newLabId ? "replaced" : "deleted" } = {}) {
+    let plan;
+    try {
+      plan = planLabPictures(labId, { newLabId });
+    } catch (err) {
+      return { ok: false, status: 500, error: `This lab's pictures could not be checked, so nothing was removed: ${err.message}` };
+    }
+    if (plan.error) return { ok: false, status: plan.status, error: plan.error };
+    const { items, labDir } = plan;
+    if (!items.some((i) => !["shared", "present"].includes(i.plan))) return { ok: true, counts: countPictures(items), kept: [] };
+
+    let release;
+    try {
+      release = acquireShareLock(keptFolder(), `lab-${labId}`);
+    } catch (err) {
+      return { ok: false, status: 500, error: `Somewhere to keep this lab's pictures could not be prepared, so nothing was removed: ${err.message}` };
+    }
+    if (!release) return { ok: false, status: 409, error: "Another change to this lab's pictures is in progress, so nothing was removed. Try again in a moment." };
+    try {
+      const fresh = newLabId ? labTarget(newLabId) : null;
+      const stamp = new Date(now()).toISOString();
+      const leftover = [];
+      let carried = false;
+      for (const item of items) {
+        const callouts = labCalloutsOf(labDir, item.filename);
+        const keep = (code, message) => {
+          item.outcome = "kept";
+          leftover.push({ filename: item.earlier ? `${item.filename}.previous` : item.filename, bytes: item.bytes, why: code || item.code, message: message || item.message || SHARE_MESSAGES[code], record: item.record, confirmation: item.confirmation, callouts });
+        };
+        if (item.plan === "shared" || item.plan === "present") {
+          item.outcome = item.plan;
+        } else if (item.plan === "carry") {
+          try {
+            fresh.writeImage(item.filename, item.bytes, callouts);
+            if (item.record) fresh.writeRecord(item.filename, item.record);
+            if (item.confirmation && validConfirmation(item.confirmation, item.sha)) fresh.writeConfirmation(item.filename, item.confirmation);
+            fresh.afterCommit(item.filename, { source: item.record?.source || "carried", capturedAt: item.record?.acceptedAt || stamp, defer: true });
+            item.outcome = "carried";
+            carried = true;
+          } catch (err) {
+            logger?.(`[capture] Could not copy ${item.filename} into ${newLabId}: ${err.message}`);
+            keep("carry-failed", "This picture could not be copied into the new lab, so it was kept.");
+          }
+        } else if (item.plan === "share") {
+          let result;
+          try {
+            result = promoteFromLab(null, item.filename, { bytes: item.bytes, record: item.record, intent: "carry", capturedAt: item.record?.acceptedAt || null, callouts, defer: true });
+          } catch (err) {
+            result = { outcome: "skipped", code: "busy", message: err.message };
+          }
+          if (["shared", "replaced"].includes(result.outcome)) item.outcome = "newly-shared";
+          else if (result.outcome === "already-shared") item.outcome = "shared";
+          else keep(result.code, result.message);
+        } else keep();
+      }
+      if (leftover.length) {
+        try {
+          kept().archive({ labId, labTitle: labTitleOf(labDir), reason, replacedBy: newLabId, pictures: leftover });
+        } catch (err) {
+          return { ok: false, status: 500, error: `This lab's pictures could not be saved, so nothing was removed: ${err.message}` };
+        }
+      }
+      if (carried) refreshLab(newLabId);
+      return { ok: true, counts: countPictures(items), kept: leftover.map((p) => p.filename) };
+    } finally {
+      release();
+    }
+  }
+
+  /** The guard `deleteGeneratedLab`, `replaceGeneratedLab`, and a failed build run before they remove a lab folder. */
+  function guardLabRemoval({ labId, reason, newLabId = null }) {
+    return carryLabPictures(labId, { newLabId, reason });
+  }
+
+  // ── The kept-pictures archive ────────────────────────────────────────────
+
+  /** Where a kept picture can go back to: a lab that has the slot and no picture of its own, or the shared library (when it has none). */
+  function restoreOptionsFor(entry, picture) {
+    const options = [];
+    for (const id of new Set([entry.labId, entry.replacedBy].filter(Boolean))) {
+      const target = labTarget(id);
+      if (target.error || !target.filenames.includes(picture.base) || target.hasOwnImage(picture.base)) continue;
+      options.push({ type: "lab", labId: id, title: labTitleOf(target.labDir) || id });
+    }
+    if (!picture.earlierVersion && findLibrarySlot(picture.base, { manifestDir }) && !libraryIsCommittedFolder() && !capturedImage(dirs().search, picture.base)) options.push({ type: "library" });
+    return options;
+  }
+
+  /** Every kept picture with where it can be restored (`GET /api/capture/kept`). */
+  function keptOverview() {
+    const store = kept();
+    return { retentionDays: store.retentionDays, entries: store.list().map((entry) => ({ ...entry, pictures: entry.pictures.map((p) => ({ ...p, restore: restoreOptionsFor(entry, p) })) })) };
+  }
+
+  /** The bytes of one kept picture, for the preview and the download. */
+  function keptPicture(entryId, filename) {
+    const found = kept().read(entryId, filename);
+    return found ? { bytes: found.bytes, filename } : null;
+  }
+
+  /**
+   * Put a kept picture back: into a lab that has the slot and no picture of its own (`to: "lab"`), or into the shared library
+   * (`to: "library"`, which needs `confirm: true` because every lab will show it). Nothing is replaced. The kept copy is removed
+   * only after the picture is in place.
+   */
+  function restoreKept(entryId, filename, { to = null, labId = null, confirm = false } = {}) {
+    const found = kept().read(entryId, filename);
+    if (!found) return { status: 404, body: { error: "That kept picture was not found. It may have been restored or removed already." } };
+    const { bytes, meta, entry } = found;
+    const picture = entry.pictures.find((p) => p.filename === filename);
+    if (!isRestorable(bytes, filename) || sha256Hex(bytes) !== meta.sha256) return { status: 409, body: { error: "The kept copy is damaged and cannot be restored. Download it instead." } };
+    const base = baseFilename(filename);
+    const options = restoreOptionsFor(entry, picture);
+    const choice = to === "library" ? options.find((o) => o.type === "library") : options.find((o) => o.type === "lab" && (!labId || o.labId === labId));
+    if (!choice) {
+      return { status: 409, body: { error: "There is no place to put this picture back right now: the lab it came from has a picture here (or is gone) and the shared library does not take it. Download it instead.", options } };
+    }
+    if (choice.type === "library") {
+      if (confirm !== true) return { status: 400, body: { error: "Confirm first: this picture will be used by every lab." } };
+      const result = promoteFromLab(null, base, { bytes, record: meta.record, intent: "share", capturedAt: meta.record?.acceptedAt || null, callouts: cleanCallouts(meta.callouts), defer: true });
+      if (!["shared", "replaced", "already-shared"].includes(result.outcome)) return { status: 409, body: { error: result.message || "The shared library did not take this picture.", code: result.code } };
+    } else {
+      const target = labTarget(choice.labId);
+      target.writeImage(base, bytes, cleanCallouts(meta.callouts));
+      if (meta.record) target.writeRecord(base, meta.record);
+      if (meta.confirmation && validConfirmation(meta.confirmation, meta.sha256)) target.writeConfirmation(base, meta.confirmation);
+      target.afterCommit(base, { source: meta.record?.source || "restored", capturedAt: meta.record?.acceptedAt || new Date(now()).toISOString(), defer: false });
+    }
+    kept().removePicture(entryId, filename);
+    return { status: 200, body: { outcome: "restored", to: choice.type, ...(choice.type === "lab" ? { labId: choice.labId } : {}), filename: base } };
+  }
+
+  /** Delete one kept picture for good. */
+  function removeKept(entryId, filename) {
+    return kept().removePicture(entryId, filename)
+      ? { status: 200, body: { outcome: "removed", filename } }
+      : { status: 404, body: { error: "That kept picture was not found. It may have been restored or removed already." } };
+  }
+
+  // ── Moving the shared library between computers ──────────────────────────
+
+  /** Every picture in the library's own folder (not the committed fallback) with its saved check and its "Mark as accurate", for the export. */
+  function libraryPictures() {
+    const { shots: records, confirmations } = readRecordsFile(libraryRecordsFile);
+    const out = [];
+    for (const slot of listLibrarySlots({ manifestDir, capturedDir: [dirs().primary] })) {
+      if (!slot.captured || !slot.file) continue;
+      const bytes = fs.readFileSync(slot.file);
+      const sha = sha256Hex(bytes);
+      const confirmation = confirmations[slot.filename] ? validConfirmation(confirmations[slot.filename], sha) : null;
+      out.push({ filename: slot.filename, bytes, sha256: sha, record: records[slot.filename] || null, confirmedAt: confirmation?.at || null });
+    }
+    return out;
+  }
+
+  /**
+   * Put one imported picture in the library the way an upload would: the same name, format, size, blank-page, and placeholder
+   * checks. A picture the library already has is left alone unless `replace` is chosen (the old one is kept as a backup).
+   *
+   * @returns {{outcome: "imported"|"replaced"|"needs-review"|"skipped"|"rejected", filename: string, code?: string, message?: string}}
+   */
+  function importLibraryPicture(filename, bytes, { replace = false, dryRun = false, confirmedAt = null, expectedSha = null } = {}) {
+    const target = libraryTarget();
+    const done = (outcome, code, message) => ({ outcome, filename, ...(code ? { code, message } : {}) });
+    if (!target.slot(filename)) return done("rejected", "not-a-slot", "This is not the name of a shared screenshot, so it was not imported.");
+    const ext = path.extname(filename).toLowerCase();
+    if (!isRealScreenshotBytes(bytes, ext)) return done("rejected", Buffer.isBuffer(bytes) && isPlaceholder(bytes) ? "placeholder" : "not-real", Buffer.isBuffer(bytes) && isPlaceholder(bytes) ? SHARE_MESSAGES.placeholder : SHARE_MESSAGES["not-real"]);
+    const sha = sha256Hex(bytes);
+    const existing = capturedImage(dirs().primary, filename);
+    if (existing) {
+      if (fileSha256(existing.file) === sha) return done("skipped", "already-there", "The library already has exactly this picture.");
+      if (!replace) return done("skipped", "exists", "The library already has a different picture. Choose Replace existing pictures to use the imported one (the old one is kept as a backup).");
+    }
+    if (dryRun) {
+      const check = verifyUpload({ bytes, filename, expectedLabels: target.slot(filename).expectedLabels });
+      if (check.level === "fail") return done("rejected", "failed-check", check.reasons[0]?.message || "The picture did not pass its check.");
+      return done(existing ? "would-replace" : "would-import");
+    }
+    const result = submit(target, filename, bytes, { source: "import", retake: false });
+    if (result.status === 422) return done("rejected", "failed-check", result.body.message || "The picture did not pass its check.");
+    if (result.status === 202) return done("needs-review", "needs-review", "The picture needs a look before it is used. Open it in the Screenshot Center and accept or discard it.");
+    if (result.status !== 200) return done("rejected", "not-saved", result.body.error || "The picture could not be saved.");
+    if (confirmedAt && expectedSha === sha && Number.isFinite(Date.parse(confirmedAt))) {
+      target.writeConfirmation(filename, makeConfirmation(sha, { at: confirmedAt }));
+      libraryChanged();
+    }
+    return done(existing ? "replaced" : "imported");
+  }
+
+  /** Delete kept pictures older than the retention. Runs at start and daily; every removal is one plain log line. */
+  function purgeKept() {
+    return kept().purge();
+  }
+
+  /** How many pictures are kept and for how long, for the status line (cheap: no restore options). */
+  function keptSummary() {
+    const store = kept();
+    const entries = store.list();
+    return { entries: entries.length, pictures: entries.reduce((sum, e) => sum + e.pictures.length, 0), retentionDays: store.retentionDays };
+  }
+
   return {
     lab: labTarget,
     library: libraryTarget,
+    previewLabPictures,
+    carryLabPictures,
+    guardLabRemoval,
+    keptOverview,
+    keptPicture,
+    restoreKept,
+    removeKept,
+    purgeKept,
+    keptSummary,
+    libraryPictures,
+    importLibraryPicture,
     libraryState,
     submit,
     accept,

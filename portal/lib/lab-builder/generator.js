@@ -62,6 +62,7 @@ import {
 } from "./blockers.js";
 import { validateLabDir } from "../validator.js";
 import { resolveLabScreenshot } from "./captured.js";
+import { guardLabPictures } from "./picture-guard.js";
 import {
   buildPerLabScreenshotArtifacts,
   captureLabScreenshots,
@@ -365,6 +366,10 @@ async function deriveAllSteps(session, plan, { onProgress, signal, maxConcurrenc
     }, signal);
   }
   return byFeature;
+}
+
+function wantsCaptureScreenshots(opts, request) {
+  return Boolean(opts?.captureScreenshots || request?.captureScreenshots);
 }
 
 function reserveUniqueDir(root, slug) {
@@ -1553,7 +1558,12 @@ export async function generateLab(request, opts = {}) {
     };
     fs.writeFileSync(path.join(outputDir, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n", "utf8");
   } catch (err) {
-    fs.rmSync(outputDir, { recursive: true, force: true });
+    // A lab that failed to build is removed, but pictures captured for it during this run are kept first (and the folder stays when they cannot be).
+    const kept = wantsCaptureScreenshots(opts, request)
+      ? guardLabPictures({ rootDir: outputRoot, labId: path.basename(outputDir), reason: "failed-build" })
+      : { ok: true };
+    if (kept.ok) fs.rmSync(outputDir, { recursive: true, force: true });
+    else err.message = `${err.message} The pictures captured for it could not be kept, so its folder was left in place: ${kept.error}`;
     result.outputDir = null;
     result.labId = null;
     throw err;

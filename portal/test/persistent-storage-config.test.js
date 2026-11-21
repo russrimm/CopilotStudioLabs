@@ -25,12 +25,19 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  BAKED_CAPTURED_SCREENSHOTS_DIR,
   OUTPUT_ROOT,
   PORTAL_ROOT,
+  describeCapturedScreenshotsLocation,
   ensurePortalStorageDirs,
+  getScreenshotLibraryDiagnostics,
   getStorageDiagnostics,
   registerBlobSyncStatusProvider,
+  resolveCapturedScreenshotsDir,
+  resolveCapturedScreenshotsSearchDirs,
+  resolveDefaultUserLibraryDir,
   resolveGeneratedLabsDir,
+  resolveKeptScreenshotsDir,
   resolvePortalDataDir,
   resolvePortalUploadsDir,
   resolveSafeUploadFile,
@@ -510,6 +517,70 @@ test("storage-config resolves default local paths, PORTAL_STORAGE_ROOT, azure-bl
       healthy: false,
     },
   });
+});
+
+test("the shared library defaults to a per-user folder outside the repository, per platform, and the settings still win", (t) => {
+  const base = makeTempDir(t, "library-home-");
+  const home = join(base, "home");
+  const NAME = "CopilotStudioLabsPortal";
+
+  // Windows: %LOCALAPPDATA%\CopilotStudioLabsPortal\screenshots, else <profile>\AppData\Local\...
+  const local = join(base, "AppData", "Local");
+  assert.equal(resolveDefaultUserLibraryDir({ env: { LOCALAPPDATA: local }, platform: "win32" }), join(local, NAME, "screenshots"));
+  assert.equal(resolveDefaultUserLibraryDir({ env: { USERPROFILE: home }, platform: "win32" }), join(home, "AppData", "Local", NAME, "screenshots"));
+  // macOS: ~/Library/Application Support/CopilotStudioLabsPortal/screenshots
+  assert.equal(resolveDefaultUserLibraryDir({ env: { HOME: home }, platform: "darwin" }), join(home, "Library", "Application Support", NAME, "screenshots"));
+  // Elsewhere: $XDG_DATA_HOME, else ~/.local/share
+  assert.equal(resolveDefaultUserLibraryDir({ env: { XDG_DATA_HOME: join(base, "xdg"), HOME: home }, platform: "linux" }), join(base, "xdg", NAME, "screenshots"));
+  assert.equal(resolveDefaultUserLibraryDir({ env: { HOME: home }, platform: "linux" }), join(home, ".local", "share", NAME, "screenshots"));
+  assert.equal(resolveDefaultUserLibraryDir({ env: { XDG_DATA_HOME: "relative/path", HOME: home }, platform: "linux" }), join(home, ".local", "share", NAME, "screenshots"), "a relative XDG folder is ignored");
+  assert.equal(resolveDefaultUserLibraryDir({ env: {}, platform: "linux", home: "" }), null, "no home folder, no default");
+  assert.equal(resolveDefaultUserLibraryDir({ env: {}, platform: "linux", home }), join(home, ".local", "share", NAME, "screenshots"), "an injected home folder works");
+
+  // Never in a OneDrive-synced folder: the next folder that is not synced is used.
+  const synced = join(base, "OneDrive - Contoso", "AppData", "Local");
+  assert.equal(resolveDefaultUserLibraryDir({ env: { LOCALAPPDATA: synced, USERPROFILE: home }, platform: "win32" }), join(home, "AppData", "Local", NAME, "screenshots"));
+  assert.equal(resolveDefaultUserLibraryDir({ env: { LOCALAPPDATA: join(home, "AppData", "Local"), OneDrive: home, USERPROFILE: home }, platform: "win32" }), null, "a folder inside the OneDrive root is skipped");
+
+  // The settings win, in order: FEATURE_TOUR_SCREENSHOTS_DIR, then PORTAL_STORAGE_ROOT, then the per-user folder, then the committed folder.
+  const userEnv = { LOCALAPPDATA: local, XDG_DATA_HOME: join(base, "xdg"), HOME: home, USERPROFILE: home };
+  const explicit = join(base, "explicit");
+  const storage = join(base, "storage");
+  assert.deepEqual(describeCapturedScreenshotsLocation({ ...userEnv, FEATURE_TOUR_SCREENSHOTS_DIR: explicit, PORTAL_STORAGE_ROOT: storage }), { kind: "explicit", dir: resolve(explicit), persistent: true });
+  assert.deepEqual(describeCapturedScreenshotsLocation({ ...userEnv, PORTAL_STORAGE_ROOT: storage }), { kind: "storage-root", dir: resolve(storage, "screenshots"), persistent: true });
+  const mine = describeCapturedScreenshotsLocation(userEnv);
+  assert.equal(mine.kind, "user-folder");
+  assert.equal(mine.persistent, true);
+  assert.ok(mine.dir.startsWith(base) && !mine.dir.startsWith(repoRoot));
+  assert.equal(mine.dir, resolveDefaultUserLibraryDir({ env: userEnv }));
+  assert.deepEqual(describeCapturedScreenshotsLocation({}), { kind: "committed", dir: BAKED_CAPTURED_SCREENSHOTS_DIR, persistent: false }, "with nothing to go on, the committed folder is the (read-only) fallback");
+  assert.deepEqual(describeCapturedScreenshotsLocation({ FEATURE_TOUR_SCREENSHOTS_DIR: BAKED_CAPTURED_SCREENSHOTS_DIR }), { kind: "explicit", dir: BAKED_CAPTURED_SCREENSHOTS_DIR, persistent: false }, "forced to the committed folder, nothing is saved automatically");
+
+  // The committed folder stays a read-only fallback in the search path; an explicit folder is exclusive.
+  assert.deepEqual(resolveCapturedScreenshotsSearchDirs(userEnv), [mine.dir, BAKED_CAPTURED_SCREENSHOTS_DIR]);
+  assert.deepEqual(resolveCapturedScreenshotsSearchDirs({ ...userEnv, FEATURE_TOUR_SCREENSHOTS_DIR: explicit }), [resolve(explicit)]);
+  assert.deepEqual(resolveCapturedScreenshotsSearchDirs({}), [BAKED_CAPTURED_SCREENSHOTS_DIR]);
+
+  // Where pictures from deleted labs are kept: inside the library, never inside the committed folder.
+  assert.equal(resolveKeptScreenshotsDir(userEnv), join(mine.dir, ".kept"));
+  assert.equal(resolveKeptScreenshotsDir({ PORTAL_STORAGE_ROOT: storage }), resolve(storage, "screenshots", ".kept"));
+  assert.equal(resolveKeptScreenshotsDir({ PORTAL_DATA_DIR: join(base, "data") }), resolve(base, "data", "capture", "kept-pictures"));
+
+  // Container and Azure behavior is unchanged, and the diagnostics never carry a path.
+  assert.deepEqual(getScreenshotLibraryDiagnostics({ PORTAL_STORAGE_ROOT: storage, CONTAINER_APP_NAME: "ca-portal-demo" }), { location: "storage-root", persistent: true });
+  assert.deepEqual(getScreenshotLibraryDiagnostics(userEnv), { location: "user-folder", persistent: true });
+  assert.deepEqual(getScreenshotLibraryDiagnostics({}), { location: "committed", persistent: false });
+  assert.ok(!JSON.stringify(getScreenshotLibraryDiagnostics(userEnv)).includes(base));
+  assert.deepEqual(getStorageDiagnostics({ PORTAL_STORAGE_ROOT: storage }).persistent, true);
+
+  // The per-user folder is created and checked at start like the other folders.
+  const ensured = ensurePortalStorageDirs({ ...userEnv, PORTAL_DATA_DIR: join(base, "d"), LAB_BUILDER_OUTPUT_DIR: join(base, "l"), PORTAL_UPLOADS_DIR: join(base, "u") });
+  assert.equal(ensured.screenshotsDir, mine.dir);
+  assert.equal(ensured.writable, true);
+  assert.equal(existsSync(mine.dir), true);
+
+  // Under the test runner a plain process environment never reaches a person's real library.
+  assert.equal(resolveCapturedScreenshotsDir(), BAKED_CAPTURED_SCREENSHOTS_DIR);
 });
 
 test("branding, approvals, agent-chat, and topic-store honor PORTAL_STORAGE_ROOT and explicit overrides dynamically", async (t) => {

@@ -34,6 +34,8 @@ import { createRateLimiter, positiveIntFromEnv } from "../rate-limit.js";
 import { buildCompanionZip, COMPANION_ZIP_NAME } from "./companion-zip.js";
 import { createCapturePlatform } from "./index.js";
 import { isJobId } from "./jobs.js";
+import { isKeptPictureName } from "./kept-pictures.js";
+import { EXPORT_ZIP_NAME, MAX_IMPORT_ZIP_BYTES, buildLibraryExport, importLibraryZip } from "./library-transfer.js";
 import { TOKEN_PREFIX } from "./pairing.js";
 import { buildPairingCommands } from "./start-command.js";
 import { MAX_UPLOAD_BYTES } from "./verify-upload.js";
@@ -52,6 +54,11 @@ function userKey(req) {
 
 function actor(req) {
   return req.user?.upn || req.user?.oid || null;
+}
+
+/** A request from the computer that runs the portal itself (the socket's own address, never a forwarded header). */
+function isLoopback(req) {
+  return ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(String(req.socket?.remoteAddress || ""));
 }
 
 function parseJsonField(value) {
@@ -163,9 +170,9 @@ export function registerCaptureRoutes(app, deps = {}) {
     res.status(201).json({ ...issued, portalUrl, ...buildPairingCommands({ portalUrl, code: issued.code }) });
   });
 
-  app.get("/api/capture/status", async (_req, res) => {
+  app.get("/api/capture/status", async (req, res) => {
     try {
-      res.json(await platform.statusPayload());
+      res.json(await platform.statusPayload({ localRequest: isLoopback(req) }));
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -511,6 +518,146 @@ export function registerCaptureRoutes(app, deps = {}) {
       }
     },
   );
+
+  // What deleting or replacing a lab would do to its pictures (for the confirmation); it changes nothing.
+  app.get(
+    labPrefixes.map((p) => `${p}/pictures`),
+    (req, res) => {
+      if (!SAFE_LAB_ID.test(req.params.labId)) return res.status(400).json({ error: "Invalid lab id." });
+      try {
+        const replacedBy = typeof req.query.replacedBy === "string" && SAFE_LAB_ID.test(req.query.replacedBy) ? req.query.replacedBy : null;
+        const result = screenshots.previewLabPictures(req.params.labId, { newLabId: replacedBy });
+        return res.status(result.status).json(result.body);
+      } catch (err) {
+        return res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  // ── Kept pictures: real pictures from deleted or replaced labs, kept for 90 days ──
+
+  const KEPT_ENTRY_ID = /^[a-z0-9][a-z0-9-]{0,140}$/;
+  const keptParams = (req, res) => {
+    if (!KEPT_ENTRY_ID.test(req.params.entryId) || !isKeptPictureName(req.params.filename)) {
+      res.status(400).json({ error: "Invalid kept picture." });
+      return null;
+    }
+    return { entryId: req.params.entryId, filename: req.params.filename };
+  };
+
+  app.get("/api/capture/kept", (_req, res) => {
+    try {
+      res.json(screenshots.keptOverview());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/capture/kept/:entryId/:filename", (req, res) => {
+    const ids = keptParams(req, res);
+    if (!ids) return undefined;
+    const found = screenshots.keptPicture(ids.entryId, ids.filename);
+    if (!found) return res.status(404).json({ error: "That kept picture was not found." });
+    const type = /\.png(\.previous)?$/i.test(ids.filename) ? "image/png" : /\.webp(\.previous)?$/i.test(ids.filename) ? "image/webp" : "image/jpeg";
+    const download = String(req.query.download || "") === "1";
+    res.set({
+      "Content-Type": type,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox",
+      ...(download ? { "Content-Disposition": `attachment; filename="${ids.filename.replace(/\.previous$/i, "-earlier")}"` } : {}),
+    });
+    return res.send(found.bytes);
+  });
+
+  app.post("/api/capture/kept/:entryId/:filename/restore", (req, res) => {
+    if (manageLimited(req, res)) return;
+    const ids = keptParams(req, res);
+    if (!ids) return;
+    syncAfter(res);
+    try {
+      const body = bodyOf(req);
+      const result = screenshots.restoreKept(ids.entryId, ids.filename, { to: body.to === "library" ? "library" : "lab", labId: typeof body.labId === "string" && SAFE_LAB_ID.test(body.labId) ? body.labId : null, confirm: body.confirm === true });
+      res.status(result.status).json(result.body);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Delete forever needs the person's confirmation in the request itself, so no script removes a kept picture by accident.
+  app.delete("/api/capture/kept/:entryId/:filename", (req, res) => {
+    if (manageLimited(req, res)) return;
+    const ids = keptParams(req, res);
+    if (!ids) return;
+    if (String(req.query.confirm || "") !== "true" && bodyOf(req).confirm !== true) return res.status(400).json({ error: "Confirm first: a picture deleted here cannot be restored." });
+    syncAfter(res);
+    try {
+      const result = screenshots.removeKept(ids.entryId, ids.filename);
+      return res.status(result.status).json(result.body);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/capture/kept/purge", (req, res) => {
+    if (manageLimited(req, res)) return;
+    syncAfter(res);
+    try {
+      res.json(screenshots.purgeKept());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/capture/library/notice/dismiss", (req, res) => {
+    if (manageLimited(req, res)) return;
+    try {
+      res.json(platform.dismissLocationNotice());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Move the shared library between computers: export a ZIP, import a ZIP ──
+
+  app.get("/api/capture/library/export", async (req, res) => {
+    if (manageLimited(req, res)) return;
+    try {
+      const { buffer, count } = await buildLibraryExport(screenshots);
+      res.set({ "Content-Type": "application/zip", "Content-Disposition": `attachment; filename="${EXPORT_ZIP_NAME}"`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "X-Export-Warning": "Check that no picture shows account names or customer data.", "X-Picture-Count": String(count) });
+      res.send(buffer);
+    } catch (err) {
+      res.status(500).json({ error: `Could not build the export: ${err.message}` });
+    }
+  });
+
+  const importMultipart = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_IMPORT_ZIP_BYTES, files: 1, fields: 4, fieldSize: 1024, parts: 6 } }).single("file");
+  const importRaw = express.raw({ type: (req) => /^application\/(?:zip|x-zip-compressed|octet-stream)(?:\s*;|$)/i.test(String(req.headers["content-type"] || "")), limit: MAX_IMPORT_ZIP_BYTES + 4096 });
+  const truthy = (value) => ["true", "1", "on", "yes"].includes(String(value ?? "").toLowerCase());
+
+  app.post("/api/capture/library/import", (req, res) => {
+    if (manageLimited(req, res)) return;
+    const run = (zip, options) => {
+      syncAfter(res);
+      try {
+        const result = importLibraryZip(screenshots, zip, options);
+        res.status(result.status).json(result.body);
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
+    };
+    if (String(req.headers["content-type"] || "").toLowerCase().startsWith("multipart/form-data")) {
+      importMultipart(req, res, (err) => {
+        if (err) return res.status(err.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({ error: err.code === "LIMIT_FILE_SIZE" ? `The ZIP is larger than ${Math.round(MAX_IMPORT_ZIP_BYTES / 1048576)} MB.` : "The upload could not be read." });
+        return run(req.file?.buffer || null, { replace: truthy(req.body?.replace ?? req.query.replace), dryRun: truthy(req.body?.dryRun ?? req.query.dryRun) });
+      });
+      return;
+    }
+    importRaw(req, res, (err) => {
+      if (err) return res.status(err.status === 413 ? 413 : 400).json({ error: err.status === 413 ? "The ZIP is too large." : "The upload could not be read." });
+      return run(Buffer.isBuffer(req.body) && req.body.length ? req.body : null, { replace: truthy(req.query.replace), dryRun: truthy(req.query.dryRun) });
+    });
+  });
 
   // Who else shows the library's picture for a slot, so a retake can say who it affects.
   app.get("/api/capture/library/screenshots/:filename/usage", (req, res) => {

@@ -1295,17 +1295,62 @@ function lbGenCloseOpened(labId) {
 }
 
 // ── Delete ──────────────────────────────────────────────────────────────────
-function lbGenAskDelete(labId) {
+const lbPicturePlural = (n, one) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+/** What deleting a lab does to its pictures, in plain words, from `GET .../pictures` counts. Empty when the lab has none. */
+function lbGenDeletePicturesText(counts) {
+  if (!counts || !Number(counts.total)) return "";
+  const days = Number(counts.retentionDays) || 90;
+  const parts = [];
+  const shared = Number(counts.alreadyShared) || 0;
+  const toShare = Number(counts.toShare) || 0;
+  const kept = Number(counts.kept) || 0;
+  if (shared) parts.push(`${lbPicturePlural(shared, "picture")} ${shared === 1 ? "is" : "are"} already shared and ${shared === 1 ? "stays" : "stay"} available to other labs.`);
+  if (toShare) parts.push(`${lbPicturePlural(toShare, "more picture")} will be shared with every lab first.`);
+  if (kept) parts.push(`${lbPicturePlural(kept, "picture")} ${kept === 1 ? "exists" : "exist"} only in this lab and will be kept for ${days} days so you can restore ${kept === 1 ? "it" : "them"}.`);
+  if (Number(counts.earlierVersions)) parts.push(`${lbPicturePlural(Number(counts.earlierVersions), "earlier version")} of replaced pictures will be kept for ${days} days too.`);
+  return parts.join(" ");
+}
+
+/** The notice after a lab was replaced or deleted: where each picture went. */
+function lbGenPicturesDoneText(counts) {
+  if (!counts || !Number(counts.total)) return "";
+  const days = Number(counts.retentionDays) || 90;
+  const parts = [];
+  if (Number(counts.carried)) parts.push(`${lbPicturePlural(Number(counts.carried), "picture")} moved to the new lab`);
+  if (Number(counts.shared)) parts.push(`${lbPicturePlural(Number(counts.shared), "picture")} shared with every lab`);
+  if (Number(counts.kept)) parts.push(`${lbPicturePlural(Number(counts.kept), "picture")} kept for ${days} days`);
+  if (!parts.length) return "";
+  return `Your pictures are safe: ${parts.join(", ")}.${Number(counts.kept) ? " Restore kept pictures in the Screenshot Center, under Advanced." : ""}`;
+}
+
+async function lbGenAskDelete(labId) {
   const lab = lbGenFind(labId);
   const dialog = document.getElementById("lb-gen-delete-dialog");
   if (!lab || !dialog) return;
   lbGen.deleting = labId;
+  const note = document.getElementById("lb-gen-delete-pictures");
+  const confirm = document.getElementById("lb-gen-delete-confirm");
   document.getElementById("lb-gen-delete-title").textContent = `Delete "${lab.title}"?`;
   document.getElementById("lb-gen-delete-desc").textContent =
-    `This permanently removes "${lab.title}" and its associated files. It cannot be undone. Hand-written labs are not affected.`;
+    `This removes "${lab.title}" and its files. Hand-written labs are not affected.`;
   document.getElementById("lb-gen-delete-error").textContent = "";
+  if (note) note.textContent = "Checking this lab's pictures.";
+  if (confirm) confirm.disabled = true;
   dialog.showModal();
   document.getElementById("lb-gen-delete-cancel").focus();
+  let text = "";
+  try {
+    const res = await fetch(`/api/lab-builder/generated/${encodeURIComponent(labId)}/pictures`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    text = lbGenDeletePicturesText(data.counts) || "This lab has no captured pictures to keep.";
+  } catch {
+    text = "We could not check this lab's pictures. Any real picture it holds is still kept for 90 days.";
+  }
+  if (lbGen.deleting !== labId) return;
+  if (note) note.textContent = text;
+  if (confirm) confirm.disabled = false;
 }
 
 async function lbGenConfirmDelete() {
@@ -1326,9 +1371,10 @@ async function lbGenConfirmDelete() {
     if (labBuilder.editing?.labId === labId) lbStopEditing(true);
     document.getElementById("lb-gen-delete-dialog").close();
     lbGen.deleting = null;
-    lbGenRender(`Deleted "${lab.title}". ${lbGen.labs.length} generated lab${lbGen.labs.length === 1 ? "" : "s"} left.`);
+    const safe = lbGenPicturesDoneText(data.pictures);
+    lbGenRender(`Deleted "${lab.title}". ${lbGen.labs.length} generated lab${lbGen.labs.length === 1 ? "" : "s"} left.${safe ? ` ${safe}` : ""}`);
     lbGenFocusAfterRemoval(index);
-    toast(`Deleted "${lab.title}"`, "success");
+    toast(`Deleted "${lab.title}".${safe ? ` ${safe}` : ""}`, "success");
   } catch (err) {
     error.textContent = `Could not delete the lab: ${err.message}`;
   } finally {
