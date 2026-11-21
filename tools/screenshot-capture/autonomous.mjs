@@ -99,8 +99,9 @@ export async function preparePractice({ page, shot, session, go, trace = null, l
  * @returns {Promise<{ok: boolean, setup: object, failed?: object, executor: object, cause?: string, error?: string}>}
  */
 export async function runShotSetup({ page, shot, session, practiceInfo = null, practiceError = "", scratch = null, trace = null, log = null, sleep, terms = [], home = null, companion = "", readiness = {} }) {
-  const autonomy = session.autonomy;
-  const practiceAllowed = autonomy.maxTier >= TIER.PRACTICE;
+  // A recipe family has a ceiling: what it does is opening, asking, and closing, so the executor refuses anything more, even in a job that allows a practice agent.
+  const autonomy = scratch?.maxTier != null ? { ...session.autonomy, maxTier: Math.min(session.autonomy.maxTier, scratch.maxTier) } : session.autonomy;
+  const practiceAllowed = session.autonomy.maxTier >= TIER.PRACTICE;
   const product = shot.capture?.product || shot.product || "copilot-studio";
   const candidates = setupCandidates(shot, { session, practiceAllowed, scratch });
   const notes = practiceError ? [practiceError] : [];
@@ -122,11 +123,16 @@ export async function runShotSetup({ page, shot, session, practiceInfo = null, p
     if (result.ok) {
       // The product showed its own confirmation after the one publish click: the agent is published, and Monitor can show sessions once people use it.
       if (practiceInfo && session.registry && result.steps.some((r) => r.id === "publish-confirm" && r.status === "ok")) session.registry.markStage(practiceInfo.botId, "published");
+      // What a recipe family did, for the practice report: what it opened or asked, and what (if anything) it added to the practice agent.
+      if (practiceInfo && session.registry?.recordRecipe && scratch?.family) {
+        session.registry.recordRecipe({ botId: practiceInfo.botId, family: scratch.family.id, key: scratch.family.key, shot: shot.filename, what: scratch.family.note || "", created: scratch.family.objects || [], verified: scratch.family.verified });
+      }
       const limited = (!practiceInfo && candidate.needsPractice) || candidate.limited ? candidate.limited || { by: "practice-agent", skipped: [] } : null;
       return {
         ok: true,
         executor,
         practice: practiceInfo,
+        family: scratch?.family || null,
         setup: {
           source: candidate.source,
           steps: result.steps.map(trimStepRecord),

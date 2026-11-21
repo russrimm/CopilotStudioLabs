@@ -15,9 +15,11 @@ import { createCaptureSession } from "../capture-run.mjs";
 import { AGENT_ACCOUNT_REASON, agentAccountState, buildPracticeReport, createPracticeRegistry, ensurePracticeAgent, practiceName } from "../practice.mjs";
 import { insidePracticeAgent, stepFromEvent } from "../recorder.mjs";
 import * as R from "../scratch-recipes.mjs";
-import { isCreateFlowUrl, showStepsFor, stagesToPrepare, strictSteps } from "../scratch.mjs";
+import { MAX_RECIPE_FAILURES, isCreateFlowUrl, noteRecipeFailure, prepareScratchShot, showStepsFor, stagesToPrepare, strictSteps } from "../scratch.mjs";
 import { sanitizeSteps } from "../setup-steps.mjs";
-import { BLOCKERS, STAGES, classifyStage, createsAgent, normalizeAgentSource, orderCreationFirst, orderForWalkthrough, resolveStage, sanitizeScratchContext, scratchAgentName, scratchInputs, stagesBefore, summarizeBlockers } from "../walkthrough.mjs";
+import { BLOCKERS, STAGES, classifyStage, createsAgent, describeAutomation, normalizeAgentSource, orderCreationFirst, orderForWalkthrough, resolveStage, sanitizeAutomation, sanitizeScratchContext, scratchAgentName, scratchInputs, stagesBefore, summarizeBlockers } from "../walkthrough.mjs";
+import { FAMILIES } from "../automation.mjs";
+import { familyKey, familyShowSteps } from "../families.mjs";
 
 const ENV = "https://copilotstudio.microsoft.com/environments/5e5e5e5e-1234-4abc-8def-0123456789ab";
 const BOT = "7a1c0001-5b3d-4e6f-8a9b-c0d1e2f3a4b5";
@@ -44,7 +46,7 @@ test("a shot belongs to the stage its feature names, and the stages are built in
   assert.equal(stageOf("analytics", "analytics"), "monitor");
   assert.equal(stageOf("mc-memory", "build", "settings"), "settings");
   assert.equal(stageOf("generative-orchestration", "settings", "settings"), "settings");
-  assert.deepEqual(STAGES.map((s) => s.id), ["agent", "instructions", "knowledge", "tools", "model", "preview", "evaluate", "publish", "monitor", "settings"]);
+  assert.deepEqual(STAGES.map((s) => s.id), ["agent", "instructions", "knowledge", "tools", "model", "preview", "evaluate", "testset", "publish", "monitor", "settings"]);
   assert.deepEqual(stagesBefore("preview").map((s) => s.id), ["agent", "instructions", "knowledge"], "a test needs the agent, its instructions, and its knowledge");
   assert.deepEqual(stagesBefore("agent"), []);
 });
@@ -53,7 +55,7 @@ test("environment pages, other products, and screens outside the agent are not b
   assert.deepEqual(classifyStage(shot({ section: "home", featureId: "create-agent" })), { stage: "other", order: 5, scoped: false, blocker: null });
   assert.equal(classifyStage(shot({ section: "agents", featureId: "create-agent", kind: "ui-location" })).scoped, false, "the list of agents is looked at as it is");
   assert.deepEqual(classifyStage(shot({ product: "sharepoint-ai", section: "sharepoint-site", featureId: "x" })), { stage: "other", order: 999, scoped: false, blocker: null }, "another product keeps its own screens");
-  for (const [featureId, blocker] of [["dlp-governance", "admin"], ["channel-teams", "other-product"], ["voice-agents", "other-product"], ["mc-credit-billing", "admin"], ["servicenow-integration", "outside-agent"], ["topics", "outside-agent"]]) {
+  for (const [featureId, blocker] of [["dlp-governance", "admin"], ["channel-teams", "other-product"], ["voice-agents", "other-product"], ["mc-credit-billing", "admin"], ["servicenow-integration", "connection"], ["topics", "build-first"], ["events", "outside-agent"]]) {
     const found = classifyStage(shot({ featureId, section: "settings" }));
     assert.deepEqual([found.scoped, found.blocker], [false, blocker], featureId);
   }
@@ -102,7 +104,7 @@ test("the shots are walked in the order of the lab's modules, and a stage's own 
     shot({ filename: "instr-test.png", featureId: "mc-instructions", moduleOrder: 2, kind: "test-result", section: "test" }),
     shot({ filename: "instr.png", featureId: "mc-instructions", moduleOrder: 2 }),
   ]);
-  assert.deepEqual(ordered.map((s) => s.filename), ["create.png", "instr-test.png", "instr.png", "preview.png", "publish.png"], "by module, then by stage, and inside one stage as the plan lists them");
+  assert.deepEqual(ordered.map((s) => s.filename), ["create.png", "instr.png", "instr-test.png", "preview.png", "publish.png"], "by module, then by stage: a test conversation belongs to the Preview stage, after the instructions it asks about");
   assert.deepEqual(stagesToPrepare("preview", shot({ kind: "test-result" })), ["agent", "instructions", "knowledge"], "a test needs everything before it");
   assert.deepEqual(stagesToPrepare("knowledge", shot({ kind: "dialog" })), ["agent", "instructions"], "the dialog shot is taken before the source is added");
   assert.deepEqual(stagesToPrepare("knowledge", shot({ kind: "after" })), ["agent", "instructions", "knowledge"]);
@@ -483,3 +485,120 @@ test("a profile's sign-in marker is random, stable, and says nothing about who s
   assert.notEqual(readAccountRecord(dir).signInId, first, "choosing the account again (a cleared profile) makes a new marker");
   assert.ok(!/[@/]|https?:|[0-9a-f]{8}-[0-9a-f]{4}/i.test(JSON.stringify(readAccountRecord(dir))), "no name, address, or tenant id");
 });
+
+// ── Recipe families: what a picture shows decides the recipe, and a family never goes above open, ask, and close ──
+
+const famShot = (over = {}) => shot({ section: "test", kind: "test-result", ...over });
+const familyOf = (over, options) => describeAutomation(famShot(over), options);
+
+test("a shot is matched to the recipe its picture shows, each recipe says what it has not proven, and a screen that needs a person gets one plain reason", () => {
+  const map = familyOf({ featureId: "mc-generative-orchestration", caption: "The activity map for the answer", alt: "Activity map beside the test pane" });
+  assert.deepEqual([map.state, map.family, map.panel, map.review, map.verified, map.landmarks], ["automatic", "conversation", "activity-map", "landmark", false, ["Activity map"]]);
+  const plain = familyOf({ caption: "The agent answers in the test pane", alt: "The answer" });
+  assert.deepEqual([plain.family, plain.verified, plain.review], ["conversation", true, "never"], "a plain question and answer was proven on a real tenant");
+  const refusal = familyOf({ featureId: "mc-guardrails", caption: "The agent declines the request", alt: "Guardrail refusal in the test pane" });
+  assert.deepEqual([refusal.family, refusal.panel, refusal.question, refusal.review, refusal.verified], ["conversation", "refusal", "guardrail", "always", false], "a refusal is always saved for a person to check");
+  const dialog = familyOf({ featureId: "mc-knowledge-sharepoint", section: "knowledge", kind: "dialog", caption: "The Add knowledge dialog" });
+  assert.deepEqual([dialog.family, dialog.opener, dialog.verified], ["dialog", "knowledge", true]);
+  const item = familyOf({ featureId: "mc-knowledge-files-web", section: "knowledge", kind: "after", caption: "Details of the first knowledge source" });
+  assert.deepEqual([item.family, item.verified, item.review, item.maxTier], ["item", false, "landmark", 1]);
+  const testSet = familyOf({ featureId: "mc-evaluations", section: "evaluate", kind: "after", caption: "Create your first evaluation test set" });
+  assert.deepEqual([testSet.family, testSet.objects], ["testset", ["evaluation-test-set"]], "the one object the computer may add for a recipe");
+  // What needs a person says one reason from the fixed set, and never says the computer will try it.
+  for (const [over, reason] of [
+    [{ featureId: "mc-evaluations", section: "evaluate", caption: "Evaluation results" }, "credits"],
+    [{ featureId: "mc-dlp-governance", section: "admin", kind: "ui-location", caption: "Data policies" }, "admin"],
+    [{ featureId: "mc-servicenow-integration", section: "tools", kind: "ui-location", caption: "The ServiceNow connection" }, "connection"],
+    [{ featureId: "mc-connected-agents", section: "tools", kind: "ui-location", caption: "A connected agent" }, "other-agent"],
+  ]) {
+    const found = familyOf(over);
+    assert.deepEqual([found.state, found.reason], ["person", reason], JSON.stringify(over));
+    assert.ok(found.reasonLabel && found.why && found.manual.length, `${reason} has a label, a reason, and the manual steps`);
+  }
+  // A descriptor from a newer portal is read only as far as it is well formed, and no address or id passes through.
+  assert.equal(sanitizeAutomation({ state: "automatic", via: "family", family: "nonsense" }).family, null);
+  assert.equal(sanitizeAutomation({ state: "elsewhere" }), null);
+  const dirty = sanitizeAutomation({ state: "automatic", via: "family", family: "dialog", landmarks: [`${ENV}/bots/${BOT}`, "Activity map"], objects: ["something-else", "evaluation-test-set"] });
+  assert.deepEqual([dirty.landmarks, dirty.objects], [["Activity map"], ["evaluation-test-set"]]);
+});
+
+test("each recipe has steps on both layouts that no safety rule drops, and the dialog and item recipes never commit anything", () => {
+  const cases = [
+    famShot({ featureId: "mc-generative-orchestration", caption: "The activity map for the answer", alt: "Activity map beside the test pane" }),
+    famShot({ caption: "The agent answers in the test pane" }),
+    famShot({ featureId: "mc-knowledge-sharepoint", section: "knowledge", kind: "dialog", caption: "The Add knowledge dialog" }),
+    famShot({ featureId: "mc-knowledge-files-web", section: "knowledge", kind: "after", caption: "Details of the first knowledge source" }),
+    famShot({ featureId: "mc-evaluations", section: "evaluate", kind: "after", caption: "Create your first evaluation test set" }),
+  ];
+  for (const layout of ["newer", "classic"]) {
+    for (const item of cases) {
+      const automation = describeAutomation(item);
+      const found = familyShowSteps({ automation, shot: item, layout, stage: layout && stageOfFeature(item) });
+      assert.ok(found, `${layout}: ${item.caption}`);
+      const { steps, missing } = strictSteps(found.steps);
+      assert.deepEqual(missing, [], `${layout}: ${item.caption} lost a step to the safety rules`);
+      assert.equal(steps.length, found.steps.length);
+      // Sending the sample question is the only step above tier 1, and it is allowed only in the test pane (see the next test).
+      const above = steps.filter((s) => s.tier >= TIER.PRACTICE).map((s) => s.id);
+      assert.deepEqual(above.filter((id) => id !== "ask-send"), [], `${layout}: ${item.caption}`);
+    }
+  }
+  assert.equal(familyKey(describeAutomation(cases[0])), "conversation:activity-map");
+  assert.equal(familyKey(describeAutomation(cases[2])), "dialog:knowledge");
+  assert.equal(familyKey({ state: "person" }), "");
+});
+
+const stageOfFeature = (item) => resolveStage(item).stage;
+
+test("a recipe family is capped at opening, asking, and closing: a save, a credit spend, and any other agent are refused even in a job that allows a practice agent", () => {
+  const scratch = resolveAutonomy({ consented: true, level: "scratch" }, { localOptIn: true });
+  const capped = { ...scratch, maxTier: Math.min(scratch.maxTier, FAMILIES.conversation.maxTier) };
+  const inAgent = { onPracticeAgent: true };
+  const ask = { action: "send", intent: "send" };
+  assert.equal(authorizeStep({ step: ask, desc: { name: "Send", role: "button", inTestPane: true }, autonomy: capped, practice: inAgent }).allowed, true, "a sample question in the test pane");
+  const save = authorizeStep({ step: { action: "confirm", intent: "confirm" }, desc: { name: "Save", role: "button", inDialog: true, dialogTitle: "New evaluation" }, autonomy: capped, practice: inAgent });
+  assert.equal(save.allowed, false, "a save is above the ceiling");
+  assert.equal(authorizeStep({ step: { action: "confirm", intent: "confirm" }, desc: { name: "Save", role: "button", inDialog: true, dialogTitle: "New evaluation" }, autonomy: scratch, practice: inAgent }).allowed, true, "the same step is allowed where the job (and not a recipe) asks for it");
+  for (const name of ["Run", "Evaluate", "Run evaluation", "Quick question set", "Generate questions", "Uses Copilot Credits"]) {
+    const result = authorizeStep({ step: { action: "click", intent: "click" }, desc: { name, role: "button" }, autonomy: scratch, practice: inAgent });
+    assert.equal(result.tier, TIER.NEVER, `${name} spends credits and is never clicked`);
+    assert.equal(result.allowed, false, name);
+  }
+  // A tab or a page that is only named like an evaluation is opened, never run.
+  assert.equal(classifyControl({ name: "Evaluate", role: "tab" }, { action: "select-tab" }).tier < TIER.NEVER, true);
+  for (const name of ["Connected agents", "Add agent", "Add a connected agent", "Open another agent"]) {
+    const result = authorizeStep({ step: { action: "open", intent: "open" }, desc: { name, role: "button" }, autonomy: capped, practice: inAgent });
+    assert.ok(!result.allowed || result.tier < TIER.PRACTICE, `${name}: another agent is never opened or changed`);
+  }
+  assert.equal(classifyControl({ name: "Activity map", role: "button", inTestPane: true }, { action: "open", intent: "open" }).tier < TIER.PRACTICE, true, "the activity map only shows what happened");
+});
+
+test("a recipe that fails twice in a job is not tried again, and the practice report says what each recipe created and which were never seen on a real tenant", async () => {
+  const key = "conversation:activity-map";
+  const session = { autonomy: resolveAutonomy({ consented: true, level: "scratch" }, { localOptIn: true }) };
+  const item = famShot({ featureId: "mc-generative-orchestration", caption: "The activity map for the answer", alt: "Activity map beside the test pane" });
+  assert.equal(noteRecipeFailure(session, key), 1);
+  assert.equal(noteRecipeFailure(session, "dialog:knowledge"), 1, "another recipe has its own count");
+  assert.equal(noteRecipeFailure(session, key), MAX_RECIPE_FAILURES);
+  const stopped = await prepareScratchShot({ page: null, shot: item, session });
+  assert.equal(stopped.ok, false, "the recipe is closed for the rest of the job: nothing is opened, asked, or written");
+  assert.match(stopped.error, /tried this kind of screen twice in this job and could not set it up, so it stopped trying instead of guessing/);
+  assert.equal(noteRecipeFailure(session, ""), 0, "a shot with no recipe is not counted");
+  const home = tmp();
+  try {
+    const registry = createPracticeRegistry(home, { now: () => Date.parse("2026-11-18T12:00:00Z") });
+    registry.recordAgent({ envId: "env-1", botId: BOT, name: "Lab screenshots - A", address: `${ENV}/bots/${BOT}/overview`, key: "lab-a" });
+    registry.recordRecipe({ botId: BOT, family: "conversation", key, shot: "activity-map-plan.png", what: "Asked a question and showed the Activity map", created: [], verified: false });
+    registry.recordRecipe({ botId: BOT, family: "testset", key: "testset", shot: "eval-test-set.png", what: "Showed the Evaluate tab with the sample test set", created: ["evaluation-test-set"], verified: false });
+    registry.recordRecipe({ botId: BOT, family: "dialog", key: "dialog:knowledge", shot: "knowledge-add.png", what: "Opened Add knowledge and canceled it", created: [], verified: true });
+    const report = buildPracticeReport(registry.items());
+    assert.match(report, /What the screenshot recipes did/);
+    assert.match(report, /Asked a question and showed the Activity map for activity-map-plan\.png\. Created nothing\. This recipe has not been seen working on a real tenant yet\./);
+    assert.match(report, /Created: an evaluation test set with one sample question \(saved, never run\)/);
+    assert.match(report, /Opened Add knowledge and canceled it for knowledge-add\.png\. Created nothing\. \(/, "a proven recipe carries no warning");
+    assert.ok(!JSON.stringify(registry.items().recipes).includes("copilotstudio.microsoft.com"), "no address in the recipe record");
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true });
+  }
+});
+

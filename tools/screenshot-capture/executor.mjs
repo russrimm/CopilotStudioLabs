@@ -621,6 +621,8 @@ export function createExecutor(ctx) {
         const locator = list.nth(i);
         const desc = await describeLocator(locator);
         if (!desc || desc.disabled || desc.inNav) continue;
+        // A link the safety rules would never follow (an admin page, a sign-out) is not an item: it is left out, so a list that has not drawn yet is waited for instead of failing on it.
+        if (classifyControl(desc, { action: "open-item", intent: "navigate" }).tier >= TIER.NEVER) continue;
         let visible = false;
         try {
           visible = await locator.isVisible();
@@ -704,7 +706,7 @@ export function createExecutor(ctx) {
     if (step.text?.literal) return step.text.literal;
     const kind = step.text?.sample || "question";
     // A name, the instructions, or a website address is never replaced by some other sample: a wrong text in the wrong field changes the agent.
-    if (["agentName", "instructions", "website", "outOfScope"].includes(kind)) return ctx.inputs?.[kind] || "";
+    if (["agentName", "instructions", "website", "outOfScope", "guardrail"].includes(kind)) return ctx.inputs?.[kind] || "";
     return ctx.inputs?.[kind] || ctx.inputs?.question || "";
   }
 
@@ -762,7 +764,7 @@ export function createExecutor(ctx) {
         await locator.scrollIntoViewIfNeeded?.({ timeout: stepTimeoutMs }).catch(() => {});
         if (candidate.desc.expanded && step.action === "expand") return { ok: true, why: "already open", already: true };
         if ((candidate.desc.role === "tab" || step.action === "open-nav") && candidate.desc.selected) return { ok: true, why: "already open", already: true };
-        if (step.onlyIfOff && candidate.desc.checked) return { ok: true, why: "already on", already: true };
+        if (step.onlyIfOff && (candidate.desc.checked || (step.action === "open" && (candidate.desc.selected || candidate.desc.expanded)))) return { ok: true, why: "already on", already: true };
         if (step.onlyIfOn && !candidate.desc.checked) return { ok: true, why: "already off", already: true };
         await locator.click({ timeout: stepTimeoutMs });
         const effect = await waitForEffect(step, before, candidate);

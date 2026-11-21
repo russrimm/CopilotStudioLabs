@@ -36,6 +36,8 @@ export function practiceReportPath(home) {
 
 const STAGE_PROOF = 2;
 const emptyRegistry = () => ({ schema: 2, agents: [], changes: [], pending: [] });
+// What the practice report calls the things a recipe may add to the practice agent (see OBJECTS in automation.mjs).
+const OBJECT_NAMES = Object.freeze({ "evaluation-test-set": "an evaluation test set with one sample question (saved, never run)" });
 
 /**
  * Whether a recorded practice agent was made under the sign-in that is active now: "same", "different", or "unknown" when either side
@@ -177,6 +179,15 @@ export function createPracticeRegistry(home, { now = () => Date.now() } = {}) {
       const agent = data.agents.find((a) => a.botId === botId);
       if (!/^Created the practice agent/.test(String(what || ""))) this.jobLog.push({ kind: "change", name: agent?.name || "", what: String(what || "").slice(0, 120), reused: false });
     },
+    /**
+     * What a recipe family did on a shot (it asked a question, opened a dialog, opened an item, added a test set), kept for the practice report so a
+     * person can see what each recipe touched, and whether it is one that was not seen on a real tenant yet. Names and plain sentences only.
+     */
+    recordRecipe({ botId, family, key = "", shot = "", what = "", created = [], verified = true }) {
+      const data = load();
+      data.recipes = [...(Array.isArray(data.recipes) ? data.recipes : []), { botId, family: String(family || "").slice(0, 20), key: String(key || "").slice(0, 40), shot: String(shot || "").slice(0, 128), what: String(what || "").slice(0, 160), created: (Array.isArray(created) ? created : []).map((c) => String(c).slice(0, 40)).slice(0, 4), verified: verified !== false, at: iso() }].slice(-200);
+      save(data);
+    },
     items() {
       return load();
     },
@@ -208,6 +219,15 @@ export function buildPracticeReport(registry, { jobCreated = [], now = () => new
       for (const change of changes.slice(-20)) lines.push(`  - ${change.what} (${change.at})`);
     } else {
       lines.push("- What the companion did inside it: nothing yet");
+    }
+    // The recipes that took the other screens (a question asked, a dialog opened and canceled, an item opened): what each one touched, and what it added.
+    const recipes = (registry.recipes || []).filter((r) => r.botId === agent.botId);
+    if (recipes.length) {
+      lines.push("- What the screenshot recipes did (nothing is saved to the agent unless it says it created something):");
+      for (const recipe of recipes.slice(-30)) {
+        const made = recipe.created?.length ? ` Created: ${recipe.created.map((c) => OBJECT_NAMES[c] || c).join(", ")}.` : " Created nothing.";
+        lines.push(`  - ${recipe.what || recipe.family} for ${recipe.shot || "a screenshot"}.${made}${recipe.verified === false ? " This recipe has not been seen working on a real tenant yet." : ""} (${recipe.at})`);
+      }
     }
     lines.push("");
   }

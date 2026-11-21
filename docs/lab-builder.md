@@ -2170,7 +2170,8 @@ address* is replaced by one choice per lab, **Which agent should these screensho
 computer builds from scratch (or the one it made for this lab before), and from companion 1.6.2 it is handed to every later screenshot that shows an agent, at
 both the scratch and the practice consent levels. The first time, a consent card lists what the
 computer creates and changes (one new agent named `Lab screenshots - <short lab title>`, its instructions, one public Microsoft Learn website as knowledge,
-the settings the lab turns on, test conversations, and publishing only the practice agent, once, to its default state: no channels, no sharing) and what it never does,
+the settings the lab turns on, test conversations (the lab's own question, one outside the agent's scope, one plain request to ignore its instructions so a picture can show the refusal; nothing from them is saved),
+one evaluation test set with one sample question that is saved but never run (so it spends no Copilot Credits), and publishing only the practice agent, once, to its default state: no channels, no sharing) and what it never does,
 with an optional **Where should it build?** environment address (empty means the environment Copilot Studio opens for the account). The consent is stored as
 level `scratch` (`PUT /api/capture/consent`); a request can ask for less, and choosing **An agent I choose** (`options.agentSource: "own"`, or the older `options.agent: "existing"`) downgrades it to read-only.
 Job options gain `agentSource` (`"created"` or `"own"`), the older `agent` (`"scratch"` or `"existing"`, still read), and `startFresh`. A companion older than 1.6.0 is asked to update before anything is queued
@@ -2188,6 +2189,56 @@ pane a sample question*), a **Stop** button, grouped outcomes with one fix each,
 state, or an evaluation result (it uses Copilot Credits). To delete the practice agent, open Copilot Studio, go to **Agents**, and delete the agent named
 `Lab screenshots - ...` yourself; the companion never deletes it. See
 [Build the agent from scratch](../tools/screenshot-capture/README.md#build-the-agent-from-scratch) for the walkthrough, the safety rules, and troubleshooting.
+
+**Why a screenshot says Need you, and what the computer does about it (companion 1.6.3).** Two things were mixed in the old *Need you*: the planner's
+guess (`capture.mode`, from `portal/lib/capture/classify.js`, unchanged) and what happened at run time. Every shot of a plan now also carries
+`capture.automation` (`tools/screenshot-capture/automation.mjs`, shared by the portal and the companion): either `automatic` (with the recipe that takes it) or
+`person`, with **one reason from a fixed set**, and the exact manual steps. The Screenshot Center shows that reason on the shot's card, and the summary groups the
+count by reason (*9 need you: 3 admin screens, 2 other products, 1 connection, …*) instead of one number.
+
+| Reason (the chip on the card) | Why a person takes the shot | What the person does |
+|---|---|---|
+| Needs Copilot Credits | An evaluation run or generated question set spends credits. | Run the evaluation in the practice agent, then press **Capture this screen**. |
+| Needs an admin screen | Tenant, environment, security, billing, or admin screens are never opened or changed. | Open the admin center with an admin account, open the screen, change nothing. |
+| Needs another Microsoft product | Agent Builder, Power Automate, Teams, Microsoft Foundry, Visual Studio Code: the computer builds only in Copilot Studio. | Open the product in the companion's browser and capture, or **Show me once**. |
+| Needs real users in a channel | A channel, or Monitor sessions, exist only after people use the published agent. | Publish to the channel yourself and have someone use it. |
+| Needs your own connection | A connection, credentials, or data of your own that you must allow. | Add it yourself and sign in to the other service. |
+| Needs another agent | Connected agents involve agents that are not the practice agent. | Set up the second agent yourself. |
+| Needs your sample files | A SharePoint library or an upload; the computer never uploads. | Put the files in place, open the screen, capture. |
+| Needs something built first | A prompt, a topic, or a flow. A prompt is shared across the environment, and a topic or flow needs editing screens nobody has seen yet, so the computer does not build them. | Build it in the practice agent, then capture. |
+| Needs an error to happen first | The computer never causes an error or blocked state. | Set the screen up so the error shows. |
+| Outside the browser | A terminal or Visual Studio Code. | Capture with an operating system tool and upload the picture. |
+| This screen has not been seen in the product yet | Hooks, triggers, "files the agent creates", and similar. The computer does not guess controls. | **Show me once**, or **Retake guided**. |
+
+What the computer now takes by itself comes from six **recipe families** (`families.mjs`), each generic and parameterized by the shot (its picture words, the dialog's opener, the
+labels to check), each in the same declarative step format as every other recipe, and each checked against the safety tiers at every click. A family has a **ceiling of Tier 1**
+(open, ask, close; nothing is saved), enforced by capping the job's tier for that shot, even in a job that allows a practice agent.
+
+| Family | What it does | Judged by |
+|---|---|---|
+| Test conversation | Opens Preview, asks the lab's sample question (or an out-of-scope question, or one plain request to ignore its instructions), waits for the streamed answer, then opens the panel the picture shows (the activity map; the activity trace on the Microsoft Copilot harness) and takes the picture. | A plain question and answer is proven. The activity map and trace are checked by their own label (a miss is saved as **Needs review**). A citation, a refusal, and Track between topics cannot be checked by the computer, so every picture is saved as **Needs review**. |
+| Dialog first | Opens the page, clicks the button by its visible label (Add knowledge, Add a tool, Add skill, Publish, the model list, Settings, New evaluation, or the button a callout names), takes the picture, presses Cancel or Escape, and checks that the dialog closed and nothing changed. A dialog that will not close stops the run. | Known dialogs are proven; a dialog tab or tile the picture names is checked by its label. |
+| Item details | Opens the first item the practice agent already has (a knowledge source or a tool), takes the picture, and leaves without saving. | By the panel that opens, and the labels the picture shows. |
+| Sample test set | The one object the computer may add (below). Opens the Evaluate tab and takes the picture. | By the Evaluate page's labels. |
+| Check by landmarks | When a screen "could be in a few places", the computer opens the closest page and verifies by landmarks and expected labels instead of asking a person. | Pass: **Captured**. Miss: **Needs review** with the picture and a plain reason. Never accepted blindly, never retried in a loop. |
+| Move by labels | In another product, moves through its own tabs and menus by their visible labels (never a guessed address), respecting the never-navigate-while-loading guard and the 45-second quiet wait. | By landmarks, as above. |
+
+A recipe that was never run on a real tenant is labeled on the card: *The computer will try this one automatically. If the screen is not what it expects, it stops and asks you.*
+It fails safe: a step that does not work stops with a plain reason, the shot goes back to needing you, and after **two** failures of the same recipe in one job (`MAX_RECIPE_FAILURES`) it is not tried for other shots, so there is never a loop and never a write beyond the allowed tier.
+The control names come from Microsoft Learn (*Review agent activity*, *Test your agent*, *Preview overview*, *Create a test set for agent evaluation*): the activity map is a button or tab in the test panel; the Microsoft Copilot harness's Preview tab has a **Debug mode** and an activity trace; evaluation tests start from **New evaluation** and the manual option writes questions yourself.
+Spending credits is a Tier 3 rule now (`credits`): a control named like **Evaluate**, **Run**, **Run evaluation**, **Generate**, or **Quick question set** is never clicked (a tab or page with such a name is only opened).
+
+**The one object the practice agent may now create.** An evaluation test set with one sample question, saved and never run, for the screenshot that shows a test set. It is idempotent
+(the Evaluate tab is looked at first, and a test set that is already listed is reused), it needs no external connection, and it is recorded in `practice-report.md` as created. The practice report also gets a *What the screenshot recipes did*
+section: for each recipe, what it did on which shot, what it created (or *Created nothing*), and whether it has been seen working on a real tenant. The computer adds no prompts, topics, flows, MCP servers, connections, other agents, or channels, and the publish-once claim, the wrong-account guard, and the never-delete rule are unchanged.
+
+**The dry plan (read it before a run).** `node tools/lab-builder/dry-plan.mjs <generated-labs-folder> <lab id> [--all] [--json]` and `POST /api/capture/dry-plan` (`{ target: { type: "lab", labId }, scope }`; or `GET /api/capture/dry-plan?labId=…&scope=all`)
+list which shots will now run automatically and in which order (with the recipe, its panel or opener, whether it has been seen on a real tenant, and how it is judged), which practice-agent objects will be created for them,
+and which stay manual with the reason and the manual steps. It queues nothing and needs no companion.
+
+**An older companion.** Jobs still queue for a companion older than 1.6.3, which runs them the old way and ignores the new fields. The queue response then carries `recipes: { supported: false, min, version, shots, message }`
+(and the status carries `autonomy.recipesSupported` and `autonomy.recipesMinCompanion`), the Screenshot Center says in plain words that the new recipes need the newer companion (*N screenshots … still need you. Download the companion again and replace the old one*), and
+the shots that depend on them stay with a person. A shot whose last run ended *Need you* but whose plan is now automatic shows **Ready to try again**, and **Capture N missing screenshots** counts it.
 
 **Screenshot Center notes and counters for shots that show an agent.** With the created agent selected, these screenshots read **Will use the practice agent the computer creates first.**
 and then **Using the practice agent created for this lab.**; they are counted as ready, so *N need an address* and the *Capture N missing screenshots* button never treat them as blocked.
@@ -3544,6 +3595,7 @@ Browser-facing:
 | `POST` | `/api/capture/account-setup` | `{ product?, labId? }` asks the connected companion (1.5.0 or later, not busy) to open the "choose which account to use" sign-in, with the lab's capture settings so the landing can be checked. 202 `{ requested, id, product, deviceName, message }`; 409 `no-companion`, `companion-too-old`, or `busy` with a plain `error`. The person signs in themselves; the companion never picks an account. `GET /api/capture/status` then carries `companion.account`, `companion.accountSetup`, `companion.accountSupported`, and `companion.accountMinCompanion`. |
 | `POST` | `/api/capture/jobs` | Queue a job (below). 201 with the job, 200 with `existing: true` when the same capture is already queued or running, 200 with `nothingToCapture: true`, or 200 with `needsAddress: true` and `missing` when every selected shot is waiting for an address (nothing is queued). |
 | `GET` | `/api/capture/targets` | The capture settings in effect for the active brand profile (`?labId=` for a lab): `fields`, `requirements`, `missing`, and how each shot is captured. |
+| `POST` / `GET` | `/api/capture/dry-plan` | What a capture would do, read before anything runs. `POST { target: { type: "lab", labId } \| { type: "library", products? }, scope?, targets?, options? }` or `GET ?labId=&scope=all` (default `missing`). `{ dryPlan: { labId, title, totals: { total, automatic, needYou, unverified }, practiceAgent[], automatic: [{ order, filename, caption, via, family, familyLabel, verified, review, maxTier, steps[], objects[] }], objects: [{ id, label, shots[] }], manual: [{ filename, caption, reason, reasonLabel, why, steps[] }], reasons: [{ reason, label, count }], summary }, recipesMinCompanion }`. Queues nothing and needs no companion. The same report is `node tools/lab-builder/dry-plan.mjs <generated-labs-folder> <lab id> [--all] [--json]`. |
 | `PUT` | `/api/capture/targets` | Save capture settings on a brand profile: `{ targets: { fieldId: value }, profileId? }`. |
 | `GET` / `PUT` | `/api/generated-labs/:labId/capture-targets` | Read and save a lab's own capture settings (also under `/api/lab-builder/generated/:labId/`). `PUT { targets, alsoProfile? }`. |
 | `GET` | `/api/generated-labs/:labId/screenshots/checklist` | The screenshot to-do list: `{ labId, title, counts: { missing, computer, you }, computer[], you[], markdown }`. Each `you` item has `filename`, `figure`, `module`, `caption`, `shows`, `why`, and `steps[]`. Also under `/api/lab-builder/generated/:labId/`. |
@@ -3592,8 +3644,8 @@ A job request:
 
 The job the portal queues records what was actually used in `options.agentSource` (`"created"` only when automatic capture can create the agent
 for this capture; otherwise `"own"`), and the response carries `agentSource: { choice, effective, fallback? }` (`fallback`: `"consent"` or `"companion"` says why the
-created agent could not be used) and, for a companion older than 1.6.2 at the practice level, `agentHandoff: { supported: false, min, version, message }`
-(the Screenshot Center also reads `autonomy.handoffSupported` and `autonomy.handoffMinCompanion` from the status). Every plan shot's `capture.agent` is
+created agent could not be used) and, for a companion older than 1.6.2 at the practice level, `agentHandoff: { supported: false, min, version, message }`, and `recipes: { supported: false, min: "1.6.3", version, shots, message }` when the plan holds shots that need the 1.6.3 recipes and the connected companion is older
+(the Screenshot Center also reads `autonomy.handoffSupported`, `autonomy.handoffMinCompanion`, `autonomy.recipesSupported`, and `autonomy.recipesMinCompanion` from the status). Every plan shot's `capture.automation` is `{ version, state: "automatic" \| "person", via, family, verified, review, reason, reasonLabel, why, manual[], steps[], landmarks[], objects[], maxTier, … }` (`reason` only for `person`; the same reading is in each shot of the lab's screenshot status, `GET /api/lab-builder/generated/:labId/screenshots`, which the Screenshot Center's cards read), and the old fields keep their meaning. Every plan shot's `capture.agent` is
 `{ needs, creates, via, fallback? }` (`via`: `"created"`, `"own"`, or `"address"` when the created agent is not available). A shot whose agent comes from the
 creation step carries no `copilot-studio-agent` in `capture.missing`, and the job carries no other agent's address or name. A companion that does not know
 these fields ignores them and runs the job the older way.

@@ -100,6 +100,7 @@ dialog::backdrop{background:rgba(15,23,42,.45)}
  * @param {boolean} [options.createDisabled] (newer) the account cannot create agents: the Agents page has no New agent button
  * @param {boolean} [options.stayOnNew] (newer) the new-agent page keeps its own address after Save (the agent is made, the page says Saved)
  * @param {string} [options.knowledgeDialogTitle] (newer) the title of the Add knowledge dialog (an unknown title must never be confirmed)
+ * @param {boolean} [options.editableInstructions] (classic) the Overview page edits its instructions in place: a text box and a Save button that is available only while something is unsaved
  */
 export function createFakeProductSite(options = {}) {
   const config = {
@@ -127,9 +128,10 @@ export function createFakeProductSite(options = {}) {
     createDisabled: false,
     stayOnNew: false,
     knowledgeDialogTitle: "",
+    editableInstructions: false,
     ...options,
   };
-  const stats = { pages: [], writes: [], dangers: [], blocked: [], aborted: 0, loginPages: 0, promoVisits: 0, appsNewVisits: 0, adminVisits: 0, answers: 0, cookieAccepts: 0, builderOpens: 0, directBuilderVisits: 0 };
+  const stats = { pages: [], writes: [], dangers: [], views: [], blocked: [], aborted: 0, loginPages: 0, promoVisits: 0, appsNewVisits: 0, adminVisits: 0, answers: 0, cookieAccepts: 0, builderOpens: 0, directBuilderVisits: 0 };
   let abortedOnce = false;
   let navClickPending = false;
   let nextId = 0;
@@ -227,6 +229,7 @@ document.addEventListener('click',function(e){
   else if(act==='kn-cancel'){closeKnowledge()}
   else if(act==='kn-source'){t.setAttribute('aria-pressed','true')}
   else if(act==='kn-add'){post('/__write/add-knowledge',{bot:bot}); closeKnowledge()}
+  else if(act==='c-save'){var ci=$('c-instr'); post('/__write/set-instructions',{bot:bot,instructions:ci?ci.value:''}).then(function(){var cs=$('c-saved'); if(cs) cs.textContent='Saved'; t.disabled=true})}
   else if(act==='create-blank'){post('/__write/create-start',{env:env}).then(function(){location.href=location.origin+'/environments/'+env+'/agents/new'})}
   else if(act==='create-agent'){var nm=$('agent-name'); post('/__write/create-agent',{env:env,name:nm?nm.value:''}).then(function(d){if(d.id)location.href=location.origin+'/environments/'+env+'/bots/'+d.id+'/overview'})}
   else if(act==='tab-genai'){document.querySelectorAll('[role=tab]').forEach(function(x){x.setAttribute('aria-selected',String(x.id==='tab-genai'))});$('panel').innerHTML='<h2>Orchestration</h2><p>Use generative AI orchestration for your agent&#39;s responses?</p><label><input type="radio" name="o" checked> Yes</label> <label><input type="radio" name="o"> No</label>'}
@@ -240,7 +243,7 @@ document.addEventListener('click',function(e){
   else if(act==='builder-tab'){var which=t.getAttribute('data-tab'); document.querySelectorAll('[data-act=builder-tab]').forEach(function(x){x.setAttribute('aria-selected',String(x===t))}); $('builder-panel').innerHTML=window.__builderPanels[which]}
   else if(act==='builder-create'){post('/__write/create-builder-agent',{})}
 });
-document.addEventListener('input',function(e){var t=e.target; if(t&&t.id==='chat-input'&&t.value){window.__dirty=true}});
+document.addEventListener('input',function(e){var t=e.target; if(t&&t.id==='chat-input'&&t.value){window.__dirty=true} if(t&&t.id==='c-instr'){var cb=$('c-save'); if(cb) cb.disabled=false}});
 if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window.__dirty){e.preventDefault();e.returnValue=''}})}
 })();`;
 
@@ -346,7 +349,7 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
           title: `${agent.name} - Overview`,
           boot,
           late: config.lateTextMs ? `document.getElementById('instr-text').textContent='You are an energy resources assistant. Answer only from approved documents.';document.getElementById('instr').textContent='Instructions (saved)'` : "",
-          content: `<h1>${esc(agent.name)}</h1><section class="card" aria-labelledby="instr"><h2 id="instr">Instructions</h2><p id="instr-text">${config.lateTextMs ? "Loading..." : "You are an energy resources assistant. Answer only from approved documents."}</p></section><section class="card"><h2>Knowledge</h2><p>${knowledge.has(agent.id) ? "1 source: Policies.docx" : "No knowledge added yet."}</p></section>`,
+          content: `<h1>${esc(agent.name)}</h1><section class="card" aria-labelledby="instr"><h2 id="instr">Instructions</h2>${config.editableInstructions ? `<textarea id="c-instr" aria-label="Instructions" rows="4" cols="50">You are an energy resources assistant. Answer only from approved documents.</textarea><p><button type="button" id="c-save" data-act="c-save" aria-label="Save" disabled>Save</button> <span id="c-saved" role="status" aria-live="polite"></span></p>` : `<p id="instr-text">${config.lateTextMs ? "Loading..." : "You are an energy resources assistant. Answer only from approved documents."}</p>`}</section><section class="card"><h2>Knowledge</h2><p>${knowledge.has(agent.id) ? "1 source: Policies.docx" : "No knowledge added yet."}</p></section>`,
         });
       }
       if (section === "knowledge") {
@@ -431,6 +434,10 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
       newer.sessions.set(body().bot, (newer.sessions.get(body().bot) || 0) + 1);
       return json({ cited: knowledge.has(body().bot) || (newer.knowledge.get(body().bot) || []).length > 0 });
     }
+    if (url.pathname.startsWith("/__view/")) {
+      stats.views.push(url.pathname.replace("/__view/", ""));
+      return json({});
+    }
     if (url.pathname.startsWith("/__danger/")) {
       stats.dangers.push(url.pathname.replace("/__danger/", ""));
       return json({});
@@ -449,7 +456,7 @@ if(CFG.leavePrompt){window.addEventListener('beforeunload',function(e){if(window
       }
       if (what === "add-knowledge") knowledge.add(data.bot);
       if (what === "publish") published.add(data.bot);
-      stats.writes.push(["add-knowledge", "publish"].includes(what) ? `${what}:${data.bot}` : what);
+      stats.writes.push(["add-knowledge", "publish", "set-instructions"].includes(what) ? `${what}:${data.bot}` : what);
       return json({});
     }
     if (url.hostname === LOGIN_HOST) {

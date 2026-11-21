@@ -50,7 +50,7 @@ import { createTrace, traceFilePath } from "./trace.mjs";
 import { normalizeAgentSource, orderCreationFirst, resolveStage } from "./walkthrough.mjs";
 import { startAgainLines } from "./start-hint.mjs";
 
-export const COMPANION_VERSION = "1.6.2";
+export const COMPANION_VERSION = "1.6.3";
 export const MIN_NODE_MAJOR = 20;
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CONFIG_NAME = ".companion.json";
@@ -1361,6 +1361,7 @@ export function setupEvidence(setup) {
     limitedBy: setup.limitedBy === "practice-agent" ? "practice-agent" : null,
     skipped: (Array.isArray(setup.skipped) ? setup.skipped : []).slice(0, 6).map((s) => word(s, 120)),
     practice: setup.practice ? { name: word(setup.practice.name, 80), reused: setup.practice.reused === true } : null,
+    review: setup.review && typeof setup.review === "object" ? { code: word(setup.review.code, 30), message: word(setup.review.message, 240) } : null,
     ...(setup.failedStep ? { failedStep: { id: word(setup.failedStep.id, 24), action: word(setup.failedStep.action, 24), note: word(setup.failedStep.note, 120) } } : {}),
   };
 }

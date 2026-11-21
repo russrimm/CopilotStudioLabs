@@ -13,7 +13,9 @@ import path from "node:path";
 
 import { buildSidecar, resolveCallouts, sidecarName } from "./callouts.mjs";
 import { needsAgent, preparePractice, runShotSetup } from "./autonomous.mjs";
-import { prepareScratchShot } from "./scratch.mjs";
+import { noteRecipeFailure, prepareScratchShot } from "./scratch.mjs";
+import { PANELS, landmarkNote } from "./automation.mjs";
+import { scoreLabels } from "./image-verify.mjs";
 import { resolveAutonomy } from "./guard.mjs";
 import { briefError, BrowserClosedError, classifyBrowserError, navigateWithSignIn, settleAddress } from "./lifecycle.mjs";
 import { recipeKeyForShot, toSharePayload, validateSharedRecipe } from "./recipes.mjs";
@@ -23,7 +25,7 @@ import { removeGuidedToolbar, waitForGuidedAction } from "./guided.mjs";
 import { readinessBudgets, waitUntilReady } from "./readiness.mjs";
 import { collectVisibleLabels } from "./redact.mjs";
 import { redactedAddress } from "./auth.mjs";
-import { normalizeAgentSource } from "./walkthrough.mjs";
+import { normalizeAgentSource, resolveAutomation } from "./walkthrough.mjs";
 import {
   COPILOT_STUDIO_SCREENS,
   REQUIREMENTS,
@@ -310,6 +312,23 @@ async function openAddress({ page, shot, env, gate, trace, log, sleep, steps }) 
 }
 
 /**
+ * The recipe families judge their own screen. A family whose screen the computer can check (its landmarks) is accepted only when they show; one
+ * whose screen it cannot check (a citation, a refusal) is always saved for a person to look at. Nothing here changes the page, and a failed
+ * check is never retried: the picture is taken and saved as "Needs review" with a plain reason.
+ * @returns {Promise<{code: string, message: string}|null>} null when the screen is what the family expects (or it does not judge)
+ */
+export async function judgeFamilyScreen({ page, family, collect }) {
+  if (!family || !family.review || family.review === "never") return null;
+  if (family.review === "always") return { code: "recipe-review", message: PANELS[family.panel]?.note || "The computer cannot check this screen itself. Check the picture." };
+  const landmarks = Array.isArray(family.landmarks) ? family.landmarks.filter(Boolean) : [];
+  if (!landmarks.length) return null;
+  const visible = await Promise.resolve(collect(page)).catch(() => []);
+  const score = scoreLabels(landmarks, Array.isArray(visible) ? visible : []);
+  if (score && score.matched >= score.expected) return null;
+  return { code: "landmarks-missing", message: landmarkNote(score ? score.missing : landmarks) };
+}
+
+/**
  * Capture one shot from its `capture` descriptor.
  * @param {object} options
  * @param {object} options.page
@@ -350,8 +369,10 @@ export async function runCaptureShot({
   const autonomous = effectiveMode === "autonomous";
   const strict = effectiveMode === "auto" || autonomous;
   let setupRun = null;
+  let lastCleanup = null;
   const stopSetup = async () => {
-    await setupRun?.executor?.cleanup?.().catch(() => {});
+    lastCleanup = (await setupRun?.executor?.cleanup?.().catch(() => null)) ?? lastCleanup;
+    return lastCleanup;
   };
 
   // A page the practice agent needs is reached by address, with the same sign-in check as every other page. From scratch, an address
@@ -381,7 +402,7 @@ export async function runCaptureShot({
     if (!prepared.ok) {
       trace?.event("scratch-stopped", { shot: shot.filename, cause: prepared.cause, blocker: prepared.blocker || "" });
       if (effectiveMode === "guided") log?.(`  ${prepared.error}`);
-      else return done(failure("needs-you", prepared.cause, prepared.error, { detail: { ...detail, blocker: prepared.blocker || undefined }, currentUrl: maskedPath(page.url()), diagnostic: prepared.diagnostic ? { failedStep: { diagnostic: prepared.diagnostic } } : null }));
+      else return done(failure("needs-you", prepared.cause, prepared.error, { detail: { ...detail, blocker: prepared.blocker || undefined, reason: prepared.reason || undefined }, currentUrl: maskedPath(page.url()), diagnostic: prepared.diagnostic ? { failedStep: { diagnostic: prepared.diagnostic } } : null }));
     } else if (!prepared.passthrough) {
       scratchRun = prepared;
       practiceInfo = { ...prepared.agent, ok: true };
@@ -441,10 +462,22 @@ export async function runCaptureShot({
     if (!setupRun.ok) {
       await stopSetup();
       trace?.event("shot-needs-you", { shot: shot.filename, cause: setupRun.cause, step: setupRun.setup.failedStep?.id || "", layout: opened.layout?.classicOnly ? "newer" : null });
+      // The same recipe is tried again for another shot at most once more in this job: a changed screen costs two tries, never a loop.
+      if (scratchRun?.family) trace?.event("recipe-failed", { shot: shot.filename, family: scratchRun.family.id, count: noteRecipeFailure(session, scratchRun.family.key) });
       const layoutHint = opened.layout?.classicOnly ? `This agent uses the newer Copilot Studio layout, which has no separate ${COPILOT_STUDIO_SCREENS[capture.route.screen].short} page. ` : "";
       return done(failure("needs-you", setupRun.cause, `${layoutHint}${setupRun.error}`, { detail, currentUrl: maskedPath(page.url()), diagnostic: setupRun.setup.failedStep ? setupRun.setup : null }));
     }
     detail.landing = detail.landing || null;
+    // A recipe family judges its own screen before the picture counts (see judgeFamilyScreen).
+    const automation = scratchRun ? null : resolveAutomation(shot);
+    const family = scratchRun?.family || (automation?.state === "automatic" && automation.via === "family" ? { id: automation.family, verified: automation.verified, review: automation.review, landmarks: automation.landmarks, panel: automation.panel } : null);
+    const review = await judgeFamilyScreen({ page, family, collect: (p) => (hooks?.collectLabels ? hooks.collectLabels(p) : collectVisibleLabels(p, {})) });
+    if (family) detail.family = { id: family.id, verified: family.verified !== false, ...(review ? { review: review.code } : {}) };
+    if (review) {
+      detail.setup = { ...(detail.setup || {}), review };
+      trace?.event("recipe-review", { shot: shot.filename, family: family.id, code: review.code });
+    }
+    if (family && scratchRun?.family && review?.code === "landmarks-missing") noteRecipeFailure(session, family.key);
   }
 
   // 3b. Bring the labels the lab points at into view (read-only: a tab, a navigation item).
@@ -546,7 +579,12 @@ export async function runCaptureShot({
     detail,
   };
   } finally {
-    // What the steps opened is closed again, so the next screen starts clean.
-    await stopSetup();
+    // What the steps opened is closed again, so the next screen starts clean. A dialog that a recipe opened and that will not close stops the whole run:
+    // nothing else is clicked until a person has looked.
+    const cleaned = await stopSetup();
+    if (scratchRun?.family && cleaned && cleaned.left > 0 && session.scratch && !session.scratch.halted) {
+      session.scratch.halted = { kind: "dialog-open", message: "A dialog opened for a picture would not close, so the computer stopped. Nothing else was clicked." };
+      trace?.event("dialog-left-open", { shot: shot.filename, family: scratchRun.family.id });
+    }
   }
 }

@@ -17,12 +17,13 @@ import {
   ensurePerLabScreenshotPlan,
   resolveGeneratedLabDir,
 } from "../lab-builder/lab-screenshots.js";
+import { getSlotMeta } from "../lab-builder/slots.js";
 import { listFeatureManifests } from "../../../tools/screenshot-capture/manifests.mjs";
 import { blockedInstructionReason, blockedLabelReason } from "../../../tools/screenshot-capture/guard.mjs";
 import { REQUIREMENTS, missingRequirements, targetField } from "../../../tools/screenshot-capture/targets.mjs";
 import { classifyShot, expectedLabelsForShot } from "./classify.js";
 import { buildSetupPlan } from "./setup-plan.js";
-import { createsAgent, orderCreationFirst, orderForWalkthrough, scratchDescriptor } from "../../../tools/screenshot-capture/walkthrough.mjs";
+import { createsAgent, describeAutomation, orderCreationFirst, orderForWalkthrough, sanitizeAutomation, scratchDescriptor } from "../../../tools/screenshot-capture/walkthrough.mjs";
 
 const ALLOWED_ACTIONS = new Set([
   "navigate",
@@ -106,14 +107,21 @@ function viewportOf(value) {
     : { width: 1440, height: 900 };
 }
 
-function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, instructions, values = {}, allowPractice = false, sharedRecipes = null, labTitle = "", scratch = false, agentSource = null, agentFallback = null }) {
+function toPlanShot(raw, { authProfile, product, startUrl, steps, callouts, instructions, values = {}, allowPractice = false, sharedRecipes = null, labTitle = "", scratch = false, agentSource = null, agentFallback = null, meta = null }) {
+  const src = raw;
+  // The feature tour's shot lists carry no kind or description; the slot table does, and a lab's own shots are read with it. The classifier
+  // that decides how a shot is captured by address keeps reading the shot as the shot list gives it.
+  const full = meta ? { ...raw, kind: raw.kind || meta.kind, alt: raw.alt || meta.alt, caption: raw.caption || meta.caption } : raw;
   const urlEnv = /^CAPTURE_[A-Z0-9_]{1,80}$/.test(String(src.urlEnv || "")) ? src.urlEnv : null;
   const capture = classifyShot({ ...src, product: product ?? src.product, callouts, instructions }, { values });
   // What the computer sets up on the screen, in autonomous mode. Steps that need a practice agent are in the plan only when the job allows one.
   const setup = scratch ? null : buildSetupPlan({ ...src, product: product ?? src.product, callouts, instructions }, { capture, allowPractice, sharedRecipes, labTitle });
   // Built from scratch: which stage of the lab the shot belongs to, and why it needs a person when the computer cannot do it.
-  const stage = scratch ? scratchDescriptor({ ...src, product: product ?? src.product, callouts, instructions }) : null;
+  const stage = scratch ? scratchDescriptor({ ...full, product: product ?? src.product, callouts, instructions }) : null;
   const agent = agentDescriptor(src, capture, { agentSource, agentFallback, stage });
+  // Whether the computer takes this shot by itself (and how), or the one reason it needs a person. A library slot is read with its slot description (its kind), as a lab's own shot is.
+  const readAs = meta ? classifyShot({ ...full, product: product ?? src.product, callouts, instructions }, { values }) : capture;
+  const automation = sanitizeAutomation(describeAutomation({ ...full, product: product ?? src.product, callouts, instructions }, { capture: readAs, labels: expectedLabelsForShot({ callouts, instructions }, { extra: capture.landmarks || [] }) }));
   // A shot that uses the agent created earlier in this capture is not waiting for an address: the agent arrives from the creation step.
   const unmetNeeds = agent?.via === "created" ? (capture.needs || []).filter((id) => id !== "copilot-studio-agent") : capture.needs;
   // A screen the settings already lead to is opened directly, so even a companion that follows only the address lands on it.
@@ -130,13 +138,13 @@ function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, inst
     filename: src.filename,
     shotId: src.shotId ?? null,
     featureId: src.featureId ?? src.feature ?? null,
-    kind: text(src.kind, 30) || null,
+    kind: text(full.kind, 30) || null,
     moduleOrder: Number.isInteger(src.moduleOrder) && src.moduleOrder >= 0 && src.moduleOrder < 1000 ? src.moduleOrder : null,
     product: product ?? src.product ?? null,
     authProfile,
     section: text(src.section, 60) || null,
     moduleTitle: text(src.moduleTitle ?? src.featureName, 160) || null,
-    caption: text(src.caption, 200) || null,
+    caption: text(full.caption, 200) || null,
     startUrl: isHttps(effectiveStart) ? effectiveStart : null,
     urlEnv,
     requiresEnv: waitingField?.env || null,
@@ -150,9 +158,10 @@ function toPlanShot(src, { authProfile, product, startUrl, steps, callouts, inst
       text: text(c?.text ?? c?.label, 120),
     })),
     instructions: (Array.isArray(instructions) ? instructions : []).slice(0, 6).map((i) => text(i, 300)),
-    capture: { ...withAgentHandoff(sanitizeCaptureDescriptor(capture), agent), ...(setup ? { setup } : {}), ...(stage ? { scratch: stage, ...(stage.scoped && !stage.blocker ? { expect: SCRATCH_EXPECT } : {}) } : {}), slot: text(String(src.filename || "").replace(/\.[a-z0-9]+$/i, "").toLowerCase(), 80) },
+    capture: { ...withAgentHandoff(sanitizeCaptureDescriptor(capture), agent), ...(setup ? { setup } : {}), ...(stage ? { scratch: stage, ...(stage.scoped && !stage.blocker ? { expect: SCRATCH_EXPECT } : {}) } : {}), ...(automation ? { automation } : {}), slot: text(String(src.filename || "").replace(/\.[a-z0-9]+$/i, "").toLowerCase(), 80) },
   };
-  shot.expectedLabels = expectedLabelsFor(shot);
+  // A recipe family judges its own screen: the callouts of the lab's other steps are not what its picture shows.
+  shot.expectedLabels = automation?.via === "family" ? automation.landmarks : expectedLabelsFor(shot);
   return shot;
 }
 
@@ -331,6 +340,7 @@ export function buildLibraryJobPlan({ scope, products = [], manifestDir, capture
     const startUrl = shot.url || entry.manifest.startUrl;
     shots.push(
       toPlanShot(shot, {
+        meta: getSlotMeta()[shot.filename] || null,
         authProfile: entry.manifest.authProfile || entry.product,
         product: entry.product,
         startUrl,

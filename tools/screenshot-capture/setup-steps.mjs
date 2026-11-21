@@ -16,7 +16,7 @@ export const MAX_NAME = 80;
 export const SETUP_ACTIONS = Object.freeze(Object.keys(ACTION_TIERS));
 export const TARGET_ROLES = Object.freeze(["button", "link", "tab", "menuitem", "treeitem", "option", "radio", "checkbox", "switch", "textbox", "searchbox", "combobox", "listitem", "row", "heading", "dialog", "region", "log"]);
 export const TARGET_AREAS = Object.freeze(["any", "nav", "main", "header", "dialog", "tablist", "chat", "menu"]);
-export const SAMPLE_KINDS = Object.freeze(["question", "search", "description", "instruction", "agentName", "instructions", "website", "outOfScope"]);
+export const SAMPLE_KINDS = Object.freeze(["question", "search", "description", "instruction", "agentName", "instructions", "website", "outOfScope", "guardrail"]);
 export const INTENTS = Object.freeze(["navigate", "open", "choose", "type", "send", "close", "confirm"]);
 const SOURCES = Object.freeze(["recipe", "derived", "shared", "local", "builtin"]);
 
@@ -252,7 +252,7 @@ export function sanitizeSteps(list, { max = MAX_SETUP_STEPS, product = "" } = {}
   return out;
 }
 
-const INPUT_MAX = Object.freeze({ question: 200, search: 200, description: 300, instruction: 200, agentName: 80, instructions: 1500, outOfScope: 200 });
+const INPUT_MAX = Object.freeze({ question: 200, search: 200, description: 300, instruction: 200, agentName: 80, instructions: 1500, outOfScope: 200, guardrail: 200 });
 
 /**
  * The sample text a plan or a job carries, kind by kind, each checked again: short, plain, and free of anything that

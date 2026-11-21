@@ -252,6 +252,46 @@ test("a companion older than 1.6.2 is told in plain words that it cannot hand th
   assert.deepEqual([status.autonomy.handoffMinCompanion, status.autonomy.handoffSupported], ["1.6.2", false], "the Screenshot Center reads the same hint from the status");
 });
 
+test("a companion older than 1.6.3 is told in plain words that it cannot run the new recipes, keeps working the old way, and the status says so", async (t) => {
+  const p = platform(t);
+  assert.equal(p.saveConsent({ consented: true, level: "scratch" }).status, 200);
+  pairedAt(p, "1.6.2");
+  const old = p.queueJob(labJob());
+  assert.equal(old.status, 201, "the job is queued: the older companion keeps working as before");
+  assert.equal(old.body.autonomy.level, "scratch");
+  assert.deepEqual([old.body.recipes.supported, old.body.recipes.min, old.body.recipes.version], [false, "1.6.3", "1.6.2"]);
+  assert.ok(old.body.recipes.shots >= 1);
+  assert.match(old.body.recipes.message, /older than 1\.6\.3, so it cannot run the new automatic recipes yet\. \d+ screenshots? \(test conversations, dialogs, and the sample test set\) still need you\. Download the companion again and replace the old one\./);
+  assert.match(old.body.message, /cannot run the new automatic recipes/);
+  p.jobs.cancel(old.body.job.id);
+  const status = await p.statusPayload();
+  assert.deepEqual([status.autonomy.recipesMinCompanion, status.autonomy.recipesSupported], ["1.6.3", false], "the Screenshot Center reads the same hint from the status");
+
+  const current = platform(t);
+  current.saveConsent({ consented: true, level: "scratch" });
+  pairedAt(current, "1.6.3");
+  const fresh = current.queueJob(labJob());
+  assert.equal(fresh.status, 201);
+  assert.equal(fresh.body.recipes, undefined, "a current companion is told nothing");
+  const plan = current.jobs.getPlan(fresh.body.job.id);
+  assert.ok(plan.shots.some((s) => s.capture.automation?.via === "family"), "the plan carries the recipe families to a companion that can run them");
+  current.jobs.cancel(fresh.body.job.id);
+});
+
+test("the dry plan reads the plan a capture would send, queues nothing, and carries no address or id", (t) => {
+  const p = platform(t);
+  const out = p.dryPlan(labJob());
+  assert.equal(out.status, 200);
+  const dry = out.body.dryPlan;
+  assert.equal(out.body.recipesMinCompanion, "1.6.3");
+  assert.equal(dry.totals.total, dry.totals.automatic + dry.totals.needYou);
+  assert.ok(dry.automatic.some((s) => s.family === "conversation") && dry.automatic.every((s, i) => s.order === i + 1));
+  assert.ok(dry.manual.every((m) => m.reasonLabel && m.steps.length >= 2));
+  assert.deepEqual(p.jobs.list(), [], "nothing was queued");
+  assert.doesNotMatch(JSON.stringify(out.body), /https?:\/\/|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}/i);
+  assert.equal(p.dryPlan({ target: { type: "lab", labId: "no-such-lab" }, scope: { mode: "all" } }).status, 404);
+});
+
 test("the choice is saved with the lab as a word only, an agent address already set still means An agent I choose, and a bad value is refused", (t) => {
   const p = platform(t);
   assert.deepEqual(p.targetsPayload({ labId: ctx.labId }).agentSource, { source: "created", from: "default", saved: false });
