@@ -12,7 +12,7 @@ import { generateLab } from "../lib/lab-builder/generator.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const wizardSource = readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
-const pane7 = html.match(/id="lb-pane-7"[\s\S]*?<!-- Step 8: generate -->/)?.[0] || "";
+const reviewPane = html.match(/id="lb-pane-4"[\s\S]*?<div class="panel" id="lb-result-panel"/)?.[0] || "";
 
 function previewPayload(request) {
   const plan = planLab(request);
@@ -54,9 +54,9 @@ function previewPayload(request) {
   };
 }
 
-function loadStep7Harness() {
+function loadReviewHarness() {
   const elements = new Map();
-  const stepButtons = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => {
+  const stepButtons = [1, 2, 3, 4].map((n) => {
     const li = { hidden: false };
     const span = { textContent: String(n) };
     return {
@@ -79,7 +79,7 @@ function loadStep7Harness() {
       const node = {
         id,
         innerHTML: "",
-        textContent: id.startsWith("lb-heading-") ? `Step ${id.slice(-1)} of 8: Heading` : "",
+        textContent: id.startsWith("lb-heading-") ? `Step ${id.slice(-1)} of 4: Heading` : "",
         value: "",
         type: id === "lb-use-learn" || id === "lb-use-llm" ? "checkbox" : "text",
         checked: id === "lb-use-learn" || id === "lb-use-llm",
@@ -143,7 +143,7 @@ function loadStep7Harness() {
     "lb-topic-warnings",
     "lb-topic-error",
     "lb-review-error",
-    "lb-next-from-review",
+    "lb-sticky-next",
     "lb-generate-btn",
     "lb-time",
     "lb-title",
@@ -205,7 +205,7 @@ function loadStep7Harness() {
     labBuilder.levels = __seed.levels;
     labBuilder.categories = __seed.categories;
     labBuilder.selectedProducts = new Set([LB_DEFAULT_PRODUCT]);
-    labBuilder.chosenSteps = new Set(["product", "level", "harness", "topics"]);
+    labBuilder.chosenSteps = new Set(["product", "tailor", "topics"]);
     labBuilder.level = 200;
     labBuilder.harness = "standard";
   `);
@@ -223,23 +223,25 @@ function removedSectionModuleIds(previewHtml) {
   return [...sectionHtml.matchAll(/data-outline-module="([^"]+)"/g)].map((m) => m[1]);
 }
 
-test("Step 7 markup explains module deselection, clarifies time guidance, and exposes accessible review controls", () => {
-  assert.match(pane7, /Uncheck any module or prerequisite recap you do not want to remove it from the lab\./);
-  assert.match(pane7, /id="lb-review-error"[^>]*role="alert"/);
-  assert.match(pane7, /id="lb-next-from-review"/);
-  assert.match(pane7, /Time guidance never drops modules: every module kept in your outline stays in the lab\./);
-  assert.doesNotMatch(pane7, /Nothing is removed: every topic you choose stays in the lab/);
+test("Review and build markup explains module deselection, clarifies time guidance, and exposes accessible review controls", () => {
+  assert.ok(reviewPane, "the Review and build pane exists");
+  assert.match(reviewPane, /Uncheck any module you do not want\. Then build\./);
+  assert.match(reviewPane, /id="lb-review-error"[^>]*role="alert"/);
+  assert.match(reviewPane, /id="lb-generate-btn"[^>]*>Build my lab<\/button>/);
+  assert.doesNotMatch(reviewPane, /id="lb-next-from-review"|id="lb-next-from-level"/, "Build my lab is the one primary button");
+  assert.match(reviewPane, /Time guidance never drops modules: every module kept in your outline stays in the lab\./);
+  assert.doesNotMatch(reviewPane, /Nothing is removed: every topic you choose stays in the lab/);
 });
 
-test("deselecting modules and prerequisite recaps on Step 7 removes them everywhere and omits them from generated labs", async () => {
-  const { run, context, element, summaryMirror } = loadStep7Harness();
+test("deselecting modules and prerequisite recaps on Review and build removes them everywhere and omits them from generated labs", async () => {
+  const { run, context, element, summaryMirror } = loadReviewHarness();
 
   // Start with Level 200 Connector tools, which pulls in Generative orchestration (200)
   // plus two Level 100 prerequisite recaps (Create an agent, Write agent instructions).
   run(`labBuilder.picked = new Set(["connector-tools"]);`);
   element("lb-time").value = "30";
   await context.lbRefresh();
-  context.lbGoToStep(7);
+  context.lbGoToStep(4);
   await new Promise((r) => setImmediate(r));
 
   let previewHtml = element("lb-preview").innerHTML;
@@ -278,7 +280,7 @@ test("deselecting modules and prerequisite recaps on Step 7 removes them everywh
   assert.deepEqual(removedSectionModuleIds(previewHtml), ["generative-orchestration"]);
   assert.equal(element("lb-preview").lastFocused, "generative-orchestration", "keyboard focus stays on the toggled module");
 
-  // Sticky summary bar, step summary mirror, and Step 6 checkboxes all match Step 7.
+  // Sticky summary bar, step summary mirror, and the Topics checkboxes all match Review and build.
   assert.match(element("lb-summary").innerHTML, /1 topic \+ 2 prerequisite recaps, about 35 min/);
   assert.equal(summaryMirror.innerHTML, element("lb-summary").innerHTML);
   context.lbRenderTopics();
@@ -286,7 +288,7 @@ test("deselecting modules and prerequisite recaps on Step 7 removes them everywh
   assert.match(topicsHtmlAfterFirst, /data-topic="connector-tools"[^>]*checked/);
   assert.doesNotMatch(topicsHtmlAfterFirst, /data-topic="generative-orchestration"[^>]*checked/);
 
-  // 2) Uncheck lower-level prerequisite recap "agent-instructions" on Step 7.
+  // 2) Uncheck lower-level prerequisite recap "agent-instructions" on Review and build.
   await context.lbSetOutlineModule("agent-instructions", false);
   previewHtml = element("lb-preview").innerHTML;
   assert.deepEqual(activeOutlineModuleIds(previewHtml), ["create-agent", "connector-tools"]);
@@ -303,7 +305,7 @@ test("deselecting modules and prerequisite recaps on Step 7 removes them everywh
   assert.match(topicsHtmlAfterSecond, /data-prerequisite="create-agent"[^>]*checked/);
   assert.doesNotMatch(topicsHtmlAfterSecond, /data-prerequisite="agent-instructions"[^>]*checked/);
 
-  // 3) Step 8 lab generation builds ONLY the remaining active curriculum modules; excluded prerequisites never sneak back in.
+  // 3) Building the lab uses ONLY the remaining active curriculum modules; excluded prerequisites never sneak back in.
   const req = JSON.parse(run("JSON.stringify(lbRequest())"));
   assert.deepEqual(req.features, ["connector-tools"]);
   assert.deepEqual(req.excluded.sort(), ["agent-instructions", "generative-orchestration"]);
@@ -320,7 +322,7 @@ test("deselecting modules and prerequisite recaps on Step 7 removes them everywh
   assert.match(built.markdown, /### Step 1 - Connector tools/);
   assert.match(built.markdown, /- \*\*Step 1 - Connector tools:\*\*/);
 
-  // 4) Re-select a prerequisite recap individually on Step 7 without flagging off-level dropped selections, then Restore all.
+  // 4) Re-select a prerequisite recap individually on Review and build without flagging off-level dropped selections, then Restore all.
   await context.lbSetOutlineModule("agent-instructions", true);
   assert.deepEqual(run("labBuilder.rec.filter.droppedSelections"), []);
   assert.deepEqual(activeOutlineModuleIds(element("lb-preview").innerHTML), [
@@ -343,58 +345,53 @@ test("deselecting modules and prerequisite recaps on Step 7 removes them everywh
   assert.equal(removedSectionModuleIds(previewHtml).length, 0);
 });
 
-test("unchecking the last remaining module on Step 7 keeps the learner on Review, blocks Generate, and lets them re-select immediately", async () => {
-  const { run, context, element, stepButtons, previewCalls } = loadStep7Harness();
+test("unchecking the last remaining module on Review and build keeps the learner on Review, blocks Build, and lets them re-select immediately", async () => {
+  const { run, context, element, previewCalls } = loadReviewHarness();
 
   run(`labBuilder.picked = new Set(["connector-tools"]);`);
   await context.lbRefresh();
-  context.lbGoToStep(7);
+  context.lbGoToStep(4);
   await new Promise((r) => setImmediate(r));
-  assert.equal(run("labBuilder.step"), 7);
+  assert.equal(run("labBuilder.step"), 4);
   const callsBeforeEmpty = previewCalls.length;
 
   // Uncheck the sole picked level module.
   await context.lbSetOutlineModule("connector-tools", false);
 
-  assert.equal(run("labBuilder.step"), 7, "must stay on Step 7 rather than bouncing back to Step 6");
+  assert.equal(run("labBuilder.step"), 4, "must stay on Review and build rather than bouncing back to Topics");
   assert.equal(previewCalls.length, callsBeforeEmpty, "empty curriculum renders client-side without a 400 preview call");
   const emptyHtml = element("lb-preview").innerHTML;
   assert.match(emptyHtml, /No modules remain in your curriculum\./);
   assert.match(emptyHtml, /Re-select at least one module below or go back to Topics\./);
   assert.deepEqual(removedSectionModuleIds(emptyHtml), ["connector-tools"]);
   assert.match(element("lb-summary").innerHTML, /No topics selected yet/);
-  assert.equal(element("lb-next-from-review").disabled, true);
-  assert.equal(element("lb-generate-btn").disabled, true);
+  assert.equal(element("lb-generate-btn").disabled, true, "Build my lab is blocked while 0 modules remain");
+  assert.equal(element("lb-sticky-next").textContent, "Build my lab");
+  assert.equal(element("lb-sticky-next").disabled, true, "the sticky copy of Build my lab is blocked too");
 
-  // Attempting to advance to Step 8 via Next or stepper stays on Step 7 with an alert message.
-  context.lbNextStep();
-  assert.equal(run("labBuilder.step"), 7);
-  assert.match(element("lb-review-error").textContent, /at least one module before generating/i);
+  // Choosing Review and build again from the step list while empty keeps the learner there, with a plain reason.
+  context.lbGoToStep(4);
+  assert.equal(run("labBuilder.step"), 4);
+  assert.equal(element("lb-review-error").textContent, "Keep or re-select at least one module before building your lab.");
 
-  run("labBuilder.furthest = 8; lbRenderStepper();");
-  const step8Btn = stepButtons.find((b) => Number(b.dataset.lbStep) === 8);
-  assert.equal(step8Btn.disabled, true, "Step 8 stepper button is disabled while 0 modules remain");
-  context.lbGoToStep(8);
-  assert.equal(run("labBuilder.step"), 7);
-
-  // Meanwhile, Step 6 -> Step 7 guard with 0 topics still stays on Step 6 as before.
-  context.lbGoToStep(6);
-  assert.equal(run("labBuilder.step"), 6);
-  context.lbGoToStep(7);
-  assert.equal(run("labBuilder.step"), 6);
+  // Meanwhile, the Topics -> Review and build guard with 0 topics still stays on Topics as before.
+  context.lbGoToStep(3);
+  assert.equal(run("labBuilder.step"), 3);
+  context.lbGoToStep(4);
+  assert.equal(run("labBuilder.step"), 3);
   assert.match(element("lb-topic-error").textContent, /Choose at least one topic before you review the lab\./);
 
-  // Return to Step 7 after re-checking on Step 7: simulate re-selecting from the empty state on Step 7.
+  // Return to Review and build after re-checking there: simulate re-selecting from the empty state.
   run(`labBuilder.picked = new Set(["connector-tools"]); labBuilder.excluded.clear();`);
   await context.lbRefresh();
-  context.lbGoToStep(7);
+  context.lbGoToStep(4);
   await new Promise((r) => setImmediate(r));
   await context.lbSetOutlineModule("connector-tools", false);
-  assert.equal(element("lb-next-from-review").disabled, true);
+  assert.equal(element("lb-sticky-next").disabled, true);
 
-  // Re-check connector-tools right on Step 7.
+  // Re-check connector-tools right on Review and build.
   await context.lbSetOutlineModule("connector-tools", true);
-  assert.equal(element("lb-next-from-review").disabled, false);
+  assert.equal(element("lb-sticky-next").disabled, false);
   assert.equal(element("lb-generate-btn").disabled, false);
   assert.equal(element("lb-review-error").textContent, "");
   assert.deepEqual(activeOutlineModuleIds(element("lb-preview").innerHTML), [
@@ -405,12 +402,12 @@ test("unchecking the last remaining module on Step 7 keeps the learner on Review
   ]);
 });
 
-test("deselecting prerequisite recaps on Step 7 preserves Step 1..M numbering for all main modules", async () => {
-  const { context, element, run } = loadStep7Harness();
+test("deselecting prerequisite recaps on Review and build preserves Step 1..M numbering for all main modules", async () => {
+  const { context, element, run } = loadReviewHarness();
 
   run(`labBuilder.picked = new Set(["generative-orchestration", "connector-tools"]);`);
   await context.lbRefresh();
-  context.lbGoToStep(7);
+  context.lbGoToStep(4);
   await new Promise((r) => setImmediate(r));
 
   const stepCellsOf = (htmlSnippet) =>

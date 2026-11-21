@@ -146,9 +146,9 @@ function assertWellFormedXml(xmlText, entryName) {
   assert.deepEqual(stack, [], `${entryName}: unclosed XML tags remaining: ${stack.join(", ")}`);
 }
 
-// ── 1. Step 7 Backend Module Reordering ─────────────────────────────────────
+// ── 1. Review and build: backend module reordering ──────────────────────────
 
-test("Step 7 moduleOrder reorders modules, renumbers steps/recaps, persists selections, and warns on prerequisite inversion", async () => {
+test("Review and build moduleOrder reorders modules, renumbers steps/recaps, persists selections, and warns on prerequisite inversion", async () => {
   const { dir, cleanup } = tempDir("step7-reorder-backend-");
   try {
     const baseReq = {
@@ -262,9 +262,9 @@ test("Step 7 moduleOrder reorders modules, renumbers steps/recaps, persists sele
   }
 });
 
-// ── 2. Step 7 UI Controls, Persistence & Keyboard Focus ─────────────────────
+// ── 2. Review and build: UI controls, persistence & keyboard focus ──────────
 
-test("Step 7 Review wizard renders accessible Move up/down controls, disables boundaries, persists moduleOrder, and restores focus", async () => {
+test("Review and build wizard renders accessible Move up/down controls, disables boundaries, persists moduleOrder, and restores focus", async () => {
   const wizardSource = readFileSync(join(PUBLIC_DIR, "lab-builder-wizard.js"), "utf8");
   const storage = new Map();
   let focusedSelector = null;
@@ -413,6 +413,7 @@ test("Step 7 Review wizard renders accessible Move up/down controls, disables bo
     `${wizardSource}
     globalThis.__wizard = {
       labBuilder,
+      LB_STEP,
       lbPreview,
       lbMoveOutlineModule,
       lbResetModuleOrder,
@@ -433,7 +434,7 @@ test("Step 7 Review wizard renders accessible Move up/down controls, disables bo
   wiz.labBuilder.selectedProducts = new Set(["copilot-studio"]);
   wiz.labBuilder.level = 200;
   wiz.labBuilder.harness = "standard";
-  wiz.labBuilder.step = 7;
+  wiz.labBuilder.step = wiz.LB_STEP.review;
   wiz.labBuilder.picked = new Set(baseModules.map((m) => m.id));
   wiz.labBuilder.rec = { selectedIds: baseModules.map((m) => m.id), concepts: [] };
 
@@ -622,9 +623,9 @@ What is our store manager approval threshold for cash refunds without a receipt,
   );
 });
 
-// ── 4. Step 8 Clean Lab Title + Associated File Download Links (E2E + UI) ───
+// ── 4. Lab result: clean lab title + associated file download links (E2E + UI) ──
 
-test("Step 8 UI shows Lab Title and clean associated file download links without raw filenames or host paths, and server exports all formats cleanly", async () => {
+test("the lab result UI shows Lab Title and clean associated file download links without raw filenames or host paths, and server exports all formats cleanly", async () => {
   const { dir, cleanup } = tempDir("step8-downloads-e2e-");
   let server = null;
   try {
@@ -641,7 +642,7 @@ test("Step 8 UI shows Lab Title and clean associated file download links without
       { outputRoot: dir, useLearnMcp: false, useLlm: false },
     );
 
-    // 4a. Inspect Step 8 UI rendering in generated-labs.js + app.js
+    // 4a. Inspect the lab result UI rendering in generated-labs.js + app.js
     const generatedLabsSource = readFileSync(join(PUBLIC_DIR, "generated-labs.js"), "utf8");
     const appSource = readFileSync(join(PUBLIC_DIR, "app.js"), "utf8");
 

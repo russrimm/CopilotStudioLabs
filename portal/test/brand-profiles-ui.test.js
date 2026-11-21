@@ -59,7 +59,7 @@ test("the Brand profiles manager groups every field, labels every control, and a
   assert.match(panel, /aria-describedby="bp-primaryColor-error bp-contrast"/);
 });
 
-test("the Step 7 Customize card and the Step 8 summary are labeled live regions", () => {
+test("the Review and build Customize card and brand line are labeled, and the card is a disclosure opened by Change", () => {
   const card = sectionBetween('id="lb-customize-card"', '<details class="lb-advanced">');
   assert.match(card, /aria-labelledby="lb-customize-heading"/);
   const inputs = idsOf(card, /<(?:input|select)\b[^>]*\bid="(lb-[A-Za-z0-9-]+)"/g);
@@ -72,7 +72,11 @@ test("the Step 7 Customize card and the Step 8 summary are labeled live regions"
   assert.match(card, /id="lb-customize-site"[^>]*aria-live="polite"/);
   assert.match(card, /id="lb-customize-preview" aria-labelledby="lb-customize-preview-heading"/);
   assert.match(card, /id="lb-manage-profiles"/, "links to the profile manager");
-  assert.match(html, /<p id="lb-step8-customize-summary"[^>]*role="status" aria-live="polite" hidden>/);
+  const reviewPane = sectionBetween('id="lb-pane-4"', 'id="lb-result-panel"');
+  assert.match(reviewPane, /<p id="lb-brand-summary"[^>]*role="status" aria-live="polite">Brand: Default<\/p>/);
+  assert.match(reviewPane, /<button[^>]*id="lb-brand-change"[^>]*aria-expanded="false" aria-controls="lb-customize-card">Change<\/button>/);
+  assert.match(reviewPane, /<section id="lb-customize-card"[^>]*aria-labelledby="lb-customize-heading" hidden>/, "the card is collapsed until Change is pressed");
+  assert.doesNotMatch(html, /id="lb-step8-customize-summary"/, "the brand line replaces the old Step 8 summary");
   assert.match(html, /id="lb-summary" class="lb-summary" role="status" aria-live="polite"/);
 });
 
@@ -87,7 +91,7 @@ test("scripts load in dependency order and the new CSS follows the theme convent
   assert.match(screenCss, /:where\(a, button, input, select, textarea, summary, \[tabindex\]\):focus-visible/);
 
   // The list, editor, card, and chip use theme tokens only; the "paper" preview is intentionally fixed light.
-  for (const selector of ["\\.bp-item", "\\.bp-fieldset", "\\.bp-contrast", "\\.bp-error", "\\.bp-badge", "\\.lb-customize-card", "\\.lb-brand-chip", "\\.lb-step8-customize-summary"]) {
+  for (const selector of ["\\.bp-item", "\\.bp-fieldset", "\\.bp-contrast", "\\.bp-error", "\\.bp-badge", "\\.lb-customize-card", "\\.lb-brand-chip", "\\.lb-brand-summary"]) {
     const rule = screenCss.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))?.[1] || "";
     assert.ok(rule, `${selector} rule exists`);
     assert.doesNotMatch(rule, /#[0-9a-f]{3,8}\b/i, `${selector} must use theme custom properties`);
@@ -97,7 +101,7 @@ test("scripts load in dependency order and the new CSS follows the theme convent
 
   // Print: controls are hidden and the cards render as plain bordered blocks.
   assert.match(printCss, /\.bp-sidebar,[\s\S]*?\.gl-customize \.btn\s*\{[^}]*display:\s*none !important/);
-  assert.match(printCss, /\.lb-customize-card,[\s\S]*?\.lb-step8-customize-summary\s*\{[^}]*background:\s*#fff !important/);
+  assert.match(printCss, /\.lb-customize-card,[\s\S]*?\.bp-fieldset[^{]*\{[^}]*background:\s*#fff !important/);
   assert.match(printCss, /\.bp-pv\s*\{[^}]*break-inside:\s*avoid/);
 });
 
@@ -246,7 +250,7 @@ test("the live preview escapes values, drops unsafe URLs, and keeps its title re
   assert.equal(run('brandOverrideNames({ tagline: "x", supportEmail: " " }).join(",")'), "tagline");
 });
 
-// ── Wizard Step 7 integration ───────────────────────────────────────────────
+// ── Wizard Review and build integration ─────────────────────────────────────
 
 function loadBrandWizard({ profiles, activeProfileId }) {
   const elements = new Map();
@@ -327,7 +331,7 @@ const PROFILES = [
   },
 ];
 
-test("Step 7 renders the profile picker, pre-fills the SharePoint site, and previews the cover", () => {
+test("Review and build renders the profile picker, pre-fills the SharePoint site, and previews the cover", () => {
   const { run, element } = loadBrandWizard({ profiles: PROFILES, activeProfileId: "default" });
   run("lbSyncCustomizeCard()");
 
@@ -359,7 +363,7 @@ test("Step 7 renders the profile picker, pre-fills the SharePoint site, and prev
   assert.equal(element("lb-sharepoint-site-url").value, "", "the previous default URL is cleared when the new profile has none");
 });
 
-test("per-lab overrides validate inline, reach the generate request, and show in the Step 8 summary", () => {
+test("per-lab overrides validate inline, reach the generate request, and show in the brand line", () => {
   const { run, element } = loadBrandWizard({ profiles: PROFILES, activeProfileId: "contoso" });
   run("lbSyncCustomizeCard()");
 
@@ -391,9 +395,9 @@ test("per-lab overrides validate inline, reach the generate request, and show in
   type("companyName", "");
 
   run("lbSyncCustomizeSummary()");
-  const summary = element("lb-step8-customize-summary");
+  const summary = element("lb-brand-summary");
   assert.equal(summary.hidden, false);
-  assert.match(summary.textContent, /^Branding: Contoso <EU> profile · Company: Contoso Ltd · Overrides for this lab: tagline, more information url, support contact name$/);
+  assert.equal(summary.textContent, "Brand: Contoso <EU> (changed for this lab: tagline, more information url, support contact name)");
 
   // Blank overrides inherit from the profile and are not sent.
   type("tagline", "");
@@ -401,13 +405,32 @@ test("per-lab overrides validate inline, reach the generate request, and show in
   type("supportName", "");
   assert.deepEqual(JSON.parse(run("JSON.stringify(lbBrandRequestFields().overrides)")), {});
   run("lbSyncCustomizeSummary()");
-  assert.match(summary.textContent, /No overrides for this lab/);
+  assert.equal(summary.textContent, "Brand: Contoso <EU>", "no overrides: the line names only the profile");
 
   // Starting a new lab goes back to the active profile with no overrides.
   type("tagline", "Temporary");
   run("lbResetAnswers()");
   assert.equal(run("labBuilder.brand.profileId"), null);
   assert.deepEqual(JSON.parse(run("JSON.stringify(labBuilder.brand.overrides)")), {});
+});
+
+test("the Change button expands and collapses the Customize card, and the brand line names the profile", () => {
+  const { run, element } = loadBrandWizard({ profiles: PROFILES, activeProfileId: "contoso" });
+  run("lbSyncCustomizeCard()");
+  run("lbBindBrandToggle()");
+  assert.equal(element("lb-brand-summary").textContent, "Brand: Contoso <EU>");
+
+  const card = element("lb-customize-card");
+  const button = element("lb-brand-change");
+  card.hidden = true;
+  button.listeners.get("click")();
+  assert.equal(card.hidden, false);
+  assert.equal(button.attrs.get("aria-expanded"), "true");
+  assert.equal(button.textContent, "Hide");
+  button.listeners.get("click")();
+  assert.equal(card.hidden, true);
+  assert.equal(button.attrs.get("aria-expanded"), "false");
+  assert.equal(button.textContent, "Change");
 });
 
 test("the Manage brand profiles link opens the Configuration tab, and nothing breaks before profiles load", () => {

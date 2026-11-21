@@ -1,8 +1,8 @@
 /**
- * Step 6 sub-topics, the Review step, and Export All Topics in the real wizard script.
+ * Topics sub-topics, the Review and build step, and Export All Topics in the real wizard script.
  *
  * The browser scripts run inside node:vm against the fake DOM (with the small HTML parser from
- * fixtures/fake-html.js), the real markup of Steps 6 and 7 from index.html, and a fetch that answers
+ * fixtures/fake-html.js), the real markup of the Topics and Review and build panes from index.html, and a fetch that answers
  * from the real recommend, planner, and export code. Nothing touches a network or a browser.
  */
 
@@ -32,7 +32,7 @@ const portalRoot = fileURLToPath(new URL("..", import.meta.url));
 const read = (name) => readFileSync(join(portalRoot, "public", name), "utf8");
 const WIZARD = read("lab-builder-wizard.js");
 const HTML = read("index.html");
-const PANES = HTML.slice(HTML.indexOf("<!-- Step 6: topics -->"), HTML.indexOf("<!-- Step 8: generate -->"));
+const PANES = HTML.slice(HTML.indexOf("<!-- Step 3: topics -->"), HTML.indexOf('<div class="panel" id="lb-result-panel"'));
 
 const BASE = "https://learn.microsoft.com/microsoft-copilot-studio";
 const urlOf = (slug) => `${BASE}/${slug}`;
@@ -273,7 +273,7 @@ function makeWizard(t) {
 
 const subIds = (t) => t.subtopics.map((sub) => sub.id);
 
-// ── Step 6: nested, individually checkable sub-topics ───────────────────────
+// ── Topics: nested, individually checkable sub-topics ───────────────────────
 
 test("every sub-topic of every listed topic is its own checkbox inside a labeled group", async (t) => {
   const h = makeWizard(t);
@@ -538,9 +538,9 @@ test("the server's 400 for an unknown sub-topic id is a clear message", async (t
   assert.match((await res.json()).error, /Unknown sub-topic id\(s\): learn-nope/);
 });
 
-// ── Step 7: the Review step ─────────────────────────────────────────────────
+// ── Review and build: the outline ───────────────────────────────────────────
 
-test("Review shows every sub-topic under its module, and leaving one out there stays in sync with Step 6", async (t) => {
+test("Review and build shows every sub-topic under its module, and leaving one out there stays in sync with Topics", async (t) => {
   const h = makeWizard(t);
   await h.refresh();
   await h.toggle(h.parent(ALPHA.id));
@@ -563,7 +563,7 @@ test("Review shows every sub-topic under its module, and leaving one out there s
   box.dispatchEvent(new h.FakeEvent("change"));
   await h.settle();
   assert.deepEqual(h.previewCalls.at(-1).excludedSubtopics, [first], "Review plans the lab without it");
-  assert.equal(h.state("labBuilder.excludedSubtopics.has(" + JSON.stringify(first) + ")"), true, "Step 6 holds the same choice");
+  assert.equal(h.state("labBuilder.excludedSubtopics.has(" + JSON.stringify(first) + ")"), true, "Topics holds the same choice");
   const after = h.byId("lb-preview");
   assert.equal(after.querySelector(`input[data-outline-subtopic="${first}"]`).checked, false);
   assert.match(after.textContent, /2 of 3 sub-topics included/);
@@ -571,7 +571,7 @@ test("Review shows every sub-topic under its module, and leaving one out there s
   assert.equal(h.document.activeElement.dataset.outlineSubtopic, first, "focus returns to the checkbox after the plan redraws");
 
   h.run("labBuilder.step = LB_STEP.topics; lbRenderTopics()");
-  assert.equal(h.sub(first).checked, false, "going back to Step 6 shows it unchecked");
+  assert.equal(h.sub(first).checked, false, "going back to Topics shows it unchecked");
   assert.equal(h.parent(ALPHA.id).indeterminate, true);
 
   const again = h.byId("lb-preview").querySelector(`input[data-outline-subtopic="${first}"]`);
@@ -619,7 +619,7 @@ function parseCsv(text) {
 // Blob.text() drops a byte order mark, so read the bytes: the BOM is part of the file.
 const exportedText = async (h, index = h.blobs.length - 1) => Buffer.from(await h.blobs[index].arrayBuffer()).toString("utf8");
 
-test("Export All Topics sits in the Step 6 toolbar with a format menu, CSV by default", async (t) => {
+test("Export All Topics sits in the Topics toolbar with a format menu, CSV by default", async (t) => {
   const h = makeWizard(t);
   await h.refresh();
   const main = h.byId("lb-export-main");
@@ -639,7 +639,7 @@ test("the scope note says exactly what will be exported, and counts the rows onc
   const h = makeWizard(t);
   await h.refresh();
   const dataset = h.state("labBuilder.exportData");
-  assert.ok(dataset, "the rows were loaded when Step 6 opened");
+  assert.ok(dataset, "the rows were loaded when Topics opened");
   assert.equal(
     h.byId("lb-export-scope").textContent,
     `${dataset.scope.text} It ignores your search, filter, and level, and marks what you selected.`,
@@ -771,11 +771,11 @@ test("what the wizard lists at a level is what the export holds", async (t) => {
   const listedSubs = new Set([...h.qa("input[data-subtopic]")].map((el) => el.dataset.subtopic));
   const dataset = h.state("labBuilder.exportData");
   const exported = new Set(dataset.rows.filter((row) => row.type === "topic").map((row) => row.id));
-  for (const id of listed) assert.ok(exported.has(id), `${id} is listed in Step 6 and exported`);
+  for (const id of listed) assert.ok(exported.has(id), `${id} is listed in Topics and exported`);
   const exportedSubs = new Set(dataset.rows.filter((row) => row.type === "sub-topic").map((row) => row.id));
-  for (const id of listedSubs) assert.ok(exportedSubs.has(id), `${id} is listed in Step 6 and exported`);
+  for (const id of listedSubs) assert.ok(exportedSubs.has(id), `${id} is listed in Topics and exported`);
   const atLevel = dataset.rows.filter((row) => row.type === "topic" && row.level === 200).length;
-  assert.equal(atLevel, h.state("labBuilder.rec.filter.shown"), "the export has as many Level 200 topics as Step 6 shows at Level 200");
+  assert.equal(atLevel, h.state("labBuilder.rec.filter.shown"), "the export has as many Level 200 topics as Topics shows at Level 200");
 });
 
 test("exporting keeps working offline once the rows are loaded, and says so plainly when they are not", async (t) => {

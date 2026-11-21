@@ -184,8 +184,13 @@ test("step validation ignores the notes because they describe another harness", 
 test("the wizard lets learners choose which harnesses get notes", () => {
   const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
   const wizard = readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
-  assert.match(html, /id="lb-differences-options"/);
-  assert.match(html, /Add expandable "How this differs" notes for/);
+  const tailorPane = html.match(/id="lb-pane-2"[\s\S]*?<!-- Step 3: topics -->/)?.[0] || "";
+  assert.ok(tailorPane, "the Tailor it pane is present");
+  const harnessRow = tailorPane.match(/id="lb-harness-row"[\s\S]*$/)?.[0] || "";
+  assert.match(harnessRow, /id="lb-harness-options"/, "the harness choice lives in Tailor it");
+  assert.match(harnessRow, /id="lb-differences-options"/, "the harness differences live in Tailor it, beside the harness choice");
+  assert.match(harnessRow, /<summary>Add "How this differs" notes<\/summary>/);
+  assert.equal((html.match(/id="lb-differences-options"/g) || []).length, 1);
   assert.match(wizard, /differencesFor: \[\.\.\.lbDifferencesFor\(\)\]/);
   assert.ok(getFeatures().length > 0);
   assert.ok(getDifference("skills"));

@@ -790,9 +790,10 @@ test("the wizard pre-fills from a plan and obeys its own level, harness, and pro
   assert.equal(state.harness, "standard");
   assert.deepEqual(state.picked.sort(), ["agent-flows", "connector-tools", "dca-agent-builder-knowledge"].sort(), "only level 200 topics on the chosen harness and products");
   assert.deepEqual(state.excluded, []);
-  for (const step of ["product", "vertical", "departments", "level", "harness", "topics"]) assert.ok(state.chosen.includes(step), step);
-  assert.equal(state.step, 6, "lands on the Topics step");
-  assert.equal(state.furthest, 6);
+  for (const step of ["product", "tailor", "topics"]) assert.ok(state.chosen.includes(step), step);
+  assert.equal(state.step, w.state("LB_STEP.topics"), "lands on the Topics step");
+  assert.equal(state.furthest, w.state("LB_STEP.topics"));
+  assert.equal(w.document.getElementById("lb-harness-row").hidden, false, "Copilot Studio is chosen, so Tailor it shows the harness choice");
   assert.deepEqual(result.skipped.level.sort(), ["Build your first agent in Agent Builder", "SharePoint knowledge"]);
   assert.deepEqual(result.skipped.harness, ["Skills (Microsoft Copilot harness)"]);
   assert.equal(result.skipped.unknown, 1);
@@ -834,7 +835,8 @@ test("a plan with no Copilot Studio drops the harness, skips Copilot Studio topi
   assert.deepEqual(w.state("[...labBuilder.selectedRoles]"), ["hr"]);
   assert.equal(w.state("labBuilder.level"), 100, "an invalid level falls back to 100");
   assert.equal(w.state("labBuilder.harness"), "standard");
-  assert.ok(!w.state("[...labBuilder.chosenSteps]").includes("harness"), "no harness step for a product without harnesses");
+  assert.equal(w.document.getElementById("lb-harness-row").hidden, true, "Tailor it hides the harness choice for a product without harnesses");
+  assert.equal(w.document.getElementById("lb-harness-options").innerHTML, "");
   assert.deepEqual(w.state("[...labBuilder.picked]"), ["dca-agent-builder-first-agent"]);
   assert.deepEqual(result.skipped.product, ["Agent flows"]);
   assert.equal(result.harness, null);

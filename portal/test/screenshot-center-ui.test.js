@@ -174,7 +174,7 @@ function pngFile(name = "pasted.png", type = "image/png", size = 12000) {
 
 // ── Harness ─────────────────────────────────────────────────────────────────
 
-function makeHarness({ eventSource = true, generated = false, step8 = true } = {}) {
+function makeHarness({ eventSource = true, generated = false, buildStep = true } = {}) {
   const { document, FakeEvent } = createFakeDom();
   const body = document.body;
   const add = (parent, tag, { id, attrs = {}, text } = {}) => {
@@ -193,14 +193,15 @@ function makeHarness({ eventSource = true, generated = false, step8 = true } = {
   const preview = add(body, "div", { id: "lb-result-preview" });
   add(body, "div", { id: "lb-generated-list" });
   add(body, "input", { id: "bp-copilotStudioUrl" });
-  let step8Els = null;
-  if (step8) {
-    const pane = add(body, "div", { id: "lb-pane-8" });
-    const box = add(pane, "input", { id: "lb-capture-on-build", attrs: { type: "checkbox", disabled: "" } });
+  let buildEls = null;
+  if (buildStep) {
+    const pane = add(body, "div", { id: "lb-pane-4" });
+    const label = add(pane, "label", { id: "lb-capture-on-build-label", attrs: { hidden: "" } });
+    const box = add(label, "input", { id: "lb-capture-on-build", attrs: { type: "checkbox", disabled: "" } });
     const status = add(pane, "p", { id: "lb-capture-on-build-status" });
     const setup = add(pane, "button", { id: "lb-capture-on-build-setup", attrs: { hidden: "" } });
     const pairing = add(pane, "div", { id: "lb-capture-on-build-pairing", attrs: { "data-sc-pairing-host": "build" } });
-    step8Els = { pane, box, status, setup, pairing };
+    buildEls = { pane, label, box, status, setup, pairing };
   }
 
   const clock = { now: NOW, seq: 1, timers: new Map() };
@@ -272,7 +273,7 @@ function makeHarness({ eventSource = true, generated = false, step8 = true } = {
     host,
     preview,
     downloadBtn,
-    step8: step8Els,
+    buildStep: buildEls,
     FakeEvent,
     FakeEventSource,
     FakeURL,
@@ -982,22 +983,22 @@ test("closing the card or getting a new code drops the confirmation and its time
   assert.equal(again.action("pair-copy-code") !== null, true);
 });
 
-test("the Step 8 pairing card confirms copies too, through the page live region", async () => {
+test("the Review and build pairing card confirms copies too, through the page live region", async () => {
   const h = makeHarness();
   const live = h.document.createElement("div");
   live.id = "app-live";
   h.document.body.appendChild(live);
   h.route("POST", /\/api\/capture\/pair$/, PAIR_REPLY);
-  h.step8.setup.click();
+  h.buildStep.setup.click();
   await h.flush();
-  const button = h.step8.pairing.querySelector('[data-sc-action="pair-copy-code"]');
-  assert.ok(button, "Step 8 shows the same pairing card");
+  const button = h.buildStep.pairing.querySelector('[data-sc-action="pair-copy-code"]');
+  assert.ok(button, "Review and build shows the same pairing card");
   button.focus();
   await h.run("scHandleAction")("", "pair-copy-code", button, "", null);
-  assert.equal(ackAfter(h.step8.pairing.querySelector('[data-sc-action="pair-copy-code"]')).textContent, OK_CODE);
+  assert.equal(ackAfter(h.buildStep.pairing.querySelector('[data-sc-action="pair-copy-code"]')).textContent, OK_CODE);
   assert.equal(live.textContent.replace(/\u00a0/g, ""), `${OK_CODE}.`);
   h.advance(3000);
-  assert.equal(visibleAcks({ host: h.step8.pairing }).length, 0);
+  assert.equal(visibleAcks({ host: h.buildStep.pairing }).length, 0);
 });
 
 test("every copy in the browser scripts goes through the confirmed path, and builds DOM without markup strings", () => {
@@ -1654,23 +1655,26 @@ test("file names, captions, messages, and addresses from the network are shown a
 
 // ── Capture when the lab is built ───────────────────────────────────────────
 
-test("capture-on-build is enabled only while a computer is connected, and setup is one click away", async () => {
+test("capture-on-build is shown and enabled only while a computer is connected, and setup is one click away", async () => {
   const h = makeHarness();
   h.route("POST", /\/api\/capture\/pair$/, PAIR_REPLY);
-  const { box, status, setup, pairing, pane } = h.step8;
+  const { box, label, status, setup, pairing, pane } = h.buildStep;
+  assert.equal(label.hidden, true, "the checkbox starts hidden");
   await h.run("scSyncCaptureOnBuild")();
   assert.equal(box.disabled, true);
   assert.equal(box.checked, false);
-  assert.match(status.textContent, /Your computer is not connected yet, so this is turned off\. You can connect it now/);
+  assert.equal(label.hidden, true, "with no computer connected the checkbox is hidden, not a dead control");
+  assert.equal(status.textContent, "Want screenshots taken as the lab is built? Connect your computer (about two minutes). Or capture them after the build.");
   assert.equal(setup.hidden, false, "the setup link shows");
 
   setup.click();
   await h.flush();
-  assert.ok(pairing.querySelector(".sc-pairing .sc-code"), "pairing happens right in Step 8");
+  assert.ok(pairing.querySelector(".sc-pairing .sc-code"), "pairing happens right in Review and build");
   h.status = statusPayload({ devices: [device({ id: "dev_bbbbbbbbbbbb" })] });
   h.advance(3000);
   await h.flush();
   assert.equal(box.disabled, false, "connecting turns the option on");
+  assert.equal(label.hidden, false, "and shows it");
   assert.equal(box.checked, true, "and checks it, since that is why the learner connected");
   assert.match(status.textContent, /^Connected: Ada PC\. Screenshots are captured on your computer right after your lab is built\.$/);
   assert.equal(setup.hidden, true);
@@ -1679,11 +1683,12 @@ test("capture-on-build is enabled only while a computer is connected, and setup 
   await h.run("scSyncCaptureOnBuild")({ fetch: false });
   assert.equal(box.disabled, true, "disconnecting turns it off again");
   assert.equal(box.checked, false);
+  assert.equal(label.hidden, true, "and hides it again");
 
   const before = h.callsTo("GET", /\/api\/capture\/status$/).length;
   h.windowListeners.focus.forEach((fn) => fn());
   await h.flush();
-  assert.equal(h.callsTo("GET", /\/api\/capture\/status$/).length, before + 1, "returning to the tab re-reads the status while Step 8 is open");
+  assert.equal(h.callsTo("GET", /\/api\/capture\/status$/).length, before + 1, "returning to the tab re-reads the status while Review and build is open");
   pane.style.display = "none";
   h.windowListeners.focus.forEach((fn) => fn());
   await h.flush();
@@ -1692,8 +1697,9 @@ test("capture-on-build is enabled only while a computer is connected, and setup 
   const broken = makeHarness();
   broken.route("GET", /\/api\/capture\/status$/, { status: 500, body: { error: "down" } });
   await broken.run("scSyncCaptureOnBuild")();
-  assert.equal(broken.step8.box.disabled, true);
-  assert.match(broken.step8.status.textContent, /We could not check whether a computer is connected\. You can still build your lab/);
+  assert.equal(broken.buildStep.box.disabled, true);
+  assert.equal(broken.buildStep.label.hidden, true);
+  assert.match(broken.buildStep.status.textContent, /We could not check whether a computer is connected\. You can still build your lab/);
 });
 
 test("the build flow never waits on capture and hands a queued job to the live progress card", () => {
@@ -1705,15 +1711,15 @@ test("the build flow never waits on capture and hands a queued job to the live p
   assert.match(showResult, /lbRenderLabChecklist\(data\.labId\)/);
   assert.doesNotMatch(APP_SOURCE, /cliCommandHeaded|screenshotCapture\.cliCommand|Playwright/, "no command-line string is shown after a build");
   const wizard = publicFile("lab-builder-wizard.js");
-  assert.match(wizard, /step === LB_STEP\.generate\)\s*\{[\s\S]{0,260}scSyncCaptureOnBuild\(\)/, "Step 8 reads the capture status when it opens");
-  const step8 = INDEX_HTML.slice(INDEX_HTML.indexOf('id="lb-pane-8"'), INDEX_HTML.indexOf('<div class="lb-step-footer"', INDEX_HTML.indexOf('id="lb-pane-8"')));
-  assert.match(step8, /<input type="checkbox" id="lb-capture-on-build" autocomplete="off" disabled aria-describedby="lb-capture-on-build-status">/);
-  assert.match(step8, /Capture screenshots when the lab is built/);
-  assert.match(step8, /<p id="lb-capture-on-build-status"[^>]*role="status" aria-live="polite"/);
-  assert.match(step8, /id="lb-capture-on-build-setup"[^>]*hidden>Set up screenshot capture<\/button>/);
-  assert.match(step8, /id="lb-capture-on-build-pairing" data-sc-pairing-host="build"/);
-  assert.match(step8, /never slows down or blocks building your lab/);
-  assert.doesNotMatch(step8, /Playwright|headed|\.auth|Learn Sync/i);
+  assert.match(wizard, /step === LB_STEP\.review\)\s*\{[\s\S]{0,260}scSyncCaptureOnBuild\(\)/, "Review and build reads the capture status when it opens");
+  const reviewPane = INDEX_HTML.slice(INDEX_HTML.indexOf('id="lb-pane-4"'), INDEX_HTML.indexOf('<div class="lb-step-footer"', INDEX_HTML.indexOf('id="lb-pane-4"')));
+  assert.match(reviewPane, /<label[^>]*id="lb-capture-on-build-label"[^>]*hidden>\s*<input type="checkbox" id="lb-capture-on-build" autocomplete="off" disabled aria-describedby="lb-capture-on-build-status">/, "the checkbox is hidden until a computer is connected");
+  assert.match(reviewPane, /Capture screenshots when the lab is built/);
+  assert.match(reviewPane, /<p id="lb-capture-on-build-status"[^>]*role="status" aria-live="polite"/);
+  assert.match(reviewPane, /id="lb-capture-on-build-setup"[^>]*hidden>Set up screenshot capture<\/button>/);
+  assert.match(reviewPane, /id="lb-capture-on-build-pairing" data-sc-pairing-host="build"/);
+  assert.match(reviewPane, /never slows down or blocks the build/);
+  assert.doesNotMatch(reviewPane, /Playwright|headed|\.auth|Learn Sync/i);
 });
 
 // ── Finish your lab ─────────────────────────────────────────────────────────

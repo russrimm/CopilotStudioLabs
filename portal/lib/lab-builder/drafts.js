@@ -19,7 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 /** The version written into every file. Bump it, and add a step to MIGRATIONS, when the saved shape changes. */
-export const DRAFT_SCHEMA_VERSION = 1;
+export const DRAFT_SCHEMA_VERSION = 2;
 export const MAX_DRAFTS = 50;
 export const MAX_DRAFT_BYTES = 256 * 1024;
 export const MAX_NAME_LENGTH = 80;
@@ -33,9 +33,10 @@ const ID_TEXT = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/;
 const DRAFT_ID = /^draft-[0-9a-f]{24}$/;
 const LAB_ID = /^[a-z0-9-]{1,100}$/i;
 const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
-const CHOSEN_STEPS = ["product", "vertical", "departments", "level", "harness", "topics"];
+// Version 2 has four wizard steps: 1 Product, 2 Tailor it, 3 Topics, 4 Review and build.
+const CHOSEN_STEPS = ["product", "tailor", "topics"];
 const OVERRIDE_KEYS = ["companyName", "tagline", "moreInfoUrl", "moreInfoLabel", "supportName", "supportEmail", "footerText"];
-const STEP_COUNT = 8;
+const STEP_COUNT = 4;
 
 /** A failure with a message that is safe and clear enough to show a person as it is. */
 export class DraftError extends Error {
@@ -47,8 +48,30 @@ export class DraftError extends Error {
   }
 }
 
+/**
+ * Version 1 had eight wizard steps (1 Product, 2 Vertical, 3 Departments, 4 Level, 5 Harness, 6 Topics, 7 Review,
+ * 8 Generate); the step number was always the fixed id, even when the Harness step was hidden. Version 2 folds
+ * Vertical, Departments, Level, and Harness into one "Tailor it" step and Review and Generate into "Review and build".
+ */
+const V1_STEP_TO_V2 = Object.freeze({ 1: 1, 2: 2, 3: 2, 4: 2, 5: 2, 6: 3, 7: 4, 8: 4 });
+const V1_CHOSEN_TO_V2 = Object.freeze({ product: "product", vertical: "tailor", departments: "tailor", level: "tailor", harness: "tailor", topics: "topics" });
+
+/** Map a version 1 draft's position and answered steps onto the four version 2 steps. Everything else is unchanged. */
+function migrateV1ToV2(record) {
+  const wizard = record?.content?.wizard;
+  if (!wizard || typeof wizard !== "object" || Array.isArray(wizard)) return record;
+  const next = { ...wizard };
+  // A value that is not a version 1 step is left alone, so validation refuses the file instead of guessing.
+  if (Number.isInteger(wizard.step) && V1_STEP_TO_V2[wizard.step]) next.step = V1_STEP_TO_V2[wizard.step];
+  if (Number.isInteger(wizard.furthest) && V1_STEP_TO_V2[wizard.furthest]) next.furthest = V1_STEP_TO_V2[wizard.furthest];
+  if (Array.isArray(wizard.chosenSteps)) {
+    next.chosenSteps = [...new Set(wizard.chosenSteps.map((id) => V1_CHOSEN_TO_V2[id] || id))];
+  }
+  return { ...record, content: { ...record.content, wizard: next } };
+}
+
 /** Steps that upgrade a file saved by an older version, keyed by the version they upgrade from. */
-const MIGRATIONS = Object.freeze({});
+const MIGRATIONS = Object.freeze({ 1: migrateV1ToV2 });
 
 export function isDraftId(value) {
   return typeof value === "string" && DRAFT_ID.test(value);

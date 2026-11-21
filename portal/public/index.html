@@ -1909,7 +1909,7 @@
       gap: 12px;
       flex-wrap: wrap;
     }
-    #lb-pane-6 > div:last-child {
+    #lb-pane-3 > div:last-child {
       margin-top: 20px !important;
       padding-top: 16px;
       border-top: 1px solid var(--border);
@@ -1931,17 +1931,17 @@
       margin-left: auto;
     }
     .lb-nav-next,
-    #lb-pane-6 > div:last-child > .btn-primary {
+    #lb-pane-3 > div:last-child > .btn-primary {
       padding: 10px 20px;
       font-size: 14px;
       font-weight: 600;
     }
     .lb-step-footer > .lb-nav-next,
-    #lb-pane-6 > div:last-child > .btn-primary {
+    #lb-pane-3 > div:last-child > .btn-primary {
       margin-left: auto;
     }
     .lb-nav-next:focus-visible,
-    #lb-pane-6 > div:last-child > .btn-primary:focus-visible {
+    #lb-pane-3 > div:last-child > .btn-primary:focus-visible {
       outline: 3px solid var(--accent-hover);
       outline-offset: 2px;
     }
@@ -1975,6 +1975,92 @@
     .lb-pane h3:focus-visible { outline: 3px solid var(--accent-hover); outline-offset: 4px; }
     .lb-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
     .lb-legend { font-size: 13px; font-weight: 600; margin-bottom: 8px; padding: 0; }
+    /* ── Lab builder: Tailor it, step lead, brand row ── */
+    .lb-step-lead { margin: 0 0 16px; color: var(--text-muted); font-size: 14px; max-width: 70ch; }
+    .lb-tailor { display: flex; flex-direction: column; max-width: 780px; }
+    .lb-tailor-row { margin: 0; padding: 18px 0; border: 0; border-top: 1px solid var(--border); min-width: 0; }
+    .lb-tailor-row:first-child { border-top: 0; padding-top: 4px; }
+    .lb-tailor-row[hidden] { display: none; }
+    .lb-tailor-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+    .lb-tailor-label { display: block; margin: 0 0 8px; padding: 0; font-size: 15px; font-weight: 600; color: var(--text); }
+    .lb-tailor-head .lb-tailor-label { margin: 0; min-width: 110px; }
+    .lb-tailor-select { min-width: min(100%, 260px); padding: 8px 10px; font: inherit; font-size: 14px; color: var(--text); background: var(--bg); border: 1px solid var(--border-strong); border-radius: 8px; }
+    .lb-tailor-hint { margin: 8px 0 0; font-size: 13px; color: var(--text-muted); }
+    .lb-tailor-help { margin: 0 0 10px; font-size: 13px; line-height: 1.5; color: var(--text-muted); max-width: 70ch; }
+    .lb-tailor-more { margin-top: 12px; font-size: 13px; }
+    .lb-tailor-more > summary { cursor: pointer; width: fit-content; color: var(--link-color); font-weight: 600; }
+    .lb-tailor-more[open] > summary { margin-bottom: 8px; }
+    .lb-chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .lb-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 34px;
+      padding: 4px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg);
+      font-size: 13px;
+      cursor: pointer;
+      transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+    }
+    .lb-chip:hover { border-color: var(--accent); background: var(--surface-hover); }
+    .lb-chip:has(> input:checked) { border-color: var(--accent); background: var(--lb-card-checked-bg); }
+    .lb-chip:has(> input:focus-visible) { border-color: var(--accent-hover); box-shadow: 0 0 0 2px var(--accent-glow); }
+    .lb-chip input { margin: 0; accent-color: var(--accent); }
+    .lb-chip-all { font-weight: 600; }
+    .lb-segmented { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--bg); }
+    .lb-seg-option {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 8px;
+      align-content: center;
+      padding: 10px 12px;
+      border-left: 1px solid var(--border);
+      cursor: pointer;
+      transition: background var(--dur-fast) ease;
+    }
+    .lb-seg-option:first-child { border-left: 0; }
+    .lb-seg-option:hover { background: var(--surface-hover); }
+    .lb-seg-option:has(> input:checked) { background: var(--lb-card-checked-bg); box-shadow: inset 0 0 0 2px var(--accent); }
+    .lb-seg-option:has(> input:focus-visible) { box-shadow: inset 0 0 0 2px var(--accent-hover), 0 0 0 2px var(--accent-glow); }
+    .lb-seg-option input { grid-row: 1 / span 2; margin: 3px 0 0; accent-color: var(--accent); }
+    .lb-seg-title { font-size: 14px; font-weight: 600; }
+    .lb-seg-count { font-size: 12px; color: var(--text-muted); }
+    .lb-radio-list { display: flex; flex-direction: column; gap: 8px; }
+    .lb-radio-option {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      column-gap: 10px;
+      row-gap: 2px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      cursor: pointer;
+      transition: border-color var(--dur-fast) ease, background var(--dur-fast) ease;
+    }
+    .lb-radio-option:not(.lb-unavailable):hover { border-color: var(--accent); background: var(--surface-hover); }
+    .lb-radio-option:has(> input:checked) { border-color: var(--accent); background: var(--lb-card-checked-bg); }
+    .lb-radio-option:has(> input:focus-visible) { border-color: var(--accent-hover); box-shadow: 0 0 0 2px var(--accent-glow); }
+    .lb-radio-option input { grid-row: 1 / span 2; margin: 3px 0 0; accent-color: var(--accent); }
+    .lb-radio-name { font-size: 14px; font-weight: 600; }
+    .lb-radio-desc { font-size: 13px; line-height: 1.45; color: var(--text-muted); }
+    .lb-check-list { display: flex; flex-direction: column; gap: 6px; }
+    .lb-check-option { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+    .lb-check-option input { margin: 0; accent-color: var(--accent); }
+    .lb-brand-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 14px 0; padding: 10px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .lb-brand-summary { margin: 0; font-size: 14px; }
+    .lb-capture-on-build-label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+    .lb-capture-on-build-label[hidden], .lb-capture-on-build-status:empty { display: none; }
+    .lb-capture-on-build-label input { margin-top: 3px; accent-color: var(--accent); }
+    .lb-capture-on-build-help { display: block; font-size: 13px; color: var(--text-muted); }
+    .lb-sharepoint-site-hint { margin: 8px 0 0; font-size: 13px; color: var(--text-muted); }
+    @media (max-width: 560px) {
+      .lb-segmented { grid-template-columns: 1fr; }
+      .lb-seg-option { border-left: 0; border-top: 1px solid var(--border); }
+      .lb-seg-option:first-child { border-top: 0; }
+    }
     .lb-inline-label { font-size: 13px; font-weight: 600; }
     .lb-unavailable { opacity: 0.75; }
     .lb-topic-header {
@@ -5322,7 +5408,7 @@
       .lab-pagination-controls,
       .lb-wizard-sticky,
       .lb-step-footer,
-      #lb-pane-6 > div:last-child {
+      #lb-pane-3 > div:last-child {
         display: none !important;
       }
 
@@ -5881,10 +5967,8 @@
             <div class="panel">
               <h3 id="lb-build-heading" tabindex="-1">🧬 Build a Custom Lab</h3>
               <p style="color: var(--text-muted); margin-bottom: 0; font-size: 14px;">
-                Answer one question at a time: product, industry, departments, level, harness (only for products that have
-                harnesses), then the topics. Each answer changes the topics we recommend next. Every module is grounded
-                against live Microsoft Learn documentation through the Microsoft Learn MCP server, so the steps and
-                citations reflect the current product. Times are estimates to help you plan, never limits.
+                Four steps: pick the product, tailor it, choose the topics, then build. Every module is checked against
+                Microsoft Learn, and times are estimates, never limits.
               </p>
             </div>
 
@@ -5893,23 +5977,19 @@
                 <nav aria-label="Lab builder steps">
                   <ol class="lb-steps" id="lb-steps">
                     <li><button type="button" class="lb-step active" data-lb-step="1" aria-current="step" onclick="lbGoToStep(1)"><span aria-hidden="true">1</span> Product</button></li>
-                    <li><button type="button" class="lb-step" data-lb-step="2" onclick="lbGoToStep(2)" disabled><span aria-hidden="true">2</span> Vertical</button></li>
-                    <li><button type="button" class="lb-step" data-lb-step="3" onclick="lbGoToStep(3)" disabled><span aria-hidden="true">3</span> Departments</button></li>
-                    <li><button type="button" class="lb-step" data-lb-step="4" onclick="lbGoToStep(4)" disabled><span aria-hidden="true">4</span> Level</button></li>
-                    <li><button type="button" class="lb-step" data-lb-step="5" onclick="lbGoToStep(5)" disabled><span aria-hidden="true">5</span> Harness</button></li>
-                    <li><button type="button" class="lb-step" data-lb-step="6" onclick="lbGoToStep(6)" disabled><span aria-hidden="true">6</span> Topics</button></li>
-                    <li><button type="button" class="lb-step" data-lb-step="7" onclick="lbGoToStep(7)" disabled><span aria-hidden="true">7</span> Review</button></li>
-                    <li><button type="button" class="lb-step" data-lb-step="8" onclick="lbGoToStep(8)" disabled><span aria-hidden="true">8</span> Generate</button></li>
+                    <li><button type="button" class="lb-step" data-lb-step="2" onclick="lbGoToStep(2)" disabled><span aria-hidden="true">2</span> Tailor it</button></li>
+                    <li><button type="button" class="lb-step" data-lb-step="3" onclick="lbGoToStep(3)" disabled><span aria-hidden="true">3</span> Topics</button></li>
+                    <li><button type="button" class="lb-step" data-lb-step="4" onclick="lbGoToStep(4)" disabled><span aria-hidden="true">4</span> Review and build</button></li>
                   </ol>
                 </nav>
                 <div class="lb-summary-bar">
-                  <p id="lb-summary" class="lb-summary" role="status" aria-live="polite"><strong>Your lab so far:</strong> No products selected yet — choose one or more products in Step 1 to begin.</p>
+                  <p id="lb-summary" class="lb-summary" role="status" aria-live="polite"><strong>Your lab so far:</strong> nothing yet.</p>
                   <div class="lb-sticky-actions" id="lb-sticky-nav" role="group" aria-label="Wizard step navigation">
                     <button type="button" class="btn btn-sm" id="lb-save-draft" onclick="lbDraftOpenSave()" title="Saves every choice you have made so far. You can pick it up later under Saved drafts.">Save and finish later</button>
                     <button type="button" class="btn btn-sm" id="lb-start-over" onclick="lbStartNewLab()" hidden title="Clears your choices in the wizard. Your saved drafts are never deleted." aria-describedby="lb-start-over-hint">Start over</button>
                     <span id="lb-start-over-hint" class="sr-only">Clears your choices in the wizard. Your saved drafts are never deleted.</span>
                     <button type="button" class="btn lb-nav-back" id="lb-sticky-back" onclick="lbPrevStep()" hidden>← Back</button>
-                    <button type="button" class="btn btn-primary lb-nav-next" id="lb-sticky-next" onclick="lbStickyPrimaryAction()">Next: Vertical →</button>
+                    <button type="button" class="btn btn-primary lb-nav-next" id="lb-sticky-next" onclick="lbStickyPrimaryAction()">Next: Tailor it →</button>
                   </div>
                 </div>
                 <p id="lb-draft-status" class="lb-draft-status" role="status" aria-live="polite"></p>
@@ -5930,7 +6010,7 @@
 
             <!-- Step 1: product -->
             <div class="panel lb-pane" id="lb-pane-1">
-              <h3 id="lb-heading-1" tabindex="-1">Step 1 of 8: Which products is this lab about?</h3>
+              <h3 id="lb-heading-1" tabindex="-1">Step 1 of 4: Which products is this lab about?</h3>
               <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
                 Choose one or more products to include in this lab — for example, SharePoint AI on its own or combined with Copilot Studio.
               </p>
@@ -5961,101 +6041,73 @@
                 </div>
               </details>
               <div class="lb-step-footer" data-lb-step-footer>
-                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Vertical →</button>
+                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Tailor it →</button>
               </div>
             </div>
 
-            <!-- Step 2: vertical -->
+            <!-- Step 2: tailor it (industry, departments, level, and the harness when a product has one) -->
             <div class="panel lb-pane" id="lb-pane-2" style="display: none;">
-              <h3 id="lb-heading-2" tabindex="-1">Step 2 of 8: Which industry is this lab for?</h3>
-              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                The industry sets the agent scenario, sample questions, knowledge sources, and vocabulary used throughout the lab.
-                Not sure? Keep Cross-industry.
-              </p>
-              <div id="lb-industry-grid" class="scenario-grid">
-                <div class="scenario-empty">Loading industries...</div>
+              <h3 id="lb-heading-2" tabindex="-1">Step 2 of 4: Tailor it</h3>
+              <p class="lb-step-lead">Every choice here already has a default selected. Change only what matters for this customer.</p>
+              <div class="lb-tailor">
+                <div class="lb-tailor-row">
+                  <div class="lb-tailor-head">
+                    <label class="lb-tailor-label" for="lb-industry-select">Industry</label>
+                    <select id="lb-industry-select" class="lb-tailor-select" autocomplete="off">
+                      <option value="">Cross-industry</option>
+                    </select>
+                  </div>
+                  <p id="lb-industry-hint" class="lb-tailor-hint"></p>
+                </div>
+                <div class="lb-tailor-row" role="group" aria-labelledby="lb-role-label">
+                  <span class="lb-tailor-label" id="lb-role-label">Departments</span>
+                  <div id="lb-role-list" class="lb-chip-list">
+                    <div class="scenario-empty">Loading departments...</div>
+                  </div>
+                  <p id="lb-role-hint" class="lb-tailor-hint"></p>
+                </div>
+                <div class="lb-tailor-row" role="radiogroup" aria-labelledby="lb-level-label">
+                  <span class="lb-tailor-label" id="lb-level-label">Level</span>
+                  <div id="lb-level-options" class="lb-segmented"></div>
+                  <p id="lb-level-hint" class="lb-tailor-hint"></p>
+                  <div id="lb-level-notice-2" role="status" aria-live="polite"></div>
+                </div>
+                <div class="lb-tailor-row" id="lb-harness-row" role="radiogroup" aria-labelledby="lb-harness-label" hidden>
+                  <span class="lb-tailor-label" id="lb-harness-label">Agent experience (harness)</span>
+                  <p class="lb-tailor-help">
+                    The harness is the part of Copilot Studio your learners build on. Each one has its own screens, and the lab follows the one you pick.
+                    <a href="https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness" target="_blank" rel="noopener noreferrer">Compare them on Microsoft Learn (opens in a new tab)</a>.
+                  </p>
+                  <div id="lb-harness-options" class="lb-radio-list"></div>
+                  <p id="lb-harness-hint" class="lb-tailor-hint"></p>
+                  <details class="lb-tailor-more">
+                    <summary>Add "How this differs" notes</summary>
+                    <p class="lb-tailor-help">Each section of the lab gets a note you can open to see how the same idea works on another harness, with Microsoft Learn sources.</p>
+                    <div id="lb-differences-options" class="lb-check-list"></div>
+                  </details>
+                </div>
               </div>
               <div class="lb-step-footer" data-lb-step-footer>
                 <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Departments →</button>
+                <button class="btn btn-primary lb-nav-next" type="button" id="lb-next-from-tailor" onclick="lbNextStep()">Next: Topics →</button>
               </div>
             </div>
 
-            <!-- Step 3: departments -->
+            <!-- Step 3: topics -->
             <div class="panel lb-pane" id="lb-pane-3" style="display: none;">
-              <h3 id="lb-heading-3" tabindex="-1">Step 3 of 8: Which departments are you teaching?</h3>
-              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                Choose any number. Departments add the topics their teams use most and shape the design guidance in each module.
-                Optional: leave all unchecked for a general lab.
-              </p>
-              <div id="lb-role-list" class="scenario-role-list">
-                <div class="scenario-empty">Loading departments...</div>
-              </div>
-              <div class="lb-step-footer" data-lb-step-footer>
-                <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Level →</button>
-              </div>
-            </div>
-
-            <!-- Step 4: level -->
-            <div class="panel lb-pane" id="lb-pane-4" style="display: none;">
-              <h3 id="lb-heading-4" tabindex="-1">Step 4 of 8: What level should the lab be?</h3>
-              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                The level you choose here decides what the rest of the wizard shows and builds. Only topics at this level are
-                listed and generated. If a topic you pick builds on a lower-level topic, it is added as a short, labeled
-                prerequisite recap that you can turn off.
-              </p>
-              <fieldset class="lb-fieldset">
-                <legend class="lb-legend">Lab level</legend>
-                <div id="lb-level-options" class="scenario-role-list"></div>
-              </fieldset>
-              <div id="lb-level-notice-4" role="status" aria-live="polite"></div>
-              <div class="lb-step-footer" data-lb-step-footer>
-                <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn btn-primary lb-nav-next" type="button" id="lb-next-from-level" onclick="lbNextStep()">Next: Harness →</button>
-              </div>
-            </div>
-
-            <!-- Step 5: harness (shown only when a selected product has harnesses) -->
-            <div class="panel lb-pane" id="lb-pane-5" style="display: none;">
-              <h3 id="lb-heading-5" tabindex="-1">Step 5 of 8: Which harness will learners build on?</h3>
-              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                A harness is the runtime behind a Copilot Studio agent. Each has its own authoring surface, so the lab follows one.
-                Not sure? <a href="https://learn.microsoft.com/microsoft-copilot-studio/guidance/choose-harness" target="_blank" rel="noopener noreferrer">Compare the harnesses on Microsoft Learn (opens in a new tab)</a>.
-              </p>
-              <fieldset class="lb-fieldset">
-                <legend class="lb-legend">Harness</legend>
-                <div id="lb-harness-options" class="scenario-role-list"></div>
-              </fieldset>
-              <fieldset class="lb-fieldset" style="margin-top: 16px;">
-                <legend class="lb-legend">Add expandable "How this differs" notes for</legend>
-                <p class="scenario-card-desc" style="margin: 0 0 8px;">
-                  Each section gets a note you can open to see how the same idea works on another harness: the equivalent
-                  steps, terminology, availability, and limits, with Microsoft Learn sources.
-                </p>
-                <div id="lb-differences-options" class="scenario-role-list"></div>
-              </fieldset>
-              <div class="lb-step-footer" data-lb-step-footer>
-                <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Topics →</button>
-              </div>
-            </div>
-
-            <!-- Step 6: topics -->
-            <div class="panel lb-pane" id="lb-pane-6" style="display: none;">
-              <h3 id="lb-heading-6" tabindex="-1">Step 6 of 8: Which topics should the lab cover?</h3>
+              <h3 id="lb-heading-3" tabindex="-1">Step 3 of 4: Which topics should the lab cover?</h3>
               <div class="lb-topic-header">
                 <p id="lb-topic-intro" class="lb-topic-intro"></p>
                 <details class="lb-topic-help">
                   <summary>How recommendations, levels, and prerequisite recaps work</summary>
                   <div class="lb-topic-help-body">
                     <p>Topics are pre-selected only when they follow directly from the vertical or departments you chose, and each card shows why. With no vertical or department, nothing is pre-selected — check individual topics or choose <strong>Select recommended</strong> to add our suggested baseline.</p>
-                    <p>Only topics at the level you chose in Step 4 appear in the main groups. Lower-level prerequisites required by your selections are added automatically as short recaps in their own collapsible section at the bottom; uncheck a recap if learners already know it. Optional 3rd-party connectors stay unchecked unless you explicitly select them.</p>
+                    <p>Only topics at the level you chose in Step 2 appear in the main groups. Lower-level prerequisites required by your selections are added automatically as short recaps in their own collapsible section at the bottom; uncheck a recap if learners already know it. Optional 3rd-party connectors stay unchecked unless you explicitly select them.</p>
                   </div>
                 </details>
               </div>
               <div id="lb-product-notes" role="status" aria-live="polite"></div>
-              <div id="lb-level-notice-6" role="status" aria-live="polite"></div>
+              <div id="lb-level-notice-3" role="status" aria-live="polite"></div>
               <div class="lb-learn-bar" id="lb-learn-bar">
                 <p id="lb-learn-status" class="lb-learn-status" role="status" aria-live="polite">Checking when the topic list was last refreshed from Microsoft Learn...</p>
                 <button class="btn btn-sm" type="button" id="lb-learn-refresh" onclick="lbRefreshLearn()">Refresh from Microsoft Learn</button>
@@ -6124,15 +6176,15 @@
               <div id="lb-topic-groups"><div class="scenario-empty">Loading topics...</div></div>
               <div data-lb-step-footer style="margin-top: 16px; display: flex; gap: 12px;">
                 <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
-                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Review →</button>
+                <button class="btn btn-primary lb-nav-next" type="button" onclick="lbNextStep()">Next: Review and build →</button>
               </div>
             </div>
 
-            <!-- Step 7: review -->
-            <div class="panel lb-pane" id="lb-pane-7" style="display: none;">
-              <h3 id="lb-heading-7" tabindex="-1">Step 7 of 8: Review your lab</h3>
-              <p class="lb-review-intro" style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                Review your planned curriculum below. Uncheck any module or prerequisite recap you do not want to remove it from the lab.
+            <!-- Step 4: review and build -->
+            <div class="panel lb-pane" id="lb-pane-4" style="display: none;">
+              <h3 id="lb-heading-4" tabindex="-1">Step 4 of 4: Review and build your lab</h3>
+              <p class="lb-review-intro lb-step-lead">
+                Uncheck any module you do not want. Then build.
               </p>
               <p id="lb-review-error" class="lb-error" role="alert"></p>
               <div id="lb-preview" class="scenario-empty">Choose topics to see the outline.</div>
@@ -6147,11 +6199,10 @@
               </div>
               <section id="lb-sharepoint-site-card" class="lb-sharepoint-site-card" data-sharepoint-prompt-card="true" aria-labelledby="lb-sharepoint-site-heading" hidden>
                 <div class="lb-sharepoint-site-head">
-                  <h4 id="lb-sharepoint-site-heading" class="lb-sharepoint-site-title">SharePoint Site Details</h4>
-                  <span class="lb-badge lb-badge-product">SharePoint site link</span>
+                  <h4 id="lb-sharepoint-site-heading" class="lb-sharepoint-site-title">SharePoint site (optional)</h4>
                 </div>
                 <p id="lb-sharepoint-site-desc" class="lb-sharepoint-site-desc">
-                  This lab requires having or creating a SharePoint site. Enter the SharePoint site name and URL below so learners get a direct clickable hyperlink to open (or create and verify) the site in the lab overview, prerequisites, and SharePoint walkthrough steps.
+                  Some topics use a SharePoint site. Add its name and address so learners get a link to it.
                 </p>
                 <div class="lb-sharepoint-site-grid">
                   <div class="form-group">
@@ -6163,20 +6214,20 @@
                     <input type="url" id="lb-sharepoint-site-url" autocomplete="off" placeholder="https://contoso.sharepoint.com/sites/OperationsHub" aria-describedby="lb-sharepoint-site-desc lb-sharepoint-site-error">
                   </div>
                 </div>
+                <p id="lb-sharepoint-site-hint" class="lb-sharepoint-site-hint">Not sure yet? Leave both blank. Learners then see placeholder instructions, and you can add the site to the lab later.</p>
                 <p id="lb-sharepoint-site-error" class="lb-error" role="alert"></p>
                 <div id="lb-sharepoint-site-preview" class="lb-sharepoint-site-preview" role="status" aria-live="polite" hidden>
                   <span>Learner hyperlink preview:</span>
                   <a id="lb-sharepoint-site-preview-link" href="https://contoso.sharepoint.com" target="_blank" rel="noopener noreferrer">Contoso Operations Hub</a>
                 </div>
-                <div id="lb-sharepoint-site-prompt" class="lb-sharepoint-site-prompt" role="alert" hidden>
-                  <span id="lb-sharepoint-site-prompt-text">Enter the SharePoint site name and URL above so learners can click directly into the site, or skip if you do not have a tenant URL yet.</span>
-                  <button type="button" class="btn btn-small" id="lb-sharepoint-site-skip">Skip &amp; use placeholder URL</button>
-                </div>
               </section>
-              <section id="lb-customize-card" class="lb-customize-card" aria-labelledby="lb-customize-heading">
+              <div class="lb-brand-row" id="lb-brand-row">
+                <p id="lb-brand-summary" class="lb-brand-summary" role="status" aria-live="polite">Brand: Default</p>
+                <button type="button" class="btn btn-sm" id="lb-brand-change" aria-expanded="false" aria-controls="lb-customize-card">Change</button>
+              </div>
+              <section id="lb-customize-card" class="lb-customize-card" aria-labelledby="lb-customize-heading" hidden>
                 <div class="lb-customize-head">
                   <h4 id="lb-customize-heading" class="lb-customize-title">Customize this lab</h4>
-                  <span class="lb-badge lb-badge-product">Branding</span>
                 </div>
                 <p id="lb-customize-desc" class="lb-customize-desc">
                   Pick a brand profile for this lab, then override details for this lab only. Leave a field blank to use the profile's value. The lab keeps its own copy of the profile, so later profile edits never change it unless you update it.
@@ -6261,34 +6312,6 @@
                   </label>
                 </div>
               </details>
-              <div class="lb-step-footer" data-lb-step-footer>
-                <div class="lb-step-footer-secondary">
-                  <button class="btn lb-nav-back" type="button" onclick="lbPrevStep()">← Back</button>
-                  <button class="btn" type="button" onclick="lbPreview()">Refresh outline</button>
-                </div>
-                <button class="btn btn-primary lb-nav-next" type="button" id="lb-next-from-review" onclick="lbNextStep()">Next: Generate →</button>
-              </div>
-            </div>
-
-            <!-- Step 8: generate -->
-            <div class="panel lb-pane" id="lb-pane-8" style="display: none;">
-              <h3 id="lb-heading-8" tabindex="-1">Step 8 of 8: Generate your lab</h3>
-              <p style="color: var(--text-muted); margin-bottom: 12px; font-size: 14px;">
-                We research each topic on Microsoft Learn and write the lab. This can take a minute. You can go back to any step first.
-              </p>
-              <section class="lb-next" aria-labelledby="lb-next-heading">
-                <h4 id="lb-next-heading" class="lb-next-title">What happens next</h4>
-                <ol class="lb-next-list">
-                  <li><strong>Build.</strong> We write your lab. This takes about a minute.</li>
-                  <li><strong>Customize.</strong> Check the branding and links.</li>
-                  <li><strong>Capture screenshots.</strong> Do it on your own computer, or add images by hand.</li>
-                  <li><strong>Check against Microsoft Learn.</strong> Make sure the steps match the current documentation.</li>
-                  <li><strong>Download.</strong> Share it as a ZIP, Word, PowerPoint, PDF, or HTML file.</li>
-                </ol>
-                <p class="lb-next-note">When your lab is ready, <strong>Finish your lab</strong> at the top of the result lists these steps with one button for each.</p>
-              </section>
-              <div id="lb-step8-sharepoint-summary" class="lb-step8-sharepoint-summary" role="status" aria-live="polite" hidden></div>
-              <p id="lb-step8-customize-summary" class="lb-step8-customize-summary" role="status" aria-live="polite" hidden></p>
               <fieldset id="lb-save-mode" class="lb-fieldset lb-save-mode" hidden>
                 <legend class="lb-legend" id="lb-save-mode-legend">How should this be saved?</legend>
                 <div class="scenario-role-list">
@@ -6309,14 +6332,14 @@
                 </div>
               </fieldset>
               <div class="lb-capture-on-build-opt" id="lb-capture-on-build-wrap">
-                <label class="scenario-role" for="lb-capture-on-build">
+                <label class="lb-capture-on-build-label" for="lb-capture-on-build" id="lb-capture-on-build-label" hidden>
                   <input type="checkbox" id="lb-capture-on-build" autocomplete="off" disabled aria-describedby="lb-capture-on-build-status">
                   <span>
                     <span style="font-weight: 600;">Capture screenshots when the lab is built</span>
-                    <div class="scenario-card-desc">Your computer opens each screen, takes the picture, and checks it. The screenshots appear in your lab as they finish. This never slows down or blocks building your lab, and you can capture screenshots any time after.</div>
+                    <span class="lb-capture-on-build-help">Your computer opens each screen and takes the picture. This never slows down or blocks the build.</span>
                   </span>
                 </label>
-                <p id="lb-capture-on-build-status" class="lb-capture-on-build-status" role="status" aria-live="polite">Checking whether a computer is connected.</p>
+                <p id="lb-capture-on-build-status" class="lb-capture-on-build-status" role="status" aria-live="polite"></p>
                 <button type="button" class="btn btn-sm" id="lb-capture-on-build-setup" hidden>Set up screenshot capture</button>
                 <div id="lb-capture-on-build-pairing" data-sc-pairing-host="build"></div>
               </div>
@@ -6327,7 +6350,7 @@
                 </div>
                 <div class="lb-step-footer-primary">
                   <button class="btn" type="button" id="lb-cancel-btn" onclick="lbCancelGenerate()" hidden>Cancel</button>
-                  <button class="btn btn-primary lb-nav-next" type="button" id="lb-generate-btn" onclick="lbGenerate()">⚡ Generate Lab</button>
+                  <button class="btn btn-primary lb-nav-next" type="button" id="lb-generate-btn" onclick="lbGenerate()">Build my lab</button>
                 </div>
               </div>
               <div id="lb-generating-card" class="lb-generating-card" hidden>

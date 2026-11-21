@@ -232,7 +232,7 @@ const ROLES = getRoles().slice(0, 2).map((r) => r.id);
 const REMOVED_NAME = getFeatures().find((f) => f.id === CATALOG[1]).name;
 
 /** Build a rich, partly finished lab through the wizard's own state, the way the steps would leave it. */
-async function richState(h, { step = 6 } = {}) {
+async function richState(h, { step = 3 } = {}) {
   h.context.__rich = { industry: INDUSTRY, roles: ROLES, catalogA: CATALOG[0], catalogB: CATALOG[1], alpha: ALPHA.id, plain: PLAIN.id, sub: ALPHA.subtopics[0].id, removedName: REMOVED_NAME, step };
   h.run(`
     labBuilder.selectedProducts = new Set(["copilot-studio", "sharepoint-ai"]);
@@ -241,7 +241,7 @@ async function richState(h, { step = 6 } = {}) {
     labBuilder.level = 200;
     labBuilder.harness = "standard";
     labBuilder.differencesFor = new Set(["microsoft-copilot"]);
-    labBuilder.chosenSteps = new Set(["product", "vertical", "departments", "level", "harness", "topics"]);
+    labBuilder.chosenSteps = new Set(["product", "tailor", "topics"]);
     labBuilder.picked = new Set([__rich.catalogA, __rich.alpha, __rich.plain]);
     labBuilder.excluded = new Set([__rich.catalogB]);
     labBuilder.excludedSubtopics = new Set([__rich.sub]);
@@ -277,7 +277,7 @@ async function saveVia(h, name) {
 test("a rich wizard state survives Save and finish later and Resume exactly", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   const before = h.state("lbDraftContent()");
   assert.equal(before.selections.products.length, 2);
   assert.deepEqual(before.selections.excludedSubtopics, [ALPHA.subtopics[0].id]);
@@ -291,7 +291,7 @@ test("a rich wizard state survives Save and finish later and Resume exactly", as
   // A new page load, then Resume from the Saved drafts panel.
   const page = await makePage(t, drafts);
   await page.click(page.rowButton(saved[0].id, "resume"));
-  await page.until(() => page.state("labBuilder.step") === 6, "the draft to open");
+  await page.until(() => page.state("labBuilder.step") === 3, "the draft to open");
   const after = page.state("lbDraftContent()");
   assert.deepEqual(after.selections, before.selections, "every choice, in every step, comes back as it was");
   assert.deepEqual(after.wizard, before.wizard, "the step, the answered steps, the picks, and the removed modules too");
@@ -325,15 +325,15 @@ test("following a draft's saved picks is kept apart from the learner's own picks
 test("resuming moves focus to the step heading, announces it, and goes back and forth like any step", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   await saveVia(h, "Focus check");
   const page = await makePage(t, drafts);
   const id = drafts.store.list("local").drafts[0].id;
   await page.click(page.rowButton(id, "resume"));
-  await page.until(() => page.state("labBuilder.step") === 6);
-  assert.equal(page.focusedId(), "lb-heading-6", "focus lands on the heading of the step the person left off");
-  assert.match(page.text("lb-heading-6"), /^Step 6 of 8: /);
-  assert.match(page.text("lb-draft-announce"), /^Resumed "Focus check"\. You are on Step 6 of 8: Topics\.$/);
+  await page.until(() => page.state("labBuilder.step") === 3);
+  assert.equal(page.focusedId(), "lb-heading-3", "focus lands on the heading of the step the person left off");
+  assert.match(page.text("lb-heading-3"), /^Step 3 of 4: /);
+  assert.match(page.text("lb-draft-announce"), /^Resumed "Focus check"\. You are on Step 3 of 4: Topics\.$/);
   assert.equal(page.byId("lb-draft-announce").getAttribute("aria-live"), "polite");
   assert.ok(page.byId("lb-draft-announce").classList.contains("sr-only"), "the words are on screen once, in the notice");
   const notice = page.byId("lb-draft-notice");
@@ -342,24 +342,24 @@ test("resuming moves focus to the step heading, announces it, and goes back and 
   assert.match(notice.textContent, /Resumed "Focus check"/);
   assert.doesNotMatch(notice.textContent, /could not be restored/, "nothing was dropped, so no warning");
   await page.run("lbPrevStep()");
-  assert.equal(page.state("labBuilder.step"), 5);
+  assert.equal(page.state("labBuilder.step"), 2);
   await page.run("lbNextStep()");
-  assert.equal(page.state("labBuilder.step"), 6);
-  assert.equal(page.state("labBuilder.furthest"), 7, "how far the person had got is kept");
+  assert.equal(page.state("labBuilder.step"), 3);
+  assert.equal(page.state("labBuilder.furthest"), 4, "how far the person had got is kept");
   await page.click(notice.querySelector("[data-draft-dismiss]"));
   assert.equal(notice.hidden, true);
-  assert.equal(page.focusedId(), "lb-heading-6");
+  assert.equal(page.focusedId(), "lb-heading-3");
 });
 
 test("a draft saved on Review reopens Review with the removed modules listed", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
-  await richState(h, { step: 7 });
+  await richState(h, { step: 4 });
   await saveVia(h, "On review");
   const page = await makePage(t, drafts);
   await page.click(page.rowButton(drafts.store.list("local").drafts[0].id, "resume"));
-  await page.until(() => page.state("labBuilder.step") === 7 && page.state("labBuilder.previewModules.length") > 0, "Review to open");
-  assert.equal(page.focusedId(), "lb-heading-7");
+  await page.until(() => page.state("labBuilder.step") === 4 && page.state("labBuilder.previewModules.length") > 0, "Review to open");
+  assert.equal(page.focusedId(), "lb-heading-4");
   assert.match(page.text("lb-preview"), /Removed from curriculum \(1\)/);
   assert.match(page.text("lb-preview"), new RegExp(REMOVED_NAME.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.deepEqual(page.state("labBuilder.moduleOrder"), [PLAIN.id, CATALOG[0]], "the module order is kept");
@@ -395,9 +395,9 @@ test("on resume, what no longer exists is dropped and said in plain words, and n
       brandOverrides: {},
     },
     wizard: {
-      step: 7,
-      furthest: 7,
-      chosenSteps: ["product", "vertical", "departments", "level", "harness", "topics"],
+      step: 4,
+      furthest: 4,
+      chosenSteps: ["product", "tailor", "topics"],
       picked: [CATALOG[0], ALPHA.id, gone, LEVEL_300.id],
       removed: [{ id: goneRemoved, wasPicked: true }],
     },
@@ -412,7 +412,7 @@ test("on resume, what no longer exists is dropped and said in plain words, and n
   assert.match(said, /The industry you chose is no longer offered, so the lab is for every industry now\./);
   assert.match(said, /1 department you chose is no longer offered and was left out\./);
   assert.match(said, /1 topic you chose is no longer listed in the catalog or on Microsoft Learn, so it was left out: "Vanished topic"\./);
-  assert.match(said, new RegExp(`1 topic you chose now belongs to a different level than Level 200 \\(Intermediate\\) and is not included: "${LEVEL_300.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"\\. Change the level in Step 4 or choose other topics in Step 6\\.`));
+  assert.match(said, new RegExp(`1 topic you chose now belongs to a different level than Level 200 \\(Intermediate\\) and is not included: "${LEVEL_300.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"\\. Change the level in Step 2 or choose other topics in Step 3\\.`));
   assert.match(said, /1 module you removed in Review is no longer listed \("Gone module"\), so the removal was dropped\./);
   assert.match(said, /1 sub-topic choice was dropped because Microsoft Learn no longer lists that sub-topic\./);
   assert.equal(lines.length, 7, "one sentence for each kind of change, and no more");
@@ -429,7 +429,7 @@ test("on resume, what no longer exists is dropped and said in plain words, and n
   assert.equal(h.byId("lb-title").value, "Keep this title");
   assert.equal(h.byId("lb-time").value, 120);
   assert.deepEqual(h.state("[...labBuilder.rec.selectedIds].sort()"), [ALPHA.id, CATALOG[0]].sort(), "the level-300 topic is not built at Level 200");
-  assert.equal(h.state("labBuilder.step"), 7);
+  assert.equal(h.state("labBuilder.step"), 4);
 
   const notice = h.byId("lb-draft-notice");
   assert.match(notice.textContent, /Not everything could be restored:/);
@@ -440,7 +440,7 @@ test("on resume, what no longer exists is dropped and said in plain words, and n
 test("a draft whose products are all gone asks for a product instead of crashing or picking one", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
-  const content = { selections: { products: ["custom-fabrikam-gone"], level: 200, features: [] }, wizard: { step: 6, furthest: 6, chosenSteps: ["product", "topics"] }, labels: { "custom-fabrikam-gone": "Fabrikam Studio" } };
+  const content = { selections: { products: ["custom-fabrikam-gone"], level: 200, features: [] }, wizard: { step: 3, furthest: 3, chosenSteps: ["product", "topics"] }, labels: { "custom-fabrikam-gone": "Fabrikam Studio" } };
   const { lines } = await h.run(`lbDraftApply(${JSON.stringify({ selections: { industry: null, roles: [], harness: null, differencesFor: null, excluded: [], excludedSubtopics: [], moduleOrder: [], ...content.selections }, wizard: content.wizard, labels: content.labels })}, { name: "Gone", headline: 'Resumed "Gone".' })`);
   assert.deepEqual(h.state("[...labBuilder.selectedProducts]"), [], "nothing was chosen for them");
   assert.equal(h.state("labBuilder.step"), 1);
@@ -453,15 +453,15 @@ test("a draft left on a late step with no topics left opens on Topics and says w
   const h = await makePage(t, drafts);
   const content = {
     selections: { products: ["copilot-studio"], industry: null, roles: [], level: 200, harness: "standard", differencesFor: null, features: ["learn-vanished-topic"], excluded: [], excludedSubtopics: [], moduleOrder: [] },
-    wizard: { step: 7, furthest: 7, chosenSteps: ["product", "vertical", "departments", "level", "harness", "topics"], picked: ["learn-vanished-topic"], removed: [] },
+    wizard: { step: 4, furthest: 4, chosenSteps: ["product", "tailor", "topics"], picked: ["learn-vanished-topic"], removed: [] },
     labels: { "learn-vanished-topic": "Vanished topic" },
   };
   const { lines } = await h.run(`lbDraftApply(${JSON.stringify(content)}, { name: "Late", headline: 'Resumed "Late".' })`);
   await h.settle();
-  assert.equal(h.state("labBuilder.step"), 6);
-  assert.match(lines.join("\n"), /This draft was on Step 7 of 8: Review, but none of its topics are left, so it opened on the Topics step\./);
+  assert.equal(h.state("labBuilder.step"), 3);
+  assert.match(lines.join("\n"), /This draft was on Step 4 of 4: Review and build, but none of its topics are left, so it opened on the Topics step\./);
   assert.equal(h.text("lb-topic-error"), "", "no red error greets a person who did nothing wrong");
-  assert.equal(h.focusedId(), "lb-heading-6");
+  assert.equal(h.focusedId(), "lb-heading-3");
 });
 
 test("a draft that cannot be opened is listed with a plain message, keeps its file, and can only be deleted", async (t) => {
@@ -515,18 +515,18 @@ test("Saved drafts starts collapsed, explains itself when empty, and keeps a liv
 test("each draft shows its name, products, level, how far it got, and when it was saved, with Resume, Rename, Duplicate, and Delete", async (t) => {
   const drafts = await startDrafts();
   const make = (name, products, level, step, features) => drafts.store.create("local", { name, content: { selections: { products, level, features }, wizard: { step, furthest: step } } });
-  const a = make("Contoso support pilot", ["copilot-studio"], 200, 6, ["a", "b", "c"]);
-  const b = make("Fabrikam knowledge lab", ["sharepoint-ai"], 100, 6, []);
+  const a = make("Contoso support pilot", ["copilot-studio"], 200, 3, ["a", "b", "c"]);
+  const b = make("Fabrikam knowledge lab", ["sharepoint-ai"], 100, 3, []);
   const c = make("Early start", ["copilot-studio", "sharepoint-ai"], null, 2, []);
   const h = await makePage(t, drafts);
   assert.equal(h.text("lb-drafts-badge"), "3");
   assert.equal(h.text("lb-drafts-count"), "3 saved drafts. You can keep up to 50.");
   const rowA = h.rowText(a.id);
   assert.match(rowA, /Contoso support pilot/);
-  assert.match(rowA, /Copilot Studio · Level 200 \(Intermediate\) · Step 6 of 8: Topics · 3 topics/);
+  assert.match(rowA, /Copilot Studio · Level 200 \(Intermediate\) · Step 3 of 4: Topics · 3 topics/);
   assert.match(rowA, /Saved today at /);
-  assert.match(h.rowText(b.id), /SharePoint AI · Level 100 \(Beginner\) · Step 5 of 7: Topics · No topics yet/, "the step count closes up when no product has harnesses");
-  assert.match(h.rowText(c.id), /Step 2 of 8: Vertical/);
+  assert.match(h.rowText(b.id), /SharePoint AI · Level 100 \(Beginner\) · Step 3 of 4: Topics · No topics yet/, "the step count is the same whether or not a product has harnesses");
+  assert.match(h.rowText(c.id), /Step 2 of 4: Tailor it/);
   const lost = drafts.store.create("local", { name: "Mixed", content: { selections: { products: ["copilot-studio", "custom-fabrikam-gone"] } } });
   await h.run("lbDraftReload()");
   assert.match(h.rowText(lost.id), /Copilot Studio and 1 product that is no longer available · /, "a removed product is named in plain words, never by id");
@@ -597,7 +597,7 @@ test("a built draft stays listed as Built, with a link to the lab while the lab 
 test("Start over clears the wizard but never deletes a saved draft", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   await saveVia(h, "Safe from Start over");
   assert.ok(h.state("lbDraft.activeId"));
   await h.run("lbStartNewLab()");
@@ -623,7 +623,7 @@ test("Save and finish later is on every step, names the draft, confirms in words
   assert.equal(h.byId("lb-draft-name-dialog").open, false, "nothing to save before a product is chosen");
   assert.match(h.text("lb-draft-status"), /^Choose at least one product first, then you can save your progress\.$/);
 
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   h.run("lbDraftOpenSave()");
   const dialog = h.byId("lb-draft-name-dialog");
   assert.equal(dialog.open, true);
@@ -653,7 +653,7 @@ test("Save and finish later is on every step, names the draft, confirms in words
 test("saving again updates the draft that was resumed; Save as a new draft keeps both", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   await saveVia(h, "Original");
   const id = drafts.store.list("local").drafts[0].id;
 
@@ -679,7 +679,7 @@ test("saving again updates the draft that was resumed; Save as a new draft keeps
 test("Ctrl+S inside the wizard opens the save dialog instead of the browser's own Save", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   const event = new h.FakeEvent("keydown", { key: "s", ctrlKey: true });
   h.byId("lb-draft-name").dispatchEvent(new h.FakeEvent("keydown", { key: "s", ctrlKey: true }));
   assert.equal(h.byId("lb-draft-name-dialog").open, false, "outside the wizard the keys are left alone");
@@ -695,7 +695,7 @@ test("a full list says so plainly and keeps the dialog open", async (t) => {
   const drafts = await startDrafts();
   for (let i = 0; i < MAX_DRAFTS; i += 1) drafts.store.create("local", { name: `Fill ${i}`, content: { selections: { products: ["copilot-studio"] } } });
   const h = await makePage(t, drafts);
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   h.run("lbDraftOpenSave()");
   h.byId("lb-draft-name-form").dispatchEvent(new h.FakeEvent("submit"));
   await h.until(() => h.text("lb-draft-name-error") !== "", "the message");
@@ -705,13 +705,13 @@ test("a full list says so plainly and keeps the dialog open", async (t) => {
 
 test("resuming over unsaved choices asks first; a saved or unchanged wizard does not", async (t) => {
   const drafts = await startDrafts();
-  const target = drafts.store.create("local", { name: "Target", content: { selections: { products: ["sharepoint-ai"], level: 100, features: [] }, wizard: { step: 4, furthest: 4, chosenSteps: ["product"] } } });
+  const target = drafts.store.create("local", { name: "Target", content: { selections: { products: ["sharepoint-ai"], level: 100, features: [] }, wizard: { step: 2, furthest: 2, chosenSteps: ["product"] } } });
   const h = await makePage(t, drafts);
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   await h.click(h.rowButton(target.id, "resume"));
   const dialog = h.byId("lb-draft-replace-dialog");
   assert.equal(dialog.open, true, "the current choices are not saved, so it asks");
-  assert.equal(h.state("labBuilder.step"), 6, "and has not changed anything yet");
+  assert.equal(h.state("labBuilder.step"), 3, "and has not changed anything yet");
   await h.click(h.byId("lb-draft-replace-cancel"));
   assert.equal(dialog.open, false);
   assert.equal(h.state("labBuilder.selectedProducts.size"), 2);
@@ -719,7 +719,7 @@ test("resuming over unsaved choices asks first; a saved or unchanged wizard does
   await saveVia(h, "Mine, saved");
   await h.click(h.rowButton(target.id, "resume"));
   assert.equal(dialog.open, false, "once saved there is nothing to lose");
-  await h.until(() => h.state("labBuilder.level") === 100 && h.state("labBuilder.step") === 4, "the other draft to open");
+  await h.until(() => h.state("labBuilder.level") === 100 && h.state("labBuilder.step") === 2, "the other draft to open");
 });
 
 // ── Autosave ────────────────────────────────────────────────────────────────
@@ -758,7 +758,7 @@ test("autosave never saves an empty wizard, waits until the page is quiet, and d
 test("autosave never overwrites a named draft, and saving on purpose clears the unsaved copy", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   await saveVia(h, "On purpose");
   const id = drafts.store.list("local").drafts[0].id;
   const savedFile = readFileSync(join(drafts.folder, `${id}.json`), "utf8");
@@ -778,9 +778,9 @@ test("autosave never overwrites a named draft, and saving on purpose clears the 
 test("a person who changes only the step is not shown unsaved work for a draft that is already saved", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   await saveVia(h, "Saved at Topics");
-  h.run("lbGoToStep(7)");
+  h.run("lbGoToStep(4)");
   await h.settle();
   await tick(h, 3);
   assert.equal(h.draftCalls.filter((c) => c.url.endsWith("/unsaved") && c.method === "PUT").length, 0, "moving between steps changes where you are, not what you chose");
@@ -789,7 +789,7 @@ test("a person who changes only the step is not shown unsaved work for a draft t
 test("after a reload one calm banner offers the unsaved work; Resume restores it, and autosave waits for the choice", async (t) => {
   const drafts = await startDrafts();
   const first = await makePage(t, drafts);
-  await richState(first, { step: 6 });
+  await richState(first, { step: 3 });
   await tick(first, 3);
   await first.until(() => drafts.store.getUnsaved("local") !== null, "the autosave");
   const before = first.state("lbDraftContent()");
@@ -809,12 +809,12 @@ test("after a reload one calm banner offers the unsaved work; Resume restores it
   page.run(`labBuilder.selectedProducts = new Set();`);
 
   await page.click(page.byId("lb-unsaved-resume"));
-  await page.until(() => banner.hidden && page.state("labBuilder.step") === 6, "the work to come back");
+  await page.until(() => banner.hidden && page.state("labBuilder.step") === 3, "the work to come back");
   const after = page.state("lbDraftContent()");
   assert.deepEqual(after.selections, before.selections);
   assert.deepEqual(after.wizard, before.wizard);
-  assert.match(page.text("lb-draft-announce"), /^Resumed your unsaved work from today at .+\. You are on Step 6 of 8: Topics\.$/);
-  assert.equal(page.focusedId(), "lb-heading-6");
+  assert.match(page.text("lb-draft-announce"), /^Resumed your unsaved work from today at .+\. You are on Step 3 of 4: Topics\.$/);
+  assert.equal(page.focusedId(), "lb-heading-3");
   assert.equal(page.state("lbDraftDirty()"), true, "it is still not a saved draft, so replacing it would ask");
 });
 
@@ -822,7 +822,7 @@ test("Discard removes the unsaved copy; no banner appears when there is none or 
   const drafts = await startDrafts();
   const first = await makePage(t, drafts);
   assert.equal(first.byId("lb-unsaved-banner").hidden, true, "no unsaved work, no banner");
-  await richState(first, { step: 4 });
+  await richState(first, { step: 2 });
   await tick(first, 3);
   await first.until(() => drafts.store.getUnsaved("local") !== null);
 
@@ -834,7 +834,7 @@ test("Discard removes the unsaved copy; no banner appears when there is none or 
   assert.match(page.text("lb-draft-status"), /^Discarded your unsaved work\.$/);
 
   const busy = await makePage(t, drafts, { loaded: false });
-  await richState(busy, { step: 4 });
+  await richState(busy, { step: 2 });
   await tick(busy, 0);
   drafts.store.saveUnsaved("local", { content: first.state("lbDraftContent()") });
   await busy.run("lbDraftsInit()");
@@ -844,7 +844,7 @@ test("Discard removes the unsaved copy; no banner appears when there is none or 
 test("building a lab clears the unsaved copy and marks the draft that was resumed as Built, keeping it", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
-  await richState(h, { step: 6 });
+  await richState(h, { step: 3 });
   await saveVia(h, "Source draft");
   const id = drafts.store.list("local").drafts[0].id;
   h.run(`lbSetFormValue("lb-title", "Tweaked")`);

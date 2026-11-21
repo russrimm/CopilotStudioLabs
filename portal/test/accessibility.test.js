@@ -124,15 +124,17 @@ test("themes: light and dark tokens exist, honor the OS setting, and have a pers
 const generatedSource = readFileSync(new URL("../public/generated-labs.js", import.meta.url), "utf8");
 const wizardSource = readFileSync(new URL("../public/lab-builder-wizard.js", import.meta.url), "utf8");
 
-test("the legacy left navigation pane is gone and the wizard Level step is the only level picker", () => {
+test("the legacy left navigation pane is gone and the wizard Tailor it step is the only level picker", () => {
   assert.doesNotMatch(html, /class=["']sidebar["']/);
   assert.doesNotMatch(html, /\.sidebar\b/);
   assert.doesNotMatch(html, /sidebar-header|sidebar-actions/);
   assert.doesNotMatch(html, /from the sidebar|in the sidebar/i);
   assert.doesNotMatch(appSource, /sidebar/i);
-  assert.equal([...html.matchAll(/id=["']lb-pane-4["']/g)].length, 1);
+  assert.equal([...html.matchAll(/id=["']lb-pane-2["']/g)].length, 1);
   assert.equal([...html.matchAll(/id=["']lb-level-options["']/g)].length, 1);
-  assert.match(html, /Step 4 of 8: What level should the lab be\?/);
+  const tailorPane = html.match(/id=["']lb-pane-2["'][\s\S]*?<!-- Step 3: topics -->/)?.[0] || "";
+  assert.match(tailorPane, /id=["']lb-level-options["']/, "the level picker sits in the Tailor it pane");
+  assert.match(tailorPane, /Step 2 of 4: Tailor it/);
   assert.match(appSource, /const DEFAULT_TAB = "labbuilder"/);
 });
 
@@ -440,7 +442,7 @@ test("portal dark and light theme tokens meet WCAG AA contrast across previews, 
       );
     }
 
-    // Active Step 6 concept group surface preserves WCAG AA text and link contrast.
+    // Active Topics concept group surface preserves WCAG AA text and link contrast.
     for (const fg of [tokens["--text"], tokens["--text-muted"], tokens["--link-color"]]) {
       assert.ok(
         contrastRatio(fg, tokens["--lb-concept-active-bg"]) >= 4.5,
@@ -449,7 +451,7 @@ test("portal dark and light theme tokens meet WCAG AA contrast across previews, 
     }
   }
 
-  // OS prefers-color-scheme: light block defines the same stat chip and Step 6 tokens as explicit light theme.
+  // OS prefers-color-scheme: light block defines the same stat chip and Topics tokens as explicit light theme.
   const mediaLightBlock =
     styleContent.match(/@media \(prefers-color-scheme: light\)\s*\{\s*:root:not\(\[data-theme="dark"\]\)\s*\{([^}]*)\}/)?.[1] || "";
   const mediaLight = parseCssCustomProperties(mediaLightBlock);

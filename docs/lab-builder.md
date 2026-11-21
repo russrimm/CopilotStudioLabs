@@ -197,7 +197,8 @@ arrow, Home, and End keys move among the tabs of the current area.
 
 1. Start the portal: `cd portal && npm install && npm start`.
 2. Open the portal; it lands on **🧬 Build a Lab**.
-3. Answer one question per step, in this order:
+3. Work through four steps, in this order. A persistent line, **Your lab so far**, and a
+   four-item step list stay at the top, so you always see where you are:
    1. **Product** (one or more). Nothing is pre-selected on load: pick the product(s)
       you are teaching — for example SharePoint AI alone, Copilot Studio alone, or both
       together. Use **Start over** in the summary bar (or **Start new lab** under
@@ -207,29 +208,41 @@ arrow, Home, and End keys move among the tabs of the current area.
       (see [Save your progress and resume later](#save-your-progress-and-resume-later)).
       Each product shows how many topics it has at each level and links to its Microsoft
       Learn hub. See [Products](#products).
-   2. **Vertical** (industry). Cross-industry is the default.
-   3. **Departments** (any number, optional).
-   4. **Level**: 100 Beginner, 200 Intermediate, or 300 Advanced. This is the single
-      source of truth for level: every later step shows, and the lab builds, only
-      that level (see [The level filter](#the-level-filter)). A product with no topic
-      at a level is named under that level, never silently dropped.
-   5. **Harness**: Standard, Microsoft Copilot, or Customer Conversation (preview).
-      This step appears **only when a selected product has harnesses** (today, Copilot
-      Studio). Without one, the wizard goes from Level straight to Topics, the step
-      numbers close up ("Step 5 of 7"), and the request carries no harness.
-   6. **Topics**: every topic at your level that applies to your products (and, for
+   2. **Tailor it**: one screen for the choices that shape the lab, with every default
+      already selected and explained in one line. **Next** accepts them all.
+      - **Industry** (a drop-down). *Cross-industry* is selected: "Cross-industry is
+        selected. Not sure? Keep it."
+      - **Departments** (checkable chips, any number). *All departments* is selected
+        until you pick specific departments; choose **All departments** to go back.
+      - **Level**: *Level 100* (Beginner), *Level 200* (Intermediate), or *Level 300*
+        (Advanced), as a three-option choice with the number of topics at each level
+        shown inline. Level 100 is selected. This is the single source of truth for
+        level: every later step shows, and the lab builds, only that level (see
+        [The level filter](#the-level-filter)). A product with no topic at a level is
+        named under the choice, never silently dropped.
+      - **Agent experience (harness)**: *Standard*, *Microsoft Copilot*, or *Customer
+        Conversation* (preview), with *Standard* selected and a one-line explanation of
+        what a harness is. This choice appears **only when a selected product has
+        harnesses** (today, Copilot Studio); otherwise it is not shown and the request
+        carries no harness. **Add "How this differs" notes** (collapsed) lists the other
+        harnesses the lab compares against; each reads "Compare with ...", and Microsoft
+        Copilot is ticked by default.
+
+      Changing any answer here recomputes the topic suggestions on the next step (the
+      page says so if it resets your own topic choices).
+   3. **Topics**: every topic at your level that applies to your products (and, for
       Copilot Studio, your harness), grouped by
       concept (Instructions, Knowledge, Tools, Skills, MCP servers, and so on), each
       labeled with its product.
       A topic is pre-selected only when it follows from an answer you gave: the
-      vertical or a department you chose points at it, and it says why. **With no
-      vertical and no department, nothing is selected**: the level alone never
+      industry or a department you chose points at it, and it says why. **With no
+      industry and no department, nothing is selected**: the level alone never
       selects a topic. **Custom labs default strictly to 1st-party Microsoft
       connectors**: 3rd-party SaaS, ERP, CRM, EHR, and ticketing connector modules
       (such as SAP, Salesforce, ServiceNow, Snowflake, Jira, Epic on FHIR, and
       Shopify) carry an *Optional 3rd-party connector* badge, can be narrowed with
       the **Optional 3rd-party connectors** filter, and remain unchecked unless you
-      explicitly select them (neither vertical/department defaults nor **Select
+      explicitly select them (neither industry/department defaults nor **Select
       recommended** adds them automatically). The 1st-party topics the rules suggest
       for your answers carry a *Recommended, not selected* badge and a reason;
       **Select recommended** adds them on purpose. Check or uncheck anything; use
@@ -277,39 +290,52 @@ arrow, Home, and End keys move among the tabs of the current area.
       topic and sub-topic for the products you chose in Step 1 at every level,
       whatever the search, filter, level, or selection. See
       [Export All Topics](#export-all-topics).
-   7. **Review**: the outline with the estimated time for each module and a total.
-      Every planned module—including both chosen modules and lower-level
+   4. **Review and build**: one screen with the outline, the optional extras, and the
+      build. The outline lists every planned module with the estimated time for each and a
+      total. Every planned module—including both chosen modules and lower-level
       prerequisite recaps—has an **Include** checkbox so you can uncheck anything
       you do not want right in the outline, along with direct **Microsoft Learn**
       reference links on both included outline rows and excluded **Removed from
       curriculum** items. Unchecking a module immediately removes
       it from the curriculum, renumbers the remaining steps, updates **Your lab so
-      far** and Step 6's checkboxes, and moves the removed module into a **Removed
+      far** and the Topics step's checkboxes, and moves the removed module into a **Removed
       from curriculum** section below the outline where you can re-check individual
-      modules or **Restore all** without leaving Review. If every module is
-      unchecked, Review stays open with a recovery prompt and disables **Next:
-      Generate** until at least one module is included. Under a module that has
-      sub-topics, Review lists each one as an indented row with its own checkbox,
+      modules or **Restore all** without leaving the step. If every module is
+      unchecked, the step stays open with a recovery prompt and disables **Build my
+      lab** until at least one module is included. Under a module that has
+      sub-topics, the outline lists each one as an indented row with its own checkbox,
       so you can leave one out (or bring it back) here as well; it is the same
-      choice Step 6 holds, and the header says "2 of 3 sub-topics included". Review also exposes:
+      choice the Topics step holds, and the header says "2 of 3 sub-topics included". The
+      same screen also holds:
       - **Per-lesson Knowledge Check mini-quizzes (`includeKnowledgeCheck`)** — an
         opt-in toggle (unchecked by default on a fresh wizard start) that adds
         1–3 multiple-choice questions (`A`–`D`) per lesson with instant grading and
         Microsoft Learn reference links.
-      - **SharePoint target site name & URL** — when the planned lab includes
-        SharePoint AI capabilities or SharePoint knowledge sources, learners can
-        specify a target SharePoint site display name and `https://` URL so
-        generated instructions, grounding blocks, and prerequisites render clickable
-        links to that SharePoint site instead of generic placeholders.
+      - **SharePoint site (optional)** — when the planned lab includes SharePoint AI
+        capabilities or SharePoint knowledge sources, you can enter a SharePoint site name
+        and `https://` address so generated instructions, grounding blocks, and
+        prerequisites render clickable links to that site instead of generic
+        placeholders. It never blocks a build: leave both fields blank and learners see
+        placeholder instructions (one calm line under the fields says so, and you can add
+        the site to the lab later). Only an address you typed that cannot be used stops the
+        build, with an inline message and the field focused.
+      - **Brand: Default [Change]** — one line naming the brand profile the lab uses.
+        **Change** opens the brand card (profile, per-lab overrides, cover preview) and
+        **Hide** closes it. The lab keeps its own copy of the profile.
       - **Advanced options** — folded away for custom lab title, agent name,
         Microsoft Learn grounding, optional LLM narrative, and a preferred length
         that only suggests split points.
-   8. **Generate**.
+      - **Capture screenshots when the lab is built** — shown only while a computer is
+        connected; otherwise one line says how to connect one (or to capture after the build).
+      - **Build my lab** — the one primary button, with the progress card and **Cancel** while
+        the build runs. A lab opened with **Edit selections** also asks here whether to save a
+        new lab or replace the original.
 
    The step list and the **Your lab so far** summary bar stay pinned at the top of
    every wizard step so you can always see what will be generated. **Your lab so far**
-   displays only the steps you have chosen so far (no default options are shown ahead
-   of your choices), adding a running topic count and time estimate once you reach
+   starts as "nothing yet" and names your product first; once you have seen **Tailor
+   it** it also names the industry, departments, level, and harness that are selected
+   (defaults included), adding a running topic count and time estimate once you reach
    **Topics**. You can jump back to any step you
    have already reached, and changing an earlier answer recomputes the topic
    recommendations (the page says so if it resets your own choices). Changing the
@@ -326,25 +352,28 @@ arrow, Home, and End keys move among the tabs of the current area.
 
    The **Previously generated labs** panel starts collapsed by default with a live
    count badge so the wizard stays focused on your current lab. While a lab is
-   building in Step 8, an animated stage-by-stage progress card tracks the build.
+   building in Review and build, an animated stage-by-stage progress card tracks the build.
    Finished labs are generated in both Markdown (`index.md`) and standalone
    multi-page HTML (`index.html`), and both the generated-lab viewer and the
    **Preview** tab paginate labs section by section with **Previous** and **Next**
    controls (plus a **Show all pages** toggle and print rules that print every page).
 
-   Each wizard step has one **Back** and **Next** (or **Generate Lab**) button, in the
-   step footer, which stays at the bottom of the screen while the step is in view. The
+   Each wizard step has one **Back** and one primary button (**Next**, or **Build my lab** on
+   the last step), in the step footer, which stays at the bottom of the screen while the step is in view. The
    summary bar at the top repeats them only when the footer is out of view, so you never
    see the same button twice. A lab that is open in the result panel also lists its
    download, print, and validate actions only there, not again in its
-   **Previously generated labs** row. The topic groups in Step 6 use a large, bold
+   **Previously generated labs** row. The topic groups in the Topics step use a large, bold
    heading with an accent bar so each group stands out from the cards beneath it.
 
-   The level is chosen only in the Level step. The left-hand "Lab Chapters" pane that used to
+   The level is chosen only in **Tailor it**. The left-hand "Lab Chapters" pane that used to
    group the hand-written labs by level has been removed; choosing which hand-written
    labs are included now lives under **Lab chapters** on the **Lab setup** tab (no lab is included
 until you include it; **Include all labs** and **Apply scenario** are explicit actions), and the
    **Preview** tab has its own lab picker. Open `/#labbuilder` to start the wizard.
+
+   A default lab for one product takes six clicks: choose the product, **Next**, **Next**
+   (accept the Tailor it defaults), **Select recommended**, **Next**, **Build my lab**.
 
 The wizard previews the module outline (with prerequisites resolved and an
 estimated time for every module and for the whole lab) before you commit to a
@@ -353,9 +382,8 @@ pauses and shows the decision inline — keyboard-navigable radios with the
 consequence and each option's tradeoff — and only resumes once you choose. The
 finished markdown appears with a download button and a record of any decisions.
 
-Step 8 ends with a short **What happens next** note (build, customize, capture screenshots, check against
-Microsoft Learn, download). After the build, **Finish your lab** at the top of the result lists the same steps
-with one button for each, and only the next step to do is a primary button.
+After the build, **Finish your lab** at the top of the result lists the next steps (customize, capture screenshots,
+check against Microsoft Learn, download) with one button for each, and only the next step to do is a primary button.
 
 ### Save your progress and resume later
 
@@ -374,7 +402,7 @@ topics and products you added from Microsoft Learn (by their ids), the step you 
 not kept. A draft stores choices, not a lab: it does not keep the link to a lab you opened with **Edit selections**, so resuming
 it builds a new lab.
 
-**Resuming.** Each draft in **Saved drafts** shows its name, products, level, how far it got (for example *Step 5 of 7: Topics*),
+**Resuming.** Each draft in **Saved drafts** shows its name, products, level, how far it got (for example *Step 3 of 4: Topics*),
 the number of topics, and when it was saved, with **Resume**, **Rename**, **Duplicate**, and **Delete** (which asks first). Empty
 state: *No saved drafts yet.* **Resume** opens the wizard on the step you left, with every choice restored, including each sub-topic
 check, the order, and the removed modules, and moves keyboard focus to that step's heading. A notice under the summary bar says
@@ -409,7 +437,7 @@ one-way hash of the signed-in person's identity (Entra `oid`, with the tenant id
 name or address is written to disk. With portal sign-in off (local use, or a demo deployment with `PORTAL_AUTH_DISABLED=true`),
 everyone who opens the portal shares one local space. Each person can keep up to 50 drafts, and a draft can be up to 256 KB. Two tabs
 saving at once resolve by last write wins, and the response and the list show the saved time. Each file records a schema version.
-A newer file is refused with a message, an older one is migrated step by step when it is read, and neither is rewritten by reading.
+A newer file is refused with a message, an older one is migrated step by step when it is read, and neither is rewritten by reading. Version 2 (the four-step wizard) moves a version 1 draft or autosave copy onto the new steps when it is read: old Product stays Product; Vertical, Departments, Level, and Harness become **Tailor it**; Topics becomes Topics; and Review and Generate become **Review and build**. The answered-step list and the furthest step move the same way, and every choice is untouched.
 The draft routes are listed in the [API](#api) table.
 
 ### First-time setup
@@ -425,7 +453,7 @@ The recommended order is:
 2. **Tenant addresses.** Add your Copilot Studio, Power Platform, SharePoint, Microsoft 365 admin, and Foundry addresses.
 3. **Pair a screenshot computer.** Connect the computer that will take the screenshots.
 4. **Build** a lab.
-5. **Customize** it (Review step or **Finish your lab**).
+5. **Customize** it (Review and build, or **Finish your lab**).
 6. **Capture** its screenshots.
 7. **Check against Microsoft Learn.**
 8. **Download** or share it.
@@ -856,7 +884,7 @@ a prerequisite from a higher level:
 
 #### The level filter
 
-The level chosen in the Level step decides what the rest of the wizard shows and what the
+The level chosen in Tailor it decides what the rest of the wizard shows and what the
 lab contains. There is no second level selector in the Topics step, so the two can
 never disagree. `levels.js` holds the shared rules.
 
@@ -897,9 +925,9 @@ never disagree. `levels.js` holds the shared rules.
   at no more than 5 minutes, and written short (what you are doing, the steps, a check,
   and sources; no concepts, knowledge checks, or screenshots). The lab headings render
   them as `### Recap K - <name>` before `### Step 1 - <name>`, labels them as
-  prerequisite recaps in the Time Estimate table (`Recap K`) and Step 7 outline, and
+  prerequisite recaps in the Time Estimate table (`Recap K`) and Review and build outline, and
   keeps Learning Objectives numbered `Step 1..M` with a short refresher note when
-  recaps are present. A recap dropped during the build or unchecked on Step 7 never
+  recaps are present. A recap dropped during the build or unchecked in Review and build never
   shifts main module `Step 1..M` numbers or removes the module that builds on it; the
   lab assumes it instead. The metadata table gains a **LEVEL** row, and
   `manifest.json` records `level`, `levelName`, `prerequisites`, and `role`
@@ -948,7 +976,7 @@ Learn) are never listed in `levels` or `topics` (`validateConcepts()` enforces t
 so every industry, department, and **Select recommended** combination produces a
 100% 1st-party Microsoft connector curriculum unless the user explicitly checks an
 optional 3rd-party connector module. A vertical or department may list relevant
-3rd-party modules in `optionalThirdParty` so Step 6 can surface domain context on
+3rd-party modules in `optionalThirdParty` so the Topics step can surface domain context on
 their cards while keeping `selected: false` and `recommended: false`.
 
 `validateCatalog()` checks both files (every feature in one concept, known ids,
@@ -1789,7 +1817,7 @@ hides the rest:
    changes through a polite live region. If your computer goes quiet, a sign-in is needed, or no computer is
    connected yet, the card says so and offers the next step. When the job ends, the lab preview, the
    saved-lab card, and the checklist refresh so new images appear at once. A capture queued during the build
-   (the Step 8 option) opens this card directly.
+   (the Review and build option) opens this card directly.
 4. **Thumbnail gallery by step.** Every screenshot shows its figure number, caption, and one status:
    **Captured**, **Needs review**, **Outdated**, **Pending**, **Failed**, or **Manual**. Each has the actions
    that make sense: **Capture this one**, **Retake** (removes the old image, then queues a new capture),
@@ -1933,7 +1961,7 @@ lab (`manifest.customization.captureTargets`), and feeds every job:
 | `copilotStudioAgentUrl`, or `copilotStudioAgentName` | every agent screen in Copilot Studio (Overview, Knowledge, Tools, Settings...) | `CAPTURE_COPILOT_STUDIO_AGENT_URL`, or the job setting `copilotStudioAgentName` (opened from the Agents list by its exact name) |
 | `copilotStudioUrl` (optional) | the environment; the product's sign-in redirect finds the default one | `CAPTURE_COPILOT_STUDIO_START_URL` (an address that points at an agent also counts as the agent) |
 | `agentBuilderAgentName` | Agent Builder shots | job setting |
-| `sharepointSiteUrl` | SharePoint site shots. The lab's own site (Wizard Step 7, `manifest.sharepointSite.url`) fills it in automatically | `CAPTURE_SHAREPOINT_SITE_URL` |
+| `sharepointSiteUrl` | SharePoint site shots. The lab's own site (Review and build, `manifest.sharepointSite.url`) fills it in automatically | `CAPTURE_SHAREPOINT_SITE_URL` |
 | `powerPlatformEnvUrl`, `foundryProjectUrl`, `sharepointAdminUrl`, `m365AdminUrl` | the matching product | `CAPTURE_POWER_PLATFORM_START_URL`, `CAPTURE_FOUNDRY_PROJECT_URL`, `CAPTURE_SHAREPOINT_ADMIN_URL`, `CAPTURE_M365_ADMIN_URL` |
 
 Order of precedence per setting: the capture request, the lab's own settings, the lab's own SharePoint site,
@@ -2061,7 +2089,7 @@ from an older portal, and an older companion (before 1.4.0) gets a `smart` job w
 **Automatic capture (autonomous mode, the default once you allow it).** The computer sets up the screen
 itself, so you do not click **Capture this screen**. Job `options.mode` gains `autonomous`
 (`auto`, `guided`, and `smart` stay available, in the Screenshot Center under **Advanced**). The Screenshot
-Center has one primary button, **Capture all screenshots automatically**, and the Step 8 capture-on-build checkbox
+Center has one primary button, **Capture all screenshots automatically**, and the Review and build capture-on-build checkbox
 uses the same mode when a computer is connected. The mode choices are **Automatic (recommended)**,
 **Automatic, read-only (never creates anything)**, and under Advanced **I will set up each screen** and **Smart**.
 A job without consent fields behaves as read-only, and a request can only lower, never raise, what the stored consent allows.
@@ -2400,7 +2428,7 @@ Each module renders as:
   and recovery for a check that is not true yet. A module whose steps were not read from Learn shows none of the
   Learn cautions, and the lab gate's `generic-troubleshooting` finding counts modules that have only the universal tips
 - **Knowledge check: Lesson mini-quiz** (when `includeKnowledgeCheck` is enabled:
-  opt-in on Wizard Step 7; enabled unless `includeKnowledgeCheck: false` in direct
+  opt-in on Review and build; enabled unless `includeKnowledgeCheck: false` in direct
   API/CLI calls, and omitted on short `Recap N` modules) — 1 to 3 deterministic
   multiple-choice questions (`A`–`D`) built from vetted catalog `whyItMatters`,
   `validation`/`expectedResults`, and `concepts`/`troubleshooting` fields, each
@@ -2736,12 +2764,13 @@ that does not pick a profile follow the **active** profile.
   preview of the lab banner, the *More information* and *Need help?* blocks, and the
   footer. The three existing actions keep their names: `saveBranding()`,
   `resetBranding()`, and `removeBrandingLogo()` now act on the profile being edited.
-- **Lab builder, Step 7, Customize this lab.** Pick a profile for the lab, override
+- **Lab builder, Review and build, Brand: ... Change.** One line names the brand profile
+  the lab uses. **Change** opens the card: pick a profile for the lab, override
   the company, tagline, more-information link and label, support contact, and footer
   for this lab only, and watch the cover preview. Leave a field blank to inherit the
-  profile value. If the profile has a default SharePoint site, Step 7 pre-fills the
-  SharePoint site card from it (a site you enter always wins). The wizard summary bar
-  shows a **Brand: <profile>** chip and Step 8 shows a one-line summary.
+  profile value. If the profile has a default SharePoint site, Review and build pre-fills the
+  SharePoint site fields from it (a site you enter always wins). The wizard summary bar
+  also shows a **Brand: <profile>** chip.
 - **Previously generated labs → Open → Customize this lab (branding).** Change the
   profile or overrides of a saved lab, then **Update from profile** or **Reset to
   profile**.
@@ -2753,7 +2782,7 @@ that does not pick a profile follow the **active** profile.
 | Identity | `name` (1-60), `companyName` (required, 80), `tagline` (120), `coverSubtitle` (160), `footerText` (200, plain text), `logo` | Angle brackets and control characters are removed. Logos are PNG/JPEG only (magic bytes are checked), at most 2 MB, stored under the uploads directory and served from `/uploads/<file>`. |
 | Colors & fonts | `primaryColor`, `secondaryColor` (optional), `font` | Hex colors. `font` is one of `default`, `segoe-ui`, `arial`, `calibri`, `verdana`, `georgia`, `times-new-roman`. The profile reports the contrast ratio of each color against white and a dark (`#181c26`) background and warns below WCAG AA (4.5:1 for small text). |
 | Links & contact | `moreInfoLabel` (60), `moreInfoUrl`, `supportName` (80), `supportEmail`, `communityUrl` | URLs must be `https://`. Bare domains are normalized to `https://`; `http:`, `javascript:`, `data:`, protocol-relative URLs, embedded credentials, and spaces are rejected with the same rules as the SharePoint site validator. |
-| Default SharePoint site | `defaultSharepointSiteName` (120), `defaultSharepointSiteUrl` | Pre-fills Step 7 and feeds `{{SHAREPOINT_SITE_*}}`. |
+| Default SharePoint site | `defaultSharepointSiteName` (120), `defaultSharepointSiteUrl` | Pre-fills the SharePoint field in Review and build and feeds `{{SHAREPOINT_SITE_*}}`. |
 | Tenant environment URLs | `copilotStudioUrl`, `copilotStudioAgentUrl`, `powerPlatformEnvUrl`, `sharepointSiteUrl`, `sharepointAdminUrl`, `m365AdminUrl`, `foundryProjectUrl` | `https://` only. Used by the `{{TENANT_*}}` tokens and the capture environment (below). |
 | Capture names | `copilotStudioAgentName` (80), `agentBuilderAgentName` (80) | The exact name of the agent a capture opens from a list. Used only by screenshot capture (see **Where to capture** under the Screenshot Center). |
 
@@ -2778,7 +2807,7 @@ Everywhere a lab is rendered, the brand is resolved in this order:
 A lab built with `brandProfileId` stores `manifest.customization = { profileId,
 profileName, profileSnapshot, overrides }`, so it keeps its look even if the profile
 is edited or deleted later. Labs saved before this feature have no customization and
-follow the active profile. The lab's own SharePoint site (Step 7) wins over the
+follow the active profile. The lab's own SharePoint site (Review and build) wins over the
 profile default for `{{SHAREPOINT_SITE_*}}` and the capture environment.
 
 - **Update from profile** takes a fresh snapshot of the lab's profile and keeps the
@@ -2846,7 +2875,7 @@ renders each output path. Add new fragment builders to its hygiene test.
 `buildCaptureEnv(profileOrCustomization)` in `portal/lib/branding-profiles.js` maps a
 profile, a lab manifest, or a `customization` record to the `CAPTURE_*` variables the
 screenshot capture tool already reads. A lab manifest is read whole, so the lab's own SharePoint
-site (Wizard Step 7) is used even when the lab has no customization. Capture jobs use the fuller
+site (Review and build) is used even when the lab has no customization. Capture jobs use the fuller
 resolver in `portal/lib/capture/targets.js` (see **Where to capture** above), which also adds the lab's own
 capture settings and the names. Only `https://` values are returned and blank
 values are omitted:
@@ -3135,8 +3164,8 @@ level.
 
 ### Export All Topics
 
-The **Export All Topics** button in the Step 6 toolbar writes every topic and sub-topic for
-the products chosen in Step 1 (for Copilot Studio, the harness chosen in Step 5), at every
+The **Export All Topics** button in the Topics step toolbar writes every topic and sub-topic for
+the products chosen in Step 1 (for Copilot Studio, the harness chosen in Tailor it), at every
 level including lower-level prerequisites, whatever the search, filter, level view, or
 selection. The note under the toolbar says exactly what it will write ("All topics and
 sub-topics for Copilot Studio and SharePoint AI (Standard harness), all levels: 214 rows
@@ -3145,7 +3174,7 @@ menu (keyboard: Arrow Down, Arrow Up, Escape): **CSV (opens in Excel)**, **Markd
 The file is built in the browser and downloaded as `all-topics-<products>-<date>.<ext>`;
 a status line announces "Exported 214 rows (190 topics and 24 sub-topics) to ...". The
 rows are loaded once for the chosen answers, so exporting keeps working offline afterwards.
-Rows are what Step 6 lists at each level (it is built from the same `recommend` calls), so
+Rows are what the Topics step lists at each level (it is built from the same `recommend` calls), so
 the two cannot disagree.
 
 | Column | Meaning |
@@ -3259,7 +3288,7 @@ Each row has **Open**, **Edit selections**, **Rename**, and **Delete**:
 - **Delete** asks for confirmation in a dialog and cannot be undone.
 - **Rename** changes the title and notes only. The new title is also saved as the lab's custom title, so
   **Edit selections** pre-fills it in Review and a rebuild or replacement keeps it unless you change it there.
-- **Edit selections** re-opens the wizard on the Review step, pre-filled with the saved industry,
+- **Edit selections** re-opens the wizard on Review and build, pre-filled with the saved industry,
   departments, level, harness, topics, and options. On the last step you choose **Save as a new lab**
   (the default) or **Replace** the original. Nothing is overwritten unless you pick Replace, and the original is
   removed only after the new lab was built and validated: a canceled or failed build leaves it alone. When a build

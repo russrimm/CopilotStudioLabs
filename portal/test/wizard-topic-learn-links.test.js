@@ -192,7 +192,7 @@ function createWizardHarness({ extraTopics = [], now = "2026-04-16T12:00:00Z" } 
     querySelectorAll: (sel) => {
       if (sel === "[data-lb-step]") return stepButtons;
       if (sel === "[data-lb-summary]") return [summaryMirror];
-      if (sel === ".lb-pane") return [1, 2, 3, 4, 5, 6, 7, 8].map((n) => element(`lb-pane-${n}`));
+      if (sel === ".lb-pane") return [1, 2, 3, 4].map((n) => element(`lb-pane-${n}`));
       return [];
     },
   };
@@ -302,7 +302,7 @@ function createWizardHarness({ extraTopics = [], now = "2026-04-16T12:00:00Z" } 
     labBuilder.roles = __seed.roles;
     labBuilder.differenceDefaults = __seed.differenceDefaults;
     labBuilder.selectedProducts = new Set([LB_DEFAULT_PRODUCT]);
-    labBuilder.chosenSteps = new Set(["product", "level", "harness", "topics"]);
+    labBuilder.chosenSteps = new Set(["product", "tailor", "topics"]);
     labBuilder.loaded = true;
     lbBindTopicEvents();
   `,
@@ -453,7 +453,7 @@ test("extractFeatureLearnLinks deduplicates canonical Learn URLs, formats US Eng
   );
 });
 
-test("Step 6 renders clickable Microsoft Learn links on catalog topics, dynamic multi-URL Learn topics, prerequisites, and level-unknown topics (checked and unchecked)", async () => {
+test("Topics renders clickable Microsoft Learn links on catalog topics, dynamic multi-URL Learn topics, prerequisites, and level-unknown topics (checked and unchecked)", async () => {
   const dynamicMulti = {
     id: "learn-mcp-multi",
     status: "new",
@@ -512,7 +512,7 @@ test("Step 6 renders clickable Microsoft Learn links on catalog topics, dynamic 
 
   let html = element("lb-topic-groups").innerHTML;
 
-  // Match each `<label class="lb-feature ...">...</label>` card in Step 6.
+  // Match each `<label class="lb-feature ...">...</label>` card in Topics.
   const cardRegex = /<label class="lb-feature([^"]*)">([\s\S]*?)<\/label>/g;
   const cards = [];
   let match;
@@ -531,16 +531,16 @@ test("Step 6 renders clickable Microsoft Learn links on catalog topics, dynamic 
   const multiLearnCard = cards.find((c) => c.topicId === "learn-mcp-multi");
   const unknownCard = cards.find((c) => c.topicId === "learn-mystery-feature");
 
-  assert.ok(checkedCatalog.length >= 1, "Expected checked catalog topics in Step 6");
-  assert.ok(uncheckedCatalog.length >= 1, "Expected unchecked catalog topics in Step 6");
-  assert.ok(checkedPrereqs.length >= 1, "Expected checked lower-level prerequisite cards in Step 6");
-  assert.ok(multiLearnCard, "Expected dynamic multi-URL Learn topic card in Step 6");
-  assert.ok(unknownCard, "Expected level-unknown Learn topic card in Step 6");
+  assert.ok(checkedCatalog.length >= 1, "Expected checked catalog topics in Topics");
+  assert.ok(uncheckedCatalog.length >= 1, "Expected unchecked catalog topics in Topics");
+  assert.ok(checkedPrereqs.length >= 1, "Expected checked lower-level prerequisite cards in Topics");
+  assert.ok(multiLearnCard, "Expected dynamic multi-URL Learn topic card in Topics");
+  assert.ok(unknownCard, "Expected level-unknown Learn topic card in Topics");
 
-  // Every single card in Step 6 (checked & unchecked, catalog, learn, prereq, level-unknown) must render valid Learn links!
+  // Every single card in Topics (checked & unchecked, catalog, learn, prereq, level-unknown) must render valid Learn links!
   for (const card of cards) {
     const id = card.topicId || card.prereqId;
-    assert.ok(card.anchors.length >= 1, `Expected >= 1 .lb-learn-source link on Step 6 card ${id}`);
+    assert.ok(card.anchors.length >= 1, `Expected >= 1 .lb-learn-source link on Topics card ${id}`);
     const hrefs = new Set();
     for (const anchor of card.anchors) {
       assert.match(anchor.href, /^https:\/\/learn\.microsoft\.com\/.+/);
@@ -548,7 +548,7 @@ test("Step 6 renders clickable Microsoft Learn links on catalog topics, dynamic 
       assert.equal(anchor.rel, "noopener noreferrer");
       assert.ok(anchor.text.length >= 2);
       assert.ok(anchor.ariaLabel?.startsWith(anchor.text), `WCAG 2.5.3 Label in Name on ${id}: ${anchor.ariaLabel}`);
-      assert.ok(!hrefs.has(anchor.href), `Duplicate Learn link ${anchor.href} on Step 6 card ${id}`);
+      assert.ok(!hrefs.has(anchor.href), `Duplicate Learn link ${anchor.href} on Topics card ${id}`);
       hrefs.add(anchor.href);
     }
   }
@@ -579,7 +579,7 @@ test("Step 6 renders clickable Microsoft Learn links on catalog topics, dynamic 
     ],
   );
 
-  // Now uncheck a prerequisite in Step 6 and verify unchecked prerequisite cards STILL render Microsoft Learn links!
+  // Now uncheck a prerequisite in Topics and verify unchecked prerequisite cards STILL render Microsoft Learn links!
   const firstPrereqId = checkedPrereqs[0].prereqId;
   await vm.runInContext(`lbSetPrerequisite(${JSON.stringify(firstPrereqId)}, false)`, context);
   html = element("lb-topic-groups").innerHTML;
@@ -593,7 +593,7 @@ test("Step 6 renders clickable Microsoft Learn links on catalog topics, dynamic 
   assert.ok(uncheckedPrereqAnchors.length >= 1, "Unchecked prerequisite card must still show Microsoft Learn links");
 });
 
-test("Step 7 renders clickable Microsoft Learn links on included outline rows and excluded Removed from curriculum items", async () => {
+test("Review and build renders clickable Microsoft Learn links on included outline rows and excluded Removed from curriculum items", async () => {
   const { context, element } = createWizardHarness();
 
   await vm.runInContext(
@@ -609,12 +609,12 @@ test("Step 7 renders clickable Microsoft Learn links on included outline rows an
 
   let previewHtml = element("lb-preview").innerHTML;
   const rowMatches = [...previewHtml.matchAll(/<tr><td class="lb-outline-include-cell">[\s\S]*?<\/tr>/g)];
-  assert.ok(rowMatches.length >= 2, "Expected included outline rows in Step 7");
+  assert.ok(rowMatches.length >= 2, "Expected included outline rows in Review and build");
 
   for (const [rowHtml] of rowMatches) {
     const modId = rowHtml.match(/data-outline-module="([^"]+)"/)?.[1];
     const anchors = extractAnchors(rowHtml).filter((a) => a.className.includes("lb-learn-source"));
-    assert.ok(anchors.length >= 1, `Expected Microsoft Learn links on Step 7 outline row ${modId}`);
+    assert.ok(anchors.length >= 1, `Expected Microsoft Learn links on Review and build outline row ${modId}`);
     for (const anchor of anchors) {
       assert.match(anchor.href, /^https:\/\/learn\.microsoft\.com\/.+/);
       assert.equal(anchor.target, "_blank");
@@ -622,11 +622,11 @@ test("Step 7 renders clickable Microsoft Learn links on included outline rows an
     }
   }
 
-  // Uncheck both a prerequisite recap and a Level 200 module in Step 7 so both move to Removed from curriculum.
+  // Uncheck both a prerequisite recap and a Level 200 module in Review and build so both move to Removed from curriculum.
   const firstRecapId = previewHtml.match(/data-outline-module="([^"]+)"\s+data-outline-role="prerequisite"/)?.[1];
   const firstLevelModId = previewHtml.match(/data-outline-module="([^"]+)"\s+data-outline-role="level"/)?.[1];
-  assert.ok(firstRecapId, "Expected a prerequisite recap row in Step 7");
-  assert.ok(firstLevelModId, "Expected a level module row in Step 7");
+  assert.ok(firstRecapId,   "Expected a prerequisite recap row in Review and build");
+    assert.ok(firstLevelModId, "Expected a level module row in Review and build");
 
   await vm.runInContext(`lbSetOutlineModule(${JSON.stringify(firstRecapId)}, false)`, context);
   await vm.runInContext(`lbSetOutlineModule(${JSON.stringify(firstLevelModId)}, false)`, context);
@@ -640,7 +640,7 @@ test("Step 7 renders clickable Microsoft Learn links on included outline rows an
   for (const [, cardInner] of removedCards) {
     const modId = cardInner.match(/data-outline-module="([^"]+)"/)?.[1];
     const anchors = extractAnchors(cardInner).filter((a) => a.className.includes("lb-learn-source"));
-    assert.ok(anchors.length >= 1, `Expected Microsoft Learn links on Step 7 removed card ${modId}`);
+    assert.ok(anchors.length >= 1, `Expected Microsoft Learn links on Review and build removed card ${modId}`);
     for (const anchor of anchors) {
       assert.match(anchor.href, /^https:\/\/learn\.microsoft\.com\/.+/);
       assert.equal(anchor.target, "_blank");
@@ -649,7 +649,7 @@ test("Step 7 renders clickable Microsoft Learn links on included outline rows an
   }
 });
 
-test("clicking a .lb-learn-source link inside a <label> preserves native link navigation and never toggles checkboxes in Step 6 or Step 7", async () => {
+test("clicking a .lb-learn-source link inside a <label> preserves native link navigation and never toggles checkboxes in Topics or Review and build", async () => {
   const { context, element, recommendCalls, previewCalls } = createWizardHarness();
 
   await vm.runInContext(
@@ -669,7 +669,7 @@ test("clicking a .lb-learn-source link inside a <label> preserves native link na
   const initialPrereqCount = vm.runInContext("labBuilder.rec.prerequisites.selectedIds.length", context);
   const recCallsBefore = recommendCalls.length;
 
-  // Simulate clicking a `.lb-learn-source` link inside a checked Step 6 topic `<label>`, INCLUDING
+  // Simulate clicking a `.lb-learn-source` link inside a checked Topics topic `<label>`, INCLUDING
   // simulating a hostile/legacy DOM that attempts to synthesize a click + change on the sibling checkbox!
   const topicCheckbox = {
     type: "checkbox",
@@ -706,7 +706,7 @@ test("clicking a .lb-learn-source link inside a <label> preserves native link na
   assert.equal(recommendCalls.length, recCallsBefore, "lbSetTopic must not run when a Learn link was clicked");
   assert.equal(vm.runInContext("labBuilder.rec.selectedIds.length", context), initialSelectedCount);
 
-  // Wait a microtask so the synchronous click guard clears, then test Step 6 prerequisite link click too.
+  // Wait a microtask so the synchronous click guard clears, then test Topics prerequisite link click too.
   await Promise.resolve();
 
   const prereqCheckbox = {
@@ -748,7 +748,7 @@ test("clicking a .lb-learn-source link inside a <label> preserves native link na
   await topicGroups.dispatchChange(topicCheckbox);
   assert.equal(recommendCalls.length, recCallsBefore + 1, "Direct checkbox change must still toggle topic selection");
 
-  // Now verify Step 7 (`#lb-preview`) Removed from curriculum `<label>` link clicks also never re-include the module!
+  // Now verify Review and build (`#lb-preview`) Removed from curriculum `<label>` link clicks also never re-include the module!
   await vm.runInContext("labBuilder.step = LB_STEP.review; lbPreview()", context);
   await vm.runInContext('lbSetOutlineModule("create-agent", false)', context);
   const previewEl = element("lb-preview");
