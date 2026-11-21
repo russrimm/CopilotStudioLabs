@@ -9,7 +9,9 @@
  * The library resolves in this order:
  *   1. `FEATURE_TOUR_SCREENSHOTS_DIR` (exclusive; for previews and tests)
  *   2. `${PORTAL_STORAGE_ROOT}/screenshots` (persistent, mirrored to Azure Blob)
- *   3. the baked `docs/feature-tour/screenshots` (the committed fallback)
+ *   3. the per-user folder (`%LOCALAPPDATA%\CopilotStudioLabsPortal\screenshots` on Windows and its macOS and Linux
+ *      equivalents), outside the repository and outside OneDrive
+ *   4. the baked `docs/feature-tour/screenshots` (the committed fallback, never written to)
  * Reads search every location, best first, so an image captured once serves
  * every lab; writes go to the first (see `capturedScreenshotsDir`).
  */

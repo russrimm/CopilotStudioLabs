@@ -338,6 +338,8 @@ function scRenderInto(host, labId) {
   );
   const banner = scBuildBanner(labId);
   if (banner) section.appendChild(banner);
+  const keepNotice = typeof scKeepNotice === "function" ? scKeepNotice() : null;
+  if (keepNotice) section.appendChild(keepNotice);
   section.appendChild(scBuildStrip(model));
   const accountLine = scBuildAccountLine(labId);
   if (accountLine) section.appendChild(accountLine);
@@ -1442,14 +1444,18 @@ function scLibraryContents() {
     if (Number.isFinite(Number(status.confirmed))) {
       out.push(scEl("p", { class: "sc-library-line", text: `${scCount(status.confirmed)} confirmed accurate.`, data: { scLibraryConfirmed: "1" } }));
     }
-    out.push(
-      scEl("p", {
-        class: "sc-library-line",
-        text: status.persistent
-          ? "Saved: these pictures are kept when the portal restarts."
-          : "Not saved: these pictures can be lost when the portal restarts. Ask your administrator to turn on persistent storage.",
-      }),
-    );
+    if (status.persistent && status.summary) {
+      out.push(scEl("p", { class: "sc-library-line", text: scText(status.summary, 400), data: { scLibraryWhere: "1" } }));
+    } else {
+      out.push(
+        scEl("p", {
+          class: "sc-library-line",
+          text: status.persistent
+            ? "Saved: these pictures are kept when the portal restarts."
+            : "Not saved: these pictures can be lost when the portal restarts. Ask your administrator to turn on persistent storage.",
+        }),
+      );
+    }
   } else {
     out.push(scEl("p", { class: "sc-library-line", text: "Library details are loading." }));
   }
@@ -1481,6 +1487,7 @@ function scLibraryContents() {
   out.push(scEl("div", { class: "sc-progress-host", data: { scProgressHost: "library" } }));
   const outcome = scLab("library").outcome;
   if (outcome?.message) out.push(scEl("p", { class: `sc-banner sc-banner-${outcome.variant === "ok" ? "ok" : outcome.variant === "warn" ? "warn" : "error"}`, text: outcome.message }));
+  if (typeof scKeepContents === "function") out.push(...scKeepContents());
   return out;
 }
 
@@ -1754,6 +1761,10 @@ function scBuildCard(labId, shot, jobStatus) {
   // Where the picture comes from: the shared library (reused from an earlier lab) or this lab's own capture, and when it was captured.
   const source = status.key === "needs-review" ? null : scShotSource(shot);
   if (source) body.appendChild(scEl("p", { class: "sc-source", text: source.text, data: { scSource: source.key } }));
+  // A picture only this lab has, but that every lab could use, says what "Use this one for every lab" does.
+  if (source && scShareOffer(shot) && ["captured", "outdated"].includes(status.key)) {
+    body.appendChild(scEl("p", { class: "sc-share-note", text: "Other labs cannot use this picture yet. Use this one for every lab lets every lab that has no picture of its own show it. Check that it shows no account names or customer data.", data: { scShareNote: "1" } }));
+  }
   // In automatic mode nobody is told to set a screen up: the card says what the computer will do, and what it cannot do without a practice agent.
   const plan = capture && scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual" ? scPlannedLine(capture) : "";
   if (plan) {
@@ -1764,6 +1775,9 @@ function scBuildCard(labId, shot, jobStatus) {
   // While the computer works on this shot, the live message from the job says what it is doing right now.
   const running = status.key === "capturing" ? scText(scJobRow(labId, shot.filename)?.message, 200) : "";
   body.appendChild(scEl("p", { class: "sc-note", text: running || scShotNote(shot, status, attempt, scWaitingNouns(labId, capture), scAgentNoteFor(labId, capture)), data: { scNote: "1" }, attrs: running ? { role: "status" } : {} }));
+  // While a retake runs, the picture in place stays; if it did not work, the card says the old picture was kept.
+  const retakeNote = scRetakeNote({ shot, status, active: scIsActiveJob(lab.job) ? lab.job : null, last: lab.lastJob, row: scJobRow(labId, shot.filename) });
+  body.appendChild(scEl("p", { class: "sc-retake-note", text: retakeNote, data: { scRetakeNote: "1" }, attrs: { role: "status", ...(retakeNote ? {} : { hidden: true }) } }));
   if (outcome) body.appendChild(scEl("p", { class: "sc-outcome", text: outcome, data: { scOutcome: "1" } }));
   const feedback = scBuildFeedback(labId, shot.filename);
   if (feedback) body.appendChild(feedback);
@@ -1802,15 +1816,15 @@ function scBuildShareLabBlock(labId) {
   const lab = scLab(labId);
   const result = lab.ui.shareLabResult;
   const block = scEl("div", { class: "sc-share-lab sc-adv-block", data: { scShareLab: "1" } });
-  block.appendChild(scEl("h6", { text: "Share this lab's screenshots" }));
+  block.appendChild(scEl("h6", { text: "Share all of this lab's eligible pictures" }));
   block.appendChild(
     scEl("p", {
       class: "hint",
-      text: "Pictures captured for this lab can be added to the shared library, so the next lab does not retake them. Only pictures with account details hidden are shared, and nothing in the library is replaced.",
+      text: "Pictures captured for this lab can be added to the shared library, so the next lab does not retake them. Only pictures with account details hidden are shared, and nothing in the library is replaced. This also happens automatically, before this lab is deleted or replaced, so nothing is lost.",
     }),
   );
   const nothing = scCount(lab.state?.summary?.capturedInLab) === 0;
-  block.appendChild(scButton("Share this lab's captured screenshots", { action: "share-lab", focus: "share-lab", disabled: Boolean(result?.busy) || nothing }));
+  block.appendChild(scButton("Share all of this lab's eligible pictures", { action: "share-lab", focus: "share-lab", disabled: Boolean(result?.busy) || nothing }));
   if (lab.ui.ask?.kind === "share-lab") block.appendChild(scBuildAskPanel(labId, lab.ui.ask));
   if (result?.message) {
     const box = scEl("div", { class: `sc-feedback sc-feedback-${result.variant === "bad" ? "bad" : result.busy ? "warn" : "ok"}`, attrs: { role: "status" }, data: { scShareLabResult: "1" } });
@@ -1944,6 +1958,14 @@ function scApplyJobToCards(key) {
       }
     }
     for (const btn of card.querySelectorAll("[data-sc-needs-idle]")) btn.disabled = !idle;
+    const retakeEl = card.querySelector("[data-sc-retake-note]");
+    if (retakeEl) {
+      const text = scRetakeNote({ shot, status, active: idle ? null : lab.job, last: lab.lastJob, row: scJobRow(key, shot.filename) });
+      if (retakeEl.textContent !== text) {
+        retakeEl.textContent = text;
+        retakeEl.hidden = !text;
+      }
+    }
   }
 }
 
@@ -2315,7 +2337,7 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       await scAcceptShot(labId, filename);
       return;
     case "shot-discard":
-      await scResetShot(labId, filename, { announce: "Staged image discarded." });
+      scAskDiscardShot(labId, filename);
       return;
     case "dismiss-feedback":
       scSetFeedback(labId, filename, null);
@@ -2337,6 +2359,7 @@ async function scHandleAction(labId, action, control, filename, fileInput) {
       scStepLightbox(labId, 1);
       return;
     default:
+      if (typeof scKeepAction === "function") await scKeepAction(labId, action, control);
   }
 }
 

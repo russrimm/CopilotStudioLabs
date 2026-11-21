@@ -62,6 +62,7 @@ import { getProducts, productOf } from "./lib/lab-builder/products.js";
 import { generateLab } from "./lib/lab-builder/generator.js";
 import {
   ensurePortalStorageDirs,
+  getScreenshotLibraryDiagnostics,
   getStorageDiagnostics,
   resolveGeneratedLabsDir,
   resolvePortalDataDir,
@@ -456,7 +457,7 @@ app.use(LABS_ROUTE, (_req, res) => {
 app.get("/healthz", (_req, res) => {
   res.json({
     status: "ok",
-    storage: getStorageDiagnostics(),
+    storage: { ...getStorageDiagnostics(), screenshots: getScreenshotLibraryDiagnostics() },
   });
 });
 
@@ -553,7 +554,17 @@ const capturePlatform = registerCaptureRoutes(app, {
   generatedRoot: GENERATED_LABS_DIR,
   scheduleBlobSync,
   manageRateLimited,
+  logger: (line) => console.info(line),
 });
+// Pictures kept from deleted or replaced labs are removed once their 90 days are up: at start (above) and then every day.
+setInterval(() => {
+  try {
+    capturePlatform.screenshots.purgeKept();
+    scheduleBlobSync();
+  } catch (err) {
+    console.warn(`[kept-pictures] Could not remove expired kept pictures: ${err.message}`);
+  }
+}, 24 * 60 * 60 * 1000).unref();
 
 /** GET /api/lab-builder/features — Catalog that drives the wizard */
 app.get("/api/lab-builder/features", (_req, res) => {
@@ -752,10 +763,11 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       });
     }
 
-    const replaced =
+    const replacement =
       replaceLabId !== undefined && replaceLabId !== null
-        ? replaceGeneratedLab(GENERATED_LABS_DIR, replaceLabId, result.labId).replaced
-        : false;
+        ? replaceGeneratedLab(GENERATED_LABS_DIR, replaceLabId, result.labId)
+        : { replaced: false };
+    const replaced = replacement.replaced;
 
     if (customization) {
       writeLabCustomization(result.outputDir, customization);
@@ -776,6 +788,9 @@ app.post("/api/lab-builder/generate", async (req, res) => {
       status: "complete",
       labId: result.labId,
       replacedLabId: replaced ? replaceLabId : null,
+      // What happened to the original lab's pictures, or why the original lab was kept (it is never removed with a picture unsaved).
+      replacedPictures: replacement.pictures || null,
+      replaceError: replacement.error || null,
       outputDir: result.outputDir,
       title: result.plan.title,
       difficulty: result.plan.difficulty,
@@ -1857,7 +1872,7 @@ app.get("/api/config", (_req, res) => {
       port: PORT,
       nodeVersion: process.version,
     },
-    storage: getStorageDiagnostics(),
+    storage: { ...getStorageDiagnostics(), screenshots: getScreenshotLibraryDiagnostics() },
     email: {
       transport: process.env.SMTP_HOST ? "smtp" : process.env.AZURE_TENANT_ID ? "graph" : "none",
       from: process.env.MAIL_FROM || "(not configured)",

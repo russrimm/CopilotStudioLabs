@@ -163,7 +163,8 @@ test("delete asks for confirmation in a named alert dialog and rename in a label
   const del = html.match(/<dialog id=["']lb-gen-delete-dialog["'][^>]*>/)?.[0] || "";
   assert.match(del, /role=["']alertdialog["']/);
   assert.match(del, /aria-labelledby=["']lb-gen-delete-title["']/);
-  assert.match(del, /aria-describedby=["']lb-gen-delete-desc["']/);
+  assert.match(del, /aria-describedby=["']lb-gen-delete-desc lb-gen-delete-pictures["']/, "the dialog reads out what happens to the pictures too");
+  assert.match(html, /<p id=["']lb-gen-delete-pictures["'][^>]*role=["']status["']/);
   const rename = html.match(/<dialog id=["']lb-gen-rename-dialog["'][^>]*>/)?.[0] || "";
   assert.match(rename, /aria-labelledby=["']lb-gen-rename-heading["']/);
   assert.match(html, /id=["']lb-gen-rename-error["'] class=["']lb-error["'] role=["']alert["']/);

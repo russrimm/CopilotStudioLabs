@@ -4753,7 +4753,10 @@ async function lbGenerate() {
       lbLoadGenerated();
       if (typeof lbDraftsAfterBuild === "function") void lbDraftsAfterBuild(data);
       if (status) status.textContent = "";
-      toast(data.replacedLabId ? `Rebuilt "${data.title}" and replaced the original` : `Built "${data.title}"`, "success");
+      const safe = data.replacedLabId && typeof lbGenPicturesDoneText === "function" ? lbGenPicturesDoneText(data.replacedPictures) : "";
+      toast(data.replacedLabId ? `Rebuilt "${data.title}" and replaced the original.${safe ? ` ${safe}` : ""}` : `Built "${data.title}"`, "success");
+      // The original lab is kept (never removed with a picture unsaved) when its pictures could not be carried over or kept.
+      if (data.replaceError) toast(`Built "${data.title}", but the original lab was kept. ${data.replaceError}`, "error");
       // The build button was disabled while the lab was built, so focus would otherwise fall back to the page.
       // A capture queued during the build takes the learner straight to its live progress.
       if (data.captureQueued && data.captureJobId && typeof scAttachBuildJob === "function") {

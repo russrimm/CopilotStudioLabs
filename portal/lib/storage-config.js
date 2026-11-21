@@ -27,7 +27,8 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, extname, isAbsolute, relative, resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -84,27 +85,117 @@ export function resolvePortalUploadsDir(env = process.env) {
 /** The feature tour's committed screenshots, baked into the container image. Read-only in production. */
 export const BAKED_CAPTURED_SCREENSHOTS_DIR = resolve(REPO_ROOT, "docs", "feature-tour", "screenshots");
 
+/** The folder name the per-user data home uses on every platform. */
+export const USER_DATA_HOME_NAME = "CopilotStudioLabsPortal";
+
+const ONEDRIVE_ENV_NAMES = ["OneDrive", "OneDriveCommercial", "OneDriveConsumer"];
+
+function insideOrSame(parent, child) {
+  const rel = relative(resolve(parent), resolve(child));
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+/** Whether `dir` sits in a OneDrive-synced folder: a path segment named OneDrive..., or inside a folder OneDrive says it syncs. */
+function isInsideOneDrive(dir, env) {
+  if (/(^|[\\/])OneDrive[^\\/]*([\\/]|$)/i.test(dir)) return true;
+  return ONEDRIVE_ENV_NAMES.some((name) => {
+    const root = trimEnv(env?.[name]);
+    return root && isAbsolute(root) && insideOrSame(root, dir);
+  });
+}
+
+/**
+ * Where a person's own machine keeps the shared screenshot library when nothing else is configured: a per-user folder
+ * outside the repository and outside OneDrive. Only `env` (and the injected `platform` and `home`) are read, so a test
+ * with its own `env` never reaches the real profile. Returns `null` when no such folder can be worked out.
+ *
+ *   Windows  %LOCALAPPDATA%\CopilotStudioLabsPortal\screenshots   (else %USERPROFILE%\AppData\Local\...)
+ *   macOS    ~/Library/Application Support/CopilotStudioLabsPortal/screenshots
+ *   others   $XDG_DATA_HOME/CopilotStudioLabsPortal/screenshots   (else ~/.local/share/...)
+ *
+ * @param {{env?: NodeJS.ProcessEnv, platform?: string, home?: string|null}} [options]
+ *   `home` replaces the home folder (default: `HOME` or `USERPROFILE` from `env`, and the real home only for `process.env`).
+ */
+export function resolveUserDataHome({ env = process.env, platform = process.platform, home = undefined } = {}) {
+  const homeDir = home !== undefined ? home : trimEnv(env?.HOME) || trimEnv(env?.USERPROFILE) || (env === process.env ? homedir() : "");
+  const candidates = [];
+  if (platform === "win32") {
+    candidates.push(trimEnv(env?.LOCALAPPDATA));
+    if (homeDir) candidates.push(join(homeDir, "AppData", "Local"));
+  } else if (platform === "darwin") {
+    if (homeDir) candidates.push(join(homeDir, "Library", "Application Support"));
+  } else {
+    const xdg = trimEnv(env?.XDG_DATA_HOME);
+    if (xdg && isAbsolute(xdg)) candidates.push(xdg);
+    if (homeDir) candidates.push(join(homeDir, ".local", "share"));
+  }
+  const base = candidates.find((dir) => dir && isAbsolute(dir) && !isInsideOneDrive(dir, env));
+  return base ? resolve(base, USER_DATA_HOME_NAME) : null;
+}
+
+/** The default shared-library folder (`<user data home>/screenshots`), or `null` when no per-user folder can be worked out. */
+export function resolveDefaultUserLibraryDir(options = {}) {
+  const home = resolveUserDataHome(options);
+  return home ? resolve(home, "screenshots") : null;
+}
+
+/**
+ * A test run (`node --test`) that did not inject its own environment never reads or writes a person's real library:
+ * it keeps the committed folder as before. Any environment object a test builds itself is always honored.
+ */
+function realProfileOffLimits(env) {
+  return env === process.env && Boolean(process.env.NODE_TEST_CONTEXT) && trimEnv(process.env.PORTAL_USER_LIBRARY) !== "on";
+}
+
+/**
+ * Where the shared captured-screenshot library lives and why:
+ * `explicit` (`FEATURE_TOUR_SCREENSHOTS_DIR`), `storage-root` (`${PORTAL_STORAGE_ROOT}/screenshots`, mirrored to Azure Blob or a
+ * persistent volume), `user-folder` (the per-user folder above), or `committed` (the repository's `docs/feature-tour/screenshots`).
+ *
+ * @returns {{kind: "explicit"|"storage-root"|"user-folder"|"committed", dir: string, persistent: boolean}}
+ */
+export function describeCapturedScreenshotsLocation(env = process.env, options = {}) {
+  const explicit = trimEnv(env?.FEATURE_TOUR_SCREENSHOTS_DIR);
+  if (explicit) {
+    const dir = resolve(explicit);
+    return { kind: "explicit", dir, persistent: dir !== BAKED_CAPTURED_SCREENSHOTS_DIR };
+  }
+  const storageRoot = trimEnv(env?.PORTAL_STORAGE_ROOT);
+  if (storageRoot) return { kind: "storage-root", dir: resolve(storageRoot, "screenshots"), persistent: true };
+  const userDir = realProfileOffLimits(env) ? null : resolveDefaultUserLibraryDir({ env, ...options });
+  if (userDir) return { kind: "user-folder", dir: userDir, persistent: true };
+  return { kind: "committed", dir: BAKED_CAPTURED_SCREENSHOTS_DIR, persistent: false };
+}
+
 /**
  * Resolve where the shared captured-screenshot library is written.
  * Precedence: `FEATURE_TOUR_SCREENSHOTS_DIR` -> `${PORTAL_STORAGE_ROOT}/screenshots`
- * -> the baked `docs/feature-tour/screenshots`.
+ * -> the per-user folder (`%LOCALAPPDATA%\CopilotStudioLabsPortal\screenshots` and its macOS/Linux equivalents)
+ * -> the committed `docs/feature-tour/screenshots` (only when no per-user folder can be worked out).
  */
-export function resolveCapturedScreenshotsDir(env = process.env) {
-  const explicit = trimEnv(env?.FEATURE_TOUR_SCREENSHOTS_DIR);
-  if (explicit) return resolve(explicit);
-  const storageRoot = trimEnv(env?.PORTAL_STORAGE_ROOT);
-  return storageRoot ? resolve(storageRoot, "screenshots") : BAKED_CAPTURED_SCREENSHOTS_DIR;
+export function resolveCapturedScreenshotsDir(env = process.env, options = {}) {
+  return describeCapturedScreenshotsLocation(env, options).dir;
 }
 
 /**
  * Every folder a captured screenshot may be read from, best first. An explicit
  * `FEATURE_TOUR_SCREENSHOTS_DIR` is exclusive (previews and tests stay isolated);
- * otherwise the persistent folder wins and the baked folder is the fallback.
+ * otherwise the persistent folder wins and the committed folder is a read-only fallback.
  */
-export function resolveCapturedScreenshotsSearchDirs(env = process.env) {
-  const primary = resolveCapturedScreenshotsDir(env);
+export function resolveCapturedScreenshotsSearchDirs(env = process.env, options = {}) {
+  const primary = resolveCapturedScreenshotsDir(env, options);
   if (trimEnv(env?.FEATURE_TOUR_SCREENSHOTS_DIR)) return [primary];
   return primary === BAKED_CAPTURED_SCREENSHOTS_DIR ? [primary] : [primary, BAKED_CAPTURED_SCREENSHOTS_DIR];
+}
+
+/**
+ * Where pictures from a deleted or replaced lab are kept for a while (see `lib/capture/kept-pictures.js`). It sits inside
+ * the library folder (`<library>/.kept`), so it persists and is mirrored to Azure Blob with the library. The committed
+ * folder is never written to, so when the library is that folder the pictures are kept under the portal data folder.
+ */
+export function resolveKeptScreenshotsDir(env = process.env, options = {}) {
+  const library = resolveCapturedScreenshotsDir(env, options);
+  return library === BAKED_CAPTURED_SCREENSHOTS_DIR ? resolve(resolvePortalDataDir(env), "capture", "kept-pictures") : resolve(library, ".kept");
 }
 
 function probeDirWriteReadiness(dirPath) {
@@ -290,6 +381,15 @@ export function getStorageDiagnostics(env = process.env) {
     writable,
     blobSync: resolveBlobSyncDiagnostics(env, backend),
   };
+}
+
+/**
+ * Path-free facts about the shared screenshot library for `/healthz`: where it lives (`explicit`, `storage-root`,
+ * `user-folder`, or `committed`) and whether pictures saved there survive a restart.
+ */
+export function getScreenshotLibraryDiagnostics(env = process.env) {
+  const { kind, persistent } = describeCapturedScreenshotsLocation(env);
+  return { location: kind, persistent };
 }
 
 function hasMarkupSignature(filePath) {

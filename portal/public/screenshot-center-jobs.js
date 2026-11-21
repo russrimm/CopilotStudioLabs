@@ -864,7 +864,10 @@ async function scResetShot(labId, filename, { announce = "Screenshot removed. It
   return true;
 }
 
-/** Retake screenshots: discard the picture a screenshot has now, then queue a new capture for all of them. `record` is "Show me once". */
+/**
+ * Retake screenshots: queue a new capture for all of them. The pictures in place stay where they are until a new one passes
+ * its check, so a capture that fails or is rejected never leaves a slot empty. `record` is "Show me once".
+ */
 async function scRetakeShots(labId, filenames, { mode, record = null } = {}) {
   const lab = scLab(labId);
   const status = await scLoadStatus(true);
@@ -885,16 +888,31 @@ async function scRetakeShots(labId, filenames, { mode, record = null } = {}) {
     scNotifyStatusChanged();
     return false;
   }
-  // Only a screenshot that has a picture (accepted or waiting for review) has something to discard.
-  const replace = filenames.filter((name) => (lab.state?.shots || []).some((s) => s.filename === name && (s.captured || s.needsReview)));
-  for (const name of replace) {
-    if (!(await scResetShot(labId, name, { announce: "" }))) return false;
-  }
   return scQueueCapture(labId, { scope: "selected", filenames, mode, record, retake: true });
 }
 
 function scRetakeShot(labId, filename, options) {
   return scRetakeShots(labId, [filename], options);
+}
+
+/**
+ * Discard the picture that is waiting for review. It asks first, in plain words: a picture that exists only in this one place
+ * cannot be brought back, and a picture already in the slot stays where it is.
+ */
+function scAskDiscardShot(labId, filename) {
+  const shot = scShotOf(labId, filename);
+  const inPlace = Boolean(shot?.captured);
+  scOpenAsk(labId, {
+    kind: "discard",
+    filename,
+    title: inPlace ? "Discard the picture waiting for review?" : "Discard this picture?",
+    text: inPlace
+      ? "The picture now in this slot stays. The one waiting for review is removed, and you would need to capture or upload it again."
+      : "This picture exists only here, waiting for your review. If you discard it, it is gone and you would need to capture or upload it again.",
+    yes: "Yes, discard it",
+    focusBack: `card:${filename}:shot-discard`,
+    run: () => scResetShot(labId, filename, { announce: "Picture discarded." }),
+  });
 }
 
 // ── "Mark as accurate", sharing, and the questions asked first ──────────────
@@ -1038,7 +1056,7 @@ function scAskShareLab(labId) {
   scOpenAsk(labId, {
     kind: "share-lab",
     filename: null,
-    title: "Share this lab's screenshots with every lab?",
+    title: "Share all of this lab's eligible pictures?",
     text: "This adds this lab's checked pictures to the shared library. Pictures that show account details, that the library already has, or that belong only to this lab are skipped. Nothing in the library is replaced.",
     yes: "Yes, share them",
     focusBack: "share-lab",

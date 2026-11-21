@@ -601,7 +601,7 @@ test("a running capture counts the shots that need you in its progress card", as
   assert.equal(h.card("a.png").dataset.status, "capturing");
 });
 
-test("Retake uses the chosen mode and Retake guided always uses guided, discarding only a picture that exists", async () => {
+test("Retake uses the chosen mode and Retake guided always uses guided, and neither throws away the picture in place", async () => {
   const run = async (action, { choose = null, state, filename }) => {
     const h = await ready(state);
     if (choose) h.choose(h.center().querySelector(`#sc-mode-${choose}`));
@@ -612,19 +612,19 @@ test("Retake uses the chosen mode and Retake guided always uses guided, discardi
     return { order: h.calls.filter((c) => /DELETE|POST/.test(c.method)).map((c) => `${c.method} ${c.url}`), body: h.jobBodies()[0] };
   };
   const withPicture = stateFor([captured("a.png")]);
-  const deleteThenPost = ["DELETE /api/lab-builder/generated/lab-test-1/screenshots/a.png", "POST /api/capture/jobs"];
+  const queueOnly = ["POST /api/capture/jobs"];
 
   const smart = await run("shot-retake", { state: withPicture, filename: "a.png" });
-  assert.deepEqual(smart.order, deleteThenPost);
+  assert.deepEqual(smart.order, queueOnly, "the old picture stays until the new one is accepted");
   assert.deepEqual(json(smart.body), { target: { type: "lab", labId: LAB }, scope: { mode: "selected", filenames: ["a.png"] }, options: { callouts: "sidecar", redact: true, mode: "autonomous", retake: true } });
   assert.equal((await run("shot-retake", { choose: "auto", state: withPicture, filename: "a.png" })).body.options.mode, "auto");
   const guided = await run("shot-retake-guided", { choose: "auto", state: withPicture, filename: "a.png" });
   assert.equal(guided.body.options.mode, "guided", "Retake guided ignores the radio choice");
-  assert.deepEqual(guided.order, deleteThenPost);
+  assert.deepEqual(guided.order, queueOnly);
 
   const failed = stateFor([shot({ filename: "b.png", lastAttemptStatus: "failed", lastError: "It broke." })]);
   const noPicture = await run("shot-retake-guided", { state: failed, filename: "b.png" });
-  assert.deepEqual(noPicture.order, ["POST /api/capture/jobs"], "nothing to discard when there is no picture");
+  assert.deepEqual(noPicture.order, queueOnly);
   assert.deepEqual(json(noPicture.body.scope), { mode: "selected", filenames: ["b.png"] });
 
   const offline = makeHarness();
@@ -1064,16 +1064,15 @@ test("a picture waiting for review sits next to what the lab asks for, with the 
   assert.equal(plain.querySelector(".sc-review-expected").textContent, "Expected screen: the agent's Settings page.", "the classified screen stands in");
 });
 
-test("Retake guided in the review dialog closes it, discards the staged picture, and queues a guided capture", async () => {
+test("Retake guided in the review dialog closes it and queues a guided capture, leaving the waiting picture until it is accepted or discarded", async () => {
   const state = reviewState();
   const h = await ready(state);
-  h.route("DELETE", /\/screenshots\/agent-instructions\.png$/, { status: 200, body: { outcome: "reset", discardedStaged: true, state: stateFor([shot({ filename: "agent-instructions.png" })]) } });
   h.route("POST", /\/api\/capture\/jobs$/, { status: 201, body: { job: queuedJob(["agent-instructions.png"]) } });
   await h.click(h.cardAction("agent-instructions.png", "preview"));
   const dialog = h.center().querySelector("dialog.sc-lightbox");
   h.calls.length = 0;
   await h.click(dialog.querySelector('[data-sc-action="shot-retake-guided"]'));
-  assert.deepEqual(h.calls.filter((c) => /DELETE|POST/.test(c.method)).map((c) => `${c.method} ${c.url}`), ["DELETE /api/lab-builder/generated/lab-test-1/screenshots/agent-instructions.png", "POST /api/capture/jobs"]);
+  assert.deepEqual(h.calls.filter((c) => /DELETE|POST/.test(c.method)).map((c) => `${c.method} ${c.url}`), ["POST /api/capture/jobs"]);
   assert.equal(h.jobBodies()[0].options.mode, "guided");
   assert.equal(h.center().querySelector("dialog.sc-lightbox").open, false, "the progress behind the dialog can be seen");
 

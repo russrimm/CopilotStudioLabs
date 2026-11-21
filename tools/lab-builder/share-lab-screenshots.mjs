@@ -8,7 +8,8 @@
 //
 // Where things live: --root=<generated-labs folder>, otherwise the portal's own rules (LAB_BUILDER_OUTPUT_DIR, then
 // ${PORTAL_STORAGE_ROOT}/generated-labs, then generated-labs/ in this repository). The shared library is
-// FEATURE_TOUR_SCREENSHOTS_DIR, else ${PORTAL_STORAGE_ROOT}/screenshots, else docs/feature-tour/screenshots; --library=<folder>
+// FEATURE_TOUR_SCREENSHOTS_DIR, else ${PORTAL_STORAGE_ROOT}/screenshots, else the per-user folder (for example
+// %LOCALAPPDATA%\CopilotStudioLabsPortal\screenshots on Windows), else docs/feature-tour/screenshots; --library=<folder>
 // picks another one. The portal's data folder (its saved checks and confirmations) follows PORTAL_STORAGE_ROOT too.
 //
 // A picture is shared only when it is a shared slot (a feature tour shot, never a lab-specific one), a real screenshot

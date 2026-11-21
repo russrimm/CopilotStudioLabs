@@ -543,7 +543,10 @@ function scShotStatus(shot, jobShotStatus = null, attempt = null) {
 
 // ── Where a picture comes from, and "Mark as accurate" ──────────────────────
 
-const SC_SOURCE_LABELS = Object.freeze({ library: "Shared library", lab: "This lab" });
+const SC_SOURCE_LABELS = Object.freeze({
+  library: "Shared library (every lab can use it)",
+  lab: "This lab only (will be kept for 90 days if you delete or replace this lab)",
+});
 
 /** "Nov 12, 2026" (US English), or "" when the date is missing or not a date. */
 function scFormatDate(iso) {
@@ -551,12 +554,34 @@ function scFormatDate(iso) {
   return Number.isFinite(ms) ? new Date(ms).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
 }
 
-/** Where the picture a lab shows comes from: `{ key, label, date, text }`, or null when the shot has no picture. */
+/**
+ * Where the picture a lab shows lives: `{ key, label, date, text }`, or null when the shot has no picture. `key` is where it
+ * comes from ("library" or "lab"); the label says who can use it. A lab's own picture that the shared library holds too is
+ * available to every lab, so it says so.
+ */
 function scShotSource(shot) {
   const key = shot?.imageSource === "library" ? "library" : shot?.imageSource === "lab" ? "lab" : null;
   if (!key || !shot?.captured) return null;
   const date = scFormatDate(shot.imageCapturedAt);
-  return { key, label: SC_SOURCE_LABELS[key], date, text: date ? `${SC_SOURCE_LABELS[key]} \u00b7 captured ${date}` : SC_SOURCE_LABELS[key] };
+  const label = key === "lab" && shot.share?.state === "shared" ? SC_SOURCE_LABELS.library : SC_SOURCE_LABELS[key];
+  return { key, label, date, text: date ? `${label} \u00b7 captured ${date}` : label };
+}
+
+/**
+ * While a retake runs, the picture in place stays: say so. When the retake did not work, say that the current picture was kept.
+ * @param {{shot: object, status: {key: string}, active: object|null, last: object|null, row: object|null}} input
+ *   `active` is the running capture job, `last` the one that finished last, `row` this shot's row in one of them
+ */
+function scRetakeNote({ shot, status, active = null, last = null, row = null } = {}) {
+  if (!shot?.captured) return "";
+  if ((status?.key === "capturing" || status?.key === "queued") && active?.options?.retake === true) {
+    return "Retake in progress. Your current picture stays until the new one passes its check.";
+  }
+  if (!active && last?.options?.retake === true && row && SC_ATTEMPT_STATUSES.includes(row.status)) {
+    const why = scText(row.error || row.message, 160);
+    return `The retake did not work, so your current picture was kept.${why ? ` ${why}` : ""}`;
+  }
+  return "";
 }
 
 /** The confirmation that still counts for a captured picture: `{ date, text }`, or null. */

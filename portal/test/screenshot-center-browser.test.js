@@ -188,10 +188,10 @@ test("the Screenshot Center shows where each picture comes from, and Mark as acc
 
   // Where each picture comes from.
   const librarySource = (await card(library).locator(".sc-source").textContent()).trim();
-  assert.match(librarySource, /^Shared library \u00b7 /);
+  assert.match(librarySource, /^Shared library \(every lab can use it\) \u00b7 /);
   assert.match(librarySource, dated);
   const ownSource = (await card(own).locator(".sc-source").textContent()).trim();
-  assert.match(ownSource, /^This lab \u00b7 /);
+  assert.match(ownSource, /^This lab only \(will be kept for 90 days if you delete or replace this lab\) \u00b7 /);
   assert.match(ownSource, dated);
   assert.equal((await card(library).locator(".sc-status-chip").textContent()).trim(), "Captured", "a reused picture is Captured, not Pending");
   assert.match(await gallery.locator(".sc-confirm-summary").textContent(), /^0 of 2 captured screenshots confirmed accurate\./);
@@ -227,7 +227,7 @@ test("the Screenshot Center shows where each picture comes from, and Mark as acc
   await card(own).locator(".sc-thumb").click();
   const dialog = page.locator("#lb-result-screenshots dialog.sc-lightbox");
   await dialog.waitFor({ state: "visible" });
-  assert.match(await dialog.locator(".sc-lb-source").textContent(), /^This lab \u00b7 /);
+  assert.match(await dialog.locator(".sc-lb-source").textContent(), /^This lab only \(will be kept for 90 days/);
   assert.equal(await dialog.getByRole("button", { name: /^Clear confirmation/ }).count(), 1);
   if (DEMO_DIR) await dialog.screenshot({ path: join(DEMO_DIR, "4-preview-dialog.png") });
   await page.keyboard.press("Escape");

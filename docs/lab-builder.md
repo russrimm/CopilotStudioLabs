@@ -2270,16 +2270,20 @@ looks like a login box that vanished; the companion says where to look (the task
 **Paste or upload is the universal fallback.** Any image can be sent straight to a slot with the
 same verification and the same refresh (`PUT /api/lab-builder/generated/:labId/screenshots/:filename`,
 raw image bytes or multipart). Add `?acceptWarnings=true` to use an image despite warnings.
-`DELETE` on the same route resets the slot to the "Screenshot pending" placeholder so you can
-retake it.
+`DELETE` on the same route discards a picture waiting for review, or resets a committed picture to the "Screenshot pending"
+placeholder (keeping it as a backup, see
+[Pictures survive a rebuild](#pictures-survive-a-rebuild-a-replace-or-a-delete)).
 
 **The shared library persists.** Captured images for the feature tour (all six products) go to one
-shared library that every lab reads: `FEATURE_TOUR_SCREENSHOTS_DIR` when set (exclusive), else
-`${PORTAL_STORAGE_ROOT}/screenshots` (mirrored to Azure Blob like the other storage), else the
-baked `docs/feature-tour/screenshots`. Reads check the persistent folder first and then the baked
-one, so an image captured once serves every lab, including labs generated earlier. Queue a job with
+shared library that every lab reads. Where it lives, in order: `FEATURE_TOUR_SCREENSHOTS_DIR` when set
+(exclusive), else `${PORTAL_STORAGE_ROOT}/screenshots` (mirrored to Azure Blob like the other storage), else a
+**per-user folder outside the repository and outside OneDrive** (see
+[Where the shared library lives](#where-the-shared-library-lives)), else (only when no per-user folder can be worked
+out) the baked `docs/feature-tour/screenshots`, which is read-only here. Reads check the persistent folder first and then
+the baked one, so an image captured once serves every lab, including labs generated earlier. Queue a job with
 `target: { "type": "library" }` to capture feature tour shots this way. A good picture captured for
-one lab also goes into this library (next section), so the next lab does not retake it.
+one lab also goes into this library (next section), so the next lab does not retake it, and no real picture
+is lost when a lab is replaced or deleted ([Pictures survive a rebuild](#pictures-survive-a-rebuild-a-replace-or-a-delete)).
 
 #### Capture once, reuse everywhere
 
@@ -2298,7 +2302,7 @@ says why in plain words (`library: { outcome: "skipped", code, message }` in the
 | The bytes are a real screenshot: the right type, at least 5 KB, and not a placeholder picture (the same content detector as everywhere else) | `placeholder`, `not-real` |
 | The saved check (`screenshots/verification.json`) belongs to exactly these bytes (SHA-256), did not fail, and was passed or accepted by a person | `no-check`, `check-mismatch`, `failed`, `not-accepted` (a picture waiting for review is never shared) |
 | Account details are **proven hidden**: the check's `redaction.applied` is true. The library serves labs for other customers and brand profiles, so a picture must not carry customer-specific or personal data. A picture put in by hand carries no such proof | `masking-unproven` (stays in the lab; a person can still choose **Use this one for every lab**), `not-masked` (masking was requested and not applied: never shared, not even by a person) |
-| The library is not the committed `docs/feature-tour/screenshots` folder in the code repository (no `PORTAL_STORAGE_ROOT` or `FEATURE_TOUR_SCREENSHOTS_DIR`), so a customer's picture never lands in a Git-tracked folder on its own | `not-persistent` (**Use this one for every lab** and the backfill below still work) |
+| The library is not the committed `docs/feature-tour/screenshots` folder in the code repository, so a customer's picture never lands in a Git-tracked folder on its own. A computer with no setting uses its per-user folder, so this only applies when `FEATURE_TOUR_SCREENSHOTS_DIR` points at the committed folder (or no per-user folder can be worked out) | `not-persistent` (**Use this one for every lab** and the backfill below still work) |
 
 **The library is never overwritten silently.** An empty slot is filled. The same picture again changes nothing, so
 sharing twice, or from two labs at once, is harmless. When the slot already has a real picture:
@@ -2319,8 +2323,11 @@ After a promotion the library refreshes every generated lab that shows the libra
 deferred refresh a library capture uses) and the Azure Blob write-through runs, so persistence stays correct.
 
 **Where each picture comes from.** The lab status (`GET .../screenshots`) says, per shot, `imageSource` (`"lab"` or
-`"library"`), `imageCapturedAt` (the date it was captured), `confirmed`, and `share`. The Screenshot Center writes it as
-**Shared library · captured Nov 12, 2026** or **This lab · captured Nov 12, 2026** on every picture. A picture a new lab
+`"library"`), `imageCapturedAt` (the date it was captured), `confirmed`, and `share`. The Screenshot Center says where each picture lives
+on every card: **Shared library (every lab can use it) · captured Nov 12, 2026**, or **This lab only (will be kept for 90
+days if you delete or replace this lab) · captured Nov 12, 2026**. A lab's own copy of a picture the library holds too is
+shared, and says so. A lab-only picture that could be shared also says what **Use this one for every lab** does. A picture
+a new lab
 reuses from the library is **Captured** (never **Pending**), and capturing the missing screenshots queues only the rest.
 **Retake** of a picture other labs show asks first (`GET /api/capture/library/screenshots/:filename/usage?labId=` says how
 many other labs show it): *This picture is shared. 2 other labs use it. A new capture replaces it for all of them. The old
@@ -2336,9 +2343,10 @@ blocks anything: the **Finish your lab** checklist, the lab files, and every exp
 has **Show only screenshots not confirmed yet (N)** (only pictures that exist count), the lab status has
 `summary.confirmed` and `summary.notConfirmed`, and the shared library summary shows how many pictures are confirmed.
 
-**Sharing what a lab already has.** **Share this lab's captured screenshots** (Advanced options) shares every eligible
+**Sharing what a lab already has.** **Share all of this lab's eligible pictures** (Advanced options) shares every eligible
 picture a lab already holds, using the rules above and never overwriting; it answers with what was shared, what the
-library already had, and every skipped picture with its reason. The same thing from a command line, with a dry run first:
+library already had, and every skipped picture with its reason. Replacing or deleting a lab does the same thing
+automatically first, so nothing is lost. The same thing from a command line, with a dry run first:
 
 ```bash
 node tools/lab-builder/share-lab-screenshots.mjs --dry-run            # report only, change nothing
@@ -2349,6 +2357,125 @@ node tools/lab-builder/share-lab-screenshots.mjs --apply --lab=<id> --root=<gene
 The tool follows the portal's storage rules (`PORTAL_STORAGE_ROOT`, `FEATURE_TOUR_SCREENSHOTS_DIR`), so run it against the
 portal's storage folder; the Azure Blob mirror uploads what it wrote on its next sync. It is not part of the container
 image.
+
+#### Where the shared library lives
+
+| Setting | Library folder | Notes |
+|---|---|---|
+| `FEATURE_TOUR_SCREENSHOTS_DIR` | that folder | Exclusive: nothing else is searched (previews and tests stay isolated). Pointing it at the committed `docs/feature-tour/screenshots` folder stops automatic sharing (`not-persistent`). |
+| `PORTAL_STORAGE_ROOT` | `<root>/screenshots` | Azure Container Apps and custom volumes. Mirrored to Azure Blob under the `screenshots/` prefix. Unchanged. |
+| Neither, on Windows | `%LOCALAPPDATA%\CopilotStudioLabsPortal\screenshots` | Falls back to `%USERPROFILE%\AppData\Local\...` when `LOCALAPPDATA` is not set. |
+| Neither, on macOS | `~/Library/Application Support/CopilotStudioLabsPortal/screenshots` | |
+| Neither, elsewhere | `$XDG_DATA_HOME/CopilotStudioLabsPortal/screenshots`, else `~/.local/share/CopilotStudioLabsPortal/screenshots` | A relative `XDG_DATA_HOME` is ignored. |
+| No per-user folder can be worked out | the committed `docs/feature-tour/screenshots` | Read-only in practice: nothing is written there on its own. |
+
+The per-user folder is the same folder the app already used when started with
+`FEATURE_TOUR_SCREENSHOTS_DIR=%LOCALAPPDATA%\CopilotStudioLabsPortal\screenshots`, so existing pictures are found with no
+change and no environment variable. It is never inside the repository, and a folder inside OneDrive (a path segment named
+`OneDrive...`, or inside the folder `OneDrive`, `OneDriveCommercial`, or `OneDriveConsumer` names) is skipped for the next
+candidate. The committed folder always stays in the search path as a read-only fallback, and the app never writes to it.
+Under the Node test runner (`node --test`), a plain `process.env` keeps the committed folder (set `PORTAL_USER_LIBRARY=on`
+to opt in), so a test never touches a person's real library; a test that builds its own environment object is always
+honored.
+
+The Screenshot Center (Advanced > Shared screenshot library) and `GET /api/capture/status` (`sharedLibrary.summary`) say
+where the pictures are saved:
+
+- on a local run, to a person at the computer: **Shared screenshots are saved on this computer in `<folder>`** (the
+  `folder` field is only sent for a loopback request on a computer with no storage root, Container Apps, or Blob mirror);
+- with a storage root and Azure Blob: **Shared screenshots are saved in Azure storage.** (no path, ever); with a storage
+  root alone: **Shared screenshots are saved on this portal's storage volume.**;
+- the committed folder: **Shared screenshots are not saved permanently: this portal is using the screenshots folder in
+  the code repository, which is read-only here.**
+
+`sharedLibrary.kind` is `explicit`, `storage-root`, `user-folder`, or `committed`; `sharedLibrary.persistent` is true for
+all but `committed`. The first time the portal starts with a library that already holds pictures at the per-user folder,
+the Screenshot Center shows a one-time notice (**Found your shared screenshots in `<folder>`: 12 pictures are ready to
+reuse in every lab.** with **Got it**; `POST /api/capture/library/notice/dismiss`). `/healthz` and `/api/config` add a
+path-free `storage.screenshots: { location, persistent }`. The saved checks that go with the library
+(`library-verification.json`) live in the portal's data folder (`PORTAL_DATA_DIR`, else `${PORTAL_STORAGE_ROOT}/data`,
+else `portal/data`): keep using the same data folder to keep **Confirmed** marks and the checks.
+
+#### Pictures survive a rebuild, a replace, or a delete
+
+Rule: **a real, verified captured picture is never deleted by any automatic path.** Before a lab's folder is removed, every
+real picture in its `assets/` folder (and its hidden `screenshots/.previous/` backups) ends up in exactly one safe place:
+
+| What was lost before | What happens now |
+|---|---|
+| **Replace** (`replaceLabId`) removed the old lab folder, so every picture that existed only there was deleted | The old lab is removed last, after each picture is **carried** into the new lab (a slot of the new lab that has no picture of its own, with its saved check and Confirmed mark), **shared** (promoted to the shared library under the rules above, never replacing a library picture), or **kept** for 90 days. If anything fails, the old lab stays and the response says why (`replaceError`). |
+| **Delete** of a lab did the same | The same keep pass runs first. The confirmation says what will happen. If it fails, the lab is not deleted. |
+| A lab that **failed to build** while capturing (`captureScreenshots`) was removed with its pictures | The same keep pass runs first; when it fails the half-built folder is left in place with the reason. A lab id is never rebuilt in place: every build reserves a new folder (`-2`, `-3`, ...), so there is no overwrite path. |
+| **Retake** removed the old picture before the new capture ran, so a failed capture left the slot empty | The old picture stays in place (card note: **Retake in progress. Your current picture stays until the new one passes its check.**) until a new verified picture is accepted. A capture that fails or is rejected leaves the old one (**The retake did not work, so your current picture was kept.**). The picture a retake replaces is kept as `<library>/<file>.previous` (library) or `<lab>/screenshots/.previous/<file>` (lab, hidden, never in an export). |
+| **Discard** removed both a waiting picture and the picture already in place, with no question | Discard only removes the picture waiting for review; the picture in place and its check stay. It asks first (**This picture exists only here, waiting for your review. If you discard it, it is gone and you would need to capture or upload it again.**, or **The picture now in this slot stays.** when one is in place). Resetting a committed picture keeps it as a backup. |
+| The library silently became the committed folder when no variable was set, so shared pictures seemed to vanish | A computer with no setting uses its per-user folder (above). |
+| Pictures captured on this computer and in Azure are separate stores | **Export shared screenshots** and **Import screenshots** move the library as a ZIP (below). |
+| Azure: some state could be missed by the Blob mirror | Verified: the library folder, the `.previous` backups, the kept-pictures archive, and the saved checks are mirrored and hydrated (see [Persistent storage](#persistent-storage-managed-identity-azure-blob-and-custom-volumes)). |
+
+**What each picture does** (`planLabPictures` in `portal/lib/capture/screenshot-store.js`; the preview is
+`GET /api/lab-builder/generated/:labId/pictures?replacedBy=<labId>`):
+
+| Class | When | Result |
+|---|---|---|
+| shared | the library already holds exactly these bytes | nothing to do; counted as already shared |
+| present | the replacing lab already has exactly this picture | nothing to do |
+| carry | the picture's file name is a slot of the replacing lab and that lab has no real picture of its own | copied into the new lab with its check, Confirmed mark, and callouts |
+| share | eligible under the sharing rules (`intent: "carry"`: never replaces, never writes the committed folder) | promoted to the library |
+| keep | everything else (a lab-only slot, no saved check, masking not proven, the library has a different picture, an earlier version) | the kept-pictures archive |
+
+Each step is atomic (temporary file, then rename), idempotent (running it twice changes nothing more; the same picture is
+kept once), and safe for several processes (one lock per lab, `busy`: nothing is removed, try again). The archive entry is
+built in a temporary folder, every picture is read back and its SHA-256 compared, and only then is the folder renamed into
+place, so an entry is complete or absent.
+
+**The delete confirmation** (**Delete lab** / **Cancel**) says, from `GET .../pictures`: *12 pictures are already shared
+and stay available to other labs. 2 pictures exist only in this lab and will be kept for 90 days so you can restore them.*
+(plus *N more pictures will be shared with every lab first.* and *N earlier versions of replaced pictures will be kept for
+90 days too.* when they apply). After a replace or delete the notice says where each picture went: *Your pictures are safe:
+1 picture moved to the new lab, 2 pictures shared with every lab, 2 pictures kept for 90 days. Restore kept pictures in the
+Screenshot Center, under Advanced.*
+
+**Kept pictures** (Screenshot Center > Advanced > Kept pictures; `GET /api/capture/kept`). Layout, inside the library
+folder so it persists and is mirrored with it (`<library>/.kept/`; when the library is the committed folder, under
+`<data dir>/capture/kept-pictures/`):
+
+```text
+<kept folder>/<labId>-<yyyymmddhhmmss>-<4 hex>/
+    entry.json              lab id and title, reason (deleted, replaced, failed-build), replacedBy, keptAt, expiresAt,
+                            and per picture: sha256, size, why, a plain message, its saved check, its confirmation, callouts
+    pictures/<file name>    the exact bytes (an earlier version is <file name>.previous)
+```
+
+Retention is **90 days**. Each entry shows its lab, why, the date, and the days left. A picture can be **restored**
+(`POST /api/capture/kept/:entry/:file/restore` with `{ to: "lab", labId? }` or `{ to: "library", confirm: true }`): into the
+lab it came from, or the lab that replaced it, when that lab has the slot and no picture of its own, or into the shared
+library when the slot is empty there (it asks first, because every lab will show it). Nothing is ever replaced; with no
+place to put it, **Download** gives the bytes back. **Delete forever** asks first and needs `?confirm=true`. Entries are
+purged when their 90 days are up: at start and every 24 hours, one log line per entry (`[kept-pictures] Removed 2 kept
+picture(s) from <lab>: they were kept for 90 days (since 2026-03-01) and no one restored them.`), and
+`POST /api/capture/kept/purge` does it on demand.
+
+#### Move the shared library between computers
+
+**Export shared screenshots** (`GET /api/capture/library/export`, or `node tools/lab-builder/export-screenshots.mjs
+--dry-run | --apply --out=<file.zip>`) writes a ZIP of the library's own pictures (not the committed fallback) plus
+`manifest.json`: each picture's SHA-256, a trimmed copy of its saved check (level, state, date, source, size, reason
+codes, and whether masking was applied: no addresses, page titles, or capture steps) and its **Confirmed** date. The page
+warns that pictures should show no account names, email addresses, or customer data: they were masked when they were
+captured, and the import checks them again.
+
+**Import screenshots** (`POST /api/capture/library/import`: multipart `file`, or a raw `application/zip` body;
+`?replace=true` to replace, `?dryRun=true` to report only; or `node tools/lab-builder/import-screenshots.mjs --dry-run |
+--apply --zip=<file.zip> [--replace]`) runs every picture through the same checks as an upload: a shared slot name, a real
+PNG, JPEG, or WebP of a sensible size, not blank, not a placeholder. A picture the library already has is skipped (`exists`,
+or `already-there` for the same bytes) unless **Replace pictures the library already has** is chosen (the old one is kept as
+a `.previous` backup). The answer lists what was `imported`, `replaced`, `skipped`, `rejected` (with a plain reason:
+`not-a-slot`, `placeholder`, `failed-check`, ...), and `needsReview` (a picture that needs a look, like an upload). A
+**Confirmed** date is restored only for the exact bytes it was made for. Limits: the ZIP at most 128 MB and 500 pictures,
+each picture at most 8 MB, and a strict in-memory reader (no ZIP64, no encryption, CRC checked, expanded size capped): an
+entry name is only ever a plain file name, so a path or `../` is ignored and never read.
+
+#### Freshness, tenant addresses, and older capture paths
 
 **Honest freshness.** `GET .../screenshots` reports `checkState`: `not-checked` until the lab has
 been re-validated against Microsoft Learn (`lastRevalidatedAt` is `null`), then `up-to-date`, or
@@ -3430,11 +3557,21 @@ Browser-facing:
 | `PUT` | `.../screenshots/:filename` | Paste or upload an image: raw bytes (`image/png`, `image/jpeg`, `image/webp`, or `application/octet-stream`) or multipart (`file`, optional `evidence` and `callouts` JSON). `?acceptWarnings=true` commits despite warnings. |
 | `GET` | `.../screenshots/:filename/staged` | The image waiting for review. |
 | `POST` | `.../screenshots/:filename/accept` | Commit the staged image. |
-| `DELETE` | `.../screenshots/:filename` | Discard a staged image, or reset the slot to the placeholder for a retake. |
+| `DELETE` | `.../screenshots/:filename` | Discard a picture waiting for review (the picture in place and its check stay), or reset a committed picture to the placeholder. A reset picture is kept as a backup (`<file>.previous` beside a library picture, `<lab>/screenshots/.previous/<file>` for a lab). |
 | `POST` | `.../screenshots/:filename/confirm` | **Mark as accurate**: `{ outcome: "confirmed", scope: "lab" \| "library", confirmed: { at }, state }`. Tied to the picture's SHA-256. 409 when there is no captured picture (or one is waiting for review), 404 for a name that is not a slot. Optional; never blocks anything. |
 | `DELETE` | `.../screenshots/:filename/confirm` | **Clear confirmation**: `{ outcome: "unconfirmed", state }`. |
 | `POST` | `/api/lab-builder/generated/:labId/screenshots/:filename/share` | **Use this one for every lab**: `{ confirm: true, replaceConfirmed?: true }`. 400 without `confirm`; 409 `{ outcome: "skipped", code, message }` when it was not shared (`needsReplaceConfirmation: true` when the library's picture is marked accurate and `replaceConfirmed` was not sent); 200 `{ outcome: "shared" \| "replaced" \| "already-shared", state }`. A replaced picture is kept as `<file name>.previous`. |
-| `POST` | `/api/lab-builder/generated/:labId/screenshots/share` | **Share this lab's captured screenshots**: `{ dryRun?: true }`. `{ labId, dryRun, promoted: [file names], alreadyShared: [file names], skipped: [{ filename, code, message }], counts: { promoted, alreadyShared, skipped, noPicture }, state }`. Never overwrites. |
+| `POST` | `/api/lab-builder/generated/:labId/screenshots/share` | **Share all of this lab's eligible pictures**: `{ dryRun?: true }`. `{ labId, dryRun, promoted: [file names], alreadyShared: [file names], skipped: [{ filename, code, message }], counts: { promoted, alreadyShared, skipped, noPicture }, state }`. Never overwrites. |
+| `GET` | `/api/lab-builder/generated/:labId/pictures` | What deleting the lab (or, with `?replacedBy=<labId>`, replacing it) does to its real pictures, without doing it: `{ labId, counts: { total, alreadyShared, toShare, shared, carried, kept, earlierVersions, retentionDays }, pictures: [{ filename, plan, code?, message? }] }`. Used by the delete confirmation. |
+| `DELETE` | `/api/lab-builder/generated/:labId` | Delete a lab after its pictures are kept: `{ deleted, labId, pictures: counts }`. When they cannot be kept: `409`/`500 { error, labKept: true }` and the lab stays. `POST /api/lab-builder/generate` with `replaceLabId` returns `replacedPictures` (counts) and, when the original had to stay, `replaceError`. |
+| `GET` | `/api/capture/kept` | The kept pictures: `{ retentionDays, entries: [{ id, labId, labTitle, reason, replacedBy, keptAt, expiresAt, daysLeft, pictures: [{ filename, base, earlierVersion, size, sha256, why, message, restore: [{ type: "lab", labId, title } \| { type: "library" }] }] }] }`. |
+| `GET` | `/api/capture/kept/:entry/:filename` | The picture's bytes (`?download=1` to download). |
+| `POST` | `/api/capture/kept/:entry/:filename/restore` | `{ to: "lab", labId? }` or `{ to: "library", confirm: true }`. Never replaces anything: `409` when there is no place to put it, `400` when sharing with every lab was not confirmed. `{ outcome: "restored", to, labId?, filename }`. |
+| `DELETE` | `/api/capture/kept/:entry/:filename?confirm=true` | Delete one kept picture forever (`400` without the confirmation). |
+| `POST` | `/api/capture/kept/purge` | Remove entries older than 90 days now: `{ removed: [{ id, labId, pictures }] }`. Also runs at start and every 24 hours. |
+| `GET` | `/api/capture/library/export` | The library as `shared-screenshots.zip` (pictures plus `manifest.json`), with the header `X-Export-Warning`. |
+| `POST` | `/api/capture/library/import` | Multipart `file` or a raw `application/zip` body; `?replace=true`, `?dryRun=true`. `{ dryRun, replace, imported, replaced, needsReview, skipped, rejected, ignored, counts, message }`. `400` for a file that is not a ZIP, `413` over 128 MB. |
+| `POST` | `/api/capture/library/notice/dismiss` | Dismiss the one-time "found your pictures" notice. |
 
 `...` is `/api/lab-builder/generated/:labId` (also `/api/generated-labs/:labId`) for a lab, or
 `/api/capture/library` for the shared library. The filename must be a screenshot slot of that lab or library.
@@ -3695,7 +3832,20 @@ In Azure Container Apps (`infra/main.bicep`), `infra/modules/storage.bicep` prov
 
 When `AZURE_STORAGE_BLOB_ENDPOINT` is set, `portal/lib/blob-persistence.js` hydrates `generated-labs/`, `data/`, `uploads/`, and `screenshots/` into `PORTAL_STORAGE_ROOT` (`/app/portal-storage`, pre-created and owned by `node:node` in `portal/Dockerfile`) before the server starts listening, and coalesces mutating `/api` writes (`POST`, `PUT`, `PATCH`, `DELETE`) back to Azure Blob Storage in the background using Managed Identity bearer tokens (`IDENTITY_ENDPOINT` in Container Apps or Azure IMDS). If Azure RBAC is still propagating on first boot, startup proceeds non-fatally and never deletes pre-existing remote blobs while unhydrated.
 
-The `screenshots/` prefix is the **shared captured-screenshot library**: images captured by the Local Capture Companion or pasted into the Screenshot Center are written to `<PORTAL_STORAGE_ROOT>/screenshots/` and mirrored like every other prefix, so they survive restarts and new revisions and serve every lab. Screenshot capture jobs and paired computers live under `data/capture/`. The library resolves in this order: `FEATURE_TOUR_SCREENSHOTS_DIR` (exclusive, for previews and tests), then `<PORTAL_STORAGE_ROOT>/screenshots`, then the baked `docs/feature-tour/screenshots` committed with the image. Reads search the persistent folder first and then the baked one. `/healthz` and `/api/config` stay path-free.
+The `screenshots/` prefix is the **shared captured-screenshot library**: images captured by the Local Capture Companion or pasted into the Screenshot Center are written to `<PORTAL_STORAGE_ROOT>/screenshots/` and mirrored like every other prefix, so they survive restarts and new revisions and serve every lab. Screenshot capture jobs and paired computers live under `data/capture/`. The library resolves in this order: `FEATURE_TOUR_SCREENSHOTS_DIR` (exclusive, for previews and tests), then `<PORTAL_STORAGE_ROOT>/screenshots`, then a per-user folder on a computer with no setting (see [Where the shared library lives](#where-the-shared-library-lives); never used in Container Apps, where the storage root is always set), then the baked `docs/feature-tour/screenshots` committed with the image. Reads search the persistent folder first and then the baked one. `/healthz` and `/api/config` stay path-free (`storage.screenshots` carries only `{ location, persistent }`).
+
+What the Blob mirror carries for pictures (checked by `portal/test/capture-share.test.js` and `portal/test/capture-keep.test.js` with a fake Blob service; nothing runs against real Azure):
+
+| State | Where it lives | Mirrored and hydrated |
+|---|---|---|
+| Library pictures and callout sidecars | `screenshots/<file>` | Yes (`screenshots/` prefix) |
+| Library `.previous` backups | `screenshots/<file>.previous` | Yes (same folder) |
+| Kept pictures from deleted or replaced labs | `screenshots/.kept/<entry>/entry.json` and `pictures/<file>` | Yes (same folder; hydrated at start; expired entries are removed from the container by the next sync) |
+| Library saved checks and Confirmed marks | `data/capture/library-verification.json` | Yes (`data/` prefix) |
+| A lab's pictures, saved checks, and hidden backups | `generated-labs/<labId>/assets/`, `screenshots/verification.json`, `screenshots/.previous/` | Yes (`generated-labs/` prefix) |
+| Half-written files and locks | names containing `.blob-tmp-` (including a temporary kept entry) | Never uploaded |
+
+A redeploy or a restart cannot drop them: the container hydrates every prefix before it listens, and the mirror deletes a blob only for a file this replica already hydrated and later removed (a purge, a delete forever, a lab delete).
 
 Storage paths and path-free diagnostics (`GET /healthz` and `GET /api/config`, including `storage.blobSync`) are resolved centrally in `portal/lib/storage-config.js`:
 
@@ -3705,7 +3855,7 @@ Storage paths and path-free diagnostics (`GET /healthz` and `GET /api/config`, i
 | `PORTAL_STORAGE_BACKEND` | Auto-detected (`azure-blob`, `azure-files`, `custom-volume`, or `local-disk`) | Explicit backend label surfaced in path-free storage diagnostics (`GET /healthz` and `GET /api/config`). |
 | `AZURE_STORAGE_BLOB_ENDPOINT` | *(unset)* | Primary HTTPS Blob service endpoint (for example `https://<account>.blob.core.windows.net/`). Enables passwordless Managed Identity Blob hydration and write-through sync. |
 | `AZURE_STORAGE_BLOB_CONTAINER` | `portalstate` | Private Azure Blob container used to persist `generated-labs/`, `data/`, `uploads/`, and `screenshots/`. |
-| `FEATURE_TOUR_SCREENSHOTS_DIR` | `${PORTAL_STORAGE_ROOT}/screenshots` or `docs/feature-tour/screenshots/` | The shared captured-screenshot library. When set it is used on its own (nothing else is searched); otherwise the persistent folder is searched first and the baked `docs/feature-tour/screenshots` second. Mirrored to Azure Blob under the `screenshots/` prefix. |
+| `FEATURE_TOUR_SCREENSHOTS_DIR` | `${PORTAL_STORAGE_ROOT}/screenshots`, else the per-user folder (`%LOCALAPPDATA%\CopilotStudioLabsPortal\screenshots` on Windows, `~/Library/Application Support/CopilotStudioLabsPortal/screenshots` on macOS, `$XDG_DATA_HOME` or `~/.local/share/CopilotStudioLabsPortal/screenshots` elsewhere) | The shared captured-screenshot library. When set it is used on its own (nothing else is searched); otherwise the persistent folder is searched first and the committed `docs/feature-tour/screenshots` second, read-only. Mirrored to Azure Blob under the `screenshots/` prefix. Pictures kept from deleted labs sit in its hidden `.kept/` folder. |
 | `AZURE_CLIENT_ID` | *(unset)* | User-Assigned Managed Identity client ID passed to `IDENTITY_ENDPOINT` / IMDS when acquiring `https://storage.azure.com/` tokens (also used as fallback Entra client ID when configured). |
 | `LAB_BUILDER_OUTPUT_DIR` | `${PORTAL_STORAGE_ROOT}/generated-labs` or `generated-labs/` | Directory where generated labs are written and served. |
 | `PORTAL_DATA_DIR` | `${PORTAL_STORAGE_ROOT}/data` or `portal/data/` | Directory for mutable portal JSON state, `lab-builder/topics-cache.json` (when `LAB_BUILDER_TOPICS_CACHE` is unset), and saved wizard drafts under `lab-builder/drafts/`. |
@@ -3760,7 +3910,13 @@ headless Chromium (it skips itself when Playwright or Chromium is missing; set `
 check, and unmasked account details never being shared, no silent overwrite (a confirmed picture, an existing picture,
 the kept `.previous` copy, an explicit Retake or Accept), two processes sharing one slot at once, the committed-folder
 rule, Mark as accurate (tied to the bytes, never blocking), the backfill (API and command line), and the Azure Blob
-mirror. `portal/test/screenshot-center-browser.test.js` drives the Screenshot Center in headless Chromium against a
+mirror. `portal/test/capture-keep.test.js` covers "pictures survive a rebuild": replacing and deleting a lab (carried,
+shared, and kept pictures, a different library picture never overwritten, a failed keep leaving the old lab, two changes at
+once, a failed build), retake and discard safety, the kept-pictures list, restore, delete forever, and the 90-day purge, the
+export and import (routes and command line), the status line and the default folder for a computer with no setting
+(with an injected home folder, so no test reads a real profile), and the Azure Blob mirror of the kept-pictures archive.
+`portal/test/capture-keep-browser.test.js` drives the delete confirmation and the Kept pictures panel in headless Chromium
+(set `SC_DEMO_DIR` to also save screenshots). `portal/test/screenshot-center-browser.test.js` drives the Screenshot Center in headless Chromium against a
 throwaway server with fake data (it skips itself when Playwright or Chromium is missing; set `SC_DEMO_DIR` to also save
 screenshots of each step).
 Saved drafts have three test files. `portal/test/lab-builder-drafts.test.js` covers the store and the routes: create, list, read,

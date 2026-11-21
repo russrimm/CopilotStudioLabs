@@ -11,7 +11,8 @@ import path from "node:path";
 import { findProfile, getActiveProfileId, readCustomization, updateLabAgentSource, updateLabCaptureTargets, updateProfile } from "../branding-profiles.js";
 import { capturedScreenshotsDir, capturedScreenshotsDirs } from "../lab-builder/captured.js";
 import { setCaptureCapabilitiesProvider, setCaptureTargetsProvider, setSharedLibraryProvider } from "../lab-builder/lab-screenshots.js";
-import { BAKED_CAPTURED_SCREENSHOTS_DIR, getStorageDiagnostics, resolvePortalDataDir } from "../storage-config.js";
+import { setLabPictureGuard } from "../lab-builder/picture-guard.js";
+import { describeCapturedScreenshotsLocation, getStorageDiagnostics, resolveKeptScreenshotsDir, resolvePortalDataDir } from "../storage-config.js";
 import { detectBrowserAvailability } from "../../../tools/screenshot-capture/lab-runner.mjs";
 import { productLabel } from "../../../tools/screenshot-capture/auth.mjs";
 import { validateTargets, missingRequirements } from "../../../tools/screenshot-capture/targets.mjs";
@@ -27,6 +28,7 @@ import { buildLabChecklist, renderChecklistMarkdown } from "./checklist.js";
 import { readLabScratchContext } from "./scratch-context.js";
 import { createScreenshotStore } from "./screenshot-store.js";
 import { createSharedRecipeStore } from "./shared-recipes.js";
+import { readJson, writeJsonAtomic } from "./store-util.js";
 import { describeCaptureTargets, jobTargetsFrom, resolveCaptureTargets } from "./targets.js";
 import { MAX_UPLOAD_BYTES } from "./verify-upload.js";
 
@@ -53,6 +55,22 @@ export function versionAtLeast(version, min) {
 
 function sameList(a, b) {
   return JSON.stringify([...(a || [])].sort()) === JSON.stringify([...(b || [])].sort());
+}
+
+/** Whether this portal runs on one person's own computer (no storage root, no Azure Container Apps, no Blob mirror). */
+export function isLocalRun(env = process.env) {
+  const set = (name) => typeof env?.[name] === "string" && env[name].trim() !== "";
+  const backend = String(env?.PORTAL_STORAGE_BACKEND || "").trim().toLowerCase();
+  return !["PORTAL_STORAGE_ROOT", "CONTAINER_APP_NAME", "CONTAINER_APP_REVISION", "CONTAINER_APP_ENV_DNS_SUFFIX", "AZURE_STORAGE_BLOB_ENDPOINT"].some(set) && !backend.startsWith("azure");
+}
+
+/** One plain sentence about where the shared screenshots are saved. `folder` is only given to a person at the computer itself. */
+export function describeLibraryLocation({ kind, backend = "local-disk", folder = null }) {
+  if (kind === "committed") return "Shared screenshots are not saved permanently: this portal is using the screenshots folder in the code repository, which is read-only here.";
+  if (kind === "storage-root") {
+    return backend === "azure-blob" || backend === "azure-files" ? "Shared screenshots are saved in Azure storage." : "Shared screenshots are saved on this portal's storage volume.";
+  }
+  return folder ? `Shared screenshots are saved on this computer in ${folder}` : "Shared screenshots are saved on the computer that runs this portal.";
 }
 
 function sameEnv(a, b) {
@@ -84,7 +102,14 @@ export function createCapturePlatform({
   const jobs = createJobStore({ dir: captureDir, now, productLabel });
   const consent = createConsentStore({ dir: captureDir, now });
   const sharedRecipes = createSharedRecipeStore({ dir: captureDir, now });
-  const screenshots = createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger, onChange: typeof scheduleBlobSync === "function" ? scheduleBlobSync : null });
+  const screenshots = createScreenshotStore({ generatedRoot, captureDir, capturedDirs, manifestDir, logger, onChange: typeof scheduleBlobSync === "function" ? scheduleBlobSync : null, keptDir: () => resolveKeptScreenshotsDir(env), now });
+  // Deleting or replacing a lab (or throwing away one that failed to build) keeps its real pictures first.
+  setLabPictureGuard(generatedRoot, (request) => screenshots.guardLabRemoval(request));
+  try {
+    screenshots.purgeKept();
+  } catch (err) {
+    logger?.(`[kept-pictures] Could not remove expired kept pictures: ${err.message}`);
+  }
   // Lab screenshot status says where each picture comes from and how it relates to the shared library.
   setSharedLibraryProvider({
     isSlot: (filename) => Boolean(findLibrarySlot(filename, { manifestDir })),
@@ -221,18 +246,38 @@ export function createCapturePlatform({
     return { connected: online.length > 0, supported: online.some((d) => versionAtLeast(d.companionVersion, ACCOUNT_MIN_COMPANION)), minCompanion: ACCOUNT_MIN_COMPANION };
   }
 
+  const noticeFile = path.join(captureDir, "library-notice.json");
+
+  /**
+   * The one-time "we found your pictures" notice: shown the first time the portal starts with a library that already holds
+   * pictures at the default per-user folder, until the person dismisses it. It only ever names the folder to a local person.
+   */
+  function locationNotice({ kind, folder, captured }) {
+    if (kind !== "user-folder" || !captured) return null;
+    const seen = readJson(noticeFile, null);
+    if (seen?.dismissedAt) return null;
+    return { id: "found-library", count: captured, text: `Found your shared screenshots${folder ? ` in ${folder}` : ""}: ${captured} ${captured === 1 ? "picture is" : "pictures are"} ready to reuse in every lab.` };
+  }
+
+  function dismissLocationNotice() {
+    writeJsonAtomic(noticeFile, { schema: 1, dismissedAt: new Date(now()).toISOString() });
+    return { dismissed: true };
+  }
+
   /** `GET /api/capture/status`: what the portal shows (is a companion connected, since when, signed in to which products, and with which account). */
-  async function statusPayload() {
+  async function statusPayload({ localRequest = false } = {}) {
     await refreshServerBrowser();
     const companion = pairing.status();
     const storage = getStorageDiagnostics(env);
-    const primary = capturedDirs().primary;
-    const location = env.FEATURE_TOUR_SCREENSHOTS_DIR ? "explicit" : primary === BAKED_CAPTURED_SCREENSHOTS_DIR ? "baked" : "persistent";
+    const where = describeCapturedScreenshotsLocation(env);
+    const location = where.kind === "explicit" ? "explicit" : where.kind === "committed" ? "baked" : "persistent";
     const library = screenshots.libraryState();
     const tenantNames = tenantUrlNames();
     // Shots waiting for a sign-in on the person's computer, until the companion reports that sign-in as done.
     const needsSignIn = jobs.latestSignInNeed({ signedInProducts: companion.signedInProducts });
     const signInNeed = needsSignIn ? { needsSignIn } : {};
+    // The folder is only ever told to a person at the computer that runs the portal, never to a cloud portal's users.
+    const folder = localRequest && isLocalRun(env) && where.kind !== "committed" && where.kind !== "storage-root" ? where.dir : null;
     return {
       companion: {
         connected: companion.connected,
@@ -261,13 +306,18 @@ export function createCapturePlatform({
       tenantUrls: { set: tenantNames.length > 0, names: tenantNames },
       sharedLibrary: {
         location,
-        persistent: location !== "baked" && storage.persistent,
+        kind: where.kind,
+        persistent: where.persistent,
+        summary: describeLibraryLocation({ kind: where.kind, backend: storage.backend, folder }),
+        ...(folder ? { folder } : {}),
         storage: { persistent: storage.persistent, backend: storage.backend, writable: storage.writable, blobSyncEnabled: storage.blobSync.enabled },
         total: library.summary.total,
         captured: library.summary.captured,
         missing: library.summary.missing,
         needsReview: library.summary.needsReview,
         confirmed: library.summary.confirmed,
+        kept: screenshots.keptSummary(),
+        notice: locationNotice({ kind: where.kind, folder, captured: library.summary.captured }),
       },
       jobs: { ...jobs.activity(), ...signInNeed },
       autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: companionCanRunAutonomous().supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: companionCanRunAutonomous().scratchSupported, handoffMinCompanion: HANDOFF_MIN_COMPANION, handoffSupported: companionCanRunAutonomous().handoffSupported, sharedRecipes: sharedRecipes.list().length },
@@ -560,6 +610,7 @@ export function createCapturePlatform({
     sharedRecipes,
     capabilities,
     statusPayload,
+    dismissLocationNotice,
     queueJob,
     requestAccountSetup,
     accountCapability,
