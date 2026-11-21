@@ -519,14 +519,23 @@ test("Your lab so far reveals each wizard option progressively only after its st
   );
   assert.doesNotMatch(run.element("lb-summary").innerHTML, /topic|Knowledge checks/i, "topics stay out until the Topics step is reached");
 
-  // Reach Topics: the topic count joins the line.
+  // Reach Topics: the screen itself says the topic count and the time, so the bar does not repeat them there.
   run("lbNextStep()");
   assert.equal(run("labBuilder.step"), 3);
+  assert.equal(
+    run.element("lb-summary").innerHTML,
+    "<strong>Your lab so far:</strong> Copilot Studio · Healthcare · All departments · Level 200 (Intermediate) · Standard harness",
+  );
+  assert.doesNotMatch(run.element("lb-summary").innerHTML, /topic/);
+
+  // Back on another step, the bar names the topics too, once Topics has been reached.
+  await new Promise((r) => setTimeout(r, 20));
+  run("lbGoToStep(2)");
+  await new Promise((r) => setTimeout(r, 20));
   assert.match(
     run.element("lb-summary").innerHTML,
-    /^<strong>Your lab so far:<\/strong> Copilot Studio · Healthcare · All departments · Level 200 \(Intermediate\) · Standard harness · /,
+    /^<strong>Your lab so far:<\/strong> Copilot Studio · Healthcare · All departments · Level 200 \(Intermediate\) · Standard harness · \d+ topics?( \+ \d+ refreshers?)?, about .+ \(estimate, not a limit\)$/,
   );
-  assert.match(run.element("lb-summary").innerHTML, /topic/);
 
   // Confirming the Tailor step shows its answers even while the person is still on the Product step.
   const confirmed = loadWizard();

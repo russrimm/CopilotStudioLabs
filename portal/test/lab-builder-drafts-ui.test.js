@@ -213,6 +213,17 @@ async function makePage(t, drafts, { loaded = true } = {}) {
   h.rowButton = (draftId, action) => h.rows().find((row) => row.dataset.draftId === draftId)?.querySelector(`[data-draft-action="${action}"]`);
   h.rowText = (draftId) => h.rows().find((row) => row.dataset.draftId === draftId)?.textContent || "";
   h.focusedId = () => document.activeElement?.id || "";
+  /** Run an element's inline handler (`onclick="..."`, `onkeydown="..."`) the way a browser does; the fake DOM does not run attributes. */
+  h.inline = (id, attribute, init = {}) => {
+    const code = document.getElementById(id)?.getAttribute(attribute);
+    assert.ok(code, `#${id} has an inline ${attribute}`);
+    return vm.runInContext(`(function (event) { ${code} })`, context)(init);
+  };
+  /** Freeze "now" inside the page so default draft names are predictable. */
+  h.freezeClock = (when) => {
+    context.__now = when.getTime();
+    vm.runInContext("globalThis.Date = (() => { const Real = Date; return class extends Real { constructor(...args) { super(...(args.length ? args : [__now])); } static now() { return __now; } }; })()", context);
+  };
   if (loaded) {
     await h.run("lbDraftsInit()");
     await h.settle();
@@ -594,20 +605,83 @@ test("a built draft stays listed as Built, with a link to the lab while the lab 
   assert.ok(!h.rowButton(d.id, "open-lab"), "no dead link once the lab was deleted");
 });
 
-test("Start over clears the wizard but never deletes a saved draft", async (t) => {
+test("Start over asks first: nothing is cleared and the autosave slot is untouched until the person confirms, and saved drafts are never deleted", async (t) => {
   const drafts = await startDrafts();
   const h = await makePage(t, drafts);
   await richState(h, { step: 3 });
   await saveVia(h, "Safe from Start over");
-  assert.ok(h.state("lbDraft.activeId"));
-  await h.run("lbStartNewLab()");
+  const savedId = h.state("lbDraft.activeId");
+  assert.ok(savedId);
+  h.run(`lbSetFormValue("lb-title", "Edited after saving")`);
+  await tick(h, 3);
+  await h.until(() => drafts.store.getUnsaved("local") !== null, "the autosave");
+  const calls = h.draftCalls.length;
+
+  // The markup: the button asks, and the question is a labeled group that Esc closes.
+  const button = h.byId("lb-start-over");
+  const box = h.byId("lb-start-over-confirm");
+  assert.equal(button.hidden, false);
+  assert.equal(button.getAttribute("onclick"), "lbAskStartOver()");
+  assert.equal(button.getAttribute("aria-expanded"), "false");
+  assert.equal(button.getAttribute("aria-controls"), "lb-start-over-confirm");
+  assert.equal(box.hidden, true);
+  assert.equal(box.getAttribute("role"), "group");
+  assert.equal(box.getAttribute("aria-labelledby"), "lb-start-over-confirm-text");
+  assert.equal(h.text("lb-start-over-confirm-text"), "Start over? This clears your choices. Your saved drafts are kept.");
+  assert.match(HTML, /id="lb-start-over"[^>]*title="Asks first, then clears your choices in the wizard\. Your saved drafts are never deleted\."/);
+  assert.match(HTML, /id="lb-start-over-hint" class="sr-only">Asks first, then clears your choices in the wizard\. Your saved drafts are never deleted\.</);
+
+  // The first click only asks. Nothing is cleared and the autosave slot is not deleted.
+  h.inline("lb-start-over", "onclick");
   await h.settle();
+  assert.equal(box.hidden, false);
+  assert.equal(button.getAttribute("aria-expanded"), "true");
+  assert.equal(h.focusedId(), "lb-start-over-keep", "focus moves to the safe choice");
+  assert.equal(h.text("lb-draft-announce"), "Start over? This clears your choices. Your saved drafts are kept.", "a screen reader is told; the words are on screen once, in the confirm");
+  assert.doesNotMatch(h.text("lb-draft-status"), /Start over\?/, "the visible status does not repeat the question");
+  assert.equal(h.state("labBuilder.selectedProducts.size"), 2);
+  assert.equal(h.state("labBuilder.step"), 3);
+  assert.equal(h.state("lbDraft.activeId"), savedId);
+  assert.notEqual(drafts.store.getUnsaved("local"), null, "the autosave slot is untouched");
+  assert.equal(h.draftCalls.slice(calls).filter((call) => call.method === "DELETE").length, 0, "nothing was deleted on the server");
+  assert.equal(drafts.store.list("local").drafts.length, 1);
+
+  // Keep working closes the question, says so, and puts focus back on Start over.
+  h.inline("lb-start-over-keep", "onclick");
+  assert.equal(box.hidden, true);
+  assert.equal(button.getAttribute("aria-expanded"), "false");
+  assert.equal(h.text("lb-draft-status"), "Kept your choices.");
+  assert.equal(h.focusedId(), "lb-start-over");
+  assert.equal(h.state("labBuilder.selectedProducts.size"), 2);
+  assert.notEqual(drafts.store.getUnsaved("local"), null);
+
+  // Esc inside the question cancels it the same way; other keys do nothing.
+  h.inline("lb-start-over", "onclick");
+  assert.equal(box.hidden, false);
+  h.inline("lb-start-over-confirm", "onkeydown", { key: "Enter" });
+  assert.equal(box.hidden, false, "only Esc closes it");
+  h.inline("lb-start-over-confirm", "onkeydown", { key: "Escape" });
+  assert.equal(box.hidden, true);
+  assert.equal(h.text("lb-draft-status"), "Kept your choices.");
+  assert.equal(h.focusedId(), "lb-start-over");
+  assert.equal(h.state("labBuilder.selectedProducts.size"), 2);
+  assert.equal(h.draftCalls.slice(calls).filter((call) => call.method === "DELETE").length, 0);
+
+  // Confirming does what Start over always did: the wizard resets, the autosave slot is cleared, and the saved draft stays.
+  h.inline("lb-start-over", "onclick");
+  assert.equal(h.byId("lb-start-over-yes").textContent, "Start over");
+  await h.inline("lb-start-over-yes", "onclick");
+  await h.until(() => drafts.store.getUnsaved("local") === null, "the autosave slot to be cleared");
   assert.equal(h.state("labBuilder.selectedProducts.size"), 0);
+  assert.equal(h.state("labBuilder.step"), 1);
   assert.equal(h.state("lbDraft.activeId"), null, "the draft that was open is no longer what is on screen");
+  assert.equal(box.hidden, true);
+  assert.equal(button.getAttribute("aria-expanded"), "false");
+  assert.equal(button.hidden, true, "with nothing left to clear, Start over goes away");
+  assert.equal(h.text("lb-draft-status"), "Started over. Your saved drafts are kept.");
   assert.equal(drafts.store.list("local").drafts.length, 1, "the saved draft is untouched");
+  assert.equal(drafts.store.get("local", savedId).content.selections.customTitle, "Contoso support lab", "and holds what was saved, not the edit after it");
   assert.equal(h.rows().length, 1);
-  assert.match(HTML, /id="lb-start-over"[^>]*title="Clears your choices in the wizard\. Your saved drafts are never deleted\."/);
-  assert.match(HTML, /id="lb-start-over-hint" class="sr-only">Clears your choices in the wizard\. Your saved drafts are never deleted\.</);
 });
 
 // ── Save and finish later ───────────────────────────────────────────────────
@@ -648,6 +722,37 @@ test("Save and finish later is on every step, names the draft, confirms in words
   assert.equal(h.byId("lb-draft-status").getAttribute("aria-live"), "polite");
   assert.equal(h.focusedId(), "lb-save-draft", "focus returns to the button that opened the dialog");
   assert.equal(h.state("lbDraft.activeName"), "Contoso pilot");
+});
+
+test("Save and finish later waits for a product, and Ctrl+S and lbDraftOpenSave still answer plainly without saving anything", async (t) => {
+  const drafts = await startDrafts();
+  const h = await makePage(t, drafts);
+  assert.match(HTML, /id="lb-save-draft"[^>]*\shidden\s/, "the button starts hidden in the markup");
+  assert.equal(h.byId("lb-save-draft").hidden, true);
+
+  // The keyboard shortcut is still taken over (so the browser's Save page never opens) and says what is missing.
+  const event = new h.FakeEvent("keydown", { key: "s", ctrlKey: true });
+  h.byId("lb-title").dispatchEvent(event);
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(h.byId("lb-draft-name-dialog").open, false);
+  assert.equal(h.text("lb-draft-status"), "Choose at least one product first, then you can save your progress.");
+  assert.equal(h.toasts.at(-1).type, "info");
+  h.run("lbDraftOpenSave()");
+  assert.equal(h.byId("lb-draft-name-dialog").open, false);
+  assert.equal(h.draftCalls.filter((call) => call.method === "POST" || call.method === "PUT").length, 0, "nothing was sent");
+  assert.equal(drafts.store.list("local").drafts.length, 0);
+  assert.equal(drafts.store.getUnsaved("local"), null);
+
+  // The first product brings the button; taking it away again hides it.
+  h.run(`lbToggleProduct("copilot-studio", true)`);
+  await h.settle();
+  assert.equal(h.byId("lb-save-draft").hidden, false);
+  h.run("lbDraftOpenSave()");
+  assert.equal(h.byId("lb-draft-name-dialog").open, true, "with a product the dialog opens");
+  h.byId("lb-draft-name-cancel").click();
+  h.run(`lbToggleProduct("copilot-studio", false)`);
+  await h.settle();
+  assert.equal(h.byId("lb-save-draft").hidden, true);
 });
 
 test("saving again updates the draft that was resumed; Save as a new draft keeps both", async (t) => {
@@ -722,6 +827,134 @@ test("resuming over unsaved choices asks first; a saved or unchanged wizard does
   await h.until(() => h.state("labBuilder.level") === 100 && h.state("labBuilder.step") === 2, "the other draft to open");
 });
 
+test("default draft names are unique: the date, then the time, then a counter", async (t) => {
+  const drafts = await startDrafts();
+  const when = new Date(2026, 10, 20, 21, 14);
+  const date = when.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const time = when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  const label = "Copilot Studio and SharePoint AI";
+  // Each save is a fresh page load in the same minute, with the default name accepted as offered.
+  const saveWithDefault = async () => {
+    const page = await makePage(t, drafts);
+    page.freezeClock(when);
+    await richState(page, { step: 3 });
+    page.run("lbDraftOpenSave()");
+    const offered = page.byId("lb-draft-name").value;
+    page.byId("lb-draft-name-form").dispatchEvent(new page.FakeEvent("submit"));
+    await page.until(() => !page.byId("lb-draft-name-dialog").open, "the save dialog to close");
+    return offered;
+  };
+  assert.equal(await saveWithDefault(), `${label} · ${date}`, "the existing format comes first");
+  assert.equal(await saveWithDefault(), `${label} · ${date}, ${time}`, "the same day again adds the time");
+  assert.equal(await saveWithDefault(), `${label} · ${date}, ${time} (2)`, "the same minute again adds a counter");
+  assert.equal(await saveWithDefault(), `${label} · ${date}, ${time} (3)`);
+  const names = drafts.store.list("local").drafts.map((draft) => draft.name);
+  assert.equal(names.length, 4);
+  assert.equal(new Set(names.map((name) => name.toLowerCase())).size, 4, "every saved draft has its own name");
+
+  // A name that fits in 80 characters is still unique when the products make it long.
+  const page = await makePage(t, drafts);
+  page.freezeClock(when);
+  assert.equal(page.run("lbDraftUniqueName('Contoso pilot')"), "Contoso pilot");
+  drafts.store.create("local", { name: "Contoso pilot", content: { selections: { products: ["copilot-studio"] } } });
+  await page.run("lbDraftReload()");
+  assert.equal(page.run("lbDraftUniqueName('contoso PILOT')"), "contoso PILOT (2)", "matching ignores case");
+  assert.equal(page.run("lbDraftNameTaken('CONTOSO pilot')"), true);
+  const id = drafts.store.list("local").drafts.find((draft) => draft.name === "Contoso pilot").id;
+  assert.equal(page.run(`lbDraftNameTaken('Contoso pilot', ${JSON.stringify(id)})`), false, "a draft does not clash with itself");
+  assert.equal(page.run("lbDraftNameTaken('')"), false);
+});
+
+test("a typed draft name that another draft has is accepted unchanged with a gentle note, and a draft never clashes with itself", async (t) => {
+  const drafts = await startDrafts();
+  drafts.store.create("local", { name: "Fabrikam demo", content: { selections: { products: ["copilot-studio"] } } });
+  const h = await makePage(t, drafts);
+  await richState(h, { step: 3 });
+  const note = () => h.text("lb-draft-name-note");
+  const type = (value) => {
+    h.byId("lb-draft-name").value = value;
+    h.byId("lb-draft-name").dispatchEvent(new h.FakeEvent("input"));
+  };
+  const NOTE = "Another draft already has this name. You can keep it, or add a few words to tell them apart.";
+
+  h.run("lbDraftOpenSave()");
+  assert.equal(note(), "", "the offered default is unique, so there is nothing to say");
+  type("Fabrikam demo");
+  assert.equal(note(), NOTE);
+  assert.equal(h.byId("lb-draft-name-note").getAttribute("role"), "status");
+  assert.equal(h.byId("lb-draft-name").getAttribute("aria-describedby").includes("lb-draft-name-note"), true);
+  type("fabrikam DEMO");
+  assert.equal(note(), NOTE, "case does not matter");
+  type("Fabrikam demo, take two");
+  assert.equal(note(), "", "a different name clears the note");
+  type("Fabrikam demo");
+
+  // The note never blocks saving, and the typed name is saved exactly as typed.
+  h.byId("lb-draft-name-form").dispatchEvent(new h.FakeEvent("submit"));
+  await h.until(() => !h.byId("lb-draft-name-dialog").open, "the save dialog to close");
+  assert.equal(h.text("lb-draft-name-error"), "");
+  const post = h.draftCalls.filter((call) => call.method === "POST").at(-1);
+  assert.equal(post.body.name, "Fabrikam demo", "no counter and no time was added to what the person typed");
+  assert.deepEqual(drafts.store.list("local").drafts.map((draft) => draft.name).sort(), ["Fabrikam demo", "Fabrikam demo"]);
+  assert.equal(h.state("lbDraft.activeName"), "Fabrikam demo");
+
+  // The offered name is still another draft's name (it was saved as a duplicate on purpose), so the note is honest about it.
+  h.run("lbDraftOpenSave()");
+  assert.equal(h.byId("lb-draft-name").value, "Fabrikam demo");
+  assert.equal(note(), NOTE, "the note says so, and still never blocks saving");
+  type("Fabrikam demo (mine)");
+  assert.equal(note(), "");
+  h.byId("lb-draft-name-form").dispatchEvent(new h.FakeEvent("submit"));
+  await h.until(() => !h.byId("lb-draft-name-dialog").open, "the update to finish");
+  const own = drafts.store.list("local").drafts.find((draft) => draft.id === h.state("lbDraft.activeId"));
+  assert.equal(own.name, "Fabrikam demo (mine)", "updating keeps the draft that was open");
+  assert.equal(drafts.store.list("local").drafts.length, 2);
+
+  // Updating the draft that is open offers its own name without a note: a draft never clashes with itself.
+  h.run("lbDraftOpenSave()");
+  assert.equal(h.byId("lb-draft-name").value, "Fabrikam demo (mine)");
+  assert.equal(note(), "");
+  h.byId("lb-draft-name-cancel").click();
+
+  // Rename: its own name is fine; the name of a different draft gets the note; the typed name is kept as typed.
+  await h.until(() => h.rowButton(own.id, "rename"), "the list to show the draft");
+  await h.click(h.rowButton(own.id, "rename"));
+  assert.equal(h.byId("lb-draft-name").value, "Fabrikam demo (mine)");
+  assert.equal(note(), "", "renaming a draft to its own name is not a clash");
+  type("Contoso pilot");
+  assert.equal(note(), "", "a name no draft has");
+  type("fabrikam demo");
+  assert.equal(note(), NOTE, "a name another draft has, ignoring case");
+  h.byId("lb-draft-name-form").dispatchEvent(new h.FakeEvent("submit"));
+  await h.until(() => !h.byId("lb-draft-name-dialog").open, "the rename dialog to close");
+  const put = h.draftCalls.filter((call) => call.method === "PUT").at(-1);
+  assert.equal(put.body.name, "fabrikam demo", "the typed name is never rewritten");
+  assert.equal(drafts.store.get("local", own.id).name, "fabrikam demo");
+});
+
+test("saving as a new draft with the offered name adds a counter, but a different typed name is kept as typed", async (t) => {
+  const drafts = await startDrafts();
+  const h = await makePage(t, drafts);
+  await richState(h, { step: 3 });
+  await saveVia(h, "Original");
+  h.run(`lbSetFormValue("lb-title", "A variation")`);
+  h.run("lbDraftOpenSave()");
+  assert.equal(h.byId("lb-draft-name").value, "Original");
+  await h.click(h.byId("lb-draft-name-copy"));
+  await h.until(() => drafts.store.list("local").drafts.length === 2, "the second draft");
+  assert.deepEqual(drafts.store.list("local").drafts.map((draft) => draft.name).sort(), ["Original", "Original (2)"], "two identical rows would be confusing");
+
+  h.run(`lbSetFormValue("lb-title", "Another variation")`);
+  h.run("lbDraftOpenSave()");
+  assert.equal(h.byId("lb-draft-name").value, "Original (2)", "the open draft's name is offered");
+  h.byId("lb-draft-name").value = "Original";
+  h.byId("lb-draft-name").dispatchEvent(new h.FakeEvent("input"));
+  assert.match(h.text("lb-draft-name-note"), /^Another draft already has this name\./);
+  await h.click(h.byId("lb-draft-name-copy"));
+  await h.until(() => drafts.store.list("local").drafts.length === 3, "the third draft");
+  assert.equal(drafts.store.list("local").drafts.filter((draft) => draft.name === "Original").length, 2, "the person's typed name is kept, even as a duplicate");
+});
+
 // ── Autosave ────────────────────────────────────────────────────────────────
 
 const tick = async (h, times = 1) => {
@@ -786,7 +1019,7 @@ test("a person who changes only the step is not shown unsaved work for a draft t
   assert.equal(h.draftCalls.filter((c) => c.url.endsWith("/unsaved") && c.method === "PUT").length, 0, "moving between steps changes where you are, not what you chose");
 });
 
-test("after a reload one calm banner offers the unsaved work; Resume restores it, and autosave waits for the choice", async (t) => {
+test("after a reload one calm banner offers the unsaved work; Resume restores it, and nothing overwrites it while the wizard is empty", async (t) => {
   const drafts = await startDrafts();
   const first = await makePage(t, drafts);
   await richState(first, { step: 3 });
@@ -802,12 +1035,11 @@ test("after a reload one calm banner offers the unsaved work; Resume restores it
   assert.equal(page.byId("lb-unsaved-resume").getAttribute("aria-label"), "Resume your unsaved work");
   assert.equal(page.byId("lb-unsaved-discard").getAttribute("aria-label"), "Discard your unsaved work");
 
-  page.run(`labBuilder.selectedProducts = new Set(["sharepoint-ai"]);`);
   const before2 = drafts.store.getUnsaved("local").updatedAt;
   await tick(page, 3);
-  assert.equal(drafts.store.getUnsaved("local").updatedAt, before2, "while the banner waits, the saved copy is not overwritten");
-  page.run(`labBuilder.selectedProducts = new Set();`);
-
+  assert.equal(drafts.store.getUnsaved("local").updatedAt, before2, "while the banner waits on an empty wizard, nothing is written over the saved copy");
+  assert.equal(banner.hidden, false, "and the banner stays");
+  assert.equal(drafts.store.list("local").drafts.length, 0, "nothing was turned into a draft either");
   await page.click(page.byId("lb-unsaved-resume"));
   await page.until(() => banner.hidden && page.state("labBuilder.step") === 3, "the work to come back");
   const after = page.state("lbDraftContent()");
@@ -839,6 +1071,81 @@ test("Discard removes the unsaved copy; no banner appears when there is none or 
   drafts.store.saveUnsaved("local", { content: first.state("lbDraftContent()") });
   await busy.run("lbDraftsInit()");
   assert.equal(busy.byId("lb-unsaved-banner").hidden, true, "work already in the wizard is never covered by an offer");
+});
+
+test("work started while the unsaved-work banner is open keeps the offered work as a draft, closes the banner, and autosave carries on", async (t) => {
+  const drafts = await startDrafts();
+  const first = await makePage(t, drafts);
+  await richState(first, { step: 3 });
+  await tick(first, 3);
+  await first.until(() => drafts.store.getUnsaved("local") !== null, "the autosave");
+  const offered = first.state("lbDraftContent()");
+
+  // A reload with an empty wizard offers it, and an idle wizard keeps the offer.
+  const page = await makePage(t, drafts);
+  assert.equal(page.byId("lb-unsaved-banner").hidden, false);
+  assert.equal(page.state("lbDraft.bannerOpen"), true);
+  await tick(page, 2);
+  assert.equal(page.byId("lb-unsaved-banner").hidden, false);
+  assert.equal(drafts.store.list("local").drafts.length, 0);
+
+  // The person ignores the banner and starts something new. Before the fix the banner stayed for the whole session and the new work was never saved.
+  page.run(`labBuilder.selectedProducts = new Set(["sharepoint-ai"]); labBuilder.chosenSteps = new Set(["product"]);`);
+  await page.refresh();
+  await tick(page);
+  await page.until(() => drafts.store.list("local").drafts.length === 1 && page.byId("lb-unsaved-banner").hidden, "the offered work to be kept");
+  const kept = drafts.store.list("local").drafts[0];
+  assert.match(kept.name, /^Recovered work, today at .+$/);
+  assert.deepEqual(drafts.store.get("local", kept.id).content.selections, offered.selections, "the older work is saved as it was");
+  assert.equal(drafts.store.getUnsaved("local"), null, "the autosave slot was cleared");
+  assert.equal(page.state("lbDraft.bannerOpen"), false);
+  assert.equal(page.state("lbDraft.rescueFailed"), false);
+  assert.equal(page.text("lb-draft-status"), `Your earlier unsaved work was kept as "${kept.name}" under Saved drafts.`);
+  await page.until(() => page.rows().length === 1, "the list to show it");
+  assert.match(page.rowText(kept.id), /Recovered work/);
+  assert.equal(page.state("labBuilder.selectedProducts.size"), 1, "the work in progress is untouched");
+
+  // Autosave resumes on the next ticks and saves the new work, and the banner does not come back.
+  await tick(page, 3);
+  await page.until(() => drafts.store.getUnsaved("local") !== null, "the autosave of the new work");
+  assert.deepEqual(drafts.store.getUnsaved("local").content.selections.products, ["sharepoint-ai"]);
+  page.run("lbGoToStep(2)");
+  await page.settle();
+  assert.equal(page.byId("lb-unsaved-banner").hidden, true, "no stale banner on a later step");
+  assert.equal(drafts.store.list("local").drafts.length, 1, "the new work is not turned into a draft behind the person's back");
+});
+
+test("if the offered work cannot be kept as a draft, the banner stays, autosave stays paused, and nothing retries in a loop", async (t) => {
+  const drafts = await startDrafts();
+  const first = await makePage(t, drafts);
+  await richState(first, { step: 3 });
+  drafts.store.saveUnsaved("local", { content: first.state("lbDraftContent()") });
+  for (let i = 0; i < MAX_DRAFTS; i += 1) drafts.store.create("local", { name: `Fill ${i}`, content: { selections: { products: ["copilot-studio"] } } });
+
+  const page = await makePage(t, drafts);
+  assert.equal(page.byId("lb-unsaved-banner").hidden, false);
+  page.run(`labBuilder.selectedProducts = new Set(["sharepoint-ai"]); labBuilder.chosenSteps = new Set(["product"]);`);
+  await page.refresh();
+  await tick(page, 6);
+  await page.until(() => page.state("lbDraft.rescueFailed") === true, "the attempt to fail");
+  await tick(page, 4);
+
+  assert.equal(page.byId("lb-unsaved-banner").hidden, false, "the offer stays");
+  assert.equal(page.state("lbDraft.bannerOpen"), true);
+  assert.equal(page.text("lb-draft-status"), "Your earlier unsaved work could not be kept as a draft yet. Choose Resume or Discard above to continue autosaving.");
+  assert.notEqual(drafts.store.getUnsaved("local"), null, "the offered work is still in the slot");
+  const posts = page.draftCalls.filter((call) => call.method === "POST" && call.url === "/api/lab-builder/drafts");
+  assert.equal(posts.length, 1, "one attempt, then no retry loop");
+  assert.equal(page.draftCalls.filter((call) => call.method === "GET" && call.url.endsWith("/unsaved")).length, 1);
+  assert.equal(page.draftCalls.filter((call) => call.method === "PUT" && call.url.endsWith("/unsaved")).length, 0, "autosave stays paused rather than overwrite the offer");
+  assert.equal(drafts.store.list("local").drafts.length, MAX_DRAFTS, "no draft was added");
+
+  // Choosing Discard ends the pause: the slot goes, the banner closes, and autosave saves the new work.
+  await page.click(page.byId("lb-unsaved-discard"));
+  await page.until(() => page.byId("lb-unsaved-banner").hidden && drafts.store.getUnsaved("local") === null, "the discard");
+  await tick(page, 3);
+  await page.until(() => drafts.store.getUnsaved("local") !== null, "autosave to carry on");
+  assert.deepEqual(drafts.store.getUnsaved("local").content.selections.products, ["sharepoint-ai"]);
 });
 
 test("building a lab clears the unsaved copy and marks the draft that was resumed as Built, keeping it", async (t) => {

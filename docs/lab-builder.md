@@ -203,7 +203,10 @@ arrow, Home, and End keys move among the tabs of the current area.
       you are teaching — for example SharePoint AI alone, Copilot Studio alone, or both
       together. Use **Start over** in the summary bar (or **Start new lab** under
       *Previously generated labs*) at any time to clear your selections and start fresh.
-      **Start over** only clears the wizard: it never deletes a saved draft or a generated
+      **Start over** asks first, right in the summary bar: *Start over? This clears your
+      choices. Your saved drafts are kept.* with **Start over** and **Keep working**
+      (Esc also closes it). Nothing is cleared, and the autosave copy is left alone, until
+      you confirm. It only clears the wizard: it never deletes a saved draft or a generated
       lab. To keep your choices instead, use **Save and finish later**
       (see [Save your progress and resume later](#save-your-progress-and-resume-later)).
       Each product shows how many topics it has at each level and links to its Microsoft
@@ -341,7 +344,7 @@ arrow, Home, and End keys move among the tabs of the current area.
         **Change** opens the brand card (profile, per-lab overrides, cover preview) and
         **Hide** closes it. The lab keeps its own copy of the profile.
       - **Advanced options** — folded away for custom lab title, agent name,
-        Microsoft Learn grounding, optional LLM narrative, and a preferred length
+        Microsoft Learn checks, optional LLM narrative, and a preferred length
         that only suggests split points.
       - **Capture screenshots when the lab is built** — shown only while a computer is
         connected; otherwise one line says how to connect one (or to capture after the build).
@@ -350,11 +353,16 @@ arrow, Home, and End keys move among the tabs of the current area.
         new lab or replace the original.
 
    The step list and the **Your lab so far** summary bar stay pinned at the top of
-   every wizard step so you can always see what will be generated. **Your lab so far**
-   starts as "nothing yet" and names your product first; once you have seen **Tailor
+   every wizard step on a large screen, so you can always see what will be generated.
+   The summary bar appears once you have chosen a product (until then the step list
+   stands alone, and **Save and finish later** waits for a product too). **Your lab so far**
+   names your product first; once you have seen **Tailor
    it** it also names the industry, departments, level, and harness that are selected
-   (defaults included), adding a running topic count and time estimate once you reach
-   **Topics**. You can jump back to any step you
+   (defaults included), and when you go back to an earlier step it adds the topic count and
+   time estimate. On **Topics** and **Review and build** the bar leaves out what the
+   screen already says (the topic count and time, the quiz choice, the SharePoint site, and the brand),
+   and a brand chip shows only for a profile other than the built-in Default. On a phone the step list
+   keeps one row: each step shows its number, and the current one also shows its name. You can jump back to any step you
    have already reached, and changing an earlier answer recomputes the topic
    recommendations (the page says so if it resets your own choices). Changing the
    **level** after you picked topics removes those picks, because they belonged to
@@ -411,9 +419,11 @@ partly configured lab as a named **draft**, and **📝 Saved drafts** (next to *
 default with a live count) brings it back exactly as you left it.
 
 **Saving.** A small dialog asks for a name, offered from your products and the date (for example *Copilot Studio · Nov 20*)
-and up to 80 characters long. The page then says **Saved. You can pick this up later under Saved drafts.** and when. A draft may
+and up to 80 characters long. If a draft already has that name, the offered name adds the time (*Copilot Studio · Nov 20, 9:14 PM*),
+then a counter, so two drafts saved in the same minute never look alike. A name you type is never changed; if it matches another draft,
+a gentle note says so and you can still save it. The page then says **Saved. You can pick this up later under Saved drafts.** and when. A draft may
 be incomplete (no topics yet is fine), but it needs at least one product. A draft holds every choice from every step: the
-products, vertical, departments, level, harness and the harness comparison notes, the topics you picked, the sub-topics you left
+products, industry, departments, level, harness and the harness comparison notes, the topics you picked, the sub-topics you left
 out, the prerequisites you turned off, the modules you removed in Review, the module order, the lab title, agent name, preferred
 length, SharePoint site, brand profile and overrides, the Microsoft Learn and language model options, the Knowledge Check option,
 topics and products you added from Microsoft Learn (by their ids), the step you were on, and how far you had got. Search text is
@@ -444,8 +454,11 @@ cannot be resumed; its file is never changed, and you can delete it.
 **Unsaved work (autosave).** While you work, the page quietly keeps one copy of the wizard, about two seconds after you stop
 changing things. It never saves an empty wizard, never blocks the page, and never writes over a draft you saved on purpose. The
 copy is its own slot, not a draft. After a refresh, a crash, or an accidental close, one calm banner says **You have unsaved work
-from <time>. Resume or discard.** Until you choose, autosave waits so it cannot overwrite the work the banner offers. Saving a
-draft, building a lab, **Start over**, and **Discard** clear the slot. Moving between steps alone does not count as unsaved work
+from <time>. Resume or discard.** It appears only while the wizard is still empty. Until you choose, autosave waits so it cannot
+overwrite the work the banner offers; if you start something new instead of choosing, the older work is kept for you as a draft
+named *Recovered work, <time>* under **Saved drafts**, the banner goes away, and autosave carries on. (Before this, the banner could
+stay up through the whole wizard while autosave stayed paused.) If that draft cannot be saved, the banner stays and says so. Saving a
+draft, building a lab, a confirmed **Start over**, and **Discard** clear the slot. Moving between steps alone does not count as unsaved work
 once a draft or lab holds the same choices.
 
 **Where drafts live and who sees them.** One JSON file per draft under `<data dir>/lab-builder/drafts/<owner>/`, written atomically
@@ -597,13 +610,13 @@ the results with every card expanded and without the controls.
 **Build a lab from my shortlist** opens **Build a Lab** at the **Topics** step, pre-filled and fully changeable. The
 wizard's own rules stay in charge:
 
-- **Products** come from the use cases (Copilot Studio, Agent Builder, or both). **Vertical** and **Departments** come
+- **Products** come from the use cases (Copilot Studio, Agent Builder, or both). **Industry** and **Departments** come
   from the shortlist.
 - **Level** is the wizard's single source of truth, so the lab gets one level: the **Lab level** you pick in the
   shortlist panel (each option shows how many of your recommended topics sit at that level), or **Automatic**, the level
   most of your use cases are at (a tie goes to the higher level). Recommended topics from other levels are not selected,
-  and the page says how many; a lower-level topic your selection needs is added as a short recap, as always.
-- **Harness** (only with Copilot Studio) is the harness most Copilot Studio use cases share; topics for another harness
+  and the page says how many; a lower-level topic your selection needs is added as a short refresher, as always.
+- **Agent experience (harness)** (only with Copilot Studio) is the one most Copilot Studio use cases share; topics for another one
   are skipped and reported.
 - The suggested **lab title** reads like "Healthcare Customer Service: Copilot Studio and Agent Builder use cases".
 - If the wizard already has answers, you are asked before they are replaced. An announcement and a notice say what was
@@ -943,7 +956,9 @@ never disagree. `levels.js` holds the shared rules.
   at no more than 5 minutes, and written short (what you are doing, the steps, a check,
   and sources; no concepts, knowledge checks, or screenshots). The lab headings render
   them as `### Recap K - <name>` before `### Step 1 - <name>`, labels them as
-  prerequisite recaps in the Time Estimate table (`Recap K`) and Review and build outline, and
+  prerequisite recaps in the Time Estimate table (`Recap K`) and, in the generated lab itself, keeps those words. The
+  portal's own screens use plainer ones: a recap is a **refresher**, a lab module is a **Part** (in the Review and build outline,
+  *Part 3* and *Refresher 1*), and **Step** means a wizard step only; the lab files, exports and manifest keep `Step` and `Recap`. The lab
   keeps Learning Objectives numbered `Step 1..M` with a short refresher note when
   recaps are present. A recap dropped during the build or unchecked in Review and build never
   shifts main module `Step 1..M` numbers or removes the module that builds on it; the
@@ -2788,7 +2803,7 @@ that does not pick a profile follow the **active** profile.
   for this lab only, and watch the cover preview. Leave a field blank to inherit the
   profile value. If the profile has a default SharePoint site, Review and build pre-fills the
   SharePoint site fields from it (a site you enter always wins). The wizard summary bar
-  also shows a **Brand: <profile>** chip.
+  also shows a **Brand: <profile>** chip for a profile other than the built-in Default, on the steps before Review and build.
 - **Previously generated labs → Open → Customize this lab (branding).** Change the
   profile or overrides of a saved lab, then **Update from profile** or **Reset to
   profile**.

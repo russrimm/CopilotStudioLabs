@@ -646,11 +646,11 @@ test("Review and build renders clickable Microsoft Learn links on included outli
   assert.equal(vm.runInContext("labBuilder.editOrder", context), true);
   previewHtml = element("lb-preview").innerHTML;
   assert.match(previewHtml, /data-outline-action="toggle-edit" aria-expanded="true">Done<\/button>/);
-  assert.match(previewHtml, /<th scope="col" class="lb-outline-order-col">Order<\/th><th scope="col">Step<\/th>/);
+  assert.match(previewHtml, /<th scope="col" class="lb-outline-order-col">Order<\/th><th scope="col">Part<\/th>/);
 
   for (const [rowHtml] of outlineRows()) {
     const modId = rowHtml.match(/data-outline-module="([^"]+)"/)?.[1];
-    assert.match(rowHtml, /<td>(Step|Recap) \d+<\/td>/, `Expected a step label on outline row ${modId}`);
+    assert.match(rowHtml, /<td>(Part|Refresher) \d+<\/td>/, `Expected a part label on outline row ${modId}`);
     const anchors = learnLinksIn(rowHtml);
     assert.ok(anchors.length >= 1, `Expected Microsoft Learn links on Review and build outline row ${modId} in Edit order`);
     for (const anchor of anchors) {

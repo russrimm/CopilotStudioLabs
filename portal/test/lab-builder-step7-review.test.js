@@ -266,7 +266,7 @@ test("deselecting modules and prerequisite recaps on Review and build removes th
   // Start with Level 200 Connector tools, which pulls in Generative orchestration (200)
   // plus two Level 100 prerequisite recaps (Create an agent, Write agent instructions).
   run(`labBuilder.picked = new Set(["connector-tools"]);`);
-  // Step and Recap numbers live in the Step column, which only Edit order shows.
+  // Part and Refresher numbers live in the Part column, which only Edit order shows.
   run("labBuilder.editOrder = true");
   element("lb-time").value = "30";
   await context.lbRefresh();
@@ -281,9 +281,9 @@ test("deselecting modules and prerequisite recaps on Review and build removes th
     "connector-tools",
   ]);
   const initialStepLabels = [...previewHtml.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
-  assert.deepEqual(initialStepLabels, ["Recap 1", "Recap 2", "Step 1", "Step 2"]);
+  assert.deepEqual(initialStepLabels, ["Refresher 1", "Refresher 2", "Part 1", "Part 2"]);
   assert.match(previewHtml, /2 modules \+ 2 refreshers, about 55 minutes/);
-  assert.match(previewHtml, /Optional part 2:/, "55 min against 30 min target suggests a split initially");
+  assert.match(previewHtml, /Optional session 2:/, "55 min against 30 min target suggests a split initially");
   assert.equal(removedSectionModuleIds(previewHtml).length, 0);
 
   // 1) Uncheck same-level required module "generative-orchestration" via delegated change event on #lb-preview.
@@ -300,17 +300,22 @@ test("deselecting modules and prerequisite recaps on Review and build removes th
     ["create-agent", "agent-instructions", "connector-tools"],
     "single uncheck removes generative-orchestration while keeping un-excluded transitive recaps",
   );
-  // Recaps stay Recap 1..2 while remaining main module renumbers cleanly to Step 1.
+  // Refreshers stay Refresher 1..2 while the remaining main module renumbers cleanly to Part 1.
   const stepCellsAfterFirst = [...previewHtml.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
-  assert.deepEqual(stepCellsAfterFirst, ["Recap 1", "Recap 2", "Step 1"]);
+  assert.deepEqual(stepCellsAfterFirst, ["Refresher 1", "Refresher 2", "Part 1"]);
   assert.match(previewHtml, /1 module \+ 2 refreshers, about 35 minutes/);
   assert.match(previewHtml, /Total \(estimate\)<\/th><td>about 35 minutes<\/td>/);
   assert.deepEqual(removedSectionModuleIds(previewHtml), ["generative-orchestration"]);
   assert.equal(element("lb-preview").lastFocused, "generative-orchestration", "keyboard focus stays on the toggled module");
 
-  // Sticky summary bar, step summary mirror, and the Topics checkboxes all match Review and build.
-  assert.match(element("lb-summary").innerHTML, /1 topic \+ 2 prerequisite recaps, about 35 min/);
+  // Sticky summary bar and its step summary mirror agree. Topics and Review and build say the count on the screen itself, so the bar
+  // repeats it only on the other steps (it says "refreshers" there too); the Topics checkboxes match Review and build.
+  assert.doesNotMatch(element("lb-summary").innerHTML, /topic|refresher/i, "the bar does not repeat the count on Review and build");
   assert.equal(summaryMirror.innerHTML, element("lb-summary").innerHTML);
+  run("labBuilder.step = LB_STEP.tailor; lbRenderSummary()");
+  assert.match(element("lb-summary").innerHTML, /1 topic \+ 2 refreshers, about 35 min/);
+  assert.equal(summaryMirror.innerHTML, element("lb-summary").innerHTML);
+  run("labBuilder.step = LB_STEP.review; lbRenderSummary()");
   context.lbRenderTopics();
   const topicsHtmlAfterFirst = element("lb-topic-groups").innerHTML;
   assert.match(topicsHtmlAfterFirst, /data-topic="connector-tools"[^>]*checked/);
@@ -321,12 +326,14 @@ test("deselecting modules and prerequisite recaps on Review and build removes th
   previewHtml = element("lb-preview").innerHTML;
   assert.deepEqual(activeOutlineModuleIds(previewHtml), ["create-agent", "connector-tools"]);
   const stepCellsAfterSecond = [...previewHtml.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
-  assert.deepEqual(stepCellsAfterSecond, ["Recap 1", "Step 1"]);
+  assert.deepEqual(stepCellsAfterSecond, ["Refresher 1", "Part 1"]);
   assert.match(previewHtml, /1 module \+ 1 refresher, about 30 minutes/);
   assert.match(previewHtml, /Total \(estimate\)<\/th><td>about 30 minutes<\/td>/);
-  assert.doesNotMatch(previewHtml, /Optional part 2:/, "30 min now fits the 30 min target without split parts");
+  assert.doesNotMatch(previewHtml, /Optional session 2:/, "30 min now fits the 30 min target without split parts");
   assert.deepEqual(removedSectionModuleIds(previewHtml), ["generative-orchestration", "agent-instructions"]);
-  assert.match(element("lb-summary").innerHTML, /1 topic \+ 1 prerequisite recap, about 30 min/);
+  run("labBuilder.step = LB_STEP.tailor; lbRenderSummary()");
+  assert.match(element("lb-summary").innerHTML, /1 topic \+ 1 refresher, about 30 min/);
+  run("labBuilder.step = LB_STEP.review; lbRenderSummary()");
 
   context.lbRenderTopics();
   const topicsHtmlAfterSecond = element("lb-topic-groups").innerHTML;
@@ -392,7 +399,10 @@ test("unchecking the last remaining module on Review and build keeps the learner
   assert.match(emptyHtml, /No modules remain in your curriculum\./);
   assert.match(emptyHtml, /Re-select at least one module below or go back to Topics\./);
   assert.deepEqual(removedSectionModuleIds(emptyHtml), ["connector-tools"]);
-  assert.match(element("lb-summary").innerHTML, /No topics selected yet/);
+  assert.doesNotMatch(element("lb-summary").innerHTML, /topic/i, "the outline says so; the bar does not repeat it on Review and build");
+  run("labBuilder.step = LB_STEP.tailor; lbRenderSummary()");
+  assert.match(element("lb-summary").innerHTML, /No topics selected yet/, "the other steps' bar still says so");
+  run("labBuilder.step = LB_STEP.review; lbRenderSummary()");
   assert.equal(element("lb-generate-btn").disabled, true, "Build my lab is blocked while 0 modules remain");
   assert.equal(element("lb-sticky-next").textContent, "Build my lab");
   assert.equal(element("lb-sticky-next").disabled, true, "the sticky copy of Build my lab is blocked too");
@@ -430,7 +440,7 @@ test("unchecking the last remaining module on Review and build keeps the learner
   ]);
 });
 
-test("deselecting prerequisite recaps on Review and build preserves Step 1..M numbering for all main modules", async () => {
+test("deselecting prerequisite refreshers on Review and build preserves Part 1..M numbering for all main modules", async () => {
   const { context, element, run } = loadReviewHarness();
 
   run(`labBuilder.picked = new Set(["generative-orchestration", "connector-tools"]);`);
@@ -441,26 +451,26 @@ test("deselecting prerequisite recaps on Review and build preserves Step 1..M nu
   const stepCellsOf = (htmlSnippet) =>
     [...htmlSnippet.matchAll(/<\/td><td>([^<]+)<\/td><th scope="row">/g)].map((m) => m[1]);
 
-  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), [], "the Step column is hidden until Edit order is on");
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), [], "the Part column is hidden until Edit order is on");
   await clickEditOrder(element);
-  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Recap 1", "Recap 2", "Step 1", "Step 2"]);
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Refresher 1", "Refresher 2", "Part 1", "Part 2"]);
 
-  // Uncheck first prerequisite recap: remaining recap becomes Recap 1, main modules stay Step 1, Step 2.
+  // Uncheck first refresher: the remaining one becomes Refresher 1, main modules stay Part 1, Part 2.
   await context.lbSetOutlineModule("create-agent", false);
   assert.deepEqual(activeOutlineModuleIds(element("lb-preview").innerHTML), [
     "agent-instructions",
     "generative-orchestration",
     "connector-tools",
   ]);
-  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Recap 1", "Step 1", "Step 2"]);
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Refresher 1", "Part 1", "Part 2"]);
 
-  // Uncheck second prerequisite recap too: main modules still stay Step 1, Step 2.
+  // Uncheck second refresher too: main modules still stay Part 1, Part 2.
   await context.lbSetOutlineModule("agent-instructions", false);
   assert.deepEqual(activeOutlineModuleIds(element("lb-preview").innerHTML), [
     "generative-orchestration",
     "connector-tools",
   ]);
-  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Step 1", "Step 2"]);
+  assert.deepEqual(stepCellsOf(element("lb-preview").innerHTML), ["Part 1", "Part 2"]);
 });
 
 const settle = () => new Promise((resolve) => setImmediate(resolve));
@@ -468,7 +478,7 @@ const escaped = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<"
 const headerTexts = (previewHtml) =>
   [...(previewHtml.match(/<thead>[\s\S]*?<\/thead>/)?.[0] || "").matchAll(/<th\b[^>]*>([^<]*)<\/th>/g)].map((m) => m[1]);
 
-test("Review rows show only Include, the title, and the time; Edit order adds order, step, description, and Learn links, and Done hides them again with focus on the toggle", async () => {
+test("Review rows show only Include, the title, and the time; Edit order adds order, part, description, and Learn links, and Done hides them again with focus on the toggle", async () => {
   const { run, context, element } = loadReviewHarness();
   const summary = getFeatures().find((f) => f.id === "connector-tools").summary;
 
@@ -483,7 +493,7 @@ test("Review rows show only Include, the title, and the time; Edit order adds or
   assert.deepEqual(headerTexts(previewHtml), ["Include", "Module", "Estimated time"]);
   assert.equal(run("labBuilder.editOrder"), false);
   assert.doesNotMatch(previewHtml, /data-outline-move|lb-outline-order-controls|lb-outline-order-col/, "no move buttons");
-  assert.doesNotMatch(previewHtml, /<td>(?:Step|Recap) \d+<\/td>/, "no Step column");
+  assert.doesNotMatch(previewHtml, /<td>(?:Part|Refresher) \d+<\/td>/, "no Part column");
   assert.doesNotMatch(previewHtml, /lb-learn-source|lb-learn-links/, "no Microsoft Learn links");
   assert.doesNotMatch(previewHtml, /lb-feature-summary|lb-outline-desc-/, "no description");
   assert.ok(!previewHtml.includes(escaped(summary)), "the module description is not in the row");
@@ -491,16 +501,17 @@ test("Review rows show only Include, the title, and the time; Edit order adds or
   assert.match(previewHtml, /<th scope="row" colspan="2">Total \(estimate\)<\/th>/);
   assert.match(previewHtml, /data-outline-action="toggle-edit" aria-expanded="false">Edit order<\/button>/);
 
-  // Edit order brings back the Order and Step columns, each module's description, and its Microsoft Learn links.
+  // Edit order brings back the Order and Part columns, each module's description, and its Microsoft Learn links.
   preview.clearFocus();
   await clickEditOrder(element);
   previewHtml = preview.innerHTML;
   assert.equal(run("labBuilder.editOrder"), true);
-  assert.deepEqual(headerTexts(previewHtml), ["Include", "Order", "Step", "Module", "Estimated time"]);
+  assert.deepEqual(headerTexts(previewHtml), ["Include", "Order", "Part", "Module", "Estimated time"]);
   assert.match(previewHtml, /data-outline-move="up"[^>]*data-outline-module="create-agent"/);
   assert.match(previewHtml, /data-outline-move="down"[^>]*data-outline-module="connector-tools"/);
-  assert.match(previewHtml, /<td>Recap 1<\/td>/);
-  assert.match(previewHtml, /<td>Step 1<\/td>/);
+  assert.match(previewHtml, /<td>Refresher 1<\/td>/);
+  assert.match(previewHtml, /<td>Part 1<\/td>/);
+  assert.doesNotMatch(previewHtml, /<td>(?:Step|Recap) \d+<\/td>/, "the manifest's Step and Recap labels are not shown as they are");
   assert.match(previewHtml, /id="lb-outline-desc-connector-tools" class="lb-feature-summary"/);
   assert.ok(previewHtml.includes(escaped(summary)), "the module description is shown");
   assert.match(previewHtml, /class="lb-learn-source"/, "Microsoft Learn links are shown");
@@ -514,7 +525,7 @@ test("Review rows show only Include, the title, and the time; Edit order adds or
   previewHtml = preview.innerHTML;
   assert.equal(run("labBuilder.editOrder"), false);
   assert.deepEqual(headerTexts(previewHtml), ["Include", "Module", "Estimated time"]);
-  assert.doesNotMatch(previewHtml, /data-outline-move|lb-learn-source|lb-feature-summary|<td>(?:Step|Recap) \d+<\/td>/);
+  assert.doesNotMatch(previewHtml, /data-outline-move|lb-learn-source|lb-feature-summary|<td>(?:Part|Refresher) \d+<\/td>/);
   assert.match(previewHtml, /data-outline-action="toggle-edit" aria-expanded="false">Edit order<\/button>/);
   assert.equal(preview.lastFocused, "toggle-edit");
 });

@@ -28,7 +28,7 @@ function lbChecklistSetFlag(labId, name) {
 /**
  * The five steps and where each stands.
  * @param {object} input `reviewed`, `shared`, `branding` ({ customized, profileName, profileChanged }),
- *   `shots` (scCounts), `check` ({ state: not-checked|up-to-date|docs-updated|ungrounded, changed })
+ *   `shots` (scCounts; `total` and `captured` give the "N of M captured" count), `check` ({ state: not-checked|up-to-date|docs-updated|ungrounded, changed })
  */
 function lbChecklistItems(input) {
   const shots = input.shots || {};
@@ -73,12 +73,14 @@ function lbChecklistItems(input) {
   const waiting = scCount(shots.toCapture) + scCount(shots.manual);
   const outdated = scCount(shots.outdated);
   const review = scCount(shots.needsReview);
+  // The same "N of M captured" the lab card and the Screenshot Center show, from the same helper.
+  const progress = scCaptureProgress({ total: shots.total, captured: shots.captured });
   if (shots.unknown) {
     items.push({ id: "screenshots", title: "Capture screenshots", status: "todo", detail: "Open the Screenshot Center to see which screenshots are captured.", action: "Open Screenshot Center" });
   } else if (!scCount(shots.total)) {
     items.push({ id: "screenshots", title: "Capture screenshots", status: "done", detail: "This lab has no screenshots to capture.", action: "Open Screenshot Center" });
   } else if (!waiting && !outdated && !review) {
-    items.push({ id: "screenshots", title: "Capture screenshots", status: "done", detail: `All ${scPlural(scCount(shots.total), "screenshot")} are in place.`, action: "Open Screenshot Center" });
+    items.push({ id: "screenshots", title: "Capture screenshots", status: "done", detail: `${progress.text}. Nothing is left to capture.`, action: "Open Screenshot Center" });
   } else {
     const parts = [];
     if (waiting) parts.push(`${waiting} pending`);
@@ -88,7 +90,7 @@ function lbChecklistItems(input) {
       id: "screenshots",
       title: "Capture screenshots",
       status: outdated || review ? "attention" : "todo",
-      detail: `${parts.join(", ")}. Capture them on your computer or add them by hand.`,
+      detail: `${progress.text}. ${parts.join(", ")}. Capture them on your computer or add them by hand.`,
       action: "Open Screenshot Center",
     });
   }
@@ -139,6 +141,7 @@ function lbChecklistInputFromListLab(lab) {
     shots: {
       unknown: !lab?.screenshots,
       total: scCount(shots.total),
+      captured: scCaptureProgress(shots).captured,
       toCapture: scCount(shots.pending),
       manual: 0,
       outdated: scCount(shots.stale),

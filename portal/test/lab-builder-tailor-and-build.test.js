@@ -106,6 +106,7 @@ function makeWizard() {
   };
   vm.runInContext("Object.assign(labBuilder, __seed); labBuilder.loaded = true; lbBindTopicEvents(); lbRenderAllSteps();", context);
 
+  h.context = context;
   h.run = (code) => vm.runInContext(code, context);
   h.state = (expr) => clone(vm.runInContext(`(${expr})`, context));
   h.settle = async () => {
@@ -372,6 +373,179 @@ test("the SharePoint site is optional: a blank site never blocks a build, a type
   assert.equal(h.run("lbValidateSharepointSiteForBuild()"), true);
   assert.equal(h.byId("lb-sharepoint-site-hint").hidden, true, "the hint goes away once a site is entered");
   assert.equal(h.state("lbRequest().sharepointSiteUrl"), "https://fabrikam.sharepoint.com/sites/Training");
+});
+
+test("lbPlainText says catalog ids and the lab's own 'recap' word in plain words, and leaves everything else alone", async () => {
+  const h = makeWizard();
+  const plain = (text) => h.run(`lbPlainText(${JSON.stringify(text)})`);
+  const nameOf = (id) => getFeaturesByCategory().flatMap((category) => category.features).find((feature) => feature.id === id).name;
+
+  // Catalog ids become the topic's name in quotes; an id the catalog does not know becomes "the matching topic".
+  assert.equal(plain("see mc-knowledge for those steps"), `see "${nameOf("mc-knowledge")}" for those steps`);
+  assert.equal(plain("Uses mc-knowledge and mc-skills."), `Uses "${nameOf("mc-knowledge")}" and "${nameOf("mc-skills")}".`);
+  assert.equal(plain("see mc-not-a-topic for those steps"), "see the matching topic for those steps");
+  assert.equal(plain("Compare standard and microsoft-copilot"), "Compare standard and microsoft-copilot", "other hyphenated words are not ids");
+  assert.equal(plain("The semc-knowledge mc_knowledge"), "The semc-knowledge mc_knowledge", "only whole mc- ids are replaced");
+
+  // 'recap' is the lab file's word; the portal says refresher, keeping the case of the first letter and the plural.
+  assert.equal(plain("The recap covers it. Recaps are short."), "The refresher covers it. Refreshers are short.");
+  assert.equal(plain("A prerequisite recap helps. Prerequisite recaps too."), "A refresher helps. Refreshers too.");
+  assert.equal(plain("Added 2 prerequisite recap(s) and a Recap(s)."), "Added 2 refresher(s) and a Refresher(s).");
+  assert.equal(plain("Recap: Create an agent"), "Refresher: Create an agent");
+  assert.equal(plain("recapitulate the recapped steps"), "recapitulate the recapped steps", "only the word recap");
+
+  // The catalog's own wording about itself.
+  assert.equal(plain("It is not in this repository's reviewed catalog."), "It is not in the reviewed catalog.");
+
+  for (const empty of ["", null, undefined]) assert.equal(h.run(`lbPlainText(${JSON.stringify(empty ?? null)})`), "");
+  assert.equal(plain("Nothing to change here."), "Nothing to change here.");
+});
+
+test("row reasons, harness notes, and every warning on Topics and Review and build go through lbPlainText", async () => {
+  const h = makeWizard();
+  await h.chooseProducts("copilot-studio");
+  const knowledge = getFeaturesByCategory().flatMap((category) => category.features).find((feature) => feature.id === "mc-knowledge").name;
+  const escapedKnowledge = knowledge.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+  // A row's Why: and harness note, in its details.
+  const row = h.run(`lbTopicCard(${JSON.stringify({
+    id: "demo-topic", name: "Demo topic", summary: "A demo.", minutes: 10, level: 200, selected: true, required: false, source: "catalog",
+    reasons: ["Required by Contoso topic; see mc-knowledge for those steps. A recap helps.", "Recommended for level 200"],
+    harnessNote: "On this harness use mc-skills instead.",
+  })})`);
+  assert.match(row, new RegExp(`<span class="lb-topic-reason">Why: Required by Contoso topic; see &quot;${escapedKnowledge.replace(/[()]/g, "\\$&")}&quot; for those steps\\. A refresher helps\\.</span>`));
+  assert.doesNotMatch(row, /Recommended for level|mc-knowledge|recap/i);
+  assert.match(row, /<span class="lb-feature-note">On this harness use &quot;[^&]+&quot; instead\.<\/span>/);
+
+  // Topics warnings: dependency warnings and the recommendation's own.
+  const rec = recommend({ products: ["copilot-studio"], level: 200, harness: "standard" }, { topics: [], checks: [] });
+  rec.warnings = ["Added 2 recaps; see mc-knowledge for those steps."];
+  rec.dependencyWarnings = [{ message: "The prerequisite recap needs mc-unknown-topic." }];
+  h.context.__rec = rec;
+  h.run("labBuilder.rec = __rec; lbRenderTopics()");
+  const warnings = h.text("lb-topic-warnings");
+  assert.match(warnings, new RegExp(`Added 2 refreshers; see "${knowledge.replace(/[()]/g, "\\$&")}" for those steps\\.`));
+  assert.match(warnings, /The refresher needs the matching topic\./);
+  assert.doesNotMatch(warnings, /recap|mc-/i);
+
+  // Review and build warnings come back from the plan with the lab's wording.
+  const real = h.context.fetch;
+  h.context.fetch = async (url, init) => {
+    const res = await real(url, init);
+    if (url !== "/api/lab-builder/preview") return res;
+    const data = await res.json();
+    return reply(200, { ...data, warnings: [...data.warnings, "Added 1 prerequisite recap; see mc-knowledge for those steps."] });
+  };
+  h.run(`labBuilder.picked = new Set(["create-agent"]); labBuilder.chosenSteps = new Set(["product", "tailor", "topics"]);`);
+  await h.run("lbRefresh()");
+  await h.settle();
+  await h.run("lbGoToStep(4)");
+  await h.settle();
+  const review = h.text("lb-preview");
+  assert.match(review, /Added 1 refresher; see ".+" for those steps\./);
+  assert.doesNotMatch(review, /recap|mc-knowledge/i);
+});
+
+test("lbModuleLabel maps the lab's Step and Recap labels to Part and Refresher, and only at the start of the label", async () => {
+  const h = makeWizard();
+  const label = (text) => h.run(`lbModuleLabel(${JSON.stringify(text)})`);
+  assert.equal(label("Step 3"), "Part 3");
+  assert.equal(label("Recap 1"), "Refresher 1");
+  assert.equal(label("step 12 - Add knowledge"), "Part 12 - Add knowledge");
+  assert.equal(label("  Recap 2: Create an agent"), "Refresher 2: Create an agent");
+  assert.equal(label("Module 4"), "Module 4", "other labels are left alone");
+  assert.equal(label("Optional Step 2"), "Optional Step 2", "only a leading Step or Recap is mapped");
+  assert.equal(label("Stepping up"), "Stepping up", "a word that starts with Step is not a step label");
+  assert.equal(h.run("lbModuleLabel(null)"), "");
+  assert.equal(h.run("lbModuleLabel(undefined)"), "");
+});
+
+test("the Review outline's Edit order column is headed Part and says Part N and Refresher N, and the split note says session", async () => {
+  const h = makeWizard();
+  await h.chooseProducts("copilot-studio");
+  h.run(`labBuilder.level = 200; labBuilder.picked = new Set(["connector-tools"]); labBuilder.chosenSteps = new Set(["product", "tailor", "topics"]);`);
+  h.byId("lb-time").value = "30";
+  await h.run("lbRefresh()");
+  await h.settle();
+  await h.run("lbGoToStep(4)");
+  await h.settle();
+
+  const headers = () => h.all("#lb-preview thead th").map((th) => th.textContent);
+  const partCells = () => h.all("#lb-preview tbody tr").filter((tr) => tr.querySelector("input[data-outline-module]")).map((tr) => tr.querySelectorAll("td")[2]?.textContent);
+  assert.deepEqual(headers(), ["Include", "Module", "Estimated time"], "compact by default");
+  assert.deepEqual(partCells(), [undefined, undefined, undefined, undefined]);
+
+  await h.click(h.byId("lb-preview").querySelector('button[data-outline-action="toggle-edit"]'));
+  assert.deepEqual(headers(), ["Include", "Order", "Part", "Module", "Estimated time"]);
+  assert.deepEqual(partCells(), ["Refresher 1", "Refresher 2", "Part 1", "Part 2"], "refreshers first, then the lab's own parts");
+  const titles = h.all("#lb-preview tbody label.lb-outline-module-label").map((label) => label.textContent);
+  assert.deepEqual(titles.map((title) => title.startsWith("Refresher: ")), [true, true, false, false]);
+  const preview = h.text("lb-preview");
+  assert.match(preview, /Optional session \d+: \d+ modules?, about /, "the split note calls each piece a session");
+  assert.doesNotMatch(preview, /Optional part|\bStep \d|\bRecap \d/);
+});
+
+test("a refresher removed from the outline is listed as a Refresher, with the refresher wording in its note", async () => {
+  const h = makeWizard();
+  await h.chooseProducts("copilot-studio");
+  h.run(`labBuilder.level = 200; labBuilder.picked = new Set(["connector-tools"]); labBuilder.chosenSteps = new Set(["product", "tailor", "topics"]);`);
+  await h.run("lbRefresh()");
+  await h.settle();
+  await h.run("lbGoToStep(4)");
+  await h.settle();
+  await h.run(`lbSetOutlineModule("create-agent", false)`);
+  await h.run(`lbSetOutlineModule("connector-tools", false)`);
+  await h.settle();
+
+  const removed = h.byId("lb-preview").querySelector(".lb-removed-section");
+  assert.ok(removed, "the Removed from curriculum section is listed");
+  const item = removed.querySelector('input[data-outline-module="create-agent"]').closest("label");
+  assert.match(item.querySelector(".lb-feature-name").textContent, /^Refresher: /);
+  assert.equal(item.querySelector(".lb-badge-recap").textContent, "Refresher");
+  assert.equal(item.querySelector(".lb-feature-summary").textContent, "Included as a refresher once a dependent Level 200 module is selected, or select Restore all.");
+  assert.doesNotMatch(removed.textContent, /recap/i);
+});
+
+test("a product that comes in more than one agent experience says so on its card", async () => {
+  const h = makeWizard();
+  const card = (id) => h.all("#lb-product-options label").find((label) => label.querySelector(`input[value="${id}"]`));
+  const badge = card("copilot-studio").querySelector(".lb-badge-harness");
+  assert.equal(badge.textContent.replace(/\.$/, ""), "Choose an agent experience");
+  assert.match(badge.getAttribute("title"), /more than one agent experience, called a harness\. You choose one on the next step\./);
+  assert.equal(card("sharepoint-ai").querySelector(".lb-badge-harness"), null, "a product without harnesses has no such badge");
+  assert.doesNotMatch(h.byId("lb-product-options").innerHTML, /Has harnesses/);
+});
+
+test("the summary bar stays out of the way until a product is chosen, appears with the first one, and goes again when none is left", async () => {
+  const h = makeWizard();
+  const bar = h.byId("lb-summary").closest(".lb-summary-bar");
+  assert.ok(bar, "the summary and its buttons share one bar");
+  assert.equal(bar.hidden, true, "nothing to summarize yet, so no bar");
+  assert.equal(h.text("lb-summary"), "Your lab so far: nothing yet.", "the text is still there for a screen reader that reaches it");
+  assert.equal(h.byId("lb-save-draft").hidden, true);
+  assert.match(HTML, /\.lb-summary-bar\[hidden\]\s*\{\s*display:\s*none;\s*\}/, "a hidden bar takes no space");
+
+  await h.chooseProducts("copilot-studio");
+  assert.equal(bar.hidden, false);
+  assert.equal(h.text("lb-summary"), "Your lab so far: Copilot Studio");
+  assert.equal(h.byId("lb-save-draft").hidden, false, "Save and finish later appears with the first product");
+
+  // Taking the product away again empties the wizard, so the bar goes too.
+  const box = h.all("#lb-product-options input").find((input) => input.getAttribute("value") === "copilot-studio");
+  await h.change(box, (el) => {
+    el.checked = false;
+  });
+  assert.equal(h.state("labBuilder.selectedProducts.size"), 0);
+  assert.equal(bar.hidden, true);
+  assert.equal(h.byId("lb-save-draft").hidden, true);
+
+  // Start over ends in the same place: an empty wizard with no bar.
+  await h.chooseProducts("sharepoint-ai");
+  assert.equal(bar.hidden, false);
+  await h.run("lbStartNewLab()");
+  await h.settle();
+  assert.equal(bar.hidden, true);
+  assert.equal(h.text("lb-summary"), "Your lab so far: nothing yet.");
 });
 
 test("Edit selections on a built lab still opens Review and build with every choice filled in", async () => {

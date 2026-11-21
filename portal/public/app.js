@@ -4789,7 +4789,7 @@ function lbQualityPanel(qa) {
   if (!qa || typeof qa.score !== "number") return "";
   const findings = (qa.findings || []).slice(0, 8);
   const modules = (qa.topics || [])
-    .map((t) => `<li>Step ${Number(t.order)} - ${escapeHtml(t.name)}: ${Number(t.score)}/100</li>`)
+    .map((t) => `<li>Part ${Number(t.order)} - ${escapeHtml(t.name)}: ${Number(t.score)}/100</li>`)
     .join("");
   return `
     <details class="lb-advanced lb-quality" open>
@@ -4823,6 +4823,10 @@ function lbShowResult(data) {
     : spSite?.name
     ? `<span class="scenario-pill">SharePoint site: ${escapeHtml(spSite.name)}</span>`
     : "";
+  const shotProgress = typeof scCaptureProgress === "function" ? scCaptureProgress(data.manifest.screenshots) : null;
+  const shotPillHtml = shotProgress
+    ? `<span class="scenario-pill">${shotProgress.total ? `Screenshots: ${escapeHtml(shotProgress.detail)}` : "No screenshots to capture"}</span>`
+    : "";
   const labTitle = String(data.title || data.manifest?.title || "Generated Lab").trim() || "Generated Lab";
   meta.innerHTML = `
     <div class="lb-result-header-block">
@@ -4830,14 +4834,13 @@ function lbShowResult(data) {
       <div class="scenario-pill-list">
         <span class="scenario-pill">${escapeHtml(data.difficulty)}</span>
         ${data.manifest.level ? `<span class="scenario-pill">${escapeHtml(data.manifest.levelName || `Level ${data.manifest.level}`)}</span>` : ""}
-        ${data.manifest.prerequisites?.length ? `<span class="scenario-pill">${data.manifest.prerequisites.length} prerequisite recap${data.manifest.prerequisites.length === 1 ? "" : "s"}</span>` : ""}
+        ${data.manifest.prerequisites?.length ? `<span class="scenario-pill">${data.manifest.prerequisites.length} refresher${data.manifest.prerequisites.length === 1 ? "" : "s"}</span>` : ""}
         <span class="scenario-pill">${escapeHtml(data.duration)}</span>
         ${spPillHtml}
-        <span class="scenario-pill">${g.groundedModules}/${g.totalModules} modules grounded on Microsoft Learn</span>
+        <span class="scenario-pill">${g.groundedModules} of ${g.totalModules} module${g.totalModules === 1 ? "" : "s"} checked against Microsoft Learn</span>
         ${vd?.requested ? `<span class="scenario-pill">${Number(vd.read)}/${Number(vd.inLab)} vendor pages read</span>` : ""}
         <span class="scenario-pill">${v.passed} checks passed${v.failed ? `, ${v.failed} failed` : ""}</span>
-        <span class="scenario-pill">${data.manifest.screenshots.reused} screenshots reused</span>
-        <span class="scenario-pill">${data.manifest.screenshots.pending ?? data.manifest.screenshots.toCapture} screenshots pending</span>
+        ${shotPillHtml}
       </div>
     </div>
     <div class="lb-result-actions">

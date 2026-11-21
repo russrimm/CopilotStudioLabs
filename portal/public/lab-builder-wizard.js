@@ -952,7 +952,7 @@ function lbRenderProducts() {
         <span class="lb-card-body">
           <span class="lb-card-head">
             <span class="lb-card-title">${escapeHtml(p.name)}<span class="sr-only">.</span></span>
-            ${p.hasHarnesses ? '<span class="lb-badge lb-badge-harness">Has harnesses<span class="sr-only">.</span></span>' : ""}
+            ${p.hasHarnesses ? '<span class="lb-badge lb-badge-harness" title="This product comes in more than one agent experience, called a harness. You choose one on the next step.">Choose an agent experience<span class="sr-only">.</span></span>' : ""}
             ${p.custom ? '<span class="lb-badge lb-badge-new">Added by you<span class="sr-only">.</span></span>' : ""}
           </span>
           ${p.summary ? `<div class="scenario-card-desc">${escapeHtml(p.summary)}</div>` : ""}
@@ -2352,6 +2352,19 @@ function lbToggleRowDetails(topicId) {
   }
 }
 
+/**
+ * Catalog and server sentences name a topic by its internal id ("see mc-knowledge") and use the lab's own word "recap".
+ * The portal says it in plain words instead; the catalog ids, the generated lab, and the exports keep their wording.
+ */
+function lbPlainText(text) {
+  const names = new Map(lbFeatureList().map((feature) => [feature.id, feature.name]));
+  return String(text || "")
+    .replace(/\bmc-[a-z0-9]+(?:-[a-z0-9]+)*\b/g, (id) => (names.has(id) ? `"${names.get(id)}"` : "the matching topic"))
+    .replace(/\b(?:prerequisite )?recap\(s\)/gi, (m) => (m[0] === m[0].toUpperCase() ? "Refresher(s)" : "refresher(s)"))
+    .replace(/\b(?:prerequisite )?recap(s)?\b/gi, (m, plural) => `${m[0] === m[0].toUpperCase() ? "Refresher" : "refresher"}${plural ? "s" : ""}`)
+    .replace(/this repository's reviewed catalog/gi, (m) => (m[0] === "T" ? "The reviewed catalog" : "the reviewed catalog"));
+}
+
 /** A topic as one compact row: checkbox, title, time, and one status chip, with everything else behind Details. */
 function lbTopicCard(t) {
   const view = lbSubtopicView(t);
@@ -2367,13 +2380,13 @@ function lbTopicCard(t) {
                 <span class="lb-feature-body">
                   <span class="lb-feature-badges">${!t.level || t.levelBasis === "estimated" ? lbLevelBadge(t) : ""}${t.availability ? `<span class="lb-badge lb-badge-${escapeHtml(t.availability)}">${t.availability === "ga" ? "GA" : escapeHtml(t.availability.charAt(0).toUpperCase() + t.availability.slice(1))}</span>` : ""}${lbLearnBadges(t)}</span>
                   <span id="lb-topic-desc-${id}" class="lb-feature-summary">${escapeHtml(t.summary)}</span>
-                  ${reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(reasons.join(". "))}</span>` : ""}
+                  ${reasons.length ? `<span class="lb-topic-reason">Why: ${escapeHtml(lbPlainText(reasons.join(". ")))}</span>` : ""}
                   ${lbThirdPartyNote(t)}
                   ${t.source === "learn" ? '<span class="lb-feature-note">Source: Microsoft Learn. Check each article before you teach it.</span>' : ""}
                   ${lbRelatedNote(t)}
                   ${lbRenderLearnLinks(t, view ? { hide: view.subs.map((s) => s.url) } : undefined)}
                   ${t.learn?.status === "stale" ? '<span class="lb-feature-note">The Microsoft Learn pages this topic cites could not be found. Its steps are checked against Learn when the lab is built.</span>' : ""}
-                  ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(t.harnessNote)}</span>` : ""}
+                  ${t.harnessNote ? `<span class="lb-feature-note">${escapeHtml(lbPlainText(t.harnessNote))}</span>` : ""}
                 </span>${view ? lbRenderSubtopics(t, view, query) : ""}
               </div>`;
   const checkbox = view
@@ -2519,7 +2532,7 @@ function lbRenderTopics() {
               <div class="lb-row-details" id="lb-row-details-${escapeHtml(p.id)}"${open ? "" : " hidden"}>
                 <span class="lb-feature-body">
                   <span id="lb-prereq-desc-${escapeHtml(p.id)}" class="lb-feature-summary">${escapeHtml(p.summary)}</span>
-                  <span class="lb-topic-reason">Why: ${escapeHtml(p.reason)}</span>
+                  <span class="lb-topic-reason">Why: ${escapeHtml(lbPlainText(p.reason))}</span>
                   ${lbRenderLearnLinks(p)}
                 </span>
               </div>
@@ -2594,8 +2607,8 @@ function lbRenderTopics() {
               .join(", ")}.</div>`,
           ]
         : []),
-      ...rec.dependencyWarnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(w.message)}</div>`),
-      ...rec.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(w)}</div>`),
+      ...rec.dependencyWarnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(lbPlainText(w.message))}</div>`),
+      ...rec.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(lbPlainText(w))}</div>`),
     ].join("");
   }
   const intro = document.getElementById("lb-topic-intro");
@@ -3046,7 +3059,12 @@ function lbHasProgress() {
 
 function lbSyncResetButton() {
   const btn = document.getElementById("lb-start-over");
-  if (btn) btn.hidden = !lbHasProgress();
+  const progress = lbHasProgress();
+  if (btn) btn.hidden = !progress;
+  if (!progress) lbHideStartOverConfirm();
+  // Saving needs a product, so the button waits for one instead of answering with a refusal.
+  const save = document.getElementById("lb-save-draft");
+  if (save) save.hidden = labBuilder.selectedProducts.size === 0;
 }
 
 function lbSyncStepSummaryMirrors(summaryHtml) {
@@ -3072,9 +3090,11 @@ function lbRenderSummary() {
       parts.push(escapeHtml(lbLevelName(labBuilder.level)));
       if (lbHasHarnessProduct()) parts.push(escapeHtml(lbHarnessName(labBuilder.harness)));
     }
-    if (lbIsStepChosen("topics")) {
+    // Topics and Review and build say the topic count, the time, the quiz choice, and the SharePoint site on the screen itself, so the bar does not repeat them there.
+    const onTopicsOrReview = labBuilder.step === LB_STEP.topics || labBuilder.step === LB_STEP.review;
+    if (lbIsStepChosen("topics") && !onTopicsOrReview) {
       const totals = labBuilder.rec?.totals;
-      const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} prerequisite recap${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
+      const recaps = totals?.prerequisiteCount ? ` + ${totals.prerequisiteCount} refresher${totals.prerequisiteCount === 1 ? "" : "s"}` : "";
       const time = totals
         ? totals.selectedCount
           ? `${totals.selectedCount} topic${totals.selectedCount === 1 ? "" : "s"}${recaps}, about ${totals.duration} (estimate, not a limit)`
@@ -3082,11 +3102,11 @@ function lbRenderSummary() {
         : "Calculating topics...";
       parts.push(escapeHtml(time));
     }
-    if (lbIncludeKnowledgeCheck() || labBuilder.step >= LB_STEP.review) {
-      parts.push(escapeHtml(lbIncludeKnowledgeCheck() ? "Knowledge checks: mini-quizzes on" : "Knowledge checks: off"));
+    if (lbIncludeKnowledgeCheck() && labBuilder.step !== LB_STEP.review) {
+      parts.push(escapeHtml("Knowledge checks: mini-quizzes on"));
     }
     const spState = lbResolveSharepointSiteState();
-    if (spState.requiresSharepointSite && spState.configured) {
+    if (spState.requiresSharepointSite && spState.configured && labBuilder.step !== LB_STEP.review) {
       parts.push(escapeHtml(`SharePoint site: ${spState.label || spState.name || spState.url}`));
     }
     const brandChip = lbBrandSummaryChip();
@@ -3094,6 +3114,9 @@ function lbRenderSummary() {
     summaryHtml = `<strong>Your lab so far:</strong> ${parts.join(" · ")}`;
   }
   if (el) el.innerHTML = summaryHtml;
+  // With no product chosen there is nothing to summarize, so the bar stays out of the way until there is.
+  const bar = el?.closest?.(".lb-summary-bar");
+  if (bar) bar.hidden = !lbIsStepChosen("product");
   lbSyncStepSummaryMirrors(summaryHtml);
   lbSyncSharepointSiteUi();
 }
@@ -3446,6 +3469,7 @@ function lbResetWizard() {
 async function lbStartNewLab() {
   if (typeof setActiveTab === "function") setActiveTab("labbuilder");
   if (!labBuilder.loaded && !labBuilder.products.length) await lbLoadCatalog();
+  lbHideStartOverConfirm();
   lbStopEditing(true);
   lbResetAnswers();
   lbRenderAllSteps();
@@ -3453,6 +3477,39 @@ async function lbStartNewLab() {
   lbGoToStep(LB_STEP.product);
   document.getElementById("lb-pane-1")?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
   toast("Started a fresh lab. Choose one or more products to begin.", "info");
+}
+
+// ── Start over asks first ───────────────────────────────────────────────────
+// The summary bar's Start over opens a small inline question. Nothing is cleared, and the autosave slot is left alone,
+// until the person confirms; Keep working (or Esc) closes it and puts focus back on Start over.
+function lbHideStartOverConfirm() {
+  const box = document.getElementById("lb-start-over-confirm");
+  if (box) box.hidden = true;
+  document.getElementById("lb-start-over")?.setAttribute?.("aria-expanded", "false");
+}
+
+function lbAskStartOver() {
+  const box = document.getElementById("lb-start-over-confirm");
+  if (!box) {
+    void lbStartNewLab();
+    return;
+  }
+  box.hidden = false;
+  document.getElementById("lb-start-over")?.setAttribute?.("aria-expanded", "true");
+  // The question is already on screen, so only a screen reader is told: the confirm group is named by its own text.
+  if (typeof lbDraftSay === "function") lbDraftSay("Start over? This clears your choices. Your saved drafts are kept.");
+  document.getElementById("lb-start-over-keep")?.focus();
+}
+
+function lbCancelStartOver() {
+  lbHideStartOverConfirm();
+  if (typeof lbDraftAnnounce === "function") lbDraftAnnounce("Kept your choices.");
+  document.getElementById("lb-start-over")?.focus();
+}
+
+async function lbConfirmStartOver() {
+  await lbStartNewLab();
+  if (typeof lbDraftAnnounce === "function") lbDraftAnnounce("Started over. Your saved drafts are kept.");
 }
 
 /**
@@ -3555,7 +3612,7 @@ async function lbLoadSelections(lab) {
  * Pre-fill the wizard from a Use Case Builder shortlist and open the Topics step.
  * The wizard's own rules stay in charge: the level is the single source of truth,
  * so recommended topics from other levels are not selected (a lower-level topic a
- * selected topic needs still arrives as a short recap), and a topic that does not
+ * selected topic needs still arrives as a short refresher), and a topic that does not
  * belong to the chosen harness or to a chosen product is skipped. Everything stays
  * changeable on the steps that follow.
  *
@@ -3789,18 +3846,18 @@ function lbRenderRemovedSection() {
         ${removed
           .map((item) => {
             const levelBadge = item.level ? `<span class="lb-badge lb-badge-level">Level ${item.level}</span>` : '<span class="lb-badge lb-badge-warn">Level unknown</span>';
-            const roleBadge = item.role === "prerequisite" ? '<span class="lb-badge lb-badge-recap">Prerequisite recap</span>' : "";
+            const roleBadge = item.role === "prerequisite" ? '<span class="lb-badge lb-badge-recap">Refresher</span>' : "";
             const timeBadge = item.minutes ? `<span class="lb-badge lb-badge-time">about ${item.minutes} min</span>` : "";
             const note = item.canRestoreAlone
               ? item.summary
-              : `Included as a recap once a dependent Level ${labBuilder.level} module is selected, or select Restore all.`;
+              : `Included as a refresher once a dependent Level ${labBuilder.level} module is selected, or select Restore all.`;
             return `
               <label class="lb-removed-item ${item.canRestoreAlone ? "" : "lb-removed-disabled"}">
                 <input type="checkbox" data-outline-module="${escapeHtml(item.id)}" data-outline-role="${escapeHtml(item.role)}" autocomplete="off" ${
                   item.canRestoreAlone ? "" : "disabled"
                 } aria-describedby="lb-removed-desc-${escapeHtml(item.id)}">
                 <span class="lb-feature-body">
-                  <span class="lb-feature-name">${item.role === "prerequisite" ? "Recap: " : ""}${escapeHtml(item.name)}</span>
+                  <span class="lb-feature-name">${item.role === "prerequisite" ? "Refresher: " : ""}${escapeHtml(item.name)}</span>
                   <span class="lb-feature-badges">${levelBadge}${roleBadge}${timeBadge}</span>
                   <span id="lb-removed-desc-${escapeHtml(item.id)}" class="lb-feature-summary">${escapeHtml(note)}</span>
                   ${lbRenderLearnLinks(item)}
@@ -3822,6 +3879,13 @@ function lbRenderOutlineSubtopic(module, sub) {
     : "";
   const spacer = edit ? '<td class="lb-outline-order-cell"></td><td></td>' : "";
   return `<tr class="lb-outline-subrow${sub.included ? "" : " lb-outline-subrow-off"}"><td class="lb-outline-include-cell"><input type="checkbox" class="lb-outline-check" id="${id}" data-outline-subtopic="${escapeHtml(sub.id)}" data-outline-parent="${escapeHtml(module.id)}" autocomplete="off" ${sub.included ? "checked" : ""}></td>${spacer}<th scope="row" class="lb-outline-subhead"><label class="lb-outline-module-label" for="${id}"><span class="lb-outline-subtag">Sub-topic:</span> ${escapeHtml(sub.title)}</label> ${link}</th><td>${sub.included ? `about ${escapeHtml(sub.minutes || 5)} min` : "left out"}</td></tr>`;
+}
+
+/** A lab module's label as the portal shows it: "Step" belongs to the wizard alone, so a module is "Part 3" and a recap is "Refresher 1". The lab file keeps its own headings. */
+function lbModuleLabel(label) {
+  return String(label || "")
+    .replace(/^\s*Step\s+(\d+)/i, "Part $1")
+    .replace(/^\s*Recap\s+(\d+)/i, "Refresher $1");
 }
 
 function lbRenderOutlineOrderControls(moduleOrId, index, total, maybeName) {
@@ -4082,9 +4146,10 @@ async function lbPreview(options = {}) {
         const isRecap = m.role === "prerequisite";
         if (isRecap) recapCount += 1;
         else stepCount += 1;
-        const stepLabel =
+        const stepLabel = lbModuleLabel(
           m.stepLabel ||
-          (isRecap ? `Recap ${m.recapOrder ?? recapCount}` : `Step ${m.stepOrder ?? stepCount}`);
+            (isRecap ? `Recap ${m.recapOrder ?? recapCount}` : `Step ${m.stepOrder ?? stepCount}`),
+        );
         // Rows are the checkbox, the title, and the time. The order controls, step numbers, descriptions, and Microsoft Learn links come with Edit order.
         const orderCells = edit ? `${lbRenderOutlineOrderControls(m, idx, data.modules.length)}<td>${escapeHtml(stepLabel)}</td>` : "";
         const detail = edit ? `<div id="lb-outline-desc-${escapeHtml(m.id)}" class="lb-feature-summary">${escapeHtml(m.summary)}</div>${lbRenderLearnLinks(m)}` : "";
@@ -4109,16 +4174,16 @@ async function lbPreview(options = {}) {
       </div>
       <table class="lb-outline">
         <caption>Lab outline with estimated time per module</caption>
-        <thead><tr><th scope="col" class="lb-outline-include-col">Include</th>${edit ? '<th scope="col" class="lb-outline-order-col">Order</th><th scope="col">Step</th>' : ""}<th scope="col">Module</th><th scope="col">Estimated time</th></tr></thead>
+        <thead><tr><th scope="col" class="lb-outline-include-col">Include</th>${edit ? '<th scope="col" class="lb-outline-order-col">Order</th><th scope="col">Part</th>' : ""}<th scope="col">Module</th><th scope="col">Estimated time</th></tr></thead>
         <tbody>
           ${moduleRowsHtml}
         </tbody>
         <tfoot><tr><th scope="row" colspan="${edit ? 4 : 2}">Total (estimate)</th><td>about ${escapeHtml(data.duration)}</td></tr></tfoot>
       </table>
       ${(data.estimate?.suggestedParts || [])
-        .map((part) => `<div class="lb-feature-note">Optional part ${part.part}: ${part.ids.length} module${part.ids.length === 1 ? "" : "s"}, about ${escapeHtml(part.duration)}</div>`)
+        .map((part) => `<div class="lb-feature-note">Optional session ${part.part}: ${part.ids.length} module${part.ids.length === 1 ? "" : "s"}, about ${escapeHtml(part.duration)}</div>`)
         .join("")}
-      ${data.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(w)}</div>`).join("")}
+      ${data.warnings.map((w) => `<div class="lb-warning" role="status">${escapeHtml(lbPlainText(w))}</div>`).join("")}
       ${lbRenderRemovedSection()}
     `;
     lbFocusOutlineAfterPreview(el, options);
@@ -4162,10 +4227,11 @@ function lbEffectiveBrand() {
   return brandMergeOverrides(profile, lbBrandOverrides());
 }
 
-/** HTML for the "Brand: <profile>" chip in the summary bar (empty until the profiles have loaded). */
+/** HTML for the "Brand: <profile>" chip in the summary bar. Empty until the profiles have loaded, for the built-in Default, and on Review and build, where the brand line is already on screen. */
 function lbBrandSummaryChip() {
   const profile = lbBrandProfile();
-  if (!profile) return "";
+  if (!profile || labBuilder.step === LB_STEP.review) return "";
+  if (profile.id === "default" && !Object.keys(lbBrandOverrides()).length) return "";
   return `<span class="lb-brand-chip">Brand: ${escapeHtml(profile.name)}</span>`;
 }
 

@@ -41,11 +41,75 @@ test("each pane heading can take focus so a step change is announced", () => {
 
 test("a running total, reset affordances, and the time-as-guidance message are always shown", () => {
   assert.match(builderPanel, /id="lb-summary"[^>]*aria-live="polite"/);
-  assert.match(builderPanel, /id="lb-start-over"[^>]*onclick="lbStartNewLab\(\)"[^>]*hidden[^>]*>Start over<\/button>/);
+  assert.match(builderPanel, /id="lb-start-over"[^>]*onclick="lbAskStartOver\(\)"[^>]*hidden[^>]*aria-expanded="false" aria-controls="lb-start-over-confirm">Start over<\/button>/, "Start over asks first");
+  assert.match(builderPanel, /id="lb-start-over-confirm"[^>]*role="group"[^>]*onkeydown="if \(event\.key === 'Escape'\) lbCancelStartOver\(\)" hidden>/);
+  assert.match(builderPanel, /id="lb-start-over-yes" onclick="lbConfirmStartOver\(\)">Start over<\/button>/);
+  assert.match(builderPanel, /id="lb-start-over-keep" onclick="lbCancelStartOver\(\)">Keep working<\/button>/);
   assert.match(builderPanel, /id="lb-gen-start-new"[^>]*data-gen-action="new"[^>]*>Start new lab<\/button>/);
   assert.match(wizard, /estimate, not a limit/);
   assert.doesNotMatch(builderPanel, /Time budget/i);
   assert.doesNotMatch(wizard + app, /timeBudget/);
+});
+
+test("the Build a Custom Lab intro is one short sentence, and a 560px rule keeps the four-step stepper on one row", () => {
+  const intro = builderPanel.match(/<p class="lb-build-lead"[^>]*>\s*([\s\S]*?)\s*<\/p>/)?.[1];
+  assert.equal(intro, "Every module is checked against Microsoft Learn, and times are estimates, never limits.");
+  assert.doesNotMatch(builderPanel, /Four steps/i, "the intro no longer announces the step count; the stepper does");
+
+  // The block that starts at .lb-build-lead's phone rule, read to its closing brace.
+  const css = html.slice(0, html.indexOf("@media print"));
+  const at = css.indexOf(".lb-build-lead { display: none; }");
+  assert.ok(at > 0, "the phone rule for the intro exists");
+  const open = css.lastIndexOf("@media", at);
+  let depth = 0;
+  let end = css.indexOf("{", open);
+  for (let i = end; i < css.length; i += 1) {
+    if (css[i] === "{") depth += 1;
+    if (css[i] === "}") depth -= 1;
+    if (depth === 0) {
+      end = i + 1;
+      break;
+    }
+  }
+  const block = css.slice(open, end);
+  assert.match(block, /^@media \(max-width: 560px\) \{/);
+  assert.match(block, /\.lb-steps \{ flex-wrap: nowrap;/, "the four steps stay on one row");
+  assert.match(block, /\.lb-step:not\(\.active\) \{ font-size: 0; gap: 0; \}/, "a step that is not current shows only its number");
+  assert.match(css, /\.lb-step span \{[^}]*font-size: 11px/, "and the number has its own size, so font-size: 0 on the button never hides it");
+  assert.equal([...builderPanel.matchAll(/<button type="button" class="lb-step[^"]*" data-lb-step="\d"[^>]*><span aria-hidden="true">\d<\/span> [^<]+<\/button>/g)].length, 4, "every step has a number and words");
+  assert.match(css, /\.lb-summary-bar\[hidden\] \{ display: none; \}/, "the summary bar can be hidden until there is something to summarize");
+
+  // Focus rings and the click size of the small text buttons.
+  for (const selector of [".lb-more > summary", ".lb-link-btn", ".lb-row-toggle"]) {
+    const escaped = selector.replace(/[.>]/g, "\\$&");
+    assert.match(css, new RegExp(`${escaped}:focus-visible \\{ outline: 3px solid var\\(--accent-hover\\);`), `${selector} has a visible focus ring`);
+  }
+  // A small text button keeps at least 4px above and below and 6px at the sides, so it is easier to hit than bare text.
+  for (const selector of [".lb-link-btn", ".lb-row-toggle"]) {
+    const padding = css.match(new RegExp(`${selector.replace(".", "\\.")} \\{ padding: (\\d+)px (\\d+)px;`));
+    assert.ok(padding, `${selector} sets its padding`);
+    assert.ok(Number(padding[1]) >= 4 && Number(padding[2]) >= 6, `${selector} padding ${padding[1]}px ${padding[2]}px is too small`);
+  }
+});
+
+test("no visible text or script string still names Step 7 or Step 8 of the old eight-step flow", () => {
+  // Visible text: the page without its style blocks, scripts, and comments (attributes such as title and aria-label are visible too).
+  const visible = html
+    .replace(/<style[\s\S]*?<\/style>/g, "")
+    .replace(/<script[\s\S]*?<\/script>/g, "")
+    .replace(/<!--[\s\S]*?-->/g, "");
+  assert.doesNotMatch(visible, /\bSteps? [5-8]\b/i, "index.html text names no step beyond Step 4");
+  assert.match(visible, /Review and build/, "the last step is called by its name");
+
+  // Strings in the browser scripts: comments are not shown to anyone, so only code is read.
+  for (const name of ["lab-builder-wizard.js", "lab-builder-drafts.js", "generated-labs.js", "app.js", "screenshot-center.js", "use-case-builder.js", "lab-checklist.js"]) {
+    const code = readFileSync(new URL(`../public/${name}`, import.meta.url), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .split("\n")
+      .filter((line) => !/^\s*\/\//.test(line))
+      .join("\n");
+    assert.doesNotMatch(code, /\bSteps? [5-8]\b/i, `${name} names no step beyond Step 4`);
+  }
 });
 
 test("Your lab so far stays sticky at the top of the wizard stage, Previously generated labs starts collapsed, and Review and build has an accessible generation progress card", () => {

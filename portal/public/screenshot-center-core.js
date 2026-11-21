@@ -1,6 +1,8 @@
 // Screenshot Center helpers. Pure functions with no DOM access, shared by the
 // Screenshot Center (screenshot-center.js), the "Finish your lab" checklist
-// (lab-checklist.js), and the saved-lab cards (generated-labs.js).
+// (lab-checklist.js), the saved-lab cards (generated-labs.js), and the result
+// shown after a build (app.js). scCaptureProgress is the one screenshot count all of
+// them use, and scModuleLabel is how they show a lab's own "Step N" and "Recap N".
 // Loaded as a classic script: every name is global, so each one starts with "sc".
 
 const SC_DEFAULT_LIMITS = Object.freeze({
@@ -569,6 +571,36 @@ function scConfirmCounts(state) {
   const shots = (Array.isArray(state?.shots) ? state.shots : []).filter((s) => s?.captured);
   const confirmed = shots.filter((s) => scShotConfirmed(s)).length;
   return { captured: shots.length, confirmed, notConfirmed: shots.length - confirmed };
+}
+
+/**
+ * The one screenshot count the portal shows for a lab: "N of M captured". "Captured" means a real picture sits in the
+ * slot, whether it was captured in this lab or reused from the library. Pass the Screenshot Center's counts or state
+ * summary, a saved-lab list entry's `screenshots`, or a manifest's `screenshots`: they all give the same answer for the
+ * same lab, because the slots with no picture are `missing` (Screenshot Center) or `pending` (list and manifest, where
+ * `captured` leaves out the reused pictures) and every other slot has a picture.
+ * `reused` is only a secondary phrase ("(1 reused)"), never a count of its own.
+ * @returns {{ total: number, captured: number, pending: number, reused: number, complete: boolean, text: string, detail: string }}
+ */
+function scCaptureProgress(source) {
+  const s = source && typeof source === "object" ? source : {};
+  const total = scCount(s.total);
+  const absent = [s.missing, s.pending, s.captured === undefined ? s.toCapture : undefined].find((value) => value !== undefined && value !== null && Number.isFinite(Number(value)));
+  const captured = absent === undefined ? Math.min(total, scCount(s.captured)) : total - Math.min(total, scCount(absent));
+  const reused = Math.min(captured, scCount(s.reused));
+  const text = total ? `${captured} of ${total} captured` : "No screenshots";
+  return { total, captured, pending: total - captured, reused, complete: total > 0 && captured === total, text, detail: reused ? `${text} (${reused} reused)` : text };
+}
+
+/**
+ * How the portal shows a lab's own module label. The lab keeps "Step 3" and "Recap 1"; in the portal "Step" means a wizard
+ * step, so a module shows as "Part 3" and a recap as "Refresher 1". Only the display changes, never the key or the file.
+ */
+function scModuleLabel(label) {
+  return String(label ?? "")
+    .trim()
+    .replace(/^Step(?=\s+\d)/i, "Part")
+    .replace(/^Recap(?=\s+\d)/i, "Refresher");
 }
 
 /**

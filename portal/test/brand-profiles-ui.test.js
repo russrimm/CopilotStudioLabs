@@ -433,6 +433,53 @@ test("the Change button expands and collapses the Customize card, and the brand 
   assert.equal(button.textContent, "Change");
 });
 
+test("the Brand chip in the summary bar shows only for a non-default profile or Default with overrides, and never on Review and build", () => {
+  const { run, element } = loadBrandWizard({ profiles: PROFILES, activeProfileId: "default" });
+  run("lbSyncCustomizeCard()");
+  const select = element("lb-brand-profile");
+  const choose = (id) => {
+    select.value = id;
+    select.listeners.get("change")();
+  };
+  const override = (key, value) => {
+    element(`lb-ov-${key}`).value = value;
+    element(`lb-ov-${key}`).listeners.get("input")();
+  };
+  const onStep = (step) => {
+    run(`labBuilder.step = LB_STEP.${step}; lbRenderSummary()`);
+    return { chip: run("lbBrandSummaryChip()"), summary: element("lb-summary").innerHTML };
+  };
+  const CHIP = (name) => `<span class="lb-brand-chip">Brand: ${name}</span>`;
+  const OFF_REVIEW = ["product", "tailor", "topics"];
+
+  // The built-in Default with no overrides says nothing: it is what every lab gets.
+  for (const step of [...OFF_REVIEW, "review"]) {
+    const { chip, summary } = onStep(step);
+    assert.equal(chip, "", `Default adds no chip on ${step}`);
+    assert.doesNotMatch(summary, /lb-brand-chip/);
+  }
+
+  // A profile the person chose shows on every step but Review and build, where the brand line is already on screen.
+  choose("contoso");
+  for (const step of OFF_REVIEW) {
+    const { chip, summary } = onStep(step);
+    assert.equal(chip, CHIP("Contoso &lt;EU&gt;"), `the chosen profile shows on ${step}`);
+    assert.ok(summary.endsWith(CHIP("Contoso &lt;EU&gt;")), "and sits at the end of the line");
+  }
+  const review = onStep("review");
+  assert.equal(review.chip, "", "Review and build has its own brand line");
+  assert.doesNotMatch(review.summary, /lb-brand-chip/);
+  assert.equal(element("lb-brand-summary").textContent, "Brand: Contoso <EU>", "and that line still names the profile");
+
+  // Default with a change for this lab is no longer plain Default, so it shows (off Review and build) until the change is cleared.
+  choose("default");
+  override("tagline", "Spring cohort");
+  for (const step of OFF_REVIEW) assert.equal(onStep(step).chip, CHIP("Default"), `Default with an override shows on ${step}`);
+  assert.equal(onStep("review").chip, "");
+  override("tagline", "   ");
+  assert.equal(onStep("tailor").chip, "", "a blank override is no override");
+});
+
 test("the Manage brand profiles link opens the Configuration tab, and nothing breaks before profiles load", () => {
   const { run, element, spy } = loadBrandWizard({ profiles: PROFILES, activeProfileId: "default" });
   run("lbSyncCustomizeCard()");

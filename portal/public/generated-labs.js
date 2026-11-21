@@ -321,6 +321,16 @@ function lbGeneratedActionButtonsHtml(labId, title, options = {}) {
     </div>`;
 }
 
+/** A lab's own module label as the portal shows it: "Step 3" is "Part 3" and "Recap 1" is "Refresher 1" (see scModuleLabel). */
+function lbGenModuleLabel(label) {
+  return typeof scModuleLabel === "function" ? scModuleLabel(label) : String(label ?? "").trim();
+}
+
+/** The one screenshot count for a saved lab ("N of M captured", see scCaptureProgress), or null when the lab has no screenshot record. */
+function lbGenCaptureProgress(lab) {
+  return typeof scCaptureProgress === "function" && lab?.screenshots ? scCaptureProgress(lab.screenshots) : null;
+}
+
 function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
   if (!labId || !Array.isArray(topicDocuments) || !topicDocuments.length) return "";
   const encodedLabId = encodeURIComponent(labId);
@@ -331,7 +341,9 @@ function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
       const stepLabel = String(doc.stepLabel || `Step ${order}`);
       const isRecap = /^recap\b/i.test(stepLabel);
       const badgeMod = isRecap ? " lb-prereq-req-badge-recap" : "";
-      const title = String(doc.title || stepLabel);
+      // The lab and its file names keep "Step N" and "Recap N"; the portal shows "Part N" and "Refresher N".
+      const shownLabel = lbGenModuleLabel(stepLabel);
+      const title = String(doc.title || shownLabel);
       const baseName = String(doc.fileBaseName || `${labId} - ${stepLabel} - ${title}`);
       const docxFileName = String(doc.docxFileName || `${baseName}.docx`);
       const pptxFileName = String(doc.pptxFileName || `${baseName}.pptx`);
@@ -343,13 +355,13 @@ function lbRenderTopicDocumentsHtml(labId, topicDocuments) {
         <li class="lb-topic-doc-item">
           <div class="lb-topic-doc-info">
             <div class="lb-topic-doc-head">
-              <span class="lb-prereq-req-badge${badgeMod}">${escapeHtml(stepLabel)}</span>
+              <span class="lb-prereq-req-badge${badgeMod}">${escapeHtml(shownLabel)}</span>
               <strong class="lb-topic-doc-title">${escapeHtml(title)}</strong>
             </div>
           </div>
           <div class="lb-topic-doc-actions">
-            <a class="btn btn-sm lb-topic-doc-btn" href="${docxHref}" download="${escapeHtml(docxFileName)}" aria-label="Download Word guide for ${escapeHtml(stepLabel)}: ${escapeHtml(title)}">📝 Word (.docx)</a>
-            <a class="btn btn-sm lb-topic-doc-btn" href="${pptxHref}" download="${escapeHtml(pptxFileName)}" aria-label="Download PowerPoint deck for ${escapeHtml(stepLabel)}: ${escapeHtml(title)}">📊 PowerPoint (.pptx)</a>
+            <a class="btn btn-sm lb-topic-doc-btn" href="${docxHref}" download="${escapeHtml(docxFileName)}" aria-label="Download Word guide for ${escapeHtml(shownLabel)}: ${escapeHtml(title)}">📝 Word (.docx)</a>
+            <a class="btn btn-sm lb-topic-doc-btn" href="${pptxHref}" download="${escapeHtml(pptxFileName)}" aria-label="Download PowerPoint deck for ${escapeHtml(shownLabel)}: ${escapeHtml(title)}">📊 PowerPoint (.pptx)</a>
           </div>
         </li>`;
     })
@@ -378,7 +390,7 @@ function lbRenderRequiredByItemHtml(rawEntry) {
   const match = text.match(LB_PREREQ_STEP_PREFIX_RE);
   if (match) {
     const isRecap = /^recap$/i.test(match[1]);
-    const badgeLabel = `${isRecap ? "Recap" : "Step"} ${match[2]}`;
+    const badgeLabel = lbGenModuleLabel(`${isRecap ? "Recap" : "Step"} ${match[2]}`);
     const badgeMod = isRecap ? " lb-prereq-req-badge-recap" : "";
     return `<li class="lb-prereq-req-item"><span class="lb-prereq-req-badge${badgeMod}">${escapeHtml(badgeLabel)}</span><span class="lb-prereq-req-title">${escapeHtml(match[3].trim())}</span></li>`;
   }
@@ -681,9 +693,11 @@ function lbRenderLabCardDriftHtml(lab, rawTitle) {
     }
   } else if (drift.status === "missing-screenshot") {
     const missing = Math.max(1, Number(drift.missingScreenshotCount || 1));
+    const progress = lbGenCaptureProgress(lab);
+    const shotsText = progress && progress.total > 0 ? progress.text : `${missing} screenshot${missing === 1 ? "" : "s"} pending`;
     badgeClass = "lb-gen-drift-badge";
-    badgeText = `✓ Microsoft Learn up to date · ${missing} screenshot${missing === 1 ? "" : "s"} pending`;
-    ariaText = `Microsoft Learn sync status for ${rawTitle}: documentation up to date, ${missing} screenshot${missing === 1 ? "" : "s"} pending`;
+    badgeText = `✓ Microsoft Learn up to date · ${shotsText}`;
+    ariaText = `Microsoft Learn sync status for ${rawTitle}: documentation up to date, ${shotsText}`;
   } else if (drift.status === "ungrounded") {
     badgeClass = "lb-gen-drift-badge";
     badgeText = "No Microsoft Learn sources to check";
@@ -712,7 +726,7 @@ function lbGenItemHtml(lab) {
   const recaps = Number(lab.prerequisiteCount) || 0;
   const topics = Math.max((Number(lab.moduleCount) || 0) - recaps, 0);
   chips.push(`${topics} topic${topics === 1 ? "" : "s"}`);
-  if (recaps) chips.push(`${recaps} prerequisite recap${recaps === 1 ? "" : "s"}`);
+  if (recaps) chips.push(`${recaps} refresher${recaps === 1 ? "" : "s"}`);
   const spRowUrl = lbGenSafeExternalUrl(lab.sharepointSite?.url || "");
   const spRowLabel = lab.sharepointSite?.label || lab.sharepointSite?.name || spRowUrl;
   if (spRowUrl) {
@@ -728,8 +742,9 @@ function lbGenItemHtml(lab) {
       : `<li>Checks: all ${Number(lab.validation.passed)} passed</li>`;
   }
   let screenshotChip = "";
-  if (lab.screenshots && Number.isFinite(lab.screenshots.total) && lab.screenshots.total > 0) {
-    screenshotChip = `<li>Screenshots: ${Number(lab.screenshots.captured || 0)}/${Number(lab.screenshots.total)} captured</li>`;
+  const shotProgress = lbGenCaptureProgress(lab);
+  if (shotProgress && shotProgress.total > 0) {
+    screenshotChip = `<li>Screenshots: ${escapeHtml(shotProgress.text)}</li>`;
   }
   const readyChip = typeof lbChecklistChipHtml === "function" ? lbChecklistChipHtml(lab) : "";
   const driftRowHtml = lbRenderLabCardDriftHtml(lab, rawTitle);
@@ -1660,7 +1675,7 @@ async function lbScanFleetLearnDrift({ labIds = null, autoUpdate = false } = {})
         msg += ` ${errorCount} lab${errorCount === 1 ? "" : "s"} failed to check.`;
       }
     } else {
-      msg = `Scanned ${scannedCount} lab${scannedCount === 1 ? "" : "s"} — all grounded topics match live Microsoft Learn documentation.`;
+      msg = `Scanned ${scannedCount} lab${scannedCount === 1 ? "" : "s"}. Every topic checked against Microsoft Learn matches the live documentation.`;
     }
 
     lbGen.driftStatusVariant = variant;
