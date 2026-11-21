@@ -160,7 +160,8 @@ export const SCRATCH_CREATES_LIST = Object.freeze([
   "That agent's instructions and description, using the text from your lab",
   "Knowledge sources it adds: a public website taken from the lab's Microsoft Learn links, or the SharePoint site you gave (it only reads it)",
   "That agent's settings that the lab turns on or off",
-  "Test conversations in the agent's test pane, and one evaluation test set if the lab has one",
+  "Test conversations in the agent's test pane: the lab's own question, a question outside the agent's scope, and one plain request to ignore its instructions so a picture can show how the agent refuses. Nothing from them is saved to the agent, and it opens the activity map or trace beside an answer and closes it again",
+  "One evaluation test set with one sample question, saved but never run, so it spends no Copilot Credits",
   "Publishing only its own practice agent, once, to its default (internal) state: no channels, no sharing, no audience changes",
 ]);
 
@@ -247,6 +248,11 @@ const isAccountName = wordMatcher(ACCOUNT_TERMS);
 const isDestructiveName = wordMatcher(DESTRUCTIVE_TERMS);
 const isExternalName = wordMatcher(EXTERNAL_TERMS);
 const isConsentName = wordMatcher(CONSENT_TERMS);
+// Controls that spend Copilot Credits (an evaluation run, a generated question set): never clicked, whatever a recipe says. A tab with such a name only opens a page.
+const CREDIT_TERMS = ["evaluate", "run", "run evaluation", "run all", "run test set", "run tests", "generate", "quick question set", "quick conversation set", "full question set", "add conversations", "uses copilot credits"];
+const isCreditName = wordMatcher(CREDIT_TERMS);
+// Views of the test pane that only show what already happened: the activity map and the activity trace.
+const isTestViewName = wordMatcher(["activity map", "show activity map", "open activity map", "hide activity map", "activity trace", "show activity trace", "hide activity trace"], { start: true });
 // Links into the tenant's admin area (a path segment or host named admin): never followed by an action.
 const ADMIN_LINK_RE = /(?:^|\/\/)admin\.|\/(?:admin|tenantsettings|tenant-settings|billing|licenses?|security-center)(?:[/?#]|$)/i;
 
@@ -401,12 +407,15 @@ export function classifyControl(desc, { action = "click", intent = "", product =
   if (names.some(isLeaveProductName)) return verdict(TIER.NEVER, "leaves-product", "This hands off to another product, which the computer never opens.");
   if (desc.href && ADMIN_LINK_RE.test(String(desc.href))) return verdict(TIER.NEVER, "admin", "Admin pages are never opened or changed.");
   if (names.some(isFileName)) return verdict(TIER.NEVER, "file", "Uploading or downloading files is never done.");
+  // Moving to a tab or a page named like a credit-spending action only opens it; clicking the action itself never happens.
+  if (!isText && role !== "tab" && !["select-tab", "open-nav", "reveal", "expand", "open-item", "verify"].includes(action) && names.some(isCreditName)) return verdict(TIER.NEVER, "credits", "This spends Copilot Credits (an evaluation run or generated questions), so the computer never does it.");
 
   if (inDialog && dialogTitle && isHazardDialogTitle(dialogTitle) && !isText) {
     if (!(role === "tab" || role === "radio")) return verdict(TIER.NEVER, "dialog-hazard", "This dialog is about something that must never be confirmed, so only Cancel or Close is used.");
   }
 
   // The test pane: a conversation that is not saved to the agent.
+  if (!isText && !inDialog && names.some(isTestViewName)) return verdict(TIER.TRY, "test-view", "Showing the activity map or the activity trace beside an answer changes nothing.");
   if (desc.inTestPane) {
     if (isText) return verdict(TIER.TRY, "chat-input", "Typing a sample question in the test pane is safe.");
     if (names.some((n) => SEND_NAMES.has(n)) || names.some((n) => CHAT_HOUSEKEEPING.has(n))) return verdict(TIER.TRY, "chat-send", "Sending a test message does not change the agent.");

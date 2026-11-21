@@ -23,6 +23,7 @@ import { createJobStore, normalizeJobRequest, validateCaptureEnv } from "./jobs.
 import { readRecordsFile } from "./library-share.js";
 import { COMPANION_ONLINE_MS, PAIRING_CODE_TTL_MS, createPairingStore } from "./pairing.js";
 import { buildLabJobPlan, buildLibraryJobPlan, findLibrarySlot } from "./plan.js";
+import { buildDryPlan } from "./dry-plan.js";
 import { buildLabChecklist, renderChecklistMarkdown } from "./checklist.js";
 import { readLabScratchContext } from "./scratch-context.js";
 import { createScreenshotStore } from "./screenshot-store.js";
@@ -35,6 +36,8 @@ export const COMPANION_DOWNLOAD_URL = "/api/capture/companion.zip";
 export const AUTONOMOUS_MIN_COMPANION = "1.4.0";
 /** The first companion that can build the practice agent from scratch. An older one would only look at screens, so it is asked to update first. */
 export const SCRATCH_MIN_COMPANION = "1.6.0";
+/** The first companion that runs the recipe families (test conversations with panels, dialogs, item details, a sample test set, landmark checks). An older one keeps working the older way. */
+export const RECIPES_MIN_COMPANION = "1.6.3";
 const BROWSER_CACHE_MS = 60 * 1000;
 
 /** Whether a version string such as "1.3.0" is at least `min`. An unknown version is not. */
@@ -172,11 +175,12 @@ export function createCapturePlatform({
   function companionCanRunAutonomous() {
     const status = pairing.status();
     const online = (status.devices || []).filter((d) => d.connected);
-    if (!online.length) return { connected: false, supported: true, version: null, scratchSupported: true, handoffSupported: true };
+    if (!online.length) return { connected: false, supported: true, version: null, scratchSupported: true, handoffSupported: true, recipesSupported: true };
     const supported = online.some((d) => versionAtLeast(d.companionVersion, AUTONOMOUS_MIN_COMPANION));
     const scratchSupported = online.some((d) => versionAtLeast(d.companionVersion, SCRATCH_MIN_COMPANION));
     const handoffSupported = online.some((d) => versionAtLeast(d.companionVersion, HANDOFF_MIN_COMPANION));
-    return { connected: true, supported, version: online[0].companionVersion || null, scratchSupported, handoffSupported };
+    const recipesSupported = online.some((d) => versionAtLeast(d.companionVersion, RECIPES_MIN_COMPANION));
+    return { connected: true, supported, version: online[0].companionVersion || null, scratchSupported, handoffSupported, recipesSupported };
   }
 
   /** The capture settings (addresses and names) in effect, as an account setup request carries them, so the landing can be checked. */
@@ -270,7 +274,7 @@ export function createCapturePlatform({
         confirmed: library.summary.confirmed,
       },
       jobs: { ...jobs.activity(), ...signInNeed },
-      autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: companionCanRunAutonomous().supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: companionCanRunAutonomous().scratchSupported, handoffMinCompanion: HANDOFF_MIN_COMPANION, handoffSupported: companionCanRunAutonomous().handoffSupported, sharedRecipes: sharedRecipes.list().length },
+      autonomy: { ...consentPayload(), minCompanion: AUTONOMOUS_MIN_COMPANION, companionSupported: companionCanRunAutonomous().supported, scratchMinCompanion: SCRATCH_MIN_COMPANION, scratchSupported: companionCanRunAutonomous().scratchSupported, handoffMinCompanion: HANDOFF_MIN_COMPANION, handoffSupported: companionCanRunAutonomous().handoffSupported, recipesMinCompanion: RECIPES_MIN_COMPANION, recipesSupported: companionCanRunAutonomous().recipesSupported, sharedRecipes: sharedRecipes.list().length },
       pairing: { codeTtlSec: Math.round(PAIRING_CODE_TTL_MS / 1000) },
       limits: { maxUploadBytes: MAX_UPLOAD_BYTES, acceptedTypes: ["image/png", "image/jpeg", "image/webp"] },
     };
@@ -410,7 +414,7 @@ export function createCapturePlatform({
     const agentSupplied = missingRequirements(["copilot-studio-agent"], jobTargets.values).length === 0;
     const savedAgentSource = norm.target.type === "lab" ? readCustomization(readLabManifest(norm.target.labId))?.captureAgentSource || null : null;
     const agentPick = resolveAgentSource({ requested: requestedAgentSource(norm.options), saved: savedAgentSource, agentSupplied });
-    let support = { connected: false, supported: true, scratchSupported: true, handoffSupported: true, version: null };
+    let support = { connected: false, supported: true, scratchSupported: true, handoffSupported: true, recipesSupported: true, version: null };
 
     // What the computer may do comes from what the person agreed to, never from the request. A request can only ask for less.
     const stored = consent.get(consentScope(body).key);
@@ -498,6 +502,11 @@ export function createCapturePlatform({
     const runnable = plan.shots.length - waiting.length;
     // The companion is too old to hand the practice agent to the other screenshots: say so in plain words, and name what to do.
     const agentHandoff = agentFallback === "companion" ? { supported: false, min: HANDOFF_MIN_COMPANION, version: support.version, message: `Your Local Capture Companion${support.version ? ` (${support.version})` : ""} is older than ${HANDOFF_MIN_COMPANION}, so it cannot hand the practice agent to the other screenshots yet. Download the companion again and replace the old one. Until then, screenshots that show an agent need an agent address.` } : null;
+    // The recipe families need a newer companion. An older one still runs the job the way it always did, so the screenshots that depend on them stay with a person: say so.
+    const familyShots = scratch ? plan.shots.filter((s) => s.capture?.automation?.state === "automatic" && ["conversation", "dialog", "item", "testset"].includes(s.capture.automation.family)).length : 0;
+    const recipesHint = familyShots && support.connected && !support.recipesSupported
+      ? { supported: false, min: RECIPES_MIN_COMPANION, version: support.version, shots: familyShots, message: `Your Local Capture Companion${support.version ? ` (${support.version})` : ""} is older than ${RECIPES_MIN_COMPANION}, so it cannot run the new automatic recipes yet. ${familyShots} screenshot${familyShots === 1 ? "" : "s"} (test conversations, dialogs, and the sample test set) still need you. Download the companion again and replace the old one.` }
+      : null;
     return {
       status: 201,
       body: {
@@ -507,14 +516,34 @@ export function createCapturePlatform({
         mode,
         agentSource: { choice: agentPick.source, effective: effectiveAgentSource, ...(agentFallback ? { fallback: agentFallback } : {}) },
         ...(agentHandoff ? { agentHandoff } : {}),
+        ...(recipesHint ? { recipes: recipesHint } : {}),
         ...(autonomy ? { autonomy: { level: autonomy.level } } : {}),
         ...(downgraded ? { downgraded } : {}),
         ...(missing.length ? { missing } : {}),
         message: companion.connected
-          ? `Queued ${runnable} screenshot${runnable === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.${waiting.length ? ` ${waiting.length} more need${waiting.length === 1 ? "s" : ""} an address first.` : ""}${downgraded ? ` ${downgraded.message}` : ""}${agentHandoff ? ` ${agentHandoff.message}` : ""}`
+          ? `Queued ${runnable} screenshot${runnable === 1 ? "" : "s"}. Your Local Capture Companion will pick them up.${waiting.length ? ` ${waiting.length} more need${waiting.length === 1 ? "s" : ""} an address first.` : ""}${downgraded ? ` ${downgraded.message}` : ""}${agentHandoff ? ` ${agentHandoff.message}` : ""}${recipesHint ? ` ${recipesHint.message}` : ""}`
           : "Queued, but no Local Capture Companion is connected yet. Download it, pair it with a code, and it will pick this job up.",
       },
     };
+  }
+
+  /**
+   * The dry plan of a capture request: which screenshots the computer will take by itself, in which order, which practice-agent objects it adds for
+   * them, and which stay with a person and why. It reads the same plan a real capture would send, queues nothing, and needs no companion.
+   */
+  function dryPlan(body = {}) {
+    const norm = normalizeJobRequest(body);
+    if (!norm.ok) return { status: 400, body: { error: norm.errors[0], errors: norm.errors } };
+    const jobTargets = resolveJobTargets(norm, body);
+    if (jobTargets.error) return { status: jobTargets.error.status, body: { error: jobTargets.error.message } };
+    const dirs = capturedDirs();
+    const options = { values: jobTargets.values, scratch: true, allowPractice: false, agentSource: "created", agentFallback: null, sharedRecipes };
+    const plan =
+      norm.target.type === "lab"
+        ? buildLabJobPlan({ generatedRoot, labId: norm.target.labId, scope: norm.scope, capturedDir: dirs.search, ...options })
+        : buildLibraryJobPlan({ scope: norm.scope, products: norm.target.products, manifestDir, capturedDir: dirs.search, ...options });
+    if (plan.status !== 200) return { status: plan.status, body: { error: plan.error } };
+    return { status: 200, body: { dryPlan: buildDryPlan(plan), recipesMinCompanion: RECIPES_MIN_COMPANION } };
   }
 
   /** What the older capture endpoint returns when the server cannot run a browser. */
@@ -561,6 +590,7 @@ export function createCapturePlatform({
     capabilities,
     statusPayload,
     queueJob,
+    dryPlan,
     requestAccountSetup,
     accountCapability,
     consentPayload,

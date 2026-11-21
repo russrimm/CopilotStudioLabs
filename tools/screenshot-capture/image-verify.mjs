@@ -296,6 +296,8 @@ export function sanitizeSetupEvidence(raw) {
     limitedBy: raw.limitedBy === "practice-agent" ? "practice-agent" : null,
     skipped: (Array.isArray(raw.skipped) ? raw.skipped : []).slice(0, 6).map((s) => word(s, 120)).filter(Boolean),
     practice: raw.practice && typeof raw.practice === "object" ? { name: word(raw.practice.name, 80), reused: raw.practice.reused === true } : null,
+    // A recipe that judged its own screen and was not satisfied (or cannot judge it): the picture is kept for a person to check.
+    review: raw.review && typeof raw.review === "object" && /^[a-z-]{1,30}$/.test(String(raw.review.code || "")) ? { code: String(raw.review.code), message: word(raw.review.message, 240) } : null,
   };
 }
 
@@ -530,6 +532,7 @@ export function verifyImage(bytes, options = {}) {
     if (evidence.setup?.limitedBy === "practice-agent") {
       reasons.push(reason("needs-practice-agent", "warn", "This shows the screen as far as the computer could take it without a practice agent. Allow a practice agent, then retake it, to capture the final state."));
     }
+    if (evidence.setup?.review?.message) reasons.push(reason("recipe-review", "warn", evidence.setup.review.message));
   } else if (options.requireEvidence) {
     reasons.push(reason("no-evidence", "warn", "The companion did not report what the page showed."));
   }

@@ -214,7 +214,36 @@ function scShotCapture(shot) {
     needsPractice: capture.setup?.needsPractice === true,
     // What the shot has to do with the lab's agent: it shows one (`needs`), and it belongs to the part of the lab that creates one (`creates`).
     agent: { needs: capture.agent?.needs === true, creates: capture.agent?.creates === true },
+    // Whether the computer takes this shot by itself, and how; or the one reason it needs a person, with the exact steps.
+    automation: scAutomation(capture.automation),
   };
+}
+
+/** The automation descriptor of a shot (see tools/screenshot-capture/automation.mjs), trimmed: known words only, bounded text. Null when the server sent none. */
+function scAutomation(raw) {
+  if (!raw || typeof raw !== "object" || (raw.state !== "automatic" && raw.state !== "person")) return null;
+  const noun = Array.isArray(raw.noun) ? raw.noun.map((n) => scText(n, 80)).filter(Boolean).slice(0, 2) : [];
+  return {
+    state: raw.state,
+    family: scText(raw.family, 20) || null,
+    verified: raw.verified !== false,
+    review: raw.review === "always" || raw.review === "landmark" ? raw.review : "never",
+    reason: raw.state === "person" ? scText(raw.reason, 30) || "unseen" : null,
+    reasonLabel: scText(raw.reasonLabel, 80),
+    noun: noun.length === 2 ? noun : [],
+    why: scText(raw.why, 300),
+    manual: (Array.isArray(raw.manual) ? raw.manual : []).map((s) => scText(s, 200)).filter(Boolean).slice(0, 6),
+    steps: (Array.isArray(raw.steps) ? raw.steps : []).map((s) => scText(s, 200)).filter(Boolean).slice(0, 8),
+  };
+}
+
+/** The sentence an automatic recipe that was never run on a real tenant carries, and what a screen the computer cannot check says. */
+const SC_UNVERIFIED_NOTE = "The computer will try this one automatically. If the screen is not what it expects, it stops and asks you.";
+const SC_ALWAYS_REVIEW_NOTE = "The computer takes this one itself and saves it for your review, because it cannot check this screen on its own.";
+
+/** "3 admin screens, 2 other products": the reasons a list of shots needs a person, most first, as words. */
+function scReasonGroupsText(groups) {
+  return (Array.isArray(groups) ? groups : []).map((g) => `${g.count} ${g.noun[g.count === 1 ? 0 : 1] || g.noun[0] || "other"}`).join(", ");
 }
 
 // ── Automatic capture: consent and the report ───────────────────────────────
@@ -238,6 +267,9 @@ function scConsentModel(autonomy) {
     // Handing the practice agent to the other screenshots (the practice level needs this companion; building from scratch has always done it).
     handoffSupported: autonomy?.handoffSupported !== false,
     handoffMinCompanion: scText(autonomy?.handoffMinCompanion, 20) || "1.6.2",
+    // The recipe families (test conversations with panels, dialogs, the sample test set, landmark checks) need a newer companion; an older one still works the older way.
+    recipesSupported: autonomy?.recipesSupported !== false,
+    recipesMinCompanion: scText(autonomy?.recipesMinCompanion, 20) || "1.6.3",
     never: never.length ? never : SC_NEVER_FALLBACK,
     creates: creates.length ? creates : SC_CREATES_FALLBACK,
     tiers,
@@ -249,7 +281,8 @@ const SC_CREATES_FALLBACK = Object.freeze([
   "That agent's instructions and description, using the text from your lab",
   "Knowledge sources it adds: a public website taken from the lab's Microsoft Learn links, or the SharePoint site you gave (it only reads it)",
   "That agent's settings that the lab turns on or off",
-  "Test conversations in the agent's test pane, and one evaluation test set if the lab has one",
+  "Test conversations in the agent's test pane: the lab's own question, a question outside the agent's scope, and one plain request to ignore its instructions so a picture can show how the agent refuses. Nothing from them is saved to the agent, and it opens the activity map or trace beside an answer and closes it again",
+  "One evaluation test set with one sample question, saved but never run, so it spends no Copilot Credits",
   "Publishing only its own practice agent, once, to its default (internal) state: no channels, no sharing, no audience changes",
 ]);
 
@@ -537,6 +570,8 @@ function scShotStatus(shot, jobShotStatus = null, attempt = null) {
     else if (last === "failed" || last === "auth-required" || last === "needs-account" || last === "browser-unavailable") key = "failed";
     else key = shot?.manual ? "manual" : "pending";
     agentWait = SC_AGENT_WAIT_CAUSES.includes(attempt?.cause) && ["needs-you", "pending", "failed"].includes(key);
+    // A screen an earlier capture left at "Needs you" with no particular cause, which the plan now says the computer takes itself, is ready to try again.
+    if (key === "needs-you" && !agentWait && (!attempt?.cause || attempt.cause === "needs-you") && shot?.capture?.automation?.state === "automatic") return { key: "pending", label: "Ready to try again", tone: "info", readyAgain: true };
   } else key = shot?.stale ? "outdated" : "captured";
   return agentWait ? { key, label: "Waiting for the agent", tone: "warn", agentWait: true } : { key, ...SC_STATUS_LABELS[key] };
 }
@@ -638,7 +673,8 @@ function scPlainInstruction(line) {
  */
 function scCounts(state, attemptFor = null) {
   const shots = Array.isArray(state?.shots) ? state.shots : [];
-  const counts = { total: shots.length, captured: 0, upToDate: 0, toCapture: 0, manual: 0, outdated: 0, needsReview: 0, failed: 0, needsYou: 0, paused: 0 };
+  const counts = { total: shots.length, captured: 0, upToDate: 0, toCapture: 0, manual: 0, outdated: 0, needsReview: 0, failed: 0, needsYou: 0, paused: 0, needYouTotal: 0, needYouGroups: [] };
+  const groups = new Map();
   if (!shots.length) {
     const s = state?.summary || {};
     counts.total = scCount(s.total);
@@ -652,6 +688,12 @@ function scCounts(state, attemptFor = null) {
   for (const shot of shots) {
     const { key } = scShotStatus(shot, null, shot.captured ? null : attemptFor?.(shot.filename) ?? null);
     if (shot.captured) counts.captured += 1;
+    // Why a screenshot needs a person, from the plan: the reason it was classified with, or that the computer tried and could not finish.
+    const person = key !== "manual" && !shot.captured ? scPersonReason(shot, key) : null;
+    if (person) {
+      counts.needYouTotal += 1;
+      groups.set(person.code, { code: person.code, noun: person.noun, count: (groups.get(person.code)?.count || 0) + 1 });
+    }
     if (key === "captured") counts.upToDate += 1;
     else if (key === "outdated") counts.outdated += 1;
     else if (key === "needs-review") counts.needsReview += 1;
@@ -668,7 +710,30 @@ function scCounts(state, attemptFor = null) {
       else counts.toCapture += 1;
     } else if (key === "pending") counts.toCapture += 1;
   }
+  counts.needYouGroups = [...groups.values()].sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
   return counts;
+}
+
+/**
+ * Why a screenshot that is not captured needs a person, from its plan: the one reason it was classified with, or that the computer tried and
+ * could not finish. Null when the plan says the computer takes it (or says nothing): the old "N need you" count is then all there is.
+ */
+function scPersonReason(shot, key) {
+  const automation = shot?.capture?.automation;
+  if (!automation || typeof automation !== "object") return null;
+  if (automation.state === "person" && automation.reason !== "outside-browser") {
+    const noun = Array.isArray(automation.noun) && automation.noun.length === 2 ? automation.noun.map((n) => scText(n, 80)) : ["screen not seen in the product yet", "screens not seen in the product yet"];
+    return { code: scText(automation.reason, 30) || "unseen", noun };
+  }
+  if (automation.state === "automatic" && key === "needs-you") return { code: "tried", noun: ["screen the computer could not finish", "screens the computer could not finish"] };
+  return null;
+}
+
+/** "9 need you: 3 admin screens, 2 other products": the count of shots that need a person, with the reasons when the plan gives them. */
+function scNeedYouText(counts) {
+  const total = scCount(counts?.needYouTotal);
+  if (!total) return scCount(counts?.needsYou) ? `${scCount(counts.needsYou)} need you` : "";
+  return `${total} need you: ${scReasonGroupsText(counts.needYouGroups)}`;
 }
 
 // ── Plain-language verification feedback ────────────────────────────────────
@@ -1194,7 +1259,7 @@ function scDescribeJob(job, { companionConnected = null, nowMs = Date.now(), onl
     const parts = [`${scCount(counts.captured)} captured`];
     if (scCount(counts.needsReview)) parts.push(`${scCount(counts.needsReview)} need review`);
     if (scCount(counts.failed)) parts.push(`${scCount(counts.failed)} failed`);
-    if (scCount(counts.needsYou)) parts.push(`${scCount(counts.needsYou)} need you`);
+    if (scNeedYouText(counts) && scCount(counts.needsYou)) parts.push(scNeedYouText(counts));
     if (waiting) parts.push(`${waiting} waiting for an address`);
     if (otherSkipped) parts.push(`${otherSkipped} skipped`);
     if (scCount(counts.manual)) parts.push(`${scCount(counts.manual)} need to be added by hand`);

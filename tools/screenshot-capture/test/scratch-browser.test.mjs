@@ -427,3 +427,141 @@ test("a practice agent made under a different sign-in is not used and nothing is
     await scenario.close();
   }
 });
+
+// ── Recipe families: test conversations with panels, dialogs, item details, a sample test set, and the landmark check ──
+
+const FAMILY_FEATURES = ["create-agent", "agent-instructions", "knowledge-files-web", "knowledge-sharepoint", "generative-orchestration", "content-moderation", "evaluations"];
+const rowOf = (out, name) => out.rows.find((r) => r.filename === name);
+const reviewReasons = (row) => (row?.verification?.reasons || []).map((r) => r.code);
+const statusLine = (out) => out.rows.map((r) => `${r.filename}:${r.status}:${r.cause || ""}`).join(", ");
+
+/** Change what one shot of the generated lab says it shows (the plan reads the lab's own shot list). */
+function editShot(labDir, filename, change) {
+  const file = path.join(labDir, "screenshots", "shots.json");
+  const plan = JSON.parse(fs.readFileSync(file, "utf8"));
+  const shot = plan.shots.find((s) => s.filename === filename);
+  Object.assign(shot, change);
+  fs.writeFileSync(file, JSON.stringify(plan, null, 2));
+}
+
+/** A knowledge item is listed by the address of its website, so a lab whose first knowledge address names SharePoint would show an item the safety rules rightly will not open. */
+function neutralKnowledgeAddress(labDir) {
+  const file = path.join(labDir, "manifest.json");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace(/knowledge-add-sharepoint/g, "knowledge-copilot-studio"));
+}
+
+/** A lab that lists no public website to add as knowledge: the practice agent keeps no knowledge source. */
+function withoutKnowledgeWebsite(labDir) {
+  const file = path.join(labDir, "manifest.json");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace(/https:\/\/learn\.microsoft\.com/g, "https://docs.invalid"));
+}
+
+test("test conversations, dialogs, an item, and a sample test set are taken by their recipes; what the computer cannot check is saved for review; nothing above the allowed tier is touched", { skip }, async () => {
+  const scenario = await scenarioFor({}, FAMILY_FEATURES, "standard");
+  try {
+    editShot(scenario.lab.labDir, "knowledge-sources-list.png", { caption: "Details of the first knowledge source" });
+    neutralKnowledgeAddress(scenario.lab.labDir);
+    const out = await run(scenario);
+    const stats = out.site.stats;
+    for (const name of ["test-pane-in-scope.png", "activity-map-plan.png", "knowledge-sharepoint-add.png", "eval-test-set.png", "knowledge-sources-list.png"]) assert.equal(rowOf(out, name)?.status, "captured", `${name}: ${statusLine(out)} :: ${rowOf(out, name)?.reason}`);
+    assert.ok(stats.views.includes("activity-map"), "the activity map was brought up beside the answer");
+    // What the computer cannot check is kept for a person, with the picture, and says why in plain words.
+    for (const name of ["knowledge-answer-citation.png", "guardrail-refusal.png", "test-guardrail-response.png"]) {
+      assert.equal(rowOf(out, name)?.status, "needs-review", `${name}: ${statusLine(out)}`);
+      assert.deepEqual(reviewReasons(rowOf(out, name)), ["recipe-review"], name);
+    }
+    assert.match(rowOf(out, "knowledge-answer-citation.png").verification.reasons[0].message, /cannot tell whether the answer shows a citation/);
+    assert.match(rowOf(out, "guardrail-refusal.png").verification.reasons[0].message, /cannot tell whether the agent refused/);
+    // A screen that needs Copilot Credits is never tried, and says so.
+    assert.equal(rowOf(out, "eval-results.png")?.status, "needs-you");
+    assert.equal(rowOf(out, "eval-results.png")?.cause, "needs-credits");
+    // The only thing added to the practice agent for these recipes is one test set, saved and never run; none of the credit-spending decoys was touched.
+    assert.equal(writesOf(out, "create-evaluation:").length, 1, `one test set: ${stats.writes.join(" | ")}`);
+    assert.equal(writesOf(out, "run-evaluation").length, 0);
+    assert.deepEqual(stats.dangers, [], "the Run, Evaluate, and Quick question set decoys, and every other never-do control, were left alone");
+    assert.ok(stats.answers >= 5, `the lab's question, the activity map, the citation, and the two refusals were asked: ${stats.answers}`);
+    // The practice report says what each recipe did, and which ones were never seen on a real tenant.
+    const report = fs.readFileSync(path.join(out.home, "practice-report.md"), "utf8");
+    assert.match(report, /What the screenshot recipes did/);
+    assert.match(report, /Created: an evaluation test set with one sample question \(saved, never run\)/);
+    assert.match(report, /This recipe has not been seen working on a real tenant yet/);
+    assert.match(report, /Created nothing/);
+    // No address or id reaches the portal, and the dry plan lists these recipes before a run.
+    const shown = JSON.stringify(out.job) + JSON.stringify(out.rows.map((r) => r.verification));
+    assert.ok(!shown.includes(FAKE_ENV_ID) && !/7a1c[0-9a-f]{4}-5b3d/.test(shown), "no environment or agent identifier reaches the portal");
+    // Nothing that identifies the tenant, the environment, or the agent is stored outside this computer's own practice-agent record, whatever recipe ran.
+    const made = madeAgentIds(out.site);
+    assert.equal(made.length, 1);
+    assert.deepEqual(botIdsOpened(out), made, "the only agent page that was opened is the practice agent: no other agent was touched by any recipe");
+    const stored = textFilesUnder(path.dirname(scenario.lab.generatedRoot), (file) => /\.plan\.json$/.test(file));
+    assert.ok(stored.length >= 3, "the lab, the job, and the library records were scanned");
+    for (const file of stored) {
+      const text = fs.readFileSync(file, "utf8");
+      assert.deepEqual(text.match(NON_ZERO_GUID) || [], [], `no id in ${path.basename(file)}`);
+      assert.ok(!text.includes(FAKE_ENV_ID) && !text.includes(made[0]), `no environment or agent id in ${path.basename(file)}`);
+    }
+    for (const text of [JSON.stringify(out.job), JSON.stringify(out.labStatus), out.lines.join("\n")]) {
+      assert.deepEqual(text.match(NON_ZERO_GUID) || [], [], "no id in the job, the lab status, or the companion's log");
+      assert.ok(!text.includes(made[0]));
+    }
+    const registry = JSON.parse(fs.readFileSync(path.join(out.home, ".practice-agents.json"), "utf8"));
+    assert.ok(registry.recipes.length >= 3, "the recipes that ran are recorded on this computer");
+    for (const recipe of registry.recipes) assert.doesNotMatch(`${recipe.what} ${recipe.shot} ${recipe.key}`, /https?:|copilotstudio|[0-9a-f]{8}-[0-9a-f]{4}/i, "what a recipe did is described in words, never by an address or an id (the agent's own id stays in this record only)");
+    const dry = (await scenario.call("POST", "/api/capture/dry-plan", { target: { type: "lab", labId: scenario.lab.labId }, scope: { mode: "all" } })).body.dryPlan;
+    assert.ok(dry.automatic.some((s) => s.filename === "activity-map-plan.png" && s.family === "conversation") && dry.objects.some((o) => o.id === "evaluation-test-set"));
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a second run reuses the test set and adds nothing twice", { skip }, async () => {
+  const scenario = await scenarioFor({}, ["create-agent", "agent-instructions", "evaluations"], "standard");
+  try {
+    await run(scenario);
+    const again = await run(scenario);
+    assert.equal(writesOf(again, "create-evaluation:").length, 1, "still one test set");
+    assert.equal(rowOf(again, "eval-test-set.png")?.status, "captured");
+    assert.equal(writesOf(again, "create-agent:").length, 1);
+    assert.deepEqual(again.site.stats.dangers, []);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("a panel the screen does not show is never accepted blindly: the picture is saved as Needs review, and the question is asked once", { skip }, async () => {
+  const scenario = await scenarioFor({ noActivityMap: true }, ["create-agent", "agent-instructions", "generative-orchestration"], "standard");
+  try {
+    const out = await run(scenario);
+    const row = rowOf(out, "activity-map-plan.png");
+    assert.equal(row?.status, "needs-review", statusLine(out));
+    assert.deepEqual(reviewReasons(row), ["recipe-review"]);
+    assert.match(row.verification.reasons[0].message, /did not show what the computer expected \(missing: Activity map\)\. The picture was saved so you can check it\./);
+    assert.deepEqual(out.site.stats.views, [], "nothing was clicked that was not there");
+    assert.equal(out.site.stats.answers, 2, "the lab's question and the activity-map question were each asked once: no retry loop");
+    assert.equal(rowOf(out, "test-pane-in-scope.png")?.status, "captured", "a plain question and answer needs no panel");
+    assert.deepEqual(out.site.stats.dangers, []);
+  } finally {
+    await scenario.close();
+  }
+});
+
+test("in the older layout the same recipes work, and what the layout cannot do stops with a plain reason and changes nothing", { skip }, async () => {
+  const scenario = await scenarioFor({ layout: "classic", editableInstructions: true }, ["create-agent", "agent-instructions", "knowledge-sharepoint", "evaluations", "knowledge-files-web"], "standard");
+  try {
+    // No public website, so no knowledge source is added; the first tool (listed on the Tools page) is the item to open.
+    withoutKnowledgeWebsite(scenario.lab.labDir);
+    editShot(scenario.lab.labDir, "knowledge-sources-list.png", { caption: "Details of the first tool", feature: "tools", featureId: "tools", section: "tools" });
+    const out = await run(scenario);
+    assert.equal(rowOf(out, "test-pane-in-scope.png")?.status, "captured", statusLine(out));
+    assert.equal(rowOf(out, "knowledge-sharepoint-add.png")?.status, "captured", statusLine(out));
+    assert.equal(rowOf(out, "knowledge-sources-list.png")?.status, "captured", `${statusLine(out)} :: the first tool is opened in the classic Tools page and left without saving`);
+    assert.ok(out.site.stats.views.length === 0 || out.site.stats.views.every((v) => v === "activity-map"), "no panel was opened that the older layout does not have");
+    const testSet = rowOf(out, "eval-test-set.png");
+    assert.equal(testSet?.status, "needs-you", "the older layout has no Evaluation page in this product, so nothing is guessed");
+    assert.equal(writesOf(out, "create-evaluation:").length, 0);
+    assert.deepEqual(out.site.stats.writes.filter((w) => !/^(?:create-start|create-agent:|set-name:|set-instructions:)/.test(w)), [], "nothing but the practice agent and its instructions was changed");
+    assert.deepEqual(out.site.stats.dangers, []);
+  } finally {
+    await scenario.close();
+  }
+});

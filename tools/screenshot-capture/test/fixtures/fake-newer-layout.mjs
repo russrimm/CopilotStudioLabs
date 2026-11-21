@@ -35,11 +35,13 @@ export function newerContent({ agent, envId, state, config }) {
     `<h2>Memory</h2><button type="button" role="switch" id="n-memory" data-act="n-memory" aria-checked="${memoryOn}" aria-label="Enable memory (preview)">Memory</button>` +
     `</section>` +
     `<section role="tabpanel" id="panel-preview" aria-label="Preview" hidden>` +
-    `<div role="region" aria-label="Chat"><div id="n-chat" aria-live="polite"></div><input id="n-chat-input" aria-label="Chat message input" placeholder="Message"><button type="button" id="n-chat-send" data-act="n-chat-send">Send</button></div>` +
+    `<div role="region" aria-label="Chat"><div id="n-chat" aria-live="polite"></div><input id="n-chat-input" aria-label="Chat message input" placeholder="Message"><button type="button" id="n-chat-send" data-act="n-chat-send">Send</button>${config.noActivityMap ? "" : ` <button type="button" id="n-activity-btn" data-act="n-activity" aria-pressed="false">Activity map</button>`}</div>` +
+    `<aside id="n-activity" hidden role="complementary" aria-label="Activity map" style="min-width:260px;min-height:160px"><h3>Plan</h3><p>Search knowledge, then answer.</p></aside>` +
+    `${config.noTrace ? "" : `<aside id="n-trace" role="complementary" aria-label="Activity trace" style="min-width:260px;min-height:120px"><h3>Activity trace</h3><p>Reasoning steps appear here.</p></aside>`}` +
     `</section>` +
     `<section role="tabpanel" id="panel-evaluate" aria-label="Evaluate" hidden>` +
     `<h2>Evaluations</h2><p id="n-eval-summary">${evalCount ? `Test set: ${evalCount} question${evalCount === 1 ? "" : "s"}` : "No evaluations yet."}</p>` +
-    `<button type="button" id="n-eval-new" data-act="n-eval-new">Create your first evaluation</button> <button type="button" id="n-eval-run" data-act="danger" data-what="run-evaluation">Run</button> <span id="n-eval-result" role="status"></span>` +
+    `<button type="button" id="n-eval-new" data-act="n-eval-new">${evalCount ? "New evaluation" : "Create your first evaluation"}</button> <button type="button" id="n-eval-run" data-act="danger" data-what="run-evaluation">Run</button> <span id="n-eval-result" role="status"></span>` +
     `</section>` +
     `<section role="tabpanel" id="panel-monitor" aria-label="Monitor" hidden>` +
     `<h2>Monitor</h2><button type="button" data-act="n-mon-tab" data-view="sessions">See all (${sessions})</button>` +
@@ -56,15 +58,16 @@ export function newerExtraBody({ config }) {
   const kn2 = config.knowledgeDialogTitle || "Add public websites";
   return (
     `<dialog id="n-kn-dialog" aria-label="${esc(kn)}"><h2 id="n-kn-title">${esc(kn)}</h2>` +
-    `<div id="n-kn-step1"><p>Choose a knowledge source.</p><button type="button" data-act="n-kn-source" data-source="web">Add Public websites</button> <button type="button" data-act="n-kn-source" data-source="sharepoint">Add SharePoint</button> <button type="button" data-act="danger" data-what="upload-files">Upload files</button></div>` +
+    `<div id="n-kn-step1"><p>Choose a knowledge source.</p><button type="button" data-act="n-kn-source" data-source="web">Add Public websites</button> <button type="button" data-act="n-kn-source" data-source="sharepoint">Add SharePoint</button> <button type="button" data-act="danger" data-what="upload-files">Upload files</button> <button type="button" role="tab" aria-selected="false" data-act="n-kn-adv">Advanced</button><p id="n-kn-adv-text" hidden>Advanced options for knowledge.</p></div>` +
     `<div id="n-kn-web" hidden><button type="button" role="switch" id="n-kn-all" data-act="n-kn-all" aria-checked="true" aria-label="Search all websites">Search all websites</button> <label>Website <input id="n-kn-url" aria-label="Add public websites" placeholder="https://" disabled></label> <button type="button" id="n-kn-add-url" data-act="n-kn-add-url" disabled>Add</button><ul id="n-kn-pending"></ul><button type="button" data-act="n-kn-back">Back</button> <button type="button" id="n-kn-add" data-act="n-kn-add" disabled>Add to agent</button></div>` +
     `<p><button type="button" data-act="n-kn-cancel">Cancel</button></p></dialog><script>window.__kn2=${JSON.stringify(kn2)}</script>` +
     `<dialog id="n-tool-dialog" aria-label="Add a tool"><h2>Add a tool</h2><ul><li>Weather lookup <button type="button" data-act="danger" data-what="connect-tool">Connect</button></li><li>Order status <button type="button" data-act="danger" data-what="connect-tool-2">Connect</button></li></ul><button type="button" data-act="n-tool-cancel">Cancel</button></dialog>` +
     `<dialog id="n-publish-dialog" aria-label="Publish"><h2>Publish</h2><p>Publish your agent to make it available.</p><h3>Channels</h3><p>Add a channel so people can start conversations with this agent.</p>${config.publishExtra ? `<label><input type="checkbox" id="n-pub-org"> Share with everyone in my organization</label>` : ""}<button type="button" data-act="danger" data-what="add-channel">Add channel</button> <button type="button" id="n-publish-confirm" data-act="n-publish-confirm">Publish agent</button> <button type="button" aria-label="Close" data-act="n-publish-cancel">×</button></dialog>` +
     `<dialog id="n-settings-dialog" aria-label="Agent settings"><h2>Agent settings</h2><div role="tablist" aria-label="Settings sections"><button role="tab" aria-selected="true" data-act="n-stab">Agent details</button><button role="tab" aria-selected="false" data-act="n-stab">AI + behavior</button><button role="tab" aria-selected="false" data-act="n-stab">Safety &amp; access</button></div><p><button type="button" data-act="danger" data-what="delete-agent">Delete agent</button></p><button type="button" data-act="n-settings-close">Close</button></dialog>` +    `<dialog id="n-license" role="alertdialog" aria-label="You need a license to publish"><h2>You need a license to publish</h2><p>Ask your admin to assign a Copilot Studio license.</p><button type="button" data-act="n-license-close">Close</button></dialog>` +
-    `<dialog id="n-eval-dialog" aria-label="New evaluation"><h2>New evaluation</h2><button type="button" data-act="n-eval-manual">Add manually</button> <button type="button" data-act="danger" data-what="upload-csv">Upload CSV</button>` +
+    `<dialog id="n-eval-dialog" aria-label="New evaluation"><h2>New evaluation</h2><button type="button" data-act="n-eval-manual">Add manually</button> <button type="button" data-act="danger" data-what="upload-csv">Upload CSV</button> <button type="button" data-act="danger" data-what="generate-questions">Quick question set</button>` +
     `<div id="n-eval-manual-row" hidden><label>Question <input id="n-eval-question" aria-label="Question" placeholder="Enter a question"></label></div>` +
-    `<p><button type="button" id="n-eval-save" data-act="n-eval-save">Save</button> <button type="button" data-act="n-eval-cancel">Cancel</button></p></dialog>` +
+    `<p><button type="button" id="n-eval-save" data-act="n-eval-save">Save</button> <button type="button" data-act="danger" data-what="evaluate-now">Evaluate</button> <button type="button" data-act="n-eval-cancel">Cancel</button></p></dialog>` +
+    `<aside class="details" id="item-panel" hidden role="complementary" aria-label="Details" style="min-width:260px;min-height:160px"><h2 id="item-title">Details</h2><p>Name, description, and settings for this item.</p><button type="button" data-act="item-close">Close</button></aside>` +
     `<script>${NEWER_CLIENT}</script>`
   );
 }
@@ -120,6 +123,7 @@ document.addEventListener('click',function(e){
       var dlg=$('n-kn-dialog'); var title2=window.__kn2||'Add public websites'; dlg.setAttribute('aria-label',title2); $('n-kn-title').textContent=title2;
     }
   }
+  else if(act==='n-kn-adv'){t.setAttribute('aria-selected','true'); var at=$('n-kn-adv-text'); if(at) at.hidden=false}
   else if(act==='n-kn-back'){$('n-kn-step1').hidden=false; $('n-kn-web').hidden=true; var d3=$('n-kn-dialog'); d3.setAttribute('aria-label','Add knowledge'); $('n-kn-title').textContent='Add knowledge'}
   else if(act==='n-kn-all'){
     var on2=t.getAttribute('aria-checked')!=='true'; t.setAttribute('aria-checked',String(on2));
@@ -161,8 +165,11 @@ document.addEventListener('click',function(e){
   else if(act==='n-eval-save'){
     var q=$('n-eval-question'); if(!q||!q.value) return;
     post('/__write/n-create-eval',{bot:bot(),question:q.value}).then(function(){
-      close('n-eval-dialog'); $('n-eval-summary').textContent='Test set: 1 question'; var run=$('n-eval-run'); if(run) run.hidden=false;
+      close('n-eval-dialog'); $('n-eval-summary').textContent='Test set: 1 question'; var run=$('n-eval-run'); if(run) run.hidden=false; var nb=$('n-eval-new'); if(nb) nb.textContent='New evaluation';
     });
+  }
+  else if(act==='n-activity'){
+    var pane=$('n-activity'); var on3=t.getAttribute('aria-pressed')!=='true'; t.setAttribute('aria-pressed',String(on3)); if(pane) pane.hidden=!on3; post('/__view/activity-map',{bot:bot()});
   }
   else if(act==='n-eval-run'){post('/__write/n-run-eval',{bot:bot()}).then(function(){var r=$('n-eval-result'); if(r) r.textContent='Running'; setTimeout(function(){var r2=$('n-eval-result'); if(r2) r2.textContent='Completed'},500)})}
   else if(act==='n-new-agent'){location.href=location.origin+'/environments/'+(document.body.getAttribute('data-env')||'')+'/agents/new'}

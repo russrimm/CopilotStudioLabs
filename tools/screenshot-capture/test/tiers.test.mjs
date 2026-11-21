@@ -73,14 +73,30 @@ test("a neutral button inside a dialog that makes it destructive is tier 3, and 
 });
 
 test("tier 2 is creating, saving, and publishing; it needs the practice agent", () => {
-  for (const name of ["Create", "Create blank agent", "Save", "Publish", "Confirm", "Apply", "Update", "Rename", "Done", "Add to agent", "Generate", "Enable", "Turn on", "Speichern", "Guardar", "保存"]) {
+  for (const name of ["Create", "Create blank agent", "Save", "Publish", "Confirm", "Apply", "Update", "Rename", "Done", "Add to agent", "Enable", "Turn on", "Speichern", "Guardar", "保存"]) {
     assert.equal(tierOf(name).tier, TIER.PRACTICE, `${name} commits`);
     assert.equal(tierOf(name).needsPractice, true);
   }
+  assert.equal(tierOf("Generate").tier, TIER.NEVER, "generating questions or an evaluation spends Copilot Credits, so it is never done (it was a practice-agent write before)");
   assert.equal(tierOf("Submit").tier, TIER.NEVER, "Submit outside the test pane sends something, so it is never done");
   assert.equal(tierOf("Add to agent", { inDialog: true, dialogTitle: "Add knowledge" }).tier, TIER.PRACTICE);
   assert.equal(tierOf("Instructions", { role: "textbox" }).tier, TIER.PRACTICE, "typing into a field edits the agent");
   assert.equal(tierOf("Auto-save", { role: "switch" }).tier, TIER.PRACTICE, "a toggle outside a dialog changes a setting");
+});
+
+test("a control that spends Copilot Credits is never clicked, and a view of the test pane is only a look", () => {
+  for (const name of ["Evaluate", "Run evaluation", "Save and evaluate", "Quick question set", "Quick conversation set", "Full question set", "Generate 10 questions", "Add conversations"]) {
+    assert.equal(tierOf(name, { inDialog: true, dialogTitle: "Configure test set" }, { action: "confirm", intent: "confirm" }).tier, TIER.NEVER, `${name} spends credits`);
+    assert.equal(tierOf(name, { inDialog: true, dialogTitle: "Configure test set" }, { action: "confirm", intent: "confirm" }).category, "credits");
+  }
+  assert.equal(classifyControl({ name: "Evaluate", role: "tab", inNav: true }, { action: "select-tab" }).tier, TIER.LOOK, "the Evaluate tab only opens a page");
+  assert.equal(classifyControl({ name: "Evaluate", role: "button" }, { action: "select-tab" }).tier, TIER.LOOK, "and so does an Evaluate button that works as a tab");
+  assert.equal(tierOf("Save", { inDialog: true, dialogTitle: "Configure test set" }, { action: "confirm", intent: "confirm" }).tier, TIER.PRACTICE, "saving a test set without running it is a practice-agent write");
+  for (const name of ["Activity map", "Show activity map", "Open activity map", "Activity trace"]) {
+    assert.equal(tierOf(name, { inTestPane: true }, { action: "open", intent: "open" }).tier, TIER.TRY, `${name} only shows what happened`);
+    assert.equal(tierOf(name, { inTestPane: true }, { action: "open", intent: "open" }).category, "test-view");
+  }
+  assert.equal(tierOf("Activity map", { inDialog: true, dialogTitle: "Delete agent" }, { action: "open", intent: "open" }).tier, TIER.NEVER, "inside a dialog it is judged by the dialog");
 });
 
 test("Publish opens a dialog in tier 1 only when the step says it opens one; the dialog's own Publish is tier 2", () => {

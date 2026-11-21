@@ -15,7 +15,9 @@
 import { createExecutor, removableItemsInPage } from "./executor.mjs";
 import { TIER } from "./guard.mjs";
 import { findControls } from "./locator.mjs";
-import { BLOCKERS, resolveStage, scratchInputs, stageById, stagesBefore, sanitizeScratchContext } from "./walkthrough.mjs";
+import { BLOCKERS, resolveAutomation, resolveStage, scratchInputs, stageById, stagesBefore, sanitizeScratchContext } from "./walkthrough.mjs";
+import { REASONS } from "./automation.mjs";
+import { familyKey, familyShowSteps } from "./families.mjs";
 import * as R from "./scratch-recipes.mjs";
 import { sanitizeSteps } from "./setup-steps.mjs";
 import { AGENT_ACCOUNT_MESSAGE, agentAccountState } from "./practice.mjs";
@@ -337,6 +339,8 @@ const STAGE_STEPS = {
     return layout === "newer" ? [...R.tabSteps("Build"), ...R.ADD_WEBSITE_KNOWLEDGE] : [{ id: "knowledge-nav", action: "open-nav", target: { name: "Knowledge", within: "nav" } }, ...R.ADD_WEBSITE_KNOWLEDGE];
   },
   publish: (layout) => (layout === "newer" ? [...R.tabSteps("Build"), ...R.PUBLISH_AGENT] : R.PUBLISH_AGENT),
+  // One sample test set, saved and never run. The Evaluate tab is opened first and looked at: a test set that is already there is not added again.
+  testset: (layout) => (layout === "newer" ? [...R.tabSteps("Evaluate"), ...R.CREATE_TEST_SET] : [{ id: "evaluation-nav", action: "open-nav", target: { name: "Evaluation", alt: ["Evaluations"], within: "nav" } }, ...R.CREATE_TEST_SET]),
 };
 
 /** Why a stage has nothing to do (no website in the lab, or nothing changes the agent). */
@@ -388,6 +392,25 @@ export async function prepareStage({ stage, page, session, go, trace = null, log
       return { ok: true, ran: false, skipped: "A knowledge source is already listed, so none is added again." };
     }
     toRun = steps.filter((s) => !/^build-tab/.test(s.id));
+  }
+  // A test set that is already listed is not added again: the Evaluate tab is looked at first, and the empty state ("Create your first evaluation") is the only time one is added.
+  if (stage === "testset") {
+    const lead = steps.filter((s) => /^(?:evaluate-tab|evaluation-nav)/.test(s.id));
+    const led = await executor.run(lead);
+    if (!led.ok) {
+      await executor.cleanup().catch(() => {});
+      const failure = stepFailure(info.label, led);
+      if (failure.halted) scratch.halted = { kind: led.haltKind, message: led.halted };
+      return remember({ ok: false, cause: failure.cause, error: `${info.label}: ${failure.error}`, halted: failure.halted === true, diagnostic: led.diagnostic?.file || null });
+    }
+    // Only looked for, never clicked here: the button is named "Create ...", which the off-limits list covers, so its presence is read without that filter.
+    const empty = (await findControls(page, "Create your first evaluation", { roles: ["button"] }).catch(() => [])).length > 0;
+    if (!empty) {
+      scratch.done.add(stage);
+      session.registry.markStage(agent.botId, stage);
+      return { ok: true, ran: false, skipped: "A test set is already listed, so none is added again." };
+    }
+    toRun = steps.filter((s) => !lead.includes(s));
   }
   const result = await executor.run(toRun);
   const changed = result.steps.filter((r) => r.status === "ok" && r.tier >= TIER.PRACTICE && r.effect !== "already there");
@@ -472,6 +495,12 @@ export async function prepareScratchShot({ page, shot, session, go, trace = null
   const scratch = scratchState(session);
   const found = resolveStage(shot);
   if (String(shot.capture?.product || shot.product || "copilot-studio") !== "copilot-studio") return { ok: true, passthrough: true };
+  const automation = resolveAutomation(shot);
+  // A screen the computer does not take, for one plain reason, is not tried: the same reason the portal showed on the shot's card.
+  if (!guided && !found.blocker && automation?.state === "person") {
+    const reason = REASONS[automation.reason] || REASONS.unseen;
+    return needsYou("needs-you", `${reason.why} Use “Retake guided”, or upload the picture.`, { reason: reason.code });
+  }
   if (!found.scoped && !found.blocker) {
     // A screen the walkthrough does not build (the home page, the Agents list) still needs the real environment, which the product reaches through a personal home first.
     if (!session.cs?.envBase) {
@@ -487,6 +516,15 @@ export async function prepareScratchShot({ page, shot, session, go, trace = null
   }
   if (!found.scoped) return { ok: true, passthrough: true };
   if (scratch.halted && !guided) return needsYou("run-stopped", `The run stopped earlier: ${scratch.halted.message}`);
+  // A recipe family is a way of taking a screen that was not seen on a real tenant yet (or not in this form): when the same recipe did not work twice in this
+  // job, it is not tried again for another shot, so a changed screen costs two tries, never a loop.
+  const family = automation?.state === "automatic" && automation.via === "family" ? automation : null;
+  const recipeKey = familyKey(family);
+  if (recipeKey && !guided && (scratch.familyFailures?.[recipeKey] || 0) >= MAX_RECIPE_FAILURES) {
+    return needsYou("needs-you", "The computer tried this kind of screen twice in this job and could not set it up, so it stopped trying instead of guessing. Use “Show me once” so it learns the step, or “Retake guided”.", { reason: "unseen" });
+  }
+  // A test conversation belongs to the Preview stage whichever feature it shows, and a sample test set to its own stage.
+  const stageId = family?.family === "conversation" ? "preview" : family?.family === "testset" ? "testset" : found.stage;
 
   const ensured = await ensureScratchAgent({ page, session, go, trace, log, sleep, terms, home, companion, readiness });
   if (ensured.signIn) return { ok: false, signIn: ensured.signIn };
@@ -495,7 +533,7 @@ export async function prepareScratchShot({ page, shot, session, go, trace = null
     return ensured;
   }
   if (scratch.halted && !guided) return needsYou("run-stopped", `The run stopped earlier: ${scratch.halted.message}`);
-  for (const stage of stagesToPrepare(found.stage, shot)) {
+  for (const stage of stagesToPrepare(stageId, shot)) {
     const prepared = await prepareStage({ stage, page, session, go, trace, log, sleep, terms, home, companion, readiness, shot: shot.filename });
     if (prepared.signIn) return { ok: false, signIn: prepared.signIn };
     if (!prepared.ok) return needsYou(prepared.cause || "automation-failed", prepared.error, { diagnostic: prepared.diagnostic || null });
@@ -516,9 +554,25 @@ export async function prepareScratchShot({ page, shot, session, go, trace = null
   const opened = await openPracticeAgent({ page, session, go, sleep, trace });
   if (opened.signIn) return { ok: false, signIn: opened.signIn };
   if (!opened.ok) return opened;
-  const raw = showStepsFor({ stage: found.stage, shot, layout: scratch.layout, website: scratch.context.website });
+  const planned = family ? familyShowSteps({ automation: family, shot, layout: scratch.layout, stage: found.stage }) : null;
+  const raw = family ? planned?.steps || null : showStepsFor({ stage: found.stage, shot, layout: scratch.layout, website: scratch.context.website });
   if (!raw) return needsYou("needs-you", scratch.layout === "classic" && found.stage === "model" ? "The classic layout has no model list, so there is nothing to show." : "The computer has not seen how to put this screen on the practice agent in the real product, so it does not guess. Use “Show me once” so it learns the step, or “Retake guided”.");
   const compiled = strictSteps(raw);
   if (compiled.missing.length) return needsYou("blocked-by-safety", `A step for this screen (${compiled.missing.join(", ")}) is something the safety rules never allow, so it was not run. Set the screen up yourself with “Retake guided”.`);
-  return { ok: true, agent: scratch.agent, layout: scratch.layout, stage: found.stage, steps: compiled.steps, inputs: scratch.inputs };
+  // A family's own steps open, ask, and close: nothing they do may need more than that, whatever the job allows.
+  const familyInfo = family
+    ? { id: family.family, key: recipeKey, verified: family.verified !== false, review: family.review || "never", landmarks: planned?.landmarks || [], maxTier: Math.min(family.maxTier ?? 1, 1), objects: family.objects || [], note: planned?.note || "", ...(family.panel ? { panel: family.panel } : {}), ...(family.opener ? { opener: family.opener } : {}) }
+    : null;
+  return { ok: true, agent: scratch.agent, layout: scratch.layout, stage: found.stage, steps: compiled.steps, inputs: scratch.inputs, family: familyInfo, maxTier: familyInfo ? familyInfo.maxTier : null };
+}
+
+/** How many times a recipe family may fail in one job before the computer stops trying it for other shots. */
+export const MAX_RECIPE_FAILURES = 2;
+
+/** Remember that a recipe family did not work for a shot in this job (the next shot of the same recipe counts toward the limit). */
+export function noteRecipeFailure(session, key) {
+  if (!key) return 0;
+  const scratch = scratchState(session);
+  scratch.familyFailures = { ...(scratch.familyFailures || {}), [key]: (scratch.familyFailures?.[key] || 0) + 1 };
+  return scratch.familyFailures[key];
 }

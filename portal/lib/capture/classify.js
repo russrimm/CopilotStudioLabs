@@ -23,7 +23,7 @@ import {
   missingRequirements,
   parseCopilotStudioAddress,
 } from "../../../tools/screenshot-capture/targets.mjs";
-import { createsAgent } from "../../../tools/screenshot-capture/walkthrough.mjs";
+import { createsAgent, describeAutomation, sanitizeAutomation } from "../../../tools/screenshot-capture/walkthrough.mjs";
 
 export const CAPTURE_DESCRIPTOR_VERSION = 1;
 
@@ -247,6 +247,8 @@ export function describeShotCapture(shot, values) {
     ready: capture.ready,
     screen: capture.screen || null,
     agent: { needs: (capture.agentNeeds || []).includes("copilot-studio-agent"), creates: createsAgent(shot) },
+    // Whether the computer takes this shot by itself, or the one reason it needs a person (the Screenshot Center shows it on the card).
+    automation: sanitizeAutomation(describeAutomation(shot, { capture, labels: expectedLabelsForShot(shot, { extra: capture.landmarks || [] }) })),
   };
 }
 

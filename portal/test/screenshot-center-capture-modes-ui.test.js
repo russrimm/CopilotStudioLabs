@@ -1558,3 +1558,69 @@ test("the live progress shows the sentence the computer reports for the screensh
   lab.job = jobWith([["a.png", "running", { message: "Capturing." }]], { status: "running", finishedAt: null });
   assert.equal(h.run("scCurrentStepText")(LAB, { currentFilename: "a.png" }), "", "a bare status word says nothing a person can use");
 });
+
+// ── Why a screenshot needs a person, and the recipes that were never run on a real tenant ────────
+
+const automation = (over = {}) => ({ version: 1, state: "automatic", via: "walkthrough", family: null, verified: true, review: "never", reason: null, landmarks: [], objects: [], maxTier: 1, ...over });
+const person = (reason, reasonLabel, noun) => automation({ state: "person", via: null, reason, reasonLabel, noun, why: `The reason for ${reason}.`, manual: ["Do the first thing yourself.", "Press Capture this screen."] });
+
+test("a screenshot that needs a person wears its one reason and the exact steps, and the summary groups the counts by reason", async () => {
+  const admin = person("admin", "Needs an admin screen", ["admin screen", "admin screens"]);
+  const other = person("other-product", "Needs another Microsoft product", ["other product", "other products"]);
+  const h = await scratchReady({
+    autonomy: AUTONOMY_SCRATCH,
+    shots: [
+      shot({ filename: "admin-a.png", capture: capture({ automation: admin }) }),
+      shot({ filename: "admin-b.png", id: 2, capture: capture({ automation: admin }) }),
+      shot({ filename: "other-a.png", id: 3, capture: capture({ automation: other }) }),
+      shot({ filename: "other-b.png", id: 4, capture: capture({ automation: other }) }),
+      shot({ filename: "conn.png", id: 5, capture: capture({ automation: person("connection", "Needs your own connection", ["connection", "connections"]) }) }),
+      shot({ filename: "recipe.png", id: 6, capture: capture({ automation: automation({ via: "family", family: "conversation", verified: false, review: "landmark" }) }) }),
+      shot({ filename: "always.png", id: 7, capture: capture({ automation: automation({ via: "family", family: "conversation", verified: false, review: "always" }) }) }),
+      shot({ filename: "plain.png", id: 8, capture: capture({ automation: automation() }) }),
+      captured("done.png", { id: 9, capture: capture({ automation: admin }) }),
+    ],
+  });
+  assert.equal(h.card("admin-a.png").querySelector(".sc-reason-chip").textContent, "Needs an admin screen", "the card says why in the fixed words");
+  assert.equal(h.card("admin-a.png").querySelector("[data-sc-why]").textContent, "The reason for admin.");
+  assert.deepEqual(h.card("admin-a.png").querySelectorAll(".sc-manual-steps li").map((li) => li.textContent), ["Do the first thing yourself.", "Press Capture this screen."], "and the exact steps to take");
+  assert.equal(h.card("recipe.png").querySelector(".sc-reason-chip"), null, "a screenshot the computer takes has no reason chip");
+  assert.equal(h.card("recipe.png").querySelector("[data-sc-unverified]").textContent, "The computer will try this one automatically. If the screen is not what it expects, it stops and asks you.", "a recipe never run on a real tenant says so and what happens when the screen is not as expected");
+  assert.match(h.card("always.png").querySelector("[data-sc-review-note]").textContent, /saves it for your review, because it cannot check this screen on its own/);
+  assert.equal(h.card("plain.png").querySelector("[data-sc-unverified]"), null, "a proven walkthrough step carries no warning");
+  assert.equal(h.card("done.png").querySelector(".sc-reason-chip"), null, "a captured picture needs no explanation");
+  // The summary is one sentence with the counts by reason, not one number.
+  assert.equal(h.text(".sc-need-you-chip"), "5 need you: 2 admin screens, 2 other products, 1 connection");
+});
+
+test("a screen an earlier capture left at Needs you, which the plan now takes itself, is ready to try again and is not counted as needing you", async () => {
+  const state = stateFor([
+    shot({ filename: "again.png", lastAttemptStatus: "needs-you", capture: capture({ automation: automation({ via: "family", family: "dialog", verified: false, review: "landmark" }) }) }),
+    shot({ filename: "failed.png", id: 2, lastAttemptStatus: "needs-you", capture: capture({ automation: automation({ via: "family", family: "dialog", verified: false, review: "landmark" }) }) }),
+  ]);
+  const h = await scratchReady({ autonomy: AUTONOMY_SCRATCH, shots: state.shots });
+  const job = jobWith([["again.png", "needs-you", { cause: "needs-you", message: "This screen needs you." }], ["failed.png", "needs-you", { cause: "automation-failed", message: "The computer could not find the Add button." }]]);
+  await h.finish(job);
+  assert.equal(h.card("again.png").dataset.status, "pending");
+  assert.equal(h.card("again.png").querySelector(".sc-status-chip").textContent, "Ready to try again");
+  assert.equal(h.card("again.png").querySelector(".sc-note").textContent, "The computer can take this one itself now. Capture it again.");
+  assert.equal(h.card("failed.png").dataset.status, "needs-you", "a recipe that really failed stays at Needs you, with where it stopped");
+  assert.equal(h.text(".sc-need-you-chip"), "1 need you: 1 screen the computer could not finish");
+});
+
+test("an older companion is told in plain words that it cannot run the new recipes, and a current one is not", async () => {
+  const old = await scratchReady({ autonomy: { ...AUTONOMY_SCRATCH, recipesSupported: false, recipesMinCompanion: "1.6.3" } });
+  assert.match(old.text("[data-sc-recipes-old]"), /older than 1\.6\.3, so it cannot run the new automatic recipes yet \(test conversations, dialogs, and the sample test set\)\. Those screenshots still need you\. Download the companion again and replace the old one\./);
+  const current = await scratchReady({ autonomy: { ...AUTONOMY_SCRATCH, recipesSupported: true, recipesMinCompanion: "1.6.3" } });
+  assert.equal(current.host.querySelector("[data-sc-recipes-old]"), null);
+  const readonly = await scratchReady({ autonomy: { ...AUTONOMY_READONLY, recipesSupported: false } });
+  assert.equal(readonly.host.querySelector("[data-sc-recipes-old]"), null, "a read-only capture never uses them, so it says nothing");
+});
+
+test("the consent card the browser falls back to lists the sample test set and the questions it asks", () => {
+  const h = makeHarness();
+  const model = h.run("scConsentModel")({ loaded: true, consented: true, level: "scratch", rules: {} });
+  const creates = json(model.creates).join(" ");
+  assert.match(creates, /One evaluation test set with one sample question, saved but never run, so it spends no Copilot Credits/);
+  assert.match(creates, /one plain request to ignore its instructions so a picture can show how the agent refuses/);
+});

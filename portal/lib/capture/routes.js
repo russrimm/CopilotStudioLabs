@@ -195,6 +195,29 @@ export function registerCaptureRoutes(app, deps = {}) {
     }
   });
 
+  // The dry plan: what a capture would do, read before anything runs. It queues nothing and needs no companion.
+  app.post("/api/capture/dry-plan", (req, res) => {
+    const body = req.body && typeof req.body === "object" && !Array.isArray(req.body) ? req.body : {};
+    try {
+      const result = platform.dryPlan(body);
+      res.status(result.status).json(result.body);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get("/api/capture/dry-plan", (req, res) => {
+    const labId = typeof req.query.labId === "string" && SAFE_LAB_ID.test(req.query.labId) ? req.query.labId : null;
+    if (!labId) return res.status(400).json({ error: "Pass labId, the id of a generated lab." });
+    const scope = req.query.scope === "all" ? { mode: "all" } : { mode: "missing" };
+    try {
+      const result = platform.dryPlan({ target: { type: "lab", labId }, scope });
+      res.status(result.status).json(result.body);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // "Choose which account to use": ask the connected computer to open the sign-in window. The person signs in themselves.
   app.post("/api/capture/account-setup", (req, res) => {
     if (manageLimited(req, res)) return;

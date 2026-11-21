@@ -42,9 +42,12 @@ test("read-only automatic capture captures every browser-reachable shot and stop
     await scenario.call("PUT", "/api/capture/consent", READ_ONLY);
     const out = await scenario.runJob({ job: JOB() });
     assertClean(out);
-    assert.equal(count(out.rows, "captured"), 8, out.lines.join("\n"));
+    assert.equal(count(out.rows, "captured"), 7, out.lines.join("\n"));
     const review = out.rows.filter((r) => r.status === "needs-review");
-    assert.deepEqual(review.map((r) => r.cause), ["needs-practice-agent", "needs-practice-agent"], "the two screens that need a practice agent say so");
+    // The pretend site has no activity map, so that picture is saved for review (the recipe checks the screen by its own label); the two screens that need a practice agent still say so.
+    assert.deepEqual(review.map((r) => r.filename), ["activity-map-plan.png", "knowledge-answer-citation.png", "publish-confirmation.png"]);
+    assert.deepEqual(review.filter((r) => r.cause === "needs-practice-agent").map((r) => r.filename), ["knowledge-answer-citation.png", "publish-confirmation.png"], "the two screens that need a practice agent say so");
+    assert.deepEqual(review.find((r) => r.filename === "activity-map-plan.png").verification.reasons.map((x) => x.code), ["recipe-review"]);
     assert.deepEqual(out.site.stats.writes, [], "nothing was created, saved, or published");
     assert.ok(out.rows.every((r) => !r.raw.setup || r.raw.setup.steps.every((s) => s.tier <= 1)), "no step above Tier 1 ran");
     const test = out.rows.find((r) => r.filename === "test-pane-in-scope.png");
@@ -63,7 +66,7 @@ test("without consent the job carries nothing above Tier 0, and the companion re
     const out = await noFlag.runJob({ job: JOB(), runOptions: { allowPracticeWrites: false } });
     assertClean(out);
     assert.deepEqual(out.site.stats.writes, [], "the portal asked for a practice agent and the computer said no");
-    assert.equal(count(out.rows, "needs-review"), 2);
+    assert.equal(count(out.rows, "needs-review"), 3, "the activity map the pretend site lacks, and the two screens that need a practice agent");
     assert.match(out.lines.join("\n"), /allow-practice-writes/, "the person is told what to change");
   } finally {
     await noFlag.close();
@@ -85,7 +88,8 @@ test("with consent and the flag a practice agent is created once, reused by the 
     await scenario.call("PUT", "/api/capture/consent", PRACTICE);
     const first = await scenario.runJob({ job: JOB(), runOptions: { allowPracticeWrites: true } });
     assertClean(first, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
-    assert.equal(count(first.rows, "captured"), 10, first.lines.join("\n"));
+    assert.equal(count(first.rows, "captured"), 8, first.lines.join("\n"));
+    assert.deepEqual(first.rows.filter((r) => r.status === "needs-review").map((r) => r.filename), ["activity-map-plan.png", "knowledge-answer-citation.png"], "the screens a recipe cannot check are kept for a person (the pretend site has no activity map; a citation is always checked by a person)");
     assert.equal(scenario.site.practiceAgents().length, 1, "one practice agent");
     assert.ok(scenario.site.practiceAgents()[0].name.startsWith("Lab screenshots - "));
     assert.ok(first.job.result.created.length >= 1, "the portal names what was created");
@@ -97,7 +101,7 @@ test("with consent and the flag a practice agent is created once, reused by the 
     const second = await scenario.runJob({ job: JOB(), runOptions: { allowPracticeWrites: true } });
     assertClean(second, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
     assert.equal(scenario.site.practiceAgents().length, 1, "the practice agent was reused, not created again");
-    assert.equal(count(second.rows, "captured"), 10);
+    assert.equal(count(second.rows, "captured"), 8, "the same screens are captured, and the same two are kept for a person");
   } finally {
     await scenario.close();
   }
@@ -113,7 +117,7 @@ test("with no agent address given, the practice agent is created first and every
     assertClean(out, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
     assert.equal(out.job.options.agentSource, "created", "the created agent is the default when no address is given");
     assert.equal(count(out.rows, "skipped"), 0, "nothing waited for an address");
-    assert.equal(count(out.rows, "captured"), 10, out.lines.join("\n"));
+    assert.equal(count(out.rows, "captured"), 8, out.lines.join("\n"));
     const made = scenario.site.practiceAgents();
     assert.equal(made.length, 1, "one practice agent");
     assert.deepEqual(botIdsOpened(out), [made[0].id], "the only agent page that was opened is the one the computer made");
@@ -128,7 +132,7 @@ test("with no agent address given, the practice agent is created first and every
     const second = await scenario.runJob({ job: { options: { mode: "autonomous" } }, runOptions: { allowPracticeWrites: true } });
     assertClean(second, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
     assert.equal(scenario.site.practiceAgents().length, 1, "reused, not created again");
-    assert.equal(count(second.rows, "captured"), 10);
+    assert.equal(count(second.rows, "captured"), 8);
   } finally {
     await scenario.close();
   }
@@ -172,7 +176,7 @@ test("a job from an older portal, with no agent source and no hand-off fields, b
     });
     assertClean(out, { writes: ["create-start", "create-agent", "add-knowledge", "publish"] });
     assert.equal(out.claimed.job.options.agentSource, undefined);
-    assert.equal(count(out.rows, "captured"), 10, out.lines.join("\n"));
+    assert.equal(count(out.rows, "captured"), 8, out.lines.join("\n"));
     assert.equal(scenario.site.practiceAgents().length, 1);
     assert.doesNotMatch(out.lines.join("\n"), /uses the practice agent created first|uses the agent whose address/, "the older way says nothing new");
   } finally {
@@ -195,8 +199,8 @@ for (const [name, site] of VARIANTS) {
       await scenario.call("PUT", "/api/capture/consent", READ_ONLY);
       const out = await scenario.runJob({ job: JOB() });
       assertClean(out);
-      assert.equal(count(out.rows, "captured"), 8, out.lines.join("\n"));
-      assert.equal(count(out.rows, "needs-review"), 2);
+      assert.equal(count(out.rows, "captured"), 7, out.lines.join("\n"));
+      assert.equal(count(out.rows, "needs-review"), 3);
     } finally {
       await scenario.close();
     }
@@ -219,7 +223,13 @@ test("Agent Builder, which has no direct address, and a SharePoint site are capt
     await site.call("PUT", "/api/capture/consent", READ_ONLY);
     const out = await site.runJob({ job: { options: { mode: "autonomous" } } });
     assertClean(out);
-    assert.equal(count(out.rows, "captured"), 2, out.lines.join("\n"));
+    // The site's home page was taken for the first picture; the second one shows a panel the pretend site does not have, so the landmark check
+    // (the label the lab names) saves it for review instead of accepting the wrong screen.
+    assert.equal(count(out.rows, "captured"), 1, out.lines.join("\n"));
+    const review = out.rows.filter((r) => r.status === "needs-review");
+    assert.deepEqual(review.map((r) => r.filename), ["spai-site-ai-settings-panel.png"]);
+    assert.deepEqual(review[0].verification.reasons.map((x) => x.code), ["recipe-review"]);
+    assert.match(review[0].verification.reasons[0].message, /missing: Site AI/);
   } finally {
     await site.close();
   }

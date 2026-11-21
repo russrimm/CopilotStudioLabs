@@ -93,15 +93,28 @@ export const OPEN_ADD_SKILL = Object.freeze([{ id: "skill-open", action: "open",
 // The model list is a menu that opens beside the button, so the button being open is the proof.
 export const OPEN_MODEL_LIST = Object.freeze([{ id: "model-open", action: "open", intent: "open", say: "Opening the model list", target: T("button", "Model: Auto", ["Model", "Select a model", "Choose a model", "Model selector", "Change model", "Agent model"], "main") }]);
 
-/** Ask the test pane a question (the lab's own, or an out-of-scope one) and wait for the finished answer. */
-export function askSteps({ outOfScope = false, openTest = false } = {}) {
+/** Ask the test pane a question (the lab's own, an out-of-scope one, or the plain request that shows a refusal) and wait for the finished answer. */
+export function askSteps({ outOfScope = false, openTest = false, question = null } = {}) {
+  const sample = question === "guardrail" ? "guardrail" : question === "outOfScope" || outOfScope ? "outOfScope" : "question";
   return [
     ...(openTest ? [{ id: "test-open", action: "open", intent: "open", say: "Opening the test pane", optional: true, target: T("button", "Test", ["Test your agent", "Test agent", "Open test pane", "Test pane"], "any"), skipIfPresent: CHAT_INPUT }] : []),
-    { id: "ask-type", action: "type", intent: "type", say: "Typing a sample question in the test pane", target: CHAT_INPUT, text: { sample: outOfScope ? "outOfScope" : "question" } },
+    { id: "ask-type", action: "type", intent: "type", say: "Typing a sample question in the test pane", target: CHAT_INPUT, text: { sample } },
     { id: "ask-send", action: "send", intent: "send", say: "Asking the test pane a sample question", target: T("button", "Send", ["Send message", "Submit", "Submit message", "Send (Enter)", "Ask", "Send prompt"], "chat") },
     { id: "ask-wait", action: "wait-answer", say: "Waiting for the answer to finish" },
   ];
 }
+
+/**
+ * Bring up a panel of the test pane beside the answer (the activity map). Only a view is opened: nothing is changed and nothing is saved.
+ * A panel that is already showing is left as it is, and a control that is not there is not an error (the picture is then judged by its landmarks).
+ */
+export function panelSteps(names, label) {
+  const list = (Array.isArray(names) ? names : []).filter(Boolean);
+  if (!list.length) return [];
+  const [name, ...alt] = list;
+  return [{ id: "panel-open", action: "open", intent: "open", say: `Opening the ${label || name}`, note: `Opened the ${label || name}`, optional: true, onlyIfOff: true, target: T(undefined, name, alt, "any") }];
+}
+
 
 // In the newer layout the agent's settings are behind the header's More options menu.
 export const OPEN_AGENT_SETTINGS = Object.freeze([
@@ -124,8 +137,25 @@ export const CLASSIC_ORCHESTRATION = Object.freeze([
 
 /** Evaluate: open the new-evaluation form (nothing is saved or run: a run and a generated data set use Copilot Credits). */
 export const OPEN_NEW_EVALUATION = Object.freeze([
-  { id: "eval-new", action: "open", intent: "open", say: "Opening the new evaluation form", target: T("button", "Create your first evaluation", ["New evaluation", "Create evaluation", "Create an evaluation", "Add evaluation"], "main") },
+  { id: "eval-new", action: "open", intent: "open", say: "Opening the new evaluation form", target: T("button", "Create your first evaluation", ["New evaluation", "Create evaluation", "Create an evaluation", "Create a test set", "Add evaluation"], "main") },
 ]);
+
+/**
+ * One evaluation test set with one sample question, written by hand ("Or, write some questions yourself"). It is saved with Save and never run:
+ * a run, a generated question set, and a quick conversation set all use Copilot Credits, so none of them is ever clicked.
+ * The names come from Microsoft Learn ("Create a test set for an agent"); none of this has been seen on a real tenant yet.
+ */
+export const CREATE_TEST_SET = Object.freeze([
+  ...OPEN_NEW_EVALUATION,
+  { id: "testset-manual", action: "choose", intent: "choose", say: "Choosing to write one question by hand", target: T(undefined, "Or, write some questions yourself", ["Write some questions yourself", "Write questions yourself", "Write conversations manually", "Add manually", "Write manually", "Write"], "any") },
+  { id: "testset-question", action: "type", intent: "type", say: "Typing one sample question", note: "Added one sample question to a new evaluation test set", target: T("textbox", "Question", ["Enter a question", "Add a question", "Write a question", "Type a question"], "any"), text: { sample: "question" } },
+  { id: "testset-name", action: "type", intent: "type", say: "Naming the test set", optional: true, target: T("textbox", "Name", ["Test set name", "Evaluation name", "Enter a name"], "any"), text: { literal: "Lab sample test set" } },
+  { id: "testset-save", action: "confirm", intent: "confirm", say: "Saving the test set (without running it)", note: "Saved the evaluation test set without running it", target: T("button", "Save", ["Save test set", "Save evaluation", "Save icon"], "any"), soft: true },
+  { id: "testset-saved", action: "wait-for", say: "Checking that the test set was saved", expect: { absent: ["Create your first evaluation"] }, timeoutMs: 15_000, retries: 0 },
+]);
+
+/** The first item of the page open now (a knowledge source, a tool, a topic): opened to show its details and left without changing it. */
+export const OPEN_FIRST_ITEM = Object.freeze([{ id: "item-open", action: "open-item", intent: "navigate", say: "Opening the first item to show its details", note: "Opened the first item to show its details", expect: { panel: true }, timeoutMs: 8000 }]);
 
 /** Monitor: the Sessions list, read only. */
 export const MONITOR_SESSIONS = Object.freeze([

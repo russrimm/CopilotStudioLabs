@@ -426,7 +426,8 @@ function scBuildHeader(model) {
   if (waiting) pills.appendChild(scChip(`${waiting} waiting`, "warn"));
   if (counts.outdated) pills.appendChild(scChip(`${counts.outdated} outdated`, "warn"));
   if (counts.needsReview) pills.appendChild(scChip(`${counts.needsReview} need review`, "warn"));
-  if (counts.needsYou) pills.appendChild(scChip(`${counts.needsYou} need you`, "warn"));
+  const needText = scNeedYouText(counts);
+  if (needText) pills.appendChild(scChip(needText, "warn", "sc-need-you-chip"));
   if (counts.paused) pills.appendChild(scChip(`${counts.paused} paused`, "info"));
   if (model.addressWaiting) pills.appendChild(scChip(`${model.addressWaiting} need an address`, "warn"));
   if (model.agentChoiceWaiting) pills.appendChild(scChip(`${model.agentChoiceWaiting} need the practice agent`, "warn"));
@@ -830,6 +831,9 @@ function scBuildAutonomyLine(labId) {
   wrap.appendChild(scEl("p", { class: "sc-auto-text", text: line.text, data: { scAutoText: "1" } }));
   if (consent.loaded && !consent.companionSupported) {
     wrap.appendChild(scEl("p", { class: "sc-auto-warn", text: `Your Local Capture Companion is older than ${consent.minCompanion}, so it cannot capture on its own yet. Download it again and replace the old one. Until then, captures run the older way.`, attrs: { role: "status" }, data: { scAutoOld: "1" } }));
+  }
+  if (consent.loaded && consent.consented && consent.level === "scratch" && !consent.recipesSupported) {
+    wrap.appendChild(scEl("p", { class: "sc-auto-warn", text: `Your Local Capture Companion is older than ${consent.recipesMinCompanion}, so it cannot run the new automatic recipes yet (test conversations, dialogs, and the sample test set). Those screenshots still need you. Download the companion again and replace the old one.`, attrs: { role: "status" }, data: { scRecipesOld: "1" } }));
   }
   const actions = scEl("div", { class: "sc-step-actions" });
   if (consent.loaded && !consent.consented) actions.appendChild(scButton("Allow automatic capture", { action: "consent-open", focus: "consent-open", primary: !lab.ui.consentOpen }));
@@ -1643,6 +1647,7 @@ function scShotNote(shot, status, attempt = null, waitingNouns = [], agentNote =
       return "Microsoft Learn changed this topic. Retake it so the picture matches.";
     case "pending":
     case "queued":
+      if (status.readyAgain) return "The computer can take this one itself now. Capture it again.";
       if (attempt?.status === "skipped") return scText(attempt.message, 200) || "This one was skipped. Retake it when you are ready.";
       if (agentNote) return agentNote;
       if (waitingNouns.length) return `Waiting for your ${scJoinNames(waitingNouns, 2)}. Add it above, then capture this one.`;
@@ -1745,8 +1750,13 @@ function scBuildCard(labId, shot, jobStatus) {
   if (confirmed && ["captured", "outdated"].includes(status.key)) top.appendChild(scChip(confirmed.text, "ok", "sc-confirmed-chip"));
   if (capture) {
     const automatic = scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual";
-    const chip = automatic ? SC_SHOT_MODES.autonomous : SC_SHOT_MODES[capture.mode];
-    top.appendChild(scChip(chip.label, chip.tone, "sc-mode-chip"));
+    const automation = capture.automation;
+    // A screenshot the plan says needs a person wears its one reason; the others say Automatic.
+    if (automatic && !shot.captured && automation?.state === "person" && automation.reasonLabel) top.appendChild(scChip(automation.reasonLabel, "warn", "sc-mode-chip sc-reason-chip"));
+    else {
+      const chip = automatic ? SC_SHOT_MODES.autonomous : SC_SHOT_MODES[capture.mode];
+      top.appendChild(scChip(chip.label, chip.tone, "sc-mode-chip"));
+    }
   }
   if (shot.figure) top.appendChild(scEl("span", { class: "sc-fig", text: `Figure ${shot.figure}` }));
   body.appendChild(top);
@@ -1756,14 +1766,30 @@ function scBuildCard(labId, shot, jobStatus) {
   if (source) body.appendChild(scEl("p", { class: "sc-source", text: source.text, data: { scSource: source.key } }));
   // In automatic mode nobody is told to set a screen up: the card says what the computer will do, and what it cannot do without a practice agent.
   const plan = capture && scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual" ? scPlannedLine(capture) : "";
-  if (plan) {
+  const automation = capture?.automation;
+  const personCard = Boolean(automation?.state === "person" && !shot.captured && scIsAutomaticMode(lab.ui.mode) && capture.mode !== "manual");
+  if (personCard) {
+    // The one reason this screen needs a person, and the exact steps to take.
+    body.appendChild(scEl("p", { class: "sc-why", text: automation.why || capture.why, data: { scWhy: "1", scReason: automation.reason || "unseen" } }));
+    if (automation.manual.length) {
+      const steps = scEl("ol", { class: "sc-manual-steps", data: { scManual: "1" } });
+      for (const line of automation.manual) steps.appendChild(scEl("li", { text: line }));
+      body.appendChild(steps);
+    }
+  } else if (plan) {
     body.appendChild(scEl("p", { class: "sc-why sc-plan", text: plan, data: { scPlan: "1" } }));
     if (capture.needsPractice) body.appendChild(scEl("p", { class: "sc-practice-note", text: scPracticeNote(lab), data: { scPracticeNote: "1" } }));
+    // A recipe that was never run on a real tenant says so, and what happens when the screen is not what it expects.
+    if (automation?.state === "automatic" && automation.family && !shot.captured) {
+      if (automation.review === "always") body.appendChild(scEl("p", { class: "sc-why sc-review-note", text: SC_ALWAYS_REVIEW_NOTE, data: { scReviewNote: "1" } }));
+      else if (!automation.verified) body.appendChild(scEl("p", { class: "sc-why sc-unverified-note", text: SC_UNVERIFIED_NOTE, data: { scUnverified: "1" } }));
+    }
   } else if (capture?.why) body.appendChild(scEl("p", { class: "sc-why", text: capture.why, data: { scWhy: "1" } }));
   if (capture?.path.length) body.appendChild(scBuildPath(capture.path));
   // While the computer works on this shot, the live message from the job says what it is doing right now.
   const running = status.key === "capturing" ? scText(scJobRow(labId, shot.filename)?.message, 200) : "";
-  body.appendChild(scEl("p", { class: "sc-note", text: running || scShotNote(shot, status, attempt, scWaitingNouns(labId, capture), scAgentNoteFor(labId, capture)), data: { scNote: "1" }, attrs: running ? { role: "status" } : {} }));
+  // A screen the computer does not take has nothing to say about the practice agent it will not use.
+  body.appendChild(scEl("p", { class: "sc-note", text: running || scShotNote(shot, status, attempt, scWaitingNouns(labId, capture), personCard ? "" : scAgentNoteFor(labId, capture)), data: { scNote: "1" }, attrs: running ? { role: "status" } : {} }));
   if (outcome) body.appendChild(scEl("p", { class: "sc-outcome", text: outcome, data: { scOutcome: "1" } }));
   const feedback = scBuildFeedback(labId, shot.filename);
   if (feedback) body.appendChild(feedback);
