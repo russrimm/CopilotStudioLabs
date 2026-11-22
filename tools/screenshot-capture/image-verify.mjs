@@ -555,8 +555,9 @@ export function verifyImage(bytes, options = {}) {
         const missing = result.labels.missing.slice(0, 3).join(", ");
         reasons.push(reason("labels-missing", "warn", `Only ${matched} of ${expected} expected UI labels are visible${missing ? ` (missing: ${missing})` : ""}. Check that the screen is the one the lab describes.`));
       }
-    } else if (options.requireProof && evidence.mode !== "guided" && !signIn && !provesScreenByRoute(landing, options.expect)) {
-      // No expected label could be matched and the address names only a product or a start page: nothing proves which screen this is.
+    } else if (options.requireProof && evidence.mode !== "guided" && !signIn && !provesScreenByRoute(landing, options.expect) && !provesScreenBySteps(evidence)) {
+      // No expected label could be matched, the address names only a product or a start page, and the computer did not choose anything
+      // inside the page: nothing proves which screen this is.
       reasons.push(reason("screen-unproven", "warn", "Nothing on the page proves this is the screen the lab describes: no expected label was visible, and the address only names the product. Check the picture."));
     }
     if (options.requireRedaction && !(evidence.redaction && evidence.redaction.applied)) {
@@ -595,6 +596,20 @@ function provesScreenByRoute(landing, expect) {
   const paths = Array.isArray(expect.paths) ? expect.paths : [];
   if (!paths.length) return false;
   return expect.scope === "environment" || !paths.includes("overview");
+}
+
+const PASSIVE_STEP_ACTIONS = new Set(["screenshot", "verify", "wait-for"]);
+
+/**
+ * Whether the computer chose something inside the page (a tab, a menu, a dialog, a question) and each choice was confirmed by what the page
+ * then showed. The setup steps and the route steps both only pass when their expected evidence is on the page, so a start page that was
+ * photographed with nothing chosen (no step at all) never counts.
+ */
+function provesScreenBySteps(evidence) {
+  const setup = Array.isArray(evidence.setup?.steps) ? evidence.setup.steps : [];
+  if (setup.some((step) => step.status === "ok" && !PASSIVE_STEP_ACTIONS.has(step.action)) && !setup.some((step) => step.status === "failed")) return true;
+  const route = Array.isArray(evidence.routeSteps) ? evidence.routeSteps : [];
+  return route.some((step) => step.ok && step.found && !step.urlBefore && !PASSIVE_STEP_ACTIONS.has(step.action));
 }
 
 /** A short, storable summary of a verification result (no bytes, no evidence text). */

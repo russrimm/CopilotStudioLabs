@@ -72,6 +72,12 @@ test("the fingerprint tells the same page from a different one, and says nothing
   for (const other of [hubPage(), formPage()]) assert.ok(distance(a, fingerprintPicture(other)) > NEAR_DISTANCE, "another screen of the same product is not");
   assert.ok(distance(fingerprintPicture(hubPage()), fingerprintPicture(formPage())) > NEAR_DISTANCE);
   assert.equal(distance(a, fingerprintPicture(blocks([...CHROME], { width: 640, height: 200 }))), null, "a wide window and a narrow one are never the same screen");
+  // A nearly flat page (a blank or loading screen) has too little structure to compare by look: only identical bytes count for it.
+  const flat = fingerprintPicture(blocks([{ x: 100, y: 60, w: 12, h: 8, gray: 120 }]));
+  const flatOther = fingerprintPicture(blocks([{ x: 200, y: 90, w: 12, h: 8, gray: 120 }]));
+  assert.equal(distance(flat, flatOther), null, "two flat pictures are not called the same screen");
+  assert.equal(looksSame(flat, flatOther), false);
+  assert.equal(distance(flat, a), null);
   assert.equal(fingerprintPicture(makeJpeg()), null, "a JPEG cannot be decoded here");
   assert.equal(fingerprintPicture(makeWebp()), null);
   assert.equal(fingerprintPicture(Buffer.from("not a picture")), null);
@@ -130,6 +136,11 @@ test("what a picture reached, and what a slot can truthfully show", () => {
   assert.equal(reachOf(checkFor(homePage(), { steps: [open(), clicked("select-tab", "Monitor"), shot], finalUrl: "https://copilotstudio.microsoft.com/environments/x/bots/00000000-0000-0000-0000-000000000001/analytics" })).reach, "page", "a tab whose address names its page");
   assert.equal(reachOf(checkFor(homePage(), { steps: [open(), clicked("open", "Add knowledge"), shot] })).reach, "deep");
   assert.equal(reachOf(checkFor(homePage(), { mode: "guided", steps: [] })).reach, "deep", "a person set it up");
+  // Choosing a tab does not prove the screen by itself, and neither does a label matching: the product's own navigation shows "AI hub" or "Settings" on a start page too.
+  const tabbed = (label, verify) => checkFor(homePage(), { steps: [open(), clicked("select-tab", label), ...(verify ? [clicked("verify", `Checked that ${label} is showing`)] : []), shot], finalUrl: "https://copilotstudio.microsoft.com/environments/x/agents/00000000-0000-0000-0000-000000000001" });
+  assert.equal(reachOf(tabbed("Evaluate", true)).reach, "tab");
+  const labelled = (matched) => assessPictures([pictureOf(homePage(), "x.png", deepSlot("An evaluation test set"), { ...tabbed("Evaluate", true), labels: { expected: 2, matched, score: matched / 2 } })])[0];
+  assert.ok(codes(labelled(1)).includes("LANDING_PAGE:definite") && codes(labelled(2)).includes("LANDING_PAGE:definite"), "labels on the page do not rescue a picture that reached only the agent's main tab");
   assert.deepEqual([canExpect("deep", "landing"), canExpect("deep", "tab"), canExpect("deep", "deep"), canExpect("agent-page", "tab"), canExpect("landing", "landing"), canExpect("page", "tab"), canExpect("deep", "unknown")], [false, false, true, true, true, false, true]);
   assert.equal(isLandingUrl("https://copilotstudio.microsoft.com/environments/x/home"), true);
   assert.equal(isLandingUrl("https://copilotstudio.microsoft.com/environments/x/agents/00000000-0000-0000-0000-000000000001"), false);

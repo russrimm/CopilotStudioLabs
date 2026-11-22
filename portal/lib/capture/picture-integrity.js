@@ -287,7 +287,8 @@ export function assessPictures(pictures, { nearDistance = NEAR_DISTANCE, product
     const { reach } = item.reachInfo;
     const evidenceVersion = Number(record?.evidenceVersion || 1);
 
-    // A start page (or the agent's main tab) for a slot that describes something deeper.
+    // A start page (or the agent's main tab) for a slot that describes something deeper. A label matching is no defense: the start page shows
+    // the product's own navigation, so "AI hub" or "Settings" is on it too (half of the expected labels matched on pictures that were start pages).
     if (item.depth && reach !== "unknown" && !canExpect(item.depth, reach)) {
       const where = reach === "landing" ? "the product's start page" : reach === "tab" ? "the agent's main tab" : "one page of the product";
       item.flags.push({

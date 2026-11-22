@@ -175,6 +175,13 @@ export function isFingerprint(value) {
 const wordCache = new Map();
 const WORD_CACHE_MAX = 20000;
 
+/**
+ * The fewest edge cells a picture needs before its look says anything. The 47 real pictures it was tuned on have 25 to 82 (a typical
+ * page about 55); a nearly flat page (a blank or loading screen, a page of one white card) has too little structure to tell two screens
+ * apart, so only identical bytes (SHA-256) count for those.
+ */
+export const MIN_STRUCTURE_BITS = 16;
+
 /** A 64-character hex hash as eight 32-bit words, so comparing two hashes is a few operations (the same hash is read many times). */
 function wordsOf(hex) {
   let words = wordCache.get(hex);
@@ -201,13 +208,15 @@ function hamming(x, y) {
 }
 
 /**
- * How different two pictures look: the larger of the two hash distances (0 to 256), or null when either has no fingerprint or
- * the two pictures have different shapes (a wide window and a narrow one are never the same screen).
+ * How different two pictures look: the larger of the two hash distances (0 to 256), or null when either has no fingerprint, the two
+ * pictures have different shapes (a wide window and a narrow one are never the same screen), or either is too flat to compare by look.
  */
 export function distance(first, second) {
   if (!isFingerprint(first) || !isFingerprint(second)) return null;
   const ratio = (value) => (value.h ? value.w / value.h : 0);
   if (Math.abs(ratio(first) - ratio(second)) > 0.05) return null;
+  const structure = (value) => Array.from(wordsOf(value.d)).reduce((bits, word) => bits + popcount(word), 0);
+  if (structure(first) < MIN_STRUCTURE_BITS || structure(second) < MIN_STRUCTURE_BITS) return null;
   return Math.max(hamming(first.d, second.d), hamming(first.a, second.a));
 }
 

@@ -2939,7 +2939,7 @@ test("Pictures that look wrong: a calm notice at the top, a panel in Advanced wi
   await h.click(ask.querySelector('[data-sc-action="wrong-ask-yes"]'));
   assert.deepEqual(h.callsTo("POST", /suspect-pictures\/quarantine$/).at(-1).body, { dryRun: false, confirm: true, labId: LAB });
   assert.equal(h.host.querySelector("[data-sc-wrong-none]").textContent, "No pictures look wrong.");
-  assert.equal(h.host.querySelector("[data-sc-wrong-notice]"), null, "no notice when nothing looks wrong");
+  assert.ok(!h.host.querySelector("[data-sc-wrong-notice]"), "no notice when nothing looks wrong");
 });
 
 test("export is one link, and import sends the ZIP, with Replace as a choice, and reports what was imported, skipped, and rejected", async () => {

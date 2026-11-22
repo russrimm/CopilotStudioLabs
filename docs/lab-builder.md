@@ -2531,7 +2531,7 @@ one had been accepted as **Captured**, then promoted to the shared library and r
 
 | Rule | Reason code | Result |
 |---|---|---|
-| The final address matches the slot's route **and** a required landmark (an expected label) is visible. A slot with no label needs an address that names a screen of its own (a deep link, or steps that opened something inside the product). | `labels-missing`, `screen-unproven` | **Needs review**, never auto-accepted |
+| The final address matches the slot's route **and** a required landmark (an expected label) is visible. A slot with no label needs an address that names a screen of its own (a deep link), or evidence that the computer chose something inside the page (a tab, a menu, a dialog, a question) and the page then showed it. A start page photographed with nothing chosen proves nothing. | `labels-missing`, `screen-unproven` | **Needs review**, never auto-accepted |
 | The page shows a Sign in button and no account menu | `signed-out-page` | Rejected |
 | The evidence says masking was requested but not applied, or lists a Recent or History page that was not masked | `not-redacted`, `list-not-masked` | **Needs review** |
 | The upload has no evidence, or an older companion's evidence (`version` below 2) | `no-evidence`, `old-companion` | **Needs review**, with: *Update your Local Capture Companion. Older versions cannot prove the screen, so their pictures are saved for review.* |
@@ -2546,11 +2546,12 @@ vouches for them; the signed-out and old-companion checks still apply.
 brightness grid: a difference hash (`d`) and an average hash (`a`). The saved check keeps them (`verification.fingerprint`). Two pictures are
 the *same screen* when their `d` hashes are at most **12 bits apart** (`NEAR_DISTANCE`). The threshold was tuned on the copy of the real library and on
 synthetic pictures: the same page at different moments was 0 to 9 bits apart, the closest two different screens (two tabs of one Settings dialog)
-were 17 apart, and everything else was 28 or more. Pictures of a different size, or that cannot be decoded (JPEG, WebP), are never compared by look; only by bytes.
+were 17 apart, and everything else was 28 or more. Pictures of a different size, or that cannot be decoded (JPEG, WebP), are never compared by look; only by bytes. A nearly flat picture (fewer than 16 edge cells; the 47 real pictures have 25 to 82) has too little structure to tell two screens apart, so only identical bytes count for it (`MIN_STRUCTURE_BITS`).
 Clusters are built transitively, so a long chain of nearly identical pictures can join two different pages: the audit lists every member so a person can check.
 
 **Which slots may share a picture.** A cluster's *truthful* set is the pictures whose slot can truthfully show them (`canExpect` in `portal/lib/capture/picture-integrity.js`):
-a slot that expects a start page can show a start page; a slot that expects the agent's tab can show that tab; a slot that describes a deeper screen cannot show a start page.
+a slot that expects a start page can show a start page; a slot that expects the agent's tab can show that tab; a slot that describes a deeper screen cannot show a start page, or a picture the computer reached only by choosing the agent's main tab.
+A label that matched is no defense: the product's own navigation shows labels like *AI hub* or *Settings* on a start page too (half of the expected labels matched on pictures that were start pages).
 A picture outside the truthful set is **definite**. Two or more truthful slots (two slots that may legitimately show one screen) are **probable**: worth a look, never moved by default.
 A picture marked **Keep this one** is never flagged.
 

@@ -26,13 +26,14 @@ const JOB = (extra = {}) => ({ targets: AGENT, options: { mode: "autonomous" }, 
 const count = (rows, status) => rows.filter((r) => r.status === status).length;
 
 /** What every automatic run must satisfy, whatever the product does. */
-function assertClean(out, { writes = [] } = {}) {
+function assertClean(out, { writes = [], person = 0 } = {}) {
   const text = out.lines.join("\n");
   assert.deepEqual(out.site.stats.dangers, [], "nothing the computer must never touch was touched");
   assert.equal(out.site.stats.adminVisits, 0, "the admin page was never opened");
   assert.deepEqual(out.site.stats.writes.map((w) => w.split(":")[0]).filter((w) => !writes.includes(w)), [], "no write outside what consent allowed");
   assert.doesNotMatch(text, /\[you set it up\]/, "no shot was routed to a person");
-  assert.equal(count(out.rows, "needs-you"), 0, text);
+  // `person`: shots with no step that reaches their screen are left to a person instead of photographing whatever is open.
+  assert.equal(count(out.rows, "needs-you"), person, text);
   assert.equal(count(out.rows, "failed"), 0, text);
 }
 
@@ -47,7 +48,8 @@ test("read-only automatic capture captures every browser-reachable shot and stop
     // The pretend site has no activity map, so that picture is saved for review (the recipe checks the screen by its own label); the two screens that need a practice agent still say so.
     assert.deepEqual(review.map((r) => r.filename), ["activity-map-plan.png", "knowledge-answer-citation.png", "publish-confirmation.png"]);
     assert.deepEqual(review.filter((r) => r.cause === "needs-practice-agent").map((r) => r.filename), ["knowledge-answer-citation.png", "publish-confirmation.png"], "the two screens that need a practice agent say so");
-    assert.deepEqual(review.find((r) => r.filename === "activity-map-plan.png").verification.reasons.map((x) => x.code), ["recipe-review"]);
+    // A label the lab expects that the page does not show is now a reason on its own (companion pictures must prove the screen), next to the recipe's own review.
+    assert.deepEqual(review.find((r) => r.filename === "activity-map-plan.png").verification.reasons.map((x) => x.code), ["labels-missing", "recipe-review"]);
     assert.deepEqual(out.site.stats.writes, [], "nothing was created, saved, or published");
     assert.ok(out.rows.every((r) => !r.raw.setup || r.raw.setup.steps.every((s) => s.tier <= 1)), "no step above Tier 1 ran");
     const test = out.rows.find((r) => r.filename === "test-pane-in-scope.png");
@@ -213,7 +215,12 @@ test("Agent Builder, which has no direct address, and a SharePoint site are capt
     await builder.call("PUT", "/api/capture/consent", READ_ONLY);
     const out = await builder.runJob({ job: { options: { mode: "autonomous" } } });
     assertClean(out);
-    assert.equal(count(out.rows, "captured"), 8, out.lines.join("\n"));
+    // The pretend Agent Builder has no Try it panel and no knowledge options. A picture that does not show the labels the lab names is saved for
+    // review (these four used to be accepted as captured although they showed the Configure screen again, which is how a wrong screen got in).
+    assert.equal(count(out.rows, "captured"), 4, out.lines.join("\n"));
+    const review = out.rows.filter((r) => r.status === "needs-review");
+    assert.deepEqual(review.map((r) => r.filename), ["dca-try-it-response.png", "dca-instructions-test-result.png", "dca-knowledge-section.png", "dca-knowledge-test-result.png"]);
+    assert.ok(review.every((r) => r.verification.reasons.some((x) => x.code === "labels-missing")), "each says which labels are missing");
     assert.equal(out.site.stats.directBuilderVisits, 0, "it was reached through Microsoft 365 Copilot, never by an address");
   } finally {
     await builder.close();
@@ -222,14 +229,16 @@ test("Agent Builder, which has no direct address, and a SharePoint site are capt
   try {
     await site.call("PUT", "/api/capture/consent", READ_ONLY);
     const out = await site.runJob({ job: { options: { mode: "autonomous" } } });
-    assertClean(out);
-    // The site's home page was taken for the first picture; the second one shows a panel the pretend site does not have, so the landmark check
-    // (the label the lab names) saves it for review instead of accepting the wrong screen.
-    assert.equal(count(out.rows, "captured"), 1, out.lines.join("\n"));
+    assertClean(out, { person: 1 });
+    // No step reaches the first screen (a Copilot answer in the site's content), so it is left to a person: the old run photographed the site's home page and called it captured.
+    // The second picture shows a panel the pretend site does not have, so the landmark check (the label the lab names) saves it for review instead of accepting the wrong screen.
+    assert.equal(count(out.rows, "captured"), 0, out.lines.join("\n"));
+    assert.equal(out.rows.find((r) => r.filename === "spai-copilot-answer-site-content.png").status, "needs-you");
+    assert.equal(out.rows.find((r) => r.filename === "spai-copilot-answer-site-content.png").cause, "no-recipe");
     const review = out.rows.filter((r) => r.status === "needs-review");
     assert.deepEqual(review.map((r) => r.filename), ["spai-site-ai-settings-panel.png"]);
-    assert.deepEqual(review[0].verification.reasons.map((x) => x.code), ["recipe-review"]);
-    assert.match(review[0].verification.reasons[0].message, /missing: Site AI/);
+    assert.ok(review[0].verification.reasons.some((x) => x.code === "recipe-review"), "the recipe's own review is still there");
+    assert.match(review[0].verification.reasons.find((x) => x.code === "recipe-review").message, /missing: Site AI/);
   } finally {
     await site.close();
   }
