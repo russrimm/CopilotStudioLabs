@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Builds the Microsoft AI Training Generator feature tour site and the capture shot lists
+// Builds the Agentic Microsoft Training and Lab Generator feature tour site and the capture shot lists
 // from the lab builder catalog, one shot list and one site section per product.
 //
 //   node tools/feature-tour/build.mjs            write every feature-shots*.json and _site/

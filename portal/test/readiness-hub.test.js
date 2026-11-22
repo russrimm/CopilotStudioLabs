@@ -22,7 +22,7 @@ const json = (value) => JSON.parse(JSON.stringify(value));
 const profile = (overrides = {}) => ({
   id: "default",
   name: "Default",
-  companyName: "Microsoft AI Training Generator",
+  companyName: "Agentic Microsoft Training and Lab Generator",
   tagline: "Provisioning Portal",
   primaryColor: "#4f8ff7",
   logo: null,
@@ -309,7 +309,7 @@ test("Brand profile: loading, error, standard look, branding on another profile,
   assert.equal(partial.state, "partial");
   assert.match(partial.detail, /Still to add to the Contoso profile: logo\./);
   assert.equal(partial.actions[0].data.field, "logo");
-  assert.equal(brand(store("contoso", [profile({ ...BRANDED, companyName: "Microsoft AI Training Generator" })])).actions[0].data.field, "companyName");
+  assert.equal(brand(store("contoso", [profile({ ...BRANDED, companyName: "Agentic Microsoft Training and Lab Generator" })])).actions[0].data.field, "companyName");
   assert.equal(brand(store("contoso", [profile({ ...BRANDED, primaryColor: "#4f8ff7" })])).actions[0].data.field, "primaryColor");
 
   const done = brand(store("contoso", [profile(BRANDED)]));

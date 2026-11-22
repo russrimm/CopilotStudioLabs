@@ -1,5 +1,6 @@
 import { mkdirSync } from "fs";
 import { isAbsolute, relative, resolve } from "path";
+import { PRODUCT_NAME } from "./product-name.js";
 import { PORTAL_ROOT, resolvePortalDataDir, resolvePortalUploadsDir } from "./storage-config.js";
 import {
   applyBrandTokens,
@@ -30,7 +31,7 @@ import {
  */
 
 export const DEFAULT_BRANDING = Object.freeze({
-  companyName: "Microsoft AI Training Generator",
+  companyName: PRODUCT_NAME,
   logo: null,
   primaryColor: "#4f8ff7",
   tagline: "Provisioning Portal",
@@ -185,13 +186,13 @@ export function renderLabEmail({ labCount, labListHtml }, branding = loadBrandin
   const accent = escapeHtml(brand.primaryColor);
   const fontCss = getBrandFont(brand.font).css;
   const fontFamily = fontCss ? escapeHtml(fontCss) : "Segoe UI, Arial, sans-serif";
-  const heading = custom ? `Your ${company} Training Package` : "Your Microsoft AI Training Generator";
+  const heading = custom ? `Your ${company} Training Package` : `Your ${PRODUCT_NAME}`;
   const footer = custom
     ? escapeHtml(brand.footerText || `Sent by ${brand.companyName}`)
-    : "Sent from the Microsoft AI Training Generator Provisioning Portal";
+    : `Sent from the ${PRODUCT_NAME} Provisioning Portal`;
   const subject = custom
     ? `Your ${brand.companyName} Training Package`
-    : "Your Microsoft AI Training Generator Package";
+    : `Your ${PRODUCT_NAME} Package`;
   const html = `
         <div style="font-family: ${fontFamily}; max-width: 600px;">
           <h2${custom ? ` style="color: ${accent};"` : ""}>⚡ ${heading}</h2>

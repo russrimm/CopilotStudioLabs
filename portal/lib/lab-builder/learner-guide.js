@@ -10,6 +10,8 @@
  * Pure and dependency-free, so the offline CLI can use it.
  */
 
+import { currentProductName } from "../product-name.js";
+
 /** The heading the old generator wrote at the end of `index.md`. */
 export const ADMIN_SECTION_HEADING = "Connectors, Environment, and Tenant Prerequisites";
 
@@ -75,6 +77,12 @@ export function learnerSafeManifest(manifest) {
   if (!manifest || typeof manifest !== "object") return manifest;
   const copy = { ...manifest };
   delete copy.adminPrerequisites;
+  // A lab saved before the product was renamed carries the earlier name; the copy a learner receives shows the current one.
+  if ("generator" in copy) copy.generator = currentProductName(copy.generator);
+  const snapshot = copy.customization?.profileSnapshot;
+  if (snapshot && typeof snapshot === "object" && "companyName" in snapshot) {
+    copy.customization = { ...copy.customization, profileSnapshot: { ...snapshot, companyName: currentProductName(snapshot.companyName) } };
+  }
   if (Array.isArray(copy.modules)) {
     copy.modules = copy.modules.map((mod) => {
       if (!mod?.trainingDigest || typeof mod.trainingDigest !== "object" || !("governance" in mod.trainingDigest)) return mod;

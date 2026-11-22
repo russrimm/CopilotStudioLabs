@@ -1,4 +1,4 @@
-# Microsoft AI Training Generator — Screenshot Capture Tool
+# Agentic Microsoft Training and Lab Generator — Screenshot Capture Tool
 
 Interactive Playwright script that helps you capture every screenshot referenced in a lab's `index.md`, with the exact filenames already wired into the markdown.
 

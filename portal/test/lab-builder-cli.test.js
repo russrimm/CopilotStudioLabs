@@ -25,9 +25,9 @@ function runCli(args, extraEnv = {}) {
   });
 }
 
-test("CLI --help shows Microsoft AI Training Generator branding, new flags, and US English", () => {
+test("CLI --help shows Agentic Microsoft Training and Lab Generator branding, new flags, and US English", () => {
   const out = runCli(["--help"]);
-  assert.match(out, /Microsoft AI Training Generator — Custom Lab Builder CLI/);
+  assert.match(out, /Agentic Microsoft Training and Lab Generator — Custom Lab Builder CLI/);
   for (const flag of ["--products", "--departments", "--harnesses", "--levels", "--core", "--features"]) {
     assert.ok(out.includes(flag), `Expected --help output to mention ${flag}`);
   }
@@ -37,7 +37,7 @@ test("CLI --help shows Microsoft AI Training Generator branding, new flags, and 
 
 test("CLI --list prints all 6 Microsoft AI products, departments, and grouped capabilities in US English", () => {
   const out = runCli(["--list"]);
-  assert.match(out, /Microsoft AI Training Generator — Custom Lab Builder CLI/);
+  assert.match(out, /Agentic Microsoft Training and Lab Generator — Custom Lab Builder CLI/);
   assert.match(out, /\nProducts\n/);
   assert.match(out, /\nDepartments\n/);
   assert.match(out, /\nCapabilities by Product\n/);
