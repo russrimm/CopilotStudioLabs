@@ -9,7 +9,7 @@
 
 import { buildZipBuffer, inspectImageDimensions, stripIllegalXmlChars } from "./docx-builder.js";
 import { contrastRatio, ensureReadableColor, getBrandFont, normalizeHexColor6 } from "./brand-theme.js";
-import { isDefaultCompanyName } from "../product-name.js";
+import { PRODUCT_NAME, isDefaultCompanyName } from "../product-name.js";
 import {
   checklistInlineSegments,
   checklistItemParts,
@@ -326,7 +326,7 @@ export function renderPrerequisitesChecklistDocxBuffer(model, { branding } = {})
     {
       name: "docProps/app.xml",
       data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Copilot Studio Labs Builder</Application></Properties>`,
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>${PRODUCT_NAME}</Application></Properties>`,
     },
     { name: "word/document.xml", data: documentXml },
     {

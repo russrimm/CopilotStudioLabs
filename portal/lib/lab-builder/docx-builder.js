@@ -14,6 +14,7 @@ import {
   renderArchitectureDocumentMarkdown,
 } from "./architecture-overview.js";
 import { LIGHT_SURFACE, cleanText, ensureReadableColor, getBrandFont } from "./brand-theme.js";
+import { PRODUCT_NAME } from "../product-name.js";
 import { stripEmbeddedHtml } from "./html-fragments.js";
 import { isSubStepStart, normalizeSubSteps, takeSubSteps } from "./sub-steps.js";
 
@@ -887,14 +888,14 @@ export function renderMarkdownToDocxBuffer(markdown, options = {}) {
                    xmlns:dcterms="http://purl.org/dc/terms/"
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <dc:title>${xmlEscape(docTitle)}</dc:title>
-  <dc:creator>${xmlEscape(options.branding?.companyName || "Copilot Studio Labs Builder")}</dc:creator>
+  <dc:creator>${xmlEscape(options.branding?.companyName || PRODUCT_NAME)}</dc:creator>
   <dcterms:created xsi:type="dcterms:W3CDTF">${nowIso}</dcterms:created>
   <dcterms:modified xsi:type="dcterms:W3CDTF">${nowIso}</dcterms:modified>
 </cp:coreProperties>`;
 
   const appXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
-  <Application>Copilot Studio Labs Builder</Application>
+  <Application>${xmlEscape(PRODUCT_NAME)}</Application>
 </Properties>`;
 
   const zipEntries = [
